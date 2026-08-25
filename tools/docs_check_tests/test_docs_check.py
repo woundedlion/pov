@@ -613,11 +613,13 @@ class TestDocumentationChecker(unittest.TestCase):
                 f"firmware-capable effects. The playlist contains {playlist} "
                 f"effects across the {sync}-entry roster.\n")
 
+    _SPEC = PurePosixPath("docs/specs/phantasm_frame_sync_spec.md")
+
     def _roster_issues(self, prose):
         header = self._PLAYLIST_HEADER
         return dc.roster_claim_issues(
-            {PurePosixPath("README.md"): prose}, dc.effect_roster(header),
-            dc.phantasm_roster(header))
+            {PurePosixPath("README.md"): prose, self._SPEC: prose},
+            dc.effect_roster(header), dc.phantasm_roster(header))
 
     def test_phantasm_roster_reads_literal_and_derived_durations(self):
         self.assertEqual(dc.phantasm_roster(self._PLAYLIST_HEADER),
@@ -630,16 +632,19 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_roster_prose_counts_are_checked_against_the_macros(self):
         issues = self._roster_issues(self._roster_prose(3, 4, 5))
         messages = [issue.message for issue in issues]
-        self.assertEqual(len(messages), 3)
+        self.assertEqual(len(messages), 4)
         self.assertIn("stated as 3, HS_EFFECT_LIST names 2", messages[0])
         self.assertIn("stated as 4, HS_PHANTASM_EFFECT_LIST names 2",
                       messages[1])
         self.assertIn("stated as 5, HS_PHANTASM_EFFECT_LIST names 2",
                       messages[2])
+        self.assertIn("stated as 5, HS_PHANTASM_EFFECT_LIST names 2",
+                      messages[3])
+        self.assertEqual(issues[3].path, self._SPEC.as_posix())
 
     def test_deleted_roster_prose_is_reported(self):
         messages = [issue.message for issue in self._roster_issues("none")]
-        self.assertEqual(len(messages), 3)
+        self.assertEqual(len(messages), 4)
         self.assertTrue(all("goes unchecked" in message
                             for message in messages))
 
