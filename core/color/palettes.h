@@ -10,7 +10,6 @@
  *        bank the mesh effects share.
  */
 
-#include <algorithm>
 #include <array>
 
 #include "color/color.h"
