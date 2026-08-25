@@ -287,7 +287,8 @@ inline void test_tweenable_concept() {
 /**
  * @brief Pins DissolveMask's partition contract: two masks with the same
  *        threshold/salt and opposite invert own every key exactly once, the
- *        endpoints are total, and the owned fraction tracks the threshold.
+ *        endpoints are total, the owned fraction tracks the threshold, and the
+ *        hash's identity is frozen against a golden.
  */
 inline void test_dissolve_mask_partition() {
   constexpr int KA = 288, KB = 144;
@@ -315,9 +316,12 @@ inline void test_dissolve_mask_partition() {
     }
   }
 
-  // Deterministic: same inputs, same ownership (sim/device parity surface).
-  DissolveMask replay{65536u / 4u, salt, false};
-  HS_EXPECT_TRUE(incoming.owns(17, 42) == replay.owns(17, 42));
+  // Frozen golden over one key row: the hash's mixing constants, its fold and
+  // the threshold compare all move this word.
+  uint32_t row = 0;
+  for (int a = 0; a < 32; ++a)
+    row |= (incoming.owns(a, 7) ? 1u : 0u) << a;
+  HS_EXPECT_EQ(row, 0x20000222u);
 }
 
 /**
