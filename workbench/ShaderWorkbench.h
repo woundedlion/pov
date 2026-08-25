@@ -4090,22 +4090,6 @@ private:
             program.inner.envelope == WarpEnvelope::EDGE_FADE);
   }
 
-  static bool projection_join_compatible(const ProjectedLookup &a,
-                                         const ProjectedLookup &b,
-                                         Projection projection,
-                                         float coordinate_scale = 1.0f) {
-    if (strict_projection(projection)) {
-      (void)a;
-      (void)b;
-      (void)coordinate_scale;
-      return false;
-    }
-    return a.provenance.component_id == b.provenance.component_id &&
-           a.provenance.flags == b.provenance.flags &&
-           ((a.provenance.boundary_flags | b.provenance.boundary_flags) &
-            (BOUNDARY_CUT | BOUNDARY_SINGULAR)) == 0;
-  }
-
   __attribute__((always_inline)) static Vector
   outer_camera_lookup(const Vector &view, const FrameState &frame) {
     return rotate(view, frame.transforms.outer_conj);
@@ -4290,57 +4274,6 @@ private:
       break;
     }
     __builtin_unreachable();
-  }
-
-  HS_FLASH_MEMBER static ProjectedLookup
-  join_projected(const ProjectedLookup &direct, const ProjectedLookup &lensed,
-                 float mix, Projection projection, float singularity_fade) {
-    if (mix == 0.0f)
-      return direct;
-    if (mix == 1.0f)
-      return lensed;
-    const Complex coords(hs::lerp(direct.coords.re, lensed.coords.re, mix),
-                         hs::lerp(direct.coords.im, lensed.coords.im, mix));
-    const ProjectedLookup *selected = nullptr;
-    switch (projection) {
-    case Projection::SINUSOIDAL:
-      selected = mix < 0.5f ? &direct : &lensed;
-      break;
-    case Projection::EQUIRECTANGULAR:
-      selected = mix < 0.5f ? &direct : &lensed;
-      break;
-    case Projection::STEREOGRAPHIC:
-      selected = mix < 0.5f ? &direct : &lensed;
-      break;
-    case Projection::GNOMONIC:
-      selected = mix < 0.5f ? &direct : &lensed;
-      break;
-    case Projection::BONNE:
-    case Projection::PEIRCE_QUINCUNCIAL:
-    case Projection::AIROCEAN:
-      HS_CHECK(false, "strict projection joins require complete-output blend");
-      __builtin_unreachable();
-    }
-    float value_weight;
-    if (projection == Projection::SINUSOIDAL) {
-      value_weight = 1.0f;
-    } else if (projection == Projection::EQUIRECTANGULAR) {
-      value_weight = Pullback::Projection::equirectangular_weight(
-          coords.im, singularity_fade);
-    } else {
-      const float r_sq = coords.re * coords.re + coords.im * coords.im;
-      value_weight = pole_attenuation(r_sq, singularity_fade);
-    }
-    return {coords,
-            {selected->provenance.region_id, selected->provenance.component_id,
-             selected->provenance.boundary_flags,
-             selected->provenance.fade_edge_distance, value_weight,
-             selected->provenance.flags, selected->provenance.traits,
-             selected->provenance.edge_class,
-             hs::lerp(direct.provenance.domain_coverage,
-                      lensed.provenance.domain_coverage, mix)},
-            nlerp_unit(direct.sphere, lensed.sphere, mix),
-            hs::lerp(direct.path_length, lensed.path_length, mix)};
   }
 
   /**
