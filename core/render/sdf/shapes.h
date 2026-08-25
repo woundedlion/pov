@@ -613,6 +613,8 @@ struct Line {
    */
   Line(const Vector &start, const Vector &end, float th)
       : a(start), b(end), thickness(th) {
+    // A negative half-width inverts the band, culling every probe.
+    HS_CHECK(thickness >= 0.0f, "Line: negative stroke half-width");
     len = angle_between(a, b);
     bool antipodal = false;
     Vector cr = cross(a, b);
