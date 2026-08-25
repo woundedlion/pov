@@ -8,6 +8,19 @@ CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 PRESENT="$(git diff --cached --name-only --diff-filter=ACMR)"
 [ -n "$CHANGED" ] || exit 0
 
+STAGED_BLOB="$(mktemp "${TMPDIR:-/tmp}/hs-staged.XXXXXX")"
+trap 'rm -f "$STAGED_BLOB"' EXIT INT TERM
+
+# The linters read the staged blob, not the working tree. Piping `git show`
+# straight into one hides its status behind the linter's, so a path the index
+# cannot produce lints as empty input and passes.
+extract_staged() {
+  if ! git show ":$1" >"$STAGED_BLOB"; then
+    echo "[pre-commit] cannot read staged $1 from the index."
+    exit 1
+  fi
+}
+
 if ! git diff --cached --check; then
   echo "[pre-commit] staged whitespace errors must be fixed."
   exit 1
@@ -31,9 +44,9 @@ if [ -n "$FORMAT" ]; then
   fi
   failed=
   while IFS= read -r file; do
-    git show ":$file" \
-      | "$CF" --dry-run --Werror --style=file --assume-filename="$file" \
-        >/dev/null 2>&1 \
+    extract_staged "$file"
+    "$CF" --dry-run --Werror --style=file --assume-filename="$file" \
+      <"$STAGED_BLOB" >/dev/null 2>&1 \
       || failed="$failed $file"
   done <<EOF
 $FORMAT
@@ -51,7 +64,8 @@ if [ -n "$PYTHON_FILES" ]; then
     exit 1
   fi
   while IFS= read -r file; do
-    git show ":$file" | ruff check --no-cache --stdin-filename "$file" -
+    extract_staged "$file"
+    ruff check --no-cache --stdin-filename "$file" - <"$STAGED_BLOB"
   done <<EOF
 $PYTHON_FILES
 EOF
@@ -66,8 +80,8 @@ if [ -n "$JAVASCRIPT_FILES" ]; then
     exit 1
   fi
   while IFS= read -r file; do
-    git show ":$file" \
-      | node_modules/.bin/eslint --stdin --stdin-filename "$file"
+    extract_staged "$file"
+    node_modules/.bin/eslint --stdin --stdin-filename "$file" <"$STAGED_BLOB"
   done <<EOF
 $JAVASCRIPT_FILES
 EOF
@@ -86,7 +100,7 @@ fi
 
 SNAPSHOT_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/hs-pre-commit.XXXXXX")"
 SNAPSHOT="$SNAPSHOT_ROOT/repo"
-trap 'rm -rf "$SNAPSHOT_ROOT"' EXIT INT TERM
+trap 'rm -rf "$SNAPSHOT_ROOT" "$STAGED_BLOB"' EXIT INT TERM
 mkdir "$SNAPSHOT"
 git checkout-index --all --force --prefix="$SNAPSHOT/"
 LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
