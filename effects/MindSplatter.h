@@ -132,11 +132,14 @@ public:
     register_animated_param(
         "Base Mesh", &params.base_mesh, Solids::BASE_MESH_OPTIONS,
         Solids::BASE_MESH_EXPORT_OPTIONS, Solids::PLATONIC_BASE_MESH_COUNT);
-    register_animated_param("Friction", &params.friction, 0.5f, 1.0f);
-    register_animated_param("Well Str", &params.well_strength, 0.0f, 20.0f);
+    register_animated_param("Friction", &params.friction, FRICTION_MIN,
+                            FRICTION_MAX);
+    register_animated_param("Well Str", &params.well_strength,
+                            WELL_STRENGTH_MIN, WELL_STRENGTH_MAX);
     register_animated_param("Init Spd", &params.initial_speed,
                             INITIAL_SPEED_MIN, INITIAL_SPEED_MAX);
-    register_animated_param("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
+    register_animated_param("Ang Spd", &params.angular_speed, ANGULAR_SPEED_MIN,
+                            ANGULAR_SPEED_MAX);
     register_animated_param("Warp", &params.warp_scale, WARP_SCALE_MIN,
                             WARP_SCALE_MAX);
     register_readonly_param("Particles", &params.active_count, 0.0f,
