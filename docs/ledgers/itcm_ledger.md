@@ -170,15 +170,17 @@ sha with any figure taken from this document.
 - The workbench effect is `Shader` (`workbench/ShaderWorkbench.h`).
   `HS_EFFECT_LIST` admits it only behind `HS_ENABLE_SHADER_WORKBENCH`, and
   `HS_PHANTASM_EFFECT_LIST` excludes it outright — `HS_PHANTASM_EFFECT_COUNT ==
-  HS_EFFECT_COUNT − 3 − HS_ENABLE_SHADER_WORKBENCH`, with `Shader` named in the
-  exclusion asserts alongside Dynamo, MobiusRings and Thrusters.
+  HS_EFFECT_COUNT - HS_PHANTASM_EXCLUDED_COUNT - HS_ENABLE_SHADER_WORKBENCH -
+  HS_ENABLE_CHAIN_INTERPRETER`, with `Shader` and `ShaderChain` named in the
+  exclusion asserts alongside the three `HS_PHANTASM_EXCLUDED_EFFECTS` entries
+  Dynamo, MobiusRings and Thrusters.
 - No phantasm-headroom decision is attached to the workbench. It is
   simulator-only by construction: `core/platform/build_features.h` leaves
   `HS_ENABLE_SHADER_WORKBENCH` at 0 outside Emscripten and test-oracle builds and
   `#error`s any Arduino build that forces it on, so no device image can carry it.
-  Its fourteen fixed-pipeline products (`HS_SHADER_PRODUCT_GROUP`) are all in
+  Its sixteen fixed-pipeline products (`HS_SHADER_PRODUCT_GROUP`) are all in
   `HS_PHANTASM_EFFECT_LIST` already.
-- The 7,648 B is the whole budget for further ITCM promotions on the 33-effect
+- The 7,648 B is the whole budget for further ITCM promotions on the 36-effect
   phantasm roster; there is still no next FlexRAM bank to reach for, so an
   overrun is paid for by a trim.
 
