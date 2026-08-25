@@ -42,7 +42,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
   static HS_HOT_FLASH_MEMBER Color4
-  shade(const Vector &view, const typename AlienBrain::FrameState &frame) {
+  shade(const Vector &view, const typename AlienBrain::Frame &frame) {
     return AlienBrain::RenderPipeline::shade(view, frame);
   }
   static constexpr Params initial_params() { return make_params(0); }
