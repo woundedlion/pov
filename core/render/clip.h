@@ -17,7 +17,8 @@
  * @brief Clip region for segment-based rendering.
  * @details Display bounds define the ISR's pixel range (exact segment).
  *          Render bounds expand by `margin` to accommodate stateful filters
- *          (e.g. AntiAlias ±1, MeshFeedback noise warp ±8).
+ *          (e.g. AntiAlias ±1); a Pipeline's `total_segment_margin` sums the
+ *          demand of its stages.
  *          `w`/`h` are the active canvas size, set from W/H by the Effect
  *          constructor (core/render/canvas.h); the `MAX_W`/`MAX_H` defaults
  *          apply only to a standalone ClipRegion.
