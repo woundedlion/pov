@@ -351,20 +351,18 @@ inline PolyMesh probe_ticosa_ambo_relax(Arena &a, Arena &b) {
 }
 
 inline constexpr TruncateSite TRUNCATE_SITES[] = {
-    {"truncatedIcosahedron_ambo_relax_truncate001_hankin59",
-     probe_ticosa_ambo_relax},
-    {"truncatedIcosahedron_ambo_relax_truncate001_hankin73",
-     probe_ticosa_ambo_relax},
+    {"truncatedIcosahedron_ambo_relax_truncate001", probe_ticosa_ambo_relax},
 };
 
 /** Arrival parameter of the two truncate001 recipes. */
 inline constexpr float TRUNCATE001_T_STAR = 0.01f;
 
 /**
- * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on each
- *        truncate001 seed, asserting a real sweep (birth < arrival), constant
- *        raw and compiled face counts, a closed genus-0 manifold, unit
- * vertices, every face positive-area, and no face inverting across the sweep.
+ * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on the
+ *        shared truncate001 seed, asserting a real sweep (birth < arrival),
+ *        constant raw and compiled face counts, a closed genus-0 manifold,
+ *        unit vertices, every face positive-area, and no face inverting across
+ *        the sweep.
  * @details The silent on-screen failure these recipes carry (spec section 5.1)
  * is a truncate whose sub-T_EPS arrival clamps both endpoints to T_EPS -- a
  * still image ending on a mesh built at the wrong parameter. The birth floor
