@@ -148,14 +148,37 @@ inline void test_map8_fastled_semantics() {
 }
 
 /**
- * @brief Verifies map() does not divide by zero on a degenerate input range.
- * @details The device's Cortex-M7 yields out_min when in_min==in_max, so the
- *          host must match that rather than SIGFPE; normal mapping still holds.
+ * @brief Verifies map() returns the output-range midpoint on a degenerate
+ *        input range.
+ * @details Teensyduino's map() guards in_max == in_min and returns
+ *          out_min + (out_max - out_min) / 2, so the host must match that
+ *          rather than SIGFPE; normal mapping still holds.
  */
 inline void test_map_degenerate_range() {
-  HS_EXPECT_EQ(map(5, 10, 10, 0, 100), 0); // in_min == in_max -> out_min
-  HS_EXPECT_EQ(map(42, 7, 7, 3, 9), 3);
+  HS_EXPECT_EQ(map(5, 10, 10, 0, 100), 50); // in_min == in_max -> midpoint
+  HS_EXPECT_EQ(map(42, 7, 7, 3, 9), 6);
+  HS_EXPECT_EQ(map(0, 4, 4, 10, -10), 0);  // descending output range
   HS_EXPECT_EQ(map(5, 0, 10, 0, 100), 50); // normal mapping still correct
+}
+
+/**
+ * @brief Verifies map() rounds to nearest and extrapolates linearly, as the
+ *        device does.
+ * @details Teensyduino's map() biases the numerator by half the input range
+ *          before a truncating divide and then corrects the sign outside the
+ *          input range; Arduino's traditional truncating map() differs on
+ *          every case here.
+ */
+inline void test_map_rounds_like_the_device() {
+  HS_EXPECT_EQ(map(2, 0, 3, 0, 10), 7);         // truncating map() gives 6
+  HS_EXPECT_EQ(map(1, 0, 3, 0, 10), 3);         // 10/3 rounds down either way
+  HS_EXPECT_EQ(map(2, 0, 10, 0, 3), 1);         // truncating map() gives 0
+  HS_EXPECT_EQ(map(2, 0, 3, 10, 0), 3);         // descending output range
+  HS_EXPECT_EQ(map(512, 0, 1023, 0, 255), 128); // truncating map() gives 127
+  HS_EXPECT_EQ(map(0, 0, 1023, 0, 255), 0);     // endpoints stay exact
+  HS_EXPECT_EQ(map(1023, 0, 1023, 0, 255), 255);
+  HS_EXPECT_EQ(map(-1, 0, 10, 0, 100), -10); // extrapolation stays linear
+  HS_EXPECT_EQ(map(11, 0, 10, 0, 100), 110);
 }
 
 /**
@@ -577,6 +600,7 @@ inline int run_platform_tests() {
   test_scale_golden();
   test_map8_fastled_semantics();
   test_map_degenerate_range();
+  test_map_rounds_like_the_device();
   test_addmod8_wraps_before_reducing();
   test_random_degenerate_range();
   test_rand_f_half_open();

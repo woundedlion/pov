@@ -282,31 +282,44 @@ inline int random(int min, int max) { return hs::rand_int(min, max); }
  * @param in_max Upper bound of the input range.
  * @param out_min Lower bound of the output range.
  * @param out_max Upper bound of the output range.
- * @return x scaled from [in_min, in_max] onto [out_min, out_max]; out_min when
- *         the input range is degenerate (in_max == in_min).
- * @details Degenerate input range (in_max == in_min) returns out_min: Arduino's
- *          map() divides with no guard, which SIGFPEs on the host while the
- *          Cortex-M7 returns 0 from the divide (relies on CCR.DIV_0_TRP staying
- *          at its clear reset default). Match the device rather than crashing
- *          only in the simulator.
+ * @return x scaled from [in_min, in_max] onto [out_min, out_max], rounded to
+ *         nearest; the midpoint of the output range when the input range is
+ *         degenerate (in_max == in_min).
+ * @details Reproduces the integral overload in Teensyduino's
+ *          cores/teensy4/wiring.h, which is not Arduino's traditional map():
+ *          it biases the numerator by half the input range before a
+ *          truncating divide, returns out_min + (out_max - out_min) / 2 on a
+ *          degenerate input range, and applies the sign correction that keeps
+ *          extrapolation past the input range linear (ArduinoCore-API #51).
  */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  // Device computes in 32-bit `long`. Multiply in uint32_t (defined wrap mod
-  // 2^32) and reinterpret to int32_t to reproduce its two's-complement
-  // truncation without 64-bit widening (LP64) or signed-overflow UB.
-  const int32_t divisor = static_cast<int32_t>(in_max - in_min);
-  if (divisor == 0)
-    return out_min;
-  const int32_t product =
-      static_cast<int32_t>(static_cast<uint32_t>(x - in_min) *
-                           static_cast<uint32_t>(out_max - out_min));
+  // Device computes in 32-bit `long`. Every intermediate is formed in uint32_t
+  // (defined wrap mod 2^32) and reinterpreted where the device's arithmetic is
+  // signed, reproducing its two's-complement truncation without 64-bit
+  // widening (LP64) or signed-overflow UB.
+  const auto bits = [](long value) {
+    return static_cast<uint32_t>(static_cast<int32_t>(value));
+  };
+  const auto value_of = [](uint32_t raw) { return static_cast<int32_t>(raw); };
+  const uint32_t in_range = bits(in_max) - bits(in_min);
+  const uint32_t out_range = bits(out_max) - bits(out_min);
+  const bool out_ascending = value_of(out_range) >= 0;
+  if (in_range == 0)
+    return value_of(bits(out_min) + bits(value_of(out_range) / 2));
+  const uint32_t half = bits(value_of(in_range) / 2);
+  const uint32_t numerator = out_ascending
+                                 ? (bits(x) - bits(in_min)) * out_range + half
+                                 : (bits(x) - bits(in_min)) * out_range - half;
   // INT32_MIN / -1 overflows (host UB) but ARM SDIV returns INT32_MIN; negate
   // mod 2^32 to reproduce the device result without trapping.
-  const int32_t scaled =
-      divisor == -1 ? static_cast<int32_t>(0u - static_cast<uint32_t>(product))
-                    : product / divisor;
-  return static_cast<int32_t>(static_cast<uint32_t>(scaled) +
-                              static_cast<uint32_t>(out_min));
+  const uint32_t quotient =
+      value_of(in_range) == -1 ? 0u - numerator
+                               : bits(value_of(numerator) / value_of(in_range));
+  const uint32_t result = quotient + bits(out_min);
+  const bool skewed = value_of(in_range * numerator) < 0;
+  if (out_ascending)
+    return value_of(skewed ? result - 1u : result);
+  return value_of(skewed ? result : result + 1u);
 }
 
 // --- System Mock ---
