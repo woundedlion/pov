@@ -70,11 +70,15 @@ INLINE_PINS = {
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github/workflows"
+ACTIONS = ROOT / ".github/actions"
 
 
 def workflow_files() -> tuple[Path, ...]:
-    """Every workflow file, so a new one is scanned with no second edit here."""
+    """Every workflow and composite action, so a new one is scanned with no
+    second edit here."""
     found = set(WORKFLOWS.glob("*.yml")) | set(WORKFLOWS.glob("*.yaml"))
+    found |= set(ACTIONS.glob("*/action.yml"))
+    found |= set(ACTIONS.glob("*/action.yaml"))
     return tuple(sorted(found))
 
 
@@ -83,7 +87,9 @@ CONSUMERS = {
         "build_pins.py --github-output",
         "python tools/build_pins.py --check",
     ),
-    ROOT / ".github/workflows/docs.yml": ("build_pins.py doxygen-awesome",),
+    ROOT / ".github/actions/pinned-doxygen/action.yml": (
+        "build_pins.py doxygen-awesome",
+    ),
     ROOT / "justfile": (
         "build_pins.py doxygen-awesome",
         "build_pins.py --check-tool doxygen",
@@ -98,8 +104,8 @@ CONSUMERS = {
     ),
 }
 
-# Files scanned for INLINE_PINS occurrences. Every workflow is covered, so a new
-# one cannot spell a pin its own way and still pass --check.
+# Files scanned for INLINE_PINS occurrences. Every workflow and composite action
+# is covered, so a new one cannot spell a pin its own way and still pass --check.
 INLINE_SCAN = (
     *workflow_files(),
     ROOT / "justfile",
