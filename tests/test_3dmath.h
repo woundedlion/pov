@@ -149,6 +149,25 @@ inline void test_diamond_angle() {
 }
 
 /**
+ * @brief Verifies fast_reciprocal across normal inputs and outputs at its
+ * documented peak relative error.
+ */
+inline void test_fast_reciprocal() {
+  HS_EXPECT_NEAR(fast_reciprocal(1.0f), 1.0f, 7e-6f);
+  HS_EXPECT_NEAR(fast_reciprocal(4.0f), 0.25f, 7e-6f * 0.25f);
+  HS_EXPECT_NEAR(fast_reciprocal(0.25f), 4.0f, 7e-6f * 4.0f);
+
+  for (int exponent = -120; exponent <= 120; ++exponent) {
+    for (int mantissa = 0; mantissa < 8; ++mantissa) {
+      const float x = std::ldexp(1.0f + 0.125f * mantissa, exponent);
+      const float reference = 1.0f / x;
+      HS_EXPECT_TRUE(std::abs(fast_reciprocal(x) - reference) / reference <=
+                     7e-6f);
+    }
+  }
+}
+
+/**
  * @brief Verifies fast_rsqrt against 1/sqrt over a wide sweep at the documented
  *        ~5e-6 peak relative error.
  */
@@ -1489,6 +1508,7 @@ inline int run_3dmath_tests() {
 
   test_fast_atan2();
   test_diamond_angle();
+  test_fast_reciprocal();
   test_fast_rsqrt();
   test_fast_acos();
   test_fast_sinf_cosf();
