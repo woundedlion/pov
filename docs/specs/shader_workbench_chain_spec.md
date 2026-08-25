@@ -233,12 +233,12 @@ names that output directly.
   color), which the strip makes structural: sockets are the fixed joints
   of the pipeline, bands are the variable runs between them.
 - **Chip anatomy**: operator display name, instance label ("Wave Shear ·
-  warp2"), and on the chip: a **✕ remove** icon in the upper-right corner,
-  a **bypass** toggle and
-  a pair of **‹ ›** reorder buttons (endomorphisms only), a
-  **replacement selector** (crossings only). The selected chip is
-  outlined and carries `aria-current`; a bypassed chip renders dimmed.
-- **Remove**: ✕ commits `replaceSpan(i, 1, [])` — legal by construction
+  warp2"), and a row of icon buttons in the chip header: a **◉ bypass**
+  toggle, a pair of **← →** reorder buttons and a **× remove**
+  button (endomorphisms only), or a **replacement selector** (crossings
+  only). The selected chip is outlined and carries `aria-current`; a
+  bypassed chip renders dimmed.
+- **Remove**: × commits `replaceSpan(i, 1, [])` — legal by construction
   for an endomorphism, which is why only endomorphisms carry it.
   Crossings are removed by replacement (§3), so sockets carry a
   selector of the same-pair operators the store accepts for that span;
@@ -249,7 +249,7 @@ names that output directly.
   gap after the focused chip. Both routes go through `legalInsertions` —
   the strip has no legality of its own. A chain with no transfer preserves
   the field value.
-- **Reorder**: a chip's ‹ › buttons move it within its band (a crossing
+- **Reorder**: a chip's ← → buttons move it within its band (a crossing
   doesn't reorder); Alt+Arrow is the keyboard equivalent. The move
   commits as the label-preserving m-for-m span replacement, so parameter
   values survive reorder.
@@ -259,8 +259,8 @@ names that output directly.
 ### 4.3 The stage library — deferred
 
 **Not shipped.** The design below is a record: no library panel, drop
-target, or drag controller exists in the tool, and the workbench probe
-asserts their absence. Insertion runs through §4.2's band palettes.
+target, or drag controller exists in the tool. Insertion runs through
+§4.2's band palettes.
 
 The catalog panel's discoverability requirement survives: the whole
 vocabulary stays visible, grouped by the carrier each operator consumes,
@@ -387,7 +387,7 @@ the document store gains only the preset-value write §4.4 needs;
 to the §4.1 regions; the workbench stylesheet is rewritten rather than
 adapted — the rail's vertical assumptions are load-bearing throughout
 it. The existing editor tests port to the strip contract; new coverage:
-socket replacement, ✕ legality (absent on crossings), button and
+socket replacement, × legality (absent on crossings), button and
 Alt+Arrow reorder, and stage edits writing the active preset and
 participating in undo.
 
@@ -397,5 +397,4 @@ absolutely placed palette landing far from the control that opened it,
 nor a pointer travel swallowing the click that should have selected a
 chip. A headless-Chrome probe drives the strip's gestures with a real
 mouse (palette placement, chip selection, reorder, inline control
-round-trip), checks that no library or drop target is mounted, and
-gates alongside the page smoke.
+round-trip) and gates alongside the page smoke.
