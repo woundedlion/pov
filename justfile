@@ -88,6 +88,14 @@ license-headers:
     {{py}} -m unittest discover -s tools/license_check_tests
     {{py}} tools/license_check.py
 
+# The committed gamut LUT matches what the generator emits, plus the generator's
+# own unit tests -- the ci.yml gamut-lut-provenance job. Needs numpy
+# (requirements/numpy.txt); the solve runs 1-2 minutes.
+gamut-lut:
+    bash tools/require_test_files.sh "tools/gamut_lut_tests/test*.py"
+    {{py}} -m unittest discover -s tools/gamut_lut_tests
+    {{py}} tools/gen_gamut_lut.py --check
+
 # First-party warning gate over every platformio.ini environment -- the
 # ci.yml teensy-warnings job. The warning set is the pinned toolchain's, which
 # the pinned PlatformIO selects. The build must be COLD (a cached TU emits no
