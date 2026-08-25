@@ -637,7 +637,6 @@ private:
  */
 struct FlatDistortedRing : private DistortedRing {
   using DistortedRing::get_horizontal_intervals;
-  using DistortedRing::get_vertical_bounds;
   using DistortedRing::is_solid;
   using DistortedRing::suppress_pole_fill;
   using DistortedRing::thickness;
@@ -659,6 +658,21 @@ struct FlatDistortedRing : private DistortedRing {
    * would leave every later read of basis dangling.
    */
   FlatDistortedRing(const Basis &&, float, float, float = 0.0f) = delete;
+
+  /**
+   * @brief Maps the undisplaced ring's latitude band to its row range.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds covering the stroke.
+   * @details distance() is the exact polar offset, so the band widened by
+   * `thickness` is already tight: every colatitude outside it clears the
+   * stroke at every azimuth. The displaced base class keeps the extra margin
+   * its chart distance needs.
+   */
+  template <int H> Bounds get_vertical_bounds() const {
+    PhiBand band = clamp_phi_band(center_phi, target_angle);
+    return phi_bounds_to_rows<H>(std::max(0.0f, band.phi_min - thickness),
+                                 std::min(PI_F, band.phi_max + thickness));
+  }
 
   /**
    * @brief Computes signed distance to the undisplaced ring, writing into res.
