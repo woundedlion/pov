@@ -953,7 +953,7 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
   if (face == 23) {
     // A far-from-unit direction can score above the sentinel on every face.
     face = 0;
-    float best_score = 65536.0f;
+    float best_score = NO_EDGE_DISTANCE;
     for (uint8_t candidate = 0; candidate < 23; ++candidate) {
       const float score = airocean_outside_score(p, candidate);
       if (score < best_score) {
