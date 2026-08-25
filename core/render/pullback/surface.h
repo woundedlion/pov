@@ -26,8 +26,8 @@ struct NoSurfaceParams {
 static_assert(field_ids_unique<NoSurfaceParams>());
 
 /**
- * @brief Surface parameters for the sphere-space noise displacements
- *        (Pullback::Surface::CurlNoise and DirectNoise).
+ * @brief Surface parameters for the sphere-space curl displacement
+ *        (Pullback::Surface::CurlNoise).
  */
 struct SurfaceNoiseParams {
   float scale = 1.0f;    /**< Spatial scale of the displacement field. */
