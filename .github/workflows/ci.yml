@@ -210,14 +210,20 @@ jobs:
         # test. Shards 3 and 4 carry unit_canvas / unit_pov_segmented, the two
         # modules that spin it; 30 s still catches a genuinely stalled hand-off.
         #
+        # HS_REQUIRE_EFFECTS_FULL rides alongside HS_EFFECTS_FULL: run_tests
+        # rejects an effects run under CI unless both keys carry an explicit
+        # value, so a step that drops the pair fails instead of falling back to
+        # the quick tier. 0 here declares that this job may run QUICK.
+        #
         # Every other job running the deep pass aliases these values instead of
         # re-typing them, so one left behind cannot narrow that job's window.
         # The values are aliased one by one rather than the whole mapping:
-        # workflow YAML has no merge key, and two of those jobs add a fourth
+        # workflow YAML has no merge key, and two of those jobs add a
         # variable of their own.
         env:
           HS_SMOKE_FRAMES: &deep_smoke_frames 120
           HS_EFFECTS_FULL: &quick_effects 0
+          HS_REQUIRE_EFFECTS_FULL: &effects_full_optional 0
           HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -319,6 +325,7 @@ jobs:
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
+          HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -567,6 +574,7 @@ jobs:
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
+          HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
@@ -679,6 +687,7 @@ jobs:
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
+          HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TEST_EXCLUDE: *generated_exclude
         run: >
