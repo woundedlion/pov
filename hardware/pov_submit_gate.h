@@ -24,9 +24,14 @@
  */
 #pragma once
 
+#include <concepts>
 #include <cstdint>
+#include <utility>
 
 namespace pov {
+
+/** @brief pov_handoff.h's wake inputs; only named by WakeHandoff below. */
+struct WakeInputs;
 
 /** @brief What one flywheel wake hands to the LED transport. */
 enum class SubmitAction : uint8_t {
@@ -146,6 +151,66 @@ private:
 };
 
 /**
+ * @brief Effect-ownership state machine one wake advances.
+ * @tparam T Candidate handoff type.
+ * @details Mirrors what pov::EffectHandoff exposes, so a mismatched state
+ *          machine fails at the run_wake_sequence() call rather than inside it.
+ */
+template <class T>
+concept WakeHandoff = requires(T t, const WakeInputs &in) {
+  { t.live() } -> std::convertible_to<const void *>;
+  { t.apply_wake(in).live } -> std::convertible_to<const void *>;
+  { t.apply_wake(in).commit_ok } -> std::convertible_to<bool>;
+  { t.apply_wake(in).advance } -> std::convertible_to<bool>;
+  { t.apply_wake(in).dark } -> std::convertible_to<bool>;
+};
+
+/** @brief Effect pointer type a WakeHandoff hands the ISR. */
+template <class Handoff>
+using WakeEffectPtr = decltype(std::declval<Handoff &>().live());
+
+/**
+ * @brief Flywheel tick: claims pending sync input and reports the wake's work.
+ * @tparam T Candidate callable. Mirrors pov::sync::TickActions.
+ */
+template <class T>
+concept WakeTick = requires(T t) {
+  { t().render_column } -> std::convertible_to<int32_t>;
+  { t().dark } -> std::convertible_to<bool>;
+  { t().flip } -> std::convertible_to<bool>;
+  { t().zero_crossing } -> std::convertible_to<bool>;
+  { t().join_boundary } -> std::convertible_to<bool>;
+  { t().commit } -> std::convertible_to<bool>;
+  { t().pulse } -> std::convertible_to<bool>;
+};
+
+/** @brief Reads the build generation advertised on the sync wire. */
+template <class T>
+concept WakeWireGen = requires(T t) {
+  { t() } -> std::convertible_to<uint32_t>;
+};
+
+/** @brief Drives the sync pin HIGH or LOW. */
+template <class T>
+concept WakeDriveSync = requires(T t, bool high) { t(high); };
+
+/** @brief Handles a missed epoch-commit deadline. */
+template <class T>
+concept WakeCommitFailure = requires(T t) { t(); };
+
+/** @brief Applies a canvas column's output envelope to the live effect. */
+template <class T, class Effect>
+concept WakeSetEnvelope =
+    requires(T t, Effect effect, int32_t column) { t(effect, column); };
+
+/** @brief Performs one submit action and reports whether the transport took it. */
+template <class T, class Effect>
+concept WakeSubmit =
+    requires(T t, SubmitAction action, Effect effect, int32_t column) {
+      { t(action, effect, column) } -> std::convertible_to<bool>;
+    };
+
+/**
  * @brief Runs one segmented-driver wake in ISR order.
  * @param sync_pulse Sync-pin pulse-width state.
  * @param submit_gate LED-submit retry state.
@@ -157,8 +222,11 @@ private:
  * @param set_envelope Applies the current column's output envelope.
  * @param submit Performs the selected LED transport action.
  */
-template <typename Handoff, typename Tick, typename WireGen, typename DriveSync,
-          typename CommitFailure, typename SetEnvelope, typename Submit>
+template <WakeHandoff Handoff, WakeTick Tick, WakeWireGen WireGen,
+          WakeDriveSync DriveSync, WakeCommitFailure CommitFailure,
+          typename SetEnvelope, typename Submit>
+  requires WakeSetEnvelope<SetEnvelope, WakeEffectPtr<Handoff>> &&
+           WakeSubmit<Submit, WakeEffectPtr<Handoff>>
 __attribute__((always_inline)) inline void
 run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
                   Handoff &handoff, Tick tick, WireGen wire_gen,
