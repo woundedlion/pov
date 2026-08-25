@@ -40,7 +40,7 @@
  */
 template <class T>
 concept LedTransport = std::constructible_from<T, uint32_t> &&
-                       requires(T t, const uint8_t *data, size_t len) {
+                       requires(T t, const uint8_t *data, std::size_t len) {
                          t.init();
                          { t.isComplete() } -> std::convertible_to<bool>;
                          t.checkStaleTransfer();
@@ -115,8 +115,8 @@ public:
       return false;
     }
     int back = dma::next_buffer(activeBuffer);
-    size_t len = dma::transfer_len(frames[back].size(),
-                                   frames[back].sizeWithBg(), withBg);
+    std::size_t len = dma::transfer_len(frames[back].size(),
+                                        frames[back].sizeWithBg(), withBg);
     frames[back].flush(len);
     spi.transmitAsync(frames[back].data(), len);
     activeBuffer = back;
