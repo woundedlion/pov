@@ -989,6 +989,34 @@ class TestColdCaptureAudit(unittest.TestCase):
         log = self._log(("phantasm",), self.TUS[2:], cached=self.TUS[:2])
         self.assertEqual(_run_ratchet(log, "--update-baseline"), 1)
 
+    def test_update_baseline_refuses_an_env_narrowed_capture(self):
+        # A whole-file rewrite from one environment's warnings would delete the
+        # warnings every other environment carries; the file stays untouched.
+        log = self._log(("phantasm",), self.TUS)
+        with tempfile.TemporaryDirectory() as d:
+            build_log = Path(d) / "build.log"
+            build_log.write_text(log, encoding="utf-8")
+            base = Path(d) / "baseline.txt"
+            base.write_text("core/effects/Foo.h: warning: w [-Wx]\n",
+                            encoding="utf-8")
+            ini = Path(d) / "platformio.ini"
+            ini.write_text("[env:phantasm]\n[env:holosphere]\n",
+                           encoding="utf-8")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = tw.main(["--build-log", str(build_log),
+                                "--baseline", str(base),
+                                "--platformio-ini", str(ini),
+                                "--env", "phantasm", "--update-baseline"])
+            self.assertEqual(code, 1)
+            self.assertIn("refusing to rewrite", buf.getvalue())
+            self.assertIn("holosphere", buf.getvalue())
+            self.assertIn("Foo.h", base.read_text(encoding="utf-8"))
+
+    def test_update_baseline_accepts_a_capture_of_every_environment(self):
+        log = self._log(("holosphere", "phantasm"), self.TUS)
+        self.assertEqual(_run_ratchet(log, "--update-baseline"), 0)
+
 
 class TestExpectedEnvironmentSet(unittest.TestCase):
     """The audited environments must be the ones the build was asked to produce.
