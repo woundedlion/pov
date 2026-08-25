@@ -196,6 +196,7 @@ enum class EffectSetResult {
 // module-global, so a second instance would corrupt the first's frames.
 static bool engine_alive = false;
 
+#if HS_ENABLE_SHADER_WORKBENCH
 /**
  * @brief Outcome of restoreFullConfigSnapshot().
  * @details Exposed to JS as the Module.FullConfigRestoreResult embind enum;
@@ -216,6 +217,7 @@ enum class FullConfigRestoreResult : uint8_t {
                             field indices, or does not match where accepted and
                             requested differ. Retry with an empty list. */
 };
+#endif // HS_ENABLE_SHADER_WORKBENCH
 
 /**
  * @brief JS-facing render engine driving one resolution/effect at a time.
@@ -1249,7 +1251,6 @@ private:
     return s;
   }
 
-#if HS_ENABLE_SHADER_WORKBENCH
   /**
    * @brief Range-checks a preset index arriving from the untyped JS boundary.
    * @param index Requested index, as the double the binding takes.
@@ -1265,6 +1266,7 @@ private:
     return false;
   }
 
+#if HS_ENABLE_SHADER_WORKBENCH
   /**
    * @brief Runs a callback on the live effect iff it is the Shader workbench.
    * @param callback Templated callable receiving the shader workbench backend.
@@ -1388,6 +1390,7 @@ private:
     return ArrayDecode::OK;
   }
 
+#if HS_ENABLE_SHADER_WORKBENCH
   template <typename SB>
   static FullConfigRestoreResult
   map_restore_result(typename SB::ConfigRestoreResult result) {
@@ -1407,6 +1410,7 @@ private:
     }
     __builtin_unreachable();
   }
+#endif // HS_ENABLE_SHADER_WORKBENCH
 
   /**
    * @brief Traps when a newly installed effect exposes more params than were
@@ -1467,6 +1471,7 @@ static void bind_engine() {
       .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT)
       .value("UNSUPPORTED_RESOLUTION", EffectSetResult::UNSUPPORTED_RESOLUTION);
 
+#if HS_ENABLE_SHADER_WORKBENCH
   enum_<FullConfigRestoreResult>("FullConfigRestoreResult")
       .value("APPLIED", FullConfigRestoreResult::APPLIED)
       .value("NOT_SHADER_WORKBENCH",
@@ -1477,6 +1482,7 @@ static void bind_engine() {
       .value("INVALID_VALUE", FullConfigRestoreResult::INVALID_VALUE)
       .value("INVALID_ACCEPTED", FullConfigRestoreResult::INVALID_ACCEPTED)
       .value("INVALID_PENDING", FullConfigRestoreResult::INVALID_PENDING);
+#endif // HS_ENABLE_SHADER_WORKBENCH
 
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
