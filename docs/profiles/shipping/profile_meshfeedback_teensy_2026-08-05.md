@@ -24,7 +24,7 @@ are carried over — every figure below is from the `e68a4e37` capture.
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | MeshFeedback 288×144, single-entry playlist, tip `e68a4e37` |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 420 s capture, `HS_PROFILE_EPOCH_REVS=3400` |
-| Reproduce | `just profile MeshFeedback` |
+| Reproduce | `bash tools/profile_one.sh MeshFeedback profile 420 16 '-D HS_PROFILE_EPOCH_REVS=3400'` |
 
 Image size: `FLASH: code:83304, data:150380, headers:9004` / `RAM1:
 variables:315168, code:62856, padding:2680, free:143584` / `RAM2:
