@@ -284,9 +284,15 @@ public:
    */
   Color4 get(float value, float hue_shift) const {
     assert(source != nullptr && "NoiseHuePalette used before bind()!");
-    Color4 color = source->get(value);
-    color.color = sample_hue_rotation_lut(hue_rotation, value, hue_shift);
-    return color;
+    // The rotation LUT supplies the color, so only the source's alpha is read;
+    // a source with an alpha-only sampler skips its color interpolation.
+    float alpha;
+    if constexpr (requires { source->get_alpha(value); })
+      alpha = source->get_alpha(value);
+    else
+      alpha = source->get(value).alpha;
+    return Color4(sample_hue_rotation_lut(hue_rotation, value, hue_shift),
+                  alpha);
   }
 
   /**
