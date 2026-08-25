@@ -118,8 +118,8 @@ static bool ensure_tooling_arenas() {
 }
 
 /**
- * @brief Builds a {usage, high_water_mark, capacity} report for the three engine
- *        arenas and the three tooling arenas.
+ * @brief Builds a {usage, high_water_mark, lifetime_high_water_mark, capacity}
+ *        report for the three engine arenas and the three tooling arenas.
  * @return JS object mapping each arena name to its {usage, high_water_mark,
  *         capacity} metrics, in bytes.
  * @details Read on demand through MeshOps.getArenaMetrics(). The tooling scratch
