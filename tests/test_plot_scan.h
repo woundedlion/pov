@@ -2702,6 +2702,47 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
   }
 }
 
+/**
+ * @brief Verifies a non-zero shift function moves each sampled vertex to the
+ *        colatitude it asks for, and that fn_point lands on the same ring at
+ *        phase 0 — the anchor Thrusters draws its flames from.
+ */
+inline void test_distorted_ring_shift_matches_fn_point() {
+  constexpr int W = 64;
+  constexpr int H = 64;
+
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), W + 2);
+
+  const Basis b = make_basis(Quaternion(0.92387953f, 0.0f, 0.38268343f, 0.0f),
+                             Vector(0, 1, 0));
+  const float radius = 0.5f;
+  auto shift_shape = [](float t) {
+    return 0.3f * sinf(2.0f * PI_F * t) + 0.1f;
+  };
+  ScalarFn shift_fn = shift_shape;
+
+  Plot::DistortedRing::sample<W, H>(points, b, radius, shift_fn, 0.0f);
+  HS_EXPECT_EQ(points.size(), (size_t)(W + 1));
+
+  const Plot::RingFrame frame = Plot::ring_frame(b, radius);
+  const float step = 2.0f * PI_F / W;
+  for (int i = 0; i < W; ++i) {
+    HS_CONTEXT("vertex", static_cast<long long>(i));
+    const float angle = i * step;
+    const float polar = frame.theta_eq + shift_shape(angle / (2.0f * PI_F));
+    HS_EXPECT_NEAR(dot(points[i].pos, frame.basis.v), cosf(polar), 2e-3f);
+
+    const Vector direct =
+        Plot::DistortedRing::fn_point(shift_fn, b, radius, angle);
+    HS_EXPECT_NEAR(direct.length(), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(points[i].pos.x, direct.x, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.y, direct.y, 2e-3f);
+    HS_EXPECT_NEAR(points[i].pos.z, direct.z, 2e-3f);
+  }
+}
+
 // ============================================================================
 // Plot::Multiline::sample
 // ============================================================================
@@ -5710,6 +5751,7 @@ inline int run_plot_scan_tests() {
   test_ring_draw_accepts_direct_sink();
 
   test_distorted_ring_sample_angle_addition_identity();
+  test_distorted_ring_shift_matches_fn_point();
 
   test_multiline_sample_arclength_param();
 
