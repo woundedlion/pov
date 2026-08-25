@@ -406,7 +406,7 @@ struct Volume {
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
-        [&](int px, int py, const Vector &p, int max_run) {
+        [&](int px, int py, const Vector &p, int) {
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
           if (facing >= 0.0f)
@@ -437,25 +437,11 @@ struct Volume {
               trace_closest(shape, local_ro, local_vd, bounds_radius, max_steps,
                             aa_width, closest_local);
 
-          if (closest_d >= aa_width) {
-            // Shifting the ray origin one column translates the ray by at
-            // most that chord. The march reports an under-estimate of the true
-            // distance, and that true field is 1-Lipschitz, so a probe clear
-            // by the block's arc on top of the walk's own width cannot reach
-            // the surface anywhere in the block; the shape's own distance() is
-            // never assumed Lipschitz. Traced hits stay per-column: shading
-            // varies along the surface, so a splat would band.
-            if constexpr (pole_lod_blocks<decltype(shape)>) {
-              if (max_run > 1) {
-                const float block_slack =
-                    pole_lod_block_slack<W>(max_run, p.y, shape);
-                if (pole_lod_block_settles<decltype(shape)>(closest_d, aa_width,
-                                                            block_slack))
-                  return max_run;
-              }
-            }
+          // No pole-LOD block skip here: trace_closest minimizes over the
+          // points it sampled, so its report is an upper bound on the ray's
+          // true clearance and cannot bound a neighbouring column.
+          if (closest_d >= aa_width)
             return 1;
-          }
 
           // --- Fragment shading ---
           Fragment frag;
