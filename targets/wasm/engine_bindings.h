@@ -266,12 +266,13 @@ public:
     // Bootstrap on the first row of each roster; daydream overrides both almost
     // immediately.
     const bool bootstrap_resolution_set =
-        setResolution(WASM_RESOLUTIONS[0].w, WASM_RESOLUTIONS[0].h) ==
+        setResolution(hs_wasm::WASM_RESOLUTIONS[0].w,
+                      hs_wasm::WASM_RESOLUTIONS[0].h) ==
         ResolutionSetResult::RESIZED;
     HS_CHECK(bootstrap_resolution_set,
              "the first HS_RESOLUTIONS row must be dispatchable here");
     const bool bootstrap_effect_set =
-        setEffect(WASM_EFFECT_NAMES[0]) == EffectSetResult::INSTALLED;
+        setEffect(hs_wasm::WASM_EFFECT_NAMES[0]) == EffectSetResult::INSTALLED;
     HS_CHECK(bootstrap_effect_set,
              "the first HS_EFFECT_LIST entry must be registered and buildable "
              "at the first HS_RESOLUTIONS row");
@@ -335,7 +336,7 @@ public:
 
     // Reject unsupported sizes and keep the prior valid state alive rather than
     // switching to a null effect that renders blank with no signal to JS.
-    if (!wasm_resolution_supported(w, h)) {
+    if (!hs_wasm::wasm_resolution_supported(w, h)) {
       hs::log("WASM: Unsupported resolution %dx%d — ignored", w, h);
       return ResolutionSetResult::UNSUPPORTED;
     }
@@ -387,9 +388,9 @@ public:
     // Validate against the current resolution's factory BEFORE tearing anything
     // down, so a typo'd name keeps the prior valid state alive.
     const FactoryEntry *entry = nullptr;
-    const bool dispatched =
-        dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-          entry = find_factory_entry<W, H>(canonical_name);
+    const bool dispatched = hs_wasm::dispatch_resolution(
+        pixel_width, pixel_height, [&]<int W, int H>() {
+          entry = hs_wasm::find_factory_entry<W, H>(canonical_name);
         });
     if (!dispatched) {
       hs::log("WASM: setEffect at unsupported resolution %dx%d — keeping "
@@ -413,7 +414,7 @@ public:
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
 
-    dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
+    hs_wasm::dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
       init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
     });
     // Per-load RNG stream keyed by the effect's stable id, mirroring the
@@ -940,9 +941,9 @@ public:
    */
   val getEffectSizes() {
     val sizes = val::object(); // unsupported/uninitialized — empty map
-    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-      sizes = get_effect_sizes_helper<W, H>();
-    });
+    hs_wasm::dispatch_resolution(
+        pixel_width, pixel_height,
+        [&]<int W, int H>() { sizes = get_effect_sizes_helper<W, H>(); });
     return sizes;
   }
 
@@ -953,10 +954,11 @@ public:
    */
   val getEffectPresetCounts() {
     val counts = val::object();
-    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-      for (const auto &entry : get_factory<W, H>())
-        counts.set(std::string(entry.name), entry.preset_count);
-    });
+    hs_wasm::dispatch_resolution(
+        pixel_width, pixel_height, [&]<int W, int H>() {
+          for (const auto &entry : hs_wasm::get_factory<W, H>())
+            counts.set(std::string(entry.name), entry.preset_count);
+        });
     return counts;
   }
 
@@ -1233,7 +1235,7 @@ public:
   static val getSupportedResolutions() {
     val out = val::array();
     int i = 0;
-    for (const WasmResolution &row : WASM_RESOLUTIONS) {
+    for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS) {
       val pair = val::array();
       pair.set(0, row.w);
       pair.set(1, row.h);
@@ -1251,7 +1253,7 @@ private:
    */
   template <int W, int H> val get_effect_sizes_helper() {
     val s = val::object();
-    const auto &factory = get_factory<W, H>();
+    const auto &factory = hs_wasm::get_factory<W, H>();
     for (const auto &entry : factory)
       s.set(std::string(entry.name), static_cast<int>(entry.size));
     return s;
@@ -1286,12 +1288,15 @@ private:
     if (!current_effect)
       return false;
     bool invoked = false;
-    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-      if (current_effect_type_key == effect_type_key<ShaderWorkbench<W, H>>()) {
-        callback(static_cast<ShaderWorkbench<W, H> &>(*current_effect.get()));
-        invoked = true;
-      }
-    });
+    hs_wasm::dispatch_resolution(
+        pixel_width, pixel_height, [&]<int W, int H>() {
+          if (current_effect_type_key ==
+              effect_type_key<ShaderWorkbench<W, H>>()) {
+            callback(
+                static_cast<ShaderWorkbench<W, H> &>(*current_effect.get()));
+            invoked = true;
+          }
+        });
     return invoked;
   }
 #endif // HS_ENABLE_SHADER_WORKBENCH
@@ -1309,12 +1314,13 @@ private:
     if (!current_effect)
       return false;
     bool invoked = false;
-    dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
-      if (current_effect_type_key == effect_type_key<ShaderChain<W, H>>()) {
-        callback(static_cast<ShaderChain<W, H> &>(*current_effect.get()));
-        invoked = true;
-      }
-    });
+    hs_wasm::dispatch_resolution(
+        pixel_width, pixel_height, [&]<int W, int H>() {
+          if (current_effect_type_key == effect_type_key<ShaderChain<W, H>>()) {
+            callback(static_cast<ShaderChain<W, H> &>(*current_effect.get()));
+            invoked = true;
+          }
+        });
     return invoked;
   }
 

@@ -19,6 +19,8 @@
 #include <string_view>
 #include <vector>
 
+namespace hs_wasm {
+
 /**
  * @brief Builds a concrete factory table from the self-registering entries.
  * @tparam W Canvas width in pixels.
@@ -135,3 +137,5 @@ template <typename F> inline bool dispatch_resolution(int w, int h, F &&f) {
 inline bool wasm_resolution_supported(int w, int h) {
   return dispatch_resolution(w, h, []<int W, int H>() {});
 }
+
+} // namespace hs_wasm
