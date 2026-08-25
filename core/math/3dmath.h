@@ -380,7 +380,7 @@ struct Vector {
    */
   void normalize() {
     float m2 = x * x + y * y + z * z;
-    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Vector: zero length");
     float m = sqrtf(m2);
     x = x / m;
     y = y / m;
@@ -395,7 +395,7 @@ struct Vector {
    */
   [[nodiscard]] __attribute__((always_inline)) Vector normalized() const {
     float m2 = x * x + y * y + z * z;
-    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Vector: zero length");
     float m = sqrtf(m2);
     return Vector(x / m, y / m, z / m);
   }
@@ -780,7 +780,7 @@ struct Quaternion {
    */
   [[nodiscard]] Quaternion inverse() const {
     float sq_mag = squared_magnitude();
-    HS_CHECK(sq_mag >= math::EPS_NORMALIZE_SQ);
+    HS_CHECK(sq_mag >= math::EPS_NORMALIZE_SQ, "Quaternion: zero magnitude");
     return conjugate() / sq_mag;
   }
 
@@ -807,7 +807,7 @@ struct Quaternion {
    */
   void normalize() {
     float m2 = squared_magnitude();
-    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Quaternion: zero magnitude");
     float m = sqrtf(m2);
     r = r / m;
     v = v / m;
@@ -821,7 +821,7 @@ struct Quaternion {
    */
   [[nodiscard]] __attribute__((always_inline)) Quaternion normalized() const {
     float m2 = squared_magnitude();
-    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ, "Quaternion: zero magnitude");
     float m = sqrtf(m2);
     return Quaternion(r / m, v / m);
   }
