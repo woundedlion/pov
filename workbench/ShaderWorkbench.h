@@ -6108,11 +6108,12 @@ private:
 
   HS_COLD_MEMBER static constexpr bool polar_pair_stable(const Config &from,
                                                          const Config &to) {
-    const bool has_polar =
-        from.slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART ||
-        from.slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
-    return !has_polar ||
-           from.params.source.pattern_freq == to.params.source.pattern_freq;
+    const WarpStageSpec &outer = from.slots.warp_program.outer;
+    const WarpStageSpec &inner = from.slots.warp_program.inner;
+    return (outer.kind != WarpStageKind::POLAR_CHART ||
+            polar_seam_periods(from, outer) == polar_seam_periods(to, outer)) &&
+           (inner.kind != WarpStageKind::POLAR_CHART ||
+            polar_seam_periods(from, inner) == polar_seam_periods(to, inner));
   }
 
   HS_COLD_MEMBER static constexpr bool
