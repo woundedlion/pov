@@ -440,6 +440,16 @@ inline void case_arena_oversubscribed() {
 }
 
 /**
+ * @brief Death case: a single partition larger than the whole block must trap.
+ * @details Config surface — the per-request bound is checked before the sum, so
+ *          an oversized persistent request fires split_bases' own HS_CHECK.
+ */
+inline void case_arena_partition_too_large() {
+  configure_arenas(opaque(GLOBAL_ARENA_SIZE + 1), opaque<size_t>(0),
+                   opaque<size_t>(0));
+}
+
+/**
  * @brief Trivial Cloneable whose clone() allocates from the destination arena,
  *        so a Persist restore measurably grows the persistent arena.
  */
@@ -3567,6 +3577,10 @@ inline const Case *all_cases(int &n) {
        "(k <= static_cast<size_t>(MAX_K)) KDTree::nearest k exceeds MAX_K"},
       {"arena_oversubscribed", case_arena_oversubscribed, "memory.cpp",
        "(false) "},
+      {"arena_partition_too_large", case_arena_partition_too_large,
+       "memory.cpp",
+       "(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE && "
+       "scratch_b <= GLOBAL_ARENA_SIZE) split_bases: "},
       {"persist_forgot_reset", case_persist_forgot_reset, "memory.h",
        "(persistent.get_offset() <= persistent_offset_at_ctor) Persist: "
        "restore grew the persistent arena past its construction watermark — "
@@ -3980,7 +3994,7 @@ inline const Case *all_cases(int &n) {
        "timers.h", "(min >= 0 && min <= max) "},
       {"dma_controller_wedged_overrun", case_dma_controller_wedged_overrun,
        "test_death.h", "(false) DMA channel wedged"},
-      {"empty_fn_call", case_empty_fn_call, "inplace_function.h",
+      {"empty_fn_call", case_empty_fn_call, "memory.cpp",
        "(vtable != empty) empty hs::inplace_function called"},
       {"effect_registry_duplicate_name", case_effect_registry_duplicate_name,
        "registry.h",
@@ -4562,7 +4576,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
-    {"memory.cpp", 1},
     {"memory.h", 2},
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},

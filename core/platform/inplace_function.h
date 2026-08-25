@@ -28,6 +28,14 @@
 
 namespace hs {
 
+/**
+ * @brief Diverges when an empty inplace_function is invoked.
+ * @details One out-of-line routine every instantiation's empty vtable entry
+ * calls, so the trapping empty state costs a call per signature rather than a
+ * formatted call site.
+ */
+[[noreturn]] void inplace_function_empty_call();
+
 // Alignment defaults to a pointer, not max_align_t: the captures here are
 // pointers/ints/floats/small PODs (max align == a pointer), so pointer alignment
 // keeps the object to one pointer of overhead instead of rounding every Fn up to
@@ -90,8 +98,7 @@ template <typename C, typename R, typename... Args> struct ipf_ops {
 template <typename R, typename... Args> struct ipf_empty_ops {
   static R invoke(void *, Args &&...) {
     // Unconditional [[noreturn]] call: no trailing return needed even for R!=void.
-    ::hs::check_fail(__FILE__, __LINE__, "vtable != empty",
-                     "empty hs::inplace_function called");
+    ::hs::inplace_function_empty_call();
   }
   static void copy(void *, const void *) {}
   static void move(void *, void *) {}
