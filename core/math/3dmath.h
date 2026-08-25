@@ -186,9 +186,9 @@ inline float hash01(uint32_t i, uint32_t seed) {
  */
 inline float value_noise_1d(float x, uint32_t seed = 0) {
   float fx = floorf(x);
-  // int32_t first: float -> unsigned is UB for negatives. Negated compare so a
-  // NaN coordinate trips it too.
-  assert(!(std::fabs(fx) >= 2147483648.0f));
+  // int32_t first: float -> unsigned is UB for negatives. Direct compare so a
+  // NaN coordinate fails it too.
+  assert(std::fabs(fx) < 2147483648.0f);
   uint32_t ix = static_cast<uint32_t>(static_cast<int32_t>(fx));
   float f = quintic_kernel(x - fx);
   float a = hash01(ix, seed);
@@ -205,8 +205,8 @@ inline float value_noise_1d(float x, uint32_t seed = 0) {
  */
 inline float value_noise_2d(float x, float y, uint32_t seed = 0) {
   float fx = floorf(x), fy = floorf(y);
-  assert(!(std::fabs(fx) >= 2147483648.0f));
-  assert(!(std::fabs(fy) >= 2147483648.0f));
+  assert(std::fabs(fx) < 2147483648.0f);
+  assert(std::fabs(fy) < 2147483648.0f);
   uint32_t ix = static_cast<uint32_t>(static_cast<int32_t>(fx));
   uint32_t iy = static_cast<uint32_t>(static_cast<int32_t>(fy));
   float u = quintic_kernel(x - fx);
