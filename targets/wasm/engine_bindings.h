@@ -924,20 +924,6 @@ public:
   }
 
   /**
-   * @brief Builds the {effect name -> hint size} map for the (W,H) factory.
-   * @tparam W Canvas width in pixels.
-   * @tparam H Canvas height in pixels.
-   * @return JS object mapping each effect name to its hint size, for the GUI.
-   */
-  template <int W, int H> val get_effect_sizes_helper() {
-    val s = val::object();
-    const auto &factory = get_factory<W, H>();
-    for (const auto &entry : factory)
-      s.set(std::string(entry.name), static_cast<int>(entry.size));
-    return s;
-  }
-
-  /**
    * @brief Returns the effect-size map for the active resolution.
    * @return JS object mapping each effect name to its hint size at the current
    *         resolution; empty map if unsupported/uninitialized.
@@ -1249,6 +1235,20 @@ public:
   }
 
 private:
+  /**
+   * @brief Builds the {effect name -> hint size} map for the (W,H) factory.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @return JS object mapping each effect name to its hint size, for the GUI.
+   */
+  template <int W, int H> val get_effect_sizes_helper() {
+    val s = val::object();
+    const auto &factory = get_factory<W, H>();
+    for (const auto &entry : factory)
+      s.set(std::string(entry.name), static_cast<int>(entry.size));
+    return s;
+  }
+
 #if HS_ENABLE_SHADER_WORKBENCH
   /**
    * @brief Range-checks a preset index arriving from the untyped JS boundary.
