@@ -464,13 +464,22 @@ struct CycleCounter {
 
   /**
    * @brief Unregisters the counter, so no registry walk reaches dead storage.
+   * @details Also unlatches every counter that had latched this one as its
+   * parent; log_all() and log_node() dereference `parent`, so a surviving edge
+   * into this storage is read after the destructor returns. An unlatched
+   * counter re-latches on its next entry.
    */
   ~CycleCounter() {
-    for (CycleCounter **p = &head; *p; p = &(*p)->next) {
+    for (CycleCounter **p = &head; *p;) {
       if (*p == this) {
         *p = next;
-        return;
+        continue;
       }
+      if ((*p)->parent == this) {
+        (*p)->parent = nullptr;
+        (*p)->parented = false;
+      }
+      p = &(*p)->next;
     }
   }
 
