@@ -417,6 +417,8 @@ private:
         hs::clamp(static_cast<int>(params.sides), static_cast<int>(SIDES_MIN),
                   static_cast<int>(SIDES_MAX));
     const ShapeType shape = selected_shape();
+    const bool dense_contours =
+        static_cast<float>(count) >= DENSE_CONTOUR_COUNT;
     const bool planar_star = shape == ShapeType::PLANAR_STAR;
     if (planar_star && sides != prepared_planar_star_sides) {
       planar_star_step_trig =
@@ -503,7 +505,7 @@ private:
         fragment.color = shaded_color;
       };
       dispatch_plot(canvas, basis, shape, radius, sides, shader, contour_phase,
-                    shaded_color, i);
+                    shaded_color, i, dense_contours);
     }
     if (planar_star)
       draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
@@ -714,6 +716,8 @@ private:
    * @param sides Polygon side, flower petal, or star point count.
    * @param fragment_shader Per-fragment shader.
    * @param shape_phase Primitive rotation in radians.
+   * @param dense_contours Whether the stack is at or above DENSE_CONTOUR_COUNT
+   * contours, selecting the screen-step-balanced star paths.
    * @details Cold (flash): the five-way switch instantiates a sampler lambda
    * per shape, so its body stays out of ITCM even though it runs once per
    * shape (up to MAX_SHAPES per frame); the hot work is inside Plot::rasterize.
@@ -722,8 +726,8 @@ private:
   HS_FLASH_MEMBER void
   dispatch_plot(Canvas &canvas, const Basis &basis, ShapeType shape,
                 float radius, int sides, const F &fragment_shader,
-                float shape_phase, const Color4 &shape_color,
-                int contour_index) {
+                float shape_phase, const Color4 &shape_color, int contour_index,
+                bool dense_contours) {
     HS_PROFILE(ss_plot_dispatch);
     switch (shape) {
     case ShapeType::PLANAR_POLYGON: {
@@ -754,7 +758,7 @@ private:
       break;
     }
     case ShapeType::PLANAR_STAR: {
-      if (params.count >= DENSE_CONTOUR_COUNT) {
+      if (dense_contours) {
         draw_dense_planar_star(canvas, basis, radius, sides, fragment_shader,
                                shape_color, shape_phase, contour_index);
         break;
@@ -771,9 +775,8 @@ private:
     }
     case ShapeType::SPHERICAL_STAR:
       draw_sampled(
-          canvas, static_cast<size_t>(sides * 2 + 2), nullptr,
-          params.count >= DENSE_CONTOUR_COUNT, fragment_shader,
-          [&](Fragments &points) {
+          canvas, static_cast<size_t>(sides * 2 + 2), nullptr, dense_contours,
+          fragment_shader, [&](Fragments &points) {
             Plot::Star<Plot::GeodesicProjection>::sample_continuous_positions(
                 points, basis, radius, sides, shape_phase);
           });
