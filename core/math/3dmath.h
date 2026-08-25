@@ -524,6 +524,25 @@ __attribute__((always_inline)) inline float diamond_angle(float y, float x) {
 }
 
 /**
+ * @brief Fast reciprocal for positive normal inputs with finite reciprocals.
+ * @param x Input value; the domain is positive normal floats whose reciprocal
+ * remains finite.
+ * @return An approximation of 1 / x.
+ * @details Float-bit seed refined by two Newton steps; peak relative error is
+ * below 7e-6 over normal inputs with normal outputs.
+ */
+HS_O3_FN __attribute__((always_inline)) inline float fast_reciprocal(float x) {
+  uint32_t bits;
+  std::memcpy(&bits, &x, sizeof(bits));
+  bits = 0x7ef311c3u - bits;
+  float estimate;
+  std::memcpy(&estimate, &bits, sizeof(estimate));
+  estimate *= 2.0f - x * estimate;
+  estimate *= 2.0f - x * estimate;
+  return estimate;
+}
+
+/**
  * @brief Fast reciprocal square root for x > 0.
  * @param x Input value; the domain is x > 0 (zero and negatives are undefined).
  * @return An approximation of 1 / sqrt(x).
