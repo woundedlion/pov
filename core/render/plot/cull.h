@@ -1271,7 +1271,12 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
   return true;
 }
 
-/** @brief Tests planar edge visibility from an existing cull sample set. */
+/**
+ * @brief Tests planar edge visibility from an existing cull sample set.
+ * @param end_sample Optional output for the unprojected edge endpoint, written
+ *        by the column-span pass. Only an active @p xc reaches that pass, so
+ *        requesting the endpoint requires one.
+ */
 template <int W, int H>
 static inline bool planar_edge_visible_in_clip(const ClipRegion &cr,
                                                const ClipRegion::XClip &xc,
@@ -1279,6 +1284,7 @@ static inline bool planar_edge_visible_in_clip(const ClipRegion &cr,
                                                const Basis &planar_basis,
                                                const PlanarEdgeSpan &span,
                                                Vector *end_sample = nullptr) {
+  assert(end_sample == nullptr || xc.active);
   float row_lo, row_hi;
   int col_s, col_len;
   planar_row_span<H>(a, b, span, row_lo, row_hi);
