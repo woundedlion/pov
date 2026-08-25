@@ -83,26 +83,114 @@ inline void test_so4_rotation() {
   HS_EXPECT_EQ(cubic[3], 0.0f);
 }
 
-inline void test_projected_edges_remain_complete_under_so4_spin() {
+inline void test_projected_trace_covers_complete_edges_under_so4_spin() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset_params(4);
+  frame.params.reflection = HL::ReflectionMode::RADIAL;
+  frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
   frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  const Vector anchor =
-      HL::projected_lattice_axis(prepared, 0) * (1.0f - frame.origin[0]) +
-      HL::projected_lattice_axis(prepared, 1) * (0.0f - frame.origin[1]) +
-      HL::projected_lattice_axis(prepared, 3) * (1.0f - frame.origin[3]);
-  const Vector edge = HL::projected_lattice_axis(prepared, 2);
-  const float positions[] = {-1.5f, 0.0f, 1.5f};
-  for (float position : positions) {
-    const Vector point = anchor + edge * position;
-    const Vector direction = point * fast_rsqrt(dot(point, point));
-    const HL::ProjectedDistance projected = HL::projected_line_distance(
-        Vector(0.0f, 0.0f, 0.0f), direction, anchor, edge, 1.0f);
-    HS_EXPECT_NEAR(projected.distance_sq, 0.0f, 2e-5f);
-    HS_EXPECT_GT(projected.ray_distance, 0.0f);
+  const HL::Vec4 hidden =
+      prepared.world_to_lattice.apply({{0.0f, 0.0f, 0.0f, 1.0f}});
+  uint8_t line_index = 0;
+  for (uint8_t index = 1; index < prepared.projected_line_count; ++index)
+    if (fabsf(hidden[prepared.projected_lines[index].free_axis]) >
+        fabsf(hidden[prepared.projected_lines[line_index].free_axis]))
+      line_index = index;
+  const HL::ProjectedLine &line = prepared.projected_lines[line_index];
+  const Vector &edge = prepared.projected_axes[line.free_axis];
+  const float edge_length_sq = dot(edge, edge);
+  HS_EXPECT_GT(edge_length_sq, 0.01f);
+  const float center = -dot(line.anchor, edge) / edge_length_sq;
+  const float half_span = std::max(2.0f, 0.75f / fabsf(hidden[line.free_axis]));
+  HS_EXPECT_GT(2.0f * half_span * fabsf(hidden[line.free_axis]), 1.0f);
+  int samples = 0;
+  for (int index = -20; index <= 20; ++index) {
+    const float position =
+        center + half_span * static_cast<float>(index) / 20.0f;
+    const Vector point = line.anchor + edge * position;
+    const float distance = sqrtf(dot(point, point));
+    if (distance <= prepared.near_start + 0.05f ||
+        distance >= prepared.params.far_cells - 0.05f)
+      continue;
+    const Vector direction = point * (1.0f / distance);
+    Vector perpendicular(-direction.y, direction.x, 0.0f);
+    if (dot(perpendicular, perpendicular) < 0.01f)
+      perpendicular = Vector(0.0f, -direction.z, direction.y);
+    perpendicular *= fast_rsqrt(dot(perpendicular, perpendicular));
+    for (int neighbor = -2; neighbor <= 2; ++neighbor) {
+      const float offset = 0.1f * frame.params.wire_radius *
+                           static_cast<float>(neighbor) / distance;
+      Vector neighbor_direction = direction + perpendicular * offset;
+      neighbor_direction *=
+          fast_rsqrt(dot(neighbor_direction, neighbor_direction));
+      bool covered = false;
+      HL::trace_layers(neighbor_direction, prepared,
+                       [&](const HL::TraceHit &hit) {
+                         covered |= hit.free_axis == line.free_axis &&
+                                    fabsf(hit.distance - distance) < 0.03f &&
+                                    hit.coverage > 0.0f;
+                         return true;
+                       });
+      HS_EXPECT_TRUE(covered);
+    }
+    ++samples;
   }
+  HS_EXPECT_GT(samples, 24);
+}
+
+inline void test_projected_line_pool_is_frame_global_and_bounded() {
+  HL::FrameState frame{};
+  frame.params.mode = HL::LatticeMode::FOUR_D_PROJECTED;
+  frame.params.shells = HL::ShellCount::ONE;
+  frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
+  frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
+  const HL::PreparedTrace sparse = HL::prepare_trace(frame);
+  HS_EXPECT_EQ(sparse.projected_line_count, uint8_t(12));
+  const HL::PreparedTrace repeat = HL::prepare_trace(frame);
+  frame.params.shells = HL::ShellCount::TWO;
+  const HL::PreparedTrace medium = HL::prepare_trace(frame);
+  HS_EXPECT_EQ(medium.projected_line_count, uint8_t(24));
+  frame.params.shells = HL::ShellCount::THREE;
+  const HL::PreparedTrace dense = HL::prepare_trace(frame);
+  HS_EXPECT_EQ(dense.projected_line_count, uint8_t(32));
+  for (uint8_t index = 0; index < sparse.projected_line_count; ++index) {
+    HS_EXPECT_EQ(sparse.projected_lines[index].free_axis,
+                 repeat.projected_lines[index].free_axis);
+    HS_EXPECT_NEAR(dot(sparse.projected_lines[index].anchor -
+                           repeat.projected_lines[index].anchor,
+                       sparse.projected_lines[index].anchor -
+                           repeat.projected_lines[index].anchor),
+                   0.0f, 1e-8f);
+  }
+  uint8_t axis_counts[HL::DIMENSIONS]{};
+  for (uint8_t index = 0; index < dense.projected_line_count; ++index)
+    ++axis_counts[dense.projected_lines[index].free_axis];
+  for (uint8_t count : axis_counts)
+    HS_EXPECT_EQ(count, uint8_t(8));
+}
+
+inline void test_projected_line_pool_handles_collapsed_axis() {
+  HL::FrameState frame{};
+  frame.params.mode = HL::LatticeMode::FOUR_D_PROJECTED;
+  frame.params.shells = HL::ShellCount::THREE;
+  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+  HS_EXPECT_EQ(prepared.projected_line_count, uint8_t(32));
+  for (uint8_t left = 0; left < prepared.projected_line_count; ++left) {
+    const HL::ProjectedLine &line = prepared.projected_lines[left];
+    if (line.free_axis == 3)
+      HS_EXPECT_NEAR(dot(prepared.projected_axes[line.free_axis],
+                         prepared.projected_axes[line.free_axis]),
+                     0.0f, 1e-8f);
+    for (uint8_t right = 0; right < left; ++right)
+      HS_EXPECT_FALSE(HL::projected_lines_coincident(
+          line, prepared.projected_lines[right],
+          prepared.projected_axes[line.free_axis]));
+  }
+  const HL::TraceHit hit = HL::trace(X_AXIS, prepared);
+  HS_EXPECT_TRUE(std::isfinite(hit.coverage));
+  HS_EXPECT_TRUE(std::isfinite(hit.distance));
 }
 
 inline void test_slice_and_projected_modes_are_distinct() {
@@ -422,7 +510,9 @@ inline int run_hyper_lattice_tests() {
   test_periodic_distance();
   test_edge_metrics();
   test_so4_rotation();
-  test_projected_edges_remain_complete_under_so4_spin();
+  test_projected_trace_covers_complete_edges_under_so4_spin();
+  test_projected_line_pool_is_frame_global_and_bounded();
+  test_projected_line_pool_handles_collapsed_axis();
   test_slice_and_projected_modes_are_distinct();
   test_reflection_convention();
   test_resolution_aware_wire_coverage();
