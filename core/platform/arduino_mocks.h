@@ -15,6 +15,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
+#include <type_traits>
 
 /**
  * @brief HSV color structure for non-Arduino platforms.
@@ -321,6 +322,21 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
     return value_of(skewed ? result - 1u : result);
   return value_of(skewed ? result : result + 1u);
 }
+
+/**
+ * @brief Rejects map() calls with a floating-point argument.
+ * @details Teensyduino overloads map() for floating point; this mock has only
+ *          the integral overload, so a float call would silently convert
+ *          through `long` on host while the device kept full precision. No
+ *          first-party caller passes floats, so the mismatch is a compile
+ *          error rather than a host/device divergence.
+ */
+template <typename X, typename A, typename B, typename C, typename D,
+          typename = std::enable_if_t<
+              std::is_floating_point_v<X> || std::is_floating_point_v<A> ||
+              std::is_floating_point_v<B> || std::is_floating_point_v<C> ||
+              std::is_floating_point_v<D>>>
+long map(X x, A in_min, B in_max, C out_min, D out_max) = delete;
 
 // --- System Mock ---
 /**
