@@ -11,6 +11,7 @@ import argparse
 import math
 import os
 import sys
+import builder
 import sexp
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable)
@@ -20,6 +21,8 @@ OUT = os.path.dirname(HERE)
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
 UNPLACED_FILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
+#: The revision stamp on the bottom silkscreen. builder.REVISION owns it.
+SILK_REVISION = f"Phantasm Rev {builder.REVISION}"
 UNPLACED_REASON = (
     "The committed unplaced board is the Quilter upload input and carries\n"
     "  KiCad GUI edits these generators do not reproduce.")
@@ -808,7 +811,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("3   GND   GND   B-SOUTH", 15.0, 0.9),
         ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 17.0, 0.8),
         ("BOARD ID: ____", 23.5, 2.0),
-        ("Phantasm Rev 1.1", 29.5, 1.0),
+        (SILK_REVISION, 29.5, 1.0),
     ]
     for text, y, size in back_silk:
         lines.append(f'\t(gr_text "{text}" (at {fmt(L/2)} {fmt(y)} 0)'
