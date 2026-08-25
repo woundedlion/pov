@@ -49,23 +49,18 @@ struct RotateChainParams {
 static_assert(field_ids_unique<RotateChainParams>());
 
 /** @brief SPHERE endomorphism: the wandering, spinning camera. */
-struct Rotate {
+struct Rotate : ValueStateModel<SpatialWalkState> {
   static constexpr const char *ID = "sphere.rotate.v2";
   static constexpr const char *NAME = "Rotate";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = RotateChainParams;
-  using State = SpatialWalkState;
   struct Prepared {
     Quaternion conjugate;
   };
 
   static void init(State &state, InstanceId id) {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
-  }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
   }
   static void advance(State &state, const Params &params) {
     advance_walk(state, params.wander, params.spin_rate);
@@ -142,13 +137,12 @@ struct ColorClockState {
 };
 
 /** @brief FIELD→COLOR crossing: the generated-palette colorizer. */
-struct ColorizeGeneratedPalette {
+struct ColorizeGeneratedPalette : ValueStateModel<ColorClockState> {
   static constexpr const char *ID = "colorize.generated-palette.v2";
   static constexpr const char *NAME = "Generated Palette";
   using Input = FieldSample;
   using Output = Color4;
   using Params = GeneratedPaletteParams;
-  using State = ColorClockState;
   using Prepared = Color::GeneratedPaletteState;
 
   static constexpr bool APPROXIMATE = true;
@@ -156,11 +150,6 @@ struct ColorizeGeneratedPalette {
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.oscillation_phase =
         wrap_t(state.oscillation_phase + params.phase_oscillation_speed);

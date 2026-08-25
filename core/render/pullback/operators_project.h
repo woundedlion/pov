@@ -60,21 +60,17 @@ static_assert(field_ids_unique<MeridianProjectChainParams>());
 
 /** @brief Shared shape of the projection operators: the walk state, the
     frame-composed conjugate, and the per-family projection call. */
-template <typename Derived, typename ParamsT> struct ProjectOpModel {
+template <typename Derived, typename ParamsT>
+struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   using Input = SphereSample;
   using Output = PlaneSample;
   using Params = ParamsT;
-  using State = SpatialWalkState;
   struct Prepared {
     Quaternion conjugate;
   };
 
   static void init(State &state, InstanceId id) {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
-  }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
   }
   static void advance(State &state, const Params &params) {
     advance_walk(state, params.wander, params.spin_rate);

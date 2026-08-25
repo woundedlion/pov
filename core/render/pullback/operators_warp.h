@@ -63,20 +63,14 @@ struct AffineClockState {
 };
 
 /** @brief PLANE endomorphism: the oscillating affine frame change. */
-struct WarpAffine {
+struct WarpAffine : ValueStateModel<AffineClockState> {
   static constexpr const char *ID = "warp.affine.v2";
   static constexpr const char *NAME = "Affine Warp";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = AffineWarpParams;
-  using State = AffineClockState;
   using Prepared = Warp::PreparedAffineSlot;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
     state.rotation =
@@ -118,20 +112,14 @@ struct PreparedWaveShear {
 };
 
 /** @brief PLANE endomorphism: the travelling sine shear. */
-struct WarpWaveShear {
+struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.wave-shear.v2";
   static constexpr const char *NAME = "Wave Shear";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = WaveShearWarpParams;
-  using State = WarpPhaseState;
   using Prepared = PreparedWaveShear;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
@@ -190,20 +178,14 @@ struct PreparedVortexWarp {
 };
 
 /** @brief PLANE endomorphism: the orbiting radial vortex. */
-struct WarpVortex {
+struct WarpVortex : ValueStateModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.vortex.v2";
   static constexpr const char *NAME = "Vortex";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = VortexWarpParams;
-  using State = WarpPhaseState;
   using Prepared = PreparedVortexWarp;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
@@ -247,20 +229,15 @@ struct PreparedVectorNoiseWarp {
 };
 
 /** @brief PLANE endomorphism: the noise-vector displacement. */
-struct WarpVectorNoise {
+struct WarpVectorNoise : ValueStateModel<NoisePhaseState> {
   static constexpr const char *ID = "warp.vector-noise.v2";
   static constexpr const char *NAME = "Vector Noise";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = VectorNoiseWarpParams;
-  using State = NoisePhaseState;
   using Prepared = PreparedVectorNoiseWarp;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
@@ -289,20 +266,14 @@ struct MirrorWarpParams : Warp::MirrorParams {
 static_assert(field_ids_unique<MirrorWarpParams>());
 
 /** @brief PLANE endomorphism: the mirrored tiling fold. */
-struct WarpMirrorTile {
+struct WarpMirrorTile : ValueStateModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.mirror-tile.v2";
   static constexpr const char *NAME = "Mirror Tile";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = MirrorWarpParams;
-  using State = WarpPhaseState;
   using Prepared = Warp::PreparedMirrorSlot;
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
@@ -346,22 +317,16 @@ struct PolarChartParams : Warp::PolarParams {
 static_assert(field_ids_unique<PolarChartParams>());
 
 /** @brief PLANE endomorphism: the polar chart change. */
-struct WarpPolarChart {
+struct WarpPolarChart : ValueStateModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.polar-chart.v2";
   static constexpr const char *NAME = "Polar Chart";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = PolarChartParams;
-  using State = WarpPhaseState;
   struct Prepared {
     float phase;
   };
 
-  static void init(State &, InstanceId) {}
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
@@ -417,20 +382,15 @@ struct PreparedCurlFlow {
 };
 
 /** @brief PLANE endomorphism: the divergence-free curl flow. */
-struct WarpCurlFlow {
+struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
   static constexpr const char *ID = "warp.curl-flow.v2";
   static constexpr const char *NAME = "Curl Flow";
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = CurlFlowParams;
-  using State = NoisePhaseState;
   using Prepared = PreparedCurlFlow;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Status migrate(State &dst, const State &src, InstanceId) {
-    dst = src;
-    return Status::OK;
-  }
   static void advance(State &state, const Params &params) {
     state.phase = wrap_t(state.phase + params.speed);
   }
