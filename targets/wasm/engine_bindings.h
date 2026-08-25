@@ -281,9 +281,17 @@ public:
 
   /**
    * @brief Destroys the engine and admits the next construction.
-   * @details JS reaches this through the embind-generated delete().
+   * @details JS reaches this through the embind-generated delete(). Runs the
+   *          same teardown re-partition setResolution() and setEffect() do, so
+   *          the module-global engine arenas — still readable through the
+   *          static MeshOps.getArenaMetrics() — report the released state
+   *          rather than the destroyed effect's usage.
    */
-  ~HolosphereEngine() { engine_alive = false; }
+  ~HolosphereEngine() {
+    current_effect.reset();
+    configure_arenas_default();
+    engine_alive = false;
+  }
 
   /**
    * @brief Whether an engine instance is currently constructed.
