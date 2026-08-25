@@ -123,6 +123,7 @@ public:
     decay();
   }
 
+private:
   /**
    * @brief Ages every point one frame and swap-removes dead slots.
    * @details Unordered compaction: a dead slot is overwritten by the last live
@@ -138,7 +139,6 @@ public:
     }
   }
 
-private:
   /**
    * @brief Trail alpha below which a sample seeds nothing and a buffered point
    * emits nothing.
