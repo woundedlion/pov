@@ -144,7 +144,6 @@ struct ShaderWorkbenchWhiteBox;
   X(PROJECTION_BONNE_STANDARD_PARALLEL,                                        \
     params.projection.bonne_standard_parallel)                                 \
   X(PROJECTION_LAYOUT_SCROLL, params.projection.layout_scroll)                 \
-  X(LENS_MIX, params.surface_lens.mix)                                         \
   X(LENS_MOBIUS_A_RE, params.surface_lens.mobius.a.re)                         \
   X(LENS_MOBIUS_A_IM, params.surface_lens.mobius.a.im)                         \
   X(LENS_MOBIUS_B_RE, params.surface_lens.mobius.b.re)                         \
@@ -752,16 +751,13 @@ public:
   };
 
   struct SurfaceLensParams {
-    float mix = 0.0f;
     MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                         0.7071067811865475f, 0.0f};
 
     HS_COLD_MEMBER constexpr SurfaceLensParams() = default;
 
-    constexpr SurfaceLensParams(float mix) : mix(mix) {}
-
     HS_COLD_MEMBER bool operator==(const SurfaceLensParams &other) const {
-      return mix == other.mix && mobius.a.re == other.mobius.a.re &&
+      return mobius.a.re == other.mobius.a.re &&
              mobius.a.im == other.mobius.a.im &&
              mobius.b.re == other.mobius.b.re &&
              mobius.b.im == other.mobius.b.im &&
@@ -775,9 +771,8 @@ public:
                              const SurfaceLensParams &b, float t) {
       // Trips if the field set changes, so a new field cannot silently go
       // uninterpolated and unsnapped.
-      static_assert(sizeof(SurfaceLensParams) == 36,
+      static_assert(sizeof(SurfaceLensParams) == 32,
                     "SurfaceLensParams field set changed - update lerp");
-      mix = hs::lerp(a.mix, b.mix, t);
       mobius = t < 1.0f ? a.mobius : b.mobius;
     }
   };
@@ -944,7 +939,7 @@ public:
   };
   using RequestedConfig = Config;
 
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 9;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 10;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
@@ -981,7 +976,7 @@ public:
   // entry the second. Their difference is alignment padding, so the list
   // covers every Config byte that carries a value.
   static_assert(
-      sizeof(Config) == 528 && CONFIG_FIELD_BYTES == 501,
+      sizeof(Config) == 524 && CONFIG_FIELD_BYTES == 497,
       "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
 
   struct ConfigFieldLayout {
@@ -6474,7 +6469,6 @@ private:
                          SINGULARITY_FADE_MAX = 20.0f;
   static constexpr float SPIN_RATE_MIN = 0.0f, SPIN_RATE_MAX = 0.05f;
   static constexpr float WANDER_MIN = 0.0f, WANDER_MAX = 1.0f;
-  static constexpr float LENS_MIX_MIN = 0.0f, LENS_MIX_MAX = 1.0f;
   static constexpr float HUE_SHIFT_AMOUNT_MAX = 4.0f;
   static constexpr float HUE_NOISE_AMOUNT_MAX = 1.0f;
   static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
@@ -6575,8 +6569,6 @@ private:
            p.projection.layout_scroll <= 1.0f &&
            p.outer_camera.wander >= WANDER_MIN &&
            p.outer_camera.wander <= WANDER_MAX &&
-           p.surface_lens.mix >= LENS_MIX_MIN &&
-           p.surface_lens.mix <= LENS_MIX_MAX &&
            p.surface_noise.scale >= LENS_NOISE_SCALE_MIN &&
            p.surface_noise.scale <= LENS_NOISE_SCALE_MAX &&
            p.surface_noise.strength >= -0.5f &&
@@ -6768,8 +6760,7 @@ private:
 
   static constexpr Config wave_shear_generated_preset(
       float pattern_freq = 4.439f, float complexity = 0.5f,
-      float warp_strength = 0.5f, float warp_speed = 0.015625f,
-      float surface_mix = 1.0f) {
+      float warp_strength = 0.5f, float warp_speed = 0.015625f) {
     Slots slots = GENERATED_SURFACE_NOISE_SLOTS;
     slots.warp_program.outer.kind = WarpStageKind::WAVE_SHEAR;
     slots.surface_noise = SurfaceNoise::NONE;
@@ -6778,7 +6769,7 @@ private:
     Params params =
         authored_params({pattern_freq, 0.245f, complexity, 0.0f, 0.0f, 0.0f},
                         {1.0f, warp_strength, warp_speed}, {1.0f, 0.0f, 0.0f},
-                        {surface_mix}, {0.292f, 0.6304219f, 0.0f}, {0.8f});
+                        {}, {0.292f, 0.6304219f, 0.0f}, {0.8f});
     params.projection.wander = 0.0f;
     params.color.palette_chroma = 0.788f;
     params.color.mapping_phase = -0.0f;
@@ -6795,10 +6786,9 @@ private:
                       ValueTransfer::NONE,
                       CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                       PaletteMode::TRIADIC};
-    Params params =
-        authored_params({4.9755f, 0.125f, 0.513f, 0.0f, 0.8f, 0.05f},
-                        {0.1f, 0.0f, 0.5f}, {4.971f, 0.0f, 1.0f}, {1.0f},
-                        {0.27f, 2.2033439f, -0.00040800002f}, {1.0f});
+    Params params = authored_params(
+        {4.9755f, 0.125f, 0.513f, 0.0f, 0.8f, 0.05f}, {0.1f, 0.0f, 0.5f},
+        {4.971f, 0.0f, 1.0f}, {}, {0.27f, 2.2033439f, -0.00040800002f}, {1.0f});
     params.color.palette_chroma = 0.361f;
     return {slots, params};
   }
@@ -6820,9 +6810,8 @@ private:
     outer_warp.cell_y = 1.0f;
     outer_warp.offset_x = 1.344f;
     outer_warp.offset_y = -1.456f;
-    Params params =
-        authored_params({3.565f, 0.235f, 0.0f, 1.0f, 1.0f, 0.0f}, outer_warp,
-                        {1.4f, 0.0f}, {1.0f}, {}, {1.0f});
+    Params params = authored_params({3.565f, 0.235f, 0.0f, 1.0f, 1.0f, 0.0f},
+                                    outer_warp, {1.4f, 0.0f}, {}, {}, {1.0f});
     params.value.edge_width = 0.5f;
     return {slots, params};
   }
@@ -6848,7 +6837,7 @@ private:
     slots.peirce_layout = PeirceLayout::SQUARE;
     Params params =
         authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f},
-                        {1.0f}, {0.319f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
+                        {}, {0.319f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
     params.projection.central_meridian = 0.0f;
     params.projection.coordinate_scale = 1.0f;
     params.value.edge_width = 0.1f;
@@ -6879,7 +6868,7 @@ private:
     inner_warp.offset_y = 0.0f;
     Params params = authored_params(
         {6.3287f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f}, outer_warp,
-        {2.311f, 0.0f}, {1.0f}, {0.721f, 1.0f, 0.0f}, {1.0f});
+        {2.311f, 0.0f}, {}, {0.721f, 1.0f, 0.0f}, {1.0f});
     params.warp.inner = inner_warp;
     return {slots, params};
   }
@@ -6913,7 +6902,6 @@ private:
     params.warp.inner.scale = 0.1f;
     params.projection.spin_rate = 0.0208791979f;
     params.projection.wander = 0.00309175253f;
-    params.surface_lens.mix = 1.0f;
     params.value.iso_level = 0.138f;
     params.value.iso_width = 0.227034181f;
     params.value.band_count = 19;
@@ -6959,7 +6947,6 @@ private:
     params.warp.outer.speed = 0.000343749998f;
     params.projection.singularity_fade = 20.0f;
     params.projection.wander = 1.0f;
-    params.surface_lens.mix = 1.0f;
     params.color.hue_shift_amount = 0.268000007f;
     params.color.hue_noise_scale = 2.0f;
     params.color.palette_chroma = 1.0f;
@@ -7000,7 +6987,6 @@ private:
     params.warp.inner.shear = 0.75f;
     params.projection.singularity_fade = 2.27300000f;
     params.projection.wander = 1.0f;
-    params.surface_lens.mix = 1.0f;
     params.color.hue_shift_amount = 0.268000007f;
     params.color.hue_noise_scale = 2.0f;
     params.color.palette_chroma = 1.0f;
@@ -7036,7 +7022,6 @@ private:
     params.warp.inner.speed = 0.00327999983f;
     params.projection.singularity_fade = 2.311f;
     params.projection.wander = 1.0f;
-    params.surface_lens.mix = 1.0f;
     params.color.hue_shift_amount = 0.721f;
     params.color.palette_chroma = 1.0f;
     params.color.brightness_depth = 0.655f;
@@ -7068,7 +7053,6 @@ private:
     params.warp.inner.cell_y = 0.997703135f;
     params.projection.singularity_fade = 3.432f;
     params.projection.wander = 1.0f;
-    params.surface_lens.mix = 1.0f;
     params.color.hue_shift_amount = 0.366f;
     params.color.hue_noise_scale = 1.47215629f;
     params.color.palette_chroma = 1.0f;
@@ -7135,7 +7119,7 @@ private:
     slots.palette_mapping = PaletteMapping::BELL;
     Params params = authored_params(
         {3.881f, 0.128598228f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
-        {4.971f, 0.0f, 1.0f}, {1.0f}, {0.226f, 1.47215629f, 0.000138f}, {1.0f});
+        {4.971f, 0.0f, 1.0f}, {}, {0.226f, 1.47215629f, 0.000138f}, {1.0f});
     params.color.palette_chroma = 1.0f;
     params.color.mapping_frequency = 1.341f;
     params.color.mapping_phase = -1.0f;
@@ -7160,7 +7144,7 @@ private:
     outer_warp.offset_y = -1.456f;
     Params params =
         authored_params({2.5477f, 0.235f, 1.854f, 0.0f, 1.0f, 0.0f}, outer_warp,
-                        {1.4f, 0.0f}, {1.0f}, {2.048f, 1.0f, 0.0f}, {1.0f});
+                        {1.4f, 0.0f}, {}, {2.048f, 1.0f, 0.0f}, {1.0f});
     params.value.edge_width = 0.5f;
     params.color.palette_chroma = 0.292f;
     return {slots, params};
@@ -7180,7 +7164,7 @@ private:
     slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
     Params params = authored_params(
         {10.158f, 0.245f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
-        {2.102f, 0.0f, 1.0f}, {1.0f}, {0.312f, 1.0f, 0.0f}, {1.0f});
+        {2.102f, 0.0f, 1.0f}, {}, {0.312f, 1.0f, 0.0f}, {1.0f});
     params.surface_lens.mobius = {-1.072f, 0.304f, 0.416f,      0.0f,
                                   0.0f,    0.0f,   0.70710677f, 0.0f};
     params.color.palette_chroma = 0.398f;
@@ -7242,7 +7226,7 @@ private:
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
       {wave_shear_generated_preset(7.5227f, 1.698f, 0.0f, 0.00690625f),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
-      {wave_shear_generated_preset(8.8162f, 1.698f, 1.376f, 0.00559375f, 0.0f),
+      {wave_shear_generated_preset(8.8162f, 1.698f, 1.376f, 0.00559375f),
        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
   }};
   static_assert(
