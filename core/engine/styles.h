@@ -233,7 +233,8 @@ struct Style {
   }
 
   /**
-   * @brief Strong downward melt with slow drift and pronounced hue rotation.
+   * @brief Slow downward melt with strong noise wobble and pronounced hue
+   * rotation.
    * @return The MeltingHi preset Style.
    */
   static constexpr Style MeltingHi() {
@@ -242,7 +243,8 @@ struct Style {
   }
 
   /**
-   * @brief Gentle downward melt with slow drift and pronounced hue rotation.
+   * @brief Slow downward melt with gentle noise wobble and pronounced hue
+   * rotation.
    * @return The MeltingLo preset Style.
    */
   static constexpr Style MeltingLo() {
