@@ -84,6 +84,12 @@ struct FactoryEntry {
 HS_RESOLUTIONS(HS_REG_RESOLUTION_FITS)
 #undef HS_REG_RESOLUTION_FITS
 
+// The instantiation stable-id queries are answered from. EFFECT_ID does not
+// depend on <W,H>, so every resolution names the same id; spelling one out
+// keeps the persisted identity — and the per-effect RNG stream behind it — off
+// HS_RESOLUTIONS' ordering.
+#define HS_REG_IDENTITY_RESOLUTION 96, 20
+
 /**
  * @brief Resolution-specific fill functions for one registered effect.
  * @details Fill functions are templated per <W,H> but stored as concrete
@@ -94,11 +100,15 @@ struct EffectRegistration {
   std::string_view name; /**< Effect class/header stem. */
   using FillFn = void (*)(
       FactoryEntry &); /**< Populates a FactoryEntry for a given resolution. */
+  using StableIdFn =
+      std::string_view (*)(); /**< Names the persisted identity. */
 #define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
   HS_RESOLUTIONS(HS_REG_FILL_FIELD)
 #undef HS_REG_FILL_FIELD
-  std::string_view stable_id{}; /**< Persisted identity shared by every
-                                   resolution's FactoryEntry. */
+  StableIdFn stable_id_fn = nullptr; /**< Reads the persisted identity without
+                                        building a FactoryEntry. */
+  std::string_view stable_id{};      /**< Persisted identity shared by every
+                                        resolution's FactoryEntry. */
 };
 
 /**
@@ -130,16 +140,8 @@ public:
    *          instead, or sort `entries()` by name at use.
    */
   static int add(EffectRegistration reg) {
-    if (reg.stable_id.empty()) {
-      FactoryEntry identity;
-      const EffectRegistration::FillFn fills[] = {
-#define HS_REG_ID_FILL(W, H) reg.fill_##W##_##H,
-          HS_RESOLUTIONS(HS_REG_ID_FILL)
-#undef HS_REG_ID_FILL
-      };
-      fills[0](identity);
-      reg.stable_id = identity.stable_id;
-    }
+    if (reg.stable_id.empty())
+      reg.stable_id = reg.stable_id_fn();
 
     for (const auto &existing : entries()) {
       HS_CHECK(existing.name != reg.name,
@@ -240,12 +242,17 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
         e.preset_count = ClassName<W, H>::authored_preset_count();               \
       }                                                                          \
     }                                                                            \
+    static constexpr std::string_view stable_id() {                              \
+      return hs::stable_effect_id<ClassName<HS_REG_IDENTITY_RESOLUTION>>(        \
+          #ClassName);                                                           \
+    }                                                                            \
     /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references reg, so   \
      * under LTO / --gc-sections the dynamic initializer could be discarded,   \
      * silently dropping the effect from the registry. */ \
     HS_REGISTRAR_ANCHOR                                                          \
     static inline int reg = EffectRegistry::add(                                 \
-        {#ClassName, HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});                   \
+        {#ClassName,                                                             \
+         HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR) HS_DETAIL_REG_ID});              \
   };                                                                             \
   }
 
@@ -253,6 +260,10 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
 // above. Defined outside the macro (preprocessor directives can't live inside a
 // macro body). The trailing comma is harmless in a braced-init list.
 #define HS_DETAIL_REG_FILL_PTR(W, H) &fill<W, H>,
+
+// The registrar's stable-id accessor, following the fill pointers above (whose
+// trailing comma separates them) as EffectRegistration::stable_id_fn.
+#define HS_DETAIL_REG_ID &stable_id
 
 #else
 // Static effect selection does not need registration machinery.
