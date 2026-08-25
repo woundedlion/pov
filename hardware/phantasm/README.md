@@ -77,10 +77,13 @@ committed board directly need no KiCad and run in CI
   via pair with less than 0.15 mm of copper spacing (pad edge to pad edge).
 - **Schematic parity gate:** `gen/fab.py` runs `kicad-cli pcb drc
   --schematic-parity` and rejects any board/schematic difference outside
-  `KNOWN_PARITY_ITEMS` (mounting holes, jumper BOM attributes, the Teensy
-  footprint field), so gerbers for stale copper cannot ship with a BOM
-  exported from a newer schematic. Parity items are warning severity in
-  KiCad, so this runs separately from the error-severity DRC gate.
+  `KNOWN_PARITY_ITEMS` (the four mounting holes, which carry no symbol, and
+  the four ID/shield jumpers, excluded from the BOM on the board only), so
+  gerbers for stale copper cannot ship with a BOM exported from a newer
+  schematic. `KNOWN_PARITY_WARNING_COUNTS` allows exactly eleven
+  `lib_footprint_mismatch` warnings and rejects any other count. Parity items
+  are warning severity in KiCad, so this runs separately from the
+  error-severity DRC gate.
 - **Plot-origin gate:** the gerbers, Excellon drill, and CPL are all exported
   in absolute board coordinates, and `gen/fab.py` rejects a board carrying a
   non-zero drill/place origin (`aux_axis_origin`) — that would move only the
