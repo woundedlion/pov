@@ -1742,14 +1742,14 @@ inline void test_strap_crossfade_across_cycle_start() {
   HS_EXPECT_GT(st.far_pairs, 0);
 }
 
-/** Epoch seeds for the seed-swept strap pin. */
-constexpr uint32_t STRAP_SWEEP_EPOCHS[] = {0, 1, 2, 3, 5, 8, 13, 15};
+/** Epoch seeds for the seed-swept strap pin; epoch 0 is walked deeper above. */
+constexpr uint32_t STRAP_SWEEP_EPOCHS[] = {1, 2, 3, 5, 8, 13, 15};
 
 /** Arrival budget per swept seed (frame cap scales with it). */
-constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 6, 18, 6, 18, 26, 26};
+constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 18, 6, 18, 26, 26};
 
 /**
- * @brief Seed-swept strap continuity: across eight epoch seeds, every strap
+ * @brief Seed-swept strap continuity: across seven epoch seeds, every strap
  *        slot of every arrival opens on its previous displayed color and
  *        glides in bounded steps — including slots shared with a star class,
  *        whose star faces stay bitwise on the bank entry at the bookends.
