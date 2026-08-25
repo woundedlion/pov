@@ -47,9 +47,9 @@ public:
   using Params = LatticeMeltParams;
   static constexpr std::string_view EFFECT_ID = "lattice-melt";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "f66b338a7ea3bfe79799d7ec309f4ec261be95c7a9a7d2b0c7cddb018c0c4ffc";
+      "34fbba5348926b53b2c8f8775b872276cd4dbe8524fa0c4126ea3bed1b41f3e2";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "02944fbbca0274490f9d63d233d4ad27989c03b32fa10d20b23cd61f0a579438";
+      "7f7170031d4e3ef76153c8a1a0ebffd8ca40386ee7c8593815cad757974ad024";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"open-curl",
                                                               "dense-curl"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
@@ -63,7 +63,6 @@ public:
                     .lattice_shape_blend = 1.0f,
                     .lattice_softness = 0.455532223f,
                     .lattice_radius = 0.290762514f};
-    value.projection.singularity_fade = 20.0f;
     value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.surface = {

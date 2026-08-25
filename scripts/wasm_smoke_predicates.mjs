@@ -3,11 +3,12 @@
 //
 // wasm_smoke.mjs cannot run without a built WASM module, so nothing gated the
 // judgements it makes with one: the all-black expectation for a short frame
-// window, the stack creep budget it compares every high-water mark against, and
-// the zip between the two embind parameter streams. Each decides whether a real
-// defect reds CI, and each is a pure function of numbers and arrays -- kept
-// here, free of the module, so wasm_smoke_predicates.test.mjs can gate them
-// with no build.
+// window, the stack creep budget it compares every high-water mark against, the
+// zip between the two embind parameter streams, and the resolution of every
+// promoted document parameter id against its effect's controls. Each decides
+// whether a real defect reds CI, and each is a pure function of numbers,
+// strings and arrays -- kept here, free of the module, so
+// wasm_smoke_predicates.test.mjs can gate them with no build.
 
 /** Effect whose rings expand from zero radius, so a short window is black. */
 export const DARK_EXEMPT = 'RingShower';
@@ -144,6 +145,127 @@ export function paramStreamProblems(defs, values) {
       problems.push(`param "${d.name}" has a non-finite/inverted range [${d.min}, ${d.max}]`);
     } else if (!Number.isFinite(d.value) || d.value < d.min - eps || d.value > d.max + eps) {
       problems.push(`param "${d.name}" value ${d.value} outside [${d.min}, ${d.max}]`);
+    }
+  }
+  return problems;
+}
+
+/** The one topology field a composed effect leaves live, as a dropdown. */
+export const LIVE_TOPOLOGY_FIELD = 'palette-mapping';
+
+/**
+ * Field segments a composed effect bakes into its build rather than
+ * registering a control for: the catalog's topology parameters, which select
+ * an operator's structural variant, less the one field left live.
+ *
+ * @param {*} catalog The engine operator catalog.
+ * @returns {Set<string>} The field segments a fixed apply skips.
+ */
+export function bakedTopologyFields(catalog) {
+  const fields = new Set();
+  for (const operator of catalog?.operators ?? []) {
+    for (const parameter of operator.params ?? []) {
+      if (parameter.topology === true) fields.add(parameter.id);
+    }
+  }
+  fields.delete(LIVE_TOPOLOGY_FIELD);
+  return fields;
+}
+
+/**
+ * Parameter ids a composed effect holds as a compile-time constant: the
+ * document carries the value so the chain interpreter reproduces the motion,
+ * the compiled build registers no control, and a fixed apply has nothing to
+ * write. AshCloud's CAMERA_SPIN_RATE is the only one.
+ */
+export const BAKED_CONSTANT_IDS = new Set(['camera.spin-speed']);
+
+/** @param {string} value */
+const titleWords = (value) => value.split('-')
+  .map((part) => (part.length === 0 ? part : part[0].toUpperCase() + part.slice(1)))
+  .join(' ');
+
+/**
+ * The control names a `<label>.<field>` document parameter id may resolve to
+ * on a compiled effect, most specific first.
+ *
+ * Composed effects register display names off their parameter families, not
+ * off document labels, so the two spellings only meet through this table; the
+ * simulator's fixed apply path carries the same one.
+ *
+ * @param {string} parameterId
+ * @returns {string[]} The candidate control names.
+ */
+export function engineControlNames(parameterId) {
+  const dot = parameterId.indexOf('.');
+  if (dot < 0) return [titleWords(parameterId)];
+  const label = parameterId.slice(0, dot);
+  const field = parameterId.slice(dot + 1);
+  const words = titleWords(field);
+  if (label === 'warp1' || label === 'warp2') {
+    const slot = `Planar Warp ${label === 'warp1' ? 1 : 2} ${words}`;
+    if (['Rotation Rate', 'Translation X', 'Translation Y', 'Scale X', 'Scale Y', 'Shear']
+      .includes(words)) return [slot, `Affine ${words}`];
+    if (['Radial Scale', 'Radial Phase', 'Angular Phase'].includes(words))
+      return [slot, `Polar ${words}`];
+    if (['Rotation', 'Cell X', 'Cell Y', 'Offset X', 'Offset Y'].includes(words))
+      return [slot, `Mirror ${words}`];
+    if (['Strength', 'Frequency', 'Field Angle', 'Scale', 'Vector Angle'].includes(words))
+      return [slot, `Warp ${words}`];
+    return [slot, words];
+  }
+  if (label === 'surface') return [`Surface Noise ${words}`];
+  if (label === 'camera') return [`Camera ${words}`];
+  if (label === 'sample' && field === 'angle-speed') return ['Source Angle Speed'];
+  return [words];
+}
+
+/**
+ * Every promoted document parameter id that names no control on the effect it
+ * was promoted to.
+ *
+ * A promoted document is applied to its compiled effect one parameter at a
+ * time, by name; an id that resolves to nothing refuses the whole apply, so
+ * the preview-versus-compiled comparison writes no value at all. Nothing else
+ * pins the two vocabularies together: the digests are computed from the
+ * document alone, and the value pin in tests/test_composed_effect.h maps ids
+ * onto parameter families by chain operator, so a label the alias table does
+ * not know still lands.
+ *
+ * @param {object} run
+ * @param {{document: string, effect: string, parameterIds: string[]}[]} run.documents
+ * @param {Map<string, Set<string>>} run.controls Control names per effect id.
+ * @param {Set<string>} run.bakedFields From bakedTopologyFields().
+ * @returns {string[]} One message per problem; empty means every id resolves.
+ */
+export function promotedBindingProblems({ documents, controls, bakedFields }) {
+  const problems = [];
+  const seenConstants = new Set();
+  for (const { document, effect, parameterIds } of documents) {
+    const registered = controls.get(effect);
+    if (!registered) {
+      problems.push(`${document}: the running roster carries no effect "${effect}"`);
+      continue;
+    }
+    for (const parameterId of parameterIds) {
+      if (BAKED_CONSTANT_IDS.has(parameterId)) {
+        seenConstants.add(parameterId);
+        continue;
+      }
+      if (bakedFields.has(parameterId.slice(parameterId.indexOf('.') + 1))) continue;
+      const names = engineControlNames(parameterId);
+      if (names.some((name) => registered.has(name))) continue;
+      problems.push(`${document}: "${parameterId}" names no control on "${effect}" ` +
+        `(tried ${names.map((name) => `"${name}"`).join(', ')}) — applying the ` +
+        `document to the compiled build refuses here and writes nothing`);
+    }
+  }
+  // A stale exemption would silently cover an id that has since become
+  // registrable, so it only holds while a document still carries it.
+  for (const parameterId of BAKED_CONSTANT_IDS) {
+    if (!seenConstants.has(parameterId)) {
+      problems.push(`the baked-constant exemption names "${parameterId}", which no ` +
+        `promoted document carries — the exemption is stale`);
     }
   }
   return problems;

@@ -35,9 +35,9 @@ public:
   using Params = AshCloudParams;
   static constexpr std::string_view EFFECT_ID = "ash-cloud";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "11f59e39cf85d5ce022ec6ec60338a785dda5b1599a9198a2ea6fa8a5b415ee5";
+      "b59896c55c9ca89ecd53fdf9cb648c78c1f8253aa6284c7b90e6a29652466033";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "5820bfb08bd25c4bf8df9f47b2b3858c29a6671489732538a1af8cd6f1ee58c7";
+      "bb8b1dc6fe15beaf9a4c11730c902d9743a3035942e3b123e3760e25e50c214e";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"ash-cloud"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

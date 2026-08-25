@@ -69,6 +69,16 @@ its device-second budget, and `destinations` maps every retired legacy
 `scripts/shader_workbench.test.mjs` gates the tree against it: a document that
 backs an effect must appear in `source_documents`.
 
+A promoted document is also applied to its compiled effect by control name, one
+parameter at a time, so every parameter id must resolve to a control that effect
+registers. Chain labels are the vocabulary that resolution runs on — `camera`,
+`lens`, `surface`, `project`, `warp1`/`warp2`, `sample`, `transfer`, `cutout`,
+`colorize`, the labels the v1 expansion assigns — and a hand-authored document
+takes the same ones. `scripts/wasm_smoke.mjs` resolves every promoted id against
+the running module's registered controls; the topology fields a fixed build
+bakes in are exempt, as is `camera.spin-speed`, which `AshCloud` holds as a
+compile-time constant.
+
 `lattice_melt.shader.json` is the editable source for the `LatticeMelt`
 comparison effect. Its two presets share one descriptor and vary only the
 linearly interpolated sphere-noise scale.
