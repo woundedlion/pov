@@ -436,6 +436,7 @@ struct WarpCurlFlow {
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    HS_CHECK(params.integrator < 3, "warp.curl-flow: invalid integrator");
     return {&state.noise, state.phase,
             static_cast<uint8_t>(1U << params.integrator)};
   }
