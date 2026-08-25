@@ -179,6 +179,12 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
     for (size_t r = 0; r < num_runs; ++r) {
       const int rx2 = runs[r].second;
+      // The next canvas-aligned block anchor at or after x, advanced by stride,
+      // so block heads are selected without a per-column divide.
+      [[maybe_unused]] int next_block = runs[r].first;
+      if constexpr (pole_lod_blocks<SDF::Face>)
+        if (stride > 1)
+          next_block += (stride - next_block % stride) % stride;
       for (int x = runs[r].first; x < rx2;) {
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         shape.template distance_with_flags<true>(p, res, reject_dsq,
@@ -193,11 +199,14 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         // an inside probe is never culled.
         int span = 1;
         if constexpr (pole_lod_blocks<SDF::Face>) {
-          if (stride > 1 && x % stride == 0 && x + stride <= rx2 &&
-              (pole_lod_block_settles<SDF::Face>(-d, pixel_width,
-                                                 block_slack) ||
-               pole_lod_block_settles<SDF::Face>(d, pixel_width, block_slack)))
-            span = stride;
+          if (stride > 1 && x == next_block) {
+            next_block += stride;
+            if (x + stride <= rx2 && (pole_lod_block_settles<SDF::Face>(
+                                          -d, pixel_width, block_slack) ||
+                                      pole_lod_block_settles<SDF::Face>(
+                                          d, pixel_width, block_slack)))
+              span = stride;
+          }
         }
 
         if (d >= pixel_width) {
