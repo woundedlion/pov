@@ -131,9 +131,11 @@ jobs:
       pages: write
       id-token: write
     # One Pages deploy at a time; never cancel an in-flight deploy mid-publish.
+    # A superseded deploy queues instead, so two close master pushes cannot
+    # leave the site on a half-uploaded artifact.
     concurrency:
       group: pages
-      cancel-in-progress: true
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment:
