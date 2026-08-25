@@ -353,8 +353,9 @@ private:
     float duty_cycle = 0.5f; /**< Lit fraction of each palette cycle. */
   };
 
-  // All 8 Params fields are listed explicitly; a trailing omission would
-  // silently fall back to the default member initializer, not the preset value.
+  // Positional init: a short list value-initializes the omitted fields to 0,
+  // since only duty_cycle carries a default member initializer. The
+  // static_assert below catches a changed field set, not a short list.
   static constexpr Params PRESET{1.0f,     80.0f,      0.235f, 2.88f,
                                  0.26974f, 84.832001f, 0.672f, 0.5f};
   static_assert(sizeof(Params) == 8 * sizeof(float),
