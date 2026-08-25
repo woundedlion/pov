@@ -193,7 +193,7 @@ struct ShaderWorkbenchWhiteBox {
             {{6.0f, 0.05f, 0.0f, 0.0f, 0.8f, 0.006f},
              {{0.1f, 0.0f, 0.5f}, {0.1f, 0.0f, 0.5f}},
              {2.0f, 0.0f, 0.0f},
-             {1.0f},
+             {},
              {},
              {0.0f, 1.0f, 0.0f},
              {0.25f},
@@ -1365,17 +1365,12 @@ inline void test_shader_workbench_legacy_spatial_slots() {
   frame.slots.surface_lens = WB::SurfaceLens::GLITCH;
   frame.slots.surface_noise = WB::SurfaceNoise::NONE;
   frame.transforms.projection_conj = Quaternion();
-  frame.params.surface_lens.mix = 0.0f;
-  const WB::ProjectedLookup start = WB::surface_project(v, frame);
-  frame.params.surface_lens.mix = 1.0f;
-  const WB::ProjectedLookup end = WB::surface_project(v, frame);
-  HS_EXPECT_NEAR(start.coords.re, lensed.re, 1e-6f);
-  HS_EXPECT_NEAR(start.coords.im, lensed.im, 1e-6f);
+  const WB::ProjectedLookup glitched = WB::surface_project(v, frame);
   // glitch_lens' polar terms are FMA-contractable, so the reference above and
   // the pipeline's own call can round 2 ULP apart under -O2; a wrong lens
   // branch would miss by ~1.
-  HS_EXPECT_NEAR(end.coords.re, lensed.re, 1e-6f);
-  HS_EXPECT_NEAR(end.coords.im, lensed.im, 1e-6f);
+  HS_EXPECT_NEAR(glitched.coords.re, lensed.re, 1e-6f);
+  HS_EXPECT_NEAR(glitched.coords.im, lensed.im, 1e-6f);
 }
 
 /** @brief The reflection-only six-sector fold matches the legacy polar map. */
@@ -1595,7 +1590,6 @@ inline void test_shader_workbench_equirectangular_projection() {
   config.slots.projection = WB::Projection::EQUIRECTANGULAR;
   config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   config.slots.surface_lens = WB::SurfaceLens::NONE;
-  config.params.surface_lens.mix = 0.0f;
   HS_EXPECT_TRUE(WB::valid_config(config));
   HS_EXPECT_FALSE(WB::has_inverse_program(config));
   HS_EXPECT_EQ(
@@ -1884,7 +1878,7 @@ inline void test_shader_workbench_preset_bank() {
                WB::WarpStageKind::WAVE_SHEAR);
   HS_EXPECT_EQ(wave_shear.slots.palette_mapping, WB::PaletteMapping::CUP);
   auto collect_signal_values = [](const auto &signal) {
-    return std::array<float, 24>{
+    return std::array<float, 23>{
         signal.source.pattern_freq,
         signal.source.speed,
         signal.source.angle_rate,
@@ -1897,7 +1891,6 @@ inline void test_shader_workbench_preset_bank() {
         signal.warp.outer.scale,
         signal.warp.outer.strength,
         signal.warp.outer.speed,
-        signal.surface_lens.mix,
         signal.outer_camera.wander,
         signal.color.palette_chroma,
         signal.color.mapping_frequency,
@@ -1911,39 +1904,39 @@ inline void test_shader_workbench_preset_bank() {
         signal.color.hue_noise_speed,
     };
   };
-  const std::array<float, 24> primary_signal =
+  const std::array<float, 23> primary_signal =
       collect_signal_values(wave_shear.params);
-  constexpr std::array<float, 24> SIGNAL_EXPECTED{
-      4.439f, 0.245f, 0.0f, 0.5f,      0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,   1.0f,   0.5f, 0.015625f, 1.0f, 0.8f,   0.788f,     1.0f,
-      -0.0f,  0.0f,   0.0f, 1.0f,      1.0f, 0.292f, 0.6304219f, 0.0f,
+  constexpr std::array<float, 23> SIGNAL_EXPECTED{
+      4.439f, 0.245f, 0.0f, 0.5f,      0.0f,   0.0f,       1.0f, 0.0f,
+      0.0f,   1.0f,   0.5f, 0.015625f, 0.8f,   0.788f,     1.0f, -0.0f,
+      0.0f,   0.0f,   1.0f, 1.0f,      0.292f, 0.6304219f, 0.0f,
   };
   const auto &second_signal = presets[21];
   HS_EXPECT_EQ(second_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
-  const std::array<float, 24> secondary_signal =
+  const std::array<float, 23> secondary_signal =
       collect_signal_values(second_signal.params);
-  constexpr std::array<float, 24> SECOND_SIGNAL_EXPECTED{
-      3.1447f, 0.245f, 0.0f,  0.5f,        0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,    1.0f,   2.72f, 0.00690625f, 1.0f, 0.8f,   0.788f,     1.0f,
-      -0.0f,   0.0f,   0.0f,  1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
+  constexpr std::array<float, 23> SECOND_SIGNAL_EXPECTED{
+      3.1447f, 0.245f, 0.0f,  0.5f,        0.0f,   0.0f,       1.0f, 0.0f,
+      0.0f,    1.0f,   2.72f, 0.00690625f, 0.8f,   0.788f,     1.0f, -0.0f,
+      0.0f,    0.0f,   1.0f,  1.0f,        0.292f, 0.6304219f, 0.0f,
   };
   const auto &third_signal = presets[22];
   HS_EXPECT_EQ(third_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
-  const std::array<float, 24> tertiary_signal =
+  const std::array<float, 23> tertiary_signal =
       collect_signal_values(third_signal.params);
-  constexpr std::array<float, 24> THIRD_SIGNAL_EXPECTED{
-      7.5227f, 0.245f, 0.0f, 1.698f,      0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,    1.0f,   0.0f, 0.00690625f, 1.0f, 0.8f,   0.788f,     1.0f,
-      -0.0f,   0.0f,   0.0f, 1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
+  constexpr std::array<float, 23> THIRD_SIGNAL_EXPECTED{
+      7.5227f, 0.245f, 0.0f, 1.698f,      0.0f,   0.0f,       1.0f, 0.0f,
+      0.0f,    1.0f,   0.0f, 0.00690625f, 0.8f,   0.788f,     1.0f, -0.0f,
+      0.0f,    0.0f,   1.0f, 1.0f,        0.292f, 0.6304219f, 0.0f,
   };
   const auto &fourth_signal = presets[23];
   HS_EXPECT_EQ(fourth_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
-  const std::array<float, 24> fourth_signal_values =
+  const std::array<float, 23> fourth_signal_values =
       collect_signal_values(fourth_signal.params);
-  constexpr std::array<float, 24> FOURTH_SIGNAL_EXPECTED{
-      8.8162f, 0.245f, 0.0f,   1.698f,      0.0f, 0.0f,   1.0f,       0.0f,
-      0.0f,    1.0f,   1.376f, 0.00559375f, 0.0f, 0.8f,   0.788f,     1.0f,
-      -0.0f,   0.0f,   0.0f,   1.0f,        1.0f, 0.292f, 0.6304219f, 0.0f,
+  constexpr std::array<float, 23> FOURTH_SIGNAL_EXPECTED{
+      8.8162f, 0.245f, 0.0f,   1.698f,      0.0f,   0.0f,       1.0f, 0.0f,
+      0.0f,    1.0f,   1.376f, 0.00559375f, 0.8f,   0.788f,     1.0f, -0.0f,
+      0.0f,    0.0f,   1.0f,   1.0f,        0.292f, 0.6304219f, 0.0f,
   };
   for (size_t index = 0; index < primary_signal.size(); ++index) {
     HS_EXPECT_EQ(std::bit_cast<uint32_t>(primary_signal[index]),
@@ -2254,13 +2247,12 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(alien_core.params.warp.outer.offset_y, -1.456f);
   HS_EXPECT_EQ(alien_core.params.projection.singularity_fade, 1.4f);
   HS_EXPECT_EQ(alien_core.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(alien_core.params.surface_lens.mix, 1.0f);
   HS_EXPECT_EQ(alien_core.params.value.edge_width, 0.5f);
   HS_EXPECT_EQ(alien_core.params.color.hue_shift_amount, 2.048f);
   HS_EXPECT_EQ(alien_core.params.color.palette_chroma, 0.292f);
   HS_EXPECT_EQ(alien_core.params.outer_camera.wander, 1.0f);
   const auto &mobius_grid = presets[19];
-  constexpr std::array<uint32_t, 152> MOBIUS_GRID_EXPECTED{
+  constexpr std::array<uint32_t, 151> MOBIUS_GRID_EXPECTED{
       0,          1,          1,          4,          0,          0,
       0,          0,          0,          1,          1337,       7,
       0,          0,          0,          0,          1,          1337,
@@ -2278,15 +2270,15 @@ inline void test_shader_workbench_preset_bank() {
       1065353216, 0,          0,          0,          1065353216, 1065353216,
       0,          0,          1065353216, 0,          0,          1036831949,
       1074169643, 0,          1065353216, 0,          1065353216, 1061752795,
-      0,          1065353216, 3213440844, 1050387939, 1054146036, 0,
-      0,          0,          1060439283, 0,          1056964608, 1028443341,
-      4,          0,          1056964608, 1028443341, 1036831949, 1050656375,
-      1065353216, 0,          1053542056, 1065353216, 0,          0,
-      0,          1065353216, 1065353216, 1065353216, 1065353216, 0,
-      0,          1337,       1065353216, 0,          0,          0,
-      6,          1034147594, 1017370378, 0,          1056964608, 8,
-      0,          3209481421, 1042267767, 1082130432, 1065353216, 1025758986,
-      1017370378, 0};
+      0,          3213440844, 1050387939, 1054146036, 0,          0,
+      0,          1060439283, 0,          1056964608, 1028443341, 4,
+      0,          1056964608, 1028443341, 1036831949, 1050656375, 1065353216,
+      0,          1053542056, 1065353216, 0,          0,          0,
+      1065353216, 1065353216, 1065353216, 1065353216, 0,          0,
+      1337,       1065353216, 0,          0,          0,          6,
+      1034147594, 1017370378, 0,          1056964608, 8,          0,
+      3209481421, 1042267767, 1082130432, 1065353216, 1025758986, 1017370378,
+      0};
   const auto mobius_grid_encoded = WB::encode_config(mobius_grid);
   for (size_t index = 0; index < MOBIUS_GRID_EXPECTED.size(); ++index) {
     HS_CONTEXT("mobius grid field", static_cast<long long>(index));
@@ -2299,7 +2291,6 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.cell_y, 0.997703135f);
   HS_EXPECT_EQ(inner_mirror.params.projection.singularity_fade, 3.432f);
   HS_EXPECT_EQ(inner_mirror.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(inner_mirror.params.surface_lens.mix, 1.0f);
   HS_EXPECT_EQ(inner_mirror.params.color.hue_shift_amount, 0.366f);
   HS_EXPECT_EQ(inner_mirror.params.color.hue_noise_scale, 1.47215629f);
   HS_EXPECT_EQ(inner_mirror.params.color.palette_chroma, 1.0f);
@@ -2814,7 +2805,6 @@ inline void test_shader_workbench_structural_admission() {
   airocean_mobius.slots.coverage = WB::CoveragePolicy::EDGE_FADE;
   airocean_mobius.params.value.edge_width = 0.1f;
   airocean_mobius.slots.surface_lens = WB::SurfaceLens::MOBIUS;
-  airocean_mobius.params.surface_lens.mix = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(airocean_mobius));
 
   for (WB::Projection projection :
@@ -2824,19 +2814,16 @@ inline void test_shader_workbench_structural_admission() {
     strict.slots.projection = projection;
     strict.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
     strict.slots.surface_lens = WB::SurfaceLens::NONE;
-    strict.params.surface_lens.mix = 0.0f;
     HS_EXPECT_TRUE(WB::valid_config(strict));
   }
   WB::RequestedConfig airo_mobius = WB::legacy_config();
   airo_mobius.slots.projection = WB::Projection::AIROCEAN;
   airo_mobius.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   airo_mobius.slots.surface_lens = WB::SurfaceLens::MOBIUS;
-  airo_mobius.params.surface_lens.mix = 0.5f;
   HS_EXPECT_TRUE(WB::valid_config(airo_mobius));
 
   WB::RequestedConfig from = WB::legacy_config();
   from.slots.surface_lens = WB::SurfaceLens::NONE;
-  from.params.surface_lens.mix = 0.0f;
   from.slots.warp_program.outer.kind = WB::WarpStageKind::CURL_FLOW;
   from.slots.warp_program.outer.basis = WB::NoiseBasis::SIMPLEX;
   from.slots.warp_program.outer.curl_integrator = WB::CurlIntegrator::EULER_1;
@@ -2867,7 +2854,6 @@ inline void test_shader_workbench_strict_seam_admission() {
     WB::RequestedConfig config = WB::legacy_config();
     config.slots.projection = projection;
     config.slots.surface_lens = WB::SurfaceLens::NONE;
-    config.params.surface_lens.mix = 0.0f;
     config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
     HS_EXPECT_TRUE(WB::valid_config(config));
 
@@ -2887,7 +2873,6 @@ inline void test_shader_workbench_strict_seam_admission() {
     config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
 
     config.slots.surface_lens = WB::SurfaceLens::TANGENT_NOISE;
-    config.params.surface_lens.mix = 0.5f;
     HS_EXPECT_FALSE(WB::valid_config(config));
 
     config.slots.surface_lens = WB::SurfaceLens::NONE;
@@ -5248,11 +5233,9 @@ inline void test_shader_workbench_kernel_catalog() {
   config.slots.projection = WB::Projection::SINUSOIDAL;
   for (uint8_t value = 0; value <= 12; ++value) {
     config.slots.surface_lens = static_cast<WB::SurfaceLens>(value);
-    config.params.surface_lens.mix = value == 0 ? 0.0f : 0.6f;
     check(config);
   }
   config.slots.surface_lens = WB::SurfaceLens::NONE;
-  config.params.surface_lens.mix = 0.0f;
   for (uint8_t transfer = 0; transfer <= 3; ++transfer) {
     config.slots.value_transfer = static_cast<WB::ValueTransfer>(transfer);
     for (uint8_t coverage = 0; coverage <= 4; ++coverage) {
