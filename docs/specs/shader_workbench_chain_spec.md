@@ -125,9 +125,9 @@ carriers match the span's neighbors:
 
 - *Insertion* replaces an empty span (the palette at any point lists
   exactly the operators that fit — legality is computed from catalog
-  carrier pairs **and the engine's exported budgets**, accounting
-  aligned block totals against arena capacity and chain length, never
-  checked after the fact, so the editor has no invalid-document state
+  carrier pairs **and the engine's exported budgets**, accounting the
+  engine's running-cursor block layout against arena capacity and chain
+  length, never checked after the fact, so the editor has no invalid-document state
   and no over-budget refusal at apply).
 - *Removal* replaces with the empty sequence — automatically legal for an
   endomorphism, automatically illegal across a crossing, which is why
