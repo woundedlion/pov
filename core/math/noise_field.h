@@ -341,6 +341,23 @@ inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
 }
 
 /**
+ * @brief Divergence-free tangent from a scalar field's gradient.
+ * @param gradient Gradient of the scalar field at the lattice coordinate.
+ * @param v Unit point the tangent is taken at.
+ * @return A tangent at @p v of length at most 1; only lengths above 1 are
+ *   rescaled.
+ */
+HS_FLASH_INLINE inline Vector curl_from_gradient(const Vector &gradient,
+                                                 const Vector &v) {
+  const Vector tangent_gradient = gradient - dot(gradient, v) * v;
+  Vector u = cross(v, tangent_gradient);
+  const float length = u.length();
+  if (length > 1.0f)
+    u /= length;
+  return u;
+}
+
+/**
  * @brief Divergence-free tangent field from the generator's analytic gradient.
  * @param noise Prepared generator.
  * @param q Lattice coordinate.
@@ -355,12 +372,7 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const Vector &q,
   Vector gradient;
   noise.GetNoiseGradientSingle(q.x, q.y, q.z, gradient.x, gradient.y,
                                gradient.z);
-  const Vector tangent_gradient = gradient - dot(gradient, v) * v;
-  Vector u = cross(v, tangent_gradient);
-  const float length = u.length();
-  if (length > 1.0f)
-    u /= length;
-  return u;
+  return curl_from_gradient(gradient, v);
 }
 
 /**
@@ -382,12 +394,7 @@ HS_FLASH_INLINE inline Vector sample_curl_tangent(const FastNoiseLite &noise,
   const Vector gradient = tetrahedral_gradient(q, [&](const Vector &point) {
     return sample_noise_octaves(noise, basis, point);
   });
-  const Vector tangent_gradient = gradient - dot(gradient, v) * v;
-  Vector u = cross(v, tangent_gradient);
-  const float length = u.length();
-  if (length > 1.0f)
-    u /= length;
-  return u;
+  return curl_from_gradient(gradient, v);
 }
 
 /**
