@@ -545,6 +545,25 @@ test('a v1 pole-fade parameter binds the projection singularity fade', () => {
     .filter((parameter) => parameter.id === 'project.singularity-fade').length, 1);
 });
 
+// The v1 policy names come straight out of the document and satisfy
+// ID_PATTERN, so an inherited Object key would answer both the `in` probe and
+// the lookup.
+test('a v1 policy naming an Object prototype key is refused', () => {
+  for (const [role, policy] of [
+    ['surface_project', { lens: 'identity', projection: 'constructor' }],
+    ['source', { source: 'constructor' }],
+  ]) {
+    const document = structuredClone(V1_EXAMPLE);
+    document.descriptor.graph.nodes.find((node) => node.role === role).policy = policy;
+    const compiled = compile(document);
+    assert.equal(compiled.status, 'INVALID');
+    assert.deepEqual(
+      compiled.diagnostics.map(({ code, message }) => [code, message]),
+      [['V1_POLICY_UNSUPPORTED',
+        'No chain operator expands v1 policy "constructor".']]);
+  }
+});
+
 test('export classification compares exact descriptors after the digest', () => {
   const compiled = compile(example());
   const registry = { effects: [{

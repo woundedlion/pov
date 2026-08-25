@@ -812,7 +812,13 @@ const V1_STAGE_ROLES = Object.freeze([
 const failV1 = (code, path, message) =>
   fail('semantic', code, path, message);
 
-const V1_LENS_OPERATORS = {
+// The v1 expansion tables below are probed with `in` and indexed by document
+// text: a null prototype keeps an inherited Object key from answering a probe,
+// and the freeze keeps the table read-only.
+const v1Table = (entries) =>
+  Object.freeze(Object.assign(Object.create(null), entries));
+
+const V1_LENS_OPERATORS = v1Table({
   glitch: { operator: 'sphere.lens.glitch.v2' },
   twist: { operator: 'sphere.lens.twist.v2' },
   mobius: { operator: 'sphere.lens.mobius.v2' },
@@ -825,9 +831,9 @@ const V1_LENS_OPERATORS = {
   'pentagonal-prism-kaleidoscope': { operator: 'sphere.lens.kaleidoscope.v2', topology: { symmetry: 'pentagonal-prism' } },
   'hexagonal-prism-kaleidoscope': { operator: 'sphere.lens.kaleidoscope.v2', topology: { symmetry: 'hexagonal-prism' } },
   'octagonal-prism-kaleidoscope': { operator: 'sphere.lens.kaleidoscope.v2', topology: { symmetry: 'octagonal-prism' } },
-};
+});
 
-const V1_SURFACE_OPERATORS = {
+const V1_SURFACE_OPERATORS = v1Table({
   'curl-noise-simplex-euler': {
     operator: 'sphere.displace.curl.v2',
     topology: { basis: 'simplex', integrator: 'euler' },
@@ -836,53 +842,53 @@ const V1_SURFACE_OPERATORS = {
     operator: 'sphere.displace.direct.v2',
     topology: { basis: 'simplex' },
   },
-};
+});
 
-const V1_PROJECTION_OPERATORS = {
+const V1_PROJECTION_OPERATORS = v1Table({
   stereographic: { operator: 'project.stereographic.v2' },
   equirectangular: { operator: 'project.equirectangular.v2' },
   'folded-sinusoidal': { operator: 'project.folded-sinusoidal.v2' },
   'gnomonic-folded': { operator: 'project.gnomonic.v2', topology: { hemisphere: 'folded' } },
-};
+});
 
-const V1_WARP_OPERATORS = {
+const V1_WARP_OPERATORS = v1Table({
   'mirror-tile': { operator: 'warp.mirror-tile.v2' },
   'affine-frame': { operator: 'warp.affine.v2' },
   'wave-shear': { operator: 'warp.wave-shear.v2' },
   'vector-noise-simplex': { operator: 'warp.vector-noise.v2', topology: { basis: 'simplex' } },
   'polar-chart-linear': { operator: 'warp.polar-chart.v2', topology: { mode: 'linear' } },
-};
+});
 
-const V1_SOURCE_OPERATORS = {
+const V1_SOURCE_OPERATORS = v1Table({
   grid: { operator: 'sample.grid.v2' },
   'twin-wave': { operator: 'sample.twin-wave.v2' },
   rings: { operator: 'sample.rings.v2' },
   spiral: { operator: 'sample.spiral.v2' },
   'primitive-lattice': { operator: 'sample.lattice.v2' },
-};
+});
 
-const V1_TRANSFER_OPERATORS = {
+const V1_TRANSFER_OPERATORS = v1Table({
   ridge: { operator: 'field.transfer.ridge.v2' },
   'iso-contour': { operator: 'field.transfer.iso-contour.v2' },
   'smooth-bands': { operator: 'field.transfer.smooth-bands.v2' },
-};
+});
 
-const V1_COVERAGE_MODES = {
+const V1_COVERAGE_MODES = v1Table({
   opaque: 'none',
   projection: 'weight',
   'projection-squared': 'weight-squared',
   'edge-fade': 'edge-fade',
-};
+});
 
-const V1_PALETTE_MODES = {
+const V1_PALETTE_MODES = v1Table({
   'triadic-palette': 'triadic',
   'complementary-palette': 'complementary',
   'analogous-palette': 'analogous',
-};
+});
 
 // The v1 identifier is bare or slot-prefixed; the target field id is the
 // engine's Field::id in the owning operator's schema.
-const V1_SAMPLE_FIELDS = {
+const V1_SAMPLE_FIELDS = v1Table({
   'pattern-freq': 'pattern-freq',
   speed: 'speed',
   complexity: 'complexity',
@@ -896,14 +902,14 @@ const V1_SAMPLE_FIELDS = {
   'lattice-shape': 'lattice-shape',
   'lattice-softness': 'lattice-softness',
   'lattice-radius': 'lattice-radius',
-};
+});
 
-const V1_PROJECT_FIELDS = {
+const V1_PROJECT_FIELDS = v1Table({
   'pole-fade': 'singularity-fade',
   'projection-spin-speed': 'projection-spin-speed',
   'projection-wander': 'projection-wander',
   'central-meridian': 'central-meridian',
-};
+});
 
 const V1_COLORIZE_FIELDS = new Set([
   'palette-chroma',
@@ -920,12 +926,12 @@ const V1_COLORIZE_FIELDS = new Set([
   'hue-noise-speed',
 ]);
 
-const V1_SURFACE_FIELDS = {
+const V1_SURFACE_FIELDS = v1Table({
   'surface-noise-scale': 'scale',
   'surface-noise-strength': 'strength',
   'surface-noise-speed': 'speed',
   'surface-noise-direction': 'direction',
-};
+});
 
 const v1PolicyPick = (table, value, path) => {
   const picked = table[value];
