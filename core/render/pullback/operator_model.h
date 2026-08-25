@@ -10,6 +10,7 @@
 
 #include <array>
 #include <cstdint>
+#include <new>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -325,23 +326,23 @@ template <typename Model> struct ErasedAdapter {
   static void destroy(void *state) { static_cast<State *>(state)->~State(); }
 
   static void advance(void *state, const uint8_t *params) {
-    Model::advance(*static_cast<State *>(state),
-                   *reinterpret_cast<const Params *>(params));
+    Model::advance(*std::launder(static_cast<State *>(state)),
+                   *std::launder(reinterpret_cast<const Params *>(params)));
   }
 
   static void prepare(const FrameContext &ctx, const uint8_t *params,
                       const void *state, uint8_t *prepared) {
-    ::new (static_cast<void *>(prepared))
-        Prepared{Model::prepare(ctx, *reinterpret_cast<const Params *>(params),
-                                *static_cast<const State *>(state))};
+    ::new (static_cast<void *>(prepared)) Prepared{Model::prepare(
+        ctx, *std::launder(reinterpret_cast<const Params *>(params)),
+        *std::launder(static_cast<const State *>(state)))};
   }
 
   static void run(const void *in, void *out, const FrameContext &ctx,
                   const uint8_t *params, const uint8_t *prepared) {
-    ::new (out)
-        Output{Model::run(*static_cast<const Input *>(in), ctx,
-                          *reinterpret_cast<const Params *>(params),
-                          *reinterpret_cast<const Prepared *>(prepared))};
+    ::new (out) Output{Model::run(
+        *std::launder(static_cast<const Input *>(in)), ctx,
+        *std::launder(reinterpret_cast<const Params *>(params)),
+        *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
   }
 
   static void *param_address(void *params, uint16_t schema_index) {
