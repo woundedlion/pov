@@ -29,6 +29,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import teensy_gate  # noqa: E402
+
 
 PINS = {
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
@@ -356,8 +359,13 @@ def check_engine_ranges() -> list[str]:
 
 def check_flexram_geometry() -> list[str]:
     """Tie the budget and gate constants to the linker script geometry."""
-    budget_text = (ROOT / "tools/teensy_budgets.json").read_text(encoding="utf-8")
-    budgets = json.loads(re.sub(r"//.*", "", budget_text))
+    budgets_path = ROOT / "tools/teensy_budgets.json"
+    try:
+        budgets = teensy_gate.load_budgets(budgets_path)
+    except ValueError as exc:
+        # BudgetSchemaError, a JSON syntax error and an unterminated block
+        # comment are all ValueError; a traceback out of a hook is not a report.
+        return [f"tools/teensy_budgets.json: {exc}"]
     derived = budgets["phantasm"]["regions"]["ram1"][
         "components"]["code"]["max_banks_from_stack_floor"]
     bank_bytes = derived["bank_bytes"]
