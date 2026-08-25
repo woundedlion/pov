@@ -34,6 +34,9 @@ template <int W, int Spread = 1> class ChromaticShift : public IsPixel {
                 "ChromaticShift requires W > 3 * Spread for fast_wrap offsets");
 
 public:
+  // emits_pixel_centers is withheld: only the three fringe taps round, and only
+  // their column. The source tap keeps its sub-pixel x and every tap keeps the
+  // caller's y, so a downstream sub-pixel stage is not reduced to an identity.
   /**
    * @brief The three fringe taps land outside the plotted position, so a
    *        segment worker needs 3 * Spread columns of render margin to write
