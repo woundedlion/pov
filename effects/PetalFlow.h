@@ -178,8 +178,7 @@ private:
   uint32_t pool_full_drops = 0;
 
 #if HS_ENABLE_TEST_HOOKS
-  int spawns = 0;         /**< Rings placed into a free slot, cumulative. */
-  int dropped_spawns = 0; /**< Spawn requests that found no free slot. */
+  int spawns = 0; /**< Rings placed into a free slot, cumulative. */
 #endif
 
   ProceduralPalette palette; /**< Color palette sampled by ring hue. */
@@ -278,9 +277,6 @@ private:
         return;
       }
     }
-#if HS_ENABLE_TEST_HOOKS
-    ++dropped_spawns;
-#endif
     if (pool_full_drops % POOL_FULL_LOG_PERIOD == 0)
       hs::log("PetalFlow: ring pool full, dropping spawn");
     ++pool_full_drops;
