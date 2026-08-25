@@ -1,9 +1,14 @@
 # Phantasm Synchronization Architecture — Design Spec
 
 *Status: IMPLEMENTED, and this document describes the implementation. The
-protocol core lives in `hardware/pov_sync.h` (pure, host-tested — flywheel
-timebase, symbol alphabet, edge mailbox, acceptance gate, beacon codec,
-content tracker, emitter); effect commit and submit gating live in
+protocol core is the pure, host-tested `hardware/pov_sync*.h` set:
+`pov_sync_protocol.h` (shared vocabulary — ring arithmetic, the `Config`
+block, the symbol alphabet, the boundary flip gate, the edge mailbox and
+telemetry), `pov_sync_flywheel.h` (the Layer-1 timebase and its snap
+discipline), `pov_sync_content.h` (the Layer-3 beacon codec and content
+tracker), `pov_sync_emitter.h` (master-side symbol generation) and
+`pov_sync.h`, which composes them into the per-board `SyncBoard` and its
+acceptance gate; effect commit and submit gating live in
 `hardware/pov_handoff.h` and `hardware/pov_submit_gate.h`; the device shell is
 `hardware/pov_segmented.h` (two ISRs, pixel packing, effect handoff);
 `targets/Phantasm/Phantasm.ino`
@@ -128,12 +133,16 @@ from nominal RPM (`pov_single.h`'s IntervalTimer period; the nominal
 On-device animation advances off a per-frame counter `AnimationBase::t`,
 incremented once per `step()` (`animation.h`), *not* `millis()`. So content
 sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
-deterministic RNG. For (c) the driver reseeds `hs::random()` with
-`hs::epoch_seed(effect index)` at every effect construction — epoch 0 is the
-identity seed 1337 — so all boards render identical, per-visit-fresh streams
-regardless of boot/join history: the index is already beacon-synchronized
-shared state, and a board wrong about it is already building the wrong
-effect. (a) is the gap the previous design left open: the effect **epoch**
+deterministic RNG. For (c) the driver reseeds `hs::random()` at every effect
+construction from the roster's per-entry seed identity:
+`targets/Phantasm/Phantasm.ino` fills that table with
+`hs::stable_effect_seed(hs::stable_effect_id<E>())`, so the stream an effect
+draws follows its identity rather than its roster position. The
+beacon-synchronized index selects the entry, so all boards render identical
+streams regardless of boot/join history, and a board wrong about that index
+is already building the wrong effect. A driver handed no seed table falls
+back to `hs::epoch_seed(effect index)`, whose epoch 0 is the identity seed
+1337. (a) is the gap the previous design left open: the effect **epoch**
 (playlist advance + `t` reset) was driven by per-board `millis()`
 (`show<E>(120)`'s `while (millis()-start<…)`), so boards changed effects at
 different real moments; §6 replaces it with epoch-counted sequencing.
@@ -683,15 +692,17 @@ steps to black at B with everyone else and misses only the F-revolution ramp
 into it. Stepping is the fail-dark side of the miss; a counter-driven envelope
 would leave it the one lit band on a cleared sphere.
 
-The output remains exactly zero from B through B+R+K. The clear presentation
-acknowledgement is the first accepted all-black DMA submission followed by the
-boundary flip that opens its display window. Outgoing resources may be released
-only after that acknowledgement. The incoming effect prepares frame zero during
-K, publishes it with a zero output envelope, and waits for the same accepted-DMA
-plus-boundary acknowledgement. Destination identity commits only after that
-hidden-frame fence at B+R+K. The envelope then follows
-`EASE_IN_OUT_SIN(progress)` for F revolutions and reaches exact one at the end.
-No wake renders both endpoints.
+The output remains exactly zero from B through B+R+K. Outgoing resources are
+released on the `EffectHandoff` counter handshake (`pov_handoff.h`), not on a
+display acknowledgement: the foreground bumps `release_req` and spins on
+`release_complete()` until the flywheel ISR has dropped its live pointer and
+copied the counter into `release_ack`, and only then deletes the instance. The
+incoming effect is constructed, clipped to this segment and `draw_frame()`-ed
+inside K, then published as an (effect, build generation) pair; at the B+R+K
+deadline the ISR adopts it only if `committable()` finds that generation equal
+to the one the wire advertises, and destination identity commits with that
+adopt. The envelope then follows `EASE_IN_OUT_SIN(progress)` for F revolutions
+and reaches exact one at the end.
 
 Repeated EPOCH symbols are idempotent. Losing the primary or any proper subset
 of repeats does not affect envelope timing. A board that loses the entire train
