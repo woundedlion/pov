@@ -50,7 +50,7 @@ public:
   /** Preset policy: snap the target parameters on every origin, AUTOMATIC
       included — Style embeds a noise binding and base_mesh drives an
       arena-rewinding mesh rebuild, so parameter blending is never legal. */
-  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 241;
 
