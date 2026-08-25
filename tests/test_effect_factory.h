@@ -39,8 +39,8 @@ constexpr int FACTORY_FRAMES = 2;
  *          setEffect() hands out pointers into it and holds them across frames.
  */
 template <int W, int H> inline void verify_factory_table() {
-  const std::vector<FactoryEntry> &table = get_factory<W, H>();
-  const std::vector<FactoryEntry> &again = get_factory<W, H>();
+  const std::vector<FactoryEntry> &table = hs_wasm::get_factory<W, H>();
+  const std::vector<FactoryEntry> &again = hs_wasm::get_factory<W, H>();
   HS_EXPECT_EQ(table.size(), EffectRegistry::entries().size());
   HS_EXPECT_EQ(table.size(), static_cast<size_t>(HS_EFFECT_COUNT));
   HS_EXPECT_TRUE(&table == &again);
@@ -67,22 +67,22 @@ template <int W, int H> inline void verify_factory_table() {
  */
 template <int W, int H> inline void verify_factory_lookup() {
   const auto lookup = [](std::string_view name) {
-    return find_factory_entry<W, H>(name);
+    return hs_wasm::find_factory_entry<W, H>(name);
   };
-  for (const char *name : WASM_EFFECT_NAMES) {
+  for (const char *name : hs_wasm::WASM_EFFECT_NAMES) {
     const FactoryEntry *entry = lookup(name);
     HS_EXPECT_TRUE(entry != nullptr);
     if (entry)
       HS_EXPECT_TRUE(entry->name == name);
   }
-  for (const FactoryEntry &expected : get_factory<W, H>()) {
+  for (const FactoryEntry &expected : hs_wasm::get_factory<W, H>()) {
     const FactoryEntry *entry = lookup(expected.stable_id);
     HS_EXPECT_TRUE(entry == &expected);
   }
   HS_EXPECT_TRUE(lookup("") == nullptr);
   HS_EXPECT_TRUE(lookup("NoSuchEffect") == nullptr);
   // A prefix of a registered name must miss: the scan compares whole names.
-  const std::string_view first = WASM_EFFECT_NAMES[0];
+  const std::string_view first = hs_wasm::WASM_EFFECT_NAMES[0];
   HS_EXPECT_TRUE(lookup(first.substr(0, first.size() - 1)) == nullptr);
 }
 
@@ -97,7 +97,7 @@ template <int W, int H> inline void verify_factory_lookup() {
  */
 template <int W, int H> inline void drive_factory_lifecycle() {
   std::printf("  -- factory create/render/destroy @ %dx%d --\n", W, H);
-  for (const FactoryEntry &entry : get_factory<W, H>()) {
+  for (const FactoryEntry &entry : hs_wasm::get_factory<W, H>()) {
     effects_tests::reset_effect_globals();
 
     std::unique_ptr<Effect> effect = entry.creator();
@@ -125,11 +125,11 @@ template <int W, int H> inline void drive_factory_lifecycle() {
  *          into the nearest row.
  */
 inline void test_resolution_dispatch() {
-  for (const WasmResolution &row : WASM_RESOLUTIONS) {
-    HS_EXPECT_TRUE(wasm_resolution_supported(row.w, row.h));
+  for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS) {
+    HS_EXPECT_TRUE(hs_wasm::wasm_resolution_supported(row.w, row.h));
     int seen_w = 0, seen_h = 0, hits = 0;
     const bool dispatched =
-        dispatch_resolution(row.w, row.h, [&]<int W, int H>() {
+        hs_wasm::dispatch_resolution(row.w, row.h, [&]<int W, int H>() {
           seen_w = W;
           seen_h = H;
           ++hits;
@@ -140,13 +140,13 @@ inline void test_resolution_dispatch() {
     HS_EXPECT_EQ(seen_h, row.h);
   }
 
-  HS_EXPECT_TRUE(!wasm_resolution_supported(0, 0));
-  HS_EXPECT_TRUE(!wasm_resolution_supported(-1, -1));
-  HS_EXPECT_TRUE(!wasm_resolution_supported(WASM_RESOLUTIONS[0].w,
-                                            WASM_RESOLUTIONS[0].h + 1));
+  HS_EXPECT_TRUE(!hs_wasm::wasm_resolution_supported(0, 0));
+  HS_EXPECT_TRUE(!hs_wasm::wasm_resolution_supported(-1, -1));
+  HS_EXPECT_TRUE(!hs_wasm::wasm_resolution_supported(
+      hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h + 1));
   int spurious = 0;
   const bool off_list =
-      dispatch_resolution(97, 21, [&]<int W, int H>() { ++spurious; });
+      hs_wasm::dispatch_resolution(97, 21, [&]<int W, int H>() { ++spurious; });
   HS_EXPECT_TRUE(!off_list);
   HS_EXPECT_EQ(spurious, 0);
 }
@@ -158,17 +158,18 @@ inline void test_resolution_dispatch() {
  *          row buildable.
  */
 inline void test_bootstrap_rows() {
-  HS_EXPECT_TRUE(std::size(WASM_RESOLUTIONS) > 0);
-  HS_EXPECT_EQ(std::size(WASM_EFFECT_NAMES),
+  HS_EXPECT_TRUE(std::size(hs_wasm::WASM_RESOLUTIONS) > 0);
+  HS_EXPECT_EQ(std::size(hs_wasm::WASM_EFFECT_NAMES),
                static_cast<size_t>(HS_EFFECT_COUNT));
-  HS_EXPECT_TRUE(
-      wasm_resolution_supported(WASM_RESOLUTIONS[0].w, WASM_RESOLUTIONS[0].h));
-  HS_EXPECT_TRUE(std::strlen(WASM_EFFECT_NAMES[0]) > 0);
+  HS_EXPECT_TRUE(hs_wasm::wasm_resolution_supported(
+      hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h));
+  HS_EXPECT_TRUE(std::strlen(hs_wasm::WASM_EFFECT_NAMES[0]) > 0);
 }
 
 /** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
 inline void test_fixed_preset_ids() {
-  const FactoryEntry *curl = find_factory_entry<96, 20>("lattice-melt");
+  const FactoryEntry *curl =
+      hs_wasm::find_factory_entry<96, 20>("lattice-melt");
   HS_EXPECT_TRUE(curl != nullptr);
   HS_EXPECT_TRUE(curl && curl->preset_id != nullptr);
   if (curl && curl->preset_id) {
@@ -178,7 +179,8 @@ inline void test_fixed_preset_ids() {
     HS_EXPECT_TRUE(curl->preset_id(2).empty());
   }
 
-  const FactoryEntry *mobius = find_factory_entry<96, 20>("mobius-grid");
+  const FactoryEntry *mobius =
+      hs_wasm::find_factory_entry<96, 20>("mobius-grid");
   HS_EXPECT_TRUE(mobius != nullptr);
   HS_EXPECT_TRUE(mobius && mobius->preset_id != nullptr);
   if (mobius && mobius->preset_id) {
@@ -188,7 +190,7 @@ inline void test_fixed_preset_ids() {
   }
 
   const FactoryEntry *harmonics =
-      find_factory_entry<96, 20>("SphericalHarmonics");
+      hs_wasm::find_factory_entry<96, 20>("SphericalHarmonics");
   HS_EXPECT_TRUE(harmonics != nullptr);
   HS_EXPECT_TRUE(harmonics && harmonics->preset_id != nullptr);
   if (harmonics && harmonics->preset_id) {
@@ -205,7 +207,8 @@ inline void test_fixed_preset_ids() {
     HS_EXPECT_TRUE(harmonics->preset_id(24).empty());
   }
 
-  const FactoryEntry *fishbowl = find_factory_entry<96, 20>("Fishbowl");
+  const FactoryEntry *fishbowl =
+      hs_wasm::find_factory_entry<96, 20>("Fishbowl");
   HS_EXPECT_TRUE(fishbowl != nullptr);
   HS_EXPECT_TRUE(fishbowl && fishbowl->preset_id != nullptr);
   if (fishbowl && fishbowl->preset_id) {
@@ -229,7 +232,7 @@ inline void test_factory_tables() {
 inline void test_phantasm_seed_identity() {
 #define HS_VERIFY_PHANTASM_SEED(name, duration_seconds)                        \
   do {                                                                         \
-    const FactoryEntry *entry = find_factory_entry<288, 144>(#name);           \
+    const FactoryEntry *entry = hs_wasm::find_factory_entry<288, 144>(#name);  \
     HS_EXPECT_TRUE(entry != nullptr);                                          \
     if (entry) {                                                               \
       constexpr std::string_view id =                                          \
