@@ -3627,7 +3627,7 @@ inline const Case *all_cases(int &n) {
        "(he_mesh.half_edges[i].pair != HE_NONE) MeshOps::truncate requires a "
        "closed manifold (unpaired half-edge)"},
       {"conway_target_exhausted", case_conway_target_exhausted, "memory.h",
-       "(false) "},
+       "(false) Arena::allocate: out of memory"},
       {"relax_baked_dimension_mismatch", case_relax_baked_dimension_mismatch,
        "conway.h",
        "(V == bake.vertex_count && F == bake.face_count && I == "
@@ -4387,16 +4387,31 @@ inline void report_unrunnable(const char *why, int rc) {
 }
 
 /**
+ * @brief Reports whether two pins could name the same guard site.
+ * @param a One pin's condition text.
+ * @param b The other pin's condition text.
+ * @return true when neither pin distinguishes itself from the other.
+ * @details breadcrumb_names_guard() matches a pin as a prefix of the emitted
+ *          breadcrumb, so a pin that is a prefix of another cannot tell the two
+ *          sites apart and the pair covers one guard between them.
+ */
+inline bool guard_texts_alias(const char *a, const char *b) {
+  const size_t a_len = std::strlen(a);
+  const size_t b_len = std::strlen(b);
+  return std::strncmp(a, b, a_len < b_len ? a_len : b_len) == 0;
+}
+
+/**
  * @brief Counts the distinct guard sites in @p file the case table pins.
  * @param cs The case table.
  * @param n Number of cases in it.
  * @param file Source-file basename to count pins for.
  * @return Distinct pins naming that file, never above its real site count.
- * @details Distinct by (file, condition text), which is what
- *          breadcrumb_names_guard() compares: guards whose breadcrumbs read
- *          identically (the same condition and message repeated in several
- *          constructors) are one covered site, because no case can prove which
- *          of them fired.
+ * @details Distinct by (file, condition text) under guard_texts_alias(), which
+ *          is what breadcrumb_names_guard() can tell apart: guards whose
+ *          breadcrumbs read identically (the same condition and message
+ *          repeated in several constructors) are one covered site, because no
+ *          case can prove which of them fired.
  */
 inline int pinned_guards_in(const Case *cs, int n, const char *file) {
   int pinned = 0;
@@ -4406,7 +4421,7 @@ inline int pinned_guards_in(const Case *cs, int n, const char *file) {
     bool duplicate = false;
     for (int j = 0; j < i && !duplicate; ++j)
       duplicate = std::strcmp(cs[j].guard_file, file) == 0 &&
-                  std::strcmp(cs[j].guard_text, cs[i].guard_text) == 0;
+                  guard_texts_alias(cs[j].guard_text, cs[i].guard_text);
     if (!duplicate)
       ++pinned;
   }
@@ -4441,7 +4456,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
     {"memory.cpp", 1},
-    {"memory.h", 1},
+    {"memory.h", 2},
     {"reaction_graph.h", 2},
     {"static_circular_buffer.h", 4},
     {"transformer.h", 4},
