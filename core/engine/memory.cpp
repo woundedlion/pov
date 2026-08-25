@@ -184,9 +184,9 @@ HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
  * @details Called once at init() so an effect can tune the split to the device
  * budget; split_bases() aligns the boundaries and enforces the budget.
  *
- * Runs the ArenaResetHook list first: this is one of the two places the storage
- * under an arena-resident global is handed out again. Owners re-arm from
- * init(), which every swap path runs after this.
+ * Runs the ArenaResetHook list first: this is one of the paths that hands the
+ * storage under a persistent-arena-resident global out again. Owners re-arm
+ * from init(), which every swap path runs after this.
  */
 FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
                                size_t scratch_b) {

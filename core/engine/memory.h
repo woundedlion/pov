@@ -1184,13 +1184,16 @@ extern Arena scratch_arena_b;
 extern Arena persistent_arena;
 
 /**
- * @brief Self-registering callback run before arena storage is handed out
- *        again.
- * @details A global that caches a pointer into an arena declares one static
- * instance next to itself and drops the pointer from the callback, instead of
- * the allocator naming every such owner. The registry head is
+ * @brief Self-registering callback run before persistent arena storage is
+ *        handed out again.
+ * @details A global that caches a pointer into the persistent arena declares one
+ * static instance next to itself and drops the pointer from the callback,
+ * instead of the allocator naming every such owner. The registry head is
  * constant-initialized, so registration during static init is order-independent;
  * the list is intrusive, so it needs no storage of its own.
+ * @note Scoped to the persistent arena: generate() rewinds both engine scratch
+ * arenas per call without running the list, so no global may cache a pointer
+ * into scratch storage.
  */
 struct ArenaResetHook {
   using Handler = void (*)(); /**< Callback signature. */
@@ -1463,6 +1466,9 @@ constexpr int MAX_GENERATE_DEPTH = 16;
  *   reset happens only at the outermost call; a nested call sub-scopes off the
  *   caller's live frame (via ScratchScope), so it sees only the scratch headroom
  *   above the outer allocations rather than clobbering them.
+ * @note The scratch reset does not run ArenaResetHook::run_all(); that registry
+ *   covers the persistent arena, and scratch storage is never cached in a
+ *   global.
  */
 template <typename GenerateFn, typename... Args>
 HS_COLD_MEMBER auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
