@@ -659,18 +659,19 @@ inline void test_gamut_direction_lookup_matches_angle() {
 }
 
 /**
- * @brief Verifies the chroma-reduction map lands on the gamut's first exit off
- *        the flash master, the grid every effect that arms nothing runs on.
- * @details Sweeps lightness, hue and input chroma and holds the map to two
- *          properties. Every returned color must pass linear_rgb_in_gamut —
- *          that is the hard one, the map's whole job. And the returned chroma
- *          must sit just inside the double-precision first exit: never past it
- *          by more than the float rounding of the magnitude itself, and never
- *          more than a barely visible amount below. The hue band around the blue
- *          cube vertex is sampled finely because that is where a channel dips
+ * @brief Sweeps lightness, hue and input chroma through the armed
+ *        chroma-reduction path and holds it to two properties.
+ * @details Every returned color must pass linear_rgb_in_gamut — that is the
+ *          hard one, the map's whole job. And the returned chroma must sit just
+ *          inside the double-precision first exit: never past it by more than
+ *          the float rounding of the magnitude itself, and never more than a
+ *          barely visible amount below. The hue band around the blue cube
+ *          vertex is sampled finely because that is where a channel dips
  *          through a face and back, and where the boundary moves fastest.
+ * @param path Label naming which reduction path is armed, for failure context.
  */
-inline void test_gamut_master_clip_lands_on_first_exit() {
+inline void expect_clip_lands_on_first_exit(const char *path) {
+  HS_CONTEXT(path);
   const float DEFICIT_BOUND = 5e-3f;
   // got is a float magnitude, the reference a double: ~17 float ULPs at the
   // largest chroma sampled, and 15x under the 16-bit chroma quantum.
@@ -706,6 +707,16 @@ inline void test_gamut_master_clip_lands_on_first_exit() {
   }
   HS_EXPECT_LT(worst_deficit, DEFICIT_BOUND);
   HS_EXPECT_LE(worst_oversat, OVERSAT_BOUND);
+}
+
+/**
+ * @brief Verifies the chroma-reduction map lands on the gamut's first exit off
+ *        the flash master, the grid every effect that arms nothing runs on.
+ * @details Runs the shared sweep with no LUT armed, so the cubic solve answers
+ *          every query.
+ */
+inline void test_gamut_master_clip_lands_on_first_exit() {
+  expect_clip_lands_on_first_exit("cubic solve");
 }
 
 inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
@@ -746,46 +757,12 @@ inline constexpr int TEST_GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
  *          depend on the table being right — only the deficit does.
  */
 inline void test_gamut_lut_clip_lands_on_first_exit() {
-  const float DEFICIT_BOUND = 5e-3f;
-  // got is a float magnitude, the reference a double: ~17 float ULPs at the
-  // largest chroma sampled, and 15x under the 16-bit chroma quantum.
-  const float OVERSAT_BOUND = 1e-6f;
-  const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
   alignas(uint16_t) static uint8_t
       lut_buf[gamut_lut_bytes(TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
 
-  float worst_deficit = 0.0f, worst_oversat = -1.0f;
-
-  for (int il = 0; il <= 32; ++il) {
-    const double L = 0.1 + 0.8 * il / 32.0;
-    for (int ih = 0; ih < 360 + 96; ++ih) {
-      // 360 even steps, then a fine fan across the blue vertex.
-      const double deg = ih < 360 ? ih : 258.0 + 0.125 * (ih - 360);
-      const double h = deg * 3.14159265358979323846 / 180.0;
-      const double ad = std::cos(h), bd = std::sin(h);
-
-      for (int ic = 0; ic < 3; ++ic) {
-        const double cin = CHROMA_IN[ic];
-        OKLab mapped = gamut_clip_preserve_chroma(
-            {(float)L, (float)(ad * cin), (float)(bd * cin)});
-
-        float r, g, b;
-        oklab_to_linear_rgb(mapped, r, g, b);
-        HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
-
-        const float got = std::sqrt(mapped.a * mapped.a + mapped.b * mapped.b);
-        const float ref = (float)gamut_first_exit_ref(L, ad, bd, cin);
-        if (ref - got > worst_deficit)
-          worst_deficit = ref - got;
-        if (got - ref > worst_oversat)
-          worst_oversat = got - ref;
-      }
-    }
-  }
-  HS_EXPECT_LT(worst_deficit, DEFICIT_BOUND);
-  HS_EXPECT_LE(worst_oversat, OVERSAT_BOUND);
+  expect_clip_lands_on_first_exit("bracket LUT");
 
   // Outside the reported lightness band the bracket widens, but the in-gamut
   // guarantee is structural and must still hold at every L and hue.
