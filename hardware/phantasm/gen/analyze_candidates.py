@@ -43,7 +43,7 @@ import tempfile
 import fab
 import sexp
 from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
-from kicad_common import F, kicad_cli
+from kicad_common import F, kicad_cli, net_name
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
@@ -76,12 +76,6 @@ def blocks(root, kind):
     if isinstance(root, str):
         root = sexp.parse(root)[0]
     return F(root, kind)
-
-
-def net_of(b):
-    """Net name of a segment/arc/via, from either `(net "/DATA")` or `(net 9 "/DATA")`."""
-    value = sexp.val(b, "net", [])
-    return str(value[-1]).rsplit("/", 1)[-1] if value else None
 
 
 def field(b, name):
@@ -205,7 +199,7 @@ def analyze(path):
             mid = xy(b, "mid")
             if mid:
                 dl = dist(st, mid) + dist(mid, en)
-        n = net_of(b)
+        n = net_name(b)
         ly = field(b, "layer")
         netlen[n] = netlen.get(n, 0) + dl
         netseg[n] = netseg.get(n, 0) + 1
@@ -215,7 +209,7 @@ def analyze(path):
     netvias, gnd_pts, crit_via_pts = {}, [], []
     small_vias = []
     for b in vias:
-        n = net_of(b)
+        n = net_name(b)
         p = xy(b, "at")
         netvias[n] = netvias.get(n, 0) + 1
         try:
