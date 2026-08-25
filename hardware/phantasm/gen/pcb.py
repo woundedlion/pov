@@ -289,7 +289,7 @@ def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
         ' (xy -18.5 5) (xy -30 5)))\n'
         '\t)\n')
     model = (
-        f'\t(model "{model_path}"\n'
+        f'\t(model {sexp.quote(model_path)}\n'
         '\t\t(offset (xyz 0 0 0))\n'
         '\t\t(scale (xyz 1 1 1))\n'
         '\t\t(rotate (xyz 0 0 0))\n'
@@ -782,7 +782,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     # Coordinates below annotate the QUILTER_FIXED placement; a fresh pack moves
     # those parts, so they are emitted only with the locked layout.
     if unplaced:
-        lines.append(f'\t(gr_text "USB PLUG KEEP-OUT" (at 5.3 11.5 90)'
+        lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 11.5 90)'
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
         front_silk = [
@@ -800,7 +800,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             ("SHLD", 54.3, 19.0, 90),
         ]
         for text, x, y, angle in front_silk:
-            lines.append(f'\t(gr_text "{text}" (at {fmt(x)} {fmt(y)} {angle})'
+            lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
                          f' (layer "F.SilkS") (uuid "{uid()}") '
                          '(effects (font (size 0.8 0.8) (thickness 0.15))))')
     back_silk = [
@@ -814,7 +814,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         (SILK_REVISION, 29.5, 1.0),
     ]
     for text, y, size in back_silk:
-        lines.append(f'\t(gr_text "{text}" (at {fmt(L/2)} {fmt(y)} 0)'
+        lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(L/2)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'
                      f' (thickness {fmt(max(0.15, size*0.15))})) (justify mirror)))')
