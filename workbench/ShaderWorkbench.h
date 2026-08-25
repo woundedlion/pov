@@ -3145,13 +3145,31 @@ public:
       snapshot.pending[static_cast<size_t>(pending_edits[index].id)] = 1;
     snapshot.has_runtime = true;
     const ClockState &clocks = runtime.clocks;
-    snapshot.runtime = {
-        clocks.source_primary,     clocks.source_secondary,
-        clocks.source_angle,       clocks.warp_outer_rotation,
-        clocks.projection_spin,    clocks.hue_noise_phase,
-        clocks.source_noise_time,  clocks.warp_inner_rotation,
-        clocks.surface_noise_time, clocks.warp_outer_phase,
-        clocks.warp_inner_phase,   clocks.palette_oscillation_phase};
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_PRIMARY)] =
+        clocks.source_primary;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_SECONDARY)] =
+        clocks.source_secondary;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_ANGLE)] =
+        clocks.source_angle;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::WARP_OUTER_ROTATION)] =
+        clocks.warp_outer_rotation;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::PROJECTION_SPIN)] =
+        clocks.projection_spin;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::HUE_NOISE_PHASE)] =
+        clocks.hue_noise_phase;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_NOISE_PHASE)] =
+        clocks.source_noise_time;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::WARP_INNER_ROTATION)] =
+        clocks.warp_inner_rotation;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::SURFACE_NOISE_PHASE)] =
+        clocks.surface_noise_time;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::WARP_OUTER_PHASE)] =
+        clocks.warp_outer_phase;
+    snapshot.runtime[static_cast<size_t>(RuntimeFieldId::WARP_INNER_PHASE)] =
+        clocks.warp_inner_phase;
+    snapshot.runtime[static_cast<size_t>(
+        RuntimeFieldId::PALETTE_OSCILLATION_PHASE)] =
+        clocks.palette_oscillation_phase;
     return snapshot;
   }
 
@@ -3231,18 +3249,30 @@ public:
     display_config = next_requested;
     if (snapshot.has_runtime) {
       ClockState &clocks = runtime.clocks;
-      clocks.source_primary = next_runtime[0];
-      clocks.source_secondary = next_runtime[1];
-      clocks.source_angle = next_runtime[2];
-      clocks.warp_outer_rotation = next_runtime[3];
-      clocks.projection_spin = next_runtime[4];
-      clocks.hue_noise_phase = next_runtime[5];
-      clocks.source_noise_time = next_runtime[6];
-      clocks.warp_inner_rotation = next_runtime[7];
-      clocks.surface_noise_time = next_runtime[8];
-      clocks.warp_outer_phase = next_runtime[9];
-      clocks.warp_inner_phase = next_runtime[10];
-      clocks.palette_oscillation_phase = next_runtime[11];
+      clocks.source_primary =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_PRIMARY)];
+      clocks.source_secondary =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_SECONDARY)];
+      clocks.source_angle =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_ANGLE)];
+      clocks.warp_outer_rotation = next_runtime[static_cast<size_t>(
+          RuntimeFieldId::WARP_OUTER_ROTATION)];
+      clocks.projection_spin =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::PROJECTION_SPIN)];
+      clocks.hue_noise_phase =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::HUE_NOISE_PHASE)];
+      clocks.source_noise_time =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_NOISE_PHASE)];
+      clocks.warp_inner_rotation = next_runtime[static_cast<size_t>(
+          RuntimeFieldId::WARP_INNER_ROTATION)];
+      clocks.surface_noise_time = next_runtime[static_cast<size_t>(
+          RuntimeFieldId::SURFACE_NOISE_PHASE)];
+      clocks.warp_outer_phase =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::WARP_OUTER_PHASE)];
+      clocks.warp_inner_phase =
+          next_runtime[static_cast<size_t>(RuntimeFieldId::WARP_INNER_PHASE)];
+      clocks.palette_oscillation_phase = next_runtime[static_cast<size_t>(
+          RuntimeFieldId::PALETTE_OSCILLATION_PHASE)];
     }
     rebind_parameters();
     return ConfigRestoreResult::APPLIED;
