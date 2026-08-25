@@ -4299,7 +4299,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"carousel.h", 4},
     {"motion.h", 6},
     {"opleg.h", 42},
-    {"params.h", 11},
+    {"params.h", 10},
     {"segue.h", 1},
     {"sprites.h", 10},
     {"timeline.h", 9},
