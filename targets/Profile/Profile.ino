@@ -278,7 +278,6 @@ private:
             WINDOW_FRAMES);
     hs::log("frame render us: avg=%lu max=%lu", render_sum / WINDOW_FRAMES,
             render_max);
-    dump_isr_stats(now - window_start);
     hs::CycleCounter::log_all();
 #ifdef HS_SCAN_METRICS
     dump_scan_totals();
@@ -301,6 +300,7 @@ private:
 #ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
     dump_shader_workbench_stages();
 #endif
+    dump_isr_stats(now - window_start);
     hs::CycleCounter::reset_all();
     window_frames = 0;
     wall_sum = 0;
