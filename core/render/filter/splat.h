@@ -31,8 +31,8 @@ struct SplatTaps {
 
 /**
  * @brief Splat weight below which a tap contributes nothing worth emitting.
- * @details Looser in Blur (1e-5): these are raw bilinear coverage products,
- * Blur's are normalized 3x3 kernel taps.
+ * @details Looser in Blur: these are raw bilinear coverage products, Blur's are
+ * normalized 3x3 kernel taps.
  */
 static constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
 
