@@ -16,7 +16,7 @@ using GridSpaceParams =
                      Pullback::IsoValueParams>;
 using GridSpaceSpec = Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
                                      void, Pullback::TransferKind::ISO_CONTOUR,
-                                     Pullback::CoverageKind::PROJECTION>;
+                                     Pullback::ProjectionCoverageMode::WEIGHT>;
 
 /**
  * @brief An affine primitive lattice rendered as soft contours.

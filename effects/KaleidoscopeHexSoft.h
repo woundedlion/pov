@@ -16,7 +16,7 @@ using KaleidoscopeHexSoftParams =
 using KaleidoscopeHexSoftSpec =
     Pullback::Spec<Pullback::ProjectionKind::STEREOGRAPHIC,
                    Pullback::Lens::Kaleidoscope, Pullback::TransferKind::NONE,
-                   Pullback::CoverageKind::PROJECTION_SQUARED>;
+                   Pullback::ProjectionCoverageMode::WEIGHT_SQUARED>;
 
 /**
  * @brief A drifting twin wave reflected through a kaleidoscope.
