@@ -12,6 +12,7 @@
 
 #include <array>
 
+#include "core/control/choreography.h"
 #include "core/control/params.h"
 #include "core/control/presets.h"
 #include "tests/test_fixture.h"
@@ -99,11 +100,60 @@ inline void test_apply_if_changed() {
   HS_EXPECT_EQ(last, 8);
 }
 
+/** @brief Params whose default differs from preset 0, so the startup source is
+    observable. */
+struct BootParams {
+  float value = -1.0f;
+};
+
+/**
+ * @brief Effect declaring PRESET_IDS and a static preset_params, no
+ *        initial_params().
+ * @details Preset 0 carries a value the struct default cannot produce, so the
+ * parameters the base boots with name which resolver supplied them.
+ */
+struct PresetZeroBootEffect
+    : public ChoreographedEffect<PresetZeroBootEffect, BootParams> {
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
+                                                              "second"};
+  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 60;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+
+  static constexpr BootParams preset_params(size_t index) {
+    return {index == 0 ? 7.0f : 9.0f};
+  }
+  static constexpr bool valid_params(const BootParams &value) {
+    return value.value >= 0.0f;
+  }
+
+  PresetZeroBootEffect() : ChoreographedEffect(8, 8) {}
+  void draw_frame() override {}
+
+  float boot_value() const { return params.value; }
+};
+
+/**
+ * @brief Verifies a PRESET_IDS-shaped effect boots at preset_params(0).
+ * @details The base reports preset 0 from construction, so starting at the
+ * struct defaults instead would render parameters no preset names while
+ * claiming to be on the first one.
+ */
+inline void test_preset_zero_supplies_startup_params() {
+  hs_test::reset_globals();
+  PresetZeroBootEffect effect;
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(effect.boot_value(),
+               PresetZeroBootEffect::preset_params(0).value);
+  HS_EXPECT_NE(effect.boot_value(), BootParams{}.value);
+}
+
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
   test_all_presets_in_ranges_folds_predicate();
   test_apply_if_changed();
+  test_preset_zero_supplies_startup_params();
 
   return fixture.result();
 }

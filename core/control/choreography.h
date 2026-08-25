@@ -35,8 +35,9 @@
  * shadowing `adopt_params(target)` / `transition_armed(target)` keeps state
  * derived from the parameters consistent across snaps and crossfade arming.
  * `preset_params(index)` — static, or a member when the effect patches preset
- * entries at runtime — overrides the `PRESETS` table lookup; `initial_params()`
- * overrides the default of `PRESETS[0]`. `register_fields()` additionally
+ * entries at runtime — overrides the `PRESETS` table lookup, and its static
+ * form is also the startup default; `initial_params()` overrides both.
+ * `register_fields()` additionally
  * requires a `field_gate_open(gate)` predicate. A `Derived` keeping its hooks
  * non-public befriends this base.
  * @tparam Derived The effect class deriving from this base.
@@ -260,10 +261,14 @@ private:
   }
 
   /** @brief Startup parameters: `Derived::initial_params()` when declared,
-      else `PRESETS[0]`. */
+      else the static `preset_params(0)`, else `PRESETS[0]`. Mirrors
+      preset_target()'s order, minus the member hook no instance exists for
+      yet. */
   static Params initial_params_of() {
     if constexpr (requires { Derived::initial_params(); })
       return Derived::initial_params();
+    else if constexpr (requires { Derived::preset_params(size_t{0}); })
+      return Derived::preset_params(0);
     else if constexpr (requires { Derived::PRESETS; })
       return Derived::PRESETS[0].params;
     else
