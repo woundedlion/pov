@@ -966,6 +966,13 @@ def main():
                              "--excellon-units", "mm", "--excellon-separate-th",
                              "-o", staged + os.sep, PCB])
 
+        # Before the package is assembled: every staged artifact must carry a
+        # creation stamp, and a failure has to leave jlc/ untouched.
+        try:
+            stamped = normalize_fab_timestamps(staged)
+        except TimestampNormalizationError as exc:
+            sys.exit(str(exc))
+
         if os.path.isdir(JLC):
             for name in os.listdir(JLC):
                 stale = os.path.join(JLC, name)
@@ -976,10 +983,6 @@ def main():
         os.makedirs(JLC, exist_ok=True)
         for name in os.listdir(staged):
             os.replace(os.path.join(staged, name), os.path.join(JLC, name))
-    try:
-        stamped = normalize_fab_timestamps(JLC)
-    except TimestampNormalizationError as exc:
-        sys.exit(str(exc))
     print(f"  creation stamps: {len(stamped)} artifact(s) normalized to "
           f"{FAB_TIMESTAMP}")
 
