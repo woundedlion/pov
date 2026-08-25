@@ -498,10 +498,12 @@ jobs:
         # --no-tests=error for the same reason as the tests job.
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job: shards
         # 3, 4 and fastmath all run unit_canvas / unit_pov_segmented.
+        # HS_REQUIRE_EFFECTS_FULL does not read matrix.effects_full: an entry that
+        # loses the key must fail the leg, not downgrade it to the quick tier.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && matrix.effects_full || 0 }}
-          HS_REQUIRE_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && matrix.effects_full || 0 }}
+          HS_REQUIRE_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && 1 || 0 }}
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
