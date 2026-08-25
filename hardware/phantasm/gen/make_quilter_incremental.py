@@ -170,7 +170,7 @@ def main() -> None:
             print(f"verified protected incremental Quilter project: {OUTPUT}")
         else:
             make_snapshot()
-    except RuntimeError as exc:
+    except (OSError, RuntimeError) as exc:
         raise SystemExit(str(exc)) from None
 
 
