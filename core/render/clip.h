@@ -57,8 +57,8 @@ struct ClipRegion {
   /**
    * @brief Render-region left edge: display left expanded by `margin`, wrapped mod w (cylindrical).
    * @return First render column, in pixels, in [0, w).
-   * @pre 0 <= x_start <= w and 0 <= margin < w, as Canvas::set_clip /
-   *      Canvas::set_margin enforce. That puts `x_start - margin` in
+   * @pre 0 <= x_start <= w and 0 <= margin < w, as Effect::set_clip /
+   *      Effect::set_margin enforce. That puts `x_start - margin` in
    *      [-(w-1), w], one period either side, so the wrap is a conditional add
    *      plus a conditional subtract instead of a `%` (the high branch fires
    *      only at x_start == w with margin == 0). contains_x() runs per plotted
