@@ -142,9 +142,10 @@ public:
     // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
     // way `offset + padding + size > capacity` would for a colossal `size`.
     if (padding > capacity - offset || size > capacity - offset - padding) {
-      hs::log("[OOM] Arena: req %lu, offset %lu, pad %lu / cap %lu "
+      hs::log("[OOM] Arena @%08lx: req %lu, offset %lu, pad %lu / cap %lu "
               "(move-assign dropped %lu B in %lu blocks, all arenas since "
               "boot, reclaims not subtracted)",
+              static_cast<unsigned long>(reinterpret_cast<uintptr_t>(buffer)),
               static_cast<unsigned long>(size),
               static_cast<unsigned long>(offset),
               static_cast<unsigned long>(padding),
