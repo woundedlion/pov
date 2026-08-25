@@ -1818,22 +1818,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Doxygen 1.17.0 (pinned) + Graphviz
-        run: |
-          sudo apt-get update && sudo apt-get install -y graphviz
-          curl -fsSL https://github.com/doxygen/doxygen/releases/download/Release_1_17_0/doxygen-1.17.0.linux.bin.tar.gz -o doxygen.tar.gz
-          echo '75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2  doxygen.tar.gz' | sha256sum --check --strict
-          tar xzf doxygen.tar.gz
-          echo "$PWD/doxygen-1.17.0/bin" >> "$GITHUB_PATH"
-
-      - name: Apply doxygen-awesome theme
-        run: |
-          theme_sha="$(python tools/build_pins.py doxygen-awesome)"
-          git init -q .doxygen-awesome
-          git -C .doxygen-awesome remote add origin https://github.com/jothepro/doxygen-awesome-css.git
-          git -C .doxygen-awesome fetch -q --depth 1 origin "$theme_sha"
-          git -C .doxygen-awesome checkout -q FETCH_HEAD
-          cat docs/doxygen-theme.cfg >> Doxyfile
+      - uses: ./.github/actions/pinned-doxygen
 
       - name: Generate docs
         run: mkdir -p build/docs && doxygen Doxyfile
