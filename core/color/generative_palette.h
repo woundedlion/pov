@@ -1122,7 +1122,7 @@ private:
     case SegmentEase::COSINE:
       return 0.5f - 0.5f * fast_cosf(PI_F * progress);
     case SegmentEase::SMOOTHSTEP:
-      return progress * progress * (3.0f - 2.0f * progress);
+      return cubic_kernel(progress);
     }
     return progress;
   }
