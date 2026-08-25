@@ -707,9 +707,13 @@ private:
    */
   [[nodiscard]] static bool render_black() {
     auto &frame = ledController.backFrame();
-    for (int i = 0; i < PPS; ++i) {
-      frame.packPixel(i, Pixel(0, 0, 0));
+    {
+      HS_ISR_PROFILE(hs::g_column_pack_cycles);
+      for (int i = 0; i < PPS; ++i) {
+        frame.packPixel(i, Pixel(0, 0, 0));
+      }
     }
+    HS_ISR_PROFILE(hs::g_dma_submit_cycles);
     return ledController.submitFrame(false);
   }
 
