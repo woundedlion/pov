@@ -596,13 +596,23 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // columns it consumed. A block the run truncates is walked per column, so a
   // settled column is always settled from its own block's anchor.
   auto walk = [&](int x1, int x2, int y, float sp, float cp, int stride) {
+    // The next canvas-aligned block anchor at or after x, advanced by stride,
+    // so block heads are selected without a per-column divide.
+    [[maybe_unused]] int next_block = x1;
+    if constexpr (POLE_LOD_ENABLED)
+      if (stride > 1)
+        next_block = x1 + (stride - x1 % stride) % stride;
     for (int x = x1; x < x2; ++x) {
       if constexpr (POLE_LOD_ENABLED) {
-        if (stride > 1 && x % stride == 0 && x + stride <= x2) {
-          x += pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
-                        stride) -
-               1;
-          continue;
+        if (stride > 1 && x == next_block) {
+          next_block += stride;
+          if (x + stride <= x2) {
+            x +=
+                pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
+                         stride) -
+                1;
+            continue;
+          }
         }
       }
       pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
