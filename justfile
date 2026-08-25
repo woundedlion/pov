@@ -108,13 +108,15 @@ teensy-warnings:
 
 # The README's `tree daydream` fence draws the sibling checkout's tracked tree;
 # docs_check.py can only validate it against a --checkout root (ci.yml checks the
-# sibling out for exactly that). Point it at ../daydream when that checkout is
+# sibling out for exactly that). Point it at the sibling when that checkout is
 # there, so a local run gates the same claim CI does; without it the fence is
 # accepted unvalidated, which the checker requires be asked for explicitly.
-# path_exists resolves against the justfile directory, so the recipe works from
-# any working directory.
-daydream_checkout := if path_exists("../daydream") == "true" {
-    "--checkout daydream=../daydream"
+# The sibling hangs off the MAIN worktree, which --git-common-dir names from any
+# worktree and any working directory; justfile_directory() and a bare
+# `../daydream` would both be whichever worktree just was invoked from.
+daydream_sibling := parent_directory(parent_directory(`git rev-parse --path-format=absolute --git-common-dir`)) / "daydream"
+daydream_checkout := if path_exists(daydream_sibling) == "true" {
+    "--checkout daydream=" + daydream_sibling
 } else { "--skip-checkout daydream" }
 
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
