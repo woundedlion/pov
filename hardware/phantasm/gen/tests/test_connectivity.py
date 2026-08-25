@@ -99,6 +99,17 @@ POUR_BOARD = """(kicad_pcb
 \t)
 )"""
 
+# A pour spanning two layers: KiCad spells that `(layers ...)`, and the fills of
+# an unfilled-then-refilled zone can carry no layer of their own.
+SPAN_POUR_BOARD = POUR_BOARD.replace(
+    '\t(layer "In1.Cu")\n',
+    '\t(layers "In1.Cu" "B.Cu")\n', 1).replace(
+    '\t\t\t(layer "In1.Cu")\n', "", 1)
+
+STAR_POUR_BOARD = POUR_BOARD.replace(
+    '\t(layer "In1.Cu")\n', '\t(layers "*.Cu")\n', 1).replace(
+    '\t\t\t(layer "In1.Cu")\n', "", 1)
+
 EMPTY_BOARD = """(kicad_pcb
 	(layers
 		(0 "F.Cu" signal)
@@ -189,6 +200,31 @@ class SyntheticBoardTests(unittest.TestCase):
                               and child[0] == "filled_polygon")]
                 for node in parse(POUR_BOARD)]
         self.assertEqual(sorted(connectivity.opens(root)), ["GND"])
+
+    def test_a_multi_layer_pour_carries_its_pads(self):
+        # KiCad writes a zone spanning several layers as `(layers ...)`; reading
+        # only the singular spelling breaks the walk instead of scoring it.
+        self.assertEqual(connectivity.opens(parse(SPAN_POUR_BOARD)), {})
+        self.assertEqual(connectivity.opens(parse(STAR_POUR_BOARD)), {})
+
+    def test_a_multi_layer_pour_is_placed_on_every_layer_it_spans(self):
+        copper, _, _ = connectivity.board_copper(parse(SPAN_POUR_BOARD))
+        fills = [item for item in copper["GND"]
+                 if isinstance(item, connectivity.Fill)]
+        self.assertEqual(sorted(layer for fill in fills for layer in fill.layers),
+                         ["B.Cu", "In1.Cu"])
+
+    def test_a_zone_naming_no_copper_layer_is_refused(self):
+        text = SPAN_POUR_BOARD.replace('(layers "In1.Cu" "B.Cu")', "(layers)")
+        with self.assertRaisesRegex(ValueError, "outside the copper stack"):
+            connectivity.opens(parse(text))
+
+    def test_a_zone_declaring_both_spellings_is_refused(self):
+        text = SPAN_POUR_BOARD.replace(
+            '(layers "In1.Cu" "B.Cu")',
+            '(layer "In1.Cu") (layers "In1.Cu" "B.Cu")')
+        with self.assertRaisesRegex(ValueError, "2 times, not once"):
+            connectivity.opens(parse(text))
 
     def test_a_back_side_footprint_is_refused(self):
         text = BOARD.replace("(layer \"F.Cu\")", "(layer \"B.Cu\")", 1)

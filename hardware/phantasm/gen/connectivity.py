@@ -196,6 +196,28 @@ def footprint_reference(footprint):
     return "?"
 
 
+def zone_layers(zone, stack):
+    """Copper layers a zone occupies, from either KiCad spelling.
+
+    A one-layer zone declares `(layer "In1.Cu")`; a multi-layer one declares
+    `(layers "F.Cu" "B.Cu")`, or `(layers "*.Cu")` for the whole stack.
+    """
+    nodes = F(zone, "layer") + F(zone, "layers")
+    if len(nodes) != 1:
+        raise ValueError(
+            f"zone on net {net_name(zone) or '?'} declares layer or layers "
+            f"{len(nodes)} times, not once")
+    names = [str(value) for value in nodes[0][1:]]
+    layers = list(dict.fromkeys(
+        entry for name in names
+        for entry in (stack if name == "*.Cu" else (name,))))
+    if not layers or any(name not in stack for name in layers):
+        raise ValueError(
+            f"zone on net {net_name(zone) or '?'} names a layer outside the "
+            f"copper stack: {', '.join(names) or '(none)'}")
+    return layers
+
+
 def board_copper(root):
     """Returns copper, netted pads, and native net-id-to-name mappings."""
     stack = copper_layers(root)
@@ -236,10 +258,15 @@ def board_copper(root):
         net = net_id(zone)
         if net is None or not is_copper_pour(zone):
             continue
-        layer = str(sexp.val(zone, "layer")[0])
+        declared = zone_layers(zone, stack)
         for filled in F(zone, "filled_polygon"):
             polygon = [_xy(vertex[1:]) for vertex in F(F(filled, "pts")[0], "xy")]
-            if polygon:
+            if not polygon:
+                continue
+            # A multi-layer pour splits into one filled_polygon per layer, each
+            # naming its own; a fill that names none covers the whole zone.
+            own = sexp.val(filled, "layer")
+            for layer in ([str(own[0])] if own else declared):
                 copper.setdefault(net, []).append(Fill(polygon, layer))
     return copper, pads, names
 
