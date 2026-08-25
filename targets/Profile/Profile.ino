@@ -721,6 +721,16 @@ constexpr uint32_t PROFILE_REVOLUTIONS[] = {RPM * 60};
 // revolutions_for_effect() index it over [0, effect_count).
 static_assert(std::size(PROFILE_REVOLUTIONS) == std::size(EFFECT_FACTORIES));
 
+// The same per-effect RNG identity the shipping playlist builds, derived from
+// the profiled class rather than the ProfiledEffect wrapper. Without it the
+// driver falls back to hs::epoch_seed(0) and the harness measures a different
+// random realization than the show renders.
+constexpr uint64_t PROFILE_SEEDS[] = {hs::stable_effect_seed(
+    hs::stable_effect_id<HS_PROFILE_TARGET<CANVAS_W, CANVAS_H>>(
+        HS_PROFILE_STR(HS_PROFILE_TARGET)))};
+
+static_assert(std::size(PROFILE_SEEDS) == std::size(EFFECT_FACTORIES));
+
 constexpr pov::sync::Config profile_config() {
   auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1);
   cfg.effect_revolutions = PROFILE_REVOLUTIONS;
@@ -756,5 +766,5 @@ FLASHMEM void setup() {
 
 void loop() {
   // Never returns: runs the single-entry playlist forever.
-  g_pov->run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS);
+  g_pov->run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS, &PROFILE_SEEDS);
 }
