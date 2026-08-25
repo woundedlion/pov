@@ -23,6 +23,8 @@ Storage (deliberately NOT a tracked file):
 
 Capture is two-phase because the recorder does not know the next commit sha:
   * `record`  — before committing, parse the built ELFs into a pending record.
+    `just teensy-size` runs it after its build; run it by hand after any other
+    firmware link whose sizes should be attributed to the next commit.
   * `commit`  — post-commit: stamp the pending record with HEAD's sha, committer
     date and subject, append one row per environment, drop the pending file.
 
