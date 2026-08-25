@@ -10,10 +10,13 @@
 // Defaults to the wasm-release build output; override with the arg or WASM_JS.
 import { pathToFileURL } from 'node:url';
 import { join, isAbsolute } from 'node:path';
-import { access, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
+import { compileShaderDocument } from './shader_workbench.mjs';
 import {
+  bakedTopologyFields,
   darknessProblems,
   paramStreamProblems,
+  promotedBindingProblems,
   stackCreepBudget,
 } from './wasm_smoke_predicates.mjs';
 
@@ -22,6 +25,35 @@ const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
 const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
 const EXPECTED_OPERATOR_CATALOG = JSON.parse(await readFile(
   new URL('./engine_catalog.json', import.meta.url), 'utf8'));
+
+/**
+ * The promoted shader documents, each with the parameter ids its presets
+ * carry. A document with no `effect_id` backs no effect — the CLI's sample —
+ * and is skipped.
+ *
+ * @returns {Promise<{document: string, effect: string, parameterIds: string[]}[]>}
+ */
+async function promotedDocuments() {
+  const dir = new URL('../patterns/', import.meta.url);
+  const names = (await readdir(dir)).filter((name) => name.endsWith('.shader.json'));
+  const documents = [];
+  for (const name of names) {
+    // The committed blobs are LF; core.autocrlf hands a Windows checkout CRLF.
+    const source = (await readFile(new URL(name, dir), 'utf8')).replaceAll('\r\n', '\n');
+    const compiled = compileShaderDocument(source, { catalog: EXPECTED_OPERATOR_CATALOG });
+    if (compiled.status !== 'VALID') {
+      throw new Error(`patterns/${name} does not compile: ` +
+        JSON.stringify(compiled.diagnostics));
+    }
+    const effect = compiled.document.effect_id;
+    if (typeof effect !== 'string') continue;
+    const ids = new Set();
+    for (const preset of compiled.document.preset_bank.presets)
+      for (const id of Object.keys(preset.values)) ids.add(id);
+    documents.push({ document: `patterns/${name}`, effect, parameterIds: [...ids] });
+  }
+  return documents;
+}
 
 // The gate depth, spelled once here so CI and `just smoke` drive the same run:
 // 120 frames reaches the late-lifecycle events (frame-48 ShapeShifter cut, arena
@@ -654,6 +686,45 @@ async function main(probe) {
         }
       }
       engine.setAnimationsPaused(false);
+    }
+
+    // ── Promoted documents bind to their compiled effect ─────────────────────
+    // patterns/<effect>.shader.json is the editable source of a composed
+    // effect, and the simulator applies it to the compiled build by control
+    // name, one parameter at a time — a single unresolved id refuses the apply
+    // and writes nothing. The digests pin document to header without ever
+    // naming a control, so this is the only check that the two vocabularies
+    // meet.
+    {
+      const [w, h] = RESOLUTIONS[0];
+      const documents = await promotedDocuments();
+      const controls = new Map();
+      if (!resolutionOk(engine.setResolution(w, h))) {
+        fail(`promoted-bindings: setResolution(${w}, ${h}) rejected a supported size`);
+      } else {
+        for (const { effect } of documents) {
+          if (controls.has(effect)) continue;
+          // setEffect takes the document's own effect_id (see stable-identity).
+          const installed = engine.setEffect(effect);
+          if (installed !== ES.INSTALLED) {
+            const outcome = Object.keys(ES).find((key) => ES[key] === installed);
+            fail(`promoted-bindings: setEffect("${effect}") reported ` +
+              `${outcome ?? installed} at ${w}x${h}`);
+            continue;
+          }
+          controls.set(effect,
+            new Set(engine.getParameterDefinitions().map((d) => d.name)));
+        }
+      }
+      for (const problem of promotedBindingProblems({
+        documents,
+        controls,
+        bakedFields: bakedTopologyFields(EXPECTED_OPERATOR_CATALOG),
+      })) {
+        fail(`promoted-bindings: ${problem}`);
+      }
+      console.log(`  promoted-bindings: ${documents.length} documents checked ` +
+        `against their compiled effect's controls`);
     }
 
     // ── Embind state seam: getParamGeneration / setAnimationsPaused ───────────
