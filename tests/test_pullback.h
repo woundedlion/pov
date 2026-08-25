@@ -895,17 +895,30 @@ inline void test_pullback_concrete_catalog() {
     float lattice_radius;
   };
   constexpr Prepared prepared{0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
-  constexpr Params params{1.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
-  const Complex origin;
-  HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, prepared), 0.0f);
-  HS_EXPECT_EQ(Pullback::Source::rings(origin, prepared), 0.0f);
-  HS_EXPECT_NEAR(Pullback::Source::spiral(origin, prepared), 1.0f, 2e-3f);
-  HS_EXPECT_EQ(Pullback::Source::grid(origin, params, prepared), 0.0f);
   constexpr Prepared shifted{0.7f, 0.3f, 0.0f, 1.0f, 0.0f};
+  constexpr Prepared turned{0.0f, 0.0f, PI_F * 0.5f, 0.0f, 1.0f};
+  constexpr Params params{1.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
   constexpr Params coupled{0.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
+  const Complex origin;
+  const Complex off(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
+  HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, prepared), 0.0f);
+  HS_EXPECT_NEAR(Pullback::Source::twin_wave(off, turned),
+                 0.5f * (fast_sinf(0.6f) + fast_sinf(0.25f)), 2e-3f);
+  HS_EXPECT_EQ(Pullback::Source::rings(origin, prepared), 0.0f);
+  HS_EXPECT_NEAR(Pullback::Source::rings(off, shifted), fast_sinf(-0.05f),
+                 2e-3f);
+  HS_EXPECT_NEAR(Pullback::Source::spiral(origin, prepared), 1.0f, 2e-3f);
+  HS_EXPECT_NEAR(Pullback::Source::spiral(off, shifted),
+                 fast_sinf(-0.05f - 3.0f * fast_atan2(0.25f, 0.6f)), 2e-3f);
+  HS_EXPECT_EQ(Pullback::Source::grid(origin, params, prepared), 0.0f);
   HS_EXPECT_NEAR(Pullback::Source::grid(origin, coupled, shifted),
                  fast_sinf(0.7f) * fast_cosf(-0.3f), 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::primitive_lattice(origin, params), 1.0f);
+  // Cell coordinate (0.2, 0.1) sits inside the softness band, so the edge ramp
+  // resolves between its saturated ends.
+  HS_EXPECT_NEAR(
+      Pullback::Source::primitive_lattice(Complex(0.2f, 0.1f), params),
+      0.38671f, 2e-3f);
 
   const Pullback::Source::SphericalRingsSourceParams ring_params;
   const Pullback::Source::PreparedSphericalRings ring_frame{Y_AXIS, 0.0f};
@@ -919,6 +932,10 @@ inline void test_pullback_concrete_catalog() {
   const Pullback::Source::FractalSourceParams fractal_params;
   HS_EXPECT_EQ(
       Pullback::Source::escape_fractal(origin, fractal_params, prepared), 1.0f);
+  // c = 0.6 escapes on iteration 3 of 8, landing on contour cycle 0.4219.
+  HS_EXPECT_NEAR(Pullback::Source::escape_fractal(Complex(1.2f, 0.0f),
+                                                  fractal_params, prepared),
+                 -0.38298f, 5e-3f);
 
   const Pullback::Source::TessellationSourceParams tessellation_params;
   HS_EXPECT_EQ(Pullback::Source::tessellation(
