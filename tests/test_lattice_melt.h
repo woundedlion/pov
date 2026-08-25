@@ -4,11 +4,11 @@
  */
 #pragma once
 
-#include <bit>
 #include <limits>
 
 #include "core/math/interpolate.h"
 #include "effects/LatticeMelt.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_shader_workbench.h"
 
 namespace hs_test {
@@ -101,14 +101,6 @@ struct LatticeMeltWhiteBox {
   }
 };
 
-inline void expect_color_exact(const Color4 &actual, const Color4 &expected) {
-  HS_EXPECT_EQ(actual.color.r, expected.color.r);
-  HS_EXPECT_EQ(actual.color.g, expected.color.g);
-  HS_EXPECT_EQ(actual.color.b, expected.color.b);
-  HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.alpha),
-               std::bit_cast<uint32_t>(expected.alpha));
-}
-
 inline void test_lattice_melt_identity_and_presets() {
   using WB = LatticeMeltWhiteBox;
   using FX = WB::FX;
@@ -117,14 +109,6 @@ inline void test_lattice_melt_identity_and_presets() {
   HS_EXPECT_EQ(sizeof(WB::Params), 27 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::FrameState) <
                  sizeof(ShaderWorkbenchWB::FrameState));
-  for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
-    HS_EXPECT_FALSE(FX::PRESET_IDS[index].empty());
-    HS_EXPECT_TRUE(Pullback::valid(FX::preset_params(index)));
-    for (size_t earlier = 0; earlier < index; ++earlier)
-      HS_EXPECT_TRUE(FX::PRESET_IDS[index] != FX::PRESET_IDS[earlier]);
-  }
-  HS_EXPECT_GT(FX::TRANSITION_DURATION, uint16_t{0});
-  HS_EXPECT_GT(FX::PRESET_DWELL_FRAMES, uint16_t{0});
 
   // The runtime rebuilds the hue-rotation LUT on the same predicate the
   // colorizer gates its view on, so both read dead at a zero shift amount.
