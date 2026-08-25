@@ -18,8 +18,10 @@
 #include <tuple>
 
 #include "core/color/effect_palette_recipes.h"
+#include "core/color/layer_composite.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
+#include "core/math/4dmath.h"
 #include "core/render/pullback.h"
 
 namespace hs_test {
@@ -30,7 +32,7 @@ struct HyperLatticeWhiteBox;
 
 namespace HyperLatticeDetail {
 
-constexpr int DIMENSIONS = 4;
+constexpr int DIMENSIONS = VEC4_DIMENSIONS;
 constexpr int MAX_SHELLS = 3;
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
 
@@ -40,46 +42,6 @@ enum class ShellCount : uint8_t { ONE, TWO, THREE };
 enum class LatticeMode : uint8_t { THREE_D, DIMENSIONAL_RIFT, FOUR_D_SLICE };
 
 constexpr float DIMENSIONAL_RIFT_MIX = 0.55f;
-
-struct Vec4 {
-  float v[DIMENSIONS];
-
-  constexpr float &operator[](int index) { return v[index]; }
-  constexpr float operator[](int index) const { return v[index]; }
-};
-
-struct Mat4 {
-  float m[DIMENSIONS][DIMENSIONS]{};
-
-  static constexpr Mat4 identity() {
-    Mat4 result;
-    for (int i = 0; i < DIMENSIONS; ++i)
-      result.m[i][i] = 1.0f;
-    return result;
-  }
-
-  __attribute__((always_inline)) Vec4 apply(const Vec4 &input) const {
-    return {{m[0][0] * input[0] + m[0][1] * input[1] + m[0][2] * input[2] +
-                 m[0][3] * input[3],
-             m[1][0] * input[0] + m[1][1] * input[1] + m[1][2] * input[2] +
-                 m[1][3] * input[3],
-             m[2][0] * input[0] + m[2][1] * input[1] + m[2][2] * input[2] +
-                 m[2][3] * input[3],
-             m[3][0] * input[0] + m[3][1] * input[1] + m[3][2] * input[2] +
-                 m[3][3] * input[3]}};
-  }
-};
-
-HS_COLD static void rotate_plane(Mat4 &matrix, int a, int b, float angle) {
-  const float c = fast_cosf(angle);
-  const float s = fast_sinf(angle);
-  for (int column = 0; column < DIMENSIONS; ++column) {
-    const float av = matrix.m[a][column];
-    const float bv = matrix.m[b][column];
-    matrix.m[a][column] = c * av - s * bv;
-    matrix.m[b][column] = s * av + c * bv;
-  }
-}
 
 __attribute__((always_inline)) inline float periodic_distance(float value) {
   return fabsf(value - nearbyintf(value));
@@ -689,35 +651,6 @@ inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
   return nearest;
 }
 
-struct LayerComposite {
-  float red = 0.0f;
-  float green = 0.0f;
-  float blue = 0.0f;
-  float remaining = 1.0f;
-
-  void add(const Pixel &color, float coverage) {
-    const float weight = remaining * coverage;
-    red += static_cast<float>(color.r) * weight;
-    green += static_cast<float>(color.g) * weight;
-    blue += static_cast<float>(color.b) * weight;
-    remaining *= 1.0f - coverage;
-  }
-
-  Color4 finish() const {
-    const float alpha = 1.0f - remaining;
-    if (alpha <= 0.0f)
-      return {};
-    const float inverse_alpha = 1.0f / alpha;
-    const Pixel color{static_cast<uint16_t>(hs::clamp(
-                          red * inverse_alpha + 0.5f, 0.0f, 65535.0f)),
-                      static_cast<uint16_t>(hs::clamp(
-                          green * inverse_alpha + 0.5f, 0.0f, 65535.0f)),
-                      static_cast<uint16_t>(hs::clamp(
-                          blue * inverse_alpha + 0.5f, 0.0f, 65535.0f))};
-    return {color, alpha};
-  }
-};
-
 template <bool SLICE_4D = false, bool SPECIALIZED_SLICE = false>
 __attribute__((always_inline)) inline Color4
 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
@@ -1026,7 +959,7 @@ private:
   static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
 
-  HyperLatticeDetail::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
+  Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
   BakedPalette axis_palette;
