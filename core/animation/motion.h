@@ -502,12 +502,12 @@ private:
 
 namespace Detail {
 
-[[nodiscard]] __attribute__((noinline)) inline float
+[[nodiscard]] HS_NOINLINE_NOCLONE inline float
 stable_rotation_squared_magnitude(const Quaternion &q) {
   return q.r * q.r + q.v.x * q.v.x + q.v.y * q.v.y + q.v.z * q.v.z;
 }
 
-[[nodiscard]] __attribute__((noinline)) inline Quaternion
+[[nodiscard]] HS_NOINLINE_NOCLONE inline Quaternion
 stable_rotation_normalized(const Quaternion &q) {
   float m2 = stable_rotation_squared_magnitude(q);
   HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
@@ -515,7 +515,7 @@ stable_rotation_normalized(const Quaternion &q) {
   return Quaternion(q.r / m, q.v / m);
 }
 
-[[nodiscard]] __attribute__((noinline)) inline Quaternion
+[[nodiscard]] HS_NOINLINE_NOCLONE inline Quaternion
 make_stable_rotation(const Vector &axis, float theta) {
   return stable_rotation_normalized(
       Quaternion(cosf(theta / 2), sinf(theta / 2) * axis));
