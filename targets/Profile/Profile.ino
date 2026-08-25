@@ -26,6 +26,10 @@
 #define HS_PROFILE_WINDOW 128
 #endif
 
+#ifndef HS_PROFILE_ENABLE
+#error "Profile builds require HS_PROFILE_ENABLE (use the `profile` env)"
+#endif
+
 #ifndef HS_PROFILE_CONFIG_TAG
 #error "Profile builds require HS_PROFILE_CONFIG_TAG"
 #endif
