@@ -111,10 +111,21 @@ public:
    */
   const Vector &get_axis() const { return axis; }
 
-  bool enabled; /**< When false, the filter passes points through unrotated. */
+  /**
+   * @brief Enables or disables the slice selection.
+   * @param value When false, points and edges pass through unrotated.
+   */
+  void set_enabled(bool value) { enabled = value; }
+
+  /**
+   * @brief Reports whether slice selection is active.
+   * @return False when the filter passes points through unrotated.
+   */
+  bool is_enabled() const { return enabled; }
 
 private:
-  Vector axis; /**< Unit axis points are projected onto to select a slice. */
+  bool enabled; /**< When false, the filter passes points through unrotated. */
+  Vector axis;  /**< Unit axis points are projected onto to select a slice. */
   std::span<const Orientation<>>
       orientations; /**< Candidate orientations indexed by projection; borrowed,
                          so the backing array must outlive the filter. */
