@@ -100,9 +100,9 @@ public:
       "registered slider range; widen the range to accommodate the "
       "preset (the range exposes the presets, it does not clamp them)");
 
-  /** @brief Startup parameters: PRESETS[0] with the noise binding still null;
+  /** @brief Startup parameters: preset 0 with the noise binding still null;
    *  init() binds the effect-owned NoiseParams. */
-  static Params initial_params() { return {}; }
+  static Params initial_params() { return PRESETS[0].params; }
 
   /** @brief Whether a restored parameter set lies within the slider ranges. */
   static bool valid_params(const Params &p) { return preset_in_ranges(p); }
