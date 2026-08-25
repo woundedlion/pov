@@ -17,7 +17,7 @@ import os
 import sys
 
 import sexp
-from kicad_common import F, is_copper_pour
+from kicad_common import F, is_copper_pour, net_name
 
 # Copper that lands this close counts as touching. KiCad snaps track ends to
 # pad and via anchors, so the slack absorbs export rounding, not a real gap.
@@ -28,11 +28,6 @@ def copper_layers(root):
     """Copper layer names in stack order, which is what a via span enumerates."""
     return [str(entry[1]) for entry in F(root, "layers")[0][1:]
             if str(entry[1]).endswith(".Cu")]
-
-
-def net_name(node):
-    net = sexp.val(node, "net")
-    return str(net[-1]).lstrip("/") if net else None
 
 
 def net_id(node):
