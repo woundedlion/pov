@@ -644,7 +644,8 @@ inline void test_blur_pole_row_renormalizes() {
 
 /**
  * @brief Verifies ChromaticShift emits the original colour plus three
- *        single-channel copies shifted to x+1/x+2/x+3 (R, G, B respectively).
+ *        single-channel copies shifted to x+1/x+2/x+3 (R, G, B respectively),
+ *        and that Spread scales those offsets and the segment margin.
  */
 inline void test_chromatic_shift_fanout() {
   constexpr int W = 64;
@@ -695,6 +696,22 @@ inline void test_chromatic_shift_fanout() {
   HS_EXPECT_EQ(taps[3].c.r, 0);
   HS_EXPECT_EQ(taps[3].c.g, 0);
   HS_EXPECT_EQ(taps[3].c.b, src.b);
+
+  // A wider Spread scales every fringe offset and the margin that covers them.
+  static_assert(Filter::Pixel::ChromaticShift<W, 3>::segment_margin == 9);
+  Filter::Pixel::ChromaticShift<W, 3> wide;
+  count = 0;
+  wide.plot(10.0f, 5.0f, src, 0.0f, 1.0f,
+            [&](float x, float y, const Pixel &c, float, float a) {
+              if (count < 8)
+                taps[count] = {x, y, c, a};
+              ++count;
+            });
+  HS_EXPECT_EQ(count, 4);
+  HS_EXPECT_NEAR(taps[0].x, 10.0f, 1e-5f);
+  HS_EXPECT_NEAR(taps[1].x, 13.0f, 1e-5f);
+  HS_EXPECT_NEAR(taps[2].x, 16.0f, 1e-5f);
+  HS_EXPECT_NEAR(taps[3].x, 19.0f, 1e-5f);
 }
 
 // ============================================================================

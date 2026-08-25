@@ -12,32 +12,39 @@
 /**
  * @file pixel_chromatic_shift.h
  * @brief Filter::Pixel::ChromaticShift: splits RGB into per-channel copies
- * offset by 1/2/3 columns, producing a chromatic-aberration fringe.
+ * offset by 1/2/3 spreads of columns, producing a chromatic-aberration fringe.
  */
 
 namespace Filter {
 namespace Pixel {
 
 /**
- * @brief Splits RGB into per-channel copies offset by 1/2/3 columns,
+ * @brief Splits RGB into per-channel copies offset by 1/2/3 spreads of columns,
  * producing a chromatic-aberration fringe.
+ * @tparam W Canvas width in columns.
+ * @tparam Spread Columns per fringe step. The fringe subtends
+ *         3 * Spread / W of a turn, so scaling it with W holds the aberration
+ *         at a fixed angular width across resolutions.
  */
-template <int W> class ChromaticShift : public IsPixel {
-  // fast_wrap corrects only one ±W step, so the +1/+2/+3 column offsets stay in
-  // a single wrap of [0,W) only for W >= 4.
-  static_assert(W >= 4, "ChromaticShift requires W >= 4 for fast_wrap offsets");
+template <int W, int Spread = 1> class ChromaticShift : public IsPixel {
+  static_assert(Spread >= 1, "ChromaticShift requires a positive Spread");
+  // fast_wrap corrects only one ±W step, so the three fringe offsets stay in a
+  // single wrap of [0,W) only while 3 * Spread < W.
+  static_assert(W >= 3 * Spread + 1,
+                "ChromaticShift requires W > 3 * Spread for fast_wrap offsets");
 
 public:
   /**
-   * @brief The +1/+2/+3 column taps land outside the plotted position, so a
-   *        segment worker needs 3 columns of render margin to write them.
+   * @brief The three fringe taps land outside the plotted position, so a
+   *        segment worker needs 3 * Spread columns of render margin to write
+   *        them.
    */
-  static constexpr int segment_margin = 3;
+  static constexpr int segment_margin = 3 * Spread;
   /** @brief Constructs the chromatic-shift filter (stateless). */
   ChromaticShift() {}
 
   /**
-   * @brief Emits the source pixel plus R/G/B copies offset by 1/2/3 columns.
+   * @brief Emits the source pixel plus R/G/B copies offset by 1/2/3 spreads.
    * @param x Column coordinate in pixels.
    * @param y Row coordinate in pixels.
    * @param c Source color; split into single-channel copies.
@@ -70,9 +77,11 @@ public:
     // fast_wrap corrects only a single ±W offset, so xr must land in [-W, 2W).
     assert(xr >= -W && xr < 2 * W);
     int xi = fast_wrap(static_cast<int>(xr), W);
-    pass(static_cast<float>(fast_wrap(xi + 1, W)), y, r_col, age, alpha);
-    pass(static_cast<float>(fast_wrap(xi + 2, W)), y, g_col, age, alpha);
-    pass(static_cast<float>(fast_wrap(xi + 3, W)), y, b_col, age, alpha);
+    pass(static_cast<float>(fast_wrap(xi + Spread, W)), y, r_col, age, alpha);
+    pass(static_cast<float>(fast_wrap(xi + 2 * Spread, W)), y, g_col, age,
+         alpha);
+    pass(static_cast<float>(fast_wrap(xi + 3 * Spread, W)), y, b_col, age,
+         alpha);
   }
 };
 
