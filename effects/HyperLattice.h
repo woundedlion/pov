@@ -689,9 +689,9 @@ inline void prepare_projected_lines(PreparedTrace &prepared) {
 }
 
 template <typename ConsumeFn>
-inline void trace_projected_layers(const Vector &normal,
-                                   const PreparedTrace &prepared,
-                                   ConsumeFn consume) {
+__attribute__((always_inline)) inline void
+trace_projected_layers(const Vector &normal, const PreparedTrace &prepared,
+                       ConsumeFn consume) {
   const Vec4 reflected = reflected_direction(normal, prepared.params.reflection,
                                              prepared.params.chrome_warp);
   const Vector ray_origin = normal * prepared.params.sphere_radius;
@@ -733,11 +733,12 @@ inline void trace_projected_layers(const Vector &normal,
       return;
 }
 
-template <typename ConsumeFn>
-inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
-                         ConsumeFn consume) {
+template <bool PROJECTED, typename ConsumeFn>
+__attribute__((always_inline)) inline void
+trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
+                  ConsumeFn consume) {
   HS_PROFILE_DEEP(hl_trace_layers);
-  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED) {
+  if constexpr (PROJECTED) {
     trace_projected_layers(normal, prepared, consume);
     return;
   }
@@ -827,6 +828,15 @@ inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
   }
 }
 
+template <typename ConsumeFn>
+inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
+                         ConsumeFn consume) {
+  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED)
+    trace_layers_mode<true>(normal, prepared, consume);
+  else
+    trace_layers_mode<false>(normal, prepared, consume);
+}
+
 inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
   TraceHit nearest;
   trace_layers(normal, prepared, [&](const TraceHit &hit) {
@@ -865,29 +875,59 @@ struct LayerComposite {
   }
 };
 
-inline Color4 shade(const Pullback::SphereSample &input,
-                    const FrameState &frame, const PreparedTrace &prepared) {
+template <bool PROJECTED>
+__attribute__((always_inline)) inline Color4
+shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
+           const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
   LayerComposite composite;
   const BakedPalette &palette =
       *(prepared.params.color == ColorMode::DEPTH ? frame.depth_palette
                                                   : frame.axis_palette);
-  trace_layers(input.dir, prepared,
-               [&](const TraceHit &hit) __attribute__((always_inline)) {
-                 HS_PROFILE_DEEP(hl_layer_composite);
-                 const float depth = hit.distance * prepared.inv_far;
-                 const float value =
-                     prepared.params.color == ColorMode::DEPTH
-                         ? 1.0f - depth
-                         : (static_cast<float>(hit.free_axis) + 0.75f * depth) /
-                               4.0f;
-                 Pixel color = palette.get_color_unit(value);
-                 color = color * (0.45f + 0.55f * (1.0f - depth));
-                 composite.add(color, hit.coverage);
-                 return composite.remaining > MIN_ENCODABLE_ALPHA;
-               });
+  trace_layers_mode<PROJECTED>(
+      input.dir, prepared,
+      [&](const TraceHit &hit) __attribute__((always_inline)) {
+        HS_PROFILE_DEEP(hl_layer_composite);
+        const float depth = hit.distance * prepared.inv_far;
+        const float value =
+            prepared.params.color == ColorMode::DEPTH
+                ? 1.0f - depth
+                : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
+        Pixel color = palette.get_color_unit(value);
+        color = color * (0.45f + 0.55f * (1.0f - depth));
+        composite.add(color, hit.coverage);
+        return composite.remaining > MIN_ENCODABLE_ALPHA;
+      });
   return composite.finish();
 }
+
+inline Color4 shade(const Pullback::SphereSample &input,
+                    const FrameState &frame, const PreparedTrace &prepared) {
+  if (prepared.mode == LatticeMode::FOUR_D_PROJECTED)
+    return shade_mode<true>(input, frame, prepared);
+  return shade_mode<false>(input, frame, prepared);
+}
+
+template <bool PROJECTED>
+struct ModeShadeStage
+    : Pullback::Stage::Contract<ModeShadeStage<PROJECTED>,
+                                Pullback::SphereSample, Color4> {
+  using Policies = std::tuple<>;
+
+  template <typename PipelineBinding>
+  static PreparedTrace
+  prepare(const typename PipelineBinding::FrameState &frame) {
+    return prepare_trace(frame);
+  }
+
+  template <typename PipelineBinding>
+  __attribute__((always_inline)) static Color4
+  run(const Pullback::SphereSample &input,
+      const typename PipelineBinding::FrameState &frame,
+      const PreparedTrace &prepared) {
+    return shade_mode<PROJECTED>(input, frame, prepared);
+  }
+};
 
 struct ShadeStage
     : Pullback::Stage::Contract<ShadeStage, Pullback::SphereSample, Color4> {
@@ -909,6 +949,9 @@ struct ShadeStage
 };
 
 using RenderPipeline = Pullback::Pipeline<Binding, ShadeStage>;
+using SliceRenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<false>>;
+using ProjectedRenderPipeline =
+    Pullback::Pipeline<Binding, ModeShadeStage<true>>;
 
 } // namespace HyperLatticeDetail
 
@@ -1052,10 +1095,19 @@ public:
     const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
     {
       HS_PROFILE(hl_shader_draw);
-      Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
-        return HyperLatticeDetail::RenderPipeline::evaluate(view, frame.ctx,
-                                                            frame.prepared);
-      });
+      if (frame.ctx.params.mode != LatticeMode::FOUR_D_PROJECTED) {
+        Scan::Shader::draw_cached<W, H, 1>(
+            canvas, [&frame](const Vector &view) {
+              return HyperLatticeDetail::SliceRenderPipeline::evaluate(
+                  view, frame.ctx, frame.prepared);
+            });
+      } else {
+        Scan::Shader::draw_cached<W, H, 1>(
+            canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
+              return HyperLatticeDetail::ProjectedRenderPipeline::evaluate(
+                  view, frame.ctx, frame.prepared);
+            });
+      }
     }
   }
 
