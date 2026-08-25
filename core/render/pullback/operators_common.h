@@ -8,6 +8,7 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
+#include "animation/animation.h"
 #include "render/pullback/material.h"
 #include "render/pullback/operator_model.h"
 #include "render/pullback/runtime_seeds.h"
@@ -25,11 +26,9 @@ namespace Interp {
 
 namespace Op {
 
-inline constexpr float WALK_SPEED = 0.02f;
-inline constexpr float WALK_PIVOT_STRENGTH = 0.1f;
-inline constexpr float WALK_NOISE_SCALE = 0.02f;
-inline constexpr float WALK_SMOOTHING = 0.85f;
-inline constexpr float WALK_DRIFT = 0.5f;
+/** @brief Walk tuning shared with Animation::RandomWalk, which owns the
+    recurrence the spin-and-wander operators step. */
+inline constexpr Animation::RandomWalkOptions WALK_OPTIONS{};
 
 inline void init_effect_noise(FastNoiseLite &noise,
                               int32_t seed = EFFECT_NOISE_SEED) {
@@ -54,7 +53,7 @@ struct SpatialWalkState {
 
 inline void init_walk(SpatialWalkState &state, int32_t seed) {
   init_effect_noise(state.walk_noise, seed);
-  state.walk_noise.SetFrequency(WALK_NOISE_SCALE);
+  state.walk_noise.SetFrequency(WALK_OPTIONS.noise_scale);
   state.position = UP;
   state.direction =
       cross(state.position, least_parallel_axis(state.position)).normalized();
@@ -63,27 +62,11 @@ inline void init_walk(SpatialWalkState &state, int32_t seed) {
 inline void advance_walk(SpatialWalkState &state, float wander,
                          float spin_rate) {
   ++state.walk_time;
-  const float target_pivot =
-      state.walk_noise.GetNoise(
-          state.position.x * 100.0f, state.position.y * 100.0f,
-          state.position.z * 100.0f +
-              static_cast<float>(state.walk_time) * WALK_DRIFT) *
-      WALK_PIVOT_STRENGTH;
-  state.angular_velocity = state.angular_velocity * WALK_SMOOTHING +
-                           target_pivot * (1.0f - WALK_SMOOTHING);
-  state.direction =
-      rotate(state.direction,
-             make_rotation(state.position, state.angular_velocity))
-          .normalized();
-  const Vector axis_seed = least_parallel_axis(state.position);
-  const Vector walk_axis =
-      normalized_or(cross(state.position, state.direction),
-                    cross(state.position, axis_seed).normalized());
-  const Quaternion delta = make_rotation(walk_axis, WALK_SPEED);
-  state.position = rotate(state.position, delta).normalized();
-  state.direction = rotate(state.direction, delta).normalized();
-  state.wander =
-      (scaled_rotation_delta(delta, wander) * state.wander).normalized();
+  const Animation::RandomWalkDelta delta = Animation::step_random_walk<false>(
+      state.position, state.direction, state.angular_velocity, state.walk_noise,
+      WALK_OPTIONS, state.walk_time);
+  state.wander = (scaled_rotation_delta(delta.rotation, wander) * state.wander)
+                     .normalized();
   state.spin_phase = fmodf(state.spin_phase + spin_rate, TWO_PI_F);
 }
 
