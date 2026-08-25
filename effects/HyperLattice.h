@@ -656,8 +656,8 @@ public:
 
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "cubic-flight", "hypercube-flight"};
-  static constexpr Segue::Lerp PRESET_SEGUE{240, ease_in_out_sin,
-                                            /*pausable=*/true};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, ease_in_out_sin,
+                                                    /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 6;
 

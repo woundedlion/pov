@@ -1538,7 +1538,7 @@ struct ChoreoProbeParams {
 };
 
 /**
- * @brief Probe pinning the Segue::Fade envelope loop.
+ * @brief Probe pinning the Segue::Preset::Fade envelope loop.
  * @details Records every set_preset_opacity sample the base's sprite feeds it,
  * so the test can see the envelope reach both edges and the advance timer
  * re-arm the loop.
@@ -1554,7 +1554,7 @@ public:
   using Params = ChoreoProbeParams;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr int PRESET_FRAMES = 12;
-  static constexpr Segue::Fade PRESET_SEGUE{PRESET_FRAMES, 4};
+  static constexpr Segue::Preset::Fade PRESET_SEGUE{PRESET_FRAMES, 4};
   static constexpr uint16_t PRESET_DWELL_FRAMES = PRESET_FRAMES;
   static constexpr std::array<PresetEntry<Params>, 3> PRESETS = {
       {{{0.25f}}, {{0.5f}}, {{0.75f}}}};
@@ -1591,7 +1591,7 @@ private:
 };
 
 /**
- * @brief Probe pinning the Segue::Lerp transition hooks.
+ * @brief Probe pinning the Segue::Preset::Lerp transition hooks.
  * @details Counts transition_armed and blend_params calls and writes the blend
  * itself, so a cancelled crossfade shows up as a blend that stops writing.
  */
@@ -1605,7 +1605,8 @@ class LerpChoreoProbe
 public:
   using Params = ChoreoProbeParams;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr Segue::Lerp PRESET_SEGUE{8, ease_linear, /*pausable=*/false};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{8, ease_linear,
+                                                    /*pausable=*/false};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
       {{{0.0f}}, {{1.0f}}}};
@@ -1656,7 +1657,7 @@ template <typename FX> void run_probe_frames(FX &effect, int frames) {
 }
 
 /**
- * @brief Pins the Segue::Fade preset-choreography loop.
+ * @brief Pins the Segue::Preset::Fade preset-choreography loop.
  * @details The envelope has to reach both edges, the advance timer has to
  * re-arm it every PRESET_FRAMES, and each advance has to snap the preset the
  * envelope just faded through.
@@ -1702,7 +1703,7 @@ inline void test_choreography_fade_envelope() {
 }
 
 /**
- * @brief Pins the two Segue::Lerp transition hooks.
+ * @brief Pins the two Segue::Preset::Lerp transition hooks.
  * @details transition_armed fires once per automatic crossfade, with the
  * incoming preset; animated_parameter_written ends the crossfade in flight, so
  * the blend stops rewriting the value the write just landed.

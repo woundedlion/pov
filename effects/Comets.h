@@ -65,7 +65,7 @@ public:
 
   /** Preset policy: a path function swap has no meaningful interpolation, so
       every origin snaps; the palette rolls over separately via a ColorWipe. */
-  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Preset cadence: two default-duration motion cycles. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;

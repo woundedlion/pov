@@ -96,7 +96,8 @@ public:
 
   /** Preset policy: an automatic change crossfades the live parameters over
       48 frames; pause freezes an in-flight crossfade. */
-  static constexpr Segue::Lerp PRESET_SEGUE{48, ease_linear, /*pausable=*/true};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{48, ease_linear,
+                                                    /*pausable=*/true};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Dwell + blend = the 160-frame preset cadence. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;

@@ -707,13 +707,15 @@ inline void case_timeline_clear_during_step() {
   tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
 }
 
-/** @brief Parameter set of the Segue::Fade preset-choreography fixture. */
+/** @brief Parameter set of the Segue::Preset::Fade preset-choreography
+ * fixture. */
 struct FadeChoreoDeathParams {
   float level = 0.0f;
 };
 
 /**
- * @brief Segue::Fade effect for the preset-choreography capacity death case.
+ * @brief Segue::Preset::Fade effect for the preset-choreography capacity death
+ *        case.
  * @details begin_preset_choreography() is private to the base and reached only
  *          through begin_choreography(), so the fixture exposes arm(); fill()
  *          leaves the shared timeline short of the two slots the envelope
@@ -726,7 +728,7 @@ struct FadeChoreoDeathEffect
   using Params = FadeChoreoDeathParams;
 
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr Segue::Fade PRESET_SEGUE{12, 4};
+  static constexpr Segue::Preset::Fade PRESET_SEGUE{12, 4};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
       {{{0.0f}}, {{1.0f}}}};
@@ -754,8 +756,8 @@ struct FadeChoreoDeathEffect
 };
 
 /**
- * @brief Death case: arming a Segue::Fade preset choreography without two free
- *        timeline slots must trap.
+ * @brief Death case: arming a Segue::Preset::Fade preset choreography without
+ *        two free timeline slots must trap.
  * @details Animation surface — the envelope loop re-arms itself from its own
  *          advance timer, so a dropped add would end the choreography for good
  *          instead of degrading it. The budget guard traps at the arm.

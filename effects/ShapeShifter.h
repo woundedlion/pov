@@ -66,8 +66,8 @@ struct ShapeShifterParams {
  * @tparam H Canvas height in pixels.
  * @details Evenly spaced Plot primitives share a center and sample a selectable
  * waveform at successive radii, producing an animated radial twist. Presets
- * cycle through a Segue::Fade choreography: the whole effect fades through
- * zero opacity and the parameters snap inside the dark frame.
+ * cycle through a Segue::Preset::Fade choreography: the whole effect fades
+ * through zero opacity and the parameters snap inside the dark frame.
  */
 template <int W, int H>
 class ShapeShifter
@@ -201,8 +201,8 @@ private:
   static constexpr int PRESET_SEGUE_FRAMES = 16;
   /** Fade preset policy: params snap inside the envelope's dark frame, so the
       two parameter sets never render on the same frame. */
-  static constexpr Segue::Fade PRESET_SEGUE{PRESET_FRAMES,
-                                            PRESET_SEGUE_FRAMES / 2};
+  static constexpr Segue::Preset::Fade PRESET_SEGUE{PRESET_FRAMES,
+                                                    PRESET_SEGUE_FRAMES / 2};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Required by the base's snap path; the dwell countdown never runs under a
       Fade policy. */

@@ -86,7 +86,7 @@ public:
 
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "uv-surface-noise"};
-  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 

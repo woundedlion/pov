@@ -73,7 +73,7 @@ public:
   /** Preset policy: every origin snaps. The sprite chain owns the automatic
       cadence — a preset advances at each sprite hand-off, so the dwell
       countdown never runs and step_choreography() is never called. */
-  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Bookkeeping only (see PRESET_SEGUE); mirrors the sprite hand-off period. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
