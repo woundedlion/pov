@@ -156,6 +156,8 @@ sample_hue_rotation_lut(const HueRotationLutView &view, float value,
  */
 HS_FLASH_INLINE inline float sample_hue_noise_lut(const HueNoiseLutView &view,
                                                   const Vector &direction) {
+  assert(dot(direction, direction) > 0.0f &&
+         "sample_hue_noise_lut needs a non-zero direction!");
   const float ax = fabsf(direction.x);
   const float ay = fabsf(direction.y);
   const float az = fabsf(direction.z);
