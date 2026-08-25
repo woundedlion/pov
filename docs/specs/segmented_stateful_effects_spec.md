@@ -56,12 +56,13 @@ the gate exists.
 
 ## 3. Why clipping drops pixels for feedback
 
-The feedback flush iterates only the clip band (filter.h:1767-1792) but reads
-`cv.prev` at warp offsets up to **±W/2 horizontally and ±H vertically**
-(filter.h:1960-2032 — a melt/swirl warp can pull a row most of the way across the
-canvas). That reach is **unbounded relative to a segment band**: a worker
-clipped to its band has stale or zero `prev` outside the band, so cross-band
-trails read as black → dropped pixels and visible seams at the band edges.
+The feedback flush iterates only the clip band (`Pixel::Feedback::flush`) but
+reads `cv.prev` at warp offsets up to **±W/2 horizontally and ±H vertically**
+(`Pixel::Feedback::populate_warp_field` — a melt/swirl warp can pull a row most
+of the way across the canvas). That reach is **unbounded relative to a segment
+band**: a worker clipped to its band has stale or zero `prev` outside the band,
+so cross-band trails read as black → dropped pixels and visible seams at the
+band edges.
 
 Two consequences, both load-bearing for the design:
 
@@ -94,10 +95,10 @@ already correct), whereas `Pixel::Feedback` (warp) and `World::Trails`
 ### 4.1 Derive cross-segment reach as a compile-time trait
 
 Statefulness is already a compile-time filter trait (`has_history`, with the
-`Pipeline` constexpr-folding the history/terminal static-asserts at
-filter.h:452-476). Add a sibling trait that captures the property that actually
-matters here — whether a filter's state *moves across segment boundaries* —
-plus a second for whether it *samples* pixels outside its band:
+`Pipeline` constexpr-folding the history/terminal static-asserts). Add a
+sibling trait that captures the property that actually matters here —
+whether a filter's state *moves across segment boundaries* — plus a second
+for whether it *samples* pixels outside its band:
 
 - `static constexpr bool crosses_segments`, defaulting to `has_history`
   (fail-safe: a new history filter is treated as cross-segment until proven
@@ -107,10 +108,10 @@ plus a second for whether it *samples* pixels outside its band:
   *must* be `true`. It reads `cv.prev` (other segments' pixels).
 - `true` on `World::Trails` — already `true` by default (`has_history`), so
   this is documentation, not a required override. Its store happens at
-  `plot()` time (filter.h:1129-1152), upstream of projection; whether band clipping
-  would actually corrupt it depends on whether the rasterizer culls
-  out-of-band fragments *before* that store. Left `true` as the fail-safe
-  default rather than relying on that analysis.
+  `plot()` time, upstream of projection; whether band clipping would
+  actually corrupt it depends on whether the rasterizer culls out-of-band
+  fragments *before* that store. Left `true` as the fail-safe default rather
+  than relying on that analysis.
 - `true` on `Screen::Trails` — also the `has_history` default, kept even though
   its reach is 0 (it decays in place and redraws at the same screen
   coordinate). Turning full-frame *off* for a history filter is the one move
@@ -127,12 +128,12 @@ plus a second for whether it *samples* pixels outside its band:
   `crosses_segments` drives.
 
 `Pipeline` does **not** today expose any aggregate trait constant — the
-existing folding is per-node recursive `static_assert`s on `Head::has_history`
-(filter.h:452-476), nothing more. So this trait needs a new recursive OR-fold
-written from scratch: `static constexpr bool any_crosses_segments =
+existing folding is per-node recursive `static_assert`s on `Head::has_history`,
+nothing more. So this trait needs a new recursive OR-fold written from
+scratch: `static constexpr bool any_crosses_segments =
 Head::crosses_segments || NextPipeline::any_crosses_segments;` in the recursive
-node, **plus a `false` base case in the terminal `Pipeline<W,H>`**
-(filter.h:114-120). There is no existing `any_*` member to mirror.
+node, **plus a `false` base case in the terminal `Pipeline<W,H>`**. There is no
+existing `any_*` member to mirror.
 
 ### 4.2 Expose it as one runtime query on `Effect`
 
@@ -200,11 +201,12 @@ ever changes, harden this to an explicit `set_clip(0, H, 0, W)` instead.)
 
 The elegance is that **the hot-path filter code needs no change**. With a
 full clip, `XClip::active` is false and the coarse-row band spans every row,
-so the flush's existing band-pruning (filter.h:1767-1792, filter.h:2038-2061) already
-degrades to full-frame — the comments there note "a full canvas... does the
-same work either way." `blitSegmentRect` still slices each worker's quadrant
-from the full readback, unchanged. Every worker computes the bit-identical
-full frame; only the slice differs — matching the device exactly.
+so the flush's existing band-pruning (`Pixel::Feedback::make_render_band` and
+`populate_warp_field`) already degrades to full-frame — the comments there
+note "a full canvas... does the same work either way." `blitSegmentRect` still
+slices each worker's quadrant from the full readback, unchanged. Every worker
+computes the bit-identical full frame; only the slice differs — matching the
+device exactly.
 
 **Precondition (existing invariant this rests on).** "Bit-identical full
 frame across workers" holds only because per-worker frame inputs are already
@@ -321,5 +323,5 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
   so a band-clipped `Pixel::Feedback` worker's bottom band differs from the
   full-frame render. Demonstrates *why* full-frame is required: band clipping
   here is not equivalent, so the gate is load-bearing, not cosmetic.
-- `test_effect_needs_full_frame_default_false` (`tests/test_filter.h:2777`) pins
+- `test_effect_needs_full_frame_default_false` (`tests/test_filter.h`) pins
   the `EffectConfig::full_frame` default an effect gets when it omits the field.
