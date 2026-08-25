@@ -713,7 +713,10 @@ class CommandLineTests(unittest.TestCase):
         return caught.exception.code, stdout.getvalue() + stderr.getvalue()
 
     def test_accepts_no_arguments(self):
-        self.assertEqual(vars(fab.parse_args([])), {})
+        self.assertEqual(vars(fab.parse_args([])), {"verify": False})
+
+    def test_verify_selects_the_digest_check(self):
+        self.assertTrue(fab.parse_args(["--verify"]).verify)
 
     def test_help_exits_without_running_the_workflow(self):
         code, text = self.parse(["--help"])
@@ -913,6 +916,88 @@ class PackageManifestTests(unittest.TestCase):
     def test_the_manifest_is_not_an_upload_member(self):
         self.assertIn(fab.SUMS_FILE, fab.ZIP_EXCLUDED)
         self.assertNotIn(fab.SUMS_FILE, fab.ZIP_MEMBERS)
+
+
+class PackageVerificationTests(unittest.TestCase):
+    """The manifest is only worth writing if something reads it back."""
+
+    def package(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        for name in ZipMembershipTests.EXPORTED + (fab.ARCHIVE,
+                                                  "phantasm-BOM.csv"):
+            (directory / name).write_bytes(name.encode())
+        members = fab.zip_members(os.listdir(directory))
+        (directory / fab.SUMS_FILE).write_text(
+            fab.package_manifest(str(directory), members, fab.ARCHIVE),
+            encoding="utf-8", newline="\n")
+        ordered = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        baseline = ordered / "ordered-SHA256SUMS.txt"
+        baseline.write_bytes((directory / fab.SUMS_FILE).read_bytes())
+        return directory, baseline
+
+    def test_accepts_a_package_matching_manifest_and_baseline(self):
+        directory, baseline = self.package()
+        self.assertEqual(fab.verify_package(str(directory), str(baseline)),
+                         len(fab.ZIP_MEMBERS) + 1)
+
+    def test_rejects_an_edited_artifact(self):
+        directory, baseline = self.package()
+        (directory / "phantasm-F_Cu.gtl").write_bytes(b"edited")
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "phantasm-F_Cu.gtl"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_rejects_a_manifest_that_skips_an_artifact(self):
+        directory, baseline = self.package()
+        manifest = directory / fab.SUMS_FILE
+        kept = [line for line in manifest.read_text(encoding="utf-8").splitlines()
+                if not line.endswith("phantasm-PTH.drl")]
+        manifest.write_text("\n".join(kept) + "\n", encoding="utf-8",
+                            newline="\n")
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "records no digest for: phantasm-PTH.drl"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_rejects_a_package_that_is_not_what_was_ordered(self):
+        directory, baseline = self.package()
+        lines = baseline.read_text(encoding="utf-8").splitlines()
+        flipped = ("1" if lines[0][0] == "0" else "0") + lines[0][1:]
+        baseline.write_text("\n".join([flipped] + lines[1:]) + "\n",
+                            encoding="utf-8", newline="\n")
+        with self.assertRaisesRegex(fab.PackageVerificationError, "ordered"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_reports_an_absent_baseline(self):
+        directory, baseline = self.package()
+        baseline.unlink()
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "no committed digest baseline"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_checks_the_package_alone_without_a_baseline(self):
+        directory, _ = self.package()
+        self.assertEqual(fab.verify_package(str(directory), None),
+                         len(fab.ZIP_MEMBERS) + 1)
+
+    def test_rejects_a_malformed_manifest_line(self):
+        directory, baseline = self.package()
+        (directory / fab.SUMS_FILE).write_text("not a digest line\n",
+                                               encoding="utf-8", newline="\n")
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "malformed manifest line"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_reports_an_ungenerated_package(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "no fab package to verify"):
+            fab.verify_package(str(directory / "jlc"), None)
+
+    def test_the_committed_baseline_records_the_shipped_package(self):
+        if not os.path.exists(fab.SHIPPED_SUMS):
+            self.skipTest(f"no committed baseline at {fab.SHIPPED_SUMS}")
+        recorded = fab.read_manifest(fab.SHIPPED_SUMS)
+        self.assertEqual(set(recorded), fab.ZIP_MEMBERS | {fab.ARCHIVE})
 
 
 class NetlistSpecTests(unittest.TestCase):

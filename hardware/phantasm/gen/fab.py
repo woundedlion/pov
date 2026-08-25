@@ -5,6 +5,12 @@ Produces, into ../gen/out/:
   * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
   * phantasm-drc.json — gating error-severity DRC report
   * phantasm-parity.json — gating board/schematic parity report
+  * jlc/SHA256SUMS.txt — digest of every zipped artifact and of the zip
+
+--verify re-hashes an already-generated package against that manifest and
+against the committed baseline (fab-SHA256SUMS.txt beside the board), and runs
+no KiCad: gen/out/ is gitignored, so the baseline is the only tracked record of
+the bytes the fab received.
 
 It NEVER runs board.py / pcb.py: those rewrite phantasm.kicad_{sch,pcb} and
 discard the routing + silk. This script only reads the committed board and
@@ -55,11 +61,15 @@ ZIP_MEMBERS = {
 }
 #: Digest manifest written beside the upload zip, never inside it.
 SUMS_FILE = "SHA256SUMS.txt"
+#: The upload zip, digested in the manifest alongside its own members.
+ARCHIVE = "phantasm-jlc-gerbers.zip"
+#: Digest baseline of the package that was ordered, in the tracked tree because
+#: gen/out/ is not: without it nothing records the bytes the fab received.
+SHIPPED_SUMS = os.path.join(PROJ, "fab-SHA256SUMS.txt")
 
 # Everything else the run writes into jlc/: assembly data, the zip itself,
 # and the zip's digest manifest.
-ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv",
-                "phantasm-jlc-gerbers.zip", SUMS_FILE}
+ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv", ARCHIVE, SUMS_FILE}
 
 
 #: Creation stamp written over KiCad's wall clock in every exported artifact,
@@ -221,6 +231,81 @@ def zip_members(names):
             "the export produced no fab artifact for: " + ", ".join(absent)
             + " - check the kicad-cli gerber and drill exports.")
     return members
+
+
+class PackageVerificationError(ValueError):
+    """A generated fab package does not match a recorded digest."""
+
+
+MANIFEST_LINE = re.compile(r"^([0-9a-f]{64})  (\S.*)$")
+
+
+def read_manifest(path):
+    """{artifact name: digest} from a `sha256sum -c` manifest."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise PackageVerificationError(
+            f"cannot read digest manifest: {path}") from exc
+    entries = {}
+    for line in lines:
+        match = MANIFEST_LINE.match(line)
+        if not match:
+            raise PackageVerificationError(
+                f"{path}: malformed manifest line: {line!r}")
+        entries[match.group(2)] = match.group(1)
+    return entries
+
+
+def verify_package(directory=JLC, baseline=SHIPPED_SUMS):
+    """Re-hash a generated package; return the number of digests checked.
+
+    The manifest records what a run produced and `baseline` what was ordered.
+    Reproducible exports are only worth the machinery if something reads the
+    digests back: this holds the package to both, so an edited artifact, a
+    dropped layer, or a package built from a different board is caught without
+    KiCad. `baseline` of None checks the package against its own manifest only.
+    """
+    if not os.path.isdir(directory):
+        raise PackageVerificationError(
+            f"no fab package to verify: {directory}; run fab.py first")
+    manifest_path = os.path.join(directory, SUMS_FILE)
+    recorded = read_manifest(manifest_path)
+    covered = set(zip_members(os.listdir(directory))) | {ARCHIVE}
+
+    diagnostics = []
+    if missing := sorted(covered - set(recorded)):
+        diagnostics.append(
+            f"{manifest_path} records no digest for: " + ", ".join(missing))
+    if extra := sorted(set(recorded) - covered):
+        diagnostics.append(
+            f"{manifest_path} records artifacts the package does not hold: "
+            + ", ".join(extra))
+    for name in sorted(covered & set(recorded)):
+        digest = sha256_file(os.path.join(directory, name))
+        if digest != recorded[name]:
+            diagnostics.append(
+                f"{name}: {digest} is not the recorded {recorded[name]}")
+
+    if baseline is not None:
+        if not os.path.exists(baseline):
+            diagnostics.append(
+                f"no committed digest baseline at {baseline}: nothing records "
+                "what was ordered. Copy the manifest of the ordered package "
+                "there.")
+        else:
+            ordered = read_manifest(baseline)
+            for name in sorted(set(ordered) | set(recorded)):
+                if ordered.get(name) != recorded.get(name):
+                    diagnostics.append(
+                        f"{name}: {recorded.get(name, 'absent')} is not the "
+                        f"ordered {ordered.get(name, 'absent')}")
+
+    if diagnostics:
+        raise PackageVerificationError(
+            "fab package verification failed:\n  " + "\n  ".join(diagnostics))
+    return len(recorded)
 
 # Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
 # through-hole (connectors, electrolytic, Teensy), solder jumpers, and DNP.
@@ -927,7 +1012,20 @@ def validate_assembly_metadata(posrows, assembled):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--verify", action="store_true",
+        help="re-hash the generated fab package against its digest manifest "
+             "and the committed baseline; exports nothing and needs no KiCad")
     return parser.parse_args(argv)
+
+
+def verify_main():
+    """--verify: hold an already-generated package to the recorded digests."""
+    try:
+        checked = verify_package()
+    except (PackageVerificationError, UploadPackageError) as exc:
+        sys.exit(str(exc))
+    print(f"fab package verified: {checked} digests match {SHIPPED_SUMS}")
 
 
 def main():
@@ -1093,7 +1191,7 @@ def main():
             w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
 
     print("[9/9] JLC upload zip")
-    zpath = os.path.join(JLC, "phantasm-jlc-gerbers.zip")
+    zpath = os.path.join(JLC, ARCHIVE)
     try:
         members = zip_members(os.listdir(JLC))
     except UploadPackageError as exc:
@@ -1112,8 +1210,12 @@ def main():
     print(f"  fab package: {zpath}")
     print(f"  package sha256: {sha256_file(zpath)}")
     print(f"  digest manifest: {manifest_path}")
+    print(f"  commit it to {SHIPPED_SUMS} to record what was ordered, then "
+          "re-check the package with fab.py --verify")
 
 
 if __name__ == "__main__":
-    parse_args()
-    main()
+    if parse_args().verify:
+        verify_main()
+    else:
+        main()
