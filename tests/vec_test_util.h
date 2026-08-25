@@ -47,16 +47,22 @@ inline bool approx_complex(const Complex &a, const Complex &b, float tol) {
 
 } // namespace hs_test
 
+// Captures each operand once so loop-driven assertions don't re-evaluate side
+// effects, then compares and (on failure) prints both values.
+#define HS_EXPECT_APPROX(pred, a, b, tol)                                      \
+  do {                                                                         \
+    const auto hs_lhs = (a);                                                   \
+    const auto hs_rhs = (b);                                                   \
+    hs_test::report_cmp(hs_test::pred(hs_lhs, hs_rhs, (tol)), hs_lhs, hs_rhs,  \
+                        #a " ~= " #b " (tol=" #tol ")", __func__, __FILE__,    \
+                        __LINE__);                                             \
+  } while (0)
+
 /**
  * @brief Tolerant equality assertions for vectors, quaternions, and complex
- *        values; the failure message stringizes the two compared expressions.
+ *        values; the failure message stringizes the two compared expressions
+ *        and prints both operands componentwise.
  */
-#define HS_EXPECT_VEC(a, b, tol)                                               \
-  HS_EXPECT(hs_test::approx_vec((a), (b), (tol)),                              \
-            #a " ~= " #b " (tol=" #tol ")")
-#define HS_EXPECT_QUAT(a, b, tol)                                              \
-  HS_EXPECT(hs_test::approx_quat((a), (b), (tol)),                             \
-            #a " ~= " #b " (tol=" #tol ")")
-#define HS_EXPECT_COMPLEX(a, b, tol)                                           \
-  HS_EXPECT(hs_test::approx_complex((a), (b), (tol)),                          \
-            #a " ~= " #b " (tol=" #tol ")")
+#define HS_EXPECT_VEC(a, b, tol) HS_EXPECT_APPROX(approx_vec, a, b, tol)
+#define HS_EXPECT_QUAT(a, b, tol) HS_EXPECT_APPROX(approx_quat, a, b, tol)
+#define HS_EXPECT_COMPLEX(a, b, tol) HS_EXPECT_APPROX(approx_complex, a, b, tol)
