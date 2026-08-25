@@ -1,4 +1,5 @@
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -788,6 +789,32 @@ class ZipMembershipTests(unittest.TestCase):
         self.assertNotIn("phantasm-jlc-gerbers.zip",
                          fab.zip_members(self.EXPORTED
                                          + ("phantasm-jlc-gerbers.zip",)))
+
+
+class PackageManifestTests(unittest.TestCase):
+    """The fab run builds a byte-reproducible package; the manifest is what
+    lets a rebuild be checked against what was ordered."""
+
+    ARCHIVE = "phantasm-jlc-gerbers.zip"
+
+    def test_manifest_covers_every_member_and_the_archive(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        payloads = {"phantasm-F_Cu.gtl": b"G04 gerber*",
+                    "phantasm-PTH.drl": b"M48 M30",
+                    self.ARCHIVE: b"zip bytes"}
+        for name, data in payloads.items():
+            (directory / name).write_bytes(data)
+        members = ["phantasm-F_Cu.gtl", "phantasm-PTH.drl"]
+        lines = fab.package_manifest(str(directory), members,
+                                     self.ARCHIVE).splitlines()
+        self.assertEqual(
+            lines,
+            [f"{hashlib.sha256(payloads[name]).hexdigest()}  {name}"
+             for name in members + [self.ARCHIVE]])
+
+    def test_the_manifest_is_not_an_upload_member(self):
+        self.assertIn(fab.SUMS_FILE, fab.ZIP_EXCLUDED)
+        self.assertNotIn(fab.SUMS_FILE, fab.ZIP_MEMBERS)
 
 
 class NetlistSpecTests(unittest.TestCase):
