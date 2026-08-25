@@ -100,6 +100,22 @@ FLASHMEM size_t arena_vector_abandoned_bytes();
 FLASHMEM size_t arena_vector_abandon_count();
 
 /**
+ * @brief Logs an arena over-allocation then traps.
+ * @param buffer Base of the arena's backing buffer.
+ * @param size Bytes requested.
+ * @param offset Live offset before the request.
+ * @param padding Alignment padding the request needed.
+ * @param capacity Arena capacity.
+ * @details Out-of-line and non-template so the bump path in allocate() carries
+ * one branch to a call, not a seven-argument formatter inlined at every site.
+ * Reads the move-assign abandon totals itself rather than taking them as
+ * arguments. Never returns.
+ */
+[[noreturn]] HS_COLD void arena_oom_trap(const void *buffer, size_t size,
+                                         size_t offset, size_t padding,
+                                         size_t capacity);
+
+/**
  * @brief Bump allocator over a fixed caller-owned buffer.
  * @details Allocation is offset advancement; individual frees are unsupported —
  * memory is reclaimed wholesale via reset() (rewind to 0) or set_offset()
@@ -141,7 +157,8 @@ public:
    * @param size Number of bytes to allocate.
    * @param align Required alignment in bytes; defaults to max_align_t.
    * @return Pointer into the buffer for the allocated block.
-   * @details Traps (HS_CHECK) on over-allocation rather than returning null.
+   * @details Traps via arena_oom_trap() on over-allocation rather than
+   * returning null.
    * Updates the high-water mark. `size` must be > 0: a zero-size request returns a
    * bump pointer that reserves no storage (it aliases the next allocation's
    * address), so it is trapped as misuse rather than handed back as ownable.
@@ -155,19 +172,8 @@ public:
     size_t padding = (align - (current % align)) % align;
     // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
     // way `offset + padding + size > capacity` would for a colossal `size`.
-    if (padding > capacity - offset || size > capacity - offset - padding) {
-      hs::log("[OOM] Arena @%08lx: req %lu, offset %lu, pad %lu / cap %lu "
-              "(move-assign dropped %lu B in %lu blocks, all arenas since "
-              "boot, reclaims not subtracted)",
-              static_cast<unsigned long>(reinterpret_cast<uintptr_t>(buffer)),
-              static_cast<unsigned long>(size),
-              static_cast<unsigned long>(offset),
-              static_cast<unsigned long>(padding),
-              static_cast<unsigned long>(capacity),
-              static_cast<unsigned long>(arena_vector_abandoned_bytes()),
-              static_cast<unsigned long>(arena_vector_abandon_count()));
-      HS_CHECK(false, "Arena::allocate: out of memory");
-    }
+    if (padding > capacity - offset || size > capacity - offset - padding)
+      arena_oom_trap(buffer, size, offset, padding, capacity);
     offset += padding;
     void *ptr = buffer + offset;
     offset += size;

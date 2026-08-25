@@ -3687,9 +3687,9 @@ struct Case {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
-      {"arena_oom", case_arena_oom, "memory.h",
+      {"arena_oom", case_arena_oom, "memory.cpp",
        "(false) Arena::allocate: out of memory"},
-      {"arena_make_oom", case_arena_make_oom, "memory.h",
+      {"arena_make_oom", case_arena_make_oom, "memory.cpp",
        "(false) Arena::allocate: out of memory"},
       {"arena_zero_size_alloc", case_arena_zero_size_alloc, "memory.h",
        "(size > 0) Arena::allocate: zero-size request"},
@@ -3908,7 +3908,7 @@ inline const Case *all_cases(int &n) {
       {"conway_degenerate_mesh", case_conway_degenerate_mesh, "mesh.h",
        "(he_mesh.half_edges[i].pair != HE_NONE) MeshOps::truncate requires a "
        "closed manifold (unpaired half-edge)"},
-      {"conway_target_exhausted", case_conway_target_exhausted, "memory.h",
+      {"conway_target_exhausted", case_conway_target_exhausted, "memory.cpp",
        "(false) Arena::allocate: out of memory"},
       {"relax_baked_dimension_mismatch", case_relax_baked_dimension_mismatch,
        "conway.h",
