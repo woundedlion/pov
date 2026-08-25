@@ -3243,17 +3243,45 @@ inline void test_shader_chain_param_names_and_budget() {
   program.clear();
 }
 
-/** Reaches the effect's committed program and palette state. */
+/** Reaches the effect's committed program, palette state, and hue bakes. */
 struct ShaderChainWhiteBox {
   using FX = ShaderChain<96, 20>;
 
   static const In::ChainProgram &program(const FX &effect) {
     return effect.program;
   }
+  static In::ChainProgram &program(FX &effect) { return effect.program; }
   static Pixel palette_color(const FX &effect, float value) {
     return effect.generated_palettes.palette(In::Op::PaletteMode::TRIADIC)
         .get(value)
         .color;
+  }
+
+  /** The committed colorize instance's parameter block. */
+  static In::Op::GeneratedPaletteParams &color_params(FX &effect) {
+    return *reinterpret_cast<In::Op::GeneratedPaletteParams *>(
+        effect.program.param_block(static_cast<size_t>(effect.colorize.index)));
+  }
+  /** The committed colorize instance's phase clocks. */
+  static const In::Op::ColorClockState &color_clocks(const FX &effect) {
+    return *static_cast<const In::Op::ColorClockState *>(
+        effect.program.state_block(static_cast<size_t>(effect.colorize.index)));
+  }
+  /** The frame snapshot draw_frame() hands the program, hue bakes included. */
+  static In::FrameContext frame_context(FX &effect) {
+    return effect.make_frame_context(effect.colorize);
+  }
+  /** The resident hue-noise table; writable so a probe can poison it and see
+      whether the next frame re-baked. */
+  static int8_t *hue_noise_lut(FX &effect) {
+    return effect.resources->hue_noise_lut.data();
+  }
+  /** The inputs the resident hue-noise table was baked from. */
+  static float baked_noise_scale(const FX &effect) {
+    return effect.resources->baked_noise_scale;
+  }
+  static float baked_noise_phase(const FX &effect) {
+    return effect.resources->baked_noise_phase;
   }
 };
 
@@ -3393,6 +3421,82 @@ inline void test_shader_chain_pause_semantics() {
   HS_EXPECT_GT(lit, 0u);
 }
 
+/** @brief The hue tables are bound only on the modes that read them, and the
+    hue-noise bake is skipped while both of its inputs hold still. */
+inline void test_shader_chain_hue_lut_bake_cache() {
+  using WB = ShaderChainWhiteBox;
+  using HueShiftMode = In::Op::HueShiftMode;
+  // Unreachable through the quantizer, whose range is [-127, 127], so a
+  // surviving poison means the bake was skipped rather than repeated.
+  constexpr int8_t POISON = -128;
+  constexpr size_t LAST = PB::Color::HueNoiseLutView::SIZE - 1;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  In::Op::GeneratedPaletteParams &color = WB::color_params(effect);
+
+  // Amount 0 disables both tables whatever the mode asks for.
+  color.hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
+  color.hue_shift_amount = 0.0f;
+  In::FrameContext ctx = WB::frame_context(effect);
+  HS_EXPECT_TRUE(ctx.hue_rotation_lut == nullptr);
+  HS_EXPECT_TRUE(ctx.hue_noise_lut == nullptr);
+  HS_EXPECT_EQ(WB::baked_noise_scale(effect), 0.0f);
+
+  // NONE reads neither table, so a leftover amount buys no bake.
+  color.hue_mode = static_cast<uint8_t>(HueShiftMode::NONE);
+  color.hue_shift_amount = 0.5f;
+  ctx = WB::frame_context(effect);
+  HS_EXPECT_TRUE(ctx.hue_rotation_lut == nullptr);
+  HS_EXPECT_TRUE(ctx.hue_noise_lut == nullptr);
+  HS_EXPECT_EQ(WB::baked_noise_scale(effect), 0.0f);
+
+  // PATH_LENGTH reads the rotation table only.
+  color.hue_mode = static_cast<uint8_t>(HueShiftMode::PATH_LENGTH);
+  ctx = WB::frame_context(effect);
+  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
+  HS_EXPECT_TRUE(ctx.hue_noise_lut == nullptr);
+  HS_EXPECT_EQ(WB::baked_noise_scale(effect), 0.0f);
+
+  // NOISE binds both and records what the noise table was baked from.
+  color.hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
+  color.hue_noise_scale = 1.5f;
+  ctx = WB::frame_context(effect);
+  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
+  HS_EXPECT_TRUE(ctx.hue_noise_lut != nullptr);
+  HS_EXPECT_EQ(WB::baked_noise_scale(effect), 1.5f);
+  HS_EXPECT_EQ(WB::baked_noise_phase(effect),
+               WB::color_clocks(effect).hue_noise_phase);
+
+  // Held inputs skip the bake.
+  int8_t *lut = WB::hue_noise_lut(effect);
+  lut[0] = POISON;
+  lut[LAST] = POISON;
+  ctx = WB::frame_context(effect);
+  HS_EXPECT_EQ(static_cast<int>(lut[0]), static_cast<int>(POISON));
+  HS_EXPECT_EQ(static_cast<int>(lut[LAST]), static_cast<int>(POISON));
+
+  // A scale change re-bakes the whole table and re-records the pair.
+  color.hue_noise_scale = 3.0f;
+  ctx = WB::frame_context(effect);
+  HS_EXPECT_NE(static_cast<int>(lut[0]), static_cast<int>(POISON));
+  HS_EXPECT_NE(static_cast<int>(lut[LAST]), static_cast<int>(POISON));
+  HS_EXPECT_EQ(WB::baked_noise_scale(effect), 3.0f);
+
+  // So does the loop phase moving under a held scale.
+  lut[0] = POISON;
+  lut[LAST] = POISON;
+  color.hue_noise_speed = 0.001f;
+  WB::program(effect).advance();
+  const float moved = WB::color_clocks(effect).hue_noise_phase;
+  HS_EXPECT_NE(moved, WB::baked_noise_phase(effect));
+  ctx = WB::frame_context(effect);
+  HS_EXPECT_NE(static_cast<int>(lut[0]), static_cast<int>(POISON));
+  HS_EXPECT_NE(static_cast<int>(lut[LAST]), static_cast<int>(POISON));
+  HS_EXPECT_EQ(WB::baked_noise_scale(effect), 3.0f);
+  HS_EXPECT_EQ(WB::baked_noise_phase(effect), moved);
+}
+
 inline void test_pullback_runtime_seed_contract() {
   HS_EXPECT_EQ(PB::EFFECT_NOISE_SEED, 1337);
   HS_EXPECT_EQ(PB::CAMERA_WALK_SEED, 1337);
@@ -3448,6 +3552,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_effect_rebind_generation();
   test_shader_chain_effect_refusal_keeps_schema();
   test_shader_chain_pause_semantics();
+  test_shader_chain_hue_lut_bake_cache();
   test_pullback_runtime_seed_contract();
   return fixture.result();
 }
