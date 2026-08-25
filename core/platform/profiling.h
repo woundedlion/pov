@@ -467,7 +467,8 @@ struct CycleCounter {
    * @details Also unlatches every counter that had latched this one as its
    * parent; log_all() and log_node() dereference `parent`, so a surviving edge
    * into this storage is read after the destructor returns. An unlatched
-   * counter re-latches on its next entry.
+   * counter re-latches on its next entry, unless that latch would close a
+   * parent cycle.
    */
   ~CycleCounter() {
     for (CycleCounter **p = &head; *p;) {
@@ -541,6 +542,22 @@ private:
   static inline CycleCounter *active =
       nullptr; /**< Currently active counter (for nesting). */
   friend struct CycleScope;
+
+  /**
+   * @brief Whether @p node is reachable by following @p from's parent chain.
+   * @param from Counter to start the walk at; may be null.
+   * @param node Counter looked for.
+   * @return True when the chain reaches @p node.
+   * @details ~CycleCounter unlatches its children, so a re-latch is no longer
+   *          time-ordered and a later entry can otherwise close a parent cycle.
+   */
+  static bool in_parent_chain(const CycleCounter *from,
+                              const CycleCounter *node) {
+    for (const CycleCounter *c = from; c; c = c->parent)
+      if (c == node)
+        return true;
+    return false;
+  }
 
   /**
    * @brief Reports whether another counter with entries shares @p node's name.
@@ -619,13 +636,15 @@ struct CycleScope {
   explicit CycleScope(CycleCounter &c) : counter(c), start(HS_OS_CYCLES()) {
     prev_active = CycleCounter::active;
     // A recursive scope would self-parent, hiding the counter from log_all()'s
-    // root walk. Latching once, root or not, keeps every parent edge pointing at
-    // a counter first entered earlier, so no pair of counters can close a cycle
-    // and drop both subtrees from that walk.
+    // root walk; a latch that closes a parent cycle would make log_node()'s
+    // recursion diverge. The counter stays unlatched in either case and gets
+    // another chance on its next entry.
     if (prev_active != &counter) {
       if (!counter.parented) {
-        counter.parented = true;
-        counter.parent = prev_active;
+        if (!CycleCounter::in_parent_chain(prev_active, &counter)) {
+          counter.parented = true;
+          counter.parent = prev_active;
+        }
       } else if (counter.parent != prev_active) {
         counter.mixed_parent = true;
       }
