@@ -474,7 +474,6 @@ public:
   static constexpr auto CELL_MIN = Workbench::CELL_MIN;
   static constexpr auto CELL_MAX = Workbench::CELL_MAX;
   static constexpr auto SOFTNESS_MIN = Workbench::SOFTNESS_MIN;
-  using WarpParamName = Workbench::WarpParamName;
   static constexpr auto SPEED_MAX = Workbench::SPEED_MAX;
   static constexpr auto COMPLEXITY_MAX = Workbench::COMPLEXITY_MAX;
   static constexpr auto PATTERN_MIX_MAX = Workbench::PATTERN_MIX_MAX;
