@@ -1594,8 +1594,7 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const Vector &dir,
 
   float phi_lo = std::max(beta - t2, 0.0f);
   float phi_hi = std::min(beta + t2, PI_F);
-  if (phi_to_y<H>(phi_hi) < cr.render_y_start() ||
-      phi_to_y<H>(phi_lo) >= cr.render_y_end())
+  if (!cr.could_intersect_y(phi_to_y<H>(phi_lo), phi_to_y<H>(phi_hi)))
     return false;
 
   if (cr.x_start == 0 && cr.x_end == cr.w)
