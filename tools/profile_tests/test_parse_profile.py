@@ -563,6 +563,32 @@ class PullbackTelemetryValidation(unittest.TestCase):
         self.assertEqual(telemetry["programs"][0]["pipeline"],
                          self.by_preset[0])
 
+    def test_dirty_arm_parses_and_fails_as_a_dirty_build(self):
+        import tempfile
+        sha = self.manifest["capture_sha"][:12]
+        text = f"Pullback arm: LANDED sha={sha}-dirty"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(text, encoding="utf-8")
+            _windows, _effect, telemetry = pp.parse_capture(path)
+        self.assertEqual(telemetry["arms"],
+                         [{"arm": "LANDED", "sha": sha, "dirty": True}])
+        telemetry["programs"] = self._telemetry()["programs"]
+        ok, checks = self._validate(telemetry)
+        self.assertFalse(ok)
+        failed = [message for condition, message in checks if not condition]
+        self.assertEqual(len(failed), 1)
+        self.assertIn("-dirty", failed[0])
+
+    def test_clean_arm_carries_no_dirty_flag(self):
+        import tempfile
+        sha = self.manifest["capture_sha"][:12]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(f"Pullback arm: LANDED sha={sha}", encoding="utf-8")
+            _windows, _effect, telemetry = pp.parse_capture(path)
+        self.assertIs(telemetry["arms"][0]["dirty"], False)
+
     def test_arm_rejections(self):
         telemetry = self._telemetry()
         telemetry["arms"] = []
