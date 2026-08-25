@@ -327,9 +327,17 @@ private:
    * @param status Status to encode.
    * @return {code, field, wrappedFields, clampedFields, canonicalizedFields};
    *         the three adjustment masks cross as doubles, being 64-bit bitsets
-   *         keyed by PaletteRecipeField.
+   *         keyed by PaletteRecipeField. Exact only while every field bit fits
+   *         the double mantissa, which the static_assert below holds.
    */
   static val encode_status(const PaletteCompileStatus &status) {
+    // A bitset wider than the mantissa would silently round on the JS boundary,
+    // dropping adjustment reports rather than failing.
+    static_assert(static_cast<int>(PaletteRecipeField::INPUT_SPAN) <
+                      std::numeric_limits<double>::digits,
+                  "PaletteRecipeField has outgrown the double the adjustment "
+                  "masks cross as; hand the masks to JS as BigInt or as a pair "
+                  "of 32-bit halves");
     val output = val::object();
     output.set("code", static_cast<int>(status.code));
     output.set("field", static_cast<int>(status.field));
