@@ -5,6 +5,7 @@
 #pragma once
 
 #include "platform/build_features.h"
+#include "platform/constants.h" // MAX_W/MAX_H
 
 /**
  * @file effects.h
@@ -129,6 +130,29 @@
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
 constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
 
+/** Canvas the preset cadence is read at. Spelling one out keeps the derived
+ * durations identical across targets whose CANVAS_W/CANVAS_H differ, so the
+ * device playlist and the gallery agree on a show length. */
+inline constexpr int HS_PRESET_WINDOW_W = 96;
+/** Height half of the cadence-reading canvas (see HS_PRESET_WINDOW_W). */
+inline constexpr int HS_PRESET_WINDOW_H = 20;
+
+/**
+ * @brief Frames covering every preset dwell and the intervening segues.
+ * @tparam EffectT Effect class template whose preset cadence sizes the window.
+ * @tparam W Canvas width the cadence constants are read at.
+ * @tparam H Canvas height the cadence constants are read at.
+ * @return Whole frames.
+ */
+template <template <int, int> class EffectT, int W, int H>
+constexpr size_t hs_preset_window_frames() {
+  using Effect = EffectT<W, H>;
+  constexpr size_t PRESET_COUNT = Effect::authored_preset_count();
+  static_assert(PRESET_COUNT > 0);
+  return PRESET_COUNT * Effect::PRESET_DWELL_FRAMES +
+         (PRESET_COUNT - 1) * Effect::TRANSITION_DURATION;
+}
+
 /**
  * @brief Show duration that gives every preset one full dwell.
  * @tparam EffectT Effect class template whose preset cadence sizes the window.
@@ -136,11 +160,11 @@ constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
  */
 template <template <int, int> class EffectT>
 constexpr int hs_preset_window_seconds() {
-  using Effect = EffectT<96, 20>;
-  constexpr size_t PRESET_COUNT = Effect::authored_preset_count();
-  static_assert(PRESET_COUNT > 0);
-  constexpr size_t FRAMES = PRESET_COUNT * Effect::PRESET_DWELL_FRAMES +
-                            (PRESET_COUNT - 1) * Effect::TRANSITION_DURATION;
+  constexpr size_t FRAMES = hs_preset_window_frames<EffectT, HS_PRESET_WINDOW_W,
+                                                    HS_PRESET_WINDOW_H>();
+  static_assert(FRAMES == (hs_preset_window_frames<EffectT, MAX_W, MAX_H>()),
+                "preset cadence varies with canvas size, so a show duration "
+                "read at one resolution no longer covers the rendered one");
   return static_cast<int>((FRAMES + HS_SHOW_FRAMES_PER_SECOND - 1) /
                           HS_SHOW_FRAMES_PER_SECOND);
 }
