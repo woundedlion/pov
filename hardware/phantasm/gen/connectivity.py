@@ -148,7 +148,9 @@ def pad_capsule(pad, origin, rotation, stack):
     radius = (max(width, height) / 2 if shape in {"circle", "oval"}
               else math.hypot(width, height) / 2)
     if shape == "custom":
-        for primitive in pad[1:]:
+        # KiCad nests the primitives one level down, under (primitives ...).
+        blocks = F(pad, "primitives")
+        for primitive in (blocks[0][1:] if blocks else []):
             if not isinstance(primitive, list) or not primitive:
                 continue
             if str(primitive[0]) == "gr_circle":

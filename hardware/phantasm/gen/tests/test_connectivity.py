@@ -1,5 +1,6 @@
 import contextlib
 import io
+import math
 import sys
 import tempfile
 import unittest
@@ -45,6 +46,32 @@ ROUND_PAD_BOARD = """(kicad_pcb
 \t\t(pad "1" smd circle (at 0 0) (size 2.7 2.7) (layers "F.Cu") (net "/ROUND"))
 \t\t(pad "2" smd circle (at 3.818 0) (size 2.7 2.7) (layers "F.Cu") (net "/ROUND"))
 \t)
+)"""
+
+# The solder-jumper land: a custom pad whose primitives reach past (size),
+# with KiCad's own nesting under (primitives ...).
+CUSTOM_PAD_BOARD = """(kicad_pcb
+	(layers (0 "F.Cu" signal))
+	(footprint "SJ"
+		(layer "F.Cu")
+		(at 0 0)
+		(property "Reference" "SJ1")
+		(pad "1" smd custom
+			(at 0 0 90)
+			(size 1 0.5)
+			(layers "F.Cu" "F.Mask")
+			(net "/SJ")
+			(primitives
+				(gr_circle (center 0 0.25) (end 0.5 0.25) (width 0) (fill yes))
+				(gr_circle (center 0 -0.25) (end 0.5 -0.25) (width 0) (fill yes))
+				(gr_poly
+					(pts (xy 0.5 0.75) (xy 0 0.75) (xy 0 -0.75) (xy 0.5 -0.75))
+					(width 0)
+					(fill yes)
+				)
+			)
+		)
+	)
 )"""
 
 # A through-hole pad on GND whose only copper is the In1 pour it sits in, with
@@ -97,6 +124,14 @@ class SyntheticBoardTests(unittest.TestCase):
             connectivity.F(root, "footprint")[0], "pad"))
         first = connectivity.pad_capsule(pads[0], (0, 0), 0, ["F.Cu"])
         self.assertAlmostEqual(first.radius, 1.35)
+
+    def test_a_custom_pad_reaches_its_furthest_primitive(self):
+        root = parse(CUSTOM_PAD_BOARD)
+        pad = connectivity.F(
+            connectivity.F(root, "footprint")[0], "pad")[0]
+        capsule = connectivity.pad_capsule(pad, (0, 0), 0, ["F.Cu"])
+        # (size 1 0.5) circumscribes to 0.559; the poly corner is 0.901 out.
+        self.assertAlmostEqual(capsule.radius, math.hypot(0.5, 0.75))
 
     def test_touch_tolerance_is_one_micron(self):
         left = connectivity.Capsule((0, 0), (0, 0), 0.5, {"F.Cu"})
