@@ -20,7 +20,7 @@ are carried over — every figure below is from the `e68a4e37` capture.
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, board COM4 |
-| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the `Feedback::flush` body (`filter.h:1833–2344`, covering `feedback_litscan`/`feedback_populate`/`feedback_composite` and the `HS_O3_FN` `sample_bilinear_prev`) and `Plot::rasterize` (`plot.h:1614`) run inside `HS_O3` regions. `core/math/spherical_field.h` carries **no** `HS_O3` region — see the flush note below |
+| Image | `profile` env: `-Os` + newlib-nano + DMA LEDs + `HS_PROFILE_ENABLE`; the `Feedback::flush` body (covering `feedback_litscan`/`feedback_populate`/`feedback_composite` and the `HS_O3_FN` `sample_bilinear_prev`) and `Plot::rasterize` run inside `HS_O3` regions. `core/math/spherical_field.h` carries **no** `HS_O3` region — see the flush note below |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | MeshFeedback 288×144, single-entry playlist, tip `e68a4e37` |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 420 s capture, `HS_PROFILE_EPOCH_REVS=3400` |
@@ -284,9 +284,9 @@ colour transform, which is exactly where `fbaf81e2` just came from.
 - `filter_blend` parents under `mf_mesh_draw`; its subtree is hidden in windows
   where that parent had 0 calls; calls ≈ blended pixels.
 - Selective-O3: the flush path crosses two `HS_O3` regions — `Feedback::flush`
-  (`filter.h:1833–2344`, so `feedback_litscan`/`feedback_populate`/
-  `feedback_composite` and the `HS_O3_FN` `sample_bilinear_prev` are all `-O3`)
-  and `Plot::rasterize` (`plot.h:1614`) under `mf_mesh_draw`.
+  (so `feedback_litscan`/`feedback_populate`/`feedback_composite` and the
+  `HS_O3_FN` `sample_bilinear_prev` are all `-O3`) and `Plot::rasterize` under
+  `mf_mesh_draw`.
   `core/math/spherical_field.h` is **not** in a region, which is why
   `sample_bilinear_rgb`'s inline budget is load-bearing (see the mechanism note
   above).
