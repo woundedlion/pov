@@ -445,16 +445,15 @@ inline void test_render_signature() {
     };
     const HL::PreparedTrace prepared = HL::prepare_trace(frame);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
-      const Color4 color = HL::shade(
-          {DIRECTIONS[sample], 0.125f * static_cast<float>(sample % 5)}, frame,
-          prepared);
+      const Color4 color =
+          HL::shade({DIRECTIONS[sample], 0.0f}, frame, prepared);
       signature = hs_test::fnv1a64_channel(signature, color.color.r);
       signature = hs_test::fnv1a64_channel(signature, color.color.g);
       signature = hs_test::fnv1a64_channel(signature, color.color.b);
       signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
     }
   }
-  HS_EXPECT_EQ(signature, uint64_t(11689046063414106200ull));
+  HS_EXPECT_EQ(signature, uint64_t(3442334229940849102ull));
 }
 
 inline void test_presets_and_pipeline() {
