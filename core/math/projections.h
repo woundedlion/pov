@@ -807,16 +807,16 @@ inline constexpr float AIROCEAN_TRANSFORMS[23][2][4] = {
     {{0.2863114437f, 0.2070063213f, 0.9355074239f, 0.3035309991f},
      {0.6079419899f, 0.7154153424f, -0.3443652491f, 3.680117785f}}};
 
+/** @brief Extent of the unfolded net along its second axis, the axis the
+ *         quarter-turn layout reflects about. */
+inline constexpr float AIROCEAN_NET_HEIGHT = 5.78304223331047f;
+
 /**
  * @brief The net's torn edges as parallel (face, edge) arrays.
  * @details Authoring form of AIROCEAN_CUT_MASKS: 26 half-edges, one entry per
  * index in both arrays. AIROCEAN_CUT_MASKS is the per-face bitset the kernel
  * actually reads.
  */
-/** @brief Extent of the unfolded net along its second axis, the axis the
- *         quarter-turn layout reflects about. */
-inline constexpr float AIROCEAN_NET_HEIGHT = 5.78304223331047f;
-
 inline constexpr uint8_t AIROCEAN_CUT_FACES[] = {
     3,  4,  4,  5,  5,  6,  6,  8,  9,  12, 12, 13, 13,
     14, 14, 15, 15, 16, 18, 18, 19, 19, 20, 21, 22, 22};
