@@ -94,10 +94,10 @@ constexpr size_t WASM_PERSISTENT_BUDGET =
 void note_arena_vector_abandon(size_t bytes);
 
 /** @brief Bytes abandoned so far by ArenaVector move-assignment. */
-size_t arena_vector_abandoned_bytes();
+FLASHMEM size_t arena_vector_abandoned_bytes();
 
 /** @brief Move-assignments that have abandoned a block so far. */
-size_t arena_vector_abandon_count();
+FLASHMEM size_t arena_vector_abandon_count();
 
 /**
  * @brief Bump allocator over a fixed caller-owned buffer.
@@ -560,8 +560,8 @@ struct ArenaBlockStamp {
  * line ships in release: without it a persistent-arena grow surfaces only as a
  * later, innocent-looking allocation trapping on OOM.
  */
-void log_arena_vector_grow(size_t bytes, size_t old_capacity,
-                           size_t new_capacity);
+FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
+                                    size_t new_capacity);
 
 /**
  * @brief Whether T is a sanctioned inline callable safe to store in an
@@ -1219,11 +1219,12 @@ private:
  * @param scratch_a Bytes to assign to scratch arena A.
  * @param scratch_b Bytes to assign to scratch arena B.
  */
-void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
+FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
+                               size_t scratch_b);
 /**
  * @brief Restores the default arena partition.
  */
-void configure_arenas_default();
+FLASHMEM void configure_arenas_default();
 
 /**
  * @brief Re-partitions the arenas mid-run WITHOUT disturbing persistent content.
@@ -1238,7 +1239,8 @@ void configure_arenas_default();
  * invoke this only when both scratch arenas are empty; a per-shape split at
  * spawn (persistent at its ~baseline, scratch idle) satisfies this.
  */
-void resplit_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
+FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
+                             size_t scratch_b);
 
 // ============================================================================
 // 4. ScratchScope — RAII Arena Offset Guard
