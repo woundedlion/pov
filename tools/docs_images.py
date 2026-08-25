@@ -73,8 +73,11 @@ def verify(repo_root: Path) -> tuple[list[str], int]:
         if not parts.path:
             errors.append(f"{where} has no path component")
             continue
-        target = (repo_root.joinpath(*source.parent.parts)
-                  / unquote(parts.path)).resolve()
+        decoded = unquote(parts.path)
+        if decoded.startswith("/"):
+            target = repo_root.joinpath(*PurePosixPath(decoded).parts[1:]).resolve()
+        else:
+            target = (repo_root.joinpath(*source.parent.parts) / decoded).resolve()
         if not target.is_relative_to(repo_root):
             errors.append(f"{where} resolves outside the repository")
         elif not target.is_file():
