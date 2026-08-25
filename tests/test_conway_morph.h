@@ -1470,9 +1470,6 @@ struct HankinSweepSite {
   float theta_star;                     /**< Arrival contact angle, radians. */
 };
 
-inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
-  return Solids::Platonic::dodecahedron(a, b);
-}
 inline PolyMesh probe_dodeca_hk62_ambo(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
   return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
