@@ -4,14 +4,11 @@
  */
 #pragma once
 
-#include <type_traits>
+#include <algorithm>
 #include <utility>
 #include "render/sdf.h"
 #include "render/shading.h"
-#include "mesh/mesh_class_types.h"
-#include "color/color.h"
 #include "render/filter/pipeline.h"
-#include "containers/static_circular_buffer.h"
 #include "render/canvas.h"
 #include "platform/platform.h"
 #include "render/scan/raster.h"
