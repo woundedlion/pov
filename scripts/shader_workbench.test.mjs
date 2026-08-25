@@ -461,6 +461,7 @@ test('a malformed parameter reports diagnostics instead of a raw TypeError', () 
     [(parameters) => { parameters[0] = 'not-a-parameter'; }, 'EXPECTED_OBJECT'],
     [(parameters) => { delete parameters[0].interpolation; }, 'MISSING_FIELD'],
     [(parameters) => { delete parameters[0].domain; }, 'MISSING_FIELD'],
+    [(parameters) => { parameters[0].interpolation.group = 42; }, 'INVALID_ID'],
   ]) {
     const codes = diagnose(mutate);
     assert.equal(codes[0], shape);
