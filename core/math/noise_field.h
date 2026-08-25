@@ -256,7 +256,8 @@ sample_simplex_vector(const FastNoiseLite &noise, const Vector &q) {
  * @param v Unit point the tangent is taken at.
  * @param direction_cos Cosine of the in-plane rotation applied to the tangent.
  * @param direction_sin Sine of that rotation.
- * @return A tangent at @p v of length at most 1.
+ * @return A tangent at @p v of length at most 1, to within the rounding of
+ *   fast_rsqrt()'s final multiply.
  * @details Takes the DIRECT_VECTOR_V2 path for SIMPLEX and DIRECT_V1
  * otherwise. Only lengths above 1 are rescaled, so the field keeps its own
  * magnitude where the noise is quiet.
@@ -286,7 +287,8 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
  * @param direction In-plane rotation applied to the tangent, in turns.
- * @return A tangent at @p v of length at most 1.
+ * @return A tangent at @p v of length at most 1, to within the rounding of
+ *   fast_rsqrt()'s final multiply.
  */
 HS_FLASH_INLINE inline Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
@@ -300,7 +302,8 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
  * @param noise Prepared generator.
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
- * @return A tangent at @p v of length at most 1.
+ * @return A tangent at @p v of length at most 1, to within the rounding of
+ *   fast_rsqrt()'s final multiply.
  */
 __attribute__((always_inline)) inline Vector
 sample_direct_simplex_tangent(const FastNoiseLite &noise, const Vector &q,
