@@ -1515,6 +1515,88 @@ inline void test_baked_palette_clone_from_matches_source() {
 }
 
 /**
+ * @brief Verifies dot_key inverts DotKeyed's coordinate mapping.
+ * @details A DotKeyed bake maps a LUT coordinate u to the cos value
+ *          d = 1 - 2u and samples the source at acos(d)/PI; the fragment path
+ *          keys that LUT by the raw dot product through dot_key(d). Sweeps the
+ *          closed cos domain, pins the pole orientation, and checks that an
+ *          out-of-domain dot product clamps onto a pole.
+ */
+inline void test_dot_key_inverts_dot_keyed_coordinate() {
+  // Captures the angle coordinate a DotKeyed bake hands its source.
+  struct CoordProbe {
+    mutable float last_t = -1.0f;
+    Color4 get(float t) const {
+      last_t = t;
+      return Color4(Pixel(0, 0, 0), 1.0f);
+    }
+  };
+  const CoordProbe probe;
+  const auto keyed = dot_keyed(probe);
+
+  // d = +1 is the axis (angle 0), d = -1 the antipode (angle PI).
+  HS_EXPECT_NEAR(dot_key(1.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(dot_key(-1.0f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(dot_key(0.0f), 0.5f, 1e-6f);
+
+  constexpr int STEPS = 64;
+  float previous_u = 2.0f;
+  for (int i = 0; i <= STEPS; ++i) {
+    const float d = -1.0f + 2.0f * (static_cast<float>(i) / STEPS);
+    const float u = dot_key(d);
+    HS_EXPECT_TRUE(u >= 0.0f && u <= 1.0f);
+    HS_EXPECT_LT(u, previous_u);
+    previous_u = u;
+    // The bake's u -> d leg recovers the dot product dot_key was handed.
+    HS_EXPECT_NEAR(1.0f - 2.0f * u, d, 1e-6f);
+    keyed.get(u);
+    HS_EXPECT_NEAR(probe.last_t, fast_acos(d) / PI_F, 1e-6f);
+  }
+
+  HS_EXPECT_NEAR(dot_key(4.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(dot_key(-4.0f), 1.0f, 1e-6f);
+}
+
+/**
+ * @brief Verifies a DotKeyed bake sampled at dot_key reproduces its source.
+ * @details The end-to-end pairing two shipping effects key fragment color off:
+ *          bake through dot_keyed(), then look the LUT up by the raw dot
+ *          product. A black-to-white ramp over t = angle/PI must land black on
+ *          the axis, white on the antipode, and rise monotonically between
+ *          them; interior samples match the source within LUT quantization.
+ */
+inline void test_dot_keyed_bake_round_trips_through_dot_key() {
+  Gradient ramp{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+
+  alignas(std::max_align_t) static uint8_t
+      buf[BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  BakedPalette baked;
+  baked.bake(arena, dot_keyed(ramp));
+
+  HS_EXPECT_EQ(baked.get(dot_key(1.0f)).color.r, ramp.get(0.0f).color.r);
+  HS_EXPECT_EQ(baked.get(dot_key(-1.0f)).color.r, ramp.get(1.0f).color.r);
+
+  constexpr int STEPS = 64;
+  int previous = -1;
+  for (int i = STEPS; i >= 0; --i) {
+    const float d = -1.0f + 2.0f * (static_cast<float>(i) / STEPS);
+    const int got = baked.get(dot_key(d)).color.r;
+    HS_EXPECT_TRUE(got >= previous);
+    previous = got;
+  }
+
+  // Away from the poles the u -> angle curve is gentle enough for the 256-entry
+  // LUT to reproduce the source to within a couple of 16-bit counts.
+  for (int i = -3; i <= 3; ++i) {
+    const float d = static_cast<float>(i) / 4.0f;
+    const uint16_t got = baked.get(dot_key(d)).color.r;
+    const uint16_t want = ramp.get(fast_acos(d) / PI_F).color.r;
+    HS_EXPECT_NEAR(got, want, 32);
+  }
+}
+
+/**
  * @brief Verifies a non-finite blend weight bakes a finite LUT.
  * @details bake_palette_blend's endpoint gates (w <= 0, w >= 1) are both false
  *          for NaN, so a degenerate weight reaches bake_blend. Every entry must
@@ -2503,6 +2585,8 @@ inline int run_color_tests() {
   test_baked_palette_rebake_samples_closed_interval();
   test_baked_palette_color_sampler_matches_get();
   test_baked_palette_clone_from_matches_source();
+  test_dot_key_inverts_dot_keyed_coordinate();
+  test_dot_keyed_bake_round_trips_through_dot_key();
   test_bake_palette_blend_nan_weight_stays_finite();
   test_baked_palette_rebake_crossfade();
   test_step_wipe_rebake_skips_arming_then_decrements();
