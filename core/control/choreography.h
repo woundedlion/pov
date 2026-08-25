@@ -23,17 +23,18 @@
  *        automatic transitions through a Segue preset policy, manual preset
  *        snaps and schema-versioned parameter snapshots.
  * @details Curiously recurring: `Derived` supplies `PRESET_SEGUE` (a
- * `Segue::PresetPolicy` instance), `PARAMETER_SCHEMA_VERSION`,
+ * `Segue::Preset::Policy` instance), `PARAMETER_SCHEMA_VERSION`,
  * `PRESET_DWELL_FRAMES` and `valid_params(params)`, plus its presets: a
  * `PRESETS` table (`std::array<PresetEntry<Params>, N>`) and/or `PRESET_IDS`
  * naming them. The effect calls `begin_choreography()` once from init() and
  * `step_choreography()` every frame; a single preset compiles the dwell
- * countdown out, and a Segue::Fade policy's envelope owns the cadence instead
- * of the countdown. Transition hooks: `blend_params(progress)` writes the
- * interpolated parameters while a Segue::Lerp transition is in flight,
- * `set_preset_opacity(value)` receives a Segue::Fade policy's envelope, and
- * shadowing `adopt_params(target)` / `transition_armed(target)` keeps state
- * derived from the parameters consistent across snaps and crossfade arming.
+ * countdown out, and a Segue::Preset::Fade policy's envelope owns the cadence
+ * instead of the countdown. Transition hooks: `blend_params(progress)` writes
+ * the interpolated parameters while a Segue::Preset::Lerp transition is in
+ * flight, `set_preset_opacity(value)` receives a Segue::Preset::Fade policy's
+ * envelope, and shadowing `adopt_params(target)` / `transition_armed(target)`
+ * keeps state derived from the parameters consistent across snaps and
+ * crossfade arming.
  * `preset_params(index)` — static, or a member when the effect patches preset
  * entries at runtime — overrides the `PRESETS` table lookup, and its static
  * form is also the startup default; `initial_params()` overrides both.
@@ -45,11 +46,11 @@ template <typename Derived, typename ParamsT>
 class ChoreographedEffect : public Effect {
 public:
   using Params = ParamsT;
-  /** Frames an automatic Segue::Lerp preset transition spans; zero for a
-      non-blending policy. */
+  /** Frames an automatic Segue::Preset::Lerp preset transition spans; zero
+      for a non-blending policy. */
   static constexpr uint16_t TRANSITION_DURATION = [] {
     using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
-    if constexpr (Segue::PresetBlends<SegueT>)
+    if constexpr (Segue::Preset::Blends<SegueT>)
       return static_cast<uint16_t>(Derived::PRESET_SEGUE.frames);
     return uint16_t{0};
   }();
@@ -143,20 +144,21 @@ protected:
    * @brief Adopts a preset through the effect's Segue preset policy.
    * @details A manual or synchronized change snaps regardless of policy, since
    * a user driving the control expects the preset it names immediately. An
-   * AUTOMATIC change follows `Derived::PRESET_SEGUE`: Segue::Lerp arms a
-   * crossfade from the live parameters, Segue::Snap adopts immediately, and
-   * Segue::Fade adopts immediately inside its envelope's dark frame. A
-   * crossfade the timeline has no slot for restarts the dwell, so the next
-   * attempt is a dwell away rather than on the following frame.
+   * AUTOMATIC change follows `Derived::PRESET_SEGUE`: Segue::Preset::Lerp arms
+   * a crossfade from the live parameters, Segue::Preset::Snap adopts
+   * immediately, and Segue::Preset::Fade adopts immediately inside its
+   * envelope's dark frame. A crossfade the timeline has no slot for restarts
+   * the dwell, so the next attempt is a dwell away rather than on the following
+   * frame.
    * @param change The requested preset move.
    * @return False if an automatic crossfade cannot be scheduled.
    */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
-    static_assert(Segue::PresetPolicy<SegueT>,
+    static_assert(Segue::Preset::Policy<SegueT>,
                   "Derived::PRESET_SEGUE is not a Segue preset policy");
     const Params target = preset_target(change.to);
-    if constexpr (Segue::PresetBlends<SegueT>) {
+    if constexpr (Segue::Preset::Blends<SegueT>) {
       static_assert(
           Derived::PRESET_DWELL_FRAMES > Derived::PRESET_SEGUE.frames,
           "PRESET_DWELL_FRAMES must outlast PRESET_SEGUE.frames, or a "
@@ -200,24 +202,24 @@ protected:
   /**
    * @brief Configures the preset controller and arms the choreography.
    * @details Counts presets from `PRESET_IDS` or the `PRESETS` table. A
-   * Segue::Fade policy's envelope loop starts here; every other policy
+   * Segue::Preset::Fade policy's envelope loop starts here; every other policy
    * advances through step_choreography()'s dwell countdown. Call once from
    * init().
    */
   HS_COLD_MEMBER void begin_choreography() {
     configure_presets(preset_count_of());
     using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
-    if constexpr (Segue::PresetFades<SegueT>)
+    if constexpr (Segue::Preset::Fades<SegueT>)
       begin_preset_choreography();
   }
 
   /// Retires the preset dwell and starts the next automatic preset transition.
   /// @details Call every frame. Pause suppresses preset selection, so no new
-  /// transition begins while paused. A Segue::Fade policy's cadence comes from
-  /// its envelope loop instead; the dwell countdown never runs.
+  /// transition begins while paused. A Segue::Preset::Fade policy's cadence
+  /// comes from its envelope loop instead; the dwell countdown never runs.
   HS_COLD_MEMBER void step_choreography() {
     using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
-    if constexpr (Segue::PresetFades<SegueT> || preset_count_of() == 1)
+    if constexpr (Segue::Preset::Fades<SegueT> || preset_count_of() == 1)
       return;
     else {
       if (anims_paused || transition.active)
@@ -274,8 +276,8 @@ private:
   }
 
   /**
-   * @brief Starts a Segue::Fade policy's envelope loop: one opacity sprite per
-   *        preset whose end advances the choreography and re-arms.
+   * @brief Starts a Segue::Preset::Fade policy's envelope loop: one opacity
+   *        sprite per preset whose end advances the choreography and re-arms.
    * @details The policy's schedule() return is the delay until the advance, so
    * the policy owns the cadence. The sprite feeds
    * `Derived::set_preset_opacity` each frame; both the sprite and the advance

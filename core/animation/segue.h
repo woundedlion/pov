@@ -901,15 +901,15 @@ static_assert(AllPolicies::RETARGET_SURVIVES_OVERLAP,
  * two parameter sets never render on the same frame). Dissolve — each element
  * flipping from the old parameter set to the new at its own seeded random
  * time, so every element still renders once per frame — is reserved for this
- * roster but unimplemented until an effect adopts it. The sprite policy
- * Dissolve above already binds that name in this namespace, so implementing the
- * preset one needs a distinct spelling.
+ * roster but unimplemented until an effect adopts it; the nested namespace
+ * keeps that spelling clear of the sprite policy Segue::Dissolve above.
  *
  * Unlike the sprite segues above, which MeshCarousel keeps one mutable instance
  * of, a preset policy carries no per-transition state: ChoreographedEffect
  * schedules every arm through a fresh copy of the effect's constant
  * PRESET_SEGUE.
  */
+namespace Preset {
 
 /**
  * @brief Preset policy: param-space crossfade. An AUTOMATIC change arms a
@@ -950,7 +950,7 @@ struct Fade {
 
 /** @brief Whether a preset policy crossfades in parameter space (Lerp). */
 template <typename P>
-concept PresetBlends = requires(const P p) {
+concept Blends = requires(const P p) {
   { p.frames } -> std::convertible_to<uint16_t>;
   { p.easing } -> std::convertible_to<EasingFn>;
   { p.pausable } -> std::convertible_to<bool>;
@@ -959,7 +959,7 @@ concept PresetBlends = requires(const P p) {
 /** @brief Whether a preset policy schedules an opacity envelope around a
  * parameter snap (Fade). */
 template <typename P>
-concept PresetFades = Schedulable<P> && requires(const P p) {
+concept Fades = Schedulable<P> && requires(const P p) {
   { p.opacity(0.5f) } -> std::same_as<float>;
   { p.frames } -> std::convertible_to<int>;
   { p.window } -> std::convertible_to<int>;
@@ -968,10 +968,11 @@ concept PresetFades = Schedulable<P> && requires(const P p) {
 /** @brief Whether a policy can drive ChoreographedEffect's preset
  * choreography. */
 template <typename P>
-concept PresetPolicy =
-    PresetBlends<P> || PresetFades<P> || std::same_as<P, Snap>;
+concept Policy = Blends<P> || Fades<P> || std::same_as<P, Snap>;
 
-static_assert(PresetPolicy<Lerp> && PresetPolicy<Snap> && PresetPolicy<Fade>,
+static_assert(Policy<Lerp> && Policy<Snap> && Policy<Fade>,
               "a shipped preset policy dropped off its choreography path");
+
+} // namespace Preset
 
 } // namespace Segue

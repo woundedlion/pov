@@ -116,7 +116,7 @@ struct PresetZeroBootEffect
     : public ChoreographedEffect<PresetZeroBootEffect, BootParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
                                                               "second"};
-  static constexpr Segue::Snap PRESET_SEGUE{};
+  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 60;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
