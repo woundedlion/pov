@@ -730,6 +730,9 @@ private:
             protocol_config.beacon_frame_cols(digit_sum)) +
         protocol_config.late_censor_cycles();
     if (static_cast<int32_t>(frame_cycles) > fly.cycles_to_next_boundary(now)) {
+      // The margin only shrinks until the next ZERO crossing clears the latch,
+      // so this revolution's frame can never come to fit: stop re-fitting it.
+      beacon_done_this_rev = true;
       if (!beacon_late_counted_this_rev) {
         saturating_increment(telemetry_counters.beacons_late_dropped);
         beacon_late_counted_this_rev = true;
