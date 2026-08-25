@@ -1482,7 +1482,8 @@ struct GSWhiteBox {
 
   template <int W, int H> static ShaderError shared_shader_error(GS &gs) {
     ScratchScope guard(scratch_arena_a);
-    Vector *world_nodes = gs.orient_lattice();
+    auto lattice = gs.orient_lattice();
+    Vector *world_nodes = lattice.get();
     using Grid = Scan::Shader::SsaaGrid<W, H>;
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
@@ -2055,7 +2056,8 @@ struct BZWhiteBox {
    */
   template <int W, int H> static CenterError render_center_error(BZ &bz) {
     ScratchScope guard(scratch_arena_a);
-    Vector *world_nodes = bz.orient_lattice();
+    auto lattice = bz.orient_lattice();
+    Vector *world_nodes = lattice.get();
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     CenterError error;
