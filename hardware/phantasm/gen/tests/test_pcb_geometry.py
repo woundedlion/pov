@@ -219,7 +219,7 @@ class MountingKeepoutTests(unittest.TestCase):
         extent = max(x + pcb._rot_bb(self.BOXES[ref], rot)[2]
                      for ref, (x, _, rot) in place.items())
         self.assertGreaterEqual(length - extent,
-                                pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_RADIUS)
+                                pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_HALF_SIDE)
 
     def test_pack_keeps_every_part_inside_the_outline(self):
         place, length = pcb.pack(dict(self.BOXES), pcb.PCB_W)
@@ -239,7 +239,7 @@ class MountingKeepoutTests(unittest.TestCase):
         self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0), ["J1/H1"])
 
     def test_a_part_flush_with_the_keepout_edge_is_not_a_clash(self):
-        edge = pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_RADIUS
+        edge = pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_HALF_SIDE
         place = {"C_IN": (edge + 1.5, pcb.MOUNTING_HOLE_INSET, 0)}
         self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0), [])
 
