@@ -62,7 +62,8 @@ struct Mat4 {
  * @param b Second plane axis, in [0, VEC4_DIMENSIONS), distinct from `a`.
  * @param angle Rotation angle in radians.
  */
-HS_COLD inline void rotate_plane(Mat4 &matrix, int a, int b, float angle) {
+HS_COLD static inline void rotate_plane(Mat4 &matrix, int a, int b,
+                                        float angle) {
   const float c = fast_cosf(angle);
   const float s = fast_sinf(angle);
   for (int column = 0; column < VEC4_DIMENSIONS; ++column) {
