@@ -382,6 +382,7 @@ private:
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state at the last
                               init_storage()/reclaim_storage(). */
+#endif
 
   /**
    * @brief Debug-only use-after-free check on the pool's arena blocks.
@@ -392,18 +393,11 @@ private:
    * detects it.
    */
   void check_storage_alive() const {
-    constexpr size_t ENTITY_BYTES = CAPACITY * sizeof(Entity);
-    constexpr size_t SLOT_BYTES = CAPACITY * sizeof(int);
-    assert(stamp.block_alive(entities, ENTITY_BYTES) &&
-           stamp.block_alive(active_slots, SLOT_BYTES) &&
-           "TransformerPool use-after-free!");
+    HS_ASSERT_BLOCK_ALIVE(stamp, entities, CAPACITY * sizeof(Entity),
+                          "TransformerPool entities");
+    HS_ASSERT_BLOCK_ALIVE(stamp, active_slots, CAPACITY * sizeof(int),
+                          "TransformerPool active slots");
   }
-#else
-  /**
-   * @brief No-op use-after-free check in release builds.
-   */
-  void check_storage_alive() const {}
-#endif
 
   /**
    * @brief Frees every slot without touching the timeline.
