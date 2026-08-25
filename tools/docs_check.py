@@ -151,8 +151,6 @@ _UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
 )
 
-_MARKDOWN_EXCLUDED = frozenset({PurePosixPath("docs/CODE_REVIEW.md")})
-
 # Tracked paths an exhaustive tree deliberately leaves without a row: VCS
 # metadata, the map's own document, and the test tree the map draws as one
 # summary row plus its shared fixtures. A trailing slash covers a subtree.
@@ -984,8 +982,7 @@ def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath
         entries.update(parent for parent in file_path.parents
                        if parent != PurePosixPath("."))
     markdown = sorted(path for path in files
-                      if path.suffix.casefold() in (".md", ".markdown")
-                      and path not in _MARKDOWN_EXCLUDED)
+                      if path.suffix.casefold() in (".md", ".markdown"))
     return markdown, entries
 
 

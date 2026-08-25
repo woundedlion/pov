@@ -355,28 +355,6 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(markdown, [PurePosixPath("README.md")])
         self.assertEqual(issues, [])
 
-    def test_internal_review_ledger_is_excluded(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
-            (root / "docs").mkdir()
-            (root / "tools").mkdir()
-            (root / "README.md").write_text("`tools/readme_missing.py`\n",
-                                            encoding="utf-8")
-            (root / "docs" / "CODE_REVIEW.md").write_text(
-                "`tools/ledger_missing.py`\n", encoding="utf-8")
-            (root / "tools" / "real.py").write_text("\n", encoding="utf-8")
-            subprocess.run([
-                "git", "-C", str(root), "add", "README.md",
-                "docs/CODE_REVIEW.md", "tools/real.py",
-            ], check=True)
-            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
-                markdown, issues, _ = dc.check_repository(root)
-        self.assertEqual(markdown, [PurePosixPath("README.md")])
-        self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0].path, "README.md")
-        self.assertIn("tools/readme_missing.py", issues[0].message)
-
     def test_stale_untracked_allowances_are_named(self):
         allowances = ("tracked.txt", "uncited.txt", "used.txt")
         with mock.patch.object(dc, "_UNTRACKED_ALLOWED", allowances):
