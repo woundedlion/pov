@@ -49,6 +49,8 @@ static_assert(
 // DTCM copies (zero-wait, bypass the L1 D-cache) of the two-region decode
 // tables. Residing in DTCM is what stops the concurrent render from evicting
 // them, unlike a cacheable table.
+// Non-const is load-bearing: phantasm.ld routes const rodata to FLASH, .data to
+// DTCM.
 // constinit is load-bearing: an inline variable's dynamic init is unordered
 // against other translation units' static initializers, so a runtime fill would
 // let linear_to_srgb8 read a zeroed table and return 0 for every input.
