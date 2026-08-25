@@ -34,6 +34,9 @@ import teensy_gate  # noqa: E402
 
 
 PINS = {
+    # PyPI's actionlint-py, whose version is the actionlint release plus a
+    # packaging suffix.
+    "actionlint": "1.7.12.24",
     # The daydream commit the tree-fence and cross-repo jobs check out. Those
     # jobs validate an exhaustive fence against that tree, so the checkout
     # tracks a committed pin: daydream's tip moves independently and would both
@@ -127,8 +130,8 @@ INLINE_SCAN = (
     ROOT / "CONTRIBUTING.md",
     ROOT / "hardware/phantasm/README.md",
     *(ROOT / "requirements" / name for name in (
-        "clang-format.txt", "just.txt", "numpy.txt", "platformio.txt",
-        "ruff.txt", "shellcheck.txt",
+        "actionlint.txt", "clang-format.txt", "just.txt", "numpy.txt",
+        "platformio.txt", "ruff.txt", "shellcheck.txt",
     )),
 )
 
@@ -136,6 +139,7 @@ INLINE_SCAN = (
 # capture group is the version as that spelling writes it; `form` maps the pin
 # value to that spelling, so every occurrence is derived from one string.
 INLINE_USES = (
+    (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v),
     (r"python-version:\s*'([^']*)'", "python", lambda v: v),
     (r"\bnumpy==([\w.]+)", "numpy", lambda v: v),
     (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v),

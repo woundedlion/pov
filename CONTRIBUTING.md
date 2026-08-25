@@ -76,10 +76,12 @@ correctness gate.
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
   engine bindings contract, the profile roster and the PNG probe. CI runs it as
   its own `scripts-unit-tests` job.
-- **Lint:** the CI `lint` job has five legs — `ruff` over the Python tooling,
+- **Lint:** the CI `lint` job has six legs — `ruff` over the Python tooling,
   `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
-  `.githooks/*`, and a `just --evaluate` / `just --summary` parse of the
-  `justfile`, plus the profiling-roster cross-check in `tools/profile_sweep.sh`.
+  `.githooks/*`, `actionlint` over `.github/workflows/*.yml` (which pipes every
+  `run:` body through `shellcheck`, since no workflow is a `*.sh` file), and a
+  `just --evaluate` / `just --summary` parse of the `justfile`, plus the
+  profiling-roster cross-check in `tools/profile_sweep.sh`.
   `just lint` runs the four lint/roster checks locally; the hook only checks
   staged Python and JavaScript, so CI remains authoritative.
 - **Documentation:** `python tools/docs_check.py` validates fences, links,

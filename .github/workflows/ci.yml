@@ -796,16 +796,16 @@ jobs:
         # debug build. ccache replays a hit's stored stderr, so a warm cache still
         # surfaces the warnings.
         run: |
-          logs="build/wasm-release-build.log build/wasm-debug-build.log"
+          logs=(build/wasm-release-build.log build/wasm-debug-build.log)
           # A missing log makes grep exit 2, which reads as "no warnings" — assert
           # the captures exist rather than let a broken tee pass the gate.
-          for log in $logs; do
+          for log in "${logs[@]}"; do
             if [ ! -f "$log" ]; then
               echo "::error::$log missing — the warning capture broke, so the gate proves nothing"
               exit 1
             fi
           done
-          if grep -nE '(^|[[:space:]/])(core|effects|workbench|hardware|targets)/[^:[:space:]]+:[0-9]+:([0-9]+:)?[[:space:]]*warning:' $logs; then
+          if grep -nE '(^|[[:space:]/])(core|effects|workbench|hardware|targets)/[^:[:space:]]+:[0-9]+:([0-9]+:)?[[:space:]]*warning:' "${logs[@]}"; then
             echo "::error::first-party warning(s) in the WASM build — fix them (this target has no baseline)"
             exit 1
           fi
@@ -936,6 +936,9 @@ jobs:
           )
           (
             cd "$bundle"
+            # The manifest is excluded from the walk, so it is written but never
+            # read by the same pipeline.
+            # shellcheck disable=SC2094
             find . -type f ! -name holosphere_engine.sha256 -print0 \
               | sort -z \
               | xargs -0 sha256sum > holosphere_engine.sha256
@@ -1425,7 +1428,7 @@ jobs:
           python tools/license_check.py
 
   lint:
-    name: Lint (Python + JavaScript + shell + justfile)
+    name: Lint (Python + JavaScript + shell + justfile + workflows)
     # The C++ tree has clang-format and the firmware warning ratchet; the ~12k
     # lines of Python, ~1.8k of .mjs and the shell under scripts/, tools/,
     # .githooks/ and hardware/ -- which include the gate scripts every other job
@@ -1540,6 +1543,36 @@ jobs:
           fi
           shellcheck --exclude=SC1091,SC2034 "${FILES[@]}"
           echo "shellcheck clean: ${#FILES[@]} files linted."
+
+      # actionlint-py is the PyPI distribution of the same binary, pinned like
+      # ruff and shellcheck above.
+      - name: Install actionlint
+        run: pip install -r requirements/actionlint.txt
+
+      # The workflows carry the shard bijection, the ci-green aggregation, the
+      # install-provenance and coverage-floor gates as shell inside `run:`
+      # blocks, which the shellcheck step above cannot reach: no workflow is a
+      # tracked *.sh file. actionlint checks the workflow itself (expression
+      # syntax, the `needs` graph, event and matrix keys) and pipes every
+      # `run:` body through shellcheck.
+      # The file list is enumerated from the index, so a new workflow is linted
+      # with no edit here and an empty list is a broken path list.
+      # actionlint drops its shellcheck integration silently when the binary is
+      # not on PATH, which would leave every run body unchecked behind a green
+      # step; -verbose reports the drop, so it is captured and made fatal.
+      - name: Lint workflows
+        run: |
+          mapfile -t FILES < <(git ls-files -- '.github/workflows/*.yml')
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error::no files selected — the workflow path list is broken"
+            exit 1
+          fi
+          actionlint -verbose -oneline "${FILES[@]}" 2> /tmp/actionlint-verbose.txt
+          if grep -q 'Rule "shellcheck" was disabled' /tmp/actionlint-verbose.txt; then
+            echo "::error::actionlint ran without shellcheck — the run: bodies went unchecked"
+            exit 1
+          fi
+          echo "actionlint clean: ${#FILES[@]} workflows linted."
 
       # tools/profile_sweep.sh dispatches the on-device profiling groups, whose
       # per-effect knobs are hand-tuned and so cannot be generated from the
