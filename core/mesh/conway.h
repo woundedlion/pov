@@ -527,7 +527,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
            "MeshOps::transform: source mesh must be owned-mode");
   transformed.set_borrowed(ArenaSpan(mesh.face_counts), ArenaSpan(mesh.faces),
                            ArenaSpan(mesh.face_offsets),
-                           ArenaSpan(mesh.topology));
+                           ArenaSpan(mesh.topology), mesh.topology_key);
 
   transformed.vertices.bind(arena, mesh.vertices.size());
 

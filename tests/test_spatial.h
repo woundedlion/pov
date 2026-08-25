@@ -445,8 +445,9 @@ inline void test_meshstate_view_fallback() {
 /**
  * @brief Verifies set_borrowed() switches to borrowed mode by dropping the
  *        owned face arrays, so they cannot shadow the installed views.
- * @details Every topology accessor must read the borrowed spans; the owned
- *          vertices are untouched by the switch.
+ * @details Every topology accessor must read the borrowed spans, the installed
+ *          topology key survives, and the owned vertices are untouched by the
+ *          switch.
  */
 inline void test_meshstate_set_borrowed_drops_owned() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -478,10 +479,12 @@ inline void test_meshstate_set_borrowed_drops_owned() {
   view_topology.push_back(5);
   view_topology.push_back(6);
 
-  m.set_borrowed(
-      ArenaSpan<uint8_t>(view_counts), ArenaSpan<uint16_t>(view_faces),
-      ArenaSpan<uint16_t>(view_offsets), ArenaSpan<uint16_t>(view_topology));
+  m.set_borrowed(ArenaSpan<uint8_t>(view_counts),
+                 ArenaSpan<uint16_t>(view_faces),
+                 ArenaSpan<uint16_t>(view_offsets),
+                 ArenaSpan<uint16_t>(view_topology), 0xABCDu);
 
+  HS_EXPECT_EQ(m.topology_key, (uint32_t)0xABCDu);
   HS_EXPECT_FALSE(m.face_counts.is_bound());
   HS_EXPECT_FALSE(m.faces.is_bound());
   HS_EXPECT_FALSE(m.face_offsets.is_bound());
