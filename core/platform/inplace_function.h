@@ -17,8 +17,9 @@
  * device; callsites pick a fixed Cap with headroom for the wider host closure
  * (see SpriteFn in concepts.h).
  *
- * Included only from platform.h's non-ARDUINO branch, after hs::check_fail is
- * declared.
+ * Included from platform.h's non-ARDUINO branch; the device build uses the
+ * vendored teensy::inplace_function instead. Nothing here needs platform.h:
+ * the empty-call trap is only declared below and defined in memory.cpp.
  */
 
 #include <cstddef>
