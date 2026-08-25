@@ -4,6 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import {
   DEFAULT_LIMITS,
   ShaderDocumentError,
+  applyEasing,
   canonicalPresetBank,
   classifyExport,
   compileShaderDocument,
@@ -671,6 +672,19 @@ test('transition evaluation rejects missing edge dependencies', () => {
     (error) => error instanceof ShaderDocumentError &&
       error.phase === 'transition' && error.code === 'UNKNOWN_EDGE_PATH',
   );
+});
+
+test('an unknown easing is rejected at the endpoints too', () => {
+  for (const progress of [0, 1, 0.5]) {
+    assert.throws(
+      () => applyEasing('EASE_OUT_BACK', progress),
+      (error) => error instanceof ShaderDocumentError &&
+        error.phase === 'transition' && error.code === 'UNKNOWN_EASING',
+      `progress ${progress} must not accept an unknown easing`,
+    );
+  }
+  assert.equal(applyEasing('EASE_IN_OUT_SIN', 0), 0);
+  assert.equal(applyEasing('EASE_IN_OUT_SIN', 1), 1);
 });
 
 test('staggered paths apply easing before ordered group scheduling', () => {
