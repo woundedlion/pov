@@ -918,6 +918,91 @@ class PackageManifestTests(unittest.TestCase):
         self.assertNotIn(fab.SUMS_FILE, fab.ZIP_MEMBERS)
 
 
+class FabContentTests(unittest.TestCase):
+    """Zip membership is a filename test; this reads the exported bytes."""
+
+    # An aperture and a flash that uses it, then the same layer plotting nothing.
+    GERBER = ("%FSLAX46Y46*%\r\n%MOMM*%\r\n%ADD10C,0.500000*%\r\n"
+              "D10*\r\nX1000000Y2000000D03*\r\nM02*\r\n")
+    APERTURELESS = "%FSLAX46Y46*%\r\n%MOMM*%\r\nM02*\r\n"
+    UNDRAWN = "%FSLAX46Y46*%\r\n%MOMM*%\r\n%ADD10C,0.500000*%\r\nM02*\r\n"
+    JOB = '{"GeneralSpecs": {}}\n'
+    # One via and one plated pad, one unplated mounting hole, one SMD pad.
+    BOARD = ('(kicad_pcb (via (at 1 2) (size 0.45) (drill 0.2)) '
+             '(footprint "R" (pad "1" thru_hole circle (at 0 0) (drill 1)) '
+             '(pad "2" smd roundrect (at 1 0)) '
+             '(pad "" np_thru_hole circle (at 2 0) (drill 2.7))))')
+
+    def drill(self, holes):
+        body = "".join(f"X{index}.0Y1.0\n" for index in range(1, holes + 1))
+        return "M48\nFMAT,2\nMETRIC\nT1C0.200\n%\nG90\nT1\n" + body + "M30\n"
+
+    def export(self, overrides=None):
+        """A staged export of the fixture board, with `overrides` swapped in."""
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        pcb = directory.parent / "content.kicad_pcb"
+        pcb.write_text(self.BOARD, encoding="utf-8")
+        board = fab.read_board(pcb)
+        holes = fab.board_hole_counts(board)
+        payloads = {}
+        for name in ZipMembershipTests.EXPORTED:
+            extension = os.path.splitext(name)[1]
+            if extension == ".gbrjob":
+                payloads[name] = self.JOB
+            elif extension == ".drl":
+                payloads[name] = self.drill(holes[fab.DRILL_MEMBERS[name]])
+            elif name in fab.APERTURELESS_MEMBERS:
+                payloads[name] = self.APERTURELESS
+            else:
+                payloads[name] = self.GERBER
+        payloads.update(overrides or {})
+        for name, text in payloads.items():
+            (directory / name).write_bytes(text.encode())
+        return directory, board
+
+    def validate(self, overrides=None):
+        directory, board = self.export(overrides)
+        return fab.validate_fab_content(directory, board)
+
+    def test_accepts_an_export_that_carries_the_board(self):
+        self.assertEqual(self.validate(), {"plated": 2, "unplated": 1})
+
+    def test_rejects_a_layer_that_plots_nothing(self):
+        with self.assertRaisesRegex(fab.FabContentError,
+                                    "phantasm-F_Cu.gtl: defines no apertures"):
+            self.validate({"phantasm-F_Cu.gtl": self.APERTURELESS})
+
+    def test_rejects_a_layer_that_draws_with_none_of_its_apertures(self):
+        with self.assertRaisesRegex(fab.FabContentError, "draws with none"):
+            self.validate({"phantasm-In1_Cu.g1": self.UNDRAWN})
+
+    def test_allows_only_the_bottom_stencil_to_be_apertureless(self):
+        self.assertEqual(fab.APERTURELESS_MEMBERS, {"phantasm-B_Paste.gbp"})
+        self.assertLess(fab.APERTURELESS_MEMBERS, fab.ZIP_MEMBERS)
+
+    def test_rejects_a_drill_file_short_a_hole(self):
+        with self.assertRaisesRegex(
+                fab.FabContentError,
+                r"phantasm-PTH.drl: drills 1 holes, the board carries 2 plated"):
+            self.validate({"phantasm-PTH.drl": self.drill(1)})
+
+    def test_rejects_a_drill_file_the_board_does_not_account_for(self):
+        with self.assertRaisesRegex(fab.FabContentError,
+                                    "no board hole count covers"):
+            self.validate({"phantasm-Extra.drl": self.drill(1)})
+
+    def test_counts_a_slot_as_one_hole(self):
+        self.assertEqual(
+            len(fab.EXCELLON_HOLE.findall("X1.0Y1.0G85X2.0Y1.0\nX3.0Y1.0\n")),
+            2)
+
+    def test_committed_board_holes(self):
+        # 99 vias and 45 plated pads; the four mounting holes are unplated.
+        # Re-measure after promoting a re-route, as with the via floor.
+        self.assertEqual(fab.board_hole_counts(fab.read_board(fab.PCB)),
+                         {"plated": 144, "unplated": 4})
+
+
 class PackageVerificationTests(unittest.TestCase):
     """The manifest is only worth writing if something reads it back."""
 
