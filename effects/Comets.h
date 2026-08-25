@@ -71,7 +71,11 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
 
   static Params initial_params() {
-    return {PRESETS[0].params, 1.0f, 2.1f * THICKNESS_PX, 80.0f, false};
+    return {.function = PRESETS[0].params,
+            .alpha = 1.0f,
+            .thickness = 2.1f * THICKNESS_PX,
+            .cycle_duration = 80.0f,
+            .debug_bb = false};
   }
 
   static bool valid_params(const Params &p) {
