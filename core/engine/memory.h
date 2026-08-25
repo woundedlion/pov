@@ -77,14 +77,14 @@ constexpr size_t WASM_PERSISTENT_BUDGET =
 // ============================================================================
 
 /**
- * @brief Records an ArenaVector move-assignment that abandoned its destination's
- *        block.
+ * @brief Records an ArenaVector block abandoned by a move-assignment or a grow.
  * @param bytes Size of the abandoned block.
- * @details Accumulates instead of logging the line bind() emits for a grow:
- * move-assignment runs deep inside mesh work, where the formatter's stack frame
- * does not fit the device stack budget and one line per event would bury the
- * log. The running total is reported by the arena's OOM trap. Out-of-line and
- * non-template so the device image carries one copy for every element type.
+ * @details Move-assignment only accumulates, never logging the line
+ * log_arena_vector_grow() emits: it runs deep inside mesh work, where the
+ * formatter's stack frame does not fit the device stack budget and one line per
+ * event would bury the log. The running total is reported by the arena's OOM
+ * trap. Out-of-line and non-template so the device image carries one copy for
+ * every element type.
  * @note Cumulative across every arena and never decremented, so it is an upper
  * bound on bytes dropped since boot, not a live-leak figure: the chained mesh
  * ops that dominate it rewind their arena right after each step, reclaiming
@@ -93,10 +93,10 @@ constexpr size_t WASM_PERSISTENT_BUDGET =
  */
 void note_arena_vector_abandon(size_t bytes);
 
-/** @brief Bytes abandoned so far by ArenaVector move-assignment. */
+/** @brief Bytes ArenaVector has abandoned so far. */
 FLASHMEM size_t arena_vector_abandoned_bytes();
 
-/** @brief Move-assignments that have abandoned a block so far. */
+/** @brief Move-assignments and grows that have abandoned a block so far. */
 FLASHMEM size_t arena_vector_abandon_count();
 
 /**
@@ -576,10 +576,12 @@ struct ArenaBlockStamp {
  * @param bytes Size of the abandoned block.
  * @param old_capacity Element capacity before the grow.
  * @param new_capacity Element capacity after the grow.
- * @details Out-of-line and non-template so the device image carries one copy for
- * every element type. The leak is permanent until the arena is reset, so the
- * line ships in release: without it a persistent-arena grow surfaces only as a
- * later, innocent-looking allocation trapping on OOM.
+ * @details Also feeds note_arena_vector_abandon(), so the OOM trap's running
+ * total covers grows as well as move-assignments. Out-of-line and non-template
+ * so the device image carries one copy for every element type. The leak is
+ * permanent until the arena is reset, so the line ships in release: without it a
+ * persistent-arena grow surfaces only as a later, innocent-looking allocation
+ * trapping on OOM.
  */
 FLASHMEM void log_arena_vector_grow(size_t bytes, size_t old_capacity,
                                     size_t new_capacity);
