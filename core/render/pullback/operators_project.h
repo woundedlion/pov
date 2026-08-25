@@ -110,8 +110,7 @@ struct ProjectFoldedSinusoidal
   static constexpr const char *NAME = "Folded Sinusoidal";
 
   static ProjectionResult project(const Vector &local, const Params &params) {
-    return Projection::folded_sinusoidal(local, params.central_meridian,
-                                         params.singularity_fade);
+    return Projection::folded_sinusoidal(local, params.central_meridian);
   }
 };
 
