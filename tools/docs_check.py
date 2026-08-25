@@ -115,14 +115,16 @@ _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
 # Shared X-row spelling with scripts/effect_roster.mjs and tools/profile_sweep.sh:
 # whitespace inside the parens is tolerated so a reformat to `X( Foo )` cannot
 # silently shrink one roster reader's count while the others keep the full set.
-# Anchoring at the line start is what excludes a commented-out `// X(Foo)` or
-# `/* X(Foo) */` row, matching the comment stripping effect_roster.mjs does.
-_EFFECT_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*\)")
+# Comments are stripped before matching, as effect_roster.mjs does, so a
+# commented-out row is not counted -- including one inside a block comment that
+# spans lines, which no line-anchored pattern can exclude.
+_COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
+_EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
 # The device playlist repeats the full roster's cardinality in README prose.
 _PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
-_PHANTASM_ROSTER_ENTRY_RE = re.compile(r"^\s*X\(\s*(\w+)\s*,")
+_PHANTASM_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
 _CARDINALITY_CLAIMS = (
     ("README.md",
      re.compile(r"compile-time roster and tests carry (\d+) firmware-capable"),
@@ -738,6 +740,25 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
     return issues
 
 
+def _macro_body(source: str, define: str) -> str:
+    """The continued-line body of a macro definition, comments stripped.
+
+    The body runs from the #define to the first line without a trailing
+    backslash; the break is decided on the raw lines, so stripping cannot
+    extend or truncate it.
+    """
+    body: list[str] = []
+    inside = False
+    for line in source.splitlines():
+        if not inside:
+            inside = line.startswith(define)
+            continue
+        body.append(line)
+        if not line.rstrip().endswith("\\"):
+            break
+    return _COMMENT_RE.sub("", "\n".join(body))
+
+
 def effect_roster(source: str) -> set[str]:
     """Names HS_EFFECT_LIST expands over, given the roster header's text.
 
@@ -745,18 +766,8 @@ def effect_roster(source: str) -> set[str]:
     X(Shader) only under HS_ENABLE_SHADER_WORKBENCH, which neither the firmware
     playlist nor the gallery roster sets, so it is not among the names.
     """
-    names: set[str] = set()
-    inside = False
-    for line in source.splitlines():
-        if not inside:
-            inside = line.startswith(_EFFECT_ROSTER_DEFINE)
-            continue
-        match = _EFFECT_ROSTER_ENTRY_RE.match(line)
-        if match:
-            names.add(match.group(1))
-        if not line.rstrip().endswith("\\"):
-            break
-    return names
+    return set(_EFFECT_ROSTER_ENTRY_RE.findall(
+        _macro_body(source, _EFFECT_ROSTER_DEFINE)))
 
 
 def effects_row_issues(text: str, entries: set[PurePosixPath],
@@ -878,18 +889,8 @@ def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
 
 def phantasm_roster(source: str) -> set[str]:
     """Returns the effect names in HS_PHANTASM_EFFECT_LIST."""
-    roster: set[str] = set()
-    inside = False
-    for line in source.splitlines():
-        if not inside:
-            inside = line.startswith(_PHANTASM_ROSTER_DEFINE)
-            continue
-        match = _PHANTASM_ROSTER_ENTRY_RE.match(line)
-        if match:
-            roster.add(match.group(1))
-        if not line.rstrip().endswith("\\"):
-            break
-    return roster
+    return set(_PHANTASM_ROSTER_ENTRY_RE.findall(
+        _macro_body(source, _PHANTASM_ROSTER_DEFINE)))
 
 
 def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
