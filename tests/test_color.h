@@ -175,8 +175,8 @@ inline void test_lerp16_full_range_correct() {
 
   // Bright endpoints recovered exactly.
   Pixel a(65535, 49152, 40000), b(32768, 60000, 33000);
-  HS_EXPECT_TRUE(a.lerp16(b, 0) == a);
-  HS_EXPECT_TRUE(a.lerp16(b, 65535) == b);
+  HS_EXPECT_EQ(a.lerp16(b, 0), a);
+  HS_EXPECT_EQ(a.lerp16(b, 65535), b);
 
   // Sweep high-operand pairs (all >= 32768) against the double reference — the
   // regime a signed multiply would corrupt.
@@ -225,7 +225,7 @@ inline void test_blend_add_packed_lane_layout() {
     // Host add operators must agree with the packed device layout.
     Pixel acc = c[0];
     acc += c[1];
-    HS_EXPECT_TRUE(acc == got);
+    HS_EXPECT_EQ(acc, got);
   }
 }
 
@@ -239,20 +239,20 @@ inline void test_blend_alpha_clamps_before_cast() {
   Pixel a(0, 0, 0);
   Pixel b(60000, 40000, 20000);
 
-  HS_EXPECT_TRUE(blend_alpha(0.0f)(a, b) == a); // fully a
-  HS_EXPECT_TRUE(blend_alpha(1.0f)(a, b) == b); // fully b
+  HS_EXPECT_EQ(blend_alpha(0.0f)(a, b), a); // fully a
+  HS_EXPECT_EQ(blend_alpha(1.0f)(a, b), b); // fully b
 
   // Alpha rounds to nearest (+0.5f): 0.5 -> weight 32768, not 32767.
-  HS_EXPECT_TRUE(blend_alpha(0.5f)(a, b) == a.lerp16(b, 32768));
+  HS_EXPECT_EQ(blend_alpha(0.5f)(a, b), a.lerp16(b, 32768));
 
   // Out-of-range alpha saturates: a >= 1 -> full b; a <= 0 -> full a.
-  HS_EXPECT_TRUE(blend_alpha(1000.0f)(a, b) == b);
-  HS_EXPECT_TRUE(blend_alpha(-5.0f)(a, b) == a);
+  HS_EXPECT_EQ(blend_alpha(1000.0f)(a, b), b);
+  HS_EXPECT_EQ(blend_alpha(-5.0f)(a, b), a);
   // Large enough to overflow int in an unclamped (int)(a*65535).
-  HS_EXPECT_TRUE(blend_alpha(1e9f)(a, b) == b);
+  HS_EXPECT_EQ(blend_alpha(1e9f)(a, b), b);
   // NaN folds to the hi bound via hs::clamp.
   Pixel nan_res = blend_alpha(NAN)(a, b);
-  HS_EXPECT_TRUE(nan_res == b);
+  HS_EXPECT_EQ(nan_res, b);
 }
 
 /**
@@ -264,19 +264,19 @@ inline void test_blend_alpha_clamps_before_cast() {
 inline void test_pixel_scale_clamps_before_cast() {
   Pixel c(100, 2000, 30000);
 
-  HS_EXPECT_TRUE(c * 0.0f == Pixel(0, 0, 0));
-  HS_EXPECT_TRUE(c * 1.0f == c);
-  HS_EXPECT_TRUE(c * 2.0f == Pixel(200, 4000, 60000));
+  HS_EXPECT_EQ(c * 0.0f, Pixel(0, 0, 0));
+  HS_EXPECT_EQ(c * 1.0f, c);
+  HS_EXPECT_EQ(c * 2.0f, Pixel(200, 4000, 60000));
 
   // Half-LSB results round up: odd channels * 0.5 land on .5 and carry up.
-  HS_EXPECT_TRUE(Pixel(3, 5, 7) * 0.5f == Pixel(2, 3, 4));
+  HS_EXPECT_EQ(Pixel(3, 5, 7) * 0.5f, Pixel(2, 3, 4));
 
   // Overflowing scale saturates at 65535.
-  HS_EXPECT_TRUE(c * 1e9f == Pixel(65535, 65535, 65535));
+  HS_EXPECT_EQ(c * 1e9f, Pixel(65535, 65535, 65535));
   // Negative scale clamps to zero.
-  HS_EXPECT_TRUE(c * -3.0f == Pixel(0, 0, 0));
+  HS_EXPECT_EQ(c * -3.0f, Pixel(0, 0, 0));
   // NaN folds to the hi bound.
-  HS_EXPECT_TRUE(c * NAN == Pixel(65535, 65535, 65535));
+  HS_EXPECT_EQ(c * NAN, Pixel(65535, 65535, 65535));
 }
 
 // ============================================================================

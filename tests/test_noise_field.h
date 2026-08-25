@@ -225,7 +225,7 @@ inline void test_noise_field_curl_tangent() {
 
 inline void test_sphere_exp_map_and_transport() {
   const Vector v(0.0f, 1.0f, 0.0f);
-  HS_EXPECT_TRUE(sphere_exp_map(v, Vector()) == v);
+  HS_EXPECT_EQ(sphere_exp_map(v, Vector()), v);
   const Vector tangent(0.25f, 0.0f, -0.1f);
   const Vector moved = sphere_exp_map(v, tangent);
   HS_EXPECT_NEAR(moved.length(), 1.0f, 1e-6f);

@@ -248,8 +248,8 @@ inline void test_lattice_melt_manual_write_restarts_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
   WB::drive_transition(effect, 0.5f);
-  HS_EXPECT_TRUE(effect.updateParameter("Surface Noise Scale", 1.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Surface Noise Scale", 1.0f),
+               ParamSetResult::APPLIED);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 
   for (int f = 0; f <= FX::PRESET_SEGUE.frames; ++f)

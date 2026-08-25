@@ -454,12 +454,12 @@ inline void test_vector_spherical_construction() {
  */
 inline void test_vector_equality() {
   Vector a(1, 2, 3), b(1, 2, 3), c(1.001f, 2, 3);
-  HS_EXPECT_TRUE(a == b);
+  HS_EXPECT_EQ(a, b);
   HS_EXPECT_FALSE(a == c);
   HS_EXPECT_TRUE(a != c);
   HS_EXPECT_FALSE(a != b);
 
-  HS_EXPECT_TRUE(Vector(1, 0, 0) == Vector(1.00005f, 0, 0));
+  HS_EXPECT_EQ(Vector(1, 0, 0), Vector(1.00005f, 0, 0));
   HS_EXPECT_FALSE(Vector(1, 0, 0) == Vector(1.001f, 0, 0));
 }
 
@@ -779,11 +779,11 @@ inline void test_quaternion_multiplication() {
  */
 inline void test_quaternion_equality() {
   Quaternion a(1, 2, 3, 4), b(1, 2, 3, 4);
-  HS_EXPECT_TRUE(a == b);
+  HS_EXPECT_EQ(a, b);
   Quaternion c(1.001f, 2, 3, 4); // beyond TOLERANCE
   HS_EXPECT_FALSE(a == c);
   Quaternion d(1.00001f, 2, 3, 4); // within TOLERANCE
-  HS_EXPECT_TRUE(a == d);
+  HS_EXPECT_EQ(a, d);
 }
 
 /**

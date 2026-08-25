@@ -901,8 +901,8 @@ inline void test_opposite_halves_direction() {
                  1.0f);
     HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, false, 1.5f),
                  -1.0f);
-    HS_EXPECT_TRUE(effect.updateParameter("Opposite", 1.0f) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter("Opposite", 1.0f),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 0.5f),
                  1.0f);
     HS_EXPECT_EQ(ShapeShifterWhiteBox::phase_direction(effect, true, 1.5f),
@@ -965,8 +965,8 @@ inline void test_preset_transition_snaps() {
   {
     OracleEffect effect;
     effect.init();
-    HS_EXPECT_TRUE(effect.updateParameter("Alpha", 0.42f) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter("Alpha", 0.42f),
+                 ParamSetResult::APPLIED);
     ShapeShifterWhiteBox::next_preset(effect);
 
     auto value = [&](const char *name) {

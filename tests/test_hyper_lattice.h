@@ -472,19 +472,19 @@ inline void test_dimension_dropdown_and_mode_lerp() {
                std::string_view("4D Slice"));
   HS_EXPECT_EQ(std::string_view(dimension->export_options[2]),
                std::string_view("LatticeMode::FOUR_D_SLICE"));
-  HS_EXPECT_TRUE(effect.updateParameter("Dimension", 2.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(HyperLatticeWhiteBox::params(effect).mode ==
-                 HL::LatticeMode::FOUR_D_SLICE);
+  HS_EXPECT_EQ(effect.updateParameter("Dimension", 2.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).mode,
+               HL::LatticeMode::FOUR_D_SLICE);
 
   HL::Params start;
   HL::Params target;
   target.mode = HL::LatticeMode::FOUR_D_SLICE;
   HL::Params blended;
   blended.lerp(start, target, 0.49f);
-  HS_EXPECT_TRUE(blended.mode == HL::LatticeMode::THREE_D);
+  HS_EXPECT_EQ(blended.mode, HL::LatticeMode::THREE_D);
   blended.lerp(start, target, 0.5f);
-  HS_EXPECT_TRUE(blended.mode == HL::LatticeMode::FOUR_D_SLICE);
+  HS_EXPECT_EQ(blended.mode, HL::LatticeMode::FOUR_D_SLICE);
 }
 
 inline int run_hyper_lattice_tests() {

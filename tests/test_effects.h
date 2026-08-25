@@ -330,8 +330,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
                   name, def.name, static_cast<double>(target),
                   static_cast<double>(now));
     HS_EXPECT(persisted, "editable param must persist across frames");
-    HS_EXPECT_TRUE(effect.updateParameter(def.name, cur) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter(def.name, cur),
+                 ParamSetResult::APPLIED);
   }
 }
 
@@ -376,8 +376,8 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
   for (size_t index = 0; index < count; ++index) {
     for (size_t restore = 0; restore < count; ++restore)
       effect.updateParameter(names[restore], original[restore]);
-    HS_EXPECT_TRUE(effect.updateParameter(names[index], target[index]) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter(names[index], target[index]),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(effect.animations_paused());
     effect.draw_frame();
     effect.advance_display();
@@ -1096,8 +1096,8 @@ inline void sh_render_pinned_mode(int idx, float amplitude, FnT &&inspect) {
   WB::SH fx;
   fx.init();
   WB::pin_mode(fx, idx);
-  HS_EXPECT_TRUE(fx.updateParameter("Amplitude", amplitude) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Amplitude", amplitude),
+               ParamSetResult::APPLIED);
   fx.draw_frame();
   fx.advance_display();
 
@@ -1295,8 +1295,8 @@ inline void test_sh_preset_mode_mapping() {
   HS_EXPECT_EQ(fx.getParameters().size(), 1u);
   HS_EXPECT_TRUE(fx.getParameters().find("Amplitude") != nullptr);
   HS_EXPECT_TRUE(fx.getParameters().find("Debug BB") == nullptr);
-  HS_EXPECT_TRUE(fx.updateParameter("Debug BB", 1.0f) ==
-                 ParamSetResult::UNKNOWN_PARAM);
+  HS_EXPECT_EQ(fx.updateParameter("Debug BB", 1.0f),
+               ParamSetResult::UNKNOWN_PARAM);
 
   static constexpr std::array<int, 24> EXPECTED_MODES{
       6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
@@ -2140,9 +2140,9 @@ struct BZWhiteBox {
 /** @brief Pins the three legacy BZ species colors. */
 inline void test_bz_legacy_palette() {
   BZWhiteBox::BZ bz;
-  HS_EXPECT_TRUE(BZWhiteBox::palette_color(bz, 0.0f) == Pixel(36844, 10770, 3));
-  HS_EXPECT_TRUE(BZWhiteBox::palette_color(bz, 0.5f) == Pixel(0, 8112, 5753));
-  HS_EXPECT_TRUE(BZWhiteBox::palette_color(bz, 1.0f) == Pixel(2059, 0, 9668));
+  HS_EXPECT_EQ(BZWhiteBox::palette_color(bz, 0.0f), Pixel(36844, 10770, 3));
+  HS_EXPECT_EQ(BZWhiteBox::palette_color(bz, 0.5f), Pixel(0, 8112, 5753));
+  HS_EXPECT_EQ(BZWhiteBox::palette_color(bz, 1.0f), Pixel(2059, 0, 9668));
 }
 
 /**
@@ -2530,8 +2530,7 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
     effect.advance_display();
   }
   const uint8_t held_node = HankinPauseWhiteBox::node(effect);
-  HS_EXPECT_TRUE(effect.updateParameter("Angle", 0.7f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Angle", 0.7f), ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(effect.animations_paused());
 
   for (int i = 0; i < 300; ++i) {
@@ -2855,9 +2854,9 @@ inline void test_dreamballs_base_mesh_selector() {
   HS_EXPECT_EQ(std::string_view(base_mesh->export_options[EXPECTED_SOLIDS - 1]),
                "BaseMesh::PENTAGONAL_HEXECONTAHEDRON");
 
-  HS_EXPECT_TRUE(db.updateParameter("Base Mesh",
-                                    static_cast<float>(EXPECTED_SOLIDS - 1)) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(
+      db.updateParameter("Base Mesh", static_cast<float>(EXPECTED_SOLIDS - 1)),
+      ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::live_mesh(db), WB::DB::BaseMesh::PENTAGONAL_HEXECONTAHEDRON);
   HS_EXPECT_TRUE(db.animations_paused());
 
@@ -2902,10 +2901,10 @@ inline void test_dreamballs_max_edge_solid_render() {
   }
   HS_EXPECT_EQ(widest_edges, WB::MAX_SOLID_EDGES);
 
-  HS_EXPECT_TRUE(db.updateParameter("Base Mesh", static_cast<float>(widest)) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(db.updateParameter("Weave Topology", 2.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(db.updateParameter("Base Mesh", static_cast<float>(widest)),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(db.updateParameter("Weave Topology", 2.0f),
+               ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::live_weave_topology(db), WB::DB::WeaveTopology::MEDIAL);
   HS_EXPECT_EQ(WB::medial_edges(db, widest).size(), 2 * widest_edges);
 
@@ -3051,22 +3050,20 @@ inline void test_dreamballs_weave_topology() {
   HS_EXPECT_NEAR(WB::under_gap_alpha(0.9f, 0.2f), 0.5f, 1e-6f);
   HS_EXPECT_NEAR(WB::under_gap_alpha(1.0f, 0.2f), 0.0f, 1e-6f);
 
-  HS_EXPECT_TRUE(db.updateParameter("Base Mesh", 0.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(db.updateParameter("Weave Topology", 1.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(db.updateParameter("Weave Gap", 0.25f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(db.updateParameter("Base Mesh", 0.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(db.updateParameter("Weave Topology", 1.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(db.updateParameter("Weave Gap", 0.25f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::live_weave_topology(db),
                WB::DB::WeaveTopology::ORIGINAL_WITH_DEFECTS);
   HS_EXPECT_NEAR(WB::live_weave_gap(db), 0.25f, 1e-6f);
 
-  HS_EXPECT_TRUE(
+  HS_EXPECT_EQ(
       db.updateParameter("Base Mesh",
-                         static_cast<float>(WB::DB::BaseMesh::OCTAHEDRON)) ==
+                         static_cast<float>(WB::DB::BaseMesh::OCTAHEDRON)),
       ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(db.updateParameter("Weave Topology", 2.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(db.updateParameter("Weave Topology", 2.0f),
+               ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::live_weave_topology(db), WB::DB::WeaveTopology::MEDIAL);
 
   db.setAnimationsPaused(false);
@@ -3161,8 +3158,8 @@ inline void meshfeedback_capture(std::vector<Pixel> &out, int frames,
 
   MeshFeedbackWhiteBox::MF fx;
   fx.init();
-  HS_EXPECT_TRUE(fx.updateParameter("Feedback", feedback ? 1.0f : 0.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Feedback", feedback ? 1.0f : 0.0f),
+               ParamSetResult::APPLIED);
   for (int f = 0; f < frames; ++f) {
     hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
                       static_cast<unsigned long>(f) * FRAME_US);
@@ -3303,8 +3300,8 @@ inline void test_meshfeedback_base_mesh_selector() {
                MF::BaseMesh::PENTAGONAL_HEXECONTAHEDRON);
 
   const auto selected = MF::BaseMesh::PENTAGONAL_HEXECONTAHEDRON;
-  HS_EXPECT_TRUE(
-      effect.updateParameter("Base Mesh", static_cast<float>(selected)) ==
+  HS_EXPECT_EQ(
+      effect.updateParameter("Base Mesh", static_cast<float>(selected)),
       ParamSetResult::APPLIED);
   effect.draw_frame();
   effect.advance_display();
@@ -3497,7 +3494,7 @@ inline void test_comets_manual_preset_restarts_path() {
 
   constexpr size_t PRESET = 4;
   HS_EXPECT_TRUE(effect.selectPreset(PRESET));
-  HS_EXPECT_TRUE(WB::node_orientation(effect) == Quaternion());
+  HS_EXPECT_EQ(WB::node_orientation(effect), Quaternion());
   HS_EXPECT_EQ(WB::trail_length(effect), 0u);
 
   effect.draw_frame();
@@ -3510,12 +3507,12 @@ inline void test_comets_manual_preset_restarts_path() {
     effect.advance_display();
   }
   HS_EXPECT_TRUE(effect.selectPreset(PRESET));
-  HS_EXPECT_TRUE(WB::node_orientation(effect) == Quaternion());
+  HS_EXPECT_EQ(WB::node_orientation(effect), Quaternion());
   HS_EXPECT_EQ(WB::trail_length(effect), 0u);
 
   effect.draw_frame();
   effect.advance_display();
-  HS_EXPECT_TRUE(WB::node_orientation(effect) == first_step);
+  HS_EXPECT_EQ(WB::node_orientation(effect), first_step);
 
   // Manual selection pauses the automatic dwell countdown as well as
   // selecting the requested path.
@@ -3970,9 +3967,8 @@ inline void test_raymarch_preset_and_placement_solids() {
       4,  8, 6,  20, 12, 12, 12, 24, 24, 24, 24,
       30, 8, 14, 14, 14, 26, 26, 32, 32, 32};
   for (size_t i = 0; i < RM::PLACEMENT_SOLID_COUNT; ++i) {
-    HS_EXPECT_TRUE(
-        effect.updateParameter("Base Solid", static_cast<float>(i)) ==
-        ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter("Base Solid", static_cast<float>(i)),
+                 ParamSetResult::APPLIED);
     RaymarchWhiteBox::refresh_points(effect);
     HS_EXPECT_EQ(RaymarchWhiteBox::volume_count(effect), VERTEX_COUNTS[i]);
     HS_EXPECT_EQ(
@@ -4322,10 +4318,10 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   HS_EXPECT_EQ(fx.getPresetCount(), 1u);
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
 
-  HS_EXPECT_TRUE(fx.updateParameter("Cycle Dur", 111.0f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(fx.updateParameter("Duty Cycle", 0.25f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Cycle Dur", 111.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.25f),
+               ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(fx.selectPreset(0));
   HS_EXPECT_TRUE(fx.animations_paused());
   HS_EXPECT_EQ(value("Cycle Dur"), 80.0f);
@@ -4337,14 +4333,14 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   HS_EXPECT_GT(red.color.r, red.color.g);
   HS_EXPECT_GT(red.color.r, red.color.b);
   HS_EXPECT_GT(yellow.color.g, red.color.g);
-  HS_EXPECT_TRUE(WB::sample_fire(fx, 0.50f).color == black);
-  HS_EXPECT_TRUE(WB::sample_fire(fx, 0.75f).color == black);
+  HS_EXPECT_EQ(WB::sample_fire(fx, 0.50f).color, black);
+  HS_EXPECT_EQ(WB::sample_fire(fx, 0.75f).color, black);
   const float dark_palette_t = 0.75f / value("Scale Factor");
   HS_EXPECT_EQ(WB::shade_trail(fx, dark_palette_t, 0.50f).alpha, 0.0f);
 
-  HS_EXPECT_TRUE(fx.updateParameter("Duty Cycle", 0.25f) ==
-                 ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(WB::sample_fire(fx, 0.30f).color == black);
+  HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.25f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::sample_fire(fx, 0.30f).color, black);
 
   HS_EXPECT_EQ(WB::palette_fill_scale(1), 1.0f / WB::EffectType::TRAIL_LENGTH);
   HS_EXPECT_EQ(WB::palette_fill_scale(WB::EffectType::TRAIL_LENGTH / 2),
@@ -4481,7 +4477,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   HS_EXPECT_GT(lit, 0);
   HS_EXPECT_EQ(off_circle, 0);
 
-  HS_EXPECT_TRUE(fx.updateParameter("Alpha", 0.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Alpha", 0.0f), ParamSetResult::APPLIED);
   fx.draw_frame();
   fx.advance_display();
   int still_lit = 0;
@@ -4546,9 +4542,8 @@ inline void test_petalflow_spawn_gap_bounded() {
   reset_effect_globals();
   WB::PF pf;
   pf.init();
-  HS_EXPECT_TRUE(pf.updateParameter("Speed", 20.0f) == ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(pf.updateParameter("Density", 2.5f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(pf.updateParameter("Speed", 20.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(pf.updateParameter("Density", 2.5f), ParamSetResult::APPLIED);
 
   const float spacing = WB::live_spacing(pf);
   // Below this the while-loop emits at most one ring per frame, whatever the
@@ -4994,9 +4989,8 @@ inline void test_mindsplatter_base_mesh_selector() {
 
   const auto select = [&](MS::BaseMesh mesh, size_t emitters,
                           size_t attractors) {
-    HS_EXPECT_TRUE(
-        effect.updateParameter("Base Mesh", static_cast<float>(mesh)) ==
-        ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter("Base Mesh", static_cast<float>(mesh)),
+                 ParamSetResult::APPLIED);
     effect.draw_frame();
     effect.advance_display();
     HS_EXPECT_EQ(WB::active_base_mesh(effect), mesh);
@@ -5461,7 +5455,7 @@ inline void test_mindsplatter_manual_preset_survives_unpause() {
   HS_EXPECT_EQ(effect.getPresetIndex(), MANUAL_PRESET);
   const auto &live = WB::live_params(effect);
   const auto &chosen = WB::preset_params(effect, MANUAL_PRESET);
-  HS_EXPECT_TRUE(live.base_mesh == chosen.base_mesh);
+  HS_EXPECT_EQ(live.base_mesh, chosen.base_mesh);
   HS_EXPECT_NEAR(live.friction, chosen.friction, 1e-6f);
   HS_EXPECT_NEAR(live.well_strength, chosen.well_strength, 1e-6f);
   HS_EXPECT_NEAR(live.initial_speed, chosen.initial_speed, 1e-6f);
@@ -5843,9 +5837,8 @@ inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
       MS::BaseMesh::TETRAHEDRON, MS::BaseMesh::OCTAHEDRON,
       MS::BaseMesh::DODECAHEDRON, MS::BaseMesh::ICOSAHEDRON};
   for (MS::BaseMesh mesh : MESHES) {
-    HS_EXPECT_TRUE(
-        effect.updateParameter("Base Mesh", static_cast<float>(mesh)) ==
-        ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(effect.updateParameter("Base Mesh", static_cast<float>(mesh)),
+                 ParamSetResult::APPLIED);
     effect.draw_frame();
     effect.advance_display();
 
@@ -5889,8 +5882,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
   reset_effect_globals();
   WB::MS ms;
   ms.init();
-  HS_EXPECT_TRUE(ms.updateParameter("Ang Spd", 1.0f) ==
-                 ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(ms.updateParameter("Ang Spd", 1.0f), ParamSetResult::APPLIED);
 
   const float two_pi = 2.0f * PI_F;
   const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
@@ -5981,8 +5973,7 @@ inline void test_mobius_rings_conformal_and_counter_rotation() {
   HS_EXPECT_NEAR(WB::conformal_coord(1.0f, 0.3f), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(WB::conformal_coord(-1.0f, 0.7f), 1.0f, 1e-6f);
 
-  HS_EXPECT_TRUE(WB::counter_rotation(Vector(0.0f, 0.0f, 0.0f)) ==
-                 Quaternion());
+  HS_EXPECT_EQ(WB::counter_rotation(Vector(0.0f, 0.0f, 0.0f)), Quaternion());
 
   Vector mid(0.3f, -0.7f, 0.4f);
   Vector r = rotate(mid.normalized(), WB::counter_rotation(mid));
@@ -6095,7 +6086,7 @@ inline void test_shapeshifter_preset_defaults() {
                  std::string_view("RadiusSpacing::SCREEN_BALANCED"));
   }
 
-  HS_EXPECT_TRUE(ss.updateParameter("Alpha", 0.37f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(ss.updateParameter("Alpha", 0.37f), ParamSetResult::APPLIED);
 
   // Structural selections: which primitive and falloff each row draws. These
   // pin the index -> row mapping the profile reports are keyed by; the
@@ -6149,8 +6140,8 @@ inline void test_shapeshifter_slider_selections_render() {
     SS ss;
     ss.init();
     ss.setAnimationsPaused(true);
-    HS_EXPECT_TRUE(ss.updateParameter(slider, static_cast<float>(selection)) ==
-                   ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(ss.updateParameter(slider, static_cast<float>(selection)),
+                 ParamSetResult::APPLIED);
     ss.draw_frame();
     ss.advance_display();
 

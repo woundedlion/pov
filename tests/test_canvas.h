@@ -1043,23 +1043,23 @@ inline void test_update_parameter_by_name() {
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
   fx.add_bool("Flag", &fx.flag, false);
 
-  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.25f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 7.25f), ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
   // Bool target uses a 0.5 threshold.
-  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.2f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Flag", 0.2f), ParamSetResult::APPLIED);
   HS_EXPECT_FALSE(fx.flag);
-  HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.8f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Flag", 0.8f), ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(fx.flag);
 
   // Unknown name is a no-op reported as UNKNOWN_PARAM.
-  HS_EXPECT_TRUE(fx.updateParameter("Nope", 99.0f) ==
-                 ParamSetResult::UNKNOWN_PARAM);
+  HS_EXPECT_EQ(fx.updateParameter("Nope", 99.0f),
+               ParamSetResult::UNKNOWN_PARAM);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
   // Non-finite values are rejected as NON_FINITE.
-  HS_EXPECT_TRUE(
-      fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()) ==
+  HS_EXPECT_EQ(
+      fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()),
       ParamSetResult::NON_FINITE);
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
@@ -1087,7 +1087,7 @@ inline void test_parameter_display_mirror() {
   HS_EXPECT_EQ(fx.getParameters().find("Mode")->get_requested(), 0.0f);
   HS_EXPECT_EQ(fx.getParameters().find("Global")->get(), 1.5f);
   HS_EXPECT_EQ(fx.getParameters().find("Global")->get_requested(), 1.5f);
-  HS_EXPECT_TRUE(fx.updateParameter("Speed", 7.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 7.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(requested.speed, 7.0f);
   HS_EXPECT_EQ(displayed.speed, 4.0f);
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
@@ -1105,13 +1105,12 @@ inline void test_update_parameter_rejects_readonly() {
   fx.add_float("Telemetry", &telemetry, 0.0f, 10.0f);
   fx.mark_readonly("Telemetry");
 
-  HS_EXPECT_TRUE(fx.updateParameter("Telemetry", 5.0f) ==
-                 ParamSetResult::READONLY);
+  HS_EXPECT_EQ(fx.updateParameter("Telemetry", 5.0f), ParamSetResult::READONLY);
   HS_EXPECT_NEAR(telemetry, 1.0f, 1e-6f);
 
   // An editable param in the same effect still writes.
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
-  HS_EXPECT_TRUE(fx.updateParameter("Speed", 4.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Speed", 4.0f), ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(fx.speed, 4.0f, 1e-6f);
 }
 
@@ -1138,13 +1137,13 @@ inline void test_register_and_update_enum_param() {
   HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f); // captured current value as default
 
   // A fractional write snaps to the nearest option index.
-  HS_EXPECT_TRUE(fx.updateParameter("Mode", 1.7f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.7f), ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
 
   // Out-of-range writes clamp to the option range.
-  HS_EXPECT_TRUE(fx.updateParameter("Mode", 9.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 9.0f), ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
-  HS_EXPECT_TRUE(fx.updateParameter("Mode", -3.0f) == ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", -3.0f), ParamSetResult::APPLIED);
   HS_EXPECT_NEAR(mode, 0.0f, 1e-6f);
 
   // Plain params stay non-enum.
@@ -1172,8 +1171,8 @@ inline void test_typed_enum_and_global_param_metadata() {
   HS_EXPECT_TRUE(mode_def->preset);
   HS_EXPECT_FALSE(speed_def->preset);
 
-  HS_EXPECT_TRUE(fx.updateParameter("Mode", 1.8f) == ParamSetResult::APPLIED);
-  HS_EXPECT_TRUE(mode == TestMode::SPARKLE);
+  HS_EXPECT_EQ(fx.updateParameter("Mode", 1.8f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(mode, TestMode::SPARKLE);
   HS_EXPECT_EQ(mode_def->get(), 2.0f);
 }
 
@@ -1195,14 +1194,14 @@ inline void test_typed_enum_storage_widths() {
   fx.add_typed_enum("U32", &u32, MODES, EXPORT_MODES, 3);
 
   for (const char *name : {"I8", "U8", "I16", "U16", "U32"}) {
-    HS_EXPECT_TRUE(fx.updateParameter(name, 2.0f) == ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(fx.updateParameter(name, 2.0f), ParamSetResult::APPLIED);
     HS_EXPECT_EQ(fx.getParameters().find(name)->get(), 2.0f);
   }
-  HS_EXPECT_TRUE(i8 == TestModeI8::SPARKLE);
-  HS_EXPECT_TRUE(u8 == TestModeU8::SPARKLE);
-  HS_EXPECT_TRUE(i16 == TestModeI16::SPARKLE);
-  HS_EXPECT_TRUE(u16 == TestModeU16::SPARKLE);
-  HS_EXPECT_TRUE(u32 == TestModeU32::SPARKLE);
+  HS_EXPECT_EQ(i8, TestModeI8::SPARKLE);
+  HS_EXPECT_EQ(u8, TestModeU8::SPARKLE);
+  HS_EXPECT_EQ(i16, TestModeI16::SPARKLE);
+  HS_EXPECT_EQ(u16, TestModeU16::SPARKLE);
+  HS_EXPECT_EQ(u32, TestModeU32::SPARKLE);
 }
 
 /**
