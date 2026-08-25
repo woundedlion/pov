@@ -13,7 +13,7 @@ Raw capture: `build/prof/flyby_ship.log`. Replaces
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | Flyby 288×144, single-entry playlist, tip `ece0955b` |
 | Method | `HS_PROFILE` cycle scopes, window = 16 frames, 310 s capture, `HS_PROFILE_EPOCH_REVS=2560` |
-| Reproduce | `just profile Flyby` |
+| Reproduce | `bash tools/profile_one.sh Flyby profile 310 16 '-D HS_PROFILE_EPOCH_REVS=2560'` |
 
 Image size: `FLASH: code:46148, data:1062396, headers:8632` / `RAM1:
 variables:314368, code:27880, padding:4888, free:177152` / `RAM2:
