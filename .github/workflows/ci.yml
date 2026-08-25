@@ -1877,6 +1877,11 @@ jobs:
               sub(/^  /, ""); sub(/:[[:space:]]*$/, ""); print
             }
           ' "$WF" | grep -vx ci-green | sort > /tmp/ci-jobs.txt
+          # An empty extraction would make the comparison below pass vacuously.
+          [ -s /tmp/ci-jobs.txt ] || {
+            echo "::error file=$WF::no top-level job keys parsed, so the needs check proves nothing"
+            exit 1
+          }
 
           # One "<job> <result>" pair per line. Written to a file rather than
           # read through a pipeline or process substitution so a failure to
