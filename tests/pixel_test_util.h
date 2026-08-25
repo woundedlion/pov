@@ -12,9 +12,11 @@
  */
 #pragma once
 
+#include "core/color/color.h"
 #include "core/render/canvas.h"
 #include "tests/test_fixture.h"
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -44,6 +46,21 @@ inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
 
 #define HS_EXPECT_PIXEL(actual, red, green, blue)                              \
   HS_EXPECT_EQ((actual), Pixel((red), (green), (blue)))
+
+/**
+ * @brief Asserts two shaded colors match channel for channel.
+ * @param actual Color produced by the code under test.
+ * @param expected Reference color.
+ * @details Alpha is compared as its bit pattern, so a NaN or a signed zero on
+ *          one side is a mismatch rather than a passing float comparison.
+ */
+inline void expect_color_exact(const Color4 &actual, const Color4 &expected) {
+  HS_EXPECT_EQ(actual.color.r, expected.color.r);
+  HS_EXPECT_EQ(actual.color.g, expected.color.g);
+  HS_EXPECT_EQ(actual.color.b, expected.color.b);
+  HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.alpha),
+               std::bit_cast<uint32_t>(expected.alpha));
+}
 
 /**
  * @brief Counts the non-black pixels across the effect's reported canvas.
