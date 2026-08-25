@@ -1613,12 +1613,11 @@ jobs:
   domain-ratchets:
     name: Domain coverage ratchets (no silent weakening)
     # These counts represent concrete exercised behavior: relax-bake payloads
-    # re-derived and engine guard sites covered by the death harness.
+    # re-derived, and the engine guard sites each census file leaves unpinned.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # One pin name per line: MIN_RELAX_BAKES_VERIFIED,
-      # MIN_COVERED_GUARD_SITES, or guard_gap.<file>.
+      # One pin name per line: MIN_RELAX_BAKES_VERIFIED or guard_gap.<file>.
       DOMAIN_RATCHET_ALLOW_WEAKEN: ""
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5

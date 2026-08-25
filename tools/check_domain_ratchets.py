@@ -10,10 +10,9 @@ from pathlib import Path
 
 
 HARNESS_FLOOR = "MIN_RELAX_BAKES_VERIFIED"
-DEATH_FLOOR = "MIN_COVERED_GUARD_SITES"
 FLOOR_RES = {
     name: re.compile(rf"constexpr int ({name})\s*=\s*(\d+)\s*;")
-    for name in (HARNESS_FLOOR, DEATH_FLOOR)
+    for name in (HARNESS_FLOOR,)
 }
 GAP_TABLE_RE = re.compile(r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S)
 GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
@@ -28,14 +27,17 @@ def floors(path: Path, name: str) -> dict[str, int]:
     return result
 
 
-def death_pins(path: Path) -> tuple[dict[str, int], dict[str, int]]:
-    result = floors(path, DEATH_FLOOR)
+def death_pins(path: Path) -> dict[str, int]:
+    """Each census file's approved count of guard sites no case pins.
+
+    Every file is gated exactly and in both directions, and a file with no row
+    must be fully pinned, so these rows subsume a whole-suite coverage total.
+    """
     table = GAP_TABLE_RE.search(path.read_text(encoding="utf-8"))
-    gaps = {
+    return {
         f"guard_gap.{name}": int(gap)
         for name, gap in GAP_ROW_RE.findall(table.group(1) if table else "")
     }
-    return result, gaps
 
 
 def main() -> int:
@@ -48,14 +50,12 @@ def main() -> int:
     args = parser.parse_args()
 
     current = floors(args.current_harness, HARNESS_FLOOR)
-    death_current, gaps_current = death_pins(args.current_death)
-    current.update(death_current)
+    gaps_current = death_pins(args.current_death)
     if not gaps_current:
         raise SystemExit(f"no GUARD_GAP_ALLOW rows parsed from {args.current_death}")
 
     previous = floors(args.previous_harness, HARNESS_FLOOR)
-    death_previous, gaps_previous = death_pins(args.previous_death)
-    previous.update(death_previous)
+    gaps_previous = death_pins(args.previous_death)
     allow = {
         line.strip()
         for line in os.environ.get("DOMAIN_RATCHET_ALLOW_WEAKEN", "").splitlines()
@@ -84,7 +84,7 @@ def main() -> int:
     for key in unapproved:
         source = (
             args.current_death
-            if key.startswith(("guard_gap.", "MIN_COVERED"))
+            if key.startswith("guard_gap.")
             else args.current_harness
         )
         print(
