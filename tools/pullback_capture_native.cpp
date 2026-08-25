@@ -4,7 +4,7 @@
  */
 
 #include "tests/test_effects.h"
-#include "workbench/ShaderWorkbench.h"
+#include "workbench/shader/shader_host.h"
 
 #include <algorithm>
 #include <array>

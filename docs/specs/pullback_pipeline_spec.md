@@ -3,7 +3,7 @@
 **Status: LANDED, revision 6 (2026-08-14).** The composition core, standard
 carriers, provider concepts, stage combinators, and concrete operator catalog
 specified here ship in `core/render/pullback.h`, which landed in `13186d7c`.
-Its consumers are `workbench/ShaderWorkbench.h` and the composed-effect base
+Its consumers are `workbench/shader/shader_host.h` and the composed-effect base
 `core/render/pullback/composed_effect.h` — and through the latter, the sixteen
 single-effect composed headers in `effects/` (`patterns/README.md` maps
 each to its document). The

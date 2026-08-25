@@ -32,7 +32,7 @@
 #include "core/render/pullback/interpreter.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
-#include "workbench/ShaderChain.h"
+#include "workbench/shader/chain_host.h"
 
 namespace hs_test {
 namespace shader_chain_tests {

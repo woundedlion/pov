@@ -18,7 +18,7 @@
 #include <utility>
 
 /**
- * @file ShaderWorkbench.h
+ * @file shader_host.h
  * @brief Typed pullback sphere shader with composable projection and material stages.
  */
 
@@ -31,6 +31,13 @@
 #include "core/math/stereographic.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "workbench/shader/admission.h"
+#include "workbench/shader/config.h"
+#include "workbench/shader/frame_state.h"
+#include "workbench/shader/limits.h"
+#include "workbench/shader/options.h"
+#include "workbench/shader/presets.h"
+#include "workbench/shader/resources.h"
 
 namespace hs_test {
 namespace shader_workbench_tests {
@@ -203,8 +210,280 @@ struct ShaderWorkbenchWhiteBox;
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H> class ShaderWorkbench : public Effect {
+public:
+  // The authored vocabulary, re-exported so consumers keep naming it
+  // through the effect.
+  using Function = Workbench::Function;
+  using Projection = Workbench::Projection;
+  using PeirceLayout = Workbench::PeirceLayout;
+  using AiroceanLayout = Workbench::AiroceanLayout;
+  using BonneHemisphere = Workbench::BonneHemisphere;
+  using GnomonicHemispherePolicy = Workbench::GnomonicHemispherePolicy;
+  using SurfaceLens = Workbench::SurfaceLens;
+  using WarpEnvelope = Workbench::WarpEnvelope;
+  using PolarMode = Workbench::PolarMode;
+  using CurlIntegrator = Workbench::CurlIntegrator;
+  using SurfaceCurlIntegrator = Workbench::SurfaceCurlIntegrator;
+  using SurfaceNoise = Workbench::SurfaceNoise;
+  using SurfaceNoisePlacement = Workbench::SurfaceNoisePlacement;
+  using WarpStageKind = Workbench::WarpStageKind;
+  using WarpStageSpec = Workbench::WarpStageSpec;
+  using WarpProgram = Workbench::WarpProgram;
+  using ProjectionFramePolicy = Workbench::ProjectionFramePolicy;
+  using SignalWeight = Workbench::SignalWeight;
+  using ValueTransfer = Workbench::ValueTransfer;
+  using CoveragePolicy = Workbench::CoveragePolicy;
+  using PaletteMode = Workbench::PaletteMode;
+  using PaletteMapping = Workbench::PaletteMapping;
+  using PaletteMappingWeights = Workbench::PaletteMappingWeights;
+  using BrightnessEnvelope = Workbench::BrightnessEnvelope;
+  using HueShiftMode = Workbench::HueShiftMode;
+  using Slots = Workbench::Slots;
+  using SourceParams = Workbench::SourceParams;
+  using WarpStageParams = Workbench::WarpStageParams;
+  using WarpParams = Workbench::WarpParams;
+  using ProjectionParams = Workbench::ProjectionParams;
+  using SurfaceLensParams = Workbench::SurfaceLensParams;
+  using SurfaceNoiseParams = Workbench::SurfaceNoiseParams;
+  using ValueParams = Workbench::ValueParams;
+  using ColorParams = Workbench::ColorParams;
+  using OuterCameraParams = Workbench::OuterCameraParams;
+  using Params = Workbench::Params;
+  using Config = Workbench::Config;
+  using RequestedConfig = Workbench::RequestedConfig;
+  using Blend = Workbench::Blend;
+  using Choreo = Workbench::Choreo;
+  using SourceState = Workbench::SourceState;
+  using ProjectedLookup = Workbench::ProjectedLookup;
+  using SourceTraits = Workbench::SourceTraits;
+  using PlanarWarpResult = Workbench::PlanarWarpResult;
+  using SurfaceNoiseResult = Workbench::SurfaceNoiseResult;
+  using PlanarWarpStageResult = Workbench::PlanarWarpStageResult;
+  using FieldSample = Workbench::FieldSample;
+  using ClockState = Workbench::ClockState;
+  using PreparedTransforms = Workbench::PreparedTransforms;
+  using PreparedAffineFrame = Workbench::PreparedAffineFrame;
+  using PreparedMirrorTile = Workbench::PreparedMirrorTile;
+  using PreparedVortex = Workbench::PreparedVortex;
+  using PreparedNoiseLoop = Workbench::PreparedNoiseLoop;
+  using PreparedWarpStage = Workbench::PreparedWarpStage;
+  using PreparedWarpProgram = Workbench::PreparedWarpProgram;
+  using PreparedSurfaceNoise = Workbench::PreparedSurfaceNoise;
+  using PreparedHueRotation = Workbench::PreparedHueRotation;
+  using PreparedHueNoise = Workbench::PreparedHueNoise;
+  using ResourceBindings = Workbench::ResourceBindings;
+  static constexpr auto MAX_NOISE_RESOURCES = Workbench::MAX_NOISE_RESOURCES;
+  using DynamicPrepared = Workbench::DynamicPrepared;
+  using FrameState = Workbench::FrameState;
+  using InversePipelineId = Workbench::InversePipelineId;
+  using SelectedConfig = Workbench::SelectedConfig;
+  using Preset = Workbench::Preset;
+  static constexpr auto &PRESETS = Workbench::PRESETS;
+  static constexpr auto BOUNDARY_CUT = Workbench::BOUNDARY_CUT;
+  static constexpr auto BOUNDARY_SINGULAR = Workbench::BOUNDARY_SINGULAR;
+  static constexpr auto PROJECTION_FLAG_FOLDED =
+      Workbench::PROJECTION_FLAG_FOLDED;
+  static constexpr auto GNOMONIC_AXIS_EPS = Workbench::GNOMONIC_AXIS_EPS;
+  static constexpr auto WARP_COORD_LIMIT = Workbench::WARP_COORD_LIMIT;
+  static constexpr auto NOISE_LATTICE_LIMIT = Workbench::NOISE_LATTICE_LIMIT;
+  static constexpr auto &FUNCTION_OPTIONS = Workbench::FUNCTION_OPTIONS;
+  static constexpr auto &FUNCTION_EXPORT_OPTIONS =
+      Workbench::FUNCTION_EXPORT_OPTIONS;
+  static constexpr auto NUM_FUNCTIONS = Workbench::NUM_FUNCTIONS;
+  static constexpr auto &TESSELLATION_KIND_OPTIONS =
+      Workbench::TESSELLATION_KIND_OPTIONS;
+  static constexpr auto &TESSELLATION_KIND_EXPORT_OPTIONS =
+      Workbench::TESSELLATION_KIND_EXPORT_OPTIONS;
+  static constexpr auto NUM_TESSELLATION_KINDS =
+      Workbench::NUM_TESSELLATION_KINDS;
+  static constexpr auto &PROJECTION_OPTIONS = Workbench::PROJECTION_OPTIONS;
+  static constexpr auto &PROJECTION_EXPORT_OPTIONS =
+      Workbench::PROJECTION_EXPORT_OPTIONS;
+  static constexpr auto NUM_PROJECTIONS = Workbench::NUM_PROJECTIONS;
+  static constexpr auto &PEIRCE_LAYOUT_OPTIONS =
+      Workbench::PEIRCE_LAYOUT_OPTIONS;
+  static constexpr auto &PEIRCE_LAYOUT_EXPORT_OPTIONS =
+      Workbench::PEIRCE_LAYOUT_EXPORT_OPTIONS;
+  static constexpr auto NUM_PEIRCE_LAYOUTS = Workbench::NUM_PEIRCE_LAYOUTS;
+  static constexpr auto &AIROCEAN_LAYOUT_OPTIONS =
+      Workbench::AIROCEAN_LAYOUT_OPTIONS;
+  static constexpr auto &AIROCEAN_LAYOUT_EXPORT_OPTIONS =
+      Workbench::AIROCEAN_LAYOUT_EXPORT_OPTIONS;
+  static constexpr auto NUM_AIROCEAN_LAYOUTS = Workbench::NUM_AIROCEAN_LAYOUTS;
+  static constexpr auto &BONNE_HEMISPHERE_OPTIONS =
+      Workbench::BONNE_HEMISPHERE_OPTIONS;
+  static constexpr auto &BONNE_HEMISPHERE_EXPORT_OPTIONS =
+      Workbench::BONNE_HEMISPHERE_EXPORT_OPTIONS;
+  static constexpr auto NUM_BONNE_HEMISPHERES =
+      Workbench::NUM_BONNE_HEMISPHERES;
+  static constexpr auto &GNOMONIC_HEMISPHERE_OPTIONS =
+      Workbench::GNOMONIC_HEMISPHERE_OPTIONS;
+  static constexpr auto &GNOMONIC_HEMISPHERE_EXPORT_OPTIONS =
+      Workbench::GNOMONIC_HEMISPHERE_EXPORT_OPTIONS;
+  static constexpr auto NUM_GNOMONIC_HEMISPHERES =
+      Workbench::NUM_GNOMONIC_HEMISPHERES;
+  static constexpr auto &PROJECTION_FRAME_OPTIONS =
+      Workbench::PROJECTION_FRAME_OPTIONS;
+  static constexpr auto &PROJECTION_FRAME_EXPORT_OPTIONS =
+      Workbench::PROJECTION_FRAME_EXPORT_OPTIONS;
+  static constexpr auto NUM_PROJECTION_FRAMES =
+      Workbench::NUM_PROJECTION_FRAMES;
+  static constexpr auto &LENS_OPTIONS = Workbench::LENS_OPTIONS;
+  static constexpr auto &LENS_EXPORT_OPTIONS = Workbench::LENS_EXPORT_OPTIONS;
+  static constexpr auto NUM_LENSES = Workbench::NUM_LENSES;
+  static constexpr auto &SURFACE_NOISE_OPTIONS =
+      Workbench::SURFACE_NOISE_OPTIONS;
+  static constexpr auto &SURFACE_NOISE_EXPORT_OPTIONS =
+      Workbench::SURFACE_NOISE_EXPORT_OPTIONS;
+  static constexpr auto NUM_SURFACE_NOISE = Workbench::NUM_SURFACE_NOISE;
+  static constexpr auto &SURFACE_NOISE_PLACEMENT_OPTIONS =
+      Workbench::SURFACE_NOISE_PLACEMENT_OPTIONS;
+  static constexpr auto &SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS =
+      Workbench::SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS;
+  static constexpr auto NUM_SURFACE_NOISE_PLACEMENTS =
+      Workbench::NUM_SURFACE_NOISE_PLACEMENTS;
+  static constexpr auto &SURFACE_CURL_INTEGRATOR_OPTIONS =
+      Workbench::SURFACE_CURL_INTEGRATOR_OPTIONS;
+  static constexpr auto &SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS =
+      Workbench::SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS;
+  static constexpr auto NUM_SURFACE_CURL_INTEGRATORS =
+      Workbench::NUM_SURFACE_CURL_INTEGRATORS;
+  static constexpr auto &WARP_OPTIONS = Workbench::WARP_OPTIONS;
+  static constexpr auto &WARP_EXPORT_OPTIONS = Workbench::WARP_EXPORT_OPTIONS;
+  static constexpr auto NUM_WARPS = Workbench::NUM_WARPS;
+  static constexpr auto &NOISE_BASIS_OPTIONS = Workbench::NOISE_BASIS_OPTIONS;
+  static constexpr auto &NOISE_BASIS_EXPORT_OPTIONS =
+      Workbench::NOISE_BASIS_EXPORT_OPTIONS;
+  static constexpr auto NUM_NOISE_BASES = Workbench::NUM_NOISE_BASES;
+  static constexpr auto &POLAR_MODE_OPTIONS = Workbench::POLAR_MODE_OPTIONS;
+  static constexpr auto &POLAR_MODE_EXPORT_OPTIONS =
+      Workbench::POLAR_MODE_EXPORT_OPTIONS;
+  static constexpr auto NUM_POLAR_MODES = Workbench::NUM_POLAR_MODES;
+  static constexpr auto &CURL_INTEGRATOR_OPTIONS =
+      Workbench::CURL_INTEGRATOR_OPTIONS;
+  static constexpr auto &CURL_INTEGRATOR_EXPORT_OPTIONS =
+      Workbench::CURL_INTEGRATOR_EXPORT_OPTIONS;
+  static constexpr auto NUM_CURL_INTEGRATORS = Workbench::NUM_CURL_INTEGRATORS;
+  static constexpr auto POLAR_HARMONIC_MAX = Workbench::POLAR_HARMONIC_MAX;
+  static constexpr auto BAND_COUNT_MAX = Workbench::BAND_COUNT_MAX;
+  static constexpr auto &WARP_ENVELOPE_OPTIONS =
+      Workbench::WARP_ENVELOPE_OPTIONS;
+  static constexpr auto &WARP_ENVELOPE_EXPORT_OPTIONS =
+      Workbench::WARP_ENVELOPE_EXPORT_OPTIONS;
+  static constexpr auto NUM_WARP_ENVELOPES = Workbench::NUM_WARP_ENVELOPES;
+  static constexpr auto &SIGNAL_OPTIONS = Workbench::SIGNAL_OPTIONS;
+  static constexpr auto &SIGNAL_EXPORT_OPTIONS =
+      Workbench::SIGNAL_EXPORT_OPTIONS;
+  static constexpr auto NUM_SIGNALS = Workbench::NUM_SIGNALS;
+  static constexpr auto &VALUE_TRANSFER_OPTIONS =
+      Workbench::VALUE_TRANSFER_OPTIONS;
+  static constexpr auto &VALUE_TRANSFER_EXPORT_OPTIONS =
+      Workbench::VALUE_TRANSFER_EXPORT_OPTIONS;
+  static constexpr auto NUM_VALUE_TRANSFERS = Workbench::NUM_VALUE_TRANSFERS;
+  static constexpr auto &COVERAGE_OPTIONS = Workbench::COVERAGE_OPTIONS;
+  static constexpr auto &COVERAGE_EXPORT_OPTIONS =
+      Workbench::COVERAGE_EXPORT_OPTIONS;
+  static constexpr auto NUM_COVERAGE_POLICIES =
+      Workbench::NUM_COVERAGE_POLICIES;
+  static constexpr auto &PALETTE_OPTIONS = Workbench::PALETTE_OPTIONS;
+  static constexpr auto &PALETTE_EXPORT_OPTIONS =
+      Workbench::PALETTE_EXPORT_OPTIONS;
+  static constexpr auto NUM_PALETTES = Workbench::NUM_PALETTES;
+  static constexpr auto &PALETTE_MAPPING_OPTIONS =
+      Workbench::PALETTE_MAPPING_OPTIONS;
+  static constexpr auto &PALETTE_MAPPING_EXPORT_OPTIONS =
+      Workbench::PALETTE_MAPPING_EXPORT_OPTIONS;
+  static constexpr auto NUM_PALETTE_MAPPINGS = Workbench::NUM_PALETTE_MAPPINGS;
+  static constexpr auto &BRIGHTNESS_ENVELOPE_OPTIONS =
+      Workbench::BRIGHTNESS_ENVELOPE_OPTIONS;
+  static constexpr auto &BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS =
+      Workbench::BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS;
+  static constexpr auto NUM_BRIGHTNESS_ENVELOPES =
+      Workbench::NUM_BRIGHTNESS_ENVELOPES;
+  static constexpr auto &HUE_SHIFT_OPTIONS = Workbench::HUE_SHIFT_OPTIONS;
+  static constexpr auto &HUE_SHIFT_EXPORT_OPTIONS =
+      Workbench::HUE_SHIFT_EXPORT_OPTIONS;
+  static constexpr auto NUM_HUE_SHIFT_MODES = Workbench::NUM_HUE_SHIFT_MODES;
+  using WarpParamName = Workbench::WarpParamName;
+
+  static constexpr auto WARP_SCALE_MIN = Workbench::WARP_SCALE_MIN;
+  static constexpr auto WARP_SCALE_MAX = Workbench::WARP_SCALE_MAX;
+  static constexpr auto WARP_STRENGTH_MIN = Workbench::WARP_STRENGTH_MIN;
+  static constexpr auto WARP_STRENGTH_MAX = Workbench::WARP_STRENGTH_MAX;
+  static constexpr auto VECTOR_WARP_SCALE_MAX =
+      Workbench::VECTOR_WARP_SCALE_MAX;
+  static constexpr auto VECTOR_WARP_STRENGTH_MAX =
+      Workbench::VECTOR_WARP_STRENGTH_MAX;
+  static constexpr auto CURL_WARP_SCALE_MAX = Workbench::CURL_WARP_SCALE_MAX;
+  static constexpr auto CURL_WARP_STRENGTH_MAX =
+      Workbench::CURL_WARP_STRENGTH_MAX;
+  static constexpr auto CURL_VECTOR_COMPONENT_MAX =
+      Workbench::CURL_VECTOR_COMPONENT_MAX;
+  static constexpr auto WARP_SPEED_MIN = Workbench::WARP_SPEED_MIN;
+  static constexpr auto WARP_SPEED_MAX = Workbench::WARP_SPEED_MAX;
+  static constexpr auto PATTERN_FREQ_MIN = Workbench::PATTERN_FREQ_MIN;
+  static constexpr auto PATTERN_FREQ_MAX = Workbench::PATTERN_FREQ_MAX;
+  static constexpr auto GRID_PATTERN_FREQ_MAX =
+      Workbench::GRID_PATTERN_FREQ_MAX;
+  static constexpr auto SPEED_MIN = Workbench::SPEED_MIN;
+  static constexpr auto COMPLEXITY_MIN = Workbench::COMPLEXITY_MIN;
+  static constexpr auto PATTERN_MIX_MIN = Workbench::PATTERN_MIX_MIN;
+  static constexpr auto PHASE2_RATE_MIN = Workbench::PHASE2_RATE_MIN;
+  static constexpr auto SINGULARITY_FADE_MAX = Workbench::SINGULARITY_FADE_MAX;
+  static constexpr auto SINGULARITY_FADE_MIN = Workbench::SINGULARITY_FADE_MIN;
+  static constexpr auto SPIN_RATE_MIN = Workbench::SPIN_RATE_MIN;
+  static constexpr auto WANDER_MIN = Workbench::WANDER_MIN;
+  static constexpr auto HUE_SHIFT_AMOUNT_MAX = Workbench::HUE_SHIFT_AMOUNT_MAX;
+  static constexpr auto HUE_NOISE_AMOUNT_MAX = Workbench::HUE_NOISE_AMOUNT_MAX;
+  static constexpr auto HUE_NOISE_SCALE_MIN = Workbench::HUE_NOISE_SCALE_MIN;
+  static constexpr auto HUE_NOISE_SCALE_MAX = Workbench::HUE_NOISE_SCALE_MAX;
+  static constexpr auto HUE_NOISE_SPEED_MAX = Workbench::HUE_NOISE_SPEED_MAX;
+  static constexpr auto PALETTE_CHROMA_MIN = Workbench::PALETTE_CHROMA_MIN;
+  static constexpr auto PALETTE_CHROMA_MAX = Workbench::PALETTE_CHROMA_MAX;
+  static constexpr auto MAPPING_FREQUENCY_MIN =
+      Workbench::MAPPING_FREQUENCY_MIN;
+  static constexpr auto MAPPING_FREQUENCY_MAX =
+      Workbench::MAPPING_FREQUENCY_MAX;
+  static constexpr auto MAPPING_PHASE_MIN = Workbench::MAPPING_PHASE_MIN;
+  static constexpr auto MAPPING_PHASE_MAX = Workbench::MAPPING_PHASE_MAX;
+  static constexpr auto PHASE_OSCILLATION_DEPTH_MIN =
+      Workbench::PHASE_OSCILLATION_DEPTH_MIN;
+  static constexpr auto PHASE_OSCILLATION_DEPTH_MAX =
+      Workbench::PHASE_OSCILLATION_DEPTH_MAX;
+  static constexpr auto PHASE_OSCILLATION_SPEED_MAX =
+      Workbench::PHASE_OSCILLATION_SPEED_MAX;
+  static constexpr auto BRIGHTNESS_DEPTH_MIN = Workbench::BRIGHTNESS_DEPTH_MIN;
+  static constexpr auto BRIGHTNESS_DEPTH_MAX = Workbench::BRIGHTNESS_DEPTH_MAX;
+  static constexpr auto VALUE_OPACITY_MIN = Workbench::VALUE_OPACITY_MIN;
+  static constexpr auto VALUE_OPACITY_MAX = Workbench::VALUE_OPACITY_MAX;
+  static constexpr auto WAVE_SPIN_MIN = Workbench::WAVE_SPIN_MIN;
+  static constexpr auto SOURCE_NOISE_SCALE_MIN =
+      Workbench::SOURCE_NOISE_SCALE_MIN;
+  static constexpr auto SOURCE_NOISE_SCALE_MAX =
+      Workbench::SOURCE_NOISE_SCALE_MAX;
+  static constexpr auto SOURCE_NOISE_RATE_MIN =
+      Workbench::SOURCE_NOISE_RATE_MIN;
+  static constexpr auto SOURCE_NOISE_RATE_MAX =
+      Workbench::SOURCE_NOISE_RATE_MAX;
+  static constexpr auto LENS_NOISE_SCALE_MIN = Workbench::LENS_NOISE_SCALE_MIN;
+  static constexpr auto LENS_NOISE_SCALE_MAX = Workbench::LENS_NOISE_SCALE_MAX;
+  static constexpr auto NOISE_RATE_MIN = Workbench::NOISE_RATE_MIN;
+  static constexpr auto NOISE_RATE_MAX = Workbench::NOISE_RATE_MAX;
+  static constexpr auto NOISE_SPEED_MIN = Workbench::NOISE_SPEED_MIN;
+  static constexpr auto NOISE_SPEED_MAX = Workbench::NOISE_SPEED_MAX;
+  static constexpr auto CELL_MIN = Workbench::CELL_MIN;
+  static constexpr auto CELL_MAX = Workbench::CELL_MAX;
+  static constexpr auto SOFTNESS_MIN = Workbench::SOFTNESS_MIN;
+  using WarpParamName = Workbench::WarpParamName;
+  static constexpr auto SPEED_MAX = Workbench::SPEED_MAX;
+  static constexpr auto COMPLEXITY_MAX = Workbench::COMPLEXITY_MAX;
+  static constexpr auto PATTERN_MIX_MAX = Workbench::PATTERN_MIX_MAX;
+  static constexpr auto PHASE2_RATE_MAX = Workbench::PHASE2_RATE_MAX;
+  static constexpr auto SPIN_RATE_MAX = Workbench::SPIN_RATE_MAX;
+  static constexpr auto WANDER_MAX = Workbench::WANDER_MAX;
+  static constexpr auto WAVE_SPIN_MAX = Workbench::WAVE_SPIN_MAX;
+
 private:
-  struct FrameState;
   struct EndpointRuntime;
   struct WalkDeltas;
   using ShadeFunction = Color4 (*)(const Vector &, const FrameState &,
@@ -225,7 +504,6 @@ private:
   };
 
 public:
-  struct Config;
   static constexpr std::string_view EFFECT_ID = "shader";
   static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
@@ -397,533 +675,6 @@ private:
   }
 
 public:
-  enum class Function : uint8_t {
-    TWIN_WAVE,
-    RINGS,
-    SPIRAL,
-    GRID,
-    NOISE_CONTOUR,
-    PRIMITIVE_LATTICE,
-    NOISE_CONTOUR_SPHERE,
-    SPHERICAL_RINGS,
-    FRACTAL,
-    TESSELLATION
-  };
-  enum class Projection : uint8_t {
-    SINUSOIDAL,
-    STEREOGRAPHIC,
-    GNOMONIC,
-    BONNE,
-    PEIRCE_QUINCUNCIAL,
-    AIROCEAN,
-    EQUIRECTANGULAR
-  };
-  enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
-  enum class AiroceanLayout : uint8_t { VERTICAL, HORIZONTAL };
-  enum class BonneHemisphere : uint8_t { NORTH, SOUTH };
-  enum class GnomonicHemispherePolicy : uint8_t {
-    FOLDED,
-    FRONT_HEMISPHERE,
-    BACK_HEMISPHERE
-  };
-  enum class SurfaceLens : uint8_t {
-    NONE,
-    GLITCH,
-    TWIST,
-    KALEIDOSCOPE,
-    MOBIUS,
-    KALEIDOSCOPE_TETRAHEDRAL,
-    KALEIDOSCOPE_OCTAHEDRAL,
-    KALEIDOSCOPE_DODECAHEDRAL,
-    KALEIDOSCOPE_TRIANGULAR_PRISM,
-    KALEIDOSCOPE_SQUARE_PRISM,
-    KALEIDOSCOPE_PENTAGONAL_PRISM,
-    KALEIDOSCOPE_HEXAGONAL_PRISM,
-    KALEIDOSCOPE_OCTAGONAL_PRISM,
-    TANGENT_NOISE = 255
-  };
-  enum class WarpEnvelope : uint8_t { FLAT, PROJECTION_WEIGHT, EDGE_FADE };
-  enum class PolarMode : uint8_t { LINEAR, LOGARITHMIC };
-  enum class CurlIntegrator : uint8_t { EULER_1, MIDPOINT_2, MIDPOINT_4 };
-  enum class SurfaceCurlIntegrator : uint8_t { EULER, MIDPOINT, MIDPOINT_2X };
-  enum class SurfaceNoise : uint8_t { NONE, DIRECT, CURL };
-  enum class SurfaceNoisePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
-  enum class WarpStageKind : uint8_t {
-    NONE,
-    AFFINE_FRAME,
-    WAVE_SHEAR,
-    VORTEX,
-    VECTOR_NOISE,
-    CURL_FLOW,
-    MIRROR_TILE,
-    POLAR_CHART,
-    LEGACY_STEREO_NOISE = 255
-  };
-  struct WarpStageSpec {
-    WarpStageKind kind;
-    NoiseBasis basis = NoiseBasis::SIMPLEX;
-    WarpEnvelope envelope = WarpEnvelope::FLAT;
-    PolarMode polar_mode = PolarMode::LINEAR;
-    CurlIntegrator curl_integrator = CurlIntegrator::EULER_1;
-    uint8_t polar_harmonic = 1;
-    int32_t seed = 1337;
-
-    constexpr bool operator==(const WarpStageSpec &) const = default;
-  };
-  struct WarpProgram {
-    WarpStageSpec outer;
-    WarpStageSpec inner;
-
-    constexpr bool operator==(const WarpProgram &) const = default;
-  };
-  enum class ProjectionFramePolicy : uint8_t { IDENTITY, SPIN_WANDER };
-  enum class SignalWeight : uint8_t { NONE, PROJECTION };
-  enum class ValueTransfer : uint8_t { NONE, RIDGE, ISO_CONTOUR, SMOOTH_BANDS };
-  enum class CoveragePolicy : uint8_t {
-    OPAQUE,
-    PROJECTION_WEIGHT_SQUARED,
-    VALUE_CUTOUT,
-    EDGE_FADE,
-    PROJECTION_WEIGHT
-  };
-  enum class PaletteMode : uint8_t { TRIADIC, COMPLEMENTARY, ANALOGOUS };
-  enum class PaletteMapping : uint8_t { CUP, BELL, LINEAR, REVERSE };
-  using PaletteMappingWeights = Pullback::Color::PaletteMappingWeights;
-  enum class BrightnessEnvelope : uint8_t {
-    NONE,
-    CUP,
-    BELL,
-    ASCENDING,
-    DESCENDING
-  };
-  using HueShiftMode = Pullback::Color::HueMode;
-
-  struct Slots {
-    Function function;
-    Projection projection;
-    ProjectionFramePolicy projection_frame;
-    SurfaceLens surface_lens;
-    WarpProgram warp_program;
-    SignalWeight signal_weight;
-    ValueTransfer value_transfer;
-    CoveragePolicy coverage;
-    PaletteMode palette;
-    PeirceLayout peirce_layout = PeirceLayout::SQUARE;
-    AiroceanLayout airocean_layout = AiroceanLayout::VERTICAL;
-    BonneHemisphere bonne_hemisphere = BonneHemisphere::NORTH;
-    GnomonicHemispherePolicy gnomonic_hemisphere =
-        GnomonicHemispherePolicy::FOLDED;
-    SurfaceNoise surface_noise = SurfaceNoise::NONE;
-    SurfaceNoisePlacement surface_noise_placement =
-        SurfaceNoisePlacement::AFTER_LENS;
-    HueShiftMode hue_shift = HueShiftMode::NOISE;
-    PaletteMapping palette_mapping = PaletteMapping::LINEAR;
-    BrightnessEnvelope brightness_envelope = BrightnessEnvelope::NONE;
-
-    constexpr bool operator==(const Slots &) const = default;
-  };
-
-  struct SourceParams {
-    float pattern_freq = 1.0f;
-    float speed = 0.0f;
-    float complexity = 0.0f;
-    float pattern_mix = 0.0f;
-    float secondary_rate = 0.0f;
-    float angle_rate = 0.0f;
-    float noise_scale = 1.0f;
-    float noise_contrast = 0.0f;
-    float noise_time_rate = 0.0f;
-    float lattice_cell_scale = 1.0f;
-    float lattice_shape_blend = 0.0f;
-    float lattice_softness = 0.05f;
-    float lattice_radius = 0.25f;
-    NoiseBasis noise_basis = NoiseBasis::SIMPLEX;
-    int32_t noise_seed = 2927;
-    uint8_t ring_count = 6;
-    float ring_thickness = 0.08f;
-    float ring_softness = 0.02f;
-    float ring_wander = 0.0f;
-    float fractal_scale = 0.5f;
-    uint8_t fractal_iterations = 8;
-    float julia_mix = 0.0f;
-    float julia_real = -0.8f;
-    float julia_imaginary = 0.156f;
-    float fractal_contours = 4.0f;
-    float tessellation_cell_scale = 1.0f;
-    float tessellation_line_thickness = 0.04f;
-    float tessellation_line_softness = 0.02f;
-    Pullback::Source::TessellationKind tessellation_kind =
-        Pullback::Source::TessellationKind::TRIANGULAR;
-
-    HS_COLD_MEMBER constexpr SourceParams() = default;
-
-    constexpr SourceParams(float pattern_freq, float speed, float complexity,
-                           float pattern_mix, float secondary_rate,
-                           float angle_rate = 0.0f)
-        : pattern_freq(pattern_freq), speed(speed), complexity(complexity),
-          pattern_mix(pattern_mix), secondary_rate(secondary_rate),
-          angle_rate(angle_rate) {}
-
-    HS_COLD_MEMBER bool operator==(const SourceParams &) const = default;
-
-    HS_COLD_MEMBER void lerp(const SourceParams &a, const SourceParams &b,
-                             float t) {
-      // Trips if the field set changes, so a new field cannot silently go
-      // uninterpolated and unsnapped.
-      static_assert(sizeof(SourceParams) == 116,
-                    "SourceParams field set changed - update lerp");
-      pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
-      speed = hs::lerp(a.speed, b.speed, t);
-      complexity = hs::lerp(a.complexity, b.complexity, t);
-      pattern_mix = hs::lerp(a.pattern_mix, b.pattern_mix, t);
-      secondary_rate = hs::lerp(a.secondary_rate, b.secondary_rate, t);
-      angle_rate = hs::lerp(a.angle_rate, b.angle_rate, t);
-      noise_scale = hs::lerp(a.noise_scale, b.noise_scale, t);
-      noise_contrast = hs::lerp(a.noise_contrast, b.noise_contrast, t);
-      noise_time_rate = hs::lerp(a.noise_time_rate, b.noise_time_rate, t);
-      lattice_cell_scale =
-          hs::lerp(a.lattice_cell_scale, b.lattice_cell_scale, t);
-      lattice_shape_blend =
-          hs::lerp(a.lattice_shape_blend, b.lattice_shape_blend, t);
-      lattice_softness = hs::lerp(a.lattice_softness, b.lattice_softness, t);
-      lattice_radius = hs::lerp(a.lattice_radius, b.lattice_radius, t);
-      noise_basis = t < 1.0f ? a.noise_basis : b.noise_basis;
-      noise_seed = t < 1.0f ? a.noise_seed : b.noise_seed;
-      ring_count = t < 1.0f ? a.ring_count : b.ring_count;
-      ring_thickness = hs::lerp(a.ring_thickness, b.ring_thickness, t);
-      ring_softness = hs::lerp(a.ring_softness, b.ring_softness, t);
-      ring_wander = hs::lerp(a.ring_wander, b.ring_wander, t);
-      fractal_scale = hs::lerp(a.fractal_scale, b.fractal_scale, t);
-      fractal_iterations =
-          t < 1.0f ? a.fractal_iterations : b.fractal_iterations;
-      julia_mix = hs::lerp(a.julia_mix, b.julia_mix, t);
-      julia_real = hs::lerp(a.julia_real, b.julia_real, t);
-      julia_imaginary = hs::lerp(a.julia_imaginary, b.julia_imaginary, t);
-      fractal_contours = hs::lerp(a.fractal_contours, b.fractal_contours, t);
-      tessellation_cell_scale =
-          hs::lerp(a.tessellation_cell_scale, b.tessellation_cell_scale, t);
-      tessellation_line_thickness = hs::lerp(a.tessellation_line_thickness,
-                                             b.tessellation_line_thickness, t);
-      tessellation_line_softness = hs::lerp(a.tessellation_line_softness,
-                                            b.tessellation_line_softness, t);
-      tessellation_kind = t < 1.0f ? a.tessellation_kind : b.tessellation_kind;
-    }
-  };
-
-  struct WarpStageParams {
-    float scale = 1.0f;
-    float strength = 0.0f;
-    float speed = 0.0f;
-    float translation_x = 0.0f;
-    float translation_y = 0.0f;
-    float rotation = 0.0f;
-    float scale_x = 1.0f;
-    float scale_y = 1.0f;
-    float shear = 0.0f;
-    float frequency = 1.0f;
-    float field_angle = 0.0f;
-    float center_x = 0.0f;
-    float center_y = 0.0f;
-    float radius = 1.0f;
-    float turns = 0.0f;
-    float center_orbit_radius = 0.0f;
-    float vector_angle = 0.0f;
-    float cell_x = 1.0f;
-    float cell_y = 1.0f;
-    float offset_x = 0.0f;
-    float offset_y = 0.0f;
-    float radial_scale = 1.0f;
-    float radial_phase = 0.0f;
-    float angular_phase = 0.0f;
-    float edge_width = 0.1f;
-
-    HS_COLD_MEMBER constexpr WarpStageParams() = default;
-
-    constexpr WarpStageParams(float scale, float strength, float speed)
-        : scale(scale), strength(strength), speed(speed) {}
-
-    HS_COLD_MEMBER bool operator==(const WarpStageParams &) const = default;
-
-    HS_COLD_MEMBER void lerp(const WarpStageParams &a, const WarpStageParams &b,
-                             float t, bool rotation_is_rate = false) {
-      static_assert(sizeof(WarpStageParams) == 100,
-                    "WarpStageParams field set changed - update lerp");
-      scale = hs::lerp(a.scale, b.scale, t);
-      strength = hs::lerp(a.strength, b.strength, t);
-      speed = hs::lerp(a.speed, b.speed, t);
-      translation_x = hs::lerp(a.translation_x, b.translation_x, t);
-      translation_y = hs::lerp(a.translation_y, b.translation_y, t);
-      rotation =
-          rotation_is_rate
-              ? hs::lerp(a.rotation, b.rotation, t)
-              : interp::shortest_periodic(a.rotation, b.rotation, t, TWO_PI_F);
-      scale_x = expf(hs::lerp(logf(a.scale_x), logf(b.scale_x), t));
-      scale_y = expf(hs::lerp(logf(a.scale_y), logf(b.scale_y), t));
-      shear = hs::lerp(a.shear, b.shear, t);
-      frequency = hs::lerp(a.frequency, b.frequency, t);
-      field_angle =
-          interp::shortest_periodic(a.field_angle, b.field_angle, t, TWO_PI_F);
-      center_x = hs::lerp(a.center_x, b.center_x, t);
-      center_y = hs::lerp(a.center_y, b.center_y, t);
-      radius = hs::lerp(a.radius, b.radius, t);
-      turns = hs::lerp(a.turns, b.turns, t);
-      center_orbit_radius =
-          hs::lerp(a.center_orbit_radius, b.center_orbit_radius, t);
-      vector_angle = interp::shortest_periodic(a.vector_angle, b.vector_angle,
-                                               t, TWO_PI_F);
-      cell_x = hs::lerp(a.cell_x, b.cell_x, t);
-      cell_y = hs::lerp(a.cell_y, b.cell_y, t);
-      offset_x = hs::lerp(a.offset_x, b.offset_x, t);
-      offset_y = hs::lerp(a.offset_y, b.offset_y, t);
-      radial_scale = hs::lerp(a.radial_scale, b.radial_scale, t);
-      radial_phase = hs::lerp(a.radial_phase, b.radial_phase, t);
-      angular_phase = hs::lerp(a.angular_phase, b.angular_phase, t);
-      edge_width = hs::lerp(a.edge_width, b.edge_width, t);
-    }
-  };
-
-  struct WarpParams {
-    WarpStageParams outer;
-    WarpStageParams inner;
-
-    HS_COLD_MEMBER bool operator==(const WarpParams &) const = default;
-
-    HS_COLD_MEMBER void lerp(const WarpParams &a, const WarpParams &b, float t,
-                             const WarpProgram &program = WarpProgram{}) {
-      outer.lerp(a.outer, b.outer, t,
-                 program.outer.kind == WarpStageKind::AFFINE_FRAME);
-      inner.lerp(a.inner, b.inner, t,
-                 program.inner.kind == WarpStageKind::AFFINE_FRAME);
-    }
-  };
-
-  struct ProjectionParams {
-    float singularity_fade = 1.0f;
-    float spin_rate = 0.0f;
-    float wander = 0.0f;
-    float central_meridian = 0.0f;
-    float coordinate_scale = 1.0f;
-    float bonne_standard_parallel = PI_F * 0.25f;
-    float layout_scroll = 0.0f;
-
-    HS_COLD_MEMBER constexpr ProjectionParams() = default;
-
-    constexpr ProjectionParams(float singularity_fade, float spin_rate)
-        : singularity_fade(singularity_fade), spin_rate(spin_rate) {}
-    constexpr ProjectionParams(float singularity_fade, float spin_rate,
-                               float wander)
-        : singularity_fade(singularity_fade), spin_rate(spin_rate),
-          wander(wander) {}
-
-    HS_COLD_MEMBER bool operator==(const ProjectionParams &) const = default;
-
-    HS_COLD_MEMBER void lerp(const ProjectionParams &a,
-                             const ProjectionParams &b, float t) {
-      static_assert(sizeof(ProjectionParams) == 28,
-                    "ProjectionParams field set changed - update lerp");
-      singularity_fade = hs::lerp(a.singularity_fade, b.singularity_fade, t);
-      spin_rate = hs::lerp(a.spin_rate, b.spin_rate, t);
-      wander = hs::lerp(a.wander, b.wander, t);
-      central_meridian = interp::shortest_periodic(
-          a.central_meridian, b.central_meridian, t, TWO_PI_F);
-      coordinate_scale = hs::lerp(a.coordinate_scale, b.coordinate_scale, t);
-      bonne_standard_parallel =
-          hs::lerp(a.bonne_standard_parallel, b.bonne_standard_parallel, t);
-      layout_scroll =
-          interp::shortest_periodic(a.layout_scroll, b.layout_scroll, t, 1.0f);
-    }
-  };
-
-  struct SurfaceLensParams {
-    MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                        0.7071067811865475f, 0.0f};
-
-    HS_COLD_MEMBER constexpr SurfaceLensParams() = default;
-
-    HS_COLD_MEMBER bool operator==(const SurfaceLensParams &other) const {
-      return mobius.a.re == other.mobius.a.re &&
-             mobius.a.im == other.mobius.a.im &&
-             mobius.b.re == other.mobius.b.re &&
-             mobius.b.im == other.mobius.b.im &&
-             mobius.c.re == other.mobius.c.re &&
-             mobius.c.im == other.mobius.c.im &&
-             mobius.d.re == other.mobius.d.re &&
-             mobius.d.im == other.mobius.d.im;
-    }
-
-    HS_COLD_MEMBER void lerp(const SurfaceLensParams &a,
-                             const SurfaceLensParams &b, float t) {
-      // Trips if the field set changes, so a new field cannot silently go
-      // uninterpolated and unsnapped.
-      static_assert(sizeof(SurfaceLensParams) == 32,
-                    "SurfaceLensParams field set changed - update lerp");
-      mobius = t < 1.0f ? a.mobius : b.mobius;
-    }
-  };
-
-  struct SurfaceNoiseParams {
-    NoiseBasis basis = NoiseBasis::SIMPLEX;
-    SurfaceCurlIntegrator integrator = SurfaceCurlIntegrator::EULER;
-    int32_t seed = 1337;
-    float scale = 1.0f;
-    float strength = 0.0f;
-    float rate = 0.0f;
-    float direction = 0.0f;
-
-    HS_COLD_MEMBER bool operator==(const SurfaceNoiseParams &) const = default;
-
-    HS_COLD_MEMBER void lerp(const SurfaceNoiseParams &a,
-                             const SurfaceNoiseParams &b, float t) {
-      static_assert(sizeof(SurfaceNoiseParams) == 24,
-                    "SurfaceNoiseParams field set changed - update lerp");
-      basis = t < 1.0f ? a.basis : b.basis;
-      integrator = t < 1.0f ? a.integrator : b.integrator;
-      seed = t < 1.0f ? a.seed : b.seed;
-      scale = hs::lerp(a.scale, b.scale, t);
-      strength = hs::lerp(a.strength, b.strength, t);
-      rate = hs::lerp(a.rate, b.rate, t);
-      direction = interp::shortest_periodic(a.direction, b.direction, t, 1.0f);
-    }
-  };
-
-  struct ValueParams {
-    float iso_level = 0.5f;
-    float iso_width = 0.05f;
-    uint8_t band_count = 4;
-    float band_phase = 0.0f;
-    float cutout_threshold = 0.5f;
-    float cutout_softness = 0.05f;
-    float edge_width = 0.1f;
-
-    HS_COLD_MEMBER bool operator==(const ValueParams &) const = default;
-    HS_COLD_MEMBER void lerp(const ValueParams &a, const ValueParams &b,
-                             float t) {
-      static_assert(sizeof(ValueParams) == 28,
-                    "ValueParams field set changed - update lerp");
-      iso_level = hs::lerp(a.iso_level, b.iso_level, t);
-      iso_width = hs::lerp(a.iso_width, b.iso_width, t);
-      band_count = t < 1.0f ? a.band_count : b.band_count;
-      band_phase =
-          interp::shortest_periodic(a.band_phase, b.band_phase, t, TWO_PI_F);
-      cutout_threshold = hs::lerp(a.cutout_threshold, b.cutout_threshold, t);
-      cutout_softness = hs::lerp(a.cutout_softness, b.cutout_softness, t);
-      edge_width = hs::lerp(a.edge_width, b.edge_width, t);
-    }
-  };
-
-  using ColorParams = Pullback::Color::ColorParams;
-
-  struct OuterCameraParams {
-    float wander = 0.0f;
-
-    HS_COLD_MEMBER bool operator==(const OuterCameraParams &) const = default;
-
-    HS_COLD_MEMBER void lerp(const OuterCameraParams &a,
-                             const OuterCameraParams &b, float t) {
-      static_assert(sizeof(OuterCameraParams) == 4,
-                    "OuterCameraParams field set changed - update lerp");
-      wander = hs::lerp(a.wander, b.wander, t);
-    }
-  };
-
-  struct Params {
-    SourceParams source;
-    WarpParams warp;
-    ProjectionParams projection;
-    SurfaceLensParams surface_lens;
-    ValueParams value;
-    ColorParams color;
-    OuterCameraParams outer_camera;
-    SurfaceNoiseParams surface_noise;
-
-    HS_COLD_MEMBER Params() = default;
-
-    constexpr Params(SourceParams source, WarpParams warp,
-                     ProjectionParams projection,
-                     SurfaceLensParams surface_lens, ValueParams value,
-                     ColorParams color, OuterCameraParams outer_camera,
-                     SurfaceNoiseParams surface_noise)
-        : source(source), warp(warp), projection(projection),
-          surface_lens(surface_lens), value(value), color(color),
-          outer_camera(outer_camera), surface_noise(surface_noise) {}
-
-    HS_COLD_MEMBER bool operator==(const Params &) const = default;
-
-    HS_COLD_MEMBER void lerp(const Params &a, const Params &b, float t,
-                             const Slots &slots = Slots{}) {
-      source.lerp(a.source, b.source, t);
-      warp.lerp(a.warp, b.warp, t, slots.warp_program);
-      projection.lerp(a.projection, b.projection, t);
-      surface_lens.lerp(a.surface_lens, b.surface_lens, t);
-      surface_noise.lerp(a.surface_noise, b.surface_noise, t);
-      value.lerp(a.value, b.value, t);
-      color = Pullback::Fields::interpolate(a.color, b.color, t);
-      color.palette_mapping =
-          t < 1.0f ? a.color.palette_mapping : b.color.palette_mapping;
-      outer_camera.lerp(a.outer_camera, b.outer_camera, t);
-    }
-
-    HS_COLD_MEMBER void lerp_staggered(const Params &a, const Params &b,
-                                       float t, const Slots &slots = Slots{}) {
-      const int phase_count = (a.source != b.source) + (a.warp != b.warp) +
-                              (a.projection != b.projection) +
-                              (a.surface_lens != b.surface_lens) +
-                              (a.value != b.value) + (a.color != b.color) +
-                              (a.outer_camera != b.outer_camera) +
-                              (a.surface_noise != b.surface_noise);
-      int phase = 0;
-      source = a.source;
-      warp = a.warp;
-      projection = a.projection;
-      surface_lens = a.surface_lens;
-      value = a.value;
-      color = a.color;
-      outer_camera = a.outer_camera;
-      surface_noise = a.surface_noise;
-      if (a.source != b.source)
-        source.lerp(a.source, b.source, phase_t(t, phase++, phase_count));
-      if (a.warp != b.warp)
-        warp.lerp(a.warp, b.warp, phase_t(t, phase++, phase_count),
-                  slots.warp_program);
-      if (a.projection != b.projection)
-        projection.lerp(a.projection, b.projection,
-                        phase_t(t, phase++, phase_count));
-      if (a.surface_lens != b.surface_lens)
-        surface_lens.lerp(a.surface_lens, b.surface_lens,
-                          phase_t(t, phase++, phase_count));
-      if (a.value != b.value)
-        value.lerp(a.value, b.value, phase_t(t, phase++, phase_count));
-      if (a.color != b.color) {
-        const float color_t = phase_t(t, phase++, phase_count);
-        color = Pullback::Fields::interpolate(a.color, b.color, color_t);
-        color.palette_mapping =
-            color_t < 1.0f ? a.color.palette_mapping : b.color.palette_mapping;
-      }
-      if (a.outer_camera != b.outer_camera)
-        outer_camera.lerp(a.outer_camera, b.outer_camera,
-                          phase_t(t, phase++, phase_count));
-      if (a.surface_noise != b.surface_noise)
-        surface_noise.lerp(a.surface_noise, b.surface_noise,
-                           phase_t(t, phase, phase_count));
-    }
-
-    HS_COLD_MEMBER static float phase_t(float t, int phase, int phase_count) {
-      return ease_in_out_sin(hs::clamp(t * phase_count - phase, 0.0f, 1.0f));
-    }
-  };
-
-  struct Config {
-    Slots slots;
-    Params params;
-
-    HS_COLD_MEMBER constexpr Config() = default;
-    constexpr Config(const Slots &slots, const Params &params)
-        : slots(slots), params(params) {}
-
-    HS_COLD_MEMBER bool operator==(const Config &) const = default;
-  };
-  using RequestedConfig = Config;
-
   static constexpr uint32_t CONFIG_SCHEMA_VERSION = 10;
 
   /**
@@ -1053,46 +804,11 @@ public:
 #endif
 
 private:
-  static constexpr float lens_domain_linear_scale(SurfaceLens lens) {
-    switch (lens) {
-    case SurfaceLens::KALEIDOSCOPE:
-      return 1.0f;
-    case SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL:
-      return 0.20412415f;
-    case SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL:
-      return 0.14433757f;
-    case SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL:
-      return 0.09128709f;
-    case SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM:
-      return 0.28867513f;
-    case SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM:
-      return 0.25f;
-    case SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM:
-      return 0.22360680f;
-    case SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM:
-      return 0.20412415f;
-    case SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM:
-      return 0.17677670f;
-    case SurfaceLens::NONE:
-    case SurfaceLens::GLITCH:
-    case SurfaceLens::TWIST:
-    case SurfaceLens::MOBIUS:
-    case SurfaceLens::TANGENT_NOISE:
-      return 1.0f;
-    }
-    __builtin_unreachable();
-  }
-
   static constexpr float domain_scaled_max(float full_domain_max,
                                            float minimum_max,
                                            float domain_scale) {
     const float scaled = full_domain_max * domain_scale;
     return scaled > minimum_max ? scaled : minimum_max;
-  }
-
-  static constexpr float pattern_freq_max(Function function) {
-    return function == Function::GRID ? GRID_PATTERN_FREQ_MAX
-                                      : PATTERN_FREQ_MAX;
   }
 
   HS_COLD_MEMBER void register_clamped_animated_param(const char *name,
@@ -1795,26 +1511,27 @@ private:
                             &params.scale_y,       &params.shear};
         const float minimum[] = {-4.0f, -4.0f, -TWO_PI_F, 0.25f, 0.25f, -0.75f};
         const float maximum[] = {4.0f, 4.0f, TWO_PI_F, 4.0f, 4.0f, 0.75f};
-        register_current(names[WARP_NAME_TRANSLATION_X + index], targets[index],
-                         minimum[index], maximum[index]);
+        register_current(names[Workbench::WARP_NAME_TRANSLATION_X + index],
+                         targets[index], minimum[index], maximum[index]);
       }
       break;
     }
     case WarpStageKind::WAVE_SHEAR:
-      register_current(names[WARP_NAME_FREQUENCY], &params.frequency, 0.0f,
-                       domain_scaled_max(64.0f, 8.0f, domain_scale));
-      register_current(names[WARP_NAME_FIELD_ANGLE], &params.field_angle, 0.0f,
-                       TWO_PI_F);
+      register_current(names[Workbench::WARP_NAME_FREQUENCY], &params.frequency,
+                       0.0f, domain_scaled_max(64.0f, 8.0f, domain_scale));
+      register_current(names[Workbench::WARP_NAME_FIELD_ANGLE],
+                       &params.field_angle, 0.0f, TWO_PI_F);
       break;
     case WarpStageKind::VORTEX:
-      register_current(names[WARP_NAME_CENTER_X], &params.center_x, -4.0f,
+      register_current(names[Workbench::WARP_NAME_CENTER_X], &params.center_x,
+                       -4.0f, 4.0f);
+      register_current(names[Workbench::WARP_NAME_CENTER_Y], &params.center_y,
+                       -4.0f, 4.0f);
+      register_current(names[Workbench::WARP_NAME_RADIUS], &params.radius,
+                       1.0f / 64.0f, 8.0f);
+      register_current(names[Workbench::WARP_NAME_TURNS], &params.turns, -4.0f,
                        4.0f);
-      register_current(names[WARP_NAME_CENTER_Y], &params.center_y, -4.0f,
-                       4.0f);
-      register_current(names[WARP_NAME_RADIUS], &params.radius, 1.0f / 64.0f,
-                       8.0f);
-      register_current(names[WARP_NAME_TURNS], &params.turns, -4.0f, 4.0f);
-      register_current(names[WARP_NAME_CENTER_ORBIT],
+      register_current(names[Workbench::WARP_NAME_CENTER_ORBIT],
                        &params.center_orbit_radius, 0.0f, 4.0f);
       break;
     case WarpStageKind::VECTOR_NOISE:
@@ -1825,30 +1542,30 @@ private:
                                              ? CURL_WARP_SCALE_MAX
                                              : VECTOR_WARP_SCALE_MAX,
                                          1.0f, domain_scale));
-      register_current(names[WARP_NAME_VECTOR_ANGLE], &params.vector_angle,
-                       0.0f, TWO_PI_F);
-      register_current(names[WARP_NAME_EDGE_WIDTH], &params.edge_width,
-                       SOFTNESS_MIN, 0.5f);
+      register_current(names[Workbench::WARP_NAME_VECTOR_ANGLE],
+                       &params.vector_angle, 0.0f, TWO_PI_F);
+      register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
+                       &params.edge_width, SOFTNESS_MIN, 0.5f);
       break;
     case WarpStageKind::MIRROR_TILE:
-      register_current(names[WARP_NAME_ROTATION], &params.rotation, 0.0f,
-                       TWO_PI_F);
-      register_current(names[WARP_NAME_CELL_X], &params.cell_x, CELL_MIN,
-                       CELL_MAX);
-      register_current(names[WARP_NAME_CELL_Y], &params.cell_y, CELL_MIN,
-                       CELL_MAX);
-      register_current(names[WARP_NAME_OFFSET_X], &params.offset_x, -8.0f,
-                       8.0f);
-      register_current(names[WARP_NAME_OFFSET_Y], &params.offset_y, -8.0f,
-                       8.0f);
+      register_current(names[Workbench::WARP_NAME_ROTATION], &params.rotation,
+                       0.0f, TWO_PI_F);
+      register_current(names[Workbench::WARP_NAME_CELL_X], &params.cell_x,
+                       CELL_MIN, CELL_MAX);
+      register_current(names[Workbench::WARP_NAME_CELL_Y], &params.cell_y,
+                       CELL_MIN, CELL_MAX);
+      register_current(names[Workbench::WARP_NAME_OFFSET_X], &params.offset_x,
+                       -8.0f, 8.0f);
+      register_current(names[Workbench::WARP_NAME_OFFSET_Y], &params.offset_y,
+                       -8.0f, 8.0f);
       break;
     case WarpStageKind::POLAR_CHART:
-      register_current(names[WARP_NAME_RADIAL_SCALE], &params.radial_scale,
-                       1.0f / 64.0f, 16.0f);
-      register_current(names[WARP_NAME_RADIAL_PHASE], &params.radial_phase,
-                       0.0f, TWO_PI_F);
-      register_current(names[WARP_NAME_ANGULAR_PHASE], &params.angular_phase,
-                       0.0f, TWO_PI_F);
+      register_current(names[Workbench::WARP_NAME_RADIAL_SCALE],
+                       &params.radial_scale, 1.0f / 64.0f, 16.0f);
+      register_current(names[Workbench::WARP_NAME_RADIAL_PHASE],
+                       &params.radial_phase, 0.0f, TWO_PI_F);
+      register_current(names[Workbench::WARP_NAME_ANGULAR_PHASE],
+                       &params.angular_phase, 0.0f, TWO_PI_F);
       break;
     case WarpStageKind::NONE:
     case WarpStageKind::LEGACY_STEREO_NOISE:
@@ -1861,9 +1578,10 @@ private:
                                               float domain_scale) {
     if (mode == HueShiftMode::NONE)
       return;
-    register_clamped_animated_param(
-        "Hue Shift Amount", &params.hue_shift_amount,
-        -hue_shift_amount_max(mode), hue_shift_amount_max(mode));
+    register_clamped_animated_param("Hue Shift Amount",
+                                    &params.hue_shift_amount,
+                                    -Workbench::hue_shift_amount_max(mode),
+                                    Workbench::hue_shift_amount_max(mode));
     if (mode != HueShiftMode::NOISE)
       return;
     register_clamped_animated_param(
@@ -1872,181 +1590,6 @@ private:
     register_clamped_animated_param("Hue Noise Speed", &params.hue_noise_speed,
                                     -HUE_NOISE_SPEED_MAX, HUE_NOISE_SPEED_MAX);
   }
-
-  struct Blend {
-    Params params;
-    PaletteMappingWeights palette_mapping;
-  };
-
-  struct Choreo {
-    uint16_t dwell_min;
-    uint16_t dwell_max;
-    uint16_t blend_frames;
-    bool staggered;
-  };
-
-  struct SourceState {
-    float primary;
-    float secondary;
-    float angle;
-    float angle_cos;
-    float angle_sin;
-  };
-
-  using ProjectedLookup = Pullback::PlaneSample;
-
-  struct SourceTraits {
-    bool y_periodic;
-    bool polar_angle_compatible;
-  };
-
-  /** Warp-program output: source-side coordinates plus accumulated path. */
-  struct PlanarWarpResult {
-    Complex coords;
-    float path_length;
-  };
-  using SurfaceNoiseResult = Pullback::SurfaceResult;
-  using PlanarWarpStageResult = Pullback::WarpStepResult;
-  using FieldSample = Pullback::FieldSample;
-
-  struct ClockState {
-    float source_primary = 0.0f;
-    float source_secondary = 0.0f;
-    float source_angle = 0.0f;
-    float projection_spin = 0.0f;
-    float hue_noise_phase = 0.0f;
-    float source_noise_time = 0.0f;
-    float surface_noise_time = 0.0f;
-    float warp_outer_phase = 0.0f;
-    float warp_inner_phase = 0.0f;
-    float warp_outer_rotation = 0.0f;
-    float warp_inner_rotation = 0.0f;
-    float palette_oscillation_phase = 0.0f;
-
-    HS_COLD_MEMBER constexpr ClockState() = default;
-    constexpr ClockState(float source_primary, float source_secondary,
-                         float source_angle, float projection_spin,
-                         float hue_noise_phase)
-        : source_primary(source_primary), source_secondary(source_secondary),
-          source_angle(source_angle), projection_spin(projection_spin),
-          hue_noise_phase(hue_noise_phase) {}
-  };
-
-  struct PreparedTransforms {
-    Quaternion projection_conj;
-    Quaternion outer_conj;
-  };
-
-  struct PreparedAffineFrame {
-    float translation_x;
-    float translation_y;
-    float scale_x;
-    float scale_y;
-    float shear;
-  };
-
-  struct PreparedMirrorTile {
-    float offset_x;
-    float offset_y;
-  };
-
-  struct PreparedVortex {
-    float center_x;
-    float center_y;
-    float radius_sq;
-    float angle_numerator;
-  };
-
-  struct PreparedNoiseLoop {
-    float diagonal;
-    float z;
-  };
-
-  union PreparedWarpTransform {
-    PreparedAffineFrame affine;
-    PreparedMirrorTile mirror;
-    PreparedVortex vortex;
-    PreparedNoiseLoop noise_loop;
-  };
-
-  struct PreparedWarpStage {
-    float rotation_cos;
-    float rotation_sin;
-    PreparedWarpTransform transform;
-  };
-
-  struct PreparedWarpProgram {
-    PreparedWarpStage outer;
-    PreparedWarpStage inner;
-  };
-
-  struct PreparedSurfaceNoise {
-    Vector loop_offset;
-    float direction_cos;
-    float direction_sin;
-  };
-
-  struct PreparedHueRotation {
-    static constexpr size_t LUT_SIZE =
-        Pullback::Color::HueRotationLutView::SIZE;
-
-    Pixel *lut;
-    bool active;
-  };
-
-  struct PreparedHueNoise {
-    static constexpr size_t LUT_SIZE = Pullback::Color::HueNoiseLutView::SIZE;
-
-    int8_t *lut;
-    bool active;
-  };
-
-  struct ResourceBindings {
-    const FastNoiseLite *outer_warp_noise;
-    const FastNoiseLite *inner_warp_noise;
-    const FastNoiseLite *source_noise;
-    const FastNoiseLite *surface_noise;
-    const FastNoiseLite *color_noise;
-    const BakedPalette *generated_palette;
-  };
-
-  static constexpr size_t MAX_NOISE_RESOURCES = 9;
-
-  /** @brief The interpretive backend's and stage kernels' per-frame
-      scratch; the compiled pipelines carry theirs in the program's prepared
-      blob instead. */
-  struct DynamicPrepared {
-    SourceState source;
-    Pullback::Source::PreparedSphericalRings spherical_rings;
-    PreparedWarpProgram warp;
-    PreparedSurfaceNoise surface_noise;
-  };
-
-  struct FrameState {
-    Slots slots;
-    Params params;
-    PaletteMappingWeights palette_mapping;
-    ClockState clocks;
-    PreparedTransforms transforms;
-    /** cos and sin of params.projection.central_meridian; the projections that
-        rotate by it are per-pixel, the meridian is not. */
-    float meridian_cos = 1.0f;
-    float meridian_sin = 0.0f;
-    PreparedHueRotation prepared_hue_rotation;
-    PreparedHueNoise prepared_hue_noise;
-    ResourceBindings resources;
-    DynamicPrepared dynamic;
-
-    /** @brief Writes the central meridian and its trig pair together.
-        @details The pair is what the per-pixel projections rotate by;
-                 assigning params.projection.central_meridian alone leaves
-                 them stale and the shade diverges from the interpreter. */
-    HS_COLD_MEMBER void set_central_meridian(float radians) {
-      params.projection.central_meridian = radians;
-      meridian_cos = cosf(radians);
-      meridian_sin = sinf(radians);
-    }
-  };
 
   struct ShaderWorkbenchInstrumentation {
 #ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
@@ -2389,36 +1932,6 @@ private:
 
     constexpr bool operator==(const TopologyKey &) const = default;
   };
-
-  enum class InversePipelineId : uint8_t {
-    GLITCH_NOISE_GRID_WAVE_SHEAR,
-    KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
-    GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
-    GNOMONIC_ALIEN_CORE_MIRROR,
-    PEIRCE_DODECAHEDRAL_GRID,
-    GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
-    GNOMONIC_AFFINE_LATTICE_CONTOUR,
-    SINUSOIDAL_LATTICE_MELT,
-    STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
-    GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
-    STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
-    STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
-    EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
-    STEREOGRAPHIC_ALIEN_CORE_MIRROR,
-    STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
-    COUNT,
-    NONE = 0xff
-  };
-
-  // The manifest carries one row per enumerator.
-  static constexpr size_t INVERSE_PROGRAM_COUNT =
-      static_cast<size_t>(InversePipelineId::COUNT);
-
-  struct SelectedConfig {
-    Config config;
-    InversePipelineId pipeline;
-  };
-  using Preset = SelectedConfig;
 
   size_t preset_count_for_view() const {
     return preset_view.empty() ? PRESETS.size() : preset_view.size();
@@ -2846,18 +2359,6 @@ private:
       from; make_program() pins every program's tuple under it. */
   static constexpr size_t PREPARED_BLOB_BYTES = 256;
 
-  static constexpr bool source_uses_noise(Function function) {
-    return function == Function::NOISE_CONTOUR ||
-           function == Function::NOISE_CONTOUR_SPHERE;
-  }
-
-  /** @brief Whether the stage scales its amplitude by the warp envelope. */
-  static constexpr bool warp_uses_envelope(WarpStageKind kind) {
-    return kind == WarpStageKind::WAVE_SHEAR ||
-           kind == WarpStageKind::VECTOR_NOISE ||
-           kind == WarpStageKind::CURL_FLOW;
-  }
-
   static constexpr void canonicalize_warp_key(WarpStageKind kind,
                                               NoiseBasis &basis,
                                               WarpEnvelope &envelope,
@@ -3095,45 +2596,6 @@ private:
     return false;
   }
 
-  /** @brief Tests every slot against the last enumerator its schema admits. */
-  static constexpr bool valid_slot_enums(const Slots &slots) {
-    return enum_at_most(slots.function, Function::TESSELLATION) &&
-           enum_at_most(slots.projection, Projection::EQUIRECTANGULAR) &&
-           enum_at_most(slots.projection_frame,
-                        ProjectionFramePolicy::SPIN_WANDER) &&
-           enum_at_most(slots.surface_lens,
-                        SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM) &&
-           enum_at_most(slots.surface_noise, SurfaceNoise::CURL) &&
-           enum_at_most(slots.surface_noise_placement,
-                        SurfaceNoisePlacement::AFTER_LENS) &&
-           enum_at_most(slots.warp_program.outer.kind,
-                        WarpStageKind::POLAR_CHART) &&
-           enum_at_most(slots.warp_program.inner.kind,
-                        WarpStageKind::POLAR_CHART) &&
-           valid_warp_spec(slots.warp_program.outer) &&
-           valid_warp_spec(slots.warp_program.inner) &&
-           enum_at_most(slots.signal_weight, SignalWeight::PROJECTION) &&
-           enum_at_most(slots.value_transfer, ValueTransfer::SMOOTH_BANDS) &&
-           enum_at_most(slots.coverage, CoveragePolicy::PROJECTION_WEIGHT) &&
-           enum_at_most(slots.palette, PaletteMode::ANALOGOUS) &&
-           enum_at_most(slots.palette_mapping, PaletteMapping::REVERSE) &&
-           enum_at_most(slots.brightness_envelope,
-                        BrightnessEnvelope::DESCENDING) &&
-           enum_at_most(slots.hue_shift, HueShiftMode::WARP_DISPLACEMENT) &&
-           enum_at_most(slots.peirce_layout, PeirceLayout::VERTICAL) &&
-           enum_at_most(slots.airocean_layout, AiroceanLayout::HORIZONTAL) &&
-           enum_at_most(slots.bonne_hemisphere, BonneHemisphere::SOUTH) &&
-           enum_at_most(slots.gnomonic_hemisphere,
-                        GnomonicHemispherePolicy::BACK_HEMISPHERE);
-  }
-
-  static constexpr bool valid_snapshot_config(const Config &config) {
-    return valid_slot_enums(config.slots) &&
-           enum_at_most(config.params.color.palette_mapping,
-                        Pullback::Color::PaletteMapping::REVERSE) &&
-           preset_in_ranges(config) && hue_shift_amount_in_range(config);
-  }
-
 #if HS_ENABLE_PARAM_GUI_BRIDGE
 public:
   /** @brief Captures all accepted, requested, pending, and runtime state. */
@@ -3333,125 +2795,6 @@ private:
     bool clear;
   };
 
-  HS_COLD_MEMBER static constexpr bool warp_uses_noise(WarpStageKind kind) {
-    return kind == WarpStageKind::VECTOR_NOISE ||
-           kind == WarpStageKind::CURL_FLOW;
-  }
-
-  HS_COLD_MEMBER static constexpr bool seam_sensitive_warp(WarpStageKind kind) {
-    return kind == WarpStageKind::VECTOR_NOISE ||
-           kind == WarpStageKind::CURL_FLOW;
-  }
-
-  HS_COLD_MEMBER static constexpr NoiseFieldKey
-  warp_resource_key(const WarpStageSpec &spec) {
-    return {NoiseDomain::PROJECTED_2D,
-            spec.basis,
-            spec.seed,
-            spec.kind == WarpStageKind::CURL_FLOW
-                ? NoiseChannelLayout::CURL_V1
-                : (spec.basis == NoiseBasis::SIMPLEX
-                       ? NoiseChannelLayout::DIRECT_VECTOR_V2
-                       : NoiseChannelLayout::DIRECT_V1),
-            1,
-            1,
-            static_cast<uint8_t>(spec.kind == WarpStageKind::CURL_FLOW ? 1 : 0),
-            FastNoiseLite::NoiseType_OpenSimplex2,
-            1.0f};
-  }
-
-  HS_COLD_MEMBER static constexpr NoiseFieldKey
-  source_resource_key(const Config &config) {
-    return {config.slots.function == Function::NOISE_CONTOUR_SPHERE
-                ? NoiseDomain::SPHERE_3D
-                : NoiseDomain::PROJECTED_2D,
-            config.params.source.noise_basis,
-            config.params.source.noise_seed,
-            NoiseChannelLayout::SCALAR_V1,
-            1,
-            1,
-            0,
-            FastNoiseLite::NoiseType_OpenSimplex2,
-            1.0f};
-  }
-
-  HS_COLD_MEMBER static constexpr NoiseFieldKey
-  surface_noise_resource_key(const Config &config) {
-    return {NoiseDomain::SPHERE_3D,
-            config.params.surface_noise.basis,
-            config.params.surface_noise.seed,
-            config.slots.surface_noise == SurfaceNoise::CURL
-                ? (config.params.surface_noise.basis == NoiseBasis::SIMPLEX
-                       ? NoiseChannelLayout::CURL_ANALYTIC_V2
-                       : NoiseChannelLayout::CURL_V1)
-                : (config.params.surface_noise.basis == NoiseBasis::SIMPLEX
-                       ? NoiseChannelLayout::DIRECT_VECTOR_V2
-                       : NoiseChannelLayout::DIRECT_V1),
-            1,
-            1,
-            static_cast<uint8_t>(
-                config.slots.surface_noise == SurfaceNoise::CURL ? 1 : 0),
-            FastNoiseLite::NoiseType_OpenSimplex2,
-            1.0f};
-  }
-
-  HS_COLD_MEMBER static constexpr NoiseFieldKey color_noise_resource_key() {
-    return {NoiseDomain::SPHERE_3D,
-            NoiseBasis::SIMPLEX,
-            Pullback::HUE_NOISE_SEED,
-            NoiseChannelLayout::SCALAR_V1,
-            1,
-            1,
-            0,
-            FastNoiseLite::NoiseType_OpenSimplex2,
-            1.0f};
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  append_resource_key(const NoiseFieldKey &key,
-                      std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> &keys,
-                      size_t &count) {
-    for (size_t index = 0; index < count; ++index)
-      if (keys[index] == key)
-        return true;
-    if (count == keys.size())
-      return false;
-    keys[count++] = key;
-    return true;
-  }
-
-  HS_COLD_MEMBER static constexpr bool append_config_resource_keys(
-      const Config &config,
-      std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> &keys, size_t &count) {
-    if (warp_uses_noise(config.slots.warp_program.outer.kind) &&
-        !append_resource_key(warp_resource_key(config.slots.warp_program.outer),
-                             keys, count))
-      return false;
-    if (warp_uses_noise(config.slots.warp_program.inner.kind) &&
-        !append_resource_key(warp_resource_key(config.slots.warp_program.inner),
-                             keys, count))
-      return false;
-    if (is_noise_contour(config.slots.function) &&
-        !append_resource_key(source_resource_key(config), keys, count))
-      return false;
-    if (config.slots.surface_noise != SurfaceNoise::NONE &&
-        !append_resource_key(surface_noise_resource_key(config), keys, count))
-      return false;
-    if (config.slots.hue_shift == HueShiftMode::NOISE &&
-        config.params.color.hue_shift_amount != 0.0f &&
-        !append_resource_key(color_noise_resource_key(), keys, count))
-      return false;
-    return true;
-  }
-
-  HS_COLD_MEMBER static constexpr bool resource_union_fits(const Config &from,
-                                                           const Config &to) {
-    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
-    size_t count = 0;
-    return append_config_resource_keys(from, keys, count) &&
-           append_config_resource_keys(to, keys, count);
-  }
-
   HS_COLD_MEMBER bool prepare_resource_union(const Config &from,
                                              const Config &to) {
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
@@ -3505,7 +2848,7 @@ private:
     if (config.slots.hue_shift != HueShiftMode::NOISE ||
         config.params.color.hue_shift_amount == 0.0f)
       return nullptr;
-    return resolve_resource(color_noise_resource_key());
+    return resolve_resource(Workbench::color_noise_resource_key());
   }
 
   HS_COLD_MEMBER const BakedPalette &palette_for(PaletteMode mode) const {
@@ -3935,86 +3278,107 @@ private:
   }
 
   HS_COLD_MEMBER static const std::array<ProgramDescriptor,
-                                         INVERSE_PROGRAM_COUNT> &
+                                         Workbench::INVERSE_PROGRAM_COUNT> &
   inverse_programs() {
-    static constexpr std::array<ProgramDescriptor, INVERSE_PROGRAM_COUNT> PROGRAMS{{
-        make_program<GlitchNoiseGridWaveShearPipeline,
-                     InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
-                     make_topology_key(wave_shear_generated_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,
-                     InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
-                     make_topology_key(kaleidoscope_mirror_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<GnomonicKaleidoscopeGridMirrorPipeline,
-                     InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
-                     make_topology_key(
-                         gnomonic_kaleidoscope_grid_mirror_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<GnomonicAlienCoreMirrorPipeline,
-                     InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR,
-                     make_topology_key(
-                         gnomonic_grid_mirror_preset(SurfaceLens::GLITCH))>(
-            &all_continuous_parameters_supported),
-        make_program<PeirceDodecahedralGridPipeline,
-                     InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
-                     make_topology_key(peirce_dodecahedral_generated_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<GnomonicDodecahedralGridWaveMirrorPipeline,
-                     InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
-                     make_topology_key(gnomonic_wave_shear_grid_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<GnomonicAffineLatticeContourPipeline,
-                     InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR,
-                     make_topology_key(
-                         gnomonic_affine_lattice_contour_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<SinusoidalLatticeMeltPipeline,
-                     InversePipelineId::SINUSOIDAL_LATTICE_MELT,
-                     make_topology_key(sinusoidal_lattice_curl_preset(1.0f))>(
-            &all_continuous_parameters_supported),
-        make_program<StereographicPrismPolarWaveLatticePipeline,
-                     InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
-                     make_topology_key(
-                         stereographic_prism_polar_wave_lattice_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<
-            GnomonicDodecahedralGridVectorMirrorPipeline,
-            InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
-            make_topology_key(
-                gnomonic_dodecahedral_vector_mirror_grid_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<
-            StereographicDodecahedralGridInnerMirrorPipeline,
-            InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
-            make_topology_key(
-                stereographic_dodecahedral_grid_inner_mirror_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<
-            StereographicHexagonalPrismTwinWaveInnerMirrorPipeline,
-            InversePipelineId::
-                STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
-            make_topology_key(
-                stereographic_hexagonal_prism_twin_wave_mirror_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<
-            EquirectangularDodecahedralGridInnerMirrorPipeline,
-            InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
-            make_topology_key(
-                equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<StereographicAlienCoreMirrorPipeline,
-                     InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR,
-                     make_topology_key(
-                         stereographic_alien_core_mirror_preset())>(
-            &all_continuous_parameters_supported),
-        make_program<
-            StereographicMobiusTwinWaveInnerMirrorPipeline,
-            InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
-            make_topology_key(
-                stereographic_mobius_twin_wave_inner_mirror_preset())>(
-            &all_continuous_parameters_supported),
-    }};
+    static constexpr std::array<ProgramDescriptor,
+                                Workbench::INVERSE_PROGRAM_COUNT>
+        PROGRAMS{{
+            make_program<GlitchNoiseGridWaveShearPipeline,
+                         InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
+                         make_topology_key(
+                             Workbench::wave_shear_generated_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,
+                         InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
+                         make_topology_key(
+                             Workbench::kaleidoscope_mirror_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                GnomonicKaleidoscopeGridMirrorPipeline,
+                InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
+                make_topology_key(
+                    Workbench::gnomonic_kaleidoscope_grid_mirror_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<GnomonicAlienCoreMirrorPipeline,
+                         InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR,
+                         make_topology_key(
+                             Workbench::gnomonic_grid_mirror_preset(
+                                 SurfaceLens::GLITCH))>(
+                &all_continuous_parameters_supported),
+            make_program<
+                PeirceDodecahedralGridPipeline,
+                InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
+                make_topology_key(
+                    Workbench::peirce_dodecahedral_generated_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                GnomonicDodecahedralGridWaveMirrorPipeline,
+                InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
+                make_topology_key(
+                    Workbench::gnomonic_wave_shear_grid_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                GnomonicAffineLatticeContourPipeline,
+                InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR,
+                make_topology_key(
+                    Workbench::gnomonic_affine_lattice_contour_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<SinusoidalLatticeMeltPipeline,
+                         InversePipelineId::SINUSOIDAL_LATTICE_MELT,
+                         make_topology_key(
+                             Workbench::sinusoidal_lattice_curl_preset(1.0f))>(
+                &all_continuous_parameters_supported),
+            make_program<
+                StereographicPrismPolarWaveLatticePipeline,
+                InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
+                make_topology_key(
+                    Workbench::
+                        stereographic_prism_polar_wave_lattice_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                GnomonicDodecahedralGridVectorMirrorPipeline,
+                InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
+                make_topology_key(
+                    Workbench::
+                        gnomonic_dodecahedral_vector_mirror_grid_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                StereographicDodecahedralGridInnerMirrorPipeline,
+                InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
+                make_topology_key(
+                    Workbench::
+                        stereographic_dodecahedral_grid_inner_mirror_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                StereographicHexagonalPrismTwinWaveInnerMirrorPipeline,
+                InversePipelineId::
+                    STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
+                make_topology_key(
+                    Workbench::
+                        stereographic_hexagonal_prism_twin_wave_mirror_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                EquirectangularDodecahedralGridInnerMirrorPipeline,
+                InversePipelineId::
+                    EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
+                make_topology_key(
+                    Workbench::
+                        equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                StereographicAlienCoreMirrorPipeline,
+                InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR,
+                make_topology_key(
+                    Workbench::stereographic_alien_core_mirror_preset())>(
+                &all_continuous_parameters_supported),
+            make_program<
+                StereographicMobiusTwinWaveInnerMirrorPipeline,
+                InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
+                make_topology_key(
+                    Workbench::
+                        stereographic_mobius_twin_wave_inner_mirror_preset())>(
+                &all_continuous_parameters_supported),
+        }};
     return PROGRAMS;
   }
 
@@ -4048,12 +3412,6 @@ private:
     if (program == nullptr || !program->resources_ready(frame))
       return nullptr;
     return program;
-  }
-
-  static constexpr bool strict_projection(Projection projection) {
-    return projection == Projection::BONNE ||
-           projection == Projection::PEIRCE_QUINCUNCIAL ||
-           projection == Projection::AIROCEAN;
   }
 
   static bool projection_edge_distance_required(const FrameState &frame) {
@@ -5166,196 +4524,6 @@ private:
   }
 #endif
 
-  template <typename Enum>
-  HS_COLD_MEMBER static constexpr bool enum_at_most(Enum value, Enum last) {
-    return static_cast<uint8_t>(value) <= static_cast<uint8_t>(last);
-  }
-
-  HS_COLD_MEMBER static constexpr bool is_noise_contour(Function function) {
-    return function == Function::NOISE_CONTOUR ||
-           function == Function::NOISE_CONTOUR_SPHERE;
-  }
-
-  HS_COLD_MEMBER static constexpr bool is_sphere_source(Function function) {
-    return function == Function::NOISE_CONTOUR_SPHERE ||
-           function == Function::SPHERICAL_RINGS;
-  }
-
-  HS_COLD_MEMBER static constexpr SourceTraits
-  source_traits(Function function) {
-    switch (function) {
-    case Function::GRID:
-      return {true, true};
-    case Function::PRIMITIVE_LATTICE:
-      return {true, true};
-    case Function::TWIN_WAVE:
-    case Function::RINGS:
-    case Function::SPIRAL:
-    case Function::NOISE_CONTOUR:
-    case Function::NOISE_CONTOUR_SPHERE:
-    case Function::SPHERICAL_RINGS:
-    case Function::FRACTAL:
-    case Function::TESSELLATION:
-      return {false, false};
-    }
-    return {false, false};
-  }
-
-  HS_COLD_MEMBER static constexpr Complex
-  source_cartesian_period(Function function, float lattice_cell_scale) {
-    if (function != Function::PRIMITIVE_LATTICE || !(lattice_cell_scale > 0.0f))
-      return {};
-    const float period = 1.0f / lattice_cell_scale;
-    return {period, period};
-  }
-
-  HS_COLD_MEMBER static constexpr Complex
-  source_cartesian_period(const Config &config) {
-    return source_cartesian_period(config.slots.function,
-                                   config.params.source.lattice_cell_scale);
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  affine_has_translation(const WarpStageSpec &spec,
-                         const WarpStageParams &params) {
-    return spec.kind == WarpStageKind::AFFINE_FRAME &&
-           (params.translation_x != 0.0f || params.translation_y != 0.0f);
-  }
-
-  HS_COLD_MEMBER static constexpr bool whole_affine_winding(float value) {
-    if (!(value >= -4.0f && value <= 4.0f))
-      return false;
-    return value == static_cast<float>(static_cast<int>(value));
-  }
-
-  HS_COLD_MEMBER static constexpr float
-  hue_shift_amount_max(HueShiftMode mode) {
-    return mode == HueShiftMode::NOISE ? HUE_NOISE_AMOUNT_MAX
-                                       : HUE_SHIFT_AMOUNT_MAX;
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  hue_shift_amount_in_range(const Config &config) {
-    return config.params.color.hue_shift_amount >=
-               -hue_shift_amount_max(config.slots.hue_shift) &&
-           config.params.color.hue_shift_amount <=
-               hue_shift_amount_max(config.slots.hue_shift);
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  affine_translation_compatible(const Config &config) {
-    const bool outer = affine_has_translation(config.slots.warp_program.outer,
-                                              config.params.warp.outer);
-    const bool inner = affine_has_translation(config.slots.warp_program.inner,
-                                              config.params.warp.inner);
-    if (!outer && !inner)
-      return true;
-    if (config.slots.function != Function::PRIMITIVE_LATTICE ||
-        (outer &&
-         config.slots.warp_program.inner.kind != WarpStageKind::NONE) ||
-        (config.slots.hue_shift == HueShiftMode::WARP_DISPLACEMENT &&
-         config.params.color.hue_shift_amount != 0.0f))
-      return false;
-    return (!outer ||
-            (whole_affine_winding(config.params.warp.outer.translation_x) &&
-             whole_affine_winding(config.params.warp.outer.translation_y))) &&
-           (!inner ||
-            (whole_affine_winding(config.params.warp.inner.translation_x) &&
-             whole_affine_winding(config.params.warp.inner.translation_y)));
-  }
-
-  /// Source periods spanned by one angular seam jump of a polar chart.
-  /// Primitive Lattice is periodic in its own cell scale and ignores the
-  /// pattern frequency, so its seam spans `2*pi*harmonic*cell_scale` cells.
-  HS_COLD_MEMBER static constexpr float
-  polar_seam_periods(const RequestedConfig &config,
-                     const WarpStageSpec &polar) {
-    const float harmonic = static_cast<float>(polar.polar_harmonic);
-    if (config.slots.function == Function::PRIMITIVE_LATTICE)
-      return TWO_PI_F * harmonic * config.params.source.lattice_cell_scale;
-    return config.params.source.pattern_freq * harmonic;
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  polar_source_compatible(const RequestedConfig &config,
-                          const WarpStageSpec &polar) {
-    const SourceTraits traits = source_traits(config.slots.function);
-    if (!traits.y_periodic || !traits.polar_angle_compatible)
-      return false;
-    const float periods = polar_seam_periods(config, polar);
-    return periods == static_cast<float>(static_cast<int>(periods));
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  strict_seam_compatible(const Config &config) {
-    if (!strict_projection(config.slots.projection))
-      return true;
-    return config.slots.function != Function::NOISE_CONTOUR &&
-           !seam_sensitive_warp(config.slots.warp_program.outer.kind) &&
-           !seam_sensitive_warp(config.slots.warp_program.inner.kind);
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  valid_config(const RequestedConfig &candidate) {
-    const Slots &slots = candidate.slots;
-    if (!valid_slot_enums(slots))
-      return false;
-    if (is_sphere_source(slots.function) &&
-        (slots.warp_program.outer.kind != WarpStageKind::NONE ||
-         slots.warp_program.inner.kind != WarpStageKind::NONE))
-      return false;
-    if (slots.surface_lens == SurfaceLens::TANGENT_NOISE ||
-        slots.warp_program.outer.kind == WarpStageKind::LEGACY_STEREO_NOISE ||
-        slots.warp_program.inner.kind == WarpStageKind::LEGACY_STEREO_NOISE)
-      return false;
-    const bool outer_polar =
-        slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART;
-    const bool inner_polar =
-        slots.warp_program.inner.kind == WarpStageKind::POLAR_CHART;
-    if ((outer_polar && slots.warp_program.inner.kind != WarpStageKind::NONE &&
-         slots.warp_program.inner.kind != WarpStageKind::WAVE_SHEAR) ||
-        (inner_polar && slots.warp_program.outer.kind != WarpStageKind::NONE))
-      return false;
-    if (inner_polar &&
-        !polar_source_compatible(candidate, slots.warp_program.inner))
-      return false;
-    if (outer_polar &&
-        slots.warp_program.inner.kind == WarpStageKind::WAVE_SHEAR) {
-      const SourceTraits traits = source_traits(slots.function);
-      if (!traits.y_periodic || !traits.polar_angle_compatible)
-        return false;
-    }
-    if (outer_polar && slots.warp_program.inner.kind == WarpStageKind::NONE &&
-        !polar_source_compatible(candidate, slots.warp_program.outer))
-      return false;
-    if (!affine_translation_compatible(candidate) ||
-        !strict_seam_compatible(candidate) || !preset_in_ranges(candidate) ||
-        !hue_shift_amount_in_range(candidate))
-      return false;
-    if (!valid_stage_tuple(slots.warp_program.outer,
-                           candidate.params.warp.outer) ||
-        !valid_stage_tuple(slots.warp_program.inner,
-                           candidate.params.warp.inner) ||
-        !safe_program_bounds(candidate))
-      return false;
-    if (slots.surface_lens == SurfaceLens::MOBIUS &&
-        !valid_mobius(candidate.params.surface_lens.mobius))
-      return false;
-    const SurfaceNoiseParams &surface_noise = candidate.params.surface_noise;
-    if (!enum_at_most(surface_noise.basis, NoiseBasis::RIDGED3) ||
-        !enum_at_most(surface_noise.integrator,
-                      SurfaceCurlIntegrator::MIDPOINT_2X) ||
-        surface_noise.scale < LENS_NOISE_SCALE_MIN ||
-        surface_noise.scale > LENS_NOISE_SCALE_MAX ||
-        surface_noise.strength <
-            (slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f) ||
-        surface_noise.strength > 0.5f || surface_noise.rate < NOISE_RATE_MIN ||
-        surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
-        surface_noise.direction > 1.0f)
-      return false;
-    return resource_union_fits(candidate, candidate);
-  }
-
   /**
    * @brief Admission test for a requested configuration.
    * @details The simulator accepts every structurally valid configuration;
@@ -5448,7 +4616,7 @@ private:
       append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
                            NOISE_SPEED_MAX);
       const float strength_limit = curl_strength_limit(spec, params);
-      if (abs_value(params.strength) > strength_limit)
+      if (Workbench::abs_value(params.strength) > strength_limit)
         append_warning(
             " %s at Warp Scale %.7g requires |Warp Strength| <= %.9f; "
             "current value is %.7g.",
@@ -5611,8 +4779,8 @@ private:
       const WarpStageParams &params = outer_scroll
                                           ? candidate.params.warp.outer
                                           : candidate.params.warp.inner;
-      if (!whole_affine_winding(params.translation_x) ||
-          !whole_affine_winding(params.translation_y))
+      if (!Workbench::whole_affine_winding(params.translation_x) ||
+          !Workbench::whole_affine_winding(params.translation_y))
         return begin_warning(
             "%s Affine Frame translation must use whole source-cell windings. "
             "Set Translation X and Translation Y to whole numbers.",
@@ -5693,7 +4861,7 @@ private:
     if (!safe_program_bounds(candidate))
       return program_bounds_warning(candidate);
     if (candidate.slots.surface_lens == SurfaceLens::MOBIUS &&
-        !valid_mobius(candidate.params.surface_lens.mobius)) {
+        !Workbench::valid_mobius(candidate.params.surface_lens.mobius)) {
       const MobiusParams &m = candidate.params.surface_lens.mobius;
       const float det_re =
           m.a.re * m.d.re - m.a.im * m.d.im - m.b.re * m.c.re + m.b.im * m.c.im;
@@ -5731,353 +4899,6 @@ private:
         edited_name);
   }
 #endif
-
-  HS_COLD_MEMBER static constexpr bool
-  valid_warp_spec(const WarpStageSpec &spec) {
-    return enum_at_most(spec.basis, NoiseBasis::RIDGED3) &&
-           enum_at_most(spec.envelope, WarpEnvelope::EDGE_FADE) &&
-           enum_at_most(spec.polar_mode, PolarMode::LOGARITHMIC) &&
-           enum_at_most(spec.curl_integrator, CurlIntegrator::MIDPOINT_4) &&
-           spec.polar_harmonic >= 1 &&
-           spec.polar_harmonic <= POLAR_HARMONIC_MAX;
-  }
-
-  HS_COLD_MEMBER static constexpr float abs_value(float value) {
-    return value < 0.0f ? -value : value;
-  }
-
-  HS_COLD_MEMBER static constexpr int
-  curl_intervals(CurlIntegrator integrator) {
-    return integrator == CurlIntegrator::EULER_1      ? 1
-           : integrator == CurlIntegrator::MIDPOINT_2 ? 2
-                                                      : 4;
-  }
-
-  /** @brief Maximum component emitted by the bounded curl vector field. */
-  HS_COLD_MEMBER static constexpr float
-  curl_vector_component_bound(NoiseBasis) {
-    return CURL_VECTOR_COMPONENT_MAX;
-  }
-
-  /**
-   * @brief Largest curl-flow strength the stage stability inequality admits at
-   *        a stage's live scale, basis, and integrator.
-   * @details Solves `scale * |strength| * G / n <= 1/2` — the same inequality
-   * `valid_stage_tuple` enforces — for `|strength|`, so the registered slider
-   * spans exactly the admissible set instead of a range whose bulk is rejected.
-   */
-  HS_COLD_MEMBER static constexpr float
-  curl_strength_limit(const WarpStageSpec &spec,
-                      const WarpStageParams &params) {
-    const float scale =
-        params.scale > WARP_SCALE_MIN ? params.scale : WARP_SCALE_MIN;
-    const float stable_limit =
-        0.5f * static_cast<float>(curl_intervals(spec.curl_integrator)) /
-        (scale * curl_vector_component_bound(spec.basis));
-    return stable_limit < CURL_WARP_STRENGTH_MAX ? stable_limit
-                                                 : CURL_WARP_STRENGTH_MAX;
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
-    switch (spec.kind) {
-    case WarpStageKind::NONE:
-      return true;
-    case WarpStageKind::LEGACY_STEREO_NOISE:
-      return false;
-    case WarpStageKind::AFFINE_FRAME:
-      return params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
-             params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
-             params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
-             params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
-             params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
-             params.shear >= -0.75f && params.shear <= 0.75f &&
-             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-    case WarpStageKind::WAVE_SHEAR:
-      return params.strength >= -4.0f && params.strength <= 4.0f &&
-             params.frequency >= 0.0f && params.frequency <= 64.0f &&
-             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-    case WarpStageKind::VORTEX:
-      return params.radius >= 1.0f / 64.0f && params.radius <= 8.0f &&
-             params.turns >= -4.0f && params.turns <= 4.0f &&
-             params.center_orbit_radius >= 0.0f &&
-             params.center_orbit_radius <= 4.0f &&
-             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-    case WarpStageKind::VECTOR_NOISE:
-      return params.strength >= 0.0f &&
-             params.strength <= VECTOR_WARP_STRENGTH_MAX &&
-             params.scale >= 1.0f / 64.0f &&
-             params.scale <= VECTOR_WARP_SCALE_MAX &&
-             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-    case WarpStageKind::CURL_FLOW:
-      return params.strength >= -CURL_WARP_STRENGTH_MAX &&
-             params.strength <= CURL_WARP_STRENGTH_MAX &&
-             params.scale >= 1.0f / 64.0f &&
-             params.scale <= CURL_WARP_SCALE_MAX &&
-             params.speed >= NOISE_SPEED_MIN &&
-             params.speed <= NOISE_SPEED_MAX &&
-             params.scale * abs_value(params.strength) *
-                     curl_vector_component_bound(spec.basis) /
-                     curl_intervals(spec.curl_integrator) <=
-                 0.5f;
-    case WarpStageKind::MIRROR_TILE:
-      return params.rotation >= 0.0f && params.rotation <= TWO_PI_F &&
-             params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
-             params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
-             params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-    case WarpStageKind::POLAR_CHART:
-      return params.radial_scale >= 1.0f / 64.0f &&
-             params.radial_scale <= 16.0f && params.speed >= NOISE_SPEED_MIN &&
-             params.speed <= NOISE_SPEED_MAX;
-    }
-    return false;
-  }
-
-  HS_COLD_MEMBER static constexpr float
-  projection_coordinate_bound(const Config &config) {
-    if (config.slots.surface_lens == SurfaceLens::MOBIUS)
-      return STEREO_INF;
-    if (config.slots.projection == Projection::STEREOGRAPHIC)
-      return STEREO_INF;
-    if (config.slots.projection == Projection::GNOMONIC)
-      return 1.0f / GNOMONIC_AXIS_EPS;
-    if (strict_projection(config.slots.projection))
-      return 16.0f * config.params.projection.coordinate_scale;
-    return 4.0f;
-  }
-
-  HS_COLD_MEMBER static constexpr float
-  stage_coordinate_bound(const WarpStageSpec &spec,
-                         const WarpStageParams &params, float input_bound,
-                         const Complex &source_period) {
-    switch (spec.kind) {
-    case WarpStageKind::NONE:
-      return input_bound;
-    case WarpStageKind::LEGACY_STEREO_NOISE:
-      return WARP_COORD_LIMIT + 1.0f;
-    case WarpStageKind::AFFINE_FRAME: {
-      const float rotated = 1.414214f * input_bound;
-      const float x_bound = rotated / params.scale_x +
-                            abs_value(params.shear) * rotated / params.scale_y +
-                            abs_value(params.translation_x * source_period.re);
-      const float y_bound = rotated / params.scale_y +
-                            abs_value(params.translation_y * source_period.im);
-      return x_bound > y_bound ? x_bound : y_bound;
-    }
-    case WarpStageKind::WAVE_SHEAR:
-      return input_bound + abs_value(params.strength);
-    case WarpStageKind::VORTEX: {
-      const float center_x =
-          abs_value(params.center_x) + params.center_orbit_radius;
-      const float center_y =
-          abs_value(params.center_y) + params.center_orbit_radius;
-      const float center_bound = center_x > center_y ? center_x : center_y;
-      return 1.414214f * (input_bound + center_bound) + center_bound;
-    }
-    case WarpStageKind::VECTOR_NOISE:
-      return input_bound + 1.414214f * params.strength;
-    case WarpStageKind::CURL_FLOW:
-      return input_bound + 1.414214f * abs_value(params.strength) *
-                               params.scale *
-                               curl_vector_component_bound(spec.basis);
-    case WarpStageKind::MIRROR_TILE:
-      return 1.414214f * (params.cell_x + params.cell_y);
-    case WarpStageKind::POLAR_CHART: {
-      const float radial =
-          params.radial_scale * (spec.polar_mode == PolarMode::LOGARITHMIC
-                                     ? 12.0f
-                                     : input_bound) +
-          TWO_PI_F;
-      return radial > 17.0f * PI_F ? radial : 17.0f * PI_F;
-    }
-    }
-    return WARP_COORD_LIMIT + 1.0f;
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  safe_program_bounds(const Config &config) {
-    float bound = projection_coordinate_bound(config);
-    const Complex source_period = source_cartesian_period(config);
-    const WarpStageSpec stages[] = {config.slots.warp_program.outer,
-                                    config.slots.warp_program.inner};
-    const WarpStageParams params[] = {config.params.warp.outer,
-                                      config.params.warp.inner};
-    for (size_t index = 0; index < 2; ++index) {
-      if ((stages[index].kind == WarpStageKind::VECTOR_NOISE ||
-           stages[index].kind == WarpStageKind::CURL_FLOW) &&
-          params[index].scale * (bound + 100.0f) > NOISE_LATTICE_LIMIT)
-        return false;
-      bound = stage_coordinate_bound(stages[index], params[index], bound,
-                                     source_period);
-      if (bound > WARP_COORD_LIMIT)
-        return false;
-    }
-    if (config.slots.function == Function::NOISE_CONTOUR &&
-        config.params.source.noise_scale * bound > NOISE_LATTICE_LIMIT)
-      return false;
-    return true;
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  valid_mobius(const MobiusParams &params) {
-    const float ad_re = params.a.re * params.d.re - params.a.im * params.d.im;
-    const float ad_im = params.a.re * params.d.im + params.a.im * params.d.re;
-    const float bc_re = params.b.re * params.c.re - params.b.im * params.c.im;
-    const float bc_im = params.b.re * params.c.im + params.b.im * params.c.re;
-    const float det_re = ad_re - bc_re;
-    const float det_im = ad_im - bc_im;
-    return coefficient_in_range(params.a) && coefficient_in_range(params.b) &&
-           coefficient_in_range(params.c) && coefficient_in_range(params.d) &&
-           det_re * det_re + det_im * det_im >= 1e-6f;
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  coefficient_in_range(const Complex &coefficient) {
-    return coefficient.re >= -8.0f && coefficient.re <= 8.0f &&
-           coefficient.im >= -8.0f && coefficient.im <= 8.0f;
-  }
-
-  HS_COLD_MEMBER static constexpr float max_value(float a, float b) {
-    return a > b ? a : b;
-  }
-
-  HS_COLD_MEMBER static constexpr float min_value(float a, float b) {
-    return a < b ? a : b;
-  }
-
-  HS_COLD_MEMBER static constexpr float max_abs_value(float a, float b) {
-    return max_value(abs_value(a), abs_value(b));
-  }
-
-  HS_COLD_MEMBER static constexpr void
-  maximize_stage_path(WarpStageParams &out, const WarpStageParams &a,
-                      const WarpStageParams &b) {
-    out.translation_x = max_abs_value(a.translation_x, b.translation_x);
-    out.translation_y = max_abs_value(a.translation_y, b.translation_y);
-    out.scale_x = min_value(a.scale_x, b.scale_x);
-    out.scale_y = min_value(a.scale_y, b.scale_y);
-    out.shear = max_abs_value(a.shear, b.shear);
-    out.strength = max_abs_value(a.strength, b.strength);
-    out.scale = max_value(a.scale, b.scale);
-    out.center_x = max_abs_value(a.center_x, b.center_x);
-    out.center_y = max_abs_value(a.center_y, b.center_y);
-    out.center_orbit_radius =
-        max_value(a.center_orbit_radius, b.center_orbit_radius);
-    out.cell_x = max_value(a.cell_x, b.cell_x);
-    out.cell_y = max_value(a.cell_y, b.cell_y);
-    out.radial_scale = max_value(a.radial_scale, b.radial_scale);
-  }
-
-  HS_COLD_MEMBER static constexpr bool safe_program_path(const Config &from,
-                                                         const Config &to) {
-    Config worst = from;
-    worst.params.projection.coordinate_scale =
-        max_value(from.params.projection.coordinate_scale,
-                  to.params.projection.coordinate_scale);
-    worst.params.source.noise_scale =
-        max_value(from.params.source.noise_scale, to.params.source.noise_scale);
-    worst.params.source.lattice_cell_scale =
-        min_value(from.params.source.lattice_cell_scale,
-                  to.params.source.lattice_cell_scale);
-    maximize_stage_path(worst.params.warp.outer, from.params.warp.outer,
-                        to.params.warp.outer);
-    maximize_stage_path(worst.params.warp.inner, from.params.warp.inner,
-                        to.params.warp.inner);
-    return safe_program_bounds(worst);
-  }
-
-  HS_COLD_MEMBER static constexpr bool polar_pair_stable(const Config &from,
-                                                         const Config &to) {
-    const WarpStageSpec &outer = from.slots.warp_program.outer;
-    const WarpStageSpec &inner = from.slots.warp_program.inner;
-    return (outer.kind != WarpStageKind::POLAR_CHART ||
-            polar_seam_periods(from, outer) == polar_seam_periods(to, outer)) &&
-           (inner.kind != WarpStageKind::POLAR_CHART ||
-            polar_seam_periods(from, inner) == polar_seam_periods(to, inner));
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  affine_winding_pair_stable(const WarpStageSpec &spec,
-                             const WarpStageParams &a,
-                             const WarpStageParams &b) {
-    return spec.kind != WarpStageKind::AFFINE_FRAME ||
-           (a.translation_x == b.translation_x &&
-            a.translation_y == b.translation_y);
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  stable_parameter_path_admitted(const Config &from, const Config &to) {
-    return curl_pair_stable(from.slots.warp_program.outer,
-                            from.params.warp.outer, to.params.warp.outer) &&
-           curl_pair_stable(from.slots.warp_program.inner,
-                            from.params.warp.inner, to.params.warp.inner) &&
-           affine_winding_pair_stable(from.slots.warp_program.outer,
-                                      from.params.warp.outer,
-                                      to.params.warp.outer) &&
-           affine_winding_pair_stable(from.slots.warp_program.inner,
-                                      from.params.warp.inner,
-                                      to.params.warp.inner) &&
-           polar_pair_stable(from, to) && safe_program_path(from, to);
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  same_parameter_topology(const Config &from, const Config &to) {
-    Slots from_slots = from.slots;
-    Slots to_slots = to.slots;
-    from_slots.palette_mapping = PaletteMapping::LINEAR;
-    to_slots.palette_mapping = PaletteMapping::LINEAR;
-    return from_slots == to_slots &&
-           from.params.source.noise_basis == to.params.source.noise_basis &&
-           from.params.source.noise_seed == to.params.source.noise_seed &&
-           from.params.value.band_count == to.params.value.band_count &&
-           from.params.surface_noise.basis == to.params.surface_noise.basis &&
-           from.params.surface_noise.integrator ==
-               to.params.surface_noise.integrator &&
-           from.params.surface_noise.seed == to.params.surface_noise.seed &&
-           from.params.surface_lens.mobius.a.re ==
-               to.params.surface_lens.mobius.a.re &&
-           from.params.surface_lens.mobius.a.im ==
-               to.params.surface_lens.mobius.a.im &&
-           from.params.surface_lens.mobius.b.re ==
-               to.params.surface_lens.mobius.b.re &&
-           from.params.surface_lens.mobius.b.im ==
-               to.params.surface_lens.mobius.b.im &&
-           from.params.surface_lens.mobius.c.re ==
-               to.params.surface_lens.mobius.c.re &&
-           from.params.surface_lens.mobius.c.im ==
-               to.params.surface_lens.mobius.c.im &&
-           from.params.surface_lens.mobius.d.re ==
-               to.params.surface_lens.mobius.d.re &&
-           from.params.surface_lens.mobius.d.im ==
-               to.params.surface_lens.mobius.d.im;
-  }
-
-  HS_COLD_MEMBER static constexpr bool stable_topology(const Config &from,
-                                                       const Config &to) {
-    return valid_config(from) && valid_config(to) &&
-           same_parameter_topology(from, to) &&
-           stable_parameter_path_admitted(from, to);
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  curl_pair_stable(const WarpStageSpec &spec, const WarpStageParams &a,
-                   const WarpStageParams &b) {
-    if (spec.kind != WarpStageKind::CURL_FLOW)
-      return true;
-    const float scale = a.scale > b.scale ? a.scale : b.scale;
-    const float a_distance = abs_value(a.strength);
-    const float b_distance = abs_value(b.strength);
-    const float distance = a_distance > b_distance ? a_distance : b_distance;
-    return scale * distance * curl_vector_component_bound(spec.basis) /
-               curl_intervals(spec.curl_integrator) <=
-           0.5f;
-  }
-
-  /** @brief Reports whether both transition endpoints are admissible holds. */
-  HS_COLD_MEMBER static constexpr bool transition_admitted(const Config &from,
-                                                           const Config &to) {
-    return valid_config(from) && valid_config(to);
-  }
 
   HS_COLD_MEMBER static constexpr Choreo preset_choreo() {
 #ifdef HS_PROFILE_SHADER_WORKBENCH_FAST_CYCLE
@@ -6127,1027 +4948,16 @@ private:
         hue, sequence, harmony, chroma, out);
   }
 
-  static constexpr uint8_t BOUNDARY_CUT =
-      projections::projection_boundary(projections::ProjectionBoundary::CUT);
-  static constexpr uint8_t BOUNDARY_SINGULAR = projections::projection_boundary(
-      projections::ProjectionBoundary::SINGULAR);
-  static constexpr uint8_t PROJECTION_FLAG_FOLDED = 1U << 0;
-  static constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
-  static constexpr float WARP_COORD_LIMIT = 65536.0f;
-  static constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
   static constexpr uint32_t HUE_STEP =
       EffectPaletteRecipes::GeneratedPaletteBank::HUE_STEP;
   static constexpr size_t PARAM_CAPACITY = 80;
 
-  static constexpr const char *FUNCTION_OPTIONS[] = {
-      "Twin Wave",
-      "Rings",
-      "Spiral",
-      "Grid",
-      "Noise Contour (Projected)",
-      "Primitive Lattice",
-      "Noise Contour (Sphere)",
-      "Spherical Rings",
-      "Escape Fractal",
-      "Tessellation"};
-  static constexpr const char *FUNCTION_EXPORT_OPTIONS[] = {
-      "Function::TWIN_WAVE",
-      "Function::RINGS",
-      "Function::SPIRAL",
-      "Function::GRID",
-      "Function::NOISE_CONTOUR",
-      "Function::PRIMITIVE_LATTICE",
-      "Function::NOISE_CONTOUR_SPHERE",
-      "Function::SPHERICAL_RINGS",
-      "Function::FRACTAL",
-      "Function::TESSELLATION"};
-  static constexpr int NUM_FUNCTIONS = std::size(FUNCTION_OPTIONS);
-  static constexpr const char *TESSELLATION_KIND_OPTIONS[] = {
-      "Triangular", "Square", "Hexagonal"};
-  static constexpr const char *TESSELLATION_KIND_EXPORT_OPTIONS[] = {
-      "Pullback::Source::TessellationKind::TRIANGULAR",
-      "Pullback::Source::TessellationKind::SQUARE",
-      "Pullback::Source::TessellationKind::HEXAGONAL"};
-  static constexpr int NUM_TESSELLATION_KINDS =
-      std::size(TESSELLATION_KIND_OPTIONS);
-  static constexpr const char *PROJECTION_OPTIONS[] = {
-      "Folded Sinusoidal",  "Stereographic",       "Gnomonic",       "Bonne",
-      "Peirce Quincuncial", "Dymaxion / Airocean", "Equirectangular"};
-  static constexpr const char *PROJECTION_EXPORT_OPTIONS[] = {
-      "Projection::SINUSOIDAL",         "Projection::STEREOGRAPHIC",
-      "Projection::GNOMONIC",           "Projection::BONNE",
-      "Projection::PEIRCE_QUINCUNCIAL", "Projection::AIROCEAN",
-      "Projection::EQUIRECTANGULAR"};
-  static constexpr int NUM_PROJECTIONS = std::size(PROJECTION_OPTIONS);
-  static constexpr const char *PEIRCE_LAYOUT_OPTIONS[] = {
-      "Diamond", "Square", "Horizontal", "Vertical"};
-  static constexpr const char *PEIRCE_LAYOUT_EXPORT_OPTIONS[] = {
-      "PeirceLayout::DIAMOND", "PeirceLayout::SQUARE",
-      "PeirceLayout::HORIZONTAL", "PeirceLayout::VERTICAL"};
-  static constexpr int NUM_PEIRCE_LAYOUTS = std::size(PEIRCE_LAYOUT_OPTIONS);
-  static constexpr const char *AIROCEAN_LAYOUT_OPTIONS[] = {"Vertical",
-                                                            "Horizontal"};
-  static constexpr const char *AIROCEAN_LAYOUT_EXPORT_OPTIONS[] = {
-      "AiroceanLayout::VERTICAL", "AiroceanLayout::HORIZONTAL"};
-  static constexpr int NUM_AIROCEAN_LAYOUTS =
-      std::size(AIROCEAN_LAYOUT_OPTIONS);
-  static constexpr const char *BONNE_HEMISPHERE_OPTIONS[] = {"North", "South"};
-  static constexpr const char *BONNE_HEMISPHERE_EXPORT_OPTIONS[] = {
-      "BonneHemisphere::NORTH", "BonneHemisphere::SOUTH"};
-  static constexpr int NUM_BONNE_HEMISPHERES =
-      std::size(BONNE_HEMISPHERE_OPTIONS);
-  static constexpr const char *GNOMONIC_HEMISPHERE_OPTIONS[] = {
-      "Folded", "Front Hemisphere", "Back Hemisphere"};
-  static constexpr const char *GNOMONIC_HEMISPHERE_EXPORT_OPTIONS[] = {
-      "GnomonicHemispherePolicy::FOLDED",
-      "GnomonicHemispherePolicy::FRONT_HEMISPHERE",
-      "GnomonicHemispherePolicy::BACK_HEMISPHERE"};
-  static constexpr int NUM_GNOMONIC_HEMISPHERES =
-      std::size(GNOMONIC_HEMISPHERE_OPTIONS);
-  static constexpr const char *PROJECTION_FRAME_OPTIONS[] = {"Identity",
-                                                             "Spin + Wander"};
-  static constexpr const char *PROJECTION_FRAME_EXPORT_OPTIONS[] = {
-      "ProjectionFramePolicy::IDENTITY", "ProjectionFramePolicy::SPIN_WANDER"};
-  static constexpr int NUM_PROJECTION_FRAMES =
-      std::size(PROJECTION_FRAME_OPTIONS);
-  static constexpr const char *LENS_OPTIONS[] = {
-      "None",
-      "Glitch",
-      "Twist",
-      "Kaleidoscope (Azimuthal 6-fold)",
-      "Mobius",
-      "Kaleidoscope (Tetrahedral)",
-      "Kaleidoscope (Octahedral / Cubic)",
-      "Kaleidoscope (Dodecahedral / Icosahedral)",
-      "Kaleidoscope (Triangular Prism)",
-      "Kaleidoscope (Square Prism)",
-      "Kaleidoscope (Pentagonal Prism)",
-      "Kaleidoscope (Hexagonal Prism)",
-      "Kaleidoscope (Octagonal Prism)"};
-  static constexpr const char *LENS_EXPORT_OPTIONS[] = {
-      "SurfaceLens::NONE",
-      "SurfaceLens::GLITCH",
-      "SurfaceLens::TWIST",
-      "SurfaceLens::KALEIDOSCOPE",
-      "SurfaceLens::MOBIUS",
-      "SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL",
-      "SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL",
-      "SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL",
-      "SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM",
-      "SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM",
-      "SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM",
-      "SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM",
-      "SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM"};
-  static constexpr int NUM_LENSES = std::size(LENS_OPTIONS);
-  static constexpr const char *SURFACE_NOISE_OPTIONS[] = {"None", "Direct",
-                                                          "Curl"};
-  static constexpr const char *SURFACE_NOISE_EXPORT_OPTIONS[] = {
-      "SurfaceNoise::NONE", "SurfaceNoise::DIRECT", "SurfaceNoise::CURL"};
-  static constexpr int NUM_SURFACE_NOISE = std::size(SURFACE_NOISE_OPTIONS);
-  static constexpr const char *SURFACE_NOISE_PLACEMENT_OPTIONS[] = {
-      "Before Lens", "After Lens"};
-  static constexpr const char *SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS[] = {
-      "SurfaceNoisePlacement::BEFORE_LENS",
-      "SurfaceNoisePlacement::AFTER_LENS"};
-  static constexpr int NUM_SURFACE_NOISE_PLACEMENTS =
-      std::size(SURFACE_NOISE_PLACEMENT_OPTIONS);
-  static constexpr const char *SURFACE_CURL_INTEGRATOR_OPTIONS[] = {
-      "Euler", "Midpoint", "Midpoint 2x"};
-  static constexpr const char *SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS[] = {
-      "SurfaceCurlIntegrator::EULER", "SurfaceCurlIntegrator::MIDPOINT",
-      "SurfaceCurlIntegrator::MIDPOINT_2X"};
-  static constexpr int NUM_SURFACE_CURL_INTEGRATORS =
-      std::size(SURFACE_CURL_INTEGRATOR_OPTIONS);
-  static constexpr const char *WARP_OPTIONS[] = {"None",
-                                                 "Affine Frame",
-                                                 "Wave Shear",
-                                                 "Vortex",
-                                                 "Projected Vector Noise",
-                                                 "Projected Curl Flow",
-                                                 "Mirror Tile",
-                                                 "Polar Chart"};
-  static constexpr const char *WARP_EXPORT_OPTIONS[] = {
-      "WarpStageKind::NONE",         "WarpStageKind::AFFINE_FRAME",
-      "WarpStageKind::WAVE_SHEAR",   "WarpStageKind::VORTEX",
-      "WarpStageKind::VECTOR_NOISE", "WarpStageKind::CURL_FLOW",
-      "WarpStageKind::MIRROR_TILE",  "WarpStageKind::POLAR_CHART"};
-  static constexpr int NUM_WARPS = std::size(WARP_OPTIONS);
-  static constexpr const char *warp_option(WarpStageKind kind) {
-    const uint8_t index = static_cast<uint8_t>(kind);
-    return index < NUM_WARPS ? WARP_OPTIONS[index] : "Legacy Stereo Noise";
-  }
-  static constexpr const char *NOISE_BASIS_OPTIONS[] = {"Simplex", "FBM 3",
-                                                        "Ridged 3"};
-  static constexpr const char *NOISE_BASIS_EXPORT_OPTIONS[] = {
-      "NoiseBasis::SIMPLEX", "NoiseBasis::FBM3", "NoiseBasis::RIDGED3"};
-  static constexpr int NUM_NOISE_BASES = std::size(NOISE_BASIS_OPTIONS);
-  static constexpr const char *POLAR_MODE_OPTIONS[] = {"Linear", "Logarithmic"};
-  static constexpr const char *POLAR_MODE_EXPORT_OPTIONS[] = {
-      "PolarMode::LINEAR", "PolarMode::LOGARITHMIC"};
-  static constexpr int NUM_POLAR_MODES = std::size(POLAR_MODE_OPTIONS);
-  static constexpr const char *CURL_INTEGRATOR_OPTIONS[] = {
-      "Euler 1", "Midpoint 2", "Midpoint 4"};
-  static constexpr const char *CURL_INTEGRATOR_EXPORT_OPTIONS[] = {
-      "CurlIntegrator::EULER_1", "CurlIntegrator::MIDPOINT_2",
-      "CurlIntegrator::MIDPOINT_4"};
-  static constexpr int NUM_CURL_INTEGRATORS =
-      std::size(CURL_INTEGRATOR_OPTIONS);
-  static constexpr int POLAR_HARMONIC_MAX = 16;
-  static constexpr int BAND_COUNT_MAX = 32;
-  static constexpr const char *WARP_ENVELOPE_OPTIONS[] = {
-      "Flat", "Projection Weight", "Edge Fade"};
-  static constexpr const char *WARP_ENVELOPE_EXPORT_OPTIONS[] = {
-      "WarpEnvelope::FLAT", "WarpEnvelope::PROJECTION_WEIGHT",
-      "WarpEnvelope::EDGE_FADE"};
-  static constexpr int NUM_WARP_ENVELOPES = std::size(WARP_ENVELOPE_OPTIONS);
-  static constexpr const char *SIGNAL_OPTIONS[] = {"None", "Projection"};
-  static constexpr const char *SIGNAL_EXPORT_OPTIONS[] = {
-      "SignalWeight::NONE", "SignalWeight::PROJECTION"};
-  static constexpr int NUM_SIGNALS = std::size(SIGNAL_OPTIONS);
-  static constexpr const char *VALUE_TRANSFER_OPTIONS[] = {
-      "None", "Ridge", "Iso Contour", "Smooth Bands"};
-  static constexpr const char *VALUE_TRANSFER_EXPORT_OPTIONS[] = {
-      "ValueTransfer::NONE", "ValueTransfer::RIDGE",
-      "ValueTransfer::ISO_CONTOUR", "ValueTransfer::SMOOTH_BANDS"};
-  static constexpr int NUM_VALUE_TRANSFERS = std::size(VALUE_TRANSFER_OPTIONS);
-  static constexpr const char *COVERAGE_OPTIONS[] = {
-      "Opaque", "Projection Weight Squared", "Value Cutout", "Edge Fade",
-      "Projection Weight"};
-  static constexpr const char *COVERAGE_EXPORT_OPTIONS[] = {
-      "CoveragePolicy::OPAQUE", "CoveragePolicy::PROJECTION_WEIGHT_SQUARED",
-      "CoveragePolicy::VALUE_CUTOUT", "CoveragePolicy::EDGE_FADE",
-      "CoveragePolicy::PROJECTION_WEIGHT"};
-  static constexpr int NUM_COVERAGE_POLICIES = std::size(COVERAGE_OPTIONS);
-  static constexpr const char *PALETTE_OPTIONS[] = {
-      "Generated Triadic", "Generated Complementary", "Generated Analogous"};
-  static constexpr const char *PALETTE_EXPORT_OPTIONS[] = {
-      "PaletteMode::TRIADIC", "PaletteMode::COMPLEMENTARY",
-      "PaletteMode::ANALOGOUS"};
-  static constexpr int NUM_PALETTES = std::size(PALETTE_OPTIONS);
-  static constexpr const char *PALETTE_MAPPING_OPTIONS[] = {
-      "Cup", "Bell", "Linear", "Reverse"};
-  static constexpr const char *PALETTE_MAPPING_EXPORT_OPTIONS[] = {
-      "PaletteMapping::CUP", "PaletteMapping::BELL", "PaletteMapping::LINEAR",
-      "PaletteMapping::REVERSE"};
-  static constexpr int NUM_PALETTE_MAPPINGS =
-      std::size(PALETTE_MAPPING_OPTIONS);
-  static constexpr const char *BRIGHTNESS_ENVELOPE_OPTIONS[] = {
-      "None", "Cup", "Bell", "Ascending", "Descending"};
-  static constexpr const char *BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS[] = {
-      "BrightnessEnvelope::NONE", "BrightnessEnvelope::CUP",
-      "BrightnessEnvelope::BELL", "BrightnessEnvelope::ASCENDING",
-      "BrightnessEnvelope::DESCENDING"};
-  static constexpr int NUM_BRIGHTNESS_ENVELOPES =
-      std::size(BRIGHTNESS_ENVELOPE_OPTIONS);
-  static constexpr const char *HUE_SHIFT_OPTIONS[] = {
-      "None", "Noise", "Total Warp Displacement"};
-  static constexpr const char *HUE_SHIFT_EXPORT_OPTIONS[] = {
-      "HueShiftMode::NONE", "HueShiftMode::NOISE",
-      "HueShiftMode::WARP_DISPLACEMENT"};
-  static constexpr int NUM_HUE_SHIFT_MODES = std::size(HUE_SHIFT_OPTIONS);
-
-  static constexpr float WARP_SCALE_MIN = 1.0f / 64.0f;
-  static constexpr float WARP_SCALE_MAX = 100.0f;
-  static constexpr float WARP_STRENGTH_MIN = -4.0f;
-  static constexpr float WARP_STRENGTH_MAX = 30.0f;
-  static constexpr float VECTOR_WARP_SCALE_MAX = 4.0f;
-  static constexpr float VECTOR_WARP_STRENGTH_MAX = 1.0f;
-  static constexpr float CURL_WARP_SCALE_MAX = 2.0f;
-  static constexpr float CURL_WARP_STRENGTH_MAX = 1.0f;
-  static constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
-  static constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
-  static constexpr float WARP_SPEED_MAX = 1.0f;
-  static constexpr float PATTERN_FREQ_MIN = 0.1f;
-  static constexpr float PATTERN_FREQ_MAX = 20.0f;
-  static constexpr float GRID_PATTERN_FREQ_MAX = 64.0f;
-  static constexpr float SPEED_MIN = -0.5f, SPEED_MAX = 5.0f;
-  static constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
-  static constexpr float PATTERN_MIX_MIN = 0.0f, PATTERN_MIX_MAX = 1.0f;
-  static constexpr float PHASE2_RATE_MIN = 0.0f, PHASE2_RATE_MAX = 2.0f;
-  static constexpr float SINGULARITY_FADE_MIN = 1.0f,
-                         SINGULARITY_FADE_MAX = 20.0f;
-  static constexpr float SPIN_RATE_MIN = 0.0f, SPIN_RATE_MAX = 0.05f;
-  static constexpr float WANDER_MIN = 0.0f, WANDER_MAX = 1.0f;
-  static constexpr float HUE_SHIFT_AMOUNT_MAX = 4.0f;
-  static constexpr float HUE_NOISE_AMOUNT_MAX = 1.0f;
-  static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
-  static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
-  static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
-  static constexpr float PALETTE_CHROMA_MIN = 0.0f;
-  static constexpr float PALETTE_CHROMA_MAX = 1.0f;
-  static constexpr float MAPPING_FREQUENCY_MIN = 1.0f;
-  static constexpr float MAPPING_FREQUENCY_MAX = 32.0f;
-  static constexpr float MAPPING_PHASE_MIN = -1.0f;
-  static constexpr float MAPPING_PHASE_MAX = 1.0f;
-  static constexpr float PHASE_OSCILLATION_DEPTH_MIN = 0.0f;
-  static constexpr float PHASE_OSCILLATION_DEPTH_MAX = 1.0f;
-  static constexpr float PHASE_OSCILLATION_SPEED_MAX = 0.01f;
-  static constexpr float BRIGHTNESS_DEPTH_MIN = 0.0f;
-  static constexpr float BRIGHTNESS_DEPTH_MAX = 1.0f;
-  static constexpr float VALUE_OPACITY_MIN = 0.0f;
-  static constexpr float VALUE_OPACITY_MAX = 1.0f;
-  static constexpr float WAVE_SPIN_MIN = -0.05f, WAVE_SPIN_MAX = 0.05f;
-  static constexpr float SOURCE_NOISE_SCALE_MIN = 0.0f;
-  static constexpr float SOURCE_NOISE_SCALE_MAX = 2.0f;
-  static constexpr float SOURCE_NOISE_RATE_MIN = -1.0f / 1024.0f;
-  static constexpr float SOURCE_NOISE_RATE_MAX = 1.0f / 1024.0f;
-  static constexpr float LENS_NOISE_SCALE_MIN = 1.0f / 64.0f;
-  static constexpr float LENS_NOISE_SCALE_MAX = 8.0f;
-  static constexpr float NOISE_RATE_MIN = -1.0f / 64.0f;
-  static constexpr float NOISE_RATE_MAX = 1.0f / 64.0f;
-  static constexpr float NOISE_SPEED_MIN = NOISE_RATE_MIN;
-  static constexpr float NOISE_SPEED_MAX = NOISE_RATE_MAX;
-  static constexpr float CELL_MIN = 1.0f / 64.0f;
-  static constexpr float CELL_MAX = 8.0f;
-  static constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
-
-  HS_COLD_MEMBER static constexpr bool preset_in_ranges(const Config &config) {
-    const Params &p = config.params;
-    return warp_stage_params_in_ranges(p.warp.outer) &&
-           warp_stage_params_in_ranges(p.warp.inner) &&
-           p.source.pattern_freq >= PATTERN_FREQ_MIN &&
-           p.source.pattern_freq <= pattern_freq_max(config.slots.function) &&
-           p.source.speed >= SPEED_MIN && p.source.speed <= SPEED_MAX &&
-           p.source.complexity >= COMPLEXITY_MIN &&
-           p.source.complexity <= COMPLEXITY_MAX &&
-           p.source.pattern_mix >= PATTERN_MIX_MIN &&
-           p.source.pattern_mix <= PATTERN_MIX_MAX &&
-           p.source.secondary_rate >= PHASE2_RATE_MIN &&
-           p.source.secondary_rate <= PHASE2_RATE_MAX &&
-           p.source.angle_rate >= WAVE_SPIN_MIN &&
-           p.source.angle_rate <= WAVE_SPIN_MAX &&
-           p.source.noise_scale >= SOURCE_NOISE_SCALE_MIN &&
-           p.source.noise_scale <= SOURCE_NOISE_SCALE_MAX &&
-           p.source.noise_contrast >= 0.0f && p.source.noise_contrast <= 8.0f &&
-           p.source.noise_time_rate >= SOURCE_NOISE_RATE_MIN &&
-           p.source.noise_time_rate <= SOURCE_NOISE_RATE_MAX &&
-           p.source.lattice_cell_scale >= CELL_MIN &&
-           p.source.lattice_cell_scale <= CELL_MAX &&
-           p.source.lattice_shape_blend >= 0.0f &&
-           p.source.lattice_shape_blend <= 1.0f &&
-           p.source.lattice_softness >= SOFTNESS_MIN &&
-           p.source.lattice_softness <= 1.0f &&
-           p.source.lattice_radius >= 1.0f / 64.0f &&
-           p.source.lattice_radius <= 0.49f &&
-           enum_at_most(p.source.noise_basis, NoiseBasis::RIDGED3) &&
-           p.source.ring_count >= 1 && p.source.ring_count <= 32 &&
-           p.source.ring_thickness >= 1.0f / 512.0f &&
-           p.source.ring_thickness <= 0.5f &&
-           p.source.ring_softness >= SOFTNESS_MIN &&
-           p.source.ring_softness <= 0.25f && p.source.ring_wander >= 0.0f &&
-           p.source.ring_wander <= 1.0f &&
-           p.source.fractal_scale >= 1.0f / 64.0f &&
-           p.source.fractal_scale <= 8.0f && p.source.fractal_iterations >= 2 &&
-           p.source.fractal_iterations <= 16 && p.source.julia_mix >= 0.0f &&
-           p.source.julia_mix <= 1.0f && p.source.julia_real >= -1.5f &&
-           p.source.julia_real <= 1.5f && p.source.julia_imaginary >= -1.5f &&
-           p.source.julia_imaginary <= 1.5f &&
-           p.source.fractal_contours >= 0.0f &&
-           p.source.fractal_contours <= 16.0f &&
-           p.source.tessellation_cell_scale >= 1.0f / 64.0f &&
-           p.source.tessellation_cell_scale <= 8.0f &&
-           p.source.tessellation_line_thickness >= SOFTNESS_MIN &&
-           p.source.tessellation_line_thickness <= 0.25f &&
-           p.source.tessellation_line_softness >= SOFTNESS_MIN &&
-           p.source.tessellation_line_softness <= 0.25f &&
-           enum_at_most(p.source.tessellation_kind,
-                        Pullback::Source::TessellationKind::HEXAGONAL) &&
-           p.projection.singularity_fade >= SINGULARITY_FADE_MIN &&
-           p.projection.singularity_fade <= SINGULARITY_FADE_MAX &&
-           p.projection.spin_rate >= SPIN_RATE_MIN &&
-           p.projection.spin_rate <= SPIN_RATE_MAX &&
-           p.projection.wander >= WANDER_MIN &&
-           p.projection.wander <= WANDER_MAX &&
-           p.projection.central_meridian >= 0.0f &&
-           p.projection.central_meridian <= TWO_PI_F &&
-           p.projection.coordinate_scale >= 0.25f &&
-           p.projection.coordinate_scale <= 4.0f &&
-           p.projection.bonne_standard_parallel >= 1e-3f &&
-           p.projection.bonne_standard_parallel <= 0.5f * PI_F &&
-           p.projection.layout_scroll >= -1.0f &&
-           p.projection.layout_scroll <= 1.0f &&
-           p.outer_camera.wander >= WANDER_MIN &&
-           p.outer_camera.wander <= WANDER_MAX &&
-           p.surface_noise.scale >= LENS_NOISE_SCALE_MIN &&
-           p.surface_noise.scale <= LENS_NOISE_SCALE_MAX &&
-           p.surface_noise.strength >= -0.5f &&
-           p.surface_noise.strength <= 0.5f &&
-           p.surface_noise.rate >= NOISE_RATE_MIN &&
-           p.surface_noise.rate <= NOISE_RATE_MAX &&
-           p.surface_noise.direction >= 0.0f &&
-           p.surface_noise.direction <= 1.0f &&
-           enum_at_most(p.surface_noise.basis, NoiseBasis::RIDGED3) &&
-           enum_at_most(p.surface_noise.integrator,
-                        SurfaceCurlIntegrator::MIDPOINT_2X) &&
-           p.value.iso_level >= 0.0f && p.value.iso_level <= 1.0f &&
-           p.value.iso_width >= SOFTNESS_MIN && p.value.iso_width <= 0.5f &&
-           p.value.band_count >= 1 && p.value.band_count <= BAND_COUNT_MAX &&
-           p.value.band_phase >= 0.0f && p.value.band_phase <= TWO_PI_F &&
-           p.value.cutout_threshold >= 0.0f &&
-           p.value.cutout_threshold <= 1.0f &&
-           p.value.cutout_softness >= SOFTNESS_MIN &&
-           p.value.cutout_softness <= 0.5f && p.value.edge_width >= 0.0f &&
-           p.value.edge_width <= 0.5f &&
-           p.color.hue_shift_amount >= -HUE_SHIFT_AMOUNT_MAX &&
-           p.color.hue_shift_amount <= HUE_SHIFT_AMOUNT_MAX &&
-           p.color.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
-           p.color.hue_noise_scale <= HUE_NOISE_SCALE_MAX &&
-           p.color.hue_noise_speed >= -HUE_NOISE_SPEED_MAX &&
-           p.color.hue_noise_speed <= HUE_NOISE_SPEED_MAX &&
-           p.color.palette_chroma >= PALETTE_CHROMA_MIN &&
-           p.color.palette_chroma <= PALETTE_CHROMA_MAX &&
-           p.color.mapping_frequency >= MAPPING_FREQUENCY_MIN &&
-           p.color.mapping_frequency <= MAPPING_FREQUENCY_MAX &&
-           p.color.mapping_phase >= MAPPING_PHASE_MIN &&
-           p.color.mapping_phase <= MAPPING_PHASE_MAX &&
-           p.color.phase_oscillation_depth >= PHASE_OSCILLATION_DEPTH_MIN &&
-           p.color.phase_oscillation_depth <= PHASE_OSCILLATION_DEPTH_MAX &&
-           p.color.phase_oscillation_speed >= -PHASE_OSCILLATION_SPEED_MAX &&
-           p.color.phase_oscillation_speed <= PHASE_OSCILLATION_SPEED_MAX &&
-           p.color.brightness_depth >= BRIGHTNESS_DEPTH_MIN &&
-           p.color.brightness_depth <= BRIGHTNESS_DEPTH_MAX &&
-           p.color.opacity_low >= VALUE_OPACITY_MIN &&
-           p.color.opacity_low <= VALUE_OPACITY_MAX &&
-           p.color.opacity_high >= VALUE_OPACITY_MIN &&
-           p.color.opacity_high <= VALUE_OPACITY_MAX;
-  }
-
-  HS_COLD_MEMBER static constexpr bool
-  warp_stage_params_in_ranges(const WarpStageParams &params) {
-    static_assert(sizeof(WarpStageParams) == 100,
-                  "WarpStageParams field set changed - update the range check");
-    return params.scale >= WARP_SCALE_MIN && params.scale <= WARP_SCALE_MAX &&
-           params.strength >= WARP_STRENGTH_MIN &&
-           params.strength <= WARP_STRENGTH_MAX &&
-           params.speed >= WARP_SPEED_MIN && params.speed <= WARP_SPEED_MAX &&
-           params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
-           params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
-           params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
-           params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
-           params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
-           params.shear >= -0.75f && params.shear <= 0.75f &&
-           params.frequency >= 0.0f && params.frequency <= 64.0f &&
-           params.field_angle >= 0.0f && params.field_angle <= TWO_PI_F &&
-           params.center_x >= -4.0f && params.center_x <= 4.0f &&
-           params.center_y >= -4.0f && params.center_y <= 4.0f &&
-           params.radius >= 1.0f / 64.0f && params.radius <= 8.0f &&
-           params.turns >= -4.0f && params.turns <= 4.0f &&
-           params.center_orbit_radius >= 0.0f &&
-           params.center_orbit_radius <= 4.0f && params.vector_angle >= 0.0f &&
-           params.vector_angle <= TWO_PI_F && params.cell_x >= CELL_MIN &&
-           params.cell_x <= CELL_MAX && params.cell_y >= CELL_MIN &&
-           params.cell_y <= CELL_MAX && params.offset_x >= -8.0f &&
-           params.offset_x <= 8.0f && params.offset_y >= -8.0f &&
-           params.offset_y <= 8.0f && params.radial_scale >= 1.0f / 64.0f &&
-           params.radial_scale <= 16.0f && params.radial_phase >= 0.0f &&
-           params.radial_phase <= TWO_PI_F && params.angular_phase >= 0.0f &&
-           params.angular_phase <= TWO_PI_F &&
-           params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
-  }
-
-  static constexpr Slots GENERATED_SURFACE_NOISE_SLOTS{
-      Function::GRID,
-      Projection::STEREOGRAPHIC,
-      ProjectionFramePolicy::SPIN_WANDER,
-      SurfaceLens::GLITCH,
-      {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
-      SignalWeight::PROJECTION,
-      ValueTransfer::NONE,
-      CoveragePolicy::OPAQUE,
-      PaletteMode::TRIADIC,
-      PeirceLayout::SQUARE,
-      AiroceanLayout::VERTICAL,
-      BonneHemisphere::NORTH,
-      GnomonicHemispherePolicy::FOLDED,
-      SurfaceNoise::DIRECT,
-      SurfaceNoisePlacement::AFTER_LENS};
-  /** @brief Index of a warp parameter name in the per-position name tables. */
-  enum WarpParamName : uint8_t {
-    WARP_NAME_TRANSLATION_X,
-    WARP_NAME_TRANSLATION_Y,
-    WARP_NAME_ROTATION,
-    WARP_NAME_SCALE_X,
-    WARP_NAME_SCALE_Y,
-    WARP_NAME_SHEAR,
-    WARP_NAME_FREQUENCY,
-    WARP_NAME_FIELD_ANGLE,
-    WARP_NAME_CENTER_X,
-    WARP_NAME_CENTER_Y,
-    WARP_NAME_RADIUS,
-    WARP_NAME_TURNS,
-    WARP_NAME_VECTOR_ANGLE,
-    WARP_NAME_CELL_X,
-    WARP_NAME_CELL_Y,
-    WARP_NAME_OFFSET_X,
-    WARP_NAME_OFFSET_Y,
-    WARP_NAME_RADIAL_SCALE,
-    WARP_NAME_RADIAL_PHASE,
-    WARP_NAME_ANGULAR_PHASE,
-    WARP_NAME_EDGE_WIDTH,
-    WARP_NAME_CENTER_ORBIT,
-    WARP_NAME_COUNT,
-  };
-
-  static constexpr const char *OUTER_WARP_PARAM_NAMES[] = {
-      "Planar Warp 1 Translation X", "Planar Warp 1 Translation Y",
-      "Planar Warp 1 Rotation",      "Planar Warp 1 Scale X",
-      "Planar Warp 1 Scale Y",       "Planar Warp 1 Shear",
-      "Planar Warp 1 Frequency",     "Planar Warp 1 Field Angle",
-      "Planar Warp 1 Center X",      "Planar Warp 1 Center Y",
-      "Planar Warp 1 Radius",        "Planar Warp 1 Turns",
-      "Planar Warp 1 Vector Angle",  "Planar Warp 1 Cell X",
-      "Planar Warp 1 Cell Y",        "Planar Warp 1 Offset X",
-      "Planar Warp 1 Offset Y",      "Planar Warp 1 Radial Scale",
-      "Planar Warp 1 Radial Phase",  "Planar Warp 1 Angular Phase",
-      "Planar Warp 1 Edge Width",    "Planar Warp 1 Center Orbit"};
-  static constexpr const char *INNER_WARP_PARAM_NAMES[] = {
-      "Planar Warp 2 Translation X", "Planar Warp 2 Translation Y",
-      "Planar Warp 2 Rotation",      "Planar Warp 2 Scale X",
-      "Planar Warp 2 Scale Y",       "Planar Warp 2 Shear",
-      "Planar Warp 2 Frequency",     "Planar Warp 2 Field Angle",
-      "Planar Warp 2 Center X",      "Planar Warp 2 Center Y",
-      "Planar Warp 2 Radius",        "Planar Warp 2 Turns",
-      "Planar Warp 2 Vector Angle",  "Planar Warp 2 Cell X",
-      "Planar Warp 2 Cell Y",        "Planar Warp 2 Offset X",
-      "Planar Warp 2 Offset Y",      "Planar Warp 2 Radial Scale",
-      "Planar Warp 2 Radial Phase",  "Planar Warp 2 Angular Phase",
-      "Planar Warp 2 Edge Width",    "Planar Warp 2 Center Orbit"};
-  static_assert(sizeof(OUTER_WARP_PARAM_NAMES) / sizeof(const char *) ==
-                    WARP_NAME_COUNT,
-                "outer warp name table must match WarpParamName");
-  static_assert(sizeof(INNER_WARP_PARAM_NAMES) / sizeof(const char *) ==
-                    WARP_NAME_COUNT,
-                "inner warp name table must match WarpParamName");
-  static constexpr Params
-  authored_params(SourceParams source, WarpStageParams outer_warp,
-                  ProjectionParams projection, SurfaceLensParams surface_lens,
-                  ColorParams color, OuterCameraParams outer_camera) {
-    const WarpStageParams inner_warp{0.1f, 0.0f, 0.0f};
-    projection.wander = outer_camera.wander;
-    color.hue_noise_speed = hs::clamp(
-        color.hue_noise_speed, -HUE_NOISE_SPEED_MAX, HUE_NOISE_SPEED_MAX);
-    return {source,       {outer_warp, inner_warp},
-            projection,   surface_lens,
-            {},           color,
-            outer_camera, {}};
-  }
-
-  static constexpr void normalize_config_ranges(Config &config) {
-    config.params.color.hue_noise_speed =
-        hs::clamp(config.params.color.hue_noise_speed, -HUE_NOISE_SPEED_MAX,
-                  HUE_NOISE_SPEED_MAX);
-    auto snap_affine = [](const WarpStageSpec &spec, WarpStageParams &params) {
-      if (spec.kind != WarpStageKind::AFFINE_FRAME)
-        return;
-      params.translation_x = snap_affine_winding(params.translation_x);
-      params.translation_y = snap_affine_winding(params.translation_y);
-    };
-    snap_affine(config.slots.warp_program.outer, config.params.warp.outer);
-    snap_affine(config.slots.warp_program.inner, config.params.warp.inner);
-  }
-
-  static constexpr float snap_affine_winding(float value) {
-    if (value <= -4.0f)
-      return -4.0f;
-    if (value >= 4.0f)
-      return 4.0f;
-    if (value != value)
-      return value;
-    return value < 0.0f ? static_cast<float>(static_cast<int>(value - 0.5f))
-                        : static_cast<float>(static_cast<int>(value + 0.5f));
-  }
-
-  static constexpr Config wave_shear_generated_preset(
-      float pattern_freq = 4.439f, float complexity = 0.5f,
-      float warp_strength = 0.5f, float warp_speed = 0.015625f) {
-    Slots slots = GENERATED_SURFACE_NOISE_SLOTS;
-    slots.warp_program.outer.kind = WarpStageKind::WAVE_SHEAR;
-    slots.surface_noise = SurfaceNoise::NONE;
-    slots.coverage = CoveragePolicy::PROJECTION_WEIGHT_SQUARED;
-    slots.palette_mapping = PaletteMapping::CUP;
-    Params params =
-        authored_params({pattern_freq, 0.245f, complexity, 0.0f, 0.0f, 0.0f},
-                        {1.0f, warp_strength, warp_speed}, {1.0f, 0.0f, 0.0f},
-                        {}, {0.292f, 0.6304219f, 0.0f}, {0.8f});
-    params.projection.wander = 0.0f;
-    params.color.palette_chroma = 0.788f;
-    params.color.mapping_phase = -0.0f;
-    return {slots, params};
-  }
-
-  static constexpr Config kaleidoscope_mirror_preset() {
-    const Slots slots{Function::TWIN_WAVE,
-                      Projection::STEREOGRAPHIC,
-                      ProjectionFramePolicy::SPIN_WANDER,
-                      SurfaceLens::KALEIDOSCOPE,
-                      {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
-                      SignalWeight::PROJECTION,
-                      ValueTransfer::NONE,
-                      CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                      PaletteMode::TRIADIC};
-    Params params = authored_params(
-        {4.9755f, 0.125f, 0.513f, 0.0f, 0.8f, 0.05f}, {0.1f, 0.0f, 0.5f},
-        {4.971f, 0.0f, 1.0f}, {}, {0.27f, 2.2033439f, -0.00040800002f}, {1.0f});
-    params.color.palette_chroma = 0.361f;
-    return {slots, params};
-  }
-
-  static constexpr Config gnomonic_grid_mirror_preset(SurfaceLens lens) {
-    Slots slots{Function::GRID,
-                Projection::GNOMONIC,
-                ProjectionFramePolicy::IDENTITY,
-                lens,
-                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::EDGE_FADE,
-                PaletteMode::TRIADIC};
-    slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
-    WarpStageParams outer_warp;
-    outer_warp.rotation = 0.29530972f;
-    outer_warp.cell_x = 5.381125f;
-    outer_warp.cell_y = 1.0f;
-    outer_warp.offset_x = 1.344f;
-    outer_warp.offset_y = -1.456f;
-    Params params = authored_params({3.565f, 0.235f, 0.0f, 1.0f, 1.0f, 0.0f},
-                                    outer_warp, {1.4f, 0.0f}, {}, {}, {1.0f});
-    params.value.edge_width = 0.5f;
-    return {slots, params};
-  }
-
-  static constexpr Config gnomonic_kaleidoscope_grid_mirror_preset() {
-    Config config = gnomonic_grid_mirror_preset(SurfaceLens::KALEIDOSCOPE);
-    config.params.color.palette_chroma = 0.4f;
-    config.params.color.hue_shift_amount = 0.424f;
-    config.params.color.hue_noise_scale = 2.2033439f;
-    return config;
-  }
-
-  static constexpr Config peirce_dodecahedral_generated_preset() {
-    Slots slots{Function::GRID,
-                Projection::PEIRCE_QUINCUNCIAL,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::EDGE_FADE,
-                PaletteMode::TRIADIC};
-    slots.peirce_layout = PeirceLayout::SQUARE;
-    Params params =
-        authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f},
-                        {}, {0.319f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
-    params.projection.central_meridian = 0.0f;
-    params.projection.coordinate_scale = 1.0f;
-    params.value.edge_width = 0.1f;
-    return {slots, params};
-  }
-
-  static constexpr Config gnomonic_wave_shear_grid_preset() {
-    Slots slots{Function::GRID,
-                Projection::GNOMONIC,
-                ProjectionFramePolicy::IDENTITY,
-                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-                {{WarpStageKind::WAVE_SHEAR}, {WarpStageKind::MIRROR_TILE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                PaletteMode::TRIADIC};
-    slots.gnomonic_hemisphere = GnomonicHemispherePolicy::FOLDED;
-    WarpStageParams outer_warp;
-    outer_warp.strength = -0.176f;
-    outer_warp.speed = -0.00325f;
-    outer_warp.frequency = 1.408f;
-    outer_warp.field_angle = 2.2305307f;
-    WarpStageParams inner_warp;
-    inner_warp.rotation = 0.0f;
-    inner_warp.cell_x = 1.0f;
-    inner_warp.cell_y = 1.0f;
-    inner_warp.offset_x = 0.0f;
-    inner_warp.offset_y = 0.0f;
-    Params params = authored_params(
-        {6.3287f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f}, outer_warp,
-        {2.311f, 0.0f}, {}, {0.721f, 1.0f, 0.0f}, {1.0f});
-    params.warp.inner = inner_warp;
-    return {slots, params};
-  }
-
-  static constexpr Config gnomonic_affine_lattice_contour_preset() {
-    const Slots slots{Function::PRIMITIVE_LATTICE,
-                      Projection::GNOMONIC,
-                      ProjectionFramePolicy::SPIN_WANDER,
-                      SurfaceLens::NONE,
-                      {{WarpStageKind::AFFINE_FRAME}, {WarpStageKind::NONE}},
-                      SignalWeight::PROJECTION,
-                      ValueTransfer::ISO_CONTOUR,
-                      CoveragePolicy::PROJECTION_WEIGHT,
-                      PaletteMode::TRIADIC};
-    Params params;
-    params.source.pattern_freq = 8.0f;
-    params.source.speed = 0.075f;
-    params.source.complexity = 0.009122372f;
-    params.source.pattern_mix = 1.0f;
-    params.source.secondary_rate = 1.146f;
-    params.source.lattice_cell_scale = 1.22925f;
-    params.source.lattice_shape_blend = 1.0f;
-    params.source.lattice_softness = 0.1608203f;
-    params.source.lattice_radius = 0.332981884f;
-    params.warp.outer.scale = 50.7493f;
-    params.warp.outer.strength = 30.0f;
-    params.warp.outer.speed = 0.015625f;
-    params.warp.outer.translation_x = 4.0f;
-    params.warp.outer.translation_y = 4.0f;
-    params.warp.outer.shear = -0.0f;
-    params.warp.inner.scale = 0.1f;
-    params.projection.spin_rate = 0.0208791979f;
-    params.projection.wander = 0.00309175253f;
-    params.value.iso_level = 0.138f;
-    params.value.iso_width = 0.227034181f;
-    params.value.band_count = 19;
-    params.value.band_phase = 6.10725641f;
-    params.value.cutout_threshold = 0.5f;
-    params.value.cutout_softness = 0.05f;
-    params.value.edge_width = 0.327f;
-    params.color.hue_shift_amount = 0.398f;
-    params.color.hue_noise_scale = 0.8300313f;
-    params.color.hue_noise_speed = 0.000212000014f;
-    params.outer_camera.wander = 1.0f;
-    params.surface_noise.scale = 0.507492959f;
-    params.surface_noise.strength = 0.5f;
-    params.surface_noise.rate = 5.377579e-7f;
-    return {slots, params};
-  }
-
-  static constexpr Config sinusoidal_lattice_curl_preset(float noise_scale) {
-    Slots slots{Function::PRIMITIVE_LATTICE,
-                Projection::SINUSOIDAL,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::NONE,
-                {{WarpStageKind::NONE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::PROJECTION_WEIGHT,
-                PaletteMode::TRIADIC};
-    slots.palette_mapping = PaletteMapping::CUP;
-    slots.brightness_envelope = BrightnessEnvelope::CUP;
-    slots.surface_noise = SurfaceNoise::CURL;
-    slots.surface_noise_placement = SurfaceNoisePlacement::BEFORE_LENS;
-    Params params;
-    params.source.pattern_freq = 3.52279997f;
-    params.source.speed = 0.1f;
-    params.source.complexity = 0.9f;
-    params.source.pattern_mix = 1.0f;
-    params.source.secondary_rate = 0.8f;
-    params.source.lattice_cell_scale = 0.710265636f;
-    params.source.lattice_shape_blend = 1.0f;
-    params.source.lattice_softness = 0.455532223f;
-    params.source.lattice_radius = 0.290762514f;
-    params.warp.outer.strength = 1.0f;
-    params.warp.outer.speed = 0.000343749998f;
-    params.projection.singularity_fade = 20.0f;
-    params.projection.wander = 1.0f;
-    params.color.hue_shift_amount = 0.268000007f;
-    params.color.hue_noise_scale = 2.0f;
-    params.color.palette_chroma = 1.0f;
-    params.color.mapping_phase = -0.165999994f;
-    params.outer_camera.wander = 1.0f;
-    params.surface_noise.scale = noise_scale;
-    params.surface_noise.strength = 0.0759999976f;
-    return {slots, params};
-  }
-
-  static constexpr Config stereographic_prism_polar_wave_lattice_preset() {
-    Slots slots{Function::PRIMITIVE_LATTICE,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
-                {{WarpStageKind::POLAR_CHART}, {WarpStageKind::WAVE_SHEAR}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                PaletteMode::ANALOGOUS};
-    slots.palette_mapping = PaletteMapping::CUP;
-    slots.surface_noise_placement = SurfaceNoisePlacement::BEFORE_LENS;
-    Params params;
-    params.source.pattern_freq = 3.52279997f;
-    params.source.speed = 0.1f;
-    params.source.complexity = 0.9f;
-    params.source.pattern_mix = 1.0f;
-    params.source.secondary_rate = 0.8f;
-    params.source.lattice_cell_scale = 0.774140596f;
-    params.source.lattice_shape_blend = 1.0f;
-    params.source.lattice_softness = 0.377608389f;
-    params.source.lattice_radius = 0.290762514f;
-    params.warp.outer.strength = 1.0f;
-    params.warp.outer.speed = 0.000343749998f;
-    params.warp.outer.translation_x = 4.0f;
-    params.warp.inner.speed = 0.000999999931f;
-    params.warp.inner.translation_x = -0.0f;
-    params.warp.inner.shear = 0.75f;
-    params.projection.singularity_fade = 2.27300000f;
-    params.projection.wander = 1.0f;
-    params.color.hue_shift_amount = 0.268000007f;
-    params.color.hue_noise_scale = 2.0f;
-    params.color.palette_chroma = 1.0f;
-    params.color.mapping_phase = -0.165999994f;
-    params.outer_camera.wander = 1.0f;
-    params.surface_noise.scale = 3.73634386f;
-    params.surface_noise.strength = 0.0759999976f;
-    return {slots, params};
-  }
-
-  static constexpr Config gnomonic_dodecahedral_vector_mirror_grid_preset() {
-    Slots slots{Function::GRID,
-                Projection::GNOMONIC,
-                ProjectionFramePolicy::IDENTITY,
-                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-                {{WarpStageKind::VECTOR_NOISE}, {WarpStageKind::MIRROR_TILE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                PaletteMode::TRIADIC};
-    slots.palette_mapping = PaletteMapping::CUP;
-    slots.brightness_envelope = BrightnessEnvelope::CUP;
-    Params params;
-    params.source.pattern_freq = 4.9755f;
-    params.source.speed = 0.04f;
-    params.source.complexity = 1.704f;
-    params.source.secondary_rate = 0.8f;
-    params.source.angle_rate = 0.027f;
-    params.warp.outer.strength = 0.138f;
-    params.warp.outer.speed = -0.00005f;
-    params.warp.outer.frequency = 1.408f;
-    params.warp.outer.field_angle = 2.23053074f;
-    params.warp.inner.speed = 0.00327999983f;
-    params.projection.singularity_fade = 2.311f;
-    params.projection.wander = 1.0f;
-    params.color.hue_shift_amount = 0.721f;
-    params.color.palette_chroma = 1.0f;
-    params.color.brightness_depth = 0.655f;
-    params.outer_camera.wander = 1.0f;
-    return {slots, params};
-  }
-
-  static constexpr Config
-  stereographic_dodecahedral_grid_inner_mirror_preset() {
-    Slots slots{Function::GRID,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-                {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                PaletteMode::ANALOGOUS};
-    slots.palette_mapping = PaletteMapping::CUP;
-    Params params;
-    params.source.pattern_freq = 2.82629991f;
-    params.source.complexity = 0.513f;
-    params.source.secondary_rate = 0.8f;
-    params.source.angle_rate = 0.0269999988f;
-    params.warp.outer.scale = 0.1f;
-    params.warp.outer.speed = 0.5f;
-    params.warp.inner.scale = 0.1f;
-    params.warp.inner.speed = 0.00013f;
-    params.warp.inner.cell_y = 0.997703135f;
-    params.projection.singularity_fade = 3.432f;
-    params.projection.wander = 1.0f;
-    params.color.hue_shift_amount = 0.366f;
-    params.color.hue_noise_scale = 1.47215629f;
-    params.color.palette_chroma = 1.0f;
-    params.outer_camera.wander = 1.0f;
-    return {slots, params};
-  }
-
-  static constexpr Config
-  stereographic_dodecahedral_complex_grid_inner_mirror_preset() {
-    Config config = stereographic_dodecahedral_grid_inner_mirror_preset();
-    config.params.source.complexity = 3.0f;
-    config.params.source.pattern_mix = 1.0f;
-    return config;
-  }
-
-  static constexpr Config
-  stereographic_dodecahedral_double_mapping_grid_inner_mirror_preset() {
-    Config config =
-        stereographic_dodecahedral_complex_grid_inner_mirror_preset();
-    config.params.source.pattern_freq = 3.9407f;
-    config.params.projection.wander = 0.165f;
-    config.params.color.mapping_frequency = 2.0f;
-    return config;
-  }
-
-  static constexpr Config
-  equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset() {
-    Config config =
-        stereographic_dodecahedral_double_mapping_grid_inner_mirror_preset();
-    config.slots.projection = Projection::EQUIRECTANGULAR;
-    config.params.projection.singularity_fade = 2.14f;
-    return config;
-  }
-
-  static constexpr Config
-  equirectangular_dodecahedral_grid_inner_mirror_preset() {
-    Config config =
-        equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset();
-    config.params.color.mapping_frequency = 1.0f;
-    return config;
-  }
-
-  static constexpr Config
-  equirectangular_dodecahedral_fine_grid_inner_mirror_preset() {
-    Config config = equirectangular_dodecahedral_grid_inner_mirror_preset();
-    config.params.source.pattern_freq = 0.3985f;
-    config.params.warp.inner.speed = 0.00058f;
-    config.params.warp.inner.cell_y = 0.901890635f;
-    config.params.color.mapping_frequency = 21.212f;
-    return config;
-  }
-
-  static constexpr Config
-  stereographic_hexagonal_prism_twin_wave_mirror_preset() {
-    Slots slots{Function::TWIN_WAVE,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
-                {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                PaletteMode::ANALOGOUS};
-    slots.palette_mapping = PaletteMapping::BELL;
-    Params params = authored_params(
-        {3.881f, 0.128598228f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
-        {4.971f, 0.0f, 1.0f}, {}, {0.226f, 1.47215629f, 0.000138f}, {1.0f});
-    params.color.palette_chroma = 1.0f;
-    params.color.mapping_frequency = 1.341f;
-    params.color.mapping_phase = -1.0f;
-    return {slots, params};
-  }
-
-  static constexpr Config stereographic_alien_core_mirror_preset() {
-    Slots slots{Function::GRID,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::IDENTITY,
-                SurfaceLens::GLITCH,
-                {{WarpStageKind::MIRROR_TILE}, {WarpStageKind::NONE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::EDGE_FADE,
-                PaletteMode::TRIADIC};
-    slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
-    WarpStageParams outer_warp;
-    outer_warp.rotation = 0.295309722f;
-    outer_warp.cell_x = 5.381125f;
-    outer_warp.offset_x = 1.344f;
-    outer_warp.offset_y = -1.456f;
-    Params params =
-        authored_params({2.5477f, 0.235f, 1.854f, 0.0f, 1.0f, 0.0f}, outer_warp,
-                        {1.4f, 0.0f}, {}, {2.048f, 1.0f, 0.0f}, {1.0f});
-    params.value.edge_width = 0.5f;
-    params.color.palette_chroma = 0.292f;
-    return {slots, params};
-  }
-
-  static constexpr Config stereographic_mobius_twin_wave_inner_mirror_preset() {
-    Slots slots{Function::TWIN_WAVE,
-                Projection::STEREOGRAPHIC,
-                ProjectionFramePolicy::SPIN_WANDER,
-                SurfaceLens::MOBIUS,
-                {{WarpStageKind::NONE}, {WarpStageKind::MIRROR_TILE}},
-                SignalWeight::PROJECTION,
-                ValueTransfer::NONE,
-                CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
-                PaletteMode::COMPLEMENTARY};
-    slots.brightness_envelope = BrightnessEnvelope::CUP;
-    slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
-    Params params = authored_params(
-        {10.158f, 0.245f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
-        {2.102f, 0.0f, 1.0f}, {}, {0.312f, 1.0f, 0.0f}, {1.0f});
-    params.surface_lens.mobius = {-1.072f, 0.304f, 0.416f,      0.0f,
-                                  0.0f,    0.0f,   0.70710677f, 0.0f};
-    params.color.palette_chroma = 0.398f;
-    return {slots, params};
-  }
-
-  static constexpr Config stereographic_mobius_animated_inner_mirror_preset() {
-    Config config = stereographic_mobius_twin_wave_inner_mirror_preset();
-    config.params.warp.inner.speed = 0.005875f;
-    config.params.warp.inner.cell_x = 0.2791094f;
-    config.params.warp.inner.cell_y = 6.810328f;
-    return config;
-  }
-
-  static constexpr std::array<Preset, 24> PRESETS = {{
-      {wave_shear_generated_preset(),
-       InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
-      {kaleidoscope_mirror_preset(),
-       InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR},
-      {gnomonic_kaleidoscope_grid_mirror_preset(),
-       InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR},
-      {gnomonic_grid_mirror_preset(SurfaceLens::GLITCH),
-       InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR},
-      {peirce_dodecahedral_generated_preset(),
-       InversePipelineId::PEIRCE_DODECAHEDRAL_GRID},
-      {gnomonic_wave_shear_grid_preset(),
-       InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR},
-      {gnomonic_affine_lattice_contour_preset(),
-       InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR},
-      {sinusoidal_lattice_curl_preset(1.78815627f),
-       InversePipelineId::SINUSOIDAL_LATTICE_MELT},
-      {sinusoidal_lattice_curl_preset(3.29720306f),
-       InversePipelineId::SINUSOIDAL_LATTICE_MELT},
-      {stereographic_prism_polar_wave_lattice_preset(),
-       InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE},
-      {gnomonic_dodecahedral_vector_mirror_grid_preset(),
-       InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR},
-      {stereographic_dodecahedral_grid_inner_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR},
-      {stereographic_hexagonal_prism_twin_wave_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR},
-      {stereographic_dodecahedral_complex_grid_inner_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR},
-      {stereographic_dodecahedral_double_mapping_grid_inner_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR},
-      {equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset(),
-       InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
-      {equirectangular_dodecahedral_grid_inner_mirror_preset(),
-       InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
-      {equirectangular_dodecahedral_fine_grid_inner_mirror_preset(),
-       InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR},
-      {stereographic_alien_core_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR},
-      {stereographic_mobius_twin_wave_inner_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR},
-      {stereographic_mobius_animated_inner_mirror_preset(),
-       InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR},
-      {wave_shear_generated_preset(3.1447f, 0.5f, 2.72f, 0.00690625f),
-       InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
-      {wave_shear_generated_preset(7.5227f, 1.698f, 0.0f, 0.00690625f),
-       InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
-      {wave_shear_generated_preset(8.8162f, 1.698f, 1.376f, 0.00559375f),
-       InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR},
-  }};
-  static_assert(
-      [] {
-        for (const Preset &preset : PRESETS)
-          if (!valid_config(preset.config) ||
-              preset.pipeline == InversePipelineId::NONE)
-            return false;
-        return true;
-      }(),
-      "a ShaderWorkbench preset lies outside its registered range");
-  static_assert(
-      [] {
-        for (size_t index = 0; index < PRESETS.size(); ++index)
-          if (!transition_admitted(
-                  PRESETS[index].config,
-                  PRESETS[(index + 1) % PRESETS.size()].config))
-            return false;
-        return true;
-      }(),
-      "a ShaderWorkbench preset edge lacks continuous transition admission");
-
+  static constexpr auto &GENERATED_SURFACE_NOISE_SLOTS =
+      Workbench::GENERATED_SURFACE_NOISE_SLOTS;
+  static constexpr auto &OUTER_WARP_PARAM_NAMES =
+      Workbench::OUTER_WARP_PARAM_NAMES;
+  static constexpr auto &INNER_WARP_PARAM_NAMES =
+      Workbench::INNER_WARP_PARAM_NAMES;
   static constexpr Choreo CHOREO{0, 0, 480, false};
 
   Orientation<> projection_walk;

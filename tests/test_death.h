@@ -4346,11 +4346,10 @@ inline const Case *all_cases(int &n) {
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "shapes.h", "(thickness >= 0.0f) Line: negative stroke half-width"},
       {"shader_workbench_empty_preset_view",
-       case_shader_workbench_empty_preset_view, "ShaderWorkbench.h",
+       case_shader_workbench_empty_preset_view, "shader_host.h",
        "(!source_indices.empty()) set_fixed_preset_view: empty preset view"},
       {"shader_workbench_preset_view_index_out_of_range",
-       case_shader_workbench_preset_view_index_out_of_range,
-       "ShaderWorkbench.h",
+       case_shader_workbench_preset_view_index_out_of_range, "shader_host.h",
        "(index < PRESETS.size()) set_fixed_preset_view: preset index out of "
        "range"},
       {"chain_table_rank_decreases", case_chain_table_rank_decreases,
@@ -4358,7 +4357,7 @@ inline const Case *all_cases(int &n) {
        "(entry.input <= entry.output) ChainProgram::bind_storage: operator "
        "family rank decreases"},
       {"shader_workbench_preset_for_view_out_of_range",
-       case_shader_workbench_preset_for_view_out_of_range, "ShaderWorkbench.h",
+       case_shader_workbench_preset_for_view_out_of_range, "shader_host.h",
        "(index < preset_count_for_view()) preset_for_view: index out of "
        "range"},
       {"dreamballs_woven_owner_vertex_oob",
@@ -4930,8 +4929,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"MobiusRings.h", 1},
     {"ReactionDiffusionBase.h", 2},
     {"RingShower.h", 1},
-    {"ShaderWorkbench.h", 13},
-    {"ShaderChain.h", 1},
+    {"shader_host.h", 13},
+    {"chain_host.h", 1},
     {"ShapeShifter.h", 2},
     {"dma_led.h", 4},
     {"pov_segmented.h", 9},

@@ -13,7 +13,7 @@
 #include <string_view>
 
 /**
- * @file ShaderChain.h
+ * @file chain_host.h
  * @brief ShaderChain: the chain-interpreter preview effect. Renders an
  *        arbitrary compiled operator chain and exposes every chain parameter
  *        as "{instance}.{field-id}".

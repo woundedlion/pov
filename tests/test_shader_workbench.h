@@ -234,26 +234,26 @@ struct ShaderWorkbenchWhiteBox {
   }
   static bool slots_equal(const Slots &a, const Slots &b) { return a == b; }
   static constexpr bool valid_config(const RequestedConfig &config) {
-    return SB::valid_config(config);
+    return Workbench::valid_config(config);
   }
   static bool admissible_config(const RequestedConfig &config) {
     return SB::admissible_config(config);
   }
   static constexpr bool seam_compatible(const RequestedConfig &config) {
-    return SB::strict_seam_compatible(config);
+    return Workbench::strict_seam_compatible(config);
   }
   static constexpr bool transition_admitted(const RequestedConfig &from,
                                             const RequestedConfig &to) {
-    return SB::transition_admitted(from, to);
+    return Workbench::transition_admitted(from, to);
   }
   static constexpr bool stable_topology(const RequestedConfig &from,
                                         const RequestedConfig &to) {
-    return SB::stable_topology(from, to);
+    return Workbench::stable_topology(from, to);
   }
   static constexpr bool
   stable_parameter_path_admitted(const RequestedConfig &from,
                                  const RequestedConfig &to) {
-    return SB::stable_parameter_path_admitted(from, to);
+    return Workbench::stable_parameter_path_admitted(from, to);
   }
   static bool transition_active(const SB &sb) {
     return sb.state->transition.active;
@@ -702,7 +702,7 @@ struct ShaderWorkbenchWhiteBox {
   }
   static constexpr NoiseChannelLayout
   warp_channel_layout(const WarpStageSpec &spec) {
-    return SB::warp_resource_key(spec).channel_layout;
+    return Workbench::warp_resource_key(spec).channel_layout;
   }
   static const auto &choreo() { return SB::CHOREO; }
   static void make_triadic(uint32_t &hue, uint32_t sequence,

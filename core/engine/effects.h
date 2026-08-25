@@ -50,13 +50,13 @@
 #include "effects/MobiusRings.h"
 #include "effects/PetalFlow.h"
 #if HS_ENABLE_SHADER_WORKBENCH
-#include "workbench/ShaderWorkbench.h"
+#include "workbench/shader/shader_host.h"
 #define HS_SHADER_WORKBENCH_EFFECT(X) X(Shader)
 #else
 #define HS_SHADER_WORKBENCH_EFFECT(X)
 #endif
 #if HS_ENABLE_CHAIN_INTERPRETER
-#include "workbench/ShaderChain.h"
+#include "workbench/shader/chain_host.h"
 #define HS_CHAIN_INTERPRETER_EFFECT(X) X(ShaderChain)
 #else
 #define HS_CHAIN_INTERPRETER_EFFECT(X)

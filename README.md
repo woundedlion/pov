@@ -397,8 +397,17 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── workbench/                  Simulator-only shader authoring surfaces, outside the firmware
 │                                roster; their HS_ENABLE_* gates #error under ARDUINO — see §9
-│   ├── ShaderWorkbench.h       Slot-configured shader with dynamic dispatch: registered as Shader
-│   └── ShaderChain.h           Interpreter for a compiled operator chain: registered as ShaderChain
+│   └── shader/                 The shader authoring workbench; everything independent of
+│                                canvas resolution lives in namespace Workbench
+│       ├── shader_host.h       Slot-configured shader with dynamic dispatch: registered as Shader
+│       ├── chain_host.h        Effect host for a compiled operator chain: registered as ShaderChain
+│       ├── config.h            Slot enums, per-stage parameter families, and the Config they compose
+│       ├── limits.h            Parameter domain bounds and the predicates checking a Config against them
+│       ├── options.h           Display label and stable export spelling of every enumerated field
+│       ├── admission.h         Structural legality: valid configurations, bounds, admitted transitions
+│       ├── presets.h           The authored presets and the assertions holding them to the admission rules
+│       ├── frame_state.h       Prepared stage payloads and the immutable FrameState a shading pass reads
+│       └── resources.h         Noise-field keys per configuration and whether two of them fit the bank
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
