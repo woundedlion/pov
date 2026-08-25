@@ -13,8 +13,8 @@ Two load-bearing properties:
     fingerprint is stable across unrelated edits, while the file + message + flag
     that identify the warning are kept.
 
-First-party only: warnings outside core/ effects/ hardware/ targets/ (i.e.
-FastLED and the Teensy core) are dropped — the independent backstop to the
+First-party only: warnings outside core/ effects/ workbench/ hardware/ targets/
+(i.e. FastLED and the Teensy core) are dropped — the independent backstop to the
 `-isystem` plan, so the ratchet is robust even if the -isystem demotion proves
 awkward under PlatformIO.
 
@@ -40,7 +40,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-FIRST_PARTY = ("core/", "effects/", "hardware/", "targets/")
+FIRST_PARTY = ("core/", "effects/", "workbench/", "hardware/", "targets/")
 
 # Library/toolchain roots: a path through any of these is third-party even when a
 # nested dir reuses a first-party name (e.g. .platformio/lib/Foo/effects/x.h).
