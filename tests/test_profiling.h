@@ -223,6 +223,34 @@ inline void test_find_suffix() {
 }
 
 /**
+ * @brief Verifies a destroyed counter leaves no child pointing at its storage.
+ * @details log_all() and log_node() dereference `parent`, so a child that
+ * latched a counter destroyed before it would read freed storage on the next
+ * report. The orphan must come back as a root and re-latch on its next entry.
+ */
+inline void test_destructor_unlatches_children() {
+  static hs::CycleCounter child("prof_orphan_child");
+  static hs::CycleCounter regrown("prof_orphan_regrown");
+  hs::CycleCounter::reset_all();
+  {
+    hs::CycleCounter transient("prof_orphan_transient");
+    hs::CycleScope st(transient);
+    hs::CycleScope sc(child);
+    HS_EXPECT_EQ(child.parent, &transient);
+  }
+  HS_EXPECT_TRUE(child.parent == nullptr);
+
+  // Re-latching, not a permanent root: the next enclosing counter takes over
+  // without the counter reporting a mixed parent.
+  {
+    hs::CycleScope sr(regrown);
+    hs::CycleScope sc(child);
+  }
+  HS_EXPECT_EQ(child.parent, &regrown);
+  HS_EXPECT_FALSE(child.mixed_parent);
+}
+
+/**
  * @brief Verifies reset_all zeroes accumulated cycles, calls and the
  *        mixed-parent flag on every registered counter while leaving the tree
  *        structure in place.
@@ -470,6 +498,7 @@ inline int run_profiling_tests() {
   test_u64_dec_boundaries();
   test_u64_dec_powers_of_ten();
   test_find_suffix();
+  test_destructor_unlatches_children();
   test_reset_all_clears_counts();
   test_nesting_latches_parent();
   test_recursive_scope_does_not_self_parent();
