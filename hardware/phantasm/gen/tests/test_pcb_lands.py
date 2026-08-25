@@ -98,6 +98,15 @@ def is_chip_passive(node):
     return "smd" in attrs and len(F(node, "pad")) == 2
 
 
+def board_lands(path, ref):
+    """Pad lands the named footprint carries on a committed board."""
+    root = sexp.parse(path.read_text(encoding="utf-8"))[0]
+    for node in F(root, "footprint"):
+        if reference(node) == ref:
+            return pad_lands(node)
+    return None
+
+
 def routed_chip_lands():
     root = sexp.parse(ROUTED.read_text(encoding="utf-8"))[0]
     return {
@@ -178,13 +187,24 @@ class PowerInletTests(unittest.TestCase):
 
 
 class TeensyLibraryTests(unittest.TestCase):
-    """The committed, routed board resolves its Teensy pads against the
-    committed library, so generator drift there invalidates the routing."""
+    """A board embeds its own copy of every footprint, so the generator, the
+    library and both committed boards each need pinning: generator drift there
+    invalidates the routing, and moving generator and library together leaves
+    the shipped copper holding the old Teensy pinout."""
+
+    def library_lands(self):
+        return pad_lands(
+            sexp.parse(TEENSY_LIBRARY.read_text(encoding="utf-8"))[0])
 
     def test_generator_matches_the_committed_library(self):
-        library = sexp.parse(TEENSY_LIBRARY.read_text(encoding="utf-8"))[0]
+        self.assertEqual(pad_lands(pcb.teensy_footprint()),
+                         self.library_lands())
 
-        self.assertEqual(pad_lands(pcb.teensy_footprint()), pad_lands(library))
+    def test_committed_boards_embed_the_library_land(self):
+        expected = self.library_lands()
+        for board in (ROUTED, UNPLACED):
+            with self.subTest(board=board.name):
+                self.assertEqual(board_lands(board, "U_MCU"), expected)
 
 
 class SchematicFootprintTests(unittest.TestCase):
