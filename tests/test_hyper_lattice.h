@@ -16,7 +16,7 @@ namespace HL = HyperLatticeDetail;
 struct HyperLatticeWhiteBox {
   using Effect = HyperLattice<96, 20>;
 
-  static HL::Vec4 origin(const Effect &effect) { return effect.origin; }
+  static Vec4 origin(const Effect &effect) { return effect.origin; }
   static std::array<float, 6> rotation_phase(const Effect &effect) {
     return effect.rotation_phase;
   }
@@ -52,7 +52,7 @@ inline void test_periodic_distance() {
 }
 
 inline void test_edge_metrics() {
-  const HL::Vec4 point{{0.0f, 0.02f, 0.4f, 0.1f}};
+  const Vec4 point{{0.0f, 0.02f, 0.4f, 0.1f}};
   const HL::EdgeMetric cubic = HL::edge_metric_3d(point, 0);
   HS_EXPECT_NEAR(cubic.distance_sq, 0.0004f, 1e-7f);
   HS_EXPECT_EQ(cubic.free_axis, uint8_t(2));
@@ -68,7 +68,7 @@ inline void test_so4_rotation() {
   frame.params.far_cells = 8.0f;
   frame.rotation_phase[3] = 0.5f * PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  const HL::Vec4 rotated =
+  const Vec4 rotated =
       prepared.world_to_lattice.apply({{1.0f, 0.0f, 0.0f, 0.0f}});
   HS_EXPECT_NEAR(rotated[0], 0.0f, 2e-4f);
   HS_EXPECT_NEAR(rotated[3], 1.0f, 2e-4f);
@@ -78,32 +78,32 @@ inline void test_so4_rotation() {
   HS_EXPECT_NEAR(norm_sq, 1.0f, 2e-4f);
 
   frame.params.mode = HL::LatticeMode::THREE_D;
-  const HL::Vec4 cubic = HL::prepare_trace(frame).world_to_lattice.apply(
+  const Vec4 cubic = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
   HS_EXPECT_EQ(cubic[3], 0.0f);
 }
 
 inline void test_reflection_convention() {
-  const HL::Vec4 center =
+  const Vec4 center =
       HL::reflected_direction(X_AXIS, HL::ReflectionMode::CHROME, 1.0f);
   HS_EXPECT_NEAR(center[0], 1.0f, 2e-4f);
   HS_EXPECT_EQ(center[1], 0.0f);
   HS_EXPECT_EQ(center[2], 0.0f);
 
-  const HL::Vec4 rim =
+  const Vec4 rim =
       HL::reflected_direction(Y_AXIS, HL::ReflectionMode::CHROME, 1.0f);
   HS_EXPECT_NEAR(rim[0], -0.5547f, 2e-3f);
   HS_EXPECT_NEAR(rim[1], 0.83205f, 2e-3f);
-  const HL::Vec4 radial =
+  const Vec4 radial =
       HL::reflected_direction(Y_AXIS, HL::ReflectionMode::RADIAL, 1.0f);
   HS_EXPECT_EQ(radial[1], 1.0f);
 
-  const HL::Vec4 open =
+  const Vec4 open =
       HL::reflected_direction(Y_AXIS, HL::ReflectionMode::CHROME, 0.0f);
   HS_EXPECT_NEAR(open[0], 0.0f, 2e-4f);
   HS_EXPECT_NEAR(open[1], 1.0f, 2e-4f);
-  const HL::Vec4 back = HL::reflected_direction(
-      Vector(-1.0f, 0.0f, 0.0f), HL::ReflectionMode::CHROME, 1.0f);
+  const Vec4 back = HL::reflected_direction(Vector(-1.0f, 0.0f, 0.0f),
+                                            HL::ReflectionMode::CHROME, 1.0f);
   HS_EXPECT_NEAR(back[0], -1.0f, 2e-4f);
 }
 
@@ -149,20 +149,20 @@ inline void test_pause_does_not_stop_motion() {
   effect.init();
   effect.setAnimationsPaused(true);
 
-  const HL::Vec4 origin_before = HyperLatticeWhiteBox::origin(effect);
+  const Vec4 origin_before = HyperLatticeWhiteBox::origin(effect);
   const auto rotation_before = HyperLatticeWhiteBox::rotation_phase(effect);
   effect.draw_frame();
   effect.advance_display();
-  const HL::Vec4 origin_after = HyperLatticeWhiteBox::origin(effect);
+  const Vec4 origin_after = HyperLatticeWhiteBox::origin(effect);
   const auto rotation_after = HyperLatticeWhiteBox::rotation_phase(effect);
   HS_EXPECT_NE(origin_after[0], origin_before[0]);
   HS_EXPECT_NE(rotation_after[0], rotation_before[0]);
 
   HyperLatticeWhiteBox::params(effect).speed = 0.0f;
-  const HL::Vec4 stopped_before = HyperLatticeWhiteBox::origin(effect);
+  const Vec4 stopped_before = HyperLatticeWhiteBox::origin(effect);
   effect.draw_frame();
   effect.advance_display();
-  const HL::Vec4 stopped_after = HyperLatticeWhiteBox::origin(effect);
+  const Vec4 stopped_after = HyperLatticeWhiteBox::origin(effect);
   for (int axis = 0; axis < HL::DIMENSIONS; ++axis)
     HS_EXPECT_EQ(stopped_after[axis], stopped_before[axis]);
 }
@@ -210,7 +210,7 @@ inline void test_trace_layers_are_front_to_back() {
 }
 
 inline void test_layer_composite_reveals_background() {
-  HL::LayerComposite composite;
+  LayerComposite composite;
   composite.add(Pixel(65535, 0, 0), 0.5f);
   composite.add(Pixel(0, 65535, 0), 1.0f);
   const Color4 result = composite.finish();
@@ -295,7 +295,7 @@ inline void test_render_signature() {
       {-0.270598050f, 0.653281482f, 0.707106781f},
       {0.5f, -0.5f, 0.707106781f},
   };
-  static constexpr HL::Vec4 ORIGINS[] = {
+  static constexpr Vec4 ORIGINS[] = {
       {{0.17f, 0.31f, 0.43f, 0.59f}},
       {{0.91f, 0.07f, 0.73f, 0.37f}},
   };
@@ -396,7 +396,7 @@ inline void test_specialized_render_signature() {
       {0.5f, -0.5f, 0.707106781f},
       {-1.0f, 0.0f, 0.0f},
   };
-  static constexpr HL::Vec4 ORIGINS[] = {
+  static constexpr Vec4 ORIGINS[] = {
       {{0.17f, 0.31f, 0.43f, 0.59f}},
       {{0.91f, 0.07f, 0.73f, 0.37f}},
   };

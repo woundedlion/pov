@@ -297,6 +297,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   └── styles.h                Feedback::Style named presets + space/color transform functions
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex primitives, fast-math approximations, value noise, Snorm3
+│   │   ├── 4dmath.h                Vec4 / Mat4 four-dimensional primitives + coordinate-plane rotation
 │   │   ├── rotate.h                Quaternion projection helpers
 │   │   ├── geometry.h              wrap()/fast_wrap()/shortest_distance, PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
@@ -326,6 +327,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── color/                  Color math and palettes
 │   │   ├── color.h                 Pixel (16-bit linear), Color4, blend helpers, palettes
 │   │   ├── composition.h           Palette modifiers + StaticPalette composition (via color.h)
+│   │   ├── layer_composite.h       LayerComposite: front-to-back "over" accumulator for layered coverage
 │   │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
 │   │   ├── srgb_decode.h           Branchless linear16 → sRGB8 encode from DTCM split tables
 │   │   ├── srgb_decode_lut.h       Generated split-decode tables behind srgb_decode.h
