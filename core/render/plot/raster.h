@@ -109,6 +109,9 @@ template <int W> inline constexpr size_t rasterize_step_budget() {
  * visibility bits and the hoisted per-point rows and columns — from the same
  * arena BEFORE the call and keeps them live across it, so @p trail_points folds
  * those three in (with the alignment slack between the byte and float blocks).
+ * Its fourth buffer, the ArenaVector<Vector> of pre-shader positions, is bound
+ * only when a deferred shader is supplied and so is not folded in: such a
+ * caller budgets its own point_count * sizeof(Vector).
  */
 template <int W>
 inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0,
