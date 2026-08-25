@@ -3439,10 +3439,56 @@ inline void case_chain_table_rank_decreases() {
 
 /** @brief Death case: a Sample operator rejects an unknown coverage mode. */
 inline void case_pullback_operator_invalid_coverage_mode() {
-  Pullback::ProjectionProvenance provenance{};
+  Pullback::Interp::Op::GridSampleParams params;
+  params.coverage_mode = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::SourceClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::projection_coverage(
-          opaque<uint8_t>(0xff), provenance, 0.1f, context) != 0.0f)
+  if (Pullback::Interp::Op::SampleGrid::prepare(context, params, state)
+          .primary != 0.0f)
+    std::printf("x");
+}
+
+/** @brief Death case: a Sample operator rejects an unknown weight mode. */
+inline void case_pullback_operator_invalid_weight_mode() {
+  Pullback::Interp::Op::GridSampleParams params;
+  params.weight_mode = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::SourceClockState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::SampleGrid::prepare(context, params, state)
+          .primary != 0.0f)
+    std::printf("x");
+}
+
+/** @brief Death case: a warp operator rejects an unknown envelope. */
+inline void case_pullback_operator_invalid_warp_envelope() {
+  Pullback::Interp::Op::WaveShearWarpParams params;
+  params.envelope = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::WarpPhaseState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::WarpWaveShear::prepare(context, params, state)
+          .phase != 0.0f)
+    std::printf("x");
+}
+
+/** @brief Death case: the polar chart rejects an unknown polar mode. */
+inline void case_pullback_operator_invalid_polar_mode() {
+  Pullback::Interp::Op::PolarChartParams params;
+  params.mode = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::WarpPhaseState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state)
+          .phase != 0.0f)
+    std::printf("x");
+}
+
+/** @brief Death case: the polar chart rejects an out-of-range harmonic. */
+inline void case_pullback_operator_invalid_polar_harmonic() {
+  Pullback::Interp::Op::PolarChartParams params;
+  params.harmonic = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::WarpPhaseState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::WarpPolarChart::prepare(context, params, state)
+          .phase != 0.0f)
     std::printf("x");
 }
 
@@ -4172,7 +4218,25 @@ inline const Case *all_cases(int &n) {
        "opleg.h", "(face < faces) OpLeg::Shading: ramp face out of range"},
       {"pullback_operator_invalid_coverage_mode",
        case_pullback_operator_invalid_coverage_mode, "operators_common.h",
-       "(false) sample operator: invalid projection coverage mode"},
+       "(coverage_mode <= static_cast<uint8_t>("
+       "ProjectionCoverageMode::EDGE_FADE)) "
+       "sample operator: invalid projection coverage mode"},
+      {"pullback_operator_invalid_weight_mode",
+       case_pullback_operator_invalid_weight_mode, "operators_common.h",
+       "(weight_mode <= static_cast<uint8_t>(WeightMode::PROJECTION)) "
+       "sample operator: invalid weight mode"},
+      {"pullback_operator_invalid_warp_envelope",
+       case_pullback_operator_invalid_warp_envelope, "operators_warp.h",
+       "(envelope <= static_cast<uint8_t>(WarpEnvelope::EDGE_FADE)) "
+       "warp operator: invalid envelope"},
+      {"pullback_operator_invalid_polar_mode",
+       case_pullback_operator_invalid_polar_mode, "operators_warp.h",
+       "(params.mode <= static_cast<uint8_t>(PolarMode::LOGARITHMIC)) "
+       "warp.polar-chart: invalid polar mode"},
+      {"pullback_operator_invalid_polar_harmonic",
+       case_pullback_operator_invalid_polar_harmonic, "operators_warp.h",
+       "(params.harmonic < Warp::MAX_POLAR_HARMONIC) "
+       "warp.polar-chart: invalid harmonic"},
       {"pullback_operator_invalid_curl_integrator",
        case_pullback_operator_invalid_curl_integrator, "operators_warp.h",
        "(params.integrator < 3) warp.curl-flow: invalid integrator"},
