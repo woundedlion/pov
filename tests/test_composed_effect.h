@@ -1425,6 +1425,211 @@ inline void test_composed_periodic_ripple_surface() {
   HS_EXPECT_GT(lit, size_t(0));
 }
 
+/** @brief Parameter set of the ChoreographedEffect probes: one animated float. */
+struct ChoreoProbeParams {
+  float level = 0.0f;
+};
+
+/**
+ * @brief Probe pinning the Segue::Fade envelope loop.
+ * @details Records every set_preset_opacity sample the base's sprite feeds it,
+ * so the test can see the envelope reach both edges and the advance timer
+ * re-arm the loop.
+ */
+template <int W, int H>
+class FadeChoreoProbe
+    : public ChoreographedEffect<FadeChoreoProbe<W, H>, ChoreoProbeParams> {
+  using Choreography =
+      ChoreographedEffect<FadeChoreoProbe<W, H>, ChoreoProbeParams>;
+  friend Choreography;
+
+public:
+  using Params = ChoreoProbeParams;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr int PRESET_FRAMES = 12;
+  static constexpr Segue::Fade PRESET_SEGUE{PRESET_FRAMES, 4};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = PRESET_FRAMES;
+  static constexpr std::array<PresetEntry<Params>, 3> PRESETS = {
+      {{{0.25f}}, {{0.5f}}, {{0.75f}}}};
+
+  static bool valid_params(const Params &p) {
+    return p.level >= 0.0f && p.level <= 1.0f;
+  }
+
+  FadeChoreoProbe() : Choreography(W, H) {}
+
+  void init() override { this->begin_choreography(); }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    this->timeline.step(canvas);
+    this->step_choreography();
+  }
+
+  /** @brief Live level, which a preset change snaps. */
+  float level() const { return this->params.level; }
+
+  int opacity_samples = 0;    /**< Envelope samples the sprite fed. */
+  float min_opacity = 2.0f;   /**< Lowest envelope sample seen. */
+  float max_opacity = -1.0f;  /**< Highest envelope sample seen. */
+  float last_opacity = -1.0f; /**< Most recent envelope sample. */
+
+private:
+  void set_preset_opacity(float value) {
+    ++opacity_samples;
+    last_opacity = value;
+    min_opacity = std::min(min_opacity, value);
+    max_opacity = std::max(max_opacity, value);
+  }
+};
+
+/**
+ * @brief Probe pinning the Segue::Lerp transition hooks.
+ * @details Counts transition_armed and blend_params calls and writes the blend
+ * itself, so a cancelled crossfade shows up as a blend that stops writing.
+ */
+template <int W, int H>
+class LerpChoreoProbe
+    : public ChoreographedEffect<LerpChoreoProbe<W, H>, ChoreoProbeParams> {
+  using Choreography =
+      ChoreographedEffect<LerpChoreoProbe<W, H>, ChoreoProbeParams>;
+  friend Choreography;
+
+public:
+  using Params = ChoreoProbeParams;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr Segue::Lerp PRESET_SEGUE{8, ease_linear, /*pausable=*/false};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
+  static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
+      {{{0.0f}}, {{1.0f}}}};
+
+  static bool valid_params(const Params &p) {
+    return p.level >= 0.0f && p.level <= 1.0f;
+  }
+
+  LerpChoreoProbe() : Choreography(W, H) {}
+
+  void init() override {
+    this->register_animated_param("Level", &this->params.level, 0.0f, 1.0f);
+    this->begin_choreography();
+  }
+
+  void draw_frame() override {
+    Canvas canvas(*this);
+    this->timeline.step(canvas);
+    this->step_choreography();
+  }
+
+  /** @brief Live level, which the blend rewrites every frame it runs. */
+  float level() const { return this->params.level; }
+
+  int armed_count = 0;        /**< transition_armed calls seen. */
+  float armed_target = -1.0f; /**< Level the last arming named. */
+  int blend_calls = 0;        /**< blend_params calls seen. */
+
+private:
+  void transition_armed(const Params &target) {
+    ++armed_count;
+    armed_target = target.level;
+  }
+
+  void blend_params(float progress) {
+    ++blend_calls;
+    this->params.level = hs::lerp(this->transition.from.level,
+                                  this->transition.to.level, progress);
+  }
+};
+
+/** @brief Runs @p frames whole frames of @p effect, buffer swap included. */
+template <typename FX> void run_probe_frames(FX &effect, int frames) {
+  for (int frame = 0; frame < frames; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+}
+
+/**
+ * @brief Pins the Segue::Fade preset-choreography loop.
+ * @details The envelope has to reach both edges, the advance timer has to
+ * re-arm it every PRESET_FRAMES, and each advance has to snap the preset the
+ * envelope just faded through.
+ */
+inline void test_choreography_fade_envelope() {
+  using FX = FadeChoreoProbe<SMALL_W, SMALL_H>;
+  constexpr int FRAMES = FX::PRESET_FRAMES;
+
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.getPresetCount(), size_t{3});
+  HS_EXPECT_EQ(effect.opacity_samples, 0);
+
+  // One sprite per preset, one envelope sample per frame, and the advance lands
+  // on the sprite's last frame.
+  run_probe_frames(effect, FRAMES - 1);
+  HS_EXPECT_EQ(effect.opacity_samples, FRAMES - 1);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(effect.level(), 0.25f);
+  HS_EXPECT_LE(effect.min_opacity, 0.5f);
+  HS_EXPECT_GE(effect.max_opacity, 0.99f);
+  HS_EXPECT_LE(effect.max_opacity, 1.0f);
+
+  run_probe_frames(effect, 1);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(effect.level(), 0.5f);
+
+  // The loop re-arms itself, so the cadence survives a full wrap of the table.
+  run_probe_frames(effect, 2 * FRAMES);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(effect.level(), 0.25f);
+
+  // Paused mid-envelope: the sprite holds its phase and the advance never
+  // fires, so the preset the envelope faded in stays up.
+  run_probe_frames(effect, 3);
+  const float held = effect.last_opacity;
+  effect.setAnimationsPaused(true);
+  run_probe_frames(effect, 2 * FRAMES);
+  HS_EXPECT_EQ(effect.last_opacity, held);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(effect.level(), 0.25f);
+}
+
+/**
+ * @brief Pins the two Segue::Lerp transition hooks.
+ * @details transition_armed fires once per automatic crossfade, with the
+ * incoming preset; animated_parameter_written ends the crossfade in flight, so
+ * the blend stops rewriting the value the write just landed.
+ */
+inline void test_choreography_lerp_transition_hooks() {
+  using FX = LerpChoreoProbe<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.armed_count, 0);
+  HS_EXPECT_EQ(effect.level(), 0.0f);
+
+  // Retire the dwell; the next frame arms the crossfade to PRESETS[1].
+  run_probe_frames(effect, FX::PRESET_DWELL_FRAMES);
+  HS_EXPECT_EQ(effect.armed_count, 1);
+  HS_EXPECT_EQ(effect.armed_target, 1.0f);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+
+  // Mid-crossfade the level is strictly between the endpoints.
+  run_probe_frames(effect, FX::PRESET_SEGUE.frames / 2);
+  HS_EXPECT_GT(effect.blend_calls, 0);
+  HS_EXPECT_GT(effect.level(), 0.0f);
+  HS_EXPECT_LT(effect.level(), 1.0f);
+
+  // The manual write cancels the crossfade: the lerp keeps stepping (the policy
+  // is unpausable) but blend_params is never called again.
+  const int blends = effect.blend_calls;
+  HS_EXPECT_EQ(effect.updateParameter("Level", 0.3f), ParamSetResult::APPLIED);
+  run_probe_frames(effect, 2 * FX::PRESET_SEGUE.frames);
+  HS_EXPECT_EQ(effect.blend_calls, blends);
+  HS_EXPECT_EQ(effect.level(), 0.3f);
+  HS_EXPECT_EQ(effect.armed_count, 1);
+}
+
 /**
  * @brief Module entry point for the composed-effect base contract.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -1440,6 +1645,8 @@ inline int run_composed_effect_tests() {
   test_composed_derivation_reach();
   test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
+  test_choreography_fade_envelope();
+  test_choreography_lerp_transition_hooks();
   return fixture.result();
 }
 
