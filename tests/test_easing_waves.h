@@ -222,7 +222,9 @@ inline void test_tri_wave_shape() {
 /**
  * @brief Verifies square_wave emits only its two levels at the duty boundary.
  * @details The wave emits only `from` or `to`, switching at the duty-cycle
- *          boundary (here 0.5: first half of the period high, second half low).
+ *          boundary: the leading `duty_cycle` fraction of each period is high,
+ *          the remainder low. Swept at 0.5, at an asymmetric 0.25 that
+ *          distinguishes the duty from its complement, and at both endpoints.
  */
 inline void test_square_wave_binary() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
@@ -237,6 +239,21 @@ inline void test_square_wave_binary() {
   HS_EXPECT_NEAR(w(0.25f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(w(0.6f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(w(0.9f), 0.0f, 1e-5f);
+
+  auto quarter = square_wave(0.0f, 1.0f, 1.0f, 0.25f, 0.0f);
+  HS_EXPECT_NEAR(quarter(0.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(quarter(0.2f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(quarter(0.3f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(quarter(0.74f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(quarter(1.2f), 1.0f, 1e-5f);
+
+  auto never = square_wave(0.0f, 1.0f, 1.0f, 0.0f, 0.0f);
+  auto always = square_wave(0.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+  for (int i = 0; i <= N; ++i) {
+    float t = frac(i) * 2.0f;
+    HS_EXPECT_NEAR(never(t), 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(always(t), 1.0f, 1e-5f);
+  }
 }
 
 /**
