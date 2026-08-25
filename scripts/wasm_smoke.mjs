@@ -1022,6 +1022,12 @@ async function main(probe) {
     if (typeof MeshOps.getLastResult !== 'function') {
       fail('MeshOps.getLastResult binding is missing');
     }
+    // A saturated argument leaves getLastResult() at OK, so the adjustment has
+    // its own channel; a tool that exports the argument it passed reads it to
+    // keep an out-of-domain bound out of the engine's always-on HS_CHECK.
+    if (typeof MeshOps.getLastAdjusted !== 'function') {
+      fail('MeshOps.getLastAdjusted binding is missing');
+    }
 
     // Use a real registry name rather than hardcoding one (anti-drift).
     const registry = MeshOps.getRegistry();
@@ -1086,10 +1092,18 @@ async function main(probe) {
         // relax(int) + its C++-side clamp: relax(1e9) (INT32-valid) must clamp to
         // MAX_RELAX_ITERATIONS, not loop a billion times. Exercises the C++ clamp
         // only, not embind's double->int coercion near INT32_MAX.
+        // Read getLastAdjusted() before any other wrapper call: every entry
+        // point clears the channel.
         const relaxed = solid.relax(1);
+        if (MeshOps.getLastAdjusted()) {
+          fail(`${solidName}.relax(1) reported an in-domain count as adjusted`);
+        }
         if (!isValidMesh(relaxed)) fail(`${solidName}.relax(1) did not produce a valid mesh`);
         if (relaxed) relaxed.delete();
         const relaxedCap = solid.relax(1e9);
+        if (!MeshOps.getLastAdjusted()) {
+          fail(`${solidName}.relax(1e9) clamped without reporting it through getLastAdjusted()`);
+        }
         if (!isValidMesh(relaxedCap)) fail(`${solidName}.relax(1e9) did not clamp to a valid mesh`);
         if (relaxedCap) relaxedCap.delete();
 
