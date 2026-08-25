@@ -6,12 +6,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  BAKED_CONSTANT_IDS,
   DARK_BAND,
   DARK_EXEMPT,
   STACK_MAX_FILL,
+  bakedTopologyFields,
   darknessExpectation,
   darknessProblems,
+  engineControlNames,
   paramStreamProblems,
+  promotedBindingProblems,
   stackCreepBudget,
 } from './wasm_smoke_predicates.mjs';
 
@@ -166,4 +170,84 @@ test('a value outside its range is reported, with a tolerance for rounding', () 
     .some((p) => /outside \[0, 1\]/.test(p)));
   // Within the relative epsilon the gate allows for a float round trip.
   assert.deepEqual(paramStreamProblems([floatDef('Speed', 1 + 1e-5)], [1 + 1e-5]), []);
+});
+
+const CONSTANT_ID = [...BAKED_CONSTANT_IDS][0];
+
+const bindings = (extra = {}) => ({
+  documents: [{
+    document: 'patterns/ash_cloud.shader.json',
+    effect: 'ash-cloud',
+    parameterIds: ['camera.wander', 'surface.scale', 'lens.symmetry', CONSTANT_ID],
+  }],
+  controls: new Map([['ash-cloud', new Set(['Camera Wander', 'Surface Noise Scale'])]]),
+  bakedFields: new Set(['symmetry']),
+  ...extra,
+});
+
+test('a topology field and a baked constant need no control', () => {
+  assert.deepEqual(promotedBindingProblems(bindings()), []);
+});
+
+test('an id that names no control is reported with what it tried', () => {
+  const problems = promotedBindingProblems(bindings({
+    documents: [{
+      document: 'patterns/ash_cloud.shader.json',
+      effect: 'ash-cloud',
+      parameterIds: [CONSTANT_ID, 'sample.edge-width'],
+    }],
+  }));
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /"sample.edge-width" names no control on "ash-cloud"/);
+  assert.match(problems[0], /tried "Edge Width"/);
+});
+
+test('a document naming an absent effect is one problem, not one per id', () => {
+  const problems = promotedBindingProblems(bindings({ controls: new Map() }));
+  assert.equal(problems.length, 2);
+  assert.match(problems[0], /carries no effect "ash-cloud"/);
+  assert.match(problems[1], /exemption is stale/);
+});
+
+test('a baked-constant exemption no document carries is stale', () => {
+  const problems = promotedBindingProblems(bindings({
+    documents: [{
+      document: 'patterns/lattice_melt.shader.json',
+      effect: 'ash-cloud',
+      parameterIds: ['camera.wander'],
+    }],
+  }));
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /exemption is stale/);
+});
+
+test('the alias table resolves the label-derived engine names', () => {
+  assert.deepEqual(engineControlNames('camera.wander'), ['Camera Wander']);
+  assert.deepEqual(engineControlNames('surface.speed'), ['Surface Noise Speed']);
+  assert.deepEqual(engineControlNames('sample.angle-speed'), ['Source Angle Speed']);
+  assert.deepEqual(engineControlNames('cutout.cutout-threshold'), ['Cutout Threshold']);
+  assert.deepEqual(engineControlNames('project.singularity-fade'), ['Singularity Fade']);
+  assert.deepEqual(engineControlNames('palette-chroma'), ['Palette Chroma']);
+});
+
+test('a warp slot falls back from its slot name to its family name', () => {
+  assert.deepEqual(engineControlNames('warp1.speed'), ['Planar Warp 1 Speed', 'Speed']);
+  assert.deepEqual(engineControlNames('warp2.shear'), ['Planar Warp 2 Shear', 'Affine Shear']);
+  assert.deepEqual(engineControlNames('warp2.cell-x'), ['Planar Warp 2 Cell X', 'Mirror Cell X']);
+  assert.deepEqual(engineControlNames('warp1.radial-phase'),
+    ['Planar Warp 1 Radial Phase', 'Polar Radial Phase']);
+  assert.deepEqual(engineControlNames('warp1.field-angle'),
+    ['Planar Warp 1 Field Angle', 'Warp Field Angle']);
+});
+
+test('the baked topology fields are the catalog flag less the live mapping', () => {
+  const fields = bakedTopologyFields({
+    operators: [{ params: [
+      { id: 'symmetry', topology: true },
+      { id: 'palette-mapping', topology: true },
+      { id: 'lattice-radius' },
+    ] }],
+  });
+  assert.deepEqual([...fields], ['symmetry']);
+  assert.deepEqual([...bakedTopologyFields(null)], []);
 });
