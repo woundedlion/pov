@@ -1,105 +1,104 @@
-# HyperLattice on-device profile — Teensy 4.0, segmented mode (2026-08-24, **selective -O3**)
+# HyperLattice on-device profile — Teensy 4.0, segmented mode (2026-08-25, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile HyperLattice`).
-Raw capture: `build/prof/hyperlattice_ship.log`. First profile of this effect.
+Point-in-time snapshot (regenerate with `just profile HyperLattice`). Raw
+capture: `build/prof/hyperlattice_transition_ship.log`. This replaces the
+2026-08-24 two-preset transition report.
 
 ## Setup
 
 | | |
 |---|---|
 | Hardware | Teensy 4.0 @ 600 MHz, POV segmented mode, flywheel + DMA ISRs live, COM3 |
-| Image | `profile` env: `-Os` base with the landed `HS_O3` regions active |
+| Image | `profile` env: `-Os` base with `HS_O3` on the cached shader and specialized slice hot path |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
-| Effect | HyperLattice 288×144, four presets, tip `374d1a2d6391` |
-| Method | `HS_PROFILE` cycle scopes, window = 16 frames, 380 s capture; epoch stretched to 3,600 revolutions |
-| Reproduce | `bash tools/profile_one.sh HyperLattice profile 380 16 '-D HS_PROFILE_EPOCH_REVS=3600'` |
+| Effect | HyperLattice 288×144, two presets, tip `859ab5c03d476` |
+| Method | `HS_PROFILE` cycle scopes, 16-frame windows, 170 s full cycle, epoch stretched to 1,600 revolutions |
+| Reproduce | `bash tools/profile_one.sh HyperLattice profile 170 16 '-D HS_PROFILE_EPOCH_REVS=1600'` |
 
-Image size: `FLASH: code:53,200, data:147,132, headers:8,564` / `RAM1:
-variables:315,008, code:21,976, padding:10,792, free:176,512` / `RAM2:
+Image size: `FLASH: code:59,840, data:147,248, headers:8,976` / `RAM1:
+variables:315,008, code:22,984, padding:9,784, free:176,512` / `RAM2:
 variables:520,064, free:4,224`.
 
-Exactness cross-check: window frames 1,649–1,664 root counter cycles ÷ 600 MHz
-match the measured wall sum within **1.5 ppm**.
+Exactness cross-check: window frames 2,065–2,080 root counter cycles ÷ 600 MHz
+matches the measured wall sum within **4.5 ppm**.
 
 ## Frame cadence
 
-**Pass aggregate** (`parse_profile.py ... windows` footer):
-`hl_shader_draw` reaches 167.43 ms/f at the slowest clean preset window; peak
-frame render is **172.06 ms** at frames 1,665–1,680, with **2,672/2,672**
-frames spilled (100%).
+Peak frame render is **49.67 ms** at frames 2,065–2,080, with **0/2,688
+frames spilled**. That leaves 12.83 ms against the 62.5 ms display deadline
+and clears the original 59 ms goal by 9.33 ms.
 
-A display window is 62.5 ms. HyperLattice renders one quadrant ≈ 10,368
-samples per frame. Every captured preset exceeds the display budget, with
-worst-window cadence falling to 5.3 fps.
+The capture covers repeated 320-frame holds and 240-frame transitions in both
+directions. Every hold and every transition frame sustains 16 fps. The
+`canvas_buffer_wait` scope is display-sync idle, not render work.
 
 ## Phase-by-phase readout
 
-The 3,600-revolution profile epoch permits the default 320-frame dwell and
-240-frame segue to complete a full four-preset wrap. The parser's unlabeled
-startup bucket was folded into preset 1; the preset marker then confirms the
-same `cubic-flight` phase before advancing through presets 2–4 and wrapping.
-
-### Worst window (frames 1,665–1,680)
+### Worst transition window (frames 2,065–2,080)
 
 ```text
-frame                 186.35 ms 111.81 Mcyc  100%
-  hl_shader_draw      163.43 ms  98.06 Mcyc   87%
-  fx_timeline_step     12.4 us    7.46 kcyc    0%
-  canvas_clear         85.5 us   51.33 kcyc    0%
-  canvas_buffer_wait   20.34 ms  12.20 Mcyc   10%
+frame                 62.33 ms  37.40 Mcyc  100%
+  hl_shader_draw      43.68 ms  26.21 Mcyc   70%
+  hl_timeline_step    15.38 us   9.26 kcyc    0%
+  canvas_clear        87.63 us  52.59 kcyc    0%
+  canvas_buffer_wait  16.07 ms   9.64 Mcyc   25%
 ```
 
-Wall min/avg/max = 175.97/186.35/192.51 ms. The layered reflected-lattice
-shader owns 87% of wall time. Display-sync wait reflects the accumulated
-missed cadence rather than usable render margin.
+Wall min/avg/max = 58.22/62.33/67.20 ms. The exact render peak is 49.67 ms;
+the window-average scopes above are retained only for hot-path attribution.
 
-### Preset sweep
+### Per-preset table
 
-| # | Preset | Clean shader max | Peak render | Spilled | Worst cadence |
-|---:|---|---:|---:|---:|---:|
-| 1 | `cubic-flight` | 161.49 ms | 171.72 ms | 878/878 | 5.3 fps |
-| 2 | `deep-grid` | 119.06 ms | 122.13 ms | 676/676 | 8 fps |
-| 3 | `dimensional-rift` | 139.83 ms | 152.80 ms | 559/559 | 5.3 fps |
-| 4 | `hypercube-flight` | 167.43 ms | 172.06 ms | 559/559 | 5.3 fps |
+| # | Preset | Peak render | Spilled | Cadence |
+|---:|---|--:|--:|--:|
+| 1 | `cubic-flight` | 49.67 ms | 0/1,437 | 16 fps |
+| 2 | `hypercube-flight` | 47.71 ms | 0/1,251 | 16 fps |
+
+Initial unlabeled frames are folded into preset 1. The cycle visits both
+presets and wraps back to preset 1.
 
 ### Per-pixel figures
 
-The draw covers one 10,368-sample quadrant. The slowest clean preset window
-spends about 9,690 cycles per sample in `hl_shader_draw`; no separate blend
-scope is enabled, so this includes the whole layered shader evaluation.
+The draw covers one ≈10,368-sample quadrant. ARM codegen contains only the
+existing generic flash shader and one specialized ITCM shader; the transition
+dispatch does not instantiate a third body.
 
 ## Column-ISR / DMA marshaling cost
 
 ```text
-isr_wake       3435.9/frame  min/avg/max 0.80/2.02/14.87 us  cpu 3.72%
-isr_pack        429.4/frame  min/avg/max 6.25/6.93/9.43 us   cpu 1.59%
-isr_dma_submit  429.4/frame  min/avg/max 0.77/0.94/6.85 us   cpu 0.21%
+isr_wake        1149.9/frame  min/avg/max 0.67/1.80/16.29 us  cpu 3.31%
+isr_pack         143.8/frame  min/avg/max 6.24/6.69/9.00 us   cpu 1.54%
+isr_dma_submit   143.8/frame  min/avg/max 0.81/0.95/8.82 us   cpu 0.21%
 ```
 
-- Packing dominates submit CPU cost; wire transfer remains asynchronous.
-- The measured ISR share is included in the free-running cycle scopes.
-- The shader alone exceeds the 62.5 ms cadence budget in every preset.
+- Packing remains the dominant DMA-marshaling CPU cost.
+- LED transfer is asynchronous; display synchronization is isolated in
+  `canvas_buffer_wait`.
+- ISR time is included in render scopes because `CYCCNT` free-runs.
 
 ## Summary ranking
 
-1. `hl_shader_draw` — 87% of the worst window, 163.43 ms/frame.
-2. `canvas_buffer_wait` — 10%, 20.34 ms/frame.
-3. Column ISR wake and packing — 5.31% aggregate CPU share.
+1. `hl_shader_draw` — dominant render scope; its worst transition still leaves
+   12.83 ms of measured deadline margin.
+2. `canvas_buffer_wait` — display-sync idle and not optimization headroom.
+3. Column ISR wake and packing — 4.85% aggregate CPU share in the worst window.
 
-The global-O3 twin peaks at 148.24 ms, 13.8% below the shipping peak, but
-still spills every frame.
+The previous transition-inclusive shipping capture peaked at 65.37 ms and
+spilled 104/2,592 frames. Dispatching all Chrome/Depth/two-shell 4D frames
+through the ITCM specialization reduces peak by **15.70 ms (24.0%)** and
+eliminates every spill.
 
 ## Caveats
 
 - All scopes absorb ISR time because `CYCCNT` free-runs.
-- No per-pixel or blend scope was enabled, avoiding instrumentation distortion.
-- The shipping image uses the repository's selective `HS_O3` regions on an
-  otherwise `-Os` build.
-- The extended epoch changes only profiling cadence, not the effect preset
-  definitions or render path.
+- No deep per-event scopes were enabled in this timing capture.
+- The specialized distance/fog-AA path can differ only in faint fringe
+  coverage; regression tests bound premultiplied visible error.
+- The capture and installed WASM artifact were built from clean landed tip
+  `859ab5c03d476`.
 
 ## Harness
 
 `targets/Profile/Profile.ino` + `HS_PROFILE_TARGET=HyperLattice`,
-`HS_PROFILE_WINDOW=16`, `HS_PROFILE_EPOCH_REVS=3600`; the reproduction command
-above builds, flashes and captures the full preset wrap.
+`HS_PROFILE_WINDOW=16`; the reproduction command builds, flashes, and captures
+the complete two-preset cycle.

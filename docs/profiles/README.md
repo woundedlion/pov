@@ -30,9 +30,8 @@ live in each effect's report.
 
 **Spilled** is `frames whose render overran one 62.5 ms window / total (%)`.
 
-**Colour** is binary on the spilled column: 🟢 zero spilled frames · 🔴 any
-spill, a single spilled frame included. Peak ms is reported but does not set
-colour.
+**Colour** is strict per phase: 🟢 zero spilled frames · 🟡 under 25% spilled ·
+🔴 25% or more spilled. Peak ms is reported but does not set colour.
 
 **§ cyclers** carry one row per colour bucket, worst first, aligned across the
 peak and spilled columns. A preset owns exactly the frames it was on screen for,
@@ -49,7 +48,6 @@ peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🔴 172.06 (4) | 🔴 2672/2672 (100%) | 2026-08-24 00:01 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-08-18.md) | fused ring-stack raster | 🟢 59.84 | 🟢 0/1408 (0%) | 2026-08-18 21:55 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -60,6 +58,7 @@ peak.
 | [Raymarch](shipping/profile_raymarch_teensy_2026-07-25.md) | volume ray-march (`-O3` march path) | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 0/1088 (0%) | 2026-08-23 22:04 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
+| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🟢 49.67 (2) | 🟢 0/2688 (0%) | 2026-08-25 01:12 |
 | [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
 | [LatticeMelt](shipping/profile_latticemelt_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
@@ -109,18 +108,18 @@ other fifteen composed effects have no codegen pair on record.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [HyperLattice](O3/profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🔴 172.06 (4) | 🔴 148.24 (4) | 🔴 2672/2672 (100%) | 🔴 2816/2816 (100%) | +10,912 B | +8,640 B | ship 2026-08-24 00:01<br>O3 2026-08-23 23:53 |
 | [DisplacementField](O3/profile_displacementfield_teensy_2026-08-18.md) ● | fused ring-stack raster | 🟢 59.84 | 🟢 58.96 | 🟢 0/1408 (0%) | 🟢 0/1408 (0%) | +25,216 B | +21,600 B | ship 2026-08-18 21:55<br>O3 2026-08-18 21:55 |
 | [ShapeShifter](O3/profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 56.72 (9) | 🟢 0/2448 (0%) | 🟢 0/2448 (0%) | +28,616 B | +24,016 B | ship 2026-08-08 17:54<br>O3 2026-08-08 17:57 |
 | [GSReactionDiffusion](O3/profile_gsreactiondiffusion_teensy_2026-08-09.md) | integer opaque SSAA raster + sim | 🟢 56.28 | 🟢 56.97 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +11,632 B | +10,624 B | ship 2026-08-09 16:34<br>O3 2026-08-09 16:37 |
 | [AshCloud](O3/profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 48.35 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +14,344 B | +11,888 B | ship 2026-08-23 22:04<br>O3 2026-08-23 22:06 |
 | [BZReactionDiffusion](O3/profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 50.90 | 🟢 0/2048 (0%) | 🟢 0/2048 (0%) | +17,696 B | +16,256 B | ship 2026-08-03 00:33<br>O3 2026-08-03 00:36 |
+| [HyperLattice](O3/profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🟢 49.67 (2) | 🟢 47.79 (2) | 🟢 0/2688 (0%) | 🟢 0/2688 (0%) | +10,184 B | +7,936 B | ship 2026-08-25 01:12<br>O3 2026-08-25 01:16 |
 | [DreamBalls](O3/profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 42.94 (5) | 🟢 0/3648 (0%) | 🟢 0/3648 (0%) | +25,976 B | +16,272 B | ship 2026-08-09 18:37<br>O3 2026-08-09 18:41 |
 | [MindSplatter](O3/profile_mindsplatter_teensy_2026-08-07.md)§ | direct AA trail raster + clip gate | 🟢 38.95 (8) | 🟢 38.78 (8) | 🟢 0/1728 (0%) | 🟢 0/1728 (0%) | +21,464 B | +18,832 B | ship 2026-08-07 23:03<br>O3 2026-08-07 23:02 |
 | [Fishbowl](O3/profile_fishbowl_teensy_2026-08-02.md) | adaptive vertex build | 🟢 24.85 | 🟢 22.16 | 🟢 0/1088 (0%) | 🟢 0/1088 (0%) | +28,456 B | +20,688 B | ship 2026-08-02 22:21<br>O3 2026-08-02 22:23 |
 
 **Nine pairs: six refreshed 2026-08-15, DisplacementField captured 2026-08-18,
-AshCloud captured 2026-08-23, and HyperLattice completed 2026-08-24.**
+AshCloud captured 2026-08-23, and HyperLattice completed 2026-08-25.**
 
 ## Captures of retired effects
 
@@ -143,12 +142,10 @@ on them.
 
 ## What the roster looks like
 
-**HyperLattice is the only current shipping capture that spills.** All four
-presets overrun the display window, for 2,672/2,672 spilled frames at a
-172.06 ms peak. The other thirty-five effects spill nothing.
-
-Global `-O3` lowers HyperLattice's peak to 148.24 ms, but all 2,816 frames
-still spill. The comparison adds 10,912 B of flash code and 8,640 B of ITCM.
+**Every current shipping capture is zero-spill.** HyperLattice's optimized 4D
+transition now peaks at 49.67 ms with 0/2,688 spills, down from 65.37 ms and
+104/2,592 spills. Global `-O3` peaks at 47.79 ms with zero spills and adds
+10,184 B of flash code and 7,936 B of ITCM.
 
 **The sixteen composed effects are green.** Their peaks run 23.30 ms
 (AlienCore) to 52.39 ms (AshCloud), so the heaviest keeps 10.11 ms of the

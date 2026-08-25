@@ -2,13 +2,12 @@
 
 Ranked on-device results for the shipping `profile` image, covering the 36
 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render time; spilled
-counts frames above the 62.5 ms display window. Colour is binary on the spilled
-column: 🟢 zero spilled frames, 🔴 any spill. Cyclers (§) carry their preset
+counts frames above the 62.5 ms display window. Colour is strict per phase:
+🟢 zero spills, 🟡 under 25%, 🔴 25% or more. Cyclers (§) carry their preset
 count after the peak.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [HyperLattice](profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🔴 172.06 (4) | 🔴 2672/2672 (100%) | 2026-08-24 00:01 |
 | [DisplacementField](profile_displacementfield_teensy_2026-08-18.md) | fused ring-stack raster | 🟢 59.84 | 🟢 0/1408 (0%) | 2026-08-18 21:55 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-08.md)§ | adaptive planar-star raster | 🟢 58.22 (9) | 🟢 0/2448 (0%) | 2026-08-08 17:54 |
 | [HopfFibration](profile_hopffibration_teensy_2026-07-30.md) | trail raster + trail gate | 🟢 57.74 | 🟢 0/1088 (0%) | 2026-07-30 23:47 |
@@ -19,6 +18,7 @@ count after the peak.
 | [Raymarch](profile_raymarch_teensy_2026-07-25.md) | volume ray-march | 🟢 52.99 | 🟢 0/1088 (0%) | 2026-07-26 11:38 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-23.md) ● | composed curl-noise shader | 🟢 52.39 | 🟢 0/1088 (0%) | 2026-08-23 22:04 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-03.md) | coefficient-factored SSAA raster | 🟢 50.70 | 🟢 0/2048 (0%) | 2026-08-03 00:33 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-08-24.md)§ | layered reflected-lattice shader | 🟢 49.67 (2) | 🟢 0/2688 (0%) | 2026-08-25 01:12 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-16.md) ● | folded gnomonic dodecahedral vector mirror | 🟢 47.20 | 🟢 0/1088 (0%) | 2026-08-16 08:29 |
 | [LatticeMelt](profile_latticemelt_teensy_2026-08-18.md)§ ● | curl-noise surface lattice | 🟢 45.18 (2) | 🟢 0/1728 (0%) | 2026-08-18 17:46 |
 | [DreamBalls](profile_dreamballs_teensy_2026-08-09.md)§ | wireframe raster | 🟢 44.65 (5) | 🟢 0/3648 (0%) | 2026-08-09 18:37 |
@@ -53,8 +53,9 @@ Comets, GnomonicStars, PetalFlow, Voronoi and RingShower. Their per-effect
 reports describe the 2026-07-25 sweep that preceded it, so each report's
 headline peak is the earlier one and the peaks above are current.
 
-§ HyperLattice spans four presets; its initial unlabeled frames are folded into
-the first `cubic-flight` bucket. ShapeShifter spans nine presets; its initial
+§ HyperLattice spans two presets. Both holds and both transition directions are
+zero-spill; initial unlabeled frames fold into `cubic-flight`.
+ShapeShifter spans nine presets; its initial
 unlabeled frames and later `Preset: 1/9` frames are one adaptive 208-count
 planar-star bucket.
 MindSplatter spans eight presets. Each report folds its initial unlabeled
