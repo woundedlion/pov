@@ -491,6 +491,7 @@ inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
   const uint16_t *fo = mesh.get_face_offsets_data();
   const size_t num_f = mesh.get_face_counts_size();
   for (size_t f = 0; f < num_f; ++f) {
+    HS_CONTEXT("face", static_cast<long long>(f));
     Vector centroid(0, 0, 0);
     for (int k = 0; k < fc[f]; ++k)
       centroid = centroid + mesh.vertices[fi[fo[f] + k]];
@@ -508,6 +509,7 @@ inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
  * @brief Wireframe + solid-fill oracles on the cube (quad faces).
  */
 inline void test_cube_wireframe_and_fill() {
+  HS_CONTEXT("cube");
   constexpr int W = 288, H = 144;
   Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
@@ -524,6 +526,7 @@ inline void test_cube_wireframe_and_fill() {
  * @brief Wireframe + solid-fill oracles on the dodecahedron (pentagon faces).
  */
 inline void test_dodecahedron_wireframe_and_fill() {
+  HS_CONTEXT("dodecahedron");
   constexpr int W = 288, H = 144;
   Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
@@ -543,6 +546,7 @@ inline void test_dodecahedron_wireframe_and_fill() {
  *          actually runs, with non-triangular mixed faces the octahedron lacks.
  */
 inline void test_truncated_icosahedron_wireframe_and_fill() {
+  HS_CONTEXT("truncated icosahedron");
   constexpr int W = 288, H = 144;
   Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
