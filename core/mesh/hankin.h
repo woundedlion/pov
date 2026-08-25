@@ -338,13 +338,21 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
                                          MeshT &out_mesh, Arena &target_arena,
                                          float angle) {
 
+  // A borrowed MeshState carries its topology in a view that set_owned() drops,
+  // so the reuse check below reads the size through the mode-aware accessor
+  // first.
+  size_t prior_topology_size = out_mesh.topology.size();
+  if constexpr (requires { out_mesh.get_topology_size(); }) {
+    prior_topology_size = out_mesh.get_topology_size();
+  }
+
   // Drop any borrowed-mode views a reused MeshState may still carry, so the
-  // owned topology bound below is unambiguous on reuse.
+  // owned vertex and face arrays bound below are not shadowed by a stale view.
   if constexpr (requires { out_mesh.set_owned(); }) {
     out_mesh.set_owned();
   }
 
-  HS_CHECK(out_mesh.topology.size() == 0 ||
+  HS_CHECK(prior_topology_size == 0 ||
                out_mesh.topology_key == compiled.topology_key,
            "update_hankin: reused out_mesh carries a topology from a different "
            "compiled pattern (clear it first)");
