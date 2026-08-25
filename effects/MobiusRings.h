@@ -80,7 +80,7 @@ public:
    * @details Arms a steady Y-axis spin, a periodic palette wipe, and
    *          out-of-phase sine mutations driving the ring/line counts.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     mobius_gen.init_storage(persistent_arena);

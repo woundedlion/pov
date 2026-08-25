@@ -127,7 +127,7 @@ public:
    * mesh, samples the mesh shade, registers tunable params, and schedules the
    * noise/walk timers.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     begin_choreography();
 
     // Configure the noise type before apply_params(): it calls sync_noise(),
