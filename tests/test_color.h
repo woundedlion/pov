@@ -1657,6 +1657,59 @@ inline void test_step_wipe_rebake_skips_arming_then_decrements() {
   HS_EXPECT_EQ(frames, 0);
 }
 
+/**
+ * @brief Verifies PaletteWipe's arm/step cadence, zero-frame arm included.
+ * @details arm() captures the endpoints and opens the rebake window; the
+ *          arming frame is consumed without spending a rebake frame, the wipe
+ *          reports in flight for exactly the armed count, and the counter
+ *          floors at zero. A zero-frame arm is never in flight and its arming
+ *          frame still clears, so the state is reusable without a guard.
+ */
+inline void test_palette_wipe_arm_step_cadence() {
+  const GenerativePalette palette;
+  SolidColorPalette source(Color4(Pixel(1000, 2000, 3000), 1.0f));
+
+  alignas(std::max_align_t) static uint8_t
+      buf[BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  BakedPalette baked;
+  baked.bake(arena, source);
+
+  PaletteWipe wipe;
+  HS_EXPECT_FALSE(wipe.in_flight());
+  HS_EXPECT_FALSE(wipe.pending);
+
+  constexpr int FRAMES = 3;
+  wipe.arm(palette, palette.snapshot(), FRAMES);
+  HS_EXPECT_TRUE(wipe.pending);
+  HS_EXPECT_TRUE(wipe.in_flight());
+  HS_EXPECT_EQ(wipe.frames_remaining, FRAMES);
+
+  wipe.step(baked, source);
+  HS_EXPECT_FALSE(wipe.pending);
+  HS_EXPECT_EQ(wipe.frames_remaining, FRAMES);
+
+  for (int left = FRAMES; left > 0; --left) {
+    HS_EXPECT_TRUE(wipe.in_flight());
+    wipe.step(baked, source);
+    HS_EXPECT_EQ(wipe.frames_remaining, left - 1);
+  }
+  HS_EXPECT_FALSE(wipe.in_flight());
+
+  // Steps past the window neither underflow the counter nor re-arm.
+  wipe.step(baked, source);
+  HS_EXPECT_EQ(wipe.frames_remaining, 0);
+  HS_EXPECT_FALSE(wipe.pending);
+
+  wipe.arm(palette, palette.snapshot(), 0);
+  HS_EXPECT_FALSE(wipe.in_flight());
+  HS_EXPECT_TRUE(wipe.pending);
+  wipe.step(baked, source);
+  HS_EXPECT_FALSE(wipe.pending);
+  HS_EXPECT_EQ(wipe.frames_remaining, 0);
+  HS_EXPECT_FALSE(wipe.in_flight());
+}
+
 // ============================================================================
 // Palette layer: source palettes, modifiers, compositions, and wrappers
 // ============================================================================
@@ -2590,6 +2643,7 @@ inline int run_color_tests() {
   test_bake_palette_blend_nan_weight_stays_finite();
   test_baked_palette_rebake_crossfade();
   test_step_wipe_rebake_skips_arming_then_decrements();
+  test_palette_wipe_arm_step_cadence();
 
   test_procedural_palette_cosine();
   test_mutating_palette_blends_endpoints();
