@@ -4,23 +4,16 @@
  */
 #pragma once
 #include <utility>
-#include <type_traits>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <array>
-#include <concepts>
 #include "math/geometry.h"
 #include "render/shading.h"
-#include "color/color.h"
-#include "platform/constants.h"
 #include "render/clip.h"
-#include "render/canvas.h"
 #include "render/filter/splat.h"
-#include "engine/concepts.h"
 #include "engine/memory.h"
-#include "containers/triangular_bitset.h"
 
 /**
  * @file cull.h

@@ -3,16 +3,10 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
-#include <utility>
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <array>
 #include "math/geometry.h"
 #include "render/shading.h"
-#include "color/color.h"
-#include "platform/constants.h"
 #include "render/clip.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
