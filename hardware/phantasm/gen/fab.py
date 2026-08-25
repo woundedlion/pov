@@ -307,6 +307,105 @@ def verify_package(directory=JLC, baseline=SHIPPED_SUMS):
             "fab package verification failed:\n  " + "\n  ".join(diagnostics))
     return len(recorded)
 
+
+class FabContentError(ValueError):
+    """An exported fab artifact does not carry what the board holds."""
+
+
+#: Gerbers whose plot may hold no apertures. JLC reflows top-side SMD only, so
+#: the bottom stencil opens nothing; every other exported layer draws something.
+APERTURELESS_MEMBERS = {"phantasm-B_Paste.gbp"}
+#: The two Excellon exports, keyed to the hole kind each one drills.
+DRILL_MEMBERS = {"phantasm-PTH.drl": "plated", "phantasm-NPTH.drl": "unplated"}
+
+#: An aperture definition, and any draw/flash that uses one. A Gerber plots
+#: nothing without both.
+GERBER_APERTURE = re.compile(r"^%ADD\d+", re.M)
+GERBER_OPERATION = re.compile(r"D0[123]\*")
+#: One Excellon hole: a coordinate line, whether a plain drill or a slot.
+EXCELLON_HOLE = re.compile(r"^X-?[\d.]+Y-?[\d.]+", re.M)
+
+
+def read_export(path):
+    """Text of an exported artifact, read as the export wrote it."""
+    try:
+        with open(path, encoding="utf-8", newline="") as fh:
+            return fh.read()
+    except (OSError, UnicodeError) as exc:
+        raise FabContentError(
+            f"cannot read exported artifact: {path}") from exc
+
+
+def board_pads(node):
+    """Every pad in a board tree, footprint by footprint."""
+    pads = []
+    for child in node:
+        if isinstance(child, list) and child:
+            if child[0] == "pad":
+                pads.append(child)
+            else:
+                pads.extend(board_pads(child))
+    return pads
+
+
+def board_hole_counts(board):
+    """{hole kind: count} the board drills: every via, plus every pad hole.
+
+    A via is always plated; a pad's hole is plated unless the pad is
+    np_thru_hole. The Excellon export writes exactly these, so the board is
+    what the exported hole count has to agree with.
+    """
+    counts = {"plated": len(F(board, "via")), "unplated": 0}
+    for pad in board_pads(board):
+        kind = str(pad[2]) if len(pad) > 2 else ""
+        if sexp.val(pad, "drill", []):
+            counts["unplated" if kind == "np_thru_hole" else "plated"] += 1
+    return counts
+
+
+def validate_fab_content(directory, board):
+    """Hold the exported Gerbers and drill files to what the board carries.
+
+    Membership is a filename test, so it passes a layer that plotted nothing
+    and a drill file that dropped holes - the last unchecked step between a
+    gated board and what is fabricated. A Gerber draws only with the apertures
+    it defines, and the hole counts come from the board's own vias and pads.
+    """
+    holes = board_hole_counts(board)
+    diagnostics = []
+    for name in sorted(os.listdir(directory)):
+        path = os.path.join(directory, name)
+        extension = os.path.splitext(name)[1]
+        if extension == ".gbrjob":
+            continue
+        if extension == ".drl":
+            kind = DRILL_MEMBERS.get(name)
+            if kind is None:
+                diagnostics.append(
+                    f"{name}: no board hole count covers this drill file")
+                continue
+            drilled = len(EXCELLON_HOLE.findall(read_export(path)))
+            if drilled != holes[kind]:
+                diagnostics.append(
+                    f"{name}: drills {drilled} holes, the board carries "
+                    f"{holes[kind]} {kind}")
+            continue
+        if name in APERTURELESS_MEMBERS:
+            continue
+        text = read_export(path)
+        if not GERBER_APERTURE.search(text):
+            diagnostics.append(f"{name}: defines no apertures")
+        elif not GERBER_OPERATION.search(text):
+            diagnostics.append(f"{name}: draws with none of its apertures")
+
+    if diagnostics:
+        raise FabContentError(
+            "exported fab artifacts do not carry the board:\n  "
+            + "\n  ".join(diagnostics)
+            + "\n  The upload zip is checked by filename, so these would "
+            "fabricate as exported.")
+    return holes
+
 # Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
 # through-hole (connectors, electrolytic, Teensy), solder jumpers, and DNP.
 EXCLUDE_FP_SUBSTR = ("PinHeader", "JST_", "SolderJumper", "CP_Radial")
@@ -1144,6 +1243,10 @@ def main():
             stamped = normalize_fab_timestamps(staged)
         except TimestampNormalizationError as exc:
             sys.exit(str(exc))
+        try:
+            holes = validate_fab_content(staged, board)
+        except FabContentError as exc:
+            sys.exit(str(exc))
 
         if os.path.isdir(JLC):
             for name in os.listdir(JLC):
@@ -1157,6 +1260,8 @@ def main():
             os.replace(os.path.join(staged, name), os.path.join(JLC, name))
     print(f"  creation stamps: {len(stamped)} artifact(s) normalized to "
           f"{FAB_TIMESTAMP}")
+    print(f"  export content: every plotted layer draws; {holes['plated']} "
+          f"plated and {holes['unplated']} unplated holes match the board")
 
     print("[8/9] BOM + CPL")
     # BOM grouped by (value, footprint)
