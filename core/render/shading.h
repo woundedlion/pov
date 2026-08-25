@@ -28,9 +28,9 @@
  * @details A rasterizer refreshes only the fields its own documentation names;
  * the rest keep whatever the previous invocation left, so a shader must write
  * color unconditionally and must never read a field it did not set itself.
- * Scan::process_pixel refreshes every field; Scan::RingGroup refreshes pos, v2,
- * size, age and color; Scan::rasterize_face with MinimalFragment refreshes v1
- * alone.
+ * Scan::process_pixel and Scan::DistortedRingStack refresh every field;
+ * Scan::RingGroup refreshes pos, v2, size, age and color; Scan::rasterize_face
+ * with MinimalFragment refreshes v1 alone.
  */
 struct Fragment {
   Vector pos;        /**< Position (typically a unit vector on the sphere). */
