@@ -289,25 +289,32 @@ def duplicates_pin(text: str, name: str, value: str) -> bool:
 
 def check_inline_pins() -> list[str]:
     """Return one error per occurrence of an INLINE_PINS value that disagrees
-    with the pin, plus one per pin no scanned file spells at all."""
+    with the pin, plus one per INLINE_USES spelling no scanned file matches.
+
+    The vacuity guard counts per pattern, not per pin: most pins have several
+    spellings, so a per-pin count would let one spelling stop matching while a
+    sibling keeps the count non-zero.
+    """
     errors: list[str] = []
     pin_values = {**PINS, **INLINE_PINS}
-    seen: dict[str, int] = {name: 0 for _, name, _ in INLINE_USES}
+    seen: dict[str, int] = {pattern: 0 for pattern, _, _ in INLINE_USES}
     for path in INLINE_SCAN:
         text = path.read_text(encoding="utf-8")
         for index, line in enumerate(text.splitlines(), 1):
             for pattern, name, form in INLINE_USES:
                 want = form(pin_values[name])
                 for found in re.findall(pattern, line):
-                    seen[name] += 1
+                    seen[pattern] += 1
                     if found != want:
                         errors.append(
                             f"{path.relative_to(ROOT)}:{index}: {name} pinned to "
                             f"{want!r} in build_pins.py but written {found!r}"
                         )
-    for name, count in seen.items():
-        if count == 0:
-            errors.append(f"{name} pin is spelled in no scanned file")
+    for pattern, name, _ in INLINE_USES:
+        if seen[pattern] == 0:
+            errors.append(
+                f"{name} spelling {pattern!r} matches no scanned file"
+            )
     return errors
 
 
