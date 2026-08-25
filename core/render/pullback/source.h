@@ -126,6 +126,21 @@ struct NoiseSourceParams {
 static_assert(field_ids_unique<NoiseSourceParams>());
 
 /**
+ * @brief Source family selecting the plane-domain noise contour
+ *        (Pullback::Source::ProjectedNoise): the field is sampled in the
+ *        projected chart, so it carries the projection's distortion.
+ */
+struct ProjectedNoiseSourceParams : NoiseSourceParams {};
+
+/**
+ * @brief Source family selecting the sphere-domain noise contour
+ *        (Pullback::Source::SphericalNoise): the field is sampled on the
+ *        pre-projection direction, so it is seamless and moves only with
+ *        the projection frame.
+ */
+struct SphericalNoiseSourceParams : NoiseSourceParams {};
+
+/**
  * @brief Source parameters for the per-cell primitive lattice
  *        (Pullback::Source::PrimitiveLattice).
  */
@@ -746,6 +761,16 @@ struct SphericalNoise : ApproximationDefaults {
   static constexpr bool PROVIDER_VALID =
       ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
 
+  /** @brief Post-projection form: samples the plane carrier's retained
+      pre-projection point. */
+  __attribute__((always_inline)) static float sample(const PlaneSample &input,
+                                                     const FrameState &frame) {
+    return noise_contour(State::noise(frame), BasisV,
+                         noise_sphere_coordinate(input.sphere,
+                                                 State::noise_scale(frame),
+                                                 State::noise_time(frame)),
+                         State::noise_contrast(frame));
+  }
   __attribute__((always_inline)) static float sample(const SphereSample &input,
                                                      const FrameState &frame) {
     return noise_contour(State::noise(frame), BasisV,
