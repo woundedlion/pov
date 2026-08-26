@@ -159,10 +159,6 @@ valid_config(const RequestedConfig &candidate) {
       (slots.warp_program.outer.kind != WarpStageKind::NONE ||
        slots.warp_program.inner.kind != WarpStageKind::NONE))
     return false;
-  if (slots.surface_lens == SurfaceLens::TANGENT_NOISE ||
-      slots.warp_program.outer.kind == WarpStageKind::LEGACY_STEREO_NOISE ||
-      slots.warp_program.inner.kind == WarpStageKind::LEGACY_STEREO_NOISE)
-    return false;
   const bool outer_polar =
       slots.warp_program.outer.kind == WarpStageKind::POLAR_CHART;
   const bool inner_polar =
