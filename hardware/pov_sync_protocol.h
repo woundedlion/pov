@@ -71,6 +71,15 @@ constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
 // ── Configuration ───────────────────────────────────────────────────────────
 
 /**
+ * @brief Half-revolutions of coast Flywheel::position()'s int32 elapsed cast
+ * must survive.
+ * @details Caps cycles_per_half_rev: the product must stay inside INT32_MAX.
+ * At 600 MHz that puts a floor of 135 RPM under the spindle rate a Config may
+ * describe.
+ */
+constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
+
+/**
  * @brief All protocol constants, in columns and cycle-counter cycles.
  *
  * "Cycles" are ticks of the per-board free-running clock (DWT->CYCCNT on the
@@ -304,6 +313,13 @@ struct Config {
       return "W even";
     if (!(cycles_per_half_rev > 0))
       return "cycles_per_half_rev > 0";
+    // Flywheel::position() reads (now - epoch) as int32 and divides by the
+    // period, so the period must leave MIN_SAFE_HALF_REVS of coast inside the
+    // signed range. Flywheel::check_period traps the same bound; valid() runs
+    // first and names the offending constant.
+    if (!(cycles_per_half_rev <=
+          static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS))
+      return "cycles_per_half_rev * MIN_SAFE_HALF_REVS <= INT32_MAX";
     if (!(gate_cols > 0))
       return "gate_cols > 0";
     if (!(gate_cols < W / 4))
