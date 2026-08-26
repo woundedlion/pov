@@ -124,7 +124,9 @@ public:
    * @param cfg Protocol configuration.
    */
   HS_COLD_MEMBER explicit SyncBoard(const Config &cfg)
-      : protocol_config(cfg), fly(cfg) {}
+      : protocol_config(cfg), fly(cfg) {
+    cache_config_bounds();
+  }
 
   /**
    * @brief Reinitializes the board for a new protocol configuration.
@@ -136,6 +138,7 @@ public:
    */
   HS_COLD_MEMBER void configure(const Config &cfg) {
     protocol_config = cfg;
+    cache_config_bounds();
     fly = Flywheel(cfg);
     is_master_board = false;
     reset_runtime_state();
@@ -243,10 +246,7 @@ public:
     // inter-digit advance, and the added gap_timeout_cols is margin against the
     // emitter's wake-grid quantization of that advance, so this never fires
     // between two digit bursts of one beacon frame.
-    if (have_prev_burst &&
-        (now - prev_burst_end) >
-            protocol_config.col_cycles(protocol_config.acquire_quiet_cols +
-                                       protocol_config.gap_timeout_cols) &&
+    if (have_prev_burst && (now - prev_burst_end) > prev_burst_stale_cycles &&
         static_cast<int32_t>(now - prev_burst_end) > 0) {
       have_prev_burst = false;
       // The same silence ends any partial beacon frame: feed()'s staleness test
@@ -406,6 +406,16 @@ private:
    * @return Const reference to the config.
    */
   const Config &config() const { return protocol_config; }
+
+  /**
+   * @brief Recomputes the tick-path bounds derived from protocol_config.
+   * @details Every wake tests them, and the division col_cycles() costs is
+   * wasted there: the config only moves in the constructor and configure().
+   */
+  HS_COLD_MEMBER void cache_config_bounds() {
+    prev_burst_stale_cycles = protocol_config.col_cycles(
+        protocol_config.acquire_quiet_cols + protocol_config.gap_timeout_cols);
+  }
 
   /**
    * @brief Restores every member except protocol_config, the flywheel and the
@@ -774,6 +784,8 @@ private:
   uint32_t halves_since_snap = 0;
   bool have_prev_burst = false;
   uint32_t prev_burst_end = 0;
+  uint32_t prev_burst_stale_cycles =
+      0; /**< Quiet past which prev_burst_end ages out (cached). */
   bool suspect_pending = false; /**< Lone far burst awaiting train/timeout. */
   uint32_t suspect_last_cycles = 0;
   uint32_t epoch_emits_left =
