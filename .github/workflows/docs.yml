@@ -98,6 +98,7 @@ jobs:
           ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
+          fetch-depth: 0
 
       # The Markdown this job is about to publish is validated before it is
       # served: a broken link or a stale repository-map fence would otherwise
