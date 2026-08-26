@@ -10,8 +10,11 @@
 // Defaults to the wasm-release build output; override with the arg or WASM_JS.
 import { pathToFileURL } from 'node:url';
 import { join, isAbsolute } from 'node:path';
-import { access, readdir, readFile } from 'node:fs/promises';
-import { compileShaderDocument } from './shader_workbench.mjs';
+import { access } from 'node:fs/promises';
+import {
+  compilePatternDocuments,
+  loadOperatorCatalog,
+} from './pattern_documents.mjs';
 import {
   bakedTopologyFields,
   darknessProblems,
@@ -23,8 +26,7 @@ import {
 const DEFAULT_JS = 'build/wasm-release/holosphere_wasm.js';
 const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
 const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
-const EXPECTED_OPERATOR_CATALOG = JSON.parse(await readFile(
-  new URL('./engine_catalog.json', import.meta.url), 'utf8'));
+const EXPECTED_OPERATOR_CATALOG = await loadOperatorCatalog();
 
 /**
  * The promoted shader documents, each with the parameter ids its presets
@@ -34,13 +36,9 @@ const EXPECTED_OPERATOR_CATALOG = JSON.parse(await readFile(
  * @returns {Promise<{document: string, effect: string, parameterIds: string[]}[]>}
  */
 async function promotedDocuments() {
-  const dir = new URL('../patterns/', import.meta.url);
-  const names = (await readdir(dir)).filter((name) => name.endsWith('.shader.json'));
   const documents = [];
-  for (const name of names) {
-    // The committed blobs are LF; core.autocrlf hands a Windows checkout CRLF.
-    const source = (await readFile(new URL(name, dir), 'utf8')).replaceAll('\r\n', '\n');
-    const compiled = compileShaderDocument(source, { catalog: EXPECTED_OPERATOR_CATALOG });
+  for (const { name, compiled }
+    of await compilePatternDocuments(EXPECTED_OPERATOR_CATALOG)) {
     if (compiled.status !== 'VALID') {
       throw new Error(`patterns/${name} does not compile: ` +
         JSON.stringify(compiled.diagnostics));

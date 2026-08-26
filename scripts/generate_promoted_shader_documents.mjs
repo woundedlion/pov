@@ -1,6 +1,10 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  compilePatternDocuments,
+  loadOperatorCatalog,
+} from './pattern_documents.mjs';
 import {
   compileShaderDocument,
   exportShaderDocumentJson,
@@ -526,8 +530,7 @@ const effects = [
 // them through expandV1Document against the operator catalog — the single code
 // path every schema_version 1 document shares — so the committed output is the
 // expansion's canonical v2 export.
-const catalog = JSON.parse(
-  await readFile(resolve(ROOT, 'scripts', 'engine_catalog.json'), 'utf8'));
+const catalog = await loadOperatorCatalog();
 const stale = [];
 for (const spec of effects) {
   const compiled = compileShaderDocument(documentFor(spec), { catalog });
@@ -564,12 +567,8 @@ if (CHECK) {
     process.exit(1);
   }
   const noncanonical = [];
-  const patternNames = (await readdir(resolve(ROOT, 'patterns')))
-    .filter((name) => name.endsWith('.shader.json'));
-  for (const name of patternNames) {
-    const source = await readFile(resolve(ROOT, 'patterns', name), 'utf8')
-      .then((text) => text.replaceAll('\r\n', '\n'));
-    const compiled = compileShaderDocument(source, { catalog });
+  const patterns = await compilePatternDocuments(catalog);
+  for (const { name, source, compiled } of patterns) {
     if (compiled.status !== 'VALID' || exportShaderDocumentJson(compiled.document) !== source)
       noncanonical.push(name);
   }
@@ -582,5 +581,5 @@ if (CHECK) {
   }
   console.log(
     `patterns/ matches the generator in full (${effects.length} documents) `
-      + `and is canonical (${patternNames.length} documents).`);
+      + `and is canonical (${patterns.length} documents).`);
 }
