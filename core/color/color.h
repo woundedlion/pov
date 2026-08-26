@@ -881,6 +881,37 @@ struct GamutLut {
 };
 
 /**
+ * @brief A gamut-grid cell, with the un-truncated coordinates it was binned
+ *        from.
+ */
+struct GamutCell {
+  float angle;         /**< Diamond angle scaled onto the angle grid. */
+  float lightness;     /**< Lightness scaled onto the L grid. */
+  int angle_index;     /**< Clamped truncation of `angle`. */
+  int lightness_index; /**< Clamped truncation of `lightness`. */
+};
+
+/**
+ * @brief Bins a hue direction and lightness onto a gamut grid.
+ * @param lut Grid to index: the flash master or an arena copy.
+ * @param L OKLab lightness, already clamped to [0, 1].
+ * @param a OKLab a coordinate of the hue direction.
+ * @param b OKLab b coordinate of the hue direction.
+ * @return The cell the ray falls in, plus its fractional coordinates.
+ * @details One spelling of the binning for every reader, so a change to it
+ * cannot leave the flash master and an arena copy disagreeing about which cell
+ * a ray falls in. The direction is only binned, so it need not be unit length.
+ */
+__attribute__((always_inline)) inline GamutCell
+gamut_cell(const GamutLut &lut, float L, float a, float b) {
+  const float angle = diamond_angle(b, a) * lut.angle_scale;
+  const float lightness = L * lut.l_scale;
+  return {angle, lightness,
+          hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1),
+          hs::clamp(static_cast<int>(lightness), 0, lut.l_steps - 1)};
+}
+
+/**
  * @brief The single live boundary grid.
  * @details Points at the flash master until an effect arms an arena copy, which
  * only buys read latency: the scattered per-pixel reads land in RAM rather than
@@ -1090,13 +1121,12 @@ gamut_max_chroma(float L, float a, float b) {
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
 
-  int ai = static_cast<int>(diamond_angle(b, a) * lut.angle_scale);
-  int li = static_cast<int>(L * lut.l_scale);
-  ai = hs::clamp(ai, 0, lut.angle_steps - 1);
-  li = hs::clamp(li, 0, lut.l_steps - 1);
-  const uint16_t *cell = &lut.table[(li * lut.angle_steps + ai) * 2];
-  const float c_lo = static_cast<float>(cell[0]) * GAMUT_LUT_INV_SCALE;
-  const float c_hi = static_cast<float>(cell[1]) * GAMUT_LUT_INV_SCALE;
+  const GamutCell cell = gamut_cell(lut, L, a, b);
+  const uint16_t *entry =
+      &lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
+                 2];
+  const float c_lo = static_cast<float>(entry[0]) * GAMUT_LUT_INV_SCALE;
+  const float c_hi = static_cast<float>(entry[1]) * GAMUT_LUT_INV_SCALE;
   const float boundary = gamut_bracket_refine(L, a, b, c_lo, c_hi);
   return std::max(0.0f, boundary - GAMUT_CLIP_MARGIN);
 }
@@ -1134,12 +1164,11 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
 
-  const float angle = diamond_angle(b, a) * lut.angle_scale;
-  const float lightness = L * lut.l_scale;
-  const int ai = hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1);
-  const int li = hs::clamp(static_cast<int>(lightness), 0, lut.l_steps - 1);
-  const float af = angle - floorf(angle);
-  const float lf = lightness - floorf(lightness);
+  const GamutCell cell = gamut_cell(lut, L, a, b);
+  const int ai = cell.angle_index;
+  const int li = cell.lightness_index;
+  const float af = cell.angle - floorf(cell.angle);
+  const float lf = cell.lightness - floorf(cell.lightness);
 
   const int angles[3] = {(ai + lut.angle_steps - 1) % lut.angle_steps, ai,
                          (ai + 1) % lut.angle_steps};
@@ -1521,17 +1550,13 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   // Flash master, not g_gamut_lut: this path consumes the stored minima
   // directly, so a coarse grid's width is never narrowed back.
   const GamutLut lut;
-  int angle_index =
-      static_cast<int>(diamond_angle(lab.b, lab.a) * lut.angle_scale);
-  int lightness_index = static_cast<int>(lab.L * lut.l_scale);
-  angle_index = hs::clamp(angle_index, 0, lut.angle_steps - 1);
-  lightness_index = hs::clamp(lightness_index, 0, lut.l_steps - 1);
-  const float max_chroma = std::max(
-      0.0f,
-      static_cast<float>(
-          lut.table[(lightness_index * lut.angle_steps + angle_index) * 2]) *
-              GAMUT_LUT_INV_SCALE -
-          GAMUT_CLIP_MARGIN);
+  const GamutCell cell = gamut_cell(lut, lab.L, lab.a, lab.b);
+  const uint16_t stored =
+      lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
+                2];
+  const float max_chroma =
+      std::max(0.0f, static_cast<float>(stored) * GAMUT_LUT_INV_SCALE -
+                         GAMUT_CLIP_MARGIN);
   const float scale = max_chroma * inverse_chroma;
   return {lab.L, lab.a * scale, lab.b * scale};
 }
