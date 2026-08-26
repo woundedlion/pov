@@ -442,6 +442,33 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("::warning::", output.getvalue())
         self.assertIn("NOT validated: daydream", output.getvalue())
 
+    def test_a_skip_that_skips_nothing_is_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._checkout_fence_repository(root)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status = dc.main(["--root", str(root),
+                                  "--skip-checkout", "daydream",
+                                  "--skip-checkout", "retired"])
+        self.assertEqual(status, 0)
+        self.assertIn("names no unvalidated tree fence: retired",
+                      output.getvalue())
+
+    def test_a_bom_does_not_hide_a_tree_directive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._checkout_fence_repository(root)
+            readme = root / "README.md"
+            readme.write_bytes(b"\xef\xbb\xbf"
+                               + readme.read_text(encoding="utf-8").encode())
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status = dc.main(["--root", str(root),
+                                  "--skip-checkout", "daydream"])
+        self.assertEqual(status, 0, output.getvalue())
+        self.assertIn("NOT validated: daydream", output.getvalue())
+
     def test_missing_checkout_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

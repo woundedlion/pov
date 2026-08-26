@@ -1001,7 +1001,9 @@ def check_repository(
     for relative in markdown:
         path = root.joinpath(*relative.parts)
         try:
-            sources[relative] = path.read_text(encoding="utf-8")
+            # utf-8-sig: a leading BOM would otherwise ride on the first line
+            # and hide a directive or a fence from every check below.
+            sources[relative] = path.read_text(encoding="utf-8-sig")
         except (OSError, UnicodeError) as error:
             issues.append(Issue(relative.as_posix(), 1,
                                 f"cannot read tracked Markdown as UTF-8: {error}"))
@@ -1099,6 +1101,12 @@ def main(argv: list[str] | None = None) -> int:
     # checker -- but only by naming the checkout in --skip-checkout, and the
     # verdict line says so either way.
     unvalidated = skipped - set(args.skip_checkout)
+    # Warning only, like a stale _UNTRACKED_ALLOWED entry: a name that skips
+    # nothing is a stale exemption, and dropping it must not red a commit.
+    unused_skips = sorted(set(args.skip_checkout) - skipped)
+    if unused_skips:
+        print(f"::warning::--skip-checkout names no unvalidated tree fence: "
+              f"{', '.join(unused_skips)}")
     if skipped:
         print(f"::{'error' if unvalidated else 'warning'}::tree fences NOT "
               f"validated - no --checkout root for: {', '.join(sorted(skipped))}")

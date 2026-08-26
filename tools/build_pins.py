@@ -227,7 +227,9 @@ SHARED_LITERALS = {
 SHARED_LITERAL_USES = (
     (r"grep -vE '([^']*)'", "format-exclude", 3),
     (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs", 2),
-    (r"grep -E '([^']*)'", "format-extensions", 1),
+    # Anchored on the extension alternation's own opening, so an unrelated
+    # quoted `grep -E` elsewhere in a scanned file is not counted as a copy.
+    (r"grep -E '(\\\.\([^']*)'", "format-extensions", 1),
     # Anchored on the start of a flag line (platformio.ini) and on the matrix key
     # that carries the pair plus its test-contract define (ci.yml), so prose
     # spellings are not swept in. Captures run to end of line: a partial edit

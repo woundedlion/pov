@@ -7,7 +7,10 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
-from tools import check_coverage
+TOOLS = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(TOOLS))
+
+import check_coverage  # noqa: E402
 
 
 class LineCoverage(unittest.TestCase):
