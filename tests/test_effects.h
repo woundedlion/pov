@@ -5700,13 +5700,6 @@ struct IslamicBuildProbe {
                                  Arena &b) {
     return e.clean_endpoint(step, a, b);
   }
-  template <int W, int H>
-  static void build_reconcile_endpoint(IslamicStars<W, H> &e,
-                                       const PolyMesh &identity,
-                                       const PolyMesh &authored, PolyMesh &out,
-                                       Arena &target, Arena &scratch) {
-    e.build_reconcile_endpoint(identity, authored, out, target, scratch);
-  }
 };
 
 /** Whole-solid generator of the needle-ending recipe. */

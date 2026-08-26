@@ -4249,6 +4249,9 @@ inline constexpr float RECONCILE_TRUNCATE_T = 1.0f / 3.0f;
  *        kis/needle seed: the identity mesh (dt/dtd) and the authored kis/needle
  *        mesh share V/E/F, the nearest-vertex map is a bijection, and the
  *        residual chord the reconcile slerp closes is bounded.
+ * @details The brute-force argmax-dot map here is an independent oracle;
+ * MeshOps::reconcile_vertices (the shipping z-banded search) is run on the same
+ * endpoints and must reproduce it vertex for vertex.
  */
 inline void test_reconcile_bijection_wellposed() {
   // Residual well under half the vertex spacing on the densest seed; a bijection
@@ -4327,6 +4330,26 @@ inline void test_reconcile_bijection_wellposed() {
     }
     HS_EXPECT_TRUE(injective);
     HS_EXPECT_LT(worst_chord, MAX_RESIDUAL_CHORD);
+
+    if (injective) {
+      PolyMesh reconciled;
+      MeshOps::reconcile_vertices(identity, authored, reconciled, b, aux);
+      HS_EXPECT_EQ(reconciled.vertices.size(), V);
+      HS_EXPECT_EQ(reconciled.face_counts.size(), identity.face_counts.size());
+      HS_EXPECT_EQ(reconciled.faces.size(), identity.faces.size());
+      bool connectivity_kept = true;
+      for (size_t f = 0; f < identity.face_counts.size(); ++f)
+        connectivity_kept &=
+            reconciled.face_counts[f] == identity.face_counts[f];
+      for (size_t i = 0; i < identity.faces.size(); ++i)
+        connectivity_kept &= reconciled.faces[i] == identity.faces[i];
+      HS_EXPECT_TRUE(connectivity_kept);
+      bool matches_oracle = true;
+      for (size_t i = 0; i < V; ++i)
+        matches_oracle &= reconciled.vertices[i] ==
+                          authored.vertices[static_cast<size_t>(match[i])];
+      HS_EXPECT_TRUE(matches_oracle);
+    }
 
     if (hs_test::stats().failed != failed_before)
       std::printf("    [reconcile] %s FAILED (V=%zu inj=%d worst_chord=%.4f)\n",

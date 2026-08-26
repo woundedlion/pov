@@ -1255,92 +1255,6 @@ private:
   }
 
   /**
-   * @brief Relocates the authored kis/needle mesh's vertices onto the identity
-   * mesh's connectivity through the nearest-vertex bijection.
-   * @param identity Identity mesh (dt/dtd result): its connectivity and vertex
-   * order are kept; each vertex is matched to the authored vertex nearest it.
-   * @param authored Exact kis/needle mesh (same V as identity).
-   * @param out Receives identity's connectivity carrying the matched authored
-   * positions, in identity's vertex order.
-   * @param target Arena backing @p out.
-   * @param scratch Arena for the injectivity bookkeeping.
-   * @details The two-stage z search certifies its nearest match: once the full
-   * squared distance fits inside the z band, every vertex outside that band is
-   * farther away in z alone. The 4% band handles the regular endpoints and the
-   * 8% band covers asymmetric dtd endpoints. A wider gap or a non-injective
-   * match traps rather than silently folding a face.
-   */
-  HS_COLD_MEMBER void build_reconcile_endpoint(const PolyMesh &identity,
-                                               const PolyMesh &authored,
-                                               PolyMesh &out, Arena &target,
-                                               Arena &scratch) {
-    const size_t V = identity.vertices.size();
-    HS_CHECK(authored.vertices.size() == V,
-             "IslamicStars: reconcile endpoints differ in vertex count");
-    ScratchScope guard(scratch);
-    bool *used = scratch.allocate_n<bool>(V);
-    std::fill_n(used, V, false);
-    HS_CHECK(V <= UINT16_MAX,
-             "IslamicStars: reconcile endpoint exceeds index capacity");
-    uint16_t *by_z = scratch.allocate_n<uint16_t>(V);
-    for (size_t j = 0; j < V; ++j)
-      by_z[j] = static_cast<uint16_t>(j);
-    std::sort(by_z, by_z + V, [&](uint16_t a, uint16_t b) {
-      const float za = authored.vertices[a].z;
-      const float zb = authored.vertices[b].z;
-      return za < zb || (za == zb && a < b);
-    });
-
-    constexpr float RECONCILE_Z_BANDS[] = {0.04f, 0.08f};
-    out.vertices.bind(target, V);
-    for (size_t i = 0; i < V; ++i) {
-      int best = -1;
-      float best_distance_sq = 5.0f;
-      const float z = identity.vertices[i].z;
-      bool certified = false;
-      for (float z_band : RECONCILE_Z_BANDS) {
-        best = -1;
-        best_distance_sq = 5.0f;
-        const auto first = std::lower_bound(
-            by_z, by_z + V, z - z_band, [&](uint16_t j, float bound) {
-              return authored.vertices[j].z < bound;
-            });
-        const auto last = std::upper_bound(
-            first, by_z + V, z + z_band, [&](float bound, uint16_t j) {
-              return bound < authored.vertices[j].z;
-            });
-        for (const uint16_t *candidate = first; candidate != last;
-             ++candidate) {
-          const size_t j = *candidate;
-          const Vector delta = identity.vertices[i] - authored.vertices[j];
-          const float distance_sq = dot(delta, delta);
-          if (distance_sq < best_distance_sq ||
-              (distance_sq == best_distance_sq &&
-               (best < 0 || j < static_cast<size_t>(best)))) {
-            best_distance_sq = distance_sq;
-            best = static_cast<int>(j);
-          }
-        }
-        if (best >= 0 && best_distance_sq <= z_band * z_band) {
-          certified = true;
-          break;
-        }
-      }
-      HS_CHECK(certified,
-               "IslamicStars: reconcile vertex exceeds the maximum z-band");
-      HS_CHECK(best >= 0 && !used[best],
-               "IslamicStars: reconcile nearest-vertex map is not a bijection");
-      used[best] = true;
-      out.vertices.push_back(authored.vertices[best]);
-    }
-    out.face_counts.bind(target, identity.face_counts.size());
-    out.face_counts.append_bulk(identity.face_counts.data(),
-                                identity.face_counts.size());
-    out.faces.bind(target, identity.faces.size());
-    out.faces.append_bulk(identity.faces.data(), identity.faces.size());
-  }
-
-  /**
    * @brief Schedules the reconcile leg closing a smooth kis/needle macro: a
    * per-vertex great-circle slerp from the identity mesh (build_seed) onto the
    * exact authored kis/needle mesh, landing on the generator's mesh.
@@ -1361,8 +1275,8 @@ private:
       PolyMesh authored =
           kis_of_dual ? MeshOps::needle(Xc, scratch_arena_a, scratch_arena_b)
                       : MeshOps::kis(Xc, scratch_arena_a, scratch_arena_b);
-      build_reconcile_endpoint(build_seed, authored, build_next_seed,
-                               persistent_arena, scratch_arena_a);
+      MeshOps::reconcile_vertices(build_seed, authored, build_next_seed,
+                                  persistent_arena, scratch_arena_a);
     }
     Animation::OpLeg::BookendClasses bookend = next_seed_bookend();
     ScratchScope handoff_guard(scratch_arena_a);
