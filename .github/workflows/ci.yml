@@ -31,7 +31,7 @@ permissions:
 # effects tier (optimized-tests shard 3 under IEEE, and its fastmath entry under
 # the shipping float pair), so a cancelled landing takes their sole run with it.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
