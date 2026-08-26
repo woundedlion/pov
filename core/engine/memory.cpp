@@ -5,6 +5,8 @@
 
 #include "engine/memory.h"
 
+#include "engine/concepts.h"
+
 namespace hs {
 [[noreturn]] HS_COLD void function_ref_empty_call() {
   check_fail(__FILE__, __LINE__, "thunk != empty_thunk",
