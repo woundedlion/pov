@@ -544,11 +544,6 @@ struct Config {
 };
 using RequestedConfig = Config;
 
-inline constexpr bool source_uses_noise(Function function) {
-  return function == Function::NOISE_CONTOUR ||
-         function == Function::NOISE_CONTOUR_SPHERE;
-}
-
 /** @brief Whether the stage scales its amplitude by the warp envelope. */
 inline constexpr bool warp_uses_envelope(WarpStageKind kind) {
   return kind == WarpStageKind::WAVE_SHEAR ||
