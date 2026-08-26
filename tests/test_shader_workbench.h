@@ -1681,17 +1681,25 @@ inline void test_shader_workbench_projection_value_weights() {
       1.0f);
 
   constexpr float MERIDIAN = 0.63f;
+  const Vector singular = lon_lat(MERIDIAN + 0.25f * PI_F, 0.0f);
   const Vector cardinal = lon_lat(MERIDIAN, 0.0f);
   const Vector southern_fold = lon_lat(MERIDIAN + 0.25f * PI_F, -0.4f);
   const Vector regular = lon_lat(MERIDIAN + 0.2f, 0.55f);
+  const auto peirce_singular =
+      Projection::peirce(singular, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
   const auto peirce_cardinal =
       Projection::peirce(cardinal, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
   const auto peirce_fold =
       Projection::peirce(southern_fold, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
   const auto peirce_regular =
       Projection::peirce(regular, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
-  HS_EXPECT_LT(peirce_cardinal.provenance.value_weight, 1e-10f);
+  // The singular cosine saturates a float one epsilon short of one, so the
+  // weight bottoms out at that residue rather than at exactly zero.
+  HS_EXPECT_LT(peirce_singular.provenance.value_weight, 1e-6f);
   HS_EXPECT_LT(peirce_fold.provenance.value_weight, 1e-10f);
+  // The cardinal equator point is a half-quadrant from the nearest singularity,
+  // where sin^2 and cos^2 of that distance are both 1/2.
+  HS_EXPECT_NEAR(peirce_cardinal.provenance.value_weight, 0.8f, 1e-6f);
   HS_EXPECT_GT(peirce_regular.provenance.value_weight, 0.0f);
   HS_EXPECT_LT(peirce_regular.provenance.value_weight, 1.0f);
   HS_EXPECT_NEAR(
@@ -1702,9 +1710,13 @@ inline void test_shader_workbench_projection_value_weights() {
   HS_EXPECT_EQ(Projection::peirce(north, MERIDIAN, 1, 0.0f, false, 1.0f, FADE)
                    .provenance.value_weight,
                1.0f);
-  HS_EXPECT_EQ(Projection::peirce_fast_square(equator, 1.0f, FADE)
-                   .provenance.value_weight,
-               0.0f);
+  HS_EXPECT_LT(
+      Projection::peirce_fast_square(lon_lat(0.25f * PI_F, 0.0f), 1.0f, FADE)
+          .provenance.value_weight,
+      1e-6f);
+  HS_EXPECT_NEAR(Projection::peirce_fast_square(equator, 1.0f, FADE)
+                     .provenance.value_weight,
+                 0.8f, 1e-6f);
 
   HS_EXPECT_EQ(Projection::bonne(regular, MERIDIAN, 0.25f * PI_F, 1.0f)
                    .provenance.value_weight,
@@ -3950,7 +3962,7 @@ inline void test_shader_workbench_projection_catalog() {
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.im, peirce_scroll0.coords.im, 3e-5f);
   const auto peirce_zero_fade =
       projections::peirce_projection(equator_zero, 0.0f, 1, 0.0f);
-  HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.0f, 2e-5f);
+  HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.25f * PI_F, 2e-5f);
 
   auto lon_lat = [](float longitude, float latitude) {
     const float cp = cosf(latitude);

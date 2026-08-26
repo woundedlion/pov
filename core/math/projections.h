@@ -369,8 +369,9 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
   const float rotated_z = cp * sl;
   float edge = NO_EDGE_DISTANCE;
   if (calculate_edge_distance) {
-    edge = acosf(
-        hs::clamp(std::max(fabsf(rotated_x), fabsf(rotated_z)), 0.0f, 1.0f));
+    // The four singularities are the poles of the two diagonal axes cos_a and
+    // cos_b measure from, so the nearest sits at acos of the larger magnitude.
+    edge = acosf(hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
     if (v.y < 0.0f && layout <= 1) {
       const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
       edge = std::min(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
@@ -479,7 +480,7 @@ peirce_projection_fast_square(const Vector &v) {
   x = INV_SQRT_TWO * (x - projected_y);
   projected_y = INV_SQRT_TWO * (old_x + projected_y);
   float edge =
-      fast_acos(hs::clamp(std::max(fabsf(v.x), fabsf(v.z)), 0.0f, 1.0f));
+      fast_acos(hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
   if (v.y < 0.0f) {
     const float fold_sine = fabsf(fabsf(v.z) - fabsf(v.x)) * INV_SQRT_TWO;
     edge = std::min(edge,
