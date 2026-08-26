@@ -54,8 +54,11 @@ inline void test_mindsplatter_base_mesh_selector() {
   HS_EXPECT_EQ(std::string_view(base_mesh->options[0]), "Tetrahedron");
   HS_EXPECT_EQ(std::string_view(base_mesh->options[4]), "Icosahedron");
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 0), MS::BaseMesh::CUBE);
-  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 1), MS::BaseMesh::DODECAHEDRON);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 1), MS::BaseMesh::CUBE);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 2), MS::BaseMesh::CUBE);
   HS_EXPECT_EQ(WB::preset_base_mesh(effect, 4), MS::BaseMesh::TETRAHEDRON);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 5), MS::BaseMesh::DODECAHEDRON);
+  HS_EXPECT_EQ(WB::preset_base_mesh(effect, 6), MS::BaseMesh::CUBE);
 
   const auto select = [&](MS::BaseMesh mesh, size_t emitters,
                           size_t attractors) {
@@ -85,7 +88,7 @@ inline void test_mindsplatter_whitebox_geometry_replay() {
     reset_effect_globals();
     MS effect;
     effect.init();
-    WB::select_preset(effect, 1);
+    WB::select_preset(effect, 5);
     effect.setAnimationsPaused(true);
     WB::step_state_without_render(effect);
     HS_EXPECT_EQ(WB::active_base_mesh(effect), MS::BaseMesh::DODECAHEDRON);
