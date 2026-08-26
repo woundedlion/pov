@@ -567,8 +567,6 @@ protected:
   virtual void scan_frame_shader(Canvas &canvas,
                                  const Workbench::FrameShader &shader) = 0;
 
-public:
-protected:
   HS_COLD_MEMBER void
   set_fixed_preset_view(std::span<const uint8_t> source_indices) {
     HS_CHECK(!source_indices.empty(),
