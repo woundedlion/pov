@@ -797,3 +797,16 @@ add_custom_target(regenerate_shader_chain_catalog
           ${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json
   DEPENDS shader_chain_catalog_gen
   VERBATIM)
+
+# Backstop budget for every registered test. CTest's 1500 s default is longer
+# than the whole roster, so a test registered without an explicit TIMEOUT above
+# burns a shard on a hang instead of failing. Applied last, over the directory's
+# final test list, so a new add_test() inherits it with no further edit; an
+# explicit TIMEOUT set above wins.
+get_property(_hs_registered_tests DIRECTORY PROPERTY TESTS)
+foreach(_hs_test IN LISTS _hs_registered_tests)
+  get_test_property(${_hs_test} TIMEOUT _hs_existing_timeout)
+  if(NOT _hs_existing_timeout)
+    set_tests_properties(${_hs_test} PROPERTIES TIMEOUT ${_hs_test_timeout})
+  endif()
+endforeach()
