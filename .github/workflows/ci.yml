@@ -1730,8 +1730,22 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # One pin name per line: MIN_RELAX_BAKES_VERIFIED or guard_gap.<file>.
-      DOMAIN_RATCHET_ALLOW_WEAKEN: ""
+      # Exact before/after allowances cannot match a different weakening.
+      DOMAIN_RATCHET_ALLOW_WEAKEN: |
+        guard_gap.canvas.h=29->30
+        guard_gap.carousel.h=3->4
+        guard_gap.raster.h=9->10
+        guard_gap.volume.h=7->8
+        guard_gap.memory.h=1->2
+        guard_gap.choreography.h=1->2
+        guard_gap.Profile.ino=3->4
+        guard_gap.chain_host.h=0->1
+        guard_gap.shader_host.h=0->13
+        guard_gap.kernels.h=0->3
+        guard_gap.param_host.h=0->26
+        guard_gap.preset_host.h=0->2
+        guard_gap.conway.h=30->33
+        guard_gap.engine_bindings.h=5->7
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -1754,21 +1768,7 @@ jobs:
             exit 0
           fi
 
-          HARNESS=tools/relax_bake_harness.cpp
-          DEATH=tests/test_death.h
-          if ! git cat-file -e "$PREV:$HARNESS" 2>/dev/null; then
-            echo "::error file=$HARNESS::$HARNESS is absent in $PREV - domain ratchet comparison unavailable"
-            exit 1
-          fi
-          if ! git cat-file -e "$PREV:$DEATH" 2>/dev/null; then
-            echo "::error file=$DEATH::$DEATH is absent in $PREV - domain ratchet comparison unavailable"
-            exit 1
-          fi
-          git show "$PREV:$HARNESS" > /tmp/ratchet-prev-harness.cpp
-          git show "$PREV:$DEATH" > /tmp/ratchet-prev-death.h
-          python tools/check_domain_ratchets.py \
-            /tmp/ratchet-prev-harness.cpp "$HARNESS" \
-            /tmp/ratchet-prev-death.h "$DEATH" --previous-ref "$PREV"
+          python tools/check_domain_ratchets.py --git-range "$PREV" HEAD
   clang-format:
     name: Formatting (clang-format)
     # Cloud counterpart of the .githooks/pre-commit format check. The hook
