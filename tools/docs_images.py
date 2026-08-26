@@ -41,9 +41,10 @@ def markdown_references(
         result = subprocess.run(
             command, check=True, stdout=subprocess.PIPE,
             timeout=_GIT_TIMEOUT_SECONDS)
-    except (OSError, subprocess.SubprocessError) as error:
+        names = sorted(result.stdout.decode("utf-8").split("\0"))
+    except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         return found, [f"git ls-files failed: {error}"]
-    for name in sorted(result.stdout.decode("utf-8").split("\0")):
+    for name in names:
         if not name or not name.casefold().endswith(_MARKDOWN_SUFFIXES):
             continue
         relative = PurePosixPath(name)
