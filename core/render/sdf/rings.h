@@ -48,9 +48,6 @@ struct Ring {
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
-   * @details distance() measures polar separation at the query azimuth. It is
-   *          not the exact distance to the shifted centerline, so steep shifts
-   *          can render thinner than the requested stroke.
    */
   Ring(const Basis &b, float r, float th, float ph = 0)
       : basis(b), radius(r), thickness(th), phase(ph) {
@@ -264,6 +261,10 @@ struct DistortedRing {
    * bands, so an underestimate silently culls genuine arcs. Pinned by the cull
    *           tests, not checked here.
    * @param ph Azimuth phase offset (radians).
+   * @details distance() measures polar separation at the query azimuth. It is
+   *          not the exact distance to the shifted centerline, so steep shifts
+   *          can render thinner than the requested stroke; the knot
+   *          constructor takes the exact polyline distance instead.
    */
   DistortedRing(const Basis &b, float r, float th, ScalarFn sf, float md,
                 float ph)
