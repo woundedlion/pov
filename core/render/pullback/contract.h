@@ -808,7 +808,10 @@ struct FirstMatching<Predicate, Head, Tail...> {
 template <typename LeafList> struct LeafOps;
 template <typename... Ls> struct LeafOps<TypeList<Ls...>> {
   template <typename Key>
-    requires(StageMatchesKey<Ls, Key> && ...)
+  static constexpr bool MATCHES_KEY = (StageMatchesKey<Ls, Key> && ...);
+
+  template <typename Key>
+    requires(MATCHES_KEY<Key>)
   static constexpr bool implements(const Key &key) {
     return (Ls::implements(key) && ...);
   }
@@ -986,7 +989,11 @@ public:
     return evaluate(view, ctx, *static_cast<const PreparedTuple *>(storage));
   }
 
-  template <typename Key> static constexpr bool implements(const Key &key) {
+  /** @brief Fold of every leaf's topology matcher, exposed only when every
+      leaf carries one. */
+  template <typename Key>
+    requires(Detail::LeafOps<LeafList>::template MATCHES_KEY<Key>)
+  static constexpr bool implements(const Key &key) {
     return Detail::LeafOps<LeafList>::implements(key);
   }
 
