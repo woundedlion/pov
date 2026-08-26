@@ -4485,7 +4485,8 @@ inline void test_shader_workbench_prepared_hue_noise_color() {
   HS_EXPECT_EQ(WB::color_metric_limit(0), maximum.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(1), mean.accepted_limit);
 #else
-  hs_test::skip_case();
+  hs_test::skip_case(__func__,
+                     "no pullback manifest: configure found no python3");
 #endif
 }
 
@@ -4534,7 +4535,8 @@ inline void test_shader_workbench_fast_peirce_square() {
   HS_EXPECT_EQ(ShaderWorkbenchWhiteBox::peirce_metric_limit(1),
                edge.accepted_limit);
 #else
-  hs_test::skip_case();
+  hs_test::skip_case(__func__,
+                     "no pullback manifest: configure found no python3");
 #endif
   HS_EXPECT_TRUE(metadata_matches);
 
@@ -4644,7 +4646,8 @@ inline void test_shader_workbench_inverse_pipeline_manifest() {
   HS_EXPECT_EQ(WB::peirce_metric_limit(2), peirce_framebuffer.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(2), hue_framebuffer.accepted_limit);
 #else
-  hs_test::skip_case();
+  hs_test::skip_case(__func__,
+                     "no pullback manifest: configure found no python3");
 #endif
   for (const WB::RequestedConfig &preset : WB::presets())
     HS_EXPECT_TRUE(WB::has_inverse_program(preset));
