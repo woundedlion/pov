@@ -212,6 +212,18 @@ def parse(s):
     return out
 
 
+def parse_one(s):
+    """Parse `s` and return its single top-level node.
+
+    Raises ValueError when the text carries no document or more than one, so a
+    caller that already guards a parse failure need not also guard IndexError.
+    """
+    documents = parse(s)
+    if len(documents) != 1:
+        raise ValueError(f"expected one document, found {len(documents)}")
+    return documents[0]
+
+
 def dumps(node, indent=0):
     if isinstance(node, SList) and node.layout is not None:
         rendered = _preserved_list(node)

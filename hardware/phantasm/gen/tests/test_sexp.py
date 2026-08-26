@@ -127,6 +127,21 @@ class ParseTests(unittest.TestCase):
             sexp.parse("(root (child)")
 
 
+class ParseOneTests(unittest.TestCase):
+    """The single-document form callers use, so no input raises IndexError."""
+
+    def test_returns_the_only_document(self):
+        self.assertEqual(sexp.parse_one("(root a)"), ["root", "a"])
+
+    def test_whitespace_only_input_raises_value_error(self):
+        with self.assertRaisesRegex(ValueError, "expected one document, found 0"):
+            sexp.parse_one("   ")
+
+    def test_a_second_document_raises_value_error(self):
+        with self.assertRaisesRegex(ValueError, "expected one document, found 2"):
+            sexp.parse_one("(a) (b)")
+
+
 class FormattingTests(unittest.TestCase):
     def test_shipped_board_round_trip_preserves_every_byte(self):
         source = ROUTED.read_text(encoding="utf-8")

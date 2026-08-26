@@ -154,7 +154,7 @@ def main(argv=None):
     path = parser.parse_args(argv).schematic
     try:
         with open(path, encoding="utf-8") as fh:
-            conflicts, bridges = analyze(sexp.parse(fh.read())[0])
+            conflicts, bridges = analyze(sexp.parse_one(fh.read()))
     except ValueError as e:
         print(f"{path}: {e}", file=sys.stderr)
         return 2

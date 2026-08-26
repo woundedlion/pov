@@ -162,12 +162,9 @@ def _outline_bounds(root):
 
 def parse_board(text):
     try:
-        documents = sexp.parse(text)
-    except (IndexError, ValueError) as error:
+        root = sexp.parse_one(text)
+    except ValueError as error:
         raise MetadataError(f"invalid KiCad S-expression: {error}") from error
-    if len(documents) != 1:
-        raise MetadataError(f"expected one document, found {len(documents)}")
-    root = documents[0]
     if not isinstance(root, list) or not root or str(root[0]) != "kicad_pcb":
         raise MetadataError("document is not a kicad_pcb")
 

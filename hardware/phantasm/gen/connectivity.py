@@ -355,7 +355,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         with open(args.board, encoding="utf-8") as handle:
-            broken = opens(sexp.parse(handle.read())[0])
+            broken = opens(sexp.parse_one(handle.read()))
     except ValueError as error:
         print(f"{args.board}: {error}", file=sys.stderr)
         return 2

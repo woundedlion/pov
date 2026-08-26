@@ -324,6 +324,13 @@ class EmptyScanTests(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(connectivity.main([str(path)]), 2)
 
+    def test_main_exits_two_on_a_file_holding_no_document(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "blank.kicad_pcb"
+            path.write_text("   ", encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(connectivity.main([str(path)]), 2)
+
 
 class RoutedBoardTests(unittest.TestCase):
     """The shipped board's copper, which no net-label gate reads."""
