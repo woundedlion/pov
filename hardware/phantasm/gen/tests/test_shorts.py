@@ -223,6 +223,13 @@ class EmptyScanTests(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertNotEqual(shorts.main([str(path)]), 0)
 
+    def test_main_exits_two_on_a_file_holding_no_document(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "blank.kicad_sch"
+            path.write_text("   ", encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(shorts.main([str(path)]), 2)
+
 
 class UnscannedConnectivityTests(unittest.TestCase):
     """The scan reads top-level wires only, so connectivity it cannot follow
