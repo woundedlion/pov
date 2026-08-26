@@ -121,7 +121,7 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
     "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" \
       --skip-checkout daydream
   fi
-  "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --repo-root "$SNAPSHOT"
+  "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
   "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
 )
