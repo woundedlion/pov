@@ -81,7 +81,7 @@ lint:
 # xargs handed an empty list runs nothing and exits 0.
 clang-format:
     {{py}} tools/build_pins.py --check-tool clang-format
-    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' > \"\$tmp\" || true; test -s \"\$tmp\" || { echo 'no files selected -- the pathspec or exclusion regex is broken'; exit 1; }; xargs clang-format --dry-run --Werror --style=file < \"\$tmp\""
+    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)core/color/triadic_palette_luts\.h$|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' > \"\$tmp\" || true; test -s \"\$tmp\" || { echo 'no files selected -- the pathspec or exclusion regex is broken'; exit 1; }; xargs clang-format --dry-run --Werror --style=file < \"\$tmp\""
 
 # Every tracked C/C++ source carries the header LICENSE grants it, plus the
 # checker's own unit tests -- the ci.yml license-headers job.

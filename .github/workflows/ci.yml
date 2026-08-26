@@ -1752,13 +1752,13 @@ jobs:
           "$CF" --version
 
           # Same file set as .githooks/pre-commit: first-party C++ only, with
-          # core/vendor/ and the four generated sources excluded (they are
+          # core/vendor/ and the seven generated sources excluded (they are
           # emitted by their generators, not hand-formatted). The exclusion
           # regex is pinned against the hook's copy by
           # tools/build_pins.py --check (SHARED_LITERALS), so the two cannot
           # drift apart silently.
           git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' \
-            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
+            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)core/color/triadic_palette_luts\.h$|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
             > /tmp/format-files.txt
 
           if [ ! -s /tmp/format-files.txt ]; then
