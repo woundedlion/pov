@@ -355,11 +355,11 @@ struct CurlFlowParams {
 };
 static_assert(field_ids_unique<CurlFlowParams>());
 
-/** @brief The curl flow's prepared block: the owned noise field, the loop
-    phase, and the integration sub-step count decoded from the integrator. */
+/** @brief The curl flow's prepared block: the owned noise field, this frame's
+    point on the loop, and the sub-step count decoded from the integrator. */
 struct PreparedCurlFlow {
   const FastNoiseLite *noise;
-  float phase;
+  Vector loop_offset;
   uint8_t intervals;
 };
 
@@ -380,16 +380,16 @@ struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
                           const State &state) {
     check_noise_basis(params.basis);
     HS_CHECK(params.integrator < 3, "warp.curl-flow: invalid integrator");
-    return {&state.noise, state.phase,
+    return {&state.noise, noise_projected_loop_offset(state.phase),
             static_cast<uint8_t>(1U << params.integrator)};
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
-    return Kernel::warp(input,
-                        Warp::curl_flow(input.coords, *prepared.noise,
-                                        static_cast<::NoiseBasis>(params.basis),
-                                        prepared.intervals, params.scale,
-                                        params.strength, prepared.phase, true));
+    return Kernel::warp(
+        input, Warp::curl_flow(input.coords, *prepared.noise,
+                               static_cast<::NoiseBasis>(params.basis),
+                               prepared.intervals, params.scale,
+                               params.strength, prepared.loop_offset, true));
   }
 };
 

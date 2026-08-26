@@ -247,8 +247,7 @@ struct PreparedMirror {
 
 /** @brief This frame's point on the noise field's closed loop. */
 struct PreparedNoiseLoop {
-  float diagonal; /**< Offset added to both planar noise coordinates. */
-  float z;        /**< Third noise coordinate. */
+  Vector offset; /**< Lattice offset the plane coordinate is taken against. */
 };
 
 /** @brief Rotation-only slot state, for families with no transform. */
@@ -326,10 +325,7 @@ HS_FLASH_INLINE inline PreparedVectorNoiseSlot
 prepare(const VectorNoiseParams &warp, float phase) {
   PreparedVectorNoiseSlot prepared{
       cosf(warp.vector_angle), sinf(warp.vector_angle), {}};
-  const float angle = TWO_PI_F * wrap_t(phase);
-  prepared.transform.noise_loop = {NOISE_LOOP_RADIUS * sinf(angle) *
-                                       0.7071067811865475f,
-                                   NOISE_LOOP_RADIUS * cosf(angle)};
+  prepared.transform.noise_loop = {noise_projected_loop_offset(phase)};
   return prepared;
 }
 
@@ -491,8 +487,8 @@ inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
 HS_FLASH_INLINE inline Complex curl_vector(const Complex &input,
                                            const FastNoiseLite &noise,
                                            ::NoiseBasis basis, float scale,
-                                           float phase) {
-  const Vector q = noise_projected_coordinate(input, scale, phase);
+                                           const Vector &loop_offset) {
+  const Vector q = noise_projected_coordinate(input, scale, loop_offset);
   const float dx =
       (sample_noise_octaves(noise, basis,
                             q + Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
@@ -511,12 +507,13 @@ HS_FLASH_INLINE inline Complex curl_vector(const Complex &input,
 
 HS_FLASH_INLINE inline WarpStepResult
 curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
-          uint8_t intervals, float scale, float distance, float phase,
-          bool path_length_required) {
+          uint8_t intervals, float scale, float distance,
+          const Vector &loop_offset, bool path_length_required) {
   if (distance == 0.0f)
     return {input, 0.0f};
   if (intervals == 1) {
-    const Complex direction = curl_vector(input, noise, basis, scale, phase);
+    const Complex direction =
+        curl_vector(input, noise, basis, scale, loop_offset);
     const Complex delta(distance * direction.re, distance * direction.im);
     return {{input.re + delta.re, input.im + delta.im},
             displacement(delta, path_length_required)};
@@ -525,10 +522,11 @@ curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
   float path_length = 0.0f;
   const float step = distance / intervals;
   for (uint8_t index = 0; index < intervals; ++index) {
-    const Complex first = curl_vector(output, noise, basis, scale, phase);
+    const Complex first = curl_vector(output, noise, basis, scale, loop_offset);
     const Complex midpoint(output.re + 0.5f * step * first.re,
                            output.im + 0.5f * step * first.im);
-    const Complex direction = curl_vector(midpoint, noise, basis, scale, phase);
+    const Complex direction =
+        curl_vector(midpoint, noise, basis, scale, loop_offset);
     const Complex delta(step * direction.re, step * direction.im);
     output = {output.re + delta.re, output.im + delta.im};
     path_length += displacement(delta, path_length_required);
@@ -559,9 +557,8 @@ vector_noise_fixed(const Complex &input, const Params &params, float amplitude,
                    bool path_length_required) {
   if (params.strength == 0.0f)
     return {input, 0.0f};
-  const auto &loop = prepared.transform.noise_loop;
-  const Vector q(params.scale * input.re + loop.diagonal,
-                 params.scale * input.im + loop.diagonal, loop.z);
+  const Vector q = noise_projected_coordinate(
+      input, params.scale, prepared.transform.noise_loop.offset);
   float nx;
   float ny;
   if constexpr (BasisV == ::NoiseBasis::SIMPLEX) {
@@ -816,15 +813,22 @@ struct CurlFlow : ApproximationDefaults {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
 
+  /** @brief This frame's point on the plane domain's time loop. */
+  using Prepared = Vector;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return noise_projected_loop_offset(State::phase(frame));
+  }
+
   __attribute__((always_inline)) static WarpStepResult
   apply(const Complex &input, const ProjectionProvenance &provenance,
-        const FrameState &frame) {
+        const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     const float amplitude =
         params.strength * fixed_envelope<Envelope>(provenance, params);
     return curl_flow(input, State::noise(frame), BasisV,
                      IntegratorPolicy::INTERVALS, params.scale, amplitude,
-                     State::phase(frame), State::path_length_required(frame));
+                     prepared, State::path_length_required(frame));
   }
 };
 
