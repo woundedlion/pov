@@ -771,6 +771,37 @@ UNCALIBRATED_NOTE = (
     "- run with teensy_size for an authoritative ceiling decision.")
 
 
+def size_format_annotation(exc: ValueError) -> str:
+    """The `::error::` line an unparseable size capture earns.
+
+    Both gates print it: the CLI on stderr, the PlatformIO wrapper on the build
+    log SCons reads.
+    """
+    source = ("teensy_size output" if isinstance(exc, TeensySizeFormatError)
+              else "`size -A` output")
+    return (f"::error::teensy-gate: invalid {source} ({exc}). This is a "
+            f"tooling/format error, not a size-budget violation.")
+
+
+def verdict(env: str, budget: dict, sizes: dict[str, RegionSizes],
+            symbols: list[Symbol], sections: dict[str, int], *,
+            uncalibrated: bool, github: bool) -> tuple[str, int]:
+    """Evaluate one env and render it; returns (report, exit code).
+
+    An uncalibrated PASS exits distinctly: the ADVISORY note is only visible to
+    a human reading the log, and a caller that reads the status alone would
+    otherwise accept a bucketed guess as a calibrated verdict.
+    """
+    result = evaluate(env, budget, sizes, symbols, sections)
+    if uncalibrated:
+        result.notes.insert(0, UNCALIBRATED_NOTE)
+    if not result.passed:
+        code = 1
+    else:
+        code = EXIT_UNCALIBRATED_PASS if uncalibrated else 0
+    return render_report(result, github=github), code
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the gate. Exit: 0 PASS, 1 violation, 2 cannot-run, 3 advisory PASS."""
     p = argparse.ArgumentParser(description="Teensy 4 size/layout gate (parser).")
@@ -813,15 +844,8 @@ def main(argv: list[str] | None = None) -> int:
             sizes = parse_teensy_size(read_capture(args.teensy_size))
         else:
             sizes = fallback_sizes_from_size_a(read_capture(args.size_a))
-    except TeensySizeFormatError as exc:
-        print(f"::error::teensy-gate: invalid teensy_size output ({exc}). "
-              f"This is a tooling/format error, not a size-budget "
-              f"violation.", file=sys.stderr)
-        return 2
-    except SizeAFormatError as exc:
-        print(f"::error::teensy-gate: invalid `size -A` output ({exc}). "
-              f"This is a tooling/format error, not a size-budget "
-              f"violation.", file=sys.stderr)
+    except (TeensySizeFormatError, SizeAFormatError) as exc:
+        print(size_format_annotation(exc), file=sys.stderr)
         return 2
     except OSError as exc:
         print(f"::error::teensy-gate: cannot read the captured size output "
@@ -847,16 +871,10 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
 
-    result = evaluate(args.env, budgets[args.env], sizes, symbols, sections)
-    if used_size_a_fallback:
-        result.notes.insert(0, UNCALIBRATED_NOTE)
-    print(render_report(result, github=args.github))
-    if not result.passed:
-        return 1
-    # An uncalibrated PASS exits distinctly: the ADVISORY note is only visible to
-    # a human reading the log, and a caller that reads the status alone would
-    # otherwise accept a bucketed guess as a calibrated verdict.
-    return EXIT_UNCALIBRATED_PASS if used_size_a_fallback else 0
+    report, code = verdict(args.env, budgets[args.env], sizes, symbols, sections,
+                           uncalibrated=used_size_a_fallback, github=args.github)
+    print(report)
+    return code
 
 
 if __name__ == "__main__":

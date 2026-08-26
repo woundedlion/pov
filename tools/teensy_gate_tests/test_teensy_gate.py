@@ -1619,6 +1619,31 @@ class TestToolingFailureExits(unittest.TestCase):
         self.assertEqual(rc, 2, msg=text)
 
 
+class TestSharedRendering(unittest.TestCase):
+    """The CLI and the PlatformIO wrapper render one text, not two copies."""
+
+    def test_the_format_annotation_names_the_capture_that_failed(self):
+        self.assertIn("invalid teensy_size output (boom)",
+                      tg.size_format_annotation(tg.TeensySizeFormatError("boom")))
+        self.assertIn("invalid `size -A` output (boom)",
+                      tg.size_format_annotation(tg.SizeAFormatError("boom")))
+        for exc in (tg.TeensySizeFormatError("x"), tg.SizeAFormatError("x")):
+            text = tg.size_format_annotation(exc)
+            self.assertTrue(text.startswith("::error::"), text)
+            self.assertIn("not a size-budget violation", text)
+
+    def test_the_verdict_exit_code_tracks_the_calibration(self):
+        args = ("holosphere", BUDGETS["holosphere"],
+                tg.parse_teensy_size(_read("good_teensy_size.txt")),
+                tg.parse_readelf_symbols(_read("good_readelf_syms.txt")), {})
+        report, code = tg.verdict(*args, uncalibrated=False, github=True)
+        self.assertEqual(code, 0, report)
+        self.assertNotIn("ADVISORY", report)
+        report, code = tg.verdict(*args, uncalibrated=True, github=True)
+        self.assertEqual(code, tg.EXIT_UNCALIBRATED_PASS, report)
+        self.assertIn("ADVISORY", report)
+
+
 class TestGateExtra(unittest.TestCase):
     """The PlatformIO post-build glue: toolchain discovery + exit(2) guards."""
 
