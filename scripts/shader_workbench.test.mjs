@@ -250,6 +250,24 @@ test('scalar parameter bindings match catalog domains and curves', () => {
   assert.equal(validate(inertPeriod)[0].code, 'UNKNOWN_FIELD');
 });
 
+test('a value pinned to a catalog bound that is not float32-exact validates', () => {
+  const document = example();
+  // The catalog's own spelling of the bound; binary32 rounds 0.05 up past itself.
+  const parameter = {
+    id: 'camera.spin-speed',
+    classification: 'preset',
+    storage: 'binary32',
+    unit: 'ratio',
+    domain: { minimum: 0, maximum: 0.05 },
+    interpolation: { kind: 'LINEAR' },
+    default: 0.05,
+  };
+  document.descriptor.parameters.push(parameter);
+  document.descriptor.serialization.fields.push(parameter.id);
+  for (const preset of document.preset_bank.presets) preset.values[parameter.id] = 0.05;
+  assert.deepEqual(validate(document), []);
+});
+
 test('a snap-curve catalog field is authorable', () => {
   const document = example();
   document.descriptor.chain.splice(3, 0,
