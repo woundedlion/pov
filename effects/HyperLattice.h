@@ -567,7 +567,7 @@ shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
         Pixel color = palette.get_color_unit(value);
         color = color * (0.45f + 0.55f * (1.0f - depth));
         composite.add(color, hit.coverage);
-        return composite.remaining > MIN_ENCODABLE_ALPHA;
+        return !composite.saturated();
       });
   return composite.finish();
 }
