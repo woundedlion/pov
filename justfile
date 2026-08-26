@@ -58,30 +58,24 @@ test $HS_SMOKE_FRAMES="120":
 # Python, JavaScript and shell lint checks used by CI. ruff's and shellcheck's
 # rule sets move between releases, so both binaries on PATH are held to the pins
 # the ci.yml lint job installs; the npm linters are locked by package-lock.json.
-# The shell set is the same one that job enumerates from the index -- the gate
-# scripts and the hooks, where a shellcheck-class defect passes a gate silently.
-# Each linter is preceded by that job's anti-vacuity probe: a linter handed
-# nothing exits 0, so the selected set is asserted non-empty first. eslint
-# reports per-file objects, so a report naming no file is an empty selection.
+# The shell set is the same one that job enumerates from the index. Each linter
+# is preceded by that job's anti-vacuity probe.
 lint:
     {{py}} tools/build_pins.py --check-tool ruff
-    bash -c 'tmp=$(mktemp); trap "rm -f -- \"$tmp\"" EXIT; ruff check --no-cache --show-files . > "$tmp"; test -s "$tmp" || { echo "ruff selected no files -- the ruff.toml exclude list or a .gitignore rule is broken"; exit 1; }'
+    bash tools/ruff_selection_guard.sh
     ruff check --no-cache .
-    bash -c 'tmp=$(mktemp); trap "rm -f -- \"$tmp\"" EXIT; npx eslint . --format json > "$tmp" || true; grep -q filePath "$tmp" || { echo "eslint selected no files -- the eslint.config.mjs ignores list is broken"; exit 1; }'
+    bash tools/eslint_selection_guard.sh
     npm run lint
     {{py}} tools/build_pins.py --check-tool shellcheck
-    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.sh' '.githooks/*' > \"\$tmp\"; test -s \"\$tmp\" || { echo 'no shell files selected -- the shell path list is broken'; exit 1; }; xargs shellcheck -x < \"\$tmp\""
+    bash tools/shellcheck_gate.sh
     bash tools/profile_sweep.sh check
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
 # clang-format job's invocation. Majors reflow differently, so the
-# binary on PATH is held to CI's pin the way ruff is above. The exclusion regex
-# is pinned against the ci.yml and .githooks/pre-commit copies by
-# tools/build_pins.py --check. That job's anti-vacuity assertion comes with it:
-# xargs handed an empty list runs nothing and exits 0.
+# binary on PATH is held to CI's pin the way ruff is above.
 clang-format:
     {{py}} tools/build_pins.py --check-tool clang-format
-    bash -c "tmp=\$(mktemp); trap 'rm -f -- \"\$tmp\"' EXIT; git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)core/color/triadic_palette_luts\.h$|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' > \"\$tmp\" || true; test -s \"\$tmp\" || { echo 'no files selected -- the pathspec or exclusion regex is broken'; exit 1; }; xargs clang-format --dry-run --Werror --style=file < \"\$tmp\""
+    bash tools/clang_format_gate.sh
 
 # Every tracked C/C++ source carries the header LICENSE grants it, plus the
 # checker's own unit tests -- the ci.yml license-headers job.
@@ -100,12 +94,11 @@ gamut-lut:
 
 # First-party warning gate over every platformio.ini environment -- the
 # ci.yml teensy-warnings job. The warning set is the pinned toolchain's, which
-# the pinned PlatformIO selects. The build must be COLD (a cached TU emits no
-# warnings), so the object cache and .pio/build go first and the whole firmware
-# tree recompiles; budget tens of minutes. teensy_build.log is gitignored.
+# the pinned PlatformIO selects. The build is cold, so budget tens of minutes;
+# teensy_build.log is gitignored.
 teensy-warnings:
     {{py}} tools/build_pins.py --check-tool platformio
-    bash -c "set -o pipefail; rm -rf .pio/build_cache .pio/build && pio run -v 2>&1 | tee teensy_build.log"
+    bash tools/teensy_cold_build.sh teensy_build.log
     {{py}} tools/teensy_warnings.py --build-log teensy_build.log
 
 # The README's `tree daydream` fence draws the sibling checkout's tracked tree;

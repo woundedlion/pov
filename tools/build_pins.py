@@ -119,6 +119,9 @@ CONSUMERS = {
 INLINE_SCAN = (
     *workflow_files(),
     ROOT / "justfile",
+    # The justfile's clang-format recipe body, where the gate's pathspec and
+    # exclusion regex live.
+    ROOT / "tools/clang_format_gate.sh",
     ROOT / "platformio.ini",
     ROOT / "CMakeLists.txt",
     ROOT / "scripts/generate_luts.py",
@@ -187,9 +190,9 @@ FLOAT_FLAGS = ("-ffast-math", "-fno-finite-math-only")
 FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 
 # Strings that must read identically in several build files. The pre-commit hook
-# is POSIX shell run per commit, ci.yml is workflow YAML and the justfile is a
-# recipe list, so none can source a value from another; --check asserts every
-# occurrence matches this one.
+# is POSIX shell run per commit, ci.yml is workflow YAML, the justfile is a
+# recipe list and the gate scripts are bash, so none can source a value from
+# another; --check asserts every occurrence matches this one.
 SHARED_LITERALS = {
     # Paths the clang-format gate skips: vendored sources and generated ones.
     "format-exclude": (
