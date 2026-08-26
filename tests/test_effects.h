@@ -83,17 +83,18 @@ using hs_test::smoke_frames;
 
 /**
  * @brief Selects the effects test depth tier from the environment.
- * @return true for the FULL suite (white-box correctness block + the
- * production-resolution 288x144 roster passes), false for the QUICK tier.
+ * @return true for the FULL suite (the white-box cases costing a tenth of a
+ * second or more + the production-resolution 288x144 roster passes), false for
+ * the QUICK tier.
  * @details The full suite renders every roster effect at the 288x144 production
  * resolution across a smoke pass, a determinism pass, and several full-frame
  * white-box tests — dominated by the ~71 ms/frame software raster of
- * 41,472-pixel frames. The QUICK tier (default) runs only the small-aspect
- * <96,20> smoke + determinism passes, ~1,920-pixel frames that cover every
- * effect's construct/init/render/read-back and cross-run determinism in ~2 s —
- * the default for a quick local run. CI opts into the full suite on
+ * 41,472-pixel frames. The QUICK tier (default) runs the small-aspect <96,20>
+ * smoke + determinism passes, ~1,920-pixel frames that cover every effect's
+ * construct/init/render/read-back and cross-run determinism, plus every
+ * white-box case under 50 ms. CI opts into the full suite on
  * every master push by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
- * full-resolution passes and the white-box correctness block are the
+ * full-resolution passes and the slow white-box cases are the
  * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
  * CI depth in a local commit. Read by both the effects and effects_smoke
  * modules, which split those two halves.
@@ -6046,8 +6047,7 @@ inline int run_effects_tests() {
   test_raymarch_volume_random_walks_are_independent();
   test_raymarch_preset_and_placement_solids();
   test_raymarch_surface_frame_uv();
-  // Resolution-independent white-box math: excluding these from the QUICK tier
-  // would buy no PR runtime.
+  // Resolution-independent white-box math.
   test_sh_decode_lm_valid_order();
   test_sh_cartesian_matches_spherical();
   test_sh_reduced_legendre_matches_closed_form();
@@ -6059,59 +6059,63 @@ inline int run_effects_tests() {
   test_bz_perturb_state_draw_count_pinned();
   test_hopf_projection_math();
   test_raymarch_constexpr_sqrt_converges();
+  // Both tiers: white-box cases costing under 50 ms each. Some build an effect
+  // at the production resolution; none renders enough of a frame for deferring
+  // it to buy PR runtime.
+  test_needs_full_frame_gate();
+  test_voronoi_axes_use_uniform_sampler();
+  test_voronoi_segment_render_matches_full_frame();
+  test_sh_field_write_through_and_endpoints();
+  test_sh_field_stays_inside_unit_range();
+  test_sh_polarity_split_and_ao_shaping();
+  test_gs_reaction_edit_starts_dissolve();
+  test_bz_legacy_palette();
+  test_bz_min_diffusion_step_survives_quantization();
+  test_bz_perturb_state_saturates_and_nudges();
+  test_bz_perturb_scales_with_timestep();
+  test_bz_substep_diffuses();
+  test_bz_raster_matches_reference();
+  test_bz_render_center_matches_reference();
+  test_dreamballs_preset_cycle_bookkeeping();
+  CometsWhiteBox::check_paths_close();
+  test_comets_rollover_skipped_mid_wipe();
+  ThrustersWhiteBox::check_warp_endpoints();
+  RingShowerWhiteBox::check_radius_endpoints();
+  DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
+  test_dynamo_emitted_points_counts_ring_seeds();
+  test_ringspin_trail_hugs_its_great_circles();
+  test_hopf_trail_trim_keeps_a_segment();
+  test_gnomonicstars_radius_px_spans_one_column();
+  test_gnomonicstars_spiral_cache_invalidation();
+  test_displacement_field_lazy_hue_table_matches_eager();
+  test_displacement_field_zero_hue_scale_is_exact();
+  test_shader_workbench_glitch_lens_unit_norm();
+  test_mobius_rings_conformal_and_counter_rotation();
+  test_islamicstars_seed_sprite_fade_in();
 
-  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The QUICK tier
-  // skips the resolution-dependent block below; CI is authoritative for the
-  // full-resolution paths.
+  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The partition
+  // is by measured cost, not by resolution: every case below runs for a tenth
+  // of a second or more, and the block totals about four minutes, over three of
+  // which are the two IslamicStars budget sweeps.
   if (effects_full_suite()) {
-    test_needs_full_frame_gate();
-    test_voronoi_axes_use_uniform_sampler();
     test_voronoi_union_candidates_cover_nearest();
-    test_voronoi_segment_render_matches_full_frame();
-    test_sh_field_write_through_and_endpoints();
-    test_sh_field_stays_inside_unit_range();
     test_sh_pullback_matches_legacy_shader();
-    test_sh_polarity_split_and_ao_shaping();
     test_sh_morph_chain_rearms();
     test_gs_evolution_stays_bounded();
     test_gs_reaction_corner_stays_bounded();
     test_gs_dissolve_clears_and_reseeds();
-    test_gs_reaction_edit_starts_dissolve();
-    test_bz_legacy_palette();
-    test_bz_min_diffusion_step_survives_quantization();
-    test_bz_perturb_state_saturates_and_nudges();
-    test_bz_perturb_scales_with_timestep();
-    test_bz_substep_diffuses();
-    test_bz_raster_matches_reference();
-    test_bz_render_center_matches_reference();
-    test_dreamballs_preset_cycle_bookkeeping();
     test_dreamballs_base_mesh_selector();
     test_dreamballs_weave_topology();
     test_dreamballs_respawn_fires_and_honors_pause();
     test_meshfeedback_flush_precedes_mesh_draw();
     test_meshfeedback_preset_rotation_syncs_noise();
-    CometsWhiteBox::check_paths_close();
-    test_comets_rollover_skipped_mid_wipe();
     test_comets_manual_preset_restarts_path();
-    ThrustersWhiteBox::check_warp_endpoints();
-    RingShowerWhiteBox::check_radius_endpoints();
-    DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
     test_dynamo_trail_ceiling_bounds_the_ring();
-    test_dynamo_emitted_points_counts_ring_seeds();
-    test_ringspin_trail_hugs_its_great_circles();
-    test_hopf_trail_trim_keeps_a_segment();
     test_raymarch_unit_bounds_contains_twisted_tube();
-    test_gnomonicstars_radius_px_spans_one_column();
-    test_gnomonicstars_spiral_cache_invalidation();
     test_petalflow_spawn_gap_bounded();
-    test_displacement_field_lazy_hue_table_matches_eager();
     test_displacement_field_hue_table_fidelity();
     test_displacement_field_hue_table_frame_fidelity();
-    test_displacement_field_zero_hue_scale_is_exact();
     test_displacement_field_clip_tiles_full();
-    test_shader_workbench_glitch_lens_unit_norm();
-    test_mobius_rings_conformal_and_counter_rotation();
-    test_islamicstars_seed_sprite_fade_in();
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
     test_islamicstars_dual_bridge_fits_budget();
