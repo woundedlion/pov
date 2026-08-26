@@ -1951,9 +1951,10 @@ private:
 #endif
   }
 
-  Transients *buf;  /**< Pointer to arena-allocated leg state. */
-  Arena *leg_arena; /**< Arena backing buf and the Transients vectors. */
-  size_t live_end;  /**< Arena offset just past the Transients block. */
+  Transients *buf = nullptr;  /**< Pointer to arena-allocated leg state. */
+  Arena *leg_arena = nullptr; /**< Arena backing buf and the Transients
+                                 vectors. */
+  size_t live_end = 0; /**< Arena offset just past the Transients block. */
 #ifndef NDEBUG
   uint32_t birth_generation = 0; /**< Leg-arena generation at construction. */
 #endif
