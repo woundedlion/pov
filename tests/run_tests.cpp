@@ -211,6 +211,15 @@ static bool runs_effects(int argc, char **argv) {
  */
 constexpr int CI_MIN_SMOKE_FRAMES = 120;
 
+/**
+ * @brief Watchdog bound every CI leg has to set, in microseconds.
+ * @details The Canvas constructor's buffer_free() spin trips a trap, not a
+ * failed assertion, so a shared runner that deschedules the test thread past
+ * the shipping 2 s bound kills the whole shard. CI raises it; 30 s still
+ * catches a genuinely stalled display hand-off.
+ */
+constexpr unsigned long CI_MIN_BUFFER_FREE_WATCHDOG_US = 30000000UL;
+
 /** @brief Reports whether CI-only runner depth levers must be enforced. */
 static bool runs_in_ci() {
 #pragma clang diagnostic push
@@ -233,7 +242,9 @@ static bool runs_in_ci() {
  * selecting other modules are untouched; when one does run, both
  * HS_EFFECTS_FULL (which tier) and HS_REQUIRE_EFFECTS_FULL (whether FULL is
  * mandatory for this leg) must carry an explicit value. An absent or blank key
- * is a step that lost its declaration, not a vote for QUICK.
+ * is a step that lost its declaration, not a vote for QUICK. The watchdog
+ * lever is scored on every CI invocation: unlike the depth levers its absence
+ * traps the process instead of reporting a test.
  */
 static int check_ci_levers(int argc, char **argv) {
   if (!runs_in_ci())
@@ -245,6 +256,7 @@ static int check_ci_levers(int argc, char **argv) {
   const char *frames = std::getenv("HS_SMOKE_FRAMES");
   const char *effects_full = std::getenv("HS_EFFECTS_FULL");
   const char *require_effects_full = std::getenv("HS_REQUIRE_EFFECTS_FULL");
+  const char *watchdog = std::getenv("HS_BUFFER_FREE_WATCHDOG_US");
 #pragma clang diagnostic pop
   if (!frames || std::atoi(frames) < CI_MIN_SMOKE_FRAMES) {
     std::fprintf(stderr,
@@ -253,6 +265,17 @@ static int check_ci_levers(int argc, char **argv) {
                  "preset transition. Set HS_SMOKE_FRAMES in the workflow "
                  "step's env.\n",
                  CI_MIN_SMOKE_FRAMES);
+    ++missing;
+  }
+  if (!watchdog ||
+      std::strtoul(watchdog, nullptr, 10) < CI_MIN_BUFFER_FREE_WATCHDOG_US) {
+    std::fprintf(stderr,
+                 "run_tests: CI=on but HS_BUFFER_FREE_WATCHDOG_US is unset or "
+                 "below %lu — the Canvas buffer_free() spin traps rather than "
+                 "failing, so a runner deschedule kills the shard instead of "
+                 "reporting a test. Set HS_BUFFER_FREE_WATCHDOG_US in the "
+                 "workflow step's env.\n",
+                 CI_MIN_BUFFER_FREE_WATCHDOG_US);
     ++missing;
   }
   if (runs_effects(argc, argv)) {
