@@ -3607,10 +3607,7 @@ inline void case_islamicstars_hankin_eager_endpoint() {
 }
 
 /** @brief Death case: reconcile endpoints with different sizes must trap. */
-inline void case_islamicstars_reconcile_size_mismatch() {
-  using WB = effects_tests::IslamicBuildProbe;
-  effects_tests::reset_effect_globals();
-  WB::IS effect;
+inline void case_reconcile_vertices_size_mismatch() {
   static uint8_t identity_buf[64];
   static uint8_t target_buf[64];
   static uint8_t scratch_buf[64];
@@ -3622,8 +3619,7 @@ inline void case_islamicstars_reconcile_size_mismatch() {
   identity.vertices.push_back(Vector{});
   PolyMesh authored;
   PolyMesh out;
-  WB::build_reconcile_endpoint(effect, identity, authored, out, target,
-                               scratch);
+  MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
 }
 
 /**
@@ -4421,10 +4417,10 @@ inline const Case *all_cases(int &n) {
       {"islamicstars_hankin_eager_endpoint",
        case_islamicstars_hankin_eager_endpoint, "IslamicStars.h",
        "(false) IslamicStars: step builds no eager endpoint"},
-      {"islamicstars_reconcile_size_mismatch",
-       case_islamicstars_reconcile_size_mismatch, "IslamicStars.h",
-       "(authored.vertices.size() == V) IslamicStars: reconcile endpoints "
-       "differ in vertex count"},
+      {"reconcile_vertices_size_mismatch",
+       case_reconcile_vertices_size_mismatch, "conway.h",
+       "(authored.vertices.size() == V) reconcile_vertices: endpoints differ "
+       "in vertex count"},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
        "csg.h", "(fabsf(ax.length() - 1.0f) < 1e-3f) "},
       {"sdf_distorted_ring_zero_knots", case_sdf_distorted_ring_zero_knots,
@@ -4948,7 +4944,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"lenses.h", 2},
     {"spherical_field.h", 2},
     {"waves.h", 1},
-    {"conway.h", 30},
+    {"conway.h", 33},
     {"conway_graph.h", 1},
     {"hankin.h", 9},
     {"mesh.h", 19},
@@ -4982,7 +4978,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"Dynamo.h", 1},
     {"GnomonicStars.h", 1},
     {"HankinSolids.h", 13},
-    {"IslamicStars.h", 28},
+    {"IslamicStars.h", 25},
     {"MeshFeedback.h", 1},
     {"MindSplatter.h", 3},
     {"MobiusRings.h", 1},
