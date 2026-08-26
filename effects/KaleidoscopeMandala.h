@@ -43,6 +43,8 @@ public:
                                                               "cup-hue"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+
+  // Hot section: the out-of-line pipeline body compiles for speed.
   static HS_HOT_FLASH_MEMBER Color4
   shade(const Vector &view, const typename KaleidoscopeMandala::Frame &frame) {
     return KaleidoscopeMandala::RenderPipeline::shade(view, frame);
