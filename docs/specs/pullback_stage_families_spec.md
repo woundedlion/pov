@@ -729,20 +729,18 @@ branches. Enumerating those readers is what makes the landing plannable.
      `ExtraValidation` → the §4 trait folds;
    - ShaderWorkbench's dynamic backend → the canonical carriers. The
      projection-join facility (`join_projected` /
-     `projection_join_compatible`) has no render-path caller today — it
-     is a test-pinned facility reserved for the lens-blend transition —
-     and it retypes to a `PlaneSample` join utility preserving its exact
-     field-by-field algorithm: `coords` lerped; the discrete topology
-     and edge fields (`region_id`, `component_id`, `boundary_flags`,
-     `fade_edge_distance`, `flags`, `traits`, `edge_class`) selected
-     from the nearer branch (`mix < 0.5` → direct); `value_weight`
-     **recomputed** from the blended coordinates via pole attenuation;
-     `domain_coverage` and path length lerped; `sphere`
-     normalized-lerped (`nlerp_unit`). Strict projections (Bonne,
-     Peirce, Airocean) still refuse the plane join. When the transition
-     feature lands, the chain-level representation is fixed now:
-     compatible projections may use the join inside a curated compound
-     `SPHERE→PLANE` operator, while strict projections require
+     `projection_join_compatible`) is gone: the lens-blend transition it
+     was reserved for no longer exists, and no render path ever called
+     it. When a transition feature does land, the chain-level
+     representation is fixed now: compatible projections may join inside
+     a curated compound `SPHERE→PLANE` operator that lerps `coords`,
+     selects the discrete topology and edge fields (`region_id`,
+     `component_id`, `boundary_flags`, `fade_edge_distance`, `flags`,
+     `traits`, `edge_class`) from the nearer branch (`mix < 0.5` →
+     direct), **recomputes** `value_weight` from the blended coordinates
+     via pole attenuation, lerps `domain_coverage` and path length, and
+     normalized-lerps `sphere` (`nlerp_unit`). Strict projections
+     (Bonne, Peirce, Airocean) refuse the plane join and require
      complete-output blending, which a linear chain cannot express and
      which is therefore an **evaluator-level two-pass** — shade both
      branches, blend the resulting `Color4`s — outside the chain program
