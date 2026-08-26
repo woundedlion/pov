@@ -61,10 +61,12 @@ class BZReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
+  using Base::accumulate_stencil;
   using Base::cube_lut;
   using Base::dist2;
   using Base::for_each_neighbor;
   using Base::from_q16;
+  using Base::gather_stencil;
   using Base::init_lattice;
   using Base::orient_lattice;
   using Base::Q16_SCALE;
@@ -308,17 +310,10 @@ private:
     int center = refine_render_center(center_rv, world_nodes, seed);
     Vector spos[RD_K + 1];
     uint16_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
-    spos[0] = world_nodes[center];
-    sa[0] = state.A[center];
-    sb[0] = state.B[center];
-    sc[0] = state.C[center];
-    int k = 1;
-    for_each_neighbor(center, [&](int ni) {
-      spos[k] = world_nodes[ni];
-      sa[k] = state.A[ni];
-      sb[k] = state.B[ni];
-      sc[k] = state.C[ni];
-      ++k;
+    gather_stencil(world_nodes, center, spos, [&](int slot, int ni) {
+      sa[slot] = state.A[ni];
+      sb[slot] = state.B[ni];
+      sc[slot] = state.C[ni];
     });
 
     constexpr float INV_SAMPLES = 1.0f / Grid::SAMPLES;
@@ -326,16 +321,12 @@ private:
     for (int i = 0; i < Grid::SAMPLES; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
-      // always_inline on the accumulator: without it GCC spends +32 B of ITCM
-      // on this stencil walk.
-      for (int j = 0; j < RD_K + 1; ++j)
-        with_wendland_weight(dist2(v, spos[j]),
-                             [&](float w) __attribute__((always_inline)) {
-                               wa += sa[j] * w;
-                               wb += sb[j] * w;
-                               wc += sc[j] * w;
-                               tw += w;
-                             });
+      accumulate_stencil(v, spos, [&](int j, float w) {
+        wa += sa[j] * w;
+        wb += sb[j] * w;
+        wc += sc[j] * w;
+        tw += w;
+      });
       float species_sum = wa + wb + wc;
       if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT ||
           species_sum < SPECIES_EMPTY_EPS * Q16_SCALE * tw)

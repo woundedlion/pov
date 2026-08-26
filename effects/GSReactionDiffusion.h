@@ -61,10 +61,12 @@ class GSReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
+  using Base::accumulate_stencil;
   using Base::cube_lut;
   using Base::dist2;
   using Base::for_each_neighbor;
   using Base::from_q16;
+  using Base::gather_stencil;
   using Base::init_lattice;
   using Base::orient_lattice;
   using Base::Q16_INV;
@@ -417,28 +419,18 @@ private:
     int center = refine_render_center(center_rv, world_nodes, seed);
     Vector spos[RD_K + 1];
     uint16_t sb[RD_K + 1];
-    spos[0] = world_nodes[center];
-    sb[0] = state.B[center];
-    int k = 1;
-    for_each_neighbor(center, [&](int ni) {
-      spos[k] = world_nodes[ni];
-      sb[k] = state.B[ni];
-      ++k;
-    });
+    gather_stencil(world_nodes, center, spos,
+                   [&](int slot, int ni) { sb[slot] = state.B[ni]; });
 
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
     uint32_t accum_r = 0, accum_g = 0, accum_b = 0;
     for (int i = 0; i < Grid::SAMPLES; ++i) {
       Vector v = grid.at(x, i);
       float tw = 0.0f, wb = 0.0f;
-      // always_inline on the accumulator is load-bearing: without it GCC
-      // spends extra ITCM on this stencil walk.
-      for (int j = 0; j < RD_K + 1; ++j)
-        with_wendland_weight(dist2(v, spos[j]),
-                             [&](float w) __attribute__((always_inline)) {
-                               wb += sb[j] * w;
-                               tw += w;
-                             });
+      accumulate_stencil(v, spos, [&](int j, float w) {
+        wb += sb[j] * w;
+        tw += w;
+      });
       if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
         continue;
       float b = wb * (Q16_INV / tw);
