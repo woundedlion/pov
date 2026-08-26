@@ -195,6 +195,21 @@ class IdStrapSilkscreenTests(unittest.TestCase):
                 self.assertIn(expected, texts)
 
 
+class BoardWidthCapTests(unittest.TestCase):
+    """R-MECH-6 caps the segment board width."""
+
+    def test_the_configured_width_is_within_the_cap(self):
+        self.assertLessEqual(pcb.PCB_W, pcb.PCB_W_MAX)
+
+    def test_the_staged_board_note_names_the_same_cap(self):
+        texts = [str(node[1]) for node in
+                 sexp.parse_one(UNPLACED.read_text(encoding="utf-8"))
+                 if isinstance(node, list) and node and node[0] == "gr_text"]
+        self.assertTrue(
+            any(f"width <={pcb.fmt(pcb.PCB_W_MAX)}mm" in text for text in texts),
+            texts)
+
+
 class MountingKeepoutTests(unittest.TestCase):
     """Nothing may be packed onto a mounting hole: the screw head sits there."""
 
