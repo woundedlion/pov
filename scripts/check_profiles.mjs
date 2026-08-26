@@ -17,7 +17,7 @@ const REQUIRED_SECTIONS = [
   '## Harness',
 ];
 
-export async function profileDirectories(profilesDir, errors = []) {
+export async function profileDirectories(profilesDir, errors) {
   const entries = await readdir(profilesDir, { withFileTypes: true });
   const directories = [];
   for (const entry of entries) {
