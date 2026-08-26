@@ -39,8 +39,7 @@ struct LatticeMeltWhiteBox {
   }
   static void clear_timeline(FX &effect) { effect.timeline.clear(); }
   static void drive_transition(FX &effect, float progress) {
-    effect.preset_blend.lerp(effect.preset_blend, effect.preset_blend,
-                             progress);
+    effect.run_blend(progress);
   }
 
   using Ctx = Pullback::FrameState<Params>;
