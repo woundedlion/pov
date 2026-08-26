@@ -3530,6 +3530,46 @@ inline void test_comets_manual_preset_restarts_path() {
 }
 
 /**
+ * @brief Pins that AshCloud's value cutout reaches the rendered frame.
+ * @details AshCloud is the roster's only FieldCoverageKind::VALUE_CUTOUT
+ *          tenant. The kernel has a parity oracle against the chain
+ *          interpreter (tests/test_shader_chain.h), but that exercises the
+ *          stage standalone, not the composed wiring that feeds it: a pipeline
+ *          that dropped the coverage stage would still render, and every other
+ *          check would stay green. Sweeping cutout-threshold across its whole
+ *          authored range must open the frame at one end and close it at the
+ *          other.
+ */
+inline void test_ash_cloud_value_cutout_gates_the_frame() {
+  using FX = AshCloud<SMALL_W, SMALL_H>;
+
+  auto lit_pixels = [](float threshold) {
+    reset_effect_globals();
+    FX effect;
+    effect.init();
+
+    auto snapshot = effect.serialize_parameters();
+    snapshot.params.value.cutout_threshold = threshold;
+    snapshot.params.value.cutout_softness = 1.0f / 1024.0f;
+    HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
+
+    effect.draw_frame();
+    effect.advance_display();
+
+    size_t lit = 0;
+    for (int y = 0; y < SMALL_H; ++y)
+      for (int x = 0; x < SMALL_W; ++x) {
+        const Pixel &p = effect.get_pixel(x, y);
+        lit += (p.r != 0 || p.g != 0 || p.b != 0) ? 1u : 0u;
+      }
+    return lit;
+  };
+
+  HS_EXPECT_GT(lit_pixels(0.0f), size_t{0});
+  HS_EXPECT_EQ(lit_pixels(1.0f), size_t{0});
+}
+
+/**
  * @brief White-box accessor for the Thrusters warp curve and fire path.
  * @details Befriended in effects/Thrusters.h. Reaches the private warp_decay()
  *          curve to pin its shift-and-renormalized endpoints: a bare
@@ -6232,6 +6272,7 @@ inline int run_effects_tests() {
     test_meshfeedback_flush_precedes_mesh_draw();
     test_meshfeedback_preset_rotation_syncs_noise();
     test_comets_manual_preset_restarts_path();
+    test_ash_cloud_value_cutout_gates_the_frame();
     test_dynamo_trail_ceiling_bounds_the_ring();
     test_raymarch_unit_bounds_contains_twisted_tube();
     test_petalflow_spawn_gap_bounded();
