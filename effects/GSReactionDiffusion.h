@@ -105,8 +105,12 @@ public:
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
+    // Blocks carved in the peak phase: 4 physics buffers, or the raster
+    // phase's oriented lattice plus its 2 cull-flag arrays.
+    constexpr size_t SCRATCH_TENANTS = 4;
     Base::template configure_rd_arenas<uint16_t, 2, PERSISTENT_BYTES,
-                                       PALETTE_BYTES, SCRATCH_BYTES>();
+                                       PALETTE_BYTES, SCRATCH_BYTES,
+                                       SCRATCH_TENANTS>();
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
