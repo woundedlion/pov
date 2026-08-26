@@ -83,6 +83,21 @@ class TestHeaderIssue(unittest.TestCase):
         for path in ("core/math/noise_field.h", "effects/Voronoi.h"):
             self.assertIsNotNone(lc.header_issue(path, both), path)
 
+    def test_a_third_party_header_carrying_first_party_terms_is_reported(self):
+        head = (f"// {lc.MIT_TITLE}\n// {lc.MIT_GRANT}, free of charge\n"
+                f"// {lc.POLYFORM}\n// {lc.RESERVED}\n")
+        issue = lc.header_issue("core/vendor/FastNoiseLite.h", head)
+        self.assertIn(lc.POLYFORM, issue)
+
+    def test_a_first_party_header_carrying_an_MIT_grant_is_reported(self):
+        head = POLYFORM_HEADER.replace(" */\n", f" * {lc.MIT_GRANT}\n */\n")
+        issue = lc.header_issue("core/math/noise_field.h", head)
+        self.assertIn(lc.MIT_GRANT, issue)
+
+    def test_every_marker_a_path_can_expect_has_contradictions(self):
+        markers = set(lc.EXCEPTIONS.values()) | {lc.POLYFORM, lc.RESERVED}
+        self.assertEqual(markers - set(lc.CONTRADICTIONS), set())
+
     def test_a_file_with_no_notice_is_reported(self):
         issue = lc.header_issue("core/math/3dmath.h", "#pragma once\n")
         self.assertIn("no copyright notice", issue)
