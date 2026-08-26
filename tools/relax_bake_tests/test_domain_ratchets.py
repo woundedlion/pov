@@ -7,7 +7,10 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
-from tools import check_domain_ratchets
+TOOLS = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(TOOLS))
+
+import check_domain_ratchets  # noqa: E402
 
 
 class ParseFloors(unittest.TestCase):
