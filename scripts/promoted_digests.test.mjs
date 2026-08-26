@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compileShaderDocument } from './shader_workbench.mjs';
+import {
+  compilePatternDocuments,
+  loadOperatorCatalog,
+} from './pattern_documents.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -30,15 +33,9 @@ const promotedHeaders = async () => {
 };
 
 const compiledDocuments = async () => {
-  const catalog = JSON.parse(await readFile(
-    resolve(ROOT, 'scripts', 'engine_catalog.json'), 'utf8'));
-  const names = (await readdir(resolve(ROOT, 'patterns')))
-    .filter((name) => name.endsWith('.shader.json'));
   const documents = new Map();
-  for (const name of names) {
-    const source = (await readFile(resolve(ROOT, 'patterns', name), 'utf8'))
-      .replaceAll('\r\n', '\n');
-    const compiled = compileShaderDocument(source, { catalog });
+  const catalog = await loadOperatorCatalog();
+  for (const { name, compiled } of await compilePatternDocuments(catalog)) {
     assert.equal(compiled.status, 'VALID', `patterns/${name} does not compile`);
     // A study document names no effect: only a promoted one pins a header.
     if (typeof compiled.document.effect_id === 'string')
