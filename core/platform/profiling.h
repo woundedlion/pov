@@ -404,13 +404,13 @@ namespace hs {
 /**
  * @brief Formats v as decimal into buf.
  * @param v Value to format.
- * @param buf Buffer of at least 21 bytes (20 digits + NUL).
+ * @param buf Exact-fit buffer: 20 digits plus the NUL.
  * @return Pointer to the first digit inside buf.
  * @details Manual conversion because newlib-nano's integer printf (the -Os
  *          device build) has no long-long support.
  */
-inline const char *u64_dec(uint64_t v, char *buf) {
-  char *p = buf + 20;
+inline const char *u64_dec(uint64_t v, char (&buf)[21]) {
+  char *p = buf + sizeof(buf) - 1;
   *p = '\0';
   do {
     *--p = static_cast<char>('0' + v % 10);
