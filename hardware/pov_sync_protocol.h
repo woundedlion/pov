@@ -48,6 +48,17 @@ constexpr int64_t floor_div(int64_t a, int64_t b) {
  * @param m Modulus (positive).
  * @return a mod m in [0, m).
  */
+constexpr int32_t floor_mod(int32_t a, int32_t m) {
+  const int32_t r = a % m;
+  return r < 0 ? r + m : r;
+}
+
+/**
+ * @brief Non-negative modulo of a 64-bit value.
+ * @param a Value to reduce.
+ * @param m Modulus (positive).
+ * @return a mod m in [0, m).
+ */
 constexpr int32_t floor_mod(int64_t a, int32_t m) {
   const int32_t r = static_cast<int32_t>(a % m);
   return r < 0 ? r + m : r;
