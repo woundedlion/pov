@@ -818,7 +818,7 @@ private:
   }
 
   static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 2.0f;
-  static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 2.0f;
+  static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 10.0f;
   static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
   static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
   static constexpr float FAR_CELLS_MIN = 2.0f, FAR_CELLS_MAX = 16.0f;
