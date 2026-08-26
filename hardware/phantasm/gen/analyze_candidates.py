@@ -12,7 +12,7 @@ folders (or .kicad_pcb files) to override.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
 only when it names an existing file) so a geometry-clean but DRC-broken board can't
-win the ranking. Errors are split: 'refill-fixable' clearance/hole errors against a
+win the ranking. With no KiCad on the pin installed the ranking still runs, ungated. Errors are split: 'refill-fixable' clearance/hole errors against a
 zone (Quilter exports pours without via antipads -- they clear on a KiCad zone refill)
 vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track clearance), which
 disqualify a candidate from the recommended pick. A candidate whose DRC did not
@@ -135,13 +135,16 @@ def no_drc(status):
 
 
 def resolve_kicad_cli():
-    """Return a runnable kicad-cli, or None if it can't be found.
+    """Return a runnable kicad-cli, or None if there is no usable one.
 
     kicad_cli() yields either an absolute install path or the bare name
     "kicad-cli" for a PATH install (Homebrew/flatpak/snap/~/.local/bin), so the
-    bare name has to be resolved through PATH rather than the filesystem."""
-    cli = kicad_cli()
-    if not cli:
+    bare name has to be resolved through PATH rather than the filesystem. It
+    exits the process when no KiCad on the pin is installed; ranking candidates
+    is useful without one, so that exit becomes an ungated run instead."""
+    try:
+        cli = kicad_cli()
+    except SystemExit:
         return None
     return cli if os.path.exists(cli) else shutil.which(cli)
 
@@ -149,7 +152,7 @@ def resolve_kicad_cli():
 def run_drc(pcb_path):
     """Run kicad-cli DRC; return dict(status, errors, unconnected, real).
 
-    status is DRC_OK (counts are real), DRC_MISSING (no kicad-cli) or DRC_FAILED
+    status is DRC_OK (counts are real), DRC_MISSING (no usable kicad-cli) or DRC_FAILED
     (the run errored out); the counts are zero for anything but DRC_OK, so callers
     must branch on status rather than read them as a clean result. `real` counts the
     errors that are not refill-fixable zone artifacts -- the shorts/crossings that
@@ -356,7 +359,7 @@ def main(argv=None):
 
     drc_ran = any(R[k]["drc"]["status"] != DRC_MISSING for k in R)
     print("=" * 76)
-    print("OVERALL ROUTING" + ("  +  DRC GATE" if drc_ran else "  (DRC skipped: no kicad-cli)"))
+    print("OVERALL ROUTING" + ("  +  DRC GATE" if drc_ran else "  (DRC skipped: no usable kicad-cli)"))
     print("=" * 76)
     hdr = (
         f"{'Cand':>6} {'tracks':>7} {'vias':>5} {'small':>5} "
@@ -374,7 +377,7 @@ def main(argv=None):
         if drc_ran:
             dc = r["drc"]
             if dc["status"] != DRC_OK:
-                flag = ("NOT GATED (no kicad-cli)" if dc["status"] == DRC_MISSING
+                flag = ("NOT GATED (no usable kicad-cli)" if dc["status"] == DRC_MISSING
                         else "NOT GATED (DRC run failed)")
                 line += f" {'?':>7} {'?':>6}  {flag}"
             else:

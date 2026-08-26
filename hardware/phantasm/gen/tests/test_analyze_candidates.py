@@ -243,6 +243,11 @@ class ResolveKicadCliTests(unittest.TestCase):
                                   return_value=None):
             self.assertIsNone(analyze_candidates.resolve_kicad_cli())
 
+    def test_an_unusable_kicad_is_ungated_not_fatal(self):
+        with mock.patch.object(analyze_candidates, "kicad_cli",
+                               side_effect=SystemExit("KiCad 9, gates need 10")):
+            self.assertIsNone(analyze_candidates.resolve_kicad_cli())
+
     def test_drc_gate_reports_missing_only_when_unresolvable(self):
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
                                return_value=None):
