@@ -145,6 +145,30 @@ concept PipelineFoldSurface = requires {
 } // namespace Filter
 
 /**
+ * @brief Folds a filter pipeline's compile-time segment traits into an
+ *        EffectConfig.
+ * @tparam PipelineT Filter pipeline or direct sink satisfying
+ *         Filter::PipelineFoldSurface.
+ * @param base Config carrying the effect's own flags, including any full_frame,
+ *        reads_outside_band or margin the effect needs for its own reasons.
+ * @return @p base with the pipeline's full_frame, reads_outside_band and margin
+ *         requirements combined in; the other fields are untouched.
+ * @details The single definition of the fold: an effect that stacks a filter
+ *          crossing segment boundaries gets the full-frame render without
+ *          restating the three traits at its base initializer. All three are
+ *          "at least this much" requirements, so the fold widens and never
+ *          clears what the caller asked for.
+ */
+template <Filter::PipelineFoldSurface PipelineT>
+constexpr EffectConfig pipeline_config(EffectConfig base = {}) {
+  base.full_frame = base.full_frame || PipelineT::any_crosses_segments;
+  base.reads_outside_band =
+      base.reads_outside_band || PipelineT::any_reads_outside_band;
+  base.margin = std::max(base.margin, PipelineT::total_segment_margin);
+  return base;
+}
+
+/**
  * @brief Recursive template pipeline for processing render commands.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.

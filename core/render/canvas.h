@@ -34,6 +34,8 @@ class Canvas;
 /**
  * @brief Construction-time flags for an Effect (see the accessors of the same
  *        name). Defaults suit a plain, non-strobing, band-clippable effect.
+ * @details pipeline_config (render/filter/pipeline.h) folds a filter
+ * pipeline's segment traits into this config.
  */
 struct EffectConfig {
   bool strobe = false;  /**< POV column strobe (Effect::strobe_columns). */
@@ -47,30 +49,6 @@ struct EffectConfig {
    */
   int margin = ClipRegion{}.margin;
 };
-
-/**
- * @brief Folds a filter pipeline's compile-time segment traits into an
- *        EffectConfig.
- * @tparam PipelineT Filter pipeline or sink exposing `any_crosses_segments`,
- *         `any_reads_outside_band`, and `total_segment_margin`.
- * @param base Config carrying the effect's own flags, including any full_frame,
- *        reads_outside_band or margin the effect needs for its own reasons.
- * @return @p base with the pipeline's full_frame, reads_outside_band and margin
- *         requirements combined in; the other fields are untouched.
- * @details The single definition of the fold: an effect that stacks a filter
- *          crossing segment boundaries gets the full-frame render without
- *          restating the three traits at its base initializer. All three are
- *          "at least this much" requirements, so the fold widens and never
- *          clears what the caller asked for.
- */
-template <typename PipelineT>
-constexpr EffectConfig pipeline_config(EffectConfig base = {}) {
-  base.full_frame = base.full_frame || PipelineT::any_crosses_segments;
-  base.reads_outside_band =
-      base.reads_outside_band || PipelineT::any_reads_outside_band;
-  base.margin = std::max(base.margin, PipelineT::total_segment_margin);
-  return base;
-}
 
 /**
  * @brief Base class for all visual effects.
