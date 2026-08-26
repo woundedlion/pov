@@ -229,6 +229,15 @@ static bool runs_in_ci() {
   return ci && ci[0] != '\0';
 }
 
+/** @brief Reports whether a skipped case must fail the run. */
+static bool skips_are_errors() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *lever = std::getenv("HS_SKIPS_ARE_ERRORS");
+#pragma clang diagnostic pop
+  return lever && std::atoi(lever) != 0;
+}
+
 /**
  * @brief Verifies the environment carries the depth levers a CI run must set.
  * @param argc Argument count as passed to main.
@@ -244,7 +253,10 @@ static bool runs_in_ci() {
  * mandatory for this leg) must carry an explicit value. An absent or blank key
  * is a step that lost its declaration, not a vote for QUICK. The watchdog
  * lever is scored on every CI invocation: unlike the depth levers its absence
- * traps the process instead of reporting a test.
+ * traps the process instead of reporting a test. HS_SKIPS_ARE_ERRORS is
+ * scored on every invocation too: a skipped case asserts nothing and moves no
+ * counter a green run shows, so whether this leg tolerates one has to be
+ * declared rather than defaulted.
  */
 static int check_ci_levers(int argc, char **argv) {
   if (!runs_in_ci())
@@ -257,7 +269,15 @@ static int check_ci_levers(int argc, char **argv) {
   const char *effects_full = std::getenv("HS_EFFECTS_FULL");
   const char *require_effects_full = std::getenv("HS_REQUIRE_EFFECTS_FULL");
   const char *watchdog = std::getenv("HS_BUFFER_FREE_WATCHDOG_US");
+  const char *skip_policy = std::getenv("HS_SKIPS_ARE_ERRORS");
 #pragma clang diagnostic pop
+  if (!skip_policy || skip_policy[0] == '\0') {
+    std::fprintf(stderr,
+                 "run_tests: CI=on but HS_SKIPS_ARE_ERRORS carries no explicit "
+                 "value — a case that retires itself asserts nothing and still "
+                 "reports green. Set it in the workflow step's env.\n");
+    ++missing;
+  }
   if (!frames || std::atoi(frames) < CI_MIN_SMOKE_FRAMES) {
     std::fprintf(stderr,
                  "run_tests: CI=on but HS_SMOKE_FRAMES is unset or below %d — "
@@ -353,8 +373,9 @@ static int check_modules(int argc, char **argv) {
  * @param argv Argument vector; argv[0] is the self path used by death tests,
  * remaining args (if any) name the modules to run, or
  * --list/-h/--help/--check-modules.
- * @return 0 on success, 1 if any test failed or a required CI depth lever is
- * missing, 2 on an unknown module name, 3 on a --check-modules divergence.
+ * @return 0 on success, 1 if any test failed, a case was skipped under
+ * HS_SKIPS_ARE_ERRORS, or a required CI depth lever is missing, 2 on an unknown
+ * module name, 3 on a --check-modules divergence.
  * @details Dispatches the HS_DEATH_CASE child case if set, else runs the full
  * roster or only the modules named on argv.
  */
@@ -417,6 +438,18 @@ int main(int argc, char **argv) {
   } else {
     for (const TestModule &m : MODULES)
       failures += m.run();
+  }
+  const int skipped = hs_test::stats().skipped;
+  if (skipped > 0) {
+    std::printf("=== suite: %d case(s) SKIPPED ===\n", skipped);
+    if (skips_are_errors()) {
+      std::fprintf(stderr,
+                   "run_tests: HS_SKIPS_ARE_ERRORS is on and %d case(s) "
+                   "retired themselves — this leg is declared to assert every "
+                   "case it compiles.\n",
+                   skipped);
+      ++failures;
+    }
   }
   // Collapse to 0/1: a process exit status is only 8 bits on POSIX, so
   // returning a raw count would wrap (e.g. 256 failures -> 0 -> green CI).

@@ -550,7 +550,8 @@ inline void test_specialized_render_signature() {
   // fast_wire_coverage's Newton reciprocal reassociates under the shipping
   // flag pair; the IEEE legs carry the table.
   (void)rendered;
-  hs_test::skip_case();
+  hs_test::skip_case(__func__,
+                     "HS_TEST_FAST_MATH: fast_wire_coverage reassociates");
 #else
   expect_shade_samples("specialized_render_signature", rendered, GOLDEN,
                        std::size(GOLDEN), std::size(DIRECTIONS),

@@ -57,19 +57,23 @@ jobs:
             shard: 1
             test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|hyper_lattice|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes|case_calls|anim_pack|vendor_patches|linker_patches|teensy_size_trail|mirrored_screenshot_prune)$"
             test_exclude: &generated_exclude "^unit_(color_luts|color_luts_check|gamut_lut|mindsplatter_replay_form)$"
+            skips_are_errors: 1
           - &shard2_entry
             shard: 2
             test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|gamut_lut|mindsplatter_palette_form|mindsplatter_replay_form|palettes|easing_waves|interpolate|platform|profiling|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|relax_bake_verify|relax_bake_form)$"
             test_exclude: *generated_exclude
+            skips_are_errors: 1
           - &shard3_entry
             shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|mindsplatter|effects_smoke|effect_factory|shader_workbench|lattice_melt|kaleidoscope_smooth|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
+            skips_are_errors: 1
             effects_full: 1
           - &shard4_entry
             shard: 4
             test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|presets|styles|shading|death|conway_morph|pullback|pullback_manifest|pullback_capture_determinism|shader_chain)$"
             test_exclude: *generated_exclude
+            skips_are_errors: 1
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
     runs-on: ubuntu-24.04
@@ -230,6 +234,7 @@ jobs:
           HS_SMOKE_FRAMES: &deep_smoke_frames 120
           HS_EFFECTS_FULL: &quick_effects 0
           HS_REQUIRE_EFFECTS_FULL: &effects_full_optional 0
+          HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
           HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -333,6 +338,7 @@ jobs:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
           HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
+          HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -400,6 +406,7 @@ jobs:
         # 2 s default; 30 s still catches a genuinely stalled hand-off.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_SKIPS_ARE_ERRORS: &skips_forbidden 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TSAN_OPTIONS: halt_on_error=1
         run: >
@@ -454,6 +461,9 @@ jobs:
             # the Debug and optimized IEEE jobs cover that configuration.
             test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|shader_workbench|pullback_capture_determinism|pov_sync|color_luts|color_luts_check|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
+            # The one leg that legitimately skips: the specialized HyperLattice
+            # signature has no band sized for a reassociated Newton reciprocal.
+            skips_are_errors: 0
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
     # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
     # results that move under -O2 contraction, are structurally invisible there.
@@ -526,6 +536,7 @@ jobs:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && matrix.effects_full || 0 }}
           HS_REQUIRE_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && 1 || 0 }}
+          HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
@@ -585,6 +596,7 @@ jobs:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
           HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
+          HS_SKIPS_ARE_ERRORS: *skips_forbidden
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
@@ -707,6 +719,10 @@ jobs:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
           HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
+          # Declared gap: whether the emsdk image puts an interpreter on PATH
+          # decides HS_HAVE_PULLBACK_MANIFEST, and with it three ShaderWorkbench
+          # skips. The Linux jobs hold that line.
+          HS_SKIPS_ARE_ERRORS: 0
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TEST_EXCLUDE: *generated_exclude
         run: >
