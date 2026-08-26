@@ -29,6 +29,8 @@ THIRD_PARTY = frozenset({MIT_GRANT, MIT_TITLE})
 
 SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cc", ".cpp", ".inl", ".ino")
 
+_GIT_TIMEOUT_SECONDS = 30
+
 # Bytes of a file the header must appear within. Generated files name their
 # generator right below the notice, so this is a few lines rather than one.
 HEAD_BYTES = 600
@@ -98,16 +100,21 @@ class ToolingError(Exception):
 
 def tracked_sources(root: Path) -> list[str]:
     """Repo-relative paths of every tracked C/C++ source under root."""
+    # Bytes, not text=True: the text wrapper's locale decode has undefined
+    # bytes, and a decode error here must be a report, not a traceback.
+    command = ["git", "-c", f"safe.directory={root.as_posix()}",
+               "-C", str(root), "ls-files", "-z"]
     try:
-        listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
-                                capture_output=True, text=True)
-    except OSError as error:
+        listed = subprocess.run(command, capture_output=True,
+                                timeout=_GIT_TIMEOUT_SECONDS)
+        if listed.returncode != 0:
+            detail = (listed.stderr.decode("utf-8", "replace").strip()
+                      or f"git exited {listed.returncode}")
+            raise ToolingError(
+                f"cannot list tracked sources under {root}: {detail}")
+        out = listed.stdout.decode("utf-8")
+    except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         raise ToolingError(f"cannot run git: {error}") from error
-    if listed.returncode != 0:
-        detail = listed.stderr.strip() or f"git exited {listed.returncode}"
-        raise ToolingError(
-            f"cannot list tracked sources under {root}: {detail}")
-    out = listed.stdout
     return sorted(p for p in out.split("\0")
                   if p and PurePosixPath(p).suffix in SOURCE_SUFFIXES)
 
