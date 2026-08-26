@@ -525,6 +525,18 @@ class TestBudgetSchema(unittest.TestCase):
                     self._load(stripped)
                 self.assertIn("free_min_bytes", str(ctx.exception))
 
+    def test_arena_magnitude_bounds_are_required(self):
+        # A shrunk arena frees RAM1: no region ceiling and no stack floor fires,
+        # so the bounds are the only thing holding the arena's size.
+        for env in BUDGETS:
+            for key in ("min_bytes", "max_bytes"):
+                with self.subTest(env=env, key=key):
+                    stripped = copy.deepcopy(BUDGETS)
+                    del stripped[env]["symbols"]["arena"][key]
+                    with self.assertRaises(tg.BudgetSchemaError) as ctx:
+                        self._load(stripped)
+                    self.assertIn(key, str(ctx.exception))
+
     def test_boundary_headroom_must_be_a_non_negative_integer(self):
         for value in (-1, 1.5, True):
             with self.subTest(value=value):
