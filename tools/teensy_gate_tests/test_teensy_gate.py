@@ -514,6 +514,17 @@ class TestBudgetSchema(unittest.TestCase):
         with self.assertRaises(tg.BudgetSchemaError):
             self._load(no_headroom)
 
+    def test_ram2_free_floor_is_required(self):
+        # RAM2's max_bytes is the OCRAM size itself, so the free floor is the
+        # region's only reachable constraint.
+        for env in BUDGETS:
+            with self.subTest(env=env):
+                stripped = copy.deepcopy(BUDGETS)
+                del stripped[env]["regions"]["ram2"]["free_min_bytes"]
+                with self.assertRaises(tg.BudgetSchemaError) as ctx:
+                    self._load(stripped)
+                self.assertIn("free_min_bytes", str(ctx.exception))
+
     def test_boundary_headroom_must_be_a_non_negative_integer(self):
         for value in (-1, 1.5, True):
             with self.subTest(value=value):
