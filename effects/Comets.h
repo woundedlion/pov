@@ -112,7 +112,7 @@ public:
    * @details Allocates the node, bakes the palette LUT, registers params, and
    *          builds the timeline: an infinite RandomWalk plus the head Motion.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     begin_choreography();
     node = persistent_arena.make<Node>();
 
