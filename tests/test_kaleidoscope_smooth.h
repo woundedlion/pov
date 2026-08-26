@@ -32,8 +32,7 @@ struct KaleidoscopeSmoothWhiteBox {
   }
   static bool advance_preset(FX &effect) { return effect.advancePreset(); }
   static void drive_transition(FX &effect, float progress) {
-    effect.preset_blend.lerp(effect.preset_blend, effect.preset_blend,
-                             progress);
+    effect.run_blend(progress);
   }
 
   using Ctx = Pullback::FrameState<Params>;

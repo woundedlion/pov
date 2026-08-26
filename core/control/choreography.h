@@ -106,22 +106,6 @@ protected:
     uint16_t elapsed_frames = 0; /**< Unpaused interpolation steps elapsed. */
   };
 
-  /**
-   * @brief Timeline-lerp subject for a preset transition.
-   * @details Animation::Lerp drives this through the transition's stored
-   * endpoints each frame. A lerp whose transition was cancelled by a manual
-   * preset or a snapshot restore keeps stepping but writes nothing. Pause
-   * freezes it only when the policy says so.
-   */
-  struct PresetBlend {
-    ChoreographedEffect *runtime;
-
-    HS_COLD_MEMBER void lerp(const PresetBlend &, const PresetBlend &,
-                             float progress) {
-      runtime->run_blend(progress);
-    }
-  };
-
   HS_COLD_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
       : Effect(W, H, cfg) {}
 
@@ -162,16 +146,17 @@ protected:
       static_assert(
           Derived::PRESET_DWELL_FRAMES > Derived::PRESET_SEGUE.frames,
           "PRESET_DWELL_FRAMES must outlast PRESET_SEGUE.frames, or a "
-          "cancelled crossfade's lerp outlives its own transition and "
+          "cancelled crossfade's blend outlives its own transition and "
           "completes the next one early");
       if (change.origin == PresetChangeOrigin::AUTOMATIC) {
         constexpr auto SEGUE = Derived::PRESET_SEGUE;
         const bool *paused = SEGUE.pausable ? &anims_paused : nullptr;
-        if (timeline.add_get(0,
-                             Animation::Lerp(preset_blend, preset_blend,
-                                             preset_blend, SEGUE.frames,
-                                             SEGUE.easing),
-                             Timeline::Pin::UNPINNED, paused) == nullptr) {
+        if (timeline.add_get(
+                0,
+                Animation::Progress(
+                    [this](float progress) { run_blend(progress); },
+                    SEGUE.frames, SEGUE.easing),
+                Timeline::Pin::UNPINNED, paused) == nullptr) {
           preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
           return false;
         }
@@ -235,10 +220,26 @@ protected:
     }
   }
 
+  /**
+   * @brief Advances the in-flight crossfade one step.
+   * @param progress Eased transition progress in [0, 1].
+   * @details A blend whose transition was cancelled by a manual preset or a
+   * snapshot restore keeps stepping but writes nothing.
+   */
+  HS_COLD_MEMBER void run_blend(float progress) {
+    if (!transition.active)
+      return;
+    const bool complete = ++transition.elapsed_frames >= TRANSITION_DURATION;
+    derived().blend_params(complete ? 1.0f : progress);
+    if (complete) {
+      transition.active = false;
+      preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
+    }
+  }
+
   /** Live parameters; the registered sliders write straight into these. */
   Params params = initial_params_of();
   Transition transition;
-  PresetBlend preset_blend{this};
   Timeline timeline;
 
 private:
@@ -330,17 +331,6 @@ private:
                     "an effect with several presets must define a PRESETS "
                     "table or preset_params(index)");
       return initial_params_of();
-    }
-  }
-
-  HS_COLD_MEMBER void run_blend(float progress) {
-    if (!transition.active)
-      return;
-    const bool complete = ++transition.elapsed_frames >= TRANSITION_DURATION;
-    derived().blend_params(complete ? 1.0f : progress);
-    if (complete) {
-      transition.active = false;
-      preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     }
   }
 
