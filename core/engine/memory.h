@@ -1240,6 +1240,18 @@ private:
 };
 
 /**
+ * @brief Rewinds the persistent arena to empty after dropping every cached
+ *        pointer into it.
+ * @details The only supported way to hand persistent storage out again: a bare
+ * `persistent_arena.reset()` leaves each registered global pointing at bytes the
+ * next allocation re-issues.
+ */
+HS_FLASH_INLINE inline void reset_persistent_arena() {
+  ArenaResetHook::run_all();
+  persistent_arena.reset();
+}
+
+/**
  * @brief Repartitions the global arena budget across the three arenas.
  * @param persistent Bytes to assign to the persistent arena.
  * @param scratch_a Bytes to assign to scratch arena A.
@@ -1351,7 +1363,7 @@ concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
  * Usage:
  *   {
  *     Persist<MeshState> p(live_mesh, scratch_arena_a, persistent_arena);
- *     persistent_arena.reset();
+ *     reset_persistent_arena();
  *   }  // ~Persist clones backup back into persistent
  */
 template <Cloneable T> class Persist {
@@ -1400,7 +1412,7 @@ public:
    * @details The restore clones into `persistent` at its *current* offset, so
    * it only reconstructs the object usefully if the caller rewound the
    * persistent arena during the scope (the canonical
-   * `persistent_arena.reset()`). Without that reset the clone appends a second
+   * `reset_persistent_arena()`). Without that reset the clone appends a second
    * copy and grows the arena. The post-restore `<=` check traps a
    * forgot-to-reset restore, which pushes the offset past the construction
    * watermark. Callers may legitimately STACK several Persists over one
