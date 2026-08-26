@@ -135,34 +135,40 @@ INLINE_SCAN = (
     )),
 )
 
-# (pattern, pin name, expected form of the pin value). The pattern's single
-# capture group is the version as that spelling writes it; `form` maps the pin
-# value to that spelling, so every occurrence is derived from one string.
+# (pattern, pin name, expected form of the pin value, occurrences required
+# across INLINE_SCAN). The pattern's single capture group is the version as that
+# spelling writes it; `form` maps the pin value to that spelling, so every
+# occurrence is derived from one string. The count fails a site dropped or
+# another added unnoticed: a bare "matches nothing anywhere" guard passes a
+# re-spelling for as long as one sibling site keeps matching.
 INLINE_USES = (
-    (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v),
-    (r"python-version:\s*'([^']*)'", "python", lambda v: v),
-    (r"\bnumpy==([\w.]+)", "numpy", lambda v: v),
-    (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v),
-    (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v),
-    (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v),
-    (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
-    (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0]),
-    (r"\brust-just==([\w.]+)", "just", lambda v: v),
-    (r"\bplatformio==([\w.]+)", "platformio", lambda v: v),
-    (r"\bruff==([\w.]+)", "ruff", lambda v: v),
-    (r"\bshellcheck-py==([\w.]+)", "shellcheck", lambda v: v),
+    (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v, 1),
+    # Quote-agnostic: setup-python's own README writes the input with double
+    # quotes, which a single-quoted pattern reads as absent.
+    (r"""python-version:\s*['"]?([^'"\s]+)['"]?""", "python", lambda v: v, 16),
+    (r"\bnumpy==([\w.]+)", "numpy", lambda v: v, 1),
+    (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v, 28),
+    (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v, 7),
+    (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v, 3),
+    (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0], 1),
+    (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0], 3),
+    (r"\brust-just==([\w.]+)", "just", lambda v: v, 1),
+    (r"\bplatformio==([\w.]+)", "platformio", lambda v: v, 1),
+    (r"\bruff==([\w.]+)", "ruff", lambda v: v, 1),
+    (r"\bshellcheck-py==([\w.]+)", "shellcheck", lambda v: v, 1),
     (r"EXPECTED_CLANG_FORMAT_MAJOR = (\d+)", "clang-format",
-     lambda v: v.split(".")[0]),
-    (r"HS_CLANG_FORMAT_MAJOR=(\d+)", "clang-format", lambda v: v.split(".")[0]),
-    (r"Install Doxygen ([\w.]+) ", "doxygen", lambda v: v),
-    (r"/Release_(\w+)/", "doxygen", lambda v: v.replace(".", "_")),
-    (r"\bdoxygen-([\w.]+)\.linux", "doxygen", lambda v: v),
-    (r"\bdoxygen-([\w.]+)/bin", "doxygen", lambda v: v),
-    (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v),
+     lambda v: v.split(".")[0], 1),
+    (r"HS_CLANG_FORMAT_MAJOR=(\d+)", "clang-format",
+     lambda v: v.split(".")[0], 1),
+    (r"Install Doxygen ([\w.]+) ", "doxygen", lambda v: v, 1),
+    (r"/Release_(\w+)/", "doxygen", lambda v: v.replace(".", "_"), 1),
+    (r"\bdoxygen-([\w.]+)\.linux", "doxygen", lambda v: v, 1),
+    (r"\bdoxygen-([\w.]+)/bin", "doxygen", lambda v: v, 1),
+    (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v, 1),
     (r"([0-9a-f]{64})  /tmp/llvm-snapshot\.gpg\.key", "llvm-key-sha256",
-     lambda v: v),
-    (r"KICAD_MAJOR = (\d+)", "kicad", lambda v: v),
-    (r"\bKiCad (\d+)\b", "kicad", lambda v: v),
+     lambda v: v, 1),
+    (r"KICAD_MAJOR = (\d+)", "kicad", lambda v: v, 1),
+    (r"\bKiCad (\d+)\b", "kicad", lambda v: v, 6),
 )
 
 # The extensions the clang-format gate covers. ci.yml and the justfile select
@@ -299,19 +305,20 @@ def duplicates_pin(text: str, name: str, value: str) -> bool:
 
 def check_inline_pins() -> list[str]:
     """Return one error per occurrence of an INLINE_PINS value that disagrees
-    with the pin, plus one per INLINE_USES spelling no scanned file matches.
+    with the pin, plus one per INLINE_USES spelling found the wrong number of
+    times.
 
-    The vacuity guard counts per pattern, not per pin: most pins have several
-    spellings, so a per-pin count would let one spelling stop matching while a
-    sibling keeps the count non-zero.
+    The count is per pattern, not per pin: most pins have several spellings, so
+    a per-pin total would let one spelling stop matching while a sibling absorbs
+    its share.
     """
     errors: list[str] = []
     pin_values = {**PINS, **INLINE_PINS}
-    seen: dict[str, int] = {pattern: 0 for pattern, _, _ in INLINE_USES}
+    seen: dict[str, int] = {pattern: 0 for pattern, _, _, _ in INLINE_USES}
     for path in INLINE_SCAN:
         text = path.read_text(encoding="utf-8")
         for index, line in enumerate(text.splitlines(), 1):
-            for pattern, name, form in INLINE_USES:
+            for pattern, name, form, _ in INLINE_USES:
                 want = form(pin_values[name])
                 for found in re.findall(pattern, line):
                     seen[pattern] += 1
@@ -320,10 +327,11 @@ def check_inline_pins() -> list[str]:
                             f"{path.relative_to(ROOT)}:{index}: {name} pinned to "
                             f"{want!r} in build_pins.py but written {found!r}"
                         )
-    for pattern, name, _ in INLINE_USES:
-        if seen[pattern] == 0:
+    for pattern, name, _, expected in INLINE_USES:
+        if seen[pattern] != expected:
             errors.append(
-                f"{name} spelling {pattern!r} matches no scanned file"
+                f"{name} spelling {pattern!r} occurs {seen[pattern]} time(s) in "
+                f"the scanned files, expected {expected}"
             )
     return errors
 
