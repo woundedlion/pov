@@ -195,6 +195,25 @@ class IdStrapSilkscreenTests(unittest.TestCase):
                 self.assertIn(expected, texts)
 
 
+class RotationPolicyTests(unittest.TestCase):
+    """Only chip passives may be packed at 90."""
+
+    def test_chip_passives_rotate(self):
+        for ref in ("R1", "R_D1", "C_DEC1", "C_LF"):
+            self.assertTrue(pcb._rotatable(ref), ref)
+
+    def test_the_radial_electrolytic_and_the_jumpers_stay_at_zero(self):
+        for ref in ("C_IN", "JP_ID0", "JP_SHLD", "D_BUS", "F1", "FB", "U1"):
+            self.assertFalse(pcb._rotatable(ref), ref)
+
+    def test_every_connector_is_pinned_to_a_board_end(self):
+        pinned = set(pcb.HUB_CONNS) | set(pcb.FAR_CONNS)
+        connectors = {ref for ref, _, _, _ in pcb.schematic_components()
+                      if ref.startswith("J") and not ref.startswith("JP")}
+        self.assertTrue(connectors)
+        self.assertEqual(connectors - pinned, set())
+
+
 class BoardWidthCapTests(unittest.TestCase):
     """R-MECH-6 caps the segment board width."""
 
