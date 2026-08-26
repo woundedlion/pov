@@ -29,6 +29,8 @@ def _window(renders=(), wall_sum=None, frames=None):
     n = frames if frames is not None else len(renders)
     w = pp.Window("Fx", 288, 144, 1, n, 1)
     w.frame_rows = [(i + 1, r + 1_000, r) for i, r in enumerate(renders)]
+    w.counters = {"fx_buffer_wait": {"us": 1_000 * n, "calls": n,
+                                     "cyc": 0, "pct": 1}}
     if wall_sum is not None:
         w.wall = (0, 0, 0, wall_sum)
     return w
@@ -94,6 +96,18 @@ class RenderIsWall(unittest.TestCase):
 
     def test_wait_scope_present_is_not_wall(self):
         self.assertFalse(self._w([125_000] * 4, wait_scope=True).render_is_wall())
+
+    def test_saturated_window_with_a_wait_scope_is_not_wall(self):
+        # Every frame consumed its whole display window, so the wait floors to
+        # 0 us and render == wall on every row. The scope is present and the
+        # renders are exact: this must not degrade the whole capture.
+        w = self._w([125_000] * 4, wait_scope=True)
+        w.frame_rows = [(i + 1, x, x) for i, (_, x, _) in
+                        enumerate(w.frame_rows)]
+        self.assertFalse(w.render_is_wall())
+        peak, exact = w.peak_render_ms()
+        self.assertTrue(exact)
+        self.assertAlmostEqual(peak, 125.0)
 
     def test_peak_is_not_reported_as_render(self):
         # 125 ms wall is two display windows of a ~77 ms render plus idle;
@@ -794,6 +808,8 @@ class BucketOrdering(unittest.TestCase):
         lines.append(f"frame            {render_us * frames} us (100%)  "
                      f"{frames} calls  1 cyc")
         lines.append(f"  shader         {shader_us_per_frame * frames} us (50%)  "
+                     f"{frames} calls  1 cyc")
+        lines.append(f"  fx_buffer_wait {5_000 * frames} us (10%)  "
                      f"{frames} calls  1 cyc")
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "cap.log"

@@ -183,11 +183,15 @@ class Window:
 
         Profile.ino derives each frame's render as wall minus the effect's
         *_buffer_wait counter delta. An effect that never opens such a scope
-        yields a zero delta, so render == wall on every frame and the "peak
-        render" would silently be a peak WALL -- render plus the sync idle,
-        quantized up to a whole display window.
+        yields a zero delta, so the "peak render" would silently be a peak WALL
+        -- render plus the sync idle, quantized up to a whole display window.
+
+        Read from the counter tree, not from per-frame equality: a saturated
+        window has no idle left to subtract (the firmware computes the wait by
+        integer-us division, so a sub-microsecond one reads 0) and its rows
+        carry render == wall while its scope is present and its renders exact.
         """
-        return bool(self.frame_rows) and all(f[1] == f[2] for f in self.frame_rows)
+        return not any(label.endswith("buffer_wait") for label in self.counters)
 
     def peak_render_ms(self):
         """(ms, exact) worst frame's render.
@@ -923,10 +927,11 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
     # asserts the opposite of what was just measured, and a reader who takes it
     # at face value carries "this effect has no buffer_wait scope" away from a
     # run that proved it has one.
-    wall_render = [w for w in windows if w.render_is_wall()]
+    have_render = [w for w in windows if w.render or w.frame_rows]
+    wall_render = [w for w in have_render if w.render_is_wall()]
     check(not wall_render,
           f"per-frame render is render, not wall ({len(wall_render)} of "
-          f"{len(windows)} windows have render == wall"
+          f"{len(have_render)} windows have render == wall"
           + (": the effect opens no *_buffer_wait scope)" if wall_render
              else ")"))
 
