@@ -114,6 +114,13 @@ committed board directly need no KiCad and run in CI
   unless the assembled references exactly match its LCSC assignment table,
   every rotation correction names an assembled part, and every centroid row
   is present, numeric, and on the top (assembly) side.
+- **Board-generation gate:** `gen/tests/test_pcb_generation.py` runs
+  `gen/pcb.py` into a temporary directory and reads the result back through the
+  KiCad-free readers: the net table, both inner reference planes, the four
+  mounting-hole rule areas, the revision silkscreen, the Teensy footprint
+  library, the unmatched-netlist-pin refusal, and a courtyard-overlap check over
+  the placed draft. The generator needs KiCad's stock libraries and a
+  `kicad-cli` on the pin for the netlist export, so the class skips without them.
 - **Layer-name gate:** `gen/tests/test_pcb_stack.py` rejects a declared layer
   name carrying whitespace on either board. KiCad builds each Gerber's filename
   from the layer name, so an Altium-style alias such as `Ground Layer 1` ships a
