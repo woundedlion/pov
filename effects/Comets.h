@@ -228,10 +228,6 @@ private:
   preset_changed(const Effect::PresetChange &change) override {
     if (change.origin == Effect::PresetChangeOrigin::AUTOMATIC)
       update_palette();
-#ifdef HS_PROFILE_ENABLE
-    hs::log("Preset: %u/%u", static_cast<unsigned>(change.to + 1),
-            static_cast<unsigned>(this->getPresetCount()));
-#endif
   }
 
   // Test seam: asserts the closing-loop invariant the smoke harness cannot
