@@ -126,6 +126,7 @@ test('every promoted shader document matches its compiled effect identity', asyn
     'cosmic-eyeball': 'CosmicEyeball.h',
     'ash-cloud': 'AshCloud.h',
     'lattice-melt': 'LatticeMelt.h',
+    'chromatic-lichen': 'ChromaticLichen.h',
     'kaleidoscope-flowers': 'KaleidoscopeFlowers.h',
     'kaleidoscope-smooth': 'KaleidoscopeSmooth.h',
     'kaleidoscope-mandala': 'KaleidoscopeMandala.h',
