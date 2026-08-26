@@ -290,10 +290,10 @@ struct MeshState {
    * @details Traps on inconsistent spans: a present offsets array must be one
    *   entry per face, and its last offset plus that face's count must cover the
    *   whole flat faces list. With no offsets the counts must sum to the flat
-   *   faces length. A present topology array must be one entry per face. The
-   *   interior offsets are audited against the prefix sum under HS_AUDIT_CHECK
-   *   only: this runs per frame from MeshOps::transform, so the device pays
-   *   nothing for the O(F) walk.
+   *   faces length. A present topology array must be one entry per face, and an
+   *   absent one must come with a zero key. The interior offsets are audited
+   *   against the prefix sum under HS_AUDIT_CHECK only: this runs per frame
+   *   from MeshOps::transform, so the device pays nothing for the O(F) walk.
    */
   void set_borrowed(ArenaSpan<uint8_t> face_counts_span,
                     ArenaSpan<uint16_t> faces_span,
@@ -322,6 +322,9 @@ struct MeshState {
     HS_CHECK(topology_span.is_empty() ||
                  topology_span.size() == face_counts_span.size(),
              "MeshState::set_borrowed: one topology class per face required");
+    HS_CHECK(!topology_span.is_empty() || key == 0,
+             "MeshState::set_borrowed: an empty topology span requires a zero "
+             "topology key");
     face_counts = {};
     faces = {};
     face_offsets = {};

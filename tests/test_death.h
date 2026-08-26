@@ -1444,6 +1444,27 @@ inline void case_mesh_state_set_borrowed_offsets_short_span() {
 }
 
 /**
+ * @brief Death case: an empty topology span carrying a non-zero key must trap.
+ * @details Mesh-borrow surface — the key names the connectivity a topology was
+ *          classified for, so a key with no span behind it would hand a
+ *          downstream reuse check a classification the mesh does not carry.
+ */
+inline void case_mesh_state_set_borrowed_keyed_empty_topology() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> counts(arena, 1);
+  counts.push_back(opaque<uint8_t>(3));
+  ArenaVector<uint16_t> faces(arena, 3);
+  for (uint16_t i = 0; i < 3; ++i)
+    faces.push_back(opaque(i));
+  MeshState m;
+  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces), {}, {},
+                 opaque<uint32_t>(0x1234u));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: face offsets that are not the counts' prefix sum must trap.
  * @details Mesh-borrow surface — the count and span checks pass on the endpoints
  *          alone, so an interior offset off the prefix sum would walk one face
@@ -4067,6 +4088,10 @@ inline const Case *all_cases(int &n) {
        "(static_cast<size_t>(face_offsets_span[last]) + "
        "face_counts_span[last] == faces_span.size()) MeshState::set_borrowed: "
        "face offsets do not span faces"},
+      {"mesh_state_set_borrowed_keyed_empty_topology",
+       case_mesh_state_set_borrowed_keyed_empty_topology, "mesh_state.h",
+       "(!topology_span.is_empty() || key == 0) MeshState::set_borrowed: an "
+       "empty topology span requires a zero topology key"},
       {"mesh_state_set_borrowed_offsets_not_prefix_sum",
        case_mesh_state_set_borrowed_offsets_not_prefix_sum, "mesh_state.h",
        "(offsets_are_prefix_sum(face_counts_span, face_offsets_span)) "

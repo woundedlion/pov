@@ -349,6 +349,12 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
            "update_hankin: reused out_mesh carries a topology from a different "
            "compiled pattern (clear it first)");
 
+  // A borrowed classification is gone with the view dropped above; the key
+  // describing it goes with it, so the output leaves here unclassified rather
+  // than keyed to a topology it no longer carries.
+  if (out_mesh.topology.size() == 0)
+    out_mesh.topology_key = 0;
+
   HS_CHECK(std::isfinite(angle), "update_hankin: contact angle must be finite");
 
   bool is_flat = std::abs(angle) < math::TOLERANCE;

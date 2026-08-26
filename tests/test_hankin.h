@@ -15,6 +15,8 @@
  *     contact planes go near-parallel.
  *   - CompiledHankin::clone makes an independent deep copy.
  *   - dual seeds compile to distinct topology keys despite one census.
+ *   - a borrowed-mode re-solve keeps its own pattern but sheds the topology key
+ *     that described the dropped view.
  */
 #pragma once
 
@@ -771,6 +773,46 @@ inline void test_hankin_dual_seeds_share_census_not_key() {
   HS_EXPECT_EQ(cube_mesh.topology.size(), cube_pattern.face_counts.size());
 }
 
+/**
+ * @brief Verifies a borrowed-mode re-solve against the matching pattern is
+ *        accepted and leaves the output unclassified rather than keyed.
+ * @details update_hankin drops the borrowed topology view on entry, so the
+ *   classification it described is gone; retaining its key would leave a mesh
+ *   claiming a topology it no longer carries, which set_borrowed then rejects.
+ */
+inline void test_update_hankin_borrowed_reuse_drops_topology_key() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(cube, compiled, target, temp);
+
+  MeshState source;
+  MeshOps::update_hankin(compiled, source, target, 0.4f);
+  MeshOps::classify_faces_by_topology(source, temp, temp, target);
+  HS_EXPECT_EQ(source.topology_key, compiled.topology_key);
+
+  MeshState borrowed;
+  borrowed.set_borrowed(
+      ArenaSpan<uint8_t>(source.face_counts), ArenaSpan<uint16_t>(source.faces),
+      ArenaSpan<uint16_t>(source.face_offsets),
+      ArenaSpan<uint16_t>(source.topology), source.topology_key);
+  HS_EXPECT_EQ(borrowed.get_topology_size(), source.topology.size());
+
+  MeshOps::update_hankin(compiled, borrowed, target, 0.9f);
+
+  HS_EXPECT_EQ(borrowed.get_topology_size(), static_cast<size_t>(0));
+  HS_EXPECT_EQ(borrowed.topology_key, static_cast<uint32_t>(0));
+
+  // The unclassified output is a legal set_borrowed source again.
+  MeshState relayed;
+  MeshOps::transform(borrowed, relayed, target);
+  HS_EXPECT_EQ(relayed.num_faces(), borrowed.num_faces());
+  HS_EXPECT_EQ(relayed.topology_key, static_cast<uint32_t>(0));
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -804,6 +846,7 @@ inline int run_hankin_tests() {
   test_compiled_hankin_clear();
   test_compile_hankin_recompiles_after_arena_reset();
   test_hankin_dual_seeds_share_census_not_key();
+  test_update_hankin_borrowed_reuse_drops_topology_key();
 
   return fixture.result();
 }
