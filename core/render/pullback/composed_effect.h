@@ -724,13 +724,12 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * constants; every stage typedef, the render pipeline, shade() and the shared
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
- * members are the identity constants and `initial_params`, plus an
- * `OUTER_NOISE_SEED` /
- * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` for each noise field the parameter
- * set and `Has*Noise` flags request. Optional members, detected by `requires`
- * and defaulted when absent, are `preset_params` (absent, every preset takes
- * `initial_params`), `ANIMATED_MOBIUS`, `CAMERA_SPIN_RATE` and an
- * `after_composed_init()` hook. An effect wanting a different shade emission
+ * members are the identity constants and `initial_params`. Optional members,
+ * detected by `requires` and defaulted when absent, are `preset_params`
+ * (absent, every preset takes `initial_params`), `ANIMATED_MOBIUS`,
+ * `CAMERA_SPIN_RATE` and an `after_composed_init()` hook; `OUTER_NOISE_SEED` /
+ * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` are inherited members an effect
+ * shadows to decorrelate one noise field. An effect wanting a different shade emission
  * shadows shade() with the same body under its own attribute:
  * `HS_HOT_FLASH_MEMBER` and `HS_FLASH_MEMBER` both take the pipeline body out
  * of line into a flash section, and the cold one also compiles it for size. A
@@ -871,6 +870,12 @@ public:
                          InnerWarpStage, SampleStage, TransferStage,
                          FieldCoverageStage, ColorizeStage>;
   using Frame = typename RenderPipeline::Frame;
+
+  /** @brief Per-field noise seeds; an effect shadows one to decorrelate its
+      field from the shared spatial phase. */
+  static constexpr int32_t OUTER_NOISE_SEED = EFFECT_NOISE_SEED;
+  static constexpr int32_t SOURCE_NOISE_SEED = EFFECT_NOISE_SEED;
+  static constexpr int32_t SURFACE_NOISE_SEED = EFFECT_NOISE_SEED;
 
   /** @brief Constructs the effect at W x H with the POV column strobe on. */
   HS_COLD_MEMBER ComposedEffect() : Choreography(W, H, {.strobe = true}) {}
