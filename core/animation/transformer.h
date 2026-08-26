@@ -322,6 +322,8 @@ public:
    * NOT required when there are no active entities or when params are unchanged.
    */
   void prepare_frame() {
+    if (entities)
+      check_storage_watermark();
     check_storage_alive();
     for (int k = 0; k < active_slot_count; ++k) {
       Entity &e = entities[active_slots[k]];
@@ -339,8 +341,8 @@ public:
 protected:
   /**
    * @brief Compact list of the active slots, in spawn order.
-   * @details The derived compositions and prepare_frame() are hot (they run per
-   * pixel), so they iterate only the active slots — O(active) instead of O(CAPACITY).
+   * @details The derived compositions run per pixel, so they iterate only the
+   * active slots — O(active) instead of O(CAPACITY).
    * Held in spawn order (append on activation, order-preserving removal) so the
    * composition order follows spawn order; the warps are not all commutative, so the
    * order is load-bearing and must not depend on which freed slot was recycled.
@@ -402,9 +404,9 @@ private:
    * (configure_arenas), a reset and a rewind below the blocks all drop the
    * arena offset under the watermark, so an init_storage() that ran before
    * configure_arenas() is caught at the first spawn. Only the debug stamp below
-   * separates the three cases. Cold callers only: the compositions read the
-   * slots per pixel and must not pay for it. Requires entities, which every
-   * caller checks first.
+   * separates the three cases. Per-frame callers at most: the compositions
+   * read the slots per pixel and must not pay for it. Requires entities, which
+   * every caller checks first.
    */
   HS_COLD_MEMBER void check_storage_watermark() const {
     HS_CHECK(storage_arena->get_offset() >= storage_end,
