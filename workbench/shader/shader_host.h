@@ -2944,7 +2944,7 @@ private:
           "determinant reaches 0.001 or more.",
           static_cast<double>(sqrtf(det_re * det_re + det_im * det_im)));
     }
-    if (!resource_union_fits(candidate, candidate))
+    if (!config_resources_fit(candidate))
       return resource_warning();
     if (!HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND &&
         find_inverse_program(candidate) == nullptr)

@@ -38,7 +38,7 @@ constexpr bool coefficient_in_range(const Complex &coefficient);
 constexpr bool curl_pair_stable(const WarpStageSpec &spec,
                                 const WarpStageParams &a,
                                 const WarpStageParams &b);
-constexpr bool resource_union_fits(const Config &from, const Config &to);
+constexpr bool config_resources_fit(const Config &config);
 
 HS_COLD_MEMBER inline constexpr SourceTraits source_traits(Function function) {
   switch (function) {
@@ -208,7 +208,7 @@ valid_config(const RequestedConfig &candidate) {
       surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
       surface_noise.direction > 1.0f)
     return false;
-  return resource_union_fits(candidate, candidate);
+  return config_resources_fit(candidate);
 }
 
 HS_COLD_MEMBER inline constexpr bool
