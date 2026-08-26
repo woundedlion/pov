@@ -86,7 +86,7 @@ struct ShaderWorkbenchWhiteBox {
   using ValueStateProvider = SB::ValueStateProvider;
   using ColorStateProvider = SB::ColorStateProvider;
   template <bool Outer>
-  using WarpStateProvider = SB::template WarpStateProvider<Outer>;
+  using WarpStateProvider = Workbench::WarpStateProvider<Outer>;
 
   static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
@@ -310,8 +310,8 @@ struct ShaderWorkbenchWhiteBox {
     sb.state->param_morph.active = false;
     sb.state->transition = {from, to,       sb.runtime,      sb.runtime,
                             0,    duration, continue_choreo, true};
-    const auto *from_program = SB::find_inverse_program(from);
-    const auto *to_program = SB::find_inverse_program(to);
+    const auto *from_program = Workbench::find_inverse_program(from);
+    const auto *to_program = Workbench::find_inverse_program(to);
     sb.state->transition.from_pipeline =
         from_program == nullptr ? InversePipelineId::NONE : from_program->id;
     sb.state->transition.to_pipeline =
@@ -338,7 +338,7 @@ struct ShaderWorkbenchWhiteBox {
       return Color4();
     HS_CHECK(visible != nullptr,
              "through-clear visible phase requires an endpoint frame");
-    const auto *program = SB::resolve_inverse_program(*visible);
+    const auto *program = Workbench::resolve_inverse_program(*visible);
     HS_CHECK(program != nullptr,
              "through-clear test topology has no compiled inverse pipeline");
     alignas(std::max_align_t) std::byte storage[SB::PREPARED_BLOB_BYTES];
@@ -377,15 +377,15 @@ struct ShaderWorkbenchWhiteBox {
     return SB::PROJECTION_FLAG_FOLDED;
   }
   static Vector outer_lookup(const Vector &v, const FrameState &frame) {
-    return SB::outer_camera_lookup(v, frame);
+    return Workbench::outer_camera_lookup(v, frame);
   }
   static ProjectedLookup surface_project(const Vector &v,
                                          const FrameState &frame) {
-    return SB::surface_lens_project_lookup(v, frame);
+    return Workbench::surface_lens_project_lookup(v, frame);
   }
   static PlanarWarpResult warp(const ProjectedLookup &projected,
                                const FrameState &frame) {
-    return SB::planar_warp_lookup(projected, frame);
+    return Workbench::planar_warp_lookup(projected, frame);
   }
   /**
    * @brief Runs one warp stage against a frame.
@@ -404,44 +404,46 @@ struct ShaderWorkbenchWhiteBox {
                                         : frame.clocks.warp_outer_rotation;
     const FastNoiseLite *noise = inner ? frame.resources.inner_warp_noise
                                        : frame.resources.outer_warp_noise;
-    return SB::warp_stage_lookup(
+    return Workbench::warp_stage_lookup(
         input, projected.provenance, spec, params, phase, noise,
-        SB::prepare_warp_stage(spec, params, phase, source_period,
-                               affine_rotation),
-        SB::tracks_displacement(frame));
+        Workbench::prepare_warp_stage(spec, params, phase, source_period,
+                                      affine_rotation),
+        Workbench::tracks_displacement(frame));
   }
   static auto prepared_warp_stage(const WarpStageSpec &spec,
                                   const WarpStageParams &params, float phase,
                                   const Complex &source_period = Complex(),
                                   float affine_rotation = 0.0f) {
-    return SB::prepare_warp_stage(spec, params, phase, source_period,
-                                  affine_rotation);
+    return Workbench::prepare_warp_stage(spec, params, phase, source_period,
+                                         affine_rotation);
   }
   static FieldSample material(const ProjectedLookup &projected,
                               const PlanarWarpResult &warped,
                               const FrameState &frame) {
     const Complex source_coords =
-        SB::condition_source_coords(warped.coords, frame);
-    const float field = SB::sample_source(source_coords, projected, frame);
-    return SB::shape_material(field, projected, warped, frame);
+        Workbench::condition_source_coords(warped.coords, frame);
+    const float field =
+        Workbench::sample_source(source_coords, projected, frame);
+    return Workbench::shape_material(field, projected, warped, frame);
   }
   static float source(const ProjectedLookup &projected,
                       const FrameState &frame) {
     const Complex source_coords =
-        SB::condition_source_coords(projected.coords, frame);
-    return SB::sample_source(source_coords, projected, frame);
+        Workbench::condition_source_coords(projected.coords, frame);
+    return Workbench::sample_source(source_coords, projected, frame);
   }
   static FieldSample shape(float field, const ProjectedLookup &projected,
                            const PlanarWarpResult &warped,
                            const FrameState &frame) {
-    return SB::shape_material(field, projected, warped, frame);
+    return Workbench::shape_material(field, projected, warped, frame);
   }
   static Color4 colorize(const FieldSample &sample, const FrameState &frame) {
-    return SB::colorize(sample, frame);
+    return Workbench::colorize(sample, frame);
   }
   static float palette_mapping(float value, PaletteMapping mapping,
                                float frequency, float phase = 0.0f) {
-    return SB::palette_mapping_coordinate(value, mapping, frequency, phase);
+    return Workbench::palette_mapping_coordinate(value, mapping, frequency,
+                                                 phase);
   }
   static float palette_mapping(float value,
                                const PaletteMappingWeights &weights,
@@ -451,12 +453,12 @@ struct ShaderWorkbenchWhiteBox {
   }
   static float brightness_envelope(float value, BrightnessEnvelope envelope,
                                    float depth) {
-    return SB::brightness_envelope_gain(value, envelope, depth);
+    return Workbench::brightness_envelope_gain(value, envelope, depth);
   }
   static Pixel prepared_hue_rotation(const FrameState &frame, float value,
                                      float amount) {
-    return SB::sample_hue_rotation_lut(frame.prepared_hue_rotation, value,
-                                       amount);
+    return Workbench::sample_hue_rotation_lut(frame.prepared_hue_rotation,
+                                              value, amount);
   }
   static Pixel direct_hue_rotation(const FrameState &frame, float value,
                                    float amount) {
@@ -464,7 +466,7 @@ struct ShaderWorkbenchWhiteBox {
     return ::hue_rotate_lut_gamut(base, amount).color;
   }
   static float prepared_hue_noise(const FrameState &frame, const Vector &v) {
-    return SB::sample_hue_noise_lut(frame.prepared_hue_noise, v);
+    return Workbench::sample_hue_noise_lut(frame.prepared_hue_noise, v);
   }
   static float direct_hue_noise(const FrameState &frame, const Vector &v) {
     const Vector q = noise_sphere_coordinate(
@@ -473,17 +475,17 @@ struct ShaderWorkbenchWhiteBox {
   }
   static Pixel prepared_hue_noise_color(const FrameState &frame,
                                         const Vector &v, float value) {
-    const float palette_value = SB::palette_mapping_coordinate(
+    const float palette_value = Workbench::palette_mapping_coordinate(
         value, frame.slots.palette_mapping,
         frame.params.color.mapping_frequency, frame.params.color.mapping_phase);
     const float amount =
         frame.params.color.hue_shift_amount * prepared_hue_noise(frame, v);
-    return SB::sample_hue_rotation_lut(frame.prepared_hue_rotation,
-                                       palette_value, amount);
+    return Workbench::sample_hue_rotation_lut(frame.prepared_hue_rotation,
+                                              palette_value, amount);
   }
   static Pixel direct_hue_noise_color(const FrameState &frame, const Vector &v,
                                       float value) {
-    const float palette_value = SB::palette_mapping_coordinate(
+    const float palette_value = Workbench::palette_mapping_coordinate(
         value, frame.slots.palette_mapping,
         frame.params.color.mapping_frequency, frame.params.color.mapping_phase);
     const HueRotateBase base = make_hue_rotate_base(
@@ -493,10 +495,10 @@ struct ShaderWorkbenchWhiteBox {
     return hue_rotate_lut_gamut(base, amount).color;
   }
   static Color4 shade(const Vector &v, const FrameState &frame) {
-    return SB::shade_dynamic(v, frame, nullptr);
+    return Workbench::shade_dynamic(v, frame, nullptr);
   }
   static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
-    const auto *program = SB::resolve_inverse_program(frame);
+    const auto *program = Workbench::resolve_inverse_program(frame);
     HS_CHECK(program != nullptr,
              "ShaderWorkbench test topology has no compiled inverse pipeline");
     alignas(std::max_align_t) std::byte storage[SB::PREPARED_BLOB_BYTES];
@@ -504,7 +506,7 @@ struct ShaderWorkbenchWhiteBox {
     return program->shade(v, frame, storage);
   }
   static TopologyKey topology_key(const RequestedConfig &config) {
-    return SB::make_topology_key(config);
+    return Workbench::make_topology_key(config);
   }
   /// A NONE slot has no warp stage, so it matches by key field instead.
   template <WarpStageKind Outer, WarpStageKind Inner>
@@ -513,21 +515,21 @@ struct ShaderWorkbenchWhiteBox {
     if constexpr (Outer == WarpStageKind::NONE)
       matches = matches && key.outer_warp == WarpStageKind::NONE;
     else
-      matches = matches &&
-                SB::template SelectedWarpStage<Outer, true>::implements(key);
+      matches =
+          matches && Workbench::SelectedWarpStage<Outer, true>::implements(key);
     if constexpr (Inner == WarpStageKind::NONE)
       matches = matches && key.inner_warp == WarpStageKind::NONE;
     else
       matches = matches &&
-                SB::template SelectedWarpStage<Inner, false>::implements(key);
+                Workbench::SelectedWarpStage<Inner, false>::implements(key);
     return matches;
   }
   template <CoveragePolicy CoverageV>
   static constexpr Pullback::ProjectionCoverageMode projection_coverage_mode() {
-    return SB::template ProjectionCoverageMapping<CoverageV>::MODE;
+    return Workbench::ProjectionCoverageMapping<CoverageV>::MODE;
   }
   static size_t inverse_program_count() {
-    return SB::inverse_programs().size();
+    return Workbench::inverse_programs().size();
   }
   static std::array<uint8_t, 28> topology_values(const TopologyKey &key) {
     const auto &[function, projection, projection_frame, surface_lens,
@@ -571,10 +573,10 @@ struct ShaderWorkbenchWhiteBox {
     }};
   }
   static const TopologyKey &inverse_program_key(size_t index) {
-    return SB::inverse_programs()[index].key;
+    return Workbench::inverse_programs()[index].key;
   }
   static InversePipelineId inverse_program_id(size_t index) {
-    return SB::inverse_programs()[index].id;
+    return Workbench::inverse_programs()[index].id;
   }
   static const char *inverse_program_name(size_t index) {
     return SB::pipeline_name(inverse_program_id(index));
@@ -583,14 +585,14 @@ struct ShaderWorkbenchWhiteBox {
     return SB::PRESETS[index].pipeline;
   }
   static InversePipelineId inverse_program_id(const FrameState &frame) {
-    const auto *program = SB::resolve_inverse_program(frame);
+    const auto *program = Workbench::resolve_inverse_program(frame);
     return program == nullptr ? InversePipelineId::NONE : program->id;
   }
   static bool has_inverse_program(const RequestedConfig &config) {
-    return SB::find_inverse_program(config) != nullptr;
+    return Workbench::find_inverse_program(config) != nullptr;
   }
   static bool inverse_programs_well_formed() {
-    const auto &programs = SB::inverse_programs();
+    const auto &programs = Workbench::inverse_programs();
     for (size_t index = 0; index < programs.size(); ++index) {
       if (programs[index].shade == nullptr)
         return false;
@@ -625,7 +627,7 @@ struct ShaderWorkbenchWhiteBox {
            Validation::RUN_RETURNS && Validation::PREPARES &&
            Validation::APPROXIMATIONS && Validation::EXTRA_VALIDATION &&
            std::is_same_v<ProjectStage,
-                          SB::SelectedProjectStage<
+                          Workbench::SelectedProjectStage<
                               Projection::PEIRCE_QUINCUNCIAL,
                               SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>> &&
            Peirce::NODE_COUNT == Peirce::STAGE_COUNT &&
@@ -638,8 +640,9 @@ struct ShaderWorkbenchWhiteBox {
                ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
   }
   static float peirce_metric_limit(size_t index) {
-    return SB::SelectedProjectStage<Projection::PEIRCE_QUINCUNCIAL,
-                                    SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::
+    return Workbench::SelectedProjectStage<
+               Projection::PEIRCE_QUINCUNCIAL,
+               SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::
         Bind<SB::ShaderWorkbenchBinding>::METRICS[index]
             .limit;
   }
@@ -648,18 +651,18 @@ struct ShaderWorkbenchWhiteBox {
         .limit;
   }
   static Complex project_point(const Vector &v, Projection projection) {
-    return SB::project_point(v, projection);
+    return Workbench::project_point(v, projection);
   }
   static Pullback::ProjectionResult
   finalize_projection(const Vector &v, const Complex &coords,
                       Projection projection, float singularity_fade,
                       GnomonicHemispherePolicy hemisphere) {
-    return SB::finalize_projection(v, coords, projection, singularity_fade,
-                                   hemisphere);
+    return Workbench::finalize_projection(v, coords, projection,
+                                          singularity_fade, hemisphere);
   }
   static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
                              NoiseBasis basis, float scale, float time) {
-    return SB::curl_vector(p, noise, basis, scale, time);
+    return Workbench::curl_vector(p, noise, basis, scale, time);
   }
   static ProjectionParams lerp_projection(const ProjectionParams &a,
                                           const ProjectionParams &b, float t) {
@@ -668,13 +671,13 @@ struct ShaderWorkbenchWhiteBox {
     return result;
   }
   static Vector apply_lens(const Vector &v, SurfaceLens lens) {
-    return SB::apply_frame_free_lens(v, lens);
+    return Workbench::apply_frame_free_lens(v, lens);
   }
   static Vector surface_noise(const Vector &v, const FrameState &frame) {
-    return SB::apply_surface_noise(v, frame);
+    return Workbench::apply_surface_noise(v, frame);
   }
   static Vector surface_curl_field(const Vector &v, const FrameState &frame) {
-    return SB::surface_curl_field(v, frame);
+    return Workbench::surface_curl_field(v, frame);
   }
   static Vector dodecahedral_reference(const Vector &v) {
     return lenses::polyhedral_kaleidoscope_lens(v,
@@ -682,11 +685,11 @@ struct ShaderWorkbenchWhiteBox {
   }
   static float sample_function(Function function, const Complex &p,
                                const SourceState &source) {
-    return SB::sample_function(function, p, source);
+    return Workbench::sample_function(function, p, source);
   }
   static float grid(const Complex &p, const SourceParams &params,
                     const SourceState &source) {
-    return SB::grid(p, params, source);
+    return Workbench::grid(p, params, source);
   }
   static constexpr auto presets() {
     std::array<RequestedConfig, SB::PRESETS.size()> configs{};
@@ -1803,15 +1806,16 @@ inline void test_shader_workbench_legacy_sources() {
     for (float im : values) {
       const Complex p(re, im);
       const float rotated = re * source.angle_cos + im * source.angle_sin;
-      HS_EXPECT_EQ(WB::sample_function(WB::Function::TWIN_WAVE, p, source),
-                   0.5f * (fast_sinf(re + source.primary) +
-                           fast_sinf(rotated + source.primary)));
-      HS_EXPECT_EQ(WB::sample_function(WB::Function::RINGS, p, source),
+      HS_EXPECT_EQ(
+          Workbench::sample_function(WB::Function::TWIN_WAVE, p, source),
+          0.5f * (fast_sinf(re + source.primary) +
+                  fast_sinf(rotated + source.primary)));
+      HS_EXPECT_EQ(Workbench::sample_function(WB::Function::RINGS, p, source),
                    fast_sinf(sqrtf(re * re + im * im) - source.primary));
       const float radius = sqrtf(re * re + im * im);
       const float azimuth = fast_atan2(im, re);
       HS_EXPECT_NEAR(
-          WB::sample_function(WB::Function::SPIRAL, p, source),
+          Workbench::sample_function(WB::Function::SPIRAL, p, source),
           fast_sinf(radius - 3.0f * (azimuth + source.angle) - source.primary),
           SOURCE_DRIFT_BOUND);
     }
@@ -1836,14 +1840,14 @@ inline void test_shader_workbench_coupled_source() {
                 fast_sinf(re + primary + complexity * fast_sinf(im + primary)) *
                 fast_cosf(im - secondary +
                           complexity * fast_cosf(re - secondary));
-            HS_EXPECT_NEAR(WB::grid(p, params, source), coupled,
+            HS_EXPECT_NEAR(Workbench::grid(p, params, source), coupled,
                            SOURCE_DRIFT_BOUND);
           }
           WB::SourceParams params;
           params.pattern_mix = 1.0f;
           const float direct =
               fast_sinf(re + primary) * fast_cosf(im - secondary);
-          HS_EXPECT_EQ(WB::grid(p, params, source), direct);
+          HS_EXPECT_EQ(Workbench::grid(p, params, source), direct);
         }
       }
     }
@@ -4577,10 +4581,10 @@ inline void test_shader_workbench_operator_catalog_census() {
   using Mobius = Pullback::Lens::Mobius<WB::LensStateProvider>;
   using Equirectangular =
       Pullback::Projection::Equirectangular<WB::ProjectionStateProvider>;
-  using Vortex = Pullback::Warp::Vortex<WB::WarpStateProvider<true>>;
+  using Vortex = Pullback::Warp::Vortex<Workbench::WarpStateProvider<true>>;
   using Curl =
-      Pullback::Warp::CurlFlow<WB::WarpStateProvider<true>, NoiseBasis::RIDGED3,
-                               Pullback::Warp::Midpoint4,
+      Pullback::Warp::CurlFlow<Workbench::WarpStateProvider<true>,
+                               NoiseBasis::RIDGED3, Pullback::Warp::Midpoint4,
                                Pullback::Warp::EdgeFadeEnvelope>;
   using ProjectedNoise =
       Pullback::Source::ProjectedNoise<WB::SourceStateProvider,
@@ -5822,7 +5826,8 @@ inline void test_shader_workbench_surface_noise_geometry_and_composition() {
   }
   frame = WB::config_frame(sb, config);
   frame.params.surface_noise.integrator = WB::SurfaceCurlIntegrator::EULER;
-  const Vector circulation = WB::surface_curl_field(directions.back(), frame);
+  const Vector circulation =
+      Workbench::surface_curl_field(directions.back(), frame);
   frame.params.surface_noise.strength = 0.01f;
   const Vector positive = WB::surface_noise(directions.back(), frame);
   frame.params.surface_noise.strength = -0.01f;

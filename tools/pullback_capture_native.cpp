@@ -99,9 +99,9 @@ struct ShaderWorkbenchWhiteBox {
   template <typename SB, typename Selected>
   static const auto *selected_program(const Selected &selected) {
     if constexpr (requires { selected.pipeline; })
-      return SB::get_inverse_program(selected.pipeline);
+      return Workbench::get_inverse_program(selected.pipeline);
     else
-      return SB::find_inverse_program(selected);
+      return Workbench::find_inverse_program(selected);
   }
 
   template <typename FieldSample>
@@ -201,7 +201,7 @@ private:
   template <typename SB>
   static Color4 exact_peirce_shade(const Vector &view,
                                    const typename SB::FrameState &frame) {
-    const Vector outer_local = SB::outer_camera_lookup(view, frame);
+    const Vector outer_local = Workbench::outer_camera_lookup(view, frame);
     const Vector lensed = lenses::dodecahedral_kaleidoscope_lens(outer_local);
     const Vector local = rotate(lensed, frame.transforms.projection_conj);
     const Pullback::ProjectionResult result = Pullback::Projection::peirce(
@@ -209,19 +209,22 @@ private:
         frame.params.projection.singularity_fade);
     const typename SB::ProjectedLookup projected{
         result.coords, result.provenance, local, 0.0f};
-    return SB::shade_projected(projected, frame);
+    return Workbench::shade_projected(projected, frame);
   }
 
   template <typename SB>
   static Color4 exact_hue_shade(const Vector &view,
                                 const typename SB::FrameState &frame) {
-    const Vector outer_local = SB::outer_camera_lookup(view, frame);
-    const auto projected = SB::surface_lens_project_lookup(outer_local, frame);
-    const auto warped = SB::planar_warp_lookup(projected, frame);
+    const Vector outer_local = Workbench::outer_camera_lookup(view, frame);
+    const auto projected =
+        Workbench::surface_lens_project_lookup(outer_local, frame);
+    const auto warped = Workbench::planar_warp_lookup(projected, frame);
     const Complex source_coords =
-        SB::condition_source_coords(warped.coords, frame);
-    const float field = SB::sample_source(source_coords, projected, frame);
-    const auto material = SB::shape_material(field, projected, warped, frame);
+        Workbench::condition_source_coords(warped.coords, frame);
+    const float field =
+        Workbench::sample_source(source_coords, projected, frame);
+    const auto material =
+        Workbench::shape_material(field, projected, warped, frame);
     return exact_colorize<SB>(material, frame);
   }
 
@@ -231,7 +234,7 @@ private:
     const float oscillation =
         frame.params.color.phase_oscillation_depth *
         fast_sinf(TWO_PI_F * frame.clocks.palette_oscillation_phase);
-    const float palette_value = SB::palette_mapping_coordinate(
+    const float palette_value = Workbench::palette_mapping_coordinate(
         sample.value, frame.slots.palette_mapping,
         frame.params.color.mapping_frequency,
         frame.params.color.mapping_phase + oscillation);
@@ -253,7 +256,7 @@ private:
         color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
     }
     color.color =
-        color.color * SB::brightness_envelope_gain(
+        color.color * Workbench::brightness_envelope_gain(
                           sample.value, frame.slots.brightness_envelope,
                           frame.params.color.brightness_depth);
     color.alpha *= sample.coverage * hs::lerp(frame.params.color.opacity_low,
