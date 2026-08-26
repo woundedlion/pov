@@ -373,8 +373,7 @@ warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
  * @param prepared Per-frame precomputation for this stage.
  * @param path_length_required Whether the frame's colorizer reads the
  *        displacement scalar.
- * @return Stage output coordinates, the delta it applied, and the path length
- *         travelled.
+ * @return Stage output coordinates and the path length travelled.
  * @details Path length is the direct displacement for the closed-form kinds
  * and the integrated arc length for curl flow. It is zero when
  * @p path_length_required is false.
@@ -385,7 +384,7 @@ HS_FLASH_MEMBER inline PlanarWarpStageResult warp_stage_lookup(
     const FastNoiseLite *stage_noise, const PreparedWarpStage &prepared,
     bool path_length_required) {
   if (spec.kind == WarpStageKind::NONE)
-    return {input, Complex(), 0.0f};
+    return {input, 0.0f};
   const float envelope =
       warp_envelope(provenance, spec.envelope, params.edge_width);
   const float amplitude = params.strength * envelope;
@@ -402,14 +401,14 @@ HS_FLASH_MEMBER inline PlanarWarpStageResult warp_stage_lookup(
     return warp_vortex(input, prepared, path_length_required);
   case WarpStageKind::VECTOR_NOISE:
     if (amplitude == 0.0f)
-      return {input, Complex(), 0.0f};
+      return {input, 0.0f};
     HS_CHECK(stage_noise != nullptr,
              "ShaderWorkbench vector warp has no noise resource");
     return warp_vector_noise(input, spec, params, amplitude, *stage_noise,
                              prepared, path_length_required);
   case WarpStageKind::CURL_FLOW:
     if (amplitude == 0.0f)
-      return {input, Complex(), 0.0f};
+      return {input, 0.0f};
     HS_CHECK(stage_noise != nullptr,
              "ShaderWorkbench curl warp has no noise resource");
     return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
