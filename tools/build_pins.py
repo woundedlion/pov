@@ -132,10 +132,12 @@ INLINE_SCAN = (
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
     ROOT / "hardware/phantasm/README.md",
-    *(ROOT / "requirements" / name for name in (
-        "actionlint.txt", "clang-format.txt", "just.txt", "numpy.txt",
-        "platformio.txt", "ruff.txt", "shellcheck.txt",
-    )),
+    # Both halves of each requirements pair: the hand-edited .in carries the
+    # pin, the pip-compile'd .txt repeats it above the hashes.
+    *(ROOT / "requirements" / f"{stem}{suffix}"
+      for stem in ("actionlint", "clang-format", "just", "numpy",
+                   "platformio", "ruff", "shellcheck")
+      for suffix in (".in", ".txt")),
 )
 
 # (pattern, pin name, expected form of the pin value, occurrences required
