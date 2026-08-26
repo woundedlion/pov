@@ -590,9 +590,10 @@ inline void test_presets_and_pipeline() {
   static_assert(HL::RenderPipeline::Validation::EXIT);
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
-  static_assert(Effect::PRESET_IDS.size() == 2);
+  static_assert(Effect::PRESET_IDS.size() == 3);
   static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
   static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
+  static_assert(Effect::PRESET_IDS[2] == "deep-grid");
 
   constexpr HL::Params preset1 = Effect::preset_params(0);
   static_assert(preset1.mode == HL::LatticeMode::THREE_D);
@@ -621,6 +622,20 @@ inline void test_presets_and_pipeline() {
   static_assert(preset2.spin_4d == 0.015f);
   static_assert(preset2.color == HL::ColorMode::DEPTH);
   static_assert(preset2.shells == HL::ShellCount::TWO);
+
+  constexpr HL::Params preset3 = Effect::preset_params(2);
+  static_assert(preset3.mode == HL::LatticeMode::THREE_D);
+  static_assert(preset3.sphere_radius == 1.0f);
+  static_assert(preset3.cell_size == 1.78075f);
+  static_assert(preset3.wire_radius == 0.026385f);
+  static_assert(preset3.softness == 0.03983f);
+  static_assert(preset3.far_distance == 5.724f);
+  static_assert(preset3.aa_strength == 1.0f);
+  static_assert(preset3.speed == 0.03f);
+  static_assert(preset3.spin_3d == 0.01089f);
+  static_assert(preset3.spin_4d == 0.015f);
+  static_assert(preset3.color == HL::ColorMode::DEPTH);
+  static_assert(preset3.shells == HL::ShellCount::TWO);
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
