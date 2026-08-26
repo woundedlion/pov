@@ -89,6 +89,7 @@ public:
       rb = rotate(rb, step).normalized();
       if (pb) {
         rp = rotate(rp, step);
+        renormalize(rp);
         if (forward(ra, rb, &rp))
           return true;
       } else if (forward(ra, rb, nullptr)) {
@@ -99,6 +100,18 @@ public:
   }
 
 private:
+  /**
+   * @brief Renormalizes a chained-rotation basis.
+   * @param b Basis to restore to unit axes in place.
+   * @details cull_edge rotates the basis once per copy off the previous copy's,
+   * so up to W - 1 chained rotations drift the axes off unit length.
+   */
+  static void renormalize(Basis &b) {
+    b.u = b.u.normalized();
+    b.v = b.v.normalized();
+    b.w = b.w.normalized();
+  }
+
   int count;       /**< Number of copies emitted, in [1, W]. */
   Quaternion step; /**< Per-copy Y-axis rotation (2*pi / count). */
 };
