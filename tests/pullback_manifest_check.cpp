@@ -10,11 +10,11 @@
 #include "pullback_manifest.generated.h"
 
 #include <cstddef>
-#include <cstdio>
 
 #include "tests/test_harness.h"
 
 int main() {
+  const hs_test::ModuleScope scope = hs_test::begin_module("pullback_manifest");
   static_assert(PullbackManifest::PRESET_COUNT < 32);
   static_assert(!PullbackManifest::PROGRAMS.empty());
   static_assert(!PullbackManifest::ORACLE_METRICS.empty());
@@ -40,13 +40,5 @@ int main() {
                      a.aggregation != b.aggregation);
     }
 
-  const int failed = hs_test::stats().failed;
-  const int total = hs_test::stats().passed + failed;
-  std::printf("=== pullback_manifest: %d passed, %d failed ===\n",
-              hs_test::stats().passed, failed);
-  if (total == 0) {
-    std::printf("=== pullback_manifest: NO ASSERTIONS RAN ===\n");
-    return 1;
-  }
-  return failed ? 1 : 0;
+  return hs_test::end_module(scope) ? 1 : 0;
 }
