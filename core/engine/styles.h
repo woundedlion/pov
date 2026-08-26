@@ -16,7 +16,8 @@
 /**
  * @brief Feedback presets that bundle spatial/color transforms with scalar
  * parameters, plus the transform functions that consume them.
- * @details Style is POD-copyable — safe to store in a PRESETS table and lerp.
+ * @details Style is trivially copyable — safe to store in a PRESETS table
+ * and lerp.
  * Typical usage:
  *   Feedback::Style style = Feedback::Style::Smoke();
  *   style.noise = &amp;my_noise_params;   // bind effect-owned state at init
@@ -79,10 +80,10 @@ inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
 
 /**
  * @brief Named feedback preset: spatial/color transforms plus scalar params.
- * @details POD-copyable for a PRESETS table and lerp. The bound noise pointer and
- * per-frame hue cache survive lerp(), while a full-struct copy or assignment
- * overwrites them with the source's values. MeshFeedback re-binds its
- * NoiseParams into every adopted preset copy. A copy from an unbound named
+ * @details Trivially copyable, for a PRESETS table and lerp. The bound noise
+ * pointer and per-frame hue cache survive lerp(), while a full-struct copy or
+ * assignment overwrites them with the source's values. MeshFeedback re-binds
+ * its NoiseParams into every adopted preset copy. A copy from an unbound named
  * preset sets noise to nullptr; bind it before using noise_warp.
  */
 struct Style {
@@ -296,6 +297,10 @@ struct Style {
             0.0f,    29.1917f, &noise_warp, &hue_fade};
   }
 };
+
+static_assert(std::is_trivially_copyable_v<Style>,
+              "Style must stay trivially copyable: PRESETS tables and lerp() "
+              "copy it field-wise.");
 
 // Compile-time anchor pinning Miasma's resolved fields by name: a reorder of
 // Style's same-typed scalar members would silently reassign the positional
