@@ -199,6 +199,17 @@ public:
     draw_particles(canvas);
   }
 
+#if HS_ENABLE_EFFECT_CONTROL_API
+  void profile_select_preset(size_t index) {
+    HS_CHECK(index < PRESETS.size(),
+             "MindSplatter profile preset index out of range");
+    HS_CHECK(this->selectPreset(index),
+             "MindSplatter profile preset selection failed");
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
+            static_cast<unsigned>(PRESETS.size()));
+  }
+#endif
+
 private:
   using Choreography::begin_choreography;
   using Choreography::hold_initial_preset;
@@ -360,12 +371,12 @@ private:
         .well_strength = 0.85f,
         .initial_speed = 0.025f,
         .angular_speed = 0.2f}},
-      {{.base_mesh = BaseMesh::DODECAHEDRON,
+      {{.base_mesh = BaseMesh::CUBE,
         .friction = 1.0f,
         .well_strength = 9.06f,
         .initial_speed = 0.5f,
         .angular_speed = 0.069f}},
-      {{.base_mesh = BaseMesh::ICOSAHEDRON,
+      {{.base_mesh = BaseMesh::CUBE,
         .friction = 0.9645f,
         .well_strength = 16.280001f,
         .initial_speed = 0.1f,
@@ -386,7 +397,7 @@ private:
         .well_strength = 15.32f,
         .initial_speed = 0.5f,
         .angular_speed = 0.361f}},
-      {{.base_mesh = BaseMesh::ICOSAHEDRON,
+      {{.base_mesh = BaseMesh::CUBE,
         .friction = 0.7465f,
         .well_strength = 1.54f,
         .initial_speed = 0.5f,
