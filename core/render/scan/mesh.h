@@ -139,6 +139,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
   const bool per_row =
       shape.template horizontal_intervals_vary_by_row<W, H>(y_lo, y_hi);
+  int runs_y = y_lo;
   if (!per_row) {
     build_runs(y_lo);
     if (num_runs == 0)
@@ -157,13 +158,28 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   // widest threshold a probe is tested on below.
   const float base_reject_rad = pixel_width * 1.0002f;
   const float base_reject_dsq = base_reject_rad * base_reject_rad;
+  float radial_cull = shape.max_dist;
+  if (!(probe_flags & SDF::Face::PROBE_CONVEX)) {
+    const float shade_reach = (probe_flags & SDF::Face::PROBE_LINEAR)
+                                  ? pixel_width
+                                  : tanf(pixel_width);
+    radial_cull = shape.radius + shade_reach;
+    if (probe_flags & SDF::Face::PROBE_HAS_LUT)
+      radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
+  }
+  const float min_cos =
+      std::max(0.01f, 1.0f / sqrtf(1.0f + radial_cull * radial_cull));
 
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
 
   HS_PROFILE_DEEP(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {
     if (per_row) {
-      build_runs(y);
+      if (y == y_lo ||
+          !shape.template horizontal_intervals_equal_rows<W, H>(runs_y, y)) {
+        build_runs(y);
+        runs_y = y;
+      }
       if (num_runs == 0)
         continue;
     }
@@ -189,7 +205,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       for (int x = runs[r].first; x < rx2;) {
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         shape.template distance_with_flags<true>(p, res, reject_dsq,
-                                                 probe_flags);
+                                                 probe_flags, min_cos);
         const float d = res.dist;
 
         // Columns this one shade covers. Only a canvas-aligned block that fits
@@ -340,6 +356,12 @@ struct Mesh {
 
     ScratchScope scope(scratch_arena);
     auto *scratch = new_face_scratch(scratch_arena);
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    float *azimuth_pads = scratch_arena.allocate_n<float>(H_VIRT);
+    for (int y = 0; y < H_VIRT; ++y)
+      azimuth_pads[y] = SDF::face_azimuth_pad(W, TrigLUT<W, H>::sin_phi[y]);
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
@@ -372,7 +394,7 @@ struct Mesh {
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, H + hs::H_OFFSET, H,
-                         &canvas.clip());
+                         &canvas.clip(), azimuth_pads);
       }();
 
       // Bind the face's congruence-class LUT: a vertex correlation aligns the

@@ -333,8 +333,9 @@ struct Face {
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
   int build_width; /**< Clip width the azimuth cull ran against; 0 if unclipped. */
-  std::span<Interval> intervals; /**< Azimuth coverage intervals (radians). */
-  bool full_width;               /**< True when the face spans all columns. */
+  const float *build_azimuth_pads; /**< Optional row padding table. */
+  std::span<Interval> intervals;   /**< Azimuth coverage intervals (radians). */
+  bool full_width;                 /**< True when the face spans all columns. */
   static constexpr bool is_solid =
       true; /**< Face renders as a filled region. */
 
@@ -407,12 +408,14 @@ struct Face {
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
+   * @param azimuth_pads Optional latitude-adjusted padding table.
    */
   HS_O3_FN Face(std::span<const Vector> vertices,
                 std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
-                int h_virt, int height, const ClipRegion *clip = nullptr)
+                int h_virt, int height, const ClipRegion *clip = nullptr,
+                const float *azimuth_pads = nullptr)
       : build_height(height), build_width(clip ? clip->w : 0),
-        full_width(true) {
+        build_azimuth_pads(azimuth_pads), full_width(true) {
 
     count = indices.size();
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
@@ -560,11 +563,17 @@ struct Face {
     if (!xc.active)
       return false;
     const int Wd = cr.w;
-    const int h_virt = cr.h + hs::H_OFFSET;
-    const float phi_scale = PI_F / static_cast<float>(h_virt - 1);
-    const float sin_phi =
-        std::min(sinf(band_y_min * phi_scale), sinf(band_y_max * phi_scale));
-    const float pw = face_azimuth_pad(Wd, sin_phi);
+    float pw;
+    if (build_azimuth_pads) {
+      pw = std::max(build_azimuth_pads[band_y_min],
+                    build_azimuth_pads[band_y_max]);
+    } else {
+      const int h_virt = cr.h + hs::H_OFFSET;
+      const float phi_scale = PI_F / static_cast<float>(h_virt - 1);
+      const float sin_phi =
+          std::min(sinf(band_y_min * phi_scale), sinf(band_y_max * phi_scale));
+      pw = face_azimuth_pad(Wd, sin_phi);
+    }
     const int band_len = xc.length(Wd);
     for (const auto &iv : intervals) {
       // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
@@ -1266,23 +1275,17 @@ struct Face {
   bool horizontal_intervals_vary_by_row(int y_lo, int y_hi) const {
     if (full_width || y_lo >= y_hi)
       return false;
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-
-    const float sin_lo = TrigLUT<W, H>::sin_phi[y_lo];
-    const float sin_hi = TrigLUT<W, H>::sin_phi[y_hi];
-    const float sin_min = std::min(sin_lo, sin_hi);
-    float sin_max = std::max(sin_lo, sin_hi);
+    const float pad_lo = azimuth_pad_at_row<W, H>(y_lo);
+    const float pad_hi = azimuth_pad_at_row<W, H>(y_hi);
+    float narrow_pad = std::min(pad_lo, pad_hi);
+    const float wide_pad = std::max(pad_lo, pad_hi);
     constexpr int H_VIRT = H + hs::H_OFFSET;
     constexpr int EQUATOR_LO = (H_VIRT - 1) / 2;
     constexpr int EQUATOR_HI = H_VIRT / 2;
     if (y_lo <= EQUATOR_LO && EQUATOR_LO <= y_hi)
-      sin_max = std::max(sin_max, TrigLUT<W, H>::sin_phi[EQUATOR_LO]);
+      narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_LO));
     if (y_lo <= EQUATOR_HI && EQUATOR_HI <= y_hi)
-      sin_max = std::max(sin_max, TrigLUT<W, H>::sin_phi[EQUATOR_HI]);
-
-    const float narrow_pad = face_azimuth_pad(W, sin_max);
-    const float wide_pad = face_azimuth_pad(W, sin_min);
+      narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_HI));
     const float column_scale = W / TWO_PI_F;
     for (const auto &iv : intervals) {
       if (floorf((iv.first - narrow_pad) * column_scale) !=
@@ -1292,6 +1295,26 @@ struct Face {
         return true;
     }
     return false;
+  }
+
+  /** @brief Whether two rows emit the same rounded azimuth intervals. */
+  template <int W, int H>
+  bool horizontal_intervals_equal_rows(int first_y, int second_y) const {
+    if (full_width || first_y == second_y)
+      return true;
+    const float first_pad = azimuth_pad_at_row<W, H>(first_y);
+    const float second_pad = azimuth_pad_at_row<W, H>(second_y);
+    if (first_pad == PI_F || second_pad == PI_F)
+      return first_pad == second_pad;
+    const float column_scale = W / TWO_PI_F;
+    for (const auto &iv : intervals) {
+      if (floorf((iv.first - first_pad) * column_scale) !=
+              floorf((iv.first - second_pad) * column_scale) ||
+          ceilf((iv.second + first_pad) * column_scale) !=
+              ceilf((iv.second + second_pad) * column_scale))
+        return false;
+    }
+    return true;
   }
 
   /**
@@ -1316,19 +1339,24 @@ struct Face {
         "azimuth cull ran against");
     if (full_width)
       return false;
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    const float sin_phi = TrigLUT<W, H>::sin_phi[y];
-    const float base_pad = face_azimuth_pad(W);
-    if (sin_phi <= base_pad)
+    const float pad = azimuth_pad_at_row<W, H>(y);
+    if (pad == PI_F)
       return false;
-    const float pad = asinf(base_pad / sin_phi);
     for (const auto &iv : intervals) {
       float f_x1 = (iv.first - pad) * W / TWO_PI_F;
       float f_x2 = (iv.second + pad) * W / TWO_PI_F;
       out(floorf(f_x1), ceilf(f_x2));
     }
     return true;
+  }
+
+  /** @brief Returns the latitude-adjusted AA padding for one raster row. */
+  template <int W, int H> float azimuth_pad_at_row(int y) const {
+    if (build_azimuth_pads)
+      return build_azimuth_pads[y];
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    return face_azimuth_pad(W, TrigLUT<W, H>::sin_phi[y]);
   }
 
   /**
@@ -1467,6 +1495,14 @@ struct Face {
     distance_with_flags<ComputeUVs>(p, res, reject_dsq, probe_flags());
   }
 
+  template <bool ComputeUVs = true>
+  HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
+                                    float reject_dsq,
+                                    uint32_t probe_flags) const {
+    const float min_cos = std::max(0.01f, 1.0f / sqrtf(1.0f + max_dist_sq));
+    distance_with_flags<ComputeUVs>(p, res, reject_dsq, probe_flags, min_cos);
+  }
+
   /**
    * @brief Computes distance using flags captured by probe_flags().
    * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
@@ -1477,21 +1513,22 @@ struct Face {
    *        the PROBE_CONVEX path ignores it.
    * @param probe_flags Distance-path flags captured after the face's last LUT
    *        binding or geometry update.
+   * @param min_cos Cosine of the radial cull angle.
    */
   template <bool ComputeUVs = true>
   HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
-                                    float reject_dsq,
-                                    uint32_t probe_flags) const {
+                                    float reject_dsq, uint32_t probe_flags,
+                                    float min_cos) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
     HS_PROBE_TICK();
     HS_PROBE_COUNT(n_probe);
     HS_PROBE_MARK(hs_t);
 
     float cos_angle = dot(p, center);
-    if (cos_angle <= 0.01f) {
+    if (cos_angle < min_cos) {
       HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
       HS_PROBE_SPAN(point, hs_t);
-      HS_PROBE_COUNT(n_cull_cos);
+      HS_PROBE_COUNT(n_cull_r);
       res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, size);
       return;
     }
@@ -1500,15 +1537,6 @@ struct Face {
     float inv_cos = 1.0f / cos_angle;
     float px = dot(p, basis_u) * inv_cos;
     float py = dot(p, basis_w) * inv_cos;
-
-    float p_r2 = px * px + py * py;
-    if (p_r2 > max_dist_sq) {
-      HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
-      HS_PROBE_SPAN(project, hs_t);
-      HS_PROBE_COUNT(n_cull_r);
-      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, size);
-      return;
-    }
     HS_PROBE_SPAN(project, hs_t);
 
     float plane_dist;

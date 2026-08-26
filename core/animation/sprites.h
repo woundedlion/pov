@@ -459,7 +459,7 @@ private:
    * @param max_delta Per-frame surface-rotation cap (radians).
    * @return False once an attractor killed the particle.
    */
-  __attribute__((always_inline)) bool
+  HS_O3_FN __attribute__((always_inline)) bool
   apply_attractors(Particle<TRAIL_LEN> &p, const Vector &pos, float max_delta) {
     for (size_t k = 0; k < attractors.size(); ++k) {
       const Attractor &attr = attractors[k];
