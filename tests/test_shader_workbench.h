@@ -452,8 +452,8 @@ struct ShaderWorkbenchWhiteBox {
                                                        frequency, phase);
   }
   static float brightness_envelope(float value, BrightnessEnvelope envelope,
-                                   float depth) {
-    return Workbench::brightness_envelope_gain(value, envelope, depth);
+                                   float bottom, float top) {
+    return Workbench::brightness_envelope_gain(value, envelope, bottom, top);
   }
   static Pixel prepared_hue_rotation(const FrameState &frame, float value,
                                      float amount) {
@@ -2271,7 +2271,7 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(alien_core.params.color.palette_chroma, 0.292f);
   HS_EXPECT_EQ(alien_core.params.outer_camera.wander, 1.0f);
   const auto &mobius_grid = presets[19];
-  constexpr std::array<uint32_t, 151> MOBIUS_GRID_EXPECTED{
+  constexpr std::array<uint32_t, 152> MOBIUS_GRID_EXPECTED{
       0,          1,          1,          4,          0,          0,
       0,          0,          0,          1,          1337,       7,
       0,          0,          0,          0,          1,          1337,
@@ -2293,11 +2293,11 @@ inline void test_shader_workbench_preset_bank() {
       0,          1060439283, 0,          1056964608, 1028443341, 4,
       0,          1056964608, 1028443341, 1036831949, 1050656375, 1065353216,
       0,          1053542056, 1065353216, 0,          0,          0,
-      1065353216, 1065353216, 1065353216, 1065353216, 0,          0,
-      1337,       1065353216, 0,          0,          0,          6,
-      1034147594, 1017370378, 0,          1056964608, 8,          0,
-      3209481421, 1042267767, 1082130432, 1065353216, 1025758986, 1017370378,
-      0};
+      0,          1065353216, 1065353216, 1065353216, 1065353216, 0,
+      0,          1337,       1065353216, 0,          0,          0,
+      6,          1034147594, 1017370378, 0,          1056964608, 8,
+      0,          3209481421, 1042267767, 1082130432, 1065353216, 1025758986,
+      1017370378, 0};
   const auto mobius_grid_encoded = WB::encode_config(mobius_grid);
   for (size_t index = 0; index < MOBIUS_GRID_EXPECTED.size(); ++index) {
     HS_CONTEXT("mobius grid field", static_cast<long long>(index));
@@ -2379,8 +2379,11 @@ inline void test_shader_workbench_config_admission() {
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
 
     WB::RequestedConfig low_frequency = WB::active_config(sb);
-    low_frequency.params.source.pattern_freq = 0.1f;
+    low_frequency.params.source.pattern_freq = 0.01f;
     HS_EXPECT_TRUE(WB::valid_config(low_frequency));
+    low_frequency.params.source.pattern_freq = 0.009f;
+    HS_EXPECT_FALSE(WB::valid_config(low_frequency));
+    low_frequency.slots.function = WB::Function::TWIN_WAVE;
     low_frequency.params.source.pattern_freq = 0.099f;
     HS_EXPECT_FALSE(WB::valid_config(low_frequency));
 
@@ -2451,7 +2454,7 @@ inline void test_shader_workbench_config_admission() {
     candidate.params.color.phase_oscillation_speed = 0.0101f;
     HS_EXPECT_FALSE(WB::valid_config(candidate));
     candidate = WB::legacy_config();
-    candidate.params.color.brightness_depth = 1.01f;
+    candidate.params.color.brightness_bottom = 1.01f;
     HS_EXPECT_FALSE(WB::valid_config(candidate));
     candidate = WB::legacy_config();
     candidate.params.color.opacity_low = -0.01f;
@@ -3580,7 +3583,8 @@ fixed_reference_config(ShaderWorkbenchWhiteBox::RequestedConfig destination,
       source.color.phase_oscillation_depth;
   destination.params.color.phase_oscillation_speed =
       source.color.phase_oscillation_speed;
-  destination.params.color.brightness_depth = source.color.brightness_depth;
+  destination.params.color.brightness_bottom = source.color.brightness_bottom;
+  destination.params.color.brightness_top = source.color.brightness_top;
   destination.params.color.opacity_low = source.color.opacity_low;
   destination.params.color.opacity_high = source.color.opacity_high;
   destination.slots.palette_mapping =
@@ -3816,6 +3820,7 @@ inline void test_shader_workbench_lens_domain_ranges() {
       sb.updateParameter("Lens", static_cast<float>(WB::SurfaceLens::NONE)),
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
+  HS_EXPECT_EQ(parameter("Pattern Freq")->min, 0.01f);
   HS_EXPECT_EQ(parameter("Speed")->max, 5.0f);
   HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
   HS_EXPECT_EQ(sb.updateParameter("Speed", 5.0f), ParamSetResult::APPLIED);
@@ -3825,6 +3830,7 @@ inline void test_shader_workbench_lens_domain_ranges() {
                                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL)),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
+  HS_EXPECT_EQ(parameter("Pattern Freq")->min, 0.01f);
   HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
   HS_EXPECT_EQ(parameter("Speed")->get_requested(), 0.5f);
   HS_EXPECT_EQ(parameter("Source Angle Speed")->max, 0.03f);
@@ -5612,17 +5618,21 @@ inline void test_shader_workbench_brightness_envelopes() {
                  mapping_target.slots.palette_mapping);
   }
 
-  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::NONE, 1.0f), 1.0f);
-  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::CUP, 1.0f), 1.0f);
-  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::CUP, 1.0f), 0.0f);
-  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::BELL, 1.0f), 0.0f);
-  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::BELL, 1.0f), 1.0f);
-  HS_EXPECT_EQ(WB::brightness_envelope(0.25f, Envelope::ASCENDING, 1.0f),
+  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::NONE, 0.2f, 0.8f), 1.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::CUP, 0.0f, 1.0f), 1.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::CUP, 0.0f, 1.0f), 0.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::BELL, 0.0f, 1.0f), 0.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::BELL, 0.0f, 1.0f), 1.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.25f, Envelope::ASCENDING, 0.0f, 1.0f),
                0.25f);
-  HS_EXPECT_EQ(WB::brightness_envelope(1.0f, Envelope::ASCENDING, 1.0f), 1.0f);
-  HS_EXPECT_EQ(WB::brightness_envelope(0.25f, Envelope::DESCENDING, 1.0f),
+  HS_EXPECT_EQ(WB::brightness_envelope(1.0f, Envelope::ASCENDING, 0.0f, 1.0f),
+               1.0f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.25f, Envelope::DESCENDING, 0.0f, 1.0f),
                0.75f);
-  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::CUP, 0.25f), 0.75f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.5f, Envelope::CUP, 0.25f, 0.75f),
+               0.25f);
+  HS_EXPECT_EQ(WB::brightness_envelope(0.0f, Envelope::CUP, 0.25f, 0.75f),
+               0.75f);
 
   reset_effect_globals();
   WB::SB sb;
@@ -5649,7 +5659,7 @@ inline void test_shader_workbench_brightness_envelopes() {
                WB::prepared_hue_rotation(frame, 0.0f, 0.25f));
 
   config.slots.brightness_envelope = Envelope::CUP;
-  config.params.color.brightness_depth = 0.5f;
+  config.params.color.brightness_bottom = 0.5f;
   frame = WB::config_frame(sb, config);
   const Color4 shifted = WB::colorize(shifted_sample, frame);
   const Pixel expected = shifted_without_brightness.color * 0.5f;

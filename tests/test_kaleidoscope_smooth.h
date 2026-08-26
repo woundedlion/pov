@@ -61,7 +61,8 @@ struct KaleidoscopeSmoothWhiteBox {
                     frame.params.color.mapping_phase,
                     frame.params.color.phase_oscillation_depth,
                     frame.params.color.phase_oscillation_speed,
-                    frame.params.color.brightness_depth,
+                    frame.params.color.brightness_bottom,
+                    frame.params.color.brightness_top,
                     frame.params.color.opacity_low,
                     frame.params.color.opacity_high,
                     static_cast<Pullback::Color::PaletteMapping>(
@@ -99,7 +100,7 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "kaleidoscope-smooth");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
-  HS_EXPECT_EQ(sizeof(WB::Params), 31 * sizeof(float));
+  HS_EXPECT_EQ(sizeof(WB::Params), 32 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::Frame) < sizeof(ShaderWorkbenchWB::FrameState));
 
   reset_effect_globals();
@@ -128,8 +129,8 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
       "Mapping Phase",
       "Phase Oscillation Depth",
       "Phase Oscillation Speed",
-      "Value Opacity Low",
-      "Value Opacity High",
+      "Opacity at Value 0",
+      "Opacity at Value 1",
       "Hue Shift Amount",
       "Hue Noise Scale",
       "Hue Noise Speed",

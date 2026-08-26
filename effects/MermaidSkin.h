@@ -10,57 +10,54 @@
 
 #include "core/render/pullback/composed_effect.h"
 
-using ChromaticLichenParams =
+using MermaidSkinParams =
     Pullback::Params<Pullback::GridSourceParams, Pullback::NoWarpParams,
                      Pullback::NoWarpParams, Pullback::NoLensParams,
                      Pullback::NoValueParams, Pullback::SurfaceNoiseParams>;
-using ChromaticLichenSpec =
-    Pullback::Spec<Pullback::ProjectionKind::GNOMONIC_FOLDED,
-                   Pullback::Lens::Glitch, Pullback::TransferKind::NONE,
+using MermaidSkinSpec =
+    Pullback::Spec<Pullback::ProjectionKind::FOLDED_SINUSOIDAL, void,
+                   Pullback::TransferKind::NONE,
                    Pullback::ProjectionCoverageMode::WEIGHT>;
 
 /**
- * @brief A glitch-folded gnomonic grid displaced by sphere-space curl noise.
+ * @brief A high-chroma folded grid rippling through sphere-space curl noise.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H>
-class ChromaticLichen
+class MermaidSkin
     : public Pullback::ComposedEffect<
-          W, H, ChromaticLichen<W, H>, ChromaticLichenParams,
-          ChromaticLichenSpec, PaletteHarmony::ANALOGOUS,
-          Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE,
-          /*AnimatedProjection=*/true, /*HasOuterNoise=*/false,
-          /*HasSourceNoise=*/false, Pullback::SurfacePlacement::AFTER_LENS> {
+          W, H, MermaidSkin<W, H>, MermaidSkinParams, MermaidSkinSpec,
+          PaletteHarmony::ANALOGOUS, Pullback::HueMode::NOISE,
+          Pullback::Color::BrightnessEnvelope::NONE> {
 
 public:
-  using Params = ChromaticLichenParams;
-  static constexpr std::string_view EFFECT_ID = "chromatic-lichen";
+  using Params = MermaidSkinParams;
+  static constexpr std::string_view EFFECT_ID = "mermaid-skin";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "2e2163f4477d1c0e5f0dbff19ccb5f361469a3c7da8106327e4ba8adb578c773";
+      "a6ced8928ed3f35ba178dd5d6a538309af93bd86d9abc967380cf21b42ac7d5a";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "8a6c7cda1ac938cd2f39211a251841a586ce134ee750683b3c1a9d2d2d524f63";
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{
-      "chromatic-lichen"};
+      "1275305c316679c959524e79ba42218d81a7b88b9ee3950b5ee38b327a31030f";
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"mermaid-skin"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 
   static constexpr Params initial_params() {
     Params value;
     value.source.pattern_freq = 0.1f;
-    value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
     value.surface = {
-        .scale = 2.34838867f, .strength = 0.5f, .speed = -0.000211588544f};
+        .scale = 4.91442871f, .strength = 0.5f, .speed = -0.000211588544f};
     value.color.hue_shift_amount = 1.5958333f;
     value.color.hue_noise_scale = 0.144539386f;
     value.color.hue_noise_speed = -0.00000104166668f;
     value.color.palette_chroma = 1.0f;
     value.color.mapping_frequency = 5.37552071f;
     value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.color.opacity_high = 0.966145813f;
     return value;
   }
 };
 
 #include "core/control/registry.h"
-REGISTER_EFFECT(ChromaticLichen)
+REGISTER_EFFECT(MermaidSkin)

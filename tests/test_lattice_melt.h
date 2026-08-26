@@ -67,7 +67,8 @@ struct LatticeMeltWhiteBox {
                     frame.params.color.mapping_phase,
                     frame.params.color.phase_oscillation_depth,
                     frame.params.color.phase_oscillation_speed,
-                    frame.params.color.brightness_depth,
+                    frame.params.color.brightness_bottom,
+                    frame.params.color.brightness_top,
                     frame.params.color.opacity_low,
                     frame.params.color.opacity_high,
                     static_cast<Pullback::Color::PaletteMapping>(
@@ -105,7 +106,7 @@ inline void test_lattice_melt_identity_and_presets() {
   using FX = WB::FX;
   HS_EXPECT_TRUE(FX::EFFECT_ID == "lattice-melt");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{2});
-  HS_EXPECT_EQ(sizeof(WB::Params), 27 * sizeof(float));
+  HS_EXPECT_EQ(sizeof(WB::Params), 28 * sizeof(float));
   HS_EXPECT_TRUE(sizeof(WB::Frame) < sizeof(ShaderWorkbenchWB::FrameState));
 
   // The runtime rebuilds the hue-rotation LUT on the same predicate the
@@ -132,10 +133,10 @@ inline void test_lattice_melt_identity_and_presets() {
       "Surface Noise Speed",     "Palette Chroma",
       "Palette Mapping",         "Mapping Frequency",
       "Mapping Phase",           "Phase Oscillation Depth",
-      "Phase Oscillation Speed", "Brightness Depth",
-      "Value Opacity Low",       "Value Opacity High",
-      "Hue Shift Amount",        "Hue Noise Scale",
-      "Hue Noise Speed",
+      "Phase Oscillation Speed", "Brightness Bottom",
+      "Brightness Top",          "Opacity at Value 0",
+      "Opacity at Value 1",      "Hue Shift Amount",
+      "Hue Noise Scale",         "Hue Noise Speed",
   };
   HS_EXPECT_EQ(effect.getParameters().size(), std::size(CONTROL_NAMES));
   HS_EXPECT_EQ(effect.getParameters().capacity(), WB::PARAM_CAPACITY);

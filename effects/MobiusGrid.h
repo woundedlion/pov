@@ -34,9 +34,9 @@ public:
   using Params = MobiusGridParams;
   static constexpr std::string_view EFFECT_ID = "mobius-grid";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "dba8ade9d076aa9338c9f2c275fb68df2f83c404821ae8e045b9ed42a3f80a17";
+      "673d1368a5d18f902d95bafa06694ee7b3a350ac05fa99cd10c4d452b17a920f";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "09335d857f45c604c5359613af27afb6f31f733f9f8d5095728929ce98450b53";
+      "eb6c7f90002c374d45ecf50f0e9ca9070fa7ce80c9d79119883697659bbba82c";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"mobius-grid",
                                                               "mobius-grid-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;

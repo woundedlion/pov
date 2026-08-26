@@ -65,7 +65,7 @@ test('browser-compatible SHA-256 matches the published vectors', () => {
 // pointer-bearing `prepared` block is wider under LP64, so the two disagree
 // there by construction. This holds them to disagreeing about nothing else, so
 // a golden regenerated on an unrelated host cannot re-pin quietly.
-const POINTER_WIDENED_OPERATORS = 7;
+const POINTER_WIDENED_OPERATORS = 8;
 
 test('the native golden and the wasm mirror differ only in pointer-block width', async () => {
   const golden = JSON.parse(await readFile(
@@ -127,6 +127,7 @@ test('every promoted shader document matches its compiled effect identity', asyn
     'ash-cloud': 'AshCloud.h',
     'lattice-melt': 'LatticeMelt.h',
     'chromatic-lichen': 'ChromaticLichen.h',
+    'mermaid-skin': 'MermaidSkin.h',
     'kaleidoscope-flowers': 'KaleidoscopeFlowers.h',
     'kaleidoscope-smooth': 'KaleidoscopeSmooth.h',
     'kaleidoscope-mandala': 'KaleidoscopeMandala.h',
@@ -557,7 +558,7 @@ const V1_EXAMPLE = {
     parameters: [
       {
         id: 'pattern-freq', binding: 'source.pattern-freq', classification: 'preset',
-        storage: 'binary32', unit: 'ratio', domain: { minimum: 0.1, maximum: 64 },
+        storage: 'binary32', unit: 'ratio', domain: { minimum: 0.01, maximum: 64 },
         interpolation: { kind: 'LINEAR' }, default: 1,
       },
       {

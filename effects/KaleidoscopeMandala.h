@@ -36,7 +36,7 @@ public:
   using Params = KaleidoscopeMandalaParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-mandala";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "ecc7672ad962f703a73e5557adbb23456a18871c3902f2e03582b45c1522e024";
+      "601951f9d54757c298a23061bb0ebf718f2c57f0421a25f7eaf619fbc0a19f29";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "14861112f89f6f5a771583f0a0c19b4ceb9c9391b12d321d8e05ebcfe3973c9c";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"wave-mirror",

@@ -388,8 +388,11 @@ struct ColorProvider {
   brightness_envelope(const FrameState &) {
     return BrightnessV;
   }
-  static float brightness_depth(const FrameState &frame) {
-    return frame.params.color.brightness_depth;
+  static float brightness_bottom(const FrameState &frame) {
+    return frame.params.color.brightness_bottom;
+  }
+  static float brightness_top(const FrameState &frame) {
+    return frame.params.color.brightness_top;
   }
   static float opacity_low(const FrameState &frame) {
     return frame.params.color.opacity_low;
@@ -1165,10 +1168,13 @@ private:
         "Phase Oscillation Depth");
     register_color_field<&ColorParams::phase_oscillation_speed>(
         "Phase Oscillation Speed");
-    if constexpr (BrightnessV != Pullback::Color::BrightnessEnvelope::NONE)
-      register_color_field<&ColorParams::brightness_depth>("Brightness Depth");
-    register_color_field<&ColorParams::opacity_low>("Value Opacity Low");
-    register_color_field<&ColorParams::opacity_high>("Value Opacity High");
+    if constexpr (BrightnessV != Pullback::Color::BrightnessEnvelope::NONE) {
+      register_color_field<&ColorParams::brightness_bottom>(
+          "Brightness Bottom");
+      register_color_field<&ColorParams::brightness_top>("Brightness Top");
+    }
+    register_color_field<&ColorParams::opacity_low>("Opacity at Value 0");
+    register_color_field<&ColorParams::opacity_high>("Opacity at Value 1");
     register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
     if constexpr (HueV == HueMode::NOISE) {
       register_color_field<&ColorParams::hue_noise_scale>("Hue Noise Scale");

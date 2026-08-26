@@ -94,9 +94,9 @@ using TraitsOf = decltype(composed_traits(std::declval<const FX &>()));
 
 /** @brief Color sliders the base registers for every specialization. */
 constexpr const char *UNGATED_COLOR_SLIDERS[] = {
-    "Palette Chroma",    "Palette Mapping",         "Mapping Frequency",
-    "Mapping Phase",     "Phase Oscillation Depth", "Phase Oscillation Speed",
-    "Value Opacity Low", "Value Opacity High",      "Hue Shift Amount"};
+    "Palette Chroma",     "Palette Mapping",         "Mapping Frequency",
+    "Mapping Phase",      "Phase Oscillation Depth", "Phase Oscillation Speed",
+    "Opacity at Value 0", "Opacity at Value 1",      "Hue Shift Amount"};
 
 /** @brief The eight lens sliders a Mobius parameter family adds. */
 constexpr const char *MOBIUS_SLIDERS[] = {
@@ -125,9 +125,10 @@ constexpr ColorSliderBinding COLOR_SLIDER_BINDINGS[] = {
     {"Mapping Phase", "mapping-phase"},
     {"Phase Oscillation Depth", "phase-oscillation-depth"},
     {"Phase Oscillation Speed", "phase-oscillation-speed"},
-    {"Brightness Depth", "brightness-depth"},
-    {"Value Opacity Low", "value-opacity-low"},
-    {"Value Opacity High", "value-opacity-high"}};
+    {"Brightness Bottom", "brightness-bottom"},
+    {"Brightness Top", "brightness-top"},
+    {"Opacity at Value 0", "value-opacity-low"},
+    {"Opacity at Value 1", "value-opacity-high"}};
 
 inline uint32_t bits(float value) { return std::bit_cast<uint32_t>(value); }
 
@@ -332,7 +333,8 @@ inline void check_slider_registration(const char *name) {
   constexpr bool brightness =
       Traits::BRIGHTNESS != Pullback::Color::BrightnessEnvelope::NONE;
   constexpr bool hue_noise = Traits::HUE == Pullback::HueMode::NOISE;
-  HS_EXPECT_EQ(params.find("Brightness Depth") != nullptr, brightness);
+  HS_EXPECT_EQ(params.find("Brightness Bottom") != nullptr, brightness);
+  HS_EXPECT_EQ(params.find("Brightness Top") != nullptr, brightness);
   HS_EXPECT_EQ(params.find("Hue Noise Scale") != nullptr, hue_noise);
   HS_EXPECT_EQ(params.find("Hue Noise Speed") != nullptr, hue_noise);
 
@@ -367,7 +369,7 @@ inline void check_slider_registration(const char *name) {
       warp_slot_count<FX, typename Params::outer_warp_type>() +
       warp_slot_count<FX, typename Params::inner_warp_type>() +
       (mobius ? std::size(MOBIUS_SLIDERS) : size_t{0}) +
-      std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{1} : size_t{0}) +
+      std::size(UNGATED_COLOR_SLIDERS) + (brightness ? size_t{2} : size_t{0}) +
       (hue_noise ? size_t{2} : size_t{0});
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_LE(params.size(), params.capacity());
@@ -1231,6 +1233,8 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     // TransferKind is NONE or ISO_CONTOUR.
     {"field.transfer.ridge.v2", nullptr, {}},
     {"field.transfer.smooth-bands.v2", nullptr, {}},
+    // v2 is retained only to load older chain documents.
+    {"colorize.generated-palette.v2", nullptr, {}},
     // ProjectionKind names the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
     // The displacement policies pin the basis and the integrator.
@@ -1275,16 +1279,16 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      {{"weight", "weight-squared", "edge-fade"}}},
     // PaletteHarmony, ColorParams, HueMode and BrightnessEnvelope together
     // reach every colorize value.
-    {"colorize.generated-palette.v2",
+    {"colorize.generated-palette.v3",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
-    {"colorize.generated-palette.v2",
+    {"colorize.generated-palette.v3",
      "palette-mapping",
      {{"cup", "bell", "linear", "reverse"}}},
-    {"colorize.generated-palette.v2",
+    {"colorize.generated-palette.v3",
      "hue-shift-mode",
      {{"none", "noise", "path-length"}}},
-    {"colorize.generated-palette.v2", "brightness-envelope", {{"none", "cup"}}},
+    {"colorize.generated-palette.v3", "brightness-envelope", {{"none", "cup"}}},
 };
 
 /** @brief The topology enum8 @p topology_id of @p op, or null. */
@@ -1372,10 +1376,10 @@ inline void test_composed_derivation_reach() {
     }
   }
 
-  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
-  HS_EXPECT_EQ(unreachable_operators, 12u);
-  HS_EXPECT_EQ(catalog_values, 125u);
-  HS_EXPECT_EQ(unreachable_values, 74u);
+  HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
+  HS_EXPECT_EQ(unreachable_operators, 13u);
+  HS_EXPECT_EQ(catalog_values, 140u);
+  HS_EXPECT_EQ(unreachable_values, 89u);
 }
 
 using RippleProbeParams =

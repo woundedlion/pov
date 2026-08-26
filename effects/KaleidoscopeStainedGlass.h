@@ -36,9 +36,9 @@ public:
   using Params = KaleidoscopeStainedGlassParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-stained-glass";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "aa0526de86c131b582c6c3f2685aacb16a434292c39899d0f125800b51293f36";
+      "1a1dd0967ef4196ebae61afa3224d37f1a9e7b9f816ae36c0658488e57cd40a5";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "307a1d899af542b78fa9852b61d0fdbb4852b5aaf963392cc19320a4d2e81bd1";
+      "5452b76d73ca86c6a7bb9375fb3d8513891268eae779ec56824a4f5f17b55572";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
@@ -64,7 +64,7 @@ public:
     value.inner_warp.speed = 0.00327999983f;
     value.color.hue_shift_amount = 0.721f;
     value.color.palette_chroma = 1.0f;
-    value.color.brightness_depth = 0.655f;
+    value.color.brightness_bottom = 0.345f;
     value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
     return value;
   }
