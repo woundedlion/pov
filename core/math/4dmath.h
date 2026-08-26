@@ -64,6 +64,9 @@ struct Mat4 {
  */
 HS_COLD static inline void rotate_plane(Mat4 &matrix, int a, int b,
                                         float angle) {
+  HS_CHECK(a >= 0 && a < VEC4_DIMENSIONS && b >= 0 && b < VEC4_DIMENSIONS &&
+               a != b,
+           "rotate_plane: (%d, %d) is not a coordinate plane", a, b);
   const float c = fast_cosf(angle);
   const float s = fast_sinf(angle);
   for (int column = 0; column < VEC4_DIMENSIONS; ++column) {
