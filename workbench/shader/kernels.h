@@ -341,15 +341,15 @@ warp_vector_noise(const Complex &input, const WarpStageSpec &spec,
 HS_FLASH_MEMBER inline PlanarWarpStageResult
 warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
                const WarpStageParams &params, float amplitude,
-               const FastNoiseLite &noise, float stage_phase,
+               const FastNoiseLite &noise, const PreparedWarpStage &prepared,
                bool path_length_required) {
   const uint8_t intervals = spec.curl_integrator == CurlIntegrator::EULER_1 ? 1
                             : spec.curl_integrator == CurlIntegrator::MIDPOINT_2
                                 ? 2
                                 : 4;
-  return Pullback::Warp::curl_flow(input, noise, spec.basis, intervals,
-                                   params.scale, amplitude, stage_phase,
-                                   path_length_required);
+  return Pullback::Warp::curl_flow(
+      input, noise, spec.basis, intervals, params.scale, amplitude,
+      prepared.transform.noise_loop.offset, path_length_required);
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
@@ -412,7 +412,7 @@ HS_FLASH_MEMBER inline PlanarWarpStageResult warp_stage_lookup(
     HS_CHECK(stage_noise != nullptr,
              "ShaderWorkbench curl warp has no noise resource");
     return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
-                          stage_phase, path_length_required);
+                          prepared, path_length_required);
   case WarpStageKind::MIRROR_TILE: {
     HS_SB_STAGE_MARK(mirror_start);
     const PlanarWarpStageResult result = finish_closed_form_warp(
@@ -437,7 +437,8 @@ HS_FLASH_MEMBER inline Complex curl_vector(const Complex &p,
                                            const FastNoiseLite &noise,
                                            NoiseBasis basis, float scale,
                                            float phase) {
-  return Pullback::Warp::curl_vector(p, noise, basis, scale, phase);
+  return Pullback::Warp::curl_vector(p, noise, basis, scale,
+                                     noise_projected_loop_offset(phase));
 }
 
 __attribute__((always_inline)) inline Complex

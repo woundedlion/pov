@@ -103,12 +103,13 @@ struct PreparedVortex {
 };
 
 struct PreparedNoiseLoop {
-  float diagonal;
-  float z;
+  Vector offset;
 };
 
 union PreparedWarpTransform {
-  PreparedAffineFrame affine;
+  // Vector's user-provided default ctor deletes the union's; an initialized
+  // variant member restores it.
+  PreparedAffineFrame affine{};
   PreparedMirrorTile mirror;
   PreparedVortex vortex;
   PreparedNoiseLoop noise_loop;
@@ -234,10 +235,8 @@ prepare_spherical_rings(const EndpointRuntime &endpoint) {
 
 HS_FLASH_MEMBER inline PreparedSurfaceNoise
 prepare_surface_noise(const ClockState &clocks, const Params &params) {
-  const float surface_phase = TWO_PI_F * wrap_t(clocks.surface_noise_time);
   const float surface_direction = TWO_PI_F * params.surface_noise.direction;
-  return {Vector(NOISE_LOOP_RADIUS * cosf(surface_phase),
-                 NOISE_LOOP_RADIUS * sinf(surface_phase), 0.0f),
+  return {noise_sphere_loop_offset(clocks.surface_noise_time),
           cosf(surface_direction), sinf(surface_direction)};
 }
 
@@ -275,12 +274,9 @@ prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
         params.radius * params.radius,
         TWO_PI_F * params.turns,
     };
-  } else if (spec.kind == WarpStageKind::VECTOR_NOISE) {
-    const float angle = TWO_PI_F * wrap_t(stage_phase);
-    prepared.transform.noise_loop = {
-        NOISE_LOOP_RADIUS * sinf(angle) * 0.7071067811865475f,
-        NOISE_LOOP_RADIUS * cosf(angle),
-    };
+  } else if (spec.kind == WarpStageKind::VECTOR_NOISE ||
+             spec.kind == WarpStageKind::CURL_FLOW) {
+    prepared.transform.noise_loop = {noise_projected_loop_offset(stage_phase)};
   }
   prepared.rotation_cos = cosf(rotation);
   prepared.rotation_sin = sinf(rotation);
