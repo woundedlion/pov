@@ -245,6 +245,7 @@ inline void check_roster_order_pinned() {
                                               "AshCloud",
                                               "LatticeMelt",
                                               "ChromaticLichen",
+                                              "MermaidSkin",
                                               "DisplacementField",
                                               "DreamBalls",
                                               "Dynamo",

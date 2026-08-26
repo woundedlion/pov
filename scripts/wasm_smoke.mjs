@@ -572,7 +572,7 @@ async function main(probe) {
         { instance: 'camera', operator: 'sphere.rotate.v2' },
         { instance: 'project', operator: 'project.stereographic.v2' },
         { instance: 'sample', operator: 'sample.grid.v2' },
-        { instance: 'colorize', operator: 'colorize.generated-palette.v2' },
+        { instance: 'colorize', operator: 'colorize.generated-palette.v3' },
       ];
 
       // The refusal for a non-chain effect names itself, never traps.

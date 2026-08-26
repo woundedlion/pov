@@ -178,7 +178,8 @@ struct ShaderWorkbenchWhiteBox;
   X(COLOR_MAPPING_PHASE, params.color.mapping_phase)                           \
   X(COLOR_PHASE_OSCILLATION_DEPTH, params.color.phase_oscillation_depth)       \
   X(COLOR_PHASE_OSCILLATION_SPEED, params.color.phase_oscillation_speed)       \
-  X(COLOR_BRIGHTNESS_DEPTH, params.color.brightness_depth)                     \
+  X(COLOR_BRIGHTNESS_BOTTOM, params.color.brightness_bottom)                   \
+  X(COLOR_BRIGHTNESS_TOP, params.color.brightness_top)                         \
   X(COLOR_VALUE_OPACITY_LOW, params.color.opacity_low)                         \
   X(COLOR_VALUE_OPACITY_HIGH, params.color.opacity_high)                       \
   X(CAMERA_WANDER, params.outer_camera.wander)                                 \
@@ -324,7 +325,6 @@ public:
   static constexpr auto CURL_WARP_SCALE_MAX = Workbench::CURL_WARP_SCALE_MAX;
   static constexpr auto WARP_SPEED_MIN = Workbench::WARP_SPEED_MIN;
   static constexpr auto WARP_SPEED_MAX = Workbench::WARP_SPEED_MAX;
-  static constexpr auto PATTERN_FREQ_MIN = Workbench::PATTERN_FREQ_MIN;
   static constexpr auto PATTERN_FREQ_MAX = Workbench::PATTERN_FREQ_MAX;
   static constexpr auto SPEED_MIN = Workbench::SPEED_MIN;
   static constexpr auto COMPLEXITY_MIN = Workbench::COMPLEXITY_MIN;
@@ -343,8 +343,8 @@ public:
   static constexpr auto PALETTE_CHROMA_MAX = Workbench::PALETTE_CHROMA_MAX;
   static constexpr auto MAPPING_PHASE_MIN = Workbench::MAPPING_PHASE_MIN;
   static constexpr auto MAPPING_PHASE_MAX = Workbench::MAPPING_PHASE_MAX;
-  static constexpr auto BRIGHTNESS_DEPTH_MIN = Workbench::BRIGHTNESS_DEPTH_MIN;
-  static constexpr auto BRIGHTNESS_DEPTH_MAX = Workbench::BRIGHTNESS_DEPTH_MAX;
+  static constexpr auto BRIGHTNESS_GAIN_MIN = Workbench::BRIGHTNESS_GAIN_MIN;
+  static constexpr auto BRIGHTNESS_GAIN_MAX = Workbench::BRIGHTNESS_GAIN_MAX;
   static constexpr auto VALUE_OPACITY_MIN = Workbench::VALUE_OPACITY_MIN;
   static constexpr auto VALUE_OPACITY_MAX = Workbench::VALUE_OPACITY_MAX;
   static constexpr auto WAVE_SPIN_MIN = Workbench::WAVE_SPIN_MIN;
@@ -764,7 +764,7 @@ public:
   // entry the second. Their difference is alignment padding, so the list
   // covers every Config byte that carries a value.
   static_assert(
-      sizeof(Config) == 524 && CONFIG_FIELD_BYTES == 497,
+      sizeof(Config) == 528 && CONFIG_FIELD_BYTES == 501,
       "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
 
   struct ConfigFieldLayout {
@@ -969,14 +969,18 @@ private:
                               BRIGHTNESS_ENVELOPE_OPTIONS,
                               BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
                               NUM_BRIGHTNESS_ENVELOPES);
-    if (slots.brightness_envelope != BrightnessEnvelope::NONE)
-      register_animated_param("Brightness Depth",
-                              &requested_config.params.color.brightness_depth,
-                              BRIGHTNESS_DEPTH_MIN, BRIGHTNESS_DEPTH_MAX);
-    register_animated_param("Value Opacity Low",
+    if (slots.brightness_envelope != BrightnessEnvelope::NONE) {
+      register_animated_param("Brightness Bottom",
+                              &requested_config.params.color.brightness_bottom,
+                              BRIGHTNESS_GAIN_MIN, BRIGHTNESS_GAIN_MAX);
+      register_animated_param("Brightness Top",
+                              &requested_config.params.color.brightness_top,
+                              BRIGHTNESS_GAIN_MIN, BRIGHTNESS_GAIN_MAX);
+    }
+    register_animated_param("Opacity at Value 0",
                             &requested_config.params.color.opacity_low,
                             VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
-    register_animated_param("Value Opacity High",
+    register_animated_param("Opacity at Value 1",
                             &requested_config.params.color.opacity_high,
                             VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
     if (!fixed_topology)
@@ -1409,7 +1413,7 @@ private:
       return;
     }
     register_clamped_animated_param("Pattern Freq", &params.pattern_freq,
-                                    PATTERN_FREQ_MIN,
+                                    pattern_freq_min(function),
                                     pattern_freq_max(function));
     register_clamped_animated_param(
         "Speed", &params.speed, 0.0f,

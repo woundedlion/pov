@@ -42,11 +42,10 @@ struct ColorParams {
                                              added to `mapping_phase`. */
   /** Per-frame advance of that wobble. */
   float phase_oscillation_speed = 0.0f;
-  float brightness_depth = 1.0f; /**< Depth of the brightness envelope; only
-                                      registered when the envelope is not
-                                      NONE. */
-  float opacity_low = 1.0f;      /**< Alpha gain at source value 0. */
-  float opacity_high = 1.0f;     /**< Alpha gain at source value 1. */
+  float brightness_bottom = 0.0f; /**< Gain at the envelope's low point. */
+  float brightness_top = 1.0f;    /**< Gain at the envelope's high point. */
+  float opacity_low = 1.0f;       /**< Alpha gain at source value 0. */
+  float opacity_high = 1.0f;      /**< Alpha gain at source value 1. */
   /** Palette mapping curve; snapped, not blended, by interpolate(). */
   Pullback::Color::PaletteMapping palette_mapping =
       Pullback::Color::PaletteMapping::LINEAR;
@@ -70,7 +69,9 @@ struct ColorParams {
       Field<ColorParams>{"phase-oscillation-speed",
                          &ColorParams::phase_oscillation_speed, nullptr, -0.01f,
                          0.01f, FieldCurve::LERP},
-      Field<ColorParams>{"brightness-depth", &ColorParams::brightness_depth,
+      Field<ColorParams>{"brightness-bottom", &ColorParams::brightness_bottom,
+                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorParams>{"brightness-top", &ColorParams::brightness_top,
                          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
       Field<ColorParams>{"value-opacity-low", &ColorParams::opacity_low,
                          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
@@ -172,8 +173,8 @@ palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
 }
 
 __attribute__((always_inline)) inline float
-brightness_envelope_gain(float value, BrightnessEnvelope envelope,
-                         float depth) {
+brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
+                         float top) {
   float shape = 1.0f;
   switch (envelope) {
   case BrightnessEnvelope::NONE:
@@ -191,7 +192,7 @@ brightness_envelope_gain(float value, BrightnessEnvelope envelope,
     shape = 1.0f - value;
     break;
   }
-  return 1.0f - depth * (1.0f - shape);
+  return hs::lerp(bottom, top, shape);
 }
 
 struct GeneratedPaletteState {
@@ -207,7 +208,8 @@ struct GeneratedPaletteState {
   HueRotationLutView hue_rotation;
   HueNoiseLutView hue_noise;
   BrightnessEnvelope brightness_envelope;
-  float brightness_depth;
+  float brightness_bottom;
+  float brightness_top;
   float opacity_low;
   float opacity_high;
 };
@@ -235,9 +237,10 @@ apply_generated_palette(const FieldSample &sample,
             sample_hue_rotation_lut(state.hue_rotation, palette_value, amount);
     }
   }
-  color.color = color.color * brightness_envelope_gain(
-                                  sample.value, state.brightness_envelope,
-                                  state.brightness_depth);
+  color.color =
+      color.color *
+      brightness_envelope_gain(sample.value, state.brightness_envelope,
+                               state.brightness_bottom, state.brightness_top);
   color.alpha *= sample.coverage *
                  hs::lerp(state.opacity_low, state.opacity_high, sample.value);
   return color;
@@ -279,7 +282,8 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         {
           State::brightness_envelope(frame)
         } -> std::same_as<BrightnessEnvelope>;
-        { State::brightness_depth(frame) } -> std::same_as<float>;
+        { State::brightness_bottom(frame) } -> std::same_as<float>;
+        { State::brightness_top(frame) } -> std::same_as<float>;
         { State::opacity_low(frame) } -> std::same_as<float>;
         { State::opacity_high(frame) } -> std::same_as<float>;
       };
@@ -299,7 +303,8 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
             State::hue_rotation(frame),
             State::hue_noise(frame),
             State::brightness_envelope(frame),
-            State::brightness_depth(frame),
+            State::brightness_bottom(frame),
+            State::brightness_top(frame),
             State::opacity_low(frame),
             State::opacity_high(frame)};
   }
