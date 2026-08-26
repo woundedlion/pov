@@ -524,14 +524,15 @@ struct JsonValue {
   double number = 0.0;
   std::string text;
   std::vector<JsonValue> items;
-  std::vector<std::pair<std::string, JsonValue>> members;
+  std::vector<std::string> member_keys;
+  std::vector<JsonValue> member_values;
 
   const JsonValue *find(std::string_view key) const {
     if (kind != Kind::OBJECT)
       return nullptr;
-    for (const auto &[member_key, member_value] : members)
-      if (member_key == key)
-        return &member_value;
+    for (size_t index = 0; index < member_keys.size(); ++index)
+      if (member_keys[index] == key)
+        return &member_values[index];
     return nullptr;
   }
 };
@@ -649,7 +650,9 @@ struct JsonParser {
         std::string key = parse_string();
         if (!consume(':'))
           return value;
-        value.members.emplace_back(std::move(key), parse_value());
+        JsonValue member = parse_value();
+        value.member_keys.push_back(std::move(key));
+        value.member_values.push_back(std::move(member));
         skip_space();
       } while (!failed && position < source.size() && source[position] == ',' &&
                ++position);
@@ -1029,9 +1032,10 @@ inline void check_document_values(const char *name) {
     HS_EXPECT_TRUE(order != nullptr &&
                    order->items.size() == FX::PRESET_IDS.size());
   if (dwell != nullptr)
-    for (const auto &[preset_id, frames] : dwell->members) {
-      HS_CONTEXT(preset_id.c_str());
-      HS_EXPECT_EQ(frames.number, double{FX::PRESET_DWELL_FRAMES});
+    for (size_t member = 0; member < dwell->member_keys.size(); ++member) {
+      HS_CONTEXT(dwell->member_keys[member].c_str());
+      HS_EXPECT_EQ(dwell->member_values[member].number,
+                   double{FX::PRESET_DWELL_FRAMES});
     }
   const JsonValue *edges = bank->find("edges");
   if (edges != nullptr)
@@ -1058,7 +1062,9 @@ inline void check_document_values(const char *name) {
       continue;
 
     Params built{};
-    for (const auto &[key, value] : values->members) {
+    for (size_t member = 0; member < values->member_keys.size(); ++member) {
+      const std::string &key = values->member_keys[member];
+      const JsonValue &value = values->member_values[member];
       HS_CONTEXT(key.c_str());
       const size_t dot = key.find('.');
       HS_EXPECT_TRUE(dot != std::string::npos);
