@@ -90,11 +90,9 @@ class TestDocsImagesStage(unittest.TestCase):
     def test_an_artifact_with_no_image_reference_is_a_tooling_error(self):
         # A gallery-less artifact is the vacuous pass --stage must refuse.
         self.write_page("<p>no images here</p>")
-        argv = ["docs_images.py", "--stage", str(self.html),
-                "--repo-root", str(self.repo)]
-        with unittest.mock.patch.object(sys, "argv", argv):
-            with contextlib.redirect_stderr(io.StringIO()) as err:
-                status = di.main()
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            status = di.main(["--stage", str(self.html),
+                              "--root", str(self.repo)])
         self.assertEqual(status, 2)
         self.assertIn("tooling error", err.getvalue())
 
@@ -182,14 +180,20 @@ class TestDocsImagesVerify(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("no path component", errors[0])
 
+    def test_an_absent_html_tree_is_a_tooling_error(self):
+        # --stage pointed at no built tree cannot certify an artifact.
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            status = di.main(["--stage", str(self.repo / "nowhere"),
+                              "--root", str(self.repo)])
+        self.assertEqual(status, 2)
+        self.assertIn("no generated HTML", err.getvalue())
+
     def test_a_reference_set_with_nothing_to_resolve_is_a_tooling_error(self):
         # Nothing to resolve means the checker was pointed away from the
         # repository; certifying that is the vacuous pass.
         self.track("README.md", "no images here")
-        argv = ["docs_images.py", "--repo-root", str(self.repo)]
-        with unittest.mock.patch.object(sys, "argv", argv):
-            with contextlib.redirect_stderr(io.StringIO()) as err:
-                status = di.main()
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            status = di.main(["--root", str(self.repo)])
         self.assertEqual(status, 2)
         self.assertIn("tooling error", err.getvalue())
 
