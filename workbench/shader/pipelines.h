@@ -521,7 +521,7 @@ inline constexpr TopologyKey make_topology_key(const Config &config) {
     key.surface_noise_basis = {};
     key.surface_curl_integrator = {};
   }
-  if (!source_uses_noise(key.function))
+  if (!is_noise_contour(key.function))
     key.source_noise_basis = {};
   canonicalize_warp_key(key.outer_warp, key.outer_warp_basis,
                         key.outer_warp_envelope, key.outer_polar_mode,
