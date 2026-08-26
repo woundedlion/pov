@@ -283,7 +283,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── build_features.h        Canvas size, build-time feature and instrumentation switches
 │   │   └── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
 │   ├── control/                An effect's control surface (registry, params +
-│   │                            apply_if_changed, presets, choreography, transition)
+│   │                            apply_if_changed, ParamHost/PresetHost, presets,
+│   │                            choreography, transition)
 │   ├── containers/             Reusable fixed-capacity containers
 │   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
 │   │   └── triangular_bitset.h     Upper-triangular unordered-pair bitset
@@ -340,7 +341,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── triadic_palette_luts.h  Generated bank of 256 triadic palette LUTs, one per base hue (from tools/mindsplatter_palette_gen.cpp)
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
-│   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
+│   │   ├── canvas.h                Effect base class (framebuffer half) + Canvas RAII write-buffer guard
 │   │   ├── clip.h                  ClipRegion segment clip rectangle + cylindrical render band
 │   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/'s ten stage headers
 │   │   ├── pullback/               Per-stage pullback headers (contract, fields, surface,
@@ -1835,7 +1836,7 @@ The effect calls `begin_choreography()` once from `init()` — it configures the
 
 Automatic transitions follow the policy — `Segue::Preset::Lerp` crossfades the live parameters into the target, `Segue::Preset::Snap` adopts immediately, `Segue::Preset::Fade` snaps inside the envelope's dark frame — while manual and synchronized selections always snap. Hooks specialize the mechanics: `preset_params(index)` (static, or a member when the effect patches entries at runtime, e.g. re-binding a noise pointer) overrides the `PRESETS[index]` lookup, and in its static form supplies the startup default too; `initial_params()` overrides whichever of `preset_params(0)` and `PRESETS[0]` would otherwise start the effect; shadowing `adopt_params(target)` re-derives dependent state after a snap; `transition_armed(target)` fires once as a crossfade arms, capturing the endpoint state the blend interpolates alongside the parameters; `blend_params(progress)` writes an in-flight Lerp; `set_preset_opacity(value)` receives a Fade envelope. The base also carries schema-versioned parameter snapshots: `serialize_parameters()` tags the live set with `PARAMETER_SCHEMA_VERSION`, and `restore_parameters()` rejects a snapshot taken under a different schema or failing `valid_params()`.
 
-`control/presets.h` holds the table vocabulary: `PresetEntry<Params>` (the row type) and the free `constexpr` helper `all_presets_in_ranges(entries, in_ranges)`, which folds a slider-range predicate over an entry table so an effect can `static_assert` its whole preset table against its registered parameter ranges — a loop rather than an unrolled conjunction, so appended entries are covered automatically.
+`control/preset_host.h` holds the controller the choreography drives: the committed index, the vetoable `apply_preset()` hook, and the manual `selectPreset`/`nextPreset`/`previousPreset` surface the WASM bridge calls. `control/presets.h` holds the table vocabulary: `PresetEntry<Params>` (the row type) and the free `constexpr` helper `all_presets_in_ranges(entries, in_ranges)`, which folds a slider-range predicate over an entry table so an effect can `static_assert` its whole preset table against its registered parameter ranges — a loop rather than an unrolled conjunction, so appended entries are covered automatically.
 
 ### 7.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 
@@ -2168,7 +2169,7 @@ Effects register themselves into a global registry using the `REGISTER_EFFECT(Cl
 
 ### Parameter Registration
 
-Effects expose live-adjustable parameters via `register_param()`. These are reflected into the WASM bridge and auto-generate GUI controls in the simulator:
+Effects expose live-adjustable parameters via `register_param()` (`control/param_host.h`). These are reflected into the WASM bridge and auto-generate GUI controls in the simulator:
 
 ```cpp
 register_param("Twist",   &params.twist, -5.0f, 5.0f);        // float slider (min, max)

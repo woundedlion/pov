@@ -1011,9 +1011,9 @@ private:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  static void dispatch_parameter_updated(Effect *effect, const char *name,
+  static void dispatch_parameter_updated(ParamHost *host, const char *name,
                                          bool is_enum) {
-    static_cast<ShaderWorkbench *>(effect)->parameter_updated(name, is_enum);
+    static_cast<ShaderWorkbench *>(host)->parameter_updated(name, is_enum);
   }
 
   void parameter_updated(const char *name, bool is_enum) {

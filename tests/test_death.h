@@ -4207,10 +4207,11 @@ inline const Case *all_cases(int &n) {
        "composition.h",
        "(&from != this && &to != this) BakedPalette::bake_blend endpoint is "
        "the output"},
-      {"register_param_overflow", case_register_param_overflow, "canvas.h",
+      {"register_param_overflow", case_register_param_overflow, "param_host.h",
        "(parameters.count < parameters.capacity()) register_param: "
        "exceeded ParamList capacity"},
-      {"register_int_param_range", case_register_int_param_range, "canvas.h",
+      {"register_int_param_range", case_register_int_param_range,
+       "param_host.h",
        "(range_fits) register_int_param: [min,max] must fit the target "
        "integer type"},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds, "canvas.h",
@@ -4927,6 +4928,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"motion.h", 6},
     {"opleg.h", 42},
     {"params.h", 10},
+    {"param_host.h", 26},
+    {"preset_host.h", 2},
     {"segue.h", 1},
     {"sprites.h", 10},
     {"timeline.h", 9},
@@ -4955,7 +4958,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"solid_generators.h", 5},
     {"solids.h", 2},
     {"kd_tree.h", 5},
-    {"canvas.h", 30},
+    {"canvas.h", 2},
     {"common.h", 4},
     {"csg.h", 2},
     {"cull.h", 1},

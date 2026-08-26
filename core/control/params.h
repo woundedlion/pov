@@ -26,7 +26,7 @@
 #define HS_PARAM_EXTERNAL_STORAGE 0
 #endif
 
-class Effect;
+class ParamHost;
 
 /**
  * @brief Outcome of a named parameter write (Effect::updateParameter, surfaced
@@ -196,13 +196,13 @@ static_assert(sizeof(void *) != 4 ||
  * memory-view invariant; capacity is enforced at registration time.
  */
 struct ParamList {
-  // Effect is the sole trusted mutator. Outside callers hold the list only as
-  // Effect::getParameters()'s const reference, so they bind the const
+  // ParamHost is the sole trusted mutator. Outside callers hold the list only
+  // as Effect::getParameters()'s const reference, so they bind the const
   // accessors and route value writes through updateParameter. Access control
   // runs after overload resolution, so a non-const handle would not fall back
   // to those const overloads — it would resolve to the private ones below
   // and fail there.
-  friend class Effect;
+  friend class ParamHost;
 
   /** @brief Slot count of the default inline storage. */
   static constexpr size_t FIXED_CAPACITY = 32;
@@ -261,7 +261,7 @@ struct ParamList {
 
 private:
   // Storage bookkeeping and the writable accessors, reachable only by the
-  // friended Effect (see the note at the top of the struct). Kept private so
+  // friended ParamHost (see the note at the top of the struct). Kept private so
   // value writes route through updateParameter.
   std::array<ParamDef, FIXED_CAPACITY>
       elements; /**< Default fixed-capacity storage. */
