@@ -279,7 +279,10 @@ is returned in `s0-s3` across out-of-line boundaries.
 the crossing writes it:
 
 - `region_id`, `component_id`, `boundary_flags`, `traits`, `edge_class`, and
-  `flags` preserve projection topology and parity;
+  `flags` preserve projection topology and parity. No core stage reads them
+  and no plane-join utility is in the tree; they are authoring surface for
+  policies that key on the chart, and narrowing the carrier would put the
+  projections' topology out of a chain's reach;
 - `fade_edge_distance` is finite, nonnegative distance to a fade-eligible cut
   or singular boundary;
 - `value_weight` and `domain_coverage` are finite values in `[0, 1]`.
