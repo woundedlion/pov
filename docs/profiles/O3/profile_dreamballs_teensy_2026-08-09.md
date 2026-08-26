@@ -1,8 +1,9 @@
 # DreamBalls on-device profile — Teensy 4.0, segmented mode (2026-08-09, **-O3**)
 
-See the [shipping report](../shipping/profile_dreamballs_teensy_2026-08-09.md)
-for the selective-O3 twin. Raw capture: `build/prof/dreamballs_o3.log` in the
-implementation worktree.
+See the [shipping report](../shipping/profile_dreamballs_teensy_2026-08-25.md)
+for the current selective-O3 capture; its 2026-08-09 twin, taken alongside this
+report against the 5-preset roster, has been replaced. Raw capture:
+`build/prof/dreamballs_o3.log` in the implementation worktree.
 
 ## Setup
 
