@@ -370,19 +370,8 @@ concept PreparedProvider = Detail::ProviderFor<State, Binding> &&
                            };
 
 template <typename State, typename Binding>
-concept ParamsProvider =
-    Detail::ProviderFor<State, Binding> &&
-    requires(const typename Binding::FrameState &frame) {
-      State::params(frame);
-    } &&
-    std::is_lvalue_reference_v<decltype(State::params(
-        std::declval<const typename Binding::FrameState &>()))> &&
-    std::is_const_v<std::remove_reference_t<decltype(State::params(
-        std::declval<const typename Binding::FrameState &>()))>>;
-
-template <typename State, typename Binding>
 concept ParamsPreparedProvider =
-    PreparedProvider<State, Binding> && ParamsProvider<State, Binding>;
+    PreparedProvider<State, Binding> && Detail::ParamsProvider<State, Binding>;
 
 /** @brief Length of a stage delta, or zero when @p required is false. */
 __attribute__((always_inline)) inline float displacement(const Complex &delta,
@@ -752,7 +741,7 @@ struct PolarChart : ApproximationDefaults {
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      ParamsProvider<State, CandidateBinding> &&
+      Detail::ParamsProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).radial_scale } -> std::convertible_to<float>;
         { State::params(frame).radial_phase } -> std::convertible_to<float>;
@@ -819,7 +808,7 @@ struct CurlFlow : ApproximationDefaults {
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      ParamsProvider<State, CandidateBinding> &&
+      Detail::ParamsProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::params(frame).strength } -> std::convertible_to<float>;
         { State::params(frame).scale } -> std::convertible_to<float>;
