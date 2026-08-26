@@ -1333,7 +1333,8 @@ inline float fast_expf(float x) {
  * @brief Bhaskara I sine approximation for an angle in [0, π].
  * @param x Angle in radians, in [0, π].
  * @param sign Sign of the half-period `x` was folded out of, +1 or -1.
- * @return The approximate sine, `sign * sin(x)`. Max error ~0.17% (~0.1 deg).
+ * @return The approximate sine, `sign * sin(x)`. Absolute error <= 1.7e-3
+ * (~0.1 deg), peaking near x = 0.2; relative error reaches 1.9% near the zeros.
  * @details The single spelling of the kernel: every fast sine path funnels
  * through it, so no two paths can be reassociated apart under -ffast-math.
  */
@@ -1360,7 +1361,9 @@ __attribute__((always_inline)) inline float sinf_0_2pi(float x) {
  * @brief Fast sine using the Bhaskara I approximation.
  * @param x Angle in radians (range-reduced internally).
  * @return The approximate sine of `x`.
- * @details Max error ~0.17% (~0.1 degrees).
+ * @details Absolute error <= 1.7e-3 (~0.1 degrees), peaking near x = 0.2.
+ * Relative error reaches 1.9% near the zeros, so a consumer taking a ratio of
+ * two values (Vector slerp) carries the 1.9% figure, not the absolute one.
  * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
  * reduction loses precision as a float's ULP grows past the period, so callers
  * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).

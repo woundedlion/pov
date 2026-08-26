@@ -62,13 +62,15 @@
 // to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
 // .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
 // regardless). Apply to free functions on cold paths (mesh/solid construction).
-// Off-device it degrades to a no-op. HS_FLASH_MEMBER is the inline/template
-// member variant: GCC's `cold` attribute supplies a unique .text.unlikely.* section,
-// and tools/phantasm.ld routes that section to FLASH. HS_HOT_FLASH_MEMBER uses
-// the corresponding .text.hot.* route for measured hot code that executes from
-// cached flash without telling the optimizer it is cold. HS_COLD_MEMBER names the
-// setup-only use; HS_FLASH_MEMBER also supports explicitly measured code
-// placement. On the -Os device image both use HS_O3_FN. HS_FLASH_INLINE is the
+// The family is gated on GCC, not on ARDUINO: a GCC host build keeps the
+// noinline/noclone, so only a clang host sees a no-op. HS_FLASH_MEMBER is the
+// inline/template member variant: GCC's `cold` attribute supplies a unique
+// .text.unlikely.* section, and tools/phantasm.ld routes that section to FLASH.
+// HS_HOT_FLASH_MEMBER uses the corresponding .text.hot.* route for measured hot
+// code that executes from cached flash without telling the optimizer it is
+// cold. HS_COLD_MEMBER names the setup-only use; HS_FLASH_MEMBER also supports
+// explicitly measured code placement. On the -Os device image both use
+// HS_O3_FN. HS_FLASH_INLINE is the
 // variant for a free function declared `inline`, which GCC's -Wattributes
 // rejects the noinline on; `cold` alone still supplies the .text.unlikely.*
 // section, and a variadic [[noreturn]] body is not an inline candidate anyway.

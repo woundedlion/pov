@@ -197,7 +197,9 @@ inline int rand_int(int min, int max) {
  * implementation-defined: the three standard libraries this project builds
  * against (device libstdc++, WASM libc++, host) each produced a different
  * sequence and desynchronized the shared stream, breaking the determinism
- * contract above. Descending Fisher-Yates, exactly one draw per step.
+ * contract above. Descending Fisher-Yates, exactly one draw per step. Each
+ * draw is rand_int(0, i + 1), so the permutation carries that function's modulo
+ * bias; removing it would move every stream the determinism contract pins.
  */
 template <typename It> inline void shuffle(It first, It last) {
   const int n = static_cast<int>(last - first);
