@@ -644,7 +644,9 @@ class DesignRuleTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "drc.json"
-            with unittest.mock.patch.object(fab, "run", fake_run):
+            with unittest.mock.patch.object(
+                    fab, "kicad_cli", return_value="kicad-cli"), \
+                    unittest.mock.patch.object(fab, "run", fake_run):
                 with self.assertRaisesRegex(
                         fab.DesignRuleError, "kicad-cli drc exited 5"):
                     fab.run_drc(path)
