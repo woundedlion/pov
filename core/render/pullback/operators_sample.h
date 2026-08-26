@@ -362,6 +362,9 @@ struct SampleTessellation : ValueStateModel<SourceClockState> {
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
+    HS_CHECK(params.kind <=
+                 static_cast<uint8_t>(Source::TessellationKind::HEXAGONAL),
+             "sample.tessellation: invalid kind");
     return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,

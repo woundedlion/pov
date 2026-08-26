@@ -3721,6 +3721,26 @@ inline void case_pullback_operator_invalid_noise_basis() {
     std::printf("x");
 }
 
+/** @brief Death case: the tessellation source rejects an unknown kind. */
+inline void case_pullback_operator_invalid_tessellation_kind() {
+  Pullback::Interp::Op::TessellationSampleParams params;
+  params.kind = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::SourceClockState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::SampleTessellation::prepare(context, params, state)
+          .primary != 0.0f)
+    std::printf("x");
+}
+
+/** @brief Death case: the kaleidoscope lens rejects an unknown symmetry. */
+inline void case_pullback_operator_invalid_kaleidoscope_symmetry() {
+  Pullback::Interp::Op::KaleidoscopeChainParams params;
+  params.symmetry = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::LensKaleidoscope::State state;
+  Pullback::Interp::FrameContext context{};
+  Pullback::Interp::Op::LensKaleidoscope::prepare(context, params, state);
+}
+
 /** @brief Death case: the generated-palette operator rejects an unknown hue mode. */
 inline void case_pullback_operator_invalid_hue_mode() {
   Pullback::Interp::Op::GeneratedPaletteParams params;
@@ -4491,6 +4511,17 @@ inline const Case *all_cases(int &n) {
        case_pullback_operator_invalid_noise_basis, "operators_common.h",
        "(basis <= static_cast<uint8_t>(::NoiseBasis::RIDGED3)) "
        "pullback operator: invalid noise basis"},
+      {"pullback_operator_invalid_tessellation_kind",
+       case_pullback_operator_invalid_tessellation_kind, "operators_sample.h",
+       "(params.kind <= "
+       "static_cast<uint8_t>(Source::TessellationKind::HEXAGONAL)) "
+       "sample.tessellation: invalid kind"},
+      {"pullback_operator_invalid_kaleidoscope_symmetry",
+       case_pullback_operator_invalid_kaleidoscope_symmetry,
+       "operators_sphere.h",
+       "(params.symmetry <= "
+       "static_cast<uint8_t>(KaleidoscopeSymmetry::OCTAGONAL_PRISM)) "
+       "sphere.lens.kaleidoscope: invalid symmetry"},
       {"pullback_operator_invalid_hue_mode",
        case_pullback_operator_invalid_hue_mode, "operators.h",
        "(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH)) "
