@@ -566,13 +566,17 @@ struct HueWobbleShade {
    * @brief Constructs with a mandatory phase driver, frequency, and depth.
    * @param phase Pointer to the per-frame phase; must not be null.
    * @param freq Wobble frequency over the domain; defaults to 1.0.
-   * @param depth Peak hue rotation in turns; defaults to 0.1.
+   * @param depth Peak hue rotation in turns; |depth| * 2pi must stay under
+   *        PALETTE_PHASE_ARG_LIMIT. Defaults to 0.1.
    * @details The caller must keep |t * freq * 2pi + phase| under
    * PALETTE_PHASE_ARG_LIMIT.
    */
   HueWobbleShade(const float *phase, float freq = 1.0f, float depth = 0.1f)
       : phase(phase), frequency(freq), depth(depth) {
     HS_CHECK(phase, "HueWobbleShade: phase driver must not be null");
+    HS_CHECK(fabsf(depth) * (2.0f * PI_F) < PALETTE_PHASE_ARG_LIMIT,
+             "HueWobbleShade: depth must stay inside the fast-trig argument "
+             "range");
   }
 
   /**
@@ -745,13 +749,14 @@ struct IridescentShade {
    * @brief Constructs with a mandatory phase driver, frequency, and weight.
    * @param phase Pointer to the per-frame phase; must not be null.
    * @param freq Sheen frequency over the domain; defaults to 3.0.
-   * @param weight Overlay strength; defaults to 0.25.
+   * @param weight Overlay strength; must be non-negative. Defaults to 0.25.
    * @details The caller must keep |t * freq * 2pi + phase| under
    * PALETTE_PHASE_ARG_LIMIT.
    */
   IridescentShade(const float *phase, float freq = 3.0f, float weight = 0.25f)
       : phase(phase), frequency(freq), weight(weight) {
     HS_CHECK(phase, "IridescentShade: phase driver must not be null");
+    HS_CHECK(weight >= 0.0f, "IridescentShade: weight must be non-negative");
   }
 
   /**
