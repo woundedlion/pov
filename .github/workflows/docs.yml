@@ -72,7 +72,7 @@ jobs:
     # can't hold a runner to the 6h default.
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -80,7 +80,7 @@ jobs:
       # daydream commit the fence below is validated against, and
       # docs_images.py resolves the artifact's images. Pin their interpreter as
       # the ci.yml jobs do rather than taking the image's default python.
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -92,7 +92,7 @@ jobs:
       # the committed pin: daydream's tip moves independently and would red an
       # unrelated engine change and flip a re-run of an unchanged commit.
       - name: Check out daydream tree-fence target
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: woundedlion/daydream
           ref: ${{ steps.pins.outputs.daydream }}
@@ -120,7 +120,7 @@ jobs:
         run: python tools/docs_images.py --stage
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: build/docs/html
 
@@ -144,4 +144,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
