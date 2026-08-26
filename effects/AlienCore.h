@@ -25,10 +25,12 @@ using AlienCoreSpec =
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H>
-class AlienCore : public Pullback::ComposedEffect<
-                      W, H, AlienCore<W, H>, AlienCoreParams, AlienCoreSpec,
-                      PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
-                      Pullback::Color::BrightnessEnvelope::NONE, false> {
+class AlienCore
+    : public Pullback::ComposedEffect<W, H, AlienCore<W, H>, AlienCoreParams,
+                                      AlienCoreSpec, PaletteHarmony::TRIADIC,
+                                      Pullback::HueMode::NOISE,
+                                      Pullback::Color::BrightnessEnvelope::NONE,
+                                      /*AnimatedProjection=*/false> {
 
 public:
   using Params = AlienCoreParams;

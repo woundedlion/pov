@@ -29,7 +29,8 @@ class CosmicEyeball
     : public Pullback::ComposedEffect<
           W, H, CosmicEyeball<W, H>, CosmicEyeballParams, CosmicEyeballSpec,
           PaletteHarmony::TRIADIC, Pullback::HueMode::PATH_LENGTH,
-          Pullback::Color::BrightnessEnvelope::NONE, false> {
+          Pullback::Color::BrightnessEnvelope::NONE,
+          /*AnimatedProjection=*/false> {
 
 public:
   using Params = CosmicEyeballParams;

@@ -296,8 +296,9 @@ private:
 
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
-   *        staggered RIPPLE_STAGGER_FRAMES apart, each expanding over
-   *        params.ripple_duration frames.
+   *        staggered ripple_stagger_eff frames apart, each expanding over
+   *        ripple_dur_eff frames — the Trans-Speed-divided values spawn_entry
+   *        caches, which bottom out at 2 and max(8, ripple_duration / 8).
    * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
@@ -796,9 +797,10 @@ private:
       return;
     }
 
-    // A lone DUAL (or a macro-ineligible dt pair's DUAL) is the smooth
-    // three-leg bridge; it builds its own endpoints and chains its legs, then
-    // rejoins at finish_build_leg.
+    // A DUAL reaching here is a lone one: dt_pair_at() carries no eligibility
+    // predicate, so every DUAL,KIS pair took the macro above. The lone DUAL is
+    // the smooth three-leg bridge; it builds its own endpoints and chains its
+    // legs, then rejoins at finish_build_leg.
     if (step.op == Solids::Op::DUAL) {
       schedule_dual_bridge([this] { finish_build_leg(); });
       return;
@@ -1316,6 +1318,8 @@ private:
       if (step.bake)
         return MeshOps::relax_baked(build_seed, a, *step.bake);
       return MeshOps::relax(build_seed, a, b, static_cast<int>(step.param));
+    // Unreachable while every KIS step is consumed by the dt or dtd macro in
+    // start_build_leg().
     case Solids::Op::KIS:
       return MeshOps::kis(build_seed, a, b);
     default:

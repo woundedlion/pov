@@ -1,8 +1,8 @@
 """Generate phantasm.kicad_pcb from the schematic + its netlist.
 
 Embeds each component's footprint (from KiCad stock libs, or a generated Teensy
-footprint), assigns pad nets by name from the exported netlist, places everything
-linearly inside a <=35 mm-wide board outline (R-MECH-6), and declares the nets.
+footprint), assigns pad nets by name from the exported netlist, skyline-packs them
+into a PCB_W-wide board outline (R-MECH-6), and declares the nets.
 Emits a 4-layer SIG/GND/GND/SIG board: the physical stackup and the inner GND
 planes are encoded in the file, so an autoplacer/fab reads them on upload.
 Placement is a rough starting arrangement; route/refine interactively in Pcbnew.

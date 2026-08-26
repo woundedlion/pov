@@ -293,7 +293,9 @@ public:
     rebake_display(*morph);
   }
 
-  /** @brief Index of the entry currently dwelt on or faded away from. */
+  /** @brief Index of the roster entry currently dwelt on or faded away from.
+   *  @details Roster cycles only. A generated cycle (init_generated()) holds no
+   *  roster and leaves this at 0 for the effect's life. */
   int current_index() const { return current; }
 
   /** @brief True while a fade toward the next entry is in flight. */

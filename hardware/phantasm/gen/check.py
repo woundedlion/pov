@@ -1,7 +1,8 @@
-"""Gate: export a netlist and verify the shipped board's named-net partition.
+"""Gate: export the schematic's netlist and verify its named-net partition.
 
 Nodes are keyed on (ref, pin), so a connector or IC pinout permutation fails the
-gate as loudly as a short or a break does.
+gate as loudly as a short or a break does. gen/tests/test_check.py applies the
+same table to the committed board's pad nets; that is the leg CI runs.
 """
 import argparse
 import sys
