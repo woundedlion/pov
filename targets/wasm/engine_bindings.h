@@ -516,10 +516,12 @@ public:
 
   /**
    * @brief Renders one frame of the current effect into the JS-facing buffer.
-   * @details Copies the effect's full canvas into pixel_buffer as 16-bit linear
-   *          RGB triples; no-op if no effect is set. The readback copies the
-   *          FULL canvas regardless of any active clip region — a clip restricts
-   *          rendering, not this readback.
+   * @details Copies the effect's canvas into pixel_buffer as 16-bit linear RGB
+   *          triples; no-op if no effect is set. The readback spans the active
+   *          display clip only — the full canvas unless setClip() narrowed it
+   *          (an effect reporting Effect::needs_full_frame() keeps the full
+   *          clip, so it is always copied whole). Pixels outside the band keep
+   *          whatever the buffer last held; a clipped render never shades them.
    */
   void drawFrame() {
     if (!current_effect) {
@@ -533,23 +535,36 @@ public:
     current_effect->draw_frame();
     current_effect->advance_display();
 
-    // Readback copies the FULL canvas regardless of any clip; segment_worker.js
-    // extracts its quadrant JS-side (README §10.7).
     static_assert(static_cast<long long>(MAX_W) * MAX_H * CHANNELS <= INT_MAX,
                   "drawFrame pixel-index accumulators are int");
-    const int count = pixel_width * pixel_height;
+    // Display bounds, not render bounds: the margin expansion feeds stateful
+    // filters and is never shown. segment_worker.js extracts exactly this
+    // rectangle JS-side (README §10.7).
+    const ClipRegion &band = current_effect->clip();
     if (!current_effect->overrides_get_pixel() &&
         current_effect->output_envelope_u16() == 65535u) {
       // Fast path: display_buffer()[i] == get_pixel(x, y), so copy directly.
       const Pixel *buf = current_effect->display_buffer();
       static_assert(sizeof(Pixel) == 3 * sizeof(uint16_t),
                     "fast-path memcpy assumes packed RGB16 Pixel layout");
-      std::memcpy(pixel_buffer.data(), buf,
-                  static_cast<size_t>(count) * sizeof(Pixel));
+      if (band.is_full()) {
+        const int count = pixel_width * pixel_height;
+        std::memcpy(pixel_buffer.data(), buf,
+                    static_cast<size_t>(count) * sizeof(Pixel));
+      } else {
+        const size_t row_bytes =
+            static_cast<size_t>(band.x_end - band.x_start) * sizeof(Pixel);
+        for (int y = band.y_start; y < band.y_end; y++) {
+          const int first = y * pixel_width + band.x_start;
+          std::memcpy(pixel_buffer.data() +
+                          static_cast<size_t>(first) * CHANNELS,
+                      buf + first, row_bytes);
+        }
+      }
     } else {
-      int idx = 0;
-      for (int y = 0; y < pixel_height; y++) {
-        for (int x = 0; x < pixel_width; x++) {
+      for (int y = band.y_start; y < band.y_end; y++) {
+        int idx = (y * pixel_width + band.x_start) * CHANNELS;
+        for (int x = band.x_start; x < band.x_end; x++) {
           const Pixel source = current_effect->get_pixel(x, y);
           const Pixel p = current_effect->apply_output_envelope(source);
           pixel_buffer[idx++] = p.r;
