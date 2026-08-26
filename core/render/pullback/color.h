@@ -284,18 +284,31 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         { State::opacity_high(frame) } -> std::same_as<float>;
       };
 
+  using Prepared = GeneratedPaletteState;
+
+  template <typename FrameState>
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return {State::mapping_weights(frame),
+            State::mapping_frequency(frame),
+            State::mapping_phase(frame),
+            State::oscillation_depth(frame),
+            State::oscillation_phase(frame),
+            &State::palette(frame),
+            State::hue_mode(frame),
+            State::hue_shift_amount(frame),
+            State::hue_rotation(frame),
+            State::hue_noise(frame),
+            State::brightness_envelope(frame),
+            State::brightness_depth(frame),
+            State::opacity_low(frame),
+            State::opacity_high(frame)};
+  }
+
   template <typename FrameState>
   HS_FLASH_INLINE static Color4 apply(const FieldSample &sample,
-                                      const FrameState &frame) {
-    return apply_generated_palette(
-        sample,
-        {State::mapping_weights(frame), State::mapping_frequency(frame),
-         State::mapping_phase(frame), State::oscillation_depth(frame),
-         State::oscillation_phase(frame), &State::palette(frame),
-         State::hue_mode(frame), State::hue_shift_amount(frame),
-         State::hue_rotation(frame), State::hue_noise(frame),
-         State::brightness_envelope(frame), State::brightness_depth(frame),
-         State::opacity_low(frame), State::opacity_high(frame)});
+                                      const FrameState &,
+                                      const Prepared &prepared) {
+    return apply_generated_palette(sample, prepared);
   }
 };
 

@@ -663,8 +663,8 @@ struct ColorStateProvider {
  */
 HS_FLASH_MEMBER inline Color4 colorize_generated(const FieldSample &sample,
                                                  const FrameState &frame) {
-  return Pullback::Color::GeneratedPalette<ColorStateProvider>::apply(sample,
-                                                                      frame);
+  using Policy = Pullback::Color::GeneratedPalette<ColorStateProvider>;
+  return Policy::apply(sample, frame, Policy::prepare(frame));
 }
 
 __attribute__((always_inline)) inline float
