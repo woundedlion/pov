@@ -513,6 +513,15 @@ test('preset-bank identity ignores record declaration order but preserves genera
     stableStringify(canonicalPresetBank(second)));
 });
 
+test('stableStringify keeps members whose keys are not already NFC', () => {
+  const decomposed = 'café';
+  const composed = 'café';
+  assert.equal(stableStringify({ meta: { [decomposed]: 'v' } }),
+    `{"meta":{"${composed}":"v"}}`);
+  assert.equal(stableStringify({ [decomposed]: 1 }),
+    stableStringify({ [composed]: 1 }));
+});
+
 // The daydream v1 example fixture, inlined: expanding it must reproduce the
 // committed v2 example byte for byte, pinning expandV1Document as the single
 // code path both schema generations share.
