@@ -5,15 +5,12 @@ image. These are single-effect `profile_o3` compiler-reference images built
 with global `-O3 -ffast-math`; they are not a shippable full-roster image.
 
 Peak is worst-frame render time (never wall). Spilled is the fraction of frames
-whose render exceeded one 62.5 ms display interval. Rows rank by worst cadence
-colour, spill fraction, then peak.
+whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction, then peak render.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [LatticeMelt](profile_latticemelt_teensy_2026-08-26.md)§ ● | `fx_shader_draw` | 🔴 104.75 (3) | 🔴 1824/1824 (100%) | 2026-08-26 03:22 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🔴 79.81 | 🔴 544/544 (100%) | 2026-08-26 02:45 |
-| [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md)§ ● | `msp_draw_particles` | 🟡 66.86 (1)<br>🟢 58.78 (8) | 🟡 10/318 (3.1%)<br>🟢 0/1394 (0%) | 2026-08-26 01:49 |
-| [IslamicStars](profile_islamicstars_teensy_2026-08-26.md)§ ● | `is_timeline_step` | 🟡 63.74 (1)<br>🟢 61.36 (22) | 🟡 1/156 (0.6%)<br>🟢 0/3172 (0%) | 2026-08-26 02:14 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 61.87 | 🟢 0/1088 (0%) | 2026-08-26 02:41 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-26.md)§ ● | `ss_draw_all` | 🟢 59.80 (10) | 🟢 0/2448 (0%) | 2026-08-26 03:11 |
 | [Raymarch](profile_raymarch_teensy_2026-08-26.md) ● | `rm_shader_draw` | 🟢 58.80 | 🟢 0/1088 (0%) | 2026-08-26 01:34 |
@@ -21,7 +18,9 @@ colour, spill fraction, then peak.
 | [DisplacementField](profile_displacementfield_teensy_2026-08-26.md) ● | `df_timeline_step` | 🟢 57.48 | 🟢 0/1088 (0%) | 2026-08-26 01:20 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) ● | `grd_render` | 🟢 56.16 | 🟢 0/2048 (0%) | 2026-08-26 01:25 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 54.55 | 🟢 0/1088 (0%) | 2026-08-26 02:43 |
+| [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md)§ ● | `msp_draw_particles` | 🟢 52.79 (9) | 🟢 0/1728 (0%) | 2026-08-26 07:45 |
 | [RingSpin](profile_ringspin_teensy_2026-08-26.md) ● | `rs_draw_rings` | 🟢 50.81 | 🟢 0/1088 (0%) | 2026-08-26 01:38 |
+| [IslamicStars](profile_islamicstars_teensy_2026-08-26.md)§ ● | `is_timeline_step` | 🟢 50.80 (23) | 🟢 0/3328 (0%) | 2026-08-26 07:53 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-08-26.md)§ ● | `hl_shader_draw` | 🟢 49.92 (4) | 🟢 0/2688 (0%) | 2026-08-26 02:37 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) ● | `bz_render` | 🟢 48.65 | 🟢 0/2048 (0%) | 2026-08-26 01:16 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
@@ -53,5 +52,5 @@ colour, spill fraction, then peak.
 parentheses is presets in that bucket; bucket frames include transitions and are
 therefore stricter than the clean-hold table in each report.
 
-**Colour:** 🟢 no spills; 🟡 under 25% spilled; 🔴 25% or more.
+**Colour:** 🟢 no spills; 🔴 one or more spilled frames.
 **●** — capture refreshed 2026-08-26. Captured timestamps are raw-log local mtimes.
