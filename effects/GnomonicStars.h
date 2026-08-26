@@ -52,7 +52,8 @@ public:
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
     spiral_cache = persistent_arena.allocate_n<Vector>(MAX_POINTS);
 
-    register_param("Points", &params.points, 100.0f, 2000.0f);
+    register_param("Points", &params.points, 100.0f,
+                   static_cast<float>(MAX_POINTS));
     register_param("Radius", &params.star_radius, 0.7f * RADIUS_PX,
                    7.0f * RADIUS_PX);
     register_param("Sides", &params.star_sides, 3.0f, 8.0f);
