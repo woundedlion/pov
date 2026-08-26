@@ -36,7 +36,6 @@ constexpr int DIMENSIONS = VEC4_DIMENSIONS;
 constexpr int MAX_SHELLS = 3;
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
 
-enum class ReflectionMode : uint8_t { CHROME, RADIAL };
 enum class ColorMode : uint8_t { DEPTH, AXIS };
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
 enum class LatticeMode : uint8_t { THREE_D, DIMENSIONAL_RIFT, FOUR_D_SLICE };
@@ -195,7 +194,8 @@ inline TransitionalMetrics transitional_metrics_at(const Vec4 &ray_origin,
 
 struct Params {
   LatticeMode mode = LatticeMode::THREE_D;
-  float sphere_radius = 0.4f;
+  float sphere_radius = 1.0f;
+  float cell_size = 1.0f;
   float wire_radius = 0.055f;
   float softness = 0.012f;
   float far_cells = 7.0f;
@@ -203,14 +203,13 @@ struct Params {
   float speed = 0.018f;
   float spin_3d = 0.0024f;
   float spin_4d = 0.0f;
-  float chrome_warp = 0.65f;
-  ReflectionMode reflection = ReflectionMode::CHROME;
   ColorMode color = ColorMode::DEPTH;
   ShellCount shells = ShellCount::TWO;
 
   void lerp(const Params &start, const Params &target, float amount) {
     mode = amount < 0.5f ? start.mode : target.mode;
     sphere_radius = hs::lerp(start.sphere_radius, target.sphere_radius, amount);
+    cell_size = hs::lerp(start.cell_size, target.cell_size, amount);
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
     softness = hs::lerp(start.softness, target.softness, amount);
     far_cells = hs::lerp(start.far_cells, target.far_cells, amount);
@@ -218,8 +217,6 @@ struct Params {
     speed = hs::lerp(start.speed, target.speed, amount);
     spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
     spin_4d = hs::lerp(start.spin_4d, target.spin_4d, amount);
-    chrome_warp = hs::lerp(start.chrome_warp, target.chrome_warp, amount);
-    reflection = amount < 0.5f ? start.reflection : target.reflection;
     color = amount < 0.5f ? start.color : target.color;
     shells = amount < 0.5f ? start.shells : target.shells;
   }
@@ -251,6 +248,7 @@ struct PreparedTrace {
   Params params;
   Vec4 origin;
   Mat4 world_to_lattice;
+  float far_distance;
   float inv_far;
   float aa_scale;
   float outer_radius_base;
@@ -329,32 +327,21 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
                prepared.dimension_mix * frame.rotation_phase[4]);
   rotate_plane(prepared.world_to_lattice, 2, 3,
                prepared.dimension_mix * frame.rotation_phase[5]);
-  prepared.inv_far = 1.0f / frame.params.far_cells;
-  prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle;
+  const float inv_cell_size = 1.0f / frame.params.cell_size;
+  for (int row = 0; row < DIMENSIONS; ++row)
+    for (int column = 0; column < DIMENSIONS; ++column)
+      prepared.world_to_lattice.m[row][column] *= inv_cell_size;
+  prepared.far_distance = frame.params.far_cells * frame.params.cell_size;
+  prepared.inv_far = 1.0f / prepared.far_distance;
+  prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle *
+                      inv_cell_size * inv_cell_size;
   prepared.outer_radius_base = frame.params.wire_radius + frame.params.softness;
-  prepared.near_start = 1.5f * frame.params.wire_radius;
-  const float near_end = 4.0f * frame.params.wire_radius;
+  prepared.near_start =
+      1.5f * frame.params.wire_radius * frame.params.cell_size;
+  const float near_end =
+      4.0f * frame.params.wire_radius * frame.params.cell_size;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
   return prepared;
-}
-
-inline Vec4 reflected_direction(const Vector &normal, ReflectionMode mode,
-                                float chrome_warp) {
-  if (mode == ReflectionMode::RADIAL)
-    return {{normal.x, normal.y, normal.z, 0.0f}};
-  const float twice_x = 2.0f * normal.x;
-  const Vec4 reflected{{twice_x * normal.x - 1.0f, twice_x * normal.y,
-                        twice_x * normal.z, 0.0f}};
-  const float blend = 0.4f * chrome_warp;
-  Vec4 direction{{hs::lerp(normal.x, reflected[0], blend),
-                  hs::lerp(normal.y, reflected[1], blend),
-                  hs::lerp(normal.z, reflected[2], blend), 0.0f}};
-  const float inverse_length =
-      fast_rsqrt(direction[0] * direction[0] + direction[1] * direction[1] +
-                 direction[2] * direction[2]);
-  for (int axis = 0; axis < 3; ++axis)
-    direction[axis] *= inverse_length;
-  return direction;
 }
 
 struct TraceHit {
@@ -363,11 +350,12 @@ struct TraceHit {
   uint8_t free_axis = 0;
 };
 
-template <bool SLICE_4D, bool SPECIALIZED_SLICE = false>
+template <bool SLICE_4D, uint8_t FIXED_SHELL_COUNT = 0>
 __attribute__((always_inline)) inline TraceHit
 trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
             float distance, float plane_step, const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
+  constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
   if (distance <= prepared.near_start)
     return {0.0f, distance, 0};
 
@@ -436,24 +424,24 @@ struct TraceCursor {
   bool active;
 };
 
-template <bool SLICE_4D = false, bool SPECIALIZED_SLICE = false,
+template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0,
           typename ConsumeFn>
 __attribute__((always_inline)) inline void
 trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
                   ConsumeFn consume) {
   HS_PROFILE_DEEP(hl_trace_layers);
+  constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
   constexpr float GROUP_EPSILON = 1.0e-4f;
+  const Vec4 direction =
+      prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
   Vec4 ray_origin = prepared.origin;
   if (prepared.params.sphere_radius != 0.0f) {
-    const Vec4 surface_normal =
-        prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
     for (int axis = 0; axis < DIMENSIONS; ++axis)
-      ray_origin[axis] += prepared.params.sphere_radius * surface_normal[axis];
+      ray_origin[axis] += prepared.params.sphere_radius * direction[axis];
   }
-  const Vec4 direction = prepared.world_to_lattice.apply(reflected_direction(
-      normal, prepared.params.reflection, prepared.params.chrome_warp));
   const uint8_t shell_count =
-      SPECIALIZED_SLICE ? 2 : static_cast<uint8_t>(prepared.params.shells) + 1;
+      SPECIALIZED_SLICE ? FIXED_SHELL_COUNT
+                        : static_cast<uint8_t>(prepared.params.shells) + 1;
   TraceCursor cursors[DIMENSIONS];
   for (int axis = 0; axis < DIMENSIONS; ++axis) {
     TraceCursor &cursor = cursors[axis];
@@ -470,13 +458,15 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
     cursor.distance =
         next_plane_offset(ray_origin[axis], component > 0.0f) * cursor.step;
     cursor.shell = 0;
-    cursor.active = cursor.distance < prepared.params.far_cells;
+    cursor.active = cursor.distance < prepared.far_distance;
   }
 
-  for (int event = 0; event < DIMENSIONS * MAX_SHELLS; ++event) {
+  constexpr int EVENT_LIMIT =
+      DIMENSIONS * (SPECIALIZED_SLICE ? FIXED_SHELL_COUNT : MAX_SHELLS);
+  for (int event = 0; event < EVENT_LIMIT; ++event) {
     HS_PROFILE_DEEP(hl_event_step);
-    float nearest = prepared.params.far_cells;
-    float second_nearest = prepared.params.far_cells;
+    float nearest = prepared.far_distance;
+    float second_nearest = prepared.far_distance;
     int nearest_axis = -1;
     const auto consider_cursor = [&](int axis) __attribute__((always_inline)) {
       const TraceCursor &cursor = cursors[axis];
@@ -494,7 +484,7 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
     consider_cursor(1);
     consider_cursor(2);
     consider_cursor(3);
-    if (nearest >= prepared.params.far_cells)
+    if (nearest >= prepared.far_distance)
       break;
 
     const float tolerance = GROUP_EPSILON * std::max(1.0f, nearest);
@@ -513,7 +503,7 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
       const int axis = __builtin_ctz(static_cast<unsigned>(pending));
       pending &= static_cast<uint8_t>(pending - 1);
       TraceCursor &cursor = cursors[axis];
-      TraceHit candidate = trace_plane<SLICE_4D, SPECIALIZED_SLICE>(
+      TraceHit candidate = trace_plane<SLICE_4D, FIXED_SHELL_COUNT>(
           ray_origin, direction, axis, cursor.distance, cursor.step, prepared);
       if (candidate.coverage > 0.0f)
         candidate.coverage *= shell_horizon_coverage(
@@ -522,8 +512,8 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
         layer = candidate;
       ++cursor.shell;
       cursor.distance += cursor.step;
-      cursor.active = cursor.shell < shell_count &&
-                      cursor.distance < prepared.params.far_cells;
+      cursor.active =
+          cursor.shell < shell_count && cursor.distance < prepared.far_distance;
     } while (pending != 0);
     if (layer.coverage > 0.0f && !consume(layer))
       return;
@@ -545,17 +535,18 @@ inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
   return nearest;
 }
 
-template <bool SLICE_4D = false, bool SPECIALIZED_SLICE = false>
+template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0>
 __attribute__((always_inline)) inline Color4
 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
            const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_shade);
+  constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
   LayerComposite composite;
   const BakedPalette &palette =
       *(SPECIALIZED_SLICE || prepared.params.color == ColorMode::DEPTH
             ? frame.depth_palette
             : frame.axis_palette);
-  trace_layers_mode<SLICE_4D, SPECIALIZED_SLICE>(
+  trace_layers_mode<SLICE_4D, FIXED_SHELL_COUNT>(
       input.dir, prepared,
       [&](const TraceHit &hit) __attribute__((always_inline)) {
         HS_PROFILE_DEEP(hl_layer_composite);
@@ -577,9 +568,9 @@ inline Color4 shade(const Pullback::SphereSample &input,
   return shade_mode(input, frame, prepared);
 }
 
-template <bool SLICE_4D = false, bool SPECIALIZED_SLICE = false>
+template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0>
 struct ModeShadeStage
-    : Pullback::Stage::Contract<ModeShadeStage<SLICE_4D, SPECIALIZED_SLICE>,
+    : Pullback::Stage::Contract<ModeShadeStage<SLICE_4D, FIXED_SHELL_COUNT>,
                                 Pullback::SphereSample, Color4> {
   using Policies = std::tuple<>;
 
@@ -594,13 +585,14 @@ struct ModeShadeStage
   run(const Pullback::SphereSample &input,
       const typename PipelineBinding::FrameState &frame,
       const PreparedTrace &prepared) {
-    return shade_mode<SLICE_4D, SPECIALIZED_SLICE>(input, frame, prepared);
+    return shade_mode<SLICE_4D, FIXED_SHELL_COUNT>(input, frame, prepared);
   }
 };
 
 using RenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<>>;
+template <uint8_t SHELL_COUNT>
 using SpecializedRenderPipeline =
-    Pullback::Pipeline<Binding, ModeShadeStage<true, true>>;
+    Pullback::Pipeline<Binding, ModeShadeStage<true, SHELL_COUNT>>;
 
 } // namespace HyperLatticeDetail
 
@@ -614,7 +606,6 @@ class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
 public:
   using Params = HyperLatticeDetail::Params;
   using LatticeMode = HyperLatticeDetail::LatticeMode;
-  using ReflectionMode = HyperLatticeDetail::ReflectionMode;
   using ColorMode = HyperLatticeDetail::ColorMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
 
@@ -623,14 +614,15 @@ public:
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 6;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 7;
 
   static constexpr Params preset_params(size_t index) {
     Params value;
     switch (index) {
     case 0:
       value.mode = LatticeMode::THREE_D;
-      value.sphere_radius = 0.4f;
+      value.sphere_radius = 1.0f;
+      value.cell_size = 1.0f;
       value.wire_radius = 0.055f;
       value.softness = 0.08f;
       value.far_cells = 4.198f;
@@ -638,14 +630,13 @@ public:
       value.speed = 0.05f;
       value.spin_3d = 0.015f;
       value.spin_4d = 0.0f;
-      value.chrome_warp = 0.65f;
-      value.reflection = ReflectionMode::RADIAL;
       value.color = ColorMode::DEPTH;
       value.shells = ShellCount::TWO;
       break;
     case 1:
       value.mode = LatticeMode::FOUR_D_SLICE;
-      value.sphere_radius = 0.0f;
+      value.sphere_radius = 1.0f;
+      value.cell_size = 1.0f;
       value.wire_radius = 0.03546f;
       value.softness = 0.029612f;
       value.far_cells = 8.0f;
@@ -653,8 +644,6 @@ public:
       value.speed = 0.03f;
       value.spin_3d = 0.01089f;
       value.spin_4d = 0.015f;
-      value.chrome_warp = 0.65f;
-      value.reflection = ReflectionMode::CHROME;
       value.color = ColorMode::DEPTH;
       value.shells = ShellCount::TWO;
       break;
@@ -669,6 +658,8 @@ public:
                static_cast<uint8_t>(LatticeMode::FOUR_D_SLICE) &&
            value.sphere_radius >= SPHERE_RADIUS_MIN &&
            value.sphere_radius <= SPHERE_RADIUS_MAX &&
+           value.cell_size >= CELL_SIZE_MIN &&
+           value.cell_size <= CELL_SIZE_MAX &&
            value.wire_radius >= WIRE_RADIUS_MIN &&
            value.wire_radius <= WIRE_RADIUS_MAX &&
            value.softness >= SOFTNESS_MIN && value.softness <= SOFTNESS_MAX &&
@@ -679,10 +670,6 @@ public:
            value.speed <= SPEED_MAX && value.spin_3d >= SPIN_3D_MIN &&
            value.spin_3d <= SPIN_3D_MAX && value.spin_4d >= SPIN_4D_MIN &&
            value.spin_4d <= SPIN_4D_MAX &&
-           value.chrome_warp >= CHROME_WARP_MIN &&
-           value.chrome_warp <= CHROME_WARP_MAX &&
-           static_cast<uint8_t>(value.reflection) <=
-               static_cast<uint8_t>(ReflectionMode::RADIAL) &&
            static_cast<uint8_t>(value.color) <=
                static_cast<uint8_t>(ColorMode::AXIS) &&
            static_cast<uint8_t>(value.shells) <=
@@ -690,8 +677,7 @@ public:
   }
 
   /**
-   * @brief Whether a parameter set is the shape SpecializedRenderPipeline bakes
-   *        in.
+   * @brief Whether a parameter set matches a specialized slice pipeline.
    * @param value Parameters to test.
    * @return true when the parameters match the specialized trace assumptions.
    * @details The shape is preset 1's; the assert in draw_frame() ties the two,
@@ -699,8 +685,9 @@ public:
    */
   static constexpr bool uses_specialized_slice(const Params &value) {
     return value.mode == LatticeMode::FOUR_D_SLICE &&
-           value.reflection == ReflectionMode::CHROME &&
-           value.color == ColorMode::DEPTH && value.shells == ShellCount::TWO;
+           value.color == ColorMode::DEPTH &&
+           (value.shells == ShellCount::TWO ||
+            value.shells == ShellCount::THREE);
   }
 
   HS_COLD_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
@@ -711,6 +698,8 @@ public:
                             MODE_EXPORT_OPTIONS, std::size(MODE_OPTIONS));
     register_animated_param("Sphere Radius", &params.sphere_radius,
                             SPHERE_RADIUS_MIN, SPHERE_RADIUS_MAX);
+    register_animated_param("Cell Size", &params.cell_size, CELL_SIZE_MIN,
+                            CELL_SIZE_MAX);
     register_animated_param("Wire Radius", &params.wire_radius, WIRE_RADIUS_MIN,
                             WIRE_RADIUS_MAX);
     register_animated_param("Softness", &params.softness, SOFTNESS_MIN,
@@ -724,11 +713,6 @@ public:
                             SPIN_3D_MAX);
     register_animated_param("4D Spin", &params.spin_4d, SPIN_4D_MIN,
                             SPIN_4D_MAX);
-    register_animated_param("Chrome Warp", &params.chrome_warp, CHROME_WARP_MIN,
-                            CHROME_WARP_MAX);
-    register_animated_param("Reflection", &params.reflection,
-                            REFLECTION_OPTIONS, REFLECTION_EXPORT_OPTIONS,
-                            std::size(REFLECTION_OPTIONS));
     register_animated_param("Color", &params.color, COLOR_OPTIONS,
                             COLOR_EXPORT_OPTIONS, std::size(COLOR_OPTIONS));
     register_animated_param("Shells", &params.shells, SHELL_OPTIONS,
@@ -762,11 +746,19 @@ public:
       static_assert(uses_specialized_slice(preset_params(1)),
                     "preset 1 no longer selects the specialized slice trace");
       if (uses_specialized_slice(frame.ctx.params)) {
-        Scan::Shader::draw_cached<W, H, 1>(
-            canvas, [&frame](const Vector &view) {
-              return HyperLatticeDetail::SpecializedRenderPipeline::evaluate(
-                  view, frame.ctx, frame.prepared);
-            });
+        if (frame.ctx.params.shells == ShellCount::THREE) {
+          Scan::Shader::draw_cached<W, H, 1>(
+              canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
+                return HyperLatticeDetail::SpecializedRenderPipeline<
+                    3>::evaluate(view, frame.ctx, frame.prepared);
+              });
+        } else {
+          Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](
+                                                         const Vector &view) {
+            return HyperLatticeDetail::SpecializedRenderPipeline<2>::evaluate(
+                view, frame.ctx, frame.prepared);
+          });
+        }
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
@@ -825,7 +817,8 @@ private:
         PaletteRecipes::hue_turns(BASE_HUE + sequence * HUE_STEP))};
   }
 
-  static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 1.5f;
+  static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 2.0f;
+  static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 2.0f;
   static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
   static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
   static constexpr float FAR_CELLS_MIN = 2.0f, FAR_CELLS_MAX = 16.0f;
@@ -833,7 +826,6 @@ private:
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.05f;
   static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
   static constexpr float SPIN_4D_MIN = 0.0f, SPIN_4D_MAX = 0.015f;
-  static constexpr float CHROME_WARP_MIN = 0.0f, CHROME_WARP_MAX = 1.0f;
 
   static constexpr int PALETTE_FADE_FRAMES = 960;
 
@@ -842,10 +834,6 @@ private:
   static constexpr const char *MODE_EXPORT_OPTIONS[] = {
       "LatticeMode::THREE_D", "LatticeMode::DIMENSIONAL_RIFT",
       "LatticeMode::FOUR_D_SLICE"};
-  static constexpr const char *REFLECTION_OPTIONS[] = {"Mirror Ball",
-                                                       "Embedded Sphere"};
-  static constexpr const char *REFLECTION_EXPORT_OPTIONS[] = {
-      "ReflectionMode::CHROME", "ReflectionMode::RADIAL"};
   static constexpr const char *COLOR_OPTIONS[] = {"Depth", "Axis"};
   static constexpr const char *COLOR_EXPORT_OPTIONS[] = {"ColorMode::DEPTH",
                                                          "ColorMode::AXIS"};
