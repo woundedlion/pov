@@ -307,7 +307,8 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
 
 /**
  * @brief Positions the angle-dependent vertices and writes the final mesh.
- * @tparam MeshT Output mesh type; may optionally provide face_offsets.
+ * @tparam MeshT MeshLike output mesh type; may optionally provide
+ *   face_offsets.
  * @param compiled Baked angle-independent topology.
  * @param out_mesh Output mesh, allocated from @p target_arena. Its topology
  *   array is retained, not rebuilt, so one classification serves every angle
@@ -325,7 +326,7 @@ inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
  *   intersection; its star point falls back to the edge-midpoint mean instead
  *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
  */
-template <typename MeshT>
+template <MeshLike MeshT>
 HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
                                          MeshT &out_mesh, Arena &target_arena,
                                          float angle) {
