@@ -118,9 +118,9 @@ public:
    *        and kicks off the warp scheduler.
    */
   HS_COLD_MEMBER void init() override {
-    begin_choreography();
     static constexpr size_t SCRATCH_BYTES = 6 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
+    begin_choreography();
 
     // Compile-time device-budget guard: GLOBAL_ARENA_SIZE is inflated on the
     // host test build, so check against the real device arena literal.
