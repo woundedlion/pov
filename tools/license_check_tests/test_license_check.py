@@ -140,6 +140,18 @@ class TestMain(unittest.TestCase):
                         contextlib.redirect_stderr(io.StringIO()):
                     self.assertEqual(lc.main(["--root", str(root)]), 1)
 
+    def test_a_git_that_cannot_be_run_is_a_tooling_error(self):
+        # Every failure the listing can raise -- no git, a timeout, output that
+        # is not UTF-8 -- must reach the exit-2 report, not a traceback.
+        for error in (FileNotFoundError("git"),
+                      subprocess.TimeoutExpired("git", 30),
+                      UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid")):
+            with self.subTest(error=type(error).__name__):
+                with mock.patch.object(lc.subprocess, "run", side_effect=error), \
+                        contextlib.redirect_stderr(io.StringIO()) as err:
+                    self.assertEqual(lc.main(["--root", "."]), 2)
+                self.assertIn("tooling error", err.getvalue())
+
     def test_stale_exception_is_a_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

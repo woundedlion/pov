@@ -140,6 +140,7 @@ _CARDINALITY_CLAIMS = (
 
 # Names are matched against the source file kinds Doxyfile documents.
 _DOXYFILE = PurePosixPath("Doxyfile")
+_GIT_TIMEOUT_SECONDS = 30
 _DOXYGEN_SOURCE_SUFFIXES = frozenset({".h", ".cpp", ".ino"})
 _DOXYFILE_TAG_RE = re.compile(r"^(\w+)[ \t]*\+?=[ \t]*(.*)$")
 _DOXYFILE_ENTRY_RE = re.compile(r'"[^"]*"|\S+')
@@ -974,7 +975,8 @@ def check_text(source: PurePosixPath, text: str,
 def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath]]:
     command = ["git", "-c", f"safe.directory={root.as_posix()}",
                "-C", str(root), "ls-files", "-z"]
-    result = subprocess.run(command, check=True, stdout=subprocess.PIPE)
+    result = subprocess.run(command, check=True, stdout=subprocess.PIPE,
+                            timeout=_GIT_TIMEOUT_SECONDS)
     files = [PurePosixPath(name) for name in
              result.stdout.decode("utf-8").split("\0") if name]
     entries = set(files)
