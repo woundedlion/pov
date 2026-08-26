@@ -194,6 +194,8 @@ struct RasterOptions {
    * points[k].pos.
    */
   const float *point_cols = nullptr;
+  /** Entries in point_rows and point_cols; asserted against points.size(). */
+  size_t point_projections_len = 0;
   /**
    * Optional last-to-first target fragment carrying seam registers for a
    * closed loop without an overlapping point.
@@ -360,6 +362,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
            "a raster seam fragment requires a closed loop");
   HS_CHECK((point_rows == nullptr) == (point_cols == nullptr),
            "hoisted point projections take both rows and columns");
+  HS_CHECK(point_rows == nullptr || opts.point_projections_len == len,
+           "hoisted point projections need one entry per polyline point");
 
   size_t count = close_loop ? len : len - 1;
   HS_CHECK(edge_flags == nullptr || opts.edge_flags_len == count,
