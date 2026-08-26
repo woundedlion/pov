@@ -99,8 +99,11 @@ public:
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
+    // Blocks carved in the peak phase: the 3 generation mirrors, against the
+    // raster phase's single oriented lattice.
+    constexpr size_t SCRATCH_TENANTS = 3;
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES, 0,
-                                       SCRATCH_BYTES>();
+                                       SCRATCH_BYTES, SCRATCH_TENANTS>();
 
     // Lotka-Volterra predation coefficient; bounded only by to_q16's [0,1] clamp
     // (not the diffusion stability bound below), so a high value saturates.
