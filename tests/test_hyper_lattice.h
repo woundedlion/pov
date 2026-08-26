@@ -103,30 +103,6 @@ inline void test_so4_rotation() {
   HS_EXPECT_EQ(cubic[3], 0.0f);
 }
 
-inline void test_reflection_convention() {
-  const Vec4 center =
-      HL::reflected_direction(X_AXIS, HL::ReflectionMode::CHROME, 1.0f);
-  HS_EXPECT_NEAR(center[0], 1.0f, 2e-4f);
-  HS_EXPECT_EQ(center[1], 0.0f);
-  HS_EXPECT_EQ(center[2], 0.0f);
-
-  const Vec4 rim =
-      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::CHROME, 1.0f);
-  HS_EXPECT_NEAR(rim[0], -0.5547f, 2e-3f);
-  HS_EXPECT_NEAR(rim[1], 0.83205f, 2e-3f);
-  const Vec4 radial =
-      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::RADIAL, 1.0f);
-  HS_EXPECT_EQ(radial[1], 1.0f);
-
-  const Vec4 open =
-      HL::reflected_direction(Y_AXIS, HL::ReflectionMode::CHROME, 0.0f);
-  HS_EXPECT_NEAR(open[0], 0.0f, 2e-4f);
-  HS_EXPECT_NEAR(open[1], 1.0f, 2e-4f);
-  const Vec4 back = HL::reflected_direction(Vector(-1.0f, 0.0f, 0.0f),
-                                            HL::ReflectionMode::CHROME, 1.0f);
-  HS_EXPECT_NEAR(back[0], -1.0f, 2e-4f);
-}
-
 inline void test_resolution_aware_wire_coverage() {
   constexpr float LOW_RES = HL::pixel_half_angle<96, 20>();
   constexpr float HIGH_RES = HL::pixel_half_angle<288, 144>();
@@ -243,20 +219,22 @@ inline void test_layer_composite_reveals_background() {
 inline void test_surface_origin_parallax() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset_params(0);
-  frame.params.reflection = HL::ReflectionMode::RADIAL;
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
   const HL::TraceHit centered = HL::trace(X_AXIS, HL::prepare_trace(frame));
+  frame.params.cell_size = 2.0f;
+  const HL::TraceHit scaled = HL::trace(X_AXIS, HL::prepare_trace(frame));
+  frame.params.cell_size = 1.0f;
   frame.params.sphere_radius = 0.4f;
   const HL::TraceHit surfaced = HL::trace(X_AXIS, HL::prepare_trace(frame));
   HS_EXPECT_NEAR(centered.distance, 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(scaled.distance, 1.5f, 1e-6f);
   HS_EXPECT_NEAR(surfaced.distance, 0.35f, 1e-6f);
 }
 
 inline void test_hyperplane_event() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset_params(1);
-  frame.params.reflection = HL::ReflectionMode::RADIAL;
   frame.params.sphere_radius = 0.4f;
   frame.origin = {{0.0f, 0.0f, 0.31f, 0.25f}};
   frame.rotation_phase[3] = 0.5f * PI_F;
@@ -270,7 +248,6 @@ inline void test_hyperplane_event() {
 inline void test_coincident_planes_form_one_layer() {
   HL::FrameState frame{};
   frame.params = HyperLattice<96, 20>::preset_params(0);
-  frame.params.reflection = HL::ReflectionMode::RADIAL;
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.25f, 0.25f, 0.31f, 0.43f}};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
@@ -391,29 +368,29 @@ inline void test_render_signature() {
       {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
   };
   static constexpr ShadeSample GOLDEN[] = {
-      {30655, 15888, 4972, 9065},
-      {43208, 19563, 10315, 719},
-      {1780, 2591, 291, 57599},
-      {8623, 3948, 672, 52256},
-      {0, 0, 0, 0},
-      {20757, 12097, 1508, 17141},
-      {9076, 7788, 887, 39807},
-      {19123, 11801, 2917, 7372},
-      {828, 1399, 162, 47275},
-      {0, 0, 0, 0},
-      {665, 1166, 133, 103},
-      {9553, 8041, 940, 1084},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
+      {7946, 6985, 868, 21052},
+      {16865, 10986, 1314, 7906},
+      {14701, 10108, 1323, 89},
+      {12534, 9152, 1269, 44437},
+      {1709, 173, 3184, 73},
+      {4283, 4836, 543, 23209},
+      {1334, 2053, 246, 52135},
+      {14008, 7678, 1023, 13992},
+      {10725, 731, 10170, 3619},
+      {42838, 23241, 20329, 18},
+      {3187, 294, 5100, 27},
+      {2031, 2461, 285, 720},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
-      {42266, 21095, 18839, 117},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
-      {43685, 16818, 4467, 0},
-      {345, 41, 747, 1},
-      {17940, 1079, 12247, 2064},
-      {293, 34, 636, 1},
+      {13072, 8990, 1816, 3214},
+      {3511, 314, 5461, 593},
+      {14214, 10049, 1185, 361},
+      {42285, 21141, 18869, 40},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
       {0, 0, 0, 0},
   };
 
@@ -439,7 +416,7 @@ inline void test_render_signature() {
     }
   }
   expect_shade_samples("render_signature", rendered, GOLDEN, std::size(GOLDEN),
-                       std::size(DIRECTIONS), 16293256782123630023ull);
+                       std::size(DIRECTIONS), 17315552385176136808ull);
 }
 
 inline void test_specialized_slice_transition() {
@@ -450,50 +427,58 @@ inline void test_specialized_slice_transition() {
   effect.init();
   const HL::Params start = HyperLatticeWhiteBox::Effect::preset_params(0);
   const HL::Params target = HyperLatticeWhiteBox::Effect::preset_params(1);
-  float max_visible_error = 0.0f;
-  float max_alpha_error = 0.0f;
-  for (float amount : AMOUNTS) {
-    HL::FrameState frame{};
-    frame.params.lerp(start, target, amount);
-    frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
-    frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
-    frame.pixel_half_angle = HL::pixel_half_angle<288, 144>();
-    frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
-    frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
-    const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-    for (int y = 0; y < 144; ++y)
-      for (int x = 0; x < 288; ++x) {
-        const Vector direction = pixel_to_vector<288, 144>(x, y);
-        const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
-        const Color4 specialized =
-            HL::shade_mode<true, true>({direction, 0.0f}, frame, prepared);
-        max_visible_error = std::max(
-            max_visible_error,
-            fabsf(static_cast<float>(specialized.color.r) * specialized.alpha -
-                  static_cast<float>(exact.color.r) * exact.alpha));
-        max_visible_error = std::max(
-            max_visible_error,
-            fabsf(static_cast<float>(specialized.color.g) * specialized.alpha -
-                  static_cast<float>(exact.color.g) * exact.alpha));
-        max_visible_error = std::max(
-            max_visible_error,
-            fabsf(static_cast<float>(specialized.color.b) * specialized.alpha -
-                  static_cast<float>(exact.color.b) * exact.alpha));
-        max_alpha_error =
-            std::max(max_alpha_error, fabsf(specialized.alpha - exact.alpha));
-      }
-  }
-  HS_EXPECT_NEAR(max_visible_error, 0.0f, 1.0f);
-  HS_EXPECT_NEAR(max_alpha_error, 0.0f, 5.0e-6f);
+  const auto compare_shells = [&]<uint8_t SHELL_COUNT>(HL::ShellCount shells) {
+    float max_visible_error = 0.0f;
+    float max_alpha_error = 0.0f;
+    for (float amount : AMOUNTS) {
+      HL::FrameState frame{};
+      frame.params.lerp(start, target, amount);
+      frame.params.shells = shells;
+      frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
+      frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
+      frame.pixel_half_angle = HL::pixel_half_angle<288, 144>();
+      frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
+      frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
+      const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+      for (int y = 0; y < 144; ++y)
+        for (int x = 0; x < 288; ++x) {
+          const Vector direction = pixel_to_vector<288, 144>(x, y);
+          const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
+          const Color4 specialized = HL::shade_mode<true, SHELL_COUNT>(
+              {direction, 0.0f}, frame, prepared);
+          max_visible_error =
+              std::max(max_visible_error,
+                       fabsf(static_cast<float>(specialized.color.r) *
+                                 specialized.alpha -
+                             static_cast<float>(exact.color.r) * exact.alpha));
+          max_visible_error =
+              std::max(max_visible_error,
+                       fabsf(static_cast<float>(specialized.color.g) *
+                                 specialized.alpha -
+                             static_cast<float>(exact.color.g) * exact.alpha));
+          max_visible_error =
+              std::max(max_visible_error,
+                       fabsf(static_cast<float>(specialized.color.b) *
+                                 specialized.alpha -
+                             static_cast<float>(exact.color.b) * exact.alpha));
+          max_alpha_error =
+              std::max(max_alpha_error, fabsf(specialized.alpha - exact.alpha));
+        }
+    }
+    HS_EXPECT_NEAR(max_visible_error, 0.0f, 1.0f);
+    HS_EXPECT_NEAR(max_alpha_error, 0.0f, 5.0e-6f);
+  };
+  compare_shells.operator()<2>(HL::ShellCount::TWO);
+  compare_shells.operator()<3>(HL::ShellCount::THREE);
 }
 
 /**
  * @brief Pins the specialized 4D-slice pipeline over the same style of sample.
  * @details Same table and pre-check as test_render_signature(), over
- * SpecializedRenderPipeline's prepare/evaluate pair at preset 1. Provenance: no
- * generator emits either. Re-derive by printing the RGB and Q16 alpha of every
- * sample from an IEEE build of this case and pasting the table and its fold
- * back.
+ * SpecializedRenderPipeline<2>'s prepare/evaluate pair at preset 1.
+ * Provenance: no generator emits either. Re-derive by printing the RGB and Q16
+ * alpha of every sample from an IEEE build of this case and pasting the table
+ * and its fold back.
  */
 inline void test_specialized_render_signature() {
   static constexpr Vector DIRECTIONS[] = {
@@ -519,30 +504,30 @@ inline void test_specialized_render_signature() {
       {1.1f, 2.3f, 0.4f, 0.53f, 0.19f, 0.87f},
   };
   static constexpr ShadeSample GOLDEN[] = {
-      {31101, 14369, 2011, 10910},
-      {44446, 22922, 14885, 2234},
-      {36209, 2597, 12736, 2293},
-      {36622, 3596, 12591, 778},
-      {2928, 273, 4804, 493},
-      {6504, 6331, 708, 38426},
-      {42653, 22406, 19746, 16755},
-      {44440, 16966, 4248, 2154},
-      {43612, 26291, 22678, 4144},
+      {9621, 8029, 920, 9757},
       {0, 0, 0, 0},
-      {11037, 2655, 8269, 589},
-      {43178, 16590, 3865, 4776},
-      {1444, 152, 2767, 5},
-      {11572, 775, 10404, 39},
+      {31156, 14307, 2139, 1837},
       {0, 0, 0, 0},
-      {39192, 10891, 13992, 4602},
+      {4505, 4622, 913, 5667},
       {0, 0, 0, 0},
-      {15944, 10660, 1265, 27790},
-      {44479, 23572, 16024, 5247},
       {0, 0, 0, 0},
-      {12269, 5915, 9683, 888},
-      {6404, 6307, 711, 2785},
-      {2031, 2878, 319, 2192},
-      {42980, 23895, 20816, 1402},
+      {34092, 2757, 12130, 48},
+      {6615, 513, 8099, 592},
+      {41070, 15412, 13460, 182},
+      {18071, 1088, 12267, 107},
+      {13881, 9575, 1494, 4104},
+      {9181, 653, 9580, 355},
+      {36881, 4187, 12547, 4073},
+      {44044, 24756, 19592, 1675},
+      {32875, 14709, 2085, 9197},
+      {23632, 13049, 1654, 0},
+      {0, 0, 0, 0},
+      {42141, 20478, 18428, 116},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {18970, 1124, 12380, 992},
+      {38716, 15502, 2360, 830},
   };
 
   HyperLatticeWhiteBox::Effect effect;
@@ -558,9 +543,9 @@ inline void test_specialized_render_signature() {
         HyperLatticeWhiteBox::depth_palette(effect),
         HyperLatticeWhiteBox::axis_palette(effect),
     };
-    const auto frame = HL::SpecializedRenderPipeline::prepare(context);
+    const auto frame = HL::SpecializedRenderPipeline<2>::prepare(context);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
-      const Color4 color = HL::SpecializedRenderPipeline::evaluate(
+      const Color4 color = HL::SpecializedRenderPipeline<2>::evaluate(
           DIRECTIONS[sample], frame.ctx, frame.prepared);
       rendered[row++] = {color.color.r, color.color.g, color.color.b,
                          frac_to_q16(color.alpha)};
@@ -575,7 +560,7 @@ inline void test_specialized_render_signature() {
 #else
   expect_shade_samples("specialized_render_signature", rendered, GOLDEN,
                        std::size(GOLDEN), std::size(DIRECTIONS),
-                       17478910077824754491ull);
+                       14125510257158986461ull);
 #endif
 }
 
@@ -593,7 +578,8 @@ inline void test_presets_and_pipeline() {
 
   constexpr HL::Params preset1 = Effect::preset_params(0);
   static_assert(preset1.mode == HL::LatticeMode::THREE_D);
-  static_assert(preset1.sphere_radius == 0.4f);
+  static_assert(preset1.sphere_radius == 1.0f);
+  static_assert(preset1.cell_size == 1.0f);
   static_assert(preset1.wire_radius == 0.055f);
   static_assert(preset1.softness == 0.08f);
   static_assert(preset1.far_cells == 4.198f);
@@ -601,14 +587,13 @@ inline void test_presets_and_pipeline() {
   static_assert(preset1.speed == 0.05f);
   static_assert(preset1.spin_3d == 0.015f);
   static_assert(preset1.spin_4d == 0.0f);
-  static_assert(preset1.chrome_warp == 0.65f);
-  static_assert(preset1.reflection == HL::ReflectionMode::RADIAL);
   static_assert(preset1.color == HL::ColorMode::DEPTH);
   static_assert(preset1.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params preset2 = Effect::preset_params(1);
   static_assert(preset2.mode == HL::LatticeMode::FOUR_D_SLICE);
-  static_assert(preset2.sphere_radius == 0.0f);
+  static_assert(preset2.sphere_radius == 1.0f);
+  static_assert(preset2.cell_size == 1.0f);
   static_assert(preset2.wire_radius == 0.03546f);
   static_assert(preset2.softness == 0.029612f);
   static_assert(preset2.far_cells == 8.0f);
@@ -616,8 +601,6 @@ inline void test_presets_and_pipeline() {
   static_assert(preset2.speed == 0.03f);
   static_assert(preset2.spin_3d == 0.01089f);
   static_assert(preset2.spin_4d == 0.015f);
-  static_assert(preset2.chrome_warp == 0.65f);
-  static_assert(preset2.reflection == HL::ReflectionMode::CHROME);
   static_assert(preset2.color == HL::ColorMode::DEPTH);
   static_assert(preset2.shells == HL::ShellCount::TWO);
 }
@@ -658,7 +641,6 @@ inline int run_hyper_lattice_tests() {
   test_periodic_distance();
   test_edge_metrics();
   test_so4_rotation();
-  test_reflection_convention();
   test_resolution_aware_wire_coverage();
   test_near_field_fade();
   test_far_shell_fade();
