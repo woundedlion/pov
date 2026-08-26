@@ -47,7 +47,7 @@ public:
    *          Möbius warp whose speed is bound to a slider, plus a Languid
    *          RandomWalk that reorients the field.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     transformer.init_storage(persistent_arena);
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
     spiral_cache = persistent_arena.allocate_n<Vector>(MAX_POINTS);
