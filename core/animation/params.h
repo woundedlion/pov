@@ -127,13 +127,18 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    * @details While the wired pause flag is set, freezes: neither advances the
    * timer nor writes the mutant, so a GUI slider bound to the same member holds.
+   * A non-finite result of @c f is skipped rather than written.
    */
   void step(Canvas &canvas) override {
     if (is_paused(paused))
       return;
     FiniteParamAnimationBase::step(canvas);
     auto t_norm = normalized_progress();
-    mutant.get() = f(easing_fn(t_norm));
+    // A non-finite sample is dropped: writing it would permanently poison
+    // `mutant`, which a GUI-registered float never recovers from.
+    const float value = f(easing_fn(t_norm));
+    if (std::isfinite(value))
+      mutant.get() = value;
   }
 
 private:
