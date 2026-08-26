@@ -335,9 +335,6 @@ struct Face {
   int build_width; /**< Clip width the azimuth cull ran against; 0 if unclipped. */
   std::span<Interval> intervals; /**< Azimuth coverage intervals (radians). */
   bool full_width;               /**< True when the face spans all columns. */
-  /** A pole lies on the face boundary; the face keeps its azimuth wedge
-   *  instead of taking full width. */
-  bool pole_touch = false;
   static constexpr bool is_solid =
       true; /**< Face renders as a filled region. */
 
@@ -1101,8 +1098,6 @@ struct Face {
         y_min = 0;
         if (hit == PoleHit::INTERIOR)
           full_width = true;
-        else
-          pole_touch = true;
       }
     }
     // South pole (0, -1, 0)
@@ -1113,8 +1108,6 @@ struct Face {
         y_max = height - 1;
         if (hit == PoleHit::INTERIOR)
           full_width = true;
-        else
-          pole_touch = true;
       }
     }
   }

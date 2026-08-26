@@ -2802,7 +2802,13 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const Vector>(verts, N_VERTS),
                  std::span<const uint16_t>(idx, N_VERTS), scratch, HV, H);
-  HS_EXPECT_TRUE(face.pole_touch);
+  // Pins the setup on the BOUNDARY branch: !full_width alone also holds for a
+  // face that misses the pole entirely.
+  const float inv_c = 1.0f / std::abs(face.center.y);
+  const float sgn = face.center.y > 0 ? 1.0f : -1.0f;
+  HS_EXPECT_TRUE(face.pole_hit(sgn * face.basis_u.y * inv_c,
+                               sgn * face.basis_w.y * inv_c) ==
+                 SDF::Face::PoleHit::BOUNDARY);
   HS_EXPECT_TRUE(!face.full_width);
 
   hs_test::StubEffect fx(W, H);
