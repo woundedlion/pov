@@ -69,7 +69,7 @@
 #ifdef HS_PROFILE_ENABLE
 namespace hs {
 /** Column-ISR profiling accumulators (see IsrCycleStats): the whole flywheel
- *  wake, render_column's pixel pack, and the submit_frame DMA marshal+kick.
+ *  wake, pack_column's pixel pack, and the submit_frame DMA marshal+kick.
  *  ISR-written; read + reset from the foreground under IRQ-off. */
 inline IsrCycleStats g_flywheel_wake_cycles;
 inline IsrCycleStats g_column_pack_cycles;
@@ -398,7 +398,7 @@ public:
                  "POVSegmented: effect canvas width must equal CANVAS_W");
         HS_CHECK(!cur->overrides_get_pixel(),
                  "POVSegmented: effect must not override get_pixel(); the "
-                 "segmented render_column path bypasses it");
+                 "segmented pack_column path bypasses it");
         // The first frame commits on a ZERO boundary, an arm-A-left window.
         clip_to_segment(cur, /*arm_a_left=*/true);
         cur->draw_frame();
@@ -641,9 +641,9 @@ private:
         [](pov::SubmitAction action, Effect *e, int32_t column) {
           switch (action) {
           case pov::SubmitAction::BLACK:
-            return render_black();
+            return pack_black();
           case pov::SubmitAction::COLUMN:
-            return render_column(e, column);
+            return pack_column(e, column);
           case pov::SubmitAction::RESUBMIT:
             return resubmit_frame(e->strobe_columns());
           case pov::SubmitAction::NONE:
@@ -666,7 +666,7 @@ private:
    *          boot in configure_segment().  Arm B segments read from x + W/2
    *          (opposite half of the image).
    */
-  [[nodiscard]] HS_O3_FN static bool render_column(Effect *e, int x) {
+  [[nodiscard]] HS_O3_FN static bool pack_column(Effect *e, int x) {
     const int w = e->width();
     const int x_col = pov::segment_x_col(segment.arm_b, x, w);
 
@@ -707,7 +707,7 @@ private:
    * @return true if the black frame was accepted by the LED transport; false
    *         if it was dropped on a DMA overrun (caller must retry, not latch).
    */
-  [[nodiscard]] static bool render_black() {
+  [[nodiscard]] static bool pack_black() {
     auto &frame = ledController.back_frame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
