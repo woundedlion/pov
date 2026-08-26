@@ -1103,7 +1103,41 @@ private:
     --pending_edit_count;
   }
 
+  /**
+   * @brief Whether the admission fixpoint still holds for the current inputs.
+   * @details run_admission_fixpoint() reads requested_config, accepted_config
+   * and the pending-edit set and nothing else, and admissible_config() is
+   * pure, so an unchanged triple leaves the fixpoint where the last run put
+   * it.
+   */
+  bool admission_fixpoint_settled() const {
+    if (!fixpoint_recorded || fixpoint_edit_count != pending_edit_count ||
+        !(fixpoint_requested == requested_config) ||
+        !(fixpoint_accepted == accepted_config))
+      return false;
+    for (size_t index = 0; index < pending_edit_count; ++index)
+      if (fixpoint_edits[index] != pending_edits[index].id)
+        return false;
+    return true;
+  }
+
+  void record_admission_fixpoint() {
+    fixpoint_requested = requested_config;
+    fixpoint_accepted = accepted_config;
+    fixpoint_edit_count = pending_edit_count;
+    for (size_t index = 0; index < pending_edit_count; ++index)
+      fixpoint_edits[index] = pending_edits[index].id;
+    fixpoint_recorded = true;
+  }
+
   void refresh_accepted_config() {
+    if (admission_fixpoint_settled())
+      return;
+    run_admission_fixpoint();
+    record_admission_fixpoint();
+  }
+
+  void run_admission_fixpoint() {
     if (admissible_config(requested_config)) {
       accepted_config = requested_config;
       pending_edit_count = 0;
@@ -3048,6 +3082,11 @@ private:
   Config display_config = PRESETS[0].config;
   std::array<PendingEdit, PARAM_CAPACITY> pending_edits{};
   size_t pending_edit_count = 0;
+  Config fixpoint_requested{};
+  Config fixpoint_accepted{};
+  std::array<ConfigFieldId, PARAM_CAPACITY> fixpoint_edits{};
+  size_t fixpoint_edit_count = 0;
+  bool fixpoint_recorded = false;
   mutable std::array<char, 1024> warning_text{};
 #endif
   RequestedConfig requested_config = PRESETS[0].config;
