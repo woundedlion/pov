@@ -262,6 +262,22 @@ class TestSketchSelection(unittest.TestCase):
                 self.assertEqual(os.path.basename(nodes[0]), leaf)
                 self.assertTrue(os.path.isabs(nodes[0]))
 
+    def test_each_mapping_names_the_sketch_that_env_compiles(self):
+        # platformio.ini spells the same sketch a second time, as the
+        # .ino.cpp PlatformIO converts it into: an env mapped to the other
+        # target's sketch links the wrong setup()/loop() and builds green.
+        mod, _ = self._run("phantasm")
+        cfg = _pio_config()
+        for name in _pio_envs():
+            with self.subTest(env=name):
+                compiled = re.findall(
+                    r"\+<([^>]+\.ino)\.cpp>",
+                    "\n".join(_option_lines(cfg, f"env:{name}",
+                                            "build_src_filter")))
+                self.assertEqual(len(compiled), 1, compiled)
+                self.assertEqual(mod.SKETCH[name].replace(os.sep, "/"),
+                                 compiled[0])
+
     def test_unknown_env_fails_loud(self):
         with self.assertRaises(SystemExit):
             self._run("not_an_env")
