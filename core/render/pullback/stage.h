@@ -95,19 +95,6 @@ coverage(const FieldSample &input, float factor) {
 namespace Detail {
 
 template <typename Policy, typename FrameState>
-consteval bool surface_policy_callable() {
-  if constexpr (PolicyPrepares<Policy, FrameState>)
-    return requires(const Vector &input, const FrameState &frame,
-                    const typename Policy::Prepared &prepared) {
-      { Policy::apply(input, frame, prepared) } -> std::same_as<SurfaceResult>;
-    };
-  else
-    return requires(const Vector &input, const FrameState &frame) {
-      { Policy::apply(input, frame) } -> std::same_as<SurfaceResult>;
-    };
-}
-
-template <typename Policy, typename FrameState>
 consteval bool warp_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
     return requires(
@@ -127,28 +114,15 @@ consteval bool warp_policy_callable() {
     };
 }
 
-template <typename Policy, typename FrameState>
-consteval bool source_policy_callable() {
+template <typename Policy, typename Input, typename FrameState>
+consteval bool sample_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
-    return requires(const PlaneSample &input, const FrameState &frame,
+    return requires(const Input &input, const FrameState &frame,
                     const typename Policy::Prepared &prepared) {
       { Policy::sample(input, frame, prepared) } -> std::same_as<float>;
     };
   else
-    return requires(const PlaneSample &input, const FrameState &frame) {
-      { Policy::sample(input, frame) } -> std::same_as<float>;
-    };
-}
-
-template <typename Policy, typename FrameState>
-consteval bool spherical_source_policy_callable() {
-  if constexpr (PolicyPrepares<Policy, FrameState>)
-    return requires(const SphereSample &input, const FrameState &frame,
-                    const typename Policy::Prepared &prepared) {
-      { Policy::sample(input, frame, prepared) } -> std::same_as<float>;
-    };
-  else
-    return requires(const SphereSample &input, const FrameState &frame) {
+    return requires(const Input &input, const FrameState &frame) {
       { Policy::sample(input, frame) } -> std::same_as<float>;
     };
 }
@@ -171,21 +145,6 @@ consteval bool weight_policy_callable() {
 }
 
 template <typename Policy, typename FrameState>
-consteval bool projection_coverage_policy_callable() {
-  if constexpr (PolicyPrepares<Policy, FrameState>)
-    return requires(const ProjectionProvenance &provenance,
-                    const FrameState &frame,
-                    const typename Policy::Prepared &prepared) {
-      { Policy::apply(provenance, frame, prepared) } -> std::same_as<float>;
-    };
-  else
-    return requires(const ProjectionProvenance &provenance,
-                    const FrameState &frame) {
-      { Policy::apply(provenance, frame) } -> std::same_as<float>;
-    };
-}
-
-template <typename Policy, typename FrameState>
 consteval bool orientation_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
     return requires(const FrameState &frame,
@@ -197,19 +156,6 @@ consteval bool orientation_policy_callable() {
   else
     return requires(const FrameState &frame) {
       { Policy::conjugate(frame) } -> std::same_as<const Quaternion &>;
-    };
-}
-
-template <typename Policy, typename FrameState>
-consteval bool lens_policy_callable() {
-  if constexpr (PolicyPrepares<Policy, FrameState>)
-    return requires(const Vector &input, const FrameState &frame,
-                    const typename Policy::Prepared &prepared) {
-      { Policy::apply(input, frame, prepared) } -> std::same_as<Vector>;
-    };
-  else
-    return requires(const Vector &input, const FrameState &frame) {
-      { Policy::apply(input, frame) } -> std::same_as<Vector>;
     };
 }
 
@@ -297,8 +243,8 @@ struct Displace
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      Detail::surface_policy_callable<SurfacePolicyT,
-                                      typename Binding::FrameState>();
+      Detail::apply_policy_callable<SurfacePolicyT, Vector, SurfaceResult,
+                                    typename Binding::FrameState>();
 
   template <typename Binding>
   HS_FLASH_INLINE static auto
@@ -335,7 +281,8 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      Detail::lens_policy_callable<LensPolicyT, typename Binding::FrameState>();
+      Detail::apply_policy_callable<LensPolicyT, Vector, Vector,
+                                    typename Binding::FrameState>();
 
   template <typename Binding>
   HS_FLASH_INLINE static auto
@@ -479,12 +426,12 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      Detail::source_policy_callable<SourcePolicyT,
+      Detail::sample_policy_callable<SourcePolicyT, PlaneSample,
                                      typename Binding::FrameState>() &&
       Detail::weight_policy_callable<WeightPolicyT,
                                      typename Binding::FrameState>() &&
-      Detail::projection_coverage_policy_callable<
-          CoveragePolicyT, typename Binding::FrameState>();
+      Detail::apply_policy_callable<CoveragePolicyT, ProjectionProvenance,
+                                    float, typename Binding::FrameState>();
 
   template <typename Binding>
   static constexpr bool MATERIAL_PREPARES =
@@ -562,8 +509,8 @@ struct SampleSphere
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      Detail::spherical_source_policy_callable<SourcePolicyT,
-                                               typename Binding::FrameState>();
+      Detail::sample_policy_callable<SourcePolicyT, SphereSample,
+                                     typename Binding::FrameState>();
 
   template <typename Binding>
   HS_FLASH_INLINE static auto
