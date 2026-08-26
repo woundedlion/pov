@@ -7,9 +7,10 @@ unions the copper geometry instead: tracks, vias, pads and zone fills that touch
 on a shared layer, per net. A net whose pads land in more than one island is an
 open.
 
-Pads are modelled by their circumscribed disc, so a marginal touch reads as
-connected. The error runs towards passing: this gate answers "is the copper
-still there", not "does it meet clearance" -- kicad-cli DRC owns that.
+A rectangular land is modelled by its rotated rectangle; every other pad by its
+circumscribed disc, so a marginal touch reads as connected. The error runs
+towards passing: this gate answers "is the copper still there", not "does it
+meet clearance" -- kicad-cli DRC owns that.
 """
 import argparse
 import math
@@ -88,7 +89,8 @@ def _point_in_polygon(point, polygon):
 
 
 class Capsule:
-    """A track segment, a via or a pad: a thick line, degenerate to a disc."""
+    """A track segment, a via or a round pad: a thick line, degenerate to a
+    disc."""
 
     def __init__(self, start, end, radius, layers):
         self.start, self.end, self.radius = start, end, radius
@@ -102,14 +104,14 @@ class Capsule:
     def touches(self, other):
         if self.layers.isdisjoint(other.layers):
             return False
-        if isinstance(other, Fill):
+        if isinstance(other, Polygon):
             return other.touches(self)
         gap = _segment_distance(self.start, self.end, other.start, other.end)
         return gap <= self.radius + other.radius + TOUCH_TOLERANCE
 
 
-class Fill:
-    """One filled polygon of a copper pour, on one layer.
+class Polygon:
+    """A copper outline: one layer of a pour fill, or a rectangular pad land.
 
     A pour voids around a through-hole pad and reaches it through thermal
     spokes, so the pad centre sits outside the fill while the annulus overlaps
@@ -117,8 +119,8 @@ class Fill:
     the item".
     """
 
-    def __init__(self, polygon, layer):
-        self.polygon, self.layers = polygon, {layer}
+    def __init__(self, polygon, layers):
+        self.polygon, self.layers = polygon, layers
 
     def edges(self):
         return zip(self.polygon, self.polygon[1:] + self.polygon[:1])
@@ -126,7 +128,7 @@ class Fill:
     def touches(self, other):
         if self.layers.isdisjoint(other.layers):
             return False
-        if isinstance(other, Fill):
+        if isinstance(other, Polygon):
             if any(_point_in_polygon(p, self.polygon) for p in other.polygon):
                 return True
             if any(_point_in_polygon(p, other.polygon) for p in self.polygon):
@@ -142,16 +144,38 @@ class Fill:
                    for a, b in self.edges())
 
 
-def pad_capsule(pad, origin, rotation, stack):
-    """Pad copper as a disc around its centre, sized to circumscribe the land.
+def _rectangle(centre, width, height, degrees):
+    """Corners of a rectangle centred on `centre`, rotated into the board."""
+    dx, dy = width / 2, height / 2
+    return [(centre[0] + x, centre[1] + y)
+            for x, y in (_rotate(corner, degrees) for corner in
+                         ((-dx, -dy), (dx, -dy), (dx, dy), (-dx, dy)))]
+
+
+def pad_copper(pad, origin, rotation, stack):
+    """Pad copper: a rectangular land as its rotated rectangle, anything else as
+    a disc around its centre, sized to circumscribe the land.
 
     Custom pads carry primitives outside the base size, so their reach is the
     furthest primitive vertex or circle rim.
     """
-    offset = _rotate(_xy(sexp.val(pad, "at")), rotation)
+    placement = sexp.val(pad, "at")
+    offset = _rotate(_xy(placement), rotation)
     centre = (origin[0] + offset[0], origin[1] + offset[1])
     width, height = _xy(sexp.val(pad, "size"))
     shape = str(pad[3])
+    names = [str(value) for value in sexp.val(pad, "layers")]
+    layers = (set(stack) if "*.Cu" in names
+              else {name for name in names if name.endswith(".Cu")})
+    if shape in {"rect", "roundrect", "trapezoid"}:
+        # A pad angle is absolute: KiCad folds the footprint rotation into it.
+        angle = float(placement[2]) if len(placement) > 2 else 0.0
+        # A trapezoid's rect_delta pushes corners outside (size); box them in.
+        skew = sexp.val(pad, "rect_delta")
+        if skew:
+            width, height = (width + abs(float(skew[1])),
+                             height + abs(float(skew[0])))
+        return Polygon(_rectangle(centre, width, height, angle), layers)
     radius = (max(width, height) / 2 if shape in {"circle", "oval"}
               else math.hypot(width, height) / 2)
     if shape == "custom":
@@ -167,9 +191,6 @@ def pad_capsule(pad, origin, rotation, stack):
             elif str(primitive[0]) == "gr_poly":
                 for vertex in F(F(primitive, "pts")[0], "xy"):
                     radius = max(radius, math.hypot(*_xy(vertex[1:])))
-    names = [str(value) for value in sexp.val(pad, "layers")]
-    layers = (set(stack) if "*.Cu" in names
-              else {name for name in names if name.endswith(".Cu")})
     return Capsule(centre, centre, radius, layers)
 
 
@@ -243,7 +264,7 @@ def board_copper(root):
             net = net_id(pad)
             if net is None:
                 continue
-            item = pad_capsule(pad, origin, rotation, stack)
+            item = pad_copper(pad, origin, rotation, stack)
             copper.setdefault(net, []).append(item)
             pads.setdefault(net, []).append(((reference, str(pad[1])), item))
     for segment in F(root, "segment"):
@@ -267,7 +288,7 @@ def board_copper(root):
             # naming its own; a fill that names none covers the whole zone.
             own = sexp.val(filled, "layer")
             for layer in ([str(own[0])] if own else declared):
-                copper.setdefault(net, []).append(Fill(polygon, layer))
+                copper.setdefault(net, []).append(Polygon(polygon, {layer}))
     return copper, pads, names
 
 

@@ -48,6 +48,33 @@ ROUND_PAD_BOARD = """(kicad_pcb
 \t)
 )"""
 
+# A chip resistor placed at 90 degrees: KiCad folds the footprint rotation into
+# the pad angle, so the land's long axis runs across the (size) x axis.
+ROTATED_LAND_BOARD = """(kicad_pcb
+	(layers (0 "F.Cu" signal))
+	(footprint "R"
+		(layer "F.Cu")
+		(at 29.7 22.8 90)
+		(property "Reference" "R2")
+		(pad "1" smd roundrect (at -0.825 0 90) (size 1.2 0.95) (layers "F.Cu") (net "/R"))
+	)
+)"""
+
+# Two SOIC-14 lands on one net, with the track stopping 0.535 mm short of the
+# second: bare laminate, yet inside the disc that circumscribes a 1.95 x 0.6
+# land.
+SOIC_BOARD = """(kicad_pcb
+	(layers (0 "F.Cu" signal))
+	(footprint "SOIC"
+		(layer "F.Cu")
+		(at 0 0)
+		(property "Reference" "U1")
+		(pad "1" smd roundrect (at 0 0) (size 1.95 0.6) (layers "F.Cu") (net "/SIG"))
+		(pad "11" smd roundrect (at 0 -3) (size 1.95 0.6) (layers "F.Cu") (net "/SIG"))
+	)
+	(segment (start 0 0) (end 0 -2.065) (width 0.2) (layer "F.Cu") (net "/SIG"))
+)"""
+
 # The solder-jumper land: a custom pad whose primitives reach past (size),
 # with KiCad's own nesting under (primitives ...).
 CUSTOM_PAD_BOARD = """(kicad_pcb
@@ -133,32 +160,60 @@ class SyntheticBoardTests(unittest.TestCase):
         root = parse(ROUND_PAD_BOARD)
         pads = list(connectivity.F(
             connectivity.F(root, "footprint")[0], "pad"))
-        first = connectivity.pad_capsule(pads[0], (0, 0), 0, ["F.Cu"])
+        first = connectivity.pad_copper(pads[0], (0, 0), 0, ["F.Cu"])
         self.assertAlmostEqual(first.radius, 1.35)
+
+    def test_a_rectangular_land_is_the_rotated_rectangle(self):
+        root = parse(ROTATED_LAND_BOARD)
+        pad = connectivity.F(
+            connectivity.F(root, "footprint")[0], "pad")[0]
+        land = connectivity.pad_copper(pad, (29.7, 22.8), 90, ["F.Cu"])
+        xs = sorted(round(x, 3) for x, _ in land.polygon)
+        ys = sorted(round(y, 3) for _, y in land.polygon)
+        self.assertEqual((xs[0], xs[-1]), (29.225, 30.175))
+        self.assertEqual((ys[0], ys[-1]), (23.025, 24.225))
+
+    def test_a_trapezoid_land_boxes_in_its_rect_delta(self):
+        text = ROTATED_LAND_BOARD.replace(
+            'roundrect (at -0.825 0 90) (size 1.2 0.95)',
+            'trapezoid (at -0.825 0) (size 1 2) (rect_delta 0.4 0)')
+        pad = connectivity.F(
+            connectivity.F(parse(text), "footprint")[0], "pad")[0]
+        land = connectivity.pad_copper(pad, (0, 0), 0, ["F.Cu"])
+        xs = sorted(round(x, 3) for x, _ in land.polygon)
+        ys = sorted(round(y, 3) for _, y in land.polygon)
+        self.assertEqual((xs[0], xs[-1]), (-1.325, -0.325))
+        self.assertEqual((ys[0], ys[-1]), (-1.2, 1.2))
 
     def test_a_custom_pad_reaches_its_furthest_primitive(self):
         root = parse(CUSTOM_PAD_BOARD)
         pad = connectivity.F(
             connectivity.F(root, "footprint")[0], "pad")[0]
-        capsule = connectivity.pad_capsule(pad, (0, 0), 0, ["F.Cu"])
+        capsule = connectivity.pad_copper(pad, (0, 0), 0, ["F.Cu"])
         # (size 1 0.5) circumscribes to 0.559; the poly corner is 0.901 out.
         self.assertAlmostEqual(capsule.radius, math.hypot(0.5, 0.75))
 
     def test_fill_overlap_is_symmetric(self):
-        big = connectivity.Fill([(0, 0), (10, 0), (10, 10), (0, 10)], "In1.Cu")
-        small = connectivity.Fill([(4, 4), (6, 4), (6, 6), (4, 6)], "In1.Cu")
+        big = connectivity.Polygon(
+            [(0, 0), (10, 0), (10, 10), (0, 10)], {"In1.Cu"})
+        small = connectivity.Polygon(
+            [(4, 4), (6, 4), (6, 6), (4, 6)], {"In1.Cu"})
         self.assertTrue(big.touches(small))
         self.assertTrue(small.touches(big))
 
     def test_fills_crossing_edge_on_overlap(self):
-        across = connectivity.Fill([(0, 4), (10, 4), (10, 6), (0, 6)], "In1.Cu")
-        down = connectivity.Fill([(4, 0), (6, 0), (6, 10), (4, 10)], "In1.Cu")
+        across = connectivity.Polygon(
+            [(0, 4), (10, 4), (10, 6), (0, 6)], {"In1.Cu"})
+        down = connectivity.Polygon(
+            [(4, 0), (6, 0), (6, 10), (4, 10)], {"In1.Cu"})
         self.assertTrue(across.touches(down))
         self.assertTrue(down.touches(across))
 
     def test_disjoint_fills_do_not_overlap(self):
-        left = connectivity.Fill([(0, 0), (1, 0), (1, 1), (0, 1)], "In1.Cu")
-        right = connectivity.Fill([(5, 0), (6, 0), (6, 1), (5, 1)], "In1.Cu")
+        left = connectivity.Polygon(
+            [(0, 0), (1, 0), (1, 1), (0, 1)], {"In1.Cu"})
+        right = connectivity.Polygon(
+            [(5, 0), (6, 0), (6, 1), (5, 1)], {"In1.Cu"})
         self.assertFalse(left.touches(right))
         self.assertFalse(right.touches(left))
 
@@ -190,6 +245,14 @@ class SyntheticBoardTests(unittest.TestCase):
         self.assertEqual(broken,
                          {"ROUND": [[("J1", "1")], [("J1", "2")]]})
 
+    def test_rectangular_lands_do_not_bridge_bare_laminate(self):
+        broken = connectivity.opens(parse(SOIC_BOARD))
+        self.assertEqual(broken, {"SIG": [[("U1", "1")], [("U1", "11")]]})
+
+    def test_a_track_landing_on_a_rectangular_land_connects(self):
+        text = SOIC_BOARD.replace("(end 0 -2.065)", "(end 0 -2.7)")
+        self.assertEqual(connectivity.opens(parse(text)), {})
+
     def test_a_pour_carries_through_hole_pads_it_voids_around(self):
         self.assertEqual(connectivity.opens(parse(POUR_BOARD)), {})
 
@@ -210,7 +273,7 @@ class SyntheticBoardTests(unittest.TestCase):
     def test_a_multi_layer_pour_is_placed_on_every_layer_it_spans(self):
         copper, _, _ = connectivity.board_copper(parse(SPAN_POUR_BOARD))
         fills = [item for item in copper["GND"]
-                 if isinstance(item, connectivity.Fill)]
+                 if isinstance(item, connectivity.Polygon)]
         self.assertEqual(sorted(layer for fill in fills for layer in fill.layers),
                          ["B.Cu", "In1.Cu"])
 
