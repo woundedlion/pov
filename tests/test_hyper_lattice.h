@@ -610,6 +610,9 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   using Effect = HyperLatticeWhiteBox::Effect;
   Effect effect;
   effect.init();
+  const ParamDef *cell_size = effect.getParameters().find("Cell Size");
+  HS_EXPECT_TRUE(cell_size != nullptr);
+  HS_EXPECT_EQ(cell_size->max, 10.0f);
   const ParamDef *dimension = effect.getParameters().find("Dimension");
   HS_EXPECT_TRUE(dimension != nullptr);
   HS_EXPECT_TRUE(dimension->is_enum());
