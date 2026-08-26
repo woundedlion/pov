@@ -699,6 +699,16 @@ def validate_budgets(budgets: object) -> dict:
                             f"{cwhere} max_banks_from_stack_floor: "
                             f"'min_headroom_bytes' must be a non-negative "
                             f"integer.")
+                    # The bank geometry divides the derivation, so a zero or a
+                    # non-integer would raise out of evaluate() and exit 1 -
+                    # the code that means a size-budget violation.
+                    for key in ("bank_bytes", "total_banks"):
+                        count = derived[key]
+                        if (not isinstance(count, int) or
+                                isinstance(count, bool) or count <= 0):
+                            raise BudgetSchemaError(
+                                f"{cwhere} max_banks_from_stack_floor: "
+                                f"'{key}' must be a positive integer.")
         syms = _child_map(budget, "symbols", f"env '{env}'")
         _require_present(
             syms,
@@ -766,8 +776,13 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Teensy 4 size/layout gate (parser).")
     p.add_argument("--env", required=True, help="budget key, e.g. holosphere")
     p.add_argument("--budgets", default="tools/teensy_budgets.json")
-    p.add_argument("--teensy-size", help="file with captured teensy_size stdout")
-    p.add_argument("--size-a", help="file with captured `size -A` output (fallback)")
+    # Exclusive: the two carry different measurements of the same regions, so a
+    # caller passing both would have one of them silently ignored.
+    sizes_from = p.add_mutually_exclusive_group(required=True)
+    sizes_from.add_argument("--teensy-size",
+                            help="file with captured teensy_size stdout")
+    sizes_from.add_argument("--size-a",
+                            help="file with captured `size -A` output (fallback)")
     p.add_argument("--readelf-syms", required=True, help="file with `readelf -s` output")
     p.add_argument("--readelf-secs", help="file with `readelf -S` output")
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
@@ -792,24 +807,21 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
 
-    used_size_a_fallback = False
+    used_size_a_fallback = not args.teensy_size
     try:
         if args.teensy_size:
             sizes = parse_teensy_size(read_capture(args.teensy_size))
-        elif args.size_a:
-            used_size_a_fallback = True
-            sizes = fallback_sizes_from_size_a(read_capture(args.size_a))
         else:
-            p.error("one of --teensy-size or --size-a is required")
+            sizes = fallback_sizes_from_size_a(read_capture(args.size_a))
     except TeensySizeFormatError as exc:
         print(f"::error::teensy-gate: invalid teensy_size output ({exc}). "
               f"This is a tooling/format error, not a size-budget "
-              f"violation.")
+              f"violation.", file=sys.stderr)
         return 2
     except SizeAFormatError as exc:
         print(f"::error::teensy-gate: invalid `size -A` output ({exc}). "
               f"This is a tooling/format error, not a size-budget "
-              f"violation.")
+              f"violation.", file=sys.stderr)
         return 2
     except OSError as exc:
         print(f"::error::teensy-gate: cannot read the captured size output "
@@ -821,7 +833,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"::error::teensy-gate: env '{args.env}' declares per-component "
               f"ceilings, which the `size -A` fallback cannot measure. No "
               f"component figure was read: this is a tooling break, not a "
-              f"size-budget violation — re-run with --teensy-size.")
+              f"size-budget violation — re-run with --teensy-size.",
+              file=sys.stderr)
         return 2
 
     try:
