@@ -311,6 +311,19 @@ def duplicates_pin(text: str, name: str, value: str) -> bool:
     return False
 
 
+def read_scanned(path: Path, errors: list[str]) -> str | None:
+    """Text of a scanned file, or None with the failure recorded as an error.
+
+    Every scanned path is named in a table here, so a rename or a deletion is a
+    finding this gate reports; a traceback out of a hook is not a report.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as error:
+        errors.append(f"{path.relative_to(ROOT)}: cannot be read ({error})")
+        return None
+
+
 def check_inline_pins() -> list[str]:
     """Return one error per occurrence of an INLINE_PINS value that disagrees
     with the pin, plus one per INLINE_USES spelling found the wrong number of
@@ -324,7 +337,9 @@ def check_inline_pins() -> list[str]:
     pin_values = {**PINS, **INLINE_PINS}
     seen: dict[str, int] = {pattern: 0 for pattern, _, _, _ in INLINE_USES}
     for path in INLINE_SCAN:
-        text = path.read_text(encoding="utf-8")
+        text = read_scanned(path, errors)
+        if text is None:
+            continue
         for index, line in enumerate(text.splitlines(), 1):
             for pattern, name, form, _ in INLINE_USES:
                 want = form(pin_values[name])
@@ -352,7 +367,9 @@ def check_shared_literals() -> list[str]:
         want = SHARED_LITERALS[name]
         occurrences = 0
         for path in INLINE_SCAN:
-            text = path.read_text(encoding="utf-8")
+            text = read_scanned(path, errors)
+            if text is None:
+                continue
             for index, line in enumerate(text.splitlines(), 1):
                 for found in re.findall(pattern, line):
                     occurrences += 1
@@ -378,7 +395,14 @@ def check_engine_ranges() -> list[str]:
     errors: list[str] = []
     for path, keys, name in ENGINE_RANGES:
         where = path.relative_to(ROOT)
-        node = json.loads(path.read_text(encoding="utf-8"))
+        text = read_scanned(path, errors)
+        if text is None:
+            continue
+        try:
+            node = json.loads(text)
+        except json.JSONDecodeError as error:
+            errors.append(f"{where}: is not valid JSON ({error})")
+            continue
         for key in keys:
             node = node.get(key) if isinstance(node, dict) else None
         if not isinstance(node, str):
@@ -408,9 +432,10 @@ def check_flexram_geometry() -> list[str]:
     budgets_path = ROOT / "tools/teensy_budgets.json"
     try:
         budgets = teensy_gate.load_budgets(budgets_path)
-    except ValueError as exc:
-        # BudgetSchemaError, a JSON syntax error and an unterminated block
-        # comment are all ValueError; a traceback out of a hook is not a report.
+    except (OSError, ValueError) as exc:
+        # An unreadable file, a BudgetSchemaError, a JSON syntax error and an
+        # unterminated block comment all land here; a traceback out of a hook is
+        # not a report.
         return [f"tools/teensy_budgets.json: {exc}"]
     derived = budgets["phantasm"]["regions"]["ram1"][
         "components"]["code"]["max_banks_from_stack_floor"]
@@ -418,14 +443,18 @@ def check_flexram_geometry() -> list[str]:
     total_banks = derived["total_banks"]
     errors: list[str] = []
 
-    gate_text = (ROOT / "tools/teensy_gate.py").read_text(encoding="utf-8")
-    gate_match = re.search(r"^FLEXRAM_BANK_BYTES = (0x[0-9a-fA-F]+|\d+)$",
-                           gate_text, re.MULTILINE)
-    if gate_match is None or int(gate_match.group(1), 0) != bank_bytes:
-        errors.append("tools/teensy_gate.py: FlexRAM bank size differs from teensy_budgets.json")
+    gate_text = read_scanned(ROOT / "tools/teensy_gate.py", errors)
+    if gate_text is not None:
+        gate_match = re.search(r"^FLEXRAM_BANK_BYTES = (0x[0-9a-fA-F]+|\d+)$",
+                               gate_text, re.MULTILINE)
+        if gate_match is None or int(gate_match.group(1), 0) != bank_bytes:
+            errors.append("tools/teensy_gate.py: FlexRAM bank size differs "
+                          "from teensy_budgets.json")
 
     shift = bank_bytes.bit_length() - 1
-    linker = (ROOT / "tools/phantasm.ld").read_text(encoding="utf-8")
+    linker = read_scanned(ROOT / "tools/phantasm.ld", errors)
+    if linker is None:
+        return errors
     linker_spellings = (
         f"+ 0x{bank_bytes - 1:X}) >> {shift}",
         f"(({total_banks} - _itcm_block_count) << {shift})",
@@ -445,7 +474,12 @@ def installed_sources() -> list[str]:
     select right now, so a document dropped into patterns/ joins the set by
     existing rather than by being listed anywhere.
     """
-    text = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+    # An unreadable CMakeLists.txt yields no install source, which
+    # check_install_eol reports rather than raising out of the hook.
+    try:
+        text = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+    except OSError:
+        return []
     sources: set[str] = set()
     for kind, body in INSTALL_RULE.findall(text):
         head, _, destination = body.partition("DESTINATION")
@@ -506,13 +540,17 @@ def check_consumers() -> int:
     for name in sorted(set(CHECK_TOOLS) - set(PINS | INLINE_PINS)):
         errors.append(f"CHECK_TOOLS names {name}, which is not a pin")
     for path, references in CONSUMERS.items():
-        text = path.read_text(encoding="utf-8")
+        text = read_scanned(path, errors)
+        if text is None:
+            continue
         for reference in references:
             if reference not in text:
                 errors.append(f"{path.relative_to(ROOT)}: missing {reference!r}")
     duplicate_paths = set(workflow_files()) | set(CONSUMERS)
     for path in sorted(duplicate_paths):
-        text = path.read_text(encoding="utf-8")
+        text = read_scanned(path, errors)
+        if text is None:
+            continue
         for name, value in PINS.items():
             if duplicates_pin(text, name, value):
                 errors.append(

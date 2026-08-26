@@ -200,6 +200,57 @@ class InlinePins(unittest.TestCase):
             '  if [ "$major" != "$HS_CLANG_FORMAT_MAJOR" ]; then', lines)
 
 
+class UnreadableScannedFile(unittest.TestCase):
+    """A renamed scanned path is an error line, not a traceback out of the hook.
+
+    Every scanned path is named in a table here, so a rename leaves the table
+    pointing at nothing; the pre-commit hook runs these checks, and a
+    FileNotFoundError there reports no finding at all.
+    """
+
+    def test_a_missing_inline_scan_entry_is_reported(self):
+        missing = bp.ROOT / "no-such-build-file.yml"
+        with unittest.mock.patch.object(bp, "INLINE_SCAN", (missing,)):
+            inline = bp.check_inline_pins()
+            shared = bp.check_shared_literals()
+        self.assertTrue(any("no-such-build-file.yml" in e for e in inline))
+        self.assertTrue(any("no-such-build-file.yml" in e for e in shared))
+
+    def test_a_missing_consumer_is_reported(self):
+        import contextlib
+        import io
+        missing = bp.ROOT / "no-such-consumer.yml"
+        out = io.StringIO()
+        with unittest.mock.patch.object(bp, "CONSUMERS", {missing: ("x",)}), \
+                contextlib.redirect_stdout(out):
+            status = bp.check_consumers()
+        self.assertEqual(status, 1)
+        self.assertIn("no-such-consumer.yml", out.getvalue())
+
+    def test_a_manifest_that_is_not_json_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "package.json"
+            manifest.write_text("{not json", encoding="utf-8")
+            with unittest.mock.patch.object(
+                    bp, "ENGINE_RANGES",
+                    ((manifest, ("engines", "node"), "node"),)), \
+                    unittest.mock.patch.object(bp, "ROOT", Path(tmp)):
+                errors = bp.check_engine_ranges()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("not valid JSON", errors[0])
+
+    def test_a_missing_manifest_is_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "package.json"
+            with unittest.mock.patch.object(
+                    bp, "ENGINE_RANGES",
+                    ((manifest, ("engines", "node"), "node"),)), \
+                    unittest.mock.patch.object(bp, "ROOT", Path(tmp)):
+                errors = bp.check_engine_ranges()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("cannot be read", errors[0])
+
+
 class ConsumerCallSites(unittest.TestCase):
     def test_every_build_pin_gate_entry_point_is_required(self):
         paths = (bp.ROOT / ".github/workflows/ci.yml",
