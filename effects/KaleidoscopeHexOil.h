@@ -61,6 +61,8 @@ public:
     return value;
   }
   static constexpr Params preset_params(size_t index) {
+    static_assert(PRESET_IDS.size() == 2,
+                  "a new preset id needs a branch below");
     Params value = initial_params();
     if (index == 1) {
       value.surface.scale = 3.6627343f;

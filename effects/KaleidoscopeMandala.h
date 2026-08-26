@@ -73,6 +73,8 @@ public:
    * full hue rotation over a wider hue-noise field.
    */
   static constexpr Params preset_params(size_t index) {
+    static_assert(PRESET_IDS.size() == 2,
+                  "a new preset id needs a branch below");
     Params value = initial_params();
     if (index == 1) {
       value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;

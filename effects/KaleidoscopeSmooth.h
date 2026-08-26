@@ -85,6 +85,8 @@ public:
    * the mirror-tile cell and rotation.
    */
   static constexpr Params preset_params(size_t index) {
+    static_assert(PRESET_IDS.size() == 4,
+                  "a new preset id needs a branch below");
     Params value = initial_params();
     if (index == 0)
       return value;
