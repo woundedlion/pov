@@ -45,8 +45,15 @@ EXCEPTIONS = {
 }
 
 # Markers that cannot stand beside each other: a header granting PolyForm while
-# reserving all rights tells a licensee two incompatible things.
-CONTRADICTIONS = {POLYFORM: RESERVED, RESERVED: POLYFORM}
+# reserving all rights tells a licensee two incompatible things, and so does a
+# third-party header carrying either. The two MIT markers spell one grant, so
+# they do not contradict each other.
+CONTRADICTIONS = {
+    POLYFORM: (RESERVED, MIT_GRANT, MIT_TITLE),
+    RESERVED: (POLYFORM, MIT_GRANT, MIT_TITLE),
+    MIT_GRANT: (POLYFORM, RESERVED),
+    MIT_TITLE: (POLYFORM, RESERVED),
+}
 
 LICENSE_EXCEPTIONS_HEADING = (
     "Exceptions outside `effects/`, each carrying its own terms in its own header:"
@@ -122,10 +129,10 @@ def header_issue(path: str, head: str) -> str | None:
         return f"no copyright notice in the first {HEAD_BYTES} bytes"
     if marker.lower() not in folded:
         return f"header does not carry {marker!r}, which LICENSE grants this path"
-    contradiction = CONTRADICTIONS.get(marker)
-    if contradiction is not None and contradiction.lower() in folded:
-        return (f"header carries {contradiction!r} alongside {marker!r}; "
-                f"LICENSE gives this path only the latter")
+    for contradiction in CONTRADICTIONS[marker]:
+        if contradiction.lower() in folded:
+            return (f"header carries {contradiction!r} alongside {marker!r}; "
+                    f"LICENSE gives this path only the latter")
     return None
 
 
