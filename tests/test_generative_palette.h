@@ -722,6 +722,8 @@ constexpr int LERP_ENDPOINT_HEADROOM = 2;
 /** Endpoint-approach allowance for a 0.001 lerp step, 16-bit scale. */
 constexpr int LERP_ENDPOINT_TOLERANCE =
     MEASURED_LERP_ENDPOINT_DELTA * LERP_ENDPOINT_HEADROOM;
+/** Endpoint step for the mixed-curve arms, whose axes are further apart. */
+constexpr float MIXED_CURVE_ENDPOINT_STEP = 0.0001f;
 
 inline void test_generative_palette_lerp_mixed_curves_continuous() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
@@ -752,6 +754,39 @@ inline void test_generative_palette_lerp_mixed_curves_continuous() {
   morph_lut.rebake(morph);
   std::printf("  [lerp-endpoint] from worst=%d\n",
               expect_baked_near(morph_lut, from_lut, LERP_ENDPOINT_TOLERANCE));
+
+  // A snapshot morph between two analytic curves must not snap back to either
+  // curve at the endpoints: the interior collapses the mixed pair to CUSTOM.
+  const PaletteRecipe bell_recipe =
+      PaletteRecipes::profile(PaletteDomain::STRAIGHT,
+                              PaletteHarmony::ANALOGOUS, AxisCurve::BELL, 0.1f);
+  const GenerativePalette bell(bell_recipe);
+  const GenerativePalette::Snapshot bell_keys = bell.snapshot();
+  const GenerativePalette::Snapshot ascending_keys =
+      GenerativePalette(PaletteRecipes::profile(PaletteDomain::STRAIGHT,
+                                                PaletteHarmony::ANALOGOUS,
+                                                AxisCurve::ASCENDING, 0.1f))
+          .snapshot();
+  BakedPalette endpoint_lut;
+  endpoint_lut.bake(arena, bell);
+
+  GenerativePalette snapshot_morph(bell_recipe);
+  snapshot_morph.lerp(bell_keys, ascending_keys, 0.0f);
+  endpoint_lut.rebake(snapshot_morph);
+  snapshot_morph.lerp(bell_keys, ascending_keys, MIXED_CURVE_ENDPOINT_STEP);
+  morph_lut.rebake(snapshot_morph);
+  std::printf(
+      "  [lerp-endpoint] mixed-curve from worst=%d\n",
+      expect_baked_near(morph_lut, endpoint_lut, LERP_ENDPOINT_TOLERANCE));
+
+  snapshot_morph.lerp(bell_keys, ascending_keys, 1.0f);
+  endpoint_lut.rebake(snapshot_morph);
+  snapshot_morph.lerp(bell_keys, ascending_keys,
+                      1.0f - MIXED_CURVE_ENDPOINT_STEP);
+  morph_lut.rebake(snapshot_morph);
+  std::printf(
+      "  [lerp-endpoint] mixed-curve to worst=%d\n",
+      expect_baked_near(morph_lut, endpoint_lut, LERP_ENDPOINT_TOLERANCE));
 }
 
 inline void test_generative_palette_lerp_interpolates_loop_seam() {
