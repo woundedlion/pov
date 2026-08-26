@@ -2615,6 +2615,24 @@ inline void case_path_append_zero_samples() {
 }
 
 /**
+ * @brief Death case: a HueWobbleShade depth past the fast-trig argument range.
+ */
+inline void case_hue_wobble_depth_out_of_range() {
+  static float phase = 0.0f;
+  HueWobbleShade shade(&phase, 1.0f, opaque(1.0e6f));
+  (void)shade;
+}
+
+/**
+ * @brief Death case: a negative IridescentShade weight zeroes the overlay.
+ */
+inline void case_iridescent_weight_negative() {
+  static float phase = 0.0f;
+  IridescentShade shade(&phase, 3.0f, opaque(-0.5f));
+  (void)shade;
+}
+
+/**
  * @brief Death case: AlphaFalloffShade requires a non-null callback.
  */
 inline void case_alpha_falloff_null() {
@@ -4193,6 +4211,13 @@ inline const Case *all_cases(int &n) {
        "(dot(current_v, current_v) >= math::EPS_LEN_SQ && dot(target_v, "
        "target_v) >= math::EPS_LEN_SQ) Motion: path sampled at the origin "
        "(empty or origin-crossing path)"},
+      {"hue_wobble_depth_out_of_range", case_hue_wobble_depth_out_of_range,
+       "composition.h",
+       "(fabsf(depth) * (2.0f * PI_F) < PALETTE_PHASE_ARG_LIMIT) "
+       "HueWobbleShade: depth must stay inside the fast-trig argument range"},
+      {"iridescent_weight_negative", case_iridescent_weight_negative,
+       "composition.h",
+       "(weight >= 0.0f) IridescentShade: weight must be non-negative"},
       {"alpha_falloff_null", case_alpha_falloff_null, "composition.h",
        "(fn != nullptr) AlphaFalloffShade: falloff function must not be null"},
       {"noise_hue_palette_null_source", case_noise_hue_palette_null_source,
