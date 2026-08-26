@@ -149,6 +149,17 @@ inline void test_helpers() {
   HS_EXPECT_EQ(c.cycles_per_column(), COL);
   HS_EXPECT_EQ(c.glitch_filter_cycles, 60000u); // 100 µs
 
+  // Flywheel::position() carries the elapsed cycle count as int32 across
+  // MIN_SAFE_HALF_REVS of coast, so a period whose product overflows that is a
+  // bad constant valid() must name, not a runtime condition the flywheel
+  // discovers at construction. Boundary is inclusive.
+  Config pw = test_config();
+  pw.cycles_per_half_rev =
+      static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS;
+  HS_EXPECT_TRUE(pw.valid() == nullptr);
+  ++pw.cycles_per_half_rev;
+  HS_EXPECT_TRUE(pw.valid() != nullptr);
+
   // The beacon's 6-bit rev field resyncs a slip only in (-32, +32), so the
   // beacon period must stay below the half-window: a period >= 32 leaves the
   // resync precondition unenforced. Boundary is exclusive (32 is rejected, 31
