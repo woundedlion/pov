@@ -67,16 +67,26 @@ inline constexpr bool is_morphable_step(const OpStep &step) {
 }
 
 // The shipping steps sitting on the coverage bounds: raising one past its bound
-// drops the whole recipe to the whole-generate fallback, silently.
-static_assert(is_morphable_step(TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[1]),
-              "shipped chamfer thickness exceeds CHAMFER_T_MAX");
-static_assert(is_morphable_step(
-                  TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[0]),
-              "shipped far-side truncate exceeds T_TRUNCATE_FAR_MAX");
+// drops the whole recipe to the whole-generate fallback, silently. Each pins the
+// op it addresses as well, so a step inserted ahead of the index cannot leave
+// the bound assert passing on an unconditionally-morphable op.
 static_assert(
-    is_morphable_step(
-        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[2]),
-    "shipped sub-T_EPS truncate falls below T_TRUNCATE_ARRIVAL_MIN");
+    TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[1].op == Op::CHAMFER &&
+        is_morphable_step(TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[1]),
+    "shipped chamfer step moved, or its thickness exceeds CHAMFER_T_MAX");
+static_assert(
+    TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[0].op ==
+            Op::TRUNCATE &&
+        is_morphable_step(
+            TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[0]),
+    "shipped far-side truncate moved, or it exceeds T_TRUNCATE_FAR_MAX");
+static_assert(
+    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[2].op ==
+            Op::TRUNCATE &&
+        is_morphable_step(
+            TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[2]),
+    "shipped sub-T_EPS truncate moved, or it falls below "
+    "T_TRUNCATE_ARRIVAL_MIN");
 
 /**
  * @brief Number of primitive steps a recipe lowers to.
