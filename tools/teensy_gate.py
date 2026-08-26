@@ -595,6 +595,13 @@ _REGION_REQUIRED_KEYS_BY_REGION: dict[str, frozenset[str]] = {
     "ram2": _REGION_REQUIRED_KEYS | {"free_min_bytes"},
 }
 
+# Layout symbols whose invariant is magnitude, not placement. Shrinking the
+# arena *frees* RAM1, so no region ceiling and no stack floor fires: without
+# these bounds an ELF whose arena block collapsed to 64 KiB passes.
+_SYMBOL_REQUIRED_KEYS_BY_SYMBOL: dict[str, frozenset[str]] = {
+    "arena": _SYMBOL_REQUIRED_KEYS | {"min_bytes", "max_bytes"},
+}
+
 # Region objects and layout symbols every target budget must declare. Both
 # loops in evaluate() iterate whatever the budget carries, so deleting a whole
 # object removes its ceiling / invariant with no violation and no unknown-key
@@ -699,7 +706,8 @@ def validate_budgets(budgets: object) -> dict:
             f"env '{env}'", "layout symbol")
         for key, spec in syms.items():
             _check_keys(spec, _SYMBOL_KEYS, f"env '{env}' symbol '{key}'",
-                        required=_SYMBOL_REQUIRED_KEYS)
+                        required=_SYMBOL_REQUIRED_KEYS_BY_SYMBOL.get(
+                            key, _SYMBOL_REQUIRED_KEYS))
     return budgets
 
 
