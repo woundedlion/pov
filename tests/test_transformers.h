@@ -26,7 +26,8 @@
  *                               slide cap binds the displacement at atan(0.5).
  *   - Transformer<>           : no active entities → identity; a spawned entity
  *                               applies and multiple entities compose; a recycled
- *                               freed slot composes in spawn order, not slot order.
+ *                               freed slot composes in spawn order, not slot order;
+ *                               spawn_pausable() freezes the event's start delay.
  *   - FieldTransformer<>      : no active entities → 0; spawned entities sum;
  *                               field_bound sums the per-entity bounds;
  *                               active_params runs in spawn order; a completed
@@ -854,6 +855,56 @@ inline void test_transformer_spawn_applies_and_composes() {
                         std::abs(r.z - single[i].z);
   }
   HS_EXPECT_GT(total_divergence, 1e-3f);
+}
+
+// ============================================================================
+// Transformer<> spawn_pausable() gates the whole event, start delay included
+// ============================================================================
+
+/**
+ * @brief Verifies spawn_pausable() freezes the spawned event's pending start
+ *        delay, not just the animation once it has begun.
+ * @details An unpaused pool spawned with the same delay and duration runs
+ *          alongside as the control. After a window long enough for both, only
+ *          the control's slot is reclaimed. Releasing the flag then leaves the
+ *          gated ripple waiting out an untouched delay: a gate reaching the
+ *          animation but not the delay would have burned the delay during the
+ *          pause and completed within DURATION frames of the release.
+ */
+inline void test_transformer_spawn_pausable_freezes_start_delay() {
+  Timeline tl;
+  global_timeline_t = 0;
+  hs_test::StubEffect fx(8, 8);
+  Canvas cv(fx);
+
+  constexpr int DELAY = 20;
+  constexpr int DURATION = 4;
+  const Vector center(0, 1, 0);
+
+  RippleTransformer<1> control(tl);
+  control.init_storage(persistent_arena);
+  RippleTransformer<1> gated(tl);
+  gated.init_storage(persistent_arena);
+
+  bool paused = true;
+  HS_EXPECT_TRUE(control.spawn(DELAY, center, 0.2f, DURATION) != nullptr);
+  HS_EXPECT_TRUE(gated.spawn_pausable(&paused, DELAY, center, 0.2f, DURATION) !=
+                 nullptr);
+  HS_EXPECT_EQ(gated.active_count(), 1);
+
+  for (int i = 0; i < DELAY + DURATION + 4; ++i)
+    tl.step(cv);
+  HS_EXPECT_EQ(control.active_count(), 0);
+  HS_EXPECT_EQ(gated.active_count(), 1);
+
+  paused = false;
+  for (int i = 0; i < DURATION + 2; ++i)
+    tl.step(cv);
+  HS_EXPECT_EQ(gated.active_count(), 1); // delay resumed where it stopped
+
+  for (int i = 0; i < DELAY + DURATION + 4; ++i)
+    tl.step(cv);
+  HS_EXPECT_EQ(gated.active_count(), 0);
 }
 
 // ============================================================================
@@ -1714,6 +1765,7 @@ inline int run_transformers_tests() {
   test_noise_cross_hemisphere_cap();
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
+  test_transformer_spawn_pausable_freezes_start_delay();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
   test_transformer_callback_after_pool_destroyed();
   test_transformer_slots_released_by_timeline_clear();
