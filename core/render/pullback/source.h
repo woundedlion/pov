@@ -291,18 +291,7 @@ HS_FLASH_INLINE inline PreparedSource prepare(float primary, float secondary,
 }
 
 template <typename State, typename Binding>
-concept ParamsProvider =
-    Detail::ProviderFor<State, Binding> &&
-    requires(const typename Binding::FrameState &frame) {
-      State::params(frame);
-    } &&
-    std::is_lvalue_reference_v<decltype(State::params(
-        std::declval<const typename Binding::FrameState &>()))> &&
-    std::is_const_v<std::remove_reference_t<decltype(State::params(
-        std::declval<const typename Binding::FrameState &>()))>>;
-
-template <typename State, typename Binding>
-concept StateProvider = ParamsProvider<State, Binding> &&
+concept StateProvider = Detail::ParamsProvider<State, Binding> &&
                         requires(const typename Binding::FrameState &frame) {
                           State::prepare(frame);
                         };
@@ -646,7 +635,7 @@ template <typename State> struct PrimitiveLattice : ApproximationDefaults {
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
-      ParamsProvider<State, CandidateBinding> &&
+      Detail::ParamsProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
         {
           State::params(frame).lattice_cell_scale
