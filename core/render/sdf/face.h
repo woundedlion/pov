@@ -447,20 +447,18 @@ struct Face {
     // magnitude under the thinnest real sliver a sweep draws, so the
     // threshold decision is identical sim/device. The compare is inclusive so
     // that coincident vertices, which zero both sides, are culled too.
-    {
-      float area2 = 0.0f;
-      for (int i = 0; i < count; ++i)
-        area2 +=
-            poly_2d[i].x * poly_2d[i + 1].y - poly_2d[i + 1].x * poly_2d[i].y;
-      if (fabsf(area2) <= COLLAPSED_AREA_RATIO * radius * radius) {
-        // Scratch already holds this face's geometry, so retire any earlier
-        // face's claim on the way out.
-        ++scratch.claim_seq;
-        count = 0;
-        y_min = 1;
-        y_max = 0;
-        return;
-      }
+    float area2 = 0.0f;
+    for (int i = 0; i < count; ++i)
+      area2 +=
+          poly_2d[i].x * poly_2d[i + 1].y - poly_2d[i + 1].x * poly_2d[i].y;
+    if (fabsf(area2) <= COLLAPSED_AREA_RATIO * radius * radius) {
+      // Scratch already holds this face's geometry, so retire any earlier
+      // face's claim on the way out.
+      ++scratch.claim_seq;
+      count = 0;
+      y_min = 1;
+      y_max = 0;
+      return;
     }
 
     {
@@ -520,7 +518,7 @@ struct Face {
     {
       HS_PROFILE_DEEP(face_edges);
       pack_edges(scratch);
-      build_half_planes(scratch);
+      build_half_planes(scratch, area2);
     }
     {
       HS_PROFILE_DEEP(face_sectors);
@@ -737,6 +735,7 @@ struct Face {
   /**
    * @brief Detects a convex 2D projection and builds its edge half-planes.
    * @param scratch Scratch storage receiving half_planes.
+   * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
    * @details For a convex polygon the signed distance is max over edges of the
    * half-plane distance: exact everywhere inside and in the edge slabs outside;
    * outside a vertex's normal cone it underestimates (line distance, not vertex
@@ -745,17 +744,13 @@ struct Face {
    * and distance() on the exact walk.
    */
   __attribute__((always_inline)) void
-  build_half_planes(FaceScratchBuffer &scratch) {
-    float area2 = 0.0f;
+  build_half_planes(FaceScratchBuffer &scratch, float area2) {
     bool pos = false, neg = false;
     // The turn test carries the previous edge in registers, so the ring closes
     // without indexing edge_vectors through a modulo.
     const Vector *e1 = &edge_vectors[count - 1];
     float l1 = edge_lengths_sq[count - 1];
     for (int i = 0; i < count; ++i) {
-      const Vector &a = poly_2d[i];
-      const Vector &b = poly_2d[i + 1];
-      area2 += a.x * b.y - b.x * a.y;
       const Vector &e2 = edge_vectors[i];
       float cr = e1->x * e2.y - e1->y * e2.x;
       float scale = l1 * edge_lengths_sq[i];
