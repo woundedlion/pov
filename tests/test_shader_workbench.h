@@ -28,7 +28,7 @@ using effects_tests::SMALL_W;
 
 /** @brief White-box access to ShaderWorkbench's typed pipeline. */
 struct ShaderWorkbenchWhiteBox {
-  using SB = ShaderWorkbench<SMALL_W, SMALL_H>;
+  using SB = Shader<SMALL_W, SMALL_H>;
   using Function = SB::Function;
   using Projection = SB::Projection;
   using PeirceLayout = SB::PeirceLayout;

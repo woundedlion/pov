@@ -112,11 +112,10 @@ struct ShaderWorkbenchWhiteBox {
       return sample.warp_displacement;
   }
 
-  template <int W, int H>
-  static bool force_transition(ShaderWorkbench<W, H> &effect, size_t source,
+  static bool force_transition(ShaderWorkbench &effect, size_t source,
                                size_t destination, uint16_t elapsed,
                                uint16_t duration) {
-    using SB = ShaderWorkbench<W, H>;
+    using SB = ShaderWorkbench;
     if (!effect.selectPreset(source))
       return false;
     effect.setAnimationsPaused(true);
@@ -140,19 +139,18 @@ struct ShaderWorkbenchWhiteBox {
     return true;
   }
 
-  template <int W, int H>
-  static bool selected_pipeline_active(const ShaderWorkbench<W, H> &effect,
+  static bool selected_pipeline_active(const ShaderWorkbench &effect,
                                        size_t preset) {
-    using SB = ShaderWorkbench<W, H>;
+    using SB = ShaderWorkbench;
     return effect.active_pipeline == selected_pipeline<SB>(SB::PRESETS[preset]);
   }
 
   template <int W, int H>
-  static bool measure_oracle(ShaderWorkbench<W, H> &effect,
-                             const std::string &oracle, size_t preset,
-                             float hue_noise_phase, Operation operation,
-                             uint16_t &maximum, uint32_t &samples) {
-    using SB = ShaderWorkbench<W, H>;
+  static bool measure_oracle(ShaderWorkbench &effect, const std::string &oracle,
+                             size_t preset, float hue_noise_phase,
+                             Operation operation, uint16_t &maximum,
+                             uint32_t &samples) {
+    using SB = ShaderWorkbench;
     if (preset >= SB::PRESETS.size())
       return false;
     effect.runtime.clocks.hue_noise_phase = hue_noise_phase;
@@ -429,7 +427,7 @@ template <int W, int H>
 bool render_instruction(const Instruction &instruction,
                         std::vector<Pixel> &pixels, RecordMetadata &metadata) {
   hs_test::effects_tests::reset_effect_globals();
-  ShaderWorkbench<W, H> effect;
+  Shader<W, H> effect;
   effect.init();
   const bool transition_from =
       instruction.operation == Operation::THROUGH_CLEAR_FROM;
@@ -530,12 +528,13 @@ int capture(const char *operations_path, const char *output_path) {
       metric = metrics.end() - 1;
     }
     hs_test::effects_tests::reset_effect_globals();
-    ShaderWorkbench<W, H> effect;
+    Shader<W, H> effect;
     effect.init();
     if (!hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
-            measure_oracle(effect, instruction.oracle, instruction.preset,
-                           instruction.hue_noise_phase, instruction.operation,
-                           metric->maximum, metric->samples))
+            measure_oracle<W, H>(effect, instruction.oracle, instruction.preset,
+                                 instruction.hue_noise_phase,
+                                 instruction.operation, metric->maximum,
+                                 metric->samples))
       return 3;
   }
   std::unique_ptr<FILE, decltype(&std::fclose)> output(

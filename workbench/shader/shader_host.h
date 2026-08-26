@@ -209,10 +209,9 @@ struct ShaderWorkbenchWhiteBox;
 
 /**
  * @brief Slot-based sphere shader with an immutable per-frame pullback state.
- * @tparam W Canvas width in pixels.
- * @tparam H Canvas height in pixels.
+ * @details Canvas-resolution independent; Shader binds it to a fixed W and H.
  */
-template <int W, int H> class ShaderWorkbench : public Effect {
+class ShaderWorkbench : public Effect {
 public:
   // The authored vocabulary, re-exported so consumers keep naming it
   // through the effect.
@@ -557,8 +556,18 @@ public:
 
   static constexpr size_t authored_preset_count() { return PRESETS.size(); }
 
-  HS_COLD_MEMBER ShaderWorkbench() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER ShaderWorkbench(int w, int h)
+      : Effect(w, h, {.strobe = true}) {}
 
+protected:
+  /** @brief Schedules one orientation walk whose period follows canvas width. */
+  virtual void add_walk(Timeline &timeline, Orientation<> &orientation,
+                        FastNoiseLite &noise) = 0;
+  /** @brief Rasterizes one prepared frame over the canvas. */
+  virtual void scan_frame_shader(Canvas &canvas,
+                                 const Workbench::FrameShader &shader) = 0;
+
+public:
 protected:
   HS_COLD_MEMBER void
   set_fixed_preset_view(std::span<const uint8_t> source_indices) {
@@ -604,10 +613,8 @@ public:
 
     rebind_parameters();
 
-    timeline.add(0, Animation::RandomWalk<W>(projection_walk, UP,
-                                             state->projection_walk_noise));
-    timeline.add(
-        0, Animation::RandomWalk<W>(outer_walk, UP, state->outer_walk_noise));
+    add_walk(timeline, projection_walk, state->projection_walk_noise);
+    add_walk(timeline, outer_walk, state->outer_walk_noise);
 
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
     generated_palettes.init(persistent_arena, 0.62f, ease_in_out_sin);
@@ -2207,7 +2214,7 @@ private:
     FrameShader shader{prepared.frame, prepared.alpha, prepared.shade,
                        prepared.prepared};
     HS_PROFILE(sb_shader_draw);
-    Scan::Shader::draw<W, H, 1>(canvas, shader);
+    scan_frame_shader(canvas, shader);
   }
 
   static constexpr const char *pipeline_name(InversePipelineId pipeline) {
@@ -3080,7 +3087,27 @@ private:
       "ShaderWorkbench persistent footprint exceeds the default partition");
 };
 
-template <int W, int H> using Shader = ShaderWorkbench<W, H>;
+/**
+ * @brief ShaderWorkbench bound to a fixed canvas resolution.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
+template <int W, int H> class Shader final : public ShaderWorkbench {
+public:
+  HS_COLD_MEMBER Shader() : ShaderWorkbench(W, H) {}
+
+private:
+  HS_COLD_MEMBER void add_walk(Timeline &timeline, Orientation<> &orientation,
+                               FastNoiseLite &noise) override {
+    timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
+  }
+
+  HS_FLASH_MEMBER void
+  scan_frame_shader(Canvas &canvas,
+                    const Workbench::FrameShader &shader) override {
+    Scan::Shader::draw<W, H, 1>(canvas, shader);
+  }
+};
 
 #include "core/control/registry.h"
 REGISTER_EFFECT(Shader)
