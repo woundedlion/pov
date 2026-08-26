@@ -35,8 +35,8 @@ struct DistortedRing {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
-   * @param radius Ring radius in world units.
-   * @param thickness Ring stroke thickness in world units.
+   * @param radius Ring radius as a fraction of the hemisphere.
+   * @param thickness Ring stroke half-width (radians).
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
@@ -63,10 +63,11 @@ struct DistortedRing {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
-   * @param radius Ring radius in world units.
-   * @param thickness Ring stroke thickness in world units.
+   * @param radius Ring radius as a fraction of the hemisphere.
+   * @param thickness Ring stroke half-width (radians).
    * @param shift_fn Scalar modulation function over the circumference.
-   * @param amplitude Modulation amplitude in world units.
+   * @param amplitude Modulation amplitude (radians); must upper-bound
+   *        |shift_fn|.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
@@ -91,8 +92,8 @@ struct DistortedRing {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
-   * @param radius Ring radius in world units.
-   * @param thickness Ring stroke thickness in world units.
+   * @param radius Ring radius as a fraction of the hemisphere.
+   * @param thickness Ring stroke half-width (radians).
    * @param knots lut_n + 1 centerline shifts, entry lut_n repeating entry 0;
    *        must outlive the call.
    * @param lut_n Number of knot cells.
@@ -311,7 +312,7 @@ struct PlanarPolygon {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the polygon plane.
-   * @param radius Polygon circumradius in world units.
+   * @param radius Polygon circumradius as a fraction of the hemisphere.
    * @param sides Number of polygon sides.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -356,7 +357,7 @@ struct Line {
    * @param canvas Destination canvas.
    * @param v1 First endpoint as a world-space unit vector.
    * @param v2 Second endpoint as a world-space unit vector.
-   * @param thickness Stroke thickness in world units.
+   * @param thickness Stroke half-width (radians).
    * @param fragment_shader Shader invoked per covered pixel.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
@@ -381,8 +382,8 @@ struct Ring {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
-   * @param radius Ring radius in world units, in [0, 2].
-   * @param thickness Ring stroke thickness in world units.
+   * @param radius Ring radius as a fraction of the hemisphere, in [0, 2].
+   * @param thickness Ring stroke half-width (radians).
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
@@ -408,8 +409,8 @@ struct Ring {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param normal Plane normal as a world-space vector.
-   * @param radius Ring radius in world units.
-   * @param thickness Ring stroke thickness in world units.
+   * @param radius Ring radius as a fraction of the hemisphere.
+   * @param thickness Ring stroke half-width (radians).
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
@@ -604,7 +605,7 @@ struct Circle {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the circle plane.
-   * @param radius Circle radius in world units.
+   * @param radius Circle radius as a fraction of the hemisphere.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
@@ -625,7 +626,7 @@ struct Circle {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param normal Plane normal as a world-space vector.
-   * @param radius Circle radius in world units.
+   * @param radius Circle radius as a fraction of the hemisphere.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
@@ -653,7 +654,7 @@ struct Point {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param p Point center as a world-space unit vector.
-   * @param thickness Point radius (ring thickness) in world units.
+   * @param thickness Point radius as a stroke half-width (radians).
    * @param fragment_shader Shader invoked per covered pixel.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
@@ -680,7 +681,7 @@ struct Star {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the star plane.
-   * @param radius Star circumradius in world units.
+   * @param radius Star circumradius as a fraction of the hemisphere.
    * @param sides Number of star points.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -720,7 +721,7 @@ struct Flower {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the flower plane.
-   * @param radius Flower circumradius in world units.
+   * @param radius Flower circumradius as a fraction of the hemisphere.
    * @param sides Number of flower petals.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -760,7 +761,7 @@ struct SphericalPolygon {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the polygon.
-   * @param radius Polygon circumradius in world units.
+   * @param radius Polygon circumradius as a fraction of the hemisphere.
    * @param sides Number of polygon sides.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
