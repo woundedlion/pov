@@ -31,7 +31,7 @@ Harness details.
 
 test('validateReport accepts the checked-in timing report contract', async () => {
   const errors = [];
-  const directories = await profileDirectories(PROFILES_DIR);
+  const directories = await profileDirectories(PROFILES_DIR, errors);
   let reportCount = 0;
   for (const directory of directories) {
     const reports = await reportsIn(PROFILES_DIR, directory, errors);
