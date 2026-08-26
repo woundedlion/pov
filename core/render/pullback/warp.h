@@ -383,7 +383,7 @@ __attribute__((always_inline)) inline WarpStepResult
 finish_closed_form(const Complex &input, const Complex &output,
                    bool path_length_required) {
   const Complex delta(output.re - input.re, output.im - input.im);
-  return {output, delta, displacement(delta, path_length_required)};
+  return {output, displacement(delta, path_length_required)};
 }
 
 __attribute__((always_inline)) inline float
@@ -430,7 +430,7 @@ wave_shear(const Complex &input, const Params &params, float phase,
            float amplitude, const Prepared &prepared,
            bool path_length_required) {
   if (params.strength == 0.0f)
-    return {input, Complex(), 0.0f};
+    return {input, 0.0f};
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
   const float angle =
@@ -442,7 +442,6 @@ wave_shear(const Complex &input, const Params &params, float phase,
                                       STEREO_PATTERN_ARG_LIMIT));
   const Complex delta(-s * offset, c * offset);
   return {{input.re + delta.re, input.im + delta.im},
-          delta,
           path_length_required ? fabsf(offset) : 0.0f};
 }
 
@@ -515,16 +514,14 @@ curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
           uint8_t intervals, float scale, float distance, float phase,
           bool path_length_required) {
   if (distance == 0.0f)
-    return {input, Complex(), 0.0f};
+    return {input, 0.0f};
   if (intervals == 1) {
     const Complex direction = curl_vector(input, noise, basis, scale, phase);
     const Complex delta(distance * direction.re, distance * direction.im);
     return {{input.re + delta.re, input.im + delta.im},
-            delta,
             displacement(delta, path_length_required)};
   }
   Complex output = input;
-  Complex net_delta;
   float path_length = 0.0f;
   const float step = distance / intervals;
   for (uint8_t index = 0; index < intervals; ++index) {
@@ -534,10 +531,9 @@ curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
     const Complex direction = curl_vector(midpoint, noise, basis, scale, phase);
     const Complex delta(step * direction.re, step * direction.im);
     output = {output.re + delta.re, output.im + delta.im};
-    net_delta = {net_delta.re + delta.re, net_delta.im + delta.im};
     path_length += displacement(delta, path_length_required);
   }
-  return {output, net_delta, path_length};
+  return {output, path_length};
 }
 
 /** @brief A chart change, not a step: the angular output is in radians, so
@@ -553,7 +549,7 @@ polar_chart(const Complex &input, const Params &params, float phase,
                        static_cast<float>(harmonic) *
                                fast_atan2(input.im, input.re) +
                            params.angular_phase + TWO_PI_F * phase);
-  return {output, Complex(output.re - input.re, output.im - input.im), 0.0f};
+  return {output, 0.0f};
 }
 
 template <::NoiseBasis BasisV, typename Params, typename Prepared>
@@ -562,7 +558,7 @@ vector_noise_fixed(const Complex &input, const Params &params, float amplitude,
                    const FastNoiseLite &noise, const Prepared &prepared,
                    bool path_length_required) {
   if (params.strength == 0.0f)
-    return {input, Complex(), 0.0f};
+    return {input, 0.0f};
   const auto &loop = prepared.transform.noise_loop;
   const Vector q(params.scale * input.re + loop.diagonal,
                  params.scale * input.im + loop.diagonal, loop.z);
@@ -581,7 +577,6 @@ vector_noise_fixed(const Complex &input, const Params &params, float amplitude,
   const Complex delta(amplitude * (c * nx - s * ny),
                       amplitude * (s * nx + c * ny));
   return {{input.re + delta.re, input.im + delta.im},
-          delta,
           displacement(delta, path_length_required)};
 }
 
@@ -601,7 +596,7 @@ vector_noise(const Complex &input, const Params &params, float amplitude,
     return vector_noise_fixed<::NoiseBasis::RIDGED3>(
         input, params, amplitude, noise, prepared, path_length_required);
   }
-  return {input, Complex(), 0.0f};
+  return {input, 0.0f};
 }
 
 template <typename State> struct AffineFrame : ApproximationDefaults {

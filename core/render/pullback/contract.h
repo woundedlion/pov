@@ -126,10 +126,9 @@ struct SurfaceResult {
   float path_length;
 };
 
-/** @brief The warp policy protocol: stepped coordinates plus the step delta. */
+/** @brief The warp policy protocol: stepped coordinates plus the step length. */
 struct WarpStepResult {
   Complex coords;
-  Complex delta;
   float path_length;
 };
 

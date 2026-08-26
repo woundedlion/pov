@@ -2900,8 +2900,9 @@ inline void test_shader_workbench_strict_seam_admission() {
   }
 }
 
-/** @brief Additive warp metadata retains sub-ULP displacement at large
- *         coordinates, and reports zero when no colorizer reads it. */
+/** @brief An additive warp reports sub-ULP path length the coordinate cannot
+ *         hold at large magnitudes, and reports zero when no colorizer reads
+ *         it. */
 inline void test_shader_workbench_additive_delta_precision() {
   using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
@@ -2920,8 +2921,6 @@ inline void test_shader_workbench_additive_delta_precision() {
   const WB::ProjectedLookup projected{
       input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
   const auto result = WB::warp_stage(input, projected, spec, params, frame);
-  HS_EXPECT_NEAR(result.delta.re, 0.0f, 1e-8f);
-  HS_EXPECT_NEAR(result.delta.im, 0.001f, 1e-7f);
   HS_EXPECT_NEAR(result.path_length, 0.001f, 1e-7f);
   HS_EXPECT_EQ(result.coords.im, input.im);
 
@@ -2929,8 +2928,6 @@ inline void test_shader_workbench_additive_delta_precision() {
   const auto untracked = WB::warp_stage(input, projected, spec, params, frame);
   HS_EXPECT_EQ(untracked.coords.re, result.coords.re);
   HS_EXPECT_EQ(untracked.coords.im, result.coords.im);
-  HS_EXPECT_EQ(untracked.delta.re, result.delta.re);
-  HS_EXPECT_EQ(untracked.delta.im, result.delta.im);
   HS_EXPECT_EQ(untracked.path_length, 0.0f);
 }
 

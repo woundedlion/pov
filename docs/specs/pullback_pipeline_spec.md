@@ -265,7 +265,6 @@ struct SurfaceResult {          // the surface policy protocol
 
 struct WarpStepResult {         // the warp policy protocol
   Complex coords;
-  Complex delta;
   float path_length;
 };
 ```
@@ -288,9 +287,9 @@ the crossing writes it:
 `PlaneSample::coords` are coordinates in the source plane/chart, and `sphere`
 is the projection-local direction that produced the sample. Endomorphisms
 advance `coords` and `path_length` only. `path_length` is the accumulated
-surface plus planar path length; no net displacement vector is accumulated
-across the warp chain, and each warp policy reports the per-step
-`WarpStepResult::delta` its own `path_length` derives from.
+surface plus planar path length; no displacement vector is carried across the
+warp chain, and each warp policy reports only the scalar length of the step it
+applied.
 
 `FieldSample::value` in `[0, 1]` is a carrier invariant established by the
 Sample crossing; `coverage` is in `[0, 1]` and non-increasing.

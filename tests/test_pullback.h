@@ -277,7 +277,7 @@ inline void test_pullback_carrier_contract() {
   static_assert(sizeof(Pullback::PlaneSample) == 44);
   static_assert(sizeof(Pullback::FieldSample) == 24);
   static_assert(sizeof(Pullback::SurfaceResult) == 16);
-  static_assert(sizeof(Pullback::WarpStepResult) == 20);
+  static_assert(sizeof(Pullback::WarpStepResult) == 12);
   static_assert(alignof(Pullback::SphereSample) == 4);
   static_assert(alignof(Pullback::PlaneSample) == 4);
   static_assert(alignof(Pullback::FieldSample) == 4);
@@ -554,7 +554,7 @@ struct CountingWarpPolicy : Pullback::ApproximationDefaults {
   static Pullback::WarpStepResult apply(const Complex &input,
                                         const Pullback::ProjectionProvenance &,
                                         const TestFrame &) {
-    return {Complex(input.re + 1.0f, input.im), Complex(1.0f, 0.0f), 3.0f};
+    return {Complex(input.re + 1.0f, input.im), 3.0f};
   }
 };
 
