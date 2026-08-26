@@ -340,7 +340,11 @@ struct LensKaleidoscope : StatelessModel {
   using Params = KaleidoscopeChainParams;
   struct Prepared {};
 
-  static Prepared prepare(const FrameContext &, const Params &, const State &) {
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &) {
+    HS_CHECK(params.symmetry <=
+                 static_cast<uint8_t>(KaleidoscopeSymmetry::OCTAGONAL_PRISM),
+             "sphere.lens.kaleidoscope: invalid symmetry");
     return {};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
