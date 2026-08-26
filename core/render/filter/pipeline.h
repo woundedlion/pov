@@ -745,7 +745,9 @@ public:
    * @param trailFn Callback producing trail color/alpha per screen point.
    * @param alpha Global blend alpha in [0, 1].
    */
-  void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
+  void flush(Canvas &cv, const ScreenTrailFn &trailFn, float alpha)
+    requires(!terminal_replaces)
+  {
     static_assert(
         any_2d_history,
         "Wrong flush() domain: this Pipeline has no 2D history stage, so the "
@@ -761,8 +763,8 @@ public:
     static_assert(
         any_2d_trail_history,
         "Discarded flush() callback: this Pipeline's only 2D history is a "
-        "terminal stage (Pixel::Feedback), which composites into the Canvas "
-        "itself and takes no trail callback. Pass flush(cv, alpha) instead.");
+        "terminal stage, which composites into the Canvas itself and takes no "
+        "trail callback. Pass flush(cv, alpha) instead.");
     flush_stages(cv, trailFn, alpha);
   }
 
@@ -772,7 +774,9 @@ public:
    * @param trailFn Callback producing trail color/alpha per world point.
    * @param alpha Global blend alpha in [0, 1].
    */
-  void flush(Canvas &cv, const WorldTrailFn &trailFn, float alpha) {
+  void flush(Canvas &cv, const WorldTrailFn &trailFn, float alpha)
+    requires(!terminal_replaces)
+  {
     static_assert(
         any_3d_history,
         "Wrong flush() domain: this Pipeline has no 3D history stage, so the "
@@ -798,7 +802,9 @@ public:
    * re-emissions reach the 2D history stage before that stage emits and ages.
    */
   void flush(Canvas &cv, const WorldTrailFn &worldFn,
-             const ScreenTrailFn &screenFn, float alpha) {
+             const ScreenTrailFn &screenFn, float alpha)
+    requires(!terminal_replaces)
+  {
     static_assert(
         any_3d_history && any_2d_history,
         "Wrong flush() domain: this Pipeline carries history in only one "
@@ -812,8 +818,9 @@ public:
    * @brief Flushes every terminal history stage in the pipeline.
    * @param cv Target canvas.
    * @param alpha Global blend alpha in [0, 1].
-   * @details For pipelines whose only history is terminal (Pixel::Feedback):
-   * a terminal composites into the Canvas itself and needs no trail callback.
+   * @details For pipelines whose only history is a non-replacing terminal: it
+   * composites into the Canvas itself and needs no trail callback. A replacing
+   * terminal is flushed by begin_frame() instead.
    */
   void flush(Canvas &cv, float alpha)
     requires(!terminal_replaces)
