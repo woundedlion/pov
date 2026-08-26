@@ -1094,6 +1094,55 @@ inline void test_palette_cycler_hidden_advance_catches_up() {
   HS_EXPECT_EQ(full_provider_calls, hidden_provider_calls);
 }
 
+/** @brief The bake generation advances over a cycle and never holds still
+ *         across a display-LUT change. */
+inline void test_palette_cycler_bake_generation() {
+  const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));
+  const GenerativePalette b(PaletteRecipes::balanced_analogous(0.7f));
+  const std::array<PaletteCycler::Entry, 1> single = {{a}};
+  const std::array<PaletteCycler::Entry, 2> pair = {{a, b}};
+
+  alignas(std::max_align_t) static uint8_t
+      buf[2 * PaletteCycler::required_arena_bytes() +
+          PaletteCycler::generated_arena_bytes() +
+          BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  PaletteCycler held;
+  held.init(arena, single.data(), single.size(), 1, 2);
+  const uint32_t after_init = held.bake_generation();
+  HS_EXPECT_NE(after_init, 0u);
+  for (int i = 0; i < 4; ++i)
+    held.step();
+  HS_EXPECT_EQ(held.bake_generation(), after_init);
+
+  PaletteCycler cycler;
+  cycler.init(arena, pair.data(), pair.size(), 2, 4);
+  BakedPalette snapshot;
+  snapshot.bake(arena, a);
+  snapshot.rebake_copy(cycler.palette());
+  uint32_t generation = cycler.bake_generation();
+  uint32_t advances = 0;
+  for (int i = 0; i < 24; ++i) {
+    cycler.step();
+    if (cycler.bake_generation() == generation) {
+      expect_baked_equal(cycler.palette(), snapshot);
+      continue;
+    }
+    ++advances;
+    generation = cycler.bake_generation();
+    snapshot.rebake_copy(cycler.palette());
+  }
+  HS_EXPECT_GT(advances, 0u);
+
+  int provider_calls = 0;
+  PaletteCycler generated;
+  generated.init_generated(arena, scripted_next_palette, &provider_calls, 0, 3);
+  const uint32_t before_chroma = generated.bake_generation();
+  generated.set_generated_chroma(0.4f);
+  HS_EXPECT_NE(generated.bake_generation(), before_chroma);
+}
+
 inline void test_palette_cycler_zero_dwell_chains_fades() {
   const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));
   const GenerativePalette b(PaletteRecipes::balanced_analogous(0.7f));
