@@ -514,11 +514,15 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── check_domain_ratchets.py  Relax-bake and death-harness coverage ratchets
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
 │   ├── check_test_dir_pins.sh  Asserts every Python test-suite directory is discovered by CI and the justfile
+│   ├── ruff_selection_guard.sh / eslint_selection_guard.sh  Anti-vacuity probes for the `just lint` linters
+│   ├── shellcheck_gate.sh      Tracked shell-file selection + shellcheck run behind `just lint`
+│   ├── clang_format_gate.sh    Tracked first-party C++ selection + clang-format run behind `just clang-format`
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
+│   ├── teensy_cold_build.sh    Cold `pio run -v` over every environment, teed for the warning gate
 │   ├── teensy_warnings.py      Cold-build first-party warning gate
 │   ├── teensy_warning_baseline.txt  Intentionally empty local-tool default
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
