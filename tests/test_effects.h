@@ -4635,6 +4635,16 @@ struct DisplacementFieldWhiteBox {
     effect.master_gain = 1.0f;
   }
 
+  /** @brief Drives the ring stack to its widest registered footprint. */
+  template <int W, int H>
+  static void configure_max_footprint(DisplacementField<W, H> &effect) {
+    using Effect = DisplacementField<W, H>;
+    effect.params.num_rings = static_cast<float>(Effect::RING_SLOTS);
+    effect.params.thickness = 6.0f * Effect::THICKNESS_PX;
+    effect.params.ball_amp = 0.8f;
+    effect.params.noise_amp = 0.8f;
+  }
+
   template <int W, int H>
   static void set_force_exact_hue(DisplacementField<W, H> &effect, bool exact) {
     effect.force_exact_hue = exact;
@@ -4922,7 +4932,9 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
  *          the clip-only paths (the per-ring cap cull and the azimuth-chunk
  *          bake cull) dropping a reachable fragment or sampling a stale LUT
  *          entry. The frame window sits inside the ball phase, whose
- *          footprints drive both culls.
+ *          footprints drive both culls. Both culls widen with the ring band,
+ *          so each quadrant runs at the registered defaults and again at the
+ *          full ring pool with maximum thickness and displacement amplitudes.
  */
 inline void test_displacement_field_clip_tiles_full() {
   struct Quad {
@@ -4931,17 +4943,22 @@ inline void test_displacement_field_clip_tiles_full() {
   const Quad quads[] = {{0, DEFAULT_W / 2, 0, DEFAULT_H / 2},
                         {DEFAULT_W / 2, DEFAULT_W, DEFAULT_H / 2, DEFAULT_H}};
   const int frames = 60;
+  // A widest-footprint frame costs ~7x a default one; the shorter window still
+  // sits inside the same displacement phase.
+  const int widest_frames = 24;
 
   size_t lit = 0, sampled_pixels = 0;
-  auto fold_region = [&](bool clip, const Quad &q) -> uint64_t {
+  auto fold_region = [&](bool clip, const Quad &q, bool widest) -> uint64_t {
     reset_effect_globals();
     hs::set_mock_time(0, 0);
     DisplacementField<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
+    if (widest)
+      DisplacementFieldWhiteBox::configure_max_footprint(fx);
     if (clip)
       fx.set_clip(q.y0, q.y1, q.x0, q.x1);
     uint64_t fold = hs_test::FNV1A64_BASIS;
-    for (int f = 0; f < frames; ++f) {
+    for (int f = 0; f < (widest ? widest_frames : frames); ++f) {
       hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
                         static_cast<unsigned long>(f) * FRAME_US);
       fx.draw_frame();
@@ -4962,8 +4979,9 @@ inline void test_displacement_field_clip_tiles_full() {
     return fold;
   };
 
-  for (const Quad &q : quads)
-    HS_EXPECT_EQ(fold_region(false, q), fold_region(true, q));
+  for (bool widest : {false, true})
+    for (const Quad &q : quads)
+      HS_EXPECT_EQ(fold_region(false, q, widest), fold_region(true, q, widest));
 
   // Two all-black folds agree, so the comparison above only means something
   // once the quadrants have produced output.
