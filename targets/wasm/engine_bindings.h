@@ -217,6 +217,24 @@ enum class FullConfigRestoreResult : uint8_t {
                             field indices, or does not match where accepted and
                             requested differ. Retry with an empty list. */
 };
+
+// Set while restoreFullConfigSnapshot() decodes its input. Every property read
+// there runs caller JS, which reaches the embind-generated delete() and frees
+// the engine the decode is still writing through; the engine destructor tests
+// this latch so that frees traps instead of corrupting the outer frame.
+//
+// A trap compiles to wasm `unreachable`, which unwinds nothing, so
+// ~SnapshotDecodeGuard() never runs and this stays latched, deliberately: the
+// module is dead and must answer no further snapshot call.
+static bool snapshot_decode_active = false;
+struct SnapshotDecodeGuard {
+  SnapshotDecodeGuard() {
+    HS_CHECK(!snapshot_decode_active,
+             "re-entrant restoreFullConfigSnapshot() from a snapshot accessor");
+    snapshot_decode_active = true;
+  }
+  ~SnapshotDecodeGuard() { snapshot_decode_active = false; }
+};
 #endif // HS_ENABLE_SHADER_WORKBENCH
 
 /**
@@ -289,6 +307,11 @@ public:
    *          rather than the destroyed effect's usage.
    */
   ~HolosphereEngine() {
+#if HS_ENABLE_SHADER_WORKBENCH
+    HS_CHECK(!snapshot_decode_active,
+             "delete() from a restoreFullConfigSnapshot() accessor frees the "
+             "engine the decode is still writing through");
+#endif
     current_effect.reset();
     configure_arenas_default();
     engine_alive = false;
@@ -1022,7 +1045,9 @@ public:
     with_shader_workbench([&]<typename SB>(SB &shader) {
       // Every property read below can run caller JS through an accessor or a
       // Proxy, and that JS reaches setEffect()/setResolution(), which frees
-      // what `shader` names. Latch the owner and re-check before applying.
+      // what `shader` names. Latch the owner and re-check before applying; the
+      // guard covers the delete() that frees the engine itself.
+      const SnapshotDecodeGuard decode_guard;
       const Effect *const owner = current_effect.get();
       const void *const owner_type_key = current_effect_type_key;
       typename SB::FullConfigSnapshot snapshot;
