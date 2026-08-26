@@ -250,6 +250,53 @@ protected:
   }
 
   /**
+   * @brief Gathers a render stencil: the center node and its one-ring.
+   * @tparam OnSlot Callable accepting (slot, node_index).
+   * @param nodes Node positions in the query's frame, indexed by node id.
+   * @param center Center node id, already refined.
+   * @param positions Receives the RD_K + 1 stencil positions.
+   * @param on_slot Callable invoked as `on_slot(slot, node_index)` once per
+   * stencil slot, filling whatever per-node payload the caller interpolates.
+   * @details Hoisted out of the sub-sample loop: every sub-sample of a pixel
+   * re-weights this one stencil.
+   * @note always_inline rather than HS_O3_FN: the mismatched optimize
+   * attribute would keep GCC from inlining this into the -O3 shader body.
+   */
+  template <typename OnSlot>
+  static __attribute__((always_inline)) void
+  gather_stencil(const Vector *nodes, int center, Vector *positions,
+                 OnSlot &&on_slot) {
+    positions[0] = nodes[center];
+    on_slot(0, center);
+    int k = 1;
+    for_each_neighbor(center, [&](int ni) {
+      positions[k] = nodes[ni];
+      on_slot(k, ni);
+      ++k;
+    });
+  }
+
+  /**
+   * @brief Runs the Wendland C2 kernel over a gathered stencil.
+   * @tparam OnWeight Callable accepting (slot, weight).
+   * @param rv Sub-sample direction (unit vector on the sphere).
+   * @param positions Stencil positions from gather_stencil.
+   * @param on_weight Callable invoked as `on_weight(slot, weight)` for every
+   * stencil slot inside the support radius.
+   * @note always_inline is load-bearing on both this walk and the weight
+   * callback it wraps: out of line, GCC spends extra ITCM in both shaders.
+   */
+  template <typename OnWeight>
+  static __attribute__((always_inline)) void
+  accumulate_stencil(const Vector &rv, const Vector *positions,
+                     OnWeight &&on_weight) {
+    for (int j = 0; j < RD_K + 1; ++j)
+      with_wendland_weight(
+          dist2(rv, positions[j]),
+          [&](float w) __attribute__((always_inline)) { on_weight(j, w); });
+  }
+
+  /**
    * @brief Vertex-shader seed: tags a fragment with its cubemap-LUT node id.
    * @param frag Fragment whose pos seeds frag.v0 with the nearest-node id.
    * @details Shared by both systems' render() vertex shaders; the fragment
