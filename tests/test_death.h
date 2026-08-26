@@ -2462,6 +2462,33 @@ inline void case_plot_extract_edges_vertex_over_capacity() {
 }
 
 /**
+ * @brief Death case: a plot window over a multi-segment polyline must trap.
+ * @details Plot surface -- the window narrows one segment's arc fraction, so a
+ *          multi-segment polyline would apply the same [start, end] to every
+ *          segment and silently drop whole edges rather than the intended
+ *          out-of-band tail.
+ */
+inline void case_plot_window_multi_segment() {
+  constexpr int W = 32, H = 16;
+  ArenaVector<Fragment> points;
+  points.bind(scratch_arena_a, 4);
+  Fragment f;
+  f.pos = Vector(1, 0, 0);
+  points.push_back(f);
+  f.pos = Vector(0, 1, 0);
+  points.push_back(f);
+  f.pos = Vector(0, 0, 1);
+  points.push_back(f); // 2 segments under a window -> HS_CHECK
+
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  Pipeline<W, H> pipe;
+  Plot::rasterize<W, H>(
+      pipe, c, points, [](const Vector &, Fragment &) {},
+      {.plot_t_start = opaque(0.25f), .plot_t_end = opaque(0.75f)});
+}
+
+/**
  * @brief Death case: a feedback downsample that doesn't divide the resolution must trap.
  * @details Filter surface — Pixel::Feedback::flush traps rather than silently
  *          turning the whole feedback effect into a no-op; a cold
@@ -4331,6 +4358,9 @@ inline const Case *all_cases(int &n) {
        "SDF::Face scanned after a later Face claimed its scratch buffer"},
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "raster.h",
        "(canvas.width() == W && canvas.height() == H) "},
+      {"plot_window_multi_segment", case_plot_window_multi_segment, "raster.h",
+       "(!plot_window || count == 1) a plot window requires a single-segment "
+       "polyline"},
       {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared,
        "raster.h",
        "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "

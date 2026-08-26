@@ -183,6 +183,18 @@ struct RasterOptions {
   /** Entries in edge_flags; asserted against the rasterized edge count. */
   size_t edge_flags_len = 0;
   /**
+   * Arc-fraction window outside which samples are not shaded or plotted.
+   * Lets a clipped caller keep the whole segment's step schedule -- so sample
+   * positions stay clip-independent -- while skipping the work the clip would
+   * discard anyway. Single-segment polylines only.
+   * @details Widening the window costs work but cannot change output:
+   * ClipRegion::contains_x/contains_y run per plotted pixel, so a sample
+   * admitted here is still dropped if it falls outside the band.
+   */
+  float plot_t_start = 0.0f;
+  /** Upper bound of the plot_t_start window. */
+  float plot_t_end = 1.0f;
+  /**
    * Optional per-point screen rows, y_to_screen_row of each points[k].pos.
    * With point_cols, lets the single-dot shortcut skip the projection. Only
    * consumed when the pipeline has no world-space stage; both arrays or
@@ -368,6 +380,13 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   size_t count = close_loop ? len : len - 1;
   HS_CHECK(edge_flags == nullptr || opts.edge_flags_len == count,
            "edge_flags length must match the rasterized edge count");
+  const float plot_t_start = opts.plot_t_start;
+  const float plot_t_end = opts.plot_t_end;
+  // Off unless the caller narrowed the window: the replay's final t overshoots
+  // 1.0 by an ULP, which a live [0,1] test would read as out of window.
+  const bool plot_window = plot_t_start > 0.0f || plot_t_end < 1.0f;
+  HS_CHECK(!plot_window || count == 1,
+           "a plot window requires a single-segment polyline");
   HS_PLOT_ADD(edges, count);
   // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
   // allocator shared with Pixel::Feedback::flush; do not let a raw pointer into
@@ -603,22 +622,25 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           HS_PLOT_COUNT(normalizations);
           p = smp.pos.normalized();
         }
-        Fragment f;
-        if constexpr (INTERPOLATE_REGISTERS)
-          f = Fragment::lerp_registers(curr, next, current_t);
-        f.pos = p;
-        f.color = Color4(0, 0, 0, 0);
-        set_arc_uv(f, current_dist);
-        HS_PLOT_COUNT(shader_calls);
-        shade_fragment(p, f);
-        if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
-          if (balanced_sampling) {
-            const float alpha_scale = desired_step / default_desired_step;
-            f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
+        if (!plot_window ||
+            (current_t >= plot_t_start && current_t <= plot_t_end)) {
+          Fragment f;
+          if constexpr (INTERPOLATE_REGISTERS)
+            f = Fragment::lerp_registers(curr, next, current_t);
+          f.pos = p;
+          f.color = Color4(0, 0, 0, 0);
+          set_arc_uv(f, current_dist);
+          HS_PLOT_COUNT(shader_calls);
+          shade_fragment(p, f);
+          if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
+            if (balanced_sampling) {
+              const float alpha_scale = desired_step / default_desired_step;
+              f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
+            }
           }
+          HS_PLOT_COUNT(plotted_samples);
+          pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
         }
-        HS_PLOT_COUNT(plotted_samples);
-        pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
 
         if (++step_count >= max_cache) {
           // Stretch factor matches the two-pass replay's; the hard stop below
@@ -790,6 +812,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
       // total_dist > 0 here (HS_CHECK(sim_dist > 0) implies >=1 sim step).
       float t = current_dist / total_dist;
+
+      if (plot_window && (t < plot_t_start || t > plot_t_end))
+        continue;
 
       // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
       // length. Registers are lerped from the control points; under a planar

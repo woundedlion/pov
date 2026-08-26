@@ -114,9 +114,10 @@ struct Mesh {
     if constexpr (pipeline_hoistable_cull<PipelineT>())
       split = clip_active && !vertex_shader && es.have_axis;
 
+    float ts[GEODESIC_CLIP_MAX_SPLITS];
+    int cuts = 0;
     if (split) {
-      float ts[GEODESIC_CLIP_MAX_SPLITS];
-      const int cuts = geodesic_clip_splits(fu.pos, fv.pos, es, cb, ts);
+      cuts = geodesic_clip_splits(fu.pos, fv.pos, es, cb, ts);
       const Vector perp = cross(es.axis, fu.pos);
       points.push_back(Line::sample_point(fu, fv, es, perp, 0.0f));
       for (int i = 0; i < cuts; ++i)
@@ -143,6 +144,35 @@ struct Mesh {
           // Uncut, unshaded: the whole-edge test above already ran on it.
           bits[0] = RasterOptions::EDGE_VISIBLE;
         } else if (!gate_trail_edges<W, H>(pipeline, cr, xc, points, bits)) {
+          return;
+        }
+        if (cuts > 0) {
+          // Rasterize the cut edge as one segment under the window spanning its
+          // visible pieces: the step schedule then matches the unclipped render,
+          // so a band's samples land where the full-frame render puts them.
+          float window_start = 1.0f;
+          float window_end = 0.0f;
+          for (int i = 0; i <= cuts; ++i) {
+            if ((bits[i] & RasterOptions::EDGE_VISIBLE) == 0)
+              continue;
+            const float lo = i == 0 ? 0.0f : ts[i - 1];
+            const float hi = i == cuts ? 1.0f : ts[i];
+            window_start = std::min(window_start, lo);
+            window_end = std::max(window_end, hi);
+          }
+          if (window_start > window_end)
+            return;
+          const Fragment head = points[0];
+          const Fragment tail = points.back();
+          points.clear();
+          points.push_back(head);
+          points.push_back(tail);
+          bits[0] = RasterOptions::EDGE_VISIBLE;
+          rasterize<W, H>(pipeline, canvas, points, fragment_shader,
+                          {.edge_flags = bits,
+                           .edge_flags_len = 1,
+                           .plot_t_start = window_start,
+                           .plot_t_end = window_end});
           return;
         }
         rasterize<W, H>(
