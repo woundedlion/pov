@@ -64,6 +64,7 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
+    assert(age >= 0.0f && alpha >= 0.0f);
     // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
     assert(x > -W - 0.5f && x < 2 * W - 0.5f);
