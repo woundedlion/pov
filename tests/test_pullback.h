@@ -483,6 +483,8 @@ inline void test_pullback_public_surface() {
       Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
                               CrossingStage>::EMISSION ==
       Pullback::CodeEmission::OUT_OF_LINE_FLASH);
+  static_assert(!Pullback::StageMatchesKey<TestPipeline, int>,
+                "implements() must stay undetectable on undecorated stages");
   static_assert(Pullback::StageDescriptor<EntryStage>);
   static_assert(!Pullback::StageDescriptor<MissingContract>);
   static_assert(!Pullback::StageDescriptor<NonTuplePoliciesStage>);
