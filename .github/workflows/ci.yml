@@ -11,6 +11,7 @@ on:
   # direct-to-master pushes that open no PR.
   push:
     branches: [master]
+  workflow_dispatch:
   # No path filter: a docs-only PR must still run the Markdown, image,
   # license-header, and screenshot-gallery gates.
   pull_request:
