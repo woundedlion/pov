@@ -576,7 +576,9 @@ inline void transform_in_place(MeshState &mesh,
 //   - relax_baked -> takes no `temp` arena at all
 // medial additionally holds a per-face dual-position buffer in `temp`.
 // ambo/truncate/expand/chamfer/snub also take a prebuilt HalfEdgeMesh, which
-// may sit in either arena: both scopes mark at the operator's entry offset.
+// may sit in either arena: ambo and truncate scope both arenas, expand, chamfer
+// and snub scope only `temp`, and every scope marks at the operator's entry
+// offset, so none of them rewinds past a caller-owned he_mesh.
 //
 // ARENA DISTINCTNESS: the operators that open a ScratchScope (or rewind an
 // arena) before an allocation the rewind must not reclaim check

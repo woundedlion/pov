@@ -202,6 +202,9 @@ struct DistortedRingStack {
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
                    const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
                    int n_slots, RingShaderT &&shader) {
+    // Spelled inline rather than through check_canvas_dims: the helper is
+    // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
+    // costs 1,616 B of ITCM.
     HS_CHECK(canvas.width() == W && canvas.height() == H);
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n_slots >= 1);
@@ -469,6 +472,9 @@ struct RingGroup {
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
                    int n, RingShaderT &&shader, bool debug_bb = false) {
     static constexpr int MAX_RINGS = 8;
+    // Spelled inline rather than through check_canvas_dims: the helper is
+    // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
+    // costs 1,616 B of ITCM.
     HS_CHECK(canvas.width() == W && canvas.height() == H);
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n >= 1 && n <= MAX_RINGS);

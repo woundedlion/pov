@@ -321,7 +321,9 @@ template <int W, int H> struct Pipeline<W, H> {
   /**
    * @brief Writes a float-coordinate 2D sample to the canvas (sink).
    * @param cv Target canvas.
-   * @param x Column; must round into [-W, 2W), then wrapped.
+   * @param x Column; must round into [-W, 2W), then wrapped. Rounding, not
+   * flooring: a producer that may instead reach Screen::splat_taps must also
+   * stay at or above -W.
    * @param y Row; rounded to nearest pixel.
    * @param c Source color to blend in.
    * @param alpha Blend alpha in [0, 1].

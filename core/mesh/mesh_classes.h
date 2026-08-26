@@ -47,9 +47,10 @@ inline constexpr int CLASS_LUT_MAX_N = 64;
 /** Per-mesh LUT byte budget. Classes are allocated by descending face count
  *  until it is spent; the remainder run NO_CLASS. Identical on every target
  *  (host/WASM/device) so sim and device output cannot fork. Sized so a
- *  double-buffered pair of bakes plus a palette bank fits a 136 KB device
- *  persistent partition; a consumer effect must add its bakes to its
- *  test_solids-style persistent-budget sweep. */
+ *  double-buffered pair of bakes plus a palette bank fits the 108 KiB device
+ *  persistent partition IslamicStars' split leaves (DEVICE_GLOBAL_ARENA_SIZE
+ *  minus its 116 KiB / 74 KiB scratch pair); a consumer effect must add its
+ *  bakes to its test_solids-style persistent-budget sweep. */
 inline constexpr size_t CLASS_LUT_BUDGET = 18 * 1024;
 /** Minimum bake-predicted hit share for a class LUT to be kept: below this
  *  the probes mostly land in the fallback band and pay the guard for
