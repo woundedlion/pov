@@ -5,7 +5,8 @@ Produces, into ../gen/out/:
   * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
   * phantasm-drc.json — gating error-severity DRC report
   * phantasm-parity.json — gating board/schematic parity report
-  * jlc/SHA256SUMS.txt — digest of every zipped artifact and of the zip
+  * jlc/SHA256SUMS.txt — digest of every zipped artifact, the assembly
+    CSVs, and the zip
 
 --verify re-hashes an already-generated package against that manifest and
 against the committed baseline (fab-SHA256SUMS.txt beside the board), and runs
@@ -71,9 +72,12 @@ ZIP_COMPRESS_LEVEL = 6
 #: gen/out/ is not: without it nothing records the bytes the fab received.
 SHIPPED_SUMS = os.path.join(PROJ, "fab-SHA256SUMS.txt")
 
+#: Assembly data JLC takes outside the upload zip. The PCBA house places parts
+#: from these, so they are digested with the rest of the package.
+ASSEMBLY_MEMBERS = ("phantasm-BOM.csv", "phantasm-CPL.csv")
 # Everything else the run writes into jlc/: assembly data, the zip itself,
 # and the zip's digest manifest.
-ZIP_EXCLUDED = {"phantasm-BOM.csv", "phantasm-CPL.csv", ARCHIVE, SUMS_FILE}
+ZIP_EXCLUDED = {*ASSEMBLY_MEMBERS, ARCHIVE, SUMS_FILE}
 
 
 #: Creation stamp written over KiCad's wall clock in every exported artifact,
@@ -201,14 +205,16 @@ def sha256_file(path):
 
 
 def package_manifest(directory, members, archive):
-    """`sha256sum -c` lines for every zipped artifact and the archive itself.
+    """`sha256sum -c` lines for every artifact the fab receives.
 
-    zip_member() and normalize_fab_timestamps() make the package
-    byte-reproducible; the manifest is what a rebuild is checked against.
+    Covers the zipped members, the assembly CSVs that travel beside the zip,
+    and the archive itself. zip_member() and normalize_fab_timestamps() make
+    the package byte-reproducible; the manifest is what a rebuild is checked
+    against.
     """
     return "".join(
         f"{sha256_file(os.path.join(directory, name))}  {name}\n"
-        for name in list(members) + [archive])
+        for name in list(members) + list(ASSEMBLY_MEMBERS) + [archive])
 
 
 class UploadPackageError(ValueError):
@@ -289,7 +295,8 @@ def verify_package(directory=JLC, baseline=SHIPPED_SUMS):
             f"no fab package to verify: {directory}; run fab.py first")
     manifest_path = os.path.join(directory, SUMS_FILE)
     recorded = read_manifest(manifest_path)
-    covered = set(zip_members(os.listdir(directory))) | {ARCHIVE}
+    covered = (set(zip_members(os.listdir(directory)))
+               | set(ASSEMBLY_MEMBERS) | {ARCHIVE})
 
     diagnostics = []
     if missing := sorted(covered - set(recorded)):
@@ -300,7 +307,11 @@ def verify_package(directory=JLC, baseline=SHIPPED_SUMS):
             f"{manifest_path} records artifacts the package does not hold: "
             + ", ".join(extra))
     for name in sorted(covered & set(recorded)):
-        digest = sha256_file(os.path.join(directory, name))
+        path = os.path.join(directory, name)
+        if not os.path.exists(path):
+            diagnostics.append(f"{name}: recorded but not in the package")
+            continue
+        digest = sha256_file(path)
         if digest != recorded[name]:
             diagnostics.append(
                 f"{name}: {digest} is not the recorded {recorded[name]}")
