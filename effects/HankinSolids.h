@@ -848,7 +848,7 @@ private:
       Persist<MeshPaletteBank> pp(palette_bank, scratch_arena_b,
                                   persistent_arena);
       Persist<PolyMesh> ps(seed_base, scratch_arena_a, persistent_arena);
-      persistent_arena.reset();
+      reset_persistent_arena();
     }
 
     MeshOps::update_hankin(compiled_hankin, hankin_mesh, persistent_arena,

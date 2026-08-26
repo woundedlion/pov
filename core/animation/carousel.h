@@ -197,8 +197,7 @@ public:
              "MeshCarousel compacted before the incoming slot flip");
     slots[back_slot] = MeshState();
     Persist<MeshState> p(slots[front], scratch_arena_b, persistent_arena);
-    ArenaResetHook::run_all();
-    persistent_arena.reset();
+    reset_persistent_arena();
     after_reset(persistent_arena);
   }
 
@@ -217,8 +216,7 @@ public:
   template <typename AfterReset> void compact_drop_all(AfterReset after_reset) {
     slots[0] = MeshState();
     slots[1] = MeshState();
-    ArenaResetHook::run_all();
-    persistent_arena.reset();
+    reset_persistent_arena();
     after_reset(persistent_arena);
   }
 

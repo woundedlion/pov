@@ -574,6 +574,24 @@ inline void test_arena_reset_hook_runs_on_configure() {
   HS_EXPECT_EQ(persistent_arena.get_capacity(), DEFAULT_PERSISTENT_SIZE);
 }
 
+/**
+ * @brief Verifies reset_persistent_arena() runs the hook list before rewinding.
+ * @details The other seam that re-issues persistent storage. A bare
+ *          Arena::reset() cannot run the registry, so the free function is the
+ *          only correct spelling for a caller that rewinds to empty.
+ */
+inline void test_reset_persistent_arena_runs_hooks() {
+  using namespace reset_hook_probe;
+  outer_calls = 0;
+  {
+    ArenaResetHook hook(bump_outer);
+    persistent_arena.allocate_n<uint32_t>(16);
+    reset_persistent_arena();
+    HS_EXPECT_EQ(outer_calls, 1);
+    HS_EXPECT_EQ(persistent_arena.get_offset(), (size_t)0);
+  }
+}
+
 // ============================================================================
 // ArenaVector
 // ============================================================================
@@ -1345,6 +1363,7 @@ inline int run_memory_tests() {
   test_resplit_arenas_preserves_persistent();
   test_arena_reset_hook_dispatch_and_unlink();
   test_arena_reset_hook_runs_on_configure();
+  test_reset_persistent_arena_runs_hooks();
 
   test_arenavec_default_unbound();
   test_arenavec_bind();
