@@ -137,7 +137,7 @@ committed board directly need no KiCad and run in CI
 - **Fab-package digest gate:** the exports are stamp-normalized and zipped with
   fixed member metadata, so an unchanged board repackages byte for byte, and
   every run writes `SHA256SUMS.txt` beside the upload zip covering each zipped
-  artifact and the zip itself. `python gen/fab.py --verify` re-hashes an
+  artifact, both assembly CSVs, and the zip itself. `python gen/fab.py --verify` re-hashes an
   already-generated package against that manifest and against
   `fab-SHA256SUMS.txt` — the baseline recording what was ordered, kept beside
   the board because `gen/out/` is gitignored. That baseline is **not yet

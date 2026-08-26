@@ -930,11 +930,12 @@ class PackageManifestTests(unittest.TestCase):
 
     ARCHIVE = "phantasm-jlc-gerbers.zip"
 
-    def test_manifest_covers_every_member_and_the_archive(self):
+    def test_manifest_covers_members_assembly_data_and_the_archive(self):
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         payloads = {"phantasm-F_Cu.gtl": b"G04 gerber*",
                     "phantasm-PTH.drl": b"M48 M30",
                     self.ARCHIVE: b"zip bytes"}
+        payloads.update((name, name.encode()) for name in fab.ASSEMBLY_MEMBERS)
         for name, data in payloads.items():
             (directory / name).write_bytes(data)
         members = ["phantasm-F_Cu.gtl", "phantasm-PTH.drl"]
@@ -943,7 +944,14 @@ class PackageManifestTests(unittest.TestCase):
         self.assertEqual(
             lines,
             [f"{hashlib.sha256(payloads[name]).hexdigest()}  {name}"
-             for name in members + [self.ARCHIVE]])
+             for name in members + list(fab.ASSEMBLY_MEMBERS)
+             + [self.ARCHIVE]])
+
+    def test_the_assembly_csvs_travel_beside_the_zip(self):
+        self.assertEqual(set(fab.ASSEMBLY_MEMBERS),
+                         {"phantasm-BOM.csv", "phantasm-CPL.csv"})
+        self.assertTrue(set(fab.ASSEMBLY_MEMBERS) <= fab.ZIP_EXCLUDED)
+        self.assertFalse(set(fab.ASSEMBLY_MEMBERS) & fab.ZIP_MEMBERS)
 
     def test_the_manifest_is_not_an_upload_member(self):
         self.assertIn(fab.SUMS_FILE, fab.ZIP_EXCLUDED)
@@ -1040,8 +1048,8 @@ class PackageVerificationTests(unittest.TestCase):
 
     def package(self):
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        for name in ZipMembershipTests.EXPORTED + (fab.ARCHIVE,
-                                                  "phantasm-BOM.csv"):
+        for name in (ZipMembershipTests.EXPORTED + (fab.ARCHIVE,)
+                     + fab.ASSEMBLY_MEMBERS):
             (directory / name).write_bytes(name.encode())
         members = fab.zip_members(os.listdir(directory))
         (directory / fab.SUMS_FILE).write_text(
@@ -1055,13 +1063,29 @@ class PackageVerificationTests(unittest.TestCase):
     def test_accepts_a_package_matching_manifest_and_baseline(self):
         directory, baseline = self.package()
         self.assertEqual(fab.verify_package(str(directory), str(baseline)),
-                         len(fab.ZIP_MEMBERS) + 1)
+                         len(fab.ZIP_MEMBERS)
+                         + len(fab.ASSEMBLY_MEMBERS) + 1)
 
     def test_rejects_an_edited_artifact(self):
         directory, baseline = self.package()
         (directory / "phantasm-F_Cu.gtl").write_bytes(b"edited")
         with self.assertRaisesRegex(fab.PackageVerificationError,
                                     "phantasm-F_Cu.gtl"):
+            fab.verify_package(str(directory), str(baseline))
+
+    def test_rejects_an_edited_assembly_csv(self):
+        for name in fab.ASSEMBLY_MEMBERS:
+            with self.subTest(artifact=name):
+                directory, baseline = self.package()
+                (directory / name).write_bytes(b"C123456,swapped")
+                with self.assertRaisesRegex(fab.PackageVerificationError, name):
+                    fab.verify_package(str(directory), str(baseline))
+
+    def test_reports_an_artifact_the_package_lost(self):
+        directory, baseline = self.package()
+        (directory / "phantasm-CPL.csv").unlink()
+        with self.assertRaisesRegex(fab.PackageVerificationError,
+                                    "phantasm-CPL.csv: recorded but not"):
             fab.verify_package(str(directory), str(baseline))
 
     def test_rejects_a_manifest_that_skips_an_artifact(self):
@@ -1094,7 +1118,8 @@ class PackageVerificationTests(unittest.TestCase):
     def test_checks_the_package_alone_without_a_baseline(self):
         directory, _ = self.package()
         self.assertEqual(fab.verify_package(str(directory), None),
-                         len(fab.ZIP_MEMBERS) + 1)
+                         len(fab.ZIP_MEMBERS)
+                         + len(fab.ASSEMBLY_MEMBERS) + 1)
 
     def test_rejects_a_malformed_manifest_line(self):
         directory, baseline = self.package()
@@ -1114,7 +1139,8 @@ class PackageVerificationTests(unittest.TestCase):
         if not os.path.exists(fab.SHIPPED_SUMS):
             self.skipTest(f"no committed baseline at {fab.SHIPPED_SUMS}")
         recorded = fab.read_manifest(fab.SHIPPED_SUMS)
-        self.assertEqual(set(recorded), fab.ZIP_MEMBERS | {fab.ARCHIVE})
+        self.assertEqual(set(recorded), fab.ZIP_MEMBERS
+                         | set(fab.ASSEMBLY_MEMBERS) | {fab.ARCHIVE})
 
 
 class NetlistSpecTests(unittest.TestCase):
