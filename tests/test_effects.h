@@ -1567,7 +1567,12 @@ inline void test_gs_opaque_quarter_accumulation_is_exact() {
   }
 }
 
-/** @brief Verifies each reseeded reaction receives a freshly generated palette. */
+/**
+ * @brief Verifies each reseeded reaction receives a freshly generated, opaque
+ *        palette.
+ * @details shade_pixel samples RGB only, so every re-baked recipe must stay
+ *          opaque for the quarter-sample accumulation to hold.
+ */
 inline void test_gs_reseed_generates_palette() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
@@ -1584,11 +1589,10 @@ inline void test_gs_reseed_generates_palette() {
 
   int changed = 0;
   for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-    const Pixel after =
-        GSWhiteBox::palette_sample(gs, static_cast<float>(i) /
-                                           (BakedPalette::LUT_SIZE - 1))
-            .color;
-    changed += after != before[i];
+    const Color4 after = GSWhiteBox::palette_sample(
+        gs, static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1));
+    HS_EXPECT_EQ(after.alpha, 1.0f);
+    changed += after.color != before[i];
   }
   HS_EXPECT_GT(changed, 0);
   HS_EXPECT_EQ(persistent_arena.get_offset(), arena_offset);
