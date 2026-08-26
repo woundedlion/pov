@@ -2502,6 +2502,59 @@ inline void case_world_trails_lifetime_over_max() {
 }
 
 /**
+ * @brief Death case: seeding a screen trail before init_storage() must trap.
+ * @details Filter surface — plot() seeds the ring buffer, so without storage it
+ *          would silently drop every trail point and an effect that never
+ *          flushes would render trail-free instead of failing.
+ */
+inline void case_screen_trails_plot_without_storage() {
+  Filter::Screen::Trails<8> trails(4); // no init_storage() -> HS_CHECK
+  trails.plot(1.0f, 1.0f, Pixel(1, 1, 1), 0.0f, 1.0f,
+              [](float, float, const Pixel &, float, float) {});
+}
+
+/**
+ * @brief Death case: seeding a world trail before init_storage() must trap.
+ * @details Filter surface — the 3D counterpart of the screen guard: plot()
+ *          pushes into the ring buffer, which does not exist yet.
+ */
+inline void case_world_trails_plot_without_storage() {
+  Filter::World::Trails<8> trails(4); // no init_storage() -> HS_CHECK
+  trails.plot(Vector(0, 1, 0), Pixel(1, 1, 1), 0.0f, 1.0f,
+              [](const Vector &, const Pixel &, float, float) {});
+}
+
+/**
+ * @brief Death case: hoisted point projections shorter than the polyline must
+ *        trap.
+ * @details Plot surface — rasterize indexes point_rows/point_cols by point
+ *          index, so an array sized to the EDGE count (as edge_flags is) reads
+ *          one past the end on the last point.
+ */
+inline void case_raster_point_projections_short() {
+  constexpr int W = 32, H = 16;
+  configure_arenas_default();
+  ScratchScope sc(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, 3);
+  for (int i = 0; i < 3; ++i) {
+    Fragment f;
+    f.pos = Vector(1, 0, 0);
+    points.push_back(f);
+  }
+  float rows[3] = {0.0f, 0.0f, 0.0f};
+  float cols[3] = {0.0f, 0.0f, 0.0f};
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  Pipeline<W, H> pipe;
+  Plot::rasterize<W, H>(pipe, c, points, [](const Vector &, Fragment &) {},
+                        {.point_rows = rows,
+                         .point_cols = cols,
+                         // one per EDGE, not per point -> HS_CHECK
+                         .point_projections_len = opaque<size_t>(2)});
+}
+
+/**
  * @brief Death case: a ring index past the last ring must trap.
  * @details SphericalFieldLayout surface — the chain walk saturates at row H-1
  *          while the offset keeps accumulating, so an out-of-range index would
@@ -4310,6 +4363,16 @@ inline const Case *all_cases(int &n) {
        "world_trails.h",
        "(lifetime > 0 && lifetime <= 255) World::Trails: lifetime 256 outside "
        "[1, 255]"},
+      {"screen_trails_plot_without_storage",
+       case_screen_trails_plot_without_storage, "screen_trails.h",
+       "(points) Screen::Trails needs init_storage() from effect init()"},
+      {"world_trails_plot_without_storage",
+       case_world_trails_plot_without_storage, "world_trails.h",
+       "(items) World::Trails needs init_storage() from effect init()"},
+      {"raster_point_projections_short", case_raster_point_projections_short,
+       "raster.h",
+       "(point_rows == nullptr || opts.point_projections_len == len) hoisted "
+       "point projections need one entry per polyline point"},
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
        "spherical_field.h",
        "(y < H - 1) SphericalFieldLayout: ring index 5 out of range"},
