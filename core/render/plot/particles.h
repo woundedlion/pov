@@ -295,7 +295,8 @@ struct ParticleSystem {
             {.edge_flags = vis,
              .edge_flags_len = trail.size() - 1,
              .point_rows = dot_rows,
-             .point_cols = dot_cols});
+             .point_cols = dot_cols,
+             .point_projections_len = trail.size()});
       }
     }
   }
