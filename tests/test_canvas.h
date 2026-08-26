@@ -1369,6 +1369,24 @@ inline void test_pipeline_ref_routes_screen_coordinate_overloads() {
 }
 
 /**
+ * @brief Verifies PipelineRef is constructible only from a plot() provider.
+ * @details The converting constructor is a viable implicit conversion during
+ *          overload resolution, so a negative-only constraint would make it
+ *          claim every lvalue and fail inside the erasing thunks instead of at
+ *          the call.
+ */
+inline void test_pipeline_ref_requires_plot_overloads() {
+  struct NoPlot {};
+  struct PartialPlot {
+    void plot(Canvas &, float, float, const Pixel &, float, float) {}
+  };
+  static_assert(std::is_constructible_v<PipelineRef, StubPipe &>);
+  static_assert(!std::is_constructible_v<PipelineRef, int &>);
+  static_assert(!std::is_constructible_v<PipelineRef, NoPlot &>);
+  static_assert(!std::is_constructible_v<PipelineRef, PartialPlot &>);
+}
+
+/**
  * @brief Verifies a PipelineRef copy remains bound to its original target.
  */
 inline void test_pipeline_ref_copy_is_independent_of_source() {
@@ -1432,6 +1450,7 @@ inline int run_canvas_tests() {
   test_canvas_cached_render_clip_matches_region();
   test_effect_config_margin();
   test_pipeline_ref_routes_screen_coordinate_overloads();
+  test_pipeline_ref_requires_plot_overloads();
   test_pipeline_ref_copy_is_independent_of_source();
 
   return fixture.result();
