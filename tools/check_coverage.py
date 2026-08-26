@@ -80,14 +80,14 @@ def directory_floor(text: str) -> tuple[str, float]:
     return directory.strip("/"), floor
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("report", type=Path)
     parser.add_argument("--min-lines", type=float, required=True)
     parser.add_argument("--min-directory", type=directory_floor, action="append",
                         default=[], metavar="DIR=PERCENT",
                         help="line floor for one directory; repeatable")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if not 0.0 <= args.min_lines <= 100.0:
         parser.error("--min-lines must be between 0 and 100")
 

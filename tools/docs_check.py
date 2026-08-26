@@ -1065,7 +1065,7 @@ def check_repository(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Check tracked Markdown fences and repository links.")
-    parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument(
         "--checkout", action="append", default=[], metavar="NAME=PATH",
         help="root of a sibling checkout a `tree <NAME>` fence draws")

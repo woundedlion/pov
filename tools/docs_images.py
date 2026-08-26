@@ -124,7 +124,7 @@ def report(errors: list[str]) -> None:
         print(f"::error::unresolvable docs image reference - {error}")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--stage", nargs="?", type=Path, const=DEFAULT_HTML_ROOT,
@@ -133,10 +133,10 @@ def main() -> int:
              "tree (default: build/docs/html) rather than verifying the "
              "tracked Markdown sources")
     parser.add_argument(
-        "--repo-root", type=Path, default=ROOT,
+        "--root", type=Path, default=Path("."),
         help="repository root the references are resolved against")
-    args = parser.parse_args()
-    repo_root = args.repo_root.resolve()
+    args = parser.parse_args(argv)
+    repo_root = args.root.resolve()
 
     if args.stage is None:
         errors, checked = verify(repo_root)
@@ -155,8 +155,9 @@ def main() -> int:
 
     html_root = args.stage.resolve()
     if not html_root.is_dir():
-        print(f"{html_root}: no generated HTML — build the docs first")
-        return 1
+        print(f"[docs-images] tooling error: {html_root}: no generated HTML "
+              f"— build the docs first", file=sys.stderr)
+        return 2
     errors, staged, checked = stage(html_root, repo_root)
     if errors:
         report(errors)
@@ -172,4 +173,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

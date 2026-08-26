@@ -55,14 +55,14 @@ def death_pins(path: Path) -> dict[str, int]:
     return {f"guard_gap.{name}": gap for name, gap in rows.items()}
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("previous_harness", type=Path)
     parser.add_argument("current_harness", type=Path)
     parser.add_argument("previous_death", type=Path)
     parser.add_argument("current_death", type=Path)
     parser.add_argument("--previous-ref", required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     current = floors(args.current_harness)
     gaps_current = death_pins(args.current_death)
