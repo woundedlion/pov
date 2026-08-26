@@ -124,6 +124,14 @@ class EmbedLandTests(unittest.TestCase):
         pcb._MOD_CACHE[CHIP_LIBID] = sexp.parse(CHIP_MOD)[0]
         self.addCleanup(pcb._MOD_CACHE.pop, CHIP_LIBID, None)
 
+    def test_embedded_footprint_leaves_the_cached_library_node_alone(self):
+        before = sexp.dumps(pcb._MOD_CACHE[CHIP_LIBID])
+        node = pcb.embedded_footprint("R1", CHIP_LIBID)
+        node.append([sexp.Sym("scratch")])
+        self.assertEqual(sexp.dumps(pcb._MOD_CACHE[CHIP_LIBID]), before)
+        self.assertEqual(sexp.dumps(pcb.embedded_footprint("R1", CHIP_LIBID)),
+                         before)
+
     def test_embed_keeps_the_library_land(self):
         expected = pad_lands(sexp.parse(CHIP_MOD)[0])
         for ref in LIBRARY_LAND_REFS:

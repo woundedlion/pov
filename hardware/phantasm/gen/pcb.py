@@ -8,6 +8,7 @@ planes are encoded in the file, so an autoplacer/fab reads them on upload.
 Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 """
 import argparse
+import copy
 import math
 import os
 import sys
@@ -316,7 +317,7 @@ def embedded_footprint(ref, libid,
     """A fresh footprint node carrying the land `embed` emits for `ref`,
     including any per-reference land override."""
     node = teensy_footprint(teensy_model_path) if libid == TEENSY_LIBID else \
-        sexp.parse(sexp.dumps(load_mod(libid)))[0]  # deep copy via round-trip
+        copy.deepcopy(load_mod(libid))
     if ref == "D_BUS":
         set_d_bus_land_pattern(node)
     return node
@@ -455,12 +456,13 @@ def _rot_bb(bb, rot):
 
 def _rotatable(ref):
     # Placement aligns the rotated bbox corner to the cell, so any origin packs
-    # correctly. Rotate chip passives (R/C) and pin-header connectors (J*). Keep
-    # solder jumpers (JP*, custom pads + clearance-outline trip DRC at 90), diodes,
-    # fuse, bead and ICs at rot 0.
-    if ref.startswith("JP"):
+    # correctly. Rotate chip passives (R*/C*). Keep solder jumpers (JP*, custom
+    # pads + clearance-outline trip DRC at 90), C_IN (a through-hole radial
+    # electrolytic), diodes, fuse, bead and ICs at rot 0. Connectors never reach
+    # here: pack() pins every one of them to a board end.
+    if ref.startswith("JP") or ref == "C_IN":
         return False
-    return ref[0] in "RC" or ref[0] == "J"
+    return ref[0] in "RC"
 
 
 # Through-hole connectors are pinned to the board ends (not skyline-packed) so the
