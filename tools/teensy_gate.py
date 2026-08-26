@@ -588,6 +588,13 @@ _SYMBOL_REQUIRED_KEYS = frozenset({"name", "region"})
 # component-present rules while enforcing nothing.
 _COMPONENT_ONE_OF_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
 
+# Regions whose 'max_bytes' is the hardware region size itself: `used > max_bytes`
+# cannot fire before the linker does, so the free floor is the only reachable
+# constraint and is required rather than optional.
+_REGION_REQUIRED_KEYS_BY_REGION: dict[str, frozenset[str]] = {
+    "ram2": _REGION_REQUIRED_KEYS | {"free_min_bytes"},
+}
+
 # Region objects and layout symbols every target budget must declare. Both
 # loops in evaluate() iterate whatever the budget carries, so deleting a whole
 # object removes its ceiling / invariant with no violation and no unknown-key
@@ -666,7 +673,8 @@ def validate_budgets(budgets: object) -> dict:
         for region, spec in regions.items():
             rwhere = f"env '{env}' region '{region}'"
             _check_keys(spec, _REGION_KEYS, rwhere,
-                        required=_REGION_REQUIRED_KEYS)
+                        required=_REGION_REQUIRED_KEYS_BY_REGION.get(
+                            region, _REGION_REQUIRED_KEYS))
             for cname, cspec in _child_map(spec, "components", rwhere).items():
                 cwhere = f"{rwhere} component '{cname}'"
                 _check_keys(cspec, _COMPONENT_KEYS, cwhere,
