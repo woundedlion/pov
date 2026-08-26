@@ -76,6 +76,12 @@ jobs:
     timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      # Every ccache key carries github.run_id, so the exact key always misses
+      # and every job saves a fresh entry into GitHub's 10 GB LRU cache quota.
+      # At ccache's 5 GB default a single slot can evict the rest, and the
+      # restore-keys fallbacks the keys above rely on then miss silently.
+      # Cap every slot so the whole run's set fits the quota.
+      CCACHE_MAXSIZE: &ccache_maxsize 400M
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -266,6 +272,7 @@ jobs:
     timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: *ccache_maxsize
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -347,6 +354,7 @@ jobs:
     timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: *ccache_maxsize
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -462,6 +470,7 @@ jobs:
     timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: *ccache_maxsize
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -534,6 +543,7 @@ jobs:
     timeout-minutes: 60
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: *ccache_maxsize
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -726,6 +736,7 @@ jobs:
     timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: *ccache_maxsize
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
