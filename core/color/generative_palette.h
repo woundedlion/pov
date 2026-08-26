@@ -306,7 +306,9 @@ public:
    * @details Keeps this palette's evaluation policy. Both snapshots must carry
    * the same key count, or the endpoints resolve to different palette shapes.
    * Snapshots carry no closing hue, so a LOOP domain keeps its own closing
-   * travel, re-anchored to the morphed first key.
+   * travel, re-anchored to the morphed first key. A pair whose axis curves
+   * disagree morphs through CUSTOM at every amount, so an endpoint lands on
+   * that snapshot's key run rather than on its analytic axis curve.
    */
   HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
                            float amount) {
@@ -316,9 +318,11 @@ public:
              "GenerativePalette::lerp snapshot key count out of range");
     amount = hs::clamp(amount, 0.0f, 1.0f);
     const float closing_travel = closing_hue - keys[0].h;
-    if (amount == 0.0f)
+    const bool matched_curves = from.lightness_curve == to.lightness_curve &&
+                                from.chroma_curve == to.chroma_curve;
+    if (matched_curves && amount == 0.0f)
       assign(from);
-    else if (amount == 1.0f)
+    else if (matched_curves && amount == 1.0f)
       assign(to);
     else
       lerp_keys(from, to, amount);
