@@ -27,7 +27,12 @@ UNPLACED_REASON = (
     "The committed unplaced board is the Quilter upload input and carries\n"
     "  KiCad GUI edits these generators do not reproduce.")
 FP_DIR = sexp.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
-PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
+#: R-MECH-6 board-width cap (mm).
+PCB_W_MAX = 35.0
+PCB_W = 32.0  # board width (mm), trimmed to part extent
+if PCB_W > PCB_W_MAX:
+    raise ValueError(f"PCB_W {fmt(PCB_W)} mm exceeds the R-MECH-6 cap of "
+                     f"{fmt(PCB_W_MAX)} mm")
 QUILTER_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
     "The committed, routed phantasm.kicad_pcb resolves its Teensy pads\n"
@@ -672,12 +677,14 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         bounded = [r for r in bxs if r in QUILTER_FIXED]
         OUTFILE = UNPLACED_FILE
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
-                '(width <=35mm); mechanical and signal-integrity placements locked')
+                f'(width <={fmt(PCB_W_MAX)}mm); mechanical and signal-integrity '
+                'placements locked')
     else:
         PLACE, L = pack(bxs, PCB_W)
         bounded = list(bxs)
         OUTFILE = PCB_FILE
-        NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm (width <=35mm, R-MECH-6); '
+        NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm '
+                f'(width <={fmt(PCB_W_MAX)}mm, R-MECH-6); '
                 'shelf-packed draft, route in Pcbnew')
 
     outside = outline_overflows(PLACE, pad_bxs, L, bounded)
