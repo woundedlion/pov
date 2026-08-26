@@ -54,7 +54,6 @@ public:
                                                               "dense-curl"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 5;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-  static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
   /// Params the effect starts on, and the base every preset varies from.
   static constexpr Params initial_params() {

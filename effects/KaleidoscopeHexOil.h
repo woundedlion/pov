@@ -44,7 +44,6 @@ public:
       "kaleidoscope-hex-oil", "kaleidoscope-hex-oil-2"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-  static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
   static constexpr Params initial_params() {
     Params value;

@@ -42,7 +42,6 @@ public:
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"vector-mirror"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
-  static constexpr int32_t OUTER_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
   // Cold section: the out-of-line pipeline body compiles for size.
   static HS_FLASH_MEMBER Color4

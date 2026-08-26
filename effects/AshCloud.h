@@ -42,7 +42,6 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr float CAMERA_SPIN_RATE = 0.0197500009f;
-  static constexpr int32_t SURFACE_NOISE_SEED = Pullback::EFFECT_NOISE_SEED;
 
   static constexpr Params initial_params() {
     Params value;
