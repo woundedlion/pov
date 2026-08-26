@@ -61,7 +61,8 @@ const defaults = Object.freeze({
     'palette-chroma': 0.62, 'palette-mapping': 'linear',
     'mapping-frequency': 1, 'mapping-phase': 0,
     'phase-oscillation-depth': 0, 'phase-oscillation-speed': 0,
-    'brightness-depth': 1, 'value-opacity-low': 1, 'value-opacity-high': 1,
+    'brightness-bottom': 0, 'brightness-top': 1,
+    'value-opacity-low': 1, 'value-opacity-high': 1,
     'hue-shift-amount': 0, 'hue-noise-scale': 1, 'hue-noise-speed': 0,
   },
   mobius: {
@@ -95,7 +96,8 @@ const parameterSpec = (id, value, source) => {
   let domain = { minimum: -30, maximum: 30 };
   let unit = 'ratio';
   if (id === 'pattern-freq')
-    domain = { minimum: 0.1, maximum: source === 'grid' ? 64 : 20 };
+    domain = { minimum: source === 'grid' ? 0.01 : 0.1,
+      maximum: source === 'grid' ? 64 : 20 };
   else if (id === 'speed') domain = { minimum: 0, maximum: 0.5 };
   else if (id === 'source-angle-speed') domain = { minimum: 0, maximum: Math.fround(0.05) };
   else if (id === 'phase-oscillation-speed') domain = { minimum: -0.01, maximum: 0.01 };
@@ -108,6 +110,7 @@ const parameterSpec = (id, value, source) => {
   else if (id === 'complexity') domain = { minimum: 0, maximum: 3 };
   else if (id === 'pattern-mix' || id.endsWith('wander') || id.endsWith('depth') ||
            id.endsWith('opacity-low') || id.endsWith('opacity-high') ||
+           id === 'brightness-bottom' || id === 'brightness-top' ||
            id === 'lattice-shape' || id === 'iso-level' || id === 'edge-width')
     domain = { minimum: 0, maximum: 1 };
   else if (id === 'pole-fade') domain = { minimum: 1, maximum: 20 };
@@ -202,7 +205,10 @@ const baseValues = (spec) => {
     values['hue-noise-scale'] = 1;
     values['hue-noise-speed'] = 0;
   }
-  if (spec.brightness !== 'none') values['brightness-depth'] = 1;
+  if (spec.brightness !== 'none') {
+    values['brightness-bottom'] = 0;
+    values['brightness-top'] = 1;
+  }
   if (spec.lens === 'mobius') Object.assign(values, defaults.mobius);
   return values;
 };
@@ -422,7 +428,8 @@ const effects = [
       'source-angle-speed': 0.027, 'pole-fade': 2.311, 'camera-wander': 1,
       'outer-strength': 0.138, 'outer-speed': -0.00005,
       'inner-speed': 0.00327999983, 'hue-shift-amount': 0.721,
-      'palette-chroma': 1, 'brightness-depth': 0.655, 'palette-mapping': 'cup',
+      'palette-chroma': 1, 'brightness-bottom': 0.345,
+      'brightness-top': 1, 'palette-mapping': 'cup',
     } }],
   },
   {

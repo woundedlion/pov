@@ -401,7 +401,7 @@ inline constexpr Config gnomonic_dodecahedral_vector_mirror_grid_preset() {
   params.projection.wander = 1.0f;
   params.color.hue_shift_amount = 0.721f;
   params.color.palette_chroma = 1.0f;
-  params.color.brightness_depth = 0.655f;
+  params.color.brightness_bottom = 0.345f;
   params.outer_camera.wander = 1.0f;
   return {slots, params};
 }

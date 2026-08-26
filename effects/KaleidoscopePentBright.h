@@ -35,7 +35,7 @@ public:
   using Params = KaleidoscopePentBrightParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-pent-bright";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "249fbe4f63ff75efd950f95f145ddc5524c40bdd3cef6b2c0e519080629c15eb";
+      "27365967105ac1855d8ab3d5e00953436be958ec1238de5cadfebb42ae49e0f2";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "50720ad712274ad1d2a4e56ee85af0f9dd3795f9e224dc3996bb568e7c53b1b3";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"polar-wave"};

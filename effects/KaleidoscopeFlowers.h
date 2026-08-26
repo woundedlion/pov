@@ -35,7 +35,7 @@ public:
   using Params = KaleidoscopeFlowersParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-flowers";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "414760eb0ccd72f6e35d34b387367143005680ba632f3fb4682d669d6a4a1372";
+      "ea710e1c3a212e24d0f0dc2f5166d9c1cc1b57443e727bbc92a41a449e48a229";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "20e32077f73ef64ae31770360ecd5a956c4a03ce2efd501306ab5b5f154224f0";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
