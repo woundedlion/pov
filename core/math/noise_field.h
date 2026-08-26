@@ -250,6 +250,20 @@ sample_simplex_vector(const FastNoiseLite &noise, const Vector &q) {
 }
 
 /**
+ * @brief Scales a tangent down to unit length in place, leaving shorter ones
+ *   untouched so a quiet field keeps its own magnitude.
+ * @param u Tangent to clamp.
+ * @details One spelling for every tangent sampler: fast_rsqrt is one-sided low,
+ * so a rescaled tangent lands at most 1 to within its final multiply, while a
+ * divide by the length can land a ULP above.
+ */
+__attribute__((always_inline)) inline void clamp_tangent_to_unit(Vector &u) {
+  const float length_sq = dot(u, u);
+  if (length_sq > 1.0f)
+    u *= fast_rsqrt(length_sq);
+}
+
+/**
  * @brief Tangent field from a 3D noise vector projected onto the sphere.
  * @param noise Prepared generator.
  * @param basis Octave structure to apply.
@@ -257,11 +271,9 @@ sample_simplex_vector(const FastNoiseLite &noise, const Vector &q) {
  * @param v Unit point the tangent is taken at.
  * @param direction_cos Cosine of the in-plane rotation applied to the tangent.
  * @param direction_sin Sine of that rotation.
- * @return A tangent at @p v of length at most 1, to within the rounding of
- *   fast_rsqrt()'s final multiply.
+ * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  * @details Takes the DIRECT_VECTOR_V2 path for SIMPLEX and DIRECT_V1
- * otherwise. Only lengths above 1 are rescaled, so the field keeps its own
- * magnitude where the noise is quiet.
+ * otherwise.
  */
 HS_FLASH_INLINE inline Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
@@ -275,9 +287,7 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
                sample_noise_vector_channel(noise, basis, q, 1),
                sample_noise_vector_channel(noise, basis, q, 2));
   u -= dot(u, v) * v;
-  const float length_sq = u.x * u.x + u.y * u.y + u.z * u.z;
-  if (length_sq > 1.0f)
-    u *= fast_rsqrt(length_sq);
+  clamp_tangent_to_unit(u);
   return direction_cos * u + direction_sin * cross(v, u);
 }
 
@@ -288,8 +298,7 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
  * @param direction In-plane rotation applied to the tangent, in turns.
- * @return A tangent at @p v of length at most 1, to within the rounding of
- *   fast_rsqrt()'s final multiply.
+ * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
 HS_FLASH_INLINE inline Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
@@ -303,17 +312,14 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
  * @param noise Prepared generator.
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
- * @return A tangent at @p v of length at most 1, to within the rounding of
- *   fast_rsqrt()'s final multiply.
+ * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
 __attribute__((always_inline)) inline Vector
 sample_direct_simplex_tangent(const FastNoiseLite &noise, const Vector &q,
                               const Vector &v) {
   const Vector u0 = sample_simplex_vector(noise, q);
   Vector u = u0 - dot(u0, v) * v;
-  const float length_sq = dot(u, u);
-  if (length_sq > 1.0f)
-    u *= fast_rsqrt(length_sq);
+  clamp_tangent_to_unit(u);
   return u;
 }
 
@@ -348,16 +354,13 @@ inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
  * @brief Divergence-free tangent from a scalar field's gradient.
  * @param gradient Gradient of the scalar field at the lattice coordinate.
  * @param v Unit point the tangent is taken at.
- * @return A tangent at @p v of length at most 1; only lengths above 1 are
- *   rescaled.
+ * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
 HS_FLASH_INLINE inline Vector curl_from_gradient(const Vector &gradient,
                                                  const Vector &v) {
   const Vector tangent_gradient = gradient - dot(gradient, v) * v;
   Vector u = cross(v, tangent_gradient);
-  const float length = u.length();
-  if (length > 1.0f)
-    u /= length;
+  clamp_tangent_to_unit(u);
   return u;
 }
 
