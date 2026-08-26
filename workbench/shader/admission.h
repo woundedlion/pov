@@ -21,6 +21,12 @@
 
 namespace Workbench {
 
+// Declared ahead of first use: at namespace scope an unqualified
+// call would otherwise bind to a same-named function at global scope.
+HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config);
+HS_COLD_MEMBER inline constexpr bool valid_mobius(const MobiusParams &params);
+inline constexpr bool valid_slot_enums(const Slots &slots);
+
 // valid_config is the entry point the rest of the workbench calls, so it is
 // written first; these are defined below it, or in resources.h.
 constexpr bool valid_slot_enums(const Slots &slots);
