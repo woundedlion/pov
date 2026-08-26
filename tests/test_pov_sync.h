@@ -139,6 +139,8 @@ inline void test_helpers() {
   HS_EXPECT_EQ(floor_div(-4, 2), -2);
   HS_EXPECT_EQ(floor_mod(-1, 288), 287);
   HS_EXPECT_EQ(floor_mod(288, 288), 0);
+  HS_EXPECT_EQ(floor_mod(int64_t{2147483649}, 288), 129);
+  HS_EXPECT_EQ(floor_mod(int64_t{-2147483649}, 288), 159);
   HS_EXPECT_EQ(circ_dist(287, 0, 288), 1);
   HS_EXPECT_EQ(circ_dist(0, 144, 288), 144);
   HS_EXPECT_EQ(circ_dist(10, 280, 288), 18);

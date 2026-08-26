@@ -101,7 +101,10 @@ public:
          elapsed >= 0u - static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period) &&
         "Flywheel::position: timestamp outside the signed-safe coast window");
     const int64_t delta = static_cast<int32_t>(elapsed);
-    const int64_t cols = floor_div(delta * (w / 2), period);
+    // |cols| <= MIN_SAFE_HALF_REVS*(W/2) under the window assert, so the
+    // narrowing is exact and the reduction stays a 32-bit sdiv.
+    const int32_t cols =
+        static_cast<int32_t>(floor_div(delta * (w / 2), period));
     return floor_mod(boundary_column(boundary, w) + cols, w);
   }
 
