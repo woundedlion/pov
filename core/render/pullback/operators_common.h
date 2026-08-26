@@ -151,19 +151,33 @@ inline float projection_coverage(uint8_t coverage_mode,
   return ProjectionCoverage::Weight::apply(provenance, ctx);
 }
 
+/** @brief The parameters every Sample crossing family carries: the edge-fade
+    width and the weight and coverage enum8s. */
+struct SampleCrossingParams {
+  /** Edge-fade band width; read only under edge-fade coverage. */
+  float edge_width = 0.1f;
+  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
+  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
+};
+
+/** @brief The tabled field of SampleCrossingParams, retyped to the family. */
+template <typename Params>
+constexpr std::array<Field<Params>, 1> sample_crossing_fields() {
+  return {edge_width_field<Params>(&Params::edge_width)};
+}
+
 /**
  * @brief The Sample crossing's shared weight and coverage enum8s, followed by
  *        any family-specific topology fields in @p extra.
  */
 template <typename Params, typename... Extra>
 constexpr std::array<TopologyField<Params>, 2 + sizeof...(Extra)>
-sample_crossing_topology(uint8_t Params::*weight_mode,
-                         uint8_t Params::*coverage_mode,
-                         const Extra &...extra) {
-  return {TopologyField<Params>{"weight-mode", weight_mode, WEIGHT_MODE_IDS, 2,
+sample_crossing_topology(const Extra &...extra) {
+  return {TopologyField<Params>{"weight-mode", &Params::weight_mode,
+                                WEIGHT_MODE_IDS, 2,
                                 static_cast<uint8_t>(WeightMode::PROJECTION)},
           TopologyField<Params>{
-              "coverage-mode", coverage_mode, COVERAGE_MODE_IDS, 4,
+              "coverage-mode", &Params::coverage_mode, COVERAGE_MODE_IDS, 4,
               static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
           extra...};
 }
