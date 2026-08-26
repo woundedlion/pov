@@ -139,19 +139,28 @@ constexpr float NOISE_LOOP_RADIUS = 32.0f;
 constexpr float NOISE_STENCIL_RADIUS = 1.0f / 64.0f;
 
 /**
+ * @brief This frame's point on the sphere domain's time loop.
+ * @param phase Position on the time loop, in turns.
+ * @return The lattice offset noise_sphere_coordinate() adds.
+ * @details Time traverses a NOISE_LOOP_RADIUS circle in the lattice's xy
+ * plane, so the field returns to itself after one turn of phase.
+ */
+HS_FLASH_INLINE inline Vector noise_sphere_loop_offset(float phase) {
+  const float angle = TWO_PI_F * wrap_t(phase);
+  return Vector(NOISE_LOOP_RADIUS * cosf(angle),
+                NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+}
+
+/**
  * @brief Lattice coordinate for a sphere direction at a point on the loop.
  * @param v Direction on the sphere.
  * @param scale Lattice units per unit direction.
  * @param phase Position on the time loop, in turns.
  * @return The sampling coordinate.
- * @details Time traverses a NOISE_LOOP_RADIUS circle in the lattice's xy
- * plane, so the field returns to itself after one turn of phase.
  */
 inline Vector noise_sphere_coordinate(const Vector &v, float scale,
                                       float phase) {
-  const float angle = TWO_PI_F * wrap_t(phase);
-  return scale * v + Vector(NOISE_LOOP_RADIUS * cosf(angle),
-                            NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+  return scale * v + noise_sphere_loop_offset(phase);
 }
 
 /**
@@ -168,20 +177,44 @@ noise_sphere_coordinate(const Vector &v, float scale,
 }
 
 /**
+ * @brief This frame's point on the plane domain's time loop.
+ * @param phase Position on the time loop, in turns.
+ * @return The lattice offset noise_projected_coordinate() adds; x and y both
+ *         carry the plane diagonal, z the remaining lattice axis.
+ * @details The loop circle spans z and the plane's x = y diagonal, so neither
+ * plane axis carries the whole of it.
+ */
+HS_FLASH_INLINE inline Vector noise_projected_loop_offset(float phase) {
+  const float angle = TWO_PI_F * wrap_t(phase);
+  const float diagonal = NOISE_LOOP_RADIUS * sinf(angle) * 0.7071067811865475f;
+  return Vector(diagonal, diagonal, NOISE_LOOP_RADIUS * cosf(angle));
+}
+
+/**
+ * @brief noise_projected_coordinate with the loop point precomputed.
+ * @param p Point in a projection's plane.
+ * @param scale Lattice units per plane unit.
+ * @param loop_offset Point on the loop, hoisted out of a per-pixel walk.
+ * @return The sampling coordinate.
+ */
+HS_FLASH_INLINE inline Vector
+noise_projected_coordinate(const Complex &p, float scale,
+                           const Vector &loop_offset) {
+  return Vector(scale * p.re + loop_offset.x, scale * p.im + loop_offset.y,
+                loop_offset.z);
+}
+
+/**
  * @brief Lattice coordinate for a plane point at a point on the loop.
  * @param p Point in a projection's plane.
  * @param scale Lattice units per plane unit.
  * @param phase Position on the time loop, in turns.
  * @return The sampling coordinate.
- * @details The loop circle spans z and the plane's x = y diagonal, so neither
- * plane axis carries the whole of it.
  */
 HS_FLASH_INLINE inline Vector
 noise_projected_coordinate(const Complex &p, float scale, float phase) {
-  const float angle = TWO_PI_F * wrap_t(phase);
-  const float diagonal = NOISE_LOOP_RADIUS * sinf(angle) * 0.7071067811865475f;
-  return Vector(scale * p.re + diagonal, scale * p.im + diagonal,
-                NOISE_LOOP_RADIUS * cosf(angle));
+  return noise_projected_coordinate(p, scale,
+                                    noise_projected_loop_offset(phase));
 }
 
 /**

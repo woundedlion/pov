@@ -114,9 +114,7 @@ struct PreparedLoop {
 
 /** @brief Resolves this frame's loop point from the loop phase. */
 HS_FLASH_INLINE inline PreparedLoop prepare(float phase) {
-  const float angle = TWO_PI_F * wrap_t(phase);
-  return {Vector(NOISE_LOOP_RADIUS * cosf(angle),
-                 NOISE_LOOP_RADIUS * sinf(angle), 0.0f)};
+  return {noise_sphere_loop_offset(phase)};
 }
 
 /** @brief Loop point plus the steering frame the direct displacement reads. */

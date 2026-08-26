@@ -77,6 +77,27 @@ inline void test_noise_field_periodic_coordinates() {
   HS_EXPECT_EQ(std::memcmp(&projected0, &projected1, sizeof(Vector)), 0);
 }
 
+/**
+ * @brief Verifies the hoisted-offset overloads reproduce the phase-taking ones
+ *        bit for bit, so lifting the loop point out of a per-pixel walk is not
+ *        a numeric change.
+ */
+inline void test_noise_field_hoisted_loop_offsets() {
+  const Vector v = Vector(-0.6f, 0.3f, 0.7416198f).normalized();
+  const Complex p(-2.5f, 0.875f);
+  for (float phase : {0.0f, 0.125f, 0.4f, 0.9375f, 1.75f, -0.3f}) {
+    const Vector sphere = noise_sphere_coordinate(v, 3.0f, phase);
+    const Vector sphere_hoisted =
+        noise_sphere_coordinate(v, 3.0f, noise_sphere_loop_offset(phase));
+    HS_EXPECT_EQ(std::memcmp(&sphere, &sphere_hoisted, sizeof(Vector)), 0);
+    const Vector projected = noise_projected_coordinate(p, 0.5f, phase);
+    const Vector projected_hoisted =
+        noise_projected_coordinate(p, 0.5f, noise_projected_loop_offset(phase));
+    HS_EXPECT_EQ(std::memcmp(&projected, &projected_hoisted, sizeof(Vector)),
+                 0);
+  }
+}
+
 inline void test_noise_field_octave_formulas() {
   const FastNoiseLite noise = make_noise(-317);
   constexpr std::array<Vector, 4> POINTS = {
@@ -266,6 +287,7 @@ inline int run_noise_field_tests() {
   hs_test::ModuleFixture fixture("noise_field");
   test_noise_field_key_identity();
   test_noise_field_periodic_coordinates();
+  test_noise_field_hoisted_loop_offsets();
   test_noise_field_octave_formulas();
   test_noise_field_ridged_channel_pairs();
   test_noise_field_direct_tangent();

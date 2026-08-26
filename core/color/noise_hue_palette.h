@@ -89,9 +89,7 @@ hue_noise_face_direction(int face, float u, float v) {
 HS_FLASH_INLINE inline void
 prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
                       const FastNoiseLite &noise, float scale, float phase) {
-  const float angle = TWO_PI_F * wrap_t(phase);
-  const Vector loop_offset(NOISE_LOOP_RADIUS * cosf(angle),
-                           NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+  const Vector loop_offset = noise_sphere_loop_offset(phase);
   constexpr float STEP = 2.0f / (HueNoiseLutView::FACE_STEPS - 1);
   for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face) {
     const int face_offset = face * HueNoiseLutView::FACE_SIZE;
