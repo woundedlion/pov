@@ -1050,6 +1050,7 @@ jobs:
           ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
+          fetch-depth: 0
 
       # The engine's node pin, not daydream's: it is the newer of the two and
       # satisfies the floor daydream's package.json declares.
@@ -1386,6 +1387,7 @@ jobs:
           ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Every documented image reference resolves
         run: python tools/docs_images.py
@@ -1423,6 +1425,7 @@ jobs:
           ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
+          fetch-depth: 0
 
       # docs_check --checkout validates the daydream tree fence's rows, never
       # the README's bytes, and the wasm job's cmp targets a scratch install
