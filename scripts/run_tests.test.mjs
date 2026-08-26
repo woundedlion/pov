@@ -10,6 +10,38 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // to ROOT, and an interrupted run strands nothing `git add -A` would commit.
 const FIXTURE_ROOT = join(ROOT, 'build');
 
+test('runner accepts a green run named by an absolute path', () => {
+  mkdirSync(FIXTURE_ROOT, { recursive: true });
+  const fixtureDir = mkdtempSync(join(FIXTURE_ROOT, 'run-tests-fixture-'));
+  try {
+    const fixture = join(fixtureDir, 'green.test.mjs');
+    writeFileSync(
+      fixture,
+      `import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+test('asserts once', () => { assert.ok(1); });
+`,
+      'utf8',
+    );
+    const run = spawnSync(process.execPath, ['scripts/run_tests.mjs', fixture], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        NODE_OPTIONS: '',
+        NODE_TEST_CONTEXT: undefined,
+        HS_ASSERTION_COUNTS: undefined,
+      },
+    });
+
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(run.stdout, /1 tests passed, 1 assertions/);
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 test('runner rejects cases without assertions', () => {
   mkdirSync(FIXTURE_ROOT, { recursive: true });
   const fixtureDir = mkdtempSync(join(FIXTURE_ROOT, 'run-tests-fixture-'));
