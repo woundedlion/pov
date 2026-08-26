@@ -335,7 +335,7 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
  * @return The module's failure count.
  */
 inline int run_h_offset_renorm_tests() {
-  hs_test::ModuleFixture fixture("h_offset_renorm");
+  hs_test::ModuleFixture fixture("h_offset_renorm (HS_TEST_H_OFFSET=3)");
   test_offset_is_active_and_lut_nondegenerate();
   test_energy_conserved_through_clip_boundary();
   test_boundary_row_splits_two_columns_and_conserves();
