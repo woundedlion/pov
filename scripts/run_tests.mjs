@@ -23,10 +23,17 @@ if (!args.some((arg) => !arg.startsWith('-'))) {
   process.exit(1);
 }
 
+const keyOf = (file) => relative(process.cwd(), file).replaceAll('\\', '/');
+// Reported files are folded to a cwd-relative key, so a glob-free pattern is
+// folded the same way before it is used as a suffix: an absolute path or a
+// backslash spelling would otherwise match no key and report a green run as one
+// that counted nothing.
 const suffixes = args
   .filter((arg) => !arg.startsWith('-'))
-  .map((pattern) => pattern.slice(pattern.lastIndexOf('*') + 1));
-const keyOf = (file) => relative(process.cwd(), file).replaceAll('\\', '/');
+  .map((pattern) => {
+    const glob = pattern.lastIndexOf('*');
+    return glob === -1 ? keyOf(pattern) : pattern.slice(glob + 1);
+  });
 
 const scratch = mkdtempSync(join(tmpdir(), 'holosphere-run-tests-'));
 const casesPath = join(scratch, 'cases.json');
