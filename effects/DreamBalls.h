@@ -288,6 +288,15 @@ private:
       SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
       "DreamBalls woven staging exceeds the default scratch_a budget; "
       "retune the solid bounds or carve a larger scratch arena");
+  // The framed edge list and the per-vertex weave-start owners live in
+  // scratch_b across the same mesh draw.
+  static constexpr size_t SCRATCH_B_PEAK_BYTES =
+      2 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge) +
+      WOVEN_VERTEX_BOUND * sizeof(uint16_t);
+  static_assert(
+      SCRATCH_B_PEAK_BYTES <= DEFAULT_SCRATCH_B_SIZE,
+      "DreamBalls woven staging exceeds the default scratch_b budget; "
+      "retune the solid bounds or carve a larger scratch arena");
   int active_bake = 0; /**< Slot of the current (most-recently baked) sprite;
                              the next spawn flips this before baking. */
   /**
