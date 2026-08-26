@@ -2789,7 +2789,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_TRUE(WB::preset_palette(db, 1) == WB::blood_stream_falloff(db));
   HS_EXPECT_TRUE(WB::preset_palette(db, 2) == &Palettes::RICH_SUNSET);
   HS_EXPECT_TRUE(WB::preset_palette(db, 3) == &Palettes::LAVENDER_LAKE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 4) == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 4) == &Palettes::BRIGHT_SUNRISE);
   HS_EXPECT_TRUE(WB::preset_palette(db, 5) == &Palettes::CORAL_BLUE);
   HS_EXPECT_TRUE(WB::preset_palette(db, 6) == &Palettes::BRUISED_MOSS);
   HS_EXPECT_TRUE(WB::preset_palette(db, 7) == &Palettes::LAVENDER_LAKE);
