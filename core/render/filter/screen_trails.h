@@ -85,7 +85,9 @@ public:
       return;
 
     float ttl = static_cast<float>(lifetime) - age;
-    if (ttl > 0.0f && points) {
+    if (ttl > 0.0f) {
+      HS_CHECK(points,
+               "Screen::Trails needs init_storage() from effect init()");
       check_storage_alive();
       if (num_pixels == MAX_PIXELS) {
         num_pixels--;

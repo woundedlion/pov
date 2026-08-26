@@ -100,7 +100,8 @@ public:
 
     // round, not truncate (ttl is an integer byte)
     int ttl = lifetime - static_cast<int>(age + 0.5f);
-    if (ttl > 0 && items) {
+    if (ttl > 0) {
+      HS_CHECK(items, "World::Trails needs init_storage() from effect init()");
       check_storage_alive();
       push_back(encode(v, static_cast<uint8_t>(ttl)));
     }
