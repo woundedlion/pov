@@ -239,6 +239,44 @@ inline void test_peirce_fast_square_ties_the_diagonal_band_to_its_seam() {
   }
 }
 
+/** @brief Peirce edge distance vanishes at the map's four singularities. */
+inline void test_peirce_edge_distance_locates_the_singularities() {
+  constexpr float INV_SQRT_TWO = 0.7071067811865475f;
+  // acos saturates at the singularity, so a float direction there lands one
+  // sqrt-of-epsilon step out rather than exactly on zero.
+  constexpr float SATURATION = 1e-3f;
+  for (float x : {INV_SQRT_TWO, -INV_SQRT_TWO})
+    for (float z : {INV_SQRT_TWO, -INV_SQRT_TWO}) {
+      const Vector singular(x, 0.0f, z);
+      for (uint8_t layout : {uint8_t(0), uint8_t(1), uint8_t(2), uint8_t(3)})
+        HS_EXPECT_NEAR(
+            peirce_projection(singular, 0.0f, layout, 0.0f).fade_edge_distance,
+            0.0f, SATURATION);
+      HS_EXPECT_NEAR(peirce_projection_fast_square(singular).fade_edge_distance,
+                     0.0f, SATURATION);
+    }
+  // The four regular equatorial points sit a half-quadrant from the nearest
+  // singularity, and read the same distance on both sides of the equator.
+  for (int quadrant = 0; quadrant < 4; ++quadrant) {
+    const float longitude = quadrant * (0.5f * PI_F);
+    for (float latitude : {-1e-4f, 1e-4f})
+      HS_EXPECT_NEAR(
+          peirce_projection(direction(latitude, longitude), 0.0f, 1, 0.0f)
+              .fade_edge_distance,
+          0.25f * PI_F, 1e-4f);
+  }
+  // Distance falls monotonically as the equator walks into the singularity.
+  float previous = -1.0f;
+  for (int step = 0; step <= 16; ++step) {
+    const float longitude = 0.25f * PI_F * (1.0f - step / 16.0f);
+    const float distance =
+        peirce_projection(direction(0.0f, longitude), 0.0f, 1, 0.0f)
+            .fade_edge_distance;
+    HS_EXPECT_GT(distance, previous);
+    previous = distance;
+  }
+}
+
 inline void test_peirce_square_is_the_rotated_diamond() {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   for (int latitude_step = -8; latitude_step <= 8; ++latitude_step) {
@@ -499,6 +537,7 @@ inline int run_projections_tests() {
   test_peirce_fast_square_matches_exact();
   test_peirce_fast_square_on_seams_and_poles();
   test_peirce_fast_square_ties_the_diagonal_band_to_its_seam();
+  test_peirce_edge_distance_locates_the_singularities();
   test_peirce_square_is_the_rotated_diamond();
   test_peirce_strip_scroll_is_periodic();
   test_airocean_cut_masks_match_the_edge_lists();
