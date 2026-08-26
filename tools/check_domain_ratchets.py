@@ -16,12 +16,29 @@ FLOOR_RES = {
 }
 GAP_TABLE_RE = re.compile(r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S)
 GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
+COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
+
+
+def source(path: Path) -> str:
+    """The file's text with comments stripped, so no comment can be matched."""
+    return COMMENT_RE.sub("", path.read_text(encoding="utf-8"))
+
+
+def counts(matches, path: Path, what: str) -> dict[str, int]:
+    """(name, count) matches as a mapping; a repeated name is fatal, not last-wins."""
+    result: dict[str, int] = {}
+    for key, value in matches:
+        if key in result:
+            raise SystemExit(f"{path}: {what} {key} is declared twice")
+        result[key] = int(value)
+    return result
 
 
 def floors(path: Path, name: str) -> dict[str, int]:
     """The named coverage floor, keyed by its name; a rename is fatal."""
-    text = path.read_text(encoding="utf-8")
-    result = {key: int(value) for key, value in FLOOR_RES[name].findall(text)}
+    result = counts(
+        FLOOR_RES[name].findall(source(path)), path, "coverage floor"
+    )
     if not result:
         raise SystemExit(f"{path}: coverage floor {name} is missing or renamed")
     return result
@@ -33,11 +50,13 @@ def death_pins(path: Path) -> dict[str, int]:
     Every file is gated exactly and in both directions, and a file with no row
     must be fully pinned, so these rows subsume a whole-suite coverage total.
     """
-    table = GAP_TABLE_RE.search(path.read_text(encoding="utf-8"))
-    return {
-        f"guard_gap.{name}": int(gap)
-        for name, gap in GAP_ROW_RE.findall(table.group(1) if table else "")
-    }
+    table = GAP_TABLE_RE.search(source(path))
+    rows = counts(
+        GAP_ROW_RE.findall(table.group(1) if table else ""),
+        path,
+        "guard-gap row",
+    )
+    return {f"guard_gap.{name}": gap for name, gap in rows.items()}
 
 
 def main() -> int:

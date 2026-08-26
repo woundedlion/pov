@@ -27,6 +27,54 @@ class ParseFloors(unittest.TestCase):
                 path, check_domain_ratchets.HARNESS_FLOOR
             )
 
+    def test_ignores_a_commented_floor(self):
+        path = self.write(
+            "harness.cpp",
+            "constexpr int MIN_RELAX_BAKES_VERIFIED = 21;\n"
+            "// constexpr int MIN_RELAX_BAKES_VERIFIED = 5;\n"
+            "/* constexpr int MIN_RELAX_BAKES_VERIFIED = 5; */\n",
+        )
+        self.assertEqual(
+            check_domain_ratchets.floors(
+                path, check_domain_ratchets.HARNESS_FLOOR
+            ),
+            {"MIN_RELAX_BAKES_VERIFIED": 21},
+        )
+
+    def test_rejects_a_floor_declared_twice(self):
+        path = self.write(
+            "harness.cpp",
+            "constexpr int MIN_RELAX_BAKES_VERIFIED = 21;\n"
+            "constexpr int MIN_RELAX_BAKES_VERIFIED = 5;\n",
+        )
+        with self.assertRaisesRegex(SystemExit, "declared twice"):
+            check_domain_ratchets.floors(
+                path, check_domain_ratchets.HARNESS_FLOOR
+            )
+
+
+class ParseGaps(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def write(self, text: str) -> Path:
+        path = Path(self.tmp.name) / "death.h"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_ignores_a_commented_row(self):
+        path = self.write(GAP_TABLE.format(
+            rows='    {"sdf.h", 3},\n    // {"sdf.h", 99},\n'))
+        self.assertEqual(
+            check_domain_ratchets.death_pins(path), {"guard_gap.sdf.h": 3})
+
+    def test_rejects_a_row_declared_twice(self):
+        path = self.write(GAP_TABLE.format(
+            rows='    {"sdf.h", 3},\n    {"sdf.h", 99},\n'))
+        with self.assertRaisesRegex(SystemExit, "declared twice"):
+            check_domain_ratchets.death_pins(path)
+
 
 HARNESS = "constexpr int MIN_RELAX_BAKES_VERIFIED = {floor};\n"
 GAP_TABLE = "constexpr GuardGap GUARD_GAP_ALLOW[] = {{\n{rows}}};\n"
