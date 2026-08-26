@@ -120,6 +120,43 @@ inline void test_functionref_empty_and_copy() {
   HS_EXPECT_EQ(moved(0), 1);
 }
 
+/** Counts every copy and move a by-value argument pays crossing the erasure. */
+struct CountedArg {
+  static inline int constructions = 0;
+  CountedArg() = default;
+  CountedArg(const CountedArg &) { ++constructions; }
+  CountedArg(CountedArg &&) noexcept { ++constructions; }
+};
+
+/**
+ * @brief Verifies a by-value argument crosses the erasure without an extra copy,
+ *        and that reference and decayed-array parameters still bind.
+ * @details The thunk takes Args&&, so an lvalue argument pays one copy into
+ *          operator()'s parameter and one move into the callable's; a
+ *          by-value thunk parameter would add a third. A reference parameter
+ *          must still reach the callable as the caller's object.
+ */
+inline void test_functionref_argument_forwarding() {
+  auto sink = [](CountedArg) {};
+  FunctionRef<void(CountedArg)> by_value = sink;
+  CountedArg arg;
+  CountedArg::constructions = 0;
+  by_value(arg);
+  HS_EXPECT_EQ(CountedArg::constructions, 2);
+
+  auto bump = [](int &n) { n += 3; };
+  FunctionRef<void(int &)> by_ref = bump;
+  int n = 1;
+  by_ref(n);
+  HS_EXPECT_EQ(n, 4);
+
+  // An array parameter decays to a pointer in the function type.
+  auto first = [](int *a) { return a[0]; };
+  FunctionRef<int(int[4])> by_array = first;
+  int values[4] = {9, 0, 0, 0};
+  HS_EXPECT_EQ(by_array(values), 9);
+}
+
 /**
  * @brief Verifies StoredFunctionRef enforces the borrow-vs-store lifetime
  *        contract in the type system.
@@ -324,6 +361,7 @@ inline int run_concepts_tests() {
   test_functionref_overload_resolution();
   test_functionref_function_pointer();
   test_functionref_empty_and_copy();
+  test_functionref_argument_forwarding();
   test_stored_functionref_rvalue_rejection();
   test_callable_return_constraints();
   test_fn_copy_move_empty();
