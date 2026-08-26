@@ -82,7 +82,7 @@ public:
         continue; // free slot
       if (visible) {
         HS_PROFILE(rsh_ring_plot);
-        draw_ring(canvas, ring.opacity_at(), i);
+        draw_ring(canvas, ring);
       }
       ++ring.age;
     }
@@ -195,15 +195,14 @@ private:
   /**
    * @brief Draws one ring slot at its current radius and opacity.
    * @param canvas Target canvas for this frame.
-   * @param opacity Per-frame opacity multiplier in [0, 1] from opacity_at().
-   * @param index Slot index into the rings array.
+   * @param ring The slot to draw, at its current age.
    * @details Rings are never re-oriented after spawn, so the basis comes
    *          straight from the ring's own normal (identity rotation) and the
    *          palette's radial axis is the fixed X axis — both constant across
    *          the ring's fragments.
    */
-  void draw_ring(Canvas &canvas, float opacity, size_t index) {
-    Ring &ring = rings[index];
+  void draw_ring(Canvas &canvas, const Ring &ring) {
+    const float opacity = ring.opacity_at();
     Basis basis = make_basis(Quaternion(), ring.normal);
     // v is unit (the rasterizer renormalizes every shaded position), so
     // dot(X, v) is just v.x; the palette is baked in this cos domain (dot_keyed),
