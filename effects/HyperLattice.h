@@ -198,7 +198,7 @@ struct Params {
   float cell_size = 1.0f;
   float wire_radius = 0.055f;
   float softness = 0.012f;
-  float far_cells = 7.0f;
+  float far_distance = 7.0f;
   float aa_strength = 1.0f;
   float speed = 0.018f;
   float spin_3d = 0.0024f;
@@ -212,7 +212,7 @@ struct Params {
     cell_size = hs::lerp(start.cell_size, target.cell_size, amount);
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
     softness = hs::lerp(start.softness, target.softness, amount);
-    far_cells = hs::lerp(start.far_cells, target.far_cells, amount);
+    far_distance = hs::lerp(start.far_distance, target.far_distance, amount);
     aa_strength = hs::lerp(start.aa_strength, target.aa_strength, amount);
     speed = hs::lerp(start.speed, target.speed, amount);
     spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
@@ -331,7 +331,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   for (int row = 0; row < DIMENSIONS; ++row)
     for (int column = 0; column < DIMENSIONS; ++column)
       prepared.world_to_lattice.m[row][column] *= inv_cell_size;
-  prepared.far_distance = frame.params.far_cells * frame.params.cell_size;
+  prepared.far_distance = frame.params.far_distance;
   prepared.inv_far = 1.0f / prepared.far_distance;
   prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle *
                       inv_cell_size * inv_cell_size;
@@ -614,7 +614,7 @@ public:
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 7;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 8;
 
   static constexpr Params preset_params(size_t index) {
     Params value;
@@ -625,7 +625,7 @@ public:
       value.cell_size = 1.0f;
       value.wire_radius = 0.055f;
       value.softness = 0.08f;
-      value.far_cells = 4.198f;
+      value.far_distance = 4.198f;
       value.aa_strength = 1.0f;
       value.speed = 0.05f;
       value.spin_3d = 0.015f;
@@ -639,7 +639,7 @@ public:
       value.cell_size = 1.0f;
       value.wire_radius = 0.03546f;
       value.softness = 0.029612f;
-      value.far_cells = 8.0f;
+      value.far_distance = 8.0f;
       value.aa_strength = 1.0f;
       value.speed = 0.03f;
       value.spin_3d = 0.01089f;
@@ -663,8 +663,8 @@ public:
            value.wire_radius >= WIRE_RADIUS_MIN &&
            value.wire_radius <= WIRE_RADIUS_MAX &&
            value.softness >= SOFTNESS_MIN && value.softness <= SOFTNESS_MAX &&
-           value.far_cells >= FAR_CELLS_MIN &&
-           value.far_cells <= FAR_CELLS_MAX &&
+           value.far_distance >= FAR_DISTANCE_MIN &&
+           value.far_distance <= FAR_DISTANCE_MAX &&
            value.aa_strength >= AA_STRENGTH_MIN &&
            value.aa_strength <= AA_STRENGTH_MAX && value.speed >= SPEED_MIN &&
            value.speed <= SPEED_MAX && value.spin_3d >= SPIN_3D_MIN &&
@@ -704,8 +704,8 @@ public:
                             WIRE_RADIUS_MAX);
     register_animated_param("Softness", &params.softness, SOFTNESS_MIN,
                             SOFTNESS_MAX);
-    register_animated_param("Far Cells", &params.far_cells, FAR_CELLS_MIN,
-                            FAR_CELLS_MAX);
+    register_animated_param("Far Distance", &params.far_distance,
+                            FAR_DISTANCE_MIN, FAR_DISTANCE_MAX);
     register_animated_param("AA Strength", &params.aa_strength, AA_STRENGTH_MIN,
                             AA_STRENGTH_MAX);
     register_animated_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
@@ -821,7 +821,7 @@ private:
   static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 10.0f;
   static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
   static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
-  static constexpr float FAR_CELLS_MIN = 2.0f, FAR_CELLS_MAX = 16.0f;
+  static constexpr float FAR_DISTANCE_MIN = 2.0f, FAR_DISTANCE_MAX = 16.0f;
   static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.05f;
   static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
