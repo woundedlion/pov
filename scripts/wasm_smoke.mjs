@@ -1541,8 +1541,8 @@ async function main(probe) {
       if (result.status.code !== 0) {
         fail(`compileAndBakeV4 returned status ${result.status.code}`);
       }
-      if (!lut || lut.length !== 256 * 3) {
-        fail(`compileAndBakeV4 LUT length ${lut && lut.length}, expected ${256 * 3}`);
+      if (lut.length !== 256 * 3) {
+        fail(`compileAndBakeV4 LUT length ${lut.length}, expected ${256 * 3}`);
       } else if (lut[0] === lut[765] && lut[1] === lut[766] && lut[2] === lut[767]) {
         fail(`compileAndBakeV4 gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
       }
@@ -1552,11 +1552,14 @@ async function main(probe) {
       recipe.input = { offset: 0.2, span: 0.4 };
       const windowed = po.compileAndBakeV4(recipe);
       const windowedLut = Uint8Array.from(windowed.lut ?? []);
-      const sourceEndpoints = [51, 153];
-      for (const [destination, source] of [[0, sourceEndpoints[0]], [255, sourceEndpoints[1]]]) {
-        for (let channel = 0; channel < 3; ++channel) {
-          if (windowedLut[destination * 3 + channel] !== lut[source * 3 + channel])
-            fail(`palette input window endpoint ${destination}, channel ${channel} did not map to source ${source}`);
+      if (windowedLut.length !== 256 * 3) {
+        fail(`windowed compileAndBakeV4 LUT length ${windowedLut.length}, expected ${256 * 3}`);
+      } else {
+        for (const [destination, source] of [[0, 51], [255, 153]]) {
+          for (let channel = 0; channel < 3; ++channel) {
+            if (windowedLut[destination * 3 + channel] !== lut[source * 3 + channel])
+              fail(`palette input window endpoint ${destination}, channel ${channel} did not map to source ${source}`);
+          }
         }
       }
       if (Math.abs(windowed.canonicalRecipe.input.offset - 0.2) > 1e-6 ||
