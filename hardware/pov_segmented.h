@@ -403,12 +403,12 @@ public:
         clip_to_segment(cur, /*arm_a_left=*/true);
         cur->draw_frame();
         cur->set_buffer_ready_hook(prepare_segment_clip);
-        hs::disable_interrupts();
         // Publish under IRQ-off so the (effect, gen) pair reaches the ISR
         // atomically; publish()'s release store orders every constructor/
         // draw_frame() write before the ISR's acquire load.
+        const uint32_t primask = hs::save_disable_interrupts();
         handoff.publish(cur, gen);
-        hs::enable_interrupts();
+        hs::restore_interrupts(primask);
         built_gen = gen;
         // Per-build budget report. The ISR's commit trap is the only other
         // signal that this window ran tight, and it fires on every board at
