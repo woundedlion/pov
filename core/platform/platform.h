@@ -13,6 +13,12 @@
 
 #include "platform/build_features.h"
 
+#if defined(__FILE_NAME__)
+#define HS_SOURCE_FILE __FILE_NAME__
+#else
+#define HS_SOURCE_FILE __FILE__
+#endif
+
 // ---------------------------------------------------------------------------
 /**
  * @brief Always-on invariant trap that survives NDEBUG and pulls in no stdio.
@@ -27,7 +33,8 @@
 #define HS_CHECK(cond, ...)                                                    \
   do {                                                                         \
     if (!(cond))                                                               \
-      ::hs::check_fail(__FILE__, __LINE__, #cond __VA_OPT__(, ) __VA_ARGS__);  \
+      ::hs::check_fail(HS_SOURCE_FILE, __LINE__,                               \
+                       #cond __VA_OPT__(, ) __VA_ARGS__);                      \
   } while (0)
 
 /**
