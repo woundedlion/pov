@@ -356,12 +356,14 @@ protected:
    * @tparam EXTRA_PERSISTENT_BYTES Derived-only persistent tenants beyond the
    * cubemap LUT, the species state and the node array.
    * @tparam SCRATCH_PEAK_BYTES Largest of render()'s disjoint scratch phases.
+   * @tparam SCRATCH_PEAK_TENANTS Separate allocations that phase makes.
    * @details The node-array term also bounds the equal-size transient lattice
    * cube_lut.build() carves and rewinds before init_lattice() allocates the
    * resident one, so the build() peak is covered by the same assert.
    */
   template <typename StateT, size_t NSPECIES, size_t PERSISTENT_BYTES,
-            size_t EXTRA_PERSISTENT_BYTES, size_t SCRATCH_PEAK_BYTES>
+            size_t EXTRA_PERSISTENT_BYTES, size_t SCRATCH_PEAK_BYTES,
+            size_t SCRATCH_PEAK_TENANTS>
   HS_COLD_MEMBER static void configure_rd_arenas() {
     constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
                                       ReactionGraph::CubemapLUT::RES *
@@ -376,7 +378,11 @@ protected:
                           ALIGN_SLACK_BYTES + EXTRA_PERSISTENT_BYTES <=
                       PERSISTENT_BYTES,
                   "RD persistent arena too small for LUT + state + build peak");
-    static_assert(SCRATCH_PEAK_BYTES <=
+    // Same per-block pad as the persistent side, one per scratch tenant, at the
+    // widest alignment allocate() can be asked for.
+    constexpr size_t SCRATCH_SLACK_BYTES =
+        SCRATCH_PEAK_TENANTS * (alignof(std::max_align_t) - 1);
+    static_assert(SCRATCH_PEAK_BYTES + SCRATCH_SLACK_BYTES <=
                       DEVICE_GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
                   "RD scratch arena too small for render()'s phase peak");
     configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
