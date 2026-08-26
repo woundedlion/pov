@@ -11,8 +11,8 @@
 /**
  * @file params.h
  * @brief Animation fragment: the parameter drivers (Transition, Mutation,
- * Driver, Lerp, ColorWipe), the Mobius warps, and the displacement-field
- * animations.
+ * Progress, Driver, Lerp, ColorWipe), the Mobius warps, and the
+ * displacement-field animations.
  */
 
 namespace Animation {
@@ -142,6 +142,47 @@ private:
   ScalarFn f;         /**< The custom function to apply. */
   EasingFn easing_fn; /**< Easing curve. */
   const bool *paused; /**< Optional pause gate; freezes the mutation when set
+                          and true. Null = always runs. */
+};
+
+/**
+ * @brief An animation that invokes a callback with eased progress each frame.
+ * @details Drives state the caller owns and writes itself, where the other
+ * parameter animations write a float or a lerp() subject for it.
+ */
+class Progress : public FiniteParamAnimationBase<Progress> {
+public:
+  /** @brief Per-frame callback signature: `void f(float eased_progress)`. */
+  using StepFn = Fn<void(float), 16>;
+
+  /**
+   * @brief Constructs a Progress animation.
+   * @param f Callback invoked once per unpaused frame with eased progress.
+   * @param duration The duration in frames.
+   * @param easing_fn The easing function applied to progress.
+   * @param paused Optional pause gate; null = always runs.
+   */
+  Progress(StepFn f, int duration, EasingFn easing_fn,
+           const bool *paused = nullptr)
+      : FiniteParamAnimationBase(duration, false), f(std::move(f)),
+        easing_fn(std::move(easing_fn)), paused(paused) {}
+
+  /**
+   * @brief Performs one step, invoking the callback with eased progress.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   * @details Freezes while a wired pause flag is set (see Mutation::step).
+   */
+  void step(Canvas &canvas) override {
+    if (is_paused(paused))
+      return;
+    FiniteParamAnimationBase::step(canvas);
+    f(easing_fn(normalized_progress()));
+  }
+
+private:
+  StepFn f;           /**< Callback invoked with eased progress. */
+  EasingFn easing_fn; /**< Easing curve. */
+  const bool *paused; /**< Optional pause gate; freezes the animation when set
                           and true. Null = always runs. */
 };
 
