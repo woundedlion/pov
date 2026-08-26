@@ -816,6 +816,19 @@ jobs:
             -DHS_WASM_DEV_BINDINGS=ON
           cmake --build --preset wasm-debug 2>&1 | tee build/wasm-debug-build.log
 
+      - name: Configure + build WASM strict-FP (compile check)
+        # The wasm-strict-fp preset (PullbackStrictFP: -O3 -fno-fast-math
+        # -ffp-contract=off, no LTO) is the configuration tools/pullback_capture.py
+        # and tools/pullback_crosscheck.py build their WASM capture backend under,
+        # and its build type reshapes the shipping holosphere_wasm target too. No
+        # job runs either tool, so without this the whole configuration bit-rots.
+        # Compile-only (no run); reuses the emsdk + ccache provisioned above.
+        # `shell: bash` for pipefail, as above.
+        shell: bash
+        run: |
+          cmake --preset wasm-strict-fp -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
+          cmake --build --preset wasm-strict-fp 2>&1 | tee build/wasm-strict-fp-build.log
+
       - name: First-party WASM warning gate
         # The WASM target compiles -Wall -Wextra but not -Werror: emscripten's
         # system headers ride that compile line (CMakeLists.txt). Enforcement is
@@ -824,12 +837,14 @@ jobs:
         # (tools/teensy_warnings.py). A diagnostic raised in a sysroot header
         # names the sysroot path, which is what makes the path filter sufficient.
         # No baseline: this target's first-party warning set is empty, so the bar
-        # is zero. Both configurations are checked — -O0 and -O3 diagnose
-        # different things, and HS_WASM_DEV_BINDINGS code compiles only in the
-        # debug build. ccache replays a hit's stored stderr, so a warm cache still
-        # surfaces the warnings.
+        # is zero. All three configurations are checked — -O0 and -O3 diagnose
+        # different things, fast-math and strict FP fold differently, and
+        # HS_WASM_DEV_BINDINGS code compiles only in the debug build. ccache
+        # replays a hit's stored stderr, so a warm cache still surfaces the
+        # warnings.
         run: |
-          logs=(build/wasm-release-build.log build/wasm-debug-build.log)
+          logs=(build/wasm-release-build.log build/wasm-debug-build.log
+                build/wasm-strict-fp-build.log)
           # A missing log makes grep exit 2, which reads as "no warnings" — assert
           # the captures exist rather than let a broken tee pass the gate.
           for log in "${logs[@]}"; do
