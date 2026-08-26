@@ -22,41 +22,11 @@ namespace Workbench {
 
 // Declared ahead of first use: at namespace scope an unqualified
 // call would otherwise bind to a same-named function at global scope.
-HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_stage_lookup(const Complex &input,
-                  const Pullback::ProjectionProvenance &provenance,
-                  const WarpStageSpec &spec, const WarpStageParams &params,
-                  float stage_phase, const FastNoiseLite *stage_noise,
-                  const PreparedWarpStage &prepared, bool path_length_required);
-inline float warp_envelope(const Pullback::ProjectionProvenance &provenance,
-                           WarpEnvelope envelope, float edge_width);
-HS_FLASH_MEMBER inline float primitive_lattice(const Complex &p,
-                                               const SourceParams &params);
-HS_FLASH_MEMBER inline Vector mobius_lens(const Vector &v,
-                                          const MobiusParams &params);
-HS_FLASH_MEMBER inline Complex gnomonic(const Vector &v);
-HS_FLASH_MEMBER inline float
-sample_function(Function function, const Complex &p, const SourceState &source);
-HS_FLASH_MEMBER inline float twin_wave(const Complex &p,
-                                       const SourceState &source);
-HS_FLASH_MEMBER inline float rings(const Complex &p, const SourceState &source);
-HS_FLASH_MEMBER inline float spiral(const Complex &p,
-                                    const SourceState &source);
-HS_O3_FN inline float grid(const Complex &p, const SourceParams &params,
-                           const SourceState &source);
-
-struct ShaderWorkbenchBinding;
-
-// Defined below; the shading path is written entry-point first.
-__attribute__((always_inline)) inline Pullback::ProjectionResult
-stereographic_lookup(const Vector &local, const FrameState &frame) {
-  return Pullback::Projection::stereographic(
-      local, frame.params.projection.singularity_fade);
-}
 __attribute__((always_inline)) inline Vector
 apply_frame_free_lens(const Vector &v, SurfaceLens lens);
 HS_FLASH_MEMBER inline SurfaceNoiseResult
 apply_surface_noise_result(const Vector &v, const FrameState &frame);
+HS_FLASH_MEMBER inline Complex gnomonic(const Vector &v);
 HS_O3_FN inline float grid(const Complex &p, const SourceParams &params,
                            const SourceState &source);
 __attribute__((always_inline)) inline Complex
@@ -88,7 +58,13 @@ warp_stage_lookup(const Complex &input,
                   float stage_phase, const FastNoiseLite *stage_noise,
                   const PreparedWarpStage &prepared, bool path_length_required);
 
-// Defined below; the shading path is written entry-point first.
+struct ShaderWorkbenchBinding;
+
+__attribute__((always_inline)) inline Pullback::ProjectionResult
+stereographic_lookup(const Vector &local, const FrameState &frame) {
+  return Pullback::Projection::stereographic(
+      local, frame.params.projection.singularity_fade);
+}
 
 /** @brief Whether this frame's colorizer reads displacement metadata. */
 __attribute__((always_inline)) inline bool
