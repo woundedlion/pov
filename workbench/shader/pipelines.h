@@ -684,6 +684,22 @@ inverse_programs() {
                       stereographic_mobius_twin_wave_inner_mirror_preset())>(
               &all_continuous_parameters_supported),
       }};
+  static_assert(
+      [] {
+        bool seen[Workbench::INVERSE_PROGRAM_COUNT] = {};
+        for (const ProgramDescriptor &program : PROGRAMS) {
+          if (program.shade == nullptr || program.prepare == nullptr ||
+              program.continuous_parameters_supported == nullptr ||
+              program.resources_ready == nullptr)
+            return false;
+          const size_t index = static_cast<size_t>(program.id);
+          if (index >= Workbench::INVERSE_PROGRAM_COUNT || seen[index])
+            return false;
+          seen[index] = true;
+        }
+        return true;
+      }(),
+      "the inverse program manifest must carry one live row per pipeline id");
   return PROGRAMS;
 }
 
