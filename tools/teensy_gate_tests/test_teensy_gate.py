@@ -548,6 +548,20 @@ class TestBudgetSchema(unittest.TestCase):
                 with self.assertRaises(tg.BudgetSchemaError):
                     self._load(budgets)
 
+    def test_bank_geometry_must_be_a_positive_integer(self):
+        # A zero divides in the derived-ceiling arithmetic: the gate would exit
+        # 1 on a traceback, the code that means a size-budget violation.
+        for key in ("bank_bytes", "total_banks"):
+            for value in (0, -1, 1.5, True):
+                with self.subTest(key=key, value=value):
+                    budgets = copy.deepcopy(BUDGETS)
+                    derived = (budgets["phantasm"]["regions"]["ram1"]
+                               ["components"]["code"]
+                               ["max_banks_from_stack_floor"])
+                    derived[key] = value
+                    with self.assertRaises(tg.BudgetSchemaError):
+                        self._load(budgets)
+
     def test_deleting_any_shipped_region_is_rejected(self):
         for env, budget in BUDGETS.items():
             for region in budget["regions"]:
@@ -1434,15 +1448,16 @@ class TestSizeAFallback(unittest.TestCase):
             sizes.write_text(sizes_text, encoding="utf-8")
             syms = Path(d) / "syms.txt"
             syms.write_text(syms_text, encoding="utf-8")
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
+            # Both streams: a report goes to stdout, a cannot-run to stderr.
+            buf, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
                 rc = tg.main([
                     "--env", env,
                     "--budgets", str(TOOLS / "teensy_budgets.json"),
                     sizes_flag, str(sizes),
                     "--readelf-syms", str(syms),
                 ])
-            return rc, buf.getvalue()
+            return rc, buf.getvalue() + err.getvalue()
 
 
 class TestNonUtf8Captures(unittest.TestCase):
@@ -1541,6 +1556,18 @@ class TestToolingFailureExits(unittest.TestCase):
                          + [a for pair in argv.items() for a in pair
                             if pair[1] is not None])
         return rc, err.getvalue() + out.getvalue()
+
+    def test_naming_both_size_sources_is_refused(self):
+        # Two measurements of the same regions: taking one and ignoring the
+        # other silently decides which verdict the caller gets.
+        with self.assertRaises(SystemExit) as raised:
+            self._run(**{"--size-a": str(FIX / "good_size_a.txt")})
+        self.assertEqual(raised.exception.code, 2)
+
+    def test_naming_no_size_source_is_refused(self):
+        with self.assertRaises(SystemExit) as raised:
+            self._run(**{"--teensy-size": None})
+        self.assertEqual(raised.exception.code, 2)
 
     def test_malformed_budgets_json_is_cannot_run(self):
         with tempfile.TemporaryDirectory() as tmp:
