@@ -460,6 +460,28 @@ class TestBudgetSchema(unittest.TestCase):
                 with self.assertRaises(tg.BudgetSchemaError):
                     self._load(budgets)
 
+    def test_gutted_component_object_is_rejected(self):
+        # Both component ceilings are optional individually; declaring neither
+        # retires the ITCM bank-boundary ratchet with nothing else observing it.
+        text = _read("good_teensy_size.txt").replace(
+            "RAM1: variables:351280, code:62240, padding:30496"
+            "   free for local variables: 68256",
+            "RAM1: variables:300000, code:200000, padding:1000"
+            "   free for local variables: 40288")
+        sizes = tg.parse_teensy_size(text)
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        intact = copy.deepcopy(BUDGETS)
+        self.assertEqual(
+            _codes(tg.evaluate("phantasm", intact["phantasm"], sizes, symbols)),
+            ["component-over-derived-ceiling"])
+        gutted = copy.deepcopy(BUDGETS)
+        gutted["phantasm"]["regions"]["ram1"]["components"]["code"] = {}
+        self.assertTrue(
+            tg.evaluate("phantasm", gutted["phantasm"], sizes, symbols).passed)
+        with self.assertRaises(tg.BudgetSchemaError) as ctx:
+            self._load(gutted)
+        self.assertIn("max_banks_from_stack_floor", str(ctx.exception))
+
     def test_unknown_key_rejected_at_every_level(self):
         for path in (("phantasm",),
                      ("phantasm", "regions", "ram1"),
