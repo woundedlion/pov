@@ -363,8 +363,7 @@ warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
 /**
  * @brief Pulls plane coordinates back through one warp stage.
  * @param input Coordinates entering the stage.
- * @param projected Projection output, read only for the envelope weight and
- *        edge distance.
+ * @param provenance Projection seam and coverage metadata.
  * @param spec Stage kind and its discrete options.
  * @param params Stage parameters, already canonicalized.
  * @param stage_phase Wrapped noise phase for this stage's clock.

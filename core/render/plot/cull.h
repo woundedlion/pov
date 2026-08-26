@@ -1287,6 +1287,12 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
 
 /**
  * @brief Tests planar edge visibility from an existing cull sample set.
+ * @param cr Active raster clip region.
+ * @param xc Precomputed horizontal clip interval.
+ * @param a Unit-sphere edge start.
+ * @param b Unit-sphere edge end.
+ * @param planar_basis Basis used to unproject planar samples.
+ * @param span Interior samples and arc-gap bound for the edge.
  * @param end_sample Optional output for the unprojected edge endpoint, written
  *        by the column-span pass. Only an active @p xc reaches that pass, so
  *        requesting the endpoint requires one.
