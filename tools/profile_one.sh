@@ -55,6 +55,7 @@ case "$EFFECT" in
   grid-space) EFFECT=GridSpace;;
   lattice-melt) EFFECT=LatticeMelt;;
   chromatic-lichen) EFFECT=ChromaticLichen;;
+  mermaid-skin) EFFECT=MermaidSkin;;
   kaleidoscope-pent-bright) EFFECT=KaleidoscopePentBright;;
   kaleidoscope-stained-glass) EFFECT=KaleidoscopeStainedGlass;;
   kaleidoscope-smooth) EFFECT=KaleidoscopeSmooth;;
