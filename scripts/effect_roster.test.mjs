@@ -47,6 +47,17 @@ test('parseEffectRoster strips block comments before line comments', () => {
     ['Alpha', 'Last']);
 });
 
+// The macro is named in prose all over the tree; a comment spelling out its
+// definition must not be read as the definition.
+test('parseEffectRoster ignores a commented-out definition of the macro', () => {
+  const line = '// #define HS_EFFECT_LIST(X) names every effect\n'
+    + rosterOf('X(Alpha)');
+  assert.deepEqual(parseEffectRoster(line), ['Alpha', 'Last']);
+  const block = '/*\n#define HS_EFFECT_LIST(X) names every effect\n*/\n'
+    + rosterOf('X(Alpha)');
+  assert.deepEqual(parseEffectRoster(block), ['Alpha', 'Last']);
+});
+
 test('parseEffectRoster tolerates whitespace inside the parens', () => {
   assert.deepEqual(parseEffectRoster(rosterOf('X( Alpha )', 'X(\tBeta\t)')),
     ['Alpha', 'Beta', 'Last']);
