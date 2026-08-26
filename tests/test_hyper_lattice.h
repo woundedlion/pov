@@ -85,7 +85,7 @@ inline void test_edge_metrics() {
 inline void test_so4_rotation() {
   HL::FrameState frame{};
   frame.params.mode = HL::LatticeMode::FOUR_D_SLICE;
-  frame.params.far_cells = 8.0f;
+  frame.params.far_distance = 8.0f;
   frame.rotation_phase[3] = 0.5f * PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
   const Vec4 rotated =
@@ -223,12 +223,14 @@ inline void test_surface_origin_parallax() {
   frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
   const HL::TraceHit centered = HL::trace(X_AXIS, HL::prepare_trace(frame));
   frame.params.cell_size = 2.0f;
-  const HL::TraceHit scaled = HL::trace(X_AXIS, HL::prepare_trace(frame));
+  const HL::PreparedTrace scaled_trace = HL::prepare_trace(frame);
+  const HL::TraceHit scaled = HL::trace(X_AXIS, scaled_trace);
   frame.params.cell_size = 1.0f;
   frame.params.sphere_radius = 0.4f;
   const HL::TraceHit surfaced = HL::trace(X_AXIS, HL::prepare_trace(frame));
   HS_EXPECT_NEAR(centered.distance, 0.75f, 1e-6f);
   HS_EXPECT_NEAR(scaled.distance, 1.5f, 1e-6f);
+  HS_EXPECT_NEAR(scaled_trace.far_distance, frame.params.far_distance, 1e-6f);
   HS_EXPECT_NEAR(surfaced.distance, 0.35f, 1e-6f);
 }
 
@@ -582,7 +584,7 @@ inline void test_presets_and_pipeline() {
   static_assert(preset1.cell_size == 1.0f);
   static_assert(preset1.wire_radius == 0.055f);
   static_assert(preset1.softness == 0.08f);
-  static_assert(preset1.far_cells == 4.198f);
+  static_assert(preset1.far_distance == 4.198f);
   static_assert(preset1.aa_strength == 1.0f);
   static_assert(preset1.speed == 0.05f);
   static_assert(preset1.spin_3d == 0.015f);
@@ -596,7 +598,7 @@ inline void test_presets_and_pipeline() {
   static_assert(preset2.cell_size == 1.0f);
   static_assert(preset2.wire_radius == 0.03546f);
   static_assert(preset2.softness == 0.029612f);
-  static_assert(preset2.far_cells == 8.0f);
+  static_assert(preset2.far_distance == 8.0f);
   static_assert(preset2.aa_strength == 1.0f);
   static_assert(preset2.speed == 0.03f);
   static_assert(preset2.spin_3d == 0.01089f);
@@ -613,6 +615,9 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   const ParamDef *cell_size = effect.getParameters().find("Cell Size");
   HS_EXPECT_TRUE(cell_size != nullptr);
   HS_EXPECT_EQ(cell_size->max, 10.0f);
+  const ParamDef *far_distance = effect.getParameters().find("Far Distance");
+  HS_EXPECT_TRUE(far_distance != nullptr);
+  HS_EXPECT_TRUE(effect.getParameters().find("Far Cells") == nullptr);
   const ParamDef *dimension = effect.getParameters().find("Dimension");
   HS_EXPECT_TRUE(dimension != nullptr);
   HS_EXPECT_TRUE(dimension->is_enum());
