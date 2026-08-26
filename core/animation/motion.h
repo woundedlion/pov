@@ -438,12 +438,12 @@ public:
     float delta = target_angle - last_angle;
 
     // Sub-threshold increments accumulate across a multi-frame sweep: last_angle
-    // persists until the sum crosses TOLERANCE. The last frame has no successor
-    // to accumulate into — rewind() would discard the residual, so a repeat
-    // slips it every cycle — and neither does a one-shot (duration 1, the
-    // animate() path), so both apply unconditionally.
+    // persists until the sum crosses MIN_STEP_ANGLE. The last frame has no
+    // successor to accumulate into — rewind() would discard the residual, so a
+    // repeat slips it every cycle — and neither does a one-shot (duration 1,
+    // the animate() path), so both apply unconditionally.
     if (this->duration > 1 && this->t < static_cast<uint32_t>(this->duration) &&
-        std::abs(delta) < TOLERANCE) {
+        std::abs(delta) < MIN_STEP_ANGLE) {
       return;
     }
 
@@ -492,6 +492,9 @@ private:
   static constexpr float MAX_ANGLE =
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
+  static constexpr float MIN_STEP_ANGLE =
+      1e-4f; /**< Angular increment below which a frame defers its rotation and
+                  accumulates it into the next one. */
   Orientation<CAP> *orientation; /**< Pointer to the Orientation state. */
   Vector axis;                   /**< The axis of rotation. */
   float total_angle;             /**< The total angle to sweep. */
