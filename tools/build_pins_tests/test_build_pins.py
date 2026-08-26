@@ -154,7 +154,7 @@ class SharedLiterals(unittest.TestCase):
         carriers = [path.name for path in bp.INLINE_SCAN
                     if want in path.read_text(encoding="utf-8")]
         self.assertEqual(sorted(carriers),
-                         ["ci.yml", "justfile", "pre-commit"])
+                         ["ci.yml", "clang_format_gate.sh", "pre-commit"])
 
     def test_fast_math_axis_marks_its_test_contract(self):
         self.assertEqual(
