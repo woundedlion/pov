@@ -178,24 +178,16 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
     uint16_t *he_to_dynamic_idx = temp_arena.allocate_n<uint16_t>(I);
     std::fill_n(he_to_dynamic_idx, I, HE_NONE);
 
-    // Return the shared midpoint index for a half-edge, lazily creating and
-    // caching it (under both the edge and its pair) on first encounter.
-    auto get_midpoint_idx = [&](uint16_t he_idx) {
-      if (he_to_midpoint_idx[he_idx] != HE_NONE)
-        return he_to_midpoint_idx[he_idx];
-      HalfEdge &he = he_mesh.half_edges[he_idx];
-      if (he_to_midpoint_idx[he.pair] != HE_NONE)
-        return he_to_midpoint_idx[he.pair];
-
-      compiled.static_vertices.push_back(edge_midpoint(he_mesh, mesh, he_idx));
-      uint16_t idx = narrow_index(compiled.static_vertices.size() - 1);
-      he_to_midpoint_idx[he_idx] = idx;
-      he_to_midpoint_idx[he.pair] = idx;
-      return idx;
-    };
-
+    // One shared midpoint per undirected edge, cached under both halves, so
+    // every entry of he_to_midpoint_idx is populated from here on.
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      get_midpoint_idx(static_cast<uint16_t>(i));
+      const uint16_t he_idx = static_cast<uint16_t>(i);
+      if (he_to_midpoint_idx[he_idx] != HE_NONE)
+        continue;
+      compiled.static_vertices.push_back(edge_midpoint(he_mesh, mesh, he_idx));
+      const uint16_t idx = narrow_index(compiled.static_vertices.size() - 1);
+      he_to_midpoint_idx[he_idx] = idx;
+      he_to_midpoint_idx[he_mesh.half_edges[he_idx].pair] = idx;
     }
 
     compiled.static_offset = static_cast<int>(compiled.static_vertices.size());
@@ -217,8 +209,8 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
         HalfEdge &curr_he = he_mesh.half_edges[he_idx];
         uint16_t prev_idx = curr_he.prev;
 
-        int idx_m1 = get_midpoint_idx(prev_idx);
-        int idx_m2 = get_midpoint_idx(he_idx);
+        int idx_m1 = he_to_midpoint_idx[prev_idx];
+        int idx_m2 = he_to_midpoint_idx[he_idx];
 
         HalfEdge &prev_he = he_mesh.half_edges[prev_idx];
 
