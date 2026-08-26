@@ -1548,17 +1548,17 @@ constexpr std::array<std::array<int, 2>, 6> PLANE_AXES = {
 
 /**
  * @brief Slack allowed on a single plane rotation's unit properties.
- * @details rotate_plane builds its rotor from fast_cosf/fast_sinf, whose
- * squared sum leaves unity by up to 5e-3 (see test_fast_sinf_cosf).
+ * @details rotate_plane builds its rotor from cosf/sinf, so the rotor
+ * identity holds to rounding; the measured bound is 8.4e-8.
  */
-constexpr float PLANE_ROTATION_TOLERANCE = 5e-3f;
+constexpr float PLANE_ROTATION_TOLERANCE = 1e-6f;
 
 /**
  * @brief Slack allowed after all six planes have been composed.
- * @details Each factor contributes its own rotor error, so the bound is the
- * single-rotation slack times the plane count.
+ * @details Each factor contributes its own rounding, so the bound is the
+ * single-rotation slack times the plane count; the measured bound is 4.0e-7.
  */
-constexpr float COMPOSED_ROTATION_TOLERANCE = 3e-2f;
+constexpr float COMPOSED_ROTATION_TOLERANCE = 4e-6f;
 
 /**
  * @brief Squared length of a Vec4.
