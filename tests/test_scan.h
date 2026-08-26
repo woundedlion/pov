@@ -360,6 +360,38 @@ inline void test_ring_rasterize_produces_bounded_output() {
 }
 
 /**
+ * @brief Verifies a radius past 1 shades the azimuth of the caller's own frame.
+ * @details SDF::Ring covers the whole [0, 2] radius range directly. Rebuilding a
+ * long-arc ring about its antipode reproduces the same latitude band but reads
+ * the azimuth from a frame with u negated, so Fragment::v0 comes out mirrored
+ * and half-turn-shifted from what the same basis and radius give through
+ * SDF::Ring or Scan::DistortedRing.
+ */
+inline void test_ring_long_radius_azimuth_unflipped() {
+  constexpr int W = 96, H = 64;
+  constexpr float radius = 1.4f, thickness = 0.15f;
+  const Basis basis =
+      make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized());
+  const SDF::Ring oracle(basis, radius, thickness);
+
+  size_t lit = 0;
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipe;
+  {
+    Canvas c(fx);
+    Scan::Ring::draw<W, H>(pipe, c, basis, radius, thickness,
+                           [&](const Vector &p, Fragment &f) {
+                             SDF::DistanceResult res;
+                             oracle.distance(p, res);
+                             HS_EXPECT_NEAR(f.v0, res.t, 1e-6f);
+                             ++lit;
+                             f.color = Color4(Pixel(60000, 60000, 60000), f.v2);
+                           });
+  }
+  HS_EXPECT_GT(lit, (size_t)0);
+}
+
+/**
  * @brief Geometric oracle: every lit pixel of a rasterized ring lies on the
  *        ring's latitude band — placement, not just "something was drawn".
  * @details The ring axis is +Y, so a pixel's world direction v sits at polar
@@ -2722,6 +2754,7 @@ inline int run_scan_tests() {
   test_shader_respects_clip_band();
   test_shader_clip_arc_matches_predicate();
   test_ring_rasterize_produces_bounded_output();
+  test_ring_long_radius_azimuth_unflipped();
   test_ring_rasterize_lit_pixels_on_band();
   test_ring_rasterize_lights_expected_row();
   test_stroke_aa_is_monotone_ramp();

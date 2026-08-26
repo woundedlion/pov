@@ -381,19 +381,21 @@ struct Ring {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the ring plane.
-   * @param radius Ring radius in world units.
+   * @param radius Ring radius in world units, in [0, 2].
    * @param thickness Ring stroke thickness in world units.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
+   * @details SDF::Ring spans the whole [0, 2] radius range in the given frame,
+   * so the shape is built unflipped: a radius past 1 keeps the caller's
+   * azimuth origin and handedness, matching DistortedRing at the same radius.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
-    SDF::Ring shape(res.first, res.second, thickness, phase);
+    SDF::Ring shape(basis, radius, thickness, phase);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
