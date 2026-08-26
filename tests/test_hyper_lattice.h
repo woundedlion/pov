@@ -103,6 +103,19 @@ inline void test_so4_rotation() {
   HS_EXPECT_EQ(cubic[3], 0.0f);
 }
 
+inline void test_dimensional_rotation_wrap_is_continuous() {
+  HL::FrameState frame{};
+  frame.params.mode = HL::LatticeMode::DIMENSIONAL_RIFT;
+  frame.rotation_phase[3] = TWO_PI_F - 1.0e-4f;
+  const Vec4 before = HL::prepare_trace(frame).world_to_lattice.apply(
+      {{1.0f, 0.0f, 0.0f, 0.0f}});
+  frame.rotation_phase[3] = 0.0f;
+  const Vec4 after = HL::prepare_trace(frame).world_to_lattice.apply(
+      {{1.0f, 0.0f, 0.0f, 0.0f}});
+  for (int axis = 0; axis < HL::DIMENSIONS; ++axis)
+    HS_EXPECT_NEAR(before[axis], after[axis], 2.0e-4f);
+}
+
 inline void test_resolution_aware_wire_coverage() {
   constexpr float LOW_RES = HL::pixel_half_angle<96, 20>();
   constexpr float HIGH_RES = HL::pixel_half_angle<288, 144>();
@@ -225,11 +238,14 @@ inline void test_surface_origin_parallax() {
   frame.params.cell_size = 2.0f;
   const HL::PreparedTrace scaled_trace = HL::prepare_trace(frame);
   const HL::TraceHit scaled = HL::trace(X_AXIS, scaled_trace);
-  frame.params.cell_size = 1.0f;
   frame.params.sphere_radius = 0.4f;
+  const HL::TraceHit scaled_surface =
+      HL::trace(X_AXIS, HL::prepare_trace(frame));
+  frame.params.cell_size = 1.0f;
   const HL::TraceHit surfaced = HL::trace(X_AXIS, HL::prepare_trace(frame));
   HS_EXPECT_NEAR(centered.distance, 0.75f, 1e-6f);
   HS_EXPECT_NEAR(scaled.distance, 1.5f, 1e-6f);
+  HS_EXPECT_NEAR(scaled_surface.distance, 0.7f, 1e-6f);
   HS_EXPECT_NEAR(scaled_trace.far_distance, frame.params.far_distance, 1e-6f);
   HS_EXPECT_NEAR(surfaced.distance, 0.35f, 1e-6f);
 }
@@ -649,6 +665,7 @@ inline int run_hyper_lattice_tests() {
   test_periodic_distance();
   test_edge_metrics();
   test_so4_rotation();
+  test_dimensional_rotation_wrap_is_continuous();
   test_resolution_aware_wire_coverage();
   test_near_field_fade();
   test_far_shell_fade();

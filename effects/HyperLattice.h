@@ -254,6 +254,7 @@ struct PreparedTrace {
   float outer_radius_base;
   float near_start;
   float near_inv_span;
+  float sphere_radius_in_cells;
   float dimension_mix;
   LatticeMode mode;
 };
@@ -321,12 +322,11 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   rotate_plane(prepared.world_to_lattice, 1, 2, frame.rotation_phase[2]);
   prepared.mode = frame.params.mode;
   prepared.dimension_mix = dimension_mix(frame.params.mode);
-  rotate_plane(prepared.world_to_lattice, 0, 3,
-               prepared.dimension_mix * frame.rotation_phase[3]);
-  rotate_plane(prepared.world_to_lattice, 1, 3,
-               prepared.dimension_mix * frame.rotation_phase[4]);
-  rotate_plane(prepared.world_to_lattice, 2, 3,
-               prepared.dimension_mix * frame.rotation_phase[5]);
+  if (prepared.mode != LatticeMode::THREE_D) {
+    rotate_plane(prepared.world_to_lattice, 0, 3, frame.rotation_phase[3]);
+    rotate_plane(prepared.world_to_lattice, 1, 3, frame.rotation_phase[4]);
+    rotate_plane(prepared.world_to_lattice, 2, 3, frame.rotation_phase[5]);
+  }
   const float inv_cell_size = 1.0f / frame.params.cell_size;
   for (int row = 0; row < DIMENSIONS; ++row)
     for (int column = 0; column < DIMENSIONS; ++column)
@@ -341,6 +341,8 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   const float near_end =
       4.0f * frame.params.wire_radius * frame.params.cell_size;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
+  prepared.sphere_radius_in_cells =
+      frame.params.sphere_radius * frame.params.cell_size;
   return prepared;
 }
 
@@ -437,7 +439,7 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
   Vec4 ray_origin = prepared.origin;
   if (prepared.params.sphere_radius != 0.0f) {
     for (int axis = 0; axis < DIMENSIONS; ++axis)
-      ray_origin[axis] += prepared.params.sphere_radius * direction[axis];
+      ray_origin[axis] += prepared.sphere_radius_in_cells * direction[axis];
   }
   const uint8_t shell_count =
       SPECIALIZED_SLICE ? FIXED_SHELL_COUNT
@@ -804,9 +806,11 @@ private:
     for (int plane = 0; plane < 3; ++plane)
       rotation_phase[plane] =
           wrap(rotation_phase[plane] + params.spin_3d * RATE[plane], TWO_PI_F);
+    const float SPIN_4D_STEP =
+        HyperLatticeDetail::dimension_mix(params.mode) * params.spin_4d;
     for (int plane = 3; plane < 6; ++plane)
       rotation_phase[plane] =
-          wrap(rotation_phase[plane] + params.spin_4d * RATE[plane], TWO_PI_F);
+          wrap(rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], TWO_PI_F);
   }
 
   static void next_depth_palette(void *, uint32_t sequence,
