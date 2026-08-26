@@ -589,8 +589,13 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── main.js                     index.html's entry module: starts the simulator, once
 ├── bootstrap.js                Dynamic-import boot of daydream.js + failure overlay
 ├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
-├── app_lifecycle.js            Composition-root frame adapter, display-alias heal, Test All
-│                                  ticker, segmented spawn epoch, and teardown
+├── app_lifecycle.js            Composition-root frame adapter, Test All ticker,
+│                                  module-load deadline, and teardown
+├── display_aliases.js           Display-buffer alias divergence check and repoint
+├── apply_notice.js              Owner-keyed sink for the shared apply-notice element
+├── recording_settings.js        Recorder settings and their GUI binding
+├── pole_lod.js                  Pole azimuthal-LOD control binding
+├── segment_policy.js            Segmented spawn epoch and the single-engine fallback
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
 ├── apply_notice.js             Shared notice element, owner-keyed so a clear lands only for its holder
 ├── display_aliases.js          The display-buffer aliases every renderer writes through, healed together
@@ -679,6 +684,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── record-module-loads.mjs NODE_OPTIONS shim recording loaded test modules
 │   ├── require-tests.mjs       `pretest` guard against empty globs, unreachable tests, and shadow installs
 │   ├── serve-manifest.mjs      Local static server constrained to the published site manifest
+│   ├── probe_harness.mjs       Shared browser-probe runner: page open, problem collection, and the drag/box helpers the six probes share
 │   ├── vendor-stage.mjs        Hard-links the manifest set into a scratch tree served with a node_modules import map, for the headless gate
 │   ├── verify-ci-green.mjs     Verifies every CI job is covered by the required aggregate check
 │   ├── workbench-probe.mjs     Headless pointer-level probe of the shader workbench's pipeline strip; run it for any tools/ UI change
