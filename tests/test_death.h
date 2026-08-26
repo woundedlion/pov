@@ -49,6 +49,7 @@
 #include "tests/test_shader_workbench.h" // ShaderWorkbenchWhiteBox, for the effect-side traps
 
 #include "core/math/3dmath.h"
+#include "core/math/4dmath.h"
 #include "core/animation/animation.h"
 #include "core/animation/carousel.h"
 #include "core/render/canvas.h"
@@ -322,6 +323,14 @@ inline void case_normalize_zero() {
   Vector z{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
   Vector n = z.normalized(); // length < eps -> HS_CHECK
   if (n.x == 42.0f)
+    std::printf("x");
+}
+
+/** @brief Death case: rotating in a degenerate coordinate plane must trap. */
+inline void case_rotate_plane_degenerate() {
+  Mat4 m = Mat4::identity();
+  rotate_plane(m, opaque(1), opaque(1), 0.5f); // a == b -> HS_CHECK
+  if (m.m[0][0] == 42.0f)
     std::printf("x");
 }
 
@@ -3845,6 +3854,9 @@ inline const Case *all_cases(int &n) {
        "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
       {"normalize_zero", case_normalize_zero, "3dmath.h",
        "(m2 >= math::EPS_NORMALIZE_SQ) "},
+      {"rotate_plane_degenerate", case_rotate_plane_degenerate, "4dmath.h",
+       "(a >= 0 && a < VEC4_DIMENSIONS && b >= 0 && b < VEC4_DIMENSIONS && a "
+       "!= b) rotate_plane: "},
       {"angle_between_zero", case_angle_between_zero, "3dmath.h",
        "(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ) "
        "angle_between: degenerate vector"},
