@@ -41,6 +41,7 @@ public:
       "alien-brain", "alien-brain-2", "alien-brain-3", "alien-brain-4"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
+  // Hot section: the out-of-line pipeline body compiles for speed.
   static HS_HOT_FLASH_MEMBER Color4
   shade(const Vector &view, const typename AlienBrain::Frame &frame) {
     return AlienBrain::RenderPipeline::shade(view, frame);
