@@ -615,13 +615,16 @@ static_assert(
     "a ShaderWorkbench preset lies outside its registered range");
 static_assert(
     [] {
-      for (size_t index = 0; index < PRESETS.size(); ++index)
-        if (!transition_admitted(PRESETS[index].config,
-                                 PRESETS[(index + 1) % PRESETS.size()].config))
+      for (size_t index = 0; index < PRESETS.size(); ++index) {
+        const Config &from = PRESETS[index].config;
+        const Config &to = PRESETS[(index + 1) % PRESETS.size()].config;
+        if (same_parameter_topology(from, to) && !stable_topology(from, to))
           return false;
+      }
       return true;
     }(),
-    "a ShaderWorkbench preset edge lacks continuous transition admission");
+    "a ShaderWorkbench preset edge morphs its parameters along an unstable "
+    "path");
 
 } // namespace Workbench
 
