@@ -64,6 +64,8 @@ public:
     return value;
   }
   static constexpr Params preset_params(size_t index) {
+    static_assert(PRESET_IDS.size() == 3,
+                  "a new preset id needs a branch below");
     Params value = initial_params();
     if (index == 1)
       value.color.mapping_frequency = 1.0f;
