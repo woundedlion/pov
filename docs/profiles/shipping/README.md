@@ -3,19 +3,19 @@
 Ranked on-device results for the shipping `profile` image, covering the
 38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by worst spill fraction, then peak render. 🟢 is zero spill, 🟡 is
-under 25%, and 🔴 is 25% or more. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by any spill, then peak render. 🟢 is zero spill and 🔴 is any
+nonzero spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § ● | `msp_draw_particles` | 🟡 67.05 (2)<br>🟢 60.54 (7) | 🟡 39/424 (9.2%)<br>🟢 0/1272 (0.0%) | 2026-08-26 01:52 |
-| [IslamicStars](profile_islamicstars_teensy_2026-08-26.md) § ● | `is_timeline_step` | 🟡 64.18 (1)<br>🟢 61.87 (22) | 🟡 2/156 (1.3%)<br>🟢 0/3172 (0.0%) | 2026-08-26 02:17 |
 | [Raymarch](profile_raymarch_teensy_2026-08-26.md) ● | `rm_shader_draw` | 🟢 62.22 | 🟢 0/1088 (0.0%) | 2026-08-26 01:37 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md) § ● | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 0/6688 (0.0%) | 2026-08-26 03:31 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-26.md) § ● | `ss_draw_all` | 🟢 58.13 (10) | 🟢 0/2448 (0.0%) | 2026-08-26 03:28 |
 | [DisplacementField](profile_displacementfield_teensy_2026-08-26.md) ● | `df_timeline_step` | 🟢 57.40 | 🟢 0/1088 (0.0%) | 2026-08-26 01:24 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) ● | `grd_render` | 🟢 55.26 | 🟢 0/2048 (0.0%) | 2026-08-26 01:28 |
+| [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § ● | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 0/1728 (0.0%) | 2026-08-26 07:40 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-08-26.md) § ● | `hl_shader_draw` | 🟢 51.19 (4) | 🟢 0/2688 (0.0%) | 2026-08-26 03:32 |
+| [IslamicStars](profile_islamicstars_teensy_2026-08-26.md) § ● | `is_timeline_step` | 🟢 50.65 (23) | 🟢 0/3328 (0.0%) | 2026-08-26 07:49 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 50.09 | 🟢 0/1088 (0.0%) | 2026-08-26 02:47 |
 | [RingSpin](profile_ringspin_teensy_2026-08-26.md) ● | `rs_draw_rings` | 🟢 49.42 | 🟢 0/1088 (0.0%) | 2026-08-26 01:41 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) ● | `bz_render` | 🟢 48.91 | 🟢 0/2048 (0.0%) | 2026-08-26 01:20 |
@@ -54,8 +54,8 @@ For cyclers, each `<br>`-joined line is one colour bucket, worst first. Counts
 in parentheses are parser ownership buckets; spill fractions include the
 transition following a preset and are therefore stricter than clean holds.
 
-- **MindSplatter**: 9 parser ownership buckets spanning 23.11–67.05 ms; the sequence closes back to its first entry.
-- **IslamicStars**: 23 parser ownership buckets spanning 21.66–64.18 ms; the sequence closes back to its first entry.
+- **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
+- **IslamicStars**: 23 parser ownership buckets spanning 18.35–50.65 ms; the sequence closes back to its first entry.
 - **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
 - **ShapeShifter**: 10 parser ownership buckets spanning 9.86–58.13 ms; the sequence closes back to its first entry.
 - **HyperLattice**: 4 parser ownership buckets spanning 41.77–51.19 ms; the sequence closes back to its first entry.
