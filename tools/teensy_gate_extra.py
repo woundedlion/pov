@@ -123,13 +123,9 @@ def run_gate(source, target, env):
 
         symbols = teensy_gate.parse_readelf_symbols(_run([readelf, "-sW", elf]))
         sections = teensy_gate.parse_readelf_sections(_run([readelf, "-SW", elf]))
-    except teensy_gate.TeensySizeFormatError as exc:
-        print(f"::error::teensy-gate: invalid teensy_size output ({exc}). This "
-              f"is a tooling/format error, not a size-budget violation.")
-        sys.exit(2)
-    except teensy_gate.SizeAFormatError as exc:
-        print(f"::error::teensy-gate: invalid `size -A` output ({exc}). This is "
-              f"a tooling/format error, not a size-budget violation.")
+    except (teensy_gate.TeensySizeFormatError,
+            teensy_gate.SizeAFormatError) as exc:
+        print(teensy_gate.size_format_annotation(exc))
         sys.exit(2)
     except (OSError, subprocess.SubprocessError) as exc:
         print(f"::error::teensy-gate: a toolchain step failed before evaluation "
@@ -168,20 +164,19 @@ def run_gate(source, target, env):
               f"size-budget violation — do not adjust budgets.")
         sys.exit(2)
 
-    result = teensy_gate.evaluate(pioenv, budgets[pioenv], sizes, symbols, sections)
-    if used_size_a_fallback:
-        result.notes.insert(0, teensy_gate.UNCALIBRATED_NOTE)
-    print(teensy_gate.render_report(result, github=True))
-    if not result.passed:
-        sys.exit(1)
-    if used_size_a_fallback:
+    report, code = teensy_gate.verdict(
+        pioenv, budgets[pioenv], sizes, symbols, sections,
+        uncalibrated=used_size_a_fallback, github=True)
+    print(report)
+    if code == teensy_gate.EXIT_UNCALIBRATED_PASS:
         # A bucketed guess must never read as a shipped verdict: CI accepts this
         # build on the gate's exit status, so an uncalibrated PASS exits non-zero.
         print("::error::teensy-gate: PASS is UNCALIBRATED - teensy_size was not "
               "found, so region totals come from `size -A` VMA bucketing. Install "
               "the Teensy platform tools (tool-teensy package) and re-run; do not "
               "record this as a gate PASS.")
-        sys.exit(teensy_gate.EXIT_UNCALIBRATED_PASS)
+    if code:
+        sys.exit(code)
 
 
 ELF = "$BUILD_DIR/${PROGNAME}.elf"
