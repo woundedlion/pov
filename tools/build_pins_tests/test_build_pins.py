@@ -15,6 +15,7 @@ Run:  python -m unittest discover -s tools/build_pins_tests
 """
 
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -169,6 +170,26 @@ class SharedLiterals(unittest.TestCase):
 class InlinePins(unittest.TestCase):
     def test_the_tracked_spellings_agree(self):
         self.assertEqual(bp.check_inline_pins(), [])
+
+    def test_a_miscounted_spelling_fails(self):
+        # A count, not a vacuity guard: a pin with 16 live sites must fail when
+        # one is dropped, which "matches nothing anywhere" never sees.
+        patched = tuple(
+            (pattern, name, form, expected + 1 if name == "python" else expected)
+            for pattern, name, form, expected in bp.INLINE_USES)
+        with unittest.mock.patch.object(bp, "INLINE_USES", patched):
+            errors = bp.check_inline_pins()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("occurs 16 time(s)", errors[0])
+        self.assertIn("expected 17", errors[0])
+
+    def test_the_python_version_input_is_read_in_either_quoting(self):
+        pattern = next(p for p, name, _, _ in bp.INLINE_USES if name == "python")
+        for line in ("          python-version: '3.13'",
+                     '          python-version: "3.13"',
+                     "          python-version: 3.13"):
+            with self.subTest(line=line):
+                self.assertEqual(re.findall(pattern, line), ["3.13"])
 
     def test_the_hook_compares_against_its_pinned_format_major(self):
         lines = (bp.ROOT / ".githooks/pre-commit").read_text(
