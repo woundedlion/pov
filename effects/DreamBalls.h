@@ -575,6 +575,18 @@ private:
   }
 
   /**
+   * @brief Unit orbit offset in the tangent plane at a vertex.
+   * @param base Unit vertex direction whose tangent plane carries the orbit.
+   * @param u First tangent-basis vector; cross(base, u) spans the second.
+   * @param phase Orbit angle in radians.
+   * @return The unit offset direction at that phase.
+   */
+  __attribute__((always_inline)) static Vector
+  tangent_orbit_offset(const Vector &base, const Vector &u, float phase) {
+    return u * fast_cosf(phase) + cross(base, u) * fast_sinf(phase);
+  }
+
+  /**
    * @brief Orbits each vertex in a small circle within its own tangent plane,
    *        then re-projects onto the unit sphere.
    * @param base Source mesh whose vertices are orbited.
@@ -600,18 +612,13 @@ private:
 
     for (size_t i = 0; i < count; ++i) {
       const Vector &v = base.vertices[i];
-      const Vector &u = tangent_u[i];
-      const Vector w = cross(v, u);
 
       // orbit_phase is a fraction of a turn; scale to radians.
       float phase = i * VERTEX_PHASE_STAGGER;
       float angle = orbit_phase * 2 * PI_F + phase + angle_offset;
 
-      float cos_a = fast_cosf(angle);
-      float sin_a = fast_sinf(angle);
-
-      Vector disp = v + (u * cos_a + w * sin_a) * r;
-      target.vertices[i] = disp.normalized();
+      const Vector disp = v + tangent_orbit_offset(v, tangent_u[i], angle) * r;
+      target.vertices[i] = normalized_or(disp, v);
     }
   }
 
@@ -656,11 +663,9 @@ private:
         HS_PROFILE(db_displace);
         for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
           const Vector &base = base_vertices[vertex];
-          const Vector &u = frame_u[vertex];
-          const Vector v = cross(base, u);
           const float phase =
               copy_phase + static_cast<float>(vertex) * VERTEX_PHASE_STAGGER;
-          offsets[vertex] = u * fast_cosf(phase) + v * fast_sinf(phase);
+          offsets[vertex] = tangent_orbit_offset(base, frame_u[vertex], phase);
           framed_mesh.vertices[vertex] =
               normalized_or(base + offsets[vertex] * p.offset_radius, base);
         }
