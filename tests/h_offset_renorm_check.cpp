@@ -7,20 +7,9 @@
 // which a normal host build never sets) runs against an energy-conservation
 // oracle. Its own TU because offset-3 and offset-0 instantiations of
 // PhiLUT<H>/TrigLUT<W,H> would clash under ODR.
-#include <cstdio>
-
 #include "core/engine/engine.h"
 #include "tests/test_h_offset_renorm.h"
 
 int main() {
-  const int failed = hs_test::h_offset_renorm::run_h_offset_renorm_tests();
-  const int total = hs_test::stats().passed + hs_test::stats().failed;
-  std::printf("=== h_offset_renorm: %d passed, %d failed "
-              "(HS_TEST_H_OFFSET=3) ===\n",
-              hs_test::stats().passed, hs_test::stats().failed);
-  if (total == 0) {
-    std::printf("=== h_offset_renorm: NO ASSERTIONS RAN ===\n");
-    return 1;
-  }
-  return failed ? 1 : 0;
+  return hs_test::h_offset_renorm::run_h_offset_renorm_tests() ? 1 : 0;
 }
