@@ -52,42 +52,6 @@ struct EdgeMetric {
   uint8_t free_axis;
 };
 
-inline EdgeMetric edge_metric_3d(const Vec4 &point, int plane_axis) {
-  float best_fixed = 1.0f;
-  float farthest = -1.0f;
-  uint8_t free_axis = 0;
-  for (int axis = 0; axis < 3; ++axis) {
-    if (axis == plane_axis)
-      continue;
-    const float distance = periodic_distance(point[axis]);
-    const float distance_sq = distance * distance;
-    best_fixed = std::min(best_fixed, distance_sq);
-    if (distance_sq > farthest) {
-      farthest = distance_sq;
-      free_axis = static_cast<uint8_t>(axis);
-    }
-  }
-  return {best_fixed, free_axis};
-}
-
-inline EdgeMetric edge_metric_4d(const Vec4 &point, int plane_axis) {
-  float sum = 0.0f;
-  float largest = -1.0f;
-  uint8_t free_axis = 0;
-  for (int axis = 0; axis < DIMENSIONS; ++axis) {
-    if (axis == plane_axis)
-      continue;
-    const float distance = periodic_distance(point[axis]);
-    const float distance_sq = distance * distance;
-    sum += distance_sq;
-    if (distance_sq > largest) {
-      largest = distance_sq;
-      free_axis = static_cast<uint8_t>(axis);
-    }
-  }
-  return {sum - largest, free_axis};
-}
-
 struct TransitionalMetrics {
   EdgeMetric cubic;
   EdgeMetric hyper;
