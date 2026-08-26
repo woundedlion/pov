@@ -10,10 +10,7 @@ from pathlib import Path
 
 
 HARNESS_FLOOR = "MIN_RELAX_BAKES_VERIFIED"
-FLOOR_RES = {
-    name: re.compile(rf"constexpr int ({name})\s*=\s*(\d+)\s*;")
-    for name in (HARNESS_FLOOR,)
-}
+FLOOR_RE = re.compile(rf"constexpr int ({HARNESS_FLOOR})\s*=\s*(\d+)\s*;")
 GAP_TABLE_RE = re.compile(r"GUARD_GAP_ALLOW\[\]\s*=\s*\{(.*?)\};", re.S)
 GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
 COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
@@ -34,13 +31,12 @@ def counts(matches, path: Path, what: str) -> dict[str, int]:
     return result
 
 
-def floors(path: Path, name: str) -> dict[str, int]:
-    """The named coverage floor, keyed by its name; a rename is fatal."""
-    result = counts(
-        FLOOR_RES[name].findall(source(path)), path, "coverage floor"
-    )
+def floors(path: Path) -> dict[str, int]:
+    """The harness coverage floor, keyed by its name; a rename is fatal."""
+    result = counts(FLOOR_RE.findall(source(path)), path, "coverage floor")
     if not result:
-        raise SystemExit(f"{path}: coverage floor {name} is missing or renamed")
+        raise SystemExit(
+            f"{path}: coverage floor {HARNESS_FLOOR} is missing or renamed")
     return result
 
 
@@ -68,12 +64,12 @@ def main() -> int:
     parser.add_argument("--previous-ref", required=True)
     args = parser.parse_args()
 
-    current = floors(args.current_harness, HARNESS_FLOOR)
+    current = floors(args.current_harness)
     gaps_current = death_pins(args.current_death)
     if not gaps_current:
         raise SystemExit(f"no GUARD_GAP_ALLOW rows parsed from {args.current_death}")
 
-    previous = floors(args.previous_harness, HARNESS_FLOOR)
+    previous = floors(args.previous_harness)
     gaps_previous = death_pins(args.previous_death)
     allow = {
         line.strip()

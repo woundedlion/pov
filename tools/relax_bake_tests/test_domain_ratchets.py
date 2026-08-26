@@ -23,9 +23,7 @@ class ParseFloors(unittest.TestCase):
     def test_rejects_harness_without_floor(self):
         path = self.write("harness.cpp", "")
         with self.assertRaisesRegex(SystemExit, "MIN_RELAX_BAKES_VERIFIED"):
-            check_domain_ratchets.floors(
-                path, check_domain_ratchets.HARNESS_FLOOR
-            )
+            check_domain_ratchets.floors(path)
 
     def test_ignores_a_commented_floor(self):
         path = self.write(
@@ -35,9 +33,7 @@ class ParseFloors(unittest.TestCase):
             "/* constexpr int MIN_RELAX_BAKES_VERIFIED = 5; */\n",
         )
         self.assertEqual(
-            check_domain_ratchets.floors(
-                path, check_domain_ratchets.HARNESS_FLOOR
-            ),
+            check_domain_ratchets.floors(path),
             {"MIN_RELAX_BAKES_VERIFIED": 21},
         )
 
@@ -48,9 +44,7 @@ class ParseFloors(unittest.TestCase):
             "constexpr int MIN_RELAX_BAKES_VERIFIED = 5;\n",
         )
         with self.assertRaisesRegex(SystemExit, "declared twice"):
-            check_domain_ratchets.floors(
-                path, check_domain_ratchets.HARNESS_FLOOR
-            )
+            check_domain_ratchets.floors(path)
 
 
 class ParseGaps(unittest.TestCase):
