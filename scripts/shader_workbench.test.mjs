@@ -596,6 +596,20 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
   assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
 });
 
+test('a v1 staggered path schedules the topology groups the expansion synthesises', () => {
+  const document = structuredClone(V1_EXAMPLE);
+  document.descriptor.path_policies = [{
+    id: 'staggered', kind: 'STAGGERED_ORDERED',
+    groups: ['central-meridian', 'pattern-freq'],
+  }];
+  for (const edge of document.preset_bank.edges) edge.path_policy = 'staggered';
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'VALID');
+  assert.deepEqual(compiled.document.descriptor.path_policies[0].groups,
+    ['project.central-meridian', 'sample.pattern-freq',
+      'sample.weight-mode', 'sample.coverage-mode']);
+});
+
 // v1 is a frozen input format: the archived documents spell the projection
 // fade 'pole-fade', and the expander is the only place that translates it to
 // the engine's 'singularity-fade' field id.
