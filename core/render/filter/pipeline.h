@@ -715,15 +715,11 @@ public:
       "terminal in a compositing mode.");
 
   static_assert(
-      !Head::is_2d || (... && Tail::is_2d),
-      "Filter ordering: a screen-space (2D) filter (Screen::* / Pixel::*) must "
-      "not precede a world-space (3D) filter (World::*) — World filters operate "
-      "before screen projection. Reorder so every World::* stage comes first.");
-
-  static_assert(
       Head::domain_rank <= Next::domain_rank,
       "Filter ordering: filter domains must be non-decreasing (World, then "
-      "Screen, then Pixel). Reorder Pixel::* stages after Screen::* stages.");
+      "Screen, then Pixel) — World filters operate before screen projection. "
+      "Reorder so every World::* stage comes first and every Pixel::* stage "
+      "follows the Screen::* stages.");
 
   static_assert(
       !Head::emits_pixel_centers || (... && !Tail::requires_subpixel_input),
