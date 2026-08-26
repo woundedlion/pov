@@ -439,7 +439,6 @@ private:
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
-    beacon_late_counted_this_rev = false;
     beacon_index_candidate = -1;
     build_gen = 0;
     build_request_word.store(0, std::memory_order_relaxed);
@@ -463,7 +462,6 @@ private:
       return;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
-    beacon_late_counted_this_rev = false;
     if (content_tracker.identity_known) {
       if (content_tracker.on_zero_crossing(protocol_config)) {
         a.commit = true; // B+R+K reached; driver swaps in the pending effect
@@ -743,10 +741,7 @@ private:
       // The margin only shrinks until the next ZERO crossing clears the latch,
       // so this revolution's frame can never come to fit: stop re-fitting it.
       beacon_done_this_rev = true;
-      if (!beacon_late_counted_this_rev) {
-        saturating_increment(telemetry_counters.beacons_late_dropped);
-        beacon_late_counted_this_rev = true;
-      }
+      saturating_increment(telemetry_counters.beacons_late_dropped);
       return;
     }
     if (emitter.schedule_beacon(digits, now, protocol_config))
@@ -792,7 +787,6 @@ private:
       0; /**< ZERO boundaries left in the EPOCH train. */
   bool beacon_done_this_rev = false;
   bool beacon_busy_counted_this_rev = false;
-  bool beacon_late_counted_this_rev = false;
   int32_t beacon_index_candidate =
       -1; /**< Index a lone beacon named, awaiting confirmation (§6.3.4). */
   uint32_t build_gen = 0;
