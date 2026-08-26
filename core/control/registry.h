@@ -29,7 +29,7 @@ class Effect; // forward decl — defined in canvas.h
 
 /**
  * @brief RTTI-free identity token for one concrete effect type.
- * @tparam T Effect type at a fixed resolution, e.g. ShaderWorkbench<288, 144>.
+ * @tparam T Effect type at a fixed resolution, e.g. Shader<288, 144>.
  * @return An address unique to T for the module's lifetime.
  * @details Lets a holder of an Effect base pointer prove which concrete type the
  *          factory built before downcasting to it, without RTTI and without
