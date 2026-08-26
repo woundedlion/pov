@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <type_traits>
 
 /**
@@ -105,6 +106,33 @@ struct PolyMesh {
    * @details Cloneable hook (Persist<PolyMesh>); delegates to MeshOps::clone.
    */
   static void clone(const PolyMesh &src, PolyMesh &dst, Arena &arena);
+};
+
+/**
+ * @brief The read surface PolyMesh and MeshState both present, and the one the
+ * MeshOps templates written against "a mesh" are spelled in terms of.
+ * @details The two types carry the same five members and the same accessor,
+ * count, reset and clone surface; they differ only in how the accessors resolve
+ * — PolyMesh always owns its arrays and forwards, MeshState discriminates
+ * owned arrays against borrowed views. MeshState's extras (face_offsets, the
+ * topology accessors, set_owned/set_borrowed) stay outside the concept, so a
+ * template that can exploit them probes for them with `requires` instead.
+ */
+template <typename M>
+concept MeshLike = requires(M &mesh, const M &const_mesh, Arena &arena) {
+  { mesh.vertices } -> std::same_as<ArenaVector<Vector> &>;
+  { mesh.face_counts } -> std::same_as<ArenaVector<uint8_t> &>;
+  { mesh.faces } -> std::same_as<ArenaVector<uint16_t> &>;
+  { mesh.topology } -> std::same_as<ArenaVector<uint16_t> &>;
+  { mesh.topology_key } -> std::same_as<uint32_t &>;
+  mesh.clear();
+  { const_mesh.get_face_counts_data() } -> std::same_as<const uint8_t *>;
+  { const_mesh.get_face_counts_size() } -> std::same_as<size_t>;
+  { const_mesh.get_faces_data() } -> std::same_as<const uint16_t *>;
+  { const_mesh.get_faces_size() } -> std::same_as<size_t>;
+  { const_mesh.num_vertices() } -> std::same_as<size_t>;
+  { const_mesh.num_faces() } -> std::same_as<size_t>;
+  M::clone(const_mesh, mesh, arena);
 };
 
 constexpr uint16_t HE_NONE =
@@ -675,7 +703,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
 
 /**
  * @brief Performs a strict deep copy of a mesh into a target arena.
- * @tparam MeshT Mesh type (PolyMesh or MeshState).
+ * @tparam MeshT MeshLike mesh type (PolyMesh or MeshState).
  * @param src Source mesh to copy from.
  * @param dst Destination mesh, populated in place from the given arena.
  * @param arena Arena supplying storage for the destination arrays.
@@ -685,7 +713,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
  * src aliases dst: copy_vector rebinds dst in place, then memcpy's the block
  * onto itself.
  */
-template <typename MeshT>
+template <MeshLike MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
   HS_CHECK(&src != &dst, "MeshOps::clone src must not alias dst");
   if constexpr (std::is_same_v<MeshT, MeshState>) {
