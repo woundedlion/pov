@@ -644,8 +644,11 @@ struct ColorStateProvider {
     return static_cast<Pullback::Color::BrightnessEnvelope>(
         frame.slots.brightness_envelope);
   }
-  static float brightness_depth(const FrameState &frame) {
-    return frame.params.color.brightness_depth;
+  static float brightness_bottom(const FrameState &frame) {
+    return frame.params.color.brightness_bottom;
+  }
+  static float brightness_top(const FrameState &frame) {
+    return frame.params.color.brightness_top;
   }
   static float opacity_low(const FrameState &frame) {
     return frame.params.color.opacity_low;
@@ -676,10 +679,11 @@ palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
 }
 
 __attribute__((always_inline)) inline float
-brightness_envelope_gain(float value, BrightnessEnvelope envelope,
-                         float depth) {
+brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
+                         float top) {
   return Pullback::Color::brightness_envelope_gain(
-      value, static_cast<Pullback::Color::BrightnessEnvelope>(envelope), depth);
+      value, static_cast<Pullback::Color::BrightnessEnvelope>(envelope), bottom,
+      top);
 }
 
 #if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND ||                              \

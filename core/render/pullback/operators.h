@@ -93,7 +93,80 @@ inline constexpr const char *HUE_SHIFT_MODE_IDS[] = {"none", "noise",
 inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
     "none", "cup", "bell", "ascending", "descending"};
 
-/** @brief Parameter family of colorize.generated-palette.v2.
+/** @brief Legacy parameter family of colorize.generated-palette.v2. */
+struct LegacyGeneratedPaletteParams {
+  float hue_shift_amount = 0.0f;
+  float hue_noise_scale = 1.0f;
+  float hue_noise_speed = 0.0f;
+  float palette_chroma = 0.62f;
+  float mapping_frequency = 1.0f;
+  float mapping_phase = 0.0f;
+  float phase_oscillation_depth = 0.0f;
+  float phase_oscillation_speed = 0.0f;
+  float brightness_depth = 1.0f;
+  float opacity_low = 1.0f;
+  float opacity_high = 1.0f;
+  uint8_t palette_mode = static_cast<uint8_t>(PaletteMode::TRIADIC);
+  uint8_t mapping_mode = static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
+  uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
+  uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
+
+  static constexpr auto FIELDS = std::array{
+      Field<LegacyGeneratedPaletteParams>{
+          "hue-shift-amount", &LegacyGeneratedPaletteParams::hue_shift_amount,
+          nullptr, -4.0f, 4.0f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "hue-noise-scale", &LegacyGeneratedPaletteParams::hue_noise_scale,
+          nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+      Field<LegacyGeneratedPaletteParams>{
+          "hue-noise-speed", &LegacyGeneratedPaletteParams::hue_noise_speed,
+          nullptr, -0.001f, 0.001f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "palette-chroma", &LegacyGeneratedPaletteParams::palette_chroma,
+          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "mapping-frequency", &LegacyGeneratedPaletteParams::mapping_frequency,
+          nullptr, 1.0f, 32.0f, FieldCurve::LOG_POSITIVE},
+      Field<LegacyGeneratedPaletteParams>{
+          "mapping-phase", &LegacyGeneratedPaletteParams::mapping_phase,
+          nullptr, -1.0f, 1.0f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "phase-oscillation-depth",
+          &LegacyGeneratedPaletteParams::phase_oscillation_depth, nullptr, 0.0f,
+          1.0f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "phase-oscillation-speed",
+          &LegacyGeneratedPaletteParams::phase_oscillation_speed, nullptr,
+          -0.01f, 0.01f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "brightness-depth", &LegacyGeneratedPaletteParams::brightness_depth,
+          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "value-opacity-low", &LegacyGeneratedPaletteParams::opacity_low,
+          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<LegacyGeneratedPaletteParams>{
+          "value-opacity-high", &LegacyGeneratedPaletteParams::opacity_high,
+          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+  };
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<LegacyGeneratedPaletteParams>{
+          "palette-mode", &LegacyGeneratedPaletteParams::palette_mode,
+          PALETTE_MODE_IDS, 3, static_cast<uint8_t>(PaletteMode::TRIADIC)},
+      TopologyField<LegacyGeneratedPaletteParams>{
+          "palette-mapping", &LegacyGeneratedPaletteParams::mapping_mode,
+          PALETTE_MAPPING_IDS, 4,
+          static_cast<uint8_t>(Color::PaletteMapping::LINEAR)},
+      TopologyField<LegacyGeneratedPaletteParams>{
+          "hue-shift-mode", &LegacyGeneratedPaletteParams::hue_mode,
+          HUE_SHIFT_MODE_IDS, 3, static_cast<uint8_t>(HueShiftMode::NOISE)},
+      TopologyField<LegacyGeneratedPaletteParams>{
+          "brightness-envelope", &LegacyGeneratedPaletteParams::envelope_mode,
+          BRIGHTNESS_ENVELOPE_IDS, 5, static_cast<uint8_t>(EnvelopeMode::NONE)},
+  };
+};
+static_assert(field_ids_unique<LegacyGeneratedPaletteParams>());
+
+/** @brief Parameter family of colorize.generated-palette.v3.
     @details The mapping topology enum8 supersedes the base family's
     `palette_mapping` member, which the chain never reads. */
 struct GeneratedPaletteParams : Color::ColorParams {
@@ -130,9 +203,82 @@ struct ColorClockState {
                                      LUT; not read by run(). */
 };
 
+template <typename Params>
+static Color::GeneratedPaletteState
+prepare_generated_palette(const FrameContext &ctx, const Params &params,
+                          const ColorClockState &state, float bottom,
+                          float top) {
+  HS_CHECK(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH),
+           "colorize.generated-palette: invalid hue shift mode");
+  HS_CHECK(params.palette_mode < ctx.palettes.size(),
+           "colorize.generated-palette: invalid palette mode");
+  HS_CHECK(params.mapping_mode <=
+               static_cast<uint8_t>(Color::PaletteMapping::REVERSE),
+           "colorize.generated-palette: invalid palette mapping");
+  HS_CHECK(params.envelope_mode <=
+               static_cast<uint8_t>(EnvelopeMode::DESCENDING),
+           "colorize.generated-palette: invalid brightness envelope");
+  const Color::HueMode mode = static_cast<HueShiftMode>(params.hue_mode);
+  const bool rotation_active = mode != Color::HueMode::NONE &&
+                               params.hue_shift_amount != 0.0f &&
+                               ctx.hue_rotation_lut != nullptr;
+  const BakedPalette *palette = ctx.palettes[params.palette_mode];
+  HS_CHECK(palette != nullptr,
+           "colorize.generated-palette: frame context carries no palette");
+  return {Color::PaletteMappingWeights::single(
+              static_cast<Color::PaletteMapping>(params.mapping_mode)),
+          params.mapping_frequency,
+          params.mapping_phase,
+          params.phase_oscillation_depth,
+          state.oscillation_phase,
+          palette,
+          mode,
+          params.hue_shift_amount,
+          {ctx.hue_rotation_lut, rotation_active},
+          {ctx.hue_noise_lut, mode == Color::HueMode::NOISE &&
+                                  rotation_active &&
+                                  ctx.hue_noise_lut != nullptr},
+          static_cast<Color::BrightnessEnvelope>(params.envelope_mode),
+          bottom,
+          top,
+          params.opacity_low,
+          params.opacity_high};
+}
+
 /** @brief FIELD→COLOR crossing: the generated-palette colorizer. */
-struct ColorizeGeneratedPalette : ValueStateModel<ColorClockState> {
+struct ColorizeGeneratedPaletteV2 : ValueStateModel<ColorClockState> {
   static constexpr const char *ID = "colorize.generated-palette.v2";
+  static constexpr const char *NAME = "Generated Palette";
+  using Input = FieldSample;
+  using Output = Color4;
+  using Params = LegacyGeneratedPaletteParams;
+  using Prepared = Color::GeneratedPaletteState;
+
+  static constexpr bool APPROXIMATE = true;
+  static constexpr ApproximationOracleId ORACLE =
+      ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
+  static constexpr auto METRICS = Color::GENERATED_PALETTE_METRICS;
+
+  static void advance(State &state, const Params &params) {
+    state.oscillation_phase =
+        wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
+    state.hue_noise_phase =
+        wrap_t(state.hue_noise_phase + params.hue_noise_speed);
+  }
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    return prepare_generated_palette(ctx, params, state,
+                                     1.0f - params.brightness_depth, 1.0f);
+  }
+  static Color4 run(const FieldSample &input, const FrameContext &,
+                    const Params &, const Prepared &prepared) {
+    return Color::apply_generated_palette(input, prepared);
+  }
+};
+
+/** @brief FIELD-to-COLOR crossing with explicit brightness endpoints. */
+struct ColorizeGeneratedPalette : ValueStateModel<ColorClockState> {
+  static constexpr const char *ID = "colorize.generated-palette.v3";
   static constexpr const char *NAME = "Generated Palette";
   using Input = FieldSample;
   using Output = Color4;
@@ -152,40 +298,8 @@ struct ColorizeGeneratedPalette : ValueStateModel<ColorClockState> {
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    HS_CHECK(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH),
-             "colorize.generated-palette: invalid hue shift mode");
-    HS_CHECK(params.palette_mode < ctx.palettes.size(),
-             "colorize.generated-palette: invalid palette mode");
-    HS_CHECK(params.mapping_mode <=
-                 static_cast<uint8_t>(Color::PaletteMapping::REVERSE),
-             "colorize.generated-palette: invalid palette mapping");
-    HS_CHECK(params.envelope_mode <=
-                 static_cast<uint8_t>(EnvelopeMode::DESCENDING),
-             "colorize.generated-palette: invalid brightness envelope");
-    const Color::HueMode mode = static_cast<HueShiftMode>(params.hue_mode);
-    const bool rotation_active = mode != Color::HueMode::NONE &&
-                                 params.hue_shift_amount != 0.0f &&
-                                 ctx.hue_rotation_lut != nullptr;
-    const BakedPalette *palette = ctx.palettes[params.palette_mode];
-    HS_CHECK(palette != nullptr,
-             "colorize.generated-palette: frame context carries no palette");
-    return {Color::PaletteMappingWeights::single(
-                static_cast<Color::PaletteMapping>(params.mapping_mode)),
-            params.mapping_frequency,
-            params.mapping_phase,
-            params.phase_oscillation_depth,
-            state.oscillation_phase,
-            palette,
-            mode,
-            params.hue_shift_amount,
-            {ctx.hue_rotation_lut, rotation_active},
-            {ctx.hue_noise_lut, mode == Color::HueMode::NOISE &&
-                                    rotation_active &&
-                                    ctx.hue_noise_lut != nullptr},
-            static_cast<Color::BrightnessEnvelope>(params.envelope_mode),
-            params.brightness_depth,
-            params.opacity_low,
-            params.opacity_high};
+    return prepare_generated_palette(
+        ctx, params, state, params.brightness_bottom, params.brightness_top);
   }
   static Color4 run(const FieldSample &input, const FrameContext &,
                     const Params &, const Prepared &prepared) {

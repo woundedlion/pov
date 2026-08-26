@@ -217,6 +217,10 @@ export function engineControlNames(parameterId) {
   if (label === 'surface') return [`Surface Noise ${words}`];
   if (label === 'camera') return [`Camera ${words}`];
   if (label === 'sample' && field === 'angle-speed') return ['Source Angle Speed'];
+  if (label === 'colorize' && field === 'value-opacity-low')
+    return ['Opacity at Value 0'];
+  if (label === 'colorize' && field === 'value-opacity-high')
+    return ['Opacity at Value 1'];
   return [words];
 }
 

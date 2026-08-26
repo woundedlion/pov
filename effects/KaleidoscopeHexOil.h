@@ -37,7 +37,7 @@ public:
   using Params = KaleidoscopeHexOilParams;
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-oil";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "54591ed7a8c2ee0325fb55adf2f8bad3d22c567e5ce9e0a4bfaeaaf99f7692ee";
+      "64dcd6ddd411129ea8dfbea334aecb366eb6e7eb9c6ea9fee8295659bc0d17d2";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "302f86fbdcd6122935cbc7e0c80bcff24f441401e3d44d39ec096e02849fcd18";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{

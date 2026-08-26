@@ -71,7 +71,7 @@ public:
         {"camera", "sphere.rotate.v2"},
         {"project", "project.stereographic.v2"},
         {"sample", "sample.grid.v2"},
-        {"colorize", "colorize.generated-palette.v2"},
+        {"colorize", "colorize.generated-palette.v3"},
     };
     const ChainRefusal refusal =
         set_chain(std::span<const ChainEntryRequest>(DEFAULT_CHAIN));
@@ -104,10 +104,10 @@ public:
     ++frame_index;
     program.advance();
     const ColorizeTap &tap = colorize;
-    update_palette_chroma(tap.params != nullptr ? tap.params->palette_chroma
-                                                : DEFAULT_CHROMA);
-    step_generated_palettes(tap.params != nullptr ? tap.params->palette_mode
-                                                  : uint8_t{0});
+    update_palette_chroma(tap.palette_chroma != nullptr ? *tap.palette_chroma
+                                                        : DEFAULT_CHROMA);
+    step_generated_palettes(tap.palette_mode != nullptr ? *tap.palette_mode
+                                                        : uint8_t{0});
     const Pullback::Interp::FrameContext ctx = make_frame_context(tap);
     program.prepare(ctx);
     program.check_ready();
@@ -140,18 +140,39 @@ private:
   /** @brief The committed program's colorize entry, when present. */
   struct ColorizeTap {
     int index = -1;
-    const Pullback::Interp::Op::GeneratedPaletteParams *params = nullptr;
+    const float *palette_chroma = nullptr;
+    const float *hue_shift_amount = nullptr;
+    const float *hue_noise_scale = nullptr;
+    const uint8_t *palette_mode = nullptr;
+    const uint8_t *hue_mode = nullptr;
   };
+
+  template <typename Params>
+  static ColorizeTap make_colorize_tap(int index, const Params *params) {
+    return {index,
+            &params->palette_chroma,
+            &params->hue_shift_amount,
+            &params->hue_noise_scale,
+            &params->palette_mode,
+            &params->hue_mode};
+  }
 
   HS_COLD_MEMBER ColorizeTap find_colorize_tap() {
     const auto ops = program.ops();
     for (size_t index = ops.size(); index-- > 0;)
       if (std::string_view(ops[index].op->operator_id) ==
           Pullback::Interp::Op::ColorizeGeneratedPalette::ID)
-        return {static_cast<int>(index),
-                reinterpret_cast<
-                    const Pullback::Interp::Op::GeneratedPaletteParams *>(
-                    program.param_block(index))};
+        return make_colorize_tap(
+            static_cast<int>(index),
+            reinterpret_cast<const Pullback::Interp::Op::GeneratedPaletteParams
+                                 *>(program.param_block(index)));
+      else if (std::string_view(ops[index].op->operator_id) ==
+               Pullback::Interp::Op::ColorizeGeneratedPaletteV2::ID)
+        return make_colorize_tap(
+            static_cast<int>(index),
+            reinterpret_cast<
+                const Pullback::Interp::Op::LegacyGeneratedPaletteParams *>(
+                program.param_block(index)));
     return {};
   }
 
@@ -194,17 +215,16 @@ private:
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
                     &generated_palettes.palette(PaletteMode::COMPLEMENTARY),
                     &generated_palettes.palette(PaletteMode::ANALOGOUS)};
-    if (tap.params == nullptr || tap.params->hue_shift_amount == 0.0f)
+    if (tap.hue_shift_amount == nullptr || *tap.hue_shift_amount == 0.0f)
       return ctx;
     // The colorize stage reads neither table under HueShiftMode::NONE, so a
     // leftover amount must not buy a palette resample.
     const auto hue_mode =
-        static_cast<Pullback::Interp::Op::HueShiftMode>(tap.params->hue_mode);
+        static_cast<Pullback::Interp::Op::HueShiftMode>(*tap.hue_mode);
     if (hue_mode == Pullback::Interp::Op::HueShiftMode::NONE)
       return ctx;
-    const size_t palette_index = tap.params->palette_mode < ctx.palettes.size()
-                                     ? tap.params->palette_mode
-                                     : 0;
+    const size_t palette_index =
+        *tap.palette_mode < ctx.palettes.size() ? *tap.palette_mode : 0;
     Pullback::Color::prepare_hue_rotation_lut(
         std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
             resources->hue_rotation_lut),
@@ -216,8 +236,8 @@ private:
         *static_cast<const Pullback::Interp::Op::ColorClockState *>(
             program.state_block(static_cast<size_t>(tap.index)));
     resources->hue_noise_bake.refresh(
-        resources->hue_noise_lut, resources->hue_noise,
-        tap.params->hue_noise_scale, clocks.hue_noise_phase);
+        resources->hue_noise_lut, resources->hue_noise, *tap.hue_noise_scale,
+        clocks.hue_noise_phase);
     ctx.hue_noise_lut = resources->hue_noise_lut.data();
     return ctx;
   }

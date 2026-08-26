@@ -33,6 +33,7 @@ inline constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
 inline constexpr float WARP_SPEED_MAX = 1.0f;
 inline constexpr float PATTERN_FREQ_MIN = 0.1f;
 inline constexpr float PATTERN_FREQ_MAX = 20.0f;
+inline constexpr float GRID_PATTERN_FREQ_MIN = 0.01f;
 inline constexpr float GRID_PATTERN_FREQ_MAX = 64.0f;
 inline constexpr float SPEED_MIN = -0.5f, SPEED_MAX = 5.0f;
 inline constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
@@ -56,8 +57,8 @@ inline constexpr float MAPPING_PHASE_MAX = 1.0f;
 inline constexpr float PHASE_OSCILLATION_DEPTH_MIN = 0.0f;
 inline constexpr float PHASE_OSCILLATION_DEPTH_MAX = 1.0f;
 inline constexpr float PHASE_OSCILLATION_SPEED_MAX = 0.01f;
-inline constexpr float BRIGHTNESS_DEPTH_MIN = 0.0f;
-inline constexpr float BRIGHTNESS_DEPTH_MAX = 1.0f;
+inline constexpr float BRIGHTNESS_GAIN_MIN = 0.0f;
+inline constexpr float BRIGHTNESS_GAIN_MAX = 1.0f;
 inline constexpr float VALUE_OPACITY_MIN = 0.0f;
 inline constexpr float VALUE_OPACITY_MAX = 1.0f;
 inline constexpr float WAVE_SPIN_MIN = -0.05f, WAVE_SPIN_MAX = 0.05f;
@@ -109,6 +110,10 @@ inline constexpr float pattern_freq_max(Function function) {
   return function == Function::GRID ? GRID_PATTERN_FREQ_MAX : PATTERN_FREQ_MAX;
 }
 
+inline constexpr float pattern_freq_min(Function function) {
+  return function == Function::GRID ? GRID_PATTERN_FREQ_MIN : PATTERN_FREQ_MIN;
+}
+
 template <typename Enum>
 HS_COLD_MEMBER inline constexpr bool enum_at_most(Enum value, Enum last) {
   return static_cast<uint8_t>(value) <= static_cast<uint8_t>(last);
@@ -151,7 +156,7 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
   const Params &p = config.params;
   return warp_stage_params_in_ranges(p.warp.outer) &&
          warp_stage_params_in_ranges(p.warp.inner) &&
-         p.source.pattern_freq >= PATTERN_FREQ_MIN &&
+         p.source.pattern_freq >= pattern_freq_min(config.slots.function) &&
          p.source.pattern_freq <= pattern_freq_max(config.slots.function) &&
          p.source.speed >= SPEED_MIN && p.source.speed <= SPEED_MAX &&
          p.source.complexity >= COMPLEXITY_MIN &&
@@ -249,8 +254,10 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
          p.color.phase_oscillation_depth <= PHASE_OSCILLATION_DEPTH_MAX &&
          p.color.phase_oscillation_speed >= -PHASE_OSCILLATION_SPEED_MAX &&
          p.color.phase_oscillation_speed <= PHASE_OSCILLATION_SPEED_MAX &&
-         p.color.brightness_depth >= BRIGHTNESS_DEPTH_MIN &&
-         p.color.brightness_depth <= BRIGHTNESS_DEPTH_MAX &&
+         p.color.brightness_bottom >= BRIGHTNESS_GAIN_MIN &&
+         p.color.brightness_bottom <= BRIGHTNESS_GAIN_MAX &&
+         p.color.brightness_top >= BRIGHTNESS_GAIN_MIN &&
+         p.color.brightness_top <= BRIGHTNESS_GAIN_MAX &&
          p.color.opacity_low >= VALUE_OPACITY_MIN &&
          p.color.opacity_low <= VALUE_OPACITY_MAX &&
          p.color.opacity_high >= VALUE_OPACITY_MIN &&

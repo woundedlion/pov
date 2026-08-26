@@ -256,7 +256,8 @@ private:
     color.color =
         color.color * Workbench::brightness_envelope_gain(
                           sample.value, frame.slots.brightness_envelope,
-                          frame.params.color.brightness_depth);
+                          frame.params.color.brightness_bottom,
+                          frame.params.color.brightness_top);
     color.alpha *= sample.coverage * hs::lerp(frame.params.color.opacity_low,
                                               frame.params.color.opacity_high,
                                               sample.value);
