@@ -739,6 +739,22 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
 }
 
 /**
+ * @brief Pads a fractional column interval into an integer [lo, lo + len) run.
+ * @tparam W Rasterization width (pixel grid).
+ * @param start Fractional start column.
+ * @param length Fractional arc length in columns.
+ * @param lo Output: padded start column, unwrapped.
+ * @param col_len Output: arc length in columns (may reach W = full width).
+ */
+template <int W>
+static __attribute__((always_inline)) inline void
+pad_col_span(float start, float length, int &lo, int &col_len) {
+  lo = static_cast<int>(floorf(start)) - COL_PAD;
+  const int hi = static_cast<int>(ceilf(start + length)) + COL_PAD;
+  col_len = std::min(hi - lo + 1, W);
+}
+
+/**
  * @brief Pads a fractional column interval and wraps it into a [0, W) arc.
  * @tparam W Rasterization width (pixel grid).
  * @param s_f Fractional start column.
@@ -749,9 +765,8 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
 template <int W>
 static __attribute__((always_inline)) inline void
 finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
-  const int lo = static_cast<int>(floorf(s_f)) - COL_PAD;
-  const int hi = static_cast<int>(ceilf(s_f + len_f)) + COL_PAD;
-  col_len = std::min(hi - lo + 1, W);
+  int lo;
+  pad_col_span<W>(s_f, len_f, lo, col_len);
   col_s = ((lo % W) + W) % W;
 }
 
@@ -761,9 +776,8 @@ finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
 template <int W>
 static inline void finish_col_span_one_period(float start, float length,
                                               int &col_s, int &col_len) {
-  const int lo = static_cast<int>(floorf(start)) - COL_PAD;
-  const int hi = static_cast<int>(ceilf(start + length)) + COL_PAD;
-  col_len = std::min(hi - lo + 1, W);
+  int lo;
+  pad_col_span<W>(start, length, lo, col_len);
   col_s = lo < 0 ? lo + W : lo;
 }
 
