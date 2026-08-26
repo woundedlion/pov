@@ -536,11 +536,17 @@ private:
     // oriented lattice so the kernel walks stay in world space, plus the
     // two-ring cull flags.
     HS_PROFILE(grd_rasterize);
-    auto lattice = orient_lattice();
+    auto lattice = [this] {
+      HS_PROFILE(grd_orient);
+      return orient_lattice();
+    }();
     Vector *world_nodes = lattice.get();
     uint8_t *hot1 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *hot2 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
+    {
+      HS_PROFILE(grd_cull_flags);
+      fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
+    }
 
     // Seed the cubemap lookup once per pixel center; a seed whose two-ring
     // sits below the render floor is culled for the whole pixel (v0 = -1).
