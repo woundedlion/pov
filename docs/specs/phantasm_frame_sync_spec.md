@@ -108,7 +108,7 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `core/platform/platfor
 (`targets/Phantasm/phantasm_playlist.h`) carries a duration in seconds beside
 every roster name; `targets/Phantasm/Phantasm.ino` turns that column into
 `EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, and `run_show()` counts down
-that entry's own budget. Across the 36-entry roster the durations run 38 s
+that entry's own budget. Across the 37-entry roster the durations run 38 s
 (304 revolutions, the shortest shader-group entries) to 240 s (1,920
 revolutions, `KaleidoscopeSmooth` and `AlienBrain`); 120 s / 960 revolutions is
 the most common value but carries no special status in the protocol. Every

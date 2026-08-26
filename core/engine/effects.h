@@ -23,6 +23,7 @@
 #include "effects/Comets.h"
 #include "effects/AshCloud.h"
 #include "effects/LatticeMelt.h"
+#include "effects/ChromaticLichen.h"
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
@@ -92,6 +93,7 @@
   X(HyperLattice)                                                              \
   X(AshCloud)                                                                  \
   X(LatticeMelt)                                                               \
+  X(ChromaticLichen)                                                           \
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
   X(Dynamo)                                                                    \
@@ -179,6 +181,7 @@ constexpr int hs_preset_window_seconds() {
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
   X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
   X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
+  X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
   X(KaleidoscopePentBright,                                                    \
     hs_preset_window_seconds<KaleidoscopePentBright>())                        \
