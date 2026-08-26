@@ -659,18 +659,21 @@ public:
    * render bit-identically. The payload's own `iterations` count defines it;
    * there is no per-call-site count. In the two host tooling modes the payload
    * is instead reproduced live by running exactly `bake.iterations` smoothing
-   * steps: EXTRACT dumps the resulting bits (generation), VERIFY asserts they
-   * match the committed payload (the native re-derivation test).
+   * steps: EXTRACT dumps the resulting bits and freshly measured guards, so it
+   * can author a payload or recover from a topology change (generation), while
+   * VERIFY asserts both against the committed payload (the native
+   * re-derivation test).
    * @param bake Payload whose guarded topology must match the current mesh.
    * @return Reference to this builder for chaining.
    */
   HS_COLD_MEMBER SolidBuilder &relax_baked(const MeshOps::RelaxBake &bake) {
 #if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
-    HS_CHECK(MeshOps::relax_topology_hash(mesh) == bake.topology_hash,
-             "relax bake: source topology differs");
 #if defined(HS_RELAX_BAKE_VERIFY)
+    HS_CHECK(MeshOps::relax_topology_hash(mesh) == bake.topology_hash,
+             "relax bake verify: source topology differs");
     MeshOps::check_relax_bake_source(mesh, bake);
 #else
+    const uint32_t topology_hash = MeshOps::relax_topology_hash(mesh);
     const uint32_t source_hash = MeshOps::relax_source_hash(mesh);
     const float source_margin = MeshOps::relax_source_quantization_margin(mesh);
 #endif
@@ -708,7 +711,7 @@ public:
             static_cast<unsigned long>(mesh.vertices.size()),
             static_cast<unsigned long>(mesh.face_counts.size()),
             static_cast<unsigned long>(mesh.faces.size()),
-            static_cast<unsigned long>(bake.topology_hash),
+            static_cast<unsigned long>(topology_hash),
             static_cast<unsigned long>(source_hash),
             static_cast<unsigned long>(output_hash),
             static_cast<int>(MeshOps::RELAX_SOURCE_SCALE),
