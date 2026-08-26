@@ -337,9 +337,7 @@ public:
    */
   HS_COLD_MEMBER Color4 get(float t) const override {
     const LinRGB rgb = oklab_to_linear_rgb_gamut(evaluate_path(t, false).lab);
-    return Color4(Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
-                        float_to_pixel16(rgb.b)),
-                  1.0f);
+    return Color4(linrgb_to_pixel(rgb), 1.0f);
   }
 
 private:

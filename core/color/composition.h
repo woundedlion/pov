@@ -546,8 +546,7 @@ struct HueSpinShade {
     float cl, cm, cs;
     fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
     lms_cbrt_transform_rgb(matrix, cl, cm, cs, rgb.r, rgb.g, rgb.b);
-    c.color = Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
-                    float_to_pixel16(rgb.b));
+    c.color = linrgb_to_pixel(rgb);
     return c;
   }
 };
@@ -685,8 +684,7 @@ struct ChromaPulseShade {
     lab.a *= scale;
     lab.b *= scale;
     oklab_to_linear_rgb_gamut(lab, rgb.r, rgb.g, rgb.b);
-    c.color = Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
-                    float_to_pixel16(rgb.b));
+    c.color = linrgb_to_pixel(rgb);
     return c;
   }
 };
