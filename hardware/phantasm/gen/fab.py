@@ -63,6 +63,10 @@ ZIP_MEMBERS = {
 SUMS_FILE = "SHA256SUMS.txt"
 #: The upload zip, digested in the manifest alongside its own members.
 ARCHIVE = "phantasm-jlc-gerbers.zip"
+#: zlib level the upload zip is deflated at. The manifest digests the archive
+#: itself, so leaving the level to zlib's default would make the recorded digest
+#: a property of the host zlib build.
+ZIP_COMPRESS_LEVEL = 6
 #: Digest baseline of the package that was ordered, in the tracked tree because
 #: gen/out/ is not: without it nothing records the bytes the fab received.
 SHIPPED_SUMS = os.path.join(PROJ, "fab-SHA256SUMS.txt")
@@ -231,6 +235,19 @@ def zip_members(names):
             "the export produced no fab artifact for: " + ", ".join(absent)
             + " - check the kicad-cli gerber and drill exports.")
     return members
+
+
+def write_upload_zip(directory, members, path):
+    """Deflate `members` of `directory` into `path` at the pinned zlib level.
+
+    The level rides on writestr, not on the ZipFile: a caller-supplied ZipInfo
+    keeps its own (unset) level and never picks up the archive's.
+    """
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name in members:
+            with open(os.path.join(directory, name), "rb") as fh:
+                archive.writestr(zip_member(name), fh.read(),
+                                 compresslevel=ZIP_COMPRESS_LEVEL)
 
 
 class PackageVerificationError(ValueError):
@@ -1301,10 +1318,7 @@ def main():
         members = zip_members(os.listdir(JLC))
     except UploadPackageError as exc:
         sys.exit(str(exc))
-    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in members:
-            with open(os.path.join(JLC, f), "rb") as fh:
-                z.writestr(zip_member(f), fh.read())
+    write_upload_zip(JLC, members, zpath)
 
     manifest_path = os.path.join(JLC, SUMS_FILE)
     with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
