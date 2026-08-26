@@ -583,6 +583,11 @@ _SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
 _REGION_REQUIRED_KEYS = frozenset({"max_bytes"})
 _SYMBOL_REQUIRED_KEYS = frozenset({"name", "region"})
 
+# A component budget declares either ceiling or both, never neither: both are
+# read with `.get()`, so an empty component object satisfies the unknown-key and
+# component-present rules while enforcing nothing.
+_COMPONENT_ONE_OF_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
+
 # Region objects and layout symbols every target budget must declare. Both
 # loops in evaluate() iterate whatever the budget carries, so deleting a whole
 # object removes its ceiling / invariant with no violation and no unknown-key
@@ -599,7 +604,8 @@ _REQUIRED_SYMBOLS_BY_ENV: dict[str, frozenset[str]] = {
 
 
 def _check_keys(spec: object, allowed: frozenset[str], where: str,
-                required: frozenset[str] = frozenset()) -> dict:
+                required: frozenset[str] = frozenset(),
+                one_of: frozenset[str] = frozenset()) -> dict:
     """Reject unknown / missing keys in one budgets object; return it."""
     if not isinstance(spec, dict):
         raise BudgetSchemaError(
@@ -616,6 +622,11 @@ def _check_keys(spec: object, allowed: frozenset[str], where: str,
         raise BudgetSchemaError(
             f"{where}: missing required key(s) "
             f"{', '.join(repr(k) for k in missing)}.")
+    if one_of and not (one_of & set(spec)):
+        raise BudgetSchemaError(
+            f"{where}: must declare at least one of "
+            f"{', '.join(repr(k) for k in sorted(one_of))} - an object "
+            f"carrying neither ceiling passes the schema and enforces nothing.")
     return spec
 
 
@@ -658,7 +669,8 @@ def validate_budgets(budgets: object) -> dict:
                         required=_REGION_REQUIRED_KEYS)
             for cname, cspec in _child_map(spec, "components", rwhere).items():
                 cwhere = f"{rwhere} component '{cname}'"
-                _check_keys(cspec, _COMPONENT_KEYS, cwhere)
+                _check_keys(cspec, _COMPONENT_KEYS, cwhere,
+                            one_of=_COMPONENT_ONE_OF_KEYS)
                 derived = cspec.get("max_banks_from_stack_floor")
                 if derived is not None:
                     _check_keys(derived, _DERIVED_KEYS,
