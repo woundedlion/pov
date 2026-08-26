@@ -70,6 +70,15 @@ public:
   /** Preset cadence: two default-duration motion cycles. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
 
+  /** @brief Angular width of one canvas column, the comet thickness unit. */
+  static constexpr float THICKNESS_PX = 2.0f * PI_F / W;
+
+  static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
+  static constexpr float THICKNESS_MIN = 0.0f,
+                         THICKNESS_MAX = 7.0f * THICKNESS_PX;
+  static constexpr float CYCLE_DURATION_MIN = 10.0f,
+                         CYCLE_DURATION_MAX = 200.0f;
+
   static Params initial_params() {
     return {.function = PRESETS[0].params,
             .alpha = 1.0f,
@@ -79,9 +88,11 @@ public:
   }
 
   static bool valid_params(const Params &p) {
-    return p.function.m2 > 0.0f && p.alpha >= 0.0f && p.alpha <= 1.0f &&
-           p.thickness >= 0.0f && p.thickness <= 7.0f * THICKNESS_PX &&
-           p.cycle_duration >= 10.0f && p.cycle_duration <= 200.0f;
+    return p.function.m2 > 0.0f && p.alpha >= ALPHA_MIN &&
+           p.alpha <= ALPHA_MAX && p.thickness >= THICKNESS_MIN &&
+           p.thickness <= THICKNESS_MAX &&
+           p.cycle_duration >= CYCLE_DURATION_MIN &&
+           p.cycle_duration <= CYCLE_DURATION_MAX;
   }
 
   /** @brief Comet head state: world orientation, recorded trail, body axis. */
@@ -107,9 +118,11 @@ public:
 
     baked_palette.bake(persistent_arena, palette);
 
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Thickness", &params.thickness, 0.0f, 7.0f * THICKNESS_PX);
-    register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
+    register_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
+    register_param("Thickness", &params.thickness, THICKNESS_MIN,
+                   THICKNESS_MAX);
+    register_param("Cycle Dur", &params.cycle_duration, CYCLE_DURATION_MIN,
+                   CYCLE_DURATION_MAX);
     register_param("Debug BB", &params.debug_bb);
 
     // Runs before motion exists, so its reanchor() is a no-op here; the path it
@@ -224,8 +237,6 @@ private:
   // Test seam: asserts the closing-loop invariant the smoke harness cannot
   // observe.
   friend struct ::hs_test::effects_tests::CometsWhiteBox;
-
-  static constexpr float THICKNESS_PX = 2.0f * PI_F / W;
 
   /**
    * @brief Snaps an authored domain to the nearest length that closes the curve.
