@@ -36,10 +36,10 @@ public:
       "fb4d59aaa6e8033b34d6d5b42940276f8bfd5f84c25c27fcb349a22fb2f243d9";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "463a8eddd452f7b0b04bda8d2736e92ccc979fac6fe88121b82e7cda888ca0e9";
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "alien-brain", "alien-brain-2", "alien-brain-3", "alien-brain-4"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 
   // Hot section: the out-of-line pipeline body compiles for speed.
   static HS_HOT_FLASH_MEMBER Color4
