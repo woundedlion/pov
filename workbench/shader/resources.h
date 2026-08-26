@@ -121,12 +121,11 @@ HS_COLD_MEMBER inline constexpr bool append_config_resource_keys(
   return true;
 }
 
-HS_COLD_MEMBER inline constexpr bool resource_union_fits(const Config &from,
-                                                         const Config &to) {
+HS_COLD_MEMBER inline constexpr bool
+config_resources_fit(const Config &config) {
   std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
   size_t count = 0;
-  return append_config_resource_keys(from, keys, count) &&
-         append_config_resource_keys(to, keys, count);
+  return append_config_resource_keys(config, keys, count);
 }
 
 } // namespace Workbench
