@@ -50,8 +50,6 @@ const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
 const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR);
 
-const { chromium } = await import('playwright');
-
 // The effect roster (and the docs/screenshots freshness gate that mirrors it)
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
 const EFFECTS = await loadEffectRoster();
@@ -69,6 +67,22 @@ if (OFF_ROSTER.length) {
   console.error('arguments to capture the whole gallery.');
   console.error('========================================================');
   process.exitCode = 2;
+  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
+  await new Promise((resolve) => process.stderr.write('', resolve));
+  process.exit();
+}
+
+// Imported after the roster check so an off-roster name still gets the roster
+// message rather than a module-resolution stack.
+let chromium;
+try {
+  ({ chromium } = await import('playwright'));
+} catch (e) {
+  console.error('========================================================');
+  console.error(`capture_screenshots: ERROR — could not load playwright (${e.message}).`);
+  console.error('Install the dev dependencies once with:  npm ci');
+  console.error('========================================================');
+  process.exitCode = 1;
   // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
   await new Promise((resolve) => process.stderr.write('', resolve));
   process.exit();
