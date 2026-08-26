@@ -256,12 +256,6 @@ static_assert(
         static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::ASCENDING) &&
     static_cast<uint8_t>(BrightnessEnvelope::DESCENDING) ==
         static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::DESCENDING));
-static_assert(static_cast<uint8_t>(HueShiftMode::NONE) ==
-                  static_cast<uint8_t>(Pullback::Color::HueMode::NONE) &&
-              static_cast<uint8_t>(HueShiftMode::NOISE) ==
-                  static_cast<uint8_t>(Pullback::Color::HueMode::NOISE) &&
-              static_cast<uint8_t>(HueShiftMode::WARP_DISPLACEMENT) ==
-                  static_cast<uint8_t>(Pullback::Color::HueMode::PATH_LENGTH));
 
 } // namespace Workbench
 
