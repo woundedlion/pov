@@ -28,7 +28,7 @@ Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
 - **Device (`hardware/pov_segmented.h`).** Each Teensy clips to its own
   quadrant per displayed frame (`clip_to_segment`, gated on
   `needs_full_frame()` and `persists_pixels()`); the flywheel ISR's
-  `render_column()` then packs that board's LEDs out of the clipped buffer.
+  `pack_column()` then packs that board's LEDs out of the clipped buffer.
   A buffer flips at each half-rev boundary, so an arm sweeps only half the
   columns per displayed frame — the device quadrants therefore **alternate**
   (arm A and arm B trade column halves every window), unlike the simulator's
