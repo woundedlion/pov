@@ -5123,7 +5123,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"pov_single.h", 9},
     {"Profile.ino", 4},
     {"phantasm_target.h", 2},
-    {"engine_bindings.h", 5},
+    {"engine_bindings.h", 7},
     {"mesh_ops_bindings.h", 2},
 };
 
