@@ -407,7 +407,10 @@ Both trees are gated against their repository's tracked file list: every row mus
 │       ├── admission.h         Structural legality: valid configurations, bounds, admitted transitions
 │       ├── presets.h           The authored presets and the assertions holding them to the admission rules
 │       ├── frame_state.h       Prepared stage payloads and the immutable FrameState a shading pass reads
-│       └── resources.h         Noise-field keys per configuration and whether two of them fit the bank
+│       ├── resources.h         Noise-field keys per configuration and whether two of them fit the bank
+│       ├── kernels.h           Pull-back kernels: camera, lens, projection, warp, source, colorize
+│       ├── bindings.h          The pullback binding and its per-stage state providers
+│       └── pipelines.h         Compiled stage adapters, the pipeline catalog, and the program manifest
 │
 ├── hardware/                   Hardware drivers
 │   ├── dma_led.h               Non-blocking DMA LED controller for HD107S (Teensy 4.x)
