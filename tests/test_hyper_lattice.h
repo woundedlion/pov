@@ -267,16 +267,83 @@ inline void test_coincident_planes_form_one_layer() {
   HS_EXPECT_EQ(layers, 2);
 }
 
+/** @brief One shade() result in signature fold order: RGB then Q16 alpha. */
+struct ShadeSample {
+  uint16_t r;     /**< Linear red channel. */
+  uint16_t g;     /**< Linear green channel. */
+  uint16_t b;     /**< Linear blue channel. */
+  uint16_t alpha; /**< Coverage as Q16. */
+};
+
 /**
- * @brief Pins shade() over a fixed direction and preset sample as one hash.
- * @details Folds the RGB channels and Q16 alpha of every sample into an FNV-1a
- * 64 signature, so a change anywhere in the trace walk, coverage ramp, fog or
- * palette lookup moves one number. Provenance: no generator emits it. Re-derive
- * by printing `signature` from this case built by the native clang test
- * toolchain (cmake/toolchain-native-clang.cmake) and pasting the value back.
+ * @brief Per-channel slack, in 16-bit linear units, for a libm difference.
+ * @details The palette lookup runs cbrtf/powf through the OKLab gamut search,
+ * whose last bits differ between libm builds; sixteen linear units stay below
+ * one sRGB code step at the dark end. Sized as in
+ * tests/mindsplatter_palette_check.cpp, which holds the same path to the same
+ * band.
+ */
+constexpr uint16_t MAX_SHADE_CHANNEL_DELTA = 16;
+
+/**
+ * @brief Folds a sample table into an FNV-1a 64 signature.
+ * @param samples Table start.
+ * @param count Row count.
+ * @return The folded signature.
+ */
+inline uint64_t shade_signature(const ShadeSample *samples, size_t count) {
+  uint64_t signature = hs_test::FNV1A64_BASIS;
+  for (size_t row = 0; row < count; ++row) {
+    signature = hs_test::fnv1a64_channel(signature, samples[row].r);
+    signature = hs_test::fnv1a64_channel(signature, samples[row].g);
+    signature = hs_test::fnv1a64_channel(signature, samples[row].b);
+    signature = hs_test::fnv1a64_channel(signature, samples[row].alpha);
+  }
+  return signature;
+}
+
+/**
+ * @brief Scores rendered samples against a golden table, signature first.
+ * @param label Context label printed with every out-of-band channel.
+ * @param rendered Samples in fold order, one row per (preset, direction).
+ * @param golden Rows the pin was recorded from.
+ * @param count Row count of both tables.
+ * @param per_preset Rows per preset, so a failing row names preset and sample.
+ * @param pin Signature the golden table folds to.
+ * @details The signature is one comparison over the whole table and is all a
+ * matching run pays. A run whose hash moved falls through to the per-channel
+ * band, which names the preset, sample and channel that drifted rather than
+ * printing two 64-bit numbers.
+ */
+inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
+                                 const ShadeSample *golden, size_t count,
+                                 size_t per_preset, uint64_t pin) {
+  const uint64_t golden_signature = shade_signature(golden, count);
+  HS_EXPECT_EQ(golden_signature, pin);
+  if (shade_signature(rendered, count) == golden_signature)
+    return;
+  for (size_t row = 0; row < count; ++row) {
+    const ShadeSample &got = rendered[row];
+    const ShadeSample &want = golden[row];
+    HS_CONTEXT(label, static_cast<long long>(row / per_preset),
+               static_cast<long long>(row % per_preset));
+    HS_EXPECT_NEAR(got.r, want.r, MAX_SHADE_CHANNEL_DELTA);
+    HS_EXPECT_NEAR(got.g, want.g, MAX_SHADE_CHANNEL_DELTA);
+    HS_EXPECT_NEAR(got.b, want.b, MAX_SHADE_CHANNEL_DELTA);
+    HS_EXPECT_NEAR(got.alpha, want.alpha, MAX_SHADE_CHANNEL_DELTA);
+  }
+}
+
+/**
+ * @brief Pins shade() over a fixed direction and preset sample.
+ * @details GOLDEN is the oracle; the FNV-1a 64 signature over it is the
+ * one-comparison pre-check a matching run pays. Provenance: no generator emits
+ * either. Re-derive by printing the RGB and Q16 alpha of every sample from this
+ * case built by the native clang test toolchain
+ * (cmake/toolchain-native-clang.cmake) and pasting the table and its fold back.
  * Unlike test_specialized_render_signature(), this path takes its coverage ramp
- * through an IEEE division rather than fast_reciprocal()'s Newton step, so the
- * hash reproduces under the shipping -ffast-math -fno-finite-math-only pair the
+ * through an IEEE division rather than fast_reciprocal()'s Newton step, so it
+ * reproduces under the shipping -ffast-math -fno-finite-math-only pair the
  * fast-math CI leg builds this module with, and carries no skip.
  */
 inline void test_render_signature() {
@@ -303,10 +370,37 @@ inline void test_render_signature() {
       {0.0f, 0.3f, 0.7f, 0.0f, 0.0f, 0.0f},
       {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
   };
+  static constexpr ShadeSample GOLDEN[] = {
+      {30771, 15987, 5068, 8881},
+      {41882, 18795, 10422, 718},
+      {1791, 2603, 293, 57535},
+      {8747, 3987, 708, 52026},
+      {0, 0, 0, 0},
+      {20733, 12091, 1509, 16445},
+      {9128, 7815, 892, 39652},
+      {19500, 11951, 3046, 7490},
+      {830, 1403, 162, 47478},
+      {2128, 2978, 331, 1},
+      {670, 1174, 133, 51},
+      {9589, 8058, 935, 1094},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {42288, 21153, 18876, 154},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {280, 33, 610, 0},
+      {13239, 862, 11154, 1724},
+      {363, 43, 785, 4},
+      {0, 0, 0, 0},
+  };
 
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
-  uint64_t signature = hs_test::FNV1A64_BASIS;
+  ShadeSample rendered[std::size(GOLDEN)];
+  size_t row = 0;
   for (size_t preset = 0; preset < std::size(ORIGINS); ++preset) {
     const HL::FrameState frame{
         HyperLatticeWhiteBox::Effect::preset_params(preset),
@@ -320,13 +414,12 @@ inline void test_render_signature() {
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
       const Color4 color =
           HL::shade({DIRECTIONS[sample], 0.0f}, frame, prepared);
-      signature = hs_test::fnv1a64_channel(signature, color.color.r);
-      signature = hs_test::fnv1a64_channel(signature, color.color.g);
-      signature = hs_test::fnv1a64_channel(signature, color.color.b);
-      signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
+      rendered[row++] = {color.color.r, color.color.g, color.color.b,
+                         frac_to_q16(color.alpha)};
     }
   }
-  HS_EXPECT_EQ(signature, uint64_t(8212866959268589050ull));
+  expect_shade_samples("render_signature", rendered, GOLDEN, std::size(GOLDEN),
+                       std::size(DIRECTIONS), 8212866959268589050ull);
 }
 
 inline void test_specialized_slice_transition() {
@@ -376,10 +469,11 @@ inline void test_specialized_slice_transition() {
 
 /**
  * @brief Pins the specialized 4D-slice pipeline over the same style of sample.
- * @details Same fold as test_render_signature(), over
+ * @details Same table and pre-check as test_render_signature(), over
  * SpecializedRenderPipeline's prepare/evaluate pair at preset 1. Provenance: no
- * generator emits it. Re-derive by printing `signature` from an IEEE build of
- * this case and pasting the value back.
+ * generator emits either. Re-derive by printing the RGB and Q16 alpha of every
+ * sample from an IEEE build of this case and pasting the table and its fold
+ * back.
  */
 inline void test_specialized_render_signature() {
   static constexpr Vector DIRECTIONS[] = {
@@ -404,10 +498,37 @@ inline void test_specialized_render_signature() {
       {0.0f, 0.3f, 0.7f, 0.11f, 0.23f, 0.41f},
       {1.1f, 2.3f, 0.4f, 0.53f, 0.19f, 0.87f},
   };
+  static constexpr ShadeSample GOLDEN[] = {
+      {31498, 14425, 2026, 9708},
+      {44442, 23080, 15165, 2300},
+      {34200, 1800, 12986, 2594},
+      {36301, 3085, 12657, 891},
+      {2555, 247, 4344, 435},
+      {6521, 6344, 711, 39011},
+      {42586, 22208, 19609, 17182},
+      {44413, 16914, 4161, 2024},
+      {43442, 25218, 21793, 4110},
+      {0, 0, 0, 0},
+      {13334, 3342, 9088, 611},
+      {42644, 16094, 2959, 4204},
+      {1394, 147, 2688, 5},
+      {10192, 705, 9873, 58},
+      {0, 0, 0, 0},
+      {38708, 9479, 13494, 4115},
+      {0, 0, 0, 0},
+      {16007, 10685, 1270, 28395},
+      {44502, 23714, 16268, 4699},
+      {0, 0, 0, 0},
+      {15321, 8776, 10303, 592},
+      {6496, 6363, 719, 2815},
+      {2042, 2889, 320, 2327},
+      {42926, 23652, 20634, 1444},
+  };
 
   HyperLatticeWhiteBox::Effect effect;
   effect.init();
-  uint64_t signature = hs_test::FNV1A64_BASIS;
+  ShadeSample rendered[std::size(GOLDEN)];
+  size_t row = 0;
   for (size_t index = 0; index < std::size(ORIGINS); ++index) {
     const HL::FrameState context{
         HyperLatticeWhiteBox::Effect::preset_params(1),
@@ -421,18 +542,19 @@ inline void test_specialized_render_signature() {
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
       const Color4 color = HL::SpecializedRenderPipeline::evaluate(
           DIRECTIONS[sample], frame.ctx, frame.prepared);
-      signature = hs_test::fnv1a64_channel(signature, color.color.r);
-      signature = hs_test::fnv1a64_channel(signature, color.color.g);
-      signature = hs_test::fnv1a64_channel(signature, color.color.b);
-      signature = hs_test::fnv1a64_channel(signature, frac_to_q16(color.alpha));
+      rendered[row++] = {color.color.r, color.color.g, color.color.b,
+                         frac_to_q16(color.alpha)};
     }
   }
 #if defined(HS_TEST_FAST_MATH)
   // fast_wire_coverage's Newton reciprocal reassociates under the shipping
-  // flag pair; the IEEE legs carry the pin.
+  // flag pair; the IEEE legs carry the table.
+  (void)rendered;
   hs_test::skip_case();
 #else
-  HS_EXPECT_EQ(signature, uint64_t(4104013131863787240ull));
+  expect_shade_samples("specialized_render_signature", rendered, GOLDEN,
+                       std::size(GOLDEN), std::size(DIRECTIONS),
+                       4104013131863787240ull);
 #endif
 }
 
