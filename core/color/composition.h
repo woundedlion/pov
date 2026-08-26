@@ -62,11 +62,13 @@ struct CycleModifier {
    * @brief Shifts the coordinate by the driver offset (pass-through if null).
    * @param t Input coordinate.
    * @return t plus the offset, or t unchanged when no driver is bound.
-   * @note The result intentionally leaves [0,1] (t + a monotonically growing
-   *       offset), relying on the consuming palette's `Wrap=true` (the
-   *       `StaticPalette` default) to fold it back into range and produce the
-   *       cycling. `requires_wrap` makes a `Wrap=false` composition a compile
-   *       error.
+   * @note The result intentionally leaves [0,1] (t plus the offset), relying on
+   *       the consuming palette's `Wrap=true` (the `StaticPalette` default) to
+   *       fold it back into range and produce the cycling. `requires_wrap`
+   *       makes a `Wrap=false` composition a compile error. The driver owns
+   *       the bound: keep the offset in [0,1), which `Animation::Driver`'s
+   *       default `wrap` does. A free-running accumulator loses the fractional
+   *       bits the palette coordinate is made of.
    */
   float modify(float t) const { return offset ? t + *offset : t; }
 };

@@ -512,7 +512,10 @@ public:
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 
-  static constexpr int MAX_CLEAR_HOOKS = 4; /**< clear_hooks capacity. */
+  /** @brief clear_hooks capacity. TransformerPool is the only registrant and
+   *         registers one hook per pool, so this is also the ceiling on live
+   *         transformer pools sharing a Timeline. */
+  static constexpr int MAX_CLEAR_HOOKS = 4;
 
   /**
    * @brief Distinct Orientation ids step()'s collapse pass caches per frame.

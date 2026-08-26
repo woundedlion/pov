@@ -193,8 +193,13 @@ template <int S, int N, int RPM> class POVSegmented {
                 "SPI_CLOCK_HZ overrun the DMA every column)");
 
 public:
-  /** @brief Foreground effect constructor: builds, arena-configures, and
-   *  init()s one roster entry, ready to draw its first frame. */
+  /**
+   * @brief Foreground effect constructor: builds, arena-configures, and
+   *  init()s one roster entry, ready to draw its first frame.
+   * @details CONTRACT — returns a non-null, init()ed Effect; run_show()
+   *  dereferences the result unguarded. The shipped construct_effect() traps
+   *  on a failed allocation itself.
+   */
   using EffectFactory = Effect *(*)();
 
   /**

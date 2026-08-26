@@ -51,7 +51,9 @@ template <int W, int H>
 __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
   // Non-finite coords make the int casts below UB and bypass the wrap.
   assert(std::isfinite(x) && std::isfinite(y));
-  // fast_wrap below corrects only a single ±W offset on floorf(x).
+  // Floors x, so the window runs to 2W; a producer that may instead reach a
+  // rounding consumer (the Canvas sink, Screen::Blur, Pixel::ChromaticShift)
+  // must stay under 2W - 0.5.
   assert(x >= -W && x < 2 * W);
   // y never wraps; bounded only so the cast below stays in range.
   assert(y >= -H && y < 2 * H);

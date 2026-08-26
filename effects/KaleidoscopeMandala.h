@@ -30,7 +30,7 @@ class KaleidoscopeMandala
           W, H, KaleidoscopeMandala<W, H>, KaleidoscopeMandalaParams,
           KaleidoscopeMandalaSpec, PaletteHarmony::TRIADIC,
           Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE,
-          false> {
+          /*AnimatedProjection=*/false> {
 
 public:
   using Params = KaleidoscopeMandalaParams;

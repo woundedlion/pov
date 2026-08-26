@@ -165,8 +165,10 @@ private:
 #if defined(USE_DMA_LEDS)
     // show_col() discards submit_frame()'s overrun return, and unlike the
     // segmented driver it has no retry latch and no dark fallback — a dropped
-    // column would freeze the strip on the last accepted frame. Sound only
-    // while one composite transfer fits inside a column period.
+    // column leaves the previous column lit for one extra period, since the
+    // drop returns before the buffer flip. This check rules out the systematic
+    // overrun that would hold the strip on one frame: one composite transfer
+    // must fit inside a column period.
     HS_CHECK(interval_us > COLUMN_TRANSFER_US,
              "LED transfer outlasts the column period (S, RPM and canvas width "
              "would overrun the DMA every column)");

@@ -204,7 +204,9 @@ sort_edge_records(HalfEdgePairRecord *records, size_t n) {
  * @param n Number of records in the array.
  * @param set_pair Callback linking the two half-edges of each interior edge.
  * @details Traps on a non-manifold edge (>2 half-edges sharing one undirected
- * edge).
+ * edge). A record whose min_v is HE_NONE is skipped and never paired: that is
+ * the sentinel a caller fills in to keep a face's slots aligned while excluding
+ * them from pairing.
  */
 template <typename SetPairFn>
 inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
@@ -345,7 +347,11 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
       int count = counts[fi];
 
       // A zero-count face emits no half-edges yet still gets its half_edge set
-      // below, mis-linking it to the next face.
+      // below, mis-linking it to the next face. A 2-gon is accepted: its two
+      // directed edges share one undirected edge, so pair_half_edges links them
+      // to each other, and that self-pair is what lets the connectivity-driven
+      // operators degrade instead of trapping (classify_faces_impl wants the
+      // opposite and fills the HE_NONE sentinel for sub-triangular faces).
       HS_CHECK(count > 0, "half-edge mesh face has zero sides");
 
       out.faces.emplace_back();

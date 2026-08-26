@@ -124,18 +124,9 @@ struct Shader {
   }
   // --------------------------------------------------------------------------
 
-  /**
-   * @brief Full-screen per-pixel shader with SAMPLES× SSAA from a single
-   *        callable.
-   * @tparam W Canvas width in pixels.
-   * @tparam H Canvas height in pixels.
-   * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
-   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4.
-   * @param canvas Destination canvas.
-   * @param shader Maps a world-space unit vector to a final color; invoked
-   *               SAMPLES× per pixel at sub-pixel offsets and averaged.
-   */
 private:
+  // Shared body of draw() and draw_cached(), which differ only in the code
+  // placement of the traversal.
   template <int W, int H, int SAMPLES, typename ShaderFn>
   HS_O3_FN __attribute__((always_inline)) static void
   draw_typed(Canvas &canvas, ShaderFn &&shader) {
@@ -181,6 +172,17 @@ private:
   }
 
 public:
+  /**
+   * @brief Full-screen per-pixel shader with SAMPLES× SSAA from a single
+   *        callable.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
+   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4.
+   * @param canvas Destination canvas.
+   * @param shader Maps a world-space unit vector to a final color; invoked
+   *               SAMPLES× per pixel at sub-pixel offsets and averaged.
+   */
   template <int W, int H, int SAMPLES = 1, typename ShaderFn>
   HS_O3_FN static void draw(Canvas &canvas, ShaderFn &&shader) {
     draw_typed<W, H, SAMPLES>(canvas, static_cast<ShaderFn &&>(shader));
@@ -188,6 +190,13 @@ public:
 
   /**
    * @brief Direct typed shader draw whose traversal executes from cached flash.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
+   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4.
+   * @param canvas Destination canvas.
+   * @param shader Maps a world-space unit vector to a final color; invoked
+   *               SAMPLES× per pixel at sub-pixel offsets and averaged.
    * @details The callable remains statically bound and is inlined into this
    * instantiation; only its code placement differs from draw().
    */

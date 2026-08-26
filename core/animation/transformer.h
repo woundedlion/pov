@@ -93,7 +93,9 @@ template <typename T> constexpr bool declared_needs_sync() {
  * @details Owns the entity slots, their timeline lifecycle (spawn, completion
  * reclaim), and the per-frame param refresh. Derived classes add the hot-path
  * composition over the active entities (Transformer composes Vector warps,
- * FieldTransformer sums scalar fields).
+ * FieldTransformer sums scalar fields). Each pool claims one of the shared
+ * Timeline's Timeline::MAX_CLEAR_HOOKS (4) clear-hook slots at init_storage(),
+ * so one Timeline carries at most four live pools.
  */
 template <typename ParamsT, typename AnimT, int CAPACITY = 32>
 class TransformerPool {
@@ -182,6 +184,8 @@ public:
    * @param arena Persistent arena supplying CAPACITY entity slots.
    * @details Must be called from effect init(), not the constructor (arenas
    * aren't ready yet), after any configure_arenas() and before the first spawn.
+   * Also registers the pool's one Timeline clear hook, so at most
+   * Timeline::MAX_CLEAR_HOOKS (4) pools may share a Timeline.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
     HS_CHECK(!entities, "TransformerPool: init_storage() called twice");
@@ -1008,6 +1012,8 @@ using MobiusWarpTransformer = Transformer<MobiusParams, Animation::MobiusWarp,
  * in a non-repeating slot it freezes off-identity on the final composed frame (a
  * one-frame teardown discontinuity). Use MobiusWarpTransformer for one-shot slots
  * that must land back on the unwarped sphere.
+ * @note Spawn through spawn_pinned(): spawn()/spawn_pausable() reject a
+ * repeating animation, and the repeating slot is the only correct one here.
  */
 template <int CAPACITY>
 using MobiusWarpCircularTransformer =
@@ -1017,6 +1023,8 @@ using MobiusWarpCircularTransformer =
 /**
  * @brief Performs a changing Mobius warp using gnomonic projection.
  * @tparam CAPACITY Maximum number of concurrent gnomonic Mobius warps.
+ * @note Spawn through spawn_pinned(): Animation::MobiusWarpEvolving is
+ * perpetual, which spawn()/spawn_pausable() reject.
  */
 template <int CAPACITY>
 using MobiusWarpGnomonicTransformer =
@@ -1026,6 +1034,8 @@ using MobiusWarpGnomonicTransformer =
 /**
  * @brief Applies 3D noise distortion to vectors.
  * @tparam CAPACITY Maximum number of concurrent noise transformations.
+ * @note Animation::Noise defaults to an indefinite duration, which
+ * spawn()/spawn_pausable() reject; pass a finite duration or spawn_pinned().
  */
 template <int CAPACITY>
 using NoiseTransformer = Transformer<Animation::NoiseParams, Animation::Noise,

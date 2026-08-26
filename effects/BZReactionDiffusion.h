@@ -301,7 +301,11 @@ private:
    * nearest node and its neighbors), refined and gathered once at the pixel
    * center; only the Wendland weights vary per sub-sample. A sub-sample
    * straddling a Voronoi boundary reuses the center's stencil rather than its
-   * own — the ±0.25 px offset keeps that difference below one node spacing.
+   * own. Whether that difference stays below one node spacing is
+   * resolution-dependent: the ±0.25 px row offset is
+   * 0.25*pi/(H + H_OFFSET - 1), which is 0.13 D_AVG at 288x144 but 1.02 D_AVG
+   * at the 96x20 test sweep (host H_OFFSET = 0), where the reuse is no longer
+   * bounded by a node spacing.
    * The whole body carries HS_O3_FN: an -Os loop around -O3 leaf calls forfeits
    * most of the codegen win.
    */

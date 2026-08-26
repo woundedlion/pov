@@ -1493,8 +1493,8 @@ jobs:
 
   lint:
     name: Lint (Python + JavaScript + shell + justfile + workflows)
-    # The C++ tree has clang-format and the firmware warning ratchet; the ~12k
-    # lines of Python, ~1.8k of .mjs and the shell under scripts/, tools/,
+    # The C++ tree has clang-format and the firmware warning ratchet; the ~28k
+    # lines of Python, ~7.4k of .mjs and the shell under scripts/, tools/,
     # .githooks/ and hardware/ -- which include the gate scripts every other job
     # depends on, and the hooks that enforce the landing model -- had no static
     # check at all. Both configs select defect rules only (ruff.toml,

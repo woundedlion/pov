@@ -25,10 +25,12 @@ using AlienOceanSpec =
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H>
-class AlienOcean : public Pullback::ComposedEffect<
-                       W, H, AlienOcean<W, H>, AlienOceanParams, AlienOceanSpec,
-                       PaletteHarmony::TRIADIC, Pullback::HueMode::NOISE,
-                       Pullback::Color::BrightnessEnvelope::NONE, false> {
+class AlienOcean
+    : public Pullback::ComposedEffect<W, H, AlienOcean<W, H>, AlienOceanParams,
+                                      AlienOceanSpec, PaletteHarmony::TRIADIC,
+                                      Pullback::HueMode::NOISE,
+                                      Pullback::Color::BrightnessEnvelope::NONE,
+                                      /*AnimatedProjection=*/false> {
 
 public:
   using Params = AlienOceanParams;

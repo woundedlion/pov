@@ -45,8 +45,9 @@ public:
 
   /**
    * @brief Registers sliders, clears all rings, and seeds the timeline.
-   * @details next_hue resets here so hue assignment is deterministic on every
-   * (re)init.
+   * @details Runs once per effect instance: init_timeline() adds its events
+   * unconditionally, so a second call would stack a second spawner over the
+   * live rings. next_hue resets here so hue assignment is deterministic.
    */
   HS_COLD_MEMBER void init() override {
     register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
