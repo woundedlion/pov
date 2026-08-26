@@ -147,20 +147,20 @@ INLINE_SCAN = (
 # another added unnoticed: a bare "matches nothing anywhere" guard passes a
 # re-spelling for as long as one sibling site keeps matching.
 INLINE_USES = (
-    (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v, 1),
+    (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v, 2),
     # Quote-agnostic: setup-python's own README writes the input with double
     # quotes, which a single-quoted pattern reads as absent.
     (r"""python-version:\s*['"]?([^'"\s]+)['"]?""", "python", lambda v: v, 16),
-    (r"\bnumpy==([\w.]+)", "numpy", lambda v: v, 1),
+    (r"\bnumpy==([\w.]+)", "numpy", lambda v: v, 2),
     (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v, 28),
     (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v, 7),
-    (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v, 3),
+    (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v, 4),
     (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0], 1),
     (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0], 3),
-    (r"\brust-just==([\w.]+)", "just", lambda v: v, 1),
-    (r"\bplatformio==([\w.]+)", "platformio", lambda v: v, 1),
-    (r"\bruff==([\w.]+)", "ruff", lambda v: v, 1),
-    (r"\bshellcheck-py==([\w.]+)", "shellcheck", lambda v: v, 1),
+    (r"\brust-just==([\w.]+)", "just", lambda v: v, 2),
+    (r"\bplatformio==([\w.]+)", "platformio", lambda v: v, 2),
+    (r"\bruff==([\w.]+)", "ruff", lambda v: v, 2),
+    (r"\bshellcheck-py==([\w.]+)", "shellcheck", lambda v: v, 2),
     (r"EXPECTED_CLANG_FORMAT_MAJOR = (\d+)", "clang-format",
      lambda v: v.split(".")[0], 1),
     (r"HS_CLANG_FORMAT_MAJOR=(\d+)", "clang-format",

@@ -592,6 +592,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── app_lifecycle.js            Composition-root frame adapter, display-alias heal, Test All
 │                                  ticker, segmented spawn epoch, and teardown
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
+├── apply_notice.js             Shared notice element, owner-keyed so a clear lands only for its holder
+├── display_aliases.js          The display-buffer aliases every renderer writes through, healed together
+├── segment_policy.js           Segmented spawn epoch plus the single-engine fallback a failed spawn runs
 ├── effect_gui.js               Effect panel lifecycle: build, mount, value sync, Export, teardown
 ├── shader_stages.js            DOM-free shader stage taxonomy: schema detection, stage assignment, control labels
 ├── legacy_shader_import.js     Versioned ShaderWorkbench URL/save-state migration importer
@@ -607,6 +610,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── sidebar.js                  Effect list + sort + keyboard navigation
 ├── sidebar_logic.js            DOM-free sidebar sort, keyboard-index and scroll-arrow math
 ├── recorder.js                 MediaRecorder pipeline (mp4 / webm), sim-synced
+├── recording_settings.js       Recording settings the GUI binds before the recorder exists
+├── pole_lod.js                 Pole LOD binding, held until the engine the module load builds exists
 ├── global_stats_view.js        Single-engine stats bar: frame draw duration and per-arena usage
 ├── module_warmer.js            Epoch-fenced shared-WASM compilation and warm-cache state
 ├── segment_controller.js       Orchestrates the segmented-POV worker pool:
@@ -667,6 +672,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── scripts/
 │   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
+│   ├── probe_harness.mjs       Manifest server, browser, console/network collector and pointer helpers every probe runs on
 │   ├── browser.mjs             Browser resolution (CHROME_PATH, else the standard Chrome locations) and the launch flags the headless scripts share
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
 │   ├── generate-shader-v2-documents.mjs  Regenerates the v2 pattern documents and digest-migration table from the v1 fixtures
