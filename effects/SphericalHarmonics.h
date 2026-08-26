@@ -59,11 +59,14 @@ public:
      * @param m1 Order of the first harmonic.
      * @param l2 Degree of the second harmonic.
      * @param m2 Order of the second harmonic.
-     * @param blend Morph fraction in [0, 1] from the first toward the second.
+     * @param blend Morph fraction in [0, 1] from the first toward the second;
+     * folded to 0 when both modes are the same, so a self-blend evaluates the
+     * harmonic once instead of twice per sample.
      * @param q Orientation quaternion of the shape.
      */
     HarmonicField(int l1, int m1, int l2, int m2, float blend, Quaternion q)
-        : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend),
+        : l1(l1), m1(m1), l2(l2), m2(m2),
+          blend(l1 == l2 && m1 == m2 ? 0.0f : blend),
           orientation_conj(q.conjugate()), N1(SHMath::harmonic_scale(l1, m1)),
           N2(SHMath::harmonic_scale(l2, m2)) {}
 
