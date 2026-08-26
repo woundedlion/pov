@@ -42,6 +42,13 @@ TEENSY_LIBID = "phantasm:Teensy4.0"
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
 MOUNTING_KEEPOUT_HALF_SIDE = 2.7
 MOUNTING_HOLE_INSET = 3.5
+# F.CrtYd circle radius of MOUNTING_HOLE_FOOTPRINT; it reaches past the
+# screw-head keepout square. KiCad's courtyard rule errors on tangency.
+MOUNTING_COURTYARD_RADIUS = 2.95
+COURTYARD_MARGIN = 0.05
+MOUNTING_RESERVE_HALF_SIDE = max(MOUNTING_KEEPOUT_HALF_SIDE,
+                                 MOUNTING_COURTYARD_RADIUS + COURTYARD_MARGIN)
+COURTYARD_LAYERS = ("F.CrtYd", "B.CrtYd")
 
 # R-SI-1: SIG/GND/GND/SIG, so a trace on either outer layer has an adjacent
 # reference plane. The inner planes are poured GND (GROUND_PLANE_LAYERS).
@@ -103,20 +110,33 @@ def keepout_rects(L):
             for ref, (x, y) in mounting_holes(L).items()}
 
 
+def mounting_reserve_rects(L):
+    """Square each mounting hole holds other footprints out of, as
+    ref -> (min x, min y, max x, max y)."""
+    half = MOUNTING_RESERVE_HALF_SIDE
+    return {ref: (x - half, y - half, x + half, y + half)
+            for ref, (x, y) in mounting_holes(L).items()}
+
+
 def _boxes_overlap(a, b, tol=1e-6):
     return (a[0] < b[2] - tol and a[2] > b[0] + tol
             and a[1] < b[3] - tol and a[3] > b[1] + tol)
 
 
-def keepout_clashes(place, pad_bxs, L):
-    """Refs whose copper lands inside a mounting-hole keepout, as "REF/HOLE"."""
-    keepouts = keepout_rects(L)
+def keepout_clashes(place, crt_bxs, L):
+    """Refs reaching into a mounting-hole reservation, as "REF/HOLE".
+
+    `crt_bxs` are courtyard boxes, which overrun the pads: a part whose copper
+    clears the screw head can still touch the hole footprint's courtyard, and
+    KiCad reads that as an error-severity overlap.
+    """
+    reserved = mounting_reserve_rects(L)
     out = []
     for ref, (x, y, rot) in sorted(place.items()):
-        mnx, mny, mxx, mxy = _rot_bb(pad_bxs[ref], rot)
+        mnx, mny, mxx, mxy = _rot_bb(crt_bxs[ref], rot)
         box = (x + mnx, y + mny, x + mxx, y + mxy)
-        out += [f"{ref}/{hole}" for hole in sorted(keepouts)
-                if _boxes_overlap(box, keepouts[hole])]
+        out += [f"{ref}/{hole}" for hole in sorted(reserved)
+                if _boxes_overlap(box, reserved[hole])]
     return out
 
 
@@ -392,10 +412,17 @@ def _arc_points(start, mid, end):
     return [start, mid, end, *arc_extrema(start, mid, end)]
 
 
-def fp_bbox(node, pads_only=False):
+def _on_layers(node, layers):
+    if layers is None:
+        return True
+    names = sexp.val(node, "layer") or sexp.val(node, "layers") or []
+    return any(str(name) in layers for name in names)
+
+
+def fp_bbox(node, pads_only=False, graphic_layers=None):
     """Footprint bounding box (minx,miny,maxx,maxy) in its local (origin) frame,
-    over pads plus (unless `pads_only`) graphic outlines. Pad rotation is folded
-    into a max-dim radius."""
+    over pads plus (unless `pads_only`) graphic outlines, restricted to
+    `graphic_layers` when given. Pad rotation is folded into a max-dim radius."""
     xs = []; ys = []
     for c in node:
         if not (isinstance(c, list) and c):
@@ -405,7 +432,10 @@ def fp_bbox(node, pads_only=False):
             x = float(at[0]); y = float(at[1])
             r = max(float(sz[0]), float(sz[1])) / 2 if sz else 0.5
             xs += [x - r, x + r]; ys += [y - r, y + r]
-        elif not pads_only and c[0] == "fp_circle":
+            continue
+        if pads_only or not _on_layers(c, graphic_layers):
+            continue
+        if c[0] == "fp_circle":
             center = sexp.val(c, "center")
             end = sexp.val(c, "end")
             if center and end:
@@ -413,13 +443,13 @@ def fp_bbox(node, pads_only=False):
                 radius = math.hypot(float(end[0]) - x, float(end[1]) - y)
                 xs += [x - radius, x + radius]
                 ys += [y - radius, y + radius]
-        elif not pads_only and c[0] == "fp_arc":
+        elif c[0] == "fp_arc":
             values = [sexp.val(c, key) for key in ("start", "mid", "end")]
             if all(values):
                 points = [(float(value[0]), float(value[1])) for value in values]
                 for x, y in _arc_points(*points):
                     xs.append(x); ys.append(y)
-        elif not pads_only and c[0] in ("fp_rect", "fp_line", "fp_poly"):
+        elif c[0] in ("fp_rect", "fp_line", "fp_poly"):
             for k in ("start", "end", "center"):
                 v = sexp.val(c, k)
                 if v:
@@ -577,7 +607,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
         return merged
 
     # 0) hub-end screw heads: block their squares before anything is placed
-    half = MOUNTING_KEEPOUT_HALF_SIDE
+    half = MOUNTING_RESERVE_HALF_SIDE
     for cy in (MOUNTING_HOLE_INSET, width - MOUNTING_HOLE_INSET):
         yb = max(0.0, cy - half - edge)
         yt = min(usable, cy + half - edge)
@@ -632,7 +662,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
     # 4) length: enough tail for the far-end screw heads to clear every part
     extent = max((x + _rot_bb(bxs[ref], rot)[2] for ref, (x, _, rot) in place.items()),
                  default=edge + right)
-    tail = max(edge, MOUNTING_HOLE_INSET + MOUNTING_KEEPOUT_HALF_SIDE)
+    tail = max(edge, MOUNTING_HOLE_INSET + MOUNTING_RESERVE_HALF_SIDE)
     return place, math.ceil((extent + tail) * 100 - 1e-9) / 100
 
 
@@ -667,10 +697,12 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     # footprint bounding boxes -> 2-D shelf-pack to minimise length
     bxs = {}
     pad_bxs = {}
+    crt_bxs = {}
     for ref, (_, fp, _, _) in comps.items():
         node = embedded_footprint(ref, fp)
         bxs[ref] = fp_bbox(node)
         pad_bxs[ref] = fp_bbox(node, pads_only=True)
+        crt_bxs[ref] = fp_bbox(node, graphic_layers=COURTYARD_LAYERS)
     if unplaced:
         L = QUILTER_LENGTH
         staged = unplaced_layout(bxs, L, PCB_W)
@@ -694,9 +726,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         sys.exit(f"ERROR placements outside the {fmt(L)}x{fmt(PCB_W)}mm outline: "
                  + ", ".join(outside))
 
-    clashes = keepout_clashes(PLACE, pad_bxs, L)
+    clashes = keepout_clashes(PLACE, crt_bxs, L)
     if clashes:
-        sys.exit("ERROR pads inside a mounting-hole keepout: " + ", ".join(clashes))
+        sys.exit("ERROR footprints inside a mounting-hole reservation: "
+                 + ", ".join(clashes))
 
     HOLES = mounting_holes(L)
     teensy_model_path = "${KIPRJMOD}/../phantasm.pretty/Teensy4.0.wrl" if unplaced else \
