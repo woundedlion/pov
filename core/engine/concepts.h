@@ -299,6 +299,20 @@ template <typename P> consteval bool pipeline_direct_raster_path() {
 }
 
 /**
+ * @brief Whether P exposes the three plot() overloads PipelineRef erases.
+ * @tparam P Candidate pipeline type.
+ * @details Spelled with the same argument types the erasing thunks pass, so it
+ * accepts exactly what they compile against.
+ */
+template <typename P>
+concept Plottable =
+    requires(P &p, Canvas &cv, const Vector &v, const Pixel &c) {
+      p.plot(cv, 0.0f, 0.0f, c, 0.0f, 0.0f);
+      p.plot(cv, 0, 0, c, 0.0f, 0.0f);
+      p.plot(cv, v, c, 0.0f, 0.0f);
+    };
+
+/**
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
  * @details Forwards plot() calls (2D screen-space or 3D world-space) to the
  * wrapped object's plot() methods. Like FunctionRef, it borrows the target and
@@ -359,8 +373,9 @@ class PipelineRef {
 public:
   /**
    * @brief Wraps any object exposing 2D and 3D plot() methods.
-   * @tparam T Pipeline type; excluded from being PipelineRef itself, and from
-   *         the direct-raster sinks the Canvas-taking constructor below takes.
+   * @tparam T Pipeline type; must satisfy Plottable, and is excluded from being
+   *         PipelineRef itself and from the direct-raster sinks the
+   *         Canvas-taking constructor below takes.
    * @param t Pipeline object whose address is stored; must outlive this ref.
    * @details Excludes PipelineRef itself (mirroring FunctionRef): without this,
    * copying from a non-const lvalue binds this template (exact T& match) instead
@@ -368,7 +383,7 @@ public:
    * indirection per pixel and a dangling ctx if the source dies first.
    */
   template <typename T>
-    requires(!std::same_as<std::decay_t<T>, PipelineRef> &&
+    requires(Plottable<T> && !std::same_as<std::decay_t<T>, PipelineRef> &&
              !pipeline_direct_raster_path<std::decay_t<T>>())
   PipelineRef(T &t) : PipelineRef(t, Erase{}) {}
 
@@ -382,7 +397,7 @@ public:
    * draw's own guard cannot see it — it is checked here, once per draw.
    */
   template <typename T>
-    requires(pipeline_direct_raster_path<std::decay_t<T>>())
+    requires(Plottable<T> && pipeline_direct_raster_path<std::decay_t<T>>())
   PipelineRef(T &t, Canvas &cv) : PipelineRef(t, Erase{}) {
     HS_CHECK(t.prepared_for(cv),
              "direct raster pipeline not prepared for this canvas");
