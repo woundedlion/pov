@@ -220,9 +220,6 @@ public:
   }
 
 private:
-  // Min coast (in half-revs) position()'s int32 elapsed cast must survive.
-  static constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
-
   /**
    * @brief Traps a half-rev period position()'s arithmetic cannot carry.
    * @param p Candidate cycles_per_half_rev.
