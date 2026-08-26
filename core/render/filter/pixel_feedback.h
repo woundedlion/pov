@@ -159,7 +159,11 @@ public:
     ScratchScope scope(scratch_arena_a);
     WarpField warp = select_warp_field(scope.get_arena(), grid, band);
     populate_warp_field(grid, band, warp);
-    ::Pixel *filtered_row = scope.get_arena().allocate_n<::Pixel>(W);
+    // The longitude filter runs only over the unclipped infill bands, which are
+    // empty at downsample 1; a banded flush never reaches them either.
+    ::Pixel *filtered_row = (!band.x_clip.active && grid.downsample > 1)
+                                ? scope.get_arena().allocate_n<::Pixel>(W)
+                                : nullptr;
     composite_previous_frame(cv, alpha, grid, band, warp, filtered_row);
   }
 
