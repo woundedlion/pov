@@ -458,22 +458,6 @@ inline float warp_envelope(const Pullback::ProjectionProvenance &provenance,
                                   envelope == WarpEnvelope::EDGE_FADE);
 }
 
-HS_FLASH_MEMBER inline Complex
-curl_flow(const Complex &input, const FastNoiseLite &noise,
-          const WarpStageSpec &spec, const WarpStageParams &params,
-          float distance, float phase, float &path_length) {
-  const uint8_t intervals = spec.curl_integrator == CurlIntegrator::EULER_1 ? 1
-                            : spec.curl_integrator == CurlIntegrator::MIDPOINT_2
-                                ? 2
-                                : 4;
-  constexpr bool path_length_required = true;
-  const PlanarWarpStageResult result = Pullback::Warp::curl_flow(
-      input, noise, spec.basis, intervals, params.scale, distance, phase,
-      path_length_required);
-  path_length = result.path_length;
-  return result.coords;
-}
-
 HS_FLASH_MEMBER inline Complex curl_vector(const Complex &p,
                                            const FastNoiseLite &noise,
                                            NoiseBasis basis, float scale,
