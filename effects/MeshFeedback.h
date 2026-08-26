@@ -136,7 +136,9 @@ public:
     noise_params.set_seed(hs::rand_int(0, 65536));
     noise_params.sync();
 
-    params = preset_params(0);
+    // The base initialized params from the static initial_params(), which
+    // cannot bind the noise pointer; adopt_params() does.
+    adopt_params(params);
 
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
 
