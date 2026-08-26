@@ -50,6 +50,12 @@ class DirectoryCoverage(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "core/render"):
             check_coverage.directory_coverage(document, "core/render")
 
+    def test_rejects_a_directory_with_no_instrumented_line(self):
+        # 0 of 0 lines would read as 100% and satisfy any floor.
+        document = document_with([("/w/pov/core/render/scan.h", 0, 0)])
+        with self.assertRaisesRegex(ValueError, "no instrumented line"):
+            check_coverage.directory_coverage(document, "core/render")
+
     def test_rejects_a_report_with_no_per_file_summaries(self):
         with self.assertRaisesRegex(ValueError, "per-file summaries"):
             check_coverage.directory_coverage(
@@ -134,6 +140,13 @@ class Main(unittest.TestCase):
     def test_every_directory_on_its_floor_passes(self):
         self.stage(document_with([("/w/pov/core/mesh/mesh.h", 100, 80)]))
         self.assertEqual(self.main_with("70", "core/mesh=80"), 0)
+
+    def test_an_uninstrumented_directory_is_a_tooling_error(self):
+        self.stage(document_with([("/w/pov/core/mesh/mesh.h", 0, 0)]))
+        with self.assertRaises(SystemExit) as raised:
+            self.main_with("70", "core/mesh=80")
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("no instrumented line", self.stderr.getvalue())
 
     def test_rejects_a_malformed_directory_floor(self):
         self.stage_percentage(78.25)
