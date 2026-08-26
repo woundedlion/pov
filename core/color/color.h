@@ -1411,6 +1411,16 @@ __attribute__((always_inline)) inline LinRGB pixel_to_linrgb(const Pixel &p) {
 }
 
 /**
+ * @brief Quantizes a linear-RGB [0,1] triple to a 16-bit linear Pixel.
+ * @param rgb Source channels; each is clamped to [0, 1].
+ * @return The triple as a 16-bit linear Pixel.
+ */
+__attribute__((always_inline)) inline Pixel linrgb_to_pixel(const LinRGB &rgb) {
+  return Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
+               float_to_pixel16(rgb.b));
+}
+
+/**
  * @brief Quantizes a [0,1] linear channel to an 8-bit sRGB component.
  * @param l Linear channel value; clamped to [0, 1].
  * @return The channel as an 8-bit sRGB value in [0, 255].
@@ -1448,9 +1458,7 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   hue_rotate_rgb(rgb.r, rgb.g, rgb.b, ca, sa);
 
   Color4 result = c;
-  result.color.r = float_to_pixel16(rgb.r);
-  result.color.g = float_to_pixel16(rgb.g);
-  result.color.b = float_to_pixel16(rgb.b);
+  result.color = linrgb_to_pixel(rgb);
   return result;
 }
 
@@ -1518,9 +1526,7 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
   oklab_to_linear_rgb_gamut({hb.lab.L, a2, b2}, r, g, b);
 
   Color4 result = hb.base;
-  result.color.r = float_to_pixel16(r);
-  result.color.g = float_to_pixel16(g);
-  result.color.b = float_to_pixel16(b);
+  result.color = linrgb_to_pixel({r, g, b});
   return result;
 }
 
@@ -1600,9 +1606,7 @@ inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
   LinRGB output = oklab_to_linear_rgb(lab);
   if (!linear_rgb_in_gamut(output.r, output.g, output.b))
     output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
-  return Color4(Pixel(float_to_pixel16(output.r), float_to_pixel16(output.g),
-                      float_to_pixel16(output.b)),
-                base.base.alpha);
+  return Color4(linrgb_to_pixel(output), base.base.alpha);
 }
 
 /**
@@ -1724,8 +1728,7 @@ inline OKLCH pixel_to_oklch(const Pixel &p) {
  */
 inline Pixel oklch_to_pixel(OKLCH lch) {
   LinRGB rgb = oklab_to_linear_rgb_gamut(oklch_to_oklab(lch));
-  return Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
-               float_to_pixel16(rgb.b));
+  return linrgb_to_pixel(rgb);
 }
 
 /**
