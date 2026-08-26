@@ -363,10 +363,11 @@ private:
     key_count = from.key_count;
     std::array<ControlKey, PALETTE_MAX_KEYS> from_keys{};
     std::array<ControlKey, PALETTE_MAX_KEYS> to_keys{};
+    // Both snapshots carry key_count keys, so each morphed key is one source
+    // key against its opposite number -- no resampling.
     for (int i = 0; i < key_count; ++i) {
-      const float position = key_count > 1 ? i / float(key_count - 1) : 0.0f;
-      from_keys[i] = sample_snapshot(from, position);
-      to_keys[i] = sample_snapshot(to, position);
+      from_keys[i] = snapshot_key(from, i);
+      to_keys[i] = snapshot_key(to, i);
     }
     int anchor = -1;
     for (int i = 0; i < key_count; ++i) {
@@ -1050,20 +1051,6 @@ private:
       keys[i] = decode_snapshot_key(snapshot.keys[i]);
     for (int i = key_count; i < PALETTE_MAX_KEYS; ++i)
       keys[i] = {};
-  }
-
-  static ControlKey sample_snapshot(const Snapshot &snapshot, float position) {
-    const float scaled = position * (snapshot.key_count - 1);
-    const int left_index = std::min(static_cast<int>(scaled),
-                                    static_cast<int>(snapshot.key_count) - 1);
-    const int right_index =
-        std::min(left_index + 1, static_cast<int>(snapshot.key_count) - 1);
-    const float amount = scaled - left_index;
-    const ControlKey left = snapshot_key(snapshot, left_index);
-    const ControlKey right = snapshot_key(snapshot, right_index);
-    return {left.L + (right.L - left.L) * amount,
-            left.chroma + (right.chroma - left.chroma) * amount,
-            left.h + (right.h - left.h) * amount};
   }
 
   static Snapshot::Key encode_snapshot_key(const ControlKey &key) {
