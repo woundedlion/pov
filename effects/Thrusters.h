@@ -14,8 +14,8 @@
 #include "core/engine/engine.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
-// pins warp_decay's endpoint invariants; the smoke harness only proves the
-// effect renders, not that the warp relaxes to exactly 0 at t=1.
+// pins warp_decay's endpoint invariants and drives on_fire_thruster(); the
+// smoke harness only proves the effect renders, and never reaches a fire.
 namespace hs_test {
 namespace effects_tests {
 struct ThrustersWhiteBox;
@@ -168,7 +168,7 @@ private:
   StaticCircularBuffer<ThrusterContext, 16>
       thrusters; /**< Live thruster ring slots (FIFO). */
 
-  // Test seam: reaches the private warp_decay endpoint invariants.
+  // Test seam: reaches warp_decay and the fire path the smoke sweep misses.
   friend struct ::hs_test::effects_tests::ThrustersWhiteBox;
 
   /**
