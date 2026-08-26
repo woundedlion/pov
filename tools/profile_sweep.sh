@@ -115,6 +115,7 @@ g5_ship)
   run GridSpace profile 70 32
   run HyperLattice profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run LatticeMelt profile 110 16 "-D HS_PROFILE_EPOCH_REVS=1200"
+  run ChromaticLichen profile 70 32
   run AshCloud profile 70 32
   ;;
 g6_ship)

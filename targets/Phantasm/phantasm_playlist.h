@@ -34,6 +34,7 @@
   X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
   X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
   X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
+  X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(DisplacementField, 120)                                                    \
   X(DreamBalls, 120)                                                           \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \

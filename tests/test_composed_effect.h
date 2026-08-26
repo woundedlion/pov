@@ -62,7 +62,8 @@ using effects_tests::SMALL_W;
 template <typename ParamsT, typename SpecT, PaletteHarmony HarmonyV,
           Pullback::HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV>
+          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV,
+          Pullback::SurfacePlacement SurfacePlacementV>
 struct ComposedTraits {
   using Params = ParamsT;
   using Spec = SpecT;
@@ -71,17 +72,21 @@ struct ComposedTraits {
   static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS = BrightnessV;
   static constexpr bool OUTER_NOISE = OuterNoiseV;
   static constexpr bool SOURCE_NOISE = SourceNoiseV;
+  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
+      SurfacePlacementV;
 };
 
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony HarmonyV, Pullback::HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV>
+          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV,
+          Pullback::SurfacePlacement SurfacePlacementV>
 ComposedTraits<ParamsT, SpecT, HarmonyV, HueV, BrightnessV, AnimatedProjectionV,
-               OuterNoiseV, SourceNoiseV>
-composed_traits(const Pullback::ComposedEffect<
-                W, H, Derived, ParamsT, SpecT, HarmonyV, HueV, BrightnessV,
-                AnimatedProjectionV, OuterNoiseV, SourceNoiseV> &);
+               OuterNoiseV, SourceNoiseV, SurfacePlacementV>
+composed_traits(
+    const Pullback::ComposedEffect<
+        W, H, Derived, ParamsT, SpecT, HarmonyV, HueV, BrightnessV,
+        AnimatedProjectionV, OuterNoiseV, SourceNoiseV, SurfacePlacementV> &);
 
 /** @brief ComposedTraits of the base @p FX derives from. */
 template <typename FX>

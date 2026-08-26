@@ -244,6 +244,7 @@ inline void check_roster_order_pinned() {
                                               "HyperLattice",
                                               "AshCloud",
                                               "LatticeMelt",
+                                              "ChromaticLichen",
                                               "DisplacementField",
                                               "DreamBalls",
                                               "Dynamo",

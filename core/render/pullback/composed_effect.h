@@ -27,6 +27,8 @@
 
 namespace Pullback {
 
+enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
+
 // The stage vocabulary a composed effect names, re-exported from the
 // per-stage headers.
 using Color::ColorParams;
@@ -759,12 +761,15 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  *         whose warp slots do not themselves imply one.
  * @tparam HasSourceNoise Forces a source-noise field on a source family that
  *         does not itself imply one.
+ * @tparam SurfacePlacementV Placement of curl displacement relative to the
+ *         lens stage.
  */
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony Harmony, HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
           bool AnimatedProjection = true, bool HasOuterNoise = false,
-          bool HasSourceNoise = false>
+          bool HasSourceNoise = false,
+          SurfacePlacement SurfacePlacementV = SurfacePlacement::BEFORE_LENS>
 class ComposedEffect : public ChoreographedEffect<Derived, ParamsT>,
                        private ProjectionWalkState<AnimatedProjection> {
   using Choreography = ChoreographedEffect<Derived, ParamsT>;
@@ -806,6 +811,11 @@ private:
   static constexpr bool TRACK_PATH = HueV == HueMode::PATH_LENGTH;
   static constexpr bool DIRECT_SURFACE =
       std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
+  static constexpr bool CURL_SURFACE =
+      std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams>;
+  static constexpr bool SURFACE_AFTER_LENS =
+      SurfacePlacementV == SurfacePlacement::AFTER_LENS;
+  static_assert(!SURFACE_AFTER_LENS || CURL_SURFACE);
   using CurlDisplacePolicy =
       Pullback::Surface::CurlNoise<SurfaceProvider<Binding, TRACK_PATH>,
                                    NoiseBasis::SIMPLEX,
@@ -816,14 +826,15 @@ private:
   using RippleDisplacePolicy =
       Pullback::Surface::PeriodicRipple<SurfaceProvider<Binding, TRACK_PATH>>;
   using PreDisplaceStage = std::conditional_t<
-      std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams>,
+      CURL_SURFACE && !SURFACE_AFTER_LENS,
       Pullback::Stage::Displace<CurlDisplacePolicy>,
       std::conditional_t<
           std::is_same_v<typename ParamsT::surface_type, PeriodicRippleParams>,
           Pullback::Stage::Displace<RippleDisplacePolicy>, void>>;
-  using PostDisplaceStage =
-      std::conditional_t<DIRECT_SURFACE,
-                         Pullback::Stage::Displace<DirectDisplacePolicy>, void>;
+  using PostDisplaceStage = std::conditional_t<
+      DIRECT_SURFACE, Pullback::Stage::Displace<DirectDisplacePolicy>,
+      std::conditional_t<SURFACE_AFTER_LENS,
+                         Pullback::Stage::Displace<CurlDisplacePolicy>, void>>;
   using LensPolicy =
       typename LensPolicyFor<typename ParamsT::lens_type,
                              typename SpecT::LensPolicy, Binding>::Type;

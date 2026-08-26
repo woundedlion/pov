@@ -54,6 +54,7 @@ case "$EFFECT" in
   kaleidoscope-mandala) EFFECT=KaleidoscopeMandala;;
   grid-space) EFFECT=GridSpace;;
   lattice-melt) EFFECT=LatticeMelt;;
+  chromatic-lichen) EFFECT=ChromaticLichen;;
   kaleidoscope-pent-bright) EFFECT=KaleidoscopePentBright;;
   kaleidoscope-stained-glass) EFFECT=KaleidoscopeStainedGlass;;
   kaleidoscope-smooth) EFFECT=KaleidoscopeSmooth;;
