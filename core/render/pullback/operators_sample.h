@@ -23,42 +23,43 @@ namespace Interp {
 
 namespace Op {
 
+/** @brief Base of the Sample crossings driven by the shared phase clocks:
+    the crossing's topology check plus the clock block they all prepare. */
+struct SourceClockModel : ValueStateModel<SourceClockState> {
+  using Prepared = Source::PreparedSource;
+
+  template <typename Params>
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &state) {
+    check_sample_topology(params.weight_mode, params.coverage_mode);
+    return Source::prepare(state.primary, state.secondary, state.angle);
+  }
+};
+
 /** @brief Parameter family of sample.grid.v2: the grid source fields plus the
     crossing's union field and topology enum8s. */
-struct GridSampleParams : Source::GridSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-
+struct GridSampleParams : Source::GridSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<GridSampleParams>(
       Source::GridSourceParams::FIELDS,
-      std::array{edge_width_field(&GridSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &GridSampleParams::weight_mode, &GridSampleParams::coverage_mode);
+      sample_crossing_fields<GridSampleParams>());
+  static constexpr auto TOPOLOGY = sample_crossing_topology<GridSampleParams>();
 };
 static_assert(field_ids_unique<GridSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
-struct SampleGrid : ValueStateModel<SourceClockState> {
+struct SampleGrid : SourceClockModel {
   static constexpr const char *ID = "sample.grid.v2";
   static constexpr const char *NAME = "Grid";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = GridSampleParams;
-  using Prepared = Source::PreparedSource;
 
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.secondary =
         fmodf(state.secondary + params.speed * params.secondary_rate, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
-  }
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &state) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -70,39 +71,29 @@ struct SampleGrid : ValueStateModel<SourceClockState> {
 };
 
 /** @brief Parameter family of sample.twin-wave.v2. */
-struct TwinWaveSampleParams : Source::TwinWaveSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-
+struct TwinWaveSampleParams : Source::TwinWaveSourceParams,
+                              SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<TwinWaveSampleParams>(
       Source::TwinWaveSourceParams::FIELDS,
-      std::array{edge_width_field(&TwinWaveSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &TwinWaveSampleParams::weight_mode, &TwinWaveSampleParams::coverage_mode);
+      sample_crossing_fields<TwinWaveSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<TwinWaveSampleParams>();
 };
 static_assert(field_ids_unique<TwinWaveSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the two-wave interference source. */
-struct SampleTwinWave : ValueStateModel<SourceClockState> {
+struct SampleTwinWave : SourceClockModel {
   static constexpr const char *ID = "sample.twin-wave.v2";
   static constexpr const char *NAME = "Twin Wave";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
-  using Prepared = Source::PreparedSource;
 
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.secondary =
         fmodf(state.secondary + params.speed * params.secondary_rate, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
-  }
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &state) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -113,42 +104,34 @@ struct SampleTwinWave : ValueStateModel<SourceClockState> {
 };
 
 /** @brief Parameter family of sample.rings.v2. */
-struct RingsSampleParams {
+struct RingsSampleParams : SampleCrossingParams {
   float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */
   float speed = 0.0f;        /**< Per-frame advance of the ring phase. */
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 
-  static constexpr auto FIELDS = std::array{
-      Field<RingsSampleParams>{"pattern-freq", &RingsSampleParams::pattern_freq,
-                               "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
-      Field<RingsSampleParams>{"speed", &RingsSampleParams::speed, "Speed",
-                               0.0f, 0.5f, FieldCurve::LERP},
-      edge_width_field(&RingsSampleParams::edge_width),
-  };
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &RingsSampleParams::weight_mode, &RingsSampleParams::coverage_mode);
+  static constexpr auto FIELDS = concat_fields<RingsSampleParams>(
+      std::array{
+          Field<RingsSampleParams>{
+              "pattern-freq", &RingsSampleParams::pattern_freq, "Pattern Freq",
+              0.1f, 20.0f, FieldCurve::LERP},
+          Field<RingsSampleParams>{"speed", &RingsSampleParams::speed, "Speed",
+                                   0.0f, 0.5f, FieldCurve::LERP},
+      },
+      sample_crossing_fields<RingsSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<RingsSampleParams>();
 };
 static_assert(field_ids_unique<RingsSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the expanding concentric ring source. */
-struct SampleRings : ValueStateModel<SourceClockState> {
+struct SampleRings : SourceClockModel {
   static constexpr const char *ID = "sample.rings.v2";
   static constexpr const char *NAME = "Rings";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = RingsSampleParams;
-  using Prepared = Source::PreparedSource;
 
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
-  }
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &state) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -205,37 +188,26 @@ struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {
 };
 
 /** @brief Parameter family of sample.spiral.v2. */
-struct SpiralSampleParams : Source::SpiralSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-
+struct SpiralSampleParams : Source::SpiralSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<SpiralSampleParams>(
       Source::SpiralSourceParams::FIELDS,
-      std::array{edge_width_field(&SpiralSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &SpiralSampleParams::weight_mode, &SpiralSampleParams::coverage_mode);
+      sample_crossing_fields<SpiralSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<SpiralSampleParams>();
 };
 static_assert(field_ids_unique<SpiralSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the rotating spiral source. */
-struct SampleSpiral : ValueStateModel<SourceClockState> {
+struct SampleSpiral : SourceClockModel {
   static constexpr const char *ID = "sample.spiral.v2";
   static constexpr const char *NAME = "Spiral";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = SpiralSampleParams;
-  using Prepared = Source::PreparedSource;
 
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
-  }
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &state) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -246,17 +218,12 @@ struct SampleSpiral : ValueStateModel<SourceClockState> {
 };
 
 /** @brief Parameter family of sample.lattice.v2. */
-struct LatticeSampleParams : Source::LatticeSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-
+struct LatticeSampleParams : Source::LatticeSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<LatticeSampleParams>(
       Source::LatticeSourceParams::FIELDS,
-      std::array{edge_width_field(&LatticeSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &LatticeSampleParams::weight_mode, &LatticeSampleParams::coverage_mode);
+      sample_crossing_fields<LatticeSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<LatticeSampleParams>();
 };
 static_assert(field_ids_unique<LatticeSampleParams>());
 
@@ -283,37 +250,26 @@ struct SampleLattice : StatelessModel {
 };
 
 /** @brief Parameter family of sample.fractal.v2. */
-struct FractalSampleParams : Source::FractalSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-
+struct FractalSampleParams : Source::FractalSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<FractalSampleParams>(
       Source::FractalSourceParams::FIELDS,
-      std::array{edge_width_field(&FractalSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &FractalSampleParams::weight_mode, &FractalSampleParams::coverage_mode);
+      sample_crossing_fields<FractalSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<FractalSampleParams>();
 };
 static_assert(field_ids_unique<FractalSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the animated quadratic escape-time fractal. */
-struct SampleFractal : ValueStateModel<SourceClockState> {
+struct SampleFractal : SourceClockModel {
   static constexpr const char *ID = "sample.fractal.v2";
   static constexpr const char *NAME = "Escape Fractal";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = FractalSampleParams;
-  using Prepared = Source::PreparedSource;
 
   static void advance(State &state, const Params &params) {
     state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
-  }
-  static Prepared prepare(const FrameContext &, const Params &params,
-                          const State &state) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
-    return Source::prepare(state.primary, state.secondary, state.angle);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -329,7 +285,8 @@ inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
 
 /** @brief Parameter family of sample.tessellation.v2. */
 struct TessellationSampleParams : Source::TessellationSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
+  // Not SampleCrossingParams: `kind` packs into the coverage word only as a
+  // direct member.
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
@@ -337,35 +294,33 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
 
   static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
       Source::TessellationSourceParams::FIELDS,
-      std::array{edge_width_field(&TessellationSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &TessellationSampleParams::weight_mode,
-      &TessellationSampleParams::coverage_mode,
-      TopologyField<TessellationSampleParams>{
-          "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS, 3,
-          static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)});
+      sample_crossing_fields<TessellationSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<TessellationSampleParams>(
+          TopologyField<TessellationSampleParams>{
+              "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS, 3,
+              static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)});
 };
 static_assert(field_ids_unique<TessellationSampleParams>());
 
 /** @brief PLANE→FIELD crossing: rotating polygon edge tessellations. */
-struct SampleTessellation : ValueStateModel<SourceClockState> {
+struct SampleTessellation : SourceClockModel {
   static constexpr const char *ID = "sample.tessellation.v2";
   static constexpr const char *NAME = "Tessellation";
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = TessellationSampleParams;
-  using Prepared = Source::PreparedSource;
 
   static void advance(State &state, const Params &params) {
     state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
   }
-  static Prepared prepare(const FrameContext &, const Params &params,
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    check_sample_topology(params.weight_mode, params.coverage_mode);
+    const Prepared prepared = SourceClockModel::prepare(ctx, params, state);
     HS_CHECK(params.kind <=
                  static_cast<uint8_t>(Source::TessellationKind::HEXAGONAL),
              "sample.tessellation: invalid kind");
-    return Source::prepare(state.primary, state.secondary, state.angle);
+    return prepared;
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -379,7 +334,8 @@ struct SampleTessellation : ValueStateModel<SourceClockState> {
 
 /** @brief Parameter family of sample.projected-noise.v2. */
 struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
+  // Not SampleCrossingParams: `basis` packs into the coverage word only as a
+  // direct member.
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
@@ -387,13 +343,12 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
 
   static constexpr auto FIELDS = concat_fields<ProjectedNoiseSampleParams>(
       Source::NoiseSourceParams::FIELDS,
-      std::array{edge_width_field(&ProjectedNoiseSampleParams::edge_width)});
-  static constexpr auto TOPOLOGY = sample_crossing_topology(
-      &ProjectedNoiseSampleParams::weight_mode,
-      &ProjectedNoiseSampleParams::coverage_mode,
-      TopologyField<ProjectedNoiseSampleParams>{
-          "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS, 3,
-          static_cast<uint8_t>(::NoiseBasis::SIMPLEX)});
+      sample_crossing_fields<ProjectedNoiseSampleParams>());
+  static constexpr auto TOPOLOGY =
+      sample_crossing_topology<ProjectedNoiseSampleParams>(
+          TopologyField<ProjectedNoiseSampleParams>{
+              "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS, 3,
+              static_cast<uint8_t>(::NoiseBasis::SIMPLEX)});
 };
 static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
 
