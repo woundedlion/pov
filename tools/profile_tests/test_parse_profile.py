@@ -2,8 +2,8 @@
 """Host tests for the profile log parser (tools/parse_profile.py).
 
 Covers spilled_frames, whose reading the README cadence colours are defined
-against: spills under 25% of a phase's frames flap 16<->8, at or above it the
-phase has slipped a tier. Both only mean that if the count is frames.
+against: zero spills is green and any nonzero spill count is red. The count is
+meaningful only when it represents frames.
 
 Run:  python -m unittest discover -s tools/profile_tests
 """
