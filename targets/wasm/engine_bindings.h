@@ -1045,11 +1045,17 @@ public:
         result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
         return;
       }
+      const val has_runtime = input["hasRuntime"];
+      if (!has_runtime.isTrue() && !has_runtime.isFalse()) {
+        result = FullConfigRestoreResult::INVALID_VALUE;
+        return;
+      }
+      snapshot.has_runtime = has_runtime.as<bool>();
       ArrayDecode decoded =
           decode_uint32_array(input["accepted"], snapshot.accepted);
       if (decoded == ArrayDecode::OK)
         decoded = decode_uint32_array(input["requested"], snapshot.requested);
-      if (decoded == ArrayDecode::OK)
+      if (decoded == ArrayDecode::OK && snapshot.has_runtime)
         decoded = decode_runtime(input["runtime"], snapshot.runtime);
       if (decoded != ArrayDecode::OK) {
         result = decoded == ArrayDecode::BAD_LENGTH
@@ -1057,12 +1063,6 @@ public:
                      : FullConfigRestoreResult::INVALID_VALUE;
         return;
       }
-      const val has_runtime = input["hasRuntime"];
-      if (!has_runtime.isTrue() && !has_runtime.isFalse()) {
-        result = FullConfigRestoreResult::INVALID_VALUE;
-        return;
-      }
-      snapshot.has_runtime = has_runtime.as<bool>();
       const val pending_ids = input["pendingFieldIds"];
       if (!is_array(pending_ids)) {
         result = FullConfigRestoreResult::INVALID_PENDING;
