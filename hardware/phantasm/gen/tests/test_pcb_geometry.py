@@ -230,7 +230,8 @@ class BoardWidthCapTests(unittest.TestCase):
 
 
 class MountingKeepoutTests(unittest.TestCase):
-    """Nothing may be packed onto a mounting hole: the screw head sits there."""
+    """Nothing may be packed onto a mounting hole: the screw head sits there,
+    and the hole footprint's courtyard reaches past the screw-head square."""
 
     BOXES = {
         "J1": (-1.8, -3.0, 1.8, 3.0),
@@ -253,7 +254,7 @@ class MountingKeepoutTests(unittest.TestCase):
         extent = max(x + pcb._rot_bb(self.BOXES[ref], rot)[2]
                      for ref, (x, _, rot) in place.items())
         self.assertGreaterEqual(length - extent,
-                                pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_HALF_SIDE)
+                                pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_RESERVE_HALF_SIDE)
 
     def test_pack_keeps_every_part_inside_the_outline(self):
         place, length = pcb.pack(dict(self.BOXES), pcb.PCB_W)
@@ -272,10 +273,20 @@ class MountingKeepoutTests(unittest.TestCase):
         place = {"J1": (pcb.MOUNTING_HOLE_INSET, pcb.MOUNTING_HOLE_INSET, 0)}
         self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0), ["J1/H1"])
 
-    def test_a_part_flush_with_the_keepout_edge_is_not_a_clash(self):
-        edge = pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_HALF_SIDE
+    def test_a_part_flush_with_the_reservation_edge_is_not_a_clash(self):
+        edge = pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_RESERVE_HALF_SIDE
         place = {"C_IN": (edge + 1.5, pcb.MOUNTING_HOLE_INSET, 0)}
         self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0), [])
+
+    def test_the_reservation_covers_the_hole_courtyard(self):
+        self.assertGreater(pcb.MOUNTING_RESERVE_HALF_SIDE,
+                           pcb.MOUNTING_COURTYARD_RADIUS)
+
+    def test_a_part_flush_with_the_screw_head_still_clashes(self):
+        edge = pcb.MOUNTING_HOLE_INSET + pcb.MOUNTING_KEEPOUT_HALF_SIDE
+        place = {"C_IN": (edge + 1.5, pcb.MOUNTING_HOLE_INSET, 0)}
+        self.assertEqual(pcb.keepout_clashes(place, self.BOXES, 40.0),
+                         ["C_IN/H1"])
 
 
 if __name__ == "__main__":
