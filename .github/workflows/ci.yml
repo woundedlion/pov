@@ -964,6 +964,10 @@ jobs:
             exit 1
           fi
           ( cd "$dd" && sha256sum -c holosphere_wasm.wasm.sha256 )
+          if strings "$dd/holosphere_wasm.wasm" | grep -F "$GITHUB_WORKSPACE"; then
+            echo "::error::release WASM embeds its checkout path and cannot be reproduced in another workspace"
+            exit 1
+          fi
           # The toolchain marker must name the emsdk that actually built the
           # artifacts, otherwise it records nothing the source-pin doesn't already
           # cover. Compared against the provisioned emcc rather than the pinned

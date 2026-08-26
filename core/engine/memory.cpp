@@ -9,12 +9,12 @@
 
 namespace hs {
 [[noreturn]] HS_COLD void function_ref_empty_call() {
-  check_fail(__FILE__, __LINE__, "thunk != empty_thunk",
+  check_fail(HS_SOURCE_FILE, __LINE__, "thunk != empty_thunk",
              "empty FunctionRef called");
 }
 #ifndef ARDUINO
 [[noreturn]] HS_COLD void inplace_function_empty_call() {
-  check_fail(__FILE__, __LINE__, "vtable != empty",
+  check_fail(HS_SOURCE_FILE, __LINE__, "vtable != empty",
              "empty hs::inplace_function called");
 }
 #endif
@@ -132,7 +132,8 @@ FLASHMEM size_t arena_vector_abandon_count() { return abandon_event_count; }
           static_cast<unsigned long>(capacity),
           static_cast<unsigned long>(arena_vector_abandoned_bytes()),
           static_cast<unsigned long>(arena_vector_abandon_count()));
-  hs::check_fail(__FILE__, __LINE__, "false", "Arena::allocate: out of memory");
+  hs::check_fail(HS_SOURCE_FILE, __LINE__, "false",
+                 "Arena::allocate: out of memory");
 }
 
 namespace {
