@@ -299,21 +299,26 @@ private:
           derived().set_preset_opacity(Derived::PRESET_SEGUE.opacity(phase));
         },
         &anims_paused);
-    timeline.add_pausable(next_delay,
-                          Animation::PeriodicTimer(
-                              0,
-                              [this](Canvas &) {
-                                const bool advanced = advancePreset();
-                                HS_CHECK(
-                                    advanced,
-                                    "preset choreography: advance "
-                                    "rejected at preset %u of %u",
-                                    static_cast<unsigned>(getPresetIndex()),
-                                    static_cast<unsigned>(getPresetCount()));
-                                begin_preset_choreography();
-                              },
-                              false),
-                          &anims_paused);
+    timeline.add_pausable(
+        next_delay,
+        Animation::PeriodicTimer(
+            0,
+            [this](Canvas &) {
+              const bool advanced = advancePreset();
+              HS_CHECK(advanced,
+                       "preset choreography: advance "
+                       "rejected at preset %u of %u",
+                       static_cast<unsigned>(getPresetIndex()),
+                       static_cast<unsigned>(getPresetCount()));
+#ifdef HS_PROFILE_ENABLE
+              hs::log("Preset: %u/%u",
+                      static_cast<unsigned>(getPresetIndex() + 1),
+                      static_cast<unsigned>(getPresetCount()));
+#endif
+              begin_preset_choreography();
+            },
+            false),
+        &anims_paused);
   }
 
   /** @brief Params for the preset at @p index: the `preset_params` hook —
