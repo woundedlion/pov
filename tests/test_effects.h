@@ -2686,7 +2686,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(rhombicuboctahedron.num_copies, 18.0f, 1e-6f);
   HS_EXPECT_NEAR(rhombicuboctahedron.offset_radius, 0.3f, 1e-6f);
   HS_EXPECT_NEAR(rhombicuboctahedron.offset_speed, 0.4f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicuboctahedron.warp_scale, 0.3f, 1e-6f);
   HS_EXPECT_NEAR(rhombicuboctahedron.alpha, 0.7f, 1e-6f);
 
   const auto &rhombicosidodecahedron = WB::preset_params(1);
@@ -2698,7 +2697,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(rhombicosidodecahedron.num_copies, 6.0f, 1e-6f);
   HS_EXPECT_NEAR(rhombicosidodecahedron.offset_radius, 0.05f, 1e-6f);
   HS_EXPECT_NEAR(rhombicosidodecahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicosidodecahedron.warp_scale, 1.8f, 1e-6f);
   HS_EXPECT_NEAR(rhombicosidodecahedron.alpha, 0.7f, 1e-6f);
 
   const auto &truncated_cuboctahedron = WB::preset_params(2);
@@ -2710,7 +2708,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(truncated_cuboctahedron.num_copies, 6.0f, 1e-6f);
   HS_EXPECT_NEAR(truncated_cuboctahedron.offset_radius, 0.16f, 1e-6f);
   HS_EXPECT_NEAR(truncated_cuboctahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_cuboctahedron.warp_scale, 2.0f, 1e-6f);
   HS_EXPECT_NEAR(truncated_cuboctahedron.alpha, 0.3f, 1e-6f);
 
   const auto &icosidodecahedron = WB::preset_params(3);
@@ -2722,7 +2719,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(icosidodecahedron.num_copies, 10.0f, 1e-6f);
   HS_EXPECT_NEAR(icosidodecahedron.offset_radius, 0.16f, 1e-6f);
   HS_EXPECT_NEAR(icosidodecahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(icosidodecahedron.warp_scale, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(icosidodecahedron.alpha, 0.3f, 1e-6f);
 
   const auto &snub_cube = WB::preset_params(4);
@@ -2732,7 +2728,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(snub_cube.num_copies, 4.534f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.offset_radius, 0.153f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.offset_speed, 2.025f, 1e-6f);
-  HS_EXPECT_NEAR(snub_cube.warp_scale, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(snub_cube.alpha, 0.3f, 1e-6f);
 
   const auto &truncated_dodecahedron = WB::preset_params(5);
@@ -2744,7 +2739,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(truncated_dodecahedron.num_copies, 4.515f, 1e-6f);
   HS_EXPECT_NEAR(truncated_dodecahedron.offset_radius, 0.179f, 1e-6f);
   HS_EXPECT_NEAR(truncated_dodecahedron.offset_speed, 1.89f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_dodecahedron.warp_scale, 1.535f, 1e-6f);
   HS_EXPECT_NEAR(truncated_dodecahedron.alpha, 0.7f, 1e-6f);
 
   const auto &triakis_icosahedron = WB::preset_params(6);
@@ -2756,7 +2750,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(triakis_icosahedron.num_copies, 4.515f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron.offset_radius, 0.131f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron.offset_speed, 1.89f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron.warp_scale, 1.535f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron.alpha, 0.7f, 1e-6f);
 
   const auto &triakis_icosahedron_six_copies = WB::preset_params(7);
@@ -2768,7 +2761,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(triakis_icosahedron_six_copies.num_copies, 6.0f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_six_copies.offset_radius, 0.078f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_six_copies.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.warp_scale, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_six_copies.alpha, 0.3f, 1e-6f);
 
   const auto &disdyakis_triacontahedron = WB::preset_params(8);
@@ -2780,7 +2772,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(disdyakis_triacontahedron.num_copies, 6.0f, 1e-6f);
   HS_EXPECT_NEAR(disdyakis_triacontahedron.offset_radius, 0.03f, 1e-6f);
   HS_EXPECT_NEAR(disdyakis_triacontahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(disdyakis_triacontahedron.warp_scale, 1.795f, 1e-6f);
   HS_EXPECT_NEAR(disdyakis_triacontahedron.alpha, 0.3f, 1e-6f);
 
   const auto &triakis_icosahedron_compact = WB::preset_params(9);
@@ -2792,7 +2783,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_NEAR(triakis_icosahedron_compact.num_copies, 6.0f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_compact.offset_radius, 0.03f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_compact.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_compact.warp_scale, 1.795f, 1e-6f);
   HS_EXPECT_NEAR(triakis_icosahedron_compact.alpha, 0.3f, 1e-6f);
 
   HS_EXPECT_TRUE(WB::preset_palette(db, 0) == WB::blood_stream_falloff(db));
@@ -2801,10 +2791,10 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_TRUE(WB::preset_palette(db, 3) == &Palettes::LAVENDER_LAKE);
   HS_EXPECT_TRUE(WB::preset_palette(db, 4) == &Palettes::CORAL_BLUE);
   HS_EXPECT_TRUE(WB::preset_palette(db, 5) == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 6) == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 7) == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 8) == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 9) == &Palettes::CORAL_BLUE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 6) == &Palettes::BRUISED_MOSS);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 7) == &Palettes::LAVENDER_LAKE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 8) == &Palettes::PLUM_SUNRISE);
+  HS_EXPECT_TRUE(WB::preset_palette(db, 9) == &Palettes::BRUISED_MANGO);
 
   // Not-paused advance chain: each step advances the selector then re-spawns, so
   // the preset is step modulo the preset count. Drive two full cycles; the bake

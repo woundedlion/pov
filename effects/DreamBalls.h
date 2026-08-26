@@ -47,7 +47,6 @@ struct DreamBallsParams {
   float num_copies = 1.0f;
   float offset_radius = 0.0f;
   float offset_speed = 0.0f;
-  float warp_scale = 0.0f;
   float alpha = 0.0f;
 };
 
@@ -56,8 +55,8 @@ struct DreamBallsParams {
  *        solid presets.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Each vertex is displaced in its own tangent plane and
- *          Mobius-warped before being re-projected onto the sphere.
+ * @details Each vertex is displaced in its own tangent plane before being
+ *          re-projected onto the sphere.
  */
 template <int W, int H>
 class DreamBalls
@@ -80,16 +79,11 @@ public:
 
   static bool valid_params(const Params &p) { return preset_in_ranges(p); }
 
-  /**
-   * @brief Constructs the effect with the anti-alias screen filter.
-   * @details The Mobius generator hangs off the timeline so its warp animates
-   *          in step.
-   */
+  /** @brief Constructs the effect with the anti-alias screen filter. */
   HS_COLD_MEMBER DreamBalls()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
-        filters(Filter::Screen::AntiAlias<W, H>()), mobius_gen(this->timeline) {
-  }
+        filters(Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
    * @brief Builds mesh data, bakes palette LUTs, registers live sliders, and
@@ -97,16 +91,15 @@ public:
    */
   void init() override {
     begin_choreography();
-    mobius_gen.init_storage(persistent_arena);
     loaded_solids = persistent_arena.make_n<SolidData>(SOLID_COUNT);
     setup_solids();
 
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
-    preset_palettes = {&blood_stream_falloff,  &blood_stream_falloff,
-                       &Palettes::RICH_SUNSET, &Palettes::LAVENDER_LAKE,
-                       &Palettes::CORAL_BLUE,  &Palettes::CORAL_BLUE,
-                       &Palettes::CORAL_BLUE,  &Palettes::CORAL_BLUE,
-                       &Palettes::CORAL_BLUE,  &Palettes::CORAL_BLUE};
+    preset_palettes = {&blood_stream_falloff,   &blood_stream_falloff,
+                       &Palettes::RICH_SUNSET,  &Palettes::LAVENDER_LAKE,
+                       &Palettes::CORAL_BLUE,   &Palettes::CORAL_BLUE,
+                       &Palettes::BRUISED_MOSS, &Palettes::LAVENDER_LAKE,
+                       &Palettes::PLUM_SUNRISE, &Palettes::BRUISED_MANGO};
     live_palette = preset_palettes[0];
     baked_palettes[0].bake(persistent_arena, *live_palette);
     baked_palettes[1].bake(persistent_arena, *live_palette);
@@ -125,12 +118,7 @@ public:
                             RADIUS_MAX);
     register_animated_param("Speed", &params.offset_speed, SPEED_MIN,
                             SPEED_MAX);
-    register_animated_param("Warp", &params.warp_scale, WARP_MIN, WARP_MAX);
     register_animated_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
-
-    // Ahead of every sprite, so a frame draws the warp and orbit phase it just
-    // advanced rather than the previous frame's.
-    arm_warp();
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
@@ -190,7 +178,6 @@ private:
   static constexpr float COPIES_MIN = 1.0f, COPIES_MAX = 20.0f;
   static constexpr float RADIUS_MIN = 0.0f, RADIUS_MAX = 1.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
-  static constexpr float WARP_MIN = 0.0f, WARP_MAX = 5.0f;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr float WEAVE_GAP_MIN = 0.02f, WEAVE_GAP_MAX = 0.45f;
   static constexpr float WEAVE_GAP_DEFAULT = 0.18f;
@@ -239,15 +226,13 @@ private:
   Orientation<> global_orientation;
 
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
-  MobiusWarpTransformer<1> mobius_gen;
   static constexpr int SPRITE_LIFE = 320; /**< Visible frames per sprite. */
   static constexpr int FADE_WINDOW = 32;  /**< Fade-in/out length in frames. */
   /** Frames consecutive sprites coexist; 0 keeps every frame at a single mesh
       render. */
   static constexpr int CROSSFADE_OVERLAP = 0;
-  /** Warp cycle length: the pinned warp repeats in lockstep with the sprite
-      hand-off, so each sprite spans exactly one warp. */
-  static constexpr int WARP_PERIOD = SPRITE_LIFE - CROSSFADE_OVERLAP;
+  /** Frames between sprite hand-offs, which also paces the preset advance. */
+  static constexpr int SPRITE_PERIOD = SPRITE_LIFE - CROSSFADE_OVERLAP;
   // The two-slot ping-pong is safe only while at most two sprites overlap, i.e.
   // a sprite finishes before the spawn two periods later reuses its slot.
   static_assert(SPRITE_LIFE < 2 * (SPRITE_LIFE - CROSSFADE_OVERLAP),
@@ -320,25 +305,25 @@ private:
 
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{BaseMesh::RHOMBICUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.3f, 0.7f}},
+        WEAVE_GAP_DEFAULT, 18.0f, 0.3f, 0.4f, 0.7f}},
       {{BaseMesh::RHOMBICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 1.8f, 0.7f}},
+        WEAVE_GAP_DEFAULT, 6.0f, 0.05f, 1.0f, 0.7f}},
       {{BaseMesh::TRUNCATED_CUBOCTAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 2.0f, 0.3f}},
+        WEAVE_GAP_DEFAULT, 6.0f, 0.16f, 1.0f, 0.3f}},
       {{BaseMesh::ICOSIDODECAHEDRON, WeaveTopology::AUTOMATIC,
-        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.5f, 0.3f}},
+        WEAVE_GAP_DEFAULT, 10.0f, 0.16f, 1.0f, 0.3f}},
       {{BaseMesh::SNUB_CUBE, WeaveTopology::AUTOMATIC, WEAVE_GAP_DEFAULT,
-        4.534f, 0.153f, 2.025f, 0.0f, 0.3f}},
+        4.534f, 0.153f, 2.025f, 0.3f}},
       {{BaseMesh::TRUNCATED_DODECAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        4.515f, 0.179f, 1.89f, 1.535f, 0.7f}},
+        4.515f, 0.179f, 1.89f, 0.7f}},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 4.515f,
-        0.131f, 1.89f, 1.535f, 0.7f}},
+        0.131f, 1.89f, 0.7f}},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.078f, 1.0f, 0.0f, 0.3f}},
+        0.078f, 1.0f, 0.3f}},
       {{BaseMesh::DISDYAKIS_TRIACONTAHEDRON, WeaveTopology::AUTOMATIC, 0.18f,
-        6.0f, 0.03f, 1.0f, 1.795f, 0.3f}},
+        6.0f, 0.03f, 1.0f, 0.3f}},
       {{BaseMesh::TRIAKIS_ICOSAHEDRON, WeaveTopology::AUTOMATIC, 0.18f, 6.0f,
-        0.03f, 1.0f, 1.795f, 0.3f}},
+        0.03f, 1.0f, 0.3f}},
   }};
 
   /** @brief Per-preset palette, patched at init(); kept beside PRESETS rather
@@ -355,7 +340,6 @@ private:
            p.num_copies >= COPIES_MIN && p.num_copies <= COPIES_MAX &&
            p.offset_radius >= RADIUS_MIN && p.offset_radius <= RADIUS_MAX &&
            p.offset_speed >= SPEED_MIN && p.offset_speed <= SPEED_MAX &&
-           p.warp_scale >= WARP_MIN && p.warp_scale <= WARP_MAX &&
            p.alpha >= ALPHA_MIN && p.alpha <= ALPHA_MAX;
   }
 
@@ -521,18 +505,6 @@ private:
   }
 
   /**
-   * @brief Arms the one repeating Mobius warp every sprite renders through.
-   * @details Pinned: it never completes, so the pool slot is never contended and
-   *          the warp leads every sprite in the event order.
-   */
-  HS_COLD_MEMBER void arm_warp() {
-    auto *warp =
-        mobius_gen.spawn_pinned(0, params.warp_scale, WARP_PERIOD, true);
-    HS_CHECK(warp, "DreamBalls: pinned warp spawn must succeed");
-    warp->bind_scale(params.warp_scale);
-  }
-
-  /**
    * @brief Spawns one fading sprite for the current preset and schedules the
    *        next spawn one period later.
    * @details The preset's params were adopted when it was committed; the spawn
@@ -568,8 +540,8 @@ private:
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
                                           FADE_WINDOW, &anims_paused);
 
-    HS_CHECK(period == WARP_PERIOD,
-             "DreamBalls: sprite hand-off drifted off the pinned warp's cycle");
+    HS_CHECK(period == SPRITE_PERIOD,
+             "DreamBalls: sprite hand-off drifted off its expected cycle");
 
     timeline.add_pausable(period,
                           Animation::PeriodicTimer(
@@ -691,11 +663,9 @@ private:
       }
 
       {
-        HS_PROFILE(db_warp_orient);
-        for (auto &vertex : framed_mesh.vertices) {
-          vertex = mobius_gen.transform(vertex);
+        HS_PROFILE(db_orient);
+        for (auto &vertex : framed_mesh.vertices)
           vertex = global_orientation.orient(vertex);
-        }
       }
 
       {
@@ -726,11 +696,9 @@ private:
       }
 
       {
-        HS_PROFILE(db_warp_orient);
-        for (auto &vertex : target.vertices) {
-          vertex = mobius_gen.transform(vertex);
+        HS_PROFILE(db_orient);
+        for (auto &vertex : target.vertices)
           vertex = global_orientation.orient(vertex);
-        }
       }
 
       {
