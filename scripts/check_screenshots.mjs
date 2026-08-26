@@ -26,7 +26,9 @@ export const SHOTS_DIR = join(REPO_ROOT, 'docs', 'screenshots');
  * Matching is case-insensitive so the result is identical on the
  * case-insensitive Windows dev FS and on Linux CI; a case-only divergence is
  * reported as its own class rather than masked on one FS and counted as both a
- * missing effect and an orphan PNG on the other.
+ * missing effect and an orphan PNG on the other. Every PNG sharing a roster
+ * entry's lowercased name is judged, so a second spelling beside the exact one
+ * is reported rather than shadowed.
  *
  * @param {string[]} roster Registered effect names.
  * @param {string[]} pngNames Gallery PNG basenames, without the extension.
@@ -35,14 +37,20 @@ export const SHOTS_DIR = join(REPO_ROOT, 'docs', 'screenshots');
  *   only in case, and PNGs naming no registered effect.
  */
 export function partitionGallery(roster, pngNames) {
-  const pngByLower = new Map(pngNames.map(p => [p.toLowerCase(), p]));
+  const pngsByLower = new Map();
+  for (const p of pngNames) {
+    const group = pngsByLower.get(p.toLowerCase());
+    if (group) group.push(p);
+    else pngsByLower.set(p.toLowerCase(), [p]);
+  }
   const rosterLower = new Set(roster.map(e => e.toLowerCase()));
   const missing = [];
   const caseMismatch = [];
   for (const e of roster) {
-    const png = pngByLower.get(e.toLowerCase());
-    if (png === undefined) missing.push(e);
-    else if (png !== e) caseMismatch.push(`${png}.png vs roster '${e}'`);
+    const pngs = pngsByLower.get(e.toLowerCase());
+    if (pngs === undefined) missing.push(e);
+    else for (const png of pngs)
+      if (png !== e) caseMismatch.push(`${png}.png vs roster '${e}'`);
   }
   const orphan = pngNames.filter(p => !rosterLower.has(p.toLowerCase()));
   return { missing, caseMismatch, orphan };
