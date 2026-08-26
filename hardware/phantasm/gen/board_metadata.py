@@ -236,7 +236,7 @@ def parse_board(text):
         height_mm=height,
         thickness_mm=thickness,
         footprint_sides=tuple((side, footprint_counts[side]) for side in ("F.Cu", "B.Cu")),
-        track_segments=len(_children(root, "segment")),
+        track_segments=len(_children(root, "segment")) + len(_children(root, "arc")),
         vias=len(_children(root, "via")),
         copper_pours=pours,
         pour_layers=tuple((layer, pour_counts[layer])

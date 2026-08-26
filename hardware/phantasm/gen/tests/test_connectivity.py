@@ -37,6 +37,12 @@ NATIVE_BOARD = (BOARD
                 .replace('(net "/DATA"))', '(net 1 "/DATA"))', 2)
                 .replace('(net "/DATA"))', '(net 1))'))
 
+# The same net routed as a curved track, which Quilter emits for corners.
+ARC_BOARD = BOARD.replace(
+    '(segment (start 0 0) (end 10 0) (width 0.2) (layer "F.Cu") (net "/DATA"))',
+    '(arc (start 0 0) (mid 5 3) (end 10 0) (width 0.2) (layer "F.Cu")'
+    ' (net "/DATA"))')
+
 ROUND_PAD_BOARD = """(kicad_pcb
 \t(layers (0 "F.Cu" signal))
 \t(footprint "J"
@@ -232,6 +238,21 @@ class SyntheticBoardTests(unittest.TestCase):
     def test_deleting_the_track_splits_the_net(self):
         broken = connectivity.opens(drop(parse(BOARD), "segment", "DATA"))
         self.assertEqual(broken, {"DATA": [[("R1", "1")], [("R1", "2")]]})
+
+    def test_an_arc_track_between_two_pads_is_one_island(self):
+        self.assertEqual(connectivity.opens(parse(ARC_BOARD)), {})
+
+    def test_deleting_the_arc_splits_the_net(self):
+        broken = connectivity.opens(drop(parse(ARC_BOARD), "arc", "DATA"))
+        self.assertEqual(broken, {"DATA": [[("R1", "1")], [("R1", "2")]]})
+
+    def test_an_arc_becomes_its_two_chords(self):
+        copper, _, _ = connectivity.board_copper(parse(ARC_BOARD))
+        chords = [(item.start, item.end) for item in copper["DATA"]
+                  if isinstance(item, connectivity.Capsule)
+                  and item.start != item.end]
+        self.assertEqual(chords, [((0.0, 0.0), (5.0, 3.0)),
+                                  ((5.0, 3.0), (10.0, 0.0))])
 
     def test_native_numeric_net_references_join_named_pads(self):
         self.assertEqual(connectivity.opens(parse(NATIVE_BOARD)), {})

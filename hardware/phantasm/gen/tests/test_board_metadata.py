@@ -72,6 +72,23 @@ class BoardMetadataTests(unittest.TestCase):
         self.assertEqual(metadata.rule_areas, 1)
         self.assertEqual(metadata.rule_area_layers, (("F.Cu", 1), ("B.Cu", 1)))
 
+    def test_counts_a_curved_track_as_a_track_segment(self):
+        metadata = board_metadata.parse_board("""
+            (kicad_pcb
+              (gr_rect (start 0 0) (end 10 10) (layer "Edge.Cuts"))
+              (general (thickness 1.6))
+              (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+              (setup (stackup
+                (layer "F.Cu" (type "copper") (thickness 0.035))
+                (layer "B.Cu" (type "copper") (thickness 0.035))
+                (copper_finish "ENIG")))
+              (segment (start 0 0) (end 1 0) (width 0.2) (layer "F.Cu") (net 1))
+              (arc (start 1 0) (mid 2 1) (end 3 0) (width 0.2)
+                (layer "F.Cu") (net 1)))
+        """)
+
+        self.assertEqual(metadata.track_segments, 2)
+
     def test_rejects_malformed_board(self):
         with self.assertRaisesRegex(board_metadata.MetadataError, "invalid KiCad S-expression"):
             board_metadata.parse_board("(kicad_pcb (general")

@@ -3,8 +3,8 @@
 The named-net gate in check.py reads pad net ATTRIBUTES -- what a pad is meant
 to sit on. Those survive deleting the tracks, vias or pour that realize them, so
 a board can pass every net-label gate and still ship an open circuit. This one
-unions the copper geometry instead: tracks, vias, pads and zone fills that touch
-on a shared layer, per net. A net whose pads land in more than one island is an
+unions the copper geometry instead: tracks (straight and arc), vias, pads and
+zone fills that touch on a shared layer, per net. A net whose pads land in more than one island is an
 open.
 
 A rectangular land is modelled by its rotated rectangle; every other pad by its
@@ -209,6 +209,21 @@ def segment_capsule(segment):
                    {str(sexp.val(segment, "layer")[0])})
 
 
+def arc_capsules(arc):
+    """A curved track as its two chords, start->mid and mid->end.
+
+    The chords cut inside the arc by the sagitta, so a third item landing
+    mid-span reads as further away than it is. Both endpoints are exact, which
+    is where KiCad joins an arc to the rest of the net.
+    """
+    radius = float(sexp.val(arc, "width")[0]) / 2
+    layers = {str(sexp.val(arc, "layer")[0])}
+    start, mid, end = (_xy(sexp.val(arc, key))
+                       for key in ("start", "mid", "end"))
+    return [Capsule(start, mid, radius, layers),
+            Capsule(mid, end, radius, layers)]
+
+
 def footprint_reference(footprint):
     for child in footprint:
         if (isinstance(child, list) and len(child) > 2
@@ -271,6 +286,10 @@ def board_copper(root):
         net = net_id(segment)
         if net is not None:
             copper.setdefault(net, []).append(segment_capsule(segment))
+    for arc in F(root, "arc"):
+        net = net_id(arc)
+        if net is not None:
+            copper.setdefault(net, []).extend(arc_capsules(arc))
     for via in F(root, "via"):
         net = net_id(via)
         if net is not None:
