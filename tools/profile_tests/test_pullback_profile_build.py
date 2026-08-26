@@ -37,7 +37,7 @@ class PullbackProfileBuild(unittest.TestCase):
             defines, [("HS_PULLBACK_SHORT_SHA", f'\\"{SHA}\\"')])
         self.assertEqual(calls[1].args[0], [
             "git", "-C", "project", "status", "--porcelain=v1",
-            "--untracked-files=normal",
+            "--untracked-files=no",
         ])
 
     def test_dirty_tree_marks_sha_and_preserves_define_quoting(self):

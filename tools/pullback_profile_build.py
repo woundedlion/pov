@@ -13,9 +13,11 @@ if env["PIOENV"] in ("profile", "profile_o3"):
         short_sha = subprocess.run(
             ["git", "-C", project_dir, "rev-parse", "--short=12", "HEAD"],
             check=True, capture_output=True, text=True, timeout=30).stdout.strip()
+        # Untracked files don't count (build output, node_modules); only tracked
+        # modifications do. Same stamp as the engine provenance SHA in CMakeLists.
         dirty = subprocess.run(
             ["git", "-C", project_dir, "status", "--porcelain=v1",
-             "--untracked-files=normal"],
+             "--untracked-files=no"],
             check=True, capture_output=True, text=True, timeout=30).stdout
     except (OSError, subprocess.SubprocessError) as error:
         raise SystemExit(f"pullback_profile_build: cannot resolve Git SHA: {error}")
