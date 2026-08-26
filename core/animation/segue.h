@@ -938,11 +938,13 @@ struct Snap {};
 struct Fade {
   int frames = 0; /**< Frames each preset holds the sphere, fades included. */
   int window = 0; /**< Fade length on each side of the swap, in frames. */
-  /** @brief Schedules the preset's opacity envelope. */
-  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration,
-               int fade_window, const bool *paused = nullptr) {
-    return schedule_sequential(timeline, std::move(draw_fn), duration,
-                               fade_window, paused);
+  /** @brief Schedules the preset's opacity envelope over the policy's own
+   * frames and window, so no caller can hand it a cadence that disagrees with
+   * the one opacity() and the dwell assertions read. */
+  int schedule(Timeline &timeline, SpriteFn draw_fn,
+               const bool *paused = nullptr) const {
+    return schedule_sequential(timeline, std::move(draw_fn), frames, window,
+                               paused);
   }
   /** @brief Global alpha: the fade envelope itself. */
   float opacity(float phase) const { return phase; }
@@ -959,7 +961,9 @@ concept Blends = requires(const P p) {
 /** @brief Whether a preset policy schedules an opacity envelope around a
  * parameter snap (Fade). */
 template <typename P>
-concept Fades = Schedulable<P> && requires(const P p) {
+concept Fades = requires(const P p, Timeline &timeline, SpriteFn draw_fn,
+                         const bool *paused) {
+  { p.schedule(timeline, std::move(draw_fn), paused) } -> std::same_as<int>;
   { p.opacity(0.5f) } -> std::same_as<float>;
   { p.frames } -> std::convertible_to<int>;
   { p.window } -> std::convertible_to<int>;

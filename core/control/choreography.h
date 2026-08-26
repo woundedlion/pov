@@ -279,8 +279,9 @@ private:
   /**
    * @brief Starts a Segue::Preset::Fade policy's envelope loop: one opacity
    *        sprite per preset whose end advances the choreography and re-arms.
-   * @details The policy's schedule() return is the delay until the advance, so
-   * the policy owns the cadence. The sprite feeds
+   * @details The policy's schedule() return is the delay until the advance, and
+   * it spans the policy's own frames/window, so the policy owns the cadence
+   * outright. The sprite feeds
    * `Derived::set_preset_opacity` each frame; both the sprite and the advance
    * timer freeze with anims_paused. begin_choreography() arms this once.
    * The loop re-arms itself from the advance timer, where a dropped add would
@@ -292,13 +293,12 @@ private:
              "preset choreography: the envelope sprite and its advance timer "
              "need two timeline slots, %d free",
              Timeline::remaining());
-    auto segue = Derived::PRESET_SEGUE;
-    const int next_delay = segue.schedule(
+    const int next_delay = Derived::PRESET_SEGUE.schedule(
         timeline,
         [this](Canvas &, float phase) {
           derived().set_preset_opacity(Derived::PRESET_SEGUE.opacity(phase));
         },
-        segue.frames, segue.window, &anims_paused);
+        &anims_paused);
     timeline.add_pausable(next_delay,
                           Animation::PeriodicTimer(
                               0,
