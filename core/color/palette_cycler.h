@@ -140,6 +140,7 @@ public:
     }
 
     bake_entry(display, arena, entries[0]);
+    ++generation;
     if (crossfades) {
       bake_entry(fade_from, arena, entries[0]);
       bake_entry(fade_to, arena, entries[0]);
@@ -193,6 +194,7 @@ public:
     HS_CHECK(from_slot->morph_compatible(*to_slot),
              "PaletteCycler generated palettes must be morph-compatible");
     display.bake(arena, *from_slot);
+    ++generation;
   }
 
   /**
@@ -207,9 +209,9 @@ public:
       return;
     if (display_dirty && !fade_active) {
       if (provider != nullptr)
-        display.rebake(*from_slot);
+        rebake_display(*from_slot);
       else
-        rebake_entry(display, entries[current]);
+        rebake_display_entry(entries[current]);
       display_dirty = false;
     }
     ++frame;
@@ -230,13 +232,14 @@ public:
     const float w = easing != nullptr ? easing(progress) : progress;
     if (provider != nullptr) {
       morph->lerp(*from_slot, *to_slot, w);
-      display.rebake(*morph);
+      rebake_display(*morph);
     } else if ((key_morph_mask & (1u << current)) != 0) {
       morph->lerp(*entries[current].generative,
                   *entries[next_of(current)].generative, w);
-      display.rebake(*morph);
+      rebake_display(*morph);
     } else {
       display.rebake_crossfade(fade_from, fade_to, w);
+      ++generation;
     }
     display_dirty = false;
   }
@@ -268,6 +271,10 @@ public:
   /** @brief The display LUT effects shade from. */
   const BakedPalette &palette() const { return display; }
 
+  /** @brief Counter incremented on every display-LUT bake; a cache key for
+   *  tables derived from palette(). */
+  uint32_t bake_generation() const { return generation; }
+
   /** @brief Sets generated endpoint chroma and rebakes the current display.
    *  @param chroma Gamut-relative chroma in [0, 1].
    *  @details Valid after init_generated(). */
@@ -277,13 +284,13 @@ public:
     from_slot->set_constant_chroma(chroma);
     to_slot->set_constant_chroma(chroma);
     if (!fade_active) {
-      display.rebake(*from_slot);
+      rebake_display(*from_slot);
       return;
     }
     const float progress = static_cast<float>(frame) / static_cast<float>(fade);
     const float weight = easing != nullptr ? easing(progress) : progress;
     morph->lerp(*from_slot, *to_slot, weight);
-    display.rebake(*morph);
+    rebake_display(*morph);
   }
 
   /** @brief Index of the entry currently dwelt on or faded away from. */
@@ -297,6 +304,16 @@ private:
     return index + 1 == entry_count ? 0 : index + 1;
   }
 
+  HS_COLD_MEMBER void rebake_display(const GenerativePalette &source) {
+    display.rebake(source);
+    ++generation;
+  }
+
+  HS_COLD_MEMBER void rebake_display_entry(const Entry &entry) {
+    rebake_entry(display, entry);
+    ++generation;
+  }
+
   HS_COLD_MEMBER static GenerativePalette *allocate_palette(Arena &arena) {
     return arena.make<GenerativePalette>();
   }
@@ -304,7 +321,7 @@ private:
   HS_COLD_MEMBER void finish_fade(bool update_display = true) {
     if (provider != nullptr) {
       if (update_display)
-        display.rebake(*to_slot);
+        rebake_display(*to_slot);
       GenerativePalette *retired = from_slot;
       from_slot = to_slot;
       to_slot = retired;
@@ -313,7 +330,7 @@ private:
                "PaletteCycler generated palette breaks morph compatibility");
     } else {
       if (update_display)
-        rebake_entry(display, entries[next_of(current)]);
+        rebake_display_entry(entries[next_of(current)]);
       current = next_of(current);
     }
     display_dirty = !update_display;
@@ -365,6 +382,7 @@ private:
   GenerativePalette *from_slot = nullptr; /**< Generated fade w = 0 endpoint. */
   GenerativePalette *to_slot = nullptr;   /**< Generated fade w = 1 endpoint. */
   uint32_t next_sequence = 0; /**< Sequence number of the next provider call. */
+  uint32_t generation = 0;    /**< Display-LUT bakes performed so far. */
   float (*easing)(float) = nullptr; /**< Fade easing; null = linear. */
   const bool *paused = nullptr; /**< Optional pause gate; null = always runs. */
   int entry_count = 0;

@@ -503,6 +503,9 @@ template <> struct OptionalNoise<true> {
 template <bool Enabled> struct OptionalHueRotationLut {};
 template <> struct OptionalHueRotationLut<true> {
   std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE> hue_rotation_lut;
+  /** Palette bake the resident table was built from; 0 matches no bake,
+      forcing the first build. */
+  uint32_t hue_rotation_lut_bake = 0;
 };
 
 /** @brief Hue-noise LUT and the inputs it was baked from; empty unless the
@@ -1253,9 +1256,9 @@ private:
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
    * @details The hue-noise LUT is rebuilt only when its scale or phase moved,
-   * while the hue-rotation LUT is rebuilt on exactly the condition
-   * hue_rotation_active() reports, which is also the flag the returned frame
-   * hands the color stage.
+   * and the hue-rotation LUT only when the palette cycler rebaked its display
+   * LUT. hue_rotation_active() gates the rotation build and is also the flag
+   * the returned frame hands the color stage.
    * @return The frame state for this draw, valid until the next draw_frame().
    */
   HS_COLD_MEMBER FrameState prepare_frame() {
@@ -1272,11 +1275,14 @@ private:
       }
     }
     if constexpr (HueV != HueMode::NONE)
-      if (hue_rotation_active<HueV>(params.color))
+      if (hue_rotation_active<HueV>(params.color) &&
+          state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
                 state->hue_rotation_lut),
             palette_cycler.palette());
+        state->hue_rotation_lut_bake = palette_cycler.bake_generation();
+      }
     const FastNoiseLite *outer_noise = nullptr;
     const FastNoiseLite *source_noise = nullptr;
     if constexpr (HAS_OUTER_NOISE)
