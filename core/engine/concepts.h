@@ -64,12 +64,12 @@ namespace hs {
 template <typename Ret, typename... Args> class FunctionRef<Ret(Args...)> {
   // Empty state's thunk, mirroring hs::inplace_function's empty vtable: an
   // empty ref diverges with a breadcrumb instead of calling through null.
-  [[noreturn]] static Ret empty_thunk(void *, Args...) {
+  [[noreturn]] static Ret empty_thunk(void *, Args &&...) {
     ::hs::function_ref_empty_call();
   }
 
   void *ctx = nullptr;
-  Ret (*thunk)(void *, Args...) = &empty_thunk;
+  Ret (*thunk)(void *, Args &&...) = &empty_thunk;
 
 public:
   /**
@@ -129,7 +129,7 @@ public:
         "width (true on all supported targets)");
     if (func == nullptr)
       return;
-    thunk = [](void *ptr, Args... args) -> Ret {
+    thunk = [](void *ptr, Args &&...args) -> Ret {
       return (reinterpret_cast<Ret (*)(Args...)>(ptr))(
           std::forward<Args>(args)...);
     };
@@ -145,7 +145,7 @@ public:
     requires std::is_invocable_r_v<Ret, Callable &, Args...> &&
              (!std::is_base_of_v<FunctionRef, std::decay_t<Callable>>)
   FunctionRef(Callable &callable) noexcept : ctx(std::addressof(callable)) {
-    thunk = [](void *ptr, Args... args) -> Ret {
+    thunk = [](void *ptr, Args &&...args) -> Ret {
       if constexpr (std::is_void_v<Ret>) {
         (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
       } else {
@@ -176,7 +176,7 @@ public:
   FunctionRef(const Callable &callable) noexcept
       : ctx(const_cast<void *>(
             static_cast<const void *>(std::addressof(callable)))) {
-    thunk = [](void *ptr, Args... args) -> Ret {
+    thunk = [](void *ptr, Args &&...args) -> Ret {
       if constexpr (std::is_void_v<Ret>) {
         (*static_cast<const Callable *>(ptr))(std::forward<Args>(args)...);
       } else {
