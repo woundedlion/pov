@@ -252,6 +252,46 @@ inline void test_crosses_segments_trait_and_fold() {
                 "ChromaticShift must stay band-clippable");
   static_assert(!ShiftStack::any_crosses_segments,
                 "a ChromaticShift stack must keep the segment clipping win");
+
+  // Ordering traits. Each one arms a Pipeline static_assert; a misspelled
+  // override inherits the FilterTraits default and disarms it silently, so pin
+  // both the stage value and the pipeline fold that reads it.
+  HS_EXPECT_TRUE((Filter::Screen::AntiAlias<W, H>::emits_pixel_centers));
+  HS_EXPECT_TRUE((Filter::Screen::Blur<W, H>::emits_pixel_centers));
+  HS_EXPECT_FALSE((Filter::Pixel::ChromaticShift<W>::emits_pixel_centers));
+  HS_EXPECT_TRUE((Filter::Screen::AntiAlias<W, H>::requires_subpixel_input));
+  HS_EXPECT_FALSE((Filter::Screen::Blur<W, H>::requires_subpixel_input));
+
+  HS_EXPECT_TRUE((Filter::World::Trails<16>::emits_nonunit_world));
+  HS_EXPECT_FALSE((Filter::World::Orient::emits_nonunit_world));
+  HS_EXPECT_TRUE((Filter::World::Mobius::requires_unit_world_input));
+  HS_EXPECT_TRUE((Filter::World::Hole::requires_unit_world_input));
+  HS_EXPECT_TRUE((Filter::World::OrientSlice::requires_unit_world_input));
+  HS_EXPECT_FALSE((Filter::World::Trails<16>::requires_unit_world_input));
+
+  HS_EXPECT_TRUE((Filter::World::Hole::world_transform_is_identity));
+  HS_EXPECT_FALSE((Filter::World::Mobius::world_transform_is_identity));
+  HS_EXPECT_FALSE((Filter::World::Orient::world_transform_is_identity));
+  HS_EXPECT_TRUE(
+      (Filter::Screen::AntiAlias<W, H>::world_transform_is_identity));
+
+  HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::terminal_replaces));
+  HS_EXPECT_FALSE((Filter::Screen::Trails<>::terminal_replaces));
+
+  using WarpStack =
+      Pipeline<W, H, Filter::World::Trails<16>, Filter::Screen::Blur<W, H>>;
+  HS_EXPECT_TRUE(WarpStack::emits_nonunit_world);
+  HS_EXPECT_FALSE(WarpStack::requires_unit_world_input);
+  HS_EXPECT_TRUE(WarpStack::emits_pixel_centers);
+  HS_EXPECT_FALSE(WarpStack::requires_subpixel_input);
+  HS_EXPECT_FALSE(WarpStack::world_transform_is_identity);
+  HS_EXPECT_FALSE(WarpStack::terminal_replaces);
+
+  HS_EXPECT_TRUE(MeshStack::emits_pixel_centers);
+  HS_EXPECT_TRUE(MeshStack::requires_subpixel_input);
+  HS_EXPECT_TRUE(MeshStack::terminal_replaces);
+  HS_EXPECT_FALSE(MeshStack::emits_nonunit_world);
+  HS_EXPECT_FALSE(MeshStack::world_transform_is_identity);
 }
 
 /**
