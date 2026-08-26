@@ -233,6 +233,9 @@ public:
 
 private:
   HS_COLD_MEMBER bool apply_preset(const PresetChange &) override {
+    static_assert(PRESET_IDS.size() == 1,
+                  "Fishbowl applies its single PRESET whatever index is "
+                  "requested; a second entry needs a table lookup here");
     params = PRESET;
     return true;
   }
