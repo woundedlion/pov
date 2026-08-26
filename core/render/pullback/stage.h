@@ -191,6 +191,14 @@ consteval bool apply_policy_callable() {
     };
 }
 
+/** @brief Whether @p Policy declares value role @p Role. */
+template <typename Policy, ValueRole Role> consteval bool value_role_is() {
+  if constexpr (requires { Policy::VALUE_ROLE; })
+    return Policy::VALUE_ROLE == Role;
+  else
+    return false;
+}
+
 } // namespace Detail
 
 namespace Stage {
@@ -551,6 +559,7 @@ struct Transfer
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
+      Detail::value_role_is<TransferPolicyT, ValueRole::TRANSFER>() &&
       Detail::apply_policy_callable<TransferPolicyT, float, float,
                                     typename Binding::FrameState>();
 
@@ -596,6 +605,7 @@ struct ApplyCoverage
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
+      Detail::value_role_is<CoveragePolicyT, ValueRole::COVERAGE>() &&
       Detail::apply_policy_callable<CoveragePolicyT, float, float,
                                     typename Binding::FrameState>();
 

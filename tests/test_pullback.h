@@ -670,7 +670,8 @@ struct MissingPreparedSampleCoverageApply : Pullback::ApproximationDefaults {
   }
 };
 
-struct PreparedTransferPolicy : Pullback::ApproximationDefaults {
+struct PreparedTransferPolicy : Pullback::ApproximationDefaults,
+                                Pullback::TransferRole {
   using Prepared = float;
   static Prepared prepare(const TestFrame &) { return 0.25f; }
   static float apply(float value, const TestFrame &, const Prepared &p) {
@@ -678,7 +679,8 @@ struct PreparedTransferPolicy : Pullback::ApproximationDefaults {
   }
 };
 
-struct PreparedCoveragePolicy : Pullback::ApproximationDefaults {
+struct PreparedCoveragePolicy : Pullback::ApproximationDefaults,
+                                Pullback::CoverageRole {
   using Prepared = float;
   static Prepared prepare(const TestFrame &) { return 0.5f; }
   static float apply(float, const TestFrame &, const Prepared &p) { return p; }
@@ -883,6 +885,22 @@ inline void test_pullback_provider_contracts() {
                 ValueState>::PROVIDER_VALID<TestBinding>);
   static_assert(!Pullback::ValueCoverage::ValueCutout<
                 MalformedValueState>::PROVIDER_VALID<TestBinding>);
+  // The two float -> float stages share a call signature; only the role tag
+  // separates them.
+  static_assert(Pullback::descriptor_bindable<
+                Pullback::Stage::Transfer<Pullback::Transfer::Ridge>,
+                CountingBinding>());
+  static_assert(!Pullback::descriptor_bindable<
+                Pullback::Stage::ApplyCoverage<Pullback::Transfer::Ridge>,
+                CountingBinding>());
+  static_assert(Pullback::descriptor_bindable<
+                Pullback::Stage::ApplyCoverage<
+                    Pullback::ValueCoverage::ValueCutout<CountingValueState>>,
+                CountingBinding>());
+  static_assert(!Pullback::descriptor_bindable<
+                Pullback::Stage::Transfer<
+                    Pullback::ValueCoverage::ValueCutout<CountingValueState>>,
+                CountingBinding>());
   // Runtime half: a provider that declares no Prepared collapses to an empty
   // bound prepared state, and the bound stage still runs.
   const TestFrame frame;

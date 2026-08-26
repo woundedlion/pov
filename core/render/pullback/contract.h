@@ -221,6 +221,20 @@ struct ApproximationDefaults {
 /** @brief Prepared type of a stage or policy with no per-frame state. */
 struct NoPrepared {};
 
+/** @brief Which FIELD member a unit-value policy's factor lands in. */
+enum class ValueRole : uint8_t { TRANSFER, COVERAGE };
+
+/** @brief Tags a policy for Stage::Transfer, which overwrites the value. */
+struct TransferRole {
+  static constexpr ValueRole VALUE_ROLE = ValueRole::TRANSFER;
+};
+
+/** @brief Tags a policy for Stage::ApplyCoverage, which multiplies the
+    accumulated coverage. */
+struct CoverageRole {
+  static constexpr ValueRole VALUE_ROLE = ValueRole::COVERAGE;
+};
+
 template <typename Stage> consteval bool has_final_framebuffer_metric() {
   for (const ApproximationMetric &metric : Stage::METRICS)
     if (metric.domain == ApproximationDomain::FRAMEBUFFER)

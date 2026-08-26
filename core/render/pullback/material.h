@@ -70,7 +70,7 @@ struct IsoValueParams {
 };
 static_assert(field_ids_unique<IsoValueParams>());
 
-struct Ridge : ApproximationDefaults {
+struct Ridge : ApproximationDefaults, TransferRole {
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &) {
@@ -93,7 +93,8 @@ smooth_bands(float value, float band_count, float band_phase) {
   return 0.5f - 0.5f * fast_cosf(TWO_PI_F * band_count * value + band_phase);
 }
 
-template <typename State> struct IsoContour : ApproximationDefaults {
+template <typename State>
+struct IsoContour : ApproximationDefaults, TransferRole {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -109,7 +110,8 @@ template <typename State> struct IsoContour : ApproximationDefaults {
   }
 };
 
-template <typename State> struct SmoothBands : ApproximationDefaults {
+template <typename State>
+struct SmoothBands : ApproximationDefaults, TransferRole {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -226,7 +228,8 @@ value_cutout(float value, float threshold, float width) {
  * @details Reads the current FIELD value and nothing else, so a chain may
  * legally place it before, between, or after transfers.
  */
-template <typename State> struct ValueCutout : ApproximationDefaults {
+template <typename State>
+struct ValueCutout : ApproximationDefaults, CoverageRole {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
