@@ -1110,6 +1110,35 @@ inline void test_pullback_field_curves() {
                snap_to.topology);
 }
 
+inline void test_pullback_hard_edge_kernels() {
+  using Pullback::Detail::smooth_ramp_or_step;
+  HS_EXPECT_NEAR(smooth_ramp_or_step(0.0f, 1.0f, 0.5f), 0.5f, 1e-6f);
+  HS_EXPECT_EQ(smooth_ramp_or_step(0.0f, 1.0f, -1.0f), 0.0f);
+  HS_EXPECT_EQ(smooth_ramp_or_step(0.0f, 1.0f, 2.0f), 1.0f);
+  HS_EXPECT_EQ(smooth_ramp_or_step(0.5f, 0.5f, 0.4f), 0.0f);
+  HS_EXPECT_EQ(smooth_ramp_or_step(0.5f, 0.5f, 0.5f), 0.0f);
+  HS_EXPECT_EQ(smooth_ramp_or_step(0.5f, 0.5f, 0.6f), 1.0f);
+
+  using Pullback::Transfer::iso_contour;
+  HS_EXPECT_EQ(iso_contour(0.5f, 0.5f, 0.1f), 1.0f);
+  HS_EXPECT_EQ(iso_contour(0.8f, 0.5f, 0.1f), 0.0f);
+  HS_EXPECT_EQ(iso_contour(0.5f, 0.5f, 0.0f), 1.0f);
+  HS_EXPECT_EQ(iso_contour(0.5001f, 0.5f, 0.0f), 0.0f);
+
+  Pullback::ProjectionProvenance provenance{};
+  using Pullback::ProjectionCoverage::edge_fade;
+  provenance.fade_edge_distance = 0.25f;
+  HS_EXPECT_NEAR(edge_fade(provenance, 0.5f), 0.5f, 1e-6f);
+  HS_EXPECT_EQ(edge_fade(provenance, 0.0f), 1.0f);
+  provenance.fade_edge_distance = 0.0f;
+  HS_EXPECT_EQ(edge_fade(provenance, 0.0f), 0.0f);
+
+  using Pullback::ValueCoverage::value_cutout;
+  HS_EXPECT_NEAR(value_cutout(0.5f, 0.5f, 0.25f), 0.5f, 1e-6f);
+  HS_EXPECT_EQ(value_cutout(0.4f, 0.5f, 0.0f), 0.0f);
+  HS_EXPECT_EQ(value_cutout(0.6f, 0.5f, 0.0f), 1.0f);
+}
+
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_carrier_contract();
@@ -1127,6 +1156,7 @@ inline int run_pullback_tests() {
   test_pullback_lens_stack();
   test_pullback_rank_skip_crossing();
   test_pullback_field_curves();
+  test_pullback_hard_edge_kernels();
   return fixture.result();
 }
 
