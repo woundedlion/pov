@@ -52,14 +52,34 @@ inline void test_periodic_distance() {
 }
 
 inline void test_edge_metrics() {
-  const Vec4 point{{0.0f, 0.02f, 0.4f, 0.1f}};
-  const HL::EdgeMetric cubic = HL::edge_metric_3d(point, 0);
+  const Vec4 origin{{0.0f, 0.0f, 0.0f, 0.0f}};
+  const Vec4 direction{{0.0f, 0.02f, 0.4f, 0.1f}};
+  const HL::EdgeMetric cubic =
+      HL::edge_metric_3d_at(origin, direction, 0, 1.0f);
   HS_EXPECT_NEAR(cubic.distance_sq, 0.0004f, 1e-7f);
   HS_EXPECT_EQ(cubic.free_axis, uint8_t(2));
 
-  const HL::EdgeMetric hyper = HL::edge_metric_4d(point, 0);
+  HL::EdgeMetric hyper{};
+  HS_EXPECT_TRUE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f, 0.5f,
+                                               0.25f, hyper));
   HS_EXPECT_NEAR(hyper.distance_sq, 0.0104f, 1e-6f);
   HS_EXPECT_EQ(hyper.free_axis, uint8_t(2));
+
+  // Neither in-plane component inside the band.
+  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f,
+                                                0.01f, 0.25f, hyper));
+  // One in-plane component inside the band, the w component outside it.
+  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f,
+                                                0.05f, 0.25f, hyper));
+  // Inside the band, beyond the squared-distance limit.
+  HS_EXPECT_FALSE(HL::edge_metric_4d_at_bounded(origin, direction, 0, 1.0f,
+                                                0.5f, 1.0e-6f, hyper));
+
+  HL::EdgeMetric no_axis{};
+  HS_EXPECT_TRUE(HL::edge_metric_4d_at_bounded<false>(
+      origin, direction, 0, 1.0f, 0.5f, 0.25f, no_axis));
+  HS_EXPECT_NEAR(no_axis.distance_sq, 0.0104f, 1e-6f);
+  HS_EXPECT_EQ(no_axis.free_axis, uint8_t(0));
 }
 
 inline void test_so4_rotation() {
