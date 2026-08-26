@@ -752,7 +752,7 @@ def validate_netlist_spec(net_path):
     Mismatches are printed by the table's own reporter before this raises.
     """
     with open(net_path, encoding="utf-8") as fh:
-        root = sexp.parse(fh.read())[0]
+        root = sexp.parse_one(fh.read())
     if not netlist_spec.check(netlist_spec.netlist_nets(root)):
         raise NetlistSpecError(
             "netlist does not match the electrical specification (see the "
@@ -763,7 +763,7 @@ def validate_netlist_spec(net_path):
 def parse_components(net_path):
     """ref -> {value, footprint, dnp} from a kicadsexpr netlist."""
     with open(net_path, encoding="utf-8") as fh:
-        root = sexp.parse(fh.read())[0]
+        root = sexp.parse_one(fh.read())
     comps = {}
     for block in F(root, "components"):
         for comp in F(block, "comp"):
@@ -859,7 +859,7 @@ def read_board(pcb_path, error=BoardReadError, what="board"):
     """
     try:
         with open(pcb_path, encoding="utf-8") as fh:
-            return sexp.parse(fh.read())[0]
+            return sexp.parse_one(fh.read())
     except (OSError, UnicodeError, ValueError) as exc:
         raise error(f"cannot read {what}: {pcb_path}") from exc
 
