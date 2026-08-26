@@ -40,6 +40,16 @@ test('a case-only divergence is reported as a case mismatch', () => {
   assert.deepEqual(caseMismatch, ["islamicstars.png vs roster 'IslamicStars'"]);
 });
 
+// A case-insensitive dev FS cannot hold both spellings, so a stray lowercase
+// copy only ever appears on case-sensitive CI.
+test('a stray case variant beside the exact PNG is reported', () => {
+  const { missing, caseMismatch, orphan } =
+    partitionGallery(['Voronoi'], ['voronoi', 'Voronoi']);
+  assert.deepEqual(missing, []);
+  assert.deepEqual(orphan, []);
+  assert.deepEqual(caseMismatch, ["voronoi.png vs roster 'Voronoi'"]);
+});
+
 test('capture offsets naming an unregistered effect are rejected', () => {
   assert.deepEqual(invalidCaptureOffsets(['Voronoi'],
     { Voronoi: 30000, Retired: 30000 }), ['Retired=30000']);
