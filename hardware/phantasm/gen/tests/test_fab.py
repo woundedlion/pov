@@ -753,6 +753,38 @@ class ZipMemberTests(unittest.TestCase):
         self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
 
 
+class UploadZipTests(unittest.TestCase):
+    """The manifest digests the archive itself, so its deflate level is pinned
+    rather than left to whatever the host zlib defaults to."""
+
+    MEMBER = "phantasm-F_Cu.gtl"
+
+    def build(self, level="pinned"):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        source = directory / self.MEMBER
+        source.write_bytes(b"".join(
+            b"X%06dY%06dD02*\n" % (step, step * 7 % 99991)
+            for step in range(4000)))
+        path = directory / fab.ARCHIVE
+        if level == "pinned":
+            fab.write_upload_zip(str(directory), [self.MEMBER], str(path))
+        else:
+            with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr(fab.zip_member(self.MEMBER),
+                                 source.read_bytes(), compresslevel=level)
+        return path.read_bytes()
+
+    def test_archive_is_deflated_at_the_pinned_level(self):
+        self.assertEqual(self.build(), self.build(fab.ZIP_COMPRESS_LEVEL))
+
+    def test_a_different_level_would_have_produced_other_bytes(self):
+        self.assertNotEqual(self.build(), self.build(1))
+
+    def test_members_round_trip(self):
+        with zipfile.ZipFile(io.BytesIO(self.build())) as archive:
+            self.assertEqual(archive.namelist(), [self.MEMBER])
+
+
 class TimestampNormalizationTests(unittest.TestCase):
     """Every artifact records the export wall clock, so without normalization
     two runs over an unchanged board differ in every file."""
