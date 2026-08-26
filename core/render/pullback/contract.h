@@ -318,6 +318,19 @@ concept ProviderFor =
     } && std::same_as<typename State::Binding, Binding> &&
     std::same_as<typename State::FrameState, typename Binding::FrameState>;
 
+/** @brief A provider that hands out its family's parameter block by const
+    reference. */
+template <typename State, typename Binding>
+concept ParamsProvider =
+    ProviderFor<State, Binding> &&
+    requires(const typename Binding::FrameState &frame) {
+      State::params(frame);
+    } &&
+    std::is_lvalue_reference_v<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))> &&
+    std::is_const_v<std::remove_reference_t<decltype(State::params(
+        std::declval<const typename Binding::FrameState &>()))>>;
+
 __attribute__((always_inline)) inline float clamp_unit(float value) {
   if (value <= 0.0f)
     return 0.0f;
