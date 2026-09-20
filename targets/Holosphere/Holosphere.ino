@@ -11,6 +11,7 @@
 
 #include <FastLED.h>
 #include <SPI.h>
+#include <new>
 
 #include "pov_single.h"
 #include "engine/effects.h"
@@ -34,7 +35,8 @@ void setup() {
   delay(1000);
   hs::configure_debug_telemetry();
   Serial.println("Hello");
-  g_pov = new POVDisplay<NUM_PIXELS, RPM>();
+  g_pov = new (std::nothrow) POVDisplay<NUM_PIXELS, RPM>();
+  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
 }
 
 FLASHMEM static void run_show_sequence() {
