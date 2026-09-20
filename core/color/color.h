@@ -616,6 +616,7 @@ enum class PaletteRecipeField : uint8_t {
   SCHEMA_VERSION = 32,
   INPUT_OFFSET = 33,
   INPUT_SPAN = 34,
+  COUNT,
 };
 
 struct PaletteAdjustments {
