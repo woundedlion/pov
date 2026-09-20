@@ -1977,11 +1977,12 @@ struct DeathEffect : public Effect {
   /**
    * @brief Registers an integer parameter, exposing register_int_param.
    * @param n Parameter name.
-   * @param p Pointer to the backing uint8_t storage.
+   * @param p Pointer to the backing integer storage.
    * @param min Minimum value, inclusive.
    * @param max Maximum value, inclusive.
    */
-  void reg_int(const char *n, uint8_t *p, int min, int max) {
+  template <typename Integer>
+  void reg_int(const char *n, Integer *p, int min, int max) {
     register_int_param(n, p, min, max);
   }
 };
@@ -2123,6 +2124,18 @@ inline void case_register_int_param_range() {
   DeathEffect fx;
   static uint8_t slot = 0;
   fx.reg_int("count", &slot, 0, opaque(256));
+}
+
+inline void case_register_int_param_max_inexact() {
+  DeathEffect fx;
+  static int32_t slot = 0;
+  fx.reg_int("count", &slot, 0, opaque(std::numeric_limits<int32_t>::max()));
+}
+
+inline void case_register_int_param_min_inexact() {
+  DeathEffect fx;
+  static int32_t slot = 0;
+  fx.reg_int("count", &slot, opaque(-std::numeric_limits<int32_t>::max()), 0);
 }
 
 /**
@@ -4327,6 +4340,12 @@ inline const Case *all_cases(int &n) {
        "param_host.h",
        "(range_fits) register_int_param: [min,max] must fit the target "
        "integer type"},
+      {"register_int_param_max_inexact", case_register_int_param_max_inexact,
+       "param_host.h",
+       "(bounds_exact) register_int_param: bounds must be exactly representable as float"},
+      {"register_int_param_min_inexact", case_register_int_param_min_inexact,
+       "param_host.h",
+       "(bounds_exact) register_int_param: bounds must be exactly representable as float"},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds, "canvas.h",
        "(y0 >= 0 && y0 <= y1 && y1 <= clip_region.h && x0 >= 0 && x0 <= x1 "
        "&& x1 <= clip_region.w) set_clip band must be non-inverted and "
