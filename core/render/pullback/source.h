@@ -458,10 +458,10 @@ tessellation(const Complex &input, const Params &params, TessellationKind kind,
     const float local_x = x - 1.5f * cell_x;
     const float local_y = y - SQRT_3 * (cell_z + 0.5f * cell_x);
     distance =
-        1.0f -
-        std::max(fabsf(local_x),
-                 std::max(fabsf(0.5f * local_x + 0.5f * SQRT_3 * local_y),
-                          fabsf(-0.5f * local_x + 0.5f * SQRT_3 * local_y)));
+        0.5f * SQRT_3 -
+        std::max(fabsf(local_y),
+                 std::max(fabsf(0.5f * SQRT_3 * local_x + 0.5f * local_y),
+                          fabsf(0.5f * SQRT_3 * local_x - 0.5f * local_y)));
     break;
   }
   }
