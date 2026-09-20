@@ -93,7 +93,7 @@ correctness gate.
   profiling-roster cross-check in `tools/profile_sweep.sh`.
   `just lint` runs the four lint/roster checks locally; the hook only checks
   staged Python and JavaScript, so CI remains authoritative.
-- **Documentation:** `python tools/docs_check.py` validates fences, links,
+- **Documentation:** `just docs-check` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
   new tracked path; `just docs-check` runs it locally.
   `python tools/docs_images.py` resolves every documented `<img>` against the
