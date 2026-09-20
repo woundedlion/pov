@@ -469,6 +469,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
 ├── CMakePresets.json           Canonical presets: wasm-release, wasm-debug, wasm-strict-fp, tests
 ├── cmake/
+│   ├── prune_mirrored_patterns.cmake     Removes obsolete engine-owned shader documents during install
 │   ├── prune_mirrored_screenshots.cmake  Removes obsolete engine-owned gallery PNGs during install
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
