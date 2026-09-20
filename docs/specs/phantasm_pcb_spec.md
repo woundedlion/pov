@@ -94,7 +94,8 @@ clean to **≥30 MHz** so headroom exists.
   bead carries only the **~0.15 A logic branch**, isolating it from conducted noise on the shared rotor
   rail. **Damp the bead-LC** — a bead into a low-ESR ceramic is a high-Q tank that *peaks* noise at f₀:
   a **small series R (default 1–2 Ω, R_LF) ahead of C_LF**, or a few µF of **tantalum/ESR cap** in
-  parallel, or a **lossy bead**. Keep R_LF low (≤0.3 V at 0.15 A). **C_LF DC-bias:** a 1206 10 µF X5R
+  parallel, or a **lossy bead**. Size R_LF for C_LF ripple current and damping power; it is not in the
+  0.15 A logic-load path. **C_LF DC-bias:** a 1206 10 µF X5R
   derates to ~6 µF at 5 V → use a **22 µF** part (or the tantalum option, which also damps).
 - **R-PWR-6** With the 1000 µF off-board (§2.3), the card's only electrolytic is **C_IN (≥100 µF)** —
   retain it with RTV and place it (and the connectors/Teensy) toward the hub for balance (R-MECH-2).
