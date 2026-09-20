@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  checkProfiles,
   profileDirectories,
   PROFILES_DIR,
   reportsIn,
@@ -145,4 +146,59 @@ test('profileDirectories reports an unindexed set of reports', async t => {
   assert.deepEqual(await profileDirectories(root, errors), []);
   assert.deepEqual(errors,
     ['orphan has profile reports but no README.md index']);
+});
+
+test('checkProfiles validates cross-roster and index contracts', async t => {
+  assert.deepEqual((await checkProfiles()).errors, []);
+  const reports = await reportsIn(PROFILES_DIR, 'shipping', []);
+  const first = reports[0];
+  const cases = [
+    ['missing shipping report', async root => {
+      await rm(join(root, 'shipping', first.file));
+    }, 'shipping profiles is missing: ' + first.key],
+    ['orphan shipping report', async root => {
+      await writeFile(join(root, 'shipping',
+        'profile_example_teensy_2026-08-24.md'), validReport);
+    }, 'shipping profiles has orphans: example'],
+    ['non-Phantasm reference', async root => {
+      await writeFile(join(root, 'O3',
+        'profile_example_teensy_2026-08-24.md'), validReport);
+    }, 'O3 profile names a non-Phantasm effect: example'],
+    ['registered retired effect', async root => {
+      await cp(join(root, 'shipping', first.file), join(root, 'retired', first.file));
+    }, 'retired profile still names a registered effect: ' + first.key],
+    ['missing main index link', async root => {
+      const path = join(root, 'README.md');
+      const text = await readFile(path, 'utf8');
+      await writeFile(path, text.replaceAll('shipping/' + first.file, 'removed.md'));
+    }, 'main shipping index is missing: ' + first.file],
+    ['missing local index link', async root => {
+      const path = join(root, 'shipping', 'README.md');
+      const text = await readFile(path, 'utf8');
+      await writeFile(path, text.replaceAll(first.file, 'removed.md'));
+    }, 'shipping index is missing: ' + first.file],
+    ['main count', async root => {
+      const path = join(root, 'README.md');
+      const text = await readFile(path, 'utf8');
+      await writeFile(path, text.replace(/\*\*\d+ effects in the Phantasm image/,
+        '**999 effects in the Phantasm image'));
+    }, 'main profile index states 999'],
+    ['shipping count', async root => {
+      const path = join(root, 'shipping', 'README.md');
+      const text = await readFile(path, 'utf8');
+      await writeFile(path, text.replace(/covering the\s+\d+\s+effects/,
+        'covering the 999 effects'));
+    }, 'shipping profile index states 999'],
+  ];
+  for (const [name, mutate, expected] of cases) {
+    await t.test(name, async subtest => {
+      const root = await mkdtemp(join(tmpdir(), 'holosphere-profile-gate-'));
+      subtest.after(() => rm(root, { recursive: true, force: true }));
+      await cp(PROFILES_DIR, root, { recursive: true });
+      await mutate(root);
+      const result = await checkProfiles(root);
+      assert.ok(result.errors.some(error => error.startsWith(expected)),
+        JSON.stringify(result.errors));
+    });
+  }
 });
