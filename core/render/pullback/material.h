@@ -182,6 +182,18 @@ template <typename State> struct EdgeFade : ApproximationDefaults {
   }
 };
 
+/** @brief Parameters for projection edge-fade coverage. */
+struct EdgeValueParams {
+  /** Fade band width in the projection's edge-distance units; 0 makes the edge
+      a hard cut. */
+  float edge_width = 0.1f;
+
+  static constexpr auto FIELDS = std::array{
+      edge_width_field(&EdgeValueParams::edge_width),
+  };
+};
+static_assert(field_ids_unique<EdgeValueParams>());
+
 } // namespace ProjectionCoverage
 
 namespace ValueCoverage {
@@ -201,19 +213,6 @@ struct CutoutValueParams {
   };
 };
 static_assert(field_ids_unique<CutoutValueParams>());
-
-/** @brief Value parameters for the edge fade
-    (Pullback::ProjectionCoverage::EdgeFade). */
-struct EdgeValueParams {
-  /** Fade band width in the projection's edge-distance units; 0 makes the edge
-      a hard cut. */
-  float edge_width = 0.1f;
-
-  static constexpr auto FIELDS = std::array{
-      edge_width_field(&EdgeValueParams::edge_width),
-  };
-};
-static_assert(field_ids_unique<EdgeValueParams>());
 
 /** @brief Shared cutout kernel: a smooth step through @p threshold with a
     half-width of @p width. */
