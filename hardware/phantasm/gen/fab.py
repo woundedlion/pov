@@ -1277,6 +1277,11 @@ def main():
         except FabContentError as exc:
             sys.exit(str(exc))
 
+        try:
+            zip_members(os.listdir(staged))
+        except UploadPackageError as exc:
+            sys.exit(str(exc))
+
         if os.path.isdir(JLC):
             for name in os.listdir(JLC):
                 stale = os.path.join(JLC, name)
