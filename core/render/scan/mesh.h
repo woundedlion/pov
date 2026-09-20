@@ -158,6 +158,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   // widest threshold a probe is tested on below.
   const float base_reject_rad = pixel_width * 1.0002f;
   const float base_reject_dsq = base_reject_rad * base_reject_rad;
+  [[maybe_unused]] const float plane_stretch = report_stretch(shape);
   float radial_cull = shape.max_dist;
   if (!(probe_flags & SDF::Face::PROBE_CONVEX)) {
     const float shade_reach = (probe_flags & SDF::Face::PROBE_LINEAR)
@@ -168,8 +169,23 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
   }
   const float min_cos = 1.0f / sqrtf(1.0f + radial_cull * radial_cull);
-
-  [[maybe_unused]] const float plane_stretch = report_stretch(shape);
+  [[maybe_unused]] float block_min_cos = min_cos;
+  if constexpr (pole_lod_blocks<SDF::Face>) {
+    if (!(probe_flags & SDF::Face::PROBE_CONVEX) &&
+        pole_lod_aggressiveness > 0.0f) {
+      const float block_reach = std::min(
+          pixel_width + pole_lod_aggressiveness * pixel_width *
+                            SDF::arc_stretch<SDF::Face> * plane_stretch,
+          SDF::reject_margin<SDF::Face>);
+      float block_radius =
+          shape.radius + ((probe_flags & SDF::Face::PROBE_LINEAR)
+                              ? block_reach
+                              : tanf(block_reach));
+      if (probe_flags & SDF::Face::PROBE_HAS_LUT)
+        block_radius += (shape.lut_q_safe + 1) * shape.lut_dequant;
+      block_min_cos = 1.0f / sqrtf(1.0f + block_radius * block_radius);
+    }
+  }
 
   HS_PROFILE_DEEP(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {
@@ -203,8 +219,13 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           next_block = pole_lod_block_anchor(next_block, stride);
       for (int x = runs[r].first; x < rx2;) {
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        float probe_min_cos = min_cos;
+        if constexpr (pole_lod_blocks<SDF::Face>)
+          if (stride > 1 && x == next_block && x + stride <= rx2 &&
+              probe_bounds_block<SDF::Face>(pixel_width, block_slack))
+            probe_min_cos = block_min_cos;
         shape.template distance_with_flags<true>(p, res, reject_dsq,
-                                                 probe_flags, min_cos);
+                                                 probe_flags, probe_min_cos);
         const float d = res.dist;
 
         // Columns this one shade covers. Only a canvas-aligned block that fits
