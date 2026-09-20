@@ -379,6 +379,8 @@ struct Mesh {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     constexpr int H_VIRT = H + hs::H_OFFSET;
+    // Keep this table transient: a 288x144 cache would retain 588 bytes per
+    // instantiation in DTCM instead of borrowing frame-local scratch.
     float *azimuth_pads = scratch_arena.allocate_n<float>(H_VIRT);
     for (int y = 0; y < H_VIRT; ++y)
       azimuth_pads[y] = SDF::face_azimuth_pad(W, TrigLUT<W, H>::sin_phi[y]);
