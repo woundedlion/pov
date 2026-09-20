@@ -167,8 +167,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     if (probe_flags & SDF::Face::PROBE_HAS_LUT)
       radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
   }
-  const float min_cos =
-      std::max(0.01f, 1.0f / sqrtf(1.0f + radial_cull * radial_cull));
+  const float min_cos = 1.0f / sqrtf(1.0f + radial_cull * radial_cull);
 
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
 

@@ -344,6 +344,44 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   HS_EXPECT_EQ(fill_lit, total);
 }
 
+/** @brief Near-horizon face interiors survive distance and raster culls. */
+inline void test_wide_face_preserves_near_horizon_interior() {
+  constexpr int W = 288, H = 144;
+  constexpr int X = 0, Y = H / 2;
+  TrigLUT<W, H>::init();
+  const Vector probe(TrigLUT<W, H>::sin_phi[Y], TrigLUT<W, H>::cos_phi[Y],
+                     0.0f);
+  const Vector axis = (probe * 0.008f + Vector(0, 0, 1)).normalized();
+  const Vector u = cross(axis, UP).normalized();
+  const Vector w = cross(axis, u).normalized();
+  Vector verts[4];
+  const uint16_t indices[4] = {0, 1, 2, 3};
+  for (int i = 0; i < 4; ++i) {
+    const float x = (i == 0 || i == 3) ? -200.0f : 200.0f;
+    const float y = i < 2 ? -200.0f : 200.0f;
+    verts[i] = (axis + u * x + w * y).normalized();
+  }
+  hs_test::StubEffect fx(W, H);
+  {
+    Canvas canvas(fx);
+    Pipeline<W, H> pipe;
+    SDF::FaceScratchBuffer scratch;
+    SDF::Face face(std::span<const Vector>(verts, 4),
+                   std::span<const uint16_t>(indices, 4), scratch,
+                   H + hs::H_OFFSET, H, &canvas.clip());
+    const float cosine = dot(probe, face.center);
+    HS_EXPECT_GT(cosine, 0.0f);
+    HS_EXPECT_LT(cosine, 0.01f);
+    HS_EXPECT_GT(face.radius, 100.0f);
+    HS_EXPECT_LT(fabsf(dot(probe, u) / cosine), 200.0f);
+    HS_EXPECT_LT(fabsf(dot(probe, w) / cosine), 200.0f);
+    HS_EXPECT_LT(SDF::distance_of(face, probe).dist, 0.0f);
+    Scan::rasterize_face<W, H>(pipe, canvas, face, white);
+  }
+  fx.advance_display();
+  HS_EXPECT_FALSE(is_black(fx.get_pixel(X, Y)));
+}
+
 /**
  * @brief Per-face shader setup produces the same pixels as Fragment::v2 face
  *        indexing.
@@ -1215,6 +1253,7 @@ inline int run_mesh_raster_tests() {
   test_wireframe_pixels_lie_on_edges();
   test_wireframe_reuses_geodesic_cull_span();
   test_solid_fill_covers_faces_and_tiles_sphere();
+  test_wide_face_preserves_near_horizon_interior();
   test_face_shader_setup_matches_face_index();
   test_cube_wireframe_and_fill();
   test_dodecahedron_wireframe_and_fill();

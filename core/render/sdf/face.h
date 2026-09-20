@@ -1504,7 +1504,7 @@ struct Face {
   HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
                                     float reject_dsq,
                                     uint32_t probe_flags) const {
-    const float min_cos = std::max(0.01f, 1.0f / sqrtf(1.0f + max_dist_sq));
+    const float min_cos = 1.0f / sqrtf(1.0f + max_dist_sq);
     distance_with_flags<ComputeUVs>(p, res, reject_dsq, probe_flags, min_cos);
   }
 
