@@ -10,6 +10,7 @@ namespace pov {
 
 /** @brief Retains the previous image outside this frame's segment half. */
 inline void preserve_segment_half(Canvas &canvas) {
+  HS_PROFILE(pov_preserve_half);
   const ClipRegion &clip = canvas.clip();
   const int X0 = clip.x_start == 0 ? clip.x_end : 0;
   const int X1 = clip.x_start == 0 ? canvas.width() : clip.x_start;
