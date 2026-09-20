@@ -142,6 +142,28 @@ async function main(probe) {
     printErr: (s) => console.error(`[wasm:err] ${s}`),
   });
 
+  if (typeof Module.HolosphereEngine.prototype.setShaderChain === 'function') {
+    const isolated = await createHolosphereModule({ print: () => {}, printErr: () => {} });
+    const victim = new isolated.HolosphereEngine();
+    if (victim.setEffect('ShaderChain') !== isolated.EffectSetResult.INSTALLED) {
+      fail('shader-chain: accessor-deletion probe could not install ShaderChain');
+      victim.delete();
+    } else {
+      const entry = { operator: 'sphere.rotate.v2' };
+      Object.defineProperty(entry, 'instance', { get() {
+        victim.delete();
+        return 'camera';
+      } });
+      let trapped = false;
+      try {
+        victim.setShaderChain([entry]);
+      } catch (error) {
+        trapped = error instanceof WebAssembly.RuntimeError;
+      }
+      if (!trapped) fail('shader-chain: deletion from an accessor did not trap');
+    }
+  }
+
   // Per-effect-per-resolution darkness: an effect whose draw path regresses to
   // an all-zero framebuffer is invisible to a run-wide "something lit" flag,
   // and the length checks below cannot see it either. Keys are "Name@WxH".
