@@ -287,7 +287,7 @@ struct PreparedSphericalRings {
 /** @brief Wraps this frame's source phases with the rotation's cosine pair. */
 HS_FLASH_INLINE inline PreparedSource prepare(float primary, float secondary,
                                               float angle) {
-  return {primary, secondary, angle, fast_cosf(angle), fast_sinf(angle)};
+  return {primary, secondary, angle, cosf(angle), sinf(angle)};
 }
 
 template <typename State, typename Binding>
