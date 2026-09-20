@@ -4582,7 +4582,7 @@ struct RingSpinWhiteBox {
   }
   /** @brief World-space axis of ring @p i's great circle at sub-frame @p s. */
   static Vector axis(const RS &fx, int i, int s) {
-    return fx.rings[i].orientation.orient(fx.rings[i].normal, s).normalized();
+    return fx.rings[i].orientation.orient(Y_AXIS, s).normalized();
   }
   /** @brief Ring-pool size. */
   static int num_rings() { return RS::NUM_RINGS; }
