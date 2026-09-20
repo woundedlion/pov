@@ -994,6 +994,40 @@ inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
   HS_EXPECT_EQ(global_timeline_num_events, 0);
 }
 
+inline void test_timer_then_self_cancellation_completes_once() {
+  for (bool random : {false, true}) {
+    Timeline tl;
+    struct {
+      int triggers = 0;
+      int completions = 0;
+      Animation::PeriodicTimer *periodic = nullptr;
+      Animation::RandomTimer *random = nullptr;
+    } state;
+    auto trigger = [&state](Canvas &) { ++state.triggers; };
+    auto complete = [&state]() {
+      ++state.completions;
+      if (state.periodic)
+        state.periodic->cancel();
+      else
+        state.random->cancel();
+    };
+    if (random)
+      state.random = tl.add_get(
+          0, Animation::RandomTimer(1, 1, trigger, true).then(complete),
+          Timeline::Pin::PINNED);
+    else
+      state.periodic = tl.add_get(
+          0, Animation::PeriodicTimer(1, trigger, true).then(complete),
+          Timeline::Pin::PINNED);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(state.triggers, 1);
+    HS_EXPECT_EQ(state.completions, 1);
+    HS_EXPECT_EQ(tl.event_count(), 0);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(state.completions, 1);
+  }
+}
+
 /**
  * @brief Verifies clear() destroys all events and leaves the timeline reusable,
  * without rewinding the global frame cursor.
@@ -3663,6 +3697,7 @@ inline int run_animation_tests() {
   test_timeline_then_chains_follow_up_event();
   test_repeating_timer_fires_then_each_cycle();
   test_repeating_timer_canceled_in_callback_fires_then_once();
+  test_timer_then_self_cancellation_completes_once();
   test_timeline_clear_destroys_events_keeping_frame();
   test_timeline_instance_boundary_reclaims_pinned_event();
   test_timeline_full_guard_rejects_overflow();
