@@ -163,12 +163,17 @@ def emit_header(bakes: list[dict]) -> str:
         "#pragma once",
         "",
         "#include <cstdint>",
+        "#include <bit>",
         "#include <iterator>",
         '#include "mesh/conway.h"',
         "",
         "// clang-format off",
         "namespace Solids {",
         "namespace RelaxBakes {",
+        "",
+        f'static_assert(MeshOps::RELAX_SOURCE_SCALE == {SOURCE_SCALE}.0f, "Regenerate relax bakes after changing RELAX_SOURCE_SCALE");',
+        f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_BIAS) == 0x{SOURCE_BIAS_BITS:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_BIAS");',
+        f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN) == 0x{SOURCE_MIN_MARGIN_BITS:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_MIN_MARGIN");',
         "",
     ]
     for bake in bakes:
