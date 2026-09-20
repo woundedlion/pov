@@ -900,6 +900,7 @@ private:
 
   HS_COLD_MEMBER void schedule_build_leg(Animation::OpLeg &&leg) {
     build_landing = &leg.landing();
+    Animation::OpLeg::require_event_slot();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
 
@@ -1040,6 +1041,7 @@ private:
                                          .borrow_seed = true},
         persistent_arena, draw_build_fn, handoff);
     build_landing = &leg.landing();
+    Animation::OpLeg::require_event_slot();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
   }
 
@@ -1086,6 +1088,7 @@ private:
         Animation::OpLeg::BookendClasses{.topology = medial_topology,
                                          .faces = medial_faces});
     build_landing = &leg.landing();
+    Animation::OpLeg::require_event_slot();
     timeline.add(0,
                  std::move(leg).then([this] { schedule_dual_untruncate(); }));
   }
@@ -1144,6 +1147,7 @@ private:
                                          .borrow_seed = true},
         persistent_arena, draw_build_fn, handoff, bookend);
     build_landing = &leg.landing();
+    Animation::OpLeg::require_event_slot();
     // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
     // next stage of a smooth kis/needle macro.
     timeline.add(0, std::move(leg).then([this] { dual_bridge_done(); }));
@@ -1210,6 +1214,7 @@ private:
                                          .borrow_seed = true},
         persistent_arena, draw_build_fn, handoff, bookend);
     build_landing = &leg.landing();
+    Animation::OpLeg::require_event_slot();
     timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
   }
 
@@ -1292,6 +1297,7 @@ private:
                              .sweep_frames = frames},
                          persistent_arena, draw_build_fn, handoff, bookend);
     build_landing = &leg.landing();
+    Animation::OpLeg::require_event_slot();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
 
