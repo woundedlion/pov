@@ -2666,6 +2666,55 @@ inline void test_shader_workbench_curl_integrator_range_rebind() {
   }
 }
 
+inline void test_shader_workbench_curl_scale_range_rebind() {
+  using WB = ShaderWorkbenchWhiteBox;
+  for (bool outer : {true, false}) {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    const char *const WARP = outer ? "Planar Warp 1" : "Planar Warp 2";
+    const char *const SCALE =
+        outer ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale";
+    const char *const STRENGTH =
+        outer ? "Planar Warp 1 Strength" : "Planar Warp 2 Strength";
+    HS_EXPECT_EQ(sb.updateParameter(
+                     WARP, static_cast<float>(WB::WarpStageKind::VECTOR_NOISE)),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(SCALE, 1.0f), ParamSetResult::APPLIED);
+    const uint32_t VECTOR_SCHEMA = sb.getParameterSchemaGeneration();
+    HS_EXPECT_EQ(sb.updateParameter(SCALE, 0.5f), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.getParameterSchemaGeneration(), VECTOR_SCHEMA);
+    HS_EXPECT_EQ(sb.updateParameter(SCALE, 1.0f), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(
+                     WARP, static_cast<float>(WB::WarpStageKind::CURL_FLOW)),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->max, 0.125f, 1e-7f);
+    const uint32_t CURL_SCHEMA = sb.getParameterSchemaGeneration();
+    HS_EXPECT_EQ(sb.updateParameter(SCALE, 0.125f), ParamSetResult::APPLIED);
+    HS_EXPECT_TRUE(sb.getParameterSchemaGeneration() > CURL_SCHEMA);
+    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->min, -1.0f, 1e-7f);
+    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->max, 1.0f, 1e-7f);
+    HS_EXPECT_EQ(sb.updateParameter(STRENGTH, 0.5f), ParamSetResult::APPLIED);
+    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->get_requested(), 0.5f,
+                   1e-7f);
+    sb.draw_frame();
+    sb.advance_display();
+    const auto &active = WB::active_config(sb).params.warp;
+    HS_EXPECT_NEAR(outer ? active.outer.strength : active.inner.strength, 0.5f,
+                   1e-7f);
+    HS_EXPECT_EQ(sb.updateParameter(SCALE, 1.0f), ParamSetResult::APPLIED);
+    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->min, -0.125f, 1e-7f);
+    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->max, 0.125f, 1e-7f);
+    HS_EXPECT_NEAR(sb.getParameters().find(STRENGTH)->get_requested(), 0.125f,
+                   1e-7f);
+    sb.draw_frame();
+    sb.advance_display();
+    const auto &clamped = WB::active_config(sb).params.warp;
+    HS_EXPECT_NEAR(outer ? clamped.outer.strength : clamped.inner.strength,
+                   0.125f, 1e-7f);
+  }
+}
+
 /** @brief A function edit preserves both warp stages in the dodecahedral hold. */
 inline void test_shader_workbench_dodecahedral_lattice_edit() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -6041,6 +6090,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_deterministic_gui_edits();
   test_shader_workbench_mode_specific_parameter_warnings();
   test_shader_workbench_curl_integrator_range_rebind();
+  test_shader_workbench_curl_scale_range_rebind();
   test_shader_workbench_dodecahedral_lattice_edit();
   test_shader_workbench_polar_gui_repair();
   test_shader_workbench_structural_admission();
