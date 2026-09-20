@@ -29,6 +29,8 @@
 
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/interpreter.h"
+#include "effects/AlienCore.h"
+#include "tests/composed_frame_fixture.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "workbench/shader/chain_host.h"
@@ -3435,6 +3437,80 @@ struct ShaderChainWhiteBox {
   }
 };
 
+inline void test_shader_chain_composed_frame_parity() {
+  using FX = AlienCore<96, 20>;
+  reset_globals();
+  auto params = FX::initial_params();
+  params.projection.camera_wander = 0.0f;
+  std::array<FX::FrameState, 5> references;
+  {
+    FX composed;
+    composed.init();
+    ComposedFrameWhiteBox::set_params(composed, params);
+    for (size_t frame = 0; frame < references.size(); ++frame) {
+      pin_frame_clock(static_cast<int>(frame) + 1);
+      ComposedFrameWhiteBox::advance(composed);
+      references[frame] = ComposedFrameWhiteBox::frame(composed);
+    }
+  }
+
+  reset_globals();
+  ShaderChainWhiteBox::FX chain;
+  chain.init();
+  const In::ChainEntryRequest topology[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"lens", "sphere.lens.glitch.v2"},
+      {"project", "project.gnomonic.v2"},
+      {"warp", "warp.mirror-tile.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  HS_EXPECT_EQ(static_cast<int>(chain.set_chain(topology).code),
+               static_cast<int>(In::ChainStatus::OK));
+  auto &program = ShaderChainWhiteBox::program(chain);
+  param_as<In::Op::RotateChainParams>(program, 0).wander =
+      params.projection.camera_wander;
+  auto &projection = param_as<In::Op::GnomonicChainParams>(program, 2);
+  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  projection.singularity_fade = params.projection.singularity_fade;
+  static_cast<PB::MirrorParams &>(
+      param_as<In::Op::MirrorWarpParams>(program, 3)) = params.outer_warp;
+  auto &source = param_as<In::Op::GridSampleParams>(program, 4);
+  static_cast<PB::GridSourceParams &>(source) = params.source;
+  source.edge_width = params.value.edge_width;
+  source.coverage_mode =
+      static_cast<uint8_t>(PB::ProjectionCoverageMode::EDGE_FADE);
+  auto &color = ShaderChainWhiteBox::color_params(chain);
+  static_cast<PB::ColorParams &>(color) = params.color;
+  color.mapping_mode = static_cast<uint8_t>(params.color.palette_mapping);
+
+  size_t visible = 0;
+  for (int frame = 1; frame <= 5; ++frame) {
+    HS_CONTEXT("frame", frame);
+    pin_frame_clock(frame);
+    chain.draw_frame();
+    chain.advance_display();
+    const In::FrameContext ctx = ShaderChainWhiteBox::frame_context(chain);
+    auto reference = references[static_cast<size_t>(frame - 1)];
+    reference.palette = ctx.palettes[color.palette_mode];
+    reference.hue_rotation_lut = ctx.hue_rotation_lut;
+    reference.hue_noise_lut = ctx.hue_noise_lut;
+    const auto prepared = FX::RenderPipeline::prepare(reference);
+    for (const Vector &view : sweep_views()) {
+      const Color4 expected = FX::shade(view, prepared);
+      const Color4 actual = program.evaluate(view, ctx);
+      HS_EXPECT_NEAR(actual.color.r, expected.color.r, 1);
+      HS_EXPECT_NEAR(actual.color.g, expected.color.g, 1);
+      HS_EXPECT_NEAR(actual.color.b, expected.color.b, 1);
+      HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
+      visible += expected.alpha > 0.0f &&
+                 (expected.color.r != 0 || expected.color.g != 0 ||
+                  expected.color.b != 0);
+    }
+  }
+  HS_EXPECT_GT(visible, 0u);
+}
+
 inline void test_shader_chain_effect_registers_params() {
   reset_globals();
   ShaderChain<96, 20> effect;
@@ -3700,6 +3776,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_state_continuity_slice();
   test_shader_chain_determinism();
   test_shader_chain_param_names_and_budget();
+  test_shader_chain_composed_frame_parity();
   test_shader_chain_effect_registers_params();
   test_shader_chain_effect_rebind_generation();
   test_shader_chain_effect_refusal_keeps_schema();

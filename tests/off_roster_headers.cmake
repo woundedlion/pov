@@ -9,6 +9,7 @@
 
 set(HS_OFF_ROSTER_HEADER_NAMES
   "color_test_util.h"
+  "composed_frame_fixture.h"
   "mesh_test_util.h"
   "mindsplatter_replay_corpus.h"
   "mindsplatter_replay_metrics.h"
