@@ -60,6 +60,10 @@ inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
 
 /**
+ * @param regular_distance_sq Squared-distance term that vanishes at the
+ *                            singularity.
+ * @param singular_distance_sq Squared-distance term that vanishes at the
+ *                             regular locus.
  * @param singularity_fade Attenuation sharpness: 1 reaches the regular locus;
  *                         20 confines the fade to a narrow cap.
  */
