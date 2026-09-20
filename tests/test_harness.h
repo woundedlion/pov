@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <string_view>
 #include <type_traits>
 
 namespace hs_test {
@@ -277,7 +278,7 @@ private:
 /**
  * @brief Prints a single comparison operand in a type-appropriate format.
  * @tparam T Operand type; bool, floating-point, enum, integral, pointer, and the
- * engine's r/g/b and x/y/z value types are formatted specially.
+ * strings and the engine's r/g/b and x/y/z value types are formatted specially.
  * @param v The operand value to print.
  * @details Lets a failing HS_EXPECT_* line show the actual values, not just the
  * stringified expr. Pixel (r,g,b), Vector (x,y,z), Quaternion (r,v), Complex
@@ -287,7 +288,18 @@ private:
  * falls back to "?".
  */
 template <class T> inline void print_operand(const T &v) {
-  if constexpr (std::is_same_v<T, bool>) {
+  if constexpr (std::is_convertible_v<const T &, std::string_view>) {
+    if constexpr (std::is_pointer_v<T>) {
+      if (v == nullptr) {
+        std::printf("null");
+        return;
+      }
+    }
+    const std::string_view text(v);
+    std::putchar('"');
+    std::fwrite(text.data(), 1, text.size(), stdout);
+    std::putchar('"');
+  } else if constexpr (std::is_same_v<T, bool>) {
     std::printf("%s", v ? "true" : "false");
   } else if constexpr (std::is_floating_point_v<T>) {
     std::printf("%g", static_cast<double>(v));
