@@ -20,6 +20,7 @@
 #pragma once
 
 #include "hardware/pov_handoff.h"
+#include "hardware/pov_submit_gate.h"
 #include "hardware/pov_sync.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -1744,9 +1745,20 @@ inline void test_master_epoch_train_bounded() {
 
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
-// Stand-in for the constructed effect: the handoff tracks ownership by address
-// only, so one instance per board exercises every path.
-struct SimEffect {};
+struct SimEffect {
+  uint64_t frames = 0;
+  void advance_display() { ++frames; }
+};
+
+struct SimHandoff : pov::EffectHandoff<SimEffect> {
+  Wake last;
+  Wake apply_wake(const pov::WakeInputs &inputs) {
+    last = pov::EffectHandoff<SimEffect>::apply_wake(inputs);
+    if (last.adopted)
+      last.live->frames = 0;
+    return last;
+  }
+};
 
 /**
  * @brief One simulated board: its SyncBoard engine plus the host-side state the
@@ -1757,8 +1769,9 @@ struct SimEffect {};
  */
 struct SimBoard {
   SyncBoard board;
-  /** The real device handoff, driven through apply_wake() each wake. */
-  pov::EffectHandoff<SimEffect> handoff;
+  SimHandoff handoff;
+  pov::SyncPulseGate sync_pulse;
+  pov::SubmitGate submit_gate;
   SimEffect instance; /**< Address the foreground publishes when built. */
   bool master = false;
   int32_t ppm = 0;      /**< Crystal offset, parts per million. */
@@ -2028,51 +2041,51 @@ private:
         b.board.mailbox().try_claim(now, b.board.gap_timeout_cycles(),
                                     b.board.max_burst_cycles(), &s))
       sp = &s;
-    const TickActions a = b.board.tick(now, sp);
-    if (a.pulse && b.master)
-      for (size_t j = 1; j < boards.size(); ++j)
-        deliver_edge(static_cast<int>(j), tg);
+    TickActions a;
+    pov::run_wake_sequence(
+        b.sync_pulse, b.submit_gate, b.handoff,
+        [&] { return a = b.board.tick(now, sp); },
+        [&] {
+          // Foreground model (build requests, commit/join swaps, frame pacing).
+          const uint32_t bw = b.board.build_word();
+          const uint32_t gen = SyncBoard::build_gen_of(bw);
+          if (gen != b.seen_gen) {
+            b.seen_gen = gen;
+            // Release + delete the outgoing instance.
+            b.handoff.request_release();
+            b.handoff.clear_pending();
+            b.pending_index = SyncBoard::build_index_of(bw);
+            // Mirror the device foreground: the RNG restart at build pickup seeds
+            // from the epoch index (pov_segmented.h).
+            b.build_seed =
+                hs::epoch_seed(static_cast<uint32_t>(b.pending_index));
+            b.pending_gen = gen;
+            b.pending_ready_g = tg + b.init_delay;
+            b.have_pending = true;
+          }
+          // Construction completes: the instance is published for the ISR to adopt.
+          if (b.have_pending && b.pending_gen == gen && tg >= b.pending_ready_g)
+            b.handoff.publish(&b.instance, b.pending_gen);
 
-    // Foreground model (build requests, commit/join swaps, frame pacing).
-    const uint32_t bw = b.board.build_word();
-    const uint32_t gen = SyncBoard::build_gen_of(bw);
-    if (gen != b.seen_gen) {
-      b.seen_gen = gen;
-      // Release + delete the outgoing instance.
-      b.handoff.request_release();
-      b.handoff.clear_pending();
-      b.pending_index = SyncBoard::build_index_of(bw);
-      // Mirror the device foreground: the RNG restart at build pickup seeds
-      // from the epoch index (pov_segmented.h).
-      b.build_seed = hs::epoch_seed(static_cast<uint32_t>(b.pending_index));
-      b.pending_gen = gen;
-      b.pending_ready_g = tg + b.init_delay;
-      b.have_pending = true;
-    }
-    // Construction completes: the instance is published for the ISR to adopt.
-    if (b.have_pending && b.pending_gen == gen && tg >= b.pending_ready_g)
-      b.handoff.publish(&b.instance, b.pending_gen);
-
-    // The device's flywheel-ISR sequence, verbatim (hardware/pov_handoff.h).
-    const auto w = b.handoff.apply_wake({.commit = a.commit,
-                                         .join_boundary = a.join_boundary,
-                                         .dark = a.dark,
-                                         .flip = a.flip,
-                                         .zero_crossing = a.zero_crossing,
-                                         .wire_gen = gen});
-    if (!w.commit_ok)
-      b.trapped = true; // device: HS_CHECK fires
+          return gen;
+        },
+        [&](bool high) {
+          if (high && b.master)
+            for (size_t j = 1; j < boards.size(); ++j)
+              deliver_edge(static_cast<int>(j), tg);
+        },
+        [&] { b.trapped = true; }, [](SimEffect *, int32_t) {},
+        [](pov::SubmitAction, SimEffect *, int32_t) { return true; });
+    const auto &w = b.handoff.last;
     if (w.adopted) {
       b.live_index = b.pending_index;
       b.t = 0;
       b.swap_g = tg;
     }
     b.live = w.live != nullptr;
-    if (a.flip) {
+    if (a.flip)
       ++b.flips;
-      if (w.advance)
-        ++b.t;
-    }
+    b.t = b.instance.frames;
     b.dark_now = w.dark;
   }
 };
