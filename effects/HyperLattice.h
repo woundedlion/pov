@@ -7,8 +7,7 @@
 
 /**
  * @file HyperLattice.h
- * @brief Reflective flight through cubic and four-dimensional hypercubic
- *        lattices.
+ * @brief Analytic flight through cubic and four-dimensional hypercubic lattices.
  */
 
 #include <array>
