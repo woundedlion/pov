@@ -19,7 +19,8 @@
 
 /**
  * @file shader_host.h
- * @brief Typed pullback sphere shader with composable projection and material stages.
+ * @brief Typed pullback sphere shader with composable projection and material
+ *        stages.
  */
 
 #include "core/color/effect_palette_recipes.h"

@@ -11,7 +11,8 @@
 
 /**
  * @file config.h
- * @brief The workbench's authored vocabulary: slot enums, the per-stage parameter families, and the Config they compose into.
+ * @brief The workbench's authored slot enums, per-stage parameter families,
+ *        and the Config they compose into.
  */
 
 #include "core/math/noise_field.h"

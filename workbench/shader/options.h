@@ -11,7 +11,8 @@
 
 /**
  * @file options.h
- * @brief Slot-menu vocabulary: the display label and stable export spelling of every enumerated field.
+ * @brief Slot-menu display labels and stable export spellings for every
+ *        enumerated field.
  */
 
 #include "workbench/shader/config.h"

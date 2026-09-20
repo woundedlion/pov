@@ -11,7 +11,8 @@
 
 /**
  * @file bindings.h
- * @brief The pullback binding the compiled pipelines are parameterized on, and the per-stage state providers that read one FrameState.
+ * @brief The compiled pipelines' pullback binding and the per-stage state
+ *        providers that read one FrameState.
  */
 
 #include "workbench/shader/kernels.h"
