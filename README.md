@@ -1235,7 +1235,7 @@ Plot::Line::draw<W, H>(pipeline, canvas, start, end, fragment_shader);
 Plot::Multiline::draw<W, H>(pipeline, canvas, vertices, fragment_shader);
 ```
 
-All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<Fragment>`) where each fragment carries position, texture registers (v0–v3), age, and color.
+`Plot::Multiline` accepts a `Fragments` array (an arena-backed `ArenaVector<Fragment>`), while `Plot::Line` accepts its two `Fragment` endpoints. The parametric primitives (`Ring`, `Polygon`, `DistortedRing`, `Star`, and `Flower`) take their geometric parameters and sample into a `Fragments` array internally. Each fragment carries position, texture registers (v0–v3), age, and color.
 
 - **Edge interpolation** — how consecutive fragments are joined. *Geodesic* (the default) walks the great-circle arc between endpoints; *planar* interpolates along an azimuthal-equidistant straight line in a basis's tangent plane (for effects that live in a 2D local space). This is selected by whether a **planar basis** is supplied to the draw call (`null` ⇒ geodesic).
 
