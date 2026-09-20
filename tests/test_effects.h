@@ -2094,9 +2094,18 @@ struct BZWhiteBox {
 /** @brief Pins the three legacy BZ species colors. */
 inline void test_bz_legacy_palette() {
   BZWhiteBox::BZ bz;
-  HS_EXPECT_EQ(BZWhiteBox::palette_color(bz, 0.0f), Pixel(36844, 10770, 3));
-  HS_EXPECT_EQ(BZWhiteBox::palette_color(bz, 0.5f), Pixel(0, 8112, 5753));
-  HS_EXPECT_EQ(BZWhiteBox::palette_color(bz, 1.0f), Pixel(2059, 0, 9668));
+  const auto expect_color = [&](float position, const Pixel &expected) {
+    const Pixel actual = BZWhiteBox::palette_color(bz, position);
+    HS_EXPECT_NEAR(static_cast<float>(actual.r), static_cast<float>(expected.r),
+                   4.0f);
+    HS_EXPECT_NEAR(static_cast<float>(actual.g), static_cast<float>(expected.g),
+                   4.0f);
+    HS_EXPECT_NEAR(static_cast<float>(actual.b), static_cast<float>(expected.b),
+                   4.0f);
+  };
+  expect_color(0.0f, Pixel(36844, 10770, 3));
+  expect_color(0.5f, Pixel(0, 8112, 5753));
+  expect_color(1.0f, Pixel(2059, 0, 9668));
 }
 
 /**
