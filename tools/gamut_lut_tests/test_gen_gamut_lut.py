@@ -3,6 +3,7 @@ import io
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,6 +14,29 @@ import gen_gamut_lut as generator  # noqa: E402
 
 
 class TestGamutLutMirrors(unittest.TestCase):
+    def test_provenance_rejects_numeric_header_and_newline_drift(self):
+        table = generator.np.zeros((1, 1, 2), dtype=generator.np.uint16)
+        expected = generator.render(table)
+        variants = (
+            expected.replace("0, 0,", "0, 1,", 1),
+            expected.replace("#pragma once", "#pragma twice", 1),
+            expected.replace("\n", "\r\n"),
+        )
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(generator, "build_table", return_value=(table, 0)):
+            path = Path(directory) / "gamut_lut.h"
+            path.write_bytes(expected.encode("utf-8"))
+            self.assertTrue(generator.check_provenance(str(path)))
+            for changed in variants:
+                with self.subTest(changed=changed[:40]):
+                    self.assertNotEqual(changed, expected)
+                    path.write_bytes(changed.encode("utf-8"))
+                    error = io.StringIO()
+                    with contextlib.redirect_stderr(error):
+                        self.assertFalse(generator.check_provenance(str(path)))
+                    self.assertIn("out of sync", error.getvalue())
+                    self.assertIn("Regenerate with:", error.getvalue())
+
     def test_cpp_logical_operators_are_evaluated(self):
         parsed = generator._cpp_float_fn(
             "{ if (x > 0.0f && x != 4.0f && "
