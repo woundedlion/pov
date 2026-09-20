@@ -1,3 +1,4 @@
+// Validates archive structure and roster coverage; capture freshness is not checked.
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -191,8 +192,8 @@ async function main() {
     process.exitCode = 1;
   } else {
     console.log(
-      `Profile archive covers all ${result.phantasmCount} Phantasm effects; `
-      + `${result.o3Count} O3 and ${result.retiredCount} retired reports are indexed.`,
+      `Profile archive structure covers all ${result.phantasmCount} Phantasm effects; `
+      + `${result.o3Count} O3 and ${result.retiredCount} retired reports are indexed. Capture freshness is not checked.`,
     );
   }
 }
