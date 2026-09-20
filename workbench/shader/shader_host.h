@@ -1314,6 +1314,8 @@ private:
                                     : "Planar Warp 2 Noise Basis",
                               &spec.basis, NOISE_BASIS_OPTIONS,
                               NOISE_BASIS_EXPORT_OPTIONS, NUM_NOISE_BASES);
+    }
+    if (warp_uses_envelope(spec.kind)) {
       register_animated_param(outer ? "Planar Warp 1 Envelope"
                                     : "Planar Warp 2 Envelope",
                               &spec.envelope, WARP_ENVELOPE_OPTIONS,
@@ -1617,6 +1619,8 @@ private:
                        0.0f, domain_scaled_max(64.0f, 8.0f, domain_scale));
       register_current(names[Workbench::WARP_NAME_FIELD_ANGLE],
                        &params.field_angle, 0.0f, TWO_PI_F);
+      register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
+                       &params.edge_width, SOFTNESS_MIN, 0.5f);
       break;
     case WarpStageKind::VORTEX:
       register_current(names[Workbench::WARP_NAME_CENTER_X], &params.center_x,
