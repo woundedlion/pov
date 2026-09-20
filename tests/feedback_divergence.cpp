@@ -136,6 +136,15 @@ const Feedback::Style presets[] = {Feedback::Style::Smoke(),
 const char *preset_names[] = {"Smoke", "LooseWormhole"};
 constexpr int NPRESET = 2;
 
+int fail_dump(FILE *f, const char *path, const char *operation) {
+  fprintf(stderr, "%s: cannot %s divergence dump\n", path, operation);
+  if (f && fclose(f) != 0)
+    fprintf(stderr, "%s: cannot close incomplete dump\n", path);
+  if (remove(path) != 0)
+    fprintf(stderr, "%s: incomplete dump could not be removed\n", path);
+  return 1;
+}
+
 /** @brief Writes every frame of every preset to `path`. */
 int dump(const char *path, int frames) {
   FILE *f = fopen(path, "wb");
@@ -144,10 +153,11 @@ int dump(const char *path, int frames) {
     return 1;
   }
   const int magic = 0x46424456; // "FBDV"
-  fwrite(&magic, sizeof(magic), 1, f);
-  fwrite(&frames, sizeof(frames), 1, f);
   const int np = NPRESET;
-  fwrite(&np, sizeof(np), 1, f);
+  if (fwrite(&magic, sizeof(magic), 1, f) != 1 ||
+      fwrite(&frames, sizeof(frames), 1, f) != 1 ||
+      fwrite(&np, sizeof(np), 1, f) != 1)
+    return fail_dump(f, path, "write header of");
 
   std::vector<uint16_t> row(CHANS);
   for (int p = 0; p < NPRESET; ++p) {
@@ -167,11 +177,14 @@ int dump(const char *path, int frames) {
           *dst++ = px.g;
           *dst++ = px.b;
         }
-      fwrite(row.data(), sizeof(uint16_t), CHANS, f);
+      if (fwrite(row.data(), sizeof(uint16_t), CHANS, f) != CHANS)
+        return fail_dump(f, path, "write frame of");
     }
-    printf("dumped %s: %d frames\n", preset_names[p], frames);
   }
-  fclose(f);
+  if (fclose(f) != 0)
+    return fail_dump(nullptr, path, "finalize");
+  for (int p = 0; p < NPRESET; ++p)
+    printf("dumped %s: %d frames\n", preset_names[p], frames);
   return 0;
 }
 
