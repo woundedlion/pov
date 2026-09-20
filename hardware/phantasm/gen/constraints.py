@@ -2,6 +2,7 @@
 
 RULE_MINIMUMS = {
     "min_clearance": 0.1016,
+    "min_copper_edge_clearance": 0.3,
     "min_through_hole_diameter": 0.2,
     "min_track_width": 0.13,
     "min_via_annular_width": 0.125,
