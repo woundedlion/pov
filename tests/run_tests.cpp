@@ -191,7 +191,7 @@ static void print_modules(std::FILE *out) {
  * @param argc Argument count as passed to main.
  * @param argv Argument vector as passed to main; names the modules to run.
  * @return True for an unfiltered run, or a filtered run naming effects,
- * effects_smoke or mindsplatter.
+ * effects_smoke, effect_factory or mindsplatter.
  */
 static bool runs_effects(int argc, char **argv) {
   if (argc <= 1)
@@ -199,6 +199,7 @@ static bool runs_effects(int argc, char **argv) {
   for (int i = 1; i < argc; ++i)
     if (std::strcmp(argv[i], "effects") == 0 ||
         std::strcmp(argv[i], "effects_smoke") == 0 ||
+        std::strcmp(argv[i], "effect_factory") == 0 ||
         std::strcmp(argv[i], "mindsplatter") == 0)
       return true;
   return false;
