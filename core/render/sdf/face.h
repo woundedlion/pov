@@ -409,11 +409,13 @@ struct Face {
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
    * @param azimuth_pads Optional latitude-adjusted padding table.
+   * @param bounds_margin Angular padding around the vertical bounds.
    */
   HS_O3_FN Face(std::span<const Vector> vertices,
                 std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
                 int h_virt, int height, const ClipRegion *clip = nullptr,
-                const float *azimuth_pads = nullptr)
+                const float *azimuth_pads = nullptr,
+                float bounds_margin = BOUNDS_MARGIN)
       : build_height(height), build_width(clip ? clip->w : 0),
         build_azimuth_pads(azimuth_pads), full_width(true) {
 
@@ -425,7 +427,8 @@ struct Face {
     // an empty row range can never be rasterized.
     const bool phi_culled = [&] {
       HS_PROFILE_DEEP(face_phi_extent);
-      return compute_phi_extent(vertices, indices, h_virt, height);
+      return compute_phi_extent(vertices, indices, h_virt, height,
+                                bounds_margin);
     }();
     if (phi_culled) {
       count = 0;
@@ -489,7 +492,8 @@ struct Face {
       // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
       // span misses the great-circle edge bulge toward a pole, leaving
       // near-pole faces with unscanned rows; the arc-extrema path covers them.
-      compute_full_bounds(scratch, count, center, h_virt, height, y_min, y_max);
+      compute_full_bounds(scratch, count, center, h_virt, height, y_min, y_max,
+                          bounds_margin);
       compute_inradius(scratch);
     }
 
@@ -608,8 +612,8 @@ struct Face {
    */
   __attribute__((always_inline)) bool
   compute_phi_extent(std::span<const Vector> vertices,
-                     std::span<const uint16_t> indices, int h_virt,
-                     int height) const {
+                     std::span<const uint16_t> indices, int h_virt, int height,
+                     float bounds_margin) const {
     float min_y_val = 2.0f;
     float max_y_val = -2.0f;
 
@@ -622,8 +626,8 @@ struct Face {
     float min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
     float max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     Bounds rows =
-        phi_bounds_to_rows(min_phi_check - BOUNDS_MARGIN,
-                           max_phi_check + BOUNDS_MARGIN, h_virt, height);
+        phi_bounds_to_rows(min_phi_check - bounds_margin,
+                           max_phi_check + bounds_margin, h_virt, height);
 
     return rows.y_min > rows.y_max;
   }
@@ -1209,7 +1213,8 @@ struct Face {
   HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch,
                                            int count, const Vector &center,
                                            int h_virt, int height,
-                                           int &y_min_out, int &y_max_out) {
+                                           int &y_min_out, int &y_max_out,
+                                           float bounds_margin) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
@@ -1243,8 +1248,8 @@ struct Face {
                                      min_phi, max_phi);
     }
     snap_phi_for_pole_planes(scratch, planes_count, center, min_phi, max_phi);
-    Bounds rows = phi_bounds_to_rows(min_phi - BOUNDS_MARGIN,
-                                     max_phi + BOUNDS_MARGIN, h_virt, height);
+    Bounds rows = phi_bounds_to_rows(min_phi - bounds_margin,
+                                     max_phi + bounds_margin, h_virt, height);
     y_min_out = rows.y_min;
     y_max_out = rows.y_max;
   }

@@ -397,7 +397,8 @@ struct Mesh {
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, H + hs::H_OFFSET, H,
-                         &canvas.clip(), azimuth_pads);
+                         &canvas.clip(), azimuth_pads,
+                         std::max(SDF::BOUNDS_MARGIN, TWO_PI_F / W));
       }();
 
       // Bind the face's congruence-class LUT: a vertex correlation aligns the
