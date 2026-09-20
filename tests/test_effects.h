@@ -96,8 +96,8 @@ using hs_test::smoke_frames;
  * every master push by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
  * full-resolution passes and the slow white-box cases are the
  * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
- * CI depth in a local commit. Read by both the effects and effects_smoke
- * modules, which split those two halves.
+ * CI depth in a local commit. Read by the effects, effects_smoke,
+ * effect_factory and mindsplatter modules.
  */
 inline bool effects_full_suite() {
 #pragma clang diagnostic push
