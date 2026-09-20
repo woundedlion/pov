@@ -1047,7 +1047,8 @@ class TestColdCaptureAudit(unittest.TestCase):
     environment with nothing to keep in sync.
     """
 
-    TUS = ("core/engine/memory.cpp", "core/spatial/reaction_graph.cpp",
+    TUS = ("core/engine/memory.cpp", "core/engine/static_storage.cpp",
+           "core/spatial/reaction_graph.cpp",
            "targets/Phantasm/Phantasm.ino.cpp")
 
     def _compile(self, env, source):
@@ -1094,7 +1095,7 @@ class TestColdCaptureAudit(unittest.TestCase):
             self.assertEqual(_run_ratchet(log, "--github"), 1)
         out = buf.getvalue()
         self.assertIn("::error::", out)
-        self.assertIn("2 of 3 first-party translation unit(s)", out)
+        self.assertIn("2 of 4 first-party translation unit(s)", out)
         self.assertIn("object cache", out)
         for tu in self.TUS[:2]:
             self.assertIn(tu, out)
@@ -1246,7 +1247,7 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
 
 
 class TestRealColdVersusWarmCapture(unittest.TestCase):
-    """Verbatim `pio run -v` sections from a real cold and a real warm build.
+    """Historical `pio run -v` sections from before static_storage.cpp split out.
 
     fixtures/real/{cold,warm}_env_section.txt are the `holosphere` sections of two
     consecutive runs of the CI command: the first with `.pio/build_cache` deleted,
@@ -1259,7 +1260,7 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
     TUS = {"core/engine/memory.cpp", "core/spatial/reaction_graph.cpp",
            "targets/Holosphere/Holosphere.ino.cpp"}
 
-    def test_real_banner_declares_three_first_party_tus(self):
+    def test_historical_banner_declares_three_first_party_tus(self):
         section, = tw.parse_env_sections(self.COLD)
         self.assertEqual(section.name, "holosphere")
         self.assertEqual(tw.declared_first_party_sources(section), self.TUS)

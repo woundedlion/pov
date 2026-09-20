@@ -1944,8 +1944,7 @@ jobs:
         # build fails the job instead of silently shrinking the warning surface.
         shell: bash
         run: |
-          rm -rf .pio/build_cache .pio/build
-          pio run -v 2>&1 | tee teensy_build.log
+          tools/teensy_cold_build.sh teensy_build.log
           python tools/teensy_warnings.py --build-log teensy_build.log --github
 
   docs-doxygen:
