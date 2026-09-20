@@ -2574,12 +2574,12 @@ inline void test_sim_drops_and_missed_epoch() {
  *        ACQUIRE, then rejoins at the master's current effect from the next
  *        beacon + join-grid boundary — never a wrong frame in between.
  */
-inline void test_sim_reboot() {
-  const Config cfg = test_config();
+inline void test_sim_reboot(const Config &cfg) {
   const int32_t ppm[4] = {0, 15, -15, 30};
   Sim sim(cfg, 4, ppm);
   sim.run_revs(12.0);
 
+  const uint64_t reboot_at = sim.g;
   // Reboot board 2 mid-show: fresh engine state, no identity assumption.
   SimBoard &b2 = sim.boards[2];
   b2.board.seed(Sim::local_now(b2, sim.g), false);
@@ -2608,6 +2608,8 @@ inline void test_sim_reboot() {
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[2].live; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
+  HS_EXPECT_LE(sim.g - reboot_at,
+               uint64_t(cfg.rejoin_bound_revs()) * 2 * PERIOD);
   HS_EXPECT_EQ(b2.live_index, sim.boards[0].live_index);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
@@ -3555,7 +3557,10 @@ inline int run_pov_sync_tests() {
   test_sim_masked_windows();
   test_sim_emi();
   test_sim_drops_and_missed_epoch();
-  test_sim_reboot();
+  test_sim_reboot(test_config());
+  const Config shipping = phantasm_config(600000000u, 480u, 288, 4);
+  HS_EXPECT_EQ(shipping.rejoin_bound_revs(), 25u);
+  test_sim_reboot(shipping);
   test_sim_forged_burst();
   test_sim_epoch_repeat_lockstep();
   test_sim_rev_resync();
