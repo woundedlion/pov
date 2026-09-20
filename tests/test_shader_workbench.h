@@ -2946,6 +2946,27 @@ inline void test_shader_workbench_structural_admission() {
   HS_EXPECT_FALSE(WB::stable_topology(from, to));
   HS_EXPECT_FALSE(WB::stable_parameter_path_admitted(from, to));
 
+  const WB::RequestedConfig discrete_base = WB::legacy_config();
+  WB::RequestedConfig discrete = discrete_base;
+  discrete.params.source.noise_basis = WB::NoiseBasis::FBM3;
+  HS_EXPECT_FALSE(WB::stable_topology(discrete_base, discrete));
+  discrete = discrete_base;
+  ++discrete.params.source.noise_seed;
+  HS_EXPECT_FALSE(WB::stable_topology(discrete_base, discrete));
+  discrete = discrete_base;
+  ++discrete.params.source.ring_count;
+  HS_EXPECT_FALSE(WB::stable_topology(discrete_base, discrete));
+  discrete = discrete_base;
+  ++discrete.params.source.fractal_iterations;
+  HS_EXPECT_FALSE(WB::stable_topology(discrete_base, discrete));
+  discrete = discrete_base;
+  discrete.params.source.tessellation_kind =
+      Pullback::Source::TessellationKind::SQUARE;
+  HS_EXPECT_FALSE(WB::stable_topology(discrete_base, discrete));
+  discrete = discrete_base;
+  ++discrete.params.value.band_count;
+  HS_EXPECT_FALSE(WB::stable_topology(discrete_base, discrete));
+
   WB::RequestedConfig mirror_flat =
       Workbench::peirce_dodecahedral_generated_preset();
   mirror_flat.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED;

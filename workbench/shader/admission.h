@@ -493,6 +493,11 @@ HS_COLD_MEMBER inline constexpr bool same_parameter_topology(const Config &from,
   return from_slots == to_slots &&
          from.params.source.noise_basis == to.params.source.noise_basis &&
          from.params.source.noise_seed == to.params.source.noise_seed &&
+         from.params.source.ring_count == to.params.source.ring_count &&
+         from.params.source.fractal_iterations ==
+             to.params.source.fractal_iterations &&
+         from.params.source.tessellation_kind ==
+             to.params.source.tessellation_kind &&
          from.params.value.band_count == to.params.value.band_count &&
          from.params.surface_noise.basis == to.params.surface_noise.basis &&
          from.params.surface_noise.integrator ==
