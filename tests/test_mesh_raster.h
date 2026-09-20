@@ -30,6 +30,7 @@
 #include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/vec_test_util.h"
 
 namespace hs_test {
 namespace mesh_raster_tests {
@@ -84,39 +85,6 @@ inline bool lit_near(const hs_test::StubEffect &fx, float px, float py, int r) {
     }
   }
   return false;
-}
-
-/**
- * @brief Angular distance (radians) from a unit vector to a great-circle arc.
- * @param v Query unit vector.
- * @param a Arc start (unit vector).
- * @param b Arc end (unit vector).
- * @return The smaller of the off-plane distance (when v projects onto the arc
- *         interior) or the nearer endpoint distance (when it projects outside).
- * @details Used as the analytic oracle for "is this lit pixel ON some edge?":
- *          n = a×b is the arc's plane normal, asin(|v·n|) is the angle off the
- *          great circle, and a+b-span test places the projection inside the
- * arc.
- */
-inline float arc_distance(const Vector &v, const Vector &a, const Vector &b) {
-  const auto ang = [](const Vector &p, const Vector &q) {
-    return acosf(hs::clamp(dot(p, q), -1.0f, 1.0f));
-  };
-  Vector n = cross(a, b);
-  float nlen = n.length();
-  const float endpoints = std::min(ang(v, a), ang(v, b));
-  if (nlen < 1e-6f)
-    return endpoints; // degenerate edge (a ∥ b): nearest endpoint
-  n = n * (1.0f / nlen);
-  float off = asinf(hs::clamp(std::abs(dot(v, n)), 0.0f, 1.0f));
-  Vector p = v - n * dot(v, n); // v projected onto the arc's plane
-  float plen = p.length();
-  if (plen > 1e-6f) {
-    p = p * (1.0f / plen);
-    if (ang(a, p) + ang(p, b) <= ang(a, b) + 1e-3f)
-      return off; // projection lands on the arc interior
-  }
-  return endpoints;
 }
 
 // ============================================================================
@@ -212,8 +180,8 @@ inline void test_wireframe_pixels_lie_on_edges() {
       Vector v = pixel_to_vector<W, H>(x, y);
       float best = PI_F;
       for (size_t e = 0; e < edges.size(); ++e) {
-        float d = arc_distance(v, mesh.vertices[edges[e].u],
-                               mesh.vertices[edges[e].v]);
+        float d = arc_angular_distance(v, mesh.vertices[edges[e].u],
+                                       mesh.vertices[edges[e].v]);
         if (d < best)
           best = d;
       }
@@ -488,8 +456,8 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
       Vector v = pixel_to_vector<W, H>(x, y);
       float best = PI_F;
       for (size_t e = 0; e < edges.size(); ++e) {
-        float d = arc_distance(v, mesh.vertices[edges[e].u],
-                               mesh.vertices[edges[e].v]);
+        float d = arc_angular_distance(v, mesh.vertices[edges[e].u],
+                                       mesh.vertices[edges[e].v]);
         if (d < best)
           best = d;
       }
