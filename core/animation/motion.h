@@ -535,7 +535,7 @@ struct RandomWalkOptions {
   float speed = 0.02f; /**< Movement speed per frame. */
   float pivot_strength =
       0.1f; /**< Strength of the direction change (noise amplitude). */
-  float noise_scale = 0.02f; /**< Frequency of the Perlin noise. */
+  float noise_scale = 0.02f; /**< Frequency of the OpenSimplex2 noise. */
   float smoothing =
       0.85f;          /**< Angular momentum (0 = none, 0.95 = very sluggish). */
   float drift = 0.5f; /**< Temporal drift speed for spatial noise. */
@@ -623,7 +623,8 @@ step_random_walk(Vector &position, Vector &direction, float &angular_velocity,
 /**
  * @brief An animation that simulates a particle/camera performing a random walk
  * across the sphere's surface.
- * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
+ * @details Uses OpenSimplex2 noise to create continuous, turbulent pivoting
+ *          motion.
  *
  * PERPETUAL (duration -1, no repeat or self-reset): reaches done() only through
  * cancel(), which also fires any `.then()` callback; a repeating spawn leaks

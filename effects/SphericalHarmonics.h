@@ -259,7 +259,7 @@ private:
   /**
    * @brief Choose the next harmonic and animate the morph toward it.
    * @details On completion commits it as current and recurses, yielding an
-   * endless morph chain. Pausable: the chain is this effect's look
+   * endless morph chain. Pausable: the chain is this effect's preset
    * choreography, so "Pause Animation" holds the current blend.
    */
   HS_COLD_MEMBER void start_morph() {
