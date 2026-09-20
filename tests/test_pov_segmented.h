@@ -15,6 +15,7 @@
 #include "core/render/canvas.h"
 #include "hardware/pov_handoff.h"
 #include "hardware/pov_segment_map.h"
+#include "hardware/pov_segment_frame.h"
 #include "hardware/pov_submit_gate.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -868,6 +869,59 @@ inline void test_clip_phase_after_buffer_release() {
   HS_EXPECT_EQ(clipped_clear.offband_kept, 16);
 }
 
+inline void test_segment_half_survives_missed_boundaries() {
+  for (bool clipped_clear : {false, true}) {
+    for (int count : {2, 4, 8}) {
+      for (int id = 0; id < count; ++id) {
+        for (bool target_left : {false, true}) {
+          for (int missed = 0; missed <= 5; ++missed) {
+            PhaseEffect effect(clipped_clear);
+            const SegmentMap map = segment_map(id, 8, count);
+            const SegmentClip clip =
+                segment_clip(map, target_left, 8, count, 8);
+            effect.set_clip(clip.y0, clip.y1, 0, 8);
+            effect.draw_frame();
+            effect.advance_display();
+            effect.set_buffer_complete_hook(pov::preserve_segment_half);
+            EffectHandoff<Effect> handoff;
+            handoff.adopt(&effect, 1);
+            handoff.set_window_left(!target_left);
+            effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
+            {
+              Canvas canvas(effect);
+              for (int y = clip.y0; y < clip.y1; ++y)
+                for (int x = 0; x < 8; ++x)
+                  canvas(x, y) =
+                      Pixel(x >= clip.x0 && x < clip.x1 ? 2 : 9, 0, 0);
+              for (int boundary = 0; boundary < missed; ++boundary) {
+                const bool left =
+                    boundary % 2 == 0 ? target_left : !target_left;
+                const auto wake =
+                    handoff.apply_wake({.flip = true, .zero_crossing = left});
+                if (wake.advance)
+                  wake.live->advance_display();
+                for (int y = clip.y0; y < clip.y1; ++y)
+                  for (int x = 0; x < 8; ++x)
+                    HS_EXPECT_EQ(effect.get_pixel(x, y).r, 1);
+              }
+            }
+            const auto wake = handoff.apply_wake(
+                {.flip = true,
+                 .zero_crossing =
+                     missed % 2 == 0 ? target_left : !target_left});
+            if (wake.advance)
+              wake.live->advance_display();
+            for (int y = clip.y0; y < clip.y1; ++y)
+              for (int x = 0; x < 8; ++x)
+                HS_EXPECT_EQ(effect.get_pixel(x, y).r,
+                             x >= clip.x0 && x < clip.x1 ? 2 : 1);
+          }
+        }
+      }
+    }
+  }
+}
+
 /** @brief Payload whose access is ordered only by EffectHandoff. */
 struct HandoffCell {
   uint32_t gen = 0;
@@ -1196,6 +1250,7 @@ inline int run_pov_segmented_tests() {
   test_composed_wake_sequence();
   test_commit_failure_settles_sync_pulse();
   test_clip_phase_after_buffer_release();
+  test_segment_half_survives_missed_boundaries();
   test_handoff_release_acquire_across_threads();
 
   test_submit_retries_dropped_column();
