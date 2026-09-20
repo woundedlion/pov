@@ -349,7 +349,7 @@ DRILL_MEMBERS = {"phantasm-PTH.drl": "plated", "phantasm-NPTH.drl": "unplated"}
 #: An aperture definition, and any draw/flash that uses one. A Gerber plots
 #: nothing without both.
 GERBER_APERTURE = re.compile(r"^%ADD\d+", re.M)
-GERBER_OPERATION = re.compile(r"D0[123]\*")
+GERBER_OPERATION = re.compile(r"(?:G0?[123])?(?:[XYIJ][+-]?\d+)*D0[13]")
 #: One Excellon hole: a coordinate line, whether a plain drill or a slot.
 EXCELLON_HOLE = re.compile(r"^X-?[\d.]+Y-?[\d.]+", re.M)
 
@@ -423,7 +423,8 @@ def validate_fab_content(directory, board):
         text = read_export(path)
         if not GERBER_APERTURE.search(text):
             diagnostics.append(f"{name}: defines no apertures")
-        elif not GERBER_OPERATION.search(text):
+        elif not any(GERBER_OPERATION.fullmatch(command.strip())
+                     for command in text.split("*")):
             diagnostics.append(f"{name}: draws with none of its apertures")
 
     if diagnostics:
