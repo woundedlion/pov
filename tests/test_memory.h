@@ -1133,10 +1133,6 @@ inline void test_persist_compaction_relocates_survivor() {
 // Runner
 // ============================================================================
 
-/**
- * @brief Runs every memory test case in this module.
- * @return The harness exit code (zero on success, nonzero on failure).
- */
 inline uint8_t gen_target_buf[8 * 1024];
 
 /**
@@ -1338,6 +1334,10 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 // ============================================================================
 // Runner
 
+/**
+ * @brief Runs every memory test case in this module.
+ * @return The harness exit code (zero on success, nonzero on failure).
+ */
 inline int run_memory_tests() {
   hs_test::ModuleFixture fixture("memory");
 
