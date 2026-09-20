@@ -2114,6 +2114,19 @@ inline void case_register_param_overflow() {
   }
 }
 
+inline void case_register_param_duplicate() {
+  DeathEffect fx;
+  float value = 0.5f;
+  fx.reg("duplicate", &value);
+  fx.reg("duplicate", &value);
+}
+
+inline void case_register_param_default_outside_range() {
+  DeathEffect fx;
+  float value = 2.0f;
+  fx.reg("outside", &value);
+}
+
 /**
  * @brief Death case: an integer param bound the target cannot store must trap.
  * @details Canvas surface — a value write narrows through
@@ -4397,6 +4410,12 @@ inline const Case *all_cases(int &n) {
       {"register_param_overflow", case_register_param_overflow, "param_host.h",
        "(parameters.count < parameters.capacity()) register_param: "
        "exceeded ParamList capacity"},
+      {"register_param_duplicate", case_register_param_duplicate,
+       "param_host.h",
+       "(parameters.find(name) == nullptr) register_param: duplicate parameter name"},
+      {"register_param_default_outside_range",
+       case_register_param_default_outside_range, "param_host.h",
+       "(*ptr >= min && *ptr <= max) register_param: default *ptr outside [min,max]"},
       {"register_int_param_range", case_register_int_param_range,
        "param_host.h",
        "(range_fits) register_int_param: [min,max] must fit the target "
@@ -5137,7 +5156,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"motion.h", 6},
     {"opleg.h", 42},
     {"params.h", 10},
-    {"param_host.h", 26},
+    {"param_host.h", 24},
     {"preset_host.h", 2},
     {"segue.h", 1},
     {"sprites.h", 10},
