@@ -1,10 +1,16 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
+ *
+ * @file pov_segment_frame.h
+ * @brief Preserves the inactive arm half after buffer_complete_hook selects the
+ *        segment clip for the newly acquired draw buffer.
  */
 #pragma once
 
 #include "render/canvas.h"
+
+#include <cstring>
 
 namespace pov {
 
@@ -18,7 +24,7 @@ inline void preserve_segment_half(Canvas &canvas) {
   const Pixel *const source = canvas.prev_data();
   for (int y = clip.y_start; y < clip.y_end; ++y) {
     const int OFFSET = y * canvas.width() + X0;
-    memcpy(dest + OFFSET, source + OFFSET, (X1 - X0) * sizeof(Pixel));
+    std::memcpy(dest + OFFSET, source + OFFSET, (X1 - X0) * sizeof(Pixel));
   }
 }
 
