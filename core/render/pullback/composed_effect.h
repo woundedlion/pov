@@ -25,6 +25,12 @@
 #include "render/pullback.h"
 #include "render/pullback/runtime_seeds.h"
 
+#if HS_ENABLE_TEST_HOOKS
+namespace hs_test {
+struct ComposedFrameWhiteBox;
+}
+#endif
+
 namespace Pullback {
 
 enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
@@ -777,6 +783,9 @@ class ComposedEffect : public ChoreographedEffect<Derived, ParamsT>,
                        private ProjectionWalkState<AnimatedProjection> {
   using Choreography = ChoreographedEffect<Derived, ParamsT>;
   friend Choreography;
+#if HS_ENABLE_TEST_HOOKS
+  friend struct hs_test::ComposedFrameWhiteBox;
+#endif
 
 public:
   using Params = ParamsT;
