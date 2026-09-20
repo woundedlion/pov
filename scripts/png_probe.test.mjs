@@ -35,7 +35,7 @@ function chunk(type, data) {
 // chunks are placed between IHDR and IDAT. The options override the IHDR
 // method bytes and the inflated raster size.
 function makeTypedPng(width, height, depth, colorType, channels, extra = [],
-  { compression = 0, filter = 0, interlace = 0, rawBytes = null } = {}) {
+  { compression = 0, filter = 0, interlace = 0, rawBytes = null, rawData = null } = {}) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
@@ -44,7 +44,7 @@ function makeTypedPng(width, height, depth, colorType, channels, extra = [],
   ihdr[10] = compression;
   ihdr[11] = filter;
   ihdr[12] = interlace;
-  const raw = Buffer.alloc(rawBytes ?? height
+  const raw = rawData ?? Buffer.alloc(rawBytes ?? height
     * (1 + Math.ceil(width * channels * depth / 8)));
   return Buffer.concat([
     SIGNATURE,
@@ -62,6 +62,27 @@ function makePng(width, height) {
 
 test('a well-formed PNG reports its declared dimensions', () => {
   assert.deepEqual(inspectPng(makePng(7, 3)), { width: 7, height: 3 });
+});
+
+test('scanline filters are checked independently of sample bytes and CRCs', () => {
+  for (const [width, height, depth, channels, interlace, size, offsets] of [
+    [3, 5, 8, 4, 0, 65, [0, 13, 26, 39, 52]],
+    [9, 2, 1, 1, 0, 6, [0, 3]],
+    [5, 3, 8, 4, 1, 67, [0, 5, 10, 15, 28, 37, 46]],
+    [1, 1, 8, 4, 1, 5, [0]],
+  ]) {
+    const rawData = Buffer.alloc(size, 0xff);
+    offsets.forEach((offset, index) => { rawData[offset] = index % 5; });
+    const png = () => makeTypedPng(width, height, depth, channels === 1 ? 0 : 6,
+      channels, [], { interlace, rawData });
+    assert.deepEqual(inspectPng(png()), { width, height });
+    for (const offset of offsets) {
+      const valid = rawData[offset];
+      rawData[offset] = 5;
+      assert.throws(() => inspectPng(png()), /invalid scanline filter 5/);
+      rawData[offset] = valid;
+    }
+  }
 });
 
 test('an empty file is rejected', () => {
