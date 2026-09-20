@@ -4755,6 +4755,35 @@ inline void test_shader_workbench_inverse_pipeline_manifest() {
                                     WB::WarpStageKind::NONE>(shear_key)));
   }
 
+  auto vector_key = WB::topology_key(WB::presets()[0]);
+  vector_key.outer_warp = WB::WarpStageKind::VECTOR_NOISE;
+  vector_key.outer_warp_basis = WB::NoiseBasis::SIMPLEX;
+  vector_key.outer_warp_envelope = WB::WarpEnvelope::FLAT;
+  const auto vector_matches = [&] {
+    return WB::planar_warp_implements<WB::WarpStageKind::VECTOR_NOISE,
+                                      WB::WarpStageKind::NONE>(vector_key);
+  };
+  HS_EXPECT_TRUE(vector_matches());
+  vector_key.outer_warp_basis = WB::NoiseBasis::RIDGED3;
+  HS_EXPECT_FALSE(vector_matches());
+  vector_key.outer_warp_basis = WB::NoiseBasis::SIMPLEX;
+  vector_key.outer_warp_envelope = WB::WarpEnvelope::EDGE_FADE;
+  HS_EXPECT_FALSE(vector_matches());
+  auto polar_key = vector_key;
+  polar_key.outer_warp = WB::WarpStageKind::POLAR_CHART;
+  polar_key.outer_polar_mode = WB::PolarMode::LINEAR;
+  polar_key.outer_polar_harmonic = 1;
+  const auto polar_matches = [&] {
+    return WB::planar_warp_implements<WB::WarpStageKind::POLAR_CHART,
+                                      WB::WarpStageKind::NONE>(polar_key);
+  };
+  HS_EXPECT_TRUE(polar_matches());
+  polar_key.outer_polar_harmonic = 2;
+  HS_EXPECT_FALSE(polar_matches());
+  polar_key.outer_polar_harmonic = 1;
+  polar_key.outer_polar_mode = WB::PolarMode::LOGARITHMIC;
+  HS_EXPECT_FALSE(polar_matches());
+
   WB::RequestedConfig unsupported = WB::presets()[0];
   unsupported.slots.surface_lens = WB::SurfaceLens::TWIST;
   HS_EXPECT_FALSE(WB::has_inverse_program(unsupported));

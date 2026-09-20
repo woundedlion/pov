@@ -218,7 +218,13 @@ struct SelectedWarpStage : Pullback::Stage::Warp<WarpPolicy<KindV, Outer>> {
     if constexpr (Outer)
       return key.outer_warp == KindV &&
              (KindV != WarpStageKind::WAVE_SHEAR ||
-              key.outer_warp_envelope == WarpEnvelope::FLAT);
+              key.outer_warp_envelope == WarpEnvelope::FLAT) &&
+             (KindV != WarpStageKind::VECTOR_NOISE ||
+              (key.outer_warp_basis == NoiseBasis::SIMPLEX &&
+               key.outer_warp_envelope == WarpEnvelope::FLAT)) &&
+             (KindV != WarpStageKind::POLAR_CHART ||
+              (key.outer_polar_mode == PolarMode::LINEAR &&
+               key.outer_polar_harmonic == 1));
     else
       return key.inner_warp == KindV &&
              (KindV != WarpStageKind::WAVE_SHEAR ||
