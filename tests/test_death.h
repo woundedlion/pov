@@ -5246,6 +5246,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"dma_led.h", 4},
     {"pov_segmented.h", 9},
     {"pov_single.h", 9},
+    {"Holosphere.ino", 1},
     {"Profile.ino", 4},
     {"phantasm_target.h", 2},
     {"engine_bindings.h", 7},
