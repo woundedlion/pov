@@ -3014,6 +3014,14 @@ inline void test_shader_workbench_structural_admission() {
   probe.normalize();
   const Pullback::ProjectionResult flat_projection =
       WB::project_peirce(probe, flat_frame);
+  const Pullback::ProjectionResult compiled_projection =
+      Pullback::Projection::peirce_fast_square(
+          probe, flat_frame.params.projection.coordinate_scale,
+          flat_frame.params.projection.singularity_fade);
+  HS_EXPECT_EQ(flat_projection.coords.re, compiled_projection.coords.re);
+  HS_EXPECT_EQ(flat_projection.coords.im, compiled_projection.coords.im);
+  HS_EXPECT_EQ(flat_projection.provenance.fade_edge_distance,
+               compiled_projection.provenance.fade_edge_distance);
   const Pullback::ProjectionResult edge_projection =
       WB::project_peirce(probe, edge_frame);
   HS_EXPECT_EQ(flat_projection.coords.re, edge_projection.coords.re);
