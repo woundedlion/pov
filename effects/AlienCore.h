@@ -36,9 +36,9 @@ public:
   using Params = AlienCoreParams;
   static constexpr std::string_view EFFECT_ID = "alien-core";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "e26c70d5cbcac32e1c5f996c84b00fc9c98af16160b16a0cf4d8ff80af53a134";
+      "6e2bc1705f48b16d77b0a5c086dc5c187e485b2c65d753f66375114e9ef64013";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "a91f7f5b30d5375fa4b6b241481703ebc1cb537d95a28b95c3630569a4074191";
+      "8b76fda1895b0572c30c79e00baa135e3bbcc151c2c051f3c1ab0773be83c366";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"folded-glitch"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;

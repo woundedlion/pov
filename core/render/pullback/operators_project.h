@@ -13,8 +13,8 @@
 
 /**
  * @file operators_project.h
- * @brief SPHERE→PLANE crossing operator models: the projections under a
- *        wandering, spinning projection frame.
+ * @brief SPHERE→PLANE crossing operator models with identity or spin/wander
+ *        projection frames.
  */
 
 namespace Pullback {
@@ -23,10 +23,27 @@ namespace Interp {
 
 namespace Op {
 
+/** @brief Projection orientation policy. */
+enum class ProjectionFrame : uint8_t { IDENTITY, SPIN_WANDER };
+
+inline constexpr const char *PROJECTION_FRAME_IDS[] = {"identity",
+                                                       "spin-wander"};
+
+/** @brief Shared projection frame topology followed by family-specific fields. */
+template <typename Params, typename... Extra>
+constexpr std::array<TopologyField<Params>, 1 + sizeof...(Extra)>
+projection_frame_topology(const Extra &...extra) {
+  return {
+      TopologyField<Params>{"frame", &Params::frame, PROJECTION_FRAME_IDS, 2,
+                            static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER)},
+      extra...};
+}
+
 /** @brief Parameter family of the projection operators.
     @details `singularity-fade` is read by projections with a singular locus; it is
     inert for folded sinusoidal, Bonne, and Airocean. */
 struct ProjectChainParams {
+  uint8_t frame = static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER);
   float singularity_fade = 1.0f;
   float spin_rate = 0.0f;
   float wander = 0.0f;
@@ -42,6 +59,8 @@ struct ProjectChainParams {
           "projection-wander", &ProjectChainParams::wander, "Projection Wander",
           0.0f, 1.0f, FieldCurve::LERP},
   };
+  static constexpr auto TOPOLOGY =
+      projection_frame_topology<ProjectChainParams>();
 };
 static_assert(field_ids_unique<ProjectChainParams>());
 
@@ -73,10 +92,13 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
   }
   static void advance(State &state, const Params &params) {
-    advance_walk(state, params.wander, params.spin_rate);
+    if (params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER))
+      advance_walk(state, params.wander, params.spin_rate);
   }
-  static Prepared prepare(const FrameContext &ctx, const Params &,
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
+    if (params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY))
+      return {Quaternion()};
     return {(make_rotation(Y_AXIS, state.spin_phase) * ctx.projection_base *
              state.wander)
                 .conjugate()};
@@ -132,12 +154,12 @@ struct GnomonicChainParams : ProjectChainParams {
 
   static constexpr auto FIELDS = concat_fields<GnomonicChainParams>(
       ProjectChainParams::FIELDS, std::array<Field<GnomonicChainParams>, 0>{});
-  static constexpr auto TOPOLOGY = std::array{
-      TopologyField<GnomonicChainParams>{
-          "hemisphere", &GnomonicChainParams::hemisphere,
-          GNOMONIC_HEMISPHERE_IDS, 3,
-          static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED)},
-  };
+  static constexpr auto TOPOLOGY =
+      projection_frame_topology<GnomonicChainParams>(
+          TopologyField<GnomonicChainParams>{
+              "hemisphere", &GnomonicChainParams::hemisphere,
+              GNOMONIC_HEMISPHERE_IDS, 3,
+              static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED)});
 };
 static_assert(field_ids_unique<GnomonicChainParams>());
 
@@ -204,11 +226,10 @@ struct BonneChainParams : MeridianProjectChainParams {
   static constexpr auto FIELDS =
       concat_fields<BonneChainParams>(MeridianProjectChainParams::FIELDS,
                                       std::array<Field<BonneChainParams>, 0>{});
-  static constexpr auto TOPOLOGY = std::array{
+  static constexpr auto TOPOLOGY = projection_frame_topology<BonneChainParams>(
       TopologyField<BonneChainParams>{"hemisphere",
                                       &BonneChainParams::hemisphere,
-                                      BONNE_HEMISPHERE_IDS, 2, 0},
-  };
+                                      BONNE_HEMISPHERE_IDS, 2, 0});
 };
 static_assert(field_ids_unique<BonneChainParams>());
 
