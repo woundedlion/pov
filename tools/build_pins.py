@@ -170,7 +170,7 @@ INLINE_USES = (
     (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v, 2),
     # Quote-agnostic: setup-python's own README writes the input with double
     # quotes, which a single-quoted pattern reads as absent.
-    (r"""python-version:\s*['"]?([^'"\s]+)['"]?""", "python", lambda v: v, 16),
+    (r"""python-version:\s*['"]?([^'"\s]+)['"]?""", "python", lambda v: v, 21),
     (r"\bnumpy==([\w.]+)", "numpy", lambda v: v, 2),
     (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v, 28),
     (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v, 7),
