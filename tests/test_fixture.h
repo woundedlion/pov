@@ -32,6 +32,7 @@ namespace hs_test {
  * measured over the same window the correctness sweep covers.
  */
 constexpr int DEFAULT_SMOKE_FRAMES = 8;
+constexpr int CI_MIN_SMOKE_FRAMES = 120;
 
 /**
  * @brief Resolves the per-effect frame count from the environment.
@@ -47,6 +48,25 @@ inline int smoke_frames() {
       return n;
   }
   return DEFAULT_SMOKE_FRAMES;
+}
+
+/** @brief Rejects a shallow roster window when running under CI. */
+inline bool require_ci_smoke_frames() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *ci = std::getenv("CI");
+  const char *frames = std::getenv("HS_SMOKE_FRAMES");
+#pragma clang diagnostic pop
+  if (!ci || ci[0] == '\0' ||
+      (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
+    return true;
+  std::fprintf(stderr,
+               "run_tests: CI=on but HS_SMOKE_FRAMES is unset or below %d — "
+               "a shallower window skips frame-cyclic paths and arms no "
+               "preset transition. Set HS_SMOKE_FRAMES in the workflow "
+               "step's env.\n",
+               CI_MIN_SMOKE_FRAMES);
+  return false;
 }
 
 /**

@@ -206,13 +206,6 @@ static bool runs_effects(int argc, char **argv) {
 }
 
 /**
- * @brief Smoke window every CI leg has to set.
- * @details Below this the frame-cyclic paths stay unreached and no preset
- * transition arms, so a shallower window reports green over untested code.
- */
-constexpr int CI_MIN_SMOKE_FRAMES = 120;
-
-/**
  * @brief Watchdog bound every CI leg has to set, in microseconds.
  * @details The Canvas constructor's buffer_free() spin trips a trap, not a
  * failed assertion, so a shared runner that deschedules the test thread past
@@ -266,7 +259,6 @@ static int check_ci_levers(int argc, char **argv) {
   int missing = 0;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *frames = std::getenv("HS_SMOKE_FRAMES");
   const char *effects_full = std::getenv("HS_EFFECTS_FULL");
   const char *require_effects_full = std::getenv("HS_REQUIRE_EFFECTS_FULL");
   const char *watchdog = std::getenv("HS_BUFFER_FREE_WATCHDOG_US");
@@ -279,15 +271,8 @@ static int check_ci_levers(int argc, char **argv) {
                  "reports green. Set it in the workflow step's env.\n");
     ++missing;
   }
-  if (!frames || std::atoi(frames) < CI_MIN_SMOKE_FRAMES) {
-    std::fprintf(stderr,
-                 "run_tests: CI=on but HS_SMOKE_FRAMES is unset or below %d — "
-                 "a shallower window skips frame-cyclic paths and arms no "
-                 "preset transition. Set HS_SMOKE_FRAMES in the workflow "
-                 "step's env.\n",
-                 CI_MIN_SMOKE_FRAMES);
+  if (!hs_test::require_ci_smoke_frames())
     ++missing;
-  }
   if (!watchdog ||
       std::strtoul(watchdog, nullptr, 10) < CI_MIN_BUFFER_FREE_WATCHDOG_US) {
     std::fprintf(stderr,
