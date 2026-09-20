@@ -48,7 +48,7 @@ public:
   HS_COLD_MEMBER DisplacementField()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         balls(timeline), noise_field(timeline), palette(make_palette()) {
-    // Reserve the initial wipe-target draw before field and motion seeding.
+    // Burn one palette draw: the downstream stream is authored at this offset.
     static_cast<void>(make_palette());
   }
 
