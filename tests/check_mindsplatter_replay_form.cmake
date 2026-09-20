@@ -55,14 +55,8 @@ foreach(_symbol IN ITEMS
   endif()
 endforeach()
 
-set(_revision_pattern "msp-heavy-search-v[0-9]+")
-string(REGEX MATCH "${_revision_pattern}" _committed_revision "${_committed}")
-string(REGEX MATCH "${_revision_pattern}" _generated_revision "${_generated}")
-if(NOT _committed_revision STREQUAL _generated_revision)
-  message(FATAL_ERROR
-    "MindSplatter replay revision drift: committed ${_committed_revision}, "
-    "generated ${_generated_revision}")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/check_mindsplatter_replay_revision.cmake")
+check_mindsplatter_replay_revision("${_committed}" "${_generated}")
 
 message(STATUS
-  "MindSplatter replay generator emitted ${_generated_revision} in canonical form")
+  "MindSplatter replay generator emitted ${MINDSPLATTER_REPLAY_REVISION} in canonical form")
