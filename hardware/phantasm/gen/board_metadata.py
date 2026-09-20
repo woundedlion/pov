@@ -258,7 +258,9 @@ def load_board(path):
 
 
 def _format_decimal(value):
-    formatted = format(value, "f").rstrip("0").rstrip(".")
+    formatted = format(value, "f")
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
     return formatted or "0"
 
 
