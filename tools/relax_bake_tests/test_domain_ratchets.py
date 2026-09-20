@@ -224,11 +224,36 @@ class GitRange(unittest.TestCase):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             status = check_domain_ratchets.check_git_range(
-                self.repo, base, head, {("guard_gap.sdf.h", "4", "5")}
+                self.repo, base, head, {("guard_gap.sdf.h", "4", "5")}, head
             )
         self.assertEqual(status, 0, output.getvalue())
         self.assertIn("domain ratchet range: 1 commit edge(s) checked",
                       output.getvalue())
+
+    def test_historical_allowance_cannot_approve_a_later_repeat(self):
+        workflow = "jobs:\n  domain-ratchets:\n"
+        base = self.commit(2, workflow, "base")
+        approved = self.commit(3, workflow, "approved weakening")
+        self.commit(2, workflow, "restore coverage")
+        head = self.commit(3, workflow, "repeat weakening")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = check_domain_ratchets.check_git_range(
+                self.repo, base, head, {("guard_gap.sdf.h", "2", "3")},
+                approved)
+        self.assertEqual(status, 1, output.getvalue())
+        self.assertIn("guard_gap.sdf.h weakened (2 -> 3)", output.getvalue())
+
+    def test_range_warns_about_unexercised_allowance(self):
+        workflow = "jobs:\n  domain-ratchets:\n"
+        base = self.commit(2, workflow, "base")
+        head = self.commit(1, workflow, "improve coverage")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = check_domain_ratchets.check_git_range(
+                self.repo, base, head, {("guard_gap.sdf.h", "2", "3")}, head)
+        self.assertEqual(status, 0, output.getvalue())
+        self.assertIn("transition was not exercised", output.getvalue())
 
 
 if __name__ == "__main__":
