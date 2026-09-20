@@ -79,6 +79,10 @@ fails it stays in ShaderWorkbench even if it is called by a core stage.
 
 ## 2. Goals
 
+Superseded, and retained as the design record the ranked chain was derived
+from: goals below that require a fixed six-role vocabulary are replaced by
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §§1–6.
+
 The design shall:
 
 - provide `Pullback::Pipeline<Binding, Stages...>` as a first-class typed value
@@ -1077,6 +1081,11 @@ the expressive catalog private.
 
 ### 9.1 What moves to core
 
+Superseded, and retained as the design record the ranked chain was derived
+from: the shipped core has no `Pullback::StageKind`, `SourceInput`,
+`MaterialInput`, or `MaterialSample`; the ranked carriers and stages are defined
+by [pullback_stage_families_spec.md](pullback_stage_families_spec.md) §§3–5.
+
 ShaderWorkbench replaces its private definitions with core types or thin aliases:
 
 - `InverseStageKind` -> `Pullback::StageKind`;
@@ -1475,6 +1484,11 @@ Section 14 and is recorded with wrapper/leaf addresses and disassembly.
 
 ## 14. Migration plan
 
+Superseded, and retained as the design record the ranked chain was derived
+from: the fixed-role migration below was replaced by the arbitrary ranked-chain
+migration in [pullback_stage_families_spec.md](pullback_stage_families_spec.md)
+§6.
+
 Phases land in order `P -> A -> B -> C -> D`. Each phase is independently
 reviewable and leaves the tree buildable. Work may be prepared in isolated
 branches, but integration is serial so carrier/API changes have one owner.
@@ -1648,6 +1662,11 @@ Implementation is incomplete without:
 - deletion of migration switches and private duplicate implementations.
 
 ## 17. Explicitly deferred work and revival triggers
+
+Superseded where this section defers arbitrary stage graphs, variable role
+sequences, or replacement of the six-role carrier contract: ranked variable
+chains ship under [pullback_stage_families_spec.md](pullback_stage_families_spec.md)
+§§1–6. The other deferred items below remain design records.
 
 The following remain deferred:
 

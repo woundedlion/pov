@@ -87,7 +87,7 @@ alone.**
 The four span-episode deltas sum to +416 B (added 3,344 − removed 2,928), which
 reads like leftover residual. Direct inspection at HEAD refutes that:
 - The experiment's named machinery (`emit_row_spans`, `raster_rowspan`) is **fully
-  gone** from `scan.h`/`sdf.h`. (The `*_row_span` symbols in `plot.h` are the
+  gone** from `scan.h`/`sdf.h`. (The `*_row_span` symbols in `plot/cull.h` are the
   unrelated trail-clip edge-span feature; the `span` tokens in `scan.h` are the
   ordinary per-row longitude-interval rasterizer that always existed.)
 - `rasterize_face` at HEAD is the bounding-rectangle scan with no row-narrowing.
