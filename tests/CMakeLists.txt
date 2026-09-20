@@ -733,9 +733,8 @@ foreach(_opt Os O3)
 endforeach()
 
 # Divergence trace for perturbations of the feedback colour path
-# (feedback_divergence.cpp). Not a CTest — comparing two code paths needs two
-# builds, so it dumps frames in one build and compares dumps in another. Stays
-# in the default build as a compile guard against bit-rot.
+# (feedback_divergence.cpp). Cross-build comparisons use separately produced
+# dumps; CTest exercises a one-frame dump and its reader.
 add_executable(feedback_divergence
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence.cpp
   ${HS_ROOT}/core/engine/memory.cpp
@@ -744,6 +743,14 @@ target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/cor
 target_link_libraries(feedback_divergence PRIVATE hs_host_abi)
 target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)
 _hs_warnings(feedback_divergence)
+add_test(NAME unit_feedback_dump COMMAND feedback_divergence --dump
+  "${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke.bin" 1)
+set_tests_properties(unit_feedback_dump PROPERTIES FIXTURES_SETUP feedback_dump)
+add_test(NAME unit_feedback_compare COMMAND feedback_divergence --compare
+  "${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke.bin"
+  "${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke.bin")
+set_tests_properties(unit_feedback_compare PROPERTIES
+  FIXTURES_REQUIRED feedback_dump PASS_REGULAR_EXPRESSION "max\\|d\\| = 0 LSB")
 
 # Generator of record for core/color/srgb_decode_lut.h. EXCLUDE_FROM_ALL: run
 # with no argument it rewrites a committed header, so the sharded CI job only
