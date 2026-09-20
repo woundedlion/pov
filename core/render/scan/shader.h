@@ -20,9 +20,11 @@ namespace Scan {
 /**
  * @brief Full-screen per-pixel shaders with SAMPLES× SSAA.
  *
- * Three entry points, in increasing order of caller control:
+ * Four entry points, in increasing order of caller control:
  * - draw(canvas, shader): one callable ShaderFn(const Vector &v) -> Color4,
  *   invoked SAMPLES× per pixel at sub-pixel offsets and averaged.
+ * - draw_cached(canvas, shader): the same typed draw with its traversal placed
+ *   in cached flash.
  * - draw(canvas, fragment_shader, vertex_shader): splits per-pixel setup
  *   (vertex_shader, once at the pixel center) from per-sub-sample evaluation.
  *   Both callables are required; a null one traps.
