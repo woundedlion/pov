@@ -407,6 +407,23 @@ inline void case_circular_buffer_front_empty() {
     std::printf("x");
 }
 
+inline void case_circular_buffer_back_empty() {
+  StaticCircularBuffer<int, 4> cb;
+  if (opaque(false))
+    cb.push_back(1);
+  if (cb.back() == 42)
+    std::printf("x");
+}
+
+inline void case_circular_buffer_const_back_empty() {
+  StaticCircularBuffer<int, 4> cb;
+  if (opaque(false))
+    cb.push_back(1);
+  const auto &view = cb;
+  if (view.back() == 42)
+    std::printf("x");
+}
+
 /**
  * @brief Death case: ArenaVector::append_bulk past its fixed capacity must trap.
  * @details Memory surface — a distinct seam from element-at-a-time push_back;
@@ -4059,6 +4076,12 @@ inline const Case *all_cases(int &n) {
       {"circular_buffer_front_empty", case_circular_buffer_front_empty,
        "static_circular_buffer.h",
        "(!is_empty()) front() on empty StaticCircularBuffer"},
+      {"circular_buffer_back_empty", case_circular_buffer_back_empty,
+       "static_circular_buffer.h",
+       "(!is_empty()) back() on empty StaticCircularBuffer"},
+      {"circular_buffer_const_back_empty",
+       case_circular_buffer_const_back_empty, "static_circular_buffer.h",
+       "(!is_empty()) back() on empty StaticCircularBuffer"},
       {"arena_vector_append_bulk_overflow",
        case_arena_vector_append_bulk_overflow, "memory.h",
        "(count <= element_capacity - element_count) ArenaVector bulk append "
@@ -5169,7 +5192,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"choreography.h", 1},
     {"memory.h", 2},
     {"reaction_graph.h", 2},
-    {"static_circular_buffer.h", 4},
+    {"static_circular_buffer.h", 3},
     {"transformer.h", 4},
     {"3dmath.h", 4},
     {"geometry.h", 16},
