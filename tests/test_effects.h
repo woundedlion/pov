@@ -5785,6 +5785,28 @@ struct IslamicBuildProbe {
     e.spawn_entry(entry);
   }
   template <int W, int H>
+  static void set_burst_size(IslamicStars<W, H> &e, int size) {
+    e.params.burst_size = size;
+  }
+  template <int W, int H>
+  static int cached_burst_size(const IslamicStars<W, H> &e) {
+    return e.burst_size_eff;
+  }
+  template <int W, int H>
+  static int cached_burst_window(const IslamicStars<W, H> &e) {
+    return (e.burst_size_eff - 1) * e.ripple_stagger_eff + e.ripple_dur_eff;
+  }
+  template <int W, int H> static int fire_ripple(IslamicStars<W, H> &e) {
+    int count = 0;
+    {
+      Canvas canvas(e);
+      e.ripple(canvas);
+      count = e.ripple_gen.active_count();
+    }
+    e.advance_display();
+    return count;
+  }
+  template <int W, int H>
   static PolyMesh clean_endpoint(IslamicStars<W, H> &e,
                                  const Solids::OpStep &step, Arena &a,
                                  Arena &b) {
@@ -5826,6 +5848,28 @@ inline void test_islamicstars_seed_sprite_fade_in() {
   effect.draw_frame();
   effect.advance_display();
   HS_EXPECT_TRUE(IslamicBuildProbe::build_active(effect));
+}
+
+inline void test_islamicstars_burst_size_is_snapshotted_per_spawn() {
+  reset_effect_globals();
+  IslamicBuildProbe::IS effect;
+  effect.init();
+  const auto entry = Solids::Collections::get_islamic_solids().front();
+
+  IslamicBuildProbe::set_burst_size(effect, 1);
+  IslamicBuildProbe::spawn_entry(effect, entry);
+  const int single_window = IslamicBuildProbe::cached_burst_window(effect);
+
+  IslamicBuildProbe::set_burst_size(effect, 4);
+  HS_EXPECT_EQ(IslamicBuildProbe::cached_burst_size(effect), 1);
+  HS_EXPECT_EQ(IslamicBuildProbe::cached_burst_window(effect), single_window);
+  HS_EXPECT_EQ(IslamicBuildProbe::fire_ripple(effect), 1);
+
+  IslamicBuildProbe::spawn_entry(effect, entry);
+  HS_EXPECT_EQ(IslamicBuildProbe::cached_burst_size(effect), 4);
+  HS_EXPECT_TRUE(IslamicBuildProbe::cached_burst_window(effect) >
+                 single_window);
+  HS_EXPECT_EQ(IslamicBuildProbe::fire_ripple(effect), 4);
 }
 
 /**
@@ -6200,6 +6244,7 @@ inline int run_effects_tests() {
   test_shader_workbench_glitch_lens_unit_norm();
   test_mobius_rings_conformal_and_counter_rotation();
   test_islamicstars_seed_sprite_fade_in();
+  test_islamicstars_burst_size_is_snapshotted_per_spawn();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The partition
   // is by measured cost, not by resolution: every case below runs for a tenth

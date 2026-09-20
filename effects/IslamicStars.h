@@ -201,6 +201,7 @@ private:
   // spawn_shape and read by the deferred ripple() callback.
   int ripple_dur_eff = 80;
   int ripple_stagger_eff = RIPPLE_STAGGER_FRAMES;
+  int burst_size_eff = 4;
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
 
@@ -305,7 +306,7 @@ private:
    */
   void ripple(Canvas &) {
     Vector origin = random_vector();
-    for (int i = 0; i < params.burst_size; i++) {
+    for (int i = 0; i < burst_size_eff; i++) {
       if (!ripple_gen.spawn(i * ripple_stagger_eff, origin,
                             PI_F / ripple_dur_eff, ripple_dur_eff))
         hs::log("IslamicStars: ripple pool full, dropping spawn");
@@ -731,8 +732,8 @@ private:
     ripple_dur_eff = std::max(8, static_cast<int>(params.ripple_duration / sp));
     ripple_stagger_eff =
         std::max(1, static_cast<int>(RIPPLE_STAGGER_FRAMES / sp));
-    int burst_span =
-        (params.burst_size - 1) * ripple_stagger_eff + ripple_dur_eff;
+    burst_size_eff = params.burst_size;
+    int burst_span = (burst_size_eff - 1) * ripple_stagger_eff + ripple_dur_eff;
 
     // Recipe entries insert a build phase on the segue's phase-1 plateau:
     // duration is lengthened by the build span rather than the carousel
