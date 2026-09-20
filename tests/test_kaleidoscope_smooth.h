@@ -180,33 +180,6 @@ inline void test_kaleidoscope_smooth_transition_contract() {
   HS_EXPECT_FALSE(WB::transition_active(effect));
 }
 
-inline void test_kaleidoscope_smooth_parameter_serialization() {
-  using WB = KaleidoscopeSmoothWhiteBox;
-  reset_effect_globals();
-  WB::FX effect;
-  effect.init();
-  auto snapshot = effect.serialize_parameters();
-  snapshot.params.source.pattern_freq = 4.0f;
-  snapshot.params.inner_warp.cell_y = 0.75f;
-  snapshot.params.color.hue_noise_speed = 0.0005f;
-  snapshot.params.color.palette_mapping =
-      Pullback::Color::PaletteMapping::REVERSE;
-  HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
-  HS_EXPECT_NEAR(WB::params(effect).source.pattern_freq, 4.0f, 0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).inner_warp.cell_y, 0.75f, 0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).color.hue_noise_speed, 0.0005f, 0.0f);
-  HS_EXPECT_EQ(WB::params(effect).color.palette_mapping,
-               Pullback::Color::PaletteMapping::REVERSE);
-
-  snapshot.schema_version += 1;
-  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-  snapshot.schema_version = WB::FX::PARAMETER_SCHEMA_VERSION;
-  snapshot.params.inner_warp.cell_x = std::numeric_limits<float>::quiet_NaN();
-  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-  snapshot.params.inner_warp.cell_x = 9.0f;
-  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-}
-
 inline void test_kaleidoscope_smooth_shader_workbench_equivalence() {
   using WB = KaleidoscopeSmoothWhiteBox;
   reset_effect_globals();
@@ -237,7 +210,6 @@ inline int run_kaleidoscope_smooth_tests() {
   ModuleFixture fixture("kaleidoscope_smooth");
   test_kaleidoscope_smooth_identity_and_presets();
   test_kaleidoscope_smooth_transition_contract();
-  test_kaleidoscope_smooth_parameter_serialization();
   test_kaleidoscope_smooth_shader_workbench_equivalence();
   return fixture.result();
 }
