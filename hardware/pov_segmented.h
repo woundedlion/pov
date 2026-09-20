@@ -44,6 +44,7 @@
 #pragma once
 #include "render/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
+#include "pov_segment_frame.h"
 #include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
 #include "pov_handoff.h" // pure effect-handoff state machine (host-testable)
 #include "pov_submit_gate.h" // pure LED-submit decision (host-testable)
@@ -404,10 +405,12 @@ public:
         HS_CHECK(!cur->overrides_get_pixel(),
                  "POVSegmented: effect must not override get_pixel(); the "
                  "segmented pack_column path bypasses it");
-        // The first frame commits on a ZERO boundary, an arm-A-left window.
         clip_to_segment(cur, /*arm_a_left=*/true);
+        cur->set_clip_x(0, CANVAS_W);
         cur->draw_frame();
         cur->set_buffer_ready_hook(prepare_segment_clip);
+        if (!cur->needs_full_frame() && !cur->persists_pixels())
+          cur->set_buffer_complete_hook(pov::preserve_segment_half);
         // Publish under IRQ-off so the (effect, gen) pair reaches the ISR
         // atomically; publish()'s release store orders every constructor/
         // draw_frame() write before the ISR's acquire load.

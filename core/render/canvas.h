@@ -61,6 +61,7 @@ class Effect : public PresetHost {
 
 public:
   using BufferReadyHook = void (*)(Effect &);
+  using BufferCompleteHook = void (*)(Canvas &);
 
   bool debug_visuals = false; /**< Flag to enable visual debugging overlays. */
 #if HS_ENABLE_TEST_HOOKS
@@ -302,6 +303,10 @@ public:
    * governs which band gets cleared.
    */
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
+  /** @brief Runs after drawing, while the previous buffer is still stable. */
+  void set_buffer_complete_hook(BufferCompleteHook hook) {
+    buffer_complete_hook = hook;
+  }
   /**
    * @brief Advances the display buffer pointer to the next queued frame.
    * @details The acquire load pairs with `queue_frame()`'s release store, so
@@ -424,6 +429,7 @@ private:
   // traps if already set, the dtor clears it.
   static bool s_alive;
   BufferReadyHook buffer_ready_hook = nullptr;
+  BufferCompleteHook buffer_complete_hook = nullptr;
 };
 
 /**
@@ -457,6 +463,8 @@ public:
    * @brief Destructor. Queues the finished frame to be displayed.
    */
   ~Canvas() {
+    if (effect.buffer_complete_hook)
+      effect.buffer_complete_hook(*this);
     effect.queue_frame();
     effect.canvas_active = false;
   }
