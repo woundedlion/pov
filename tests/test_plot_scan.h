@@ -1277,11 +1277,8 @@ inline void expect_render_band_parity(const char *label,
  *          poles and the seam; an over-cull drops a whole stroke, which shows
  *          as a long run of unlit pixels along a row.
  *
- *          The clipped render cuts each edge at the band, so its adaptive walk
- *          restarts there and the two renders sample the same arcs at different
- *          sub-pixel phases. Coverage therefore differs on the antialiased
- *          fringe of a stroke, in isolated pixels — the budgets below sit well
- *          under the measured spread and far under one stroke's width.
+ *          Cut pieces collapse into one windowed segment, preserving the full
+ *          edge's step schedule and sample positions inside the render band.
  */
 inline void test_mesh_edge_gate_pixel_parity() {
   constexpr int W = 96, H = 48;
@@ -1361,6 +1358,20 @@ inline void test_mesh_edge_gate_pixel_parity() {
       fx.advance_display();
       int worst_run = 0;
       const ClipRegion &clip = fx.clip();
+      for (const auto &edge : edges) {
+        const PixelCoords endpoint =
+            vector_to_pixel<W, H>(posed.vertices[edge.v]);
+        const int x = static_cast<int>(endpoint.x);
+        const int y = static_cast<int>(endpoint.y);
+        if (!clip.contains_x(x) || !clip.contains_y(y))
+          continue;
+        const Pixel &expected = ref[static_cast<size_t>(y) * W + x];
+        if ((expected.r | expected.g | expected.b) == 0)
+          continue;
+        const Pixel &actual = fx.get_pixel(x, y);
+        HS_CONTEXT("mesh endpoint", edge.u, edge.v);
+        HS_EXPECT_TRUE((actual.r | actual.g | actual.b) != 0);
+      }
       for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
         int run = 0;
         for (int x = 0; x < W; ++x) {
@@ -1384,16 +1395,63 @@ inline void test_mesh_edge_gate_pixel_parity() {
           worst_run = std::max(worst_run, run);
         }
       }
-      // An over-cull removes a whole stroke, leaving a long unlit run; phase
-      // moves isolated fringe pixels. Measured worst run is 2.
       HS_EXPECT_LE(worst_run, 3);
     }
   }
   HS_EXPECT_GT(lit_total, 200);
   HS_EXPECT_GT(margin_lit_total, 20);
-  // Measured 3.0% of the reference's lit pixels; dropping one edge in seven
-  // costs an order of magnitude more.
-  HS_EXPECT_LE(coverage_total * 8, lit_total);
+  HS_EXPECT_EQ(coverage_total, 0);
+}
+
+/** @brief An open upper window retains the whole edge's terminal sample. */
+inline void test_rasterize_window_preserves_terminal_sample() {
+  constexpr int W = 96, H = 48;
+  const std::pair<Vector, Vector> EDGES[] = {
+      {Vector(-0x1.6a5c08p-1f, -0x1.38938ap-2f, 0x1.463602p-1f),
+       Vector(0x1.d7291p-6f, 0x1.835d7cp-2f, 0x1.d9b94cp-1f)},
+      {Vector(-0x1.55a9acp-2f, 0x1.84c37cp-1f, -0x1.1e0c5p-1f),
+       Vector(-0x1.8aa97ep-1f, 0x1.f1a1bap-2f, -0x1.a5ca0ep-2f)},
+  };
+  for (const auto &[start, end] : EDGES) {
+    ScratchScope sc(plot_arena());
+    Fragments points;
+    points.bind(plot_arena(), 2);
+    Fragment a, b;
+    a.pos = start;
+    b.pos = end;
+    a.v0 = 0.0f;
+    b.v0 = 1.0f;
+    points.push_back(a);
+    points.push_back(b);
+
+    auto check = [&]<bool SinglePass>() {
+      hs_test::StubEffect fx(W, H);
+      Canvas canvas(fx);
+      CapturePipeline full, clipped;
+      float terminal_t = 0.0f;
+      auto shade = [&](const Vector &, Fragment &f) { terminal_t = f.v0; };
+      Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
+          full, canvas, points, shade);
+      const float FULL_TERMINAL_T = terminal_t;
+      Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
+          clipped, canvas, points, shade, {.plot_t_start = 0.5f});
+      HS_EXPECT_GT(clipped.plotted.size(), size_t{2});
+      HS_EXPECT_LT(clipped.plotted.size(), full.plotted.size());
+      HS_EXPECT_EQ(terminal_t, FULL_TERMINAL_T);
+      HS_EXPECT_EQ(clipped.plotted.back().x, full.plotted.back().x);
+      HS_EXPECT_EQ(clipped.plotted.back().y, full.plotted.back().y);
+      HS_EXPECT_EQ(clipped.plotted.back().z, full.plotted.back().z);
+      if constexpr (!SinglePass) {
+        CapturePipeline bounded;
+        Plot::rasterize<W, H>(bounded, canvas, points, shade,
+                              {.plot_t_start = 0.5f, .plot_t_end = 0.75f});
+        HS_EXPECT_GT(bounded.plotted.size(), size_t{2});
+        HS_EXPECT_LE(terminal_t, 0.75f);
+      }
+    };
+    check.template operator()<false>();
+    check.template operator()<true>();
+  }
 }
 
 /**
@@ -5810,6 +5868,7 @@ inline int run_plot_scan_tests() {
   test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
   test_mesh_edge_gate_pixel_parity();
+  test_rasterize_window_preserves_terminal_sample();
   test_mesh_dissolve_masks_partition_edges();
   test_gate_trail_column_cull_honors_unbounded_edge();
   test_raw_geodesic_edge_gate_parity();
