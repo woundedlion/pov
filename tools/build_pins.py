@@ -5,7 +5,8 @@ PINS are injected (--github-output / a named lookup) and must appear in no
 build file literally. INLINE_PINS cannot be injected -- they name an action
 input, an apt package, a pip requirement resolved before this script could run,
 or an application installed by hand -- so --check pins them by consistency
-instead: every spelling of them in INLINE_SCAN must derive from the value here.
+instead. Pip versions come from requirements/*.in; every spelling in
+INLINE_SCAN, including the hash-locked .txt files, must agree.
 
 SHARED_LITERALS are pinned the same way: strings two build files must spell
 identically because neither can read the other.
@@ -33,10 +34,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import teensy_gate  # noqa: E402
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def requirement_pin(name: str, package: str | None = None) -> str:
+    """Read the single exact requirement from a tool's source manifest."""
+    path = ROOT / "requirements" / f"{name}.in"
+    package = package or name
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise SystemExit(f"{path.relative_to(ROOT)}: cannot be read ({error})")
+    lines = [line.split("#", 1)[0].strip() for line in text.splitlines()]
+    requirement = "\n".join(line for line in lines if line)
+    found = re.fullmatch(rf"{re.escape(package)}==([0-9][\w.!+-]*)", requirement)
+    if found is None:
+        raise SystemExit(
+            f"{path.relative_to(ROOT)}: expected one exact {package}==VERSION pin")
+    return found.group(1)
+
+
 PINS = {
     # PyPI's actionlint-py, whose version is the actionlint release plus a
     # packaging suffix.
-    "actionlint": "1.7.12.24",
+    "actionlint": requirement_pin("actionlint", "actionlint-py"),
     # The daydream commit the tree-fence and cross-repo jobs check out. Those
     # jobs validate an exhaustive fence against that tree, so the checkout
     # tracks a committed pin: daydream's tip moves independently and would both
@@ -47,13 +68,13 @@ PINS = {
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
     "emsdk": "5.0.0",
     # PyPI's rust-just, so the recipe runner is installed and held like ruff.
-    "just": "1.52.0",
+    "just": requirement_pin("just", "rust-just"),
     "node": "24.13.0",
-    "platformio": "6.1.19",
-    "ruff": "0.14.4",
+    "platformio": requirement_pin("platformio"),
+    "ruff": requirement_pin("ruff"),
     # PyPI's shellcheck-py, whose version is the shellcheck release plus a
     # packaging suffix.
-    "shellcheck": "0.11.0.1",
+    "shellcheck": requirement_pin("shellcheck", "shellcheck-py"),
 }
 
 # Versions the build files must spell out literally: a setup-action input, an
@@ -63,9 +84,9 @@ PINS = {
 # asserts every occurrence equals the value here, so a partial bump fails.
 INLINE_PINS = {
     "python": "3.12",
-    "numpy": "2.4.3",
+    "numpy": requirement_pin("numpy"),
     "clang": "22",
-    "clang-format": "22.1.8",
+    "clang-format": requirement_pin("clang-format"),
     "doxygen": "1.17.0",
     "doxygen-sha256":
         "75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2",
@@ -78,7 +99,6 @@ INLINE_PINS = {
     "kicad": "10",
 }
 
-ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github/workflows"
 ACTIONS = ROOT / ".github/actions"
 
@@ -348,7 +368,7 @@ def check_inline_pins() -> list[str]:
                     if found != want:
                         errors.append(
                             f"{path.relative_to(ROOT)}:{index}: {name} pinned to "
-                            f"{want!r} in build_pins.py but written {found!r}"
+                            f"{want!r} but written {found!r}"
                         )
     for pattern, name, _, expected in INLINE_USES:
         if seen[pattern] != expected:
