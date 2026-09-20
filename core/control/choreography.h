@@ -193,8 +193,12 @@ protected:
   HS_COLD_MEMBER void begin_choreography() {
     configure_presets(preset_count_of());
     using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
-    if constexpr (Segue::Preset::Fades<SegueT>)
+    if constexpr (Segue::Preset::Fades<SegueT>) {
+      static_assert(Derived::PRESET_DWELL_FRAMES ==
+                        Derived::PRESET_SEGUE.frames,
+                    "fade preset dwell must match its envelope cadence");
       begin_preset_choreography();
+    }
   }
 
   /// Retires the preset dwell and starts the next automatic preset transition.
