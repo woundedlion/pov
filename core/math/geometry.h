@@ -259,9 +259,8 @@ template <int H> inline float y_to_phi(int y) {
 template <int H> inline float y_to_phi(float y) {
   const float fy = std::floor(y);
   if (std::abs(y - fy) < TOLERANCE) {
-    const int iy = static_cast<int>(fy);
-    if (iy >= 0 && iy < PhiLUT<H>::H_VIRT) {
-      return y_to_phi<H>(iy);
+    if (fy >= 0 && fy < PhiLUT<H>::H_VIRT) {
+      return y_to_phi<H>(static_cast<int>(fy));
     }
   }
   constexpr int H_VIRT = H + hs::H_OFFSET;
@@ -408,10 +407,8 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
   const float fx = std::floor(x);
   const float fy = std::floor(y);
   if (std::abs(x - fx) < TOLERANCE && std::abs(y - fy) < TOLERANCE) {
-    const int ix = static_cast<int>(fx);
-    const int iy = static_cast<int>(fy);
-    if (ix >= 0 && ix < W && iy >= 0 && iy < TrigLUT<W, H>::H_VIRT) {
-      return pixel_to_vector<W, H>(ix, iy);
+    if (fx >= 0 && fx < W && fy >= 0 && fy < TrigLUT<W, H>::H_VIRT) {
+      return pixel_to_vector<W, H>(static_cast<int>(fx), static_cast<int>(fy));
     }
   }
   // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT.
