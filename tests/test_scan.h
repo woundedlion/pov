@@ -612,10 +612,13 @@ inline void test_ring_group_matches_sequential() {
 
     int diff_px = 0;
     int worst_delta = 0;
+    size_t lit = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         const Pixel &a = expected[y * W + x];
         const Pixel &b = fused.get_pixel(x, y);
+        if (a.r != 0 || a.g != 0 || a.b != 0)
+          ++lit;
         if (a.r == b.r && a.g == b.g && a.b == b.b)
           continue;
         ++diff_px;
@@ -631,6 +634,7 @@ inline void test_ring_group_matches_sequential() {
     std::printf("  [ring-group] diff_px=%d worst_delta=%d\n", diff_px,
                 worst_delta);
     HS_EXPECT_LE(diff_px, GROUP_MAX_DIFF_PIXELS);
+    HS_EXPECT_GT(lit, size_t(200));
 #if !defined(HS_TEST_FAST_MATH)
     HS_EXPECT_EQ(diff_px, 0);
 #endif
