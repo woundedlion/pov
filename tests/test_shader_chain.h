@@ -7,9 +7,8 @@
  * transactional refusals, and instance-state identity/migration.
  *
  * Catalog regen: the golden at tests/data/shader_chain_catalog.json is
- * rewritten (instead of compared) by running the module with
- * HS_SHADER_CHAIN_CATALOG_REGEN=1, e.g.
- *   HS_SHADER_CHAIN_CATALOG_REGEN=1 ./run_tests shader_chain
+ * rewritten by the native build target:
+ *   cmake --build --preset tests --target regenerate_shader_chain_catalog
  * then committing the file.
  *
  * The golden's block sizes and alignments are the native ABI, emitted by the
