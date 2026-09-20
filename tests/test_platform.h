@@ -351,14 +351,13 @@ inline long fd_read(int fd, char *buf, size_t n) {
 }
 
 /**
- * @brief Verifies Serial.printf expands its varargs (Arduino behaviour) rather
- *        than emitting the raw format string.
+ * @brief Verifies Serial.printf and comparison-operand output.
  * @details SerialMock writes to C stdout, so the only way to observe it is to
  *          swap fd 1. The capture target is a pipe rather than a scratch file so
  *          the test needs no writable directory; the message is orders of
  *          magnitude below the pipe buffer, so the write cannot block.
  */
-inline void test_serial_printf_formats_varargs() {
+inline void test_stdout_formatting() {
   int fds[2] = {-1, -1};
   std::fflush(stdout);
   int made = fd_pipe(fds);
@@ -373,6 +372,16 @@ inline void test_serial_printf_formats_varargs() {
   }
   fd_dup2(fds[1], 1);
   Serial.printf("req %u / cap %u", 12u, 48u);
+  std::putchar('|');
+  print_operand(nullptr);
+  std::putchar('|');
+  print_operand(static_cast<const char *>(nullptr));
+  std::putchar('|');
+  print_operand(std::string_view{});
+  std::putchar('|');
+  print_operand(std::string_view("a\0b", 3));
+  std::putchar('|');
+  print_operand("text");
   std::fflush(stdout);
   fd_dup2(saved_out, 1);
   fd_close(saved_out);
@@ -387,8 +396,10 @@ inline void test_serial_printf_formats_varargs() {
   }
   buf[n] = '\0';
   fd_close(fds[0]);
-  HS_EXPECT(std::string(buf) == std::string("req 12 / cap 48"),
-            "printf expands args");
+  constexpr char EXPECTED[] =
+      "req 12 / cap 48|null|null|\"\"|\"a\0b\"|\"text\"";
+  HS_EXPECT_EQ(std::string_view(buf, n),
+               std::string_view(EXPECTED, sizeof(EXPECTED) - 1));
 }
 
 /** @brief Verifies debug telemetry starts off and is foreground-configurable. */
@@ -612,7 +623,7 @@ inline int run_platform_tests() {
   test_beat16_accum88_promotion();
   test_beatsin8_faithful();
   test_beatsin16_golden();
-  test_serial_printf_formats_varargs();
+  test_stdout_formatting();
   test_debug_telemetry_configuration();
   test_every_n_seconds_quantizes();
 
