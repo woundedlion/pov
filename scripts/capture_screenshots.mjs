@@ -225,8 +225,27 @@ try {
       const thumb = document.createElement('canvas');
       thumb.width = outWidth;
       thumb.height = outHeight;
-      thumb.getContext('2d').drawImage(canvas, 0, 0, thumb.width, thumb.height);
-      return { dataUrl: thumb.toDataURL('image/png'), litPixels: lit };
+      const sourceAspect = canvas.width / canvas.height;
+      const outputAspect = outWidth / outHeight;
+      let sx = 0;
+      let sy = 0;
+      let sw = canvas.width;
+      let sh = canvas.height;
+      if (sourceAspect > outputAspect) {
+        sw = canvas.height * outputAspect;
+        sx = (canvas.width - sw) / 2;
+      } else if (sourceAspect < outputAspect) {
+        sh = canvas.width / outputAspect;
+        sy = (canvas.height - sh) / 2;
+      }
+      thumb.getContext('2d').drawImage(
+        canvas, sx, sy, sw, sh, 0, 0, outWidth, outHeight);
+      return {
+        dataUrl: thumb.toDataURL('image/png'),
+        litPixels: lit,
+        sourceWidth: canvas.width,
+        sourceHeight: canvas.height,
+      };
     }, {
       outWidth: GALLERY_WIDTH,
       outHeight: GALLERY_HEIGHT,
@@ -290,7 +309,7 @@ try {
         continue;
       }
 
-      const { dataUrl, litPixels } = await grabFrame();
+      const { dataUrl, litPixels, sourceWidth, sourceHeight } = await grabFrame();
       const lit = captureLitFraction(litPixels);
       const pct = (lit * 100).toFixed(2);
       if (captureIsBlank(litPixels, BLANK_FLOOR)) {
@@ -308,7 +327,7 @@ try {
       const out = join(OUT_DIR, `${effect}.png`);
       await writeFile(out, buf);
       console.log(`saved ${out} @ ${usedRes} after ${offsetMs}ms ` +
-        `(${pct}% lit)`);
+        `(${sourceWidth}x${sourceHeight} source, ${pct}% lit)`);
     } catch (e) {
       failures++;
       console.log(`FAILED: ${e.message}`);
