@@ -202,6 +202,7 @@ template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
   reset_effect_globals();
   const uint32_t dropped_before = Timeline::dropped_events();
+  pin_frame_clock(0);
 
   E<W, H> effect;
   effect.init();
@@ -215,10 +216,31 @@ inline void smoke_one(const char *name) {
   HS_EXPECT_EQ(effect.clip().margin, ClipRegion{}.margin);
 
   const int frames = smoke_frames();
+  uint64_t previous_hash = 0;
+  bool motion = false;
   for (int f = 0; f < frames; ++f) {
+    pin_frame_clock(f);
     effect.draw_frame();
     // Consume the queued frame, else the next Canvas ctor spin-waits forever.
     effect.advance_display();
+    uint64_t hash = hs_test::FNV1A64_BASIS;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const Pixel &pixel = effect.get_pixel(x, y);
+        for (uint16_t channel : {pixel.r, pixel.g, pixel.b}) {
+          hash = hs_test::fnv1a64_byte(hash, channel & 0xff);
+          hash = hs_test::fnv1a64_byte(hash, channel >> 8);
+        }
+      }
+    if (f > frames / 2 && hash != previous_hash)
+      motion = true;
+    previous_hash = hash;
+  }
+  if (frames >= 4 && !effect_may_be_dark(name, frames)) {
+    if (!motion)
+      std::printf("  STATIC %-20s had no motion in the final %d frames\n", name,
+                  frames / 2);
+    HS_EXPECT(motion, "effect must change output after warmup");
   }
 
   auto sum_buffer = [&effect]() {
