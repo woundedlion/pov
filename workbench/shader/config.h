@@ -485,10 +485,17 @@ struct Params {
 
   HS_COLD_MEMBER void lerp_staggered(const Params &a, const Params &b, float t,
                                      const Slots &slots = Slots{}) {
+    const bool color_changed = []<size_t... I>(const ColorParams &lhs,
+                                               const ColorParams &rhs,
+                                               std::index_sequence<I...>) {
+      return ((lhs.*ColorParams::FIELDS[I].member !=
+               rhs.*ColorParams::FIELDS[I].member) ||
+              ...);
+    }(a.color, b.color, std::make_index_sequence<ColorParams::FIELDS.size()>{});
     const int phase_count = (a.source != b.source) + (a.warp != b.warp) +
                             (a.projection != b.projection) +
                             (a.surface_lens != b.surface_lens) +
-                            (a.value != b.value) + (a.color != b.color) +
+                            (a.value != b.value) + color_changed +
                             (a.outer_camera != b.outer_camera) +
                             (a.surface_noise != b.surface_noise);
     int phase = 0;
@@ -513,7 +520,7 @@ struct Params {
                         phase_t(t, phase++, phase_count));
     if (a.value != b.value)
       value.lerp(a.value, b.value, phase_t(t, phase++, phase_count));
-    if (a.color != b.color) {
+    if (color_changed) {
       const float color_t = phase_t(t, phase++, phase_count);
       color = Pullback::Fields::interpolate(a.color, b.color, color_t);
       color.palette_mapping =

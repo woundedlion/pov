@@ -2360,6 +2360,14 @@ inline void test_shader_workbench_staggered_param_morph() {
   parallel.lerp(from, to, 0.5f);
   HS_EXPECT_LT(parallel.source.speed, half.source.speed);
   HS_EXPECT_GT(parallel.color.palette_chroma, half.color.palette_chroma);
+  to.color = from.color;
+  WB::Params same_mapping;
+  same_mapping.lerp_staggered(from, to, 0.25f);
+  to.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
+  WB::Params dormant_mapping;
+  dormant_mapping.lerp_staggered(from, to, 0.25f);
+  HS_EXPECT_EQ(dormant_mapping.source.speed, same_mapping.source.speed);
+  HS_EXPECT_EQ(dormant_mapping.color.palette_chroma, from.color.palette_chroma);
 }
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
 inline void test_shader_workbench_config_admission() {
