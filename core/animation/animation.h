@@ -218,11 +218,14 @@ public:
   }
 
   /**
-   * @brief Executes the registered post-completion callback.
+   * @brief Executes the completion callback, consuming it on cancellation.
    */
   void post_callback() override {
-    if (post)
+    if (post) {
       post();
+      if (canceled)
+        post = nullptr;
+    }
   }
 
 protected:
