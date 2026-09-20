@@ -984,7 +984,7 @@ Invariants:
 | 1 dropped boundary symbol | coasts ≤1 rev (~0.01 col); re-snaps next | crossing fallback flips | unaffected |
 | 1 spurious symbol | count alphabet discards (even count) or §5.3 gate rejects | identity check no-ops it | epoch refractory + gate guard it |
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
-| 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless: heals next frame (or next beacon, §6.4); stateful: heals next epoch |
+| 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless and stateful: rendered-frame time offset remains until next epoch (§6.2); same-index beacons only correct revolution bookkeeping |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
 | Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until index from beacon (≤2 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes on current effect (epoch never arrives); ACQUIRE boards stay dark |
@@ -992,9 +992,10 @@ Invariants:
 
 No single-glitch event latches a permanent error at any layer, and with the
 §5.3 gate even *multi*-error symbol corruption fails to "discarded," not
-"wrong." The only visible artifacts require either two coincident losses in one
+"wrong." Symbol-loss artifacts require either two coincident losses in one
 half-rev (self-heals) or a missed epoch (R repeats, then beacon-corrected
-within ~2 s). Losing the one wire is a single point of failure for all three
+within ~2 s). A dropped render can also leave a frame-time seam until the
+next epoch, as specified in §6.2. Losing the one wire is a single point of failure for all three
 layers at once — the accepted cost of collapsing to one wire. It is **out of
 scope by construction** (a hard, soldered line, not a connector); the rows
 above exist to show the degradation is a well-defined slow smear rather than
@@ -1024,7 +1025,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | Lost boundary symbol (discarded burst, glitch-filtered EMI, master self-censor) | coast error 0.006 → 0.01 col | 288 col (1-rev coast) | ≈0 on DMA; harmless at any plausible rate |
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected |
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (R rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | effectively never — needs a 2-coincident-error burst *during* a ~2 s ACQUIRE window, or a firmware bug; the fallback bounds it either way |
-| Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | display 144 col; `t`: ≤4,608 col via beacon (stateless) / ≤552,960 col via epoch (stateful, the 1,920-rev longest entry) | ≈0 within budget; watched by the overrun/`ft` telemetry |
+| Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | next epoch reset (remainder of effect, up to 240 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel stall) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
