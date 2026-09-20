@@ -204,47 +204,34 @@ private:
    * the frame.
    */
   static void show_col() {
-    // Top half reads column x; bottom half reads the opposite column (x+W/2).
     const int w = effect->width();
-    const int x_top = x;
-    const int x_bot = pov::strip_opposite_col(x, w);
-
-    // ISR fast path: index the display buffer directly, dropping the per-column
-    // virtual get_pixel() dispatches. The one effect that overrides get_pixel
-    // (RingTwist) routes to the slow path via this probe.
     const bool slow = effect->overrides_get_pixel();
     const Pixel *buf = slow ? nullptr : effect->display_buffer();
-
 #if defined(USE_DMA_LEDS)
     auto &frame = ledController.back_frame();
-    for (int y = 0; y < S / 2; ++y) {
-      // Top half is wired reversed, bottom half straight.
-      frame.pack_pixel(pov::strip_top_led(y, S),
-                       slow ? effect->get_pixel(x_top, y) : buf[y * w + x_top]);
-      frame.pack_pixel(pov::strip_bottom_led(y, S),
-                       slow ? effect->get_pixel(x_bot, y) : buf[y * w + x_bot]);
-    }
-    // Overrun result discarded: run() rejects any configuration whose column
-    // period does not clear COLUMN_TRANSFER_US, so no overrun watchdog here.
-    (void)ledController.submit_frame(effect->strobe_columns());
-#else
-    for (int y = 0; y < S / 2; ++y) {
-      leds[pov::strip_top_led(y, S)] = static_cast<CRGB>(
-          slow ? effect->get_pixel(x_top, y) : buf[y * w + x_top]);
-      leds[pov::strip_bottom_led(y, S)] = static_cast<CRGB>(
-          slow ? effect->get_pixel(x_bot, y) : buf[y * w + x_bot]);
-    }
-    FastLED.show();
-    if (effect->strobe_columns()) {
-      FastLED.showColor(CRGB(0, 0, 0));
-    }
 #endif
-
-    const pov::ColumnStep step = pov::step_column(x, w);
-    x = step.next_x;
-    if (step.advance) {
-      effect->advance_display();
-    }
+    x = pov::run_single_column<S>(
+        x, w,
+        [&](int column, int row) {
+          return slow ? effect->get_pixel(column, row) : buf[row * w + column];
+        },
+        [&](int led, const Pixel &pixel) {
+#if defined(USE_DMA_LEDS)
+          frame.pack_pixel(led, pixel);
+#else
+          leds[led] = static_cast<CRGB>(pixel);
+#endif
+        },
+        [&] {
+#if defined(USE_DMA_LEDS)
+          (void)ledController.submit_frame(effect->strobe_columns());
+#else
+          FastLED.show();
+          if (effect->strobe_columns())
+            FastLED.showColor(CRGB(0, 0, 0));
+#endif
+        },
+        [&] { effect->advance_display(); });
   }
 
 #ifndef USE_DMA_LEDS

@@ -23,6 +23,7 @@
 
 #include <cstdlib>
 #include <vector>
+#include <array>
 
 namespace hs_test {
 namespace pov_single_tests {
@@ -260,6 +261,39 @@ inline void test_column_step_cadence() {
   }
 }
 
+inline void test_single_column_sequence() {
+  constexpr int S = 8, W = 8;
+  int x = 0, advances = 0;
+  for (int column = 0; column < W; ++column) {
+    std::array<int, S> leds{};
+    int writes = 0;
+    bool submitted = false;
+    x = pov::run_single_column<S>(
+        x, W, [](int cx, int cy) { return cy * W + cx; },
+        [&](int led, int pixel) {
+          HS_EXPECT_FALSE(submitted);
+          leds[led] = pixel;
+          ++writes;
+        },
+        [&] {
+          HS_EXPECT_EQ(writes, S);
+          for (int row = 0; row < S / 2; ++row) {
+            HS_EXPECT_EQ(leds[S / 2 - 1 - row], row * W + column);
+            HS_EXPECT_EQ(leds[S / 2 + row], row * W + (column + W / 2) % W);
+          }
+          submitted = true;
+        },
+        [&] {
+          HS_EXPECT_TRUE(submitted);
+          HS_EXPECT_TRUE(column == W / 2 - 1 || column == W - 1);
+          ++advances;
+        });
+    HS_EXPECT_TRUE(submitted);
+    HS_EXPECT_EQ(x, (column + 1) % W);
+  }
+  HS_EXPECT_EQ(advances, 2);
+}
+
 /**
  * @brief Run the single-board POV index-math suite.
  * @return Number of failed expectations in the suite (0 on full pass).
@@ -275,6 +309,7 @@ inline int run_pov_single_tests() {
   test_column_interval();
   test_transfer_bound();
   test_column_step_cadence();
+  test_single_column_sequence();
 
   // Holosphere 96x20: S=40, swept over representative rotation columns including
   // the x=0 and x=w/2 frame boundaries and the wrap seam.
