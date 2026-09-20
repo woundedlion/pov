@@ -10,6 +10,7 @@ buses between the Teensy, level shifter and connectors use net labels (ports).
 """
 import argparse
 import copy
+import json
 import os
 import builder as B
 import sexp
@@ -32,6 +33,27 @@ def parse_args(argv=None):
     parser.add_argument("--force", action="store_true",
                         help="overwrite the committed phantasm.kicad_sch")
     return parser.parse_args(argv)
+
+
+def project_seed(root_uuid):
+    return json.dumps({
+        "board": {"design_settings": {"rules": dict(RULE_MINIMUMS)}},
+        "boards": [],
+        "cvpcb": {"equivalence_files": []},
+        "libraries": {"pinned_footprint_libs": [], "pinned_symbol_libs": []},
+        "meta": {"filename": "phantasm.kicad_pro", "version": 3},
+        "net_settings": {"classes": [{
+            "name": "Default", "clearance": 0.2, "track_width": 0.3,
+            **DEFAULT_CLASS_MINIMUMS,
+        }]},
+        "pcbnew": {"page_layout_descr_file": ""},
+        "schematic": {
+            "annotate_start_num": 0,
+            "drawing": {"default_line_thickness": 6.0, "label_size_ratio": 0.375},
+        },
+        "sheets": [[root_uuid, "Root"]],
+        "text_variables": {},
+    }, indent=2) + "\n"
 
 
 def main(force=False):
@@ -427,28 +449,7 @@ def main(force=False):
         print("kept existing phantasm.kicad_pro (DRC rules preserved)")
     else:
         with open(PRO, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(
-                # design_settings.rules.min_clearance > 0 so Quilter accepts the project on
-                # upload (it rejects 0). KiCad re-zeroes it whenever the project is opened in
-                # the GUI, so run gen/heal_clearance.py before any Quilter upload to restore it.
-                f'{{\n  "board": {{ "design_settings": {{ "rules": {{ "min_clearance": '
-                f'{RULE_MINIMUMS["min_clearance"]},\n'
-                f'    "min_through_hole_diameter": '
-                f'{RULE_MINIMUMS["min_through_hole_diameter"]}, '
-                f'"min_track_width": {RULE_MINIMUMS["min_track_width"]},\n'
-                f'"min_via_annular_width": {RULE_MINIMUMS["min_via_annular_width"]},\n'
-                f'    "min_via_diameter": {RULE_MINIMUMS["min_via_diameter"]} }} }} }},\n'
-                '  "boards": [],\n  "cvpcb": { "equivalence_files": [] },\n'
-                '  "libraries": { "pinned_footprint_libs": [], "pinned_symbol_libs": [] },\n'
-                '  "meta": { "filename": "phantasm.kicad_pro", "version": 3 },\n'
-                '  "net_settings": { "classes": [ { "name": "Default", "clearance": 0.2,\n'
-                f'    "track_width": 0.3, "via_diameter": '
-                f'{DEFAULT_CLASS_MINIMUMS["via_diameter"]}, "via_drill": '
-                f'{DEFAULT_CLASS_MINIMUMS["via_drill"]} }} ] }},\n'
-                '  "pcbnew": { "page_layout_descr_file": "" },\n'
-                '  "schematic": { "annotate_start_num": 0,\n'
-                '    "drawing": { "default_line_thickness": 6.0, "label_size_ratio": 0.375 } },\n'
-                '  "sheets": [ [ "' + b.uuid + '", "Root" ] ],\n  "text_variables": {}\n}\n')
+            fh.write(project_seed(b.uuid))
 
     print("wrote files  symbols:", len(b.symbols), "wires:", len(b.wires),
           "labels:", len(b.labels), "texts:", len(b.texts))

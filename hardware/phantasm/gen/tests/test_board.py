@@ -27,7 +27,7 @@ import board    # noqa: E402
 import builder  # noqa: E402
 import sexp     # noqa: E402
 import shorts   # noqa: E402
-from constraints import RULE_MINIMUMS  # noqa: E402
+from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS  # noqa: E402
 from kicad_common import F  # noqa: E402
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
@@ -117,6 +117,26 @@ class BoardEntryPointTests(unittest.TestCase):
                 board.main()
         self.assertIn(str(sch), str(caught.exception))
         self.assertEqual(sch.read_text(encoding="utf-8"), "(kicad_sch)")
+
+
+class ProjectSeedTests(unittest.TestCase):
+    def test_uses_all_fabrication_rule_minimums(self):
+        project = json.loads(board.project_seed("root-uuid"))
+        self.assertEqual(project["board"]["design_settings"]["rules"], RULE_MINIMUMS)
+        default = project["net_settings"]["classes"][0]
+        for field, minimum in DEFAULT_CLASS_MINIMUMS.items():
+            with self.subTest(field=field):
+                self.assertEqual(default[field], minimum)
+
+    def test_includes_new_fabrication_rule_minimums(self):
+        with unittest.mock.patch.dict(RULE_MINIMUMS, {"min_test_clearance": 0.4}):
+            project = json.loads(board.project_seed("root-uuid"))
+            self.assertEqual(project["board"]["design_settings"]["rules"],
+                             RULE_MINIMUMS)
+
+    def test_links_the_root_sheet(self):
+        project = json.loads(board.project_seed("root-uuid"))
+        self.assertEqual(project["sheets"], [["root-uuid", "Root"]])
 
 
 class DanglingPinTests(unittest.TestCase):
