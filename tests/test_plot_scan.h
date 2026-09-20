@@ -5169,10 +5169,13 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
     return Capture{pipeline.plotted, hs::g_scan_metrics.plot_backstop_hits};
   };
 
+  struct RestoreBudget {
+    int saved = Plot::g_step_budget_override;
+    ~RestoreBudget() { Plot::g_step_budget_override = saved; }
+  } restore_budget;
   Plot::g_step_budget_override = BUDGET;
   const Capture single = draw(true);
   const Capture cached = draw(false);
-  Plot::g_step_budget_override = 0;
 
   HS_EXPECT_EQ(single.backstops, uint32_t{1});
   HS_EXPECT_EQ(cached.backstops, uint32_t{1});
