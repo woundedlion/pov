@@ -2845,6 +2845,24 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
     HS_EXPECT_NEAR(gts[i], expected[i], 1e-6f);
 }
 
+/** @brief Verifies a motionless oldest frame occupies its age slot endpoint. */
+inline void test_deep_tween_oldest_motionless_frame_no_gap() {
+  using Ori = Orientation<8>;
+  Animation::OrientationTrail<Ori, 8> trail;
+  trail.record(Ori());
+  Ori moving;
+  moving.push(make_rotation(Z_AXIS, 0.6f));
+  moving.upsample(3);
+  trail.record(moving);
+
+  std::vector<float> gts;
+  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  HS_EXPECT_SIZE_OR_RETURN(gts, 3);
+  HS_EXPECT_NEAR(gts[0], 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(gts[1], 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(gts[2], 1.0f, 1e-6f);
+}
+
 /**
  * @brief Verifies a single-sample VectorTrail reads t = 1.0 (the lone trail
  * head), while a multi-sample sweep ramps 0 -> 1 oldest -> newest.
@@ -3774,6 +3792,7 @@ inline int run_animation_tests() {
   test_deep_tween_all_collapsed_reaches_one();
   test_deep_tween_frames_groups_flat_emission();
   test_deep_tween_interior_motionless_frame_no_gap();
+  test_deep_tween_oldest_motionless_frame_no_gap();
   test_tween_vectortrail_single_sample_reaches_one();
   test_quantized_vector_trail_roundtrip_and_ring();
 
