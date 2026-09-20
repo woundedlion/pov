@@ -9,15 +9,11 @@
 #include <cmath>
 #include <cassert>
 
-#include <span>
 #include <algorithm>
-#include <bitset>
 #include "math/geometry.h"
-#include "math/stereographic.h"
 #include "color/color.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
-#include "engine/memory.h"
 
 /**
  * @file pipeline.h
