@@ -73,8 +73,7 @@ public:
 #else
     def->set(value);
 #endif
-    if (animated)
-      animated_parameter_written();
+    parameter_written();
     return ParamSetResult::APPLIED;
   }
 
@@ -129,12 +128,10 @@ public:
 
 protected:
   /**
-   * @brief Runs after an accepted write to an animated parameter.
-   * @details The write has already engaged the animation pause. An effect whose
-   * choreography rewrites the whole parameter set — a preset crossfade — must
-   * stop doing so here, or the next frame overwrites the value just written.
+   * @brief Runs after any accepted parameter write.
+   * @details Preset crossfades must stop rewriting the manually edited state.
    */
-  virtual void animated_parameter_written() {}
+  virtual void parameter_written() {}
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   using ParameterUpdatedHook = void (*)(ParamHost *, const char *, bool);

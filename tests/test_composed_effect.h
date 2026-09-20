@@ -1673,12 +1673,13 @@ private:
  * @details Counts transition_armed and blend_params calls and writes the blend
  * itself, so a cancelled crossfade shows up as a blend that stops writing.
  */
-template <int W, int H, bool Pausable = false>
+template <int W, int H, bool Pausable = false, bool Animated = true>
 class LerpChoreoProbe
-    : public ChoreographedEffect<LerpChoreoProbe<W, H, Pausable>,
+    : public ChoreographedEffect<LerpChoreoProbe<W, H, Pausable, Animated>,
                                  ChoreoProbeParams> {
   using Choreography =
-      ChoreographedEffect<LerpChoreoProbe<W, H, Pausable>, ChoreoProbeParams>;
+      ChoreographedEffect<LerpChoreoProbe<W, H, Pausable, Animated>,
+                          ChoreoProbeParams>;
   friend Choreography;
 
 public:
@@ -1696,7 +1697,10 @@ public:
   LerpChoreoProbe() : Choreography(W, H) {}
 
   void init() override {
-    this->register_animated_param("Level", &this->params.level, 0.0f, 1.0f);
+    if constexpr (Animated)
+      this->register_animated_param("Level", &this->params.level, 0.0f, 1.0f);
+    else
+      this->register_param("Level", &this->params.level, 0.0f, 1.0f);
     this->begin_choreography();
   }
 
@@ -1783,37 +1787,44 @@ inline void test_choreography_fade_envelope() {
 /**
  * @brief Pins the two Segue::Preset::Lerp transition hooks.
  * @details transition_armed fires once per automatic crossfade, with the
- * incoming preset; animated_parameter_written ends the crossfade in flight, so
+ * incoming preset; parameter_written ends the crossfade in flight, so
  * the blend stops rewriting the value the write just landed.
  */
 inline void test_choreography_lerp_transition_hooks() {
-  using FX = LerpChoreoProbe<SMALL_W, SMALL_H>;
-  reset_effect_globals();
-  FX effect;
-  effect.init();
-  HS_EXPECT_EQ(effect.armed_count, 0);
-  HS_EXPECT_EQ(effect.level(), 0.0f);
+  const auto check = []<bool Animated>() {
+    using FX = LerpChoreoProbe<SMALL_W, SMALL_H, false, Animated>;
+    reset_effect_globals();
+    FX effect;
+    effect.init();
+    HS_EXPECT_EQ(effect.armed_count, 0);
+    HS_EXPECT_EQ(effect.level(), 0.0f);
 
-  // Retire the dwell; the next frame arms the crossfade to PRESETS[1].
-  run_probe_frames(effect, FX::PRESET_DWELL_FRAMES);
-  HS_EXPECT_EQ(effect.armed_count, 1);
-  HS_EXPECT_EQ(effect.armed_target, 1.0f);
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+    // Retire the dwell; the next frame arms the crossfade to PRESETS[1].
+    run_probe_frames(effect, FX::PRESET_DWELL_FRAMES);
+    HS_EXPECT_EQ(effect.armed_count, 1);
+    HS_EXPECT_EQ(effect.armed_target, 1.0f);
+    HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
-  // Mid-crossfade the level is strictly between the endpoints.
-  run_probe_frames(effect, FX::PRESET_SEGUE.frames / 2);
-  HS_EXPECT_GT(effect.blend_calls, 0);
-  HS_EXPECT_GT(effect.level(), 0.0f);
-  HS_EXPECT_LT(effect.level(), 1.0f);
+    // Mid-crossfade the level is strictly between the endpoints.
+    run_probe_frames(effect, FX::PRESET_SEGUE.frames / 2);
+    HS_EXPECT_GT(effect.blend_calls, 0);
+    HS_EXPECT_GT(effect.level(), 0.0f);
+    HS_EXPECT_LT(effect.level(), 1.0f);
 
-  // The manual write cancels the crossfade: the lerp keeps stepping (the policy
-  // is unpausable) but blend_params is never called again.
-  const int blends = effect.blend_calls;
-  HS_EXPECT_EQ(effect.updateParameter("Level", 0.3f), ParamSetResult::APPLIED);
-  run_probe_frames(effect, 2 * FX::PRESET_SEGUE.frames);
-  HS_EXPECT_EQ(effect.blend_calls, blends);
-  HS_EXPECT_EQ(effect.level(), 0.3f);
-  HS_EXPECT_EQ(effect.armed_count, 1);
+    // The manual write cancels the crossfade: the lerp keeps stepping (the policy
+    // is unpausable) but blend_params is never called again.
+    const int blends = effect.blend_calls;
+    HS_EXPECT_EQ(effect.updateParameter("Level", 0.3f),
+                 ParamSetResult::APPLIED);
+    run_probe_frames(effect, Animated ? 2 * FX::PRESET_SEGUE.frames
+                                      : FX::PRESET_SEGUE.frames / 2);
+    HS_EXPECT_EQ(effect.blend_calls, blends);
+    HS_EXPECT_EQ(effect.level(), 0.3f);
+    HS_EXPECT_EQ(effect.armed_count, 1);
+    HS_EXPECT_EQ(effect.animations_paused(), Animated);
+  };
+  check.template operator()<true>();
+  check.template operator()<false>();
 }
 
 /**
