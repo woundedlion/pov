@@ -458,6 +458,39 @@ inline void test_classify_faces_cube_uniform_topology() {
     HS_EXPECT_EQ(cube.topology[i], 0);
 }
 
+inline void test_classify_faces_empty_mesh_clears_topology_key() {
+  Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
+  Arena scratch_b(mesh_arena_b + sizeof(mesh_arena_b) / 2,
+                  sizeof(mesh_arena_b) / 2);
+  PolyMesh mesh;
+  mesh.topology_key = 0x12345678u;
+
+  MeshOps::classify_faces_by_topology(mesh, scratch_a, scratch_b, geom);
+
+  HS_EXPECT_EQ(mesh.topology.size(), static_cast<size_t>(0));
+  HS_EXPECT_EQ(mesh.topology_key, 0u);
+}
+
+inline void test_classify_faces_zero_sided_faces_share_class() {
+  Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
+  Arena scratch_b(mesh_arena_b + sizeof(mesh_arena_b) / 2,
+                  sizeof(mesh_arena_b) / 2);
+  PolyMesh mesh;
+  mesh.face_counts.bind(geom, 3);
+  mesh.face_counts.push_back(0);
+  mesh.face_counts.push_back(0);
+  mesh.face_counts.push_back(0);
+
+  MeshOps::classify_faces_by_topology(mesh, scratch_a, scratch_b, geom);
+
+  HS_EXPECT_EQ(mesh.topology.size(), static_cast<size_t>(3));
+  HS_EXPECT_NE(mesh.topology_key, 0u);
+  for (size_t i = 0; i < mesh.topology.size(); ++i)
+    HS_EXPECT_EQ(mesh.topology[i], 0);
+}
+
 /**
  * @brief Verifies classify_faces_by_topology on an UNCOMPILED PolyMesh with a
  *        degenerate 2-gon neither self-pairs it nor trips the non-manifold trap.
@@ -984,6 +1017,8 @@ inline int run_mesh_tests() {
   test_clone_polymesh_deep_copies();
 
   test_classify_faces_cube_uniform_topology();
+  test_classify_faces_empty_mesh_clears_topology_key();
+  test_classify_faces_zero_sided_faces_share_class();
   test_classify_faces_uncompiled_degenerate();
   test_degenerate_edge_records_never_pair();
   test_classify_faces_tetrahedron_uniform_topology();
