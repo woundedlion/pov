@@ -71,6 +71,15 @@ consteval bool operator_ids_unique() {
   return true;
 }
 
+consteval bool operator_names_unique() {
+  for (size_t i = 0; i < OPERATOR_TABLE.size(); ++i)
+    for (size_t j = 0; j < i; ++j)
+      if (std::string_view(OPERATOR_TABLE[i].display_name) ==
+          OPERATOR_TABLE[j].display_name)
+        return false;
+  return true;
+}
+
 /** Per-op monotonicity is a table invariant: adjacency over monotone
     operators yields a monotone chain, so compile() never re-walks it. */
 consteval bool operator_table_monotone() {
@@ -82,6 +91,8 @@ consteval bool operator_table_monotone() {
 
 static_assert(operator_ids_unique(),
               "chain operator table: duplicate operator id");
+static_assert(operator_names_unique(),
+              "chain operator table: duplicate operator name");
 static_assert(operator_table_monotone(),
               "chain operator table: an operator may not decrease its family "
               "rank");
