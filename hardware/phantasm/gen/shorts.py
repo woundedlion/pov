@@ -1,7 +1,6 @@
 """Union-find connectivity check over raw schematic geometry.
 Reports electrical groups that merge two DIFFERENT named nets (labels / power)."""
 import argparse
-import math
 import os
 import sys
 import sexp
@@ -13,9 +12,6 @@ FLAG_NET = "PWR_FLAG"
 
 DEFAULT_SCH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
-
-TOL = 0.02   # mm, perpendicular distance from the wire
-
 
 def R(v):
     return (round(float(v[0]), 3), round(float(v[1]), 3))
@@ -29,13 +25,12 @@ def prop(sym, name):
 
 
 def on_seg(p, a, b):
-    (x, y), (x1, y1), (x2, y2) = p, a, b
-    if not (min(x1, x2) - TOL <= x <= max(x1, x2) + TOL and
-            min(y1, y2) - TOL <= y <= max(y1, y2) + TOL):
+    (x, y), (x1, y1), (x2, y2) = (
+        tuple(round(axis * 1000) for axis in point) for point in (p, a, b))
+    if not (min(x1, x2) <= x <= max(x1, x2) and
+            min(y1, y2) <= y <= max(y1, y2)):
         return False
-    cross = abs((x2 - x1) * (y - y1) - (y2 - y1) * (x - x1))
-    length = math.hypot(x2 - x1, y2 - y1)
-    return cross < TOL * length if length else True
+    return ((x2 - x1) * (y - y1) - (y2 - y1) * (x - x1)) == 0
 
 
 def named_points(root):

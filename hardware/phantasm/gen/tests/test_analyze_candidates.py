@@ -37,7 +37,7 @@ class CandidateBoardTests(unittest.TestCase):
 
             with mock.patch.object(analyze_candidates, "PROJ", directory):
                 self.assertEqual(analyze_candidates.default_candidates(),
-                                 [str(expected)])
+                                 [str(expected), str(candidates / "Candidate_2")])
 
     def test_rejects_ambiguous_boards(self):
         with tempfile.TemporaryDirectory() as directory:

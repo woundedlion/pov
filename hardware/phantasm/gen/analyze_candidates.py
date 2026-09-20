@@ -7,7 +7,7 @@ strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair) plus placement quality
 Usage:
     python analyze_candidates.py [DIR ...]
 
-With no args it globs `../candidates/Candidate *`. Pass explicit candidate
+With no args it globs `../candidates/Candidate[ _-]*`. Pass explicit candidate
 folders (or .kicad_pcb files) to override.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
@@ -317,8 +317,8 @@ def candidate_board(path):
 
 
 def default_candidates():
-    """Return Quilter's default space-separated candidate folders."""
-    pattern = os.path.join(PROJ, "candidates", "Candidate *")
+    """Return Quilter candidate folders using its supported separators."""
+    pattern = os.path.join(PROJ, "candidates", "Candidate[ _-]*")
     return sorted(path for path in glob.glob(pattern) if os.path.isdir(path))
 
 
