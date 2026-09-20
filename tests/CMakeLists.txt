@@ -752,6 +752,17 @@ add_test(NAME unit_feedback_compare COMMAND feedback_divergence --compare
 set_tests_properties(unit_feedback_compare PROPERTIES
   FIXTURES_REQUIRED feedback_dump PASS_REGULAR_EXPRESSION "max\\|d\\| = 0 LSB")
 
+add_executable(feedback_divergence_io
+  ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence_io.cpp
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp)
+target_include_directories(feedback_divergence_io PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_link_libraries(feedback_divergence_io PRIVATE hs_host_abi)
+target_compile_options(feedback_divergence_io PRIVATE -O2 -ffast-math -fno-finite-math-only)
+_hs_warnings(feedback_divergence_io)
+add_test(NAME unit_feedback_io COMMAND feedback_divergence_io
+  "${CMAKE_CURRENT_BINARY_DIR}/feedback-io.bin")
+
 # Generator of record for core/color/srgb_decode_lut.h. EXCLUDE_FROM_ALL: run
 # with no argument it rewrites a committed header, so the sharded CI job only
 # compiles it; the srgb-decode-provenance job runs it to a temp path (argv[1])
