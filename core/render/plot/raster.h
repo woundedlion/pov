@@ -27,6 +27,21 @@
 
 namespace Plot {
 
+/**
+ * @brief Applies an optional vertex shader to every control point.
+ * @tparam FragmentsT Fragment container type.
+ * @param vertex_shader Vertex shader to run; no-op if null.
+ * @param pts Fragment container mutated in place.
+ */
+template <typename FragmentsT>
+inline void apply_vertex_shader(VertexShaderRef vertex_shader,
+                                FragmentsT &pts) {
+  if (vertex_shader) {
+    for (auto &p : pts)
+      vertex_shader(p);
+  }
+}
+
 /** @brief Adaptive raster sampling density. */
 enum class RasterSamplingPolicy { DEFAULT, BALANCED, SELECTABLE };
 
