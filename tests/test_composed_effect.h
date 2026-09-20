@@ -1673,18 +1673,18 @@ private:
  * @details Counts transition_armed and blend_params calls and writes the blend
  * itself, so a cancelled crossfade shows up as a blend that stops writing.
  */
-template <int W, int H>
+template <int W, int H, bool Pausable = false>
 class LerpChoreoProbe
-    : public ChoreographedEffect<LerpChoreoProbe<W, H>, ChoreoProbeParams> {
+    : public ChoreographedEffect<LerpChoreoProbe<W, H, Pausable>,
+                                 ChoreoProbeParams> {
   using Choreography =
-      ChoreographedEffect<LerpChoreoProbe<W, H>, ChoreoProbeParams>;
+      ChoreographedEffect<LerpChoreoProbe<W, H, Pausable>, ChoreoProbeParams>;
   friend Choreography;
 
 public:
   using Params = ChoreoProbeParams;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{8, ease_linear,
-                                                    /*pausable=*/false};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{8, ease_linear, Pausable};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
       {{{0.0f}}, {{1.0f}}}};
@@ -1820,6 +1820,27 @@ inline void test_choreography_lerp_transition_hooks() {
  * @brief Module entry point for the composed-effect base contract.
  * @return Module result code from hs_test::end_module (0 on success).
  */
+inline void test_choreography_lerp_pause_policy() {
+  const auto check = []<bool Pausable>() {
+    using FX = LerpChoreoProbe<SMALL_W, SMALL_H, Pausable>;
+    reset_effect_globals();
+    FX effect;
+    effect.init();
+    run_probe_frames(effect, FX::PRESET_DWELL_FRAMES + 3);
+    const float held = effect.level();
+    HS_EXPECT_GT(held, 0.0f);
+    HS_EXPECT_LT(held, 1.0f);
+    effect.setAnimationsPaused(true);
+    run_probe_frames(effect, FX::PRESET_SEGUE.frames);
+    HS_EXPECT_EQ(effect.level(), Pausable ? held : 1.0f);
+    effect.setAnimationsPaused(false);
+    run_probe_frames(effect, FX::PRESET_SEGUE.frames);
+    HS_EXPECT_EQ(effect.level(), 1.0f);
+  };
+  check.template operator()<true>();
+  check.template operator()<false>();
+}
+
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   test_catalog_semantic_export();
@@ -1835,6 +1856,7 @@ inline int run_composed_effect_tests() {
   test_composed_noise_sources();
   test_choreography_fade_envelope();
   test_choreography_lerp_transition_hooks();
+  test_choreography_lerp_pause_policy();
   return fixture.result();
 }
 
