@@ -1934,7 +1934,7 @@ swept-envelope design before operation.
 
 **Hardware ID detection**: Each Teensy reads `log2(N)` active-low GPIO straps: pin 21 (ID0), pin 22 (ID1), and pin 23 (ID2, N=8 only). The ID is `(~raw) & (N-1)`, so grounding a strap sets its bit and all-floating selects ID 0 (sync master). The header supports power-of-two `N ≤ 8`.
 
-**Branchless ISR**: All per-segment decisions are resolved at boot time into three precomputed values:
+**Precomputed ISR indexing**: All per-segment mapping decisions are resolved at boot time into three precomputed values:
 
 | Value | Description |
 |---|---|
@@ -1942,14 +1942,18 @@ swept-envelope design before operation.
 | `y_step` | +1 for northern bands, -1 for reversed southern bands |
 | `arm_b` | Whether this segment is on arm B (x offset by W/2) |
 
-The ISR loop has no branches:
+The ISR accumulates the precomputed pixel offset and handles a unity envelope without per-pixel scaling:
 
 ```cpp
 const Pixel* buf = effect->display_buffer();    // fast path: no per-pixel virtual dispatch
-int y = y_base;
-for (int i = 0; i < PPS; ++i, y += y_step) {
-    frame.pack_pixel(i, buf[y * width + x_col]);
-}
+const int stride = segment_row_stride(segment, width);
+int off = segment_pixel_base(segment, x_col, width);
+if (effect->output_envelope_u16() == 65535u)
+    for (int i = 0; i < PPS; ++i, off += stride)
+        frame.pack_pixel(i, buf[off]);
+else
+    for (int i = 0; i < PPS; ++i, off += stride)
+        frame.pack_pixel(i, effect->apply_output_envelope(buf[off]));
 ```
 
 **ISR state machines**: the wake's non-trivial decisions are split out of the Arduino-only driver into two host-tested headers, which `run_wake_sequence()` drives in ISR order:
