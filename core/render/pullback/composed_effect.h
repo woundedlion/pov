@@ -40,7 +40,7 @@ enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
 using Color::ColorParams;
 using Color::HueMode;
 using ValueCoverage::CutoutValueParams;
-using ValueCoverage::EdgeValueParams;
+using ProjectionCoverage::EdgeValueParams;
 using Lens::MobiusLensParams;
 using Lens::NoLensParams;
 using Projection::ProjectionParams;
