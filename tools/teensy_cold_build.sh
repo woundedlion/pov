@@ -15,5 +15,6 @@ if [ "$#" -gt 1 ]; then
 fi
 log=${1:-teensy_build.log}
 
+export LC_ALL=C
 rm -rf .pio/build_cache .pio/build
 pio run -v 2>&1 | tee "$log"

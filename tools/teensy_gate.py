@@ -833,7 +833,7 @@ def size_format_annotation(exc: ValueError) -> str:
 
 
 def verdict(env: str, budget: dict, sizes: dict[str, RegionSizes],
-            symbols: list[Symbol], sections: dict[str, int], *,
+            symbols: list[Symbol], sections: dict[str, tuple[str, int]], *,
             uncalibrated: bool, github: bool) -> tuple[str, int]:
     """Evaluate one env and render it; returns (report, exit code).
 
