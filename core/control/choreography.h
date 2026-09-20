@@ -188,7 +188,7 @@ protected:
    * @details Counts presets from `PRESET_IDS` or the `PRESETS` table. A
    * Segue::Preset::Fade policy's envelope loop starts here; every other policy
    * advances through step_choreography()'s dwell countdown. Call once from
-   * init().
+   * init(), after every spawn_pinned() call when using Fade.
    */
   HS_COLD_MEMBER void begin_choreography() {
     configure_presets(preset_count_of());
