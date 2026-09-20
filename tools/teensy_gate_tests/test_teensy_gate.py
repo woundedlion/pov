@@ -647,6 +647,13 @@ class TestBudgetSchema(unittest.TestCase):
                         self._load(dropped)
                     self.assertIn(region, str(ctx.exception))
 
+    def test_deleting_the_code_component_is_rejected(self):
+        dropped = copy.deepcopy(BUDGETS)
+        del dropped["phantasm"]["regions"]["ram1"]["components"]["code"]
+        with self.assertRaises(tg.BudgetSchemaError) as ctx:
+            self._load(dropped)
+        self.assertIn("code", str(ctx.exception))
+
     def test_deleting_any_shipped_layout_symbol_is_rejected(self):
         for env, budget in BUDGETS.items():
             for key in budget["symbols"]:

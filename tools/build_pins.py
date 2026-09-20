@@ -437,10 +437,13 @@ def check_flexram_geometry() -> list[str]:
         # unterminated block comment all land here; a traceback out of a hook is
         # not a report.
         return [f"tools/teensy_budgets.json: {exc}"]
-    derived = budgets["phantasm"]["regions"]["ram1"][
-        "components"]["code"]["max_banks_from_stack_floor"]
-    bank_bytes = derived["bank_bytes"]
-    total_banks = derived["total_banks"]
+    try:
+        derived = budgets["phantasm"]["regions"]["ram1"][
+            "components"]["code"]["max_banks_from_stack_floor"]
+        bank_bytes = derived["bank_bytes"]
+        total_banks = derived["total_banks"]
+    except (KeyError, TypeError) as exc:
+        return [f"tools/teensy_budgets.json: missing FlexRAM geometry: {exc}"]
     errors: list[str] = []
 
     gate_text = read_scanned(ROOT / "tools/teensy_gate.py", errors)
