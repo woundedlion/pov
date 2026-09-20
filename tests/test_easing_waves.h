@@ -82,6 +82,9 @@ inline void test_easing_endpoints() {
   HS_EXPECT_NEAR(ease_out_cubic(1.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_in_circ(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_out_circ(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_EQ(ease_in_circ(std::nextafter(1.0f, 2.0f)), 1.0f);
+  HS_EXPECT_EQ(ease_out_circ(std::nextafter(0.0f, -1.0f)), 0.0f);
+  HS_EXPECT_EQ(ease_out_circ(-1e-6f), 0.0f);
 
   HS_EXPECT_NEAR(ease_out_expo(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_out_expo(1.0f), 1.0f, 1e-5f);
