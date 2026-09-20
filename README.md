@@ -590,7 +590,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── pov_segment_map.json        Firmware segment→canvas golden, installed from Holosphere — read by the segment cross-check
 ├── README.md                   Installed from Holosphere (this file)
 ├── docs/screenshots/           Installed from Holosphere
-├── shader/                     Installed shader documents, migration manifest, and validator
+├── shader/                     Engine-installed documents/validator plus daydream-owned patterns/v1 and digest migration
 │
 ├── main.js                     index.html's entry module: starts the simulator, once
 ├── bootstrap.js                Dynamic-import boot of daydream.js + failure overlay
