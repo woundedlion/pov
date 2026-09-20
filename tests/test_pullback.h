@@ -1040,6 +1040,70 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(projected.provenance.domain_coverage, 1.0f);
 }
 
+inline void test_pullback_warp_phase_loop() {
+  Pullback::Warp::WaveShearParams wave;
+  wave.field_angle = 0.9f;
+  const auto wave_0 = Pullback::Warp::prepare(wave, 0.0f);
+  const auto wave_1 = Pullback::Warp::prepare(wave, 1.0f);
+  HS_EXPECT_NEAR(wave_0.rotation_cos, wave_1.rotation_cos, 1e-6f);
+  HS_EXPECT_NEAR(wave_0.rotation_sin, wave_1.rotation_sin, 1e-6f);
+
+  const Pullback::Warp::MirrorParams mirror{0.0f, 0.7f, 1.3f,
+                                            0.9f, 0.4f, -0.2f};
+  const auto mirror_0 = Pullback::Warp::prepare(mirror, 0.0f);
+  const auto mirror_1 = Pullback::Warp::prepare(mirror, 1.0f);
+  HS_EXPECT_NEAR(mirror_0.transform.mirror.offset_x,
+                 mirror_1.transform.mirror.offset_x, 1e-6f);
+  HS_EXPECT_NEAR(mirror_0.transform.mirror.offset_y,
+                 mirror_1.transform.mirror.offset_y, 1e-6f);
+
+  Pullback::Warp::VectorNoiseParams vector;
+  vector.vector_angle = 0.4f;
+  const auto vector_0 = Pullback::Warp::prepare(vector, 0.0f);
+  const auto vector_1 = Pullback::Warp::prepare(vector, 1.0f);
+  HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.x,
+                 vector_1.transform.noise_loop.offset.x, 1e-6f);
+  HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.y,
+                 vector_1.transform.noise_loop.offset.y, 1e-6f);
+  HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.z,
+                 vector_1.transform.noise_loop.offset.z, 1e-6f);
+  const Vector curl_0 = noise_projected_loop_offset(0.0f);
+  const Vector curl_1 = noise_projected_loop_offset(1.0f);
+  HS_EXPECT_NEAR(curl_0.x, curl_1.x, 1e-6f);
+  HS_EXPECT_NEAR(curl_0.y, curl_1.y, 1e-6f);
+  HS_EXPECT_NEAR(curl_0.z, curl_1.z, 1e-6f);
+
+  Pullback::Warp::VortexParams vortex;
+  vortex.center_x = 0.2f;
+  vortex.center_y = -0.3f;
+  vortex.center_orbit_radius = 0.8f;
+  const auto vortex_0 = Pullback::Warp::prepare(vortex, 0.0f);
+  const auto vortex_1 = Pullback::Warp::prepare(vortex, 1.0f);
+  HS_EXPECT_NEAR(vortex_0.transform.vortex.center_x,
+                 vortex_1.transform.vortex.center_x, 1e-6f);
+  HS_EXPECT_NEAR(vortex_0.transform.vortex.center_y,
+                 vortex_1.transform.vortex.center_y, 1e-6f);
+
+  Pullback::Warp::AffineParams affine;
+  affine.translation_x = 2.0f;
+  affine.translation_y = -1.0f;
+  affine.scale_x = 1.5f;
+  affine.scale_y = 0.75f;
+  affine.shear = 0.2f;
+  const auto affine_0 = Pullback::Warp::prepare(affine, 0.0f, 0.6f, 2.0f);
+  const auto affine_1 = Pullback::Warp::prepare(affine, 1.0f, 0.6f, 2.0f);
+  HS_EXPECT_NEAR(affine_0.transform.affine.translation_x,
+                 affine_1.transform.affine.translation_x, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.transform.affine.translation_y,
+                 affine_1.transform.affine.translation_y, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.transform.affine.scale_x,
+                 affine_1.transform.affine.scale_x, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.transform.affine.scale_y,
+                 affine_1.transform.affine.scale_y, 1e-6f);
+  HS_EXPECT_NEAR(affine_0.transform.affine.shear,
+                 affine_1.transform.affine.shear, 1e-6f);
+}
+
 inline void test_pullback_periodic_ripple() {
   Pullback::Surface::PeriodicRippleParams params;
   params.strength = 0.15f;
@@ -1270,6 +1334,7 @@ inline int run_pullback_tests() {
   test_pullback_concrete_catalog();
   test_pullback_hexagonal_edges();
   test_pullback_displacement_overflow();
+  test_pullback_warp_phase_loop();
   test_pullback_periodic_ripple();
   test_pullback_lens_stack();
   test_pullback_rank_skip_crossing();
