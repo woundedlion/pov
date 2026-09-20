@@ -627,9 +627,10 @@ struct ShaderWorkbenchWhiteBox {
            Validation::NONEMPTY && Validation::CONTRACTS &&
            Validation::CANONICAL && Validation::MONOTONE &&
            Validation::CARRIERS && Validation::ENTRY && Validation::EXIT &&
-           Validation::BINDINGS && Validation::EMPTY_DESCRIPTORS &&
-           Validation::RUN_RETURNS && Validation::PREPARES &&
-           Validation::APPROXIMATIONS && Validation::EXTRA_VALIDATION &&
+           Validation::BINDINGS && Validation::DESCRIPTOR_IDENTITY &&
+           Validation::EMPTY_DESCRIPTORS && Validation::RUN_RETURNS &&
+           Validation::PREPARES && Validation::APPROXIMATIONS &&
+           Validation::EXTRA_VALIDATION &&
            std::is_same_v<ProjectStage,
                           Workbench::SelectedProjectStage<
                               Projection::PEIRCE_QUINCUNCIAL,
@@ -1233,6 +1234,16 @@ inline void test_shader_workbench_manual_edit_timing() {
                WB::WarpStageKind::NONE);
 }
 
+struct TopologyRunProbe
+    : Workbench::TopologyStage<TopologyRunProbe, Workbench::OuterCameraStage> {
+  template <typename Binding>
+  static Pullback::SphereSample run(const Pullback::SphereSample &input,
+                                    const typename Binding::FrameState &,
+                                    const Pullback::NoPrepared &) {
+    return {input.dir, input.path_length + 7.0f};
+  }
+};
+
 /** @brief Pullback stages preserve their typed order and metadata. */
 inline void test_shader_workbench_pipeline_contract() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -1240,6 +1251,12 @@ inline void test_shader_workbench_pipeline_contract() {
   WB::SB sb;
   sb.init();
   WB::FrameState frame = WB::frame(sb);
+  using BoundProbe = TopologyRunProbe::Bind<Workbench::ShaderWorkbenchBinding>;
+  static_assert(std::is_same_v<BoundProbe::Descriptor, TopologyRunProbe>);
+  const Pullback::SphereSample probe{X_AXIS, 1.0f};
+  HS_EXPECT_EQ(
+      BoundProbe::run(probe, frame, BoundProbe::prepare(frame)).path_length,
+      8.0f);
   frame.slots = WB::legacy_slots();
   frame.slots.surface_lens = WB::SurfaceLens::NONE;
   frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
