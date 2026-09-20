@@ -227,37 +227,20 @@ profiled_project_branch(const Vector &v, const FrameState &frame) {
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-finalize_projection(const Vector &local, const Complex &coords,
-                    Projection projection, float singularity_fade,
+finalize_projection(const Vector &local, const Complex &, Projection projection,
+                    float singularity_fade,
                     GnomonicHemispherePolicy gnomonic_hemisphere =
                         GnomonicHemispherePolicy::FOLDED) {
   switch (projection) {
   case Projection::SINUSOIDAL:
-    return {coords,
-            {static_cast<uint8_t>(local.z < 0.0f), 0, 0, 1.0f, 1.0f,
-             PROJECTION_FLAG_FOLDED}};
+    return Pullback::Projection::folded_sinusoidal(local, 0.0f);
   case Projection::EQUIRECTANGULAR:
-    return {
-        coords,
-        {0, 0, BOUNDARY_CUT, PI_F - std::fabs(coords.re),
-         Pullback::Projection::equirectangular_weight(local, singularity_fade),
-         0}};
-  case Projection::GNOMONIC: {
-    const bool in_domain =
-        gnomonic_hemisphere == GnomonicHemispherePolicy::FOLDED ||
-        (gnomonic_hemisphere == GnomonicHemispherePolicy::FRONT_HEMISPHERE
-             ? local.y >= 0.0f
-             : local.y < 0.0f);
-    return {coords,
-            {static_cast<uint8_t>(local.y < 0.0f),
-             static_cast<uint8_t>(local.y < 0.0f),
-             static_cast<uint8_t>(BOUNDARY_CUT | BOUNDARY_SINGULAR),
-             std::fabs(local.y),
-             Pullback::Projection::singularity_attenuation(
-                 local.y * local.y, local.x * local.x + local.z * local.z,
-                 singularity_fade),
-             0, 0, 0, in_domain ? 1.0f : 0.0f}};
-  }
+    return Pullback::Projection::equirectangular(local, 0.0f, singularity_fade);
+  case Projection::GNOMONIC:
+    return Pullback::Projection::gnomonic(
+        local, singularity_fade,
+        static_cast<Pullback::Projection::GnomonicHemisphere>(
+            gnomonic_hemisphere));
   case Projection::STEREOGRAPHIC:
   case Projection::BONNE:
   case Projection::PEIRCE_QUINCUNCIAL:
