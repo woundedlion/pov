@@ -15,7 +15,10 @@ Run:  python -m unittest discover -s tools/build_pins_tests
 """
 
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -26,6 +29,84 @@ TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
 import build_pins as bp  # noqa: E402
+
+
+class RequirementPins(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / "tools").mkdir()
+        (self.root / "requirements").mkdir()
+        for name in ("build_pins.py", "teensy_gate.py"):
+            shutil.copyfile(TOOLS / name, self.root / "tools" / name)
+        for path in (bp.ROOT / "requirements").glob("*.in"):
+            shutil.copyfile(path, self.root / "requirements" / path.name)
+        self.source = self.root / "requirements/ruff.in"
+        self.lock = self.root / "requirements/ruff.txt"
+
+    def _run(self, *args, **kwargs):
+        return subprocess.run(
+            [sys.executable, str(self.root / "tools/build_pins.py"), *args],
+            capture_output=True, text=True, **kwargs)
+
+    def _check_pair(self):
+        uses = tuple(use for use in bp.INLINE_USES if use[1] == "ruff")
+        with unittest.mock.patch.object(bp, "ROOT", self.root), \
+                unittest.mock.patch.object(bp, "INLINE_SCAN",
+                                           (self.source, self.lock)), \
+                unittest.mock.patch.object(bp, "INLINE_USES", uses), \
+                unittest.mock.patch.dict(bp.PINS,
+                                         ruff=self._run("ruff").stdout.strip()):
+            return bp.check_inline_pins()
+
+    def test_a_coordinated_dependency_bump_needs_no_script_edit(self):
+        self.source.write_text("ruff==99.0.0\n", encoding="utf-8")
+        self.lock.write_text("ruff==99.0.0 \\\n    --hash=sha256:abc\n",
+                             encoding="utf-8")
+        result = self._run("ruff")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "99.0.0")
+        self.assertEqual(self._check_pair(), [])
+        output = self.root / "github-output"
+        result = self._run("--github-output",
+                           env=dict(os.environ, GITHUB_OUTPUT=str(output)))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ruff=99.0.0\n", output.read_text(encoding="utf-8"))
+
+    def test_a_stale_lock_still_fails(self):
+        self.source.write_text("ruff==99.0.0\n", encoding="utf-8")
+        self.lock.write_text("ruff==98.0.0\n", encoding="utf-8")
+        errors = self._check_pair()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("requirements/ruff.txt", errors[0].replace("\\", "/"))
+        self.assertIn("99.0.0", errors[0])
+        self.assertIn("98.0.0", errors[0])
+
+    def test_comments_and_blank_lines_are_allowed(self):
+        self.source.write_text("# Linter\n\nruff==99.0.0 # exact pin\n",
+                               encoding="utf-8")
+        result = self._run("ruff")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "99.0.0")
+
+    def test_malformed_sources_fail_without_a_traceback(self):
+        for content in ("", "ruff>=99.0.0", "ruff==99.*", "ruff==",
+                        "other==99.0.0", "ruff==99.0.0\nruff==98.0.0"):
+            with self.subTest(content=content):
+                self.source.write_text(content, encoding="utf-8")
+                result = self._run("ruff")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("expected one exact ruff==VERSION pin",
+                              result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
+    def test_a_missing_source_fails_without_a_traceback(self):
+        self.source.unlink()
+        result = self._run("ruff")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ruff.in: cannot be read", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
 
 class DuplicatesPin(unittest.TestCase):
@@ -316,16 +397,24 @@ class CheckTool(unittest.TestCase):
     def test_a_packaging_suffix_is_not_expected_from_the_binary(self):
         # shellcheck-py's version is the release plus a suffix; shellcheck
         # reports the release, so the pin was unsatisfiable by equality.
+        pin = bp.PINS["shellcheck"]
         status, message = self._check(
             "shellcheck", "ShellCheck - shell script analysis tool\n"
-                          "version: 0.11.0\n")
+                          f"version: {pin.rsplit('.', 1)[0]}\n")
         self.assertEqual(status, 0)
-        self.assertIn("0.11.0.1", message)
+        self.assertIn(pin, message)
+
+    def test_a_dependency_bump_updates_the_runtime_version_check(self):
+        with unittest.mock.patch.dict(bp.PINS, ruff="99.0.0"):
+            self.assertEqual(self._check("ruff", "ruff 99.0.0")[0], 0)
+            status, message = self._check("ruff", "ruff 98.0.0")
+        self.assertEqual(status, 1)
+        self.assertIn("pip install ruff==99.0.0", message)
 
     def test_a_missing_tool_reports_how_to_install_that_tool(self):
-        for name, want in (("just", "pip install rust-just==1.52.0"),
+        for name, want in (("just", f"pip install rust-just=={bp.PINS['just']}"),
                            ("shellcheck",
-                            "pip install shellcheck-py==0.11.0.1"),
+                            f"pip install shellcheck-py=={bp.PINS['shellcheck']}"),
                            ("node", "install Node 24.13.0"),
                            ("doxygen", "install Doxygen 1.17.0")):
             status, message = self._check(name, None)
