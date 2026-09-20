@@ -176,10 +176,8 @@ INLINE_USES = (
     (r"\bKiCad (\d+)\b", "kicad", lambda v: v, 6),
 )
 
-# The extensions the clang-format gate covers. ci.yml and the justfile select
-# them as a git ls-files pathspec, the pre-commit hook as a grep alternation
-# over staged paths; both spellings are derived from this one tuple, so an
-# extension added here reaches all three copies or none.
+# The shared clang-format gate selects these extensions through a git pathspec;
+# the pre-commit hook matches the same set over staged paths.
 FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl")
 
 # The float flags both shipping targets build with: the device firmware
@@ -225,8 +223,8 @@ SHARED_LITERALS = {
 # pathspec pattern is anchored on the first glob so the shellcheck gate's own
 # git ls-files pathspec is not swept in.
 SHARED_LITERAL_USES = (
-    (r"grep -vE '([^']*)'", "format-exclude", 3),
-    (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs", 2),
+    (r"grep -vE '([^']*)'", "format-exclude", 2),
+    (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs", 1),
     # Anchored on the extension alternation's own opening, so an unrelated
     # quoted `grep -E` elsewhere in a scanned file is not counted as a copy.
     (r"grep -E '(\\\.\([^']*)'", "format-extensions", 1),
