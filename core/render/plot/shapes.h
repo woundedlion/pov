@@ -28,24 +28,6 @@ namespace Plot {
 inline constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 
 /**
- * @brief Apply an optional per-control-point vertex shader to every fragment.
- * @tparam FragmentsT Fragment container type.
- * @param vertex_shader Vertex shader to run on each fragment; no-op if null.
- * @param pts Fragment container mutated in place.
- * @details Shared inline replacement for the per-primitive
- * `if (vertex_shader) for (auto &p : pts) vertex_shader(p);` block.
- */
-template <typename FragmentsT>
-inline void apply_vertex_shader(VertexShaderRef vertex_shader,
-                                FragmentsT &pts) {
-  if (vertex_shader) {
-    for (auto &p : pts) {
-      vertex_shader(p);
-    }
-  }
-}
-
-/**
  * @brief Per-primitive geometry/rasterization options for draw_fragments.
  *
  * `close_loop` and `planar_basis` default to the common (geodesic, open) case,
