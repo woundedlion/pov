@@ -47,3 +47,6 @@ patterns/shaderball_migration.json text eol=lf
 # touch them.
 README.md text eol=lf
 docs/screenshots/** binary
+
+# KiCad text artifacts are byte-round-tripped by the parser gates.
+*.kicad_* text eol=lf

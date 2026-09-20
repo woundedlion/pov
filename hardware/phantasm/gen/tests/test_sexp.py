@@ -144,10 +144,10 @@ class ParseOneTests(unittest.TestCase):
 
 class FormattingTests(unittest.TestCase):
     def test_shipped_board_round_trip_preserves_every_byte(self):
-        source = ROUTED.read_text(encoding="utf-8")
-
-        dumped = sexp.dumps(sexp.parse(source)[0]) + "\n"
-
+        source = ROUTED.read_bytes()
+        self.assertNotIn(b"\r", source)
+        dumped = (sexp.dumps(sexp.parse(source.decode("utf-8"))[0]) + "\n").encode(
+            "utf-8")
         self.assertEqual(dumped, source)
 
     def test_edit_preserves_the_surrounding_board_layout(self):
