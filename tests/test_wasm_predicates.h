@@ -434,6 +434,8 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
 
   uint32_t incidence[64] = {};
   HS_EXPECT_LE(in.vertices.size(), std::size(incidence));
+  if (in.vertices.size() > std::size(incidence))
+    return;
   const size_t in_elements = hs_wasm::mesh_largest_element_count(
       in.vertices.size(), in.get_face_counts_size(), in.get_faces_size());
   const size_t in_degree = hs_wasm::mesh_max_face_degree(
