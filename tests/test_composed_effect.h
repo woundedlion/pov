@@ -1869,10 +1869,6 @@ inline void test_choreography_lerp_transition_hooks() {
   check.template operator()<false>();
 }
 
-/**
- * @brief Module entry point for the composed-effect base contract.
- * @return Module result code from hs_test::end_module (0 on success).
- */
 inline void test_choreography_lerp_pause_policy() {
   const auto check = []<bool Pausable>() {
     using FX = LerpChoreoProbe<SMALL_W, SMALL_H, Pausable>;
@@ -1894,6 +1890,10 @@ inline void test_choreography_lerp_pause_policy() {
   check.template operator()<false>();
 }
 
+/**
+ * @brief Module entry point for the composed-effect base contract.
+ * @return Module result code from hs_test::end_module (0 on success).
+ */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   test_catalog_semantic_export();
