@@ -1607,8 +1607,18 @@ private:
         float *targets[] = {&params.translation_x, &params.translation_y,
                             &params.rotation,      &params.scale_x,
                             &params.scale_y,       &params.shear};
-        const float minimum[] = {-4.0f, -4.0f, -TWO_PI_F, 0.25f, 0.25f, -0.75f};
-        const float maximum[] = {4.0f, 4.0f, TWO_PI_F, 4.0f, 4.0f, 0.75f};
+        const float minimum[] = {-Workbench::AFFINE_TRANSLATION_MAX,
+                                 -Workbench::AFFINE_TRANSLATION_MAX,
+                                 -TWO_PI_F,
+                                 Workbench::AFFINE_SCALE_MIN,
+                                 Workbench::AFFINE_SCALE_MIN,
+                                 -Workbench::AFFINE_SHEAR_MAX};
+        const float maximum[] = {Workbench::AFFINE_TRANSLATION_MAX,
+                                 Workbench::AFFINE_TRANSLATION_MAX,
+                                 TWO_PI_F,
+                                 Workbench::AFFINE_SCALE_MAX,
+                                 Workbench::AFFINE_SCALE_MAX,
+                                 Workbench::AFFINE_SHEAR_MAX};
         register_current(names[Workbench::WARP_NAME_TRANSLATION_X + index],
                          targets[index], minimum[index], maximum[index]);
       }
@@ -1624,15 +1634,20 @@ private:
       break;
     case WarpStageKind::VORTEX:
       register_current(names[Workbench::WARP_NAME_CENTER_X], &params.center_x,
-                       -4.0f, 4.0f);
+                       -Workbench::VORTEX_CENTER_MAX,
+                       Workbench::VORTEX_CENTER_MAX);
       register_current(names[Workbench::WARP_NAME_CENTER_Y], &params.center_y,
-                       -4.0f, 4.0f);
+                       -Workbench::VORTEX_CENTER_MAX,
+                       Workbench::VORTEX_CENTER_MAX);
       register_current(names[Workbench::WARP_NAME_RADIUS], &params.radius,
-                       1.0f / 64.0f, 8.0f);
-      register_current(names[Workbench::WARP_NAME_TURNS], &params.turns, -4.0f,
-                       4.0f);
+                       Workbench::VORTEX_RADIUS_MIN,
+                       Workbench::VORTEX_RADIUS_MAX);
+      register_current(names[Workbench::WARP_NAME_TURNS], &params.turns,
+                       -Workbench::VORTEX_TURNS_MAX,
+                       Workbench::VORTEX_TURNS_MAX);
       register_current(names[Workbench::WARP_NAME_CENTER_ORBIT],
-                       &params.center_orbit_radius, 0.0f, 4.0f);
+                       &params.center_orbit_radius, 0.0f,
+                       Workbench::VORTEX_ORBIT_MAX);
       break;
     case WarpStageKind::VECTOR_NOISE:
     case WarpStageKind::CURL_FLOW:
@@ -1655,13 +1670,16 @@ private:
       register_current(names[Workbench::WARP_NAME_CELL_Y], &params.cell_y,
                        CELL_MIN, CELL_MAX);
       register_current(names[Workbench::WARP_NAME_OFFSET_X], &params.offset_x,
-                       -8.0f, 8.0f);
+                       -Workbench::MIRROR_OFFSET_MAX,
+                       Workbench::MIRROR_OFFSET_MAX);
       register_current(names[Workbench::WARP_NAME_OFFSET_Y], &params.offset_y,
-                       -8.0f, 8.0f);
+                       -Workbench::MIRROR_OFFSET_MAX,
+                       Workbench::MIRROR_OFFSET_MAX);
       break;
     case WarpStageKind::POLAR_CHART:
       register_current(names[Workbench::WARP_NAME_RADIAL_SCALE],
-                       &params.radial_scale, 1.0f / 64.0f, 16.0f);
+                       &params.radial_scale, Workbench::POLAR_RADIAL_SCALE_MIN,
+                       Workbench::POLAR_RADIAL_SCALE_MAX);
       register_current(names[Workbench::WARP_NAME_RADIAL_PHASE],
                        &params.radial_phase, 0.0f, TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_ANGULAR_PHASE],

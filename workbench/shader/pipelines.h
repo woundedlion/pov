@@ -105,7 +105,11 @@ using LensPolicy = std::conditional_t<
                         std::conditional_t<
                             LensV == SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
                             Pullback::Lens::PentagonalPrismKaleidoscope,
-                            Pullback::Lens::TriangularPrismKaleidoscope>>>>>>>;
+                            std::conditional_t<
+                                LensV ==
+                                    SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM,
+                                Pullback::Lens::TriangularPrismKaleidoscope,
+                                void>>>>>>>>;
 
 template <Projection ProjectionV>
 using ProjectionPolicy = std::conditional_t<
@@ -122,7 +126,10 @@ using ProjectionPolicy = std::conditional_t<
             std::conditional_t<
                 ProjectionV == Projection::EQUIRECTANGULAR,
                 Pullback::Projection::Equirectangular<ProjectionStateProvider>,
-                Pullback::Projection::PeirceSquare<ProjectionStateProvider>>>>>;
+                std::conditional_t<
+                    ProjectionV == Projection::PEIRCE_QUINCUNCIAL,
+                    Pullback::Projection::PeirceSquare<ProjectionStateProvider>,
+                    void>>>>>;
 
 /** @brief Binds a topology descriptor to its own run and prepare overrides. */
 template <typename Derived, typename Stage> struct TopologyStage : Stage {
@@ -215,9 +222,11 @@ using WarpPolicy = std::conditional_t<
                 std::conditional_t<
                     KindV == WarpStageKind::MIRROR_TILE,
                     Pullback::Warp::MirrorTile<WarpStateProvider<Outer>>,
-                    Pullback::Warp::PolarChart<WarpStateProvider<Outer>,
-                                               Pullback::Warp::LinearPolar,
-                                               1>>>>>>;
+                    std::conditional_t<KindV == WarpStageKind::POLAR_CHART,
+                                       Pullback::Warp::PolarChart<
+                                           WarpStateProvider<Outer>,
+                                           Pullback::Warp::LinearPolar, 1>,
+                                       void>>>>>>;
 
 template <WarpStageKind KindV, bool Outer>
 struct SelectedWarpStage
@@ -251,9 +260,12 @@ struct SelectedWarpStage
 template <Function FunctionV>
 using SourcePolicy = std::conditional_t<
     FunctionV == Function::GRID, Pullback::Source::Grid<SourceStateProvider>,
-    std::conditional_t<FunctionV == Function::PRIMITIVE_LATTICE,
-                       Pullback::Source::PrimitiveLattice<SourceStateProvider>,
-                       Pullback::Source::TwinWave<SourceStateProvider>>>;
+    std::conditional_t<
+        FunctionV == Function::PRIMITIVE_LATTICE,
+        Pullback::Source::PrimitiveLattice<SourceStateProvider>,
+        std::conditional_t<FunctionV == Function::TWIN_WAVE,
+                           Pullback::Source::TwinWave<SourceStateProvider>,
+                           void>>>;
 
 template <CoveragePolicy CoverageV> struct ProjectionCoverageMapping {
   static_assert(CoverageV == CoveragePolicy::OPAQUE ||
