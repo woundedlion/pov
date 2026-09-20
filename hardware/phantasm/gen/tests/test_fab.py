@@ -935,6 +935,53 @@ class ZipMembershipTests(unittest.TestCase):
                                          + ("phantasm-jlc-gerbers.zip",)))
 
 
+class PackagePromotionTests(unittest.TestCase):
+    def test_invalid_members_preserve_the_previous_package(self):
+        for replacement in (None, "unexpected-In1_Cu.g1"):
+            with self.subTest(replacement=replacement), \
+                    tempfile.TemporaryDirectory() as directory, \
+                    contextlib.ExitStack() as stack:
+                out = Path(directory)
+                jlc = out / "jlc"
+                jlc.mkdir()
+                previous = {fab.ARCHIVE: b"previous archive",
+                            fab.SUMS_FILE: b"previous manifest"}
+                for name, content in previous.items():
+                    (jlc / name).write_bytes(content)
+
+                def export(stage, args):
+                    target = Path(args[args.index("-o") + 1])
+                    if stage == "centroid":
+                        target.write_text("Ref,PosX,PosY,Rot,Side\n")
+                    elif stage == "gerber":
+                        names = set(ZipMembershipTests.EXPORTED) - {"phantasm-In1_Cu.g1"}
+                        if replacement:
+                            names.add(replacement)
+                        for name in names:
+                            (target / name).write_text("fixture export")
+
+                for name, value in {"OUT": str(out), "JLC": str(jlc)}.items():
+                    stack.enter_context(unittest.mock.patch.object(fab, name, value))
+                gates = {
+                    "kicad_cli": "fixture-cli", "read_board": [],
+                    "validate_plot_origin": None, "validate_via_geometry": 0,
+                    "validate_zone_geometry": 0, "validate_project_rules": 0,
+                    "run_drc": (0, 0), "run_parity": 0,
+                    "validate_netlist_spec": 0, "parse_components": {},
+                    "validate_assembled_refs": None, "validate_rotation_refs": None,
+                    "validate_assembly_metadata": {}, "validate_part_catalog": None,
+                    "normalize_fab_timestamps": [],
+                    "validate_fab_content": {"plated": 0, "unplated": 0},
+                }
+                for name, value in gates.items():
+                    stack.enter_context(unittest.mock.patch.object(fab, name, return_value=value))
+                stack.enter_context(unittest.mock.patch.object(fab, "run_export", side_effect=export))
+                stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                with self.assertRaisesRegex(SystemExit, "phantasm-In1_Cu.g1|unexpected-In1_Cu.g1"):
+                    fab.main()
+                self.assertEqual({p.name: p.read_bytes() for p in jlc.iterdir()}, previous)
+
+
 class PackageManifestTests(unittest.TestCase):
     """The fab run builds a byte-reproducible package; the manifest is what
     lets a rebuild be checked against what was ordered."""
