@@ -108,10 +108,9 @@ def compare_files(previous_harness: Path, current_harness: Path,
             }
         )
     else:
-        print(
-            f"::warning::no GUARD_GAP_ALLOW table in {previous_ref}:"
-            f"{current_death} - gap-widening check skipped"
-        )
+        raise SystemExit(
+            f"no GUARD_GAP_ALLOW rows parsed from {previous_death} "
+            f"at {previous_ref}")
 
     transitions = {
         (key, before, after) for key, (before, after) in weakened.items()
