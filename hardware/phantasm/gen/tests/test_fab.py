@@ -1024,6 +1024,10 @@ class FabContentTests(unittest.TestCase):
               "D10*\r\nX1000000Y2000000D03*\r\nM02*\r\n")
     APERTURELESS = "%FSLAX46Y46*%\r\n%MOMM*%\r\nM02*\r\n"
     UNDRAWN = "%FSLAX46Y46*%\r\n%MOMM*%\r\n%ADD10C,0.500000*%\r\nM02*\r\n"
+    REGION = ("%FSLAX46Y46*%\r\n%MOMM*%\r\n%LPD*%\r\nG36*\r\n"
+              "X0Y0D02*\r\nG01X1000000Y0D01*\r\n"
+              "X1000000Y1000000D01*\r\nX0Y1000000D01*\r\n"
+              "X0Y0D01*\r\nG37*\r\nM02*\r\n")
     JOB = '{"GeneralSpecs": {}}\n'
     # One via and one plated pad, one unplated mounting hole, one SMD pad.
     BOARD = ('(kicad_pcb (via (at 1 2) (size 0.45) (drill 0.2)) '
@@ -1049,7 +1053,7 @@ class FabContentTests(unittest.TestCase):
                 payloads[name] = self.JOB
             elif extension == ".drl":
                 payloads[name] = self.drill(holes[fab.DRILL_MEMBERS[name]])
-            elif name in fab.APERTURELESS_MEMBERS:
+            elif name in fab.EMPTY_GERBER_MEMBERS:
                 payloads[name] = self.APERTURELESS
             else:
                 payloads[name] = self.GERBER
@@ -1064,6 +1068,31 @@ class FabContentTests(unittest.TestCase):
 
     def test_accepts_an_export_that_carries_the_board(self):
         self.assertEqual(self.validate(), {"plated": 2, "unplated": 1})
+
+    def test_accepts_aperture_free_mask_regions(self):
+        self.assertEqual(self.validate({"phantasm-F_Mask.gts": self.REGION,
+                                        "phantasm-B_Mask.gbs": self.REGION}),
+                         {"plated": 2, "unplated": 1})
+
+    def test_accepts_arc_and_multiple_regions(self):
+        arc = ("G36*X0Y0D02*G02X0Y0I1000000J0D01*G37*")
+        for body in (arc, arc + arc):
+            with self.subTest(body=body):
+                self.assertEqual(self.validate({"phantasm-F_Mask.gts": body}),
+                                 {"plated": 2, "unplated": 1})
+
+    def test_rejects_missing_or_undrawn_regions_without_apertures(self):
+        for body in ("G36*G37*", "G36*X0Y0D02*X1Y1D02*G37*",
+                     "G36*X0Y0D02*X1Y1D01*", "X1Y1D01*G37*",
+                     "G36*X1Y1D03*G37*", "G36*D01*G37*",
+                     "G04 G36*X1Y1D01*G04 G37*", "X1Y1D01*",
+                     "G36*G04 X1Y1D01*G37*",
+                     "G36*G36*X1Y1D01*G37*G37*",
+                     "%AMunused*G36*X1Y1D01*G37*%"):
+            with self.subTest(body=body):
+                with self.assertRaisesRegex(fab.FabContentError,
+                                            "defines no apertures"):
+                    self.validate({"phantasm-F_Mask.gts": body})
 
     def test_rejects_moves_and_comments_as_drawing_operations(self):
         for command in ("X1000000Y2000000D02", "G04 X1000000Y2000000D03",
@@ -1090,9 +1119,9 @@ class FabContentTests(unittest.TestCase):
         with self.assertRaisesRegex(fab.FabContentError, "draws with none"):
             self.validate({"phantasm-In1_Cu.g1": self.UNDRAWN})
 
-    def test_allows_only_the_bottom_stencil_to_be_apertureless(self):
-        self.assertEqual(fab.APERTURELESS_MEMBERS, {"phantasm-B_Paste.gbp"})
-        self.assertLess(fab.APERTURELESS_MEMBERS, fab.ZIP_MEMBERS)
+    def test_allows_only_the_bottom_stencil_to_be_empty(self):
+        self.assertEqual(fab.EMPTY_GERBER_MEMBERS, {"phantasm-B_Paste.gbp"})
+        self.assertLess(fab.EMPTY_GERBER_MEMBERS, fab.ZIP_MEMBERS)
 
     def test_rejects_a_drill_file_short_a_hole(self):
         with self.assertRaisesRegex(
