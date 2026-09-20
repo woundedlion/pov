@@ -1323,25 +1323,25 @@ private:
     const FastNoiseLite *surface_noise = nullptr;
     if constexpr (HAS_SURFACE_NOISE)
       surface_noise = &state->surface.noise;
-    return {this->frame_conjugate(),
-            outer_conjugate,
-            outer_noise,
-            source_noise,
-            surface_noise,
-            &palette_cycler.palette(),
-            hue_rotation_lut_data(),
-            hue_noise_lut_data(),
-            params,
-            palette_mapping,
-            source_primary,
-            source_secondary,
-            source_angle,
-            outer_phase,
-            inner_phase,
-            outer_rotation,
-            source_noise_time,
-            surface_phase,
-            palette_oscillation_phase};
+    return {.projection_conjugate = this->frame_conjugate(),
+            .outer_conjugate = outer_conjugate,
+            .outer_noise = outer_noise,
+            .source_noise = source_noise,
+            .surface_noise = surface_noise,
+            .palette = &palette_cycler.palette(),
+            .hue_rotation_lut = hue_rotation_lut_data(),
+            .hue_noise_lut = hue_noise_lut_data(),
+            .params = params,
+            .palette_mapping = palette_mapping,
+            .source_primary = source_primary,
+            .source_secondary = source_secondary,
+            .source_angle = source_angle,
+            .outer_phase = outer_phase,
+            .inner_phase = inner_phase,
+            .outer_rotation = outer_rotation,
+            .source_noise_time = source_noise_time,
+            .surface_phase = surface_phase,
+            .palette_oscillation_phase = palette_oscillation_phase};
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {
