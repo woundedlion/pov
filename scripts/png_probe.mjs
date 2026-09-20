@@ -124,5 +124,17 @@ export function inspectPng(bytes) {
   const expected = rasterBytes(header);
   if (raw.length !== expected)
     throw new Error(`inflated pixel data is ${raw.length} bytes, expected ${expected}`);
+  const passes = header.interlace === 0 ? [[0, 0, 1, 1]] : ADAM7_PASSES;
+  let rowOffset = 0;
+  for (const [x0, y0, dx, dy] of passes) {
+    const cols = Math.ceil((header.width - x0) / dx);
+    const rows = Math.ceil((header.height - y0) / dy);
+    if (cols <= 0 || rows <= 0) continue;
+    const stride = 1 + Math.ceil(cols * header.channels * header.depth / 8);
+    for (let row = 0; row < rows; row++, rowOffset += stride) {
+      if (raw[rowOffset] > 4)
+        throw new Error(`invalid scanline filter ${raw[rowOffset]} at raster byte ${rowOffset}`);
+    }
+  }
   return { width: header.width, height: header.height };
 }
