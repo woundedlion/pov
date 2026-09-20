@@ -1389,6 +1389,67 @@ inline void test_pole_lod_shading_matches_undecimated() {
     }
 }
 
+/** @brief Concave near-pole faces retain their coverage under block settling. */
+inline void test_pole_lod_concave_face_matches_undecimated() {
+  constexpr int W = 288, H = 144;
+  const ScopedPoleLod scoped_lod(0.0f);
+  struct FaceCase {
+    float tilt, rho, rho_inner, phase;
+  };
+  for (const FaceCase fc : {FaceCase{0.1f, 0.12f, 0.036f, PI_F / 3.0f},
+                            FaceCase{0.45f, 0.65f, 0.30f, PI_F / 4.0f}}) {
+    const Basis basis =
+        make_basis(Quaternion(), Vector(fc.tilt, 1.0f, 0.0f).normalized());
+    Vector vertices[8];
+    uint16_t indices[8];
+    for (int i = 0; i < 8; ++i) {
+      const float angle = TWO_PI_F * i / 8.0f + fc.phase;
+      const float rho = i % 2 ? fc.rho_inner : fc.rho;
+      vertices[i] =
+          (basis.v * cosf(rho) +
+           (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(rho))
+              .normalized();
+      indices[i] = static_cast<uint16_t>(i);
+    }
+    auto draw = [&](float lod) {
+      pole_lod_aggressiveness = lod;
+      hs_test::StubEffect fx(W, H);
+      Pipeline<W, H> pipe;
+      {
+        Canvas canvas(fx);
+        SDF::FaceScratchBuffer scratch;
+        SDF::Face face(std::span<const Vector>(vertices, 8),
+                       std::span<const uint16_t>(indices, 8), scratch,
+                       H + hs::H_OFFSET, H, &canvas.clip());
+        HS_EXPECT_FALSE(face.convex);
+        HS_EXPECT_EQ(face.linear_dist, fc.rho < 0.2f);
+        auto shade = [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(60000, 45000, 30000), 1.0f);
+        };
+        Scan::rasterize_face<W, H>(pipe, canvas, face, shade);
+      }
+      fx.advance_display();
+      std::vector<Pixel> pixels(W * H);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          pixels[y * W + x] = fx.get_pixel(x, y);
+      return pixels;
+    };
+    const auto plain = draw(0.0f);
+    size_t lit = 0;
+    for (const Pixel &pixel : plain)
+      lit += (pixel.r | pixel.g | pixel.b) != 0;
+    HS_EXPECT_GT(lit, size_t(40));
+    for (float lod : {1.0f, 4.0f}) {
+      const auto decimated = draw(lod);
+      for (size_t i = 0; i < plain.size(); ++i) {
+        HS_CONTEXT("concave face", static_cast<int>(fc.rho * 100.0f), i);
+        HS_EXPECT_EQ(plain[i], decimated[i]);
+      }
+    }
+  }
+}
+
 /**
  * @brief Verifies scan_region's clip arc matches per-column XClip::clipped.
  * @details Runs the interval path (spans straddling the seam and both wrap
@@ -2770,6 +2831,7 @@ inline int run_scan_tests() {
   test_scan_region_clip_arc_matches_predicate();
   test_pole_lod_runs_are_canvas_anchored();
   test_pole_lod_shading_matches_undecimated();
+  test_pole_lod_concave_face_matches_undecimated();
   test_plot_line_over_pole_reaches_row0();
   test_report_stretch_forwards_through_csg();
   test_csg_stroke_aa_uses_winning_child_thickness();
