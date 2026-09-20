@@ -1,9 +1,9 @@
 # Shader workbench chains: document schema v2 and the chain editor
 
-**Status: §§1–4 LANDED 2026-08-19.** The tool half of
+**Status: §§1–4 LANDED 2026-08-19, except §4.3.** The tool half of
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md): the
 document schema, migration, and editor for authoring the chains that spec
-defines. All four sections ship in the daydream repo
+defines. The landed sections ship in the daydream repo
 ([shader/shader_workbench.mjs](https://github.com/woundedlion/daydream/blob/master/shader/shader_workbench.mjs),
 [tools/chain_document_store.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_document_store.js),
 [tools/chain_strip.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_strip.js)).
@@ -232,11 +232,12 @@ names that output directly.
   occupied in a valid document (a chain enters on sphere and exits on
   color), which the strip makes structural: sockets are the fixed joints
   of the pipeline, bands are the variable runs between them.
-- **Chip anatomy**: operator display name, instance label ("Wave Shear ·
-  warp2"), and a row of icon buttons in the chip header: a **◉ bypass**
+- **Chip anatomy**: operator display name and a row of icon buttons in the
+  chip header: a **◉ bypass**
   toggle, a pair of **← →** reorder buttons and a **× remove**
   button (endomorphisms only), or a **replacement selector** (crossings
-  only). The selected chip is outlined and carries `aria-current`; a
+  only). The instance label appears in the chip's accessible name and rename
+  field, not its visible heading. The selected chip is outlined and carries `aria-current`; a
   bypassed chip renders dimmed.
 - **Remove**: × commits `replaceSpan(i, 1, [])` — legal by construction
   for an endomorphism, which is why only endomorphisms carry it.
@@ -286,12 +287,10 @@ drop model:
 
 ### 4.4 Parameters
 
-A stage's controls live **inline in its chip**: every chip whose
-instance declares parameters carries its sliders open, with each numeric
-value also directly editable, so the whole chain and its tuning read in
-one pass. Selection is an independent state — the outline and
-`aria-current` of §4.2 — and never collapses or opens a chip's controls.
-Committing an insert selects the new instance, whose controls are already
+A stage's controls live **inline in its chip**. Parameterized chips start
+collapsed; selecting a chip opens its controls, and selecting it again
+collapses them. Each numeric value is also directly editable. Committing an
+insert selects the new instance, whose controls are
 on screen: adding a stage and immediately hearing its sliders is the core
 authoring loop, and the chain never has to be read in one place and tuned
 in another.
@@ -371,9 +370,9 @@ Full parity with the pointer gestures, rotated to the horizontal:
   behavior; focus restores to the edited chip after every rebuild. When the
   strip background itself has focus, Left/Right scroll the viewport rather
   than moving a chip.
-- Palette entries are buttons; disabled entries carry `aria-disabled`
-  plus a described-by reason. The §4.3 library's own keyboard contract
-  is deferred with the panel.
+- Palette entries are `role="option"` rows in a listbox. Operators invalid at
+  the active gap are omitted rather than rendered disabled. The §4.3 library's
+  own keyboard contract is deferred with the panel.
 - One shared live status region announces every refusal.
 
 ### 4.8 Module boundaries
