@@ -248,7 +248,7 @@ prepare_generated_palette(const FrameContext &ctx, const Params &params,
 /** @brief FIELD→COLOR crossing: the generated-palette colorizer. */
 struct ColorizeGeneratedPaletteV2 : ValueStateModel<ColorClockState> {
   static constexpr const char *ID = "colorize.generated-palette.v2";
-  static constexpr const char *NAME = "Generated Palette";
+  static constexpr const char *NAME = "Generated Palette v2";
   using Input = FieldSample;
   using Output = Color4;
   using Params = LegacyGeneratedPaletteParams;
