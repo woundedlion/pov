@@ -691,7 +691,7 @@ inline void test_chamfer_birth_epsilon() {
 // build_palette_mapping actually performs.
 // ---------------------------------------------------------------------------
 
-/** @brief One pure-inflate build chain, lowered to primitive steps. */
+/** @brief One shipping build chain, lowered to primitive steps. */
 struct ChainSite {
   const char *name;    /**< Registry entry the chain mirrors. */
   uint8_t seed;        /**< simple_registry index. */
@@ -699,102 +699,16 @@ struct ChainSite {
   size_t count;        /**< Number of steps. */
 };
 
-using Solids::IslamicStarPatterns::D2R;
-
-inline constexpr uint8_t SEED_CUBE = 1;
-inline constexpr uint8_t SEED_OCTAHEDRON = 2;
-inline constexpr uint8_t SEED_DODECAHEDRON = 3;
-inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
-inline constexpr uint8_t SEED_RHOMBICUBOCTAHEDRON = 9;
-inline constexpr uint8_t SEED_TRUNCATED_ICOSAHEDRON = 14;
-inline constexpr uint8_t SEED_TRUNCATED_ICOSIDODECAHEDRON = 16;
-
-static_assert(std::string_view(Solids::simple_registry[SEED_CUBE].name) ==
-              "cube");
-static_assert(
-    std::string_view(Solids::simple_registry[SEED_RHOMBICUBOCTAHEDRON].name) ==
-    "rhombicuboctahedron");
-static_assert(std::string_view(
-                  Solids::simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
-              "truncatedIcosahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON]
-                         .name) == "truncatedIcosidodecahedron");
-
-inline constexpr OpStep CHAIN_DODECA_HK62_AMBO_HK62[] = {
-    {Op::HANKIN, 62.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 62.0f * D2R}};
-inline constexpr OpStep CHAIN_DODECA_HK35_AMBO_HK62_AMBO_RELAX_HK42[] = {
-    {Op::HANKIN, 35.0f * D2R}, {Op::AMBO},
-    {Op::HANKIN, 62.0f * D2R}, {Op::AMBO},
-    {Op::RELAX, 100.0f},       {Op::HANKIN, 42.0f * D2R}};
-inline constexpr OpStep CHAIN_DODECA_HK54_AMBO_HK72[] = {
-    {Op::HANKIN, 54.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 72.0f * D2R}};
-inline constexpr OpStep CHAIN_OCTA_HK17_AMBO_HK73[] = {
-    {Op::HANKIN, 17.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 73.0f * D2R}};
-inline constexpr OpStep CHAIN_OCTA_HK34_AMBO_HK72[] = {
-    {Op::HANKIN, 34.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 72.0f * D2R}};
-inline constexpr OpStep CHAIN_RHOMBICUBOCTA_HK63_AMBO_HK63[] = {
-    {Op::HANKIN, 63.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 63.0f * D2R}};
-inline constexpr OpStep CHAIN_TICOSA_HK54_AMBO_HK72[] = {
-    {Op::HANKIN, 54.0f * D2R}, {Op::AMBO}, {Op::HANKIN, 72.0f * D2R}};
-inline constexpr OpStep CHAIN_TICOSA_HK58_CHAMFER63[] = {
-    {Op::HANKIN, 58.0f * D2R}, {Op::CHAMFER, CHAMFER_T_STAR}};
-inline constexpr OpStep CHAIN_ICOSA_AMBO_TRUNCATE033_HK59[] = {
-    {Op::AMBO}, {Op::TRUNCATE, 0.33f}, {Op::HANKIN, 59.0f * D2R}};
-inline constexpr OpStep CHAIN_ICOSA_SNUB_RELAX_TRUNCATE033_HK62[] = {
-    {Op::SNUB, 0.5f, 0.0f},
-    {Op::RELAX, 8.0f},
-    {Op::TRUNCATE, 0.33f},
-    {Op::HANKIN, 62.0f * D2R}};
-inline constexpr OpStep CHAIN_TICOSA_AMBO_RELAX_TRUNCATE33_HK64[] = {
-    {Op::AMBO},
-    {Op::RELAX, 217.0f},
-    {Op::TRUNCATE, 0.33f},
-    {Op::HANKIN, 64.0f * D2R}};
-inline constexpr OpStep CHAIN_DODECA_AMBO_BEVEL33_RELAX_HK66[] = {
-    {Op::AMBO},
-    {Op::AMBO},
-    {Op::TRUNCATE, 0.33f},
-    {Op::RELAX, 100.0f},
-    {Op::HANKIN, 66.0f * D2R}};
-inline constexpr OpStep CHAIN_TICOSIDODECA_BEVEL5_RELAX_HK77[] = {
-    {Op::AMBO}, {Op::AMBO}, {Op::RELAX, 100.0f}, {Op::HANKIN, 77.0f * D2R}};
-
-inline constexpr ChainSite CHAIN_SITES[] = {
-    {"dodecahedron_hk62_ambo_hk62", SEED_DODECAHEDRON,
-     CHAIN_DODECA_HK62_AMBO_HK62, std::size(CHAIN_DODECA_HK62_AMBO_HK62)},
-    {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", SEED_DODECAHEDRON,
-     CHAIN_DODECA_HK35_AMBO_HK62_AMBO_RELAX_HK42,
-     std::size(CHAIN_DODECA_HK35_AMBO_HK62_AMBO_RELAX_HK42)},
-    {"dodecahedron_hk54_ambo_hk72", SEED_DODECAHEDRON,
-     CHAIN_DODECA_HK54_AMBO_HK72, std::size(CHAIN_DODECA_HK54_AMBO_HK72)},
-    {"octahedron_hk17_ambo_hk73", SEED_OCTAHEDRON, CHAIN_OCTA_HK17_AMBO_HK73,
-     std::size(CHAIN_OCTA_HK17_AMBO_HK73)},
-    {"octahedron_hk34_ambo_hk72", SEED_OCTAHEDRON, CHAIN_OCTA_HK34_AMBO_HK72,
-     std::size(CHAIN_OCTA_HK34_AMBO_HK72)},
-    {"rhombicuboctahedron_hk63_ambo_hk63", SEED_RHOMBICUBOCTAHEDRON,
-     CHAIN_RHOMBICUBOCTA_HK63_AMBO_HK63,
-     std::size(CHAIN_RHOMBICUBOCTA_HK63_AMBO_HK63)},
-    {"truncatedIcosahedron_hk54_ambo_hk72", SEED_TRUNCATED_ICOSAHEDRON,
-     CHAIN_TICOSA_HK54_AMBO_HK72, std::size(CHAIN_TICOSA_HK54_AMBO_HK72)},
-    {"truncatedIcosahedron_hk58_chamfer63", SEED_TRUNCATED_ICOSAHEDRON,
-     CHAIN_TICOSA_HK58_CHAMFER63, std::size(CHAIN_TICOSA_HK58_CHAMFER63)},
-    {"icosahedron_ambo_truncate033_hankin59", SEED_ICOSAHEDRON,
-     CHAIN_ICOSA_AMBO_TRUNCATE033_HK59,
-     std::size(CHAIN_ICOSA_AMBO_TRUNCATE033_HK59)},
-    {"icosahedron_snub_relax_truncate033_hankin62", SEED_ICOSAHEDRON,
-     CHAIN_ICOSA_SNUB_RELAX_TRUNCATE033_HK62,
-     std::size(CHAIN_ICOSA_SNUB_RELAX_TRUNCATE033_HK62)},
-    {"truncatedIcosahedron_ambo_relax_truncate33_hk64",
-     SEED_TRUNCATED_ICOSAHEDRON, CHAIN_TICOSA_AMBO_RELAX_TRUNCATE33_HK64,
-     std::size(CHAIN_TICOSA_AMBO_RELAX_TRUNCATE33_HK64)},
-    {"dodecahedron_ambo_bevel33_relax_hk66", SEED_DODECAHEDRON,
-     CHAIN_DODECA_AMBO_BEVEL33_RELAX_HK66,
-     std::size(CHAIN_DODECA_AMBO_BEVEL33_RELAX_HK66)},
-    {"truncatedIcosidodecahedron_bevel5_relax_hk77",
-     SEED_TRUNCATED_ICOSIDODECAHEDRON, CHAIN_TICOSIDODECA_BEVEL5_RELAX_HK77,
-     std::size(CHAIN_TICOSIDODECA_BEVEL5_RELAX_HK77)},
-};
+template <typename Fn> inline void for_each_shipping_chain(Fn &&fn) {
+  constexpr size_t MAX_STEPS =
+      Solids::max_lowered_step_count(Solids::islamic_registry);
+  for (const Solids::Entry &entry : Solids::Collections::get_islamic_solids()) {
+    OpStep steps[MAX_STEPS];
+    const size_t count =
+        Solids::expand_to_primitives(*entry.recipe, steps, MAX_STEPS);
+    fn(ChainSite{entry.name, entry.recipe->seed, steps, count});
+  }
+}
 
 /** @brief Nearest and second-nearest chord distance from c into `pts`. */
 inline void two_nearest(const Vector &c, const std::vector<Vector> &pts,
@@ -832,7 +746,7 @@ inline void test_build_chain_centroid_spacing() {
   const char *worst_name = "";
   size_t max_faces = 0;
 
-  for (const ChainSite &site : CHAIN_SITES) {
+  for_each_shipping_chain([&](const ChainSite &site) {
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
     for (size_t k = 0; k <= site.count; ++k) {
@@ -867,7 +781,7 @@ inline void test_build_chain_centroid_spacing() {
                   static_cast<double>(med), static_cast<double>(ratio));
       HS_EXPECT_TRUE(c.size() > 0);
     }
-  }
+  });
   std::printf("  [spacing] worst tol/half-min = %.2f on %s; largest chain "
               "mesh F=%zu\n",
               static_cast<double>(worst_ratio), worst_name, max_faces);
@@ -895,7 +809,7 @@ inline void test_build_chain_provenance_ambiguity() {
   float worst_prefix_offset = 0.0f;
   size_t prefix_legs = 0, full_legs = 0, misidentified = 0;
 
-  for (const ChainSite &site : CHAIN_SITES) {
+  for_each_shipping_chain([&](const ChainSite &site) {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
@@ -989,7 +903,7 @@ inline void test_build_chain_provenance_ambiguity() {
       HS_EXPECT_EQ(leg_misidentified, static_cast<size_t>(0));
       HS_EXPECT_LT(max_prefix_offset * max_prefix_offset, TOL_SQ);
     }
-  }
+  });
   std::printf("  [prov] %zu prefix legs, %zu full-correspondence legs, %zu "
               "misidentified prefix faces; max prev_faces=%zu on %s; "
               "worst newborn d1/d2=%.3f; worst prefix "
