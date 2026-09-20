@@ -1005,8 +1005,8 @@ protected:
         target.color.palette_mapping);
   }
 
-  HS_COLD_MEMBER void animated_parameter_written() override {
-    Choreography::animated_parameter_written();
+  HS_COLD_MEMBER void parameter_written() override {
+    Choreography::parameter_written();
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
         params.color.palette_mapping);
   }
