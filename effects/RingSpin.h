@@ -78,7 +78,7 @@ public:
     for (int i = 0; i < NUM_RINGS; ++i) {
       Ring &r = rings[i];
       timeline.add(0, Animation::RandomWalk<W>(
-                          r.orientation, r.normal, r.noise,
+                          r.orientation, Y_AXIS, r.noise,
                           Animation::RandomWalk<W>::Options::Energetic()));
     }
   }
@@ -126,7 +126,7 @@ public:
           float th =
               ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
               params.thickness;
-          bases[slots] = make_basis(qs[j], ring.normal);
+          bases[slots] = make_basis(qs[j], Y_AXIS);
           ::new (shape_mem + slots * sizeof(SDF::Ring))
               SDF::Ring(bases[slots], 1.0f, th);
           colors[slots] = c;
@@ -158,7 +158,6 @@ private:
    * orientation, and the history trail used to render the fading motion blur.
    */
   struct Ring {
-    Vector normal;
     BakedPalette *palette;
     Orientation<> orientation;
     Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
@@ -167,7 +166,7 @@ private:
      * @brief Constructs a ring on the Y-axis great-circle plane.
      * @param p Baked palette used to color the ring's trail.
      */
-    Ring(BakedPalette *p) : normal(Y_AXIS), palette(p) {}
+    Ring(BakedPalette *p) : palette(p) {}
   };
 
   Timeline timeline;
