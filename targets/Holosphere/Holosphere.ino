@@ -39,42 +39,7 @@ void setup() {
   HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
 }
 
-FLASHMEM static void run_show_sequence() {
-  g_pov->show<RingSpin<96, 20>>(120);
-
-  //  pov->show<IslamicStars<288, 144>>(120);
-
-  /*
-  pov->show<RingSpin<288, 144>>(120); // 140
-  pov->show<ShapeShifter<288, 144>>(120); //140
-  pov->show<DreamBalls<288, 144>>(120); // 117
-  pov->show<IslamicStars<288, 144>>(120);
-
-  pov->show<Fishbowl<288, 144>>(120);0
-  pov->show<Raymarch<288, 144>>(120);
-  pov->show<Voronoi<288, 144>>(120);
-  pov->show<MobiusRings<96, 20>>(120);
-  pov->show<MeshFeedback<288, 144>>(120);
-  pov->show<BZReactionDiffusion<288, 144>>(120);
-  pov->show<GSReactionDiffusion<288, 144>>(120);
-  pov->show<Thrusters<288, 144>>(120);
-
-  pov->show<MindSplatter<288, 144>>(120); //75
-  pov->show<GnomonicStars<288, 144>>(120); //60
-  pov->show<HankinSolids<288, 144>>(120); // 85
-  pov->show<PetalFlow<288, 144>>(120); //35
-#define HS_SHOW_SHADER_EFFECT(name, duration_seconds)                          \
-  pov->show<name<288, 144>>(duration_seconds);
-  HS_SHADER_PRODUCT_GROUP(HS_SHOW_SHADER_EFFECT)
-#undef HS_SHOW_SHADER_EFFECT
-  pov->show<Test<288, 144>>(120); // 60
-  pov->show<SphericalHarmonics<288, 144>>(120);  //49
-  pov->show<Comets<288, 144>>(120); //53
-  pov->show<HopfFibration<288, 144>>(120); //72
-
-
-  */
-}
+FLASHMEM static void run_show_sequence() { g_pov->show<RingSpin<96, 20>>(120); }
 
 void loop() {
   Serial.println("Oh hi again");
