@@ -1039,8 +1039,14 @@ private:
     remember_pending_edit(name, id, offset, size);
     refresh_accepted_config();
     const bool is_pending = pending_edit_at(id) < pending_edit_count;
+    const bool curl_scale = (id == ConfigFieldId::WARP_OUTER_SCALE &&
+                             requested_config.slots.warp_program.outer.kind ==
+                                 WarpStageKind::CURL_FLOW) ||
+                            (id == ConfigFieldId::WARP_INNER_SCALE &&
+                             requested_config.slots.warp_program.inner.kind ==
+                                 WarpStageKind::CURL_FLOW);
     if (before_count != pending_edit_count || was_pending != is_pending ||
-        (is_enum && schema_selector(name)))
+        (is_enum && schema_selector(name)) || curl_scale)
       rebind_parameters();
   }
 
