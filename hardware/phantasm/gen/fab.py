@@ -340,16 +340,15 @@ class FabContentError(ValueError):
     """An exported fab artifact does not carry what the board holds."""
 
 
-#: Gerbers whose plot may hold no apertures. JLC reflows top-side SMD only, so
-#: the bottom stencil opens nothing; every other exported layer draws something.
-APERTURELESS_MEMBERS = {"phantasm-B_Paste.gbp"}
+#: The bottom stencil is empty because JLC reflows only top-side SMD.
+EMPTY_GERBER_MEMBERS = {"phantasm-B_Paste.gbp"}
 #: The two Excellon exports, keyed to the hole kind each one drills.
 DRILL_MEMBERS = {"phantasm-PTH.drl": "plated", "phantasm-NPTH.drl": "unplated"}
 
-#: An aperture definition, and any draw/flash that uses one. A Gerber plots
-#: nothing without both.
+#: Aperture definitions and drawing/flash commands outside region mode.
 GERBER_APERTURE = re.compile(r"^%ADD\d+", re.M)
 GERBER_OPERATION = re.compile(r"(?:G0?[123])?(?:[XYIJ][+-]?\d+)*D0[13]")
+GERBER_CONTOUR = re.compile(r"(?:G0?[123])?(?:[XYIJ][+-]?\d+)+D01")
 #: One Excellon hole: a coordinate line, whether a plain drill or a slot.
 EXCELLON_HOLE = re.compile(r"^X-?[\d.]+Y-?[\d.]+", re.M)
 
@@ -362,6 +361,29 @@ def read_export(path):
     except (OSError, UnicodeError) as exc:
         raise FabContentError(
             f"cannot read exported artifact: {path}") from exc
+
+
+def gerber_has_region(text):
+    """Whether balanced region statements contain contour drawing commands."""
+    in_region = False
+    region_drawn = False
+    completed = False
+    commands = re.sub(r"%[^%]*%", "", text).split("*")
+    for command in commands:
+        command = command.strip()
+        if command == "G36":
+            if in_region:
+                return False
+            in_region = True
+            region_drawn = False
+        elif command == "G37":
+            if not in_region:
+                return False
+            completed |= region_drawn
+            in_region = False
+        elif in_region and GERBER_CONTOUR.fullmatch(command):
+            region_drawn = True
+    return completed and not in_region
 
 
 def board_pads(node):
@@ -396,8 +418,8 @@ def validate_fab_content(directory, board):
 
     Membership is a filename test, so it passes a layer that plotted nothing
     and a drill file that dropped holes - the last unchecked step between a
-    gated board and what is fabricated. A Gerber draws only with the apertures
-    it defines, and the hole counts come from the board's own vias and pads.
+    gated board and what is fabricated. Gerbers draw with apertures or region
+    contours; hole counts come from the board's own vias and pads.
     """
     holes = board_hole_counts(board)
     diagnostics = []
@@ -418,11 +440,13 @@ def validate_fab_content(directory, board):
                     f"{name}: drills {drilled} holes, the board carries "
                     f"{holes[kind]} {kind}")
             continue
-        if name in APERTURELESS_MEMBERS:
+        if name in EMPTY_GERBER_MEMBERS:
             continue
         text = read_export(path)
         if not GERBER_APERTURE.search(text):
-            diagnostics.append(f"{name}: defines no apertures")
+            if not gerber_has_region(text):
+                diagnostics.append(
+                    f"{name}: defines no apertures or drawn regions")
         elif not any(GERBER_OPERATION.fullmatch(command.strip())
                      for command in text.split("*")):
             diagnostics.append(f"{name}: draws with none of its apertures")
