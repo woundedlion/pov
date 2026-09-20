@@ -810,9 +810,9 @@ inline void test_distorted_ring_stack_matches_sequential() {
  * any divergence in either the run set or the AA band a framebuffer difference.
  * Covered: a mid-latitude face, one whose azimuth wedge straddles theta=0, a
  * pole-touching face (per-row runs plus the full-row fallback), and both a
- * plain and a seam-wrapping x clip. Scoped to pole_lod_aggressiveness 0, which
- * the test pins: only rasterize_face scales its block slack by the face's plane
- * stretch, so the two decimate near-pole rows differently.
+ * plain and a seam-wrapping x clip. Scoped to pole_lod_aggressiveness 0 to
+ * isolate the paths' LUT-versus-sqrt sin-phi evaluation and culling asymmetry
+ * from near-pole row decimation.
  */
 inline void test_face_rasterize_matches_scan_region() {
   constexpr int W = 96, H = 64;
