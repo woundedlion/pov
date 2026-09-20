@@ -20,6 +20,13 @@
 #define CANVAS_H 144
 #endif
 
+#if CANVAS_W <= 0
+#error "CANVAS_W must be positive"
+#endif
+#if CANVAS_H <= 0
+#error "CANVAS_H must be positive"
+#endif
+
 // Size of the real device arena block. Deliberately not overridable: host
 // harnesses widen HS_GLOBAL_ARENA_BYTES, so this is the figure memory.h ties
 // DEVICE_GLOBAL_ARENA_SIZE to.
