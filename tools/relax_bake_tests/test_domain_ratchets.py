@@ -172,10 +172,9 @@ class Ratchets(unittest.TestCase):
                 allow="guard_gap.sdf.h\n",
             )
 
-    def test_skips_the_gap_check_when_the_previous_side_has_no_table(self):
-        status, output = self.run_check((4, None), (4, {"sdf.h": 9}))
-        self.assertEqual(status, 0, output)
-        self.assertIn("gap-widening check skipped", output)
+    def test_rejects_missing_previous_gap_table(self):
+        with self.assertRaisesRegex(SystemExit, "no GUARD_GAP_ALLOW rows parsed"):
+            self.run_check((4, None), (4, {"sdf.h": 9}))
 
     def test_rejects_a_death_harness_without_gap_rows(self):
         with self.assertRaisesRegex(SystemExit, "no GUARD_GAP_ALLOW rows parsed"):
