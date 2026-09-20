@@ -405,8 +405,9 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   // the RuntimeError.
   EM_ASM({ Module['HS_MODULE_DEAD'] = true; });
 #elif defined(ARDUINO)
-  // Preserve the message's full 256-byte formatting budget.
-  hs::log_fragment("HS_CHECK failed: %s:%d: (%s) ", base, line, cond);
+  hs::log_fragment("HS_CHECK failed: %s:%d: (", base, line);
+  Serial.print(cond);
+  Serial.print(") ");
   hs::log("%s", msg);
 #else
   hs::log("HS_CHECK failed: %s:%d: (%s) %s", base, line, cond, msg);
