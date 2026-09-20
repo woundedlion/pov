@@ -659,6 +659,27 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
   assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
 });
 
+test('malformed v1 containers report diagnostics instead of raw TypeErrors', () => {
+  for (const [mutate, path] of [
+    [(document) => { document.descriptor.path_policies[0] = null; },
+      '$.descriptor.path_policies[0]'],
+    [(document) => {
+      document.descriptor.path_policies[0] = { kind: 'STAGGERED_ORDERED' };
+    }, '$.descriptor.path_policies[0].groups'],
+    [(document) => { document.descriptor.parameters[0] = null; },
+      '$.descriptor.parameters[0]'],
+    [(document) => {
+      document.descriptor.graph.nodes.find((node) => node.role === 'color').resources = 7;
+    }, 'stage.color.resources'],
+  ]) {
+    const document = structuredClone(V1_EXAMPLE);
+    mutate(document);
+    const compiled = compile(document);
+    assert.equal(compiled.status, 'INVALID');
+    assert.equal(compiled.diagnostics[0].path, path);
+  }
+});
+
 test('v1 projection frames become explicit topology parameters', () => {
   for (const frame of ['identity', 'spin-wander']) {
     const document = structuredClone(V1_EXAMPLE);
