@@ -636,12 +636,34 @@ def _check_keys(spec: object, allowed: frozenset[str], where: str,
         raise BudgetSchemaError(
             f"{where}: missing required key(s) "
             f"{', '.join(repr(k) for k in missing)}.")
-    if one_of and not (one_of & set(spec)):
+    null_required = sorted(key for key in required if spec[key] is None)
+    if null_required:
+        raise BudgetSchemaError(
+            f"{where}: required key(s) cannot be null: "
+            f"{', '.join(repr(k) for k in null_required)}.")
+    if one_of and not any(spec.get(key) is not None for key in one_of):
         raise BudgetSchemaError(
             f"{where}: must declare at least one of "
             f"{', '.join(repr(k) for k in sorted(one_of))} - an object "
             f"carrying neither ceiling passes the schema and enforces nothing.")
     return spec
+
+
+def _check_byte_limits(spec: dict, keys: tuple[str, ...], where: str,
+                       required: frozenset[str] = frozenset()) -> None:
+    for key in keys:
+        value = spec.get(key)
+        if value is None:
+            continue
+        minimum = 1 if key in required else 0
+        if type(value) is not int or value < minimum:
+            domain = "positive" if minimum else "non-negative"
+            raise BudgetSchemaError(
+                f"{where}: '{key}' must be a {domain} integer.")
+    lo, hi = spec.get("min_bytes"), spec.get("max_bytes")
+    if lo is not None and hi is not None and lo > hi:
+        raise BudgetSchemaError(
+            f"{where}: 'min_bytes' must not exceed 'max_bytes'.")
 
 
 def _child_map(parent: dict, key: str, where: str) -> dict:
@@ -679,13 +701,17 @@ def validate_budgets(budgets: object) -> dict:
         _require_present(regions, _REQUIRED_REGIONS, f"env '{env}'", "region")
         for region, spec in regions.items():
             rwhere = f"env '{env}' region '{region}'"
+            required = _REGION_REQUIRED_KEYS_BY_REGION.get(
+                region, _REGION_REQUIRED_KEYS)
             _check_keys(spec, _REGION_KEYS, rwhere,
-                        required=_REGION_REQUIRED_KEYS_BY_REGION.get(
-                            region, _REGION_REQUIRED_KEYS))
+                        required=required)
+            _check_byte_limits(spec, ("max_bytes", "free_min_bytes"),
+                               rwhere, required)
             for cname, cspec in _child_map(spec, "components", rwhere).items():
                 cwhere = f"{rwhere} component '{cname}'"
                 _check_keys(cspec, _COMPONENT_KEYS, cwhere,
                             one_of=_COMPONENT_ONE_OF_KEYS)
+                _check_byte_limits(cspec, ("max_bytes",), cwhere)
                 derived = cspec.get("max_banks_from_stack_floor")
                 if derived is not None:
                     _check_keys(derived, _DERIVED_KEYS,
@@ -715,9 +741,18 @@ def validate_budgets(budgets: object) -> dict:
             _REQUIRED_SYMBOLS | _REQUIRED_SYMBOLS_BY_ENV.get(env, frozenset()),
             f"env '{env}'", "layout symbol")
         for key, spec in syms.items():
-            _check_keys(spec, _SYMBOL_KEYS, f"env '{env}' symbol '{key}'",
-                        required=_SYMBOL_REQUIRED_KEYS_BY_SYMBOL.get(
-                            key, _SYMBOL_REQUIRED_KEYS))
+            swhere = f"env '{env}' symbol '{key}'"
+            required = _SYMBOL_REQUIRED_KEYS_BY_SYMBOL.get(
+                key, _SYMBOL_REQUIRED_KEYS)
+            _check_keys(spec, _SYMBOL_KEYS, swhere, required=required)
+            _check_byte_limits(spec, ("min_bytes", "max_bytes"), swhere, required)
+            if not isinstance(spec["name"], str) or not spec["name"].strip():
+                raise BudgetSchemaError(
+                    f"{swhere}: 'name' must be a non-empty string.")
+            if (not isinstance(spec["region"], str) or
+                    spec["region"] not in {name for name, _, _ in MEMORY_MAP} | {"OTHER"}):
+                raise BudgetSchemaError(
+                    f"{swhere}: 'region' must name a known memory region.")
     return budgets
 
 

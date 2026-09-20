@@ -358,6 +358,74 @@ class TestBudgetSchema(unittest.TestCase):
     def test_shipped_budgets_validate_unchanged(self):
         self.assertEqual(tg.validate_budgets(copy.deepcopy(BUDGETS)), BUDGETS)
 
+    def test_required_limits_reject_null_and_malformed_values(self):
+        paths = [("regions", "flash", "max_bytes"),
+                 ("regions", "ram2", "free_min_bytes"),
+                 ("symbols", "arena", "min_bytes"),
+                 ("symbols", "arena", "max_bytes")]
+        for path in paths:
+            for value in (None, True, False, -1, 0, 1.5, "1000", [], {}):
+                with self.subTest(path=path, value=value):
+                    budgets = copy.deepcopy(BUDGETS)
+                    spec = budgets["phantasm"]
+                    for key in path[:-1]:
+                        spec = spec[key]
+                    spec[path[-1]] = value
+                    with self.assertRaises(tg.BudgetSchemaError):
+                        self._load(budgets)
+
+    def test_optional_null_limits_remain_disabled(self):
+        budgets = copy.deepcopy(BUDGETS)
+        budgets["phantasm"]["regions"]["flash"]["free_min_bytes"] = None
+        symbol = budgets["phantasm"]["symbols"]["framebuffer_a"]
+        symbol.update(min_bytes=None, max_bytes=None)
+        component = budgets["phantasm"]["regions"]["ram1"]["components"]["code"]
+        component["max_bytes"] = None
+        self.assertEqual(self._load(budgets), budgets)
+
+    def test_optional_limits_validate_non_null_values(self):
+        for value in (True, -1, 1.5, "1000", float("nan")):
+            with self.subTest(value=value):
+                budgets = copy.deepcopy(BUDGETS)
+                budgets["phantasm"]["symbols"]["framebuffer_a"]["max_bytes"] = value
+                with self.assertRaises(tg.BudgetSchemaError):
+                    self._load(budgets)
+
+    def test_cli_refuses_a_null_flash_cap_before_evaluating_an_oversized_image(self):
+        budgets = copy.deepcopy(BUDGETS)
+        budgets["phantasm"]["regions"]["flash"]["max_bytes"] = None
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "budgets.json"
+            path.write_text(json.dumps(budgets), encoding="utf-8")
+            size = Path(tmp) / "size.txt"
+            size.write_text(_read("good_teensy_size.txt").replace(
+                "FLASH: code:158788", "FLASH: code:1958788"), encoding="utf-8")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = tg.main(["--env", "phantasm", "--budgets", str(path),
+                                "--teensy-size", str(size), "--readelf-syms",
+                                str(FIX / "good_readelf_syms.txt")])
+        self.assertEqual(code, 2)
+        self.assertIn("max_bytes", err.getvalue())
+        self.assertIn("null", err.getvalue())
+
+    def test_null_component_caps_cannot_disable_both_checks(self):
+        budgets = copy.deepcopy(BUDGETS)
+        budgets["phantasm"]["regions"]["ram1"]["components"]["code"] = {
+            "max_bytes": None, "max_banks_from_stack_floor": None}
+        with self.assertRaises(tg.BudgetSchemaError):
+            self._load(budgets)
+
+    def test_layout_fields_and_limit_order_are_validated(self):
+        for key, value in [("name", None), ("name", ""), ("name", 1),
+                           ("region", None), ("region", ""), ("region", []),
+                           ("region", "unknown"), ("min_bytes", 400000)]:
+            with self.subTest(key=key, value=value):
+                budgets = copy.deepcopy(BUDGETS)
+                budgets["phantasm"]["symbols"]["arena"][key] = value
+                with self.assertRaises(tg.BudgetSchemaError):
+                    self._load(budgets)
+
     def _assert_typo_disables(self, env, path, real, wrong, code, sizes, symbols):
         """The intact budget rejects this build; the typo'd one PASSes; the
         schema now rejects the typo'd budgets file."""
