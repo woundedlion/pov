@@ -33,6 +33,11 @@ namespace Animation {
  */
 class OpLeg : public AnimationBase<OpLeg> {
 public:
+  /** @brief Traps when scheduling a leg would silently drop its continuation. */
+  static void require_event_slot() {
+    HS_CHECK(Timeline::remaining() > 0, "OpLeg requires a free timeline event");
+  }
+
   static constexpr int PALETTES = BakedPaletteBank::N;
   /** Capacity of the intern table: the full (from, to) pair space, so
    * interning can never overflow it. It is not the per-frame ceiling — each

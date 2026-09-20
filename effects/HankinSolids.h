@@ -748,6 +748,7 @@ private:
                               .settle_frames = e.settle ? SETTLE_FRAMES : 0},
                           persistent_arena, draw_conway_fn, handoff, bookend);
     pending_landing = &anim.landing();
+    Animation::OpLeg::require_event_slot();
     timeline.add_pausable(
         0, std::move(anim).then([this]() { this->finish_morph_cycle(); }),
         &anims_paused);
