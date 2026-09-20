@@ -540,6 +540,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── pullback_capture.py / pullback_capture_native.cpp  Canonical producer + native/WASM backend
 │   ├── pullback_crosscheck.py  Isolated base/candidate pullback capture runner and comparator
 │   ├── device_lock.sh          Host-global per-board lock every device path takes
+│   ├── device_lock_guard.py    OS file-lock guard for claim creation and removal
 │   ├── pov_segment_map_export.cpp  Generator for the committed segment-map golden
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)

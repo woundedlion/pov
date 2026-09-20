@@ -31,9 +31,8 @@
 # spans the whole build+flash+capture, so the lock is taken before the build
 # and held through the capture.
 #
-# Held state lives in one directory created by mkdir (atomic on Windows and
-# POSIX alike; a plain -f test would race). `info` inside it names the holder.
-# Evicting a stale claim goes through rename, atomic for the same reason.
+# A persistent OS file lock serializes claim creation and removal.
+# `info` inside the claim directory names the holder.
 #
 # Env knobs:
 #   HS_DEVICE_LOCK   override the lock path base (per-board suffix still added)
@@ -153,29 +152,12 @@ _hs_lock_is_stale() {  # <dir>
   return 1
 }
 
+_HS_LOCK_HELPER="${BASH_SOURCE[0]//\\//}"
+_HS_LOCK_HELPER="${_HS_LOCK_HELPER%/*}/device_lock_guard.py"
+
 # _hs_break_lock <dir> <token> — evicts only the claim identified by token.
-# rename is the arbiter, not rm: two peers that both judged the same claim stale
-# both attempt it and exactly one succeeds, so the loser can never delete the
-# winner's fresh lock and hand two sessions one board. The token re-read rejects
-# a claim released and re-taken between the judgement and the rename; that one is
-# put back rather than consumed. An empty token matches only a directory with no
-# readable claim, the same one _hs_lock_is_stale dates by its own mtime; a lock
-# that does carry a token still rejects the empty request.
 _hs_break_lock() {
-  local d=$1 token=$2 broken
-  [ "$(_hs_lock_field "$d" token)" = "$token" ] || return 1
-  broken="$d.breaking.$$-$RANDOM"
-  mv "$d" "$broken" 2>/dev/null || return 1
-  if [ "$(_hs_lock_field "$broken" token)" != "$token" ]; then
-    # mkdir is the arbiter of the put-back, not an -e test: a peer that claims
-    # the slot in the window between the test and the move wins it, and `mv`
-    # would then nest the scratch directory inside that peer's live lock.
-    mkdir "$d" 2>/dev/null && mv "$broken/info" "$d/info" 2>/dev/null
-    rm -rf "$broken"
-    return 1
-  fi
-  rm -rf "$broken"
-  return 0
+  python "$_HS_LOCK_HELPER" break "$1" "$2"
 }
 
 # _hs_try_claim <dir> <port> <effect> <env> <eta> — mkdir-or-fail, then record
@@ -183,11 +165,9 @@ _hs_break_lock() {
 # the flash and the capture can never drift onto a peer's device.
 _hs_try_claim() {
   local d=$1 port=$2 effect=$3 env=$4 eta=$5
-  mkdir "$d" 2>/dev/null || return 1
-  local token wrote=0 now
+  local token info now
   token="$$-$(_hs_now)-$RANDOM"; now=$(_hs_now)
-  # Written before we hand out the lock so a peer never reads a half-claim.
-  {
+  info=$(
     echo "token=$token"
     echo "session=${CLAUDE_SESSION_ID:-${HS_SESSION:-local}}"
     echo "pid=$$"
@@ -199,14 +179,11 @@ _hs_try_claim() {
     echo "started_h=$(date '+%H:%M:%S')"
     echo "deadline=$((now + eta))"
     echo "deadline_h=$(date -d "@$((now + eta))" '+%H:%M:%S' 2>/dev/null || echo '?')"
-  } >"$d/info" || wrote=1
-  # hs_device_release removes the dir only when it reads this token back, so a
-  # claim whose info never landed is one its holder can never release and the
-  # board reads busy until the stale grace expires. The token is read back, not
-  # just the write status: a failed echo mid-group leaves only the last one's.
-  if [ "$wrote" -ne 0 ] || [ "$(_hs_lock_field "$d" token)" != "$token" ]; then
+  )
+  printf '%s\n' "$info" | python "$_HS_LOCK_HELPER" claim "$d" || return 1
+  if [ "$(_hs_lock_field "$d" token)" != "$token" ]; then
     echo "device: cannot record the claim in $d/info — leaving ${port:-auto} unclaimed" >&2
-    rm -rf "$d"
+    _hs_break_lock "$d" "$token" || :
     return 1
   fi
   # Shell state only once the claim is on disk: a failed claim must leave no
@@ -263,8 +240,7 @@ hs_device_acquire() {
       d=$(_hs_lock_dir "$port")
       echo "HS_DEVICE_FORCE=1 — breaking a LIVE device lock" >&2
       _hs_holder_desc "$d" >&2
-      # Losing the rename means a peer holds it now; report busy instead of
-      # spinning the retry loop.
+      # A changed token belongs to a peer; report busy.
       _hs_break_lock "$d" "$(_hs_lock_field "$d" token)" && continue
     fi
     if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
@@ -281,11 +257,7 @@ hs_device_acquire() {
   done
 }
 
-# Releasing only our own claim keeps an evicted holder's teardown from
-# unlocking the device out from under whoever legitimately took it next.
-# _hs_break_lock does that check and the delete as one rename: a token test
-# followed by rm re-opens the same window, since a peer can break and re-claim
-# the lock between the two and the rm then frees the board it just won.
+# Releasing only our own claim leaves a replacement holder untouched.
 hs_device_release() {
   local d=$_HS_LOCK_DIR
   [ -n "$_HS_TOKEN" ] && [ -n "$d" ] || return 0
