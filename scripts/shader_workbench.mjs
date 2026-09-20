@@ -290,14 +290,38 @@ const label = (value, path) => {
 // carriers, parameter schemas, enum values and budgets are consumed here, so
 // the engine-emitted replacement slots in transparently.
 const requireCatalog = (catalog) => {
+  const invalid = () => fail('semantic', 'CATALOG_REQUIRED', '$',
+    'Chain validation needs a complete operator catalog (options.catalog).');
   if (catalog === null || typeof catalog !== 'object' ||
       !Array.isArray(catalog.carriers) || !Array.isArray(catalog.operators) ||
       catalog.budgets === null || typeof catalog.budgets !== 'object')
-    fail('semantic', 'CATALOG_REQUIRED', '$',
-      'Chain validation needs the operator catalog (options.catalog).');
+    invalid();
   if (catalog.catalog_version !== OPERATOR_CATALOG_VERSION)
     fail('semantic', 'UNSUPPORTED_CATALOG_SCHEMA', '$',
       `Only operator catalog ${OPERATOR_CATALOG_VERSION} is supported.`);
+  const requiredBudgets = [
+    'arena_bytes', 'max_chain_ops', 'max_params', 'max_instance_id_length',
+    'per_op_overhead_bytes',
+  ];
+  if (requiredBudgets.some((key) =>
+    !Number.isFinite(catalog.budgets[key]) || catalog.budgets[key] < 0))
+    invalid();
+  if (catalog.budgets.per_param_name_bytes !== undefined &&
+      (!Number.isFinite(catalog.budgets.per_param_name_bytes) ||
+       catalog.budgets.per_param_name_bytes < 0))
+    invalid();
+  const invalidBlock = (block) => block !== undefined && (
+    block === null || typeof block !== 'object' ||
+    !Number.isFinite(block.size) || block.size < 0 ||
+    !Number.isFinite(block.align) || block.align <= 0);
+  if (catalog.operators.some((operator) =>
+    operator === null || typeof operator !== 'object' ||
+    typeof operator.id !== 'string' || !Array.isArray(operator.params) ||
+    (operator.blocks !== undefined &&
+     (operator.blocks === null || typeof operator.blocks !== 'object' ||
+      ['param', 'prepared', 'state'].some((kind) =>
+        invalidBlock(operator.blocks[kind]))))))
+    invalid();
   return {
     budgets: catalog.budgets,
     rank: new Map(catalog.carriers.map((carrier, index) => [carrier, index])),
