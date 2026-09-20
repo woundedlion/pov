@@ -2,11 +2,14 @@
 
 **Status: LANDED, revision 6 (2026-08-14).** The composition core, standard
 carriers, provider concepts, stage combinators, and concrete operator catalog
-specified here ship in `core/render/pullback.h`, which landed in `13186d7c`.
+specified here ship under `core/render/pullback/`, with `core/render/pullback.h`
+as the public umbrella.
 Its consumers are `workbench/shader/shader_host.h` and the composed-effect base
-`core/render/pullback/composed_effect.h` — and through the latter, the sixteen
+`core/render/pullback/composed_effect.h` — and through the latter, the eighteen
 single-effect composed headers in `effects/` (`patterns/README.md` maps
-each to its document). The
+each to its document). The interpreter host `workbench/shader/chain_host.h`
+uses the runtime operator library; `effects/HyperLattice.h` uses the typed
+policies, and `effects/Raymarch.h` uses the shared runtime seeds. The
 verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
 `tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Section 17
 is the exception: everything listed there is a design record only, with no
@@ -125,23 +128,22 @@ This design does not:
 
 ## 4. Location, namespace, and dependency rules
 
-The public facility lives in `core/render/pullback.h` in namespace
+The public facility lives under `core/render/pullback/`, exposed through
+`core/render/pullback.h`, in namespace
 `Pullback`, alongside `Scan`, `Filter`, and `SDF`.
 
 Public groups are:
 
 ```text
-Pullback::Pipeline                 typed six-role coordinator
-Pullback::StageKind                standard semantic role enumeration
+Pullback::Pipeline                 typed ranked-chain coordinator
 Pullback::CodeEmission             placement metadata
-Pullback::ProjectionSample         sphere-to-plane carrier
-Pullback::WarpResult               complete planar-warp carrier
+Pullback::SphereSample             rank-0 sphere carrier
+Pullback::PlaneSample              rank-1 planar carrier
 Pullback::SurfaceResult            one sphere-space map result
 Pullback::WarpStepResult           one planar-warp result
-Pullback::SourceInput              projection + warp carrier
-Pullback::MaterialInput            projection + warp + field carrier
-Pullback::MaterialSample           terminal material carrier
-Pullback::Stage::*                 six stage combinator families
+Pullback::FieldSample              rank-2 scalar carrier
+Color4                            rank-3 color carrier
+Pullback::Stage::*                 ranked stage combinators
 Pullback::Surface::*               sphere-space map policies
 Pullback::Lens::*                  lens policies
 Pullback::Projection::*            projection policies
@@ -153,9 +155,8 @@ Pullback::ProjectionCoverage::*         projection-coverage policies
 Pullback::Color::*                 colorization policies and kernels
 ```
 
-That list is this revision's proposed vocabulary. `Pullback::StageKind` and the
-per-boundary carriers in it did not ship; the shipped spelling lives in
-`core/render/pullback/contract.h`. See §5.1 and §5.2.
+Carrier declarations live in `core/render/pullback/contract.h`; `Color4` is
+defined in `core/color/color.h`. See §5.2.
 
 `pullback.h` may include headers from `core/math`, `core/color`, and the
 minimal engine concept/profiling headers it needs. It shall not include an
