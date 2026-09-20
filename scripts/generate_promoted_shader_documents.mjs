@@ -20,6 +20,7 @@ const unknown = argv.filter((arg) => arg !== '--check');
 if (unknown.length) {
   console.error(`unknown argument: ${unknown[0]}`);
   console.error('usage: generate_promoted_shader_documents.mjs [--check]');
+  await new Promise((resolve) => process.stderr.write('', resolve));
   process.exit(2);
 }
 const TAU = Math.fround(Math.PI * 2);
@@ -79,7 +80,7 @@ const prefix = (name, values) => Object.fromEntries(
 
 const parameterSpec = (id, value, source) => {
   if (id === 'palette-mapping') return {
-    id, binding: 'color.palette-mapping', classification: 'preset',
+    id, classification: 'preset',
     storage: 'enum8', unit: 'mapping',
     domain: { values: ['cup', 'bell', 'linear', 'reverse'] },
     interpolation: { kind: 'MIXED_ENUM' }, default: value,
@@ -140,7 +141,7 @@ const parameterSpec = (id, value, source) => {
   if (id.includes('speed')) unit = 'turn-per-frame';
   else if (angle || id.endsWith('rotation-rate')) unit = 'radian';
   return {
-    id, binding: id.replaceAll('-', '.'), classification: 'preset',
+    id, classification: 'preset',
     storage: 'binary32', unit, domain,
     interpolation: angle && !phase
       ? { kind: 'SHORTEST_PERIODIC', period: TAU }
@@ -542,6 +543,7 @@ for (const spec of effects) {
   const compiled = compileShaderDocument(documentFor(spec), { catalog });
   if (compiled.status !== 'VALID') {
     console.error(`${spec.id}:`, JSON.stringify(compiled.diagnostics, null, 2));
+    await new Promise((resolve) => process.stderr.write('', resolve));
     process.exit(1);
   }
   const name = `${spec.id.replaceAll('-', '_')}.shader.json`;
