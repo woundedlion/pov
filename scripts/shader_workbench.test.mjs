@@ -236,6 +236,23 @@ test('strict parsing rejects duplicate keys after NFC normalization', () => {
   );
 });
 
+test('strict parsing diagnoses malformed JSON syntax', () => {
+  const cases = [
+    ['', 'INVALID_JSON'], ['{x:1}', 'INVALID_JSON'],
+    ['{"x" 1}', 'INVALID_JSON'], ['{"x":1 "y":2}', 'INVALID_JSON'],
+    ['[1 2]', 'INVALID_JSON'], ['[1,]', 'INVALID_JSON'],
+    ['"unterminated', 'INVALID_STRING'], ['"\\q"', 'INVALID_STRING'],
+    ['"line\nfeed"', 'INVALID_STRING'], ['-', 'INVALID_NUMBER'],
+    ['{}{}', 'TRAILING_INPUT'], ['01', 'TRAILING_INPUT'],
+    ['1e', 'TRAILING_INPUT'], ['1.', 'TRAILING_INPUT'],
+  ];
+  for (const [source, code] of cases) {
+    assert.throws(() => parseShaderDocument(source),
+      (error) => error instanceof ShaderDocumentError && error.code === code,
+      source);
+  }
+});
+
 test('strict parsing enforces byte, depth, BOM, and finite-number bounds', () => {
   assert.throws(() => parseShaderDocument('\ufeff{}'), /byte-order mark/u);
   assert.throws(() => parseShaderDocument('{"value":1e999}'), /finite/u);
