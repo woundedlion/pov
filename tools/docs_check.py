@@ -497,9 +497,18 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
     if not match:
         return None
     candidate = match.group(1)
-    if "/" not in candidate or PurePosixPath(candidate).suffix not in _SOURCE_SUFFIXES:
+    if PurePosixPath(candidate).suffix not in _SOURCE_SUFFIXES:
         return None
     if _untracked_allowance(candidate, used):
+        return None
+    if "/" not in candidate:
+        if source.parent / candidate in entries:
+            return None
+        matches = sorted(path.as_posix() for path in entries
+                         if path.name == candidate)
+        if len(matches) > 1:
+            return Issue(source.as_posix(), line,
+                         f"ambiguous basename {candidate!r}: {', '.join(matches)}")
         return None
     in_scope = False
     for base in (PurePosixPath(""), source.parent, _IMPLICIT_PATH_ROOT):
