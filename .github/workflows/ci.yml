@@ -1122,7 +1122,7 @@ jobs:
         # The committed file is normalized through the same clang-format binary
         # first, so the runner's clang-format version can only reflow both sides
         # identically and never turns layout into a false failure. clang-format
-        # must exist: without it the generator emits an unformatted fallback.
+        # must exist: without it the generator refuses to emit.
         # Installed from the exact pip pin the clang-format job uses, so both
         # gates reflow with one binary: whatever the runner image carries would
         # re-flow the whole file the day it moves its default LLVM, which would
@@ -1377,22 +1377,6 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-
-      - name: Load build pins
-        id: pins
-        run: python tools/build_pins.py --github-output
-
-      # The fence is exhaustive over the daydream tree, so the checkout tracks
-      # the committed pin: daydream's tip moves independently and would red an
-      # unrelated engine change and flip a re-run of an unchanged commit.
-      - name: Check out daydream tree-fence target
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: woundedlion/daydream
-          ref: ${{ steps.pins.outputs.daydream }}
-          path: daydream
-          persist-credentials: false
-          fetch-depth: 0
 
       - name: Every documented image reference resolves
         run: python tools/docs_images.py
