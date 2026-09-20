@@ -1011,18 +1011,20 @@ const v1Slots = (roleNodes) => {
 
   add('camera', { operator: 'sphere.rotate.v2' });
 
-  const lens = surface.lens ?? 'identity';
-  if (lens !== 'identity')
-    add('lens', v1PolicyPick(V1_LENS_OPERATORS, lens, 'stage.surface_project.lens'));
-
   const pre = surface.pre_lens_surface ?? 'identity';
   const post = surface.post_lens_surface ?? 'identity';
   if (pre !== 'identity' && post !== 'identity')
     failV1('V1_POLICY_UNSUPPORTED', 'stage.surface_project',
       'A v1 document with two surface displacements has no chain expansion.');
-  const displacement = pre !== 'identity' ? pre : post;
-  if (displacement !== 'identity')
-    add('surface', v1PolicyPick(V1_SURFACE_OPERATORS, displacement, 'stage.surface_project'));
+  if (pre !== 'identity')
+    add('surface', v1PolicyPick(V1_SURFACE_OPERATORS, pre, 'stage.surface_project'));
+
+  const lens = surface.lens ?? 'identity';
+  if (lens !== 'identity')
+    add('lens', v1PolicyPick(V1_LENS_OPERATORS, lens, 'stage.surface_project.lens'));
+
+  if (post !== 'identity')
+    add('surface', v1PolicyPick(V1_SURFACE_OPERATORS, post, 'stage.surface_project'));
 
   if (surface.projection === undefined)
     failV1('V1_POLICY_UNSUPPORTED', 'stage.surface_project.projection',

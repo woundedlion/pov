@@ -15,6 +15,7 @@ import {
   parseShaderDocument,
   stableStringify,
   validateShaderDocument,
+  v1DescriptorDigest,
 } from './shader_workbench.mjs';
 import { sha256Hex } from './sha256.mjs';
 
@@ -639,6 +640,32 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
   assert.equal(compiled.parameter_ids['central-meridian'], 'project.central-meridian');
   assert.equal(exportShaderDocumentJson(compiled.document), EXAMPLE);
   assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
+});
+
+test('v1 displacement placement preserves its order around a nonidentity lens', () => {
+  const documents = ['pre_lens_surface', 'post_lens_surface'].map((placement) => {
+    const document = structuredClone(V1_EXAMPLE);
+    const surface = document.descriptor.graph.nodes.find((node) => node.role === 'surface_project');
+    surface.policy.lens = 'tetrahedral-kaleidoscope';
+    surface.policy[placement] = 'direct-noise-simplex';
+    return document;
+  });
+  const [pre, post] = documents.map((document) => compile(document));
+  assert.equal(pre.status, 'VALID');
+  assert.equal(post.status, 'VALID');
+  assert.notEqual(v1DescriptorDigest(documents[0]), v1DescriptorDigest(documents[1]));
+  assert.deepEqual(pre.document.descriptor.chain.map((entry) => entry.label),
+    ['camera', 'surface', 'lens', 'project', 'sample', 'colorize']);
+  assert.deepEqual(post.document.descriptor.chain.map((entry) => entry.label),
+    ['camera', 'lens', 'surface', 'project', 'sample', 'colorize']);
+  assert.notEqual(pre.descriptor_digest, post.descriptor_digest);
+
+  const both = structuredClone(documents[0]);
+  both.descriptor.graph.nodes.find((node) => node.role === 'surface_project')
+    .policy.post_lens_surface = 'direct-noise-simplex';
+  const rejected = compile(both);
+  assert.equal(rejected.status, 'INVALID');
+  assert.deepEqual(rejected.diagnostics.map(({ code }) => code), ['V1_POLICY_UNSUPPORTED']);
 });
 
 test('a v1 staggered path schedules the topology groups the expansion synthesises', () => {
