@@ -1036,8 +1036,13 @@ def check_repository(
                 source.as_posix(), 1,
                 f"required docs-check directive {tag!r} is missing, so its "
                 "tree goes unchecked"))
-    # Only this repository draws the row; a checkout without the roster header
-    # is not the tree the claim is about.
+    effects_text = sources.get(PurePosixPath(_EFFECTS_TREE_ROW), "")
+    roster_claimed = bool(
+        _EFFECTS_ROW_RE.search(effects_text)
+        or _EFFECTS_DIAGRAM_RE.search(effects_text)
+        or any(macro == "HS_EFFECT_LIST"
+               and pattern.search(sources.get(PurePosixPath(document), ""))
+               for document, pattern, macro, _ in _CARDINALITY_CLAIMS))
     if _EFFECT_ROSTER_SOURCE in entries:
         try:
             header = root.joinpath(
@@ -1046,8 +1051,7 @@ def check_repository(
             header = ""
         roster = effect_roster(header)
         issues.extend(effects_row_issues(
-            sources.get(PurePosixPath(_EFFECTS_TREE_ROW), ""), entries,
-            roster or None))
+            effects_text, entries, roster or None))
         try:
             playlist_header = root.joinpath(
                 *_PHANTASM_PLAYLIST_SOURCE.parts).read_text(encoding="utf-8")
@@ -1055,6 +1059,11 @@ def check_repository(
             playlist_header = ""
         issues.extend(roster_claim_issues(
             sources, roster, phantasm_roster(playlist_header)))
+    elif roster_claimed:
+        issues.append(Issue(
+            _EFFECT_ROSTER_SOURCE.as_posix(), 1,
+            "tracked documentation states effect-roster cardinalities, but "
+            f"{_EFFECT_ROSTER_SOURCE} is not tracked"))
     if _DOXYFILE in entries:
         try:
             doxyfile = root.joinpath(*_DOXYFILE.parts).read_text(encoding="utf-8")
