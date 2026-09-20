@@ -40,11 +40,9 @@ peer's firmware. The only supported path is `tools/profile_one.sh`, which takes
 the lock. `HS_DEVICE_WAIT=<sec>` queues; `bash tools/device_lock.sh status`
 checks it. Toggle a diagnostic through `-D` flags forwarded to the build.
 
-`tools/profile_one.sh` always builds **`/c/work/Holosphere`** (hardcoded `cd`),
-whatever tree you invoke it from. **You cannot profile a worktree — land
-first.** For a change that is bit-exact by construction this is safe; for
-anything else, prove correctness before landing, then profile, then revert if
-the device disagrees.
+`tools/profile_one.sh` builds the checkout that contains the invoked script. A
+worktree therefore profiles itself, using its own `build/prof/` and `.pio/`
+directories. Set `HS_PROFILE_TREE=<path>` to select a different checkout.
 
 ---
 
