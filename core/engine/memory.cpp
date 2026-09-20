@@ -102,7 +102,7 @@ size_t abandoned_bytes_total = 0;
 size_t abandon_event_count = 0;
 } // namespace
 
-void note_arena_vector_abandon(size_t bytes) {
+HS_COLD void note_arena_vector_abandon(size_t bytes) {
   abandoned_bytes_total += bytes;
   abandon_event_count++;
 }
