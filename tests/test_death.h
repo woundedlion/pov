@@ -2323,7 +2323,7 @@ inline void case_pipeline_ref_erase_not_prepared() {
  *          so a stale index domain would read arbitrary memory as a Vector on
  *          device. Scan::Mesh validates the flat index array once per mesh.
  */
-inline void case_scan_mesh_face_index_out_of_range() {
+inline void scan_mesh_invalid_fixture(bool omit_offsets) {
   constexpr int W = 32, H = 16;
   static uint8_t geom_buf[1024];
   static uint8_t scratch_buf[64 * 1024];
@@ -2336,8 +2336,10 @@ inline void case_scan_mesh_face_index_out_of_range() {
     mesh.vertices.push_back(Vector(0.0f, 1.0f, 0.0f));
   mesh.face_counts.bind(geom, 1);
   mesh.face_counts.push_back(opaque<uint8_t>(3));
-  mesh.face_offsets.bind(geom, 1);
-  mesh.face_offsets.push_back(opaque<uint16_t>(0));
+  if (!omit_offsets) {
+    mesh.face_offsets.bind(geom, 1);
+    mesh.face_offsets.push_back(opaque<uint16_t>(0));
+  }
   mesh.faces.bind(geom, 3);
   mesh.faces.push_back(opaque<uint16_t>(0));
   mesh.faces.push_back(opaque<uint16_t>(1));
@@ -2348,6 +2350,14 @@ inline void case_scan_mesh_face_index_out_of_range() {
   Pipeline<W, H> pipe;
   Scan::Mesh::draw<W, H>(
       pipe, c, mesh, [](const Vector &, Fragment &) {}, scratch);
+}
+
+inline void case_scan_mesh_missing_offsets() {
+  scan_mesh_invalid_fixture(true);
+}
+
+inline void case_scan_mesh_face_index_out_of_range() {
+  scan_mesh_invalid_fixture(false);
 }
 
 /**
@@ -4392,6 +4402,9 @@ inline const Case *all_cases(int &n) {
        case_scan_mesh_face_index_out_of_range, "mesh.h",
        "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
        "the vertex pool"},
+      {"scan_mesh_missing_offsets", case_scan_mesh_missing_offsets, "mesh.h",
+       "(mesh.get_face_offsets_size() == num_f) solid mesh scan requires one "
+       "face offset per face"},
       {"scan_mesh_class_id_out_of_range", case_scan_mesh_class_id_out_of_range,
        "mesh.h",
        "(rec.class_id < bake->classes.size()) mesh class bake face record "
