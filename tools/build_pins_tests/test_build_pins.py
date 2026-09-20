@@ -261,8 +261,8 @@ class InlinePins(unittest.TestCase):
         with unittest.mock.patch.object(bp, "INLINE_USES", patched):
             errors = bp.check_inline_pins()
         self.assertEqual(len(errors), 1)
-        self.assertIn("occurs 16 time(s)", errors[0])
-        self.assertIn("expected 17", errors[0])
+        self.assertIn("occurs 21 time(s)", errors[0])
+        self.assertIn("expected 22", errors[0])
 
     def test_the_python_version_input_is_read_in_either_quoting(self):
         pattern = next(p for p, name, _, _ in bp.INLINE_USES if name == "python")
