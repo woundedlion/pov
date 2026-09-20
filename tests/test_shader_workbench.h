@@ -2797,6 +2797,53 @@ inline void test_shader_workbench_dodecahedral_lattice_edit() {
                static_cast<float>(WB::WarpStageKind::MIRROR_TILE));
 }
 
+/** @brief Both Wave Shear slots expose envelope controls without a noise basis. */
+inline void test_shader_workbench_wave_shear_envelope_controls() {
+  using WB = ShaderWorkbenchWhiteBox;
+  for (bool outer : {true, false}) {
+    reset_effect_globals();
+    WB::SB sb;
+    sb.init();
+    const char *stage_name = outer ? "Planar Warp 1" : "Planar Warp 2";
+    const char *envelope_name =
+        outer ? "Planar Warp 1 Envelope" : "Planar Warp 2 Envelope";
+    const char *width_name =
+        outer ? "Planar Warp 1 Edge Width" : "Planar Warp 2 Edge Width";
+    const char *basis_name =
+        outer ? "Planar Warp 1 Noise Basis" : "Planar Warp 2 Noise Basis";
+    HS_EXPECT_EQ(
+        sb.updateParameter(stage_name,
+                           static_cast<float>(WB::WarpStageKind::WAVE_SHEAR)),
+        ParamSetResult::APPLIED);
+    const auto *envelope = sb.getParameters().find(envelope_name);
+    const auto *width = sb.getParameters().find(width_name);
+    HS_EXPECT_TRUE(envelope != nullptr);
+    HS_EXPECT_TRUE(width != nullptr);
+    HS_EXPECT_TRUE(sb.getParameters().find(basis_name) == nullptr);
+    if (!envelope || !width)
+      continue;
+    HS_EXPECT_EQ(width->min, Workbench::SOFTNESS_MIN);
+    HS_EXPECT_EQ(width->max, 0.5f);
+    HS_EXPECT_EQ(sb.updateParameter(width_name, 0.25f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(
+        sb.updateParameter(envelope_name,
+                           static_cast<float>(WB::WarpEnvelope::EDGE_FADE)),
+        ParamSetResult::APPLIED);
+    sb.draw_frame();
+    sb.advance_display();
+    WB::settle_transition(sb);
+    const auto active = WB::active_config(sb);
+    HS_EXPECT_EQ((outer ? active.slots.warp_program.outer
+                        : active.slots.warp_program.inner)
+                     .envelope,
+                 WB::WarpEnvelope::EDGE_FADE);
+    HS_EXPECT_EQ((outer ? active.params.warp.outer : active.params.warp.inner)
+                     .edge_width,
+                 0.25f);
+  }
+}
+
 /** @brief Rejected Polar Chart selectors expose controls needed for admission. */
 inline void test_shader_workbench_polar_gui_repair() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -6253,6 +6300,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_curl_integrator_range_rebind();
   test_shader_workbench_curl_scale_range_rebind();
   test_shader_workbench_dodecahedral_lattice_edit();
+  test_shader_workbench_wave_shear_envelope_controls();
   test_shader_workbench_polar_gui_repair();
   test_shader_workbench_structural_admission();
   test_shader_workbench_strict_seam_admission();
