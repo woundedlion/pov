@@ -57,10 +57,16 @@ hand edit to those files is lost on the next run — change the spec instead. Th
 specs are written in the v1 six-role shape and the committed file is their
 canonical v2 expansion.
 
-The remaining seven are hand-authored and no rerun writes them: `ash_cloud`,
-`lattice_melt`, `chromatic_lichen`, `mermaid_skin`, `kaleidoscope_smooth` and
-`kaleidoscope_hex_oil`, promoted from workbench snapshots, and
-`example.shader.json`.
+Three documents are authored directly in this directory: `ash_cloud`,
+`chromatic_lichen` and `mermaid_skin`. The installed copies of `example`,
+`kaleidoscope_hex_oil`, `kaleidoscope_smooth` and `lattice_melt` are compiled
+from the version 1 fixtures in `daydream/shader/patterns/v1/`; edit those
+fixtures instead of the version 2 files.
+
+The engine installs its top-level pattern documents and
+`shaderball_migration.json` into `daydream/shader/patterns/`.
+`daydream/shader/patterns/v1/` and `digest_migration.v1v2.json` are owned by
+daydream and are not engine-installed artifacts.
 
 `shaderball_migration.json` is a manifest, not a shader document, and the CLI
 above rejects it as one. `source_documents` maps each `effect_id` to the
