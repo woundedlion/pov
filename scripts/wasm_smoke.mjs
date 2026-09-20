@@ -554,6 +554,18 @@ async function main(probe) {
         if (!snapshot || snapshot.pendingFieldIds.length === 0) {
           fail('shader-authoring: incompatible sphere source bypassed admission');
         }
+        for (let attempt = 0; attempt < 8; ++attempt) {
+          engine.setEffect('Shader');
+          const source = engine.getFullConfigSnapshot();
+          const reentrant = { ...source, get accepted() {
+            engine.setEffect('Shader');
+            return source.accepted;
+          } };
+          if (engine.restoreFullConfigSnapshot(reentrant)
+              !== Module.FullConfigRestoreResult.NOT_SHADER_WORKBENCH) {
+            fail('shader-authoring: snapshot followed a replaced same-type owner');
+          }
+        }
       }
       engine.setAnimationsPaused(false);
     }

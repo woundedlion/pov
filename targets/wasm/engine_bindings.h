@@ -364,6 +364,7 @@ public:
     std::fill_n(pixel_buffer.data(), count, uint16_t{0});
 
     if (current_effect) {
+      ++effect_generation;
       current_effect = nullptr;
       current_effect_type_key = nullptr;
       current_factory_entry = nullptr;
@@ -423,6 +424,7 @@ public:
       return EffectSetResult::UNKNOWN_EFFECT;
     }
 
+    ++effect_generation;
     current_effect.reset();
     current_effect_type_key = nullptr;
     current_factory_entry = nullptr;
@@ -1057,6 +1059,7 @@ public:
       // what `shader` names. Latch the owner and re-check before applying; the
       // guard covers the delete() that frees the engine itself.
       const SnapshotDecodeGuard decode_guard;
+      const uint64_t owner_generation = effect_generation;
       const Effect *const owner = current_effect.get();
       const void *const owner_type_key = current_effect_type_key;
       typename SB::FullConfigSnapshot snapshot;
@@ -1126,7 +1129,8 @@ public:
         }
         pending = 1;
       }
-      if (current_effect.get() != owner ||
+      if (effect_generation != owner_generation ||
+          current_effect.get() != owner ||
           current_effect_type_key != owner_type_key) {
         result = FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
         return;
@@ -1472,6 +1476,7 @@ private:
 
   std::unique_ptr<Effect>
       current_effect; /**< Currently active effect, or null. */
+  uint64_t effect_generation = 0;
   const void *current_effect_type_key =
       nullptr; /**< Concrete type the factory built current_effect as; null when
                     there is no effect. Gates every downcast off the base. */
