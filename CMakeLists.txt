@@ -50,6 +50,15 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
+  set_property(TARGET ${TARGET_NAME} APPEND PROPERTY LINK_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/wasm_cache_key.cmake")
+  add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+      "-DGLUE=$<TARGET_FILE:${TARGET_NAME}>"
+      "-DWASM=${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/wasm_cache_key.cmake"
+    VERBATIM)
+
   # The chain interpreter's two arenas (2 x CHAIN_ARENA_BYTES) plus ShaderChain's
   # shared color resources outgrow the device-mirrored default arena; the spec
   # prices that doubling as engine cost on Emscripten/test-oracle builds only.
