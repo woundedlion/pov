@@ -433,6 +433,8 @@ private:
   Timeline timeline; /**< Drives reverse/wipe/rotate animations and timers. */
 
   static constexpr size_t MAX_PALETTES = 16; /**< Max live palettes. */
+  static_assert(MAX_PALETTES + 3 <= Timeline::MAX_EVENTS,
+                "Dynamo needs three timers, one rotation, and all live wipes");
   static constexpr int TRAIL_LEN_MAX =
       100; /**< "Trail Len" slider max, and the ceiling "Trail Cap" reports. */
   /**
