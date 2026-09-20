@@ -3957,6 +3957,18 @@ inline void case_opleg_no_event_slot() {
   Animation::OpLeg::require_event_slot();
 }
 
+/** @brief A cached bump offset must agree with the sample's cap distance. */
+inline void case_bump_offset_outside_cap_distance() {
+  Animation::BumpParams params;
+  params.center = Y_AXIS;
+  params.axis = Y_AXIS;
+  params.radius = 0.5f;
+  params.amplitude = 1.0f;
+  params.envelope = 1.0f;
+  params.sync();
+  (void)bump_field_with_y(Y_AXIS, params, opaque(0.25f));
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -3966,6 +3978,9 @@ inline void case_opleg_no_event_slot() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"bump_offset_outside_cap_distance",
+       case_bump_offset_outside_cap_distance, "transformer.h",
+       "(std::abs(y) <= d + 1e-5f) bump offset exceeds the angular distance to its center"},
       {"field_transfer_outside_range", case_field_transfer_outside_range,
        "stage.h",
        "(value >= 0.0f && value <= 1.0f) field transfer must remain in [0, 1]"},
