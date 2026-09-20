@@ -346,16 +346,17 @@ stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
   case WarpStageKind::VECTOR_NOISE:
     return input_bound + 1.414214f * params.strength;
   case WarpStageKind::CURL_FLOW:
-    return input_bound + 1.414214f * abs_value(params.strength) * params.scale *
+    return input_bound + 1.414214f * abs_value(params.strength) *
                              curl_vector_component_bound(spec.basis);
   case WarpStageKind::MIRROR_TILE:
     return 1.414214f * (params.cell_x + params.cell_y);
   case WarpStageKind::POLAR_CHART: {
     const float radial =
-        params.radial_scale *
-            (spec.polar_mode == PolarMode::LOGARITHMIC ? 12.0f : input_bound) +
+        params.radial_scale * (spec.polar_mode == PolarMode::LOGARITHMIC
+                                   ? 12.0f
+                                   : 1.414214f * input_bound) +
         TWO_PI_F;
-    return radial > 17.0f * PI_F ? radial : 17.0f * PI_F;
+    return radial > 20.0f * PI_F ? radial : 20.0f * PI_F;
   }
   }
   return WARP_COORD_LIMIT + 1.0f;

@@ -263,6 +263,12 @@ struct ShaderWorkbenchWhiteBox {
                                  const RequestedConfig &to) {
     return Workbench::stable_parameter_path_admitted(from, to);
   }
+  static constexpr float stage_coordinate_bound(const WarpStageSpec &spec,
+                                                const WarpStageParams &params,
+                                                float input_bound) {
+    return Workbench::stage_coordinate_bound(spec, params, input_bound,
+                                             {1.0f, 1.0f});
+  }
   static bool transition_active(const SB &sb) {
     return sb.state->transition.active;
   }
@@ -2945,6 +2951,24 @@ inline void test_shader_workbench_structural_admission() {
   HS_EXPECT_TRUE(WB::transition_admitted(from, to));
   HS_EXPECT_FALSE(WB::stable_topology(from, to));
   HS_EXPECT_FALSE(WB::stable_parameter_path_admitted(from, to));
+
+  WB::WarpStageSpec curl_bound_spec;
+  curl_bound_spec.kind = WB::WarpStageKind::CURL_FLOW;
+  curl_bound_spec.basis = WB::NoiseBasis::SIMPLEX;
+  WB::WarpStageParams curl_bound_params;
+  curl_bound_params.scale = 1.0f / 64.0f;
+  curl_bound_params.strength = 1.0f;
+  HS_EXPECT_EQ(
+      WB::stage_coordinate_bound(curl_bound_spec, curl_bound_params, 0.0f),
+      1.414214f *
+          Workbench::curl_vector_component_bound(WB::NoiseBasis::SIMPLEX));
+  WB::WarpStageSpec polar_bound_spec;
+  polar_bound_spec.kind = WB::WarpStageKind::POLAR_CHART;
+  WB::WarpStageParams polar_bound_params;
+  polar_bound_params.radial_scale = 16.0f;
+  HS_EXPECT_EQ(
+      WB::stage_coordinate_bound(polar_bound_spec, polar_bound_params, 4.0f),
+      16.0f * 1.414214f * 4.0f + TWO_PI_F);
 
   const WB::RequestedConfig discrete_base = WB::legacy_config();
   WB::RequestedConfig discrete = discrete_base;
