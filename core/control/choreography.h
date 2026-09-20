@@ -174,10 +174,9 @@ protected:
   /**
    * @brief Ends an in-flight crossfade when the user takes a parameter over.
    * @details The blend rewrites the whole parameter set every frame, so a
-   * transition left running would overwrite the write that just landed. Pause
-   * alone does not stop it — a started transition runs to its endpoint — but a
-   * manual edit does, exactly as a manual preset change snaps, and the preset
-   * dwell restarts with it.
+   * transition left running would overwrite the write that just landed.
+   * `PRESET_SEGUE.pausable` controls whether pause suspends the transition.
+   * A manual edit cancels it and restarts the preset dwell.
    */
   HS_COLD_MEMBER void animated_parameter_written() override {
     transition.active = false;
