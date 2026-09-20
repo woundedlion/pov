@@ -54,7 +54,7 @@ inline bool &correction_guard_live() {
 // only the liveness flag.
 #ifdef USE_DMA_LEDS
 /**
- * @brief No-op stub: the DMA pipeline applies no color/temperature correction.
+ * @brief Scope guard with no effect on the DMA driver's configured correction.
  */
 struct NoColorCorrection {
   NoColorCorrection() {
@@ -68,7 +68,7 @@ struct NoColorCorrection {
   NoColorCorrection &operator=(const NoColorCorrection &) = delete;
 };
 /**
- * @brief No-op stub: the DMA pipeline applies no temperature correction.
+ * @brief Scope guard with no effect on the DMA driver's configured temperature.
  * @details A distinct type, not an alias of NoColorCorrection: the FastLED
  * branch defines two, and overload/if-constexpr dispatch must resolve the same
  * way on both.
