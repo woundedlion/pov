@@ -59,4 +59,23 @@ if(NOT EXISTS "${_not_daydream}/docs/screenshots/stale.png")
   message(FATAL_ERROR "Prune modified an invalid destination")
 endif()
 
+set(_patterns "${_daydream}/shader/patterns")
+file(MAKE_DIRECTORY "${_patterns}")
+file(WRITE "${_source}/keep.shader.json" "source")
+file(WRITE "${_patterns}/keep.shader.json" "keep")
+file(WRITE "${_patterns}/stale.shader.json" "stale")
+file(WRITE "${_patterns}/shaderball_migration.json" "stale migration")
+file(WRITE "${_patterns}/notes.json" "unrelated")
+set(HS_MIRROR_SOURCE "${_source}")
+set(HS_DAYDREAM_DIR "${_daydream}")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_patterns.cmake")
+if(EXISTS "${_patterns}/stale.shader.json" OR
+   EXISTS "${_patterns}/shaderball_migration.json")
+  message(FATAL_ERROR "Prune retained stale mirrored patterns")
+endif()
+if(NOT EXISTS "${_patterns}/keep.shader.json" OR
+   NOT EXISTS "${_patterns}/notes.json")
+  message(FATAL_ERROR "Prune removed retained pattern files")
+endif()
+
 file(REMOVE_RECURSE "${TEST_ROOT}")
