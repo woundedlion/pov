@@ -100,7 +100,6 @@ authored_params(SourceParams source, WarpStageParams outer_warp,
                 ProjectionParams projection, SurfaceLensParams surface_lens,
                 ColorParams color, OuterCameraParams outer_camera) {
   const WarpStageParams inner_warp{0.1f, 0.0f, 0.0f};
-  projection.wander = outer_camera.wander;
   color.hue_noise_speed = hs::clamp(color.hue_noise_speed, -HUE_NOISE_SPEED_MAX,
                                     HUE_NOISE_SPEED_MAX);
   return {source,       {outer_warp, inner_warp},
@@ -187,8 +186,9 @@ inline constexpr Config gnomonic_grid_mirror_preset(SurfaceLens lens) {
   outer_warp.cell_y = 1.0f;
   outer_warp.offset_x = 1.344f;
   outer_warp.offset_y = -1.456f;
-  Params params = authored_params({3.565f, 0.235f, 0.0f, 1.0f, 1.0f, 0.0f},
-                                  outer_warp, {1.4f, 0.0f}, {}, {}, {1.0f});
+  Params params =
+      authored_params({3.565f, 0.235f, 0.0f, 1.0f, 1.0f, 0.0f}, outer_warp,
+                      {1.4f, 0.0f, 1.0f}, {}, {}, {1.0f});
   params.value.edge_width = 0.5f;
   return {slots, params};
 }
@@ -212,9 +212,9 @@ inline constexpr Config peirce_dodecahedral_generated_preset() {
               CoveragePolicy::EDGE_FADE,
               PaletteMode::TRIADIC};
   slots.peirce_layout = PeirceLayout::SQUARE;
-  Params params =
-      authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f},
-                      {}, {0.319f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
+  Params params = authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {},
+                                  {1.0f, 0.0f, 1.0f}, {},
+                                  {0.319f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
   params.projection.central_meridian = 0.0f;
   params.projection.coordinate_scale = 1.0f;
   params.value.edge_width = 0.1f;
@@ -245,7 +245,7 @@ inline constexpr Config gnomonic_wave_shear_grid_preset() {
   inner_warp.offset_y = 0.0f;
   Params params =
       authored_params({6.3287f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f}, outer_warp,
-                      {2.311f, 0.0f}, {}, {0.721f, 1.0f, 0.0f}, {1.0f});
+                      {2.311f, 0.0f, 1.0f}, {}, {0.721f, 1.0f, 0.0f}, {1.0f});
   params.warp.inner = inner_warp;
   return {slots, params};
 }
@@ -519,7 +519,7 @@ inline constexpr Config stereographic_alien_core_mirror_preset() {
   outer_warp.offset_y = -1.456f;
   Params params =
       authored_params({2.5477f, 0.235f, 1.854f, 0.0f, 1.0f, 0.0f}, outer_warp,
-                      {1.4f, 0.0f}, {}, {2.048f, 1.0f, 0.0f}, {1.0f});
+                      {1.4f, 0.0f, 1.0f}, {}, {2.048f, 1.0f, 0.0f}, {1.0f});
   params.value.edge_width = 0.5f;
   params.color.palette_chroma = 0.292f;
   return {slots, params};

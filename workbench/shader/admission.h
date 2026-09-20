@@ -257,22 +257,29 @@ valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
   case WarpStageKind::LEGACY_STEREO_NOISE:
     return false;
   case WarpStageKind::AFFINE_FRAME:
-    return params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
-           params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
+    return params.translation_x >= -AFFINE_TRANSLATION_MAX &&
+           params.translation_x <= AFFINE_TRANSLATION_MAX &&
+           params.translation_y >= -AFFINE_TRANSLATION_MAX &&
+           params.translation_y <= AFFINE_TRANSLATION_MAX &&
            params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
-           params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
-           params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
-           params.shear >= -0.75f && params.shear <= 0.75f &&
+           params.scale_x >= AFFINE_SCALE_MIN &&
+           params.scale_x <= AFFINE_SCALE_MAX &&
+           params.scale_y >= AFFINE_SCALE_MIN &&
+           params.scale_y <= AFFINE_SCALE_MAX &&
+           params.shear >= -AFFINE_SHEAR_MAX &&
+           params.shear <= AFFINE_SHEAR_MAX &&
            params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
   case WarpStageKind::WAVE_SHEAR:
     return params.strength >= -4.0f && params.strength <= 4.0f &&
            params.frequency >= 0.0f && params.frequency <= 64.0f &&
            params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
   case WarpStageKind::VORTEX:
-    return params.radius >= 1.0f / 64.0f && params.radius <= 8.0f &&
-           params.turns >= -4.0f && params.turns <= 4.0f &&
+    return params.radius >= VORTEX_RADIUS_MIN &&
+           params.radius <= VORTEX_RADIUS_MAX &&
+           params.turns >= -VORTEX_TURNS_MAX &&
+           params.turns <= VORTEX_TURNS_MAX &&
            params.center_orbit_radius >= 0.0f &&
-           params.center_orbit_radius <= 4.0f &&
+           params.center_orbit_radius <= VORTEX_ORBIT_MAX &&
            params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
   case WarpStageKind::VECTOR_NOISE:
     return params.strength >= 0.0f &&
@@ -296,9 +303,9 @@ valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
            params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
            params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
   case WarpStageKind::POLAR_CHART:
-    return params.radial_scale >= 1.0f / 64.0f &&
-           params.radial_scale <= 16.0f && params.speed >= NOISE_SPEED_MIN &&
-           params.speed <= NOISE_SPEED_MAX;
+    return params.radial_scale >= POLAR_RADIAL_SCALE_MIN &&
+           params.radial_scale <= POLAR_RADIAL_SCALE_MAX &&
+           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
   }
   return false;
 }
