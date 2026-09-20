@@ -1141,6 +1141,13 @@ inline void test_palette_cycler_bake_generation() {
   const uint32_t before_chroma = generated.bake_generation();
   generated.set_generated_chroma(0.4f);
   HS_EXPECT_NE(generated.bake_generation(), before_chroma);
+  generated.advance_without_display();
+  generated.advance_without_display();
+  const uint32_t hidden_generation = generated.bake_generation();
+  generated.set_generated_chroma(0.8f);
+  HS_EXPECT_EQ(generated.bake_generation(), hidden_generation);
+  generated.step();
+  HS_EXPECT_GT(generated.bake_generation(), hidden_generation);
 }
 
 inline void test_palette_cycler_zero_dwell_chains_fades() {
