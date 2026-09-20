@@ -1544,6 +1544,35 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   HS_EXPECT_PIXEL(fx2.get_pixel(8, 3), 0, 500, 0);
 }
 
+inline void test_pipeline_composition_alpha_and_draw_order() {
+  constexpr int W = 16, H = 8;
+  for (bool reverse : {false, true}) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>,
+             Filter::Pixel::ChromaticShift<W>>
+        pipe;
+    const Pixel first = reverse ? Pixel(0, 0, 40000) : Pixel(40000, 0, 0);
+    const Pixel second = reverse ? Pixel(40000, 0, 0) : Pixel(0, 0, 40000);
+    {
+      Canvas canvas(fx);
+      pipe.plot(canvas, 4.0f, 3.5f, first, 0.0f, 1.0f);
+      pipe.plot(canvas, 4.0f, 3.5f, second, 0.0f, 1.0f);
+    }
+    fx.advance_display();
+    for (int y : {3, 4}) {
+      const Pixel &center = fx.get_pixel(4, y);
+      // Each antialias tap covers half a pixel: C = first/4 + second/2.
+      HS_EXPECT_NEAR(center.r, reverse ? 20000 : 10000, 2);
+      HS_EXPECT_NEAR(center.b, reverse ? 10000 : 20000, 2);
+      HS_EXPECT_EQ(center.g, 0);
+      HS_EXPECT_NEAR(fx.get_pixel(5, y).r, reverse ? 20000 : 10000, 2);
+      HS_EXPECT_NEAR(fx.get_pixel(7, y).b, reverse ? 10000 : 20000, 2);
+      HS_EXPECT_TRUE(is_black(fx.get_pixel(6, y)));
+    }
+    HS_EXPECT_EQ(count_lit_canvas(fx), size_t{6});
+  }
+}
+
 /**
  * @brief Verifies the 3D sink overload routes a unit vector via vector_to_pixel
  *        and writes it.
@@ -3629,6 +3658,7 @@ inline int run_filter_tests() {
   test_world_mobius_identity_and_transform();
 
   test_pipeline_sink_2d_plot_blends_wraps_clips();
+  test_pipeline_composition_alpha_and_draw_order();
   test_pipeline_sink_3d_plot_routes_to_canvas();
   test_pipeline_world_replicate_fans_out();
   test_pipeline_2d_into_3d_head_roundtrips();
