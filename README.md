@@ -2300,7 +2300,7 @@ Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=MobiusRings" target="_blank"><img src="docs/screenshots/MobiusRings.png" alt="MobiusRings" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=MobiusRings&resolution=Holosphere%20(96x20)" target="_blank"><img src="docs/screenshots/MobiusRings.png" alt="MobiusRings" width="280"></a></td>
 <td valign="top">
 
 #### MobiusRings
