@@ -1196,7 +1196,12 @@ async function main(probe) {
 
       // The clearToolingMemory generation trap: the wipe reclaims the tooling
       // arenas; a fresh build afterwards must still succeed.
+      MeshOps.fromSolidName('not_a_registered_solid');
+      if (MeshOps.getLastResult() !== MR.UNKNOWN_NAME)
+        fail('mesh recovery fixture did not set a refusal');
       MeshOps.clearToolingMemory();
+      if (MeshOps.getLastResult() !== MR.OK || MeshOps.getLastAdjusted())
+        fail('clearToolingMemory did not reset the operation result channel');
       const post = MeshOps.fromSolidName(solidName);
       if (!post) {
         fail('fromSolidName after clearToolingMemory() returned null');

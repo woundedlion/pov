@@ -287,6 +287,7 @@ public:
    *          here, so no later op can run. Discard the instance instead.
    */
   static void clearToolingMemory() {
+    begin_mesh_op();
     tooling_arena.reset();
     tooling_arena.reset_high_water_mark();
     tooling_scratch_a.reset();
