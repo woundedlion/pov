@@ -131,6 +131,7 @@ async function main(probe) {
   }
 
   let failures = 0;
+  let parameterDefinitionsSeen = 0;
   const fail = (msg) => { console.error(`  FAIL: ${msg}`); failures++; };
 
 
@@ -326,12 +327,16 @@ async function main(probe) {
         // Exercise the embind param seam (getParameterDefinitions() +
         // getParamValues()) the GUI rides every frame: assert the two streams
         // stay zippable and well-formed.
-        for (const problem of paramStreamProblems(engine.getParameterDefinitions(),
+        const definitions = engine.getParameterDefinitions();
+        if (Array.isArray(definitions)) parameterDefinitionsSeen += definitions.length;
+        for (const problem of paramStreamProblems(definitions,
           engine.getParamValues())) {
           fail(`${name}: ${problem}`);
         }
       }
     }
+
+    if (parameterDefinitionsSeen === 0) fail('No effect exposed parameter definitions');
 
     // RingShower expands its rings from zero radius and lights around frame 24,
     // so a short window is black by design; tests/test_effects.h carries the
