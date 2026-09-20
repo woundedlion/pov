@@ -70,7 +70,7 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
   a.v3 = 0.0f;
   a.size = 4.0f;
   a.age = 0.0f;
-  a.color = Color4(Pixel(0, 0, 0), 0.0f);
+  a.color = Color4(Pixel(2000, 4000, 6000), 0.0f);
 
   Fragment b;
   b.pos = Vector(0, 4, 0);
@@ -80,7 +80,7 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
   b.v3 = 20.0f;
   b.size = 8.0f;
   b.age = 10.0f;
-  b.color = Color4(Pixel(0, 0, 0), 1.0f);
+  b.color = Color4(Pixel(6000, 12000, 18000), 1.0f);
 
   Fragment m = Fragment::lerp(a, b, 0.5f);
   HS_EXPECT_NEAR(m.pos.x, 1.0f, 1e-6f);
@@ -92,6 +92,9 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
   HS_EXPECT_NEAR(m.size, 6.0f, 1e-6f);
   HS_EXPECT_NEAR(m.age, 5.0f, 1e-6f);
   HS_EXPECT_NEAR(m.color.alpha, 0.5f, 1e-6f);
+  HS_EXPECT_EQ(m.color.color.r, 4000);
+  HS_EXPECT_EQ(m.color.color.g, 8000);
+  HS_EXPECT_EQ(m.color.color.b, 12000);
 }
 
 // --- fragment_edge_dist -----------------------------------------------------
