@@ -1453,7 +1453,7 @@ Effects that need more scratch memory can repartition at init time:
 configure_arenas(234 * 1024, 32 * 1024, 32 * 1024);  // 234 + 32 + 32 = 298 KiB
 ```
 
-A global that caches a pointer into arena storage registers an `ArenaResetHook` beside itself, and drops the pointer from the callback. `configure_arenas()` and the mesh carousel's compaction run the whole list before handing the storage out again, so the owner never has to be named by the allocator:
+A global that caches a pointer into arena storage registers an `ArenaResetHook` beside itself, and drops the pointer from the callback. `configure_arenas()` and `reset_persistent_arena()` (used by the mesh carousel's compaction) run the whole list before handing the storage out again, so the owner never has to be named by the allocator:
 
 ```cpp
 inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
@@ -1490,7 +1490,7 @@ Conway operators take `(Arena& target, Arena& temp)`, generator functions take `
 ```cpp
 {
     Persist<MeshState> p(live_mesh, scratch_arena_a, persistent_arena);
-    persistent_arena.reset();
+    reset_persistent_arena();
     // ... allocate fresh data into persistent_arena ...
 }   // ~Persist: clones backup back into persistent_arena
 ```
@@ -1829,7 +1829,7 @@ auto generate(Arena &target, GenerateFn &&fn, Args &&...args);
 }
 ```
 
-It resets and scopes both scratch arenas, then invokes `fn(target, scratch_a, scratch_b, args...)`. Direct registry lookups and effect geometry creation go through this wrapper for a deterministic arena lifecycle:
+It resets both scratch arenas only at the outermost call (depth zero), scopes them on every call, then invokes `fn(target, scratch_a, scratch_b, args...)`. Nested calls preserve the caller's live scratch allocations. Direct registry lookups and effect geometry creation go through this wrapper for a deterministic arena lifecycle:
 
 ```cpp
 auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view("icosahedron"));
