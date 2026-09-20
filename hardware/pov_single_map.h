@@ -95,4 +95,22 @@ constexpr ColumnStep step_column(int x, int w) {
   return {next_x, next_x == 0 || next_x == w / 2};
 }
 
+/** @brief Packs and submits one strip column, then advances the display boundary. */
+template <int S, typename Read, typename Write, typename Submit,
+          typename Advance>
+__attribute__((always_inline)) inline int
+run_single_column(int x, int width, Read read, Write write, Submit submit,
+                  Advance advance) {
+  const int opposite = strip_opposite_col(x, width);
+  for (int y = 0; y < S / 2; ++y) {
+    write(strip_top_led(y, S), read(x, y));
+    write(strip_bottom_led(y, S), read(opposite, y));
+  }
+  submit();
+  const ColumnStep step = step_column(x, width);
+  if (step.advance)
+    advance();
+  return step.next_x;
+}
+
 } // namespace pov
