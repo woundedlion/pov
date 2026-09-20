@@ -52,6 +52,40 @@ const compile = (source, options = {}) =>
 const validate = (document) =>
   validateShaderDocument(document, { catalog: CATALOG });
 
+test('sparse imports enforce the runtime parameter budget at its exact boundary', () => {
+  for (const parameterCount of [224, 225]) {
+    const document = example();
+    const [camera, project, sample, colorize] = document.descriptor.chain;
+    document.descriptor.chain = [
+      camera,
+      { label: 'displace', operator: 'sphere.displace.direct.v2' },
+      project,
+      ...Array.from({ length: 27 }, (_, index) => ({
+        label: `warp-${index}`,
+        operator: index === 0 && parameterCount === 224
+          ? 'warp.wave-shear.v2' : 'warp.affine.v2',
+      })),
+      sample,
+      colorize,
+    ];
+    assert.equal(document.descriptor.chain.length, CATALOG.budgets.max_chain_ops);
+    assert.equal(document.descriptor.parameters.length, 4);
+    const runtimeFields = document.descriptor.chain.reduce((count, entry) => count
+      + CATALOG.operators.find((operator) => operator.id === entry.operator).params.length, 0);
+    assert.equal(runtimeFields, parameterCount);
+    const compiled = compile(document);
+    if (parameterCount === CATALOG.budgets.max_params) {
+      assert.equal(compiled.status, 'VALID');
+    } else {
+      assert.notEqual(compiled.status, 'VALID');
+      assert.deepEqual(compiled.diagnostics.map(({ code, path }) => ({ code, path })), [
+        { code: 'BUDGET_EXCEEDED', path: '$.descriptor.chain' },
+      ]);
+      assert.match(compiled.diagnostics[0].message, /225.*224/);
+    }
+  }
+});
+
 test('browser-compatible SHA-256 matches the published vectors', () => {
   assert.equal(sha256Hex(''),
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
