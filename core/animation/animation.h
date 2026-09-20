@@ -198,7 +198,7 @@ public:
    * @return LValue Reference to the derived animation object.
    */
   Derived &then(Fn<void(), 24> callback) & {
-    HS_CHECK(!post);
+    HS_CHECK(!post, "Animation: post callback already set");
     post = std::move(callback);
     return static_cast<Derived &>(*this);
   }
@@ -212,7 +212,7 @@ public:
    * @return RValue Reference to the derived animation object.
    */
   Derived &&then(Fn<void(), 24> callback) && {
-    HS_CHECK(!post);
+    HS_CHECK(!post, "Animation: post callback already set");
     post = std::move(callback);
     return static_cast<Derived &&>(*this);
   }
