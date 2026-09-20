@@ -366,6 +366,7 @@ protected:
    * @param ptr Pointer to the integer variable.
    * @param min Minimum value, inclusive.
    * @param max Maximum value, inclusive.
+   * @pre Both bounds must be exactly representable as float.
    * @details For a quantity whose target is a count rather than a choice: the
    * range carries the bound, so no label array is needed and preset exports
    * write a plain integer literal. A target with one distinct meaning per value
@@ -389,6 +390,12 @@ protected:
             static_cast<int64_t>(std::numeric_limits<Integer>::max());
     HS_CHECK(range_fits,
              "register_int_param: [min,max] must fit the target integer type");
+    const bool bounds_exact =
+        static_cast<int64_t>(static_cast<float>(min)) == min &&
+        static_cast<int64_t>(static_cast<float>(max)) == max;
+    HS_CHECK(
+        bounds_exact,
+        "register_int_param: bounds must be exactly representable as float");
     const int value = static_cast<int>(*ptr);
     HS_CHECK(value >= min && value <= max,
              "register_int_param: default *ptr outside [min,max]");

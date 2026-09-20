@@ -333,11 +333,31 @@ inline void check_hyper_lattice_dimension_dropdown() {
                std::string_view("LatticeMode::FOUR_D_SLICE"));
 }
 
+inline void check_integer_float_endpoints() {
+  struct IntegerHost : ParamHost {
+    using ParamHost::register_int_param;
+  } host;
+  int32_t value = 0;
+  constexpr int32_t MIN = std::numeric_limits<int32_t>::min();
+  constexpr int32_t MAX = 2147483520;
+  host.register_int_param("Count", &value, MIN, MAX);
+  const auto *def = host.getParameters().find("Count");
+  HS_EXPECT_EQ(def->min, static_cast<float>(MIN));
+  HS_EXPECT_EQ(def->max, static_cast<float>(MAX));
+  HS_EXPECT_EQ(host.updateParameter("Count", -3.0e9f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(value, MIN);
+  HS_EXPECT_EQ(host.updateParameter("Count", 3.0e9f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(value, MAX);
+  HS_EXPECT_EQ(host.updateParameter("Count", 0.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(value, 0);
+}
+
 inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
   check_roster_order_pinned();
   check_generation_tracker();
   check_hyper_lattice_dimension_dropdown();
+  check_integer_float_endpoints();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
   int rt_covered = 0, rt_total = 0;
