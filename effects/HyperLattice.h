@@ -264,6 +264,8 @@ template <int W, int H> constexpr float pixel_half_angle() {
   return 0.5f * (HORIZONTAL > VERTICAL ? HORIZONTAL : VERTICAL);
 }
 
+// Unlike flash-resident smooth_ramp, this stays inline on the hot crossing
+// path.
 __attribute__((always_inline)) inline float
 lattice_ramp(float edge0, float edge1, float value) {
   return cubic_kernel((value - edge0) / (edge1 - edge0));
