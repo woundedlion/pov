@@ -51,11 +51,11 @@ struct PlanarPolygon {
   PlanarPolygon(const Basis &b, float radius, int s, float ph,
                 bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides >= 3);
-    HS_CHECK(radius > 0.0f); // t = polar / circumradius
+    HS_CHECK(sides >= 3, "SDF PlanarPolygon: sides must be at least 3");
+    HS_CHECK(radius > 0.0f, "SDF PlanarPolygon: radius must be positive");
     // arc_stretch<PlanarPolygon> = 2 holds only within a hemisphere; a wider
     // shape must be built inverted, about its antipode.
-    HS_CHECK(radius <= 1.0f);
+    HS_CHECK(radius <= 1.0f, "SDF PlanarPolygon: radius exceeds unit sphere");
     circumradius = radius * (PI_F / 2.0f);
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
@@ -176,11 +176,12 @@ struct SphericalPolygon {
   SphericalPolygon(const Basis &b, float radius, int s, float ph,
                    bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides >= 3);
-    HS_CHECK(radius > 0.0f); // t = polar / circumradius
+    HS_CHECK(sides >= 3, "SDF SphericalPolygon: sides must be at least 3");
+    HS_CHECK(radius > 0.0f, "SDF SphericalPolygon: radius must be positive");
     // A shape wider than a hemisphere must be built inverted, about its
     // antipode.
-    HS_CHECK(radius <= 1.0f);
+    HS_CHECK(radius <= 1.0f,
+             "SDF SphericalPolygon: radius exceeds unit sphere");
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     circumradius = radius * (PI_F / 2.0f);
@@ -352,11 +353,11 @@ struct Star {
    */
   Star(const Basis &b, float radius, int s, float ph, bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides >= 3);
-    HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
+    HS_CHECK(sides >= 3, "SDF Star: sides must be at least 3");
+    HS_CHECK(radius > 0.0f, "SDF Star: radius must be positive");
     // arc_stretch<Star> = 2 holds only within a hemisphere; a wider shape must
     // be built inverted, about its antipode.
-    HS_CHECK(radius <= 1.0f);
+    HS_CHECK(radius <= 1.0f, "SDF Star: radius exceeds unit sphere");
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     float outer_radius = radius * (PI_F / 2.0f);
@@ -491,11 +492,11 @@ struct Flower {
    */
   Flower(const Basis &b, float radius, int s, float ph, bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
-    HS_CHECK(sides >= 3);
-    HS_CHECK(radius > 0.0f); // t = scan_dist / circumradius
+    HS_CHECK(sides >= 3, "SDF Flower: sides must be at least 3");
+    HS_CHECK(radius > 0.0f, "SDF Flower: radius must be positive");
     // A shape wider than a hemisphere must be built inverted, about its
     // antipode.
-    HS_CHECK(radius <= 1.0f);
+    HS_CHECK(radius <= 1.0f, "SDF Flower: radius exceeds unit sphere");
     sector = TWO_PI_F / sides;
     reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
     float outer = radius * (PI_F / 2.0f);
