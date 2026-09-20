@@ -16,6 +16,7 @@
 #include "pullback_manifest.generated.h"
 #endif
 #include "tests/test_effects.h"
+#include "tests/composed_frame_fixture.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -326,6 +327,9 @@ struct ShaderWorkbenchWhiteBox {
                               const RequestedConfig &config,
                               const WalkDeltas &deltas) {
     sb.advance_runtime(runtime, config, deltas);
+  }
+  static void advance_fixed_clocks(SB &sb, const RequestedConfig &config) {
+    sb.advance_runtime(sb.runtime, config, {Quaternion(), Quaternion()});
   }
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
                                                uint16_t duration) {
@@ -3651,20 +3655,18 @@ fixed_reference_config(ShaderWorkbenchWhiteBox::RequestedConfig destination,
 
 template <typename FixedEffect>
 Pullback::FrameState<typename FixedEffect::Params>
-fixed_reference_frame(const ShaderWorkbenchWhiteBox::FrameState &source,
-                      size_t fixed_preset) {
-  const typename FixedEffect::Params params =
-      effects_tests::preset_params_or_initial<FixedEffect>(fixed_preset);
-  return {source.transforms.projection_conj,
-          source.transforms.outer_conj,
+fixed_reference_frame(const typename FixedEffect::FrameState &own,
+                      const ShaderWorkbenchWhiteBox::FrameState &source) {
+  return {own.projection_conjugate,
+          own.outer_conjugate,
           source.resources.outer_warp_noise,
           source.resources.source_noise,
           source.resources.surface_noise,
           source.resources.generated_palette,
           source.prepared_hue_rotation.lut,
           source.prepared_hue_noise.lut,
-          params,
-          source.palette_mapping,
+          own.params,
+          own.palette_mapping,
           source.clocks.source_primary,
           source.clocks.source_secondary,
           source.clocks.source_angle,
@@ -3678,15 +3680,33 @@ fixed_reference_frame(const ShaderWorkbenchWhiteBox::FrameState &source,
 
 template <typename FixedEffect>
 void verify_fixed_shader_export(
-    ShaderWorkbenchWhiteBox::SB &shader,
     const ShaderWorkbenchWhiteBox::RequestedConfig &base, size_t fixed_preset) {
   using WB = ShaderWorkbenchWhiteBox;
+  reset_effect_globals();
+  const auto own = [fixed_preset] {
+    FixedEffect effect;
+    effect.init();
+    ComposedFrameWhiteBox::set_params(
+        effect,
+        effects_tests::preset_params_or_initial<FixedEffect>(fixed_preset));
+    for (int frame = 0; frame < 3; ++frame)
+      ComposedFrameWhiteBox::advance(effect);
+    return ComposedFrameWhiteBox::frame(effect);
+  }();
+  reset_effect_globals();
+  WB::SB shader;
+  shader.init();
   const WB::RequestedConfig config =
       fixed_reference_config<FixedEffect>(base, fixed_preset);
+  for (int frame = 0; frame < 3; ++frame)
+    WB::advance_fixed_clocks(shader, config);
   const WB::FrameState dynamic = WB::config_frame(shader, config);
+  const auto reference = fixed_reference_frame<FixedEffect>(own, dynamic);
+  HS_EXPECT_TRUE(reference.projection_conjugate ==
+                 dynamic.transforms.projection_conj);
+  HS_EXPECT_TRUE(reference.outer_conjugate == dynamic.transforms.outer_conj);
   const typename FixedEffect::Frame compiled =
-      FixedEffect::RenderPipeline::prepare(
-          fixed_reference_frame<FixedEffect>(dynamic, fixed_preset));
+      FixedEffect::RenderPipeline::prepare(reference);
   HS_CONTEXT("effect preset", static_cast<long long>(fixed_preset));
   for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
     const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
@@ -3713,11 +3733,9 @@ void verify_fixed_shader_export(
 }
 
 template <typename FixedEffect>
-void verify_fixed_shader_export(ShaderWorkbenchWhiteBox::SB &shader,
-                                size_t topology_preset, size_t fixed_preset) {
+void verify_fixed_shader_export(size_t topology_preset, size_t fixed_preset) {
   verify_fixed_shader_export<FixedEffect>(
-      shader, ShaderWorkbenchWhiteBox::presets()[topology_preset],
-      fixed_preset);
+      ShaderWorkbenchWhiteBox::presets()[topology_preset], fixed_preset);
 }
 
 /**
@@ -3741,57 +3759,43 @@ kaleidoscope_hex_oil_topology() {
 /** @brief Every shared-runtime export matches Shader preview within rounding. */
 inline void test_fixed_shader_export_equivalence() {
   using WB = ShaderWorkbenchWhiteBox;
-  reset_effect_globals();
-  WB::SB shader;
-  shader.init();
 
-  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 0, 0);
-  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 21, 1);
-  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 22, 2);
-  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(shader, 23, 3);
-  verify_fixed_shader_export<KaleidoscopeHexSoft<SMALL_W, SMALL_H>>(shader, 1,
-                                                                    0);
-  verify_fixed_shader_export<AlienOcean<SMALL_W, SMALL_H>>(shader, 2, 0);
-  verify_fixed_shader_export<AlienCore<SMALL_W, SMALL_H>>(shader, 3, 0);
-  verify_fixed_shader_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(shader, 5,
-                                                                    0);
-  verify_fixed_shader_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(shader, 5,
-                                                                    1);
-  verify_fixed_shader_export<GridSpace<SMALL_W, SMALL_H>>(shader, 6, 0);
-  verify_fixed_shader_export<KaleidoscopePentBright<SMALL_W, SMALL_H>>(shader,
-                                                                       9, 0);
-  verify_fixed_shader_export<KaleidoscopeStainedGlass<SMALL_W, SMALL_H>>(shader,
-                                                                         10, 0);
-  verify_fixed_shader_export<KaleidoscopeHexBright<SMALL_W, SMALL_H>>(shader,
-                                                                      12, 0);
-  verify_fixed_shader_export<KaleidoscopeHexBright<SMALL_W, SMALL_H>>(shader,
-                                                                      12, 1);
-  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(shader, 15,
-                                                                    0);
-  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(shader, 16,
-                                                                    1);
-  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(shader, 17,
-                                                                    2);
-  verify_fixed_shader_export<CosmicEyeball<SMALL_W, SMALL_H>>(shader, 18, 0);
-  verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 19, 0);
-  verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(shader, 20, 1);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(0, 0);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(21, 1);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(22, 2);
+  verify_fixed_shader_export<AlienBrain<SMALL_W, SMALL_H>>(23, 3);
+  verify_fixed_shader_export<KaleidoscopeHexSoft<SMALL_W, SMALL_H>>(1, 0);
+  verify_fixed_shader_export<AlienOcean<SMALL_W, SMALL_H>>(2, 0);
+  verify_fixed_shader_export<AlienCore<SMALL_W, SMALL_H>>(3, 0);
+  verify_fixed_shader_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(5, 0);
+  verify_fixed_shader_export<KaleidoscopeMandala<SMALL_W, SMALL_H>>(5, 1);
+  verify_fixed_shader_export<GridSpace<SMALL_W, SMALL_H>>(6, 0);
+  verify_fixed_shader_export<KaleidoscopePentBright<SMALL_W, SMALL_H>>(9, 0);
+  verify_fixed_shader_export<KaleidoscopeStainedGlass<SMALL_W, SMALL_H>>(10, 0);
+  verify_fixed_shader_export<KaleidoscopeHexBright<SMALL_W, SMALL_H>>(12, 0);
+  verify_fixed_shader_export<KaleidoscopeHexBright<SMALL_W, SMALL_H>>(12, 1);
+  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(15, 0);
+  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(16, 1);
+  verify_fixed_shader_export<KaleidoscopeFlowers<SMALL_W, SMALL_H>>(17, 2);
+  verify_fixed_shader_export<CosmicEyeball<SMALL_W, SMALL_H>>(18, 0);
+  verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(19, 0);
+  verify_fixed_shader_export<MobiusGrid<SMALL_W, SMALL_H>>(20, 1);
   verify_fixed_shader_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(
-      shader, kaleidoscope_hex_oil_topology(), 0);
+      kaleidoscope_hex_oil_topology(), 0);
   verify_fixed_shader_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(
-      shader, kaleidoscope_hex_oil_topology(), 1);
+      kaleidoscope_hex_oil_topology(), 1);
   WB::RequestedConfig surface = WB::presets()[0];
   surface.slots = WB::generated_surface_noise_slots();
   surface.slots.surface_noise = WB::SurfaceNoise::CURL;
   surface.slots.projection = WB::Projection::GNOMONIC;
   surface.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT;
   surface.slots.palette = WB::PaletteMode::ANALOGOUS;
-  verify_fixed_shader_export<ChromaticLichen<SMALL_W, SMALL_H>>(shader, surface,
-                                                                0);
+  verify_fixed_shader_export<ChromaticLichen<SMALL_W, SMALL_H>>(surface, 0);
   surface.slots.surface_lens = WB::SurfaceLens::NONE;
   surface.slots.surface_noise_placement =
       WB::SurfaceNoisePlacement::BEFORE_LENS;
   surface.slots.projection = WB::Projection::SINUSOIDAL;
-  verify_fixed_shader_export<MermaidSkin<SMALL_W, SMALL_H>>(shader, surface, 0);
+  verify_fixed_shader_export<MermaidSkin<SMALL_W, SMALL_H>>(surface, 0);
 }
 
 inline void test_alien_brain_preset_dwell() {
