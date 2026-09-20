@@ -3938,6 +3938,16 @@ inline void case_reconcile_aliased_arenas() {
   MeshOps::reconcile_vertices(identity, authored, out, arena, arena);
 }
 
+/** @brief A field transfer must preserve the normalized value domain. */
+inline void case_field_transfer_outside_range() {
+  Pullback::Kernel::transfer(Pullback::FieldSample{}, opaque(1.1f));
+}
+
+/** @brief Field coverage cannot grow after the sample crossing. */
+inline void case_field_coverage_increases() {
+  Pullback::Kernel::coverage(Pullback::FieldSample{}, opaque(1.1f));
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -3947,6 +3957,11 @@ inline void case_reconcile_aliased_arenas() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"field_transfer_outside_range", case_field_transfer_outside_range,
+       "stage.h",
+       "(value >= 0.0f && value <= 1.0f) field transfer must remain in [0, 1]"},
+      {"field_coverage_increases", case_field_coverage_increases, "stage.h",
+       "(factor >= 0.0f && factor <= 1.0f) field coverage factor must remain in [0, 1]"},
       {"reconcile_aliased_arenas", case_reconcile_aliased_arenas, "conway.h",
        "(&target != &scratch) reconcile_vertices: target and scratch must differ"},
       {"arena_oom", case_arena_oom, "memory.cpp",

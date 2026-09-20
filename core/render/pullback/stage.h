@@ -78,6 +78,8 @@ sample(const SphereSample &input, float field) {
     [0, 1], which this does not re-clamp. */
 __attribute__((always_inline)) inline FieldSample
 transfer(const FieldSample &input, float value) {
+  HS_AUDIT_CHECK(value >= 0.0f && value <= 1.0f,
+                 "field transfer must remain in [0, 1]");
   FieldSample output = input;
   output.value = value;
   return output;
@@ -85,6 +87,8 @@ transfer(const FieldSample &input, float value) {
 
 __attribute__((always_inline)) inline FieldSample
 coverage(const FieldSample &input, float factor) {
+  HS_AUDIT_CHECK(factor >= 0.0f && factor <= 1.0f,
+                 "field coverage factor must remain in [0, 1]");
   FieldSample output = input;
   output.coverage = input.coverage * factor;
   return output;
