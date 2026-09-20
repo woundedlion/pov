@@ -8,6 +8,7 @@
 #include "render/pullback/fields.h"
 #include "render/pullback/material.h"
 #include "math/3dmath.h"
+#include <limits>
 
 /**
  * @file warp.h
@@ -372,7 +373,12 @@ concept ParamsPreparedProvider =
 /** @brief Length of a stage delta, or zero when @p required is false. */
 __attribute__((always_inline)) inline float displacement(const Complex &delta,
                                                          bool required) {
-  return required ? sqrtf(delta.re * delta.re + delta.im * delta.im) : 0.0f;
+  if (!required)
+    return 0.0f;
+  const float SQUARED = delta.re * delta.re + delta.im * delta.im;
+  if (SQUARED > std::numeric_limits<float>::max())
+    return std::hypot(delta.re, delta.im);
+  return sqrtf(SQUARED);
 }
 
 __attribute__((always_inline)) inline WarpStepResult
