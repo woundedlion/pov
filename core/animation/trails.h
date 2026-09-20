@@ -279,7 +279,7 @@ void deep_tween_frames(const Tweenable auto &trail, FrameFn &&callback) {
     int count = 0;
     for (int j = start_j; j < frame_size; ++j) {
       float sub_t =
-          (frame_size > 1) ? static_cast<float>(j) / (frame_size - 1) : 0.0f;
+          (frame_size > 1) ? static_cast<float>(j) / (frame_size - 1) : 1.0f;
       ts[count++] = (static_cast<float>(active_idx) + sub_t) / span;
     }
     // Sub-positions are contiguous in the frame's storage, so one pointer
