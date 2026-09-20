@@ -170,7 +170,7 @@ protected:
   /**
    * @brief Reads registered values from a live mirror while writes target the
    *        corresponding requested state.
-   * @details Targets outside @p requested retain their own value source.
+   * @details Targets outside @p requested read their requested value directly.
    */
   template <typename State>
   void mirror_parameter_display_state(const State &requested,
