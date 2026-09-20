@@ -3571,6 +3571,35 @@ inline void test_shader_chain_effect_rebind_generation() {
   effect.advance_display();
 }
 
+inline void test_shader_chain_legacy_colorize_tap() {
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  const In::ChainEntryRequest legacy[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v2"},
+  };
+  HS_EXPECT_EQ(static_cast<int>(effect.set_chain(legacy).code),
+               static_cast<int>(In::ChainStatus::OK));
+  const Pixel before = WB::palette_color(effect, 0.25f);
+  HS_EXPECT_EQ(
+      static_cast<int>(effect.updateParameter("colorize.palette-chroma", 0.1f)),
+      static_cast<int>(ParamSetResult::APPLIED));
+  HS_EXPECT_EQ(static_cast<int>(
+                   effect.updateParameter("colorize.hue-shift-amount", 0.5f)),
+               static_cast<int>(ParamSetResult::APPLIED));
+  effect.draw_frame();
+  const Pixel after = WB::palette_color(effect, 0.25f);
+  HS_EXPECT_TRUE(after.r != before.r || after.g != before.g ||
+                 after.b != before.b);
+  const In::FrameContext ctx = WB::frame_context(effect);
+  HS_EXPECT_TRUE(ctx.hue_rotation_lut != nullptr);
+  HS_EXPECT_TRUE(ctx.hue_noise_lut != nullptr);
+}
+
 inline void test_shader_chain_effect_refusal_keeps_schema() {
   reset_globals();
   ShaderChain<96, 20> effect;
@@ -3779,6 +3808,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_composed_frame_parity();
   test_shader_chain_effect_registers_params();
   test_shader_chain_effect_rebind_generation();
+  test_shader_chain_legacy_colorize_tap();
   test_shader_chain_effect_refusal_keeps_schema();
   test_shader_chain_pause_semantics();
   test_shader_chain_hue_lut_bake_cache();
