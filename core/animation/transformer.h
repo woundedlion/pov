@@ -911,6 +911,9 @@ inline float bump_field_with_y(const Vector &v,
   if (!bump_cap_hit(v, params, r_eff, d))
     return 0.0f;
 
+  HS_AUDIT_CHECK(std::abs(y) <= d + 1e-5f,
+                 "bump offset exceeds the angular distance to its center");
+
   return bump_field_profile(params, r_eff, d, y);
 }
 
