@@ -706,13 +706,29 @@ public:
 template <bool ShapeValid, typename Binding, typename LeafList>
 struct LeafBindingRows {
   static constexpr bool BINDINGS = false;
+  static constexpr bool DESCRIPTOR_IDENTITY = false;
   static constexpr bool EMPTY_DESCRIPTORS = false;
   static constexpr bool EXTRA_VALIDATION = false;
 };
 
+template <typename Descriptor, typename Binding>
+consteval bool descriptor_identity() {
+  if constexpr (!descriptor_bindable<Descriptor, Binding>())
+    return false;
+  else if constexpr (requires {
+                       typename Descriptor::template Bind<Binding>::Descriptor;
+                     })
+    return std::is_same_v<
+        typename Descriptor::template Bind<Binding>::Descriptor, Descriptor>;
+  else
+    return false;
+}
+
 template <typename Binding, typename... Ls>
 struct LeafBindingRows<true, Binding, TypeList<Ls...>> {
   static constexpr bool BINDINGS = (descriptor_bindable<Ls, Binding>() && ...);
+  static constexpr bool DESCRIPTOR_IDENTITY =
+      (descriptor_identity<Ls, Binding>() && ...);
   static constexpr bool EMPTY_DESCRIPTORS = (std::is_empty_v<Ls> && ...);
   static constexpr bool EXTRA_VALIDATION =
       binding_extra_validation<Binding, Ls...>();
@@ -779,8 +795,10 @@ private:
   static constexpr bool SHAPE = Shape::NONEMPTY && Shape::CONTRACTS;
   using CarrierRows = Detail::LeafCarrierRows<SHAPE, LeafList>;
   using BindingRows = Detail::LeafBindingRows<SHAPE, Binding, LeafList>;
-  using CallableRows = Detail::LeafCallableRows<SHAPE && BindingRows::BINDINGS,
-                                                Binding, LeafList>;
+  using CallableRows =
+      Detail::LeafCallableRows<SHAPE && BindingRows::BINDINGS &&
+                                   BindingRows::DESCRIPTOR_IDENTITY,
+                               Binding, LeafList>;
 
 public:
   static constexpr size_t LEAF_COUNT = Shape::COUNT;
@@ -792,6 +810,7 @@ public:
   static constexpr bool ENTRY = CarrierRows::ENTRY;
   static constexpr bool EXIT = CarrierRows::EXIT;
   static constexpr bool BINDINGS = BindingRows::BINDINGS;
+  static constexpr bool DESCRIPTOR_IDENTITY = BindingRows::DESCRIPTOR_IDENTITY;
   static constexpr bool EMPTY_DESCRIPTORS = BindingRows::EMPTY_DESCRIPTORS;
   static constexpr bool EXTRA_VALIDATION = BindingRows::EXTRA_VALIDATION;
   static constexpr bool RUN_RETURNS = CallableRows::RUN_RETURNS;
@@ -923,16 +942,23 @@ template <typename BindingT, typename... Entries> struct Pipeline {
                     Validation::BINDINGS,
                 "pullback pipeline: stage binding mismatch");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
+                    !Validation::BINDINGS || Validation::DESCRIPTOR_IDENTITY,
+                "pullback pipeline: stage descriptor identity mismatch; "
+                "derive Stage::Contract directly");
+  static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     Validation::EMPTY_DESCRIPTORS,
                 "pullback pipeline: stage descriptors must be stateless");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
-                    !Validation::BINDINGS || Validation::RUN_RETURNS,
+                    !Validation::BINDINGS || !Validation::DESCRIPTOR_IDENTITY ||
+                    Validation::RUN_RETURNS,
                 "pullback pipeline: wrong stage return type");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
-                    !Validation::BINDINGS || Validation::PREPARES,
+                    !Validation::BINDINGS || !Validation::DESCRIPTOR_IDENTITY ||
+                    Validation::PREPARES,
                 "pullback pipeline: wrong stage prepare() return type");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
-                    !Validation::BINDINGS || Validation::APPROXIMATIONS,
+                    !Validation::BINDINGS || !Validation::DESCRIPTOR_IDENTITY ||
+                    Validation::APPROXIMATIONS,
                 "pullback pipeline: malformed approximation metadata");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     Validation::EXTRA_VALIDATION,
@@ -944,8 +970,9 @@ template <typename BindingT, typename... Entries> struct Pipeline {
   using stage_at = typename Detail::TypeAt<Index, LeafList>::Type;
 
 private:
-  static constexpr bool CORE_VALID =
-      Validation::NONEMPTY && Validation::CONTRACTS;
+  static constexpr bool CORE_VALID = Validation::NONEMPTY &&
+                                     Validation::CONTRACTS &&
+                                     Validation::DESCRIPTOR_IDENTITY;
   using Core = Detail::PipelineCore<CORE_VALID, BindingT, NodeList>;
 
 public:
