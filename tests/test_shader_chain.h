@@ -2655,6 +2655,65 @@ inline void test_shader_chain_parity_sample_fractal() {
   }
 }
 
+inline void test_shader_chain_large_finite_path_length() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  std::array<In::ChainEntryRequest, 14> chain{};
+  std::array<std::string, 11> ids;
+  chain[0] = {"project", In::Op::ProjectStereographic::ID};
+  for (int index = 0; index < 11; ++index) {
+    ids[index] = "warp" + std::to_string(index);
+    chain[index + 1] = {ids[index], In::Op::WarpAffine::ID};
+  }
+  chain[12] = {"sample", In::Op::SampleGrid::ID};
+  chain[13] = {"color", In::Op::ColorizeGeneratedPalette::ID};
+  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  for (int index = 1; index <= 11; ++index) {
+    auto &params = param_as<In::Op::AffineWarpParams>(program, index);
+    params.scale_x = params.scale_y = 1.0f / 64.0f;
+    HS_EXPECT_TRUE(PB::Fields::valid(params));
+  }
+  auto &color = param_as<In::Op::GeneratedPaletteParams>(program, 13);
+  color.hue_mode = static_cast<uint8_t>(PB::Color::HueMode::PATH_LENGTH);
+  color.hue_shift_amount = 1e-20f;
+  auto ctx = shared_resources().context();
+  ctx.projection_base = Quaternion();
+  std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue;
+  for (size_t index = 0; index < hue.size(); ++index)
+    hue[index] = Pixel(static_cast<uint16_t>((index % 16) * 4000), 0, 0);
+  ctx.hue_rotation_lut = hue.data();
+  program.prepare(ctx);
+  const PB::SphereSample sphere{Vector(1, 0, 1).normalized(), 0.0f};
+  PB::PlaneSample plane{};
+  double expected_path = 0.0;
+  for (int index = 0; index < 12; ++index) {
+    PB::PlaneSample next{};
+    program.ops()[index].op->runtime.run(
+        index == 0 ? static_cast<const void *>(&sphere)
+                   : static_cast<const void *>(&plane),
+        &next, ctx, program.param_block(index), program.prepared_block(index));
+    if (index != 0)
+      expected_path +=
+          std::hypot(static_cast<double>(next.coords.re) - plane.coords.re,
+                     static_cast<double>(next.coords.im) - plane.coords.im);
+    plane = next;
+  }
+  HS_EXPECT_TRUE(std::isfinite(plane.path_length));
+  HS_EXPECT_NEAR(plane.path_length, expected_path, expected_path * 1e-6);
+  plane.path_length = static_cast<float>(expected_path);
+  PB::FieldSample expected_field{};
+  program.ops()[12].op->runtime.run(&plane, &expected_field, ctx,
+                                    program.param_block(12),
+                                    program.prepared_block(12));
+  Color4 expected;
+  program.ops()[13].op->runtime.run(&expected_field, &expected, ctx,
+                                    program.param_block(13),
+                                    program.prepared_block(13));
+  const Color4 actual = program.evaluate(sphere.dir, ctx);
+  HS_EXPECT_GT(expected.color.r, 1000);
+  HS_EXPECT_NEAR(actual.color.r, expected.color.r, 2);
+}
+
 inline void test_shader_chain_parity_sample_tessellation() {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
@@ -3554,6 +3613,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_sample_lattice();
   test_shader_chain_parity_sample_fractal();
   test_shader_chain_parity_sample_tessellation();
+  test_shader_chain_large_finite_path_length();
   test_shader_chain_parity_sample_projected_noise();
   test_shader_chain_parity_sample_spherical_noise();
   test_shader_chain_parity_colorize_variants();
