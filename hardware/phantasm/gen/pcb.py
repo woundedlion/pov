@@ -863,14 +863,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     for fn in foot_nodes:
         lines.append(sexp.dumps(fn, indent=1))
     lines.append(")")
-    outpath = os.path.join(OUT, OUTFILE)
-    os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    with open(outpath, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(lines) + "\n")
-
     # --- custom footprint library (Teensy) + fp-lib-table ---
     pretty = os.path.join(OUT, "phantasm.pretty")
-    os.makedirs(pretty, exist_ok=True)
     mod = teensy_footprint()
     mod[1] = "Teensy4.0"
     mod.insert(2, [sexp.Sym("version"), sexp.Sym(sexp.FOOTPRINT_FORMAT)])
@@ -886,6 +880,13 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     if existing_mod_text != mod_text:
         require_writable(mod_path, force_teensy_library, TEENSY_LIBRARY_REASON,
                          flag="--force-teensy-library")
+    outpath = os.path.join(OUT, OUTFILE)
+    os.makedirs(os.path.dirname(outpath), exist_ok=True)
+    with open(outpath, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+
+    os.makedirs(pretty, exist_ok=True)
+    if existing_mod_text != mod_text:
         with open(mod_path, "w", encoding="utf-8", newline="\n") as f:
             f.write(mod_text)
     fplt = os.path.join(OUT, "fp-lib-table")
