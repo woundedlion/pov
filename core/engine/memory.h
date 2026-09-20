@@ -91,7 +91,7 @@ constexpr size_t WASM_PERSISTENT_BUDGET =
  * what was counted. Subtracting reclaims would need each block's source arena
  * in release builds, which ArenaVector tracks only in debug builds.
  */
-void note_arena_vector_abandon(size_t bytes);
+HS_COLD void note_arena_vector_abandon(size_t bytes);
 
 /** @brief Bytes ArenaVector has abandoned so far. */
 FLASHMEM size_t arena_vector_abandoned_bytes();
