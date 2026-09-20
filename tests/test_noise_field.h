@@ -204,9 +204,7 @@ inline void test_noise_field_simplex_curl_approximation() {
           tetrahedral_gradient(q, [&](const Vector &point) {
             return sample_noise_octaves(noise, NoiseBasis::SIMPLEX, point);
           });
-      const Vector tangent_gradient =
-          reference_gradient - dot(reference_gradient, v) * v;
-      Vector reference = cross(v, tangent_gradient);
+      Vector reference = cross(v, reference_gradient);
       const float length = reference.length();
       if (length > 1.0f)
         reference /= length;

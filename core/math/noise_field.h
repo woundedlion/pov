@@ -391,8 +391,7 @@ inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
  */
 HS_FLASH_INLINE inline Vector curl_from_gradient(const Vector &gradient,
                                                  const Vector &v) {
-  const Vector tangent_gradient = gradient - dot(gradient, v) * v;
-  Vector u = cross(v, tangent_gradient);
+  Vector u = cross(v, gradient);
   clamp_tangent_to_unit(u);
   return u;
 }
