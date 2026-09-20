@@ -288,6 +288,30 @@ test('the example chain document validates against the catalog', () => {
   assert.deepEqual(validate(example()), []);
 });
 
+test('a malformed catalog reports CATALOG_REQUIRED', () => {
+  const cases = [];
+  for (const key of [
+    'arena_bytes', 'max_chain_ops', 'max_params', 'max_instance_id_length',
+    'per_op_overhead_bytes',
+  ]) {
+    cases.push((catalog) => { delete catalog.budgets[key]; });
+  }
+  cases.push((catalog) => { catalog.budgets.per_param_name_bytes = -1; });
+  cases.push((catalog) => { catalog.operators[0] = null; });
+  cases.push((catalog) => { delete catalog.operators[0].id; });
+  cases.push((catalog) => { delete catalog.operators[0].params; });
+  cases.push((catalog) => {
+    catalog.operators[0].blocks.param.size = Number.NaN;
+  });
+  for (const mutate of cases) {
+    const catalog = structuredClone(CATALOG);
+    mutate(catalog);
+    const compiled = compile(example(), { catalog });
+    assert.equal(compiled.status, 'INVALID');
+    assert.equal(compiled.diagnostics[0].code, 'CATALOG_REQUIRED');
+  }
+});
+
 test('scalar parameter bindings match catalog domains and curves', () => {
   const domain = example();
   domain.descriptor.parameters[0].domain.maximum = 7;
