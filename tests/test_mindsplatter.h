@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -34,6 +35,69 @@ namespace hs_test {
 namespace mindsplatter_tests {
 
 using namespace hs_test::effects_tests;
+
+struct FrameRun {
+  std::vector<Pixel> pixels;
+  std::vector<uint16_t> active;
+};
+
+struct FrameDiff {
+  size_t lit = 0;
+  size_t different = 0;
+  size_t coverage = 0;
+  int max_channel = 0;
+  uint64_t total_channel = 0;
+};
+
+template <int W, int H, int FRAMES, typename Toggle>
+std::array<FrameRun, 2> render_toggled(Toggle toggle) {
+  std::array<FrameRun, 2> runs;
+  for (int reference = 0; reference < 2; ++reference) {
+    reset_effect_globals();
+    hs::set_mock_time(0, 0);
+    auto &run = runs[reference];
+    run.pixels.reserve(static_cast<size_t>(W) * H * FRAMES);
+    run.active.reserve(FRAMES);
+    MindSplatter<W, H> effect;
+    effect.init();
+    toggle(effect, reference != 0);
+    for (int frame = 0; frame < FRAMES; ++frame) {
+      hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
+                        static_cast<unsigned long>(frame) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      run.active.push_back(MindSplatterWhiteBox::active_particles(effect));
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          run.pixels.push_back(effect.get_pixel(x, y));
+    }
+  }
+  hs::clear_mock_time();
+  return runs;
+}
+
+inline FrameDiff diff_frames(std::span<const Pixel> reference,
+                             std::span<const Pixel> candidate) {
+  HS_EXPECT_EQ(reference.size(), candidate.size());
+  FrameDiff diff;
+  for (size_t i = 0; i < reference.size(); ++i) {
+    const Pixel a = reference[i];
+    const Pixel b = candidate[i];
+    const bool a_black = (a.r | a.g | a.b) == 0;
+    const bool b_black = (b.r | b.g | b.b) == 0;
+    diff.lit += !a_black;
+    diff.different += a != b;
+    diff.coverage += a_black != b_black;
+    for (int delta :
+         {std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
+          std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
+          std::abs(static_cast<int>(a.b) - static_cast<int>(b.b))}) {
+      diff.max_channel = std::max(diff.max_channel, delta);
+      diff.total_channel += static_cast<uint64_t>(delta);
+    }
+  }
+  return diff;
+}
 
 /** @brief Verifies MindSplatter's Platonic emitter/dual-attractor selector. */
 inline void test_mindsplatter_base_mesh_selector() {
@@ -423,59 +487,21 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
   constexpr int FRAMES = 16;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  auto render = [&](bool reference) {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    std::vector<Pixel> frames;
-    frames.reserve(static_cast<size_t>(W) * H * FRAMES);
-    MS effect;
-    effect.init();
-    WB::use_reference_orientation(effect, reference);
-    for (int f = 0; f < FRAMES; ++f) {
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
-      effect.draw_frame();
-      effect.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          frames.push_back(effect.get_pixel(x, y));
-    }
-    return frames;
-  };
-
-  const std::vector<Pixel> reference = render(true);
-  const std::vector<Pixel> matrix = render(false);
-  hs::clear_mock_time();
-  size_t different_pixels = 0;
-  size_t coverage_differences = 0;
-  int max_channel_error = 0;
-  uint64_t total_channel_error = 0;
-  for (size_t i = 0; i < reference.size(); ++i) {
-    const Pixel a = reference[i];
-    const Pixel b = matrix[i];
-    if (a != b)
-      ++different_pixels;
-    const bool a_black = (a.r | a.g | a.b) == 0;
-    const bool b_black = (b.r | b.g | b.b) == 0;
-    if (a_black != b_black)
-      ++coverage_differences;
-    for (int delta :
-         {std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
-          std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
-          std::abs(static_cast<int>(a.b) - static_cast<int>(b.b))}) {
-      max_channel_error = std::max(max_channel_error, delta);
-      total_channel_error += static_cast<uint64_t>(delta);
-    }
-  }
+  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
+    WB::use_reference_orientation(effect, value);
+  });
+  const FrameRun &matrix = runs[0];
+  const FrameRun &reference = runs[1];
+  const FrameDiff diff = diff_frames(reference.pixels, matrix.pixels);
   std::printf("matrix framebuffer samples=%zu different=%zu coverage=%zu "
               "max_channel=%d total_channel=%llu\n",
-              reference.size(), different_pixels, coverage_differences,
-              max_channel_error,
-              static_cast<unsigned long long>(total_channel_error));
-  HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
-  HS_EXPECT_LE(different_pixels, static_cast<size_t>(96));
-  HS_EXPECT_LE(max_channel_error, 8);
-  HS_EXPECT_LE(total_channel_error, static_cast<uint64_t>(128));
+              reference.pixels.size(), diff.different, diff.coverage,
+              diff.max_channel,
+              static_cast<unsigned long long>(diff.total_channel));
+  HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
+  HS_EXPECT_LE(diff.different, static_cast<size_t>(96));
+  HS_EXPECT_LE(diff.max_channel, 8);
+  HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(128));
 }
 
 /** @brief Particle hue seeds advance in deterministic emission order. */
@@ -573,41 +599,14 @@ inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
   constexpr int FRAMES = 16;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  auto render = [&](bool reference) {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    std::vector<Pixel> frames;
-    frames.reserve(static_cast<size_t>(W) * H * FRAMES);
-    MS effect;
-    effect.init();
-    WB::use_reference_vertex_pass(effect, reference);
-    for (int f = 0; f < FRAMES; ++f) {
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
-      effect.draw_frame();
-      effect.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          frames.push_back(effect.get_pixel(x, y));
-    }
-    return frames;
-  };
-
-  const std::vector<Pixel> reference = render(true);
-  const std::vector<Pixel> fused = render(false);
-  hs::clear_mock_time();
-  size_t lit_pixels = 0;
-  size_t different_pixels = 0;
-  for (size_t i = 0; i < reference.size(); ++i) {
-    if (reference[i].r | reference[i].g | reference[i].b)
-      ++lit_pixels;
-    if (reference[i] != fused[i])
-      ++different_pixels;
-  }
+  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
+    WB::use_reference_vertex_pass(effect, value);
+  });
+  const FrameDiff diff = diff_frames(runs[1].pixels, runs[0].pixels);
   std::printf("fused vertex framebuffer samples=%zu lit=%zu different=%zu\n",
-              reference.size(), lit_pixels, different_pixels);
-  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
-  HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
+              runs[1].pixels.size(), diff.lit, diff.different);
+  HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
+  HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
 }
 
 /**
@@ -626,62 +625,20 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
   constexpr int FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  auto render = [&](bool reference) {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    std::vector<Pixel> frames;
-    frames.reserve(static_cast<size_t>(W) * H * FRAMES);
-    MS effect;
-    effect.init();
-    WB::use_reference_hole_kernel(effect, reference);
-    for (int f = 0; f < FRAMES; ++f) {
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
-      effect.draw_frame();
-      effect.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          frames.push_back(effect.get_pixel(x, y));
-    }
-    return frames;
-  };
-
-  const std::vector<Pixel> reference = render(true);
-  const std::vector<Pixel> multiply_only = render(false);
-  hs::clear_mock_time();
-  HS_EXPECT_EQ(reference.size(), multiply_only.size());
-  size_t lit_pixels = 0;
-  size_t different_pixels = 0;
-  size_t coverage_differences = 0;
-  int max_channel_error = 0;
-  uint64_t total_channel_error = 0;
-  for (size_t i = 0; i < reference.size(); ++i) {
-    const Pixel a = reference[i];
-    const Pixel b = multiply_only[i];
-    if (a.r | a.g | a.b)
-      ++lit_pixels;
-    if (a != b)
-      ++different_pixels;
-    if (((a.r | a.g | a.b) == 0) != ((b.r | b.g | b.b) == 0))
-      ++coverage_differences;
-    for (int delta :
-         {std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
-          std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
-          std::abs(static_cast<int>(a.b) - static_cast<int>(b.b))}) {
-      max_channel_error = std::max(max_channel_error, delta);
-      total_channel_error += static_cast<uint64_t>(delta);
-    }
-  }
+  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
+    WB::use_reference_hole_kernel(effect, value);
+  });
+  const FrameDiff diff = diff_frames(runs[1].pixels, runs[0].pixels);
   std::printf("hole kernel framebuffer samples=%zu lit=%zu different=%zu "
               "coverage=%zu max_channel=%d total_channel=%llu\n",
-              reference.size(), lit_pixels, different_pixels,
-              coverage_differences, max_channel_error,
-              static_cast<unsigned long long>(total_channel_error));
-  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
-  HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
-  HS_EXPECT_LE(different_pixels, static_cast<size_t>(64));
-  HS_EXPECT_LE(max_channel_error, 8);
-  HS_EXPECT_LE(total_channel_error, static_cast<uint64_t>(64));
+              runs[1].pixels.size(), diff.lit, diff.different, diff.coverage,
+              diff.max_channel,
+              static_cast<unsigned long long>(diff.total_channel));
+  HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
+  HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
+  HS_EXPECT_LE(diff.different, static_cast<size_t>(64));
+  HS_EXPECT_LE(diff.max_channel, 8);
+  HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(64));
 }
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
@@ -776,35 +733,11 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
   constexpr int FRAMES = 160;
   using MS = MindSplatter<W, H>;
   using WB = MindSplatterWhiteBox;
-  struct Render {
-    std::vector<Pixel> frames;
-    std::vector<uint16_t> active;
-  };
-  auto render = [&](bool reference) {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    Render result;
-    result.frames.reserve(static_cast<size_t>(W) * H * FRAMES);
-    result.active.reserve(FRAMES);
-    MS effect;
-    effect.init();
-    WB::use_reference_signed_axis_physics(effect, reference);
-    for (int f = 0; f < FRAMES; ++f) {
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
-      effect.draw_frame();
-      effect.advance_display();
-      result.active.push_back(WB::active_particles(effect));
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          result.frames.push_back(effect.get_pixel(x, y));
-    }
-    return result;
-  };
-
-  const Render reference = render(true);
-  const Render specialized = render(false);
-  hs::clear_mock_time();
+  const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
+    WB::use_reference_signed_axis_physics(effect, value);
+  });
+  const FrameRun &specialized = runs[0];
+  const FrameRun &reference = runs[1];
   HS_EXPECT_EQ(reference.active.size(), specialized.active.size());
   for (size_t i = 0; i < reference.active.size(); ++i)
     HS_EXPECT_EQ(reference.active[i], specialized.active[i]);
@@ -816,38 +749,18 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
   for (size_t checkpoint = 0; checkpoint < 3; ++checkpoint) {
     const int frame = CHECKPOINTS[checkpoint];
     const size_t offset = static_cast<size_t>(frame - 1) * W * H;
-    size_t different_pixels = 0;
-    size_t coverage_differences = 0;
-    int max_channel_error = 0;
-    uint64_t total_channel_error = 0;
-    for (size_t i = 0; i < static_cast<size_t>(W) * H; ++i) {
-      const Pixel a = reference.frames[offset + i];
-      const Pixel b = specialized.frames[offset + i];
-      if (a != b)
-        ++different_pixels;
-      const bool a_black = (a.r | a.g | a.b) == 0;
-      const bool b_black = (b.r | b.g | b.b) == 0;
-      if (a_black != b_black)
-        ++coverage_differences;
-      for (int delta : {
-               std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
-               std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
-               std::abs(static_cast<int>(a.b) - static_cast<int>(b.b)),
-           }) {
-        max_channel_error = std::max(max_channel_error, delta);
-        total_channel_error += static_cast<uint64_t>(delta);
-      }
-    }
+    const FrameDiff diff =
+        diff_frames(std::span(reference.pixels).subspan(offset, W * H),
+                    std::span(specialized.pixels).subspan(offset, W * H));
     std::printf(
         "axis framebuffer frame=%d active=%u different=%zu coverage=%zu "
         "max_channel=%d total_channel=%llu\n",
-        frame, reference.active[frame - 1], different_pixels,
-        coverage_differences, max_channel_error,
-        static_cast<unsigned long long>(total_channel_error));
-    HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
-    HS_EXPECT_LE(different_pixels, MAX_DIFFERENT[checkpoint]);
-    HS_EXPECT_LE(max_channel_error, MAX_CHANNEL[checkpoint]);
-    HS_EXPECT_LE(total_channel_error, MAX_TOTAL[checkpoint]);
+        frame, reference.active[frame - 1], diff.different, diff.coverage,
+        diff.max_channel, static_cast<unsigned long long>(diff.total_channel));
+    HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
+    HS_EXPECT_LE(diff.different, MAX_DIFFERENT[checkpoint]);
+    HS_EXPECT_LE(diff.max_channel, MAX_CHANNEL[checkpoint]);
+    HS_EXPECT_LE(diff.total_channel, MAX_TOTAL[checkpoint]);
   }
 }
 

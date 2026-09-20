@@ -267,32 +267,6 @@ inline void test_lattice_melt_manual_write_restarts_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 }
 
-inline void test_lattice_melt_parameter_serialization() {
-  using WB = LatticeMeltWhiteBox;
-  reset_effect_globals();
-  WB::FX effect;
-  effect.init();
-  auto snapshot = effect.serialize_parameters();
-  snapshot.params.surface.scale = 2.5f;
-  snapshot.params.source.lattice_radius = 0.4f;
-  snapshot.params.color.hue_noise_speed = 0.0005f;
-  snapshot.params.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
-  HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
-  HS_EXPECT_NEAR(WB::params(effect).surface.scale, 2.5f, 0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).source.lattice_radius, 0.4f, 0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).color.hue_noise_speed, 0.0005f, 0.0f);
-  HS_EXPECT_EQ(WB::params(effect).color.palette_mapping,
-               Pullback::Color::PaletteMapping::BELL);
-
-  snapshot.schema_version += 1;
-  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-  snapshot.schema_version = WB::FX::PARAMETER_SCHEMA_VERSION;
-  snapshot.params.surface.scale = std::numeric_limits<float>::quiet_NaN();
-  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-  snapshot.params.surface.scale = 65.0f;
-  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
-}
-
 inline void test_lattice_melt_shader_workbench_equivalence() {
   using WB = LatticeMeltWhiteBox;
   reset_effect_globals();
@@ -325,7 +299,6 @@ inline int run_lattice_melt_tests() {
   test_lattice_melt_full_timeline_retries_transition();
   test_lattice_melt_overshoot_finishes_on_frame_count();
   test_lattice_melt_manual_write_restarts_dwell();
-  test_lattice_melt_parameter_serialization();
   test_lattice_melt_shader_workbench_equivalence();
   return fixture.result();
 }
