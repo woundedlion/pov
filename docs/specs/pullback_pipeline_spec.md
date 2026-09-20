@@ -1005,7 +1005,7 @@ bindings and scalars only.
 Core owns non-owning views and constants for the two prepared LUTs:
 
 ```cpp
-namespace Pullback::Color {
+namespace Pullback::Color { // reexports global views from noise_hue_palette.h
 struct HueRotationLutView {
   static constexpr int VALUE_STEPS = 64;
   static constexpr int HUE_STEPS = 16;
@@ -1031,7 +1031,7 @@ loads; the latter requires disassembly evidence. Effect-owned mutable spans are
 passed only to cold preparation kernels before the frame view is published.
 
 The rotation table is row-major `[value][hue]` in `Pixel` elements. Preparation
-samples value row `i` at `ONE_BELOW_UNIT * i / 63` and hue column `j` at
+samples value row `i` at `UNIT_OPEN_MAX * i / 63` and hue column `j` at
 `j / 16`, using the existing gamut-aware hue-rotation base and kernel. Sampling
 linearly interpolates adjacent value rows and wrapping adjacent hue columns
 with `frac_to_q16` weights and `Pixel::lerp16`, in the current arithmetic order.
