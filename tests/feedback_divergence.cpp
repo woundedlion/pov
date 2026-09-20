@@ -223,6 +223,7 @@ int compare(const char *pa, const char *pb) {
     printf("dump mismatch: %d frames/%d presets vs %d/%d\n", fa, na, fb, nb);
     return 1;
   }
+  const bool equal = a == b;
 
   for (int p = 0; p < na; ++p) {
     printf("\n=== %s: %d frames ===\n",
@@ -294,7 +295,7 @@ int compare(const char *pa, const char *pb) {
            "LSB)\n",
            sp_first, sp_first_max, sp_second, sp_second_max);
   }
-  return 0;
+  return equal ? 0 : 1;
 }
 
 void usage() {
