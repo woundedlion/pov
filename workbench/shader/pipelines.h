@@ -124,8 +124,18 @@ using ProjectionPolicy = std::conditional_t<
                 Pullback::Projection::Equirectangular<ProjectionStateProvider>,
                 Pullback::Projection::PeirceSquare<ProjectionStateProvider>>>>>;
 
+/** @brief Binds a topology descriptor to its own run and prepare overrides. */
+template <typename Derived, typename Stage> struct TopologyStage : Stage {
+  template <typename Binding>
+  using Bind = typename Pullback::Stage::Contract<
+      Derived, typename Stage::Input,
+      typename Stage::Output>::template Bind<Binding>;
+};
+
 template <SurfaceLens LensV>
-struct SelectedLensStage : Pullback::Stage::Lens<LensPolicy<LensV>> {
+struct SelectedLensStage
+    : TopologyStage<SelectedLensStage<LensV>,
+                    Pullback::Stage::Lens<LensPolicy<LensV>>> {
   static_assert(LensV == SurfaceLens::GLITCH ||
                 LensV == SurfaceLens::KALEIDOSCOPE ||
                 LensV == SurfaceLens::MOBIUS ||
@@ -140,7 +150,8 @@ struct SelectedLensStage : Pullback::Stage::Lens<LensPolicy<LensV>> {
 
 template <Projection ProjectionV, SurfaceLens LensV>
 struct SelectedProjectStage
-    : Pullback::Stage::Project<ProjectionPolicy<ProjectionV>> {
+    : TopologyStage<SelectedProjectStage<ProjectionV, LensV>,
+                    Pullback::Stage::Project<ProjectionPolicy<ProjectionV>>> {
   static_assert(ProjectionV == Projection::STEREOGRAPHIC ||
                 ProjectionV == Projection::GNOMONIC ||
                 ProjectionV == Projection::BONNE ||
@@ -159,9 +170,10 @@ struct SelectedProjectStage
 };
 
 struct SinusoidalCurlDisplaceStage
-    : Pullback::Stage::Displace<Pullback::Surface::CurlNoise<
-          SurfaceStateProvider, NoiseBasis::SIMPLEX,
-          Pullback::Surface::Euler>> {
+    : TopologyStage<SinusoidalCurlDisplaceStage,
+                    Pullback::Stage::Displace<Pullback::Surface::CurlNoise<
+                        SurfaceStateProvider, NoiseBasis::SIMPLEX,
+                        Pullback::Surface::Euler>>> {
   static constexpr bool implements(const TopologyKey &key) {
     return key.surface_noise == SurfaceNoise::CURL &&
            key.surface_noise_placement == SurfaceNoisePlacement::BEFORE_LENS &&
@@ -171,8 +183,10 @@ struct SinusoidalCurlDisplaceStage
 };
 
 struct SinusoidalCurlProjectStage
-    : Pullback::Stage::Project<
-          Pullback::Projection::FoldedSinusoidal<ProjectionStateProvider>> {
+    : TopologyStage<
+          SinusoidalCurlProjectStage,
+          Pullback::Stage::Project<Pullback::Projection::FoldedSinusoidal<
+              ProjectionStateProvider>>> {
   static constexpr bool implements(const TopologyKey &key) {
     return key.projection == Projection::SINUSOIDAL &&
            key.surface_lens == SurfaceLens::NONE;
@@ -206,7 +220,9 @@ using WarpPolicy = std::conditional_t<
                                                1>>>>>>;
 
 template <WarpStageKind KindV, bool Outer>
-struct SelectedWarpStage : Pullback::Stage::Warp<WarpPolicy<KindV, Outer>> {
+struct SelectedWarpStage
+    : TopologyStage<SelectedWarpStage<KindV, Outer>,
+                    Pullback::Stage::Warp<WarpPolicy<KindV, Outer>>> {
   static_assert(KindV == WarpStageKind::AFFINE_FRAME ||
                 KindV == WarpStageKind::WAVE_SHEAR ||
                 KindV == WarpStageKind::VECTOR_NOISE ||
@@ -269,9 +285,10 @@ using CoveragePolicyFor = typename ProjectionCoverageMapping<CoverageV>::Type;
 
 template <Function FunctionV, ValueTransfer TransferV, CoveragePolicy CoverageV>
 struct SelectedSampleStage
-    : Pullback::Stage::Sample<SourcePolicy<FunctionV>,
-                              Pullback::Weight::Projection,
-                              CoveragePolicyFor<CoverageV>> {
+    : TopologyStage<SelectedSampleStage<FunctionV, TransferV, CoverageV>,
+                    Pullback::Stage::Sample<SourcePolicy<FunctionV>,
+                                            Pullback::Weight::Projection,
+                                            CoveragePolicyFor<CoverageV>>> {
   static_assert(FunctionV == Function::GRID ||
                 FunctionV == Function::PRIMITIVE_LATTICE ||
                 FunctionV == Function::TWIN_WAVE);
@@ -288,15 +305,18 @@ struct SelectedSampleStage
 };
 
 struct IsoContourTransferStage
-    : Pullback::Stage::Transfer<
-          Pullback::Transfer::IsoContour<ValueStateProvider>> {
+    : TopologyStage<IsoContourTransferStage,
+                    Pullback::Stage::Transfer<
+                        Pullback::Transfer::IsoContour<ValueStateProvider>>> {
   static constexpr bool implements(const TopologyKey &key) {
     return key.value_transfer == ValueTransfer::ISO_CONTOUR;
   }
 };
 
-struct ColorStage : Pullback::Stage::Colorize<
-                        Pullback::Color::GeneratedPalette<ColorStateProvider>> {
+struct ColorStage
+    : TopologyStage<ColorStage,
+                    Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+                        ColorStateProvider>>> {
   static constexpr bool implements(const TopologyKey &) { return true; }
 };
 

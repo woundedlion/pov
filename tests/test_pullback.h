@@ -167,6 +167,22 @@ struct StatefulStage : EntryStage {
   int state;
 };
 
+struct ShadowedRunStage : EntryStage {
+  template <typename Binding>
+  static Pullback::SphereSample run(const Pullback::SphereSample &,
+                                    const TestFrame &,
+                                    const Pullback::NoPrepared &) {
+    return {};
+  }
+};
+
+struct MissingDescriptorStage {
+  using Input = Pullback::SphereSample;
+  using Output = Pullback::SphereSample;
+  using Policies = std::tuple<>;
+  template <typename> struct Bind {};
+};
+
 struct ForeignBinding {
   using FrameState = TestFrame;
   using Instrumentation = Pullback::NoInstrumentation;
@@ -208,6 +224,7 @@ struct WrongReturnStage {
   using Policies = std::tuple<>;
 
   template <typename Binding> struct Bind : Pullback::ApproximationDefaults {
+    using Descriptor = WrongReturnStage;
     using Input = Pullback::FieldSample;
     using Output = Color4;
     using FrameState = typename Binding::FrameState;
@@ -226,6 +243,7 @@ struct WrongPrepareStage {
   using Policies = std::tuple<>;
 
   template <typename Binding> struct Bind : Pullback::ApproximationDefaults {
+    using Descriptor = WrongPrepareStage;
     using Input = Pullback::FieldSample;
     using Output = Color4;
     using FrameState = typename Binding::FrameState;
@@ -322,6 +340,7 @@ inline void test_pullback_validation_predicates() {
   HS_EXPECT_TRUE(Valid::ENTRY);
   HS_EXPECT_TRUE(Valid::EXIT);
   HS_EXPECT_TRUE(Valid::BINDINGS);
+  HS_EXPECT_TRUE(Valid::DESCRIPTOR_IDENTITY);
   HS_EXPECT_TRUE(Valid::EMPTY_DESCRIPTORS);
   HS_EXPECT_TRUE(Valid::RUN_RETURNS);
   HS_EXPECT_TRUE(Valid::PREPARES);
@@ -335,6 +354,18 @@ inline void test_pullback_validation_predicates() {
                                                ColorCrossingStage>;
   HS_EXPECT_TRUE(Missing::NONEMPTY);
   HS_EXPECT_FALSE(Missing::CONTRACTS);
+  HS_EXPECT_FALSE(Missing::DESCRIPTOR_IDENTITY);
+
+  using Shadowed = Pullback::PipelineValidation<TestBinding, ShadowedRunStage,
+                                                ColorCrossingStage>;
+  HS_EXPECT_TRUE(Shadowed::BINDINGS);
+  HS_EXPECT_FALSE(Shadowed::DESCRIPTOR_IDENTITY);
+  using MissingDescriptor =
+      Pullback::PipelineValidation<TestBinding, MissingDescriptorStage,
+                                   ColorCrossingStage>;
+  HS_EXPECT_TRUE(MissingDescriptor::CONTRACTS);
+  HS_EXPECT_FALSE(MissingDescriptor::DESCRIPTOR_IDENTITY);
+  HS_EXPECT_FALSE(MissingDescriptor::RUN_RETURNS);
 
   using NonTuple =
       Pullback::PipelineValidation<TestBinding, NonTuplePoliciesStage,
@@ -378,6 +409,7 @@ inline void test_pullback_validation_predicates() {
           Pullback::ValueCoverage::ValueCutout<ForeignValueState>>,
       ColorCrossingStage>;
   HS_EXPECT_FALSE(ForeignBound::BINDINGS);
+  HS_EXPECT_FALSE(ForeignBound::DESCRIPTOR_IDENTITY);
 
   using NonEmpty =
       Pullback::PipelineValidation<TestBinding, StatefulStage, CrossingStage,
