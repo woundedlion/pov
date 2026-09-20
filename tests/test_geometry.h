@@ -26,9 +26,6 @@
 namespace hs_test {
 namespace geometry_tests {
 
-using hs_test::approx_vec;
-using hs_test::approx_quat;
-
 // ============================================================================
 // Axis constants
 // ============================================================================
