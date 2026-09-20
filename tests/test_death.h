@@ -3948,6 +3948,15 @@ inline void case_field_coverage_increases() {
   Pullback::Kernel::coverage(Pullback::FieldSample{}, opaque(1.1f));
 }
 
+/** @brief A full timeline must refuse an OpLeg continuation. */
+inline void case_opleg_no_event_slot() {
+  Timeline tl;
+  float sink = 0.0f;
+  for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
+  Animation::OpLeg::require_event_slot();
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -3964,6 +3973,8 @@ inline const Case *all_cases(int &n) {
        "(factor >= 0.0f && factor <= 1.0f) field coverage factor must remain in [0, 1]"},
       {"reconcile_aliased_arenas", case_reconcile_aliased_arenas, "conway.h",
        "(&target != &scratch) reconcile_vertices: target and scratch must differ"},
+      {"opleg_no_event_slot", case_opleg_no_event_slot, "opleg.h",
+       "(Timeline::remaining() > 0) OpLeg requires a free timeline event"},
       {"arena_oom", case_arena_oom, "memory.cpp",
        "(false) Arena::allocate: out of memory"},
       {"arena_make_oom", case_arena_make_oom, "memory.cpp",
