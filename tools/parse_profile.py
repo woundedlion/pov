@@ -144,6 +144,7 @@ class Window:
         self.frame_rows = []
         self.counters = {}  # label -> dict(us, pct, calls, cyc, depth)
         self.marker = None  # active preset marker at this window
+        self.marker_events = []  # emitted records, never inherited attribution
         self.scan = None  # HS_SCAN_METRICS window totals, when the build has them
         self.probe = None  # HS_PROBE_BREAKDOWN window buckets + counts
         self.plot = None  # HS_PLOT_COUNTS window workload
@@ -226,6 +227,7 @@ def parse_capture(path):
     frame_owner = None      # preset owning the frames streaming right now
     effect = None
     pending_frames = []
+    pending_markers = []
     pullback = {"arms": [], "programs": []}
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -263,6 +265,8 @@ def parse_capture(path):
                     active_marker = deferred_marker = frame_owner = None
                 cur = nw
                 cur.marker = active_marker
+                cur.marker_events = pending_markers
+                pending_markers = []
                 if deferred_marker is not None:
                     active_marker, deferred_marker = deferred_marker, None
                 # The per-frame lines stream before their window's dump.
@@ -334,6 +338,10 @@ def parse_capture(path):
                 if not mm:
                     continue
                 mk = _marker(key, mm)
+                if cur is None:
+                    pending_markers.append(mk)
+                else:
+                    cur.marker_events.append(mk)
                 deferred_marker = mk
                 if not pending_frames:
                     # Between windows: no outgoing frames to protect.
@@ -893,7 +901,7 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
     # Preset markers: only cycling effects emit them. When present, require the
     # cycle to wrap back to its first index; when absent, this is a non-cycling
     # capture and the wrap checks do not apply.
-    marks = [w.marker for w in windows if w.marker]
+    marks = [marker for w in windows for marker in w.marker_events]
     idxs = [m["idx"] for m in marks if "idx" in m]
     names = [m["name"] for m in marks]
     if not marks:
@@ -915,10 +923,16 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
                   f"all {total} presets visited ({len(set(idxs))})")
     elif names:
         distinct = len(set(names))
-        first_repeat = next((i for i in range(1, len(names))
-                             if names[i] in names[:i]), None)
-        check(first_repeat is not None,
-              f"a shape repeats (cycle closed): {distinct} distinct")
+        advanced = False
+        wrapped = False
+        for name in names[1:]:
+            if name != names[0]:
+                advanced = True
+            elif advanced:
+                wrapped = True
+                break
+        check(wrapped,
+              f"shape markers advance and return to the first (cycle closed): {distinct} distinct")
 
     # Per-frame render telemetry is only render if the effect opened a
     # *_buffer_wait scope for Profile.ino to subtract; without one it is wall,
