@@ -114,6 +114,22 @@ public:
   }
 };
 
+inline constexpr CRGB WIRE_COLORS[N] = {
+    CRGB(255, 0, 0),    CRGB(0, 255, 0), CRGB(0, 0, 255),   CRGB(255, 255, 255),
+    CRGB(200, 100, 50), CRGB(0, 0, 0),   CRGB(12, 240, 60), CRGB(90, 30, 210)};
+
+inline void pack_wire_pattern(Frame &frame) {
+  for (int i = 0; i < N; ++i)
+    frame.pack_pixel(i, Pixel(WIRE_COLORS[i]));
+}
+
+inline void expect_captured_frame(const Frame &expected) {
+  HS_EXPECT_EQ(MockStrip::state().last_len,
+               static_cast<size_t>(Frame::BUFFER_SIZE));
+  for (int k = 0; k < Frame::BUFFER_SIZE; ++k)
+    HS_EXPECT_EQ(MockStrip::state().capture[k], expected.data()[k]);
+}
+
 /**
  * @brief begin() forwards to the transport's one-time init().
  */
@@ -212,6 +228,9 @@ inline void test_overrun_drop() {
   HS_EXPECT_TRUE(ctl.submit_frame(false)); // first transfer, now in flight
   const uint8_t *back_before =
       reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
+  Frame expected;
+  pack_wire_pattern(expected);
+  pack_wire_pattern(ctl.back_frame());
 
   bool ok = ctl.submit_frame(false); // prior still in flight -> overrun
   HS_EXPECT_FALSE(ok);
@@ -223,6 +242,10 @@ inline void test_overrun_drop() {
   const uint8_t *back_after =
       reinterpret_cast<const uint8_t *>(ctl.back_frame().data());
   HS_EXPECT_EQ(back_after, back_before); // no buffer flip on a drop
+
+  MockStrip::state().complete = true;
+  HS_EXPECT_TRUE(ctl.submit_frame(false));
+  expect_captured_frame(expected);
 }
 
 /**
@@ -260,23 +283,11 @@ inline void test_end_to_end_wire_bytes() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  const CRGB colors[N] = {CRGB(255, 0, 0),    CRGB(0, 255, 0),
-                          CRGB(0, 0, 255),    CRGB(255, 255, 255),
-                          CRGB(200, 100, 50), CRGB(0, 0, 0),
-                          CRGB(12, 240, 60),  CRGB(90, 30, 210)};
-
   Frame ref;
-  for (int i = 0; i < N; ++i)
-    ref.pack_pixel(i, Pixel(colors[i]));
-
-  for (int i = 0; i < N; ++i)
-    ctl.back_frame().pack_pixel(i, Pixel(colors[i]));
+  pack_wire_pattern(ref);
+  pack_wire_pattern(ctl.back_frame());
   HS_EXPECT_TRUE(ctl.submit_frame(false));
-
-  HS_EXPECT_EQ(MockStrip::state().last_len,
-               static_cast<size_t>(Frame::BUFFER_SIZE));
-  for (int k = 0; k < Frame::BUFFER_SIZE; ++k)
-    HS_EXPECT_EQ(MockStrip::state().capture[k], ref.data()[k]);
+  expect_captured_frame(ref);
 }
 
 /**
