@@ -223,7 +223,7 @@ struct EndpointRuntime {
 HS_FLASH_MEMBER inline SourceState
 prepare_source_state(const ClockState &clocks) {
   return {clocks.source_primary, clocks.source_secondary, clocks.source_angle,
-          fast_cosf(clocks.source_angle), fast_sinf(clocks.source_angle)};
+          cosf(clocks.source_angle), sinf(clocks.source_angle)};
 }
 
 HS_FLASH_MEMBER inline Pullback::Source::PreparedSphericalRings
