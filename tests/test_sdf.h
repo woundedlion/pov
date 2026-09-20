@@ -575,7 +575,8 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
   const Case cases[] = {{0.22f, 3, -2.7f},
                         {0.72f, 5, 0.31f},
                         {0.98f, 12, 5.4f},
-                        {1.42f, 7, -0.9f}};
+                        {1.42f, 7, -0.9f},
+                        {1.999f, 5, 0.0f}};
 
   float max_error = 0.0f;
   int edge_samples = 0;
@@ -607,6 +608,36 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
               max_error);
   HS_EXPECT_GT(edge_samples, 1000);
   HS_EXPECT_LE(max_error, 1.5e-4f);
+}
+
+inline void test_spherical_polygon_sine_full_interior() {
+  constexpr int W = 288;
+  constexpr int H = 144;
+  constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
+  const Basis basis = equator_basis();
+  for (float radius : {0.0001f, 0.001f, 0.01f, 0.5f, 1.0f}) {
+    for (bool invert : {false, true}) {
+      SDF::SphericalPolygon shape(basis, radius, 5, 0.0f, invert);
+      for (float angle : {0.0f, 0.1f, 0.3f}) {
+        const Vector point(std::sin(angle), -std::cos(angle), 0.0f);
+        const float distance = shape.sine_distance(point);
+        HS_EXPECT_EQ(Scan::solid_coverage(distance, PIXEL_WIDTH),
+                     invert ? 1.0f : 0.0f);
+      }
+    }
+  }
+  StubEffect effect(W, H);
+  Pipeline<W, H> pipeline;
+  {
+    Canvas canvas(effect);
+    Scan::SphericalPolygon::draw_solid<W, H, true>(
+        pipeline, canvas, basis, 1.999f, 5,
+        Color4(Pixel(60000, 60000, 60000), 1.0f));
+  }
+  effect.advance_display();
+  for (int y = 0; y < H / 2; ++y)
+    for (int x = 0; x < W; ++x)
+      HS_EXPECT_EQ(effect.get_pixel(x, y).r, 60000);
 }
 
 /**
@@ -3215,6 +3246,7 @@ inline int run_sdf_tests() {
   test_spherical_polygon_far_outside();
   test_spherical_polygon_center_and_edge_magnitude();
   test_spherical_polygon_sine_distance_aa_error();
+  test_spherical_polygon_sine_full_interior();
   test_spherical_polygon_composes_under_csg();
 
   test_star_center_inside();
