@@ -1157,6 +1157,55 @@ inline void test_pullback_hard_edge_kernels() {
   HS_EXPECT_EQ(value_cutout(0.6f, 0.5f, 0.0f), 1.0f);
 }
 
+inline void test_pullback_hexagonal_edges() {
+  using namespace Pullback::Source;
+  const Complex vertices[] = {
+      {1.0f, 0.0f},  {0.5f, 0.8660254038f},   {-0.5f, 0.8660254038f},
+      {-1.0f, 0.0f}, {-0.5f, -0.8660254038f}, {0.5f, -0.8660254038f}};
+  for (const Complex center :
+       {Complex(0.0f, 0.0f), Complex(0.0f, 1.7320508076f),
+        Complex(1.5f, -0.8660254038f)}) {
+    for (float scale : {0.5f, 1.0f, 3.0f}) {
+      for (float angle : {0.0f, 0.37f}) {
+        TessellationSourceParams params;
+        params.cell_scale = scale;
+        PreparedSource prepared{};
+        prepared.angle_cos = std::cos(angle);
+        prepared.angle_sin = std::sin(angle);
+        auto sample = [&](const Complex &point) {
+          const float X = center.re + point.re;
+          const float Y = center.im + point.im;
+          const Complex input(
+              (X * prepared.angle_cos - Y * prepared.angle_sin) / scale,
+              (X * prepared.angle_sin + Y * prepared.angle_cos) / scale);
+          return tessellation(input, params, TessellationKind::HEXAGONAL,
+                              prepared);
+        };
+        HS_EXPECT_EQ(sample(Complex(0.0f, 0.0f)), -1.0f);
+        for (int edge = 0; edge < 6; ++edge) {
+          const Complex &a = vertices[edge];
+          const Complex &b = vertices[(edge + 1) % 6];
+          const Complex midpoint((a.re + b.re) * 0.5f, (a.im + b.im) * 0.5f);
+          const float LENGTH = std::hypot(midpoint.re, midpoint.im);
+          const Complex normal(midpoint.re / LENGTH, midpoint.im / LENGTH);
+          HS_EXPECT_EQ(sample(a), 1.0f);
+          HS_EXPECT_EQ(sample(midpoint), 1.0f);
+          for (float direction : {-1.0f, 1.0f}) {
+            HS_EXPECT_EQ(
+                sample(Complex(midpoint.re + direction * 0.08f * normal.re,
+                               midpoint.im + direction * 0.08f * normal.im)),
+                -1.0f);
+            HS_EXPECT_NEAR(
+                sample(Complex(midpoint.re + direction * 0.05f * normal.re,
+                               midpoint.im + direction * 0.05f * normal.im)),
+                0.0f, 1e-4f);
+          }
+        }
+      }
+    }
+  }
+}
+
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_carrier_contract();
@@ -1170,6 +1219,7 @@ inline int run_pullback_tests() {
   test_pullback_stage_combinators();
   test_pullback_provider_contracts();
   test_pullback_concrete_catalog();
+  test_pullback_hexagonal_edges();
   test_pullback_periodic_ripple();
   test_pullback_lens_stack();
   test_pullback_rank_skip_crossing();
