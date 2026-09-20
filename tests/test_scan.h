@@ -1304,6 +1304,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // The rows the draws reach must actually be decimated, or the comparison is
   // vacuous.
   pole_lod_aggressiveness = 1.0f;
+  TrigLUT<W, H>::init();
   HS_EXPECT_GT(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[2]), 1);
 
   // Poses whose decimated rows carry a per-arc report rate the shared
