@@ -836,11 +836,13 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   // bind()'s stale-binding contract if a different arena is passed while
   // capacity happens to suffice.
   mesh.topology.bind(persistent, F);
-  mesh.topology_key = connectivity_key(face_counts, F, faces, I);
   // A face-less mesh has nothing to classify, and the half-edge and node
   // allocations below reject zero-size requests.
-  if (F == 0)
+  if (F == 0) {
+    mesh.topology_key = 0;
     return;
+  }
+  mesh.topology_key = connectivity_key(face_counts, F, faces, I);
   for (size_t i = 0; i < F; ++i) {
     mesh.topology.push_back(0);
   }
