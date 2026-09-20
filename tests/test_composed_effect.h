@@ -1230,6 +1230,32 @@ inline void test_composed_hand_registered_families() {
                Pullback::ColorParams::FIELDS.size());
 }
 
+/** @brief Direct-noise displacement follows the declared lens placement. */
+inline void test_composed_direct_surface_placement() {
+  using FX = KaleidoscopeHexOil<SMALL_W, SMALL_H>;
+  using Before =
+      Pullback::ComposedEffect<SMALL_W, SMALL_H, FX, KaleidoscopeHexOilParams,
+                               KaleidoscopeHexOilSpec, PaletteHarmony::TRIADIC,
+                               Pullback::HueMode::PATH_LENGTH,
+                               Pullback::Color::BrightnessEnvelope::NONE>;
+  using Displace = Pullback::Stage::Displace<Pullback::Surface::DirectNoise<
+      Pullback::SurfaceProvider<FX::Binding, true>, NoiseBasis::SIMPLEX>>;
+  using Lens =
+      Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>;
+  using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
+      KaleidoscopeHexOilSpec::PROJECTION, FX::Binding>::Type>;
+  using ExpectedBefore =
+      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+                              Displace, Lens, void, Project>;
+  using ExpectedAfter =
+      Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH, void,
+                              Lens, Displace, Project>;
+  static_assert(std::is_same_v<Before::SphereRun, ExpectedBefore>);
+  static_assert(std::is_same_v<FX::SphereRun, ExpectedAfter>);
+  HS_EXPECT_EQ(TraitsOf<FX>::SURFACE_PLACEMENT,
+               Pullback::SurfacePlacement::AFTER_LENS);
+}
+
 namespace In = Pullback::Interp;
 
 /** A parameter set naming the narrowed warp families. */
@@ -1872,6 +1898,7 @@ inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   test_catalog_semantic_export();
   test_composed_hand_registered_families();
+  test_composed_direct_surface_placement();
   test_composed_slider_registration();
   test_composed_snapshot_contract();
   test_composed_preset_choreography();

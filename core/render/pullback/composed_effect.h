@@ -770,7 +770,7 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  *         whose warp slots do not themselves imply one.
  * @tparam HasSourceNoise Forces a source-noise field on a source family that
  *         does not itself imply one.
- * @tparam SurfacePlacementV Placement of curl displacement relative to the
+ * @tparam SurfacePlacementV Placement of the displacement stage relative to the
  *         lens stage.
  */
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
@@ -827,7 +827,7 @@ private:
       std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams>;
   static constexpr bool SURFACE_AFTER_LENS =
       SurfacePlacementV == SurfacePlacement::AFTER_LENS;
-  static_assert(!SURFACE_AFTER_LENS || CURL_SURFACE);
+  static_assert(!SURFACE_AFTER_LENS || CURL_SURFACE || DIRECT_SURFACE);
   using CurlDisplacePolicy =
       Pullback::Surface::CurlNoise<SurfaceProvider<Binding, TRACK_PATH>,
                                    NoiseBasis::SIMPLEX,
@@ -837,16 +837,16 @@ private:
                                      NoiseBasis::SIMPLEX>;
   using RippleDisplacePolicy =
       Pullback::Surface::PeriodicRipple<SurfaceProvider<Binding, TRACK_PATH>>;
+  using NoiseDisplaceStage = Pullback::Stage::Displace<std::conditional_t<
+      DIRECT_SURFACE, DirectDisplacePolicy, CurlDisplacePolicy>>;
   using PreDisplaceStage = std::conditional_t<
-      CURL_SURFACE && !SURFACE_AFTER_LENS,
-      Pullback::Stage::Displace<CurlDisplacePolicy>,
+      (CURL_SURFACE || DIRECT_SURFACE) && !SURFACE_AFTER_LENS,
+      NoiseDisplaceStage,
       std::conditional_t<
           std::is_same_v<typename ParamsT::surface_type, PeriodicRippleParams>,
           Pullback::Stage::Displace<RippleDisplacePolicy>, void>>;
-  using PostDisplaceStage = std::conditional_t<
-      DIRECT_SURFACE, Pullback::Stage::Displace<DirectDisplacePolicy>,
-      std::conditional_t<SURFACE_AFTER_LENS,
-                         Pullback::Stage::Displace<CurlDisplacePolicy>, void>>;
+  using PostDisplaceStage =
+      std::conditional_t<SURFACE_AFTER_LENS, NoiseDisplaceStage, void>;
   using LensPolicy =
       typename LensPolicyFor<typename ParamsT::lens_type,
                              typename SpecT::LensPolicy, Binding>::Type;
