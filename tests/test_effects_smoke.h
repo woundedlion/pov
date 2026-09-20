@@ -23,6 +23,49 @@ namespace effects_smoke_tests {
 
 using namespace hs_test::effects_tests;
 
+constexpr int PAUSED_FRAMES = 4;
+constexpr int PAUSED_FRAMES_SLOW = 64;
+
+template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
+inline void paused_render_one(const char *name) {
+  reset_effect_globals();
+
+  const int frames = effect_may_be_dark(name, PAUSED_FRAMES)
+                         ? PAUSED_FRAMES_SLOW
+                         : PAUSED_FRAMES;
+  E<W, H> effect;
+  effect.setAnimationsPaused(true);
+  effect.init();
+  HS_EXPECT_TRUE(effect.animations_paused());
+  for (int f = 0; f < frames; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+
+  uint64_t acc = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = effect.get_pixel(x, y);
+      acc += static_cast<uint64_t>(p.r) + p.g + p.b;
+    }
+
+  HS_EXPECT(!effect_may_be_dark(name, frames),
+            "paused render must run past the all-black exemption window");
+  if (acc == 0)
+    std::printf("  PAUSED-BLANK %-20s produced no lit pixel over %d paused "
+                "frames @ %dx%d\n",
+                name, frames, W, H);
+  HS_EXPECT(acc > 0, "effect must produce non-black output while paused");
+}
+
+inline void test_every_effect_renders_while_paused() {
+  std::printf("  -- paused render, %d frames (%d for a slow starter) --\n",
+              PAUSED_FRAMES, PAUSED_FRAMES_SLOW);
+#define HS_PAUSED_ONE(name) paused_render_one<name>(#name);
+  HS_EFFECT_LIST(HS_PAUSED_ONE)
+#undef HS_PAUSED_ONE
+}
+
 /**
  * @brief Module entry point for the roster-wide effect sweeps.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -73,6 +116,8 @@ inline int run_effects_smoke_tests() {
   clip_clear_parity_one<name, SMALL_W, SMALL_H>(#name);
   HS_EFFECT_LIST(HS_CLIP_PARITY_ONE)
 #undef HS_CLIP_PARITY_ONE
+
+  test_every_effect_renders_while_paused();
 
   return fixture.result();
 }
