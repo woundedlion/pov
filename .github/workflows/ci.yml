@@ -673,6 +673,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
       - name: Load build pins
         id: pins
         run: python tools/build_pins.py --github-output
@@ -758,6 +762,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
 
       - name: Load build pins
         id: pins
@@ -1260,6 +1268,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
       - name: Load build pins
         id: pins
         run: python tools/build_pins.py --github-output
@@ -1289,6 +1301,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
 
       - name: Load build pins
         id: pins
@@ -1333,6 +1349,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
 
       - name: Load build pins
         id: pins
@@ -1485,13 +1505,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Load build pins
-        id: pins
-        run: python tools/build_pins.py --github-output
-
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+
+      - name: Load build pins
+        id: pins
+        run: python tools/build_pins.py --github-output
 
       # Pinned in tools/build_pins.py, which `just lint` also holds the local
       # binary to: ruff's rule set moves between releases, so an unpinned
