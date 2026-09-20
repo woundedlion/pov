@@ -355,6 +355,21 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(markdown, [PurePosixPath("README.md")])
         self.assertEqual(issues, [])
 
+    def test_effect_roster_claim_requires_its_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / "README.md").write_text(
+                "effects/ 3 headers covering 2 effects\n",
+                encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "README.md"],
+                           check=True)
+            with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
+                _, issues, _ = dc.check_repository(root)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].path, "core/engine/effects.h")
+        self.assertIn("is not tracked", issues[0].message)
+
     def test_stale_untracked_allowances_are_named(self):
         allowances = ("tracked.txt", "uncited.txt", "used.txt")
         with mock.patch.object(dc, "_UNTRACKED_ALLOWED", allowances):
