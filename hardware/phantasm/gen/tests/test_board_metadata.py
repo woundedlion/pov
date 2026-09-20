@@ -13,6 +13,29 @@ import fab   # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):
+    def test_rendered_dimensions_preserve_integer_zeroes(self):
+        for width, height, expected in (
+            ("10", "30", "10 × 30"),
+            ("60", "30", "60 × 30"),
+            ("100", "30", "100 × 30"),
+            ("60.0", "30.0", "60 × 30"),
+            ("58.280", "32.0", "58.28 × 32"),
+            ("58.28", "32", "58.28 × 32"),
+        ):
+            with self.subTest(width=width, height=height):
+                metadata = board_metadata.parse_board(f"""
+                    (kicad_pcb
+                      (gr_rect (start 0 0) (end {width} {height}) (layer "Edge.Cuts"))
+                      (general (thickness 1.6))
+                      (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+                      (setup (stackup
+                        (layer "F.Cu" (type "copper") (thickness 0.035))
+                        (layer "B.Cu" (type "copper") (thickness 0.035))
+                        (copper_finish "ENIG"))))
+                """)
+                self.assertIn(f"| Board dimensions | {expected} mm |",
+                              board_metadata.render_facts(metadata))
+
     def test_extracts_committed_routed_board(self):
         metadata = board_metadata.load_board(
             REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
