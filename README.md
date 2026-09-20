@@ -679,6 +679,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── scripts/
 │   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
+│   ├── check-cdn-integrity.mjs Verifies the committed import map's jsDelivr subresource-integrity hashes
 │   ├── probe_harness.mjs       Manifest server, browser, console/network collector and pointer helpers every probe runs on
 │   ├── browser.mjs             Browser resolution (CHROME_PATH, else the standard Chrome locations) and the launch flags the headless scripts share
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
@@ -697,6 +698,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   └── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
 │
 ├── tests/                      Node unit tests (`npm test`)
+├── requirements/               Hash-locked ShellCheck toolchain used by CI
 ├── tsconfig.json               checkJs settings for the worker-protocol module set
 ├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step
 ├── .githooks/                  staged pre-commit checks, a pre-push mirror of the JS/browser suites, and the master fast-forward guard
