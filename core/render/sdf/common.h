@@ -550,8 +550,10 @@ struct Bounds {
  * and Scan::Mesh replaces it with a face index.
  *
  * Per-producer register semantics (a leaf built with ComputeUVs = false
- * reports t = 0; a bounds/cull miss reports dist = raw_dist = FAR_SENTINEL
- * with t = 0):
+ * reports t = 0; an initial bounds/cull miss reports dist = raw_dist =
+ * FAR_SENTINEL with t = 0. A shape's later reach rejection may instead flow
+ * through its normal result epilogue; DistortedRing's knot path, for example,
+ * preserves t and reports `dist = FAR_SENTINEL - thickness`):
  *
  * | Producer          | dist (negative inside)     | t                | raw_dist         | size |
  * |-------------------|----------------------------|------------------|------------------|------|
