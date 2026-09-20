@@ -18,8 +18,9 @@ namespace Projection {
 
 /** @brief Projection and camera parameters, shared by every composed effect. */
 struct ProjectionParams {
-  float singularity_fade = 1.0f; /**< Radius of the projection's singularity
-                                attenuation. */
+  float singularity_fade = 1.0f; /**< Sharpness of the singularity attenuation:
+                                      1 fades to the regular locus; 20 confines
+                                      the fade to a narrow cap. */
   float spin_rate = 0.0f; /**< Per-frame spin of the projection frame about Y;
                                 only read under `ANIMATED_PROJECTION`. */
   float wander = 0.0f;    /**< Fraction of the projection random-walk delta
@@ -58,6 +59,10 @@ inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
  * clamping to its much larger point-at-infinity sentinel. */
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
 
+/**
+ * @param singularity_fade Attenuation sharpness: 1 reaches the regular locus;
+ *                         20 confines the fade to a narrow cap.
+ */
 __attribute__((always_inline)) inline float
 singularity_attenuation(float regular_distance_sq, float singular_distance_sq,
                         float singularity_fade) {
