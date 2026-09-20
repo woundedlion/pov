@@ -148,8 +148,14 @@ def git(repo: Path, *args: str, required: bool = True) -> str | None:
 
 
 def check_git_range(repo: Path, previous_ref: str, current_ref: str,
-                    allow: set[Transition]) -> int:
+                    allow: set[Transition], allow_through: str | None = None) -> int:
     """Check each first-parent edge whose commit contains the ratchet job."""
+    if allow:
+        if allow_through is None:
+            raise SystemExit("range allowances require --allow-through COMMIT")
+        allow_through = git(repo, "rev-parse", "--verify",
+                            f"{allow_through}^{{commit}}").strip()
+    used = set()
     commits = git(
         repo, "rev-list", "--first-parent", "--reverse",
         f"{previous_ref}..{current_ref}", "--",
@@ -177,14 +183,22 @@ def check_git_range(repo: Path, previous_ref: str, current_ref: str,
                 death.write_text(death_text, encoding="utf-8")
                 paths.append((harness, death))
             print(f"checking domain ratchets for {commit} against {parent}")
-            status, _ = compare_files(
+            edge_allow = allow
+            if allow and git(repo, "merge-base", "--is-ancestor", commit,
+                             allow_through, required=False) is None:
+                edge_allow = set()
+            status, edge_used = compare_files(
                 paths[0][0], paths[1][0], paths[0][1], paths[1][1],
-                parent, allow
+                parent, edge_allow
             )
+            used.update(edge_used)
             checked += 1
             failed |= status != 0
     if checked == 0:
         print("::warning::no commits with the domain-ratchets job in range")
+    for key, before, after in sorted(allow - used):
+        print("::warning::DOMAIN_RATCHET_ALLOW_WEAKEN transition was not "
+              f"exercised: {key}={before}->{after}")
     print(f"domain ratchet range: {checked} commit edge(s) checked")
     return 1 if failed else 0
 
@@ -197,6 +211,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("current_death", type=Path, nargs="?")
     parser.add_argument("--previous-ref")
     parser.add_argument("--git-range", nargs=2, metavar=("PREVIOUS", "CURRENT"))
+    parser.add_argument("--allow-through")
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
     allow = weakening_allowances(
@@ -206,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
         if any((args.previous_harness, args.current_harness,
                 args.previous_death, args.current_death, args.previous_ref)):
             parser.error("--git-range cannot be combined with file arguments")
-        return check_git_range(args.repo, *args.git_range, allow)
+        return check_git_range(args.repo, *args.git_range, allow, args.allow_through)
     paths = (
         args.previous_harness, args.current_harness,
         args.previous_death, args.current_death

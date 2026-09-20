@@ -1735,14 +1735,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # Exact before/after allowances cannot match a different weakening.
+      # Historical allowances expire at the explicitly pinned commit.
       DOMAIN_RATCHET_ALLOW_WEAKEN: |
         guard_gap.canvas.h=29->30
         guard_gap.carousel.h=3->4
         guard_gap.raster.h=9->10
         guard_gap.volume.h=7->8
         guard_gap.memory.h=1->2
-        guard_gap.choreography.h=1->2
         guard_gap.Profile.ino=3->4
         guard_gap.chain_host.h=0->1
         guard_gap.shader_host.h=0->13
@@ -1773,7 +1772,8 @@ jobs:
             exit 0
           fi
 
-          python tools/check_domain_ratchets.py --git-range "$PREV" HEAD
+          python tools/check_domain_ratchets.py --git-range "$PREV" HEAD \
+            --allow-through f8c09587aa3d6db303d8327d860494cec04fa393
   clang-format:
     name: Formatting (clang-format)
     # Cloud counterpart of the .githooks/pre-commit format check. The hook
