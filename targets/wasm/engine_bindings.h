@@ -1241,6 +1241,8 @@ public:
       refusal = chain.set_chain(
           std::span<const Pullback::Interp::ChainEntryRequest>(request));
     });
+    if (refusal.code == ChainStatus::OK)
+      check_param_capacity();
     return chain_result(refusal.code, refusal.entry_index);
   }
 
