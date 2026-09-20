@@ -2671,6 +2671,25 @@ inline void test_tweenable_rejects_bare_orientation() {
                 "a bare Orientation must not satisfy Tweenable");
 }
 
+/** @brief Verifies Orientation tween skips only a shared motion boundary. */
+inline void test_tween_orientation_skips_shared_boundary() {
+  Orientation<5> orientation;
+  std::vector<float> ts;
+  tween(orientation, [&](const Quaternion &, float t) { ts.push_back(t); });
+  HS_EXPECT_SIZE_OR_RETURN(ts, 1);
+  HS_EXPECT_NEAR(ts.front(), 1.0f, 1e-6f);
+
+  orientation.push(make_rotation(Z_AXIS, 0.5f));
+  orientation.upsample(5);
+  ts.clear();
+  tween(orientation, [&](const Quaternion &, float t) { ts.push_back(t); });
+  HS_EXPECT_SIZE_OR_RETURN(ts, 4);
+  HS_EXPECT_NEAR(ts.front(), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
+  for (size_t i = 1; i < ts.size(); ++i)
+    HS_EXPECT_GE(ts[i], ts[i - 1]);
+}
+
 /**
  * @brief Verifies deep_tween emits a global t spanning [0,1] across the whole
  * trail, with the expected sample count and non-decreasing t.
@@ -3750,6 +3769,7 @@ inline int run_animation_tests() {
 
   test_tweenable_rejects_bare_orientation();
   test_deep_tween_global_t_spans_unit_interval();
+  test_tween_orientation_skips_shared_boundary();
   test_deep_tween_collapsed_newest_frame_reaches_one();
   test_deep_tween_all_collapsed_reaches_one();
   test_deep_tween_frames_groups_flat_emission();
