@@ -166,6 +166,31 @@ class ArtifactPaths(unittest.TestCase):
 
 
 class ProfileConfigVerification(unittest.TestCase):
+    def test_retry_uses_an_isolated_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shared = root / ".pio" / "build_cache"
+            env_build = root / ".pio" / "build" / "profile"
+            shared.mkdir(parents=True)
+            env_build.mkdir(parents=True)
+            (shared / "sentinel").write_text("shared\n", encoding="utf-8")
+            (env_build / "stale").write_text("stale\n", encoding="utf-8")
+            script = (
+                f"{shell_function('prepare_retry')}\n"
+                "ENV=profile\n"
+                f"TMPDIR={root.as_posix()}\n"
+                f"cd {root.as_posix()}\n"
+                "prepare_retry\n"
+                'test ! -e .pio/build/profile/stale\n'
+                'test -e .pio/build_cache/sentinel\n'
+                'test "$PLATFORMIO_BUILD_CACHE_DIR" != .pio/build_cache\n'
+                'test -d "$PLATFORMIO_BUILD_CACHE_DIR"\n'
+                'rm -rf "$PLATFORMIO_BUILD_CACHE_DIR"\n'
+            )
+            result = subprocess.run(["bash", "-c", script], capture_output=True,
+                                    text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_matching_config_passes(self):
         self.assertEqual(verify_log(capture_log("o3")).returncode, 0)
 
