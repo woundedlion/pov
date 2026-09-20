@@ -217,25 +217,20 @@ enum class FullConfigRestoreResult : uint8_t {
                             field indices, or does not match where accepted and
                             requested differ. Retry with an empty list. */
 };
+#endif // HS_ENABLE_SHADER_WORKBENCH
 
-// Set while restoreFullConfigSnapshot() decodes its input. Every property read
-// there runs caller JS, which reaches the embind-generated delete() and frees
-// the engine the decode is still writing through; the engine destructor tests
-// this latch so that frees traps instead of corrupting the outer frame.
-//
-// A trap compiles to wasm `unreachable`, which unwinds nothing, so
-// ~SnapshotDecodeGuard() never runs and this stays latched, deliberately: the
-// module is dead and must answer no further snapshot call.
+#if HS_ENABLE_SHADER_WORKBENCH || HS_ENABLE_CHAIN_INTERPRETER
+// Caller property access can re-enter embind, including delete().
 static bool snapshot_decode_active = false;
 struct SnapshotDecodeGuard {
   SnapshotDecodeGuard() {
     HS_CHECK(!snapshot_decode_active,
-             "re-entrant restoreFullConfigSnapshot() from a snapshot accessor");
+             "re-entrant engine decode from a caller accessor");
     snapshot_decode_active = true;
   }
   ~SnapshotDecodeGuard() { snapshot_decode_active = false; }
 };
-#endif // HS_ENABLE_SHADER_WORKBENCH
+#endif
 
 /**
  * @brief JS-facing render engine driving one resolution/effect at a time.
@@ -307,10 +302,9 @@ public:
    *          rather than the destroyed effect's usage.
    */
   ~HolosphereEngine() {
-#if HS_ENABLE_SHADER_WORKBENCH
+#if HS_ENABLE_SHADER_WORKBENCH || HS_ENABLE_CHAIN_INTERPRETER
     HS_CHECK(!snapshot_decode_active,
-             "delete() from a restoreFullConfigSnapshot() accessor frees the "
-             "engine the decode is still writing through");
+             "delete() from a caller accessor during engine decode");
 #endif
     current_effect.reset();
     configure_arenas_default();
@@ -1209,6 +1203,7 @@ public:
    * untouched.
    */
   val setShaderChain(const val &entries) {
+    const SnapshotDecodeGuard decode_guard;
     using Pullback::Interp::ChainStatus;
     if (!with_shader_chain([]<typename SC>(SC &) {}))
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
