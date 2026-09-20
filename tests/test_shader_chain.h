@@ -849,6 +849,19 @@ inline void test_shader_chain_schema_and_field_ids() {
     HS_EXPECT_EQ(static_cast<int>(projection.output),
                  static_cast<int>(In::CarrierId::PLANE));
     bool has_meridian = false;
+    const In::ParamFieldInfo *frame_policy = nullptr;
+    for (const In::ParamFieldInfo &field : projection.schema_span())
+      if (std::string_view(field.id) == "frame")
+        frame_policy = &field;
+    HS_EXPECT_TRUE(frame_policy != nullptr);
+    if (frame_policy != nullptr) {
+      HS_EXPECT_TRUE(frame_policy->topology);
+      HS_EXPECT_EQ(frame_policy->enum_count, 2);
+      HS_EXPECT_EQ(frame_policy->enum_def, 1);
+      HS_EXPECT_TRUE(std::string_view(frame_policy->enum_ids[0]) == "identity");
+      HS_EXPECT_TRUE(std::string_view(frame_policy->enum_ids[1]) ==
+                     "spin-wander");
+    }
     for (uint16_t field = 0; field < projection.schema_count; ++field)
       has_meridian |=
           std::string_view(projection.schema[field].id) == "central-meridian";
@@ -1956,6 +1969,68 @@ inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
     mirror.meridian = param_as<In::Op::MeridianProjectChainParams>(program, 1);
   }
   return mirror;
+}
+
+template <typename Model> inline void expect_project_frame_policy() {
+  HS_CONTEXT(Model::ID);
+  auto fixture = std::make_unique<ProgramFixture>();
+  In::ChainProgram &program = fixture->program;
+  arm_project_op_chain<typename Model::Params>(program, Model::ID, 0,
+                                               ValueSet::DEFAULTS);
+  auto &params = param_as<typename Model::Params>(program, 1);
+  const In::FrameContext ctx = shared_resources().context();
+  program.prepare(ctx);
+  const auto &prepared = *reinterpret_cast<const typename Model::Prepared *>(
+      program.prepared_block(1));
+  const Quaternion base = ctx.projection_base.conjugate();
+  HS_EXPECT_TRUE(prepared.conjugate == base);
+  params.spin_rate = 0.03f;
+  params.wander = 1.0f;
+  for (int frame = 0; frame < 4; ++frame)
+    program.advance();
+  const auto &state = state_as<In::Op::SpatialWalkState>(program, 1);
+  const uint32_t walk_time = state.walk_time;
+  const float spin = state.spin_phase;
+  const Quaternion wander = state.wander;
+  params.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  for (int frame = 0; frame < 3; ++frame)
+    program.advance();
+  HS_EXPECT_EQ(state.walk_time, walk_time);
+  HS_EXPECT_EQ(state.spin_phase, spin);
+  HS_EXPECT_EQ(std::memcmp(&state.wander, &wander, sizeof(Quaternion)), 0);
+  program.prepare(ctx);
+  const In::OperatorDescriptor &op = *program.ops()[1].op;
+  for (const Vector &view : sweep_views()) {
+    const PB::SphereSample seed{view, 0.25f};
+    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+    op.runtime.run(&seed, out, ctx, program.param_block(1),
+                   program.prepared_block(1));
+    const auto &actual =
+        *std::launder(reinterpret_cast<PB::PlaneSample *>(out));
+    const auto expected =
+        PB::Kernel::project(seed, view, Model::project(view, params));
+    HS_EXPECT_TRUE(plane_identical(actual, expected));
+  }
+  params.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER);
+  program.advance();
+  HS_EXPECT_EQ(state.walk_time, walk_time + 1);
+  HS_EXPECT_NE(state.spin_phase, spin);
+  program.prepare(ctx);
+  const Quaternion identity;
+  HS_EXPECT_NE(std::memcmp(&prepared.conjugate, &identity, sizeof(Quaternion)),
+               0);
+  program.clear();
+}
+
+inline void test_shader_chain_projection_frame_policy() {
+  expect_project_frame_policy<In::Op::ProjectStereographic>();
+  expect_project_frame_policy<In::Op::ProjectFoldedSinusoidal>();
+  expect_project_frame_policy<In::Op::ProjectEquirectangular>();
+  expect_project_frame_policy<In::Op::ProjectGnomonic>();
+  expect_project_frame_policy<In::Op::ProjectPeirce>();
+  expect_project_frame_policy<In::Op::ProjectPeirceSquareFast>();
+  expect_project_frame_policy<In::Op::ProjectBonne>();
+  expect_project_frame_policy<In::Op::ProjectAirocean>();
 }
 
 /** Erased-vs-bound parity of the projection at entry 1. */
@@ -3595,6 +3670,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_displace_ripple();
   test_shader_chain_parity_lens_ops();
   test_shader_chain_parity_project_ops();
+  test_shader_chain_projection_frame_policy();
   test_shader_chain_parity_project_hemispheres();
   test_shader_chain_parity_field_ops();
   test_shader_chain_parity_warp_affine_mirror();

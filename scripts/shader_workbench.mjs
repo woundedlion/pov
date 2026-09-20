@@ -1031,6 +1031,12 @@ const v1Slots = (roleNodes) => {
       'A v1 document must name its projection.');
   add('project',
     v1PolicyPick(V1_PROJECTION_OPERATORS, surface.projection, 'stage.surface_project.projection'));
+  if (surface.frame !== undefined) {
+    if (surface.frame !== 'identity' && surface.frame !== 'spin-wander')
+      failV1('V1_POLICY_UNSUPPORTED', 'stage.surface_project.frame',
+        `No projection frame expands "${surface.frame}".`);
+    slots[slots.length - 1].topology.frame = surface.frame;
+  }
 
   sequence.forEach((warp, index) => {
     if (warp === 'identity') return;

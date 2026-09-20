@@ -57,14 +57,14 @@ test('sparse imports enforce the runtime parameter budget at its exact boundary'
   for (const parameterCount of [224, 225]) {
     const document = example();
     const [camera, project, sample, colorize] = document.descriptor.chain;
+    const boundaryWarp = parameterCount === 224 ? 'warp.curl-flow.v2' : 'warp.wave-shear.v2';
     document.descriptor.chain = [
       camera,
       { label: 'displace', operator: 'sphere.displace.direct.v2' },
       project,
       ...Array.from({ length: 27 }, (_, index) => ({
         label: `warp-${index}`,
-        operator: index === 0 && parameterCount === 224
-          ? 'warp.wave-shear.v2' : 'warp.affine.v2',
+        operator: index === 0 ? boundaryWarp : 'warp.affine.v2',
       })),
       sample,
       colorize,
@@ -657,6 +657,30 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
   assert.equal(compiled.parameter_ids['central-meridian'], 'project.central-meridian');
   assert.equal(exportShaderDocumentJson(compiled.document), EXAMPLE);
   assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
+});
+
+test('v1 projection frames become explicit topology parameters', () => {
+  for (const frame of ['identity', 'spin-wander']) {
+    const document = structuredClone(V1_EXAMPLE);
+    document.descriptor.graph.nodes.find((node) => node.role === 'surface_project')
+      .policy.frame = frame;
+    const compiled = compile(document);
+    assert.equal(compiled.status, 'VALID');
+    const parameter = compiled.document.descriptor.parameters.find(
+      (entry) => entry.id === 'project.frame');
+    assert.equal(parameter.storage, 'enum8');
+    assert.deepEqual(parameter.domain.values, ['identity', 'spin-wander']);
+    assert.equal(parameter.default, frame);
+    for (const preset of compiled.document.preset_bank.presets)
+      assert.equal(preset.values['project.frame'], frame);
+    assert.ok(compiled.document.descriptor.serialization.fields.includes('project.frame'));
+    assert.notEqual(compiled.descriptor_digest, compile(V1_EXAMPLE).descriptor_digest);
+  }
+  const invalid = structuredClone(V1_EXAMPLE);
+  invalid.descriptor.graph.nodes.find((node) => node.role === 'surface_project')
+    .policy.frame = 'unknown';
+  assert.deepEqual(compile(invalid).diagnostics.map(({ code }) => code),
+    ['V1_POLICY_UNSUPPORTED']);
 });
 
 test('v1 displacement placement preserves its order around a nonidentity lens', () => {
