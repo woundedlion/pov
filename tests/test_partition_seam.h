@@ -310,6 +310,13 @@ constexpr double MEASURED_CHANGED_FRAC_KIS_DODECA = 0.1448;
 constexpr double MEASURED_CHANGED_FRAC_DUAL_ICOSA = 0.1217;
 constexpr double MEASURED_CHANGED_FRAC_DUAL_CUBE = 0.0662;
 constexpr double MEASURED_CHANGED_FRAC_DUAL_DODECA = 0.1217;
+constexpr int MEASURED_MAX_BAND_KIS_ICOSA = 17;
+constexpr int MEASURED_MAX_BAND_KIS_CUBE = 45;
+constexpr int MEASURED_MAX_BAND_KIS_DODECA = 17;
+constexpr int MEASURED_MAX_BAND_DUAL_ICOSA = 35;
+constexpr int MEASURED_MAX_BAND_DUAL_CUBE = 144;
+constexpr int MEASURED_MAX_BAND_DUAL_DODECA = 35;
+constexpr int MAX_BAND_MARGIN = 2;
 constexpr double MAX_ABS_ENERGY = 0.02;
 
 /** Half the smallest absolute energy measured over the six swaps (0.96 %, dual
@@ -331,9 +338,11 @@ constexpr float MIN_PIXEL_DELTA = MAX_MEASURED_PIXEL_DELTA - PIXEL_DELTA_MARGIN;
  * @param st Statistics of the swap.
  * @param measured_changed_frac The swap's calibrated changed fraction; its
  *        bracket is that value plus or minus CHANGED_FRAC_RELATIVE_MARGIN.
+ * @param measured_max_band The swap's calibrated deepest changed band.
  */
 inline void expect_within_envelope(const SeamStats &st,
-                                   double measured_changed_frac) {
+                                   double measured_changed_frac,
+                                   int measured_max_band) {
   const double frac = st.changed / (double(PS_W) * PS_H);
   const double margin = measured_changed_frac * CHANGED_FRAC_RELATIVE_MARGIN;
   HS_EXPECT_LE(frac, measured_changed_frac + margin);
@@ -345,9 +354,8 @@ inline void expect_within_envelope(const SeamStats &st,
   HS_EXPECT_LE(st.max_bright, MAX_PIXEL_DELTA);
   HS_EXPECT_GE(st.mean_band, 2.0);
   HS_EXPECT_LE(st.mean_band, 4.5);
-  HS_EXPECT_LE(st.max_band, PS_W / 2);
+  HS_EXPECT_LE(st.max_band, measured_max_band + MAX_BAND_MARGIN);
   HS_EXPECT_GT(st.changed_near_v, size_t(0));
-  HS_EXPECT_LT(st.changed_near_v, st.changed);
   HS_EXPECT_LE(st.changed_near_v * 10, st.changed);
   HS_EXPECT_GT(st.mean_near, 0.0);
   HS_EXPECT_GT(st.mean_far, 0.0);
@@ -524,9 +532,11 @@ inline std::vector<Vector> vertex_list(const PolyMesh &m) {
  * @tparam Solid Seed solid descriptor.
  * @param name Tag for the report and PNG names.
  * @param measured_changed_frac This swap's calibrated changed fraction.
+ * @param measured_max_band This swap's calibrated deepest changed band.
  */
 template <typename Solid>
-inline void measure_kis(const char *name, double measured_changed_frac) {
+inline void measure_kis(const char *name, double measured_changed_frac,
+                        int measured_max_band) {
   Arena geom(ps_geom_buf, sizeof(ps_geom_buf));
   Arena temp(ps_temp_buf, sizeof(ps_temp_buf));
   Arena aux(ps_aux_buf, sizeof(ps_aux_buf));
@@ -566,7 +576,7 @@ inline void measure_kis(const char *name, double measured_changed_frac) {
   HS_EXPECT_EQ(st.lit_a, st.lit_b);
   HS_EXPECT_GT(st.energy, 0.0);
   HS_EXPECT_GT(st.max_dark, st.max_bright);
-  expect_within_envelope(st, measured_changed_frac);
+  expect_within_envelope(st, measured_changed_frac, measured_max_band);
 }
 
 /**
@@ -574,9 +584,11 @@ inline void measure_kis(const char *name, double measured_changed_frac) {
  * @tparam Solid Seed solid descriptor.
  * @param name Tag for the report and PNG names.
  * @param measured_changed_frac This swap's calibrated changed fraction.
+ * @param measured_max_band This swap's calibrated deepest changed band.
  */
 template <typename Solid>
-inline void measure_dual(const char *name, double measured_changed_frac) {
+inline void measure_dual(const char *name, double measured_changed_frac,
+                         int measured_max_band) {
   Arena geom(ps_geom_buf, sizeof(ps_geom_buf));
   Arena temp(ps_temp_buf, sizeof(ps_temp_buf));
   Arena aux(ps_aux_buf, sizeof(ps_aux_buf));
@@ -610,7 +622,7 @@ inline void measure_dual(const char *name, double measured_changed_frac) {
   // coverage is unchanged; unlike kis the delta has no fixed sign, since the
   // new edges neither contain nor are contained by the old ones.
   HS_EXPECT_EQ(st.lit_a, st.lit_b);
-  expect_within_envelope(st, measured_changed_frac);
+  expect_within_envelope(st, measured_changed_frac, measured_max_band);
 }
 
 /**
@@ -664,14 +676,20 @@ template <typename Solid> inline void measure_gradient(const char *name) {
 inline void test_partition_seam_calibration() {
   std::printf("  [gate6] canvas %dx%d, flat fill, threshold %.1f%% of full\n",
               PS_W, PS_H, 100.0 * DELTA_THRESH / FILL);
-  measure_kis<Solids::Icosahedron>("icosa", MEASURED_CHANGED_FRAC_KIS_ICOSA);
-  measure_kis<Solids::Cube>("cube", MEASURED_CHANGED_FRAC_KIS_CUBE);
-  measure_kis<Solids::Dodecahedron>("dodeca", MEASURED_CHANGED_FRAC_KIS_DODECA);
+  measure_kis<Solids::Icosahedron>("icosa", MEASURED_CHANGED_FRAC_KIS_ICOSA,
+                                   MEASURED_MAX_BAND_KIS_ICOSA);
+  measure_kis<Solids::Cube>("cube", MEASURED_CHANGED_FRAC_KIS_CUBE,
+                            MEASURED_MAX_BAND_KIS_CUBE);
+  measure_kis<Solids::Dodecahedron>("dodeca", MEASURED_CHANGED_FRAC_KIS_DODECA,
+                                    MEASURED_MAX_BAND_KIS_DODECA);
 
-  measure_dual<Solids::Icosahedron>("icosa", MEASURED_CHANGED_FRAC_DUAL_ICOSA);
-  measure_dual<Solids::Cube>("cube", MEASURED_CHANGED_FRAC_DUAL_CUBE);
+  measure_dual<Solids::Icosahedron>("icosa", MEASURED_CHANGED_FRAC_DUAL_ICOSA,
+                                    MEASURED_MAX_BAND_DUAL_ICOSA);
+  measure_dual<Solids::Cube>("cube", MEASURED_CHANGED_FRAC_DUAL_CUBE,
+                             MEASURED_MAX_BAND_DUAL_CUBE);
   measure_dual<Solids::Dodecahedron>("dodeca",
-                                     MEASURED_CHANGED_FRAC_DUAL_DODECA);
+                                     MEASURED_CHANGED_FRAC_DUAL_DODECA,
+                                     MEASURED_MAX_BAND_DUAL_DODECA);
 
   if (seam_dump_dir())
     measure_gradient<Solids::Dodecahedron>("dodeca");
