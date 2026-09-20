@@ -34,6 +34,21 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
     mesh.faces.push_back(static_cast<uint16_t>(fi));
 }
 
+/** @brief Builds an icosahedron into caller-owned arenas. */
+inline void build_icosahedron_meshstate(Arena &seed_a, Arena &seed_b,
+                                        Arena &geometry, MeshState &mesh) {
+  PolyMesh base = Solids::Platonic::icosahedron(seed_a, seed_b);
+  mesh.vertices.bind(geometry, base.vertices.size());
+  for (const Vector &vertex : base.vertices)
+    mesh.vertices.push_back(vertex);
+  mesh.faces.bind(geometry, base.faces.size());
+  mesh.face_counts.bind(geometry, base.face_counts.size());
+  for (size_t i = 0; i < base.face_counts.size(); ++i)
+    mesh.face_counts.push_back(static_cast<uint8_t>(base.face_counts[i]));
+  for (size_t i = 0; i < base.faces.size(); ++i)
+    mesh.faces.push_back(base.faces[i]);
+}
+
 /** Step table for the ambo/relax/hk54/needle recipe: a test fixture, not in
  * islamic_registry; the reconcile tests' canonical needle-ending recipe. */
 inline constexpr Solids::OpStep
