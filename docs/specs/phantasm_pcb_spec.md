@@ -215,7 +215,7 @@ buffer** — see §4.3.
 - SYNC bus → **R1 = 10 kΩ** → node → **R2 = 15 kΩ** → GND. Node ≈ **3.0 V** → Teensy pin 3.
   **R2 = 15 kΩ is the default** (not 18 kΩ): pin 3 is **not** 5 V-tolerant, so this divider is the
   hard clamp. 10k/15k gives 3.0 V nom and **3.15 V at a hot 5.25 V rail** — under the 3.3 V max
-  *independent of V_OH*, still ≫ the ~2.3 V Teensy V_IH. (The legacy 18 kΩ from the SVG yields
+  *independent of V_OH*, still ≫ the ~2.3 V Teensy V_IH. (A legacy 18 kΩ alternative would yield
   5.25 × 18/28 ≈ **3.38 V**, over the 3.3 V max and rescued only by V_OH droop — don't ship it on a
   not-5V-tolerant pin.)
 - **R-SYNC-1** R2 doubles as pin 3's defined-state pull-down. **Do not add any other pull-down.**
@@ -449,7 +449,7 @@ hand-soldered by you.
 | R_D1, R_D2 | Series term | 33 Ω | 0603/0805 | **SMD** |
 | R_S | Sync source | 100 Ω | 0805, hand-solder land (§11.1) | **SMD** |
 | R1 | Divider top | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** |
-| R2 | Divider btm | **15 kΩ** (legacy 18 kΩ — see §4.2) | 0603, hand-solder land (§11.1) | **SMD** |
+| R2 | Divider btm | **15 kΩ** (see §4.2) | 0603, hand-solder land (§11.1) | **SMD** |
 | R_PD | Master-only bus idle pull-down, switched by U1 ch D | 10 kΩ | 0603, hand-solder land (§11.1) | **SMD** |
 | R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** |
 | FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** |
