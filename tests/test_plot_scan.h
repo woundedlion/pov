@@ -3586,20 +3586,35 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
     HS_EXPECT_GE(v0s[i], v0s[i - 1] - 1e-6f);
   }
 
-  const float geo = angle_between(a.pos, b.pos);
   const float planar = Plot::planar_arc_length(a.pos, b.pos, basis);
   const Plot::PlanarEdgeSampler sampler =
       Plot::make_planar_edge_sampler(a.pos, b.pos, basis);
   float rendered = 0.0f;
+  double independent_rendered = 0.0;
+  const auto independent_angle = [](const Vector &u, const Vector &v) {
+    const double uv = static_cast<double>(u.x) * v.x +
+                      static_cast<double>(u.y) * v.y +
+                      static_cast<double>(u.z) * v.z;
+    const double uu = static_cast<double>(u.x) * u.x +
+                      static_cast<double>(u.y) * u.y +
+                      static_cast<double>(u.z) * u.z;
+    const double vv = static_cast<double>(v.x) * v.x +
+                      static_cast<double>(v.y) * v.y +
+                      static_cast<double>(v.z) * v.z;
+    return std::acos(std::clamp(uv / std::sqrt(uu * vv), -1.0, 1.0));
+  };
   Vector previous = sampler.unproject(0.0f);
   const Vector mapped_start = previous;
   for (int i = 1; i <= 32; ++i) {
     const Vector current = sampler.unproject(static_cast<float>(i) / 32.0f);
     rendered += angle_between(previous, current);
+    independent_rendered += independent_angle(previous, current);
     previous = current;
   }
-  HS_EXPECT_GT(rendered, angle_between(mapped_start, previous));
-  HS_EXPECT_NEAR(rendered, geo, 2e-3f);
+  const double bow =
+      independent_rendered - independent_angle(mapped_start, previous);
+  HS_EXPECT_GT(bow, 1e-3);
+  HS_EXPECT_LT(bow, 5e-3);
   HS_EXPECT_NEAR(planar, rendered, 2e-3f);
   HS_EXPECT_NEAR(v1s.front(), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(v1s.back(), planar, 2e-2f);
