@@ -333,7 +333,7 @@ private:
   static val encode_status(const PaletteCompileStatus &status) {
     // A bitset wider than the mantissa would silently round on the JS boundary,
     // dropping adjustment reports rather than failing.
-    static_assert(static_cast<int>(PaletteRecipeField::INPUT_SPAN) <
+    static_assert(static_cast<int>(PaletteRecipeField::COUNT) <=
                       std::numeric_limits<double>::digits,
                   "PaletteRecipeField has outgrown the double the adjustment "
                   "masks cross as; hand the masks to JS as BigInt or as a pair "
