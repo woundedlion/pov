@@ -288,7 +288,9 @@ private:
  * falls back to "?".
  */
 template <class T> inline void print_operand(const T &v) {
-  if constexpr (std::is_convertible_v<const T &, std::string_view>) {
+  if constexpr (std::is_null_pointer_v<T>) {
+    std::printf("null");
+  } else if constexpr (std::is_convertible_v<const T &, std::string_view>) {
     if constexpr (std::is_pointer_v<T>) {
       if (v == nullptr) {
         std::printf("null");
@@ -297,7 +299,8 @@ template <class T> inline void print_operand(const T &v) {
     }
     const std::string_view text(v);
     std::putchar('"');
-    std::fwrite(text.data(), 1, text.size(), stdout);
+    if (!text.empty())
+      std::fwrite(text.data(), 1, text.size(), stdout);
     std::putchar('"');
   } else if constexpr (std::is_same_v<T, bool>) {
     std::printf("%s", v ? "true" : "false");
