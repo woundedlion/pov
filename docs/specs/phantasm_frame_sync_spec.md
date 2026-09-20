@@ -23,45 +23,19 @@ demarcation guard (§5.3), the join grid and per-effect RNG reseed (§6.1,
 One validation item remains open on hardware: measuring the worst-case
 mask window M on the shipped LED path (§11.3).*
 
-*Original status notes: this is a full-stack redesign of Phantasm's
-cross-board timing, of which code-review finding #1 (the
-frame-sync/`advance_display` desync) was one symptom at the frame layer.
-Decisions taken: (1) spec the hybrid fully before implementing; (2)
-**collapse to a single inter-board wire** — delete the shared column clock
-and generate columns from a local, time-derived flywheel on every board;
-(3) flip ownership = reconcile + self-describing sync pulses (A+C).*
+The boards share one inter-board sync wire and generate columns from local,
+time-derived flywheels. Count-coded symbol bursts tolerate interrupt masking;
+plausibility and acquisition gates control symbol acceptance. The sync-wire ISR
+publishes edges, and the flywheel ISR owns sync state. The master emits pin-first
+and suppresses late emissions. Flywheel rebasing and 64-bit position arithmetic
+bound cycle-counter wrap, while deadline-scheduled effect commits and an index
+beacon keep content aligned across startup and rejoin.
 
-*Review pass folded in (feasibility + correctness): the architecture is feasible
-and the §4.5 drift math holds. Five findings were incorporated rather than left
-implicit — (i) the symbol must be **count/burst-coded, not width-coded**, so the
-interrupt masking in the retired `FastLED.show()` path can't corrupt the one wire all
-layers ride (§5.2, §11.3); (ii) "extra flip is benign" is a **Layer-2-only**
-statement — content `t` is flip-paced through the `buffer_free()` gate, so a
-spurious flip offsets `t` until the next epoch (§8.4, §6.1); (iii) the §9
-**master-dead** row is graceful precession, not a watchdog trap, now that
-downstream owns its columns; (iv) the epoch **absolute index** is promoted toward
-baseline (trap, don't assume index 0) (§6.3); (v) the non-preemption invariant is
-a **downgrade** of the old design's same-vector guarantee (§8.2). Plus a best-possible
-caveat: this is the best *open-loop* design; a rotor index would supersede it
-(§13).*
-
-*Reliability review folded in (this revision): (a) the ISR model is now
-**single-writer** — the sync-wire ISR is a pure edge publisher and the flywheel
-ISR the sole consumer/owner of all sync state, deleting the fragile
-cross-peripheral equal-priority invariant outright (§8.2); (b) symbol
-acceptance gets a **plausibility gate + ACQUIRE/LOCKED acquisition states**
-(§5.3), closing the residual misclassification and spurious-flip holes; (c)
-master **self-censors late emissions** and emits pin-first (§5.2), so emission
-jitter — previously unbudgeted, and potentially ~170× the §4.5 drift budget —
-cannot poison downstream phase; (d) the flywheel gains a **rebase rule and
-64-bit position math** (§4.1), making cycle-counter wrap structurally
-impossible rather than handled; (e) the epoch becomes a **deadline-scheduled
-commit** (§6.1) — "atomic re-init" hid a multi-ms foreground operation with
-per-board skew; (f) a mid-revolution **index beacon** (§6.4) lets a rebooted
-board rejoin at the correct effect within ~2 s instead of trapping or
-staying wrong for the rest of the effect. Open decisions §11.2/3/4/5/7 are resolved. The sync
-wire itself is assumed physically reliable — a hard, soldered line by
-construction — so wire-dead is **accepted as out of scope**, not designed for.*
+Content time advances through `buffer_free()`, so a spurious flip can offset
+content until the next epoch even when the display-buffer flip itself is benign.
+A missing master causes graceful phase precession. The sync wire is assumed
+physically reliable; wire-dead recovery is outside this design. A rotor index
+would provide a stronger reference than this open-loop protocol (§13).
 
 ---
 
@@ -232,7 +206,7 @@ Why this mattered in the retired bit-bang path: `FastLED.show()` masked
 interrupts for windows **longer than T0**. If `x` were
 incremented once per ISR fire, a masked window would coalesce several pending
 timer interrupts into one fire and **lose** columns — exactly the dropped-column
-bug we are eliminating. With position derived from time, the ISR that finally
+failure mode. With position derived from time, the ISR that finally
 runs after a mask simply reads the clock, computes the time-correct `x_target`,
 and resumes there. The masked columns were not displayable anyway (the strip was
 being clocked out), so jumping to the time-correct column is not just lossless —
