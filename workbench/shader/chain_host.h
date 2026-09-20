@@ -164,15 +164,16 @@ private:
           Pullback::Interp::Op::ColorizeGeneratedPalette::ID)
         return make_colorize_tap(
             static_cast<int>(index),
-            reinterpret_cast<const Pullback::Interp::Op::GeneratedPaletteParams
-                                 *>(program.param_block(index)));
+            reinterpret_cast<
+                const Pullback::Interp::Op::ColorizeGeneratedPalette::Params *>(
+                program.param_block(index)));
       else if (std::string_view(ops[index].op->operator_id) ==
                Pullback::Interp::Op::ColorizeGeneratedPaletteV2::ID)
         return make_colorize_tap(
             static_cast<int>(index),
             reinterpret_cast<
-                const Pullback::Interp::Op::LegacyGeneratedPaletteParams *>(
-                program.param_block(index)));
+                const Pullback::Interp::Op::ColorizeGeneratedPaletteV2::Params
+                    *>(program.param_block(index)));
     return {};
   }
 
