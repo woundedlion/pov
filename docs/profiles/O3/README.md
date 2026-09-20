@@ -15,12 +15,12 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-26.md)§ ● | `ss_draw_all` | 🟢 59.80 (10) | 🟢 0/2448 (0%) | 2026-08-26 03:11 |
 | [Raymarch](profile_raymarch_teensy_2026-08-26.md) ● | `rm_shader_draw` | 🟢 58.80 | 🟢 0/1088 (0%) | 2026-08-26 01:34 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md)§ ● | `mf_feedback_flush` | 🟢 58.32 (13) | 🟢 0/6688 (0%) | 2026-08-26 02:10 |
-| [DisplacementField](profile_displacementfield_teensy_2026-08-26.md) ● | `df_timeline_step` | 🟢 57.48 | 🟢 0/1088 (0%) | 2026-08-26 01:20 |
+| [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) ● | `df_timeline_step` | 🟢 57.45 | 🟢 0/1088 (0%) | 2026-09-19 22:19 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) ● | `grd_render` | 🟢 56.16 | 🟢 0/2048 (0%) | 2026-08-26 01:25 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 54.55 | 🟢 0/1088 (0%) | 2026-08-26 02:43 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md)§ ● | `msp_draw_particles` | 🟢 52.79 (9) | 🟢 0/1728 (0%) | 2026-08-26 07:45 |
 | [RingSpin](profile_ringspin_teensy_2026-08-26.md) ● | `rs_draw_rings` | 🟢 50.81 | 🟢 0/1088 (0%) | 2026-08-26 01:38 |
-| [IslamicStars](profile_islamicstars_teensy_2026-08-26.md)§ ● | `is_timeline_step` | 🟢 50.80 (23) | 🟢 0/3328 (0%) | 2026-08-26 07:53 |
+| [IslamicStars](profile_islamicstars_teensy_2026-09-20.md) § ● | `is_timeline_step` | 🟢 50.41 (23) | 🟢 0/3328 (0.0%) | 2026-09-20 00:21 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-08-26.md)§ ● | `hl_shader_draw` | 🟢 49.92 (4) | 🟢 0/2688 (0%) | 2026-08-26 02:37 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) ● | `bz_render` | 🟢 48.65 | 🟢 0/2048 (0%) | 2026-08-26 01:16 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
@@ -53,4 +53,5 @@ parentheses is presets in that bucket; bucket frames include transitions and are
 therefore stricter than the clean-hold table in each report.
 
 **Colour:** 🟢 no spills; 🔴 one or more spilled frames.
-**●** — capture refreshed 2026-08-26. Captured timestamps are raw-log local mtimes.
+● IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
+Captured timestamps are local raw-log mtimes.
