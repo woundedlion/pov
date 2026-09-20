@@ -52,6 +52,18 @@ def _live_bash():
     return p, int(p.stdout.readline())
 
 
+def _stop_bash(process, pid):
+    """Terminate and reap the fixture's reported MSYS/POSIX owner."""
+    subprocess.run(["bash", "-c", 'kill -TERM "$1" 2>/dev/null || :',
+                    "fixture-stop", str(pid)], check=True, timeout=5)
+    process.communicate(timeout=5)
+    subprocess.run([
+        "bash", "-c",
+        'for ((i=0; i<100; ++i)); do '
+        'kill -0 "$1" 2>/dev/null || exit 0; sleep 0.01; done; exit 1',
+        "fixture-wait", str(pid)], check=True, timeout=5)
+
+
 class LockStaleness(unittest.TestCase):
     def setUp(self):
         self.d = Path(tempfile.mkdtemp()) / "lock.d"
@@ -64,7 +76,7 @@ class LockStaleness(unittest.TestCase):
 
     def _live_pid(self):
         p, pid = _live_bash()
-        self.addCleanup(p.kill)
+        self.addCleanup(_stop_bash, p, pid)
         return pid
 
     def _age_dir(self, seconds):
@@ -112,8 +124,7 @@ class LockStaleness(unittest.TestCase):
     @staticmethod
     def _dead_pid():
         p, pid = _live_bash()
-        p.kill()
-        p.wait()
+        _stop_bash(p, pid)
         return pid
 
 
@@ -262,7 +273,7 @@ class BoardSelection(unittest.TestCase):
 
     def _live_pid(self):
         p, pid = _live_bash()
-        self.addCleanup(p.kill)
+        self.addCleanup(_stop_bash, p, pid)
         return pid
 
     def test_acquires_a_board_and_pins_the_port(self):
@@ -383,8 +394,7 @@ class BoardSelection(unittest.TestCase):
     @staticmethod
     def _dead_pid():
         p, pid = _live_bash()
-        p.kill()
-        p.wait()
+        _stop_bash(p, pid)
         return pid
 
 
