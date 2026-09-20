@@ -53,7 +53,7 @@ struct Mat4 {
 };
 
 /**
- * @brief Right-multiplies `matrix` by a rotation of `angle` in the (a, b)
+ * @brief Left-multiplies `matrix` by a rotation of `angle` in the (a, b)
  *   coordinate plane.
  * @details Four dimensions have six such planes; composing rotations in them
  *   builds an arbitrary 4D orientation the way axis rotations build a 3D one.

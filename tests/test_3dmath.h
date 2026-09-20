@@ -1709,6 +1709,16 @@ inline void test_rotate_plane_inverse_composition() {
     }
 }
 
+inline void test_rotate_plane_composition_order() {
+  Mat4 rotation = Mat4::identity();
+  rotate_plane(rotation, 0, 1, PI_F * 0.5f);
+  rotate_plane(rotation, 1, 2, PI_F * 0.5f);
+  const Vec4 image = rotation.apply(Vec4{{1.0f, 0.0f, 0.0f, 0.0f}});
+  for (int axis = 0; axis < VEC4_DIMENSIONS; ++axis)
+    HS_EXPECT_NEAR(image[axis], axis == 2 ? 1.0f : 0.0f,
+                   PLANE_ROTATION_TOLERANCE);
+}
+
 /**
  * @brief Requires a six-plane composition — the orientation shape HyperLattice
  *        builds — to stay an isometry with orthonormal rows.
@@ -1819,6 +1829,7 @@ inline int run_3dmath_tests() {
   test_rotate_plane_isometry();
   test_rotate_plane_quarter_turn();
   test_rotate_plane_inverse_composition();
+  test_rotate_plane_composition_order();
   test_rotate_plane_composition_stays_isometric();
 
   return fixture.result();
