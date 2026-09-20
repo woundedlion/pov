@@ -25,4 +25,4 @@ if [ ! -s "$tmp" ]; then
   exit 1
 fi
 
-xargs clang-format --dry-run --Werror --style=file < "$tmp"
+xargs -d '\n' clang-format --dry-run --Werror --style=file < "$tmp"
