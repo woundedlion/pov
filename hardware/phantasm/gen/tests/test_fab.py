@@ -474,6 +474,15 @@ class AssemblyPolicyTests(unittest.TestCase):
         self.assertEqual(fab.cpl_rotation("R_D1", 180), 180)
 
 class SchematicParityTests(unittest.TestCase):
+    def test_committed_artifacts_pass_pinned_kicad_parity(self):
+        try:
+            fab.kicad_cli()
+        except SystemExit as error:
+            self.skipTest(str(error))
+        with tempfile.TemporaryDirectory() as directory:
+            report = str(Path(directory) / "parity.json")
+            self.assertEqual(fab.run_parity(report), len(fab.KNOWN_PARITY_ITEMS))
+
     KNOWN = [
         {"type": "extra_footprint", "description": "Extra footprint",
          "items": [{"description": f"Footprint H{index}"}]}
