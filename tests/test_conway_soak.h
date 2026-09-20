@@ -220,8 +220,11 @@ constexpr uint64_t SOAK_MIN_FRAME_ENERGY = 4000000ull;
  * @brief Runs the full-graph soak: real frame loop, every node visited, no
  *        traps, steady-state persistent arena.
  */
-inline void test_full_graph_walk_soak() {
+inline void test_full_graph_walk_soak(uint32_t seed) {
   reset_globals();
+  hs::random().seed(seed);
+  HS_CONTEXT("walk seed", seed);
+  std::printf("  [soak] walk seed=%u\n", seed);
 
   HankinSolids<SOAK_W, SOAK_H> fx;
   fx.init();
@@ -368,7 +371,8 @@ inline void test_full_graph_walk_soak() {
  */
 inline int run_conway_soak_tests() {
   hs_test::ModuleFixture fixture("conway_soak");
-  test_full_graph_walk_soak();
+  for (uint32_t seed : {1337u, 42u})
+    test_full_graph_walk_soak(seed);
   return fixture.result();
 }
 
