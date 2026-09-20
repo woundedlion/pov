@@ -982,6 +982,11 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     }
     return false;
   case SlotRole::PROJECT:
+    if (field_id == "frame") {
+      HS_EXPECT_TRUE(text ==
+                     (FX::ANIMATED_PROJECTION ? "spin-wander" : "identity"));
+      return true;
+    }
     if (field_id == "hemisphere") {
       HS_EXPECT_TRUE(Spec::PROJECTION ==
                          Pullback::ProjectionKind::GNOMONIC_FOLDED &&
@@ -1121,6 +1126,13 @@ inline void check_document_values(const char *name) {
     HS_EXPECT_TRUE(values != nullptr);
     if (values == nullptr)
       continue;
+
+    if constexpr (!FX::ANIMATED_PROJECTION)
+      for (const DocumentSlot &slot : slots)
+        if (slot.role == SlotRole::PROJECT) {
+          const JsonValue *frame = values->find(slot.label + ".frame");
+          HS_EXPECT_TRUE(frame != nullptr && frame->text == "identity");
+        }
 
     Params built{};
     for (size_t member = 0; member < values->member_keys.size(); ++member) {
@@ -1304,6 +1316,10 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"colorize.generated-palette.v2", nullptr, {}},
     // ProjectionKind names the folded gnomonic alone.
     {"project.gnomonic.v2", "hemisphere", {{"folded"}}},
+    {"project.stereographic.v2", "frame", {{"identity", "spin-wander"}}},
+    {"project.folded-sinusoidal.v2", "frame", {{"identity", "spin-wander"}}},
+    {"project.equirectangular.v2", "frame", {{"identity", "spin-wander"}}},
+    {"project.gnomonic.v2", "frame", {{"identity", "spin-wander"}}},
     // The displacement policies pin the basis and the integrator.
     {"sphere.displace.curl.v2", "basis", {{"simplex"}}},
     {"sphere.displace.curl.v2", "integrator", {{"euler"}}},
@@ -1445,8 +1461,8 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
   HS_EXPECT_EQ(unreachable_operators, 13u);
-  HS_EXPECT_EQ(catalog_values, 140u);
-  HS_EXPECT_EQ(unreachable_values, 89u);
+  HS_EXPECT_EQ(catalog_values, 156u);
+  HS_EXPECT_EQ(unreachable_values, 97u);
 }
 
 using RippleProbeParams =
