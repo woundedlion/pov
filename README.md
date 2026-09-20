@@ -499,6 +499,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   ├── wasm_smoke_predicates.mjs Module-free smoke decisions: dark band, stack creep budget, param zip
 │   ├── wasm_smoke_predicates.test.mjs Node unit test for those three decisions
+│   ├── wasm_cache_key.test.mjs Node regression tests for generated WASM URL versioning
 │   ├── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
 │   ├── screenshot_capture_config.mjs Per-effect capture offsets shared by capture and the CI gate
 │   ├── screenshot_capture_config.test.mjs Node unit test for the capture-offset table
