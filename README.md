@@ -678,7 +678,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── scripts/
 │   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
-│   ├── check-cdn-integrity.mjs Verifies pinned CDN module bytes against importmap integrity hashes
 │   ├── probe_harness.mjs       Manifest server, browser, console/network collector and pointer helpers every probe runs on
 │   ├── browser.mjs             Browser resolution (CHROME_PATH, else the standard Chrome locations) and the launch flags the headless scripts share
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
@@ -696,9 +695,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── lissajous-probe.mjs     Headless pointer-level probe of the Lissajous page's rational frequency lock and the domain it drives
 │   └── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
 │
-├── requirements/
-│   ├── shellcheck.in          ShellCheck version pin
-│   └── shellcheck.txt         Hashed ShellCheck wheel lock
 ├── tests/                      Node unit tests (`npm test`)
 ├── tsconfig.json               checkJs settings for the worker-protocol module set
 ├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step

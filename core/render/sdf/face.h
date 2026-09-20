@@ -607,6 +607,7 @@ struct Face {
    * @param indices Indices selecting this face's vertices.
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
+   * @param bounds_margin Angular padding around the vertical bounds.
    * @return True when the phi extent plus AA margin maps to an empty
    *         canvas-row range.
    */
@@ -1209,6 +1210,7 @@ struct Face {
    * @param height Canvas height in rows.
    * @param y_min_out Output: first covered row.
    * @param y_max_out Output: last covered row.
+   * @param bounds_margin Angular padding around the vertical bounds.
    */
   HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch,
                                            int count, const Vector &center,
