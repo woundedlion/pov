@@ -23,4 +23,4 @@ if [ ! -s "$tmp" ]; then
   exit 1
 fi
 
-xargs shellcheck -x < "$tmp"
+xargs -d '\n' shellcheck -x < "$tmp"
