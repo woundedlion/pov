@@ -3930,6 +3930,14 @@ struct Case {
                                guard's breadcrumb line. */
 };
 
+/** @brief Reconciliation cannot retain output in its scratch arena. */
+inline void case_reconcile_aliased_arenas() {
+  static uint8_t storage[64];
+  Arena arena(storage, sizeof(storage));
+  PolyMesh identity, authored, out;
+  MeshOps::reconcile_vertices(identity, authored, out, arena, arena);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -3939,6 +3947,8 @@ struct Case {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"reconcile_aliased_arenas", case_reconcile_aliased_arenas, "conway.h",
+       "(&target != &scratch) reconcile_vertices: target and scratch must differ"},
       {"arena_oom", case_arena_oom, "memory.cpp",
        "(false) Arena::allocate: out of memory"},
       {"arena_make_oom", case_arena_make_oom, "memory.cpp",

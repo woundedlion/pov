@@ -1734,14 +1734,16 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
                                               const PolyMesh &authored,
                                               PolyMesh &out, Arena &target,
                                               Arena &scratch) {
+  HS_CHECK(&target != &scratch,
+           "reconcile_vertices: target and scratch must differ");
   const size_t V = identity.vertices.size();
   HS_CHECK(authored.vertices.size() == V,
            "reconcile_vertices: endpoints differ in vertex count");
+  HS_CHECK(V <= UINT16_MAX,
+           "reconcile_vertices: endpoint exceeds index capacity");
   ScratchScope guard(scratch);
   bool *used = scratch.allocate_n<bool>(V);
   std::fill_n(used, V, false);
-  HS_CHECK(V <= UINT16_MAX,
-           "reconcile_vertices: endpoint exceeds index capacity");
   uint16_t *by_z = scratch.allocate_n<uint16_t>(V);
   for (size_t j = 0; j < V; ++j)
     by_z[j] = static_cast<uint16_t>(j);
