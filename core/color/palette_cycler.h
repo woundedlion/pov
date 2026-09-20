@@ -283,6 +283,8 @@ public:
              "PaletteCycler chroma needs a generated cycle");
     from_slot->set_constant_chroma(chroma);
     to_slot->set_constant_chroma(chroma);
+    if (display_dirty)
+      return;
     if (!fade_active) {
       rebake_display(*from_slot);
       return;
