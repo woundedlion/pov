@@ -506,7 +506,8 @@ public:
       // compiled topology, and each star point's collapsed position is its own
       // corner, reachable through the same instruction hankin_at walks.
       const size_t statics = tr.hankin.static_vertices.size();
-      HS_CHECK(arrival.vertices.size() >= statics);
+      HS_CHECK(arrival.vertices.size() >= statics,
+               "OpLeg truncate: arrival has fewer vertices than statics");
       const size_t dyn = arrival.vertices.size() - statics;
       tr.hk_final.bind(arena, dyn);
       for (size_t i = 0; i < dyn; ++i)
@@ -915,7 +916,9 @@ private:
         swept = run_op(tr.op, *tr.seed_ref, scratch_arena_a, scratch_arena_b,
                        tp, tw);
         if (settle_alpha > 0.0f) {
-          HS_CHECK(swept.vertices.size() == tr.relaxed.size());
+          HS_CHECK(swept.vertices.size() == tr.relaxed.size(),
+                   "OpLeg relax: swept vertices %zu != relaxed vertices %zu",
+                   swept.vertices.size(), tr.relaxed.size());
           // Alpha 1 copies the relaxed endpoint verbatim, so the settled
           // bookend is bitwise it (mirrors slerp_vertices' k >= 1 shortcut).
           if (settle_alpha >= 1.0f)
@@ -1291,7 +1294,7 @@ private:
     tr.seed_face_ramp.bind(arena, seed_faces);
     for (size_t f = 0; f < seed_faces; ++f) {
       const uint8_t pal = handoff.prev_face_palette[f];
-      HS_CHECK(pal < PALETTES);
+      HS_CHECK(pal < PALETTES, "OpLeg palette: index out of range");
       int ramp = -1;
       for (int r = 0; r < tr.seed_num_ramps; ++r) {
         if (tr.seed_ramp_pal[r] == pal) {
@@ -1472,7 +1475,9 @@ private:
     MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                         scratch_arena_b, arena);
     topology = std::move(arrival.topology);
-    HS_CHECK(topology.size() == faces);
+    HS_CHECK(topology.size() == faces,
+             "OpLeg bookend: topology size %zu != face count %zu",
+             topology.size(), faces);
     return false;
   }
 

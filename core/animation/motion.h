@@ -38,11 +38,12 @@ public:
   Path &append_segment(PlotFn plot, float domain, int samples,
                        ScalarFn easing) {
     // samples >= 1 also keeps the t / samples divide below non-zero.
-    HS_CHECK(samples >= 1);
+    HS_CHECK(samples >= 1, "DeepMotion: samples must be positive");
     // Account for the pop_back below: a non-empty path drops its last point
     // before appending samples + 1, so the final size is (size - 1) + samples + 1.
     size_t retained = points.is_empty() ? points.size() : points.size() - 1;
-    HS_CHECK(retained + static_cast<size_t>(samples) + 1 <= RESOLUTION);
+    HS_CHECK(retained + static_cast<size_t>(samples) + 1 <= RESOLUTION,
+             "DeepMotion: retained samples exceed resolution");
     if (!points.is_empty())
       points.pop_back();
     for (int t = 0; t <= samples; t++) {
@@ -428,7 +429,7 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    HS_CHECK(orientation != nullptr);
+    HS_CHECK(orientation != nullptr, "MotionBlur: orientation is null");
     if (this->t == 0) {
       last_angle = 0;
     }
@@ -513,7 +514,8 @@ stable_rotation_squared_magnitude(const Quaternion &q) {
 [[nodiscard]] HS_NOINLINE_NOCLONE inline Quaternion
 stable_rotation_normalized(const Quaternion &q) {
   float m2 = stable_rotation_squared_magnitude(q);
-  HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+  HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ,
+           "MotionBlur: rotation axis is degenerate");
   float m = sqrtf(m2);
   return Quaternion(q.r / m, q.v / m);
 }

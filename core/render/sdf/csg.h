@@ -201,7 +201,7 @@ template <typename A, typename B> struct SmoothUnion {
    */
   SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
       : a(shape_a), b(shape_b), k(smoothness) {
-    HS_CHECK(k > 0.0f);
+    HS_CHECK(k > 0.0f, "SDF CSG: smoothness must be positive");
   }
 
   /**
@@ -655,8 +655,9 @@ template <typename Shape> struct AngularRepeat {
       : shape(s), axis(ax), repetitions(reps),
         sector(TWO_PI_F / static_cast<float>(reps)),
         reciprocal_sector(static_cast<float>(reps) / TWO_PI_F) {
-    HS_CHECK(reps > 0);
-    HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f);
+    HS_CHECK(reps > 0, "SDF CSG: repetition count must be positive");
+    HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f,
+             "SDF CSG: repetition axis must be unit length");
     // Derive perpendicular plane via Gram-Schmidt
     Vector ref = (fabsf(ax.y) < 0.9f) ? Vector(0, 1, 0) : Vector(1, 0, 0);
     float d = ref.x * ax.x + ref.y * ax.y + ref.z * ax.z;
