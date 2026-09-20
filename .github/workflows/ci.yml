@@ -2038,10 +2038,10 @@ jobs:
           # Everything inside a job (including block-scalar bodies) is indented
           # deeper, and the `on:` keys sit above `jobs:`.
           awk '
-            /^jobs:[[:space:]]*$/ { injobs = 1; next }
+            /^jobs:[[:space:]]*(#.*)?$/ { injobs = 1; next }
             injobs && /^[^[:space:]]/ { injobs = 0 }
-            injobs && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {
-              sub(/^  /, ""); sub(/:[[:space:]]*$/, ""); print
+            injobs && /^  [A-Za-z0-9_-]+:[[:space:]]*(#.*)?$/ {
+              sub(/^  /, ""); sub(/:[[:space:]]*(#.*)?$/, ""); print
             }
           ' "$WF" | grep -vx ci-green | sort > /tmp/ci-jobs.txt
           # An empty extraction would make the comparison below pass vacuously.
