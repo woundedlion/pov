@@ -369,6 +369,9 @@ struct Mesh {
     const uint16_t *fo = mesh.get_face_offsets_data();
     size_t fi_size = mesh.get_faces_size();
 
+    HS_CHECK(mesh.get_face_offsets_size() == num_f,
+             "solid mesh scan requires one face offset per face");
+
     check_face_index_domain(fi, fi_size, mesh.vertices.size());
 
     // An empty bake (build skipped) is equivalent to none; a populated one
