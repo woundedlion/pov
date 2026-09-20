@@ -3771,6 +3771,19 @@ inline void test_fixed_shader_export_equivalence() {
       shader, kaleidoscope_hex_oil_topology(), 0);
   verify_fixed_shader_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(
       shader, kaleidoscope_hex_oil_topology(), 1);
+  WB::RequestedConfig surface = WB::presets()[0];
+  surface.slots = WB::generated_surface_noise_slots();
+  surface.slots.surface_noise = WB::SurfaceNoise::CURL;
+  surface.slots.projection = WB::Projection::GNOMONIC;
+  surface.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT;
+  surface.slots.palette = WB::PaletteMode::ANALOGOUS;
+  verify_fixed_shader_export<ChromaticLichen<SMALL_W, SMALL_H>>(shader, surface,
+                                                                0);
+  surface.slots.surface_lens = WB::SurfaceLens::NONE;
+  surface.slots.surface_noise_placement =
+      WB::SurfaceNoisePlacement::BEFORE_LENS;
+  surface.slots.projection = WB::Projection::SINUSOIDAL;
+  verify_fixed_shader_export<MermaidSkin<SMALL_W, SMALL_H>>(shader, surface, 0);
 }
 
 inline void test_alien_brain_preset_dwell() {
