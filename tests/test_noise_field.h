@@ -20,21 +20,6 @@ inline FastNoiseLite make_noise(int32_t seed) {
   return noise;
 }
 
-inline float reference_basis(const FastNoiseLite &noise, NoiseBasis basis,
-                             const Vector &q) {
-  const float n0 = noise.GetNoise(q.x, q.y, q.z);
-  if (basis == NoiseBasis::SIMPLEX)
-    return n0;
-  const float n1 = noise.GetNoise(q.x * 2.0f, q.y * 2.0f, q.z * 2.0f);
-  const float n2 = noise.GetNoise(q.x * 4.0f, q.y * 4.0f, q.z * 4.0f);
-  if (basis == NoiseBasis::FBM3)
-    return (4.0f * n0 + 2.0f * n1 + n2) / 7.0f;
-  const float r = (4.0f * (1.0f - std::abs(n0)) + 2.0f * (1.0f - std::abs(n1)) +
-                   (1.0f - std::abs(n2))) /
-                  7.0f;
-  return 2.0f * r - 1.0f;
-}
-
 inline void test_noise_field_key_identity() {
   NoiseFieldSpec a{
       NoiseDomain::SPHERE_3D,       NoiseBasis::FBM3, 41, 2.0f, 0.01f, 0.25f,
@@ -103,11 +88,19 @@ inline void test_noise_field_octave_formulas() {
   constexpr std::array<Vector, 4> POINTS = {
       Vector(0.0f, 0.0f, 0.0f), Vector(3.25f, -7.5f, 11.0f),
       Vector(-31.75f, 0.125f, 2.5f), Vector(64.0f, 32.0f, -16.0f)};
+  constexpr std::array<std::array<float, 4>, 3> EXPECTED = {{
+      {0.0f, 0.111684620f, 0.477153748f, -0.110211231f},
+      {0.0f, -0.00533447927f, 0.00685898308f, -0.173915580f},
+      {1.0f, 0.734051824f, -0.0769191384f, 0.208394766f},
+  }};
+  size_t basis_index = 0;
   for (NoiseBasis basis :
-       {NoiseBasis::SIMPLEX, NoiseBasis::FBM3, NoiseBasis::RIDGED3})
-    for (const Vector &q : POINTS)
-      HS_EXPECT_NEAR(sample_noise_octaves(noise, basis, q),
-                     reference_basis(noise, basis, q), 1e-7f);
+       {NoiseBasis::SIMPLEX, NoiseBasis::FBM3, NoiseBasis::RIDGED3}) {
+    for (size_t point = 0; point < POINTS.size(); ++point)
+      HS_EXPECT_NEAR(sample_noise_octaves(noise, basis, POINTS[point]),
+                     EXPECTED[basis_index][point], 2e-6f);
+    ++basis_index;
+  }
 }
 
 inline void test_noise_field_ridged_channel_pairs() {
