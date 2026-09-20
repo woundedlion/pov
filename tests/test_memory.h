@@ -1358,6 +1358,10 @@ inline int run_memory_tests() {
   test_arena_generation_bumps();
   test_arena_covers();
   test_arena_reclaimed_since();
+#else
+  skip_case("test_arena_generation_bumps", "requires debug arena tracking");
+  skip_case("test_arena_covers", "requires debug arena tracking");
+  skip_case("test_arena_reclaimed_since", "requires debug arena tracking");
 #endif
   test_configure_arenas_repartition();
   test_resplit_arenas_preserves_persistent();
@@ -1381,6 +1385,9 @@ inline int run_memory_tests() {
   test_arenavec_rebind_grows();
 #ifndef NDEBUG
   test_arenavec_stale_binding_after_reset();
+#else
+  skip_case("test_arenavec_stale_binding_after_reset",
+            "requires debug arena tracking");
 #endif
   test_arenavec_zero_capacity();
 
