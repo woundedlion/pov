@@ -43,8 +43,8 @@ Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
   per segment, each calling `setClip(x0, x1, y0, y1)` (gated on
   `needs_full_frame()`) so the rasterizer's scanline culling skips out-of-clip
   rows/columns. Each worker owns a **fixed** quadrant for the whole effect; the
-  readback copies the full canvas and `segment_layout.js:105` extracts just the
-  quadrant rectangle (`blitSegmentRect`) before transfer (README §10.7).
+  readback copies the full canvas and `segment_layout.js` `blitSegmentRect`
+  extracts just the quadrant rectangle before transfer (README §10.7).
 
 Both clip non-stateful effects to a quadrant and leave `needs_full_frame()`
 effects at full canvas; the device's quadrant alternates per frame because it
@@ -192,7 +192,7 @@ In `targets/wasm/engine_bindings.h` `setClip`: if
 apply the band as today.
 
 "Leave at full" is safe because the clip is already full when this fires: the
-`Effect` constructor resets `clip` to the whole canvas (canvas.h:87-110), and the
+`Effect` constructor resets `clip` to the whole canvas (`Effect::Effect`), and the
 worker re-applies the band *only* after `setEffect` rebuilds the effect
 (`segment_worker.js` `applyClip`). So a full-frame effect's clip is never
 narrowed in the first place — the early return preserves the constructor's
@@ -211,7 +211,7 @@ device exactly.
 **Precondition (existing invariant this rests on).** "Bit-identical full
 frame across workers" holds only because per-worker frame inputs are already
 deterministic: animations are *frame-stepped*, not wall-clock-stepped
-(`AnimationBase::step` counts frames, `core/animation/animation.h:165`;
+(`AnimationBase::step` counts frames, `core/animation/animation.h`;
 `drawFrame()` advances exactly one, `targets/wasm/engine_bindings.h` — the
 `elapsed` timing is telemetry and never feeds
 animation), the RNG is fixed-seed (`hs::Pcg32(1337)`), and params are
@@ -231,9 +231,9 @@ alongside the `any_*` OR-folds. `pipeline_config<>` carries it into
 default of 1, so a pipeline folding to 0 keeps the coverage every effect
 already has.
 
-`Pixel::ChromaticShift` declares `segment_margin = 3` (its +1/+2/+3 column taps
-leave the plotted position) and stays `crosses_segments = false` — 3 columns of
-padding, not a full-canvas render. `MeshFeedback` is unbounded and skips this
+`Pixel::ChromaticShift<Spread>` declares `segment_margin = 3 * Spread` (its
+three taps scale with the authored spread) and stays `crosses_segments = false`.
+That finite padding avoids a full-canvas render. `MeshFeedback` is unbounded and skips this
 tier. The only margin-declaring filters a roster effect uses today are the
 ±1 splatters (`Screen::AntiAlias`, `Screen::DirectAntiAliasSink`), which the
 ClipRegion default already covers, so every effect's clip margin is 1.
@@ -296,7 +296,8 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
   `Screen::Trails` stack folds to `any_crosses_segments == true` and
   `any_reads_outside_band == false` — so a future filter addition can't
   silently regress either gate. Also pins `segment_margin`
-  (`ChromaticShift == 3`, the ±1 splatters 1, everything else 0) and the
+  (`ChromaticShift == 3 * Spread`, AntiAlias, Blur, and the direct AA sink are
+  1, everything else 0) and the
   `total_segment_margin` sum-fold.
 - **Margin wiring** (`test_effect_config_margin`, test_canvas.h): asserts
   `EffectConfig::margin` reaches `ClipRegion::margin` and that a fold of 0 does

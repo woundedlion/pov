@@ -542,7 +542,7 @@ constants are tunables):
   phase correction is **≤ G columns** (G = 4) *and* its boundary identity
   matches the flywheel's nearest predicted boundary. Anything else is
   *rejected*: counted in telemetry (§8.6), no snap, no flip. After **R
-  consecutive rejections** (R = 4, ≈2 revolutions) the board concludes its own
+  consecutive rejections** (F = 4, ≈2 revolutions) the board concludes its own
   timebase — not the wire — is at fault and falls back to ACQUIRE, hard-snapping
   to the next valid symbol. The fallback is mandatory: a gate without an escape
   deadlocks a genuinely-lost board into rejecting good symbols forever.
@@ -566,7 +566,7 @@ simulation, not the original design):
   beacon's first digit — so it is fed to the beacon parser *and* held as a
   suspect until the beacon interdigit window (24 columns) passes. If another
   burst follows inside the window, it was beacon data; if the wire stays
-  silent, it is counted as a gate rejection toward the R-fallback. Without
+  silent, it is counted as a gate rejection toward the F-fallback. Without
   this, a board with a corrupted timebase would route every REAL boundary
   symbol to the beacon parser (> G from its broken predictions) and never
   accumulate the R rejections — exactly the deadlock the fallback exists to
@@ -979,7 +979,7 @@ undefined behavior, not because it is designed against.
 
 Worst-case recovery and expected frequency per failure mode, on the shipped
 DMA LED path (mask window M ≈ 0, so all masked-IRQ modes are non-events).
-Constants: gate G = 4 col, fallback R = 4 rejections, EPOCH repeats = 3,
+Constants: gate G = 4 col, fallback F = 4 rejections, EPOCH repeats R = 3,
 construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
@@ -989,8 +989,8 @@ The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
 are suppressed for the whole commit window, so the widest beacon-to-beacon gap
 is 16 + 3 (EPOCH announce revs) + K = 21 revs, and a joiner then waits up to the
 4-rev join grid. `Config::valid()` enforces that bound. The 25 revs are
-absolute, not a fraction of the effect: against a 48-revolution entry a
-rejoining board can be dark for more than half that effect's airtime, so a
+absolute, not a fraction of the effect: against the shortest 304-revolution
+roster entry a rejoining board can be dark for about 8% of its airtime, so a
 short entry is a worse case for rejoin visibility than a long one.
 
 | Failure mode | Worst-case artifact | Worst-case recovery | Expected frequency |
@@ -1099,7 +1099,7 @@ strictly cleaner, not weaker.
    ≤ G columns; with G < W/4 the distance gate subsumes the
    boundary-identity check; R consecutive rejections — including
    suspect-burst timeouts — fall back to ACQUIRE so the gate can never
-   deadlock a lost board). Shipped constants: G = 4 columns, R = 4.
+   deadlock a lost board). Shipped constants: G = 4 columns, F = 4.
 8. **Share the flywheel with `pov_single`? — NOT DONE (future option).** The
    single-board driver keeps its per-column IntervalTimer ISR. Now that
    master itself runs the time-derived flywheel, factoring a common flywheel

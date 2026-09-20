@@ -136,8 +136,8 @@ struct ProjectionProvenance { // exactly what a projection computes:
   float fade_edge_distance;
   float value_weight;
   uint8_t flags;
-  uint8_t traits;
-  uint8_t edge_class;
+  uint8_t traits = 0;
+  uint8_t edge_class = 0;
   float domain_coverage = 1.0f; // defaulted: projections routinely omit
 };                              // trailing fields (stereographic,
                                 // from_kernel) and rely on full coverage
@@ -177,7 +177,7 @@ carrier: the result's `coords` become the working coordinate, its
 `provenance` embeds unchanged, and `sphere` is combinator state written
 from the pre-projection point. The carrier holds one planar coordinate,
 not two: the only consumer of the embedded copy today is the warp
-chain's seed (`stage.h:221`), which is precisely the split the crossing
+chain's seed (`Stage::Warp::run`), which is precisely the split the crossing
 now performs. `WarpStepResult` survives as the warp policy protocol
 type.
 
