@@ -486,6 +486,8 @@ peirce_projection_fast_square(const Vector &v) {
     edge = std::min(edge,
                     0.5f * PI_F - fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
   }
+  if (fabsf(v.y) >= 1.0f)
+    edge_class = 0;
   return {.coords = Complex(x, projected_y),
           .region_id = region,
           .component_id = 0,

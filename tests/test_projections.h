@@ -192,6 +192,21 @@ inline void test_peirce_fast_square_matches_exact() {
   }
 }
 
+/** @brief Rounded pole heights must preserve the exact kernel's edge identity. */
+inline void test_peirce_fast_square_rounded_pole_cap() {
+  for (float sign : {-1.0f, 1.0f})
+    for (float radius : {1e-6f, 1e-5f, 1e-4f, 2e-4f, 3e-4f, 1e-3f})
+      for (int longitude = 0; longitude < 64; ++longitude) {
+        const float angle = (longitude + 0.5f) * TWO_PI_F / 64.0f;
+        const Vector v(radius * cosf(angle),
+                       sign * sqrtf(1.0f - radius * radius),
+                       radius * sinf(angle));
+        const auto exact = peirce_projection(v, 0.0f, 1, 0.0f);
+        const auto fast = peirce_projection_fast_square(v);
+        HS_EXPECT_EQ(fast.edge_class, exact.edge_class);
+      }
+}
+
 inline void test_peirce_fast_square_on_seams_and_poles() {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   check_peirce_fast_square_matches_exact(Vector(0.0f, 1.0f, 0.0f));
@@ -536,6 +551,7 @@ inline int run_projections_tests() {
   test_peirce_sector_longitude_snapping();
   test_peirce_fast_square_matches_exact();
   test_peirce_fast_square_on_seams_and_poles();
+  test_peirce_fast_square_rounded_pole_cap();
   test_peirce_fast_square_ties_the_diagonal_band_to_its_seam();
   test_peirce_edge_distance_locates_the_singularities();
   test_peirce_square_is_the_rotated_diamond();
