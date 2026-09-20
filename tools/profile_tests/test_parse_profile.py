@@ -8,6 +8,7 @@ meaningful only when it represents frames.
 Run:  python -m unittest discover -s tools/profile_tests
 """
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -599,6 +600,16 @@ class PullbackTelemetryValidation(unittest.TestCase):
     def test_complete_synthetic_cycle(self):
         ok, _ = self._validate(self._telemetry())
         self.assertTrue(ok)
+
+    def test_duplicate_manifest_preset_is_a_validation_failure(self):
+        manifest = json.loads(json.dumps(self.manifest))
+        duplicate = manifest["programs"][0]["presets"][0]
+        manifest["programs"][1]["presets"].append(duplicate)
+        ok, checks = self._validate(self._telemetry(), manifest=manifest)
+        self.assertFalse(ok)
+        self.assertTrue(any(
+            not condition and f"preset {duplicate} twice" in message
+            for condition, message in checks))
 
     def test_arm_and_program_records_parse(self):
         import tempfile

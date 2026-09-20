@@ -831,7 +831,8 @@ def validate_pullback_telemetry(pullback, expected_arm, manifest, check):
         known_ids.add(program_id)
         for preset in program.get("presets", []):
             if preset in by_preset:
-                raise ValueError(f"manifest assigns preset {preset} twice")
+                check(False, f"manifest assigns preset {preset} twice")
+                continue
             by_preset[preset] = program_id
     preset_count = max(by_preset, default=-1) + 1
     events = pullback["programs"]
