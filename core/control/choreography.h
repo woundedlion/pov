@@ -178,7 +178,7 @@ protected:
    * `PRESET_SEGUE.pausable` controls whether pause suspends the transition.
    * A manual edit cancels it and restarts the preset dwell.
    */
-  HS_COLD_MEMBER void animated_parameter_written() override {
+  HS_COLD_MEMBER void parameter_written() override {
     transition.active = false;
     preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
   }
