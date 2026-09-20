@@ -1,4 +1,4 @@
-# Remove installed patterns that no longer exist in the engine gallery.
+# Remove obsolete top-level engine-owned pattern assets.
 # Required variables: HS_MIRROR_SOURCE, HS_DAYDREAM_DIR.
 
 if(NOT IS_DIRECTORY "${HS_MIRROR_SOURCE}")
@@ -16,12 +16,12 @@ if(NOT IS_DIRECTORY "${_hs_mirror_destination}")
   return()
 endif()
 
-file(GLOB_RECURSE _hs_source_patterns
+file(GLOB _hs_source_patterns
   LIST_DIRECTORIES FALSE
   RELATIVE "${HS_MIRROR_SOURCE}"
   "${HS_MIRROR_SOURCE}/*.shader.json"
   "${HS_MIRROR_SOURCE}/shaderball_migration.json")
-file(GLOB_RECURSE _hs_installed_patterns
+file(GLOB _hs_installed_patterns
   LIST_DIRECTORIES FALSE
   RELATIVE "${_hs_mirror_destination}"
   "${_hs_mirror_destination}/*.shader.json"

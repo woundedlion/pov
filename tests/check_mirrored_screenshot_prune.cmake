@@ -60,7 +60,8 @@ if(NOT EXISTS "${_not_daydream}/docs/screenshots/stale.png")
 endif()
 
 set(_patterns "${_daydream}/shader/patterns")
-file(MAKE_DIRECTORY "${_patterns}")
+file(MAKE_DIRECTORY "${_patterns}/v1")
+file(WRITE "${_patterns}/v1/example.shader.json" "daydream migration fixture")
 file(WRITE "${_source}/keep.shader.json" "source")
 file(WRITE "${_patterns}/keep.shader.json" "keep")
 file(WRITE "${_patterns}/stale.shader.json" "stale")
@@ -74,7 +75,8 @@ if(EXISTS "${_patterns}/stale.shader.json" OR
   message(FATAL_ERROR "Prune retained stale mirrored patterns")
 endif()
 if(NOT EXISTS "${_patterns}/keep.shader.json" OR
-   NOT EXISTS "${_patterns}/notes.json")
+   NOT EXISTS "${_patterns}/notes.json" OR
+   NOT EXISTS "${_patterns}/v1/example.shader.json")
   message(FATAL_ERROR "Prune removed retained pattern files")
 endif()
 
