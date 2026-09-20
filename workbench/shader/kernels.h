@@ -133,8 +133,7 @@ project_bonne(const Vector &local, const FrameState &frame) {
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
 project_peirce(const Vector &local, const FrameState &frame) {
   if (frame.slots.peirce_layout == PeirceLayout::SQUARE &&
-      frame.params.projection.central_meridian == 0.0f &&
-      projection_edge_distance_required(frame))
+      frame.params.projection.central_meridian == 0.0f)
     return Pullback::Projection::peirce_fast_square(
         local, frame.params.projection.coordinate_scale,
         frame.params.projection.singularity_fade);
