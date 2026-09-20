@@ -743,6 +743,7 @@ target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/cor
 target_link_libraries(feedback_divergence PRIVATE hs_host_abi)
 target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)
 _hs_warnings(feedback_divergence)
+_hs_sanitize(feedback_divergence)
 add_test(NAME unit_feedback_dump COMMAND feedback_divergence --dump
   "${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke.bin" 1)
 set_tests_properties(unit_feedback_dump PROPERTIES FIXTURES_SETUP feedback_dump)
@@ -760,6 +761,7 @@ target_include_directories(feedback_divergence_io PRIVATE ${HS_ROOT} ${HS_ROOT}/
 target_link_libraries(feedback_divergence_io PRIVATE hs_host_abi)
 target_compile_options(feedback_divergence_io PRIVATE -O2 -ffast-math -fno-finite-math-only)
 _hs_warnings(feedback_divergence_io)
+_hs_sanitize(feedback_divergence_io)
 add_test(NAME unit_feedback_io COMMAND feedback_divergence_io
   "${CMAKE_CURRENT_BINARY_DIR}/feedback-io.bin")
 
