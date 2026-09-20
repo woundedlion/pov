@@ -488,6 +488,44 @@ class ValidateRequiresData(unittest.TestCase):
         self.assertTrue(ok)
         self.assertIn("VALID", out)
 
+    def test_named_shape_cycles_require_progression_and_return(self):
+        formats = ["Spawning Shape: {} (V=1, E=1, F=1, I=1)",
+                   "Loading shape: '{}' "]
+        cases = [(["A", None, None], False),
+                 (["A", "A", "A"], False),
+                 (["A", "B", "B"], False),
+                 (["A", "B", "A"], True)]
+        windows = self._measurable(600_000, 1000).splitlines()
+        for marker_format in formats:
+            for names, expected in cases:
+                with self.subTest(marker_format=marker_format, names=names):
+                    lines = []
+                    for index, name in enumerate(names):
+                        if name is not None:
+                            lines.append(marker_format.format(name))
+                        lines.extend(windows[index * 3:index * 3 + 3])
+                    ok, _ = self._validate("\n".join(lines))
+                    self.assertEqual(ok, expected)
+
+    def test_marker_events_between_windows_are_not_lost(self):
+        windows = self._measurable(600_000, 1000).splitlines()
+        text = "\n".join([
+            "Loading shape: 'A'", *windows[:3],
+            "Loading shape: 'B'", "Loading shape: 'A'", *windows[3:]])
+        ok, _ = self._validate(text)
+        self.assertTrue(ok)
+
+    def test_indexed_cycles_and_fixed_presets_keep_their_validation(self):
+        windows = self._measurable(600_000, 1000).splitlines()
+        text = "\n".join([
+            "Preset: 0/2", *windows[:3],
+            "Preset: 1/2", "Preset: 0/2", *windows[3:]])
+        self.assertTrue(self._validate(text)[0])
+        held = "Preset: 0/2\n" + "\n".join(windows)
+        self.assertFalse(self._validate(held)[0])
+        fixed = "Profile preset: 1/2\n" + "\n".join(windows)
+        self.assertTrue(self._validate(fixed)[0])
+
     def test_ppm_drift_is_still_caught(self):
         ok, _ = self._validate(self._measurable(700_000, 1000))
         self.assertFalse(ok)
