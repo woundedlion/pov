@@ -296,10 +296,12 @@ struct SphericalPolygon {
   /**
    * @brief Signed edge-plane dot for sine-domain solid antialiasing.
    * @param p Point on sphere (normalized).
-   * @return sin of the signed angular distance to the nearest edge.
+   * @return Signed sine-domain distance, with a hemisphere bound away from
+   *         the edge.
    * @note Carries distance()'s circumscribed-disc clamp in the sine domain:
    *       sin(polar - circumradius) expands to sin_p*cos_cap - cos_p*sin_cap,
    *       so the tighter bound past a vertex costs no transcendental here.
+   *       The hemisphere bound can dominate only beyond angular distance PI/2.
    */
   float sine_distance(const Vector &p) const {
     float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
@@ -310,7 +312,7 @@ struct SphericalPolygon {
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
     float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
     float disc = sin_p * cos_cap - cos_p * sin_cap;
-    return sign * std::max(hs::clamp(dp, -1.0f, 1.0f), disc);
+    return sign * std::max(hs::clamp(dp, -cos_p, 1.0f), disc);
   }
 };
 
