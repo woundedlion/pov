@@ -1536,13 +1536,8 @@ jobs:
       # violations instead and reads as empty on a clean tree.
       - name: Lint Python
         run: |
-          ruff check --no-cache --show-files . > /tmp/ruff-files.txt
-          if [ ! -s /tmp/ruff-files.txt ]; then
-            echo "::error::no files selected — the ruff.toml exclude list or a .gitignore rule is broken"
-            exit 1
-          fi
+          bash tools/ruff_selection_guard.sh
           ruff check --no-cache --output-format=github .
-          echo "ruff clean: $(wc -l < /tmp/ruff-files.txt) files linted."
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -1559,14 +1554,8 @@ jobs:
       # is the one whose output a failure is read from.
       - name: Lint JavaScript
         run: |
-          npx eslint . --format json > /tmp/eslint-report.json || true
-          count=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/eslint-report.json','utf8')).length")
-          if [ "$count" -eq 0 ]; then
-            echo "::error::no files selected — the eslint.config.mjs ignores list is broken"
-            exit 1
-          fi
+          bash tools/eslint_selection_guard.sh
           npx eslint .
-          echo "eslint clean: $count files linted."
 
       # The justfile is the documented local entry point (README, CONTRIBUTING)
       # and no job ran it in any form, so a parse error or a broken variable
@@ -1606,14 +1595,7 @@ jobs:
       # its `shellcheck source=` directive, and the two variables read outside
       # the file that declares them carry their own disable.
       - name: Lint shell
-        run: |
-          mapfile -t FILES < <(git ls-files -- '*.sh' '.githooks/*')
-          if [ "${#FILES[@]}" -eq 0 ]; then
-            echo "::error::no files selected — the shell path list is broken"
-            exit 1
-          fi
-          shellcheck -x "${FILES[@]}"
-          echo "shellcheck clean: ${#FILES[@]} files linted."
+        run: bash tools/shellcheck_gate.sh
 
       # actionlint-py is the PyPI distribution of the same binary, pinned like
       # ruff and shellcheck above.
@@ -1796,45 +1778,9 @@ jobs:
         run: pip install --require-hashes -r requirements/clang-format.txt
 
       - name: Check formatting
-        env:
-          CF: clang-format
         run: |
-          "$CF" --version
-
-          # Same file set as .githooks/pre-commit: first-party C++ only, with
-          # core/vendor/ and the seven generated sources excluded (they are
-          # emitted by their generators, not hand-formatted). The exclusion
-          # regex is pinned against the hook's copy by
-          # tools/build_pins.py --check (SHARED_LITERALS), so the two cannot
-          # drift apart silently.
-          git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' \
-            | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)core/color/triadic_palette_luts\.h$|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$|(^|/)tests/mindsplatter_replay_corpus\.h$' \
-            > /tmp/format-files.txt
-
-          if [ ! -s /tmp/format-files.txt ]; then
-            echo "::error::no files selected — the pathspec or exclusion regex is broken"
-            exit 1
-          fi
-
-          rc=0
-          : > /tmp/format-unformatted.txt
-          while IFS= read -r f; do
-            if ! "$CF" --dry-run --Werror --style=file "$f" >/dev/null 2>&1; then
-              printf '%s\n' "$f" >> /tmp/format-unformatted.txt
-              "$CF" --style=file "$f" | diff -u "$f" - || true
-            fi
-          done < /tmp/format-files.txt
-          if [ -s /tmp/format-unformatted.txt ]; then
-            while IFS= read -r f; do
-              echo "::error file=$f::not formatted per .clang-format (fix: clang-format -i $f)"
-            done < /tmp/format-unformatted.txt
-            rc=1
-          fi
-
-          if [ "$rc" -eq 0 ]; then
-            echo "clang-format clean: $(wc -l < /tmp/format-files.txt) files gated."
-          fi
-          exit "$rc"
+          clang-format --version
+          bash tools/clang_format_gate.sh
 
   teensy-gate-tests:
     name: Teensy gate parser + layout self-tests

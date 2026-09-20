@@ -3,7 +3,7 @@
 #
 # The pathspec and the exclusion regex (vendored and the seven generated
 # sources) are
-# pinned against the ci.yml and .githooks/pre-commit copies by
+# pinned against the .githooks/pre-commit copy by
 # tools/build_pins.py --check. xargs handed an empty list runs nothing and exits
 # 0, so the selection is asserted non-empty before it is checked.
 #
