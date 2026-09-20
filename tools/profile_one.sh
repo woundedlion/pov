@@ -317,6 +317,18 @@ capture() {
   cat "$PROVENANCE_OUT" >>"$OUT"
 }
 
+RETRY_CACHE=""
+prepare_retry() {
+  rm -rf ".pio/build/$ENV"
+  RETRY_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/hs-profile-cache.XXXXXX")
+  export PLATFORMIO_BUILD_CACHE_DIR="$RETRY_CACHE"
+}
+
+cleanup() {
+  hs_device_release
+  [ -z "$RETRY_CACHE" ] || rm -rf "$RETRY_CACHE"
+}
+
 verify() {
   grep -q "=== profile $EFFECT " "$OUT" || { echo "BAD/NO HEADER in $OUT"; return 1; }
   local bad ok configs matching_configs
@@ -370,7 +382,7 @@ verify() {
 # claim leaks the lock dir on a signal in that gap. A signal handler that
 # returns resumes the script, which would then flash and capture a board the
 # release just freed, so INT/TERM exit and leave the release to the EXIT trap.
-trap hs_device_release EXIT
+trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
@@ -381,8 +393,8 @@ hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
 
 capture
 if ! verify; then
-  echo ">>> verify failed; wiping .pio/build/$ENV and retrying clean"
-  rm -rf ".pio/build/$ENV"
+  echo ">>> verify failed; wiping .pio/build/$ENV and retrying with an isolated cache"
+  prepare_retry
   capture
   verify || { echo "FAILED after clean rebuild: $OUT"; exit 1; }
 fi
