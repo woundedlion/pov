@@ -168,6 +168,13 @@ struct ShaderWorkbenchWhiteBox {
              "ShaderWorkbench test config resources must fit");
     return sb.prepare_frame(config, sb.runtime);
   }
+  static bool edge_distance_required(const FrameState &frame) {
+    return Workbench::projection_edge_distance_required(frame);
+  }
+  static Pullback::ProjectionResult project_peirce(const Vector &view,
+                                                   const FrameState &frame) {
+    return Workbench::project_peirce(view, frame);
+  }
   static Slots active_slots(const SB &sb) { return sb.active_slots; }
   static InversePipelineId active_pipeline(const SB &sb) {
     return sb.active_pipeline;
@@ -2938,6 +2945,36 @@ inline void test_shader_workbench_structural_admission() {
   HS_EXPECT_TRUE(WB::transition_admitted(from, to));
   HS_EXPECT_FALSE(WB::stable_topology(from, to));
   HS_EXPECT_FALSE(WB::stable_parameter_path_admitted(from, to));
+
+  WB::RequestedConfig mirror_flat =
+      Workbench::peirce_dodecahedral_generated_preset();
+  mirror_flat.slots.coverage = WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED;
+  mirror_flat.slots.warp_program.outer.kind = WB::WarpStageKind::MIRROR_TILE;
+  mirror_flat.slots.warp_program.outer.envelope = WB::WarpEnvelope::FLAT;
+  mirror_flat.params.warp.outer.cell_x = 1.0f;
+  mirror_flat.params.warp.outer.cell_y = 1.0f;
+  WB::RequestedConfig mirror_edge = mirror_flat;
+  mirror_edge.slots.warp_program.outer.envelope = WB::WarpEnvelope::EDGE_FADE;
+  HS_EXPECT_TRUE(WB::valid_config(mirror_flat));
+  HS_EXPECT_TRUE(WB::valid_config(mirror_edge));
+  HS_EXPECT_TRUE(WB::topology_key(mirror_flat) ==
+                 WB::topology_key(mirror_edge));
+  WB::SB edge_sb;
+  edge_sb.init();
+  const WB::FrameState flat_frame = WB::config_frame(edge_sb, mirror_flat);
+  const WB::FrameState edge_frame = WB::config_frame(edge_sb, mirror_edge);
+  HS_EXPECT_FALSE(WB::edge_distance_required(flat_frame));
+  HS_EXPECT_FALSE(WB::edge_distance_required(edge_frame));
+  Vector probe(0.3f, -0.4f, 0.8f);
+  probe.normalize();
+  const Pullback::ProjectionResult flat_projection =
+      WB::project_peirce(probe, flat_frame);
+  const Pullback::ProjectionResult edge_projection =
+      WB::project_peirce(probe, edge_frame);
+  HS_EXPECT_EQ(flat_projection.coords.re, edge_projection.coords.re);
+  HS_EXPECT_EQ(flat_projection.coords.im, edge_projection.coords.im);
+  HS_EXPECT_EQ(flat_projection.provenance.domain_coverage,
+               edge_projection.provenance.domain_coverage);
   for (size_t index = 0; index < presets.size(); ++index) {
     const auto &next = presets[(index + 1) % presets.size()];
     if (WB::stable_topology(presets[index], next))
