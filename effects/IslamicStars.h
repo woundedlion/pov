@@ -92,6 +92,8 @@ public:
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
 #ifdef HS_PROFILE_TRANS_SPEED
+    static_assert(HS_PROFILE_TRANS_SPEED >= 1 && HS_PROFILE_TRANS_SPEED <= 8,
+                  "HS_PROFILE_TRANS_SPEED must be in [1, 8]");
     params.trans_speed = static_cast<float>(HS_PROFILE_TRANS_SPEED);
 #endif
 
