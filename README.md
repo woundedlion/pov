@@ -81,7 +81,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
    - [7.5 Memory Architecture](#75-memory-architecture-memoryh-memorycpp)
      - [Compaction with `Persist<T>`](#compaction-with-persist)
      - [Additional Data Structures](#additional-data-structures)
-   - [7.6 The Color System](#76-the-color-system-colorh)
+   - [7.6 The Color System](#76-the-color-system-corecolorcolorh)
      - [Palette Types](#palette-types)
      - [OKLCH Perceptual Color](#oklch-perceptual-color)
      - [The Gamut Boundary Grid](#the-gamut-boundary-grid)
@@ -90,7 +90,7 @@ Building the WASM target in Holosphere installs `holosphere_wasm.js`, `holospher
      - [Recipe-Compiled Palettes](#recipe-compiled-palettes)
      - [Palette Cycling](#palette-cycling)
    - [7.7 The Mesh System](#77-the-mesh-system-coremesh)
-     - [Core MeshOps](#core-meshops-meshh)
+     - [Core MeshOps](#core-meshops-coremeshmeshh)
      - [Conway Operators](#conway-operators-conwayh)
      - [Hankin Pattern System](#hankin-pattern-system-hankinh)
      - [Solids Library](#solids-library-solidsh-solid_generatorsh)
@@ -1145,7 +1145,7 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 
 `scan.h` contains `Scan::rasterize()`, which drives the scanline loop and anti-aliasing, plus convenience wrappers that pair SDF shapes with the rasterizer.
 
-`sdf.h` is an umbrella over the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `common.h`, the polygon, star, flower and line leaves in `shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `volume.h`. Including `sdf.h` pulls in all six, so nothing outside needs to name them.
+`sdf.h` is an umbrella over the headers in `core/render/sdf/`: the substrate every shape shares (azimuth intervals, row bounds, `DistanceResult`, the cap/annular span-emission helpers) in `common.h`, the polygon, star, flower and line leaves in `core/render/sdf/shapes.h`, the ring leaves in `rings.h`, the CSG operators in `csg.h`, `SDF::Face` with its congruence-class LUT in `face.h`, and the volumetric family in `core/render/sdf/volume.h`. Including `sdf.h` pulls in all six, so nothing outside needs to name them.
 
 The `process_pixel` function applies anti-aliasing based on shape type:
 - **Solid shapes**: quintic smoothstep over a 2-pixel AA band centered on the edge (`-pixel_width <= d <= pixel_width`). Full interior pixels (`d < -pixel_width`) skip AA math entirely. `pixel_width` is the compile-time constant `2π/W` — the angular width of one *equatorial* pixel — so the band is a fixed angular thickness at every latitude, and near the poles (where columns converge) it spans more than two columns.
@@ -1276,7 +1276,7 @@ Animation pause is opt-in per timeline event, not a global stop. Effects schedul
 | Header | Subject | Contents |
 |---|---|---|
 | `timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
-| `params.h` | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise`, `BallDrop`, `NoiseProduct` |
+| `core/animation/params.h` | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise`, `BallDrop`, `NoiseProduct` |
 | `motion.h` | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
 | `trails.h` | Recorded history | `Trail` and its `OrientationTrail`/`VectorTrail` aliases — index 0 is the oldest snapshot and `length()-1` the newest, the ordering the JS simulator mirrors — plus `QuantizedVectorTrail`, the `TrailBody` per-body aggregate, and the `tween`/`deep_tween` traversals |
 | `sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
@@ -1502,7 +1502,7 @@ Conway operators take `(Arena& target, Arena& temp)`, generator functions take `
 | `ArenaVector<T>` | Arena-backed vector whose capacity is fixed between `bind()` calls — appending never grows it (`push_back` traps at capacity). A `bind()` that asks for more re-reserves and abandons the old block until the arena is reset. Copy-disabled, move-enabled. Debug builds detect use-after-free via arena generation tracking. |
 | `ArenaSpan<T>` | Non-owning read-only view into an `ArenaVector` (explicit borrow) |
 
-### 7.6 The Color System (`color.h`)
+### 7.6 The Color System (`core/color/color.h`)
 
 All internal color data is **16-bit linear light** (`uint16_t r, g, b` in range 0–65535). This avoids the precision loss and incorrect blending that occurs with gamma-encoded 8-bit values.
 
@@ -1730,7 +1730,7 @@ at the current phase.
 
 The mesh system is split across twelve files:
 
-- **`mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
+- **`core/mesh/mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
 - **`conway_graph.h`** — Constexpr 23-edge morph graph over the 18 simple-registry solids: per-edge operator/seed/reseed specs, bridge-aware walk weighting, and the closed `ORDERED_TOUR`
 - **`recipe_types.h`** — The authored op-chain model: the `Op` operator set, one `OpStep`, and the `Recipe` chain a registry generator mirrors, split out so the model is not read out of the registry tables written in it
@@ -1745,7 +1745,7 @@ The mesh system is split across twelve files:
 
 `PolyMesh` stores vertices and face connectivity via `ArenaVector` arrays. `MeshState` (in `mesh_state.h`) is the flat compiled format consumed by the renderer. `HalfEdgeMesh` provides a half-edge traversal structure built from either a `PolyMesh` or `MeshState`.
 
-#### Core MeshOps (`mesh.h`)
+#### Core MeshOps (`core/mesh/mesh.h`)
 
 | Operation | Description |
 |---|---|

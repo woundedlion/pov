@@ -395,6 +395,21 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIsNone(issue)
         self.assertEqual(used, {allowance})
 
+    def test_slashless_paths_require_an_unambiguous_basename(self):
+        source = PurePosixPath("README.md")
+        unique = {PurePosixPath("core/mesh/mesh.h")}
+        self.assertIsNone(dc._path_span_issue(source, 1, "mesh.h", unique))
+        ambiguous = unique | {PurePosixPath("core/render/scan/mesh.h")}
+        issue = dc._path_span_issue(source, 1, "mesh.h", ambiguous)
+        self.assertIsNotNone(issue)
+        self.assertIn("ambiguous basename", issue.message)
+        self.assertIn("core/mesh/mesh.h", issue.message)
+        self.assertIsNone(dc._path_span_issue(
+            PurePosixPath("core/mesh/README.md"), 1, "mesh.h", ambiguous))
+        self.assertIsNone(dc._path_span_issue(
+            source, 1, "core/mesh/mesh.h",
+            ambiguous | {PurePosixPath("core")}))
+
     def test_core_relative_path_is_resolved(self):
         entries = {PurePosixPath("core"), PurePosixPath("core/control"),
                    PurePosixPath("core/control/choreography.h")}
