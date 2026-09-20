@@ -1018,6 +1018,22 @@ class FabContentTests(unittest.TestCase):
     def test_accepts_an_export_that_carries_the_board(self):
         self.assertEqual(self.validate(), {"plated": 2, "unplated": 1})
 
+    def test_rejects_moves_and_comments_as_drawing_operations(self):
+        for command in ("X1000000Y2000000D02", "G04 X1000000Y2000000D03",
+                        "G04 D01", "G04 D03"):
+            with self.subTest(command=command):
+                layer = self.GERBER.replace("X1000000Y2000000D03", command)
+                with self.assertRaisesRegex(fab.FabContentError, "draws with none"):
+                    self.validate({"phantasm-F_Cu.gtl": layer})
+
+    def test_accepts_draw_and_flash_commands(self):
+        for command in ("X1000000Y2000000D01", "G01X1000000Y2000000D01",
+                        "G02X1000000Y2000000I-100J+200D01", "D03"):
+            with self.subTest(command=command):
+                layer = self.GERBER.replace("X1000000Y2000000D03", command)
+                self.assertEqual(self.validate({"phantasm-F_Cu.gtl": layer}),
+                                 {"plated": 2, "unplated": 1})
+
     def test_rejects_a_layer_that_plots_nothing(self):
         with self.assertRaisesRegex(fab.FabContentError,
                                     "phantasm-F_Cu.gtl: defines no apertures"):
