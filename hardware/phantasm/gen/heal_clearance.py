@@ -37,7 +37,7 @@ def project_files(paths=()):
     candidates = glob.glob(os.path.join(OUT, "phantasm*.kicad_pro")) \
         + glob.glob(os.path.join(OUT, "unplaced", "phantasm*.kicad_pro")) \
         + glob.glob(os.path.join(OUT, "quilter_incremental", "phantasm*.kicad_pro"))
-    return [p for p in candidates if not is_manifested(p)]
+    return sorted(p for p in candidates if not is_manifested(p))
 
 
 def minimums_for(p):
