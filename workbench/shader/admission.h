@@ -11,7 +11,8 @@
 
 /**
  * @file admission.h
- * @brief Structural legality: which authored configurations are well formed, which coordinate bounds they must respect, and which transitions between two of them are admitted.
+ * @brief Structural legality: well-formed authored configurations, coordinate
+ *        bounds, and admitted transitions.
  */
 
 #include "workbench/shader/config.h"

@@ -11,7 +11,8 @@
 
 /**
  * @file kernels.h
- * @brief The interpretive shading path: pulling a sphere sample back through camera, lens, projection and warp, evaluating the source function, and colorizing the result.
+ * @brief The interpretive path from a sphere sample through camera, lens,
+ *        projection, warp, source evaluation, and colorization.
  */
 
 #include "workbench/shader/frame_state.h"
