@@ -179,7 +179,6 @@ struct ShapeShifterWhiteBox {
     effect.set_clip(state.clip.y0, state.clip.y1, state.clip.x0, state.clip.x1);
   }
 
-#if HS_ENABLE_TEST_ORACLES
   template <typename F>
   static void
   dispatch_plot_reference(OracleEffect &effect, Canvas &canvas,
@@ -258,8 +257,6 @@ struct ShapeShifterWhiteBox {
     effect.plot_filters.prepare(canvas);
     draw_all_reference(effect, canvas);
   }
-#endif
-
   static void render_candidate(OracleEffect &effect, Canvas &canvas) {
     effect.plot_filters.prepare(canvas);
     effect.draw_all(canvas);

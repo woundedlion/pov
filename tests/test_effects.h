@@ -485,16 +485,10 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
  * @brief Scrambles every output-affecting global that render_capture() resets.
  * @details Run between the two determinism captures so the second one must
  * RECOVER canonical output from a dirtied process state rather than merely
- * re-run from an identical pristine one. This makes each reset line in
- * render_capture load-bearing and self-testing: drop the RNG re-seed and an
- * effect that draws randomness diverges; drop the hue-seed reset and a
- * generative-palette effect diverges; drop the global_timeline_t reset and a
- * timeline-driven effect diverges. It also catches a global the effect READS
- * but never mutates that is missing from the reset list — the existing
- * pristine-twice check is blind to that class because both runs read the same
- * unchanged value. It does NOT catch a static seeded once and never reset:
- * in-process that value persists across both runs, so it stays out of reach (as
- * the determinism design notes above).
+ * re-run from an identical pristine one. This pins the RNG and timeline resets.
+ * Arena splits, the pole-LOD override, and scan metrics are not perturbed here,
+ * so their reset paths need separate coverage. A static seeded once and never
+ * reset also persists across both runs and stays out of reach.
  */
 inline void perturb_determinism_globals() {
   hs::random().seed(0xC0FFEEu); // off the canonical seed(1337)
@@ -6136,14 +6130,6 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
   HS_EXPECT_GE(IslamicBuildProbe::dual_bridges(effect), TARGET_BRIDGES);
 }
 
-/**
- * @brief Module entry point for the effects white-box suite.
- * @return Module result code from hs_test::end_module (0 on success).
- * @details Per-effect invariants with an explicit oracle. The roster-wide smoke,
- * determinism and clip-clear parity sweeps live in the separate effects_smoke
- * module (tests/test_effects_smoke.h), which is IEEE-agnostic and so runs on the
- * fast-math axis this module is excluded from.
- */
 template <typename EffectT>
 inline void check_manual_preset_navigation(size_t expected_count) {
   reset_effect_globals();
@@ -6168,6 +6154,14 @@ inline void test_manual_preset_navigation() {
   check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>(9);
 }
 
+/**
+ * @brief Module entry point for the effects white-box suite.
+ * @return Module result code from hs_test::end_module (0 on success).
+ * @details Per-effect invariants with an explicit oracle. The roster-wide smoke,
+ * determinism and clip-clear parity sweeps live in the separate effects_smoke
+ * module (tests/test_effects_smoke.h), which is IEEE-agnostic and so runs on the
+ * fast-math axis this module is excluded from.
+ */
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 

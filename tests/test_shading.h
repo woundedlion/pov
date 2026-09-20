@@ -3,8 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Direct unit tests for core/render/shading.h — the Fragment register carrier
- * (lerp across pos/v0-v3/age/size/color), the edge-distance and topology-slot
- * helpers shared by the mesh effects, and the null vertex/fragment shaders.
+ * (lerp across pos/v0-v3/age/size/color), including lerp_registers preserving
+ * pos and color, plus the edge-distance and topology-slot helpers shared by the
+ * mesh effects.
  * These helpers are otherwise exercised only incidentally through the rasterizer
  * tests; this module pins their contract directly.
  *
