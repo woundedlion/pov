@@ -32,10 +32,10 @@ The generator self-formats: it pipes its output through clang-format (using the
 repo .clang-format) so the result is already in committed style — no separate
 manual format step to forget. clang-format is required, not optional: the CI
 provenance gate diffs the full formatted text against the committed header. If
-clang-format is not on PATH (set CLANG_FORMAT to override), the generator emits
-UNFORMATTED output and prints a loud warning to stderr, so the missing step can
-never pass silently. A clang-format whose major version differs from the one CI
-pins also warns: the reflow differences would land as a whole-header diff.
+clang-format is not on PATH (set CLANG_FORMAT to override), the generator exits
+without emitting so shell redirection cannot leave a plausible unformatted
+header. A clang-format whose major version differs from the one CI pins also
+warns: the reflow differences would land as a whole-header diff.
 """
 
 import argparse
@@ -106,10 +106,8 @@ def render(out, fwd, rev):
     out.write("// sRGB transfer-function LUTs for color conversion.\n")
     out.write("\n")
     out.write("// sRGB (0-255) -> Linear (0-65535)\n")
-    # The per_row counts (11 u16 / 15 u8) only shape the *unformatted* fallback
-    # layout: when clang-format is present it repacks each row to the column
-    # limit, so these values never reach committed output. They are chosen to
-    # keep the no-clang-format fallback readable (~one terminal line per row).
+    # The per_row counts (11 u16 / 15 u8) shape the intermediate text before
+    # clang-format repacks each row to the repository's column limit.
     emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] HS_PROGMEM_UNIQUE(srgb_to_linear_lut)",
                fwd, 11)
     out.write("\n")
