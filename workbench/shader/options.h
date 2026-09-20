@@ -218,6 +218,51 @@ inline constexpr const char *HUE_SHIFT_EXPORT_OPTIONS[] = {
     "HueShiftMode::WARP_DISPLACEMENT"};
 inline constexpr int NUM_HUE_SHIFT_MODES = std::size(HUE_SHIFT_OPTIONS);
 
+static_assert(std::size(FUNCTION_OPTIONS) ==
+              std::size(FUNCTION_EXPORT_OPTIONS));
+static_assert(std::size(TESSELLATION_KIND_OPTIONS) ==
+              std::size(TESSELLATION_KIND_EXPORT_OPTIONS));
+static_assert(std::size(PROJECTION_OPTIONS) ==
+              std::size(PROJECTION_EXPORT_OPTIONS));
+static_assert(std::size(PEIRCE_LAYOUT_OPTIONS) ==
+              std::size(PEIRCE_LAYOUT_EXPORT_OPTIONS));
+static_assert(std::size(AIROCEAN_LAYOUT_OPTIONS) ==
+              std::size(AIROCEAN_LAYOUT_EXPORT_OPTIONS));
+static_assert(std::size(BONNE_HEMISPHERE_OPTIONS) ==
+              std::size(BONNE_HEMISPHERE_EXPORT_OPTIONS));
+static_assert(std::size(GNOMONIC_HEMISPHERE_OPTIONS) ==
+              std::size(GNOMONIC_HEMISPHERE_EXPORT_OPTIONS));
+static_assert(std::size(PROJECTION_FRAME_OPTIONS) ==
+              std::size(PROJECTION_FRAME_EXPORT_OPTIONS));
+static_assert(std::size(LENS_OPTIONS) == std::size(LENS_EXPORT_OPTIONS));
+static_assert(std::size(SURFACE_NOISE_OPTIONS) ==
+              std::size(SURFACE_NOISE_EXPORT_OPTIONS));
+static_assert(std::size(SURFACE_NOISE_PLACEMENT_OPTIONS) ==
+              std::size(SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS));
+static_assert(std::size(SURFACE_CURL_INTEGRATOR_OPTIONS) ==
+              std::size(SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS));
+static_assert(std::size(WARP_OPTIONS) == std::size(WARP_EXPORT_OPTIONS));
+static_assert(std::size(NOISE_BASIS_OPTIONS) ==
+              std::size(NOISE_BASIS_EXPORT_OPTIONS));
+static_assert(std::size(POLAR_MODE_OPTIONS) ==
+              std::size(POLAR_MODE_EXPORT_OPTIONS));
+static_assert(std::size(CURL_INTEGRATOR_OPTIONS) ==
+              std::size(CURL_INTEGRATOR_EXPORT_OPTIONS));
+static_assert(std::size(WARP_ENVELOPE_OPTIONS) ==
+              std::size(WARP_ENVELOPE_EXPORT_OPTIONS));
+static_assert(std::size(SIGNAL_OPTIONS) == std::size(SIGNAL_EXPORT_OPTIONS));
+static_assert(std::size(VALUE_TRANSFER_OPTIONS) ==
+              std::size(VALUE_TRANSFER_EXPORT_OPTIONS));
+static_assert(std::size(COVERAGE_OPTIONS) ==
+              std::size(COVERAGE_EXPORT_OPTIONS));
+static_assert(std::size(PALETTE_OPTIONS) == std::size(PALETTE_EXPORT_OPTIONS));
+static_assert(std::size(PALETTE_MAPPING_OPTIONS) ==
+              std::size(PALETTE_MAPPING_EXPORT_OPTIONS));
+static_assert(std::size(BRIGHTNESS_ENVELOPE_OPTIONS) ==
+              std::size(BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS));
+static_assert(std::size(HUE_SHIFT_OPTIONS) ==
+              std::size(HUE_SHIFT_EXPORT_OPTIONS));
+
 } // namespace Workbench
 
 #endif // HS_ENABLE_SHADER_WORKBENCH

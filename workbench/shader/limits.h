@@ -31,6 +31,18 @@ inline constexpr float CURL_WARP_STRENGTH_MAX = 1.0f;
 inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
 inline constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
 inline constexpr float WARP_SPEED_MAX = 1.0f;
+inline constexpr float AFFINE_TRANSLATION_MAX = 4.0f;
+inline constexpr float AFFINE_SCALE_MIN = 0.25f;
+inline constexpr float AFFINE_SCALE_MAX = 4.0f;
+inline constexpr float AFFINE_SHEAR_MAX = 0.75f;
+inline constexpr float VORTEX_CENTER_MAX = 4.0f;
+inline constexpr float VORTEX_RADIUS_MIN = 1.0f / 64.0f;
+inline constexpr float VORTEX_RADIUS_MAX = 8.0f;
+inline constexpr float VORTEX_TURNS_MAX = 4.0f;
+inline constexpr float VORTEX_ORBIT_MAX = 4.0f;
+inline constexpr float MIRROR_OFFSET_MAX = 8.0f;
+inline constexpr float POLAR_RADIAL_SCALE_MIN = 1.0f / 64.0f;
+inline constexpr float POLAR_RADIAL_SCALE_MAX = 16.0f;
 inline constexpr float PATTERN_FREQ_MIN = 0.1f;
 inline constexpr float PATTERN_FREQ_MAX = 20.0f;
 inline constexpr float GRID_PATTERN_FREQ_MIN = 0.01f;
@@ -127,28 +139,40 @@ warp_stage_params_in_ranges(const WarpStageParams &params) {
          params.strength >= WARP_STRENGTH_MIN &&
          params.strength <= WARP_STRENGTH_MAX &&
          params.speed >= WARP_SPEED_MIN && params.speed <= WARP_SPEED_MAX &&
-         params.translation_x >= -4.0f && params.translation_x <= 4.0f &&
-         params.translation_y >= -4.0f && params.translation_y <= 4.0f &&
+         params.translation_x >= -AFFINE_TRANSLATION_MAX &&
+         params.translation_x <= AFFINE_TRANSLATION_MAX &&
+         params.translation_y >= -AFFINE_TRANSLATION_MAX &&
+         params.translation_y <= AFFINE_TRANSLATION_MAX &&
          params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
-         params.scale_x >= 0.25f && params.scale_x <= 4.0f &&
-         params.scale_y >= 0.25f && params.scale_y <= 4.0f &&
-         params.shear >= -0.75f && params.shear <= 0.75f &&
-         params.frequency >= 0.0f && params.frequency <= 64.0f &&
-         params.field_angle >= 0.0f && params.field_angle <= TWO_PI_F &&
-         params.center_x >= -4.0f && params.center_x <= 4.0f &&
-         params.center_y >= -4.0f && params.center_y <= 4.0f &&
-         params.radius >= 1.0f / 64.0f && params.radius <= 8.0f &&
-         params.turns >= -4.0f && params.turns <= 4.0f &&
+         params.scale_x >= AFFINE_SCALE_MIN &&
+         params.scale_x <= AFFINE_SCALE_MAX &&
+         params.scale_y >= AFFINE_SCALE_MIN &&
+         params.scale_y <= AFFINE_SCALE_MAX &&
+         params.shear >= -AFFINE_SHEAR_MAX &&
+         params.shear <= AFFINE_SHEAR_MAX && params.frequency >= 0.0f &&
+         params.frequency <= 64.0f && params.field_angle >= 0.0f &&
+         params.field_angle <= TWO_PI_F &&
+         params.center_x >= -VORTEX_CENTER_MAX &&
+         params.center_x <= VORTEX_CENTER_MAX &&
+         params.center_y >= -VORTEX_CENTER_MAX &&
+         params.center_y <= VORTEX_CENTER_MAX &&
+         params.radius >= VORTEX_RADIUS_MIN &&
+         params.radius <= VORTEX_RADIUS_MAX &&
+         params.turns >= -VORTEX_TURNS_MAX &&
+         params.turns <= VORTEX_TURNS_MAX &&
          params.center_orbit_radius >= 0.0f &&
-         params.center_orbit_radius <= 4.0f && params.vector_angle >= 0.0f &&
-         params.vector_angle <= TWO_PI_F && params.cell_x >= CELL_MIN &&
-         params.cell_x <= CELL_MAX && params.cell_y >= CELL_MIN &&
-         params.cell_y <= CELL_MAX && params.offset_x >= -8.0f &&
-         params.offset_x <= 8.0f && params.offset_y >= -8.0f &&
-         params.offset_y <= 8.0f && params.radial_scale >= 1.0f / 64.0f &&
-         params.radial_scale <= 16.0f && params.radial_phase >= 0.0f &&
-         params.radial_phase <= TWO_PI_F && params.angular_phase >= 0.0f &&
-         params.angular_phase <= TWO_PI_F &&
+         params.center_orbit_radius <= VORTEX_ORBIT_MAX &&
+         params.vector_angle >= 0.0f && params.vector_angle <= TWO_PI_F &&
+         params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
+         params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
+         params.offset_x >= -MIRROR_OFFSET_MAX &&
+         params.offset_x <= MIRROR_OFFSET_MAX &&
+         params.offset_y >= -MIRROR_OFFSET_MAX &&
+         params.offset_y <= MIRROR_OFFSET_MAX &&
+         params.radial_scale >= POLAR_RADIAL_SCALE_MIN &&
+         params.radial_scale <= POLAR_RADIAL_SCALE_MAX &&
+         params.radial_phase >= 0.0f && params.radial_phase <= TWO_PI_F &&
+         params.angular_phase >= 0.0f && params.angular_phase <= TWO_PI_F &&
          params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
 }
 
