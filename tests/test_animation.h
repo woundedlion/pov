@@ -2041,6 +2041,7 @@ inline void test_dissolve_segue_overlaps_the_full_fade_window() {
   MeshCarousel<Segue::Dissolve> carousel;
   bool drew_out = false, drew_in = false;
   int co_resident = 0;
+  int outgoing_frames = 0;
   int next_delay = carousel.schedule_segue(
       tl, carousel.front_index(), [&](Canvas &, float) { drew_out = true; },
       dur, window);
@@ -2049,9 +2050,9 @@ inline void test_dissolve_segue_overlaps_the_full_fade_window() {
   for (int i = 0; i < next_delay; ++i) {
     drew_out = drew_in = false;
     tl.step(fake_canvas());
-    co_resident += drew_out && drew_in;
+    outgoing_frames += drew_out;
   }
-  HS_EXPECT_EQ(co_resident, 0);
+  HS_EXPECT_EQ(outgoing_frames, next_delay);
 
   carousel.schedule_segue(
       tl, carousel.front_index(), [&](Canvas &, float) { drew_in = true; }, dur,
