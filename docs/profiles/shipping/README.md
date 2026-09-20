@@ -56,7 +56,7 @@ in parentheses are parser ownership buckets; spill fractions include the
 transition following a preset and are therefore stricter than clean holds.
 
 - **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
-- **IslamicStars**: 23 parser ownership buckets spanning 18.35–50.65 ms; the sequence closes back to its first entry.
+- **IslamicStars**: 23 parser ownership buckets spanning 18.48–50.83 ms; the sequence closes back to its first entry.
 - **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
 - **ShapeShifter**: 10 parser ownership buckets spanning 9.86–58.13 ms; the sequence closes back to its first entry.
 - **HyperLattice**: 4 parser ownership buckets spanning 41.77–51.19 ms; the sequence closes back to its first entry.

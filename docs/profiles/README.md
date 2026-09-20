@@ -27,7 +27,7 @@ render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero
 spill, 🔴 any nonzero spill count. Image deltas are raw global-O3
 minus shipping bytes from each pair's own image-size reports.
 
-| Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH Δ | ITCM Δ | Captured |
+| Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
 | [Raymarch](shipping/profile_raymarch_teensy_2026-08-26.md) / [O3](O3/profile_raymarch_teensy_2026-08-26.md) ● | `rm_shader_draw` | 🟢 62.22 | 🟢 58.80 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +10,216 B | +6,688 B | ship 2026-08-26 01:37<br>O3 2026-08-26 01:34 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-26.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § ● | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 58.32 (13) | 🟢 0/6688 (0.0%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-08-26 03:31<br>O3 2026-08-26 02:10 |
