@@ -1756,8 +1756,8 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
   constexpr float RECONCILE_Z_BANDS[] = {0.04f, 0.08f};
   out.vertices.bind(target, V);
   for (size_t i = 0; i < V; ++i) {
-    int best = -1;
-    float best_distance_sq = 5.0f;
+    int best;
+    float best_distance_sq;
     const float z = identity.vertices[i].z;
     bool certified = false;
     for (float z_band : RECONCILE_Z_BANDS) {
