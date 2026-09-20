@@ -54,6 +54,7 @@ struct Run {
     noise.time = 0.0f;
     noise.sync();
     style.sync_hue();
+    pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
   }
 
   // Saturated seed: divergences cluster on primaries driving the gamut-clip
@@ -150,6 +151,10 @@ int dump(const char *path, int frames) {
 
   std::vector<uint16_t> row(CHANS);
   for (int p = 0; p < NPRESET; ++p) {
+    hs_test::reset_globals();
+    constexpr size_t SCRATCH_BYTES = 32 * 1024;
+    configure_arenas(GLOBAL_ARENA_SIZE - 2 * SCRATCH_BYTES, SCRATCH_BYTES,
+                     SCRATCH_BYTES);
     Run r(presets[p]);
     r.seed();
     for (int i = 0; i < frames; ++i) {
