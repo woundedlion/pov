@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <concepts>
+#include <limits>
 #include "math/geometry.h"
 #include "render/shading.h"
 #include "render/clip.h"
@@ -382,9 +383,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
            "edge_flags length must match the rasterized edge count");
   const float plot_t_start = opts.plot_t_start;
   const float plot_t_end = opts.plot_t_end;
-  // Off unless the caller narrowed the window: the replay's final t overshoots
-  // 1.0 by an ULP, which a live [0,1] test would read as out of window.
   const bool plot_window = plot_t_start > 0.0f || plot_t_end < 1.0f;
+  // Replay can overshoot t=1 by an ULP.
+  const float plot_t_hi =
+      plot_t_end < 1.0f ? plot_t_end : std::numeric_limits<float>::infinity();
   HS_CHECK(!plot_window || count == 1,
            "a plot window requires a single-segment polyline");
   HS_PLOT_ADD(edges, count);
@@ -623,7 +625,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           p = smp.pos.normalized();
         }
         if (!plot_window ||
-            (current_t >= plot_t_start && current_t <= plot_t_end)) {
+            (current_t >= plot_t_start && current_t <= plot_t_hi)) {
           Fragment f;
           if constexpr (INTERPOLATE_REGISTERS)
             f = Fragment::lerp_registers(curr, next, current_t);
@@ -813,7 +815,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       // total_dist > 0 here (HS_CHECK(sim_dist > 0) implies >=1 sim step).
       float t = current_dist / total_dist;
 
-      if (plot_window && (t < plot_t_start || t > plot_t_end))
+      if (plot_window && (t < plot_t_start || t > plot_t_hi))
         continue;
 
       // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
