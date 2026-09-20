@@ -10,12 +10,12 @@ nonzero spill. Cyclers (§) use parser-owned cadence buckets.
 |---|---|--:|--:|---|
 | [Raymarch](profile_raymarch_teensy_2026-08-26.md) ● | `rm_shader_draw` | 🟢 62.22 | 🟢 0/1088 (0.0%) | 2026-08-26 01:37 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md) § ● | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 0/6688 (0.0%) | 2026-08-26 03:31 |
+| [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) ● | `df_timeline_step` | 🟢 58.18 | 🟢 0/1088 (0.0%) | 2026-09-19 22:17 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-26.md) § ● | `ss_draw_all` | 🟢 58.13 (10) | 🟢 0/2448 (0.0%) | 2026-08-26 03:28 |
-| [DisplacementField](profile_displacementfield_teensy_2026-08-26.md) ● | `df_timeline_step` | 🟢 57.40 | 🟢 0/1088 (0.0%) | 2026-08-26 01:24 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) ● | `grd_render` | 🟢 55.26 | 🟢 0/2048 (0.0%) | 2026-08-26 01:28 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § ● | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 0/1728 (0.0%) | 2026-08-26 07:40 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-08-26.md) § ● | `hl_shader_draw` | 🟢 51.19 (4) | 🟢 0/2688 (0.0%) | 2026-08-26 03:32 |
-| [IslamicStars](profile_islamicstars_teensy_2026-08-26.md) § ● | `is_timeline_step` | 🟢 50.65 (23) | 🟢 0/3328 (0.0%) | 2026-08-26 07:49 |
+| [IslamicStars](profile_islamicstars_teensy_2026-09-20.md) § ● | `is_timeline_step` | 🟢 50.83 (23) | 🟢 0/3328 (0.0%) | 2026-09-20 00:16 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 50.09 | 🟢 0/1088 (0.0%) | 2026-08-26 02:47 |
 | [RingSpin](profile_ringspin_teensy_2026-08-26.md) ● | `rs_draw_rings` | 🟢 49.42 | 🟢 0/1088 (0.0%) | 2026-08-26 01:41 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) ● | `bz_render` | 🟢 48.91 | 🟢 0/2048 (0.0%) | 2026-08-26 01:20 |
@@ -47,8 +47,9 @@ nonzero spill. Cyclers (§) use parser-owned cadence buckets.
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) ● | `vo_shade` | 🟢 8.96 | 🟢 0/1088 (0.0%) | 2026-08-26 01:43 |
 | [RingShower](profile_ringshower_teensy_2026-08-26.md) ● | `rsh_draw_rings` | 🟢 3.98 | 🟢 0/1088 (0.0%) | 2026-08-26 01:39 |
 
-**● captured 2026-08-26.** Captured timestamps are local raw-log mtimes. Every row
-links to the report generated from that exact log and its provenance sidecar.
+● IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
+Captured timestamps are local raw-log mtimes.
+Each row links to the report generated from that log and its provenance sidecar.
 
 For cyclers, each `<br>`-joined line is one colour bucket, worst first. Counts
 in parentheses are parser ownership buckets; spill fractions include the
