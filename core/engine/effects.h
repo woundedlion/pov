@@ -82,7 +82,7 @@
  *     * Native: the effect smoke suite iterates this X-macro list, so its coverage
  *               is derived from the list rather than hand-maintained, and it runs
  *               the same registry-count oracle unconditionally
- *               (tests/test_effects.h), so the same drift fails the suite.
+ *               (tests/test_effects_smoke.h), so the same drift fails the suite.
  *   Adding an effect therefore means: add the `#include` above, the
  *   REGISTER_EFFECT in its header, and one X() row here.
  */
