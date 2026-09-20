@@ -424,10 +424,10 @@ private:
    * @brief Live-tunable GUI parameters for the Voronoi effect.
    */
   struct Params {
-    float num_sites = 200.0f;      /**< Live-tunable site count (GUI slider). */
-    float speed = 20.0f;           /**< Site spin rate (GUI slider). */
-    float sharpness = 100.0f;      /**< Edge sharpening; larger narrows the
-                                       border blend band. */
+    float num_sites = 200.0f; /**< Live-tunable site count (GUI slider). */
+    float speed = 20.0f;      /**< Site spin rate (GUI slider). */
+    float sharpness = 100.0f; /**< Edge sharpening; larger narrows the border
+                                  blend band, while 0 disables it entirely. */
     float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;
 };
