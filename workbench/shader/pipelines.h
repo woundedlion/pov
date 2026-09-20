@@ -11,7 +11,8 @@
 
 /**
  * @file pipelines.h
- * @brief The compiled inverse-pipeline catalog: the stage adapters each slot tuple selects, the pipelines they compose into, and the manifest that matches a configuration to one.
+ * @brief Compiled inverse-pipeline stage adapters, compositions, and the
+ *        manifest that matches each configuration.
  */
 
 #include "workbench/shader/bindings.h"

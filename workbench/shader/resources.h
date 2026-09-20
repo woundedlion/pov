@@ -11,7 +11,8 @@
 
 /**
  * @file resources.h
- * @brief Noise-resource identity: the field key each stage of a configuration needs, and whether the union of two configurations fits the resident bank.
+ * @brief Noise-resource keys for each stage and whether two configurations'
+ *        union fits the resident bank.
  */
 
 #include "core/render/pullback/runtime_seeds.h"

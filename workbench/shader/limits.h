@@ -11,7 +11,8 @@
 
 /**
  * @file limits.h
- * @brief Parameter domain bounds: the slider ranges every authored Config is held to, and the predicates that check one against them.
+ * @brief Parameter-domain slider bounds and predicates that check an authored
+ *        Config against them.
  */
 
 #include "workbench/shader/config.h"

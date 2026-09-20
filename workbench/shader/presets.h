@@ -11,7 +11,8 @@
 
 /**
  * @file presets.h
- * @brief The authored presets, their shared generators, and the static assertions holding every preset and every preset edge to the admission rules.
+ * @brief Authored presets, shared generators, and admission assertions for
+ *        every preset and preset edge.
  */
 
 #include "workbench/shader/admission.h"
