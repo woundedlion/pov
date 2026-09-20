@@ -230,13 +230,10 @@ def main():
     text = buf.getvalue()
     formatted = clang_format(text)
     if formatted is None:
-        # No clang-format: emit raw and warn loudly so the layout-normalize step
-        # is never skipped silently. The numeric data is correct regardless.
         sys.stderr.write(
-            "generate_luts: WARNING - clang-format not found; emitting "
-            "UNFORMATTED output. Run `clang-format -i core/color/color_luts.h` before "
-            "committing, or set CLANG_FORMAT to the binary path.\n")
-        sys.stdout.write(text)
+            "generate_luts: clang-format not found; refusing to emit. "
+            "Set CLANG_FORMAT to the binary path.\n")
+        sys.exit(1)
     else:
         sys.stdout.write(formatted)
 
