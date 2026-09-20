@@ -135,9 +135,9 @@ struct Twist {
       : twist(oscillations), amplitude(displacement), R(major_radius),
         twist_amp(static_cast<float>(oscillations) * displacement),
         twist_amp_abs(fabsf(twist_amp)), two_over_r(2.0f / major_radius) {
-    HS_CHECK(R > 0.0f);
-    HS_CHECK(twist >= 0);
-    HS_CHECK(amplitude >= 0.0f);
+    HS_CHECK(R > 0.0f, "SDF Volume: radius must be positive");
+    HS_CHECK(twist >= 0, "SDF Volume: twist must be nonnegative");
+    HS_CHECK(amplitude >= 0.0f, "SDF Volume: amplitude must be nonnegative");
   }
 
   /** @brief Precomputed context: s = sqrtf(x² + z²), shared across

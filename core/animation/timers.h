@@ -79,7 +79,7 @@ public:
    */
   RandomTimer(int min, int max, TimerFn f, bool repeat = false)
       : TimerBase(std::move(f), repeat), min(min), max(max) {
-    HS_CHECK(min >= 0 && min <= max);
+    HS_CHECK(min >= 0 && min <= max, "RandomTimer: invalid frame range");
     HS_CHECK(max < std::numeric_limits<int>::max(),
              "RandomTimer max must be < INT_MAX (reset adds 1)");
     reset();

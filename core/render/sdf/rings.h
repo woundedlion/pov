@@ -335,7 +335,8 @@ public:
   DistortedRing(const Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter &pf)
       : DistortedRing(b, r, th, 0.0f, ph) {
-    HS_CHECK(kn != nullptr && n >= 1); // n == 0: knot_v(-1) reads knots[-1]
+    HS_CHECK(kn != nullptr && n >= 1,
+             "DistortedRing: knot storage must be nonempty");
     knots = kn;
     lut_n = n;
     knot_count = static_cast<float>(n);
