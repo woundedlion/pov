@@ -615,6 +615,12 @@ _REQUIRED_SYMBOLS = frozenset({"arena", "framebuffer_a", "framebuffer_b"})
 _REQUIRED_SYMBOLS_BY_ENV: dict[str, frozenset[str]] = {
     "phantasm": frozenset({"reaction_graph", "dma_tx_buffer"}),
 }
+_REQUIRED_COMPONENTS_BY_ENV: dict[str, dict[str, frozenset[str]]] = {
+    "phantasm": {"ram1": frozenset({"code"})},
+}
+_COMPONENT_REQUIRED_KEYS_BY_COMPONENT: dict[str, frozenset[str]] = {
+    "code": frozenset({"max_banks_from_stack_floor"}),
+}
 
 
 def _check_keys(spec: object, allowed: frozenset[str], where: str,
@@ -707,9 +713,17 @@ def validate_budgets(budgets: object) -> dict:
                         required=required)
             _check_byte_limits(spec, ("max_bytes", "free_min_bytes"),
                                rwhere, required)
-            for cname, cspec in _child_map(spec, "components", rwhere).items():
+            components = _child_map(spec, "components", rwhere)
+            _require_present(
+                components,
+                _REQUIRED_COMPONENTS_BY_ENV.get(env, {}).get(
+                    region, frozenset()),
+                rwhere, "component")
+            for cname, cspec in components.items():
                 cwhere = f"{rwhere} component '{cname}'"
                 _check_keys(cspec, _COMPONENT_KEYS, cwhere,
+                            required=_COMPONENT_REQUIRED_KEYS_BY_COMPONENT.get(
+                                cname, frozenset()),
                             one_of=_COMPONENT_ONE_OF_KEYS)
                 _check_byte_limits(cspec, ("max_bytes",), cwhere)
                 derived = cspec.get("max_banks_from_stack_floor")
