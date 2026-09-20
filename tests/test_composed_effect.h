@@ -38,6 +38,7 @@
 #include <vector>
 
 #include "core/engine/effects.h"
+#include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/composed_effect.h"
 #include "core/render/pullback/operator_table.h"
 #include "tests/test_effects.h" // reset_effect_globals, SMALL_W/SMALL_H
@@ -705,6 +706,66 @@ struct JsonParser {
     return value;
   }
 };
+
+inline void test_catalog_semantic_export() {
+  namespace Catalog = Pullback::Interp;
+  std::string text;
+  Catalog::append_catalog_json(text);
+  JsonParser parser{text};
+  const JsonValue root = parser.parse_value();
+  parser.skip_space();
+  HS_EXPECT_FALSE(parser.failed);
+  HS_EXPECT_EQ(parser.position, text.size());
+  const auto member = [](const JsonValue &object,
+                         const char *name) -> const JsonValue & {
+    const JsonValue *value = object.find(name);
+    HS_EXPECT(value != nullptr, "catalog member is present");
+    static const JsonValue EMPTY;
+    return value != nullptr ? *value : EMPTY;
+  };
+  const auto &operators = member(root, "operators").items;
+  HS_EXPECT_EQ(operators.size(), Catalog::OPERATOR_TABLE.size());
+  if (operators.size() != Catalog::OPERATOR_TABLE.size())
+    return;
+  for (size_t index = 0; index < operators.size(); ++index) {
+    const auto &expected = Catalog::OPERATOR_TABLE[index];
+    const auto &actual = operators[index];
+    HS_CONTEXT(expected.operator_id);
+    HS_EXPECT_TRUE(member(actual, "id").text == expected.operator_id);
+    HS_EXPECT_TRUE(member(actual, "input").text ==
+                   Catalog::CARRIER_NAMES[static_cast<size_t>(expected.input)]);
+    HS_EXPECT_TRUE(
+        member(actual, "output").text ==
+        Catalog::CARRIER_NAMES[static_cast<size_t>(expected.output)]);
+    const auto &params = member(actual, "params").items;
+    HS_EXPECT_EQ(params.size(), expected.schema_count);
+    if (params.size() != expected.schema_count)
+      continue;
+    for (size_t field = 0; field < params.size(); ++field) {
+      const auto &schema = expected.schema[field];
+      const auto &param = params[field];
+      HS_CONTEXT(schema.id);
+      HS_EXPECT_TRUE(member(param, "id").text == schema.id);
+      if (schema.topology) {
+        HS_EXPECT_TRUE(member(param, "topology").boolean);
+        const auto &values = member(param, "values").items;
+        HS_EXPECT_EQ(values.size(), schema.enum_count);
+        for (size_t value = 0;
+             value < values.size() && value < schema.enum_count; ++value)
+          HS_EXPECT_TRUE(values[value].text == schema.enum_ids[value]);
+        HS_EXPECT_TRUE(member(param, "default").text ==
+                       schema.enum_ids[schema.enum_def]);
+      } else {
+        HS_EXPECT_EQ(static_cast<float>(member(param, "min").number),
+                     schema.min);
+        HS_EXPECT_EQ(static_cast<float>(member(param, "max").number),
+                     schema.max);
+        HS_EXPECT_EQ(static_cast<float>(member(param, "default").number),
+                     schema.def);
+      }
+    }
+  }
+}
 
 /** @brief The whole file as a string, or empty on a read failure. */
 inline std::string read_document(const std::string &path) {
@@ -1761,6 +1822,7 @@ inline void test_choreography_lerp_transition_hooks() {
  */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
+  test_catalog_semantic_export();
   test_composed_hand_registered_families();
   test_composed_slider_registration();
   test_composed_snapshot_contract();
