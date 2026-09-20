@@ -1206,6 +1206,23 @@ inline void test_pullback_hexagonal_edges() {
   }
 }
 
+inline void test_pullback_displacement_overflow() {
+  for (const Complex delta :
+       {Complex(3.0f, 4.0f), Complex(0.0f, 0.0f), Complex(1e10f, -1e10f),
+        Complex(5.22e19f, 5.22e19f), Complex(1e30f, -1e30f),
+        Complex(1e30f, 0.0f)}) {
+    HS_EXPECT_EQ(Pullback::Warp::displacement(delta, false), 0.0f);
+    const float distance = Pullback::Warp::displacement(delta, true);
+    const double EXPECTED = std::hypot(static_cast<double>(delta.re),
+                                       static_cast<double>(delta.im));
+    HS_EXPECT_TRUE(std::isfinite(distance));
+    HS_EXPECT_NEAR(distance, EXPECTED, EXPECTED * 1e-6);
+    const float SQUARED = delta.re * delta.re + delta.im * delta.im;
+    if (std::isfinite(SQUARED))
+      HS_EXPECT_EQ(distance, sqrtf(SQUARED));
+  }
+}
+
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_carrier_contract();
@@ -1220,6 +1237,7 @@ inline int run_pullback_tests() {
   test_pullback_provider_contracts();
   test_pullback_concrete_catalog();
   test_pullback_hexagonal_edges();
+  test_pullback_displacement_overflow();
   test_pullback_periodic_ripple();
   test_pullback_lens_stack();
   test_pullback_rank_skip_crossing();
