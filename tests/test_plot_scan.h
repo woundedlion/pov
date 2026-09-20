@@ -36,6 +36,8 @@
 #include "core/render/canvas.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/mesh_test_util.h"
+#include "tests/vec_test_util.h"
 
 #include <algorithm>
 #include <bit>
@@ -1291,17 +1293,8 @@ inline void test_mesh_edge_gate_pixel_parity() {
   Arena sb(seed_b, sizeof(seed_b));
   Arena ga(geom, sizeof(geom));
 
-  PolyMesh base = Solids::Platonic::icosahedron(sa, sb);
   MeshState mesh;
-  mesh.vertices.bind(ga, base.vertices.size());
-  for (const auto &v : base.vertices)
-    mesh.vertices.push_back(v);
-  mesh.faces.bind(ga, base.faces.size());
-  mesh.face_counts.bind(ga, base.face_counts.size());
-  for (size_t i = 0; i < base.face_counts.size(); ++i)
-    mesh.face_counts.push_back((uint8_t)base.face_counts[i]);
-  for (size_t i = 0; i < base.faces.size(); ++i)
-    mesh.faces.push_back(base.faces[i]);
+  build_icosahedron_meshstate(sa, sb, ga, mesh);
 
   ArenaVector<Plot::Mesh::Edge> edges;
   edges.bind(ga, mesh.faces.size());
@@ -1473,17 +1466,8 @@ inline void test_mesh_dissolve_masks_partition_edges() {
   Arena sb(seed_b, sizeof(seed_b));
   Arena ga(geom, sizeof(geom));
 
-  PolyMesh base = Solids::Platonic::icosahedron(sa, sb);
   MeshState mesh;
-  mesh.vertices.bind(ga, base.vertices.size());
-  for (const auto &v : base.vertices)
-    mesh.vertices.push_back(v);
-  mesh.faces.bind(ga, base.faces.size());
-  mesh.face_counts.bind(ga, base.face_counts.size());
-  for (size_t i = 0; i < base.face_counts.size(); ++i)
-    mesh.face_counts.push_back((uint8_t)base.face_counts[i]);
-  for (size_t i = 0; i < base.faces.size(); ++i)
-    mesh.faces.push_back(base.faces[i]);
+  build_icosahedron_meshstate(sa, sb, ga, mesh);
 
   ArenaVector<Plot::Mesh::Edge> edges;
   edges.bind(ga, mesh.faces.size());
@@ -2936,40 +2920,22 @@ inline void test_multiline_sample_arclength_param() {
 // point-to-geodesic-arc oracle.
 // ============================================================================
 
-/**
- * @brief Angular distance from a direction to a geodesic arc.
- * @param p Query direction (unit).
- * @param a,b Arc endpoints (unit, non-antipodal).
- * @return Radians from p to the nearest point of the arc a->b.
- * @details Drops p onto the arc's great circle and keeps that perpendicular
- * only when the foot lands between the endpoints; otherwise the nearest point
- * is an endpoint. Computed from the arc directly, so it shares no code with the
- * rasterizer it judges.
- */
-inline float arc_angular_distance(const Vector &p, const Vector &a,
-                                  const Vector &b) {
-  const Vector axis = cross(a, b);
-  const float axis_len = axis.length();
-  if (axis_len < 1e-6f)
-    return std::min(angle_between(p, a), angle_between(p, b));
-  const Vector n = axis / axis_len;
-  const float out_of_plane = dot(p, n);
-  const Vector in_plane = p - n * out_of_plane;
-  const float in_plane_len = in_plane.length();
-  if (in_plane_len > 1e-6f) {
-    const Vector foot = in_plane / in_plane_len;
-    const float span = angle_between(a, b);
-    if (angle_between(a, foot) + angle_between(foot, b) <= span + 1e-3f)
-      return std::asin(hs::clamp(std::fabs(out_of_plane), 0.0f, 1.0f));
-  }
-  return std::min(angle_between(p, a), angle_between(p, b));
-}
-
 /** @brief Four non-coplanar control directions used by the Multiline cases. */
 inline void multiline_control_points(std::vector<Vector> &out) {
   out = {Vector(1.0f, 0.0f, 0.0f), Vector(0.3f, 0.9f, 0.2f).normalized(),
          Vector(-0.5f, 0.2f, 0.84f).normalized(),
          Vector(-0.2f, -0.85f, 0.49f).normalized()};
+}
+
+/** @brief Rejects a great-circle foot on the complementary arc. */
+inline void test_arc_angular_distance_clamps_to_minor_arc() {
+  const auto equator = [](float degrees) {
+    const float angle = degrees * PI_F / 180.0f;
+    return Vector(cosf(angle), 0.0f, sinf(angle));
+  };
+  HS_EXPECT_NEAR(
+      arc_angular_distance(equator(270.0f), equator(0.0f), equator(150.0f)),
+      PI_F * 0.5f, 1e-5f);
 }
 
 /**
@@ -3794,36 +3760,6 @@ inline void test_rasterize_planar_policy_parity() {
 // Plot::ParticleSystem — trail rasterization
 // ============================================================================
 
-/**
- * @brief Angular distance from a unit point to a geodesic ARC a→b (not the full
- *        great circle).
- * @param p Query point (unit length).
- * @param a Arc start (unit length).
- * @param b Arc end (unit length).
- * @return Perpendicular distance to the arc when the foot of the perpendicular
- *         falls within it, else the nearer endpoint distance.
- * @details Arc-clamped (not plane-clamped) so a point bulging off its own segment
- *          is not scored as "near" a different segment whose infinite great circle
- *          it happens to pass close to.
- */
-inline float dist_to_arc(const Vector &p, const Vector &a, const Vector &b) {
-  Vector n = cross(a, b);
-  float nlen = n.length();
-  if (nlen < 1e-6f) // degenerate (coincident/antipodal) arc
-    return angle_between(p, a);
-  n = n * (1.0f / nlen);
-  Vector foot = p - n * dot(p, n); // project onto the great-circle plane
-  float flen = foot.length();
-  if (flen > 1e-6f) {
-    foot = foot * (1.0f / flen);
-    float ab = angle_between(a, b);
-    if (angle_between(a, foot) <= ab + 1e-4f &&
-        angle_between(b, foot) <= ab + 1e-4f)
-      return std::fabs(std::asin(hs::clamp(dot(p, n), -1.0f, 1.0f)));
-  }
-  return std::min(angle_between(p, a), angle_between(p, b));
-}
-
 /** @brief Minimal particle for the ParticleSystem draw concept: trail + life. */
 struct StubParticle {
   Animation::QuantizedVectorTrail<23>
@@ -4026,7 +3962,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   // (1)+(2) Active trail follows its recorded arc; the inactive ±Y particle is absent.
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)2);
   for (const Vector &v : pipe.plotted) {
-    HS_EXPECT_LE(dist_to_arc(v, t0[0], t0[2]), 0.05f);
+    HS_EXPECT_LE(arc_angular_distance(v, t0[0], t0[2]), 0.05f);
     HS_EXPECT_LT(std::fabs(v.y), 0.1f);
   }
   // (3) Registers: v2 == source index 0; v3 == life/max_life == 0.6, constant.
@@ -5948,6 +5884,7 @@ inline int run_plot_scan_tests() {
   test_planar_arc_cumul_monotone_and_endpoints();
 
   test_multiline_draw_covers_only_its_geodesic_edges();
+  test_arc_angular_distance_clamps_to_minor_arc();
   test_multiline_draw_closed_adds_the_seam_edge();
 
   test_planar_one_pass_matches_forward_difference();

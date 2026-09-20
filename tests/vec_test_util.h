@@ -24,6 +24,30 @@ inline bool approx_vec(const Vector &a, const Vector &b, float tol) {
   return approx(a.x, b.x, tol) && approx(a.y, b.y, tol) &&
          approx(a.z, b.z, tol);
 }
+
+/** @brief Returns angular distance from a unit direction to a geodesic arc. */
+inline float arc_angular_distance(const Vector &p, const Vector &a,
+                                  const Vector &b) {
+  const auto angle = [](const Vector &u, const Vector &v) {
+    return acosf(hs::clamp(dot(u, v), -1.0f, 1.0f));
+  };
+  const float endpoint_distance = std::min(angle(p, a), angle(p, b));
+  Vector normal = cross(a, b);
+  const float normal_length = normal.length();
+  if (normal_length < 1e-6f)
+    return endpoint_distance;
+  normal = normal / normal_length;
+  const float offset = dot(p, normal);
+  Vector foot = p - normal * offset;
+  const float foot_length = foot.length();
+  if (foot_length > 1e-6f) {
+    foot = foot / foot_length;
+    const float span = angle(a, b);
+    if (angle(a, foot) + angle(foot, b) <= span + 1e-4f)
+      return asinf(hs::clamp(std::fabs(offset), 0.0f, 1.0f));
+  }
+  return endpoint_distance;
+}
 /**
  * @brief Tests whether two quaternions agree within a tolerance.
  * @param a First quaternion operand.
