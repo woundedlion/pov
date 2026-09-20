@@ -250,6 +250,13 @@ inline void test_packpixel_wire_order() {
 
   HS_EXPECT_EQ(pixel(f, 0)[3], 255);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);
+  f.pack_pixel(N - 1, green);
+  HS_EXPECT_EQ(pixel(f, N - 1)[0], 0xFF);
+  HS_EXPECT_EQ(pixel(f, N - 1)[1], 0);
+  HS_EXPECT_EQ(pixel(f, N - 1)[2], 255);
+  HS_EXPECT_EQ(pixel(f, N - 1)[3], 0);
+  for (int i = 4 + N * 4; i < Frame::BUFFER_SIZE; ++i)
+    HS_EXPECT_EQ(f.data()[i], 0xFF);
 }
 
 /**
