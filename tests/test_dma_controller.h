@@ -102,8 +102,7 @@ public:
    * @details Marks the channel in-flight; the test completes it via complete().
    */
   void transmit_async(const uint8_t *data, size_t len) {
-    HS_CHECK(state().complete,
-             "MockStrip: transmit_async while a transfer is still in flight");
+    HS_EXPECT_TRUE(state().complete);
     State &s = state();
     s.last_data = data;
     s.last_len = len;
