@@ -111,10 +111,11 @@ template <typename ParamsT> struct FrameState {
   Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
   Quaternion outer_conjugate;
-  const FastNoiseLite *outer_noise;   /**< Null unless `HAS_OUTER_NOISE`. */
-  const FastNoiseLite *source_noise;  /**< Null unless `HAS_SOURCE_NOISE`. */
-  const FastNoiseLite *surface_noise; /**< Null unless the effect displaces. */
-  const BakedPalette *palette;        /**< The cycler's current bake. */
+  const FastNoiseLite *outer_noise;  /**< Null unless `HAS_OUTER_NOISE`. */
+  const FastNoiseLite *source_noise; /**< Null unless `HAS_SOURCE_NOISE`. */
+  const FastNoiseLite
+      *surface_noise;          /**< Null unless surface noise is active. */
+  const BakedPalette *palette; /**< The cycler's current bake. */
   /** Hue-rotation LUT base; current only when hue_rotation_active(). */
   const Pixel *hue_rotation_lut;
   /** Hue-noise LUT base; current only under HueMode::NOISE with an active

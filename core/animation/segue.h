@@ -914,7 +914,7 @@ namespace Preset {
 /**
  * @brief Preset policy: param-space crossfade. An AUTOMATIC change arms a
  * Transition{from, to} and drives Derived::blend_params(progress) through a
- * timeline Animation::Lerp.
+ * timeline Animation::Progress.
  */
 struct Lerp {
   uint16_t frames = 0;           /**< Frames the parameter crossfade spans. */
