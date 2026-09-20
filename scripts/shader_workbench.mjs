@@ -1073,7 +1073,7 @@ const v1Slots = (roleNodes) => {
     failV1('V1_POLICY_UNSUPPORTED', 'stage.color', `No colorize operator expands "${paletteKind}".`);
   add('colorize', { operator: 'colorize.generated-palette.v3' });
   const colorize = slots[slots.length - 1];
-  for (const resource of color.resources ?? [])
+  for (const resource of array(color.resources ?? [], 'stage.color.resources'))
     if (resource in V1_PALETTE_MODES)
       colorize.topology['palette-mode'] = V1_PALETTE_MODES[resource];
   if (colorPolicy.hue_mode !== undefined) {
@@ -1187,8 +1187,10 @@ export function expandV1Document(document, catalog) {
 
   // Null-prototype: rewriteId's `in` must answer for mapped ids only.
   const parameterIds = Object.create(null);
-  const parameters = array(descriptor.parameters, '$.descriptor.parameters').map((parameter) => {
-    const target = v1ParameterTarget(id(parameter.id, '$.descriptor.parameters'), slotsByLabel);
+  const parameters = array(descriptor.parameters, '$.descriptor.parameters').map((parameter, index) => {
+    const path = `$.descriptor.parameters[${index}]`;
+    object(parameter, path);
+    const target = v1ParameterTarget(id(parameter.id, `${path}.id`), slotsByLabel);
     parameterIds[parameter.id] = target;
     const { binding: droppedBinding, ...kept } = parameter;
     void droppedBinding;
@@ -1259,9 +1261,11 @@ export function expandV1Document(document, catalog) {
     parameterId === 'brightness-depth' ? 1 - value : value;
 
   const pathPolicies = array(descriptor.path_policies, '$.descriptor.path_policies')
-    .map((policy) => {
+    .map((policy, index) => {
+      const path = `$.descriptor.path_policies[${index}]`;
+      object(policy, path);
       if (policy.kind !== 'STAGGERED_ORDERED') return policy;
-      const groups = policy.groups.map((group) =>
+      const groups = array(policy.groups, `${path}.groups`).map((group) =>
         (group in parameterIds ? parameterIds[group] : group));
       // A synthesised topology parameter declares no interpolation group, so it
       // schedules under its own id, and a staggered path must name every group.
