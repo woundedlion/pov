@@ -402,7 +402,7 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
     }
 
     Vector n_edge1 = cross1.normalized();
-    // Sign convention: the two edge normals are rotated by OPPOSITE-signed half
+    // Sign convention: the two edge normals are rotated by opposite-signed
     // contact angles (+ha about m1, -ha about m2) so both Hankin planes tilt
     // toward the shared corner; the dot(intersect, p_corner)<0 flip below then
     // selects the corner-side hemisphere of their intersection.
