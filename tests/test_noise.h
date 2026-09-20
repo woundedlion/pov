@@ -18,9 +18,9 @@
  * sample expression stated beside it against the vendored FastNoiseLite
  * (upstream VERSION 1.1.1 plus the in-tree patches core/vendor/
  * FastNoiseLite_config.h records), built by the native clang test toolchain
- * (cmake/toolchain-native-clang.cmake). To re-derive after a vendor bump, print
- * `actual` from expect_noise_grid() and `r` from the noise_transform loop, then
- * paste the printed values back.
+ * (cmake/toolchain-native-clang.cmake). A vendor update requires independent
+ * verification of any changed samples against the upstream implementation
+ * and an explanation of the intended algorithm change before updating them.
  */
 #pragma once
 
