@@ -424,7 +424,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── pov_segment_frame.h     Retains opposite-half pixels before segmented frame publication
 │   ├── pov_segment_map.json    Segment→canvas golden emitted from that header; read by daydream's cross-check
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
-│   ├── pov_single_map.h        Pure single-board strip index math (host-testable)
+│   ├── pov_single_map.h        Single-board strip mapping and column pack/submit/advance sequence (host-testable)
 │   ├── pov_sync.h              Phantasm per-board sync engine over the layers below (host-testable)
 │   ├── pov_sync_protocol.h     Sync ring math, Config, symbol alphabet, flip gate, edge mailbox, telemetry
 │   ├── pov_sync_flywheel.h     Layer 1: position-from-time flywheel and its snap discipline
@@ -597,11 +597,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
 ├── app_lifecycle.js            Composition-root frame adapter, Test All ticker,
 │                                  module-load deadline, and teardown
-├── display_aliases.js           Display-buffer alias divergence check and repoint
-├── apply_notice.js              Owner-keyed sink for the shared apply-notice element
-├── recording_settings.js        Recorder settings and their GUI binding
-├── pole_lod.js                  Pole azimuthal-LOD control binding
-├── segment_policy.js            Segmented spawn epoch and the single-engine fallback
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
 ├── apply_notice.js             Shared notice element, owner-keyed so a clear lands only for its holder
 ├── display_aliases.js          The display-buffer aliases every renderer writes through, healed together
@@ -683,6 +678,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │
 ├── scripts/
 │   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
+│   ├── check-cdn-integrity.mjs Verifies pinned CDN module bytes against importmap integrity hashes
 │   ├── probe_harness.mjs       Manifest server, browser, console/network collector and pointer helpers every probe runs on
 │   ├── browser.mjs             Browser resolution (CHROME_PATH, else the standard Chrome locations) and the launch flags the headless scripts share
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
@@ -690,7 +686,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── record-module-loads.mjs NODE_OPTIONS shim recording loaded test modules
 │   ├── require-tests.mjs       `pretest` guard against empty globs, unreachable tests, and shadow installs
 │   ├── serve-manifest.mjs      Local static server constrained to the published site manifest
-│   ├── probe_harness.mjs       Shared browser-probe runner: page open, problem collection, and the drag/box helpers the six probes share
 │   ├── vendor-stage.mjs        Hard-links the manifest set into a scratch tree served with a node_modules import map, for the headless gate
 │   ├── verify-ci-green.mjs     Verifies every CI job is covered by the required aggregate check
 │   ├── workbench-probe.mjs     Headless pointer-level probe of the shader workbench's pipeline strip; run it for any tools/ UI change
@@ -701,6 +696,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   ├── lissajous-probe.mjs     Headless pointer-level probe of the Lissajous page's rational frequency lock and the domain it drives
 │   └── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
 │
+├── requirements/
+│   ├── shellcheck.in          ShellCheck version pin
+│   └── shellcheck.txt         Hashed ShellCheck wheel lock
 ├── tests/                      Node unit tests (`npm test`)
 ├── tsconfig.json               checkJs settings for the worker-protocol module set
 ├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step
@@ -2974,8 +2972,10 @@ events invalidate it, and a cached view must be tested for both:
 - **A resolution change** — the backing buffer is pre-sized to `MAX_W × MAX_H`
   and never reallocated (§10.10), so `setResolution` detaches nothing. It moves
   the *active prefix* instead: the cached view stays live at the previous
-  resolution's length, and a 96×20 view left bound to a 288×144 dot mesh renders
-  the frame wrong rather than throwing. Only a length check catches it.
+  resolution's length. Three.js r183 throws during upload if an existing
+  attribute's array byte length differs from its allocated GPU buffer. A stale
+  view initially bound to a new mesh can instead allocate the wrong-sized buffer;
+  check the view length against the active resolution before binding it.
 
 ```js
 if (wasmPixels.buffer.byteLength === 0 ||
@@ -3050,7 +3050,7 @@ params.forEach(p => {
 });
 ```
 
-`getParamValues()` is polled each frame to sync the GUI with parameter values that the animation system has changed autonomously. The sync skips any control the user is currently interacting with to avoid fighting the slider. A per-effect **Reset** rebuilds the GUI from defaults, and **Export** copies the current `{ name, value }` set as a C++-formatted initializer suitable for `PRESETS` tables. If a segmented-render parameter snapshot is temporarily unavailable after an edit, Export uses the values displayed by the current parameter schema. An effect that reports presets also gets a **Preset** dropdown over the zero-indexed live index — a live control, not a readout: choosing an entry selects that preset — flanked by **Previous Preset** / **Next Preset** buttons that step it, and each per-frame sync first mirrors the live preset into the engine that owns the definitions, skipping the rest of the update when that mirror fails.
+`getParamValues()` is polled after simulation steps and on invalidated frames to sync the GUI with parameter values that the animation system has changed autonomously. While paused, the panel continues reconciling on each animation frame. The sync skips any control the user is currently interacting with to avoid fighting the slider. A per-effect **Reset** rebuilds the GUI from defaults, and **Export** copies the current `{ name, value }` set as a C++-formatted initializer suitable for `PRESETS` tables. If a segmented-render parameter snapshot is temporarily unavailable after an edit, Export uses the values displayed by the current parameter schema. An effect that reports presets also gets a **Preset** dropdown over the zero-indexed live index — a live control, not a readout: choosing an entry selects that preset — flanked by **Previous Preset** / **Next Preset** buttons that step it, and each sync first mirrors the live preset into the engine that owns the definitions, skipping the rest of the update when that mirror fails.
 
 Three behaviours the definitions loop above does not show. **Stage folders**: pullback-shaded effects are grouped rather than listed flat — the panel matches the registered names against a per-effect stage assignment and builds one folder per pipeline stage, in pullback order; a parameter no stage claims is still built, at the panel's top level, and the orphan is logged. **Warnings**: a definition carrying a `warning` — the engine's answer to a value it accepted as a request but will not render — renders that text into a node beside the control (a node, not a `title` attribute, which would be mouse-only), and the panel re-reads the warning set after each edit and rebuilds once the engine's warnings have moved off the ones it was built from. **Persistence**: the panel restores itself across a reload, storing accepted parameter values for an ordinary effect and, for one on the full-config path, `getFullConfigSnapshot()` as JSON — replayed through `restoreFullConfigSnapshot()`, which is atomic, so a snapshot that fails to parse or that the engine rejects is dropped rather than half-applied.
 
@@ -3071,14 +3071,14 @@ drawFrame() {                postMessage({type:'render'})
 
 Key properties:
 - **Isolated WASM instances per worker** — each segment has its own arena, its own RNG stream, and its own effect state. The stream is *per effect load*: every `setEffect()` reseeds the shared `Pcg32` from `hs::stable_effect_seed(stable_id)`, mirroring the device's per-effect reseed. The seed is a pure function of the effect's stable id, so every instance loading the same effect derives the same stream locally — a pool rebuilt mid-session matches a main-thread engine that has already switched effects N times.
-- **One shared compilation, warmed before the spawn** — `warmModules()` (`module_warmer.js`, exported as `pageWarmer`) re-fetches the worker's whole module graph — `segment_worker.js`, the WASM glue, `segment_layout.js`, `worker_protocol.js` and the binary — with `cache: 'no-cache'`, so a worker cannot load a module cached from an earlier deploy against freshly fetched peers. It also compiles the drained binary into the page-wide `ModuleWarmer`, and the spawn passes that `WebAssembly.Module` in each worker's `init`: an N-worker pool costs one compilation of the 2.7 MiB module instead of N. Warms are deduped per module graph over `WARM_INTERVAL_MS` (10 s), because lil-gui fires `onChange` per drag step and the segment-count slider would otherwise revalidate the graph several times a second. A binary the engine refuses drops the held module — reported by the worker as `engineRejected` with `sharedModule` — so the next spawn compiles per worker rather than reusing an artifact there is evidence is stale; the refusal is not latched, and a warm past the dedupe window re-fetches.
+- **One shared compilation, warmed before the spawn** — `warmModules()` (`module_warmer.js`, exported as `pageWarmer`) re-fetches the worker's whole module graph — `segment_worker.js`, the WASM glue, `segment_layout.js`, `worker_protocol.js` and the binary — with `cache: 'no-cache'`, so a worker cannot load a module cached from an earlier deploy against freshly fetched peers. It also compiles the drained binary into the page-wide `ModuleWarmer`, and the spawn passes that `WebAssembly.Module` in each worker's `init`: an N-worker pool costs one compilation of the 2.7 MiB module instead of N. Warms are deduped per module graph over `WARM_INTERVAL_MS` (10 s), because lil-gui fires `onChange` per drag step and the segment-count slider would otherwise revalidate the graph several times a second. A binary the engine refuses drops the held module — reported by the worker as `engineRejected` with `sharedModule` — and triggers a bounded automatic boot retry that compiles per worker. A warm past the dedupe window re-fetches the shared module.
 - **`setClip(x0, x1, y0, y1)`** — for a non-stateful effect the WASM engine restricts *rendering* to the worker's segment rectangle: the rasterizer's scanline culling skips out-of-clip rows and columns, so out-of-band pixels are never shaded. The pixel readback in `drawFrame()` copies only that same rectangle out of the canvas buffer, leaving the rest of the readback buffer holding whatever it last did; `segment_worker.js` then extracts that rectangle with one `extractSegment()` call before transferring the result back, so only the segment crosses the worker boundary. That call lives in `segment_layout.js`, the module both ends share: the worker extracts with it and the main thread composites with its `compositeSegment()` counterpart, so one blit routine defines the segment rectangle for both directions.
 - **Per-instance render settings must be re-sent** — `setPoleLod` writes `pole_lod_aggressiveness`, a module-global of the WASM instance it is called on. A worker's instance carries its own copy, so a value set on the main-thread engine does not reach the pool: the controller must forward the setting to every worker (a protocol message of its own, applied like `setAnimationsPaused`) or the composited preview renders undecimated while the slider reads non-zero.
 - **Cross-segment stateful effects render full-frame** — an effect whose per-frame state reads pixels *outside* the worker's band (`MeshFeedback`'s feedback warp samples the previous frame at unbounded offsets; `Dynamo` reprojects `World::Trails` under rotation) cannot be band-clipped: a clipped worker would have stale/zero history outside its band, so cross-band trails read as black and seams appear. Those effects report `Effect::needs_full_frame()` (derived from a compile-time `any_crosses_segments` filter-pipeline trait), and `setClip` leaves their clip at the full canvas and reports `FULL_FRAME_KEPT` — every worker computes the bit-identical full frame and `segment_worker.js` slices its segment rectangle from the full readback. This mirrors the device exactly, where each board independently renders the whole canvas; only non-stateful effects keep segmented rendering's clipping win.
 - **One-frame pipeline** — frame N's render is dispatched fire-and-forget; frame N-1's results are composited synchronously when they arrive. The stats overlay's `max` row — the slowest worker's own `drawFrame()` — is the comparable number, and is the closest stand-in for what the multi-Teensy hardware sees. It is not a bound on it: `computeSegmentRange()` pins each arm to a fixed column half, while the firmware's `segment_clip()` trades the two halves between the arms every half-revolution, so a segment's `Compute` — and the `max` over them — covers one of the two halves that board actually sweeps rather than the costlier one. The `round-trip` row below it spans dispatch to last worker response, so it also carries structured-clone, `ArrayBuffer` transfer and main-thread event-loop latency that the hardware has no analogue for.
 - **Boundary overlay** — a "Show Boundaries" toggle paints cyan markers on the segment edges in the composite buffer to make the partition visible.
 - **Protocol version handshake** — `worker_protocol.js` exports a `PROTOCOL_VERSION` that both ends stamp and check. Each worker posts a `booted` ping carrying it *before* instantiating WASM, and the controller's `init` message carries it back; either side faults on a mismatch — a stale cached worker or glue file against a newer peer — instead of drifting on reshaped message fields.
-- **Watchdogs, bounded boot retry, and a latched fault** — a worker that hangs or fails to load without throwing fires no `onerror`, so three deadlines bound the pipeline: the `booted` ping (module fetch + evaluate), pool readiness (WASM instantiate), and render liveness. The render deadline is re-armed on every distinct segment frame, so a slow effect keeps extending it while a true stall still faults. A message-less `error` event before the pool is ready is a transient module-fetch failure and rebuilds the pool a bounded number of times with a short backoff; anything else latches. Latching terminates every worker and halts the pool with no auto-restart, replacing the per-segment stats table with a fault banner naming the segment and the reason — it stays down until a user-driven resolution or segmented-mode change rebuilds the pool.
+- **Watchdogs, bounded boot retry, and a latched fault** — a worker that hangs or fails to load without throwing fires no `onerror`, so three deadlines bound the pipeline: the `booted` ping (module fetch + evaluate), pool readiness (WASM instantiate), and render liveness. The render deadline is re-armed on every distinct segment frame, so a slow effect keeps extending it while a true stall still faults. A message-less `error` event or a rejected shared module before the pool is ready rebuilds the pool a bounded number of times with a short backoff; other failures and exhausted retries latch. Latching terminates every worker and halts the pool with no auto-restart, replacing the per-segment stats table with a fault banner naming the segment and the reason — it stays down until a user-driven resolution or segmented-mode change rebuilds the pool.
 
 ### 10.8 Vendor Importmap (CDN by Default / Local Opt-In)
 
