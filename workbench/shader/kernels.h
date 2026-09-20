@@ -76,9 +76,9 @@ tracks_displacement(const FrameState &frame) {
 inline bool projection_edge_distance_required(const FrameState &frame) {
   const WarpProgram &program = frame.slots.warp_program;
   return frame.slots.coverage == CoveragePolicy::EDGE_FADE ||
-         (program.outer.kind != WarpStageKind::NONE &&
+         (warp_uses_envelope(program.outer.kind) &&
           program.outer.envelope == WarpEnvelope::EDGE_FADE) ||
-         (program.inner.kind != WarpStageKind::NONE &&
+         (warp_uses_envelope(program.inner.kind) &&
           program.inner.envelope == WarpEnvelope::EDGE_FADE);
 }
 
