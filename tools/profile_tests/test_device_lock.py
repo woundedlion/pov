@@ -13,6 +13,7 @@ Run:  python -m unittest discover -s tools/profile_tests
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -142,45 +143,83 @@ class LockBreak(unittest.TestCase):
         self.assertFalse(self.d.exists())
 
     def test_claim_retaken_since_the_judgement_survives(self):
-        # The holder released and a peer re-claimed between our staleness
-        # judgement and the break; that claim is live and must be put back.
         self._claim("fresh")
-        mark = self.root / "seen"
-        prelude = (
-            'MARK="%s"; _hs_lock_field() { '
-            'if [ "$2" = token ] && [ ! -e "$MARK" ]; then : > "$MARK"; '
-            'echo stale; return; fi; '
-            'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; };' % mark)
-        self.assertFalse(break_lock(self.d, prelude=prelude))
-        self.assertTrue(self.d.is_dir())
-        self.assertIn("token=fresh", (self.d / "info").read_text())
+        self.assertFalse(break_lock(self.d, expected="stale"))
+        self.assertEqual((self.d / "info").read_text(), "token=fresh\n")
 
-    def test_a_peer_claiming_during_the_put_back_is_not_nested_into(self):
-        # The window between "is the slot free?" and the restoring move: a peer
-        # that claims it there must get its lock back intact, with no scratch
-        # directory left inside it for the next debugger to find.
-        self._claim("fresh")
-        mark = self.root / "seen"
-        prelude = (
-            'MARK="%s"; D="%s"; MVN=0; '
-            'mv() { MVN=$((MVN+1)); '
-            '[ "$MVN" = 2 ] && { mkdir -p "$D"; echo token=peer > "$D/info"; }; '
-            'command mv "$@"; }; '
-            '_hs_lock_field() { '
-            'if [ "$2" = token ] && [ ! -e "$MARK" ]; then : > "$MARK"; '
-            'echo stale; return; fi; '
-            'sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1; };'
-            % (mark, self.d))
-        self.assertFalse(break_lock(self.d, prelude=prelude))
-        self.assertTrue(self.d.is_dir())
-        self.assertEqual([p.name for p in self.d.iterdir()], ["info"])
-        self.assertEqual(sorted(p.name for p in self.root.iterdir()),
-                         ["lock.d", "seen"])
+    def test_three_sessions_cannot_claim_during_stale_retirement(self):
+        self._claim("stale")
+        script = """
+import sys
+sys.path.insert(0, sys.argv[1])
+import device_lock_guard as lock
+original = lock.read_token
+def paused_read(directory):
+    token = original(directory)
+    print("checked", flush=True)
+    input()
+    return token
+lock.read_token = paused_read
+sys.exit(0 if lock.update_claim(sys.argv[2], "break", "stale") else 1)
+"""
+        retire = subprocess.Popen(
+            [sys.executable, "-c", script, str(LOCK_SH.parent), str(self.d)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True)
+        peers = []
+        try:
+            self.assertEqual(retire.stdout.readline().strip(), "checked")
+            for name in ("B", "C"):
+                recovery = '_hs_break_lock "$D" stale || :; ' if name == "B" else ""
+                body = (f'. "{LOCK_SH}"; D="{self.d}"; echo started; '
+                        f'{recovery}_hs_try_claim "$D" COM3 {name} test 60; '
+                        'rc=$?; echo "CLAIM=$rc"; read -r done; exit "$rc"')
+                peer = subprocess.Popen(
+                    ["bash", "-c", body], stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                peers.append(peer)
+                self.assertEqual(peer.stdout.readline().strip(), "started")
+            time.sleep(0.2)
+            self.assertEqual((self.d / "info").read_text(), "token=stale\n")
+            self.assertTrue(all(peer.poll() is None for peer in peers))
+            retire.communicate("continue\n", timeout=10)
+            self.assertEqual(retire.returncode, 0)
+            results = [peer.stdout.readline().strip() for peer in peers]
+            self.assertEqual(sorted(results), ["CLAIM=0", "CLAIM=1"])
+            winner = "B" if results[0] == "CLAIM=0" else "C"
+            self.assertIn(f"effect={winner}\n", (self.d / "info").read_text())
+        finally:
+            if retire.poll() is None:
+                retire.kill()
+            retire.communicate(timeout=10)
+            for peer in peers:
+                peer.communicate("done\n", timeout=10)
 
     def test_break_leaves_no_scratch_directory_behind(self):
         self._claim("stale")
         self.assertTrue(break_lock(self.d))
-        self.assertEqual(list(self.root.iterdir()), [])
+        self.assertEqual([p.name for p in self.root.iterdir()], ["lock.d.guard"])
+
+    def test_guard_is_released_when_its_process_dies(self):
+        self._claim("stale")
+        script = """
+import sys
+sys.path.insert(0, sys.argv[1])
+from device_lock_guard import guard
+with guard(sys.argv[2]):
+    print("locked", flush=True)
+    input()
+"""
+        holder = subprocess.Popen(
+            [sys.executable, "-c", script, str(LOCK_SH.parent), str(self.d)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True)
+        try:
+            self.assertEqual(holder.stdout.readline().strip(), "locked")
+        finally:
+            holder.kill()
+            holder.communicate(timeout=10)
+        self.assertTrue(break_lock(self.d))
 
 
 def run_lock(script, lock_base, ports=("COM3", "COM4"), env=None):
@@ -329,7 +368,7 @@ class BoardSelection(unittest.TestCase):
         self.assertEqual((self.lock_dir("COM3") / "info").read_text().strip(),
                          "token=peer")
         self.assertEqual(sorted(x.name for x in self.base.parent.iterdir()),
-                         ["lock-COM3.d"])
+                         ["lock-COM3.d", "lock-COM3.d.guard"])
 
     def test_release_survives_errexit(self):
         # profile_one.sh runs under `set -e`; a declined release must not abort
