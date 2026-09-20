@@ -186,10 +186,6 @@ private:
    * arenas survive.
    */
   HS_COLD_MEMBER void classify_mesh_topology(MeshState &mesh) {
-    // ScratchScope frees only this call's own allocations, preserving prior
-    // caller allocations in these shared arenas that a bare reset() would drop.
-    ScratchScope a_guard(scratch_arena_a);
-    ScratchScope b_guard(scratch_arena_b);
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
                                         persistent_arena);
   }
