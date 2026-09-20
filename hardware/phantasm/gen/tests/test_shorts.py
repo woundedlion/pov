@@ -143,6 +143,14 @@ class PowerFlagTests(unittest.TestCase):
         self.assertEqual(shorts.geometry(root), ({}, [], []))
 
 
+class SegmentGeometryTests(unittest.TestCase):
+    def test_nearby_point_is_not_connected(self):
+        self.assertFalse(shorts.on_seg((5.0, 0.019), (0.0, 0.0), (10.0, 0.0)))
+
+    def test_exact_grid_point_is_connected(self):
+        self.assertTrue(shorts.on_seg((5.0, 0.0), (0.0, 0.0), (10.0, 0.0)))
+
+
 class StackedNameTests(unittest.TestCase):
     """Two names at one coordinate are a short with no wire between them."""
 
