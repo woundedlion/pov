@@ -23,8 +23,6 @@
 namespace hs_test {
 namespace spatial_tests {
 
-using hs_test::approx_vec;
-
 // Module-scope scratch buffer; each test re-bases the bump pointer by
 // constructing a fresh Arena over it at entry. Do NOT retain an ArenaVector or
 // pointer into this buffer past its own test scope.

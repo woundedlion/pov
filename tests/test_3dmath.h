@@ -342,9 +342,10 @@ inline void test_fast_expf() {
     HS_EXPECT_TRUE(rel <= 7.5e-4f);
   }
 
-  // Large-magnitude arguments saturate to 0.
-  HS_EXPECT_NEAR(fast_expf(-100.0f), 0.0f, 1e-30f);
-  HS_EXPECT_NEAR(fast_expf(-200.0f), 0.0f, 1e-30f);
+  HS_EXPECT_GT(fast_expf(-87.0f), 0.0f);
+  HS_EXPECT_EQ(fast_expf(-88.0f), 0.0f);
+  HS_EXPECT_EQ(fast_expf(-100.0f), 0.0f);
+  HS_EXPECT_EQ(fast_expf(-200.0f), 0.0f);
 }
 
 /**
