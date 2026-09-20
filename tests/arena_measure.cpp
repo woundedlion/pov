@@ -78,6 +78,8 @@ template <typename Effect> void measure(const char *name) {
 } // namespace
 
 int main() {
+  if (!hs_test::require_ci_smoke_frames())
+    return 1;
   std::printf("=== arena high-water per effect (host -Os, %dx%d, %d frames) "
               "===\n",
               W, H, FRAMES);
