@@ -88,7 +88,7 @@ fi
 # `command -v python3` is not enough on Windows: the App Execution Alias stub
 # resolves and then refuses to run. Probe with --version.
 PYTHON_BIN=
-for candidate in ${HS_PYTHON:-} python3 python; do
+for candidate in "${HS_PYTHON:-}" python3 python; do
   if "$candidate" --version >/dev/null 2>&1; then PYTHON_BIN="$candidate"; break; fi
 done
 if [ -z "$PYTHON_BIN" ]; then
