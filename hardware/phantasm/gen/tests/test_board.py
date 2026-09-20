@@ -53,6 +53,10 @@ LANDED = """(kicad_sch
 
 # Same board with pin 2's label dropped: the pin now connects to nothing.
 DANGLING = LANDED.replace('\t(label "NET_B" (at 100 103.81 0))\n', "")
+WIRE_OVER_PIN = DANGLING.replace(
+    '\t(label "NET_A" (at 110 96.19 0))\n',
+    '\t(label "NET_A" (at 110 96.19 0))\n'
+    '\t(wire (pts (xy 95 103.81) (xy 105 103.81)))\n')
 
 
 def generate(out):
@@ -91,8 +95,7 @@ def dangling_pins(root):
                 float(at[0]), float(at[1]),
                 float(at[2]) if len(at) > 2 else 0.0,
                 mirror[0] if mirror else None, pin["x"], pin["y"]))
-            if point in anchors or any(shorts.on_seg(point, a, b)
-                                       for a, b in wires):
+            if point in anchors:
                 continue
             ref = next((p[2] for p in F(inst, "property")
                         if p[1] == "Reference"), None)
@@ -148,6 +151,10 @@ class DanglingPinTests(unittest.TestCase):
 
     def test_an_unconnected_pin_is_reported(self):
         self.assertEqual(dangling_pins(sexp.parse(DANGLING)[0]),
+                         [("R1", "2", (100.0, 103.81))])
+
+    def test_a_wire_crossing_a_pin_does_not_connect_it(self):
+        self.assertEqual(dangling_pins(sexp.parse(WIRE_OVER_PIN)[0]),
                          [("R1", "2", (100.0, 103.81))])
 
 
