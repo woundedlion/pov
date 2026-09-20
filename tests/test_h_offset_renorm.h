@@ -27,6 +27,49 @@ namespace h_offset_renorm {
 constexpr int W = 32;
 constexpr int H = 16;
 
+inline void face_white(const Vector &, Fragment &fragment) {
+  fragment.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+}
+
+/** @brief Verifies Face row bounds and rasterization use the virtual height. */
+inline void test_face_bounds_use_virtual_height() {
+  constexpr float PHI_MIN = 1.2f;
+  constexpr float PHI_MAX = PI_F * 0.5f;
+  const auto point = [](float phi, float theta) {
+    return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta));
+  };
+  const Vector vertices[] = {point(PHI_MAX, -0.2f), point(PHI_MIN, 0.0f),
+                             point(PHI_MAX, 0.2f)};
+  const uint16_t indices[] = {0, 1, 2};
+
+  hs_test::StubEffect effect(W, H);
+  PixelCoords centroid;
+  {
+    Canvas canvas(effect);
+    Pipeline<W, H> pipeline;
+    SDF::FaceScratchBuffer scratch;
+    SDF::Face face(std::span<const Vector>(vertices, 3),
+                   std::span<const uint16_t>(indices, 3), scratch,
+                   H + hs::H_OFFSET, H, &canvas.clip());
+    const SDF::Bounds actual = face.get_vertical_bounds<H>();
+    const SDF::Bounds expected = SDF::phi_bounds_to_rows(
+        PHI_MIN - SDF::BOUNDS_MARGIN, PHI_MAX + SDF::BOUNDS_MARGIN,
+        H + hs::H_OFFSET, H);
+    HS_EXPECT_EQ(actual.y_min, expected.y_min);
+    HS_EXPECT_EQ(actual.y_max, expected.y_max);
+    HS_EXPECT_LT(actual.y_max, H);
+    centroid = vector_to_pixel<W, H>(face.center);
+    Scan::rasterize_face<W, H>(pipeline, canvas, face, face_white);
+  }
+  effect.advance_display();
+  const int x = static_cast<int>(std::lround(centroid.x)) % W;
+  const int y = static_cast<int>(std::lround(centroid.y));
+  HS_EXPECT_GE(y, 0);
+  HS_EXPECT_LT(y, H);
+  const Pixel &pixel = effect.get_pixel(x, y);
+  HS_EXPECT_GT(static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b, 0U);
+}
+
 /**
  * @brief Sums the tap alphas emitted by one AntiAlias::plot call.
  * @param aa The filter under test.
@@ -343,6 +386,7 @@ inline int run_h_offset_renorm_tests() {
   test_scan_bottom_row_is_a_latitude_ring();
   test_plot_below_last_row_is_clipped();
   test_feedback_bottom_row_rotates_in_longitude();
+  test_face_bounds_use_virtual_height();
   pole_wrap_tests::run_pole_wrap_cases();
   return fixture.result();
 }
