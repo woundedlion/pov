@@ -106,8 +106,9 @@ struct Style {
    * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. One
    * flush holds the coarse x/y offset grid, the spherical control samples it
    * expands from, and one W-pixel row in the scratch arena at once; pole infill
-   * puts the ring and sample counts above a flat (W/DS) x (H/DS) grid. At
-   * 288x144, DS=4 ≈ 21KB, DS=2 ≈ 71KB.
+   * puts the ring count above a flat (W/DS) x (H/DS) grid while the sin(phi)
+   * thinning holds the sample count below it at 288x144. At 288x144, DS=4 ≈
+   * 21KB, DS=2 ≈ 71KB.
    */
   int downsample = 4;
 
