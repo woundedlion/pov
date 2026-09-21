@@ -525,9 +525,10 @@ struct OuterWarpState {
   using FrameState = typename Binding::FrameState;
 
   static const auto &params(const FrameState &);
-  static const auto &prepared(const FrameState &);
+  static auto prepare(const FrameState &);
   static float phase(const FrameState &);
   static const FastNoiseLite &noise(const FrameState &);
+  static bool path_length_required(const FrameState &);
 };
 ```
 
@@ -535,9 +536,11 @@ Only the accessors needed by the selected operator are required. For example,
 `Warp::MirrorTile` does not require `noise`, and `Lens::Glitch` requires no
 provider at all. Accessor return requirements are structural and documented at
 the operator declaration: a wave-shear parameter view must expose
-`strength` and `frequency`; an affine prepared view must expose the fields its
-formula reads. Providers may return existing consumer records by const
-reference. Core shall not require construction of a per-pixel view object.
+`strength` and `frequency`; an affine prepared record must expose the fields its
+formula reads. `params(frame)` returns an existing consumer record by const
+reference; `prepare(frame)` returns the prepared record by value, and the
+policy names that return type `Prepared`. Core shall not require construction
+of a per-pixel view object.
 
 Every provider:
 
@@ -560,17 +563,19 @@ The initial provider surface is normative at the category level:
 | Provider category | Accessors available to policies in that category |
 |---|---|
 | orientation | prepared inverse `conjugate(frame)` |
-| surface map | `params(frame)`, `prepared(frame)`, `phase(frame)`, optional `noise(frame)`, and `path_length_required(frame)` |
-| projection | prepared frame `conjugate(frame)` plus scalar `singularity_fade`, `central_meridian`, `coordinate_scale`, `standard_parallel`, `layout_scroll`, and `edge_distance_required` accessors as required by the selected map |
-| planar warp slot | `params(frame)`, `prepared(frame)`, `phase(frame)`, and optional `noise(frame)`; basis, envelope, integrator, and polar mode are template facts in a compiled policy |
-| source | `params(frame)`, `prepared(frame)`, and optional noise resource/time accessors; the selected source policy determines the required subset |
+| surface map | `prepare(frame)` and `path_length_required(frame)`, plus the subset of `params(frame)`, `phase(frame)`, `noise(frame)`, `scale(frame)`, and `strength(frame)` the selected map reads |
+| projection | prepared frame `conjugate(frame)` plus scalar `singularity_fade`, `central_meridian`, `coordinate_scale`, `standard_parallel`, and `layout_scroll` accessors as required by the selected map; edge-distance demand is the `EdgeDistanceRequired` template argument of the Peirce and Airocean policies, not a provider read |
+| planar warp slot | `params(frame)` and `prepare(frame)`, plus `path_length_required(frame)`, `phase(frame)`, and `noise(frame)` where the selected policy reads them; basis, envelope, integrator, and polar mode are template facts in a compiled policy |
+| source | `params(frame)`, `prepare(frame)`, and optional noise resource/time accessors; the selected source policy determines the required subset |
 | material | value/coverage scalar accessors (`iso_level`, `iso_width`, band values, cutout values, `edge_width`) required by the selected policies |
 | color | immutable color parameters/clocks, generated palette binding, prepared hue-rotation LUT, prepared hue-noise LUT, and deliberately runtime mapping/brightness/hue mode values |
 
 An operator's declaration narrows this table with a `requires` expression that
 names every field/member it reads and no unrelated member. For example,
-`WaveShear` requires only `strength`, `frequency`, prepared rotation sine/cosine,
-and phase; `MirrorTile` requires only its cell/offset prepared values. These
+`WaveShear` requires `strength`, `frequency`, `phase(frame)`, prepared rotation
+sine/cosine, `path_length_required(frame)`, and `edge_width` only under the
+edge-fade envelope; `MirrorTile` requires `cell_x`, `cell_y`, prepared rotation
+sine/cosine and mirror transform, and `path_length_required(frame)`. These
 requirements are part of the public doxygen contract. Adding a new hot-path
 read therefore changes the provider concept and its tests in the same commit.
 
@@ -777,11 +782,11 @@ helper; scaling of coordinates and edge distance occurs in the same arithmetic
 order as today.
 
 The shared Peirce and Airocean direct kernels take an explicit
-`edge_distance_required` boolean. A compiled policy whose topology proves the
-answer supplies a boolean template argument and emits no provider read; the
-dynamic policy obtains it from `ProjectionState::edge_distance_required(frame)`.
-ShaderWorkbench's dynamic provider preserves the current predicate over edge-fade
-material coverage and both warp envelopes. This dependency is prepared or
+`edge_distance_required` boolean. The compiled Peirce and Airocean policies
+supply it as their `EdgeDistanceRequired` template argument and emit no
+provider read; ShaderWorkbench's dynamic dispatcher passes the kernels its own
+predicate over edge-fade material coverage and both warp envelopes
+(`workbench/shader/kernels.h`). This dependency is prepared or
 adapted by the consumer; core projection code does not inspect ShaderWorkbench
 coverage or warp enums.
 
