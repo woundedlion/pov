@@ -64,6 +64,7 @@ namespace hs_test {
 namespace conway_continuity_tests {
 
 using ConwayGraph::T_EPS;
+using ConwayGraph::T_EPS_AMBO;
 
 inline uint8_t cc_geom_buf[256 * 1024]; /**< Mesh / compiled-hankin arena. */
 inline uint8_t cc_temp_buf[256 * 1024]; /**< Op scratch arena. */
@@ -537,16 +538,10 @@ constexpr size_t SWAP_FLAT_BUDGET = 200;
 constexpr size_t SWAP_NEWBORN_BUDGET = 2500;
 
 /** Backstop on boundary-blend jitter around the swept mesh's moved edges. */
-constexpr size_t SWAP_BLEND_BUDGET = 12000;
+constexpr size_t SWAP_BLEND_BUDGET = 8000;
 
 /** Interior floor a wrong emission mapping must exceed (whole faces flip). */
 constexpr size_t WRONG_MAPPING_FLAT_FLOOR = 5000;
-
-/** Interior budget for the DUAL_SWAP crossover: both compared meshes sit
- * T_EPS off the clean cuboctahedron in opposite directions, so every
- * square-triangle boundary carries a ~1 px flat strip of real geometry
- * mismatch (measured 1352 px); a class-mapping error flips whole interiors. */
-constexpr size_t DUAL_SWAP_FLAT_BUDGET = 4000;
 
 /**
  * @brief Renders a seed and an operator output under the emission-identity
@@ -652,9 +647,9 @@ inline void test_derive_ambo_departure_swap_framebuffer() {
 
 /**
  * @brief Verifies the ADOPT bridge arrival swap geometry: the leg's last frame
- *        truncate(tetra, 0.5 - T_EPS) and the adopted octahedron base
+ *        truncate(tetra, 0.5 - T_EPS_AMBO) and the adopted octahedron base
  *        (ambo(tetra)) cover the same pixels — under one shared fill, so the
- *        residual is pure T_EPS geometry, not emission order (the ambo
+ *        residual is pure T_EPS_AMBO geometry, not emission order (the ambo
  *        short-circuit reorders emission; palettes carry over per class).
  */
 inline void test_adopt_bridge_arrival_geometry() {
@@ -664,7 +659,7 @@ inline void test_adopt_bridge_arrival_geometry() {
 
   PolyMesh tetra;
   build_solid<Solids::Tetrahedron>(tetra, geom);
-  PolyMesh swept = MeshOps::truncate(tetra, geom, temp, 0.5f - T_EPS);
+  PolyMesh swept = MeshOps::truncate(tetra, geom, temp, 0.5f - T_EPS_AMBO);
   PolyMesh arrived = MeshOps::ambo(tetra, geom, temp);
   HS_EXPECT_EQ(swept.face_counts.size(), arrived.face_counts.size());
 
@@ -685,8 +680,9 @@ inline void test_adopt_bridge_arrival_geometry() {
 }
 
 /**
- * @brief Verifies the DUAL_SWAP ambo crossover: truncate(cube, 0.5 - T_EPS)
- *        and truncate(dual(cube), 0.5 - T_EPS) render the same pixels when
+ * @brief Verifies the DUAL_SWAP ambo crossover: truncate(cube, 0.5 -
+ *        T_EPS_AMBO) and truncate(dual(cube), 0.5 - T_EPS_AMBO) render the
+ *        same pixels when
  *        faces are colored by their class signature (clean side count) — the
  *        mapping the crossover uses, since emission order flips at the dual.
  */
@@ -699,8 +695,8 @@ inline void test_dual_swap_crossover_framebuffer() {
   build_solid<Solids::Cube>(cube, geom);
   PolyMesh octa = Solids::finalize_solid(MeshOps::dual(cube, aux, temp), geom);
 
-  PolyMesh from_cube = MeshOps::truncate(cube, aux, temp, 0.5f - T_EPS);
-  PolyMesh from_octa = MeshOps::truncate(octa, geom, temp, 0.5f - T_EPS);
+  PolyMesh from_cube = MeshOps::truncate(cube, aux, temp, 0.5f - T_EPS_AMBO);
+  PolyMesh from_octa = MeshOps::truncate(octa, geom, temp, 0.5f - T_EPS_AMBO);
 
   // Clean side count at the shared cuboctahedron: primaries keep the seed's
   // count, vertex faces the seed's vertex degree.
@@ -731,15 +727,15 @@ inline void test_dual_swap_crossover_framebuffer() {
   render_faces(b_wrong_px, b_ms,
                [&](int f) { return class_color(octa, f, true); });
 
-  // Both sides sit T_EPS off the clean cuboctahedron in opposite directions,
-  // so every square-triangle boundary carries a ~1 px flat strip of genuine
-  // geometry mismatch; a wrong class mapping instead flips whole interiors.
+  // Both sides sit T_EPS_AMBO off the clean cuboctahedron in opposite
+  // directions, a sub-pixel geometry mismatch; a wrong class mapping instead
+  // flips whole interiors.
   const DiffStats st = diff_stats(a_px, fill, b_px, fill);
   const DiffStats wrong = diff_stats(a_px, fill, b_wrong_px, fill);
   std::printf("  [dual-swap] truncate(cube) vs truncate(dual(cube)) at ambo: "
               "flat=%zu blend=%zu px; wrong classes flat=%zu (floor %zu)\n",
               st.flat, st.blend, wrong.flat, WRONG_MAPPING_FLAT_FLOOR);
-  HS_EXPECT_LE(st.flat, DUAL_SWAP_FLAT_BUDGET);
+  HS_EXPECT_LE(st.flat, SWAP_FLAT_BUDGET);
   HS_EXPECT_LE(st.blend, SWAP_BLEND_BUDGET);
   HS_EXPECT_GT(wrong.flat, WRONG_MAPPING_FLAT_FLOOR);
 }
