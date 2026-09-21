@@ -879,6 +879,20 @@ inline void test_shader_workbench_full_config_snapshot() {
                WB::ConfigRestoreResult::INVALID_VALUE);
   HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
       sb.capture_full_config_snapshot(), before_failure));
+
+  HS_EXPECT_TRUE(WB::published_config(sb).slots.surface_lens !=
+                 WB::SurfaceLens::MOBIUS);
+  const size_t mobius_a_re =
+      static_cast<size_t>(WB::ConfigFieldId::LENS_MOBIUS_A_RE);
+  for (float coefficient : {std::numeric_limits<float>::quiet_NaN(), 9.0f}) {
+    invalid = before_failure;
+    invalid.accepted[mobius_a_re] = shader_workbench_float_payload(coefficient);
+    invalid.requested[mobius_a_re] = invalid.accepted[mobius_a_re];
+    HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+                 WB::ConfigRestoreResult::INVALID_VALUE);
+    HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+        sb.capture_full_config_snapshot(), before_failure));
+  }
 }
 
 /** @brief A mode edit clamps stale subordinate values to its new range. */
