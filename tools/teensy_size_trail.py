@@ -413,17 +413,25 @@ def cmd_commit(args) -> int:
     trail = Path(args.trail) if args.trail else default_trail()
     try:
         payload = json.loads(pending.read_text(encoding="utf-8"))
-        envs = payload["envs"]
-        sha, date, subject = head_stamp(args.repo, args.rev)
-        rows = [TrailRow(sha=sha, date=date, env=env,
-                         sizes={r: int(sizes.get(r, 0)) for r in REGIONS},
-                         subject=subject)
-                for env, sizes in sorted(envs.items())]
-        append_rows(trail, rows)
-    except (OSError, ValueError, KeyError, GitError) as exc:
-        print(f"[size-trail] could not append to {trail} ({exc}).",
-              file=sys.stderr)
+        measured = [(env, {r: int(sizes.get(r, 0)) for r in REGIONS})
+                    for env, sizes in sorted(payload["envs"].items())]
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"[size-trail] {pending} is not a usable capture ({exc}); "
+              f"discarding it.", file=sys.stderr)
         pending.unlink(missing_ok=True)
+        return 1
+    # A readable capture is the product of a full firmware build and belongs to
+    # the commit it was taken against, so a trail that cannot be written leaves
+    # it in place to be retried rather than throwing it away.
+    try:
+        sha, date, subject = head_stamp(args.repo, args.rev)
+        rows = [TrailRow(sha=sha, date=date, env=env, sizes=sizes,
+                         subject=subject)
+                for env, sizes in measured]
+        append_rows(trail, rows)
+    except (OSError, GitError) as exc:
+        print(f"[size-trail] could not append to {trail} ({exc}); {pending} "
+              f"kept for a retry.", file=sys.stderr)
         return 1
     pending.unlink(missing_ok=True)
     summary = " ".join(f"{row.env} itcm={row.sizes['itcm']:,}" for row in rows)
