@@ -178,8 +178,9 @@ private:
                     MAX_BUILD_STEPS,
                 "IslamicStars: build_step_chain must hold the longest lowered "
                 "islamic_registry recipe");
-  /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
-   * persistent budget is what actually limits which recipes ship. */
+  /** Build-chain mesh face cap. Bounds the scratch handoff arrays and sizes
+   * the two persistent per-slot slot_face_palette arrays; the persistent
+   * budget is what actually limits which recipes ship. */
   static constexpr size_t MAX_BUILD_FACES = 1152;
   static constexpr float RIPPLE_THICKNESS =
       0.7f; /**< Fixed ripple wavelet width (radians). */
