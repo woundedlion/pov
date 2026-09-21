@@ -8,6 +8,7 @@
 #include "render/pullback/fields.h"
 #include "render/pullback/material.h"
 #include "math/3dmath.h"
+#include <iterator>
 #include <limits>
 
 /**
@@ -34,6 +35,8 @@ enum class Envelope : uint8_t {
 
 inline constexpr const char *ENVELOPE_IDS[] = {"flat", "projection-weight",
                                                "edge-fade"};
+static_assert(std::size(ENVELOPE_IDS) ==
+              static_cast<size_t>(Envelope::EDGE_FADE) + 1);
 
 /** @brief Activation relation of the fade band width, which only the edge-fade
     envelope reads. */
