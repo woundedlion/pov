@@ -240,9 +240,19 @@ inline void test_line_sample_endpoints_and_unit_length() {
   HS_EXPECT_NEAR(total_angle, PI_F * 0.5f, 1e-4f);
 }
 
+/** Angular slack on a Line::sample position: fast_sincosf carries 0.17% of a
+ * quarter turn, and the renormalization that follows leaves the direction
+ * within that of the exact slerp. */
+constexpr float LINE_SAMPLE_ANGLE_TOL = 4e-3f;
+
 /**
- * @brief Verifies interior Line::sample fragments stay finite and lie on the
- *        minor arc, never farther from either endpoint than the total span.
+ * @brief Verifies interior Line::sample fragments lie on the minor arc itself,
+ *        at even angular spacing, not merely inside a cone bounding it.
+ * @details A point is on the minor arc iff its angles to the two endpoints sum
+ * to the whole span; anywhere off the geodesic the triangle inequality makes
+ * that sum strictly larger. Even parameterization then pins each sample's own
+ * angle from the start to its share of the span, and the arc-length register
+ * must agree with the geometry it reports.
  */
 inline void test_line_sample_interior_between_endpoints() {
   ScratchScope sc(plot_arena());
@@ -252,21 +262,29 @@ inline void test_line_sample_interior_between_endpoints() {
   Fragment a, b;
   a.pos = Vector(1, 0, 0);
   b.pos = Vector(0, 1, 0);
-  Plot::Line::sample(points, a, b, 4);
+  const int density = 4;
+  Plot::Line::sample(points, a, b, density);
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
 
-  float total = angle_between(a.pos, b.pos);
+  const float total = angle_between(a.pos, b.pos);
   for (size_t i = 1; i + 1 < points.size(); ++i) {
+    HS_CONTEXT("sample", (long long)i);
     const Vector &p = points[i].pos;
-    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
-                   std::isfinite(p.z));
-    HS_EXPECT_LE(angle_between(a.pos, p), total + 1e-3f);
-    HS_EXPECT_LE(angle_between(b.pos, p), total + 1e-3f);
+    const float from_a = angle_between(a.pos, p);
+    const float from_b = angle_between(b.pos, p);
+    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(from_a + from_b, total, LINE_SAMPLE_ANGLE_TOL);
+    HS_EXPECT_NEAR(from_a, total * static_cast<float>(i) / density,
+                   LINE_SAMPLE_ANGLE_TOL);
+    HS_EXPECT_NEAR(points[i].v0, static_cast<float>(i) / density, 1e-6f);
+    HS_EXPECT_NEAR(points[i].v1, from_a, LINE_SAMPLE_ANGLE_TOL);
   }
 }
 
 /**
  * @brief Verifies a zero-length segment (coincident endpoints) emits a dot: two
- *        coincident, finite, unit-length fragments rather than NaN or a crash.
+ *        fragments sitting exactly on the shared endpoint, whatever density was
+ *        asked for, with the registers pinned to the start of the arc.
  */
 inline void test_line_sample_degenerate_segment() {
   ScratchScope sc(plot_arena());
@@ -279,12 +297,15 @@ inline void test_line_sample_degenerate_segment() {
 
   Plot::Line::sample(points, a, b, 8);
 
-  HS_EXPECT_EQ(points.size(), (size_t)2);
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)2);
   for (size_t i = 0; i < points.size(); ++i) {
-    const Vector &p = points[i].pos;
-    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
-                   std::isfinite(p.z));
-    HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+    HS_CONTEXT("sample", (long long)i);
+    HS_EXPECT_EQ(points[i].pos.x, a.pos.x);
+    HS_EXPECT_EQ(points[i].pos.y, a.pos.y);
+    HS_EXPECT_EQ(points[i].pos.z, a.pos.z);
+    HS_EXPECT_EQ(points[i].v0, 0.0f);
+    HS_EXPECT_EQ(points[i].v1, 0.0f);
+    HS_EXPECT_EQ(points[i].v2, 0.0f);
   }
 }
 
