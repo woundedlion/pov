@@ -59,7 +59,7 @@ inline constexpr std::array<OperatorDescriptor, 39> OPERATOR_TABLE{
     make_operator_descriptor<Op::TransferSmoothBands>(),
     make_operator_descriptor<Op::CoverageValueCutout>(),
     make_operator_descriptor<Op::ColorizeGeneratedPaletteV2>(),
-    make_operator_descriptor<Op::ColorizeGeneratedPalette>(),
+    make_operator_descriptor<Op::ColorizeGeneratedPaletteV3>(),
 };
 
 consteval bool operator_ids_unique() {

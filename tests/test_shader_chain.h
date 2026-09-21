@@ -621,10 +621,10 @@ inline void test_shader_chain_schema_and_field_ids() {
       In::schema_ids_unique(In::SCHEMA<In::Op::ProjectStereographic>));
   static_assert(In::schema_ids_unique(In::SCHEMA<In::Op::SampleGrid>));
   static_assert(
-      In::schema_ids_unique(In::SCHEMA<In::Op::ColorizeGeneratedPalette>));
+      In::schema_ids_unique(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV3>));
   static_assert(In::topology_wellformed(In::SCHEMA<In::Op::SampleGrid>));
   static_assert(
-      In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPalette>));
+      In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV3>));
 
   static_assert(PB::field_ids_unique<In::Op::CurlDisplaceParams>());
   static_assert(PB::field_ids_unique<In::Op::DirectDisplaceParams>());
@@ -2744,7 +2744,7 @@ inline void test_shader_chain_large_finite_path_length() {
     chain[index + 1] = {ids[index], In::Op::WarpAffine::ID};
   }
   chain[12] = {"sample", In::Op::SampleGrid::ID};
-  chain[13] = {"color", In::Op::ColorizeGeneratedPalette::ID};
+  chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV3::ID};
   HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
   for (int index = 1; index <= 11; ++index) {
     auto &params = param_as<In::Op::AffineWarpParams>(program, index);
