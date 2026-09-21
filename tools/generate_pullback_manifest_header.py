@@ -423,9 +423,12 @@ def load_and_validate(directory: Path) -> tuple[dict, list[dict], dict]:
     programs = _load(programs_path)
     _validate_schema(programs, schema, schema, str(programs_path))
     _validate_programs(programs, programs_path)
+    # Ordered by name bytes: Path ordering case-folds on Windows, and the
+    # manifest digest depends on the order.
     oracle_paths = sorted(
-        path for path in directory.glob("*.json")
-        if path.name not in {schema_path.name, programs_path.name}
+        (path for path in directory.glob("*.json")
+         if path.name not in {schema_path.name, programs_path.name}),
+        key=lambda path: path.name,
     )
     _require(oracle_paths, f"{directory}: at least one oracle manifest is required")
     oracles = []
