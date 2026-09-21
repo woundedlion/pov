@@ -382,6 +382,30 @@ class BoardSelection(unittest.TestCase):
         self.assertEqual(sorted(x.name for x in self.base.parent.iterdir()),
                          ["lock-COM3.d", "lock-COM3.d.guard"])
 
+    def test_wait_queues_under_errexit(self):
+        # hs_device_status returns 1 when no board is claimable, which is the
+        # case every time the wait branch is reached. Under `set -e` that
+        # aborted the caller where it should have queued, so neither the loop
+        # nor the guidance that follows it ran.
+        self.hold("COM3")
+        self.hold("COM4")
+        script = ('set -e; sleep() { :; }; hs_device_acquire E profile 60; '
+                  'echo UNREACHED')
+        r = run_lock(script, self.base, env={"HS_DEVICE_WAIT": "5"})
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("waiting up to 5s", r.stderr)
+        self.assertIn("Every attached Teensy is in use", r.stderr)
+        self.assertNotIn("UNREACHED", r.stdout)
+
+    def test_fail_fast_reports_the_guidance_under_errexit(self):
+        self.hold("COM3")
+        self.hold("COM4")
+        script = 'set -e; hs_device_acquire E profile 60; echo UNREACHED'
+        r = run_lock(script, self.base)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("Every attached Teensy is in use", r.stderr)
+        self.assertNotIn("UNREACHED", r.stdout)
+
     def test_release_survives_errexit(self):
         # profile_one.sh runs under `set -e`; a declined release must not abort
         # the caller mid-teardown.
