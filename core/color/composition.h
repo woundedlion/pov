@@ -978,7 +978,7 @@ template <typename... M> struct Colors {};
  */
 enum class ShadeCoord : uint8_t {
   /** The coordinate the source was sampled at when Wrap, the raw input when
-   *  not — the historical coupling, and the default. */
+   *  not — the default. */
   MATCH_WRAP,
   /** The coordinate the source was sampled at, whatever Wrap is. */
   LOOKUP,
