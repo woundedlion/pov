@@ -90,14 +90,17 @@ protected branch's `CI green` status is the authoritative correctness gate.
   the job. None of them needs an ARM toolchain or KiCad, so they run locally as
   written. `tools/check_test_dir_pins.sh` fails a suite directory the workflow
   or the justfile never names.
-- **Lint:** the CI `lint` job has six legs — `ruff` over the Python tooling,
-  `eslint` over the JavaScript, `shellcheck` over every tracked `*.sh` and
-  `.githooks/*`, `actionlint` over `.github/workflows/*.yml` (which pipes every
-  `run:` body through `shellcheck`, since no workflow is a `*.sh` file), and a
-  `just --evaluate` / `just --summary` parse of the `justfile`, plus the
-  profiling-roster cross-check in `tools/profile_sweep.sh`.
-  `just lint` runs the four lint/roster checks locally; the hook lints only
-  staged Python and JavaScript, so CI remains authoritative.
+- **Lint:** the CI `lint` job has seven legs — `tools/eol_gate.sh` first, so
+  every later leg reads the line endings `.gitattributes` declares, then
+  `ruff` over the Python tooling, `eslint` over the JavaScript, `shellcheck`
+  over every tracked `*.sh` and `.githooks/*`, `actionlint` over
+  `.github/workflows/*.yml` (which pipes every `run:` body through
+  `shellcheck`, since no workflow is a `*.sh` file), a `just --evaluate` /
+  `just --summary` parse of the `justfile`, and the profiling-roster
+  cross-check in `tools/profile_sweep.sh`. `just lint` runs five of them
+  locally (line endings, `ruff`, `eslint`, `shellcheck` and the roster
+  check); the hook lints only staged Python and JavaScript, so CI remains
+  authoritative.
 - **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`
   without `--sync`: fences, links, anchors, every backticked repo path, the
   README's file map against the tracked tree and its effect counts against
