@@ -1196,8 +1196,8 @@ jobs:
   reaction-graph-provenance:
     name: Generated reaction-graph table matches committed file
     runs-on: ubuntu-24.04
-    # The generator is O(RD_N*W) with W=1000 and runs ~2+ min; bound the job so a
-    # pathological RD_N/W change can't hang a runner indefinitely.
+    # The generator is O(RD_N*W) with W=1000 and runs in seconds; the bound is a
+    # hang guard for a pathological RD_N/W change, not a budget for today's cost.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
