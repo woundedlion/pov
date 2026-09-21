@@ -392,6 +392,23 @@ class ProbeBreakdownLines(unittest.TestCase):
         row = next(l for l in out.splitlines() if l.startswith("exact"))
         self.assertEqual(row.split()[1:5], ["40", "100.0", "95.0", "38.0"])
 
+    def test_printed_cyc_per_probe_column_sums_to_the_printed_total(self):
+        import contextlib
+        import io
+        # alpha runs 50 times at 2.0 cyc/event, below the 5.0 cyc read cost,
+        # so its net per probe is negative.
+        cyc = self.CYC.replace("alpha=400", "alpha=100")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(pp.cmd_probe(self._parse(cyc=cyc)), 0)
+        rows = [l.split() for l in buf.getvalue().splitlines()
+                if l and not l.startswith("#")][1:]
+        column = sum(float(r[4]) for r in rows)
+        printed = float(next(l for l in buf.getvalue().splitlines()
+                             if l.startswith("# total")).split()[2])
+        self.assertLess(min(float(r[4]) for r in rows), 0.0)
+        self.assertAlmostEqual(column, printed, places=1)
+
     def test_command_exits_2_without_the_flag(self):
         import contextlib
         import io
