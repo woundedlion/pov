@@ -26,6 +26,14 @@ class TreeSync(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             return ds.sync_trees(text, paths, checkouts or {})
 
+    def test_empty_tree_is_populated(self):
+        text = "<!-- docs-check: tree exhaustive -->\n```\n```\n"
+        paths = entries("new.h")
+        after = self.sync(text, paths)
+        self.assertIn("new.h", after)
+        self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
+        self.assertEqual(after, self.sync(after, paths))
+
     def test_preserves_prose_descriptions_and_spacing_and_is_idempotent(self):
         text = ("# Overview\n\nAuthored prose.\n\n<!-- docs-check: tree exhaustive -->\n```\n"
                 "├── core/          Engine description\n"
