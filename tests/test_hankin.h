@@ -572,7 +572,7 @@ inline uint8_t hankin_reso_target[512 * 1024];
  * angle puts one corner class's contact planes near-parallel, so their ray
  * intersections land ~64 degrees from the corner. Without the far-star guard
  * the output grows sliver faces whose longest edge is ~24x the median; with it
- * every edge stays within the healthy ratio.
+ * every edge stays within MAX_SLIVER_EDGE_RATIO.
  */
 inline void test_update_hankin_resonance_star_points_stay_local() {
   Arena target(hankin_reso_target, sizeof(hankin_reso_target));
@@ -594,25 +594,7 @@ inline void test_update_hankin_resonance_star_points_stay_local() {
   Arena temp(hankin_reso_b, sizeof(hankin_reso_b));
   PolyMesh out = MeshOps::hankin(prefix, out_arena, temp,
                                  43.0f * Solids::IslamicStarPatterns::D2R);
-
-  std::vector<float> edges;
-  size_t off = 0;
-  for (size_t f = 0; f < out.face_counts.size(); ++f) {
-    int n = out.face_counts[f];
-    for (int i = 0; i < n; ++i) {
-      Vector u = out.vertices[out.faces[off + i]].normalized();
-      Vector v = out.vertices[out.faces[off + (i + 1) % n]].normalized();
-      edges.push_back(std::acos(std::max(-1.0f, std::min(1.0f, dot(u, v)))));
-    }
-    off += n;
-  }
-  HS_EXPECT_TRUE(!edges.empty());
-  if (edges.empty())
-    return;
-  std::sort(edges.begin(), edges.end());
-  float median = edges[edges.size() / 2];
-  float max = edges.back();
-  HS_EXPECT_TRUE(max <= 6.0f * median);
+  check_no_sliver_edges(out);
 }
 
 /**
