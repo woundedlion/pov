@@ -666,25 +666,33 @@ planar warp exports its policy tuple and `policy_at<I>`; source exports
 needed by consumer validation, such as unconditional edge distance, are
 forwarded by the owning top-level stage.
 
-Top-level stage combinators are inline by default. Non-default placement uses
-one public wrapper:
+Stages are inline by default. Non-default placement uses one public marker:
 
 ```cpp
 namespace Pullback::Stage {
 template <CodeEmission EmissionV, typename... Stages>
-struct Placed;
+struct Placed {
+  static constexpr CodeEmission EMISSION = EmissionV;
+};
 }
 ```
 
 `EmissionV` is one of `CodeEmission::INLINE_ONLY`,
 `CodeEmission::OUT_OF_LINE_FLASH`, or `CodeEmission::OUT_OF_LINE_ITCM`.
-`Placed` forwards the complete stage contract, sets `EMISSION = EmissionV`, and
-defines the public `run` through an enum-specialized entry: `always_inline` for
-`INLINE_ONLY`, `HS_FLASH_MEMBER` for `OUT_OF_LINE_FLASH`, and
-`FASTRUN HS_NOINLINE_NOCLONE` for `OUT_OF_LINE_ITCM`. The wrapped stage run is
-inlined into that entry. Metadata that disagrees with actual placement is
-therefore not representable. ShaderWorkbench uses `Placed` only where the baseline
-stage is not inline, and supplies the exact baseline enum during migration.
+`Placed` groups a contiguous run of stages and carries nothing but
+`EMISSION`; it is invisible to validation and predicate matching and changes
+exactly prepared-state layout and code emission. Binding a pipeline maps it
+(`Detail::BindNode` in `core/render/pullback/contract.h`) to the private
+`Detail::BoundPlaced<EmissionV, Binding, Stages...>` specialization, which
+holds the group's nested prepared-state tuple and defines the `run` entry:
+`always_inline` for `INLINE_ONLY`, `__attribute__((noinline))
+HS_FLASH_MEMBER` for `OUT_OF_LINE_FLASH` (`HS_FLASH_MEMBER` is empty under
+clang, so the explicit `noinline` is what keeps the group out of line there),
+and `FASTRUN HS_NOINLINE_NOCLONE` for `OUT_OF_LINE_ITCM`. The children's runs
+are inlined into that entry, so metadata that disagrees with actual placement
+is not representable. `ComposedEffect` places its sphere run
+(`OUT_OF_LINE_FLASH` when the effect owns a surface-noise field, else
+`INLINE_ONLY`) and `workbench/shader/pipelines.h` places its flash groups.
 
 ### 8.1 Outer camera
 
