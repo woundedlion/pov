@@ -1261,11 +1261,20 @@ remain unchanged. Public carriers add no allocation or hidden ownership.
 
 ## 11. Code generation and instantiation contract
 
+Superseded, and retained as the design record the landing was gated by:
+Sections 11 through 13 and Section 16 are the pre-landing obligations of the
+§14 phases, all of which have landed. The `LEGACY`/`CORE` device arms of
+§13.3 exist only as the `HS_PULLBACK_ARM` telemetry stamp in
+`targets/Profile/Profile.ino`, which a profile build defaults to `LANDED`.
+The shipping device gate is `tools/teensy_gate.py`.
+
 ### 11.1 Header-only inventory
 
 `pullback.h` is header-only. A policy that is never instantiated emits no text,
-rodata, vtable, RTTI, constructor, or registration record. Tests include an
-empty-framework device build and compare its ELF with the baseline.
+rodata, vtable, RTTI, constructor, or registration record. The Teensy image is
+gated by `tools/teensy_gate.py`, which holds every region against the
+ceilings in `tools/teensy_budgets.json` and pins the framebuffer, arena, and
+reaction-graph symbols to their memory regions.
 
 ### 11.2 Inlining and placement
 
@@ -1684,6 +1693,9 @@ Historical migration records are not rewritten. A short status note points to
 this specification as the superseding architectural decision.
 
 ## 16. Required deliverables
+
+Superseded, and retained as the design record the landing was gated by (see
+the §11 banner); the shipped artifacts are the ones the status header names.
 
 Implementation is incomplete without:
 
