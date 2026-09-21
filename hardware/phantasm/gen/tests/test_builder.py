@@ -98,6 +98,24 @@ class PinDirMatrixTests(unittest.TestCase):
                         self.assertEqual(got, expected)
 
 
+class DumpsTests(unittest.TestCase):
+    def build(self):
+        b = builder.Builder("Test")
+        b.wire((0.0, 0.0), (10.0, 0.0))
+        b.junction((10.0, 0.0))
+        b.junction((10.0, 0.0))
+        b.label((10.0, 0.0), "NET")
+        b.text((0.0, 10.0), "block")
+        return b
+
+    def test_dumps_is_idempotent(self):
+        b = self.build()
+        self.assertEqual(b.dumps(), b.dumps())
+
+    def test_repeated_junctions_collapse_to_one(self):
+        self.assertEqual(self.build().dumps().count("\t(junction\n"), 1)
+
+
 class SchematicPinnedTests(unittest.TestCase):
     """Pin transform against the committed, netlist-verified schematic."""
 
