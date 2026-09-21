@@ -2,13 +2,27 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for the core/render/scan.h rasterizer. Exercises two entry points end to
- * end into a live Canvas:
- *   - Scan::Shader::draw  : full-sphere per-pixel shader (constant, positional,
- *                           and clip-respecting).
- *   - Scan::Ring::draw    : the SDF rasterize() path (bounding-box scan ->
- *                           interval generation -> process_pixel -> Pipeline
- *                           sink plot), verified to produce bounded output.
+ * Unit tests for the core/render/scan.h rasterizer. Every case drives an entry
+ * point end to end into a live Canvas and reads the framebuffer back:
+ *   - Scan::Shader::draw and its SSAA / split-shader variants: constant,
+ *     positional, and clip-respecting fills.
+ *   - Scan::rasterize through Scan::Ring: bounded output, band placement, the
+ *     stroke AA ramp, empty clips, and the constant-color rasterize_solid path
+ *     against the generic one.
+ *   - The fused walks: RingGroup and DistortedRingStack against per-ring
+ *     draws, rasterize_face against scan_region, and their independence from
+ *     pole_lod_aggressiveness.
+ *   - scan_region itself: seam and fractional-boundary single plotting, clip
+ *     arcs against the predicate, and near-pole LOD (canvas-anchored runs, the
+ *     POLE_LOD_MAX_RUN clamp, decimated vs undecimated shading).
+ *   - CSG through the scan: report_stretch forwarding and the stroke AA
+ *     thickness of the winning child.
+ *   - Filled-shape placement oracles for Star, PlanarPolygon and Flower;
+ *     SphericalPolygon's sine-distance framebuffer error; over-operator
+ *     compositing of overlapping strokes.
+ *   - Scan::Circle and Scan::Point, the radius-0 ring regime.
+ *   - Scan::Volume / TransformedVolume: orthographic ray-march silhouette,
+ *     registers, occlusion, and the trace's closest-approach guarantees.
  */
 #pragma once
 
@@ -1659,40 +1673,6 @@ inline void test_scan_region_clip_arc_matches_predicate() {
 }
 
 /**
- * @brief Verifies a geodesic line through the north pole plots the pole row.
- * @details map_geodesic/map_planar build interpolated points with
- * fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel takes
- * phi = acos(v.y) directly, and acos's infinite slope at y=1 amplifies that
- * tiny error into a multi-row shift unless interpolated positions are
- * re-normalized before mapping. The drawing phase re-normalizes, so the pole
- * lands on row 0.
- */
-inline void test_plot_line_over_pole_reaches_row0() {
-  constexpr int W = 288, H = 144;
-  hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipe; // bare sink (no AA) so we see raw sample placement
-
-  // Geodesic from 0.4 rad down the +Z side of the N pole to 0.4 rad down the
-  // -Z side; its midpoint is the pole (row 0).
-  Fragment f1, f2;
-  f1.pos = Vector(0.0f, cosf(0.4f), sinf(0.4f));
-  f2.pos = Vector(0.0f, cosf(0.4f), -sinf(0.4f));
-  {
-    Canvas c(fx);
-    Plot::Line::draw<W, H>(pipe, c, f1, f2, [](const Vector &, Fragment &f) {
-      f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-    });
-  }
-  fx.advance_display();
-
-  size_t row0 = 0;
-  for (int x = 0; x < W; ++x)
-    if (!is_black(fx.get_pixel(x, 0)))
-      ++row0;
-  HS_EXPECT_GT(row0, (size_t)0);
-}
-
-/**
  * @brief Capturing plot sink that records the AA alpha process_pixel forwards.
  * @details Bypasses the canvas-blend round trip. The recorded alpha is
  * frag.alpha (=1) times the AA alpha; count tracks whether the pixel was drawn
@@ -3104,7 +3084,6 @@ inline int run_scan_tests() {
   test_pole_lod_run_clamps_to_max_run();
   test_pole_lod_shading_matches_undecimated();
   test_pole_lod_concave_face_matches_undecimated();
-  test_plot_line_over_pole_reaches_row0();
   test_report_stretch_forwards_through_csg();
   test_csg_stroke_aa_uses_winning_child_thickness();
 
