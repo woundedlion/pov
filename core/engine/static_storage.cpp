@@ -39,6 +39,11 @@ int global_timeline_num_events = 0;
  * @details Never reset, including across Timeline instances (see timeline.h).
  */
 uint32_t global_timeline_dropped = 0;
+/**
+ * @brief Whether the current saturation episode has already logged a drop.
+ * @details Cleared whenever the event table empties (see timeline.h).
+ */
+bool global_timeline_drop_logged = false;
 /** @brief Front pixel buffer for the double-buffered effect framebuffer. */
 DMAMEM Pixel Effect::buffer_a[MAX_W * MAX_H];
 /** @brief Back pixel buffer for the double-buffered effect framebuffer. */
