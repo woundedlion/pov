@@ -326,7 +326,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
       if (target == cur)
         continue;
     }
-    effect.updateParameter(def.name, target);
+    HS_EXPECT_EQ(effect.updateParameter(def.name, target),
+                 ParamSetResult::APPLIED);
     for (int f = 0; f < 3; ++f) {
       effect.draw_frame();
       effect.advance_display();
