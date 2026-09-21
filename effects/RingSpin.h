@@ -30,8 +30,8 @@ struct RingSpinWhiteBox;
  * leaves a motion-blur trail that fades in color and alpha along its length.
  * @note Sibling trail effects `Comets` and `Fishbowl` share the
  *       record + deep_tween skeleton; draw primitive, transform chain and
- *       colour/fade are hand-propagated. Ring carries a plane normal, palette
- *       and noise alongside the orientation + trail, so it does not use their
+ *       colour/fade are hand-propagated. Ring carries a palette and noise
+ *       alongside the orientation + trail, so it does not use their
  *       `Animation::TrailBody`. Differences here: no `Screen::AntiAlias`, and
  *       `Orientation<>` (CAP 4) not `Orientation<16>` — a great-circle ring's
  *       successive trail frames overlap almost completely, so 4 sub-frames read
@@ -156,9 +156,11 @@ private:
   static constexpr int NUM_PALETTES = 4;
 
   /**
-   * @brief One ring: great-circle plane, palette, orientation, and trail.
-   * @details Bundles the ring's great-circle plane normal, palette, current
-   * orientation, and the history trail used to render the fading motion blur.
+   * @brief One ring: palette, orientation, trail, and random-walk noise.
+   * @details Bundles the ring's palette, current orientation, the history
+   * trail used to render the fading motion blur, and the noise driving the
+   * orientation random-walk. The great circle is the Y_AXIS plane under each
+   * trail orientation, fixed at the draw site.
    */
   struct Ring {
     BakedPalette *palette;
@@ -166,7 +168,7 @@ private:
     Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
     FastNoiseLite noise;
     /**
-     * @brief Constructs a ring on the Y-axis great-circle plane.
+     * @brief Constructs a ring drawing from palette @p p.
      * @param p Baked palette used to color the ring's trail.
      */
     Ring(BakedPalette *p) : palette(p) {}
