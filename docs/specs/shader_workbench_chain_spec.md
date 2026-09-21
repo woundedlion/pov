@@ -111,21 +111,15 @@ promoted before this spec, and shrinks as they are re-registered.
 
 ## 3. The chain editor
 
-**§4 supersedes this section's layout** (the vertical rail, the side
-catalog panel, the sidebar document controls). Everything else — the one
-edit rule, legality-before-gesture, atomic reconciliation, bypass, the
-engine boundary — is the semantic contract §4 builds on and does not
-restate.
+The semantic contract beneath §4's surface: the one edit rule,
+legality-before-gesture, atomic reconciliation, bypass, and the engine
+boundary. §4 owns the layout and the gestures and does not restate these.
 
-The thirteen fixed folder banks are replaced by direct manipulation of
-the chain: a vertical rail of stage cards grouped into the three editable
-carrier domains, with Color represented only by the terminal output crossing
-and crossings drawn as domain boundaries, the default scratch chain being
-`Rotate → Project → Sample → Colorize` (the minimal legal chain over the
-shipped crossings is `Project → Sample → Colorize`; the default adds the
-camera), and
-selecting a card showing that stage's parameters labeled by instance
-("Wave Shear · warp2"). Every instance the editor creates — a scratch
+The chain is edited by direct manipulation over the three editable carrier
+domains, with Color represented only by the terminal output crossing. The
+default scratch chain is `Rotate → Project → Sample → Colorize` (the minimal
+legal chain over the shipped crossings is `Project → Sample → Colorize`; the
+default adds the camera). Every instance the editor creates — a scratch
 chain's, and each one an edit inserts — declares its operator's full union
 schema (main spec §7.1); a loaded document's instances keep the
 declarations it carries, which may be narrower. Fields the current
@@ -171,18 +165,6 @@ undoable step — document-level snapshot history suffices (documents are
 ≤1 MB) and is required, because removal-with-replacement is otherwise a
 one-misclick preset-bank data-loss machine.
 
-**Discoverability and access.** A browsable catalog panel (family-grouped,
-illegal entries visible but disabled with the reason) accompanies
-contextual insertion — the old banks were ugly but advertised the whole
-vocabulary, and contextual palettes alone would hide it. Keyboard and AT
-parity is required: cards support move-up/move-down, the insertion
-palette is a listbox, the selected card carries `aria-current`, and focus
-restores to the edited card after the parameter-GUI rebuild. The existing
-nav module's build-once observer assumption does not survive a mutable
-rail; it is replaced, not adapted. A read-only breadcrumb of the chain
-may sit above the canvas; as a second interactive navigation surface it
-is deferred until long chains demonstrate the need.
-
 **Engine boundary.** Applying a document follows the interpreter's engine
 contract (main spec §8): `setShaderChain` → apply preset values by id →
 `syncEffectGui` → `invalidate`, with the synchronous
@@ -194,19 +176,17 @@ churn.
 
 ## 4. The workbench surface: pipeline strip and live canvas
 
-**Status: LANDED 2026-08-19.** A view-layer replacement of §3's rail. The document
-store, the schema, digesting, migration, and the apply path are untouched;
-what changes is where the chain, the vocabulary, and the render live on
-the screen, and which gestures name the store's spans. §3's rail put the
-program in a sidebar and gave the render the leftover space — backwards
-for a tool whose entire feedback loop is *watching the render while
-changing the program*. The redesign inverts it. The stage library of
-§4.3, and the drag gestures that panel is the source for, are deferred:
-the catalog reaches the strip through the band insertion palettes.
+**Status: LANDED 2026-08-19.** Where the chain, the vocabulary, and the
+render live on the screen, and which gestures name the store's spans; the
+document store, the schema, digesting, migration, and the apply path are
+§§1–3's. The render owns the space: the tool's entire feedback loop is
+*watching the render while changing the program*. The stage library of
+§4.3 is deferred; the catalog reaches the strip through the band insertion
+palettes.
 
 ### 4.1 Layout
 
-Three stacked regions, replacing the sidebar:
+Three stacked regions:
 
 - **Toolbar** (top edge, one slim row): document source picker, preset
   picker, Open…/Save/Save As, the descriptor digest (abbreviated,
@@ -277,35 +257,13 @@ names that output directly.
   commits as the label-preserving m-for-m span replacement, so parameter
   values survive reorder.
 - The strip rebuilds whole after every committed edit with keyboard focus
-  restored to the edited chip — §3's render discipline, rotated.
+  restored to the edited chip.
 
 ### 4.3 The stage library — deferred
 
-**Not shipped.** The design below is a record: no library panel, drop
-target, or drag controller exists in the tool. Insertion runs through
-§4.2's band palettes.
-
-The catalog panel's discoverability requirement survives: the whole
-vocabulary stays visible, grouped by the carrier each operator consumes,
-with crossings showing their pair. What changes is the geometry and the
-drop model:
-
-- **Drag a library chip onto the strip to insert it.** On drag start the
-  strip highlights every gap the store accepts the operator at — carrier
-  legality *and* the exported budgets (arena bytes, op count, param
-  count), computed before the gesture, so there is no over-budget refusal
-  at drop.
-- **Bands are coarse drop targets.** Dropping on a highlighted gap
-  commits exactly there; dropping anywhere else on a band commits at the
-  band's nearest legal gap. A band with no legal gap for the dragged
-  operator shows a refusing state while hovered, with the reason in the
-  shared status region. Coarse drops are what make the strip feel like
-  "drag a stage onto a domain" instead of "hit a 6-pixel seam".
-- **Click** an enabled entry to insert without a drag, at the context
-  gap (after the selection, else the first legal gap) — §3's behavior.
-- Entries that currently fit nowhere render disabled with the computed
-  reason, never hidden. A text filter narrows all groups by name/id;
-  filtering never hides an entry's disabled state.
+**Not shipped.** No library panel, drop target, or drag controller exists in
+the tool, and pointer gestures never start a chip drag. Insertion runs
+through §4.2's band palettes.
 
 ### 4.4 Parameters
 
@@ -388,29 +346,26 @@ Full parity with the pointer gestures, rotated to the horizontal:
   (roving tabindex), Alt+Left/Right move the focused endomorphism,
   Enter/Space selects, Delete removes an endomorphism or opens a
   crossing's swap palette, Insert opens the insertion palette at the
-  following gap. Band `+` buttons and palettes keep §3's listbox
-  behavior; focus restores to the edited chip after every rebuild. When the
+  following gap. Band `+` buttons open the insertion palette, a listbox;
+  focus restores to the edited chip after every rebuild. When the
   strip background itself has focus, Left/Right scroll the viewport rather
   than moving a chip.
 - Palette entries are `role="option"` rows in a listbox. Operators invalid at
-  the active gap are omitted rather than rendered disabled. The §4.3 library's
-  own keyboard contract is deferred with the panel.
+  the active gap are omitted rather than rendered disabled.
 - One shared live status region announces every refusal.
 
 ### 4.8 Module boundaries
 
-The rail view in `chain_editor.js` and `chain_catalog_panel.js` is
-replaced by `chain_strip.js`, implementing the same store-facing contract
-(the `ChainStore` surface). The union-schema deactivation predicate
-survives, reading document declarations rather than engine definitions;
-the document store gains only the preset-value write §4.4 needs;
-`chain_apply` and the schema module are untouched. `shader.html` reflows
-to the §4.1 regions; the workbench stylesheet is rewritten rather than
-adapted — the rail's vertical assumptions are load-bearing throughout
-it. The existing editor tests port to the strip contract; new coverage:
-socket replacement, × legality (absent on crossings), button and
-Alt+Arrow reorder, and stage edits writing the active preset and
-participating in undo.
+`chain_strip.js` is the view over the store-facing contract of
+`chain_document_store.js`, whose `setPresetValue` is the preset-value write
+§4.4 needs; its `deactivatedParameterIds` predicate reads document
+declarations rather than engine definitions. `chain_apply.js` holds the
+engine boundary and `shader_workbench.mjs` the schema. `shader.html` lays
+out the §4.1 regions with `shader.css`. The strip suite
+(`chain_strip.test.js`) covers band and socket layout, socket replacement,
+× legality (absent on crossings), button and Alt+Arrow reorder, undo and
+redo through the apply path, and the inline controls' read of the active
+preset and edit callbacks.
 
 **Pointer behaviour needs a real browser.** The unit suite renders into a
 DOM fake with neither layout nor pointer capture, which cannot see an
