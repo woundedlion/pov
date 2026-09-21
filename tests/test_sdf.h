@@ -846,8 +846,11 @@ inline void test_inverted_fill_scans_full_sphere() {
   auto bounds = sp.get_vertical_bounds<144>();
   HS_EXPECT_EQ(bounds.y_min, 0);
   HS_EXPECT_EQ(bounds.y_max, 143);
-  bool handled = sp.get_horizontal_intervals<288, 144>(72, [](float, float) {});
+  int spans = 0;
+  bool handled =
+      sp.get_horizontal_intervals<288, 144>(72, [&](float, float) { ++spans; });
   HS_EXPECT_TRUE(!handled);
+  HS_EXPECT_EQ(spans, 0);
 }
 
 // ============================================================================
@@ -2520,8 +2523,11 @@ inline void test_angular_repeat_tilted_axis_forfeits_cull() {
   auto bounds = rep.get_vertical_bounds<H>();
   HS_EXPECT_EQ(bounds.y_min, 0);
   HS_EXPECT_EQ(bounds.y_max, H - 1);
-  bool handled = rep.get_horizontal_intervals<W, H>(H / 2, [](float, float) {});
+  int spans = 0;
+  bool handled =
+      rep.get_horizontal_intervals<W, H>(H / 2, [&](float, float) { ++spans; });
   HS_EXPECT_FALSE(handled);
+  HS_EXPECT_EQ(spans, 0);
 }
 
 /**
