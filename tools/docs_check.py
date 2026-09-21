@@ -96,6 +96,12 @@ _SELF_REPO_HOSTS = frozenset({"github.com", "www.github.com"})
 # name tracked paths and are validated like any repo-relative link.
 _SELF_REPO_PATH_RE = re.compile(
     r"^/woundedlion/pov/(?:blob|tree|raw)/[^/]+/(.+)$")
+# A sibling repository's own GitHub URLs name paths that are real there. The
+# `tree <NAME>` fences already resolve such a repository against a --checkout
+# root, and the same root resolves these links.
+_CHECKOUT_REPO_PATH_RE = re.compile(
+    r"^/woundedlion/(?!pov/)(?P<checkout>[^/]+)/(?:blob|tree|raw)/[^/]+/"
+    r"(?P<path>.+)$")
 
 # The `effects/` row summarizes its subtree instead of drawing it, so no tree
 # gate sees the counts it states. Both are derivable: headers from the tracked
@@ -440,6 +446,20 @@ def _resolved_target(source: PurePosixPath, target: str) -> PurePosixPath | None
     return PurePosixPath(resolved)
 
 
+def _checkout_link(target: str) -> tuple[str, PurePosixPath] | None:
+    """Splits a sibling-repository GitHub URL into its checkout name and path."""
+    parsed = urlsplit(_MARKDOWN_ESCAPE_RE.sub(r"", target.strip()))
+    if parsed.scheme.casefold() not in ("http", "https"):
+        return None
+    if parsed.netloc.casefold() not in _SELF_REPO_HOSTS:
+        return None
+    match = _CHECKOUT_REPO_PATH_RE.match(unquote(parsed.path))
+    if not match:
+        return None
+    return (match.group("checkout"),
+            PurePosixPath(posixpath.normpath(match.group("path"))))
+
+
 def _fragment(target: str) -> str:
     parsed = urlsplit(_MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip()))
     return unquote(parsed.fragment)
@@ -464,7 +484,22 @@ def _anchor_issue(source: PurePosixPath, line: int, target: str,
 
 def _link_issue(source: PurePosixPath, line: int, target: str,
                 entries: set[PurePosixPath],
-                anchors: dict[PurePosixPath, set[str]]) -> Issue | None:
+                anchors: dict[PurePosixPath, set[str]],
+                checkouts: dict[str, set[PurePosixPath]] | None = None,
+                skipped: set[str] | None = None) -> Issue | None:
+    sibling = _checkout_link(target)
+    if sibling is not None:
+        name, path = sibling
+        tracked = (checkouts or {}).get(name)
+        if tracked is None:
+            if skipped is not None:
+                skipped.add(name)
+            return None
+        if path in tracked:
+            return None
+        return Issue(source.as_posix(), line,
+                     f"missing {name} link target {target!r} "
+                     f"(resolved to {path.as_posix()!r})")
     resolved = _resolved_target(source, target)
     if resolved is None:
         cleaned = _MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip())
@@ -964,14 +999,16 @@ def check_text(source: PurePosixPath, text: str,
                 _normalize_label(match.group(1)), (target, line.number))
 
     for target, line_number in definitions.values():
-        issue = _link_issue(source, line_number, target, entries, anchors)
+        issue = _link_issue(source, line_number, target, entries, anchors,
+                            checkouts, skipped)
         if issue:
             issues.append(issue)
 
     for line_number, line in body_lines:
         destinations, references = _inline_links(line)
         for target in destinations:
-            issue = _link_issue(source, line_number, target, entries, anchors)
+            issue = _link_issue(source, line_number, target, entries, anchors,
+                                checkouts, skipped)
             if issue:
                 issues.append(issue)
         for reference in references:
@@ -1113,8 +1150,8 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2
-    # An unvalidated tree fence is not a pass: its rows went ungated, so every
-    # one of them can be edited through a green run. Accepting that is allowed --
+    # An unvalidated tree fence or sibling link is not a pass: it went ungated,
+    # so it can be edited through a green run. Accepting that is allowed --
     # a developer without the sibling checkout must still be able to run the
     # checker -- but only by naming the checkout in --skip-checkout, and the
     # verdict line says so either way.
@@ -1123,11 +1160,12 @@ def main(argv: list[str] | None = None) -> int:
     # nothing is a stale exemption, and dropping it must not red a commit.
     unused_skips = sorted(set(args.skip_checkout) - skipped)
     if unused_skips:
-        print(f"::warning::--skip-checkout names no unvalidated tree fence: "
-              f"{', '.join(unused_skips)}")
+        print(f"::warning::--skip-checkout names no unvalidated tree fence "
+              f"or link: {', '.join(unused_skips)}")
     if skipped:
-        print(f"::{'error' if unvalidated else 'warning'}::tree fences NOT "
-              f"validated - no --checkout root for: {', '.join(sorted(skipped))}")
+        print(f"::{'error' if unvalidated else 'warning'}::tree fences and "
+              f"sibling links NOT validated - no --checkout root for: "
+              f"{', '.join(sorted(skipped))}")
     # Warning only: dropping the last citation of an exempt path improves the
     # tree and must not red the build for whoever lands that commit.
     if markdown and stale:
@@ -1145,11 +1183,11 @@ def main(argv: list[str] | None = None) -> int:
               f"{args.root.resolve()}", file=sys.stderr)
         return 2
     if unvalidated:
-        print(f"[docs-check] FAIL - tree fences unvalidated: "
+        print(f"[docs-check] FAIL - checkouts unvalidated: "
               f"{', '.join(sorted(unvalidated))} - pass --checkout NAME=PATH, or "
               f"--skip-checkout NAME to accept them unvalidated", file=sys.stderr)
         return 1
-    note = (f"; tree fences NOT validated: {', '.join(sorted(skipped))}"
+    note = (f"; checkouts NOT validated: {', '.join(sorted(skipped))}"
             if skipped else "")
     print(f"[docs-check] PASS - {len(markdown)} tracked Markdown file(s){note}")
     return 0
