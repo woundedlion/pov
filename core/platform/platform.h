@@ -27,8 +27,10 @@
  * @details Not stripped by NDEBUG, so it still fires in the optimized device
  *          build. Cold paths only (container growth, arena OOM, capacity guards):
  *          compiles to a single predicted-not-taken branch, never the per-pixel
- *          hot loop. On failure it logs a located breadcrumb and flushes before
- *          trapping.
+ *          hot loop except the guards README "Why Fail-Fast" enumerates there:
+ *          `angle_between()`, `parallel_transport()` and the kaleidoscope
+ *          lenses' fold-exhaustion traps. On failure it logs a located
+ *          breadcrumb and flushes before trapping.
  */
 #define HS_CHECK(cond, ...)                                                    \
   do {                                                                         \
