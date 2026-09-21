@@ -126,7 +126,8 @@ struct FrameErrorStats {
 /** @brief Compares two same-sized captures channel by channel. */
 inline FrameErrorStats compare_buffers(const OracleFrame &reference,
                                        const OracleFrame &candidate) {
-  HS_CHECK(reference.pixels.size() == candidate.pixels.size());
+  HS_CHECK(reference.pixels.size() == candidate.pixels.size(),
+           "oracle captures differ in size");
   FrameErrorStats stats;
   stats.compared_pixels = reference.pixels.size();
 
@@ -332,7 +333,7 @@ struct ShapeShifterWhiteBox {
   }
 
   static void next_preset(OracleEffect &effect) {
-    HS_CHECK(effect.advancePreset());
+    HS_CHECK(effect.advancePreset(), "ShapeShifter preset advance refused");
   }
 
   static void step_timeline(OracleEffect &effect, Canvas &canvas) {
