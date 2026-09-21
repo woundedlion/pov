@@ -26,7 +26,7 @@ partially animating an invalid chain.
 | `CONWAY_SWEEP` | Parameterized truncate, expand, snub, chamfer, and ambo-equivalent legs |
 | `HANKIN_SWEEP` | Repositions compiled Hankin star points across the contact-angle sweep |
 | `RELAX_SLERP` | Interpolates between identical-connectivity meshes around a relax step |
-| `MEDIAL_SLERP` | Reconciles identity connectivity to exact authored endpoint positions |
+| `MEDIAL_SLERP` | Slerps vertex positions over fixed connectivity: the dual-bridge medial leg (ambo(P) connectivity, ambo(P) to ambo(dual(P)) positions) and the reconcile leg onto exact authored endpoint positions |
 | `GATED_SWAP` | Partition fallback for `kis` and `dual` |
 
 Exactly one mesh is drawn per leg frame. Arrival topology, topology classes,
@@ -55,7 +55,8 @@ emitting a topology-breaking truncate sample.
 The shipped smooth path replaces the visible partition swap for the supported
 macro cases. A trailing `dual,kis` pair uses the dt bridge and a standalone
 `kis` uses the dtd bridge. Each constructs identity connectivity, follows a
-medial path, then runs a `MEDIAL_SLERP` reconcile leg onto the exact authored
+medial path (a `MEDIAL_SLERP` medial leg), then runs a second `MEDIAL_SLERP`
+leg, the reconcile, onto the exact authored
 endpoint positions. `needle` remains authored as a composite and lowers to
 `DUAL,KIS`; the scheduler recognizes and spans that pair as one bridge.
 
