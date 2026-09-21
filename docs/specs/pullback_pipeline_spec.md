@@ -1663,10 +1663,10 @@ Implementation is incomplete without:
 
 ## 17. Explicitly deferred work and revival triggers
 
-Superseded where this section defers arbitrary stage graphs, variable role
-sequences, or replacement of the six-role carrier contract: ranked variable
-chains ship under [pullback_stage_families_spec.md](pullback_stage_families_spec.md)
-§§1–6. The other deferred items below remain design records.
+Ranked variable chains supersede this section's deferral of arbitrary stage
+graphs, variable role sequences and the six-role carrier contract; they ship
+under [pullback_stage_families_spec.md](pullback_stage_families_spec.md)
+§§1–6. The items below remain design records.
 
 The following remain deferred:
 
@@ -1674,7 +1674,6 @@ The following remain deferred:
 - `PixelDriver` and `BlockDriver`;
 - GS, BZ, and Voronoi migrations;
 - a core runtime compiled-program manifest/selector;
-- arbitrary stage graphs or variable role sequences;
 - a spawned-entity `PlaneTransformer` lifecycle abstraction.
 
 They may be proposed independently when a concrete need appears:
@@ -1685,8 +1684,7 @@ They may be proposed independently when a concrete need appears:
 - a second effect needs runtime selection among multiple compiled pullback
   topologies;
 - independently spawned planar transforms need shared prepare/reclaim
-  lifecycle;
-- a real consumer cannot be expressed by the six-role carrier contract.
+  lifecycle.
 
 Such a proposal builds on the core operators here. It shall not be justified
 merely by classifying unrelated inverse lookups under one vocabulary.
