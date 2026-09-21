@@ -76,5 +76,6 @@ enforces the same gate. No `Co-Authored-By` line.
   `teensy-gate-tests` job, and the PCB generator's suite under
   `hardware/phantasm/gen/tests` is the largest of the set.
 
-RAM1 `code` (ITCM) has a 196,608 B ceiling and only a few KB of headroom. It is
-a real constraint that has vetoed changes before.
+RAM1 `code` (ITCM) may use the entire 196,608 B allocation, including remaining
+bank padding. Crossing into a seventh bank fails the gate; the 12,288 B DTCM
+stack floor remains binding.

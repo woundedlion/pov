@@ -804,12 +804,22 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         over = self._eval_ts(self._ts(312704, 196609, 14976))
         self.assertIn("component-over-derived-ceiling", _codes(over))
 
-    def test_shipping_budget_reserves_boundary_headroom(self):
+    def test_shipping_budget_allows_full_bank_without_crossing(self):
         budget = copy.deepcopy(BUDGETS["phantasm"])
         budget.pop("symbols", None)
         derived = (budget["regions"]["ram1"]["components"]["code"]
                    ["max_banks_from_stack_floor"])
-        self.assertEqual(derived["min_headroom_bytes"], 3072)
+        self.assertEqual(derived["min_headroom_bytes"], 0)
+        at = self._eval_ts(self._ts(312704, 196608, 14976), budget)
+        self.assertTrue(at.passed, msg=_codes(at))
+        over = self._eval_ts(self._ts(312704, 196609, 14976), budget)
+        self.assertFalse(over.passed)
+        self.assertIn("component-over-derived-ceiling", _codes(over))
+
+    def test_optional_boundary_headroom_is_enforced(self):
+        budget = self._budget()
+        (budget["regions"]["ram1"]["components"]["code"]
+         ["max_banks_from_stack_floor"]["min_headroom_bytes"]) = 3072
         at = self._eval_ts(self._ts(312704, 193536, 14976), budget)
         self.assertTrue(at.passed, msg=_codes(at))
         short = self._eval_ts(self._ts(312704, 193537, 14976), budget)

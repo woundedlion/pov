@@ -1825,7 +1825,7 @@ jobs:
     # wide headroom and PHANTASM (all effects) fits RAM1 after the ITCM-bank
     # reclamation, the RNG/cos_theta DTCM trims, and the arena right-size at
     # 298 KiB — free-for-locals 13,920 B over a measured 12 KiB floor, and ITCM
-    # code 40 B under its bank-derived ceiling. Those margins are thin: a
+    # code 3,112 B under its bank-derived ceiling. Those margins are thin: a
     # re-measure belongs with every toolchain pin bump. The former
     # TEENSY_GATE_ENABLED repo-variable guard is removed now that it goes green.
     runs-on: ubuntu-24.04
