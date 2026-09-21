@@ -387,6 +387,29 @@ inline void report_cmp(bool ok, const A &a, const B &b, const char *expr,
 }
 
 /**
+ * @brief Compares two C strings by content.
+ * @param a First string; may be null.
+ * @param b Second string; may be null.
+ * @return True iff both are null, or both are non-null and spell the same text.
+ * @details A null operand is distinct from every string, the empty one
+ * included, so a missing name never reads as a match.
+ */
+inline bool str_equal(const char *a, const char *b) {
+  if (a == nullptr || b == nullptr)
+    return a == b;
+  return std::string_view(a) == std::string_view(b);
+}
+
+namespace detail {
+/** @brief Detects a decayed char / const char pointer operand. */
+template <class T>
+inline constexpr bool IS_C_STRING =
+    std::is_pointer_v<std::decay_t<T>> &&
+    std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>,
+                   char>;
+} // namespace detail
+
+/**
  * @brief Records a near-equality result and, on failure, prints operands and
  * delta.
  * @param a First value.
@@ -546,13 +569,27 @@ inline int end_module(const ModuleScope &m) {
                              __FILE__, __LINE__);                              \
   } while (0)
 // Capture each operand once so loop-driven assertions don't re-evaluate side
-// effects, then compare and (on failure) print both values.
+// effects, then compare and (on failure) print both values. Two C strings
+// would compare as addresses while the failure line prints their text, so that
+// pair is rejected here and routed to HS_EXPECT_STREQ/HS_EXPECT_STRNE.
 #define HS_EXPECT_CMP(a, b, op, opstr)                                         \
   do {                                                                         \
     auto _hs_a = (a);                                                          \
     auto _hs_b = (b);                                                          \
+    static_assert(!(hs_test::detail::IS_C_STRING<decltype(_hs_a)> &&           \
+                    hs_test::detail::IS_C_STRING<decltype(_hs_b)>),            \
+                  "comparing two C strings compares pointers; use "            \
+                  "HS_EXPECT_STREQ or HS_EXPECT_STRNE");                       \
     hs_test::report_cmp(_hs_a op _hs_b, _hs_a, _hs_b, #a " " opstr " " #b,     \
                         __func__, __FILE__, __LINE__);                         \
+  } while (0)
+// Content comparison for C strings, null-safe on either side.
+#define HS_EXPECT_STR_CMP(a, b, negate, opstr)                                 \
+  do {                                                                         \
+    const char *_hs_a = (a);                                                   \
+    const char *_hs_b = (b);                                                   \
+    hs_test::report_cmp(negate hs_test::str_equal(_hs_a, _hs_b), _hs_a, _hs_b, \
+                        #a " " opstr " " #b, __func__, __FILE__, __LINE__);    \
   } while (0)
 #define HS_EXPECT_TRUE(cond) HS_EXPECT((cond), #cond)
 #define HS_EXPECT_FALSE(cond) HS_EXPECT(!(cond), "!(" #cond ")")
@@ -562,6 +599,8 @@ inline int end_module(const ModuleScope &m) {
 #define HS_EXPECT_LE(a, b) HS_EXPECT_CMP(a, b, <=, "<=")
 #define HS_EXPECT_GT(a, b) HS_EXPECT_CMP(a, b, >, ">")
 #define HS_EXPECT_GE(a, b) HS_EXPECT_CMP(a, b, >=, ">=")
+#define HS_EXPECT_STREQ(a, b) HS_EXPECT_STR_CMP(a, b, , "streq")
+#define HS_EXPECT_STRNE(a, b) HS_EXPECT_STR_CMP(a, b, !, "strne")
 // Fatal size check for a case that indexes a container afterwards: records the
 // comparison like HS_EXPECT_EQ, then returns from the enclosing void case on a
 // mismatch so the indexing that follows cannot read past the end.

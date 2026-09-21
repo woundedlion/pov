@@ -3461,13 +3461,11 @@ inline void test_shader_workbench_gui_catalog() {
   HS_EXPECT_LE(sb.getParameters().size(), size_t(80));
   const auto *function = sb.getParameters().find("Function");
   HS_EXPECT_EQ(function->option_count, 10);
-  HS_EXPECT_TRUE(
-      std::strcmp(function->options[4], "Noise Contour (Projected)") == 0);
-  HS_EXPECT_TRUE(std::strcmp(function->options[6], "Noise Contour (Sphere)") ==
-                 0);
-  HS_EXPECT_TRUE(std::strcmp(function->options[7], "Spherical Rings") == 0);
-  HS_EXPECT_TRUE(std::strcmp(function->options[8], "Escape Fractal") == 0);
-  HS_EXPECT_TRUE(std::strcmp(function->options[9], "Tessellation") == 0);
+  HS_EXPECT_STREQ(function->options[4], "Noise Contour (Projected)");
+  HS_EXPECT_STREQ(function->options[6], "Noise Contour (Sphere)");
+  HS_EXPECT_STREQ(function->options[7], "Spherical Rings");
+  HS_EXPECT_STREQ(function->options[8], "Escape Fractal");
+  HS_EXPECT_STREQ(function->options[9], "Tessellation");
   HS_EXPECT_TRUE(sb.getParameters().find("Complexity") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Pattern Mix") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Drift") != nullptr);
@@ -3510,14 +3508,13 @@ inline void test_shader_workbench_gui_catalog() {
   const auto *palette_mapping = sb.getParameters().find("Palette Mapping");
   HS_EXPECT_TRUE(palette_mapping != nullptr);
   HS_EXPECT_EQ(palette_mapping->option_count, 4);
-  HS_EXPECT_TRUE(std::strcmp(palette_mapping->options[2], "Linear") == 0);
+  HS_EXPECT_STREQ(palette_mapping->options[2], "Linear");
   const auto *brightness_envelope =
       sb.getParameters().find("Brightness Envelope");
   HS_EXPECT_TRUE(brightness_envelope != nullptr);
   HS_EXPECT_EQ(brightness_envelope->option_count, 5);
-  HS_EXPECT_TRUE(std::strcmp(brightness_envelope->options[0], "None") == 0);
-  HS_EXPECT_TRUE(std::strcmp(brightness_envelope->options[3], "Ascending") ==
-                 0);
+  HS_EXPECT_STREQ(brightness_envelope->options[0], "None");
+  HS_EXPECT_STREQ(brightness_envelope->options[3], "Ascending");
   const auto *mapping_frequency = sb.getParameters().find("Mapping Frequency");
   HS_EXPECT_TRUE(mapping_frequency != nullptr);
   HS_EXPECT_EQ(mapping_frequency->min, 1.0f);
@@ -3525,22 +3522,19 @@ inline void test_shader_workbench_gui_catalog() {
   const auto *hue_shift = sb.getParameters().find("Hue Shift Mode");
   HS_EXPECT_TRUE(hue_shift != nullptr);
   HS_EXPECT_EQ(hue_shift->option_count, 3);
-  HS_EXPECT_TRUE(
-      std::strcmp(hue_shift->options[2], "Total Warp Displacement") == 0);
+  HS_EXPECT_STREQ(hue_shift->options[2], "Total Warp Displacement");
   const auto *projection = sb.getParameters().find("Projection");
   HS_EXPECT_TRUE(projection != nullptr);
   HS_EXPECT_EQ(projection->option_count, 7);
-  HS_EXPECT_TRUE(std::strcmp(projection->options[0], "Folded Sinusoidal") == 0);
-  HS_EXPECT_TRUE(std::strcmp(projection->options[3], "Bonne") == 0);
-  HS_EXPECT_TRUE(std::strcmp(projection->options[4], "Peirce Quincuncial") ==
-                 0);
-  HS_EXPECT_TRUE(std::strcmp(projection->options[5], "Dymaxion / Airocean") ==
-                 0);
-  HS_EXPECT_TRUE(std::strcmp(projection->options[6], "Equirectangular") == 0);
+  HS_EXPECT_STREQ(projection->options[0], "Folded Sinusoidal");
+  HS_EXPECT_STREQ(projection->options[3], "Bonne");
+  HS_EXPECT_STREQ(projection->options[4], "Peirce Quincuncial");
+  HS_EXPECT_STREQ(projection->options[5], "Dymaxion / Airocean");
+  HS_EXPECT_STREQ(projection->options[6], "Equirectangular");
   const auto *coverage = sb.getParameters().find("Coverage");
   HS_EXPECT_TRUE(coverage != nullptr);
   HS_EXPECT_EQ(coverage->option_count, 5);
-  HS_EXPECT_TRUE(std::strcmp(coverage->options[4], "Projection Weight") == 0);
+  HS_EXPECT_STREQ(coverage->options[4], "Projection Weight");
   HS_EXPECT_EQ(
       sb.updateParameter("Function",
                          static_cast<float>(WB::Function::PRIMITIVE_LATTICE)),
