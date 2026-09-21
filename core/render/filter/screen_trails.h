@@ -27,7 +27,6 @@ public:
   static_assert(MAX_PIXELS > 0, "Screen::Trails capacity must be positive");
   // Re-emits each point at its own coordinate; never samples the framebuffer.
   static constexpr bool reads_outside_band = false;
-  static constexpr bool requires_subpixel_input = true;
 
   /**
    * @brief Constructs a screen trail buffer with the given fade lifetime.
