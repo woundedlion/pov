@@ -96,8 +96,23 @@ inline constexpr float STEREO_EQUATOR_EPS = 1e-9f;
  * projections depend on.
  */
 inline Complex project_div(const Complex &num, const Complex &den) {
-  float denom = den.re * den.re + den.im * den.im;
-  float num_mag = num.re * num.re + num.im * num.im;
+  float den_re = den.re;
+  float den_im = den.im;
+  float num_re = num.re;
+  float num_im = num.im;
+  float denom = den_re * den_re + den_im * den_im;
+  if (denom == 0.0f && (den_re != 0.0f || den_im != 0.0f)) {
+    // Squaring flushes a divisor below 2^-75 to zero, which would read as an
+    // exact pole and send a finite quotient to the sentinel. 2^96 is exact and
+    // lifts any such pair back into the normal range.
+    constexpr float UNDERFLOW_LIFT = 79228162514264337593543950336.0f;
+    den_re *= UNDERFLOW_LIFT;
+    den_im *= UNDERFLOW_LIFT;
+    num_re *= UNDERFLOW_LIFT;
+    num_im *= UNDERFLOW_LIFT;
+    denom = den_re * den_re + den_im * den_im;
+  }
+  float num_mag = num_re * num_re + num_im * num_im;
   if (num_mag >= denom * (STEREO_INF * STEREO_INF)) {
     // Normalize by the larger component first: a numerator squared far above
     // the sentinel overflows to infinity and one far below it underflows to
@@ -110,8 +125,8 @@ inline Complex project_div(const Complex &num, const Complex &den) {
     const float scale = STEREO_INF / sqrtf(re * re + im * im);
     return Complex(re * scale, im * scale);
   }
-  return Complex((num.re * den.re + num.im * den.im) / denom,
-                 (num.im * den.re - num.re * den.im) / denom);
+  return Complex((num_re * den_re + num_im * den_im) / denom,
+                 (num_im * den_re - num_re * den_im) / denom);
 }
 
 /**
