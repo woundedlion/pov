@@ -2,38 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/filter.h.
- *
- * Focus: compile-time trait machinery + pure per-call helper logic that runs
- * without a live Canvas/Effect render.
- *
- * Coverage:
- *   - Filter traits Is2D / Is3D / Is2DWithHistory / Is3DWithHistory
- *     (is_2d / has_history members) and IsPipelineSink (is_pipeline)
- *   - Trait inheritance on representative filters (AntiAlias, Blur,
- *     ChromaticShift, World::Replicate, World::Trails, Screen::Trails,
- *     Pixel::Feedback)
- *   - Pipeline<W,H>::is_2d sink flag and Pipeline::get<T>() type-correct lookup
- *   - Screen::AntiAlias::plot — bilinear weight partition (sums to alpha),
- *     pole snap behaviour
- *   - Screen::Blur::plot — kernel passthrough (factor=0 → identity center,
- *     factor=1 → 3x3 weights sum to alpha), pole-row clip renormalization
- *   - Pixel::ChromaticShift::plot — channel-split fan-out
- *   - Pixel::Feedback — Style binding accessor
- *
- * End-to-end (live Canvas via the test_canvas/test_scan advance_display pattern,
- * which dissolves the buffer_free() ctor spin):
- *   - Pipeline 2D sink plot — int + float overloads, alpha blend, x-wrap, clip
- *   - Pipeline 3D sink plot — vector_to_pixel routing to the Canvas
- *   - World filter routing — World::Replicate fans out through the 3D->2D sink
- *   - 2D->3D mismatch — a 2D coord into a 3D-headed pipeline round-trips
- *     pixel_to_vector -> vector_to_pixel
- *   - Screen filter routing — Screen::AntiAlias forwards to the sink
- *   - Pixel::Feedback::flush — warp-field flush blends the (faded) prev frame
- *   - World::Orient tween over a populated Orientation history
- *     (test_world_orient_motion_blur_sweep_ages)
- *   - World::Trails int16 encode/decode + ring buffer / ttl lifecycle
- *     (test_world_trails_* — init_storage(arena) + plot/flush driving)
+ * Unit tests for core/render/filter.h: the filter trait machinery, the
+ * per-call plot kernels of the Screen and Pixel filters, and the Pipeline
+ * sink, World/Screen/Pixel routing, Feedback flush and Trails ring buffers
+ * driven through a live Canvas.
  */
 #pragma once
 
