@@ -165,11 +165,13 @@ inline Pixel lerp_probe_fade(const Pixel &p, float fade,
 
 /**
  * @brief Verifies Style::lerp interpolates scalar fields linearly, snaps
- *        discrete fields, and preserves the subject's bound noise state.
+ *        discrete fields, and pushes the blend into the subject's bound noise.
  * @details Scalar fields (fade, hue_shift, scale, ...) interpolate linearly;
  *          discrete fields (transform pointers, downsample) snap to b at
  *          t >= 0.5 and stay on a below the midpoint. The subject's bound
- *          noise pointer must never be overwritten by a's or b's noise.
+ *          noise pointer must never be overwritten by a's or b's noise, and
+ *          the NoiseParams it points at must carry the blended scalars, or
+ *          the feedback filter's drift trap fires on the next flush.
  */
 inline void test_lerp_scalars_and_snapping() {
   Animation::NoiseParams na;
@@ -214,6 +216,10 @@ inline void test_lerp_scalars_and_snapping() {
   HS_EXPECT_TRUE(mid.color_fn == &Feedback::hue_fade);
   HS_EXPECT_EQ(mid.downsample, 8);
   HS_EXPECT_TRUE(mid.noise == &subj);
+  HS_EXPECT_NEAR(subj.amplitude, 1.5f, 1e-6f);
+  HS_EXPECT_NEAR(subj.frequency, 0.35f, 1e-6f);
+  HS_EXPECT_NEAR(subj.speed, 2.5f, 1e-6f);
+  HS_EXPECT_NEAR(subj.scale, 0.5f, 1e-6f);
 
   Feedback::Style lo{};
   lo.lerp(a, b, 0.4f);
