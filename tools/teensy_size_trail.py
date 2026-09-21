@@ -401,7 +401,7 @@ def cmd_record(args) -> int:
     out = Path(args.out) if args.out else default_pending()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"envs": found}, indent=1, sort_keys=True) + "\n",
-                   encoding="utf-8")
+                   encoding="utf-8", newline="\n")
     print(f"[size-trail] recorded {', '.join(sorted(found))} -> {out}")
     return 0
 
