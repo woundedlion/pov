@@ -408,11 +408,19 @@ HS_FLASH_MEMBER inline PlanarWarpStageResult warp_stage_lookup(
   __builtin_unreachable();
 }
 
+static_assert(
+    static_cast<uint8_t>(WarpEnvelope::FLAT) ==
+            static_cast<uint8_t>(Pullback::Warp::Envelope::FLAT) &&
+        static_cast<uint8_t>(WarpEnvelope::PROJECTION_WEIGHT) ==
+            static_cast<uint8_t>(Pullback::Warp::Envelope::PROJECTION_WEIGHT) &&
+        static_cast<uint8_t>(WarpEnvelope::EDGE_FADE) ==
+            static_cast<uint8_t>(Pullback::Warp::Envelope::EDGE_FADE),
+    "workbench WarpEnvelope must mirror Pullback::Warp::Envelope");
+
 inline float warp_envelope(const Pullback::ProjectionProvenance &provenance,
                            WarpEnvelope envelope, float edge_width) {
-  return Pullback::Warp::envelope(provenance, edge_width,
-                                  envelope == WarpEnvelope::PROJECTION_WEIGHT,
-                                  envelope == WarpEnvelope::EDGE_FADE);
+  return Pullback::Warp::envelope(
+      provenance, edge_width, static_cast<Pullback::Warp::Envelope>(envelope));
 }
 
 HS_FLASH_MEMBER inline Complex curl_vector(const Complex &p,

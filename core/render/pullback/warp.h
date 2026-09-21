@@ -410,10 +410,10 @@ finish_closed_form(const Complex &input, const Complex &output,
 
 __attribute__((always_inline)) inline float
 envelope(const ProjectionProvenance &provenance, float edge_width,
-         bool projection_weight, bool edge_fade) {
-  if (projection_weight)
+         Envelope mode) {
+  if (mode == Envelope::PROJECTION_WEIGHT)
     return provenance.value_weight;
-  if (edge_fade)
+  if (mode == Envelope::EDGE_FADE)
     return ProjectionCoverage::edge_fade(provenance, edge_width);
   return 1.0f;
 }
