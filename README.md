@@ -504,6 +504,9 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── main.js                     index.html's entry module: starts the simulator, once
 ├── bootstrap.js                Dynamic-import boot of daydream.js + failure overlay
 ├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
+├── effect_roster.js            Effect/resolution roster data: shader-document and workbench lists, per-resolution favourites
+├── segmented_pov_controls.js   Segmented-POV panel: pool spawner and its controls, split out of the composition root
+├── recording_controls.js       Recording panel builder, split out of the composition root
 ├── app_lifecycle.js            Composition-root frame adapter, Test All ticker,
 │                                  module-load deadline, and teardown
 ├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
