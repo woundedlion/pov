@@ -108,8 +108,9 @@ inline void test_y_phi_roundtrip() {
 }
 
 /**
- * @brief Verifies the templated y_to_phi<H> (integer and float overloads) uses
- *        the PhiLUT and agrees with the offset-aware free function for every row.
+ * @brief Verifies the templated y_to_phi<H> fills and reads the PhiLUT, agrees
+ *        with the offset-aware free function for every row, and that the float
+ *        overload returns the row value exactly at an integer y.
  */
 inline void test_y_to_phi_templated_LUT() {
   constexpr int H = 32;
@@ -121,8 +122,11 @@ inline void test_y_to_phi_templated_LUT() {
 
   HS_EXPECT_TRUE(PhiLUT<H>::initialized);
 
-  float lut_f = y_to_phi<H>(5.0f);
-  HS_EXPECT_NEAR(lut_f, y_to_phi<H>(5), 1e-5f);
+  HS_EXPECT_EQ(y_to_phi<H>(5.0f), y_to_phi<H>(5));
+  // Sub-pixel rows resolve continuously; they are not snapped onto a row.
+  HS_EXPECT_NEAR(y_to_phi<H>(5.5f), 0.5f * (y_to_phi<H>(5) + y_to_phi<H>(6)),
+                 1e-6f);
+  HS_EXPECT_GT(y_to_phi<H>(5.0f + 1e-5f), y_to_phi<H>(5));
 }
 
 /**
