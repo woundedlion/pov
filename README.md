@@ -1279,8 +1279,11 @@ coverage at all there. A `Content-Security-Policy` meta tag, carried by
 `index.html` and each of the five tool pages, bounds this on every browser
 by origin: script loads are restricted to `'self'` plus the CDN origins that
 page actually uses. It is an origin boundary, not an XSS one — every page
-carries `'unsafe-inline'`, required by the four tool pages' inline module
-blocks and by the import map `vendor-importmap.js` injects. Pages that load the WASM engine need `'wasm-unsafe-eval'`
+carries `'unsafe-inline'`, required by the `<script type="importmap">` that
+`vendor-importmap.js` injects on `index.html` and the four tool pages that load
+it, and by the inline `onerror` fallback on the five tool pages' self-hosted-font
+`<link>` — the only inline code on `palettes.html`, which loads no import map.
+No page carries an inline module block. Pages that load the WASM engine need `'wasm-unsafe-eval'`
 for the module instantiation itself, but not the far broader `'unsafe-eval'`:
 the module is linked `-sDYNAMIC_EXECUTION=0 -sEMBIND_AOT=1`, so embind's
 per-binding invokers are emitted into the glue at link time instead of being
