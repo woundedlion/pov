@@ -553,7 +553,7 @@ The same step runs with `just docs-check` and before `just docs` publishes the A
 │   ├── shader.html             Pullback Shader authoring workbench
 │   ├── shader.css              Shader workbench layout and control styling
 │   ├── shader_documents.js     Document loading, validation, matching, and engine application
-│   ├── shader_deeplink.js       Encodes and restores the workbench's complete state in the page URL
+│   ├── shader_deeplink.js      Encodes the document, preset, bypass set and pause flag in the page URL hash and restores them
 │   ├── chain_apply.js          Applies a compiled chain document: setShaderChain, then the preset values
 │   ├── chain_document_store.js v2 chain document store: span replacement, legality, reconciliation, undo
 │   ├── chain_strip.js          Pipeline strip: the chain as stage chips banded by carrier
