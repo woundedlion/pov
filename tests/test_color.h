@@ -474,6 +474,16 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   OKLCH e{L, C, 0.5f};
   OKLCH f{L, C, 1.5f};
   HS_EXPECT_NEAR(lerp_oklch(e, f, 0.5f).h, 1.0f, 1e-4f);
+
+  // Antipodal endpoints: the arc follows the sign of b.h - a.h, and swapping
+  // the endpoints traverses the same arc.
+  OKLCH g{L, C, 0.0f};
+  OKLCH pos{L, C, PI_F};
+  OKLCH neg{L, C, -PI_F};
+  HS_EXPECT_EQ(lerp_oklch(g, pos, 0.5f).h, 0.5f * PI_F);
+  HS_EXPECT_EQ(lerp_oklch(pos, g, 0.5f).h, 0.5f * PI_F);
+  HS_EXPECT_EQ(lerp_oklch(g, neg, 0.5f).h, -0.5f * PI_F);
+  HS_EXPECT_EQ(lerp_oklch(neg, g, 0.5f).h, -0.5f * PI_F);
 }
 
 /**
@@ -2663,6 +2673,19 @@ inline void test_wrap_angle_pi_large_arguments() {
   }
 }
 
+/**
+ * @brief Verifies an exact half turn keeps its sign and the first value past
+ *        it lands on the opposite side of the seam.
+ */
+inline void test_wrap_angle_pi_half_turn_keeps_sign() {
+  HS_EXPECT_EQ(wrap_angle_pi(PI_F), PI_F);
+  HS_EXPECT_EQ(wrap_angle_pi(-PI_F), -PI_F);
+  const float past_pi = wrap_angle_pi(std::nextafter(PI_F, 4.0f));
+  HS_EXPECT_TRUE(past_pi < 0.0f && past_pi >= -PI_F);
+  const float past_minus_pi = wrap_angle_pi(std::nextafter(-PI_F, -4.0f));
+  HS_EXPECT_TRUE(past_minus_pi > 0.0f && past_minus_pi <= PI_F);
+}
+
 // Clamp-before-cast / NaN-saturation checks whose contract must also hold under
 // the shipping WASM fast-math codegen. fastmath_clamp_check.cpp iterates this
 // same list, so adding a case here automatically extends both the default-IEEE
@@ -2693,6 +2716,7 @@ inline int run_color_tests() {
   test_blend_outputs_denormal_alpha();
   test_blend_outputs_tiny_normal_alpha();
   test_wrap_angle_pi_large_arguments();
+  test_wrap_angle_pi_half_turn_keeps_sign();
   test_lerp16_full_range_correct();
   test_lerp16_bounded();
 
