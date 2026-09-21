@@ -124,8 +124,8 @@ inline constexpr size_t INTERVAL_SPAN_CAP = 32;
  *  std::pair's default constructor value-initializes every slot, which the
  *  per-draw and per-row buffers below would pay on every construction. */
 struct Interval {
-  float first;  /**< Span start column. */
-  float second; /**< Span end column. */
+  float start; /**< Span start column. */
+  float end;   /**< Span end column. */
 };
 
 /** Per-row scanline interval buffer for a single shape. Fixed capacity,
@@ -431,7 +431,7 @@ inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
   for (size_t i = 1; i < n; ++i) {
     auto key = data[i];
     size_t j = i;
-    while (j > 0 && data[j - 1].first > key.first) {
+    while (j > 0 && data[j - 1].start > key.start) {
       data[j] = data[j - 1];
       --j;
     }
@@ -456,14 +456,14 @@ normalize_intervals_to_range(const StaticCircularBuffer<Interval, N> &src,
                              StaticCircularBuffer<Interval, M> &dst) {
   constexpr float Wf = static_cast<float>(W);
   for (size_t i = 0; i < src.size(); ++i) {
-    float len = src[i].second - src[i].first;
+    float len = src[i].end - src[i].start;
     HS_CHECK(len >= 0.0f,
              "normalize_intervals_to_range: interval end precedes start");
     if (len >= Wf) {
       push_interval(dst, 0.0f, Wf);
       continue;
     }
-    const float s = wrap(src[i].first, Wf);
+    const float s = wrap(src[i].start, Wf);
     const float e = s + len;
     if (e <= Wf) {
       push_interval(dst, s, e);
@@ -492,15 +492,15 @@ inline void merge_intervals(StaticCircularBuffer<Interval, N> &merged,
            "merge_intervals: raw linear indexing requires head==0");
   auto *data = &merged[0];
   size_t n = merged.size();
-  float cur_start = data[0].first;
-  float cur_end = data[0].second;
+  float cur_start = data[0].start;
+  float cur_end = data[0].end;
   for (size_t i = 1; i < n; ++i) {
-    if (data[i].first <= cur_end) {
-      cur_end = std::max(cur_end, data[i].second);
+    if (data[i].start <= cur_end) {
+      cur_end = std::max(cur_end, data[i].end);
     } else {
       out(cur_start, cur_end);
-      cur_start = data[i].first;
-      cur_end = data[i].second;
+      cur_start = data[i].start;
+      cur_end = data[i].end;
     }
   }
   out(cur_start, cur_end);
