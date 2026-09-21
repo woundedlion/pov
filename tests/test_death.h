@@ -5218,7 +5218,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"waves.h", 1},
     {"conway.h", 33},
     {"conway_graph.h", 1},
-    {"hankin.h", 9},
+    {"hankin.h", 8},
     {"mesh.h", 19},
     {"mesh_classes.h", 7},
     {"mesh_state.h", 2},
