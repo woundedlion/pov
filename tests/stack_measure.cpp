@@ -27,8 +27,8 @@
 #include <cstdio>
 #include <new>
 
-#include "engine/effects.h"
-#include "engine/memory.h"
+#include "core/engine/effects.h"
+#include "core/engine/memory.h"
 #include "tests/test_fixture.h"
 
 namespace {
