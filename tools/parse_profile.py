@@ -719,7 +719,10 @@ def cmd_probe(windows):
         mean = agg[stage] / den
         net = mean - read
         net_per_probe[stage] = net * den / probes
-    total = sum(v for v in net_per_probe.values() if v > 0)
+    # Every printed stage is summed, negatives included: a stage whose mean
+    # falls below the measured read cost nets below zero, and dropping it from
+    # the total alone leaves a column that does not add up to what it prints.
+    total = sum(net_per_probe.values())
     for stage, den_key in PROBE_STAGES:
         if stage not in net_per_probe:
             continue
