@@ -466,7 +466,7 @@ The same step runs with `just docs-check` and before `just docs` publishes the A
 │   ├── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, build pins, docs and license checks
 │   ├── docs_sync.py
 │   └── engine_source_state.py
-├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus design specs, perf ledgers, and the docs/screenshots/ gallery
+├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus design specs (docs/specs/), the ITCM and device/host divergence ledgers (docs/ledgers/), on-device profiles (docs/profiles/), and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
@@ -690,6 +690,8 @@ The `platform.h` header abstracts all target-specific differences:
 | `CRGB`, `CHSV` | FastLED types | Struct mocks |
 
 The host-side mock implementations — the `CRGB`/`CHSV` structs plus the rest of the emulated Arduino/FastLED surface (`random8`, `beatsin8`, `SerialMock`, …) — live in `platform/arduino_mocks.h`, included from `platform.h`'s non-Arduino branch.
+
+The few places the engine's behaviour forks on a device-only constant (the `H_OFFSET` sub-pole rows among them) are inventoried in [`docs/ledgers/device_host_divergence_ledger.md`](docs/ledgers/device_host_divergence_ledger.md), which records which device-value test build reaches each fork.
 
 ---
 
