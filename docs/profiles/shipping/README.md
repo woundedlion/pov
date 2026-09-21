@@ -3,15 +3,14 @@
 Ranked on-device results for the shipping `profile` image, covering the
 38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by any spill, then peak render. 🟢 is zero spill and 🔴 is any
-nonzero spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% spill and 🔴 is at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [Raymarch](profile_raymarch_teensy_2026-08-26.md) ● | `rm_shader_draw` | 🟢 62.22 | 🟢 0/1088 (0.0%) | 2026-08-26 01:37 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md) § ● | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 0/6688 (0.0%) | 2026-08-26 03:31 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) ● | `df_timeline_step` | 🟢 58.18 | 🟢 0/1088 (0.0%) | 2026-09-19 22:17 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-08-26.md) § ● | `ss_draw_all` | 🟢 58.13 (10) | 🟢 0/2448 (0.0%) | 2026-08-26 03:28 |
+| [Raymarch](profile_raymarch_teensy_2026-09-20.md) ● | `rm_shader_draw` | 🟢 56.07 | 🟢 0/1736 (0.00%) | 2026-09-20 22:51 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) ● | `grd_render` | 🟢 55.26 | 🟢 0/2048 (0.0%) | 2026-08-26 01:28 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § ● | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 0/1728 (0.0%) | 2026-08-26 07:40 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-08-26.md) § ● | `hl_shader_draw` | 🟢 51.19 (4) | 🟢 0/2688 (0.0%) | 2026-08-26 03:32 |
@@ -47,7 +46,7 @@ nonzero spill. Cyclers (§) use parser-owned cadence buckets.
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) ● | `vo_shade` | 🟢 8.96 | 🟢 0/1088 (0.0%) | 2026-08-26 01:43 |
 | [RingShower](profile_ringshower_teensy_2026-08-26.md) ● | `rsh_draw_rings` | 🟢 3.98 | 🟢 0/1088 (0.0%) | 2026-08-26 01:39 |
 
-● IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
+● Raymarch and IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 Each row links to the report generated from that log and its provenance sidecar.
 
