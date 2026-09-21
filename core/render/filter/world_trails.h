@@ -38,6 +38,9 @@ public:
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
+  /** @brief Persistent bytes init_storage() reserves. */
+  static constexpr size_t STORAGE_BYTES = Capacity * sizeof(Item);
+
   /**
    * @brief Constructs a world trail buffer with the given fade lifetime.
    * @param lifetime Per-frame fade divisor in frames; must be in [1, 255].
@@ -183,8 +186,7 @@ private:
    * and writes Capacity Items through it.
    */
   void check_storage_alive() const {
-    HS_ASSERT_BLOCK_ALIVE(stamp, items, Capacity * sizeof(Item),
-                          "World::Trails");
+    HS_ASSERT_BLOCK_ALIVE(stamp, items, STORAGE_BYTES, "World::Trails");
   }
 
   static constexpr float Q =
