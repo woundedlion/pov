@@ -21,6 +21,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 LOCK_SH = REPO / "tools" / "device_lock.sh"
+LOCK_GUARD = REPO / "tools" / "device_lock_guard.py"
 
 GRACE = 120  # HS_DEVICE_STALE_GRACE default
 
@@ -396,6 +397,40 @@ class BoardSelection(unittest.TestCase):
         p, pid = _live_bash()
         _stop_bash(p, pid)
         return pid
+
+
+class MissingLockRoot(unittest.TestCase):
+    """A lock base whose parent directory does not exist.
+
+    No claim can be recorded there, and a claim that cannot be recorded looks
+    exactly like a board somebody else holds -- acquire once reported "ALL
+    DEVICES BUSY" over a status listing every board as free.
+    """
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.base = self.root / "absent" / "lock"
+
+    def test_the_guard_names_the_missing_root(self):
+        r = subprocess.run(
+            [sys.executable, str(LOCK_GUARD), "claim", f"{self.base}-COM3.d"],
+            input="token=t\n", capture_output=True, text=True,
+            encoding="utf-8")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("lock root", r.stderr)
+
+    def test_acquire_reports_the_path_not_a_busy_bench(self):
+        r = run_lock("hs_device_acquire E profile 60", self.base)
+        self.assertEqual(r.returncode, 2)
+        self.assertNotIn("ALL DEVICES BUSY", r.stderr)
+        self.assertIn("lock root", r.stderr)
+
+    def test_an_existing_root_still_acquires(self):
+        self.base.parent.mkdir(parents=True)
+        r = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
+                     self.base)
+        self.assertIn("PORT=COM3", r.stdout)
 
 
 class PinnedPortEnumeration(unittest.TestCase):

@@ -53,6 +53,13 @@ def read_token(directory):
 
 def update_claim(directory, operation, value):
     directory = Path(directory)
+    # Opening the guard file under a missing parent raises ENOENT, which the
+    # handler below swallows as a lost race; the caller then reads a
+    # misconfigured lock path as a device somebody else is holding.
+    if not directory.parent.is_dir():
+        print(f"device: lock root {directory.parent} does not exist",
+              file=sys.stderr)
+        return False
     try:
         with guard(directory):
             if operation == "claim":
