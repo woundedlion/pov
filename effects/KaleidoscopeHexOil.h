@@ -31,8 +31,9 @@ class KaleidoscopeHexOil
           W, H, KaleidoscopeHexOil<W, H>, KaleidoscopeHexOilParams,
           KaleidoscopeHexOilSpec, PaletteHarmony::TRIADIC,
           Pullback::HueMode::PATH_LENGTH,
-          Pullback::Color::BrightnessEnvelope::NONE, true, false, false,
-          Pullback::SurfacePlacement::AFTER_LENS> {
+          Pullback::Color::BrightnessEnvelope::NONE,
+          /*AnimatedProjection=*/true, /*HasOuterNoise=*/false,
+          /*HasSourceNoise=*/false, Pullback::SurfacePlacement::AFTER_LENS> {
 
 public:
   using Params = KaleidoscopeHexOilParams;
