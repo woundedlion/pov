@@ -181,8 +181,9 @@ mid-run — the drivers may read it once per frame without a re-clip hazard.
 
 Of the shipped roster the fold evaluates `true` for exactly `MeshFeedback`
 (`Pixel::Feedback`) and the `World::Trails` effect `Dynamo`; everything else is
-`false`. The roster test (§8) pins that set so a new cross-segment effect that
-forgets the helper is caught.
+`false`. The roster test (§8) pins that answer on four constructed effects; it
+does not sweep the roster, so a new cross-segment effect that omits the helper
+is not caught by it.
 
 ### 4.3 Honor it at the driver boundary (the only behavioral change)
 
@@ -304,13 +305,15 @@ Implemented in `tests/test_filter.h`, `tests/test_canvas.h` and
   not shrink it below the default. `smoke_one` asserts the roster's clip margin
   is still the default, so a widened margin — which costs rendered pixels —
   cannot appear without a filter asking for it.
-- **Roster gate** (`test_needs_full_frame_gate`, test_effects.h): constructs the
-  real effects and asserts `needs_full_frame()` is `true` for exactly the
-  cross-segment set (`MeshFeedback`, `Dynamo`) and `false` for
-  representative non-stateful effects. This is the end-to-end equivalent of a
-  `setClip` test — the WASM driver reads exactly this query, and `setClip` itself
-  lives in the Emscripten-only TU, which the native suite cannot link. A new
-  cross-segment effect that forgets `pipeline_config<>` is caught here.
+- **Roster gate** (`test_needs_full_frame_gate`, test_effects.h): constructs
+  four real effects and asserts `needs_full_frame()` is `true` for the
+  cross-segment pair (`MeshFeedback`, `Dynamo`) and `false` for two
+  representative non-stateful effects (`Voronoi`, `RingSpin`). This is the
+  end-to-end equivalent of a `setClip` test — the WASM driver reads exactly this
+  query, and `setClip` itself lives in the Emscripten-only TU, which the native
+  suite cannot link. It covers only those four; each effect's pipeline member is
+  private, so nothing sweeps the roster for a cross-segment effect that omits
+  `pipeline_config<>`.
 - **`Screen::Trails` banded-vs-full bit-identity**
   (`test_screen_trails_banded_matches_full`, test_filter.h): the reach-0 proof
   that backs the `reads_outside_band = false` override and would be the
