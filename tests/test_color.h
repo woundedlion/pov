@@ -565,6 +565,60 @@ inline void test_gamut_clip_preserves_hue() {
 }
 
 /**
+ * @brief Pins the OKLab matrices gamut_bracket_refine() restates as literals
+ *        against the two conversions that own them.
+ * @details color.h's gamut_bracket_refine() expands a constant-lightness ray
+ *          into one cubic per linear-RGB channel, restating both matrices and
+ *          relying on the RGB rows summing to one for its constant term.
+ *          Nothing in the header ties that copy to oklab_to_lms_cbrt() and
+ *          lms_cbrt_to_linear_rgb(), so this reads both column by column and
+ *          fails on any drift, naming the copy to update.
+ */
+inline void test_gamut_refine_matrices_match_the_conversions() {
+  HS_CONTEXT("gamut_bracket_refine restates these; mirror any change there");
+  float l, m, s;
+
+  oklab_to_lms_cbrt({1.0f, 0.0f, 0.0f}, l, m, s);
+  HS_EXPECT_EQ(l, 1.0f);
+  HS_EXPECT_EQ(m, 1.0f);
+  HS_EXPECT_EQ(s, 1.0f);
+
+  oklab_to_lms_cbrt({0.0f, 1.0f, 0.0f}, l, m, s);
+  HS_EXPECT_EQ(l, 0.3963377774f);
+  HS_EXPECT_EQ(m, -0.1055613458f);
+  HS_EXPECT_EQ(s, -0.0894841775f);
+
+  oklab_to_lms_cbrt({0.0f, 0.0f, 1.0f}, l, m, s);
+  HS_EXPECT_EQ(l, 0.2158037573f);
+  HS_EXPECT_EQ(m, -0.0638541728f);
+  HS_EXPECT_EQ(s, -1.2914855480f);
+
+  float r, g, b;
+  lms_cbrt_to_linear_rgb(1.0f, 0.0f, 0.0f, r, g, b);
+  HS_EXPECT_EQ(r, 4.0767416621f);
+  HS_EXPECT_EQ(g, -1.2684380046f);
+  HS_EXPECT_EQ(b, -0.0041960863f);
+
+  lms_cbrt_to_linear_rgb(0.0f, 1.0f, 0.0f, r, g, b);
+  HS_EXPECT_EQ(r, -3.3077115913f);
+  HS_EXPECT_EQ(g, 2.6097574011f);
+  HS_EXPECT_EQ(b, -0.7034186147f);
+
+  lms_cbrt_to_linear_rgb(0.0f, 0.0f, 1.0f, r, g, b);
+  HS_EXPECT_EQ(r, 0.2309699292f);
+  HS_EXPECT_EQ(g, -0.3413193965f);
+  HS_EXPECT_EQ(b, 1.7076147010f);
+
+  // The cubic's constant term is L^3 in every channel, which holds only while
+  // each RGB row sums to one.
+  const float L = 0.61f;
+  lms_cbrt_to_linear_rgb(L, L, L, r, g, b);
+  HS_EXPECT_NEAR(r, L * L * L, 1e-7f);
+  HS_EXPECT_NEAR(g, L * L * L, 1e-7f);
+  HS_EXPECT_NEAR(b, L * L * L, 1e-7f);
+}
+
+/**
  * @brief Linear-RGB triple of an OKLab color in double precision.
  * @param L Lightness.
  * @param a OKLab a.
@@ -2650,6 +2704,7 @@ inline int run_color_tests() {
   test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
   test_gamut_direction_lookup_matches_angle();
+  test_gamut_refine_matrices_match_the_conversions();
   test_gamut_master_clip_lands_on_first_exit();
   test_gamut_continuous_chroma_is_smooth_and_in_gamut();
   test_gamut_lut_clip_lands_on_first_exit();
