@@ -50,6 +50,7 @@ struct ProjectionParams {
   };
 };
 static_assert(field_ids_unique<ProjectionParams>());
+static_assert(field_defaults_in_range<ProjectionParams>());
 
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 

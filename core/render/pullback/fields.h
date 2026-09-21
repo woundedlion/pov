@@ -110,6 +110,18 @@ template <HasFields Family> consteval bool field_ids_unique() {
   return true;
 }
 
+/** @brief Whether every tabled field's default lies within its declared
+    range. */
+template <HasFields Family> consteval bool field_defaults_in_range() {
+  constexpr Family DEFAULTS{};
+  for (const auto &field : Family::FIELDS) {
+    const float value = DEFAULTS.*(field.member);
+    if (!(value >= field.min && value <= field.max))
+      return false;
+  }
+  return true;
+}
+
 namespace Fields {
 
 HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
