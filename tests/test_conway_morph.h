@@ -56,6 +56,28 @@ inline uint8_t morph_temp_buf[256 * 1024];   /**< Op scratch arena. */
 inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
 inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
 
+/**
+ * @brief Repartitions the global arena for the enclosing scope and restores the
+ *        default split on the way out.
+ * @details Declare it ahead of every Arena the scope carves out of the global
+ * block, so the restore runs once those are gone. Without it the bespoke split
+ * leaks into whatever case runs next.
+ */
+struct ScopedArenaSplit {
+  /**
+   * @brief Installs the split.
+   * @param persistent Bytes for the persistent arena.
+   * @param scratch_a Bytes for scratch arena A.
+   * @param scratch_b Bytes for scratch arena B.
+   */
+  ScopedArenaSplit(size_t persistent, size_t scratch_a, size_t scratch_b) {
+    configure_arenas(persistent, scratch_a, scratch_b);
+  }
+  ~ScopedArenaSplit() { configure_arenas_default(); }
+  ScopedArenaSplit(const ScopedArenaSplit &) = delete;
+  ScopedArenaSplit &operator=(const ScopedArenaSplit &) = delete;
+};
+
 using ConwayGraph::T_EPS;
 
 // ---------------------------------------------------------------------------
@@ -2061,8 +2083,8 @@ inline void test_hankin_sweep_vertex_stability() {
  */
 inline void test_opleg_hankin_sweep_smoke() {
   reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
-                   32 * 1024);
+  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024,
+                               24 * 1024, 32 * 1024);
   hs::random().seed(2026u);
 
   Arena leg(morph_target_buf, sizeof(morph_target_buf));
@@ -2713,8 +2735,8 @@ inline void test_medial_dual_bridge_wellformed() {
 inline void test_opleg_medial_leg_smoke() {
   using Animation::OpLeg;
   reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024, 116 * 1024,
-                   74 * 1024);
+  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024,
+                               116 * 1024, 74 * 1024);
   hs::random().seed(2026u);
 
   Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -2824,8 +2846,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   for (const StepLegSite &site : DUAL_LEG_SITES) {
     const int failed_before = hs_test::stats().failed;
     reset_globals();
-    configure_arenas(GLOBAL_ARENA_SIZE - 132 * 1024 - 74 * 1024, 132 * 1024,
-                     74 * 1024);
+    const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 132 * 1024 - 74 * 1024,
+                                 132 * 1024, 74 * 1024);
     hs::random().seed(2026u);
 
     Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -3092,8 +3114,8 @@ check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
   const int failed_before = hs_test::stats().failed;
 
   reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
-                   32 * 1024);
+  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024,
+                               24 * 1024, 32 * 1024);
   hs::random().seed(2026u);
 
   Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
@@ -3245,8 +3267,8 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const bool is_kis = op == OpLeg::SwapOp::KIS;
 
   reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
-                   32 * 1024);
+  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024,
+                               24 * 1024, 32 * 1024);
   hs::random().seed(2026u);
 
   Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
@@ -3463,8 +3485,8 @@ inline void test_opleg_step_leg_overshooting_easing() {
 inline void test_opleg_edge_leg_crossfade() {
   using Animation::OpLeg;
   reset_globals();
-  configure_arenas(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024, 116 * 1024,
-                   74 * 1024);
+  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - 116 * 1024 - 74 * 1024,
+                               116 * 1024, 74 * 1024);
   hs::random().seed(2026u);
 
   Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -3656,8 +3678,9 @@ inline ChainPeaks replay_build_chain(const char *name,
     // Capacities are the host's, not the device split: a chain that overruns a
     // budget must report its high-water, not OOM-trap the replay before the
     // measurement. The budgets below are what the peaks are gated against.
-    configure_arenas(GLOBAL_ARENA_SIZE - 2 * REPLAY_SCRATCH_CAPACITY,
-                     REPLAY_SCRATCH_CAPACITY, REPLAY_SCRATCH_CAPACITY);
+    const ScopedArenaSplit split(
+        GLOBAL_ARENA_SIZE - 2 * REPLAY_SCRATCH_CAPACITY,
+        REPLAY_SCRATCH_CAPACITY, REPLAY_SCRATCH_CAPACITY);
     hs::random().seed(2026u);
 
     MeshPaletteBank bank;
