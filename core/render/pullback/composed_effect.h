@@ -1347,8 +1347,8 @@ private:
 
   /**
    * @brief Generator the palette cycler calls for each palette in the cycle.
-   * @details Advances the hue on every palette after the first, so the opening
-   * palette is the one the effect's authored hue names.
+   * @details Advances the hue on every palette after the first, so the cycle
+   * opens on `palette_hue`, which starts at 0 and moves only here.
    * @param context The ComposedEffect instance, as registered with the cycler.
    * @param sequence Zero-based index of the palette being generated.
    * @param out Receives the recipe to bake.
