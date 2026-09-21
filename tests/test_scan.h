@@ -329,33 +329,59 @@ inline void test_shader_clip_arc_matches_predicate() {
 // ============================================================================
 
 /**
- * @brief Verifies the SDF rasterize() path plots a bounded ring.
- * @details The ring must cover a nonempty subset of the canvas, but never the
- * whole canvas.
+ * @brief Verifies the SDF rasterize() path plots a complete hollow ring.
+ * @details Two-sided mask oracle: every pixel inside the stroke core is lit and
+ * every lit pixel lies within the stroke plus its AA fringe. A bounded count
+ * alone passes a stroke that dropped columns or collapsed to a single row, and
+ * test_ring_rasterize_lit_pixels_on_band bounds only the outside of the band.
  */
 inline void test_ring_rasterize_produces_bounded_output() {
   constexpr int W = 64, H = 48;
+  constexpr float radius = 0.5f, thickness = 0.4f;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe; // bare 2D sink (no filters)
 
-  size_t plotted = 0;
   {
     Canvas c(fx);
     Basis basis = make_basis(Quaternion(), Y_AXIS);
     Scan::Ring::draw<W, H, false>(
-        pipe, c, basis, /*radius=*/0.5f, /*thickness=*/0.4f,
-        [](const Vector &, Fragment &f) {
+        pipe, c, basis, radius, thickness, [](const Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
   fx.advance_display();
 
+  const float target = radius * (PI_F / 2.0f); // ring-centre polar angle
+  const float row = PI_F / (H - 1);            // angular height of one row
+  // Two rows of quantization either side of the nominal stroke: inside the
+  // inner bound the ring is solid, outside the outer one it is clear.
+  const float core = thickness - 2.0f * row;
+  const float band = thickness + 2.0f * row;
+  size_t plotted = 0, solid = 0;
+  float widest_lit = 0.0f, nearest_dark = PI_F;
   for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      if (!is_black(fx.get_pixel(x, y)))
+    for (int x = 0; x < W; ++x) {
+      HS_CONTEXT("px", x, y);
+      const Vector v = pixel_to_vector<W, H>(x, y);
+      const float offset = fabsf(acosf(hs::clamp(v.y, -1.0f, 1.0f)) - target);
+      const bool lit = !is_black(fx.get_pixel(x, y));
+      if (lit) {
         ++plotted;
-
-  HS_EXPECT_GT(plotted, (size_t)0);
+        widest_lit = std::max(widest_lit, offset);
+        HS_EXPECT_LE(offset, band);
+      } else {
+        nearest_dark = std::min(nearest_dark, offset);
+      }
+      if (offset <= core) {
+        ++solid;
+        HS_EXPECT_TRUE(lit);
+      }
+    }
+  std::printf("  [ring mask] lit %zu/%d, core %zu, widest lit %.4f, nearest "
+              "dark %.4f of half-width %.4f\n",
+              plotted, W * H, solid, (double)widest_lit, (double)nearest_dark,
+              (double)thickness);
+  HS_EXPECT_GT(solid, (size_t)0);
   HS_EXPECT_LT(plotted, (size_t)(W * H));
 }
 
