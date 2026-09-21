@@ -15,7 +15,7 @@ function stripComments(src) {
     .replace(/\/\/[^\n]*?(\\\r?)?$/gm, '$1');
 }
 
-// Extracts the X() rows from core/engine/effects.h source text.
+// Extracts the X() rows from targets/effects.h source text.
 export function parseEffectRoster(src) {
   // Comments are stripped before the macro is located and the `#define` is
   // anchored to the start of a line, so neither a commented-out `X(Foo)` row nor
@@ -25,7 +25,7 @@ export function parseEffectRoster(src) {
   // remove).
   const block = stripComments(src).match(
     /^#define HS_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/m);
-  if (!block) throw new Error('Could not locate HS_EFFECT_LIST in core/engine/effects.h');
+  if (!block) throw new Error('Could not locate HS_EFFECT_LIST in targets/effects.h');
   // Tolerate whitespace inside the parens: a reformat to `X( Foo )` must not drop
   // rows here, because the same spelling drops them from parseRegisteredEffects too
   // and the cross-check would agree on the truncated roster.
@@ -36,7 +36,7 @@ export function parseEffectRoster(src) {
 
 export async function loadEffectRoster() {
   return parseEffectRoster(
-    await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8'));
+    await readFile(join(REPO_ROOT, 'targets', 'effects.h'), 'utf8'));
 }
 
 export function parsePhantasmEffectRoster(src) {

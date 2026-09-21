@@ -14,7 +14,7 @@
 #include <new>
 
 #include "pov_single.h"
-#include "core/engine/effects.h"
+#include "targets/effects.h"
 #include "core/engine/effects_legacy.h"
 
 static constexpr int NUM_PIXELS = 40;

@@ -14,7 +14,7 @@
  */
 #pragma once
 
-#include "core/engine/effects.h" // HS_EFFECT_LIST roster
+#include "targets/effects.h" // HS_EFFECT_LIST roster
 #include "core/render/canvas.h"
 #include "core/engine/memory.h"
 #include "targets/wasm/param_marshal.h"
