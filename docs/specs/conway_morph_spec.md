@@ -434,14 +434,11 @@ array — all small and reclaimed by the existing compaction.
 
 ## 5. Operator-layer changes
 
-Deliberately minimal:
-- `T_EPS` clamp lives in ConwayMorph, not the operators; operators already
-  accept the full parameter ranges (fail-fast guards stay as they are).
-- Never evaluate `truncate` at exactly 0.5 mid-leg (ambo short-circuit
-  changes emission order); the crossover uses the clean-swap + DUAL_SWAP.
-- No kis changes (no simple-solid edge uses kis; the apex-height parameter is
-  future work for Catalan legs, §9).
-- `chamfer` stays unused (no simple-registry endpoint is a chamfered form).
+Superseded. The operator legs that ship — `MorphOp::CHAMFER` for
+recipe-step legs, the kis-partition `GATED_SWAP` legs and the `MEDIAL_SLERP`
+reconcile legs — are specified in `opchain_morph_spec.md`;
+`core/animation/opleg.h` and `core/mesh/conway_graph.h` are the source of
+truth.
 
 ## 6. Performance budget and gates
 
