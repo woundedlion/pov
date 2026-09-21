@@ -33,7 +33,7 @@ def transform(sx, sy, rot, mirror, lx, ly):
 
 class Symbol:
     def __init__(self, lib_id, ref, value, x, y, rot=0, mirror=None,
-                 unit=1, footprint="", dnp=False, fields=None, hide_value=False):
+                 unit=1, footprint="", dnp=False):
         self.lib_id = lib_id
         self.ref = ref
         self.value = value
@@ -45,8 +45,6 @@ class Symbol:
         self.unit = unit
         self.footprint = footprint
         self.dnp = dnp
-        self.fields = fields or {}
-        self.hide_value = hide_value
         self.uuid = uid()
         self._pins = None  # filled by builder
 
@@ -239,11 +237,9 @@ class Builder:
         refy = s.y - 5.08
         valy = s.y + 5.08
         L += _prop("Reference", s.ref, s.x, refy)
-        L += _prop("Value", s.value, s.x, valy, hide=s.hide_value)
+        L += _prop("Value", s.value, s.x, valy)
         L += _prop("Footprint", s.footprint, s.x, s.y + 7.62, hide=True)
         L += _prop("Datasheet", "", s.x, s.y, hide=True)
-        for k, v in s.fields.items():
-            L += _prop(k, v, s.x, s.y, hide=True)
         # pin uuids
         for num in self._unit_pins[s.lib_id].get(s.unit, {}):
             L.append(f'\t\t(pin {sexp.quote(num)} (uuid "{uid()}"))')
