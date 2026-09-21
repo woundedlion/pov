@@ -1911,6 +1911,19 @@ inline void case_transformer_pool_spawn_before_init() {
 }
 
 /**
+ * @brief Death case: preparing frame state before init_storage() must trap.
+ * @details Transformer surface — prepare_frame() is the ordering contract's
+ *          other half: an un-initialized pool has no active slots, so it would
+ *          silently do nothing and leave the composition reading state that was
+ *          never prepared, instead of reporting the missed init() wiring.
+ */
+inline void case_transformer_pool_prepare_frame_before_init() {
+  Timeline tl;
+  RippleTransformer<2> rt(tl);
+  rt.prepare_frame(); // -> HS_CHECK
+}
+
+/**
  * @brief Death case: a pausable spawn with no pause flag must trap.
  * @details Transformer surface -- spawn_pausable() exists only to hand the
  *          animation a gate to read every frame; a null flag would schedule an
@@ -4243,6 +4256,9 @@ inline const Case *all_cases(int &n) {
       {"transformer_pool_spawn_before_init",
        case_transformer_pool_spawn_before_init, "transformer.h",
        "(entities) TransformerPool: call init_storage() before spawn"},
+      {"transformer_pool_prepare_frame_before_init",
+       case_transformer_pool_prepare_frame_before_init, "transformer.h",
+       "(entities) TransformerPool: call init_storage() before prepare_frame"},
       {"transformer_pool_spawn_pausable_null_flag",
        case_transformer_pool_spawn_pausable_null_flag, "transformer.h",
        "(paused != nullptr) pausable spawn needs a pause flag"},
