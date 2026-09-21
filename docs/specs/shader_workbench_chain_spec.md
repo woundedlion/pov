@@ -77,14 +77,19 @@ dropped) and every parameter id (label namespacing), which cascades into
 preset values, staggered path-policy groups (v1's `STAGGERED_ORDERED`
 transition scheduling), and `serialization.fields`. Requirements:
 
-- Expansion is the **single code path**: the re-exported v2 catalog
-  documents are by definition its output, gated by a test that pins them
-  byte-identical after canonicalization.
-- A v1-digest → v2-digest migration table is recomputed from the v1
-  fixtures by the same expansion run that writes the re-exported v2
-  documents, and a completeness test fails when the committed table drifts
-  from what a rerun writes. Preview routing does not read it: a loaded
-  document matches a promoted fixed effect on its v2 digest directly.
+- Expansion is the **single code path** for loading a v1 document. The
+  committed v2 pattern documents are engine-owned artifacts, not
+  expansion output: each is pinned as its own canonical re-export, and
+  the five identity-frame replacements deliberately differ from what
+  expanding their v1 fixture yields.
+- A v1-digest → v2-digest migration table maps each v1 fixture digest
+  onto the digest of the committed document of the same name. It is
+  recomputed by
+  [scripts/generate-shader-v2-documents.mjs](https://github.com/woundedlion/daydream/blob/master/scripts/generate-shader-v2-documents.mjs),
+  which writes only the table, and a completeness test fails when the
+  committed table drifts from what a rerun writes. Preview routing does
+  not read it: a loaded document matches a promoted fixed effect on its
+  v2 digest directly.
 - Deterministic label assignment for expanded instances (v1 slot order:
   `warp1`, `warp2`, …) and a complete parameter-id rewrite map.
 - v1 documents that expand to the same chain (distinct only by
