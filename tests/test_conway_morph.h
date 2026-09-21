@@ -1024,16 +1024,17 @@ inline void expect_op_counts(size_t v, size_t f, size_t i, const OpCounts &d) {
  * @brief Sweep interval of an edge, clamped as a leg runs it.
  * @param e Edge to clamp.
  * @param t_lo Out: max(t_from, T_EPS).
- * @param t_hi Out: t_to, additionally capped at 0.5 - T_EPS on truncate legs
- *        (the ambo short-circuit changes emission order and face count) and
+ * @param t_hi Out: t_to, additionally capped at 0.5 - T_EPS_AMBO on truncate
+ *        legs (the ambo short-circuit changes emission order and face count) and
  *        held at T_JITTERBUG_OCTA_MIN on the jitterbug bridge (the t = 0.5 end is
  *        the pairwise-merged octahedron).
  */
 inline void edge_sweep_interval(const ConwayGraph::EdgeSpec &e, float &t_lo,
                                 float &t_hi) {
   t_lo = std::max(e.t_from, T_EPS);
-  t_hi = e.op == ConwayGraph::MorphOp::TRUNCATE ? std::min(e.t_to, 0.5f - T_EPS)
-                                                : e.t_to;
+  t_hi = e.op == ConwayGraph::MorphOp::TRUNCATE
+             ? std::min(e.t_to, 0.5f - ConwayGraph::T_EPS_AMBO)
+             : e.t_to;
   if (ConwayGraph::is_jitterbug_edge(e))
     t_hi = std::max(t_hi, ConwayGraph::T_JITTERBUG_OCTA_MIN);
 }
