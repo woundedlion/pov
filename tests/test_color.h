@@ -2,15 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/color/color.h.
- *
- * Coverage:
- *   - Pixel::lerp16 (endpoints + midpoint)
- *   - Blend modes (over/under/max/mean/add) — identity & boundedness invariants
- *   - OKLab / OKLCH round-trips (sRGB -> OKLab -> sRGB, sRGB -> OKLCH -> sRGB)
- *     for grays and saturated primaries; achromatic hue handling in lerp_oklch
- *   - sRGB <-> linear LUTs vs. float reference functions; known endpoints
- *   - Gradient::get and BakedPalette::get: in-range validity + endpoint match
+ * Unit tests for core/color/color.h and the palette layer built on it: 16-bit
+ * lerp and additive blend, the OKLab/OKLCH conversions and gamut mapper,
+ * perceptual hue rotation, the sRGB transfer LUTs, gradients, baked, procedural
+ * and generative palettes, the palette modifiers and shades, and the cycler.
  */
 #pragma once
 
