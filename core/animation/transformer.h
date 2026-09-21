@@ -326,8 +326,9 @@ public:
    * NOT required when there are no active entities or when params are unchanged.
    */
   void prepare_frame() {
-    if (entities)
-      check_storage_watermark();
+    HS_CHECK(entities,
+             "TransformerPool: call init_storage() before prepare_frame");
+    check_storage_watermark();
     check_storage_alive();
     for (int k = 0; k < active_slot_count; ++k) {
       Entity &e = entities[active_slots[k]];
