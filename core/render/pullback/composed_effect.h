@@ -148,7 +148,8 @@ template <typename FrameT> struct Binding {
 };
 
 /** @brief Supplies the camera orientation to Pullback::Stage::Rotate. */
-template <typename BindingT> struct OuterCameraProvider {
+template <typename BindingT>
+struct OuterCameraProvider : Pullback::ApproximationDefaults {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
   static const Quaternion &conjugate(const FrameState &frame) {

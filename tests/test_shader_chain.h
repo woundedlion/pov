@@ -246,7 +246,7 @@ struct MirrorBinding {
   using Instrumentation = PB::NoInstrumentation;
 };
 
-struct MirrorCamera {
+struct MirrorCamera : PB::ApproximationDefaults {
   using Binding = MirrorBinding;
   using FrameState = MirrorFrame;
   static const Quaternion &conjugate(const MirrorFrame &frame) {
