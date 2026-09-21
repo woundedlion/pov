@@ -1202,15 +1202,22 @@ public:
    * (apply order: setShaderChain -> values -> syncEffectGui -> invalidate).
    * The boundary rejects a non-array payload or a non-string entry field as
    * MALFORMED_PAYLOAD and never traps; NOT_CHAIN_EFFECT reports that the
-   * loaded effect is not ShaderChain. A refusal leaves the previous program,
-   * its parameter definitions, the generation, and all instance state
-   * untouched.
+   * loaded effect is not ShaderChain, and covers an input whose accessors swap
+   * the loaded effect out while the entries are being decoded. A refusal
+   * leaves the previous program, its parameter definitions, the generation,
+   * and all instance state untouched.
    */
   val setShaderChain(const val &entries) {
     const SnapshotDecodeGuard decode_guard;
     using Pullback::Interp::ChainStatus;
     if (!with_shader_chain([]<typename SC>(SC &) {}))
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
+    // Every property read below can run caller JS through an accessor or a
+    // Proxy, and that JS reaches setEffect()/setResolution(), which frees the
+    // chain this call addressed. Latch the owner and re-check before compiling.
+    const uint64_t owner_generation = effect_generation;
+    const Effect *const owner = current_effect.get();
+    const void *const owner_type_key = current_effect_type_key;
     if (!is_array(entries))
       return chain_result(ChainStatus::MALFORMED_PAYLOAD, -1);
     const size_t count = entries["length"].as<size_t>();
@@ -1233,6 +1240,10 @@ public:
       instances[index] = instance.as<std::string>();
       operators[index] = operator_id.as<std::string>();
     }
+    if (effect_generation != owner_generation ||
+        current_effect.get() != owner ||
+        current_effect_type_key != owner_type_key)
+      return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
     std::vector<Pullback::Interp::ChainEntryRequest> request(count);
     for (size_t index = 0; index < count; ++index)
       request[index] = {instances[index], operators[index]};
