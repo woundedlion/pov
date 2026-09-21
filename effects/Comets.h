@@ -241,7 +241,7 @@ private:
    *         t=0 start (0,1,0) up to float error.
    * @details A spherical Lissajous point returns to the t=0 start (0,1,0) only
    *          when m2*domain is an exact multiple of 2*PI. Authored domains miss
-   *          that by up to ~1.4 deg; snapping is a <0.3% nudge. Floor the cycle
+   *          that by up to ~1.4 deg; snapping is a <=0.32% nudge. Floor the cycle
    *          count at 1 so m2*domain < PI does not round to 0 and freeze the head
    *          at path_fn(0) (the table is authored data that gets extended).
    */
