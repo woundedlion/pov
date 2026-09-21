@@ -13,6 +13,7 @@ tested here rather than against a firmware binary:
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
 
+import json
 import os
 import struct
 import subprocess
@@ -233,6 +234,35 @@ class Backfill(unittest.TestCase):
 #: against the test runner's cwd drive and stop matching.
 _FAKE_COMMON = Path(Path(__file__).resolve().anchor) / "repo" / ".git"
 _FAKE_GITDIR = _FAKE_COMMON / "worktrees" / "wt"
+
+
+class PendingCapture(unittest.TestCase):
+    """A pending record is the product of a full firmware build, so `commit`
+    discards it only when it is unusable."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.dir = Path(temporary.name)
+        self.pending = self.dir / "pending.json"
+        self.trail = self.dir / "trail.tsv"
+
+    def commit(self):
+        return tst.main(["commit", "--pending", str(self.pending),
+                         "--trail", str(self.trail), "--repo", str(self.dir)])
+
+    def test_a_failed_stamp_keeps_the_capture_for_a_retry(self):
+        self.pending.write_text(json.dumps({"envs": {"phantasm": {"itcm": 1}}}),
+                                encoding="utf-8")
+        with mock.patch.object(tst, "head_stamp",
+                               side_effect=tst.GitError("no commit")):
+            self.assertEqual(self.commit(), 1)
+        self.assertTrue(self.pending.is_file())
+
+    def test_an_unusable_capture_is_discarded(self):
+        self.pending.write_text("{not json", encoding="utf-8")
+        self.assertEqual(self.commit(), 1)
+        self.assertFalse(self.pending.exists())
 
 
 class DefaultPaths(unittest.TestCase):
