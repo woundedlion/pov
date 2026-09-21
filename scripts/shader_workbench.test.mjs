@@ -704,6 +704,22 @@ test('malformed v1 containers report diagnostics instead of raw TypeErrors', () 
   }
 });
 
+test('groups on a non-staggered path policy is an unknown field', () => {
+  for (const groups of [[], ['sample.pattern-freq'], 'not-an-array']) {
+    const document = example();
+    document.descriptor.path_policies[0].groups = groups;
+    const [diagnostic] = validate(document);
+    assert.equal(diagnostic.code, 'UNKNOWN_FIELD');
+    assert.equal(diagnostic.path, '$.descriptor.path_policies[0].groups');
+  }
+  const document = structuredClone(V1_EXAMPLE);
+  document.descriptor.path_policies[0].groups = ['pattern-freq'];
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'INVALID');
+  assert.equal(compiled.diagnostics[0].code, 'UNKNOWN_FIELD');
+  assert.equal(compiled.diagnostics[0].path, '$.descriptor.path_policies[0].groups');
+});
+
 test('v1 projection frames become explicit topology parameters', () => {
   for (const frame of ['identity', 'spin-wander']) {
     const document = structuredClone(V1_EXAMPLE);
