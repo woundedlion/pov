@@ -315,11 +315,15 @@ public:
    * @brief Whether an engine instance is currently constructed.
    * @return True from the end of a successful construction until that
    *         instance's delete().
-   * @details Exposed to JS as the static Module.HolosphereEngine.isLive(). The
-   *          singleton precondition is the one JS-reachable precondition whose
-   *          violation traps rather than returning a rejection, so a bootstrap
-   *          that may run twice tests this and delete()s the live instance
-   *          instead of constructing into the trap.
+   * @details Exposed to JS as the static Module.HolosphereEngine.isLive().
+   *          Three JS-reachable preconditions trap rather than return a
+   *          rejection: constructing over a live instance, and — while
+   *          setShaderChain() or restoreFullConfigSnapshot() decodes its
+   *          payload — a caller accessor that re-enters the decode
+   *          (SnapshotDecodeGuard) or delete()s the engine (the destructor),
+   *          which is why those payloads must be plain data. This reports only
+   *          the first, so a bootstrap that may run twice tests it and
+   *          delete()s the live instance instead of constructing into the trap.
    */
   static bool isLive() { return engine_alive; }
 
