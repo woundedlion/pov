@@ -316,7 +316,7 @@ inline int run_pov_single_tests() {
   for (int x : {0, 1, 47, 48, 95})
     check_strip_tiling(/*S=*/40, /*w=*/96, x);
 
-  // Holosphere 288x144: S=288.
+  // Phantasm 288x144: S=288.
   for (int x : {0, 1, 143, 144, 287})
     check_strip_tiling(/*S=*/288, /*w=*/288, x);
 
