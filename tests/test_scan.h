@@ -829,6 +829,106 @@ inline void test_distorted_ring_stack_matches_sequential() {
 }
 
 /**
+ * @brief Verifies the fused RingGroup and DistortedRingStack walks ignore
+ *        pole_lod_aggressiveness.
+ * @details Both replace the per-ring scan_region walk with one row-local scan
+ * that shades every column, so the knob that decimates scan_region rows cannot
+ * reach them. Each is rendered at aggressiveness 0 and at 4, where
+ * pole_lod_run exceeds one column on every row, and the two frames are held
+ * bit-identical.
+ */
+inline void test_fused_walks_ignore_pole_lod() {
+  constexpr int W = 96, H = 64;
+  constexpr int N = 4, LUT_N = 32;
+  const ScopedPoleLod scoped_lod(0.0f);
+  const Vector normal = Vector(0.3f, 0.8f, -0.5f).normalized();
+  const Basis basis = make_basis(
+      make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f), normal);
+  const float ths[N] = {0.08f, 0.04f, 0.06f, 0.05f};
+  const Color4 colors[N] = {Color4(Pixel(60000, 10000, 5000), 0.9f),
+                            Color4(Pixel(5000, 60000, 10000), 0.6f),
+                            Color4(Pixel(10000, 5000, 60000), 0.4f),
+                            Color4(Pixel(30000, 30000, 30000), 0.7f)};
+  auto shader = [&](int s, const Vector &, Fragment &f) {
+    f.color = colors[s];
+  };
+
+  auto draw_group = [&](std::vector<Pixel> &out) {
+    Basis bases[N];
+    alignas(SDF::Ring) unsigned char mem[N * sizeof(SDF::Ring)];
+    auto *shapes = reinterpret_cast<SDF::Ring *>(mem);
+    for (int s = 0; s < N; ++s) {
+      bases[s] = make_basis(
+          make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.02f * s),
+          normal);
+      new (&shapes[s]) SDF::Ring(bases[s], 1.0f, ths[s]);
+    }
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N, shader);
+    }
+    fx.advance_display();
+    capture_frame<W, H>(fx, out);
+  };
+
+  auto draw_stack = [&](std::vector<Pixel> &out) {
+    float knots[N][LUT_N + 1];
+    for (int i = 0; i < N; ++i) {
+      for (int k = 0; k < LUT_N; ++k) {
+        const float t = 2.0f * PI_F * k / LUT_N;
+        knots[i][k] = 0.06f * sinf((i + 2) * t) + 0.03f * cosf(3.0f * t + i);
+      }
+      knots[i][LUT_N] = knots[i][0];
+    }
+    alignas(
+        SDF::DistortedRing) unsigned char mem[N * sizeof(SDF::DistortedRing)];
+    auto *shapes = reinterpret_cast<SDF::DistortedRing *>(mem);
+    SDF::KnotPrefilter prefilters[N];
+    int8_t slot_by_ring[N];
+    for (int i = 0; i < N; ++i) {
+      new (&shapes[i])
+          SDF::DistortedRing(basis, 2.0f * (i + 1) / (N + 1), ths[i], knots[i],
+                             LUT_N, 0.0f, prefilters[i]);
+      slot_by_ring[i] = static_cast<int8_t>(i);
+    }
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      Scan::DistortedRingStack::draw<W, H>(pipeline, canvas, N, shapes,
+                                           slot_by_ring, N, shader);
+    }
+    fx.advance_display();
+    for (int i = 0; i < N; ++i)
+      shapes[i].~DistortedRing();
+    capture_frame<W, H>(fx, out);
+  };
+
+  auto expect_knob_independent = [&](const char *label, auto &&draw) {
+    HS_CONTEXT(label);
+    std::vector<Pixel> undecimated, decimated;
+    pole_lod_aggressiveness = 0.0f;
+    draw(undecimated);
+    pole_lod_aggressiveness = 4.0f;
+    HS_EXPECT_GT(Scan::pole_lod_run(1.0f), 1);
+    draw(decimated);
+    size_t lit = 0;
+    for (size_t i = 0; i < undecimated.size(); ++i) {
+      if (!is_black(undecimated[i]))
+        ++lit;
+      HS_EXPECT_EQ(undecimated[i].r, decimated[i].r);
+      HS_EXPECT_EQ(undecimated[i].g, decimated[i].g);
+      HS_EXPECT_EQ(undecimated[i].b, decimated[i].b);
+    }
+    HS_EXPECT_GT(lit, (size_t)200);
+  };
+  expect_knob_independent("ring group", draw_group);
+  expect_knob_independent("distorted ring stack", draw_stack);
+}
+
+/**
  * @brief Verifies rasterize_face walks the pixels scan_region walks.
  * @details rasterize_face carries its own copy of scan_region's
  * wrap/coalesce/clip run builder. SDF::Face satisfies ScanShape, so the same
@@ -1110,6 +1210,33 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   pole_lod_aggressiveness = 0.0f;
   HS_EXPECT_EQ(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
+}
+
+/**
+ * @brief Pins pole_lod_run on both sides of the POLE_LOD_MAX_RUN clamp.
+ * @details The run is aggressiveness over |sin(phi)|, truncated: 1 wherever
+ * that quotient is under 2, the quotient itself below the clamp, and
+ * POLE_LOD_MAX_RUN past it and at the pole, where sin(phi) is zero. At
+ * aggressiveness 0 every row is one column, the pole included.
+ */
+inline void test_pole_lod_run_clamps_to_max_run() {
+  static_assert(16 < POLE_LOD_MAX_RUN);
+  const ScopedPoleLod lod(1.0f);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
+  HS_EXPECT_EQ(Scan::pole_lod_run(0.75f), 1);
+  HS_EXPECT_EQ(Scan::pole_lod_run(0.25f), 4);
+  HS_EXPECT_EQ(Scan::pole_lod_run(-0.25f), 4);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / 16.0f), 16);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / POLE_LOD_MAX_RUN), POLE_LOD_MAX_RUN);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / (2 * POLE_LOD_MAX_RUN)),
+               POLE_LOD_MAX_RUN);
+  HS_EXPECT_EQ(Scan::pole_lod_run(0.0f), POLE_LOD_MAX_RUN);
+  pole_lod_aggressiveness = 4.0f;
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 4);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / 16.0f), POLE_LOD_MAX_RUN);
+  pole_lod_aggressiveness = 0.0f;
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / (2 * POLE_LOD_MAX_RUN)), 1);
+  HS_EXPECT_EQ(Scan::pole_lod_run(0.0f), 1);
 }
 
 /**
@@ -2967,12 +3094,14 @@ inline int run_scan_tests() {
   test_distorted_ring_flat_matches_zero_knot_raster();
   test_ring_group_matches_sequential();
   test_distorted_ring_stack_matches_sequential();
+  test_fused_walks_ignore_pole_lod();
   test_face_rasterize_matches_scan_region();
   test_scan_shader_v2_contract();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
   test_scan_region_clip_arc_matches_predicate();
   test_pole_lod_runs_are_canvas_anchored();
+  test_pole_lod_run_clamps_to_max_run();
   test_pole_lod_shading_matches_undecimated();
   test_pole_lod_concave_face_matches_undecimated();
   test_plot_line_over_pole_reaches_row0();
