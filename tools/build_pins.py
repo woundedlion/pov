@@ -122,6 +122,7 @@ CONSUMERS = {
     ),
     ROOT / "justfile": (
         "build_pins.py doxygen-awesome",
+        "build_pins.py --check-tool clang-format",
         "build_pins.py --check-tool doxygen",
         "build_pins.py --check-tool node",
         "build_pins.py --check-tool numpy",
