@@ -2401,6 +2401,9 @@ struct DriftedReorderSegue : Segue::Base {
 struct DriftedMaskPairSegue : Segue::Base {
   int mask_pair(float, uint32_t) const { return 0; }
 };
+struct DriftedLocalSweepSegue : Segue::Base {
+  static constexpr int LOCAL_SWEEP = 1;
+};
 
 /** @brief A policy shadowing Base's visible() with a float: every phase would
  * read as visible. */
@@ -2432,9 +2435,10 @@ struct DriftedGradeSegue : Segue::Base {
  * Breakdown's reorder degrades it to a uniform fade, losing Dissolve's
  * mask_pair doubles the frame's rasterizer work. The roster assertion pins
  * every shipped policy against the scheduling signature the carousel calls
- * (including the pause gate a shorter override would hide) and against Base's
- * phase-hook signatures. The Declares* assertions pin the name probes against
- * the drifted policies below, where the hook is present but uncallable at the
+ * (including the pause gate a shorter override would hide), against Base's
+ * phase-hook signatures, and against a LOCAL_SWEEP declared as anything but a
+ * constant bool. The Declares* assertions pin the name probes against the
+ * drifted policies below, where the hook is present but uncallable at the
  * contract's argument list.
  */
 inline void test_per_face_segues_satisfy_draw_contract() {
@@ -2472,6 +2476,9 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(!Segue::DeclaresFaceOffset<Segue::Crossfade>);
   static_assert(Segue::DeclaresFacePhase<Segue::Shockwave>);
   static_assert(!Segue::DeclaresFacePhase<Segue::Crossfade>);
+  static_assert(Segue::DeclaresLocalSweep<Segue::TerminatorSweep> &&
+                Segue::LocalSweeps<Segue::TerminatorSweep>);
+  static_assert(!Segue::DeclaresLocalSweep<Segue::Crossfade>);
   // A drifted hook is seen by name and rejected by signature, so MeshCarousel
   // traps it instead of compiling the policy off the hook.
   static_assert(Segue::DeclaresWarp<DriftedWarpSegue> &&
@@ -2486,7 +2493,11 @@ inline void test_per_face_segues_satisfy_draw_contract() {
                 !Segue::HasFaceOffset<DriftedFaceOffsetSegue>);
   static_assert(Segue::DeclaresFacePhase<TwoArgFacePhaseSegue> &&
                 !Segue::HasFacePhase<TwoArgFacePhaseSegue>);
+  static_assert(Segue::DeclaresLocalSweep<DriftedLocalSweepSegue> &&
+                !Segue::LocalSweeps<DriftedLocalSweepSegue>);
+  static_assert(!Segue::PolicyList<DriftedLocalSweepSegue>::LOCAL_SWEEPS_TYPED);
   static_assert(Segue::AllPolicies::CONFORMING);
+  static_assert(Segue::AllPolicies::LOCAL_SWEEPS_TYPED);
   static_assert(!Segue::HasPhaseHooks<DriftedVisibleSegue>);
   static_assert(!Segue::HasPhaseHooks<DriftedFillSegue>);
   static_assert(!Segue::HasPhaseHooks<DriftedGradeSegue>);
