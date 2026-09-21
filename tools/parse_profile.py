@@ -385,7 +385,7 @@ def _marker(key, mm):
     return dict(key=key, name=mm.group(1))  # hankin
 
 
-def dominant_leaf(windows):
+def dominant_scope(windows):
     """Label of the costliest non-root, non-buffer_wait scope across the run."""
     tot = Counter()
     for w in windows:
@@ -1045,7 +1045,7 @@ def main():
                                      "validate", "frames", "metrics",
                                      "probe", "plot", "msp-counts",
                                      "msp-stalls"])
-    ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
+    ap.add_argument("--scope", help="counter label to read (default: costliest scope)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
     ap.add_argument("--expected-pullback-arm",
@@ -1066,7 +1066,7 @@ def main():
     if not windows:
         print(f"no windows parsed from {args.log}", file=sys.stderr)
         return 2
-    scope = args.scope or dominant_leaf(windows)
+    scope = args.scope or dominant_scope(windows)
 
     if args.mode == "windows":
         cmd_windows(windows, scope)
