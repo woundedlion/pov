@@ -197,7 +197,8 @@ private:
    */
   HS_COLD_MEMBER void record_node_faces(const PolyMesh &base) {
     node_faces = base.face_counts.size();
-    HS_CHECK(node_faces <= MAX_NODE_FACES);
+    HS_CHECK(node_faces <= MAX_NODE_FACES,
+             "HankinSolids: node base mesh exceeds the face-handoff capacity");
     Animation::OpLeg::face_centroids_into(base, node_face_centroid);
   }
 
@@ -206,7 +207,9 @@ private:
    * hankin star-face identity mapping) for the next leg's handoff.
    */
   HS_COLD_MEMBER void record_node_palettes() {
-    HS_CHECK(node_faces <= hankin_mesh.topology.size());
+    HS_CHECK(node_faces <= hankin_mesh.topology.size(),
+             "HankinSolids: node face count exceeds the hankin "
+             "classification");
     MeshPaletteBank::assign_by_class(hankin_mesh.topology.data(), node_faces,
                                      palette_idx, node_face_palette);
   }
@@ -664,7 +667,8 @@ private:
                               static_cast<uint32_t>(hs::random()()));
 #endif
     const EdgeSpec &e = EDGES[cur_edge];
-    HS_CHECK(edge_touches(cur_edge, node));
+    HS_CHECK(edge_touches(cur_edge, node),
+             "HankinSolids: picked graph edge does not touch the current node");
     reverse = (e.to_node == node);
 
     SeedFix fix = seed_fix_at_start(cur_edge, seed_identity);
@@ -673,7 +677,9 @@ private:
     if (fix == SeedFix::DUAL_SWAP) {
       // Ambo crossover: ambo(dual(seed)) == ambo(seed), so the swap is
       // pixel-invisible at the displayed t = 0.5 form.
-      HS_CHECK(node == CUBOCTAHEDRON || node == ICOSIDODECAHEDRON);
+      HS_CHECK(node == CUBOCTAHEDRON || node == ICOSIDODECAHEDRON,
+               "HankinSolids: dual-swap seed fix outside the ambo "
+               "crossover nodes");
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         seed_base =
             Solids::finalize_solid(MeshOps::dual(seed_base, a, b), target);
@@ -682,7 +688,9 @@ private:
     } else if (fix == SeedFix::REGEN_TETRA) {
       // Reverse family bridge: the held octa/icosa was derived from the
       // registry tetrahedron, so regenerating that tetrahedron is frame-exact.
-      HS_CHECK(node == OCTAHEDRON || node == ICOSAHEDRON);
+      HS_CHECK(node == OCTAHEDRON || node == ICOSAHEDRON,
+               "HankinSolids: tetra regeneration outside the reverse family "
+               "bridge");
       hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         seed_base =
             Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
@@ -710,7 +718,9 @@ private:
       PolyMesh arrival =
           node_mesh_at(e, !reverse, scratch_arena_b, scratch_arena_a);
       arrival_faces = arrival.face_counts.size();
-      HS_CHECK(arrival_faces <= MAX_NODE_FACES);
+      HS_CHECK(arrival_faces <= MAX_NODE_FACES,
+               "HankinSolids: arrival mesh exceeds the bookend topology "
+               "capacity");
       CompiledHankin ch;
       MeshOps::compile_hankin(arrival, ch, scratch_arena_b, scratch_arena_a);
       MeshState hk;
@@ -813,7 +823,8 @@ private:
     // Forward palette mapping: base faces fill hankin star faces 1:1
     // (emission identity), so each populated slot carries the leg's landed
     // palette verbatim; only newborn (rosette-only) slots take fresh shuffles.
-    HS_CHECK(node_faces <= landing.faces);
+    HS_CHECK(node_faces <= landing.faces,
+             "HankinSolids: landed face count is short of the node base mesh");
     MeshPaletteBank::shuffle_indices(palette_idx);
     bool slot_mapped[NUM_PALETTES] = {};
     for (size_t f = 0; f < node_faces; ++f) {

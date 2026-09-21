@@ -354,7 +354,8 @@ private:
     std::fill_n(degrees, mesh.vertices.size(), static_cast<uint8_t>(0));
 
     for (uint16_t vertex : mesh.faces) {
-      HS_CHECK(vertex < mesh.vertices.size());
+      HS_CHECK(vertex < mesh.vertices.size(),
+               "DreamBalls: face slot indexes a vertex outside the mesh");
       degrees[vertex]++;
     }
     for (size_t i = 0; i < mesh.vertices.size(); ++i)
@@ -373,7 +374,8 @@ private:
     std::fill_n(owners, vertex_count, UINT16_MAX);
     for (size_t edge_index = 0; edge_index < edges.size(); ++edge_index) {
       const uint16_t vertex = edges[edge_index].u;
-      HS_CHECK(vertex < vertex_count);
+      HS_CHECK(vertex < vertex_count,
+               "DreamBalls: woven edge start vertex outside the owner table");
       if (owners[vertex] == UINT16_MAX)
         owners[vertex] = static_cast<uint16_t>(edge_index);
     }
@@ -382,7 +384,8 @@ private:
   static bool
   owns_woven_start_sample(const ArenaVector<Plot::Mesh::Edge> &edges,
                           const uint16_t *owners, size_t edge_index) {
-    HS_CHECK(edge_index < edges.size());
+    HS_CHECK(edge_index < edges.size(),
+             "DreamBalls: woven owner query edge index out of range");
     return owners[edges[edge_index].u] == edge_index;
   }
 
@@ -548,7 +551,9 @@ private:
                               0,
                               [this](Canvas &) {
                                 const bool advanced = this->advancePreset();
-                                HS_CHECK(advanced);
+                                HS_CHECK(advanced,
+                                         "DreamBalls: automatic preset "
+                                         "advance must succeed");
                                 this->spawn_sprite();
                               },
                               false),

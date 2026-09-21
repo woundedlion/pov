@@ -4784,9 +4784,12 @@ inline const Case *all_cases(int &n) {
        "range"},
       {"dreamballs_woven_owner_vertex_oob",
        case_dreamballs_woven_owner_vertex_oob, "DreamBalls.h",
-       "(vertex < vertex_count) "},
+       "(vertex < vertex_count) DreamBalls: woven edge start vertex "
+       "outside the owner table"},
       {"dreamballs_woven_owner_edge_oob", case_dreamballs_woven_owner_edge_oob,
-       "DreamBalls.h", "(edge_index < edges.size()) "},
+       "DreamBalls.h",
+       "(edge_index < edges.size()) DreamBalls: woven owner query edge index "
+       "out of range"},
       {"raymarch_placement_solid_oob", case_raymarch_placement_solid_oob,
        "Raymarch.h",
        "(placement_index < PLACEMENT_SOLID_COUNT) Raymarch placement solid is "
