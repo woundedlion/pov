@@ -54,7 +54,7 @@ Companion documents:
 | 21 | **ID0** | in (PULLUP) | strap bit 0; ground = bit set |
 | 22 | **ID1** | in (PULLUP) | strap bit 1; ground = bit set |
 | 23 | **ID2** | in (PULLUP) | strap bit 2 — read at N=8; unread at N≤4 |
-| VIN | **+5 V** | power in | board + strip rail |
+| VIN | **+5 V** | power in | logic rail only (`+5V_LOGIC`, post-bead, R-PWR-5); the strip rail is injected off-board (§2.3) |
 | GND | **GND** | power | common return |
 | 3V3 | **+3.3 V** | power out | on-board regulator; sources **R_MEN** (mandatory) + J4 |
 
