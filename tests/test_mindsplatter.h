@@ -242,11 +242,15 @@ inline void test_mindsplatter_replay_snapshot_exact() {
 }
 
 /**
- * @brief MindSplatter's single-pass direct-AA path preserves cached-path
- * coverage in every quadrant of a frozen saturated particle pool.
+ * @brief MindSplatter's single-pass direct-AA path matches the cached
+ * AntiAlias-sink reference in every quadrant of a frozen saturated particle
+ * pool.
  * @details Single-pass stepping omits the cached endpoint normalization, so
  * interior sample phases, one fringe pixel, and accumulated channels can
- * differ. The production-resolution replay executable gates their error.
+ * differ; the bounds are the measured worst case (exact at 96x20 under IEEE)
+ * with headroom. The production-resolution replay executable compares the
+ * same candidate against draw_particles_replay_reference, the shipping filter
+ * stack under reference screen stepping, not against this sink.
  */
 inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   constexpr int W = SMALL_W;
@@ -334,6 +338,9 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
                 static_cast<unsigned long long>(total_channel_error));
     HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
     HS_EXPECT_LE(coverage_differences, static_cast<size_t>(1));
+    HS_EXPECT_LE(changed_pixels, static_cast<size_t>(4));
+    HS_EXPECT_LE(max_channel_error, 64);
+    HS_EXPECT_LE(total_channel_error, static_cast<uint64_t>(128));
   }
   hs::clear_mock_time();
 }
