@@ -607,6 +607,15 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_EQ(approximate_count, 3u);
 }
 
+/** Schema field of @p op with id @p field_id, or null. */
+inline const In::ParamFieldInfo *schema_field(const In::OperatorDescriptor &op,
+                                              std::string_view field_id) {
+  for (const In::ParamFieldInfo &field : op.schema_span())
+    if (std::string_view(field.id) == field_id)
+      return &field;
+  return nullptr;
+}
+
 inline void test_shader_chain_schema_and_field_ids() {
   static_assert(std::is_same_v<In::Op::HueShiftMode, PB::Color::HueMode>);
   static_assert(std::is_same_v<In::Op::ProjectionCoverageMode,
@@ -663,8 +672,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(colorize.schema_count, COLOR_FIELDS + 4);
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS].id) ==
                  "palette-mode");
+  HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS].enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 1].id) ==
                  "palette-mapping");
+  HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 1].enum_count, 4);
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 1].enum_def, 2);
   const In::ParamFieldInfo &hue = colorize.schema[COLOR_FIELDS + 2];
   HS_EXPECT_EQ(hue.enum_count, 3);
@@ -674,6 +685,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(hue.enum_def, static_cast<uint8_t>(PB::Color::HueMode::NOISE));
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS + 3].id) ==
                  "brightness-envelope");
+  HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 3].enum_count, 5);
 
   const In::OperatorDescriptor &legacy_colorize =
       *In::find_operator("colorize.generated-palette.v2");
@@ -723,6 +735,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(curl.schema[CURL_FIELDS].enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 1].id) ==
                  "integrator");
+  HS_EXPECT_EQ(curl.schema[CURL_FIELDS + 1].enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 1].enum_ids[2]) ==
                  "midpoint-2x");
   const In::OperatorDescriptor &direct =
@@ -730,6 +743,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   constexpr size_t DIRECT_FIELDS = In::Op::DirectDisplaceParams::FIELDS.size();
   HS_EXPECT_EQ(direct.schema_count, DIRECT_FIELDS + 1);
   HS_EXPECT_TRUE(std::string_view(direct.schema[DIRECT_FIELDS].id) == "basis");
+  HS_EXPECT_EQ(direct.schema[DIRECT_FIELDS].enum_count, 3);
   const In::OperatorDescriptor &ripple =
       *In::find_operator("sphere.displace.ripple.v2");
   HS_EXPECT_EQ(ripple.schema_count,
@@ -771,6 +785,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   constexpr size_t POLAR_FIELDS = In::Op::PolarChartParams::FIELDS.size();
   HS_EXPECT_EQ(polar.schema_count, POLAR_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(polar.schema[POLAR_FIELDS].id) == "mode");
+  HS_EXPECT_EQ(polar.schema[POLAR_FIELDS].enum_count, 2);
   const In::ParamFieldInfo &harmonic = polar.schema[POLAR_FIELDS + 1];
   HS_EXPECT_TRUE(std::string_view(harmonic.id) == "harmonic");
   HS_EXPECT_EQ(harmonic.enum_count, PB::Warp::MAX_POLAR_HARMONIC);
@@ -784,12 +799,25 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(shear_envelope.enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(shear_envelope.enum_ids[1]) ==
                  "projection-weight");
+  const In::OperatorDescriptor &vector_noise =
+      *In::find_operator("warp.vector-noise.v2");
+  constexpr size_t VECTOR_NOISE_FIELDS =
+      In::Op::VectorNoiseWarpParams::FIELDS.size();
+  HS_EXPECT_EQ(vector_noise.schema_count, VECTOR_NOISE_FIELDS + 2);
+  HS_EXPECT_TRUE(
+      std::string_view(vector_noise.schema[VECTOR_NOISE_FIELDS].id) == "basis");
+  HS_EXPECT_EQ(vector_noise.schema[VECTOR_NOISE_FIELDS].enum_count, 3);
+  HS_EXPECT_TRUE(
+      std::string_view(vector_noise.schema[VECTOR_NOISE_FIELDS + 1].id) ==
+      "envelope");
+  HS_EXPECT_EQ(vector_noise.schema[VECTOR_NOISE_FIELDS + 1].enum_count, 3);
   const In::OperatorDescriptor &curl_flow =
       *In::find_operator("warp.curl-flow.v2");
   constexpr size_t CURL_FLOW_FIELDS = In::Op::CurlFlowParams::FIELDS.size();
   HS_EXPECT_EQ(curl_flow.schema_count, CURL_FLOW_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(curl_flow.schema[CURL_FLOW_FIELDS].id) ==
                  "basis");
+  HS_EXPECT_EQ(curl_flow.schema[CURL_FLOW_FIELDS].enum_count, 3);
   const In::ParamFieldInfo &curl_integrator =
       curl_flow.schema[CURL_FLOW_FIELDS + 1];
   HS_EXPECT_TRUE(std::string_view(curl_integrator.id) == "integrator");
@@ -825,6 +853,16 @@ inline void test_shader_chain_schema_and_field_ids() {
     HS_EXPECT_EQ(has_basis,
                  std::string_view(id) == "sample.projected-noise.v2");
   }
+  const In::ParamFieldInfo *tessellation_kind =
+      schema_field(*In::find_operator("sample.tessellation.v2"), "kind");
+  HS_EXPECT_TRUE(tessellation_kind != nullptr);
+  if (tessellation_kind != nullptr)
+    HS_EXPECT_EQ(tessellation_kind->enum_count, 3);
+  const In::ParamFieldInfo *projected_basis =
+      schema_field(*In::find_operator("sample.projected-noise.v2"), "basis");
+  HS_EXPECT_TRUE(projected_basis != nullptr);
+  if (projected_basis != nullptr)
+    HS_EXPECT_EQ(projected_basis->enum_count, 3);
 
   for (const char *id :
        {"sample.spherical-rings.v3", "sample.spherical-noise.v3"}) {
