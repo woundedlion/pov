@@ -742,8 +742,8 @@ private:
 };
 
 /**
- * @brief Generates a truly random 3D unit vector (direction) using Marsaglia's
- * method.
+ * @brief Generates a uniformly distributed 3D unit vector (direction) from the
+ * deterministic global RNG using Marsaglia's method.
  * @return A normalized random Vector.
  */
 inline Vector random_vector() {
