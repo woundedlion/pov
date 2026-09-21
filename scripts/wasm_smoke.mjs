@@ -1051,7 +1051,7 @@ async function main(probe) {
     for (const reason of
          ['OK', 'UNKNOWN_NAME', 'CONNECTIVITY_OVERFLOW', 'FACE_DEGREE_OVERFLOW',
           'ARENA_EXHAUSTED', 'NON_FINITE_ARG', 'ANGLE_OUT_OF_DOMAIN',
-          'STALE_WRAPPER']) {
+          'STALE_WRAPPER', 'ARENA_UNAVAILABLE']) {
       if (!MR || MR[reason] === undefined) {
         fail(`Module.MeshOpResult.${reason} is not bound`);
       }
