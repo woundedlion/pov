@@ -88,9 +88,11 @@ license-headers:
     {{py}} tools/license_check.py
 
 # The committed gamut LUT matches what the generator emits, plus the generator's
-# own unit tests -- the ci.yml gamut-lut-provenance job. Needs numpy
-# (requirements/numpy.txt); the solve runs 1-2 minutes.
+# own unit tests -- the ci.yml gamut-lut-provenance job. The solve runs 1-2
+# minutes. numpy decides the emitted bytes, so the module the interpreter imports
+# is held to the pin that job installs, the way ruff is above.
 gamut-lut:
+    {{py}} tools/build_pins.py --check-tool numpy
     bash tools/require_test_files.sh "tools/gamut_lut_tests/test*.py"
     {{py}} -m unittest discover -s tools/gamut_lut_tests
     {{py}} tools/gen_gamut_lut.py --check

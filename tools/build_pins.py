@@ -124,6 +124,7 @@ CONSUMERS = {
         "build_pins.py doxygen-awesome",
         "build_pins.py --check-tool doxygen",
         "build_pins.py --check-tool node",
+        "build_pins.py --check-tool numpy",
         "build_pins.py --check-tool platformio",
         "build_pins.py --check-tool ruff",
         "build_pins.py --check-tool shellcheck",
@@ -267,9 +268,9 @@ SHARED_LITERAL_USES = (
 # two file digests name no program, and the emsdk and KiCad pins are checked
 # where they are used (the WASM toolchain marker written beside the build,
 # kicad_common.find_kicad_cli). The targets a recipe runs are invoked from
-# it (CONSUMERS pins those call sites); clang, just, numpy and python are
-# manual probes, no recipe spelling them -- the native build reaches clang
-# through the CMake toolchain, which may be emsdk's.
+# it (CONSUMERS pins those call sites); clang, just and python are manual
+# probes, no recipe spelling them -- the native build reaches clang through the
+# CMake toolchain, which may be emsdk's.
 CHECK_TOOLS = {
     "clang": (["clang-{pin}", "--version"], "apt install clang-{pin}",
               lambda v: v),
