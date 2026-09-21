@@ -26,8 +26,7 @@ namespace styles_tests {
 /**
  * @brief Verifies the constexpr preset factories carry their documented scalar
  *        values and wire up the expected space/color transforms.
- * @details Spot-checks Smoke's fade/frequency and noise/hue transforms and
- *          verifies the MeshFeedback melt presets exactly.
+ * @details Every preset is pinned exactly, scalars and transforms alike.
  */
 inline void test_named_presets() {
   const auto expect_noise_hue_style =
@@ -77,15 +76,8 @@ inline void test_named_presets() {
                          6.42f, 0.01f, 0.0f, 7.8844f);
   expect_noise_hue_style(Feedback::Style::WigglingWormhole(), 0.7257f, 0.22519f,
                          7.11f, 0.01f, 0.0f, 29.1917f);
-
-  Feedback::Style smoke = Feedback::Style::Smoke();
-  HS_EXPECT_NEAR(smoke.fade, 0.9f, 1e-6f);
-  HS_EXPECT_NEAR(smoke.hue_shift, 0.09491219f, 1e-6f);
-  HS_EXPECT_NEAR(smoke.frequency, 0.42f, 1e-6f);
-  HS_EXPECT_TRUE(smoke.space_fn == &Feedback::noise_warp);
-  HS_EXPECT_TRUE(smoke.color_fn == &Feedback::hue_fade);
-
-  HS_EXPECT_TRUE(Feedback::Style::MeltingHi().space_fn == &Feedback::melt_warp);
+  expect_noise_hue_style(Feedback::Style::Smoke(), 0.9f, 0.09491219f, 0.51f,
+                         0.42f, 0.46f, 23.0f);
 }
 
 /**
