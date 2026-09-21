@@ -44,7 +44,7 @@ public:
   }
   /**
    * @brief Emits the point plus count-1 rotated copies around the Y axis.
-   * @param v World-space point to replicate.
+   * @param v World-space point to replicate; must be near unit length.
    * @param color Source color, forwarded unchanged to every copy.
    * @param age Temporal age channel (frames), shared by every copy.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
@@ -58,8 +58,10 @@ public:
     Vector r = v;
     pass(r, color, age, alpha);
     for (int i = 1; i < count; i++) {
-      // renormalize so repeated rotation can't drift copies off the unit sphere
-      r = rotate(r, step).normalized();
+      r = rotate(r, step);
+      // First-order renormalization: exact to float precision only because r
+      // starts near unit length and each rotation drifts it by ~1 ulp.
+      r = r * (1.5f - 0.5f * dot(r, r));
       pass(r, color, age, alpha);
     }
   }
