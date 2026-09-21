@@ -194,7 +194,7 @@ struct Twist {
    * branch.
    */
   SinInv sin_ntheta_inv(const Vector &p, Ctx s) const {
-    if (twist == 0 || s < TOLERANCE)
+    if (twist == 0 || s <= TOLERANCE)
       return {0.0f, two_over_r};
     const float inv_s = 1.0f / s;
     const float two_cos = 2.0f * p.x * inv_s;
@@ -216,7 +216,7 @@ struct Twist {
    * @return cos(twist * theta).
    */
   float cos_ntheta(const Vector &p, Ctx s) const {
-    if (twist == 0 || s < TOLERANCE)
+    if (twist == 0 || s <= TOLERANCE)
       return 1.0f;
     const float inv_s = 1.0f / s;
     const float two_cos = 2.0f * p.x * inv_s;
