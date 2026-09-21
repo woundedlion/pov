@@ -488,8 +488,8 @@ inline constexpr auto FAT_SCHEMA = [] {
   std::array<In::ParamFieldInfo, In::MAX_CHAIN_PARAMS + 1> out{};
   for (auto &field : out)
     field = In::ParamFieldInfo{
-        "fat", nullptr, 0.0f, 1.0f,   0.0f, PB::FieldCurve::LERP,
-        false, 0,       0,    nullptr};
+        "fat", nullptr, 0.0f, 1.0f,    0.0f,    PB::FieldCurve::LERP,
+        false, 0,       0,    nullptr, nullptr, 0};
   return out;
 }();
 

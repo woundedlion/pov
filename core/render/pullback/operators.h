@@ -114,13 +114,16 @@ struct LegacyGeneratedPaletteParams {
   static constexpr auto FIELDS = std::array{
       Field<LegacyGeneratedPaletteParams>{
           "hue-shift-amount", &LegacyGeneratedPaletteParams::hue_shift_amount,
-          nullptr, -4.0f, 4.0f, FieldCurve::LERP},
+          nullptr, -4.0f, 4.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+          Color::HUE_ROTATION_GATE},
       Field<LegacyGeneratedPaletteParams>{
           "hue-noise-scale", &LegacyGeneratedPaletteParams::hue_noise_scale,
-          nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+          nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE,
+          FieldGate::ALWAYS, Color::HUE_NOISE_GATE},
       Field<LegacyGeneratedPaletteParams>{
           "hue-noise-speed", &LegacyGeneratedPaletteParams::hue_noise_speed,
-          nullptr, -0.001f, 0.001f, FieldCurve::LERP},
+          nullptr, -0.001f, 0.001f, FieldCurve::LERP, FieldGate::ALWAYS,
+          Color::HUE_NOISE_GATE},
       Field<LegacyGeneratedPaletteParams>{
           "palette-chroma", &LegacyGeneratedPaletteParams::palette_chroma,
           nullptr, 0.0f, 1.0f, FieldCurve::LERP},
@@ -140,7 +143,8 @@ struct LegacyGeneratedPaletteParams {
           -0.01f, 0.01f, FieldCurve::LERP},
       Field<LegacyGeneratedPaletteParams>{
           "brightness-depth", &LegacyGeneratedPaletteParams::brightness_depth,
-          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+          nullptr, 0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+          Color::BRIGHTNESS_ENVELOPE_GATE},
       Field<LegacyGeneratedPaletteParams>{
           "value-opacity-low", &LegacyGeneratedPaletteParams::opacity_low,
           nullptr, 0.0f, 1.0f, FieldCurve::LERP},

@@ -126,6 +126,10 @@ struct ParamFieldInfo {
   uint8_t enum_count; /**< 0 marks a float field. */
   uint8_t enum_def;
   const char *const *enum_ids;
+  /** Id of the topology enum8 selecting this field; null when every variant
+      reads it. */
+  const char *gated_by;
+  uint16_t gate_values; /**< Bit per live gating value index. */
 };
 
 /** @brief Size and alignment of one arena-allocated block. */
@@ -196,9 +200,10 @@ concat_fields(const std::array<Field<BaseOwner>, N> &base,
               const std::array<Field<Combined>, M> &extra) {
   std::array<Field<Combined>, N + M> out{};
   for (size_t index = 0; index < N; ++index)
-    out[index] = Field<Combined>{
-        base[index].id,  base[index].member, base[index].name, base[index].min,
-        base[index].max, base[index].curve,  base[index].gate};
+    out[index] = Field<Combined>{base[index].id,   base[index].member,
+                                 base[index].name, base[index].min,
+                                 base[index].max,  base[index].curve,
+                                 base[index].gate, base[index].topology_gate};
   for (size_t index = 0; index < M; ++index)
     out[N + index] = extra[index];
   return out;
@@ -237,16 +242,25 @@ template <typename Model> consteval auto make_schema() {
   constexpr Params DEFAULTS{};
   for (size_t index = 0; index < FIELD_COUNT; ++index) {
     const auto &field = Params::FIELDS[index];
-    out[index] = ParamFieldInfo{
-        field.id,    field.name, field.min, field.max, DEFAULTS.*(field.member),
-        field.curve, false,      0,         0,         nullptr};
+    out[index] = ParamFieldInfo{field.id,
+                                field.name,
+                                field.min,
+                                field.max,
+                                DEFAULTS.*(field.member),
+                                field.curve,
+                                false,
+                                0,
+                                0,
+                                nullptr,
+                                field.topology_gate.field,
+                                field.topology_gate.values};
   }
   for (size_t index = 0; index < TOPOLOGY.size(); ++index) {
     const auto &topo = TOPOLOGY[index];
     out[FIELD_COUNT + index] =
-        ParamFieldInfo{topo.id,  nullptr,          0.0f, 0.0f,
-                       0.0f,     FieldCurve::SNAP, true, topo.value_count,
-                       topo.def, topo.value_ids};
+        ParamFieldInfo{topo.id,  nullptr,          0.0f,    0.0f,
+                       0.0f,     FieldCurve::SNAP, true,    topo.value_count,
+                       topo.def, topo.value_ids,   nullptr, 0};
   }
   return out;
 }
@@ -279,6 +293,32 @@ topology_wellformed(const std::array<ParamFieldInfo, N> &schema) {
     for (uint8_t value = 0; value < field.enum_count; ++value)
       if (field.enum_ids[value] == nullptr)
         return false;
+  }
+  return true;
+}
+
+/**
+ * @brief Every gated field names a topology enum8 of the same schema whose
+ *        live-value mask both admits and rejects at least one value.
+ */
+template <size_t N>
+consteval bool gates_wellformed(const std::array<ParamFieldInfo, N> &schema) {
+  for (const ParamFieldInfo &field : schema) {
+    if (field.gated_by == nullptr)
+      continue;
+    if (field.topology)
+      return false;
+    const ParamFieldInfo *gate = nullptr;
+    for (const ParamFieldInfo &candidate : schema)
+      if (candidate.topology &&
+          std::string_view(candidate.id) == field.gated_by)
+        gate = &candidate;
+    if (gate == nullptr)
+      return false;
+    const uint32_t all = (uint32_t{1} << gate->enum_count) - 1u;
+    const uint32_t live = field.gate_values;
+    if ((live & all) == 0 || (live & all) == all || (live & ~all) != 0)
+      return false;
   }
   return true;
 }
@@ -459,6 +499,9 @@ constexpr OperatorDescriptor make_operator_descriptor() {
   static_assert(topology_wellformed(SCHEMA<Model>));
   static_assert(defaults_in_range(SCHEMA<Model>),
                 "operator model: parameter default outside declared range");
+  static_assert(gates_wellformed(SCHEMA<Model>),
+                "operator model: a field's topology gate names no enum8 of "
+                "this schema, or selects every value or none");
   static_assert(
       Detail::model_approximate<Model>()
           ? (Detail::model_oracle<Model>() != ApproximationOracleId::NONE &&

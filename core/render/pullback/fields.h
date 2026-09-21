@@ -38,6 +38,24 @@ enum class FieldGate : uint8_t {
 };
 
 /**
+ * @brief Which topology enum8 of the same family decides whether a field is
+ *        read, and the value indices that keep it live.
+ * @details A null `field` marks a field every variant reads. Declared on the
+ * family rather than the operator, so every operator carrying the family
+ * exports the same relation.
+ */
+struct TopologyGate {
+  const char *field = nullptr;
+  uint16_t values = 0; /**< Bit per live topology value index. */
+};
+
+/** @brief TopologyGate::values over the enumerators in @p values. */
+template <typename... Values> consteval uint16_t live_values(Values... values) {
+  return static_cast<uint16_t>(
+      ((uint16_t{1} << static_cast<uint8_t>(values)) | ...));
+}
+
+/**
  * @brief One scalar field of a parameter family.
  * @details `name == nullptr` marks a field that is interpolated and validated
  * but exposes no slider of its own: a warp slot's `speed`, which the runtime
@@ -52,12 +70,15 @@ template <typename Owner> struct Field {
   float max;
   FieldCurve curve = FieldCurve::LERP;
   FieldGate gate = FieldGate::ALWAYS;
+  TopologyGate topology_gate{};
 };
 
 template <typename Owner>
 constexpr Field<Owner> edge_width_field(float Owner::*member,
-                                        const char *name = "Edge Width") {
-  return {"edge-width", member, name, 0.0f, 1.0f, FieldCurve::LERP};
+                                        const char *name = "Edge Width",
+                                        TopologyGate topology_gate = {}) {
+  return {"edge-width",      member,       name, 0.0f, 1.0f, FieldCurve::LERP,
+          FieldGate::ALWAYS, topology_gate};
 }
 
 /** @brief Whether @p T carries a field-descriptor table. */

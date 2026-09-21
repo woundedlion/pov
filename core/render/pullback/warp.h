@@ -24,6 +24,21 @@ inline constexpr uint8_t MAX_POLAR_HARMONIC = 16;
 struct FlatEnvelope {};
 struct ProjectionWeightEnvelope {};
 struct EdgeFadeEnvelope {};
+
+/** @brief Envelope shaping a warp's amplitude across the projected domain. */
+enum class Envelope : uint8_t {
+  FLAT = 0,
+  PROJECTION_WEIGHT = 1,
+  EDGE_FADE = 2
+};
+
+inline constexpr const char *ENVELOPE_IDS[] = {"flat", "projection-weight",
+                                               "edge-fade"};
+
+/** @brief Activation relation of the fade band width, which only the edge-fade
+    envelope reads. */
+inline constexpr TopologyGate ENVELOPE_EDGE_FADE_GATE{
+    "envelope", live_values(Envelope::EDGE_FADE)};
 struct Euler1 {
   static constexpr uint8_t INTERVALS = 1;
 };
@@ -102,7 +117,8 @@ struct WaveShearParams {
       Field<WaveShearParams>{"field-angle", &WaveShearParams::field_angle,
                              "Warp Field Angle", 0.0f, TWO_PI_F,
                              FieldCurve::SHORTEST_PERIODIC},
-      edge_width_field(&WaveShearParams::edge_width, nullptr),
+      edge_width_field(&WaveShearParams::edge_width, nullptr,
+                       ENVELOPE_EDGE_FADE_GATE),
   };
 };
 static_assert(field_ids_unique<WaveShearParams>());
@@ -132,7 +148,8 @@ struct VectorNoiseParams {
       Field<VectorNoiseParams>{"vector-angle", &VectorNoiseParams::vector_angle,
                                "Warp Vector Angle", 0.0f, TWO_PI_F,
                                FieldCurve::SHORTEST_PERIODIC},
-      edge_width_field(&VectorNoiseParams::edge_width, nullptr),
+      edge_width_field(&VectorNoiseParams::edge_width, nullptr,
+                       ENVELOPE_EDGE_FADE_GATE),
   };
 };
 static_assert(field_ids_unique<VectorNoiseParams>());

@@ -9,7 +9,9 @@
 #if HS_ENABLE_CHAIN_INTERPRETER
 
 #include <charconv>
+#include <span>
 #include <string>
+#include <string_view>
 
 #include "render/pullback/interpreter.h"
 
@@ -73,7 +75,31 @@ inline void append_block_json(std::string &out, const char *name,
   out += '}';
 }
 
-inline void append_param_json(std::string &out, const ParamFieldInfo &field) {
+/** @brief Appends a gated field's activation relation: the topology field it
+    reads and the value ids that keep it live. */
+inline void append_gate_json(std::string &out, const ParamFieldInfo &field,
+                             std::span<const ParamFieldInfo> schema) {
+  out += ",\"gated_by\":{\"field\":";
+  append_json_string(out, field.gated_by);
+  out += ",\"values\":[";
+  for (const ParamFieldInfo &gate : schema) {
+    if (!gate.topology || std::string_view(gate.id) != field.gated_by)
+      continue;
+    bool first = true;
+    for (uint8_t value = 0; value < gate.enum_count; ++value) {
+      if ((field.gate_values & (uint16_t{1} << value)) == 0)
+        continue;
+      if (!first)
+        out += ',';
+      first = false;
+      append_json_string(out, gate.enum_ids[value]);
+    }
+  }
+  out += "]}";
+}
+
+inline void append_param_json(std::string &out, const ParamFieldInfo &field,
+                              std::span<const ParamFieldInfo> schema) {
   out += "{\"id\":";
   append_json_string(out, field.id);
   if (field.topology) {
@@ -99,6 +125,8 @@ inline void append_param_json(std::string &out, const ParamFieldInfo &field) {
     append_json_number(out, field.def);
     out += ",\"curve\":";
     append_json_string(out, curve_name(field.curve));
+    if (field.gated_by != nullptr)
+      append_gate_json(out, field, schema);
   }
   out += '}';
 }
@@ -159,7 +187,7 @@ inline void append_catalog_json(std::string &out) {
     for (uint16_t field = 0; field < op.schema_count; ++field) {
       if (field > 0)
         out += ',';
-      Detail::append_param_json(out, op.schema[field]);
+      Detail::append_param_json(out, op.schema[field], op.schema_span());
     }
     out += "],\"approximate\":";
     out += op.approximate ? "true" : "false";

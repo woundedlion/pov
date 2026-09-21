@@ -176,10 +176,15 @@ template <typename Params> consteval bool sample_crossing_defaults_match() {
          PARAMS.coverage_mode == CROSSING.coverage_mode;
 }
 
+/** @brief Activation relation of the crossing's edge-fade width. */
+inline constexpr TopologyGate COVERAGE_EDGE_FADE_GATE{
+    "coverage-mode", live_values(ProjectionCoverageMode::EDGE_FADE)};
+
 /** @brief The tabled field of SampleCrossingParams, retyped to the family. */
 template <typename Params>
 constexpr std::array<Field<Params>, 1> sample_crossing_fields() {
-  return {edge_width_field<Params>(&Params::edge_width)};
+  return {edge_width_field<Params>(&Params::edge_width, "Edge Width",
+                                   COVERAGE_EDGE_FADE_GATE)};
 }
 
 /**
