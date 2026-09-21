@@ -132,9 +132,18 @@ This design does not:
 
 ## 4. Location, namespace, and dependency rules
 
-The public facility lives under `core/render/pullback/`, exposed through
-`core/render/pullback.h`, in namespace
-`Pullback`, alongside `Scan`, `Filter`, and `SDF`.
+The public facility lives under `core/render/pullback/`, in namespace
+`Pullback`, alongside `Scan`, `Filter`, and `SDF`. `core/render/pullback.h`
+is the umbrella over the composition core only: the carrier contract, the
+field tables, the surface, lens, projection, warp, source, material, and
+color policy families, and the stage combinators. The chain interpreter
+(`core/render/pullback/interpreter.h`, `core/render/pullback/operator_model.h`,
+`core/render/pullback/operator_table.h`, `core/render/pullback/operators.h`
+with its per-family `operators_*.h` headers, and
+`core/render/pullback/catalog_export.h`), the composed-effect base
+(`core/render/pullback/composed_effect.h`), and the shared runtime seeds
+(`core/render/pullback/runtime_seeds.h`) are not reachable from the umbrella;
+their consumers include them directly.
 
 Public groups are:
 
@@ -147,7 +156,9 @@ Pullback::SurfaceResult            one sphere-space map result
 Pullback::WarpStepResult           one planar-warp result
 Pullback::FieldSample              rank-2 scalar carrier
 Color4                            rank-3 color carrier
+Pullback::Field / Fields           field-table records and their curve, interpolation, and validity helpers
 Pullback::Stage::*                 ranked stage combinators
+Pullback::Kernel                   shared carrier kernels the combinators and erased adapters call
 Pullback::Surface::*               sphere-space map policies
 Pullback::Lens::*                  lens policies
 Pullback::Projection::*            projection policies
@@ -155,8 +166,10 @@ Pullback::Warp::*                  planar-warp policies
 Pullback::Source::*                scalar-source policies
 Pullback::Weight::*                signal-weight policies
 Pullback::Transfer::*              value-transfer policies
-Pullback::ProjectionCoverage::*         projection-coverage policies
+Pullback::ProjectionCoverage::*    projection-coverage policies
+Pullback::ValueCoverage::*         value-coverage policies (`ValueCutout`)
 Pullback::Color::*                 colorization policies and kernels
+Pullback::Interp                   chain interpreter: operator model and table, `Op::*` operators, catalog export
 ```
 
 Carrier declarations live in `core/render/pullback/contract.h`; `Color4` is
