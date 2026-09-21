@@ -2762,49 +2762,49 @@ inline void test_face_cull_covers_aa_fringe() {
 /** @brief Vertical bounds cover wide AA bands on tall, low-width grids. */
 inline void test_face_vertical_margin_tracks_pixel_width() {
   constexpr int W = 64, H = 144, HV = H + hs::H_OFFSET;
-  const float PHI = PI_F / 60.0f;
-  const Vector AXIS(sinf(PHI) * cosf(0.37f), cosf(PHI),
-                    sinf(PHI) * sinf(0.37f));
-  const Basis BASIS = make_basis(Quaternion(), AXIS);
+  const float tilt = PI_F / 60.0f;
+  const Vector axis(sinf(tilt) * cosf(0.37f), cosf(tilt),
+                    sinf(tilt) * sinf(0.37f));
+  const Basis basis = make_basis(Quaternion(), axis);
   Vector vertices[3];
-  const uint16_t INDICES[] = {0, 1, 2};
+  const uint16_t indices[] = {0, 1, 2};
   for (int i = 0; i < 3; ++i) {
-    const float ANGLE = TWO_PI_F * i / 3.0f + 0.37f;
+    const float angle = TWO_PI_F * i / 3.0f + 0.37f;
     vertices[i] =
-        (BASIS.v * cosf(0.025f) +
-         (BASIS.u * cosf(ANGLE) + BASIS.w * sinf(ANGLE)) * sinf(0.025f))
+        (basis.v * cosf(0.025f) +
+         (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(0.025f))
             .normalized();
   }
   SDF::FaceScratchBuffer original_scratch, widened_scratch;
-  SDF::Face original(vertices, INDICES, original_scratch, HV, H);
-  SDF::Face widened(vertices, INDICES, widened_scratch, HV, H, nullptr, nullptr,
+  SDF::Face original(vertices, indices, original_scratch, HV, H);
+  SDF::Face widened(vertices, indices, widened_scratch, HV, H, nullptr, nullptr,
                     std::max(SDF::BOUNDS_MARGIN, TWO_PI_F / W));
-  const auto ORIGINAL = original.get_vertical_bounds<H>();
-  const auto WIDENED = widened.get_vertical_bounds<H>();
+  const auto original_bounds = original.get_vertical_bounds<H>();
+  const auto widened_bounds = widened.get_vertical_bounds<H>();
   int original_misses = 0;
   int covered = 0;
   for (int y = 0; y < H; ++y) {
-    const float PHI_ROW = PI_F * y / (HV - 1);
+    const float phi = PI_F * y / (HV - 1);
     for (int x = 0; x < W; ++x) {
-      const float THETA = TWO_PI_F * x / W;
-      const Vector POINT(sinf(PHI_ROW) * cosf(THETA), cosf(PHI_ROW),
-                         sinf(PHI_ROW) * sinf(THETA));
-      if (SDF::distance_of(widened, POINT).dist >= TWO_PI_F / W)
+      const float theta = TWO_PI_F * x / W;
+      const Vector point(sinf(phi) * cosf(theta), cosf(phi),
+                         sinf(phi) * sinf(theta));
+      if (SDF::distance_of(widened, point).dist >= TWO_PI_F / W)
         continue;
       ++covered;
-      original_misses += y < ORIGINAL.y_min || y > ORIGINAL.y_max;
-      HS_EXPECT_TRUE(y >= WIDENED.y_min && y <= WIDENED.y_max);
+      original_misses += y < original_bounds.y_min || y > original_bounds.y_max;
+      HS_EXPECT_TRUE(y >= widened_bounds.y_min && y <= widened_bounds.y_max);
     }
   }
   HS_EXPECT_GT(covered, 0);
   HS_EXPECT_GT(original_misses, 0);
 
   SDF::FaceScratchBuffer shipping_scratch;
-  SDF::Face shipping(vertices, INDICES, shipping_scratch, HV, H, nullptr,
+  SDF::Face shipping(vertices, indices, shipping_scratch, HV, H, nullptr,
                      nullptr, std::max(SDF::BOUNDS_MARGIN, TWO_PI_F / 288));
-  const auto SHIPPING = shipping.get_vertical_bounds<H>();
-  HS_EXPECT_EQ(SHIPPING.y_min, ORIGINAL.y_min);
-  HS_EXPECT_EQ(SHIPPING.y_max, ORIGINAL.y_max);
+  const auto shipping_bounds = shipping.get_vertical_bounds<H>();
+  HS_EXPECT_EQ(shipping_bounds.y_min, original_bounds.y_min);
+  HS_EXPECT_EQ(shipping_bounds.y_max, original_bounds.y_max);
 }
 
 /** @brief Records the columns emitted by Face's fixed equatorial pad. */
