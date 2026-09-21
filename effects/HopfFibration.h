@@ -37,7 +37,8 @@ public:
 
   /**
    * @brief Constructs the effect and configures the trail pipeline.
-   * @details Disables pixel persistence and seeds the trail pipeline with a
+   * @details Enables the POV column strobe, folds the trail pipeline's
+   * segment traits into the effect config, and seeds the pipeline with a
    * screen-space anti-alias filter sized to W x H.
    */
   HS_COLD_MEMBER HopfFibration()
