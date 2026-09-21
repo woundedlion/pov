@@ -1206,6 +1206,19 @@ inline Vector least_parallel_axis(const Vector &v) {
 }
 
 /**
+ * @brief Returns a unit vector perpendicular to @p v.
+ * @param v Vector to find a perpendicular for; need not be unit.
+ * @return cross(v, least_parallel_axis(v)), normalized.
+ * @details The canonical "some tangent at @p v": which one is unspecified, only
+ *          that it is unit and well-conditioned for every @p v. Distinct from
+ *          geometry.h's tangent_axis(), which seeds from +Y and so returns a
+ *          different frame.
+ */
+inline Vector perpendicular_axis(const Vector &v) {
+  return cross(v, least_parallel_axis(v)).normalized();
+}
+
+/**
  * @brief Creates a rotation quaternion to rotate from one vector to another.
  * @param from The source vector (must be unit vector).
  * @param to The destination vector (must be unit vector).

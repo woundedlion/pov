@@ -55,8 +55,7 @@ inline void init_walk(SpatialWalkState &state, int32_t seed) {
   init_effect_noise(state.walk_noise, seed);
   state.walk_noise.SetFrequency(WALK_OPTIONS.noise_scale);
   state.position = UP;
-  state.direction =
-      cross(state.position, least_parallel_axis(state.position)).normalized();
+  state.direction = perpendicular_axis(state.position);
 }
 
 inline void advance_walk(SpatialWalkState &state, float wander,

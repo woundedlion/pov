@@ -606,9 +606,8 @@ step_random_walk(Vector &position, Vector &direction, float &angular_velocity,
   }
   // If position and direction drift near-parallel the cross collapses to zero;
   // fall back to a deterministic perpendicular of position.
-  const Vector axis_seed = least_parallel_axis(position);
-  const Vector walk_axis = normalized_or(
-      cross(position, direction), cross(position, axis_seed).normalized());
+  const Vector walk_axis =
+      normalized_or(cross(position, direction), perpendicular_axis(position));
   Quaternion walk_q;
   if constexpr (STABLE_ROTATION) {
     walk_q = Detail::make_stable_rotation(walk_axis, options.speed);
@@ -656,8 +655,7 @@ public:
       : AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>(-1, false),
         orientation(orientation), v(Vector(v_start).normalized()),
         options(options), noise_generator(noise) {
-    Vector u = least_parallel_axis(v);
-    direction = cross(v, u).normalized();
+    direction = perpendicular_axis(v);
     noise_generator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.get().SetFrequency(options.noise_scale);
     if (seed == 0) {
