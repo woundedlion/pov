@@ -477,9 +477,8 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
   for (size_t i = 0; i < compiled.face_counts.size(); ++i) {
     out_mesh.face_counts.push_back(compiled.face_counts[i]);
     if constexpr (requires { out_mesh.face_offsets; }) {
-      HS_CHECK(current_offset + compiled.face_counts[i] <= UINT16_MAX,
-               "mesh face_offsets exceeds 16-bit index range");
-      out_mesh.face_offsets.push_back(static_cast<uint16_t>(current_offset));
+      MeshOps::push_face_offset(out_mesh.face_offsets, current_offset,
+                                compiled.face_counts[i]);
     }
     current_offset += compiled.face_counts[i];
   }

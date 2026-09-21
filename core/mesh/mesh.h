@@ -434,6 +434,22 @@ inline uint8_t narrow_face_count(int count) {
 }
 
 /**
+ * @brief Appends one face's half-edge start offset to a face_offsets array.
+ * @param face_offsets Destination offsets array, already bound.
+ * @param current_offset Cumulative half-edge offset the face starts at.
+ * @param count The face's side count.
+ * @details face_offsets indexes half-edges, so it is bounded by UINT16_MAX
+ * rather than narrow_index's INT16_MAX vertex bound. The face's end offset is
+ * what the bound is checked against, so the last face cannot overrun unseen.
+ */
+inline void push_face_offset(ArenaVector<uint16_t> &face_offsets,
+                             int current_offset, int count) {
+  HS_CHECK(current_offset + count <= UINT16_MAX,
+           "mesh face_offsets exceeds 16-bit index range");
+  face_offsets.push_back(static_cast<uint16_t>(current_offset));
+}
+
+/**
  * @brief Direction a vertex orbit walks its incident half-edges.
  * @details The two step rules traverse the same vertex in opposite senses, so a
  * face emitted from one needs its winding flipped against the other.
@@ -693,11 +709,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
     int count = src.face_counts[i];
     if (count >= 3) {
       dst.face_counts.push_back(narrow_face_count(count));
-      // face_offsets is uint16_t (counts half-edges, so bounded by UINT16_MAX
-      // not narrow_index's INT16_MAX vertex bound).
-      HS_CHECK(current_offset + count <= UINT16_MAX,
-               "mesh face_offsets exceeds 16-bit index range");
-      dst.face_offsets.push_back(static_cast<uint16_t>(current_offset));
+      push_face_offset(dst.face_offsets, current_offset, count);
       for (int k = 0; k < count; ++k) {
         dst.faces.push_back(remap[src.faces[offset + k]]);
       }
