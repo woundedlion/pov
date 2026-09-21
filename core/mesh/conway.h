@@ -1742,6 +1742,7 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
            "reconcile_vertices: endpoints differ in vertex count");
   HS_CHECK(V <= UINT16_MAX,
            "reconcile_vertices: endpoint exceeds index capacity");
+  HS_CHECK(V > 0, "reconcile_vertices: endpoint pair has no vertices");
   ScratchScope guard(scratch);
   bool *used = scratch.allocate_n<bool>(V);
   std::fill_n(used, V, false);
