@@ -1898,9 +1898,10 @@ jobs:
         # profile/profile_o3 are ungated too: they build targets/Profile/Profile.ino
         # against the HS_PROFILE instrumentation API at both optimization levels,
         # which no shipping image compiles.
-        run: >-
-          pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
-          -e profile -e profile_o3
+        # No -e, like the warning ratchet's capture: every environment
+        # platformio.ini declares is built here (it has no default_envs), so a new
+        # budgeted image is size-gated without a second list to edit.
+        run: pio run
       - name: Upload firmware artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
