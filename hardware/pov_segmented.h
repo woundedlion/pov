@@ -409,7 +409,8 @@ public:
         cur->set_clip_x(0, CANVAS_W);
         cur->draw_frame();
         cur->set_buffer_ready_hook(prepare_segment_clip);
-        if (!cur->needs_full_frame() && !cur->persists_pixels())
+        if (pov::segment_clip_applies(cur->needs_full_frame(),
+                                      cur->persists_pixels()))
           cur->set_buffer_complete_hook(pov::preserve_segment_half);
         // Publish under IRQ-off so the (effect, gen) pair reaches the ISR
         // atomically; publish()'s release store orders every constructor/
@@ -582,7 +583,7 @@ private:
    *          feedback stay correct under the per-frame arm-half alternation.
    */
   static void clip_to_segment(Effect *e, bool arm_a_left) {
-    if (e->needs_full_frame() || e->persists_pixels())
+    if (!pov::segment_clip_applies(e->needs_full_frame(), e->persists_pixels()))
       return;
     const pov::SegmentClip c =
         pov::segment_clip(segment, arm_a_left, S, N, CANVAS_W);

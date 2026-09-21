@@ -31,6 +31,7 @@ namespace pov_segmented_tests {
 using pov::EffectHandoff;
 using pov::decode_segment_id;
 using pov::segment_clip;
+using pov::segment_clip_applies;
 using pov::segment_id_strap_count;
 using pov::segment_map;
 using pov::segment_pixel_base;
@@ -273,6 +274,43 @@ inline void test_segment_clip() {
   check_segment_clips(/*S=*/288, /*N=*/2, /*w=*/288);
   check_segment_clips(/*S=*/288, /*N=*/4, /*w=*/288);
   check_segment_clips(/*S=*/288, /*N=*/8, /*w=*/288);
+}
+
+struct ConfigEffect : public Effect {
+  explicit ConfigEffect(EffectConfig cfg) : Effect(8, 4, cfg) {}
+  void draw_frame() override {}
+};
+
+/**
+ * @brief The clip gate keeps the full canvas for any effect that reads
+ *        cross-segment or prior-frame state, from the Effect flags the driver
+ *        consults.
+ */
+inline void test_segment_clip_applies() {
+  static_assert(segment_clip_applies(false, false));
+  static_assert(!segment_clip_applies(true, false));
+  static_assert(!segment_clip_applies(false, true));
+  static_assert(!segment_clip_applies(true, true));
+  HS_EXPECT_TRUE(segment_clip_applies(false, false));
+  HS_EXPECT_FALSE(segment_clip_applies(true, false));
+  HS_EXPECT_FALSE(segment_clip_applies(false, true));
+  HS_EXPECT_FALSE(segment_clip_applies(true, true));
+
+  {
+    ConfigEffect plain(EffectConfig{});
+    HS_EXPECT_TRUE(segment_clip_applies(plain.needs_full_frame(),
+                                        plain.persists_pixels()));
+  }
+  {
+    ConfigEffect persisting(EffectConfig{.persist = true});
+    HS_EXPECT_FALSE(segment_clip_applies(persisting.needs_full_frame(),
+                                         persisting.persists_pixels()));
+  }
+  {
+    ConfigEffect full(EffectConfig{.full_frame = true});
+    HS_EXPECT_FALSE(
+        segment_clip_applies(full.needs_full_frame(), full.persists_pixels()));
+  }
 }
 
 // Stand-in for Effect: the handoff never dereferences the pointee, only tracks
@@ -1238,6 +1276,7 @@ inline int run_pov_segmented_tests() {
   test_segment_id_straps();
   test_arm_b_offset();
   test_segment_clip();
+  test_segment_clip_applies();
 
   test_release_handshake();
   test_release_backlog_reconciles();
