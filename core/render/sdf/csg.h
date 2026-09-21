@@ -418,7 +418,7 @@ template <typename A, typename B> struct Subtract {
     NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     for (size_t i = 0; i < norm_a.size(); ++i)
-      out(norm_a[i].first, norm_a[i].second);
+      out(norm_a[i].start, norm_a[i].end);
     return true;
   }
 
@@ -546,12 +546,12 @@ template <typename A, typename B> struct Intersection {
     // the intersection; replay the buffer.
     if (!has_a) {
       for (size_t i = 0; i < intervals_b.size(); ++i)
-        out(intervals_b[i].first, intervals_b[i].second);
+        out(intervals_b[i].start, intervals_b[i].end);
       return true;
     }
     if (!has_b) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
-        out(intervals_a[i].first, intervals_a[i].second);
+        out(intervals_a[i].start, intervals_a[i].end);
       return true;
     }
 
@@ -587,14 +587,14 @@ template <typename A, typename B> struct Intersection {
       auto iv_a = norm_a[idx_a];
       auto iv_b = norm_b[idx_b];
 
-      float start = std::max(iv_a.first, iv_b.first);
-      float end = std::min(iv_a.second, iv_b.second);
+      float start = std::max(iv_a.start, iv_b.start);
+      float end = std::min(iv_a.end, iv_b.end);
 
       if (start < end) {
         out(start, end);
       }
 
-      if (iv_a.second < iv_b.second) {
+      if (iv_a.end < iv_b.end) {
         idx_a++;
       } else {
         idx_b++;
@@ -760,13 +760,13 @@ template <typename Shape> struct AngularRepeat {
     for (size_t i = 0; i < child.size(); ++i)
       // Copies of a span this wide abut, covering every column anyway, and a
       // padded span at least a sector long would break the len <= W contract.
-      if (child[i].second - child[i].first + 2.0f * pad >= step)
+      if (child[i].end - child[i].start + 2.0f * pad >= step)
         return false;
 
     for (size_t i = 0; i < child.size(); ++i)
       for (int k = 0; k < repetitions; ++k) {
         const float shift = static_cast<float>(k) * step;
-        out(child[i].first + shift - pad, child[i].second + shift + pad);
+        out(child[i].start + shift - pad, child[i].end + shift + pad);
       }
     return true;
   }

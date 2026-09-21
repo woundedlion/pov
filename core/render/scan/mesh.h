@@ -118,7 +118,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     } else if (!intervals.is_empty()) {
       bool full_row = false;
       for (const auto &iv : intervals) {
-        if (iv.second - iv.first >= static_cast<float>(W)) {
+        if (iv.end - iv.start >= static_cast<float>(W)) {
           full_row = true;
           break;
         }
@@ -132,7 +132,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                       "norm must hold 2 spans per input interval (seam split)");
         coalesce_spans<W>(intervals, norm);
         for (const auto &run : norm)
-          add_run(static_cast<int>(run.first), static_cast<int>(run.second));
+          add_run(static_cast<int>(run.start), static_cast<int>(run.end));
       }
     }
   };
