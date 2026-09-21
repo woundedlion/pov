@@ -219,13 +219,15 @@ inline void test_fixed_preset_ids() {
 }
 
 /**
- * @brief Checks both resolutions' factory tables and name lookups.
+ * @brief Checks every HS_RESOLUTIONS row's factory table and name lookup.
  */
 inline void test_factory_tables() {
-  verify_factory_table<96, 20>();
-  verify_factory_table<288, 144>();
-  verify_factory_lookup<96, 20>();
-  verify_factory_lookup<288, 144>();
+  for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS)
+    HS_EXPECT_TRUE(
+        hs_wasm::dispatch_resolution(row.w, row.h, []<int W, int H>() {
+          verify_factory_table<W, H>();
+          verify_factory_lookup<W, H>();
+        }));
 }
 
 /** @brief Verifies Phantasm and the registry derive the same per-effect seed. */
@@ -247,15 +249,21 @@ inline void test_phantasm_seed_identity() {
 }
 
 /**
- * @brief Drives the create/render/destroy lifecycle at every resolution.
- * @details The 288x144 leg carries the FULL tier's cost (a heap instance of
- *          every effect at the production resolution), so it runs where the
- *          roster's other full-resolution sweeps do.
+ * @brief Drives the create/render/destroy lifecycle at every HS_RESOLUTIONS
+ *        row.
+ * @details A row above the small-aspect pixel count carries the FULL tier's
+ *          cost (a heap instance of every effect at that resolution), so it
+ *          runs where the roster's other full-resolution sweeps do.
  */
 inline void test_factory_lifecycle() {
-  drive_factory_lifecycle<96, 20>();
-  if (effects_tests::effects_full_suite())
-    drive_factory_lifecycle<288, 144>();
+  constexpr int SMALL_PIXELS = effects_tests::SMALL_W * effects_tests::SMALL_H;
+  const bool full = effects_tests::effects_full_suite();
+  for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS) {
+    if (row.w * row.h > SMALL_PIXELS && !full)
+      continue;
+    HS_EXPECT_TRUE(hs_wasm::dispatch_resolution(
+        row.w, row.h, []<int W, int H>() { drive_factory_lifecycle<W, H>(); }));
+  }
 }
 
 /**
