@@ -5446,6 +5446,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"Dynamo.h", 1},
     {"GnomonicStars.h", 1},
     {"HankinSolids.h", 13},
+    {"HyperLattice.h", 2},
     {"IslamicStars.h", 25},
     {"MeshFeedback.h", 1},
     {"MindSplatter.h", 5},
