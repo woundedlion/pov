@@ -13,7 +13,7 @@
  *   #include "../../hardware/pov_single.h"
  */
 #pragma once
-#include "core/render/led.h" // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
+#include "core/platform/led.h" // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
 #include "pov_single_map.h" // pure strip index math (host-tested)
 
 // Arduino-only: depends on IntervalTimer, FastLED/DMA, and the Teensy runtime.

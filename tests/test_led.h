@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/led.h — the correction-guard RAII happy path: a
+ * Unit tests for core/platform/led.h — the correction-guard RAII happy path: a
  * normal scope exit must clear correction_guard_live() back to false and leave
  * the FastLED selectors at the canonical baseline. The double-construct trap is
  * covered separately by the death module.
@@ -12,7 +12,7 @@
  */
 #pragma once
 
-#include "core/render/led.h"
+#include "core/platform/led.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

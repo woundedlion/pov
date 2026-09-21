@@ -190,7 +190,8 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── rng.h                   Deterministic random number generation
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
 │   │   ├── build_features.h        Canvas size, build-time feature and instrumentation switches
-│   │   └── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
+│   │   ├── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
+│   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   ├── control/                An effect's control surface (registry, params +
 │   │                            apply_if_changed, ParamHost/PresetHost, presets,
 │   │                            choreography, transition)
@@ -281,8 +282,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume)
-│   │   ├── shading.h               Fragment interpolation + mesh-topology shading helpers
-│   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
+│   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
 │   │   ├── timers.h                RandomTimer / PeriodicTimer callback timers
@@ -1367,7 +1367,7 @@ static constexpr int NUM_PIXELS = 40;
 static constexpr unsigned int RPM = 480;
 ```
 
-Pin assignments are in `core/render/led.h` (also included by `hardware/pov_single.h`):
+Pin assignments are in `core/platform/led.h` (also included by `hardware/pov_single.h`):
 ```cpp
 inline constexpr int PIN_DATA   = 11;
 inline constexpr int PIN_CLOCK  = 13;
