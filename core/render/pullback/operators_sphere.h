@@ -322,9 +322,9 @@ inline Vector kaleidoscope_lens(const Vector &input, uint8_t symmetry) {
     return lenses::polyhedral_kaleidoscope_lens(
         input, lenses::OCTAGONAL_PRISM_MIRRORS);
   case KaleidoscopeSymmetry::AZIMUTHAL:
-  default:
-    return lenses::kaleidoscope_lens(input);
+    break;
   }
+  return lenses::kaleidoscope_lens(input);
 }
 
 /** @brief SPHERE endomorphism: the kaleidoscope lens under a symmetry
