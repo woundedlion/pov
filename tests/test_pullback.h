@@ -542,6 +542,7 @@ struct CountingInstrumentation {
   static Token mark() { return {}; }
 
   template <Pullback::ProfileEvent Event> static void span(Token) {
+    HS_CHECK(count < events.size(), "CountingInstrumentation overflow");
     events[count++] = Event;
   }
 };
@@ -758,6 +759,7 @@ inline void test_pullback_counting_instrumentation() {
 }
 
 inline void test_pullback_prepared_stage_policies() {
+  CountingInstrumentation::count = 0;
   const TestFrame frame;
   const Pullback::SphereSample sphere{Vector(1.0f, 2.0f, 3.0f), 0.0f};
 
