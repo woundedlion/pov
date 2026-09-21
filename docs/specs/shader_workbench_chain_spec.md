@@ -79,9 +79,11 @@ transition scheduling), and `serialization.fields`. Requirements:
 - Expansion is the **single code path**: the re-exported v2 catalog
   documents are by definition its output, gated by a test that pins them
   byte-identical after canonicalization.
-- A frozen v1-digest → v2-digest migration table serves the registry and
-  the workbench's fixed-vs-dynamic preview routing, both of which match
-  by digest today.
+- A v1-digest → v2-digest migration table is recomputed from the v1
+  fixtures by the same expansion run that writes the re-exported v2
+  documents, and a completeness test fails when the committed table drifts
+  from what a rerun writes. Preview routing does not read it: a loaded
+  document matches a promoted fixed effect on its v2 digest directly.
 - Deterministic label assignment for expanded instances (v1 slot order:
   `warp1`, `warp2`, …) and a complete parameter-id rewrite map.
 - v1 documents that expand to the same chain (distinct only by
@@ -348,7 +350,7 @@ controls, same edit affordances, no separate read-only mode:
 - Authoring routes the preview through the interpreter (`setShaderChain`) so
   the loaded chain is live-editable, and applies the selected effect preset to
   the document controls and interpreter parameters. When the loaded descriptor
-  digest matches a promoted fixed effect (via the migration/registry table),
+  digest matches a promoted fixed effect's registry entry,
   the toolbar offers a **parity toggle** to the compiled build for A/B
   verification; the first descriptor-changing edit breaks the match and
   disables the toggle — bypass, being a program-shape override that never
