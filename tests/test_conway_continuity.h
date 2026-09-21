@@ -73,13 +73,13 @@ inline uint8_t cc_scan_buf[256 * 1024]; /**< Rasterizer face-scratch arena. */
 inline uint8_t cc_leg_buf[256 * 1024];  /**< OpLeg arena. */
 inline uint8_t cc_bank_buf[64 * 1024];  /**< Baked palette LUT arena. */
 
-/** Applies HankinSolids' shipping arena split. The split is
- * canvas-independent; the instantiation only names it. */
-inline void configure_hankin_split() {
+/** Applies HankinSolids' shipping arena split for the enclosing scope. The
+ * split is canvas-independent; the instantiation only names it. */
+[[nodiscard]] inline conway_morph_tests::ScopedArenaSplit
+configure_hankin_split() {
   using Fx = HankinSolids<96, 20>;
-  configure_arenas(GLOBAL_ARENA_SIZE - Fx::SCRATCH_A_BYTES -
-                       Fx::SCRATCH_B_BYTES,
-                   Fx::SCRATCH_A_BYTES, Fx::SCRATCH_B_BYTES);
+  return {GLOBAL_ARENA_SIZE - Fx::SCRATCH_A_BYTES - Fx::SCRATCH_B_BYTES,
+          Fx::SCRATCH_A_BYTES, Fx::SCRATCH_B_BYTES};
 }
 
 // ---------------------------------------------------------------------------
@@ -825,7 +825,7 @@ inline Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
  */
 inline void test_collapsing_faces_land_on_host_palette() {
   reset_globals();
-  configure_hankin_split();
+  const auto split = configure_hankin_split();
 
   Arena bank_arena(cc_bank_buf, sizeof(cc_bank_buf));
   MeshPaletteBank bank;
@@ -954,7 +954,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
  */
 inline void test_crossfade_exact_at_endpoints_emission() {
   reset_globals();
-  configure_hankin_split();
+  const auto split = configure_hankin_split();
   hs::random().seed(4242u);
 
   Arena leg(cc_leg_buf, sizeof(cc_leg_buf));
@@ -1041,7 +1041,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
  */
 inline void test_palette_mapping_total_all_edges() {
   reset_globals();
-  configure_hankin_split();
+  const auto split = configure_hankin_split();
 
   Arena bank_arena(cc_bank_buf, sizeof(cc_bank_buf));
   MeshPaletteBank bank;
@@ -1127,7 +1127,7 @@ inline void test_palette_mapping_total_all_edges() {
  */
 inline void test_palette_mapping_deterministic() {
   reset_globals();
-  configure_hankin_split();
+  const auto split = configure_hankin_split();
 
   Arena bank_arena(cc_bank_buf, sizeof(cc_bank_buf));
   MeshPaletteBank bank;
@@ -1255,7 +1255,7 @@ inline void test_leg_start_seed_frame_continuity() {
   using namespace ConwayGraph;
   using conway_morph_tests::run_edge_op;
   reset_globals();
-  configure_hankin_split();
+  const auto split = configure_hankin_split();
   hs::random().seed(90210u);
 
   Arena bank_arena(cc_bank_buf, sizeof(cc_bank_buf));
