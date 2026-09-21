@@ -115,6 +115,29 @@ class ViaGeometryTests(unittest.TestCase):
                 "0.03 mm via-to-via copper spacing is below 0.15 mm"):
             self.validate_source(source)
 
+    def test_accepts_close_same_net_stitching_vias(self):
+        source = (
+            "(kicad_pcb "
+            '(via (at 1 2) (size 0.45) (drill 0.20) (net 3) '
+            '(layers "F.Cu" "B.Cu")) '
+            '(via (at 1.48 2) (size 0.45) (drill 0.20) (net 3) '
+            '(layers "F.Cu" "B.Cu")))'
+        )
+        self.assertEqual(self.validate_source(source), 2)
+
+    def test_rejects_close_via_copper_on_different_nets(self):
+        source = (
+            "(kicad_pcb "
+            '(via (at 1 2) (size 0.45) (drill 0.20) (net 3) '
+            '(layers "F.Cu" "B.Cu")) '
+            '(via (at 1.48 2) (size 0.45) (drill 0.20) (net 4) '
+            '(layers "F.Cu" "B.Cu")))'
+        )
+        with self.assertRaisesRegex(
+                fab.ViaGeometryError,
+                "0.03 mm via-to-via copper spacing is below 0.15 mm"):
+            self.validate_source(source)
+
     def test_spacing_threshold_is_named_for_via_pairs(self):
         self.assertEqual(fab.MIN_VIA_TO_VIA_COPPER_SPACING_MM, 0.15)
         self.assertFalse(hasattr(fab, "MIN_VIA_COPPER_SPACING_MM"))
