@@ -1505,6 +1505,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # A working copy whose line endings diverge from its eol=lf blob is
+      # invisible to `git status`, so every other gate below silently reads
+      # different bytes than the committed ones. It runs first because it
+      # decides what they see.
+      - name: Assert line endings match .gitattributes
+        run: bash tools/eol_gate.sh
+
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
