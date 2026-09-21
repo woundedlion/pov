@@ -187,10 +187,18 @@ sha with any figure taken from this document.
 ## Instance-pipeline conversion (2026-08-17, `f33fe306`)
 
 - phantasm ITCM 192,080 B / 196,608 B ceiling — **4,528 B free**, above the
-  gate's 3,072 B minimum headroom. The conversion cost **+1,376 B** over the
+  gate's then-current 3,072 B minimum headroom. The conversion cost **+1,376 B** over the
   190,704 B it landed on: pullback stages now receive their per-frame prepared
   state as an argument, so every out-of-line stage boundary carries one more
   pointer and each pipeline's scan loop materializes the prepared tuple's
   address. The 96x20 targets are unchanged (68,560 / 68,112 B).
 - Flash moved +1,392 B for the same reason (266,040 B), still nowhere near the
   device wall.
+
+## Bank padding policy (2026-09-20)
+
+Phantasm may use all remaining ITCM bank padding for optimizations. The
+`min_headroom_bytes` reserve is zero; the stack-floor-derived ceiling still
+rejects a seventh ITCM bank. With the current ten-bank DTCM allocation, exactly
+196,608 B of ITCM passes and 196,609 B fails. The 12,288 B stack floor is
+unchanged.
