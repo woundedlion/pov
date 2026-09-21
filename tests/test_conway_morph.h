@@ -3608,9 +3608,10 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::DUAL}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.001f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.9f}));
-  // apply_step traps on a zero snub inset and a bake-less relax below one
-  // iteration; neither reaches a leg.
+  // apply_step traps on a zero snub inset, a zero hankin contact angle and a
+  // bake-less relax below one iteration; none reaches a leg.
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::SNUB, 0.0f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::HANKIN, 0.0f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::RELAX, 0.0f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::RELAX, 0.5f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::RELAX, 1.0f}));
