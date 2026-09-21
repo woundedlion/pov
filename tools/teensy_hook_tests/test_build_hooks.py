@@ -21,6 +21,7 @@ import sys
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO = Path(__file__).resolve().parents[2]
 TOOLS = REPO / "tools"
@@ -62,6 +63,7 @@ class FakeEnv(dict):
         super().__init__(kw)
         self.methods = {}
         self.post_actions = []
+        self.pre_actions = []
         self.lib_builders = []
 
     def subst(self, s):
@@ -80,6 +82,9 @@ class FakeEnv(dict):
 
     def AddPostAction(self, target, action):
         self.post_actions.append((target, action))
+
+    def AddPreAction(self, target, action):
+        self.pre_actions.append((target, action))
 
     def File(self, path):
         return path
@@ -239,6 +244,15 @@ class TestSketchSelection(unittest.TestCase):
     def _run(self, pioenv):
         env = FakeEnv(PIOENV=pioenv, PROJECT_DIR=str(REPO))
         return load_hook("teensy_pre.py", env=env), env
+
+    def test_firmware_build_synchronizes_and_validates_docs(self):
+        mod, env = self._run("phantasm")
+        self.assertEqual([target for target, _ in env.pre_actions], ["buildprog"])
+        with mock.patch.object(mod.subprocess, "run") as run:
+            env.pre_actions[0][1]([], [], env)
+        run.assert_called_once_with([
+            sys.executable, str(REPO / "tools" / "docs_check.py"),
+            "--root", str(REPO), "--sync", "--auto-checkout"], check=True)
 
     def test_every_platformio_env_is_mapped(self):
         mod, _ = self._run("phantasm")
