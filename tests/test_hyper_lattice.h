@@ -499,6 +499,7 @@ inline void test_specialized_slice_transition() {
  * and its fold back.
  */
 inline void test_specialized_render_signature() {
+  reset_globals();
   static constexpr Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
       {0.0f, 1.0f, 0.0f},
