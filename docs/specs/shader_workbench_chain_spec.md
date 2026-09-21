@@ -113,11 +113,14 @@ and crossings drawn as domain boundaries, the default scratch chain being
 shipped crossings is `Project → Sample → Colorize`; the default adds the
 camera), and
 selecting a card showing that stage's parameters labeled by instance
-("Wave Shear · warp2"). An operator's parameter list is its full union
-schema (main spec §7.1): fields the current topology value deactivates
-(edge-fade width while coverage is Weight) may render dimmed, but they
-stay in the document, every preset, and the digest — deactivation
-changes what the engine reads, never what the document carries.
+("Wave Shear · warp2"). Every instance the editor creates — a scratch
+chain's, and each one an edit inserts — declares its operator's full union
+schema (main spec §7.1); a loaded document's instances keep the
+declarations it carries, which may be narrower. Fields the current
+topology value deactivates (edge-fade width while coverage is Weight) may
+render dimmed, but a declared field stays in the document, every preset,
+and the digest — deactivation changes what the engine reads, never what
+the document carries.
 
 **One edit rule generates every operation.** A structural edit replaces a
 contiguous span of the chain with a catalog sequence whose endpoint
@@ -301,8 +304,8 @@ in another.
   over the declared domain; topology enum8s render as dropdowns (live
   structural switches on the chain path). A row is labeled by its field
   segment alone — the chip already names the instance.
-- The union-schema discipline (§3) applies: fields the current topology
-  values deactivate render dimmed, never dropped.
+- The declaration discipline (§3) applies: a declared field the current
+  topology values deactivate renders dimmed, never dropped.
 - An instance that declares no parameters gets no control group, and a
   chip carrying one is wide. Every parameter remains visible within the chip;
   parameter groups never get their own scrollbar. The pipeline viewport
