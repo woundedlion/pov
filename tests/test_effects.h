@@ -1632,9 +1632,9 @@ inline void test_gs_render_certificates_bound_lattice() {
 
 /**
  * @brief Bounds the shared stencil against independent SSAA refinement.
- * @details Compares production-resolution pixels after 64, 256, and 640
- * physics substeps. Near-tie Voronoi samples may change, but coverage and
- * high-amplitude errors remain confined to under 3% of lit pixels.
+ * @details Compares production-resolution pixels after 4, 16, and 40 rendered
+ * frames. Near-tie Voronoi samples may change, but coverage and high-amplitude
+ * errors remain confined to under 3% of lit pixels.
  */
 inline void test_gs_shared_stencil_error_is_bounded() {
   hs_test::reset_globals();
