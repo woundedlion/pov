@@ -1139,6 +1139,10 @@ class FabContentTests(unittest.TestCase):
             len(fab.EXCELLON_HOLE.findall("X1.0Y1.0G85X2.0Y1.0\nX3.0Y1.0\n")),
             2)
 
+    def test_counts_a_route_mode_slot_as_one_hole(self):
+        routed = "X3.0Y1.0\nG00X1.0Y1.0\nM15\nG01X2.0Y1.0\nM16\nG05\n"
+        self.assertEqual(len(fab.EXCELLON_HOLE.findall(routed)), 2)
+
     def test_committed_board_holes(self):
         # 99 vias and 45 plated pads; the four mounting holes are unplated.
         # Re-measure after promoting a re-route, as with the via floor.
