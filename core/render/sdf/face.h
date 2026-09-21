@@ -658,8 +658,7 @@ struct Face {
     center.normalize();
 
     basis_v = center;
-    Vector ref = least_parallel_axis(center);
-    basis_u = cross(center, ref).normalized();
+    basis_u = perpendicular_axis(center);
     basis_w = cross(center, basis_u).normalized();
 
     float max_r2 = 0.0f;

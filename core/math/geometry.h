@@ -819,8 +819,8 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
  * @details The frame's second vector is cross(normal, u), unit because normal
  *          and u are orthonormal; callers derive it rather than store it.
  *          Crosses against +Y, swapping to +X within POLE_REFERENCE_COS of a
- *          pole where the +Y cross collapses. The band is far wider than
- *          least_parallel_axis()'s, which crosses against +X instead.
+ *          pole where the +Y cross collapses. The band is far wider than the one
+ *          perpendicular_axis() seeds with, which crosses against +X instead.
  * @param normal Unit vertex normal.
  * @return A unit tangent at @p normal.
  */
