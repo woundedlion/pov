@@ -61,6 +61,10 @@ warp(const PlaneSample &input, const WarpStepResult &step) {
     provenance coverage into the field carrier. */
 __attribute__((always_inline)) inline FieldSample
 sample(const PlaneSample &input, float weighted, float coverage) {
+  HS_AUDIT_CHECK(coverage >= 0.0f && coverage <= 1.0f &&
+                     input.provenance.domain_coverage >= 0.0f &&
+                     input.provenance.domain_coverage <= 1.0f,
+                 "field coverage factors must remain in [0, 1]");
   return {Detail::clamp_unit((weighted + 1.0f) * 0.5f),
           coverage * input.provenance.domain_coverage, input.sphere,
           input.path_length};
