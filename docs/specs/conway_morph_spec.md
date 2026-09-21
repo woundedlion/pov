@@ -359,12 +359,17 @@ so they'd test within tolerance like bridges, not exactly like §7.1).
 Constructor `(seed PolyMesh, EdgeSpec, Arena&, draw callbacks, frames,
 easing)`:
 - clones the seed into the arena;
-- runs the op once at the **clamped** arrival parameter — t_end pulled
-  inside [T_EPS, 0.5 − T_EPS], never exact 0.5, where the ambo
-  short-circuit changes emission order and face count and would hoist a
-  classification misaligned with every swept frame's compile output — and
-  classifies that PolyMesh (`classify_faces_by_topology`) into the arena:
-  classified near arrival, not at T_EPS, so the 1°-angle-bucketed grouping
+- runs the op once at the **clamped** arrival parameter and classifies
+  that PolyMesh (`classify_faces_by_topology`) into the arena. Both
+  endpoints go through one clamp with three rules: every op floors at
+  `T_EPS`; `TRUNCATE` alone caps at `0.5 − T_EPS_AMBO`, never exact 0.5,
+  where the ambo short-circuit changes emission order and face count and
+  would hoist a classification misaligned with every swept frame's compile
+  output (`SNUB` and `EXPAND` legs take no cap, so a snub row ending at 0.5
+  arrives at exactly 0.5); the jitterbug edge floors at
+  `T_JITTERBUG_OCTA_MIN` (0.5105, above its t = 0.5 octahedron end) so the
+  leg stops while its collapsing edge is still a positive chord (§3).
+  Classified near arrival, not at T_EPS, so the 1°-angle-bucketed grouping
   matches what the viewer sees at leg end;
 - if the edge settles: runs `relax(50)` once, stores the relaxed vertex
   array, and classifies the **relaxed** mesh instead — arrival geometry is
