@@ -210,6 +210,20 @@ inline void case_resplit_scratch_not_empty() {
 }
 
 /**
+ * @brief Death case: a resplit below the persistent arena's live offset must
+ *        trap.
+ * @details Config surface — resplit_arenas keeps the persistent arena's base,
+ *          offset and content and only moves its capacity, so a budget under
+ *          the live offset would strand the carousel and palette bank.
+ */
+inline void case_resplit_persistent_strands() {
+  configure_arenas_default();
+  persistent_arena.allocate(opaque<size_t>(4096));
+  resplit_arenas(opaque<size_t>(1024), opaque(DEFAULT_SCRATCH_A_SIZE),
+                 opaque(DEFAULT_SCRATCH_B_SIZE)); // offset > budget -> HS_CHECK
+}
+
+/**
  * @brief Death case: moving the arena offset forward must trap.
  * @details Memory surface — set_offset only ever rewinds. A forward move stays
  *          inside capacity yet hands back bytes already reclaimed, so the guard
@@ -4151,6 +4165,10 @@ inline const Case *all_cases(int &n) {
        "memory.cpp",
        "(scratch_arena_a.get_offset() == 0 && scratch_arena_b.get_offset() "
        "== 0) resplit_arenas: both scratch arenas must be empty"},
+      {"resplit_persistent_strands", case_resplit_persistent_strands,
+       "memory.h",
+       "(offset <= new_capacity) Arena::rebind_capacity below the live offset "
+       "would strand content"},
       {"arena_set_offset_forward", case_arena_set_offset_forward, "memory.h",
        "(new_offset <= offset) Arena::set_offset: "},
       {"scratch_scope_non_lifo", case_scratch_scope_non_lifo, "memory.h",
@@ -5346,7 +5364,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
-    {"memory.h", 2},
+    {"memory.h", 1},
     {"reaction_graph.h", 1},
     {"static_circular_buffer.h", 3},
     {"transformer.h", 4},
