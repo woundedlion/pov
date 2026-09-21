@@ -330,7 +330,7 @@ Gate outcomes:
 3. **Runtime hit rate**: `lut_hits/(lut_hits+exact_hits)` 10-39% by mesh,
    proportional to concave share x coverage as expected.
 4. **Interleaved same-session A/B** (Scan::Mesh::draw, 288x144, white
-   shader), all 24 islamic meshes:
+   shader), all 23 islamic meshes:
    - **WASM: −10% to −28% on every LUT-bound mesh** (bellwether
      icosahedron_ambo_truncate033_hankin59: −21 to −29% across runs); the
      only positive deltas occur on meshes with zero LUTs (all-convex
