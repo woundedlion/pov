@@ -122,7 +122,8 @@ struct Shader {
    */
   template <int W, int H> static void check_lut_domain(const ClipRegion &cr) {
     HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
-             cr.render_y_end() <= H);
+                 cr.render_y_end() <= H,
+             "scan clip region outside the canvas and trig LUT domain");
   }
   // --------------------------------------------------------------------------
 
