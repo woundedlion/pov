@@ -691,6 +691,10 @@ struct ShaderWorkbenchWhiteBox {
   static Vector apply_lens(const Vector &v, SurfaceLens lens) {
     return Workbench::apply_frame_free_lens(v, lens);
   }
+  /** @brief Lens overload covering the kinds that read FrameState params. */
+  static Vector apply_lens(const Vector &v, const FrameState &frame) {
+    return Workbench::apply_lens(v, frame);
+  }
   static Vector surface_noise(const Vector &v, const FrameState &frame) {
     return Workbench::apply_surface_noise(v, frame);
   }
@@ -3156,19 +3160,39 @@ inline void test_shader_workbench_profile_presets() {
   WB::SB sb;
   sb.init();
   const auto &presets = WB::presets();
+  std::vector<Complex> probes(presets.size());
   for (size_t index = 0; index < presets.size(); ++index) {
+    HS_CONTEXT("preset", static_cast<long long>(index));
     sb.profile_select_preset(index);
     HS_EXPECT_TRUE(WB::active_config(sb) == presets[index]);
     HS_EXPECT_TRUE(WB::requested_config(sb) == presets[index]);
     HS_EXPECT_TRUE(WB::valid_config(WB::active_config(sb)));
     HS_EXPECT_FALSE(WB::transition_active(sb));
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
-    if (index == 4 || index == 10) {
-      const auto projected = WB::surface_project(
-          Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
-      HS_EXPECT_TRUE(std::isfinite(projected.provenance.fade_edge_distance));
-    }
+    const auto projected = WB::surface_project(
+        Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
+    HS_EXPECT_GE(projected.provenance.fade_edge_distance, 0.0f);
+    HS_EXPECT_LE(projected.provenance.fade_edge_distance, PI_F);
+    HS_EXPECT_GE(projected.provenance.value_weight, 0.0f);
+    HS_EXPECT_LE(projected.provenance.value_weight, 1.0f);
+    HS_EXPECT_GE(projected.provenance.domain_coverage, 0.0f);
+    HS_EXPECT_LE(projected.provenance.domain_coverage, 1.0f);
+    probes[index] = projected.coords;
   }
+  // Distinct holds are distinct frames: a profile select that stopped landing
+  // the config would collapse the probe onto one point.
+  size_t distinct = 0;
+  for (size_t i = 0; i < probes.size(); ++i) {
+    bool unseen = true;
+    for (size_t j = 0; j < i; ++j)
+      unseen &= probes[j].re != probes[i].re || probes[j].im != probes[i].im;
+    distinct += unseen ? 1 : 0;
+  }
+  std::printf("  [profile presets] %zu distinct probe images of %zu holds\n",
+              distinct, probes.size());
+  // Measured 14 distinct images across the 24 holds; several share a topology
+  // whose frame maps this probe to the same plane point.
+  HS_EXPECT_GE(distinct, (size_t)14);
 }
 
 /** @brief Manual navigation wraps and resumes automatic preset selection. */
@@ -5517,13 +5541,22 @@ inline void test_shader_workbench_kernel_catalog() {
     HS_EXPECT_EQ(identity.coords.im, input.im);
     HS_EXPECT_EQ(identity.path_length, 0.0f);
   }
+  // MIRROR_TILE and POLAR_CHART are charts, not displacements: they read no
+  // strength, so zero strength is a remap rather than the identity above.
+  WB::WarpStageParams driven = zero_params;
+  driven.strength = 1.0f;
   for (uint8_t value = 6; value <= 7; ++value) {
+    HS_CONTEXT("warp kind", value);
+    const WB::ProjectedLookup lookup{
+        input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
     WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
-    const auto mapped =
-        WB::warp_stage(input, {input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f},
-                       spec, zero_params, frame);
-    HS_EXPECT_TRUE(std::isfinite(mapped.coords.re));
-    HS_EXPECT_TRUE(std::isfinite(mapped.coords.im));
+    const auto mapped = WB::warp_stage(input, lookup, spec, zero_params, frame);
+    const auto forced = WB::warp_stage(input, lookup, spec, driven, frame);
+    HS_EXPECT_EQ(mapped.coords.re, forced.coords.re);
+    HS_EXPECT_EQ(mapped.coords.im, forced.coords.im);
+    HS_EXPECT_EQ(mapped.path_length, forced.path_length);
+    HS_EXPECT_TRUE(mapped.coords.re != input.re ||
+                   mapped.coords.im != input.im);
   }
 }
 
@@ -6132,7 +6165,16 @@ inline void test_shader_workbench_surface_noise_geometry_and_composition() {
   HS_EXPECT_TRUE(WB::colorize(displaced_material, frame).color !=
                  WB::colorize(undisplaced_material, frame).color);
 
+  // The surface stage is a sphere-domain map the projection sees only through
+  // its output, so every cell of the lens x projection x placement grid must
+  // reproduce the surfaced direction pushed through the bare projection. A lens
+  // composed on the wrong side of the noise, or a projection reading the
+  // pre-lens direction, breaks the identity without disturbing the others.
   frame = WB::config_frame(sb, config);
+  WB::FrameState bare = frame;
+  bare.slots.surface_lens = WB::SurfaceLens::NONE;
+  bare.slots.surface_noise = WB::SurfaceNoise::NONE;
+  size_t cells = 0, moved = 0;
   for (WB::Projection projection :
        {WB::Projection::SINUSOIDAL, WB::Projection::STEREOGRAPHIC,
         WB::Projection::GNOMONIC, WB::Projection::BONNE,
@@ -6151,11 +6193,39 @@ inline void test_shader_workbench_surface_noise_geometry_and_composition() {
           WB::SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM}) {
       frame.slots.projection = projection;
       frame.slots.surface_lens = lens;
-      const WB::ProjectedLookup projected =
-          WB::surface_project(directions.back(), frame);
-      HS_EXPECT_TRUE(std::isfinite(projected.coords.re));
-      HS_EXPECT_TRUE(std::isfinite(projected.coords.im));
+      bare.slots.projection = projection;
+      for (WB::SurfaceNoisePlacement placement :
+           {WB::SurfaceNoisePlacement::BEFORE_LENS,
+            WB::SurfaceNoisePlacement::AFTER_LENS}) {
+        HS_CONTEXT("projection x lens", static_cast<long long>(projection),
+                   static_cast<long long>(lens));
+        HS_CONTEXT("placement", static_cast<long long>(placement));
+        frame.slots.surface_noise_placement = placement;
+        const Vector probe = directions.back();
+        const WB::ProjectedLookup projected = WB::surface_project(probe, frame);
+        const Vector surfaced =
+            placement == WB::SurfaceNoisePlacement::BEFORE_LENS
+                ? WB::apply_lens(WB::surface_noise(probe, frame), frame)
+                : WB::surface_noise(WB::apply_lens(probe, frame), frame);
+        const WB::ProjectedLookup reference =
+            WB::surface_project(surfaced, bare);
+        HS_EXPECT_EQ(projected.coords.re, reference.coords.re);
+        HS_EXPECT_EQ(projected.coords.im, reference.coords.im);
+        HS_EXPECT_EQ(projected.provenance.region_id,
+                     reference.provenance.region_id);
+        HS_EXPECT_EQ(projected.provenance.boundary_flags,
+                     reference.provenance.boundary_flags);
+        // The oracle is vacuous where the surface stage leaves the direction
+        // alone, so score how many cells it actually moves.
+        ++cells;
+        moved += surfaced != probe ? 1 : 0;
+      }
     }
+  std::printf("  [lens grid] %zu of %zu cells move the probe off the sphere "
+              "point\n",
+              moved, cells);
+  HS_EXPECT_EQ(cells, (size_t)182);
+  HS_EXPECT_EQ(moved, cells);
 }
 
 /** @brief Sphere contours use v_projection and reject every planar warp. */
