@@ -1043,7 +1043,9 @@ inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
  * over-reads its region drops the search back to zero chroma rather than
  * returning a color outside the cube. The matrix constants below restate
  * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb(); those two are the source of
- * truth tools/gen_gamut_lut.py pins its mirror against.
+ * truth tools/gen_gamut_lut.py pins its mirror against, and
+ * test_gamut_refine_matrices_match_the_conversions() pins these literals
+ * against column by column.
  */
 HS_O3_FN __attribute__((noinline)) inline float
 gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
