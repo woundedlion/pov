@@ -68,7 +68,8 @@ struct TimelineEvent {
   void move_into(TimelineEvent &dst) {
     // Relocating a handled event would dangle the caller's cached animation
     // pointer (handled animations are never meant to move); trap instead.
-    HS_CHECK(!handled);
+    HS_CHECK(!handled, "move_into would dangle a pinned animation's retained "
+                       "pointer");
     HS_CHECK(!dst.manager,
              "move_into would leak the destination's live animation");
     dst.start = start;
@@ -131,7 +132,8 @@ public:
    * the latent footgun a bench-time crash instead of silent stomping.
    */
   Timeline() {
-    HS_CHECK(!global_timeline_live);
+    HS_CHECK(!global_timeline_live,
+             "a second live Timeline would stomp the shared global events");
     global_timeline_live = true;
     reset_storage();
   }
@@ -408,7 +410,7 @@ public:
         ++e.start;
         if (started) {
           IAnimation *anim = e.animation();
-          HS_CHECK(anim);
+          HS_CHECK(anim, "paused timeline event holds no animation");
           anim->step_paused(canvas);
           // step_paused() never advances the animation, so done() here means
           // cancel() (or finish()). Complete the event as the unpaused path
@@ -416,7 +418,9 @@ public:
           // for every paused frame.
           if (anim->done() && !anim->repeats()) {
             anim->post_callback();
-            HS_CHECK(!e.handled || anim->is_canceled());
+            HS_CHECK(!e.handled || anim->is_canceled(),
+                     "pinned animation completed while paused; only cancel() "
+                     "may destroy a pinned event");
             e.destroy();
             continue;
           }
@@ -438,7 +442,7 @@ public:
 
       // Step (Orientation already collapsed once-per-frame above)
       IAnimation *anim = e.animation();
-      HS_CHECK(anim);
+      HS_CHECK(anim, "timeline event holds no animation");
       anim->step(canvas);
 
       // Completion & Cleanup
@@ -470,7 +474,9 @@ public:
         // A pinned event should never reach natural completion (pinned ⇒
         // infinite); destroying one dangles the caller's pointer. cancel() is the
         // one sanctioned teardown, so it is exempt.
-        HS_CHECK(!e.handled || anim->is_canceled());
+        HS_CHECK(!e.handled || anim->is_canceled(),
+                 "pinned animation completed; only cancel() may destroy a "
+                 "pinned event");
         e.destroy();
       }
     }
@@ -484,7 +490,8 @@ public:
     int new_vals_count = global_timeline_num_events - active_cnt;
     // Each kept event advances write_idx by one, so it never outruns the events
     // scanned.
-    HS_CHECK(write_idx <= active_cnt);
+    HS_CHECK(write_idx <= active_cnt,
+             "timeline compaction wrote past the events it scanned");
     if (new_vals_count > 0 && write_idx < active_cnt) {
       // The source span [active_cnt, ...) and the destination span
       // [write_idx, ...) can overlap, but write_idx + i < active_cnt + i for

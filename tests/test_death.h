@@ -4180,7 +4180,9 @@ inline const Case *all_cases(int &n) {
        "(small >= 0 && small < large && large < MAX_V) "
        "TriangularBitset::index: pair "},
       {"timeline_handled_relocation", case_timeline_handled_relocation,
-       "timeline.h", "(!handled) "},
+       "timeline.h",
+       "(!handled) move_into would dangle a pinned animation's retained "
+       "pointer"},
       {"timeline_move_into_live_destination",
        case_timeline_move_into_live_destination, "timeline.h",
        "(!dst.manager) move_into would leak the destination's live animation"},
@@ -4195,7 +4197,9 @@ inline const Case *all_cases(int &n) {
        "(delay <= UINT32_MAX - global_timeline_t) Timeline start frame "
        "overflow"},
       {"timeline_handled_completion", case_timeline_handled_completion,
-       "timeline.h", "(!e.handled || anim->is_canceled()) "},
+       "timeline.h",
+       "(!e.handled || anim->is_canceled()) pinned animation completed; only "
+       "cancel() may destroy a pinned event"},
       {"timeline_pinned_finite_animation",
        case_timeline_pinned_finite_animation, "timeline.h",
        "(!animation.is_finite() || animation.repeats()) pinned animation "
@@ -4204,7 +4208,9 @@ inline const Case *all_cases(int &n) {
        case_timeline_pinned_add_on_full_timeline, "timeline.h",
        "(pin == Pin::UNPINNED) Timeline full, dropped a pinned animation"},
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer,
-       "timeline.h", "(!e.handled || anim->is_canceled()) "},
+       "timeline.h",
+       "(!e.handled || anim->is_canceled()) pinned animation completed; only "
+       "cancel() may destroy a pinned event"},
       {"timeline_clear_pinned", case_timeline_clear_pinned, "timeline.h",
        "(!global_timeline_events[i].handled) clear() would destroy a pinned "
        "animation"},
@@ -4228,7 +4234,9 @@ inline const Case *all_cases(int &n) {
        "(slot == front) MeshCarousel segue scheduled before incoming slot "
        "flip"},
       {"timeline_double_construct", case_timeline_double_construct,
-       "timeline.h", "(!global_timeline_live) "},
+       "timeline.h",
+       "(!global_timeline_live) a second live Timeline would stomp the shared "
+       "global events"},
       {"transformer_pool_init_storage_twice",
        case_transformer_pool_init_storage_twice, "transformer.h",
        "(!entities) TransformerPool: init_storage() called twice"},
