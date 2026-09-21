@@ -74,8 +74,7 @@ public:
    *        pool, and schedules the random reverse/wipe/rotate timers.
    */
   void init() override {
-    filters.template get<Filter::World::Trails<TRAIL_CAPACITY>>().init_storage(
-        persistent_arena);
+    filters.init_storage(persistent_arena);
 
     nodes = persistent_arena.make_n<Node>(NUM_NODES);
 
