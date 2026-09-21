@@ -894,6 +894,55 @@ class TruncatedTrailingWindow(unittest.TestCase):
         self.assertEqual(err.getvalue(), "")
 
 
+class HeaderFrameRange(unittest.TestCase):
+    """`frames` divides every per-frame figure, so the range must be forward."""
+
+    def _parse(self, f_start, f_end):
+        import tempfile
+        text = "\n".join([
+            f"=== profile Fx [288x144] frames {f_start}-{f_end} "
+            "window=62500 us ===",
+            "frame wall us: min=100 avg=100 max=100 sum=1000 (10 frames)",
+            "frame                 1000 us (100%)  10 calls  600000 cyc",
+        ]) + "\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(text, encoding="utf-8")
+            return pp.parse(path)
+
+    def test_a_forward_range_parses(self):
+        self.assertEqual(self._parse(1, 10)[0][0].frames, 10)
+
+    def test_a_single_frame_window_parses(self):
+        self.assertEqual(self._parse(7, 7)[0][0].frames, 1)
+
+    def test_a_zero_length_range_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self._parse(8, 7)
+
+    def test_an_inverted_range_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self._parse(20, 11)
+
+    def test_main_reports_the_bad_range_instead_of_raising(self):
+        import contextlib
+        import io
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "capture.log"
+            log.write_text(
+                "=== profile Fx [288x144] frames 20-11 window=62500 us ===\n",
+                encoding="utf-8")
+            argv = sys.argv
+            sys.argv = ["parse_profile.py", str(log), "windows"]
+            try:
+                with contextlib.redirect_stderr(io.StringIO()) as err:
+                    self.assertEqual(pp.main(), 2)
+            finally:
+                sys.argv = argv
+        self.assertIn("20-11", err.getvalue())
+
+
 class BucketOrdering(unittest.TestCase):
     """A preset's clean-hold scope time cannot exceed its own peak render.
 

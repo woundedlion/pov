@@ -257,9 +257,17 @@ def parse_capture(path):
                 continue
             m = HEADER_RE.search(line)
             if m:
+                f_start, f_end = int(m.group(4)), int(m.group(5))
+                # frames = f_end - f_start + 1 divides every per-frame figure:
+                # an equal pair is one frame, and anything below that is zero
+                # or negative frames, not a window.
+                if f_end < f_start:
+                    raise ValueError(
+                        f"{path}: window header frames {f_start}-{f_end} ends "
+                        f"before it starts")
                 effect = effect or m.group(1)
                 nw = Window(m.group(1), int(m.group(2)), int(m.group(3)),
-                            int(m.group(4)), int(m.group(5)), int(m.group(6)))
+                            f_start, f_end, int(m.group(6)))
                 # Frame numbers restarting = the effect was torn down and
                 # reconstructed (epoch); the fresh instance is back on its
                 # first preset, so the old marker no longer applies.
@@ -1033,6 +1041,9 @@ def main():
         windows, effect, pullback = parse_capture(args.log)
     except OSError as exc:
         print(f"cannot read {args.log}: {exc}", file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
     if not windows:
         print(f"no windows parsed from {args.log}", file=sys.stderr)
