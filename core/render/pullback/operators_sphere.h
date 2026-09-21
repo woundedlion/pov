@@ -69,6 +69,9 @@ struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_noise_basis(params.basis);
+    HS_CHECK(params.integrator <=
+                 static_cast<uint8_t>(Surface::Integrator::MIDPOINT_2X),
+             "sphere.displace.curl: invalid integrator");
     return {&state.noise, Surface::prepare(state.phase)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
