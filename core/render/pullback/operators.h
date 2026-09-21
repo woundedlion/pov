@@ -204,7 +204,7 @@ struct ColorClockState {
 };
 
 template <typename Params>
-static Color::GeneratedPaletteState
+Color::GeneratedPaletteState
 prepare_generated_palette(const FrameContext &ctx, const Params &params,
                           const ColorClockState &state, float bottom,
                           float top) {
