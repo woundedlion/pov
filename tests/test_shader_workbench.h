@@ -4009,17 +4009,7 @@ void verify_fixed_shader_export(
                         radius * sinf(longitude));
       const Color4 expected = WB::shade(view, dynamic);
       const Color4 actual = FixedEffect::shade(view, compiled);
-      const uint16_t red_error = actual.color.r > expected.color.r
-                                     ? actual.color.r - expected.color.r
-                                     : expected.color.r - actual.color.r;
-      const uint16_t green_error = actual.color.g > expected.color.g
-                                       ? actual.color.g - expected.color.g
-                                       : expected.color.g - actual.color.g;
-      const uint16_t blue_error = actual.color.b > expected.color.b
-                                      ? actual.color.b - expected.color.b
-                                      : expected.color.b - actual.color.b;
-      HS_EXPECT_LE(std::max({red_error, green_error, blue_error}), uint16_t(1));
-      HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
+      expect_color_within(actual, expected, 1, 1e-6f);
     }
   }
 }
@@ -4649,9 +4639,7 @@ constexpr uint64_t HUE_LUT_MEAN_CHANNEL_ERROR =
 
 /** @brief The LUT-only hue mapper stays close to the exact gamut refinement. */
 inline void test_shader_workbench_hue_rotate_lut_gamut() {
-  uint16_t max_channel_error = 0;
-  uint64_t total_error = 0;
-  uint64_t channels = 0;
+  ChannelError error;
   for (uint32_t red = 0; red <= 65535; red += 8191) {
     for (uint32_t green = 0; green <= 65535; green += 8191) {
       for (uint32_t blue = 0; blue <= 65535; blue += 8191) {
@@ -4660,27 +4648,16 @@ inline void test_shader_workbench_hue_rotate_lut_gamut() {
           const float amount = amount_step * (1.0f / 16.0f);
           const Color4 exact = hue_rotate(input, amount);
           const Color4 fast = ::hue_rotate_lut_gamut(input, amount);
-          const uint16_t exact_channels[] = {exact.color.r, exact.color.g,
-                                             exact.color.b};
-          const uint16_t fast_channels[] = {fast.color.r, fast.color.g,
-                                            fast.color.b};
-          for (int channel = 0; channel < 3; ++channel) {
-            const uint16_t a = exact_channels[channel];
-            const uint16_t b = fast_channels[channel];
-            const uint16_t error = a > b ? a - b : b - a;
-            max_channel_error = std::max(max_channel_error, error);
-            total_error += error;
-            ++channels;
-          }
+          error.add(exact.color, fast.color);
           HS_EXPECT_EQ(fast.alpha, exact.alpha);
         }
       }
     }
   }
-  std::printf("  [hue-lut] max=%u mean=%llu\n", max_channel_error,
-              static_cast<unsigned long long>(total_error / channels));
-  HS_EXPECT_LE(max_channel_error, HUE_LUT_MAX_CHANNEL_ERROR);
-  HS_EXPECT_LE(total_error / channels, HUE_LUT_MEAN_CHANNEL_ERROR);
+  std::printf("  [hue-lut] max=%u mean=%llu\n", error.max,
+              static_cast<unsigned long long>(error.mean()));
+  HS_EXPECT_LE(error.max, HUE_LUT_MAX_CHANNEL_ERROR);
+  HS_EXPECT_LE(error.mean(), HUE_LUT_MEAN_CHANNEL_ERROR);
 }
 
 /** Worst single-channel gap measured between the direct and the prepared hue
@@ -4702,32 +4679,20 @@ inline void test_shader_workbench_prepared_hue_rotation() {
   WB::SB sb;
   sb.init();
   const WB::FrameState frame = WB::preset_frame(sb, 10);
-  uint16_t max_channel_error = 0;
-  uint64_t total_error = 0;
-  uint64_t channels = 0;
+  ChannelError error;
   for (int value_step = 0; value_step <= 64; ++value_step) {
     const float value = value_step / 64.0f;
     for (int amount_step = -128; amount_step <= 128; ++amount_step) {
       const float amount = amount_step / 64.0f;
       const Pixel direct = WB::direct_hue_rotation(frame, value, amount);
       const Pixel prepared = WB::prepared_hue_rotation(frame, value, amount);
-      const uint16_t direct_channels[] = {direct.r, direct.g, direct.b};
-      const uint16_t prepared_channels[] = {prepared.r, prepared.g, prepared.b};
-      for (int channel = 0; channel < 3; ++channel) {
-        const uint16_t a = direct_channels[channel];
-        const uint16_t b = prepared_channels[channel];
-        const uint16_t error = a > b ? a - b : b - a;
-        max_channel_error = std::max(max_channel_error, error);
-        total_error += error;
-        ++channels;
-      }
+      error.add(direct, prepared);
     }
   }
-  std::printf("  [prepared-hue-rotation] max=%u mean=%llu\n", max_channel_error,
-              static_cast<unsigned long long>(total_error / channels));
-  HS_EXPECT_LE(max_channel_error, PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR);
-  HS_EXPECT_LE(total_error / channels,
-               PREPARED_HUE_ROTATION_MEAN_CHANNEL_ERROR);
+  std::printf("  [prepared-hue-rotation] max=%u mean=%llu\n", error.max,
+              static_cast<unsigned long long>(error.mean()));
+  HS_EXPECT_LE(error.max, PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR);
+  HS_EXPECT_LE(error.mean(), PREPARED_HUE_ROTATION_MEAN_CHANNEL_ERROR);
   // The prepared rotation reaches the framebuffer through the color stage, so
   // its budget has to sit inside the limit that stage publishes.
   HS_EXPECT_LE(static_cast<float>(PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR),
@@ -4807,9 +4772,7 @@ inline void test_shader_workbench_prepared_hue_noise_color() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  uint16_t max_channel_error = 0;
-  uint64_t total_error = 0;
-  uint64_t channels = 0;
+  ChannelError error;
   static constexpr std::array PRESETS_AND_PHASES = {
       std::pair{size_t(6), 13.0f}, std::pair{size_t(7), 14.0f},
       std::pair{size_t(10), 17.0f}};
@@ -4831,32 +4794,20 @@ inline void test_shader_workbench_prepared_hue_noise_color() {
               WB::direct_hue_noise_color(frame, direction, value);
           const Pixel prepared =
               WB::prepared_hue_noise_color(frame, direction, value);
-          const uint16_t exact_channels[] = {exact.r, exact.g, exact.b};
-          const uint16_t prepared_channels[] = {prepared.r, prepared.g,
-                                                prepared.b};
-          for (int channel = 0; channel < 3; ++channel) {
-            const uint16_t a = exact_channels[channel];
-            const uint16_t b = prepared_channels[channel];
-            const uint16_t error = a > b ? a - b : b - a;
-            max_channel_error = std::max(max_channel_error, error);
-            total_error += error;
-            ++channels;
-          }
+          error.add(exact, prepared);
         }
       }
     }
   }
-  std::printf("  [hue-noise-color] max=%u mean=%llu\n", max_channel_error,
-              static_cast<unsigned long long>(total_error / channels));
+  std::printf("  [hue-noise-color] max=%u mean=%llu\n", error.max,
+              static_cast<unsigned long long>(error.mean()));
 #if HS_HAVE_PULLBACK_MANIFEST
   const auto &maximum = pullback_oracle_metric("HUE_ROTATION_AND_NOISE_LUTS",
                                                "COLOR_CHANNEL", "MAXIMUM");
   const auto &mean = pullback_oracle_metric("HUE_ROTATION_AND_NOISE_LUTS",
                                             "COLOR_CHANNEL", "MEAN");
-  HS_EXPECT_LE(max_channel_error,
-               static_cast<uint16_t>(maximum.accepted_limit));
-  HS_EXPECT_LE(total_error / channels,
-               static_cast<uint64_t>(mean.accepted_limit));
+  HS_EXPECT_LE(error.max, static_cast<uint16_t>(maximum.accepted_limit));
+  HS_EXPECT_LE(error.mean(), static_cast<uint64_t>(mean.accepted_limit));
   HS_EXPECT_EQ(WB::color_metric_limit(0), maximum.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(1), mean.accepted_limit);
 #else
@@ -5125,18 +5076,7 @@ inline void test_shader_workbench_inverse_program_equivalence() {
                           radius * sinf(longitude));
         const Color4 expected = WB::shade(view, frame);
         const Color4 actual = WB::pipeline_shade(view, frame);
-        const uint16_t red_error = actual.color.r > expected.color.r
-                                       ? actual.color.r - expected.color.r
-                                       : expected.color.r - actual.color.r;
-        const uint16_t green_error = actual.color.g > expected.color.g
-                                         ? actual.color.g - expected.color.g
-                                         : expected.color.g - actual.color.g;
-        const uint16_t blue_error = actual.color.b > expected.color.b
-                                        ? actual.color.b - expected.color.b
-                                        : expected.color.b - actual.color.b;
-        HS_EXPECT_LE(std::max({red_error, green_error, blue_error}),
-                     uint16_t(1));
-        HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
+        expect_color_within(actual, expected, 1, 1e-6f);
       }
     }
   }
@@ -5149,17 +5089,7 @@ inline void test_shader_workbench_inverse_program_equivalence() {
     const Vector normalized = view.normalized();
     const Color4 expected = WB::shade(normalized, peirce);
     const Color4 actual = WB::pipeline_shade(normalized, peirce);
-    const uint16_t red_error = actual.color.r > expected.color.r
-                                   ? actual.color.r - expected.color.r
-                                   : expected.color.r - actual.color.r;
-    const uint16_t green_error = actual.color.g > expected.color.g
-                                     ? actual.color.g - expected.color.g
-                                     : expected.color.g - actual.color.g;
-    const uint16_t blue_error = actual.color.b > expected.color.b
-                                    ? actual.color.b - expected.color.b
-                                    : expected.color.b - actual.color.b;
-    HS_EXPECT_LE(std::max({red_error, green_error, blue_error}), uint16_t(1));
-    HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
+    expect_color_within(actual, expected, 1, 1e-6f);
   }
 }
 

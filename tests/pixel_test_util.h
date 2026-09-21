@@ -16,6 +16,7 @@
 #include "core/render/canvas.h"
 #include "tests/test_fixture.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -61,6 +62,70 @@ inline void expect_color_exact(const Color4 &actual, const Color4 &expected) {
   HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.alpha),
                std::bit_cast<uint32_t>(expected.alpha));
 }
+
+/**
+ * @brief Absolute gap between two 16-bit channel values.
+ * @param a First channel value.
+ * @param b Second channel value.
+ * @return |a - b|.
+ */
+inline uint16_t channel_gap(uint16_t a, uint16_t b) {
+  return a > b ? a - b : b - a;
+}
+
+/**
+ * @brief Largest per-channel gap between two pixels.
+ * @param a First pixel.
+ * @param b Second pixel.
+ * @return Maximum of the three RGB channel gaps, 16-bit scale.
+ */
+inline uint16_t max_channel_gap(const Pixel &a, const Pixel &b) {
+  return std::max(
+      {channel_gap(a.r, b.r), channel_gap(a.g, b.g), channel_gap(a.b, b.b)});
+}
+
+/**
+ * @brief Asserts two shaded colors agree within a per-channel tolerance.
+ * @param actual Color produced by the code under test.
+ * @param expected Reference color.
+ * @param max_gap Largest RGB channel gap allowed, 16-bit scale.
+ * @param alpha_tolerance Absolute tolerance on alpha.
+ */
+inline void expect_color_within(const Color4 &actual, const Color4 &expected,
+                                uint16_t max_gap, float alpha_tolerance) {
+  HS_EXPECT_LE(max_channel_gap(actual.color, expected.color), max_gap);
+  HS_EXPECT_NEAR(actual.alpha, expected.alpha, alpha_tolerance);
+}
+
+/**
+ * @brief Running per-channel gap statistics over a sweep of pixel pairs.
+ * @details Every RGB channel of every pair counts once; alpha is not folded in.
+ */
+struct ChannelError {
+  uint16_t max = 0;
+  uint64_t total = 0;
+  uint64_t channels = 0;
+
+  /**
+   * @brief Folds one pixel pair's three channel gaps into the statistics.
+   * @param a First pixel.
+   * @param b Second pixel.
+   */
+  void add(const Pixel &a, const Pixel &b) {
+    for (uint16_t gap : {channel_gap(a.r, b.r), channel_gap(a.g, b.g),
+                         channel_gap(a.b, b.b)}) {
+      max = std::max(max, gap);
+      total += gap;
+    }
+    channels += 3;
+  }
+
+  /**
+   * @brief Mean gap per channel, truncated toward zero.
+   * @return total / channels.
+   */
+  uint64_t mean() const { return total / channels; }
+};
 
 /**
  * @brief Counts the non-black pixels across the effect's reported canvas.
