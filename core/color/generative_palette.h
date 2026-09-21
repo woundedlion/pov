@@ -104,8 +104,9 @@ public:
    * @param output Receives the compiled palette; untouched on rejection.
    * @param canonical Receives the normalized recipe the palette was built
    * from — what an authoring tool should persist; untouched on rejection.
-   * @param status Receives the verdict, the offending PaletteRecipeField and
-   * the bitmasks of every silent normalization; written on both outcomes.
+   * @param status Receives the verdict and the offending PaletteRecipeField on
+   * both outcomes, and the bitmasks of every silent normalization on success;
+   * a rejection clears them along with the recipe they described.
    * @return True when @p input compiled.
    */
   static bool try_compile(const PaletteRecipe &input, GenerativePalette &output,
@@ -531,6 +532,7 @@ private:
 
   static bool fail(PaletteCompileStatus &status, PaletteCompileCode code,
                    PaletteRecipeField field) {
+    status.adjustments = {};
     status.code = code;
     status.field = field;
     return false;
