@@ -240,7 +240,10 @@ names that output directly.
   chain order. A band holds any number of chips in sequence — the strip
   is the chain, not a slot-per-domain form.
 - **Crossings** render as **socket chips** after their input bands, labeled
-  with the carrier pair. The Sphere → Plane and Plane → Field sockets sit
+  by the function of the carrier the crossing produces — `Projection:` for
+  plane, `Source:` for field, `Color:` for color — ahead of the replacement
+  selector that names the operator; the carrier pair appears only in the
+  chip's accessible name. The Sphere → Plane and Plane → Field sockets sit
   between bands; the Field → Color socket ends the strip. A chain enters on
   sphere and exits on color, which the strip makes structural: sockets are
   the joints of the pipeline, bands are the variable runs between them. A
