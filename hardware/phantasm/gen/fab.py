@@ -977,7 +977,9 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
         except (IndexError, TypeError, ValueError):
             diagnostics.append(f"via at {location}: position is invalid")
             continue
-        valid_vias.append((x_mm, y_mm, diameter_mm))
+        net = sexp.val(via, "net", [])
+        valid_vias.append((x_mm, y_mm, diameter_mm,
+                           str(net[0]) if net else None))
         if diameter_mm < MIN_STANDARD_VIA_DIAMETER_MM:
             diagnostics.append(
                 f"via at {location}: {diameter_mm:g} mm diameter is below "
@@ -987,8 +989,13 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
                 f"via at {location}: {drill_mm:g} mm drill is below "
                 f"{MIN_STANDARD_VIA_DRILL_MM:g} mm")
 
-    for index, (x1, y1, diameter1) in enumerate(valid_vias):
-        for x2, y2, diameter2 in valid_vias[index + 1:]:
+    # Copper spacing is a different-net rule: same-net stitching vias may sit
+    # as close as the drills allow. An unnetted via belongs to no net, so it
+    # pairs against everything.
+    for index, (x1, y1, diameter1, net1) in enumerate(valid_vias):
+        for x2, y2, diameter2, net2 in valid_vias[index + 1:]:
+            if net1 is not None and net1 == net2:
+                continue
             spacing_mm = (
                 math.hypot(x2 - x1, y2 - y1)
                 - (diameter1 + diameter2) / 2
