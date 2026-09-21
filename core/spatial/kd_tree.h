@@ -134,19 +134,25 @@ public:
     // ever reject: the query degrades to a full traversal.
     k = std::min(k, nodes.size());
 
-    // Cached pruning bound: the largest squared distance in `result` and its
-    // slot, FLT_MAX until the set fills to k so nothing prunes early.
-    // Recomputed only when `result` changes, keeping the per-node prune test O(1).
+    // The k-best set is held in a plain array, not in `result`: every candidate
+    // offer and every sort swap would otherwise pay the ring buffer's checked
+    // index proxy.
+    Neighbor best[MAX_K];
+    size_t count = 0;
+
+    // Cached pruning bound: the largest squared distance in `best` and its slot,
+    // FLT_MAX until the set fills to k so nothing prunes early. Recomputed only
+    // when `best` changes, keeping the per-node prune test O(1).
     float worst_d_sq = FLT_MAX;
     size_t worst_i = 0;
     auto recompute_worst = [&]() {
       worst_d_sq = -1.0f;
       worst_i = 0;
-      for (size_t i = 0; i < result.size(); ++i) {
-        if (result[i].d_sq > worst_d_sq ||
-            (result[i].d_sq == worst_d_sq &&
-             result[i].original_index > result[worst_i].original_index)) {
-          worst_d_sq = result[i].d_sq;
+      for (size_t i = 0; i < count; ++i) {
+        if (best[i].d_sq > worst_d_sq ||
+            (best[i].d_sq == worst_d_sq &&
+             best[i].original_index > best[worst_i].original_index)) {
+          worst_d_sq = best[i].d_sq;
           worst_i = i;
         }
       }
@@ -155,14 +161,14 @@ public:
     // Offer a node to the k-best set: append while under k, otherwise displace
     // the cached worst entry if this one is closer.
     auto offer_candidate = [&](float d_sq, int idx) {
-      if (result.size() < static_cast<size_t>(k)) {
-        result.push_back({nodes[idx].point, nodes[idx].original_index, d_sq});
-        if (result.size() == static_cast<size_t>(k))
+      if (count < k) {
+        best[count++] = {nodes[idx].point, nodes[idx].original_index, d_sq};
+        if (count == k)
           recompute_worst(); // set just filled: cache its worst for pruning
       } else if (d_sq < worst_d_sq ||
                  (d_sq == worst_d_sq &&
-                  nodes[idx].original_index < result[worst_i].original_index)) {
-        result[worst_i] = {nodes[idx].point, nodes[idx].original_index, d_sq};
+                  nodes[idx].original_index < best[worst_i].original_index)) {
+        best[worst_i] = {nodes[idx].point, nodes[idx].original_index, d_sq};
         recompute_worst(); // worst displaced: refresh the cache
       }
     };
@@ -173,11 +179,12 @@ public:
 
     // Total order (distance, then source index): std::sort is unstable, so
     // equidistant neighbors would otherwise come back in an unspecified order.
-    std::sort(result.begin(), result.end(),
-              [](const Neighbor &a, const Neighbor &b) {
-                return a.d_sq != b.d_sq ? a.d_sq < b.d_sq
-                                        : a.original_index < b.original_index;
-              });
+    std::sort(best, best + count, [](const Neighbor &a, const Neighbor &b) {
+      return a.d_sq != b.d_sq ? a.d_sq < b.d_sq
+                              : a.original_index < b.original_index;
+    });
+    for (size_t i = 0; i < count; ++i)
+      result.push_back(best[i]);
     return result;
   }
 
