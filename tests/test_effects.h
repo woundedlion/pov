@@ -3715,7 +3715,9 @@ struct DynamoWhiteBox {
   static void set_trail_length(D &d, float v) { d.params.trail_length = v; }
   static float trail_ceiling(const D &d) { return d.params.trail_ceiling; }
   static uint32_t emitted_points(const D &d) { return d.emitted_points; }
-  static uint32_t emission_points(const D &d) { return d.emission_points; }
+  static uint32_t points_per_emission(const D &d) {
+    return d.points_per_emission;
+  }
   static size_t trail_points(D &d) { return d.filters.get<Ring>().size(); }
 };
 
@@ -3750,10 +3752,10 @@ inline void test_dynamo_trail_ceiling_bounds_the_ring() {
     HS_EXPECT_LT(WB::trail_points(effect), static_cast<size_t>(capacity));
   }
 
-  // Points buffered per frame at this speed: emission_points per whole step,
+  // Points buffered per frame at this speed: points_per_emission per whole step,
   // and speed_accumulator carries at most one extra step into a frame.
   const uint32_t per_frame =
-      WB::emission_points(effect) * (static_cast<uint32_t>(MAX_SPEED) + 1);
+      WB::points_per_emission(effect) * (static_cast<uint32_t>(MAX_SPEED) + 1);
   HS_EXPECT_GT(per_frame, 0u);
   HS_EXPECT_GT(per_frame * static_cast<uint32_t>(MAX_TRAIL), capacity);
   HS_EXPECT_LE(per_frame * static_cast<uint32_t>(WB::trail_ceiling(effect)),
