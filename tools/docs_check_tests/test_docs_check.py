@@ -399,12 +399,51 @@ class TestDocumentationChecker(unittest.TestCase):
 
     def test_stale_untracked_allowances_are_named(self):
         allowances = ("tracked.txt", "uncited.txt", "used.txt")
-        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", allowances):
+        used = {dc._cited(dc._UNTRACKED_LIST, "used.txt")}
+        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", allowances),                 mock.patch.object(dc, "_TREE_UNMAPPED", ()):
             stale = dict(item.split(" ", 1) for item in dc._stale_allowances(
-                {PurePosixPath("tracked.txt")}, {"used.txt"}))
+                {PurePosixPath("tracked.txt")}, used))
         self.assertEqual(stale["tracked.txt"], "(now tracked)")
         self.assertEqual(stale["uncited.txt"], "(uncited)")
         self.assertNotIn("used.txt", stale)
+
+    def test_stale_tree_unmapped_entries_are_named(self):
+        unmapped = ("gone/", "uncited.txt", "tests/")
+        entries = {PurePosixPath("uncited.txt"), PurePosixPath("tests"),
+                   PurePosixPath("tests/run.cpp")}
+        used = {dc._cited(dc._TREE_UNMAPPED_LIST, "tests/")}
+        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", ()), \
+                mock.patch.object(dc, "_TREE_UNMAPPED", unmapped):
+            stale = dc._stale_allowances(entries, used)
+        self.assertEqual(stale, ["tree-unmapped:gone/ (untracked)",
+                                 "tree-unmapped:uncited.txt (uncited)"])
+
+    def test_stale_checkout_allowances_are_named(self):
+        allowed = {"daydream": ("node_modules/", "tracked/", "uncited/"),
+                   "absent": ("vendor/",)}
+        checkouts = {"daydream": {PurePosixPath("tracked"),
+                                  PurePosixPath("tracked/file.js")}}
+        used = {dc._cited("daydream", "node_modules/")}
+        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", ()), \
+                mock.patch.object(dc, "_TREE_UNMAPPED", ()), \
+                mock.patch.object(dc, "_CHECKOUT_UNTRACKED_ALLOWED", allowed):
+            stale = dc._stale_allowances(set(), used, checkouts)
+        # The "absent" checkout got no --checkout root, so nothing can judge it.
+        self.assertEqual(stale, ["daydream:tracked/ (now tracked)",
+                                 "daydream:uncited/ (uncited)"])
+
+    def test_tree_allowance_citations_are_recorded(self):
+        text = ("<!-- docs-check: tree daydream exhaustive -->\n"
+                "```\n"
+                "├── daydream.js                 App entry\n"
+                "└── three.js/                   Optional vendored checkout\n"
+                "```\n")
+        checkouts = {"daydream": {PurePosixPath("daydream.js")}}
+        used: set[str] = set()
+        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
+                               used=used, checkouts=checkouts)
+        self.assertEqual(issues, [])
+        self.assertEqual(used, {dc._cited("daydream", "three.js/")})
 
     def test_detached_required_tree_directive_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -435,7 +474,7 @@ class TestDocumentationChecker(unittest.TestCase):
                                         allowance,
                                         {PurePosixPath("scripts")}, used)
         self.assertIsNone(issue)
-        self.assertEqual(used, {allowance})
+        self.assertEqual(used, {dc._cited(dc._UNTRACKED_LIST, allowance)})
 
     def test_slashless_paths_require_an_unambiguous_basename(self):
         source = PurePosixPath("README.md")
