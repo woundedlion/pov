@@ -508,6 +508,8 @@ public:
     }
 
     global_timeline_num_events = write_idx + new_vals_count;
+    if (global_timeline_num_events == 0)
+      global_timeline_drop_logged = false;
   }
 
   /**
