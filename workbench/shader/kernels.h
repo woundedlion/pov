@@ -326,13 +326,10 @@ warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
                const WarpStageParams &params, float amplitude,
                const FastNoiseLite &noise, const PreparedWarpStage &prepared,
                bool path_length_required) {
-  const uint8_t intervals = spec.curl_integrator == CurlIntegrator::EULER_1 ? 1
-                            : spec.curl_integrator == CurlIntegrator::MIDPOINT_2
-                                ? 2
-                                : 4;
   return Pullback::Warp::curl_flow(
-      input, noise, spec.basis, intervals, params.scale, amplitude,
-      prepared.transform.noise_loop.offset, path_length_required);
+      input, noise, spec.basis, curl_intervals(spec.curl_integrator),
+      params.scale, amplitude, prepared.transform.noise_loop.offset,
+      path_length_required);
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult

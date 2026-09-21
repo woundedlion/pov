@@ -564,6 +564,13 @@ HS_COLD_MEMBER inline constexpr bool warp_uses_noise(WarpStageKind kind) {
          kind == WarpStageKind::CURL_FLOW;
 }
 
+HS_COLD_MEMBER inline constexpr uint8_t
+curl_intervals(CurlIntegrator integrator) {
+  return integrator == CurlIntegrator::EULER_1      ? 1
+         : integrator == CurlIntegrator::MIDPOINT_2 ? 2
+                                                    : 4;
+}
+
 HS_COLD_MEMBER inline constexpr bool seam_sensitive_warp(WarpStageKind kind) {
   return kind == WarpStageKind::VECTOR_NOISE ||
          kind == WarpStageKind::CURL_FLOW;
