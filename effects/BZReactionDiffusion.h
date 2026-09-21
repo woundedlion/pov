@@ -416,7 +416,7 @@ private:
     uint16_t *A = nullptr, *B = nullptr, *C = nullptr;
   } state;
 
-  /** @brief Legacy species colors expressed as an explicit generative recipe. */
+  /** @brief Generative recipe for the three species colors. */
   GenerativePalette palette{EffectPaletteRecipes::bz_reaction_diffusion()};
 
   /** @brief Per-species palette channels converted once in init(). */
