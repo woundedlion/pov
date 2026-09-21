@@ -2607,6 +2607,9 @@ struct DreamBallsWhiteBox {
  *          own LUT) and, when the preset actually changes, reseed params to the
  *          new entry. A re-spawn of the SAME preset must instead hold params
  *          so a live slider edit survives.
+ *          The preset rows themselves are pinned by structure only (base mesh,
+ *          weave topology, palette); their magnitudes are checked against the
+ *          registered slider ranges and for row-to-row distinctness.
  */
 inline void test_dreamballs_preset_cycle_bookkeeping() {
   using WB = DreamBallsWhiteBox;
@@ -2620,137 +2623,86 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::active_bake(db), 1);
   HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(0));
 
-  const auto &rhombicuboctahedron = WB::preset_params(0);
-  HS_EXPECT_EQ(rhombicuboctahedron.base_mesh,
-               WB::DB::BaseMesh::RHOMBICUBOCTAHEDRON);
-  HS_EXPECT_EQ(rhombicuboctahedron.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(rhombicuboctahedron.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicuboctahedron.num_copies, 18.0f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicuboctahedron.offset_radius, 0.3f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicuboctahedron.offset_speed, 0.4f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicuboctahedron.alpha, 0.7f, 1e-6f);
+  // A preset row is authored artistic data that is retuned freely, so its
+  // magnitudes (gap, copies, radius, speed, alpha) are not pinned: a golden
+  // copy of them reds on every intentional retune and reports nothing. The
+  // structural selections each row draws are pinned here; the magnitudes are
+  // swept against the registered slider ranges in the cycle below.
+  struct Row {
+    WB::DB::BaseMesh base_mesh;
+    WB::DB::WeaveTopology weave_topology;
+    const Palette *palette;
+  };
+  using BaseMesh = WB::DB::BaseMesh;
+  constexpr auto AUTOMATIC = WB::DB::WeaveTopology::AUTOMATIC;
+  const Row rows[] = {
+      {BaseMesh::RHOMBICUBOCTAHEDRON, AUTOMATIC, WB::blood_stream_falloff(db)},
+      {BaseMesh::RHOMBICOSIDODECAHEDRON, AUTOMATIC,
+       WB::blood_stream_falloff(db)},
+      {BaseMesh::TRUNCATED_CUBOCTAHEDRON, AUTOMATIC, &Palettes::RICH_SUNSET},
+      {BaseMesh::ICOSIDODECAHEDRON, AUTOMATIC, &Palettes::LAVENDER_LAKE},
+      {BaseMesh::SNUB_CUBE, AUTOMATIC, &Palettes::MAUVE_FADE},
+      {BaseMesh::TRUNCATED_DODECAHEDRON, AUTOMATIC, &Palettes::CORAL_BLUE},
+      {BaseMesh::TRIAKIS_ICOSAHEDRON, AUTOMATIC, &Palettes::BRUISED_MOSS},
+      {BaseMesh::TRIAKIS_ICOSAHEDRON, AUTOMATIC, &Palettes::LAVENDER_LAKE},
+      {BaseMesh::DISDYAKIS_TRIACONTAHEDRON, AUTOMATIC, &Palettes::PLUM_SUNRISE},
+      {BaseMesh::TRIAKIS_ICOSAHEDRON, AUTOMATIC, &Palettes::BRUISED_MANGO},
+  };
+  HS_EXPECT_EQ(std::size(rows), static_cast<size_t>(WB::PRESETS));
+  for (int i = 0; i < WB::PRESETS; ++i) {
+    HS_CONTEXT("preset", i);
+    const auto &params = WB::preset_params(i);
+    HS_EXPECT_EQ(params.base_mesh, rows[i].base_mesh);
+    HS_EXPECT_EQ(params.weave_topology, rows[i].weave_topology);
+    HS_EXPECT_TRUE(WB::preset_palette(db, i) == rows[i].palette);
+  }
 
-  const auto &rhombicosidodecahedron = WB::preset_params(1);
-  HS_EXPECT_EQ(rhombicosidodecahedron.base_mesh,
-               WB::DB::BaseMesh::RHOMBICOSIDODECAHEDRON);
-  HS_EXPECT_EQ(rhombicosidodecahedron.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(rhombicosidodecahedron.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicosidodecahedron.num_copies, 6.0f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicosidodecahedron.offset_radius, 0.05f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicosidodecahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(rhombicosidodecahedron.alpha, 0.7f, 1e-6f);
-
-  const auto &truncated_cuboctahedron = WB::preset_params(2);
-  HS_EXPECT_EQ(truncated_cuboctahedron.base_mesh,
-               WB::DB::BaseMesh::TRUNCATED_CUBOCTAHEDRON);
-  HS_EXPECT_EQ(truncated_cuboctahedron.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(truncated_cuboctahedron.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_cuboctahedron.num_copies, 6.0f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_cuboctahedron.offset_radius, 0.16f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_cuboctahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_cuboctahedron.alpha, 0.3f, 1e-6f);
-
-  const auto &icosidodecahedron = WB::preset_params(3);
-  HS_EXPECT_EQ(icosidodecahedron.base_mesh,
-               WB::DB::BaseMesh::ICOSIDODECAHEDRON);
-  HS_EXPECT_EQ(icosidodecahedron.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(icosidodecahedron.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(icosidodecahedron.num_copies, 10.0f, 1e-6f);
-  HS_EXPECT_NEAR(icosidodecahedron.offset_radius, 0.16f, 1e-6f);
-  HS_EXPECT_NEAR(icosidodecahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(icosidodecahedron.alpha, 0.3f, 1e-6f);
-
-  const auto &snub_cube = WB::preset_params(4);
-  HS_EXPECT_EQ(snub_cube.base_mesh, WB::DB::BaseMesh::SNUB_CUBE);
-  HS_EXPECT_EQ(snub_cube.weave_topology, WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(snub_cube.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(snub_cube.num_copies, 4.534f, 1e-6f);
-  HS_EXPECT_NEAR(snub_cube.offset_radius, 0.153f, 1e-6f);
-  HS_EXPECT_NEAR(snub_cube.offset_speed, 2.025f, 1e-6f);
-  HS_EXPECT_NEAR(snub_cube.alpha, 0.3f, 1e-6f);
-
-  const auto &truncated_dodecahedron = WB::preset_params(5);
-  HS_EXPECT_EQ(truncated_dodecahedron.base_mesh,
-               WB::DB::BaseMesh::TRUNCATED_DODECAHEDRON);
-  HS_EXPECT_EQ(truncated_dodecahedron.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(truncated_dodecahedron.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_dodecahedron.num_copies, 4.515f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_dodecahedron.offset_radius, 0.179f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_dodecahedron.offset_speed, 1.89f, 1e-6f);
-  HS_EXPECT_NEAR(truncated_dodecahedron.alpha, 0.7f, 1e-6f);
-
-  const auto &triakis_icosahedron = WB::preset_params(6);
-  HS_EXPECT_EQ(triakis_icosahedron.base_mesh,
-               WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
-  HS_EXPECT_EQ(triakis_icosahedron.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(triakis_icosahedron.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron.num_copies, 4.515f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron.offset_radius, 0.131f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron.offset_speed, 1.89f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron.alpha, 0.7f, 1e-6f);
-
-  const auto &triakis_icosahedron_six_copies = WB::preset_params(7);
-  HS_EXPECT_EQ(triakis_icosahedron_six_copies.base_mesh,
-               WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
-  HS_EXPECT_EQ(triakis_icosahedron_six_copies.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.num_copies, 6.0f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.offset_radius, 0.078f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_six_copies.alpha, 0.3f, 1e-6f);
-
-  const auto &disdyakis_triacontahedron = WB::preset_params(8);
-  HS_EXPECT_EQ(disdyakis_triacontahedron.base_mesh,
-               WB::DB::BaseMesh::DISDYAKIS_TRIACONTAHEDRON);
-  HS_EXPECT_EQ(disdyakis_triacontahedron.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(disdyakis_triacontahedron.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(disdyakis_triacontahedron.num_copies, 6.0f, 1e-6f);
-  HS_EXPECT_NEAR(disdyakis_triacontahedron.offset_radius, 0.03f, 1e-6f);
-  HS_EXPECT_NEAR(disdyakis_triacontahedron.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(disdyakis_triacontahedron.alpha, 0.3f, 1e-6f);
-
-  const auto &triakis_icosahedron_compact = WB::preset_params(9);
-  HS_EXPECT_EQ(triakis_icosahedron_compact.base_mesh,
-               WB::DB::BaseMesh::TRIAKIS_ICOSAHEDRON);
-  HS_EXPECT_EQ(triakis_icosahedron_compact.weave_topology,
-               WB::DB::WeaveTopology::AUTOMATIC);
-  HS_EXPECT_NEAR(triakis_icosahedron_compact.weave_gap, 0.18f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_compact.num_copies, 6.0f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_compact.offset_radius, 0.03f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_compact.offset_speed, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(triakis_icosahedron_compact.alpha, 0.3f, 1e-6f);
-
-  HS_EXPECT_TRUE(WB::preset_palette(db, 0) == WB::blood_stream_falloff(db));
-  HS_EXPECT_TRUE(WB::preset_palette(db, 1) == WB::blood_stream_falloff(db));
-  HS_EXPECT_TRUE(WB::preset_palette(db, 2) == &Palettes::RICH_SUNSET);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 3) == &Palettes::LAVENDER_LAKE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 4) == &Palettes::MAUVE_FADE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 5) == &Palettes::CORAL_BLUE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 6) == &Palettes::BRUISED_MOSS);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 7) == &Palettes::LAVENDER_LAKE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 8) == &Palettes::PLUM_SUNRISE);
-  HS_EXPECT_TRUE(WB::preset_palette(db, 9) == &Palettes::BRUISED_MANGO);
+  // register_param traps on a default outside its range, but a preset row is
+  // assigned straight into params and never passes through it.
+  auto expect_in_range = [&]() {
+    for (const auto &def : db.getParameters()) {
+      HS_CONTEXT(def.name);
+      const float v = def.get();
+      HS_EXPECT_TRUE(std::isfinite(v));
+      HS_EXPECT_GE(v, def.min);
+      HS_EXPECT_LE(v, def.max);
+      if (def.option_count > 0) {
+        HS_EXPECT_EQ(v, std::floor(v));
+        HS_EXPECT_LT(v, static_cast<float>(def.option_count));
+      }
+    }
+  };
 
   // Not-paused advance chain: each step advances the selector then re-spawns, so
   // the preset is step modulo the preset count. Drive two full cycles; the bake
   // slot must ping-pong and params must reseed to the new index each step.
   int expect_bake = WB::active_bake(db); // 1
+  std::vector<std::vector<float>> live_rows;
   for (int step = 1; step <= 2 * WB::PRESETS; ++step) {
     WB::advance(db);
     expect_bake ^= 1;
     const int safe = step % WB::PRESETS;
+    HS_CONTEXT("preset", safe);
     HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
     HS_EXPECT_EQ(db.getPresetIndex(), static_cast<size_t>(safe));
     HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(safe));
+    expect_in_range();
+    if (step <= WB::PRESETS) {
+      std::vector<float> live_row;
+      for (const auto &def : db.getParameters())
+        live_row.push_back(def.get());
+      live_rows.push_back(live_row);
+    }
   }
+
+  // Two rows that collapse onto the same parameter vector are one preset the
+  // cycle visits twice, which no range or selection check above would show.
+  for (size_t i = 0; i < live_rows.size(); ++i)
+    for (size_t j = i + 1; j < live_rows.size(); ++j) {
+      HS_CONTEXT("preset pair", static_cast<int>(i), static_cast<int>(j));
+      HS_EXPECT(live_rows[i] != live_rows[j],
+                "each DreamBalls preset must be distinct");
+    }
 
   // Same-preset path: re-spawn without advancing; params are only adopted on a
   // preset change, so a live slider edit must survive the re-spawn — while the
