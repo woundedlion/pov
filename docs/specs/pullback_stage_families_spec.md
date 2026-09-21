@@ -1056,13 +1056,13 @@ engine contract lives here; routing and editing are the tool spec's
 concern.
 
 - **The engine trusts nothing across the boundary.** The wire payload
-  of `setShaderChain` is an ordered list of `{instance_id, operator_id}`
+  of `setShaderChain` is an ordered list of `{instance, operator}`
   and nothing else — no offsets, no family tags, nothing layout-shaped,
   and **no parameter values**: values flow through the existing
-  per-parameter channel (`setParameter`, keyed `instance_id.field`,
+  per-parameter channel (`setParameter`, keyed `instance.field`,
   validated against the operator's schema) *after* compilation, per the
   apply order below, so the transaction boundary is the chain compile
-  alone and values always apply to a committed program. `instance_id`
+  alone and values always apply to a committed program. `instance`
   is the document's chain-entry label: operator ids alone cannot
   distinguish `warp1` from `warp2`, and the engine needs the instance
   identity to register per-instance parameter definitions before values
@@ -1075,7 +1075,7 @@ concern.
   preset bank, which digests separately as `preset_bank_digest`, so a
   preset edit leaves the descriptor digest, and the parity toggle it
   arms, untouched; the *program-shape identity* is the ordered
-  `{instance_id, operator_id}` list, exactly what `setShaderChain`
+  `{instance, operator}` list, exactly what `setShaderChain`
   consumes — many documents share one program shape and differ only in
   the values they then apply; the *instance-state identity* is a
   single entry's `(instance_id, operator_id)` pair, the migration key
@@ -1087,7 +1087,7 @@ concern.
   `setShaderChain` *compiles* the shape: it
   resolves each operator against the engine's own operator table (the
   C++ ground truth the catalog is pinned to), rejects duplicate or
-  malformed `instance_id`s (they own parameter namespaces), validates
+  malformed `instance` labels (they own parameter namespaces), validates
   existence, carrier adjacency, entry/exit, and the arena/length
   budget — whose authoritative limits (a single arena's capacity, the
   chain-length cap, alongside the per-op block sizes already
