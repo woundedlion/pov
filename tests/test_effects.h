@@ -147,10 +147,10 @@ constexpr bool is_roster_effect(const char *name) {
 inline bool effect_may_be_dark(const char *name, int frames) {
   // Renaming the effect class turns the exemption into a build error here
   // rather than a silently stale strcmp that drops the smoke assertion.
-  static constexpr const char *kExemptDark = "RingShower";
-  static_assert(is_roster_effect(kExemptDark),
+  static constexpr const char *EXEMPT_DARK = "RingShower";
+  static_assert(is_roster_effect(EXEMPT_DARK),
                 "all-black smoke exemption names a non-roster effect");
-  if (std::strcmp(name, kExemptDark) == 0)
+  if (std::strcmp(name, EXEMPT_DARK) == 0)
     return frames < 30;
   return false;
 }
