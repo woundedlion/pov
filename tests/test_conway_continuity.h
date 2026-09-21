@@ -1525,12 +1525,7 @@ inline void test_palette_slots_stable_within_cycle() {
 // glides to its target in bounded per-frame steps via the strap-face LUT;
 // star faces resolve to the assignment's exact bank entry at every frame,
 // keeping the bookend star colors bitwise exact even on slots the mod-5 wrap
-// shares between a star and a rosette class. Pre-fix, reborn strap slots
-// opened directly on the fresh shuffle: an open-vs-previous-close LUT jump of
-// up to ~57000/65535 per channel (measured as a 60210 mean-strap-color pop
-// within ~4 frames of the bookend on the 30-leg 288x144 strap-snap harness
-// tour); star-shared slots stayed exempt and popped by the full carried
-// distance (60098 at truncatedIcosidodecahedron, epoch seed 7, same harness).
+// shares between a star and a rosette class.
 // ---------------------------------------------------------------------------
 
 /** Ceiling on one frame's smoothstep advance over the 20-frame window (max
@@ -1656,9 +1651,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
 
       if (have_prev && prev_used[s]) {
         // Continuity across the cycle start: the slot's straps open on the
-        // color the slot displayed when the previous cycle closed. (Pre-fix,
-        // rosette-only slots opened on idx[s] and star-shared slots were
-        // exempt from arming entirely -- the would-be jump below.)
+        // color the slot displayed when the previous cycle closed.
         HS_EXPECT_EQ(from[s], prev_display[s]);
         const int jump = lut_sample_dist(bank.entries[prev_display[s]],
                                          bank.entries[idx[s]]);
@@ -1719,18 +1712,17 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
 
 /**
  * @brief Single-walk strap-crossfade pin at the boot seed (epoch 0).
- * @details Red pre-crossfade via the continuity pin: without it a strap
- *          slot's opening LUT is the fresh target, which jumps from the
- *          previous cycle's display by the full palette distance (printed as
- *          the would-be jump; the run must exercise at least one such far
- *          pair for the pin to discriminate).
+ * @details Without the crossfade a strap slot's opening LUT is the fresh
+ *          target, which jumps from the previous cycle's display by the full
+ *          palette distance (printed as the would-be jump; the run must
+ *          exercise at least one such far pair for the pin to discriminate).
  */
 inline void test_strap_crossfade_across_cycle_start() {
   constexpr int TARGET_ARRIVALS = 10;
   const StrapSweepStats st =
       check_strap_crossfade_arrivals(0, TARGET_ARRIVALS, 2600);
   HS_EXPECT_EQ(st.arrivals, TARGET_ARRIVALS);
-  std::printf("  [strap-crossfade] worst would-be pre-fix open jump %d "
+  std::printf("  [strap-crossfade] worst would-be open jump %d "
               "(16-bit max channel; crossfaded to per-frame steps)\n",
               st.would_be_jump);
   // The walk must have exercised at least one far (from, to) pair, or the
@@ -1749,12 +1741,6 @@ constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 18, 6, 18, 26, 26};
  *        slot of every arrival opens on its previous displayed color and
  *        glides in bounded steps — including slots shared with a star class,
  *        whose star faces stay bitwise on the bank entry at the bookends.
- * @details Red pre-fix: star-shared slots were exempt from arming, so their
- *          straps reopened bitwise on the carried star palette — a full-
- *          distance pop whenever the epoch's shuffle moved the slot (13
- *          continuity-pin failures across the sweep, worst 65532/65535 at
- *          epochs 3 and 15, arriving icosidodecahedron ->
- *          truncatedIcosidodecahedron).
  */
 inline void test_strap_crossfade_seed_swept() {
   int far = 0;
@@ -1846,10 +1832,9 @@ inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
  *        full coverage they hard-recolor the cut star interiors.
  * @details Drives to an arrival that cuts enough star interior to pin, then
  *          renders three frames at the same (unadvanced) camera: the angle-0
- *          bookend, the first strap frame at full coverage (the pre-fix
- *          artifact), and the same frame faded (the fix). The full-coverage pop
- *          must be large and the faded pop small, so the assertion is red
- *          without the fade and green with it.
+ *          bookend, the first strap frame at full coverage, and the same frame
+ *          faded. The full-coverage pop must be large and the faded pop small,
+ *          so the assertion is red without the fade and green with it.
  */
 inline void test_strap_open_fade() {
   reset_globals();
@@ -1879,9 +1864,9 @@ inline void test_strap_open_fade() {
     HS_EXPECT_LT(guard, 400);
 
     fade = Probe::strap_open_fade(fx, 1);
-    capture_opening(fx, 0.0f, 1.0f, bookend);     // straps zero-area
-    capture_opening(fx, open_angle, 1.0f, full);  // pre-fix: full coverage
-    capture_opening(fx, open_angle, fade, faded); // fix: faded coverage
+    capture_opening(fx, 0.0f, 1.0f, bookend); // straps zero-area
+    capture_opening(fx, open_angle, 1.0f, full);
+    capture_opening(fx, open_angle, fade, faded);
     pop_full = hard_recolor_count(bookend, full);
     pop_faded = hard_recolor_count(bookend, faded);
     if (pop_full > MIN_POP_FULL)
