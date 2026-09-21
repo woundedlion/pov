@@ -31,6 +31,37 @@ using PassFn3D =
     FunctionRef<void(const Vector &, const ::Pixel &, float, float)>;
 
 /**
+ * @brief Rounds a sub-pixel column to its pixel center and wraps it into [0, W).
+ * @tparam W Canvas width in columns.
+ * @param x Column coordinate; must round into [-W, 2W).
+ * @return The wrapped integer column.
+ */
+template <int W>
+__attribute__((always_inline)) inline int round_wrap_column(float x) {
+  // Non-finite x makes the int cast below UB and bypasses the wrap.
+  assert(std::isfinite(x));
+  assert(x > -W - 0.5f && x < 2 * W - 0.5f);
+  const float xr = std::round(x);
+  // fast_wrap corrects only a single +/-W offset, so xr must land in [-W, 2W).
+  assert(xr >= -W && xr < 2 * W);
+  return fast_wrap(static_cast<int>(xr), W);
+}
+
+/**
+ * @brief Rounds a sub-pixel row to its nearest pixel row.
+ * @tparam H Canvas height in rows.
+ * @param y Row coordinate.
+ * @return The rounded row, which may lie outside [0, H): rows never wrap.
+ */
+template <int H> __attribute__((always_inline)) inline int round_row(float y) {
+  // Non-finite y makes the int cast below UB.
+  assert(std::isfinite(y));
+  // Bounded only so the cast below stays in range.
+  assert(y >= -H && y < 2 * H);
+  return static_cast<int>(std::round(y));
+}
+
+/**
  * @brief Trait base every filter stage derives from, tagging its domain and
  * whether it carries state across frames.
  * @tparam Is2d True for a screen-space stage, false for a world-space one.
@@ -352,19 +383,10 @@ template <int W, int H> struct Pipeline<W, H> {
    */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float,
             float alpha) {
-    // Non-finite coords make the int casts below UB and bypass the wrap.
-    assert(std::isfinite(x) && std::isfinite(y));
-    assert(x > -W - 0.5f && x < 2 * W - 0.5f);
-    // y never wraps; bounded only so the cast below stays in range.
-    assert(y >= -H && y < 2 * H);
-    const float xr = std::round(x);
-    // fast_wrap corrects only a single ±W offset, so xr must land in [-W, 2W).
-    assert(xr >= -W && xr < 2 * W);
-    int xi = static_cast<int>(xr);
-    int yi = static_cast<int>(std::round(y));
+    const int yi = Filter::round_row<H>(y);
     if (!cv.clip_contains_y(yi))
       return;
-    xi = fast_wrap(xi, W);
+    const int xi = Filter::round_wrap_column<W>(x);
     if (!cv.clip_contains_x(xi))
       return;
     plot_in_bounds(cv, xi, yi, c, 0.0f, alpha);
