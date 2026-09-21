@@ -14,6 +14,10 @@
  * @brief Spatial noise-driven hue rotation for arbitrary palette sources.
  */
 
+/** @brief Largest float below 1: the top of the half-open palette coordinate
+ *  the hue-rotation LUT is baked over and sampled at. */
+inline constexpr float UNIT_OPEN_MAX = 0x1.fffffep-1f;
+
 /** @brief View over palette-coordinate by hue-rotation colors. */
 struct HueRotationLutView {
   static constexpr int VALUE_STEPS = 64;
@@ -45,7 +49,6 @@ template <typename Palette>
 HS_FLASH_INLINE inline void
 prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
                          const Palette &palette) {
-  constexpr float UNIT_OPEN_MAX = 0x1.fffffep-1f;
   for (int value_index = 0; value_index < HueRotationLutView::VALUE_STEPS;
        ++value_index) {
     const float value =

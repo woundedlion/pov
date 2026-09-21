@@ -17,8 +17,6 @@ namespace Pullback {
 
 namespace Color {
 
-inline constexpr float UNIT_OPEN_MAX = 0x1.fffffep-1f;
-
 enum class PaletteMapping : uint8_t {
   CUP = 0,
   BELL = 1,
@@ -143,6 +141,7 @@ struct PaletteMappingWeights {
 using ::HueNoiseBakeCache;
 using ::HueNoiseLutView;
 using ::HueRotationLutView;
+using ::UNIT_OPEN_MAX;
 using ::hue_noise_face_direction;
 using ::prepare_hue_noise_lut;
 using ::prepare_hue_rotation_lut;
