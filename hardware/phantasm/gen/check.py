@@ -5,9 +5,9 @@ gate as loudly as a short or a break does. gen/tests/test_check.py applies the
 same table to the committed board's pad nets; that is the leg CI runs.
 """
 import argparse
-import sys
 import os
-sys.path.insert(0, os.path.dirname(__file__))
+import sys
+
 import sexp
 from kicad_common import F, export_netlist, kicad_cli
 
