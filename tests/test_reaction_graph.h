@@ -47,6 +47,23 @@ static inline float chord2(const Vector &a, const Vector &b) {
   return dx * dx + dy * dy + dz * dz;
 }
 
+/**
+ * @brief Upper bound on chord^2 from a node to any listed neighbor.
+ * @details The shipped table's worst edge is chord^2 0.003808 (row 26 -> node
+ *          60, 3.54 deg, ~1.5 lattice rings); the bound leaves ~2x headroom for
+ *          regeneration and libm drift while a row shifted three rings
+ *          (chord^2 ~0.015) trips it.
+ */
+constexpr float MAX_NEIGHBOR_CHORD2 = 0.008f;
+
+/**
+ * @brief Chord^2 bound separating a real neighbor from a zero-pad entry.
+ * @details A zero-padded row points every slot at node 0 (the north pole),
+ *          chord^2 ~4 from the south-pole row; this bound only has to sit far
+ *          below that, not track the table's real locality.
+ */
+constexpr float PADDED_ROW_CHORD2 = 0.037f;
+
 // ---------------------------------------------------------------------------
 // node() generator
 // ---------------------------------------------------------------------------
@@ -146,9 +163,7 @@ inline void test_table_shape_matches_constants() {
     if (ni < 0 || ni >= RD_N)
       continue;
     ++valid;
-    // A zero-padded row points every slot at node 0 (the north pole), ~chord^2 4
-    // from this south-pole row; a real neighbor is within ~11 deg (chord^2<0.037).
-    HS_EXPECT_LT(chord2(last, node(ni)), 0.037f);
+    HS_EXPECT_LT(chord2(last, node(ni)), PADDED_ROW_CHORD2);
   }
   HS_EXPECT_GT(valid, 0); // populated, not a zero-pad row
 }
@@ -253,12 +268,10 @@ inline void test_degree_is_exactly_rd_k() {
 
 /**
  * @brief Verifies every listed neighbor is geometrically nearby its node.
- * @details A shuffled or corrupted table would place neighbors far apart, well
- *          past the expected ~11 deg upper bound.
+ * @details A shuffled, corrupted or ring-shifted row places a neighbor past
+ *          MAX_NEIGHBOR_CHORD2.
  */
 inline void test_neighbors_are_local() {
-  // ~11 deg upper bound for a listed neighbor → chord^2 < 0.037.
-  const float MAX_CHORD2 = 0.037f;
   int first_far_slot = -1;
   for (int i = 0; i < RD_N; ++i) {
     Vector p = node(i);
@@ -266,7 +279,7 @@ inline void test_neighbors_are_local() {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
-      if (chord2(p, node(ni)) > MAX_CHORD2 && first_far_slot < 0)
+      if (chord2(p, node(ni)) > MAX_NEIGHBOR_CHORD2 && first_far_slot < 0)
         first_far_slot = i * RD_K + k;
     }
   }
