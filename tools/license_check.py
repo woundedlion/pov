@@ -27,7 +27,8 @@ MIT_GRANT = "Permission is hereby granted"
 MIT_TITLE = "MIT License"
 THIRD_PARTY = frozenset({MIT_GRANT, MIT_TITLE})
 
-SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cc", ".cpp", ".inl", ".ino")
+SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cc", ".cpp", ".def", ".inl",
+                   ".ino")
 
 _GIT_TIMEOUT_SECONDS = 30
 
