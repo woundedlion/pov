@@ -859,6 +859,12 @@ template <typename... Ts> struct PolicyList {
         Ts::RETARGET_SAFE_UNDER_OVERLAP) &&
        ...);
 
+  /** @brief Whether every listed policy that declares LOCAL_SWEEP declares it
+   * as a constant-usable bool. MeshCarousel asserts this too, but only for the
+   * policies an effect instantiates. */
+  static constexpr bool LOCAL_SWEEPS_TYPED =
+      ((!DeclaresLocalSweep<Ts> || LocalSweeps<Ts>) && ...);
+
   /**
    * @brief Invokes @p fn once per policy, on a default-constructed instance.
    * @param fn Callable taking any policy.
@@ -887,6 +893,10 @@ static_assert(AllPolicies::RETARGET_SURVIVES_OVERLAP,
               "instance's per-transition state, which the outgoing sprite is "
               "still reading: schedule sequentially, or set "
               "RETARGET_SAFE_UNDER_OVERLAP once the rewrite is shown harmless");
+
+static_assert(AllPolicies::LOCAL_SWEEPS_TYPED,
+              "a segue's LOCAL_SWEEP must be static constexpr bool: the "
+              "per-face draw path reads it as a constant expression");
 
 /**
  * @brief Preset-transition policies: the second Segue concept, beside the
