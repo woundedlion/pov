@@ -4015,6 +4015,11 @@ inline void case_field_coverage_increases() {
   Pullback::Kernel::coverage(Pullback::FieldSample{}, opaque(1.1f));
 }
 
+/** @brief The Sample crossing rejects a coverage factor outside [0, 1]. */
+inline void case_field_sample_coverage_outside_range() {
+  Pullback::Kernel::sample(Pullback::PlaneSample{}, 0.0f, opaque(1.1f));
+}
+
 /** @brief A full timeline must refuse an OpLeg continuation. */
 inline void case_opleg_no_event_slot() {
   Timeline tl;
@@ -4053,6 +4058,9 @@ inline const Case *all_cases(int &n) {
        "(value >= 0.0f && value <= 1.0f) field transfer must remain in [0, 1]"},
       {"field_coverage_increases", case_field_coverage_increases, "stage.h",
        "(factor >= 0.0f && factor <= 1.0f) field coverage factor must remain in [0, 1]"},
+      {"field_sample_coverage_outside_range",
+       case_field_sample_coverage_outside_range, "stage.h",
+       "(coverage >= 0.0f && coverage <= 1.0f && input.provenance.domain_coverage >= 0.0f && input.provenance.domain_coverage <= 1.0f) field coverage factors must remain in [0, 1]"},
       {"reconcile_aliased_arenas", case_reconcile_aliased_arenas, "conway.h",
        "(&target != &scratch) reconcile_vertices: target and scratch must differ"},
       {"opleg_no_event_slot", case_opleg_no_event_slot, "opleg.h",
