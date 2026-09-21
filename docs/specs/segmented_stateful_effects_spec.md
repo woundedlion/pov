@@ -208,8 +208,8 @@ ever changes, harden this to an explicit `set_clip(0, H, 0, W)` instead.)
 The elegance is that **the hot-path filter code needs no change**. With a
 full clip, `XClip::active` is false and the coarse-row band spans every row,
 so the flush's existing band-pruning (`Pixel::Feedback::make_render_band` and
-`populate_warp_field`) already degrades to full-frame — the comments there
-note "a full canvas... does the same work either way." `blitSegmentRect` still
+`populate_warp_field`) already degrades to full-frame: the ring band covers
+the whole field and the warp field is populated whole. `blitSegmentRect` still
 slices each worker's quadrant from the full readback, unchanged. Every worker
 computes the bit-identical full frame; only the slice differs — matching the
 device exactly.
