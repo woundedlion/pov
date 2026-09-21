@@ -13,9 +13,11 @@
  *
  * The golden's block sizes and alignments are the native ABI, emitted by the
  * host build this suite runs in. scripts/engine_catalog.json is a second
- * catalog stating the wasm32 ABI the browser workbench budgets against. They
- * diverge only in the prepared block of the pointer-bearing operators: they
- * are not to be reconciled, and copying either over the other retargets a
+ * catalog stating the wasm32 ABI the browser workbench budgets against,
+ * rewritten by the Emscripten build's own generator target:
+ *   cmake --build --preset wasm-release --target regenerate_engine_catalog
+ * The two diverge only in the prepared block of the pointer-bearing operators:
+ * they are not to be reconciled, and copying either over the other retargets a
  * consumer's budget math.
  */
 #pragma once
