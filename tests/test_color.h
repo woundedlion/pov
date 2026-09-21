@@ -290,16 +290,21 @@ inline void test_pixel_scale_clamps_before_cast() {
 // OKLab / OKLCH round-trips
 // ============================================================================
 
+/** Allowed absolute error of an OKLab/OKLCH round trip in 8-bit sRGB levels.
+    The OKLab path is float throughout; the OKLCH path adds one 16-bit linear
+    quantization, worth under 0.03 of a level at the dark end. One level
+    bounds both with margin. */
+inline constexpr float ROUNDTRIP_TOL255 = 1.0f;
+
 /**
  * @brief Round-trips one sRGB color through OKLab and asserts recovery.
  * @param r Source red channel in [0, 255].
  * @param g Source green channel in [0, 255].
  * @param b Source blue channel in [0, 255].
- * @param tol255 Allowed absolute error in 8-bit sRGB levels.
  * @details Path: sRGB[0-255] -> linear float -> OKLab -> linear float ->
  *          sRGB[0-255].
  */
-inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b, float tol255) {
+inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b) {
   float rf = srgb_to_linear_float(r / 255.0f);
   float gf = srgb_to_linear_float(g / 255.0f);
   float bf = srgb_to_linear_float(b / 255.0f);
@@ -312,30 +317,30 @@ inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b, float tol255) {
   float gs = linear_to_srgb_float(hs::clamp(g2, 0.0f, 1.0f)) * 255.0f;
   float bs = linear_to_srgb_float(hs::clamp(b2, 0.0f, 1.0f)) * 255.0f;
 
-  HS_EXPECT_NEAR(rs, static_cast<float>(r), tol255);
-  HS_EXPECT_NEAR(gs, static_cast<float>(g), tol255);
-  HS_EXPECT_NEAR(bs, static_cast<float>(b), tol255);
+  HS_EXPECT_NEAR(rs, static_cast<float>(r), ROUNDTRIP_TOL255);
+  HS_EXPECT_NEAR(gs, static_cast<float>(g), ROUNDTRIP_TOL255);
+  HS_EXPECT_NEAR(bs, static_cast<float>(b), ROUNDTRIP_TOL255);
 }
 
 /**
  * @brief Verifies sRGB -> OKLab -> sRGB recovers a spread of colors.
  * @details Recovers grays, primaries/secondaries, and an arbitrary color to
- *          within tol255 of the original 8-bit value.
+ *          within ROUNDTRIP_TOL255 of the original 8-bit value.
  */
 inline void test_oklab_roundtrip() {
   // Grays
-  roundtrip_oklab(0, 0, 0, 1.0f);
-  roundtrip_oklab(128, 128, 128, 1.0f);
-  roundtrip_oklab(255, 255, 255, 1.0f);
+  roundtrip_oklab(0, 0, 0);
+  roundtrip_oklab(128, 128, 128);
+  roundtrip_oklab(255, 255, 255);
   // Saturated primaries / secondaries
-  roundtrip_oklab(255, 0, 0, 1.0f);
-  roundtrip_oklab(0, 255, 0, 1.0f);
-  roundtrip_oklab(0, 0, 255, 1.0f);
-  roundtrip_oklab(255, 255, 0, 1.0f);
-  roundtrip_oklab(0, 255, 255, 1.0f);
-  roundtrip_oklab(255, 0, 255, 1.0f);
+  roundtrip_oklab(255, 0, 0);
+  roundtrip_oklab(0, 255, 0);
+  roundtrip_oklab(0, 0, 255);
+  roundtrip_oklab(255, 255, 0);
+  roundtrip_oklab(0, 255, 255);
+  roundtrip_oklab(255, 0, 255);
   // Arbitrary
-  roundtrip_oklab(37, 142, 211, 1.0f);
+  roundtrip_oklab(37, 142, 211);
 }
 
 /**
@@ -343,32 +348,31 @@ inline void test_oklab_roundtrip() {
  * @param r Source red channel in [0, 255].
  * @param g Source green channel in [0, 255].
  * @param b Source blue channel in [0, 255].
- * @param tol255 Allowed absolute error in 8-bit sRGB levels.
  * @details Path: sRGB[0-255] -> OKLCH -> OKLab -> linear -> sRGB[0-255].
  */
-inline void roundtrip_oklch(uint8_t r, uint8_t g, uint8_t b, float tol255) {
+inline void roundtrip_oklch(uint8_t r, uint8_t g, uint8_t b) {
   OKLCH lch = srgb_to_oklch(r, g, b);
   float r2, g2, b2;
   oklab_to_linear_rgb(oklch_to_oklab(lch), r2, g2, b2);
   float rs = linear_to_srgb_float(hs::clamp(r2, 0.0f, 1.0f)) * 255.0f;
   float gs = linear_to_srgb_float(hs::clamp(g2, 0.0f, 1.0f)) * 255.0f;
   float bs = linear_to_srgb_float(hs::clamp(b2, 0.0f, 1.0f)) * 255.0f;
-  HS_EXPECT_NEAR(rs, static_cast<float>(r), tol255);
-  HS_EXPECT_NEAR(gs, static_cast<float>(g), tol255);
-  HS_EXPECT_NEAR(bs, static_cast<float>(b), tol255);
+  HS_EXPECT_NEAR(rs, static_cast<float>(r), ROUNDTRIP_TOL255);
+  HS_EXPECT_NEAR(gs, static_cast<float>(g), ROUNDTRIP_TOL255);
+  HS_EXPECT_NEAR(bs, static_cast<float>(b), ROUNDTRIP_TOL255);
 }
 
 /**
  * @brief Verifies sRGB -> OKLCH -> sRGB recovers grays, primaries, and a sample.
  */
 inline void test_oklch_roundtrip() {
-  roundtrip_oklch(0, 0, 0, 1.0f);
-  roundtrip_oklch(128, 128, 128, 1.0f);
-  roundtrip_oklch(255, 255, 255, 1.0f);
-  roundtrip_oklch(255, 0, 0, 1.0f);
-  roundtrip_oklch(0, 255, 0, 1.0f);
-  roundtrip_oklch(0, 0, 255, 1.0f);
-  roundtrip_oklch(64, 180, 75, 1.0f);
+  roundtrip_oklch(0, 0, 0);
+  roundtrip_oklch(128, 128, 128);
+  roundtrip_oklch(255, 255, 255);
+  roundtrip_oklch(255, 0, 0);
+  roundtrip_oklch(0, 255, 0);
+  roundtrip_oklch(0, 0, 255);
+  roundtrip_oklch(64, 180, 75);
 }
 
 /**
