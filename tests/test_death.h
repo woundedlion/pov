@@ -2553,6 +2553,28 @@ inline void case_plot_extract_edges_vertex_over_capacity() {
 }
 
 /**
+ * @brief Death case: a plot rejects a canvas that is not its <W, H>.
+ * @details Plot surface -- the fragment walk projects onto the <W, H> grid and
+ *          the sink strides the framebuffer by its own W, so a canvas of a
+ *          different size writes past the row it means to.
+ */
+inline void case_plot_canvas_dim_mismatch() {
+  constexpr int W = 32, H = 16;
+  ArenaVector<Fragment> points;
+  points.bind(scratch_arena_a, 2);
+  Fragment f;
+  f.pos = Vector(1, 0, 0);
+  points.push_back(f);
+  f.pos = Vector(0, 1, 0);
+  points.push_back(f);
+
+  DeathEffect fx(W, opaque(H + 1));
+  Canvas c(fx);
+  Pipeline<W, H> pipe;
+  Plot::rasterize<W, H>(pipe, c, points, [](const Vector &, Fragment &) {});
+}
+
+/**
  * @brief Death case: a plot window over a multi-segment polyline must trap.
  * @details Plot surface -- the window narrows one segment's arc fraction, so a
  *          multi-segment polyline would apply the same [start, end] to every
@@ -4579,6 +4601,9 @@ inline const Case *all_cases(int &n) {
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "raster.h",
        "(canvas.width() == W && canvas.height() == H) canvas size differs from "
        "the scan's W/H"},
+      {"plot_canvas_dim_mismatch", case_plot_canvas_dim_mismatch, "raster.h",
+       "(canvas.width() == W && canvas.height() == H) canvas size differs from "
+       "the plot's W/H"},
       {"plot_window_multi_segment", case_plot_window_multi_segment, "raster.h",
        "(!plot_window || count == 1) a plot window requires a single-segment "
        "polyline"},
