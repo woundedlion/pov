@@ -253,20 +253,25 @@ class InlinePins(unittest.TestCase):
     def test_the_tracked_spellings_agree(self):
         self.assertEqual(bp.check_inline_pins(), [])
 
-    def test_a_miscounted_spelling_fails(self):
-        # A count, not a vacuity guard: a pin with 16 live sites must fail when
-        # one is dropped, which "matches nothing anywhere" never sees.
-        patched = tuple(
-            (pattern, name, form, expected + 1 if name == "python" else expected)
-            for pattern, name, form, expected in bp.INLINE_USES)
-        with unittest.mock.patch.object(bp, "INLINE_USES", patched):
-            errors = bp.check_inline_pins()
-        self.assertEqual(len(errors), 1)
-        self.assertIn("occurs 22 time(s)", errors[0])
-        self.assertIn("expected 23", errors[0])
+    def test_repeated_consistent_pins_need_no_count_update(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "ci.yml"
+            pattern = next(row for row in bp.INLINE_USES if row[1] == "python")
+            with unittest.mock.patch.object(bp, "ROOT", root), \
+                    unittest.mock.patch.object(bp, "INLINE_SCAN", (path,)), \
+                    unittest.mock.patch.object(bp, "INLINE_USES", (pattern,)):
+                for count in (1, 3):
+                    path.write_text("python-version: '3.12'\n" * count,
+                                    encoding="utf-8")
+                    self.assertEqual(bp.check_inline_pins(), [])
+                path.write_text("python-version: '3.13'\n", encoding="utf-8")
+                self.assertIn("written '3.13'", bp.check_inline_pins()[0])
+                path.write_text("", encoding="utf-8")
+                self.assertIn("was not found", bp.check_inline_pins()[0])
 
     def test_the_python_version_input_is_read_in_either_quoting(self):
-        pattern = next(p for p, name, _, _ in bp.INLINE_USES if name == "python")
+        pattern = next(p for p, name, _ in bp.INLINE_USES if name == "python")
         for line in ("          python-version: '3.13'",
                      '          python-version: "3.13"',
                      "          python-version: 3.13"):
