@@ -131,8 +131,8 @@ inline void test_filter_trait_inheritance() {
   static_assert(!Filter::World::Replicate<W>::is_2d, "Replicate is 3D");
   static_assert(Filter::Pixel::Feedback<W, H>::has_history,
                 "Feedback keeps history");
-  static_assert(has_cull_edge<Filter::World::Orient>);
-  static_assert(has_cull_edge<Filter::World::Replicate<W>>);
+  static_assert(Filter::has_cull_edge<Filter::World::Orient>);
+  static_assert(Filter::has_cull_edge<Filter::World::Replicate<W>>);
   using Ordered = Pipeline<W, H, Filter::World::Replicate<W>,
                            Filter::Screen::AntiAlias<W, H>,
                            Filter::Pixel::ChromaticShift<W>>;
@@ -1025,7 +1025,7 @@ inline void test_world_orient_motion_blur_sweep_ages() {
  *          would drop geometry the orientation sweeps into a segment band.
  */
 inline void test_world_orient_cull_edge_mirrors_plot() {
-  static_assert(has_cull_edge<Filter::World::Orient>);
+  static_assert(Filter::has_cull_edge<Filter::World::Orient>);
   Orientation<> ori; // identity, 1 frame
   ori.push(make_rotation(Y_AXIS, PI_F / 4));
   ori.push(make_rotation(Y_AXIS, PI_F / 2)); // now 3 frames
@@ -1149,7 +1149,7 @@ inline void test_world_orient_slice_selects_by_projection() {
  *          candidates instead of replicating plot()'s per-point selector.
  */
 inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
-  static_assert(has_cull_edge<Filter::World::OrientSlice>);
+  static_assert(Filter::has_cull_edge<Filter::World::OrientSlice>);
   Orientation<> oris[2];
   oris[0].set(make_rotation(X_AXIS, PI_F / 2)); // leaves +X where it is
   oris[1].set(make_rotation(Z_AXIS, PI_F / 2));
@@ -1296,7 +1296,7 @@ inline void test_world_vertex_replicate_fanout_and_age() {
  */
 inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
   constexpr int N = 3;
-  static_assert(has_cull_edge<Filter::World::VertexReplicate<N>>);
+  static_assert(Filter::has_cull_edge<Filter::World::VertexReplicate<N>>);
   std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
   const Filter::World::VertexReplicate<N> vr(verts);
 
@@ -1505,7 +1505,7 @@ inline void test_world_mobius_identity_and_transform() {
 
   // The map moves latitude non-rigidly and offers no cull_edge bound, so it
   // must force a full-canvas render through the pipeline fold.
-  static_assert(!has_cull_edge<Filter::World::Mobius>);
+  static_assert(!Filter::has_cull_edge<Filter::World::Mobius>);
   HS_EXPECT_TRUE(Filter::World::Mobius::crosses_segments);
   HS_EXPECT_TRUE(
       (Pipeline<17, 9, Filter::World::Mobius>::any_crosses_segments));
