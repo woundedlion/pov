@@ -893,6 +893,42 @@ inline void test_shader_workbench_full_config_snapshot() {
     HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
         sb.capture_full_config_snapshot(), before_failure));
   }
+
+  const size_t function =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_FUNCTION);
+  const size_t projection =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_PROJECTION);
+  invalid = before_failure;
+  invalid.accepted[function] =
+      static_cast<uint32_t>(WB::Function::NOISE_CONTOUR);
+  invalid.requested[function] = invalid.accepted[function];
+  invalid.accepted[projection] = static_cast<uint32_t>(WB::Projection::BONNE);
+  invalid.requested[projection] = invalid.accepted[projection];
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_ACCEPTED);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_failure));
+
+  HS_EXPECT_EQ(before_failure.pending[palette], uint8_t{1});
+  HS_EXPECT_EQ(before_failure.pending[source_seed], uint8_t{0});
+  invalid = before_failure;
+  invalid.pending[palette] = 2;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_PENDING);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_failure));
+  invalid = before_failure;
+  invalid.pending[palette] = 0;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_PENDING);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_failure));
+  invalid = before_failure;
+  invalid.pending[source_seed] = 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_PENDING);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_failure));
 }
 
 /** @brief A mode edit clamps stale subordinate values to its new range. */
