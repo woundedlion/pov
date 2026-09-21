@@ -415,56 +415,57 @@ HS_FLASH_INLINE inline float distance_to_lattice_line(float coordinate) {
   return fabsf(wrap_t(coordinate + 0.5f) - 0.5f);
 }
 
+/** @brief Distance from the scaled, rotated plane point to the nearest cell
+    edge of @p kind. */
+__attribute__((always_inline)) inline float
+tessellation_distance(float x, float y, TessellationKind kind) {
+  constexpr float SQRT_3 = 1.7320508075688772f;
+  switch (kind) {
+  case TessellationKind::TRIANGULAR:
+    return std::min(
+        distance_to_lattice_line(x),
+        std::min(distance_to_lattice_line(0.5f * x + 0.5f * SQRT_3 * y),
+                 distance_to_lattice_line(-0.5f * x + 0.5f * SQRT_3 * y)));
+  case TessellationKind::SQUARE: {
+    const float cell_x = wrap_t(x + 0.5f) - 0.5f;
+    const float cell_y = wrap_t(y + 0.5f) - 0.5f;
+    return 0.5f - std::max(fabsf(cell_x), fabsf(cell_y));
+  }
+  case TessellationKind::HEXAGONAL:
+    break;
+  }
+  const float axial_x = (2.0f / 3.0f) * x;
+  const float axial_z = y / SQRT_3 - 0.5f * axial_x;
+  const float axial_y = -axial_x - axial_z;
+  float cell_x = roundf(axial_x);
+  float cell_y = roundf(axial_y);
+  float cell_z = roundf(axial_z);
+  const float error_x = fabsf(cell_x - axial_x);
+  const float error_y = fabsf(cell_y - axial_y);
+  const float error_z = fabsf(cell_z - axial_z);
+  if (error_x > error_y && error_x > error_z)
+    cell_x = -cell_y - cell_z;
+  else if (error_y > error_z)
+    cell_y = -cell_x - cell_z;
+  else
+    cell_z = -cell_x - cell_y;
+  const float local_x = x - 1.5f * cell_x;
+  const float local_y = y - SQRT_3 * (cell_z + 0.5f * cell_x);
+  return 0.5f * SQRT_3 -
+         std::max(fabsf(local_y),
+                  std::max(fabsf(0.5f * SQRT_3 * local_x + 0.5f * local_y),
+                           fabsf(0.5f * SQRT_3 * local_x - 0.5f * local_y)));
+}
+
 template <typename Params, typename Prepared>
 HS_FLASH_MEMBER inline float
 tessellation(const Complex &input, const Params &params, TessellationKind kind,
              const Prepared &prepared) {
-  constexpr float SQRT_3 = 1.7320508075688772f;
   const float x = params.cell_scale * (input.re * prepared.angle_cos +
                                        input.im * prepared.angle_sin);
   const float y = params.cell_scale * (-input.re * prepared.angle_sin +
                                        input.im * prepared.angle_cos);
-  float distance;
-  switch (kind) {
-  case TessellationKind::TRIANGULAR:
-    distance = std::min(
-        distance_to_lattice_line(x),
-        std::min(distance_to_lattice_line(0.5f * x + 0.5f * SQRT_3 * y),
-                 distance_to_lattice_line(-0.5f * x + 0.5f * SQRT_3 * y)));
-    break;
-  case TessellationKind::SQUARE: {
-    const float cell_x = wrap_t(x + 0.5f) - 0.5f;
-    const float cell_y = wrap_t(y + 0.5f) - 0.5f;
-    distance = 0.5f - std::max(fabsf(cell_x), fabsf(cell_y));
-    break;
-  }
-  case TessellationKind::HEXAGONAL:
-  default: {
-    const float axial_x = (2.0f / 3.0f) * x;
-    const float axial_z = y / SQRT_3 - 0.5f * axial_x;
-    const float axial_y = -axial_x - axial_z;
-    float cell_x = roundf(axial_x);
-    float cell_y = roundf(axial_y);
-    float cell_z = roundf(axial_z);
-    const float error_x = fabsf(cell_x - axial_x);
-    const float error_y = fabsf(cell_y - axial_y);
-    const float error_z = fabsf(cell_z - axial_z);
-    if (error_x > error_y && error_x > error_z)
-      cell_x = -cell_y - cell_z;
-    else if (error_y > error_z)
-      cell_y = -cell_x - cell_z;
-    else
-      cell_z = -cell_x - cell_y;
-    const float local_x = x - 1.5f * cell_x;
-    const float local_y = y - SQRT_3 * (cell_z + 0.5f * cell_x);
-    distance =
-        0.5f * SQRT_3 -
-        std::max(fabsf(local_y),
-                 std::max(fabsf(0.5f * SQRT_3 * local_x + 0.5f * local_y),
-                          fabsf(0.5f * SQRT_3 * local_x - 0.5f * local_y)));
-    break;
-  }
-  }
+  const float distance = tessellation_distance(x, y, kind);
   const float edge =
       ::smooth_ramp(params.line_thickness,
                     params.line_thickness + params.line_softness, distance);
