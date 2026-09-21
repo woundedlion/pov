@@ -1365,7 +1365,7 @@ jobs:
           npm test
 
   screenshot-gallery:
-    name: Screenshot gallery is valid and covers every effect
+    name: Screenshot gallery, profile archive and effect roster
     # The docs/screenshots gallery is installed into daydream and served live,
     # but a full headless re-capture per build is far too slow to gate on. This
     # job is the cheap freshness check instead: it (1) syntax-checks the capture
@@ -1375,6 +1375,9 @@ jobs:
     # orphans) — catching roster drift like an added/renamed effect whose
     # screenshot was never captured — and (3) validates each PNG datastream and
     # its stored dimensions, so a zero-byte or bit-rotted asset cannot ship.
+    # It carries two further roster checks that need the same Node and no build:
+    # the profile archive covers every Phantasm effect, and HS_EFFECT_LIST agrees
+    # with the REGISTER_EFFECT calls on disk.
     # KNOWN GAP: nothing here compares PNG pixels to what the effect renders, so
     # a visually-stale image still relies on a manual `npm run screenshots`
     # re-capture. Driving the real capture would need a Playwright browser and a
