@@ -95,11 +95,17 @@ public:
     setup_solids();
 
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
-    preset_palettes = {&blood_stream_falloff,   &blood_stream_falloff,
-                       &Palettes::RICH_SUNSET,  &Palettes::LAVENDER_LAKE,
-                       &Palettes::MAUVE_FADE,   &Palettes::CORAL_BLUE,
-                       &Palettes::BRUISED_MOSS, &Palettes::LAVENDER_LAKE,
-                       &Palettes::PLUM_SUNRISE, &Palettes::BRUISED_MANGO};
+    // Deduced extent, not a std::array brace list: a short list would leave the
+    // tail preset's palette null and deref it at the first advance.
+    const Palette *const palettes[] = {
+        &blood_stream_falloff,   &blood_stream_falloff,
+        &Palettes::RICH_SUNSET,  &Palettes::LAVENDER_LAKE,
+        &Palettes::MAUVE_FADE,   &Palettes::CORAL_BLUE,
+        &Palettes::BRUISED_MOSS, &Palettes::LAVENDER_LAKE,
+        &Palettes::PLUM_SUNRISE, &Palettes::BRUISED_MANGO};
+    static_assert(std::size(palettes) == PRESET_COUNT,
+                  "DreamBalls: one palette per PRESETS entry");
+    std::copy_n(std::begin(palettes), PRESET_COUNT, preset_palettes.begin());
     live_palette = preset_palettes[0];
     baked_palettes[0].bake(persistent_arena, *live_palette);
     baked_palettes[1].bake(persistent_arena, *live_palette);
