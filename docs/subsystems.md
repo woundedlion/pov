@@ -482,7 +482,7 @@ inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 }                                        // restore offset — all allocations freed
 ```
 
-All functions that require scratch memory take explicit `Arena&` parameters — there are no hidden arena references or implicit state:
+All functions that require scratch memory take explicit `Arena&` parameters — there are no hidden arena references or implicit state, outside the exceptions listed under [Why Arena Allocation?](https://github.com/woundedlion/pov/blob/master/README.md#2-engineering-philosophies):
 
 ```cpp
 scratch_arena_a.reset();
