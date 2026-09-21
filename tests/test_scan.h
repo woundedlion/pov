@@ -2128,6 +2128,8 @@ inline void test_solid_color_path_matches_generic() {
  *   SphericalPolygon::sine_distance); the coverage ramp scales that by the
  *   quintic kernel's slope over 2*pixel_width, so a channel may swing a few
  *   hundred ppm of full scale on the handful of pixels straddling a vertex.
+ *   Identical frames would mean the sine path never ran, so the count is also
+ *   floored above zero.
  */
 inline void test_spherical_sine_distance_framebuffer_error() {
   constexpr int W = 288;
@@ -2184,6 +2186,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
   std::printf("spherical sine framebuffer samples=%d different=%zu max=%d\n",
               W * H * static_cast<int>(std::size(cases)), different_pixels,
               max_channel_error);
+  HS_EXPECT_GT(different_pixels, static_cast<size_t>(0));
   HS_EXPECT_LE(different_pixels, static_cast<size_t>(512));
   HS_EXPECT_LE(max_channel_error, 128);
 }
