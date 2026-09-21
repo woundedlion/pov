@@ -9,7 +9,8 @@ of those shapes makes the check detect nothing while still printing PASS.
 
 The install-set check reads a fourth shape, CMakeLists.txt's install() rules; a
 rule it stops recognising silently exempts those files from their line-ending
-pin.
+pin. The FlexRAM check reads a fifth, tools/phantasm.ld's derived symbols, and
+is the only tie between the budgets, the size gate and the linker script.
 
 Run:  python -m unittest discover -s tools/build_pins_tests
 """
@@ -470,6 +471,57 @@ class InstallSet(unittest.TestCase):
 
     def test_an_empty_set_fails_instead_of_passing_vacuously(self):
         self.assertTrue(bp.check_install_eol([]))
+
+
+class FlexRamGeometry(unittest.TestCase):
+    """tools/teensy_budgets.json, tools/teensy_gate.py and tools/phantasm.ld all
+    spell one FlexRAM bank geometry, and this check is what ties them."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / "tools").mkdir()
+        for name in ("teensy_gate.py", "teensy_budgets.json", "phantasm.ld"):
+            shutil.copyfile(bp.ROOT / "tools" / name, self.root / "tools" / name)
+        self.linker = self.root / "tools/phantasm.ld"
+        self.gate = self.root / "tools/teensy_gate.py"
+
+    def check(self):
+        with unittest.mock.patch.object(bp, "ROOT", self.root):
+            return bp.check_flexram_geometry()
+
+    def rewrite(self, path, text):
+        path.write_text(text, encoding="utf-8", newline="")
+
+    def test_the_committed_tree_agrees(self):
+        self.assertEqual(self.check(), [])
+
+    def test_a_lowercased_hex_literal_is_the_same_geometry(self):
+        text = self.linker.read_text(encoding="utf-8")
+        self.rewrite(self.linker, re.sub(
+            r"0[xX][0-9A-Fa-f]+", lambda found: found.group(0).lower(), text))
+        self.assertEqual(self.check(), [])
+
+    def test_a_reflowed_expression_is_the_same_geometry(self):
+        text = self.linker.read_text(encoding="utf-8")
+        self.rewrite(self.linker, text.replace(") >> ", ")\n\t>> "))
+        self.assertEqual(self.check(), [])
+
+    def test_a_linker_script_without_the_geometry_is_reported(self):
+        self.rewrite(self.linker, "MEMORY { }\n")
+        errors = self.check()
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(all("phantasm.ld" in error for error in errors), errors)
+
+    def test_a_gate_bank_size_that_disagrees_is_reported(self):
+        text = self.gate.read_text(encoding="utf-8")
+        self.rewrite(self.gate, re.sub(
+            r"^FLEXRAM_BANK_BYTES = .*$", "FLEXRAM_BANK_BYTES = 1", text,
+            flags=re.MULTILINE))
+        errors = self.check()
+        self.assertTrue(any("FlexRAM bank size differs" in error
+                            for error in errors), errors)
 
 
 if __name__ == "__main__":

@@ -482,8 +482,14 @@ def check_flexram_geometry() -> list[str]:
         f"+ 0x{bank_bytes - 1:X}) >> {shift}",
         f"(({total_banks} - _itcm_block_count) << {shift})",
     )
+    # Compared case-folded and whitespace-collapsed: a lowercased hex literal or
+    # a reflowed expression is the same geometry, not a missing one.
+    def canonical(text: str) -> str:
+        return re.sub(r"\s+", " ", text.lower())
+
+    folded = canonical(linker)
     for spelling in linker_spellings:
-        if spelling not in linker:
+        if canonical(spelling) not in folded:
             errors.append(
                 f"tools/phantasm.ld: missing FlexRAM geometry derived from "
                 f"teensy_budgets.json: {spelling!r}")
