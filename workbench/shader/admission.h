@@ -26,6 +26,8 @@ namespace Workbench {
 // call would otherwise bind to a same-named function at global scope.
 HS_COLD_MEMBER inline constexpr bool
 coefficient_in_range(const Complex &coefficient);
+HS_COLD_MEMBER inline constexpr bool
+mobius_coefficients_in_range(const MobiusParams &params);
 HS_COLD_MEMBER inline constexpr bool curl_pair_stable(const WarpStageSpec &spec,
                                                       const WarpStageParams &a,
                                                       const WarpStageParams &b);
@@ -394,8 +396,7 @@ HS_COLD_MEMBER inline constexpr bool valid_mobius(const MobiusParams &params) {
   const float bc_im = params.b.re * params.c.im + params.b.im * params.c.re;
   const float det_re = ad_re - bc_re;
   const float det_im = ad_im - bc_im;
-  return coefficient_in_range(params.a) && coefficient_in_range(params.b) &&
-         coefficient_in_range(params.c) && coefficient_in_range(params.d) &&
+  return mobius_coefficients_in_range(params) &&
          det_re * det_re + det_im * det_im >= 1e-6f;
 }
 
@@ -403,6 +404,12 @@ HS_COLD_MEMBER inline constexpr bool
 coefficient_in_range(const Complex &coefficient) {
   return coefficient.re >= -8.0f && coefficient.re <= 8.0f &&
          coefficient.im >= -8.0f && coefficient.im <= 8.0f;
+}
+
+HS_COLD_MEMBER inline constexpr bool
+mobius_coefficients_in_range(const MobiusParams &params) {
+  return coefficient_in_range(params.a) && coefficient_in_range(params.b) &&
+         coefficient_in_range(params.c) && coefficient_in_range(params.d);
 }
 
 HS_COLD_MEMBER inline constexpr float max_value(float a, float b) {
@@ -587,7 +594,8 @@ inline constexpr bool valid_snapshot_config(const Config &config) {
   return valid_slot_enums(config.slots) &&
          enum_at_most(config.params.color.palette_mapping,
                       Pullback::Color::PaletteMapping::REVERSE) &&
-         preset_in_ranges(config) && hue_shift_amount_in_range(config);
+         preset_in_ranges(config) && hue_shift_amount_in_range(config) &&
+         mobius_coefficients_in_range(config.params.surface_lens.mobius);
 }
 
 } // namespace Workbench
