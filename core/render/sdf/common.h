@@ -344,14 +344,27 @@ inline constexpr float reject_margin<Subtract<A, B>> =
 /** Stands for a distance() with no finite change-per-arc factor. */
 inline constexpr float ARC_STRETCH_UNBOUNDED = FLT_MAX;
 
+/** Change-per-arc factor for reporting in plane units, which runs slightly
+ *  wider than angular. */
+inline constexpr float ARC_STRETCH_PLANE = 1.25f;
+
 /** Most a shape's distance() can change per unit of great-circle arc, over the
  * band within a pixel or two of its surface -- the only band a walk that
  * vouches for a run of columns from one probe has to cross. Such a walk scales
  * the run's arc by this; against ARC_STRETCH_UNBOUNDED no slack suffices and
- * the run must be walked per column. A combinator takes the loosest child. The
- * default covers reporting in plane units, which runs slightly wider than
- * angular. */
-template <typename T> inline constexpr float arc_stretch = 1.25f;
+ * the run must be walked per column. A combinator takes the loosest child. A
+ * shape states its own factor; an unstated one is unbounded. */
+template <typename T>
+inline constexpr float arc_stretch = ARC_STRETCH_UNBOUNDED;
+template <> inline constexpr float arc_stretch<Ring> = ARC_STRETCH_PLANE;
+template <>
+inline constexpr float arc_stretch<DistortedRing> = ARC_STRETCH_PLANE;
+template <>
+inline constexpr float arc_stretch<FlatDistortedRing> = ARC_STRETCH_PLANE;
+template <> inline constexpr float arc_stretch<Face> = ARC_STRETCH_PLANE;
+template <>
+inline constexpr float arc_stretch<SphericalPolygon> = ARC_STRETCH_PLANE;
+template <> inline constexpr float arc_stretch<Line> = ARC_STRETCH_PLANE;
 // Sector fold in the azimuthal-equidistant chart: the azimuth term carries
 // polar/sin(polar). In the band the circumscribed-disc clamp holds polar within
 // a few columns of the circumradius, itself <= PI/2 once a radius past a
