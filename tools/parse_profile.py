@@ -539,6 +539,13 @@ def cmd_buckets(windows, scope, gate):
 
     Colour is binary: no spill anywhere is green; any spilled frame is red.
     """
+    # The ordering guard compares the clean-hold scope time against the peak
+    # render. A scope no window carries yields no clean-hold rows, so the
+    # comparison has nothing to fail on and the run would certify itself.
+    if not any(scope in w.counters for w in windows):
+        print(f"no window carries the counter '{scope}': nothing for the "
+              f"ordering guard to read", file=sys.stderr)
+        return 2
     idx_key = next((w.marker["key"] for w in windows
                     if w.marker and "idx" in w.marker), None)
 

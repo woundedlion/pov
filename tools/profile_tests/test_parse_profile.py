@@ -1000,7 +1000,7 @@ class BucketOrdering(unittest.TestCase):
     Two committed profile rows once reported the inversion.
     """
 
-    def _run(self, render_us, shader_us_per_frame, frames=4):
+    def _run(self, render_us, shader_us_per_frame, frames=4, scope="shader"):
         import contextlib
         import io
         import tempfile
@@ -1023,7 +1023,7 @@ class BucketOrdering(unittest.TestCase):
             windows, _ = pp.parse(path)
         with contextlib.redirect_stderr(io.StringIO()) as err:
             with contextlib.redirect_stdout(io.StringIO()) as out:
-                status = pp.cmd_buckets(windows, "shader", None)
+                status = pp.cmd_buckets(windows, scope, None)
         return status, out.getvalue(), err.getvalue()
 
     def test_a_clean_hold_above_its_peak_render_fails(self):
@@ -1040,6 +1040,13 @@ class BucketOrdering(unittest.TestCase):
         row = [l for l in out.splitlines() if not l.startswith("#")][0]
         self.assertIn("49.52", row)
         self.assertIn("43.47", row)
+
+    def test_a_scope_no_window_carries_is_not_a_pass(self):
+        # A misspelled --scope leaves the guard nothing to compare, and the
+        # run that reads as ordered is one nothing was checked against.
+        status, _, err = self._run(34_940, 39_650, scope="shadre")
+        self.assertEqual(status, 2)
+        self.assertIn("shadre", err)
 
 
 class TaggedCounterRows(unittest.TestCase):
