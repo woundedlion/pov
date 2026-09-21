@@ -1069,9 +1069,12 @@ concern.
   apply. Structural variants (weight mode, coverage mode, noise basis)
   are enum8 parameters arriving through that same value channel, so a
   chain entry carries no field the engine drops. **Three identities
-  are distinct, related by projection**: the *document digest* covers
-  the whole descriptor — chain, parameter schemas and defaults,
-  presets, path policies; the *program-shape identity* is the ordered
+  are distinct, related by projection**: the *descriptor digest* covers
+  the descriptor — chain, parameter schemas and defaults with display
+  units excluded, serialization fields, path policies — and not the
+  preset bank, which digests separately as `preset_bank_digest`, so a
+  preset edit leaves the descriptor digest, and the parity toggle it
+  arms, untouched; the *program-shape identity* is the ordered
   `{instance_id, operator_id}` list, exactly what `setShaderChain`
   consumes — many documents share one program shape and differ only in
   the values they then apply; the *instance-state identity* is a

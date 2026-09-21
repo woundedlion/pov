@@ -23,11 +23,12 @@ document digests differently). A guaranteed single-path chain says so:
 - `descriptor.chain` is an ordered array of `{label, operator}` —
   exactly the engine wire format's `{instance_id, operator_id}`, so
   the chain projection of a document *is* its compiled program shape,
-  and the two cannot structurally drift; the full document digest
-  refines that shape with parameter schemas, presets, and path
-  policies (the main spec §8 names the three identities — digest,
-  program shape, instance state). A chain entry carries nothing the
-  engine would drop.
+  and the two cannot structurally drift; the descriptor digest
+  refines that shape with parameter schemas and defaults, serialization
+  fields, and path policies, display units excluded, while the preset
+  bank digests separately as `preset_bank_digest` (the main spec §8
+  names the three identities — digest, program shape, instance state).
+  A chain entry carries nothing the engine would drop.
   v1's per-node `policy` and `resources` fields do not survive:
   structural variation is expressed either as a distinct operator id or
   as an enum8 parameter declared in the operator's catalog schema and
