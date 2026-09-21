@@ -435,25 +435,40 @@ inline void test_pipeline_get_returns_correct_filter() {
 // ============================================================================
 
 /**
- * @brief Verifies a fractional interior sample splits into 1..4 taps whose
- *        alphas sum back to the input alpha.
- * @details Partition of unity: the four bilinear weights sum to 1, so the per-tap
- *          alphas sum to the input alpha.
+ * @brief Verifies a fractional interior sample splits into the four
+ *        neighboring taps, each weighted by the quintic-eased bilinear
+ *        coverage, with alphas summing back to the input alpha.
  */
 inline void test_antialias_weights_partition() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  float sum = 0.0f;
-  int count = 0;
+  const float x = 10.3f, y = 20.6f;
+  const float xs = quintic_kernel(x - floorf(x));
+  const float ys = quintic_kernel(y - floorf(y));
   const float in_alpha = 0.8f;
-  aa.plot(10.3f, 20.6f, Pixel(1, 2, 3), 0.0f, in_alpha,
-          [&](float, float, const Pixel &, float, float a) {
-            sum += a;
-            ++count;
+  struct Tap {
+    float x, y, a;
+  };
+  std::vector<Tap> taps;
+  aa.plot(x, y, Pixel(1, 2, 3), 0.0f, in_alpha,
+          [&](float tx, float ty, const Pixel &, float, float a) {
+            taps.push_back({tx, ty, a});
           });
-  HS_EXPECT_GE(count, 1);
-  HS_EXPECT_LE(count, 4);
+  HS_EXPECT_EQ(taps.size(), size_t{4});
+
+  float sum = 0.0f;
+  unsigned seen = 0;
+  for (const Tap &t : taps) {
+    HS_EXPECT_TRUE(t.x == 10.0f || t.x == 11.0f);
+    HS_EXPECT_TRUE(t.y == 20.0f || t.y == 21.0f);
+    const float wx = t.x == 10.0f ? 1.0f - xs : xs;
+    const float wy = t.y == 20.0f ? 1.0f - ys : ys;
+    HS_EXPECT_NEAR(t.a, in_alpha * wx * wy, 1e-6f);
+    seen |= 1u << ((t.x == 11.0f ? 1u : 0u) | (t.y == 21.0f ? 2u : 0u));
+    sum += t.a;
+  }
+  HS_EXPECT_EQ(seen, 15u);
   HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
 }
 
@@ -678,6 +693,41 @@ inline void test_blur_update_changes_kernel() {
   blur.plot(15.0f, 16.0f, Pixel(1, 1, 1), 0.0f, 1.0f,
             [&](float, float, const Pixel &, float, float) { ++count; });
   HS_EXPECT_EQ(count, 1);
+}
+
+/**
+ * @brief Verifies the 3x3 kernel's center, edge and corner weights at full and
+ *        half strength.
+ */
+inline void test_blur_kernel_weights_by_offset() {
+  constexpr int W = 32, H = 32;
+  constexpr float cx = 15.0f, cy = 16.0f;
+  struct Case {
+    float factor, center, edge, corner;
+  };
+  constexpr std::array<Case, 2> cases{{
+      {1.0f, 0.25f, 0.125f, 0.0625f},
+      {0.5f, 0.625f, 0.0625f, 0.03125f},
+  }};
+  for (const Case &k : cases) {
+    Filter::Screen::Blur<W, H> blur(k.factor);
+    int count = 0;
+    float sum = 0.0f;
+    blur.plot(cx, cy, Pixel(1, 1, 1), 0.0f, 1.0f,
+              [&](float x, float y, const Pixel &, float, float a) {
+                const int manhattan =
+                    static_cast<int>(std::fabs(x - cx) + std::fabs(y - cy));
+                HS_EXPECT_LE(manhattan, 2);
+                const float expected = manhattan == 0   ? k.center
+                                       : manhattan == 1 ? k.edge
+                                                        : k.corner;
+                HS_EXPECT_NEAR(a, expected, 1e-6f);
+                ++count;
+                sum += a;
+              });
+    HS_EXPECT_EQ(count, 9);
+    HS_EXPECT_NEAR(sum, 1.0f, 1e-5f);
+  }
 }
 
 /**
@@ -1723,7 +1773,8 @@ render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
 
 /**
  * @brief Proves the opt-in direct AA sink is framebuffer-identical to the
- * generic AntiAlias pipeline across poles, seams, clips and random splats.
+ * generic AntiAlias pipeline across poles, seams, clips and random splats, and
+ * that every clip case deposits samples into the frame it compares.
  */
 inline void test_direct_antialias_sink_framebuffer_parity() {
   constexpr int W = 17;
@@ -1791,13 +1842,21 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
   }};
 
   for (const ClipCase &clip : clips) {
+    const auto background = render_aa_sink_case<Reference>(
+        W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, {});
     const auto expected = render_aa_sink_case<Reference>(
         W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, samples);
     const auto actual = render_aa_sink_case<Direct>(
         W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, samples);
     HS_EXPECT_EQ(actual.size(), expected.size());
-    for (size_t i = 0; i < expected.size(); ++i)
+    HS_EXPECT_EQ(background.size(), expected.size());
+    int changed = 0;
+    for (size_t i = 0; i < expected.size(); ++i) {
       HS_EXPECT_EQ(actual[i], expected[i]);
+      if (expected[i] != background[i])
+        ++changed;
+    }
+    HS_EXPECT_GT(changed, 0);
   }
 }
 
@@ -3632,6 +3691,7 @@ inline int run_filter_tests() {
 
   test_blur_factor_zero_is_identity();
   test_blur_full_kernel_sums_to_alpha();
+  test_blur_kernel_weights_by_offset();
   test_blur_update_changes_kernel();
   test_blur_wraps_column_taps();
   test_blur_pole_row_renormalizes();
