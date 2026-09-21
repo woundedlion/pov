@@ -61,7 +61,7 @@ jobs:
             skips_are_errors: 1
           - &shard2_entry
             shard: 2
-            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|gamut_lut|mindsplatter_palette_form|mindsplatter_replay_form|mindsplatter_replay_revision_missing|palettes|easing_waves|interpolate|platform|profiling|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|spherical_harmonics|relax_bake_verify|relax_bake_form|feedback_dump_a|feedback_dump_b|feedback_compare|feedback_io)$"
+            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|gamut_lut|mindsplatter_palette_form|mindsplatter_replay_form|mindsplatter_replay_revision_missing|mindsplatter_replay_revision_drift|palettes|easing_waves|interpolate|platform|profiling|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|spherical_harmonics|relax_bake_verify|relax_bake_form|feedback_dump_a|feedback_dump_b|feedback_compare|feedback_io)$"
             test_exclude: *generated_exclude
             skips_are_errors: 1
           - &shard3_entry
