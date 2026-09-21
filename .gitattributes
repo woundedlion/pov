@@ -43,8 +43,9 @@ patterns/*.shader.json text eol=lf
 patterns/shaderball_migration.json text eol=lf
 
 # The remaining installed artifacts the deploy gate byte-compares across the two
-# repositories. The gallery PNGs are pinned binary so no host's autocrlf can
-# touch them.
+# repositories: the root README.md and the gallery PNGs, pinned binary so no
+# host's autocrlf can touch them. The README pattern is unanchored, so every
+# nested README.md carries the same LF pin.
 README.md text eol=lf
 docs/screenshots/** binary
 
