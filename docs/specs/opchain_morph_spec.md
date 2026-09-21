@@ -99,7 +99,8 @@ composites against their authored forms, topology and manifold invariants across
 legs, palette-pair bounds, arena high-water limits, and end-to-end effect smoke.
 Device profiling remains the authority for cadence and arena/ITCM acceptance.
 
-The daydream solid editor owns its operation metadata and application logic in
-`solid_codegen.js`; `solids.html` owns the UI and saved-chain state.
-Those files, rather than historical line-number citations, are the browser-tool
-sources of truth.
+The daydream solid editor owns its operation metadata, chain validator, and
+application logic in `solid_codegen.js`; `solids_page.js` owns the UI and the
+saved-chain state (`daydream.savedSolids.v1` in browser storage); `solids.html`
+is the markup shell with no logic of its own. Those files, rather than
+historical line-number citations, are the browser-tool sources of truth.
