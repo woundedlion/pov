@@ -12,6 +12,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 PROFILE_ONE = REPO / "tools" / "profile_one.sh"
+EFFECTS = REPO / "effects"
 
 
 def shell_function(name):
@@ -308,6 +309,36 @@ class ToolchainAttestation(unittest.TestCase):
         result = attest_toolchains("GCC 11.3.1", "GCC 15.2.1")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("compiler mismatch", result.stdout)
+
+
+def multi_preset_effects():
+    """Effects whose PRESET_IDS holds more than one id."""
+    found = set()
+    for header in EFFECTS.glob("*.h"):
+        text = header.read_text(encoding="utf-8")
+        for count in re.findall(
+                r"std::array<std::string_view,\s*(\d+)>\s+PRESET_IDS\b", text):
+            if int(count) > 1:
+                found.add(header.stem)
+    return found
+
+
+def cyclers():
+    source = PROFILE_ONE.read_text(encoding="utf-8")
+    match = re.search(r'(?m)^CYCLERS="([^"]*)"$', source)
+    if not match:
+        raise AssertionError("missing CYCLERS list")
+    return set(match.group(1).split())
+
+
+class CyclerRoster(unittest.TestCase):
+    """Every multi-preset effect emits an advance marker; the marker guard
+    only runs for effects named in CYCLERS."""
+
+    def test_every_multi_preset_effect_is_a_cycler(self):
+        presets = multi_preset_effects()
+        self.assertTrue(presets, "no multi-preset effect parsed from effects/")
+        self.assertEqual(presets - cyclers(), set())
 
 
 if __name__ == "__main__":

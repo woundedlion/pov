@@ -151,7 +151,7 @@ mkdir -p "$(dirname "$OUT")"
 export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
-CYCLERS="AlienBrain LatticeMelt KaleidoscopeSmooth KaleidoscopeFlowers MobiusGrid ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
+CYCLERS="AlienBrain LatticeMelt KaleidoscopeSmooth KaleidoscopeFlowers KaleidoscopeMandala KaleidoscopeHexOil KaleidoscopeHexBright HyperLattice MobiusGrid ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
 MARKER=""
 case " $CYCLERS " in *" $EFFECT "*)
   case "$EFFECT" in
