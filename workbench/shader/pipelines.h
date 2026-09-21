@@ -489,7 +489,6 @@ struct ProgramDescriptor {
   TopologyKey key;
   ShadeFunction shade;
   void (*prepare)(const FrameState &, void *);
-  bool (*continuous_parameters_supported)(const Config &);
   bool (*resources_ready)(const FrameState &);
 };
 
@@ -575,10 +574,6 @@ inline constexpr TopologyKey make_topology_key(const Config &config) {
   return key;
 }
 
-inline constexpr bool all_continuous_parameters_supported(const Config &) {
-  return true;
-}
-
 HS_FLASH_MEMBER inline bool pipeline_resources_ready(const FrameState &frame) {
   if (warp_uses_noise(frame.slots.warp_program.outer.kind) &&
       frame.resources.outer_warp_noise == nullptr)
@@ -610,14 +605,11 @@ HS_FLASH_MEMBER inline bool pipeline_resources_ready(const FrameState &frame) {
  * @tparam Pipeline Compiled inverse pipeline the row selects.
  * @tparam Id Stable identifier for the row.
  * @tparam Key Topology the row is matched on.
- * @param continuous Predicate over the continuous parameters @p Pipeline
- *        serves.
  * @details Rejects at compile time a pipeline whose stages hardcode a
  * topology facet that @p Key does not carry.
  */
 template <typename Pipeline, InversePipelineId Id, TopologyKey Key>
-inline constexpr ProgramDescriptor
-make_program(bool (*continuous)(const Config &)) {
+inline constexpr ProgramDescriptor make_program() {
   static_assert(Pipeline::implements(Key),
                 "inverse pipeline does not implement its topology key");
   static_assert(sizeof(typename Pipeline::PreparedTuple) <= PREPARED_BLOB_BYTES,
@@ -625,11 +617,7 @@ make_program(bool (*continuous)(const Config &)) {
   static_assert(alignof(typename Pipeline::PreparedTuple) <=
                     PREPARED_BLOB_ALIGN,
                 "prepared blob alignment exceeded");
-  return {Id,
-          Key,
-          &Pipeline::shade_prepared,
-          &Pipeline::prepare_into,
-          continuous,
+  return {Id, Key, &Pipeline::shade_prepared, &Pipeline::prepare_into,
           &pipeline_resources_ready};
 }
 
@@ -642,100 +630,87 @@ inverse_programs() {
           make_program<GlitchNoiseGridWaveShearPipeline,
                        InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR,
                        make_topology_key(
-                           Workbench::wave_shear_generated_preset())>(
-              &all_continuous_parameters_supported),
+                           Workbench::wave_shear_generated_preset())>(),
           make_program<KaleidoscopeTwinWaveInnerMirrorPipeline,
                        InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR,
                        make_topology_key(
-                           Workbench::kaleidoscope_mirror_preset())>(
-              &all_continuous_parameters_supported),
+                           Workbench::kaleidoscope_mirror_preset())>(),
           make_program<
               GnomonicKaleidoscopeGridMirrorPipeline,
               InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR,
               make_topology_key(
-                  Workbench::gnomonic_kaleidoscope_grid_mirror_preset())>(
-              &all_continuous_parameters_supported),
+                  Workbench::gnomonic_kaleidoscope_grid_mirror_preset())>(),
           make_program<GnomonicAlienCoreMirrorPipeline,
                        InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR,
                        make_topology_key(Workbench::gnomonic_grid_mirror_preset(
-                           SurfaceLens::GLITCH))>(
-              &all_continuous_parameters_supported),
-          make_program<PeirceDodecahedralGridPipeline,
-                       InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
-                       make_topology_key(
-                           Workbench::peirce_dodecahedral_generated_preset())>(
-              &all_continuous_parameters_supported),
+                           SurfaceLens::GLITCH))>(),
+          make_program<
+              PeirceDodecahedralGridPipeline,
+              InversePipelineId::PEIRCE_DODECAHEDRAL_GRID,
+              make_topology_key(
+                  Workbench::peirce_dodecahedral_generated_preset())>(),
           make_program<
               GnomonicDodecahedralGridWaveMirrorPipeline,
               InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR,
-              make_topology_key(Workbench::gnomonic_wave_shear_grid_preset())>(
-              &all_continuous_parameters_supported),
+              make_topology_key(
+                  Workbench::gnomonic_wave_shear_grid_preset())>(),
           make_program<
               GnomonicAffineLatticeContourPipeline,
               InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR,
               make_topology_key(
-                  Workbench::gnomonic_affine_lattice_contour_preset())>(
-              &all_continuous_parameters_supported),
+                  Workbench::gnomonic_affine_lattice_contour_preset())>(),
           make_program<SinusoidalLatticeMeltPipeline,
                        InversePipelineId::SINUSOIDAL_LATTICE_MELT,
                        make_topology_key(
-                           Workbench::sinusoidal_lattice_curl_preset(1.0f))>(
-              &all_continuous_parameters_supported),
+                           Workbench::sinusoidal_lattice_curl_preset(1.0f))>(),
           make_program<
               StereographicPrismPolarWaveLatticePipeline,
               InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE,
               make_topology_key(
-                  Workbench::stereographic_prism_polar_wave_lattice_preset())>(
-              &all_continuous_parameters_supported),
+                  Workbench::
+                      stereographic_prism_polar_wave_lattice_preset())>(),
           make_program<
               GnomonicDodecahedralGridVectorMirrorPipeline,
               InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR,
               make_topology_key(
                   Workbench::
-                      gnomonic_dodecahedral_vector_mirror_grid_preset())>(
-              &all_continuous_parameters_supported),
+                      gnomonic_dodecahedral_vector_mirror_grid_preset())>(),
           make_program<
               StereographicDodecahedralGridInnerMirrorPipeline,
               InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR,
               make_topology_key(
                   Workbench::
-                      stereographic_dodecahedral_grid_inner_mirror_preset())>(
-              &all_continuous_parameters_supported),
+                      stereographic_dodecahedral_grid_inner_mirror_preset())>(),
           make_program<
               StereographicHexagonalPrismTwinWaveInnerMirrorPipeline,
               InversePipelineId::
                   STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR,
               make_topology_key(
                   Workbench::
-                      stereographic_hexagonal_prism_twin_wave_mirror_preset())>(
-              &all_continuous_parameters_supported),
+                      stereographic_hexagonal_prism_twin_wave_mirror_preset())>(),
           make_program<
               EquirectangularDodecahedralGridInnerMirrorPipeline,
               InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR,
               make_topology_key(
                   Workbench::
-                      equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset())>(
-              &all_continuous_parameters_supported),
+                      equirectangular_dodecahedral_double_mapping_grid_inner_mirror_preset())>(),
           make_program<
               StereographicAlienCoreMirrorPipeline,
               InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR,
               make_topology_key(
-                  Workbench::stereographic_alien_core_mirror_preset())>(
-              &all_continuous_parameters_supported),
+                  Workbench::stereographic_alien_core_mirror_preset())>(),
           make_program<
               StereographicMobiusTwinWaveInnerMirrorPipeline,
               InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR,
               make_topology_key(
                   Workbench::
-                      stereographic_mobius_twin_wave_inner_mirror_preset())>(
-              &all_continuous_parameters_supported),
+                      stereographic_mobius_twin_wave_inner_mirror_preset())>(),
       }};
   static_assert(
       [] {
         bool seen[Workbench::INVERSE_PROGRAM_COUNT] = {};
         for (const ProgramDescriptor &program : PROGRAMS) {
           if (program.shade == nullptr || program.prepare == nullptr ||
-              program.continuous_parameters_supported == nullptr ||
               program.resources_ready == nullptr)
             return false;
           const size_t index = static_cast<size_t>(program.id);
@@ -753,7 +728,7 @@ HS_COLD_MEMBER inline const ProgramDescriptor *
 find_inverse_program(const Config &config) {
   const TopologyKey key = make_topology_key(config);
   for (const ProgramDescriptor &program : inverse_programs())
-    if (program.key == key && program.continuous_parameters_supported(config))
+    if (program.key == key)
       return &program;
   return nullptr;
 }
