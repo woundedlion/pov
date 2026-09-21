@@ -145,7 +145,7 @@ struct ScratchBases {
 
 /**
  * @brief Resolves a requested split into aligned scratch base offsets.
- * @param who Caller name for the out-of-budget log line.
+ * @param who Caller name for the out-of-budget breadcrumb.
  * @param persistent Bytes requested for the persistent arena.
  * @param scratch_a Bytes requested for scratch arena A.
  * @param scratch_b Bytes requested for scratch arena B.
@@ -155,7 +155,7 @@ struct ScratchBases {
  * callers pass 1 KiB multiples, so these rounds are no-ops); the budget check
  * uses the aligned end so rounding cannot silently overrun. An over-subscribed
  * partition is a sizing/config bug, not recoverable, so it traps rather than
- * silently scaling down; the log preserves the numbers before the trap.
+ * silently scaling down; the breadcrumb carries the numbers.
  */
 HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
                                  size_t scratch_a, size_t scratch_b) {
@@ -172,12 +172,10 @@ HS_COLD ScratchBases split_bases(const char *who, size_t persistent,
   size_t a_base = align_up(persistent);
   size_t b_base = align_up(a_base + scratch_a);
   size_t total = b_base + scratch_b;
-  if (total > GLOBAL_ARENA_SIZE) {
-    hs::log("[OOM] %s: requested %lu > available %lu", who,
-            static_cast<unsigned long>(total),
-            static_cast<unsigned long>(GLOBAL_ARENA_SIZE));
-    HS_CHECK(false);
-  }
+  HS_CHECK(total <= GLOBAL_ARENA_SIZE,
+           "split_bases: %s requested %lu > available %lu", who,
+           static_cast<unsigned long>(total),
+           static_cast<unsigned long>(GLOBAL_ARENA_SIZE));
   return {a_base, b_base};
 }
 } // namespace
