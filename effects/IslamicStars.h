@@ -87,7 +87,7 @@ public:
     palette_bank.bake_all(persistent_arena);
 
     // Set BEFORE registering: register_param snaps *ptr as the slider default.
-    // Amplitude starts at the fold-free ceiling (see RIPPLE_AMP_MAX).
+    // Amplitude starts at the slider ceiling (see RIPPLE_AMP_MAX).
     ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
@@ -104,8 +104,8 @@ public:
     register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f,
                    32.0f);
     register_int_param("Burst", &params.burst_size, 1, BURST_MAX);
-    // Amplitude slider capped at the fold-free ceiling; thickness is fixed (not a
-    // slider) so amplitude/thickness can never cross the self-fold onset.
+    // Amplitude slider capped at RIPPLE_AMP_MAX; thickness is fixed (not a
+    // slider), so no setting exceeds the ratio RIPPLE_AMP_MAX is sized for.
     register_param("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
                    RIPPLE_AMP_MAX);
     register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
@@ -183,8 +183,13 @@ private:
   static constexpr size_t MAX_BUILD_FACES = 1152;
   static constexpr float RIPPLE_THICKNESS =
       0.7f; /**< Fixed ripple wavelet width (radians). */
-  static constexpr float RIPPLE_AMP_MAX =
-      0.15f; /**< Fold-free amplitude ceiling at RIPPLE_THICKNESS (amp/thickness < ~0.2 self-fold onset). */
+  /** Amplitude ceiling. Equals RIPPLE_SMALL_ANGLE_MAX, so every ripple
+   * rotation takes the series-form quaternion. The displacement map
+   * d -> d + theta(d) is injective only below amp/thickness = 0.181; at
+   * 0.15/0.7 it folds across a <= 0.1 rad band by <= 0.012 rad (about half
+   * a pixel at W=288), and at the default decay only within ~1.7 rad of the
+   * origin. */
+  static constexpr float RIPPLE_AMP_MAX = 0.15f;
   static_assert(2 * BURST_MAX <= RIPPLE_POOL_SIZE,
                 "IslamicStars: ripple pool must hold two overlapping bursts");
 
