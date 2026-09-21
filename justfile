@@ -92,6 +92,13 @@ gamut-lut:
     {{py}} -m unittest discover -s tools/gamut_lut_tests
     {{py}} tools/gen_gamut_lut.py --check
 
+# No relax-bake or death-harness coverage weakened across the commit edges in
+# `previous`..HEAD -- the ci.yml domain-ratchets job, which passes the pushed
+# range. The default covers the commit just made; pass a merge base to cover a
+# whole branch, or the root commit for the weekly whole-history scan's range.
+domain-ratchets previous="HEAD~1":
+    {{py}} tools/check_domain_ratchets.py --git-range {{previous}} HEAD
+
 # First-party warning gate over every platformio.ini environment -- the
 # ci.yml teensy-warnings job. The warning set is the pinned toolchain's, which
 # the pinned PlatformIO selects. The build is cold, so budget tens of minutes;
