@@ -172,6 +172,22 @@ concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::total_segment_margin), const int>;
 };
 
+/**
+ * @brief Probe callable for the has_world_cull detection below.
+ */
+struct PipelineCullEdgeProbe {
+  bool operator()(const Vector &, const Vector &, const Basis *) const {
+    return true;
+  }
+};
+
+/** @brief Whether a filter stage transforms edges before clip culling. */
+template <typename Stage>
+inline constexpr bool has_cull_edge =
+    requires(const Stage &stage, const Vector &v, const Basis *pb) {
+      stage.cull_edge(v, v, pb, PipelineCullEdgeProbe{});
+    };
+
 } // namespace Filter
 
 /**
@@ -261,22 +277,6 @@ public:
                                            std::forward<Pred>(pred));
   }
 };
-
-/**
- * @brief Probe callable for the has_world_cull detection below.
- */
-struct PipelineCullEdgeProbe {
-  bool operator()(const Vector &, const Vector &, const Basis *) const {
-    return true;
-  }
-};
-
-/** @brief Whether a filter stage transforms edges before clip culling. */
-template <typename Stage>
-inline constexpr bool has_cull_edge =
-    requires(const Stage &stage, const Vector &v, const Basis *pb) {
-      stage.cull_edge(v, v, pb, PipelineCullEdgeProbe{});
-    };
 
 /**
  * @brief Terminal node of the pipeline (base case). Writes final pixels to the
@@ -535,7 +535,7 @@ struct Pipeline<W, H, Head, Tail...>
    *        screen coordinates from the raw geometry.
    */
   static constexpr bool has_world_cull =
-      has_cull_edge<Head> || Next::has_world_cull;
+      Filter::has_cull_edge<Head> || Next::has_world_cull;
 
   /**
    * @brief True when any stage runs in world space, so a screen-space
@@ -723,7 +723,7 @@ public:
     auto forward = [&](const Vector &fa, const Vector &fb, const Basis *fpb) {
       return next.could_intersect_clip(fa, fb, fpb, pred);
     };
-    if constexpr (has_cull_edge<Head>)
+    if constexpr (Filter::has_cull_edge<Head>)
       return Head::cull_edge(a, b, planar_basis, forward);
     else
       return forward(a, b, planar_basis);
@@ -737,7 +737,7 @@ public:
       "own, or list the stage it replaces (Screen::AntiAlias).");
 
   static_assert(
-      Head::world_transform_is_identity || has_cull_edge<Head> ||
+      Head::world_transform_is_identity || Filter::has_cull_edge<Head> ||
           Head::crosses_segments,
       "A World stage that moves geometry must let the clip cull follow it, or "
       "the rasterizer culls edges by their SOURCE latitude and drops the ones "
