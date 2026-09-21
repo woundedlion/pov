@@ -914,6 +914,14 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
     print(f"effect={effect}  windows={len(windows)}")
     check(len(windows) >= 3, f"captured >=3 windows ({len(windows)})")
 
+    # One capture is one effect at one resolution. A second name or geometry
+    # is a peer board's serial spliced into this log, and every aggregate
+    # below then averages two different runs into one number.
+    configs = sorted({(w.effect, w.w, w.h) for w in windows})
+    check(len(configs) == 1,
+          "every window names one effect and resolution ("
+          + ", ".join(f"{name} {w}x{h}" for name, w, h in configs) + ")")
+
     # Single instance: frame numbers strictly increase (no mid-capture teardown).
     resets = sum(1 for a, b in zip(windows, windows[1:])
                  if b.f_start <= a.f_start)
