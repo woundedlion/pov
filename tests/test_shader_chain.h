@@ -129,6 +129,13 @@ inline constexpr In::ChainEntryRequest DEFAULT_CHAIN[] = {
     {"colorize", "colorize.generated-palette.v3"},
 };
 
+inline constexpr In::ChainEntryRequest LEGACY_CHAIN[] = {
+    {"camera", "sphere.rotate.v2"},
+    {"project", "project.stereographic.v2"},
+    {"sample", "sample.grid.v2"},
+    {"colorize", "colorize.generated-palette.v2"},
+};
+
 inline std::array<Vector, 14> sweep_views() {
   std::array<Vector, 14> views = {
       Vector(0, 1, 0),         Vector(0, -1, 0),
@@ -350,14 +357,16 @@ using MirrorPipeline = PB::Pipeline<
         PB::Color::GeneratedPalette<MirrorColor<HueV, BrightV>>>>;
 
 /** Mirror frame populated from the erased program's blocks: providers read
-    the same raw state the erased prepare reads. */
+    the same raw state the erased prepare reads. @p color is entry 3's family
+    in the v3 layout. */
 inline MirrorFrame mirror_from(In::ChainProgram &program,
-                               const In::FrameContext &ctx) {
+                               const In::FrameContext &ctx,
+                               const In::Op::GeneratedPaletteParams &color) {
   MirrorFrame frame;
   const auto &camera = state_as<In::Op::SpatialWalkState>(program, 0);
   const auto &projection = state_as<In::Op::SpatialWalkState>(program, 1);
   const auto &source = state_as<In::Op::SourceClockState>(program, 2);
-  const auto &color = state_as<In::Op::ColorClockState>(program, 3);
+  const auto &clock = state_as<In::Op::ColorClockState>(program, 3);
   frame.camera_conjugate =
       (make_rotation(Y_AXIS, camera.spin_phase) * camera.wander).conjugate();
   frame.projection_conjugate = (make_rotation(Y_AXIS, projection.spin_phase) *
@@ -365,23 +374,52 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
                                    .conjugate();
   frame.projection = param_as<In::Op::ProjectChainParams>(program, 1);
   frame.sample = param_as<In::Op::GridSampleParams>(program, 2);
-  frame.color = param_as<In::Op::GeneratedPaletteParams>(program, 3);
+  frame.color = color;
   frame.source_primary = source.primary;
   frame.source_secondary = source.secondary;
   frame.source_angle = source.angle;
-  frame.oscillation_phase = color.oscillation_phase;
+  frame.oscillation_phase = clock.oscillation_phase;
   frame.palette = ctx.palettes[frame.color.palette_mode];
   frame.hue_rotation_lut = ctx.hue_rotation_lut;
   frame.hue_noise_lut = ctx.hue_noise_lut;
   return frame;
 }
 
-template <typename WeightP, typename CoverageP, PB::Color::HueMode HueV,
-          PB::Color::BrightnessEnvelope BrightV>
-void expect_parity(In::ChainProgram &program, const In::FrameContext &ctx) {
-  using Pipe = MirrorPipeline<WeightP, CoverageP, HueV, BrightV>;
-  program.prepare(ctx);
-  const MirrorFrame mirror = mirror_from(program, ctx);
+inline MirrorFrame mirror_from(In::ChainProgram &program,
+                               const In::FrameContext &ctx) {
+  return mirror_from(program, ctx,
+                     param_as<In::Op::GeneratedPaletteParams>(program, 3));
+}
+
+/** The v2 colorize family in the v3 layout: brightness_depth becomes the
+    bottom endpoint under a fixed top of 1. */
+inline MirrorFrame mirror_from_legacy(In::ChainProgram &program,
+                                      const In::FrameContext &ctx) {
+  const auto &legacy =
+      param_as<In::Op::LegacyGeneratedPaletteParams>(program, 3);
+  In::Op::GeneratedPaletteParams color;
+  color.hue_shift_amount = legacy.hue_shift_amount;
+  color.hue_noise_scale = legacy.hue_noise_scale;
+  color.hue_noise_speed = legacy.hue_noise_speed;
+  color.palette_chroma = legacy.palette_chroma;
+  color.mapping_frequency = legacy.mapping_frequency;
+  color.mapping_phase = legacy.mapping_phase;
+  color.phase_oscillation_depth = legacy.phase_oscillation_depth;
+  color.phase_oscillation_speed = legacy.phase_oscillation_speed;
+  color.brightness_bottom = 1.0f - legacy.brightness_depth;
+  color.brightness_top = 1.0f;
+  color.opacity_low = legacy.opacity_low;
+  color.opacity_high = legacy.opacity_high;
+  color.palette_mode = legacy.palette_mode;
+  color.mapping_mode = legacy.mapping_mode;
+  color.hue_mode = legacy.hue_mode;
+  color.envelope_mode = legacy.envelope_mode;
+  return mirror_from(program, ctx, color);
+}
+
+template <typename Pipe>
+void expect_frame_parity(In::ChainProgram &program, const In::FrameContext &ctx,
+                         const MirrorFrame &mirror) {
   const typename Pipe::Frame reference_frame = Pipe::prepare(mirror);
   int view_index = 0;
   for (const Vector &view : sweep_views()) {
@@ -390,6 +428,14 @@ void expect_parity(In::ChainProgram &program, const In::FrameContext &ctx) {
     const Color4 reference = Pipe::shade(view, reference_frame);
     HS_EXPECT_TRUE(color4_identical(erased, reference));
   }
+}
+
+template <typename WeightP, typename CoverageP, PB::Color::HueMode HueV,
+          PB::Color::BrightnessEnvelope BrightV>
+void expect_parity(In::ChainProgram &program, const In::FrameContext &ctx) {
+  program.prepare(ctx);
+  expect_frame_parity<MirrorPipeline<WeightP, CoverageP, HueV, BrightV>>(
+      program, ctx, mirror_from(program, ctx));
 }
 
 /** Compiles the default chain and steps it @p frames times. */
@@ -403,6 +449,22 @@ inline void arm_default_chain(In::ChainProgram &program, int frames,
   apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
   apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
   apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 3), set);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+}
+
+/** Compiles the legacy-colorize chain and steps it @p frames times. */
+inline void arm_legacy_chain(In::ChainProgram &program, int frames,
+                             ValueSet set) {
+  const In::ChainRefusal refusal =
+      program.compile(std::span<const In::ChainEntryRequest>(LEGACY_CHAIN));
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
+  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
+  apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
+  apply_value_set(param_as<In::Op::LegacyGeneratedPaletteParams>(program, 3),
+                  set);
   for (int frame = 0; frame < frames; ++frame)
     program.advance();
 }
@@ -3011,9 +3073,10 @@ void run_colorize_envelopes(In::ChainProgram &program,
    ...);
 }
 
+inline constexpr auto COLORIZE_ENVELOPES = std::make_index_sequence<
+    static_cast<size_t>(In::Op::EnvelopeMode::DESCENDING) + 1>{};
+
 inline void test_shader_chain_parity_colorize_variants() {
-  constexpr auto ENVELOPES = std::make_index_sequence<
-      static_cast<size_t>(In::Op::EnvelopeMode::DESCENDING) + 1>{};
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
     HS_CONTEXT(value_set_name(set));
@@ -3021,11 +3084,57 @@ inline void test_shader_chain_parity_colorize_variants() {
     In::ChainProgram &program = fixture->program;
     arm_default_chain(program, 4, set);
     const In::FrameContext ctx = shared_resources().context();
-    run_colorize_envelopes<In::Op::HueShiftMode::NONE>(program, ctx, ENVELOPES);
+    run_colorize_envelopes<In::Op::HueShiftMode::NONE>(program, ctx,
+                                                       COLORIZE_ENVELOPES);
     run_colorize_envelopes<In::Op::HueShiftMode::NOISE>(program, ctx,
-                                                        ENVELOPES);
-    run_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(program, ctx,
-                                                              ENVELOPES);
+                                                        COLORIZE_ENVELOPES);
+    run_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(
+        program, ctx, COLORIZE_ENVELOPES);
+    program.clear();
+  }
+}
+
+template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
+void run_legacy_colorize_variant(In::ChainProgram &program,
+                                 const In::FrameContext &ctx) {
+  using Pipe = MirrorPipeline<PB::Weight::Projection,
+                              PB::ProjectionCoverage::Weight, HueV, EnvelopeV>;
+  auto &params = param_as<In::Op::LegacyGeneratedPaletteParams>(program, 3);
+  params.hue_mode = static_cast<uint8_t>(HueV);
+  params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
+  for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
+    params.palette_mode = palette_mode;
+    for (uint8_t mapping = 0; mapping < 4; ++mapping) {
+      params.mapping_mode = mapping;
+      program.prepare(ctx);
+      expect_frame_parity<Pipe>(program, ctx, mirror_from_legacy(program, ctx));
+    }
+  }
+}
+
+template <In::Op::HueShiftMode HueV, size_t... Envelopes>
+void run_legacy_colorize_envelopes(In::ChainProgram &program,
+                                   const In::FrameContext &ctx,
+                                   std::index_sequence<Envelopes...>) {
+  (run_legacy_colorize_variant<HueV, static_cast<In::Op::EnvelopeMode>(
+                                         Envelopes)>(program, ctx),
+   ...);
+}
+
+inline void test_shader_chain_parity_colorize_legacy_variants() {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_legacy_chain(program, 4, set);
+    const In::FrameContext ctx = shared_resources().context();
+    run_legacy_colorize_envelopes<In::Op::HueShiftMode::NONE>(
+        program, ctx, COLORIZE_ENVELOPES);
+    run_legacy_colorize_envelopes<In::Op::HueShiftMode::NOISE>(
+        program, ctx, COLORIZE_ENVELOPES);
+    run_legacy_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(
+        program, ctx, COLORIZE_ENVELOPES);
     program.clear();
   }
 }
@@ -3935,6 +4044,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_sample_projected_noise();
   test_shader_chain_parity_sample_spherical_noise();
   test_shader_chain_parity_colorize_variants();
+  test_shader_chain_parity_colorize_legacy_variants();
   test_shader_chain_refusal_shape();
   test_shader_chain_refusal_budget_overflows();
   test_shader_chain_program_lifetime();
