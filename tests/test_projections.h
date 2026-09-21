@@ -335,7 +335,7 @@ inline void test_peirce_strip_scroll_is_periodic() {
 }
 
 /** @brief A Peirce strip layout reports the equator tear its reflection leaves
- *         open, and keeps the opposite pair of quarters glued. */
+ *         open, and keeps the opposite quarters glued modulo the strip period. */
 inline void test_peirce_strip_tears_the_unglued_equator() {
   constexpr float LATITUDE = 1e-4f;
   for (uint8_t layout : {uint8_t(2), uint8_t(3)}) {
@@ -358,8 +358,14 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
         peirce_projection(direction(LATITUDE, glued), 0.0f, layout, 0.0f);
     const ProjectionKernelResult seam_south =
         peirce_projection(direction(-LATITUDE, glued), 0.0f, layout, 0.0f);
-    HS_EXPECT_NEAR(seam_north.coords.re, seam_south.coords.re, 1e-3f);
-    HS_EXPECT_NEAR(seam_north.coords.im, seam_south.coords.im, 1e-3f);
+    float delta_x = seam_north.coords.re - seam_south.coords.re;
+    float delta_y = seam_north.coords.im - seam_south.coords.im;
+    if (layout == 2)
+      delta_x = std::remainder(delta_x, 4.0f * PEIRCE_QUARTER_PERIOD);
+    else
+      delta_y = std::remainder(delta_y, 4.0f * PEIRCE_QUARTER_PERIOD);
+    HS_EXPECT_NEAR(delta_x, 0.0f, 1e-3f);
+    HS_EXPECT_NEAR(delta_y, 0.0f, 1e-3f);
     HS_EXPECT_EQ(seam_north.boundary_flags,
                  projection_boundary(ProjectionBoundary::SINGULAR));
   }
