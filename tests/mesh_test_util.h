@@ -8,6 +8,9 @@
  */
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+#include <vector>
 #include "core/mesh/mesh.h"
 #include "core/mesh/solids.h"
 #include "tests/test_harness.h"
@@ -144,6 +147,35 @@ inline void check_indices_in_range(const PolyMesh &m) {
   for (size_t i = 0; i < m.faces.size(); ++i)
     max_index = std::max<size_t>(max_index, m.faces[i]);
   HS_EXPECT_LT(max_index, V);
+}
+
+/** Longest geodesic edge a healthy solid reaches, as a multiple of its median
+ * edge: registry recipes measure at most ~3.4x, a hankin resonance sling ~24x. */
+inline constexpr float MAX_SLIVER_EDGE_RATIO = 6.0f;
+
+/**
+ * @brief Verifies the mesh has no sliver faces: its longest geodesic edge stays
+ *        within MAX_SLIVER_EDGE_RATIO times the median edge.
+ * @param m Mesh whose face edges are measured as arcs on the unit sphere.
+ */
+inline void check_no_sliver_edges(const PolyMesh &m) {
+  std::vector<float> edges;
+  size_t off = 0;
+  for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    const int n = m.face_counts[f];
+    for (int i = 0; i < n; ++i) {
+      const Vector u = m.vertices[m.faces[off + i]].normalized();
+      const Vector v = m.vertices[m.faces[off + (i + 1) % n]].normalized();
+      edges.push_back(std::acos(std::max(-1.0f, std::min(1.0f, dot(u, v)))));
+    }
+    off += n;
+  }
+  HS_EXPECT_TRUE(!edges.empty());
+  if (edges.empty())
+    return;
+  std::sort(edges.begin(), edges.end());
+  const float median = edges[edges.size() / 2];
+  HS_EXPECT_LE(edges.back(), MAX_SLIVER_EDGE_RATIO * median);
 }
 
 /**
