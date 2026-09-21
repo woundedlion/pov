@@ -425,7 +425,6 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── tools/                      Firmware gates, device profiling, and asset bakes
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
 │   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate, repo-wide and per core/ subtree
-│   ├── check_domain_ratchets.py  Relax-bake and death-harness coverage ratchets
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
 │   ├── check_test_dir_pins.sh  Asserts every Python test-suite directory is discovered by CI and the justfile
 │   ├── ruff_selection_guard.sh / eslint_selection_guard.sh  Shared CI and `just lint` anti-vacuity probes
@@ -473,7 +472,7 @@ Both trees are gated against their repository's tracked file list: every row mus
 ├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
 ├── .githooks/                  Fast staged-file pre-commit checks and a reference-transaction guard keeping master fast-forward-only
 ├── .github/dependabot.yml      Monthly grouped bump pull request for the SHA-pinned actions in those workflows
-├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages), domain-ratchets-history.yml (weekly whole-history ratchet scan)
+├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages)
 ├── .github/actions/            Composite steps ci.yml and docs.yml run: pinned-doxygen (Doxygen install + theme)
 ├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/, workbench/ and core/engine/effects_legacy.h reserved
 ├── CONTRIBUTING.md             Landing model, gates, and the tool pins a contributor has to match

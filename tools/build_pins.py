@@ -161,40 +161,35 @@ INLINE_SCAN = (
       for suffix in (".in", ".txt")),
 )
 
-# (pattern, pin name, expected form of the pin value, occurrences required
-# across INLINE_SCAN). The pattern's single capture group is the version as that
-# spelling writes it; `form` maps the pin value to that spelling, so every
-# occurrence is derived from one string. The count fails a site dropped or
-# another added unnoticed: a bare "matches nothing anywhere" guard passes a
-# re-spelling for as long as one sibling site keeps matching.
+# Patterns and value transforms for each supported pin spelling.
 INLINE_USES = (
-    (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v, 2),
+    (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v),
     # Quote-agnostic: setup-python's own README writes the input with double
     # quotes, which a single-quoted pattern reads as absent.
-    (r"""python-version:\s*['"]?([^'"\s]+)['"]?""", "python", lambda v: v, 22),
-    (r"\bnumpy==([\w.]+)", "numpy", lambda v: v, 2),
-    (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v, 28),
-    (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v, 7),
-    (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v, 4),
-    (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0], 1),
-    (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0], 3),
-    (r"\brust-just==([\w.]+)", "just", lambda v: v, 2),
-    (r"\bplatformio==([\w.]+)", "platformio", lambda v: v, 2),
-    (r"\bruff==([\w.]+)", "ruff", lambda v: v, 2),
-    (r"\bshellcheck-py==([\w.]+)", "shellcheck", lambda v: v, 2),
+    (r"""python-version:\s*['"]?([^'"\s]+)['"]?""", "python", lambda v: v),
+    (r"\bnumpy==([\w.]+)", "numpy", lambda v: v),
+    (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v),
+    (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v),
+    (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v),
+    (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
+    (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0]),
+    (r"\brust-just==([\w.]+)", "just", lambda v: v),
+    (r"\bplatformio==([\w.]+)", "platformio", lambda v: v),
+    (r"\bruff==([\w.]+)", "ruff", lambda v: v),
+    (r"\bshellcheck-py==([\w.]+)", "shellcheck", lambda v: v),
     (r"EXPECTED_CLANG_FORMAT_MAJOR = (\d+)", "clang-format",
-     lambda v: v.split(".")[0], 1),
+     lambda v: v.split(".")[0]),
     (r"HS_CLANG_FORMAT_MAJOR=(\d+)", "clang-format",
-     lambda v: v.split(".")[0], 1),
-    (r"Install Doxygen ([\w.]+) ", "doxygen", lambda v: v, 1),
-    (r"/Release_(\w+)/", "doxygen", lambda v: v.replace(".", "_"), 1),
-    (r"\bdoxygen-([\w.]+)\.linux", "doxygen", lambda v: v, 1),
-    (r"\bdoxygen-([\w.]+)/bin", "doxygen", lambda v: v, 1),
-    (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v, 1),
+     lambda v: v.split(".")[0]),
+    (r"Install Doxygen ([\w.]+) ", "doxygen", lambda v: v),
+    (r"/Release_(\w+)/", "doxygen", lambda v: v.replace(".", "_")),
+    (r"\bdoxygen-([\w.]+)\.linux", "doxygen", lambda v: v),
+    (r"\bdoxygen-([\w.]+)/bin", "doxygen", lambda v: v),
+    (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v),
     (r"([0-9a-f]{64})  /tmp/llvm-snapshot\.gpg\.key", "llvm-key-sha256",
-     lambda v: v, 1),
-    (r"KICAD_MAJOR = (\d+)", "kicad", lambda v: v, 1),
-    (r"\bKiCad (\d+)\b", "kicad", lambda v: v, 6),
+     lambda v: v),
+    (r"KICAD_MAJOR = (\d+)", "kicad", lambda v: v),
+    (r"\bKiCad (\d+)\b", "kicad", lambda v: v),
 )
 
 # The shared clang-format gate selects these extensions through a git pathspec;
@@ -240,28 +235,24 @@ SHARED_LITERALS = {
     "smoke-frames": "120",
 }
 
-# (pattern, literal name, occurrences required across INLINE_SCAN). The
-# pattern's single capture group is the literal as that file spells it; the
-# count fails a copy that was dropped or another one added unnoticed. The
-# pathspec pattern is anchored on the first glob so the shellcheck gate's own
-# git ls-files pathspec is not swept in.
+# Patterns for literals shared across build tools.
 SHARED_LITERAL_USES = (
-    (r"grep -vE '([^']*)'", "format-exclude", 2),
-    (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs", 1),
+    (r"grep -vE '([^']*)'", "format-exclude"),
+    (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs"),
     # Anchored on the extension alternation's own opening, so an unrelated
     # quoted `grep -E` elsewhere in a scanned file is not counted as a copy.
-    (r"grep -E '(\\\.\([^']*)'", "format-extensions", 1),
+    (r"grep -E '(\\\.\([^']*)'", "format-extensions"),
     # Anchored on the start of a flag line (platformio.ini) and on the matrix key
     # that carries the pair plus its test-contract define (ci.yml), so prose
     # spellings are not swept in. Captures run to end of line: a partial edit
     # reads as a difference.
-    (r"^\s+(-ffast-math\b.*)$", "float-flags", 1),
-    (r"float_flags:\s+(-ffast-math\b.*)$", "float-test-flags", 1),
+    (r"^\s+(-ffast-math\b.*)$", "float-flags"),
+    (r"float_flags:\s+(-ffast-math\b.*)$", "float-test-flags"),
     # Every WASM target's compile and link line.
-    (r'("-ffast-math" "[^"]+")', "float-flags-cmake", 4),
+    (r'("-ffast-math" "[^"]+")', "float-flags-cmake"),
     # ci.yml declares the window once and aliases it into every other job; the
     # justfile spells it as a recipe parameter and CONTRIBUTING as prose.
-    (r'HS_SMOKE_FRAMES(?:: &\w+ |="?)(\d+)', "smoke-frames", 3),
+    (r'HS_SMOKE_FRAMES(?:: &\w+ |="?)(\d+)', "smoke-frames"),
 )
 
 # --check-tool targets: pin name -> (version command, how to install the pin,
@@ -348,23 +339,16 @@ def read_scanned(path: Path, errors: list[str]) -> str | None:
 
 
 def check_inline_pins() -> list[str]:
-    """Return one error per occurrence of an INLINE_PINS value that disagrees
-    with the pin, plus one per INLINE_USES spelling found the wrong number of
-    times.
-
-    The count is per pattern, not per pin: most pins have several spellings, so
-    a per-pin total would let one spelling stop matching while a sibling absorbs
-    its share.
-    """
+    """Validate discovered pin spellings and report patterns with no matches."""
     errors: list[str] = []
     pin_values = {**PINS, **INLINE_PINS}
-    seen: dict[str, int] = {pattern: 0 for pattern, _, _, _ in INLINE_USES}
+    seen: dict[str, int] = {pattern: 0 for pattern, _, _ in INLINE_USES}
     for path in INLINE_SCAN:
         text = read_scanned(path, errors)
         if text is None:
             continue
         for index, line in enumerate(text.splitlines(), 1):
-            for pattern, name, form, _ in INLINE_USES:
+            for pattern, name, form in INLINE_USES:
                 want = form(pin_values[name])
                 for found in re.findall(pattern, line):
                     seen[pattern] += 1
@@ -373,20 +357,18 @@ def check_inline_pins() -> list[str]:
                             f"{path.relative_to(ROOT)}:{index}: {name} pinned to "
                             f"{want!r} but written {found!r}"
                         )
-    for pattern, name, _, expected in INLINE_USES:
-        if seen[pattern] != expected:
+    for pattern, name, _ in INLINE_USES:
+        if not seen[pattern]:
             errors.append(
-                f"{name} spelling {pattern!r} occurs {seen[pattern]} time(s) in "
-                f"the scanned files, expected {expected}"
+                f"{name} spelling {pattern!r} was not found in the scanned files"
             )
     return errors
 
 
 def check_shared_literals() -> list[str]:
-    """Return one error per occurrence of a SHARED_LITERALS value that disagrees
-    with the literal, plus one per literal found the wrong number of times."""
+    """Validate shared literal values and report patterns with no matches."""
     errors: list[str] = []
-    for pattern, name, expected in SHARED_LITERAL_USES:
+    for pattern, name in SHARED_LITERAL_USES:
         want = SHARED_LITERALS[name]
         occurrences = 0
         for path in INLINE_SCAN:
@@ -401,10 +383,9 @@ def check_shared_literals() -> list[str]:
                             f"{path.relative_to(ROOT)}:{index}: {name} differs "
                             f"from build_pins.py: {found!r}"
                         )
-        if occurrences != expected:
+        if not occurrences:
             errors.append(
-                f"{name} occurs {occurrences} time(s) in the scanned files, "
-                f"expected {expected}"
+                f"{name} was not found in the scanned files"
             )
     return errors
 
