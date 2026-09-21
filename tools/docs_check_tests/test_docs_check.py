@@ -394,7 +394,7 @@ class TestDocumentationChecker(unittest.TestCase):
             with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
                 _, issues, _ = dc.check_repository(root)
         self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0].path, "core/engine/effects.h")
+        self.assertEqual(issues[0].path, "targets/effects.h")
         self.assertIn("is not tracked", issues[0].message)
 
     def test_stale_untracked_allowances_are_named(self):
