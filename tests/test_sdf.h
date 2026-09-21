@@ -1048,7 +1048,7 @@ inline void test_twisted_torus_matches_recurrence() {
                              base.r * sinf(tube_angle),
                          radius * sinf(theta));
           const float s = sqrtf(p.x * p.x + p.z * p.z);
-          const float inv_s = s >= TOLERANCE ? 1.0f / s : 0.0f;
+          const float inv_s = s > TOLERANCE ? 1.0f / s : 0.0f;
           float sin_prev = 0.0f, sin_n = p.z * inv_s;
           float cos_prev = 1.0f, cos_n = p.x * inv_s;
           const float two_cos = 2.0f * p.x * inv_s;
@@ -1060,7 +1060,7 @@ inline void test_twisted_torus_matches_recurrence() {
             cos_prev = cos_n;
             cos_n = cos_next;
           }
-          if (twist == 0 || s < TOLERANCE) {
+          if (twist == 0 || s <= TOLERANCE) {
             sin_n = 0.0f;
             cos_n = 1.0f;
           }
@@ -1090,6 +1090,33 @@ inline void test_twisted_torus_matches_recurrence() {
   }
   HS_EXPECT_LT(worst_distance, 2e-6f);
   HS_EXPECT_LT(worst_normal, 2e-6f);
+}
+
+/**
+ * @brief Verifies the recurrence siblings agree at the degenerate-axis
+ *        threshold itself: an XZ radius of exactly TOLERANCE is the axis for
+ *        sin_ntheta/cos_ntheta and sincos_ntheta alike, and one ulp above it
+ *        is not.
+ */
+inline void test_twist_axis_threshold_siblings_agree() {
+  const float above = std::nextafter(TOLERANCE, 1.0f);
+  for (int twist = 0; twist <= 8; ++twist) {
+    const SDF::Warp::Twist warp{twist, 0.35f, 0.45f};
+    for (float s : {TOLERANCE, above}) {
+      for (const Vector &p : {Vector(s, 0.1f, 0.0f), Vector(0.0f, 0.1f, s),
+                              Vector(-0.6f * s, -0.1f, 0.8f * s)}) {
+        const auto both = warp.sincos_ntheta(p, s);
+        const auto sin_inv = warp.sin_ntheta_inv(p, s);
+        HS_EXPECT_EQ(warp.sin_ntheta(p, s), both.sin_n);
+        HS_EXPECT_EQ(warp.cos_ntheta(p, s), both.cos_n);
+        HS_EXPECT_EQ(sin_inv.sin_n, both.sin_n);
+        if (twist > 0 && s > TOLERANCE)
+          HS_EXPECT_EQ(sin_inv.lipschitz_arg, 1.0f / s);
+        else
+          HS_EXPECT_EQ(sin_inv.lipschitz_arg, warp.two_over_r);
+      }
+    }
+  }
 }
 
 /**
@@ -3415,6 +3442,7 @@ inline int run_sdf_tests() {
   test_twist_lipschitz_identity_and_closed_form();
   test_twist_bounding_inflation();
   test_twisted_torus_matches_recurrence();
+  test_twist_axis_threshold_siblings_agree();
   test_warped_volume_distance_is_sphere_trace_safe();
   test_warped_volume_distance_matches_lipschitz_correction();
   test_twist_correct_normal_unit_length();
