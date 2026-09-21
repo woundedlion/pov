@@ -219,15 +219,29 @@ struct Params {
     color = amount < 0.5f ? start.color : target.color;
     shells = amount < 0.5f ? start.shells : target.shells;
   }
+
+  /**
+   * @brief Compile-time field-set pin for lerp() and valid_params(); never
+   *        called.
+   * @details The binding names every member, so adding or removing a field is a
+   *          build error here. sizeof() cannot stand in: the trailing enums
+   *          leave tail padding that absorbs an added small field and leaves
+   *          the size unchanged, after which the new field holds at the
+   *          departing preset's value across every crossfade.
+   */
+  static void pin_field_set(const Params &p) {
+    const auto &[mode, sphere_radius, cell_size, wire_radius, softness,
+                 far_distance, aa_strength, speed, spin_3d, spin_4d, color,
+                 shells] = p;
+    (void)mode, (void)sphere_radius, (void)cell_size, (void)wire_radius,
+        (void)softness, (void)far_distance, (void)aa_strength, (void)speed,
+        (void)spin_3d, (void)spin_4d, (void)color, (void)shells;
+  }
 };
 
-// lerp() and valid_params() enumerate every Params field by hand; a field added
-// without touching both pins silently at the start value across every
-// transition. Every enum has a fixed uint8_t base, so the size holds under ARM
-// -fshort-enums.
-static_assert(sizeof(Params) == 44,
-              "HyperLattice::Params field set changed — update lerp() and "
-              "valid_params() to match");
+// Width pin; pin_field_set() is what catches an added or removed field. Every
+// enum has a fixed uint8_t base, so the size holds under ARM -fshort-enums.
+static_assert(sizeof(Params) == 44, "HyperLattice::Params width changed");
 
 struct FrameState {
   Params params;
