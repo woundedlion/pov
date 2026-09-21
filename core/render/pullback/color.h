@@ -74,8 +74,7 @@ struct ColorParams {
   float opacity_low = 1.0f;       /**< Alpha gain at source value 0. */
   float opacity_high = 1.0f;      /**< Alpha gain at source value 1. */
   /** Palette mapping curve; snapped, not blended, by interpolate(). */
-  Pullback::Color::PaletteMapping palette_mapping =
-      Pullback::Color::PaletteMapping::LINEAR;
+  PaletteMapping palette_mapping = PaletteMapping::LINEAR;
 
   static constexpr auto FIELDS = std::array{
       Field<ColorParams>{"hue-shift-amount", &ColorParams::hue_shift_amount,
