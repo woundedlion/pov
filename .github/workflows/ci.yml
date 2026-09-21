@@ -1116,23 +1116,11 @@ jobs:
           path: engine-bundle
 
       - name: Install the bundle over the daydream checkout
-        # The bundle's own manifest is the install set, so a file added to the
-        # DAYDREAM_DIR rules reaches the consumer with no second edit here.
-        run: |
-          ( cd engine-bundle && sha256sum -c holosphere_engine.sha256 )
-          while read -r _ path; do
-            path="${path#\*}"
-            path="${path#./}"
-            mkdir -p "daydream/$(dirname "$path")"
-            cp "engine-bundle/$path" "daydream/$path"
-          done < engine-bundle/holosphere_engine.sha256
-          ( cd daydream && sha256sum -c holosphere_wasm.wasm.sha256 )
+        env:
+          HOLOSPHERE_BUNDLE_PIN: ${{ github.sha }}
+        run: node daydream/scripts/install-engine-bundle.mjs engine-bundle daydream
 
       - name: Run the simulator suite against this engine
-        # HOLOSPHERE_ENGINE_DIR names this checkout, and _REQUIRED turns the
-        # cross-repo comparisons from skip-when-absent into hard failures: those
-        # tests read engine HEAD directly (git show), so they measure the commit
-        # under test rather than the bundle alone.
         working-directory: daydream
         env:
           HOLOSPHERE_ENGINE_DIR: ${{ github.workspace }}
