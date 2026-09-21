@@ -46,7 +46,8 @@ class Symbol:
         self.footprint = footprint
         self.dnp = dnp
         self.uuid = uid()
-        self._pins = None  # filled by builder
+        self._pins = None       # filled by builder
+        self.pin_uuids = []     # filled by builder
 
     def pin(self, number):
         """Global (x,y) of pin `number` for this instance's unit."""
@@ -78,7 +79,8 @@ class Builder:
         self.wires = []
         self.labels = []
         self.junctions = []
-        self.texts = []          # (point, string, size)
+        self.junction_keys = set()
+        self.texts = []          # (point, string, size, uuid)
         self.lib_defs = {}       # lib_id -> symbol node (for lib_symbols)
         self._unit_pins = {}     # lib_id -> {unit -> {num -> pin}}
 
@@ -125,6 +127,11 @@ class Builder:
         merged = dict(common)
         merged.update(sym._pins)
         sym._pins = merged
+        sym.pin_uuids = [
+            (num, uid())
+            for num in list(self._unit_pins[sym.lib_id].get(sym.unit, {}))
+            + list(common)
+        ]
         self.symbols.append(sym)
         return sym
 
@@ -142,7 +149,7 @@ class Builder:
 
     def _seg(self, p1, p2):
         if p1 != p2:
-            self.wires.append((p1, p2))
+            self.wires.append((p1, p2, uid()))
 
     def stub(self, sym, number, length=2.54):
         """Draw a stub from a pin outward; return the stub end point."""
@@ -153,13 +160,17 @@ class Builder:
         return end
 
     def label(self, p, text, angle=0):
-        self.labels.append((p, text, angle))
+        self.labels.append((p, text, angle, uid()))
 
     def text(self, p, s, size=2.0):
-        self.texts.append((p, s, size))
+        self.texts.append((p, s, size, uid()))
 
     def junction(self, p):
-        self.junctions.append(p)
+        key = (round(p[0], 3), round(p[1], 3))
+        if key in self.junction_keys:
+            return
+        self.junction_keys.add(key)
+        self.junctions.append((p, uid()))
 
     # ---- emit ----
     def dumps(self):
@@ -179,35 +190,35 @@ class Builder:
         for lib_id in sorted(self.lib_defs):
             out.append(sexp.dumps(self.lib_defs[lib_id], indent=2))
         out.append('\t)')
-        # junctions (dedup)
-        for p in _dedup(self.junctions):
+        # junctions
+        for (p, node_uuid) in self.junctions:
             out.append('\t(junction')
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])})')
             out.append('\t\t(diameter 0)')
             out.append('\t\t(color 0 0 0 0)')
-            out.append(f'\t\t(uuid "{uid()}")')
+            out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
         # wires
-        for (p1, p2) in self.wires:
+        for (p1, p2, node_uuid) in self.wires:
             out.append('\t(wire')
             out.append(f'\t\t(pts (xy {fmt(p1[0])} {fmt(p1[1])}) (xy {fmt(p2[0])} {fmt(p2[1])}))')
             out.append('\t\t(stroke (width 0) (type default))')
-            out.append(f'\t\t(uuid "{uid()}")')
+            out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
         # labels
-        for (p, text, angle) in self.labels:
+        for (p, text, angle, node_uuid) in self.labels:
             just = "left" if angle in (0, 90) else "right"
             out.append(f'\t(label {sexp.quote(text)}')
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])} {angle})')
             out.append(f'\t\t(effects (font (size 1.27 1.27)) (justify {just} bottom))')
-            out.append(f'\t\t(uuid "{uid()}")')
+            out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
         # text notes (block headers)
-        for (p, s, size) in self.texts:
+        for (p, s, size, node_uuid) in self.texts:
             out.append(f'\t(text {sexp.quote(s)}')
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])} 0)')
             out.append(f'\t\t(effects (font (size {size} {size}) (bold yes)) (justify left bottom))')
-            out.append(f'\t\t(uuid "{uid()}")')
+            out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
         # symbols
         for s in self.symbols:
@@ -241,10 +252,8 @@ class Builder:
         L += _prop("Footprint", s.footprint, s.x, s.y + 7.62, hide=True)
         L += _prop("Datasheet", "", s.x, s.y, hide=True)
         # pin uuids
-        for num in self._unit_pins[s.lib_id].get(s.unit, {}):
-            L.append(f'\t\t(pin {sexp.quote(num)} (uuid "{uid()}"))')
-        for num in self._unit_pins[s.lib_id].get(0, {}):
-            L.append(f'\t\t(pin {sexp.quote(num)} (uuid "{uid()}"))')
+        for num, pin_uuid in s.pin_uuids:
+            L.append(f'\t\t(pin {sexp.quote(num)} (uuid "{pin_uuid}"))')
         # instances
         L.append('\t\t(instances')
         L.append('\t\t\t(project "phantasm"')
@@ -262,15 +271,6 @@ def _prop(name, value, x, y, hide=False, angle=0):
            f'\t\t\t(at {fmt(x)} {fmt(y)} {angle})',
            '\t\t\t(effects (font (size 1.27 1.27))' + (' (hide yes)' if hide else '') + ')',
            '\t\t)']
-    return out
-
-
-def _dedup(pts):
-    seen = set(); out = []
-    for p in pts:
-        k = (round(p[0], 3), round(p[1], 3))
-        if k not in seen:
-            seen.add(k); out.append(p)
     return out
 
 
