@@ -18,6 +18,8 @@ GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
 COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
 ALLOW_RE = re.compile(r"^([A-Za-z0-9_.-]+)=(\d+|gone)->(\d+|gone)$")
 WORKFLOW = ".github/workflows/ci.yml"
+HARNESS_PATH = "tools/relax_bake_harness.cpp"
+DEATH_PATH = "tests/test_death.h"
 # Weakenings already on master, each exact and each expiring at ALLOWANCE_EXPIRY;
 # DOMAIN_RATCHET_ALLOW_WEAKEN adds to them.
 HISTORICAL_ALLOWANCES = """
@@ -163,6 +165,27 @@ def git(repo: Path, *args: str, required: bool = True) -> str | None:
     raise SystemExit(result.stderr.strip() or f"git {' '.join(args)} failed")
 
 
+def gated_sources(repo: Path, ref: str, root: Path,
+                  tag: str) -> tuple[Path, Path] | None:
+    """The gated harness and death files at @p ref, copied under @p root.
+
+    None once a gated path is absent there, which is a renamed or deleted file
+    rather than a weakening, and is annotated as such.
+    """
+    written = []
+    for gated, name in ((HARNESS_PATH, "harness.cpp"), (DEATH_PATH, "death.h")):
+        text = git(repo, "show", f"{ref}:{gated}", required=False)
+        if text is None:
+            print(f"::error file={gated}::{gated} does not exist at {ref} - a "
+                  "ratchet-gated file was renamed or deleted without updating "
+                  "the gate")
+            return None
+        local = root / f"{tag}-{name}"
+        local.write_text(text, encoding="utf-8")
+        written.append(local)
+    return (written[0], written[1])
+
+
 def check_git_range(repo: Path, previous_ref: str, current_ref: str,
                     allow: set[Transition], allow_through: str | None = None) -> int:
     """Check each first-parent edge whose commit contains the ratchet job."""
@@ -175,8 +198,7 @@ def check_git_range(repo: Path, previous_ref: str, current_ref: str,
     in_window = 0
     commits = git(
         repo, "rev-list", "--first-parent", "--reverse",
-        f"{previous_ref}..{current_ref}", "--",
-        "tools/relax_bake_harness.cpp", "tests/test_death.h"
+        f"{previous_ref}..{current_ref}", "--", HARNESS_PATH, DEATH_PATH
     ).splitlines()
     checked = 0
     failed = False
@@ -188,17 +210,11 @@ def check_git_range(repo: Path, previous_ref: str, current_ref: str,
                     r"^  domain-ratchets:\s*$", workflow, re.M):
                 continue
             parent = git(repo, "rev-parse", f"{commit}^1").strip()
-            paths = []
-            for tag, ref in (("previous", parent), ("current", commit)):
-                harness = root / f"{tag}-harness.cpp"
-                death = root / f"{tag}-death.h"
-                harness_text = git(
-                    repo, "show", f"{ref}:tools/relax_bake_harness.cpp"
-                )
-                death_text = git(repo, "show", f"{ref}:tests/test_death.h")
-                harness.write_text(harness_text, encoding="utf-8")
-                death.write_text(death_text, encoding="utf-8")
-                paths.append((harness, death))
+            paths = [gated_sources(repo, ref, root, tag)
+                     for tag, ref in (("previous", parent),
+                                      ("current", commit))]
+            if any(pair is None for pair in paths):
+                return 1
             print(f"checking domain ratchets for {commit} against {parent}")
             within = bool(allow) and git(
                 repo, "merge-base", "--is-ancestor", commit, allow_through,
