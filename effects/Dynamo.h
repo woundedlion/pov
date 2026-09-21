@@ -132,7 +132,7 @@ public:
         }
       }
     }
-    emission_points = emitted_points / (steps > 0 ? steps : 1);
+    points_per_emission = emitted_points / (steps > 0 ? steps : 1);
 
     // The Trails filter replays each buffered point with t = its age fraction;
     // feeding that as color()'s palette parameter fades the trail along the
@@ -360,12 +360,12 @@ private:
    *          one extra whole step into any frame.
    */
   int trail_length_ceiling() const {
-    if (emission_points == 0)
+    if (points_per_emission == 0)
       return TRAIL_LEN_MAX;
     const uint32_t emissions =
         static_cast<uint32_t>(std::abs(params.speed)) + 1;
     return hs::clamp(
-        static_cast<int>(TRAIL_CAPACITY / (emission_points * emissions)), 1,
+        static_cast<int>(TRAIL_CAPACITY / (points_per_emission * emissions)), 1,
         TRAIL_LEN_MAX);
   }
 
@@ -504,8 +504,9 @@ private:
    */
   float speed_accumulator = 0.0f;
 
-  uint32_t emitted_points = 0;  /**< Points plotted this frame. */
-  uint32_t emission_points = 0; /**< Points per strand emission, last frame. */
+  uint32_t emitted_points = 0; /**< Points plotted this frame. */
+  /** @brief Points one strand emission plotted, measured last frame. */
+  uint32_t points_per_emission = 0;
 
   /** @brief Palettes-full log latch; cleared when a wipe lands. */
   bool logged_palettes_full = false;
