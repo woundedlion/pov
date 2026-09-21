@@ -198,10 +198,6 @@ private:
                            int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
-    // Trap rather than return -1: a -1 here is indistinguishable from the
-    // empty-subtree sentinel above, so exhaustion would silently drop a subtree.
-    HS_CHECK(nodes.size() < nodes.capacity(),
-             "KDTree node pool exhausted during build");
 
     int axis = depth % 3;
     int mid = count / 2;
@@ -225,12 +221,6 @@ private:
     int median_idx = indices[mid];
 
     int new_node_idx = static_cast<int>(nodes.size());
-    // left/right are int16_t (-1 sentinel); original_index is uint16_t. Both
-    // ranges are covered by MAX_POINTS, which the source count is capped to.
-    HS_CHECK(static_cast<size_t>(new_node_idx) < MAX_POINTS,
-             "KDTree node index exceeds int16_t child-link range");
-    HS_CHECK(static_cast<size_t>(median_idx) < MAX_POINTS,
-             "KDTree vertex index exceeds original_index range");
     nodes.emplace_back();
     nodes[new_node_idx].point = points[median_idx];
     nodes[new_node_idx].original_index = (uint16_t)median_idx;

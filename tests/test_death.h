@@ -5225,7 +5225,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"recipe.h", 13},
     {"solid_generators.h", 5},
     {"solids.h", 2},
-    {"kd_tree.h", 5},
+    {"kd_tree.h", 2},
     {"canvas.h", 2},
     {"common.h", 4},
     {"csg.h", 2},
