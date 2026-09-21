@@ -218,7 +218,7 @@ namespace Stage {
 template <typename OrientationProvider>
 struct Rotate
     : Contract<Rotate<OrientationProvider>, SphereSample, SphereSample> {
-  using Policies = std::tuple<>;
+  using Policies = std::tuple<OrientationProvider>;
   using Provider = OrientationProvider;
 
   template <typename Binding>
