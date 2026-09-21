@@ -778,8 +778,24 @@ const canonicalValue = (value) => {
   return typeof value === 'string' ? value.normalize('NFC') : value;
 };
 
+// Hand-serialized: JSON.stringify emits integer-like keys first in numeric
+// order, whatever the object's own key order.
+const stableJson = (value) => {
+  if (Array.isArray(value))
+    return `[${value.map((member) => stableJson(member) ?? 'null').join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const members = Object.keys(value)
+      .map((key) => [key.normalize('NFC'), stableJson(value[key])])
+      .filter(([, json]) => json !== undefined)
+      .sort(([left], [right]) => codePointCompare(left, right))
+      .map(([key, json]) => `${JSON.stringify(key)}:${json}`);
+    return `{${members.join(',')}}`;
+  }
+  return JSON.stringify(typeof value === 'string' ? value.normalize('NFC') : value);
+};
+
 export function stableStringify(value) {
-  return JSON.stringify(canonicalValue(value));
+  return stableJson(value);
 }
 
 const quantizeParameter = (parameter) => {
