@@ -730,15 +730,24 @@ class TestDocumentationChecker(unittest.TestCase):
                 f"playlist. The budget covers the {phantasm}-effect "
                 f"phantasm roster.")
 
+    @staticmethod
+    def _effects_prose(products, descriptors):
+        return (f"These {products} effects form the product-only group. "
+                f"Firmware exposes the {descriptors} promoted fixed "
+                "descriptors.")
+
     _SPEC = PurePosixPath("docs/specs/phantasm_frame_sync_spec.md")
     _LEDGER = PurePosixPath("docs/ledgers/itcm_ledger.md")
+    _EFFECTS = PurePosixPath("docs/effects.md")
 
-    def _roster_issues(self, prose, ledger=None):
+    def _roster_issues(self, prose, ledger=None, effects=None):
         header = self._PLAYLIST_HEADER
         return dc.roster_claim_issues(
             {PurePosixPath("README.md"): prose, self._SPEC: prose,
              self._LEDGER: self._ledger_prose(2, 2) if ledger is None
-             else ledger},
+             else ledger,
+             self._EFFECTS: self._effects_prose(2, 2) if effects is None
+             else effects},
             dc.effect_roster(header), dc.phantasm_roster(header),
             dc.shader_product_group(header))
 
@@ -765,8 +774,8 @@ class TestDocumentationChecker(unittest.TestCase):
 
     def test_deleted_roster_prose_is_reported(self):
         messages = [issue.message
-                    for issue in self._roster_issues("none", "none")]
-        self.assertEqual(len(messages), 6)
+                    for issue in self._roster_issues("none", "none", "none")]
+        self.assertEqual(len(messages), 8)
         self.assertTrue(all("goes unchecked" in message
                             for message in messages))
 
@@ -781,6 +790,100 @@ class TestDocumentationChecker(unittest.TestCase):
                       messages[0])
         self.assertIn("stated as 7, HS_PHANTASM_EFFECT_LIST names 2",
                       messages[1])
+
+    def test_spelled_out_cardinalities_are_read(self):
+        self.assertEqual(self._roster_issues(
+            self._roster_prose(2, 2, 2), effects=self._effects_prose(
+                "two", "two")), [])
+        issues = self._roster_issues(
+            self._roster_prose(2, 2, 2),
+            effects=self._effects_prose("three", "twenty-one"))
+        messages = [issue.message for issue in issues]
+        self.assertEqual(len(messages), 2)
+        self.assertTrue(all(issue.path == self._EFFECTS.as_posix()
+                            for issue in issues))
+        self.assertIn("stated as 3, HS_SHADER_PRODUCT_GROUP names 2",
+                      messages[0])
+        self.assertIn("stated as 21, HS_SHADER_PRODUCT_GROUP names 2",
+                      messages[1])
+
+    def test_a_claim_that_is_not_a_count_is_reported(self):
+        issues = self._roster_issues(
+            self._roster_prose(2, 2, 2),
+            effects=self._effects_prose("several", 2))
+        self.assertEqual([issue.message for issue in issues], [
+            "the composed roster size is stated as 'several', which is not "
+            "a count"])
+
+    _COMPOSED_ROSTER = (
+        "### Composed-effect roster\n\n"
+        "| Effect ID | Concrete effect | Presets | Legacy source |\n"
+        "|---|---|---:|---|\n")
+
+    @staticmethod
+    def _composed_row(effect_id, effect, presets):
+        return f"| `{effect_id}` | `{effect}` | {presets} | — |\n"
+
+    def _composed_issues(self, rows, products=("Comets", "Voronoi")):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "effects").mkdir()
+            (root / "effects" / "Comets.h").write_text(
+                "static constexpr std::array<std::string_view, 2> "
+                'PRESET_IDS{\n    "comets", "comets-2"};\n', encoding="utf-8")
+            (root / "effects" / "Voronoi.h").write_text(
+                "// static constexpr std::array<std::string_view, 9> "
+                "PRESET_IDS{};\n"
+                "static constexpr std::array<std::string_view, 1> "
+                'PRESET_IDS{"voronoi"};\n', encoding="utf-8")
+            (root / "effects" / "Fishbowl.h").write_text(
+                "struct Fishbowl {};\n", encoding="utf-8")
+            entries = {PurePosixPath("effects", name)
+                       for name in ("Comets.h", "Voronoi.h", "Fishbowl.h")}
+            return [(issue.line, issue.message)
+                    for issue in dc.composed_roster_issues(
+                        root, self._COMPOSED_ROSTER + rows, entries,
+                        set(products))]
+
+    def test_matching_composed_roster_is_clean(self):
+        rows = (self._composed_row("comets", "Comets", 2)
+                + self._composed_row("voronoi", "Voronoi", 1))
+        self.assertEqual(self._composed_issues(rows), [])
+
+    def test_composed_roster_preset_counts_are_checked_against_preset_ids(
+            self):
+        rows = (self._composed_row("comets", "Comets", 3)
+                + self._composed_row("voronoi", "Voronoi", 1))
+        self.assertEqual(self._composed_issues(rows), [
+            (5, "Comets presets stated as 3, PRESET_IDS holds 2")])
+
+    def test_composed_roster_membership_is_checked_against_the_group(self):
+        rows = (self._composed_row("comets", "Comets", 2)
+                + self._composed_row("fishbowl", "Fishbowl", 1)
+                + self._composed_row("ghost", "Ghost", 1))
+        self.assertEqual(self._composed_issues(rows), [
+            (6, "composed roster claims 1 presets for Fishbowl, which "
+                "declares no PRESET_IDS"),
+            (7, "composed roster names effects/Ghost.h, which is not tracked"),
+            (1, "composed roster omits Voronoi, which HS_SHADER_PRODUCT_GROUP "
+                "names"),
+            (6, "composed roster lists Fishbowl, which "
+                "HS_SHADER_PRODUCT_GROUP does not name"),
+            (7, "composed roster lists Ghost, which HS_SHADER_PRODUCT_GROUP "
+                "does not name"),
+        ])
+
+    def test_duplicate_composed_roster_row_is_reported(self):
+        rows = (self._composed_row("comets", "Comets", 2)
+                + self._composed_row("comets-2", "Comets", 2)
+                + self._composed_row("voronoi", "Voronoi", 1))
+        self.assertEqual(self._composed_issues(rows), [
+            (6, "composed roster lists Comets twice")])
+
+    def test_deleted_composed_roster_is_reported(self):
+        self.assertEqual(self._composed_issues(""), [
+            (1, "no composed-effect roster table, so its preset counts go "
+                "unchecked")])
 
     def test_unreadable_playlist_fails_every_claim(self):
         issues = dc.roster_claim_issues(
