@@ -2,8 +2,10 @@
 # FULL text against the committed file, so array names, element types, the
 # flash-section marker, the include and value signs gate alongside the numbers.
 # Counterpart of the lut-provenance job in .github/workflows/ci.yml.
-# Skips with SKIP_CODE when no Python is available, or fails outright under
-# REQUIRE_PYTHON (CI, which provisions the interpreter).
+# The generator pipes its header through clang-format (CLANG_FORMAT or the one
+# on PATH) and refuses to emit without it. Skips with SKIP_CODE when Python or
+# clang-format is unavailable, or fails outright under REQUIRE_PYTHON (CI, which
+# provisions both).
 # -D args: PYTHON_EXE, GENERATOR, COMMITTED, GENERATED, SKIP_CODE, REQUIRE_PYTHON.
 
 # Script mode inherits no policies from the project, so every policy would
@@ -16,6 +18,19 @@ if(NOT PYTHON_EXE OR NOT EXISTS "${PYTHON_EXE}")
     message(FATAL_ERROR "color_luts pin: no Python interpreter, and HS_REQUIRE_GENERATORS is ON")
   endif()
   message(STATUS "color_luts pin: no Python interpreter; skipping")
+  cmake_language(EXIT ${SKIP_CODE})
+endif()
+
+if("$ENV{CLANG_FORMAT}" STREQUAL "")
+  find_program(_clang_format clang-format)
+else()
+  set(_clang_format "$ENV{CLANG_FORMAT}")
+endif()
+if(NOT _clang_format)
+  if(REQUIRE_PYTHON)
+    message(FATAL_ERROR "color_luts pin: no clang-format, and HS_REQUIRE_GENERATORS is ON")
+  endif()
+  message(STATUS "color_luts pin: no clang-format; skipping")
   cmake_language(EXIT ${SKIP_CODE})
 endif()
 
