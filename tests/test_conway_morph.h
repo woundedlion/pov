@@ -639,7 +639,6 @@ inline PolyMesh run_edge_op(const ConwayGraph::EdgeSpec &e,
 /** How an edge endpoint is compared against its node's registry output. */
 enum class EndRegime {
   EXACT,        /**< Same code path: bitwise vertices, identical topology. */
-  EPS_PRIMARY,  /**< t = 0 end: op(seed, T_EPS) primaries match the seed. */
   VERTEX_MATCH, /**< Same geometry, different vertex order (dual-family ambo,
                      ambo(tetra) bridge). */
   REGULAR,      /**< Relax-canonical arrival in a walk-dependent orientation
@@ -797,9 +796,10 @@ inline void check_regular_form(const PolyMesh &got, const PolyMesh &want,
  *        relax arrivals.
  * @details Seeds are built via the registry generators, so the DERIVE_AMBO
  *          rows (cuboctahedron / icosidodecahedron seeds) run the exact bevel
- *          decomposition of their to_node chains. from ends at t = 0 use the
- *          EPS_PRIMARY regime (an op at 0 emits expanded topology with
- *          coincident positions, never the seed mesh itself).
+ *          decomposition of their to_node chains. A from end at t = 0 compares
+ *          op(seed, T_EPS) primaries against the seed (an op at 0 emits
+ *          expanded topology with coincident positions, never the seed mesh
+ *          itself).
  */
 inline void test_edge_endpoints_match_registry() {
   constexpr size_t HALF = sizeof(morph_target_buf) / 2;
@@ -866,8 +866,6 @@ inline void test_edge_endpoints_match_registry() {
       case EndRegime::PAIR_COVER:
         check_pairwise_vertex_cover(got, want, 1e-4f);
         break;
-      case EndRegime::EPS_PRIMARY:
-        break; // from-end-only regime
       }
     }
 
@@ -3668,13 +3666,10 @@ struct ChainPeaks {
  *        continuity, classification, and the arena high-waters.
  * @param name Diagnostic label.
  * @param recipe Recipe replayed.
- * @param gate Whether to assert the budgets and print the per-chain line; false
- * measures a chain the effect would reject, for the arena survey.
  * @return The chain's arena high-waters.
  */
 inline ChainPeaks replay_build_chain(const char *name,
-                                     const Solids::Recipe &recipe,
-                                     bool gate = true) {
+                                     const Solids::Recipe &recipe) {
   ChainPeaks peaks;
   using Animation::OpLeg;
   constexpr int HANKIN_LEG_FRAMES = 32, SWEEP_LEG_FRAMES = 24,
@@ -3738,12 +3733,10 @@ inline ChainPeaks replay_build_chain(const char *name,
     }
     peaks.legs = count;
     peaks.supported = supported;
-    if (gate) {
-      HS_EXPECT_TRUE(supported);
-      if (!supported) {
-        std::printf("    [chain] %s: unsupported lowered op\n", name);
-        return peaks;
-      }
+    HS_EXPECT_TRUE(supported);
+    if (!supported) {
+      std::printf("    [chain] %s: unsupported lowered op\n", name);
+      return peaks;
     }
 
     hs_test::StubEffect fx(288, 144);
@@ -4148,23 +4141,20 @@ inline ChainPeaks replay_build_chain(const char *name,
     peaks.scratch_a = scratch_arena_a.get_high_water_mark();
     peaks.scratch_b = scratch_arena_b.get_high_water_mark();
     peaks.faces = final_slot.face_counts.size();
-    if (gate) {
-      std::printf("  [chain] %s: %zu legs, %d/%d palettes, final leg %d "
-                  "classes, %d/%d blend pairs, persistent=%zu B / %zu B, "
-                  "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
-                  name, count, peaks.palettes, OpLeg::PALETTES,
-                  peaks.final_classes, peaks.blend_pairs,
-                  OpLeg::MAX_BLEND_PAIRS, peaks.persistent,
-                  (size_t)ISLAMIC_PERSISTENT_BUDGET, peaks.scratch_a,
-                  (size_t)ISLAMIC_SCRATCH_A_BUDGET, peaks.scratch_b,
-                  (size_t)ISLAMIC_SCRATCH_B_BUDGET);
-      HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
-      HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
-      HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
+    std::printf("  [chain] %s: %zu legs, %d/%d palettes, final leg %d "
+                "classes, %d/%d blend pairs, persistent=%zu B / %zu B, "
+                "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
+                name, count, peaks.palettes, OpLeg::PALETTES,
+                peaks.final_classes, peaks.blend_pairs, OpLeg::MAX_BLEND_PAIRS,
+                peaks.persistent, (size_t)ISLAMIC_PERSISTENT_BUDGET,
+                peaks.scratch_a, (size_t)ISLAMIC_SCRATCH_A_BUDGET,
+                peaks.scratch_b, (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+    HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
+    HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
+    HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
 
-      if (hs_test::stats().failed != failed_before)
-        std::printf("    [chain] %s FAILED\n", name);
-    }
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [chain] %s FAILED\n", name);
   }
   return peaks;
 }
