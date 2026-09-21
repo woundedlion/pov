@@ -57,9 +57,11 @@ template <typename... Values> consteval uint16_t live_values(Values... values) {
 
 /**
  * @brief One scalar field of a parameter family.
- * @details `name == nullptr` marks a field that is interpolated and validated
- * but exposes no slider of its own: a warp slot's `speed`, which the runtime
- * registers under the slot's name, or a field only an envelope reads.
+ * @details `name == nullptr` marks a field with no slider of its own:
+ * register_fields skips it and the catalog exports a null display name. The
+ * field is still interpolated and validated. A warp slot's `speed` is
+ * registered under the slot's name instead, and the colour families' fields
+ * under names the effect chooses.
  * @tparam Owner The family struct the field belongs to.
  */
 template <typename Owner> struct Field {
