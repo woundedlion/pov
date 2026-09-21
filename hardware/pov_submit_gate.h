@@ -24,14 +24,13 @@
  */
 #pragma once
 
+#include "pov_handoff.h"
+
 #include <concepts>
 #include <cstdint>
 #include <utility>
 
 namespace pov {
-
-/** @brief pov_handoff.h's wake inputs; only named by WakeHandoff below. */
-struct WakeInputs;
 
 /** @brief What one flywheel wake hands to the LED transport. */
 enum class SubmitAction : uint8_t {
