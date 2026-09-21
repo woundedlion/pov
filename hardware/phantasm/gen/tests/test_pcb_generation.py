@@ -29,6 +29,8 @@ import pcb              # noqa: E402
 import sexp             # noqa: E402
 from kicad_common import F, is_copper_pour, kicad_cli  # noqa: E402
 
+COMMITTED_PCB = GEN.parent / pcb.PCB_FILE
+
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
 STOCK_FOOTPRINTS = os.path.isdir(pcb.FP_DIR)
 
@@ -63,6 +65,16 @@ def reference(footprint):
         if len(child) > 2 and child[1] == "Reference":
             return str(child[2])
     return "?"
+
+
+def assembly_exclusions(root):
+    """{ref: sorted attr flags} for every footprint kept off the assembly."""
+    excluded = {}
+    for footprint in F(root, "footprint"):
+        flags = [str(flag) for attr in F(footprint, "attr") for flag in attr[1:]]
+        if "exclude_from_bom" in flags:
+            excluded[reference(footprint)] = sorted(flags)
+    return excluded
 
 
 def zone_polygon(zone):
@@ -216,6 +228,10 @@ class GeneratedBoardTests(unittest.TestCase):
         texts = [str(node[1]) for node in F(self.root, "gr_text")
                  if str(sexp.val(node, "layer")[0]) == "B.SilkS"]
         self.assertIn(pcb.SILK_REVISION, texts)
+
+    def test_reproduces_the_routed_board_assembly_exclusions(self):
+        self.assertEqual(assembly_exclusions(self.root),
+                         assembly_exclusions(read(COMMITTED_PCB)))
 
     def test_stamps_the_revision_in_the_title_block(self):
         blocks = F(self.root, "title_block")
