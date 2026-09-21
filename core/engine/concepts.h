@@ -7,9 +7,10 @@
 
 /**
  * @file concepts.h
- * @brief Callable wrappers (FunctionRef, StoredFunctionRef) and the shader,
- *        trail and sprite callback aliases the render pipeline is written
- *        against.
+ * @brief Callable wrappers (FunctionRef, StoredFunctionRef, the Fn aliases),
+ *        the shader, trail and sprite callback aliases the render pipeline is
+ *        written against, PipelineRef type erasure, the DissolveMask ownership
+ *        hash, and the Plottable and Tweenable concepts.
  */
 
 #include <concepts>
