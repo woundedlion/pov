@@ -991,6 +991,8 @@ using BallDropTransformer =
 /**
  * @brief A two-octave product noise displacement field.
  * @tparam CAPACITY Maximum number of concurrent noise fields.
+ * @note Spawn through spawn_pinned(): Animation::NoiseProduct is perpetual,
+ * which spawn()/spawn_pausable() reject.
  */
 template <int CAPACITY>
 using NoiseProductTransformer =
