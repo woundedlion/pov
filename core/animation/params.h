@@ -105,7 +105,6 @@ public:
 
   /**
    * @brief Applies one unpaused frame of the transition.
-   * @param canvas Unused; the transition writes only its float subject.
    * @details The start snapshot is taken on the first unpaused frame.
    */
   void advance(Canvas &) {
@@ -155,7 +154,6 @@ public:
 
   /**
    * @brief Applies one unpaused frame of the mutation.
-   * @param canvas Unused; the mutation writes only its float subject.
    * @details A non-finite result of @c f is skipped rather than written.
    */
   void advance(Canvas &) {
@@ -198,7 +196,6 @@ public:
 
   /**
    * @brief Invokes the callback once with this frame's eased progress.
-   * @param canvas Unused; the callback owns whatever it writes.
    */
   void advance(Canvas &) { f(easing_fn(normalized_progress())); }
 
@@ -258,7 +255,6 @@ public:
 
   /**
    * @brief Adds one unpaused frame's worth of speed to the mutant.
-   * @param canvas Unused; the driver writes only its float subject.
    */
   void advance(Canvas &) {
     // Re-read the live source, keeping the last good speed on a non-finite read:
@@ -355,7 +351,6 @@ public:
 
   /**
    * @brief Applies one unpaused frame of the interpolation.
-   * @param canvas Unused; the lerp writes only its caller-owned subject.
    */
   void advance(Canvas &) {
     float progress = normalized_progress();
@@ -406,7 +401,6 @@ public:
 
   /**
    * @brief Blends the palette one unpaused frame toward the target snapshot.
-   * @param canvas Unused; the wipe writes only its palette.
    */
   void advance(Canvas &) {
     float amount = normalized_progress();
