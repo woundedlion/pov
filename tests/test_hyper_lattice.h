@@ -675,6 +675,132 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   HS_EXPECT_EQ(blended.mode, HL::LatticeMode::FOUR_D_SLICE);
 }
 
+/**
+ * @brief DIMENSIONAL_RIFT traces the blended edge metric: the pure modes'
+ * planes, at coverage between theirs.
+ * @details The hyper metric adds the w component the cubic metric ignores, so
+ * a small w puts the rift's blend strictly between the two on the same plane.
+ */
+inline void test_dimensional_rift_layers() {
+  HL::FrameState frame{};
+  frame.params = HyperLattice<96, 20>::preset_params(0);
+  frame.params.sphere_radius = 0.0f;
+  frame.origin = {{0.25f, 0.02f, 0.03f, 0.05f}};
+  const auto nearest = [&](HL::LatticeMode mode) {
+    frame.params.mode = mode;
+    return HL::trace(X_AXIS, HL::prepare_trace(frame));
+  };
+  const HL::TraceHit cubic = nearest(HL::LatticeMode::THREE_D);
+  const HL::TraceHit hyper = nearest(HL::LatticeMode::FOUR_D_SLICE);
+  const HL::TraceHit rift = nearest(HL::LatticeMode::DIMENSIONAL_RIFT);
+  HS_EXPECT_EQ(HL::prepare_trace(frame).dimension_mix,
+               HL::DIMENSIONAL_RIFT_MIX);
+  HS_EXPECT_GT(hyper.coverage, 0.0f);
+  HS_EXPECT_NEAR(rift.distance, cubic.distance, 1e-6f);
+  HS_EXPECT_NEAR(rift.distance, hyper.distance, 1e-6f);
+  HS_EXPECT_GT(cubic.coverage, rift.coverage);
+  HS_EXPECT_GT(rift.coverage, hyper.coverage);
+  HS_EXPECT_EQ(cubic.free_axis, uint8_t(2));
+  HS_EXPECT_EQ(hyper.free_axis, uint8_t(3));
+  HS_EXPECT_EQ(rift.free_axis, hyper.free_axis);
+
+  frame.params.sphere_radius = 1.0f;
+  frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
+  frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
+  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+  static constexpr Vector DIRECTIONS[] = {
+      {1.0f, 0.0f, 0.0f},
+      {0.0f, 1.0f, 0.0f},
+      {0.0f, 0.0f, 1.0f},
+      {0.577350269f, 0.577350269f, 0.577350269f},
+      {-0.707106781f, 0.707106781f, 0.0f},
+      {0.301511345f, -0.904534034f, 0.301511345f},
+  };
+  int layers = 0;
+  for (const Vector &direction : DIRECTIONS) {
+    float previous_distance = 0.0f;
+    HL::trace_layers(direction, prepared, [&](const HL::TraceHit &hit) {
+      HS_EXPECT_GT(hit.coverage, 0.0f);
+      HS_EXPECT_LE(hit.coverage, 1.0f);
+      HS_EXPECT_GT(hit.distance, previous_distance);
+      HS_EXPECT_LT(hit.free_axis, uint8_t(HL::DIMENSIONS));
+      previous_distance = hit.distance;
+      ++layers;
+      return true;
+    });
+  }
+  HS_EXPECT_GT(layers, 0);
+}
+
+/**
+ * @brief ColorMode::AXIS shades through the axis palette and ShellCount::ONE
+ * fades its only shell at the horizon; neither takes the specialized slice.
+ */
+inline void test_axis_color_and_single_shell() {
+  reset_globals();
+  using Effect = HyperLatticeWhiteBox::Effect;
+  Effect effect;
+  effect.init();
+  HL::FrameState frame{};
+  frame.params = Effect::preset_params(1);
+  frame.params.sphere_radius = 0.0f;
+  frame.origin = {{0.25f, 0.02f, 0.01f, 0.43f}};
+  frame.pixel_half_angle = HL::pixel_half_angle<96, 20>();
+  frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
+  frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
+  HS_EXPECT_TRUE(Effect::uses_specialized_slice(frame.params));
+  frame.params.color = HL::ColorMode::AXIS;
+  HS_EXPECT_FALSE(Effect::uses_specialized_slice(frame.params));
+  frame.params.color = HL::ColorMode::DEPTH;
+  frame.params.shells = HL::ShellCount::ONE;
+  HS_EXPECT_FALSE(Effect::uses_specialized_slice(frame.params));
+
+  const auto layers = [&](HL::ShellCount shells) {
+    frame.params.shells = shells;
+    std::vector<HL::TraceHit> hits;
+    HL::trace_layers(X_AXIS, HL::prepare_trace(frame),
+                     [&](const HL::TraceHit &hit) {
+                       hits.push_back(hit);
+                       return true;
+                     });
+    return hits;
+  };
+  const std::vector<HL::TraceHit> two = layers(HL::ShellCount::TWO);
+  const std::vector<HL::TraceHit> one = layers(HL::ShellCount::ONE);
+  HS_EXPECT_EQ(two.size(), size_t{2});
+  HS_EXPECT_EQ(one.size(), size_t{1});
+  HS_EXPECT_EQ(one.front().distance, two.front().distance);
+  HS_EXPECT_GT(one.front().coverage, 0.0f);
+  HS_EXPECT_LT(one.front().coverage, two.front().coverage);
+  HS_EXPECT_NEAR(one.front().coverage,
+                 two.front().coverage *
+                     HL::shell_horizon_coverage(0, 1, one.front().distance,
+                                                1.0f / frame.params.cell_size),
+                 1e-6f);
+
+  frame.params.color = HL::ColorMode::AXIS;
+  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
+  const HL::TraceHit hit = HL::trace(X_AXIS, prepared);
+  const Color4 axis = HL::shade({X_AXIS, 0.0f}, frame, prepared);
+  frame.params.color = HL::ColorMode::DEPTH;
+  const Color4 depth =
+      HL::shade({X_AXIS, 0.0f}, frame, HL::prepare_trace(frame));
+  HS_EXPECT_NEAR(hit.coverage, one.front().coverage, 1e-6f);
+  HS_EXPECT_NEAR(axis.alpha, hit.coverage, 1e-6f);
+  HS_EXPECT_EQ(axis.alpha, depth.alpha);
+  HS_EXPECT_TRUE(axis.color.r != depth.color.r ||
+                 axis.color.g != depth.color.g ||
+                 axis.color.b != depth.color.b);
+  const float depth_fraction = hit.distance * prepared.inv_far;
+  const Pixel expected =
+      frame.axis_palette->get_color_unit(
+          (static_cast<float>(hit.free_axis) + 0.75f * depth_fraction) / 4.0f) *
+      (0.45f + 0.55f * (1.0f - depth_fraction));
+  HS_EXPECT_NEAR(axis.color.r, expected.r, 1);
+  HS_EXPECT_NEAR(axis.color.g, expected.g, 1);
+  HS_EXPECT_NEAR(axis.color.b, expected.b, 1);
+}
+
 inline int run_hyper_lattice_tests() {
   hs_test::ModuleFixture fixture("hyper_lattice");
   test_periodic_distance();
@@ -697,6 +823,8 @@ inline int run_hyper_lattice_tests() {
   test_specialized_render_signature();
   test_presets_and_pipeline();
   test_dimension_dropdown_and_mode_lerp();
+  test_dimensional_rift_layers();
+  test_axis_color_and_single_shell();
   return fixture.result();
 }
 
