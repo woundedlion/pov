@@ -274,19 +274,34 @@ prepare_policy(const FrameState &frame) {
     return {};
 }
 
+/** @brief Whether @p Policy declares the approximation metadata block. */
+template <typename Policy>
+concept HasApproximation = requires { Policy::APPROXIMATE; };
+
+/** @brief @p Policy's approximation metadata; a plain provider is exact. */
+template <typename Policy> struct PolicyApproximation {
+  using Type = ApproximationDefaults;
+};
+
+template <HasApproximation Policy> struct PolicyApproximation<Policy> {
+  using Type = Policy;
+};
+
 template <typename... Policies> struct FirstApproximate {
   using Type = ApproximationDefaults;
 };
 
 template <typename Head, typename... Tail>
 struct FirstApproximate<Head, Tail...> {
-  using Type = std::conditional_t<Head::APPROXIMATE, Head,
-                                  typename FirstApproximate<Tail...>::Type>;
+  using Type =
+      std::conditional_t<PolicyApproximation<Head>::Type::APPROXIMATE, Head,
+                         typename FirstApproximate<Tail...>::Type>;
 };
 
 template <typename... Policies> struct CombinedApproximation {
   static constexpr size_t COUNT =
-      (static_cast<size_t>(Policies::APPROXIMATE) + ... + 0U);
+      (static_cast<size_t>(PolicyApproximation<Policies>::Type::APPROXIMATE) +
+       ... + 0U);
   static_assert(
       COUNT <= 1,
       "pullback stage: multiple approximation oracles require an explicit "
