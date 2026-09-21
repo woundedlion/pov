@@ -792,11 +792,19 @@ add_executable(shader_chain_catalog_gen EXCLUDE_FROM_ALL
 target_include_directories(shader_chain_catalog_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_link_libraries(shader_chain_catalog_gen PRIVATE hs_test_support)
 _hs_warnings(shader_chain_catalog_gen)
-# Compile coverage for non-UTILITY EXCLUDE_FROM_ALL targets above. They are
-# out of the default build (their run rewrites a committed artifact, or is too
-# noisy to gate), so an API rename breaks their sources while every job stays
-# green. CI builds this one target instead of naming them; the list is read back
-# off the buildsystem, so a new excluded target joins it with no workflow edit.
+
+add_custom_target(regenerate_shader_chain_catalog
+  COMMAND $<TARGET_FILE:shader_chain_catalog_gen>
+          ${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json
+  DEPENDS shader_chain_catalog_gen
+  VERBATIM)
+
+# Compile coverage for this directory's non-UTILITY EXCLUDE_FROM_ALL targets.
+# They are out of the default build (their run rewrites a committed artifact,
+# or is too noisy to gate), so an API rename breaks their sources while every
+# job stays green. CI builds this one target instead of naming them; the list
+# is read off the directory's final target set, so an excluded target declared
+# anywhere above joins it with no workflow edit.
 get_property(_hs_dir_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 set(_hs_excluded)
 foreach(_hs_target IN LISTS _hs_dir_targets)
@@ -814,12 +822,6 @@ endif()
 message(STATUS "EXCLUDE_FROM_ALL compile coverage: ${_hs_excluded}")
 add_custom_target(excluded_targets)
 add_dependencies(excluded_targets ${_hs_excluded})
-
-add_custom_target(regenerate_shader_chain_catalog
-  COMMAND $<TARGET_FILE:shader_chain_catalog_gen>
-          ${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json
-  DEPENDS shader_chain_catalog_gen
-  VERBATIM)
 
 add_test(NAME unit_excluded_targets COMMAND ${CMAKE_COMMAND}
   "-DCOVERED_TARGETS=$<TARGET_PROPERTY:excluded_targets,MANUALLY_ADDED_DEPENDENCIES>"
