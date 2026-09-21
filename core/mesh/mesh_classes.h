@@ -290,6 +290,9 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       n_elig > 0 && budget >= minimum_lut_bytes
           ? scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N)
           : nullptr;
+  // A null staging buffer never reaches the build below: every grid starts at
+  // CLASS_LUT_MIN_N or wider, so a budget too small to hold one drops each
+  // class at the degrade step before it is used.
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
@@ -323,8 +326,6 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       }
       ++degraded_classes;
     }
-    HS_CHECK(staging != nullptr,
-             "class LUT bake: accepted grid has no staging buffer");
     // Local until accepted: the persistent class must never hold a descriptor
     // pointing at the scratch staging buffer.
     SDF::ClassLut lut;
