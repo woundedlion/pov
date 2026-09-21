@@ -165,4 +165,16 @@ constexpr SegmentClip segment_clip(const SegmentMap &m, bool arm_a_left, int S,
   return SegmentClip{x0, x0 + w / 2, y0, y0 + pps};
 }
 
+/**
+ * @brief Whether a segment renders only its segment_clip() rectangle.
+ * @param full_frame The effect's needs_full_frame().
+ * @param persists The effect's persists_pixels().
+ * @return False when the effect reads cross-segment or prior-frame state, so
+ * the driver keeps the full canvas and the per-frame arm-half alternation
+ * leaves no stale pixels for trails and feedback to sample.
+ */
+constexpr bool segment_clip_applies(bool full_frame, bool persists) {
+  return !full_frame && !persists;
+}
+
 } // namespace pov
