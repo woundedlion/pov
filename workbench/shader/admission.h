@@ -24,22 +24,16 @@ namespace Workbench {
 
 // Declared ahead of first use: at namespace scope an unqualified
 // call would otherwise bind to a same-named function at global scope.
+HS_COLD_MEMBER inline constexpr bool
+coefficient_in_range(const Complex &coefficient);
+HS_COLD_MEMBER inline constexpr bool curl_pair_stable(const WarpStageSpec &spec,
+                                                      const WarpStageParams &a,
+                                                      const WarpStageParams &b);
 HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config);
 HS_COLD_MEMBER inline constexpr bool valid_mobius(const MobiusParams &params);
 inline constexpr bool valid_slot_enums(const Slots &slots);
-
-// valid_config is the entry point the rest of the workbench calls, so it is
-// written first; these are defined below it, or in resources.h.
-constexpr bool valid_slot_enums(const Slots &slots);
-constexpr bool valid_stage_tuple(const WarpStageSpec &spec,
-                                 const WarpStageParams &params);
-constexpr bool safe_program_bounds(const Config &config);
-constexpr bool valid_mobius(const MobiusParams &params);
-constexpr bool coefficient_in_range(const Complex &coefficient);
-constexpr bool curl_pair_stable(const WarpStageSpec &spec,
-                                const WarpStageParams &a,
-                                const WarpStageParams &b);
-constexpr bool config_resources_fit(const Config &config);
+HS_COLD_MEMBER inline constexpr bool
+valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params);
 
 HS_COLD_MEMBER inline constexpr SourceTraits source_traits(Function function) {
   switch (function) {
