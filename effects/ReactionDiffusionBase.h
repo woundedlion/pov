@@ -447,11 +447,8 @@ protected:
     HS_CHECK(persistent_arena.get_capacity() - persistent_arena.get_offset() >=
              RD_N * sizeof(Vector));
     // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
-    // unguarded; trap a deficient lattice here instead of on the hot path.
-    for (int i = 0; i < RD_N; ++i)
-      for (int k = 0; k < RD_K; ++k)
-        HS_CHECK(ReactionGraph::neighbors[i][k] >= 0 &&
-                 ReactionGraph::neighbors[i][k] < RD_N);
+    // unguarded.
+    ReactionGraph::validate_neighbors(ReactionGraph::neighbors);
     nodes = static_cast<Vector *>(
         persistent_arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
     build_nodes(nodes);
