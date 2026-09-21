@@ -121,7 +121,7 @@ static bool ensure_tooling_arenas() {
  * @brief Builds a {usage, high_water_mark, lifetime_high_water_mark, capacity}
  *        report for the three engine arenas and the three tooling arenas.
  * @return JS object mapping each arena name to its {usage, high_water_mark,
- *         capacity} metrics, in bytes.
+ *         lifetime_high_water_mark, capacity} metrics, in bytes.
  * @details Read on demand through MeshOps.getArenaMetrics(). The tooling scratch
  *          arenas are the regions TOOLING_BYTES_PER_MESH_ELEMENT is sized
  *          against, and an operator that overruns one takes the module down, so
@@ -886,8 +886,8 @@ public:
 
   /**
    * @brief Reports the engine arena metrics for the mesh tooling HUD.
-   * @return JS object of {usage, high_water_mark, capacity} metrics per arena,
-   *         in bytes.
+   * @return JS object of {usage, high_water_mark, lifetime_high_water_mark,
+   *         capacity} metrics per arena, in bytes.
    */
   static val getArenaMetrics() { return collect_arena_metrics(); }
 
