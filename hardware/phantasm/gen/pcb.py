@@ -14,6 +14,7 @@ import os
 import sys
 import builder
 import sexp
+from constraints import EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable)
 
@@ -225,6 +226,13 @@ def schematic_components():
     return [seen[r] for r in order]
 
 
+def is_hand_assembled(footprint, value):
+    """Whether a part is hand-soldered, and so carries the board-level
+    assembly exclusions gen/fab.py also keeps out of the BOM and centroid."""
+    return (any(token in footprint for token in EXCLUDE_FP_SUBSTR)
+            or any(token in value for token in EXCLUDE_VAL_SUBSTR))
+
+
 # ---------------------------------------------------------------- footprints
 _MOD_CACHE = {}
 
@@ -344,7 +352,7 @@ def embedded_footprint(ref, libid,
 
 
 def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
-          dnp=False, hide_reference=False,
+          dnp=False, hand_assembled=False, hide_reference=False,
           teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl",
           consumed=None):
     node = embedded_footprint(ref, libid, teensy_model_path)
@@ -364,7 +372,10 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
     setkv("layer", ["F.Cu"])
     if locked:
         node.insert(2, [sexp.Sym("locked"), sexp.Sym("yes")])
-    if dnp:
+    flags = ["dnp"] if dnp else []
+    if hand_assembled:
+        flags += ["exclude_from_pos_files", "exclude_from_bom"]
+    if flags:
         # `(attr ...)` is optional in the footprint format, so a stock library
         # part may carry none; an empty one is the same "no flags" default.
         attr = next((c for c in node if isinstance(c, list) and c and c[0] == "attr"),
@@ -372,7 +383,8 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
         if attr is None:
             attr = [sexp.Sym("attr")]
             node.insert(2, attr)
-        attr.append(sexp.Sym("dnp"))
+        carried = {str(flag) for flag in attr[1:]}
+        attr += [sexp.Sym(flag) for flag in flags if flag not in carried]
     # insert at + uuid after layer
     node.insert(3, [sexp.Sym("at"), sexp.Sym(fmt(x)), sexp.Sym(fmt(y)), sexp.Sym(fmt(rot))])
     node.insert(4, [sexp.Sym("uuid"), uid()])
@@ -741,6 +753,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lock = unplaced and ref in QUILTER_FIXED
         foot_nodes.append(embed(fp, ref, val, x, y, rot, pad_net, netid,
                                 path=paths.get(ref), locked=lock, dnp=dnp,
+                                hand_assembled=is_hand_assembled(fp, val),
                                 hide_reference=lock,
                                 teensy_model_path=teensy_model_path,
                                 consumed=consumed))

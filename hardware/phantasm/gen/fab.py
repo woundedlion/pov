@@ -34,7 +34,8 @@ import zipfile
 
 import check as netlist_spec
 import sexp
-from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
+from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
+                         EXCLUDE_VAL_SUBSTR, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
 from kicad_common import F, is_copper_pour, kicad_cli
 
@@ -460,10 +461,6 @@ def validate_fab_content(directory, board):
             "fabricate as exported.")
     return holes
 
-# Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
-# through-hole (connectors, electrolytic, Teensy), solder jumpers, and DNP.
-EXCLUDE_FP_SUBSTR = ("PinHeader", "JST_", "SolderJumper", "CP_Radial")
-EXCLUDE_VAL_SUBSTR = ("Teensy",)
 ASSEMBLY_SIDE = "top"
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
