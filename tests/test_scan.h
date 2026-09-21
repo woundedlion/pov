@@ -2323,8 +2323,7 @@ inline void test_transformed_volume_world_local_roundtrip() {
  */
 inline void test_volume_raymarch_silhouette_and_registers() {
   constexpr int W = 96, H = 64;
-  const Vector center(0.0f, 0.0f, 1.0f);    // bounds centre in LED space
-  const Vector view_dir(0.0f, 0.0f, -1.0f); // camera -> scene
+  const Vector center(0.0f, 0.0f, 1.0f); // bounds centre in LED space
   const float bounds_radius = 0.35f;
   const float sphere_r = 0.28f; // < bounds so the SDF fits the cull sphere
   const float aa_width = 0.01f;
@@ -2342,7 +2341,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
-        sink, c, center, bounds_radius, view_dir, vol,
+        sink, c, center, bounds_radius, vol,
         [&](const Vector &loc, Fragment &frag) {
           ++hits;
           max_surf_err =
@@ -2385,7 +2384,6 @@ inline void test_volume_raymarch_silhouette_and_registers() {
 inline void test_volume_draw_occluded_edge_blends_over_background() {
   constexpr int W = 96, H = 64;
   const Vector center(0.0f, 0.0f, 1.0f);
-  const Vector view_dir(0.0f, 0.0f, -1.0f); // rays travel along -Z
   const float bounds_radius = 0.50f;
   const float aa_width = 0.01f;
 
@@ -2403,7 +2401,7 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
-        sink, c, center, bounds_radius, view_dir, vol,
+        sink, c, center, bounds_radius, vol,
         [&](const Vector &, Fragment &frag) {
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         },
