@@ -382,7 +382,13 @@ constexpr int edges_from(int node, uint8_t *out) {
   return n;
 }
 
-// Degree pins: every node is covered, the six out-and-back leaves are leaves.
+// Degree pins: every node is covered; the five truncated forms sit between a
+// seed and its ambo, the six out-and-back leaves are leaves.
+static_assert(node_degree(TRUNCATED_TETRAHEDRON) == 2 &&
+              node_degree(TRUNCATED_CUBE) == 2 &&
+              node_degree(TRUNCATED_OCTAHEDRON) == 2 &&
+              node_degree(TRUNCATED_DODECAHEDRON) == 2 &&
+              node_degree(TRUNCATED_ICOSAHEDRON) == 2);
 static_assert(node_degree(TETRAHEDRON) == 3);
 static_assert(node_degree(CUBE) == 4 && node_degree(OCTAHEDRON) == 5);
 static_assert(node_degree(DODECAHEDRON) == 4 && node_degree(ICOSAHEDRON) == 4);
