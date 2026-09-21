@@ -111,9 +111,11 @@ constexpr uint64_t stable_effect_seed(std::string_view effect_id) {
  * @details DETERMINISM CONTRACT: this `Pcg32(1337)` is the only RNG that is
  *          bit-identical device-vs-simulator; parity-sensitive effects must draw
  *          through it via `hs::random()`/`hs::rand_f`/`hs::rand_int`, not the
- *          FastLED `random8()`/`random16()`/Arduino `random()` path (that
- *          resolves to FastLED's LCG on device but this Pcg32 on the host mocks,
- *          so the two diverge; legacy effects only).
+ *          FastLED `random8()`/`random16()` or Arduino `random()` path: on
+ *          device those draw from FastLED's LCG and Teensyduino's core PRNG
+ *          respectively, but the host mocks draw both from this Pcg32, so the
+ *          two diverge and every later consumer of this generator shifts with
+ *          them (legacy effects only).
  *
  *          REENTRANCY CONTRACT: the generator is a function-local `static`, so it
  *          is main-loop-only — never call it from an ISR or any preemptive
