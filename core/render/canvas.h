@@ -564,6 +564,15 @@ public:
     return effect.clip_region;
   }
 
+  /**
+   * @brief Gets the frame's cached cylindrical x-clip predicate.
+   * @return Const reference to the XClip the effect rebuilt on its last clip
+   *         change; equals clip().x_clip().
+   */
+  [[nodiscard]] inline const ClipRegion::XClip &render_x_clip() const {
+    return effect.render_x_clip;
+  }
+
   /** @brief Tests a column against the frame's cached render clip. */
   [[nodiscard]] inline bool clip_contains_x(int x) const {
     return !effect.render_x_clip.clipped(x);
