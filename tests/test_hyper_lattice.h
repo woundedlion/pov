@@ -121,6 +121,14 @@ inline void test_resolution_aware_wire_coverage() {
   constexpr float HIGH_RES = HL::pixel_half_angle<288, 144>();
   static_assert(LOW_RES > HIGH_RES);
 
+  HL::FrameState frame{};
+  frame.pixel_half_angle = LOW_RES;
+  const HL::PreparedTrace low = HL::prepare_trace(frame);
+  frame.pixel_half_angle = HIGH_RES;
+  const HL::PreparedTrace high = HL::prepare_trace(frame);
+  HS_EXPECT_GT(low.aa_scale, high.aa_scale);
+  HS_EXPECT_NEAR(low.aa_scale / high.aa_scale, LOW_RES / HIGH_RES, 1e-5f);
+
   constexpr float RADIUS = 0.1f;
   constexpr float HALF_WIDTH = 0.02f;
   constexpr float OFFSET = 0.01f;
@@ -131,6 +139,17 @@ inline void test_resolution_aware_wire_coverage() {
                                           RADIUS, HALF_WIDTH);
   HS_EXPECT_NEAR(boundary, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(inside + outside, 1.0f, 1e-5f);
+
+  constexpr float DISTANCE = 1.0f;
+  const float low_half_width = HALF_WIDTH + low.aa_scale * DISTANCE;
+  const float high_half_width = HALF_WIDTH + high.aa_scale * DISTANCE;
+  HS_EXPECT_GT(low_half_width, high_half_width);
+  const float low_outside = HL::wire_coverage(
+      (RADIUS + OFFSET) * (RADIUS + OFFSET), RADIUS, low_half_width);
+  const float high_outside = HL::wire_coverage(
+      (RADIUS + OFFSET) * (RADIUS + OFFSET), RADIUS, high_half_width);
+  HS_EXPECT_GT(low_outside, high_outside);
+  HS_EXPECT_GT(high_outside, outside);
 }
 
 inline void test_near_field_fade() {
