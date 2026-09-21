@@ -23,6 +23,7 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import board_metadata   # noqa: E402
+import builder          # noqa: E402
 import connectivity     # noqa: E402
 import pcb              # noqa: E402
 import sexp             # noqa: E402
@@ -215,6 +216,11 @@ class GeneratedBoardTests(unittest.TestCase):
         texts = [str(node[1]) for node in F(self.root, "gr_text")
                  if str(sexp.val(node, "layer")[0]) == "B.SilkS"]
         self.assertIn(pcb.SILK_REVISION, texts)
+
+    def test_stamps_the_revision_in_the_title_block(self):
+        blocks = F(self.root, "title_block")
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(str(sexp.val(blocks[0], "rev")[0]), builder.REVISION)
 
     def test_no_two_courtyards_overlap(self):
         boxes = {}

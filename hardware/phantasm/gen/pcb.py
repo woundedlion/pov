@@ -761,6 +761,11 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     lines.append(f"\t(version {sexp.PCB_FORMAT})")
     lines.append('\t(generator "phantasm-gen")')
     lines.append(f'\t(generator_version "{sexp.GENERATOR_VERSION}")')
+    # KiCad writes this rev into the Gerber X2 ProjectId attribute, which reads
+    # `rev?` when the board carries no title block.
+    lines.append("\t(title_block")
+    lines.append(f'\t\t(rev {sexp.quote(builder.REVISION)})')
+    lines.append("\t)")
     lines.append("\t(general (thickness 1.6) (legacy_teardrops no))")
     lines.append('\t(paper "A2")')
     lines.append("\t(layers")
