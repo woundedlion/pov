@@ -460,6 +460,18 @@ inline void case_spatial_knn_over_max() {
 }
 
 /**
+ * @brief Death case: a lattice index outside [0, RD_N) must trap.
+ * @details Spatial surface — node()'s index maps affinely onto the sphere, so an
+ *          out-of-range one would silently return a direction off the lattice
+ *          instead of naming the caller's mistake.
+ */
+inline void case_reaction_graph_node_index_out_of_range() {
+  Vector v = ReactionGraph::node(opaque(ReactionGraph::RD_N));
+  if (v.x == 0x7fff)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a neighbor-table slot outside the lattice must trap.
  * @details Spatial surface — CubemapLUT's hill-climb and the reaction-diffusion
  *          Laplacian subscript neighbors[] rows unguarded, so validate_neighbors()
@@ -4113,6 +4125,9 @@ inline const Case *all_cases(int &n) {
        "exceeds capacity!"},
       {"spatial_knn_over_max", case_spatial_knn_over_max, "kd_tree.h",
        "(k <= static_cast<size_t>(MAX_K)) KDTree::nearest k exceeds MAX_K"},
+      {"reaction_graph_node_index_out_of_range",
+       case_reaction_graph_node_index_out_of_range, "reaction_graph.h",
+       "(i >= 0 && i < RD_N) node() index outside the lattice"},
       {"reaction_graph_slot_out_of_range",
        case_reaction_graph_slot_out_of_range, "reaction_graph.h",
        "(table[i][k] >= 0 && table[i][k] < RD_N) neighbors[] slot is not a "
@@ -5225,7 +5240,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
     {"memory.h", 2},
-    {"reaction_graph.h", 2},
+    {"reaction_graph.h", 1},
     {"static_circular_buffer.h", 3},
     {"transformer.h", 4},
     {"3dmath.h", 4},
