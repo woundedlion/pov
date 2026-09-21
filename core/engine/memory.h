@@ -29,16 +29,13 @@
 // POINTER (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut). Do not
 // treat the host high-water mark as an exact device figure. Effects tune their
 // own split via configure_arenas() to fit the device budget.
-// The real device FlexRAM (RAM1) arena, sized from the measured worst-effect
-// high-water (tests/arena_measure.cpp): GSReactionDiffusion is the binding
-// tenant at ~291 KiB total (~171 KiB persistent + ~120 KiB scratch under its
-// own split). A distinct always-defined constant (not the host-inflated
-// GLOBAL_ARENA_SIZE below) so device-budget static_asserts check the real
-// figure even in the host suite.
-constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = 298 * 1024;
-static_assert(DEVICE_GLOBAL_ARENA_SIZE == HS_DEVICE_ARENA_BYTES,
-              "device arena budget must equal the block HS_DEVICE_ARENA_BYTES "
-              "sizes; moving one alone traps at Arena::allocate on hardware");
+// The real device FlexRAM (RAM1) arena block, sized from the measured
+// worst-effect high-water (tests/arena_measure.cpp): GSReactionDiffusion is the
+// binding tenant at ~291 KiB total (~171 KiB persistent + ~120 KiB scratch
+// under its own split). A distinct always-defined constant (not the
+// host-inflated GLOBAL_ARENA_SIZE below) so device-budget static_asserts check
+// the real figure even in the host suite.
+constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = HS_DEVICE_ARENA_BYTES;
 constexpr size_t GLOBAL_ARENA_SIZE = HS_GLOBAL_ARENA_BYTES;
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
