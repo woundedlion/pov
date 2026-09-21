@@ -321,6 +321,54 @@ static_assert(std::size(BRIGHTNESS_ENVELOPE_OPTIONS) ==
 static_assert(std::size(HUE_SHIFT_OPTIONS) ==
               std::size(HUE_SHIFT_EXPORT_OPTIONS));
 
+/** @brief Length of a table whose last row is @p last, the enum's final
+    in-range value. */
+template <typename Enum> inline constexpr int option_count_through(Enum last) {
+  return static_cast<int>(last) + 1;
+}
+static_assert(NUM_FUNCTIONS == option_count_through(Function::TESSELLATION));
+static_assert(
+    NUM_TESSELLATION_KINDS ==
+    option_count_through(Pullback::Source::TessellationKind::HEXAGONAL));
+static_assert(NUM_PROJECTIONS ==
+              option_count_through(Projection::EQUIRECTANGULAR));
+static_assert(NUM_PEIRCE_LAYOUTS ==
+              option_count_through(PeirceLayout::VERTICAL));
+static_assert(NUM_AIROCEAN_LAYOUTS ==
+              option_count_through(AiroceanLayout::HORIZONTAL));
+static_assert(NUM_BONNE_HEMISPHERES ==
+              option_count_through(BonneHemisphere::SOUTH));
+static_assert(NUM_GNOMONIC_HEMISPHERES ==
+              option_count_through(GnomonicHemispherePolicy::BACK_HEMISPHERE));
+static_assert(NUM_PROJECTION_FRAMES ==
+              option_count_through(ProjectionFramePolicy::SPIN_WANDER));
+static_assert(NUM_LENSES ==
+              option_count_through(SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM));
+static_assert(NUM_SURFACE_NOISE == option_count_through(SurfaceNoise::CURL));
+static_assert(NUM_SURFACE_NOISE_PLACEMENTS ==
+              option_count_through(SurfaceNoisePlacement::AFTER_LENS));
+static_assert(NUM_SURFACE_CURL_INTEGRATORS ==
+              option_count_through(SurfaceCurlIntegrator::MIDPOINT_2X));
+static_assert(NUM_WARPS == option_count_through(WarpStageKind::POLAR_CHART));
+static_assert(NUM_NOISE_BASES == option_count_through(NoiseBasis::RIDGED3));
+static_assert(NUM_POLAR_MODES == option_count_through(PolarMode::LOGARITHMIC));
+static_assert(NUM_CURL_INTEGRATORS ==
+              option_count_through(CurlIntegrator::MIDPOINT_4));
+static_assert(NUM_WARP_ENVELOPES ==
+              option_count_through(WarpEnvelope::EDGE_FADE));
+static_assert(NUM_SIGNALS == option_count_through(SignalWeight::PROJECTION));
+static_assert(NUM_VALUE_TRANSFERS ==
+              option_count_through(ValueTransfer::SMOOTH_BANDS));
+static_assert(NUM_COVERAGE_POLICIES ==
+              option_count_through(CoveragePolicy::PROJECTION_WEIGHT));
+static_assert(NUM_PALETTES == option_count_through(PaletteMode::ANALOGOUS));
+static_assert(NUM_PALETTE_MAPPINGS ==
+              option_count_through(PaletteMapping::REVERSE));
+static_assert(NUM_BRIGHTNESS_ENVELOPES ==
+              option_count_through(BrightnessEnvelope::DESCENDING));
+static_assert(NUM_HUE_SHIFT_MODES ==
+              option_count_through(HueShiftMode::WARP_DISPLACEMENT));
+
 } // namespace Workbench
 
 #endif // HS_ENABLE_SHADER_WORKBENCH
