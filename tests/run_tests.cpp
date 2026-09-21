@@ -29,6 +29,7 @@
 #include "tests/test_hyper_lattice.h"
 #include "tests/test_geometry.h"
 #include "tests/test_spherical_field.h"
+#include "tests/test_spherical_harmonics.h"
 #include "tests/test_mesh.h"
 #include "tests/test_solids.h"
 #include "tests/test_reaction_graph.h"
@@ -113,6 +114,8 @@ struct TestModule {
   X("geometry", hs_test::geometry_tests::run_geometry_tests)                   \
   X("spherical_field",                                                         \
     hs_test::spherical_field_tests::run_spherical_field_tests)                 \
+  X("spherical_harmonics",                                                     \
+    hs_test::spherical_harmonics_tests::run_spherical_harmonics_tests)         \
   X("mesh", hs_test::mesh_tests::run_mesh_tests)                               \
   X("solids", hs_test::solids_tests::run_solids_tests)                         \
   X("reaction_graph", hs_test::reaction_graph_tests::run_reaction_graph_tests) \
