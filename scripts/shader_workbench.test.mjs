@@ -806,7 +806,7 @@ test('a v1 policy naming an Object prototype key is refused', () => {
   }
 });
 
-test('export classification compares exact descriptors after the digest', () => {
+test('export classification compares canonical descriptors after the digest', () => {
   const compiled = compile(example());
   const registry = { effects: [{
     effect_id: 'lattice-melt',
@@ -816,6 +816,17 @@ test('export classification compares exact descriptors after the digest', () => 
   }] };
   assert.deepEqual(classifyExport(compiled, registry, 'wasm-authoring'),
     { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'lattice-melt' });
+
+  // Classifying a non-canonical spelling of the same program as a new effect
+  // would have the author duplicate an effect the registry already carries.
+  const reordered = structuredClone(compiled.descriptor);
+  reordered.parameters.reverse();
+  reordered.serialization.fields.reverse();
+  assert.notEqual(stableStringify(reordered), stableStringify(compiled.descriptor));
+  registry.effects[0].descriptor = reordered;
+  assert.deepEqual(classifyExport(compiled, registry, 'wasm-authoring'),
+    { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'lattice-melt' });
+
   registry.effects[0].descriptor = { ...compiled.descriptor, serialization: { schema_version: 2, fields: [] } };
   assert.equal(classifyExport(compiled, registry, 'wasm-authoring').kind, 'CREATE_EFFECT_CANDIDATE');
 });
