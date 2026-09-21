@@ -925,6 +925,9 @@ gamut_cell(const GamutLut &lut, float L, float a, float b) {
  */
 inline constinit GamutLut g_gamut_lut;
 
+/** @brief The full-resolution flash grid, whatever g_gamut_lut points at. */
+inline constexpr GamutLut GAMUT_LUT_MASTER{};
+
 /** @brief Coarsest downsample the clip's chroma deficit stays bounded at.
  *  @details Over a 142,683-ray sweep the refined chroma falls short of the
  *  first exit by at most 0.0027 on the 256 x 128 master, 0.0043 at 128 x 64,
@@ -1166,9 +1169,9 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
 // stays on gamut_max_chroma.
 HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
                                                             float b) {
-  // Flash master, not g_gamut_lut: this path consumes the stored minima
-  // directly, so a coarse grid's width is never narrowed back.
-  const GamutLut lut;
+  // Not g_gamut_lut: this path consumes the stored minima directly, so a
+  // coarse grid's width is never narrowed back.
+  const GamutLut &lut = GAMUT_LUT_MASTER;
   L = hs::clamp(L, 0.0f, 1.0f);
   if (L == 0.0f || L == 1.0f)
     return 0.0f;
@@ -1562,9 +1565,9 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   float inverse_chroma;
   std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
   inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
-  // Flash master, not g_gamut_lut: this path consumes the stored minima
-  // directly, so a coarse grid's width is never narrowed back.
-  const GamutLut lut;
+  // Not g_gamut_lut: this path consumes the stored minima directly, so a
+  // coarse grid's width is never narrowed back.
+  const GamutLut &lut = GAMUT_LUT_MASTER;
   const GamutCell cell = gamut_cell(lut, lab.L, lab.a, lab.b);
   const uint16_t stored =
       lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
