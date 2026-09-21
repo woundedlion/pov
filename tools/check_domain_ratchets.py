@@ -34,8 +34,9 @@ guard_gap.param_host.h=0->26
 guard_gap.preset_host.h=0->2
 guard_gap.conway.h=30->33
 guard_gap.engine_bindings.h=5->7
+guard_gap.Holosphere.ino=0->1
 """
-ALLOWANCE_EXPIRY = "f8c09587aa3d6db303d8327d860494cec04fa393"
+ALLOWANCE_EXPIRY = "713c53e423133e5cc07594c8b2f33362b706f7a5"
 Transition = tuple[str, str, str]
 
 
