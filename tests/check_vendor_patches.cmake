@@ -3,8 +3,9 @@
 # compiles cleanly and fails silently: without the config include the
 # FASTNOISELITE_ONLY_OPENSIMPLEX2 guards go inert and the full noise-type switch
 # comes back (flash regression), and without HS_O3_FN the per-pixel sampler
-# loses selective -O3 (perf regression). The upstream version is pinned too, so
-# a bump has to re-apply the patches and re-record the version here.
+# loses selective -O3 (perf regression). The upstream version and the body's
+# digest are pinned too, so a bump has to re-apply the patches and re-record
+# both here.
 # -D args: HEADER (FastNoiseLite.h), CONFIG (FastNoiseLite_config.h).
 
 # Script mode inherits no policies from the project, so every policy would
@@ -12,6 +13,13 @@
 cmake_minimum_required(VERSION 3.29)
 
 set(VENDORED_VERSION "1.1.1")
+# The digest of the vendored body over LF bytes, which is what makes the
+# version above more than a self-assertion: an upstream bump or a hand-edit
+# changes it, and re-recording it is the reviewed step. Recompute with
+#   cmake -E sha256sum core/vendor/FastNoiseLite.h
+# on a checkout whose line endings are LF.
+set(VENDORED_SHA256
+    "8d3d31369a9582f94765e86c206aaf490f536d3e79b7e05fe9de4867379eb261")
 
 file(READ "${HEADER}" _header)
 file(READ "${CONFIG}" _config)
@@ -21,6 +29,13 @@ set(_missing "")
 if(NOT _header MATCHES "VERSION: ${VENDORED_VERSION}")
   list(APPEND _missing
     "FastNoiseLite.h no longer declares upstream VERSION: ${VENDORED_VERSION}")
+endif()
+
+string(REPLACE "\r\n" "\n" _header_lf "${_header}")
+string(SHA256 _header_digest "${_header_lf}")
+if(NOT _header_digest STREQUAL VENDORED_SHA256)
+  list(APPEND _missing
+    "FastNoiseLite.h body is ${_header_digest}, not the recorded ${VENDORED_SHA256}")
 endif()
 
 if(NOT _header MATCHES "#include \"FastNoiseLite_config.h\"")
@@ -70,8 +85,10 @@ if(_missing)
   message(FATAL_ERROR
     "Vendored FastNoiseLite patches are missing:\n  - ${_report}\n"
     "Re-apply the patches listed in core/vendor/FastNoiseLite_config.h and "
-    "update VENDORED_VERSION in this script if the vendored version changed.")
+    "update VENDORED_VERSION and VENDORED_SHA256 in this script if the vendored "
+    "body changed.")
 endif()
 
 message(STATUS
-  "FastNoiseLite ${VENDORED_VERSION}: all 7 in-tree patches present")
+  "FastNoiseLite ${VENDORED_VERSION}: body digest matches, all 7 in-tree "
+  "patches present")
