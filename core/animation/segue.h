@@ -88,8 +88,8 @@ inline int schedule_faded_sprite(Timeline &timeline, SpriteFn draw_fn,
   HS_CHECK(Timeline::remaining() >= 1,
            "segue: the transition sprite needs a free timeline slot");
   int fade = hs::clamp(window, 0, std::max(duration / 2, 0));
-  Animation::Sprite sprite(std::move(draw_fn), duration, fade, ease_linear,
-                           fade, ease_linear);
+  Animation::Sprite sprite(std::move(draw_fn), duration,
+                           {.fade_in = {fade}, .fade_out = {fade}});
   if (paused)
     timeline.add_pausable(0, std::move(sprite), paused);
   else

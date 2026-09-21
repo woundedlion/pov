@@ -647,7 +647,7 @@ private:
                                   0.0f, 1.0f),
                         shape_weight(from_mid < 0 ? -from_mid : from_mid));
             },
-            HANKIN_SWEEP_FRAMES + 1, 0, ease_linear, 0, ease_linear),
+            HANKIN_SWEEP_FRAMES + 1),
         &anims_paused);
   }
 

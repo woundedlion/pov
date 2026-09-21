@@ -53,9 +53,11 @@ public:
     for (size_t i = 0; i < MAX_RINGS; ++i)
       rings[i].palette.bake(persistent_arena, dot_keyed(make_palette()));
 
-    timeline.add(0, Animation::RandomTimer(
-                        Ring::SPAWN_MIN_FRAMES, Ring::SPAWN_MAX_FRAMES,
-                        [this](Canvas &) { this->spawn_ring(); }, true));
+    timeline.add(
+        0, Animation::RandomTimer({.min = Ring::SPAWN_MIN_FRAMES,
+                                   .max = Ring::SPAWN_MAX_FRAMES,
+                                   .repeat = true},
+                                  [this](Canvas &) { this->spawn_ring(); }));
   }
 
   /**

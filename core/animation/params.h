@@ -69,28 +69,37 @@ protected:
   const bool *paused; /**< Optional pause gate; null = always runs. */
 };
 
+/** @brief Optional behaviour of a Transition. */
+struct TransitionOptions {
+  /** @brief Floors every stepped value, making the ramp an integer staircase
+   * rather than a smooth sweep. */
+  bool quantized = false;
+  /** @brief Repeats the ramp indefinitely. */
+  bool repeat = false;
+  /** @brief Pause gate; null = always runs. */
+  const bool *paused = nullptr;
+};
+
 /**
  * @brief An animation that smoothly transitions a float variable over time.
  */
 class Transition : public PausableParamAnimationBase<Transition> {
 public:
+  using Options = TransitionOptions;
+
   /**
    * @brief Constructs a Transition animation.
    * @param mutant The float variable to modify.
    * @param to The target value.
    * @param duration The duration in frames.
    * @param easing_fn The easing function to use.
-   * @param quantized If true, every stepped value is floored, so the ramp is an
-   * integer staircase rather than a smooth sweep.
-   * @param repeat If true, the transition repeats indefinitely.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options Quantization, repeat and the pause gate.
    */
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
-             bool quantized = false, bool repeat = false,
-             const bool *paused = nullptr)
-      : PausableParamAnimationBase(duration, repeat, paused), mutant(mutant),
-        from(0.0f), to(to), easing_fn(std::move(easing_fn)),
-        quantized(quantized) {
+             const Options &options = {})
+      : PausableParamAnimationBase(duration, options.repeat, options.paused),
+        mutant(mutant), from(0.0f), to(to), easing_fn(std::move(easing_fn)),
+        quantized(options.quantized) {
     HS_CHECK(std::isfinite(to), "Transition target must be finite");
   }
 

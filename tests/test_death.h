@@ -2940,7 +2940,7 @@ inline void case_gradient_stops_unsorted() {
  *          inverted (or negative) range at the cold authoring seam.
  */
 inline void case_random_timer_inverted_range() {
-  Animation::RandomTimer timer(opaque(5), opaque(2),
+  Animation::RandomTimer timer({.min = opaque(5), .max = opaque(2)},
                                [](Canvas &) {}); // min > max -> HS_CHECK
   (void)timer;
 }

@@ -279,7 +279,7 @@ private:
 
     timeline.add_pausable(
         0,
-        Animation::Transition(morph_alpha, 1.0f, 64, ease_linear, false, false)
+        Animation::Transition(morph_alpha, 1.0f, 64, ease_linear)
             .then([this, generation]() {
               if (generation != morph_generation) {
                 morph_alpha = 0.0f;

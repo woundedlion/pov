@@ -66,11 +66,11 @@ public:
     timeline.add(
         0, Animation::Sprite(
                [this](Canvas &c, float opacity) { draw_ring(c, opacity); }, -1,
-               16, ease_in_sin));
+               {.fade_in = {16, ease_in_sin}}));
 
-    timeline.add(0,
-                 Animation::RandomTimer(
-                     16, 48, [this](Canvas &) { on_fire_thruster(); }, true));
+    timeline.add(
+        0, Animation::RandomTimer({.min = 16, .max = 48, .repeat = true},
+                                  [this](Canvas &) { on_fire_thruster(); }));
   }
 
   /**
