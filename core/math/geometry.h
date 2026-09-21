@@ -329,9 +329,10 @@ template <int W, int H> bool TrigLUT<W, H>::initialized = false;
  * @details Engine setup calls this once before the first frame so the tables are
  * populated before any rendering — and, on hardware, before the column-sweep ISR
  * could observe a partially-filled table. The per-call `if (!initialized) init()`
- * guards in the rasterizers then remain only as a lazy fallback for unit tests
- * and offline tools; their non-atomic check-then-set relies on this eager call
- * and the single-render-thread assumption. Idempotent.
+ * guards in the per-pixel leaves `y_to_phi<H>(int)` and
+ * `pixel_to_vector<W, H>(int, int)` then remain only as a lazy fallback for
+ * unit tests and offline tools; their non-atomic check-then-set relies on this
+ * eager call and the single-render-thread assumption. Idempotent.
  */
 template <int W, int H> inline void init_geometry_luts() {
   PhiLUT<H>::init();
