@@ -32,11 +32,13 @@
  * @file projections.h
  * @brief Sphere-to-plane projection kernels: folded sinusoidal,
  *        equirectangular, Bonne, Peirce quincuncial, and Fuller Airocean.
- * @details Each kernel maps a unit direction to plane coordinates; the
- * interrupted ones add the seam metadata a shader needs to fade a cut and to
- * keep a glued edge continuous. Kernels are pure and frame-independent; the
- * caller applies the coordinate scale and the pole attenuation. Constants
- * derive from PROJ at the commit named in the header above.
+ * @details Each kernel maps a unit direction to plane coordinates; Bonne,
+ * Peirce and Airocean return ProjectionKernelResult, adding the seam metadata
+ * a shader needs to fade a cut and to keep a glued edge continuous, while
+ * equirectangular returns bare coordinates and leaves its antimeridian cut to
+ * the caller. Kernels are pure and frame-independent; the caller applies the
+ * coordinate scale and the pole attenuation. Constants derive from PROJ at the
+ * commit named in the header above.
  */
 
 #include <algorithm>
