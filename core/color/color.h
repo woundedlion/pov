@@ -925,11 +925,15 @@ gamut_cell(const GamutLut &lut, float L, float a, float b) {
  */
 inline constinit GamutLut g_gamut_lut;
 
-/** @brief Coarsest downsample the per-pixel walk still resolves. tools/
- *  gen_gamut_lut.py measured the grids below 128 x 64: the bracket grows wide
- *  enough that the GAMUT_SCAN_STEPS walk strides over a disconnected in-gamut
- *  interval and lands past the first exit, oversaturating by up to 0.03 chroma,
- *  which the bisection cannot recover. */
+/** @brief Coarsest downsample the clip's chroma deficit stays bounded at.
+ *  @details Over a 142,683-ray sweep the refined chroma falls short of the
+ *  first exit by at most 0.0027 on the 256 x 128 master, 0.0043 at 128 x 64,
+ *  0.0063 at 64 x 32 and 0.0070 at 32 x 16. Resolution does not bound the
+ *  other direction: at every grid, the master included, the GAMUT_SCAN_STEPS
+ *  walk strides a disconnected in-gamut interval on a handful of rays and lands
+ *  past the first exit by up to 0.05 chroma, which the bisection cannot
+ *  recover. A finer grid lowers how many rays do that — 5 at 256 x 128, 9 at
+ *  128 x 64, 24 at 32 x 16 — but not by how far. */
 inline constexpr int GAMUT_LUT_MIN_ANGLE_STEPS = 128;
 inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
 
@@ -951,10 +955,10 @@ inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
  * coarse cell takes the minimum of the merged minima and the maximum of the
  * merged maxima, so the true boundary of every ray in the cell still lies
  * inside the stored bracket at any resolution. Cost in arena bytes is
- * gamut_lut_bytes(angle_steps, l_steps). Within the trapped range resolution
- * only sets how wide the bracket starts, and the per-pixel bisection sets how
- * far it is narrowed; below it the bracket outgrows the GAMUT_SCAN_STEPS walk
- * (see GAMUT_LUT_MIN_ANGLE_STEPS).
+ * gamut_lut_bytes(angle_steps, l_steps). Resolution only sets how wide the
+ * bracket starts, and the per-pixel bisection sets how far it is narrowed; the
+ * floor bounds the chroma deficit that leaves (see
+ * GAMUT_LUT_MIN_ANGLE_STEPS).
  */
 HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
                                           int l_steps) {
@@ -1009,6 +1013,8 @@ inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 // tolerance lets the in-gamut set along a ray break into pieces: bisecting a
 // bracket that spans a gap converges on the far side of it, which is in gamut
 // but past the first exit and discontinuous in L against the neighbouring cell.
+// The walk narrows that to the rays whose gap is shorter than one step rather
+// than to none; GAMUT_LUT_MIN_ANGLE_STEPS carries the measured residue.
 inline constexpr int GAMUT_SCAN_STEPS = 4;
 
 // Bisections inside the walk step that straddles the crossing. Residual is the
