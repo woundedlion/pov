@@ -14,6 +14,7 @@
 #include "color/color.h"
 #include "render/canvas.h"
 #include "engine/concepts.h"
+#include "engine/memory.h"
 
 /**
  * @file pipeline.h
@@ -438,6 +439,9 @@ public:
         "Drop the flush() call, or add Pixel::Feedback.");
   }
 
+  /** @brief Terminates the recursive arena-storage walk. */
+  void init_storage(Arena &) {}
+
 private:
   /** @brief Terminates the recursive screen-trail flush walk. */
   void flush_stages(Canvas &, const ScreenTrailFn &, float) {}
@@ -599,6 +603,19 @@ struct Pipeline<W, H, Head, Tail...>
     } else {
       return next.template get<T>();
     }
+  }
+
+  /**
+   * @brief Hands @p arena to every stage that owns arena storage.
+   * @param arena Persistent arena the storage-bearing stages allocate from.
+   * @details Walks the whole stage list, so a pipeline carrying more than one
+   * storage-bearing stage cannot be left half-initialised. Call it from the
+   * effect's init(), after any configure_arenas().
+   */
+  void init_storage(Arena &arena) {
+    if constexpr (requires { Head::init_storage(arena); })
+      Head::init_storage(arena);
+    next.init_storage(arena);
   }
 
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
