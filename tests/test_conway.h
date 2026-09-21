@@ -1234,7 +1234,7 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
 }
 
 // ---------------------------------------------------------------------------
-// face_centroid + vertex_orbit (low-level half-edge helpers)
+// face_centroid (low-level half-edge helper)
 // ---------------------------------------------------------------------------
 
 /**

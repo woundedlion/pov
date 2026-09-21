@@ -1010,8 +1010,8 @@ inline void test_recipe_lowered_replay_matches_authored() {
 }
 
 /**
- * @brief Verifies expand_to_primitives is a pass-through on the two shipping
- *        recipes (hankin/ambo chains contain no composites).
+ * @brief Verifies expand_to_primitives is a pass-through on two hankin/ambo
+ *        registry recipes, whose chains contain no composites.
  */
 inline void test_shipping_recipe_lowering_is_identity() {
   const Solids::Entry *entries[] = {

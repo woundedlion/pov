@@ -4247,8 +4247,10 @@ inline void test_recipe_chain_build_replay() {
     if (entry.recipe)
       ++chains;
   static_cast<void>(islamic_registry_chain_peaks());
-  // Guards against a vacuous pass if the recipe pointers are dropped.
-  HS_EXPECT_GE(chains, 2);
+  // Every registry entry carries a recipe, so a dropped pointer is a miscount,
+  // not a smaller sweep.
+  HS_EXPECT_EQ(static_cast<size_t>(chains),
+               Solids::Collections::get_islamic_solids().size());
 
   replay_build_chain("dodecahedron_kis", DODECAHEDRON_KIS_RECIPE);
   replay_build_chain("cube_kis_dual", CUBE_KIS_DUAL_RECIPE);
