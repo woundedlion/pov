@@ -109,6 +109,15 @@ The design shall:
 
 ## 3. Non-goals
 
+Superseded in its last item: the chain interpreter ships a runtime operator
+table, `Pullback::Interp::OPERATOR_TABLE`
+(`core/render/pullback/operator_table.h`, one `OperatorDescriptor` per
+`Op::*` operator), which `setShaderChain` resolves each program shape
+against; its contract is
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md) §8. The
+typed `Pullback::Pipeline` itself has no registry, stored callback chain, or
+virtual stage base.
+
 This design does not:
 
 - generalize scan traversal or replace any `Scan::Shader` entry point;
