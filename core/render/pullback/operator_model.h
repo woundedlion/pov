@@ -53,6 +53,16 @@ inline constexpr auto CARRIER_NAMES =
 static_assert(CARRIER_NAMES.size() == CarrierList::SIZE);
 static_assert(CARRIER_NAMES.size() == static_cast<size_t>(CarrierId::COUNT));
 
+/** @brief Whether the catalog spells carrier @p T as @p name. */
+template <CanonicalCarrier T>
+consteval bool carrier_named(std::string_view name) {
+  return CARRIER_NAMES[static_cast<size_t>(carrier_id_of<T>())] == name;
+}
+static_assert(carrier_named<SphereSample>("sphere") &&
+              carrier_named<PlaneSample>("plane") &&
+              carrier_named<FieldSample>("field") &&
+              carrier_named<Color4>("color"));
+
 /**
  * @brief The (instance_id, operator_id) pair identity of one chain entry.
  * @details `stable_hash` seeds instance-owned resources, so a fresh init of
