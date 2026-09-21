@@ -184,8 +184,10 @@ Pullback::Interp                   chain interpreter: operator model and table, 
 Carrier declarations live in `core/render/pullback/contract.h`; `Color4` is
 defined in `core/color/color.h`. See §5.2.
 
-`pullback.h` may include headers from `core/math`, `core/color`, and the
-minimal engine concept/profiling headers it needs. It shall not include an
+`pullback.h` may include headers from `core/math`, `core/color`,
+`core/animation` (`surface.h` takes `Animation::RippleParams` from
+`animation/transformer.h`), and the minimal engine concept/profiling headers
+it needs (`contract.h` includes `engine/memory.h`). It shall not include an
 `effects/` or `workbench/` header, refer to `ShaderWorkbench`, or require the
 effect registry.
 No `core/` header may include `ShaderWorkbench.h` as a consequence of this work.
