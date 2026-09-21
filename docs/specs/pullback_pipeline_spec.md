@@ -1022,7 +1022,7 @@ enum class BrightnessEnvelope : uint8_t {
   NONE = 0, CUP = 1, BELL = 2, ASCENDING = 3, DESCENDING = 4
 };
 enum class HueMode : uint8_t {
-  NONE = 0, NOISE = 1, PATH_LENGTH = 2
+  NONE = 0, NOISE = 1, PATH_LENGTH = 2, WARP_DISPLACEMENT = PATH_LENGTH
 };
 }
 ```
