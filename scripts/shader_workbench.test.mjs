@@ -613,6 +613,12 @@ test('stableStringify keeps members whose keys are not already NFC', () => {
     stableStringify({ [composed]: 1 }));
 });
 
+test('stableStringify orders integer-like keys by code point', () => {
+  assert.equal(stableStringify({ b: 1, 10: 2, a: 3, 2: 4 }), '{"10":2,"2":4,"a":3,"b":1}');
+  assert.equal(stableStringify({ a: [undefined, NaN, { 1: 'x', 0: 'y' }], b: undefined }),
+    '{"a":[null,null,{"0":"y","1":"x"}]}');
+});
+
 // The daydream v1 example fixture, inlined: expanding it must reproduce the
 // committed v2 example byte for byte, pinning expandV1Document as the single
 // code path both schema generations share.
