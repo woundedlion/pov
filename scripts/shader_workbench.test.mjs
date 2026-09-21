@@ -380,6 +380,19 @@ test('preset dwell names every preset with a positive duration', () => {
   assert.deepEqual(diagnose({ calm: 600, fast: 600, ghost: 600 }), ['INVALID_DWELL']);
 });
 
+test('tick counts stop at the engine 16-bit frame counter', () => {
+  const diagnose = (duration, dwell) => {
+    const document = example();
+    document.preset_bank.edges[0].duration = duration;
+    document.preset_bank.choreography.dwell.calm = dwell;
+    return validate(document).map((diagnostic) => diagnostic.code);
+  };
+  assert.deepEqual(diagnose(65535, 65535), []);
+  assert.deepEqual(diagnose(65536, 600), ['INVALID_DURATION']);
+  assert.deepEqual(diagnose(120, 65536), ['INVALID_DWELL']);
+  assert.deepEqual(diagnose(1e30, 1e30), ['INVALID_DURATION', 'INVALID_DWELL']);
+});
+
 test('unknown semantic fields are reported', () => {
   const document = example();
   document.descriptor.chain[0].surprise = true;
