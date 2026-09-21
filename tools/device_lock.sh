@@ -252,13 +252,18 @@ hs_device_acquire() {
       # A changed token belongs to a peer; report busy.
       _hs_break_lock "$d" "$(_hs_lock_field "$d" token)" && continue
     fi
+    # hs_device_status returns 1 when no board is claimable, which is exactly
+    # the case reached here. Left as the statement's own status under a
+    # caller's `set -e`, that aborts the run instead of queueing for a board.
     if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
-      [ "$waited" = 0 ] && { echo "ALL DEVICES BUSY — waiting up to ${wait_for}s" >&2
-                             hs_device_status >&2; }
+      if [ "$waited" = 0 ]; then
+        echo "ALL DEVICES BUSY — waiting up to ${wait_for}s" >&2
+        hs_device_status >&2 || :
+      fi
       sleep 5; waited=$((waited + 5)); continue
     fi
     echo "ALL DEVICES BUSY:" >&2
-    hs_device_status >&2
+    hs_device_status >&2 || :
     echo "Every attached Teensy is in use. Wait, set HS_DEVICE_WAIT=<s>, attach" >&2
     echo "another board, or coordinate with those sessions. Do NOT flash: an" >&2
     echo "upload now would corrupt a capture and may silently not flash yours." >&2
