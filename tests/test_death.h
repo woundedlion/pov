@@ -4196,7 +4196,7 @@ inline const Case *all_cases(int &n) {
        "(table[i][k] >= 0 && table[i][k] < RD_N) neighbors[] slot is not a "
        "lattice node index"},
       {"arena_oversubscribed", case_arena_oversubscribed, "memory.cpp",
-       "(false) "},
+       "(total <= GLOBAL_ARENA_SIZE) split_bases: "},
       {"arena_partition_too_large", case_arena_partition_too_large,
        "memory.cpp",
        "(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE && "
@@ -5329,7 +5329,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
-    {"memory.cpp", 2},
+    {"memory.cpp", 1},
     {"memory.h", 2},
     {"reaction_graph.h", 1},
     {"static_circular_buffer.h", 3},
