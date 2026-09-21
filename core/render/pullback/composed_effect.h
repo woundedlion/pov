@@ -412,8 +412,8 @@ struct ColorProvider {
 /**
  * @brief Interpolates one parameter family across a preset transition.
  * @details Driven by the family's field table; each field moves on the curve
- * its descriptor names. The Mobius coefficients and the palette mapping enum
- * snap to @p b once progress reaches 1.
+ * its descriptor names, and every member the table does not cover, the Mobius
+ * coefficients included, snaps to @p b once progress reaches 1.
  * @param a Value at progress 0.
  * @param b Value at progress 1.
  * @param t Progress fraction.
@@ -428,13 +428,6 @@ inline MobiusLensParams interpolate(const MobiusLensParams &a,
                                     const MobiusLensParams &b, float t) {
   MobiusLensParams value;
   value.mobius = t < 1.0f ? a.mobius : b.mobius;
-  return value;
-}
-
-inline ColorParams interpolate(const ColorParams &a, const ColorParams &b,
-                               float t) {
-  ColorParams value = Pullback::Fields::interpolate(a, b, t);
-  value.palette_mapping = t < 1.0f ? a.palette_mapping : b.palette_mapping;
   return value;
 }
 
