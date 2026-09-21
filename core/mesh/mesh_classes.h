@@ -323,6 +323,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       }
       ++degraded_classes;
     }
+    HS_CHECK(staging != nullptr,
+             "class LUT bake: accepted grid has no staging buffer");
     // Local until accepted: the persistent class must never hold a descriptor
     // pointing at the scratch staging buffer.
     SDF::ClassLut lut;
