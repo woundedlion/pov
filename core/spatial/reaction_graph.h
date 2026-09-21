@@ -80,13 +80,27 @@ HS_COLD_MEMBER inline Vector node(int i) {
 /**
  * @brief Precomputed K-nearest-neighbor indices for every lattice node.
  * @details neighbors[i][k] is the node index of the k-th nearest neighbor of node
- *          i, always a valid index in [0, RD_N): the RD_N=7680 lattice yields a
- *          full RD_K-neighbor ring. Total size 92160 bytes
+ *          i. The lattice yields a full RD_K-neighbor ring, so every slot is a
+ *          node index in [0, RD_N) and there is no vacant-slot sentinel; consumers
+ *          subscript the row unguarded and validate_neighbors() proves the
+ *          contract before the first such read. Total size 92160 bytes
  *          (RD_N × RD_K × 2B). The flash placement is a no-op on the supported
  *          flat-address targets, where direct `neighbors[i][k]` subscripting
  *          works.
  */
 extern HS_PROGMEM_UNIQUE(neighbors) const int16_t neighbors[RD_N][RD_K];
+
+/**
+ * @brief Traps unless every slot of a neighbor table is a lattice node index.
+ * @param table Neighbor rows to check, RD_N rows of RD_K indices.
+ */
+HS_COLD_MEMBER inline void
+validate_neighbors(const int16_t (&table)[RD_N][RD_K]) {
+  for (int i = 0; i < RD_N; ++i)
+    for (int k = 0; k < RD_K; ++k)
+      HS_CHECK(table[i][k] >= 0 && table[i][k] < RD_N,
+               "neighbors[] slot is not a lattice node index");
+}
 
 // ---------------------------------------------------------------------------
 // CubemapLUT: O(1) direction → nearest Fibonacci node lookup (no runtime trig)
@@ -112,6 +126,7 @@ struct CubemapLUT {
    *          push_back fills the table in place with no random-access writes.
    */
   HS_COLD_MEMBER void build(Arena &arena) {
+    validate_neighbors(neighbors);
     data.bind(arena, 6 * RES * RES);
     // node() is double-precision trig; precompute every lattice point once into
     // scratch so the hill-climb reads a table instead of recomputing per hop.
