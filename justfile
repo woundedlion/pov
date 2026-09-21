@@ -59,8 +59,11 @@ test $HS_SMOKE_FRAMES="120":
 # rule sets move between releases, so both binaries on PATH are held to the pins
 # the ci.yml lint job installs; the npm linters are locked by package-lock.json.
 # The shell set is the same one that job enumerates from the index. Each linter
-# is preceded by that job's anti-vacuity probe.
+# is preceded by that job's anti-vacuity probe. The line-ending check runs first
+# for the reason it does in that job: a working copy that diverged from its
+# eol=lf blob is what the linters below would otherwise read.
 lint:
+    bash tools/eol_gate.sh
     {{py}} tools/build_pins.py --check-tool ruff
     bash tools/ruff_selection_guard.sh
     ruff check --no-cache .
