@@ -33,8 +33,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <span>
+#include <string_view>
 #include <type_traits>
-#include <vector>
 #include <utility>
 #include <vector>
 
