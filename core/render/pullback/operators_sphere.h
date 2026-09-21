@@ -32,9 +32,6 @@ struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
   uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
   uint8_t integrator = static_cast<uint8_t>(Surface::Integrator::EULER);
 
-  static constexpr auto FIELDS = concat_fields<CurlDisplaceParams>(
-      Surface::SurfaceNoiseParams::FIELDS,
-      std::array<Field<CurlDisplaceParams>, 0>{});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlDisplaceParams>{
           "basis", &CurlDisplaceParams::basis, NOISE_BASIS_IDS, 3,
@@ -89,9 +86,6 @@ struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
 struct DirectDisplaceParams : Surface::DirectSurfaceParams {
   uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
 
-  static constexpr auto FIELDS = concat_fields<DirectDisplaceParams>(
-      Surface::DirectSurfaceParams::FIELDS,
-      std::array<Field<DirectDisplaceParams>, 0>{});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<DirectDisplaceParams>{
           "basis", &DirectDisplaceParams::basis, NOISE_BASIS_IDS, 3,

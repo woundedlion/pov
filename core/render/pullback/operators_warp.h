@@ -60,11 +60,7 @@ struct WarpPhaseState {
     @details Translation is in plane units per phase turn: the chain has no
     lattice source coupling, so the composed path's cell scaling is fixed
     at 1. */
-struct AffineWarpParams : Warp::AffineParams {
-  static constexpr auto FIELDS = concat_fields<AffineWarpParams>(
-      Warp::AffineParams::FIELDS, std::array<Field<AffineWarpParams>, 0>{});
-};
-static_assert(field_ids_unique<AffineWarpParams>());
+using AffineWarpParams = Warp::AffineParams;
 
 /** @brief Phase clock plus the accumulated frame rotation of warp.affine.v2. */
 struct AffineClockState {
@@ -103,9 +99,6 @@ struct WarpAffine : ValueStateModel<AffineClockState> {
 struct WaveShearWarpParams : Warp::WaveShearParams {
   uint8_t envelope = static_cast<uint8_t>(WarpEnvelope::FLAT);
 
-  static constexpr auto FIELDS = concat_fields<WaveShearWarpParams>(
-      Warp::WaveShearParams::FIELDS,
-      std::array<Field<WaveShearWarpParams>, 0>{});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<WaveShearWarpParams>{
           "envelope", &WaveShearWarpParams::envelope, WARP_ENVELOPE_IDS, 3,
@@ -150,11 +143,7 @@ struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
 };
 
 /** @brief Parameter family of warp.vortex.v2. */
-struct VortexWarpParams : Warp::VortexParams {
-  static constexpr auto FIELDS = concat_fields<VortexWarpParams>(
-      Warp::VortexParams::FIELDS, std::array<Field<VortexWarpParams>, 0>{});
-};
-static_assert(field_ids_unique<VortexWarpParams>());
+using VortexWarpParams = Warp::VortexParams;
 
 /** @brief PLANE endomorphism: the orbiting radial vortex. */
 struct WarpVortex : ValueStateModel<WarpPhaseState> {
@@ -183,9 +172,6 @@ struct VectorNoiseWarpParams : Warp::VectorNoiseParams {
   uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
   uint8_t envelope = static_cast<uint8_t>(WarpEnvelope::FLAT);
 
-  static constexpr auto FIELDS = concat_fields<VectorNoiseWarpParams>(
-      Warp::VectorNoiseParams::FIELDS,
-      std::array<Field<VectorNoiseWarpParams>, 0>{});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<VectorNoiseWarpParams>{
           "basis", &VectorNoiseWarpParams::basis, NOISE_BASIS_IDS, 3,
@@ -237,11 +223,7 @@ struct WarpVectorNoise : ValueStateModel<NoisePhaseState> {
 };
 
 /** @brief Parameter family of warp.mirror-tile.v2. */
-struct MirrorWarpParams : Warp::MirrorParams {
-  static constexpr auto FIELDS = concat_fields<MirrorWarpParams>(
-      Warp::MirrorParams::FIELDS, std::array<Field<MirrorWarpParams>, 0>{});
-};
-static_assert(field_ids_unique<MirrorWarpParams>());
+using MirrorWarpParams = Warp::MirrorParams;
 
 /** @brief PLANE endomorphism: the mirrored tiling fold. */
 struct WarpMirrorTile : ValueStateModel<WarpPhaseState> {
@@ -281,8 +263,6 @@ struct PolarChartParams : Warp::PolarParams {
   uint8_t mode = static_cast<uint8_t>(PolarMode::LINEAR);
   uint8_t harmonic = 0; /**< Harmonic value index; harmonic = index + 1. */
 
-  static constexpr auto FIELDS = concat_fields<PolarChartParams>(
-      Warp::PolarParams::FIELDS, std::array<Field<PolarChartParams>, 0>{});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<PolarChartParams>{"mode", &PolarChartParams::mode,
                                       POLAR_MODE_IDS, 2,
