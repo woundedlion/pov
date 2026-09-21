@@ -12,7 +12,11 @@ Validate a document:
 node scripts/shader_workbench_cli.mjs check patterns/example.shader.json
 ```
 
-Print the canonical descriptor:
+Print the descriptor identity, the digest preimage: the canonical descriptor
+with every parameter's `unit` removed, serialized with sorted keys. Its
+SHA-256 is the `descriptor_digest` that `check` reports. Committed documents
+carry `unit` on every parameter, so this output is not a diff base for a
+document's `descriptor` section.
 
 ```text
 node scripts/shader_workbench_cli.mjs descriptor patterns/example.shader.json
