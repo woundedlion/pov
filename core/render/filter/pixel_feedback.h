@@ -358,18 +358,13 @@ private:
           const auto origin = pole_row ? point : grid.field.project(position);
           float x_offset = projected.x - origin.x;
           const float y_offset = projected.y - origin.y;
-          if (x_offset > W * 0.5f)
-            x_offset -= W;
-          else if (x_offset < -W * 0.5f)
-            x_offset += W;
+          x_offset = unwrap_near(x_offset, 0.0f, static_cast<float>(W));
           return WarpControl{static_cast<int16_t>(hs::clamp(
                                  x_offset * WARP_SCALE, -32767.0f, 32767.0f)),
                              static_cast<int16_t>(hs::clamp(
                                  y_offset * WARP_SCALE, -32767.0f, 32767.0f))};
         });
 
-    constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
-    constexpr float HALF_WRAP_PERIOD = WRAP_PERIOD * 0.5f;
     {
       HS_PROFILE_DEEP(fb_pop_expand);
       auto ring = grid.field.ring(band.field_y_begin);
@@ -381,22 +376,16 @@ private:
           const int x = coarse_x * grid.downsample;
           const auto longitude = grid.field.longitude_bounded(ring, x);
           const WarpControl a = warp.controls[longitude.left];
-          WarpControl b = warp.controls[longitude.right];
-          float bx = b.x;
-          bx += (bx - a.x > HALF_WRAP_PERIOD)
-                    ? -WRAP_PERIOD
-                    : (bx - a.x < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
+          const WarpControl b = warp.controls[longitude.right];
+          const float bx = unwrap_near(b.x, a.x, WRAP_PERIOD);
           const int index = field_y * grid.columns + coarse_x;
           // Keep the stored offset canonical: the seam correction can lift the
           // interpolant a full period out, past both the int16_t range and the
           // single-step wrap sample_bilinear contracts for.
           const float offset_x =
               hs::lerp(static_cast<float>(a.x), bx, longitude.mix);
-          warp.x_offsets[index] = static_cast<int16_t>(
-              offset_x > HALF_WRAP_PERIOD
-                  ? offset_x - WRAP_PERIOD
-                  : (offset_x < -HALF_WRAP_PERIOD ? offset_x + WRAP_PERIOD
-                                                  : offset_x));
+          warp.x_offsets[index] =
+              static_cast<int16_t>(unwrap_near(offset_x, 0.0f, WRAP_PERIOD));
           warp.y_offsets[index] = static_cast<int16_t>(hs::lerp(
               static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
         }
@@ -429,8 +418,6 @@ private:
     constexpr float NEAR_BLACK = 64.0f;
     const auto blend = blend_alpha(alpha);
     const bool opaque = alpha >= 1.0f;
-    constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
-    constexpr float HALF_WRAP_PERIOD = WRAP_PERIOD * 0.5f;
     const ::Pixel *previous = cv.prev_data();
     ::Pixel *current = cv.data();
     ::Pixel poles[SphereField::POLE_COUNT];
@@ -497,17 +484,10 @@ private:
             const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
             const int i00 = row0 + cx0, i10 = row0 + cx1;
             const int i01 = row1 + cx0, i11 = row1 + cx1;
-            float d00 = x_offsets[i00], d10 = x_offsets[i10];
-            float d01 = x_offsets[i01], d11 = x_offsets[i11];
-            d10 += (d10 - d00 > HALF_WRAP_PERIOD)
-                       ? -WRAP_PERIOD
-                       : (d10 - d00 < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
-            d01 += (d01 - d00 > HALF_WRAP_PERIOD)
-                       ? -WRAP_PERIOD
-                       : (d01 - d00 < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
-            d11 += (d11 - d00 > HALF_WRAP_PERIOD)
-                       ? -WRAP_PERIOD
-                       : (d11 - d00 < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
+            const float d00 = x_offsets[i00];
+            const float d10 = unwrap_near(x_offsets[i10], d00, WRAP_PERIOD);
+            const float d01 = unwrap_near(x_offsets[i01], d00, WRAP_PERIOD);
+            const float d11 = unwrap_near(x_offsets[i11], d00, WRAP_PERIOD);
             leftx = (d00 * wy0 + d01 * wy1) * INVERSE_WARP_SCALE;
             slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
             lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
@@ -655,6 +635,23 @@ private:
   HS_O3_END
 
   static constexpr float WARP_SCALE = 128.0f;
+  /** @brief Column offsets in WARP_SCALE units, one full turn apart. */
+  static constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
+
+  /**
+   * @brief Lifts @p v onto the wrap branch nearest @p reference.
+   * @param v Column offset to unwrap.
+   * @param reference Offset whose branch the result must share.
+   * @param period Full turn in @p v's units.
+   * @return @p v shifted by at most one period, within half a period of
+   *         @p reference.
+   */
+  static __attribute__((always_inline)) float
+  unwrap_near(float v, float reference, float period) {
+    const float half = period * 0.5f;
+    const float delta = v - reference;
+    return delta > half ? v - period : (delta < -half ? v + period : v);
+  }
   // populate_warp_field() canonicalizes the stored column offset onto
   // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and casts it to int16_t unclamped.
   static_assert(W * WARP_SCALE * 0.5f <= 32767.0f,
