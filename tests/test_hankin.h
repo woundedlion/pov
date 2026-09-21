@@ -11,6 +11,8 @@
  *     and twisted (angle≠0) configurations, and re-solves into a reused output
  *     mesh without consuming further arena bytes.
  *   - one-shot MeshOps::hankin convenience wrapper produces a valid mesh.
+ *   - hankin compiles on its own output: the degree-2 star points raise quad
+ *     rosettes and the result stays a closed genus-0 manifold.
  *   - the far-star guard keeps star points local at a resonance angle where
  *     contact planes go near-parallel.
  *   - CompiledHankin::clone makes an independent deep copy.
@@ -497,6 +499,63 @@ inline void test_hankin_output_is_genus0_manifold() {
   }
 }
 
+/**
+ * @brief Verifies hankin compiles on a hankin output, whose star points are
+ *        degree-2 vertices.
+ * @details Every star point of hankin(tetrahedron) sits on exactly one star
+ *          face and one rosette. The second compile lays down 3E vertices, F+V
+ *          faces and 8E indices on that seed like any other, and its rosette
+ *          side counts are twice the seed vertex degrees: a quad over every
+ *          degree-2 star point, an octagon over every degree-4 midpoint. The
+ *          solved mesh is a closed genus-0 manifold with consistent winding.
+ */
+inline void test_compile_hankin_on_hankin_output() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh tetra;
+  build_solid<Solids::Tetrahedron>(tetra, temp);
+  PolyMesh seed = MeshOps::hankin(tetra, target, temp, /*angle*/ 0.4f);
+
+  std::vector<int> degree(seed.vertices.size(), 0);
+  for (size_t i = 0; i < seed.faces.size(); ++i)
+    ++degree[seed.faces[i]];
+  const size_t degree2 =
+      static_cast<size_t>(std::count(degree.begin(), degree.end(), 2));
+  HS_EXPECT_EQ(degree2, tetra.faces.size());
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(seed, compiled, target, temp);
+
+  const size_t E = seed.faces.size() / 2;
+  const size_t F = seed.face_counts.size();
+  const size_t V = seed.vertices.size();
+  HS_EXPECT_EQ(compiled.static_vertices.size() +
+                   compiled.dynamic_instructions.size(),
+               3 * E);
+  HS_EXPECT_EQ(compiled.face_counts.size(), F + V);
+  HS_EXPECT_EQ(compiled.faces.size(), 8 * E);
+
+  std::vector<int> rosettes(compiled.face_counts.begin() + F,
+                            compiled.face_counts.end());
+  std::vector<int> expected;
+  for (int d : degree)
+    expected.push_back(2 * d);
+  std::sort(rosettes.begin(), rosettes.end());
+  std::sort(expected.begin(), expected.end());
+  HS_EXPECT_TRUE(rosettes == expected);
+  HS_EXPECT_EQ(
+      static_cast<size_t>(std::count(rosettes.begin(), rosettes.end(), 4)),
+      degree2);
+
+  PolyMesh out;
+  MeshOps::update_hankin(compiled, out, target, 0.4f);
+  check_face_counts_consistent(out);
+  check_indices_in_range(out);
+  conway_tests::check_euler_genus0(out);
+  conway_tests::check_consistent_winding(out);
+}
+
 // ---------------------------------------------------------------------------
 // Far-star-point guard
 // ---------------------------------------------------------------------------
@@ -838,6 +897,7 @@ inline int run_hankin_tests() {
   test_hankin_flat_and_twisted_differ();
 
   test_hankin_output_is_genus0_manifold();
+  test_compile_hankin_on_hankin_output();
 
   test_update_hankin_resonance_star_points_stay_local();
   test_update_hankin_near_parallel_angle_is_continuous();
