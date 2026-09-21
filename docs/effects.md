@@ -612,7 +612,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `kaleidoscope-hex-oil` | `KaleidoscopeHexOil` | 2 | — |
 | `kaleidoscope-stained-glass` | `KaleidoscopeStainedGlass` | 1 | 10 |
 | `kaleidoscope-smooth` | `KaleidoscopeSmooth` | 4 | 11, 13–14, plus `stretched-grid` |
-| `kaleidoscope-hex-bright` | `KaleidoscopeHexBright` | 2 | 12 |
+| `kaleidoscope-hex-bright` | `KaleidoscopeHexBright` | 2 | 12, plus `hex-twin-wave-alt` |
 | `kaleidoscope-flowers` | `KaleidoscopeFlowers` | 3 | 15–17 |
 | `cosmic-eyeball` | `CosmicEyeball` | 1 | 18 |
 | `mobius-grid` | `MobiusGrid` | 2 | 19–20 |
