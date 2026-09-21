@@ -2167,16 +2167,11 @@ inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
   std::vector<uint8_t> visited;
   cull_visited<W, H>(shape, visited);
 
-  const float *cos_theta =
-      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
-  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int interior = 0;
   for (int y = 0; y < H; ++y) {
-    float sp = TrigLUT<W, H>::sin_phi[y];
-    float cp = TrigLUT<W, H>::cos_phi[y];
     for (int x = 0; x < W; ++x) {
-      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      const Vector p = pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(shape, p).dist < -pixel_width) {
         ++interior;
         HS_CONTEXT("interior px", x, y);
@@ -2210,16 +2205,11 @@ inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
   std::vector<uint8_t> visited;
   cull_visited<W, H>(shape, visited);
 
-  const float *cos_theta =
-      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
-  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int paintable = 0;
   for (int y = 0; y < H; ++y) {
-    float sp = TrigLUT<W, H>::sin_phi[y];
-    float cp = TrigLUT<W, H>::cos_phi[y];
     for (int x = 0; x < W; ++x) {
-      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      const Vector p = pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(shape, p).dist < pixel_width) {
         ++paintable;
         HS_CONTEXT("paintable px", x, y);
@@ -2714,16 +2704,11 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   std::vector<uint8_t> visited;
   cull_visited<W, H>(face, visited);
 
-  const float *cos_theta =
-      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
-  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int paintable = 0;
   for (int y = 0; y < H; ++y) {
-    float sp = TrigLUT<W, H>::sin_phi[y];
-    float cp = TrigLUT<W, H>::cos_phi[y];
     for (int x = 0; x < W; ++x) {
-      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      const Vector p = pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(face, p).dist < pixel_width) {
         ++paintable;
         HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
@@ -2847,16 +2832,12 @@ inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
   face_fixed_pad_visited<W, H>(face, fixed_visited);
   cull_visited<W, H>(face, widened_visited);
 
-  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
-  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = TWO_PI_F / W;
   int fixed_misses = 0;
   int widened_misses = 0;
   for (int y = 0; y < H; ++y) {
-    const float sp = TrigLUT<W, H>::sin_phi[y];
-    const float cp = TrigLUT<W, H>::cos_phi[y];
     for (int x = 0; x < W; ++x) {
-      const Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      const Vector p = pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(face, p).dist >= pixel_width)
         continue;
       const size_t px = static_cast<size_t>(y) * W + x;
@@ -2969,16 +2950,11 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
   }
   fx.advance_display();
 
-  const float *cos_theta =
-      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
-  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int painted = 0;
   for (int y = 0; y < H; ++y) {
-    float sp = TrigLUT<W, H>::sin_phi[y];
-    float cp = TrigLUT<W, H>::cos_phi[y];
     for (int x = 0; x < W; ++x) {
-      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      const Vector p = pixel_to_vector<W, H>(x, y);
       const float d = SDF::distance_of(face, p).dist;
       const Pixel px = fx.get_pixel(x, y);
       const bool lit = px.r != 0 || px.g != 0 || px.b != 0;
