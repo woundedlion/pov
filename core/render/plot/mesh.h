@@ -86,7 +86,7 @@ struct Mesh {
 
     const ClipRegion &cr = canvas.clip();
     const bool clip_active = !cr.is_full();
-    const ClipRegion::XClip xc = cr.x_clip();
+    const ClipRegion::XClip &xc = canvas.render_x_clip();
     const GeodesicEdgeSpan es = make_geodesic_edge_span(fu.pos, fv.pos);
 
     // A vertex shader moves the endpoints after this test, so it opts out.
