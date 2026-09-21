@@ -31,7 +31,7 @@
 #include <new> // std::nothrow — fail-fast OOM check at the allocation sites
 
 #include "pov_segmented.h"
-#include "engine/effects.h"
+#include "core/engine/effects.h"
 
 inline constexpr int TOTAL_PIXELS = 288;
 inline constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
