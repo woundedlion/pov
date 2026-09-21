@@ -82,8 +82,8 @@ constexpr uint8_t projection_traits(Traits... traits) {
  * whether the sample has reached it. A kernel whose image carries one boundary
  * kind everywhere reports it on every sample (Bonne CUT); Peirce and Airocean
  * vary the mask per point: Peirce by whether a strip layout's equator cut is
- * nearer than the singularities, Airocean by whether the nearest face edge is
- * cut or glued.
+ * nearer than the singularities, Airocean by whether the face it landed in has
+ * a cut edge for the distance to run to.
  */
 enum class ProjectionBoundary : uint8_t {
   NONE = 0,
@@ -1047,8 +1047,9 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
           .region_id = face,
           .component_id = 0,
           .boundary_flags = static_cast<uint8_t>(
-              cut_edge ? projection_boundary(ProjectionBoundary::CUT)
-                       : projection_boundary(ProjectionBoundary::NONE)),
+              edge < NO_EDGE_DISTANCE
+                  ? projection_boundary(ProjectionBoundary::CUT)
+                  : projection_boundary(ProjectionBoundary::NONE)),
           .fade_edge_distance = edge,
           .flags = 0,
           .traits = projection_traits(cut_edge ? ProjectionTrait::CUT
