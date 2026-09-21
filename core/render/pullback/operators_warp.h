@@ -40,10 +40,8 @@ inline void check_warp_envelope(uint8_t envelope) {
 inline float warp_envelope(uint8_t envelope,
                            const ProjectionProvenance &provenance,
                            float edge_width) {
-  const auto mode = static_cast<WarpEnvelope>(envelope);
   return Warp::envelope(provenance, edge_width,
-                        mode == WarpEnvelope::PROJECTION_WEIGHT,
-                        mode == WarpEnvelope::EDGE_FADE);
+                        static_cast<WarpEnvelope>(envelope));
 }
 
 /** @brief Phase clock of the single-clock warp operators. */
