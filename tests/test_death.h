@@ -75,6 +75,7 @@
 #include "core/math/spherical_field.h"
 #include "core/math/spherical_harmonics.h"
 #include "core/spatial/kd_tree.h"
+#include "core/spatial/reaction_graph.h"
 #include "core/containers/triangular_bitset.h"
 #include "core/containers/static_circular_buffer.h"
 #include "core/animation/transformer.h"
@@ -456,6 +457,18 @@ inline void case_spatial_knn_over_max() {
                    opaque<size_t>(KDTree::MAX_K + 1)); // k > MAX_K -> HS_CHECK
   if (r.size() == static_cast<size_t>(0x7fff))
     std::printf("x");
+}
+
+/**
+ * @brief Death case: a neighbor-table slot outside the lattice must trap.
+ * @details Spatial surface — CubemapLUT's hill-climb and the reaction-diffusion
+ *          Laplacian subscript neighbors[] rows unguarded, so validate_neighbors()
+ *          traps on a slot that is not a node index before the first such read.
+ */
+inline void case_reaction_graph_slot_out_of_range() {
+  static int16_t table[ReactionGraph::RD_N][ReactionGraph::RD_K] = {};
+  table[0][0] = opaque<int16_t>(-1);
+  ReactionGraph::validate_neighbors(table);
 }
 
 /**
@@ -4100,6 +4113,10 @@ inline const Case *all_cases(int &n) {
        "exceeds capacity!"},
       {"spatial_knn_over_max", case_spatial_knn_over_max, "kd_tree.h",
        "(k <= static_cast<size_t>(MAX_K)) KDTree::nearest k exceeds MAX_K"},
+      {"reaction_graph_slot_out_of_range",
+       case_reaction_graph_slot_out_of_range, "reaction_graph.h",
+       "(table[i][k] >= 0 && table[i][k] < RD_N) neighbors[] slot is not a "
+       "lattice node index"},
       {"arena_oversubscribed", case_arena_oversubscribed, "memory.cpp",
        "(false) "},
       {"arena_partition_too_large", case_arena_partition_too_large,
@@ -5254,7 +5271,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"MeshFeedback.h", 1},
     {"MindSplatter.h", 5},
     {"MobiusRings.h", 1},
-    {"ReactionDiffusionBase.h", 2},
+    {"ReactionDiffusionBase.h", 1},
     {"RingShower.h", 1},
     {"shader_host.h", 10},
     {"chain_host.h", 1},
