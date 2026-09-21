@@ -510,12 +510,19 @@ private:
     return key;
   }
 
-  static AxisState axis_state(const ChromaControls &controls) {
+  /** @brief The chroma controls as the axis controls they share with
+   *  lightness: curve, center, range and the CUSTOM keys. */
+  static AxisControls as_axis(const ChromaControls &controls) {
     AxisControls axis;
     axis.curve = controls.curve;
     axis.center = controls.center;
     axis.range = controls.range;
-    return axis_state(axis);
+    axis.custom = controls.custom;
+    return axis;
+  }
+
+  static AxisState axis_state(const ChromaControls &controls) {
+    return axis_state(as_axis(controls));
   }
 
   HS_COLD_MEMBER GenerativePalette(Unchecked, const PaletteRecipe &recipe) {
@@ -886,13 +893,7 @@ private:
   HS_COLD_MEMBER static void resolve_axis(const ChromaControls &controls,
                                           uint8_t count,
                                           float out[PALETTE_MAX_KEYS]) {
-    AxisControls axis;
-    axis.curve = controls.curve;
-    axis.center = controls.center;
-    axis.range = controls.range;
-    for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
-      axis.custom[i] = controls.custom[i];
-    resolve_axis(axis, count, out);
+    resolve_axis(as_axis(controls), count, out);
   }
 
   HS_COLD_MEMBER static void resolve_harmony(const PaletteRecipe &recipe,
