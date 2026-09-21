@@ -61,9 +61,7 @@ public:
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
-    // Non-finite x makes the int cast below UB and bypasses the wrap.
-    assert(std::isfinite(x));
-    assert(x > -W - 0.5f && x < 2 * W - 0.5f);
+    const int xi = round_wrap_column<W>(x);
     pass(x, y, c, age, alpha);
 
     ::Pixel r_col = c;
@@ -76,10 +74,6 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
-    const float xr = std::round(x);
-    // fast_wrap corrects only a single ±W offset, so xr must land in [-W, 2W).
-    assert(xr >= -W && xr < 2 * W);
-    int xi = fast_wrap(static_cast<int>(xr), W);
     pass(static_cast<float>(fast_wrap(xi + Spread, W)), y, r_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 2 * Spread, W)), y, g_col, age,
          alpha);
