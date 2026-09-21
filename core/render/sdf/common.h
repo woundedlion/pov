@@ -555,6 +555,9 @@ inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
 struct Bounds {
   int y_min, y_max; /**< Inclusive first/last row covered. */
 };
+
+/** Bounds naming no row: y_min > y_max, so every row test rejects. */
+inline constexpr Bounds BOUNDS_CULLED{1, 0};
 /**
  * @brief Result of a signed distance query.
  *
