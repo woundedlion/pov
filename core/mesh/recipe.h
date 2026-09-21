@@ -38,10 +38,10 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * truncate branch (the two truncate50d recipes arrive at 0.873), up to
  * T_TRUNCATE_FAR_MAX; behaviour in [T_TRUNCATE_ARRIVAL_MIN, 0.5] is unchanged.
  * CHAMFER is characterized up to CHAMFER_T_MAX. SNUB sweeps only a positive
- * inset and RELAX only a baked step or a positive iteration count, the floors
- * apply_step traps on. KIS and DUAL run as gated swaps
- * (docs/specs/opchain_morph_spec.md, "Leg kinds"). EXPAND has a leg kind but
- * no recipe and no sweep coverage on a hankin seed.
+ * inset, HANKIN only a positive contact angle and RELAX only a baked step or a
+ * positive iteration count, the floors apply_step traps on. KIS and DUAL run as
+ * gated swaps (docs/specs/opchain_morph_spec.md, "Leg kinds"). EXPAND has a leg
+ * kind but no recipe and no sweep coverage on a hankin seed.
  */
 inline constexpr bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
@@ -55,6 +55,7 @@ inline constexpr bool is_morphable_step(const OpStep &step) {
   case Op::RELAX:
     return step.bake || step.param >= 1.0f;
   case Op::HANKIN:
+    return step.param > 0.0f;
   case Op::AMBO:
   case Op::KIS:
   case Op::DUAL:
