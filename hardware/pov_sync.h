@@ -418,10 +418,11 @@ private:
   }
 
   /**
-   * @brief Restores every member except protocol_config, the flywheel and the
-   * board role to its post-construction value.
+   * @brief Restores every member to its post-construction value except the four
+   * the callers own: protocol_config, prev_burst_stale_cycles (cached by
+   * cache_config_bounds()), fly and is_master_board.
    * @details The single reset both configure() and seed() run, so the two
-   * cannot drift apart; each owns the three members left out.
+   * cannot drift apart.
    */
   HS_COLD_MEMBER void reset_runtime_state() {
     gate = FlipGate{};
