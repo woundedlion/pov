@@ -98,12 +98,12 @@ public:
       bp.bake(persistent_arena, palettes[0]);
 
     timeline
-        .add(0, Animation::RandomTimer(
-                    4, 64, [this](Canvas &) { reverse(); }, true))
-        .add(0, Animation::RandomTimer(
-                    20, 64, [this](Canvas &) { color_wipe(); }, true))
-        .add(0, Animation::RandomTimer(
-                    48, 160, [this](Canvas &) { rotate(); }, true));
+        .add(0, Animation::RandomTimer({.min = 4, .max = 64, .repeat = true},
+                                       [this](Canvas &) { reverse(); }))
+        .add(0, Animation::RandomTimer({.min = 20, .max = 64, .repeat = true},
+                                       [this](Canvas &) { color_wipe(); }))
+        .add(0, Animation::RandomTimer({.min = 48, .max = 160, .repeat = true},
+                                       [this](Canvas &) { rotate(); }));
   }
 
   /**

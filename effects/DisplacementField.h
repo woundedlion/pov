@@ -109,7 +109,7 @@ public:
                         [this](Canvas &canvas, float opacity) {
                           this->draw_rings(canvas, opacity);
                         },
-                        -1, 24, ease_linear, 0, ease_linear));
+                        -1, {.fade_in = {24}}));
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, STACK_AXIS, walk_noise));
