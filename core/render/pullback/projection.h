@@ -138,9 +138,9 @@ inline ProjectionResult folded_sinusoidal(const Vector &input,
                                           float central_meridian) {
   const Complex coords =
       projections::folded_sinusoidal(input, central_meridian);
-  return {
-      coords,
-      {static_cast<uint8_t>(input.z < 0.0f), 0, 0, 1.0f, 1.0f, FOLDED_FLAG}};
+  return {coords,
+          {static_cast<uint8_t>(input.z < 0.0f), 0, 0,
+           projections::NO_EDGE_DISTANCE, 1.0f, FOLDED_FLAG}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
