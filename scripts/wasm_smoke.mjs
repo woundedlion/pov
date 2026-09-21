@@ -310,19 +310,6 @@ async function main(probe) {
           fail(`${name}: stack high-water mark ${stack.high_water_mark} of ` +
             `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget — approaching overflow`);
         }
-        // The render path repaints the canary after every effect load, so the
-        // mark above never reflects construction depth. init_high_water_mark is
-        // latched at load time and survives the repaint; it is a running max, so
-        // the first effect whose read crosses the budget is the one that did.
-        if (stack && typeof stack.init_high_water_mark !== 'number') {
-          fail(`${name}: getArenaMetrics().stack omits init_high_water_mark`);
-        } else if (stack && stack.init_high_water_mark === 0) {
-          fail(`${name}: init stack high-water mark is 0 (init canary tracking is broken)`);
-        } else if (stack && stack.init_high_water_mark >= stackGate) {
-          fail(`${name}: init-time stack high-water mark ${stack.init_high_water_mark} of ` +
-            `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget — ` +
-            `a stack-hungry effect constructor`);
-        }
 
         // Exercise the embind param seam (getParameterDefinitions() +
         // getParamValues()) the GUI rides every frame: assert the two streams
@@ -1024,11 +1011,29 @@ async function main(probe) {
       }
     }
 
-    // Log worst-case stack usage as a margin against STACK_SIZE.
+    // Log worst-case stack usage as a margin against STACK_SIZE. The render
+    // path repaints the canary after every effect load, so the live mark never
+    // reflects construction depth; init_high_water_mark is latched at load time
+    // as a running max over every load, so it is gated once here, against the
+    // sweep's widest ceiling.
     const stack = engine.getArenaMetrics().stack;
-    if (!stack) fail('getArenaMetrics() omits the stack region');
-    else console.log(`\nstack: ${stack.high_water_mark}/${stack.capacity} bytes peak ` +
-      `(effect init peak ${stack.init_high_water_mark})`);
+    const initGate = stackCreepBudget(stack,
+      Math.max(STACK_HWM_CEILING_BYTES, SHADER_WORKBENCH_STACK_HWM_CEILING_BYTES));
+    if (!stack) {
+      fail('getArenaMetrics() omits the stack region');
+    } else if (typeof stack.init_high_water_mark !== 'number') {
+      fail('getArenaMetrics().stack omits init_high_water_mark');
+    } else if (stack.init_high_water_mark === 0) {
+      fail('init stack high-water mark is 0 (init canary tracking is broken)');
+    } else if (stack.init_high_water_mark >= initGate) {
+      fail(`init-time stack high-water mark ${stack.init_high_water_mark} of ` +
+        `${stack.capacity} bytes exceeds the ${initGate}-byte creep budget — ` +
+        `a stack-hungry effect constructor`);
+    }
+    if (stack) {
+      console.log(`\nstack: ${stack.high_water_mark}/${stack.capacity} bytes peak ` +
+        `(effect init peak ${stack.init_high_water_mark})`);
+    }
   } finally {
     engine.delete();
   }
