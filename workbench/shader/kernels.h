@@ -685,11 +685,6 @@ prepare_hue_rotation_lut(PreparedHueRotation &prepared,
       palette);
 }
 
-HS_FLASH_MEMBER inline Vector hue_noise_face_direction(int face, float u,
-                                                       float v) {
-  return Pullback::Color::hue_noise_face_direction(face, u, v);
-}
-
 HS_FLASH_MEMBER inline float
 sample_hue_noise_lut(const PreparedHueNoise &prepared, const Vector &v) {
   return Pullback::Color::sample_hue_noise_lut({prepared.lut, prepared.active},
