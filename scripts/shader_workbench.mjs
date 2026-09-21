@@ -1213,6 +1213,13 @@ export function expandV1Document(document, catalog) {
   for (const role of V1_STAGE_ROLES)
     if (!roleNodes.has(role))
       failV1('MISSING_STAGE_ROLE', '$.descriptor.graph.nodes', `Missing stage role "${role}".`);
+  array(graph.edges, '$.descriptor.graph.edges').forEach((edge, index) =>
+    object(edge, `$.descriptor.graph.edges[${index}]`));
+  for (const field of ['clocks', 'preparation', 'resources', 'approximation'])
+    array(descriptor[field], `$.descriptor.${field}`).forEach((entry, index) => {
+      const path = `$.descriptor.${field}[${index}]`;
+      id(object(entry, path).id, `${path}.id`);
+    });
 
   const slots = v1Slots(roleNodes);
   const slotsByLabel = new Map(slots.map((slot) => [slot.label, slot]));

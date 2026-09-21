@@ -699,6 +699,14 @@ test('malformed v1 containers report diagnostics instead of raw TypeErrors', () 
       document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
         .policy.sequence = 7;
     }, 'stage.planar_warp.sequence'],
+    [(document) => { delete document.descriptor.graph.edges; }, '$.descriptor.graph.edges'],
+    [(document) => { document.descriptor.graph.edges[1] = null; }, '$.descriptor.graph.edges[1]'],
+    [(document) => { delete document.descriptor.clocks; }, '$.descriptor.clocks'],
+    [(document) => { document.descriptor.clocks[0] = { kind: 'frame-clock' }; },
+      '$.descriptor.clocks[0].id'],
+    [(document) => { document.descriptor.preparation = 7; }, '$.descriptor.preparation'],
+    [(document) => { delete document.descriptor.resources; }, '$.descriptor.resources'],
+    [(document) => { document.descriptor.approximation = null; }, '$.descriptor.approximation'],
   ]) {
     const document = structuredClone(V1_EXAMPLE);
     mutate(document);
