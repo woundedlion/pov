@@ -15,7 +15,11 @@ and a zero exit.
 Stdlib only; the teensy_size line parsing is teensy_gate.parse_teensy_size, so
 the table and the gate can never disagree about what a line means.
 
-Run:  python tools/teensy_size_table.py holosphere phantasm ...
+With no argument every environment platformio.ini declares is built -- the set a
+bare `pio run` covers, which is also the set the warning ratchet expects -- so a
+new image is size-gated without a second list to edit here.
+
+Run:  python tools/teensy_size_table.py [<env> ...]
 """
 
 from __future__ import annotations
@@ -108,9 +112,6 @@ def render_table(order: list[str], sizes_by_env: dict[str, dict]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     envs = sys.argv[1:] if argv is None else argv
-    if not envs:
-        print("usage: teensy_size_table.py <env> [<env> ...]", file=sys.stderr)
-        return 2
     pio = shutil.which("pio") or shutil.which("platformio")
     if pio is None:
         print("error: pio not found on PATH (pip install platformio)",

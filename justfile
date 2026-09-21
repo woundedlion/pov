@@ -187,8 +187,9 @@ install: smoke
 # ceilings" tools/teensy_budgets.json sets, NOT byte-identity with the
 # VMicro/bench image. Those ceilings were calibrated against the pinned
 # PlatformIO, which selects the toolchain, so the pin is checked before building.
-# The wrapper streams the pio output, then appends a combined per-env
-# FLASH/RAM1/RAM2 table from the teensy_size lines.
+# The wrapper builds every platformio.ini environment (a bare `pio run`, the set
+# the warning ratchet expects too), streams the pio output, then appends a
+# combined per-env FLASH/RAM1/RAM2 table from the teensy_size lines.
 #
 # The last line is the size trail's producer: it parses the ELFs this build just
 # linked into the worktree's pending record, which the post-commit hook stamps
@@ -196,7 +197,7 @@ install: smoke
 # python or no git repo leaves the trail alone instead of failing the build.
 teensy-size:
     {{py}} tools/build_pins.py --check-tool platformio
-    {{py}} tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8 profile profile_o3
+    {{py}} tools/teensy_size_table.py
     -{{py}} tools/teensy_size_trail.py record
 
 # Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
