@@ -1,4 +1,4 @@
-"""Shared PHANTASM fabrication constraints in millimeters."""
+"""Shared PHANTASM fabrication constraints (millimeters) and assembly policy."""
 
 RULE_MINIMUMS = {
     "min_clearance": 0.1016,
@@ -33,3 +33,10 @@ UNPLACED_DEFAULT_CLASS = {
     "via_diameter": 0.6,
     "via_drill": 0.3,
 }
+
+# Assembly policy: JLC reflows only top-side SMD. Exclude hand-soldered
+# through-hole (connectors, electrolytic, Teensy) and solder jumpers.
+# gen/pcb.py stamps the matching board attributes; gen/fab.py keeps the same
+# parts out of the assembly BOM and centroid.
+EXCLUDE_FP_SUBSTR = ("PinHeader", "JST_", "SolderJumper", "CP_Radial")
+EXCLUDE_VAL_SUBSTR = ("Teensy",)
