@@ -200,10 +200,9 @@ The division of labor keeps ripple correctness simple:
 
 Effects whose meshes change shape per frame (HankinSolids' angle sweep and
 `Animation::OpLeg` morphs) must not reuse a spawn-time clustering: they simply
-don't pass a bake (null ⇒ status quo). IslamicStars is the Phase-1 consumer.
-HankinSolids could rebake per morph target later (its sweep changes vertex
-positions every frame, so per-frame congruence would need re-validation —
-out of scope).
+don't pass a bake (null ⇒ status quo). HankinSolids could rebake per morph
+target later (its sweep changes vertex positions every frame, so per-frame
+congruence would need re-validation — out of scope).
 
 ## 8. Gates (in order; each blocks the next)
 
