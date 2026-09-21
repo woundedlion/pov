@@ -1436,8 +1436,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # Discover finds test files by pattern, so one deleted or renamed out of
-      # it can run no suite and stay green; require_test_files.sh fails instead.
+      # Discover finds test files by pattern, so a pattern matching nothing runs
+      # no suite and stays green; require_test_files.sh fails on an empty match.
       - name: Validate tracked Markdown
         run: |
           bash tools/require_test_files.sh 'tools/docs_check_tests/test*.py'
@@ -1481,8 +1481,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Discover finds test files by pattern, so one deleted or renamed out of
-      # it can run no suite and stay green; require_test_files.sh fails instead.
+      # Discover finds test files by pattern, so a pattern matching nothing runs
+      # no suite and stays green; require_test_files.sh fails on an empty match.
       - name: Check tracked license headers
         run: |
           bash tools/require_test_files.sh 'tools/license_check_tests/test*.py'
@@ -1777,8 +1777,8 @@ jobs:
       # in the justfile, so the local and cloud runs cover one set.
       - name: Every test-suite directory is discovered
         run: bash tools/check_test_dir_pins.sh
-      # Discover finds test files by pattern, so one deleted or renamed out of
-      # it can run no suite and stay green; require_test_files.sh fails instead.
+      # Discover finds test files by pattern, so a pattern matching nothing runs
+      # no suite and stays green; require_test_files.sh fails on an empty match.
       - name: Run gate parser/layout/warning self-tests
         run: |
           bash tools/require_test_files.sh 'tools/teensy_gate_tests/test*.py'
