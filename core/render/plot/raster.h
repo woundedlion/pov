@@ -346,6 +346,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                  !opts.omit_end && opts.loop_seam == nullptr,
              "open_geodesic rasterize takes no loop, planar or omit-end "
              "options");
+  // A canvas that is not W x H plots through a pipeline whose wrap period and
+  // framebuffer stride disagree.
+  HS_CHECK(canvas.width() == W && canvas.height() == H,
+           "canvas size differs from the plot's W/H");
   // A direct-raster sink writes through a cached framebuffer base; the canvas
   // double-buffers, so a stale base is the buffer the display is scanning out.
   if constexpr (requires { source_pipeline.prepared_for(canvas); })
