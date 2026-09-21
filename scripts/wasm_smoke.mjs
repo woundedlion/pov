@@ -1188,9 +1188,12 @@ async function main(probe) {
         fail(`fromSolidName("${solidName}") returned null before the wipe`);
       } else {
         MeshOps.clearToolingMemory();
-        for (const [what, result] of
-             [['getVertices', stale.getVertices()], ['getFaces', stale.getFaces()],
-              ['classifyFaces', stale.classifyFaces()], ['dual', stale.dual()]]) {
+        // Invoke each call immediately before its getLastResult() read: every
+        // entry point clears the channel.
+        for (const [what, call] of
+             [['getVertices', () => stale.getVertices()], ['getFaces', () => stale.getFaces()],
+              ['classifyFaces', () => stale.classifyFaces()], ['dual', () => stale.dual()]]) {
+          const result = call();
           if (result) fail(`stale wrapper ${what}() should return null`);
           if (MeshOps.getLastResult() !== MR.STALE_WRAPPER) {
             fail(`stale wrapper ${what}() did not report STALE_WRAPPER`);
