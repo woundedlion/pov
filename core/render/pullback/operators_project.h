@@ -152,8 +152,6 @@ struct GnomonicChainParams : ProjectChainParams {
   uint8_t hemisphere =
       static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED);
 
-  static constexpr auto FIELDS = concat_fields<GnomonicChainParams>(
-      ProjectChainParams::FIELDS, std::array<Field<GnomonicChainParams>, 0>{});
   static constexpr auto TOPOLOGY =
       projection_frame_topology<GnomonicChainParams>(
           TopologyField<GnomonicChainParams>{
@@ -230,9 +228,6 @@ inline constexpr float BONNE_STANDARD_PARALLEL = PI_F * 0.25f;
 struct BonneChainParams : MeridianProjectChainParams {
   uint8_t hemisphere = 0; /**< 0 north, 1 south. */
 
-  static constexpr auto FIELDS =
-      concat_fields<BonneChainParams>(MeridianProjectChainParams::FIELDS,
-                                      std::array<Field<BonneChainParams>, 0>{});
   static constexpr auto TOPOLOGY = projection_frame_topology<BonneChainParams>(
       TopologyField<BonneChainParams>{"hemisphere",
                                       &BonneChainParams::hemisphere,

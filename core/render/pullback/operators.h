@@ -175,9 +175,6 @@ struct GeneratedPaletteParams : Color::ColorParams {
   uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
   uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
 
-  static constexpr auto FIELDS = concat_fields<GeneratedPaletteParams>(
-      Color::ColorParams::FIELDS,
-      std::array<Field<GeneratedPaletteParams>, 0>{});
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<GeneratedPaletteParams>{
           "palette-mode", &GeneratedPaletteParams::palette_mode,
