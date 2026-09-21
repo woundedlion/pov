@@ -573,6 +573,25 @@ inline void test_generative_palette_rejects_unavailable_path_minimum() {
   HS_EXPECT_EQ(status.field, PaletteRecipeField::CHROMA_BASIS);
 }
 
+inline void test_generative_palette_absolute_basis_canonicalizes_headroom() {
+  PaletteRecipe input = PaletteRecipes::from_oklch_keys(
+      PaletteDomain::STRAIGHT, OKLCH{0.5f, 0.10f, 0.0f},
+      OKLCH{0.6f, 0.12f, 1.0f}, OKLCH{0.7f, 0.08f, 2.0f});
+  HS_EXPECT_EQ(input.chroma.basis, ChromaBasis::ABSOLUTE);
+  input.chroma.headroom = 0.8f;
+
+  GenerativePalette output;
+  PaletteRecipe canonical;
+  PaletteCompileStatus status;
+  HS_EXPECT_TRUE(
+      GenerativePalette::try_compile(input, output, canonical, status));
+  HS_EXPECT_EQ(status.code, PaletteCompileCode::OK);
+  HS_EXPECT_EQ(canonical.chroma.headroom, 1.0f);
+  const uint64_t headroom_bit =
+      uint64_t{1} << static_cast<uint8_t>(PaletteRecipeField::CHROMA_HEADROOM);
+  HS_EXPECT_TRUE((status.adjustments.canonicalized_fields & headroom_bit) != 0);
+}
+
 inline void test_generative_palette_get_clamps_out_of_range() {
   const GenerativePalette palette(PaletteRecipes::balanced_analogous(0.2f));
   const Pixel low = palette.get(-1.0f).color;
