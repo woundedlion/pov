@@ -50,6 +50,14 @@ public:
     lifetime = new_lifetime;
   }
 
+  /** @brief One screen trail point: position plus remaining lifetime. */
+  struct DecayPixel {
+    float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
+  };
+
+  /** @brief Persistent bytes init_storage() reserves. */
+  static constexpr size_t STORAGE_BYTES = MAX_PIXELS * sizeof(DecayPixel);
+
   /**
    * @brief Allocates the decay-pixel storage from the persistent arena.
    * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
@@ -150,10 +158,6 @@ private:
    */
   static constexpr float MIN_TRAIL_ALPHA = 0.001f;
 
-  /** @brief One screen trail point: position plus remaining lifetime. */
-  struct DecayPixel {
-    float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
-  };
   int lifetime;                 /**< Per-frame fade divisor in frames. */
   DecayPixel *points = nullptr; /**< Arena-owned array of live trail points. */
   int num_pixels = 0;           /**< Number of live points in points. */
@@ -168,8 +172,7 @@ private:
    * and writes MAX_PIXELS DecayPixels through it.
    */
   void check_storage_alive() const {
-    HS_ASSERT_BLOCK_ALIVE(stamp, points, MAX_PIXELS * sizeof(DecayPixel),
-                          "Screen::Trails");
+    HS_ASSERT_BLOCK_ALIVE(stamp, points, STORAGE_BYTES, "Screen::Trails");
   }
 };
 
