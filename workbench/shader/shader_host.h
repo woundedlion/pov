@@ -424,6 +424,7 @@ public:
       Workbench::StereographicAlienCoreMirrorPipeline;
   using ProgramDescriptor = Workbench::ProgramDescriptor;
   static constexpr auto PREPARED_BLOB_BYTES = Workbench::PREPARED_BLOB_BYTES;
+  static constexpr auto PREPARED_BLOB_ALIGN = Workbench::PREPARED_BLOB_ALIGN;
 
   static constexpr auto PROJECTION_FLAG_FOLDED =
       Workbench::PROJECTION_FLAG_FOLDED;
@@ -2013,7 +2014,7 @@ private:
 
   struct StateBundle {
     FrameState frame;
-    alignas(std::max_align_t) std::byte prepared_blob[PREPARED_BLOB_BYTES];
+    alignas(PREPARED_BLOB_ALIGN) std::byte prepared_blob[PREPARED_BLOB_BYTES];
     Config render_config;
     std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
     std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};

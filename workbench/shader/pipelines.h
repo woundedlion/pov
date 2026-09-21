@@ -497,6 +497,10 @@ struct ProgramDescriptor {
     from; make_program() pins every program's tuple under it. */
 inline constexpr size_t PREPARED_BLOB_BYTES = 256;
 
+/** Alignment the blob's storage is declared with; make_program() pins every
+    program's tuple under it. */
+inline constexpr size_t PREPARED_BLOB_ALIGN = alignof(std::max_align_t);
+
 inline constexpr void canonicalize_warp_key(WarpStageKind kind,
                                             NoiseBasis &basis,
                                             WarpEnvelope &envelope,
@@ -618,6 +622,9 @@ make_program(bool (*continuous)(const Config &)) {
                 "inverse pipeline does not implement its topology key");
   static_assert(sizeof(typename Pipeline::PreparedTuple) <= PREPARED_BLOB_BYTES,
                 "prepared blob capacity exceeded");
+  static_assert(alignof(typename Pipeline::PreparedTuple) <=
+                    PREPARED_BLOB_ALIGN,
+                "prepared blob alignment exceeded");
   return {Id,
           Key,
           &Pipeline::shade_prepared,
