@@ -63,7 +63,6 @@ class GSReactionDiffusion
   // Bring dependent-base names into scope (template base requires this).
   using Base::accumulate_stencil;
   using Base::cube_lut;
-  using Base::dist2;
   using Base::for_each_neighbor;
   using Base::from_q16;
   using Base::gather_stencil;
@@ -79,7 +78,6 @@ class GSReactionDiffusion
   using Base::seed_blobs;
   using Base::seed_face_lut;
   using Base::to_q16;
-  using Base::with_wendland_weight;
 
 public:
   /**
