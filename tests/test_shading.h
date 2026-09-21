@@ -3,9 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Direct unit tests for core/render/shading.h — the Fragment register carrier
- * (lerp across pos/v0-v3/age/size/color), including lerp_registers preserving
- * pos and color, plus the edge-distance and topology-slot helpers shared by the
- * mesh effects.
+ * (lerp across pos/v0-v3/age/size/color; lerp_registers leaving pos and color
+ * at their struct defaults), plus the edge-distance and topology-slot helpers
+ * shared by the mesh effects.
  * These helpers are otherwise exercised only incidentally through the rasterizer
  * tests; this module pins their contract directly.
  *
@@ -96,6 +96,48 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
   HS_EXPECT_EQ(m.color.color.r, 4000);
   HS_EXPECT_EQ(m.color.color.g, 8000);
   HS_EXPECT_EQ(m.color.color.b, 12000);
+}
+
+/**
+ * @brief Verifies lerp_registers interpolates v0-v3/age/size only and leaves
+ *        pos and color at their struct defaults.
+ */
+inline void test_fragment_lerp_registers_leaves_pos_and_color_default() {
+  Fragment a;
+  a.pos = Vector(2, 0, 0);
+  a.v0 = 0.0f;
+  a.v1 = 0.0f;
+  a.v2 = 0.0f;
+  a.v3 = 0.0f;
+  a.size = 4.0f;
+  a.age = 0.0f;
+  a.color = Color4(Pixel(2000, 4000, 6000), 1.0f);
+
+  Fragment b;
+  b.pos = Vector(0, 4, 0);
+  b.v0 = 8.0f;
+  b.v1 = 12.0f;
+  b.v2 = 16.0f;
+  b.v3 = 20.0f;
+  b.size = 8.0f;
+  b.age = 10.0f;
+  b.color = Color4(Pixel(6000, 12000, 18000), 1.0f);
+
+  const Fragment defaults;
+  Fragment m = Fragment::lerp_registers(a, b, 0.5f);
+  HS_EXPECT_NEAR(m.v0, 4.0f, 1e-6f);
+  HS_EXPECT_NEAR(m.v1, 6.0f, 1e-6f);
+  HS_EXPECT_NEAR(m.v2, 8.0f, 1e-6f);
+  HS_EXPECT_NEAR(m.v3, 10.0f, 1e-6f);
+  HS_EXPECT_NEAR(m.size, 6.0f, 1e-6f);
+  HS_EXPECT_NEAR(m.age, 5.0f, 1e-6f);
+  HS_EXPECT_NEAR(m.pos.x, defaults.pos.x, 1e-6f);
+  HS_EXPECT_NEAR(m.pos.y, defaults.pos.y, 1e-6f);
+  HS_EXPECT_NEAR(m.pos.z, defaults.pos.z, 1e-6f);
+  HS_EXPECT_EQ(m.color.color.r, defaults.color.color.r);
+  HS_EXPECT_EQ(m.color.color.g, defaults.color.color.g);
+  HS_EXPECT_EQ(m.color.color.b, defaults.color.color.b);
+  HS_EXPECT_NEAR(m.color.alpha, defaults.color.alpha, 1e-6f);
 }
 
 // --- fragment_edge_dist -----------------------------------------------------
@@ -352,6 +394,7 @@ inline int run_shading_tests() {
 
   test_fragment_lerp_endpoints();
   test_fragment_lerp_midpoint_carries_registers();
+  test_fragment_lerp_registers_leaves_pos_and_color_default();
   test_fragment_edge_dist_normal();
   test_fragment_edge_dist_degenerate_face();
   test_mesh_topology_slot_in_range_wraps();
