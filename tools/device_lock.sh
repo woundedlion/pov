@@ -201,6 +201,15 @@ _hs_try_claim() {
 hs_device_acquire() {
   local effect=$1 env=$2 eta=$3
   local waited=0 wait_for=${HS_DEVICE_WAIT:-0} p port d
+  # No claim can be recorded under a path that does not exist, and a claim
+  # that cannot be recorded is indistinguishable from a busy board: the
+  # status line then reads "ALL DEVICES BUSY" over a list of free ones.
+  local root; root=$(dirname "$(_hs_lock_base)")
+  if [ ! -d "$root" ]; then
+    echo "device: lock root $root does not exist, so no claim can be recorded." >&2
+    echo "Create it, or point HS_DEVICE_LOCK at a base whose parent exists." >&2
+    return 2
+  fi
   while :; do
     # Re-enumerated every round: a board can be plugged in (or replugged onto a
     # new COM name) while we wait, and that board is a free one.
