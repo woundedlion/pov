@@ -19,6 +19,7 @@
 
 #include "core/color/color.h"
 #include "core/color/palettes.h"
+#include "core/platform/rng.h"
 #include "tests/color_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -169,10 +170,14 @@ inline void test_mesh_palette_bank_lookup() {
  * @brief Verifies shuffle_indices yields a permutation of [0, N).
  * @details Each of 0..N-1 must appear exactly once: a shuffle that dropped or
  *          duplicated a slot would leave a palette unassigned or doubled.
+ *          The global generator is saved and restored so the shuffle can't
+ *          perturb the stream position other RNG-touching tests observe.
  */
 inline void test_mesh_palette_bank_shuffle_is_permutation() {
+  auto saved = hs::random();
   std::array<int, MeshPaletteBank::N> idx{};
   MeshPaletteBank::shuffle_indices(idx);
+  hs::random() = saved;
   std::array<int, MeshPaletteBank::N> seen{};
   for (int v : idx) {
     HS_EXPECT_GE(v, 0);
