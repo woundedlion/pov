@@ -203,10 +203,10 @@ inline void test_kdtree_matches_brute_force() {
  *        k == MAX_K request, the classic degenerate cases.
  * @details Three points share a location, so a k-nearest query produces distance
  *          ties — including at the k boundary, where only some of the equidistant
- *          points fit. Tie order is unspecified, so the result is checked as a
- *          sorted multiset of squared distances against a brute-force k-smallest
- *          scan, and every returned neighbor is cross-checked against its source
- *          point and recomputed distance.
+ *          points fit. nearest() ranks by (squared distance, source index), a
+ *          total order, so the whole result is pinned index by index against a
+ *          brute-force k-smallest scan, and every returned neighbor is
+ *          cross-checked against its source point and recomputed distance.
  */
 inline void test_kdtree_duplicates_and_max_k() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -215,7 +215,7 @@ inline void test_kdtree_duplicates_and_max_k() {
       Vector(1, 1, 1),    // 1  coincident
       Vector(1, 1, 1),    // 2  coincident
       Vector(2, 0, 0),    // 3  d²=3
-      Vector(0, 2, 0),    // 4  d²=3  (boundary tie: only one of 3/4/5 fits k=5)
+      Vector(0, 2, 0),    // 4  d²=3  (boundary tie: only two of 3/4/5 fit k=5)
       Vector(0, 0, 2),    // 5  d²=3
       Vector(-1, -1, -1), // 6  d²=12
       Vector(5, 5, 5),    // 7  d²=48
@@ -234,9 +234,12 @@ inline void test_kdtree_duplicates_and_max_k() {
     all_d2[i] = distance_squared(pts[i], query);
   std::sort(all_d2, all_d2 + 8);
 
-  // Compare as a sorted sequence: boundary ties make index order arbitrary.
+  // (distance, source index) is a total order, so index 5 loses the d²=3
+  // boundary tie to the lower-indexed 3 and 4.
+  const int expected_index[K] = {0, 1, 2, 3, 4};
   float prev = -1.0f;
   for (int i = 0; i < K; ++i) {
+    HS_EXPECT_EQ((int)r[i].original_index, expected_index[i]);
     HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-6f);
     prev = r[i].d_sq;
     HS_EXPECT_TRUE(std::fabs(r[i].d_sq - all_d2[i]) < 1e-5f);
