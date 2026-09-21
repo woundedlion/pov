@@ -37,7 +37,9 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * is a far-side leg: it sweeps through the ambo pinch on the constant-topology
  * truncate branch (the two truncate50d recipes arrive at 0.873), up to
  * T_TRUNCATE_FAR_MAX; behaviour in [T_TRUNCATE_ARRIVAL_MIN, 0.5] is unchanged.
- * CHAMFER is characterized up to CHAMFER_T_MAX. KIS and DUAL run as gated swaps
+ * CHAMFER is characterized up to CHAMFER_T_MAX. SNUB sweeps only a positive
+ * inset and RELAX only a baked step or a positive iteration count, the floors
+ * apply_step traps on. KIS and DUAL run as gated swaps
  * (docs/specs/opchain_morph_spec.md, "Leg kinds"). EXPAND has a leg kind but
  * no recipe and no sweep coverage on a hankin seed.
  */
@@ -49,8 +51,10 @@ inline constexpr bool is_morphable_step(const OpStep &step) {
   case Op::CHAMFER:
     return step.param >= ConwayGraph::T_EPS && step.param <= CHAMFER_T_MAX;
   case Op::SNUB:
-  case Op::HANKIN:
+    return step.param > 0.0f;
   case Op::RELAX:
+    return step.bake || step.param >= 1.0f;
+  case Op::HANKIN:
   case Op::AMBO:
   case Op::KIS:
   case Op::DUAL:
