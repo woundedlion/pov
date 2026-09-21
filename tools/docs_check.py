@@ -157,6 +157,8 @@ _PREDEFINED_UNREFERENCED_ALLOWED = frozenset({"DOXYGEN"})
 _UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
 )
+_UNTRACKED_LIST = "untracked-allowed"
+_TREE_UNMAPPED_LIST = "tree-unmapped"
 
 # Tracked paths an exhaustive tree deliberately leaves without a row: VCS
 # metadata, the map's own document, and the test tree the map draws as one
@@ -180,24 +182,54 @@ _CHECKOUT_UNTRACKED_ALLOWED = {
 _IMPLICIT_PATH_ROOT = PurePosixPath("core")
 
 
+def _cited(allowlist: str, entry: str) -> str:
+    """One citation token, namespaced by allowlist so the three cannot collide."""
+    return f"{allowlist}:{entry}"
+
+
 def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
     """Reports whether an _UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
     for prefix in _UNTRACKED_ALLOWED:
         if candidate.startswith(prefix):
             if used is not None:
-                used.add(prefix)
+                used.add(_cited(_UNTRACKED_LIST, prefix))
             return True
     return False
 
 
-def _stale_allowances(entries: set[PurePosixPath], used: set[str]) -> list[str]:
-    """Names _UNTRACKED_ALLOWED entries the exemption no longer buys anything for."""
+def _stale_allowances(entries: set[PurePosixPath], used: set[str],
+                      checkouts: dict[str, set[PurePosixPath]] | None = None
+) -> list[str]:
+    """Names allowlist entries the exemption no longer buys anything for.
+
+    An _UNTRACKED_ALLOWED prefix exempts a path the docs cite and this
+    repository does not track, so tracking it makes the entry stale; a
+    _TREE_UNMAPPED prefix exempts a tracked path from needing a tree row, so
+    untracking it does. A checkout allowance is judged only against a checkout
+    a --checkout root supplied, since nothing else can say what it tracks.
+    """
     stale = []
     for prefix in _UNTRACKED_ALLOWED:
         if PurePosixPath(prefix.rstrip("/")) in entries:
             stale.append(f"{prefix} (now tracked)")
-        elif prefix not in used:
+        elif _cited(_UNTRACKED_LIST, prefix) not in used:
             stale.append(f"{prefix} (uncited)")
+    for prefix in _TREE_UNMAPPED:
+        entry = _cited(_TREE_UNMAPPED_LIST, prefix)
+        if PurePosixPath(prefix.rstrip("/")) not in entries:
+            stale.append(f"{entry} (untracked)")
+        elif entry not in used:
+            stale.append(f"{entry} (uncited)")
+    for checkout, prefixes in _CHECKOUT_UNTRACKED_ALLOWED.items():
+        tracked = (checkouts or {}).get(checkout)
+        if tracked is None:
+            continue
+        for prefix in prefixes:
+            entry = _cited(checkout, prefix)
+            if PurePosixPath(prefix.rstrip("/")) in tracked:
+                stale.append(f"{entry} (now tracked)")
+            elif entry not in used:
+                stale.append(f"{entry} (uncited)")
     return stale
 
 
@@ -638,9 +670,15 @@ _REQUIRED_TREES = frozenset({
 })
 
 
-def _checkout_allowance(candidate: str, prefixes: tuple[str, ...]) -> bool:
-    return any(candidate == prefix.rstrip("/") or candidate.startswith(prefix)
-               for prefix in prefixes)
+def _checkout_allowance(candidate: str, checkout: str,
+                        prefixes: tuple[str, ...],
+                        used: set[str] | None = None) -> bool:
+    for prefix in prefixes:
+        if candidate == prefix.rstrip("/") or candidate.startswith(prefix):
+            if used is not None:
+                used.add(_cited(checkout, prefix))
+            return True
+    return False
 
 
 def _tree_rows(source: PurePosixPath, fence: Fence,
@@ -698,7 +736,8 @@ def _tree_rows(source: PurePosixPath, fence: Fence,
 def _tree_omissions(source: PurePosixPath, fence: Fence,
                     rows: list[tuple[int, str]],
                     entries: set[PurePosixPath],
-                    unmapped: tuple[str, ...]) -> list[Issue]:
+                    unmapped: tuple[str, ...],
+                    used: set[str] | None = None) -> list[Issue]:
     """Reports tracked paths under a drawn directory that no row names.
 
     A directory whose rows name none of its children is a summary row and its
@@ -728,14 +767,19 @@ def _tree_omissions(source: PurePosixPath, fence: Fence,
             continue
         omitted.update(child for child in siblings
                        if not is_drawn(child)
-                       and not _tree_unmapped(child, unmapped))
+                       and not _tree_unmapped(child, unmapped, used))
     return [Issue(source.as_posix(), fence.start,
                   f"tree omits tracked path {path!r}") for path in sorted(omitted)]
 
 
-def _tree_unmapped(candidate: str, prefixes: tuple[str, ...]) -> bool:
-    return any(candidate == prefix or candidate.startswith(prefix)
-               for prefix in prefixes)
+def _tree_unmapped(candidate: str, prefixes: tuple[str, ...],
+                   used: set[str] | None = None) -> bool:
+    for prefix in prefixes:
+        if candidate == prefix or candidate.startswith(prefix):
+            if used is not None:
+                used.add(_cited(_TREE_UNMAPPED_LIST, prefix))
+            return True
+    return False
 
 
 def _tree_issues(source: PurePosixPath, fences: list[Fence],
@@ -764,7 +808,9 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
                     skipped.add(directive.checkout)
                 continue
             prefixes = _CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
-            allowed = functools.partial(_checkout_allowance, prefixes=prefixes)
+            allowed = functools.partial(_checkout_allowance,
+                                        checkout=directive.checkout,
+                                        prefixes=prefixes, used=used)
             unmapped = ()
         else:
             target = entries
@@ -779,7 +825,7 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
             if not _tree_entry_exists(candidate, target, allowed))
         if directive.exhaustive:
             issues.extend(_tree_omissions(source, fence, rows, target,
-                                          unmapped))
+                                          unmapped, used))
     return issues
 
 
@@ -1116,7 +1162,7 @@ def check_repository(
                     sorted(entry for entry in entries
                            if entry.suffix in _DOXYGEN_SOURCE_SUFFIXES),
                     {name for _, name in predefined})))
-    return markdown, sorted(issues), _stale_allowances(entries, used)
+    return markdown, sorted(issues), _stale_allowances(entries, used, checkouts)
 
 
 def main(argv: list[str] | None = None) -> int:
