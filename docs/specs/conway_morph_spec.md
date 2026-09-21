@@ -354,11 +354,11 @@ so they'd test within tolerance like bridges, not exactly like §7.1).
 
 ## 4. Runtime architecture
 
-### 4.1 `Animation::ConwayMorph` (core/animation/opleg.h, beside MeshMorph)
+### 4.1 The morph leg (`Animation::OpLeg`, `core/animation/opleg.h`)
 
 Constructor `(seed PolyMesh, EdgeSpec, Arena&, draw callbacks, frames,
 easing)`:
-- clones the seed into the arena (same survival contract as MeshMorph);
+- clones the seed into the arena;
 - runs the op once at the **clamped** arrival parameter — t_end pulled
   inside [T_EPS, 0.5 − T_EPS], never exact 0.5, where the ambo
   short-circuit changes emission order and face count and would hoist a
@@ -371,7 +371,7 @@ easing)`:
   the relaxed form, and for snubDodecahedron the unrelaxed (zero-twist) and
   relaxed (chiral) forms can bucket differently;
 - builds the per-face from-palette indices via the leg-swap mapping (§2.5)
-  and shuffles the leg's target palette assignment (§2.6). ConwayMorph deals
+  and shuffles the leg's target palette assignment (§2.6). The leg deals
   only in base and swept meshes — it has no dependency on `CompiledHankin`;
   the hankin↔base bookends are HankinSolids' concern.
 
@@ -400,10 +400,10 @@ the preceding hankin cycle's frames, not flash baking.
 ### 4.2 HankinSolids integration
 
 - `start_morph_cycle` selects a graph edge instead of a random registry index
-  and constructs a ConwayMorph. `dissolve_`, `frame_tick_`'s dissolve salt,
+  and constructs an `OpLeg`. `dissolve_`, `frame_tick_`'s dissolve salt,
   the two `MorphDrawFn` members, and the carousel's back slot become dead in
   this effect and are deleted (one mesh on screen means one draw path).
-- New persistent member: `seed_base_` (PolyMesh) joins the `.then()`
+- New persistent member: `seed_base` (PolyMesh) joins the `.then()`
   `Persist` compaction set alongside compiled_hankin / front slot / palettes.
 - The completion `.then()`: clean-endpoint swap → reseed primitive → build
   the arrived base mesh → `compile_hankin` **from that mesh** (never a
