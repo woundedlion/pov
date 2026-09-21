@@ -282,7 +282,7 @@ struct ColorizeGeneratedPaletteV2 : ValueStateModel<ColorClockState> {
 };
 
 /** @brief FIELD-to-COLOR crossing with explicit brightness endpoints. */
-struct ColorizeGeneratedPalette : ValueStateModel<ColorClockState> {
+struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
   static constexpr const char *ID = "colorize.generated-palette.v3";
   static constexpr const char *NAME = "Generated Palette";
   using Input = FieldSample;

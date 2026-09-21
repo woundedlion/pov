@@ -161,12 +161,12 @@ private:
     const auto ops = program.ops();
     for (size_t index = ops.size(); index-- > 0;)
       if (std::string_view(ops[index].op->operator_id) ==
-          Pullback::Interp::Op::ColorizeGeneratedPalette::ID)
+          Pullback::Interp::Op::ColorizeGeneratedPaletteV3::ID)
         return make_colorize_tap(
             static_cast<int>(index),
             reinterpret_cast<
-                const Pullback::Interp::Op::ColorizeGeneratedPalette::Params *>(
-                program.param_block(index)));
+                const Pullback::Interp::Op::ColorizeGeneratedPaletteV3::Params
+                    *>(program.param_block(index)));
       else if (std::string_view(ops[index].op->operator_id) ==
                Pullback::Interp::Op::ColorizeGeneratedPaletteV2::ID)
         return make_colorize_tap(
