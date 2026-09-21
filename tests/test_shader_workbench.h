@@ -605,6 +605,9 @@ struct ShaderWorkbenchWhiteBox {
   static bool has_inverse_program(const RequestedConfig &config) {
     return Workbench::find_inverse_program(config) != nullptr;
   }
+  static InversePipelineId resolve_pipeline_id(const RequestedConfig &config) {
+    return Workbench::resolve_pipeline_id(config);
+  }
   static bool inverse_programs_well_formed() {
     const auto &programs = Workbench::inverse_programs();
     for (size_t index = 0; index < programs.size(); ++index) {
@@ -4941,6 +4944,16 @@ inline void test_shader_workbench_operator_catalog_census() {
                 std::is_empty_v<SphericalNoise> && std::is_empty_v<Generated>);
 }
 
+/** @brief Every preset declares the pipeline its topology resolves to, so
+    prepare_endpoint never rejects a roster entry. */
+inline void test_shader_workbench_preset_pipeline_resolution() {
+  using WB = ShaderWorkbenchWhiteBox;
+  const auto presets = WB::presets();
+  for (size_t index = 0; index < presets.size(); ++index)
+    HS_EXPECT_EQ(static_cast<unsigned>(WB::resolve_pipeline_id(presets[index])),
+                 static_cast<unsigned>(WB::preset_pipeline(index)));
+}
+
 inline void test_shader_workbench_inverse_pipeline_manifest() {
   using WB = ShaderWorkbenchWhiteBox;
   static_assert(WB::inverse_stage_contracts());
@@ -6390,6 +6403,7 @@ inline void test_shader_workbench_noise_contour_domains() {
 inline int run_shader_workbench_tests() {
   ModuleFixture fixture("shader_workbench");
   test_shader_workbench_operator_catalog_census();
+  test_shader_workbench_preset_pipeline_resolution();
   test_shader_workbench_inverse_pipeline_manifest();
   test_shader_workbench_inverse_program_equivalence();
   test_shader_workbench_full_config_snapshot();
