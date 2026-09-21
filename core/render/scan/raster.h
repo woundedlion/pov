@@ -219,7 +219,8 @@ pole_lod_block_settles(float clearance, float threshold, float block_slack) {
  */
 template <int W, int H>
 HS_NOINLINE_NOCLONE inline void check_canvas_dims(const Canvas &canvas) {
-  HS_CHECK(canvas.width() == W && canvas.height() == H);
+  HS_CHECK(canvas.width() == W && canvas.height() == H,
+           "canvas size differs from the scan's W/H");
 }
 
 /**

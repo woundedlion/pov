@@ -4562,11 +4562,13 @@ inline const Case *all_cases(int &n) {
        "clip.h", "(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w) "},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds, "shader.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
-       "cr.render_y_end() <= H) "},
+       "cr.render_y_end() <= H) scan clip region outside the canvas and trig "
+       "LUT domain"},
       {"scan_clip_rows_out_of_bounds", case_scan_clip_rows_out_of_bounds,
        "shader.h",
        "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
-       "cr.render_y_end() <= H) "},
+       "cr.render_y_end() <= H) scan clip region outside the canvas and trig "
+       "LUT domain"},
       {"face_scratch_retargeted", case_face_scratch_retargeted, "face.h",
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
        "SDF::Face scanned after a later Face claimed its scratch buffer"},
@@ -4575,7 +4577,8 @@ inline const Case *all_cases(int &n) {
        "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
        "SDF::Face scanned after a later Face claimed its scratch buffer"},
       {"scan_canvas_dim_mismatch", case_scan_canvas_dim_mismatch, "raster.h",
-       "(canvas.width() == W && canvas.height() == H) "},
+       "(canvas.width() == W && canvas.height() == H) canvas size differs from "
+       "the scan's W/H"},
       {"plot_window_multi_segment", case_plot_window_multi_segment, "raster.h",
        "(!plot_window || count == 1) a plot window requires a single-segment "
        "polyline"},

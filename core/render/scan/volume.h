@@ -389,22 +389,26 @@ struct Volume {
     // Trap a scaling shape or off-center bounds_center here, once per draw.
     auto [local_bc, local_vd] = shape.ray_to_local(bounds_center, vd);
     HS_CHECK(fabsf(local_vd.x * local_vd.x + local_vd.y * local_vd.y +
-                   local_vd.z * local_vd.z - 1.0f) < TOLERANCE);
+                   local_vd.z * local_vd.z - 1.0f) < TOLERANCE,
+             "Scan::Volume: ray_to_local must preserve length");
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
-                 local_bc.z * local_bc.z <
-             TOLERANCE);
+                     local_bc.z * local_bc.z <
+                 TOLERANCE,
+             "Scan::Volume: bounds_center must map to the shape's origin");
     // The scan band below is a cap around bounds_center of angular radius
     // asin(bounds_radius), which equals the orthographic footprint only for a
     // radial view of a unit-length center: BoundingSphere reads center.y as
     // cos(phi), and a tilted view slides the footprint off the cap. Unit length
     // also backs the ray start offset above — farther out along the view axis a
     // ray can start in front of the shape.
-    HS_CHECK(fabsf(dot(bounds_center, bounds_center) - 1.0f) < TOLERANCE);
+    HS_CHECK(fabsf(dot(bounds_center, bounds_center) - 1.0f) < TOLERANCE,
+             "Scan::Volume: bounds_center must be unit length");
     const Vector radial_err = cross(bounds_center, vd);
-    HS_CHECK(bc_dot_vd < 0.0f && dot(radial_err, radial_err) < TOLERANCE);
+    HS_CHECK(bc_dot_vd < 0.0f && dot(radial_err, radial_err) < TOLERANCE,
+             "Scan::Volume: view_dir must be -bounds_center");
     // aa_width > 0 is the contract: volume_edge_coverage divides by (aa_width -
     // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
-    HS_CHECK(aa_width > 0.0f);
+    HS_CHECK(aa_width > 0.0f, "Scan::Volume: aa_width must be positive");
 
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
 

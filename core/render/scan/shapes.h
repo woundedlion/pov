@@ -153,12 +153,15 @@ struct DistortedRingStack {
       if (s < 0)
         continue;
       HS_CHECK(s < n_slots, "ring stack slot index out of range");
-      HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <=
-               WINDOW_PAD);
-      HS_CHECK(shapes[s].phase == 0.0f);
-      HS_CHECK(dot(shapes[s].normal, shapes[0].normal) >= 1.0f - TOLERANCE);
-      HS_CHECK(dot(shapes[s].u, shapes[0].u) >= 1.0f - TOLERANCE);
-      HS_CHECK(dot(shapes[s].w, shapes[0].w) >= 1.0f - TOLERANCE);
+      HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <= WINDOW_PAD,
+               "ring stack colatitudes must be evenly spaced");
+      HS_CHECK(shapes[s].phase == 0.0f, "ring stack rings must have no phase");
+      HS_CHECK(dot(shapes[s].normal, shapes[0].normal) >= 1.0f - TOLERANCE,
+               "ring stack rings must share slot 0's normal");
+      HS_CHECK(dot(shapes[s].u, shapes[0].u) >= 1.0f - TOLERANCE,
+               "ring stack rings must share slot 0's u axis");
+      HS_CHECK(dot(shapes[s].w, shapes[0].w) >= 1.0f - TOLERANCE,
+               "ring stack rings must share slot 0's w axis");
     }
   }
 
@@ -205,9 +208,10 @@ struct DistortedRingStack {
     // Spelled inline rather than through check_canvas_dims: the helper is
     // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
     // costs 1,616 B of ITCM.
-    HS_CHECK(canvas.width() == W && canvas.height() == H);
+    HS_CHECK(canvas.width() == W && canvas.height() == H,
+             "canvas size differs from the scan's W/H");
     check_pipeline_prepared(pipeline, canvas);
-    HS_CHECK(n_slots >= 1);
+    HS_CHECK(n_slots >= 1, "ring stack needs at least one slot");
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
@@ -475,9 +479,11 @@ struct RingGroup {
     // Spelled inline rather than through check_canvas_dims: the helper is
     // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
     // costs 1,616 B of ITCM.
-    HS_CHECK(canvas.width() == W && canvas.height() == H);
+    HS_CHECK(canvas.width() == W && canvas.height() == H,
+             "canvas size differs from the scan's W/H");
     check_pipeline_prepared(pipeline, canvas);
-    HS_CHECK(n >= 1 && n <= MAX_RINGS);
+    HS_CHECK(n >= 1 && n <= MAX_RINGS,
+             "ring group size must be in [1, MAX_RINGS]");
     if (debug_bb || canvas.debug()) {
       for (int s = 0; s < n; ++s) {
         auto slot_shader = [&](const Vector &p, Fragment &f) {
