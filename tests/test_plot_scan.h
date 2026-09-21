@@ -1496,6 +1496,7 @@ inline void test_mesh_dissolve_masks_partition_edges() {
   const size_t num_edges = edges.size();
 
   Segue::Dissolve dissolve;
+  hs::random().seed(0xD155);
   dissolve.retarget(Y_AXIS);
 
   auto drawn_set = [&](const DissolveMask &mask) {
