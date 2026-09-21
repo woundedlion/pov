@@ -27,8 +27,8 @@ namespace SDF {
  * @param b Second child's band, same convention.
  * @param pad Rows added on each side of the union.
  * @param max_y Highest row the result may name (inclusive).
- * @return Inclusive bounds over the padded union, clamped to [0, max_y], or the
- *         culled sentinel {1, 0} when both children are culled.
+ * @return Inclusive bounds over the padded union, clamped to [0, max_y], or
+ *         BOUNDS_CULLED when both children are culled.
  * @details A culled child contributes nothing rather than dragging the union to
  * its sentinel rows.
  */
@@ -36,7 +36,7 @@ inline Bounds union_vertical_bounds(Bounds a, Bounds b, int pad, int max_y) {
   const bool a_culled = a.y_min > a.y_max;
   const bool b_culled = b.y_min > b.y_max;
   if (a_culled && b_culled)
-    return {1, 0};
+    return BOUNDS_CULLED;
   const int lo = a_culled   ? b.y_min
                  : b_culled ? a.y_min
                             : std::min(a.y_min, b.y_min);
