@@ -1719,7 +1719,8 @@ HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
  * @param authored Mesh supplying the positions (same vertex count as
  *   @p identity).
  * @param out Receives identity's connectivity carrying the matched authored
- *   positions, in identity's vertex order.
+ *   positions, in identity's vertex order; any face classification it carried
+ *   is cleared, since the new connectivity has not been classified.
  * @param target Arena backing @p out.
  * @param scratch Arena for the z-order index and the injectivity bookkeeping.
  * @details Closes the residual gap between a Conway identity's output (kis =
@@ -1799,6 +1800,8 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
                               identity.face_counts.size());
   out.faces.bind(target, identity.faces.size());
   out.faces.append_bulk(identity.faces.data(), identity.faces.size());
+  out.topology.clear();
+  out.topology_key = 0;
 }
 
 // TODO: Propeller (Hart's `p`) and whirl/loft are not implemented; their chiral
