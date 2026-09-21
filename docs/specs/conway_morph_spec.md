@@ -42,7 +42,7 @@ describes the landed state):
 3. **`HS_PROFILE_ORDERED_CYCLE` walks a fixed 30-leg `ORDERED_TOUR`**, not
    `leg_index % m` arithmetic, which provably never reached node 15
    (rhombicosidodecahedron). The tour is static_asserted to cover all 18
-   nodes, all five settle edges and every family bridge, and to wrap.
+   nodes, all six settle edges and every family bridge, and to wrap.
 4. **`T_EPS_AMBO = 0.005`** clamps the truncate 0.5 end (no face degenerates
    there, and 0.02 leaves a multi-pixel gap); `T_EPS = 0.02` stays at the 0
    ends. Settle frames = 12 confirmed by measurement. `SNUB_BRIDGE_TWIST =
