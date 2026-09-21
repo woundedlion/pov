@@ -347,8 +347,9 @@ warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
  * @param spec Stage kind and its discrete options.
  * @param params Stage parameters, already canonicalized.
  * @param stage_phase Wrapped noise phase for this stage's clock.
- * @param stage_noise Noise resource bound to this stage; may be null for
- *        kinds that sample no noise.
+ * @param stage_noise Noise resource bound to this stage; null for kinds that
+ *        sample no noise. `pipeline_resources_ready` refuses the frame before
+ *        a noise kind reaches here without one.
  * @param prepared Per-frame precomputation for this stage.
  * @param path_length_required Whether the frame's colorizer reads the
  *        displacement scalar.
@@ -381,15 +382,11 @@ HS_FLASH_MEMBER inline PlanarWarpStageResult warp_stage_lookup(
   case WarpStageKind::VECTOR_NOISE:
     if (amplitude == 0.0f)
       return {input, 0.0f};
-    HS_CHECK(stage_noise != nullptr,
-             "ShaderWorkbench vector warp has no noise resource");
     return warp_vector_noise(input, spec, params, amplitude, *stage_noise,
                              prepared, path_length_required);
   case WarpStageKind::CURL_FLOW:
     if (amplitude == 0.0f)
       return {input, 0.0f};
-    HS_CHECK(stage_noise != nullptr,
-             "ShaderWorkbench curl warp has no noise resource");
     return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
                           prepared, path_length_required);
   case WarpStageKind::MIRROR_TILE: {
