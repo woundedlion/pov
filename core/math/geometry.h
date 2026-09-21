@@ -737,8 +737,9 @@ inline Vector random_vector() {
     s = v1 * v1 + v2 * v2;
   } while (s >= 1.0f || s == 0.0f);
 
-  float sqrt_s = sqrtf(1.0f - s);
-  return Vector(2.0f * v1 * sqrt_s, 2.0f * v2 * sqrt_s, 1.0f - 2.0f * s);
+  float sqrt_one_minus_s = sqrtf(1.0f - s);
+  return Vector(2.0f * v1 * sqrt_one_minus_s, 2.0f * v2 * sqrt_one_minus_s,
+                1.0f - 2.0f * s);
 }
 
 /**
