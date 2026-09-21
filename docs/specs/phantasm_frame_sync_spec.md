@@ -555,11 +555,12 @@ constants are tunables):
 - **LOCKED** (steady state): a valid symbol is accepted only if its implied
   phase correction is **≤ G columns** (G = 4) *and* its boundary identity
   matches the flywheel's nearest predicted boundary. Anything else is
-  *rejected*: counted in telemetry (§8.6), no snap, no flip. After **R
-  consecutive rejections** (F = 4, ≈2 revolutions) the board concludes its own
-  timebase — not the wire — is at fault and falls back to ACQUIRE, hard-snapping
-  to the next valid symbol. The fallback is mandatory: a gate without an escape
-  deadlocks a genuinely-lost board into rejecting good symbols forever.
+  *rejected*: counted in telemetry (§8.6), no snap, no flip. After
+  **`reject_fallback` consecutive rejections** (4, ≈2 revolutions) the board
+  concludes its own timebase — not the wire — is at fault and falls back to
+  ACQUIRE, hard-snapping to the next valid symbol. The fallback is mandatory: a
+  gate without an escape deadlocks a genuinely-lost board into rejecting good
+  symbols forever.
 
 Two demarcation guards complete the mechanism (both fell out of host
 simulation, not the original design):
@@ -580,13 +581,13 @@ simulation, not the original design):
   beacon's first digit — so it is fed to the beacon parser *and* held as a
   suspect until the beacon interdigit window (24 columns) passes. If another
   burst follows inside the window, it was beacon data; if the wire stays
-  silent, it is counted as a gate rejection toward the F-fallback. Without
+  silent, it is counted as a gate rejection toward `reject_fallback`. Without
   this, a board with a corrupted timebase would route every REAL boundary
   symbol to the beacon parser (> G from its broken predictions) and never
-  accumulate the R rejections — exactly the deadlock the fallback exists to
-  prevent. Healthy boards pay nothing: a beacon's odd-count first digit is
-  cleared by its own train, and the 2/rev accepted symbols reset the counter
-  anyway.
+  accumulate the `reject_fallback` rejections — exactly the deadlock the
+  fallback exists to prevent. Healthy boards pay nothing: a beacon's odd-count
+  first digit is cleared by its own train, and the 2/rev accepted symbols reset
+  the counter anyway.
 
 What the gate buys on top of the alphabet: it rejects (a) the
 two-coincident-edge-error residual — a misclassified boundary implies a ~W/2
@@ -1005,7 +1006,7 @@ undefined behavior, not because it is designed against.
 
 Worst-case recovery and expected frequency per failure mode, on the shipped
 DMA LED path (mask window M ≈ 0, so all masked-IRQ modes are non-events).
-Constants: gate G = 4 col, fallback F = 4 rejections, EPOCH repeats R = 3,
+Constants: gate G = 4 col, `reject_fallback` = 4 rejections, EPOCH repeats R = 3,
 construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
@@ -1025,7 +1026,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | Lost boundary symbol (discarded burst, glitch-filtered EMI, master self-censor) | coast error 0.006 → 0.01 col | 288 col (1-rev coast) | ≈0 on DMA; harmless at any plausible rate |
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
-| Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (R rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | possible during ordinary mid-show acquisition: beacon digit 0 is a clean one-pulse burst and can satisfy the quiet-before gate without an edge error. Frequency depends on reboot phase and beacon contents; the rejection fallback bounds recovery |
+| Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (`reject_fallback` rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | possible during ordinary mid-show acquisition: beacon digit 0 is a clean one-pulse burst and can satisfy the quiet-before gate without an edge error. Frequency depends on reboot phase and beacon contents; the rejection fallback bounds recovery |
 | Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | next epoch reset (remainder of effect, up to 240 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
@@ -1125,9 +1126,10 @@ strictly cleaner, not weaker.
 7. **Snap plausibility gate + acquisition states — SHIPPED (§5.3).** ACQUIRE
    (hard snap behind the quiet-before guard, fail-dark) ⇄ LOCKED (correction
    ≤ G columns; with G < W/4 the distance gate subsumes the
-   boundary-identity check; R consecutive rejections — including
-   suspect-burst timeouts — fall back to ACQUIRE so the gate can never
-   deadlock a lost board). Shipped constants: G = 4 columns, F = 4.
+   boundary-identity check; `reject_fallback` consecutive rejections —
+   including suspect-burst timeouts — fall back to ACQUIRE so the gate can
+   never deadlock a lost board). Shipped constants: G = 4 columns,
+   `reject_fallback` = 4.
 8. **Share the flywheel with `pov_single`? — NOT DONE (future option).** The
    single-board driver keeps its per-column IntervalTimer ISR. Now that
    master itself runs the time-derived flywheel, factoring a common flywheel
@@ -1216,10 +1218,11 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   symbol, nothing rejected or misread. The accepted-EMI binding case (forged
   edge within G with the real symbol censored): seam engages above
   truncation noise, stays ≤ G, recovered by the next real symbol ≤½ rev
-  later. A corrupted timebase: R suspect-window rejections → ACQUIRE →
-  re-snap, locked and sub-column again within ~2.8 revs, content coherent at
-  the next epoch with no trap. A corrupted beacon frame: rejected whole with
-  nothing applied, next beacon decodes ≤ one period later, zero content or
+  later. A corrupted timebase: `reject_fallback` suspect-window rejections →
+  ACQUIRE → re-snap, locked and sub-column again within ~2.8 revs, content
+  coherent at the next epoch with no trap. A corrupted beacon frame: rejected
+  whole with nothing applied, next beacon decodes ≤ one period later, zero
+  content or
   phase effect. A dead wire / dead master: locks held with zero rejections
   (silence is a coast, not a fault), 2 flips/rev throughout, playlist frozen
   downstream while the master walks its own, precession matching the §4.5
