@@ -1028,8 +1028,12 @@ const v1Slots = (roleNodes) => {
   const color = roleNodes.get('color');
   const colorPolicy = color.policy ?? {};
   const warpPolicy = roleNodes.get('planar_warp').policy ?? {};
-  const sequence = warpPolicy.sequence ??
-    [warpPolicy.outer ?? 'identity', warpPolicy.inner ?? 'identity'];
+  const sequence = warpPolicy.sequence === undefined
+    ? [warpPolicy.outer ?? 'identity', warpPolicy.inner ?? 'identity']
+    : array(warpPolicy.sequence, 'stage.planar_warp.sequence');
+  if (sequence.length > 2)
+    failV1('V1_POLICY_UNSUPPORTED', 'stage.planar_warp.sequence',
+      'A v1 document carries at most two planar warps.');
 
   const slots = [];
   const add = (slotLabel, picked) => slots.push({

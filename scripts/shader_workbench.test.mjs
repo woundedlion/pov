@@ -695,6 +695,10 @@ test('malformed v1 containers report diagnostics instead of raw TypeErrors', () 
     [(document) => {
       document.descriptor.graph.nodes.find((node) => node.role === 'color').resources = 7;
     }, 'stage.color.resources'],
+    [(document) => {
+      document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
+        .policy.sequence = 7;
+    }, 'stage.planar_warp.sequence'],
   ]) {
     const document = structuredClone(V1_EXAMPLE);
     mutate(document);
@@ -702,6 +706,19 @@ test('malformed v1 containers report diagnostics instead of raw TypeErrors', () 
     assert.equal(compiled.status, 'INVALID');
     assert.equal(compiled.diagnostics[0].path, path);
   }
+});
+
+test('a v1 warp sequence longer than two entries has no expansion', () => {
+  const document = structuredClone(V1_EXAMPLE);
+  document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
+    .policy = { sequence: ['identity', 'identity', 'wave-shear'] };
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'INVALID');
+  assert.deepEqual(compiled.diagnostics.map(({ code, path }) => [code, path]),
+    [['V1_POLICY_UNSUPPORTED', 'stage.planar_warp.sequence']]);
+  document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
+    .policy = { sequence: ['identity', 'wave-shear'] };
+  assert.equal(compile(document).status, 'VALID');
 });
 
 test('groups on a non-staggered path policy is an unknown field', () => {
