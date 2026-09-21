@@ -142,12 +142,7 @@ struct SampleRings : SourceClockModel {
 };
 
 /** @brief Parameter family of sample.spherical-rings.v3. */
-struct SphericalRingsSampleParams : Source::SphericalRingsSourceParams {
-  static constexpr auto FIELDS = concat_fields<SphericalRingsSampleParams>(
-      Source::SphericalRingsSourceParams::FIELDS,
-      std::array<Field<SphericalRingsSampleParams>, 0>{});
-};
-static_assert(field_ids_unique<SphericalRingsSampleParams>());
+using SphericalRingsSampleParams = Source::SphericalRingsSourceParams;
 
 /** @brief Instance state of the animated spherical ring source. */
 struct SphericalRingsState {
@@ -355,12 +350,7 @@ static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
 /** @brief Parameter family of sample.spherical-noise.v3.
     @details No basis topology: the plan pins the spherical contour to the
     simplex basis. */
-struct SphericalNoiseSampleParams : Source::NoiseSourceParams {
-  static constexpr auto FIELDS = concat_fields<SphericalNoiseSampleParams>(
-      Source::NoiseSourceParams::FIELDS,
-      std::array<Field<SphericalNoiseSampleParams>, 0>{});
-};
-static_assert(field_ids_unique<SphericalNoiseSampleParams>());
+using SphericalNoiseSampleParams = Source::NoiseSourceParams;
 
 /** @brief The noise sources' prepared block: the owned noise field plus this
     frame's time coordinate. */

@@ -49,12 +49,7 @@ struct TransferRidge : FieldEndoModel<TransferRidge, Transfer::NoValueParams> {
 };
 
 /** @brief Parameter family of field.transfer.iso-contour.v2. */
-struct IsoContourChainParams : Transfer::IsoValueParams {
-  static constexpr auto FIELDS = concat_fields<IsoContourChainParams>(
-      Transfer::IsoValueParams::FIELDS,
-      std::array<Field<IsoContourChainParams>, 0>{});
-};
-static_assert(field_ids_unique<IsoContourChainParams>());
+using IsoContourChainParams = Transfer::IsoValueParams;
 
 /** @brief FIELD endomorphism: the iso-band transfer. */
 struct TransferIsoContour
@@ -101,12 +96,7 @@ struct TransferSmoothBands
 };
 
 /** @brief Parameter family of field.coverage.value-cutout.v2. */
-struct ValueCutoutChainParams : ValueCoverage::CutoutValueParams {
-  static constexpr auto FIELDS = concat_fields<ValueCutoutChainParams>(
-      ValueCoverage::CutoutValueParams::FIELDS,
-      std::array<Field<ValueCutoutChainParams>, 0>{});
-};
-static_assert(field_ids_unique<ValueCutoutChainParams>());
+using ValueCutoutChainParams = ValueCoverage::CutoutValueParams;
 
 /** @brief FIELD endomorphism: the value-dependent coverage cut. */
 struct CoverageValueCutout
