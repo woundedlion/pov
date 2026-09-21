@@ -803,7 +803,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // phi = acos(v.y) offsets the row near the pole, so correct the interpolated
     // positions back to unit.
     HS_PROFILE_DEEP(plot_seg_draw);
-    {
+    if (!plot_window || plot_t_start <= 0.0f) {
       HS_MSP_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
