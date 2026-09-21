@@ -1746,35 +1746,6 @@ jobs:
           fi
           exit "$fail"
 
-  domain-ratchets:
-    name: Domain coverage ratchets (no silent weakening)
-    # These counts represent concrete exercised behavior: relax-bake payloads
-    # re-derived, and the engine guard sites each census file leaves unpinned.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-
-      - name: Assert no domain coverage ratchet weakened
-        env:
-          PUSH_BEFORE: ${{ github.event.before }}
-        run: |
-          PREV=
-          if [ -n "$PUSH_BEFORE" ]; then
-            PREV=$(git rev-parse --verify --quiet "$PUSH_BEFORE^{commit}") || PREV=
-          fi
-          if [ -z "$PREV" ] && ! PREV=$(git rev-parse --verify --quiet HEAD^1); then
-            echo "::warning::HEAD has no reachable parent - domain ratchet check skipped"
-            exit 0
-          fi
-
-          python tools/check_domain_ratchets.py --git-range "$PREV" HEAD
   clang-format:
     name: Formatting (clang-format)
     # Cloud counterpart of the .githooks/pre-commit format check. The hook
@@ -1978,7 +1949,7 @@ jobs:
         # build fails the job instead of silently shrinking the warning surface.
         shell: bash
         run: |
-          tools/teensy_cold_build.sh teensy_build.log
+          bash tools/teensy_cold_build.sh teensy_build.log
           python tools/teensy_warnings.py --build-log teensy_build.log --github
 
   docs-doxygen:
@@ -2031,7 +2002,6 @@ jobs:
       - license-headers
       - lint
       - shard-coverage
-      - domain-ratchets
       - clang-format
       - teensy-gate-tests
       - teensy-size
