@@ -419,7 +419,7 @@ static inline float planar_arc_length(const Vector &a, const Vector &b,
  */
 static inline Vector stable_perpendicular_axis(const Vector &v) {
   HS_PLOT_COUNT(normalizations);
-  return cross(v, least_parallel_axis(v)).normalized();
+  return perpendicular_axis(v);
 }
 
 /**
@@ -428,9 +428,8 @@ static inline Vector stable_perpendicular_axis(const Vector &v) {
  * @return A Basis {u, center, w} with u, w spanning the chart plane.
  */
 static inline Basis planar_chart_basis(const Vector &center) {
-  Vector ref = least_parallel_axis(center);
   HS_PLOT_ADD(normalizations, 2);
-  Vector u = cross(center, ref).normalized();
+  Vector u = perpendicular_axis(center);
   Vector w = cross(center, u).normalized();
   return {u, center, w};
 }

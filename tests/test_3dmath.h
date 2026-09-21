@@ -825,7 +825,8 @@ inline void test_make_rotation_axis_angle() {
 
 /**
  * @brief Verifies least_parallel_axis picks +Y only near +/-X, is scale
- *        invariant, and always seeds a well-conditioned cross.
+ *        invariant, and always seeds a well-conditioned cross, and that
+ *        perpendicular_axis turns that seed into a unit tangent.
  */
 inline void test_least_parallel_axis() {
   HS_EXPECT_VEC(least_parallel_axis(Vector(1, 0, 0)), Vector(0, 1, 0), 1e-6f);
@@ -847,6 +848,9 @@ inline void test_least_parallel_axis() {
                std::sin(phi) * std::sin(theta));
       Vector c = cross(least_parallel_axis(v), v);
       HS_EXPECT_TRUE(dot(c, c) >= 1e-4f);
+      Vector t = perpendicular_axis(v);
+      HS_EXPECT_NEAR(dot(t, t), 1.0f, 1e-5f);
+      HS_EXPECT_NEAR(dot(t, v), 0.0f, 1e-6f);
     }
   }
 }
