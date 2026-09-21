@@ -106,19 +106,6 @@ teensy-warnings:
     bash tools/teensy_cold_build.sh teensy_build.log
     {{py}} tools/teensy_warnings.py --build-log teensy_build.log
 
-# The README's `tree daydream` fence draws the sibling checkout's tracked tree;
-# docs_check.py can only validate it against a --checkout root (ci.yml checks the
-# sibling out for exactly that). Point it at the sibling when that checkout is
-# there, so a local run gates the same claim CI does; without it the fence is
-# accepted unvalidated, which the checker requires be asked for explicitly.
-# The sibling hangs off the MAIN worktree, which --git-common-dir names from any
-# worktree and any working directory; justfile_directory() and a bare
-# `../daydream` would both be whichever worktree just was invoked from.
-daydream_sibling := parent_directory(parent_directory(`git rev-parse --path-format=absolute --git-common-dir`)) / "daydream"
-daydream_checkout := if path_exists(daydream_sibling) == "true" {
-    "--checkout daydream=" + daydream_sibling
-} else { "--skip-checkout daydream" }
-
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown
 # job, plus the docs-images job's checker: this recipe runs that checker's unit
 # tests, which say nothing about the tracked tree on their own.
@@ -127,7 +114,7 @@ docs-check:
     bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
     {{py}} -m unittest discover -s tools/docs_check_tests
     {{py}} -m unittest discover -s tools/docs_images_tests
-    {{py}} tools/docs_check.py {{daydream_checkout}}
+    {{py}} tools/docs_check.py --sync --auto-checkout
     {{py}} tools/docs_images.py
     {{py}} tools/build_pins.py --check
     bash tools/require_test_files.sh 'tools/build_pins_tests/test*.py'
