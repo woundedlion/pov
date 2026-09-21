@@ -4,7 +4,9 @@
  *
  * Unit tests for core/control/presets.h — the PresetEntry table row and the
  * all_presets_in_ranges compile-time range check — plus core/control/params.h's
- * apply_if_changed live-value change gate.
+ * apply_if_changed live-value change gate and core/control/choreography.h's
+ * preset choreography: preset zero supplies the startup params and
+ * hold_initial_preset() overrides the first dwell only.
  *
  * Self-contained header. run_presets_tests() returns the module failure count.
  */
