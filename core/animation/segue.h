@@ -865,6 +865,12 @@ template <typename... Ts> struct PolicyList {
   static constexpr bool LOCAL_SWEEPS_TYPED =
       ((!DeclaresLocalSweep<Ts> || LocalSweeps<Ts>) && ...);
 
+  /** @brief Whether every listed policy is a non-final class. The Declares*
+   * probes merge a name carrier into the policy; a final one answers false to
+   * every probe and passes them vacuously. MeshCarousel asserts this too, but
+   * only for the policies an effect instantiates. */
+  static constexpr bool MERGEABLE = (detail::Mergeable<Ts> && ...);
+
   /**
    * @brief Invokes @p fn once per policy, on a default-constructed instance.
    * @param fn Callable taking any policy.
@@ -897,6 +903,11 @@ static_assert(AllPolicies::RETARGET_SURVIVES_OVERLAP,
 static_assert(AllPolicies::LOCAL_SWEEPS_TYPED,
               "a segue's LOCAL_SWEEP must be static constexpr bool: the "
               "per-face draw path reads it as a constant expression");
+
+static_assert(AllPolicies::MERGEABLE,
+              "a segue must be a non-final class: the Declares* probes merge a "
+              "name carrier into it, and a final policy answers false to every "
+              "one of them, passing them vacuously");
 
 /**
  * @brief Preset-transition policies: the second Segue concept, beside the
