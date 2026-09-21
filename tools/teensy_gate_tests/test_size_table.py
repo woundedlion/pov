@@ -117,5 +117,12 @@ class Main(unittest.TestCase):
         log = _env_chunk("holosphere", "good_teensy_size.txt")
         self.assertEqual(self._run(log, 0)[0], 0)
 
+    def test_an_env_that_relinked_nothing_fails_the_run(self):
+        # An up-to-date build emits the banner and no teensy_size lines, so the
+        # post-link budget check never ran and the table is all dashes.
+        rc, err = self._run(_env_chunk("holosphere"), 0)
+        self.assertEqual(rc, 1)
+        self.assertIn("no budget was evaluated", err)
+
 if __name__ == "__main__":
     unittest.main()
