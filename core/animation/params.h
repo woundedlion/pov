@@ -39,9 +39,40 @@ protected:
 };
 
 /**
+ * @brief Pause-gated step loop shared by the parameter animations.
+ * @tparam Derived Concrete animation supplying `void advance(Canvas &)`.
+ * @details A set pause flag skips both the frame counter and the derived work,
+ * so a GUI slider bound to the same subject holds and a `.then`-chained
+ * animation never completes - the whole chain halts with it.
+ * @note An animation-level gate only early-returns from step(); an event's
+ * pending start delay keeps elapsing under it. Timeline::add_pausable freezes
+ * the delay too, and is what production pause paths use.
+ */
+template <typename Derived>
+class PausableParamAnimationBase : public FiniteParamAnimationBase<Derived> {
+public:
+  /**
+   * @brief Advances one frame unless the wired pause flag is set.
+   * @param canvas The canvas buffer, forwarded to the derived advance().
+   */
+  void step(Canvas &canvas) override {
+    if (this->is_paused(paused))
+      return;
+    FiniteParamAnimationBase<Derived>::step(canvas);
+    static_cast<Derived *>(this)->advance(canvas);
+  }
+
+protected:
+  PausableParamAnimationBase(int duration, bool repeat, const bool *paused)
+      : FiniteParamAnimationBase<Derived>(duration, repeat), paused(paused) {}
+
+  const bool *paused; /**< Optional pause gate; null = always runs. */
+};
+
+/**
  * @brief An animation that smoothly transitions a float variable over time.
  */
-class Transition : public FiniteParamAnimationBase<Transition> {
+class Transition : public PausableParamAnimationBase<Transition> {
 public:
   /**
    * @brief Constructs a Transition animation.
@@ -53,35 +84,28 @@ public:
    * integer staircase rather than a smooth sweep.
    * @param repeat If true, the transition repeats indefinitely.
    * @param paused Optional pause gate; null = always runs.
-   * @note An animation-level gate only early-returns from step(); an event's
-   * pending start delay keeps elapsing under it. Timeline::add_pausable
-   * freezes the delay too, and is what production pause paths use.
    */
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
              bool quantized = false, bool repeat = false,
              const bool *paused = nullptr)
-      : FiniteParamAnimationBase(duration, repeat), mutant(mutant), from(0.0f),
-        to(to), easing_fn(std::move(easing_fn)), quantized(quantized),
-        paused(paused) {
+      : PausableParamAnimationBase(duration, repeat, paused), mutant(mutant),
+        from(0.0f), to(to), easing_fn(std::move(easing_fn)),
+        quantized(quantized) {
     HS_CHECK(std::isfinite(to), "Transition target must be finite");
   }
 
   /**
-   * @brief Performs one step of the transition.
-   * @param canvas The canvas buffer (forwarded to the base step).
-   * @details Freezes while a wired pause flag is set (see Mutation::step); the
-   * start snapshot is taken on the first unpaused step.
+   * @brief Applies one unpaused frame of the transition.
+   * @param canvas Unused; the transition writes only its float subject.
+   * @details The start snapshot is taken on the first unpaused frame.
    */
-  void step(Canvas &canvas) override {
-    if (is_paused(paused))
-      return;
+  void advance(Canvas &) {
     // Snapshot the start once, on the first step. A repeating Transition rewinds
     // to t==0 with mutant == to, so re-snapshotting would freeze from = to.
     if (!captured) {
       from = mutant;
       captured = true;
     }
-    FiniteParamAnimationBase::step(canvas);
     auto t_norm = normalized_progress();
     auto n = easing_fn(t_norm) * (to - from) + from;
     if (quantized) {
@@ -98,15 +122,13 @@ private:
   EasingFn easing_fn;    /**< Easing curve. */
   bool quantized;        /**< Floors every stepped value. */
   bool captured = false; /**< True once `from` has been snapshotted. */
-  const bool *paused; /**< Optional pause gate; freezes the transition when set
-                          and true. Null = always runs. */
 };
 
 /**
  * @brief An animation that applies a custom function to a float variable over
  * time.
  */
-class Mutation : public FiniteParamAnimationBase<Mutation> {
+class Mutation : public PausableParamAnimationBase<Mutation> {
 public:
   /**
    * @brief Constructs a Mutation animation.
@@ -119,20 +141,15 @@ public:
    */
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            bool repeat = false, const bool *paused = nullptr)
-      : FiniteParamAnimationBase(duration, repeat), mutant(mutant),
-        f(std::move(f)), easing_fn(std::move(easing_fn)), paused(paused) {}
+      : PausableParamAnimationBase(duration, repeat, paused), mutant(mutant),
+        f(std::move(f)), easing_fn(std::move(easing_fn)) {}
 
   /**
-   * @brief Performs one step of the mutation.
-   * @param canvas The canvas buffer (forwarded to the base step).
-   * @details While the wired pause flag is set, freezes: neither advances the
-   * timer nor writes the mutant, so a GUI slider bound to the same member holds.
-   * A non-finite result of @c f is skipped rather than written.
+   * @brief Applies one unpaused frame of the mutation.
+   * @param canvas Unused; the mutation writes only its float subject.
+   * @details A non-finite result of @c f is skipped rather than written.
    */
-  void step(Canvas &canvas) override {
-    if (is_paused(paused))
-      return;
-    FiniteParamAnimationBase::step(canvas);
+  void advance(Canvas &) {
     auto t_norm = normalized_progress();
     // A non-finite sample is dropped: writing it would permanently poison
     // `mutant`, which a GUI-registered float never recovers from.
@@ -146,8 +163,6 @@ private:
       mutant;         /**< Reference to the float variable being modified. */
   ScalarFn f;         /**< The custom function to apply. */
   EasingFn easing_fn; /**< Easing curve. */
-  const bool *paused; /**< Optional pause gate; freezes the mutation when set
-                          and true. Null = always runs. */
 };
 
 /**
@@ -155,7 +170,7 @@ private:
  * @details Drives state the caller owns and writes itself, where the other
  * parameter animations write a float or a lerp() subject for it.
  */
-class Progress : public FiniteParamAnimationBase<Progress> {
+class Progress : public PausableParamAnimationBase<Progress> {
 public:
   /** @brief Per-frame callback signature: `void f(float eased_progress)`. */
   using StepFn = Fn<void(float), 16>;
@@ -169,26 +184,18 @@ public:
    */
   Progress(StepFn f, int duration, EasingFn easing_fn,
            const bool *paused = nullptr)
-      : FiniteParamAnimationBase(duration, false), f(std::move(f)),
-        easing_fn(std::move(easing_fn)), paused(paused) {}
+      : PausableParamAnimationBase(duration, false, paused), f(std::move(f)),
+        easing_fn(std::move(easing_fn)) {}
 
   /**
-   * @brief Performs one step, invoking the callback with eased progress.
-   * @param canvas The canvas buffer (forwarded to the base step).
-   * @details Freezes while a wired pause flag is set (see Mutation::step).
+   * @brief Invokes the callback once with this frame's eased progress.
+   * @param canvas Unused; the callback owns whatever it writes.
    */
-  void step(Canvas &canvas) override {
-    if (is_paused(paused))
-      return;
-    FiniteParamAnimationBase::step(canvas);
-    f(easing_fn(normalized_progress()));
-  }
+  void advance(Canvas &) { f(easing_fn(normalized_progress())); }
 
 private:
   StepFn f;           /**< Callback invoked with eased progress. */
   EasingFn easing_fn; /**< Easing curve. */
-  const bool *paused; /**< Optional pause gate; freezes the animation when set
-                          and true. Null = always runs. */
 };
 
 /**
@@ -198,7 +205,7 @@ private:
  * fires once PER FRAME. Do not attach a one-shot callback expecting a single
  * fire.
  */
-class Driver : public AnimationBase<Driver> {
+class Driver : public PausableParamAnimationBase<Driver> {
 public:
   /**
    * @brief Constructs a Driver animation for continuous progression.
@@ -209,8 +216,8 @@ public:
    */
   Driver(float &mutant, float speed, bool wrap = true,
          const bool *paused = nullptr)
-      : AnimationBase(1, true), mutant(mutant), speed(speed), wrap(wrap),
-        paused(paused) {
+      : PausableParamAnimationBase(1, true, paused), mutant(mutant),
+        speed(speed), wrap(wrap) {
     // A non-finite speed permanently poisons `mutant` (wrap_t can't recover NaN).
     HS_CHECK(std::isfinite(speed), "Driver: fixed speed must be finite");
   }
@@ -230,8 +237,8 @@ public:
   // outlive the Driver (e.g. an effect's registered param).
   Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
          const bool *paused = nullptr)
-      : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap(wrap),
-        paused(paused), speed_src(speed_src), scale(scale) {
+      : PausableParamAnimationBase(1, true, paused), mutant(mutant),
+        speed(0.0f), wrap(wrap), speed_src(speed_src), scale(scale) {
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
     HS_CHECK(std::isfinite(scale), "Driver: live speed scale must be finite");
     // On a non-finite initial read keep the 0.0f seed (see step()).
@@ -241,14 +248,10 @@ public:
   }
 
   /**
-   * @brief Performs one step by adding the speed to the mutant.
-   * @param canvas The canvas buffer (forwarded to the base step).
-   * @details Freezes while a wired pause flag is set (see Mutation::step).
+   * @brief Adds one unpaused frame's worth of speed to the mutant.
+   * @param canvas Unused; the driver writes only its float subject.
    */
-  void step(Canvas &canvas) override {
-    if (is_paused(paused))
-      return;
-    AnimationBase::step(canvas);
+  void advance(Canvas &) {
     // Re-read the live source, keeping the last good speed on a non-finite read:
     // a one-frame NaN/Inf would otherwise poison `mutant` permanently.
     if (speed_src) {
@@ -293,9 +296,7 @@ public:
 private:
   std::reference_wrapper<float> mutant; /**< Reference to the float variable. */
   float speed;                          /**< Amount added per frame. */
-  bool wrap;          /**< If true, wraps value to 0-1 range. */
-  const bool *paused; /**< Optional pause gate; freezes the driver when set and
-                          true. Null = always runs. */
+  bool wrap; /**< If true, wraps value to 0-1 range. */
   const float *speed_src =
       nullptr;        /**< Live speed source; null = fixed speed. */
   float scale = 1.0f; /**< Multiplier applied to *speed_src. */
@@ -307,7 +308,7 @@ private:
  * pointers and a type-erased lerp function. Supports any type T that implements
  * lerp(start, target, t).
  */
-class Lerp : public FiniteParamAnimationBase<Lerp> {
+class Lerp : public PausableParamAnimationBase<Lerp> {
 public:
   /**
    * @brief Constructs a Lerp animation.
@@ -322,9 +323,9 @@ public:
   template <typename T>
   Lerp(T &subject, const T &start, const T &target, int duration,
        EasingFn easing_fn, const bool *paused = nullptr)
-      : FiniteParamAnimationBase(duration, false), subject_ptr(&subject),
-        start_ptr(&start), target_ptr(&target), easing(easing_fn),
-        paused(paused) {
+      : PausableParamAnimationBase(duration, false, paused),
+        subject_ptr(&subject), start_ptr(&start), target_ptr(&target),
+        easing(easing_fn) {
     do_lerp = [](void *subj, const void *s, const void *tgt, float t) {
       static_cast<T *>(subj)->lerp(*static_cast<const T *>(s),
                                    *static_cast<const T *>(tgt), t);
@@ -344,15 +345,10 @@ public:
        EasingFn easing_fn, const bool *paused = nullptr) = delete;
 
   /**
-   * @brief Performs one step of the interpolation.
-   * @param canvas The canvas buffer (forwarded to the base step).
-   * @details Freezes while a wired pause flag is set (see Mutation::step). A
-   * paused, `.then`-chained lerp never completes, so the whole chain halts.
+   * @brief Applies one unpaused frame of the interpolation.
+   * @param canvas Unused; the lerp writes only its caller-owned subject.
    */
-  void step(Canvas &canvas) override {
-    if (is_paused(paused))
-      return;
-    FiniteParamAnimationBase::step(canvas);
+  void advance(Canvas &) {
     float progress = normalized_progress();
     do_lerp(subject_ptr, start_ptr, target_ptr, easing(progress));
   }
@@ -364,13 +360,12 @@ private:
   EasingFn easing;        /**< Easing curve applied to progress. */
   /** @brief Type-erased lerp thunk. */
   void (*do_lerp)(void *, const void *, const void *, float);
-  const bool *paused = nullptr; /**< Optional pause gate; null = always runs. */
 };
 
 /**
  * @brief Interpolates a GenerativePalette between caller-owned snapshots.
  */
-class ColorWipe : public FiniteParamAnimationBase<ColorWipe> {
+class ColorWipe : public PausableParamAnimationBase<ColorWipe> {
 public:
   /**
    * @brief Constructs a ColorWipe animation.
@@ -387,9 +382,8 @@ public:
             const GenerativePalette::Snapshot &start,
             const GenerativePalette::Snapshot &target, int duration,
             EasingFn easing_fn, const bool *paused = nullptr)
-      : FiniteParamAnimationBase(duration, false), palette(palette),
-        start(start), target(target), easing_fn(std::move(easing_fn)),
-        paused(paused) {}
+      : PausableParamAnimationBase(duration, false, paused), palette(palette),
+        start(start), target(target), easing_fn(std::move(easing_fn)) {}
 
   ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &&,
             const GenerativePalette::Snapshot &, int, EasingFn,
@@ -402,15 +396,10 @@ public:
             const bool * = nullptr) = delete;
 
   /**
-   * @brief Steps the animation, blending the palette's colors based on the time
-   * factor.
-   * @param canvas The canvas buffer (forwarded to the base step).
-   * @details Freezes while a wired pause flag is set (see Mutation::step).
+   * @brief Blends the palette one unpaused frame toward the target snapshot.
+   * @param canvas Unused; the wipe writes only its palette.
    */
-  void step(Canvas &canvas) override {
-    if (is_paused(paused))
-      return;
-    FiniteParamAnimationBase::step(canvas);
+  void advance(Canvas &) {
     float amount = normalized_progress();
     palette.get().lerp(start.get(), target.get(), easing_fn(amount));
   }
@@ -423,8 +412,6 @@ private:
   std::reference_wrapper<const GenerativePalette::Snapshot>
       target;         /**< Stable target state. */
   EasingFn easing_fn; /**< Easing curve. */
-  const bool *paused; /**< Optional pause gate; freezes the wipe when set and
-                          true. Null = always runs. */
 };
 
 /**
