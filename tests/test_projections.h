@@ -93,12 +93,15 @@ inline void test_wrap_longitude_range() {
   for (int step = -40; step <= 40; ++step) {
     const float raw = step * 0.4f;
     const float wrapped = wrap_longitude(raw);
-    HS_EXPECT_GT(wrapped, -PI_F - 1e-5f);
-    HS_EXPECT_LE(wrapped, PI_F + 1e-5f);
+    HS_EXPECT_GE(wrapped, -PI_F);
+    HS_EXPECT_LT(wrapped, PI_F);
     HS_EXPECT_NEAR(cosf(wrapped), cosf(raw), 2e-6f);
     HS_EXPECT_NEAR(sinf(wrapped), sinf(raw), 2e-6f);
     HS_EXPECT_NEAR(wrap_longitude(wrapped), wrapped, 1e-6f);
   }
+  HS_EXPECT_EQ(wrap_longitude(PI_F), -PI_F);
+  HS_EXPECT_EQ(wrap_longitude(-PI_F), -PI_F);
+  HS_EXPECT_EQ(wrap_longitude(3.0f * PI_F), -PI_F);
 }
 
 inline void test_bonne_sinusoidal_limit() {
