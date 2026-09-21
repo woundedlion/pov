@@ -80,6 +80,7 @@ struct OracleState {
   int count = 7;
   int sides = 5;
   float phase = 0.0f;
+  float amplitude = 1.0f;
   float alpha = 0.625f;
   bool opposite = false;
   Quaternion orientation;
@@ -171,6 +172,7 @@ struct ShapeShifterWhiteBox {
     effect.params.count = static_cast<float>(state.count);
     effect.params.sides = static_cast<float>(state.sides);
     effect.params.function = state.function;
+    effect.params.amplitude = state.amplitude;
     effect.params.speed = 0.0f;
     effect.params.opposite = state.opposite;
     effect.params.alpha_falloff = state.alpha_falloff;
@@ -430,7 +432,16 @@ inline uint64_t row_energy(const OracleFrame &frame, int y) {
   return energy;
 }
 
-inline std::array<OracleState, 20> exhaustive_matrix() {
+/**
+ * @brief One state per (shape, phase function) pair, shape-major: entry
+ *        shape * 4 + function.
+ * @details Sides follow the shape. Count, phase and orientation follow the
+ * function column (orientation by (shape + function) % 4), so SINE always
+ * renders a single contour and SQUARE the densest; SPHERICAL_STAR caps count
+ * at 7 and the star shapes fall off toward the equator. Amplitude, alpha,
+ * spacing and clip stay at the OracleState defaults.
+ */
+inline std::array<OracleState, 20> shape_function_matrix() {
   using Function = OracleEffect::PhaseFunction;
   using Shape = OracleEffect::ShapeType;
   const Shape shapes[] = {Shape::PLANAR_POLYGON, Shape::SPHERICAL_POLYGON,
@@ -507,7 +518,7 @@ inline void test_buffer_comparator_statistics() {
  *          reference would make every error bound below vacuous.
  */
 inline void test_reference_matrix_is_deterministic_and_nonblack() {
-  for (const OracleState &state : exhaustive_matrix()) {
+  for (const OracleState &state : shape_function_matrix()) {
     RenderComparison comparison =
         compare_renders(state, reference_renderer(), reference_renderer());
     HS_EXPECT_TRUE(comparison.error.exact());
@@ -607,7 +618,7 @@ inline void expect_candidate_within_visual_budget(
 }
 
 inline void test_candidate_matrix_stays_within_visual_budget() {
-  for (const OracleState &state : exhaustive_matrix()) {
+  for (const OracleState &state : shape_function_matrix()) {
     const size_t max_high_error_pixels =
         state.shape == OracleEffect::ShapeType::PLANAR_STAR ||
                 state.shape == OracleEffect::ShapeType::SPHERICAL_STAR

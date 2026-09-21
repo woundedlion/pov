@@ -46,7 +46,7 @@ inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
                               {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
                               {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
                               {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
-  const auto matrix = exhaustive_matrix();
+  const auto matrix = shape_function_matrix();
 
   for (int shape = 0; shape < 5; ++shape) {
     OracleState full_state = matrix[shape * 4 + shape % 4];
