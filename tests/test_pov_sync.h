@@ -1070,15 +1070,19 @@ inline void test_flywheel_position() {
   }
 
   // The rebase rule makes the 32-bit wrap unobservable: run thousands of
-  // folds across several wraps; every crossing lands on its boundary column
-  // and the epoch stays an exact integer multiple ahead.
-  {
+  // folds across several wraps at nominal and trim-extreme periods; every
+  // crossing lands on its boundary column and the epoch stays an exact
+  // integer multiple ahead.
+  for (int32_t trim : {0, +1500, -1500}) {
+    HS_CONTEXT("trim", trim);
+    const uint32_t period = PERIOD + trim;
     Flywheel f(cfg);
-    uint32_t t = 0xFFFFFFFFu - PERIOD / 3; // wrap almost immediately
+    f.set_cycles_per_half_rev(period);
+    uint32_t t = 0xFFFFFFFFu - period / 3; // wrap almost immediately
     f.seed(t);
     for (int k = 1; k <= 5000; ++k) { // ~5.2 minutes of mock time, 43 wraps
       HS_CONTEXT("fold", k);
-      t += PERIOD;
+      t += period;
       const Crossing c = f.fold(t);
       HS_EXPECT_TRUE(c.crossed);
       HS_EXPECT_EQ(c.at_cycles, t);
