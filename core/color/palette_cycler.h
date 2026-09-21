@@ -455,7 +455,8 @@ public:
     case PaletteMode::ANALOGOUS:
       return analogous.palette();
     }
-    __builtin_unreachable();
+    HS_CHECK(false, "GeneratedPaletteBank::palette: unknown palette mode");
+    return triadic.palette();
   }
 
   HS_COLD_MEMBER void set_chroma(float chroma) {

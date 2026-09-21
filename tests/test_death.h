@@ -2850,6 +2850,16 @@ inline void case_alpha_falloff_null() {
 }
 
 /**
+ * @brief Death case: GeneratedPaletteBank::palette rejects a mode outside the
+ *        harmony enum.
+ */
+inline void case_generated_palette_bank_unknown_mode() {
+  enum class Mode : uint8_t { TRIADIC, COMPLEMENTARY, ANALOGOUS };
+  GeneratedPaletteBank bank;
+  (void)bank.palette(opaque(static_cast<Mode>(3)));
+}
+
+/**
  * @brief Death case: NoiseHuePalette requires a non-null palette source.
  */
 inline void case_noise_hue_palette_null_source() {
@@ -4604,6 +4614,9 @@ inline const Case *all_cases(int &n) {
        case_noise_hue_palette_null_noise_lut, "noise_hue_palette.h",
        "(hue_noise_lut != nullptr) NoiseHuePalette bound to null hue-noise "
        "LUT"},
+      {"generated_palette_bank_unknown_mode",
+       case_generated_palette_bank_unknown_mode, "palette_cycler.h",
+       "(false) GeneratedPaletteBank::palette: unknown palette mode"},
       {"baked_palette_rebake_aliased", case_baked_palette_rebake_aliased,
        "composition.h",
        "(!aliased) BakedPalette::rebake through an aliasing handle"},
