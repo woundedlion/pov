@@ -93,15 +93,42 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
 
 /**
  * @brief Factor from an angular step to the units a shape's distance() reports.
- * @return 1 for a shape reporting angular distance.
  * @details A block probe's slack is an arc, so a shape reporting in another
- * unit has to scale it. SDF::Face reports gnomonic-plane distance, which
- * stretches an angular step by up to 1 + r^2; max_dist bounds r over every
- * probe its cull admits.
+ * unit has to scale it. Spelled per shape rather than defaulted: a shape whose
+ * reporting unit is unstated has no overload and does not compile.
  */
-__attribute__((always_inline)) inline float report_stretch(const auto &) {
+__attribute__((always_inline)) inline float report_stretch(const SDF::Ring &) {
   return 1.0f;
 }
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::DistortedRing &) {
+  return 1.0f;
+}
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::FlatDistortedRing &) {
+  return 1.0f;
+}
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::PlanarPolygon &) {
+  return 1.0f;
+}
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::SphericalPolygon &) {
+  return 1.0f;
+}
+__attribute__((always_inline)) inline float report_stretch(const SDF::Star &) {
+  return 1.0f;
+}
+__attribute__((always_inline)) inline float
+report_stretch(const SDF::Flower &) {
+  return 1.0f;
+}
+__attribute__((always_inline)) inline float report_stretch(const SDF::Line &) {
+  return 1.0f;
+}
+/** @brief SDF::Face reports gnomonic-plane distance, which stretches an angular
+ *         step by up to 1 + r^2; max_dist bounds r over every probe its cull
+ *         admits. */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Face &shape) {
   return 1.0f + shape.max_dist_sq;
