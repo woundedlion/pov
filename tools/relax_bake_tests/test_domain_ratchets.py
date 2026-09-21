@@ -243,6 +243,19 @@ class GitRange(unittest.TestCase):
         self.assertEqual(status, 1, output.getvalue())
         self.assertIn("guard_gap.sdf.h weakened (2 -> 3)", output.getvalue())
 
+    def test_expired_allowance_is_not_reported_as_unexercised(self):
+        workflow = "jobs:\n  domain-ratchets:\n"
+        base = self.commit(2, workflow, "base")
+        expiry = self.commit(1, workflow, "improve coverage")
+        head = self.commit(0, workflow, "improve coverage again")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = check_domain_ratchets.check_git_range(
+                self.repo, expiry, head, {("guard_gap.sdf.h", "2", "3")},
+                base)
+        self.assertEqual(status, 0, output.getvalue())
+        self.assertNotIn("not exercised", output.getvalue())
+
     def test_range_warns_about_unexercised_allowance(self):
         workflow = "jobs:\n  domain-ratchets:\n"
         base = self.commit(2, workflow, "base")
