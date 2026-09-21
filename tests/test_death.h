@@ -3037,6 +3037,21 @@ inline void case_empty_fn_call() {
 }
 
 /**
+ * @brief Death case: invoking an empty FunctionRef must trap.
+ * @details Concepts surface — the empty state's thunk diverges through
+ *          function_ref_empty_call rather than calling through a null
+ *          context. Unlike the Fn trap, this one ships to the device.
+ */
+inline void case_empty_function_ref_call() {
+  FunctionRef<int(int)> f;
+  if (opaque(false))
+    f = [](int x) { return x; };
+  int v = f(opaque(7)); // empty invoke -> check_fail -> trap
+  if (v == 42)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: registering two effects under one name must trap.
  * @details Registry surface — the name keys the factory lookup and the
  *          HS_EFFECT_LIST anti-drift oracle, so a duplicate (an effect header
@@ -4698,6 +4713,8 @@ inline const Case *all_cases(int &n) {
        "test_death.h", "(false) DMA channel wedged"},
       {"empty_fn_call", case_empty_fn_call, "memory.cpp",
        "(vtable != empty) empty hs::inplace_function called"},
+      {"empty_function_ref_call", case_empty_function_ref_call, "memory.cpp",
+       "(thunk != empty_thunk) empty FunctionRef called"},
       {"effect_registry_duplicate_name", case_effect_registry_duplicate_name,
        "registry.h",
        "(existing.name != reg.name) effect header included by more than one "
@@ -5329,7 +5346,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
     {"choreography.h", 1},
-    {"memory.cpp", 1},
     {"memory.h", 2},
     {"reaction_graph.h", 1},
     {"static_circular_buffer.h", 3},
