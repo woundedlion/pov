@@ -774,9 +774,13 @@ branches. Enumerating those readers is what makes the landing plannable.
 
 ## 7. Promotion and verification
 
+**Status: PROPOSED.** The promotion layer below is design: its allocator,
+binding table and capture-manifest gate are not in the tree, and neither are
+the `any_approximate` and `APPROXIMATION_DOMAINS_DISJOINT` folds §7.4 names.
+
 A layer over the static model, with its own invariants and failure
 modes: allocation can fail where chain validation succeeds, and its
-gates run in CI rather than at compile time.
+gates would run in CI rather than at compile time.
 
 ### 7.1 One operator authority
 
