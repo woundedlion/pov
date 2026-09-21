@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Teensy firmware warning-hygiene ratchet.
 
-Policy is a BASELINE RATCHET, not -Werror: capture the current first-party
-warning set once, then fail only on warnings NOT in that baseline. New warnings
-are blocked; fixing a baseline warning is fine.
+The firmware policy is ZERO first-party warnings, and this script asserts it:
+the committed baseline is empty, a non-empty one fails, and --update-baseline
+refuses to write warnings into it. An allowance is a reviewed edit to both the
+baseline and that refusal, never a command the failure message hands out.
+
+Mechanically it is still a baseline ratchet -- the build's warning set minus the
+baseline -- which is what makes the report name exactly the offending warnings.
 
 Two load-bearing properties:
   * SET-based, not line-ordered. PlatformIO builds in parallel (-j) so warning
@@ -364,9 +368,9 @@ def render_baseline(warnings: set[str]) -> str:
     """Render a baseline file: header + sorted, deduplicated warning set."""
     header = [
         "# Teensy firmware first-party warning baseline (tools/teensy_warnings.py).",
-        "# Sorted, deduplicated, normalized (path:line:col stripped). The ratchet",
-        "# fails only on warnings NOT listed here. Regenerate with --update-baseline",
-        "# in the SAME PR as the change that legitimately alters the set.",
+        "# Sorted, deduplicated, normalized (path:line:col stripped). The firmware",
+        "# policy is zero first-party warnings, so this file stays empty; the",
+        "# ratchet fails on a listed warning as well as on a new one.",
         "",
     ]
     return "\n".join(header + sorted(warnings)) + "\n"
@@ -383,8 +387,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--platformio-ini", default="platformio.ini")
     p.add_argument("--update-baseline", action="store_true",
                    help="rewrite the baseline from this build's warning set; "
-                        "refused unless the capture covers every environment "
-                        "in --platformio-ini")
+                        "refused unless the capture covers every environment in "
+                        "--platformio-ini and the set is empty")
     p.add_argument("--github", action="store_true", help="emit ::error:: annotations")
     args = p.parse_args(argv)
 
@@ -462,6 +466,16 @@ def main(argv: list[str] | None = None) -> int:
                   f"delete the warnings those carry. Regenerate it from a cold, "
                   f"full `pio run` capture.")
             return 1
+        if current:
+            print(f"{prefix}[teensy-warnings] FAIL - refusing to write "
+                  f"{len(current)} first-party warning(s) into {args.baseline}: "
+                  f"the firmware policy is zero of them, so this rewrite would "
+                  f"turn today's diagnostics into a permanent allowance. Fix "
+                  f"them, or change the policy in tools/teensy_warnings.py in "
+                  f"its own reviewed commit.")
+            for warning in sorted(current):
+                print(f"  - {warning}")
+            return 1
         Path(args.baseline).write_text(
             render_baseline(current), encoding="utf-8", newline="\n"
         )
@@ -469,6 +483,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     baseline = load_baseline(args.baseline)
+    if baseline:
+        print(f"{prefix}[teensy-warnings] FAIL - {args.baseline} lists "
+              f"{len(baseline)} warning(s); the firmware policy is zero "
+              f"first-party warnings, so the baseline must be empty:")
+        for warning in sorted(baseline):
+            print(f"  - {warning}")
+        return 1
     new = sorted(current - baseline)
     if not new:
         print(f"[teensy-warnings] PASS - {len(current)} warning(s), none new "
@@ -482,8 +503,8 @@ def main(argv: list[str] | None = None) -> int:
           f"the baseline:")
     for w in new:
         print(f"{item_prefix}{w}")
-    print("If intentional, regenerate the baseline in this PR: "
-          "python tools/teensy_warnings.py --build-log <log> --update-baseline")
+    print("The firmware policy is zero first-party warnings, so there is no "
+          "baseline entry to add: fix them at the source.")
     return 1
 
 
