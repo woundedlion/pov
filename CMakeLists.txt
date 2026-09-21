@@ -324,17 +324,11 @@ if(EMSCRIPTEN)
         RESULT_VARIABLE HS_GIT_RC
         ERROR_QUIET)
       if(HS_GIT_RC EQUAL 0)
-        # Dirty-tree guard: a module built from uncommitted (tracked) source records
-        # provenance the deploy gate cannot reproduce — the gate checks out the bare
-        # SHA (clean) and tests that, while the shipped binary came from dirty source.
-        # Mark the SHA -dirty (git describe convention) so the gate's checkout of that
-        # ref fails hard instead of deploying an unverifiable artifact. Untracked files
-        # don't count (build output, node_modules); only tracked modifications do.
-        # A git that cannot answer counts as dirty: empty output from a failed call
-        # is indistinguishable from a clean tree, and recording a bare SHA for it
-        # is the unverifiable provenance this block exists to prevent.
+        # Generated documentation is checked against a fresh render of HEAD.
         execute_process(
-          COMMAND git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" status --porcelain --untracked-files=no
+          COMMAND \"${Python3_EXECUTABLE}\"
+            \"${CMAKE_CURRENT_SOURCE_DIR}/tools/engine_source_state.py\"
+            --root \"${CMAKE_CURRENT_SOURCE_DIR}\"
           OUTPUT_VARIABLE HS_GIT_DIRTY
           OUTPUT_STRIP_TRAILING_WHITESPACE
           RESULT_VARIABLE HS_GIT_DIRTY_RC)
