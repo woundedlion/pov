@@ -21,7 +21,9 @@ between semantically distinct documents, while a shuffled identical
 document digests differently). A guaranteed single-path chain says so:
 
 - `descriptor.chain` is an ordered array of `{label, operator}` —
-  exactly the engine wire format's `{instance_id, operator_id}`, so
+  exactly the engine wire format's `{instance, operator}` (the two keys
+  `setShaderChain` reads; a missing or non-string one is
+  `MALFORMED_PAYLOAD`), so
   the chain projection of a document *is* its compiled program shape,
   and the two cannot structurally drift; the descriptor digest
   refines that shape with parameter schemas and defaults, serialization
