@@ -518,15 +518,6 @@ add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_teensy_size_trail.cmake)
 set_tests_properties(unit_teensy_size_trail PROPERTIES SKIP_RETURN_CODE 77)
 
-# Run the generator's own --check self-validation (monotonicity + sRGB
-# round-trip), which CI ran only as a shell step.
-add_test(NAME unit_color_luts_check COMMAND ${CMAKE_COMMAND}
-    -DPYTHON_EXE=${HS_PYTHON}
-    -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
-    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts_selfcheck.cmake)
-set_tests_properties(unit_color_luts_check PROPERTIES SKIP_RETURN_CODE 77)
-
 # Pin core/color/gamut_lut.h against its generator, the generator's copies of the
 # OKLab matrices and the gamut slack against core/color/color.h, and its diamond
 # angle against core/math/3dmath.h — drift there invalidates the brackets the
