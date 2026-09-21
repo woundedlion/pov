@@ -33,29 +33,6 @@ struct DynamoWhiteBox;
 template <int W, int H> class Dynamo : public Effect {
 public:
   /**
-   * @brief One point on the strand: grid position (x,y) and per-step velocity.
-   */
-  struct Node {
-    /**
-     * @brief Constructs a node at the origin with zero velocity.
-     */
-    Node() : x(0), y(0), v(0) {}
-
-    int x; /**< Grid column. */
-    int y; /**< Grid row. */
-    int v; /**< Per-step velocity along x. */
-  };
-
-  /**
-   * @brief The effect's canonical generative-palette recipe, shared by the
-   *        initial palette and every color-wipe palette.
-   */
-  static GenerativePalette make_palette() {
-    return GenerativePalette{EffectPaletteRecipes::dynamo(
-        EffectPaletteRecipes::random_base_turns())};
-  }
-
-  /**
    * @brief Constructs the effect, seeding the initial palette, palette normal,
    *        and filter pipeline.
    */
@@ -170,6 +147,29 @@ public:
 
 private:
   friend struct ::hs_test::effects_tests::DynamoWhiteBox;
+
+  /**
+   * @brief One point on the strand: grid position (x,y) and per-step velocity.
+   */
+  struct Node {
+    /**
+     * @brief Constructs a node at the origin with zero velocity.
+     */
+    Node() : x(0), y(0), v(0) {}
+
+    int x; /**< Grid column. */
+    int y; /**< Grid row. */
+    int v; /**< Per-step velocity along x. */
+  };
+
+  /**
+   * @brief The effect's canonical generative-palette recipe, shared by the
+   *        initial palette and every color-wipe palette.
+   */
+  static GenerativePalette make_palette() {
+    return GenerativePalette{EffectPaletteRecipes::dynamo(
+        EffectPaletteRecipes::random_base_turns())};
+  }
 
   /**
    * @brief Flips travel direction via a private sign.
