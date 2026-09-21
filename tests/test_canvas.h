@@ -156,13 +156,12 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   int discards = 0;
 
   hs::EffectTransitionStatus
-  preflight(const hs::EffectTransitionRequest &request,
+  preflight(const hs::EffectTransitionRequest &,
             hs::EffectRestoreToken &outgoing) override {
     ++preflights;
     outgoing.effect_id = "outgoing";
     outgoing.capability = capability;
-    return request.effect_id.empty() ? hs::EffectTransitionStatus::UNAVAILABLE
-                                     : preflight_status;
+    return preflight_status;
   }
   void set_output_envelope(float value) override { envelopes.push_back(value); }
   bool presentation_complete() const override { return fenced; }
@@ -411,6 +410,106 @@ inline void test_effect_transition_failsafe_retry() {
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::STEADY_IN);
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
+}
+
+inline void test_effect_transition_refusal_branches() {
+  TransitionAdapter adapter;
+  hs::EffectTransitionController controller(adapter);
+  const hs::EffectTransitionRequest request{
+      "alien-brain", "alien-brain", hs::EffectTransitionOrigin::AUTOMATIC, 1};
+
+  hs::EffectTransitionRequest malformed = request;
+  malformed.effect_id = "";
+  HS_EXPECT_EQ(controller.request(malformed),
+               hs::EffectTransitionStatus::UNAVAILABLE);
+  malformed = request;
+  malformed.fade_ticks = 0;
+  HS_EXPECT_EQ(controller.request(malformed),
+               hs::EffectTransitionStatus::UNAVAILABLE);
+  HS_EXPECT_EQ(adapter.preflights, 0);
+
+  adapter.preflight_status = hs::EffectTransitionStatus::INVALID_RESTORE;
+  HS_EXPECT_EQ(controller.request(request),
+               hs::EffectTransitionStatus::INVALID_RESTORE);
+  HS_EXPECT_EQ(adapter.preflights, 1);
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::STEADY_OUT);
+  HS_EXPECT_TRUE(adapter.envelopes.empty());
+  adapter.preflight_status = hs::EffectTransitionStatus::OK;
+
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::CLEAR_PRESENTED);
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::BUSY);
+  HS_EXPECT_EQ(adapter.preflights, 2);
+
+  adapter.fenced = true;
+  adapter.handoff_status = hs::EffectTransitionStatus::INVALID_HANDOFF;
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::PREPARING_FIRST_FRAME);
+  controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::RESTORING_OUT);
+  HS_EXPECT_EQ(controller.failure(),
+               hs::EffectTransitionStatus::INVALID_HANDOFF);
+  HS_EXPECT_EQ(adapter.discards, 1);
+  HS_EXPECT_FALSE(adapter.incoming_published);
+  controller.tick();
+  HS_EXPECT_EQ(adapter.restores, 1);
+  HS_EXPECT_TRUE(adapter.restored_published);
+  controller.tick();
+  controller.tick();
+  controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::STEADY_OUT);
+  HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
+  HS_EXPECT_FALSE(adapter.committed);
+  HS_EXPECT_EQ(controller.failure(),
+               hs::EffectTransitionStatus::INVALID_HANDOFF);
+
+  adapter.handoff_status = hs::EffectTransitionStatus::OK;
+  adapter.prepare_status = hs::EffectTransitionStatus::FIRST_FRAME_REJECTED;
+  adapter.restore_status = hs::EffectTransitionStatus::INVALID_RESTORE;
+  adapter.restored_published = false;
+  HS_EXPECT_EQ(controller.request(request), hs::EffectTransitionStatus::OK);
+  HS_EXPECT_EQ(controller.failure(), hs::EffectTransitionStatus::OK);
+  for (int i = 0; i < 5; ++i)
+    controller.tick();
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::RESTORING_OUT);
+  HS_EXPECT_EQ(controller.failure(),
+               hs::EffectTransitionStatus::FIRST_FRAME_REJECTED);
+  HS_EXPECT_EQ(adapter.discards, 2);
+  controller.tick();
+  HS_EXPECT_EQ(adapter.restores, 2);
+  HS_EXPECT_FALSE(adapter.restored_published);
+  HS_EXPECT_TRUE(adapter.failsafe);
+  HS_EXPECT_EQ(controller.current_state(),
+               hs::EffectTransitionState::CLEAR_FAILSAFE);
+  HS_EXPECT_EQ(controller.failure(),
+               hs::EffectTransitionStatus::INVALID_RESTORE);
+  HS_EXPECT_EQ(adapter.envelopes.back(), 0.0f);
+
+  TransitionAdapter frame;
+  frame.fenced = true;
+  frame.prepare_status = hs::EffectTransitionStatus::FIRST_FRAME_REJECTED;
+  frame.restore_prepare_status = hs::EffectTransitionStatus::RESTORE_REJECTED;
+  hs::EffectTransitionController second(frame);
+  HS_EXPECT_EQ(second.request(request), hs::EffectTransitionStatus::OK);
+  for (int i = 0; i < 6; ++i)
+    second.tick();
+  HS_EXPECT_EQ(frame.discards, 1);
+  HS_EXPECT_EQ(frame.restores, 1);
+  HS_EXPECT_FALSE(frame.restored_published);
+  HS_EXPECT_TRUE(frame.failsafe);
+  HS_EXPECT_EQ(second.current_state(),
+               hs::EffectTransitionState::CLEAR_FAILSAFE);
+  HS_EXPECT_EQ(second.failure(), hs::EffectTransitionStatus::RESTORE_REJECTED);
+  HS_EXPECT_EQ(frame.envelopes.back(), 0.0f);
 }
 
 inline void test_preset_state_machine() {
@@ -1421,6 +1520,7 @@ inline int run_canvas_tests() {
   test_effect_transition_replacement_pause_and_restore();
   test_effect_transition_shorter_replacement_preserves_progress();
   test_effect_transition_failsafe_retry();
+  test_effect_transition_refusal_branches();
   test_preset_state_machine();
   test_frame_visible_only_after_advance_display();
   test_consecutive_frames_alternate_buffers();
