@@ -126,7 +126,6 @@ struct ParamFieldInfo {
   uint8_t enum_count; /**< 0 marks a float field. */
   uint8_t enum_def;
   const char *const *enum_ids;
-  const char *const *enum_names; /**< Nullable; cosmetic. */
 };
 
 /** @brief Size and alignment of one arena-allocated block. */
@@ -240,15 +239,14 @@ template <typename Model> consteval auto make_schema() {
     const auto &field = Params::FIELDS[index];
     out[index] = ParamFieldInfo{
         field.id,    field.name, field.min, field.max, DEFAULTS.*(field.member),
-        field.curve, false,      0,         0,         nullptr,
-        nullptr};
+        field.curve, false,      0,         0,         nullptr};
   }
   for (size_t index = 0; index < TOPOLOGY.size(); ++index) {
     const auto &topo = TOPOLOGY[index];
     out[FIELD_COUNT + index] =
-        ParamFieldInfo{topo.id,  nullptr,          0.0f,   0.0f,
-                       0.0f,     FieldCurve::SNAP, true,   topo.value_count,
-                       topo.def, topo.value_ids,   nullptr};
+        ParamFieldInfo{topo.id,  nullptr,          0.0f, 0.0f,
+                       0.0f,     FieldCurve::SNAP, true, topo.value_count,
+                       topo.def, topo.value_ids};
   }
   return out;
 }
