@@ -42,7 +42,7 @@
  *   #include "../../hardware/pov_segmented.h"
  */
 #pragma once
-#include "render/led.h"
+#include "core/render/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
 #include "pov_segment_frame.h"
 #include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
@@ -59,9 +59,9 @@
     "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): FastLED's bit-bang show() masks IRQs for windows that break the sync symbol margins (pitch > M, gap timeout > pitch + M; spec §5.2)."
 #endif
 
-#include "render/canvas.h"
-#include "math/geometry.h"
-#include "engine/memory.h"
+#include "core/render/canvas.h"
+#include "core/math/geometry.h"
+#include "core/engine/memory.h"
 
 #include <atomic>
 #include <cstring>

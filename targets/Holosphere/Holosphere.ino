@@ -14,8 +14,8 @@
 #include <new>
 
 #include "pov_single.h"
-#include "engine/effects.h"
-#include "engine/effects_legacy.h"
+#include "core/engine/effects.h"
+#include "core/engine/effects_legacy.h"
 
 static constexpr int NUM_PIXELS = 40;
 static constexpr unsigned int RPM = 480;

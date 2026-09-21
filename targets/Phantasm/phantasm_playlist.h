@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "engine/effects.h"
+#include "core/engine/effects.h"
 
 /**
  * @file phantasm_playlist.h

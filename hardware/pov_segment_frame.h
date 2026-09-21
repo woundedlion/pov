@@ -8,7 +8,7 @@
  */
 #pragma once
 
-#include "render/canvas.h"
+#include "core/render/canvas.h"
 
 #include <cstring>
 
