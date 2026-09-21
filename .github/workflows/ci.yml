@@ -1178,16 +1178,16 @@ jobs:
         # banner, the array names and the declarations gate alongside the
         # neighbor indices, and the file is excluded from the clang-format job
         # (it is emitted, not hand-formatted) so nothing else reads them. The
-        # generator LF-pins its stdout and reproduces the committed file
+        # generator LF-pins its output and reproduces the committed file
         # byte-for-byte, so any difference is a real divergence — a script edit,
         # a hand-edit of the table, or a node()-formula change.
         run: |
-          python3 scripts/generate_reaction_graph.py > /tmp/reaction_graph.generated.cpp
+          python3 scripts/generate_reaction_graph.py -o /tmp/reaction_graph.generated.cpp
           if ! diff -u core/spatial/reaction_graph.cpp \
                     /tmp/reaction_graph.generated.cpp > /tmp/reaction_graph.diff; then
             head -40 /tmp/reaction_graph.diff
             echo "::error::core/spatial/reaction_graph.cpp is out of sync with scripts/generate_reaction_graph.py"
-            echo "Regenerate with: python scripts/generate_reaction_graph.py > core/spatial/reaction_graph.cpp"
+            echo "Regenerate with: python scripts/generate_reaction_graph.py"
             exit 1
           fi
           echo "Regenerated table matches core/spatial/reaction_graph.cpp in full."
