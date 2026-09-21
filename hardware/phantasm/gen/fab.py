@@ -349,8 +349,9 @@ DRILL_MEMBERS = {"phantasm-PTH.drl": "plated", "phantasm-NPTH.drl": "unplated"}
 GERBER_APERTURE = re.compile(r"^%ADD\d+", re.M)
 GERBER_OPERATION = re.compile(r"(?:G0?[123])?(?:[XYIJ][+-]?\d+)*D0[13]")
 GERBER_CONTOUR = re.compile(r"(?:G0?[123])?(?:[XYIJ][+-]?\d+)+D01")
-#: One Excellon hole: a coordinate line, whether a plain drill or a slot.
-EXCELLON_HOLE = re.compile(r"^X-?[\d.]+Y-?[\d.]+", re.M)
+#: One Excellon hole: a drill-mode coordinate line (plain hole or G85 slot), or
+#: the M15 plunge that opens a route-mode slot.
+EXCELLON_HOLE = re.compile(r"^(?:X-?[\d.]+Y-?[\d.]+|M15\b)", re.M)
 
 
 def read_export(path):
