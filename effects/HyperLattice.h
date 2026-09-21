@@ -802,12 +802,10 @@ public:
 
 #if HS_ENABLE_EFFECT_CONTROL_API
   void profile_select_preset(size_t index) {
-    if (index >= PRESET_IDS.size() || !this->selectPreset(index)) {
-      hs::log("Profile preset selection failed: %u/%u",
-              static_cast<unsigned>(index),
-              static_cast<unsigned>(PRESET_IDS.size()));
-      return;
-    }
+    HS_CHECK(index < PRESET_IDS.size(),
+             "HyperLattice profile preset index out of range");
+    HS_CHECK(this->selectPreset(index),
+             "HyperLattice profile preset selection failed");
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
             static_cast<unsigned>(PRESET_IDS.size()));
   }
