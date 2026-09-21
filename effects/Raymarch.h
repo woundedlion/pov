@@ -390,7 +390,6 @@ private:
       torus.precision = 2.0f * aa_width;
 
       Vector center = camera.orient(points[i]);
-      Vector ray_dir = -center;
 
       Quaternion world_q = camera.get() * raw_quats[i] *
                            volume_spins[i].orientation.get() * spin_q;
@@ -420,8 +419,8 @@ private:
       };
 
       Scan::TransformedVolume vol(torus, center, world_q);
-      Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, ray_dir,
-                               vol, frag_fn, max_steps, aa_width);
+      Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, vol,
+                               frag_fn, max_steps, aa_width);
     }
   }
 
