@@ -106,6 +106,9 @@ public:
         constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
         Basis bases[SUB_CAP];
         Color4 colors[SUB_CAP];
+        // SDF::Ring binds its Basis by reference, so it is neither default-
+        // constructible nor assignable: slots are placement-new'd into raw
+        // storage over the bases[] entry they must outlive.
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
         int slots = 0;
         constexpr float pixel_w = 2.0f * PI_F / W;
