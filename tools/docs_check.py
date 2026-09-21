@@ -121,7 +121,7 @@ _EFFECTS_ROW_RE = re.compile(
 _EFFECTS_DIAGRAM_RE = re.compile(
     r"\beffects/\s+\((?P<effects>\d+) visual algorithms\)")
 _EFFECTS_DIR = PurePosixPath("effects")
-_EFFECT_ROSTER_SOURCE = PurePosixPath("core/engine/effects.h")
+_EFFECT_ROSTER_SOURCE = PurePosixPath("targets/effects.h")
 _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
 # Shared X-row spelling with scripts/effect_roster.mjs and tools/profile_sweep.sh:
 # whitespace inside the parens is tolerated so a reformat to `X( Foo )` cannot

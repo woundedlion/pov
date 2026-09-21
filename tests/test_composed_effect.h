@@ -37,7 +37,7 @@
 #include <utility>
 #include <vector>
 
-#include "core/engine/effects.h"
+#include "targets/effects.h"
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/composed_effect.h"
 #include "core/render/pullback/operator_table.h"
