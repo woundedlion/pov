@@ -27,6 +27,12 @@ class PaletteCycler {
 public:
   static constexpr int MAX_ENTRIES = 8;
 
+  PaletteCycler() = default;
+  // The display and fade LUTs and the morph slots are arena handles, so a copy
+  // would drive the original's bakes.
+  PaletteCycler(const PaletteCycler &) = delete;
+  PaletteCycler &operator=(const PaletteCycler &) = delete;
+
   /**
    * @brief Tagged reference to one palette of any kind.
    */
@@ -412,6 +418,11 @@ public:
   static constexpr uint32_t HUE_STEP = 159;
   static constexpr int DWELL_FRAMES = 0;
   static constexpr int FADE_FRAMES = 600;
+
+  GeneratedPaletteBank() = default;
+  // init() hands this to every cycler as its provider context.
+  GeneratedPaletteBank(const GeneratedPaletteBank &) = delete;
+  GeneratedPaletteBank &operator=(const GeneratedPaletteBank &) = delete;
 
   /** @brief Arena bytes init() consumes, one generated cycler per harmony. */
   static constexpr size_t required_arena_bytes() {
