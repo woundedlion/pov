@@ -59,7 +59,9 @@ public:
    * @brief Upper bound on source points, set by the int16_t node-link range.
    * @details One node per point, and node indices flow through int16_t
    * left/right links, so the point count must fit in [0, MAX_POINTS]. This also
-   * bounds original_index (uint16_t) since indices stay below the count.
+   * bounds original_index (uint16_t) since indices stay below the count. It is
+   * an index-range ceiling, not a reachable size: MAX_POINTS nodes are 640 KB,
+   * past every target's whole arena.
    */
   static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
 
@@ -78,7 +80,7 @@ public:
    * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
    * Retains N * sizeof(KDNode) bytes and peaks a further N * sizeof(int) over
    * that (N points): 8000 B retained over a 1600 B transient at Voronoi's
-   * MAX_SITES = 400, and at most 128 KB transient at MAX_POINTS.
+   * MAX_SITES = 400.
    */
   HS_COLD_MEMBER KDTree(Arena &arena, std::span<const Vector> points) {
     if (points.empty())
