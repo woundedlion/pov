@@ -638,8 +638,8 @@ private:
    * @brief Arms a one-shot timer (180-300 steps) that triggers the next warp.
    */
   void schedule_warp() {
-    auto timer =
-        Animation::RandomTimer(180, 300, [this](Canvas &) { perform_warp(); });
+    auto timer = Animation::RandomTimer({.min = 180, .max = 300},
+                                        [this](Canvas &) { perform_warp(); });
     timeline.add(0, timer);
   }
 

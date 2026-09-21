@@ -195,7 +195,7 @@ inline void test_transition_duration_zero_no_divide_by_zero() {
 inline void test_transition_quantized_floors_result() {
   float v = 0.0f;
   const int duration = 4;
-  Animation::Transition tr(v, 3.7f, duration, ease_linear, /*quantized=*/true);
+  Animation::Transition tr(v, 3.7f, duration, ease_linear, {.quantized = true});
   for (int i = 0; i < duration; ++i) {
     tr.step(fake_canvas());
   }
@@ -214,7 +214,7 @@ inline void test_transition_repeat_retraverses_each_cycle() {
   float v = 0.0f;
   const int duration = 4;
   tl.add(0, Animation::Transition(v, 10.0f, duration, ease_linear,
-                                  /*quantized=*/false, /*repeat=*/true));
+                                  {.repeat = true}));
   for (int i = 0; i < duration; ++i)
     tl.step(fake_canvas());
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
@@ -235,8 +235,8 @@ inline void test_transition_paused_holds_value() {
   bool paused = true;
   float v = 0.0f;
   const int duration = 4;
-  Animation::Transition tr(v, 10.0f, duration, ease_linear, /*quantized=*/false,
-                           /*repeat=*/false, &paused);
+  Animation::Transition tr(v, 10.0f, duration, ease_linear,
+                           {.paused = &paused});
   for (int i = 0; i < duration; ++i)
     tr.step(fake_canvas());
   HS_EXPECT_NEAR(v, 0.0f, 1e-5f);
@@ -1013,7 +1013,9 @@ inline void test_timer_then_self_cancellation_completes_once() {
     };
     if (random)
       state.random = tl.add_get(
-          0, Animation::RandomTimer(1, 1, trigger, true).then(complete),
+          0,
+          Animation::RandomTimer({.min = 1, .max = 1, .repeat = true}, trigger)
+              .then(complete),
           Timeline::Pin::PINNED);
     else
       state.periodic = tl.add_get(
@@ -1738,7 +1740,7 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   std::vector<float> ops;
   const int dur = 10, fade_in = 3, fade_out = 3;
   Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, dur,
-                      fade_in, ease_linear, fade_out, ease_linear);
+                      {.fade_in = {fade_in}, .fade_out = {fade_out}});
   for (int i = 0; i < dur; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
@@ -1758,8 +1760,8 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
 /** @brief Clamps an overshooting fade-in easing to full opacity. */
 inline void test_sprite_clamps_overshooting_fade_in() {
   float opacity = -1.0f;
-  Animation::Sprite s([&](Canvas &, float o) { opacity = o; }, 4, 2,
-                      [](float) { return 1.35f; }, 0, ease_linear);
+  Animation::Sprite s([&](Canvas &, float o) { opacity = o; }, 4,
+                      {.fade_in = {2, [](float) { return 1.35f; }}});
   s.step(fake_canvas());
   HS_EXPECT_NEAR(opacity, 1.0f, 1e-6f);
 }
@@ -1775,7 +1777,7 @@ inline void test_sprite_overlapping_fades_stay_continuous() {
   const int dur = 10, fade_in = 8,
             fade_out = 8; // 8 + 8 > 10 => overlap, scaled to 5 + 5
   Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, dur,
-                      fade_in, ease_linear, fade_out, ease_linear);
+                      {.fade_in = {fade_in}, .fade_out = {fade_out}});
   for (int i = 0; i < dur; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
@@ -1806,8 +1808,7 @@ inline void test_sprite_paused_holds_frame() {
         draws++;
         last_op = o;
       },
-      /*duration=*/3,
-      /*fade_in=*/0, ease_linear, /*fade_out=*/0, ease_linear, &paused);
+      /*duration=*/3, {.paused = &paused});
 
   for (int i = 0; i < 10; ++i)
     s.step(fake_canvas());
@@ -1829,8 +1830,8 @@ inline void test_timeline_pause_redraws_held_sprite() {
   timeline.add_pausable(
       0,
       Animation::Sprite(
-          [&](Canvas &, float value) { opacity.push_back(value); }, 4, 2,
-          ease_linear, 0, ease_linear),
+          [&](Canvas &, float value) { opacity.push_back(value); }, 4,
+          {.fade_in = {2}}),
       &paused);
 
   timeline.step(fake_canvas());
@@ -1864,8 +1865,8 @@ inline void test_sprite_paused_before_first_step_holds_first_opacity() {
   timeline.add_pausable(
       0,
       Animation::Sprite(
-          [&](Canvas &, float value) { opacity.push_back(value); }, 16, 8,
-          ease_linear, 8, ease_linear),
+          [&](Canvas &, float value) { opacity.push_back(value); }, 16,
+          {.fade_in = {8}, .fade_out = {8}}),
       &paused);
 
   for (int i = 0; i < 4; ++i)
@@ -3433,7 +3434,7 @@ inline void test_random_timer_fires_within_range() {
     int fire_frame = -1;
     int frame = 0;
   } st; // one capture keeps the callback inside TimerFn's inplace budget
-  tl.add(0, Animation::RandomTimer(3, 7, [&st](Canvas &) {
+  tl.add(0, Animation::RandomTimer({.min = 3, .max = 7}, [&st](Canvas &) {
            st.fires++;
            st.fire_frame = st.frame;
          }));
@@ -3460,7 +3461,7 @@ inline void test_one_shot_timer_ends_by_completion_not_cancel() {
   HS_EXPECT_FALSE(periodic.is_canceled());
   HS_EXPECT_FALSE(periodic.repeats());
 
-  Animation::RandomTimer random(2, 2, [](Canvas &) {}, /*repeat=*/false);
+  Animation::RandomTimer random({.min = 2, .max = 2}, [](Canvas &) {});
   random.step(fake_canvas());
   HS_EXPECT_FALSE(random.done());
   random.step(fake_canvas());
