@@ -356,14 +356,18 @@ private:
     float duty_cycle = 0.5f; /**< Lit fraction of each palette cycle. */
   };
 
-  // Positional init: a short list value-initializes the omitted fields to 0,
-  // since only duty_cycle carries a default member initializer. The
-  // static_assert below catches a changed field set, not a short list.
-  static constexpr Params PRESET{1.0f,     80.0f,      0.235f, 2.88f,
-                                 0.26974f, 84.832001f, 0.672f, 0.5f};
+  static constexpr Params PRESET{.alpha = 1.0f,
+                                 .cycle_duration = 80.0f,
+                                 .speed = 0.235f,
+                                 .jitter_amp = 2.88f,
+                                 .noise_freq = 0.26974f,
+                                 .scale_factor = 84.832001f,
+                                 .cycle_speed = 0.672f,
+                                 .duty_cycle = 0.5f};
+  // Designators bind each value to its field; the width pin catches an added or
+  // removed field, which a designated list alone would leave value-initialized.
   static_assert(sizeof(Params) == 8 * sizeof(float),
-                "Fishbowl::Params field set changed — update PRESET's "
-                "float list to match");
+                "Fishbowl::Params field set changed — update PRESET to match");
   Params params = PRESET;
 
   // Precedes scale_mod, which binds &params.scale_factor at construction.
