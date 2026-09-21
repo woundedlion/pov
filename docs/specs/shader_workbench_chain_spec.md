@@ -239,10 +239,14 @@ names that output directly.
   is the chain, not a slot-per-domain form.
 - **Crossings** render as **socket chips** after their input bands, labeled
   with the carrier pair. The Sphere → Plane and Plane → Field sockets sit
-  between bands; the Field → Color socket ends the strip. All three are
-  occupied in a valid document (a chain enters on sphere and exits on
-  color), which the strip makes structural: sockets are the fixed joints
-  of the pipeline, bands are the variable runs between them.
+  between bands; the Field → Color socket ends the strip. A chain enters on
+  sphere and exits on color, which the strip makes structural: sockets are
+  the joints of the pipeline, bands are the variable runs between them. A
+  crossing may skip a band: the catalog sphere → field sources
+  (`sample.spherical-rings.v3`, `sample.spherical-noise.v3`) stand in for
+  both the projection and the sample crossing, the plane band is then
+  absent with no gap to insert at, and that socket has a replacement
+  selector offering the projection/sample pairs that re-open it.
 - **Chip anatomy**: operator display name and a row of icon buttons in the
   chip header: a **◉ bypass**
   toggle, a pair of **← →** reorder buttons and a **× remove**
