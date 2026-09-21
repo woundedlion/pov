@@ -46,7 +46,7 @@ foreach(_file IN LISTS _guard_files)
   # would not satisfy a [[noreturn]] tail. platform.h is where the macro and the
   # reporter are written rather than used, so its own mentions are not sites.
   if(NOT _name STREQUAL "platform.h")
-    string(REGEX MATCHALL "hs::check_fail\\(" _direct "${_text}")
+    string(REGEX MATCHALL "(hs::)?check_fail\\(" _direct "${_text}")
     list(LENGTH _direct _n_direct)
     math(EXPR _n "${_n} + ${_n_direct}")
   endif()
