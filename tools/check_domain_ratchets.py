@@ -18,6 +18,24 @@ GAP_ROW_RE = re.compile(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*\}')
 COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
 ALLOW_RE = re.compile(r"^([A-Za-z0-9_.-]+)=(\d+|gone)->(\d+|gone)$")
 WORKFLOW = ".github/workflows/ci.yml"
+# Weakenings already on master, each exact and each expiring at ALLOWANCE_EXPIRY;
+# DOMAIN_RATCHET_ALLOW_WEAKEN adds to them.
+HISTORICAL_ALLOWANCES = """
+guard_gap.canvas.h=29->30
+guard_gap.carousel.h=3->4
+guard_gap.raster.h=9->10
+guard_gap.volume.h=7->8
+guard_gap.memory.h=1->2
+guard_gap.Profile.ino=3->4
+guard_gap.chain_host.h=0->1
+guard_gap.shader_host.h=0->13
+guard_gap.kernels.h=0->3
+guard_gap.param_host.h=0->26
+guard_gap.preset_host.h=0->2
+guard_gap.conway.h=30->33
+guard_gap.engine_bindings.h=5->7
+"""
+ALLOWANCE_EXPIRY = "f8c09587aa3d6db303d8327d860494cec04fa393"
 Transition = tuple[str, str, str]
 
 
@@ -61,7 +79,7 @@ def death_pins(path: Path) -> dict[str, int]:
 
 
 def weakening_allowances(value: str) -> set[Transition]:
-    """Exact before/after transitions approved by the workflow."""
+    """Exact before/after transitions the allowance text approves."""
     result: set[Transition] = set()
     for raw in value.splitlines():
         line = raw.strip()
@@ -70,14 +88,12 @@ def weakening_allowances(value: str) -> set[Transition]:
         match = ALLOW_RE.fullmatch(line)
         if match is None:
             raise SystemExit(
-                f"invalid DOMAIN_RATCHET_ALLOW_WEAKEN entry: {line!r}; "
+                f"invalid weakening allowance entry: {line!r}; "
                 "expected name=before->after"
             )
         entry = match.groups()
         if entry in result:
-            raise SystemExit(
-                f"DOMAIN_RATCHET_ALLOW_WEAKEN entry is repeated: {line}"
-            )
+            raise SystemExit(f"weakening allowance is repeated: {line}")
         result.add(entry)
     return result
 
@@ -124,7 +140,7 @@ def compare_files(previous_harness: Path, current_harness: Path,
         print(
             f"::error file={source_path}::{key} weakened ({before} -> {after}) - "
             f"restore its coverage or list {key}={before}->{after} in "
-            "DOMAIN_RATCHET_ALLOW_WEAKEN"
+            "HISTORICAL_ALLOWANCES"
         )
     print(
         f"domain ratchets: {len(current)} floors and {len(gaps_current)} "
@@ -155,6 +171,7 @@ def check_git_range(repo: Path, previous_ref: str, current_ref: str,
         allow_through = git(repo, "rev-parse", "--verify",
                             f"{allow_through}^{{commit}}").strip()
     used = set()
+    in_window = 0
     commits = git(
         repo, "rev-list", "--first-parent", "--reverse",
         f"{previous_ref}..{current_ref}", "--",
@@ -182,10 +199,11 @@ def check_git_range(repo: Path, previous_ref: str, current_ref: str,
                 death.write_text(death_text, encoding="utf-8")
                 paths.append((harness, death))
             print(f"checking domain ratchets for {commit} against {parent}")
-            edge_allow = allow
-            if allow and git(repo, "merge-base", "--is-ancestor", commit,
-                             allow_through, required=False) is None:
-                edge_allow = set()
+            within = bool(allow) and git(
+                repo, "merge-base", "--is-ancestor", commit, allow_through,
+                required=False) is not None
+            in_window += within
+            edge_allow = allow if within else set()
             status, edge_used = compare_files(
                 paths[0][0], paths[1][0], paths[0][1], paths[1][1],
                 parent, edge_allow
@@ -195,9 +213,11 @@ def check_git_range(repo: Path, previous_ref: str, current_ref: str,
             failed |= status != 0
     if checked == 0:
         print("::warning::no commits with the domain-ratchets job in range")
-    for key, before, after in sorted(allow - used):
-        print("::warning::DOMAIN_RATCHET_ALLOW_WEAKEN transition was not "
-              f"exercised: {key}={before}->{after}")
+    # Only a range reaching into the allowance window can under-use one.
+    if in_window:
+        for key, before, after in sorted(allow - used):
+            print("::warning::allowed transition was not exercised: "
+                  f"{key}={before}->{after}")
     print(f"domain ratchet range: {checked} commit edge(s) checked")
     return 1 if failed else 0
 
@@ -220,7 +240,11 @@ def main(argv: list[str] | None = None) -> int:
         if any((args.previous_harness, args.current_harness,
                 args.previous_death, args.current_death, args.previous_ref)):
             parser.error("--git-range cannot be combined with file arguments")
-        return check_git_range(args.repo, *args.git_range, allow, args.allow_through)
+        return check_git_range(
+            args.repo, *args.git_range,
+            allow | weakening_allowances(HISTORICAL_ALLOWANCES),
+            args.allow_through or ALLOWANCE_EXPIRY,
+        )
     paths = (
         args.previous_harness, args.current_harness,
         args.previous_death, args.current_death
