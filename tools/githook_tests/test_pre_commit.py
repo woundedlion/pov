@@ -120,6 +120,24 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("clang-format failed", done.stdout + done.stderr)
 
+    def test_a_missing_formatter_fails_the_commit(self):
+        source = self.repo / "sample.cpp"
+        source.write_bytes(b"int good;\n")
+        self.git("add", "sample.cpp")
+        done = self.run_hook(CLANG_FORMAT="hs-absent-clang-format")
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("hs-absent-clang-format not found",
+                      done.stdout + done.stderr)
+
+    def test_a_missing_javascript_linter_fails_the_commit(self):
+        # The fixture repository has no node_modules, so the eslint probe is the
+        # branch under test rather than a linter verdict.
+        (self.repo / "sample.mjs").write_bytes(b"export const value = 1;\n")
+        self.git("add", "sample.mjs")
+        done = self.run_hook()
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("node_modules is missing", done.stdout + done.stderr)
+
     def test_an_unreadable_staged_blob_fails_the_lint(self):
         bin_dir = self.repo / "fakebin"
         bin_dir.mkdir()
