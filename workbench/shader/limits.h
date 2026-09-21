@@ -127,6 +127,14 @@ inline constexpr float pattern_freq_min(Function function) {
   return function == Function::GRID ? GRID_PATTERN_FREQ_MIN : PATTERN_FREQ_MIN;
 }
 
+/** @brief Whether a Function samples through `pattern_freq`. The others
+ *         register no Pattern Freq control, so a value left over from a
+ *         Function that did must not gate their admission. */
+inline constexpr bool consumes_pattern_freq(Function function) {
+  return function == Function::TWIN_WAVE || function == Function::RINGS ||
+         function == Function::SPIRAL || function == Function::GRID;
+}
+
 template <typename Enum>
 HS_COLD_MEMBER inline constexpr bool enum_at_most(Enum value, Enum last) {
   return static_cast<uint8_t>(value) <= static_cast<uint8_t>(last);
@@ -181,8 +189,9 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
   const Params &p = config.params;
   return warp_stage_params_in_ranges(p.warp.outer) &&
          warp_stage_params_in_ranges(p.warp.inner) &&
-         p.source.pattern_freq >= pattern_freq_min(config.slots.function) &&
-         p.source.pattern_freq <= pattern_freq_max(config.slots.function) &&
+         (!consumes_pattern_freq(config.slots.function) ||
+          (p.source.pattern_freq >= pattern_freq_min(config.slots.function) &&
+           p.source.pattern_freq <= pattern_freq_max(config.slots.function))) &&
          p.source.speed >= SPEED_MIN && p.source.speed <= SPEED_MAX &&
          p.source.complexity >= COMPLEXITY_MIN &&
          p.source.complexity <= COMPLEXITY_MAX &&
