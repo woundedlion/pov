@@ -1280,17 +1280,18 @@ private:
 
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
-   * @details The hue-noise LUT is rebuilt only when its scale or phase moved,
-   * and the hue-rotation LUT only when the palette cycler rebaked its display
-   * LUT. hue_rotation_active() gates the rotation build and is also the flag
-   * the returned frame hands the color stage.
+   * @details Both LUT builds are gated on hue_rotation_active(), the flag the
+   * returned frame hands the color stage; under it the hue-noise LUT is rebuilt
+   * only when its scale or phase moved, and the hue-rotation LUT only when the
+   * palette cycler rebaked its display LUT.
    * @return The frame state for this draw, valid until the next draw_frame().
    */
   HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
     if constexpr (HueV == HueMode::NOISE) {
-      if (state->hue_noise_lut_scale != params.color.hue_noise_scale ||
-          state->hue_noise_lut_phase != hue_noise_phase) {
+      if (hue_rotation_active<HueV>(params.color) &&
+          (state->hue_noise_lut_scale != params.color.hue_noise_scale ||
+           state->hue_noise_lut_phase != hue_noise_phase)) {
         Pullback::Color::prepare_hue_noise_lut(
             std::span<int8_t, Pullback::Color::HueNoiseLutView::SIZE>(
                 state->hue_noise_lut),
