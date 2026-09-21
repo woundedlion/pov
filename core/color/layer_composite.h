@@ -30,8 +30,7 @@ struct LayerComposite {
    * @brief Adds one layer behind everything added so far.
    * @param color Layer color.
    * @param coverage Fraction of the remaining transmittance the layer covers,
-   *        in [0, 1]; above 1 drives `remaining` negative and every later add()
-   *        subtracts.
+   *        in [0, 1].
    */
   void add(const Pixel &color, float coverage) {
     assert(coverage >= 0.0f && coverage <= 1.0f);
