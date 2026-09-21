@@ -114,7 +114,7 @@ g5_ship)
   run KaleidoscopeHexSoft profile 70 32
   run AlienOcean profile 70 32
   run AlienCore profile 70 32
-  run KaleidoscopeMandala profile 70 32
+  run KaleidoscopeMandala profile 150 32
   run GridSpace profile 70 32
   run HyperLattice profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run LatticeMelt profile 110 16 "-D HS_PROFILE_EPOCH_REVS=1200"
@@ -127,7 +127,7 @@ g6_ship)
   run KaleidoscopeHexOil profile 140 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run KaleidoscopeStainedGlass profile 70 32
   run KaleidoscopeSmooth profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
-  run KaleidoscopeHexBright profile 70 32
+  run KaleidoscopeHexBright profile 150 32
   run KaleidoscopeFlowers profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run CosmicEyeball profile 70 32
   ;;
