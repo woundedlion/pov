@@ -310,15 +310,18 @@ inline void smoke_one(const char *name) {
  */
 inline void lint_dead_sliders(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
-    if (def.is_bool() || def.animated || def.readonly)
+    if (def.animated || def.readonly)
       continue;
     const float range = def.max - def.min;
     if (range <= 0.0f)
       continue;
     const float cur = def.get();
-    // An in-range target well clear of the current value, so a revert is visible.
-    float target = (cur - def.min) > (def.max - cur) ? def.min + 0.25f * range
-                                                     : def.min + 0.75f * range;
+    // An in-range target well clear of the current value, so a revert is
+    // visible; a bool has only its flipped value.
+    float target = def.is_bool() ? (cur > 0.5f ? 0.0f : 1.0f)
+                   : (cur - def.min) > (def.max - cur)
+                       ? def.min + 0.25f * range
+                       : def.min + 0.75f * range;
     // An integer target holds only whole numbers, so probe with a value it can
     // actually hold or every such param reads dead.
     if (def.is_integer()) {
@@ -333,8 +336,9 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
       effect.advance_display();
     }
     // Require the value near `target` AND strictly closer to it than to the
-    // pre-write `cur`, catching a slow per-frame revert that 3 frames hide.
-    const float eps = fmaxf(1e-3f, 1e-3f * range);
+    // pre-write `cur`, catching a slow per-frame revert that 3 frames hide. A
+    // bool must read back exactly.
+    const float eps = def.is_bool() ? 0.0f : fmaxf(1e-3f, 1e-3f * range);
     const float now = def.get();
     const bool persisted =
         fabsf(now - target) <= eps && fabsf(now - target) < fabsf(now - cur);
