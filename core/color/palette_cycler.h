@@ -278,7 +278,9 @@ public:
 
   /** @brief Sets generated endpoint chroma and rebakes the current display.
    *  @param chroma Gamut-relative chroma in [0, 1].
-   *  @details Valid after init_generated(). */
+   *  @details Valid after init_generated(). Skips the rebake while a display
+   *  rebuild is already pending, which the next step() serves at the new
+   *  chroma. */
   HS_COLD_MEMBER void set_generated_chroma(float chroma) {
     HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
              "PaletteCycler chroma needs a generated cycle");
