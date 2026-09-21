@@ -136,6 +136,8 @@ def sync_trees(text: str, entries: set[PurePosixPath],
         replacement = render_rows(refresh_rows(rows, target, allowed, unmapped))
         if fence.body:
             lines[fence.body[0][0] - 1:fence.body[-1][0]] = [line + "\n" for line in replacement]
+        else:
+            lines[fence.start:fence.start] = [line + "\n" for line in replacement]
     return "".join(lines)
 
 
