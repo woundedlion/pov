@@ -261,6 +261,10 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE((Filter::Pixel::ChromaticShift<W>::emits_pixel_centers));
   HS_EXPECT_TRUE((Filter::Screen::AntiAlias<W, H>::requires_subpixel_input));
   HS_EXPECT_FALSE((Filter::Screen::Blur<W, H>::requires_subpixel_input));
+  // Trails re-emits whatever coordinates it was handed: rounded taps still
+  // seed and fade, so a rounding stage may precede it.
+  HS_EXPECT_FALSE((Filter::Screen::Trails<>::requires_subpixel_input));
+  HS_EXPECT_FALSE((Filter::Screen::Trails<>::emits_pixel_centers));
 
   HS_EXPECT_TRUE((Filter::World::Trails<16>::emits_nonunit_world));
   HS_EXPECT_FALSE((Filter::World::Orient::emits_nonunit_world));
