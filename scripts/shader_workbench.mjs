@@ -15,6 +15,8 @@ export const DEFAULT_LIMITS = Object.freeze({
   parameters: 512,
 });
 
+// Tick counts land in the engine's uint16_t frame counters.
+const MAX_TICK_COUNT = 65535;
 const ID_PATTERN = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
 const LABEL_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const CLASSIFICATIONS = new Set([
@@ -666,8 +668,9 @@ const validatePresetBank = (bank, parameters, pathPolicies, report, guard) => {
         fail('semantic', 'UNKNOWN_EDGE_PATH', `${path}.path_policy`, 'The transition edge names an unknown path policy.');
       if (!EASING_KINDS.has(edge.easing))
         fail('semantic', 'UNKNOWN_EASING', `${path}.easing`, 'The transition easing is unknown.');
-      if (!Number.isInteger(edge.duration) || edge.duration <= 0)
-        fail('semantic', 'INVALID_DURATION', `${path}.duration`, 'Transition duration must be a positive tick count.');
+      if (!Number.isInteger(edge.duration) || edge.duration <= 0 || edge.duration > MAX_TICK_COUNT)
+        fail('semantic', 'INVALID_DURATION', `${path}.duration`,
+          `Transition duration must be a tick count in [1, ${MAX_TICK_COUNT}].`);
     });
   });
 
@@ -687,8 +690,9 @@ const validatePresetBank = (bank, parameters, pathPolicies, report, guard) => {
           Object.keys(dwell).some((presetId) => !presetIds.has(presetId)))
         fail('semantic', 'INVALID_DWELL', '$.preset_bank.choreography.dwell', 'Dwell must contain every preset exactly once.');
       for (const [presetId, duration] of Object.entries(dwell))
-        if (!Number.isInteger(duration) || duration <= 0)
-          fail('semantic', 'INVALID_DWELL', `$.preset_bank.choreography.dwell.${presetId}`, 'Dwell must be a positive tick count.');
+        if (!Number.isInteger(duration) || duration <= 0 || duration > MAX_TICK_COUNT)
+          fail('semantic', 'INVALID_DWELL', `$.preset_bank.choreography.dwell.${presetId}`,
+            `Dwell must be a tick count in [1, ${MAX_TICK_COUNT}].`);
     }
   });
 };
