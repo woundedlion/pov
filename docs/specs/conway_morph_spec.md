@@ -356,8 +356,9 @@ so they'd test within tolerance like bridges, not exactly like §7.1).
 
 ### 4.1 The morph leg (`Animation::OpLeg`, `core/animation/opleg.h`)
 
-Constructor `(seed PolyMesh, EdgeSpec, Arena&, draw callbacks, frames,
-easing)`:
+Constructor `(seed PolyMesh, EdgeSweepSpec, Arena&, MorphDrawFn,
+PaletteHandoff, BookendClasses, BlendWeightFn, EasingFn)`; the spec carries
+the graph edge, direction, and sweep and settle frame counts:
 - clones the seed into the arena;
 - runs the op once at the **clamped** arrival parameter and classifies
   that PolyMesh (`classify_faces_by_topology`) into the arena. Both
