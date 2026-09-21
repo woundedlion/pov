@@ -551,7 +551,7 @@ struct CountingBinding {
   using Instrumentation = CountingInstrumentation;
 };
 
-struct CountingOrientationState {
+struct CountingOrientationState : Pullback::ApproximationDefaults {
   using Binding = CountingBinding;
   using FrameState = TestFrame;
 
@@ -620,7 +620,7 @@ struct CountingColorPolicy : Pullback::ApproximationDefaults {
   }
 };
 
-struct PreparedOrientationPolicy {
+struct PreparedOrientationPolicy : Pullback::ApproximationDefaults {
   using Binding = CountingBinding;
   using FrameState = TestFrame;
   using Prepared = int;
