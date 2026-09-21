@@ -182,9 +182,6 @@ public:
   }
   /**
    * @brief Update only the horizontal clip band, leaving the y bounds intact.
-   *
-   * For callers that retune just the x-band (canvas unit tests); no device
-   * driver calls this.
    * @param x0 Inclusive start column of the horizontal clip band.
    * @param x1 Exclusive end column of the horizontal clip band.
    */
