@@ -395,7 +395,7 @@ struct SerialMock {
    *          simply match it — avoid `%f`/`%g` in any message destined for the
    *          device path.
    */
-  void printf(const char *fmt, ...) {
+  __attribute__((format(printf, 2, 3))) void printf(const char *fmt, ...) {
     char buf[256];
     va_list args;
     va_start(args, fmt);
