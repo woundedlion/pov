@@ -3968,7 +3968,13 @@ kaleidoscope_hex_oil_topology() {
   return config;
 }
 
-/** @brief Every shared-runtime export matches Shader preview within rounding. */
+/**
+ * @brief Every shared-runtime export except AshCloud matches Shader preview
+ *        within rounding.
+ * @details AshCloud pairs projection-weight coverage with a value cutout, a
+ *          combination the workbench CoveragePolicy cannot spell; its cutout is
+ *          pinned by test_ash_cloud_value_cutout_gates_the_frame instead.
+ */
 inline void test_fixed_shader_export_equivalence() {
   using WB = ShaderWorkbenchWhiteBox;
 
