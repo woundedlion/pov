@@ -243,6 +243,21 @@ class GitRange(unittest.TestCase):
         self.assertEqual(status, 1, output.getvalue())
         self.assertIn("guard_gap.sdf.h weakened (2 -> 3)", output.getvalue())
 
+    def test_annotates_a_renamed_gated_file(self):
+        workflow = "jobs:\n  domain-ratchets:\n"
+        base = self.commit(2, workflow, "base")
+        self.git("mv", "tests/test_death.h", "tests/renamed_death.h")
+        self.git("commit", "-m", "rename the census")
+        head = self.git("rev-parse", "HEAD")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = check_domain_ratchets.check_git_range(
+                self.repo, base, head, set())
+        self.assertEqual(status, 1, output.getvalue())
+        self.assertIn("tests/test_death.h does not exist at",
+                      output.getvalue())
+        self.assertIn("renamed or deleted", output.getvalue())
+
     def test_expired_allowance_is_not_reported_as_unexercised(self):
         workflow = "jobs:\n  domain-ratchets:\n"
         base = self.commit(2, workflow, "base")
