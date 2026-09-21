@@ -178,11 +178,11 @@ sha with any figure taken from this document.
   simulator-only by construction: `core/platform/build_features.h` leaves
   `HS_ENABLE_SHADER_WORKBENCH` at 0 outside Emscripten and test-oracle builds and
   `#error`s any Arduino build that forces it on, so no device image can carry it.
-  Its sixteen fixed-pipeline products (`HS_SHADER_PRODUCT_GROUP`) are all in
+  Its 18 fixed-pipeline products (`HS_SHADER_PRODUCT_GROUP`) are all in
   `HS_PHANTASM_EFFECT_LIST` already.
-- The 7,648 B is the whole budget for further ITCM promotions on the 36-effect
-  phantasm roster; there is still no next FlexRAM bank to reach for, so an
-  overrun is paid for by a trim.
+- The 7,648 B is the whole budget for further ITCM promotions on the
+  38-effect phantasm roster; there is still no next FlexRAM bank to reach
+  for, so an overrun is paid for by a trim.
 
 ## Instance-pipeline conversion (2026-08-17, `f33fe306`)
 

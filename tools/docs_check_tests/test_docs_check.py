@@ -710,6 +710,9 @@ class TestDocumentationChecker(unittest.TestCase):
     _PLAYLIST_HEADER = ("#define HS_EFFECT_LIST(X) \\\n"
                         "  X(Comets)               \\\n"
                         "  X(Voronoi)\n"
+                        "#define HS_SHADER_PRODUCT_GROUP(X) \\\n"
+                        "  X(Comets, 30)                   \\\n"
+                        "  X(Voronoi, 30)\n"
                         "#define HS_PHANTASM_EFFECT_LIST(X) \\\n"
                         "  X(Comets, 120)                  \\\n"
                         "  X(Voronoi,                      \\\n"
@@ -721,13 +724,23 @@ class TestDocumentationChecker(unittest.TestCase):
                 f"firmware-capable effects. The playlist contains {playlist} "
                 f"effects across the {sync}-entry roster.\n")
 
-    _SPEC = PurePosixPath("docs/specs/phantasm_frame_sync_spec.md")
+    @staticmethod
+    def _ledger_prose(products, phantasm):
+        return (f"Its {products} fixed-pipeline products are all in the "
+                f"playlist. The budget covers the {phantasm}-effect "
+                f"phantasm roster.")
 
-    def _roster_issues(self, prose):
+    _SPEC = PurePosixPath("docs/specs/phantasm_frame_sync_spec.md")
+    _LEDGER = PurePosixPath("docs/ledgers/itcm_ledger.md")
+
+    def _roster_issues(self, prose, ledger=None):
         header = self._PLAYLIST_HEADER
         return dc.roster_claim_issues(
-            {PurePosixPath("README.md"): prose, self._SPEC: prose},
-            dc.effect_roster(header), dc.phantasm_roster(header))
+            {PurePosixPath("README.md"): prose, self._SPEC: prose,
+             self._LEDGER: self._ledger_prose(2, 2) if ledger is None
+             else ledger},
+            dc.effect_roster(header), dc.phantasm_roster(header),
+            dc.shader_product_group(header))
 
     def test_phantasm_roster_reads_literal_and_derived_durations(self):
         self.assertEqual(dc.phantasm_roster(self._PLAYLIST_HEADER),
@@ -751,16 +764,35 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[3].path, self._SPEC.as_posix())
 
     def test_deleted_roster_prose_is_reported(self):
-        messages = [issue.message for issue in self._roster_issues("none")]
-        self.assertEqual(len(messages), 4)
+        messages = [issue.message
+                    for issue in self._roster_issues("none", "none")]
+        self.assertEqual(len(messages), 6)
         self.assertTrue(all("goes unchecked" in message
                             for message in messages))
 
+    def test_ledger_cardinalities_are_checked_against_the_macros(self):
+        issues = self._roster_issues(self._roster_prose(2, 2, 2),
+                                     self._ledger_prose(5, 7))
+        messages = [issue.message for issue in issues]
+        self.assertEqual(len(messages), 2)
+        self.assertTrue(all(issue.path == self._LEDGER.as_posix()
+                            for issue in issues))
+        self.assertIn("stated as 5, HS_SHADER_PRODUCT_GROUP names 2",
+                      messages[0])
+        self.assertIn("stated as 7, HS_PHANTASM_EFFECT_LIST names 2",
+                      messages[1])
+
     def test_unreadable_playlist_fails_every_claim(self):
         issues = dc.roster_claim_issues(
-            {PurePosixPath("README.md"): ""}, {"Comets"}, set())
+            {PurePosixPath("README.md"): ""}, {"Comets"}, set(), {"Comets"})
         self.assertEqual(len(issues), 1)
         self.assertIn("no HS_PHANTASM_EFFECT_LIST", issues[0].message)
+
+    def test_unreadable_product_group_fails_every_claim(self):
+        issues = dc.roster_claim_issues(
+            {PurePosixPath("README.md"): ""}, {"Comets"}, {"Comets"}, set())
+        self.assertEqual(len(issues), 1)
+        self.assertIn("no HS_SHADER_PRODUCT_GROUP", issues[0].message)
 
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
