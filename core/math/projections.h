@@ -80,8 +80,9 @@ constexpr uint8_t projection_traits(Traits... traits) {
  * @brief Boundary kind a kernel reports alongside `fade_edge_distance`.
  * @details Classifies the boundary that distance is measured toward, not
  * whether the sample has reached it. A kernel whose image carries one boundary
- * kind everywhere reports it on every sample (Bonne CUT, Peirce SINGULAR);
- * only Airocean varies the mask per point, by whether the nearest face edge is
+ * kind everywhere reports it on every sample (Bonne CUT); Peirce and Airocean
+ * vary the mask per point: Peirce by whether a strip layout's equator cut is
+ * nearer than the singularities, Airocean by whether the nearest face edge is
  * cut or glued.
  */
 enum class ProjectionBoundary : uint8_t {
@@ -289,6 +290,9 @@ inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
  * @return Plane coordinates in units of the quarter period
  *         K = 1.8540746773013719; the southern fold reflects about 2K and the
  *         strip layouts repeat every 4K.
+ * @details A strip layout glues only the pair of equator quarters its
+ * reflection holds fixed; the other pair tears, so layouts 2 and 3 carry CUT
+ * alongside GLUED and measure the torn side's distance to the equator.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
 peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
@@ -368,6 +372,7 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
   const float rotated_x = cp * cl;
   const float rotated_z = cp * sl;
   float edge = NO_EDGE_DISTANCE;
+  uint8_t boundary = projection_boundary(ProjectionBoundary::SINGULAR);
   if (calculate_edge_distance) {
     // The four singularities are the poles of the two diagonal axes cos_a and
     // cos_b measure from, so the nearest sits at acos of the larger magnitude.
@@ -375,6 +380,19 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
     if (v.y < 0.0f && layout <= 1) {
       const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
       edge = std::min(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
+    }
+    // Layout 2 reflects in x, so the |sin| >= |cos| quarters of the equator
+    // stay glued and the rest tears; layout 3 reflects in y and tears the
+    // complementary pair.
+    const bool torn = layout == 2   ? fabsf(cl) > fabsf(sl)
+                      : layout == 3 ? fabsf(sl) > fabsf(cl)
+                                    : false;
+    if (torn) {
+      const float equator = asinf(fabsf(y));
+      if (equator < edge) {
+        edge = equator;
+        boundary = projection_boundary(ProjectionBoundary::CUT);
+      }
     }
   }
   uint8_t edge_class = fabsf(rotated_x) >= fabsf(rotated_z)
@@ -384,15 +402,19 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
     edge_class = 4;
   else if (layout == 3)
     edge_class = 5;
+  uint8_t traits =
+      projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
+                        ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR);
+  if (layout >= 2)
+    traits =
+        static_cast<uint8_t>(traits | projection_traits(ProjectionTrait::CUT));
   return {.coords = Complex(x, projected_y),
           .region_id = region,
           .component_id = 0,
-          .boundary_flags = projection_boundary(ProjectionBoundary::SINGULAR),
+          .boundary_flags = boundary,
           .fade_edge_distance = edge,
           .flags = flags,
-          .traits = projection_traits(
-              ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
-              ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR),
+          .traits = traits,
           .edge_class = edge_class};
 }
 
