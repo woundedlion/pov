@@ -616,6 +616,55 @@ class ValidateRequiresData(unittest.TestCase):
         self.assertIn("frames 11-20", out)
 
 
+class ValidateCaptureIdentity(unittest.TestCase):
+    """Every window of one capture names one effect at one resolution.
+
+    profile_one.sh greps the log for a foreign window name because a peer
+    flashing mid-capture splices its board's serial into ours; `validate` is
+    the mandatory pre-trust step and must catch the same splice.
+    """
+
+    WINDOW = "\n".join([
+        "=== profile {name} [{w}x{h}] frames {start}-{end} window=62500 us ===",
+        "frame wall us: min=100 avg=100 max=100 sum=1000 (10 frames)",
+        "frame                 1000 us (100%)   10 calls   600000 cyc",
+    ])
+
+    def _validate(self, headers):
+        import contextlib
+        import io
+        import tempfile
+        text = "\n".join(
+            self.WINDOW.format(name=name, w=w, h=h,
+                               start=1 + 10 * i, end=10 + 10 * i)
+            for i, (name, w, h) in enumerate(headers)) + "\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(text, encoding="utf-8")
+            windows, effect = pp.parse(path)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            ok = pp.cmd_validate(windows, effect, "frame")
+        return ok, out.getvalue()
+
+    def test_one_effect_at_one_resolution_passes(self):
+        ok, report = self._validate([("Fx", 288, 144)] * 3)
+        self.assertTrue(ok, report)
+
+    def test_a_foreign_effect_name_fails(self):
+        ok, report = self._validate(
+            [("Fx", 288, 144), ("Other", 288, 144), ("Fx", 288, 144)])
+        self.assertFalse(ok)
+        self.assertIn("[FAIL] every window names one effect", report)
+        self.assertIn("Other 288x144", report)
+
+    def test_a_changed_resolution_fails(self):
+        ok, report = self._validate(
+            [("Fx", 288, 144), ("Fx", 96, 20), ("Fx", 288, 144)])
+        self.assertFalse(ok)
+        self.assertIn("[FAIL] every window names one effect", report)
+        self.assertIn("Fx 96x20", report)
+
+
 class PullbackTelemetryValidation(unittest.TestCase):
     MANIFEST_PATH = (Path(__file__).resolve().parents[2] /
                      "tests/data/pullback/programs.json")
