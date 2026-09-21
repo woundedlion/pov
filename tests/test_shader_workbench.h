@@ -3291,8 +3291,9 @@ inline void test_shader_workbench_profile_presets() {
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
     const auto projected = WB::surface_project(
         Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
-    HS_EXPECT_GE(projected.provenance.fade_edge_distance, 0.0f);
-    HS_EXPECT_LE(projected.provenance.fade_edge_distance, PI_F);
+    const float fade = projected.provenance.fade_edge_distance;
+    HS_EXPECT_GE(fade, 0.0f);
+    HS_EXPECT_TRUE(fade <= PI_F || fade == projections::NO_EDGE_DISTANCE);
     HS_EXPECT_GE(projected.provenance.value_weight, 0.0f);
     HS_EXPECT_LE(projected.provenance.value_weight, 1.0f);
     HS_EXPECT_GE(projected.provenance.domain_coverage, 0.0f);
