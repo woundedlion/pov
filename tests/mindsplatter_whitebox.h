@@ -271,8 +271,7 @@ struct MindSplatterWhiteBox {
   static void step_state_without_render(MindSplatter<W, H> &ms) {
     Canvas canvas(ms);
     ms.timeline.step(canvas);
-    if (!ms.particle_geometry_ready ||
-        ms.params.base_mesh != ms.active_base_mesh)
+    if (ms.params.base_mesh != ms.active_base_mesh)
       ms.configure_particle_geometry(ms.params.base_mesh);
     ms.particle_system.friction = ms.params.friction;
     for (size_t i = 0; i < ms.particle_system.attractors.size(); ++i)

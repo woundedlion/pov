@@ -182,7 +182,7 @@ public:
     }
     step_choreography();
 
-    if (!particle_geometry_ready || params.base_mesh != active_base_mesh)
+    if (params.base_mesh != active_base_mesh)
       configure_particle_geometry(params.base_mesh);
 
     particle_system.friction = params.friction;
@@ -437,7 +437,6 @@ private:
   std::array<Basis, MAX_EMITTERS> emitter_basis;
   std::array<Vector, MAX_EMITTERS> emitter_positions;
   BaseMesh active_base_mesh = BaseMesh::CUBE;
-  bool particle_geometry_ready = false;
 
 #if HS_ENABLE_TEST_ORACLES
   bool reference_orientation = false;
@@ -526,7 +525,6 @@ private:
     }
 
     active_base_mesh = base_mesh;
-    particle_geometry_ready = true;
   }
 
   /**
