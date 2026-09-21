@@ -23,7 +23,7 @@
  *        stages.
  */
 
-#include "core/color/effect_palette_recipes.h"
+#include "core/color/palette_cycler.h"
 #include "core/engine/engine.h"
 #include "core/math/interpolate.h"
 #include "core/math/lenses.h"
@@ -3093,12 +3093,10 @@ private:
   static void next_generated_palette(uint32_t &hue, uint32_t sequence,
                                      PaletteHarmony harmony, float chroma,
                                      GenerativePalette &out) {
-    EffectPaletteRecipes::GeneratedPaletteBank::next_palette(
-        hue, sequence, harmony, chroma, out);
+    GeneratedPaletteBank::next_palette(hue, sequence, harmony, chroma, out);
   }
 
-  static constexpr uint32_t HUE_STEP =
-      EffectPaletteRecipes::GeneratedPaletteBank::HUE_STEP;
+  static constexpr uint32_t HUE_STEP = GeneratedPaletteBank::HUE_STEP;
   static constexpr size_t PARAM_CAPACITY = 80;
 
   static constexpr auto &GENERATED_SURFACE_NOISE_SLOTS =
@@ -3120,7 +3118,7 @@ private:
   Quaternion projection_walk_prev;
   Quaternion outer_walk_prev;
 
-  EffectPaletteRecipes::GeneratedPaletteBank generated_palettes;
+  GeneratedPaletteBank generated_palettes;
 
   Slots active_slots = PRESETS[0].config.slots;
   InversePipelineId active_pipeline = PRESETS[0].pipeline;
@@ -3162,7 +3160,7 @@ private:
 
   static constexpr size_t FOOTPRINT_BYTES =
       gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
-      EffectPaletteRecipes::GeneratedPaletteBank::required_arena_bytes() +
+      GeneratedPaletteBank::required_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(StateBundle) +
       alignof(StateBundle);
   static_assert(
