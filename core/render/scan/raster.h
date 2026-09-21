@@ -427,10 +427,10 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
   const size_t count = norm.size();
   for (size_t read = 0; read < count; ++read) {
     const auto iv = norm[read];
-    if (iv.second <= current_end)
+    if (iv.end <= current_end)
       continue;
-    float start = std::max(iv.first, current_end);
-    float end = iv.second;
+    float start = std::max(iv.start, current_end);
+    float end = iv.end;
     current_end = end;
 
     int x1 = static_cast<int>(floorf(start));
@@ -539,7 +539,7 @@ emit_row_runs(bool handled, const IntervalBufT &intervals, NormBufT &norm,
   // assembled from multiple abutting spans is not caught here — it falls to the
   // slow path, which still paints every covered column.
   for (const auto &iv : intervals) {
-    if (iv.second - iv.first >= static_cast<float>(W)) {
+    if (iv.end - iv.start >= static_cast<float>(W)) {
       clip_run(0, W, xc, emit);
       return;
     }
@@ -547,8 +547,7 @@ emit_row_runs(bool handled, const IntervalBufT &intervals, NormBufT &norm,
 
   coalesce_spans<W>(intervals, norm);
   for (const auto &run : norm)
-    clip_run(static_cast<int>(run.first), static_cast<int>(run.second), xc,
-             emit);
+    clip_run(static_cast<int>(run.start), static_cast<int>(run.end), xc, emit);
 }
 
 /** Capacity of scan_region's per-row emission buffer, and so the compile-time

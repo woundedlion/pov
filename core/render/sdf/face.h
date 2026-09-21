@@ -584,8 +584,8 @@ struct Face {
     for (const auto &iv : intervals) {
       // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
       // matches the emitted columns exactly.
-      int a = static_cast<int>(floorf((iv.first - pw) * Wd / TWO_PI_F));
-      int b = static_cast<int>(ceilf((iv.second + pw) * Wd / TWO_PI_F));
+      int a = static_cast<int>(floorf((iv.start - pw) * Wd / TWO_PI_F));
+      int b = static_cast<int>(ceilf((iv.end + pw) * Wd / TWO_PI_F));
       int len = b - a;
       if (len <= 0)
         continue;
@@ -1297,10 +1297,10 @@ struct Face {
       narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_HI));
     const float column_scale = W / TWO_PI_F;
     for (const auto &iv : intervals) {
-      if (floorf((iv.first - narrow_pad) * column_scale) !=
-              floorf((iv.first - wide_pad) * column_scale) ||
-          ceilf((iv.second + narrow_pad) * column_scale) !=
-              ceilf((iv.second + wide_pad) * column_scale))
+      if (floorf((iv.start - narrow_pad) * column_scale) !=
+              floorf((iv.start - wide_pad) * column_scale) ||
+          ceilf((iv.end + narrow_pad) * column_scale) !=
+              ceilf((iv.end + wide_pad) * column_scale))
         return true;
     }
     return false;
@@ -1317,10 +1317,10 @@ struct Face {
       return first_pad == second_pad;
     const float column_scale = W / TWO_PI_F;
     for (const auto &iv : intervals) {
-      if (floorf((iv.first - first_pad) * column_scale) !=
-              floorf((iv.first - second_pad) * column_scale) ||
-          ceilf((iv.second + first_pad) * column_scale) !=
-              ceilf((iv.second + second_pad) * column_scale))
+      if (floorf((iv.start - first_pad) * column_scale) !=
+              floorf((iv.start - second_pad) * column_scale) ||
+          ceilf((iv.end + first_pad) * column_scale) !=
+              ceilf((iv.end + second_pad) * column_scale))
         return false;
     }
     return true;
@@ -1352,8 +1352,8 @@ struct Face {
     if (pad == PI_F)
       return false;
     for (const auto &iv : intervals) {
-      float f_x1 = (iv.first - pad) * W / TWO_PI_F;
-      float f_x2 = (iv.second + pad) * W / TWO_PI_F;
+      float f_x1 = (iv.start - pad) * W / TWO_PI_F;
+      float f_x2 = (iv.end + pad) * W / TWO_PI_F;
       out(floorf(f_x1), ceilf(f_x2));
     }
     return true;
