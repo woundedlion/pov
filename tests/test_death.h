@@ -4056,8 +4056,8 @@ inline void case_pullback_operator_invalid_hue_mode() {
   params.hue_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::ColorClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
-                                                              state)
+  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
+                                                                state)
           .palette != nullptr)
     std::printf("x");
 }
@@ -4069,8 +4069,8 @@ inline void case_pullback_operator_invalid_palette_mode() {
   params.palette_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::ColorClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
-                                                              state)
+  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
+                                                                state)
           .palette != nullptr)
     std::printf("x");
 }
@@ -4082,8 +4082,8 @@ inline void case_pullback_operator_invalid_palette_mapping() {
   params.mapping_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::ColorClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
-                                                              state)
+  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
+                                                                state)
           .palette != nullptr)
     std::printf("x");
 }
@@ -4095,8 +4095,8 @@ inline void case_pullback_operator_invalid_brightness_envelope() {
   params.envelope_mode = opaque<uint8_t>(0xff);
   Pullback::Interp::Op::ColorClockState state;
   Pullback::Interp::FrameContext context{};
-  if (Pullback::Interp::Op::ColorizeGeneratedPalette::prepare(context, params,
-                                                              state)
+  if (Pullback::Interp::Op::ColorizeGeneratedPaletteV3::prepare(context, params,
+                                                                state)
           .palette != nullptr)
     std::printf("x");
 }
