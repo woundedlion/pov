@@ -59,6 +59,7 @@ inline void test_pole_wrap_north_reflects_half_turn() {
  */
 inline void test_pole_wrap_south_reflects_about_virtual_pole() {
   constexpr int W = 64, H = 64;
+  constexpr int SOUTH = H + hs::H_OFFSET - 1;
   int col = 9, row = H;
   const bool live = pole_wrap<W, H>(col, row);
   if constexpr (hs::H_OFFSET == 0) {
@@ -70,6 +71,37 @@ inline void test_pole_wrap_south_reflects_about_virtual_pole() {
     // Row H is still inside the virtual gap; nothing is ever rendered there.
     HS_EXPECT_TRUE(!live);
   }
+
+  col = 9;
+  row = 2 * SOUTH - (H - 2);
+  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_EQ(row, H - 2);
+  HS_EXPECT_EQ(col, 9 + W / 2);
+
+  // The first row past the pole with data behind it mirrors onto the last
+  // rendered row that is not the pole itself; the last such row mirrors onto
+  // row 0.
+  constexpr int FIRST_LIVE = 2 * SOUTH - (H - 1) >= H ? 2 * SOUTH - (H - 1) : H;
+  col = 40;
+  row = FIRST_LIVE;
+  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_EQ(row, 2 * SOUTH - FIRST_LIVE);
+  HS_EXPECT_EQ(col, 40 - W / 2);
+  if constexpr (hs::H_OFFSET > 0) {
+    col = 40;
+    row = FIRST_LIVE - 1;
+    HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
+  }
+
+  col = 40;
+  row = 2 * SOUTH;
+  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_EQ(row, 0);
+  HS_EXPECT_EQ(col, 40 - W / 2);
+
+  col = 9;
+  row = 2 * SOUTH + 1;
+  HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
 
   col = 9;
   row = 4 * H;
