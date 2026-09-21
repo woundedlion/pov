@@ -142,8 +142,8 @@ inline void test_table_shape_matches_constants() {
   int valid = 0;
   for (int k = 0; k < RD_K; ++k) {
     int16_t ni = neighbors[RD_N - 1][k];
-    HS_EXPECT_TRUE(ni == -1 || (ni >= 0 && ni < RD_N));
-    if (ni < 0)
+    HS_EXPECT_TRUE(ni >= 0 && ni < RD_N);
+    if (ni < 0 || ni >= RD_N)
       continue;
     ++valid;
     // A zero-padded row points every slot at node 0 (the north pole), ~chord^2 4
@@ -160,18 +160,18 @@ inline void test_table_shape_matches_constants() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies every table entry is the -1 sentinel or a valid node index.
- * @details ReactionDiffusionBase::init_lattice HS_CHECKs every slot lands in
- *          [0, RD_N) at startup, since consumers subscript neighbors[]
- *          unguarded; the shipped table holds no sentinels, so a -1 traps
- *          there rather than here.
+ * @brief Verifies every table entry is a valid node index.
+ * @details The contract admits no vacant-slot sentinel: consumers subscript
+ *          neighbors[] unguarded, and ReactionGraph::validate_neighbors HS_CHECKs
+ *          every slot lands in [0, RD_N) before the first such read, so an
+ *          out-of-range entry traps there rather than here.
  */
 inline void test_indices_in_range() {
   int first_bad_slot = -1;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
       const int16_t ni = neighbors[i][k];
-      if (!(ni == -1 || (ni >= 0 && ni < RD_N)) && first_bad_slot < 0)
+      if (!(ni >= 0 && ni < RD_N) && first_bad_slot < 0)
         first_bad_slot = i * RD_K + k;
     }
   HS_EXPECT_EQ(first_bad_slot, -1);
