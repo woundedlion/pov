@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <type_traits>
 
 #include "core/color/color.h"
 #include "core/color/composition.h"
@@ -843,6 +844,8 @@ inline void test_palette_cycler_key_morph_cycle() {
       ref_buf[2 * BakedPalette::required_arena_bytes()];
   Arena ref_arena(ref_buf, sizeof(ref_buf));
 
+  static_assert(!std::is_copy_constructible_v<PaletteCycler>);
+  static_assert(!std::is_copy_constructible_v<GeneratedPaletteBank>);
   PaletteCycler cycler;
   cycler.init(cycler_arena, entries.data(), entries.size(), 3, 4);
 
