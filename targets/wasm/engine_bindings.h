@@ -110,7 +110,7 @@ static size_t init_stack_peak = 0;
 // fixed storage larger than ParamList's default inline array. Used
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 // Sized for ShaderChain's MAX_CHAIN_PARAMS (224) schema; the next-largest
-// effect (ShaderWorkbench, 80) sits far below the previous 128 bound.
+// effect (Shader, 80) sits far below it.
 inline constexpr size_t MAX_PARAMS = 256;
 
 #if HS_ENABLE_CHAIN_INTERPRETER
