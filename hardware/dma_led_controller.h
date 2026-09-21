@@ -59,7 +59,9 @@ concept LedTransport = std::constructible_from<T, uint32_t> &&
  *       write-back meaningful (in DTCM it is a no-op). GCC silently drops the
  *       DMAMEM section attribute on a vague-linkage template static member, so
  *       such an instance must be defined as an explicit specialization, whose
- *       ordinary strong linkage keeps the attribute.
+ *       ordinary strong linkage keeps the attribute. The placement is checked
+ *       per target by the `dma_tx_buffer` layout invariant in
+ *       tools/teensy_budgets.json.
  *
  * Typical ISR usage (per column):
  *   auto& f = controller.back_frame();  // back buffer (not being DMA'd)
