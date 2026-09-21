@@ -471,6 +471,10 @@ reports through its own named row instead of detonating a later fold.
   `Color4`;
 - `BINDINGS` — each descriptor's policies and providers accept the pipeline
   `Binding`;
+- `DESCRIPTOR_IDENTITY` — each leaf's `Bind<Binding>::Descriptor` is the leaf
+  itself: the leaf derives `Stage::Contract` directly rather than inheriting
+  another descriptor's binding. `BINDINGS` gates it, and it gates
+  `RUN_RETURNS`, `PREPARES`, and `APPROXIMATIONS`;
 - `EMPTY_DESCRIPTORS` — every leaf is empty;
 - `RUN_RETURNS` / `PREPARES` — the bound `run` and `prepare` return exactly
   `Output` and `Prepared`;
@@ -480,7 +484,8 @@ reports through its own named row instead of detonating a later fold.
 
 Named `static_assert` diagnostics cover each row: empty chain, missing/mistyped
 stage contract, a carrier outside the canonical set, a rank decrease, carrier
-mismatch, wrong entry or exit carrier, binding mismatch, non-empty descriptor,
+mismatch, wrong entry or exit carrier, binding mismatch, descriptor identity
+mismatch, non-empty descriptor,
 wrong `run`/`prepare` return type, malformed approximation metadata, and
 consumer validation failure.
 
