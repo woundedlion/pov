@@ -106,6 +106,8 @@ extern bool global_timeline_live;
 extern uint32_t global_timeline_t;       // current global frame count
 extern int global_timeline_num_events;   // current number of active events
 extern uint32_t global_timeline_dropped; // monotonic full-timeline drop count
+// Set once per saturation episode, cleared whenever the event table empties.
+extern bool global_timeline_drop_logged;
 
 /**
  * @brief Manages all active animations and their execution over time.
@@ -277,9 +279,11 @@ public:
       // no call site null-checks.
       HS_CHECK(pin == Pin::UNPINNED,
                "Timeline full, dropped a pinned animation");
-      // A saturated timeline is a steady state, so only the first drop logs;
-      // dropped_events() carries the rest.
-      if (++global_timeline_dropped == 1) {
+      // A saturated timeline is a steady state, so only the episode's first
+      // drop logs; dropped_events() carries the rest.
+      ++global_timeline_dropped;
+      if (!global_timeline_drop_logged) {
+        global_timeline_drop_logged = true;
         hs::log("Timeline full, failed to add animation!");
       }
       return nullptr;
@@ -320,9 +324,9 @@ public:
   /**
    * @brief Animations rejected so far because the timeline was full.
    * @details Monotonic and process-wide: never reset, not even by clear() or a
-   * new Timeline. Only the first drop logs; a drop permanently
-   * ends any chain that re-arms itself from a .then() callback, so a nonzero
-   * count is the only lasting evidence.
+   * new Timeline. Only the first drop of each saturation episode logs; a drop
+   * permanently ends any chain that re-arms itself from a .then() callback, so
+   * a nonzero count is the only lasting evidence.
    * @return Total number of dropped add()/add_get() calls.
    */
   static uint32_t dropped_events() { return global_timeline_dropped; }
@@ -566,6 +570,7 @@ private:
       global_timeline_events[i].destroy();
     }
     global_timeline_num_events = 0;
+    global_timeline_drop_logged = false;
   }
 
   /**
