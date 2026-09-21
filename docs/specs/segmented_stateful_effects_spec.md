@@ -104,8 +104,12 @@ for whether it *samples* pixels outside its band:
   (fail-safe: a new history filter is treated as cross-segment until proven
   bounded). Add it to `FilterTraits` — the base `Is2D`/`Is3D`/
   `Is2DWithHistory`/`Is3DWithHistory` all alias — as `= has_history`.
-- `true` on `Pixel::Feedback` — the load-bearing case, and the only one that
-  *must* be `true`. It reads `cv.prev` (other segments' pixels).
+- `true` on `Pixel::Feedback` — the load-bearing history case. It reads
+  `cv.prev` (other segments' pixels).
+- `true` on `World::Mobius` — the other filter that must override it, and
+  not a history filter: the map is non-rigid, so no rotation-mirroring
+  `cull_edge` can bound an edge's image and the effect must render the full
+  canvas (the `pipeline.h` static_assert on moving World stages names it).
 - `true` on `World::Trails` — already `true` by default (`has_history`), so
   this is documentation, not a required override. Its store happens at
   `plot()` time, upstream of projection; whether band clipping would
@@ -250,6 +254,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 | In-place history (`Screen::Trails`) | 0 (redraws at same coord) | full canvas: `crosses_segments` keeps its fail-safe `has_history` default, only `reads_outside_band` is overridden to `false`. Device alternation halves a quadrant's redraw cadence, so a device-clipped in-place-history effect would decay at the wrong rate — none ship today; flag `persists_pixels()` or full-frame before adding one |
 | Bounded spatial neighborhood (AntiAlias ±1, `ChromaticShift` +3) | finite | band + the pipeline's `total_segment_margin` (§4.4) |
 | Cross-segment history (`Pixel::Feedback`, `World::Trails`) | unbounded | full canvas; output sliced JS-side |
+| Non-rigid world map (`World::Mobius`) | unbounded (no history; the cull cannot follow the map) | full canvas; output sliced JS-side |
 
 ---
 
