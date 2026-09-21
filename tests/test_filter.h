@@ -2401,6 +2401,10 @@ inline void test_feedback_spherical_ring_control_rows() {
 
 /**
  * @brief Verifies the compact ring field has directionally balanced error.
+ * @details The last bound anchors the compact field against metric_approximate,
+ * a baseline stepping sin(phi)-scaled rows instead of reading the ring table.
+ * The compact field measures 1.370x that baseline's mean polar error, so the
+ * bound below leaves ~4% for libm drift and nothing for a regression.
  */
 inline void test_feedback_spherical_field_angular_error() {
   constexpr int W = 288, H = 144;
@@ -2567,7 +2571,7 @@ inline void test_feedback_spherical_field_angular_error() {
   HS_EXPECT_LT(direction_ratio, 1.3);
   HS_EXPECT_LT(polar_error, equator_error * 1.35);
   HS_EXPECT_LT(equator_error, polar_error * 1.35);
-  HS_EXPECT_LT(polar_error, metric_polar_error * 1.5);
+  HS_EXPECT_LT(polar_error, metric_polar_error * 1.42);
 }
 
 /** @brief Displaces longitude alone, alternating a near-half-turn against a
