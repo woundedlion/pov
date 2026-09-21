@@ -1355,6 +1355,11 @@ inline float hue_turns(uint32_t hue) {
   return static_cast<float>(hue & 0xFFu) * (1.0f / 256.0f);
 }
 
+/** @brief A base hue drawn uniformly from the 256-step hue wheel. */
+HS_FLASH_MEMBER inline float random_base_turns() {
+  return hue_turns(static_cast<uint32_t>(hs::rand_int(0, 256)));
+}
+
 /** @brief Builds the common defaults for a domain and named hue harmony. */
 inline PaletteRecipe harmony(PaletteDomain domain, PaletteHarmony harmony,
                              float base_turns = 0.0f) {
@@ -1390,9 +1395,7 @@ HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
                                                     PaletteHarmony harmony,
                                                     AxisCurve lightness_curve,
                                                     float chroma = 0.62f) {
-  return profile(domain, harmony, lightness_curve,
-                 hue_turns(static_cast<uint32_t>(hs::rand_int(0, 256))),
-                 chroma);
+  return profile(domain, harmony, lightness_curve, random_base_turns(), chroma);
 }
 
 /** @brief Builds a custom three-key recipe from OKLCH control colors. */
