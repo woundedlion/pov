@@ -63,6 +63,7 @@
 #include "core/control/registry.h"
 #include "core/engine/memory.h"
 #include "core/platform/led.h"
+#include "core/math/lenses.h"
 #include "core/mesh/hankin.h"
 #include "core/mesh/mesh.h"
 #include "core/mesh/recipe.h"
@@ -3175,6 +3176,37 @@ inline void case_make_basis_nonunit_quaternion() {
 }
 
 /**
+ * @brief Death case: parallel transport between antipodal endpoints must trap.
+ * @details Geometry surface — the great circle through antipodes is
+ *          ill-determined and the transport divides by 1 + dot, so the guard
+ *          fires before the tangent is amplified.
+ */
+inline void case_parallel_transport_antipodal() {
+  Vector from{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
+  Vector to{opaque(-1.0f), opaque(0.0f), opaque(0.0f)};
+  Vector tangent{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  Vector t = parallel_transport(from, to, tangent); // dot = -1 -> HS_CHECK
+  if (t.x == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: a polyhedral fold that never converges must trap.
+ * @details Lens surface — two opposed mirrors are not a chamber: each pass
+ *          reflects the direction back across the other, so the bounded
+ *          reflection loop exhausts its passes and fires the guard.
+ */
+inline void case_polyhedral_kaleidoscope_no_converge() {
+  const std::array<Vector, 3> mirrors = {Vector(opaque(1.0f), 0.0f, 0.0f),
+                                         Vector(opaque(-1.0f), 0.0f, 0.0f),
+                                         Vector(0.0f, opaque(1.0f), 0.0f)};
+  Vector v = lenses::polyhedral_kaleidoscope_lens(
+      Vector(opaque(0.5f), opaque(0.5f), 0.0f), mirrors);
+  if (v.x == opaque(42.0f))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: a polygon with fewer than three sides must trap.
  * @details SDF surface — the sector fold divides a full turn by the side count,
  *          so a 2-gon has no interior for the distance to be measured against.
@@ -4764,6 +4796,13 @@ inline const Case *all_cases(int &n) {
        "geometry.h",
        "(std::abs(orientation_norm_sq - 1.0f) < "
        "math::EPS_UNIT_QUAT_SQ) "},
+      {"parallel_transport_antipodal", case_parallel_transport_antipodal,
+       "geometry.h",
+       "(denominator > 1.0f || dot(cross(from, to), cross(from, to)) > "
+       "MIN_TRANSPORT_CROSS_SQ) parallel_transport: antipodal endpoints"},
+      {"polyhedral_kaleidoscope_no_converge",
+       case_polyhedral_kaleidoscope_no_converge, "lenses.h",
+       "(false) polyhedral kaleidoscope fold did not converge"},
       {"sdf_polygon_side_count", case_sdf_polygon_side_count, "shapes.h",
        "(sides >= 3) SDF PlanarPolygon: sides must be at least 3"},
       {"sdf_spherical_polygon_radius_over_hemisphere",
@@ -5369,8 +5408,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"static_circular_buffer.h", 3},
     {"transformer.h", 4},
     {"3dmath.h", 4},
-    {"geometry.h", 16},
-    {"lenses.h", 2},
+    {"geometry.h", 15},
+    {"lenses.h", 1},
     {"spherical_field.h", 2},
     {"waves.h", 1},
     {"conway.h", 33},
