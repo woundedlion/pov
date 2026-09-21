@@ -11,8 +11,8 @@
 
 /**
  * @file options.h
- * @brief Slot-menu display labels and stable export spellings for every
- *        enumerated field.
+ * @brief Slot-menu display labels, warp parameter labels, and stable export
+ *        spellings for every enumerated field.
  */
 
 #include "workbench/shader/config.h"
@@ -174,6 +174,63 @@ inline constexpr const char *WARP_ENVELOPE_EXPORT_OPTIONS[] = {
     "WarpEnvelope::FLAT", "WarpEnvelope::PROJECTION_WEIGHT",
     "WarpEnvelope::EDGE_FADE"};
 inline constexpr int NUM_WARP_ENVELOPES = std::size(WARP_ENVELOPE_OPTIONS);
+/** @brief Index of a warp parameter name in the per-position name tables. */
+enum WarpParamName : uint8_t {
+  WARP_NAME_TRANSLATION_X,
+  WARP_NAME_TRANSLATION_Y,
+  WARP_NAME_ROTATION,
+  WARP_NAME_SCALE_X,
+  WARP_NAME_SCALE_Y,
+  WARP_NAME_SHEAR,
+  WARP_NAME_FREQUENCY,
+  WARP_NAME_FIELD_ANGLE,
+  WARP_NAME_CENTER_X,
+  WARP_NAME_CENTER_Y,
+  WARP_NAME_RADIUS,
+  WARP_NAME_TURNS,
+  WARP_NAME_VECTOR_ANGLE,
+  WARP_NAME_CELL_X,
+  WARP_NAME_CELL_Y,
+  WARP_NAME_OFFSET_X,
+  WARP_NAME_OFFSET_Y,
+  WARP_NAME_RADIAL_SCALE,
+  WARP_NAME_RADIAL_PHASE,
+  WARP_NAME_ANGULAR_PHASE,
+  WARP_NAME_EDGE_WIDTH,
+  WARP_NAME_CENTER_ORBIT,
+  WARP_NAME_COUNT,
+};
+
+inline constexpr const char *OUTER_WARP_PARAM_NAMES[] = {
+    "Planar Warp 1 Translation X", "Planar Warp 1 Translation Y",
+    "Planar Warp 1 Rotation",      "Planar Warp 1 Scale X",
+    "Planar Warp 1 Scale Y",       "Planar Warp 1 Shear",
+    "Planar Warp 1 Frequency",     "Planar Warp 1 Field Angle",
+    "Planar Warp 1 Center X",      "Planar Warp 1 Center Y",
+    "Planar Warp 1 Radius",        "Planar Warp 1 Turns",
+    "Planar Warp 1 Vector Angle",  "Planar Warp 1 Cell X",
+    "Planar Warp 1 Cell Y",        "Planar Warp 1 Offset X",
+    "Planar Warp 1 Offset Y",      "Planar Warp 1 Radial Scale",
+    "Planar Warp 1 Radial Phase",  "Planar Warp 1 Angular Phase",
+    "Planar Warp 1 Edge Width",    "Planar Warp 1 Center Orbit"};
+inline constexpr const char *INNER_WARP_PARAM_NAMES[] = {
+    "Planar Warp 2 Translation X", "Planar Warp 2 Translation Y",
+    "Planar Warp 2 Rotation",      "Planar Warp 2 Scale X",
+    "Planar Warp 2 Scale Y",       "Planar Warp 2 Shear",
+    "Planar Warp 2 Frequency",     "Planar Warp 2 Field Angle",
+    "Planar Warp 2 Center X",      "Planar Warp 2 Center Y",
+    "Planar Warp 2 Radius",        "Planar Warp 2 Turns",
+    "Planar Warp 2 Vector Angle",  "Planar Warp 2 Cell X",
+    "Planar Warp 2 Cell Y",        "Planar Warp 2 Offset X",
+    "Planar Warp 2 Offset Y",      "Planar Warp 2 Radial Scale",
+    "Planar Warp 2 Radial Phase",  "Planar Warp 2 Angular Phase",
+    "Planar Warp 2 Edge Width",    "Planar Warp 2 Center Orbit"};
+static_assert(sizeof(OUTER_WARP_PARAM_NAMES) / sizeof(const char *) ==
+                  WARP_NAME_COUNT,
+              "outer warp name table must match WarpParamName");
+static_assert(sizeof(INNER_WARP_PARAM_NAMES) / sizeof(const char *) ==
+                  WARP_NAME_COUNT,
+              "inner warp name table must match WarpParamName");
 inline constexpr const char *SIGNAL_OPTIONS[] = {"None", "Projection"};
 inline constexpr const char *SIGNAL_EXPORT_OPTIONS[] = {
     "SignalWeight::NONE", "SignalWeight::PROJECTION"};
