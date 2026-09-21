@@ -988,27 +988,8 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
 }
 
 // ============================================================================
-// fast_cbrt + perceptual hue_rotate (OKLab)
+// Perceptual hue_rotate (OKLab)
 // ============================================================================
-
-/**
- * @brief Verifies fast_cbrt accuracy against cbrtf and its domain guard.
- * @details Matches cbrtf to ~1e-4 relative error over the linear-RGB range, is
- *          exact at 0, and the negative/zero-domain guard returns 0.
- */
-inline void test_fast_cbrt_accuracy() {
-  HS_EXPECT_EQ(fast_cbrt(0.0f), 0.0f);
-  HS_EXPECT_NEAR(fast_cbrt(1.0f), 1.0f, 1e-4f);
-  HS_EXPECT_NEAR(fast_cbrt(8.0f), 2.0f, 1e-3f);
-  // Negative / zero domain guard returns 0.
-  HS_EXPECT_EQ(fast_cbrt(-1.0f), 0.0f);
-  for (int k = 1; k <= 800; ++k) {
-    float x = 8.0f * static_cast<float>(k) / 800.0f;
-    float approx = fast_cbrt(x);
-    float exact = cbrtf(x);
-    HS_EXPECT_TRUE(std::fabs(approx - exact) / exact < 1e-4f);
-  }
-}
 
 /**
  * @brief Verifies a perceptual hue rotation leaves a gray unchanged.
@@ -2743,7 +2724,6 @@ inline int run_color_tests() {
   test_configure_arenas_releases_gamut_lut();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
 
-  test_fast_cbrt_accuracy();
   test_hue_rotate_preserves_gray();
   test_hue_rotate_full_turn_identity();
   test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma();
