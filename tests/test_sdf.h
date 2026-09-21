@@ -3003,40 +3003,61 @@ inline void test_face_pole_vertex_matches_full_scan() {
 // Face distance vs an independent exact oracle
 //
 // Face::distance computes the per-edge point-to-polygon distance in the
-// gnomonic tangent plane. This pins it against an independently coded oracle
-// over the face's whole gnomonic box, to float precision.
+// gnomonic tangent plane. This pins it against an oracle that projects the
+// source vertices through a frame of its own, over the face's whole gnomonic
+// box, to float precision.
 // ============================================================================
 
 /**
- * @brief Exact signed point-to-polygon distance in a Face's tangent plane.
- * @param face Face whose packed edges and poly_2d ring bound the polygon.
- * @param px Plane u coordinate of the probe.
- * @param py Plane w coordinate of the probe.
+ * @brief Exact signed point-to-polygon distance in a face's tangent plane.
+ * @param verts Face vertices on the unit sphere, in ring order.
+ * @param p Probe on the unit sphere.
+ * @param linear_dist Whether the face reports plane units rather than radians.
  * @return The value Face::distance must reproduce: negative inside, mapped
  *         through fast_atan2 unless the face carries linear distance.
- * @details Per-edge segment distance plus a crossing-parity inside test, coded
- *          independently of every fast path it gates.
+ * @details Rebuilds the gnomonic frame from the vertices alone -- the
+ *          normalized centroid as the projection axis, the first vertex's
+ *          tangent as the plane's u axis -- and projects the ring and the
+ *          probe into it, so the face's own projection, edge packing and basis
+ *          never reach the comparison. Per-edge segment distance plus a
+ *          crossing-parity inside test, both invariant to the plane's
+ *          rotation, so the frame need not match the face's.
  */
-inline float exact_plane_distance(const SDF::Face &face, float px, float py) {
+inline float exact_plane_distance(std::span<const Vector> verts,
+                                  const Vector &p, bool linear_dist) {
+  Vector center(0, 0, 0);
+  for (const Vector &v : verts)
+    center = center + v;
+  center.normalize();
+  const Vector u = (verts[0] - center * dot(verts[0], center)).normalized();
+  const Vector w = cross(center, u).normalized();
+  auto project = [&](const Vector &v, float &x, float &y) {
+    const float d = dot(v, center);
+    x = dot(v, u) / d;
+    y = dot(v, w) / d;
+  };
+  float px, py;
+  project(p, px, py);
+  const size_t n = verts.size();
   float dmin = FLT_MAX;
   bool inside = false;
-  for (int i = 0; i < face.count; ++i) {
-    const auto &ep = face.packed_edges[i];
-    const float wx = px - ep.vx, wy = py - ep.vy;
-    const float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
-    const float cv = hs::clamp(t, 0.0f, 1.0f);
-    const float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
-    const float dsq = bx * bx + by * by;
-    if (dsq < dmin)
-      dmin = dsq;
-    if ((ep.vy > py) != (face.poly_2d[i + 1].y > py)) {
-      const float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
-      if (px < isx)
-        inside = !inside;
-    }
+  for (size_t i = 0; i < n; ++i) {
+    float ax, ay, bx, by;
+    project(verts[i], ax, ay);
+    project(verts[(i + 1) % n], bx, by);
+    const float ex = bx - ax, ey = by - ay;
+    const float wx = px - ax, wy = py - ay;
+    const float len_sq = ex * ex + ey * ey;
+    const float t = len_sq > 0.0f
+                        ? hs::clamp((wx * ex + wy * ey) / len_sq, 0.0f, 1.0f)
+                        : 0.0f;
+    const float cx = wx - ex * t, cy = wy - ey * t;
+    dmin = std::min(dmin, cx * cx + cy * cy);
+    if ((ay > py) != (by > py) && px < ax + (py - ay) * ex / ey)
+      inside = !inside;
   }
   const float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
-  return face.linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
+  return linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
 }
 
 /**
@@ -3096,7 +3117,8 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
       if (hs::g_scan_metrics.exact_hits == 0)
         continue; // culled (outside max_dist / behind the center)
 
-      const float expected = exact_plane_distance(face, px, py);
+      const float expected = exact_plane_distance(
+          std::span<const Vector>(verts3d, n_verts), p, face.linear_dist);
 
       // fast_atan2 preserves sign, so the oracle's sign is the plane sign.
       if (face.convex && expected > 0.0f) {
@@ -3271,7 +3293,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
       if (!took_lut && hs::g_scan_metrics.exact_hits == 0)
         continue; // culled
 
-      const float expected = exact_plane_distance(face, px, py);
+      const float expected = exact_plane_distance(
+          std::span<const Vector>(verts, n_verts), p, face.linear_dist);
 
       if (took_lut) {
         ++lut_samples;
