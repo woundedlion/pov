@@ -19,7 +19,7 @@
 
 namespace Workbench {
 
-inline constexpr int POLAR_HARMONIC_MAX = 16;
+inline constexpr int POLAR_HARMONIC_MAX = Pullback::Warp::MAX_POLAR_HARMONIC;
 inline constexpr int BAND_COUNT_MAX = 32;
 inline constexpr float WARP_SCALE_MIN = 1.0f / 64.0f;
 inline constexpr float WARP_SCALE_MAX = 100.0f;
@@ -29,7 +29,8 @@ inline constexpr float VECTOR_WARP_SCALE_MAX = 4.0f;
 inline constexpr float VECTOR_WARP_STRENGTH_MAX = 1.0f;
 inline constexpr float CURL_WARP_SCALE_MAX = 2.0f;
 inline constexpr float CURL_WARP_STRENGTH_MAX = 1.0f;
-inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
+inline constexpr float CURL_VECTOR_COMPONENT_MAX =
+    Pullback::Warp::CURL_VECTOR_COMPONENT_MAX;
 inline constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
 inline constexpr float WARP_SPEED_MAX = 1.0f;
 inline constexpr float AFFINE_TRANSLATION_MAX = 4.0f;
