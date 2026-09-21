@@ -1071,9 +1071,11 @@ struct HueNoiseLutView {
 }
 ```
 
-The views own no storage. Providers return them by const reference from the
-immutable frame, or by value when the compiler produces the same two-scalar
-loads; the latter requires disassembly evidence. Effect-owned mutable spans are
+The views own no storage. Providers return them by value: the
+`Color::GeneratedPalette` provider requirement in
+`core/render/pullback/color.h` constrains `hue_rotation(frame)` and
+`hue_noise(frame)` to return exactly `HueRotationLutView` and
+`HueNoiseLutView`, a pointer and a flag each. Effect-owned mutable spans are
 passed only to cold preparation kernels before the frame view is published.
 
 The rotation table is row-major `[value][hue]` in `Pixel` elements. Preparation
