@@ -169,6 +169,13 @@ struct ProjectGnomonic : ProjectOpModel<ProjectGnomonic, GnomonicChainParams> {
   static constexpr const char *ID = "project.gnomonic.v2";
   static constexpr const char *NAME = "Gnomonic";
 
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    HS_CHECK(params.hemisphere <=
+                 static_cast<uint8_t>(Projection::GnomonicHemisphere::BACK),
+             "project.gnomonic: invalid hemisphere");
+    return ProjectOpModel::prepare(ctx, params, state);
+  }
   static ProjectionResult project(const Vector &local, const Params &params) {
     return Projection::gnomonic(
         local, params.singularity_fade,

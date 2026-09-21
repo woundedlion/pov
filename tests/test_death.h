@@ -3903,6 +3903,26 @@ inline void case_pullback_operator_invalid_curl_integrator() {
     std::printf("x");
 }
 
+/** @brief Death case: the curl displacement rejects an unknown integrator. */
+inline void case_pullback_operator_invalid_surface_integrator() {
+  Pullback::Interp::Op::CurlDisplaceParams params;
+  params.integrator = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::NoisePhaseState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state)
+          .noise != nullptr)
+    std::printf("x");
+}
+
+/** @brief Death case: the gnomonic projection rejects an unknown hemisphere. */
+inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
+  Pullback::Interp::Op::GnomonicChainParams params;
+  params.hemisphere = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::ProjectGnomonic::State state;
+  Pullback::Interp::FrameContext context{};
+  Pullback::Interp::Op::ProjectGnomonic::prepare(context, params, state);
+}
+
 /** @brief Death case: a noise-driven operator rejects an unknown basis. */
 inline void case_pullback_operator_invalid_noise_basis() {
   Pullback::Interp::Op::CurlDisplaceParams params;
@@ -4813,6 +4833,13 @@ inline const Case *all_cases(int &n) {
        case_pullback_operator_invalid_polar_harmonic, "operators_warp.h",
        "(params.harmonic < Warp::MAX_POLAR_HARMONIC) "
        "warp.polar-chart: invalid harmonic"},
+      {"pullback_operator_invalid_surface_integrator",
+       case_pullback_operator_invalid_surface_integrator, "operators_sphere.h",
+       "(params.integrator <= static_cast<uint8_t>(Surface::Integrator::MIDPOINT_2X)) sphere.displace.curl: invalid integrator"},
+      {"pullback_operator_invalid_gnomonic_hemisphere",
+       case_pullback_operator_invalid_gnomonic_hemisphere,
+       "operators_project.h",
+       "(params.hemisphere <= static_cast<uint8_t>(Projection::GnomonicHemisphere::BACK)) project.gnomonic: invalid hemisphere"},
       {"pullback_operator_invalid_curl_integrator",
        case_pullback_operator_invalid_curl_integrator, "operators_warp.h",
        "(params.integrator < 3) warp.curl-flow: invalid integrator"},
