@@ -19,6 +19,7 @@
 #include "core/render/canvas.h"
 #include "core/math/geometry.h"
 #include "tests/pixel_test_util.h"
+#include "tests/volume_reference.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -2274,6 +2275,117 @@ struct TwoSphereSDF {
   }
 };
 
+template <typename Shape> struct CountedVolume {
+  const Shape &shape;
+  mutable int samples = 0;
+  float distance(const Vector &p) const {
+    ++samples;
+    return shape.distance(p);
+  }
+};
+
+/** @brief Compares scalar ray state with the vector-accumulating oracle. */
+inline void test_volume_scalar_state_differential() {
+  float max_distance = 0.0f, max_position = 0.0f, max_coverage = 0.0f;
+  float max_probe_position = 0.0f, max_probe_coverage = 0.0f;
+  int rays = 0, limited = 0, halos = 0, background_grazes = 0;
+  int solid_changes = 0;
+  auto compare = [&](const auto &shape, const Vector &ro, const Vector &vd,
+                     float radius, int steps, float aa) {
+    CountedVolume counted{shape};
+    Vector old_p, new_p;
+    float old_d = VolumeReference::trace_closest(counted, ro, vd, radius, steps,
+                                                 aa, old_p);
+    limited += counted.samples == steps;
+    float new_d =
+        Scan::Volume::trace_closest(shape, ro, vd, radius, steps, aa, new_p);
+    ++rays;
+    float old_alpha = Scan::volume_edge_coverage(old_d, aa * 0.1f, aa);
+    float new_alpha = Scan::volume_edge_coverage(new_d, aa * 0.1f, aa);
+    max_distance = std::max(max_distance, fabsf(old_d - new_d));
+    if (old_alpha > 0.0f || new_alpha > 0.0f)
+      max_position = std::max(max_position, (old_p - new_p).length());
+    max_coverage = std::max(max_coverage, fabsf(old_alpha - new_alpha));
+    if (old_d > aa * 0.1f && old_d < aa && new_d > aa * 0.1f && new_d < aa) {
+      ++halos;
+      auto old_occ = VolumeReference::probe_occluder(shape, old_p, vd, radius,
+                                                     aa * 0.1f, aa);
+      auto new_occ = Scan::Volume::probe_occluder(shape, new_p, vd, radius,
+                                                  aa * 0.1f, aa, new_d);
+      solid_changes += old_occ.solid != new_occ.solid;
+      if (old_occ.solid || old_occ.soft > 0.0f)
+        max_probe_position = std::max(
+            max_probe_position, (old_occ.behind - new_occ.behind).length());
+      max_probe_coverage =
+          std::max(max_probe_coverage, fabsf(old_occ.soft - new_occ.soft));
+      background_grazes += !old_occ.solid && old_occ.soft > 0.0f;
+    }
+  };
+  for (int twist : {0, 1, 2, 4, 7, 8}) {
+    for (float scale : {0.08f, 0.3f, 1.0f}) {
+      SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+          {0.45f * scale, 0.14f * scale},
+          {twist, 0.35f * scale, 0.45f * scale}};
+      torus.precision = 0.14f * scale;
+      for (int angle = 0; angle < 5; ++angle) {
+        Quaternion q = make_rotation(Vector(0.3f, 1.0f, -0.2f).normalized(),
+                                     angle * 0.59f);
+        Vector vd = rotate(Vector(0, 0, -1), q);
+        for (int steps : {1, 14, 18, 40}) {
+          for (int y = -16; y <= 16; ++y) {
+            for (int x = -16; x <= 16; ++x) {
+              Vector ro = rotate(
+                  Vector(x * 0.045f * scale, y * 0.045f * scale, 0.72f * scale),
+                  q);
+              compare(torus, ro, vd, 0.72f * scale, steps, 0.07f * scale);
+            }
+          }
+        }
+      }
+    }
+  }
+  TwoSphereSDF pair{Vector(0, 0, 0.2f), 0.18f, Vector(0.28f, 0, -0.2f), 0.3f};
+  for (int x = -20; x <= 20; ++x)
+    for (int y = -20; y <= 20; ++y)
+      compare(pair, Vector(0.0357f + x * 0.0003f, 0.1797f + y * 0.0003f, 1),
+              Vector(0, 0, -1), 0.6f, 40, 0.01f);
+  printf(
+      "scalar ray differential: %d rays, %d limited, %d halos, %d background "
+      "grazes; max distance %.9g, position %.9g, coverage %.9g, probe "
+      "position %.9g, probe coverage %.9g, solid changes %d\n",
+      rays, limited, halos, background_grazes, max_distance, max_position,
+      max_coverage, max_probe_position, max_probe_coverage, solid_changes);
+  HS_EXPECT_GT(limited, 1000);
+  HS_EXPECT_GT(halos, 1000);
+  HS_EXPECT_GT(background_grazes, 100);
+  HS_EXPECT_LT(max_distance, 1e-5f);
+  HS_EXPECT_LT(max_position, 1e-4f);
+  HS_EXPECT_LT(max_coverage, 1e-4f);
+  HS_EXPECT_LT(max_probe_position, 1e-4f);
+  HS_EXPECT_LT(max_probe_coverage, 1e-4f);
+  HS_EXPECT_EQ(solid_changes, 0);
+}
+
+/** @brief Pins closest-sample ownership at a nearly tied silhouette minimum. */
+inline void test_volume_trace_nearly_tied_minimum() {
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+      {0x1.7cafe8p-3f, 0x1.d9be78p-5f}, {7, 0x1.28170ap-3f, 0x1.7cafe8p-3f}};
+  const float AA = 0x1.634edap-4f;
+  const float RADIUS = 0x1.852f16p-2f;
+  torus.precision = 2.0f * AA;
+  const Vector ORIGIN(-0x1.c9d22p-2f, -0x1.5bf194p-3f, 0x1.2c3592p-3f);
+  const Vector DIRECTION(0x1.acc1c2p-2f, 0x1.af3f2ep-1f, -0x1.5ba266p-2f);
+  Vector expected, actual;
+  float expected_d = VolumeReference::trace_closest(torus, ORIGIN, DIRECTION,
+                                                    RADIUS, 17, AA, expected);
+  float actual_d = Scan::Volume::trace_closest(torus, ORIGIN, DIRECTION, RADIUS,
+                                               17, AA, actual);
+  HS_EXPECT_EQ(expected_d, actual_d);
+  HS_EXPECT_EQ(expected.x, actual.x);
+  HS_EXPECT_EQ(expected.y, actual.y);
+  HS_EXPECT_EQ(expected.z, actual.z);
+}
+
 /**
  * @brief Capturing volume sink: records every plotted world position and its
  *        composited alpha.
@@ -2879,6 +2991,8 @@ inline int run_scan_tests() {
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
   test_volume_draw_occluded_edge_blends_over_background();
+  test_volume_scalar_state_differential();
+  test_volume_trace_nearly_tied_minimum();
   test_volume_trace_closest_stops_at_first_graze();
   test_volume_probe_occluder_reports_background_graze_point();
   test_volume_trace_closest_overrelax_never_skips_surface();
