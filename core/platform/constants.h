@@ -59,8 +59,19 @@ inline constexpr int POLE_LOD_MAX_RUN = 32;
 #endif
 #ifdef ARDUINO
 inline constexpr float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+/**
+ * @brief Whether the decimated scan walk is compiled into this build.
+ * @details Firmware has no setter, so the aggressiveness is a constant and a
+ *          build left at 0 drops the decimation path outright.
+ */
 inline constexpr bool POLE_LOD_ENABLED = HS_POLE_LOD_DEFAULT > 0.0f;
 #else
 inline float pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+/**
+ * @brief Whether the decimated scan walk is compiled into this build.
+ * @details Host and WASM builds can raise `pole_lod_aggressiveness` at runtime,
+ *          so the path is always compiled in and an aggressiveness of 0
+ *          disables it per scan instead.
+ */
 inline constexpr bool POLE_LOD_ENABLED = true;
 #endif
