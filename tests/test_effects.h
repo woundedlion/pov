@@ -4105,6 +4105,12 @@ inline void test_raymarch_surface_frame_uv() {
   HS_EXPECT_NEAR(frame[0], expected_normal.x, 1e-5f);
   HS_EXPECT_NEAR(frame[1], expected_normal.y, 1e-5f);
   HS_EXPECT_NEAR(frame[2], expected_normal.z, 1e-5f);
+  for (float radius : {0.0f, 0.5f * TOLERANCE, TOLERANCE, 2.0f * TOLERANCE}) {
+    const auto frame = RaymarchWhiteBox::surface_frame<SMALL_W, SMALL_H>(
+        Vector(radius, 0.1f, 0.0f), 2, 0.35f, 0.45f, 0.14f);
+    for (float value : frame)
+      HS_EXPECT_TRUE(std::isfinite(value));
+  }
 }
 
 /**

@@ -367,11 +367,11 @@ private:
     float sin_v;
   };
 
-  static SurfaceFrame
+  HS_O3_FN static SurfaceFrame
   surface_frame(const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> &torus,
                 const Vector &loc) {
     const float radial = sqrtf(loc.x * loc.x + loc.z * loc.z);
-    const float inverse_radial = 1.0f / radial;
+    const float inverse_radial = radial > TOLERANCE ? 1.0f / radial : 0.0f;
     const auto harmonic = torus.warp.sincos_ntheta_inv(loc, inverse_radial);
     const Vector warped(loc.x, loc.y - torus.warp.amplitude * harmonic.sin_n,
                         loc.z);
@@ -410,25 +410,22 @@ private:
       float aa_width = minor_r * params.aa_mult;
       // Coverage runs aa_width past the surface, so the cull sphere must too.
       float bounds_radius = scale * UNIT_BOUNDS + aa_width;
-      SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
-          {major_r, minor_r}, {twist_n, twist_amp, major_r}};
       // Volume::draw's widest band test is min_behind < 2*aa_width, so the
       // cheap bound only has to be accurate above that.
-      torus.precision = 2.0f * aa_width;
+      SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+          {major_r, minor_r}, {twist_n, twist_amp, major_r}, 2.0f * aa_width};
 
       Vector center = camera.orient(points[i]);
 
       Quaternion world_q = camera.get() * raw_quats[i] *
                            volume_spins[i].orientation.get() * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
-      // The half-vector is fixed for this torus, so it is hoisted out of the
-      // per-pixel shader.
       Vector half_w = blinn_phong_half(center, tangent);
 
       float palette_offset =
           palette_phase + static_cast<float>(i) / active_count;
 
-      auto frag_fn = [&](const Vector &loc, Fragment &frag) {
+      auto frag_fn = [&](const Vector &loc, Fragment &frag) HS_O3_FN {
         SurfaceFrame surface = surface_frame(torus, loc);
         Vector n_world = rotate(surface.normal, world_q);
         float shade = shade_blinn_phong(n_world, center, half_w, params.diffuse,
@@ -439,10 +436,12 @@ private:
         float palette_t =
             wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
         float hue_shift = params.hue_shift * surface_noise;
-        Color4 c = params.hue_shift == 0.0f
-                       ? baked_palette.get(palette_t)
-                       : noise_palette.get(palette_t, hue_shift);
-        frag.color = Color4(c.color * shade, 1.0f);
+        Pixel color = params.hue_shift == 0.0f
+                          ? baked_palette.get_color(palette_t)
+                          : sample_hue_rotation_lut(
+                                {palette_state->hue_rotation_lut.data(), true},
+                                palette_t, hue_shift);
+        frag.color = Color4(color * shade, 1.0f);
       };
 
       Scan::TransformedVolume vol(torus, center, world_q);

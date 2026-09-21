@@ -1011,6 +1011,74 @@ inline void test_twist_bounding_inflation() {
   HS_EXPECT_NEAR(tw.bounding_inflation(), 0.42f, 1e-6f);
 }
 
+/** @brief Compares twist kernels with the unspecialized harmonic recurrence. */
+inline void test_twisted_torus_matches_recurrence() {
+  hs::Pcg32 rng(0x73145u);
+  float worst_distance = 0.0f, worst_normal = 0.0f;
+  for (int twist = 0; twist <= 8; ++twist) {
+    for (float scale : {0.001f, 0.03f, 0.3f, 1.0f, 4.0f}) {
+      for (float precision : {0.0f, 0.014f * scale, 0.14f * scale}) {
+        const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+            {0.45f * scale, 0.14f * scale},
+            {twist, 0.35f * scale, 0.45f * scale},
+            precision};
+        const auto &base = torus.base;
+        const auto &warp = torus.warp;
+        for (int i = 0; i < 512; ++i) {
+          const float theta = rand_uniform(rng, -PI_F, PI_F);
+          const float tube_angle = rand_uniform(rng, -PI_F, PI_F);
+          float radius = base.R + rand_uniform(rng, -2.0f, 2.0f) * base.r;
+          if (i < 4)
+            radius = static_cast<float>(i) * 0.5f * TOLERANCE;
+          const Vector p(radius * cosf(theta),
+                         warp.amplitude * sinf(twist * theta) +
+                             base.r * sinf(tube_angle),
+                         radius * sinf(theta));
+          const float s = sqrtf(p.x * p.x + p.z * p.z);
+          const float inv_s = s >= TOLERANCE ? 1.0f / s : 0.0f;
+          float sin_prev = 0.0f, sin_n = p.z * inv_s;
+          float cos_prev = 1.0f, cos_n = p.x * inv_s;
+          const float two_cos = 2.0f * p.x * inv_s;
+          for (int k = 1; k < twist; ++k) {
+            const float sin_next = two_cos * sin_n - sin_prev;
+            sin_prev = sin_n;
+            sin_n = sin_next;
+            const float cos_next = two_cos * cos_n - cos_prev;
+            cos_prev = cos_n;
+            cos_n = cos_next;
+          }
+          if (twist == 0 || s < TOLERANCE) {
+            sin_n = 0.0f;
+            cos_n = 1.0f;
+          }
+          const float gate = precision > 0.0f ? precision : warp.amplitude;
+          const float q = s - base.R;
+          const float dy = std::max(fabsf(p.y) - warp.amplitude, 0.0f);
+          const float qq = q * q + dy * dy;
+          const float threshold = gate + base.r;
+          const Vector warped(p.x, p.y - warp.amplitude * sin_n, p.z);
+          float expected = base.distance(warped);
+          if (qq > threshold * threshold)
+            expected = sqrtf(qq) - base.r;
+          else if (expected > 0.0f)
+            expected *=
+                warp.lipschitz_inv(inv_s == 0.0f ? warp.two_over_r : inv_s);
+          worst_distance = std::max(
+              worst_distance, fabsf(torus.distance(p) - expected) / scale);
+          if (s > TOLERANCE) {
+            const Vector expected_normal = warp.correct_normal_inv(
+                p, base.normal_raw(warped, inv_s), inv_s, cos_n);
+            const Vector difference = torus.normal(p) - expected_normal;
+            worst_normal = std::max(worst_normal, difference.length());
+          }
+        }
+      }
+    }
+  }
+  HS_EXPECT_LT(worst_distance, 2e-6f);
+  HS_EXPECT_LT(worst_normal, 2e-6f);
+}
+
 /**
  * @brief Verifies WarpedVolume::distance never over-estimates the warped
  *        distance (sphere-trace safety): on every sampled point the returned
@@ -3323,6 +3391,7 @@ inline int run_sdf_tests() {
   test_twist_apply_displaces_y();
   test_twist_lipschitz_identity_and_closed_form();
   test_twist_bounding_inflation();
+  test_twisted_torus_matches_recurrence();
   test_warped_volume_distance_is_sphere_trace_safe();
   test_warped_volume_distance_matches_lipschitz_correction();
   test_twist_correct_normal_unit_length();
