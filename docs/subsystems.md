@@ -370,7 +370,7 @@ Animations do not render directly — they mutate external state that the render
 | `Driver` | `float*` | Continuously increments a float each frame, wrapping at 0..1 — used for phase accumulators |
 | `Lerp` | `T*` (type-erased) | Interpolates any type with a `lerp()` function — `MeshState`, params structs, etc. The caller owns start, subject, and target; Lerp holds pointers |
 | `ColorWipe` | `GenerativePalette*` | Interpolates palette keys toward a target palette in OKLCH along coherent hue arcs |
-| `Ripple`, `MobiusWarp`, `Noise` | `TransformerParams` | Animate transformer parameters (expansion radius, warp strength, noise scale) which the transformer pool reads during `MeshOps::transform()` |
+| `Ripple`, `MobiusWarp`, `Noise` | `RippleParams`, `MobiusParams`, `NoiseParams` | Animate transformer parameters (expansion radius, warp strength, noise scale) which the transformer pool reads during `MeshOps::transform()` |
 | `BallDrop` | `BumpParams` | Walks the bump center down a meridian and re-derives the push axis from the stack's orientation, ramping the footprint envelope; the field pool sums the caps during `field()` |
 | `NoiseProduct` | `NoiseProductParams` | Advances the field time axis so the two-octave product noise keeps flowing under live speed edits; the field pool reads it during `field()` |
 | `ParticleSystem` | `Vector[]` positions | Physics simulation updates particle positions; `QuantizedVectorTrail` records history for trail rendering |
