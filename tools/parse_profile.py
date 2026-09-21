@@ -388,6 +388,16 @@ def dominant_leaf(windows):
     return tot.most_common(1)[0][0] if tot else "frame"
 
 
+def frame_rows_complete(w):
+    """Every frame of the window's header range arrived as a per-frame row.
+
+    The rows are the spill numerator and the header range is its denominator,
+    so a row lost to a severed serial line would shrink the count without
+    shrinking what it is read against -- a spilled capture reading clean.
+    """
+    return len(w.frame_rows) == w.frames
+
+
 def spilled_frames(w):
     """Frames of this window that took >1 display window (62.5 ms).
 
@@ -395,20 +405,21 @@ def spilled_frames(w):
     spilled frame, so spilled/frames stays a true fraction the cadence colour
     thresholds can be read against.
     """
-    if w.frame_rows and not w.render_is_wall():
+    if frame_rows_complete(w) and not w.render_is_wall():
         # Renders start flip-aligned (the buffer_free gate opens at a flip),
         # so a frame spills exactly when its render exceeds one window.
         return sum(1 for f in w.frame_rows if f[2] > DISPLAY_WINDOW_US)
     if not w.wall:
         return 0
-    # Either no per-frame rows, or they carry wall for want of a *_buffer_wait
-    # scope. Wall already includes the sync idle and quantizes to whole
-    # windows, so testing it against one window would count jitter above 62.5
-    # as a spill; the sum-derived estimate below is the treatment wall data
-    # gets either way.
-    # Without per-frame rows only the window's wall sum is known, and it gives
-    # the extra windows consumed (= missed flips), which bounds the spilled
-    # frames from above: at most every frame spilled. Marked '~' at the callers.
+    # Either the per-frame rows are absent or short, or they carry wall for
+    # want of a *_buffer_wait scope. Wall already includes the sync idle and
+    # quantizes to whole windows, so testing it against one window would count
+    # jitter above 62.5 as a spill; the sum-derived estimate below is the
+    # treatment wall data gets either way.
+    # Without usable per-frame rows only the window's wall sum is known, and it
+    # gives the extra windows consumed (= missed flips), which bounds the
+    # spilled frames from above: at most every frame spilled. Marked '~' at the
+    # callers.
     extra = max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
     return min(extra, w.frames)
 
@@ -529,7 +540,7 @@ def cmd_buckets(windows, scope, gate):
         return (mk["key"], mk.get("name"))
 
     exact_run = all(w.render and not w.render_is_wall() for w in windows)
-    have_frames = exact_run and all(w.frame_rows for w in windows)
+    have_frames = exact_run and all(frame_rows_complete(w) for w in windows)
 
     groups = {}
     if have_frames:
@@ -951,6 +962,16 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
           f"{len(have_render)} windows have render == wall"
           + (": the effect opens no *_buffer_wait scope)" if wall_render
              else ")"))
+
+    # A window short of its header range has lost rows to the serial link; the
+    # spill count it feeds is then a numerator over a denominator it no longer
+    # covers, which reads as a cleaner cadence than the capture measured.
+    rowed = [w for w in windows if w.frame_rows]
+    short = [w for w in rowed if not frame_rows_complete(w)]
+    check(not short,
+          "per-frame rows cover every frame of their window "
+          f"({len(short)} of {len(rowed)} windows are short"
+          + (f", first {short[0].f_start}-{short[0].f_end})" if short else ")"))
 
     # MIXED-PARENT cycles include entries made from callers other than the
     # parent the row prints under; a DUPLICATE-NAME row accounts for only one
