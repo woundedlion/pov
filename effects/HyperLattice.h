@@ -274,7 +274,7 @@ struct PreparedTrace {
 
 template <int W, int H> constexpr float pixel_half_angle() {
   constexpr float HORIZONTAL = TWO_PI_F / static_cast<float>(W);
-  constexpr float VERTICAL = PI_F / static_cast<float>(H + hs::H_OFFSET - 1);
+  constexpr float VERTICAL = RADIANS_PER_ROW<H>;
   return 0.5f * (HORIZONTAL > VERTICAL ? HORIZONTAL : VERTICAL);
 }
 

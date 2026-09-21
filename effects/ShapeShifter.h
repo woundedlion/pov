@@ -639,9 +639,6 @@ private:
           hs::clamp(static_cast<int>(ceilf(edge_arc / MAX_ANCHOR_ARC)), 1,
                     MAX_ANCHOR_INTERVALS);
       const float gap_arc = edge_arc / anchor_intervals;
-      constexpr float ROWS_PER_RADIAN =
-          static_cast<float>(H + hs::H_OFFSET - 1) / PI_F;
-
       std::array<PixelCoords, MAX_ANCHOR_INTERVALS + 1> anchors;
       float row_lo = static_cast<float>(H);
       float row_hi = 0.0f;
@@ -668,7 +665,7 @@ private:
         row_hi = std::max(row_hi, anchors[k].y);
       }
 
-      const float row_margin = gap_arc * ROWS_PER_RADIAN + 1.0f;
+      const float row_margin = gap_arc * ROWS_PER_RADIAN<H> + 1.0f;
       if (row_lo - row_margin < POLE_GUARD_ROWS ||
           row_hi + row_margin > H - 1.0f - POLE_GUARD_ROWS) {
         draw_planar_star_edge(canvas, a, b, planar_basis, fragment_shader);
