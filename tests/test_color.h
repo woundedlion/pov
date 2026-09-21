@@ -123,6 +123,12 @@ inline void test_color4_lerp_straight_alpha() {
 }
 
 inline void test_blend_outputs_denormal_alpha() {
+#if defined(HS_TEST_FAST_MATH)
+  hs_test::skip_case(
+      __func__,
+      "HS_TEST_FAST_MATH: the denormal-alpha rescale does not survive the flag "
+      "pair");
+#else
   const float alpha = std::numeric_limits<float>::denorm_min();
   const Color4 from(Pixel(1000, 2000, 3000), alpha);
   const Color4 to(Pixel(3000, 4000, 5000), alpha);
@@ -131,6 +137,7 @@ inline void test_blend_outputs_denormal_alpha() {
   HS_EXPECT_NEAR(static_cast<float>(blended.color.g), 3000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.b), 4000.0f, 1.0f);
   HS_EXPECT_NEAR(blended.alpha, alpha, alpha);
+#endif
 }
 
 inline void test_blend_outputs_tiny_normal_alpha() {
@@ -2683,9 +2690,7 @@ inline int run_color_tests() {
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();
   test_color4_lerp_straight_alpha();
-#if !defined(HS_TEST_FAST_MATH)
   test_blend_outputs_denormal_alpha();
-#endif
   test_blend_outputs_tiny_normal_alpha();
   test_wrap_angle_pi_large_arguments();
   test_lerp16_full_range_correct();
