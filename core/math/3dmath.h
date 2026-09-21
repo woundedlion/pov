@@ -489,7 +489,7 @@ private:
  * @details Peak abs error ~0.0038 rad (~0.22°), worst near r ~= 0.7 in each
  * octant. That bound holds only for |(x, y)| above ~1e-7: the 1e-10 origin
  * nudge is added to |y| unconditionally, so below that magnitude the result is
- * no longer scale-invariant — ~5e-3 rad of error at |(x, y)| ~ 1e-8, growing
+ * no longer scale-invariant — ~1.4e-2 rad of error at |(x, y)| ~ 1e-8, growing
  * to the full quadrant as the magnitude approaches the nudge.
  */
 __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
