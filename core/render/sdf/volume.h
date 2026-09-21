@@ -199,6 +199,8 @@ struct Twist {
     const float inv_s = 1.0f / s;
     const float two_cos = 2.0f * p.x * inv_s;
     float prev = 0.0f, cur = p.z * inv_s;
+    if (twist == 2)
+      return {two_cos * cur, inv_s};
     for (int k = 1; k < twist; ++k) {
       const float next = two_cos * cur - prev;
       prev = cur;
@@ -258,6 +260,8 @@ struct Twist {
     const float two_cos = 2.0f * p.x * inv_s;
     float sin_prev = 0.0f, sin_cur = p.z * inv_s;
     float cos_prev = 1.0f, cos_cur = p.x * inv_s;
+    if (twist == 2)
+      return {two_cos * sin_cur, two_cos * cos_cur - 1.0f};
     for (int k = 1; k < twist; ++k) {
       const float sin_next = two_cos * sin_cur - sin_prev;
       sin_prev = sin_cur;
