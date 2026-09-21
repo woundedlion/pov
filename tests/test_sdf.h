@@ -1821,7 +1821,8 @@ inline void test_smooth_union_solidity_follows_children() {
 
 /**
  * @brief Verifies the blendability trait tracks which shapes clamp to the far
- *   sentinel, and that a combinator blends only when every child does.
+ *   sentinel, and that every combinator blends only when each child does --
+ *   including Subtract, whose is_solid tracks the minuend alone.
  * @details Ring, DistortedRing, FlatDistortedRing and Face report dist = 100
  *   outside their reject band, so both children read the sentinel across the
  *   weld and SmoothUnion collapses to Union; SmoothUnion static_asserts the
@@ -1841,6 +1842,13 @@ inline void test_sentinel_clampers_are_not_blendable() {
   static_assert(SDF::blends_smoothly<SDF::Union<SDF::Line, SDF::Line>>);
   static_assert(!SDF::blends_smoothly<SDF::AngularRepeat<SDF::Ring>>);
   static_assert(SDF::blends_smoothly<SDF::AngularRepeat<SDF::Line>>);
+  static_assert(!SDF::blends_smoothly<SDF::SmoothUnion<SDF::Line, SDF::Ring>>);
+  static_assert(SDF::blends_smoothly<SDF::SmoothUnion<SDF::Line, SDF::Line>>);
+  static_assert(!SDF::blends_smoothly<SDF::Intersection<SDF::Line, SDF::Ring>>);
+  static_assert(SDF::blends_smoothly<SDF::Intersection<SDF::Line, SDF::Line>>);
+  static_assert(!SDF::blends_smoothly<SDF::Subtract<SDF::Line, SDF::Ring>>);
+  static_assert(!SDF::blends_smoothly<SDF::Subtract<SDF::Ring, SDF::Line>>);
+  static_assert(SDF::blends_smoothly<SDF::Subtract<SDF::Line, SDF::Line>>);
 }
 
 /**
