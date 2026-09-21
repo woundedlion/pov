@@ -1,10 +1,13 @@
 # Pullback stage families: arbitrary chains over ranked carriers
 
-**Status: §§1–6 and §8 LANDED; §7 PROPOSED.** The static ranked pipeline and
+**Status: §§1–6 and §8 LANDED; §7 PARTIAL.** The static ranked pipeline and
 its migration (the §6 contract cut-over) ship, as does the preview
 interpreter (§8: `core/render/pullback/interpreter.h`, `workbench/shader/chain_host.h`,
-and the `setShaderChain` binding). Promotion/verification (§7) is not yet
-implemented. Where this spec and
+and the `setShaderChain` binding). Promotion/verification (§7) is landed per
+sub-section: the operator authority (§7.1), the field-table half of §7.2, and
+the manifest half of §7.4 ship; the allocator, binding table, promotion pin,
+and roster-derived acceptance registry are design, and each sub-section
+carries its own banner. Where this spec and
 [pullback_pipeline_spec.md](pullback_pipeline_spec.md) disagree about the
 stage model (stage kinds, slot count, carrier records), this spec describes
 what ships. The document is three systems with distinct invariants and
@@ -774,15 +777,25 @@ branches. Enumerating those readers is what makes the landing plannable.
 
 ## 7. Promotion and verification
 
-**Status: PROPOSED.** The promotion layer below is design: its allocator,
-binding table and capture-manifest gate are not in the tree, and neither are
-the `any_approximate` and `APPROXIMATION_DOMAINS_DISJOINT` folds §7.4 names.
+**Status: PARTIAL; each sub-section carries its own banner.** The operator
+authority and the field tables it reads ship; the allocator, the binding
+table, the promotion pin, and the roster-derived acceptance registry with its
+`any_approximate` and `APPROXIMATION_DOMAINS_DISJOINT` folds are design.
 
 A layer over the static model, with its own invariants and failure
 modes: allocation can fail where chain validation succeeds, and its
-gates would run in CI rather than at compile time.
+gates run in CI rather than at compile time.
 
 ### 7.1 One operator authority
+
+**Status: LANDED.** `OperatorDescriptor` and `make_operator_descriptor()`
+(`core/render/pullback/operator_model.h`), the `OPERATOR_TABLE` built from
+those records (`core/render/pullback/operator_table.h`), and the generated
+catalog (`core/render/pullback/catalog_export.h`) golden-pinned by
+`tests/test_shader_chain.h`. The shipped factory derives one schema per model
+with the topology enum8s as ordinary fields rather than instantiating
+per-variant recipes; the provider-requirement function of topology and the
+binding-table conformance test wait on the §7.2 allocator.
 
 A promotable operator is visible to three systems — promotion (its
 provider requirements), the interpreter (its runtime ABI entry), and
@@ -858,6 +871,12 @@ one model — which is what makes §9's "one catalog entry" claim true
 rather than aspirational.
 
 ### 7.2 Resource allocation
+
+**Status: PARTIAL.** The stable machine `Field::id` and its uniqueness check
+(`core/render/pullback/fields.h`) and `concat_fields`
+(`core/render/pullback/operator_model.h`) ship. `requirements(Topology)`, the
+slot capacities and their matching, `Value::Combine`, the parameter-binding
+table, and the promotion emitter are design.
 
 Promotion is an explicit **resource-allocation problem**: a
 capacity-aware assignment of stage instances to provider slots. Not a
@@ -966,6 +985,9 @@ registration — a named follow-on, not part of this spec).
 
 ### 7.3 Topology parameters
 
+**Status: PARTIAL.** The interpreter half ships: topology parameters are
+enum8 runtime switches (§8). The promotion pin is design.
+
 **Topology parameters** — the catalog-flagged enum8 class (weight mode,
 coverage mode, noise basis) — are ordinary runtime switches in the
 interpreter, free to vary between presets; but promotion pins them as
@@ -974,6 +996,16 @@ them invariant across its preset bank. A bank that varies them stays
 interpreter-only or splits into one document per topology.
 
 ### 7.4 Approximation acceptance
+
+**Status: PARTIAL.** The manifest half ships:
+`tools/generate_pullback_manifest_header.py` validates the manifests under
+`tests/data/pullback/` and generates the native header,
+`tests/pullback_manifest_check.cpp` (`unit_pullback_manifest`) checks their
+identity properties, and `tests/test_shader_workbench.h` asserts that the
+ShaderWorkbench program table and the manifest programs match one-for-one.
+The registry derived from the composed-effect roster, the `any_approximate`
+fold, the interpreted-chain approximation aggregate, and
+`APPROXIMATION_DOMAINS_DISJOINT` are design.
 
 The acceptance representation is a capture-manifest entry — capture key
 plus final framebuffer thresholds — measured by the oracle harness over
