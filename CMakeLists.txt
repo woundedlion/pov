@@ -204,6 +204,21 @@ if(EMSCRIPTEN)
   endif()
   set_target_properties(pullback_capture_wasm PROPERTIES SUFFIX ".cjs")
 
+  # Generator of record for scripts/engine_catalog.json, the wasm32 operator ABI
+  # catalog scripts/wasm_smoke.mjs diffs the running module against and the
+  # browser workbench budgets chains with. Its native counterpart is
+  # tests/data/shader_chain_catalog.json, rewritten by
+  # regenerate_shader_chain_catalog; the two state different ABIs and are never
+  # copied over one another. Out of the default build: running it rewrites that
+  # committed artifact.
+  add_custom_target(regenerate_engine_catalog
+    COMMAND node
+      "${CMAKE_CURRENT_SOURCE_DIR}/scripts/export_engine_catalog.mjs"
+      "$<TARGET_FILE:${TARGET_NAME}>"
+      "${CMAKE_CURRENT_SOURCE_DIR}/scripts/engine_catalog.json"
+    DEPENDS ${TARGET_NAME}
+    VERBATIM)
+
   # Install the simulator runtime package into the daydream checkout. Defaults
   # to the sibling-checkout layout (../daydream); override with
   # -DDAYDREAM_DIR=/path/to/daydream. Destinations are absolute, so this install
