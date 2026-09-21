@@ -441,11 +441,11 @@ protected:
    * allocations, since the node array shares the persistent arena.
    */
   HS_COLD_MEMBER void init_lattice() {
-    // configure_arenas() must have sized the persistent arena to hold the shared
-    // node array before this runs; trap an unconfigured or under-sized arena by
-    // contract here rather than as a later generic allocation OOM.
-    HS_CHECK(persistent_arena.get_capacity() - persistent_arena.get_offset() >=
-             RD_N * sizeof(Vector));
+    HS_CHECK(
+        persistent_arena.get_capacity() - persistent_arena.get_offset() >=
+            RD_N * sizeof(Vector),
+        "ReactionDiffusion: persistent arena not sized for the shared node "
+        "array; configure_arenas() must run before init_lattice()");
     // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
     // unguarded.
     ReactionGraph::validate_neighbors(ReactionGraph::neighbors);
