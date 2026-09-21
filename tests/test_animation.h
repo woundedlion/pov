@@ -2405,6 +2405,12 @@ struct DriftedLocalSweepSegue : Segue::Base {
   static constexpr int LOCAL_SWEEP = 1;
 };
 
+/** @brief A final policy: no name carrier can be merged into it, so every
+ * Declares* probe answers false, its drifted warp included. */
+struct FinalSegue final : Segue::Base {
+  Vector warp(const Vector &v, float, int) const { return v; }
+};
+
 /** @brief A policy shadowing Base's visible() with a float: every phase would
  * read as visible. */
 struct DriftedVisibleSegue : Segue::Base {
@@ -2496,6 +2502,9 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(Segue::DeclaresLocalSweep<DriftedLocalSweepSegue> &&
                 !Segue::LocalSweeps<DriftedLocalSweepSegue>);
   static_assert(!Segue::PolicyList<DriftedLocalSweepSegue>::LOCAL_SWEEPS_TYPED);
+  static_assert(!Segue::DeclaresWarp<FinalSegue> &&
+                !Segue::PolicyList<FinalSegue>::MERGEABLE);
+  static_assert(Segue::AllPolicies::MERGEABLE);
   static_assert(Segue::AllPolicies::CONFORMING);
   static_assert(Segue::AllPolicies::LOCAL_SWEEPS_TYPED);
   static_assert(!Segue::HasPhaseHooks<DriftedVisibleSegue>);
