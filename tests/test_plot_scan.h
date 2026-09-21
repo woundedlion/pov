@@ -2,29 +2,45 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/render/plot.h (and the pure helpers reached via scan.h's
- * dependency on constants.h ClipRegion).
+ * Unit tests for core/render/plot.h and the ClipRegion helpers in
+ * core/render/clip.h.
  *
  * Focus: PURE sampling / geometry paths that produce Fragments from geometry
- * WITHOUT a live Canvas. The Scan:: rasterizer is covered in test_scan.h.
+ * WITHOUT a live Canvas, plus the Plot draw entry points through a capturing
+ * pipeline or a StubEffect. The Scan:: rasterizer is covered in test_scan.h.
  *
  * Coverage:
  *   - Plot::Line::sample        : geodesic endpoints unit-length, span, v0/v1;
- *                                 degenerate (zero-length) segment handled.
- *   - ClipRegion::could_intersect_y : y-range cull (constants.h).
- *   - ClipRegion x-clip (render_x_*, contains_x, x_clip/XClip) : cylindrical
- *                                 band topologies + contains_x/XClip parity.
- *   - Plot::Ring::sample : unit-length, angular progress.
+ *                                 degenerate and (near-)antipodal segments.
+ *   - Plot::Line::draw          : a geodesic through the pole reaches row 0.
+ *   - ClipRegion (clip.h)       : could_intersect_y, the x-band topologies and
+ *                                 wrap, arcs_overlap, and the row-span and
+ *                                 column-span arc culls.
+ *   - Plot::Mesh edge gates     : edge_visible_in_clip, the quadrant and
+ *                                 gate-trail column culls, clip cuts, and the
+ *                                 Segue::Dissolve edge partition.
+ *   - Plot::screen_step and the antialiased-dot clip footprint.
+ *   - Plot::Ring::sample / draw : unit-length, angular progress, LUT parity,
+ *                                 stride and direct-sink draws.
  *   - Plot::DistortedRing::sample : angle-addition identity (LUT) matches
  *                                   direct cos/sin within tolerance.
- *   - Plot::Multiline::sample   : arc-length parameterization, v0 in [0,1].
- *   - Plot::Star<Plot::PlanarProjection>::sample / Flower::sample : unit-length,
- *     closed loop.
- *   - PlanarEdgeSampler::one_pass : analytic tangent vs the forward-difference
- *                                 operator(), and tangency/forwardness.
- *   - rasterize single_pass : gap-free planar and geodesic edges,
- *                            endpoints, poles, seams, long arcs, and
- *                            quadrant clips.
+ *   - Plot::Multiline::sample / draw : arc-length parameterization, v0 in
+ *                                 [0,1]; open and closed edge coverage.
+ *   - Plot::Star<Plot::PlanarProjection>::sample / Flower::sample :
+ *     unit-length, closed loop, trig parity, the continuous star across the
+ *     equator and at the antipode.
+ *   - Plot::rasterize           : gap-free open and closed segments, planar
+ *                                 and geodesic edges, the antipodal seam
+ *                                 fallback, register tracking, sampling-policy
+ *                                 parity, and the filter-orientation cull.
+ *   - Plot::ParticleSystem      : trail rasterization, registers, deferred
+ *                                 shader and gate parity.
+ *   - Azimuthal-equidistant projection and the dual-metric planar arc length.
+ *   - PlanarEdgeSampler::one_pass / SinglePass : analytic tangent vs the
+ *                                 forward-difference operator(), two-pass
+ *                                 parity, balanced sampling, the step budget,
+ *                                 and geodesic endpoints, poles, seams, long
+ *                                 arcs and quadrant clips.
  */
 #pragma once
 
@@ -410,7 +426,7 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
 }
 
 // ============================================================================
-// ClipRegion::could_intersect_y  (constants.h — pure clip culling)
+// ClipRegion::could_intersect_y  (clip.h — pure clip culling)
 // ============================================================================
 
 /**
@@ -3066,6 +3082,40 @@ inline void test_multiline_draw_closed_adds_the_seam_edge() {
   HS_EXPECT_GT(closed_path.first, open_path.first);
   HS_EXPECT_LT(closed_path.second, row);
   HS_EXPECT_GT(open_path.second, 4.0f * row);
+}
+
+/**
+ * @brief Verifies a geodesic line through the north pole plots the pole row.
+ * @details map_geodesic/map_planar build interpolated points with
+ * fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel takes
+ * phi = acos(v.y) directly, and acos's infinite slope at y=1 amplifies that
+ * tiny error into a multi-row shift unless interpolated positions are
+ * re-normalized before mapping. The drawing phase re-normalizes, so the pole
+ * lands on row 0.
+ */
+inline void test_plot_line_over_pole_reaches_row0() {
+  constexpr int W = 288, H = 144;
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipe; // bare sink (no AA) so we see raw sample placement
+
+  // Geodesic from 0.4 rad down the +Z side of the N pole to 0.4 rad down the
+  // -Z side; its midpoint is the pole (row 0).
+  Fragment f1, f2;
+  f1.pos = Vector(0.0f, cosf(0.4f), sinf(0.4f));
+  f2.pos = Vector(0.0f, cosf(0.4f), -sinf(0.4f));
+  {
+    Canvas c(fx);
+    Plot::Line::draw<W, H>(pipe, c, f1, f2, [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+    });
+  }
+  fx.advance_display();
+
+  size_t row0 = 0;
+  for (int x = 0; x < W; ++x)
+    if (!is_black(fx.get_pixel(x, 0)))
+      ++row0;
+  HS_EXPECT_GT(row0, (size_t)0);
 }
 
 // ============================================================================
@@ -6055,6 +6105,7 @@ inline int run_plot_scan_tests() {
   test_multiline_draw_covers_only_its_geodesic_edges();
   test_arc_angular_distance_clamps_to_minor_arc();
   test_multiline_draw_closed_adds_the_seam_edge();
+  test_plot_line_over_pole_reaches_row0();
 
   test_planar_one_pass_matches_forward_difference();
   test_planar_one_pass_tangent_is_forward_and_orthogonal();
