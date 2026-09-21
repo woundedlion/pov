@@ -29,20 +29,26 @@ neighbors[i] = the RD_K indices j != i minimizing |node(i) - node(j)|^2, sorted
 by (distance, index) so ties break deterministically toward the lower index.
 
 Usage:
-  python scripts/generate_reaction_graph.py > core/spatial/reaction_graph.cpp
+  python scripts/generate_reaction_graph.py            # rewrite the table in place
+  python scripts/generate_reaction_graph.py -o FILE    # write it somewhere else
+
+The script opens the output itself (UTF-8, LF). Shell redirection is not a
+supported recipe: PowerShell's `>` re-encodes the stream with a BOM and CRLF
+line endings, which corrupts the table.
 
 The CI provenance gate (.github/workflows/ci.yml :: reaction-graph-provenance)
 re-runs this and `diff -u`s the full generated text against the committed file,
 so any byte of drift in either the script or the table fails loudly.
 """
 
+import argparse
 import math
 import re
-import sys
 from pathlib import Path
 
 HEADER = (Path(__file__).resolve().parent.parent / "core" / "spatial" /
           "reaction_graph.h")
+OUTPUT = HEADER.with_name("reaction_graph.cpp")
 
 
 def _header_constant(text, pattern, name):
@@ -131,22 +137,8 @@ def build_neighbors():
     return table
 
 
-def main():
-    if RD_N <= RD_K:
-        raise RuntimeError(
-            f"RD_N ({RD_N}) must exceed RD_K ({RD_K}): a node has only RD_N-1 "
-            "possible neighbors, and a short row would be zero-padded to the "
-            "C++ array bound instead of failing to compile")
-    if RD_N > 32767:
-        raise RuntimeError(
-            f"RD_N ({RD_N}) exceeds INT16_MAX (32767): node index must fit "
-            "int16_t; widen the neighbors element type in "
-            "spatial/reaction_graph.h before raising RD_N")
-    table = build_neighbors()
-    # LF on every host: the provenance gate diffs the full text against the
-    # committed file, which a Windows CRLF run would fail on every line.
-    sys.stdout.reconfigure(newline="\n")
-    out = sys.stdout
+def emit(table, out):
+    """Write the generated translation unit to an open text stream."""
     out.write("/*\n")
     out.write(" * Required Notice: Copyright 2025 Gabriel Levy."
               " All rights reserved.\n")
@@ -161,6 +153,29 @@ def main():
         comma = "," if idx + 1 < len(table) else ""
         out.write("  {" + ", ".join(str(v) for v in row) + "}" + comma + "\n")
     out.write("};\n")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "-o", "--output", type=Path, default=OUTPUT,
+        help=f"file to write (default: {OUTPUT.name} beside the header)")
+    args = parser.parse_args(argv)
+    if RD_N <= RD_K:
+        raise RuntimeError(
+            f"RD_N ({RD_N}) must exceed RD_K ({RD_K}): a node has only RD_N-1 "
+            "possible neighbors, and a short row would be zero-padded to the "
+            "C++ array bound instead of failing to compile")
+    if RD_N > 32767:
+        raise RuntimeError(
+            f"RD_N ({RD_N}) exceeds INT16_MAX (32767): node index must fit "
+            "int16_t; widen the neighbors element type in "
+            "spatial/reaction_graph.h before raising RD_N")
+    table = build_neighbors()
+    # UTF-8 and LF on every host: the provenance gate diffs the full text
+    # against the committed file, which a BOM or a CRLF run fails on.
+    with args.output.open("w", encoding="utf-8", newline="\n") as out:
+        emit(table, out)
 
 
 if __name__ == "__main__":
