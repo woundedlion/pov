@@ -13,7 +13,7 @@
  *   #include "../../hardware/pov_single.h"
  */
 #pragma once
-#include "render/led.h" // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
+#include "core/render/led.h" // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
 #include "pov_single_map.h" // pure strip index math (host-tested)
 
 // Arduino-only: depends on IntervalTimer, FastLED/DMA, and the Teensy runtime.
@@ -25,9 +25,9 @@
 #else
 #include <FastLED.h>
 #endif
-#include "render/canvas.h"
-#include "math/geometry.h"
-#include "engine/memory.h"
+#include "core/render/canvas.h"
+#include "core/math/geometry.h"
+#include "core/engine/memory.h"
 #include <new> // std::nothrow — fail-fast OOM check on the effect allocation
 
 /**
