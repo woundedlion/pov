@@ -2797,6 +2797,7 @@ inline int run_color_tests() {
   test_generative_palette_snapshot_lerp_closes_loop();
   test_generative_palette_cartesian_path_neutralizes_midpoint();
   test_generative_palette_rejects_unavailable_path_minimum();
+  test_generative_palette_absolute_basis_canonicalizes_headroom();
   test_generative_palette_morph_compatible();
   test_generative_palette_lerp_mixed_curves_continuous();
   test_generative_palette_lerp_interpolates_loop_seam();

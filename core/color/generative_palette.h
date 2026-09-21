@@ -817,16 +817,9 @@ private:
               static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) + i),
           status);
     }
-    if (recipe.chroma.basis == ChromaBasis::ABSOLUTE) {
-      if (recipe.chroma.headroom != 1.0f) {
-        recipe.chroma.headroom = 1.0f;
-        status.adjustments.canonicalized_fields |=
-            field_bit(PaletteRecipeField::CHROMA_HEADROOM);
-      }
-    } else {
+    if (recipe.chroma.basis != ChromaBasis::ABSOLUTE)
       clamp_field(recipe.chroma.headroom, 0.0f, 1.0f,
                   PaletteRecipeField::CHROMA_HEADROOM, status);
-    }
 
     if (fabsf(recipe.hue_torsion) > MAX_ABS_TORSION)
       return fail(status, PaletteCompileCode::HUE_LIMIT,
