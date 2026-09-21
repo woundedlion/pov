@@ -338,11 +338,6 @@ struct Volume {
    * @param bounds_center Bounding sphere center in physical LED space; must be
    *        a unit vector (on the canvas sphere).
    * @param bounds_radius Bounding sphere radius in world units.
-   * @param view_dir Ray direction (camera → scene) in LED space; must point
-   *        straight at bounds_center (a radial view). The scanned band is a cap
-   *        around bounds_center, which is the orthographic footprint only under
-   *        that view; a tilted one slides the footprint off the band and drops
-   *        covered columns.
    * @param shape Volume shape providing ray_to_local() and distance().
    * @param frag_fn Fragment shader invoked once per hit.
    * @param max_steps Maximum sphere-tracing steps per ray.
@@ -356,19 +351,18 @@ struct Volume {
    * pipeline receives no sub-pixel positions from this draw.
    */
   template <int W, int H, typename Shape>
-  static void
-  draw(PipelineRef pipeline, Canvas &canvas, const Vector &bounds_center,
-       float bounds_radius, const Vector &view_dir, const Shape &shape,
-       FragmentShaderFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const Vector &bounds_center, float bounds_radius,
+                   const Shape &shape, FragmentShaderFn frag_fn,
+                   int max_steps = 15, float aa_width = 0.01f) {
     check_canvas_dims<W, H>(canvas);
     check_fragment_shader(frag_fn);
     if constexpr (requires { shape.check_trace_preconditions(); })
       shape.check_trace_preconditions();
 
-    float vd_len = sqrtf(view_dir.x * view_dir.x + view_dir.y * view_dir.y +
-                         view_dir.z * view_dir.z);
-    float vd_inv = (vd_len > TOLERANCE) ? 1.0f / vd_len : 1.0f;
-    Vector vd(view_dir.x * vd_inv, view_dir.y * vd_inv, view_dir.z * vd_inv);
+    // The scanned band is a cap around bounds_center, which is the
+    // orthographic footprint only under a radial view.
+    const Vector vd = -bounds_center;
 
     // Ray must start behind the farthest extent of the shape.
     float start_offset = 1.0f + bounds_radius;
@@ -397,15 +391,11 @@ struct Volume {
              "Scan::Volume: bounds_center must map to the shape's origin");
     // The scan band below is a cap around bounds_center of angular radius
     // asin(bounds_radius), which equals the orthographic footprint only for a
-    // radial view of a unit-length center: BoundingSphere reads center.y as
-    // cos(phi), and a tilted view slides the footprint off the cap. Unit length
-    // also backs the ray start offset above — farther out along the view axis a
-    // ray can start in front of the shape.
+    // unit-length center: BoundingSphere reads center.y as cos(phi). Unit
+    // length also backs the ray start offset above: farther out along the view
+    // axis a ray can start in front of the shape.
     HS_CHECK(fabsf(dot(bounds_center, bounds_center) - 1.0f) < TOLERANCE,
              "Scan::Volume: bounds_center must be unit length");
-    const Vector radial_err = cross(bounds_center, vd);
-    HS_CHECK(bc_dot_vd < 0.0f && dot(radial_err, radial_err) < TOLERANCE,
-             "Scan::Volume: view_dir must be -bounds_center");
     // aa_width > 0 is the contract: volume_edge_coverage divides by (aa_width -
     // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
     HS_CHECK(aa_width > 0.0f, "Scan::Volume: aa_width must be positive");
