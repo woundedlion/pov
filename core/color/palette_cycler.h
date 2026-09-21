@@ -9,7 +9,8 @@
 /**
  * @file palette_cycler.h
  * @brief Time-based palette orchestration: a display LUT cycling through an
- *        arbitrary sequence of palettes.
+ *        arbitrary sequence of palettes, and the three-harmony generated bank
+ *        built on it.
  */
 
 /**
@@ -401,4 +402,102 @@ private:
                 "MAX_ENTRIES");
   bool fade_active = false;
   bool display_dirty = false;
+};
+
+/** @brief Shared triadic, complementary, and analogous palette cyclers. */
+class GeneratedPaletteBank {
+public:
+  static constexpr uint32_t HUE_STEP = 159;
+  static constexpr int DWELL_FRAMES = 0;
+  static constexpr int FADE_FRAMES = 600;
+
+  /** @brief Arena bytes init() consumes, one generated cycler per harmony. */
+  static constexpr size_t required_arena_bytes() {
+    return 3 * PaletteCycler::generated_arena_bytes();
+  }
+
+  HS_COLD_MEMBER void init(Arena &arena, float chroma, float (*easing)(float)) {
+    this->chroma = chroma;
+    triadic.init_generated(arena, next_triadic, this, DWELL_FRAMES, FADE_FRAMES,
+                           easing);
+    complementary.init_generated(arena, next_complementary, this, DWELL_FRAMES,
+                                 FADE_FRAMES, easing);
+    analogous.init_generated(arena, next_analogous, this, DWELL_FRAMES,
+                             FADE_FRAMES, easing);
+  }
+
+  template <typename PaletteMode> void step(PaletteMode visible) {
+    step_one(triadic, visible == PaletteMode::TRIADIC);
+    step_one(complementary, visible == PaletteMode::COMPLEMENTARY);
+    step_one(analogous, visible == PaletteMode::ANALOGOUS);
+  }
+
+  template <typename PaletteMode>
+  HS_COLD_MEMBER const BakedPalette &palette(PaletteMode mode) const {
+    switch (mode) {
+    case PaletteMode::TRIADIC:
+      return triadic.palette();
+    case PaletteMode::COMPLEMENTARY:
+      return complementary.palette();
+    case PaletteMode::ANALOGOUS:
+      return analogous.palette();
+    }
+    __builtin_unreachable();
+  }
+
+  HS_COLD_MEMBER void set_chroma(float chroma) {
+    if (chroma == this->chroma)
+      return;
+    this->chroma = chroma;
+    triadic.set_generated_chroma(chroma);
+    complementary.set_generated_chroma(chroma);
+    analogous.set_generated_chroma(chroma);
+  }
+
+  static void next_palette(uint32_t &hue, uint32_t sequence,
+                           PaletteHarmony harmony, float chroma,
+                           GenerativePalette &out) {
+    if (sequence > 0)
+      hue += HUE_STEP;
+    out = GenerativePalette{PaletteRecipes::profile(
+        PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
+        PaletteRecipes::hue_turns(hue), chroma)};
+  }
+
+private:
+  static void step_one(PaletteCycler &cycler, bool visible) {
+    if (visible)
+      cycler.step();
+    else
+      cycler.advance_without_display();
+  }
+
+  static void next_triadic(void *context, uint32_t sequence,
+                           GenerativePalette &out) {
+    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
+    next_palette(bank.triadic_hue, sequence, PaletteHarmony::TRIADIC,
+                 bank.chroma, out);
+  }
+
+  static void next_complementary(void *context, uint32_t sequence,
+                                 GenerativePalette &out) {
+    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
+    next_palette(bank.complementary_hue, sequence,
+                 PaletteHarmony::COMPLEMENTARY, bank.chroma, out);
+  }
+
+  static void next_analogous(void *context, uint32_t sequence,
+                             GenerativePalette &out) {
+    auto &bank = *static_cast<GeneratedPaletteBank *>(context);
+    next_palette(bank.analogous_hue, sequence, PaletteHarmony::ANALOGOUS,
+                 bank.chroma, out);
+  }
+
+  PaletteCycler triadic;
+  PaletteCycler complementary;
+  PaletteCycler analogous;
+  uint32_t triadic_hue = 0;
+  uint32_t complementary_hue = 0;
+  uint32_t analogous_hue = 0;
+  float chroma = 0.62f;
 };
