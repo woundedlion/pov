@@ -931,11 +931,13 @@ jobs:
         # and assert every installed artifact exists and the recorded hashes
         # verify (the same sha256 check the gate runs) so a broken provenance step
         # fails here, not at deploy. The file list is every install() rule in
-        # CMakeLists.txt; the gallery is a directory install, checked below.
+        # CMakeLists.txt that names a file, the shader/ document set included;
+        # the gallery and the mirrored patterns are directory installs, diffed
+        # against their sources below.
         run: |
           cmake --build --preset wasm-release-install
           dd="${{ runner.temp }}/daydream-install"
-          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain pov_segment_map.json; do
+          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain pov_segment_map.json shader/shader_workbench.mjs shader/sha256.mjs shader/engine_catalog.json; do
             if [ ! -f "$dd/$f" ]; then
               echo "::error::install did not produce $f — a consumer in the daydream checkout depends on it"
               exit 1
@@ -1021,6 +1023,17 @@ jobs:
               | xargs -0 sha256sum > holosphere_engine.sha256
             sha256sum -c holosphere_engine.sha256
           )
+
+      - name: Mirrored shader documents match their sources
+        # The other directory install, checked the way the gallery is above: the
+        # daydream deploy gate reads these documents, so a FILES_MATCHING pattern
+        # that stops selecting one ships a simulator missing a shader.
+        run: |
+          dd="${{ runner.temp }}/daydream-install"
+          out="${{ runner.temp }}"
+          ( cd patterns && find . -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-source.txt"
+          ( cd "$dd/shader/patterns" && find . -type f ) | sort > "$out/mirror-installed.txt"
+          diff -u "$out/mirror-source.txt" "$out/mirror-installed.txt"
 
       - name: Upload verified engine bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
