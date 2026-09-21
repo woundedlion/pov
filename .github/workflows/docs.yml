@@ -24,6 +24,7 @@ on:
       - 'docs/screenshots/**'
       - 'tools/build_pins.py'
       - 'tools/docs_check.py'
+      - 'tools/docs_sync.py'
       - 'tools/docs_images.py'
       - 'justfile'
       - '.github/actions/pinned-doxygen/action.yml'
@@ -43,6 +44,7 @@ on:
       - 'docs/screenshots/**'
       - 'tools/build_pins.py'
       - 'tools/docs_check.py'
+      - 'tools/docs_sync.py'
       - 'tools/docs_images.py'
       - 'justfile'
       - '.github/actions/pinned-doxygen/action.yml'
@@ -105,7 +107,7 @@ jobs:
       # deploy from a commit whose ci.yml docs-markdown job is red, and `deploy`
       # needs this job.
       - name: Validate tracked Markdown
-        run: python tools/docs_check.py --checkout daydream=daydream
+        run: python tools/docs_check.py --sync --checkout daydream=daydream
 
       - uses: ./.github/actions/pinned-doxygen
 

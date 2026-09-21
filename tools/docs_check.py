@@ -1090,9 +1090,12 @@ def check_text(source: PurePosixPath, text: str,
     return sorted(issues)
 
 
-def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath]]:
+def _tracked_entries(root: Path, revision: str | None = None
+                     ) -> tuple[list[PurePosixPath], set[PurePosixPath]]:
     command = ["git", "-c", f"safe.directory={root.as_posix()}",
-               "-C", str(root), "ls-files", "-z"]
+               "-C", str(root)]
+    command.extend(["ls-tree", "-r", "--name-only", "-z", revision]
+                   if revision else ["ls-files", "-z"])
     result = subprocess.run(command, check=True, stdout=subprocess.PIPE,
                             timeout=_GIT_TIMEOUT_SECONDS)
     files = [PurePosixPath(name) for name in
@@ -1108,10 +1111,11 @@ def _tracked_entries(root: Path) -> tuple[list[PurePosixPath], set[PurePosixPath
 
 def check_repository(
         root: Path, checkout_roots: dict[str, Path] | None = None,
-        skipped: set[str] | None = None
+        skipped: set[str] | None = None,
+        checkout_revisions: dict[str, str] | None = None
 ) -> tuple[list[PurePosixPath], list[Issue], list[str]]:
     markdown, entries = _tracked_entries(root)
-    checkouts = {name: _tracked_entries(path)[1]
+    checkouts = {name: _tracked_entries(path, (checkout_revisions or {}).get(name))[1]
                  for name, path in (checkout_roots or {}).items()}
     issues = []
     used: set[str] = set()
@@ -1196,6 +1200,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Check tracked Markdown fences and repository links.")
     parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--sync", action="store_true",
+                        help="refresh repository maps and derived counts before checking")
+    parser.add_argument("--auto-checkout", action="store_true",
+                        help="use locally available pinned Daydream, or report its checks skipped")
     parser.add_argument(
         "--checkout", action="append", default=[], metavar="NAME=PATH",
         help="root of a sibling checkout a `tree <NAME>` fence draws")
@@ -1218,9 +1226,21 @@ def main(argv: list[str] | None = None) -> int:
 
     skipped: set[str] = set()
     try:
+        revisions = {}
+        if args.sync or args.auto_checkout:
+            import docs_sync
+            if args.auto_checkout and "daydream" not in checkout_roots:
+                checkout = docs_sync.discover_daydream(args.root.resolve())
+                if checkout is None:
+                    args.skip_checkout.append("daydream")
+                else:
+                    checkout_roots["daydream"] = checkout
+            revisions = docs_sync.checkout_revisions(checkout_roots)
+            if args.sync:
+                docs_sync.sync_repository(args.root.resolve(), checkout_roots, revisions)
         markdown, issues, stale = check_repository(
-            args.root.resolve(), checkout_roots, skipped)
-    except (OSError, subprocess.SubprocessError, UnicodeError) as error:
+            args.root.resolve(), checkout_roots, skipped, revisions)
+    except (OSError, subprocess.SubprocessError, UnicodeError, ValueError) as error:
         print(f"[docs-check] tooling error: {error}", file=sys.stderr)
         return 2
     # An unvalidated tree fence or sibling link is not a pass: it went ungated,
