@@ -106,6 +106,9 @@ _HS_TOKEN=""
 _HS_LOCK_DIR=""
 # The board this process holds; also exported as HS_TEENSY_PORT on acquire.
 HS_DEVICE_PORT=""
+# Set when acquire exported that pin itself, so release can drop it; a pin
+# the caller set outlives the claim.
+_HS_PORT_EXPORTED=""
 
 _hs_lock_field() {  # <dir> <field>
   sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1
@@ -191,7 +194,10 @@ _hs_try_claim() {
   _HS_TOKEN="$token"
   _HS_LOCK_DIR="$d"
   HS_DEVICE_PORT="$port"
-  [ -n "$port" ] && export HS_TEENSY_PORT="$port"
+  if [ -n "$port" ]; then
+    [ -n "${HS_TEENSY_PORT:-}" ] || _HS_PORT_EXPORTED=1
+    export HS_TEENSY_PORT="$port"
+  fi
   return 0
 }
 
@@ -271,7 +277,9 @@ hs_device_acquire() {
   done
 }
 
-# Releasing only our own claim leaves a replacement holder untouched.
+# Releasing only our own claim leaves a replacement holder untouched. The pin
+# acquire exported goes with it, so the next acquire in this shell is not
+# steered back onto the board just freed.
 hs_device_release() {
   local d=$_HS_LOCK_DIR
   [ -n "$_HS_TOKEN" ] && [ -n "$d" ] || return 0
@@ -281,6 +289,10 @@ hs_device_release() {
   # Read by whoever sourced this file, not here.
   # shellcheck disable=SC2034
   HS_DEVICE_PORT=""
+  if [ -n "$_HS_PORT_EXPORTED" ]; then
+    unset HS_TEENSY_PORT
+    _HS_PORT_EXPORTED=""
+  fi
 }
 
 # Reports every attached board. rc 0 if at least one is claimable, 2 if the
