@@ -722,10 +722,12 @@ inside it.
 
 Required surface policies:
 
-- `Surface::Identity`;
 - direct sphere-space noise;
 - curl sphere-space noise for every currently implemented integrator, including
-  the shipping simplex/Euler specialization.
+  the shipping simplex/Euler specialization;
+- periodic ripple, `Surface::PeriodicRipple<State>`.
+
+Identity is not a policy in any family: an absent stage is the identity.
 
 Noise basis and surface integrator are compiled topology facts. Public policy
 shapes are `Surface::DirectNoise<State, NoiseBasisV>` and
@@ -745,7 +747,6 @@ prepared hue state and runtime hue mode.
 
 Required lens policies:
 
-- identity;
 - glitch;
 - twist;
 - ordinary kaleidoscope;
@@ -817,7 +818,6 @@ inner lookup order; its authoring model remains a two-slot program.
 
 Required policies:
 
-- identity;
 - affine frame;
 - wave shear;
 - vortex;
@@ -880,11 +880,14 @@ Required source policies:
 
 - twin wave;
 - rings;
+- spherical rings;
 - spiral;
 - grid/coupled grid;
 - projected noise contour;
 - spherical noise contour;
-- primitive lattice.
+- primitive lattice;
+- escape fractal;
+- tessellation.
 
 Noise source shapes are
 `Source::ProjectedNoise<State, NoiseBasisV>` and
