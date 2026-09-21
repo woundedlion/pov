@@ -54,9 +54,9 @@ document digests differently). A guaranteed single-path chain says so:
   derive) and its parameter schema. The catalog is the single source the
   validator and the editor read, and it is generated from — or
   golden-pinned against — the C++ combinator typedefs, so the tool
-  cannot drift from the engine's ground truth. Compound sources
-  (`Source::Multiply<A, B>`) appear as their own curated catalog
-  entries; operator nesting is reserved for a future schema revision.
+  cannot drift from the engine's ground truth. A compound source, when
+  one ships, appears as its own curated catalog entry; operator nesting
+  is reserved for a future schema revision.
 - **Bindings become real.** v1's `parameter.binding` is validated as a
   bare identifier and cross-checked against nothing (shipped documents
   contradict any label convention in both directions). v2: a parameter id
@@ -240,7 +240,11 @@ names that output directly.
   button (endomorphisms only), or a **replacement selector** (crossings
   only). The instance label appears in the chip's accessible name and rename
   field, not its visible heading. The selected chip is outlined and carries `aria-current`; a
-  bypassed chip renders dimmed.
+  bypassed chip renders dimmed. Every chip carries its stage's parameter
+  controls inline, built from the document's parameter declarations over
+  the active preset's values; a chip discloses them transiently while the
+  pointer hovers it or keyboard focus is inside it, and pins them open
+  while selected.
 - **Remove**: × commits `replaceSpan(i, 1, [])` — legal by construction
   for an endomorphism, which is why only endomorphisms carry it.
   Crossings are removed by replacement (§3), so sockets carry a
