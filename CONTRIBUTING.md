@@ -54,14 +54,19 @@ it.
 ## Gates
 
 Every gate below runs in `.github/workflows/ci.yml` behind one aggregate
-`CI green` check. `.githooks/pre-commit` is a fast staged-file format/lint
-prefilter; the protected branch's `CI green` status is the authoritative
-correctness gate.
+`CI green` check. `.githooks/pre-commit` is a fast prefilter over the staged
+tree — format, lint, documentation, build pins and license headers; the
+protected branch's `CI green` status is the authoritative correctness gate.
 
-- **`.githooks/pre-commit`** — checks staged first-party C++ with clang-format
-  and runs ruff/eslint on staged Python/JavaScript. A required tool missing for
-  an applicable change fails the commit rather than skipping the check.
-  Configuring the `tests` preset points `core.hooksPath` at `.githooks` for you.
+- **`.githooks/pre-commit`** — rejects staged whitespace errors, checks staged
+  first-party C++ with clang-format, and runs ruff/eslint on staged
+  Python/JavaScript. It then runs `tools/docs_check.py`,
+  `tools/docs_images.py`, `tools/build_pins.py --check` and
+  `tools/license_check.py` against an isolated checkout of the index, so the
+  verdict is on what is being committed rather than on the working tree. A
+  required tool missing for an applicable change fails the commit rather than
+  skipping the check. Configuring the `tests` preset points `core.hooksPath` at
+  `.githooks` for you.
 - **clang-format is pinned to major 22.** A different major reflows unrelated
   code, so the hook fails rather than trusting an off-major verdict. Install the
   pin (`pip install clang-format==22.1.8`) or point `CLANG_FORMAT` at a
@@ -91,7 +96,7 @@ correctness gate.
   `run:` body through `shellcheck`, since no workflow is a `*.sh` file), and a
   `just --evaluate` / `just --summary` parse of the `justfile`, plus the
   profiling-roster cross-check in `tools/profile_sweep.sh`.
-  `just lint` runs the four lint/roster checks locally; the hook only checks
+  `just lint` runs the four lint/roster checks locally; the hook lints only
   staged Python and JavaScript, so CI remains authoritative.
 - **Documentation:** `just docs-check` validates fences, links,
   anchors and every backticked repo path, and the README's file map must list a
