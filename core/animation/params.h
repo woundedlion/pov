@@ -739,7 +739,9 @@ public:
    * @param params Reference to the params struct to animate. `params.amplitude`
    *        is captured here as the ripple's peak and then reset to 0; set it
    *        before constructing, as later writes are ignored.
-   * @param center The center point of the ripple.
+   * @param center Direction the ripple radiates from; normalized here, as the
+   *        renderer reads dot(v, center) as a cosine. A zero center traps in
+   *        normalized().
    * @param speed How fast the waves travel.
    * @param duration How long the ripple lasts in frames.
    */
@@ -749,7 +751,7 @@ public:
         peak_amplitude(params.amplitude) {
     HS_CHECK(duration >= 2, "Ripple duration must be >= 2");
     HS_CHECK(std::isfinite(speed), "Ripple speed must be finite");
-    this->params.get().center = center;
+    this->params.get().center = center.normalized();
     this->params.get().phase = 0.0f;
     // Start at 0 to prevent 1-frame singularity before first step()
     this->params.get().amplitude = 0.0f;
