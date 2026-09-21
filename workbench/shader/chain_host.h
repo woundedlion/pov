@@ -19,7 +19,7 @@
  *        as "{instance}.{field-id}".
  */
 
-#include "core/color/effect_palette_recipes.h"
+#include "core/color/palette_cycler.h"
 #include "core/engine/engine.h"
 #include "core/render/pullback/interpreter.h"
 #include "core/render/pullback/runtime_seeds.h"
@@ -266,7 +266,7 @@ private:
       the next compile. */
   ColorizeTap colorize;
   Resources *resources = nullptr;
-  EffectPaletteRecipes::GeneratedPaletteBank generated_palettes;
+  GeneratedPaletteBank generated_palettes;
   uint32_t frame_index = 0;
 
   // Against the browser module's arena, not the build's: this effect never
@@ -277,7 +277,7 @@ private:
       alignof(Resources) +
       2 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
       gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS) +
-      EffectPaletteRecipes::GeneratedPaletteBank::required_arena_bytes();
+      GeneratedPaletteBank::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= WASM_PERSISTENT_BUDGET,
                 "ShaderChain persistent footprint exceeds the browser "
                 "module's default partition");
