@@ -132,9 +132,6 @@ struct ShaderWorkbenchWhiteBox {
   static void set_clocks(SB &sb, const ClockState &clocks) {
     sb.runtime.clocks = clocks;
   }
-  static void seed_clocks(SB &sb, float value) {
-    sb.runtime.clocks = {value, value, value, value, value};
-  }
   static FrameState frame(const SB &sb) { return sb.prepare_frame(); }
   static FrameState preset_frame(SB &sb, size_t index) {
     const auto &preset = SB::PRESETS[index].config;
@@ -1127,31 +1124,77 @@ inline void test_shader_workbench_selector_storage() {
   }
 }
 
-/** @brief Every named clock wraps in its native domain. */
-inline void test_shader_workbench_clocks_wrapped() {
+/**
+ * @brief Seeds every clock past its domain and expects each frame to leave the
+ *        angle clocks in [0, 2pi) and the unit clocks in [0, 1).
+ * @details A warp rotation clock only advances under AFFINE_FRAME, so it is
+ *          seeded past its domain only when its stage is affine.
+ */
+inline void expect_shader_workbench_clocks_wrapped(
+    const ShaderWorkbenchWhiteBox::RequestedConfig &config) {
   using WB = ShaderWorkbenchWhiteBox;
   reset_effect_globals();
   hs::set_mock_time(0, 0);
   WB::SB sb;
   sb.init();
+  WB::request_config(sb, config);
   sb.setAnimationsPaused(true);
-  WB::seed_clocks(sb, TWO_PI_F * 4.0f);
+  HS_EXPECT_TRUE(WB::published_config(sb) == config);
+
+  constexpr float ANGLE_SEED = TWO_PI_F * 4.0f;
+  constexpr float UNIT_SEED = 4.0f;
+  const auto rotation_seed = [](const WB::WarpStageSpec &spec) {
+    return spec.kind == WB::WarpStageKind::AFFINE_FRAME ? ANGLE_SEED : 0.0f;
+  };
+  WB::ClockState seeded;
+  seeded.source_primary = ANGLE_SEED;
+  seeded.source_secondary = ANGLE_SEED;
+  seeded.source_angle = ANGLE_SEED;
+  seeded.projection_spin = ANGLE_SEED;
+  seeded.hue_noise_phase = UNIT_SEED;
+  seeded.source_noise_time = UNIT_SEED;
+  seeded.surface_noise_time = UNIT_SEED;
+  seeded.warp_outer_phase = UNIT_SEED;
+  seeded.warp_inner_phase = UNIT_SEED;
+  seeded.warp_outer_rotation = rotation_seed(config.slots.warp_program.outer);
+  seeded.warp_inner_rotation = rotation_seed(config.slots.warp_program.inner);
+  seeded.palette_oscillation_phase = UNIT_SEED;
+  WB::set_clocks(sb, seeded);
+
   for (int frame = 0; frame < 32; ++frame) {
     hs::set_mock_time(frame * FRAME_MS, frame * FRAME_US);
     sb.draw_frame();
     sb.advance_display();
     const WB::ClockState clocks = WB::clocks(sb);
-    for (float phase :
+    for (float angle :
          {clocks.source_primary, clocks.source_secondary, clocks.source_angle,
-          clocks.projection_spin, clocks.hue_noise_phase,
-          clocks.source_noise_time, clocks.surface_noise_time,
-          clocks.warp_outer_phase, clocks.warp_inner_phase,
-          clocks.warp_outer_rotation, clocks.warp_inner_rotation}) {
-      HS_EXPECT_GE(phase, 0.0f);
-      HS_EXPECT_LT(phase, TWO_PI_F);
+          clocks.projection_spin, clocks.warp_outer_rotation,
+          clocks.warp_inner_rotation}) {
+      HS_EXPECT_GE(angle, 0.0f);
+      HS_EXPECT_LT(angle, TWO_PI_F);
+    }
+    for (float unit :
+         {clocks.hue_noise_phase, clocks.source_noise_time,
+          clocks.surface_noise_time, clocks.warp_outer_phase,
+          clocks.warp_inner_phase, clocks.palette_oscillation_phase}) {
+      HS_EXPECT_GE(unit, 0.0f);
+      HS_EXPECT_LT(unit, 1.0f);
     }
   }
   hs::clear_mock_time();
+}
+
+/** @brief Every named clock wraps in its native domain. */
+inline void test_shader_workbench_clocks_wrapped() {
+  using WB = ShaderWorkbenchWhiteBox;
+  expect_shader_workbench_clocks_wrapped(WB::presets()[0]);
+
+  WB::RequestedConfig affine = WB::presets()[6];
+  HS_EXPECT_TRUE(affine.slots.warp_program.outer.kind ==
+                 WB::WarpStageKind::AFFINE_FRAME);
+  affine.params.warp.outer.rotation = 0.5f;
+  HS_EXPECT_TRUE(WB::valid_config(affine));
+  expect_shader_workbench_clocks_wrapped(affine);
 }
 
 /** @brief Pause gates preset selection while all live motion keeps advancing. */
