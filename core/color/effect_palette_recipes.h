@@ -203,7 +203,7 @@ struct Preset {
 
 /** @brief A base hue drawn from the 256-step hue wheel. */
 HS_FLASH_MEMBER inline float random_base_turns() {
-  return PaletteRecipes::hue_turns(static_cast<uint32_t>(hs::rand_int(0, 256)));
+  return PaletteRecipes::random_base_turns();
 }
 
 /** @brief The preset roster, every recipe at a fixed preview hue. */
