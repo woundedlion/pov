@@ -697,14 +697,6 @@ inline void test_orientation_set_at_normalized() {
   HS_EXPECT_VEC(o.unorient(v, 1), rotate(v, unit.conjugate()), 1e-5f);
 }
 
-// ============================================================================
-// Runner
-// ============================================================================
-
-/**
- * @brief Runs every geometry test case.
- * @return The module's failure count.
- */
 // --- wrap(float, m) / wrap_t ------------------------------------------------
 
 /**
@@ -852,6 +844,14 @@ inline void test_shortest_distance() {
   }
 }
 
+// ============================================================================
+// Runner
+// ============================================================================
+
+/**
+ * @brief Runs every geometry test case.
+ * @return The module's failure count.
+ */
 inline int run_geometry_tests() {
   hs_test::ModuleFixture fixture("geometry");
 
