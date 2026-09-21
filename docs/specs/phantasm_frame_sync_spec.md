@@ -252,6 +252,20 @@ board coasts between snaps. A snap re-bases `epoch_cycles` absolutely; the fold
 keeps it fresh in between. (The same rule covers `micros()` and its 71.6-min
 wrap if the cycle counter is ever unavailable.)
 
+**Coast limits and the fold stall.** `Flywheel::position()` reads
+`now_cycles - epoch_cycles` as a signed 32-bit value, so it is exact only
+within `MIN_SAFE_HALF_REVS` (16) half-revolutions either side of the epoch;
+`Config::valid()` caps `cycles_per_half_rev` so that product fits `INT32_MAX`,
+which floors the spindle rate a config may describe at 135 RPM. The fold reads
+the same difference and reports no crossing on a negative one, so a coast past
+2³¹ cycles (~3.6 s at 600 MHz) leaves the epoch unable to catch up —
+`Flywheel::fold_stalled()`. A downstream board recovers through the §5.3
+fallback: its ACQUIRE snap re-bases the epoch on the next symbol. The master
+snaps to nothing, so `SyncBoard::tick()` re-seeds its flywheel on the current
+instant, force-locks it, resets the flip dedup state — the re-seed stamps ZERO
+whatever the pre-stall identity was, so a stale `last_flipped` of HALF would
+swallow the first crossing — and counts `master_stalls` (§8.6).
+
 **Position math is 64-bit; the stored period is per-half-rev, not per-column.**
 `cycles_per_column` ≈ 260,416.67 is **non-integer** — a truncated per-column
 divisor bakes in a ~2.6 ppm systematic error and makes the §4.3 trim
@@ -940,9 +954,12 @@ Invariants:
    counters — symbols accepted / gate-rejected / discarded (invalid count),
    beacons decoded / rejected, beacon index corrections and rev mismatches,
    epochs ignored by the refractory window, lock-state transitions, flips,
-   emissions self-censored / aborted, and the longest coast (half-revs
-   without a snap) — and the foreground render loop reports changes behind
-   `hs::debug` at ≤1 Hz, exactly like the existing DMA-overrun counter
+   emissions self-censored / aborted, beacons dropped because the emitter was
+   busy, the start came too late to fit before HALF, or an overrun copy went
+   stale at a boundary, boundary symbols dropped undrained at the next
+   boundary, the longest coast (half-revs without a snap), and master fold
+   stalls re-seeded (§4.1) — and the foreground render loop reports changes
+   behind `hs::debug` at ≤1 Hz, exactly like the existing DMA-overrun counter
    pattern. Nothing in any ISR formats or prints. Degradation that the
    protocol absorbs silently (a discarded symbol, a rejected snap) must still
    be *visible* in one glance of debug output, or field diagnosis is
@@ -963,6 +980,7 @@ Invariants:
 | Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until index from beacon (≤2 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes on current effect (epoch never arrives); ACQUIRE boards stay dark |
 | Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes on current effect |
+| Master fold stall (its flywheel coasts past 2³¹ cycles, §4.1) | master re-anchors its epoch on the current instant, force-locked, and counts `master_stalls`; downstream boards free-ran meanwhile, as under "master dead" | flip dedup reset with the re-anchor, so the first crossing after recovery flips; downstream crossings kept flipping 2/rev | as "master dead" while it lasts — playlist frozen on the current effect; resumes with the master's next boundary symbol |
 
 No single-glitch event latches a permanent error at any layer, and with the
 §5.3 gate every *boundary-changing* symbol corruption — any even count, or a
