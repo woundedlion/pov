@@ -174,7 +174,11 @@ def sync_text(relative: PurePosixPath, text: str, entries: set[PurePosixPath],
             text = dc._EFFECTS_DIAGRAM_RE.sub(lambda match: replace_count(match, {"effects": count}), text)
     for document, pattern, macro, _ in dc._CARDINALITY_CLAIMS:
         if relative.as_posix() == document and macro in counts:
-            text = pattern.sub(lambda match: replace_count(match, {1: counts[macro]}), text)
+            text = pattern.sub(
+                lambda match, expected=counts[macro]:
+                    match[0] if dc._claimed_count(match[1]) == expected
+                    else replace_count(match, {1: expected}),
+                text)
     return text
 
 
