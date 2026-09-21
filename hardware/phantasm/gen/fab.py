@@ -34,6 +34,7 @@ import zipfile
 
 import check as netlist_spec
 import sexp
+from connectivity import footprint_reference
 from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
                          EXCLUDE_VAL_SUBSTR, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
@@ -462,6 +463,9 @@ def validate_fab_content(directory, board):
     return holes
 
 ASSEMBLY_SIDE = "top"
+#: Footprint attributes that keep a part off the assembly BOM or the centroid.
+BOARD_EXCLUSION_FLAGS = frozenset(
+    {"exclude_from_bom", "exclude_from_pos_files", "dnp"})
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 MIN_VIA_TO_VIA_COPPER_SPACING_MM = 0.15
@@ -853,6 +857,40 @@ class AssemblyMetadataError(ValueError):
         message = "assembly metadata validation failed:\n  " + "\n  ".join(
             self.diagnostics)
         super().__init__(message)
+
+
+def board_assembly_exclusions(board):
+    """Refs the board itself keeps off the assembly BOM and centroid."""
+    excluded = set()
+    for footprint in F(board, "footprint"):
+        flags = {str(flag) for attr in F(footprint, "attr") for flag in attr[1:]}
+        if flags & BOARD_EXCLUSION_FLAGS:
+            excluded.add(footprint_reference(footprint))
+    return excluded
+
+
+def validate_assembly_exclusions(comps, assembled, board):
+    """Hold the assembly set to the board's own exclusion attributes.
+
+    The centroid export honours `exclude_from_pos_files`, so a part this run
+    assembles that the board excludes arrives as a missing centroid row rather
+    than as the policy divergence it is. Board-only refs - the mounting holes,
+    which have no symbol - are not in the netlist and so not in `comps`.
+    """
+    excluded = board_assembly_exclusions(board)
+    assembled = set(assembled)
+    diagnostics = []
+    if clash := sorted(assembled & excluded):
+        diagnostics.append(
+            "assembled parts the board excludes from the BOM or centroid: "
+            + ", ".join(clash))
+    if unmarked := sorted(set(comps) - assembled - excluded):
+        diagnostics.append(
+            "parts held back from assembly that the board does not exclude: "
+            + ", ".join(unmarked))
+    if diagnostics:
+        raise AssemblyMetadataError(diagnostics)
+    return len(excluded)
 
 
 def validate_assembled_refs(assembled):
@@ -1266,6 +1304,7 @@ def main():
     # Gate before the jlc/ package is touched: a failure here must leave the
     # previous good package intact.
     try:
+        validate_assembly_exclusions(comps, assembled, board)
         validate_assembled_refs(assembled)
         validate_rotation_refs(assembled)
         assembly_metadata = validate_assembly_metadata(posrows, assembled)

@@ -420,6 +420,37 @@ class AssemblyMetadataTests(unittest.TestCase):
         )
 
 
+class AssemblyExclusionTests(unittest.TestCase):
+    """fab.py's assembly set and the board's own attributes must agree."""
+
+    BOARD = fab.sexp.parse_one(
+        "(kicad_pcb"
+        ' (footprint "L:smd" (attr smd)'
+        ' (property "Reference" "R1"))'
+        ' (footprint "L:header" (attr through_hole exclude_from_pos_files'
+        ' exclude_from_bom) (property "Reference" "J1")))')
+    COMPS = {"R1": {}, "J1": {}}
+
+    def test_accepts_an_assembly_set_matching_the_board(self):
+        self.assertEqual(
+            fab.validate_assembly_exclusions(self.COMPS, ["R1"], self.BOARD), 1)
+
+    def test_rejects_assembling_a_part_the_board_excludes(self):
+        with self.assertRaisesRegex(
+                fab.AssemblyMetadataError,
+                "assembled parts the board excludes from the BOM or "
+                "centroid: J1"):
+            fab.validate_assembly_exclusions(self.COMPS, ["R1", "J1"],
+                                             self.BOARD)
+
+    def test_rejects_holding_back_a_part_the_board_assembles(self):
+        with self.assertRaisesRegex(
+                fab.AssemblyMetadataError,
+                "parts held back from assembly that the board does not "
+                "exclude: R1"):
+            fab.validate_assembly_exclusions(self.COMPS, [], self.BOARD)
+
+
 class AssemblyPolicyTests(unittest.TestCase):
     """JLC reflows top-side SMD only; every hand-soldered part stays out."""
 
@@ -470,6 +501,11 @@ class AssemblyPolicyTests(unittest.TestCase):
         for ref, attrs in attrs_by_ref.items():
             with self.subTest(ref=ref):
                 self.assertLessEqual(self.NATIVE_EXCLUSION_FLAGS, attrs)
+
+    def test_board_excludes_no_assembled_part(self):
+        excluded = fab.board_assembly_exclusions(fab.read_board(fab.PCB))
+        self.assertLessEqual(self.NATIVE_EXCLUDED_REFS, excluded)
+        self.assertEqual(excluded & set(fab.LCSC_BY_REF), set())
 
     def test_accepts_exact_assigned_part_set(self):
         fab.validate_assembled_refs(fab.LCSC_BY_REF)
