@@ -139,10 +139,9 @@ static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
  *          no effect installed, no presets, index malformed or out of range —
  *          leaves the preset index, parameter values and pause state exactly as
  *          they were, so the caller's response is the same for each; and the
- *          pair the
- *          caller would need to tell them apart is already exposed as data by
- *          getPresetCount() and getPresetIndex(). An enum here would name
- *          states the neighbouring getters report better.
+ *          pair the caller would need to tell them apart is already exposed as
+ *          data by getPresetCount() and getPresetIndex(). An enum here would
+ *          name states the neighbouring getters report better.
  */
 enum class ClipSetResult {
   APPLIED,         /**< Band installed; rendering is narrowed to it. */
