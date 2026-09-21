@@ -5,16 +5,26 @@
  * Unit tests for core/render/sdf.h.
  *
  * Coverage:
- *   - clamp_phi utility
- *   - Spherical SDF primitives (Ring, PlanarPolygon, SphericalPolygon, Star, Line)
- *   - 3D Torus
- *   - WarpedVolume with Warp::Twist
- *   - CSG operators (Union, SmoothUnion, Subtract, Intersection)
- *   - AngularRepeat
- *
- * Tests focus on the distance() interface — the rendering pipeline
- * (get_vertical_bounds<H> / get_horizontal_intervals<W,H>) is exercised
- * indirectly by feeding known points and verifying signed distance.
+ *   - clamp_phi and the centered-sector angle helper
+ *   - Spherical SDF primitives: Ring, DistortedRing and FlatDistortedRing
+ *     (polyline distance vs brute force, knot extrema, far sentinel),
+ *     PlanarPolygon, SphericalPolygon (exact vs sine distance), Star, Flower,
+ *     Line (arc, endpoints, degenerate and near-coincident), and the inverted
+ *     (complement) fill
+ *   - 3D Torus, and WarpedVolume with Warp::Twist (Lipschitz bound,
+ *     sphere-trace safety, normal correction)
+ *   - CSG operators (Union, SmoothUnion, Subtract, Intersection) and
+ *     AngularRepeat: distance(), solidity, the blends_smoothly trait, rvalue
+ *     child rejection, and the horizontal-interval protocol (merging, seam
+ *     straddling, full-width replay, empty and full children, no spans on a
+ *     false return)
+ *   - The scanline path driven directly: get_vertical_bounds<H> and
+ *     get_horizontal_intervals<W,H> under Scan::scan_region for every
+ *     primitive and combinator, held conservative against a brute-force
+ *     distance() sweep of the canvas (interior and AA fringe)
+ *   - Face: cull fringe, vertical margin and latitude pad, pole-vertex raster,
+ *     distance() against an exact point-to-polygon oracle rebuilt from the
+ *     vertices, and the congruence-class LUT against the same oracle
  */
 #pragma once
 
