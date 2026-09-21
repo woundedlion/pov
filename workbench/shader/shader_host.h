@@ -2715,12 +2715,21 @@ private:
     case WarpStageKind::LEGACY_STEREO_NOISE:
       break;
     case WarpStageKind::AFFINE_FRAME:
-      append_range_warning("Translate X", params.translation_x, -4.0f, 4.0f);
-      append_range_warning("Translate Y", params.translation_y, -4.0f, 4.0f);
+      append_range_warning("Translate X", params.translation_x,
+                           -Workbench::AFFINE_TRANSLATION_MAX,
+                           Workbench::AFFINE_TRANSLATION_MAX);
+      append_range_warning("Translate Y", params.translation_y,
+                           -Workbench::AFFINE_TRANSLATION_MAX,
+                           Workbench::AFFINE_TRANSLATION_MAX);
       append_range_warning("Rotation", params.rotation, -TWO_PI_F, TWO_PI_F);
-      append_range_warning("Scale X", params.scale_x, 0.25f, 4.0f);
-      append_range_warning("Scale Y", params.scale_y, 0.25f, 4.0f);
-      append_range_warning("Shear", params.shear, -0.75f, 0.75f);
+      append_range_warning("Scale X", params.scale_x,
+                           Workbench::AFFINE_SCALE_MIN,
+                           Workbench::AFFINE_SCALE_MAX);
+      append_range_warning("Scale Y", params.scale_y,
+                           Workbench::AFFINE_SCALE_MIN,
+                           Workbench::AFFINE_SCALE_MAX);
+      append_range_warning("Shear", params.shear, -Workbench::AFFINE_SHEAR_MAX,
+                           Workbench::AFFINE_SHEAR_MAX);
       break;
     case WarpStageKind::WAVE_SHEAR:
       append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
@@ -2729,17 +2738,20 @@ private:
                            NOISE_SPEED_MAX);
       break;
     case WarpStageKind::VORTEX:
-      append_range_warning("Radius", params.radius, 1.0f / 64.0f, 8.0f);
-      append_range_warning("Turns", params.turns, -4.0f, 4.0f);
+      append_range_warning("Radius", params.radius,
+                           Workbench::VORTEX_RADIUS_MIN,
+                           Workbench::VORTEX_RADIUS_MAX);
+      append_range_warning("Turns", params.turns, -Workbench::VORTEX_TURNS_MAX,
+                           Workbench::VORTEX_TURNS_MAX);
       append_range_warning("Orbit Radius", params.center_orbit_radius, 0.0f,
-                           4.0f);
+                           Workbench::VORTEX_ORBIT_MAX);
       append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
                            NOISE_SPEED_MAX);
       break;
     case WarpStageKind::VECTOR_NOISE:
       append_range_warning("Warp Strength", params.strength, 0.0f,
                            VECTOR_WARP_STRENGTH_MAX);
-      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f,
+      append_range_warning("Warp Scale", params.scale, WARP_SCALE_MIN,
                            VECTOR_WARP_SCALE_MAX);
       append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
                            NOISE_SPEED_MAX);
@@ -2747,7 +2759,7 @@ private:
     case WarpStageKind::CURL_FLOW: {
       append_range_warning("Warp Strength", params.strength,
                            -CURL_WARP_STRENGTH_MAX, CURL_WARP_STRENGTH_MAX);
-      append_range_warning("Warp Scale", params.scale, 1.0f / 64.0f,
+      append_range_warning("Warp Scale", params.scale, WARP_SCALE_MIN,
                            CURL_WARP_SCALE_MAX);
       append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
                            NOISE_SPEED_MAX);
@@ -2768,8 +2780,9 @@ private:
       append_range_warning("Cell Y", params.cell_y, CELL_MIN, CELL_MAX);
       break;
     case WarpStageKind::POLAR_CHART:
-      append_range_warning("Radial Scale", params.radial_scale, 1.0f / 64.0f,
-                           16.0f);
+      append_range_warning("Radial Scale", params.radial_scale,
+                           Workbench::POLAR_RADIAL_SCALE_MIN,
+                           Workbench::POLAR_RADIAL_SCALE_MAX);
       break;
     }
     append_warning(" Set every listed control within its stated limit.");
