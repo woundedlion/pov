@@ -829,6 +829,11 @@ public:
         "Wrong flush() domain: this Pipeline carries history in only one "
         "domain, so one of these callbacks emits nothing. Pass the single "
         "callback that domain needs.");
+    static_assert(
+        any_2d_trail_history,
+        "Discarded flush() callback: this Pipeline's only 2D history is a "
+        "terminal stage, which composites into the Canvas itself and takes no "
+        "trail callback, so screenFn emits nothing.");
     flush_stages(cv, worldFn, alpha);
     flush_stages(cv, screenFn, alpha);
   }
