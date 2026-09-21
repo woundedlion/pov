@@ -5549,6 +5549,8 @@ inline int run_death_tests() {
   const std::string fold_b = child_output();
   HS_EXPECT_TRUE(child_exited_clean(determinism_a));
   HS_EXPECT_TRUE(child_exited_clean(determinism_b));
+  // A child that skipped the probe leaves two empty captures that compare equal.
+  HS_EXPECT_EQ(fold_a.find_first_not_of("0123456789abcdef"), size_t{16});
   HS_EXPECT_EQ(fold_a, fold_b);
 
   for (int i = 0; i < n; ++i) {
