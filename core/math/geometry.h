@@ -206,6 +206,24 @@ template <int H> inline float phi_to_y(float phi) {
 }
 
 /**
+ * @brief Pixel rows spanned by one radian of phi at logical height H.
+ * @tparam H Logical (not virtual) height; H_OFFSET is added here.
+ * @details Dropping H_OFFSET from an open-coded row pitch is invisible on the
+ * host, whose H_OFFSET is 0, and skews every device row.
+ */
+template <int H>
+inline constexpr float ROWS_PER_RADIAN =
+    static_cast<float>(H + hs::H_OFFSET - 1) / PI_F;
+
+/**
+ * @brief Radians of phi spanned by one pixel row at logical height H.
+ * @tparam H Logical (not virtual) height; H_OFFSET is added here.
+ */
+template <int H>
+inline constexpr float RADIANS_PER_ROW =
+    PI_F / static_cast<float>(H + hs::H_OFFSET - 1);
+
+/**
  * @brief Precomputed lookup table for scanline phi angles.
  * @tparam H Logical height; the table has H_VIRT = H + hs::H_OFFSET entries.
  */
