@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/animation/animation.h and core/math/easing.h.
+ * Unit tests for core/animation/animation.h.
  *
  * Scope: the PURE, non-render parts of the animation system. The animations
  * exercised here (Transition, Mutation, Lerp, Driver, Rotation) take a `Canvas&`
@@ -16,19 +16,6 @@
  * pulled. Every Timeline shares one global event array (plus the
  * live-guard and frame/count cursors), so each test scopes its Timeline locally
  * (balancing the guard) and resets the global cursors when it pokes them.
- *
- * Coverage:
- *   - Path::get_point: empty guard, endpoints, both-ends clamp, midpoint
- *   - AnimationBase duration==0 -> 1 coercion (no divide-by-zero)
- *   - Transition: start->end stepping, easing, quantize, done()
- *   - Mutation: applies f(easing(t))
- *   - Driver: per-frame increment + wrap
- *   - Lerp: type-erased lerp(start,target,t) driven by easing
- *   - OrientationTrail: record/get ordering (index 0 is OLDEST — see note)
- *   - Timeline: start-frame sequencing, one-shot removal + survivor compaction,
- *     repeating rewind, .then()-chained event addition, clear(), capacity guard,
- *     shared-orientation motion-blur composition
- *   - easing.h: ease(0)~0, ease(1)~1 for in/out variants; output finite
  */
 #pragma once
 
