@@ -23,6 +23,11 @@ DEATH_PATH = "tests/test_death.h"
 # Weakenings already on master, each exact and each expiring at ALLOWANCE_EXPIRY;
 # DOMAIN_RATCHET_ALLOW_WEAKEN adds to them.
 HISTORICAL_ALLOWANCES = """
+guard_gap.DreamBalls.h=9->10
+guard_gap.DreamBalls.h=10->11
+guard_gap.MindSplatter.h=3->5
+guard_gap.choreography.h=1->2
+guard_gap.solid_generators.h=5->6
 guard_gap.canvas.h=29->30
 guard_gap.carousel.h=3->4
 guard_gap.raster.h=9->10
