@@ -360,6 +360,28 @@ class BoardSelection(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
         self.assertFalse(self.lock_dir("COM3").exists())
 
+    def test_release_drops_the_pin_so_the_next_acquire_can_roam(self):
+        # acquire -> release -> acquire in one shell: the pin the first claim
+        # exported would otherwise steer the second onto the freed board, and
+        # a peer holding it by then reads as every board busy.
+        script = ('hs_device_ports() { if [ -n "${HS_TEENSY_PORT:-}" ]; then '
+                  'echo "$HS_TEENSY_PORT"; else echo COM3; echo COM4; fi; }; '
+                  'hs_device_acquire E profile 60; hs_device_release; '
+                  'echo "PIN=[${HS_TEENSY_PORT:-}]"; '
+                  f'mkdir "{self.base}-COM3.d"; '
+                  f'echo token=peer > "{self.base}-COM3.d/info"; '
+                  'hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"')
+        r = run_lock(script, self.base, ports=None)
+        self.assertIn("PIN=[]", r.stdout)
+        self.assertIn("PORT=COM4", r.stdout)
+
+    def test_release_keeps_a_pin_the_caller_set(self):
+        script = ('hs_device_acquire E profile 60; hs_device_release; '
+                  'echo "PIN=[${HS_TEENSY_PORT:-}]"')
+        r = run_lock(script, self.base, ports=("COM3",),
+                     env={"HS_TEENSY_PORT": "COM3"})
+        self.assertIn("PIN=[COM3]", r.stdout)
+
     def test_release_leaves_a_lock_reclaimed_by_a_peer(self):
         # Our claim was broken as stale and re-taken; our teardown must not
         # unlock the board out from under whoever holds it now.
