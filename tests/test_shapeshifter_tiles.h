@@ -1,6 +1,6 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the Polyform Noncommercial License 1.0.0
+ * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Clipped-tile parity for the ShapeShifter oracle: a mosaic of segment renders
  * must reproduce the unclipped frame pixel for pixel.
