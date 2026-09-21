@@ -148,8 +148,10 @@ struct Volume {
                 const Vector &local_vd, float bounds_radius, int max_steps,
                 float aa_width, Vector &closest_local) {
     HS_PROFILE_DEEP(vol_trace);
+    float t = 0.0f;
     Vector local_p = local_ro;
     closest_local = local_ro;
+    const float END_T = bounds_radius - dot(local_ro, local_vd);
     // Sentinel for "no surface seen yet": any real signed distance the
     // trace reports is smaller, so the first sample always wins.
     float closest_d = FLT_MAX;
@@ -159,14 +161,7 @@ struct Volume {
     float step_len = 0.0f;
 
     for (int i = 0; i < max_steps; ++i) {
-      // Early out: ray has exited the back of the bounding sphere. The
-      // local-space dot is compared against the world-space bounds_radius, valid
-      // because ray_to_local is length-preserving (unit local_vd) and the caller
-      // passes the shape center as bounds_center. Both are HS_CHECKed once per
-      // draw at the top.
-      if (local_p.x * local_vd.x + local_p.y * local_vd.y +
-              local_p.z * local_vd.z >
-          bounds_radius)
+      if (t > END_T)
         break;
 
       float d = shape.distance(local_p);
@@ -177,6 +172,7 @@ struct Volume {
         // it skipped is unverified: rewind to that sphere's surface and finish
         // the ray conservatively. The rejected sample updates nothing.
         float back = prev_r - step_len;
+        t += back;
         local_p =
             Vector(local_p.x + local_vd.x * back, local_p.y + local_vd.y * back,
                    local_p.z + local_vd.z * back);
@@ -207,6 +203,7 @@ struct Volume {
       // surface), bounded by max_steps and the early-out above. The probe loop
       // below instead uses a bounds_radius-relative floor for coarse punch-through.
       step_len = std::max(d * 0.9f * omega, 1e-5f);
+      t += step_len;
       local_p = Vector(local_p.x + local_vd.x * step_len,
                        local_p.y + local_vd.y * step_len,
                        local_p.z + local_vd.z * step_len);
@@ -235,6 +232,7 @@ struct Volume {
    * @param bounds_radius Bounding sphere radius (probe reach + step floor).
    * @param hit_threshold Solid-hit distance threshold.
    * @param aa_width Anti-aliasing band half-width (soft-occlusion falloff scale).
+   * @param seed_distance Distance at closest_local, or FLT_MAX to evaluate it.
    * @return An Occluder: a solid hit point to antialias the edge over, or a
    *         grazed edge's closest approach and coverage for the corner where
    *         two edges meet.
@@ -242,7 +240,8 @@ struct Volume {
   template <typename Shape>
   static __attribute__((always_inline)) Occluder probe_occluder(
       const Shape &shape, const Vector &closest_local, const Vector &local_vd,
-      float bounds_radius, float hit_threshold, float aa_width) {
+      float bounds_radius, float hit_threshold, float aa_width,
+      float seed_distance = FLT_MAX) {
     HS_PROFILE_DEEP(vol_probe);
     // March forward from the closest approach for a surface this halo occludes;
     // a solid hit is a self-occlusion edge (antialias over it). Step is floored
@@ -250,6 +249,7 @@ struct Volume {
     // back face. With no solid hit, report a grazed background edge (local min of
     // pd) and its coverage for the corner fill.
     Vector probe = closest_local;
+    const float END_S = bounds_radius - dot(closest_local, local_vd);
     float prev = FLT_MAX;  // previous step's distance
     bool climbing = false; // pd has risen off the foreground graze
     float min_behind = FLT_MAX;
@@ -262,10 +262,10 @@ struct Volume {
     bool need_aft = false;
     for (int i = 0; i < PROBE_STEPS; ++i) {
       // Stop at the back of the bounding sphere: nothing left to occlude this halo.
-      if (probe.x * local_vd.x + probe.y * local_vd.y + probe.z * local_vd.z >
-          bounds_radius)
+      if (s > END_S)
         break;
-      float pd = shape.distance(probe);
+      float pd = (i == 0 && seed_distance != FLT_MAX) ? seed_distance
+                                                      : shape.distance(probe);
       if (pd < hit_threshold)
         return {true, probe, pd, 0.0f}; // solid surface behind the edge
       if (need_aft) {
@@ -375,12 +375,8 @@ struct Volume {
                    bounds_center.z - bc_dot_vd * vd.z);
     float bounds_r2 = bounds_radius * bounds_radius;
 
-    // Precompute the local-space view direction (shared across all pixels) and,
-    // on the same cold transform, validate the volume preconditions. The per-step
-    // early-out below compares a local-space dot against the world-space
-    // bounds_radius, which holds only if ray_to_local is length-preserving
-    // (|local_vd| == 1) and bounds_center maps to the shape's local origin (~0).
-    // Trap a scaling shape or off-center bounds_center here, once per draw.
+    // Scalar ray progress requires a unit local direction and origin-centered
+    // bounds. The local direction is shared across all pixels.
     auto [local_bc, local_vd] = shape.ray_to_local(bounds_center, vd);
     HS_CHECK(fabsf(local_vd.x * local_vd.x + local_vd.y * local_vd.y +
                    local_vd.z * local_vd.z - 1.0f) < TOLERANCE,
@@ -473,7 +469,7 @@ struct Volume {
             // ...then probe behind the halo for a surface this edge occludes.
             Occluder occ =
                 probe_occluder(shape, closest_local, local_vd, bounds_radius,
-                               hit_threshold, aa_width);
+                               hit_threshold, aa_width, closest_d);
             if (occ.solid) {
               // Self-occlusion edge: antialias the foreground over the surface it
               // covers — lay the shaded background down, then blend the foreground
