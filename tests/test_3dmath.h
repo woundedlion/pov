@@ -1198,6 +1198,17 @@ inline void test_complex_arithmetic() {
   // direction.
   Complex inf_dir = project_div(Complex(1, 0), Complex(0, 0));
   HS_EXPECT_TRUE(std::abs(inf_dir.re) > 1e3f);
+
+  // A divisor whose squared magnitude underflows is still a divisor, so a
+  // tiny-but-equal homogeneous pair divides to 1 rather than to the sentinel.
+  const Complex tiny(1e-30f, 0.0f);
+  HS_EXPECT_COMPLEX(project_div(tiny, tiny), Complex(1, 0), 1e-6f);
+  HS_EXPECT_COMPLEX(project_div(Complex(3e-30f, 4e-30f), tiny), Complex(3, 4),
+                    1e-5f);
+  // A normal numerator over that same divisor is still the point at infinity.
+  Complex underflow_inf = project_div(Complex(1, 0), tiny);
+  HS_EXPECT_NEAR(underflow_inf.re, STEREO_INF, 1e-1f);
+  HS_EXPECT_NEAR(underflow_inf.im, 0.0f, 1e-6f);
 }
 
 // ============================================================================
