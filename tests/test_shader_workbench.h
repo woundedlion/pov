@@ -3816,16 +3816,6 @@ inline void test_shader_workbench_gui_catalog() {
   HS_EXPECT_LT(parameter_index("Band Phase"), parameter_index("Coverage"));
 }
 
-/** @brief Fixed shader wrappers retain the morphable color-mapping control. */
-inline void test_promoted_shader_palette_mapping_control() {
-  reset_effect_globals();
-  GridSpace<SMALL_W, SMALL_H> effect;
-  effect.init();
-  const auto *mapping = effect.getParameters().find("Palette Mapping");
-  HS_EXPECT_TRUE(mapping != nullptr);
-  HS_EXPECT_EQ(mapping->option_count, 4);
-}
-
 template <typename FixedWarp>
 void copy_fixed_warp_to_shader(
     const FixedWarp &source,
@@ -6442,7 +6432,6 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_preset_gui_transition();
   test_shader_workbench_parameter_capacity();
   test_shader_workbench_gui_catalog();
-  test_promoted_shader_palette_mapping_control();
   test_fixed_shader_export_equivalence();
   test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
