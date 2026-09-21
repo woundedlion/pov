@@ -16,7 +16,7 @@
  */
 #pragma once
 
-#include "core/engine/effects.h"
+#include "targets/effects.h"
 #include "core/render/canvas.h"
 #include "core/render/sdf/volume.h"
 #include "core/engine/memory.h"

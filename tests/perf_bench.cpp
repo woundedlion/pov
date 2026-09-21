@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "core/engine/effects.h"
+#include "targets/effects.h"
 #include "core/engine/memory.h"
 #include "tests/test_fixture.h"
 

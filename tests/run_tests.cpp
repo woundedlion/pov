@@ -92,7 +92,7 @@ struct TestModule {
 
 // Single source of truth for the roster: expands into both MODULES[] and the
 // derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
-// AND one X(...) row here. Mirrors core/engine/effects.h's HS_EFFECT_LIST.
+// AND one X(...) row here. Mirrors targets/effects.h's HS_EFFECT_LIST.
 #define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d_tests::run_3dmath_tests)                         \
   X("concepts", hs_test::concepts_tests::run_concepts_tests)                   \

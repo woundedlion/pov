@@ -4,8 +4,8 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
-#include "platform/constants.h" // MAX_W/MAX_H
+#include "core/platform/build_features.h"
+#include "core/platform/constants.h" // MAX_W/MAX_H
 
 /**
  * @file effects.h
