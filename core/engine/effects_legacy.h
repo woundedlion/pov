@@ -10,7 +10,7 @@
 #include "render/canvas.h"
 #include "math/rotate.h"
 #include "math/geometry.h"
-#include "render/led.h"
+#include "platform/led.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Legacy effects built before this engine
