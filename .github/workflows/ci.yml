@@ -1465,13 +1465,15 @@ jobs:
 
       # Discover finds test files by pattern, so a pattern matching nothing runs
       # no suite and stays green; require_test_files.sh fails on an empty match.
+      # No --sync: it rewrites the maps and counts before checking them, so a
+      # drifted README would pass. `just docs-check` is the repairer.
       - name: Validate tracked Markdown
         run: |
           bash tools/require_test_files.sh 'tools/docs_check_tests/test*.py'
           bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
-          python tools/docs_check.py --sync --checkout daydream=daydream
+          python tools/docs_check.py --checkout daydream=daydream
           python tools/build_pins.py --check
 
       # --check above prints PASS whether or not its three checks still parse the

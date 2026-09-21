@@ -60,7 +60,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
 
 - **`.githooks/pre-commit`** — rejects staged whitespace errors, checks staged
   first-party C++ with clang-format, and runs ruff/eslint on staged
-  Python/JavaScript. It then runs `tools/docs_check.py`,
+  Python/JavaScript. It then runs `tools/docs_check.py` (without `--sync`),
   `tools/docs_images.py`, `tools/build_pins.py --check` and
   `tools/license_check.py` against an isolated checkout of the index, so the
   verdict is on what is being committed rather than on the working tree. A
@@ -98,9 +98,11 @@ protected branch's `CI green` status is the authoritative correctness gate.
   profiling-roster cross-check in `tools/profile_sweep.sh`.
   `just lint` runs the four lint/roster checks locally; the hook lints only
   staged Python and JavaScript, so CI remains authoritative.
-- **Documentation:** `just docs-check` validates fences, links,
-  anchors and every backticked repo path, and the README's file map must list a
-  new tracked path; `just docs-check` runs it locally.
+- **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`
+  without `--sync`: fences, links, anchors, every backticked repo path, the
+  README's file map against the tracked tree and its effect counts against
+  `HS_EFFECT_LIST`. `just docs-check` regenerates the maps and counts first,
+  then runs the same checker, so the repaired diff lands with the change.
   `python tools/docs_images.py` resolves every documented `<img>` against the
   tracked tree. It only reports; `--stage` copies the images into a built
   Doxygen tree and is the sole mode that writes.

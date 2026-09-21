@@ -105,9 +105,9 @@ jobs:
       # The Markdown this job is about to publish is validated before it is
       # served: a broken link or a stale repository-map fence would otherwise
       # deploy from a commit whose ci.yml docs-markdown job is red, and `deploy`
-      # needs this job.
+      # needs this job. No --sync: it would repair the fence before checking it.
       - name: Validate tracked Markdown
-        run: python tools/docs_check.py --sync --checkout daydream=daydream
+        run: python tools/docs_check.py --checkout daydream=daydream
 
       - uses: ./.github/actions/pinned-doxygen
 

@@ -112,8 +112,10 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
   git -C "$SNAPSHOT" init --quiet
   cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
 
+  # No --sync: a repair here would land in the snapshot, not the index, and
+  # would pass a README whose maps or counts have drifted from the tree.
   DAYDREAM_CHECKOUT="${DAYDREAM_CHECKOUT:-$MAIN_TREE/../daydream}" \
-    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" --sync --auto-checkout
+    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" --auto-checkout
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
   "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
