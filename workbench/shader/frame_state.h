@@ -156,7 +156,13 @@ struct ResourceBindings {
   const BakedPalette *generated_palette;
 };
 
-inline constexpr size_t MAX_NOISE_RESOURCES = 9;
+/** @brief Distinct noise keys one config can own: its outer warp, inner
+    warp, source, and surface fields. The hue-noise key is the same for every
+    config. */
+inline constexpr size_t NOISE_RESOURCES_PER_CONFIG = 4;
+/** @brief Bank size for the union of a transition's two configs. */
+inline constexpr size_t MAX_NOISE_RESOURCES =
+    2 * NOISE_RESOURCES_PER_CONFIG + 1;
 
 /** @brief The interpretive backend's and stage kernels' per-frame
     scratch; the compiled pipelines carry theirs in the program's prepared

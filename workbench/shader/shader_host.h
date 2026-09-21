@@ -2835,13 +2835,6 @@ private:
         static_cast<double>(NOISE_LATTICE_LIMIT / bound));
   }
 
-  const char *resource_warning() const {
-    return begin_warning(
-        "The active noise consumers exceed the resource limit of %u. Disable "
-        "one noise Function, Lens, or Warp.",
-        static_cast<unsigned>(MAX_NOISE_RESOURCES));
-  }
-
   const char *admission_warning(const Config &candidate,
                                 const char *edited_name) const {
     const WarpStageSpec &outer = candidate.slots.warp_program.outer;
@@ -3022,8 +3015,6 @@ private:
           "determinant reaches 0.001 or more.",
           static_cast<double>(sqrtf(det_re * det_re + det_im * det_im)));
     }
-    if (!config_resources_fit(candidate))
-      return resource_warning();
     if (!HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND &&
         find_inverse_program(candidate) == nullptr)
       return uncompiled_program_warning(candidate, edited_name);

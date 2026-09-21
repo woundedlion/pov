@@ -201,7 +201,7 @@ valid_config(const RequestedConfig &candidate) {
       surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
       surface_noise.direction > 1.0f)
     return false;
-  return config_resources_fit(candidate);
+  return true;
 }
 
 HS_COLD_MEMBER inline constexpr bool
