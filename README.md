@@ -464,7 +464,8 @@ The same step runs with `just docs-check` and before `just docs` publishes the A
 │   ├── docs_images.py          Resolves every documented `<img>`; `--stage` copies them into the Doxygen output (CI)
 │   ├── license_check.py        Checks every tracked C/C++ source against the terms LICENSE grants it (CI)
 │   ├── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, build pins, docs and license checks
-│   └── docs_sync.py
+│   ├── docs_sync.py
+│   └── engine_source_state.py
 ├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus design specs, perf ledgers, and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
@@ -608,7 +609,8 @@ The same step runs with `just docs-check` and before `just docs` publishes the A
 │   ├── palettes-probe.mjs      Headless pointer-level probe of the palette page's strip zoom and hue-key wheel
 │   ├── mobius-probe.mjs        Headless pointer-level probe of the Möbius page's complex-plane pads
 │   ├── lissajous-probe.mjs     Headless pointer-level probe of the Lissajous page's rational frequency lock and the domain it drives
-│   └── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
+│   ├── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
+│   └── install-engine-bundle.mjs
 │
 ├── tests/                      Node unit tests (`npm test`)
 ├── requirements/               Hash-locked ShellCheck toolchain used by CI
