@@ -331,6 +331,43 @@ inline void test_peirce_strip_scroll_is_periodic() {
     }
 }
 
+/** @brief A Peirce strip layout reports the equator tear its reflection leaves
+ *         open, and keeps the opposite pair of quarters glued. */
+inline void test_peirce_strip_tears_the_unglued_equator() {
+  constexpr float LATITUDE = 1e-4f;
+  for (uint8_t layout : {uint8_t(2), uint8_t(3)}) {
+    const float torn = layout == 2 ? 0.0f : 0.5f * PI_F;
+    const float glued = layout == 2 ? 0.5f * PI_F : 0.0f;
+    const ProjectionKernelResult north =
+        peirce_projection(direction(LATITUDE, torn), 0.0f, layout, 0.0f);
+    const ProjectionKernelResult south =
+        peirce_projection(direction(-LATITUDE, torn), 0.0f, layout, 0.0f);
+    HS_EXPECT_EQ(north.traits & projection_traits(ProjectionTrait::CUT),
+                 projection_traits(ProjectionTrait::CUT));
+    const float jump = std::max(std::fabs(north.coords.re - south.coords.re),
+                                std::fabs(north.coords.im - south.coords.im));
+    HS_EXPECT_GT(jump, 2.0f * PEIRCE_QUARTER_PERIOD - 1e-3f);
+    HS_EXPECT_EQ(north.boundary_flags,
+                 projection_boundary(ProjectionBoundary::CUT));
+    HS_EXPECT_NEAR(north.fade_edge_distance, LATITUDE, 1e-6f);
+    HS_EXPECT_NEAR(south.fade_edge_distance, LATITUDE, 1e-6f);
+    const ProjectionKernelResult seam_north =
+        peirce_projection(direction(LATITUDE, glued), 0.0f, layout, 0.0f);
+    const ProjectionKernelResult seam_south =
+        peirce_projection(direction(-LATITUDE, glued), 0.0f, layout, 0.0f);
+    HS_EXPECT_NEAR(seam_north.coords.re, seam_south.coords.re, 1e-3f);
+    HS_EXPECT_NEAR(seam_north.coords.im, seam_south.coords.im, 1e-3f);
+    HS_EXPECT_EQ(seam_north.boundary_flags,
+                 projection_boundary(ProjectionBoundary::SINGULAR));
+  }
+  for (uint8_t layout : {uint8_t(0), uint8_t(1)})
+    HS_EXPECT_EQ(
+        peirce_projection(direction(LATITUDE, 0.0f), 0.0f, layout, 0.0f)
+                .traits &
+            projection_traits(ProjectionTrait::CUT),
+        0);
+}
+
 inline void test_airocean_cut_masks_match_the_edge_lists() {
   constexpr size_t CUT_HALF_EDGES =
       sizeof(AIROCEAN_CUT_FACES) / sizeof(AIROCEAN_CUT_FACES[0]);
@@ -556,6 +593,7 @@ inline int run_projections_tests() {
   test_peirce_edge_distance_locates_the_singularities();
   test_peirce_square_is_the_rotated_diamond();
   test_peirce_strip_scroll_is_periodic();
+  test_peirce_strip_tears_the_unglued_equator();
   test_airocean_cut_masks_match_the_edge_lists();
   test_airocean_edge_identity_is_the_canonical_half_edge();
   test_airocean_glued_edges_are_bit_identical();
