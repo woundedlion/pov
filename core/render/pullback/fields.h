@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cmath>
+#include <limits>
 #include <string_view>
 
 #include "math/interpolate.h"
@@ -49,10 +50,20 @@ struct TopologyGate {
   uint16_t values = 0; /**< Bit per live topology value index. */
 };
 
+/** Declared only: a call makes the enclosing constant evaluation ill-formed. */
+void live_values_index_exceeds_gate_width();
+
 /** @brief TopologyGate::values over the enumerators in @p values. */
 template <typename... Values> consteval uint16_t live_values(Values... values) {
-  return static_cast<uint16_t>(
-      ((uint16_t{1} << static_cast<uint8_t>(values)) | ...));
+  constexpr unsigned GATE_BITS =
+      std::numeric_limits<decltype(TopologyGate::values)>::digits;
+  uint16_t mask = 0;
+  for (const unsigned index : {static_cast<unsigned>(values)...}) {
+    if (index >= GATE_BITS)
+      live_values_index_exceeds_gate_width();
+    mask = static_cast<uint16_t>(mask | (1U << index));
+  }
+  return mask;
 }
 
 /**
