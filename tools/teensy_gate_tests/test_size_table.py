@@ -117,6 +117,21 @@ class Main(unittest.TestCase):
         log = _env_chunk("holosphere", "good_teensy_size.txt")
         self.assertEqual(self._run(log, 0)[0], 0)
 
+    def test_no_argument_builds_every_platformio_environment(self):
+        # A bare `pio run` is what keeps a new environment size-gated with no
+        # second list to edit.
+        which = mock.patch.object(tst.shutil, "which", return_value="pio")
+        which.start()
+        self.addCleanup(which.stop)
+        popen = mock.patch.object(tst.subprocess, "Popen",
+                                  return_value=self._FakePio([], 0))
+        started = popen.start()
+        self.addCleanup(popen.stop)
+        with contextlib.redirect_stdout(io.StringIO()):
+            with contextlib.redirect_stderr(io.StringIO()):
+                tst.main([])
+        self.assertEqual(started.call_args.args[0], ["pio", "run"])
+
     def test_an_env_that_relinked_nothing_fails_the_run(self):
         # An up-to-date build emits the banner and no teensy_size lines, so the
         # post-link budget check never ran and the table is all dashes.
