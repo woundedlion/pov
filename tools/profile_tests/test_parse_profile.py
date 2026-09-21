@@ -74,6 +74,65 @@ class SpilledFrames(unittest.TestCase):
         self.assertEqual(pp.spilled_frames(_window(frames=4)), 0)
 
 
+class ShortFrameRows(unittest.TestCase):
+    """A window whose per-frame rows do not cover its header frame range.
+
+    The rows are the spill numerator and the header range is its denominator,
+    so one row lost to the serial link turns a spilled capture into a clean
+    one and flips the cadence colour the profile reports are defined against.
+    """
+
+    LOG = "\n".join([
+        "f 1 w=60000 r=55000",
+        "f 2 w=60000 r=55000",
+        "f 3 w=200000 r=190000",
+        "f 4 w=60000 r=55000",
+        "=== profile Fx [288x144] frames 1-4 window=250000 us ===",
+        "frame wall us: min=60000 avg=95000 max=200000 sum=380000 (4 frames)",
+        "frame render us: avg=88750 max=190000",
+        "frame             380000 us (100%)  4 calls  228000000 cyc",
+        "  fx_buffer_wait   20000 us (5%)  4 calls  12000000 cyc",
+    ]) + "\n"
+
+    def _parse(self, drop=None):
+        import tempfile
+        text = "\n".join(line for line in self.LOG.splitlines()
+                         if line != drop) + "\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(text, encoding="utf-8")
+            return pp.parse(path)
+
+    def test_complete_rows_count_the_spill(self):
+        self.assertEqual(pp.spilled_frames(self._parse()[0][0]), 1)
+
+    def test_a_lost_spilling_row_does_not_read_as_zero_spills(self):
+        window = self._parse(drop="f 3 w=200000 r=190000")[0][0]
+        self.assertEqual(len(window.frame_rows), 3)
+        self.assertEqual(window.frames, 4)
+        # The wall sum still shows six windows consumed by four frames.
+        self.assertEqual(pp.spilled_frames(window), 2)
+
+    def test_validate_fails_a_short_window(self):
+        import contextlib
+        import io
+        windows, effect = self._parse(drop="f 3 w=200000 r=190000")
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            ok = pp.cmd_validate(windows, effect, "frame")
+        self.assertFalse(ok)
+        self.assertIn("[FAIL] per-frame rows cover every frame", out.getvalue())
+
+    def test_a_capture_without_per_frame_rows_is_not_faulted(self):
+        import contextlib
+        import io
+        windows, effect = self._parse()
+        for window in windows:
+            window.frame_rows = []
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            pp.cmd_validate(windows, effect, "frame")
+        self.assertIn("[PASS] per-frame rows cover every frame", out.getvalue())
+
+
 class RenderIsWall(unittest.TestCase):
     """An effect with no *_buffer_wait scope: Profile.ino's wall-minus-wait
     degenerates to wall, so nothing derived from it may be called render."""
