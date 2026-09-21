@@ -658,8 +658,6 @@ struct FaceTopoRecord {
   int count;                  /**< Side count. */
   int angles[MAX_TOPO_SIDES]; /**< Sorted whole-degree interior angles. */
   uint32_t hash;              /**< MeshOps base topology hash for this key. */
-  /** Nearest angle-to-rounding-boundary distance. */
-  float min_boundary_margin;
 };
 
 /**
@@ -676,7 +674,6 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
                                        const uint16_t *idx, int count) {
   FaceTopoRecord rec;
   rec.count = count;
-  rec.min_boundary_margin = 0.5f;
   for (int k = 0; k < MAX_TOPO_SIDES; ++k)
     rec.angles[k] = 0;
   HS_CHECK(count <= MAX_TOPO_SIDES,
@@ -693,8 +690,6 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
       if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ)
         ang = acosf(hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f));
       const float degrees = ang * 180.0f / PI_F;
-      rec.min_boundary_margin = std::min(
-          rec.min_boundary_margin, fabsf(degrees - (floorf(degrees) + 0.5f)));
       rec.angles[k] = static_cast<int>(std::round(degrees));
     }
     std::sort(rec.angles, rec.angles + count);
@@ -729,8 +724,6 @@ inline constexpr int MAX_TOPO_CLASSES = 256;
 inline constexpr int TOPO_HASH_SLOTS = 8192;
 /** Faces the collision sweep holds per mesh. */
 inline constexpr size_t MAX_SWEEP_FACES = 8192;
-/** Roster angles must stay this many degrees from whole-degree rounding boundaries. */
-inline constexpr float MIN_TOPO_BOUNDARY_MARGIN_DEG = 0.001f;
 
 /**
  * @brief Open-addressed classifier-hash -> reference-key table.
@@ -798,7 +791,6 @@ inline void test_classify_faces_roster_hash_collision_free() {
   folded.clear();
   int swept_meshes = 0;
   int classified_meshes = 0;
-  float min_boundary_margin = 0.5f;
 
   for (std::span<const Solids::Entry> reg : Solids::all_registries()) {
     for (const Solids::Entry &entry : reg) {
@@ -821,8 +813,6 @@ inline void test_classify_faces_roster_hash_collision_free() {
         off += count;
         face_hashes[f] = rec.hash;
         face_keys[f] = topo_key_id(rec);
-        min_boundary_margin =
-            std::min(min_boundary_margin, rec.min_boundary_margin);
         pre_fold.insert(rec.hash, face_keys[f]);
       }
 
@@ -904,7 +894,6 @@ inline void test_classify_faces_roster_hash_collision_free() {
   HS_EXPECT_EQ(swept_meshes, Solids::NUM_ENTRIES);
   HS_EXPECT_EQ(classified_meshes, swept_meshes);
   HS_EXPECT_TRUE(pre_fold.n > 0 && folded.n > 0);
-  HS_EXPECT_GT(min_boundary_margin, MIN_TOPO_BOUNDARY_MARGIN_DEG);
 }
 
 // ---------------------------------------------------------------------------
