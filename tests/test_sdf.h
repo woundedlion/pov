@@ -2756,8 +2756,8 @@ inline void face_fixed_pad_visited(const SDF::Face &face,
         if (face.full_width)
           return false;
         for (const auto &iv : face.intervals) {
-          out(floorf((iv.first - pad) * W / TWO_PI_F),
-              ceilf((iv.second + pad) * W / TWO_PI_F));
+          out(floorf((iv.start - pad) * W / TWO_PI_F),
+              ceilf((iv.end + pad) * W / TWO_PI_F));
         }
         return true;
       },
