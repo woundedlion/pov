@@ -965,10 +965,18 @@ Invariants:
 | Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes on current effect |
 
 No single-glitch event latches a permanent error at any layer, and with the
-§5.3 gate even *multi*-error symbol corruption fails to "discarded," not
-"wrong." Symbol-loss artifacts require either two coincident losses in one
-half-rev (self-heals) or a missed epoch (R repeats, then beacon-corrected
-within ~2 s). A dropped render can also leave a frame-time seam until the
+§5.3 gate every *boundary-changing* symbol corruption — any even count, or a
+HALF↔ZERO swap, which implies a ~W/2 correction — fails to "discarded" or
+"rejected," not "wrong." The one two-edge corruption the gate cannot see is
+ZERO→ZERO_EPOCH: two spurious edges inside a plain 3-pulse ZERO burst decode
+as a valid 5-pulse EPOCH marking the same boundary, so the snap is accepted
+and, outside the 16-rev epoch refractory, that one board opens a commit window
+and plays the next roster entry alone. Recovery is the §6.3.4 two-beacon
+index correction — two consecutive beacons naming the master's index, so up to
+two beacon gaps (~4 s) plus one rebuild-dark window — the same path as a
+corrupted beacon frame; the §9.1 budget carries it as its own row. Symbol-loss
+artifacts require either two coincident losses in one half-rev (self-heals) or
+a missed epoch (R repeats, then beacon-corrected within ~2 s). A dropped render can also leave a frame-time seam until the
 next epoch, as specified in §6.2. Losing the one wire is a single point of failure for all three
 layers at once — the accepted cost of collapsing to one wire. It is **out of
 scope by construction** (a hard, soldered line, not a connector); the rows
@@ -997,7 +1005,8 @@ short entry is a worse case for rejoin visibility than a long one.
 |---|---|---|---|
 | Crystal drift between snaps (normal operation) | 0.006 col phase error | 144 col (next snap) | continuous; ~40× below visibility |
 | Lost boundary symbol (discarded burst, glitch-filtered EMI, master self-censor) | coast error 0.006 → 0.01 col | 288 col (1-rev coast) | ≈0 on DMA; harmless at any plausible rate |
-| EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected |
+| EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
+| Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (R rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | possible during ordinary mid-show acquisition: beacon digit 0 is a clean one-pulse burst and can satisfy the quiet-before gate without an edge error. Frequency depends on reboot phase and beacon contents; the rejection fallback bounds recovery |
 | Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | next epoch reset (remainder of effect, up to 240 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
@@ -1009,8 +1018,9 @@ Reading by tier: everything the wire can plausibly throw at the design recovers
 sub-column within ≤2 revolutions; the only in-principle-visible stochastic
 artifact is the accepted-EMI case (~5° one-board seam for one half-rev,
 ~1.7/hr at the pessimistic λ — halve G to 2 to halve both rate and magnitude
-if it ever shows); content-layer slips are beacon-bounded to 2 s; firmware
-defects trap rather than recover.
+if it ever shows); content-layer slips are beacon-bounded — 2 s for a missed
+epoch, ~4 s for the spurious-EPOCH residual; firmware defects trap rather than
+recover.
 
 One consequence of the flywheel for the watchdog: the `buffer_free()` trap
 (`canvas.h`) no longer fires on **master death**, because each downstream board
