@@ -3754,6 +3754,53 @@ inline void test_shader_chain_hue_lut_bake_cache() {
   HS_EXPECT_EQ(WB::baked_noise_phase(effect), moved);
 }
 
+// The wire spellings are the JS contract; the switch is the roster, so a new
+// ChainStatus value fails to compile here until its spelling is asserted.
+inline const char *expected_chain_status_name(In::ChainStatus status) {
+  switch (status) {
+  case In::ChainStatus::OK:
+    return "OK";
+  case In::ChainStatus::NOT_CHAIN_EFFECT:
+    return "NOT_CHAIN_EFFECT";
+  case In::ChainStatus::MALFORMED_PAYLOAD:
+    return "MALFORMED_PAYLOAD";
+  case In::ChainStatus::EMPTY:
+    return "EMPTY";
+  case In::ChainStatus::TOO_LONG:
+    return "TOO_LONG";
+  case In::ChainStatus::UNKNOWN_OPERATOR:
+    return "UNKNOWN_OPERATOR";
+  case In::ChainStatus::DUPLICATE_INSTANCE:
+    return "DUPLICATE_INSTANCE";
+  case In::ChainStatus::MALFORMED_INSTANCE:
+    return "MALFORMED_INSTANCE";
+  case In::ChainStatus::ENTRY_FAMILY:
+    return "ENTRY_FAMILY";
+  case In::ChainStatus::EXIT_FAMILY:
+    return "EXIT_FAMILY";
+  case In::ChainStatus::CARRIER_MISMATCH:
+    return "CARRIER_MISMATCH";
+  case In::ChainStatus::ARENA_OVERFLOW:
+    return "ARENA_OVERFLOW";
+  case In::ChainStatus::PARAM_OVERFLOW:
+    return "PARAM_OVERFLOW";
+  case In::ChainStatus::MIGRATE_FAILED:
+    return "MIGRATE_FAILED";
+  }
+  return nullptr;
+}
+
+inline void test_shader_chain_status_names() {
+  constexpr auto LAST = static_cast<uint8_t>(In::ChainStatus::MIGRATE_FAILED);
+  for (uint8_t raw = 0; raw <= LAST; ++raw) {
+    const auto status = static_cast<In::ChainStatus>(raw);
+    const char *const expected = expected_chain_status_name(status);
+    HS_EXPECT_TRUE(expected != nullptr);
+    if (expected)
+      HS_EXPECT_STREQ(In::chain_status_name(status), expected);
+  }
+}
+
 inline void test_pullback_runtime_seed_contract() {
   HS_EXPECT_EQ(PB::EFFECT_NOISE_SEED, 1337);
   HS_EXPECT_EQ(PB::CAMERA_WALK_SEED, 1337);
@@ -3814,6 +3861,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_effect_refusal_keeps_schema();
   test_shader_chain_pause_semantics();
   test_shader_chain_hue_lut_bake_cache();
+  test_shader_chain_status_names();
   test_pullback_runtime_seed_contract();
   return fixture.result();
 }
