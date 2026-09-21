@@ -68,6 +68,7 @@ struct NoWarpParams {
   };
 };
 static_assert(field_ids_unique<NoWarpParams>());
+static_assert(field_defaults_in_range<NoWarpParams>());
 
 /**
  * @brief Warp parameters for the mirrored tiling
