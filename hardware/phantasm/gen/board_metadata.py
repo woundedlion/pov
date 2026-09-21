@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 
 import sexp
+from connectivity import zone_layers
 from kicad_common import arc_extrema, is_copper_pour
 
 
@@ -209,27 +210,16 @@ def parse_board(text):
     pours = 0
     rule_areas = 0
     for zone in _children(root, "zone"):
-        layer_nodes = _children(zone, "layer")
-        layers_nodes = _children(zone, "layers")
-        if len(layer_nodes) + len(layers_nodes) != 1:
-            raise MetadataError("zone must declare layer or layers exactly once")
-        if layer_nodes:
-            zone_layers = [str(value) for value in layer_nodes[0][1:]]
-        else:
-            zone_layers = [str(value) for value in layers_nodes[0][1:]]
-        zone_layers = list(dict.fromkeys(
-            copper_layer
-            for layer in zone_layers
-            for copper_layer in (copper_layers if layer == "*.Cu" else (layer,))
-        ))
-        if not zone_layers or any(layer not in copper_layers for layer in zone_layers):
-            raise MetadataError("zone has an invalid copper layer")
+        try:
+            layers = zone_layers(zone, copper_layers)
+        except ValueError as error:
+            raise MetadataError(str(error)) from error
         if is_copper_pour(zone):
             pours += 1
-            pour_counts.update(zone_layers)
+            pour_counts.update(layers)
         else:
             rule_areas += 1
-            rule_area_counts.update(zone_layers)
+            rule_area_counts.update(layers)
 
     return BoardMetadata(
         width_mm=width,
