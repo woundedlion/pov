@@ -82,11 +82,11 @@ check)
   exit 0
   ;;
 g1_ship)
-  run BZReactionDiffusion profile 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
+  run BZReactionDiffusion profile 130 32
   run Fishbowl profile 70 32
   run DisplacementField profile 70 32
   run GnomonicStars profile 70 32
-  run GSReactionDiffusion profile 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
+  run GSReactionDiffusion profile 130 32
   ;;
 g2_ship)
   run HopfFibration profile 70 32
