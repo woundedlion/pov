@@ -59,21 +59,6 @@ public:
                 Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
-  // Scratch A holds one curve's fragment buffer (W/4 + 2 samples) and, during
-  // the rasterize call it stays live across, rasterize's own sub-step cache.
-  static constexpr size_t SCRATCH_A_BYTES = 8 * 1024;
-  static_assert(SCRATCH_A_BYTES >= (W / 4 + 2) * sizeof(Fragment) +
-                                       Plot::rasterize_scratch_a_bytes<W>(),
-                "scratch arena A must fit a curve's fragment buffer and "
-                "rasterize's sub-step cache at once");
-  using MobiusEntity = typename MobiusWarpCircularTransformer<1>::Entity;
-  static constexpr size_t FOOTPRINT_BYTES =
-      sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
-      alignof(int) + BakedPalette::required_arena_bytes();
-  static_assert(
-      FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
-      "MobiusRings persistent footprint exceeds its device partition");
-
   /**
    * @brief Sizes the arenas, exposes the user params, and arms the timeline
    *        animations.
@@ -158,6 +143,21 @@ private:
   // Test seam: reaches the conformal-radius pole branch and the
   // counter-rotation singularity guard.
   friend struct ::hs_test::effects_tests::MobiusRingsWhiteBox;
+
+  // Scratch A holds one curve's fragment buffer (W/4 + 2 samples) and, during
+  // the rasterize call it stays live across, rasterize's own sub-step cache.
+  static constexpr size_t SCRATCH_A_BYTES = 8 * 1024;
+  static_assert(SCRATCH_A_BYTES >= (W / 4 + 2) * sizeof(Fragment) +
+                                       Plot::rasterize_scratch_a_bytes<W>(),
+                "scratch arena A must fit a curve's fragment buffer and "
+                "rasterize's sub-step cache at once");
+  using MobiusEntity = typename MobiusWarpCircularTransformer<1>::Entity;
+  static constexpr size_t FOOTPRINT_BYTES =
+      sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
+      alignof(int) + BakedPalette::required_arena_bytes();
+  static_assert(
+      FOOTPRINT_BYTES <= DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+      "MobiusRings persistent footprint exceeds its device partition");
 
   static constexpr float CONFORMAL_LOG_MIN = -2.5f;
   static constexpr float CONFORMAL_LOG_MAX = 2.5f;
