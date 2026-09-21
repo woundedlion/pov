@@ -124,13 +124,16 @@ daydream_checkout := if path_exists(daydream_sibling) == "true" {
     "--checkout daydream=" + daydream_sibling
 } else { "--skip-checkout daydream" }
 
-# Validate tracked Markdown using the same commands as the ci.yml docs-markdown job.
+# Validate tracked Markdown using the same commands as the ci.yml docs-markdown
+# job, plus the docs-images job's checker: this recipe runs that checker's unit
+# tests, which say nothing about the tracked tree on their own.
 docs-check:
     bash tools/require_test_files.sh 'tools/docs_check_tests/test*.py'
     bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
     {{py}} -m unittest discover -s tools/docs_check_tests
     {{py}} -m unittest discover -s tools/docs_images_tests
     {{py}} tools/docs_check.py {{daydream_checkout}}
+    {{py}} tools/docs_images.py
     {{py}} tools/build_pins.py --check
     bash tools/require_test_files.sh 'tools/build_pins_tests/test*.py'
     {{py}} -m unittest discover -s tools/build_pins_tests
