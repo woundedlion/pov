@@ -5468,7 +5468,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"RingShower.h", 1},
     {"shader_host.h", 10},
     {"chain_host.h", 1},
-    {"kernels.h", 3},
+    {"kernels.h", 1},
     {"ShapeShifter.h", 2},
     {"dma_led.h", 4},
     {"pov_segmented.h", 9},
