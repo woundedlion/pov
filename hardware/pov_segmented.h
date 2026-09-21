@@ -42,7 +42,7 @@
  *   #include "../../hardware/pov_segmented.h"
  */
 #pragma once
-#include "core/render/led.h"
+#include "core/platform/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
 #include "pov_segment_frame.h"
 #include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
