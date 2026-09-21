@@ -3782,6 +3782,18 @@ inline void case_reconcile_vertices_size_mismatch() {
   MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
 }
 
+/** @brief Death case: reconciling a vertex-less endpoint pair must trap. */
+inline void case_reconcile_vertices_empty() {
+  static uint8_t target_buf[64];
+  static uint8_t scratch_buf[64];
+  Arena target(target_buf, sizeof(target_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+  PolyMesh identity;
+  PolyMesh authored;
+  PolyMesh out;
+  MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
+}
+
 /**
  * @brief Death case: an operator table whose entry decreases carrier family
  *        rank must trap.
@@ -4677,6 +4689,8 @@ inline const Case *all_cases(int &n) {
        case_reconcile_vertices_size_mismatch, "conway.h",
        "(authored.vertices.size() == V) reconcile_vertices: endpoints differ "
        "in vertex count"},
+      {"reconcile_vertices_empty", case_reconcile_vertices_empty, "conway.h",
+       "(V > 0) reconcile_vertices: endpoint pair has no vertices"},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
        "csg.h",
        "(fabsf(ax.length() - 1.0f) < 1e-3f) SDF CSG: repetition axis must be unit length"},
