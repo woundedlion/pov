@@ -115,6 +115,7 @@ def courtyard_box(footprint):
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class GeneratedBoardTests(unittest.TestCase):
+    """The placed draft `pcb.py --force` emits, read back without KiCad."""
 
     def test_refused_library_overwrite_preserves_existing_board(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -129,8 +130,6 @@ class GeneratedBoardTests(unittest.TestCase):
                     pcb.main(force=True)
             self.assertEqual(board.read_bytes(), before)
             self.assertEqual(library.read_bytes(), b"hand-maintained footprint\n")
-
-    """The placed draft `pcb.py --force` emits, read back without KiCad."""
 
     @classmethod
     def setUpClass(cls):
