@@ -2235,8 +2235,7 @@ private:
     ShadeFunction shade;
     bool (*resources_ready)(const FrameState &);
     if (program != nullptr) {
-      if (program->key != make_topology_key(config) ||
-          !program->continuous_parameters_supported(config))
+      if (program->key != make_topology_key(config))
         return false;
       shade = program->shade;
       resources_ready = program->resources_ready;
