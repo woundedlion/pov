@@ -267,7 +267,7 @@ struct PreparedTrace {
   float outer_radius_base;
   float near_start;
   float near_inv_span;
-  float sphere_radius_in_cells;
+  float sphere_radius_world;
   float dimension_mix;
   LatticeMode mode;
 };
@@ -356,7 +356,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   const float near_end =
       4.0f * frame.params.wire_radius * frame.params.cell_size;
   prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
-  prepared.sphere_radius_in_cells =
+  prepared.sphere_radius_world =
       frame.params.sphere_radius * frame.params.cell_size;
   return prepared;
 }
@@ -454,7 +454,7 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
   Vec4 ray_origin = prepared.origin;
   if (prepared.params.sphere_radius != 0.0f) {
     for (int axis = 0; axis < DIMENSIONS; ++axis)
-      ray_origin[axis] += prepared.sphere_radius_in_cells * direction[axis];
+      ray_origin[axis] += prepared.sphere_radius_world * direction[axis];
   }
   const uint8_t shell_count =
       SPECIALIZED_SLICE ? FIXED_SHELL_COUNT
