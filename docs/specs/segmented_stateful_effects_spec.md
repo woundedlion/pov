@@ -127,13 +127,14 @@ for whether it *samples* pixels outside its band:
   display-clip-only one, independently of the full-frame gate that
   `crosses_segments` drives.
 
-`Pipeline` does **not** today expose any aggregate trait constant — the
-existing folding is per-node recursive `static_assert`s on `Head::has_history`,
-nothing more. So this trait needs a new recursive OR-fold written from
-scratch: `static constexpr bool any_crosses_segments =
-Head::crosses_segments || NextPipeline::any_crosses_segments;` in the recursive
-node, **plus a `false` base case in the terminal `Pipeline<W,H>`**. There is no
-existing `any_*` member to mirror.
+`Pipeline` exposes the aggregate as a recursive OR-fold: `static constexpr bool
+any_crosses_segments = Head::crosses_segments || Next::any_crosses_segments;`
+in the recursive node, with a `false` base case in the terminal
+`Pipeline<W,H>`. `any_reads_outside_band` folds the same way, and
+`total_segment_margin` sums each stage's `segment_margin` (base `0`).
+`Screen::DirectAntiAliasSink`, a terminal pipeline in its own right, declares
+the same three members by hand (`false`, `false`, its own `segment_margin`).
+`pipeline_config<>` reads all three.
 
 ### 4.2 Expose it as one runtime query on `Effect`
 
@@ -256,7 +257,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 
 | Layer | Change |
 |---|---|
-| `core/render/filter/pipeline.h` traits | add `crosses_segments` and `reads_outside_band` to `FilterTraits`, both defaulting to `has_history`; override `reads_outside_band = false` on `Screen::Trails` and `World::Trails`, `crosses_segments = true` on `World::Mobius`; add the recursive `any_crosses_segments` / `any_reads_outside_band` OR-folds to `Pipeline` + `false` base cases in the terminal `Pipeline<W,H>` (no existing `any_*` to mirror) |
+| `core/render/filter/pipeline.h` traits | add `crosses_segments` and `reads_outside_band` to `FilterTraits`, both defaulting to `has_history`; override `reads_outside_band = false` on `Screen::Trails` and `World::Trails`, `crosses_segments = true` on `World::Mobius`; the recursive `any_crosses_segments` / `any_reads_outside_band` OR-folds and the `total_segment_margin` sum on `Pipeline`, with `false` / `0` base cases in the terminal `Pipeline<W,H>` and hand-written equivalents on `Screen::DirectAntiAliasSink` |
 | `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
 | each filtered effect's constructor | wrap its `EffectConfig` in `pipeline_config<decltype(filters)>(...)` in the `Effect` base initializer, which folds in all three pipeline traits |
 | `targets/wasm/engine_bindings.h` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
