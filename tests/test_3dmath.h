@@ -385,16 +385,16 @@ inline void test_fast_sinf_cosf() {
 }
 
 /**
- * @brief Verifies fast_sincosf_0_pi reproduces fast_sinf/fast_cosf across its
- *        documented [0, pi] domain.
+ * @brief Verifies fast_sincosf_0_pi reproduces fast_sinf/fast_cosf bit for bit
+ *        across its documented [0, pi] domain.
  */
 inline void test_fast_sincosf_0_pi() {
   for (int i = 0; i <= 256; ++i) {
     float x = (i * PI_F) / 256.0f;
     float s, c;
     fast_sincosf_0_pi(x, s, c);
-    HS_EXPECT_NEAR(s, fast_sinf(x), 1e-6f);
-    HS_EXPECT_NEAR(c, fast_cosf(x), 1e-6f);
+    HS_EXPECT_EQ(s, fast_sinf(x));
+    HS_EXPECT_EQ(c, fast_cosf(x));
     HS_EXPECT_NEAR(s, std::sin(x), 1.8e-3f);
     HS_EXPECT_NEAR(c, std::cos(x), 1.8e-3f);
     HS_EXPECT_NEAR(s * s + c * c, 1.0f, 5e-3f);
