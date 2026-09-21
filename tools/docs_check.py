@@ -130,7 +130,12 @@ _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 # The device playlist repeats the full roster's cardinality in README prose.
 _PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
-_PHANTASM_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
+# The shader promotion product group lives beside HS_EFFECT_LIST, and the ITCM
+# ledger restates its cardinality in prose.
+_PRODUCT_GROUP_DEFINE = "#define HS_SHADER_PRODUCT_GROUP(X)"
+# Both macros spell a row `X(Name, seconds)`.
+_NAMED_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
+_ITCM_LEDGER = "docs/ledgers/itcm_ledger.md"
 _CARDINALITY_CLAIMS = (
     ("README.md",
      re.compile(r"compile-time roster and tests carry (\d+) firmware-capable"),
@@ -142,6 +147,10 @@ _CARDINALITY_CLAIMS = (
     ("docs/specs/phantasm_frame_sync_spec.md",
      re.compile(r"\b(\d+)-entry roster\b"),
      "HS_PHANTASM_EFFECT_LIST", "the frame-sync playlist size"),
+    (_ITCM_LEDGER, re.compile(r"\b(\d+) fixed-pipeline products\b"),
+     "HS_SHADER_PRODUCT_GROUP", "the shader product-group size"),
+    (_ITCM_LEDGER, re.compile(r"\b(\d+)-effect phantasm roster\b"),
+     "HS_PHANTASM_EFFECT_LIST", "the ledger's phantasm roster size"),
 )
 
 # Names are matched against the source file kinds Doxyfile documents.
@@ -978,19 +987,31 @@ def doxyfile_predefined_issues(predefined: list[tuple[int, str]],
 
 def phantasm_roster(source: str) -> set[str]:
     """Returns the effect names in HS_PHANTASM_EFFECT_LIST."""
-    return set(_PHANTASM_ROSTER_ENTRY_RE.findall(
+    return set(_NAMED_ROSTER_ENTRY_RE.findall(
         _macro_body(source, _PHANTASM_ROSTER_DEFINE)))
 
 
+def shader_product_group(source: str) -> set[str]:
+    """Returns the effect names in HS_SHADER_PRODUCT_GROUP."""
+    return set(_NAMED_ROSTER_ENTRY_RE.findall(
+        _macro_body(source, _PRODUCT_GROUP_DEFINE)))
+
+
 def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
-                        playlist: set[str]) -> list[Issue]:
+                        playlist: set[str],
+                        products: set[str]) -> list[Issue]:
     """Checks prose roster cardinalities against their source macros."""
     if not playlist:
         return [Issue(_PHANTASM_PLAYLIST_SOURCE.as_posix(), 1,
                       "no HS_PHANTASM_EFFECT_LIST, so every playlist count "
                       "restated in prose goes unchecked")]
+    if not products:
+        return [Issue(_EFFECT_ROSTER_SOURCE.as_posix(), 1,
+                      "no HS_SHADER_PRODUCT_GROUP, so every product count "
+                      "restated in prose goes unchecked")]
     counts = {"HS_EFFECT_LIST": len(roster),
-              "HS_PHANTASM_EFFECT_LIST": len(playlist)}
+              "HS_PHANTASM_EFFECT_LIST": len(playlist),
+              "HS_SHADER_PRODUCT_GROUP": len(products)}
     issues = []
     for document, pattern, macro, subject in _CARDINALITY_CLAIMS:
         expected = counts[macro]
@@ -1141,7 +1162,8 @@ def check_repository(
         except (OSError, UnicodeError):
             playlist_header = ""
         issues.extend(roster_claim_issues(
-            sources, roster, phantasm_roster(playlist_header)))
+            sources, roster, phantasm_roster(playlist_header),
+            shader_product_group(header)))
     elif roster_claimed:
         issues.append(Issue(
             _EFFECT_ROSTER_SOURCE.as_posix(), 1,
