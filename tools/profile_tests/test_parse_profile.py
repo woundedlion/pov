@@ -885,6 +885,72 @@ class BucketOrdering(unittest.TestCase):
         self.assertIn("43.47", row)
 
 
+class TaggedCounterRows(unittest.TestCase):
+    """Rows the firmware tagged MIXED-PARENT / DUPLICATE-NAME (profiling.h).
+
+    The tag follows the cycle count on the row it annotates. A regex ending at
+    `cyc` matches none of those rows, so the scope disappears from the parsed
+    tree and `validate` reports it missing from a log that carries it.
+    """
+
+    LOG = "\n".join([
+        "=== profile Fx [288x144] frames 1-4 window=62500 us ===",
+        "frame wall us: min=250 avg=250 max=250 sum=1000 (4 frames)",
+        "frame                 1000 us (100%)  4 calls  600000 cyc",
+        "  scan_mesh_raster     400 us (40%)  8 calls  240000 cyc  MIXED-PARENT",
+        "  is_mesh_transform    100 us (10%)  4 calls  60000 cyc  DUPLICATE-NAME",
+        "  both_tags             50 us (5%)  4 calls  30000 cyc  "
+        "MIXED-PARENT  DUPLICATE-NAME",
+        "  plain                 10 us (1%)  4 calls  6000 cyc",
+    ]) + "\n"
+
+    def _parse(self, text=None):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text(text or self.LOG, encoding="utf-8")
+            return pp.parse(path)
+
+    def _validate(self, scope, text=None):
+        import contextlib
+        import io
+        windows, effect = self._parse(text)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            pp.cmd_validate(windows, effect, scope)
+        return out.getvalue()
+
+    def test_tagged_rows_are_parsed(self):
+        window = self._parse()[0][0]
+        self.assertEqual(
+            set(window.counters),
+            {"frame", "scan_mesh_raster", "is_mesh_transform", "both_tags",
+             "plain"})
+        self.assertEqual(window.counters["scan_mesh_raster"]["us"], 400)
+        self.assertEqual(window.counters["scan_mesh_raster"]["calls"], 8)
+        self.assertEqual(window.counters["scan_mesh_raster"]["cyc"], 240000)
+
+    def test_tags_are_recorded(self):
+        counters = self._parse()[0][0].counters
+        self.assertEqual(counters["scan_mesh_raster"]["tags"],
+                         ("MIXED-PARENT",))
+        self.assertEqual(counters["is_mesh_transform"]["tags"],
+                         ("DUPLICATE-NAME",))
+        self.assertEqual(counters["both_tags"]["tags"],
+                         ("MIXED-PARENT", "DUPLICATE-NAME"))
+        self.assertEqual(counters["plain"]["tags"], ())
+
+    def test_a_tagged_scope_is_visible_to_validate(self):
+        report = self._validate("scan_mesh_raster")
+        self.assertNotIn("[FAIL] scope 'scan_mesh_raster'", report)
+        self.assertIn("both_tags, is_mesh_transform, scan_mesh_raster", report)
+
+    def test_an_untagged_capture_names_no_tags(self):
+        text = "\n".join(line for line in self.LOG.splitlines()
+                         if not line.rstrip().endswith(("MIXED-PARENT",
+                                                        "DUPLICATE-NAME")))
+        self.assertNotIn("MIXED-PARENT", self._validate("plain", text + "\n"))
+
+
 class CleanHoldSelection(unittest.TestCase):
     def test_transition_window_with_one_missing_call_is_excluded(self):
         marker = {"key": "preset", "idx": 12, "total": 17, "name": "12"}

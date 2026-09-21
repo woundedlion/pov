@@ -62,8 +62,10 @@ PULLBACK_ARM_RE = re.compile(
 PULLBACK_PROGRAM_RE = re.compile(
     r"^Pullback program: preset=(\d+)/(\d+) pipeline=([A-Z0-9_]+|NONE) "
     r"endpoint=(steady|from|to)$")
+# The firmware appends a tag to a row whose cycles are not an exclusive cost.
 COUNTER_RE = re.compile(
-    r"^(\s*)(\S+)\s+(\d+) us \((\d+)%\)\s+(\d+) calls\s+(\d+) cyc\s*$")
+    r"^(\s*)(\S+)\s+(\d+) us \((\d+)%\)\s+(\d+) calls\s+(\d+) cyc"
+    r"((?:\s+(?:MIXED-PARENT|DUPLICATE-NAME))*)\s*$")
 # HS_SCAN_METRICS window totals (Profile.ino dump_scan_totals).
 SCAN_RE = re.compile(
     r"^scan totals: tested=(\d+) culled=(\d+) lut=(\d+) convex=(\d+) "
@@ -331,7 +333,7 @@ def parse_capture(path):
                 cur.counters[label] = dict(
                     us=int(m.group(3)), pct=int(m.group(4)),
                     calls=int(m.group(5)), cyc=int(m.group(6)),
-                    depth=len(indent) // 2)
+                    depth=len(indent) // 2, tags=tuple(m.group(7).split()))
                 continue
             for key, rgx in MARKER_RES:
                 mm = rgx.match(line.strip())
@@ -949,6 +951,17 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
           f"{len(have_render)} windows have render == wall"
           + (": the effect opens no *_buffer_wait scope)" if wall_render
              else ")"))
+
+    # MIXED-PARENT cycles include entries made from callers other than the
+    # parent the row prints under; a DUPLICATE-NAME row accounts for only one
+    # of several counters sharing its name. Neither is a defect, but neither
+    # total is an exclusive phase cost, so the reader is told which rows carry
+    # the tags rather than left to read them as ordinary scopes.
+    tagged = sorted({label for w in windows for label, node in w.counters.items()
+                     if node.get("tags")})
+    if tagged:
+        print("  [INFO] not exclusive costs (MIXED-PARENT/DUPLICATE-NAME): "
+              + ", ".join(tagged))
 
     # Exactness: root cycles converted to us vs wall sum, richest window.
     # Every check above is skip-on-absent, so this one carries the whole
