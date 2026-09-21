@@ -217,12 +217,6 @@ HS_COLD_MEMBER inline constexpr float abs_value(float value) {
   return value < 0.0f ? -value : value;
 }
 
-HS_COLD_MEMBER inline constexpr int curl_intervals(CurlIntegrator integrator) {
-  return integrator == CurlIntegrator::EULER_1      ? 1
-         : integrator == CurlIntegrator::MIDPOINT_2 ? 2
-                                                    : 4;
-}
-
 /** @brief Maximum component emitted by the bounded curl vector field. */
 HS_COLD_MEMBER inline constexpr float curl_vector_component_bound(NoiseBasis) {
   return CURL_VECTOR_COMPONENT_MAX;
