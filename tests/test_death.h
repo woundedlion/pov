@@ -3801,29 +3801,6 @@ inline void case_sdf_distorted_ring_null_shift() {
 }
 
 /**
- * @brief Death case: fixing a ShaderWorkbench preset view to nothing must trap.
- * @details Effect surface — an empty view leaves preset_count_for_view() at
- *          zero, so preset selection would index an empty roster.
- */
-inline void case_shader_workbench_empty_preset_view() {
-  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
-  WB::SB sb;
-  WB::set_fixed_preset_view(sb, std::span<const uint8_t>());
-}
-
-/**
- * @brief Death case: a preset view naming a preset past the roster must trap.
- * @details Effect surface — the view indirects into PRESETS, so an out-of-range
- *          entry reads a config off the end of the table.
- */
-inline void case_shader_workbench_preset_view_index_out_of_range() {
-  using WB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
-  static const uint8_t indices[1] = {200};
-  WB::SB sb;
-  WB::set_fixed_preset_view(sb, std::span<const uint8_t>(indices, 1));
-}
-
-/**
  * @brief Death case: resolving a preset past the view must trap.
  * @details Effect surface — the lookup indexes PRESETS through the view, so an
  *          out-of-range index hands the pipeline a config read off the table.
@@ -4854,13 +4831,6 @@ inline const Case *all_cases(int &n) {
        "(thickness >= 0.0f) DistortedRing: negative stroke half-width"},
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "shapes.h", "(thickness >= 0.0f) Line: negative stroke half-width"},
-      {"shader_workbench_empty_preset_view",
-       case_shader_workbench_empty_preset_view, "shader_host.h",
-       "(!source_indices.empty()) set_fixed_preset_view: empty preset view"},
-      {"shader_workbench_preset_view_index_out_of_range",
-       case_shader_workbench_preset_view_index_out_of_range, "shader_host.h",
-       "(index < PRESETS.size()) set_fixed_preset_view: preset index out of "
-       "range"},
       {"chain_table_rank_decreases", case_chain_table_rank_decreases,
        "interpreter.h",
        "(entry.input <= entry.output) ChainProgram::bind_storage: operator "

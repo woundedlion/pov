@@ -11,7 +11,6 @@
 
 #include <cstdarg>
 #include <cstdio>
-#include <span>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -569,17 +568,6 @@ protected:
   virtual void scan_frame_shader(Canvas &canvas,
                                  const Workbench::FrameShader &shader) = 0;
 
-  HS_COLD_MEMBER void
-  set_fixed_preset_view(std::span<const uint8_t> source_indices) {
-    HS_CHECK(!source_indices.empty(),
-             "set_fixed_preset_view: empty preset view");
-    for (uint8_t index : source_indices)
-      HS_CHECK(index < PRESETS.size(),
-               "set_fixed_preset_view: preset index out of range");
-    preset_view = source_indices;
-    fixed_topology = true;
-  }
-
   HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
     preset_dwell_remaining = frames;
     preset_dwell_armed = preset_count_for_view() > 1;
@@ -879,73 +867,58 @@ private:
     registered_range_clamped = false;
     reset_parameters();
     Slots &slots = requested_config.slots;
-    if (!fixed_topology)
-      register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
-                              FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
+    register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
+                            FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
     const float domain_scale = lens_domain_linear_scale(slots.surface_lens);
     register_source_controls(slots.function, requested_config.params.source,
                              domain_scale);
-    if (!fixed_topology)
-      register_animated_param("Projection", &slots.projection,
-                              PROJECTION_OPTIONS, PROJECTION_EXPORT_OPTIONS,
-                              NUM_PROJECTIONS);
+    register_animated_param("Projection", &slots.projection, PROJECTION_OPTIONS,
+                            PROJECTION_EXPORT_OPTIONS, NUM_PROJECTIONS);
     register_projection_controls(slots, requested_config.params);
-    if (!fixed_topology)
-      register_animated_param(
-          "Projection Frame", &slots.projection_frame, PROJECTION_FRAME_OPTIONS,
-          PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
+    register_animated_param(
+        "Projection Frame", &slots.projection_frame, PROJECTION_FRAME_OPTIONS,
+        PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
     register_projection_frame_controls(slots.projection_frame,
                                        requested_config.params, domain_scale);
     register_animated_param("Camera Wander",
                             &requested_config.params.outer_camera.wander,
                             WANDER_MIN, WANDER_MAX);
-    if (!fixed_topology)
-      register_animated_param("Surface Noise", &slots.surface_noise,
-                              SURFACE_NOISE_OPTIONS,
-                              SURFACE_NOISE_EXPORT_OPTIONS, NUM_SURFACE_NOISE);
+    register_animated_param("Surface Noise", &slots.surface_noise,
+                            SURFACE_NOISE_OPTIONS, SURFACE_NOISE_EXPORT_OPTIONS,
+                            NUM_SURFACE_NOISE);
     register_surface_noise_controls(
         slots, requested_config.params.surface_noise,
         slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS
             ? domain_scale
             : 1.0f);
-    if (!fixed_topology)
-      register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
-                              LENS_EXPORT_OPTIONS, NUM_LENSES);
+    register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
+                            LENS_EXPORT_OPTIONS, NUM_LENSES);
     register_lens_controls(slots.surface_lens,
                            requested_config.params.surface_lens);
-    if (!fixed_topology) {
-      register_animated_param("Planar Warp 1", &slots.warp_program.outer.kind,
-                              WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
-      register_stage_slot_controls(true, slots.warp_program.outer);
-    }
+    register_animated_param("Planar Warp 1", &slots.warp_program.outer.kind,
+                            WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
+    register_stage_slot_controls(true, slots.warp_program.outer);
     register_active_warp_controls(true, slots.warp_program.outer,
                                   requested_config.params.warp.outer,
                                   domain_scale);
-    if (!fixed_topology) {
-      register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
-                              WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
-      register_stage_slot_controls(false, slots.warp_program.inner);
-    }
+    register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
+                            WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
+    register_stage_slot_controls(false, slots.warp_program.inner);
     register_active_warp_controls(false, slots.warp_program.inner,
                                   requested_config.params.warp.inner,
                                   domain_scale);
-    if (!fixed_topology) {
-      register_animated_param("Signal Weight", &slots.signal_weight,
-                              SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS,
-                              NUM_SIGNALS);
-      register_animated_param(
-          "Value Transfer", &slots.value_transfer, VALUE_TRANSFER_OPTIONS,
-          VALUE_TRANSFER_EXPORT_OPTIONS, NUM_VALUE_TRANSFERS);
-    }
+    register_animated_param("Signal Weight", &slots.signal_weight,
+                            SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS, NUM_SIGNALS);
+    register_animated_param("Value Transfer", &slots.value_transfer,
+                            VALUE_TRANSFER_OPTIONS,
+                            VALUE_TRANSFER_EXPORT_OPTIONS, NUM_VALUE_TRANSFERS);
     register_value_transfer_controls(slots.value_transfer,
                                      requested_config.params.value);
-    if (!fixed_topology)
-      register_animated_param("Coverage", &slots.coverage, COVERAGE_OPTIONS,
-                              COVERAGE_EXPORT_OPTIONS, NUM_COVERAGE_POLICIES);
+    register_animated_param("Coverage", &slots.coverage, COVERAGE_OPTIONS,
+                            COVERAGE_EXPORT_OPTIONS, NUM_COVERAGE_POLICIES);
     register_coverage_controls(slots.coverage, requested_config.params.value);
-    if (!fixed_topology)
-      register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
-                              PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
+    register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
+                            PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
     register_animated_param("Palette Chroma",
                             &requested_config.params.color.palette_chroma,
                             PALETTE_CHROMA_MIN, PALETTE_CHROMA_MAX);
@@ -966,11 +939,10 @@ private:
         "Phase Oscillation Speed",
         &requested_config.params.color.phase_oscillation_speed,
         -PHASE_OSCILLATION_SPEED_MAX, PHASE_OSCILLATION_SPEED_MAX);
-    if (!fixed_topology)
-      register_animated_param("Brightness Envelope", &slots.brightness_envelope,
-                              BRIGHTNESS_ENVELOPE_OPTIONS,
-                              BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
-                              NUM_BRIGHTNESS_ENVELOPES);
+    register_animated_param("Brightness Envelope", &slots.brightness_envelope,
+                            BRIGHTNESS_ENVELOPE_OPTIONS,
+                            BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
+                            NUM_BRIGHTNESS_ENVELOPES);
     if (slots.brightness_envelope != BrightnessEnvelope::NONE) {
       register_animated_param("Brightness Bottom",
                               &requested_config.params.color.brightness_bottom,
@@ -985,10 +957,9 @@ private:
     register_animated_param("Opacity at Value 1",
                             &requested_config.params.color.opacity_high,
                             VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
-    if (!fixed_topology)
-      register_animated_param("Hue Shift Mode", &slots.hue_shift,
-                              HUE_SHIFT_OPTIONS, HUE_SHIFT_EXPORT_OPTIONS,
-                              NUM_HUE_SHIFT_MODES);
+    register_animated_param("Hue Shift Mode", &slots.hue_shift,
+                            HUE_SHIFT_OPTIONS, HUE_SHIFT_EXPORT_OPTIONS,
+                            NUM_HUE_SHIFT_MODES);
     register_color_controls(slots.hue_shift, requested_config.params.color,
                             domain_scale);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1288,9 +1259,8 @@ private:
       register_animated_param("Iso Width", &params.iso_width, SOFTNESS_MIN,
                               0.5f);
     } else if (transfer == ValueTransfer::SMOOTH_BANDS) {
-      if (!fixed_topology)
-        register_animated_int_param("Band Count", &params.band_count, 1,
-                                    BAND_COUNT_MAX);
+      register_animated_int_param("Band Count", &params.band_count, 1,
+                                  BAND_COUNT_MAX);
       register_animated_param("Band Phase", &params.band_phase, 0.0f, TWO_PI_F);
     }
   }
@@ -1386,11 +1356,10 @@ private:
                                       SOFTNESS_MIN, 0.25f);
       register_clamped_animated_param("Tessellation Spin Speed",
                                       &params.angle_rate, -0.05f, 0.05f);
-      if (!fixed_topology)
-        register_animated_param("Tessellation Kind", &params.tessellation_kind,
-                                TESSELLATION_KIND_OPTIONS,
-                                TESSELLATION_KIND_EXPORT_OPTIONS,
-                                NUM_TESSELLATION_KINDS);
+      register_animated_param("Tessellation Kind", &params.tessellation_kind,
+                              TESSELLATION_KIND_OPTIONS,
+                              TESSELLATION_KIND_EXPORT_OPTIONS,
+                              NUM_TESSELLATION_KINDS);
       return;
     }
     if (is_noise_contour(function)) {
@@ -1405,10 +1374,9 @@ private:
                              domain_scale),
           domain_scaled_max(SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
                             domain_scale));
-      if (!fixed_topology)
-        register_animated_param("Source Noise Basis", &params.noise_basis,
-                                NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
-                                NUM_NOISE_BASES);
+      register_animated_param("Source Noise Basis", &params.noise_basis,
+                              NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
+                              NUM_NOISE_BASES);
       return;
     }
     if (function == Function::PRIMITIVE_LATTICE) {
@@ -1444,11 +1412,11 @@ private:
 
   HS_COLD_MEMBER void register_projection_controls(Slots &slots,
                                                    Params &params) {
-    if (!fixed_topology && slots.projection == Projection::PEIRCE_QUINCUNCIAL)
+    if (slots.projection == Projection::PEIRCE_QUINCUNCIAL)
       register_animated_param("Peirce Layout", &slots.peirce_layout,
                               PEIRCE_LAYOUT_OPTIONS,
                               PEIRCE_LAYOUT_EXPORT_OPTIONS, NUM_PEIRCE_LAYOUTS);
-    if (!fixed_topology && slots.projection == Projection::AIROCEAN)
+    if (slots.projection == Projection::AIROCEAN)
       register_animated_param(
           "Airocean Layout", &slots.airocean_layout, AIROCEAN_LAYOUT_OPTIONS,
           AIROCEAN_LAYOUT_EXPORT_OPTIONS, NUM_AIROCEAN_LAYOUTS);
@@ -1470,11 +1438,11 @@ private:
       register_animated_param("Projection Scale",
                               &params.projection.coordinate_scale, 0.25f, 4.0f);
     }
-    if (!fixed_topology && slots.projection == Projection::BONNE)
+    if (slots.projection == Projection::BONNE)
       register_animated_param(
           "Bonne Hemisphere", &slots.bonne_hemisphere, BONNE_HEMISPHERE_OPTIONS,
           BONNE_HEMISPHERE_EXPORT_OPTIONS, NUM_BONNE_HEMISPHERES);
-    if (!fixed_topology && slots.projection == Projection::GNOMONIC)
+    if (slots.projection == Projection::GNOMONIC)
       register_animated_param("Gnomonic Hemisphere", &slots.gnomonic_hemisphere,
                               GNOMONIC_HEMISPHERE_OPTIONS,
                               GNOMONIC_HEMISPHERE_EXPORT_OPTIONS,
@@ -1531,15 +1499,13 @@ private:
                                   float domain_scale) {
     if (slots.surface_noise == SurfaceNoise::NONE)
       return;
-    if (!fixed_topology) {
-      register_animated_param(
-          "Surface Noise Placement", &slots.surface_noise_placement,
-          SURFACE_NOISE_PLACEMENT_OPTIONS,
-          SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS, NUM_SURFACE_NOISE_PLACEMENTS);
-      register_animated_param("Surface Noise Basis", &params.basis,
-                              NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
-                              NUM_NOISE_BASES);
-    }
+    register_animated_param(
+        "Surface Noise Placement", &slots.surface_noise_placement,
+        SURFACE_NOISE_PLACEMENT_OPTIONS, SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS,
+        NUM_SURFACE_NOISE_PLACEMENTS);
+    register_animated_param("Surface Noise Basis", &params.basis,
+                            NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
+                            NUM_NOISE_BASES);
     register_clamped_animated_param("Surface Noise Scale", &params.scale,
                                     LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
     const float strength_min =
@@ -1558,7 +1524,7 @@ private:
     if (slots.surface_noise == SurfaceNoise::DIRECT)
       register_animated_param("Surface Noise Direction", &params.direction,
                               0.0f, 1.0f);
-    else if (!fixed_topology)
+    else
       register_animated_param("Surface Noise Integrator", &params.integrator,
                               SURFACE_CURL_INTEGRATOR_OPTIONS,
                               SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS,
@@ -1711,14 +1677,12 @@ private:
                                     -HUE_NOISE_SPEED_MAX, HUE_NOISE_SPEED_MAX);
   }
 
-  size_t preset_count_for_view() const {
-    return preset_view.empty() ? PRESETS.size() : preset_view.size();
-  }
+  size_t preset_count_for_view() const { return PRESETS.size(); }
 
   const Preset &preset_for_view(size_t index) const {
     HS_CHECK(index < preset_count_for_view(),
              "preset_for_view: index out of range");
-    return PRESETS[preset_view.empty() ? index : preset_view[index]];
+    return PRESETS[index];
   }
 
   using PreparedEndpoint = Workbench::PreparedEndpoint;
@@ -1897,14 +1861,6 @@ public:
       return ConfigRestoreResult::INVALID_VALUE;
     if (!admissible_config(next_accepted))
       return ConfigRestoreResult::INVALID_ACCEPTED;
-    if (fixed_topology) {
-      const InversePipelineId pipeline = preset_for_view(0).pipeline;
-      if (resolve_pipeline_id(next_accepted) != pipeline)
-        return ConfigRestoreResult::INVALID_ACCEPTED;
-      if (resolve_pipeline_id(next_requested) != pipeline)
-        return ConfigRestoreResult::INVALID_PENDING;
-    }
-
     const ConfigValues migrated_accepted = encode_config_values(next_accepted);
     const ConfigValues migrated_requested =
         encode_config_values(next_requested);
@@ -3131,8 +3087,6 @@ private:
 #endif
   bool requested_schema_bound = false;
   bool registered_range_clamped = false;
-  bool fixed_topology = false;
-  std::span<const uint8_t> preset_view{};
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
   Blend blend{PRESETS[0].config.params,
