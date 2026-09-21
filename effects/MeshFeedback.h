@@ -54,7 +54,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 241;
 
-  // Gamut boundary bracket grid bought from the persistent arena (131,072 B),
+  // Gamut boundary bracket grid bought from the persistent arena (131,074 B),
   // at the flash master's own resolution, so the copy is verbatim.
   static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
