@@ -285,6 +285,33 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues, [])
         self.assertEqual(skipped, {"daydream"})
 
+    def test_checkout_links_resolve_against_the_supplied_root(self):
+        text = ("[live](https://github.com/woundedlion/daydream/blob/master"
+                "/tools/chain_strip.js)\n"
+                "[gone](https://github.com/woundedlion/daydream/blob/master"
+                "/tools/ghost.js)\n"
+                "[self](https://github.com/woundedlion/pov/blob/master"
+                "/README.md)\n"
+                "[other](https://example.com/woundedlion/daydream/blob/master"
+                "/tools/ghost.js)\n")
+        checkouts = {"daydream": {PurePosixPath("tools/chain_strip.js")}}
+        issues = dc.check_text(PurePosixPath("docs/specs/spec.md"), text,
+                               {PurePosixPath("README.md")},
+                               checkouts=checkouts)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].line, 2)
+        self.assertIn("missing daydream link target", issues[0].message)
+        self.assertIn("tools/ghost.js", issues[0].message)
+
+    def test_checkout_link_without_a_root_is_recorded_as_skipped(self):
+        text = ("[gone](https://github.com/woundedlion/daydream/blob/master"
+                "/tools/ghost.js)\n")
+        skipped: set[str] = set()
+        issues = dc.check_text(PurePosixPath("docs/specs/spec.md"), text, set(),
+                               skipped=skipped)
+        self.assertEqual(issues, [])
+        self.assertEqual(skipped, {"daydream"})
+
     def test_multi_word_tree_tag_is_parsed_or_reported(self):
         self.assertEqual(dc._tree_directive("tree"),
                          dc.TreeDirective("", False))
@@ -482,7 +509,7 @@ class TestDocumentationChecker(unittest.TestCase):
                                   "--skip-checkout", "daydream",
                                   "--skip-checkout", "retired"])
         self.assertEqual(status, 0)
-        self.assertIn("names no unvalidated tree fence: retired",
+        self.assertIn("names no unvalidated tree fence or link: retired",
                       output.getvalue())
 
     def test_a_bom_does_not_hide_a_tree_directive(self):
