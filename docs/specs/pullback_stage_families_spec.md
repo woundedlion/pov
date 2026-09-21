@@ -894,7 +894,7 @@ operator's catalog entry therefore exposes two views:
 the recipe's policies read at those topology values, which promotion
 evaluates at the document's pinned topology (§7.3) — recursively
 composed for compound policies (a compound
-source like `Source::Multiply<A, B>` concatenates its children's) —
+source policy would concatenate its children's) —
 and the worst-case resource and state footprint across variants, which
 is what the interpreter budgets (the same worst-case-across-variants
 rule its eager per-variant construction and topology-invariant
@@ -1088,10 +1088,10 @@ concern.
   resolves each operator against the engine's own operator table (the
   C++ ground truth the catalog is pinned to), rejects duplicate or
   malformed `instance` labels (they own parameter namespaces), validates
-  existence, carrier adjacency, entry/exit, and the arena/length
-  budget — whose authoritative limits (a single arena's capacity, the
-  chain-length cap, alongside the per-op block sizes already
-  cataloged) are
+  existence, carrier adjacency, entry/exit, and the arena, length and
+  parameter-count budgets — whose authoritative limits (a single arena's
+  capacity, the chain-length cap, the chain-wide parameter cap, alongside
+  the per-op block sizes already cataloged) are
   **exported with the catalog**, so the editor can account for aligned
   totals before offering an edit; the transactional double-buffering
   below is engine-internal and never inflates or halves this figure —
@@ -1104,7 +1104,8 @@ concern.
   computed internally and never cross the API. Family is not stored at
   all; it derives from the operator's carrier pair. Compilation is
   **transactional**: any failure is a structured refusal (code +
-  offending instance) that leaves the previous program, the registered
+  offending `entry_index`, −1 for the chain as a whole) that leaves the
+  previous program, the registered
   parameter definitions, the parameter generation, and all live
   instance state unchanged. The tool's catalog validation is editor UX,
   not the trust boundary.
@@ -1275,10 +1276,10 @@ a slot that does not exist stay interpreter-only.
 
 Combining two sources is a policy-level concern, not a chain-shape gap:
 monotonicity correctly forbids a second `Sample` crossing, and source
-policies already receive the full carrier, so `Source::Multiply<A, B>` /
-`Source::Max<A, B>` combinator policies compose fields with zero
-pipeline change at the template layer. The interpreter ships compound
-sources as their own curated operator entries — a scalar
+policies already receive the full carrier, so product or max combinator
+policies over two sources compose fields with zero pipeline change at
+the template layer; none ships. The interpreter would ship such a
+compound source as its own curated operator entry — a scalar
 source-expression ABI (nested operators, each with its own parameter and
 prepared blocks) is deliberately out of this revision, and joins true
 Fork/Join branching as a reserved future extension, taken up only if the
