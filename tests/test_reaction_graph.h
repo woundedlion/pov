@@ -10,9 +10,10 @@
  * checked. These tests additionally guard the in-tree table's content:
  * shape/population vs the RD_N/RD_K constants, structural invariants (range, no
  * self-loops, no duplicate rows), geometric sanity (listed neighbors are
- * actually nearby), an edge-reciprocity measurement (gross-corruption tripwire —
- * a raw K-NN graph is not required to be perfectly symmetric), and the analytic
- * node() generator.
+ * actually nearby), a brute-force K-NN oracle on sampled rows (the table is the
+ * neighbor set of node(), not merely a plausible one), an edge-reciprocity
+ * measurement (gross-corruption tripwire — a raw K-NN graph is not required to
+ * be perfectly symmetric), and the analytic node() generator.
  * Also exercises CubemapLUT round-trip (direction -> nearest node).
  */
 #pragma once
@@ -313,6 +314,48 @@ inline void test_neighbors_closer_than_far_point() {
   HS_EXPECT_EQ(first_violation_slot, -1);
 }
 
+/**
+ * @brief Verifies sampled rows are the true RD_K nearest neighbors of node().
+ * @details Every STRIDE-th row is rebuilt by brute force over all other nodes
+ *          under the generator's (chord^2, index) order, so the row must match
+ *          slot for slot. The structural and locality cases pass on any
+ *          nearby-but-wrong selection; only this pins the table to node().
+ */
+inline void test_neighbors_match_brute_force_knn() {
+  constexpr int STRIDE = 37;
+  int first_bad_row = -1;
+  for (int i = 0; i < RD_N; i += STRIDE) {
+    const Vector p = node(i);
+    float best2[RD_K];
+    int best[RD_K];
+    int filled = 0;
+    for (int j = 0; j < RD_N; ++j) {
+      if (j == i)
+        continue;
+      const float d2 = chord2(p, node(j));
+      if (filled == RD_K && d2 >= best2[RD_K - 1])
+        continue;
+      int slot = filled < RD_K ? filled : RD_K - 1;
+      while (slot > 0 && d2 < best2[slot - 1]) {
+        best2[slot] = best2[slot - 1];
+        best[slot] = best[slot - 1];
+        --slot;
+      }
+      best2[slot] = d2;
+      best[slot] = j;
+      if (filled < RD_K)
+        ++filled;
+    }
+    for (int k = 0; k < RD_K && first_bad_row < 0; ++k)
+      if (neighbors[i][k] != best[k]) {
+        first_bad_row = i;
+        std::printf("  [info] row %d slot %d: table %d, brute force %d\n", i, k,
+                    neighbors[i][k], best[k]);
+      }
+  }
+  HS_EXPECT_EQ(first_bad_row, -1);
+}
+
 // ---------------------------------------------------------------------------
 // Edge reciprocity (gross-corruption tripwire, not a hard symmetry requirement)
 // ---------------------------------------------------------------------------
@@ -552,6 +595,7 @@ inline int run_reaction_graph_tests() {
 
   test_neighbors_are_local();
   test_neighbors_closer_than_far_point();
+  test_neighbors_match_brute_force_knn();
   test_edge_reciprocity_high();
 
   test_cubemap_lut_roundtrip();
