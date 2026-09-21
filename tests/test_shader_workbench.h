@@ -1903,6 +1903,38 @@ inline void test_shader_workbench_coupled_source() {
     }
   }
 }
+/**
+ * @brief Bit-compares an authored float block against its pin and prints a
+ *        paste-ready replacement when it drifts.
+ * @tparam N Field count of the block.
+ * @param name Identifier of the pinned array, echoed in the replacement.
+ * @param actual Values read out of the preset bank.
+ * @param expected The pinned literals.
+ * @details Bit equality, not a tolerance: these are authored constants, so any
+ * change is an edit to review. The printed block is how an intended edit is
+ * re-pinned; "%#.9g" round-trips a float exactly and keeps the decimal point
+ * the "f" suffix needs.
+ */
+template <size_t N>
+inline void expect_pinned_params(const char *name,
+                                 const std::array<float, N> &actual,
+                                 const std::array<float, N> &expected) {
+  bool drifted = false;
+  for (size_t index = 0; index < N; ++index) {
+    HS_CONTEXT(name, static_cast<long long>(index));
+    const uint32_t got = std::bit_cast<uint32_t>(actual[index]);
+    const uint32_t want = std::bit_cast<uint32_t>(expected[index]);
+    HS_EXPECT_EQ(got, want);
+    drifted |= got != want;
+  }
+  if (!drifted)
+    return;
+  std::printf("  constexpr std::array<float, %zu> %s{\n", N, name);
+  for (size_t index = 0; index < N; ++index)
+    std::printf("      %#.9gf,\n", static_cast<double>(actual[index]));
+  std::printf("  };\n");
+}
+
 /** @brief Presets retain the curated topology roster and generated palette path. */
 inline void test_shader_workbench_preset_bank() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -1995,16 +2027,13 @@ inline void test_shader_workbench_preset_bank() {
       0.0f,    1.0f,   1.376f, 0.00559375f, 0.8f,   0.788f,     1.0f, -0.0f,
       0.0f,    0.0f,   1.0f,   1.0f,        0.292f, 0.6304219f, 0.0f,
   };
-  for (size_t index = 0; index < primary_signal.size(); ++index) {
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(primary_signal[index]),
-                 std::bit_cast<uint32_t>(SIGNAL_EXPECTED[index]));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(secondary_signal[index]),
-                 std::bit_cast<uint32_t>(SECOND_SIGNAL_EXPECTED[index]));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(tertiary_signal[index]),
-                 std::bit_cast<uint32_t>(THIRD_SIGNAL_EXPECTED[index]));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(fourth_signal_values[index]),
-                 std::bit_cast<uint32_t>(FOURTH_SIGNAL_EXPECTED[index]));
-  }
+  expect_pinned_params("SIGNAL_EXPECTED", primary_signal, SIGNAL_EXPECTED);
+  expect_pinned_params("SECOND_SIGNAL_EXPECTED", secondary_signal,
+                       SECOND_SIGNAL_EXPECTED);
+  expect_pinned_params("THIRD_SIGNAL_EXPECTED", tertiary_signal,
+                       THIRD_SIGNAL_EXPECTED);
+  expect_pinned_params("FOURTH_SIGNAL_EXPECTED", fourth_signal_values,
+                       FOURTH_SIGNAL_EXPECTED);
   const auto &mirror = presets[1];
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
@@ -2059,10 +2088,9 @@ inline void test_shader_workbench_preset_bank() {
       2.2033439f,
       -0.00040800002f,
   };
-  for (size_t index = 0; index < kaleidoscope_hex_soft_values.size(); ++index)
-    HS_EXPECT_EQ(
-        std::bit_cast<uint32_t>(kaleidoscope_hex_soft_values[index]),
-        std::bit_cast<uint32_t>(KALEIDOSCOPE_HEX_SOFT_EXPECTED[index]));
+  expect_pinned_params("KALEIDOSCOPE_HEX_SOFT_EXPECTED",
+                       kaleidoscope_hex_soft_values,
+                       KALEIDOSCOPE_HEX_SOFT_EXPECTED);
   HS_EXPECT_EQ(mirror.slots.palette_mapping, WB::PaletteMapping::LINEAR);
   const auto &animated_mobius = presets[20];
   HS_EXPECT_EQ(animated_mobius.params.warp.inner.speed, 0.005875f);
@@ -2106,9 +2134,7 @@ inline void test_shader_workbench_preset_bank() {
       0.5f,   0.4f,   1.0f,        0.0f,      0.0f, 0.0f,   1.0f,
       1.0f,   0.424f, 2.2033439f,  0.0f,
   };
-  for (size_t index = 0; index < kaleido_values.size(); ++index)
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(kaleido_values[index]),
-                 std::bit_cast<uint32_t>(KALEIDO_EXPECTED[index]));
+  expect_pinned_params("KALEIDO_EXPECTED", kaleido_values, KALEIDO_EXPECTED);
   const auto &affine_lattice = presets[6];
   HS_EXPECT_EQ(affine_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(affine_lattice.slots.projection, WB::Projection::GNOMONIC);
