@@ -486,25 +486,6 @@ inline constexpr auto OUT_OF_RANGE_DEFAULT_SCHEMA = [] {
 static_assert(In::defaults_in_range(In::SCHEMA<CountModel<0>>));
 static_assert(!In::defaults_in_range(OUT_OF_RANGE_DEFAULT_SCHEMA));
 
-inline constexpr auto FAT_SCHEMA = [] {
-  std::array<In::ParamFieldInfo, In::MAX_CHAIN_PARAMS + 1> out{};
-  for (auto &field : out)
-    field = In::ParamFieldInfo{
-        "fat", nullptr, 0.0f, 1.0f,    0.0f,    PB::FieldCurve::LERP,
-        false, 0,       0,    nullptr, nullptr, 0};
-  return out;
-}();
-
-/** Never run; exists to trip the schema-field budget alone. */
-inline constexpr In::OperatorDescriptor make_fat_descriptor() {
-  In::OperatorDescriptor descriptor =
-      In::make_operator_descriptor<CountModel<0>>();
-  descriptor.operator_id = "test.fat.v2";
-  descriptor.schema = FAT_SCHEMA.data();
-  descriptor.schema_count = static_cast<uint16_t>(FAT_SCHEMA.size());
-  return descriptor;
-}
-
 consteval In::OperatorDescriptor table_entry(std::string_view operator_id) {
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE)
     if (operator_id == op.operator_id)
@@ -512,15 +493,47 @@ consteval In::OperatorDescriptor table_entry(std::string_view operator_id) {
   throw "unknown operator id";
 }
 
+template <size_t N>
+constexpr std::array<In::ParamFieldInfo, N> filler_schema() {
+  std::array<In::ParamFieldInfo, N> out{};
+  for (auto &field : out)
+    field = In::ParamFieldInfo{
+        "fat", nullptr, 0.0f, 1.0f,    0.0f,    PB::FieldCurve::LERP,
+        false, 0,       0,    nullptr, nullptr, 0};
+  return out;
+}
+
+inline constexpr auto FAT_SCHEMA = filler_schema<In::MAX_CHAIN_PARAMS + 1>();
+/** With the default chain's project/sample/colorize tail, exactly
+    MAX_CHAIN_PARAMS fields. */
+inline constexpr auto EXACT_FIT_SCHEMA =
+    filler_schema<In::MAX_CHAIN_PARAMS -
+                  table_entry("project.stereographic.v2").schema_count -
+                  table_entry("sample.grid.v2").schema_count -
+                  table_entry("colorize.generated-palette.v3").schema_count>();
+
+/** Never run; exists to exercise the schema-field budget alone. */
+inline constexpr In::OperatorDescriptor
+make_filler_descriptor(const char *operator_id,
+                       std::span<const In::ParamFieldInfo> schema) {
+  In::OperatorDescriptor descriptor =
+      In::make_operator_descriptor<CountModel<0>>();
+  descriptor.operator_id = operator_id;
+  descriptor.schema = schema.data();
+  descriptor.schema_count = static_cast<uint16_t>(schema.size());
+  return descriptor;
+}
+
 inline std::span<const In::OperatorDescriptor> extended_table() {
-  static constexpr std::array<In::OperatorDescriptor, 7> TABLE{
+  static constexpr std::array<In::OperatorDescriptor, 8> TABLE{
       table_entry("sphere.rotate.v2"),
       table_entry("project.stereographic.v2"),
       table_entry("sample.grid.v2"),
       table_entry("colorize.generated-palette.v3"),
       In::make_operator_descriptor<CountModel<0>>(),
       In::make_operator_descriptor<CountModel<1>>(),
-      make_fat_descriptor(),
+      make_filler_descriptor("test.fat.v2", FAT_SCHEMA),
+      make_filler_descriptor("test.exact-fit.v2", EXACT_FIT_SCHEMA),
   };
   return TABLE;
 }
@@ -3176,6 +3189,44 @@ inline void test_shader_chain_refusal_budget_overflows() {
   HS_EXPECT_FALSE(fat->program.compiled());
   // Refused before layout: no lifecycle callback ran.
   HS_EXPECT_EQ(CountLifecycle::inits, 0);
+
+  // Both caps admit an exact fit: MAX_CHAIN_OPS entries and MAX_CHAIN_PARAMS
+  // schema fields compile.
+  auto longest = std::make_unique<ProgramFixture>();
+  std::array<In::ChainEntryRequest, In::MAX_CHAIN_OPS> at_cap;
+  std::array<std::string, In::MAX_CHAIN_OPS> at_cap_labels;
+  constexpr size_t TAIL = std::size(DEFAULT_CHAIN) - 1;
+  for (size_t index = 0; index + TAIL < at_cap.size(); ++index) {
+    at_cap_labels[index] = "cam" + std::to_string(index);
+    at_cap[index] = {at_cap_labels[index], "sphere.rotate.v2"};
+  }
+  for (size_t index = 0; index < TAIL; ++index)
+    at_cap[at_cap.size() - TAIL + index] = DEFAULT_CHAIN[1 + index];
+  const In::ChainRefusal ops_fit = longest->program.compile(at_cap);
+  HS_EXPECT_EQ(static_cast<int>(ops_fit.code),
+               static_cast<int>(In::ChainStatus::OK));
+  HS_EXPECT_EQ(longest->program.ops().size(), In::MAX_CHAIN_OPS);
+  longest->program.clear();
+
+  auto widest =
+      std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, extended_table());
+  const In::ChainEntryRequest exact_fit_chain[] = {
+      {"filler", "test.exact-fit.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  size_t field_total = 0;
+  for (const In::ChainEntryRequest &entry : exact_fit_chain)
+    for (const In::OperatorDescriptor &op : extended_table())
+      if (entry.operator_id == op.operator_id)
+        field_total += op.schema_count;
+  HS_EXPECT_EQ(field_total, In::MAX_CHAIN_PARAMS);
+  const In::ChainRefusal params_fit = widest->program.compile(exact_fit_chain);
+  HS_EXPECT_EQ(static_cast<int>(params_fit.code),
+               static_cast<int>(In::ChainStatus::OK));
+  HS_EXPECT_TRUE(widest->program.compiled());
+  widest->program.clear();
 }
 
 inline void test_shader_chain_refusal_migrate_failed() {
