@@ -155,9 +155,10 @@ public:
    * @details LOCKED: accept only if the implied correction is ≤ G columns.
    * Because G < W/4 (Config::valid), passing the distance gate also proves the
    * named boundary is the flywheel's nearest predicted boundary — the identity
-   * check is subsumed. R consecutive rejections fall back to ACQUIRE so the
-   * gate can never deadlock a genuinely-lost board. ACQUIRE: hard snap, no gate
-   * (the SyncBoard applies the quiet-before routing guard before calling this).
+   * check is subsumed. reject_fallback consecutive rejections fall back to
+   * ACQUIRE so the gate can never deadlock a genuinely-lost board. ACQUIRE:
+   * hard snap, no gate (the SyncBoard applies the quiet-before routing guard
+   * before calling this).
    */
   SnapOutcome snap(Boundary b, uint32_t edge_cycles, int32_t *error_cols) {
     const int32_t target = boundary_column(b, w);
@@ -177,8 +178,8 @@ public:
 
   /**
    * @brief Count one implausible-symbol rejection toward the ACQUIRE fallback.
-   * @return True when R consecutive rejections concluded this board's own
-   * timebase — not the wire — is at fault.
+   * @return True when reject_fallback consecutive rejections concluded this
+   * board's own timebase — not the wire — is at fault.
    * @details Shared by the snap gate and the SyncBoard's suspect-burst timeout
    * (spec §5.3: the fallback is mandatory; a gate without an escape deadlocks a
    * lost board into rejecting good symbols forever).
