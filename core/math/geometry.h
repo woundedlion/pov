@@ -250,19 +250,13 @@ template <int H> inline float y_to_phi(int y) {
  * @brief Pixel-y -> phi for fractional rows at compile-time height H.
  * @tparam H Logical height; H_VIRT is H + hs::H_OFFSET.
  * @param y Fractional pixel row.
- * @return The spherical phi angle in radians.
- * @details Snaps to the LUT for near-integer y; otherwise computes the angle
- * analytically. The range is debug-asserted, so only NDEBUG builds extrapolate
+ * @return The spherical phi angle in radians, from the same expression the
+ *         PhiLUT rows are filled with.
+ * @details The range is debug-asserted, so only NDEBUG builds extrapolate
  * linearly past [0, H_VIRT-1]; keeping y in range is the caller's
  * responsibility.
  */
 template <int H> inline float y_to_phi(float y) {
-  const float fy = std::floor(y);
-  if (std::abs(y - fy) < TOLERANCE) {
-    if (fy >= 0 && fy < PhiLUT<H>::H_VIRT) {
-      return y_to_phi<H>(static_cast<int>(fy));
-    }
-  }
   constexpr int H_VIRT = H + hs::H_OFFSET;
   static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
   assert(y >= 0.0f && y <= H_VIRT - 1);
