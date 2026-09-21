@@ -1891,6 +1891,73 @@ inline void test_choreography_lerp_pause_policy() {
 }
 
 /**
+ * @brief The schema version one composed effect stamps its snapshots with and
+ *        the `Params` size that version covers.
+ * @details The version is a bare constant in the effect while the layout it
+ * versions is assembled from shared families, so one family edit moves every
+ * effect built on it. Tying each version to its layout's size reds every moved
+ * effect here until it bumps the version and its row follows.
+ */
+struct ParameterSchemaPin {
+  const char *effect;
+  uint32_t schema_version;
+  size_t params_bytes;
+};
+
+constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
+    {"AlienBrain", 1, 124},
+    {"KaleidoscopeHexSoft", 1, 120},
+    {"AlienOcean", 1, 132},
+    {"AlienCore", 1, 132},
+    {"KaleidoscopeMandala", 1, 144},
+    {"GridSpace", 1, 132},
+    {"LatticeMelt", 5, 112},
+    {"ChromaticLichen", 1, 120},
+    {"MermaidSkin", 1, 120},
+    {"AshCloud", 1, 120},
+    {"KaleidoscopePentBright", 1, 128},
+    {"KaleidoscopeHexOil", 1, 112},
+    {"KaleidoscopeStainedGlass", 1, 144},
+    {"KaleidoscopeSmooth", 3, 128},
+    {"KaleidoscopeHexBright", 1, 120},
+    {"KaleidoscopeFlowers", 1, 128},
+    {"CosmicEyeball", 1, 132},
+    {"MobiusGrid", 1, 156},
+};
+
+/** @brief Pins one specialization's schema version to its layout size. */
+template <template <int, int> class E>
+inline void check_parameter_schema_pin(const char *name) {
+  using FX = E<SMALL_W, SMALL_H>;
+  HS_CONTEXT(name);
+  const ParameterSchemaPin *pin = nullptr;
+  for (const ParameterSchemaPin &row : PARAMETER_SCHEMA_PINS)
+    if (std::string_view(row.effect) == name)
+      pin = &row;
+  HS_EXPECT_TRUE(pin != nullptr);
+  if (pin == nullptr)
+    return;
+  HS_EXPECT_EQ(FX::PARAMETER_SCHEMA_VERSION, pin->schema_version);
+  HS_EXPECT_EQ(sizeof(typename FX::Params), pin->params_bytes);
+}
+
+/**
+ * @brief Sweeps the schema-version pin over every specialization.
+ * @details One row per roster entry, so an effect the roster gains reds here
+ * until it is pinned.
+ */
+inline void test_composed_parameter_schema_pins() {
+#define HS_COMPOSED_SCHEMA_PIN(name, seconds)                                  \
+  check_parameter_schema_pin<name>(#name);
+  HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_SCHEMA_PIN)
+#undef HS_COMPOSED_SCHEMA_PIN
+#define HS_COMPOSED_ROSTER_ONE(name, seconds) +1
+  constexpr size_t roster = 0 HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_ROSTER_ONE);
+#undef HS_COMPOSED_ROSTER_ONE
+  HS_EXPECT_EQ(std::size(PARAMETER_SCHEMA_PINS), roster);
+}
+
+/**
  * @brief Module entry point for the composed-effect base contract.
  * @return Module result code from hs_test::end_module (0 on success).
  */
@@ -1901,6 +1968,7 @@ inline int run_composed_effect_tests() {
   test_composed_direct_surface_placement();
   test_composed_slider_registration();
   test_composed_snapshot_contract();
+  test_composed_parameter_schema_pins();
   test_composed_preset_choreography();
   test_composed_preset_interpolation();
   test_composed_document_values();
