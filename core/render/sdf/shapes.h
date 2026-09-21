@@ -112,12 +112,16 @@ struct PlanarPolygon {
    * @param res Output result; dist = polar*cos(local) - apothem clamped below
    *        by polar - circumradius, raw_dist = polar angle from center, t =
    *        polar/circumradius when ComputeUVs.
-   * @note The `polar*cos(local)` form under-estimates the true distance near
-   *       the sector corners (gradient cos(PI/sides) there), like the
-   *       tangent-plane caveat on the public distance() above; for scanline
-   *       shading, not a march-safe metric. Past a vertex the circumscribed-disc
-   *       distance `polar - circumradius` is the tighter bound; both are lower
-   *       bounds of the true distance, so the max of the two is too.
+   * @note `polar*cos(local) - apothem` is the azimuthal-equidistant chart's
+   *       distance to the edge line: exact along the apothem inside the
+   *       circumscribed disc, under-estimating near the sector corners
+   *       (gradient cos(PI/sides) there), and over-reporting beyond the disc,
+   *       where the chart stretches tangential distances by polar/sin(polar)
+   *       and the nearest boundary point is a vertex (2.02 vs 1.57 rad near
+   *       the antipode of a square of circumradius PI/2). The disc term
+   *       `polar - circumradius` is a lower bound of the true distance; the
+   *       max of the two is not, so for scanline shading, not a march-safe
+   *       metric.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -431,9 +435,15 @@ struct Star {
    *        ComputeUVs (0 otherwise).
    * @note Folding a sector onto one edge half-plane gives a radial gradient of
    *       |edge_nx| at a tip (0.309 at 5 points, 0.220 at 8), which reads a
-   *       fringe several pixels past the tip. The circumscribed-disc distance
-   *       `scan_dist - circumradius` is the tighter bound out there; both are
-   *       lower bounds of the true distance, so the max of the two is too.
+   *       fringe several pixels past the tip; the circumscribed-disc distance
+   *       `scan_dist - circumradius` is the tighter bound there. The edge term
+   *       is a chart-plane distance, so beyond the disc it over-reports the
+   *       true distance where the chart stretches tangential distances by
+   *       scan_dist/sin(scan_dist) and the nearest boundary point is a tip
+   *       (0.89 vs 0.78 rad at 1.47 rad along a notch of a 5-point star of
+   *       radius 0.6). The disc term is a lower bound of the true distance;
+   *       the max of the two is not, so for scanline shading, not a
+   *       march-safe metric.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
