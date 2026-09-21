@@ -242,7 +242,9 @@ private:
                               Written by run() solely while the column timer is
                               detached (before begin(), after end()), never
                               mid-show. */
-  static int x; /**< Current column index being displayed (virtual position). */
+  static int x; /**< Current column index being displayed (virtual position).
+                     ISR-owned like `effect`: run() seeds it to 0 only while the
+                     column timer is detached. */
 #if defined(USE_DMA_LEDS)
   static DMALEDController<S>
       ledController; /**< HD107S DMA controller driving the physical strip. */
