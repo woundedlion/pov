@@ -72,7 +72,6 @@ class GSReactionDiffusion
   using Base::RD_K;
   using Base::RD_N;
   using Base::refine_and_accumulate;
-  using Base::refine_center;
   using Base::refine_render_center;
   using Base::register_param;
   using Base::seed_blobs;
