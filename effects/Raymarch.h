@@ -51,6 +51,49 @@ enum class RaymarchPlacementSolid : uint8_t {
   COUNT
 };
 
+/** @brief Placement slot count, from the enum's COUNT sentinel. */
+inline constexpr size_t RAYMARCH_PLACEMENT_SOLID_COUNT =
+    static_cast<size_t>(RaymarchPlacementSolid::COUNT);
+
+/** @brief BaseMesh each placement slot maps to, in enum order. */
+using RaymarchPlacementTable =
+    std::array<Solids::BaseMesh, RAYMARCH_PLACEMENT_SOLID_COUNT>;
+
+/**
+ * @brief Reads each placement slot's picker label out of the canonical BaseMesh
+ *        table.
+ * @param solids BaseMesh each slot maps to.
+ * @return One label per slot.
+ */
+inline constexpr std::array<const char *, RAYMARCH_PLACEMENT_SOLID_COUNT>
+raymarch_placement_labels(const RaymarchPlacementTable &solids) {
+  std::array<const char *, RAYMARCH_PLACEMENT_SOLID_COUNT> labels{};
+  for (size_t i = 0; i < labels.size(); ++i)
+    labels[i] = Solids::BASE_MESH_OPTIONS[static_cast<size_t>(solids[i])];
+  return labels;
+}
+
+/**
+ * @brief Whether every export literal names the enumerator the canonical
+ *        BaseMesh export table names for that slot's solid.
+ * @param solids BaseMesh each slot maps to.
+ * @param export_options Export literals, one per slot; only the spelling after
+ *   the enum-type prefix is compared, since the two tables name different enums.
+ * @return True when every slot matches.
+ */
+inline constexpr bool
+raymarch_exports_named(const RaymarchPlacementTable &solids,
+                       const char *const *export_options) {
+  for (size_t i = 0; i < solids.size(); ++i) {
+    const std::string_view mine(export_options[i]);
+    const std::string_view canonical(
+        Solids::BASE_MESH_EXPORT_OPTIONS[static_cast<size_t>(solids[i])]);
+    if (mine.substr(mine.rfind(':')) != canonical.substr(canonical.rfind(':')))
+      return false;
+  }
+  return true;
+}
+
 /** @brief Raymarch preset and live-control state. */
 struct RaymarchParams {
   RaymarchPlacementSolid base_solid =
@@ -94,28 +137,32 @@ public:
   static constexpr size_t PLACEMENT_SOLID_COUNT =
       static_cast<size_t>(PlacementSolid::COUNT);
 
-  static constexpr const char *PLACEMENT_SOLID_OPTIONS[] = {
-      "Tetrahedron",
-      "Cube",
-      "Octahedron",
-      "Dodecahedron",
-      "Icosahedron",
-      "Truncated Tetrahedron",
-      "Cuboctahedron",
-      "Truncated Cube",
-      "Truncated Octahedron",
-      "Rhombicuboctahedron",
-      "Snub Cube",
-      "Icosidodecahedron",
-      "Triakis Tetrahedron",
-      "Rhombic Dodecahedron",
-      "Triakis Octahedron",
-      "Tetrakis Hexahedron",
-      "Deltoidal Icositetrahedron",
-      "Disdyakis Dodecahedron",
-      "Rhombic Triacontahedron",
-      "Triakis Icosahedron",
-      "Pentakis Dodecahedron"};
+  static constexpr std::array<Solids::BaseMesh, PLACEMENT_SOLID_COUNT>
+      PLACEMENT_SOLIDS{Solids::BaseMesh::TETRAHEDRON,
+                       Solids::BaseMesh::CUBE,
+                       Solids::BaseMesh::OCTAHEDRON,
+                       Solids::BaseMesh::DODECAHEDRON,
+                       Solids::BaseMesh::ICOSAHEDRON,
+                       Solids::BaseMesh::TRUNCATED_TETRAHEDRON,
+                       Solids::BaseMesh::CUBOCTAHEDRON,
+                       Solids::BaseMesh::TRUNCATED_CUBE,
+                       Solids::BaseMesh::TRUNCATED_OCTAHEDRON,
+                       Solids::BaseMesh::RHOMBICUBOCTAHEDRON,
+                       Solids::BaseMesh::SNUB_CUBE,
+                       Solids::BaseMesh::ICOSIDODECAHEDRON,
+                       Solids::BaseMesh::TRIAKIS_TETRAHEDRON,
+                       Solids::BaseMesh::RHOMBIC_DODECAHEDRON,
+                       Solids::BaseMesh::TRIAKIS_OCTAHEDRON,
+                       Solids::BaseMesh::TETRAKIS_HEXAHEDRON,
+                       Solids::BaseMesh::DELTOIDAL_ICOSITETRAHEDRON,
+                       Solids::BaseMesh::DISDYAKIS_DODECAHEDRON,
+                       Solids::BaseMesh::RHOMBIC_TRIACONTAHEDRON,
+                       Solids::BaseMesh::TRIAKIS_ICOSAHEDRON,
+                       Solids::BaseMesh::PENTAKIS_DODECAHEDRON};
+
+  /** @brief Picker labels, read out of the canonical BaseMesh table. */
+  static constexpr std::array<const char *, PLACEMENT_SOLID_COUNT>
+      PLACEMENT_SOLID_OPTIONS = raymarch_placement_labels(PLACEMENT_SOLIDS);
 
   static constexpr const char *PLACEMENT_SOLID_EXPORT_OPTIONS[] = {
       "RaymarchPlacementSolid::TETRAHEDRON",
@@ -140,32 +187,12 @@ public:
       "RaymarchPlacementSolid::TRIAKIS_ICOSAHEDRON",
       "RaymarchPlacementSolid::PENTAKIS_DODECAHEDRON"};
 
-  static constexpr std::array<Solids::BaseMesh, PLACEMENT_SOLID_COUNT>
-      PLACEMENT_SOLIDS{Solids::BaseMesh::TETRAHEDRON,
-                       Solids::BaseMesh::CUBE,
-                       Solids::BaseMesh::OCTAHEDRON,
-                       Solids::BaseMesh::DODECAHEDRON,
-                       Solids::BaseMesh::ICOSAHEDRON,
-                       Solids::BaseMesh::TRUNCATED_TETRAHEDRON,
-                       Solids::BaseMesh::CUBOCTAHEDRON,
-                       Solids::BaseMesh::TRUNCATED_CUBE,
-                       Solids::BaseMesh::TRUNCATED_OCTAHEDRON,
-                       Solids::BaseMesh::RHOMBICUBOCTAHEDRON,
-                       Solids::BaseMesh::SNUB_CUBE,
-                       Solids::BaseMesh::ICOSIDODECAHEDRON,
-                       Solids::BaseMesh::TRIAKIS_TETRAHEDRON,
-                       Solids::BaseMesh::RHOMBIC_DODECAHEDRON,
-                       Solids::BaseMesh::TRIAKIS_OCTAHEDRON,
-                       Solids::BaseMesh::TETRAKIS_HEXAHEDRON,
-                       Solids::BaseMesh::DELTOIDAL_ICOSITETRAHEDRON,
-                       Solids::BaseMesh::DISDYAKIS_DODECAHEDRON,
-                       Solids::BaseMesh::RHOMBIC_TRIACONTAHEDRON,
-                       Solids::BaseMesh::TRIAKIS_ICOSAHEDRON,
-                       Solids::BaseMesh::PENTAKIS_DODECAHEDRON};
-
-  static_assert(std::size(PLACEMENT_SOLID_OPTIONS) == PLACEMENT_SOLID_COUNT);
   static_assert(std::size(PLACEMENT_SOLID_EXPORT_OPTIONS) ==
                 PLACEMENT_SOLID_COUNT);
+  static_assert(raymarch_exports_named(PLACEMENT_SOLIDS,
+                                       PLACEMENT_SOLID_EXPORT_OPTIONS),
+                "a Raymarch export literal names a different solid than its "
+                "PLACEMENT_SOLIDS entry");
 
   static constexpr Params initial_params() { return {}; }
 
@@ -199,7 +226,7 @@ public:
   HS_COLD_MEMBER void init() override {
     begin_choreography();
     register_animated_param(
-        "Base Solid", &params.base_solid, PLACEMENT_SOLID_OPTIONS,
+        "Base Solid", &params.base_solid, PLACEMENT_SOLID_OPTIONS.data(),
         PLACEMENT_SOLID_EXPORT_OPTIONS, PLACEMENT_SOLID_COUNT);
     register_param("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
     // Fraction of the half nearest-neighbour gap the ring's outer edge reaches:
