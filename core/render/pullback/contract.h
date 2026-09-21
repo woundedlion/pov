@@ -1005,7 +1005,12 @@ public:
     return {ctx, prepare_stages(ctx)};
   }
 
-  /** @brief Type-erased prepare for dynamic program dispatch. */
+  /**
+   * @brief Type-erased prepare for dynamic program dispatch.
+   * @details @p storage must hold sizeof(PreparedTuple) bytes at
+   * alignof(PreparedTuple); both bounds are the supplying consumer's to pin,
+   * since the erased call site no longer knows the type.
+   */
   HS_FLASH_MEMBER static void prepare_into(const FrameState &ctx,
                                            void *storage) {
     new (storage) PreparedTuple{prepare_stages(ctx)};
