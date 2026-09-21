@@ -1041,6 +1041,9 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
   return out_mesh;
 }
 
+/** Default truncation depth: the cut points sit a quarter along each edge. */
+inline constexpr float TRUNCATE_DEFAULT_T = 0.25f;
+
 /**
  * @brief Truncate operator: cuts corners off the polyhedron.
  * @param mesh Source mesh; must be a closed manifold.
@@ -1058,7 +1061,7 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
  *   when t == 0.5).
  */
 HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
-                                 Arena &temp, float t = 0.25f) {
+                                 Arena &temp, float t = TRUNCATE_DEFAULT_T) {
   HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   HS_CHECK(&target != &temp, "truncate: target and temp must differ");
   ScratchScope temp_guard(temp);
@@ -1084,10 +1087,9 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
  * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
  *   when t == 0.5).
  */
-[[maybe_unused]] HS_COLD static PolyMesh truncate(const PolyMesh &mesh,
-                                                  const HalfEdgeMesh &he_mesh,
-                                                  Arena &target, Arena &temp,
-                                                  float t = 0.25f) {
+[[maybe_unused]] HS_COLD static PolyMesh
+truncate(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
+         Arena &temp, float t = TRUNCATE_DEFAULT_T) {
   HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   require_matching_half_edges(he_mesh, mesh, "truncate");
   if (t == 0.5f)
@@ -1265,6 +1267,9 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
   return out_mesh;
 }
 
+/** Default chamfer thickness: face corners move halfway to the centroid. */
+inline constexpr float CHAMFER_DEFAULT_T = 0.5f;
+
 /**
  * @brief Chamfer operator: replaces edges with hexagonal faces.
  * @param mesh Source mesh; must be a closed manifold.
@@ -1276,7 +1281,7 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
-                                Arena &temp, float t = 0.5f) {
+                                Arena &temp, float t = CHAMFER_DEFAULT_T) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
   HS_CHECK(&target != &temp, "chamfer: target and temp must differ");
   ScratchScope temp_guard(temp);
@@ -1299,7 +1304,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
 [[maybe_unused]] HS_COLD static PolyMesh chamfer(const PolyMesh &mesh,
                                                  const HalfEdgeMesh &he_mesh,
                                                  Arena &target, Arena &temp,
-                                                 float t = 0.5f) {
+                                                 float t = CHAMFER_DEFAULT_T) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
   require_matching_half_edges(he_mesh, mesh, "chamfer");
   return chamfer_impl(mesh, he_mesh, target, temp, t);
@@ -1316,6 +1321,9 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
  *   the gate.
  */
 inline constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
+
+/** Default relax iteration cap; the springs usually converge sooner. */
+inline constexpr int RELAX_DEFAULT_ITERATIONS = 8;
 
 /**
  * @brief Edge-length relaxation by spring forces on the unit sphere.
@@ -1335,7 +1343,7 @@ inline constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
  *   edge, boundary edges included.
  */
 HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
-                              int iterations = 8) {
+                              int iterations = RELAX_DEFAULT_ITERATIONS) {
   HS_CHECK(iterations >= 0, "relax: negative iteration count");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -1580,6 +1588,11 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
   return out_mesh;
 }
 
+/** Default snub inset: face corners move halfway to the centroid. */
+inline constexpr float SNUB_DEFAULT_T = 0.5f;
+/** Default snub twist: no rotation about the face normal. */
+inline constexpr float SNUB_DEFAULT_TWIST = 0.0f;
+
 /**
  * @brief Snub operator: creates a chiral semi-regular polyhedron.
  * @param mesh Source mesh; must be a closed manifold.
@@ -1593,7 +1606,8 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
  * @return Fresh snub PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
-                             float t = 0.5f, float twist = 0.0f) {
+                             float t = SNUB_DEFAULT_T,
+                             float twist = SNUB_DEFAULT_TWIST) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
   HS_CHECK(&target != &temp, "snub: target and temp must differ");
   ScratchScope temp_guard(temp);
@@ -1616,7 +1630,7 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
  */
 [[maybe_unused]] HS_COLD static PolyMesh
 snub(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
-     Arena &temp, float t = 0.5f, float twist = 0.0f) {
+     Arena &temp, float t = SNUB_DEFAULT_T, float twist = SNUB_DEFAULT_TWIST) {
   HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
   require_matching_half_edges(he_mesh, mesh, "snub");
   return snub_impl(mesh, he_mesh, target, temp, t, twist);
@@ -1694,6 +1708,9 @@ HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
   return dual(kis(mesh, temp, target), target, temp);
 }
 
+/** Default bevel depth, forwarded to the truncate step. */
+inline constexpr float BEVEL_DEFAULT_T = 0.25f;
+
 /**
  * @brief Bevel operator: truncate of ambo (b = ta).
  * @param mesh Source mesh.
@@ -1706,7 +1723,7 @@ HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   the top of the operator block).
  */
 HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
-                              float t = 0.25f) {
+                              float t = BEVEL_DEFAULT_T) {
   HS_CHECK(&target != &temp, "bevel: target and temp must differ");
   return truncate(ambo(mesh, temp, target), target, temp, t);
 }

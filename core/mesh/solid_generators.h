@@ -590,7 +590,7 @@ public:
    *   recipes pass 50 deg ~= 0.873). See MeshOps::truncate.
    * @return Reference to this builder for chaining.
    */
-  SolidBuilder &truncate(float t = 0.25f) {
+  SolidBuilder &truncate(float t = MeshOps::TRUNCATE_DEFAULT_T) {
     mesh = MeshOps::truncate(mesh, *output_arena, *scratch_arena, t);
     advance();
     return *this;
@@ -613,7 +613,7 @@ public:
    *   MeshOps::chamfer.
    * @return Reference to this builder for chaining.
    */
-  SolidBuilder &chamfer(float t = 0.5f) {
+  SolidBuilder &chamfer(float t = MeshOps::CHAMFER_DEFAULT_T) {
     mesh = MeshOps::chamfer(mesh, *output_arena, *scratch_arena, t);
     advance();
     return *this;
@@ -626,7 +626,8 @@ public:
    *   disables the twist pass. See MeshOps::snub.
    * @return Reference to this builder for chaining.
    */
-  SolidBuilder &snub(float t = 0.5f, float twist = 0.0f) {
+  SolidBuilder &snub(float t = MeshOps::SNUB_DEFAULT_T,
+                     float twist = MeshOps::SNUB_DEFAULT_TWIST) {
     mesh = MeshOps::snub(mesh, *output_arena, *scratch_arena, t, twist);
     advance();
     return *this;
@@ -648,7 +649,7 @@ public:
    *   0 is a normalize-only pass-through. See MeshOps::relax.
    * @return Reference to this builder for chaining.
    */
-  SolidBuilder &relax(int iterations = 8) {
+  SolidBuilder &relax(int iterations = MeshOps::RELAX_DEFAULT_ITERATIONS) {
     mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, iterations);
     advance();
     return *this;
@@ -769,7 +770,7 @@ public:
    *   with that census rather than a bevel. See MeshOps::bevel.
    * @return Reference to this builder for chaining.
    */
-  SolidBuilder &bevel(float t = 0.25f) {
+  SolidBuilder &bevel(float t = MeshOps::BEVEL_DEFAULT_T) {
     mesh = MeshOps::bevel(mesh, *output_arena, *scratch_arena, t);
     advance();
     return *this;
