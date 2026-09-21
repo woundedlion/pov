@@ -72,7 +72,8 @@ enforces the same gate. No `Co-Authored-By` line.
   each**.
 - After a change under `tools/` or `hardware/phantasm/gen`:
   `python -m unittest discover -s <suite directory>` for the suite that covers
-  it. The ctest run above covers none of them — CI runs them in the
+  it. The ctest run above covers only `tools/teensy_gate_tests/test_size_trail.py`
+  (as `unit_teensy_size_trail`) — CI runs every suite in the
   `teensy-gate-tests` job, and the PCB generator's suite under
   `hardware/phantasm/gen/tests` is the largest of the set.
 
