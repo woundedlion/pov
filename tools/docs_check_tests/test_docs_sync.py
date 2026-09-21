@@ -157,6 +157,20 @@ class RepositorySync(unittest.TestCase):
             ds.sync_repository(self.root, {}, {})
         self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains 1 effects today.\n")
 
+    def test_a_correct_spelled_out_count_is_left_alone(self):
+        header = self.root / dc._EFFECT_ROSTER_SOURCE
+        header.parent.mkdir(parents=True)
+        header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n", encoding="utf-8")
+        playlist = self.root / dc._PHANTASM_PLAYLIST_SOURCE
+        playlist.parent.mkdir(parents=True)
+        playlist.write_text("#define HS_PHANTASM_EFFECT_LIST(X) \\\n    X(One, 10)\n", encoding="utf-8")
+        readme = self.root / "README.md"
+        readme.write_text("The playlist contains one effects today.\n", encoding="utf-8")
+        self.git("add", "README.md", str(dc._EFFECT_ROSTER_SOURCE), str(dc._PHANTASM_PLAYLIST_SOURCE))
+        with contextlib.redirect_stdout(io.StringIO()):
+            ds.sync_repository(self.root, {}, {})
+        self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains one effects today.\n")
+
 
 if __name__ == "__main__":
     unittest.main()
