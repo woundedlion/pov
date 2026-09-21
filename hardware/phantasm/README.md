@@ -313,8 +313,10 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   has a 5.4 mm square all-copper routing/zone keepout. The Teensy footprint includes
   a board-envelope 3D model and an 11.5 × 10 mm mating-USB placement keepout; J1 and
   J4 sit below that approach corridor.
-- **Identification.** Bottom silkscreen contains the N=4 ID0/ID1 truth table,
-  `MASTER = ALL ID OPEN`, the shield instruction, and a large writable board-ID field.
+- **Identification.** Bottom silkscreen carries the N=4 ID0/ID1 truth table (master
+  is the all-open row), the N=8 extension and shield line
+  `N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M`, the revision stamp, and a writable
+  board-ID field.
 
 ## PCB (`phantasm.kicad_pcb`)
 
@@ -386,8 +388,8 @@ facts block above.
 > `phantasm.kicad_sch` and `unplaced/phantasm_unplaced.kicad_pcb` last, and
 > `phantasm.kicad_pcb` is routed on top of that schematic. The committed schematic
 > carries KiCad's random **v4** uuids while `kicad_common.uid()` emits deterministic
-> **v5** ids, so a regeneration renumbers all 28 symbol uuids and dangles every
-> `(path …)` link `phantasm.kicad_pcb` holds into the schematic. Even
+> **v5** ids, so a regeneration renumbers all 63 symbol uuids and dangles the 28
+> `(path …)` links `phantasm.kicad_pcb` holds into the schematic. Even
 > uuid-normalised, a fresh `board.py` run differs from the committed schematic by
 > roughly 170 lines — KiCad file version, power-symbol annotation (`#PWR` vs
 > `#PWR01`), `J1`'s keyed JST footprint, the four spec §11.1 hand-solder lands, and
