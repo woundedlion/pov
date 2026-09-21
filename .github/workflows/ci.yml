@@ -1471,7 +1471,7 @@ jobs:
           bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
           python -m unittest discover -s tools/docs_check_tests
           python -m unittest discover -s tools/docs_images_tests
-          python tools/docs_check.py --checkout daydream=daydream
+          python tools/docs_check.py --sync --checkout daydream=daydream
           python tools/build_pins.py --check
 
       # --check above prints PASS whether or not its three checks still parse the

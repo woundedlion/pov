@@ -112,13 +112,8 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
   git -C "$SNAPSHOT" init --quiet
   cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
 
-  if [ -d "${DAYDREAM_CHECKOUT:-$MAIN_TREE/../daydream}" ]; then
-    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" \
-      --checkout "daydream=${DAYDREAM_CHECKOUT:-$MAIN_TREE/../daydream}"
-  else
-    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" \
-      --skip-checkout daydream
-  fi
+  DAYDREAM_CHECKOUT="${DAYDREAM_CHECKOUT:-$MAIN_TREE/../daydream}" \
+    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" --sync --auto-checkout
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
   "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
