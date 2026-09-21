@@ -2595,12 +2595,17 @@ inline void test_sim_reboot(const Config &cfg) {
   b2.trapped = false;
 
   HS_EXPECT_EQ(lock(b2.board), LockState::ACQUIRE);
-  HS_EXPECT_TRUE(b2.dark_now || !b2.live); // dark through ACQUIRE
 
-  // Phase re-acquires within ~one boundary symbol.
+  // Phase re-acquires within ~one boundary symbol; the board stays pre-live
+  // (hence dark) at every step of ACQUIRE.
+  bool lit_in_acquire = false;
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return lock(s.boards[2].board) == LockState::LOCKED; },
+      [&](Sim &s) {
+        lit_in_acquire |= s.boards[2].live;
+        return lock(s.boards[2].board) == LockState::LOCKED;
+      },
       1.5));
+  HS_EXPECT_FALSE(lit_in_acquire);
   // Identity from the next beacon, display from the next join-grid boundary.
   // This reboot lands clear of the commit window, so the deadline is the
   // blackout-free part of rejoin_bound_revs(); never a wrong frame in between
