@@ -248,8 +248,8 @@ run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
                                         .zero_crossing = actions.zero_crossing,
                                         .wire_gen = generation});
   if (!wake.commit_ok) {
-    if (sync_pulse.settle(actions.pulse, /*did_render=*/false))
-      drive_sync(false);
+    // did_render=false: settle() can only defer, never end the pulse here.
+    sync_pulse.settle(actions.pulse, /*did_render=*/false);
     commit_failure();
     return;
   }
