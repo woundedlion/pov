@@ -5478,6 +5478,153 @@ inline void test_rasterize_balanced_pole_guard() {
 }
 
 /**
+ * @brief Balanced geodesic edges take the sparser steps and the alpha gain
+ * without the planar step reuse.
+ * @details BALANCED and SELECTABLE-on are distinct instantiations of the same
+ * expressions, so the pair is held to POLICY_TOL as in
+ * test_rasterize_default_sampling_policy_parity().
+ */
+inline void test_rasterize_balanced_geodesic_density_and_alpha() {
+  constexpr int W = 128, H = 64;
+  constexpr float BASE_STEP = 2.0f * PI_F / W;
+  constexpr float POLICY_TOL = 1e-4f;
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 2);
+  Fragment a, b;
+  a.pos = Vector(0.8f, 0.3f, 0.5196152f).normalized();
+  b.pos = Vector(-0.2f, -0.7f, 0.6855655f).normalized();
+  points.push_back(a);
+  points.push_back(b);
+
+  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
+    hs_test::StubEffect fx(W, H);
+    AlphaCapturePipeline pipeline;
+    Canvas canvas(fx);
+    Plot::g_planar_full_samples = 0;
+    Plot::g_planar_position_samples = 0;
+    auto shader = [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
+    };
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{.single_pass = true,
+                                       .sampling_policy = Policy}>(
+        pipeline, canvas, points, shader,
+        {.balanced_sampling =
+             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+    HS_EXPECT_EQ(Plot::g_planar_full_samples, uint32_t{0});
+    HS_EXPECT_EQ(Plot::g_planar_position_samples, uint32_t{0});
+    return pipeline;
+  };
+  const AlphaCapturePipeline standard =
+      capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
+  const AlphaCapturePipeline balanced =
+      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
+  const AlphaCapturePipeline always_balanced =
+      capture.template operator()<Plot::RasterSamplingPolicy::BALANCED>();
+
+  HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
+  HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
+  HS_EXPECT_LE((max_projected_gap<W, H>(balanced.plotted)), 1.3f);
+  const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
+  const Plot::GeodesicEdgeSampler sampler{a.pos, cross(es.axis, a.pos),
+                                          es.total};
+  const Plot::SamplePT first = sampler(0.0f);
+  const float default_step =
+      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP);
+  HS_EXPECT_GT(default_step, BASE_STEP * Plot::MIN_POLE_SCALE *
+                                 Plot::BALANCED_POLE_GUARD_SCALE);
+  const float candidate_step =
+      std::min(BASE_STEP, default_step * (Plot::BALANCED_SCREEN_STEP_PX /
+                                          Plot::SCREEN_STEP_PX));
+  HS_EXPECT_GT(candidate_step, default_step);
+  HS_EXPECT_NEAR(standard.alphas.front(), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(
+      balanced.alphas.front(),
+      Plot::balanced_sample_alpha(0.4f, candidate_step / default_step), 1e-6f);
+  for (const Vector &point : balanced.plotted)
+    HS_EXPECT_NEAR(point.length(), 1.0f, 2e-5f);
+
+  HS_EXPECT_EQ(always_balanced.plotted.size(), balanced.plotted.size());
+  HS_EXPECT_EQ(always_balanced.alphas.size(), balanced.alphas.size());
+  const size_t compared =
+      std::min(always_balanced.plotted.size(), balanced.plotted.size());
+  for (size_t i = 0; i < compared; ++i) {
+    HS_EXPECT_NEAR(always_balanced.plotted[i].x, balanced.plotted[i].x,
+                   POLICY_TOL);
+    HS_EXPECT_NEAR(always_balanced.plotted[i].y, balanced.plotted[i].y,
+                   POLICY_TOL);
+    HS_EXPECT_NEAR(always_balanced.plotted[i].z, balanced.plotted[i].z,
+                   POLICY_TOL);
+    HS_EXPECT_NEAR(always_balanced.alphas[i], balanced.alphas[i], POLICY_TOL);
+  }
+}
+
+/**
+ * @brief A near-opaque balanced stroke saturates every sample's alpha at 1.
+ * @details A high-latitude geodesic keeps the default step under 0.8 base
+ * steps, so the balanced ratio is the full 1.25 on every sample.
+ */
+inline void test_rasterize_balanced_high_alpha_saturates() {
+  constexpr int W = 128, H = 64;
+  constexpr float BASE_STEP = 2.0f * PI_F / W;
+  constexpr float ALPHA = 0.95f;
+  auto sphere_point = [](float colatitude, float longitude) {
+    const float radial = sinf(colatitude);
+    return Vector(radial * cosf(longitude), cosf(colatitude),
+                  radial * sinf(longitude))
+        .normalized();
+  };
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 2);
+  Fragment a, b;
+  a.pos = sphere_point(0.35f, -0.5f);
+  b.pos = sphere_point(0.35f, 0.5f);
+  points.push_back(a);
+  points.push_back(b);
+
+  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
+    hs_test::StubEffect fx(W, H);
+    AlphaCapturePipeline pipeline;
+    Canvas canvas(fx);
+    auto shader = [](const Vector &, Fragment &f) {
+      f.color = Color4(Pixel(65535, 65535, 65535), ALPHA);
+    };
+    Plot::rasterize<W, H,
+                    Plot::RasterConfig{.single_pass = true,
+                                       .sampling_policy = Policy}>(
+        pipeline, canvas, points, shader,
+        {.omit_end = true,
+         .balanced_sampling =
+             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+    return pipeline;
+  };
+  const AlphaCapturePipeline standard =
+      capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
+  const AlphaCapturePipeline balanced =
+      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
+
+  const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
+  const Plot::GeodesicEdgeSampler sampler{a.pos, cross(es.axis, a.pos),
+                                          es.total};
+  const Plot::SamplePT first = sampler(0.0f);
+  const float default_step =
+      Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP);
+  HS_EXPECT_GT(default_step, BASE_STEP * Plot::MIN_POLE_SCALE *
+                                 Plot::BALANCED_POLE_GUARD_SCALE);
+  HS_EXPECT_LE(default_step *
+                   (Plot::BALANCED_SCREEN_STEP_PX / Plot::SCREEN_STEP_PX),
+               BASE_STEP);
+  HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
+  HS_EXPECT_GT(balanced.alphas.size(), size_t{4});
+  for (float alpha : standard.alphas)
+    HS_EXPECT_EQ(alpha, ALPHA);
+  for (float alpha : balanced.alphas)
+    HS_EXPECT_EQ(alpha, 1.0f);
+}
+
+/**
  * @brief Balanced planar stars retain connected, energy-stable clipped coverage.
  * @details A clipped tile and the full frame run the same instantiation over
  * the same edges, so their shared pixels agree exactly under IEEE. The clip
@@ -5918,6 +6065,8 @@ inline int run_plot_scan_tests() {
   test_rasterize_balanced_sampling_scope();
   test_rasterize_balanced_sampling_density_and_alpha();
   test_rasterize_balanced_pole_guard();
+  test_rasterize_balanced_geodesic_density_and_alpha();
+  test_rasterize_balanced_high_alpha_saturates();
   test_rasterize_balanced_star_visual_budget();
   test_rasterize_single_pass_geodesic_endpoints_and_omit_end();
   test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free();
