@@ -142,6 +142,13 @@ protected:
   }
 #endif
 
+  /**
+   * @brief Repoints the registry at external descriptor storage.
+   * @param storage Descriptor array the registry registers into.
+   * @param capacity Slots @p storage holds.
+   * @details Relocates the array getParameters() hands out, so it bumps the
+   * schema generation a cached descriptor view is keyed on.
+   */
   void use_parameter_storage(ParamDef *storage, size_t capacity) {
     HS_CHECK(parameters.count == 0,
              "use_parameter_storage: parameters already registered");
@@ -150,6 +157,7 @@ protected:
 #if HS_PARAM_EXTERNAL_STORAGE
     parameters.external_elements = storage;
     parameters.external_capacity = capacity;
+    parameters.bump_schema_generation();
 #else
     (void)storage;
     (void)capacity;
@@ -157,6 +165,11 @@ protected:
 #endif
   }
 
+  /**
+   * @brief Repoints the registry at a fixed-size descriptor array.
+   * @tparam CAPACITY Slots the array holds.
+   * @param storage Descriptor array the registry registers into.
+   */
   template <size_t CAPACITY>
   void use_parameter_storage(std::array<ParamDef, CAPACITY> &storage) {
     use_parameter_storage(storage.data(), storage.size());
