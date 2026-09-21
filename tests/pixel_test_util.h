@@ -110,4 +110,35 @@ inline void capture_frame(const Fx &fx, std::vector<Pixel> &out) {
       out[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
 }
 
+/**
+ * @brief Sums every RGB channel across a fixed W by H framebuffer window.
+ * @tparam W Window width in pixels.
+ * @tparam H Window height in pixels.
+ * @tparam Fx Effect type exposing get_pixel(x, y) const.
+ * @param fx Effect whose displayed frame is read.
+ * @return Channel sum; zero means the window is all black.
+ */
+template <int W, int H, typename Fx>
+inline uint64_t frame_energy(const Fx &fx) {
+  uint64_t energy = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = fx.get_pixel(x, y);
+      energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+    }
+  return energy;
+}
+
+/**
+ * @brief Sums every RGB channel of a captured frame.
+ * @param frame Pixels as capture_frame() lays them out.
+ * @return Channel sum; zero means the frame is all black.
+ */
+inline uint64_t frame_energy(const std::vector<Pixel> &frame) {
+  uint64_t energy = 0;
+  for (const Pixel &p : frame)
+    energy += static_cast<uint64_t>(p.r) + p.g + p.b;
+  return energy;
+}
+
 } // namespace hs_test

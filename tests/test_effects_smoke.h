@@ -42,12 +42,7 @@ inline void paused_render_one(const char *name) {
     effect.advance_display();
   }
 
-  uint64_t acc = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      const Pixel &p = effect.get_pixel(x, y);
-      acc += static_cast<uint64_t>(p.r) + p.g + p.b;
-    }
+  const uint64_t acc = frame_energy<W, H>(effect);
 
   HS_EXPECT(!effect_may_be_dark(name, frames),
             "paused render must run past the all-black exemption window");

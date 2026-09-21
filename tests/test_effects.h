@@ -244,16 +244,7 @@ inline void smoke_one(const char *name) {
     HS_EXPECT(motion, "effect must change output after warmup");
   }
 
-  auto sum_buffer = [&effect]() {
-    uint64_t s = 0;
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x) {
-        const Pixel &p = effect.get_pixel(x, y);
-        s += static_cast<uint64_t>(p.r) + p.g + p.b;
-      }
-    return s;
-  };
-  const uint64_t acc = sum_buffer();
+  const uint64_t acc = frame_energy<W, H>(effect);
 
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, W, H, static_cast<unsigned long long>(acc));
@@ -2501,12 +2492,7 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
   HS_EXPECT_TRUE(angle != nullptr);
   HS_EXPECT_NEAR(angle->get(), 0.7f, 1e-6f);
 
-  uint64_t energy = 0;
-  for (int y = 0; y < SMALL_H; ++y)
-    for (int x = 0; x < SMALL_W; ++x) {
-      const Pixel &pixel = effect.get_pixel(x, y);
-      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    }
+  const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(effect);
   HS_EXPECT_GT(energy, 0u);
 }
 
@@ -2813,12 +2799,7 @@ inline void test_dreamballs_base_mesh_selector() {
     db.draw_frame();
     db.advance_display();
   }
-  uint64_t energy = 0;
-  for (int y = 0; y < SMALL_H; ++y)
-    for (int x = 0; x < SMALL_W; ++x) {
-      const Pixel &pixel = db.get_pixel(x, y);
-      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    }
+  const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
   HS_EXPECT_GT(energy, 0u);
 }
 
@@ -2869,12 +2850,7 @@ inline void test_dreamballs_max_edge_solid_render() {
   HS_EXPECT_GE(scratch_arena_a.get_high_water_mark(), staged_bytes);
   HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), WB::SCRATCH_A_PEAK_BYTES);
 
-  uint64_t energy = 0;
-  for (int y = 0; y < SMALL_H; ++y)
-    for (int x = 0; x < SMALL_W; ++x) {
-      const Pixel &pixel = db.get_pixel(x, y);
-      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    }
+  const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
   HS_EXPECT_GT(energy, 0u);
 }
 
@@ -3019,12 +2995,7 @@ inline void test_dreamballs_weave_topology() {
     db.draw_frame();
     db.advance_display();
   }
-  uint64_t energy = 0;
-  for (int y = 0; y < SMALL_H; ++y)
-    for (int x = 0; x < SMALL_W; ++x) {
-      const Pixel &pixel = db.get_pixel(x, y);
-      energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    }
+  const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
   HS_EXPECT_GT(energy, 0u);
 }
 
@@ -3138,14 +3109,13 @@ inline void test_meshfeedback_flush_precedes_mesh_draw() {
   meshfeedback_capture(bare, FRAMES, false);
 
   int decayed = 0, accumulated = 0;
-  uint64_t bare_energy = 0;
+  const uint64_t bare_energy = frame_energy(bare);
   for (size_t i = 0; i < lit.size(); ++i) {
     const Pixel &a = lit[i], &b = bare[i];
     if (a.r < b.r || a.g < b.g || a.b < b.b)
       ++decayed;
     if (a.r > b.r || a.g > b.g || a.b > b.b)
       ++accumulated;
-    bare_energy += static_cast<uint64_t>(b.r) + b.g + b.b;
   }
 
   std::printf("  MeshFeedback flush order: decayed=%d accumulated=%d "
@@ -5327,12 +5297,11 @@ inline void test_shapeshifter_slider_selections_render() {
     ss.draw_frame();
     ss.advance_display();
 
-    uint64_t acc = 0;
+    const uint64_t acc = frame_energy<SMALL_W, SMALL_H>(ss);
     uint64_t fold = hs_test::FNV1A64_BASIS;
     for (int y = 0; y < SMALL_H; ++y)
       for (int x = 0; x < SMALL_W; ++x) {
         const Pixel &pixel = ss.get_pixel(x, y);
-        acc += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
         for (uint16_t channel : {pixel.r, pixel.g, pixel.b})
           fold = hs_test::fnv1a64_channel(fold, channel);
       }
@@ -5938,12 +5907,7 @@ inline void test_islamicstars_recipe_build_smoke() {
     effect.draw_frame();
     effect.advance_display();
   }
-  uint64_t acc = 0;
-  for (int y = 0; y < SMALL_H; ++y)
-    for (int x = 0; x < SMALL_W; ++x) {
-      const Pixel &p = effect.get_pixel(x, y);
-      acc += static_cast<uint64_t>(p.r) + p.g + p.b;
-    }
+  const uint64_t acc = frame_energy<SMALL_W, SMALL_H>(effect);
   HS_EXPECT_GT(acc, (uint64_t)0);
 }
 
