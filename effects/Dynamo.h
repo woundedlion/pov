@@ -107,10 +107,9 @@ public:
     // Collapse finished wipes (FIFO) before their boundaries are read below.
     reap_completed_wipes();
 
-    // color() walks palette_boundaries and reads baked_palettes[i] and [i+1];
-    // paired push (color_wipe) and pop (reap) keep palettes one ahead of the
-    // boundaries. Guard that pairing once here before the per-pixel band walk.
-    HS_CHECK(palettes.size() == palette_boundaries.size() + 1);
+    HS_CHECK(palettes.size() == palette_boundaries.size() + 1,
+             "Dynamo: palettes must stay one ahead of palette_boundaries "
+             "(color_wipe push / reap pop); color() reads [i] and [i+1]");
 
     // Carry the fractional part of |speed| across frames so |speed| < 1 still
     // advances the strand instead of truncating to zero.
