@@ -22,7 +22,7 @@ def shell_function(name):
     return match.group(0)
 
 
-def verify_log(text, expected="o3", provenance=True):
+def verify_log(text, expected="o3", provenance=True, marker=""):
     with tempfile.TemporaryDirectory() as directory:
         artifact = Path(directory) / "firmware.elf"
         artifact.write_bytes(b"profile firmware")
@@ -39,13 +39,14 @@ def verify_log(text, expected="o3", provenance=True):
             "set -e\n"
             f"{shell_function('verify')}\n"
             f"{shell_function('file_sha256')}\n"
-            'OUT=$1; EFFECT=Fx; TAG=$2; MARKER=""\n'
+            'OUT=$1; EFFECT=Fx; TAG=$2; MARKER=$3\n'
             "verify\n"
         )
         return subprocess.run(
-            ["bash", "-c", script, "profile-test", str(log), expected],
+            ["bash", "-c", script, "profile-test", str(log), expected, marker],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
 
 
@@ -80,6 +81,7 @@ def attest_toolchains(profile_compiler, phantasm_compiler):
         ["bash", "-c", script],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
 
 
@@ -90,7 +92,7 @@ class ProfileTreeResolution(unittest.TestCase):
         script = f"{shell_function('profile_tree')}\nprofile_tree\n"
         result = subprocess.run(
             ["bash", "-c", script, str(Path(script_dir) / "profile_one.sh")],
-            capture_output=True, text=True)
+            capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
         return Path(result.stdout.strip())
 
@@ -135,7 +137,7 @@ def derived_paths(profile_out=None):
     if profile_out is not None:
         env["HS_PROFILE_OUT"] = profile_out
     result = subprocess.run(["bash", "-c", script], capture_output=True,
-                            text=True, env=env)
+                            text=True, encoding="utf-8", env=env)
     if result.returncode != 0:
         raise AssertionError(result.stderr)
     return dict(line.split("=", 1) for line in result.stdout.splitlines())
@@ -188,7 +190,7 @@ class ProfileConfigVerification(unittest.TestCase):
                 'rm -rf "$PLATFORMIO_BUILD_CACHE_DIR"\n'
             )
             result = subprocess.run(["bash", "-c", script], capture_output=True,
-                                    text=True)
+                                    text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_matching_config_passes(self):
@@ -234,9 +236,40 @@ class ProfileConfigVerification(unittest.TestCase):
                 ["bash", "-c", script, "profile-test", str(log)],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
             )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("PROFILE ARTIFACT HASH MISMATCH", result.stdout)
+
+    def test_a_foreign_window_name_is_reported(self):
+        # A peer flashing mid-capture splices its board's serial into ours;
+        # the log then carries windows the effect under test never rendered.
+        text = capture_log("o3") + (
+            "=== profile Other [288x144] frames 2-2 window=100 us ===\n")
+        result = verify_log(text)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("WINDOW NAME MISMATCH (1/2)", result.stdout)
+        self.assertIn("— contention?", result.stdout)
+
+    def test_a_missing_cycler_marker_is_reported(self):
+        # A stale image runs the previous build; a cycler that emits no
+        # advance marker is the tell that the upload did not take.
+        result = verify_log(capture_log("o3"), marker="Preset:")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("NO 'Preset:' MARKER", result.stdout)
+
+    def test_a_present_cycler_marker_passes(self):
+        result = verify_log("Preset: 0/3\n" + capture_log("o3"),
+                            marker="Preset:")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_a_first_frame_past_the_connect_window_is_reported(self):
+        # A freshly flashed board starts at frame 1 and the capture attaches
+        # within the connect window, so a high first frame means no reboot.
+        text = capture_log("o3").replace("f 1 w=100 r=90", "f 900 w=100 r=90")
+        result = verify_log(text)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("STALE IMAGE: first frame 900", result.stdout)
 
     def test_platformio_failure_propagates_from_build(self):
         script = (
@@ -250,6 +283,7 @@ class ProfileConfigVerification(unittest.TestCase):
                 ["bash", "-c", script, "profile-test", str(log)],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
             )
         self.assertNotEqual(result.returncode, 0)
 
