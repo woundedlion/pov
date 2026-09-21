@@ -997,8 +997,8 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
  *          (a,b) plane is a no-op and the color must come back unchanged for any
  *          amount, with alpha preserved. The OKLab matrices round-trip a gray
  *          channel exactly here (measured delta 0 of 65535), so the tolerance is
- *          1 LSB of the 16-bit linear channel — precision-grade, not the former
- *          48-LSB smoke band — leaving room only for a stray rounding ULP.
+ *          1 LSB of the 16-bit linear channel, leaving room only for a stray
+ *          rounding ULP.
  */
 inline void test_hue_rotate_preserves_gray() {
   Color4 gray(128, 128, 128, 0.5f);
@@ -1020,9 +1020,8 @@ inline void test_hue_rotate_preserves_gray() {
  *          residual is the combined error of fast_cosf/fast_sinf at 2*PI (the
  *          turn never lands on an exact cos=1, sin=0) and the fast_cbrt OKLab
  *          round-trip: measured at most 4 LSB of the 16-bit linear channel on
- *          this saturated sample. The tolerance is 12 LSB — a ~3x margin over
- *          that measured error, so it stays precision-grade (vs the former
- *          64-LSB smoke band) while tolerating minor float-rounding drift.
+ *          this saturated sample. The tolerance is 12 LSB, a ~3x margin over
+ *          that measured error that tolerates minor float-rounding drift.
  */
 inline void test_hue_rotate_full_turn_identity() {
   Color4 c(200, 60, 30, 1.0f);
