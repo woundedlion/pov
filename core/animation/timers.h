@@ -65,20 +65,31 @@ protected:
   uint32_t next = 0; /**< The target frame count for the next trigger. */
 };
 
+/** @brief Delay range and repeat behaviour of a RandomTimer. */
+struct RandomTimerOptions {
+  /** @brief Minimum delay in frames. */
+  int min = 0;
+  /** @brief Maximum delay in frames, inclusive. */
+  int max = 0;
+  /** @brief Resets the timer after each call instead of ending it. */
+  bool repeat = false;
+};
+
 /**
  * @brief An animation that triggers a callback after a random delay.
  */
 class RandomTimer : public TimerBase<RandomTimer> {
 public:
+  using Options = RandomTimerOptions;
+
   /**
    * @brief Constructs a RandomTimer.
-   * @param min Minimum delay in frames.
-   * @param max Maximum delay in frames.
+   * @param options The delay range and repeat behaviour.
    * @param f The function to call when the timer elapses.
-   * @param repeat If true, the timer resets after calling the function.
    */
-  RandomTimer(int min, int max, TimerFn f, bool repeat = false)
-      : TimerBase(std::move(f), repeat), min(min), max(max) {
+  RandomTimer(const Options &options, TimerFn f)
+      : TimerBase(std::move(f), options.repeat), min(options.min),
+        max(options.max) {
     HS_CHECK(min >= 0 && min <= max, "RandomTimer: invalid frame range");
     HS_CHECK(max < std::numeric_limits<int>::max(),
              "RandomTimer max must be < INT_MAX (reset adds 1)");

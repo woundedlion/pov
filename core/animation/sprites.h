@@ -19,6 +19,25 @@ namespace Animation {
 /** Per-window frame cap that keeps a Sprite's fade-in + fade-out sum in int. */
 inline constexpr int MAX_FADE_DURATION = 1 << 24;
 
+/** @brief One ramp of a Sprite's opacity envelope. */
+struct SpriteFade {
+  /** @brief Ramp length in frames; in [0, MAX_FADE_DURATION]. */
+  int duration = 0;
+  /** @brief Easing applied across the ramp. */
+  EasingFn easing = ease_linear;
+};
+
+/** @brief Optional envelope and gating of a Sprite. */
+struct SpriteOptions {
+  /** @brief Opening ramp. */
+  SpriteFade fade_in{};
+  /** @brief Closing ramp; must be 0 frames for an indefinite sprite, which has
+   * no end frame to fade toward. */
+  SpriteFade fade_out{};
+  /** @brief Pause gate; null = always runs. */
+  const bool *paused = nullptr;
+};
+
 /**
  * @brief An animation that draws a sprite while managing its fade-in/out
  * effects.
@@ -28,29 +47,23 @@ inline constexpr int MAX_FADE_DURATION = 1 << 24;
  */
 class Sprite : public AnimationBase<Sprite> {
 public:
+  using Fade = SpriteFade;
+  using Options = SpriteOptions;
+
   /**
    * @brief Constructs a Sprite animation.
    * @param draw_fn The function to call each frame for drawing (`void
    * draw_fn(Canvas&, float opacity)`).
    * @param duration Total frames the sprite is on screen, including fade
    * windows (-1 for indefinite).
-   * @param fade_in_duration Frames for fading in; in [0, MAX_FADE_DURATION].
-   * @param fade_in_easing_fn Easing for fade-in.
-   * @param fade_out_duration Frames for fading out; in [0, MAX_FADE_DURATION],
-   * and must be 0 for an indefinite sprite, which has no end frame to fade
-   * toward.
-   * @param fade_out_easing_fn Easing for fade-out.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options The two fade ramps and the pause gate.
    */
-  Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
-         EasingFn fade_in_easing_fn = ease_linear, int fade_out_duration = 0,
-         EasingFn fade_out_easing_fn = ease_linear,
-         const bool *paused = nullptr)
+  Sprite(SpriteFn draw_fn, int duration, const Options &options = {})
       : AnimationBase(duration, false), draw_fn(std::move(draw_fn)),
-        fade_in_duration(fade_in_duration),
-        fade_out_duration(fade_out_duration),
-        fade_in_easing(std::move(fade_in_easing_fn)),
-        fade_out_easing(std::move(fade_out_easing_fn)), paused(paused) {
+        fade_in_duration(options.fade_in.duration),
+        fade_out_duration(options.fade_out.duration),
+        fade_in_easing(options.fade_in.easing),
+        fade_out_easing(options.fade_out.easing), paused(options.paused) {
     HS_CHECK(fade_in_duration >= 0 && fade_in_duration <= MAX_FADE_DURATION,
              "Sprite fade-in duration must be in [0, MAX_FADE_DURATION]");
     HS_CHECK(fade_out_duration >= 0 && fade_out_duration <= MAX_FADE_DURATION,
