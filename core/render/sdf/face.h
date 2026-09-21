@@ -399,6 +399,13 @@ struct Face {
                     claiming one. */
   uint32_t scratch_claim = 0; /**< Claim this face took on that buffer. */
 
+  /** @brief Retires the face: no vertices and bounds naming no row. */
+  void mark_culled() {
+    count = 0;
+    y_min = BOUNDS_CULLED.y_min;
+    y_max = BOUNDS_CULLED.y_max;
+  }
+
   /**
    * @brief Builds a face's projection, bounds, and edge data.
    * @param vertices Shared vertex pool.
@@ -433,9 +440,7 @@ struct Face {
                                 bounds_margin);
     }();
     if (phi_culled) {
-      count = 0;
-      y_min = 1;
-      y_max = 0;
+      mark_culled();
       return;
     }
 
@@ -460,9 +465,7 @@ struct Face {
       // Scratch already holds this face's geometry, so retire any earlier
       // face's claim on the way out.
       ++scratch.claim_seq;
-      count = 0;
-      y_min = 1;
-      y_max = 0;
+      mark_culled();
       return;
     }
 
@@ -482,9 +485,7 @@ struct Face {
         clip_rejects_azimuth(*clip, clip->render_y_start(),
                              clip->render_y_end() - 1)) {
       ++scratch.claim_seq;
-      count = 0;
-      y_min = 1;
-      y_max = 0;
+      mark_culled();
       return;
     }
 
@@ -515,9 +516,7 @@ struct Face {
     // in-band pixel.
     if (clip && clip_rejects(*clip)) {
       ++scratch.claim_seq;
-      count = 0;
-      y_min = 1;
-      y_max = 0;
+      mark_culled();
       return;
     }
 
