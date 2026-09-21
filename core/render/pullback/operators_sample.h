@@ -280,8 +280,6 @@ inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
 
 /** @brief Parameter family of sample.tessellation.v2. */
 struct TessellationSampleParams : Source::TessellationSourceParams {
-  // Not SampleCrossingParams: `kind` packs into the coverage word only as a
-  // direct member.
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
@@ -297,6 +295,7 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
               static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)});
 };
 static_assert(field_ids_unique<TessellationSampleParams>());
+static_assert(sample_crossing_defaults_match<TessellationSampleParams>());
 
 /** @brief PLANE→FIELD crossing: rotating polygon edge tessellations. */
 struct SampleTessellation : SourceClockModel {
@@ -329,8 +328,6 @@ struct SampleTessellation : SourceClockModel {
 
 /** @brief Parameter family of sample.projected-noise.v2. */
 struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
-  // Not SampleCrossingParams: `basis` packs into the coverage word only as a
-  // direct member.
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
@@ -346,6 +343,7 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
               static_cast<uint8_t>(::NoiseBasis::SIMPLEX)});
 };
 static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
+static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 
 /** @brief Parameter family of sample.spherical-noise.v3.
     @details No basis topology: the plan pins the spherical contour to the

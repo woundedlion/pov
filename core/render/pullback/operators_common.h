@@ -160,6 +160,22 @@ struct SampleCrossingParams {
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 };
 
+/**
+ * @brief Whether @p Params spells the crossing's three members with the same
+ *        defaults as SampleCrossingParams.
+ * @details A family that appends a member of its own cannot inherit the
+ * crossing: the MSVC ABI would leave the base's tail padding unused where the
+ * Itanium one packs into it, and the two operator catalogs pin a single param
+ * block size. Such a family repeats the members and asserts this instead.
+ */
+template <typename Params> consteval bool sample_crossing_defaults_match() {
+  constexpr Params PARAMS{};
+  constexpr SampleCrossingParams CROSSING{};
+  return PARAMS.edge_width == CROSSING.edge_width &&
+         PARAMS.weight_mode == CROSSING.weight_mode &&
+         PARAMS.coverage_mode == CROSSING.coverage_mode;
+}
+
 /** @brief The tabled field of SampleCrossingParams, retyped to the family. */
 template <typename Params>
 constexpr std::array<Field<Params>, 1> sample_crossing_fields() {
