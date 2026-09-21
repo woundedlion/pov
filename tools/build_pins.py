@@ -215,9 +215,11 @@ FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 # recipe list and the gate scripts are bash, so none can source a value from
 # another; --check asserts every occurrence matches this one.
 SHARED_LITERALS = {
-    # Paths the clang-format gate skips: vendored sources and generated ones.
+    # Paths the clang-format gate skips: the vendored FastNoiseLite body and
+    # the generated tables. core/vendor/FastNoiseLite_config.h is first-party
+    # and is gated like any other header.
     "format-exclude": (
-        r"(^|/)core/vendor/"
+        r"(^|/)core/vendor/FastNoiseLite\.h$"
         r"|(^|/)core/color/color_luts\.h$"
         r"|(^|/)core/color/gamut_lut\.h$"
         r"|(^|/)core/color/srgb_decode_lut\.h$"
