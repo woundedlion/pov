@@ -314,7 +314,8 @@ constexpr int MEASURED_MAX_BAND_KIS_ICOSA = 17;
 constexpr int MEASURED_MAX_BAND_KIS_CUBE = 45;
 constexpr int MEASURED_MAX_BAND_KIS_DODECA = 17;
 constexpr int MEASURED_MAX_BAND_DUAL_ICOSA = 35;
-constexpr int MEASURED_MAX_BAND_DUAL_CUBE = 144;
+/** The dual-cube seam spans a full column, so its band saturates at PS_H. */
+constexpr int MEASURED_MAX_BAND_DUAL_CUBE = PS_H;
 constexpr int MEASURED_MAX_BAND_DUAL_DODECA = 35;
 constexpr int MAX_BAND_MARGIN = 2;
 constexpr double MAX_ABS_ENERGY = 0.02;
@@ -355,6 +356,7 @@ inline void expect_within_envelope(const SeamStats &st,
   HS_EXPECT_GE(st.mean_band, 2.0);
   HS_EXPECT_LE(st.mean_band, 4.5);
   HS_EXPECT_LE(st.max_band, measured_max_band + MAX_BAND_MARGIN);
+  HS_EXPECT_GE(st.max_band, measured_max_band - MAX_BAND_MARGIN);
   HS_EXPECT_GT(st.changed_near_v, size_t(0));
   HS_EXPECT_LE(st.changed_near_v * 10, st.changed);
   HS_EXPECT_GT(st.mean_near, 0.0);
