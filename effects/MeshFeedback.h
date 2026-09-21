@@ -159,8 +159,7 @@ public:
     register_param("Feedback", &feedback_enabled);
     mark_global("Feedback");
 
-    filters.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
-        persistent_arena);
+    filters.init_storage(persistent_arena);
     init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
     mesh_storage_mark = persistent_arena.get_offset();
     apply_params();
