@@ -113,7 +113,8 @@ struct ParticleSystem {
           // underflow this uint16_t subtraction.
           const uint16_t age =
               p.life < system.max_life ? system.max_life - p.life : 0;
-          return (age - 1) % sample_stride != 0;
+          // Complement of the recorder's stride test (core/animation/sprites.h).
+          return age != 0 && (age - 1) % sample_stride != 0;
         }
       }();
       const size_t point_count = trail_len + (append_live_tip ? 1 : 0);
