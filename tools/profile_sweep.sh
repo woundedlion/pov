@@ -17,8 +17,11 @@
 # a re-run only needs those effects.
 # A capture must fit inside one epoch: crossing a boundary re-inits the effect
 # mid-run, and an init that overruns the K-revolution commit window traps the
-# board. The RD sims want 130 s of data, past the 120 s default, so they stretch
-# the epoch to 150 s rather than lose a regime to a shorter capture.
+# board. The profile image's epoch is one hour (targets/Profile/Profile.ino);
+# HS_PROFILE_EPOCH_REVS replaces it (hardware/pov_segmented.h), so an override
+# only ever shortens it. profile_one.sh accepts a capture that attaches up to
+# ~30 s after boot, so an epoch shorter than the capture plus that window puts
+# a late attach across the boundary.
 set -u
 P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
@@ -102,7 +105,7 @@ g3_ship)
   ;;
 g4_ship)
   run Comets profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
-  run MeshFeedback profile 420 16 "-D HS_PROFILE_EPOCH_REVS=3400"
+  run MeshFeedback profile 420 16
   run IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
   run DreamBalls profile 230 16 "-D HS_PROFILE_EPOCH_REVS=2000"
   ;;
