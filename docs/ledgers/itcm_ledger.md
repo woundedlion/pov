@@ -16,7 +16,7 @@ from the linked ELF via `arm-none-eabi-size -A firmware.elf`, **independent of
 the teensy gate** (the ELF links before the gate runs, so gate failures do not
 perturb the measurement). Perf benefits are quoted verbatim from each commit
 body and cross-checked against `docs/profiles/`. Device cadence figures for
-MeshFeedback are from the on-device profile capture (`mf_ship_final.log`).
+MeshFeedback are from the on-device profile capture.
 
 ## Headline
 
