@@ -4,8 +4,10 @@
 Structure only. A green run means every fence closes, every anchor resolves,
 every link into this repository or a supplied sibling checkout resolves, every
 backticked repo path exists, every tree fence matches the tracked tree it
-draws, and the cardinalities _CARDINALITY_CLAIMS names match their source
-macros -- not that the prose is true. A link to any other host is never
+draws, the cardinalities _CARDINALITY_CLAIMS names match their source
+macros, and the composed-effect roster in docs/effects.md matches each
+effect's PRESET_IDS and the product group -- not that the prose is true. A
+link to any other host is never
 visited, and a sibling checkout no --checkout root supplies leaves its fences
 and links unvalidated, which the verdict line says. A renamed symbol in a
 table, a number no claim names, and any path written without backticks or a
@@ -141,6 +143,20 @@ _PRODUCT_GROUP_DEFINE = "#define HS_SHADER_PRODUCT_GROUP(X)"
 # Both macros spell a row `X(Name, seconds)`.
 _NAMED_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
 _ITCM_LEDGER = "docs/ledgers/itcm_ledger.md"
+# The effects reference spells the product group's cardinality in words and
+# tables every composed effect with its preset count.
+_EFFECTS_REFERENCE = "docs/effects.md"
+_COMPOSED_ROSTER_ROW_RE = re.compile(
+    r"^\|\s*`[^`|]+`\s*\|\s*`(?P<effect>\w+)`\s*\|\s*(?P<presets>\d+)\s*\|")
+_PRESET_IDS_RE = re.compile(
+    r"std::array<std::string_view,\s*(\d+)>\s*PRESET_IDS\b")
+_NUMBER_WORDS = {
+    word: value for value, word in enumerate((
+        "zero", "one", "two", "three", "four", "five", "six", "seven",
+        "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
+        "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"))
+} | {"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+     "eighty": 80, "ninety": 90}
 _CARDINALITY_CLAIMS = (
     ("README.md",
      re.compile(r"compile-time roster and tests carry (\d+) firmware-capable"),
@@ -156,6 +172,12 @@ _CARDINALITY_CLAIMS = (
      "HS_SHADER_PRODUCT_GROUP", "the shader product-group size"),
     (_ITCM_LEDGER, re.compile(r"\b(\d+)-effect phantasm roster\b"),
      "HS_PHANTASM_EFFECT_LIST", "the ledger's phantasm roster size"),
+    (_EFFECTS_REFERENCE,
+     re.compile(r"\bThese ([\w-]+) effects form the product-only\b"),
+     "HS_SHADER_PRODUCT_GROUP", "the composed roster size"),
+    (_EFFECTS_REFERENCE,
+     re.compile(r"\bthe ([\w-]+) promoted fixed descriptors\b"),
+     "HS_SHADER_PRODUCT_GROUP", "the promoted-descriptor count"),
 )
 
 # Names are matched against the source file kinds Doxyfile documents.
@@ -1002,6 +1024,19 @@ def shader_product_group(source: str) -> set[str]:
         _macro_body(source, _PRODUCT_GROUP_DEFINE)))
 
 
+def _claimed_count(token: str) -> int | None:
+    """The count a prose claim spells, in digits or English number words."""
+    digits = token.replace(",", "")
+    if digits.isdigit():
+        return int(digits)
+    total = 0
+    for part in token.casefold().split("-"):
+        if part not in _NUMBER_WORDS:
+            return None
+        total += _NUMBER_WORDS[part]
+    return total
+
+
 def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
                         playlist: set[str],
                         products: set[str]) -> list[Issue]:
@@ -1025,8 +1060,13 @@ def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
         for number, line in enumerate(text.splitlines(), 1):
             for match in pattern.finditer(line):
                 matched = True
-                claimed = int(match.group(1).replace(",", ""))
-                if claimed != expected:
+                claimed = _claimed_count(match.group(1))
+                if claimed is None:
+                    issues.append(Issue(
+                        document, number,
+                        f"{subject} is stated as {match.group(1)!r}, "
+                        "which is not a count"))
+                elif claimed != expected:
                     issues.append(Issue(
                         document, number,
                         f"{subject} is stated as {claimed}, "
@@ -1035,6 +1075,65 @@ def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
             issues.append(Issue(document, 1,
                                 f"no statement of {subject}, so it goes "
                                 f"unchecked"))
+    return issues
+
+
+def composed_roster_issues(root: Path, effects_text: str,
+                           entries: set[PurePosixPath],
+                           products: set[str]) -> list[Issue]:
+    """Checks the composed-effect roster table against each row's effect header
+    (its PRESET_IDS size) and against HS_SHADER_PRODUCT_GROUP's membership."""
+    issues = []
+    rows: dict[str, tuple[int, int]] = {}
+    for number, line in enumerate(effects_text.splitlines(), 1):
+        match = _COMPOSED_ROSTER_ROW_RE.match(line)
+        if not match:
+            continue
+        effect = match.group("effect")
+        if effect in rows:
+            issues.append(Issue(_EFFECTS_REFERENCE, number,
+                                f"composed roster lists {effect} twice"))
+            continue
+        rows[effect] = (number, int(match.group("presets")))
+    if not rows:
+        return [Issue(_EFFECTS_REFERENCE, 1,
+                      "no composed-effect roster table, so its preset counts "
+                      "go unchecked")]
+    for effect, (number, claimed) in rows.items():
+        header = _EFFECTS_DIR / f"{effect}.h"
+        if header not in entries:
+            issues.append(Issue(
+                _EFFECTS_REFERENCE, number,
+                f"composed roster names {header.as_posix()}, which is not "
+                "tracked"))
+            continue
+        try:
+            text = root.joinpath(*header.parts).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            issues.append(Issue(header.as_posix(), 1,
+                                f"cannot read as UTF-8: {error}"))
+            continue
+        declared = _PRESET_IDS_RE.search(_COMMENT_RE.sub("", text))
+        if not declared:
+            issues.append(Issue(
+                _EFFECTS_REFERENCE, number,
+                f"composed roster claims {claimed} presets for {effect}, "
+                "which declares no PRESET_IDS"))
+        elif int(declared.group(1)) != claimed:
+            issues.append(Issue(
+                _EFFECTS_REFERENCE, number,
+                f"{effect} presets stated as {claimed}, PRESET_IDS holds "
+                f"{declared.group(1)}"))
+    for effect in sorted(products - rows.keys()):
+        issues.append(Issue(
+            _EFFECTS_REFERENCE, 1,
+            f"composed roster omits {effect}, which HS_SHADER_PRODUCT_GROUP "
+            "names"))
+    for effect in sorted(rows.keys() - products):
+        issues.append(Issue(
+            _EFFECTS_REFERENCE, rows[effect][0],
+            f"composed roster lists {effect}, which HS_SHADER_PRODUCT_GROUP "
+            "does not name"))
     return issues
 
 
@@ -1170,9 +1269,13 @@ def check_repository(
                 *_PHANTASM_PLAYLIST_SOURCE.parts).read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             playlist_header = ""
+        products = shader_product_group(header)
         issues.extend(roster_claim_issues(
-            sources, roster, phantasm_roster(playlist_header),
-            shader_product_group(header)))
+            sources, roster, phantasm_roster(playlist_header), products))
+        if products:
+            issues.extend(composed_roster_issues(
+                root, sources.get(PurePosixPath(_EFFECTS_REFERENCE), ""),
+                entries, products))
     elif roster_claimed:
         issues.append(Issue(
             _EFFECT_ROSTER_SOURCE.as_posix(), 1,
