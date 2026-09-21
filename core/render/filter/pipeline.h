@@ -150,10 +150,11 @@ struct IsPipelineSink : FilterTraits<true, false> {
  *        to the stage vocabulary in FilterTraits.
  * @details The single authority for the list. A direct sink stands in for a
  * Pipeline<> and hand-mirrors every member, so a new fold member belongs here
- * too: the readers in render/plot/cull.h and engine/concepts.h are
- * `requires`-guarded and silently fall back to their defaults on a type that
- * never grew it, which reaches sink-based effects as a wrong EffectConfig
- * rather than a compile error.
+ * too: pipeline_config reads its members unguarded, but the hoist and
+ * direct-raster readers in render/plot/cull.h and engine/concepts.h are
+ * `requires`-guarded and treat a type that never grew the member as neither
+ * hoistable nor direct-raster, so a sink that omits one silently loses those
+ * fast paths rather than failing to compile.
  */
 template <typename T>
 concept PipelineFoldSurface = requires {
