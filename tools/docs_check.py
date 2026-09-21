@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Validate fences, links, anchors, and path claims in tracked Markdown.
 
-Structure only. A green run means every fence closes, every link, anchor and
-backticked repo path resolves, and every tree fence matches the tracked tree --
-not that the prose is true. A wrong number in a sentence, a renamed symbol in a
-table, and any path written without backticks or a link are all invisible here.
+Structure only. A green run means every fence closes, every anchor resolves,
+every link into this repository or a supplied sibling checkout resolves, every
+backticked repo path exists, every tree fence matches the tracked tree it
+draws, and the cardinalities _CARDINALITY_CLAIMS names match their source
+macros -- not that the prose is true. A link to any other host is never
+visited, and a sibling checkout no --checkout root supplies leaves its fences
+and links unvalidated, which the verdict line says. A renamed symbol in a
+table, a number no claim names, and any path written without backticks or a
+link are all invisible here.
 
 The Doxyfile's PREDEFINED names must also appear in documented source.
 """
