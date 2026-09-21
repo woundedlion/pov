@@ -736,7 +736,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           desired_step *= backstop_stretch;
         }
       }
-      if (!close_loop && is_last_segment && !omit_end) {
+      if (!close_loop && is_last_segment && !omit_end &&
+          (!plot_window || plot_t_hi >= 1.0f)) {
         Fragment f;
         if constexpr (INTERPOLATE_REGISTERS)
           f = next;

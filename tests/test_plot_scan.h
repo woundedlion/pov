@@ -1455,13 +1455,13 @@ inline void test_rasterize_window_preserves_terminal_sample() {
       HS_EXPECT_EQ(clipped.plotted.back().x, full.plotted.back().x);
       HS_EXPECT_EQ(clipped.plotted.back().y, full.plotted.back().y);
       HS_EXPECT_EQ(clipped.plotted.back().z, full.plotted.back().z);
-      if constexpr (!SinglePass) {
-        CapturePipeline bounded;
-        Plot::rasterize<W, H>(bounded, canvas, points, shade,
-                              {.plot_t_start = 0.5f, .plot_t_end = 0.75f});
-        HS_EXPECT_GT(bounded.plotted.size(), size_t{2});
-        HS_EXPECT_LE(terminal_t, 0.75f);
-      }
+      CapturePipeline bounded;
+      Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
+          bounded, canvas, points, shade,
+          {.plot_t_start = 0.5f, .plot_t_end = 0.75f});
+      HS_EXPECT_GT(bounded.plotted.size(), size_t{1});
+      HS_EXPECT_LT(bounded.plotted.size(), clipped.plotted.size());
+      HS_EXPECT_LE(terminal_t, 0.75f);
     };
     check.template operator()<false>();
     check.template operator()<true>();
