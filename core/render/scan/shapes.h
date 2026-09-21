@@ -763,6 +763,9 @@ struct Flower {
 
 /**
  * @brief Draws a solid spherical polygon.
+ * @details Both entry points add half a sector to the caller's phase, so phase
+ * 0 puts a vertex on the basis u-axis where the sibling shapes put an edge
+ * midpoint.
  */
 struct SphericalPolygon {
   /**
