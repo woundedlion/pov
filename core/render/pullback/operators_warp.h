@@ -22,14 +22,9 @@ namespace Interp {
 
 namespace Op {
 
-enum class WarpEnvelope : uint8_t {
-  FLAT = 0,
-  PROJECTION_WEIGHT = 1,
-  EDGE_FADE = 2
-};
+using WarpEnvelope = Warp::Envelope;
 
-inline constexpr const char *WARP_ENVELOPE_IDS[] = {"flat", "projection-weight",
-                                                    "edge-fade"};
+inline constexpr auto &WARP_ENVELOPE_IDS = Warp::ENVELOPE_IDS;
 
 /**
  * @brief Bounds a warp operator's envelope enum8.

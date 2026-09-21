@@ -29,6 +29,11 @@ enum class ProjectionFrame : uint8_t { IDENTITY, SPIN_WANDER };
 inline constexpr const char *PROJECTION_FRAME_IDS[] = {"identity",
                                                        "spin-wander"};
 
+/** @brief Activation relation of the spin and wander rates, which the
+    identity frame neither advances nor reads. */
+inline constexpr TopologyGate SPIN_WANDER_FRAME_GATE{
+    "frame", live_values(ProjectionFrame::SPIN_WANDER)};
+
 /** @brief Shared projection frame topology followed by family-specific fields. */
 template <typename Params, typename... Extra>
 constexpr std::array<TopologyField<Params>, 1 + sizeof...(Extra)>
@@ -54,10 +59,12 @@ struct ProjectChainParams {
           "Singularity Fade", 1.0f, 20.0f, FieldCurve::LERP},
       Field<ProjectChainParams>{
           "projection-spin-speed", &ProjectChainParams::spin_rate,
-          "Projection Spin Speed", 0.0f, 0.05f, FieldCurve::LERP},
+          "Projection Spin Speed", 0.0f, 0.05f, FieldCurve::LERP,
+          FieldGate::ALWAYS, SPIN_WANDER_FRAME_GATE},
       Field<ProjectChainParams>{
           "projection-wander", &ProjectChainParams::wander, "Projection Wander",
-          0.0f, 1.0f, FieldCurve::LERP},
+          0.0f, 1.0f, FieldCurve::LERP, FieldGate::ALWAYS,
+          SPIN_WANDER_FRAME_GATE},
   };
   static constexpr auto TOPOLOGY =
       projection_frame_topology<ProjectChainParams>();

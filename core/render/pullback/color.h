@@ -26,6 +26,33 @@ enum class PaletteMapping : uint8_t {
   REVERSE = 3
 };
 
+enum class BrightnessEnvelope : uint8_t {
+  NONE = 0,
+  CUP = 1,
+  BELL = 2,
+  ASCENDING = 3,
+  DESCENDING = 4
+};
+
+/** @brief What drives the color stage's hue rotation, if anything. */
+enum class HueMode : uint8_t {
+  NONE = 0,  /**< No hue rotation; the palette color is used as sampled. */
+  NOISE = 1, /**< Rotation amount read from a cube-face noise LUT. */
+  PATH_LENGTH = 2,                /**< Accumulated path length. */
+  WARP_DISPLACEMENT = PATH_LENGTH /**< Workbench synonym. */
+};
+
+/** Activation relations the chain's colorize operators export: the hue and
+    brightness controls are read only under the matching topology value. */
+inline constexpr TopologyGate HUE_ROTATION_GATE{
+    "hue-shift-mode", live_values(HueMode::NOISE, HueMode::PATH_LENGTH)};
+inline constexpr TopologyGate HUE_NOISE_GATE{"hue-shift-mode",
+                                             live_values(HueMode::NOISE)};
+inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
+    "brightness-envelope",
+    live_values(BrightnessEnvelope::CUP, BrightnessEnvelope::BELL,
+                BrightnessEnvelope::ASCENDING, BrightnessEnvelope::DESCENDING)};
+
 /** @brief Palette and hue parameters, shared by every composed effect. */
 struct ColorParams {
   float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
@@ -52,11 +79,14 @@ struct ColorParams {
 
   static constexpr auto FIELDS = std::array{
       Field<ColorParams>{"hue-shift-amount", &ColorParams::hue_shift_amount,
-                         nullptr, -4.0f, 4.0f, FieldCurve::LERP},
+                         nullptr, -4.0f, 4.0f, FieldCurve::LERP,
+                         FieldGate::ALWAYS, HUE_ROTATION_GATE},
       Field<ColorParams>{"hue-noise-scale", &ColorParams::hue_noise_scale,
-                         nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
+                         nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE,
+                         FieldGate::ALWAYS, HUE_NOISE_GATE},
       Field<ColorParams>{"hue-noise-speed", &ColorParams::hue_noise_speed,
-                         nullptr, -0.001f, 0.001f, FieldCurve::LERP},
+                         nullptr, -0.001f, 0.001f, FieldCurve::LERP,
+                         FieldGate::ALWAYS, HUE_NOISE_GATE},
       Field<ColorParams>{"palette-chroma", &ColorParams::palette_chroma,
                          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
       Field<ColorParams>{"mapping-frequency", &ColorParams::mapping_frequency,
@@ -70,9 +100,11 @@ struct ColorParams {
                          &ColorParams::phase_oscillation_speed, nullptr, -0.01f,
                          0.01f, FieldCurve::LERP},
       Field<ColorParams>{"brightness-bottom", &ColorParams::brightness_bottom,
-                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+                         nullptr, 0.0f, 1.0f, FieldCurve::LERP,
+                         FieldGate::ALWAYS, BRIGHTNESS_ENVELOPE_GATE},
       Field<ColorParams>{"brightness-top", &ColorParams::brightness_top,
-                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+                         nullptr, 0.0f, 1.0f, FieldCurve::LERP,
+                         FieldGate::ALWAYS, BRIGHTNESS_ENVELOPE_GATE},
       Field<ColorParams>{"value-opacity-low", &ColorParams::opacity_low,
                          nullptr, 0.0f, 1.0f, FieldCurve::LERP},
       Field<ColorParams>{"value-opacity-high", &ColorParams::opacity_high,
@@ -107,22 +139,6 @@ struct PaletteMappingWeights {
           a.values[index] + (b.values[index] - a.values[index]) * progress;
     return result;
   }
-};
-
-enum class BrightnessEnvelope : uint8_t {
-  NONE = 0,
-  CUP = 1,
-  BELL = 2,
-  ASCENDING = 3,
-  DESCENDING = 4
-};
-
-/** @brief What drives the color stage's hue rotation, if anything. */
-enum class HueMode : uint8_t {
-  NONE = 0,  /**< No hue rotation; the palette color is used as sampled. */
-  NOISE = 1, /**< Rotation amount read from a cube-face noise LUT. */
-  PATH_LENGTH = 2,                /**< Accumulated path length. */
-  WARP_DISPLACEMENT = PATH_LENGTH /**< Workbench synonym. */
 };
 
 using ::HueNoiseBakeCache;
