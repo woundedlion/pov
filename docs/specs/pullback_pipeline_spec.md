@@ -853,11 +853,12 @@ compile-time policies where the compiled topology fixes them. They receive the
 original `ProjectionSample`, not progressively warped metadata. A runtime
 dynamic dispatcher may select the same policies by switch.
 
-Closed-form policies use one shared helper to derive the step `delta` and its
-`path_length` from the input and output coordinates. Integrating policies
-report the net displacement over their sub-steps as `delta` while summing the
-individual sub-step lengths into `path_length`, so the two stay distinct. Both
-compute `path_length` only when the frame requests it. Exact-zero strength
+Closed-form policies use one shared helper to derive `path_length` from the
+input and output coordinates; integrating policies sum the individual sub-step
+lengths into `path_length`. `WarpStepResult` carries only the stepped
+coordinates and that scalar; no displacement vector crosses the warp chain
+(§5.2). Every policy computes `path_length` only when the frame requests it.
+Exact-zero strength
 bypasses all noise, trigonometry, and integration exactly as today.
 
 ### 8.4 Sources
@@ -1293,7 +1294,7 @@ Starting in Phase B, the same module additionally covers:
 - identity surface, lens, warp sequence, weight, transfer, coverage, and color
   policies;
 - a two-warp sequence proving progressive coordinates, original projection
-  metadata, net-delta addition, and path-length addition;
+  metadata, and path-length addition;
 - direct-operator versus top-level-stage equality;
 - direct dynamic/core equality for every catalog operator and selector;
 - every approximate operator against its independent exact oracle and
