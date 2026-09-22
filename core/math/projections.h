@@ -128,7 +128,7 @@ struct ProjectionKernelResult {
   float fade_edge_distance = NO_EDGE_DISTANCE;
   /** Kernel-specific per-point flags. */
   uint8_t flags = 0;
-  /** ProjectionTrait mask for the image as a whole. */
+  /** ProjectionTrait mask for the image sheet containing this point. */
   uint8_t traits = 0;
   /** Identity of the nearest edge, shared by both sides of a glued seam. */
   uint8_t edge_class = 0;
