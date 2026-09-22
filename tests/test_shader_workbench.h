@@ -4250,7 +4250,8 @@ inline void test_shader_workbench_projection_catalog() {
   HS_EXPECT_NEAR(bonne.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne.coords.im, 0.0f, 2e-5f);
 
-  const auto peirce = projections::peirce_projection(UP, 0.0f, 1, 0.0f);
+  const auto peirce = projections::peirce_projection(
+      UP, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
   HS_EXPECT_NEAR(peirce.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(peirce.coords.im, 0.0f, 2e-5f);
 
@@ -4289,24 +4290,24 @@ inline void test_shader_workbench_projection_catalog() {
 
   constexpr float PEIRCE_K = 1.8540746773013719f;
   const Vector south_pole(0.0f, -1.0f, 0.0f);
-  const auto peirce_diamond =
-      projections::peirce_projection(south_pole, 0.0f, 0, 0.0f);
-  const auto peirce_square =
-      projections::peirce_projection(south_pole, 0.0f, 1, 0.0f);
-  const auto peirce_horizontal =
-      projections::peirce_projection(south_pole, 0.0f, 2, 0.0f);
-  const auto peirce_vertical =
-      projections::peirce_projection(south_pole, 0.0f, 3, 0.0f);
+  const auto peirce_diamond = projections::peirce_projection(
+      south_pole, 0.0f, static_cast<projections::PeirceLayout>(0), 0.0f);
+  const auto peirce_square = projections::peirce_projection(
+      south_pole, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
+  const auto peirce_horizontal = projections::peirce_projection(
+      south_pole, 0.0f, static_cast<projections::PeirceLayout>(2), 0.0f);
+  const auto peirce_vertical = projections::peirce_projection(
+      south_pole, 0.0f, static_cast<projections::PeirceLayout>(3), 0.0f);
   HS_EXPECT_NEAR(peirce_diamond.coords.re, 2.0f * PEIRCE_K, 3e-5f);
   HS_EXPECT_NEAR(peirce_diamond.coords.im, 0.0f, 3e-5f);
   HS_EXPECT_NEAR(peirce_square.coords.re, PEIRCE_K * 1.4142135624f, 3e-5f);
   HS_EXPECT_NEAR(peirce_square.coords.im, PEIRCE_K * 1.4142135624f, 3e-5f);
   HS_EXPECT_NEAR(peirce_horizontal.coords.re, PEIRCE_K, 3e-5f);
   HS_EXPECT_NEAR(peirce_vertical.coords.im, PEIRCE_K, 3e-5f);
-  const auto peirce_scroll0 =
-      projections::peirce_projection(equator_east, 0.0f, 2, 0.0f);
-  const auto peirce_scroll1 =
-      projections::peirce_projection(equator_east, 0.0f, 2, 1.0f);
+  const auto peirce_scroll0 = projections::peirce_projection(
+      equator_east, 0.0f, static_cast<projections::PeirceLayout>(2), 0.0f);
+  const auto peirce_scroll1 = projections::peirce_projection(
+      equator_east, 0.0f, static_cast<projections::PeirceLayout>(2), 1.0f);
   HS_EXPECT_NEAR(peirce_scroll0.coords.re, peirce_scroll1.coords.re, 3e-5f);
   HS_EXPECT_NEAR(peirce_scroll0.coords.im, peirce_scroll1.coords.im, 3e-5f);
   WB::ProjectionParams scroll_from;
@@ -4325,11 +4326,12 @@ inline void test_shader_workbench_projection_catalog() {
   HS_EXPECT_NEAR(scroll_mid.layout_scroll, 0.0f, 1e-6f);
   HS_EXPECT_EQ(scroll_end.layout_scroll, -0.9f);
   const auto peirce_scroll_mid = projections::peirce_projection(
-      equator_east, 0.0f, 2, scroll_mid.layout_scroll);
+      equator_east, 0.0f, static_cast<projections::PeirceLayout>(2),
+      scroll_mid.layout_scroll);
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.re, peirce_scroll0.coords.re, 3e-5f);
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.im, peirce_scroll0.coords.im, 3e-5f);
-  const auto peirce_zero_fade =
-      projections::peirce_projection(equator_zero, 0.0f, 1, 0.0f);
+  const auto peirce_zero_fade = projections::peirce_projection(
+      equator_zero, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
   HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.25f * PI_F, 2e-5f);
 
   auto lon_lat = [](float longitude, float latitude) {
@@ -4345,8 +4347,9 @@ inline void test_shader_workbench_projection_catalog() {
       {0.4550257621f, -2.0019819724f},
   };
   for (uint8_t layout = 0; layout < 4; ++layout) {
-    const auto mapped = projections::peirce_projection(peirce_oracle_point,
-                                                       0.0f, layout, 0.13f);
+    const auto mapped = projections::peirce_projection(
+        peirce_oracle_point, 0.0f,
+        static_cast<projections::PeirceLayout>(layout), 0.13f);
     HS_EXPECT_NEAR(mapped.coords.re, peirce_oracles[layout].re, 3e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, peirce_oracles[layout].im, 3e-5f);
   }
@@ -4365,9 +4368,11 @@ inline void test_shader_workbench_projection_catalog() {
   };
   for (const auto &tie : sector_ties) {
     const auto before = projections::peirce_projection(
-        lon_lat(tie.longitude - TIE_EPS, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
+        lon_lat(tie.longitude - TIE_EPS, SOUTH_LATITUDE), 0.0f,
+        static_cast<projections::PeirceLayout>(0), 0.0f);
     const auto exact = projections::peirce_projection(
-        lon_lat(tie.longitude, SOUTH_LATITUDE), 0.0f, 0, 0.0f);
+        lon_lat(tie.longitude, SOUTH_LATITUDE), 0.0f,
+        static_cast<projections::PeirceLayout>(0), 0.0f);
     HS_EXPECT_EQ(before.region_id, tie.before);
     HS_EXPECT_EQ(exact.region_id, tie.exact);
   }
@@ -4377,10 +4382,12 @@ inline void test_shader_workbench_projection_catalog() {
   const Vector on_meridian = lon_lat(MERIDIAN, MERIDIAN_LATITUDE);
   const Vector zero_meridian = lon_lat(0.0f, MERIDIAN_LATITUDE);
   for (uint8_t layout = 0; layout < 4; ++layout) {
-    const auto shifted =
-        projections::peirce_projection(on_meridian, MERIDIAN, layout, 0.13f);
-    const auto reference =
-        projections::peirce_projection(zero_meridian, 0.0f, layout, 0.13f);
+    const auto shifted = projections::peirce_projection(
+        on_meridian, MERIDIAN, static_cast<projections::PeirceLayout>(layout),
+        0.13f);
+    const auto reference = projections::peirce_projection(
+        zero_meridian, 0.0f, static_cast<projections::PeirceLayout>(layout),
+        0.13f);
     HS_EXPECT_NEAR(shifted.coords.re, reference.coords.re, 2e-5f);
     HS_EXPECT_NEAR(shifted.coords.im, reference.coords.im, 2e-5f);
     HS_EXPECT_EQ(shifted.region_id, reference.region_id);
@@ -4568,9 +4575,11 @@ inline void test_shader_workbench_projection_catalog() {
   }
 
   const auto peirce_seam_a = projections::peirce_projection(
-      lon_lat(0.25f * PI_F - TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
+      lon_lat(0.25f * PI_F - TIE_EPS, SOUTH_LATITUDE), 0.0f,
+      static_cast<projections::PeirceLayout>(1), 0.0f);
   const auto peirce_seam_b = projections::peirce_projection(
-      lon_lat(0.25f * PI_F + TIE_EPS, SOUTH_LATITUDE), 0.0f, 1, 0.0f);
+      lon_lat(0.25f * PI_F + TIE_EPS, SOUTH_LATITUDE), 0.0f,
+      static_cast<projections::PeirceLayout>(1), 0.0f);
   const Complex peirce_seam_delta = peirce_seam_a.coords - peirce_seam_b.coords;
   const Complex airocean_seam_delta = cut_coords[1] - cut_coords[2];
   HS_EXPECT_GT(sqrtf(peirce_seam_delta.re * peirce_seam_delta.re +
@@ -4594,9 +4603,11 @@ inline void test_shader_workbench_projection_catalog() {
       HS_EXPECT_TRUE(std::isfinite(b.coords.im));
       HS_EXPECT_TRUE(std::isfinite(b.fade_edge_distance));
       for (uint8_t layout = 0; layout < 4; ++layout) {
-        const auto p = projections::peirce_projection(v, -0.21f, layout, 0.13f);
-        const auto without_edge =
-            projections::peirce_projection(v, -0.21f, layout, 0.13f, false);
+        const auto p = projections::peirce_projection(
+            v, -0.21f, static_cast<projections::PeirceLayout>(layout), 0.13f);
+        const auto without_edge = projections::peirce_projection(
+            v, -0.21f, static_cast<projections::PeirceLayout>(layout), 0.13f,
+            false);
         HS_EXPECT_TRUE(std::isfinite(p.coords.re));
         HS_EXPECT_TRUE(std::isfinite(p.coords.im));
         HS_EXPECT_TRUE(std::isfinite(p.fade_edge_distance));
@@ -4831,8 +4842,8 @@ inline void test_shader_workbench_fast_peirce_square() {
       const float longitude = longitude_step * (PI_F / 256.0f);
       const Vector input(radius * cosf(longitude), sinf(latitude),
                          radius * sinf(longitude));
-      const auto exact =
-          projections::peirce_projection(input, 0.0f, 1, 0.0f, true);
+      const auto exact = projections::peirce_projection(
+          input, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f, true);
       const auto fast = projections::peirce_projection_fast_square(input);
       max_coordinate_error =
           std::max(max_coordinate_error,
@@ -4881,8 +4892,8 @@ inline void test_shader_workbench_fast_peirce_square() {
       const float longitude = boundary + offset;
       const Vector input(radius * cosf(longitude), sinf(LATITUDE),
                          radius * sinf(longitude));
-      const auto exact =
-          projections::peirce_projection(input, 0.0f, 1, 0.0f, true);
+      const auto exact = projections::peirce_projection(
+          input, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f, true);
       const auto fast = projections::peirce_projection_fast_square(input);
       HS_EXPECT_EQ(fast.region_id, exact.region_id);
       HS_EXPECT_EQ(fast.edge_class, exact.edge_class);

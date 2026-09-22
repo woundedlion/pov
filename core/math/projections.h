@@ -276,6 +276,9 @@ inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
   return longitude;
 }
 
+/** @brief Arrangement of the Peirce projection sheets. */
+enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
+
 /**
  * @brief Peirce quincuncial projection, conformal except at four singularities.
  * @param v Unit direction on the sphere.
@@ -297,7 +300,7 @@ inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
  * alongside GLUED and measure the torn side's distance to the equator.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
-peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
+peirce_projection(const Vector &v, float central_meridian, PeirceLayout layout,
                   float scroll, bool calculate_edge_distance = true) {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float K = 1.8540746773013719f;
@@ -334,7 +337,7 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
       region = 3;
     else
       region = 4;
-    if (layout <= 1) {
+    if (layout <= PeirceLayout::SQUARE) {
       if (longitude < -0.75f * PI_F) {
         projected_y = SHIFT - projected_y;
       } else if (longitude < -0.25f * PI_F) {
@@ -348,11 +351,11 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
       }
     }
   }
-  if (layout == 1) {
+  if (layout == PeirceLayout::SQUARE) {
     const float old_x = x;
     x = INV_SQRT_TWO * (x - projected_y);
     projected_y = INV_SQRT_TWO * (old_x + projected_y);
-  } else if (layout == 2) {
+  } else if (layout == PeirceLayout::HORIZONTAL) {
     if (v.y < 0.0f)
       x = SHIFT - x;
     x -= K;
@@ -361,7 +364,7 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
     if (x < 0.0f)
       x += 2.0f * SHIFT;
     x -= SHIFT;
-  } else if (layout == 3) {
+  } else if (layout == PeirceLayout::VERTICAL) {
     if (v.y < 0.0f)
       projected_y = SHIFT - projected_y;
     projected_y -= K;
@@ -380,16 +383,16 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
     // The four singularities are the poles of the two diagonal axes cos_a and
     // cos_b measure from, so the nearest sits at acos of the larger magnitude.
     edge = acosf(hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
-    if (v.y < 0.0f && layout <= 1) {
+    if (v.y < 0.0f && layout <= PeirceLayout::SQUARE) {
       const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
       edge = std::min(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
     }
     // Layout 2 reflects in x, so the |sin| >= |cos| quarters of the equator
     // stay glued and the rest tears; layout 3 reflects in y and tears the
     // complementary pair.
-    const bool torn = layout == 2   ? fabsf(cl) > fabsf(sl)
-                      : layout == 3 ? fabsf(sl) > fabsf(cl)
-                                    : false;
+    const bool torn = layout == PeirceLayout::HORIZONTAL ? fabsf(cl) > fabsf(sl)
+                      : layout == PeirceLayout::VERTICAL ? fabsf(sl) > fabsf(cl)
+                                                         : false;
     if (torn) {
       const float equator = asinf(fabsf(y));
       if (equator < edge) {
@@ -401,14 +404,14 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
   uint8_t edge_class = fabsf(rotated_x) >= fabsf(rotated_z)
                            ? static_cast<uint8_t>(rotated_x < 0.0f)
                            : static_cast<uint8_t>(2 + (rotated_z < 0.0f));
-  if (layout == 2)
+  if (layout == PeirceLayout::HORIZONTAL)
     edge_class = 4;
-  else if (layout == 3)
+  else if (layout == PeirceLayout::VERTICAL)
     edge_class = 5;
   uint8_t traits =
       projection_traits(ProjectionTrait::GLUED, ProjectionTrait::FOLDED,
                         ProjectionTrait::PERIODIC, ProjectionTrait::SINGULAR);
-  if (layout >= 2)
+  if (layout >= PeirceLayout::HORIZONTAL)
     traits =
         static_cast<uint8_t>(traits | projection_traits(ProjectionTrait::CUT));
   return {.coords = Complex(x, projected_y),

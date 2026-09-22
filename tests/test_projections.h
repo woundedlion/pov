@@ -171,7 +171,8 @@ inline void test_peirce_sector_longitude_snapping() {
 }
 
 inline void check_peirce_fast_square_matches_exact(const Vector &v) {
-  const ProjectionKernelResult exact = peirce_projection(v, 0.0f, 1, 0.0f);
+  const ProjectionKernelResult exact = peirce_projection(
+      v, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
   const ProjectionKernelResult fast = peirce_projection_fast_square(v);
   HS_EXPECT_NEAR(fast.coords.re, exact.coords.re, 1e-3f);
   HS_EXPECT_NEAR(fast.coords.im, exact.coords.im, 1e-3f);
@@ -206,7 +207,8 @@ inline void test_peirce_fast_square_rounded_pole_cap() {
         const Vector v(radius * cosf(angle),
                        sign * sqrtf(1.0f - radius * radius),
                        radius * sinf(angle));
-        const auto exact = peirce_projection(v, 0.0f, 1, 0.0f);
+        const auto exact = peirce_projection(
+            v, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
         const auto fast = peirce_projection_fast_square(v);
         HS_EXPECT_EQ(fast.edge_class, exact.edge_class);
       }
@@ -269,9 +271,11 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
     for (float z : {INV_SQRT_TWO, -INV_SQRT_TWO}) {
       const Vector singular(x, 0.0f, z);
       for (uint8_t layout : {uint8_t(0), uint8_t(1), uint8_t(2), uint8_t(3)})
-        HS_EXPECT_NEAR(
-            peirce_projection(singular, 0.0f, layout, 0.0f).fade_edge_distance,
-            0.0f, SATURATION);
+        HS_EXPECT_NEAR(peirce_projection(
+                           singular, 0.0f,
+                           static_cast<projections::PeirceLayout>(layout), 0.0f)
+                           .fade_edge_distance,
+                       0.0f, SATURATION);
       HS_EXPECT_NEAR(peirce_projection_fast_square(singular).fade_edge_distance,
                      0.0f, SATURATION);
     }
@@ -281,7 +285,8 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
     const float longitude = quadrant * (0.5f * PI_F);
     for (float latitude : {-1e-4f, 1e-4f})
       HS_EXPECT_NEAR(
-          peirce_projection(direction(latitude, longitude), 0.0f, 1, 0.0f)
+          peirce_projection(direction(latitude, longitude), 0.0f,
+                            static_cast<projections::PeirceLayout>(1), 0.0f)
               .fade_edge_distance,
           0.25f * PI_F, 1e-4f);
   }
@@ -290,7 +295,8 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
   for (int step = 0; step <= 16; ++step) {
     const float longitude = 0.25f * PI_F * (1.0f - step / 16.0f);
     const float distance =
-        peirce_projection(direction(0.0f, longitude), 0.0f, 1, 0.0f)
+        peirce_projection(direction(0.0f, longitude), 0.0f,
+                          static_cast<projections::PeirceLayout>(1), 0.0f)
             .fade_edge_distance;
     HS_EXPECT_GT(distance, previous);
     previous = distance;
@@ -304,9 +310,10 @@ inline void test_peirce_square_is_the_rotated_diamond() {
     for (int longitude_step = 0; longitude_step < 12; ++longitude_step) {
       const Vector v = direction(latitude, longitude_step * (TWO_PI_F / 12.0f) -
                                                PI_F + 0.2f);
-      const ProjectionKernelResult diamond =
-          peirce_projection(v, 0.0f, 0, 0.0f);
-      const ProjectionKernelResult square = peirce_projection(v, 0.0f, 1, 0.0f);
+      const ProjectionKernelResult diamond = peirce_projection(
+          v, 0.0f, static_cast<projections::PeirceLayout>(0), 0.0f);
+      const ProjectionKernelResult square = peirce_projection(
+          v, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
       HS_EXPECT_NEAR(square.coords.re,
                      INV_SQRT_TWO * (diamond.coords.re - diamond.coords.im),
                      1e-6f);
@@ -325,10 +332,10 @@ inline void test_peirce_strip_scroll_is_periodic() {
       for (int longitude_step = 0; longitude_step < 8; ++longitude_step) {
         const Vector v = direction(
             latitude, longitude_step * (TWO_PI_F / 8.0f) - PI_F + 0.15f);
-        const ProjectionKernelResult base =
-            peirce_projection(v, 0.0f, layout, 0.125f);
-        const ProjectionKernelResult wrapped =
-            peirce_projection(v, 0.0f, layout, 1.125f);
+        const ProjectionKernelResult base = peirce_projection(
+            v, 0.0f, static_cast<projections::PeirceLayout>(layout), 0.125f);
+        const ProjectionKernelResult wrapped = peirce_projection(
+            v, 0.0f, static_cast<projections::PeirceLayout>(layout), 1.125f);
         HS_EXPECT_NEAR(wrapped.coords.re, base.coords.re, 1e-4f);
         HS_EXPECT_NEAR(wrapped.coords.im, base.coords.im, 1e-4f);
         HS_EXPECT_EQ(wrapped.edge_class, layout == 2 ? 4 : 5);
@@ -344,9 +351,11 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
     const float torn = layout == 2 ? 0.0f : 0.5f * PI_F;
     const float glued = layout == 2 ? 0.5f * PI_F : 0.0f;
     const ProjectionKernelResult north =
-        peirce_projection(direction(LATITUDE, torn), 0.0f, layout, 0.0f);
+        peirce_projection(direction(LATITUDE, torn), 0.0f,
+                          static_cast<projections::PeirceLayout>(layout), 0.0f);
     const ProjectionKernelResult south =
-        peirce_projection(direction(-LATITUDE, torn), 0.0f, layout, 0.0f);
+        peirce_projection(direction(-LATITUDE, torn), 0.0f,
+                          static_cast<projections::PeirceLayout>(layout), 0.0f);
     HS_EXPECT_EQ(north.traits & projection_traits(ProjectionTrait::CUT),
                  projection_traits(ProjectionTrait::CUT));
     const float jump = std::max(std::fabs(north.coords.re - south.coords.re),
@@ -357,9 +366,11 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
     HS_EXPECT_NEAR(north.fade_edge_distance, LATITUDE, 1e-6f);
     HS_EXPECT_NEAR(south.fade_edge_distance, LATITUDE, 1e-6f);
     const ProjectionKernelResult seam_north =
-        peirce_projection(direction(LATITUDE, glued), 0.0f, layout, 0.0f);
+        peirce_projection(direction(LATITUDE, glued), 0.0f,
+                          static_cast<projections::PeirceLayout>(layout), 0.0f);
     const ProjectionKernelResult seam_south =
-        peirce_projection(direction(-LATITUDE, glued), 0.0f, layout, 0.0f);
+        peirce_projection(direction(-LATITUDE, glued), 0.0f,
+                          static_cast<projections::PeirceLayout>(layout), 0.0f);
     float delta_x = seam_north.coords.re - seam_south.coords.re;
     float delta_y = seam_north.coords.im - seam_south.coords.im;
     if (layout == 2)
@@ -373,7 +384,8 @@ inline void test_peirce_strip_tears_the_unglued_equator() {
   }
   for (uint8_t layout : {uint8_t(0), uint8_t(1)})
     HS_EXPECT_EQ(
-        peirce_projection(direction(LATITUDE, 0.0f), 0.0f, layout, 0.0f)
+        peirce_projection(direction(LATITUDE, 0.0f), 0.0f,
+                          static_cast<projections::PeirceLayout>(layout), 0.0f)
                 .traits &
             projection_traits(ProjectionTrait::CUT),
         0);
@@ -587,7 +599,8 @@ inline void test_projection_trait_packing() {
       bonne_projection(Vector(1.0f, 0.0f, 0.0f), 0.0f, 0.4f);
   HS_EXPECT_EQ(bonne.traits, projection_traits(ProjectionTrait::CUT));
   const ProjectionKernelResult peirce =
-      peirce_projection(Vector(1.0f, 0.0f, 0.0f), 0.0f, 1, 0.0f);
+      peirce_projection(Vector(1.0f, 0.0f, 0.0f), 0.0f,
+                        static_cast<projections::PeirceLayout>(1), 0.0f);
   HS_EXPECT_EQ(peirce.traits & projection_traits(ProjectionTrait::GLUED,
                                                  ProjectionTrait::FOLDED,
                                                  ProjectionTrait::PERIODIC),
