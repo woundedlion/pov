@@ -238,7 +238,7 @@ inline void test_line_sample_endpoints_and_unit_length() {
   const int density = 8;
   Plot::Line::sample(points, a, b, density);
 
-  HS_EXPECT_EQ(points.size(), (size_t)(density + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
 
   HS_EXPECT_NEAR(points[0].pos.x, a.pos.x, 1e-6f);
   HS_EXPECT_NEAR(points[0].pos.y, a.pos.y, 1e-6f);
@@ -344,7 +344,7 @@ inline void test_line_sample_antipodal_stable_axis() {
   const int density = 8;
   Plot::Line::sample(points, a, b, density);
 
-  HS_EXPECT_EQ(points.size(), (size_t)(density + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
   HS_EXPECT_NEAR(points[0].pos.x, a.pos.x, 1e-6f);
   HS_EXPECT_NEAR(points[density].pos.x, b.pos.x, 1e-6f);
 
@@ -390,7 +390,7 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   const int density = 8;
   Plot::Line::sample(points, a, b, density);
 
-  HS_EXPECT_EQ(points.size(), (size_t)(density + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
   for (size_t i = 0; i < points.size(); ++i) {
     const Vector &p = points[i].pos;
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
@@ -1466,6 +1466,8 @@ inline void test_rasterize_window_preserves_terminal_sample() {
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
           clipped, canvas, points, shade, {.plot_t_start = 0.5f});
       HS_EXPECT_GT(clipped.plotted.size(), size_t{2});
+      if (clipped.plotted.size() <= 2 || full.plotted.empty())
+        return;
       HS_EXPECT_LT(clipped.plotted.size(), full.plotted.size());
       HS_EXPECT_EQ(terminal_t, FULL_TERMINAL_T);
       HS_EXPECT_EQ(clipped.plotted.back().x, full.plotted.back().x);
@@ -2594,7 +2596,7 @@ inline void test_ring_sample_unit_length_and_progress() {
   Plot::Ring::sample(points, b, 0.5f, N, 0.0f);
 
   // N samples + 1 manual-close overlap fragment.
-  HS_EXPECT_EQ(points.size(), (size_t)(N + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(N + 1));
 
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
@@ -2660,7 +2662,7 @@ inline void test_ring_sample_lut_matches_direct() {
   const float phase = 0.7f;
   Plot::Ring::sample<W, H>(points, b, radius, phase);
 
-  HS_EXPECT_EQ(points.size(), (size_t)(W + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(W + 1));
 
   const std::vector<Vector> expected =
       ring_vertices_direct(b, radius, phase, W);
@@ -2847,7 +2849,7 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
 
   Plot::DistortedRing::sample<W, H>(points, b, radius, zero_shift, phase);
 
-  HS_EXPECT_EQ(points.size(), (size_t)(W + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(W + 1));
 
   const std::vector<Vector> expected =
       ring_vertices_direct(b, radius, phase, W);
@@ -2881,7 +2883,7 @@ inline void test_distorted_ring_shift_matches_fn_point() {
   ScalarFn shift_fn = shift_shape;
 
   Plot::DistortedRing::sample<W, H>(points, b, radius, shift_fn, 0.0f);
-  HS_EXPECT_EQ(points.size(), (size_t)(W + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(W + 1));
 
   const Plot::RingFrame frame = Plot::ring_frame(b, radius);
   const float step = 2.0f * PI_F / W;
@@ -2926,7 +2928,7 @@ inline void test_multiline_sample_arclength_param() {
   points.bind(plot_arena(), 8);
   Plot::Multiline::sample(points, verts, /*closed=*/false);
 
-  HS_EXPECT_EQ(points.size(), (size_t)3);
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)3);
 
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-4f);
@@ -2943,7 +2945,7 @@ inline void test_multiline_sample_arclength_param() {
   closed_points.bind(plot_arena(), 8);
   Fragment seam =
       Plot::Multiline::sample(closed_points, verts, /*closed=*/true);
-  HS_EXPECT_EQ(closed_points.size(), verts.size());
+  HS_EXPECT_SIZE_OR_RETURN(closed_points, verts.size());
   HS_EXPECT_NEAR(seam.pos.x, closed_points[0].pos.x, 1e-6f);
   HS_EXPECT_NEAR(seam.pos.y, closed_points[0].pos.y, 1e-6f);
   HS_EXPECT_NEAR(seam.v0, 1.0f, 1e-6f);
@@ -3142,7 +3144,7 @@ inline void test_star_sample_unit_length_closed() {
   Plot::Star<Plot::PlanarProjection>::sample(points, b, 0.5f, sides, 0.0f);
 
   // 2*sides vertices + 1 close fragment.
-  HS_EXPECT_EQ(points.size(), (size_t)(sides * 2 + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
@@ -3225,9 +3227,9 @@ inline void test_star_sample_radius_trig_parity() {
           return p;
         });
 
-        HS_EXPECT_EQ(actual.size(), reference.size());
-        HS_EXPECT_EQ(actual.size(), positions.size());
-        HS_EXPECT_EQ(positions.size(), cached_positions.size());
+        HS_EXPECT_SIZE_OR_RETURN(actual, reference.size());
+        HS_EXPECT_SIZE_OR_RETURN(actual, positions.size());
+        HS_EXPECT_SIZE_OR_RETURN(positions, cached_positions.size());
         for (size_t i = 0; i < actual.size(); ++i) {
           HS_CONTEXT("star vertex", static_cast<long long>(i));
           // Separately-written expression tree: tolerance, not bit equality.
@@ -3280,7 +3282,7 @@ inline void test_star_continuous_matches_standard_near_side() {
                                                0.37f);
     Plot::Star<Plot::PlanarProjection>::sample_continuous(continuous, basis,
                                                           radius, 7, 0.37f);
-    HS_EXPECT_EQ(standard.size(), continuous.size());
+    HS_EXPECT_SIZE_OR_RETURN(standard, continuous.size());
     for (size_t i = 0; i < standard.size(); ++i) {
       HS_EXPECT_NEAR(standard[i].pos.x, continuous[i].pos.x, NEAR_SIDE_TOL);
       HS_EXPECT_NEAR(standard[i].pos.y, continuous[i].pos.y, NEAR_SIDE_TOL);
@@ -3305,8 +3307,8 @@ inline void test_star_continuous_crosses_equator() {
       seam, basis, 1.0f, 7, 0.37f);
   Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
       above, basis, 1.0001f, 7, 0.37f);
-  HS_EXPECT_EQ(below.size(), seam.size());
-  HS_EXPECT_EQ(above.size(), seam.size());
+  HS_EXPECT_SIZE_OR_RETURN(below, seam.size());
+  HS_EXPECT_SIZE_OR_RETURN(above, seam.size());
   for (size_t i = 0; i < seam.size(); ++i) {
     HS_EXPECT_LT(angle_between(below[i].pos, seam[i].pos), 0.001f);
     HS_EXPECT_LT(angle_between(seam[i].pos, above[i].pos), 0.001f);
@@ -3323,7 +3325,7 @@ inline void test_star_continuous_collapses_at_antipode() {
   const int sides = 7;
   Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
       points, basis, 2.0f, sides, 0.37f);
-  HS_EXPECT_EQ(points.size(), (size_t)(sides * 2 + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
   for (const Fragment &point : points)
     HS_EXPECT_LT(angle_between(point.pos, -basis.v), 0.001f);
 }
@@ -3346,7 +3348,7 @@ inline void test_flower_sample_unit_length_closed() {
   Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
   Plot::Flower::sample(points, b, 0.5f, sides, 0.0f);
 
-  HS_EXPECT_EQ(points.size(), (size_t)(sides * 2 + 1));
+  HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
@@ -3392,7 +3394,7 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   fx.advance_display();
 
   // Fast path on an open last segment plots curr and next.
-  HS_EXPECT_EQ(pipe.plotted.size(), (size_t)2);
+  HS_EXPECT_SIZE_OR_RETURN(pipe.plotted, (size_t)2);
   // Chord, not angle_between: acos' derivative diverges at |dot| = 1, so the
   // angle a unit pair reports quantizes in ~3.5e-4 steps and cannot resolve a
   // tolerance this tight. The chord tracks the angle to within angle^3/24.
@@ -3511,7 +3513,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   }
   fx.advance_display();
 
-  HS_EXPECT_EQ(planar_pipe.plotted.size(), geo_pipe.plotted.size());
+  HS_EXPECT_SIZE_OR_RETURN(planar_pipe.plotted, geo_pipe.plotted.size());
   size_t n = std::min(planar_pipe.plotted.size(), geo_pipe.plotted.size());
   for (size_t i = 0; i < n; ++i)
     HS_EXPECT_NEAR((planar_pipe.plotted[i] - geo_pipe.plotted[i]).length(),
@@ -3788,14 +3790,16 @@ inline void test_rasterize_planar_policy_parity() {
   const Stream positions_only = capture.template operator()<false, false>();
   const Stream rebuilt_positions_only =
       capture.template operator()<false, false>(true);
-  HS_EXPECT_EQ(derived.positions.size(), source_registers.positions.size());
-  HS_EXPECT_EQ(derived.positions.size(), positions_only.positions.size());
-  HS_EXPECT_EQ(positions_only.positions.size(),
-               rebuilt_positions_only.positions.size());
-  HS_EXPECT_EQ(derived.registers.size(), source_registers.registers.size());
-  HS_EXPECT_EQ(derived.registers.size(), positions_only.registers.size());
-  HS_EXPECT_EQ(positions_only.registers.size(),
-               rebuilt_positions_only.registers.size());
+  HS_EXPECT_SIZE_OR_RETURN(derived.positions,
+                           source_registers.positions.size());
+  HS_EXPECT_SIZE_OR_RETURN(derived.positions, positions_only.positions.size());
+  HS_EXPECT_SIZE_OR_RETURN(positions_only.positions,
+                           rebuilt_positions_only.positions.size());
+  HS_EXPECT_SIZE_OR_RETURN(derived.registers,
+                           source_registers.registers.size());
+  HS_EXPECT_SIZE_OR_RETURN(derived.registers, positions_only.registers.size());
+  HS_EXPECT_SIZE_OR_RETURN(positions_only.registers,
+                           rebuilt_positions_only.registers.size());
   size_t derived_differences = 0;
   size_t source_differences = 0;
   for (size_t i = 0; i < derived.positions.size(); ++i) {
@@ -4104,7 +4108,7 @@ inline void test_particle_system_direct_trail_materialization_registers() {
     StubParticle particle = make_particle_trail(sample_count);
     std::vector<Fragment> vertices = capture_particle_vertices(particle);
     const size_t len = particle.history.length();
-    HS_EXPECT_EQ(vertices.size(), len);
+    HS_EXPECT_SIZE_OR_RETURN(vertices, len);
     for (size_t i = 0; i < len; ++i) {
       Vector expected = particle.history.get(i);
       HS_EXPECT_EQ(vertices[i].pos.x, expected.x);
@@ -4136,7 +4140,7 @@ inline void test_particle_system_sparse_history_live_tip() {
   particle.life = 50;
 
   std::vector<Fragment> vertices = capture_particle_system_vertices(system);
-  HS_EXPECT_EQ(vertices.size(), (size_t)3);
+  HS_EXPECT_SIZE_OR_RETURN(vertices, (size_t)3);
   HS_EXPECT_EQ(vertices[0].v0, 0.0f);
   HS_EXPECT_EQ(vertices[1].v0, 0.5f);
   HS_EXPECT_EQ(vertices[2].v0, 1.0f);
@@ -4146,7 +4150,7 @@ inline void test_particle_system_sparse_history_live_tip() {
 
   particle.life = 51;
   vertices = capture_particle_system_vertices(system);
-  HS_EXPECT_EQ(vertices.size(), (size_t)2);
+  HS_EXPECT_SIZE_OR_RETURN(vertices, (size_t)2);
   HS_EXPECT_EQ(vertices.back().v0, 1.0f);
 }
 
@@ -4171,7 +4175,7 @@ inline void test_particle_system_v0_zero_at_oldest_sample() {
   }
 
   std::vector<Fragment> vertices = capture_particle_vertices(particle);
-  HS_EXPECT_EQ(vertices.size(), CAP);
+  HS_EXPECT_SIZE_OR_RETURN(vertices, CAP);
 
   const Vector oldest = order[recorded - CAP];
   const Vector newest = order.back();
@@ -5198,8 +5202,8 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
   std::vector<float> single = draw(true);
   std::vector<float> cached = draw(false);
 
-  HS_EXPECT_EQ(single.size(), size_t{3});
-  HS_EXPECT_EQ(single.size(), cached.size());
+  HS_EXPECT_SIZE_OR_RETURN(single, size_t{3});
+  HS_EXPECT_SIZE_OR_RETURN(single, cached.size());
   HS_EXPECT_NEAR(single[1], 0.5f, 1e-4f);
   for (size_t i = 0; i < single.size(); ++i)
     HS_EXPECT_NEAR(single[i], cached[i], 1e-4f);
@@ -5338,13 +5342,14 @@ inline void test_rasterize_default_sampling_policy_parity() {
          .omit_end = true,
          .balanced_sampling = false});
   }
-  HS_EXPECT_EQ(implicit_default.plotted.size(),
-               explicit_default.plotted.size());
-  HS_EXPECT_EQ(implicit_default.alphas.size(), explicit_default.alphas.size());
-  HS_EXPECT_EQ(implicit_default.plotted.size(),
-               selectable_default.plotted.size());
-  HS_EXPECT_EQ(implicit_default.alphas.size(),
-               selectable_default.alphas.size());
+  HS_EXPECT_SIZE_OR_RETURN(implicit_default.plotted,
+                           explicit_default.plotted.size());
+  HS_EXPECT_SIZE_OR_RETURN(implicit_default.alphas,
+                           explicit_default.alphas.size());
+  HS_EXPECT_SIZE_OR_RETURN(implicit_default.plotted,
+                           selectable_default.plotted.size());
+  HS_EXPECT_SIZE_OR_RETURN(implicit_default.alphas,
+                           selectable_default.alphas.size());
   HS_EXPECT_GT(implicit_default.plotted.size(), size_t{0});
   const size_t compared = std::min({implicit_default.plotted.size(),
                                     explicit_default.plotted.size(),
@@ -5407,8 +5412,8 @@ inline void test_rasterize_balanced_sampling_scope() {
         capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
     const AlphaCapturePipeline balanced =
         capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
-    HS_EXPECT_EQ(standard.plotted.size(), balanced.plotted.size());
-    HS_EXPECT_EQ(standard.alphas.size(), balanced.alphas.size());
+    HS_EXPECT_SIZE_OR_RETURN(standard.plotted, balanced.plotted.size());
+    HS_EXPECT_SIZE_OR_RETURN(standard.alphas, balanced.alphas.size());
     HS_EXPECT_GT(standard.plotted.size(), size_t{0});
     const size_t compared =
         std::min(standard.plotted.size(), balanced.plotted.size());
@@ -5596,8 +5601,8 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   for (const Vector &point : balanced.plotted)
     HS_EXPECT_NEAR(point.length(), 1.0f, 2e-5f);
 
-  HS_EXPECT_EQ(always_balanced.plotted.size(), balanced.plotted.size());
-  HS_EXPECT_EQ(always_balanced.alphas.size(), balanced.alphas.size());
+  HS_EXPECT_SIZE_OR_RETURN(always_balanced.plotted, balanced.plotted.size());
+  HS_EXPECT_SIZE_OR_RETURN(always_balanced.alphas, balanced.alphas.size());
   const size_t compared =
       std::min(always_balanced.plotted.size(), balanced.plotted.size());
   for (size_t i = 0; i < compared; ++i) {
@@ -5879,7 +5884,7 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
   const std::vector<Vector> omitted = draw(true);
 
   HS_EXPECT_GT(omitted.size(), size_t{2});
-  HS_EXPECT_EQ(complete.size(), omitted.size() + 1);
+  HS_EXPECT_SIZE_OR_RETURN(complete, omitted.size() + 1);
   HS_EXPECT_NEAR(angle_between(complete.front(), a.pos), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(angle_between(complete.back(), b.pos), 0.0f, 1e-3f);
   for (size_t i = 0; i < omitted.size(); ++i)
