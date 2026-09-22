@@ -46,6 +46,17 @@ class SnapshotTests(unittest.TestCase):
                     check=True, capture_output=True, text=True,
                 )
 
+    def test_binary_payload_preserves_crlf_bytes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "model.bin"
+            target = Path(temp_dir) / "copy.bin"
+            payload = b"\x00\xff\r\n\x80"
+            source.write_bytes(payload)
+            make_quilter_incremental.copy_snapshot_text(source, target)
+            self.assertEqual(target.read_bytes(), payload)
+            self.assertEqual(make_quilter_incremental.snapshot_digest(target),
+                             hashlib.sha256(payload).hexdigest())
+
     def test_committed_snapshot_matches_manifest(self):
         make_quilter_incremental.verify_snapshot()
 

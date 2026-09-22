@@ -38,8 +38,14 @@ UNMANAGED = (
 
 
 def lf_bytes(path: str | Path) -> bytes:
-    """File contents with CRLF folded to LF, the form the snapshot stores."""
-    return Path(path).read_bytes().replace(b"\r\n", b"\n")
+    """Snapshot bytes, with line endings normalized only for known text formats."""
+    path = Path(path)
+    data = path.read_bytes()
+    text_suffixes = {".txt", ".md", ".kicad_mod", ".kicad_sym", ".kicad_sch",
+                     ".kicad_pro", ".kicad_pcb", ".wrl"}
+    if path.suffix.lower() in text_suffixes or path.name in {"fp-lib-table", "sym-lib-table"}:
+        return data.replace(b"\r\n", b"\n")
+    return data
 
 
 def snapshot_digest(path: Path) -> str:
