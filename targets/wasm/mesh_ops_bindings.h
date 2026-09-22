@@ -307,7 +307,7 @@ public:
    *          tripping get_by_name()'s fail-fast HS_CHECK and aborting the module.
    *          Generates into the scratch arenas and prices the finalized copy
    *          against tooling_arena's remaining bytes before committing it, since
-   *          that arena accumulates one finalized mesh per live wrapper until
+   *          that arena accumulates one finalized mesh per created wrapper until
    *          clearToolingMemory() and Arena::allocate traps when it runs out.
    */
   static std::unique_ptr<MeshOpsWrapper>
