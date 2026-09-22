@@ -70,7 +70,7 @@ public:
   /**
    * @brief Params for the preset at @p index in PRESET_IDS.
    * @details `cup-hue` varies the colorizer alone: the cup palette mapping at
-   * full hue rotation over a wider hue-noise field.
+   * full hue rotation over a finer hue-noise field.
    */
   static constexpr Params preset_params(size_t index) {
     static_assert(PRESET_IDS.size() == 2,
