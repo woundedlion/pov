@@ -784,11 +784,11 @@ public:
                     3>::evaluate(view, frame.ctx, frame.prepared);
               });
         } else {
-          Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](
-                                                         const Vector &view) {
-            return HyperLatticeDetail::SpecializedRenderPipeline<2>::evaluate(
-                view, frame.ctx, frame.prepared);
-          });
+          Scan::Shader::draw_cached<W, H, 1>(
+              canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
+                return HyperLatticeDetail::SpecializedRenderPipeline<
+                    2>::evaluate(view, frame.ctx, frame.prepared);
+              });
         }
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
