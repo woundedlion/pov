@@ -65,7 +65,10 @@ class PreCommitHook(unittest.TestCase):
             encoding="utf-8")
         for name in ["docs_images.py", "build_pins.py", "license_check.py"]:
             (tools / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
-        self.git("add", "README.md", "tools")
+        requirements = self.repo / "requirements"
+        requirements.mkdir()
+        shutil.copyfile(REPO / "requirements" / "ruff.txt", requirements / "ruff.txt")
+        self.git("add", "README.md", "tools", "requirements")
         self.git("commit", "--quiet", "-m", "base")
 
     def git(self, *args: str) -> subprocess.CompletedProcess[str]:
@@ -138,11 +141,30 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("node_modules is missing", done.stdout + done.stderr)
 
+    def test_shell_lint_reads_the_index(self):
+        if shutil.which("shellcheck") is None:
+            self.skipTest("shellcheck unavailable")
+        script = self.repo / "sample.sh"
+        script.write_text('#!/bin/sh\nprintf "%s" $1\n', encoding="utf-8", newline="\n")
+        self.git("add", "sample.sh")
+        script.write_text('#!/bin/sh\nprintf "%s" "$1"\n', encoding="utf-8", newline="\n")
+        done = self.run_hook()
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("SC2086", done.stdout + done.stderr)
+        self.git("add", "sample.sh")
+        script.write_text('#!/bin/sh\nprintf "%s" $1\n', encoding="utf-8", newline="\n")
+        done = self.run_hook()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+
     def test_an_unreadable_staged_blob_fails_the_lint(self):
         bin_dir = self.repo / "fakebin"
         bin_dir.mkdir()
         ruff = bin_dir / "ruff"
-        ruff.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        ruff.write_text(
+            "#!/bin/sh\n"
+            "case \"${1:-}\" in --version) printf 'ruff '; "
+            "sed -n 's/^ruff==\\([^ ]*\\).*/\\1/p' requirements/ruff.txt;; esac\n"
+            "exit 0\n", encoding="utf-8")
         ruff.chmod(0o755)
 
         source = self.repo / "sample.py"
