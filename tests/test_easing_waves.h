@@ -217,6 +217,9 @@ inline void test_sin_wave_amplitude_period_symmetry() {
  */
 inline void test_tri_wave_shape() {
   auto w = tri_wave(0.0f, 1.0f, 1.0f, 0.0f);
+  HS_EXPECT_NEAR(w(-0.25f), 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(w(-0.5f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(w(-1.75f), 0.5f, 1e-6f);
   HS_EXPECT_NEAR(w(0.0f), 0.0f, 1e-4f);  // trough at start
   HS_EXPECT_NEAR(w(0.25f), 0.5f, 1e-4f); // rising through mid
   HS_EXPECT_NEAR(w(0.5f), 1.0f, 1e-4f);  // peak
@@ -248,12 +251,14 @@ inline void test_square_wave_binary() {
   // Duty cycle: first half of the period is high, second half low.
   HS_EXPECT_NEAR(w(0.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(w(0.25f), 1.0f, 1e-5f);
+  HS_EXPECT_EQ(w(0.5f), 0.0f);
   HS_EXPECT_NEAR(w(0.6f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(w(0.9f), 0.0f, 1e-5f);
 
   auto quarter = square_wave(0.0f, 1.0f, 1.0f, 0.25f, 0.0f);
   HS_EXPECT_NEAR(quarter(0.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(quarter(0.2f), 1.0f, 1e-5f);
+  HS_EXPECT_EQ(quarter(0.25f), 0.0f);
   HS_EXPECT_NEAR(quarter(0.3f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(quarter(0.74f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(quarter(1.2f), 1.0f, 1e-5f);
