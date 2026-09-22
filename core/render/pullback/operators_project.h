@@ -84,6 +84,12 @@ struct MeridianProjectChainParams : ProjectChainParams {
           "Central Meridian", 0.0f, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC}});
 };
 static_assert(field_ids_unique<MeridianProjectChainParams>());
+static_assert(sizeof(MeridianProjectChainParams) ==
+                  ((sizeof(ProjectChainParams) + 4 +
+                    alignof(MeridianProjectChainParams) - 1) /
+                   alignof(MeridianProjectChainParams)) *
+                      alignof(MeridianProjectChainParams),
+              "appended parameters must not reuse base tail padding");
 static_assert(field_defaults_in_range<MeridianProjectChainParams>());
 
 /** @brief Shared shape of the projection operators: the walk state, the
@@ -169,6 +175,12 @@ struct GnomonicChainParams : ProjectChainParams {
               static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED)});
 };
 static_assert(field_ids_unique<GnomonicChainParams>());
+static_assert(sizeof(GnomonicChainParams) ==
+                  ((sizeof(ProjectChainParams) + 1 +
+                    alignof(GnomonicChainParams) - 1) /
+                   alignof(GnomonicChainParams)) *
+                      alignof(GnomonicChainParams),
+              "appended parameters must not reuse base tail padding");
 static_assert(field_defaults_in_range<GnomonicChainParams>());
 
 /** @brief SPHERE→PLANE crossing: the gnomonic projection under a hemisphere
@@ -244,6 +256,11 @@ struct BonneChainParams : MeridianProjectChainParams {
                                       BONNE_HEMISPHERE_IDS, 0});
 };
 static_assert(field_ids_unique<BonneChainParams>());
+static_assert(sizeof(BonneChainParams) == ((sizeof(MeridianProjectChainParams) +
+                                            1 + alignof(BonneChainParams) - 1) /
+                                           alignof(BonneChainParams)) *
+                                              alignof(BonneChainParams),
+              "appended parameters must not reuse base tail padding");
 static_assert(field_defaults_in_range<BonneChainParams>());
 
 /** @brief SPHERE→PLANE crossing: the Bonne projection under a hemisphere
