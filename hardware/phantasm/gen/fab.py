@@ -279,7 +279,10 @@ def read_manifest(path):
         if not match:
             raise PackageVerificationError(
                 f"{path}: malformed manifest line: {line!r}")
-        entries[match.group(2)] = match.group(1)
+        name = match.group(2)
+        if name in entries:
+            raise PackageVerificationError(f"{path}: duplicate manifest entry: {name}")
+        entries[name] = match.group(1)
     return entries
 
 
