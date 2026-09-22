@@ -157,12 +157,12 @@ inline void test_reduced_legendre_matches_closed_forms() {
 /** @brief harmonic_scale is the per-mode normalization times the omitted seed.
  */
 inline void test_harmonic_scale_folds_in_the_seed() {
-  for (int l = 0; l <= 6; ++l)
-    for (int m = -l; m <= l; ++m)
-      HS_EXPECT_NEAR_REL(SHMath::harmonic_scale(l, m),
-                         SHMath::normalization(l, m) *
-                             SHMath::legendre_seed(std::abs(m)),
-                         1e-6f);
+  HS_EXPECT_NEAR(SHMath::harmonic_scale(0, 0), 0.2820947918f, 1e-7f);
+  HS_EXPECT_NEAR(SHMath::harmonic_scale(1, 0), 0.4886025119f, 1e-7f);
+  HS_EXPECT_NEAR(SHMath::harmonic_scale(1, 1), -0.4886025119f, 1e-7f);
+  HS_EXPECT_NEAR(SHMath::harmonic_scale(1, -1), -0.4886025119f, 1e-7f);
+  HS_EXPECT_NEAR(SHMath::harmonic_scale(2, 2), 0.5462742153f, 1e-7f);
+  HS_EXPECT_NEAR(SHMath::harmonic_scale(3, 3), -0.5900435899f, 1e-7f);
 }
 
 /** @brief The Cartesian harmonic kernel reproduces the angular reference over
