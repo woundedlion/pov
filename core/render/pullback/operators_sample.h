@@ -45,6 +45,7 @@ struct GridSampleParams : Source::GridSourceParams, SampleCrossingParams {
   static constexpr auto TOPOLOGY = sample_crossing_topology<GridSampleParams>();
 };
 static_assert(field_ids_unique<GridSampleParams>());
+static_assert(field_defaults_in_range<GridSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
@@ -80,6 +81,7 @@ struct TwinWaveSampleParams : Source::TwinWaveSourceParams,
       sample_crossing_topology<TwinWaveSampleParams>();
 };
 static_assert(field_ids_unique<TwinWaveSampleParams>());
+static_assert(field_defaults_in_range<TwinWaveSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the two-wave interference source. */
 struct SampleTwinWave : SourceClockModel {
@@ -121,6 +123,7 @@ struct RingsSampleParams : SampleCrossingParams {
       sample_crossing_topology<RingsSampleParams>();
 };
 static_assert(field_ids_unique<RingsSampleParams>());
+static_assert(field_defaults_in_range<RingsSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the expanding concentric ring source. */
 struct SampleRings : SourceClockModel {
@@ -191,6 +194,7 @@ struct SpiralSampleParams : Source::SpiralSourceParams, SampleCrossingParams {
       sample_crossing_topology<SpiralSampleParams>();
 };
 static_assert(field_ids_unique<SpiralSampleParams>());
+static_assert(field_defaults_in_range<SpiralSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the rotating spiral source. */
 struct SampleSpiral : SourceClockModel {
@@ -221,6 +225,7 @@ struct LatticeSampleParams : Source::LatticeSourceParams, SampleCrossingParams {
       sample_crossing_topology<LatticeSampleParams>();
 };
 static_assert(field_ids_unique<LatticeSampleParams>());
+static_assert(field_defaults_in_range<LatticeSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the per-cell primitive lattice source. */
 struct SampleLattice : StatelessModel {
@@ -253,6 +258,7 @@ struct FractalSampleParams : Source::FractalSourceParams, SampleCrossingParams {
       sample_crossing_topology<FractalSampleParams>();
 };
 static_assert(field_ids_unique<FractalSampleParams>());
+static_assert(field_defaults_in_range<FractalSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the animated quadratic escape-time fractal. */
 struct SampleFractal : SourceClockModel {
@@ -295,6 +301,7 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
               static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)});
 };
 static_assert(field_ids_unique<TessellationSampleParams>());
+static_assert(field_defaults_in_range<TessellationSampleParams>());
 static_assert(sample_crossing_defaults_match<TessellationSampleParams>());
 
 /** @brief PLANE→FIELD crossing: rotating polygon edge tessellations. */
@@ -343,6 +350,7 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
               static_cast<uint8_t>(::NoiseBasis::SIMPLEX)});
 };
 static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
+static_assert(field_defaults_in_range<ProjectedNoiseSampleParams>());
 static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 
 /** @brief Parameter family of sample.spherical-noise.v3.

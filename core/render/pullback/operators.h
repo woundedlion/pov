@@ -47,6 +47,7 @@ struct RotateChainParams {
   };
 };
 static_assert(field_ids_unique<RotateChainParams>());
+static_assert(field_defaults_in_range<RotateChainParams>());
 
 /** @brief SPHERE endomorphism: the wandering, spinning camera. */
 struct Rotate : ValueStateModel<SpatialWalkState> {
@@ -169,6 +170,7 @@ struct LegacyGeneratedPaletteParams {
   };
 };
 static_assert(field_ids_unique<LegacyGeneratedPaletteParams>());
+static_assert(field_defaults_in_range<LegacyGeneratedPaletteParams>());
 
 /** @brief Parameter family of colorize.generated-palette.v3.
     @details The mapping topology enum8 supersedes the base family's
@@ -196,6 +198,7 @@ struct GeneratedPaletteParams : Color::ColorParams {
   };
 };
 static_assert(field_ids_unique<GeneratedPaletteParams>());
+static_assert(field_defaults_in_range<GeneratedPaletteParams>());
 static_assert(sizeof(GeneratedPaletteParams) == sizeof(Color::ColorParams) + 4,
               "generated palette params: the appended enum8s must stay clear "
               "of the base's tail padding, which MSVC and Itanium lay out "

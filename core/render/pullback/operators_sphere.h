@@ -42,6 +42,7 @@ struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
   };
 };
 static_assert(field_ids_unique<CurlDisplaceParams>());
+static_assert(field_defaults_in_range<CurlDisplaceParams>());
 
 /** @brief The displacement operators' prepared block: the owned noise field
     and this frame's loop point. */
@@ -93,6 +94,7 @@ struct DirectDisplaceParams : Surface::DirectSurfaceParams {
   };
 };
 static_assert(field_ids_unique<DirectDisplaceParams>());
+static_assert(field_defaults_in_range<DirectDisplaceParams>());
 
 /** @brief The direct displacement's prepared block: noise field, loop point
     and steering frame. */
@@ -240,6 +242,7 @@ struct MobiusChainParams {
   };
 };
 static_assert(field_ids_unique<MobiusChainParams>());
+static_assert(field_defaults_in_range<MobiusChainParams>());
 
 /** @brief SPHERE endomorphism: the Mobius map over the flat coefficients. */
 struct LensMobius : StatelessModel {
@@ -294,6 +297,7 @@ struct KaleidoscopeChainParams {
   };
 };
 static_assert(field_ids_unique<KaleidoscopeChainParams>());
+static_assert(field_defaults_in_range<KaleidoscopeChainParams>());
 
 /** @brief The symmetry switch over the shared kaleidoscope lens kernels. */
 inline Vector kaleidoscope_lens(const Vector &input, uint8_t symmetry) {

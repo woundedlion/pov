@@ -21,6 +21,7 @@ struct NoLensParams {
   static constexpr std::array<Field<NoLensParams>, 0> FIELDS{};
 };
 static_assert(field_ids_unique<NoLensParams>());
+static_assert(field_defaults_in_range<NoLensParams>());
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
   static constexpr float COEFFICIENT_LIMIT = 4.0f;

@@ -51,6 +51,7 @@ struct NoValueParams {
   static constexpr std::array<Field<NoValueParams>, 0> FIELDS{};
 };
 static_assert(field_ids_unique<NoValueParams>());
+static_assert(field_defaults_in_range<NoValueParams>());
 
 /**
  * @brief Value parameters for the iso band
@@ -69,6 +70,7 @@ struct IsoValueParams {
   };
 };
 static_assert(field_ids_unique<IsoValueParams>());
+static_assert(field_defaults_in_range<IsoValueParams>());
 
 struct Ridge : ApproximationDefaults, TransferRole {
   template <typename FrameState>
@@ -193,6 +195,7 @@ struct EdgeValueParams {
   };
 };
 static_assert(field_ids_unique<EdgeValueParams>());
+static_assert(field_defaults_in_range<EdgeValueParams>());
 
 } // namespace ProjectionCoverage
 
@@ -213,6 +216,7 @@ struct CutoutValueParams {
   };
 };
 static_assert(field_ids_unique<CutoutValueParams>());
+static_assert(field_defaults_in_range<CutoutValueParams>());
 
 /** @brief Shared cutout kernel: a smooth step through @p threshold with a
     half-width of @p width. */
