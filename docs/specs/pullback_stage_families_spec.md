@@ -685,10 +685,11 @@ Two rules keep it that flat:
 The only conditional assembly in the codebase is ComposedEffect's
 derivation, which already computes per-family policies with
 `conditional_t` and now yields `void` where a family is absent, with
-placement a computed value. The sphere run keeps both displacement
-slots — today's derivation places curl displacement *before* the lens
-and `DirectNoise` *after* it (`DIRECT_SURFACE`), and capture equivalence
-requires preserving that:
+placement selected by the author's `SurfacePlacement` template argument.
+The sphere run keeps both displacement slots; either curl or direct
+displacement may run before or after the lens. `ChromaticLichen` places
+curl displacement after the lens. The following sketch illustrates one
+choice of placement; it is not a rule derived from the noise kind:
 
 ```cpp
 using PreDisplaceStage = std::conditional_t<
