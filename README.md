@@ -814,7 +814,7 @@ The filter pipeline operates across three stage domains. Each filter declares it
 
 **Pixel → Canvas**: The base `Pipeline<W,H>` (the identity terminal) rounds the coordinate to the nearest pixel, wraps the column into `[0, W)`, and composites the final color into `canvas(x, y)` with straight-alpha (`src * α + dst * (1-α)`) in linear light.
 
-**World filters** operate on the 3D vector before projection — they can rotate, replicate, or warp geometry in spherical coordinates without loss. **Screen filters** operate after projection but before integer snapping — they distribute sub-pixel energy for anti-aliasing and blur. **Pixel filters** operate per-frame on the full canvas — feedback and chromatic aberration read from the previous frame buffer.
+**World filters** operate on the 3D vector before projection — they can rotate, replicate, or warp geometry in spherical coordinates without loss. **Screen filters** operate after projection but before integer snapping — they distribute sub-pixel energy for anti-aliasing and blur. **Pixel filters** follow screen stages and receive the same fractional coordinates. `ChromaticShift` offsets color-channel taps; `Feedback` maintains framebuffer history and composites it when flushed.
 
 ### The Canvas
 
