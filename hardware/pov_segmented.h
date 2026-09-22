@@ -366,8 +366,6 @@ public:
     const uint32_t commit_budget_cycles =
         cfg.col_cycles(static_cast<int32_t>(cfg.commit_revs) * CANVAS_W);
     const uint32_t cycles_per_us = F_CPU_ACTUAL / 1000000u;
-    // ARM_DWT_CYCCNT, not micros(): this stamp is taken every spin and
-    // micros() brackets its read with __disable_irq().
     uint32_t poll_prev_cycles = ARM_DWT_CYCCNT;
 
     for (;;) {
