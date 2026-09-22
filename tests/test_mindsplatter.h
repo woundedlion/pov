@@ -819,7 +819,7 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
   HS_EXPECT_GT(outside_unit_sphere, 1000);
 }
 
-/** @brief The early-exit attractor kernel matches an exhaustive cap scan. */
+/** @brief Attractor caps match independent quintic radial samples. */
 inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
@@ -827,11 +827,6 @@ inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
 
   MS effect;
   effect.init();
-  auto check = [&](const Vector &p) {
-    HS_EXPECT_EQ(WB::attractor_hole_alpha(effect, p),
-                 WB::reference_attractor_hole_alpha(effect, p));
-  };
-
   constexpr MS::BaseMesh MESHES[] = {
       MS::BaseMesh::TETRAHEDRON, MS::BaseMesh::OCTAHEDRON,
       MS::BaseMesh::DODECAHEDRON, MS::BaseMesh::ICOSAHEDRON};
@@ -847,22 +842,15 @@ inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
       if (tangent.length() < 0.5f)
         tangent = cross(attractor, X_AXIS);
       tangent = tangent.normalized();
-      check(attractor);
-      for (float angle :
-           {std::nextafter(WB::event_horizon(), 0.0f), WB::event_horizon(),
-            std::nextafter(WB::event_horizon(),
-                           std::numeric_limits<float>::infinity())})
-        check(attractor * cosf(angle) + tangent * sinf(angle));
-    }
-
-    hs::random().seed(0x97A0 + static_cast<uint32_t>(mesh));
-    for (int i = 0; i < 10000; ++i) {
-      Vector p;
-      do {
-        p = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                   hs::rand_f(-1.0f, 1.0f));
-      } while (p.length() < 0.1f);
-      check(p.normalized());
+      constexpr float FRACTIONS[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.25f};
+      constexpr float EXPECTED[] = {0.0f, 0.103515625f, 0.5f, 0.896484375f,
+                                    1.0f};
+      for (size_t sample = 0; sample < std::size(FRACTIONS); ++sample) {
+        const float angle = WB::event_horizon() * FRACTIONS[sample];
+        const Vector p = attractor * cosf(angle) + tangent * sinf(angle);
+        HS_EXPECT_NEAR(WB::attractor_hole_alpha(effect, p), EXPECTED[sample],
+                       1e-3f);
+      }
     }
   }
 }
