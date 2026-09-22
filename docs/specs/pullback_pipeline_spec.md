@@ -192,7 +192,6 @@ defined in `core/color/color.h`. See §5.2.
 it needs (`contract.h` includes `engine/memory.h`). It shall not include an
 `effects/` or `workbench/` header, refer to `ShaderWorkbench`, or require the
 effect registry.
-No `core/` header may include `ShaderWorkbench.h` as a consequence of this work.
 
 Existing pure mathematical kernels remain in their natural owners:
 
