@@ -351,10 +351,10 @@ static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 using SphericalNoiseSampleParams = Source::NoiseSourceParams;
 
 /** @brief The noise sources' prepared block: the owned noise field plus this
-    frame's time coordinate. */
+    frame's loop offset. */
 struct PreparedNoiseSource {
   const FastNoiseLite *noise;
-  float time;
+  Vector loop_offset;
 };
 
 /** @brief PLANE→FIELD crossing: the projected-plane noise contour source. */
@@ -374,14 +374,14 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
                           const State &state) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
     check_noise_basis(params.basis);
-    return {&state.noise, state.phase};
+    return {&state.noise, noise_projected_loop_offset(state.phase)};
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::noise_contour(
         *prepared.noise, static_cast<::NoiseBasis>(params.basis),
         noise_projected_coordinate(input.coords, params.noise_scale,
-                                   prepared.time),
+                                   prepared.loop_offset),
         params.noise_contrast);
     return finish_sample(input, raw, params, ctx);
   }
@@ -402,13 +402,14 @@ struct SampleSphericalNoise : ValueStateModel<NoisePhaseState> {
   }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {
-    return {&state.noise, state.phase};
+    return {&state.noise, noise_sphere_loop_offset(state.phase)};
   }
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::noise_contour(
         *prepared.noise, ::NoiseBasis::SIMPLEX,
-        noise_sphere_coordinate(input.dir, params.noise_scale, prepared.time),
+        noise_sphere_coordinate(input.dir, params.noise_scale,
+                                prepared.loop_offset),
         params.noise_contrast);
     return Kernel::sample(input, raw);
   }
