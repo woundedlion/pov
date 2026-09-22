@@ -36,8 +36,10 @@ capture and deterministic WASM verification work from revision 5 remains
 endorsed as verification infrastructure and is retained here only to the
 extent required to prove this migration.
 
-This document is the sole surviving shader-family spec: the earlier
-inverse-sampling, ShaderWorkbench and workbench specs it amended have been retired,
+This document records the pullback pipeline migration, alongside
+`docs/specs/pullback_stage_families_spec.md` and
+`docs/specs/shader_workbench_chain_spec.md`. The earlier inverse-sampling,
+ShaderWorkbench and workbench specs it amended have been retired,
 and their location and abstraction-boundary decisions are superseded by
 Section 15.
 
