@@ -569,8 +569,8 @@ inline void transform_in_place(MeshState &mesh,
 // SCRATCH ARENA CONTRACT (load-bearing): the HalfEdgeMesh always builds in
 // `temp` (kis builds none); the per-orbit index/flag buffers are split to
 // balance the asymmetric arena pair:
-//   - dual / ambo / truncate / expand / medial -> index buffers in `target`
-//   - chamfer / snub                           -> index buffers in `temp`
+//   - dual / ambo / truncate / medial -> index buffers in `target`
+//   - expand / chamfer / snub         -> index buffers in `temp`
 //   - kis                                      -> no extra buffers
 //   - relax -> movements and orbit_start, both per-vertex, in `temp`
 //   - relax_baked -> takes no `temp` arena at all
