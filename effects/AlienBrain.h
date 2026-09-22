@@ -43,7 +43,7 @@ public:
 
   // Hot section: the out-of-line pipeline body compiles for speed.
   static HS_HOT_FLASH_MEMBER Color4
-  shade(const Vector &view, const typename AlienBrain::Frame &frame) {
+  shade(const math::Vector &view, const typename AlienBrain::Frame &frame) {
     return AlienBrain::RenderPipeline::shade(view, frame);
   }
   static constexpr Params initial_params() { return make_params(0); }

@@ -42,12 +42,12 @@ inline constexpr size_t SPATIAL_BUF_SPLIT = SPATIAL_BUF_BYTES / 2;
  */
 inline void test_kdtree_empty_input() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[1] = {Vector(0, 0, 0)};
-  std::span<Vector> empty(pts, 0);
+  math::Vector pts[1] = {math::Vector(0, 0, 0)};
+  std::span<math::Vector> empty(pts, 0);
   KDTree tree(arena, empty);
   HS_EXPECT_TRUE(tree.empty());
 
-  auto r = tree.nearest(Vector(0, 0, 0), 1);
+  auto r = tree.nearest(math::Vector(0, 0, 0), 1);
   HS_EXPECT_TRUE(r.is_empty());
 }
 
@@ -57,14 +57,14 @@ inline void test_kdtree_empty_input() {
  */
 inline void test_kdtree_single_point() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[1] = {Vector(3, 4, 5)};
-  std::span<Vector> sp(pts, 1);
+  math::Vector pts[1] = {math::Vector(3, 4, 5)};
+  std::span<math::Vector> sp(pts, 1);
   KDTree tree(arena, sp);
   HS_EXPECT_FALSE(tree.empty());
 
-  auto r = tree.nearest(Vector(0, 0, 0), 1);
+  auto r = tree.nearest(math::Vector(0, 0, 0), 1);
   HS_EXPECT_SIZE_OR_RETURN(r, 1);
-  HS_EXPECT_VEC(r[0].point, Vector(3, 4, 5), 1e-6f);
+  HS_EXPECT_VEC(r[0].point, math::Vector(3, 4, 5), 1e-6f);
   HS_EXPECT_EQ(r[0].original_index, (uint16_t)0);
 }
 
@@ -75,30 +75,30 @@ inline void test_kdtree_single_point() {
  */
 inline void test_kdtree_nearest_known_set() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[6] = {
-      Vector(0, 0, 0),  // 0
-      Vector(10, 0, 0), // 1
-      Vector(0, 10, 0), // 2
-      Vector(0, 0, 10), // 3
-      Vector(5, 5, 5),  // 4
-      Vector(-3, 2, 1), // 5
+  math::Vector pts[6] = {
+      math::Vector(0, 0, 0),  // 0
+      math::Vector(10, 0, 0), // 1
+      math::Vector(0, 10, 0), // 2
+      math::Vector(0, 0, 10), // 3
+      math::Vector(5, 5, 5),  // 4
+      math::Vector(-3, 2, 1), // 5
   };
-  std::span<Vector> sp(pts, 6);
+  std::span<math::Vector> sp(pts, 6);
   KDTree tree(arena, sp);
 
-  auto r1 = tree.nearest(Vector(0.1f, 0.1f, 0.1f), 1);
+  auto r1 = tree.nearest(math::Vector(0.1f, 0.1f, 0.1f), 1);
   HS_EXPECT_SIZE_OR_RETURN(r1, 1);
-  HS_EXPECT_VEC(r1[0].point, Vector(0, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(r1[0].point, math::Vector(0, 0, 0), 1e-6f);
   HS_EXPECT_EQ(r1[0].original_index, (uint16_t)0);
 
-  auto r2 = tree.nearest(Vector(10.1f, 0, 0), 1);
+  auto r2 = tree.nearest(math::Vector(10.1f, 0, 0), 1);
   HS_EXPECT_SIZE_OR_RETURN(r2, 1);
-  HS_EXPECT_VEC(r2[0].point, Vector(10, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(r2[0].point, math::Vector(10, 0, 0), 1e-6f);
   HS_EXPECT_EQ(r2[0].original_index, (uint16_t)1);
 
-  auto r3 = tree.nearest(Vector(5, 5, 5), 1);
+  auto r3 = tree.nearest(math::Vector(5, 5, 5), 1);
   HS_EXPECT_SIZE_OR_RETURN(r3, 1);
-  HS_EXPECT_VEC(r3[0].point, Vector(5, 5, 5), 1e-6f);
+  HS_EXPECT_VEC(r3[0].point, math::Vector(5, 5, 5), 1e-6f);
   HS_EXPECT_EQ(r3[0].original_index, (uint16_t)4);
 }
 
@@ -108,30 +108,30 @@ inline void test_kdtree_nearest_known_set() {
  */
 inline void test_kdtree_k_nearest_sorted() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[5] = {
-      Vector(0, 0, 0), // 0  d²=0
-      Vector(1, 0, 0), // 1  d²=1
-      Vector(2, 0, 0), // 2  d²=4
-      Vector(3, 0, 0), // 3  d²=9
-      Vector(4, 0, 0), // 4  d²=16
+  math::Vector pts[5] = {
+      math::Vector(0, 0, 0), // 0  d²=0
+      math::Vector(1, 0, 0), // 1  d²=1
+      math::Vector(2, 0, 0), // 2  d²=4
+      math::Vector(3, 0, 0), // 3  d²=9
+      math::Vector(4, 0, 0), // 4  d²=16
   };
-  std::span<Vector> sp(pts, 5);
+  std::span<math::Vector> sp(pts, 5);
   KDTree tree(arena, sp);
 
-  auto r = tree.nearest(Vector(0, 0, 0), 3);
+  auto r = tree.nearest(math::Vector(0, 0, 0), 3);
   HS_EXPECT_SIZE_OR_RETURN(r, 3);
-  HS_EXPECT_VEC(r[0].point, Vector(0, 0, 0), 1e-6f);
-  HS_EXPECT_VEC(r[1].point, Vector(1, 0, 0), 1e-6f);
-  HS_EXPECT_VEC(r[2].point, Vector(2, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(r[0].point, math::Vector(0, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(r[1].point, math::Vector(1, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(r[2].point, math::Vector(2, 0, 0), 1e-6f);
 }
 
 inline void test_kdtree_ties_prefer_source_index() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[] = {Vector(1, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 0),
-                  Vector(0, -1, 0)};
-  KDTree tree(arena, std::span<Vector>(pts));
+  math::Vector pts[] = {math::Vector(1, 0, 0), math::Vector(-1, 0, 0),
+                        math::Vector(0, 1, 0), math::Vector(0, -1, 0)};
+  KDTree tree(arena, std::span<math::Vector>(pts));
 
-  const auto result = tree.nearest(Vector(0, 0, 0), 2);
+  const auto result = tree.nearest(math::Vector(0, 0, 0), 2);
   HS_EXPECT_SIZE_OR_RETURN(result, 2);
   HS_EXPECT_EQ(result[0].original_index, 0);
   HS_EXPECT_EQ(result[1].original_index, 1);
@@ -143,11 +143,12 @@ inline void test_kdtree_ties_prefer_source_index() {
  */
 inline void test_kdtree_k_caps_at_size() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[3] = {Vector(0, 0, 0), Vector(1, 0, 0), Vector(2, 0, 0)};
-  std::span<Vector> sp(pts, 3);
+  math::Vector pts[3] = {math::Vector(0, 0, 0), math::Vector(1, 0, 0),
+                         math::Vector(2, 0, 0)};
+  std::span<math::Vector> sp(pts, 3);
   KDTree tree(arena, sp);
 
-  auto r = tree.nearest(Vector(0, 0, 0), 5);
+  auto r = tree.nearest(math::Vector(0, 0, 0), 5);
   HS_EXPECT_EQ(r.size(), (size_t)3);
 }
 
@@ -158,7 +159,7 @@ inline void test_kdtree_k_caps_at_size() {
 inline void test_kdtree_default_unbuilt() {
   KDTree tree;
   HS_EXPECT_TRUE(tree.empty());
-  auto r = tree.nearest(Vector(1, 2, 3), 1);
+  auto r = tree.nearest(math::Vector(1, 2, 3), 1);
   HS_EXPECT_TRUE(r.is_empty());
 }
 
@@ -170,22 +171,22 @@ inline void test_kdtree_default_unbuilt() {
 inline void test_kdtree_matches_brute_force() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   constexpr int N = 16;
-  Vector pts[N];
+  math::Vector pts[N];
   for (int i = 0; i < N; ++i) {
     float fi = static_cast<float>(i);
-    pts[i] = Vector(std::sin(fi) * 5.0f, std::cos(fi * 1.3f) * 4.0f,
-                    std::sin(fi * 0.7f) * 3.0f);
+    pts[i] = math::Vector(std::sin(fi) * 5.0f, std::cos(fi * 1.3f) * 4.0f,
+                          std::sin(fi * 0.7f) * 3.0f);
   }
 
-  std::span<Vector> sp(pts, N);
+  std::span<math::Vector> sp(pts, N);
   KDTree tree(arena, sp);
 
-  const Vector query(0.5f, -0.25f, 1.0f);
+  const math::Vector query(0.5f, -0.25f, 1.0f);
 
   int best_i = -1;
   float best_d2 = FLT_MAX;
   for (int i = 0; i < N; ++i) {
-    float d2 = distance_squared(pts[i], query);
+    float d2 = math::distance_squared(pts[i], query);
     if (d2 < best_d2) {
       best_d2 = d2;
       best_i = i;
@@ -210,28 +211,29 @@ inline void test_kdtree_matches_brute_force() {
  */
 inline void test_kdtree_duplicates_and_max_k() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
-  Vector pts[8] = {
-      Vector(1, 1, 1),    // 0  coincident cluster (d²=0 from query)
-      Vector(1, 1, 1),    // 1  coincident
-      Vector(1, 1, 1),    // 2  coincident
-      Vector(2, 0, 0),    // 3  d²=3
-      Vector(0, 2, 0),    // 4  d²=3  (boundary tie: only two of 3/4/5 fit k=5)
-      Vector(0, 0, 2),    // 5  d²=3
-      Vector(-1, -1, -1), // 6  d²=12
-      Vector(5, 5, 5),    // 7  d²=48
+  math::Vector pts[8] = {
+      math::Vector(1, 1, 1), // 0  coincident cluster (d²=0 from query)
+      math::Vector(1, 1, 1), // 1  coincident
+      math::Vector(1, 1, 1), // 2  coincident
+      math::Vector(2, 0, 0), // 3  d²=3
+      math::Vector(0, 2,
+                   0), // 4  d²=3  (boundary tie: only two of 3/4/5 fit k=5)
+      math::Vector(0, 0, 2),    // 5  d²=3
+      math::Vector(-1, -1, -1), // 6  d²=12
+      math::Vector(5, 5, 5),    // 7  d²=48
   };
-  std::span<Vector> sp(pts, 8);
+  std::span<math::Vector> sp(pts, 8);
   KDTree tree(arena, sp);
 
-  constexpr int K = KDTree::MAX_K; // 5
-  const Vector query(1, 1, 1);     // lands on the coincident cluster
+  constexpr int K = KDTree::MAX_K;   // 5
+  const math::Vector query(1, 1, 1); // lands on the coincident cluster
 
   auto r = tree.nearest(query, K);
   HS_EXPECT_SIZE_OR_RETURN(r, K);
 
   float all_d2[8];
   for (int i = 0; i < 8; ++i)
-    all_d2[i] = distance_squared(pts[i], query);
+    all_d2[i] = math::distance_squared(pts[i], query);
   std::sort(all_d2, all_d2 + 8);
 
   // (distance, source index) is a total order, so index 5 loses the d²=3
@@ -247,8 +249,8 @@ inline void test_kdtree_duplicates_and_max_k() {
     HS_EXPECT_LT(oi, (size_t)8);
     if (oi < 8)
       HS_EXPECT_VEC(r[i].point, pts[oi], 1e-6f);
-    HS_EXPECT_TRUE(std::fabs(distance_squared(r[i].point, query) - r[i].d_sq) <
-                   1e-5f);
+    HS_EXPECT_TRUE(std::fabs(math::distance_squared(r[i].point, query) -
+                             r[i].d_sq) < 1e-5f);
   }
 
   HS_EXPECT_TRUE(std::fabs(r[0].d_sq) < 1e-6f);
@@ -270,35 +272,35 @@ inline void test_kdtree_duplicates_and_max_k() {
 inline void test_kdtree_k_nearest_brute_force_random() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   constexpr int N = 100;
-  Vector pts[N];
+  math::Vector pts[N];
 
   hs::Pcg32 rng(20240611u);
   for (int i = 0; i < N; ++i) {
     const float x = rand_uniform(rng, -10.0f, 10.0f);
     const float y = rand_uniform(rng, -10.0f, 10.0f);
     const float z = rand_uniform(rng, -10.0f, 10.0f);
-    pts[i] = Vector(x, y, z);
+    pts[i] = math::Vector(x, y, z);
   }
 
-  std::span<Vector> sp(pts, N);
+  std::span<math::Vector> sp(pts, N);
   KDTree tree(arena, sp);
 
-  const Vector queries[] = {
-      Vector(0, 0, 0),
-      Vector(3.5f, -7.0f, 2.0f),
-      Vector(-8.0f, 8.0f, -1.5f),
-      Vector(9.9f, 9.9f, 9.9f),
-      Vector(-2.2f, 0.3f, 5.1f),
+  const math::Vector queries[] = {
+      math::Vector(0, 0, 0),
+      math::Vector(3.5f, -7.0f, 2.0f),
+      math::Vector(-8.0f, 8.0f, -1.5f),
+      math::Vector(9.9f, 9.9f, 9.9f),
+      math::Vector(-2.2f, 0.3f, 5.1f),
   };
   constexpr int K = KDTree::MAX_K;
 
-  for (const Vector &q : queries) {
+  for (const math::Vector &q : queries) {
     auto r = tree.nearest(q, K);
     HS_EXPECT_SIZE_OR_RETURN(r, K);
 
     float all_d2[N];
     for (int i = 0; i < N; ++i)
-      all_d2[i] = distance_squared(pts[i], q);
+      all_d2[i] = math::distance_squared(pts[i], q);
     std::sort(all_d2, all_d2 + N);
 
     float prev = -1.0f;
@@ -310,8 +312,8 @@ inline void test_kdtree_k_nearest_brute_force_random() {
       HS_EXPECT_LT(oi, (size_t)N);
       if (oi < (size_t)N)
         HS_EXPECT_VEC(r[i].point, pts[oi], 1e-6f);
-      HS_EXPECT_TRUE(std::fabs(distance_squared(r[i].point, q) - r[i].d_sq) <
-                     1e-4f);
+      HS_EXPECT_TRUE(
+          std::fabs(math::distance_squared(r[i].point, q) - r[i].d_sq) < 1e-4f);
     }
   }
 }
@@ -345,9 +347,9 @@ inline void test_meshstate_clone_deep_copies() {
 
   MeshState src;
   src.vertices.bind(src_arena, 3);
-  src.vertices.push_back(Vector(1, 0, 0));
-  src.vertices.push_back(Vector(0, 1, 0));
-  src.vertices.push_back(Vector(0, 0, 1));
+  src.vertices.push_back(math::Vector(1, 0, 0));
+  src.vertices.push_back(math::Vector(0, 1, 0));
+  src.vertices.push_back(math::Vector(0, 0, 1));
 
   src.face_counts.bind(src_arena, 1);
   src.face_counts.push_back(3);
@@ -364,8 +366,8 @@ inline void test_meshstate_clone_deep_copies() {
   MeshState::clone(src, dst, dst_arena);
 
   HS_EXPECT_EQ(dst.num_vertices(), (size_t)3);
-  HS_EXPECT_VEC(dst.vertices[0], Vector(1, 0, 0), 1e-6f);
-  HS_EXPECT_VEC(dst.vertices[2], Vector(0, 0, 1), 1e-6f);
+  HS_EXPECT_VEC(dst.vertices[0], math::Vector(1, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(dst.vertices[2], math::Vector(0, 0, 1), 1e-6f);
 
   HS_EXPECT_EQ(dst.num_faces(), (size_t)1);
   HS_EXPECT_EQ(dst.face_counts[0], (uint8_t)3);
@@ -389,7 +391,7 @@ inline void test_meshstate_clear_resets_views() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   MeshState m;
   m.vertices.bind(arena, 1);
-  m.vertices.push_back(Vector(1, 1, 1));
+  m.vertices.push_back(math::Vector(1, 1, 1));
   m.face_counts.bind(arena, 1);
   m.face_counts.push_back(1);
   HS_EXPECT_EQ(m.num_vertices(), (size_t)1);
@@ -409,14 +411,14 @@ inline void test_meshstate_move_invalidates_source() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   MeshState src;
   src.vertices.bind(arena, 2);
-  src.vertices.push_back(Vector(1, 2, 3));
-  src.vertices.push_back(Vector(4, 5, 6));
+  src.vertices.push_back(math::Vector(1, 2, 3));
+  src.vertices.push_back(math::Vector(4, 5, 6));
 
   MeshState dst(std::move(src));
   HS_EXPECT_FALSE(src.vertices.is_bound());
   HS_EXPECT_EQ(src.num_vertices(), (size_t)0);
   HS_EXPECT_EQ(dst.num_vertices(), (size_t)2);
-  HS_EXPECT_VEC(dst.vertices[1], Vector(4, 5, 6), 1e-6f);
+  HS_EXPECT_VEC(dst.vertices[1], math::Vector(4, 5, 6), 1e-6f);
 }
 
 /**
@@ -455,7 +457,7 @@ inline void test_meshstate_set_borrowed_drops_owned() {
 
   MeshState m;
   m.vertices.bind(arena, 1);
-  m.vertices.push_back(Vector(1, 0, 0));
+  m.vertices.push_back(math::Vector(1, 0, 0));
   m.face_counts.bind(arena, 1);
   m.face_counts.push_back(3);
   m.faces.bind(arena, 3);

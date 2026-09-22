@@ -60,9 +60,9 @@ public:
    *         (and non-uniform angular speed); callers needing a unit direction
    *         must normalize.
    */
-  Vector get_point(float t) const {
+  math::Vector get_point(float t) const {
     if (points.is_empty())
-      return Vector(0, 0, 0);
+      return math::Vector(0, 0, 0);
     // Clamp: a negative t makes raw_index negative, and casting that to size_t
     // is UB (t > 1 is caught by the i >= size-1 guard below, t < 0 is not).
     t = hs::clamp(t, 0.0f, 1.0f);
@@ -71,8 +71,8 @@ public:
     float f = raw_index - i;
     if (i >= points.size() - 1)
       return points.back();
-    const Vector &p1 = points[i];
-    const Vector &p2 = points[i + 1];
+    const math::Vector &p1 = points[i];
+    const math::Vector &p2 = points[i + 1];
     return p1 * (1.0f - f) + p2 * f;
   }
 
@@ -83,14 +83,14 @@ public:
     // Clear in place rather than assigning a fresh buffer: a full
     // StaticCircularBuffer temporary (~12.3 KB) overflows the WASM 8 KB stack.
     if (points.size() > 1) {
-      Vector last = points.back();
+      math::Vector last = points.back();
       points.clear();
       points.push_back(last);
     }
   }
 
 private:
-  StaticCircularBuffer<Vector, RESOLUTION> points;
+  StaticCircularBuffer<math::Vector, RESOLUTION> points;
 };
 
 /**
@@ -116,7 +116,7 @@ struct ProceduralPath {
    * @param t Path parameter.
    * @return The point produced by the procedural function at t.
    */
-  Vector get_point(float t) const { return f(t); }
+  math::Vector get_point(float t) const { return f(t); }
 };
 
 namespace Animation {
@@ -173,7 +173,7 @@ public:
   // No ctor emptiness guard: P is generic, and a borrowed path may still be
   // filled after construction. step() traps on an origin sample instead.
   template <typename P>
-  Motion(Orientation<CAP> &orientation, const P &path_obj, int duration,
+  Motion(math::Orientation<CAP> &orientation, const P &path_obj, int duration,
          bool repeat = false, Space space = Space::World)
       : AnimationBase<Motion<W, CAP>>(duration, repeat),
         orientation(orientation),
@@ -188,20 +188,22 @@ public:
   // path must outlive the timeline — reject a temporary at compile time.
   template <typename P,
             typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
-  Motion(Orientation<CAP> &orientation, P &&path_obj, int duration,
+  Motion(math::Orientation<CAP> &orientation, P &&path_obj, int duration,
          bool repeat = false, Space space = Space::World) = delete;
 
   /**
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
    */
-  Orientation<CAP> &get_orientation() { return orientation.get(); }
+  math::Orientation<CAP> &get_orientation() { return orientation.get(); }
 
   /**
    * @brief Reads the associated Orientation.
    * @return Const reference to the bound Orientation.
    */
-  const Orientation<CAP> &get_orientation() const { return orientation.get(); }
+  const math::Orientation<CAP> &get_orientation() const {
+    return orientation.get();
+  }
 
   /**
    * @brief Collapses the bound Orientation's motion-blur history.
@@ -260,14 +262,14 @@ public:
     // function of the path parameter (see path_frame), so deltas telescope
     // drift-free.
     float t_prev = static_cast<float>(this->t - 1);
-    Vector current_v = path_fn(t_prev / this->duration);
+    math::Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
-    Vector target_v = path_fn(t_curr / this->duration);
-    HS_CHECK(dot(current_v, current_v) >= math::EPS_LEN_SQ &&
-                 dot(target_v, target_v) >= math::EPS_LEN_SQ,
+    math::Vector target_v = path_fn(t_curr / this->duration);
+    HS_CHECK(math::dot(current_v, current_v) >= math::EPS_LEN_SQ &&
+                 math::dot(target_v, target_v) >= math::EPS_LEN_SQ,
              "Motion: path sampled at the origin (empty or origin-crossing "
              "path)");
-    float total_angle = angle_between(current_v, target_v);
+    float total_angle = math::angle_between(current_v, target_v);
     int num_steps = rotation_substeps(total_angle, MAX_ANGLE);
 
     orientation.get().upsample(num_steps + 1);
@@ -281,8 +283,8 @@ public:
       prev_frame = path_frame(t_prev / this->duration);
       have_prev_frame = true;
     }
-    Quaternion base_inv = prev_frame.conjugate();
-    Quaternion frame = prev_frame;
+    math::Quaternion base_inv = prev_frame.conjugate();
+    math::Quaternion frame = prev_frame;
 
     for (int i = 1; i < len; ++i) {
       // i maps the sub-interval [t-1, t]: i=0 is t-1, i=len-1 is t.
@@ -291,7 +293,7 @@ public:
 
       // Relative delta from the baseline frame to this substep's frame: World
       // pre-multiplies, Local post-multiplies.
-      Quaternion current_q = orientation.get().at(i);
+      math::Quaternion current_q = orientation.get().at(i);
       if (space == Space::Local) {
         current_q = current_q * (base_inv * frame);
       } else {
@@ -313,40 +315,40 @@ public:
    * tangent it falls back to a backward difference, then to a deterministic
    * perpendicular of the point.
    */
-  Quaternion path_frame(float s) const {
-    Vector point = path_fn(s).normalized();
-    Vector ahead = path_fn(s + FRAME_TANGENT_H).normalized();
-    Vector tangent = ahead - point;
-    tangent = tangent - dot(tangent, point) * point;
-    Vector seed = least_parallel_axis(point);
-    Vector b1;
-    if (dot(tangent, tangent) < math::EPS_NORMALIZE_SQ) {
+  math::Quaternion path_frame(float s) const {
+    math::Vector point = path_fn(s).normalized();
+    math::Vector ahead = path_fn(s + FRAME_TANGENT_H).normalized();
+    math::Vector tangent = ahead - point;
+    tangent = tangent - math::dot(tangent, point) * point;
+    math::Vector seed = math::least_parallel_axis(point);
+    math::Vector b1;
+    if (math::dot(tangent, tangent) < math::EPS_NORMALIZE_SQ) {
       // Forward tangent degenerate (clamped endpoint): use the backward one.
-      Vector behind = path_fn(s - FRAME_TANGENT_H).normalized();
-      Vector back = point - behind;
-      back = back - dot(back, point) * point;
-      b1 = normalized_or(back, cross(seed, point).normalized());
+      math::Vector behind = path_fn(s - FRAME_TANGENT_H).normalized();
+      math::Vector back = point - behind;
+      back = back - math::dot(back, point) * point;
+      b1 = math::normalized_or(back, math::cross(seed, point).normalized());
     } else {
       b1 = tangent.normalized();
     }
-    Vector b2 = cross(point, b1);
-    return quaternion_from_basis(point, b1, b2);
+    math::Vector b2 = math::cross(point, b1);
+    return math::quaternion_from_basis(point, b1, b2);
   }
 
 private:
   static constexpr float MAX_ANGLE =
-      2 * PI_F /
+      2 * math::PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
   /** Forward step (in path-parameter space) used to finite-difference the
    * travel tangent in path_frame(). Fixed so the frame is a pure function of s. */
   static constexpr float FRAME_TANGENT_H = 1e-3f;
-  std::reference_wrapper<Orientation<CAP>>
-      orientation;               /**< Reference to the Orientation state. */
-  Fn<Vector(float), 16> path_fn; /**< Function to retrieve path points. */
-  Space space;                   /**< The coordinate space for rotation. */
-  Quaternion prev_frame;         /**< Path frame Motion last drove to; the
+  std::reference_wrapper<math::Orientation<CAP>>
+      orientation; /**< Reference to the Orientation state. */
+  Fn<math::Vector(float), 16> path_fn; /**< Function to retrieve path points. */
+  Space space;                  /**< The coordinate space for rotation. */
+  math::Quaternion prev_frame;  /**< Path frame Motion last drove to; the
                                       baseline carried across the repeat seam. */
-  bool have_prev_frame = false;  /**< Whether prev_frame has been seeded. */
+  bool have_prev_frame = false; /**< Whether prev_frame has been seeded. */
 };
 
 /**
@@ -368,8 +370,8 @@ public:
    */
   Rotation()
       : AnimationBase<Rotation<W, CAP>>(0, false), orientation(nullptr),
-        axis(X_AXIS), total_angle(0), easing_fn(ease_linear), last_angle(0),
-        space(Space::World) {}
+        axis(math::X_AXIS), total_angle(0), easing_fn(ease_linear),
+        last_angle(0), space(Space::World) {}
 
   /**
    * @brief Constructs a Rotation animation.
@@ -384,8 +386,8 @@ public:
    * @param repeat If true, the rotation repeats.
    * @param space The coordinate space for rotation ("World" or "Local").
    */
-  Rotation(Orientation<CAP> &orientation, const Vector &axis, float angle,
-           int duration, EasingFn easing_fn, bool repeat = false,
+  Rotation(math::Orientation<CAP> &orientation, const math::Vector &axis,
+           float angle, int duration, EasingFn easing_fn, bool repeat = false,
            Space space = Space::World)
       : AnimationBase<Rotation<W, CAP>>(duration, repeat),
         orientation(&orientation), axis(axis.normalized()), total_angle(angle),
@@ -398,13 +400,13 @@ public:
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
    */
-  Orientation<CAP> &get_orientation() { return *orientation; }
+  math::Orientation<CAP> &get_orientation() { return *orientation; }
 
   /**
    * @brief Reads the associated Orientation.
    * @return Const reference to the bound Orientation.
    */
-  const Orientation<CAP> &get_orientation() const { return *orientation; }
+  const math::Orientation<CAP> &get_orientation() const { return *orientation; }
 
   /**
    * @brief Collapses the bound Orientation's motion-blur history.
@@ -454,7 +456,8 @@ public:
 
     float step_angle = delta / (len - 1);
 
-    auto apply_rotation = [&](Quaternion &target, const Quaternion &source) {
+    auto apply_rotation = [&](math::Quaternion &target,
+                              const math::Quaternion &source) {
       if (space == Space::Local) {
         target = target * source;
       } else {
@@ -464,9 +467,9 @@ public:
 
     for (int i = 1; i < len; ++i) {
       float angle = step_angle * i;
-      Quaternion q = make_rotation(axis, angle);
+      math::Quaternion q = math::make_rotation(axis, angle);
 
-      Quaternion current_q = orientation->at(i);
+      math::Quaternion current_q = orientation->at(i);
       apply_rotation(current_q, q);
       orientation->set_at_normalized(i, current_q);
     }
@@ -482,8 +485,8 @@ public:
    * @param easing_fn The easing function to use.
    * @param space The coordinate space for rotation.
    */
-  static void animate(Canvas &canvas, Orientation<CAP> &orientation,
-                      const Vector &axis, float angle, EasingFn easing_fn,
+  static void animate(Canvas &canvas, math::Orientation<CAP> &orientation,
+                      const math::Vector &axis, float angle, EasingFn easing_fn,
                       Space space = Space::World) {
     Rotation<W, CAP> r(orientation, axis, angle, 1, easing_fn, false, space);
     r.step(canvas);
@@ -491,15 +494,15 @@ public:
 
 private:
   static constexpr float MAX_ANGLE =
-      2 * PI_F /
+      2 * math::PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
   static constexpr float MIN_STEP_ANGLE =
       1e-4f; /**< Angular increment below which a frame defers its rotation and
                   accumulates it into the next one. */
-  Orientation<CAP> *orientation; /**< Pointer to the Orientation state. */
-  Vector axis;                   /**< The axis of rotation. */
-  float total_angle;             /**< The total angle to sweep. */
-  EasingFn easing_fn;            /**< Easing curve. */
+  math::Orientation<CAP> *orientation; /**< Pointer to the Orientation state. */
+  math::Vector axis;                   /**< The axis of rotation. */
+  float total_angle;                   /**< The total angle to sweep. */
+  EasingFn easing_fn;                  /**< Easing curve. */
   float last_angle; /**< The angle reached in the previous frame. */
   Space space;      /**< The coordinate space for rotation. */
 };
@@ -507,23 +510,23 @@ private:
 namespace Detail {
 
 [[nodiscard]] HS_NOINLINE_NOCLONE inline float
-stable_rotation_squared_magnitude(const Quaternion &q) {
+stable_rotation_squared_magnitude(const math::Quaternion &q) {
   return q.r * q.r + q.v.x * q.v.x + q.v.y * q.v.y + q.v.z * q.v.z;
 }
 
-[[nodiscard]] HS_NOINLINE_NOCLONE inline Quaternion
-stable_rotation_normalized(const Quaternion &q) {
+[[nodiscard]] HS_NOINLINE_NOCLONE inline math::Quaternion
+stable_rotation_normalized(const math::Quaternion &q) {
   float m2 = stable_rotation_squared_magnitude(q);
   HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ,
            "make_stable_rotation: rotation axis is degenerate");
   float m = sqrtf(m2);
-  return Quaternion(q.r / m, q.v / m);
+  return math::Quaternion(q.r / m, q.v / m);
 }
 
-[[nodiscard]] HS_NOINLINE_NOCLONE inline Quaternion
-make_stable_rotation(const Vector &axis, float theta) {
+[[nodiscard]] HS_NOINLINE_NOCLONE inline math::Quaternion
+make_stable_rotation(const math::Vector &axis, float theta) {
   return stable_rotation_normalized(
-      Quaternion(cosf(theta / 2), sinf(theta / 2) * axis));
+      math::Quaternion(cosf(theta / 2), sinf(theta / 2) * axis));
 }
 
 } // namespace Detail
@@ -559,8 +562,8 @@ struct RandomWalkOptions {
 
 /** @brief The rotation one random-walk step applied to its cursor. */
 struct RandomWalkDelta {
-  Vector axis;         /**< Great-circle axis the step advanced about. */
-  Quaternion rotation; /**< Rotation of `axis` by the step's speed. */
+  math::Vector axis;         /**< Great-circle axis the step advanced about. */
+  math::Quaternion rotation; /**< Rotation of `axis` by the step's speed. */
 };
 
 /**
@@ -581,9 +584,9 @@ struct RandomWalkDelta {
  */
 template <bool STABLE_ROTATION>
 __attribute__((always_inline)) inline RandomWalkDelta
-step_random_walk(Vector &position, Vector &direction, float &angular_velocity,
-                 FastNoiseLite &noise, const RandomWalkOptions &options,
-                 uint32_t t) {
+step_random_walk(math::Vector &position, math::Vector &direction,
+                 float &angular_velocity, FastNoiseLite &noise,
+                 const RandomWalkOptions &options, uint32_t t) {
   // noise_scale is applied once via SetFrequency() by the caller; the 100x is a
   // fixed base sample scale (scaling coords by noise_scale here too would make
   // the spatial frequency quadratic in it).
@@ -597,25 +600,27 @@ step_random_walk(Vector &position, Vector &direction, float &angular_velocity,
   angular_velocity = angular_velocity * options.smoothing +
                      target_pivot * (1.0f - options.smoothing);
   if constexpr (STABLE_ROTATION) {
-    direction = rotate(direction,
-                       Detail::make_stable_rotation(position, angular_velocity))
-                    .normalized();
+    direction =
+        math::rotate(direction,
+                     Detail::make_stable_rotation(position, angular_velocity))
+            .normalized();
   } else {
-    direction = rotate(direction, make_rotation(position, angular_velocity))
-                    .normalized();
+    direction =
+        math::rotate(direction, math::make_rotation(position, angular_velocity))
+            .normalized();
   }
   // If position and direction drift near-parallel the cross collapses to zero;
   // fall back to a deterministic perpendicular of position.
-  const Vector walk_axis =
-      normalized_or(cross(position, direction), perpendicular_axis(position));
-  Quaternion walk_q;
+  const math::Vector walk_axis = math::normalized_or(
+      math::cross(position, direction), math::perpendicular_axis(position));
+  math::Quaternion walk_q;
   if constexpr (STABLE_ROTATION) {
     walk_q = Detail::make_stable_rotation(walk_axis, options.speed);
   } else {
-    walk_q = make_rotation(walk_axis, options.speed);
+    walk_q = math::make_rotation(walk_axis, options.speed);
   }
-  position = rotate(position, walk_q).normalized();
-  direction = rotate(direction, walk_q).normalized();
+  position = math::rotate(position, walk_q).normalized();
+  direction = math::rotate(direction, walk_q).normalized();
   return {walk_axis, walk_q};
 }
 
@@ -650,12 +655,12 @@ public:
    * @param options Configuration options.
    * @param seed Noise seed; 0 selects a random seed.
    */
-  RandomWalk(Orientation<CAP> &orientation, const Vector &v_start,
+  RandomWalk(math::Orientation<CAP> &orientation, const math::Vector &v_start,
              FastNoiseLite &noise, Options options = Options(), int seed = 0)
       : AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>(-1, false),
-        orientation(orientation), v(Vector(v_start).normalized()),
+        orientation(orientation), v(math::Vector(v_start).normalized()),
         options(options), noise_generator(noise) {
-    direction = perpendicular_axis(v);
+    direction = math::perpendicular_axis(v);
     noise_generator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.get().SetFrequency(options.noise_scale);
     if (seed == 0) {
@@ -694,13 +699,15 @@ public:
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
    */
-  Orientation<CAP> &get_orientation() { return orientation.get(); }
+  math::Orientation<CAP> &get_orientation() { return orientation.get(); }
 
   /**
    * @brief Reads the associated Orientation.
    * @return Const reference to the bound Orientation.
    */
-  const Orientation<CAP> &get_orientation() const { return orientation.get(); }
+  const math::Orientation<CAP> &get_orientation() const {
+    return orientation.get();
+  }
 
   /**
    * @brief Collapses the bound Orientation's motion-blur history.
@@ -728,11 +735,11 @@ public:
   }
 
 private:
-  std::reference_wrapper<Orientation<CAP>>
-      orientation;  /**< Reference to the global Orientation state. */
-  Vector v;         /**< Current forward direction vector. */
-  Vector direction; /**< Current pivoting direction (orthogonal to v). */
-  Options options;  /**< Configuration options. */
+  std::reference_wrapper<math::Orientation<CAP>>
+      orientation;        /**< Reference to the global Orientation state. */
+  math::Vector v;         /**< Current forward direction vector. */
+  math::Vector direction; /**< Current pivoting direction (orthogonal to v). */
+  Options options;        /**< Configuration options. */
   float angular_velocity = 0.0f; /**< Smoothed pivot rate (angular momentum). */
   std::reference_wrapper<FastNoiseLite>
       noise_generator; /**< External noise generator. */

@@ -125,13 +125,13 @@ inline constexpr int CLIP_CUT_ROW_PAD = 1;
  * @details Shared by the planar rasterization strategy and the clip-cull
  * arc-extent sampler; azimuthal_unproject is the inverse map.
  */
-static inline std::pair<float, float> azimuthal_project(const Vector &p,
-                                                        const Basis &basis) {
-  float R = angle_between(p, basis.v);
+static inline std::pair<float, float>
+azimuthal_project(const math::Vector &p, const math::Basis &basis) {
+  float R = math::angle_between(p, basis.v);
   if (R < math::EPS_GEOMETRIC)
     return {0.0f, 0.0f};
-  float theta = fast_atan2(dot(p, basis.w), dot(p, basis.u));
-  return {R * fast_cosf(theta), R * fast_sinf(theta)};
+  float theta = math::fast_atan2(math::dot(p, basis.w), math::dot(p, basis.u));
+  return {R * math::fast_cosf(theta), R * math::fast_sinf(theta)};
 }
 
 /**
@@ -141,21 +141,21 @@ static inline std::pair<float, float> azimuthal_project(const Vector &p,
  * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
  * @return Unit sphere point at great-circle angle sqrt(Px²+Py²) from basis.v.
  */
-static inline Vector azimuthal_unproject(float Px, float Py,
-                                         const Basis &basis) {
+static inline math::Vector azimuthal_unproject(float Px, float Py,
+                                               const math::Basis &basis) {
   HS_PLOT_COUNT(planar_unprojects);
   float R = sqrtf(Px * Px + Py * Py);
   if (R < math::EPS_GEOMETRIC)
     return basis.v;
   float sin_r;
   float cos_r;
-  if (R <= PI_F) {
-    fast_sincosf_0_pi(R, sin_r, cos_r);
+  if (R <= math::PI_F) {
+    math::fast_sincosf_0_pi(R, sin_r, cos_r);
   } else {
-    sin_r = fast_sinf(R);
-    cos_r = fast_cosf(R);
+    sin_r = math::fast_sinf(R);
+    cos_r = math::fast_cosf(R);
   }
-  const Vector radial = (basis.u * Px) + (basis.w * Py);
+  const math::Vector radial = (basis.u * Px) + (basis.w * Py);
   return (basis.v * cos_r) + (radial * (sin_r / R));
 }
 
@@ -166,8 +166,8 @@ static inline Vector azimuthal_unproject(float Px, float Py,
  * edge, where screen_step's speed floor maps it to a base_step (one-dot) step.
  */
 struct SamplePT {
-  Vector pos;
-  Vector tan;
+  math::Vector pos;
+  math::Vector tan;
 };
 
 /**
@@ -178,8 +178,8 @@ struct SamplePT {
  * unit, and vector_to_pixel's phi = acos(v.y) turns that into a near-pole row
  * offset. One Newton step leaves 5e-6 without the exact normalize's divides.
  */
-static inline Vector newton_unit(const Vector &v) {
-  const float norm2 = dot(v, v);
+static inline math::Vector newton_unit(const math::Vector &v) {
+  const float norm2 = math::dot(v, v);
   return v * (1.5f - 0.5f * norm2);
 }
 
@@ -198,16 +198,17 @@ constexpr int PLANAR_LEN_SAMPLES = 4;
  */
 static inline void
 planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
-                 const Basis &planar_basis,
+                 const math::Basis &planar_basis,
                  std::array<float, PLANAR_LEN_SAMPLES + 1> &arc_cumul) {
   HS_PLOT_ADD(planar_arc_samples, PLANAR_LEN_SAMPLES + 1);
   arc_cumul[0] = 0.0f;
-  Vector prev = azimuthal_unproject(proj.first, proj.second, planar_basis);
+  math::Vector prev =
+      azimuthal_unproject(proj.first, proj.second, planar_basis);
   for (int k = 1; k <= PLANAR_LEN_SAMPLES; ++k) {
     float p = static_cast<float>(k) / PLANAR_LEN_SAMPLES;
-    Vector cur = azimuthal_unproject(proj.first + dx * p, proj.second + dy * p,
-                                     planar_basis);
-    arc_cumul[k] = arc_cumul[k - 1] + angle_between(prev, cur);
+    math::Vector cur = azimuthal_unproject(proj.first + dx * p,
+                                           proj.second + dy * p, planar_basis);
+    arc_cumul[k] = arc_cumul[k - 1] + math::angle_between(prev, cur);
     prev = cur;
   }
 }
@@ -222,8 +223,8 @@ struct PlanarEdgeSampler {
   std::pair<float, float> proj1; /**< Projection of the edge start. */
   float dx;                      /**< Projected chord x-component. */
   float dy;                      /**< Projected chord y-component. */
-  const Basis *basis;            /**< Azimuthal-equidistant projection basis. */
-  Vector chart_tangent;          /**< Constant chart-space edge tangent. */
+  const math::Basis *basis;      /**< Azimuthal-equidistant projection basis. */
+  math::Vector chart_tangent;    /**< Constant chart-space edge tangent. */
   /** Cumulative on-sphere arc at evenly-spaced PROJECTION samples. */
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   float dist; /**< The edge's on-sphere length (radians). */
@@ -263,7 +264,7 @@ struct PlanarEdgeSampler {
    * @details Projection-uniform, so not arc-uniform under the anisotropic
    * metric; pos() maps an arc fraction onto it.
    */
-  Vector unproject(float p) const {
+  math::Vector unproject(float p) const {
     return azimuthal_unproject(proj1.first + dx * p, proj1.second + dy * p,
                                *basis);
   }
@@ -283,35 +284,36 @@ struct PlanarEdgeSampler {
     const float r2 = x * x + y * y;
     if (r2 < math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
       if constexpr (!WithTangent)
-        return {basis->v, Vector()};
+        return {basis->v, math::Vector()};
       HS_PLOT_COUNT(normalizations);
-      return {basis->v, normalized_or(chart_tangent, Vector())};
+      return {basis->v, math::normalized_or(chart_tangent, math::Vector())};
     }
 
     const float radius = sqrtf(r2);
     const float inv_radius = 1.0f / radius;
     float sin_radius;
     float cos_radius;
-    if (radius <= PI_F) {
-      fast_sincosf_0_pi(radius, sin_radius, cos_radius);
+    if (radius <= math::PI_F) {
+      math::fast_sincosf_0_pi(radius, sin_radius, cos_radius);
     } else {
-      sin_radius = fast_sinf(radius);
-      cos_radius = fast_cosf(radius);
+      sin_radius = math::fast_sinf(radius);
+      cos_radius = math::fast_cosf(radius);
     }
-    const Vector radial = (basis->u * x) + (basis->w * y);
+    const math::Vector radial = (basis->u * x) + (basis->w * y);
     const float radial_scale = sin_radius * inv_radius;
-    const Vector position = (basis->v * cos_radius) + (radial * radial_scale);
+    const math::Vector position =
+        (basis->v * cos_radius) + (radial * radial_scale);
     if constexpr (!WithTangent)
-      return {position, Vector()};
+      return {position, math::Vector()};
 
     const float radius_rate = (x * dx + y * dy) * inv_radius;
     const float scale_rate =
         (radius * cos_radius - sin_radius) * inv_radius * inv_radius;
-    const Vector tangent = (basis->v * (-sin_radius * radius_rate)) +
-                           (chart_tangent * radial_scale) +
-                           (radial * (scale_rate * radius_rate));
+    const math::Vector tangent = (basis->v * (-sin_radius * radius_rate)) +
+                                 (chart_tangent * radial_scale) +
+                                 (radial * (scale_rate * radius_rate));
     HS_PLOT_COUNT(normalizations);
-    return {position, normalized_or(tangent, Vector())};
+    return {position, math::normalized_or(tangent, math::Vector())};
   }
 
   /**
@@ -320,7 +322,7 @@ struct PlanarEdgeSampler {
    * parameter, then unprojects. A short scan over PLANAR_LEN_SAMPLES floats —
    * no trig.
    */
-  Vector pos(float s) const { return unproject(projection_fraction(s)); }
+  math::Vector pos(float s) const { return unproject(projection_fraction(s)); }
 
   /** @brief Evaluates position and analytic tangent without a second unproject. */
   HS_FLASH_MEMBER SamplePT one_pass(float s) const {
@@ -333,7 +335,7 @@ struct PlanarEdgeSampler {
   }
 
   /** @brief Evaluates only position for an increasing sample sequence. */
-  Vector position_monotonic(float s, int &interval) const {
+  math::Vector position_monotonic(float s, int &interval) const {
     return sample_at<false>(projection_fraction_monotonic(s, interval)).pos;
   }
 
@@ -347,8 +349,8 @@ struct PlanarEdgeSampler {
 
 /** @brief Builds the reusable arc sampler for one planar edge. */
 static inline PlanarEdgeSampler
-make_planar_edge_sampler(const Vector &a, const Vector &b,
-                         const Basis &planar_basis) {
+make_planar_edge_sampler(const math::Vector &a, const math::Vector &b,
+                         const math::Basis &planar_basis) {
   PlanarEdgeSampler sampler;
   sampler.proj1 = azimuthal_project(a, planar_basis);
   auto proj2 = azimuthal_project(b, planar_basis);
@@ -380,7 +382,7 @@ make_planar_edge_sampler(const Vector &a, const Vector &b,
 template <typename ProcessSegmentFn>
 static void
 rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
-                          const Basis &planar_basis, bool is_last_segment,
+                          const math::Basis &planar_basis, bool is_last_segment,
                           ProcessSegmentFn &&process_segment) {
   PlanarEdgeSampler sampler =
       make_planar_edge_sampler(curr.pos, next.pos, planar_basis);
@@ -398,8 +400,9 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
  * accuracy. An inscribed chord sum: short of the bowed arc it estimates, and
  * below angle_between(a, b) on a radial edge, whose chart line does not bow.
  */
-static inline float planar_arc_length(const Vector &a, const Vector &b,
-                                      const Basis &planar_basis) {
+static inline float planar_arc_length(const math::Vector &a,
+                                      const math::Vector &b,
+                                      const math::Basis &planar_basis) {
   auto p1 = azimuthal_project(a, planar_basis);
   auto p2 = azimuthal_project(b, planar_basis);
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
@@ -417,9 +420,9 @@ static inline float planar_arc_length(const Vector &a, const Vector &b,
  * whichever world axis is least parallel to it and normalize for a well-defined
  * rotation axis.
  */
-static inline Vector stable_perpendicular_axis(const Vector &v) {
+static inline math::Vector stable_perpendicular_axis(const math::Vector &v) {
   HS_PLOT_COUNT(normalizations);
-  return perpendicular_axis(v);
+  return math::perpendicular_axis(v);
 }
 
 /**
@@ -427,19 +430,19 @@ static inline Vector stable_perpendicular_axis(const Vector &v) {
  * @param center Unit pole the planar chart is centered on (the 'v' axis).
  * @return A Basis {u, center, w} with u, w spanning the chart plane.
  */
-static inline Basis planar_chart_basis(const Vector &center) {
+static inline math::Basis planar_chart_basis(const math::Vector &center) {
   HS_PLOT_ADD(normalizations, 2);
-  Vector u = perpendicular_axis(center);
-  Vector w = cross(center, u).normalized();
+  math::Vector u = math::perpendicular_axis(center);
+  math::Vector w = math::cross(center, u).normalized();
   return {u, center, w};
 }
 
 /** @brief Constant sampler for a coincident-endpoint edge. */
 struct DegenerateEdgeSampler {
-  Vector p; /**< The collapsed edge's single position. */
+  math::Vector p; /**< The collapsed edge's single position. */
 
-  Vector pos(float) const { return p; }
-  SamplePT operator()(float) const { return {p, Vector()}; }
+  math::Vector pos(float) const { return p; }
+  SamplePT operator()(float) const { return {p, math::Vector()}; }
 };
 
 /**
@@ -452,21 +455,21 @@ struct GeodesicEdgeSampler {
   /** @brief pos() is unit up to one newton_unit() correction. */
   static constexpr bool NEWTON_UNIT = true;
 
-  Vector v1;        /**< Edge start (unit). */
-  Vector v_perp;    /**< Unit vector perpendicular to v1 in the arc plane. */
-  float total_dist; /**< The edge's on-sphere length (radians). */
+  math::Vector v1;     /**< Edge start (unit). */
+  math::Vector v_perp; /**< Unit vector perpendicular to v1 in the arc plane. */
+  float total_dist;    /**< The edge's on-sphere length (radians). */
 
   /** @brief Position at arc fraction t in [0,1]. */
-  Vector pos(float t) const {
+  math::Vector pos(float t) const {
     float s, c;
-    fast_sincosf_0_pi(total_dist * t, s, c);
+    math::fast_sincosf_0_pi(total_dist * t, s, c);
     return (v1 * c) + (v_perp * s);
   }
 
   /** @brief Position and unit tangent at arc fraction t in [0,1]. */
   SamplePT operator()(float t) const {
     float s, c;
-    fast_sincosf_0_pi(total_dist * t, s, c);
+    math::fast_sincosf_0_pi(total_dist * t, s, c);
     return {(v1 * c) + (v_perp * s), (v_perp * c) - (v1 * s)};
   }
 };
@@ -480,7 +483,7 @@ struct GeodesicEdgeSpan {
   float total;    /**< angle_between(a, b) in radians. */
   bool antipodal; /**< axis came from stable_perpendicular_axis, not cross. */
   bool have_axis; /**< axis holds a unit arc pole. */
-  Vector axis;    /**< Unit arc pole (valid iff have_axis). */
+  math::Vector axis; /**< Unit arc pole (valid iff have_axis). */
 };
 
 #if HS_ENABLE_TEST_ORACLES
@@ -498,20 +501,20 @@ inline uint32_t g_geodesic_edge_span_builds = 0;
  * so the per-edge setup costs no call on the rasterizer's hot path.
  */
 static __attribute__((always_inline)) inline GeodesicEdgeSpan
-make_geodesic_edge_span(const Vector &a, const Vector &b) {
+make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
 #if HS_ENABLE_TEST_ORACLES
   ++g_geodesic_edge_span_builds;
 #endif
   GeodesicEdgeSpan es;
-  es.total = angle_between(a, b);
+  es.total = math::angle_between(a, b);
   if (es.total < EPS_GEODESIC_SEGMENT) {
     es.antipodal = false;
-    es.axis = Vector(0.0f, 0.0f, 0.0f);
+    es.axis = math::Vector(0.0f, 0.0f, 0.0f);
     es.have_axis = false;
     return es;
   }
-  Vector pole = cross(a, b);
-  float pole_len_sq = dot(pole, pole);
+  math::Vector pole = math::cross(a, b);
+  float pole_len_sq = math::dot(pole, pole);
   es.antipodal = pole_len_sq < EPS_ARC_POLE_SQ;
   if (es.antipodal) {
     es.axis = stable_perpendicular_axis(a);
@@ -541,7 +544,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
                                         bool is_last_segment,
                                         ProcessSegmentFn &&process_segment) {
   HS_MSP_STALL_START(edge_setup_start);
-  Vector v1 = curr.pos;
+  math::Vector v1 = curr.pos;
   const GeodesicEdgeSpan es = make_geodesic_edge_span(v1, next.pos);
 
   if (!es.have_axis) {
@@ -550,7 +553,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
     process_segment(DegenerateEdgeSampler{v1}, curr, next, es.total,
                     is_last_segment);
   } else {
-    const GeodesicEdgeSampler sampler{v1, cross(es.axis, v1), es.total};
+    const GeodesicEdgeSampler sampler{v1, math::cross(es.axis, v1), es.total};
     HS_MSP_STALL_STOP(edge_setup, edge_setup_start);
     process_segment(sampler, curr, next, es.total, is_last_segment);
   }
@@ -577,7 +580,7 @@ struct PlanarEdgeSpan {
   float dX;                   /**< Projected chord x-component. */
   float dY;                   /**< Projected chord y-component. */
   float gap_arc;              /**< Bound on each inter-sample arc length. */
-  std::array<Vector, PLANAR_SPAN_SAMPLES - 1> interior;
+  std::array<math::Vector, PLANAR_SPAN_SAMPLES - 1> interior;
 };
 
 /**
@@ -586,9 +589,9 @@ struct PlanarEdgeSpan {
  * @param b Edge end (unit sphere point).
  * @param planar_basis Azimuthal-equidistant projection basis.
  */
-static inline PlanarEdgeSpan make_planar_edge_span(const Vector &a,
-                                                   const Vector &b,
-                                                   const Basis &planar_basis) {
+static inline PlanarEdgeSpan
+make_planar_edge_span(const math::Vector &a, const math::Vector &b,
+                      const math::Basis &planar_basis) {
   PlanarEdgeSpan es;
   es.p1 = azimuthal_project(a, planar_basis);
   auto p2 = azimuthal_project(b, planar_basis);
@@ -612,8 +615,8 @@ static inline PlanarEdgeSpan make_planar_edge_span(const Vector &a,
  * @param planar_basis Azimuthal-equidistant projection basis.
  */
 static inline PlanarEdgeSampler
-make_planar_edge_sampler(const PlanarEdgeSpan &span, const Vector &end,
-                         const Basis &planar_basis) {
+make_planar_edge_sampler(const PlanarEdgeSpan &span, const math::Vector &end,
+                         const math::Basis &planar_basis) {
   PlanarEdgeSampler sampler;
   sampler.proj1 = span.p1;
   sampler.dx = span.dX;
@@ -623,15 +626,17 @@ make_planar_edge_sampler(const PlanarEdgeSpan &span, const Vector &end,
       (planar_basis.u * sampler.dx) + (planar_basis.w * sampler.dy);
   HS_PLOT_ADD(planar_arc_samples, PLANAR_LEN_SAMPLES + 1);
   sampler.arc_cumul[0] = 0.0f;
-  Vector prev =
+  math::Vector prev =
       azimuthal_unproject(span.p1.first, span.p1.second, planar_basis);
   for (int k = 1; k < PLANAR_LEN_SAMPLES; ++k) {
-    const Vector &cur = span.interior[k * 2 - 1];
-    sampler.arc_cumul[k] = sampler.arc_cumul[k - 1] + angle_between(prev, cur);
+    const math::Vector &cur = span.interior[k * 2 - 1];
+    sampler.arc_cumul[k] =
+        sampler.arc_cumul[k - 1] + math::angle_between(prev, cur);
     prev = cur;
   }
   sampler.arc_cumul[PLANAR_LEN_SAMPLES] =
-      sampler.arc_cumul[PLANAR_LEN_SAMPLES - 1] + angle_between(prev, end);
+      sampler.arc_cumul[PLANAR_LEN_SAMPLES - 1] +
+      math::angle_between(prev, end);
   sampler.dist = sampler.arc_cumul[PLANAR_LEN_SAMPLES];
   return sampler;
 }
@@ -643,7 +648,8 @@ make_planar_edge_sampler(const PlanarEdgeSpan &span, const Vector &end,
  */
 template <int H> static inline float y_to_screen_row(float y) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  return phi_to_y_virtual(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
+  return math::phi_to_y_virtual(math::fast_acos(hs::clamp(y, -1.0f, 1.0f)),
+                                H_VIRT);
 }
 
 /**
@@ -664,15 +670,15 @@ template <int H> static inline float y_to_screen_row(float y) {
  */
 template <int H>
 static __attribute__((always_inline)) inline void
-geodesic_row_span_rows(float ra, float rb, const Vector &a, const Vector &b,
-                       const GeodesicEdgeSpan &es, float &row_lo,
-                       float &row_hi) {
+geodesic_row_span_rows(float ra, float rb, const math::Vector &a,
+                       const math::Vector &b, const GeodesicEdgeSpan &es,
+                       float &row_lo, float &row_hi) {
   row_lo = std::min(ra, rb);
   row_hi = std::max(ra, rb);
   if (!es.have_axis)
     return;
-  float t0 = cross(es.axis, a).y; // forward tangent y at a
-  float t1 = cross(es.axis, b).y; // forward tangent y at b
+  float t0 = math::cross(es.axis, a).y; // forward tangent y at a
+  float t1 = math::cross(es.axis, b).y; // forward tangent y at b
   if ((t0 > 0.0f) != (t1 > 0.0f)) {
     // std::max(0, ...) absorbs the tiny negative that fast-math
     // renormalization of the axis can produce when |axis.y| ≈ 1 (a
@@ -694,9 +700,9 @@ geodesic_row_span_rows(float ra, float rb, const Vector &a, const Vector &b,
  * @param row_hi Output: maximum screen row touched by the edge.
  */
 template <int H>
-static inline void geodesic_row_span(const Vector &a, const Vector &b,
-                                     const GeodesicEdgeSpan &es, float &row_lo,
-                                     float &row_hi) {
+static inline void
+geodesic_row_span(const math::Vector &a, const math::Vector &b,
+                  const GeodesicEdgeSpan &es, float &row_lo, float &row_hi) {
   geodesic_row_span_rows<H>(y_to_screen_row<H>(a.y), y_to_screen_row<H>(b.y), a,
                             b, es, row_lo, row_hi);
 }
@@ -719,7 +725,7 @@ static inline void geodesic_row_span(const Vector &a, const Vector &b,
  * sin(phi) falls under a few hundredths.
  */
 template <int H>
-static inline void planar_row_span(const Vector &a, const Vector &b,
+static inline void planar_row_span(const math::Vector &a, const math::Vector &b,
                                    const PlanarEdgeSpan &es, float &row_lo,
                                    float &row_hi) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
@@ -727,12 +733,13 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
   float rb = y_to_screen_row<H>(b.y);
   row_lo = std::min(ra, rb);
   row_hi = std::max(ra, rb);
-  for (const Vector &s : es.interior) {
+  for (const math::Vector &s : es.interior) {
     float r = y_to_screen_row<H>(newton_unit(s).y);
     row_lo = std::min(row_lo, r);
     row_hi = std::max(row_hi, r);
   }
-  float margin = es.gap_arc * (static_cast<float>(H_VIRT - 1) / PI_F) + 1.0f;
+  float margin =
+      es.gap_arc * (static_cast<float>(H_VIRT - 1) / math::PI_F) + 1.0f;
   row_lo -= margin;
   row_hi += margin;
 }
@@ -822,9 +829,9 @@ static __attribute__((always_inline)) inline float wrap_one_period(float d) {
  * is the renderer's vector_to_theta.
  */
 template <int W>
-static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
-                                          const GeodesicEdgeSpan &es,
-                                          int &col_s, int &col_len) {
+static inline bool
+geodesic_col_span_cols(float ca, float cb, const math::Vector &a,
+                       const GeodesicEdgeSpan &es, int &col_s, int &col_len) {
   float s_f, len_f;
 
   if (es.total < EPS_GEODESIC_SEGMENT) {
@@ -848,9 +855,10 @@ static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
     if (es.antipodal) {
       // The arbitrary-axis half-turn lands near, not on, b; take the column of
       // the point the renderer actually reaches.
-      Vector v_perp = cross(es.axis, a);
-      Vector end = a * fast_cosf(es.total) + v_perp * fast_sinf(es.total);
-      ce = vector_to_theta<W>(end);
+      math::Vector v_perp = math::cross(es.axis, a);
+      math::Vector end =
+          a * math::fast_cosf(es.total) + v_perp * math::fast_sinf(es.total);
+      ce = math::vector_to_theta<W>(end);
     } else {
       ce = cb;
     }
@@ -880,11 +888,12 @@ static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
  *         horizontal cull.
  */
 template <int W>
-static inline bool geodesic_col_span(const Vector &a, const Vector &b,
-                                     const GeodesicEdgeSpan &es, int &col_s,
-                                     int &col_len) {
-  return geodesic_col_span_cols<W>(vector_to_theta<W>(a), vector_to_theta<W>(b),
-                                   a, es, col_s, col_len);
+static inline bool
+geodesic_col_span(const math::Vector &a, const math::Vector &b,
+                  const GeodesicEdgeSpan &es, int &col_s, int &col_len) {
+  return geodesic_col_span_cols<W>(math::vector_to_theta<W>(a),
+                                   math::vector_to_theta<W>(b), a, es, col_s,
+                                   col_len);
 }
 
 /**
@@ -918,8 +927,8 @@ template <int W, int H>
 static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
                                                  const ClipRegion::XClip &xc) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
 
   ClipCutBounds cb{};
   cb.cols = xc.active;
@@ -929,15 +938,16 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
     const int cols[2] = {xc.rs - CLIP_CUT_COL_PAD, xc.re + CLIP_CUT_COL_PAD};
     for (int i = 0; i < 2; ++i) {
       const int c = ((cols[i] % W) + W) % W;
-      cb.col_x[i] = TrigLUT<W, H>::cos_theta(c);
-      cb.col_z[i] = TrigLUT<W, H>::sin_theta[c];
+      cb.col_x[i] = math::TrigLUT<W, H>::cos_theta(c);
+      cb.col_z[i] = math::TrigLUT<W, H>::sin_theta[c];
     }
   }
   if (cb.rows) {
     const int rows[2] = {cr.render_y_start() - CLIP_CUT_ROW_PAD,
                          cr.render_y_end() + CLIP_CUT_ROW_PAD};
     for (int i = 0; i < 2; ++i)
-      cb.row_y[i] = TrigLUT<W, H>::cos_phi[hs::clamp(rows[i], 0, H_VIRT - 1)];
+      cb.row_y[i] =
+          math::TrigLUT<W, H>::cos_phi[hs::clamp(rows[i], 0, H_VIRT - 1)];
   }
   return cb;
 }
@@ -975,10 +985,11 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
  * exact span of the arc between its own endpoints, so a mis-sided cut draws a
  * piece rather than dropping one.
  */
-static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
+static inline int geodesic_clip_splits(const math::Vector &a,
+                                       const math::Vector &b,
                                        const GeodesicEdgeSpan &es,
                                        const ClipCutBounds &cb, float *ts) {
-  const Vector perp = cross(es.axis, a);
+  const math::Vector perp = math::cross(es.axis, a);
   float angs[GEODESIC_CLIP_MAX_SPLITS];
   int found = 0;
 
@@ -986,9 +997,9 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
   // candidate has a single representative in [0, 2pi).
   const auto keep = [&](float ang) {
     if (ang < 0.0f)
-      ang += 2.0f * PI_F;
-    else if (ang >= 2.0f * PI_F)
-      ang -= 2.0f * PI_F;
+      ang += 2.0f * math::PI_F;
+    else if (ang >= 2.0f * math::PI_F)
+      ang -= 2.0f * math::PI_F;
     if (ang > 0.0f && ang < es.total) {
       HS_CHECK(found < GEODESIC_CLIP_MAX_SPLITS,
                "geodesic clip: more than %d split roots on one edge",
@@ -1014,8 +1025,8 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
       const float dot_p = perp.x * dx + perp.z * dz;
       // sin, cos at the root are (-cross_a, cross_p) up to a positive scale, so
       // the half-plane's sign test needs no second trig call.
-      const float ang = fast_atan2(-cross_a, cross_p);
-      keep(dot_a * cross_p - dot_p * cross_a < 0.0f ? ang + PI_F : ang);
+      const float ang = math::fast_atan2(-cross_a, cross_p);
+      keep(dot_a * cross_p - dot_p * cross_a < 0.0f ? ang + math::PI_F : ang);
     }
   }
 
@@ -1023,20 +1034,20 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
     const float radius2 = a.y * a.y + perp.y * perp.y;
     if (radius2 > 0.0f) {
       const float radius = sqrtf(radius2);
-      const float delta = fast_atan2(perp.y, a.y);
+      const float delta = math::fast_atan2(perp.y, a.y);
       // y folds to radius*cos(ang - delta), so the endpoints bound the arc
       // except where an extremum angle falls inside it.
       float y_lo = std::min(a.y, b.y);
       float y_hi = std::max(a.y, b.y);
       if (delta > 0.0f && delta < es.total)
         y_hi = radius;
-      if (delta + PI_F < es.total)
+      if (delta + math::PI_F < es.total)
         y_lo = -radius;
       for (int i = 0; i < 2; ++i) {
         const float y = cb.row_y[i];
         if (y < y_lo || y > y_hi)
           continue;
-        const float half = fast_acos(hs::clamp(y / radius, -1.0f, 1.0f));
+        const float half = math::fast_acos(hs::clamp(y / radius, -1.0f, 1.0f));
         keep(delta - half);
         keep(delta + half);
       }
@@ -1088,8 +1099,8 @@ static inline int geodesic_clip_splits(const Vector &a, const Vector &b,
 template <int W, int H, typename ColSpanFn>
 static __attribute__((always_inline)) inline bool
 exact_geodesic_edge_visible(const ClipRegion &cr, const ClipRegion::XClip &xc,
-                            float ra, float rb, const Vector &a,
-                            const Vector &b, const GeodesicEdgeSpan &es,
+                            float ra, float rb, const math::Vector &a,
+                            const math::Vector &b, const GeodesicEdgeSpan &es,
                             ColSpanFn &&col_span) {
   float row_lo, row_hi;
   geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
@@ -1123,7 +1134,8 @@ static __attribute__((always_inline)) inline bool
 exact_geodesic_edge_visible_hoisted(const ClipRegion &cr,
                                     const ClipRegion::XClip &xc,
                                     const float *rows, const float *cols,
-                                    size_t e, const Vector &a, const Vector &b,
+                                    size_t e, const math::Vector &a,
+                                    const math::Vector &b,
                                     const GeodesicEdgeSpan &es) {
   return exact_geodesic_edge_visible<W, H>(
       cr, xc, rows[e], rows[e + 1], a, b, es, [&](int &col_s, int &col_len) {
@@ -1145,15 +1157,15 @@ enum class RawGeodesicGateResult : uint8_t {
 template <int W, int H>
 static inline RawGeodesicGateResult
 raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
-                       float ra, float rb, float ca, float cb, const Vector &a,
-                       const Vector &b) {
+                       float ra, float rb, float ca, float cb,
+                       const math::Vector &a, const math::Vector &b) {
   constexpr float END_GUARD2 = 4.0e-6f;
   constexpr float AXIS_GUARD2 = 1.0e-4f;
   constexpr float TANGENT_GUARD2 = 1.0e-8f;
   constexpr float ROW_BOUNDARY_GUARD = 0.01f;
-  const Vector c = cross(a, b);
-  const float L2 = dot(c, c);
-  const float d = dot(a, b);
+  const math::Vector c = math::cross(a, b);
+  const float L2 = math::dot(c, c);
+  const float d = math::dot(a, b);
   if (L2 <= END_GUARD2 || std::abs(d) >= 1.0f - END_GUARD2 * 0.5f)
     return RawGeodesicGateResult::EXACT_FALLBACK;
 
@@ -1229,10 +1241,11 @@ raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
  * scale-invariant, so it reads the raw sample.
  */
 template <int W>
-static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
-                                   const PlanarEdgeSpan &es, int &col_s,
-                                   int &col_len, Vector *end_sample = nullptr) {
-  const float ca = vector_to_theta<W>(a);
+static inline bool
+planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
+                const PlanarEdgeSpan &es, int &col_s, int &col_len,
+                math::Vector *end_sample = nullptr) {
+  const float ca = math::vector_to_theta<W>(a);
   float s_f, len_f;
 
   {
@@ -1240,8 +1253,8 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
         1.0f - a.y * a.y; // squared sin(phi), minimized over samples
     float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
     float prev = ca;
-    auto step = [&](const Vector &s) {
-      float c = vector_to_theta<W>(s);
+    auto step = [&](const math::Vector &s) {
+      float c = math::vector_to_theta<W>(s);
       float d = c - prev;
       if (d > W * 0.5f)
         d -= W;
@@ -1254,10 +1267,10 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
       const float sy = newton_unit(s).y;
       min_sp2 = std::min(min_sp2, 1.0f - sy * sy);
     };
-    for (const Vector &s : es.interior)
+    for (const math::Vector &s : es.interior)
       step(s);
-    Vector end = azimuthal_unproject(es.p1.first + es.dX, es.p1.second + es.dY,
-                                     planar_basis);
+    math::Vector end = azimuthal_unproject(es.p1.first + es.dX,
+                                           es.p1.second + es.dY, planar_basis);
     if (end_sample != nullptr)
       *end_sample = end;
     step(end);
@@ -1270,9 +1283,10 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
       return false;
     // Column movement inside one gap; also the proof bound for reading each
     // sample-to-sample delta the short way (must stay well under W/2).
-    const float margin =
-        es.gap_arc * (static_cast<float>(W) / (2.0f * PI_F)) / sin_phi_worst +
-        1.0f;
+    const float margin = es.gap_arc *
+                             (static_cast<float>(W) / (2.0f * math::PI_F)) /
+                             sin_phi_worst +
+                         1.0f;
     if (margin >= W * 0.25f)
       return false;
 
@@ -1297,12 +1311,10 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
  *        requesting the endpoint requires one.
  */
 template <int W, int H>
-static inline bool planar_edge_visible_in_clip(const ClipRegion &cr,
-                                               const ClipRegion::XClip &xc,
-                                               const Vector &a, const Vector &b,
-                                               const Basis &planar_basis,
-                                               const PlanarEdgeSpan &span,
-                                               Vector *end_sample = nullptr) {
+static inline bool planar_edge_visible_in_clip(
+    const ClipRegion &cr, const ClipRegion::XClip &xc, const math::Vector &a,
+    const math::Vector &b, const math::Basis &planar_basis,
+    const PlanarEdgeSpan &span, math::Vector *end_sample = nullptr) {
   assert(end_sample == nullptr || xc.active);
   float row_lo, row_hi;
   int col_s, col_len;
@@ -1348,11 +1360,11 @@ static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
  * upper bound keeps the equator near one sample per column.
  */
 template <int W, int H>
-static inline float screen_step(const Vector &pos, const Vector &tan,
-                                float base_step) {
+static inline float screen_step(const math::Vector &pos,
+                                const math::Vector &tan, float base_step) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  const float KX = W / (2.0f * PI_F);   // columns per radian of longitude
-  const float KY = (H_VIRT - 1) / PI_F; // rows per radian of colatitude
+  const float KX = W / (2.0f * math::PI_F);   // columns per radian of longitude
+  const float KY = (H_VIRT - 1) / math::PI_F; // rows per radian of colatitude
   // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
   // velocity (hence the min-clamped step) rather than a divide-by-zero.
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
@@ -1375,19 +1387,20 @@ inline bool g_reference_screen_step = false;
 inline size_t g_step_budget_override = 0;
 
 template <int W, int H>
-static inline float screen_step_reference(const Vector &pos, const Vector &tan,
+static inline float screen_step_reference(const math::Vector &pos,
+                                          const math::Vector &tan,
                                           float base_step) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  const float KX = W / (2.0f * PI_F);
-  const float KY = (H_VIRT - 1) / PI_F;
+  const float KX = W / (2.0f * math::PI_F);
+  const float KY = (H_VIRT - 1) / math::PI_F;
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
-  const float inv_sin = fast_rsqrt(sin2);
+  const float inv_sin = math::fast_rsqrt(sin2);
   const float dphi_ds = -tan.y * inv_sin;
   const float dlon_ds = (pos.x * tan.z - pos.z * tan.x) * inv_sin * inv_sin;
   const float vx = KX * dlon_ds;
   const float vy = KY * dphi_ds;
   const float speed2 = std::max(vx * vx + vy * vy, 1e-12f);
-  const float step = SCREEN_STEP_PX * fast_rsqrt(speed2);
+  const float step = SCREEN_STEP_PX * math::fast_rsqrt(speed2);
   return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
 }
 #endif
@@ -1435,13 +1448,15 @@ template <typename P> static consteval bool pipeline_hoistable_projection() {
  */
 HS_O3_BEGIN
 template <int W, int H>
-static inline bool edge_fits_one_dot(const Vector &a, const Vector &b) {
+static inline bool edge_fits_one_dot(const math::Vector &a,
+                                     const math::Vector &b) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  constexpr float BASE = (2.0f * PI_F) / W;
+  constexpr float BASE = (2.0f * math::PI_F) / W;
   constexpr float B2 = BASE * BASE;
   static_assert(B2 < 1.0f, "chord/angle bounds assume base_step < 1 rad");
-  constexpr float KX2 = (W / (2.0f * PI_F)) * (W / (2.0f * PI_F));
-  constexpr float KY2 = ((H_VIRT - 1) / PI_F) * ((H_VIRT - 1) / PI_F);
+  constexpr float KX2 = (W / (2.0f * math::PI_F)) * (W / (2.0f * math::PI_F));
+  constexpr float KY2 =
+      ((H_VIRT - 1) / math::PI_F) * ((H_VIRT - 1) / math::PI_F);
   constexpr float SPX2 = SCREEN_STEP_PX * SCREEN_STEP_PX;
   // Preserve the fast-path implication under screen_rsqrt's <0.1% undershoot.
   constexpr float SCREEN_RSQRT_MIN2 = 0.999f * 0.999f;
@@ -1453,14 +1468,14 @@ static inline bool edge_fits_one_dot(const Vector &a, const Vector &b) {
   constexpr float CHORD2_MIN = 4.0e-6f;
   // (theta/sin(theta))^2 <= F2 for theta <= BASE, plus float-rounding slack.
   constexpr float F2 = (1.0001f / ((1.0f - B2 / 6.0f) * (1.0f - B2 / 6.0f)));
-  const Vector d = b - a;
-  const float chord2 = dot(d, d);
+  const math::Vector d = b - a;
+  const float chord2 = math::dot(d, d);
   if (chord2 > CHORD2_MAX || chord2 < CHORD2_MIN)
     return false;
   const float sin2 = 1.0f - a.y * a.y;
   if (sin2 < 1e-7f)
     return false;
-  const float c = dot(a, b);
+  const float c = math::dot(a, b);
   const float cx = a.x * b.z - a.z * b.x;
   const float ty = b.y - c * a.y;
   return F2 * (KX2 * cx * cx + KY2 * ty * ty * sin2) <=
@@ -1504,8 +1519,9 @@ static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
 
 template <typename PipelineT, typename Pred>
 static inline bool
-edge_visible_in_clip_dispatch(PipelineT &pipeline, const Vector &a,
-                              const Vector &b, const Basis *pb, Pred &&pred) {
+edge_visible_in_clip_dispatch(PipelineT &pipeline, const math::Vector &a,
+                              const math::Vector &b, const math::Basis *pb,
+                              Pred &&pred) {
   if constexpr (requires {
                   pipeline.could_intersect_clip(a, b, pb,
                                                 std::forward<Pred>(pred));
@@ -1539,9 +1555,10 @@ edge_visible_in_clip_dispatch(PipelineT &pipeline, const Vector &a,
 template <int W, int H, typename PipelineT>
 static inline bool
 edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
-                     const ClipRegion::XClip &xc, const Vector &a,
-                     const Vector &b, const Basis *pb) {
-  auto pred = [&](const Vector &ea, const Vector &eb, const Basis *bp) {
+                     const ClipRegion::XClip &xc, const math::Vector &a,
+                     const math::Vector &b, const math::Basis *pb) {
+  auto pred = [&](const math::Vector &ea, const math::Vector &eb,
+                  const math::Basis *bp) {
     if (bp == nullptr) {
       // Geodesic: both span bounds share one edge setup (angle, arc pole).
       const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
@@ -1573,11 +1590,12 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
 template <int W, int H, typename PipelineT>
 static inline bool
 edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
-                     const ClipRegion::XClip &xc, const Vector &a,
-                     const Vector &b, const GeodesicEdgeSpan &es) {
+                     const ClipRegion::XClip &xc, const math::Vector &a,
+                     const math::Vector &b, const GeodesicEdgeSpan &es) {
   static_assert(pipeline_hoistable_cull<PipelineT>(),
                 "a precomputed geodesic span requires a hoistable cull");
-  auto pred = [&](const Vector &ea, const Vector &eb, const Basis *) {
+  auto pred = [&](const math::Vector &ea, const math::Vector &eb,
+                  const math::Basis *) {
     return exact_geodesic_edge_visible<W, H>(
         cr, xc, y_to_screen_row<H>(ea.y), y_to_screen_row<H>(eb.y), ea, eb, es,
         [&](int &col_s, int &col_len) {
@@ -1606,27 +1624,31 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
  * slack.
  */
 template <int H>
-inline bool cap_may_touch_clip(const ClipRegion &cr, const Vector &dir,
+inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
                                float half_angle) {
-  float t2 = std::min(half_angle, PI_F);
+  float t2 = std::min(half_angle, math::PI_F);
   float beta = acosf(hs::clamp(dir.y, -1.0f, 1.0f));
 
   float phi_lo = std::max(beta - t2, 0.0f);
-  float phi_hi = std::min(beta + t2, PI_F);
-  if (!cr.could_intersect_y(phi_to_y<H>(phi_lo), phi_to_y<H>(phi_hi)))
+  float phi_hi = std::min(beta + t2, math::PI_F);
+  if (!cr.could_intersect_y(math::phi_to_y<H>(phi_lo),
+                            math::phi_to_y<H>(phi_hi)))
     return false;
 
   if (cr.x_start == 0 && cr.x_end == cr.w)
     return true;
-  if (beta <= t2 || PI_F - beta <= t2)
+  if (beta <= t2 || math::PI_F - beta <= t2)
     return true;
   float dlam = asinf(hs::clamp(sinf(t2) / sinf(beta), 0.0f, 1.0f));
   float lam_v = atan2f(dir.z, dir.x);
   float width_px = static_cast<float>(cr.x_end - cr.x_start);
-  float half_w = (width_px * 0.5f + cr.margin + 1.0f) * (2.0f * PI_F) / cr.w;
-  float lam_c = (cr.x_start + width_px * 0.5f) * (2.0f * PI_F) / cr.w;
-  float d = std::fabs(wrap_t((lam_v - lam_c) / (2.0f * PI_F) + 0.5f) - 0.5f) *
-            (2.0f * PI_F);
+  float half_w =
+      (width_px * 0.5f + cr.margin + 1.0f) * (2.0f * math::PI_F) / cr.w;
+  float lam_c = (cr.x_start + width_px * 0.5f) * (2.0f * math::PI_F) / cr.w;
+  float d =
+      std::fabs(math::wrap_t((lam_v - lam_c) / (2.0f * math::PI_F) + 0.5f) -
+                0.5f) *
+      (2.0f * math::PI_F);
   return d <= dlam + half_w;
 }
 
@@ -1663,22 +1685,22 @@ make_cartesian_quadrant_clip(const ClipRegion &cr) {
 
   constexpr int H_VIRT = H + hs::H_OFFSET;
   if (cr.y_start == 0) {
-    const float boundary = static_cast<float>(cr.render_y_end()) * PI_F /
+    const float boundary = static_cast<float>(cr.render_y_end()) * math::PI_F /
                            static_cast<float>(H_VIRT - 1);
     q.latitude_sign = 1.0f;
     q.latitude_threshold = cosf(boundary);
   } else {
     const float boundary =
-        (static_cast<float>(cr.render_y_start()) - GEODESIC_ROW_AA_PAD) * PI_F /
-        static_cast<float>(H_VIRT - 1);
+        (static_cast<float>(cr.render_y_start()) - GEODESIC_ROW_AA_PAD) *
+        math::PI_F / static_cast<float>(H_VIRT - 1);
     q.latitude_sign = -1.0f;
     q.latitude_threshold = -cosf(boundary);
   }
 
   const float half_width =
-      PI_F * 0.5f + static_cast<float>(cr.margin + COL_FOOTPRINT) *
-                        (2.0f * PI_F / static_cast<float>(W));
-  if (half_width >= PI_F)
+      math::PI_F * 0.5f + static_cast<float>(cr.margin + COL_FOOTPRINT) *
+                              (2.0f * math::PI_F / static_cast<float>(W));
+  if (half_width >= math::PI_F)
     return CartesianQuadrantClip{};
   q.meridian_sign = cr.x_start == 0 ? 1.0f : -1.0f;
   q.meridian_threshold = cosf(half_width);
@@ -1705,11 +1727,11 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   float latitude_max = -1.0f;
   float max_chord2 = 0.0f;
   for (size_t k = 0; k < trail.size(); ++k) {
-    const Vector &p = trail[k].pos;
+    const math::Vector &p = trail[k].pos;
     latitude_max = std::max(latitude_max, clip.latitude_sign * p.y);
     if (k > 0) {
-      const Vector d = p - trail[k - 1].pos;
-      max_chord2 = std::max(max_chord2, dot(d, d));
+      const math::Vector d = p - trail[k - 1].pos;
+      max_chord2 = std::max(max_chord2, math::dot(d, d));
     }
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     gate_batch.step();
@@ -1718,7 +1740,7 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
 
   // Every point on a minor arc lies within half its arc of one endpoint, and
   // arc <= (pi/2)*chord. A unit-normal dot changes by at most angular distance.
-  const float slack = (PI_F * 0.25f) * sqrtf(max_chord2);
+  const float slack = (math::PI_F * 0.25f) * sqrtf(max_chord2);
   if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC) {
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     gate_batch.step();
@@ -1826,14 +1848,14 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   float min_sp2 = 1.0f;
   float max_chord2 = 0.0f;
   for (size_t k = 0; k < n; ++k) {
-    const Vector &pt = trail[k].pos;
+    const math::Vector &pt = trail[k].pos;
     rows[k] = y_to_screen_row<H>(pt.y);
     row_lo_t = std::min(row_lo_t, rows[k]);
     row_hi_t = std::max(row_hi_t, rows[k]);
     min_sp2 = std::min(min_sp2, 1.0f - pt.y * pt.y);
     if (k > 0) {
-      const Vector d = pt - trail[k - 1].pos;
-      max_chord2 = std::max(max_chord2, dot(d, d));
+      const math::Vector d = pt - trail[k - 1].pos;
+      max_chord2 = std::max(max_chord2, math::dot(d, d));
     }
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
     gate_batch.step();
@@ -1842,9 +1864,9 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   // arc <= (pi/2)*chord on [0, pi]; an edge's interior latitude extremum lies
   // within arc/2 of an endpoint and phi is 1-Lipschitz in arc length, so this
   // margin covers every per-edge bulge peak.
-  const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
+  const float max_arc = (math::PI_F * 0.5f) * sqrtf(max_chord2);
   const float row_margin =
-      (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
+      (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / math::PI_F);
   if (!cr.could_intersect_y(row_lo_t - row_margin,
                             row_hi_t + row_margin + GEODESIC_ROW_AA_PAD)) {
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
@@ -1861,9 +1883,9 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
         scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
     float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
     bool walk_safe = true;
-    cols[0] = vector_to_theta<W>(trail[0].pos);
+    cols[0] = math::vector_to_theta<W>(trail[0].pos);
     for (size_t k = 1; k < n; ++k) {
-      cols[k] = vector_to_theta<W>(trail[k].pos);
+      cols[k] = math::vector_to_theta<W>(trail[k].pos);
       // A geodesic edge's column sweep never exceeds W/2 (antipodal symmetry,
       // see geodesic_col_span_cols), so the short-way delta covers it
       // regardless of direction — except at ~exactly W/2, where the delta's
@@ -1880,8 +1902,8 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
       // visible; the endpoint columns walked here do not bound such an edge
       // either. |axis.y| = |cy| / |cross| and |cross| <= 1, so testing the
       // unnormalized cy covers every case it rejects.
-      const Vector &ca_pos = trail[k - 1].pos;
-      const Vector &cb_pos = trail[k].pos;
+      const math::Vector &ca_pos = trail[k - 1].pos;
+      const math::Vector &cb_pos = trail[k].pos;
       if (std::abs(ca_pos.z * cb_pos.x - ca_pos.x * cb_pos.z) < AXIS_Y_EPS)
         walk_safe = false;
       cum += d;

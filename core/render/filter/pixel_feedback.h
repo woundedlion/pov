@@ -339,9 +339,9 @@ private:
     hs::SphericalField<WarpControl, W, H> compact(warp.controls, grid.field);
     compact.populate(
         band.field_y_begin, band.field_y_end,
-        [&](const Vector &position,
+        [&](const math::Vector &position,
             const typename SphereField::Coordinates &point) {
-          Vector distorted;
+          math::Vector distorted;
           {
             HS_PROFILE_DEEP(fb_pop_warp);
             distorted = feedback_style->space_fn(position, *feedback_style);
@@ -608,7 +608,7 @@ private:
         feedback_style->hue_ca == 1.0f && feedback_style->hue_sa == 0.0f;
     if (feedback_style->color_fn == &::Feedback::hue_fade && !hue_identity) {
       float k[9];
-      const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
+      const float sc = math::fast_cbrt(fade * (1.0f / 65535.0f));
       for (int i = 0; i < 9; ++i)
         k[i] = feedback_style->hue_k[i] * sc;
       composite_pixels(

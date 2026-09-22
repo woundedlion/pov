@@ -71,9 +71,9 @@ struct Shader {
 
     SsaaGrid() {
       // d_theta = 0.25 px * (2*pi/W); d_phi = 0.25 px * (pi/(H_VIRT-1)).
-      constexpr float d_theta = 0.5f * PI_F / static_cast<float>(W);
+      constexpr float d_theta = 0.5f * math::PI_F / static_cast<float>(W);
       constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
-      constexpr float d_phi = 0.25f * PI_F / h_virt_minus_1;
+      constexpr float d_phi = 0.25f * math::PI_F / h_virt_minus_1;
       cos_dtheta = cosf(d_theta);
       sin_dtheta = sinf(d_theta);
       cos_dphi = cosf(d_phi);
@@ -82,8 +82,8 @@ struct Shader {
 
     /** @brief Loads the two phi trig pairs for pixel row y from the LUT. */
     void set_row(int y) {
-      const float sy = TrigLUT<W, H>::sin_phi[y];
-      const float cy = TrigLUT<W, H>::cos_phi[y];
+      const float sy = math::TrigLUT<W, H>::sin_phi[y];
+      const float cy = math::TrigLUT<W, H>::cos_phi[y];
       // Row 0 = y+0.25, row 1 = y-0.25 (the 2×2 grid's centered ±0.25 offsets).
       sin_phi[0] = sy * cos_dphi + cy * sin_dphi;
       cos_phi[0] = cy * cos_dphi - sy * sin_dphi;
@@ -98,15 +98,16 @@ struct Shader {
      * @param i Sample index in [0, SAMPLES); the low bit selects the column
      * offset (±0.25 px) and bit 1 the row offset (±0.25 px).
      */
-    Vector at(int x, int i) const {
-      const float st = TrigLUT<W, H>::sin_theta[x];
-      const float ct = TrigLUT<W, H>::cos_theta(x);
+    math::Vector at(int x, int i) const {
+      const float st = math::TrigLUT<W, H>::sin_theta[x];
+      const float ct = math::TrigLUT<W, H>::cos_theta(x);
       // Column 0 (i&1==0) = x+0.25, column 1 = x-0.25.
       const float s = (i & 1) ? -sin_dtheta : sin_dtheta;
       const float sin_theta = st * cos_dtheta + ct * s;
       const float cos_theta = ct * cos_dtheta - st * s;
       const float sp = sin_phi[(i >> 1) & 1];
-      return Vector(sp * cos_theta, cos_phi[(i >> 1) & 1], sp * sin_theta);
+      return math::Vector(sp * cos_theta, cos_phi[(i >> 1) & 1],
+                          sp * sin_theta);
     }
   };
 
@@ -145,15 +146,15 @@ private:
     if constexpr (SAMPLES == 1) {
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         walk_clip_columns<W>(xc, [&](int x) {
-          Vector v = pixel_to_vector<W, H>(x, y);
+          math::Vector v = math::pixel_to_vector<W, H>(x, y);
           Color4 sample = shader(v);
           canvas(x, y) = sample.color * sample.alpha;
         });
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      if (!TrigLUT<W, H>::initialized)
-        TrigLUT<W, H>::init();
+      if (!math::TrigLUT<W, H>::initialized)
+        math::TrigLUT<W, H>::init();
       SsaaGrid<W, H> grid;
 
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
@@ -245,7 +246,7 @@ public:
       const auto xc = cr.x_clip();
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         walk_clip_columns<W>(xc, [&](int x) {
-          Vector center_v = pixel_to_vector<W, H>(x, y);
+          math::Vector center_v = math::pixel_to_vector<W, H>(x, y);
           Fragment frag_base;
           frag_base.pos = center_v;
           vertex_shader(frag_base);
@@ -257,8 +258,8 @@ public:
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      if (!TrigLUT<W, H>::initialized)
-        TrigLUT<W, H>::init();
+      if (!math::TrigLUT<W, H>::initialized)
+        math::TrigLUT<W, H>::init();
       SsaaGrid<W, H> grid;
 
       const auto &cr = canvas.clip();
@@ -267,7 +268,7 @@ public:
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         grid.set_row(y);
         walk_clip_columns<W>(xc, [&](int x) {
-          Vector center_v = pixel_to_vector<W, H>(x, y);
+          math::Vector center_v = math::pixel_to_vector<W, H>(x, y);
 
           Fragment frag_base;
           frag_base.pos = center_v;
@@ -278,7 +279,7 @@ public:
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            Vector v = grid.at(x, i);
+            math::Vector v = grid.at(x, i);
 
             Fragment sub_frag = frag_base;
             sub_frag.pos = v;
@@ -320,14 +321,14 @@ public:
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
     const auto xc = cr.x_clip();
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     SsaaGrid<W, H> grid;
     for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
       grid.set_row(y);
       walk_clip_columns<W>(xc, [&](int x) {
         Fragment frag_base;
-        frag_base.pos = pixel_to_vector<W, H>(x, y);
+        frag_base.pos = math::pixel_to_vector<W, H>(x, y);
         vertex_shader(frag_base);
         canvas(x, y) = pixel_shader(frag_base, grid, x);
       });

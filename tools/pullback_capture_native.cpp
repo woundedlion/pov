@@ -171,7 +171,7 @@ struct ShaderWorkbenchWhiteBox {
       for (int x = 0; x < W; ++x) {
         if (!selected_pixel<W, H>(operation, x, y))
           continue;
-        const Vector view = pixel_to_vector<W, H>(x, y);
+        const math::Vector view = math::pixel_to_vector<W, H>(x, y);
         const Color4 optimized_color = optimized(view, frame, prepared_storage);
         Color4 exact_color;
         if (oracle == "PEIRCE_FAST_SQUARE")
@@ -199,11 +199,14 @@ private:
 
   template <typename SB>
   static Color4
-  exact_peirce_shade(const Vector &view,
+  exact_peirce_shade(const math::Vector &view,
                      const typename Workbench::FrameState &frame) {
-    const Vector outer_local = Workbench::outer_camera_lookup(view, frame);
-    const Vector lensed = lenses::dodecahedral_kaleidoscope_lens(outer_local);
-    const Vector local = rotate(lensed, frame.transforms.projection_conj);
+    const math::Vector outer_local =
+        Workbench::outer_camera_lookup(view, frame);
+    const math::Vector lensed =
+        lenses::dodecahedral_kaleidoscope_lens(outer_local);
+    const math::Vector local =
+        math::rotate(lensed, frame.transforms.projection_conj);
     const Pullback::ProjectionResult result = Pullback::Projection::peirce(
         local, 0.0f, 1, 0.0f, true, frame.params.projection.coordinate_scale,
         frame.params.projection.singularity_fade);
@@ -213,13 +216,14 @@ private:
   }
 
   template <typename SB>
-  static Color4 exact_hue_shade(const Vector &view,
+  static Color4 exact_hue_shade(const math::Vector &view,
                                 const typename Workbench::FrameState &frame) {
-    const Vector outer_local = Workbench::outer_camera_lookup(view, frame);
+    const math::Vector outer_local =
+        Workbench::outer_camera_lookup(view, frame);
     const auto projected =
         Workbench::surface_lens_project_lookup(outer_local, frame);
     const auto warped = Workbench::planar_warp_lookup(projected, frame);
-    const Complex source_coords =
+    const math::Complex source_coords =
         Workbench::condition_source_coords(warped.coords, frame);
     const float field =
         Workbench::sample_source(source_coords, projected, frame);
@@ -233,7 +237,8 @@ private:
                                const typename Workbench::FrameState &frame) {
     const float oscillation =
         frame.params.color.phase_oscillation_depth *
-        fast_sinf(TWO_PI_F * frame.clocks.palette_oscillation_phase);
+        math::fast_sinf(math::TWO_PI_F *
+                        frame.clocks.palette_oscillation_phase);
     const float palette_value = Workbench::palette_mapping_coordinate(
         sample.value, frame.slots.palette_mapping,
         frame.params.color.mapping_frequency,
@@ -241,7 +246,7 @@ private:
     Color4 color = frame.resources.generated_palette->get(palette_value);
     if (frame.prepared_hue_rotation.active &&
         frame.slots.hue_shift == Workbench::HueShiftMode::NOISE) {
-      const Vector q = noise_sphere_coordinate(
+      const math::Vector q = noise_sphere_coordinate(
           sample.sphere, frame.params.color.hue_noise_scale,
           frame.clocks.hue_noise_phase);
       const float noise =
@@ -250,8 +255,8 @@ private:
       const HueRotateBase base = make_hue_rotate_base(color);
       color = hue_rotate_lut_gamut(base, amount);
     } else if (frame.prepared_hue_rotation.active) {
-      const float amount = wrap_t(frame.params.color.hue_shift_amount *
-                                  sample_path_length(sample));
+      const float amount = math::wrap_t(frame.params.color.hue_shift_amount *
+                                        sample_path_length(sample));
       if (amount != 0.0f)
         color = hue_rotate_lut_gamut(make_hue_rotate_base(color), amount);
     }

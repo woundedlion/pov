@@ -181,7 +181,7 @@ struct RasterOptions {
    * Non-null selects azimuthal-equidistant interpolation (straight in the
    * projection); null uses geodesic edges.
    */
-  const Basis *planar_basis = nullptr;
+  const math::Basis *planar_basis = nullptr;
   /**
    * Open lines only: skip the final endpoint plot (each vertex is otherwise
    * plotted once by its outgoing segment), so abutting arcs tile a longer
@@ -277,8 +277,8 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
 
   bool any = false;
   for (size_t e = 0; e < edges; ++e) {
-    const Vector &ea = trail[e].pos;
-    const Vector &eb = trail[e + 1].pos;
+    const math::Vector &ea = trail[e].pos;
+    const math::Vector &eb = trail[e + 1].pos;
 
     // Cheap row tier: the exact span's interior extremum lies within arc/2 of
     // an endpoint and phi is 1-Lipschitz in arc length (arc <= (pi/2)*chord),
@@ -287,9 +287,9 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
     // therefore implies the exact test below also misses, keeping the bits
     // identical while skipping the edge's cross/normalize/acos.
     {
-      const Vector d = eb - ea;
+      const math::Vector d = eb - ea;
       const float margin =
-          sqrtf(dot(d, d)) * (static_cast<float>(H_VIRT - 1) * 0.25f);
+          sqrtf(math::dot(d, d)) * (static_cast<float>(H_VIRT - 1) * 0.25f);
       if (!cr.could_intersect_y(std::min(rows[e], rows[e + 1]) - margin,
                                 std::max(rows[e], rows[e + 1]) + margin +
                                     GEODESIC_ROW_AA_PAD)) {
@@ -368,7 +368,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   }
   HS_PLOT_COUNT(rings);
   const bool close_loop = OPEN_GEODESIC ? false : opts.close_loop;
-  const Basis *planar_basis = OPEN_GEODESIC ? nullptr : opts.planar_basis;
+  const math::Basis *planar_basis = OPEN_GEODESIC ? nullptr : opts.planar_basis;
   const bool omit_end = OPEN_GEODESIC ? false : opts.omit_end;
   const uint8_t *edge_flags = opts.edge_flags;
   const float *point_rows = opts.point_rows;
@@ -453,15 +453,15 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   if (override_uv) {
     seg_arc_cache.bind(scratch_arena_a, count);
     seg_seam_cache.bind(scratch_arena_a, count);
-    const Vector &pcenter = planar_basis->v;
+    const math::Vector &pcenter = planar_basis->v;
     for (size_t i = 0; i < count; i++) {
-      const Vector &a = points[i].pos;
-      const Vector &b = segment_next(i).pos;
-      const bool seam = dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
-                        dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
+      const math::Vector &a = points[i].pos;
+      const math::Vector &b = segment_next(i).pos;
+      const bool seam = math::dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
+                        math::dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
       seg_seam_cache.push_back(seam ? 1 : 0);
-      float seg =
-          seam ? angle_between(a, b) : planar_arc_length(a, b, *planar_basis);
+      float seg = seam ? math::angle_between(a, b)
+                       : planar_arc_length(a, b, *planar_basis);
       seg_arc_cache.push_back(seg);
       total_arc += seg;
     }
@@ -469,7 +469,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   float cumul = 0.0f;    // rendered arc reached so far (planar polylines only)
   float seg_base = 0.0f; // rendered arc at the in-flight segment's start
 
-  auto shade_fragment = [&](const Vector &position, Fragment &fragment) {
+  auto shade_fragment = [&](const math::Vector &position, Fragment &fragment) {
     HS_MSP_STALL_START(shade_start);
     HS_MSP_COUNT(fragment_shader_calls);
     fragment_shader(position, fragment);
@@ -526,7 +526,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     }
 
     // Sub-step length at the segment start (also the first simulation step).
-    const float base_step = (2.0f * PI_F) / W;
+    const float base_step = (2.0f * math::PI_F) / W;
     auto balanced_step = [&](float default_step) {
       const float POLE_GUARD =
           base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE;
@@ -606,7 +606,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       float desired_step = first_step;
       float default_desired_step = first_step;
       float previous_full_step = first_step;
-      Vector previous_full_tangent = smp.tan;
+      math::Vector previous_full_tangent = smp.tan;
       bool reuse_step = false;
       if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
         if (balanced_sampling)
@@ -618,7 +618,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       // is `remaining`, not the stretched `desired_step`.
       [[maybe_unused]] float endpoint_gap = total_dist;
       while (current_dist < total_dist) {
-        Vector p;
+        math::Vector p;
         if constexpr (OPEN_GEODESIC || NEWTON_UNIT_SAMPLER) {
           HS_PLOT_COUNT(normalizations);
 #if HS_ENABLE_TEST_ORACLES
@@ -716,7 +716,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                                BALANCED_POLE_GUARD_SCALE &&
                     default_desired_step <
                         base_step * BALANCED_REUSE_MAX_STEP_SCALE &&
-                    dot(smp.tan, previous_full_tangent) >
+                    math::dot(smp.tan, previous_full_tangent) >
                         BALANCED_REUSE_MIN_TANGENT_DOT &&
                     fabsf(default_desired_step - previous_full_step) <
                         default_desired_step * BALANCED_REUSE_STEP_TOLERANCE;
@@ -808,7 +808,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_MSP_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
-      Vector start_pos = newton_unit(sample.pos(0.0f));
+      math::Vector start_pos = newton_unit(sample.pos(0.0f));
       Fragment f;
       if constexpr (INTERPOLATE_REGISTERS)
         f = Fragment::lerp_registers(curr, next, 0.0f);
@@ -846,7 +846,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_MSP_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
-      Vector p = newton_unit(sample.pos(t));
+      math::Vector p = newton_unit(sample.pos(t));
       Fragment f;
       if constexpr (INTERPOLATE_REGISTERS)
         f = Fragment::lerp_registers(curr, next, t);
@@ -893,7 +893,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     const Fragment &next = segment_next(i);
     bool is_last_segment = (i == count - 1);
     PlanarEdgeSpan planar_cull_span;
-    Vector planar_cull_end;
+    math::Vector planar_cull_end;
     bool reuse_planar_cull_samples = false;
 
     // --- Interpolation Strategy Selection ---
@@ -904,8 +904,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       antipodal_seam =
           override_uv
               ? seg_seam_cache[i] != 0
-              : dot(curr.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE ||
-                    dot(next.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE;
+              : math::dot(curr.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE ||
+                    math::dot(next.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE;
     }
     const bool use_planar = planar_basis && !antipodal_seam;
 

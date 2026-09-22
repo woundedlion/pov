@@ -123,10 +123,10 @@ public:
   }
 
   /** @brief Projects a world point, then applies the direct screen-space splat. */
-  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
+  void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha) {
     HS_MSP_STALL_START(projection_start);
-    const PixelCoords p = vector_to_pixel<W, H>(v);
+    const math::PixelCoords p = math::vector_to_pixel<W, H>(v);
     HS_MSP_STALL_STOP(projection, projection_start);
     plot(cv, p.x, p.y, c, age, alpha);
   }
@@ -159,8 +159,9 @@ public:
 
   /** @brief Terminal clip-cull predicate forwarding. */
   template <typename Pred>
-  bool could_intersect_clip(const Vector &a, const Vector &b,
-                            const Basis *planar_basis, Pred &&pred) const {
+  bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
+                            const math::Basis *planar_basis,
+                            Pred &&pred) const {
     return pred(a, b, planar_basis);
   }
 

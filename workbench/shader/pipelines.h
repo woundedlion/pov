@@ -67,9 +67,9 @@ HS_FLASH_MEMBER
 #else
 __attribute__((always_inline))
 #endif
-inline Vector pullback_outer_camera_lookup(const Vector &input,
-                                           const FrameState &frame) {
-  return rotate(input, frame.transforms.outer_conj);
+inline math::Vector pullback_outer_camera_lookup(const math::Vector &input,
+                                                 const FrameState &frame) {
+  return math::rotate(input, frame.transforms.outer_conj);
 }
 
 struct OuterCameraStage
@@ -341,7 +341,7 @@ using GlitchNoiseGridWaveShearPipelineBase = InversePipeline<
                         CoveragePolicy::PROJECTION_WEIGHT_SQUARED>,
     ColorStage>;
 struct GlitchNoiseGridWaveShearPipeline : GlitchNoiseGridWaveShearPipelineBase {
-  HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+  HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
                                                    const FrameState &frame,
                                                    const void *storage) {
     return GlitchNoiseGridWaveShearPipelineBase::evaluate(
@@ -395,7 +395,7 @@ using PeirceDodecahedralGridPipelineBase = InversePipeline<
                         CoveragePolicy::EDGE_FADE>,
     ColorStage>;
 struct PeirceDodecahedralGridPipeline : PeirceDodecahedralGridPipelineBase {
-  HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+  HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
                                                    const FrameState &frame,
                                                    const void *storage) {
     return PeirceDodecahedralGridPipelineBase::evaluate(
@@ -416,7 +416,7 @@ using GnomonicDodecahedralGridWaveMirrorPipelineBase = InversePipeline<
     ColorStage>;
 struct GnomonicDodecahedralGridWaveMirrorPipeline
     : GnomonicDodecahedralGridWaveMirrorPipelineBase {
-  HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+  HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
                                                    const FrameState &frame,
                                                    const void *storage) {
     return GnomonicDodecahedralGridWaveMirrorPipelineBase::evaluate(

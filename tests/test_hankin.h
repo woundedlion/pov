@@ -124,13 +124,13 @@ inline void test_compile_hankin_normalizes_antipodal_fallback() {
 
   PolyMesh tetra;
   build_solid<Solids::Tetrahedron>(tetra, temp);
-  tetra.vertices[0] = Vector(2.0f, 0.0f, 0.0f);
-  tetra.vertices[1] = Vector(-2.0f, 0.0f, 0.0f);
+  tetra.vertices[0] = math::Vector(2.0f, 0.0f, 0.0f);
+  tetra.vertices[1] = math::Vector(-2.0f, 0.0f, 0.0f);
 
   CompiledHankin compiled;
   MeshOps::compile_hankin(tetra, compiled, target, temp);
 
-  for (const Vector &mid : compiled.static_vertices)
+  for (const math::Vector &mid : compiled.static_vertices)
     HS_EXPECT_NEAR(mid.length(), 1.0f, 1e-5f);
 }
 
@@ -158,15 +158,15 @@ inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &ins = compiled.dynamic_instructions[i];
 
-    const Vector p_corner = compiled.base_vertices[ins.v_corner];
-    const Vector p_prev = compiled.base_vertices[ins.v_prev];
-    const Vector p_next = compiled.base_vertices[ins.v_next];
+    const math::Vector p_corner = compiled.base_vertices[ins.v_corner];
+    const math::Vector p_prev = compiled.base_vertices[ins.v_prev];
+    const math::Vector p_next = compiled.base_vertices[ins.v_next];
 
-    const Vector exp_m1 = ((p_prev + p_corner) * 0.5f).normalized();
-    const Vector exp_m2 = ((p_corner + p_next) * 0.5f).normalized();
+    const math::Vector exp_m1 = ((p_prev + p_corner) * 0.5f).normalized();
+    const math::Vector exp_m2 = ((p_corner + p_next) * 0.5f).normalized();
 
-    const Vector got_m1 = compiled.static_vertices[ins.idx_m1];
-    const Vector got_m2 = compiled.static_vertices[ins.idx_m2];
+    const math::Vector got_m1 = compiled.static_vertices[ins.idx_m1];
+    const math::Vector got_m2 = compiled.static_vertices[ins.idx_m2];
 
     HS_EXPECT_NEAR(got_m1.x, exp_m1.x, 1e-5f);
     HS_EXPECT_NEAR(got_m1.y, exp_m1.y, 1e-5f);
@@ -278,8 +278,8 @@ inline void test_update_hankin_flat_collapses_to_corners() {
 
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &ins = compiled.dynamic_instructions[i];
-    Vector expected = compiled.base_vertices[ins.v_corner].normalized();
-    const Vector got = out.vertices[compiled.static_offset + i];
+    math::Vector expected = compiled.base_vertices[ins.v_corner].normalized();
+    const math::Vector got = out.vertices[compiled.static_offset + i];
     HS_EXPECT_NEAR(got.x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(got.y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(got.z, expected.z, 1e-4f);
@@ -320,8 +320,8 @@ inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.5f);
 
-  const Vector corner = compiled.base_vertices[ins.v_corner].normalized();
-  const Vector got = out.vertices[compiled.static_offset + idx];
+  const math::Vector corner = compiled.base_vertices[ins.v_corner].normalized();
+  const math::Vector got = out.vertices[compiled.static_offset + idx];
   HS_EXPECT_NEAR(got.x, corner.x, 1e-4f);
   HS_EXPECT_NEAR(got.y, corner.y, 1e-4f);
   HS_EXPECT_NEAR(got.z, corner.z, 1e-4f);
@@ -628,7 +628,7 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
   MeshOps::compile_hankin(prefix, compiled, compiled_arena, output_arena);
 
   const size_t n_stars = compiled.dynamic_instructions.size();
-  std::vector<Vector> previous(n_stars);
+  std::vector<math::Vector> previous(n_stars);
   float max_step = 0.0f;
   float resonance_max_step = 0.0f;
   constexpr float STEP_DEGREES = 0.01f;
@@ -640,11 +640,11 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
                                Solids::IslamicStarPatterns::D2R);
     // Star points are written straight into the output after the static
     // midpoints, so they live at [static_offset, static_offset + n_stars).
-    const Vector *stars = output.vertices.data() + compiled.static_offset;
+    const math::Vector *stars = output.vertices.data() + compiled.static_offset;
     if (step > 1) {
       for (size_t i = 0; i < n_stars; ++i) {
         const float movement =
-            std::sqrt(distance_squared(previous[i], stars[i]));
+            std::sqrt(math::distance_squared(previous[i], stars[i]));
         max_step = std::max(max_step, movement);
         if (step >= 4400 && step <= 5000)
           resonance_max_step = std::max(resonance_max_step, movement);

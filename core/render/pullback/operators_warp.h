@@ -71,11 +71,11 @@ struct WarpAffine : ValueStateModel<AffineClockState> {
   using Prepared = Warp::PreparedAffineSlot;
 
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
     state.rotation =
-        TWO_PI_F *
-        wrap_t((state.rotation + params.speed * params.rotation_rate) /
-               TWO_PI_F);
+        math::TWO_PI_F *
+        math::wrap_t((state.rotation + params.speed * params.rotation_rate) /
+                     math::TWO_PI_F);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -124,7 +124,7 @@ struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
   using Prepared = PreparedWaveShear;
 
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -155,7 +155,7 @@ struct WarpVortex : ValueStateModel<WarpPhaseState> {
   using Prepared = Warp::PreparedVortexSlot;
 
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -208,7 +208,7 @@ struct WarpVectorNoise : ValueStateModel<NoisePhaseState> {
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -242,7 +242,7 @@ struct WarpMirrorTile : ValueStateModel<WarpPhaseState> {
   using Prepared = Warp::PreparedMirrorSlot;
 
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -298,7 +298,7 @@ struct WarpPolarChart : ValueStateModel<WarpPhaseState> {
   };
 
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -352,7 +352,7 @@ static_assert(field_defaults_in_range<CurlFlowParams>());
     point on the loop, and the sub-step count decoded from the integrator. */
 struct PreparedCurlFlow {
   const FastNoiseLite *noise;
-  Vector loop_offset;
+  math::Vector loop_offset;
   uint8_t intervals;
 };
 
@@ -367,7 +367,7 @@ struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {

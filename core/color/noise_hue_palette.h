@@ -64,21 +64,21 @@ prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
   }
 }
 
-__attribute__((always_inline)) inline Vector
+__attribute__((always_inline)) inline math::Vector
 hue_noise_face_direction(int face, float u, float v) {
   switch (face) {
   case 0:
-    return Vector(1.0f, v, u).normalized();
+    return math::Vector(1.0f, v, u).normalized();
   case 1:
-    return Vector(-1.0f, v, -u).normalized();
+    return math::Vector(-1.0f, v, -u).normalized();
   case 2:
-    return Vector(u, 1.0f, v).normalized();
+    return math::Vector(u, 1.0f, v).normalized();
   case 3:
-    return Vector(u, -1.0f, -v).normalized();
+    return math::Vector(u, -1.0f, -v).normalized();
   case 4:
-    return Vector(u, v, 1.0f).normalized();
+    return math::Vector(u, v, 1.0f).normalized();
   default:
-    return Vector(-u, v, -1.0f).normalized();
+    return math::Vector(-u, v, -1.0f).normalized();
   }
 }
 
@@ -92,7 +92,7 @@ hue_noise_face_direction(int face, float u, float v) {
 HS_FLASH_INLINE inline void
 prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
                       const FastNoiseLite &noise, float scale, float phase) {
-  const Vector loop_offset = noise_sphere_loop_offset(phase);
+  const math::Vector loop_offset = noise_sphere_loop_offset(phase);
   constexpr float STEP = 2.0f / (HueNoiseLutView::FACE_STEPS - 1);
   for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face) {
     const int face_offset = face * HueNoiseLutView::FACE_SIZE;
@@ -100,8 +100,8 @@ prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
       const float v = -1.0f + STEP * y;
       for (int x = 0; x < HueNoiseLutView::FACE_STEPS; ++x) {
         const float u = -1.0f + STEP * x;
-        const Vector direction = hue_noise_face_direction(face, u, v);
-        const Vector q = scale * direction + loop_offset;
+        const math::Vector direction = hue_noise_face_direction(face, u, v);
+        const math::Vector q = scale * direction + loop_offset;
         const float sample =
             hs::clamp(noise.GetNoiseSingle(q.x, q.y, q.z), -1.0f, 1.0f);
         const int quantized =
@@ -183,9 +183,10 @@ sample_hue_rotation_lut(const HueRotationLutView &view, float value,
  * @param direction Unit sphere direction.
  * @return Noise value in [-1, 1].
  */
-HS_FLASH_INLINE inline float sample_hue_noise_lut(const HueNoiseLutView &view,
-                                                  const Vector &direction) {
-  assert(dot(direction, direction) > 0.0f &&
+HS_FLASH_INLINE inline float
+sample_hue_noise_lut(const HueNoiseLutView &view,
+                     const math::Vector &direction) {
+  assert(math::dot(direction, direction) > 0.0f &&
          "sample_hue_noise_lut needs a non-zero direction!");
   const float ax = fabsf(direction.x);
   const float ay = fabsf(direction.y);
@@ -276,7 +277,7 @@ public:
    * @param amount Hue rotation magnitude in turns.
    * @return Signed hue rotation in turns.
    */
-  float hue_shift(const Vector &direction, float amount) const {
+  float hue_shift(const math::Vector &direction, float amount) const {
     assert(source != nullptr && "NoiseHuePalette used before bind()!");
     return amount * noise(direction);
   }
@@ -286,7 +287,7 @@ public:
    * @param direction Non-zero direction.
    * @return Noise value in [-1, 1].
    */
-  float noise(const Vector &direction) const {
+  float noise(const math::Vector &direction) const {
     assert(source != nullptr && "NoiseHuePalette used before bind()!");
     return sample_hue_noise_lut(hue_noise, direction);
   }
@@ -300,8 +301,8 @@ public:
    * @return Noise value in [-1, 1].
    */
   float noise_uv(float cos_u, float sin_u, float cos_v, float sin_v) const {
-    const float u_field = noise(Vector(cos_u, sin_u, cos_v));
-    const float v_field = noise(Vector(cos_v, sin_v, sin_u));
+    const float u_field = noise(math::Vector(cos_u, sin_u, cos_v));
+    const float v_field = noise(math::Vector(cos_v, sin_v, sin_u));
     return 0.5f * (u_field + v_field);
   }
 
@@ -331,7 +332,7 @@ public:
    * @param amount Hue rotation magnitude in turns.
    * @return Noise-hue-rotated palette color.
    */
-  Color4 get(float value, const Vector &direction, float amount) const {
+  Color4 get(float value, const math::Vector &direction, float amount) const {
     return get(value, hue_shift(direction, amount));
   }
 

@@ -88,7 +88,7 @@ struct MirrorParams {
       Field<MirrorParams>{"speed", &MirrorParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
       Field<MirrorParams>{"rotation", &MirrorParams::rotation,
-                          "Mirror Rotation", 0.0f, TWO_PI_F,
+                          "Mirror Rotation", 0.0f, math::TWO_PI_F,
                           FieldCurve::SHORTEST_PERIODIC},
       Field<MirrorParams>{"cell-x", &MirrorParams::cell_x, "Mirror Cell X",
                           1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE},
@@ -121,7 +121,7 @@ struct WaveShearParams {
                              "Warp Frequency", 0.01f, 32.0f,
                              FieldCurve::LOG_POSITIVE},
       Field<WaveShearParams>{"field-angle", &WaveShearParams::field_angle,
-                             "Warp Field Angle", 0.0f, TWO_PI_F,
+                             "Warp Field Angle", 0.0f, math::TWO_PI_F,
                              FieldCurve::SHORTEST_PERIODIC},
       edge_width_field(&WaveShearParams::edge_width, nullptr,
                        ENVELOPE_EDGE_FADE_GATE),
@@ -153,7 +153,7 @@ struct VectorNoiseParams {
       Field<VectorNoiseParams>{"scale", &VectorNoiseParams::scale, "Warp Scale",
                                1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
       Field<VectorNoiseParams>{"vector-angle", &VectorNoiseParams::vector_angle,
-                               "Warp Vector Angle", 0.0f, TWO_PI_F,
+                               "Warp Vector Angle", 0.0f, math::TWO_PI_F,
                                FieldCurve::SHORTEST_PERIODIC},
       edge_width_field(&VectorNoiseParams::edge_width, nullptr,
                        ENVELOPE_EDGE_FADE_GATE),
@@ -185,8 +185,8 @@ struct AffineParams {
       Field<AffineParams>{"speed", &AffineParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
       Field<AffineParams>{"rotation-rate", &AffineParams::rotation_rate,
-                          "Affine Rotation Rate", -TWO_PI_F, TWO_PI_F,
-                          FieldCurve::LERP},
+                          "Affine Rotation Rate", -math::TWO_PI_F,
+                          math::TWO_PI_F, FieldCurve::LERP},
       Field<AffineParams>{"translation-x", &AffineParams::translation_x,
                           "Affine Translation X", -4.0f, 4.0f,
                           FieldCurve::LERP},
@@ -219,10 +219,10 @@ struct PolarParams {
                          "Polar Radial Scale", 1.0f / 64.0f, 64.0f,
                          FieldCurve::LOG_POSITIVE},
       Field<PolarParams>{"radial-phase", &PolarParams::radial_phase,
-                         "Polar Radial Phase", -TWO_PI_F, TWO_PI_F,
+                         "Polar Radial Phase", -math::TWO_PI_F, math::TWO_PI_F,
                          FieldCurve::LERP},
       Field<PolarParams>{"angular-phase", &PolarParams::angular_phase,
-                         "Polar Angular Phase", -TWO_PI_F, TWO_PI_F,
+                         "Polar Angular Phase", -math::TWO_PI_F, math::TWO_PI_F,
                          FieldCurve::LERP},
   };
 };
@@ -276,7 +276,8 @@ struct PreparedMirror {
 
 /** @brief This frame's point on the noise field's closed loop. */
 struct PreparedNoiseLoop {
-  Vector offset; /**< Lattice offset the plane coordinate is taken against. */
+  math::Vector
+      offset; /**< Lattice offset the plane coordinate is taken against. */
 };
 
 /** @brief Rotation-only slot state, for families with no transform. */
@@ -345,8 +346,8 @@ HS_FLASH_INLINE inline PreparedMirrorSlot prepare(const MirrorParams &warp,
                                                   float phase) {
   PreparedMirrorSlot prepared{cosf(warp.rotation), sinf(warp.rotation), {}};
   prepared.transform.mirror = {
-      wrap_t(warp.offset_x / warp.cell_x + phase) * warp.cell_x,
-      wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
+      math::wrap_t(warp.offset_x / warp.cell_x + phase) * warp.cell_x,
+      math::wrap_t(warp.offset_y / warp.cell_y) * warp.cell_y};
   return prepared;
 }
 
@@ -360,10 +361,10 @@ prepare(const VectorNoiseParams &warp, float phase) {
 
 HS_FLASH_INLINE inline PreparedVortexSlot prepare(const VortexParams &warp,
                                                   float phase) {
-  const float orbit = TWO_PI_F * wrap_t(phase);
+  const float orbit = math::TWO_PI_F * math::wrap_t(phase);
   return {{{warp.center_x + warp.center_orbit_radius * cosf(orbit),
             warp.center_y + warp.center_orbit_radius * sinf(orbit),
-            warp.radius * warp.radius, TWO_PI_F * warp.turns}}};
+            warp.radius * warp.radius, math::TWO_PI_F * warp.turns}}};
 }
 
 /**
@@ -379,10 +380,10 @@ HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
                                                   float frame_rotation,
                                                   float lattice_period) {
   PreparedAffineSlot prepared{cosf(frame_rotation), sinf(frame_rotation), {}};
-  const float cycle_cos = cosf(TWO_PI_F * wrap_t(phase));
+  const float cycle_cos = cosf(math::TWO_PI_F * math::wrap_t(phase));
   prepared.transform.affine = {
-      wrap_t(phase) * warp.translation_x * lattice_period,
-      wrap_t(phase) * warp.translation_y * lattice_period,
+      math::wrap_t(phase) * warp.translation_x * lattice_period,
+      math::wrap_t(phase) * warp.translation_y * lattice_period,
       powf(warp.scale_x, cycle_cos), powf(warp.scale_y, cycle_cos),
       warp.shear * cycle_cos};
   return prepared;
@@ -399,8 +400,8 @@ concept ParamsPreparedProvider =
     PreparedProvider<State, Binding> && Detail::ParamsProvider<State, Binding>;
 
 /** @brief Length of a stage delta, or zero when @p required is false. */
-__attribute__((always_inline)) inline float displacement(const Complex &delta,
-                                                         bool required) {
+__attribute__((always_inline)) inline float
+displacement(const math::Complex &delta, bool required) {
   if (!required)
     return 0.0f;
   const float SQUARED = delta.re * delta.re + delta.im * delta.im;
@@ -410,9 +411,9 @@ __attribute__((always_inline)) inline float displacement(const Complex &delta,
 }
 
 __attribute__((always_inline)) inline WarpStepResult
-finish_closed_form(const Complex &input, const Complex &output,
+finish_closed_form(const math::Complex &input, const math::Complex &output,
                    bool path_length_required) {
-  const Complex delta(output.re - input.re, output.im - input.im);
+  const math::Complex delta(output.re - input.re, output.im - input.im);
   return {output, displacement(delta, path_length_required)};
 }
 
@@ -439,7 +440,7 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
 
 template <typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
-affine_frame(const Complex &input, const Prepared &prepared,
+affine_frame(const math::Complex &input, const Prepared &prepared,
              bool path_length_required) {
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
@@ -456,7 +457,7 @@ affine_frame(const Complex &input, const Prepared &prepared,
 
 template <typename Params, typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
-wave_shear(const Complex &input, const Params &params, float phase,
+wave_shear(const math::Complex &input, const Params &params, float phase,
            float amplitude, const Prepared &prepared,
            bool path_length_required) {
   if (params.strength == 0.0f)
@@ -464,21 +465,21 @@ wave_shear(const Complex &input, const Params &params, float phase,
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
   const float angle =
-      params.frequency * (c * input.re + s * input.im) + TWO_PI_F * phase;
+      params.frequency * (c * input.re + s * input.im) + math::TWO_PI_F * phase;
   // fast_sinf's reduction loses the low bits past this bound, and the plane
   // coordinate reaches STEREO_INF at the projection pole.
   const float offset =
       amplitude *
-      fast_sinf(hs::clamp(angle, -projections::STEREO_PATTERN_ARG_LIMIT,
-                          projections::STEREO_PATTERN_ARG_LIMIT));
-  const Complex delta(-s * offset, c * offset);
+      math::fast_sinf(hs::clamp(angle, -projections::STEREO_PATTERN_ARG_LIMIT,
+                                projections::STEREO_PATTERN_ARG_LIMIT));
+  const math::Complex delta(-s * offset, c * offset);
   return {{input.re + delta.re, input.im + delta.im},
           path_length_required ? fabsf(offset) : 0.0f};
 }
 
 template <typename Params, typename Prepared>
-__attribute__((always_inline)) inline Complex
-mirror_tile_coords(const Complex &input, const Params &params,
+__attribute__((always_inline)) inline math::Complex
+mirror_tile_coords(const math::Complex &input, const Params &params,
                    const Prepared &prepared) {
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
@@ -487,15 +488,17 @@ mirror_tile_coords(const Complex &input, const Params &params,
   const float x = c * input.re + s * input.im + offset_x;
   const float y = -s * input.re + c * input.im + offset_y;
   const float folded_x =
-      params.cell_x * (1.0f - 2.0f * fabsf(wrap_t(x / params.cell_x) - 0.5f));
+      params.cell_x *
+      (1.0f - 2.0f * fabsf(math::wrap_t(x / params.cell_x) - 0.5f));
   const float folded_y =
-      params.cell_y * (1.0f - 2.0f * fabsf(wrap_t(y / params.cell_y) - 0.5f));
+      params.cell_y *
+      (1.0f - 2.0f * fabsf(math::wrap_t(y / params.cell_y) - 0.5f));
   return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
 }
 
 template <typename Params, typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
-mirror_tile(const Complex &input, const Params &params,
+mirror_tile(const math::Complex &input, const Params &params,
             const Prepared &prepared, bool path_length_required) {
   return finish_closed_form(input, mirror_tile_coords(input, params, prepared),
                             path_length_required);
@@ -503,15 +506,15 @@ mirror_tile(const Complex &input, const Params &params,
 
 template <typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
-vortex(const Complex &input, const Prepared &prepared,
+vortex(const math::Complex &input, const Prepared &prepared,
        bool path_length_required) {
   const auto &vortex = prepared.transform.vortex;
   const float x = input.re - vortex.center_x;
   const float y = input.im - vortex.center_y;
   const float r_sq = x * x + y * y;
   const float angle = vortex.angle_numerator / (1.0f + r_sq / vortex.radius_sq);
-  const float c = fast_cosf(angle);
-  const float s = fast_sinf(angle);
+  const float c = math::fast_cosf(angle);
+  const float s = math::fast_sinf(angle);
   return finish_closed_form(
       input, {vortex.center_x + c * x - s * y, vortex.center_y + s * x + c * y},
       path_length_required);
@@ -519,50 +522,50 @@ vortex(const Complex &input, const Prepared &prepared,
 
 inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
 
-HS_FLASH_INLINE inline Complex curl_vector(const Complex &input,
-                                           const FastNoiseLite &noise,
-                                           ::NoiseBasis basis, float scale,
-                                           const Vector &loop_offset) {
-  const Vector q = noise_projected_coordinate(input, scale, loop_offset);
+HS_FLASH_INLINE inline math::Complex
+curl_vector(const math::Complex &input, const FastNoiseLite &noise,
+            ::NoiseBasis basis, float scale, const math::Vector &loop_offset) {
+  const math::Vector q = noise_projected_coordinate(input, scale, loop_offset);
   const float dx =
-      (sample_noise_octaves(noise, basis,
-                            q + Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
-       sample_noise_octaves(noise, basis,
-                            q - Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f))) /
+      (sample_noise_octaves(
+           noise, basis, q + math::Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
+       sample_noise_octaves(
+           noise, basis, q - math::Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f))) /
       (2.0f * NOISE_STENCIL_RADIUS);
   const float dy =
-      (sample_noise_octaves(noise, basis,
-                            q + Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f)) -
-       sample_noise_octaves(noise, basis,
-                            q - Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f))) /
+      (sample_noise_octaves(
+           noise, basis, q + math::Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f)) -
+       sample_noise_octaves(
+           noise, basis, q - math::Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f))) /
       (2.0f * NOISE_STENCIL_RADIUS);
   return {hs::clamp(-dy, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX),
           hs::clamp(dx, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX)};
 }
 
 HS_FLASH_INLINE inline WarpStepResult
-curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
-          uint8_t intervals, float scale, float distance,
-          const Vector &loop_offset, bool path_length_required) {
+curl_flow(const math::Complex &input, const FastNoiseLite &noise,
+          ::NoiseBasis basis, uint8_t intervals, float scale, float distance,
+          const math::Vector &loop_offset, bool path_length_required) {
   if (distance == 0.0f)
     return {input, 0.0f};
   if (intervals == 1) {
-    const Complex direction =
+    const math::Complex direction =
         curl_vector(input, noise, basis, scale, loop_offset);
-    const Complex delta(distance * direction.re, distance * direction.im);
+    const math::Complex delta(distance * direction.re, distance * direction.im);
     return {{input.re + delta.re, input.im + delta.im},
             displacement(delta, path_length_required)};
   }
-  Complex output = input;
+  math::Complex output = input;
   float path_length = 0.0f;
   const float step = distance / intervals;
   for (uint8_t index = 0; index < intervals; ++index) {
-    const Complex first = curl_vector(output, noise, basis, scale, loop_offset);
-    const Complex midpoint(output.re + 0.5f * step * first.re,
-                           output.im + 0.5f * step * first.im);
-    const Complex direction =
+    const math::Complex first =
+        curl_vector(output, noise, basis, scale, loop_offset);
+    const math::Complex midpoint(output.re + 0.5f * step * first.re,
+                                 output.im + 0.5f * step * first.im);
+    const math::Complex direction =
         curl_vector(midpoint, noise, basis, scale, loop_offset);
-    const Complex delta(step * direction.re, step * direction.im);
+    const math::Complex delta(step * direction.re, step * direction.im);
     output = {output.re + delta.re, output.im + delta.im};
     path_length += displacement(delta, path_length_required);
   }
@@ -573,31 +576,31 @@ curl_flow(const Complex &input, const FastNoiseLite &noise, ::NoiseBasis basis,
     the stage contributes no plane-unit path length. */
 template <typename Params>
 __attribute__((always_inline)) inline WarpStepResult
-polar_chart(const Complex &input, const Params &params, float phase,
+polar_chart(const math::Complex &input, const Params &params, float phase,
             bool logarithmic, uint8_t harmonic) {
   const float radius = sqrtf(input.re * input.re + input.im * input.im);
   const float radial =
       logarithmic ? logf(std::max(radius, 1.0f / 4096.0f)) : radius;
-  const Complex output(params.radial_scale * radial + params.radial_phase,
-                       static_cast<float>(harmonic) *
-                               fast_atan2(input.im, input.re) +
-                           params.angular_phase + TWO_PI_F * phase);
+  const math::Complex output(params.radial_scale * radial + params.radial_phase,
+                             static_cast<float>(harmonic) *
+                                     math::fast_atan2(input.im, input.re) +
+                                 params.angular_phase + math::TWO_PI_F * phase);
   return {output, 0.0f};
 }
 
 template <::NoiseBasis BasisV, typename Params, typename Prepared>
 HS_FLASH_MEMBER inline WarpStepResult
-vector_noise_fixed(const Complex &input, const Params &params, float amplitude,
-                   const FastNoiseLite &noise, const Prepared &prepared,
-                   bool path_length_required) {
+vector_noise_fixed(const math::Complex &input, const Params &params,
+                   float amplitude, const FastNoiseLite &noise,
+                   const Prepared &prepared, bool path_length_required) {
   if (params.strength == 0.0f)
     return {input, 0.0f};
-  const Vector q = noise_projected_coordinate(
+  const math::Vector q = noise_projected_coordinate(
       input, params.scale, prepared.transform.noise_loop.offset);
   float nx;
   float ny;
   if constexpr (BasisV == ::NoiseBasis::SIMPLEX) {
-    const Vector field = sample_simplex_vector(noise, q);
+    const math::Vector field = sample_simplex_vector(noise, q);
     nx = field.x;
     ny = field.y;
   } else {
@@ -606,15 +609,15 @@ vector_noise_fixed(const Complex &input, const Params &params, float amplitude,
   }
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
-  const Complex delta(amplitude * (c * nx - s * ny),
-                      amplitude * (s * nx + c * ny));
+  const math::Complex delta(amplitude * (c * nx - s * ny),
+                            amplitude * (s * nx + c * ny));
   return {{input.re + delta.re, input.im + delta.im},
           displacement(delta, path_length_required)};
 }
 
 template <typename Params, typename Prepared>
 HS_FLASH_MEMBER inline WarpStepResult
-vector_noise(const Complex &input, const Params &params, float amplitude,
+vector_noise(const math::Complex &input, const Params &params, float amplitude,
              const FastNoiseLite &noise, ::NoiseBasis basis,
              const Prepared &prepared, bool path_length_required) {
   switch (basis) {
@@ -653,7 +656,7 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionProvenance &,
+  apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
     return affine_frame(input, prepared, State::path_length_required(frame));
   }
@@ -688,7 +691,7 @@ struct WaveShear : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionProvenance &provenance,
+  apply(const math::Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     const float amplitude =
@@ -718,7 +721,7 @@ template <typename State> struct Vortex : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionProvenance &,
+  apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
     return vortex(input, prepared, State::path_length_required(frame));
   }
@@ -748,7 +751,7 @@ template <typename State> struct MirrorTile : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionProvenance &,
+  apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
@@ -777,7 +780,7 @@ struct PolarChart : ApproximationDefaults {
       };
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionProvenance &,
+  apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame) {
     return polar_chart(input, State::params(frame), State::phase(frame),
                        std::is_same_v<PolarMode, LogarithmicPolar>, Harmonic);
@@ -814,7 +817,7 @@ struct VectorNoise : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionProvenance &provenance,
+  apply(const math::Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     return vector_noise_fixed<BasisV>(
@@ -849,14 +852,14 @@ struct CurlFlow : ApproximationDefaults {
        });
 
   /** @brief This frame's point on the plane domain's time loop. */
-  using Prepared = Vector;
+  using Prepared = math::Vector;
 
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return noise_projected_loop_offset(State::phase(frame));
   }
 
   __attribute__((always_inline)) static WarpStepResult
-  apply(const Complex &input, const ProjectionProvenance &provenance,
+  apply(const math::Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     const float amplitude =

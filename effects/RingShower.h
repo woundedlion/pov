@@ -113,7 +113,7 @@ private:
     static constexpr int SPAWN_MAX_FRAMES =
         48; /**< Maximum frames between spawns; with LIFE_MIN/LIFE_SPAN this sets the live-ring pressure on the MAX_RINGS pool. */
 
-    Vector normal; /**< Plane normal fixing the ring's orientation. */
+    math::Vector normal; /**< Plane normal fixing the ring's orientation. */
     /**
      * @brief 256-entry palette LUT, allocated once in init() and rebaked in
      *        place each spawn.
@@ -128,7 +128,7 @@ private:
     /**
      * @brief Constructs a free slot with a random orientation.
      */
-    Ring() : normal(random_vector()) {}
+    Ring() : normal(math::random_vector()) {}
 
     /**
      * @brief Linear radius for the frame currently being drawn.
@@ -184,7 +184,7 @@ private:
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       if (rings[i].expired()) { // free slot
         Ring &ring = rings[i];
-        ring.normal = random_vector();
+        ring.normal = math::random_vector();
         ring.life =
             static_cast<int>(hs::rand_f() * Ring::LIFE_SPAN + Ring::LIFE_MIN);
         ring.age = 0;
@@ -205,11 +205,11 @@ private:
    */
   void draw_ring(Canvas &canvas, const Ring &ring) {
     const float opacity = ring.opacity_at();
-    Basis basis = make_basis(Quaternion(), ring.normal);
+    math::Basis basis = math::make_basis(math::Quaternion(), ring.normal);
     // v is unit (the rasterizer renormalizes every shaded position), so
     // dot(X, v) is just v.x; the palette is baked in this cos domain (dot_keyed),
     // folding the acos radial mapping into the bake.
-    auto fragment_shader = [&](const Vector &v, Fragment &f) {
+    auto fragment_shader = [&](const math::Vector &v, Fragment &f) {
       f.color = ring.palette.get(dot_key(v.x));
       f.color.alpha *= opacity * params.alpha;
     };

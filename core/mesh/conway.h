@@ -109,7 +109,7 @@ inline uint32_t relax_source_hash(const PolyMesh &mesh) {
     hash = fnv1a_step(
         hash, static_cast<uint32_t>(relax_source_coordinate(coordinate)));
   };
-  for (const Vector &v : mesh.vertices) {
+  for (const math::Vector &v : mesh.vertices) {
     mix(v.x);
     mix(v.y);
     mix(v.z);
@@ -134,7 +134,7 @@ inline float relax_source_quantization_margin(const PolyMesh &mesh) {
     if (grid_distance < minimum)
       minimum = grid_distance;
   };
-  for (const Vector &v : mesh.vertices) {
+  for (const math::Vector &v : mesh.vertices) {
     measure(v.x);
     measure(v.y);
     measure(v.z);
@@ -163,10 +163,11 @@ inline void check_relax_bake_source(const PolyMesh &mesh,
  * @return Average of the face's vertex positions, or origin for an empty face.
  */
 template <typename MeshT>
-inline Vector face_centroid(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
-                            size_t face_index, int &out_count) {
+inline math::Vector face_centroid(const HalfEdgeMesh &he_mesh,
+                                  const MeshT &mesh, size_t face_index,
+                                  int &out_count) {
   const HEFace &face = he_mesh.faces[face_index];
-  Vector c(0, 0, 0);
+  math::Vector c(0, 0, 0);
   out_count = 0;
   uint16_t he_idx = face.half_edge;
   uint16_t start = he_idx;
@@ -198,10 +199,10 @@ inline Vector face_centroid(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
  *   edge (consecutive vertex pair).
  */
 template <typename MeshT>
-inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
-                          size_t face_index) {
+inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
+                                size_t face_index) {
   const HEFace &face = he_mesh.faces[face_index];
-  Vector n(0, 0, 0);
+  math::Vector n(0, 0, 0);
   uint16_t he_idx = face.half_edge;
   if (he_idx == HE_NONE)
     return n;
@@ -216,8 +217,9 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
     ++sides;
     const HalfEdge &he = he_mesh.half_edges[he_idx];
     HS_CHECK(he.next != HE_NONE, "face_normal: HE_NONE in face loop");
-    const Vector &curr = mesh.vertices[he.vertex];
-    const Vector &next = mesh.vertices[he_mesh.half_edges[he.next].vertex];
+    const math::Vector &curr = mesh.vertices[he.vertex];
+    const math::Vector &next =
+        mesh.vertices[he_mesh.half_edges[he.next].vertex];
     n.x += (curr.y - next.y) * (curr.z + next.z);
     n.y += (curr.z - next.z) * (curr.x + next.x);
     n.z += (curr.x - next.x) * (curr.y + next.y);
@@ -477,7 +479,7 @@ emit_expanded_shell(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh,
 
   for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
     int count;
-    Vector centroid = face_centroid(he_mesh, mesh, fi, count);
+    math::Vector centroid = face_centroid(he_mesh, mesh, fi, count);
     emit_shrunk_face(
         he_mesh, out_mesh, he_mesh.faces[fi].half_edge, count,
         corner_factory(fi, centroid),
@@ -533,7 +535,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
                                      mesh.vertices.size());
   } else {
     for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-      Vector v = mesh.vertices[i];
+      math::Vector v = mesh.vertices[i];
       (..., (v = transformers(v)));
       transformed.vertices.push_back(v);
     }
@@ -554,7 +556,7 @@ template <typename... Transformers>
 inline void transform_in_place(MeshState &mesh,
                                const Transformers &...transformers) {
   for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-    Vector v = mesh.vertices[i];
+    math::Vector v = mesh.vertices[i];
     (..., (v = transformers(v)));
     mesh.vertices[i] = v;
   }
@@ -623,9 +625,9 @@ inline void transform_in_place(MeshState &mesh,
  * @note Unlike normalized_or, this leaves the length alone: the operator's
  *   trailing normalize(out_mesh) unitizes every corner anyway.
  */
-__attribute__((always_inline)) inline Vector corner_or(const Vector &blended,
-                                                       const Vector &v) {
-  return dot(blended, blended) < math::EPS_NORMALIZE_SQ ? v : blended;
+__attribute__((always_inline)) inline math::Vector
+corner_or(const math::Vector &blended, const math::Vector &v) {
+  return math::dot(blended, blended) < math::EPS_NORMALIZE_SQ ? v : blended;
 }
 
 /**
@@ -669,14 +671,14 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
 
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
-      Vector c = face_centroid(he_mesh, mesh, i, count);
+      math::Vector c = face_centroid(he_mesh, mesh, i, count);
       // Fall back to the face's first vertex on a zero-length
       // (centrally-symmetric) centroid, where strict normalized() would trap.
       HS_CHECK(he_mesh.faces[i].half_edge != HE_NONE, "dual: empty face");
-      Vector first_v =
+      math::Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
       out_mesh.vertices.push_back(
-          normalized_or(c, normalized_or(first_v, X_AXIS)));
+          math::normalized_or(c, math::normalized_or(first_v, math::X_AXIS)));
     }
 
     bool *visited_verts = target.allocate_n<bool>(V);
@@ -724,7 +726,7 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
   for (size_t fi = 0; fi < F; ++fi) {
     int count = face_counts[fi];
     HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)");
-    Vector centroid(0, 0, 0);
+    math::Vector centroid(0, 0, 0);
     for (int k = 0; k < count; ++k) {
       HS_CHECK(static_cast<size_t>(faces[offset + k]) < V,
                "kis: face vertex index out of range");
@@ -733,7 +735,7 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
     centroid = centroid / static_cast<float>(count);
 
     out_mesh.vertices.push_back(
-        normalized_or(centroid, mesh.vertices[faces[offset]]));
+        math::normalized_or(centroid, mesh.vertices[faces[offset]]));
     int center_idx = narrow_index(out_mesh.vertices.size() - 1);
 
     for (int k = 0; k < count; ++k) {
@@ -855,15 +857,15 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   ambo(dual(mesh)) also merges midpoints that out_b keeps apart.
  */
 HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
-                                  ArenaVector<Vector> &out_b, Arena &target,
-                                  Arena &temp) {
+                                  ArenaVector<math::Vector> &out_b,
+                                  Arena &target, Arena &temp) {
   HS_CHECK(&mesh != &out_a, "medial input mesh must not alias output mesh");
   HS_CHECK(&mesh.vertices != &out_b,
            "medial input vertices must not alias output vertices");
   HS_CHECK(&out_a.vertices != &out_b,
            "medial output vertex arrays must not alias");
   out_a = PolyMesh();
-  out_b = ArenaVector<Vector>();
+  out_b = ArenaVector<math::Vector>();
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
@@ -884,14 +886,15 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
     // Dual vertex per source face: its normalized centroid (see MeshOps::dual).
     // The degenerate-centroid fallback is normalized too, so every dual_pos —
     // and so every out_b entry — is unit even for a non-normalized source mesh.
-    Vector *dual_pos = temp.allocate_n<Vector>(F);
+    math::Vector *dual_pos = temp.allocate_n<math::Vector>(F);
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
-      Vector c = face_centroid(he_mesh, mesh, i, count);
+      math::Vector c = face_centroid(he_mesh, mesh, i, count);
       HS_CHECK(he_mesh.faces[i].half_edge != HE_NONE, "medial: empty face");
-      Vector first_v =
+      math::Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
-      dual_pos[i] = normalized_or(c, normalized_or(first_v, X_AXIS));
+      dual_pos[i] =
+          math::normalized_or(c, math::normalized_or(first_v, math::X_AXIS));
     }
 
     uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
@@ -910,9 +913,9 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
           HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
                        he_mesh.half_edges[he.pair].face != HE_NONE,
                    "medial: open edge on a closed manifold");
-          Vector db =
+          math::Vector db =
               dual_pos[he.face] + dual_pos[he_mesh.half_edges[he.pair].face];
-          out_b.push_back(normalized_or(db, dual_pos[he.face]));
+          out_b.push_back(math::normalized_or(db, dual_pos[he.face]));
         });
 
     // Reconstruct Original Faces (Shrunk) — the ambo primary-face layout.
@@ -1004,10 +1007,10 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
         uint16_t k1 = std::min(vi, vj);
         uint16_t k2 = std::max(vi, vj);
 
-        Vector new_u = corner_or(
+        math::Vector new_u = corner_or(
             mesh.vertices[k1] + (mesh.vertices[k2] - mesh.vertices[k1]) * t,
             mesh.vertices[k1]);
-        Vector new_v = corner_or(
+        math::Vector new_v = corner_or(
             mesh.vertices[k2] + (mesh.vertices[k1] - mesh.vertices[k2]) * t,
             mesh.vertices[k2]);
 
@@ -1130,11 +1133,11 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
 
     emit_expanded_shell(
         mesh, he_mesh, out_mesh, target, V, I,
-        [&](size_t, const Vector &centroid) {
+        [&](size_t, const math::Vector &centroid) {
           return [&mesh, &he_mesh, centroid, t](uint16_t he_idx) {
             // Corner map keyed on the half-edge head; the quad emitter below
             // indexes it that way.
-            Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
+            math::Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
             return corner_or(v + (centroid - v) * t, v);
           };
         },
@@ -1230,7 +1233,7 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
     // Generate new vertices and shrunk faces
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       int count;
-      Vector centroid = face_centroid(he_mesh, mesh, fi, count);
+      math::Vector centroid = face_centroid(he_mesh, mesh, fi, count);
       uint16_t start = he_mesh.faces[fi].half_edge;
       emit_shrunk_face(
           he_mesh, out_mesh, start, count,
@@ -1239,7 +1242,7 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
             // expand/snub; the hexagon emitter below indexes it that way.
             uint16_t vi =
                 he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
-            Vector v = mesh.vertices[vi];
+            math::Vector v = mesh.vertices[vi];
             return corner_or(v + (centroid - v) * t, v);
           },
           [&](uint16_t he_idx, uint16_t idx) { he_to_new_v[he_idx] = idx; });
@@ -1371,10 +1374,10 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
   if (iterations > 0) {
     ScratchScope temp_guard(temp);
 
-    ArenaVector<Vector> movements;
+    ArenaVector<math::Vector> movements;
     movements.bind(temp, V);
     for (size_t i = 0; i < V; ++i)
-      movements.push_back(Vector(0, 0, 0));
+      movements.push_back(math::Vector(0, 0, 0));
 
     HalfEdgeMesh he_mesh(temp, out_mesh);
 
@@ -1404,8 +1407,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         // One sample per undirected edge: the u < v half of an interior pair,
         // plus a boundary edge's lone half-edge whichever way it points.
         if (u < v || (v < u && he.pair == HE_NONE)) {
-          total_len +=
-              distance_between(out_mesh.vertices[u], out_mesh.vertices[v]);
+          total_len += math::distance_between(out_mesh.vertices[u],
+                                              out_mesh.vertices[v]);
           edge_count++;
         }
       }
@@ -1415,7 +1418,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       float target_len = total_len / edge_count;
 
       for (size_t i = 0; i < V; ++i) {
-        Vector force(0, 0, 0);
+        math::Vector force(0, 0, 0);
 
         uint16_t start_out =
             orbit_start[i]; // outgoing edge; HE_NONE if boundary
@@ -1424,9 +1427,9 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
               he_mesh, start_out, [&](uint16_t idx) {
                 int ni =
                     he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
-                Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
+                math::Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
                 // Skip near-zero edges before 1/dist can spike the force.
-                float len_sq = dot(vec, vec);
+                float len_sq = math::dot(vec, vec);
                 if (len_sq > math::EPS_LEN_SQ) {
                   float dist = sqrtf(len_sq);
                   float diff = dist - target_len;
@@ -1440,7 +1443,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
 
       float max_move_sq = 0.0f;
       for (size_t i = 0; i < V; ++i) {
-        max_move_sq = std::max(max_move_sq, dot(movements[i], movements[i]));
+        max_move_sq =
+            std::max(max_move_sq, math::dot(movements[i], movements[i]));
         out_mesh.vertices[i] =
             (out_mesh.vertices[i] + movements[i]).normalized();
       }
@@ -1492,9 +1496,9 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
     output_hash = fnv1a_step(output_hash, x);
     output_hash = fnv1a_step(output_hash, y);
     output_hash = fnv1a_step(output_hash, z);
-    out_mesh.vertices.push_back(Vector(std::bit_cast<float>(x),
-                                       std::bit_cast<float>(y),
-                                       std::bit_cast<float>(z)));
+    out_mesh.vertices.push_back(math::Vector(std::bit_cast<float>(x),
+                                             std::bit_cast<float>(y),
+                                             std::bit_cast<float>(z)));
   }
   HS_CHECK(output_hash == bake.output_hash, "relax_baked: output hash differs");
 
@@ -1542,31 +1546,32 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
 
     emit_expanded_shell(
         mesh, he_mesh, out_mesh, temp, V, I,
-        [&](size_t fi, const Vector &centroid) {
+        [&](size_t fi, const math::Vector &centroid) {
           // Newell's method face normal — robust for sphere-projected faces.
-          Vector normal_raw = face_normal(he_mesh, mesh, fi);
-          Vector normal(0, 0, 0);
-          if (dot(normal_raw, normal_raw) > math::EPS_NORMAL_SQ) {
+          math::Vector normal_raw = face_normal(he_mesh, mesh, fi);
+          math::Vector normal(0, 0, 0);
+          if (math::dot(normal_raw, normal_raw) > math::EPS_NORMAL_SQ) {
             normal = normal_raw.normalized();
-          } else if (dot(centroid, centroid) > math::EPS_LEN_SQ) {
+          } else if (math::dot(centroid, centroid) > math::EPS_LEN_SQ) {
             normal = centroid.normalized();
           }
 
           // A zero axis makes make_rotation trap near theta = pi.
-          const bool do_twist = twist != 0.0f && dot(normal, normal) > 0.0f;
-          Quaternion twist_q;
+          const bool do_twist =
+              twist != 0.0f && math::dot(normal, normal) > 0.0f;
+          math::Quaternion twist_q;
           if (do_twist)
-            twist_q = make_rotation(normal, twist);
+            twist_q = math::make_rotation(normal, twist);
 
           return [&mesh, &he_mesh, centroid, t, do_twist,
                   twist_q](uint16_t he_idx) {
             // Corner map keyed on the half-edge head; the triangle emitter
             // below indexes it that way.
-            Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
-            Vector new_v = v + (centroid - v) * t;
+            math::Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
+            math::Vector new_v = v + (centroid - v) * t;
             if (do_twist) {
-              Vector local = new_v - centroid;
-              new_v = centroid + rotate(local, twist_q);
+              math::Vector local = new_v - centroid;
+              new_v = centroid + math::rotate(local, twist_q);
             }
             return corner_or(new_v, v);
           };
@@ -1793,8 +1798,8 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
           });
       for (const uint16_t *candidate = first; candidate != last; ++candidate) {
         const size_t j = *candidate;
-        const Vector delta = identity.vertices[i] - authored.vertices[j];
-        const float distance_sq = dot(delta, delta);
+        const math::Vector delta = identity.vertices[i] - authored.vertices[j];
+        const float distance_sq = math::dot(delta, delta);
         if (distance_sq < best_distance_sq ||
             (distance_sq == best_distance_sq &&
              (best < 0 || j < static_cast<size_t>(best)))) {

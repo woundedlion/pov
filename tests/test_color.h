@@ -406,7 +406,7 @@ inline void test_oklab_reference_triples() {
   OKLCH red = srgb_to_oklch(255, 0, 0);
   HS_EXPECT_NEAR(red.L, 0.6279f, tol);
   HS_EXPECT_NEAR(red.C, 0.2577f, tol);
-  HS_EXPECT_NEAR(red.h, 29.23f * PI_F / 180.0f, 5e-3f);
+  HS_EXPECT_NEAR(red.h, 29.23f * math::PI_F / 180.0f, 5e-3f);
 }
 
 /**
@@ -459,7 +459,7 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   OKLCH b{L, C, -2.8f};
   OKLCH mid = lerp_oklch(a, b, 0.5f);
   // Short arc midpoint sits at the seam (+/-PI), not at 0.
-  HS_EXPECT_NEAR(std::fabs(mid.h), PI_F, 1e-4f);
+  HS_EXPECT_NEAR(std::fabs(mid.h), math::PI_F, 1e-4f);
   HS_EXPECT_NEAR(mid.L, L, 1e-5f);
   HS_EXPECT_NEAR(mid.C, C, 1e-5f);
 
@@ -467,7 +467,7 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   OKLCH c{L, C, 3.0f};
   OKLCH d{L, C, -3.0f};
   OKLCH mid2 = lerp_oklch(c, d, 0.5f);
-  HS_EXPECT_NEAR(std::fabs(mid2.h), PI_F, 1e-4f);
+  HS_EXPECT_NEAR(std::fabs(mid2.h), math::PI_F, 1e-4f);
 
   // A non-seam-crossing pair interpolates directly.
   OKLCH e{L, C, 0.5f};
@@ -477,12 +477,12 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   // Antipodal endpoints: the arc follows the sign of b.h - a.h, and swapping
   // the endpoints traverses the same arc.
   OKLCH g{L, C, 0.0f};
-  OKLCH pos{L, C, PI_F};
-  OKLCH neg{L, C, -PI_F};
-  HS_EXPECT_EQ(lerp_oklch(g, pos, 0.5f).h, 0.5f * PI_F);
-  HS_EXPECT_EQ(lerp_oklch(pos, g, 0.5f).h, 0.5f * PI_F);
-  HS_EXPECT_EQ(lerp_oklch(g, neg, 0.5f).h, -0.5f * PI_F);
-  HS_EXPECT_EQ(lerp_oklch(neg, g, 0.5f).h, -0.5f * PI_F);
+  OKLCH pos{L, C, math::PI_F};
+  OKLCH neg{L, C, -math::PI_F};
+  HS_EXPECT_EQ(lerp_oklch(g, pos, 0.5f).h, 0.5f * math::PI_F);
+  HS_EXPECT_EQ(lerp_oklch(pos, g, 0.5f).h, 0.5f * math::PI_F);
+  HS_EXPECT_EQ(lerp_oklch(g, neg, 0.5f).h, -0.5f * math::PI_F);
+  HS_EXPECT_EQ(lerp_oklch(neg, g, 0.5f).h, -0.5f * math::PI_F);
 }
 
 /**
@@ -717,7 +717,7 @@ inline void test_gamut_direction_lookup_matches_angle() {
   for (int il = 1; il < 16; ++il) {
     const float L = il / 16.0f;
     for (int ih = 0; ih < 64; ++ih) {
-      const float h = TWO_PI_F * ih / 64.0f;
+      const float h = math::TWO_PI_F * ih / 64.0f;
       const float got = gamut_max_chroma(L, h);
       HS_EXPECT_EQ(got, gamut_max_chroma(L, cosf(h), sinf(h)));
       const float ref =
@@ -793,7 +793,7 @@ inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
   for (int il = 1; il < 100; ++il) {
     const float L = il / 100.0f;
     for (int ih = 0; ih < 720; ++ih) {
-      const float h = 2.0f * PI_F * ih / 720.0f;
+      const float h = 2.0f * math::PI_F * ih / 720.0f;
       const float C = gamut_continuous_chroma(L, h);
       float r, g, b;
       oklab_to_linear_rgb(oklch_to_oklab({L, C, h}), r, g, b);
@@ -1060,10 +1060,10 @@ inline void test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma() {
     const OKLCH before = pixel_to_oklch(cases[ci].color);
     const OKLCH after = pixel_to_oklch(out.color);
     float dh = after.h - before.h;
-    if (dh > PI_F)
-      dh -= 2.0f * PI_F;
-    else if (dh < -PI_F)
-      dh += 2.0f * PI_F;
+    if (dh > math::PI_F)
+      dh -= 2.0f * math::PI_F;
+    else if (dh < -math::PI_F)
+      dh += 2.0f * math::PI_F;
 
     HS_EXPECT_NEAR(dh, 0.0f, 0.09f);
     HS_EXPECT_NEAR(after.L, before.L, 1e-3f);
@@ -1641,7 +1641,7 @@ inline void test_dot_key_inverts_dot_keyed_coordinate() {
     // The bake's u -> d leg recovers the dot product dot_key was handed.
     HS_EXPECT_NEAR(1.0f - 2.0f * u, d, 1e-6f);
     keyed.get(u);
-    HS_EXPECT_NEAR(probe.last_t, fast_acos(d) / PI_F, 1e-6f);
+    HS_EXPECT_NEAR(probe.last_t, math::fast_acos(d) / math::PI_F, 1e-6f);
   }
 
   HS_EXPECT_NEAR(dot_key(4.0f), 0.0f, 1e-6f);
@@ -1683,7 +1683,7 @@ inline void test_dot_keyed_bake_round_trips_through_dot_key() {
   for (int i = -3; i <= 3; ++i) {
     const float d = static_cast<float>(i) / 4.0f;
     const uint16_t got = baked.get(dot_key(d)).color.r;
-    const uint16_t want = ramp.get(fast_acos(d) / PI_F).color.r;
+    const uint16_t want = ramp.get(math::fast_acos(d) / math::PI_F).color.r;
     HS_EXPECT_NEAR(got, want, 32);
   }
 }
@@ -1907,10 +1907,11 @@ inline void test_palette_modifiers() {
   float rphase_nz = 0.0f;
   RippleModifier ripple_nz(&rphase_nz, 1.0f, 0.1f);
   HS_EXPECT_NEAR(ripple_nz.modify(0.25f),
-                 0.25f + fast_sinf(0.25f * PI_F * 2.0f) * 0.1f, 1e-5f);
+                 0.25f + math::fast_sinf(0.25f * math::PI_F * 2.0f) * 0.1f,
+                 1e-5f);
 
   // Non-zero Breathe: quarter-turn phase shifts by amplitude.
-  float bphase = PI_F * 0.5f;
+  float bphase = math::PI_F * 0.5f;
   HS_EXPECT_NEAR(BreatheModifier(&bphase, 0.1f).modify(0.5f), 0.6f, 1e-3f);
 
   // Pinch with a negative coordinate re-anchors to t's own integer cell.
@@ -1933,7 +1934,7 @@ inline void test_noise_warp_modifier() {
   for (int i = 0; i <= 20; ++i) {
     float t = i * 0.05f;
     float expected =
-        t + (value_noise_2d(t * 3.0f, time, 5u) - 0.5f) * 2.0f * 0.1f;
+        t + (math::value_noise_2d(t * 3.0f, time, 5u) - 0.5f) * 2.0f * 0.1f;
     HS_EXPECT_NEAR(warp.modify(t), expected, 1e-6f);
     HS_EXPECT_LE(std::fabs(warp.modify(t) - t), 0.1f + 1e-6f);
   }
@@ -1956,7 +1957,8 @@ inline void test_drift_modifier() {
   float time = 2.3f;
   DriftModifier drift(&time, 0.5f, 0.2f, 11u);
 
-  float expected = (value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
+  float expected =
+      (math::value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
   HS_EXPECT_NEAR(drift.modify(0.0f), expected, 1e-6f);
   HS_EXPECT_LE(std::fabs(expected), 0.2f);
 
@@ -1970,7 +1972,8 @@ inline void test_drift_modifier() {
 
   // New frame: the memo refreshes to the new walk position.
   time = 9.8f;
-  float refreshed = (value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
+  float refreshed =
+      (math::value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
   HS_EXPECT_NEAR(drift.modify(0.4f), 0.4f + refreshed, 1e-6f);
   HS_EXPECT_TRUE(refreshed != expected);
 }
@@ -2111,7 +2114,8 @@ inline void test_hue_wobble_shade() {
 
   for (float t : {0.0f, 0.25f, 0.6f}) {
     Color4 got = wobble.shade(vivid, t);
-    Color4 ref = hue_rotate(vivid, 0.2f * fast_sinf(t * PI_F * 2.0f + phase));
+    Color4 ref = hue_rotate(
+        vivid, 0.2f * math::fast_sinf(t * math::PI_F * 2.0f + phase));
     HS_EXPECT_EQ(got.color.r, ref.color.r);
     HS_EXPECT_EQ(got.color.g, ref.color.g);
     HS_EXPECT_EQ(got.color.b, ref.color.b);
@@ -2151,7 +2155,7 @@ inline void test_sparkle_shade() {
   int lit = 0, dark = 0;
   for (int i = 0; i <= 100; ++i) {
     float t = i * 0.01f;
-    float n = value_noise_2d(t * 16.0f, time, 21u);
+    float n = math::value_noise_2d(t * 16.0f, time, 21u);
     Color4 got = sparkle.shade(base, t);
     HS_EXPECT_NEAR(got.alpha, 0.9f, 1e-6f);
     if (n <= 0.5f) {
@@ -2190,7 +2194,7 @@ inline void test_chroma_pulse_shade() {
   OKLCH before = oklch_of(mid);
 
   // sin(pi/2) = 1: chroma scales up by 1 + depth.
-  float phase = PI_F * 0.5f;
+  float phase = math::PI_F * 0.5f;
   ChromaPulseShade pulse(&phase, 0.3f);
   Color4 boosted = pulse.shade(mid, 0.2f);
   OKLCH after = oklch_of(boosted);
@@ -2199,7 +2203,7 @@ inline void test_chroma_pulse_shade() {
   HS_EXPECT_NEAR(boosted.alpha, 0.7f, 1e-6f);
 
   // sin(-pi/2) = -1: chroma scales down toward gray.
-  float neg_phase = -PI_F * 0.5f;
+  float neg_phase = -math::PI_F * 0.5f;
   ChromaPulseShade cut(&neg_phase, 0.3f);
   HS_EXPECT_LT(oklch_of(cut.shade(mid, 0.2f)).C, before.C * 0.9f);
 
@@ -2234,7 +2238,7 @@ inline void test_lightness_grain_shade() {
 
   for (int i = 0; i <= 20; ++i) {
     float t = i * 0.05f;
-    float n = value_noise_2d(t * 8.0f, time, 13u);
+    float n = math::value_noise_2d(t * 8.0f, time, 13u);
     float gain = 1.0f + 0.25f * (2.0f * n - 1.0f);
     Color4 got = grain.shade(base, t);
     Pixel ref = base.color * gain;
@@ -2266,13 +2270,13 @@ inline void test_iridescent_shade() {
 
   Color4 black(Pixel(0, 0, 0), 0.3f);
   for (float t : {0.0f, 0.3f, 0.85f}) {
-    float arg = t * 2.0f * PI_F * 2.0f + phase;
-    constexpr float THIRD = 2.0f * PI_F / 3.0f;
+    float arg = t * 2.0f * math::PI_F * 2.0f + phase;
+    constexpr float THIRD = 2.0f * math::PI_F / 3.0f;
     Pixel ref =
-        Pixel(srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
-              srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + THIRD)),
-              srgb_to_linear_interp(0.5f +
-                                    0.5f * fast_cosf(arg + 2.0f * THIRD))) *
+        Pixel(srgb_to_linear_interp(0.5f + 0.5f * math::fast_cosf(arg)),
+              srgb_to_linear_interp(0.5f + 0.5f * math::fast_cosf(arg + THIRD)),
+              srgb_to_linear_interp(
+                  0.5f + 0.5f * math::fast_cosf(arg + 2.0f * THIRD))) *
         0.4f;
     Color4 got = sheen.shade(black, t);
     HS_EXPECT_EQ(got.color.r, ref.r);
@@ -2556,7 +2560,7 @@ inline void test_noise_hue_palette() {
                                     hue_noise.data());
   const float value = 0.375f;
   const float shift =
-      palette.hue_shift(Vector(1.0f, 2.0f, 3.0f).normalized(), 0.4f);
+      palette.hue_shift(math::Vector(1.0f, 2.0f, 3.0f).normalized(), 0.4f);
   const Color4 actual = palette.get(value, shift);
   const Pixel expected =
       sample_hue_rotation_lut({hue_rotation.data(), true}, value, shift);
@@ -2564,9 +2568,9 @@ inline void test_noise_hue_palette() {
   HS_EXPECT_EQ(actual.color.g, expected.g);
   HS_EXPECT_EQ(actual.color.b, expected.b);
   HS_EXPECT_NEAR(actual.alpha, source.get(value).alpha, 1e-6f);
-  HS_EXPECT_GT(
-      fabsf(palette.hue_shift(X_AXIS, 1.0f) - palette.hue_shift(Y_AXIS, 1.0f)),
-      1e-3f);
+  HS_EXPECT_GT(fabsf(palette.hue_shift(math::X_AXIS, 1.0f) -
+                     palette.hue_shift(math::Y_AXIS, 1.0f)),
+               1e-3f);
   const float uv_a = palette.noise_uv(1.0f, 0.0f, 1.0f, 0.0f);
   const float uv_b = palette.noise_uv(1.0f, 0.0f, 0.0f, 1.0f);
   HS_EXPECT_GT(fabsf(uv_a - uv_b), 1e-3f);
@@ -2641,10 +2645,10 @@ inline void test_hue_noise_lut_seamless_across_faces() {
   float edge_high = -1.0f;
   for (int step = 0; step <= 16; ++step) {
     const float t = -1.0f + 0.125f * step;
-    const float x_face =
-        sample_hue_noise_lut(view, Vector(1.0f, 1.0f - NUDGE, t).normalized());
-    const float y_face =
-        sample_hue_noise_lut(view, Vector(1.0f - NUDGE, 1.0f, t).normalized());
+    const float x_face = sample_hue_noise_lut(
+        view, math::Vector(1.0f, 1.0f - NUDGE, t).normalized());
+    const float y_face = sample_hue_noise_lut(
+        view, math::Vector(1.0f - NUDGE, 1.0f, t).normalized());
     HS_EXPECT_NEAR(x_face, y_face, 2e-3f);
     edge_low = std::min(edge_low, x_face);
     edge_high = std::max(edge_high, x_face);
@@ -2652,11 +2656,11 @@ inline void test_hue_noise_lut_seamless_across_faces() {
   HS_EXPECT_GT(edge_high - edge_low, 1e-2f);
 
   const float corner_x = sample_hue_noise_lut(
-      view, Vector(1.0f, 1.0f - NUDGE, 1.0f - NUDGE).normalized());
+      view, math::Vector(1.0f, 1.0f - NUDGE, 1.0f - NUDGE).normalized());
   const float corner_y = sample_hue_noise_lut(
-      view, Vector(1.0f - NUDGE, 1.0f, 1.0f - NUDGE).normalized());
+      view, math::Vector(1.0f - NUDGE, 1.0f, 1.0f - NUDGE).normalized());
   const float corner_z = sample_hue_noise_lut(
-      view, Vector(1.0f - NUDGE, 1.0f - NUDGE, 1.0f).normalized());
+      view, math::Vector(1.0f - NUDGE, 1.0f - NUDGE, 1.0f).normalized());
   HS_EXPECT_NEAR(corner_x, corner_y, 2e-3f);
   HS_EXPECT_NEAR(corner_x, corner_z, 2e-3f);
 }
@@ -2681,15 +2685,15 @@ inline void test_hue_rotation_lut_clamps_out_of_range_value() {
 }
 
 inline void test_wrap_angle_pi_large_arguments() {
-  for (float angle : {25700.0f, -25700.0f, 1000.0f * TWO_PI_F + 0.25f}) {
+  for (float angle : {25700.0f, -25700.0f, 1000.0f * math::TWO_PI_F + 0.25f}) {
     const float wrapped = wrap_angle_pi(angle);
-    float expected = fmodf(angle, TWO_PI_F);
-    if (expected > PI_F)
-      expected -= TWO_PI_F;
-    if (expected < -PI_F)
-      expected += TWO_PI_F;
+    float expected = fmodf(angle, math::TWO_PI_F);
+    if (expected > math::PI_F)
+      expected -= math::TWO_PI_F;
+    if (expected < -math::PI_F)
+      expected += math::TWO_PI_F;
     HS_EXPECT_NEAR(wrapped, expected, 1e-6f);
-    HS_EXPECT_TRUE(wrapped >= -PI_F && wrapped <= PI_F);
+    HS_EXPECT_TRUE(wrapped >= -math::PI_F && wrapped <= math::PI_F);
   }
 }
 
@@ -2698,12 +2702,12 @@ inline void test_wrap_angle_pi_large_arguments() {
  *        it lands on the opposite side of the seam.
  */
 inline void test_wrap_angle_pi_half_turn_keeps_sign() {
-  HS_EXPECT_EQ(wrap_angle_pi(PI_F), PI_F);
-  HS_EXPECT_EQ(wrap_angle_pi(-PI_F), -PI_F);
-  const float past_pi = wrap_angle_pi(std::nextafter(PI_F, 4.0f));
-  HS_EXPECT_TRUE(past_pi < 0.0f && past_pi >= -PI_F);
-  const float past_minus_pi = wrap_angle_pi(std::nextafter(-PI_F, -4.0f));
-  HS_EXPECT_TRUE(past_minus_pi > 0.0f && past_minus_pi <= PI_F);
+  HS_EXPECT_EQ(wrap_angle_pi(math::PI_F), math::PI_F);
+  HS_EXPECT_EQ(wrap_angle_pi(-math::PI_F), -math::PI_F);
+  const float past_pi = wrap_angle_pi(std::nextafter(math::PI_F, 4.0f));
+  HS_EXPECT_TRUE(past_pi < 0.0f && past_pi >= -math::PI_F);
+  const float past_minus_pi = wrap_angle_pi(std::nextafter(-math::PI_F, -4.0f));
+  HS_EXPECT_TRUE(past_minus_pi > 0.0f && past_minus_pi <= math::PI_F);
 }
 
 // Clamp-before-cast / NaN-saturation checks whose contract must also hold under

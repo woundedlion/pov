@@ -73,7 +73,7 @@ namespace transformers_tests {
  * @param v Vector to inspect.
  * @return True when x, y, and z are all finite (no NaN/Inf).
  */
-inline bool finite_vec(const Vector &v) {
+inline bool finite_vec(const math::Vector &v) {
   return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
 }
 
@@ -85,7 +85,7 @@ inline bool finite_vec(const Vector &v) {
  * not merely a (possibly different) non-finite value. A NaN component compares
  * unequal to itself under ==, so the raw bits are compared instead.
  */
-inline bool vec_bits_equal(const Vector &a, const Vector &b) {
+inline bool vec_bits_equal(const math::Vector &a, const math::Vector &b) {
   auto bits = [](float f) {
     uint32_t u;
     std::memcpy(&u, &f, sizeof u);
@@ -104,13 +104,14 @@ inline bool vec_bits_equal(const Vector &a, const Vector &b) {
  *        unchanged.
  */
 inline void test_orient_transformer_identity() {
-  Orientation<> ori;
+  math::Orientation<> ori;
   OrientTransformer ot(ori);
 
-  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
-                            Vector(0.5f, 0.1f, 0.3f).normalized()};
-  for (const Vector &v : samples) {
-    Vector r = ot(v);
+  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                                  math::Vector(0, 0, 1),
+                                  math::Vector(0.5f, 0.1f, 0.3f).normalized()};
+  for (const math::Vector &v : samples) {
+    math::Vector r = ot(v);
     HS_EXPECT_NEAR(r.x, v.x, 1e-5f);
     HS_EXPECT_NEAR(r.y, v.y, 1e-5f);
     HS_EXPECT_NEAR(r.z, v.z, 1e-5f);
@@ -127,14 +128,15 @@ inline void test_orient_transformer_identity() {
  *          a no-op transform; this case fails unless the rotation is applied.
  */
 inline void test_orient_transformer_known_rotation() {
-  Orientation<> ori(
-      make_rotation(Vector(0, 1, 0), PI_F * 0.5f)); // +90° about y
+  math::Orientation<> ori(math::make_rotation(
+      math::Vector(0, 1, 0), math::PI_F * 0.5f)); // +90° about y
   OrientTransformer ot(ori);
 
-  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
-                            Vector(0.5f, 0.1f, 0.3f).normalized()};
-  for (const Vector &v : samples) {
-    Vector r = ot(v);
+  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                                  math::Vector(0, 0, 1),
+                                  math::Vector(0.5f, 0.1f, 0.3f).normalized()};
+  for (const math::Vector &v : samples) {
+    math::Vector r = ot(v);
     HS_EXPECT_NEAR(r.x, v.z, 1e-5f);
     HS_EXPECT_NEAR(r.y, v.y, 1e-5f);
     HS_EXPECT_NEAR(r.z, -v.x, 1e-5f);
@@ -151,8 +153,8 @@ inline void test_orient_transformer_known_rotation() {
  */
 inline void test_mobius_identity_roundtrip() {
   math::MobiusParams id;
-  Vector v = Vector(0.5f, 0.1f, 0.3f).normalized();
-  Vector r = math::mobius_transform(v, id);
+  math::Vector v = math::Vector(0.5f, 0.1f, 0.3f).normalized();
+  math::Vector r = math::mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
   HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
@@ -172,8 +174,8 @@ inline void test_mobius_identity_roundtrip() {
  */
 inline void test_mobius_known_rotation() {
   math::MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0); // f(z) = 1/z
-  Vector v = Vector(0.5f, 0.1f, 0.3f).normalized();
-  Vector r = math::mobius_transform(v, inv);
+  math::Vector v = math::Vector(0.5f, 0.1f, 0.3f).normalized();
+  math::Vector r = math::mobius_transform(v, inv);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 1e-3f);
   HS_EXPECT_NEAR(r.y, -v.y, 1e-3f);
@@ -194,7 +196,7 @@ inline void test_mobius_known_rotation() {
  */
 inline void test_mobius_matches_double_precision_oracle() {
   hs::random().seed(20260720);
-  auto oracle = [](const Vector &v, const math::MobiusParams &p) {
+  auto oracle = [](const math::Vector &v, const math::MobiusParams &p) {
     double s = 1.0 - static_cast<double>(v.y);
     double zr = static_cast<double>(v.x) / s;
     double zi = static_cast<double>(v.z) / s;
@@ -210,9 +212,9 @@ inline void test_mobius_matches_double_precision_oracle() {
     double wr = (nr * dr + ni * di) / q;
     double wi = (ni * dr - nr * di) / q;
     double r2 = wr * wr + wi * wi;
-    return Vector(static_cast<float>(2.0 * wr / (r2 + 1.0)),
-                  static_cast<float>((r2 - 1.0) / (r2 + 1.0)),
-                  static_cast<float>(2.0 * wi / (r2 + 1.0)));
+    return math::Vector(static_cast<float>(2.0 * wr / (r2 + 1.0)),
+                        static_cast<float>((r2 - 1.0) / (r2 + 1.0)),
+                        static_cast<float>(2.0 * wi / (r2 + 1.0)));
   };
 
   int compared = 0;
@@ -220,12 +222,12 @@ inline void test_mobius_matches_double_precision_oracle() {
   float worst_unit_err = 0.0f;
   float worst_oracle_err = 0.0f;
   for (int n = 0; n < 4000; ++n) {
-    Vector v;
+    math::Vector v;
     for (;;) {
       const float rx = hs::rand_f(-1, 1);
       const float ry = hs::rand_f(-1, 1);
       const float rz = hs::rand_f(-1, 1);
-      Vector r(rx, ry, rz);
+      math::Vector r(rx, ry, rz);
       if (r.length() > 0.1f) {
         v = r.normalized();
         break;
@@ -249,12 +251,12 @@ inline void test_mobius_matches_double_precision_oracle() {
     if (det_re * det_re + det_im * det_im < 0.25f)
       continue;
 
-    Vector got = math::mobius_transform(v, p);
+    math::Vector got = math::mobius_transform(v, p);
     nonfinite += !finite_vec(got);
     worst_unit_err = std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
     if (1.0f - v.y < projections::STEREO_POLE_EPS)
       continue;
-    Vector want = oracle(v, p);
+    math::Vector want = oracle(v, p);
     ++compared;
     worst_oracle_err = std::max(worst_oracle_err, std::fabs(got.x - want.x));
     worst_oracle_err = std::max(worst_oracle_err, std::fabs(got.y - want.y));
@@ -273,16 +275,16 @@ inline void test_mobius_matches_double_precision_oracle() {
  */
 inline void test_mobius_poles_map_to_coefficient_ratios() {
   math::MobiusParams p(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f);
-  Vector north = math::mobius_transform(Vector(0, 1, 0), p);
+  math::Vector north = math::mobius_transform(math::Vector(0, 1, 0), p);
   HS_EXPECT_TRUE(finite_vec(north));
-  Vector north_want = projections::inv_stereo(p.a / p.c);
+  math::Vector north_want = projections::inv_stereo(p.a / p.c);
   HS_EXPECT_NEAR(north.x, north_want.x, 1e-4f);
   HS_EXPECT_NEAR(north.y, north_want.y, 1e-4f);
   HS_EXPECT_NEAR(north.z, north_want.z, 1e-4f);
 
-  Vector south = math::mobius_transform(Vector(0, -1, 0), p);
+  math::Vector south = math::mobius_transform(math::Vector(0, -1, 0), p);
   HS_EXPECT_TRUE(finite_vec(south));
-  Vector south_want = projections::inv_stereo(p.b / p.d);
+  math::Vector south_want = projections::inv_stereo(p.b / p.d);
   HS_EXPECT_NEAR(south.x, south_want.x, 1e-4f);
   HS_EXPECT_NEAR(south.y, south_want.y, 1e-4f);
   HS_EXPECT_NEAR(south.z, south_want.z, 1e-4f);
@@ -295,8 +297,8 @@ inline void test_mobius_poles_map_to_coefficient_ratios() {
  */
 inline void test_gnomonic_mobius_identity_roundtrip() {
   math::MobiusParams id;
-  Vector v = Vector(0.3f, 0.7f, 0.2f).normalized();
-  Vector r = math::gnomonic_mobius_transform(v, id);
+  math::Vector v = math::Vector(0.3f, 0.7f, 0.2f).normalized();
+  math::Vector r = math::gnomonic_mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
   HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
@@ -304,10 +306,11 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
 
   for (float y :
        {1e-3f, 2e-4f, 1e-5f, 1e-9f, 0.0f, -1e-9f, -1e-5f, -2e-4f, -1e-3f}) {
-    for (float theta = 0.0f; theta < 2.0f * PI_F; theta += 0.31f) {
-      const Vector near_equator =
-          Vector(cosf(theta), y, sinf(theta)).normalized();
-      const Vector back = math::gnomonic_mobius_transform(near_equator, id);
+    for (float theta = 0.0f; theta < 2.0f * math::PI_F; theta += 0.31f) {
+      const math::Vector near_equator =
+          math::Vector(cosf(theta), y, sinf(theta)).normalized();
+      const math::Vector back =
+          math::gnomonic_mobius_transform(near_equator, id);
       HS_EXPECT_TRUE(finite_vec(back));
       HS_EXPECT_NEAR(back.x, near_equator.x, 2e-3f);
       HS_EXPECT_NEAR(back.y, near_equator.y, 2e-3f);
@@ -329,8 +332,8 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
 inline void test_gnomonic_mobius_known_rotation() {
   math::MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
   for (float y : {0.7f, -0.7f}) {
-    const Vector v = Vector(0.3f, y, 0.2f).normalized();
-    const Vector r = math::gnomonic_mobius_transform(v, neg);
+    const math::Vector v = math::Vector(0.3f, y, 0.2f).normalized();
+    const math::Vector r = math::gnomonic_mobius_transform(v, neg);
     HS_EXPECT_TRUE(finite_vec(r));
     HS_EXPECT_NEAR(r.x, -v.x, 1e-3f);
     HS_EXPECT_NEAR(r.y, v.y, 1e-3f);
@@ -350,8 +353,8 @@ inline void test_gnomonic_mobius_known_rotation() {
 inline void test_gnomonic_mobius_signed_zero_equator() {
   math::MobiusParams id;
   for (float y : {-0.0f, 0.0f, -1e-12f, 1e-12f}) {
-    const Vector v(1.0f, y, 0.0f);
-    const Vector r = math::gnomonic_mobius_transform(v, id);
+    const math::Vector v(1.0f, y, 0.0f);
+    const math::Vector r = math::gnomonic_mobius_transform(v, id);
     HS_EXPECT_NEAR(r.x, 1.0f, 1e-3f);
     HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
     HS_EXPECT_NEAR(r.z, 0.0f, 1e-3f);
@@ -367,11 +370,11 @@ inline void test_gnomonic_mobius_signed_zero_equator() {
  */
 inline void test_ripple_zero_amplitude_is_identity() {
   Animation::RippleParams p;
-  p.center = Vector(0, 1, 0);
+  p.center = math::Vector(0, 1, 0);
   p.amplitude = 0.0f;
   p.phase = 0.5f;
-  Vector v = Vector(1, 0, 0);
-  Vector r = ripple_transform(v, p);
+  math::Vector v = math::Vector(1, 0, 0);
+  math::Vector r = ripple_transform(v, p);
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
@@ -385,12 +388,12 @@ inline void test_ripple_zero_amplitude_is_identity() {
  */
 inline void test_ripple_center_point_is_identity() {
   Animation::RippleParams p;
-  p.center = Vector(0, 1, 0);
+  p.center = math::Vector(0, 1, 0);
   p.amplitude = 0.8f;
   p.phase = 0.0f;
   p.decay = 0.0f;
-  Vector v = Vector(0, 1, 0);
-  Vector r = ripple_transform(v, p);
+  math::Vector v = math::Vector(0, 1, 0);
+  math::Vector r = ripple_transform(v, p);
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
@@ -402,15 +405,16 @@ inline void test_ripple_center_point_is_identity() {
  */
 inline void test_ripple_active_rotates_on_sphere() {
   Animation::RippleParams p;
-  p.center = Vector(0, 1, 0);
+  p.center = math::Vector(0, 1, 0);
   p.amplitude = 0.5f;
-  p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
+  p.phase = math::PI_F * 0.5f; // wavelet peak at d == 90°
   p.decay = 0.0f;
   p.thickness = 1.0f;
   // Default thresholds (min=1, max=-1) disable the fast reject.
 
-  Vector v = Vector(1, 0, 0); // 90° from center → at the wavelet peak
-  Vector r = ripple_transform(v, p);
+  math::Vector v =
+      math::Vector(1, 0, 0); // 90° from center → at the wavelet peak
+  math::Vector r = ripple_transform(v, p);
 
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.length(), 1.0f, 1e-4f);
@@ -432,9 +436,10 @@ inline void test_ripple_active_rotates_on_sphere() {
  */
 inline void test_ripple_threshold_reject_path() {
   Animation::RippleParams p;
-  p.center = Vector(0, 1, 0); // north pole, so cos_d == dot(v, center) == v.y
+  p.center =
+      math::Vector(0, 1, 0); // north pole, so cos_d == dot(v, center) == v.y
   p.amplitude = 0.5f;
-  p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
+  p.phase = math::PI_F * 0.5f; // wavelet peak at d == 90°
   p.decay = 0.0f;
   p.thickness = 0.4f; // band ≈ [phase - 0.4, phase + 0.4] rad
   p.sync();
@@ -443,8 +448,8 @@ inline void test_ripple_threshold_reject_path() {
   HS_EXPECT_GT(p.cos_threshold_max, -1.0f);
 
   // In-band: at the peak.
-  const Vector in_band = Vector(1, 0, 0);
-  const Vector r_in = ripple_transform(in_band, p);
+  const math::Vector in_band = math::Vector(1, 0, 0);
+  const math::Vector r_in = ripple_transform(in_band, p);
   HS_EXPECT_TRUE(finite_vec(r_in));
   HS_EXPECT_NEAR(r_in.length(), 1.0f, 1e-4f);
   const float moved_in = std::abs(r_in.x - in_band.x) +
@@ -454,16 +459,18 @@ inline void test_ripple_threshold_reject_path() {
 
   // Out-of-band toward the center (d < d_min): cos_d > cos_threshold_min leg.
   const float d_near = p.phase - p.thickness - 0.3f;
-  const Vector near_c = Vector(std::sin(d_near), std::cos(d_near), 0.0f);
-  const Vector r_near = ripple_transform(near_c, p);
+  const math::Vector near_c =
+      math::Vector(std::sin(d_near), std::cos(d_near), 0.0f);
+  const math::Vector r_near = ripple_transform(near_c, p);
   HS_EXPECT_NEAR(r_near.x, near_c.x, 1e-6f);
   HS_EXPECT_NEAR(r_near.y, near_c.y, 1e-6f);
   HS_EXPECT_NEAR(r_near.z, near_c.z, 1e-6f);
 
   // Out-of-band away from the center (d > d_max): cos_d < cos_threshold_max leg.
   const float d_far = p.phase + p.thickness + 0.3f;
-  const Vector far_c = Vector(std::sin(d_far), std::cos(d_far), 0.0f);
-  const Vector r_far = ripple_transform(far_c, p);
+  const math::Vector far_c =
+      math::Vector(std::sin(d_far), std::cos(d_far), 0.0f);
+  const math::Vector r_far = ripple_transform(far_c, p);
   HS_EXPECT_NEAR(r_far.x, far_c.x, 1e-6f);
   HS_EXPECT_NEAR(r_far.y, far_c.y, 1e-6f);
   HS_EXPECT_NEAR(r_far.z, far_c.z, 1e-6f);
@@ -481,17 +488,17 @@ inline void test_ripple_threshold_reject_path() {
  */
 inline void test_ripple_decay_attenuates() {
   Animation::RippleParams base;
-  base.center = Vector(0, 1, 0);
+  base.center = math::Vector(0, 1, 0);
   base.amplitude = 0.5f;
-  base.phase = PI_F * 0.5f; // wavelet peak at d == 90°
+  base.phase = math::PI_F * 0.5f; // wavelet peak at d == 90°
   base.thickness = 1.0f;
   // Default thresholds (min=1, max=-1) disable the fast reject.
-  const Vector v = Vector(1, 0, 0);
+  const math::Vector v = math::Vector(1, 0, 0);
 
   auto moved = [&](float decay) {
     Animation::RippleParams p = base;
     p.decay = decay;
-    Vector r = ripple_transform(v, p);
+    math::Vector r = ripple_transform(v, p);
     return std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
   };
 
@@ -518,9 +525,10 @@ inline void test_ripple_decay_attenuates() {
  */
 inline void test_ripple_threshold_boundary() {
   Animation::RippleParams p;
-  p.center = Vector(0, 1, 0); // north pole → cos_d == dot(v, center) == v.y
+  p.center =
+      math::Vector(0, 1, 0); // north pole → cos_d == dot(v, center) == v.y
   p.amplitude = 0.5f;
-  p.phase = PI_F * 0.5f;
+  p.phase = math::PI_F * 0.5f;
   p.decay = 0.0f;
   p.thickness = 0.4f; // band edges at phase ± thickness
   p.sync();
@@ -529,9 +537,11 @@ inline void test_ripple_threshold_boundary() {
   const float d_max = p.phase + p.thickness;
   const float eps = 0.02f;
 
-  auto pt = [](float d) { return Vector(std::sin(d), std::cos(d), 0.0f); };
-  auto moved = [&](const Vector &src) {
-    Vector r = ripple_transform(src, p);
+  auto pt = [](float d) {
+    return math::Vector(std::sin(d), std::cos(d), 0.0f);
+  };
+  auto moved = [&](const math::Vector &src) {
+    math::Vector r = ripple_transform(src, p);
     return std::abs(r.x - src.x) + std::abs(r.y - src.y) +
            std::abs(r.z - src.z);
   };
@@ -562,13 +572,13 @@ inline void test_ripple_threshold_boundary() {
  */
 inline void test_ripple_small_angle_series_matches_exact() {
   Animation::RippleParams p;
-  p.center = Vector(0, 1, 0);
-  p.phase = PI_F * 0.5f; // wavelet peak at d == 90 degrees
+  p.center = math::Vector(0, 1, 0);
+  p.phase = math::PI_F * 0.5f; // wavelet peak at d == 90 degrees
   p.decay = 0.0f;
   p.thickness = 1.0f;
   // Default thresholds (min=1, max=-1) disable the fast reject.
-  const Vector v = Vector(1, 0, 0);
-  const Vector axis = cross(p.center, v).normalized();
+  const math::Vector v = math::Vector(1, 0, 0);
+  const math::Vector axis = math::cross(p.center, v).normalized();
 
   auto at = [&](float amplitude) {
     Animation::RippleParams q = p;
@@ -576,20 +586,20 @@ inline void test_ripple_small_angle_series_matches_exact() {
     return ripple_transform(v, q);
   };
   auto exact = [&](float theta) {
-    return rotate(v, make_rotation(axis, theta));
+    return math::rotate(v, math::make_rotation(axis, theta));
   };
-  auto err = [](const Vector &a, const Vector &b) {
+  auto err = [](const math::Vector &a, const math::Vector &b) {
     return std::max(std::max(std::fabs(a.x - b.x), std::fabs(a.y - b.y)),
                     std::fabs(a.z - b.z));
   };
 
   // Calibrate theta/amplitude from the exact branch, in libm acos rather than
   // the fast_acos angle_between uses.
-  auto turned = [&](const Vector &out) {
-    return (float)std::acos(hs::clamp(dot(v, out), -1.0f, 1.0f));
+  auto turned = [&](const math::Vector &out) {
+    return (float)std::acos(hs::clamp(math::dot(v, out), -1.0f, 1.0f));
   };
   const float anchor_amplitude = 0.9f;
-  const Vector anchor = at(anchor_amplitude);
+  const math::Vector anchor = at(anchor_amplitude);
   const float envelope = turned(anchor) / anchor_amplitude;
   // The peak of a zero-decay Ricker wavelet is unit gain.
   HS_EXPECT_NEAR(envelope, 1.0f, 2e-3f);
@@ -605,7 +615,7 @@ inline void test_ripple_small_angle_series_matches_exact() {
   for (int i = 0; i <= steps; ++i) {
     const float amplitude =
         amp_lo + (amp_hi - amp_lo) * (float)i / (float)steps;
-    const Vector got = at(amplitude);
+    const math::Vector got = at(amplitude);
     worst_err = std::max(worst_err, err(got, exact(amplitude * envelope)));
     worst_unit_err = std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
   }
@@ -630,7 +640,7 @@ inline void test_ripple_small_angle_series_matches_exact() {
  */
 inline void test_ripple_threshold_collapses_past_pi() {
   Animation::RippleParams p;
-  p.center = Vector(0, 1, 0);
+  p.center = math::Vector(0, 1, 0);
   p.amplitude = 0.5f;
   p.decay = 0.0f;
   p.thickness = 0.4f;
@@ -643,8 +653,8 @@ inline void test_ripple_threshold_collapses_past_pi() {
   // The band admits nothing: every direction but the exact antipode falls
   // outside it, takes the fast reject, and comes back bit for bit.
   for (int i = 1; i < 64; ++i) {
-    const float d = PI_F * static_cast<float>(i) / 64.0f;
-    const Vector v(std::sin(d), std::cos(d), 0.0f);
+    const float d = math::PI_F * static_cast<float>(i) / 64.0f;
+    const math::Vector v(std::sin(d), std::cos(d), 0.0f);
     HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, p), v));
   }
 }
@@ -665,10 +675,10 @@ inline void test_ripple_threshold_collapses_past_pi() {
 inline void test_transforms_nonfinite_passes_through_identity() {
   const float inf = HUGE_VALF;
   const float nan = NAN;
-  const Vector bad[] = {Vector(nan, 0, 0), Vector(0, inf, 0),
-                        Vector(inf, nan, -inf)};
+  const math::Vector bad[] = {math::Vector(nan, 0, 0), math::Vector(0, inf, 0),
+                              math::Vector(inf, nan, -inf)};
 
-  for (const Vector &v : bad) {
+  for (const math::Vector &v : bad) {
     Animation::RippleParams rp;
     rp.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, rp), v));
@@ -691,8 +701,8 @@ inline void test_transforms_nonfinite_passes_through_identity() {
 inline void test_noise_zero_amplitude_is_identity() {
   Animation::NoiseParams p;
   p.amplitude = 0.0f;
-  Vector v = Vector(0.2f, 0.5f, 0.84f).normalized();
-  Vector r = noise_transform(v, p);
+  math::Vector v = math::Vector(0.2f, 0.5f, 0.84f).normalized();
+  math::Vector r = noise_transform(v, p);
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
@@ -712,11 +722,11 @@ inline void test_noise_active_stays_on_sphere() {
   p.amplitude = 0.5f;
   p.scale = 4.0f;
   p.time = 1.0f;
-  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0),
-                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                                  math::Vector(0.4f, 0.6f, 0.7f).normalized()};
   float total_moved = 0.0f;
-  for (const Vector &v : samples) {
-    Vector r = noise_transform(v, p);
+  for (const math::Vector &v : samples) {
+    math::Vector r = noise_transform(v, p);
     HS_EXPECT_TRUE(finite_vec(r));
     HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
     total_moved +=
@@ -755,14 +765,14 @@ inline void test_noise_cross_hemisphere_cap() {
     float worst_angle = 0.0f;
     int off_sphere = 0;
     for (int i = 0; i < 4000; ++i) {
-      const Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                     hs::rand_f(-1.0f, 1.0f));
+      const math::Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                           hs::rand_f(-1.0f, 1.0f));
       if (r.length() < 0.1f)
         continue;
-      const Vector v = r.normalized();
-      const Vector out = noise_transform(v, p);
+      const math::Vector v = r.normalized();
+      const math::Vector out = noise_transform(v, p);
       off_sphere += !finite_vec(out) || std::fabs(out.length() - 1.0f) > 1e-3f;
-      worst_angle = std::max(worst_angle, angle_between(v, out));
+      worst_angle = std::max(worst_angle, math::angle_between(v, out));
     }
     HS_EXPECT_EQ(off_sphere, 0);
     return worst_angle;
@@ -788,8 +798,8 @@ inline void test_noise_cross_hemisphere_cap() {
 inline void test_transformer_no_entities_is_identity() {
   Timeline tl;
   RippleTransformer<8> rt(tl);
-  Vector v = Vector(0.6f, 0.2f, 0.77f).normalized();
-  Vector r = rt.transform(v);
+  math::Vector v = math::Vector(0.6f, 0.2f, 0.77f).normalized();
+  math::Vector r = rt.transform(v);
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
@@ -818,11 +828,11 @@ inline void test_transformer_spawn_applies_and_composes() {
   nt.template_params.time = 1.0f;
   nt.template_params.sync();
 
-  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
-                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 0, 1),
+                                  math::Vector(0.4f, 0.6f, 0.7f).normalized()};
 
-  for (const Vector &v : samples) {
-    Vector r = nt.transform(v);
+  for (const math::Vector &v : samples) {
+    math::Vector r = nt.transform(v);
     HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
     HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
     HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
@@ -830,10 +840,10 @@ inline void test_transformer_spawn_applies_and_composes() {
 
   HS_EXPECT_TRUE(nt.spawn_pinned(0) != nullptr);
   constexpr size_t N = sizeof(samples) / sizeof(samples[0]);
-  Vector single[N];
+  math::Vector single[N];
   float total_moved = 0.0f;
   for (size_t i = 0; i < N; ++i) {
-    const Vector &v = samples[i];
+    const math::Vector &v = samples[i];
     single[i] = nt.transform(v);
     HS_EXPECT_TRUE(finite_vec(single[i]));
     HS_EXPECT_NEAR(single[i].length(), 1.0f, 1e-3f);
@@ -845,8 +855,8 @@ inline void test_transformer_spawn_applies_and_composes() {
   HS_EXPECT_TRUE(nt.spawn_pinned(0) != nullptr);
   float total_divergence = 0.0f;
   for (size_t i = 0; i < N; ++i) {
-    const Vector &v = samples[i];
-    Vector r = nt.transform(v);
+    const math::Vector &v = samples[i];
+    math::Vector r = nt.transform(v);
     HS_EXPECT_TRUE(finite_vec(r));
     HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
     total_divergence += std::abs(r.x - single[i].x) +
@@ -878,7 +888,7 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
 
   constexpr int DELAY = 20;
   constexpr int DURATION = 4;
-  const Vector center(0, 1, 0);
+  const math::Vector center(0, 1, 0);
 
   RippleTransformer<1> control(tl);
   control.init_storage(persistent_arena);
@@ -934,17 +944,17 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   float dummy = 0.0f;
   tl.add(0, Animation::Transition(dummy, 1.0f, 2, ease_linear));
 
-  Animation::Ripple *p = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4);
+  Animation::Ripple *p = rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4);
   HS_EXPECT_TRUE(p != nullptr);
   // Slot occupied: with CAPACITY 1 a second spawn finds nothing free.
-  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 1, 0), 0.2f, 4) == nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4) == nullptr);
 
   // Step past the earlier event (relocates the ripple) and the ripple's own
   // completion, so the then() callback fires through the relocation.
   for (int i = 0; i < 12; ++i)
     tl.step(cv);
 
-  Animation::Ripple *reclaimed = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4);
+  Animation::Ripple *reclaimed = rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4);
   HS_EXPECT_TRUE(reclaimed != nullptr);
 }
 
@@ -972,12 +982,12 @@ inline void test_transformer_callback_after_pool_destroyed() {
   alignas(Pool) static uint8_t pool_storage[sizeof(Pool)];
   Pool *first = new (pool_storage) Pool(tl);
   first->init_storage(persistent_arena);
-  HS_EXPECT_TRUE(first->spawn(0, Vector(0, 1, 0), 0.2f, 4) != nullptr);
+  HS_EXPECT_TRUE(first->spawn(0, math::Vector(0, 1, 0), 0.2f, 4) != nullptr);
   first->~Pool();
 
   Pool *second = new (pool_storage) Pool(tl);
   second->init_storage(persistent_arena);
-  HS_EXPECT_TRUE(second->spawn(0, Vector(1, 0, 0), 0.2f, 120) != nullptr);
+  HS_EXPECT_TRUE(second->spawn(0, math::Vector(1, 0, 0), 0.2f, 120) != nullptr);
   HS_EXPECT_EQ(second->active_count(), 1);
 
   // Steps past the first pool's ripple, firing its now-stale callback.
@@ -985,7 +995,7 @@ inline void test_transformer_callback_after_pool_destroyed() {
     tl.step(cv);
 
   HS_EXPECT_EQ(second->active_count(), 1);
-  HS_EXPECT_TRUE(second->spawn(0, Vector(0, 0, 1), 0.2f, 4) == nullptr);
+  HS_EXPECT_TRUE(second->spawn(0, math::Vector(0, 0, 1), 0.2f, 4) == nullptr);
   second->~Pool();
 }
 
@@ -1008,15 +1018,15 @@ inline void test_transformer_slots_released_by_timeline_clear() {
   RippleTransformer<2> rt(tl);
   rt.init_storage(persistent_arena);
 
-  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 1, 0), 0.2f, 60) != nullptr);
-  HS_EXPECT_TRUE(rt.spawn(0, Vector(1, 0, 0), 0.2f, 60) != nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 60) != nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(1, 0, 0), 0.2f, 60) != nullptr);
   HS_EXPECT_EQ(rt.active_count(), 2);
-  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 0, 1), 0.2f, 60) == nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(0, 0, 1), 0.2f, 60) == nullptr);
 
   tl.clear();
   HS_EXPECT_EQ(rt.active_count(), 0);
-  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 0, 1), 0.2f, 60) != nullptr);
-  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 1, 0), 0.2f, 60) != nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(0, 0, 1), 0.2f, 60) != nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 60) != nullptr);
   HS_EXPECT_EQ(rt.active_count(), 2);
 }
 
@@ -1040,8 +1050,9 @@ struct OrderParams {
  * @brief Shifts a base-10 digit of the tag into x on each application, so the
  *        final x reads back the exact order the warps composed in.
  */
-inline Vector order_transform(const Vector &v, const OrderParams &p) {
-  return Vector(v.x * 10.0f + static_cast<float>(p.order), v.y, v.z);
+inline math::Vector order_transform(const math::Vector &v,
+                                    const OrderParams &p) {
+  return math::Vector(v.x * 10.0f + static_cast<float>(p.order), v.y, v.z);
 }
 
 /**
@@ -1085,7 +1096,7 @@ inline void test_transformer_recycled_slot_composes_in_spawn_order() {
   HS_EXPECT_TRUE(tr.spawn(0, /*order=*/2, /*duration=*/100) !=
                  nullptr); // recycles slot 0
 
-  const Vector r = tr.transform(Vector(0, 0, 0));
+  const math::Vector r = tr.transform(math::Vector(0, 0, 0));
   HS_EXPECT_NEAR(r.x, 12.0f, 1e-4f);
 }
 
@@ -1115,7 +1126,7 @@ struct FieldTestParams {
  * @brief Scales the sample's x by the entity's value, so the sum is readable
  *        and the point argument is proven to reach the field function.
  */
-inline float field_test_field(const Vector &v, const FieldTestParams &p) {
+inline float field_test_field(const math::Vector &v, const FieldTestParams &p) {
   return p.value * v.x;
 }
 
@@ -1141,7 +1152,7 @@ using TestFieldTransformer =
 inline void test_field_transformer_no_entities_is_zero() {
   Timeline tl;
   TestFieldTransformer ft(tl);
-  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(ft.field_bound(), 0.0f, 1e-6f);
   HS_EXPECT_TRUE(ft.active_count() == 0);
 }
@@ -1157,13 +1168,13 @@ inline void test_field_transformer_sums_and_bounds() {
   ft.init_storage(persistent_arena);
 
   HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
-  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 2.0f, 1e-5f);
-  HS_EXPECT_NEAR(ft.field(Vector(-0.5f, 0, 0)), -1.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 2.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field(math::Vector(-0.5f, 0, 0)), -1.0f, 1e-5f);
 
   HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
   HS_EXPECT_TRUE(ft.active_count() == 2);
-  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), -1.0f, 1e-5f);
-  HS_EXPECT_NEAR(ft.operator()(Vector(1, 0, 0)), -1.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), -1.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.operator()(math::Vector(1, 0, 0)), -1.0f, 1e-5f);
   HS_EXPECT_NEAR(ft.field_bound(), 5.0f, 1e-5f);
 }
 
@@ -1206,9 +1217,9 @@ inline void test_field_transformer_slot_reclaimed() {
     tl.step(cv);
 
   HS_EXPECT_TRUE(ft.active_count() == 1);
-  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 5.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 5.0f, 1e-5f);
   HS_EXPECT_TRUE(ft.spawn(0, 1.0f, 100) != nullptr);
-  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 6.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 6.0f, 1e-5f);
 }
 
 /**
@@ -1229,7 +1240,7 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
   persistent_arena.set_offset(mark);
   ft.reclaim_storage(persistent_arena);
   HS_EXPECT_TRUE(ft.active_count() == 1);
-  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 2.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field(math::Vector(1, 0, 0)), 2.0f, 1e-5f);
 }
 
 // ============================================================================
@@ -1358,10 +1369,10 @@ inline void test_bump_field_threshold_sync() {
  *          the center.
  */
 inline void test_bump_field_drapes_over_ball() {
-  const float c_lat = PI_F / 3.0f;
+  const float c_lat = math::PI_F / 3.0f;
   Animation::BumpParams p;
-  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
-  p.axis = Vector(0, 1, 0);
+  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = math::Vector(0, 1, 0);
   p.radius = 0.5f;
   p.amplitude = 1.0f;
   p.envelope = 1.0f;
@@ -1369,8 +1380,8 @@ inline void test_bump_field_drapes_over_ball() {
 
   // Sample the meridian at colatitude offset d from the center.
   auto at = [&](float d) {
-    return bump_field(Vector(std::sin(c_lat + d), std::cos(c_lat + d), 0.0f),
-                      p);
+    return bump_field(
+        math::Vector(std::sin(c_lat + d), std::cos(c_lat + d), 0.0f), p);
   };
 
   HS_EXPECT_NEAR(at(0.0f), 0.0f, 2e-3f);
@@ -1396,10 +1407,10 @@ inline void test_bump_field_drapes_over_ball() {
  *        by the ring's drape weight, so the bow is round rather than pointed.
  */
 inline void test_bump_field_round_bulge_along_ring() {
-  const float c_lat = PI_F / 2.0f;
+  const float c_lat = math::PI_F / 2.0f;
   Animation::BumpParams p;
-  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
-  p.axis = Vector(0, 1, 0);
+  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = math::Vector(0, 1, 0);
   p.radius = 0.5f;
   p.envelope = 1.0f;
   p.sync();
@@ -1410,8 +1421,8 @@ inline void test_bump_field_round_bulge_along_ring() {
   const float y = p.radius * 0.5f;
   const float lat = c_lat + y;
   const float az = 0.3f;
-  const Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
-                 std::sin(lat) * std::sin(az));
+  const math::Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
+                       std::sin(lat) * std::sin(az));
   const float x = az * std::sin(lat);
   const float expected = std::sqrt(p.radius * p.radius - x * x) - y;
   HS_EXPECT_NEAR(bump_field(v, p), expected, 5e-3f);
@@ -1421,19 +1432,19 @@ inline void test_bump_field_round_bulge_along_ring() {
 inline void test_bump_field_precomputed_y_parity() {
   const float c_lat = 1.1f;
   Animation::BumpParams p;
-  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
-  p.axis = Vector(0, 1, 0);
+  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = math::Vector(0, 1, 0);
   p.radius = 0.55f;
   p.amplitude = 0.8f;
   p.envelope = 0.7f;
   p.sync();
 
   const float center_colat =
-      fast_acos(hs::clamp(dot(p.axis, p.center), -1.0f, 1.0f));
+      math::fast_acos(hs::clamp(math::dot(p.axis, p.center), -1.0f, 1.0f));
   for (float lat = 0.4f; lat <= 1.8f; lat += 0.07f) {
     for (float az = -0.6f; az <= 0.6f; az += 0.09f) {
-      Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
-               std::sin(lat) * std::sin(az));
+      math::Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
+                     std::sin(lat) * std::sin(az));
       const float y = lat - center_colat;
       HS_EXPECT_NEAR(bump_field_with_y(v, p, y), bump_field(v, p), 2e-3f);
     }
@@ -1446,16 +1457,16 @@ inline void test_bump_field_precomputed_y_parity() {
  *        when fully faded.
  */
 inline void test_bump_field_envelope_gates() {
-  const float c_lat = PI_F / 3.0f;
+  const float c_lat = math::PI_F / 3.0f;
   Animation::BumpParams p;
-  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
-  p.axis = Vector(0, 1, 0);
+  p.center = math::Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = math::Vector(0, 1, 0);
   p.radius = 0.5f;
   p.sync();
 
   // Half the shrunken footprint below the center on the axis meridian.
   const float d = c_lat + 0.125f;
-  const Vector v(std::sin(d), std::cos(d), 0.0f);
+  const math::Vector v(std::sin(d), std::cos(d), 0.0f);
   p.envelope = 0.5f; // effective radius 0.25
   p.sync();
   HS_EXPECT_NEAR(bump_field(v, p), 0.125f, 2e-3f);
@@ -1476,8 +1487,8 @@ inline void test_bump_field_bound_is_conservative() {
   hs::random().seed(20260803);
   auto random_unit = []() {
     for (;;) {
-      const Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                     hs::rand_f(-1.0f, 1.0f));
+      const math::Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                           hs::rand_f(-1.0f, 1.0f));
       if (r.length() > 0.1f)
         return r.normalized();
     }
@@ -1565,13 +1576,13 @@ inline void test_noise_product_field_parity() {
   p.time = 2.0f;
   p.noise.SetSeed(1234);
 
-  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0),
-                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                                  math::Vector(0.4f, 0.6f, 0.7f).normalized()};
   constexpr size_t NUM_SAMPLES = sizeof(samples) / sizeof(samples[0]);
   float total = 0.0f;
   float base[NUM_SAMPLES] = {};
   for (size_t i = 0; i < NUM_SAMPLES; ++i) {
-    const Vector &v = samples[i];
+    const math::Vector &v = samples[i];
     base[i] = noise_product_field(v, p);
     total += std::fabs(base[i]);
   }
@@ -1636,10 +1647,10 @@ inline void test_noise_product_field_bound_is_conservative() {
       const float rx = hs::rand_f(-1.0f, 1.0f);
       const float ry = hs::rand_f(-1.0f, 1.0f);
       const float rz = hs::rand_f(-1.0f, 1.0f);
-      const Vector r(rx, ry, rz);
+      const math::Vector r(rx, ry, rz);
       if (r.length() < 0.1f)
         continue;
-      const Vector v = r.normalized();
+      const math::Vector v = r.normalized();
 
       const float f = noise_product_field(v, p);
       nonfinite += !std::isfinite(f);
@@ -1682,8 +1693,8 @@ inline void test_ball_drop_traverses_and_reclaims() {
   hs_test::StubEffect fx(8, 8);
   Canvas cv(fx);
 
-  Orientation<> ori;
-  const Vector pole(0, 1, 0);
+  math::Orientation<> ori;
+  const math::Vector pole(0, 1, 0);
   const int duration = 40;
 
   BallDropTransformer<1> balls(tl);
@@ -1705,8 +1716,8 @@ inline void test_ball_drop_traverses_and_reclaims() {
   // boundary arc is R - R/2, and the mirrored point above reads its negation.
   HS_EXPECT_NEAR(balls.field(pole), 0.0f, 1e-5f);
   const float half_r = 0.5f * 0.5f;
-  const Vector below(std::cos(half_r), -std::sin(half_r), 0.0f);
-  const Vector above(std::cos(half_r), std::sin(half_r), 0.0f);
+  const math::Vector below(std::cos(half_r), -std::sin(half_r), 0.0f);
+  const math::Vector above(std::cos(half_r), std::sin(half_r), 0.0f);
   HS_EXPECT_NEAR(balls.field(below), half_r, 3e-3f);
   HS_EXPECT_NEAR(balls.field(above), -half_r, 3e-3f);
   HS_EXPECT_GT(balls.field_bound(), 0.25f);

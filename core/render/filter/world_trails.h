@@ -95,7 +95,7 @@ public:
    * once at the caller's color/alpha, once at the trailFn's.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
+  void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f &&
            "World::Trails: a negative age narrows ttl past the uint8_t range");
@@ -127,7 +127,7 @@ public:
     check_storage_alive();
     for (size_t i = 0; i < count; ++i) {
       const auto &item = at(i);
-      Vector v = decode(item);
+      math::Vector v = decode(item);
       float t = hs::clamp(
           1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime)),
           0.0f, 1.0f);
@@ -197,7 +197,7 @@ private:
    * @param ttl Remaining lifetime in frames.
    * @return Packed Item with quantized coordinates.
    */
-  static Item encode(const Vector &v, uint8_t ttl) {
+  static Item encode(const math::Vector &v, uint8_t ttl) {
     // clamp before scaling: an unclamped component past 1 overflows int16
     return {static_cast<int16_t>(hs::clamp(v.x, -1.0f, 1.0f) * Q),
             static_cast<int16_t>(hs::clamp(v.y, -1.0f, 1.0f) * Q),
@@ -210,9 +210,9 @@ private:
    * @note Only *near* unit length (int16 quantization), and not renormalized;
    * a World::Trails must not precede a unit-assuming World filter.
    */
-  static Vector decode(const Item &item) {
+  static math::Vector decode(const Item &item) {
     constexpr float INV_Q = 1.0f / Q;
-    return Vector(item.x * INV_Q, item.y * INV_Q, item.z * INV_Q);
+    return math::Vector(item.x * INV_Q, item.y * INV_Q, item.z * INV_Q);
   }
 
   /**

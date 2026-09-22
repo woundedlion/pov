@@ -22,7 +22,9 @@
 #include "color/pixel.h"       // Pixel
 #include "platform/platform.h" // Fn
 
-struct Basis; // core/math/geometry.h; used only as const Basis* below
+namespace math {
+struct Basis;
+}
 class Canvas; // core/render/canvas.h; used only behind references below
 
 // ---------------------------------------------------------------------------
@@ -239,22 +241,23 @@ public:
 // overload so a dangling bind to a temporary fails to compile (see the Timeline's
 // tween members in animation.h for the canonical storing site).
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
-using WorldTrailFn = FunctionRef<Color4(const Vector &, float)>;
-using FragmentShaderFn = FunctionRef<void(const Vector &, Fragment &)>;
+using WorldTrailFn = FunctionRef<Color4(const math::Vector &, float)>;
+using FragmentShaderFn = FunctionRef<void(const math::Vector &, Fragment &)>;
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
 // Deferred per-control-point shader: receives the (position-shaded) fragment's
 // shading registers and its original pre-shader position. Position is out of
 // reach by type: the pass runs after the rasterizer's projections and edge
 // classification. Plot::ParticleSystem::draw runs it only for trails the
 // segment cull keeps, skipping trails that render nothing.
-using DeferredShaderRef = FunctionRef<void(FragmentRegisters, const Vector &)>;
-using TweenFn = FunctionRef<void(const Quaternion &, float)>;
-using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
+using DeferredShaderRef =
+    FunctionRef<void(FragmentRegisters, const math::Vector &)>;
+using TweenFn = FunctionRef<void(const math::Quaternion &, float)>;
+using VectorTweenFn = FunctionRef<void(const math::Vector &, float)>;
 // Rasterizer's clip-cull predicate: does the (world-transformed) edge a-b, with
 // optional planar basis, intersect the clip band? Routed through the pipeline so
 // world stages transform the edge before it is tested.
-using CullEdgePredRef =
-    FunctionRef<bool(const Vector &, const Vector &, const Basis *)>;
+using CullEdgePredRef = FunctionRef<bool(
+    const math::Vector &, const math::Vector &, const math::Basis *)>;
 
 /**
  * @brief Deterministic ownership mask for dissolve transitions.
@@ -306,7 +309,7 @@ template <typename P> consteval bool pipeline_direct_raster_path() {
  */
 template <typename P>
 concept Plottable =
-    requires(P &p, Canvas &cv, const Vector &v, const Pixel &c) {
+    requires(P &p, Canvas &cv, const math::Vector &v, const Pixel &c) {
       p.plot(cv, 0.0f, 0.0f, c, 0.0f, 0.0f);
       p.plot(cv, 0, 0, c, 0.0f, 0.0f);
       p.plot(cv, v, c, 0.0f, 0.0f);
@@ -330,9 +333,10 @@ class PipelineRef {
   void *ctx;
   void (*plot2d)(void *, Canvas &, float, float, const Pixel &, float, float);
   void (*plot2d_int)(void *, Canvas &, int, int, const Pixel &, float, float);
-  void (*plot3d)(void *, Canvas &, const Vector &, const Pixel &, float, float);
-  bool (*cull)(void *, const Vector &, const Vector &, const Basis *,
-               CullEdgePredRef);
+  void (*plot3d)(void *, Canvas &, const math::Vector &, const Pixel &, float,
+                 float);
+  bool (*cull)(void *, const math::Vector &, const math::Vector &,
+               const math::Basis *, CullEdgePredRef);
 
   template <typename T> PipelineRef(T &t, Erase) : ctx(std::addressof(t)) {
     plot2d = [](void *pipeline, Canvas &cv, float x, float y, const Pixel &c,
@@ -343,12 +347,12 @@ class PipelineRef {
                     float age, float alpha) {
       static_cast<T *>(pipeline)->plot(cv, x, y, c, age, alpha);
     };
-    plot3d = [](void *pipeline, Canvas &cv, const Vector &v, const Pixel &c,
-                float age, float alpha) {
+    plot3d = [](void *pipeline, Canvas &cv, const math::Vector &v,
+                const Pixel &c, float age, float alpha) {
       static_cast<T *>(pipeline)->plot(cv, v, c, age, alpha);
     };
-    cull = [](void *pipeline, const Vector &a, const Vector &b, const Basis *pb,
-              CullEdgePredRef pred) -> bool {
+    cull = [](void *pipeline, const math::Vector &a, const math::Vector &b,
+              const math::Basis *pb, CullEdgePredRef pred) -> bool {
       // Real pipelines route the edge through their world stages; a bare
       // plot-provider (test stub) has no world transform, so test it directly.
       if constexpr (requires {
@@ -439,7 +443,7 @@ public:
    * @param age Normalized trail age in [0, 1].
    * @param alpha Coverage/opacity in [0, 1].
    */
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+  void plot(Canvas &cv, const math::Vector &v, const Pixel &c, float age,
             float alpha) const {
     plot3d(ctx, cv, v, c, age, alpha);
   }
@@ -453,13 +457,13 @@ public:
    * @return Whether any world-transformed copy of the edge could intersect the
    *         clip band (see Pipeline::could_intersect_clip).
    */
-  bool could_intersect_clip(const Vector &a, const Vector &b, const Basis *pb,
-                            CullEdgePredRef pred) const {
+  bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
+                            const math::Basis *pb, CullEdgePredRef pred) const {
     return cull(ctx, a, b, pb, pred);
   }
 };
 
-using PlotFn = Fn<Vector(float), 16>;
+using PlotFn = Fn<math::Vector(float), 16>;
 using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
 // 32: ScalarFn holds the wave/shift builders' captures, larger than 16 B.
@@ -483,7 +487,7 @@ template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {
   { t.length() } -> std::unsigned_integral;
   { t.get(i).length() } -> std::signed_integral;
-  { t.get(i).get(0) } -> std::convertible_to<Quaternion>;
+  { t.get(i).get(0) } -> std::convertible_to<math::Quaternion>;
   {
     std::remove_cvref_t<decltype(t.get(i))>::CAPACITY
   } -> std::convertible_to<size_t>;

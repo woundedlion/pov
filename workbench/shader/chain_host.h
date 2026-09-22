@@ -123,7 +123,7 @@ private:
     const Pullback::Interp::ChainProgram *program;
     const Pullback::Interp::FrameContext *ctx;
 
-    HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
+    HS_FLASH_MEMBER Color4 operator()(const math::Vector &view) const {
       return program->evaluate(view, *ctx);
     }
   };
@@ -211,7 +211,8 @@ private:
     Pullback::Interp::FrameContext ctx;
     ctx.frame = frame_index;
     ctx.time = static_cast<float>(frame_index) * FRAME_SECONDS;
-    ctx.projection_base = make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
+    ctx.projection_base =
+        math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
     using PaletteMode = Pullback::Interp::Op::PaletteMode;
     ctx.palettes = {&generated_palettes.palette(PaletteMode::TRIADIC),
                     &generated_palettes.palette(PaletteMode::COMPLEMENTARY),

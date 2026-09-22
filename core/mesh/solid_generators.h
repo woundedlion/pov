@@ -31,7 +31,7 @@ inline constexpr float T_SNUB_CUBE = 1.0f / (1.0f + TRIBONACCI_CONST);
 /** Snub-cube twist. */
 inline constexpr float SNUB_CUBE_TWIST = 0.28f;
 /** Truncated-dodecahedron/icosahedron truncation parameter. */
-inline constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
+inline constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + math::PHI);
 /** Truncated-cube/cuboctahedron truncation parameter. */
 inline constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
 /** Truncated tetra/octa/icosahedron truncation parameter. */
@@ -291,11 +291,15 @@ FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
  */
 struct Tetrahedron {
   static constexpr int NUM_VERTS = 4;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-      Vector(0.5773502691896258f, 0.5773502691896258f, 0.5773502691896258f),
-      Vector(0.5773502691896258f, -0.5773502691896258f, -0.5773502691896258f),
-      Vector(-0.5773502691896258f, 0.5773502691896258f, -0.5773502691896258f),
-      Vector(-0.5773502691896258f, -0.5773502691896258f, 0.5773502691896258f)};
+  static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
+      math::Vector(0.5773502691896258f, 0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(0.5773502691896258f, -0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, 0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, -0.5773502691896258f,
+                   0.5773502691896258f)};
   static constexpr int NUM_FACES = 4;
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {3, 3, 3, 3};
   static constexpr std::array<int, 12> faces = {0, 3, 1, 0, 2, 3,
@@ -307,15 +311,23 @@ struct Tetrahedron {
  */
 struct Cube {
   static constexpr int NUM_VERTS = 8;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-      Vector(-0.5773502691896258f, -0.5773502691896258f, -0.5773502691896258f),
-      Vector(0.5773502691896258f, -0.5773502691896258f, -0.5773502691896258f),
-      Vector(0.5773502691896258f, 0.5773502691896258f, -0.5773502691896258f),
-      Vector(-0.5773502691896258f, 0.5773502691896258f, -0.5773502691896258f),
-      Vector(-0.5773502691896258f, -0.5773502691896258f, 0.5773502691896258f),
-      Vector(0.5773502691896258f, -0.5773502691896258f, 0.5773502691896258f),
-      Vector(0.5773502691896258f, 0.5773502691896258f, 0.5773502691896258f),
-      Vector(-0.5773502691896258f, 0.5773502691896258f, 0.5773502691896258f)};
+  static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
+      math::Vector(-0.5773502691896258f, -0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(0.5773502691896258f, -0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(0.5773502691896258f, 0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, 0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, -0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(0.5773502691896258f, -0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(0.5773502691896258f, 0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, 0.5773502691896258f,
+                   0.5773502691896258f)};
   static constexpr int NUM_FACES = 6;
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {4, 4, 4,
                                                                  4, 4, 4};
@@ -328,13 +340,19 @@ struct Cube {
  */
 struct Octahedron {
   static constexpr int NUM_VERTS = 6;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-      Vector(1.0000000000000000f, 0.0000000000000000f, 0.0000000000000000f),
-      Vector(-1.0000000000000000f, 0.0000000000000000f, 0.0000000000000000f),
-      Vector(0.0000000000000000f, 1.0000000000000000f, 0.0000000000000000f),
-      Vector(0.0000000000000000f, -1.0000000000000000f, 0.0000000000000000f),
-      Vector(0.0000000000000000f, 0.0000000000000000f, 1.0000000000000000f),
-      Vector(0.0000000000000000f, 0.0000000000000000f, -1.0000000000000000f)};
+  static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
+      math::Vector(1.0000000000000000f, 0.0000000000000000f,
+                   0.0000000000000000f),
+      math::Vector(-1.0000000000000000f, 0.0000000000000000f,
+                   0.0000000000000000f),
+      math::Vector(0.0000000000000000f, 1.0000000000000000f,
+                   0.0000000000000000f),
+      math::Vector(0.0000000000000000f, -1.0000000000000000f,
+                   0.0000000000000000f),
+      math::Vector(0.0000000000000000f, 0.0000000000000000f,
+                   1.0000000000000000f),
+      math::Vector(0.0000000000000000f, 0.0000000000000000f,
+                   -1.0000000000000000f)};
   static constexpr int NUM_FACES = 8;
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {3, 3, 3, 3,
                                                                  3, 3, 3, 3};
@@ -347,19 +365,31 @@ struct Octahedron {
  */
 struct Icosahedron {
   static constexpr int NUM_VERTS = 12;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-      Vector(-0.5257311121191336f, 0.0000000000000000f, 0.8506508083520400f),
-      Vector(0.5257311121191336f, 0.0000000000000000f, 0.8506508083520400f),
-      Vector(-0.5257311121191336f, 0.0000000000000000f, -0.8506508083520400f),
-      Vector(0.5257311121191336f, 0.0000000000000000f, -0.8506508083520400f),
-      Vector(0.0000000000000000f, 0.8506508083520400f, 0.5257311121191336f),
-      Vector(0.0000000000000000f, 0.8506508083520400f, -0.5257311121191336f),
-      Vector(0.0000000000000000f, -0.8506508083520400f, 0.5257311121191336f),
-      Vector(0.0000000000000000f, -0.8506508083520400f, -0.5257311121191336f),
-      Vector(0.8506508083520400f, 0.5257311121191336f, 0.0000000000000000f),
-      Vector(-0.8506508083520400f, 0.5257311121191336f, 0.0000000000000000f),
-      Vector(0.8506508083520400f, -0.5257311121191336f, 0.0000000000000000f),
-      Vector(-0.8506508083520400f, -0.5257311121191336f, 0.0000000000000000f)};
+  static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
+      math::Vector(-0.5257311121191336f, 0.0000000000000000f,
+                   0.8506508083520400f),
+      math::Vector(0.5257311121191336f, 0.0000000000000000f,
+                   0.8506508083520400f),
+      math::Vector(-0.5257311121191336f, 0.0000000000000000f,
+                   -0.8506508083520400f),
+      math::Vector(0.5257311121191336f, 0.0000000000000000f,
+                   -0.8506508083520400f),
+      math::Vector(0.0000000000000000f, 0.8506508083520400f,
+                   0.5257311121191336f),
+      math::Vector(0.0000000000000000f, 0.8506508083520400f,
+                   -0.5257311121191336f),
+      math::Vector(0.0000000000000000f, -0.8506508083520400f,
+                   0.5257311121191336f),
+      math::Vector(0.0000000000000000f, -0.8506508083520400f,
+                   -0.5257311121191336f),
+      math::Vector(0.8506508083520400f, 0.5257311121191336f,
+                   0.0000000000000000f),
+      math::Vector(-0.8506508083520400f, 0.5257311121191336f,
+                   0.0000000000000000f),
+      math::Vector(0.8506508083520400f, -0.5257311121191336f,
+                   0.0000000000000000f),
+      math::Vector(-0.8506508083520400f, -0.5257311121191336f,
+                   0.0000000000000000f)};
   static constexpr int NUM_FACES = 20;
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
       3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
@@ -374,27 +404,47 @@ struct Icosahedron {
  */
 struct Dodecahedron {
   static constexpr int NUM_VERTS = 20;
-  static constexpr std::array<Vector, NUM_VERTS> vertices = {
-      Vector(0.5773502691896258f, 0.5773502691896258f, 0.5773502691896258f),
-      Vector(0.5773502691896258f, 0.5773502691896258f, -0.5773502691896258f),
-      Vector(0.5773502691896258f, -0.5773502691896258f, 0.5773502691896258f),
-      Vector(0.5773502691896258f, -0.5773502691896258f, -0.5773502691896258f),
-      Vector(-0.5773502691896258f, 0.5773502691896258f, 0.5773502691896258f),
-      Vector(-0.5773502691896258f, 0.5773502691896258f, -0.5773502691896258f),
-      Vector(-0.5773502691896258f, -0.5773502691896258f, 0.5773502691896258f),
-      Vector(-0.5773502691896258f, -0.5773502691896258f, -0.5773502691896258f),
-      Vector(0.3568220897730897f, 0.9341723589627157f, 0.0000000000000000f),
-      Vector(-0.3568220897730897f, 0.9341723589627157f, 0.0000000000000000f),
-      Vector(0.3568220897730897f, -0.9341723589627157f, 0.0000000000000000f),
-      Vector(-0.3568220897730897f, -0.9341723589627157f, 0.0000000000000000f),
-      Vector(0.9341723589627157f, 0.0000000000000000f, 0.3568220897730897f),
-      Vector(0.9341723589627157f, 0.0000000000000000f, -0.3568220897730897f),
-      Vector(-0.9341723589627157f, 0.0000000000000000f, 0.3568220897730897f),
-      Vector(-0.9341723589627157f, 0.0000000000000000f, -0.3568220897730897f),
-      Vector(0.0000000000000000f, 0.3568220897730897f, 0.9341723589627157f),
-      Vector(0.0000000000000000f, -0.3568220897730897f, 0.9341723589627157f),
-      Vector(0.0000000000000000f, 0.3568220897730897f, -0.9341723589627157f),
-      Vector(0.0000000000000000f, -0.3568220897730897f, -0.9341723589627157f)};
+  static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
+      math::Vector(0.5773502691896258f, 0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(0.5773502691896258f, 0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(0.5773502691896258f, -0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(0.5773502691896258f, -0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, 0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, 0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, -0.5773502691896258f,
+                   0.5773502691896258f),
+      math::Vector(-0.5773502691896258f, -0.5773502691896258f,
+                   -0.5773502691896258f),
+      math::Vector(0.3568220897730897f, 0.9341723589627157f,
+                   0.0000000000000000f),
+      math::Vector(-0.3568220897730897f, 0.9341723589627157f,
+                   0.0000000000000000f),
+      math::Vector(0.3568220897730897f, -0.9341723589627157f,
+                   0.0000000000000000f),
+      math::Vector(-0.3568220897730897f, -0.9341723589627157f,
+                   0.0000000000000000f),
+      math::Vector(0.9341723589627157f, 0.0000000000000000f,
+                   0.3568220897730897f),
+      math::Vector(0.9341723589627157f, 0.0000000000000000f,
+                   -0.3568220897730897f),
+      math::Vector(-0.9341723589627157f, 0.0000000000000000f,
+                   0.3568220897730897f),
+      math::Vector(-0.9341723589627157f, 0.0000000000000000f,
+                   -0.3568220897730897f),
+      math::Vector(0.0000000000000000f, 0.3568220897730897f,
+                   0.9341723589627157f),
+      math::Vector(0.0000000000000000f, -0.3568220897730897f,
+                   0.9341723589627157f),
+      math::Vector(0.0000000000000000f, 0.3568220897730897f,
+                   -0.9341723589627157f),
+      math::Vector(0.0000000000000000f, -0.3568220897730897f,
+                   -0.9341723589627157f)};
   static constexpr int NUM_FACES = 12;
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
       5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
@@ -455,7 +505,7 @@ template <typename StaticMeshT> constexpr bool solid_tables_consistent() {
     return false;
 
   constexpr float LEN_SQ_TOL = 1e-4f;
-  for (const Vector &v : StaticMeshT::vertices) {
+  for (const math::Vector &v : StaticMeshT::vertices) {
     const float len_sq = v.x * v.x + v.y * v.y + v.z * v.z;
     if (len_sq < 1.0f - LEN_SQ_TOL || len_sq > 1.0f + LEN_SQ_TOL)
       return false;
@@ -680,7 +730,7 @@ public:
 #endif
     mesh = MeshOps::relax(mesh, *output_arena, *scratch_arena, bake.iterations);
     uint32_t output_hash = MeshOps::FNV1A_BASIS;
-    for (const Vector &v : mesh.vertices) {
+    for (const math::Vector &v : mesh.vertices) {
       output_hash =
           MeshOps::fnv1a_step(output_hash, std::bit_cast<uint32_t>(v.x));
       output_hash =
@@ -721,7 +771,7 @@ public:
             static_cast<unsigned long>(
                 std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN)),
             static_cast<unsigned long>(std::bit_cast<uint32_t>(source_margin)));
-    for (const Vector &v : mesh.vertices)
+    for (const math::Vector &v : mesh.vertices)
       hs::log("RELAX_BAKE_DATA %08lx %08lx %08lx",
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.x)),
               static_cast<unsigned long>(std::bit_cast<uint32_t>(v.y)),
@@ -1106,7 +1156,7 @@ FLASHMEM static PolyMesh pentagonalHexecontahedron(Arena &a, Arena &b) {
 namespace IslamicStarPatterns {
 
 /** Degrees-to-radians conversion factor. */
-inline constexpr float D2R = PI_F / 180.0f;
+inline constexpr float D2R = math::PI_F / 180.0f;
 
 /** Truncation depth of the `*_truncate5d_*` recipes, bit-exactly 5.0f * D2R
  * and named for it, consumed by truncate as a dimensionless edge fraction

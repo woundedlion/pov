@@ -43,7 +43,8 @@ inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
  * allocations.
  */
 struct MeshState {
-  ArenaVector<Vector> vertices; /**< Owned vertex positions, in world units. */
+  ArenaVector<math::Vector>
+      vertices; /**< Owned vertex positions, in world units. */
   ArenaVector<uint8_t> face_counts; /**< Owned per-face vertex counts. */
   ArenaVector<uint16_t> faces;      /**< Owned flattened face vertex indices. */
   ArenaVector<uint16_t>

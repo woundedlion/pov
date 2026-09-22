@@ -130,9 +130,12 @@ public:
    * powf.
    */
   Color4 get(float t) const override {
-    float r_srgb = a[0] + b[0] * fast_cosf(2 * PI_F * (c[0] * t + d[0]));
-    float g_srgb = a[1] + b[1] * fast_cosf(2 * PI_F * (c[1] * t + d[1]));
-    float b_srgb = a[2] + b[2] * fast_cosf(2 * PI_F * (c[2] * t + d[2]));
+    float r_srgb =
+        a[0] + b[0] * math::fast_cosf(2 * math::PI_F * (c[0] * t + d[0]));
+    float g_srgb =
+        a[1] + b[1] * math::fast_cosf(2 * math::PI_F * (c[1] * t + d[1]));
+    float b_srgb =
+        a[2] + b[2] * math::fast_cosf(2 * math::PI_F * (c[2] * t + d[2]));
 
     Pixel color(srgb_to_linear_interp(r_srgb), srgb_to_linear_interp(g_srgb),
                 srgb_to_linear_interp(b_srgb));

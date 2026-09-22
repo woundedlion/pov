@@ -161,8 +161,8 @@ private:
  * @tparam TRAIL_LEN Maximum number of trail positions retained.
  */
 template <int TRAIL_LEN = 8> struct Particle {
-  Vector position;         /**< Current 3D position. */
-  Vector velocity;         /**< Current velocity vector. */
+  math::Vector position;   /**< Current 3D position. */
+  math::Vector velocity;   /**< Current velocity vector. */
   uint16_t color_seed = 0; /**< Hue seed for palette offset. */
   uint16_t life = 0;       /**< Remaining life (frames or arbitrary units). */
 
@@ -179,7 +179,8 @@ template <int TRAIL_LEN = 8> struct Particle {
    *   uint16_t and a NaN takes hs::clamp's NaN->hi contract, either way a
    *   near-immortal particle rather than a dead one.
    */
-  void init(const Vector &p, const Vector &v, uint16_t seed, float l) {
+  void init(const math::Vector &p, const math::Vector &v, uint16_t seed,
+            float l) {
     position = p;
     velocity = v;
     color_seed = seed;
@@ -202,10 +203,10 @@ inline constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
  * @brief A point attractor influencing nearby particles.
  */
 struct Attractor {
-  Vector position;     /**< World-space center of the attractor. */
-  float strength;      /**< Attractive force multiplier. */
-  float kill_radius;   /**< Radius within which particles are killed. */
-  float event_horizon; /**< Radius within which steering becomes radial. */
+  math::Vector position; /**< World-space center of the attractor. */
+  float strength;        /**< Attractive force multiplier. */
+  float kill_radius;     /**< Radius within which particles are killed. */
+  float event_horizon;   /**< Radius within which steering becomes radial. */
 };
 
 /**
@@ -219,9 +220,10 @@ struct AttractorSample {
 };
 
 [[maybe_unused]] HS_COLD_MEMBER inline bool
-apply_signed_axis_attractor(uint16_t &life, Vector &velocity, const Vector &pos,
-                            float max_delta, float gravity,
-                            const Attractor &attractor, AttractorSample s) {
+apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
+                            const math::Vector &pos, float max_delta,
+                            float gravity, const Attractor &attractor,
+                            AttractorSample s) {
   if (s.dist_sq < attractor.kill_radius * attractor.kill_radius) {
     life = 0;
     return false;
@@ -231,7 +233,7 @@ apply_signed_axis_attractor(uint16_t &life, Vector &velocity, const Vector &pos,
     return true;
 
   if (s.dist_sq < attractor.event_horizon * attractor.event_horizon) {
-    const Vector torque = (attractor.position - pos).normalized();
+    const math::Vector torque = (attractor.position - pos).normalized();
     const float speed = std::max(velocity.magnitude(), max_delta);
     velocity = torque * speed;
     return true;
@@ -239,9 +241,9 @@ apply_signed_axis_attractor(uint16_t &life, Vector &velocity, const Vector &pos,
 
   const float force = (gravity * attractor.strength) / s.dist_sq;
   if (s.cross_sq < math::EPS_NORMALIZE_SQ) {
-    velocity += cross(Vector(force, 0, 0), pos);
+    velocity += math::cross(math::Vector(force, 0, 0), pos);
   } else {
-    const Vector tangent = attractor.position * s.pos_sq - pos * s.dot_pa;
+    const math::Vector tangent = attractor.position * s.pos_sq - pos * s.dot_pa;
     velocity += tangent * (force / sqrtf(s.cross_sq));
   }
   return true;
@@ -374,12 +376,14 @@ public:
    * @note Traps on overflow: attractors are registered at setup with fixed
    * cardinality, so an overrun is a bug — unlike spawn()'s runtime soft-drop.
    */
-  void add_attractor(const Vector &pos, float str, float kill, float horizon) {
+  void add_attractor(const math::Vector &pos, float str, float kill,
+                     float horizon) {
     HS_CHECK(attractors.is_bound(),
              "ParticleSystem::add_attractor before init");
     if constexpr (SIGNED_AXIS_ATTRACTORS) {
-      static constexpr std::array<Vector, 6> AXES = {X_AXIS,  -X_AXIS, Y_AXIS,
-                                                     -Y_AXIS, Z_AXIS,  -Z_AXIS};
+      static constexpr std::array<math::Vector, 6> AXES = {
+          math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
+          -math::Y_AXIS, math::Z_AXIS,  -math::Z_AXIS};
       const size_t index = attractors.size();
       HS_CHECK(!signed_axis_attractors ||
                    (index < AXES.size() && pos.x == AXES[index].x &&
@@ -399,7 +403,7 @@ public:
    * rendering). A saturated pool is a steady state, so only the first drop logs;
    * dropped_spawns() carries the rest.
    */
-  void spawn(const Vector &pos, const Vector &vel, uint16_t seed) {
+  void spawn(const math::Vector &pos, const math::Vector &vel, uint16_t seed) {
     HS_CHECK(pool.is_bound(), "ParticleSystem::spawn before init");
     if (active_count < pool.capacity()) {
       pool[active_count++].init(pos, vel, seed, max_life);
@@ -436,7 +440,7 @@ public:
       emitters[i](*this);
     }
 
-    float max_delta = (2 * PI_F) / W;
+    float max_delta = (2 * math::PI_F) / W;
 
     // Swap-remove dead particles, re-testing the same index. The i-- relies on
     // unsigned wraparound (i==0 -> SIZE_MAX -> ++i back to 0): keep i unsigned
@@ -471,10 +475,11 @@ private:
    * @return False once an attractor killed the particle.
    */
   HS_O3_FN __attribute__((always_inline)) bool
-  apply_attractors(Particle<TRAIL_LEN> &p, const Vector &pos, float max_delta) {
+  apply_attractors(Particle<TRAIL_LEN> &p, const math::Vector &pos,
+                   float max_delta) {
     for (size_t k = 0; k < attractors.size(); ++k) {
       const Attractor &attr = attractors[k];
-      float dist_sq = distance_squared(pos, attr.position);
+      float dist_sq = math::distance_squared(pos, attr.position);
 
       if (dist_sq < attr.kill_radius * attr.kill_radius) {
         // Stay dead; a live `life` resurrects the particle next frame.
@@ -486,16 +491,18 @@ private:
         if (dist_sq < attr.event_horizon * attr.event_horizon) {
           // Steer into center. Floor the speed so a friction-drained particle
           // still advances inward to kill_radius instead of stalling.
-          Vector torque = (attr.position - pos).normalized();
+          math::Vector torque = (attr.position - pos).normalized();
           float speed = std::max(p.velocity.magnitude(), max_delta);
           p.velocity = torque * speed;
         } else {
           // Gravity. pos and the attractor can be ~antipodal (undefined cross
           // axis), so guard the normalize.
           float force = (gravity * attr.strength) / dist_sq;
-          Vector torque =
-              normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) * force;
-          p.velocity += cross(torque, pos);
+          math::Vector torque =
+              math::normalized_or(math::cross(pos, attr.position),
+                                  math::Vector(1, 0, 0)) *
+              force;
+          p.velocity += math::cross(torque, pos);
         }
       }
     }
@@ -529,7 +536,7 @@ private:
     }
 
     if (active) {
-      Vector pos = p.position;
+      math::Vector pos = p.position;
 
       // Drag the carried velocity before this frame's impulse so a fresh impulse
       // is not also damped this frame (forward Euler: v <- friction*v + impulse).
@@ -541,7 +548,7 @@ private:
         use_signed_axis = use_signed_axis && !reference_signed_axis_physics;
 #endif
         if (use_signed_axis) {
-          const float pos_sq = dot(pos, pos);
+          const float pos_sq = math::dot(pos, pos);
           const float coordinates[] = {pos.x, pos.y, pos.z};
           for (size_t pair = 0; pair < 3; ++pair) {
             HS_MSP_STALL_START(axis_pair_start);
@@ -594,9 +601,9 @@ private:
             if (cross_sq < math::EPS_NORMALIZE_SQ) {
               const float force = gravity * (plus.strength * inv_plus +
                                              minus.strength * inv_minus);
-              p.velocity += cross(Vector(force, 0, 0), pos);
+              p.velocity += math::cross(math::Vector(force, 0, 0), pos);
             } else {
-              Vector tangent(-pos.x * q, -pos.y * q, -pos.z * q);
+              math::Vector tangent(-pos.x * q, -pos.y * q, -pos.z * q);
               if (pair == 0)
                 tangent.x += pos_sq;
               else if (pair == 1)
@@ -621,16 +628,16 @@ private:
       if (active) {
         if constexpr (SIGNED_AXIS_ATTRACTORS) {
           HS_MSP_STALL_START(axis_motion_start);
-          const float speed_sq = dot(p.velocity, p.velocity);
-          Vector axis = cross(pos, p.velocity);
-          const float axis_sq = dot(axis, axis);
+          const float speed_sq = math::dot(p.velocity, p.velocity);
+          math::Vector axis = math::cross(pos, p.velocity);
+          const float axis_sq = math::dot(axis, axis);
           constexpr float MOTION_MIN_SQ = MOTION_MIN_SPEED * MOTION_MIN_SPEED;
           if (speed_sq > MOTION_MIN_SQ && axis_sq > MOTION_MIN_SQ) {
             const float speed = std::min(sqrtf(speed_sq), max_delta);
             axis *= 1.0f / sqrtf(axis_sq);
-            const Quaternion dq = make_rotation(axis, speed);
-            p.position = rotate(p.position, dq);
-            p.velocity = rotate(p.velocity, dq);
+            const math::Quaternion dq = math::make_rotation(axis, speed);
+            p.position = math::rotate(p.position, dq);
+            p.velocity = math::rotate(p.velocity, dq);
           }
           HS_MSP_STALL_STOP(signed_axis_physics, axis_motion_start);
         } else {
@@ -638,14 +645,14 @@ private:
           // radial velocity (no motion along the sphere), so skip rather than
           // normalize a zero-length axis.
           float speed = p.velocity.magnitude();
-          Vector axis = cross(pos, p.velocity);
+          math::Vector axis = math::cross(pos, p.velocity);
           if (speed > MOTION_MIN_SPEED && axis.magnitude() > MOTION_MIN_SPEED) {
             // Cap the per-frame surface advance at one column to avoid aliasing;
             // velocity keeps its full magnitude.
             speed = std::min(speed, max_delta);
-            Quaternion dq = make_rotation(axis.normalized(), speed);
-            p.position = rotate(p.position, dq);
-            p.velocity = rotate(p.velocity, dq);
+            math::Quaternion dq = math::make_rotation(axis.normalized(), speed);
+            p.position = math::rotate(p.position, dq);
+            p.velocity = math::rotate(p.velocity, dq);
           }
         }
       }

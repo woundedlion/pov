@@ -48,7 +48,7 @@ struct SourceTraits {
 
 /** Warp-program output: source-side coordinates plus accumulated path. */
 struct PlanarWarpResult {
-  Complex coords;
+  math::Complex coords;
   float path_length;
 };
 using SurfaceNoiseResult = Pullback::SurfaceResult;
@@ -79,8 +79,8 @@ struct ClockState {
 };
 
 struct PreparedTransforms {
-  Quaternion projection_conj;
-  Quaternion outer_conj;
+  math::Quaternion projection_conj;
+  math::Quaternion outer_conj;
 };
 
 struct PreparedAffineFrame {
@@ -104,7 +104,7 @@ struct PreparedVortex {
 };
 
 struct PreparedNoiseLoop {
-  Vector offset;
+  math::Vector offset;
 };
 
 union PreparedWarpTransform {
@@ -128,7 +128,7 @@ struct PreparedWarpProgram {
 };
 
 struct PreparedSurfaceNoise {
-  Vector loop_offset;
+  math::Vector loop_offset;
   float direction_cos;
   float direction_sin;
 };
@@ -202,7 +202,7 @@ struct FrameState {
 };
 
 /** @brief Per-sample functor a rasterizer walks over the canvas. */
-using ShadeFunction = Color4 (*)(const Vector &, const FrameState &,
+using ShadeFunction = Color4 (*)(const math::Vector &, const FrameState &,
                                  const void *);
 struct FrameShader {
   const FrameState *frame;
@@ -210,7 +210,7 @@ struct FrameShader {
   ShadeFunction shade_function;
   const void *prepared;
 
-  HS_FLASH_MEMBER Color4 operator()(const Vector &view) const {
+  HS_FLASH_MEMBER Color4 operator()(const math::Vector &view) const {
     Color4 color = shade_function(view, *frame, prepared);
     color.alpha *= alpha;
     return color;
@@ -219,9 +219,9 @@ struct FrameShader {
 
 struct EndpointRuntime {
   ClockState clocks{};
-  Quaternion projection_wander;
-  Quaternion outer_wander;
-  Quaternion source_wander;
+  math::Quaternion projection_wander;
+  math::Quaternion outer_wander;
+  math::Quaternion source_wander;
   PreparedTransforms transforms;
 
   HS_COLD_MEMBER EndpointRuntime() = default;
@@ -235,22 +235,25 @@ prepare_source_state(const ClockState &clocks) {
 
 HS_FLASH_MEMBER inline Pullback::Source::PreparedSphericalRings
 prepare_spherical_rings(const EndpointRuntime &endpoint) {
-  const Quaternion orientation =
-      make_rotation(X_AXIS, endpoint.clocks.source_angle) *
+  const math::Quaternion orientation =
+      math::make_rotation(math::X_AXIS, endpoint.clocks.source_angle) *
       endpoint.source_wander;
-  return {rotate(Y_AXIS, orientation), endpoint.clocks.source_primary};
+  return {math::rotate(math::Y_AXIS, orientation),
+          endpoint.clocks.source_primary};
 }
 
 HS_FLASH_MEMBER inline PreparedSurfaceNoise
 prepare_surface_noise(const ClockState &clocks, const Params &params) {
-  const float surface_direction = TWO_PI_F * params.surface_noise.direction;
+  const float surface_direction =
+      math::TWO_PI_F * params.surface_noise.direction;
   return {noise_sphere_loop_offset(clocks.surface_noise_time),
           cosf(surface_direction), sinf(surface_direction)};
 }
 
 HS_FLASH_MEMBER inline PreparedWarpStage
 prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
-                   float stage_phase, const Complex &source_period = Complex(),
+                   float stage_phase,
+                   const math::Complex &source_period = math::Complex(),
                    float affine_rotation = 0.0f) {
   PreparedWarpStage prepared{};
   float rotation = params.rotation;
@@ -259,28 +262,29 @@ prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
   else if (spec.kind == WarpStageKind::WAVE_SHEAR)
     rotation = params.field_angle;
   if (spec.kind == WarpStageKind::AFFINE_FRAME) {
-    const float phase = TWO_PI_F * wrap_t(stage_phase);
+    const float phase = math::TWO_PI_F * math::wrap_t(stage_phase);
     const float phase_cos = cosf(phase);
     rotation = affine_rotation;
     prepared.transform.affine = {
-        wrap_t(stage_phase) * params.translation_x * source_period.re,
-        wrap_t(stage_phase) * params.translation_y * source_period.im,
+        math::wrap_t(stage_phase) * params.translation_x * source_period.re,
+        math::wrap_t(stage_phase) * params.translation_y * source_period.im,
         powf(params.scale_x, phase_cos),
         powf(params.scale_y, phase_cos),
         params.shear * phase_cos,
     };
   } else if (spec.kind == WarpStageKind::MIRROR_TILE) {
     prepared.transform.mirror = {
-        wrap_t(params.offset_x / params.cell_x + stage_phase) * params.cell_x,
-        wrap_t(params.offset_y / params.cell_y) * params.cell_y,
+        math::wrap_t(params.offset_x / params.cell_x + stage_phase) *
+            params.cell_x,
+        math::wrap_t(params.offset_y / params.cell_y) * params.cell_y,
     };
   } else if (spec.kind == WarpStageKind::VORTEX) {
-    const float orbit_phase = TWO_PI_F * stage_phase;
+    const float orbit_phase = math::TWO_PI_F * stage_phase;
     prepared.transform.vortex = {
         params.center_x + params.center_orbit_radius * cosf(orbit_phase),
         params.center_y + params.center_orbit_radius * sinf(orbit_phase),
         params.radius * params.radius,
-        TWO_PI_F * params.turns,
+        math::TWO_PI_F * params.turns,
     };
   } else if (spec.kind == WarpStageKind::VECTOR_NOISE ||
              spec.kind == WarpStageKind::CURL_FLOW) {

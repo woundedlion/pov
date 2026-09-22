@@ -126,13 +126,14 @@ constexpr NoiseFieldKey noise_field_key(const NoiseFieldSpec &spec) {
 }
 
 /** Lattice offsets that decorrelate the three channels of a DIRECT_V1 vector. */
-constexpr std::array<Vector, 3> NOISE_CHANNEL_OFFSETS = {
-    Vector(0.0f, 0.0f, 0.0f), Vector(17.0f, -29.0f, 43.0f),
-    Vector(-47.0f, 11.0f, -23.0f)};
+constexpr std::array<math::Vector, 3> NOISE_CHANNEL_OFFSETS = {
+    math::Vector(0.0f, 0.0f, 0.0f), math::Vector(17.0f, -29.0f, 43.0f),
+    math::Vector(-47.0f, 11.0f, -23.0f)};
 /** Second set of channel offsets, subtracted to recentre a ridged basis. */
-constexpr std::array<Vector, 3> NOISE_RIDGED_OFFSETS = {
-    Vector(-73.271f, 19.119f, 5.0f), Vector(61.731f, 89.417f, -7.0f),
-    Vector(13.571f, -59.213f, 97.331f)};
+constexpr std::array<math::Vector, 3> NOISE_RIDGED_OFFSETS = {
+    math::Vector(-73.271f, 19.119f, 5.0f),
+    math::Vector(61.731f, 89.417f, -7.0f),
+    math::Vector(13.571f, -59.213f, 97.331f)};
 /** Radius of the lattice circle phase traverses, in lattice units. */
 constexpr float NOISE_LOOP_RADIUS = 32.0f;
 /** Arm length of the tetrahedral gradient stencil, in lattice units. */
@@ -145,10 +146,10 @@ constexpr float NOISE_STENCIL_RADIUS = 1.0f / 64.0f;
  * @details Time traverses a NOISE_LOOP_RADIUS circle in the lattice's xy
  * plane, so the field returns to itself after one turn of phase.
  */
-HS_FLASH_INLINE inline Vector noise_sphere_loop_offset(float phase) {
-  const float angle = TWO_PI_F * wrap_t(phase);
-  return Vector(NOISE_LOOP_RADIUS * cosf(angle),
-                NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
+HS_FLASH_INLINE inline math::Vector noise_sphere_loop_offset(float phase) {
+  const float angle = math::TWO_PI_F * math::wrap_t(phase);
+  return math::Vector(NOISE_LOOP_RADIUS * cosf(angle),
+                      NOISE_LOOP_RADIUS * sinf(angle), 0.0f);
 }
 
 /**
@@ -158,8 +159,8 @@ HS_FLASH_INLINE inline Vector noise_sphere_loop_offset(float phase) {
  * @param phase Position on the time loop, in turns.
  * @return The sampling coordinate.
  */
-inline Vector noise_sphere_coordinate(const Vector &v, float scale,
-                                      float phase) {
+inline math::Vector noise_sphere_coordinate(const math::Vector &v, float scale,
+                                            float phase) {
   return scale * v + noise_sphere_loop_offset(phase);
 }
 
@@ -170,9 +171,9 @@ inline Vector noise_sphere_coordinate(const Vector &v, float scale,
  * @param loop_offset Point on the loop, hoisted out of a per-pixel walk.
  * @return The sampling coordinate.
  */
-HS_FLASH_INLINE inline Vector
-noise_sphere_coordinate(const Vector &v, float scale,
-                        const Vector &loop_offset) {
+HS_FLASH_INLINE inline math::Vector
+noise_sphere_coordinate(const math::Vector &v, float scale,
+                        const math::Vector &loop_offset) {
   return scale * v + loop_offset;
 }
 
@@ -184,10 +185,10 @@ noise_sphere_coordinate(const Vector &v, float scale,
  * @details The loop circle spans z and the plane's x = y diagonal, so neither
  * plane axis carries the whole of it.
  */
-HS_FLASH_INLINE inline Vector noise_projected_loop_offset(float phase) {
-  const float angle = TWO_PI_F * wrap_t(phase);
+HS_FLASH_INLINE inline math::Vector noise_projected_loop_offset(float phase) {
+  const float angle = math::TWO_PI_F * math::wrap_t(phase);
   const float diagonal = NOISE_LOOP_RADIUS * sinf(angle) * 0.7071067811865475f;
-  return Vector(diagonal, diagonal, NOISE_LOOP_RADIUS * cosf(angle));
+  return math::Vector(diagonal, diagonal, NOISE_LOOP_RADIUS * cosf(angle));
 }
 
 /**
@@ -197,11 +198,11 @@ HS_FLASH_INLINE inline Vector noise_projected_loop_offset(float phase) {
  * @param loop_offset Point on the loop, hoisted out of a per-pixel walk.
  * @return The sampling coordinate.
  */
-HS_FLASH_INLINE inline Vector
-noise_projected_coordinate(const Complex &p, float scale,
-                           const Vector &loop_offset) {
-  return Vector(scale * p.re + loop_offset.x, scale * p.im + loop_offset.y,
-                loop_offset.z);
+HS_FLASH_INLINE inline math::Vector
+noise_projected_coordinate(const math::Complex &p, float scale,
+                           const math::Vector &loop_offset) {
+  return math::Vector(scale * p.re + loop_offset.x,
+                      scale * p.im + loop_offset.y, loop_offset.z);
 }
 
 /**
@@ -211,8 +212,8 @@ noise_projected_coordinate(const Complex &p, float scale,
  * @param phase Position on the time loop, in turns.
  * @return The sampling coordinate.
  */
-HS_FLASH_INLINE inline Vector
-noise_projected_coordinate(const Complex &p, float scale, float phase) {
+HS_FLASH_INLINE inline math::Vector
+noise_projected_coordinate(const math::Complex &p, float scale, float phase) {
   return noise_projected_coordinate(p, scale,
                                     noise_projected_loop_offset(phase));
 }
@@ -227,7 +228,7 @@ noise_projected_coordinate(const Complex &p, float scale, float phase) {
  */
 HS_FLASH_INLINE inline float sample_noise_octaves(const FastNoiseLite &noise,
                                                   NoiseBasis basis,
-                                                  const Vector &q) {
+                                                  const math::Vector &q) {
   const float first = noise.GetNoiseSingle(q.x, q.y, q.z);
   if (basis == NoiseBasis::SIMPLEX)
     return first;
@@ -254,7 +255,7 @@ HS_FLASH_INLINE inline float sample_noise_octaves(const FastNoiseLite &noise,
  */
 HS_FLASH_INLINE inline float
 sample_noise_vector_channel(const FastNoiseLite &noise, NoiseBasis basis,
-                            const Vector &q, size_t channel) {
+                            const math::Vector &q, size_t channel) {
   if (basis != NoiseBasis::RIDGED3)
     return sample_noise_octaves(noise, basis,
                                 q + NOISE_CHANNEL_OFFSETS[channel]);
@@ -273,13 +274,13 @@ sample_noise_vector_channel(const FastNoiseLite &noise, NoiseBasis basis,
  * @details The DIRECT_VECTOR_V2 path: one simplex vector-noise call in place
  * of the three or six scalar samples DIRECT_V1 costs. Simplex only.
  */
-__attribute__((always_inline)) inline Vector
-sample_simplex_vector(const FastNoiseLite &noise, const Vector &q) {
+__attribute__((always_inline)) inline math::Vector
+sample_simplex_vector(const FastNoiseLite &noise, const math::Vector &q) {
   float x = q.x;
   float y = q.y;
   float z = q.z;
   noise.GetVectorNoiseSingle(x, y, z);
-  return Vector(x - q.x, y - q.y, z - q.z);
+  return math::Vector(x - q.x, y - q.y, z - q.z);
 }
 
 /**
@@ -290,10 +291,11 @@ sample_simplex_vector(const FastNoiseLite &noise, const Vector &q) {
  * so a rescaled tangent lands at most 1 to within its final multiply, while a
  * divide by the length can land a ULP above.
  */
-__attribute__((always_inline)) inline void clamp_tangent_to_unit(Vector &u) {
-  const float length_sq = dot(u, u);
+__attribute__((always_inline)) inline void
+clamp_tangent_to_unit(math::Vector &u) {
+  const float length_sq = math::dot(u, u);
   if (length_sq > 1.0f)
-    u *= fast_rsqrt(length_sq);
+    u *= math::fast_rsqrt(length_sq);
 }
 
 /**
@@ -308,20 +310,20 @@ __attribute__((always_inline)) inline void clamp_tangent_to_unit(Vector &u) {
  * @details Takes the DIRECT_VECTOR_V2 path for SIMPLEX and DIRECT_V1
  * otherwise.
  */
-HS_FLASH_INLINE inline Vector
+HS_FLASH_INLINE inline math::Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
-                      const Vector &q, const Vector &v, float direction_cos,
-                      float direction_sin) {
-  Vector u;
+                      const math::Vector &q, const math::Vector &v,
+                      float direction_cos, float direction_sin) {
+  math::Vector u;
   if (basis == NoiseBasis::SIMPLEX)
     u = sample_simplex_vector(noise, q);
   else
-    u = Vector(sample_noise_vector_channel(noise, basis, q, 0),
-               sample_noise_vector_channel(noise, basis, q, 1),
-               sample_noise_vector_channel(noise, basis, q, 2));
-  u -= dot(u, v) * v;
+    u = math::Vector(sample_noise_vector_channel(noise, basis, q, 0),
+                     sample_noise_vector_channel(noise, basis, q, 1),
+                     sample_noise_vector_channel(noise, basis, q, 2));
+  u -= math::dot(u, v) * v;
   clamp_tangent_to_unit(u);
-  return direction_cos * u + direction_sin * cross(v, u);
+  return direction_cos * u + direction_sin * math::cross(v, u);
 }
 
 /**
@@ -333,10 +335,11 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
  * @param direction In-plane rotation applied to the tangent, in turns.
  * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
-HS_FLASH_INLINE inline Vector
+HS_FLASH_INLINE inline math::Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
-                      const Vector &q, const Vector &v, float direction) {
-  const float angle = TWO_PI_F * direction;
+                      const math::Vector &q, const math::Vector &v,
+                      float direction) {
+  const float angle = math::TWO_PI_F * direction;
   return sample_direct_tangent(noise, basis, q, v, cosf(angle), sinf(angle));
 }
 
@@ -347,11 +350,11 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
  * @param v Unit point the tangent is taken at.
  * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
-__attribute__((always_inline)) inline Vector
-sample_direct_simplex_tangent(const FastNoiseLite &noise, const Vector &q,
-                              const Vector &v) {
-  const Vector u0 = sample_simplex_vector(noise, q);
-  Vector u = u0 - dot(u0, v) * v;
+__attribute__((always_inline)) inline math::Vector
+sample_direct_simplex_tangent(const FastNoiseLite &noise, const math::Vector &q,
+                              const math::Vector &v) {
+  const math::Vector u0 = sample_simplex_vector(noise, q);
+  math::Vector u = u0 - math::dot(u0, v) * v;
   clamp_tangent_to_unit(u);
   return u;
 }
@@ -370,15 +373,15 @@ sample_direct_simplex_tangent(const FastNoiseLite &noise, const Vector &q,
  * @p sample costs, so a three-octave basis pays twelve generator samples.
  */
 template <typename Sample>
-inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
+inline math::Vector tetrahedral_gradient(const math::Vector &q, Sample sample) {
   constexpr float INV_SQRT_3 = 0.5773502691896258f;
-  constexpr std::array<Vector, 4> DIRECTIONS = {
-      Vector(INV_SQRT_3, INV_SQRT_3, INV_SQRT_3),
-      Vector(INV_SQRT_3, -INV_SQRT_3, -INV_SQRT_3),
-      Vector(-INV_SQRT_3, INV_SQRT_3, -INV_SQRT_3),
-      Vector(-INV_SQRT_3, -INV_SQRT_3, INV_SQRT_3)};
-  Vector gradient;
-  for (const Vector &direction : DIRECTIONS)
+  constexpr std::array<math::Vector, 4> DIRECTIONS = {
+      math::Vector(INV_SQRT_3, INV_SQRT_3, INV_SQRT_3),
+      math::Vector(INV_SQRT_3, -INV_SQRT_3, -INV_SQRT_3),
+      math::Vector(-INV_SQRT_3, INV_SQRT_3, -INV_SQRT_3),
+      math::Vector(-INV_SQRT_3, -INV_SQRT_3, INV_SQRT_3)};
+  math::Vector gradient;
+  for (const math::Vector &direction : DIRECTIONS)
     gradient += sample(q + NOISE_STENCIL_RADIUS * direction) * direction;
   return (3.0f / (4.0f * NOISE_STENCIL_RADIUS)) * gradient;
 }
@@ -389,9 +392,9 @@ inline Vector tetrahedral_gradient(const Vector &q, Sample sample) {
  * @param v Unit point the tangent is taken at.
  * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
  */
-HS_FLASH_INLINE inline Vector curl_from_gradient(const Vector &gradient,
-                                                 const Vector &v) {
-  Vector u = cross(v, gradient);
+HS_FLASH_INLINE inline math::Vector
+curl_from_gradient(const math::Vector &gradient, const math::Vector &v) {
+  math::Vector u = math::cross(v, gradient);
   clamp_tangent_to_unit(u);
   return u;
 }
@@ -405,10 +408,10 @@ HS_FLASH_INLINE inline Vector curl_from_gradient(const Vector &gradient,
  * @details The CURL_ANALYTIC_V2 path: one generator call, against the twelve
  * samples the stencil costs. Simplex only.
  */
-HS_FLASH_INLINE inline Vector
-sample_simplex_curl_tangent(const FastNoiseLite &noise, const Vector &q,
-                            const Vector &v) {
-  Vector gradient;
+HS_FLASH_INLINE inline math::Vector
+sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
+                            const math::Vector &v) {
+  math::Vector gradient;
   noise.GetNoiseGradientSingle(q.x, q.y, q.z, gradient.x, gradient.y,
                                gradient.z);
   return curl_from_gradient(gradient, v);
@@ -424,15 +427,15 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const Vector &q,
  * @details SIMPLEX takes the analytic CURL_ANALYTIC_V2 path at one generator
  * sample; the three-octave bases take the CURL_V1 stencil at twelve.
  */
-HS_FLASH_INLINE inline Vector sample_curl_tangent(const FastNoiseLite &noise,
-                                                  NoiseBasis basis,
-                                                  const Vector &q,
-                                                  const Vector &v) {
+HS_FLASH_INLINE inline math::Vector
+sample_curl_tangent(const FastNoiseLite &noise, NoiseBasis basis,
+                    const math::Vector &q, const math::Vector &v) {
   if (basis == NoiseBasis::SIMPLEX)
     return sample_simplex_curl_tangent(noise, q, v);
-  const Vector gradient = tetrahedral_gradient(q, [&](const Vector &point) {
-    return sample_noise_octaves(noise, basis, point);
-  });
+  const math::Vector gradient =
+      tetrahedral_gradient(q, [&](const math::Vector &point) {
+        return sample_noise_octaves(noise, basis, point);
+      });
   return curl_from_gradient(gradient, v);
 }
 
@@ -443,7 +446,8 @@ HS_FLASH_INLINE inline Vector sample_curl_tangent(const FastNoiseLite &noise,
  * @return The unit point reached after that arc.
  * @details Exact at any arc length; costs a length, a sinf and a cosf.
  */
-inline Vector sphere_exp_map(const Vector &v, const Vector &tangent) {
+inline math::Vector sphere_exp_map(const math::Vector &v,
+                                   const math::Vector &tangent) {
   const float distance = tangent.length();
   if (distance == 0.0f)
     return v;
@@ -474,9 +478,9 @@ inline constexpr float EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT = 0.250001f;
  *   Strength" field is registered over [-0.5, 0.5]. Widening that range, or
  *   feeding a tangent from anywhere else, breaks the approximation silently.
  */
-HS_FLASH_INLINE inline Vector
-sphere_exp_map_half_radian(const Vector &v, const Vector &tangent) {
-  const float distance_sq = dot(tangent, tangent);
+HS_FLASH_INLINE inline math::Vector
+sphere_exp_map_half_radian(const math::Vector &v, const math::Vector &tangent) {
+  const float distance_sq = math::dot(tangent, tangent);
   assert(distance_sq <= EXP_MAP_HALF_RADIAN_ARC_SQ_LIMIT &&
          "sphere_exp_map_half_radian arc past its half-radian domain");
   const float cosine =

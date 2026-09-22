@@ -32,23 +32,23 @@ struct MobiusLensParams {
                             0.7071067811865475f, 0.0f};
 };
 
-__attribute__((always_inline)) inline Vector
-mobius(const Vector &input, const math::MobiusParams &params) {
+__attribute__((always_inline)) inline math::Vector
+mobius(const math::Vector &input, const math::MobiusParams &params) {
   return math::mobius_transform(input, params);
 }
 
 struct Glitch : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::glitch_lens(input);
   }
 };
 
 struct Twist : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::twist_lens(input);
   }
 };
@@ -69,24 +69,24 @@ template <typename State> struct Mobius : ApproximationDefaults {
       std::is_lvalue_reference_v<decltype(State::params(
           std::declval<const typename CandidateBinding::FrameState &>()))>;
 
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &frame) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &frame) {
     return mobius(input, State::params(frame));
   }
 };
 
 struct Kaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::kaleidoscope_lens(input);
   }
 };
 
 struct TetrahedralKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::polyhedral_kaleidoscope_lens(input,
                                                 lenses::TETRAHEDRAL_MIRRORS);
   }
@@ -94,8 +94,8 @@ struct TetrahedralKaleidoscope : ApproximationDefaults {
 
 struct OctahedralKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::polyhedral_kaleidoscope_lens(input,
                                                 lenses::OCTAHEDRAL_MIRRORS);
   }
@@ -103,16 +103,16 @@ struct OctahedralKaleidoscope : ApproximationDefaults {
 
 struct DodecahedralKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::dodecahedral_kaleidoscope_lens(input);
   }
 };
 
 struct TriangularPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::polyhedral_kaleidoscope_lens(
         input, lenses::TRIANGULAR_PRISM_MIRRORS);
   }
@@ -120,8 +120,8 @@ struct TriangularPrismKaleidoscope : ApproximationDefaults {
 
 struct SquarePrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::polyhedral_kaleidoscope_lens(input,
                                                 lenses::SQUARE_PRISM_MIRRORS);
   }
@@ -129,8 +129,8 @@ struct SquarePrismKaleidoscope : ApproximationDefaults {
 
 struct PentagonalPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::polyhedral_kaleidoscope_lens(
         input, lenses::PENTAGONAL_PRISM_MIRRORS);
   }
@@ -138,8 +138,8 @@ struct PentagonalPrismKaleidoscope : ApproximationDefaults {
 
 struct HexagonalPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::polyhedral_kaleidoscope_lens(
         input, lenses::HEXAGONAL_PRISM_MIRRORS);
   }
@@ -147,8 +147,8 @@ struct HexagonalPrismKaleidoscope : ApproximationDefaults {
 
 struct OctagonalPrismKaleidoscope : ApproximationDefaults {
   template <typename FrameState>
-  __attribute__((always_inline)) static Vector apply(const Vector &input,
-                                                     const FrameState &) {
+  __attribute__((always_inline)) static math::Vector
+  apply(const math::Vector &input, const FrameState &) {
     return lenses::polyhedral_kaleidoscope_lens(
         input, lenses::OCTAGONAL_PRISM_MIRRORS);
   }

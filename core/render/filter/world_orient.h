@@ -5,6 +5,7 @@
 #pragma once
 
 #include "render/filter/pipeline.h"
+#include "animation/animation.h"
 #include "math/geometry.h"
 #include "color/color.h"
 
@@ -30,13 +31,14 @@ namespace World {
  */
 template <typename FwdFn>
 __attribute__((always_inline)) inline bool
-forward_rotated_edge(const Vector &a, const Vector &b, const Basis *pb,
-                     const Quaternion &q, FwdFn &&forward) {
+forward_rotated_edge(const math::Vector &a, const math::Vector &b,
+                     const math::Basis *pb, const math::Quaternion &q,
+                     FwdFn &&forward) {
   if (pb) {
-    Basis rb = rotate(*pb, q);
-    return forward(rotate(a, q), rotate(b, q), &rb);
+    math::Basis rb = math::rotate(*pb, q);
+    return forward(math::rotate(a, q), math::rotate(b, q), &rb);
   }
-  return forward(rotate(a, q), rotate(b, q), nullptr);
+  return forward(math::rotate(a, q), math::rotate(b, q), nullptr);
 }
 
 /**
@@ -50,7 +52,7 @@ public:
    * @brief Binds the filter to a live orientation source.
    * @param orientation Orientation whose SLERP history drives the rotation.
    */
-  Orient(Orientation<> &orientation) : orientation(orientation) {}
+  Orient(math::Orientation<> &orientation) : orientation(orientation) {}
 
   /**
    * @brief Rotates and re-emits the point across the orientation's tween sweep.
@@ -63,10 +65,10 @@ public:
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
+  void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    tween(orientation, [&](const Quaternion &q, float t) {
-      pass(rotate(v, q), color, age + (1.0f - t), alpha);
+    tween(orientation, [&](const math::Quaternion &q, float t) {
+      pass(math::rotate(v, q), color, age + (1.0f - t), alpha);
     });
   }
 
@@ -85,10 +87,10 @@ public:
    *          (docs/specs/segmented_stateful_effects_spec.md).
    */
   template <typename FwdFn>
-  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
-                 FwdFn &&forward) const {
+  bool cull_edge(const math::Vector &a, const math::Vector &b,
+                 const math::Basis *pb, FwdFn &&forward) const {
     bool hit = false;
-    tween(orientation, [&](const Quaternion &q, float) {
+    tween(orientation, [&](const math::Quaternion &q, float) {
       if (hit)
         return;
       hit = forward_rotated_edge(a, b, pb, q, forward);
@@ -97,7 +99,7 @@ public:
   }
 
 private:
-  Orientation<>
+  math::Orientation<>
       &orientation; /**< Live orientation source driving the rotation. */
 };
 

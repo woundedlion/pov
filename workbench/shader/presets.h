@@ -156,9 +156,9 @@ inline constexpr Config peirce_dodecahedral_generated_preset() {
               CoveragePolicy::EDGE_FADE,
               PaletteMode::TRIADIC};
   slots.peirce_layout = PeirceLayout::SQUARE;
-  Params params = authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {},
-                                  {1.0f, 0.0f, 1.0f}, {},
-                                  {0.319f, 1.0f, 0.05f / TWO_PI_F}, {1.0f});
+  Params params = authored_params(
+      {5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f, 1.0f}, {},
+      {0.319f, 1.0f, 0.05f / math::TWO_PI_F}, {1.0f});
   params.projection.central_meridian = 0.0f;
   params.projection.coordinate_scale = 1.0f;
   params.value.edge_width = 0.1f;

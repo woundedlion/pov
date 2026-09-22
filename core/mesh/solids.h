@@ -755,8 +755,8 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
  */
 [[maybe_unused]] HS_COLD static int
 build_vertex_directions(Arena &scratch, Arena &temp, std::string_view name,
-                        int max_points, Vector *points, Quaternion *quats,
-                        float *nn_angle) {
+                        int max_points, math::Vector *points,
+                        math::Quaternion *quats, float *nn_angle) {
   const Entry *entry = find_entry(name);
   HS_CHECK(entry, "build_vertex_directions: unknown solid name");
   // Read straight out of the generator's arena pair; nothing outlives the call,
@@ -767,7 +767,7 @@ build_vertex_directions(Arena &scratch, Arena &temp, std::string_view name,
            "build_vertex_directions: vertex count exceeds capacity");
   for (int i = 0; i < count; ++i) {
     points[i] = mesh.vertices[i].normalized();
-    quats[i] = make_rotation(Y_AXIS, points[i]);
+    quats[i] = math::make_rotation(math::Y_AXIS, points[i]);
   }
   // O(n^2) nearest-neighbor scan is intentional: cold setup path, vertex counts
   // are small, so the KD-tree's build overhead is not worth it here.
@@ -775,7 +775,7 @@ build_vertex_directions(Arena &scratch, Arena &temp, std::string_view name,
     float max_dot = -1.0f;
     for (int j = 0; j < count; ++j)
       if (j != i)
-        max_dot = std::max(max_dot, dot(points[i], points[j]));
+        max_dot = std::max(max_dot, math::dot(points[i], points[j]));
     nn_angle[i] = acosf(hs::clamp(max_dot, -1.0f, 1.0f));
   }
   return count;
