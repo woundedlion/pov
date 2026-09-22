@@ -470,7 +470,7 @@ the semantics cannot fork between the two execution paths.
   them. No API may mix the views: anything semantic reads leaves,
   anything executional reads nodes.
 
-Contract changes: `Detail::StageContract` drops `KIND` and `TERMINAL`;
+The shipped `Stage::Contract` declares no `KIND` or `TERMINAL`;
 `Input`/`Output`/`Prepared`/approximation metadata remain per stage,
 while `EMISSION` leaves the stage contract for the placement tree
 (above). The binding machinery is rebuilt, not retained: the policy
@@ -497,9 +497,9 @@ asserts remain as a backstop, unreachable through pipeline assembly.
 Execution uses only bound types. This is
 what keeps binding services available inside combinators: `mark`/`span`
 resolve through the bound stage's binding exactly as
-`BindingT::Instrumentation` does today. `HasStageContract`/
-`HasTypedStageContract`, `BINDINGS`, and `PREPARES` are reformulated
-over descriptors and bound leaves — replaced, not carried over.
+`BindingT::Instrumentation` does today. `StageDescriptor`,
+`descriptor_bindable()` and `Detail::DescriptorPrepares` validate descriptors
+and bound leaves; the pipeline reports `CONTRACTS`, `BINDINGS` and `PREPARES`.
 
 **The descriptor contract is public — and it is an execution contract
 only.** Consumer-authored combinators — including the rank-skipping
@@ -563,11 +563,11 @@ is normative, chosen to keep today's report buckets meaningful:
 | `Project` | `PROJECTION` |
 | `Warp` | `PLANAR_WARP` (MirrorTile keeps its policy-internal `MIRROR_TILE`) |
 | `Sample` | `SOURCE` around the source-policy call; `MATERIAL` around weight + ramp + projected coverage |
-| `Transfer`, `Coverage` | `MATERIAL` |
+| `Transfer`, `ApplyCoverage` | `MATERIAL` |
 | `Colorize` | `COLOR` |
 
 `MATERIAL` thus becomes the sum of up to three spans (Sample's tail,
-Transfer, Coverage) covering exactly the work today's single Material
+Transfer, ApplyCoverage) covering exactly the work today's single Material
 span covers, so per-bucket cycle reports keep their meaning across the
 migration; splitting the fused surface stage likewise recovers today's
 `LENS`/`SURFACE_NOISE`/`PROJECTION` granularity without touching the
