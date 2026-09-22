@@ -94,7 +94,7 @@ struct WaveShearWarpParams : Warp::WaveShearParams {
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<WaveShearWarpParams>{
-          "envelope", &WaveShearWarpParams::envelope, WARP_ENVELOPE_IDS, 3,
+          "envelope", &WaveShearWarpParams::envelope, WARP_ENVELOPE_IDS,
           static_cast<uint8_t>(WarpEnvelope::FLAT)},
   };
 };
@@ -167,10 +167,10 @@ struct VectorNoiseWarpParams : Warp::VectorNoiseParams {
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<VectorNoiseWarpParams>{
-          "basis", &VectorNoiseWarpParams::basis, NOISE_BASIS_IDS, 3,
+          "basis", &VectorNoiseWarpParams::basis, NOISE_BASIS_IDS,
           static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
       TopologyField<VectorNoiseWarpParams>{
-          "envelope", &VectorNoiseWarpParams::envelope, WARP_ENVELOPE_IDS, 3,
+          "envelope", &VectorNoiseWarpParams::envelope, WARP_ENVELOPE_IDS,
           static_cast<uint8_t>(WarpEnvelope::FLAT)},
   };
 };
@@ -258,11 +258,10 @@ struct PolarChartParams : Warp::PolarParams {
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<PolarChartParams>{"mode", &PolarChartParams::mode,
-                                      POLAR_MODE_IDS, 2,
+                                      POLAR_MODE_IDS,
                                       static_cast<uint8_t>(PolarMode::LINEAR)},
       TopologyField<PolarChartParams>{"harmonic", &PolarChartParams::harmonic,
-                                      POLAR_HARMONIC_IDS,
-                                      Warp::MAX_POLAR_HARMONIC, 0},
+                                      POLAR_HARMONIC_IDS, 0},
   };
 };
 static_assert(field_ids_unique<PolarChartParams>());
@@ -320,10 +319,10 @@ struct CurlFlowParams {
   };
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlFlowParams>{
-          "basis", &CurlFlowParams::basis, NOISE_BASIS_IDS, 3,
+          "basis", &CurlFlowParams::basis, NOISE_BASIS_IDS,
           static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
       TopologyField<CurlFlowParams>{"integrator", &CurlFlowParams::integrator,
-                                    CURL_INTEGRATOR_IDS, 3, 0},
+                                    CURL_INTEGRATOR_IDS, 0},
   };
 };
 static_assert(field_ids_unique<CurlFlowParams>());
