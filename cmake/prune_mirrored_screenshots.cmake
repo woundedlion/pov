@@ -5,6 +5,9 @@ if(NOT IS_DIRECTORY "${HS_MIRROR_SOURCE}")
   message(FATAL_ERROR
     "Screenshot mirror source is not a directory: ${HS_MIRROR_SOURCE}")
 endif()
+if(NOT EXISTS "${HS_MIRROR_SOURCE}/../../CMakeLists.txt")
+  message(FATAL_ERROR "Mirror source is not an engine checkout: ${HS_MIRROR_SOURCE}")
+endif()
 if(NOT EXISTS "${HS_DAYDREAM_DIR}/daydream.js")
   message(FATAL_ERROR
     "Screenshot mirror destination is not a daydream checkout: "
@@ -20,6 +23,9 @@ file(GLOB_RECURSE _hs_source_pngs
   LIST_DIRECTORIES FALSE
   RELATIVE "${HS_MIRROR_SOURCE}"
   "${HS_MIRROR_SOURCE}/*.png")
+if(NOT _hs_source_pngs)
+  message(FATAL_ERROR "Mirror source contains no screenshots: ${HS_MIRROR_SOURCE}")
+endif()
 file(GLOB_RECURSE _hs_installed_pngs
   LIST_DIRECTORIES FALSE
   RELATIVE "${_hs_mirror_destination}"
