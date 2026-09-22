@@ -151,10 +151,10 @@ project_peirce(const Vector &local, const FrameState &frame) {
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
 project_airocean(const Vector &local, const FrameState &frame) {
   return Pullback::Projection::airocean(
-      local, frame.params.projection.central_meridian,
-      frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
+      local, frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
       projection_edge_distance_required(frame),
-      frame.params.projection.coordinate_scale);
+      frame.params.projection.coordinate_scale, frame.meridian_cos,
+      frame.meridian_sin);
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
