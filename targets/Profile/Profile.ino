@@ -740,6 +740,7 @@ static_assert(std::size(PROFILE_SEEDS) == std::size(EFFECT_FACTORIES));
 constexpr pov::sync::Config profile_config() {
   auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1);
   cfg.effect_revolutions = PROFILE_REVOLUTIONS;
+  cfg.effect_revolutions_count = std::size(PROFILE_REVOLUTIONS);
   return cfg;
 }
 
