@@ -124,7 +124,7 @@ FLASHMEM size_t arena_vector_abandon_count() { return abandon_event_count; }
                                          size_t offset, size_t padding,
                                          size_t capacity) {
   hs::log("[OOM] Arena @%08lx: req %lu, offset %lu, pad %lu / cap %lu "
-          "(move-assign dropped %lu B in %lu blocks, all arenas since "
+          "(ArenaVector abandoned %lu B in %lu blocks, all arenas since "
           "boot, reclaims not subtracted)",
           static_cast<unsigned long>(reinterpret_cast<uintptr_t>(buffer)),
           static_cast<unsigned long>(size), static_cast<unsigned long>(offset),
