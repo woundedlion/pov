@@ -3788,6 +3788,45 @@ inline void test_motion_set_duration_below_position_rescales() {
  * @brief Runs every animation/easing test case in this module.
  * @return The module's failure count.
  */
+inline void test_progress_pause_and_eased_bounds() {
+  bool paused = true;
+  std::vector<float> values;
+  Animation::Progress progress([&](float t) { values.push_back(t); }, 4,
+                               [](float t) { return 2.0f * t; }, &paused);
+  progress.step(fake_canvas());
+  HS_EXPECT_TRUE(values.empty());
+  paused = false;
+  progress.step(fake_canvas());
+  HS_EXPECT_EQ(values.size(), size_t{1});
+  HS_EXPECT_EQ(values.back(), 0.5f);
+  paused = true;
+  progress.step(fake_canvas());
+  HS_EXPECT_EQ(values.size(), size_t{1});
+  paused = false;
+  for (int i = 0; i < 3; ++i)
+    progress.step(fake_canvas());
+  HS_EXPECT_EQ(values.size(), size_t{4});
+  HS_EXPECT_EQ(values[1], 1.0f);
+  HS_EXPECT_EQ(values[2], 1.0f);
+  HS_EXPECT_EQ(values[3], 1.0f);
+  HS_EXPECT_TRUE(progress.done());
+}
+
+inline void test_trail_body_records_independent_orientation_history() {
+  Animation::TrailBody<2, 2> body;
+  HS_EXPECT_VEC(body.v, Y_AXIS, 0.0f);
+  HS_EXPECT_EQ(body.trail.length(), size_t{0});
+  body.trail.record(body.orientation);
+  body.orientation.set(make_rotation(Z_AXIS, PI_F * 0.5f));
+  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), Y_AXIS, 1e-6f);
+  body.trail.record(body.orientation);
+  body.orientation.set(Quaternion());
+  body.trail.record(body.orientation);
+  HS_EXPECT_EQ(body.trail.length(), size_t{2});
+  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), -X_AXIS, 1e-5f);
+  HS_EXPECT_VEC(body.trail.get(1).orient(body.v), Y_AXIS, 1e-6f);
+}
+
 inline int run_animation_tests() {
   hs_test::ModuleFixture fixture("animation");
 
@@ -3795,6 +3834,9 @@ inline int run_animation_tests() {
   hs_test::StubEffect fake_fx(8, 8);
   Canvas fake_cv(fake_fx);
   fake_canvas_ptr() = &fake_cv;
+
+  test_progress_pause_and_eased_bounds();
+  test_trail_body_records_independent_orientation_history();
 
   test_path_empty_returns_origin();
   test_path_endpoints_and_clamp();
