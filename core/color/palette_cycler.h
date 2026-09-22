@@ -240,11 +240,11 @@ public:
     const float progress = static_cast<float>(frame) / static_cast<float>(fade);
     const float w = easing != nullptr ? easing(progress) : progress;
     if (provider != nullptr) {
-      morph->lerp(*from_slot, *to_slot, w);
+      morph->morph_palettes(*from_slot, *to_slot, w);
       rebake_display(*morph);
     } else if ((key_morph_mask & (1u << current)) != 0) {
-      morph->lerp(*entries[current].generative,
-                  *entries[next_of(current)].generative, w);
+      morph->morph_palettes(*entries[current].generative,
+                            *entries[next_of(current)].generative, w);
       rebake_display(*morph);
     } else {
       display.rebake_crossfade(fade_from, fade_to, w);
@@ -302,7 +302,7 @@ public:
     }
     const float progress = static_cast<float>(frame) / static_cast<float>(fade);
     const float weight = easing != nullptr ? easing(progress) : progress;
-    morph->lerp(*from_slot, *to_slot, weight);
+    morph->morph_palettes(*from_slot, *to_slot, weight);
     rebake_display(*morph);
   }
 
