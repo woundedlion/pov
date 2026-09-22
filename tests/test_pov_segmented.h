@@ -1122,18 +1122,18 @@ inline void test_submit_fresh_column_supersedes_retry() {
 inline void test_submit_dark_latch_gates_on_acceptance() {
   SubmitGate g;
 
-  const SubmitAction dropped = g.choose(/*dark=*/true, -1);
+  const SubmitAction dropped = g.choose(/*dark=*/true, 12);
   HS_EXPECT_EQ(dropped, SubmitAction::BLACK);
   HS_EXPECT_FALSE(g.settle(dropped, false));
   HS_EXPECT_FALSE(g.dark_latched());
 
-  const SubmitAction again = g.choose(true, -1);
+  const SubmitAction again = g.choose(true, 12);
   HS_EXPECT_EQ(again, SubmitAction::BLACK);
   HS_EXPECT_TRUE(g.settle(again, true));
   HS_EXPECT_TRUE(g.dark_latched());
 
   // Latched: the rest of the dark window costs no transport traffic.
-  HS_EXPECT_EQ(g.choose(true, -1), SubmitAction::NONE);
+  HS_EXPECT_EQ(g.choose(true, 12), SubmitAction::NONE);
   HS_EXPECT_TRUE(g.dark_latched());
 
   HS_EXPECT_EQ(g.choose(false, 0), SubmitAction::COLUMN);
@@ -1150,7 +1150,7 @@ inline void test_submit_dark_discards_pending_column() {
   HS_EXPECT_FALSE(g.settle(g.choose(false, 12), false));
   HS_EXPECT_TRUE(g.resubmit_pending());
 
-  HS_EXPECT_EQ(g.choose(true, -1), SubmitAction::BLACK);
+  HS_EXPECT_EQ(g.choose(true, 12), SubmitAction::BLACK);
   HS_EXPECT_FALSE(g.resubmit_pending());
 }
 
