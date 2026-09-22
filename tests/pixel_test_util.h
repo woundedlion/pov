@@ -49,21 +49,6 @@ inline bool pix_eq(const Pixel &p, uint16_t r, uint16_t g, uint16_t b) {
   HS_EXPECT_EQ((actual), Pixel((red), (green), (blue)))
 
 /**
- * @brief Asserts two shaded colors match channel for channel.
- * @param actual Color produced by the code under test.
- * @param expected Reference color.
- * @details Alpha is compared as its bit pattern, so a NaN or a signed zero on
- *          one side is a mismatch rather than a passing float comparison.
- */
-inline void expect_color_exact(const Color4 &actual, const Color4 &expected) {
-  HS_EXPECT_EQ(actual.color.r, expected.color.r);
-  HS_EXPECT_EQ(actual.color.g, expected.color.g);
-  HS_EXPECT_EQ(actual.color.b, expected.color.b);
-  HS_EXPECT_EQ(std::bit_cast<uint32_t>(actual.alpha),
-               std::bit_cast<uint32_t>(expected.alpha));
-}
-
-/**
  * @brief Absolute gap between two 16-bit channel values.
  * @param a First channel value.
  * @param b Second channel value.
