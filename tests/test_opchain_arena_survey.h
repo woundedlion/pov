@@ -4,7 +4,7 @@
  */
 #pragma once
 
-// Persistent-arena survey of the whole Islamic registry built op by op. Every
+// Persistent and scratch arena survey of the Islamic registry built op by op. Every
 // entry is replayed leg by leg through the same harness the morph suite gates
 // with (tests/test_conway_morph.h), off the shipping Recipe that
 // test_solids.h's bitwise gate pins to the entry's generator.

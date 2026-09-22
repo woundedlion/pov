@@ -150,10 +150,12 @@ inline void test_transition_monotonic_and_starts_from_current() {
   float v = 5.0f;
   const int duration = 8;
   Animation::Transition tr(v, 25.0f, duration, ease_linear);
+  v = 9.0f;
   float prev = v;
   bool monotonic = true;
   for (int i = 0; i < duration; ++i) {
     tr.step(fake_canvas());
+    HS_EXPECT_NEAR(v, 9.0f + 16.0f * (i + 1) / duration, 1e-5f);
     if (v < prev - 1e-4f)
       monotonic = false;
     prev = v;
