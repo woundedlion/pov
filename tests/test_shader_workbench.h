@@ -1197,6 +1197,7 @@ inline void test_shader_workbench_clocks_wrapped() {
   expect_shader_workbench_clocks_wrapped(affine);
   affine.slots.warp_program.inner = affine.slots.warp_program.outer;
   affine.params.warp.inner = affine.params.warp.outer;
+  affine.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   HS_EXPECT_TRUE(WB::valid_config(affine));
   expect_shader_workbench_clocks_wrapped(affine);
 }
