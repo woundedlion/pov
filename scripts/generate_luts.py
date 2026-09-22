@@ -123,9 +123,7 @@ def render(out, fwd, rev):
 def clang_format_major(cf):
     """Major version of the clang-format at `cf`, or None if it cannot be read.
 
-    A version probe must never take the generator down: a missing binary, a
-    non-zero exit and an unrecognized banner all report None and are warned
-    about, leaving the formatting attempt itself to decide the exit status.
+    A missing binary, nonzero exit or unrecognized banner returns None.
     """
     try:
         result = subprocess.run([cf, "--version"], capture_output=True, text=True)
@@ -137,21 +135,13 @@ def clang_format_major(cf):
     return int(m.group(1)) if m else None
 
 
-def warn_version_skew(cf):
+def require_format_version(cf):
     major = clang_format_major(cf)
-    if major == EXPECTED_CLANG_FORMAT_MAJOR:
-        return
-    if major is None:
+    if major != EXPECTED_CLANG_FORMAT_MAJOR:
         sys.stderr.write(
-            f"generate_luts: WARNING - could not read the version of '{cf}'; CI "
-            f"formats with clang-format-{EXPECTED_CLANG_FORMAT_MAJOR}\n")
-    else:
-        sys.stderr.write(
-            f"generate_luts: WARNING - clang-format {major}.x formats this header, "
-            f"but CI pins clang-format-{EXPECTED_CLANG_FORMAT_MAJOR}; committing "
-            "this output can produce a whole-header reflow diff in the "
-            "lut-provenance gate. Set CLANG_FORMAT to a "
-            f"clang-format-{EXPECTED_CLANG_FORMAT_MAJOR} binary.\n")
+            f"generate_luts: clang-format-{EXPECTED_CLANG_FORMAT_MAJOR} required; "
+            f"found {major if major is not None else 'unknown'} at {cf}\n")
+        sys.exit(1)
 
 
 def clang_format(text):
@@ -165,7 +155,7 @@ def clang_format(text):
     cf = os.environ.get("CLANG_FORMAT") or shutil.which("clang-format")
     if not cf:
         return None
-    warn_version_skew(cf)
+    require_format_version(cf)
     header = Path(__file__).resolve().parent.parent / "core" / "color" / "color_luts.h"
     try:
         result = subprocess.run(
