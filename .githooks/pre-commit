@@ -63,6 +63,11 @@ if [ -n "$PYTHON_FILES" ]; then
     echo "[pre-commit] ruff not found; pip install -r requirements/ruff.txt"
     exit 1
   fi
+  expected_ruff="$(sed -n 's/^ruff==\([^ ]*\).*/\1/p' requirements/ruff.txt)"
+  if [ "$(ruff --version)" != "ruff $expected_ruff" ]; then
+    echo "[pre-commit] pinned ruff $expected_ruff is required; pip install -r requirements/ruff.txt"
+    exit 1
+  fi
   while IFS= read -r file; do
     extract_staged "$file"
     ruff check --no-cache --stdin-filename "$file" - <"$STAGED_BLOB"
@@ -111,6 +116,19 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
   for name in $LOCAL_GIT_ENV; do unset "$name"; done
   git -C "$SNAPSHOT" init --quiet
   cp "$INDEX_PATH" "$SNAPSHOT/.git/index"
+
+  SHELL_FILES="$(printf '%s\n' "$PRESENT" | grep -E '\.sh$|^\.githooks/' || true)"
+  if [ -n "$SHELL_FILES" ]; then
+    if ! command -v shellcheck >/dev/null 2>&1; then
+      echo "[pre-commit] shellcheck not found; pip install -r requirements/shellcheck.txt"
+      exit 1
+    fi
+    while IFS= read -r file; do
+      (cd "$SNAPSHOT" && shellcheck -x "$file")
+    done <<EOF
+$SHELL_FILES
+EOF
+  fi
 
   # No --sync: a repair here would land in the snapshot, not the index, and
   # would pass a README whose maps or counts have drifted from the tree.
