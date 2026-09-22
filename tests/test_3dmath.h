@@ -68,11 +68,14 @@ inline void test_quintic_kernel() {
     prev = v;
   }
 
-  // C2-continuous: derivative ~= 0 at endpoints.
+  HS_EXPECT_NEAR(quintic_kernel(0.25f), 0.103515625f, 1e-7f);
+  HS_EXPECT_NEAR(quintic_kernel(0.75f), 0.896484375f, 1e-7f);
+
+  // Quintic endpoint increments are cubic in the step size.
   float dl = quintic_kernel(0.01f) - quintic_kernel(0.0f);
   float dr = quintic_kernel(1.0f) - quintic_kernel(0.99f);
-  HS_EXPECT_TRUE(std::abs(dl) < 1e-3f);
-  HS_EXPECT_TRUE(std::abs(dr) < 1e-3f);
+  HS_EXPECT_TRUE(std::abs(dl) < 2e-5f);
+  HS_EXPECT_TRUE(std::abs(dr) < 2e-5f);
 }
 
 // ============================================================================
