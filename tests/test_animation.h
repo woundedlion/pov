@@ -1541,6 +1541,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     specialized.attractors[i].strength = STRENGTHS[i];
   }
 
+  const auto saved = hs::random();
   hs::random().seed(0x61786973);
   for (int i = 0; i < COUNT; ++i) {
     Vector pos;
@@ -1558,6 +1559,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     reference.spawn(pos, velocity, static_cast<uint16_t>(i));
     specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
   }
+  hs::random() = saved;
 
   reference.step(fake_canvas());
   specialized.step(fake_canvas());
