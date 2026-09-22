@@ -219,6 +219,53 @@ inline void test_hold_initial_preset_overrides_first_dwell() {
  * @brief Runs all preset-container test cases.
  * @return The module's failure count, as reported by end_module().
  */
+struct SaturatedPresetEffect
+    : ChoreographedEffect<SaturatedPresetEffect, HoldParams> {
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
+                                                              "second"};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{4, ease_linear};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  SaturatedPresetEffect() : ChoreographedEffect(8, 8) {}
+  static constexpr HoldParams preset_params(size_t index) {
+    return {index == 0 ? 1.0f : 2.0f};
+  }
+  static constexpr bool valid_params(const HoldParams &) { return true; }
+  void draw_frame() override {}
+  void arm() { begin_choreography(); }
+  void tick() { step_choreography(); }
+  bool attempt() { return advancePreset(); }
+  float value() const { return params.value; }
+  bool blending() const { return transition.active; }
+  void blend_params(float t) {
+    params.value = transition.from.value +
+                   (transition.to.value - transition.from.value) * t;
+  }
+  void saturate() {
+    for (size_t i = 0; i < Timeline::MAX_EVENTS; ++i)
+      timeline.add(10000, Animation::PeriodicTimer(10000, [](Canvas &) {}));
+  }
+  void clear_events() { timeline.clear(); }
+};
+
+inline void test_preset_saturation_veto_restarts_dwell() {
+  hs_test::reset_globals();
+  SaturatedPresetEffect effect;
+  effect.arm();
+  effect.saturate();
+  HS_EXPECT_FALSE(effect.attempt());
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(effect.value(), 1.0f);
+  HS_EXPECT_FALSE(effect.blending());
+  effect.clear_events();
+  for (int i = 1; i < SaturatedPresetEffect::PRESET_DWELL_FRAMES; ++i)
+    effect.tick();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  effect.tick();
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_TRUE(effect.blending());
+}
+
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
@@ -226,6 +273,7 @@ inline int run_presets_tests() {
   test_apply_if_changed();
   test_preset_zero_supplies_startup_params();
   test_hold_initial_preset_overrides_first_dwell();
+  test_preset_saturation_veto_restarts_dwell();
 
   return fixture.result();
 }
