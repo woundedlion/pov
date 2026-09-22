@@ -1512,6 +1512,7 @@ private:
 
 /** @brief Registers the render bridge's enums and class with Embind. */
 static void bind_engine() {
+  emscripten::constant("H_OFFSET", hs::H_OFFSET);
   enum_<ParamSetResult>("ParamSetResult")
       .value("APPLIED", ParamSetResult::APPLIED)
       .value("NO_EFFECT", ParamSetResult::NO_EFFECT)
