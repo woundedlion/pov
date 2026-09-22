@@ -1,3 +1,5 @@
+* text=auto eol=lf
+
 .githooks/** text eol=lf
 
 # Shell scripts, for the same reason: a CRLF `#!/bin/bash` shebang is not an
