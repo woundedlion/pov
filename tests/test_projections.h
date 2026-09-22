@@ -498,6 +498,8 @@ inline void test_airocean_projection_stays_inside_its_face() {
       const ProjectionKernelResult net = airocean_projection(v, 0.0f, false);
       const size_t face = net.region_id;
       HS_EXPECT_LT(face, AIROCEAN_FACE_COUNT);
+      if (face >= AIROCEAN_FACE_COUNT)
+        return;
       HS_EXPECT_TRUE(airocean_contains(airocean_axes(v), face));
       HS_EXPECT_EQ(airocean_outside_score(airocean_axes(v), face), 0.0f);
       const AiroceanPoint point{net.coords.re, net.coords.im};

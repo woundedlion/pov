@@ -952,6 +952,8 @@ inline void test_tribitset_index_uniqueness() {
     for (int b = a + 1; b < N; ++b) {
       int idx = TriangularBitset<N>::index(a, b);
       HS_EXPECT_TRUE(idx >= 0 && idx < TriangularBitset<N>::BITS);
+      if (idx < 0 || idx >= TriangularBitset<N>::BITS)
+        return;
       HS_EXPECT_FALSE(seen[idx]);
       seen[idx] = 1;
       ++unique;
