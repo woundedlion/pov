@@ -4981,6 +4981,7 @@ inline void test_shader_workbench_inverse_pipeline_manifest() {
 
   WB::RequestedConfig canonical = WB::presets()[1];
   const WB::TopologyKey expected_key = WB::topology_key(canonical);
+  canonical.slots.projection_frame = WB::ProjectionFramePolicy::SPIN_WANDER;
   canonical.slots.peirce_layout = WB::PeirceLayout::DIAMOND;
   canonical.slots.bonne_hemisphere = WB::BonneHemisphere::SOUTH;
   canonical.slots.gnomonic_hemisphere =
