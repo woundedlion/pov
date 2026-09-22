@@ -1405,6 +1405,43 @@ inline void test_gradient_hard_stop_is_abrupt() {
 
 // ============================================================================
 // BakedPalette::get  (requires an Arena)
+
+template <typename T>
+concept RebakeablePalette = requires(
+    T &palette, const SolidColorPalette &source) { palette.rebake(source); };
+static_assert(!RebakeablePalette<BakedPalette>);
+static_assert(RebakeablePalette<BakedPaletteStorage>);
+static_assert(std::is_copy_constructible_v<BakedPalette>);
+static_assert(!std::is_copy_constructible_v<BakedPaletteStorage>);
+static_assert(!std::is_copy_assignable_v<BakedPaletteStorage>);
+static_assert(!std::is_convertible_v<BakedPaletteStorage &, BakedPalette &>);
+static_assert(std::is_nothrow_move_constructible_v<BakedPaletteStorage>);
+static_assert(std::is_trivially_destructible_v<BakedPaletteStorage>);
+static_assert(sizeof(BakedPaletteStorage) == 2 * sizeof(void *));
+
+inline void test_baked_palette_storage_and_views() {
+  alignas(std::max_align_t)
+      uint8_t buffer[3 * BakedPalette::required_arena_bytes()];
+  Arena arena(buffer, sizeof(buffer));
+  SolidColorPalette red(Color4(Pixel(65535, 0, 0), 1.0f));
+  SolidColorPalette blue(Color4(Pixel(0, 0, 65535), 0.5f));
+  BakedPaletteStorage writer;
+  writer.bake(arena, red);
+  const BakedPalette view = writer.view();
+  BakedPaletteStorage clone;
+  clone.clone_from(view, arena);
+  const size_t before = arena.get_offset();
+  const BakedPalette endpoint = bake_palette_blend(arena, view, clone, 0.0f);
+  HS_EXPECT_EQ(arena.get_offset(), before);
+  BakedPaletteStorage moved = std::move(writer);
+  moved.rebake(blue);
+  HS_EXPECT_EQ(view.get_color(0.3f).b, 65535);
+  HS_EXPECT_EQ(endpoint.get_color(0.3f).b, 65535);
+  HS_EXPECT_EQ(clone.get_color(0.3f).r, 65535);
+  writer.bake(arena, red);
+  HS_EXPECT_EQ(writer.get_color(0.3f).r, 65535);
+  HS_EXPECT_EQ(moved.get_color(0.3f).b, 65535);
+}
 // ============================================================================
 
 /**
@@ -1421,7 +1458,7 @@ inline void test_baked_palette_matches_source_endpoints() {
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, src);
 
   Color4 c0 = baked.get(0.0f);
@@ -1446,7 +1483,7 @@ inline void test_baked_palette_in_range() {
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, grad);
 
   // Endpoints: t=0 -> first entry (black), t=1 -> last entry (white).
@@ -1484,7 +1521,7 @@ inline void test_baked_palette_rebake_samples_closed_interval() {
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, ramp);
   HS_EXPECT_EQ(baked.get(0.0f).color.r, 0);
   HS_EXPECT_EQ(baked.get(1.0f).color.r, 65535);
@@ -1520,7 +1557,7 @@ inline void test_baked_palette_color_sampler_matches_get() {
 
   alignas(std::max_align_t) uint8_t buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, source);
 
   HS_EXPECT_NEAR(baked.get(0.0f).alpha, 0.1f, 2e-5f);
@@ -1551,9 +1588,9 @@ inline void test_baked_palette_clone_from_matches_source() {
       buf[2 * BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
-  BakedPalette src;
+  BakedPaletteStorage src;
   src.bake(arena, grad);
-  BakedPalette dst;
+  BakedPaletteStorage dst;
   dst.clone_from(src, arena);
 
   for (int i = 0; i <= 64; ++i) {
@@ -1625,7 +1662,7 @@ inline void test_dot_keyed_bake_round_trips_through_dot_key() {
   alignas(std::max_align_t) static uint8_t
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, dot_keyed(ramp));
 
   HS_EXPECT_EQ(baked.get(dot_key(1.0f)).color.r, ramp.get(0.0f).color.r);
@@ -1665,13 +1702,13 @@ inline void test_bake_palette_blend_nan_weight_stays_finite() {
   alignas(std::max_align_t) static uint8_t
       buf[3 * BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
-  BakedPalette from, to;
+  BakedPaletteStorage from, to;
   from.bake(arena, black);
   to.bake(arena, white);
 
   BakedPalette dst;
-  bake_palette_blend(dst, arena, from, to,
-                     std::numeric_limits<float>::quiet_NaN());
+  dst = bake_palette_blend(arena, from, to,
+                           std::numeric_limits<float>::quiet_NaN());
 
   for (int i = 0; i <= 64; ++i) {
     Color4 c = dst.get(i / 64.0f);
@@ -1693,7 +1730,7 @@ inline void test_step_wipe_rebake_skips_arming_then_decrements() {
   alignas(std::max_align_t) static uint8_t
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, src);
 
   bool wipe_pending = true;
@@ -1727,7 +1764,7 @@ inline void test_palette_wipe_arm_step_cadence() {
   alignas(std::max_align_t) static uint8_t
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, source);
 
   PaletteWipe wipe;
@@ -2692,6 +2729,7 @@ inline void test_wrap_angle_pi_half_turn_keeps_sign() {
  */
 inline int run_color_tests() {
   hs_test::ModuleFixture fixture("color");
+  test_baked_palette_storage_and_views();
   test_lerp16_endpoints();
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();

@@ -312,7 +312,7 @@ private:
         fragment_shader);
   }
 
-  BakedPalette palette; /**< Ring-shading LUT, keyed by dot(X, v). */
+  BakedPaletteStorage palette; /**< Ring-shading LUT, keyed by dot(X, v). */
 
   // init() bakes one palette LUT into the persistent arena. Effect keeps the
   // default arena split, so the total must fit the device persistent partition.

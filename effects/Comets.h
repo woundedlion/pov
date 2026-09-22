@@ -319,7 +319,7 @@ private:
   Orientation<> orientation; /**< World orientation walked by the RandomWalk. */
   GenerativePalette
       palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
-  BakedPalette
+  BakedPaletteStorage
       baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
   /** @brief Authored Lissajous preset table; each preset varies only the path
    *  function, so entries hold the LissajousParams and preset_params() patches

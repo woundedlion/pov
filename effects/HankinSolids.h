@@ -271,11 +271,11 @@ private:
     const float w = strap_blend_weight(cycle_frame);
     const bool blending = w < 1.0f;
     for (int s = 0; s < NUM_PALETTES; ++s) {
-      star_by_slot[s] = &palette_bank.bank.entries[palette_idx[s]];
+      star_by_slot[s] = &palette_bank.bank.entries[palette_idx[s]].view();
       if (blending && (strap_blend_mask & (1u << s))) {
-        bake_palette_blend(blended[s], scratch,
-                           palette_bank.bank.entries[strap_from[s]],
-                           palette_bank.bank.entries[palette_idx[s]], w);
+        blended[s] = bake_palette_blend(
+            scratch, palette_bank.bank.entries[strap_from[s]],
+            palette_bank.bank.entries[palette_idx[s]], w);
         strap_by_slot[s] = &blended[s];
       } else {
         strap_by_slot[s] = star_by_slot[s];

@@ -3884,12 +3884,12 @@ inline ChainPeaks replay_build_chain(const char *name,
           const uint8_t from =
               seed_side ? prev_pal_buf[f] : lp->from_palette[f];
           const uint8_t to = seed_side ? from : lp->landed_palette(f);
-          const BakedPalette *want = &bank.bank.entries[to];
+          const BakedPalette *want = &bank.bank.entries[to].view();
           if (from != to) {
             if (!baked[from][to]) {
-              bake_palette_blend(expected[from][to], blend_arena,
-                                 bank.bank.entries[from], bank.bank.entries[to],
-                                 w);
+              expected[from][to] =
+                  bake_palette_blend(blend_arena, bank.bank.entries[from],
+                                     bank.bank.entries[to], w);
               baked[from][to] = true;
             }
             want = &expected[from][to];
