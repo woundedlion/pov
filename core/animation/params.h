@@ -432,19 +432,19 @@ public:
    * @param duration Duration of the flow.
    * @param repeat Whether to repeat.
    */
-  MobiusFlow(MobiusParams &params, const float &num_rings,
+  MobiusFlow(math::MobiusParams &params, const float &num_rings,
              const float &num_lines, int duration, bool repeat = true)
       : FiniteParamAnimationBase(duration, repeat), params(params),
         num_rings(num_rings), num_lines(num_lines) {}
 
   // Borrow contract: num_rings/num_lines are read every frame, so they must
   // outlive the Timeline; these deleted overloads reject a temporary scalar.
-  MobiusFlow(MobiusParams &params, const float &&num_rings,
+  MobiusFlow(math::MobiusParams &params, const float &&num_rings,
              const float &num_lines, int duration, bool repeat = true) = delete;
-  MobiusFlow(MobiusParams &params, const float &num_rings,
+  MobiusFlow(math::MobiusParams &params, const float &num_rings,
              const float &&num_lines, int duration,
              bool repeat = true) = delete;
-  MobiusFlow(MobiusParams &params, const float &&num_rings,
+  MobiusFlow(math::MobiusParams &params, const float &&num_rings,
              const float &&num_lines, int duration,
              bool repeat = true) = delete;
 
@@ -478,7 +478,8 @@ public:
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
+  std::reference_wrapper<math::MobiusParams>
+      params; /**< Mobius params to animate. */
   /** @brief Live ring count driving the log period. */
   std::reference_wrapper<const float> num_rings;
   /** @brief Live line count driving the angular step. */
@@ -502,7 +503,7 @@ public:
    * @param repeat Whether to repeat.
    * @param easing The easing function to use (default: ease_in_out_sin).
    */
-  MobiusWarpBase(MobiusParams &params, float scale, int duration,
+  MobiusWarpBase(math::MobiusParams &params, float scale, int duration,
                  bool repeat = true, EasingFn easing = ease_in_out_sin)
       : FiniteParamAnimationBase<Derived>(duration, repeat), params(params),
         scale(scale), easing(easing) {
@@ -536,9 +537,10 @@ public:
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float scale;                                 /**< Warp magnitude. */
-  EasingFn easing;                             /**< Easing curve. */
+  std::reference_wrapper<math::MobiusParams>
+      params;                       /**< Mobius params to animate. */
+  float scale;                      /**< Warp magnitude. */
+  EasingFn easing;                  /**< Easing curve. */
   const float *scale_ref = nullptr; /**< Optional live magnitude source. */
 };
 
@@ -553,7 +555,7 @@ public:
 private:
   friend class MobiusWarpBase<MobiusWarp>;
 
-  static void write_b(MobiusParams &params, float scale, float angle) {
+  static void write_b(math::MobiusParams &params, float scale, float angle) {
     params.b.re = scale * (cosf(angle) - 1.0f);
     params.b.im = scale * sinf(angle);
   }
@@ -569,7 +571,7 @@ public:
 private:
   friend class MobiusWarpBase<MobiusWarpCircular>;
 
-  static void write_b(MobiusParams &params, float scale, float angle) {
+  static void write_b(math::MobiusParams &params, float scale, float angle) {
     params.b.re = scale * cosf(angle);
     params.b.im = -scale * sinf(angle);
   }
@@ -593,7 +595,7 @@ public:
    * @note `base` snapshots `params` at construction and is latched at spawn;
    * live edits require a respawn (live `scale`/`speed` go through the setters).
    */
-  MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
+  MobiusWarpEvolving(math::MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
       : params(params), speed(speed), scale(scale), base(params),
         seed(hs::random()()) {
@@ -650,11 +652,12 @@ public:
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float speed;       /**< Animation speed (radians of phase per frame unit). */
-  float scale;       /**< Magnitude of the per-channel modulation. */
-  MobiusParams base; /**< Baseline params captured at construction. */
-  uint32_t seed;     /**< Seed for the per-channel phase offsets. */
+  std::reference_wrapper<math::MobiusParams>
+      params;  /**< Mobius params to animate. */
+  float speed; /**< Animation speed (radians of phase per frame unit). */
+  float scale; /**< Magnitude of the per-channel modulation. */
+  math::MobiusParams base; /**< Baseline params captured at construction. */
+  uint32_t seed;           /**< Seed for the per-channel phase offsets. */
   float phase_time = 0.0f; /**< Accumulated modulation phase (radians). */
 };
 

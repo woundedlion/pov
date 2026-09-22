@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -1499,7 +1500,7 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
  *          actually moves it.
  */
 inline void test_world_mobius_identity_and_transform() {
-  MobiusParams identity; // a=1,b=0,c=0,d=1
+  math::MobiusParams identity; // a=1,b=0,c=0,d=1
   Filter::World::Mobius mob(identity);
 
   const Vector v = Vector(0.4f, 0.3f, 0.86f).normalized();
@@ -1516,7 +1517,7 @@ inline void test_world_mobius_identity_and_transform() {
   HS_EXPECT_NEAR(out.z, v.z, 1e-3f);
 
   // A translation map f(z) = z + 1 moves the point and keeps it on the sphere.
-  MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0); // a=1, b=1, c=0, d=1
+  math::MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0); // a=1, b=1, c=0, d=1
   Filter::World::Mobius mob2(shift);
   Vector out2{};
   mob2.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,

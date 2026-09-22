@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include <emscripten/bind.h>
 #include "core/color/color.h"
 #include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
@@ -152,12 +153,12 @@ static void bind_math_exports() {
   // Mobius sphere map (mobius_transforms.js coefficients), via stereographic.h.
   // The eight coefficient floats are taken in the order mobiusCodeString emits
   // them, so the tool's MobiusParams initializer ordering is pinned too.
-  function(
-      "mobius_transform",
-      optional_override([](float x, float y, float z, float ar, float ai,
-                           float br, float bi, float cr, float ci, float dr,
-                           float di) -> val {
-        return vector_to_xyz(mobius_transform(
-            Vector(x, y, z), MobiusParams(ar, ai, br, bi, cr, ci, dr, di)));
-      }));
+  function("mobius_transform",
+           optional_override([](float x, float y, float z, float ar, float ai,
+                                float br, float bi, float cr, float ci,
+                                float dr, float di) -> val {
+             return vector_to_xyz(math::mobius_transform(
+                 Vector(x, y, z),
+                 math::MobiusParams(ar, ai, br, bi, cr, ci, dr, di)));
+           }));
 }

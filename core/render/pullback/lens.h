@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
 
@@ -27,13 +28,13 @@ struct MobiusLensParams {
   static constexpr float COEFFICIENT_LIMIT = 4.0f;
 
   /** Mobius coefficients; the default is the identity map. */
-  MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                      0.7071067811865475f, 0.0f};
+  math::MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                            0.7071067811865475f, 0.0f};
 };
 
 __attribute__((always_inline)) inline Vector
-mobius(const Vector &input, const MobiusParams &params) {
-  return ::mobius_transform(input, params);
+mobius(const Vector &input, const math::MobiusParams &params) {
+  return math::mobius_transform(input, params);
 }
 
 struct Glitch : ApproximationDefaults {
