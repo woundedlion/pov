@@ -268,28 +268,10 @@ inline void test_lattice_melt_manual_write_restarts_dwell() {
 }
 
 inline void test_lattice_melt_shader_workbench_equivalence() {
-  using WB = LatticeMeltWhiteBox;
-  reset_effect_globals();
-  ShaderWorkbenchWB::SB shader_workbench;
-  shader_workbench.init();
-
-  for (size_t preset : {size_t{7}, size_t{8}}) {
-    const ShaderWorkbenchWB::FrameState reference =
-        ShaderWorkbenchWB::preset_frame(shader_workbench, preset);
-    const WB::Ctx compiled = WB::from_reference(reference);
-    for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
-      const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
-      const float radius = cosf(latitude);
-      for (int longitude_step = 0; longitude_step < 37; ++longitude_step) {
-        const float longitude = longitude_step * (TWO_PI_F / 37.0f);
-        const Vector view(radius * cosf(longitude), sinf(latitude),
-                          radius * sinf(longitude));
-        expect_color_exact(
-            WB::shade(view, compiled),
-            ShaderWorkbenchWB::sinusoidal_curl_shade(view, reference));
-      }
-    }
-  }
+  shader_workbench_tests::verify_fixed_shader_export<LatticeMeltWhiteBox::FX>(
+      7, 0);
+  shader_workbench_tests::verify_fixed_shader_export<LatticeMeltWhiteBox::FX>(
+      8, 1);
 }
 
 inline int run_lattice_melt_tests() {
