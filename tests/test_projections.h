@@ -137,6 +137,8 @@ inline void test_bonne_polar_limit_is_finite() {
 }
 
 inline void test_peirce_elliptic_integral_shape() {
+  HS_EXPECT_NEAR(peirce_elliptic_integral(0.25f * PI_F), 0.8260178762492452f,
+                 1e-6f);
   HS_EXPECT_NEAR(peirce_elliptic_integral(0.0f), 0.0f, 1e-7f);
   HS_EXPECT_NEAR(peirce_elliptic_integral(0.5f * PI_F), PEIRCE_QUARTER_PERIOD,
                  1e-6f);
