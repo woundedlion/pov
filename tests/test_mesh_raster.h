@@ -817,7 +817,7 @@ inline void test_class_bake_registry_capacity() {
  * @param f Fragment whose color is overwritten from its v1 register.
  */
 inline void shade_by_distance(const Vector &, Fragment &f) {
-  float g = hs::clamp(30000.0f + f.v1 * 200000.0f, 0.0f, 60000.0f);
+  float g = 30000.0f + 30000.0f * f.v1 / (0.15f + std::fabs(f.v1));
   uint16_t q = static_cast<uint16_t>(g);
   f.color = Color4(Pixel(q, q, q), 1.0f);
 }
