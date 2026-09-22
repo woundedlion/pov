@@ -308,8 +308,8 @@ The same step runs with `just docs-check` and before `just docs` publishes the A
 │
 ├── workbench/                  Simulator-only shader authoring surfaces, outside the firmware
 │                                roster; their HS_ENABLE_* gates #error under ARDUINO — see §9
-│   └── shader/                 The shader authoring workbench; everything independent of
-│                                canvas resolution lives in namespace Workbench
+│   └── shader/                 The shader authoring workbench; reusable policies live in
+│                                namespace Workbench; ShaderWorkbench is a global host template
 │       ├── shader_host.h       Slot-configured shader with dynamic dispatch: registered as Shader
 │       ├── chain_host.h        Effect host for a compiled operator chain: registered as ShaderChain
 │       ├── config.h            Slot enums, per-stage parameter families, and the Config they compose
