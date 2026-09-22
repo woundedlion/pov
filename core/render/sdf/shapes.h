@@ -472,11 +472,11 @@ struct Star {
  * @details Register semantics: the DistanceResult table (row: Flower).
  */
 struct Flower {
-  const Basis &basis;      /**< Orientation frame (v = flower axis); retained by
+  const Basis &basis; /**< Orientation frame (-v = flower center); retained by
                               reference, so it must outlive the shape. */
-  int sides;               /**< Number of petals. */
-  float phase;             /**< Azimuth phase offset (radians). */
-  float sector;            /**< Angular width of one flower sector. */
+  int sides;          /**< Number of petals. */
+  float phase;        /**< Azimuth phase offset (radians). */
+  float sector;       /**< Angular width of one flower sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius;      /**< Angular radius from the antipode to petal tip
                          (radians). */
@@ -492,7 +492,7 @@ struct Flower {
 
   /**
    * @brief Builds a flower from its basis, radius, petal count, and phase.
-   * @param b Orientation frame (v = flower axis); retained by reference and
+   * @param b Orientation frame (-v = flower center); retained by reference and
    *          read by every distance() call, so it must outlive the shape.
    * @param radius Outer radius as a fraction of the hemisphere.
    * @param s Number of petals (must be >= 3).
