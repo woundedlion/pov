@@ -12,6 +12,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iterator>
 #include <new>
 #include <type_traits>
@@ -419,11 +420,22 @@ public:
   /**
    * @brief Exchanges contents with another buffer of the same type.
    * @param other Buffer to swap with.
-   * @details Swaps all N backing slots elementwise plus the three indices; no
-   * allocation and no element construction or destruction.
+   * @details Trivially copyable slots exchange their object representations;
+   * other slots use elementwise swap. No allocation.
    */
   void swap(StaticCircularBuffer &other) {
-    buffer.swap(other.buffer);
+    if (this == &other)
+      return;
+    if constexpr (std::is_trivially_copyable_v<T>) {
+      for (size_t i = 0; i < N; ++i) {
+        unsigned char temp[sizeof(T)];
+        std::memcpy(temp, &buffer[i], sizeof(T));
+        std::memcpy(&buffer[i], &other.buffer[i], sizeof(T));
+        std::memcpy(&other.buffer[i], temp, sizeof(T));
+      }
+    } else {
+      buffer.swap(other.buffer);
+    }
     std::swap(head, other.head);
     std::swap(tail, other.tail);
     std::swap(count, other.count);
