@@ -1065,3 +1065,49 @@ test('document exports sort integer-like metadata keys lexically', () => {
   assert.ok(output.indexOf('"10": 10') < output.indexOf('"2": 2'));
   assert.deepEqual(JSON.parse(output).study_metadata, document.study_metadata);
 });
+
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const cli = fileURLToPath(new URL('./shader_workbench_cli.mjs', import.meta.url));
+const document = fileURLToPath(new URL('../patterns/example.shader.json', import.meta.url));
+const run = (...args) => spawnSync(process.execPath, [cli, ...args], {
+  encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '' },
+});
+
+test('CLI check and descriptor compile a real document', () => {
+  const checked = run('check', document);
+  assert.equal(checked.status, 0, checked.stderr);
+  assert.equal(JSON.parse(checked.stdout).status, 'VALID');
+  const descriptor = run('descriptor', document);
+  assert.equal(descriptor.status, 0, descriptor.stderr);
+  assert.ok(Array.isArray(JSON.parse(descriptor.stdout).chain));
+});
+
+test('CLI classifies a document against a registry', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'shader-cli-'));
+  try {
+    const registry = join(dir, 'registry.json');
+    writeFileSync(registry, JSON.stringify({ effects: [] }));
+    const result = run('classify', document, registry, 'wasm-authoring');
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).kind, 'CREATE_EFFECT_CANDIDATE');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI reports usage and missing files with exit code 2', () => {
+  const usage = run();
+  assert.equal(usage.status, 2);
+  assert.match(usage.stderr, /Usage:/);
+  const missing = run('check', document + '.missing');
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /cannot read/);
+  const unknown = run('unknown', document);
+  assert.equal(unknown.status, 2);
+  assert.match(unknown.stderr, /Usage:/);
+});
