@@ -463,12 +463,11 @@ struct Mesh {
   }
 
   /** @brief Rasterizes a mesh through the type-erased fragment shader path. */
-  template <int W, int H, typename PipelineT = PipelineRef,
-            typename FaceShaderSetupT = std::nullptr_t>
+  template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
-                   const MeshOps::MeshClassBake *bake = nullptr,
-                   FaceShaderSetupT face_shader_setup = nullptr) {
+                   const MeshOps::MeshClassBake *bake = nullptr) {
+    std::nullptr_t face_shader_setup = nullptr;
     draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
                     bake, face_shader_setup);
   }
