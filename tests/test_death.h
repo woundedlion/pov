@@ -2649,8 +2649,9 @@ inline void case_feedback_downsample_indivisible() {
   Canvas c(fx);
   ::Feedback::Style style = ::Feedback::Style::Smoke();
   style.downsample = opaque(5); // 32 % 5 != 0 -> HS_CHECK
-  Filter::Pixel::Feedback<W, H> fb(style);
-  fb.flush(c, 1.0f);
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  pipe.begin_frame(c, 1.0f);
 }
 
 /**

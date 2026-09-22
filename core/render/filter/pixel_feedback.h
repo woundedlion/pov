@@ -125,6 +125,9 @@ public:
    */
   const ::Feedback::Style &style() const { return *feedback_style; }
 
+private:
+  template <int, int, typename...> friend struct ::Pipeline;
+
   /**
    * @brief Blends the distorted previous frame into the current frame.
    * @param cv Target canvas (reads cv.prev, writes the back (current-draw) buffer).
