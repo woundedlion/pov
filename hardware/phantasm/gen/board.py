@@ -83,7 +83,8 @@ def main(force=False):
         NUMBER = the Teensy pad label; assign a Teensy footprint and verify the pad
         map before PCB layout."""
         # (display-name, number, electrical-type) — left side then right side
-        LEFT = [("D11/MOSI", "11"), ("D13/SCK", "13"), ("D3", "3"), ("D5", "5"),
+        LEFT = [("D11/MOSI", "11"), ("D13/SCK", "13"), ("D3", "3"),
+                ("D4", "4"), ("D5", "5"),
                 ("D1/TX1", "1"), ("D21", "21"), ("D22", "22"), ("D23", "23")]
         RIGHT = [("VIN", "VIN"), ("3V3", "3V3"), ("GND", "GND")]
         bodyx = 13.97
@@ -307,6 +308,7 @@ def main(force=False):
     to_label(U, tn("D11/MOSI"), "DATA_IN")
     to_label(U, tn("D13/SCK"), "CLK_IN")
     to_label(U, tn("D3"), "FRAME_SYNC")
+    to_label(U, tn("D4"), "SYNC_TX")
     to_label(U, tn("D5"), "MASTER_EN")
     to_label(U, tn("D21"), "ID0")
     to_label(U, tn("D22"), "ID1")
@@ -333,7 +335,9 @@ def main(force=False):
     # ch B (CLK)
     to_label(U1B, "5", "CLK_IN"); to_power(U1B, "4", GND); series_wire(U1B, "6", RD2, "CLK", "CLK_SRC")
     # ch C (SYNC)
-    to_label(U1C, "9", "FRAME_SYNC"); to_label(U1C, "10", "MASTER_EN"); series_wire(U1C, "8", RS, "SYNC_BUS", "SYNC_SRC")
+    to_label(U1C, "9", "SYNC_TX"); to_label(U1C, "10", "MASTER_EN"); series_wire(U1C, "8", RS, "SYNC_BUS", "SYNC_SRC")
+    RTX = place("Device:R", "R_TX", "10k", 111.76, 213.36, fp=SMD06)
+    to_label(RTX, "1", "SYNC_TX"); to_power(RTX, "2", GND)
     # ch D switches the single bus idle pull-down on only when this board is master.
     # MASTER_EN is LOW on the master and HIGH on slaves, matching the active-low OE.
     to_power(U1D, "12", GND)

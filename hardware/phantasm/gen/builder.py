@@ -6,7 +6,7 @@ from kicad_common import uid, fmt
 
 #: Board revision, carried by the schematic title block, the routed board's
 #: title block (the Gerber X2 ProjectId attribute) and the bottom silkscreen.
-REVISION = "1.1"
+REVISION = "1.2"
 
 
 # ---------- transform: library local coords -> schematic screen coords ----------

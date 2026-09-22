@@ -1,5 +1,24 @@
 # PHANTASM Segment Board — PCB Design Specification
 
+**Revision scope:** the body below describes the committed rev 1.1 artifacts.
+The generators target **rev 1.2**, with the following changes superseding the
+sync pin map, channel-C input, BOM and net table below:
+
+- Teensy **D3 / FRAME_SYNC** is receive-only on every board, connected to R1,
+  R2 and C_SYNC; it is disconnected from U1 pin 9.
+- Teensy **D4 / SYNC_TX** drives U1 pin 9. Populate **R_TX = 10 kΩ, 0603,
+  C25804** from SYNC_TX to GND on every board, defining the input during reset.
+- All master/follower boards remain identical. ID straps select the role;
+  MASTER_EN and its pull-up retain their existing connections. Firmware must
+  initialize D4 LOW as an output before enabling the master, hold it LOW on
+  followers, and emit master pulses on D4. D3 remains an input with HYS.
+- The rev 1.2 GND net additionally contains R_TX. The receive divider and
+  220 pF filter, switched bus pulldown, and bus connectors retain their values.
+
+The rev 1.2 schematic and PCB drafts require regeneration and routing. Current
+firmware and the committed routed fabrication artifacts remain rev 1.1; see
+[the hardware revision notes](../../hardware/phantasm/README.md#revision-12).
+
 **Status: SPECIFIED; the routed board is committed, with two recorded deviations.** The
 schematic and layout this document specifies ship in `hardware/phantasm/` and pass the gates
 that project's README lists, but the committed copper does not meet every requirement here:

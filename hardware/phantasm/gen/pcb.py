@@ -13,6 +13,7 @@ import math
 import os
 import sys
 import builder
+import check
 import sexp
 from constraints import EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
@@ -703,6 +704,12 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     else:
         require_writable(os.path.join(OUT, PCB_FILE), force)
     nlroot = export_netlist(kicad_cli(), SCH)
+    revision = check.netlist_revision(nlroot)
+    if revision != builder.REVISION:
+        sys.exit(f"ERROR schematic revision {revision} does not match generator "
+                 f"revision {builder.REVISION}; regenerate the schematic first")
+    if not check.check(check.netlist_nets(nlroot), revision):
+        sys.exit("ERROR schematic does not match the electrical specification")
     pad_net, netid = build_nets(nlroot)
     paths = build_paths(nlroot)                   # ref -> schematic-symbol path
     comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components()}

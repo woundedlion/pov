@@ -510,6 +510,13 @@ class AssemblyPolicyTests(unittest.TestCase):
     def test_accepts_exact_assigned_part_set(self):
         fab.validate_assembled_refs(fab.LCSC_BY_REF)
 
+    def test_revision_1_1_assembly_has_no_transmit_pulldown(self):
+        assembled = set(fab.LCSC_BY_REF) - {"R_TX"}
+        fab.validate_assembled_refs(assembled, "1.1")
+        with self.assertRaisesRegex(fab.AssemblyMetadataError,
+                                    "assigned parts missing from assembly: R_TX"):
+            fab.validate_assembled_refs(assembled, "1.2")
+
     def test_rejects_assigned_part_missing_from_assembly(self):
         assembled = set(fab.LCSC_BY_REF) - {"U1"}
 
@@ -1020,7 +1027,10 @@ class PackagePromotionTests(unittest.TestCase):
 
                 def export(stage, args):
                     target = Path(args[args.index("-o") + 1])
-                    if stage == "centroid":
+                    if stage == "netlist":
+                        target.write_text('(export (design (sheet (name "/") '
+                                          '(title_block (rev "1.2")))))')
+                    elif stage == "centroid":
                         target.write_text("Ref,PosX,PosY,Rot,Side\n")
                     elif stage == "gerber":
                         names = set(ZipMembershipTests.EXPORTED) - {"phantasm-In1_Cu.g1"}
@@ -1337,7 +1347,9 @@ class NetlistSpecTests(unittest.TestCase):
             for name, nodes in nets.items())
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "test.net"
-            path.write_text(f"(export (nets {blocks}))", encoding="utf-8")
+            path.write_text(
+                '(export (design (sheet (name "/") (title_block (rev "1.2"))))'
+                f'(nets {blocks}))', encoding="utf-8")
             with contextlib.redirect_stdout(io.StringIO()):
                 return fab.validate_netlist_spec(path)
 

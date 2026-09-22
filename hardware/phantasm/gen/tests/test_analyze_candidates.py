@@ -66,6 +66,7 @@ class ParserTests(unittest.TestCase):
 
 SYNTHETIC_BOARD = """
 (kicad_pcb
+  (title_block (rev "1.2"))
   (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net "/DATA"))
   (segment (start 0 1) (end 1 1) (width 0.25) (layer "F.Cu") (net "/CLK"))
   (segment (start 0 2) (end 1 2) (width 0.25) (layer "F.Cu") (net "/DATA_IN"))
@@ -75,6 +76,7 @@ SYNTHETIC_BOARD = """
   (segment (start 0 6) (end 1 6) (width 0.25) (layer "F.Cu") (net "/SYNC_BUS"))
   (segment (start 0 7) (end 1 7) (width 0.25) (layer "F.Cu") (net "/FRAME_SYNC"))
   (segment (start 0 8) (end 1 8) (width 0.25) (layer "F.Cu") (net "/SYNC_SRC"))
+  (segment (start 0 9) (end 1 9) (width 0.25) (layer "F.Cu") (net "/SYNC_TX"))
   (via (at 3 4) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net "GND"))
   (footprint "Resistor_SMD:R_0402"
     (at 10 20)
@@ -96,7 +98,7 @@ class AnalyzeTests(unittest.TestCase):
 
         self.assertEqual(r["nseg"], len(analyze_candidates.CRIT))
         self.assertEqual(r["nvia"], 1)
-        self.assertAlmostEqual(r["total_len"], 18.0)
+        self.assertAlmostEqual(r["total_len"], 19.0)
         # net_name drops the leading slash
         self.assertAlmostEqual(r["netlen"]["DATA"], 10.0)
         self.assertEqual(r["netseg"]["DATA"], 1)
@@ -118,7 +120,7 @@ class AnalyzeTests(unittest.TestCase):
         r = self.analyze_source(source)
 
         self.assertAlmostEqual(r["netlen"]["DATA"], 10.0)
-        self.assertAlmostEqual(r["crit_len"], 18.0)
+        self.assertAlmostEqual(r["crit_len"], 19.0)
         self.assertEqual(r["netvias"]["GND"], 1)
 
     def test_rejects_a_board_whose_nets_are_ids_only(self):
@@ -136,6 +138,14 @@ class AnalyzeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "unrouted critical nets.*DATA"):
             self.analyze_source(source)
+
+    def test_revision_1_2_requires_transmit_routing(self):
+        source = SYNTHETIC_BOARD.replace(
+            '  (segment (start 0 9) (end 1 9) (width 0.25) '
+            '(layer "F.Cu") (net "/SYNC_TX"))\n', '')
+        with self.assertRaisesRegex(ValueError, "unrouted critical nets.*SYNC_TX"):
+            self.analyze_source(source)
+        self.analyze_source(source.replace('(rev "1.2")', '(rev "1.1")'))
 
     def test_rejects_a_zero_length_critical_net(self):
         source = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 0 0)")

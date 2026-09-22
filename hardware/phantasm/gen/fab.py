@@ -508,7 +508,7 @@ LCSC_BY_REF = {
     "C_LF": "C12891", "C_SYNC": "C1603",
     "D_BUS": "C1975255", "F1": "C261952", "FB": "C73732",
     "Q_REV": "C15127",
-    "R1": "C25804", "R_MEN": "C25804", "R_PD": "C25804",
+    "R1": "C25804", "R_MEN": "C25804", "R_PD": "C25804", "R_TX": "C25804",
     "R2": "C22809", "R_D1": "C17634", "R_D2": "C17634",
     "R_LF": "C48928179", "R_S": "C17408", "U1": "C155176",
 }
@@ -807,11 +807,15 @@ def validate_netlist_spec(net_path):
     """
     with open(net_path, encoding="utf-8") as fh:
         root = sexp.parse_one(fh.read())
-    if not netlist_spec.check(netlist_spec.netlist_nets(root)):
+    try:
+        revision = netlist_spec.netlist_revision(root)
+    except ValueError as exc:
+        raise NetlistSpecError(str(exc)) from exc
+    if not netlist_spec.check(netlist_spec.netlist_nets(root), revision):
         raise NetlistSpecError(
             "netlist does not match the electrical specification (see the "
             "FAIL lines above)")
-    return len(netlist_spec.EXPECT)
+    return len(netlist_spec.expected_nets(revision))
 
 
 def parse_components(net_path):
@@ -892,9 +896,12 @@ def validate_assembly_exclusions(comps, assembled, board):
     return len(excluded)
 
 
-def validate_assembled_refs(assembled):
+def validate_assembled_refs(assembled, revision=netlist_spec.builder.REVISION):
     actual = set(assembled)
+    netlist_spec.expected_nets(revision)
     expected = set(LCSC_BY_REF)
+    if revision == "1.1":
+        expected.remove("R_TX")
     diagnostics = []
     if missing := sorted(expected - actual):
         diagnostics.append(
@@ -1304,7 +1311,9 @@ def main():
     # previous good package intact.
     try:
         validate_assembly_exclusions(comps, assembled, board)
-        validate_assembled_refs(assembled)
+        with open(net, encoding="utf-8") as fh:
+            revision = netlist_spec.netlist_revision(sexp.parse_one(fh.read()))
+        validate_assembled_refs(assembled, revision)
         validate_rotation_refs(assembled)
         assembly_metadata = validate_assembly_metadata(posrows, assembled)
     except AssemblyMetadataError as exc:

@@ -23,11 +23,14 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import board_metadata   # noqa: E402
+import board            # noqa: E402
 import builder          # noqa: E402
+import check            # noqa: E402
+import fab              # noqa: E402
 import connectivity     # noqa: E402
 import pcb              # noqa: E402
 import sexp             # noqa: E402
-from kicad_common import F, is_copper_pour, kicad_cli  # noqa: E402
+from kicad_common import F, export_netlist, is_copper_pour, kicad_cli  # noqa: E402
 
 COMMITTED_PCB = GEN.parent / pcb.PCB_FILE
 
@@ -50,7 +53,13 @@ GENERATES_REASON = (
 
 def generate(out, unplaced=False):
     """Run the generator into `out`; return the board path."""
+    schematic = os.path.join(out, "phantasm.kicad_sch")
+    with mock.patch.object(board, "OUT", out), \
+            mock.patch.object(board, "SCH", schematic), \
+            contextlib.redirect_stdout(io.StringIO()):
+        board.main(force=True)
     with mock.patch.object(pcb, "OUT", out), \
+            mock.patch.object(pcb, "SCH", schematic), \
             contextlib.redirect_stdout(io.StringIO()):
         pcb.main(unplaced=unplaced, force=True, force_teensy_library=True)
     return os.path.join(out, pcb.UNPLACED_FILE if unplaced else pcb.PCB_FILE)
@@ -138,6 +147,7 @@ class GeneratedBoardTests(unittest.TestCase):
             library.write_bytes(b"hand-maintained footprint\n")
             before = board.read_bytes()
             with mock.patch.object(pcb, "OUT", directory), \
+                    mock.patch.object(pcb, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
                     contextlib.redirect_stdout(io.StringIO()):
                 with self.assertRaises(SystemExit):
                     pcb.main(force=True)
@@ -175,6 +185,41 @@ class GeneratedBoardTests(unittest.TestCase):
     def test_the_draft_carries_no_routing(self):
         self.assertEqual(self.metadata.track_segments, 0)
         self.assertEqual(self.metadata.vias, 0)
+
+    def test_sync_transmit_is_isolated_and_pulled_low_on_every_board(self):
+        nets = {}
+        for footprint in F(self.root, "footprint"):
+            ref = reference(footprint)
+            for pad in F(footprint, "pad"):
+                name = sexp.val(pad, "net")
+                if name:
+                    nets.setdefault(str(name[-1]).lstrip("/"), set()).add(
+                        check.node_key(ref, str(pad[1])))
+        self.assertEqual(nets["FRAME_SYNC"], {"U_MCU.3", "R1", "R2", "C_SYNC"})
+        self.assertEqual(nets["SYNC_TX"], {"U_MCU.4", "U1.9", "R_TX"})
+        self.assertIn("R_TX", nets["GND"])
+        self.assertEqual(nets["MASTER_EN"], check.EXPECT["MASTER_EN"])
+        resistor = next(fp for fp in F(self.root, "footprint")
+                        if reference(fp) == "R_TX")
+        self.assertIn(["property", "Value", "10k"],
+                      [p[:3] for p in F(resistor, "property")])
+        self.assertNotIn("R_TX", assembly_exclusions(self.root))
+
+    def test_generated_assembly_has_all_revision_parts(self):
+        netlist = Path(self.out.name) / "assembly.net"
+        root = export_netlist(kicad_cli(), str(Path(self.out.name) / "phantasm.kicad_sch"))
+        netlist.write_text(sexp.dumps(root), encoding="utf-8")
+        self.assertEqual(fab.validate_netlist_spec(netlist), len(check.EXPECT))
+        components = fab.parse_components(netlist)
+        fab.validate_assembled_refs(
+            [ref for ref, component in components.items() if fab.is_assembled(component)],
+            builder.REVISION)
+
+    def test_old_schematic_cannot_be_stamped_with_the_new_revision(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(pcb, "OUT", directory):
+            with self.assertRaisesRegex(SystemExit, "regenerate the schematic first"):
+                pcb.main()
 
     def test_places_every_footprint_on_the_front(self):
         self.assertEqual(self.metadata.footprint_sides[1], ("B.Cu", 0))
