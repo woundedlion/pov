@@ -732,12 +732,18 @@ struct ProjectedNoise : ApproximationDefaults {
         { State::noise_contrast(frame) } -> std::same_as<float>;
       };
 
+  using Prepared = Vector;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return noise_projected_loop_offset(State::noise_time(frame));
+  }
+
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
-                                                     const FrameState &frame) {
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
     return noise_contour(State::noise(frame), BasisV,
-                         noise_projected_coordinate(input.coords,
-                                                    State::noise_scale(frame),
-                                                    State::noise_time(frame)),
+                         noise_projected_coordinate(
+                             input.coords, State::noise_scale(frame), prepared),
                          State::noise_contrast(frame));
   }
 };
@@ -751,23 +757,29 @@ struct SphericalNoise : ApproximationDefaults {
   static constexpr bool PROVIDER_VALID =
       ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
 
+  using Prepared = Vector;
+
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    return noise_sphere_loop_offset(State::noise_time(frame));
+  }
+
   /** @brief Post-projection form: samples the plane carrier's retained
       pre-projection point. */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
-                                                     const FrameState &frame) {
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
     return noise_contour(State::noise(frame), BasisV,
-                         noise_sphere_coordinate(input.sphere,
-                                                 State::noise_scale(frame),
-                                                 State::noise_time(frame)),
+                         noise_sphere_coordinate(
+                             input.sphere, State::noise_scale(frame), prepared),
                          State::noise_contrast(frame));
   }
   __attribute__((always_inline)) static float sample(const SphereSample &input,
-                                                     const FrameState &frame) {
-    return noise_contour(State::noise(frame), BasisV,
-                         noise_sphere_coordinate(input.dir,
-                                                 State::noise_scale(frame),
-                                                 State::noise_time(frame)),
-                         State::noise_contrast(frame));
+                                                     const FrameState &frame,
+                                                     const Prepared &prepared) {
+    return noise_contour(
+        State::noise(frame), BasisV,
+        noise_sphere_coordinate(input.dir, State::noise_scale(frame), prepared),
+        State::noise_contrast(frame));
   }
 };
 
