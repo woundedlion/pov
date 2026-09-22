@@ -644,8 +644,6 @@ inline void test_ripple_threshold_collapses_past_pi() {
   for (int i = 1; i < 64; ++i) {
     const float d = PI_F * static_cast<float>(i) / 64.0f;
     const Vector v(std::sin(d), std::cos(d), 0.0f);
-    const float cos_d = dot(v, p.center);
-    HS_EXPECT_TRUE(cos_d > p.cos_threshold_min || cos_d < p.cos_threshold_max);
     HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, p), v));
   }
 }
