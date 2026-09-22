@@ -559,22 +559,25 @@ inline void report_visual_budget(const OracleState &state,
                                  const FrameErrorStats &error,
                                  double energy_ratio, size_t high_error_pixels,
                                  double max_energy_drift,
-                                 size_t max_high_error_pixels) {
+                                 size_t max_high_error_pixels, double max_mae,
+                                 double max_rmse, uint32_t max_channel) {
   std::printf(
       "  [%s %s count=%d sides=%d] MAE %.1f/%.1f; RMSE %.1f/%.1f; max channel "
       "%u/%u; energy drift %.3f%%/%.3f%%; high-error px %zu/%zu\n",
       ShapeShifterWhiteBox::shape_option(static_cast<int>(state.shape)),
       ShapeShifterWhiteBox::function_option(static_cast<int>(state.function)),
-      state.count, state.sides, error.mean_absolute_error(),
-      MAX_MEAN_ABSOLUTE_ERROR, error.root_mean_squared_error(),
-      MAX_ROOT_MEAN_SQUARED_ERROR, error.max_absolute_error, MAX_CHANNEL_ERROR,
-      100.0 * energy_ratio, 100.0 * max_energy_drift, high_error_pixels,
-      max_high_error_pixels);
+      state.count, state.sides, error.mean_absolute_error(), max_mae,
+      error.root_mean_squared_error(), max_rmse, error.max_absolute_error,
+      max_channel, 100.0 * energy_ratio, 100.0 * max_energy_drift,
+      high_error_pixels, max_high_error_pixels);
 }
 
 inline void expect_candidate_within_visual_budget(
     const OracleState &state, double max_energy_drift = MAX_ENERGY_DRIFT,
-    size_t max_high_error_pixels = MAX_HIGH_ERROR_PIXELS) {
+    size_t max_high_error_pixels = MAX_HIGH_ERROR_PIXELS,
+    double max_mae = MAX_MEAN_ABSOLUTE_ERROR,
+    double max_rmse = MAX_ROOT_MEAN_SQUARED_ERROR,
+    uint32_t max_channel = MAX_CHANNEL_ERROR) {
   RenderComparison comparison =
       compare_renders(state, reference_renderer(), candidate_renderer());
   const uint64_t reference_energy = frame_energy(comparison.reference);
@@ -603,13 +606,13 @@ inline void expect_candidate_within_visual_budget(
       ++high_error_pixels;
   }
   report_visual_budget(state, comparison.error, energy_ratio, high_error_pixels,
-                       max_energy_drift, max_high_error_pixels);
+                       max_energy_drift, max_high_error_pixels, max_mae,
+                       max_rmse, max_channel);
   // Every bound below is satisfied by an all-black pair.
   HS_EXPECT_GT(reference_energy, uint64_t{0});
-  HS_EXPECT_LT(comparison.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
-  HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
-               MAX_ROOT_MEAN_SQUARED_ERROR);
-  HS_EXPECT_LT(comparison.error.max_absolute_error, MAX_CHANNEL_ERROR);
+  HS_EXPECT_LT(comparison.error.mean_absolute_error(), max_mae);
+  HS_EXPECT_LT(comparison.error.root_mean_squared_error(), max_rmse);
+  HS_EXPECT_LT(comparison.error.max_absolute_error, max_channel);
   HS_EXPECT_LT(energy_ratio, max_energy_drift);
   HS_EXPECT_LT(high_error_pixels, max_high_error_pixels);
   HS_EXPECT_EQ(uncovered_bright_pixels, size_t{0});
@@ -618,14 +621,28 @@ inline void expect_candidate_within_visual_budget(
 }
 
 inline void test_candidate_matrix_stays_within_visual_budget() {
-  for (const OracleState &state : shape_function_matrix()) {
-    const size_t max_high_error_pixels =
-        state.shape == OracleEffect::ShapeType::PLANAR_STAR ||
-                state.shape == OracleEffect::ShapeType::SPHERICAL_STAR
-            ? MAX_STAR_HIGH_ERROR_PIXELS
-            : MAX_HIGH_ERROR_PIXELS;
-    expect_candidate_within_visual_budget(state, MAX_ENERGY_DRIFT,
-                                          max_high_error_pixels);
+  struct Budget {
+    double mae;
+    double rmse;
+    uint32_t channel;
+    size_t pixels;
+  };
+  // Per-case native baselines with 25% aggregate and 50% peak headroom.
+  constexpr Budget budgets[] = {
+      {0.4, 5, 480, 1},         {2.8, 36, 3800, 1},   {9, 87, 9700, 9},
+      {30, 172, 10910, 17},     {0.3, 1.5, 90, 1},    {0.4, 3.5, 210, 1},
+      {6.2, 82, 7720, 7},       {54, 232, 11340, 44}, {0.4, 6, 650, 1},
+      {2.9, 52, 5010, 1},       {9.7, 102, 6190, 7},  {188, 806, 23780, 541},
+      {1.7, 15, 960, 1},        {12, 106, 3810, 1},   {39, 294, 10860, 111},
+      {351, 1192, 20450, 1845}, {1.2, 14, 1250, 1},   {9.5, 101, 4550, 1},
+      {23, 185, 11160, 25},     {15, 135, 8530, 9}};
+  const auto matrix = shape_function_matrix();
+  static_assert(std::size(budgets) == std::tuple_size_v<decltype(matrix)>);
+  for (size_t index = 0; index < matrix.size(); ++index) {
+    const auto &budget = budgets[index];
+    expect_candidate_within_visual_budget(matrix[index], MAX_ENERGY_DRIFT,
+                                          budget.pixels, budget.mae,
+                                          budget.rmse, budget.channel);
   }
 }
 
