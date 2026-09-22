@@ -177,7 +177,7 @@ automatically. Only the one-line bridge is manual, because `Effect` is
 type-erased — the driver holds an `Effect*` and the folds live in the derived
 effect's `filters` member, so the base cannot read them without the derived type
 passing them up. `HopfFibration` names its pipeline `trail_pipeline` and
-`Raymarch` names its `pipeline`, so each names its own in the helper's template
+`Raymarch` names its `pipeline`, and `ShapeShifter` uses `plot_filters`, so each names its own in the helper's template
 argument. Effects with no filter pipeline skip the helper and take the
 `EffectConfig` defaults.
 
