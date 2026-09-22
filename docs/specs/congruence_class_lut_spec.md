@@ -268,7 +268,9 @@ congruence would need re-validation — out of scope).
 
 ## 11. Implementation results (2026-07-01)
 
-Landed as `core/mesh/mesh_classes.h` (clustering + bake) with the hybrid branch in
+Landed as `core/mesh/mesh_classes.h` (clustering + bake), with runtime records
+`FaceClassRec`, `CongruenceClass`, `MeshClassBake` and the `NO_CLASS` sentinel in
+`core/mesh/mesh_class_types.h`. The hybrid branch is in
 `SDF::Face::distance`, the per-frame alignment bound by `Scan::Mesh::draw`,
 and per-slot bakes in IslamicStars (rebaked unconditionally after every
 `compact_keep_front`). Deviations from the design above:
