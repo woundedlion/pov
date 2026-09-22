@@ -303,7 +303,7 @@ jobs:
 
       - name: Configure
         run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON -DHS_SANITIZE=ON
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
@@ -385,7 +385,7 @@ jobs:
 
       - name: Configure
         run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_TSAN=ON
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON -DHS_TSAN=ON
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
@@ -512,7 +512,7 @@ jobs:
       # plain "-O2 -g" this job has always used.
       - name: Configure
         run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${{ matrix.optimization || '-O2 -g' }} ${{ matrix.float_flags }}"
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
@@ -584,7 +584,7 @@ jobs:
 
       - name: Configure
         run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_COVERAGE=ON
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON -DHS_COVERAGE=ON
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
@@ -700,7 +700,7 @@ jobs:
       # No explicit compiler: let the toolchain auto-locate emsdk's Clang and run
       # its full Windows branch (lld-link alias, rc.exe glob/NATURAL-sort).
       - name: Configure
-        run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+        run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
 
       - name: Build
         run: cmake --build --preset tests
@@ -1265,7 +1265,7 @@ jobs:
       # here it is actually run, to argv[1] rather than over the committed header.
       - name: Build the generator
         run: |
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF \
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON \
             -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
           cmake --build --preset tests --target srgb_decode_gen
 
@@ -1695,7 +1695,7 @@ jobs:
       # Configure only — ctest -N reads the generated test list; no build needed.
       - name: Configure (register tests)
         run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF
+          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Assert the shard matrix and the registered tests are in bijection
