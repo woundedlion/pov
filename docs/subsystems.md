@@ -52,6 +52,8 @@ Section 7 of the [Holosphere README](https://github.com/woundedlion/pov/blob/mas
   - [Multi-Teensy Segmented POV Driver](#multi-teensy-segmented-pov-driver-pov_segmentedh)
   - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
 
+- [7.11 Mathematical Kernels](#711-mathematical-kernels-coremath)
+
 ---
 
 ## 7.0 The Shader Interface
@@ -1164,3 +1166,22 @@ The construction window is identical (K revolutions) on every board because cons
 | Sync wire severed (out of scope) | free-runs on own crystal; precesses ≥ 1 col in ~10–20 s | keeps flipping locally | holds last effect; slow drift, never an instant break |
 
 The flywheel ISR maintains telemetry counters (symbols accepted / gate-rejected / discarded, beacons ok / rejected, index corrections, epochs refractory-ignored, lock transitions, flips, emissions censored / aborted, longest coast) that the foreground reports behind `hs::debug` at ≤ 1 Hz — so any degradation the protocol absorbs silently is still visible at a glance.
+
+
+## 7.11 Mathematical Kernels (`core/math/`)
+
+The math headers provide coordinate transforms and scalar fields used by the
+plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
+
+| Headers | Surface |
+|---|---|
+| `core/math/3dmath.h`, `core/math/4dmath.h` | Vectors, matrices, complex arithmetic, fast scalar approximations, and four-dimensional rotations. |
+| `core/math/geometry.h` | Sphere/pixel coordinates, angular intervals, and display latitude conventions, including `H_OFFSET`. |
+| `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
+| `core/math/stereographic.h`, `core/math/lenses.h` | Stereographic and fractional-linear transforms, plus sphere-domain lens kernels. |
+| `core/math/noise_field.h`, `core/math/spherical_field.h`, `core/math/spherical_harmonics.h` | Noise sampling, spherical fields, and harmonic evaluation. |
+| `core/math/easing.h`, `core/math/waves.h`, `core/math/interpolate.h` | Scalar easing curves, periodic waves, and interpolation helpers. |
+
+Projection results carry their coordinate and validity contracts in the headers.
+The pullback policies in `core/render/pullback/` bind these kernels to effect
+parameters and frame state.
