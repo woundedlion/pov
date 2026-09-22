@@ -3504,6 +3504,81 @@ inline void test_shader_chain_state_continuity_slice() {
   program.clear();
 }
 
+inline void test_shader_chain_operator_state_migration() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  const In::ChainEntryRequest first[] = {
+      {"ripple", "sphere.displace.ripple.v2"},
+      {"project", "project.stereographic.v2"},
+      {"wave", "warp.wave-shear.v2"},
+      {"affine", "warp.affine.v2"},
+      {"sample", "sample.projected-noise.v2"},
+      {"colorize", "colorize.generated-palette.v3"}};
+  const auto status = program.compile(first).code;
+  HS_EXPECT_EQ(static_cast<int>(status), static_cast<int>(In::ChainStatus::OK));
+  if (status != In::ChainStatus::OK)
+    return;
+  const_cast<In::Op::RipplePhaseState &>(
+      state_as<In::Op::RipplePhaseState>(program, 0))
+      .phase = 0.37f;
+  const_cast<In::Op::WarpPhaseState &>(
+      state_as<In::Op::WarpPhaseState>(program, 2))
+      .phase = 0.59f;
+  auto &affine = const_cast<In::Op::AffineClockState &>(
+      state_as<In::Op::AffineClockState>(program, 3));
+  affine.phase = 0.73f;
+  affine.rotation = 1.19f;
+  auto &noise = const_cast<In::Op::NoisePhaseState &>(
+      state_as<In::Op::NoisePhaseState>(program, 4));
+  noise.phase = 1.47f;
+  noise.noise.SetSeed(923);
+  const float sample = noise.noise.GetNoise(0.3f, 0.7f, 1.2f);
+  const In::ChainEntryRequest edited[] = {{"camera", "sphere.rotate.v2"},
+                                          first[0],
+                                          first[1],
+                                          first[2],
+                                          first[3],
+                                          first[4],
+                                          first[5]};
+  const auto edited_status = program.compile(edited).code;
+  HS_EXPECT_EQ(static_cast<int>(edited_status),
+               static_cast<int>(In::ChainStatus::OK));
+  if (edited_status != In::ChainStatus::OK)
+    return;
+  HS_EXPECT_EQ(state_as<In::Op::RipplePhaseState>(program, 1).phase, 0.37f);
+  HS_EXPECT_EQ(state_as<In::Op::WarpPhaseState>(program, 3).phase, 0.59f);
+  HS_EXPECT_EQ(state_as<In::Op::AffineClockState>(program, 4).phase, 0.73f);
+  HS_EXPECT_EQ(state_as<In::Op::AffineClockState>(program, 4).rotation, 1.19f);
+  HS_EXPECT_EQ(state_as<In::Op::NoisePhaseState>(program, 5).phase, 1.47f);
+  HS_EXPECT_EQ(state_as<In::Op::NoisePhaseState>(program, 5)
+                   .noise.GetNoise(0.3f, 0.7f, 1.2f),
+               sample);
+  const In::ChainEntryRequest rings[] = {
+      {"rings", "sample.spherical-rings.v3"},
+      {"colorize", "colorize.generated-palette.v3"}};
+  const auto rings_status = program.compile(rings).code;
+  HS_EXPECT_EQ(static_cast<int>(rings_status),
+               static_cast<int>(In::ChainStatus::OK));
+  if (rings_status != In::ChainStatus::OK)
+    return;
+  auto &ring = const_cast<In::Op::SphericalRingsState &>(
+      state_as<In::Op::SphericalRingsState>(program, 0));
+  ring.phase = 0.41f;
+  ring.walk.spin_phase = 0.83f;
+  ring.walk.walk_time = 167;
+  const In::ChainEntryRequest edited_rings[] = {
+      {"camera", "sphere.rotate.v2"}, rings[0], rings[1]};
+  const auto final_status = program.compile(edited_rings).code;
+  HS_EXPECT_EQ(static_cast<int>(final_status),
+               static_cast<int>(In::ChainStatus::OK));
+  if (final_status != In::ChainStatus::OK)
+    return;
+  const auto &after = state_as<In::Op::SphericalRingsState>(program, 1);
+  HS_EXPECT_EQ(after.phase, 0.41f);
+  HS_EXPECT_EQ(after.walk.spin_phase, 0.83f);
+  HS_EXPECT_EQ(after.walk.walk_time, uint32_t{167});
+}
+
 inline void test_shader_chain_determinism() {
   auto first = std::make_unique<ProgramFixture>();
   auto second = std::make_unique<ProgramFixture>();
@@ -4051,6 +4126,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_refusal_migrate_failed();
   test_shader_chain_state_identity_migration();
   test_shader_chain_state_continuity_slice();
+  test_shader_chain_operator_state_migration();
   test_shader_chain_determinism();
   test_shader_chain_param_names_and_budget();
   test_shader_chain_composed_frame_parity();
