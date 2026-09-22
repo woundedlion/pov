@@ -54,8 +54,9 @@ using hs_test::approx_vec;
  * @brief Builds the canonical equator-facing basis: v = +Y, u = +X, w = +Z.
  * @return A Basis oriented so its pole points along +Y.
  */
-inline Basis equator_basis() {
-  return Basis{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+inline math::Basis equator_basis() {
+  return math::Basis{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                     math::Vector(0, 0, 1)};
 }
 
 // ============================================================================
@@ -66,7 +67,7 @@ inline Basis equator_basis() {
 inline void test_clamp_phi_in_range() {
   HS_EXPECT_NEAR(SDF::clamp_phi(0.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(SDF::clamp_phi(0.5f), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(SDF::clamp_phi(PI_F), PI_F, 1e-6f);
+  HS_EXPECT_NEAR(SDF::clamp_phi(math::PI_F), math::PI_F, 1e-6f);
 }
 
 /** @brief Verifies negative phi reflects across the north pole (|phi|). */
@@ -77,8 +78,8 @@ inline void test_clamp_phi_negative_reflects() {
 
 /** @brief Verifies phi above π reflects across the south pole (2π - phi). */
 inline void test_clamp_phi_above_pi_reflects() {
-  HS_EXPECT_NEAR(SDF::clamp_phi(PI_F + 0.2f), PI_F - 0.2f, 1e-5f);
-  HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * PI_F), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(SDF::clamp_phi(math::PI_F + 0.2f), math::PI_F - 0.2f, 1e-5f);
+  HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * math::PI_F), 0.0f, 1e-5f);
 }
 
 /**
@@ -88,11 +89,11 @@ inline void test_clamp_phi_above_pi_reflects() {
  */
 inline void test_clamp_phi_full_range() {
   // 2π + 0.2 folds to 0.2.
-  HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * PI_F + 0.2f), 0.2f, 1e-5f);
+  HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * math::PI_F + 0.2f), 0.2f, 1e-5f);
   // acosf(cosf(3π)) = π.
-  HS_EXPECT_NEAR(SDF::clamp_phi(3.0f * PI_F), PI_F, 1e-5f);
+  HS_EXPECT_NEAR(SDF::clamp_phi(3.0f * math::PI_F), math::PI_F, 1e-5f);
   // -1.5π folds to 0.5π.
-  HS_EXPECT_NEAR(SDF::clamp_phi(-1.5f * PI_F), 0.5f * PI_F, 1e-5f);
+  HS_EXPECT_NEAR(SDF::clamp_phi(-1.5f * math::PI_F), 0.5f * math::PI_F, 1e-5f);
 }
 
 /**
@@ -104,9 +105,9 @@ inline void test_clamp_phi_full_range() {
 inline void test_clamp_phi_band_matches_circle_extent() {
   constexpr int SAMPLES = 512;
   auto circle_extent = [](float c, float t) {
-    float lo = PI_F, hi = 0.0f;
+    float lo = math::PI_F, hi = 0.0f;
     for (int i = 0; i < SAMPLES; ++i) {
-      float psi = TWO_PI_F * i / SAMPLES;
+      float psi = math::TWO_PI_F * i / SAMPLES;
       float y =
           std::cos(t) * std::cos(c) - std::sin(t) * std::sin(c) * std::cos(psi);
       float phi = std::acos(std::max(-1.0f, std::min(1.0f, y)));
@@ -116,10 +117,11 @@ inline void test_clamp_phi_band_matches_circle_extent() {
     return std::pair<float, float>(lo, hi);
   };
 
-  const float centers[] = {0.0f, 0.2f, 0.9f, 1.5f, 2.4f, 3.0f, PI_F};
+  const float centers[] = {0.0f, 0.2f, 0.9f, 1.5f, 2.4f, 3.0f, math::PI_F};
   // Past π and negative: a complement-radius ring and a mirrored one still
   // trace a real circle, so the band must order its folded endpoints.
-  const float radii[] = {0.0f, 0.1f, 0.5f, 1.0f, 2.0f, 2.5f, PI_F, 4.0f, -0.7f};
+  const float radii[] = {0.0f, 0.1f,       0.5f, 1.0f, 2.0f,
+                         2.5f, math::PI_F, 4.0f, -0.7f};
   for (int ci = 0; ci < static_cast<int>(std::size(centers)); ++ci) {
     for (int ti = 0; ti < static_cast<int>(std::size(radii)); ++ti) {
       HS_CONTEXT("center/radius index", ci, ti);
@@ -131,7 +133,7 @@ inline void test_clamp_phi_band_matches_circle_extent() {
       HS_EXPECT_NEAR(band.phi_max, expected.second, 1e-4f);
       HS_EXPECT_LE(band.phi_min, band.phi_max);
       HS_EXPECT_GE(band.phi_min, 0.0f);
-      HS_EXPECT_LE(band.phi_max, PI_F);
+      HS_EXPECT_LE(band.phi_max, math::PI_F);
     }
   }
 }
@@ -148,19 +150,20 @@ inline void test_clamp_phi_band_pole_crossing_poses() {
 
   SDF::PhiBand wrapped = SDF::clamp_phi_band(3.0f, 2.5f);
   HS_EXPECT_NEAR(wrapped.phi_min, 0.5f, 1e-5f);
-  HS_EXPECT_NEAR(wrapped.phi_max, TWO_PI_F - 5.5f, 1e-5f);
+  HS_EXPECT_NEAR(wrapped.phi_max, math::TWO_PI_F - 5.5f, 1e-5f);
 }
 
 /** @brief Verifies the reciprocal sector fold matches the general wrap path. */
 inline void test_centered_sector_angle_matches_wrap() {
   const float angles[] = {-13.7f, -2.3f, -0.7f, 0.21f, 1.8f, 9.4f};
   for (int sides : {3, 5, 8, 17}) {
-    float sector = 2.0f * PI_F / sides;
-    float reciprocal_sector = static_cast<float>(sides) / (2.0f * PI_F);
+    float sector = 2.0f * math::PI_F / sides;
+    float reciprocal_sector = static_cast<float>(sides) / (2.0f * math::PI_F);
     for (float angle : angles) {
       const float folded =
           SDF::centered_sector_angle(angle, sector, reciprocal_sector);
-      float expected = wrap(angle + sector * 0.5f, sector) - sector * 0.5f;
+      float expected =
+          math::wrap(angle + sector * 0.5f, sector) - sector * 0.5f;
       HS_EXPECT_NEAR(folded, expected, 1e-5f);
       // Independent of both folds: the result lands in the centered sector and
       // differs from the input by a whole number of sectors.
@@ -178,21 +181,21 @@ inline void test_centered_sector_angle_matches_wrap() {
 
 /** @brief Verifies a point on the ring centerline reads raw_dist 0 and dist = -thickness. */
 inline void test_ring_on_centerline() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
 
-  auto r = SDF::distance_of(ring, Vector(1, 0, 0));
+  auto r = SDF::distance_of(ring, math::Vector(1, 0, 0));
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
 }
 
 /** @brief Verifies a point within the ring band reads negative dist. */
 inline void test_ring_inside_band() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
 
   float off = 0.05f;
-  Vector p(std::cos(off), std::sin(off), 0.0f);
+  math::Vector p(std::cos(off), std::sin(off), 0.0f);
   auto r = SDF::distance_of(ring, p);
   HS_EXPECT_TRUE(r.dist < 0.0f);
   HS_EXPECT_TRUE(r.raw_dist <= 0.1f + 1e-3f);
@@ -200,21 +203,21 @@ inline void test_ring_inside_band() {
 
 /** @brief Verifies a point far outside the band reads the cull sentinel rather than a real dist. */
 inline void test_ring_outside_band_returns_sentinel() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
 
-  auto r = SDF::distance_of(ring, Vector(0, 1, 0));
+  auto r = SDF::distance_of(ring, math::Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist > 50.0f);
 }
 
 /** @brief Verifies just past the band edge still trips the sentinel (band edge is exclusive). */
 inline void test_ring_just_outside_band() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.05f);
 
   // off (0.07) > thickness (0.05): point is 0.02 past the band edge.
   float off = 0.07f;
-  Vector p(std::cos(off), std::sin(off), 0.0f);
+  math::Vector p(std::cos(off), std::sin(off), 0.0f);
   auto r = SDF::distance_of(ring, p);
   HS_EXPECT_TRUE(r.dist > 50.0f);
 }
@@ -227,14 +230,14 @@ inline void test_ring_just_outside_band() {
 inline void test_ring_small_radius_distance_symmetric() {
   const float RADIUS = 0.04f;
   const float THICKNESS = 0.05f;
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Ring ring(b, RADIUS, THICKNESS);
-  float target = RADIUS * (PI_F / 2.0f);
+  float target = RADIUS * (math::PI_F / 2.0f);
 
   // Ring axis is +Y, so a point at polar angle a off the axis is
   // (sin a, cos a, 0).
   auto at_polar = [](float a) {
-    return Vector(std::sin(a), std::cos(a), 0.0f);
+    return math::Vector(std::sin(a), std::cos(a), 0.0f);
   };
 
   for (float off : {-0.9f, -0.4f, 0.4f, 0.9f}) {
@@ -245,8 +248,8 @@ inline void test_ring_small_radius_distance_symmetric() {
   }
 
   // The AA ramp reads the same either side of the centerline.
-  float d_in = dot(at_polar(target - 0.9f * THICKNESS), b.v);
-  float d_out = dot(at_polar(target + 0.9f * THICKNESS), b.v);
+  float d_in = math::dot(at_polar(target - 0.9f * THICKNESS), b.v);
+  float d_out = math::dot(at_polar(target + 0.9f * THICKNESS), b.v);
   HS_EXPECT_NEAR(ring.stroke_alpha(d_in), ring.stroke_alpha(d_out), 2e-4f);
 }
 
@@ -260,13 +263,15 @@ inline void test_ring_small_radius_distance_symmetric() {
  *        shifted on-centerline point is not falsely culled.
  */
 inline void test_distorted_ring_constant_shift_moves_centerline() {
-  Basis b = equator_basis(); // v=+Y, u=+X, w=+Z; radius=1 → target_angle = π/2
+  math::Basis b =
+      equator_basis(); // v=+Y, u=+X, w=+Z; radius=1 → target_angle = π/2
   const float shift = 0.2f;
   const float thickness = 0.05f;
 
   // Azimuth 0 (along +X) on the shifted centerline: polar angle from +Y is
   // π/2 + shift.
-  Vector p(std::sin(PI_F / 2 + shift), std::cos(PI_F / 2 + shift), 0.0f);
+  math::Vector p(std::sin(math::PI_F / 2 + shift),
+                 std::cos(math::PI_F / 2 + shift), 0.0f);
 
   SDF::DistortedRing shifted(
       b, 1.0f, thickness, [shift](float) { return shift; },
@@ -291,21 +296,22 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
  *        amount, so the t parameter feeding shift_fn is wired correctly.
  */
 inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   const float amp = 0.2f;
   SDF::DistortedRing ring(
-      b, 1.0f, 0.05f, [amp](float t) { return amp * std::sin(2 * PI_F * t); },
-      amp, 0.0f);
+      b, 1.0f, 0.05f,
+      [amp](float t) { return amp * std::sin(2 * math::PI_F * t); }, amp, 0.0f);
 
   // Azimuth π/2 (along +Z) → t = 0.25 → shift = amp; centerline polar angle is
   // π/2 + amp.
-  Vector on(0.0f, std::cos(PI_F / 2 + amp), std::sin(PI_F / 2 + amp));
+  math::Vector on(0.0f, std::cos(math::PI_F / 2 + amp),
+                  std::sin(math::PI_F / 2 + amp));
   auto r_on = SDF::distance_of(ring, on);
   HS_EXPECT_NEAR(r_on.t, 0.25f, 1e-2f);
   HS_EXPECT_NEAR(r_on.raw_dist, 0.0f, 1e-2f);
 
   // Same azimuth on the unshifted equator (+Z): centerline moved by amp here.
-  auto r_off = SDF::distance_of(ring, Vector(0, 0, 1));
+  auto r_off = SDF::distance_of(ring, math::Vector(0, 0, 1));
   HS_EXPECT_NEAR(r_off.t, 0.25f, 1e-2f);
   HS_EXPECT_NEAR(r_off.raw_dist, amp, 1e-2f);
 }
@@ -317,20 +323,20 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
   constexpr int LUT_N = 16;
   float knots[LUT_N + 1] = {};
 
-  auto check = [&](const Basis &basis, float radius) {
+  auto check = [&](const math::Basis &basis, float radius) {
     constexpr float thickness = 0.08f;
     SDF::FlatDistortedRing flat(basis, radius, thickness);
     SDF::KnotPrefilter pf;
     SDF::DistortedRing polyline(basis, radius, thickness, knots, LUT_N, 0.0f,
                                 pf);
-    const float target = radius * (PI_F / 2.0f);
-    const float azimuths[] = {0.0f, 1e-5f, PI_F / 2.0f, PI_F,
-                              2.0f * PI_F - 1e-5f};
+    const float target = radius * (math::PI_F / 2.0f);
+    const float azimuths[] = {0.0f, 1e-5f, math::PI_F / 2.0f, math::PI_F,
+                              2.0f * math::PI_F - 1e-5f};
     const float offsets[] = {-0.04f, 0.0f, 0.04f};
     for (float azimuth : azimuths) {
       for (float offset : offsets) {
-        float polar = hs::clamp(target + offset, 0.0f, PI_F);
-        Vector p =
+        float polar = hs::clamp(target + offset, 0.0f, math::PI_F);
+        math::Vector p =
             basis.v * cosf(polar) +
             (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) * sinf(polar);
         auto actual = SDF::distance_of(flat, p);
@@ -346,9 +352,10 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
     HS_EXPECT_EQ(no_uv.t, 0.0f);
   };
 
-  check(make_basis(Quaternion(), Y_AXIS), 0.01f);
-  check(make_basis(Quaternion(), X_AXIS), 1.0f);
-  check(make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized()),
+  check(math::make_basis(math::Quaternion(), math::Y_AXIS), 0.01f);
+  check(math::make_basis(math::Quaternion(), math::X_AXIS), 1.0f);
+  check(math::make_basis(math::Quaternion(),
+                         math::Vector(0.3f, 0.8f, -0.5f).normalized()),
         1.99f);
 }
 
@@ -361,35 +368,39 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
  *   reach); every probe is placed inside it.
  */
 template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
-  Basis b = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
+  math::Basis b =
+      math::make_basis(math::Quaternion(), math::Vector(0.3f, 1.0f, 0.2f));
   const float amp = 0.2f;
   const int harmonic = 5;
   const float radius = 0.5f; // target_angle = π/4: curved chart, tilted axis
   const float thickness = 0.06f;
   float knots[LUT_N + 1];
   for (int k = 0; k <= LUT_N; ++k)
-    knots[k] = amp * std::sin(2.0f * PI_F * harmonic * (k % LUT_N) / LUT_N);
+    knots[k] =
+        amp * std::sin(2.0f * math::PI_F * harmonic * (k % LUT_N) / LUT_N);
   SDF::KnotPrefilter pf;
   SDF::DistortedRing ring(b, radius, thickness, knots, LUT_N, 0.0f, pf);
 
-  const float target = radius * (PI_F / 2.0f);
+  const float target = radius * (math::PI_F / 2.0f);
   auto on_sphere = [&](float t, float dv) {
-    float theta = target + amp * std::sin(2.0f * PI_F * harmonic * t) + dv;
-    float a = 2.0f * PI_F * t;
+    float theta =
+        target + amp * std::sin(2.0f * math::PI_F * harmonic * t) + dv;
+    float a = 2.0f * math::PI_F * t;
     return (b.v * std::cos(theta)) +
            ((b.u * std::cos(a)) + (b.w * std::sin(a))) * std::sin(theta);
   };
-  auto brute = [&](const Vector &p) {
+  auto brute = [&](const math::Vector &p) {
     constexpr int SAMPLES = LUT_N * 64;
     float best = 100.0f;
     for (int s = 0; s < SAMPLES; ++s) {
       int k = s / 64;
       float f = (s % 64) / 64.0f;
       float theta = target + knots[k] + f * (knots[k + 1] - knots[k]);
-      float a = 2.0f * PI_F * (k + f) / LUT_N;
-      Vector q = (b.v * std::cos(theta)) +
-                 ((b.u * std::cos(a)) + (b.w * std::sin(a))) * std::sin(theta);
-      best = std::min(best, std::acos(hs::clamp(dot(p, q), -1.0f, 1.0f)));
+      float a = 2.0f * math::PI_F * (k + f) / LUT_N;
+      math::Vector q =
+          (b.v * std::cos(theta)) +
+          ((b.u * std::cos(a)) + (b.w * std::sin(a))) * std::sin(theta);
+      best = std::min(best, std::acos(hs::clamp(math::dot(p, q), -1.0f, 1.0f)));
     }
     return best;
   };
@@ -400,7 +411,7 @@ template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
                              {0.1f, -0.04f},   {0.998f, 0.04f}, {0.25f, 0.05f},
                              {0.375f, -0.05f}, {0.6f, 0.03f}};
   for (const auto &pr : probes) {
-    Vector p = on_sphere(pr[0], pr[1]);
+    math::Vector p = on_sphere(pr[0], pr[1]);
     auto r = SDF::distance_of(ring, p);
     float expected = brute(p);
     HS_EXPECT_TRUE(expected < thickness);
@@ -423,10 +434,10 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
   constexpr int LUT_N = 8;
   constexpr float RADIUS = 0.8f;
   constexpr float THICKNESS = 0.05f;
-  constexpr float TARGET = RADIUS * (PI_F / 2.0f);
+  constexpr float TARGET = RADIUS * (math::PI_F / 2.0f);
   float knots[LUT_N + 1] = {0.18f, 0.12f, 0.04f, -0.01f, -0.03f,
                             0.02f, 0.09f, 0.16f, 0.18f};
-  Basis basis = equator_basis();
+  math::Basis basis = equator_basis();
   SDF::KnotPrefilter pf;
   SDF::DistortedRing ring(basis, RADIUS, THICKNESS, knots, LUT_N, 0.0f, pf);
 
@@ -434,20 +445,20 @@ inline void test_distorted_ring_knot_extrema_tighten_band() {
   HS_EXPECT_NEAR(ring.max_thickness, 0.23f, 1e-6f);
   for (int k : {0, 4, 8}) {
     float t = static_cast<float>(k % LUT_N) / LUT_N;
-    float azimuth = 2.0f * PI_F * t;
+    float azimuth = 2.0f * math::PI_F * t;
     float polar = TARGET + knots[k];
-    Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
-             sinf(azimuth) * sinf(polar));
+    math::Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
+                   sinf(azimuth) * sinf(polar));
     HS_EXPECT_NEAR(SDF::distance_of(ring, p).raw_dist, 0.0f, 2e-4f);
   }
 
   float below = TARGET - 0.03f - THICKNESS - 1e-3f;
   float above = TARGET + 0.18f + THICKNESS + 1e-3f;
   HS_EXPECT_GT(
-      SDF::distance_of(ring, Vector(sinf(below), cosf(below), 0.0f)).dist,
+      SDF::distance_of(ring, math::Vector(sinf(below), cosf(below), 0.0f)).dist,
       50.0f);
   HS_EXPECT_GT(
-      SDF::distance_of(ring, Vector(sinf(above), cosf(above), 0.0f)).dist,
+      SDF::distance_of(ring, math::Vector(sinf(above), cosf(above), 0.0f)).dist,
       50.0f);
 }
 
@@ -462,7 +473,7 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
   constexpr int LUT_N = 32;
   constexpr float RADIUS = 0.8f;
   constexpr float THICKNESS = 0.05f;
-  constexpr float TARGET = RADIUS * (PI_F / 2.0f);
+  constexpr float TARGET = RADIUS * (math::PI_F / 2.0f);
   constexpr float SPIKE = 0.5f;
   // One tall spike at azimuth 0, every other cell on the centerline. A pixel in
   // the next chunk shares the spike's prefilter window, so the segment search
@@ -470,18 +481,18 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
   float knots[LUT_N + 1] = {};
   knots[0] = SPIKE;
   knots[LUT_N] = SPIKE;
-  Basis basis = equator_basis();
+  math::Basis basis = equator_basis();
   SDF::KnotPrefilter pf;
   SDF::DistortedRing ring(basis, RADIUS, THICKNESS, knots, LUT_N, 0.0f, pf);
 
-  const float azimuth = 2.0f * PI_F * 1.5f / LUT_N;
+  const float azimuth = 2.0f * math::PI_F * 1.5f / LUT_N;
   const float polar = TARGET + SPIKE - 0.05f;
-  Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
-           sinf(azimuth) * sinf(polar));
+  math::Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
+                 sinf(azimuth) * sinf(polar));
   HS_EXPECT_GT(SDF::distance_of(ring, p).dist, 50.0f);
 
-  Basis poly_basis = make_basis(Quaternion(), p);
-  SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.3f / (PI_F / 2.0f),
+  math::Basis poly_basis = math::make_basis(math::Quaternion(), p);
+  SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.3f / (math::PI_F / 2.0f),
                           /*sides=*/6, 0.0f);
   SDF::Subtract<SDF::PlanarPolygon, SDF::DistortedRing> carved(poly, ring);
   const float solid = SDF::distance_of(poly, p).dist;
@@ -495,22 +506,22 @@ inline void test_distorted_ring_past_reach_reports_far_sentinel() {
 
 /** @brief Verifies the polygon center is inside, with dist equal to the negated apothem. */
 inline void test_polygon_at_center_inside() {
-  Basis b = equator_basis();
-  SDF::PlanarPolygon poly(b, /*radius*/ 0.5f / (PI_F / 2.0f), /*sides*/ 6,
+  math::Basis b = equator_basis();
+  SDF::PlanarPolygon poly(b, /*radius*/ 0.5f / (math::PI_F / 2.0f), /*sides*/ 6,
                           /*phase*/ 0.0f);
 
-  auto r = SDF::distance_of(poly, Vector(0, 1, 0));
+  auto r = SDF::distance_of(poly, math::Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
-  float apothem = 0.5f * std::cos(PI_F / 6.0f);
+  float apothem = 0.5f * std::cos(math::PI_F / 6.0f);
   HS_EXPECT_NEAR(r.dist, -apothem, 1e-3f);
 }
 
 /** @brief Verifies the antipode of the polygon center is outside (positive dist). */
 inline void test_polygon_far_point_outside() {
-  Basis b = equator_basis();
-  SDF::PlanarPolygon poly(b, 0.3f / (PI_F / 2.0f), 6, 0.0f);
+  math::Basis b = equator_basis();
+  SDF::PlanarPolygon poly(b, 0.3f / (math::PI_F / 2.0f), 6, 0.0f);
 
-  auto r = SDF::distance_of(poly, Vector(0, -1, 0));
+  auto r = SDF::distance_of(poly, math::Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -520,17 +531,17 @@ inline void test_polygon_far_point_outside() {
 
 /** @brief Verifies the spherical-polygon center is strictly inside. */
 inline void test_spherical_polygon_center_inside() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, /*radius*/ 0.5f, /*sides*/ 5, /*phase*/ 0.0f);
-  auto r = SDF::distance_of(sp, Vector(0, 1, 0));
+  auto r = SDF::distance_of(sp, math::Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
 /** @brief Verifies the antipode of the spherical-polygon center is outside. */
 inline void test_spherical_polygon_far_outside() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, 0.3f, 6, 0.0f);
-  auto r = SDF::distance_of(sp, Vector(0, -1, 0));
+  auto r = SDF::distance_of(sp, math::Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -543,20 +554,20 @@ inline void test_spherical_polygon_far_outside() {
  *   an edge great circle: dist 0, raw_dist = r.
  */
 inline void test_spherical_polygon_center_and_edge_magnitude() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   const int sides = 5;
   const float radius = 0.5f;
   SDF::SphericalPolygon sp(b, radius, sides, 0.0f);
 
-  const float R = radius * (PI_F / 2.0f);
-  const float inradius = std::atan(std::tan(R) * std::cos(PI_F / sides));
+  const float R = radius * (math::PI_F / 2.0f);
+  const float inradius = std::atan(std::tan(R) * std::cos(math::PI_F / sides));
 
-  auto center = SDF::distance_of(sp, Vector(0, 1, 0));
+  auto center = SDF::distance_of(sp, math::Vector(0, 1, 0));
   HS_EXPECT_NEAR(center.dist, -inradius, 1e-2f);
   HS_EXPECT_NEAR(center.raw_dist, 0.0f, 1e-3f);
 
   // Edge midpoint: polar angle = inradius along +u (the sector bisector).
-  Vector edge_mid(std::sin(inradius), std::cos(inradius), 0.0f);
+  math::Vector edge_mid(std::sin(inradius), std::cos(inradius), 0.0f);
   auto em = SDF::distance_of(sp, edge_mid);
   HS_EXPECT_NEAR(em.dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(em.raw_dist, inradius, 1e-2f);
@@ -574,9 +585,10 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
 inline void test_spherical_polygon_sine_distance_aa_error() {
   constexpr int W = 288;
   constexpr int H = 144;
-  constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
-  Basis basis = make_basis(
-      make_rotation(Vector(0.3f, -0.8f, 0.5f).normalized(), 0.71f), Y_AXIS);
+  constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
+  math::Basis basis = math::make_basis(
+      math::make_rotation(math::Vector(0.3f, -0.8f, 0.5f).normalized(), 0.71f),
+      math::Y_AXIS);
   struct Case {
     float radius;
     int sides;
@@ -591,16 +603,16 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
   float max_error = 0.0f;
   int edge_samples = 0;
   for (const Case &c : cases) {
-    auto folded = get_antipode(basis, c.radius);
+    auto folded = math::get_antipode(basis, c.radius);
     SDF::SphericalPolygon shape(folded.first, folded.second, c.sides, c.phase,
                                 c.radius > 1.0f);
     for (int y = 0; y < H; ++y) {
-      float polar = PI_F * (static_cast<float>(y) + 0.5f) / H;
+      float polar = math::PI_F * (static_cast<float>(y) + 0.5f) / H;
       float sin_p = sinf(polar);
       float cos_p = cosf(polar);
       for (int x = 0; x < W; ++x) {
-        float azimuth = 2.0f * PI_F * (static_cast<float>(x) + 0.5f) / W;
-        Vector p(sin_p * cosf(azimuth), cos_p, sin_p * sinf(azimuth));
+        float azimuth = 2.0f * math::PI_F * (static_cast<float>(x) + 0.5f) / W;
+        math::Vector p(sin_p * cosf(azimuth), cos_p, sin_p * sinf(azimuth));
         SDF::DistanceResult exact;
         shape.distance<false>(p, exact);
         float sine = shape.sine_distance(p);
@@ -623,13 +635,13 @@ inline void test_spherical_polygon_sine_distance_aa_error() {
 inline void test_spherical_polygon_sine_full_interior() {
   constexpr int W = 288;
   constexpr int H = 144;
-  constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
-  const Basis basis = equator_basis();
+  constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
+  const math::Basis basis = equator_basis();
   for (float radius : {0.0001f, 0.001f, 0.01f, 0.5f, 1.0f}) {
     for (bool invert : {false, true}) {
       SDF::SphericalPolygon shape(basis, radius, 5, 0.0f, invert);
       for (float angle : {0.0f, 0.1f, 0.3f}) {
-        const Vector point(std::sin(angle), -std::cos(angle), 0.0f);
+        const math::Vector point(std::sin(angle), -std::cos(angle), 0.0f);
         const float distance = shape.sine_distance(point);
         HS_EXPECT_EQ(Scan::solid_coverage(distance, PIXEL_WIDTH),
                      invert ? 1.0f : 0.0f);
@@ -665,13 +677,13 @@ inline void test_spherical_polygon_composes_under_csg() {
   static_assert(SDF::sdf_max_spans<U>::value == 2);
   static_assert(SDF::sdf_max_spans<SDF::Intersection<U, U>>::value == 8);
 
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::SphericalPolygon inner(b, 0.3f, 5, 0.0f);
   SDF::SphericalPolygon outer(b, 0.7f, 5, 0.0f);
 
   U coaxial(inner, outer);
   // Sector bisector (+u) at polar 0.7: past inner's inradius, short of outer's.
-  Vector p(std::sin(0.7f), std::cos(0.7f), 0.0f);
+  math::Vector p(std::sin(0.7f), std::cos(0.7f), 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(inner, p).dist > 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(outer, p).dist < 0.0f);
   HS_EXPECT_NEAR(SDF::distance_of(coaxial, p).dist,
@@ -679,8 +691,10 @@ inline void test_spherical_polygon_composes_under_csg() {
 
   // Poles on +X and +Z: both cross the equatorial row, a quarter turn apart.
   constexpr int W = 256, H = 128;
-  const Basis bx{Vector(0, 1, 0), Vector(1, 0, 0), Vector(0, 0, 1)};
-  const Basis bz{Vector(0, 1, 0), Vector(0, 0, 1), Vector(-1, 0, 0)};
+  const math::Basis bx{math::Vector(0, 1, 0), math::Vector(1, 0, 0),
+                       math::Vector(0, 0, 1)};
+  const math::Basis bz{math::Vector(0, 1, 0), math::Vector(0, 0, 1),
+                       math::Vector(-1, 0, 0)};
   SDF::SphericalPolygon px(bx, 0.3f, 5, 0.0f), pz(bz, 0.3f, 5, 0.0f);
   U disjoint(px, pz);
 
@@ -697,17 +711,17 @@ inline void test_spherical_polygon_composes_under_csg() {
 
 /** @brief Verifies the star center is interior (negative dist). */
 inline void test_star_center_inside() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Star star(b, /*radius*/ 0.6f, /*sides*/ 5, /*phase*/ 0.0f);
-  auto r = SDF::distance_of(star, Vector(0, 1, 0));
+  auto r = SDF::distance_of(star, math::Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
 /** @brief Verifies the antipode of the star center is outside. */
 inline void test_star_far_outside() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Star star(b, 0.4f, 5, 0.0f);
-  auto r = SDF::distance_of(star, Vector(0, -1, 0));
+  auto r = SDF::distance_of(star, math::Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -719,12 +733,12 @@ inline void test_star_far_outside() {
  *   the point edge is exactly 0 and raw_dist equals the outer radius.
  */
 inline void test_star_tip_on_boundary() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   const float radius = 0.6f;
   SDF::Star star(b, radius, /*sides=*/5, 0.0f);
 
-  const float outer = radius * (PI_F / 2.0f);
-  Vector tip(std::sin(outer), std::cos(outer), 0.0f);
+  const float outer = radius * (math::PI_F / 2.0f);
+  math::Vector tip(std::sin(outer), std::cos(outer), 0.0f);
   auto r = SDF::distance_of(star, tip);
   HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
@@ -743,14 +757,14 @@ inline void test_star_tip_on_boundary() {
  *   undefined at the pole, so the sector fold there is degenerate.
  */
 inline void test_flower_interior_along_petal() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   const float radius = 0.6f;
   SDF::Flower flower(b, radius, /*sides=*/6, 0.0f);
 
-  const float outer = radius * (PI_F / 2.0f);
+  const float outer = radius * (math::PI_F / 2.0f);
   const float s = 0.1f;
   // From the antipode (-Y), step s toward +u (+X): interior of a petal.
-  Vector p(std::sin(s), -std::cos(s), 0.0f);
+  math::Vector p(std::sin(s), -std::cos(s), 0.0f);
   auto r = SDF::distance_of(flower, p);
   HS_EXPECT_NEAR(r.dist, s - outer, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, s, 1e-3f);
@@ -764,13 +778,13 @@ inline void test_flower_interior_along_petal() {
  *   that scan distance.
  */
 inline void test_flower_petal_tip_on_boundary() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   const float radius = 0.6f;
   SDF::Flower flower(b, radius, /*sides=*/6, 0.0f);
 
-  const float outer = radius * (PI_F / 2.0f);
+  const float outer = radius * (math::PI_F / 2.0f);
   // From the antipode (-Y), step `outer` toward +u (+X).
-  Vector tip(std::sin(outer), -std::cos(outer), 0.0f);
+  math::Vector tip(std::sin(outer), -std::cos(outer), 0.0f);
   auto r = SDF::distance_of(flower, tip);
   HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
@@ -778,11 +792,12 @@ inline void test_flower_petal_tip_on_boundary() {
 
 /** @brief Verifies the solid-shape unit-vector and no-UV distance paths. */
 inline void test_solid_shape_unit_angle_and_no_uv_paths() {
-  Basis b = make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized());
+  math::Basis b = math::make_basis(
+      math::Quaternion(), math::Vector(0.3f, 0.8f, -0.5f).normalized());
   float polar = 0.73f;
   float azimuth = -1.17f;
-  Vector p = b.v * cosf(polar) +
-             (b.u * cosf(azimuth) + b.w * sinf(azimuth)) * sinf(polar);
+  math::Vector p = b.v * cosf(polar) +
+                   (b.u * cosf(azimuth) + b.w * sinf(azimuth)) * sinf(polar);
 
   auto check = [&](const auto &shape, float expected_raw) {
     SDF::DistanceResult with_uv;
@@ -794,10 +809,10 @@ inline void test_solid_shape_unit_angle_and_no_uv_paths() {
     HS_EXPECT_EQ(no_uv.t, 0.0f);
   };
 
-  check(SDF::PlanarPolygon(b, 0.8f, 7, -2.4f), angle_between(p, b.v));
-  check(SDF::SphericalPolygon(b, 0.8f, 7, -2.4f), angle_between(p, b.v));
-  check(SDF::Star(b, 0.8f, 7, -2.4f), angle_between(p, b.v));
-  check(SDF::Flower(b, 0.8f, 7, -2.4f), angle_between(p, -b.v));
+  check(SDF::PlanarPolygon(b, 0.8f, 7, -2.4f), math::angle_between(p, b.v));
+  check(SDF::SphericalPolygon(b, 0.8f, 7, -2.4f), math::angle_between(p, b.v));
+  check(SDF::Star(b, 0.8f, 7, -2.4f), math::angle_between(p, b.v));
+  check(SDF::Flower(b, 0.8f, 7, -2.4f), math::angle_between(p, -b.v));
 }
 
 // ============================================================================
@@ -813,15 +828,15 @@ inline void test_solid_shape_unit_angle_and_no_uv_paths() {
  *   Flower's fill is centered on the antipode of its axis, so its sides swap.
  */
 inline void test_inverted_fill_stays_centered() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   const float radius = 1.5f;
-  auto res = get_antipode(b, radius);
-  const Basis &fb = res.first;
+  auto res = math::get_antipode(b, radius);
+  const math::Basis &fb = res.first;
   const float fr = res.second;
   HS_EXPECT_NEAR(fr, 0.5f, 1e-6f);
 
-  const Vector center(0, 1, 0);
-  const Vector far_side(0, -1, 0);
+  const math::Vector center(0, 1, 0);
+  const math::Vector far_side(0, -1, 0);
 
   SDF::SphericalPolygon sp(fb, fr, 5, 0.0f, /*invert=*/true);
   HS_EXPECT_TRUE(SDF::distance_of(sp, center).dist < 0.0f);
@@ -838,8 +853,8 @@ inline void test_inverted_fill_stays_centered() {
   // Flower fills around the antipode of its axis, so the sides swap; sample
   // off the exact poles (azimuth is degenerate there).
   SDF::Flower fl(fb, fr, 6, 0.0f, /*invert=*/true);
-  Vector near_far(std::sin(0.1f), -std::cos(0.1f), 0.0f);
-  Vector near_center(std::sin(0.1f), std::cos(0.1f), 0.0f);
+  math::Vector near_far(std::sin(0.1f), -std::cos(0.1f), 0.0f);
+  math::Vector near_center(std::sin(0.1f), std::cos(0.1f), 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(fl, near_far).dist < 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(fl, near_center).dist > 0.0f);
 }
@@ -849,8 +864,8 @@ inline void test_inverted_fill_stays_centered() {
  *        a full-row (unbounded) interval request per scanline.
  */
 inline void test_inverted_fill_scans_full_sphere() {
-  Basis b = equator_basis();
-  auto res = get_antipode(b, 1.5f);
+  math::Basis b = equator_basis();
+  auto res = math::get_antipode(b, 1.5f);
 
   SDF::SphericalPolygon sp(res.first, res.second, 5, 0.0f, /*invert=*/true);
   auto bounds = sp.get_vertical_bounds<144>();
@@ -869,11 +884,11 @@ inline void test_inverted_fill_scans_full_sphere() {
 
 /** @brief Verifies a point on the line's arc reads raw_dist 0 and dist = -thickness. */
 inline void test_line_on_arc_is_inside() {
-  Vector a(1, 0, 0);
-  Vector bv(0, 0, 1);
+  math::Vector a(1, 0, 0);
+  math::Vector bv(0, 0, 1);
   SDF::Line ln(a, bv, /*thickness*/ 0.1f);
 
-  Vector mid = ((a + bv) * 0.5f).normalized();
+  math::Vector mid = ((a + bv) * 0.5f).normalized();
   auto r = SDF::distance_of(ln, mid);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-2f);
@@ -881,8 +896,8 @@ inline void test_line_on_arc_is_inside() {
 
 /** @brief Verifies an endpoint counts as on the line (raw_dist 0, dist = -thickness). */
 inline void test_line_endpoint_is_on_line() {
-  Vector a(1, 0, 0);
-  Vector b(0, 0, 1);
+  math::Vector a(1, 0, 0);
+  math::Vector b(0, 0, 1);
   SDF::Line ln(a, b, 0.1f);
   auto r = SDF::distance_of(ln, a);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
@@ -891,12 +906,12 @@ inline void test_line_endpoint_is_on_line() {
 
 /** @brief Verifies a point off the line's great-circle plane reads positive dist. */
 inline void test_line_perpendicular_off() {
-  Vector a(1, 0, 0);
-  Vector b(0, 0, 1);
+  math::Vector a(1, 0, 0);
+  math::Vector b(0, 0, 1);
   SDF::Line ln(a, b, 0.05f);
 
   // Off the arc in +Y (perpendicular to the great-circle plane of a and b).
-  Vector p = Vector(0.5f, 0.7f, 0.5f).normalized();
+  math::Vector p = math::Vector(0.5f, 0.7f, 0.5f).normalized();
   auto r = SDF::distance_of(ln, p);
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
@@ -907,14 +922,14 @@ inline void test_line_perpendicular_off() {
  *   raw_dist π/2 (positive dist).
  */
 inline void test_line_degenerate_zero_length() {
-  Vector a(1, 0, 0);
+  math::Vector a(1, 0, 0);
   SDF::Line ln(a, a, 0.1f);
   auto r = SDF::distance_of(ln, a);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
 
-  auto r2 = SDF::distance_of(ln, Vector(0, 1, 0));
-  HS_EXPECT_NEAR(r2.raw_dist, PI_F * 0.5f, 1e-2f);
+  auto r2 = SDF::distance_of(ln, math::Vector(0, 1, 0));
+  HS_EXPECT_NEAR(r2.raw_dist, math::PI_F * 0.5f, 1e-2f);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 }
 
@@ -927,8 +942,8 @@ inline void test_line_degenerate_zero_length() {
  *   bounds and no horizontal cull, i.e. a full-width scan per row for one dot.
  */
 inline void test_line_near_coincident_endpoints_stay_point_like() {
-  Vector a(0.30058673f, -0.500977874f, 0.811584115f);
-  Vector b(0.300576329f, -0.500984192f, 0.811584175f);
+  math::Vector a(0.30058673f, -0.500977874f, 0.811584115f);
+  math::Vector b(0.300576329f, -0.500984192f, 0.811584175f);
   SDF::Line ln(a, b, 0.1f);
 
   auto bounds = ln.get_vertical_bounds<144>();
@@ -948,38 +963,41 @@ inline void test_line_near_coincident_endpoints_stay_point_like() {
 /** @brief Verifies on the ring centerline the torus is maximally inside: dist = -minor radius. */
 inline void test_torus_on_centerline_is_inside() {
   SDF::Torus t{2.0f, 0.5f};
-  HS_EXPECT_NEAR(t.distance(Vector(2, 0, 0)), -0.5f, 1e-5f);
-  HS_EXPECT_NEAR(t.distance(Vector(0, 0, 2)), -0.5f, 1e-5f);
-  HS_EXPECT_NEAR(t.distance(Vector(-2, 0, 0)), -0.5f, 1e-5f);
+  HS_EXPECT_NEAR(t.distance(math::Vector(2, 0, 0)), -0.5f, 1e-5f);
+  HS_EXPECT_NEAR(t.distance(math::Vector(0, 0, 2)), -0.5f, 1e-5f);
+  HS_EXPECT_NEAR(t.distance(math::Vector(-2, 0, 0)), -0.5f, 1e-5f);
 }
 
 /** @brief Verifies inner/outer rim and top-of-tube points all read dist 0 (on the surface). */
 inline void test_torus_on_surface() {
   SDF::Torus t{2.0f, 0.5f};
-  HS_EXPECT_NEAR(t.distance(Vector(2.5f, 0, 0)), 0.0f, 1e-5f); // outer rim, R+r
-  HS_EXPECT_NEAR(t.distance(Vector(1.5f, 0, 0)), 0.0f, 1e-5f); // inner rim, R-r
-  HS_EXPECT_NEAR(t.distance(Vector(2.0f, 0.5f, 0)), 0.0f, 1e-5f); // top of tube
+  HS_EXPECT_NEAR(t.distance(math::Vector(2.5f, 0, 0)), 0.0f,
+                 1e-5f); // outer rim, R+r
+  HS_EXPECT_NEAR(t.distance(math::Vector(1.5f, 0, 0)), 0.0f,
+                 1e-5f); // inner rim, R-r
+  HS_EXPECT_NEAR(t.distance(math::Vector(2.0f, 0.5f, 0)), 0.0f,
+                 1e-5f); // top of tube
 }
 
 /** @brief Verifies the donut-hole center is outside, at distance R - r from the tube. */
 inline void test_torus_origin_is_outside_hole() {
   SDF::Torus t{2.0f, 0.5f};
   // Donut-hole center: distance = R - r = 1.5.
-  HS_EXPECT_NEAR(t.distance(Vector(0, 0, 0)), 1.5f, 1e-5f);
+  HS_EXPECT_NEAR(t.distance(math::Vector(0, 0, 0)), 1.5f, 1e-5f);
 }
 
 /** @brief Verifies the surface normal on the outer rim points radially outward (+X here). */
 inline void test_torus_normal_points_outward_on_outer_rim() {
   SDF::Torus t{2.0f, 0.5f};
-  Vector n = t.normal(Vector(2.5f, 0, 0));
-  HS_EXPECT_VEC(n, Vector(1, 0, 0), 1e-4f);
+  math::Vector n = t.normal(math::Vector(2.5f, 0, 0));
+  HS_EXPECT_VEC(n, math::Vector(1, 0, 0), 1e-4f);
 }
 
 /** @brief Verifies the surface normal at the top of the tube points +Y. */
 inline void test_torus_normal_points_outward_on_top() {
   SDF::Torus t{2.0f, 0.5f};
-  Vector n = t.normal(Vector(2.0f, 0.5f, 0));
-  HS_EXPECT_VEC(n, Vector(0, 1, 0), 1e-4f);
+  math::Vector n = t.normal(math::Vector(2.0f, 0.5f, 0));
+  HS_EXPECT_VEC(n, math::Vector(0, 1, 0), 1e-4f);
 }
 
 // ============================================================================
@@ -991,26 +1009,26 @@ inline void test_twist_apply_displaces_y() {
   SDF::Warp::Twist tw{/*twist=*/1, /*amplitude=*/0.3f, /*R=*/1.0f};
 
   // θ = atan2(0, 1) = 0 → no displacement.
-  Vector a(1.0f, 0.5f, 0.0f);
-  Vector ra = tw.apply(a, tw.make_ctx(a));
-  HS_EXPECT_VEC(ra, Vector(1.0f, 0.5f, 0.0f), 1e-3f);
+  math::Vector a(1.0f, 0.5f, 0.0f);
+  math::Vector ra = tw.apply(a, tw.make_ctx(a));
+  HS_EXPECT_VEC(ra, math::Vector(1.0f, 0.5f, 0.0f), 1e-3f);
 
   // θ = π/2 → sin(twist·π/2) = 1 → Y drops by amplitude.
-  Vector b(0.0f, 0.5f, 1.0f);
-  Vector rb = tw.apply(b, tw.make_ctx(b));
-  HS_EXPECT_VEC(rb, Vector(0.0f, 0.5f - 0.3f, 1.0f), 1e-2f);
+  math::Vector b(0.0f, 0.5f, 1.0f);
+  math::Vector rb = tw.apply(b, tw.make_ctx(b));
+  HS_EXPECT_VEC(rb, math::Vector(0.0f, 0.5f - 0.3f, 1.0f), 1e-2f);
 }
 
 /** @brief Verifies Twist::lipschitz is 1 for twist 0 and matches the closed form otherwise. */
 inline void test_twist_lipschitz_identity_and_closed_form() {
   SDF::Warp::Twist flat{0, 0.5f, 1.0f};
-  HS_EXPECT_NEAR(
-      flat.lipschitz(Vector(2, 0, 0), flat.make_ctx(Vector(2, 0, 0))), 1.0f,
-      1e-6f);
+  HS_EXPECT_NEAR(flat.lipschitz(math::Vector(2, 0, 0),
+                                flat.make_ctx(math::Vector(2, 0, 0))),
+                 1.0f, 1e-6f);
 
   // twist=2, amplitude=0.5 at s=2: γ = 0.5, bound = γ/2 + √(1 + γ²/4).
   SDF::Warp::Twist tw{2, 0.5f, 1.0f};
-  Vector p(2, 0, 0);
+  math::Vector p(2, 0, 0);
   float s = tw.make_ctx(p);
   HS_EXPECT_NEAR(s, 2.0f, 1e-6f);
   float gamma = 0.5f;
@@ -1038,17 +1056,17 @@ inline void test_twisted_torus_matches_recurrence() {
         const auto &base = torus.base;
         const auto &warp = torus.warp;
         for (int i = 0; i < 512; ++i) {
-          const float theta = rand_uniform(rng, -PI_F, PI_F);
-          const float tube_angle = rand_uniform(rng, -PI_F, PI_F);
+          const float theta = rand_uniform(rng, -math::PI_F, math::PI_F);
+          const float tube_angle = rand_uniform(rng, -math::PI_F, math::PI_F);
           float radius = base.R + rand_uniform(rng, -2.0f, 2.0f) * base.r;
           if (i < 4)
-            radius = static_cast<float>(i) * 0.5f * TOLERANCE;
-          const Vector p(radius * cosf(theta),
-                         warp.amplitude * sinf(twist * theta) +
-                             base.r * sinf(tube_angle),
-                         radius * sinf(theta));
+            radius = static_cast<float>(i) * 0.5f * math::TOLERANCE;
+          const math::Vector p(radius * cosf(theta),
+                               warp.amplitude * sinf(twist * theta) +
+                                   base.r * sinf(tube_angle),
+                               radius * sinf(theta));
           const float s = sqrtf(p.x * p.x + p.z * p.z);
-          const float inv_s = s > TOLERANCE ? 1.0f / s : 0.0f;
+          const float inv_s = s > math::TOLERANCE ? 1.0f / s : 0.0f;
           float sin_prev = 0.0f, sin_n = p.z * inv_s;
           float cos_prev = 1.0f, cos_n = p.x * inv_s;
           const float two_cos = 2.0f * p.x * inv_s;
@@ -1060,7 +1078,7 @@ inline void test_twisted_torus_matches_recurrence() {
             cos_prev = cos_n;
             cos_n = cos_next;
           }
-          if (twist == 0 || s <= TOLERANCE) {
+          if (twist == 0 || s <= math::TOLERANCE) {
             sin_n = 0.0f;
             cos_n = 1.0f;
           }
@@ -1069,7 +1087,7 @@ inline void test_twisted_torus_matches_recurrence() {
           const float dy = std::max(fabsf(p.y) - warp.amplitude, 0.0f);
           const float qq = q * q + dy * dy;
           const float threshold = gate + base.r;
-          const Vector warped(p.x, p.y - warp.amplitude * sin_n, p.z);
+          const math::Vector warped(p.x, p.y - warp.amplitude * sin_n, p.z);
           float expected = base.distance(warped);
           if (qq > threshold * threshold)
             expected = sqrtf(qq) - base.r;
@@ -1078,10 +1096,10 @@ inline void test_twisted_torus_matches_recurrence() {
                 warp.lipschitz_inv(inv_s == 0.0f ? warp.two_over_r : inv_s);
           worst_distance = std::max(
               worst_distance, fabsf(torus.distance(p) - expected) / scale);
-          if (s > TOLERANCE) {
-            const Vector expected_normal = warp.correct_normal_inv(
+          if (s > math::TOLERANCE) {
+            const math::Vector expected_normal = warp.correct_normal_inv(
                 p, base.normal_raw(warped, inv_s), inv_s, cos_n);
-            const Vector difference = torus.normal(p) - expected_normal;
+            const math::Vector difference = torus.normal(p) - expected_normal;
             worst_normal = std::max(worst_normal, difference.length());
           }
         }
@@ -1099,18 +1117,19 @@ inline void test_twisted_torus_matches_recurrence() {
  *        is not.
  */
 inline void test_twist_axis_threshold_siblings_agree() {
-  const float above = std::nextafter(TOLERANCE, 1.0f);
+  const float above = std::nextafter(math::TOLERANCE, 1.0f);
   for (int twist = 0; twist <= 8; ++twist) {
     const SDF::Warp::Twist warp{twist, 0.35f, 0.45f};
-    for (float s : {TOLERANCE, above}) {
-      for (const Vector &p : {Vector(s, 0.1f, 0.0f), Vector(0.0f, 0.1f, s),
-                              Vector(-0.6f * s, -0.1f, 0.8f * s)}) {
+    for (float s : {math::TOLERANCE, above}) {
+      for (const math::Vector &p :
+           {math::Vector(s, 0.1f, 0.0f), math::Vector(0.0f, 0.1f, s),
+            math::Vector(-0.6f * s, -0.1f, 0.8f * s)}) {
         const auto both = warp.sincos_ntheta(p, s);
         const auto sin_inv = warp.sin_ntheta_inv(p, s);
         HS_EXPECT_EQ(warp.sin_ntheta(p, s), both.sin_n);
         HS_EXPECT_EQ(warp.cos_ntheta(p, s), both.cos_n);
         HS_EXPECT_EQ(sin_inv.sin_n, both.sin_n);
-        if (twist > 0 && s > TOLERANCE)
+        if (twist > 0 && s > math::TOLERANCE)
           HS_EXPECT_EQ(sin_inv.lipschitz_arg, 1.0f / s);
         else
           HS_EXPECT_EQ(sin_inv.lipschitz_arg, warp.two_over_r);
@@ -1132,7 +1151,7 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
   for (float x = -2.0f; x <= 2.0f; x += 0.5f)
     for (float y = -1.0f; y <= 1.0f; y += 0.5f)
       for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
-        Vector p(x, y, z);
+        math::Vector p(x, y, z);
         float d = wv.distance(p);
         float raw = wv.raw_distance(p);
         HS_EXPECT_TRUE(d <= raw + 1e-4f);
@@ -1154,8 +1173,8 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
  */
 constexpr double PI_DBL = 3.14159265358979323846;
 
-inline double twisted_torus_distance(const Vector &p, double R, double r, int n,
-                                     double A, int steps) {
+inline double twisted_torus_distance(const math::Vector &p, double R, double r,
+                                     int n, double A, int steps) {
   double best = 1e30;
   for (int i = 0; i < steps; ++i) {
     double t = 2.0 * PI_DBL * i / steps;
@@ -1208,16 +1227,17 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
     const double reach = c.R + c.r + c.A + 1.0;
 
     for (int k = 0; k < 240; ++k) {
-      Vector p;
+      math::Vector p;
       const int kind = k % 4;
       if (kind == 0) {
-        p = Vector(0.0f, static_cast<float>((next() * 2 - 1) * reach), 0.0f);
+        p = math::Vector(0.0f, static_cast<float>((next() * 2 - 1) * reach),
+                         0.0f);
       } else if (kind == 1 || kind == 2) {
         // On or inside the tube: radius scaled to at most the minor radius.
         const double t = next() * 2 * PI_DBL, ph = next() * 2 * PI_DBL;
         const double rr = c.r * (kind == 1 ? next() * 0.9 : 1.0);
         const double X = c.R + rr * std::cos(ph);
-        p = Vector(
+        p = math::Vector(
             static_cast<float>(X * std::cos(t)),
             static_cast<float>(rr * std::sin(ph) + c.A * std::sin(c.n * t)),
             static_cast<float>(X * std::sin(t)));
@@ -1225,8 +1245,8 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
         const double px = (next() * 2 - 1) * reach;
         const double py = (next() * 2 - 1) * reach;
         const double pz = (next() * 2 - 1) * reach;
-        p = Vector(static_cast<float>(px), static_cast<float>(py),
-                   static_cast<float>(pz));
+        p = math::Vector(static_cast<float>(px), static_cast<float>(py),
+                         static_cast<float>(pz));
       }
 
       const double bd = wv.bounding_distance(p);
@@ -1252,7 +1272,7 @@ inline void test_warped_volume_distance_matches_lipschitz_correction() {
 
   // Just outside the outer rim at θ=0: small positive base distance lands off
   // the bounding fast-path and triggers the Lipschitz divide.
-  Vector p(1.4f, 0.1f, 0.0f);
+  math::Vector p(1.4f, 0.1f, 0.0f);
   float raw = wv.raw_distance(p);
   HS_EXPECT_TRUE(raw > 0.0f);
   auto ctx = tw.make_ctx(p);
@@ -1266,18 +1286,19 @@ inline void test_warped_volume_distance_matches_lipschitz_correction() {
  *        twist 0, and reproduces the gradient of the warped field.
  */
 inline void test_twist_correct_normal_unit_length() {
-  Vector base_n = Vector(0.6f, 0.8f, 0.0f); // already unit
+  math::Vector base_n = math::Vector(0.6f, 0.8f, 0.0f); // already unit
 
   SDF::Warp::Twist flat{0, 0.3f, 1.0f};
-  Vector cf = flat.correct_normal(Vector(1, 0.2f, 0.5f), base_n,
-                                  flat.make_ctx(Vector(1, 0.2f, 0.5f)));
+  math::Vector cf =
+      flat.correct_normal(math::Vector(1, 0.2f, 0.5f), base_n,
+                          flat.make_ctx(math::Vector(1, 0.2f, 0.5f)));
   HS_EXPECT_VEC(cf, base_n, 1e-6f);
 
   SDF::Warp::Twist tw{4, 0.25f, 1.0f};
   for (float x = -1.0f; x <= 1.0f; x += 0.5f)
     for (float z = -1.0f; z <= 1.0f; z += 0.5f) {
-      Vector p(x, 0.3f, z);
-      Vector c = tw.correct_normal(p, base_n, tw.make_ctx(p));
+      math::Vector p(x, 0.3f, z);
+      math::Vector c = tw.correct_normal(p, base_n, tw.make_ctx(p));
       HS_EXPECT_NEAR(c.length(), 1.0f, 1e-4f);
     }
 
@@ -1292,15 +1313,15 @@ inline void test_twist_correct_normal_unit_length() {
     const float phi = static_cast<float>(i) * 0.91f;
     const float s = R + r * std::cos(phi);
     // A point on the warped surface: torus surface, displaced as apply() does.
-    Vector p(s * std::cos(theta),
-             r * std::sin(phi) + A * std::sin(2.0f * theta),
-             s * std::sin(theta));
-    Vector grad((wv.raw_distance(p + Vector(h, 0, 0)) -
-                 wv.raw_distance(p - Vector(h, 0, 0))),
-                (wv.raw_distance(p + Vector(0, h, 0)) -
-                 wv.raw_distance(p - Vector(0, h, 0))),
-                (wv.raw_distance(p + Vector(0, 0, h)) -
-                 wv.raw_distance(p - Vector(0, 0, h))));
+    math::Vector p(s * std::cos(theta),
+                   r * std::sin(phi) + A * std::sin(2.0f * theta),
+                   s * std::sin(theta));
+    math::Vector grad((wv.raw_distance(p + math::Vector(h, 0, 0)) -
+                       wv.raw_distance(p - math::Vector(h, 0, 0))),
+                      (wv.raw_distance(p + math::Vector(0, h, 0)) -
+                       wv.raw_distance(p - math::Vector(0, h, 0))),
+                      (wv.raw_distance(p + math::Vector(0, 0, h)) -
+                       wv.raw_distance(p - math::Vector(0, 0, h))));
     HS_EXPECT_VEC(wv.normal(p), grad.normalized(), 5e-3f);
   }
 }
@@ -1311,16 +1332,18 @@ inline void test_twist_correct_normal_unit_length() {
 
 /** @brief Verifies Union returns the min of member distances, picking the closest shape. */
 inline void test_union_picks_closest_shape() {
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
-  SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
+  SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.1f);
+  SDF::Line lb(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), 0.1f);
 
   SDF::Union<SDF::Line, SDF::Line> u(la, lb);
 
-  Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
+  math::Vector mid_a =
+      ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = SDF::distance_of(u, mid_a);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
 
-  Vector mid_b = ((Vector(-1, 0, 0) + Vector(0, 0, -1)) * 0.5f).normalized();
+  math::Vector mid_b =
+      ((math::Vector(-1, 0, 0) + math::Vector(0, 0, -1)) * 0.5f).normalized();
   auto r2 = SDF::distance_of(u, mid_b);
   HS_EXPECT_NEAR(r2.dist, -0.1f, 1e-2f);
 }
@@ -1331,11 +1354,12 @@ inline void test_union_picks_closest_shape() {
 
 /** @brief Verifies a point inside A but outside B stays inside the difference A - B. */
 inline void test_subtract_inside_a_outside_b_remains_inside() {
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.2f);
-  SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
+  SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.2f);
+  SDF::Line lb(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), 0.1f);
   SDF::Subtract<SDF::Line, SDF::Line> s(la, lb);
 
-  Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
+  math::Vector mid_a =
+      ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = SDF::distance_of(s, mid_a);
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
@@ -1343,9 +1367,10 @@ inline void test_subtract_inside_a_outside_b_remains_inside() {
 /** @brief Verifies a point inside both A and B becomes outside the difference A - B. */
 inline void test_subtract_inside_both_becomes_outside() {
   // Same line for A and B → A - A is empty everywhere.
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
+  SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.1f);
   SDF::Subtract<SDF::Line, SDF::Line> s(la, la);
-  Vector mid = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
+  math::Vector mid =
+      ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = SDF::distance_of(s, mid);
   // max(dist(A), -dist(B)) = max(-0.1, 0.1) = 0.1 → outside.
   HS_EXPECT_NEAR(r.dist, 0.1f, 1e-3f);
@@ -1353,7 +1378,7 @@ inline void test_subtract_inside_both_becomes_outside() {
 
 /** @brief Verifies the AA size metric stays the minuend's when the subtrahend wins. */
 inline void test_subtract_keeps_minuend_size_when_b_wins() {
-  Vector p(1, 0, 0), q(0, 0, 1);
+  math::Vector p(1, 0, 0), q(0, 0, 1);
   SDF::Line la(p, q, 0.1f);
   SDF::Line lb(p, q, 0.4f);
   SDF::Subtract<SDF::Line, SDF::Line> s(la, lb);
@@ -1484,28 +1509,29 @@ inline void test_subtract_star_notch_columns_survive_the_carve() {
   using P = std::pair<float, float>;
   constexpr int W = 256, H = 128;
   // Axis +Z puts the shared center at column W/4, clear of the theta=0 seam.
-  const Basis b{Vector(1, 0, 0), Vector(0, 0, 1), Vector(0, 1, 0)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 0, 1),
+                      math::Vector(0, 1, 0)};
   constexpr float outer = 0.5f; // star tip radius (radians)
-  SDF::PlanarPolygon poly(b, 0.7f / (PI_F / 2.0f), 5,
+  SDF::PlanarPolygon poly(b, 0.7f / (math::PI_F / 2.0f), 5,
                           0.0f); // apothem 0.566 > outer
-  SDF::Star star(b, outer / (PI_F / 2.0f), 5, 0.0f);
+  SDF::Star star(b, outer / (math::PI_F / 2.0f), 5, 0.0f);
   SDF::Subtract<SDF::PlanarPolygon, SDF::Star> s(poly, star);
 
   // Half a sector off a tip, just short of the tip radius: a notch.
-  const float polar = 0.9f * outer, az = PI_F / 5.0f;
-  Vector p = (b.v * std::cos(polar) +
-              (b.u * std::cos(az) + b.w * std::sin(az)) * std::sin(polar))
-                 .normalized();
+  const float polar = 0.9f * outer, az = math::PI_F / 5.0f;
+  math::Vector p = (b.v * std::cos(polar) +
+                    (b.u * std::cos(az) + b.w * std::sin(az)) * std::sin(polar))
+                       .normalized();
   HS_EXPECT_TRUE(SDF::distance_of(star, p).dist > 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(poly, p).dist < 0.0f);
   HS_EXPECT_TRUE(SDF::distance_of(s, p).dist < 0.0f);
 
   float phi = std::acos(hs::clamp(p.y, -1.0f, 1.0f));
-  int y = static_cast<int>(phi * (H + hs::H_OFFSET - 1) / PI_F + 0.5f);
+  int y = static_cast<int>(phi * (H + hs::H_OFFSET - 1) / math::PI_F + 0.5f);
   float theta = std::atan2(p.z, p.x);
   if (theta < 0.0f)
-    theta += TWO_PI_F;
-  const float col = theta * W / TWO_PI_F;
+    theta += math::TWO_PI_F;
+  const float col = theta * W / math::TWO_PI_F;
 
   std::vector<P> out;
   bool ok = s.get_horizontal_intervals<W, H>(
@@ -1640,16 +1666,16 @@ inline void test_subtract_many_arc_seam_split_within_bound() {
 
 /** @brief Verifies Intersection is inside only where both children are inside. */
 inline void test_intersection_requires_both_inside() {
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.3f);
-  SDF::Line lb(Vector(1, 0, 0), Vector(0, 1, 0), 0.3f);
+  SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.3f);
+  SDF::Line lb(math::Vector(1, 0, 0), math::Vector(0, 1, 0), 0.3f);
   SDF::Intersection<SDF::Line, SDF::Line> inter(la, lb);
 
   // Endpoint a is on both arcs.
-  Vector a(1, 0, 0);
+  math::Vector a(1, 0, 0);
   auto r = SDF::distance_of(inter, a);
   HS_EXPECT_TRUE(r.dist < 0.0f);
 
-  Vector far_pt(-1, 0, 0);
+  math::Vector far_pt(-1, 0, 0);
   auto r2 = SDF::distance_of(inter, far_pt);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 }
@@ -1792,12 +1818,13 @@ inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
 
 /** @brief Verifies that away from the blend zone, SmoothUnion's distance equals the hard Union's. */
 inline void test_smooth_union_matches_union_far_from_boundary() {
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
-  SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
+  SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.1f);
+  SDF::Line lb(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), 0.1f);
   SDF::Union<SDF::Line, SDF::Line> u(la, lb);
   SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, /*k*/ 0.05f);
 
-  Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
+  math::Vector mid_a =
+      ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   auto r_hard = SDF::distance_of(u, mid_a);
   auto r_soft = SDF::distance_of(su, mid_a);
   HS_EXPECT_NEAR(r_hard.dist, r_soft.dist, 1e-3f);
@@ -1812,14 +1839,14 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
  *   it must collapse back to the hard min (m == 0).
  */
 inline void test_smooth_union_blends_inside_band() {
-  SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
-  SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
+  SDF::Line la(math::Vector(1, 0, 0), math::Vector(0, 0, 1), 0.1f);
+  SDF::Line lb(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), 0.1f);
   const float k = 0.5f;
   SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, k);
 
   // Both arcs lie in the y=0 plane, so the north pole is equidistant from both
   // (|dA - dB| ≈ 0), maximizing the cubic blend (h == 1, m == k/6).
-  Vector p(0, 1, 0);
+  math::Vector p(0, 1, 0);
   float dA = SDF::distance_of(la, p).dist;
   float dB = SDF::distance_of(lb, p).dist;
   HS_EXPECT_TRUE(std::abs(dA - dB) < k);
@@ -1836,7 +1863,8 @@ inline void test_smooth_union_blends_inside_band() {
   HS_EXPECT_GE(soft, std::min(dA, dB) - k * (1.0f / 6.0f) - 1e-5f);
 
   // Outside the band the blend vanishes and collapses to the hard min.
-  Vector q = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
+  math::Vector q =
+      ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   float qA = SDF::distance_of(la, q).dist;
   float qB = SDF::distance_of(lb, q).dist;
   HS_EXPECT_TRUE(std::abs(qA - qB) >= k);
@@ -1921,10 +1949,10 @@ inline void test_csg_combinators_reject_temporary_children() {
   // AngularRepeat copies its axis, so only the child rejects a temporary.
   static_assert(std::is_constructible_v<SDF::AngularRepeat<L>, L &, int>);
   static_assert(!std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int>);
-  static_assert(
-      std::is_constructible_v<SDF::AngularRepeat<L>, L &, int, Vector &&>);
-  static_assert(
-      !std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int, Vector &&>);
+  static_assert(std::is_constructible_v<SDF::AngularRepeat<L>, L &, int,
+                                        math::Vector &&>);
+  static_assert(!std::is_constructible_v<SDF::AngularRepeat<L>, L &&, int,
+                                         math::Vector &&>);
 }
 
 /**
@@ -1989,7 +2017,8 @@ inline void test_nested_union_emits_every_child_arc() {
   constexpr int W = 256, H = 128;
   // Ring axis along +X so the row math has a non-degenerate horizontal
   // projection (a +Y axis full-row scans instead).
-  const Basis b{Vector(0, 1, 0), Vector(1, 0, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(0, 1, 0), math::Vector(1, 0, 0),
+                      math::Vector(0, 0, 1)};
   SDF::Ring r1(b, 0.4f, 0.05f), r2(b, 0.6f, 0.05f);
   SDF::Ring r3(b, 0.8f, 0.05f), r4(b, 1.0f, 0.05f);
 
@@ -2034,13 +2063,14 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  init_geometry_luts<W,
-                     H>(); // fill sin_phi; scan_region does this in production
-  const int row = H / 2;   // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
+  math::init_geometry_luts<
+      W,
+      H>();              // fill sin_phi; scan_region does this in production
+  const int row = H / 2; // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
   const float k = 0.02f;
-  const float sin_phi = TrigLUT<W, H>::sin_phi[row];
+  const float sin_phi = math::TrigLUT<W, H>::sin_phi[row];
   const float pad =
-      std::min(k * W / (2.0f * PI_F) / sin_phi, static_cast<float>(W));
+      std::min(k * W / (2.0f * math::PI_F) / sin_phi, static_cast<float>(W));
   std::vector<P> a_ivs = {{-10.0f, 6.0f}};
   std::vector<P> b_ivs = {{2.0f, 12.0f}};
   Mock A{&a_ivs}, B{&b_ivs};
@@ -2069,8 +2099,9 @@ inline void test_smooth_union_pad_widens_toward_pole() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  init_geometry_luts<W,
-                     H>(); // fill sin_phi; scan_region does this in production
+  math::init_geometry_luts<
+      W,
+      H>(); // fill sin_phi; scan_region does this in production
   const float k = 0.05f;
   std::vector<P> ivs = {{100.0f, 100.0f}}; // a point; only the pad sets width
   Mock A{&ivs}, B{&ivs};
@@ -2091,11 +2122,12 @@ inline void test_smooth_union_pad_widens_toward_pole() {
 
 /** @brief Verifies AngularRepeat agrees with the base shape in the canonical (zero-angle) sector. */
 inline void test_angular_repeat_matches_base_at_zero_angle() {
-  SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
-  SDF::AngularRepeat<SDF::Line> rep(ln, /*reps*/ 4, Vector(0, 1, 0));
+  SDF::Line ln(math::Vector(1, 0, 0), math::Vector(0.7071f, 0, 0.7071f), 0.05f);
+  SDF::AngularRepeat<SDF::Line> rep(ln, /*reps*/ 4, math::Vector(0, 1, 0));
 
-  Vector mid =
-      ((Vector(1, 0, 0) + Vector(0.7071f, 0, 0.7071f)) * 0.5f).normalized();
+  math::Vector mid =
+      ((math::Vector(1, 0, 0) + math::Vector(0.7071f, 0, 0.7071f)) * 0.5f)
+          .normalized();
   auto r_base = SDF::distance_of(ln, mid);
   auto r_rep = SDF::distance_of(rep, mid);
   HS_EXPECT_TRUE(r_rep.dist < 0.0f);
@@ -2104,14 +2136,16 @@ inline void test_angular_repeat_matches_base_at_zero_angle() {
 
 /** @brief Verifies AngularRepeat folds a line in the canonical sector into a folded copy. */
 inline void test_angular_repeat_creates_copies() {
-  SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
-  SDF::AngularRepeat<SDF::Line> rep(ln, 4, Vector(0, 1, 0));
+  SDF::Line ln(math::Vector(1, 0, 0), math::Vector(0.7071f, 0, 0.7071f), 0.05f);
+  SDF::AngularRepeat<SDF::Line> rep(ln, 4, math::Vector(0, 1, 0));
 
   // Rotate the midpoint by one sector (90° around Y) onto a folded copy.
-  Vector mid =
-      ((Vector(1, 0, 0) + Vector(0.7071f, 0, 0.7071f)) * 0.5f).normalized();
-  Quaternion q90 = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
-  Vector mid_rot = rotate(mid, q90);
+  math::Vector mid =
+      ((math::Vector(1, 0, 0) + math::Vector(0.7071f, 0, 0.7071f)) * 0.5f)
+          .normalized();
+  math::Quaternion q90 =
+      math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
+  math::Vector mid_rot = math::rotate(mid, q90);
 
   auto r = SDF::distance_of(rep, mid_rot);
   HS_EXPECT_TRUE(r.dist < 0.0f);
@@ -2126,17 +2160,18 @@ inline void test_angular_repeat_creates_copies() {
  *   the documented sector-local convention so a future change is caught.
  */
 inline void test_angular_repeat_t_is_sector_local() {
-  Basis b = equator_basis();
+  math::Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
   const int reps = 4;
-  SDF::AngularRepeat<SDF::Ring> rep(ring, reps, Vector(0, 1, 0));
+  SDF::AngularRepeat<SDF::Ring> rep(ring, reps, math::Vector(0, 1, 0));
 
   // A point at 30° azimuth (inside sector 0, off a boundary) and its copy one
   // sector away.
-  float az = PI_F / 6.0f;
-  Vector p(cosf(az), 0.0f, sinf(az));
-  Quaternion q_sector = make_rotation(Vector(0, 1, 0), 2 * PI_F / reps);
-  Vector p2 = rotate(p, q_sector);
+  float az = math::PI_F / 6.0f;
+  math::Vector p(cosf(az), 0.0f, sinf(az));
+  math::Quaternion q_sector =
+      math::make_rotation(math::Vector(0, 1, 0), 2 * math::PI_F / reps);
+  math::Vector p2 = math::rotate(p, q_sector);
 
   // The un-repeated ring sees two global azimuths one sector apart (sign is
   // handedness-dependent, so compare the wrapped gap).
@@ -2186,7 +2221,7 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
-      [&](int wx, int y, const Vector &, int run) {
+      [&](int wx, int y, const math::Vector &, int run) {
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W && y >= 0 && y < H)
             visited[static_cast<size_t>(y) * W + wx + i] = 1;
@@ -2210,16 +2245,16 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
   HS_CONTEXT(label);
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
   std::vector<uint8_t> visited;
   cull_visited<W, H>(shape, visited);
 
-  const float pixel_width = 2.0f * PI_F / W;
+  const float pixel_width = 2.0f * math::PI_F / W;
   int interior = 0;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
-      const Vector p = pixel_to_vector<W, H>(x, y);
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(shape, p).dist < -pixel_width) {
         ++interior;
         HS_CONTEXT("interior px", x, y);
@@ -2248,16 +2283,16 @@ inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
   HS_CONTEXT(label);
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
   std::vector<uint8_t> visited;
   cull_visited<W, H>(shape, visited);
 
-  const float pixel_width = 2.0f * PI_F / W;
+  const float pixel_width = 2.0f * math::PI_F / W;
   int paintable = 0;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
-      const Vector p = pixel_to_vector<W, H>(x, y);
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(shape, p).dist < pixel_width) {
         ++paintable;
         HS_CONTEXT("paintable px", x, y);
@@ -2281,11 +2316,11 @@ inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
  */
 inline void test_star_polygon_cull_covers_aa_fringe() {
   constexpr int W = 96, H = 48;
-  const Vector axes[] = {Vector(0, 1, 0), Vector(1, 0, 0),
-                         Vector(0.3f, -0.8f, 0.5f)};
+  const math::Vector axes[] = {math::Vector(0, 1, 0), math::Vector(1, 0, 0),
+                               math::Vector(0.3f, -0.8f, 0.5f)};
   int total = 0;
-  for (const Vector &axis : axes) {
-    Basis basis = make_basis(Quaternion(), axis);
+  for (const math::Vector &axis : axes) {
+    math::Basis basis = math::make_basis(math::Quaternion(), axis);
     for (float radius : {0.03f, 0.3f, 0.9f}) {
       for (int sides : {5, 8}) {
         SDF::Star star(basis, radius, sides, 0.0f);
@@ -2307,13 +2342,14 @@ inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
 
   // Poles, equator, and oblique tilts.
-  const Vector axes[] = {Vector(0, 1, 0),          Vector(0, -1, 0),
-                         Vector(1, 0, 0),          Vector(0, 0, 1),
-                         Vector(1, 1, 0.4f),       Vector(-0.5f, 0.7f, -0.6f),
-                         Vector(0.3f, -0.8f, 0.5f)};
+  const math::Vector axes[] = {
+      math::Vector(0, 1, 0),          math::Vector(0, -1, 0),
+      math::Vector(1, 0, 0),          math::Vector(0, 0, 1),
+      math::Vector(1, 1, 0.4f),       math::Vector(-0.5f, 0.7f, -0.6f),
+      math::Vector(0.3f, -0.8f, 0.5f)};
 
-  for (const Vector &axis : axes) {
-    Basis basis = make_basis(Quaternion(), axis);
+  for (const math::Vector &axis : axes) {
+    math::Basis basis = math::make_basis(math::Quaternion(), axis);
     for (float radius : {0.3f, 0.6f, 0.9f}) {
       SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
       expect_cull_covers_interior<W, H>(ring, "ring");
@@ -2324,7 +2360,7 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       SDF::Star star(basis, radius, /*sides=*/5, 0.0f);
       expect_cull_covers_interior<W, H>(star, "star");
 
-      SDF::PlanarPolygon ppoly(basis, /*radius=*/radius / (PI_F / 2.0f),
+      SDF::PlanarPolygon ppoly(basis, /*radius=*/radius / (math::PI_F / 2.0f),
                                /*sides=*/6, 0.0f);
       expect_cull_covers_interior<W, H>(ppoly, "planar polygon");
 
@@ -2343,7 +2379,7 @@ inline void test_cull_covers_interior_over_orientation_grid() {
  */
 inline void test_pole_axis_ring_bounds_skip_pole_rows() {
   constexpr int W = 96, H = 48;
-  Basis basis = equator_basis();
+  math::Basis basis = equator_basis();
   SDF::Ring ring(basis, /*radius=*/0.6f, /*thickness=*/0.25f);
 
   auto bounds = ring.get_vertical_bounds<H>();
@@ -2365,21 +2401,24 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
   using Poly = SDF::PlanarPolygon;
 
   struct Pose {
-    Vector axis_a, axis_b;
+    math::Vector axis_a, axis_b;
     float radius_a, radius_b;
   };
   const Pose poses[] = {
-      {Vector(0, 0, 1), Vector(0.3f, 0.2f, 1.0f), 0.8f, 0.5f},
-      {Vector(0, 1, 0), Vector(0.25f, 1.0f, -0.15f), 0.7f, 0.45f},
-      {Vector(-0.4f, 0.6f, 0.7f), Vector(-0.2f, 0.75f, 0.6f), 0.9f, 0.6f},
-      {Vector(1, 0, 0), Vector(1.0f, 0.15f, 0.2f), 0.8f, 0.5f},
+      {math::Vector(0, 0, 1), math::Vector(0.3f, 0.2f, 1.0f), 0.8f, 0.5f},
+      {math::Vector(0, 1, 0), math::Vector(0.25f, 1.0f, -0.15f), 0.7f, 0.45f},
+      {math::Vector(-0.4f, 0.6f, 0.7f), math::Vector(-0.2f, 0.75f, 0.6f), 0.9f,
+       0.6f},
+      {math::Vector(1, 0, 0), math::Vector(1.0f, 0.15f, 0.2f), 0.8f, 0.5f},
   };
 
   for (const Pose &pose : poses) {
-    Basis basis_a = make_basis(Quaternion(), pose.axis_a);
-    Basis basis_b = make_basis(Quaternion(), pose.axis_b);
-    Poly poly_a(basis_a, pose.radius_a / (PI_F / 2.0f), /*sides=*/6, 0.0f);
-    Poly poly_b(basis_b, pose.radius_b / (PI_F / 2.0f), /*sides=*/5, 0.4f);
+    math::Basis basis_a = math::make_basis(math::Quaternion(), pose.axis_a);
+    math::Basis basis_b = math::make_basis(math::Quaternion(), pose.axis_b);
+    Poly poly_a(basis_a, pose.radius_a / (math::PI_F / 2.0f), /*sides=*/6,
+                0.0f);
+    Poly poly_b(basis_b, pose.radius_b / (math::PI_F / 2.0f), /*sides=*/5,
+                0.4f);
 
     SDF::Intersection<Poly, Poly> both(poly_a, poly_b);
     expect_cull_covers_interior<W, H>(both, "intersection leaf pair");
@@ -2404,21 +2443,22 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
   using Star = SDF::Star;
 
   struct Pose {
-    Vector axis_a, axis_b;
+    math::Vector axis_a, axis_b;
     float radius_a; /**< Polygon circumradius in radians. */
     float radius_b; /**< Star tip radius, normalized (x PI/2 for radians). */
   };
   const Pose poses[] = {
-      {Vector(0, 0, 1), Vector(0.2f, 0.1f, 1.0f), 0.9f, 0.35f},
-      {Vector(0, 1, 0), Vector(0.2f, 1.0f, -0.1f), 0.8f, 0.3f},
-      {Vector(-0.4f, 0.6f, 0.7f), Vector(-0.3f, 0.65f, 0.7f), 1.0f, 0.4f},
-      {Vector(1, 0, 0), Vector(1.0f, 0.1f, 0.15f), 0.9f, 0.35f},
+      {math::Vector(0, 0, 1), math::Vector(0.2f, 0.1f, 1.0f), 0.9f, 0.35f},
+      {math::Vector(0, 1, 0), math::Vector(0.2f, 1.0f, -0.1f), 0.8f, 0.3f},
+      {math::Vector(-0.4f, 0.6f, 0.7f), math::Vector(-0.3f, 0.65f, 0.7f), 1.0f,
+       0.4f},
+      {math::Vector(1, 0, 0), math::Vector(1.0f, 0.1f, 0.15f), 0.9f, 0.35f},
   };
 
   for (const Pose &pose : poses) {
-    Basis basis_a = make_basis(Quaternion(), pose.axis_a);
-    Basis basis_b = make_basis(Quaternion(), pose.axis_b);
-    Poly poly(basis_a, pose.radius_a / (PI_F / 2.0f), /*sides=*/6, 0.0f);
+    math::Basis basis_a = math::make_basis(math::Quaternion(), pose.axis_a);
+    math::Basis basis_b = math::make_basis(math::Quaternion(), pose.axis_b);
+    Poly poly(basis_a, pose.radius_a / (math::PI_F / 2.0f), /*sides=*/6, 0.0f);
     Star star(basis_b, pose.radius_b, /*sides=*/5, 0.4f);
 
     SDF::Subtract<Poly, Star> carved(poly, star);
@@ -2440,21 +2480,24 @@ inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
   using Poly = SDF::PlanarPolygon;
 
   struct Pose {
-    Vector axis_a, axis_b;
+    math::Vector axis_a, axis_b;
     float radius_a, radius_b;
   };
   const Pose poses[] = {
-      {Vector(0, 0, 1), Vector(0.6f, 0.2f, 1.0f), 0.5f, 0.4f},
-      {Vector(0, 1, 0), Vector(0.5f, 1.0f, -0.2f), 0.45f, 0.35f},
-      {Vector(-0.4f, 0.6f, 0.7f), Vector(0.1f, 0.9f, 0.4f), 0.6f, 0.5f},
-      {Vector(1, 0, 0), Vector(1.0f, 0.35f, 0.2f), 0.5f, 0.4f},
+      {math::Vector(0, 0, 1), math::Vector(0.6f, 0.2f, 1.0f), 0.5f, 0.4f},
+      {math::Vector(0, 1, 0), math::Vector(0.5f, 1.0f, -0.2f), 0.45f, 0.35f},
+      {math::Vector(-0.4f, 0.6f, 0.7f), math::Vector(0.1f, 0.9f, 0.4f), 0.6f,
+       0.5f},
+      {math::Vector(1, 0, 0), math::Vector(1.0f, 0.35f, 0.2f), 0.5f, 0.4f},
   };
 
   for (const Pose &pose : poses) {
-    Basis basis_a = make_basis(Quaternion(), pose.axis_a);
-    Basis basis_b = make_basis(Quaternion(), pose.axis_b);
-    Poly poly_a(basis_a, pose.radius_a / (PI_F / 2.0f), /*sides=*/6, 0.0f);
-    Poly poly_b(basis_b, pose.radius_b / (PI_F / 2.0f), /*sides=*/5, 0.4f);
+    math::Basis basis_a = math::make_basis(math::Quaternion(), pose.axis_a);
+    math::Basis basis_b = math::make_basis(math::Quaternion(), pose.axis_b);
+    Poly poly_a(basis_a, pose.radius_a / (math::PI_F / 2.0f), /*sides=*/6,
+                0.0f);
+    Poly poly_b(basis_b, pose.radius_b / (math::PI_F / 2.0f), /*sides=*/5,
+                0.4f);
 
     SDF::SmoothUnion<Poly, Poly> welded(poly_a, poly_b, /*k=*/0.15f);
     expect_cull_covers_interior<W, H>(welded, "smooth union leaf pair");
@@ -2472,10 +2515,11 @@ inline void test_smooth_union_cull_covers_interior_over_leaf_pairs() {
  */
 inline void test_smooth_union_scans_rows_past_both_children() {
   constexpr int W = 96, H = 48;
-  init_geometry_luts<W, H>();
+  math::init_geometry_luts<W, H>();
   using Poly = SDF::PlanarPolygon;
-  Basis basis = make_basis(Quaternion(), Vector(0.2f, 1.0f, 0.1f));
-  Poly poly(basis, /*radius=*/0.5f / (PI_F / 2.0f), /*sides=*/6, 0.0f);
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0.2f, 1.0f, 0.1f));
+  Poly poly(basis, /*radius=*/0.5f / (math::PI_F / 2.0f), /*sides=*/6, 0.0f);
 
   // k/6 = 0.2 rad of dilation, several pixel widths past the polygon's own cap.
   SDF::SmoothUnion<Poly, Poly> welded(poly, poly, /*k=*/1.2f);
@@ -2502,9 +2546,9 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   constexpr int W = 96, H = 48;
   // Near-pole (+Y) arc folded into 4 sectors around X: copies rotate to
   // +Z / -Y / -Z, far below the child's near-pole band.
-  SDF::Line ln(Vector(0.25f, 1, 0).normalized(),
-               Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
-  SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, Vector(1, 0, 0));
+  SDF::Line ln(math::Vector(0.25f, 1, 0).normalized(),
+               math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
+  SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, math::Vector(1, 0, 0));
   int interior = expect_cull_covers_interior<W, H>(rep, "angular repeat");
   HS_EXPECT_GT(interior, 0);
 }
@@ -2521,11 +2565,12 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
 inline void test_angular_repeat_y_axis_cull_narrows_rows() {
   constexpr int W = 288, H = 144;
   constexpr int REPS = 5;
-  init_geometry_luts<W, H>();
+  math::init_geometry_luts<W, H>();
   // Small star on the equator at azimuth 0, the sector the fold emits.
-  Basis basis = make_basis(Quaternion(), Vector(1, 0, 0));
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(1, 0, 0));
   SDF::Star star(basis, /*radius=*/0.15f, /*sides=*/5, 0.0f);
-  SDF::AngularRepeat<SDF::Star> rep(star, REPS, Vector(0, 1, 0));
+  SDF::AngularRepeat<SDF::Star> rep(star, REPS, math::Vector(0, 1, 0));
   int fringe = expect_cull_covers_fringe<W, H>(rep, "angular repeat y axis");
   HS_EXPECT_GT(fringe, 0);
 
@@ -2558,13 +2603,14 @@ inline void test_angular_repeat_y_axis_cull_narrows_rows() {
 inline void test_angular_repeat_tilted_axis_forfeits_cull() {
   constexpr int W = 288, H = 144;
   constexpr int REPS = 5;
-  init_geometry_luts<W, H>();
+  math::init_geometry_luts<W, H>();
   // ~5e-3 rad off +Y: well inside a 1e-4 axis.y threshold, well outside the
   // tilt the padded spans can absorb.
   const float tilt = 5e-3f;
-  SDF::Line ln(Vector(0.25f, 1, 0).normalized(),
-               Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
-  SDF::AngularRepeat<SDF::Line> rep(ln, REPS, Vector(tilt, 1, 0).normalized());
+  SDF::Line ln(math::Vector(0.25f, 1, 0).normalized(),
+               math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
+  SDF::AngularRepeat<SDF::Line> rep(ln, REPS,
+                                    math::Vector(tilt, 1, 0).normalized());
   auto bounds = rep.get_vertical_bounds<H>();
   HS_EXPECT_EQ(bounds.y_min, 0);
   HS_EXPECT_EQ(bounds.y_max, H - 1);
@@ -2585,8 +2631,8 @@ inline void test_line_arc_bulge_cull_covers_interior() {
   constexpr int W = 96, H = 48;
   // Endpoints at phi≈0.4 either side of +Y; the arc bulges through the north
   // pole (phi=0), above either endpoint's latitude.
-  SDF::Line ln(Vector(0, cosf(0.4f), sinf(0.4f)),
-               Vector(0, cosf(0.4f), -sinf(0.4f)), /*thickness=*/0.15f);
+  SDF::Line ln(math::Vector(0, cosf(0.4f), sinf(0.4f)),
+               math::Vector(0, cosf(0.4f), -sinf(0.4f)), /*thickness=*/0.15f);
   int interior = expect_cull_covers_interior<W, H>(ln, "line arc bulge");
   HS_EXPECT_GT(interior, 0);
 }
@@ -2601,7 +2647,7 @@ inline void test_line_arc_bulge_cull_covers_interior() {
  */
 inline void test_line_antipodal_cull_covers_interior() {
   constexpr int W = 96, H = 48;
-  Vector a = Vector(0.4f, 0.6f, 0.69f).normalized();
+  math::Vector a = math::Vector(0.4f, 0.6f, 0.69f).normalized();
   SDF::Line ln(a, -a, /*thickness=*/0.15f);
   int interior = expect_cull_covers_interior<W, H>(ln, "line antipodal");
   HS_EXPECT_GT(interior, 0);
@@ -2616,7 +2662,8 @@ inline void test_line_antipodal_cull_covers_interior() {
  */
 inline void test_line_thick_cap_past_pi_cull_covers_interior() {
   constexpr int W = 96, H = 48;
-  SDF::Line ln(Vector(1, 0, 0), Vector(0, 0, 1), /*thickness=*/2.6f);
+  SDF::Line ln(math::Vector(1, 0, 0), math::Vector(0, 0, 1),
+               /*thickness=*/2.6f);
   int interior = expect_cull_covers_interior<W, H>(ln, "line thick cap");
   HS_EXPECT_GT(interior, 0);
 }
@@ -2646,11 +2693,13 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
       {0.16f, 0.39f, 0.15f},
   };
   for (const Cfg &c : cfgs) {
-    Basis basis_n = make_basis(Quaternion(), Vector(c.tilt, 1.0f, 0.0f));
+    math::Basis basis_n =
+        math::make_basis(math::Quaternion(), math::Vector(c.tilt, 1.0f, 0.0f));
     SDF::Ring ring_n(basis_n, c.radius, c.thickness);
     expect_cull_covers_interior<W, H>(ring_n, "ring north pole");
 
-    Basis basis_s = make_basis(Quaternion(), Vector(c.tilt, -1.0f, 0.0f));
+    math::Basis basis_s =
+        math::make_basis(math::Quaternion(), math::Vector(c.tilt, -1.0f, 0.0f));
     SDF::Ring ring_s(basis_s, c.radius, c.thickness);
     expect_cull_covers_interior<W, H>(ring_s, "ring south pole");
   }
@@ -2680,16 +2729,17 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       {0.15f, 384, 0.25f / 256.0f},
       {0.22f, 200, 0.5f / 256.0f},
   };
-  const Vector axes[] = {Vector(0, 1, 0), Vector(0.3f, 1.0f, 0.2f),
-                         Vector(1, 0, 0)};
-  for (const Vector &axis : axes) {
-    Basis basis = make_basis(Quaternion(), axis);
+  const math::Vector axes[] = {math::Vector(0, 1, 0),
+                               math::Vector(0.3f, 1.0f, 0.2f),
+                               math::Vector(1, 0, 0)};
+  for (const math::Vector &axis : axes) {
+    math::Basis basis = math::make_basis(math::Quaternion(), axis);
     for (const Cfg &c : cfgs) {
       float amp = c.amp;
       int harmonic = c.harmonic;
       float ph = c.phase_frac;
       auto shift = [amp, harmonic, ph](float t) {
-        return amp * std::sin(2.0f * PI_F * (harmonic * t + ph));
+        return amp * std::sin(2.0f * math::PI_F * (harmonic * t + ph));
       };
       SDF::DistortedRing ring(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
                               shift,
@@ -2714,8 +2764,9 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
   float asymmetric[ASYM_LUT_N + 1];
   for (int k = 0; k <= ASYM_LUT_N; ++k)
     asymmetric[k] =
-        0.075f + 0.1f * sinf(6.0f * PI_F * (k % ASYM_LUT_N) / ASYM_LUT_N);
-  Basis basis = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
+        0.075f + 0.1f * sinf(6.0f * math::PI_F * (k % ASYM_LUT_N) / ASYM_LUT_N);
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0.3f, 1.0f, 0.2f));
   SDF::KnotPrefilter asymmetric_pf;
   SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric, ASYM_LUT_N,
                                      0.0f, asymmetric_pf);
@@ -2734,32 +2785,32 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
  */
 template <int W, int H>
 inline int expect_face_cull_covers_fringe(int sides, float rho,
-                                          const Vector &axis) {
+                                          const math::Vector &axis) {
   constexpr int HV = H + hs::H_OFFSET;
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
-  Basis basis = make_basis(Quaternion(), axis);
-  Vector verts3d[8];
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  math::Basis basis = math::make_basis(math::Quaternion(), axis);
+  math::Vector verts3d[8];
   uint16_t idx[8];
   for (int i = 0; i < sides; ++i) {
-    float a = (2.0f * PI_F * i) / sides + 0.37f;
+    float a = (2.0f * math::PI_F * i) / sides + 0.37f;
     verts3d[i] = (basis.v * cosf(rho) +
                   (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
                      .normalized();
     idx[i] = static_cast<uint16_t>(i);
   }
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const Vector>(verts3d, sides),
+  SDF::Face face(std::span<const math::Vector>(verts3d, sides),
                  std::span<const uint16_t>(idx, sides), scratch, HV, H);
 
   std::vector<uint8_t> visited;
   cull_visited<W, H>(face, visited);
 
-  const float pixel_width = 2.0f * PI_F / W;
+  const float pixel_width = 2.0f * math::PI_F / W;
   int paintable = 0;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
-      const Vector p = pixel_to_vector<W, H>(x, y);
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(face, p).dist < pixel_width) {
         ++paintable;
         HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
@@ -2777,13 +2828,13 @@ inline void test_face_cull_covers_aa_fringe() {
   struct Cfg {
     int sides;
     float rho;
-    Vector axis;
+    math::Vector axis;
   };
   const Cfg cfgs[] = {
-      {3, 0.15f, Vector(0, 0, 1)},
-      {3, 0.30f, Vector(0, 0, 1)},
-      {3, 0.48f, Vector(0, 0, 1)},
-      {3, 0.18f, Vector(1, 0, 0)},
+      {3, 0.15f, math::Vector(0, 0, 1)},
+      {3, 0.30f, math::Vector(0, 0, 1)},
+      {3, 0.48f, math::Vector(0, 0, 1)},
+      {3, 0.18f, math::Vector(1, 0, 0)},
   };
   int total_paintable = 0;
   for (const Cfg &c : cfgs) {
@@ -2798,14 +2849,14 @@ inline void test_face_cull_covers_aa_fringe() {
 /** @brief Vertical bounds cover wide AA bands on tall, low-width grids. */
 inline void test_face_vertical_margin_tracks_pixel_width() {
   constexpr int W = 64, H = 144, HV = H + hs::H_OFFSET;
-  const float tilt = PI_F / 60.0f;
-  const Vector axis(sinf(tilt) * cosf(0.37f), cosf(tilt),
-                    sinf(tilt) * sinf(0.37f));
-  const Basis basis = make_basis(Quaternion(), axis);
-  Vector vertices[3];
+  const float tilt = math::PI_F / 60.0f;
+  const math::Vector axis(sinf(tilt) * cosf(0.37f), cosf(tilt),
+                          sinf(tilt) * sinf(0.37f));
+  const math::Basis basis = math::make_basis(math::Quaternion(), axis);
+  math::Vector vertices[3];
   const uint16_t indices[] = {0, 1, 2};
   for (int i = 0; i < 3; ++i) {
-    const float angle = TWO_PI_F * i / 3.0f + 0.37f;
+    const float angle = math::TWO_PI_F * i / 3.0f + 0.37f;
     vertices[i] =
         (basis.v * cosf(0.025f) +
          (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(0.025f))
@@ -2814,18 +2865,18 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
   SDF::FaceScratchBuffer original_scratch, widened_scratch;
   SDF::Face original(vertices, indices, original_scratch, HV, H);
   SDF::Face widened(vertices, indices, widened_scratch, HV, H, nullptr, nullptr,
-                    std::max(SDF::BOUNDS_MARGIN, TWO_PI_F / W));
+                    std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
   const auto original_bounds = original.get_vertical_bounds<H>();
   const auto widened_bounds = widened.get_vertical_bounds<H>();
   int original_misses = 0;
   int covered = 0;
   for (int y = 0; y < H; ++y) {
-    const float phi = PI_F * y / (HV - 1);
+    const float phi = math::PI_F * y / (HV - 1);
     for (int x = 0; x < W; ++x) {
-      const float theta = TWO_PI_F * x / W;
-      const Vector point(sinf(phi) * cosf(theta), cosf(phi),
-                         sinf(phi) * sinf(theta));
-      if (SDF::distance_of(widened, point).dist >= TWO_PI_F / W)
+      const float theta = math::TWO_PI_F * x / W;
+      const math::Vector point(sinf(phi) * cosf(theta), cosf(phi),
+                               sinf(phi) * sinf(theta));
+      if (SDF::distance_of(widened, point).dist >= math::TWO_PI_F / W)
         continue;
       ++covered;
       original_misses += y < original_bounds.y_min || y > original_bounds.y_max;
@@ -2837,7 +2888,8 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
 
   SDF::FaceScratchBuffer shipping_scratch;
   SDF::Face shipping(vertices, indices, shipping_scratch, HV, H, nullptr,
-                     nullptr, std::max(SDF::BOUNDS_MARGIN, TWO_PI_F / 288));
+                     nullptr,
+                     std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / 288));
   const auto shipping_bounds = shipping.get_vertical_bounds<H>();
   HS_EXPECT_EQ(shipping_bounds.y_min, original_bounds.y_min);
   HS_EXPECT_EQ(shipping_bounds.y_max, original_bounds.y_max);
@@ -2860,12 +2912,12 @@ inline void face_fixed_pad_visited(const SDF::Face &face,
         if (face.full_width)
           return false;
         for (const auto &iv : face.intervals) {
-          out(floorf((iv.start - pad) * W / TWO_PI_F),
-              ceilf((iv.end + pad) * W / TWO_PI_F));
+          out(floorf((iv.start - pad) * W / math::TWO_PI_F),
+              ceilf((iv.end + pad) * W / math::TWO_PI_F));
         }
         return true;
       },
-      [&](int wx, int y, const Vector &, int run) {
+      [&](int wx, int y, const math::Vector &, int run) {
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W)
             visited[static_cast<size_t>(y) * W + wx + i] = 1;
@@ -2876,19 +2928,19 @@ inline void face_fixed_pad_visited(const SDF::Face &face,
 /** @brief Counts paintable pixels missed before and after latitude widening. */
 template <int W, int H>
 inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
   std::vector<uint8_t> fixed_visited;
   std::vector<uint8_t> widened_visited;
   face_fixed_pad_visited<W, H>(face, fixed_visited);
   cull_visited<W, H>(face, widened_visited);
 
-  const float pixel_width = TWO_PI_F / W;
+  const float pixel_width = math::TWO_PI_F / W;
   int fixed_misses = 0;
   int widened_misses = 0;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
-      const Vector p = pixel_to_vector<W, H>(x, y);
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(face, p).dist >= pixel_width)
         continue;
       const size_t px = static_cast<size_t>(y) * W + x;
@@ -2923,20 +2975,20 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
   int widened_misses = 0;
   for (const Cfg &cfg : cfgs) {
     const float theta = 0.31f * cfg.sides + 1.7f * cfg.rho + 0.23f * cfg.phi;
-    const Vector axis(sinf(cfg.phi) * cosf(theta), cosf(cfg.phi),
-                      sinf(cfg.phi) * sinf(theta));
-    Basis basis = make_basis(Quaternion(), axis);
-    Vector verts[6];
+    const math::Vector axis(sinf(cfg.phi) * cosf(theta), cosf(cfg.phi),
+                            sinf(cfg.phi) * sinf(theta));
+    math::Basis basis = math::make_basis(math::Quaternion(), axis);
+    math::Vector verts[6];
     uint16_t idx[6];
     for (int i = 0; i < cfg.sides; ++i) {
-      const float a = TWO_PI_F * i / cfg.sides + 0.37f;
+      const float a = math::TWO_PI_F * i / cfg.sides + 0.37f;
       verts[i] = (basis.v * cosf(cfg.rho) +
                   (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(cfg.rho))
                      .normalized();
       idx[i] = static_cast<uint16_t>(i);
     }
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(std::span<const Vector>(verts, cfg.sides),
+    SDF::Face face(std::span<const math::Vector>(verts, cfg.sides),
                    std::span<const uint16_t>(idx, cfg.sides), scratch, HV, H);
     const auto misses = face_fringe_misses<W, H>(face);
     HS_EXPECT_LE(misses.second, misses.first);
@@ -2967,19 +3019,19 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
   constexpr int N_VERTS = 4;
   const float rho = 0.7f;
 
-  Vector verts[N_VERTS];
+  math::Vector verts[N_VERTS];
   uint16_t idx[N_VERTS];
-  verts[0] = Vector(0, pole_y, 0);
+  verts[0] = math::Vector(0, pole_y, 0);
   for (int i = 1; i < N_VERTS; ++i) {
     const float a = pole_y * 0.55f * static_cast<float>(i - 2);
-    verts[i] =
-        Vector(sinf(rho) * cosf(a), pole_y * cosf(rho), sinf(rho) * sinf(a));
+    verts[i] = math::Vector(sinf(rho) * cosf(a), pole_y * cosf(rho),
+                            sinf(rho) * sinf(a));
   }
   for (int i = 0; i < N_VERTS; ++i)
     idx[i] = static_cast<uint16_t>(i);
 
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const Vector>(verts, N_VERTS),
+  SDF::Face face(std::span<const math::Vector>(verts, N_VERTS),
                  std::span<const uint16_t>(idx, N_VERTS), scratch, HV, H);
   // Pins the setup on the BOUNDARY branch: !full_width alone also holds for a
   // face that misses the pole entirely.
@@ -2994,18 +3046,18 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
   Pipeline<W, H> pipeline;
   {
     Canvas canvas(fx);
-    auto shader = [](const Vector &, Fragment &f) {
+    auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
     };
     Scan::rasterize_face<W, H>(pipeline, canvas, face, shader);
   }
   fx.advance_display();
 
-  const float pixel_width = 2.0f * PI_F / W;
+  const float pixel_width = 2.0f * math::PI_F / W;
   int painted = 0;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
-      const Vector p = pixel_to_vector<W, H>(x, y);
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
       const float d = SDF::distance_of(face, p).dist;
       const Pixel px = fx.get_pixel(x, y);
       const bool lit = px.r != 0 || px.g != 0 || px.b != 0;
@@ -3015,9 +3067,10 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
       }
       // Dead band around Scan::MIN_ALPHA: an alpha that rounds the shade to
       // black is neither required nor forbidden.
-      const float alpha = d <= -pixel_width
-                              ? 1.0f
-                              : quintic_kernel(0.5f - d / (2.0f * pixel_width));
+      const float alpha =
+          d <= -pixel_width
+              ? 1.0f
+              : math::quintic_kernel(0.5f - d / (2.0f * pixel_width));
       if (alpha > 0.05f) {
         ++painted;
         HS_EXPECT_TRUE(lit);
@@ -3060,18 +3113,19 @@ inline void test_face_pole_vertex_matches_full_scan() {
  *          crossing-parity inside test, both invariant to the plane's
  *          rotation, so the frame need not match the face's.
  */
-inline float exact_plane_distance(std::span<const Vector> verts,
-                                  const Vector &p, bool linear_dist) {
-  Vector center(0, 0, 0);
-  for (const Vector &v : verts)
+inline float exact_plane_distance(std::span<const math::Vector> verts,
+                                  const math::Vector &p, bool linear_dist) {
+  math::Vector center(0, 0, 0);
+  for (const math::Vector &v : verts)
     center = center + v;
   center.normalize();
-  const Vector u = (verts[0] - center * dot(verts[0], center)).normalized();
-  const Vector w = cross(center, u).normalized();
-  auto project = [&](const Vector &v, float &x, float &y) {
-    const float d = dot(v, center);
-    x = dot(v, u) / d;
-    y = dot(v, w) / d;
+  const math::Vector u =
+      (verts[0] - center * math::dot(verts[0], center)).normalized();
+  const math::Vector w = math::cross(center, u).normalized();
+  auto project = [&](const math::Vector &v, float &x, float &y) {
+    const float d = math::dot(v, center);
+    x = math::dot(v, u) / d;
+    y = math::dot(v, w) / d;
   };
   float px, py;
   project(p, px, py);
@@ -3094,7 +3148,7 @@ inline float exact_plane_distance(std::span<const Vector> verts,
       inside = !inside;
   }
   const float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
-  return linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
+  return linear_dist ? plane_exact : math::fast_atan2(plane_exact, 1.0f);
 }
 
 /**
@@ -3109,18 +3163,18 @@ inline float exact_plane_distance(std::span<const Vector> verts,
  * concave face must match the oracle everywhere via the exact walk.
  */
 inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
-                                       const Vector &axis,
+                                       const math::Vector &axis,
                                        float rho_inner = 0.0f) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
   HS_EXPECT_TRUE(sides <= 8);
 
-  Basis basis = make_basis(Quaternion(), axis);
-  Vector verts3d[16];
+  math::Basis basis = math::make_basis(math::Quaternion(), axis);
+  math::Vector verts3d[16];
   uint16_t idx[16];
   const int n_verts = rho_inner > 0.0f ? 2 * sides : sides;
   for (int i = 0; i < n_verts; ++i) {
-    float a = (2.0f * PI_F * i) / n_verts + 0.37f;
+    float a = (2.0f * math::PI_F * i) / n_verts + 0.37f;
     float r = (rho_inner > 0.0f && (i & 1)) ? rho_inner : rho;
     verts3d[i] =
         (basis.v * cosf(r) + (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
@@ -3129,7 +3183,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
   }
 
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const Vector>(verts3d, n_verts),
+  SDF::Face face(std::span<const math::Vector>(verts3d, n_verts),
                  std::span<const uint16_t>(idx, n_verts), scratch, HV, H);
   HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f);
   const uint32_t probe_flags = face.probe_flags();
@@ -3143,7 +3197,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
     for (int gj = 0; gj <= G; ++gj) {
       float px = -reach + (2.0f * reach) * gi / G;
       float py = -reach + (2.0f * reach) * gj / G;
-      Vector p =
+      math::Vector p =
           (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
 
       hs::g_scan_metrics.exact_hits = 0;
@@ -3155,7 +3209,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
         continue; // culled (outside max_dist / behind the center)
 
       const float expected = exact_plane_distance(
-          std::span<const Vector>(verts3d, n_verts), p, face.linear_dist);
+          std::span<const math::Vector>(verts3d, n_verts), p, face.linear_dist);
 
       // fast_atan2 preserves sign, so the oracle's sign is the plane sign.
       if (face.convex && expected > 0.0f) {
@@ -3180,19 +3234,21 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
 inline void test_face_distance_matches_exact_oracle() {
   int samples = 0;
   check_face_distance_oracle(samples, /*sides=*/3, 0.45f,
-                             Vector(0.4f, 0.3f, 1.0f));
+                             math::Vector(0.4f, 0.3f, 1.0f));
   check_face_distance_oracle(samples, /*sides=*/5, 0.50f,
-                             Vector(0.4f, 0.3f, 1.0f));
+                             math::Vector(0.4f, 0.3f, 1.0f));
   check_face_distance_oracle(samples, /*sides=*/6, 0.40f,
-                             Vector(-0.6f, 0.5f, 0.7f));
+                             math::Vector(-0.6f, 0.5f, 0.7f));
   check_face_distance_oracle(samples, /*sides=*/3, 0.12f,
-                             Vector(0.4f, 0.3f, 1.0f));
+                             math::Vector(0.4f, 0.3f, 1.0f));
   check_face_distance_oracle(samples, /*sides=*/4, 0.50f,
-                             Vector(0.4f, 0.3f, 1.0f), /*rho_inner=*/0.25f);
+                             math::Vector(0.4f, 0.3f, 1.0f),
+                             /*rho_inner=*/0.25f);
   // Concave star: convexity detection must reject it and the exact walk must
   // reproduce the oracle everywhere.
   check_face_distance_oracle(samples, /*sides=*/6, 0.50f,
-                             Vector(0.4f, 0.3f, 1.0f), /*rho_inner=*/0.25f);
+                             math::Vector(0.4f, 0.3f, 1.0f),
+                             /*rho_inner=*/0.25f);
   // The grid actually exercised the distance path.
   HS_EXPECT_GT(samples, 1000);
 }
@@ -3218,9 +3274,10 @@ inline void test_face_distance_matches_exact_oracle() {
  * @param theta Rotation angle (radians).
  * @return The rotated vector.
  */
-inline Vector rotate_about(const Vector &v, const Vector &k, float theta) {
+inline math::Vector rotate_about(const math::Vector &v, const math::Vector &k,
+                                 float theta) {
   float c = cosf(theta), s = sinf(theta);
-  return v * c + cross(k, v) * s + k * (dot(k, v) * (1.0f - c));
+  return v * c + math::cross(k, v) * s + k * (math::dot(k, v) * (1.0f - c));
 }
 
 /**
@@ -3237,12 +3294,12 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   constexpr int HV = H + hs::H_OFFSET;
   constexpr int sides = 6, n_verts = 2 * sides;
   constexpr float rho = 0.40f, rho_inner = 0.20f;
-  const Vector axis(0.4f, 0.3f, 1.0f);
+  const math::Vector axis(0.4f, 0.3f, 1.0f);
 
-  Basis basis = make_basis(Quaternion(), axis);
-  Vector orig[n_verts];
+  math::Basis basis = math::make_basis(math::Quaternion(), axis);
+  math::Vector orig[n_verts];
   for (int i = 0; i < n_verts; ++i) {
-    float a = (2.0f * PI_F * i) / n_verts + 0.37f;
+    float a = (2.0f * math::PI_F * i) / n_verts + 0.37f;
     float r = (i & 1) ? rho_inner : rho;
     orig[i] =
         (basis.v * cosf(r) + (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
@@ -3254,7 +3311,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   uint16_t canon_idx[n_verts];
   for (int i = 0; i < n_verts; ++i)
     canon_idx[i] = static_cast<uint16_t>(i);
-  SDF::Face canon_face(std::span<const Vector>(orig, n_verts),
+  SDF::Face canon_face(std::span<const math::Vector>(orig, n_verts),
                        std::span<const uint16_t>(canon_idx, n_verts),
                        canon_scratch, HV, H);
   HS_EXPECT_TRUE(!canon_face.convex);
@@ -3282,11 +3339,11 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   // Congruent copy: rotate the sphere, then reindex. A cyclic shift by cyc
   // maps canonical vertex k to copy index (n - cyc + k) % n; the mirror family
   // reverses the order (keeping winding consistent) and binds with offset 0.
-  Vector verts[n_verts];
-  const Vector rot_axis = Vector(0.3f, -0.8f, 0.52f).normalized();
+  math::Vector verts[n_verts];
+  const math::Vector rot_axis = math::Vector(0.3f, -0.8f, 0.52f).normalized();
   for (int j = 0; j < n_verts; ++j) {
     int src = reflected ? (n_verts - j) % n_verts : (j + cyc) % n_verts;
-    Vector v = rotate_about(orig[src], rot_axis, rot_angle);
+    math::Vector v = rotate_about(orig[src], rot_axis, rot_angle);
     if (reflected)
       v.x = -v.x;
     verts[j] = v;
@@ -3294,7 +3351,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   int off = reflected ? 0 : (n_verts - cyc) % n_verts;
 
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const Vector>(verts, n_verts),
+  SDF::Face face(std::span<const math::Vector>(verts, n_verts),
                  std::span<const uint16_t>(canon_idx, n_verts), scratch, HV, H);
   HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
   const uint32_t probe_flags = face.probe_flags();
@@ -3303,7 +3360,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   {
     SDF::FaceScratchBuffer reject_scratch;
     static const float zeros[2 * n_verts] = {};
-    SDF::Face reject_face(std::span<const Vector>(verts, n_verts),
+    SDF::Face reject_face(std::span<const math::Vector>(verts, n_verts),
                           std::span<const uint16_t>(canon_idx, n_verts),
                           reject_scratch, HV, H);
     HS_EXPECT_TRUE(!reject_face.bind_class_lut(&lut, zeros, 0, false));
@@ -3317,7 +3374,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
     for (int gj = 0; gj <= G; ++gj) {
       float px = -reach + (2.0f * reach) * gi / G;
       float py = -reach + (2.0f * reach) * gj / G;
-      Vector p =
+      math::Vector p =
           (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
 
       hs::g_scan_metrics.lut_hits = 0;
@@ -3331,7 +3388,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
         continue; // culled
 
       const float expected = exact_plane_distance(
-          std::span<const Vector>(verts, n_verts), p, face.linear_dist);
+          std::span<const math::Vector>(verts, n_verts), p, face.linear_dist);
 
       if (took_lut) {
         ++lut_samples;
@@ -3353,8 +3410,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   // The sign-purity guard keeps every served magnitude a cell diagonal from
   // zero — outside the AA ramp.
   if (lut_samples > 0) {
-    float floor_mag =
-        face.linear_dist ? lut.safe_dist : fast_atan2(lut.safe_dist, 1.0f);
+    float floor_mag = face.linear_dist ? lut.safe_dist
+                                       : math::fast_atan2(lut.safe_dist, 1.0f);
     HS_EXPECT_GT(min_lut_mag, floor_mag - 0.01f);
   }
   lut_total += lut_samples;

@@ -104,7 +104,7 @@ protected:
    * @param b Second point.
    * @return Squared distance between `a` and `b`.
    */
-  HS_O3_FN static float dist2(const Vector &a, const Vector &b) {
+  HS_O3_FN static float dist2(const math::Vector &a, const math::Vector &b) {
     float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
     return dx * dx + dy * dy + dz * dz;
   }
@@ -140,8 +140,8 @@ protected:
    * refine_render_center. This unconditional walk is the independent oracle
    * tests/test_effects.h measures that certified early-out against.
    */
-  HS_O3_FN static int refine_center(const Vector &rv, const Vector *nodes,
-                                    int seed) {
+  HS_O3_FN static int refine_center(const math::Vector &rv,
+                                    const math::Vector *nodes, int seed) {
     float best_d2 = dist2(rv, nodes[seed]);
     int best = seed;
     for_each_neighbor(seed, [&](int ni) {
@@ -188,8 +188,9 @@ protected:
    * polar band carries its own, smaller certificate because the Fibonacci
    * lattice packs those nodes far tighter than D_AVG.
    */
-  HS_O3_FN static int refine_render_center(const Vector &rv,
-                                           const Vector *nodes, int seed) {
+  HS_O3_FN static int refine_render_center(const math::Vector &rv,
+                                           const math::Vector *nodes,
+                                           int seed) {
     float best_d2 = dist2(rv, nodes[seed]);
     float safe_d2 = seed >= POLE_BAND && seed < RD_N - POLE_BAND
                         ? BULK_CERTIFIED_D2
@@ -224,9 +225,9 @@ protected:
    * directly; otherwise the kernel re-walks the refined center's stencil.
    */
   template <typename OnWeight>
-  HS_O3_FN static void refine_and_accumulate(const Vector &rv,
-                                             const Vector *nodes, int seed,
-                                             OnWeight &&on_weight) {
+  HS_O3_FN static void refine_and_accumulate(const math::Vector &rv,
+                                             const math::Vector *nodes,
+                                             int seed, OnWeight &&on_weight) {
     float d2s[RD_K + 1];
     int ids[RD_K + 1];
     d2s[0] = dist2(rv, nodes[seed]);
@@ -264,7 +265,7 @@ protected:
    */
   template <typename OnSlot>
   static __attribute__((always_inline)) void
-  gather_stencil(const Vector *nodes, int center, Vector *positions,
+  gather_stencil(const math::Vector *nodes, int center, math::Vector *positions,
                  OnSlot &&on_slot) {
     positions[0] = nodes[center];
     on_slot(0, center);
@@ -288,7 +289,7 @@ protected:
    */
   template <typename OnWeight>
   static __attribute__((always_inline)) void
-  accumulate_stencil(const Vector &rv, const Vector *positions,
+  accumulate_stencil(const math::Vector &rv, const math::Vector *positions,
                      OnWeight &&on_weight) {
     for (int j = 0; j < RD_K + 1; ++j)
       with_wendland_weight(
@@ -304,7 +305,7 @@ protected:
    * refine_render_center).
    */
   void seed_face_lut(Fragment &frag) {
-    Vector rv = inverse_orientation.apply(frag.pos);
+    math::Vector rv = inverse_orientation.apply(frag.pos);
     frag.v0 = static_cast<float>(cube_lut.lookup(rv));
   }
 
@@ -316,7 +317,7 @@ private:
    */
   void init_orientation_animation() {
     timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS, noise,
+                        orientation, math::Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
   }
 
@@ -325,7 +326,7 @@ private:
    * @param nodes Output array of at least RD_N positions to fill.
    * @details Called once at init; the Fibonacci lattice is static, not per-frame.
    */
-  static void build_nodes(Vector *nodes) {
+  static void build_nodes(math::Vector *nodes) {
     for (int i = 0; i < RD_N; ++i)
       nodes[i] = ReactionGraph::node(i);
   }
@@ -340,10 +341,11 @@ private:
    * walks compare world-space queries directly instead of un-orienting every
    * query.
    */
-  HS_O3_FN static void orient_nodes(const Vector *nodes, Vector *world,
-                                    int count, const Quaternion &q) {
+  HS_O3_FN static void orient_nodes(const math::Vector *nodes,
+                                    math::Vector *world, int count,
+                                    const math::Quaternion &q) {
     for (int i = 0; i < count; ++i)
-      world[i] = rotate(nodes[i], q);
+      world[i] = math::rotate(nodes[i], q);
   }
 
 protected:
@@ -369,11 +371,11 @@ protected:
                                       ReactionGraph::CubemapLUT::RES *
                                       sizeof(uint16_t);
     constexpr size_t STATE_BYTES = NSPECIES * RD_N * sizeof(StateT);
-    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);
+    constexpr size_t NODE_BYTES = RD_N * sizeof(math::Vector);
     // allocate() may skip up to alignof - 1 bytes ahead of each block; one pad
     // per persistent tenant (the species arrays, the LUT, the node array).
     constexpr size_t ALIGN_SLACK_BYTES =
-        NSPECIES * alignof(StateT) + alignof(uint16_t) + alignof(Vector);
+        NSPECIES * alignof(StateT) + alignof(uint16_t) + alignof(math::Vector);
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES +
                           ALIGN_SLACK_BYTES + EXTRA_PERSISTENT_BYTES <=
                       PERSISTENT_BYTES,
@@ -404,9 +406,11 @@ protected:
      * @param lattice Source lattice positions (RD_N entries).
      * @param q Lattice-to-world rotation.
      */
-    OrientedLattice(Arena &arena, const Vector *lattice, const Quaternion &q)
-        : scope(arena), world(static_cast<Vector *>(arena.allocate(
-                            RD_N * sizeof(Vector), alignof(Vector)))) {
+    OrientedLattice(Arena &arena, const math::Vector *lattice,
+                    const math::Quaternion &q)
+        : scope(arena),
+          world(static_cast<math::Vector *>(arena.allocate(
+              RD_N * sizeof(math::Vector), alignof(math::Vector)))) {
       orient_nodes(lattice, world, RD_N, q);
     }
 
@@ -414,11 +418,11 @@ protected:
      * @brief World-space node positions.
      * @return RD_N entries, live until this handle is destroyed.
      */
-    Vector *get() const { return world; }
+    math::Vector *get() const { return world; }
 
   private:
-    ScratchScope scope; /**< Reclaims `world` on destruction. */
-    Vector *world;      /**< Oriented positions carved from `scope`. */
+    ScratchScope scope;  /**< Reclaims `world` on destruction. */
+    math::Vector *world; /**< Oriented positions carved from `scope`. */
   };
 
   /**
@@ -426,8 +430,8 @@ protected:
    * @return Handle owning both the scratch scope and the world-space nodes.
    */
   [[nodiscard]] OrientedLattice orient_lattice() {
-    const Quaternion &current = orientation.get();
-    inverse_orientation = RotationMatrix(current.conjugate());
+    const math::Quaternion &current = orientation.get();
+    inverse_orientation = math::RotationMatrix(current.conjugate());
     return OrientedLattice(scratch_arena_a, nodes, current);
   }
 
@@ -443,14 +447,14 @@ protected:
   HS_COLD_MEMBER void init_lattice() {
     HS_CHECK(
         persistent_arena.get_capacity() - persistent_arena.get_offset() >=
-            RD_N * sizeof(Vector),
+            RD_N * sizeof(math::Vector),
         "ReactionDiffusion: persistent arena not sized for the shared node "
         "array; configure_arenas() must run before init_lattice()");
     // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
     // unguarded.
     ReactionGraph::validate_neighbors(ReactionGraph::neighbors);
-    nodes = static_cast<Vector *>(
-        persistent_arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    nodes = static_cast<math::Vector *>(persistent_arena.allocate(
+        RD_N * sizeof(math::Vector), alignof(math::Vector)));
     build_nodes(nodes);
     init_orientation_animation();
   }
@@ -498,8 +502,9 @@ private:
    * total-weight guard, so this stays agnostic to species count and fixed-point.
    */
   template <typename OnWeight>
-  HS_O3_FN static void kernel_accumulate(const Vector &rv, const Vector *nodes,
-                                         int center, OnWeight &&on_weight) {
+  HS_O3_FN static void kernel_accumulate(const math::Vector &rv,
+                                         const math::Vector *nodes, int center,
+                                         OnWeight &&on_weight) {
     auto visit = [&](int i) {
       with_wendland_weight(dist2(rv, nodes[i]),
                            [&](float w) { on_weight(i, w); });
@@ -509,12 +514,13 @@ private:
   }
 
 protected:
-  Orientation<> orientation; /**< Current view orientation on the sphere. */
-  RotationMatrix inverse_orientation{Quaternion()};
+  math::Orientation<>
+      orientation; /**< Current view orientation on the sphere. */
+  math::RotationMatrix inverse_orientation{math::Quaternion()};
   FastNoiseLite noise; /**< Noise source driving the orientation walk. */
   ReactionGraph::CubemapLUT
       cube_lut;      /**< Cubemap LUT for fast nearest-node seeding. */
   Timeline timeline; /**< Animation timeline advancing the orientation. */
-  Vector *nodes =
+  math::Vector *nodes =
       nullptr; /**< Fixed Fibonacci-lattice node positions (RD_N), built once by init_lattice() and shared by both systems. */
 };

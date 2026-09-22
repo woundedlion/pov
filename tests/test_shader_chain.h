@@ -110,7 +110,8 @@ struct ColorResources {
     In::FrameContext ctx;
     ctx.frame = 7;
     ctx.time = 7.0f / 30.0f;
-    ctx.projection_base = make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
+    ctx.projection_base =
+        math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
     ctx.palettes = {&palettes[0].view(), &palettes[1].view(),
                     &palettes[2].view()};
     ctx.hue_rotation_lut = hue_rotation.data();
@@ -138,17 +139,17 @@ inline constexpr In::ChainEntryRequest LEGACY_CHAIN[] = {
     {"colorize", "colorize.generated-palette.v2"},
 };
 
-inline std::array<Vector, 14> sweep_views() {
-  std::array<Vector, 14> views = {
-      Vector(0, 1, 0),         Vector(0, -1, 0),
-      Vector(1, 0, 0),         Vector(-1, 0, 0),
-      Vector(0, 0, 1),         Vector(0, 0, -1),
-      Vector(1, 1, 1),         Vector(-1, 1, -1),
-      Vector(1, -2, 0.5f),     Vector(-0.3f, 0.9f, 0.6f),
-      Vector(0.05f, 0.99f, 0), Vector(0.05f, -0.99f, 0),
-      Vector(2, 0.1f, -1),     Vector(-1, -1, 2),
+inline std::array<math::Vector, 14> sweep_views() {
+  std::array<math::Vector, 14> views = {
+      math::Vector(0, 1, 0),         math::Vector(0, -1, 0),
+      math::Vector(1, 0, 0),         math::Vector(-1, 0, 0),
+      math::Vector(0, 0, 1),         math::Vector(0, 0, -1),
+      math::Vector(1, 1, 1),         math::Vector(-1, 1, -1),
+      math::Vector(1, -2, 0.5f),     math::Vector(-0.3f, 0.9f, 0.6f),
+      math::Vector(0.05f, 0.99f, 0), math::Vector(0.05f, -0.99f, 0),
+      math::Vector(2, 0.1f, -1),     math::Vector(-1, -1, 2),
   };
-  for (Vector &view : views)
+  for (math::Vector &view : views)
     view = view.normalized();
   return views;
 }
@@ -238,8 +239,8 @@ template <typename T> void apply_value_set(T &params, ValueSet set) {
 // --- template mirror of the slice chain -----------------------------------
 
 struct MirrorFrame {
-  Quaternion camera_conjugate;
-  Quaternion projection_conjugate;
+  math::Quaternion camera_conjugate;
+  math::Quaternion projection_conjugate;
   In::Op::ProjectChainParams projection;
   In::Op::GridSampleParams sample;
   In::Op::GeneratedPaletteParams color;
@@ -260,7 +261,7 @@ struct MirrorBinding {
 struct MirrorCamera {
   using Binding = MirrorBinding;
   using FrameState = MirrorFrame;
-  static const Quaternion &conjugate(const MirrorFrame &frame) {
+  static const math::Quaternion &conjugate(const MirrorFrame &frame) {
     return frame.camera_conjugate;
   }
 };
@@ -268,7 +269,7 @@ struct MirrorCamera {
 struct MirrorProjection {
   using Binding = MirrorBinding;
   using FrameState = MirrorFrame;
-  static const Quaternion &conjugate(const MirrorFrame &frame) {
+  static const math::Quaternion &conjugate(const MirrorFrame &frame) {
     return frame.projection_conjugate;
   }
   static float singularity_fade(const MirrorFrame &frame) {
@@ -370,10 +371,12 @@ inline MirrorFrame mirror_from(In::ChainProgram &program,
   const auto &source = state_as<In::Op::SourceClockState>(program, 2);
   const auto &clock = state_as<In::Op::ColorClockState>(program, 3);
   frame.camera_conjugate =
-      (make_rotation(Y_AXIS, camera.spin_phase) * camera.wander).conjugate();
-  frame.projection_conjugate = (make_rotation(Y_AXIS, projection.spin_phase) *
-                                ctx.projection_base * projection.wander)
-                                   .conjugate();
+      (math::make_rotation(math::Y_AXIS, camera.spin_phase) * camera.wander)
+          .conjugate();
+  frame.projection_conjugate =
+      (math::make_rotation(math::Y_AXIS, projection.spin_phase) *
+       ctx.projection_base * projection.wander)
+          .conjugate();
   frame.projection = param_as<In::Op::ProjectChainParams>(program, 1);
   frame.sample = param_as<In::Op::GridSampleParams>(program, 2);
   frame.color = color;
@@ -424,7 +427,7 @@ void expect_frame_parity(In::ChainProgram &program, const In::FrameContext &ctx,
                          const MirrorFrame &mirror) {
   const typename Pipe::Frame reference_frame = Pipe::prepare(mirror);
   int view_index = 0;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const Color4 erased = program.evaluate(view, ctx);
     const Color4 reference = Pipe::shade(view, reference_frame);
@@ -1179,7 +1182,7 @@ inline void test_shader_chain_default_chain_renders() {
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
   bool any_opaque = false;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     const Color4 color = program.evaluate(view, ctx);
     HS_EXPECT_TRUE(std::isfinite(color.alpha));
     HS_EXPECT_GE(color.alpha, 0.0f);
@@ -1219,7 +1222,7 @@ inline void test_shader_chain_param_address_channel() {
   // The write is visible to the render: identical view, different coverage.
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
-  const Vector view = Vector(1, 1, 1).normalized();
+  const math::Vector view = math::Vector(1, 1, 1).normalized();
   const Color4 faded = program.evaluate(view, ctx);
   *coverage_mode = static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
   program.prepare(ctx);
@@ -1247,10 +1250,12 @@ inline void test_shader_chain_parity_rotate_project() {
         *reinterpret_cast<const In::Op::ProjectStereographic::Prepared *>(
             program.prepared_block(1));
     HS_EXPECT_EQ(std::memcmp(&camera_prepared.conjugate,
-                             &mirror.camera_conjugate, sizeof(Quaternion)),
+                             &mirror.camera_conjugate,
+                             sizeof(math::Quaternion)),
                  0);
     HS_EXPECT_EQ(std::memcmp(&project_prepared.conjugate,
-                             &mirror.projection_conjugate, sizeof(Quaternion)),
+                             &mirror.projection_conjugate,
+                             sizeof(math::Quaternion)),
                  0);
     // Op-level kernel parity for the two sphere-family ops.
     using BoundRotate = PB::Stage::Rotate<MirrorCamera>::Bind<MirrorBinding>;
@@ -1258,7 +1263,7 @@ inline void test_shader_chain_parity_rotate_project() {
         PB::Projection::Stereographic<MirrorProjection>>::Bind<MirrorBinding>;
     const In::OperatorDescriptor &rotate_op = *program.ops()[0].op;
     const In::OperatorDescriptor &project_op = *program.ops()[1].op;
-    for (const Vector &view : sweep_views()) {
+    for (const math::Vector &view : sweep_views()) {
       const PB::SphereSample seed{view, 0.0f};
       alignas(In::SLOT_ALIGN) uint8_t erased_out[In::SLOT_SIZE];
       rotate_op.runtime.run(&seed, erased_out, ctx, program.param_block(0),
@@ -1385,7 +1390,7 @@ inline void expect_sphere_op_parity(In::ChainProgram &program,
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[1].op;
   int view_index = 0;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const PB::SphereSample seed{view, 0.25f};
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
@@ -1705,7 +1710,7 @@ inline void arm_warp_op_chain(In::ChainProgram &program, const char *op_id,
     entries run over the seed, so both parity sides read one real sample. */
 inline PB::PlaneSample warp_input(In::ChainProgram &program,
                                   const In::FrameContext &ctx,
-                                  const Vector &view) {
+                                  const math::Vector &view) {
   const PB::SphereSample seed{view, 0.0f};
   alignas(In::SLOT_ALIGN) uint8_t rotated[In::SLOT_SIZE];
   program.ops()[0].op->runtime.run(&seed, rotated, ctx, program.param_block(0),
@@ -1726,7 +1731,7 @@ inline void expect_warp_op_parity(In::ChainProgram &program,
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[2].op;
   int view_index = 0;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const PB::PlaneSample input = warp_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
@@ -1910,7 +1915,7 @@ inline void test_shader_chain_noise_instances_decorrelate() {
   const auto &first = state_as<In::Op::NoisePhaseState>(program, 2);
   const auto &second = state_as<In::Op::NoisePhaseState>(program, 3);
   bool differs = false;
-  for (const Vector &view : sweep_views())
+  for (const math::Vector &view : sweep_views())
     if (first.noise.GetNoise(view.x, view.y, view.z) !=
         second.noise.GetNoise(view.x, view.y, view.z))
       differs = true;
@@ -2006,7 +2011,7 @@ inline void test_shader_chain_parity_warp_curl_flow() {
 
 /** Mirror frame for the projection batch. */
 struct ProjMirrorFrame {
-  Quaternion conjugate;
+  math::Quaternion conjugate;
   In::Op::MeridianProjectChainParams meridian;
   In::Op::GnomonicChainParams gnomonic;
   In::Op::BonneChainParams bonne;
@@ -2020,7 +2025,7 @@ struct ProjMirrorBinding {
 template <typename Derived> struct ProjMirrorBase {
   using Binding = ProjMirrorBinding;
   using FrameState = ProjMirrorFrame;
-  static const Quaternion &conjugate(const ProjMirrorFrame &frame) {
+  static const math::Quaternion &conjugate(const ProjMirrorFrame &frame) {
     return frame.conjugate;
   }
 };
@@ -2111,7 +2116,7 @@ inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
                                       const In::FrameContext &ctx) {
   ProjMirrorFrame mirror;
   const auto &state = state_as<In::Op::SpatialWalkState>(program, 1);
-  mirror.conjugate = (make_rotation(Y_AXIS, state.spin_phase) *
+  mirror.conjugate = (math::make_rotation(math::Y_AXIS, state.spin_phase) *
                       ctx.projection_base * state.wander)
                          .conjugate();
   const In::OperatorDescriptor &op = *program.ops()[1].op;
@@ -2140,7 +2145,7 @@ template <typename Model> inline void expect_project_frame_policy() {
   program.prepare(ctx);
   const auto &prepared = *reinterpret_cast<const typename Model::Prepared *>(
       program.prepared_block(1));
-  const Quaternion base = ctx.projection_base.conjugate();
+  const math::Quaternion base = ctx.projection_base.conjugate();
   HS_EXPECT_TRUE(prepared.conjugate == base);
   params.spin_rate = 0.03f;
   params.wander = 1.0f;
@@ -2149,16 +2154,17 @@ template <typename Model> inline void expect_project_frame_policy() {
   const auto &state = state_as<In::Op::SpatialWalkState>(program, 1);
   const uint32_t walk_time = state.walk_time;
   const float spin = state.spin_phase;
-  const Quaternion wander = state.wander;
+  const math::Quaternion wander = state.wander;
   params.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
   for (int frame = 0; frame < 3; ++frame)
     program.advance();
   HS_EXPECT_EQ(state.walk_time, walk_time);
   HS_EXPECT_EQ(state.spin_phase, spin);
-  HS_EXPECT_EQ(std::memcmp(&state.wander, &wander, sizeof(Quaternion)), 0);
+  HS_EXPECT_EQ(std::memcmp(&state.wander, &wander, sizeof(math::Quaternion)),
+               0);
   program.prepare(ctx);
   const In::OperatorDescriptor &op = *program.ops()[1].op;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     const PB::SphereSample seed{view, 0.25f};
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
     op.runtime.run(&seed, out, ctx, program.param_block(1),
@@ -2174,9 +2180,9 @@ template <typename Model> inline void expect_project_frame_policy() {
   HS_EXPECT_EQ(state.walk_time, walk_time + 1);
   HS_EXPECT_NE(state.spin_phase, spin);
   program.prepare(ctx);
-  const Quaternion identity;
-  HS_EXPECT_NE(std::memcmp(&prepared.conjugate, &identity, sizeof(Quaternion)),
-               0);
+  const math::Quaternion identity;
+  HS_EXPECT_NE(
+      std::memcmp(&prepared.conjugate, &identity, sizeof(math::Quaternion)), 0);
   program.clear();
 }
 
@@ -2200,7 +2206,7 @@ inline void expect_project_op_parity(In::ChainProgram &program,
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[1].op;
   int view_index = 0;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const PB::SphereSample seed{view, 0.25f};
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
@@ -2366,7 +2372,7 @@ inline void arm_field_op_chain(In::ChainProgram &program, const char *op_id,
     and sample entries run over the seed. */
 inline PB::FieldSample field_input(In::ChainProgram &program,
                                    const In::FrameContext &ctx,
-                                   const Vector &view) {
+                                   const math::Vector &view) {
   const PB::PlaneSample plane = warp_input(program, ctx, view);
   alignas(In::SLOT_ALIGN) uint8_t sampled[In::SLOT_SIZE];
   program.ops()[2].op->runtime.run(&plane, sampled, ctx, program.param_block(2),
@@ -2396,7 +2402,7 @@ inline void expect_field_op_parity(In::ChainProgram &program,
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[3].op;
   int view_index = 0;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const PB::FieldSample input = field_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
@@ -2456,7 +2462,7 @@ struct SampleMirrorFrame {
   In::Op::TessellationSampleParams tessellation;
   In::Op::ProjectedNoiseSampleParams projected;
   In::Op::SphericalNoiseSampleParams spherical;
-  Vector ring_axis = Y_AXIS;
+  math::Vector ring_axis = math::Y_AXIS;
   float ring_phase = 0.0f;
   float primary = 0.0f;
   float secondary = 0.0f;
@@ -2650,9 +2656,10 @@ inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
         state_as<In::Op::SphericalRingsState>(program, source_index);
     mirror.spherical_rings =
         param_as<In::Op::SphericalRingsSampleParams>(program, source_index);
-    const Quaternion orientation =
-        make_rotation(X_AXIS, state.walk.spin_phase) * state.walk.wander;
-    mirror.ring_axis = rotate(Y_AXIS, orientation);
+    const math::Quaternion orientation =
+        math::make_rotation(math::X_AXIS, state.walk.spin_phase) *
+        state.walk.wander;
+    mirror.ring_axis = math::rotate(math::Y_AXIS, orientation);
     mirror.ring_phase = state.phase;
   } else {
     const auto &state =
@@ -2695,7 +2702,7 @@ inline void expect_spherical_sample_op_parity(In::ChainProgram &program,
   const In::OperatorDescriptor &rotate_op = *program.ops()[0].op;
   const In::OperatorDescriptor &sample_op = *program.ops()[1].op;
   int view_index = 0;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const PB::SphereSample seed{view, 0.0f};
     alignas(In::SLOT_ALIGN) uint8_t rotated_out[In::SLOT_SIZE];
@@ -2722,7 +2729,7 @@ inline void expect_sample_op_parity(In::ChainProgram &program,
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &op = *program.ops()[2].op;
   int view_index = 0;
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const PB::PlaneSample input = warp_input(program, ctx, view);
     alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
@@ -2909,13 +2916,13 @@ inline void test_shader_chain_large_finite_path_length() {
   color.hue_mode = static_cast<uint8_t>(PB::Color::HueMode::PATH_LENGTH);
   color.hue_shift_amount = 1e-20f;
   auto ctx = shared_resources().context();
-  ctx.projection_base = Quaternion();
+  ctx.projection_base = math::Quaternion();
   std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue;
   for (size_t index = 0; index < hue.size(); ++index)
     hue[index] = Pixel(static_cast<uint16_t>((index % 16) * 4000), 0, 0);
   ctx.hue_rotation_lut = hue.data();
   program.prepare(ctx);
-  const PB::SphereSample sphere{Vector(1, 0, 1).normalized(), 0.0f};
+  const PB::SphereSample sphere{math::Vector(1, 0, 1).normalized(), 0.0f};
   PB::PlaneSample plane{};
   double expected_path = 0.0;
   for (int index = 0; index < 12; ++index) {
@@ -3276,7 +3283,8 @@ inline void test_shader_chain_refusal_shape() {
   const auto &source = state_as<In::Op::SourceClockState>(program, 2);
   const float speed = param_as<In::Op::GridSampleParams>(program, 2).speed;
   HS_EXPECT_GT(speed, 0.0f);
-  HS_EXPECT_EQ(source.primary, fmodf(fmodf(speed, TWO_PI_F) + speed, TWO_PI_F));
+  HS_EXPECT_EQ(source.primary,
+               fmodf(fmodf(speed, math::TWO_PI_F) + speed, math::TWO_PI_F));
   program.clear();
 }
 
@@ -3317,7 +3325,7 @@ inline void test_shader_chain_refusal_budget_overflows() {
   const In::FrameContext ctx = shared_resources().context();
   exact->program.prepare(ctx);
   const Color4 color =
-      exact->program.evaluate(Vector(1, 1, 1).normalized(), ctx);
+      exact->program.evaluate(math::Vector(1, 1, 1).normalized(), ctx);
   HS_EXPECT_TRUE(std::isfinite(color.alpha));
   exact->program.clear();
 
@@ -3531,7 +3539,7 @@ inline void test_shader_chain_state_continuity_slice() {
   // elsewhere; the new instance starts fresh.
   const auto &camera_after = state_as<In::Op::SpatialWalkState>(program, 0);
   HS_EXPECT_EQ(std::memcmp(&camera_after.wander, &camera_before.wander,
-                           sizeof(Quaternion)),
+                           sizeof(math::Quaternion)),
                0);
   HS_EXPECT_EQ(camera_after.spin_phase, camera_before.spin_phase);
   HS_EXPECT_EQ(camera_after.walk_time, camera_before.walk_time);
@@ -3637,7 +3645,7 @@ inline void test_shader_chain_determinism() {
   const In::FrameContext ctx = shared_resources().context();
   first->program.prepare(ctx);
   second->program.prepare(ctx);
-  for (const Vector &view : sweep_views()) {
+  for (const math::Vector &view : sweep_views()) {
     const Color4 a = first->program.evaluate(view, ctx);
     const Color4 b = second->program.evaluate(view, ctx);
     HS_EXPECT_TRUE(color4_identical(a, b));
@@ -3659,8 +3667,8 @@ inline void test_shader_chain_determinism() {
   const auto &walk_a = state_as<In::Op::SpatialWalkState>(first->program, 0);
   const auto &walk_b =
       state_as<In::Op::SpatialWalkState>(relabeled->program, 0);
-  HS_EXPECT_NE(std::memcmp(&walk_a.wander, &walk_b.wander, sizeof(Quaternion)),
-               0);
+  HS_EXPECT_NE(
+      std::memcmp(&walk_a.wander, &walk_b.wander, sizeof(math::Quaternion)), 0);
   first->program.clear();
   second->program.clear();
   relabeled->program.clear();
@@ -3812,7 +3820,7 @@ inline void test_shader_chain_composed_frame_parity() {
     reference.hue_rotation_lut = ctx.hue_rotation_lut;
     reference.hue_noise_lut = ctx.hue_noise_lut;
     const auto prepared = FX::RenderPipeline::prepare(reference);
-    for (const Vector &view : sweep_views()) {
+    for (const math::Vector &view : sweep_views()) {
       const Color4 expected = FX::shade(view, prepared);
       const Color4 actual = program.evaluate(view, ctx);
       HS_EXPECT_NEAR(actual.color.r, expected.color.r, 1);
@@ -3963,7 +3971,7 @@ inline void test_shader_chain_pause_semantics() {
   effect.setAnimationsPaused(true);
   const In::Op::SourceClockState source_before =
       state_as<In::Op::SourceClockState>(WB::program(effect), 2);
-  const Quaternion wander_before =
+  const math::Quaternion wander_before =
       state_as<In::Op::SpatialWalkState>(WB::program(effect), 0).wander;
   const Pixel color_before = WB::palette_color(effect, 0.25f);
 

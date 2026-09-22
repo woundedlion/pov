@@ -422,8 +422,8 @@ inline void test_antialias_weights_partition() {
   Filter::Screen::AntiAlias<W, H> aa;
 
   const float x = 10.3f, y = 20.6f;
-  const float xs = quintic_kernel(x - floorf(x));
-  const float ys = quintic_kernel(y - floorf(y));
+  const float xs = math::quintic_kernel(x - floorf(x));
+  const float ys = math::quintic_kernel(y - floorf(y));
   const float in_alpha = 0.8f;
   struct Tap {
     float x, y, a;
@@ -890,7 +890,7 @@ inline void test_feedback_plot_is_passthrough() {
  *        filter emits.
  */
 struct Tap3D {
-  Vector v;         /**< Emitted world-space position. */
+  math::Vector v;   /**< Emitted world-space position. */
   Pixel c;          /**< Emitted colour. */
   float age, alpha; /**< Emitted age and alpha. */
 };
@@ -901,14 +901,14 @@ struct Tap3D {
  *        quintic_kernel(d/r) and the very center emits nothing at all.
  */
 inline void test_world_hole_masks_cap() {
-  Filter::World::Hole hole(Vector(0, 1, 0),
+  Filter::World::Hole hole(math::Vector(0, 1, 0),
                            0.5f); // cap at +Y, radius 0.5 rad
 
   // Far point (south pole) is well outside -> verbatim passthrough.
   int n = 0;
   Tap3D got{};
-  hole.plot(Vector(0, -1, 0), Pixel(10000, 20000, 30000), 4.0f, 0.8f,
-            [&](const Vector &v, const Pixel &c, float age, float a) {
+  hole.plot(math::Vector(0, -1, 0), Pixel(10000, 20000, 30000), 4.0f, 0.8f,
+            [&](const math::Vector &v, const Pixel &c, float age, float a) {
               got = {v, c, age, a};
               ++n;
             });
@@ -922,16 +922,16 @@ inline void test_world_hole_masks_cap() {
   // Exact center: d=0 -> quintic_kernel(0)=0 -> the tap is dropped, so a fully
   // masked point cannot composite opaque black over the destination.
   n = 0;
-  hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &, float, float) { ++n; });
+  hole.plot(math::Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const math::Vector &, const Pixel &, float, float) { ++n; });
   HS_EXPECT_EQ(n, 0);
 
   // Half-radius (d = 0.25 rad): alpha scaled by quintic_kernel(0.5) = 0.5,
   // colour untouched.
-  Vector half(sinf(0.25f), cosf(0.25f), 0.0f); // 0.25 rad from +Y
+  math::Vector half(sinf(0.25f), cosf(0.25f), 0.0f); // 0.25 rad from +Y
   n = 0;
   hole.plot(half, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
-            [&](const Vector &, const Pixel &c, float, float a) {
+            [&](const math::Vector &, const Pixel &c, float, float a) {
               got.c = c;
               got.alpha = a;
               ++n;
@@ -946,13 +946,13 @@ inline void test_world_hole_masks_cap() {
  * @brief Verifies Hole's origin and radius can be retuned after construction.
  */
 inline void test_world_hole_setters() {
-  Vector center(0, 1, 0); // start at +Y
+  math::Vector center(0, 1, 0); // start at +Y
   Filter::World::Hole hole(center, 0.5f);
 
   // At the initial center the point is fully masked (quintic_kernel(0) = 0).
   Tap3D got{};
   int n = 0;
-  auto capture = [&](const Vector &, const Pixel &c, float, float a) {
+  auto capture = [&](const math::Vector &, const Pixel &c, float, float a) {
     got.c = c;
     got.alpha = a;
     ++n;
@@ -961,9 +961,10 @@ inline void test_world_hole_setters() {
   HS_EXPECT_EQ(n, 0);
 
   // The old center now lies well outside -> verbatim passthrough.
-  center = Vector(0, -1, 0);
+  center = math::Vector(0, -1, 0);
   hole.set_origin(center);
-  hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
+  hole.plot(math::Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            capture);
   HS_EXPECT_EQ(n, 1);
   HS_EXPECT_EQ((int)got.c.r, 10000);
   HS_EXPECT_EQ((int)got.c.g, 20000);
@@ -973,7 +974,7 @@ inline void test_world_hole_setters() {
   hole.plot(center, Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
   HS_EXPECT_EQ(n, 1);
 
-  Vector quarter(sinf(0.25f), -cosf(0.25f), 0.0f);
+  math::Vector quarter(sinf(0.25f), -cosf(0.25f), 0.0f);
   hole.set_radius(0.1f);
   hole.plot(quarter, Pixel(10000, 20000, 30000), 0.0f, 1.0f, capture);
   HS_EXPECT_EQ(n, 2);
@@ -994,19 +995,20 @@ inline void test_world_hole_setters() {
  *          channel frame over frame.
  */
 inline void test_world_orient_rotates_and_offsets_age() {
-  Quaternion q = make_rotation(Y_AXIS, PI_F / 2); // 90 deg about +Y
-  Orientation<> ori(q);
+  math::Quaternion q =
+      math::make_rotation(math::Y_AXIS, math::PI_F / 2); // 90 deg about +Y
+  math::Orientation<> ori(q);
   Filter::World::Orient orient(ori);
 
   int n = 0;
   Tap3D got{};
-  orient.plot(X_AXIS, Pixel(1, 2, 3), 5.0f, 1.0f,
-              [&](const Vector &v, const Pixel &c, float age, float a) {
+  orient.plot(math::X_AXIS, Pixel(1, 2, 3), 5.0f, 1.0f,
+              [&](const math::Vector &v, const Pixel &c, float age, float a) {
                 got = {v, c, age, a};
                 ++n;
               });
   HS_EXPECT_EQ(n, 1);
-  Vector expected = rotate(X_AXIS, q);
+  math::Vector expected = math::rotate(math::X_AXIS, q);
   HS_EXPECT_NEAR(got.v.x, expected.x, 1e-4f);
   HS_EXPECT_NEAR(got.v.y, expected.y, 1e-4f);
   HS_EXPECT_NEAR(got.v.z, expected.z, 1e-4f);
@@ -1019,15 +1021,15 @@ inline void test_world_orient_rotates_and_offsets_age() {
  * @details Age offsets are (1 - t) for t in {0.5, 1.0}.
  */
 inline void test_world_orient_motion_blur_sweep_ages() {
-  Orientation<> ori; // identity, 1 frame
-  ori.push(make_rotation(Y_AXIS, PI_F / 4));
-  ori.push(make_rotation(Y_AXIS, PI_F / 2)); // now 3 frames
+  math::Orientation<> ori; // identity, 1 frame
+  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 4));
+  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 2)); // now 3 frames
   Filter::World::Orient orient(ori);
 
   int n = 0;
   float ages[4] = {0};
-  orient.plot(X_AXIS, Pixel(1, 1, 1), 10.0f, 1.0f,
-              [&](const Vector &, const Pixel &, float age, float) {
+  orient.plot(math::X_AXIS, Pixel(1, 1, 1), 10.0f, 1.0f,
+              [&](const math::Vector &, const Pixel &, float age, float) {
                 if (n < 4)
                   ages[n] = age;
                 ++n;
@@ -1048,55 +1050,57 @@ inline void test_world_orient_motion_blur_sweep_ages() {
  */
 inline void test_world_orient_cull_edge_mirrors_plot() {
   static_assert(Filter::has_cull_edge<Filter::World::Orient>);
-  Orientation<> ori; // identity, 1 frame
-  ori.push(make_rotation(Y_AXIS, PI_F / 4));
-  ori.push(make_rotation(Y_AXIS, PI_F / 2)); // now 3 frames
+  math::Orientation<> ori; // identity, 1 frame
+  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 4));
+  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 2)); // now 3 frames
   const Filter::World::Orient orient(ori);
 
-  Vector seen[2];
+  math::Vector seen[2];
   int n = 0;
-  bool hit =
-      orient.cull_edge(X_AXIS, X_AXIS, nullptr,
-                       [&](const Vector &a, const Vector &, const Basis *) {
-                         if (n < 2)
-                           seen[n] = a;
-                         ++n;
-                         return false;
-                       });
+  bool hit = orient.cull_edge(
+      math::X_AXIS, math::X_AXIS, nullptr,
+      [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
+        if (n < 2)
+          seen[n] = a;
+        ++n;
+        return false;
+      });
   HS_EXPECT_FALSE(hit);
   // tween skips index 0, so the sweep is frames 1 and 2 — the same copies plot()
   // draws.
   HS_EXPECT_EQ(n, 2);
   for (int i = 0; i < 2; ++i) {
-    Vector expected = rotate(X_AXIS, ori.get(i + 1));
+    math::Vector expected = math::rotate(math::X_AXIS, ori.get(i + 1));
     HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
   }
 
   n = 0;
-  hit = orient.cull_edge(X_AXIS, X_AXIS, nullptr,
-                         [&](const Vector &, const Vector &, const Basis *) {
-                           ++n;
-                           return true;
-                         });
+  hit = orient.cull_edge(
+      math::X_AXIS, math::X_AXIS, nullptr,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *) {
+        ++n;
+        return true;
+      });
   HS_EXPECT_TRUE(hit);
   HS_EXPECT_EQ(n, 1);
 
   // A planar edge rotates its basis alongside the endpoints.
-  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
-  Vector normals[2];
+  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  math::Vector normals[2];
   n = 0;
-  orient.cull_edge(X_AXIS, X_AXIS, &pb,
-                   [&](const Vector &, const Vector &, const Basis *bp) {
-                     if (bp && n < 2)
-                       normals[n] = bp->v;
-                     ++n;
-                     return false;
-                   });
+  orient.cull_edge(
+      math::X_AXIS, math::X_AXIS, &pb,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
+        if (bp && n < 2)
+          normals[n] = bp->v;
+        ++n;
+        return false;
+      });
   HS_EXPECT_EQ(n, 2);
   for (int i = 0; i < 2; ++i) {
-    Vector expected = rotate(Y_AXIS, ori.get(i + 1));
+    math::Vector expected = math::rotate(math::Y_AXIS, ori.get(i + 1));
     HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);
@@ -1105,18 +1109,20 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
   // An edge that sits outside a polar band until the orientation rotates it in:
   // the band predicate rejects the source endpoints, plot() lands the point
   // inside, and the cull must therefore keep the edge.
-  Orientation<> tilt(make_rotation(Z_AXIS, PI_F / 2));
+  math::Orientation<> tilt(math::make_rotation(math::Z_AXIS, math::PI_F / 2));
   Filter::World::Orient tilted(tilt);
-  auto in_polar_band = [](const Vector &a, const Vector &b, const Basis *) {
+  auto in_polar_band = [](const math::Vector &a, const math::Vector &b,
+                          const math::Basis *) {
     return std::fabs(a.y) > 0.9f && std::fabs(b.y) > 0.9f;
   };
-  HS_EXPECT_FALSE(in_polar_band(X_AXIS, X_AXIS, nullptr));
-  Vector plotted{};
+  HS_EXPECT_FALSE(in_polar_band(math::X_AXIS, math::X_AXIS, nullptr));
+  math::Vector plotted{};
   tilted.plot(
-      X_AXIS, Pixel(1, 1, 1), 0.0f, 1.0f,
-      [&](const Vector &v, const Pixel &, float, float) { plotted = v; });
+      math::X_AXIS, Pixel(1, 1, 1), 0.0f, 1.0f,
+      [&](const math::Vector &v, const Pixel &, float, float) { plotted = v; });
   HS_EXPECT_GT(std::fabs(plotted.y), 0.9f);
-  HS_EXPECT_TRUE(tilted.cull_edge(X_AXIS, X_AXIS, nullptr, in_polar_band));
+  HS_EXPECT_TRUE(
+      tilted.cull_edge(math::X_AXIS, math::X_AXIS, nullptr, in_polar_band));
 }
 
 /**
@@ -1126,37 +1132,38 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
  *          near -axis selects the first; disabled is a passthrough.
  */
 inline void test_world_orient_slice_selects_by_projection() {
-  Orientation<> oris[2];
-  oris[0].set(make_rotation(X_AXIS, PI_F / 2)); // index 0
-  oris[1].set(make_rotation(Z_AXIS, PI_F / 2)); // index 1
-  std::span<const Orientation<>> span(oris, 2);
-  Filter::World::OrientSlice slice(span, Y_AXIS);
+  math::Orientation<> oris[2];
+  oris[0].set(math::make_rotation(math::X_AXIS, math::PI_F / 2)); // index 0
+  oris[1].set(math::make_rotation(math::Z_AXIS, math::PI_F / 2)); // index 1
+  std::span<const math::Orientation<>> span(oris, 2);
+  Filter::World::OrientSlice slice(span, math::Y_AXIS);
 
-  auto first_tap = [&](const Vector &probe) {
-    Vector out{};
-    slice.plot(probe, Pixel(1, 1, 1), 0.0f, 1.0f,
-               [&](const Vector &v, const Pixel &, float, float) { out = v; });
+  auto first_tap = [&](const math::Vector &probe) {
+    math::Vector out{};
+    slice.plot(
+        probe, Pixel(1, 1, 1), 0.0f, 1.0f,
+        [&](const math::Vector &v, const Pixel &, float, float) { out = v; });
     return out;
   };
 
   // Probe near +Y (projection ~ +1 -> t ~ 1 -> last index 1 = Z rotation).
-  Vector near_pos = Vector(0.15f, 0.98f, 0.0f).normalized();
-  Vector exp_pos = rotate(near_pos, oris[1].get());
-  Vector got_pos = first_tap(near_pos);
+  math::Vector near_pos = math::Vector(0.15f, 0.98f, 0.0f).normalized();
+  math::Vector exp_pos = math::rotate(near_pos, oris[1].get());
+  math::Vector got_pos = first_tap(near_pos);
   HS_EXPECT_NEAR(got_pos.x, exp_pos.x, 1e-3f);
   HS_EXPECT_NEAR(got_pos.y, exp_pos.y, 1e-3f);
   HS_EXPECT_NEAR(got_pos.z, exp_pos.z, 1e-3f);
 
   // Probe near -Y (projection ~ -1 -> t ~ 0 -> first index 0 = X rotation).
-  Vector near_neg = Vector(0.15f, -0.98f, 0.0f).normalized();
-  Vector exp_neg = rotate(near_neg, oris[0].get());
-  Vector got_neg = first_tap(near_neg);
+  math::Vector near_neg = math::Vector(0.15f, -0.98f, 0.0f).normalized();
+  math::Vector exp_neg = math::rotate(near_neg, oris[0].get());
+  math::Vector got_neg = first_tap(near_neg);
   HS_EXPECT_NEAR(got_neg.x, exp_neg.x, 1e-3f);
   HS_EXPECT_NEAR(got_neg.y, exp_neg.y, 1e-3f);
 
   // Disabled -> verbatim passthrough (no rotation).
   slice.set_enabled(false);
-  Vector pass = first_tap(near_pos);
+  math::Vector pass = first_tap(near_pos);
   HS_EXPECT_NEAR(pass.x, near_pos.x, 1e-6f);
   HS_EXPECT_NEAR(pass.y, near_pos.y, 1e-6f);
   HS_EXPECT_NEAR(pass.z, near_pos.z, 1e-6f);
@@ -1172,55 +1179,58 @@ inline void test_world_orient_slice_selects_by_projection() {
  */
 inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   static_assert(Filter::has_cull_edge<Filter::World::OrientSlice>);
-  Orientation<> oris[2];
-  oris[0].set(make_rotation(X_AXIS, PI_F / 2)); // leaves +X where it is
-  oris[1].set(make_rotation(Z_AXIS, PI_F / 2));
-  std::span<const Orientation<>> span(oris, 2);
-  Filter::World::OrientSlice slice(span, Y_AXIS);
+  math::Orientation<> oris[2];
+  oris[0].set(math::make_rotation(math::X_AXIS,
+                                  math::PI_F / 2)); // leaves +X where it is
+  oris[1].set(math::make_rotation(math::Z_AXIS, math::PI_F / 2));
+  std::span<const math::Orientation<>> span(oris, 2);
+  Filter::World::OrientSlice slice(span, math::Y_AXIS);
 
-  Vector seen[2];
+  math::Vector seen[2];
   int n = 0;
-  bool hit =
-      slice.cull_edge(X_AXIS, X_AXIS, nullptr,
-                      [&](const Vector &a, const Vector &, const Basis *) {
-                        if (n < 2)
-                          seen[n] = a;
-                        ++n;
-                        return false;
-                      });
+  bool hit = slice.cull_edge(
+      math::X_AXIS, math::X_AXIS, nullptr,
+      [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
+        if (n < 2)
+          seen[n] = a;
+        ++n;
+        return false;
+      });
   HS_EXPECT_FALSE(hit);
   // One single-frame tween step per candidate slice.
   HS_EXPECT_EQ(n, 2);
   for (int i = 0; i < 2; ++i) {
-    Vector expected = rotate(X_AXIS, oris[i].get());
+    math::Vector expected = math::rotate(math::X_AXIS, oris[i].get());
     HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
   }
 
   n = 0;
-  hit = slice.cull_edge(X_AXIS, X_AXIS, nullptr,
-                        [&](const Vector &, const Vector &, const Basis *) {
-                          ++n;
-                          return true;
-                        });
+  hit = slice.cull_edge(
+      math::X_AXIS, math::X_AXIS, nullptr,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *) {
+        ++n;
+        return true;
+      });
   HS_EXPECT_TRUE(hit);
   HS_EXPECT_EQ(n, 1);
 
   // A planar edge rotates its basis alongside the endpoints, per candidate.
-  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
-  Vector normals[2];
+  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  math::Vector normals[2];
   n = 0;
-  slice.cull_edge(X_AXIS, X_AXIS, &pb,
-                  [&](const Vector &, const Vector &, const Basis *bp) {
-                    if (bp && n < 2)
-                      normals[n] = bp->v;
-                    ++n;
-                    return false;
-                  });
+  slice.cull_edge(
+      math::X_AXIS, math::X_AXIS, &pb,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
+        if (bp && n < 2)
+          normals[n] = bp->v;
+        ++n;
+        return false;
+      });
   HS_EXPECT_EQ(n, 2);
   for (int i = 0; i < 2; ++i) {
-    Vector expected = rotate(Y_AXIS, oris[i].get());
+    math::Vector expected = math::rotate(math::Y_AXIS, oris[i].get());
     HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);
@@ -1229,37 +1239,40 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
   // A probe near +Y selects the Z rotation, which swings it onto the |x| band:
   // the band predicate rejects the source endpoints, plot() lands the point
   // inside, and the cull must therefore keep the edge.
-  const Vector probe = Vector(0.15f, 0.98f, 0.0f).normalized();
-  auto in_x_band = [](const Vector &a, const Vector &b, const Basis *) {
+  const math::Vector probe = math::Vector(0.15f, 0.98f, 0.0f).normalized();
+  auto in_x_band = [](const math::Vector &a, const math::Vector &b,
+                      const math::Basis *) {
     return std::fabs(a.x) > 0.9f && std::fabs(b.x) > 0.9f;
   };
   HS_EXPECT_FALSE(in_x_band(probe, probe, nullptr));
-  Vector plotted{};
+  math::Vector plotted{};
   slice.plot(
       probe, Pixel(1, 1, 1), 0.0f, 1.0f,
-      [&](const Vector &v, const Pixel &, float, float) { plotted = v; });
+      [&](const math::Vector &v, const Pixel &, float, float) { plotted = v; });
   HS_EXPECT_GT(std::fabs(plotted.x), 0.9f);
   HS_EXPECT_TRUE(slice.cull_edge(probe, probe, nullptr, in_x_band));
 
   // Disabled -> the edge reaches the tail once, unrotated.
-  Vector passed{};
-  auto record_once = [&](const Vector &a, const Vector &, const Basis *) {
+  math::Vector passed{};
+  auto record_once = [&](const math::Vector &a, const math::Vector &,
+                         const math::Basis *) {
     passed = a;
     ++n;
     return false;
   };
   slice.set_enabled(false);
   n = 0;
-  slice.cull_edge(X_AXIS, X_AXIS, nullptr, record_once);
+  slice.cull_edge(math::X_AXIS, math::X_AXIS, nullptr, record_once);
   HS_EXPECT_EQ(n, 1);
   HS_EXPECT_NEAR(passed.x, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(passed.y, 0.0f, 1e-6f);
 
   // An empty candidate list is the same passthrough.
-  Filter::World::OrientSlice empty(std::span<const Orientation<>>{}, Y_AXIS);
+  Filter::World::OrientSlice empty(std::span<const math::Orientation<>>{},
+                                   math::Y_AXIS);
   n = 0;
-  passed = Vector();
-  empty.cull_edge(X_AXIS, X_AXIS, nullptr, record_once);
+  passed = math::Vector();
+  empty.cull_edge(math::X_AXIS, math::X_AXIS, nullptr, record_once);
   HS_EXPECT_EQ(n, 1);
   HS_EXPECT_NEAR(passed.x, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(passed.z, 0.0f, 1e-6f);
@@ -1273,13 +1286,14 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
  */
 inline void test_world_vertex_replicate_fanout_and_age() {
   constexpr int N = 3;
-  std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
+  std::array<math::Vector, N> verts = {math::X_AXIS, math::Y_AXIS,
+                                       math::Z_AXIS};
   Filter::World::VertexReplicate<N> vr(verts);
 
   Tap3D taps[N]{};
   int n = 0;
-  vr.plot(X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
-          [&](const Vector &v, const Pixel &c, float age, float a) {
+  vr.plot(math::X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
+          [&](const math::Vector &v, const Pixel &c, float age, float a) {
             if (n < N)
               taps[n] = {v, c, age, a};
             ++n;
@@ -1294,11 +1308,12 @@ inline void test_world_vertex_replicate_fanout_and_age() {
     HS_EXPECT_NEAR(taps[i].age, 7.0f, 1e-6f);
   }
 
-  std::array<Vector, N> updated = {X_AXIS, -Y_AXIS, -Z_AXIS};
+  std::array<math::Vector, N> updated = {math::X_AXIS, -math::Y_AXIS,
+                                         -math::Z_AXIS};
   vr.set_vertices(updated);
   n = 0;
-  vr.plot(X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
-          [&](const Vector &v, const Pixel &c, float age, float a) {
+  vr.plot(math::X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
+          [&](const math::Vector &v, const Pixel &c, float age, float a) {
             if (n < N)
               taps[n] = {v, c, age, a};
             ++n;
@@ -1319,18 +1334,20 @@ inline void test_world_vertex_replicate_fanout_and_age() {
 inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
   constexpr int N = 3;
   static_assert(Filter::has_cull_edge<Filter::World::VertexReplicate<N>>);
-  std::array<Vector, N> verts = {X_AXIS, Y_AXIS, Z_AXIS};
+  std::array<math::Vector, N> verts = {math::X_AXIS, math::Y_AXIS,
+                                       math::Z_AXIS};
   const Filter::World::VertexReplicate<N> vr(verts);
 
-  Vector seen[N];
+  math::Vector seen[N];
   int n = 0;
-  bool hit = vr.cull_edge(X_AXIS, X_AXIS, nullptr,
-                          [&](const Vector &a, const Vector &, const Basis *) {
-                            if (n < N)
-                              seen[n] = a;
-                            ++n;
-                            return false;
-                          });
+  bool hit = vr.cull_edge(
+      math::X_AXIS, math::X_AXIS, nullptr,
+      [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
+        if (n < N)
+          seen[n] = a;
+        ++n;
+        return false;
+      });
   HS_EXPECT_FALSE(hit);
   HS_EXPECT_EQ(n, N);
   for (int i = 0; i < N; ++i) {
@@ -1340,25 +1357,27 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
   }
 
   n = 0;
-  hit = vr.cull_edge(X_AXIS, X_AXIS, nullptr,
-                     [&](const Vector &, const Vector &, const Basis *) {
-                       ++n;
-                       return true;
-                     });
+  hit = vr.cull_edge(
+      math::X_AXIS, math::X_AXIS, nullptr,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *) {
+        ++n;
+        return true;
+      });
   HS_EXPECT_TRUE(hit);
   HS_EXPECT_EQ(n, 1);
 
   // A planar edge rotates its basis alongside the endpoints.
-  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
-  Vector normals[N];
+  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  math::Vector normals[N];
   n = 0;
-  vr.cull_edge(X_AXIS, X_AXIS, &pb,
-               [&](const Vector &, const Vector &, const Basis *bp) {
-                 if (bp && n < N)
-                   normals[n] = bp->u;
-                 ++n;
-                 return false;
-               });
+  vr.cull_edge(
+      math::X_AXIS, math::X_AXIS, &pb,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
+        if (bp && n < N)
+          normals[n] = bp->u;
+        ++n;
+        return false;
+      });
   HS_EXPECT_EQ(n, N);
   for (int i = 0; i < N; ++i) {
     HS_EXPECT_NEAR(normals[i].x, verts[i].x, 1e-4f);
@@ -1377,23 +1396,23 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
  */
 inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   constexpr int W = 32, H = 16;
-  const Quaternion q = make_rotation(X_AXIS, PI_F / 2);
-  Orientation<> ori(q); // one frame -> a single tween step
+  const math::Quaternion q = math::make_rotation(math::X_AXIS, math::PI_F / 2);
+  math::Orientation<> ori(q); // one frame -> a single tween step
   Pipeline<W, H, Filter::World::Orient, Filter::World::Replicate<W>> pipe(ori,
                                                                           2);
 
   // Head image, then the tail's second Y-axis copy of that image.
-  const Vector head_a = rotate(Y_AXIS, q);
-  const Vector head_b = rotate(Z_AXIS, q);
-  const Quaternion step = make_rotation(Y_AXIS, PI_F);
-  const Vector tail_a = rotate(head_a, step).normalized();
-  const Vector tail_b = rotate(head_b, step).normalized();
+  const math::Vector head_a = math::rotate(math::Y_AXIS, q);
+  const math::Vector head_b = math::rotate(math::Z_AXIS, q);
+  const math::Quaternion step = math::make_rotation(math::Y_AXIS, math::PI_F);
+  const math::Vector tail_a = math::rotate(head_a, step).normalized();
+  const math::Vector tail_b = math::rotate(head_b, step).normalized();
 
-  Vector seen_a[2], seen_b[2];
+  math::Vector seen_a[2], seen_b[2];
   int n = 0;
   bool hit = pipe.could_intersect_clip(
-      Y_AXIS, Z_AXIS, nullptr,
-      [&](const Vector &a, const Vector &b, const Basis *) {
+      math::Y_AXIS, math::Z_AXIS, nullptr,
+      [&](const math::Vector &a, const math::Vector &b, const math::Basis *) {
         if (n < 2) {
           seen_a[n] = a;
           seen_b[n] = b;
@@ -1420,19 +1439,20 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   // Only the composed transform reaches this target: neither the source
   // geometry nor the head-only image does, so a chain that stopped forwarding
   // after the head would cull an edge the renderer draws inside the band.
-  auto near_target = [&](const Vector &a, const Vector &, const Basis *) {
-    return distance_between(a, tail_a) < 1e-3f;
+  auto near_target = [&](const math::Vector &a, const math::Vector &,
+                         const math::Basis *) {
+    return math::distance_between(a, tail_a) < 1e-3f;
   };
-  HS_EXPECT_FALSE(near_target(Y_AXIS, Z_AXIS, nullptr));
+  HS_EXPECT_FALSE(near_target(math::Y_AXIS, math::Z_AXIS, nullptr));
   HS_EXPECT_FALSE(near_target(head_a, head_b, nullptr));
-  HS_EXPECT_TRUE(
-      pipe.could_intersect_clip(Y_AXIS, Z_AXIS, nullptr, near_target));
+  HS_EXPECT_TRUE(pipe.could_intersect_clip(math::Y_AXIS, math::Z_AXIS, nullptr,
+                                           near_target));
 
   // First hit short-circuits the whole chain.
   n = 0;
   hit = pipe.could_intersect_clip(
-      Y_AXIS, Z_AXIS, nullptr,
-      [&](const Vector &, const Vector &, const Basis *) {
+      math::Y_AXIS, math::Z_AXIS, nullptr,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *) {
         ++n;
         return true;
       });
@@ -1443,11 +1463,11 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   // rotated copy still reaches the sink.
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>> plain(
       ori);
-  Vector plain_a{};
+  math::Vector plain_a{};
   n = 0;
   plain.could_intersect_clip(
-      Y_AXIS, Z_AXIS, nullptr,
-      [&](const Vector &a, const Vector &, const Basis *) {
+      math::Y_AXIS, math::Z_AXIS, nullptr,
+      [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
         plain_a = a;
         ++n;
         return false;
@@ -1460,11 +1480,11 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   // The filter-free sink is the terminal: it runs the predicate on the edge it
   // was handed and answers with it.
   Pipeline<W, H> sink;
-  Vector sink_a{};
+  math::Vector sink_a{};
   n = 0;
   hit = sink.could_intersect_clip(
-      Y_AXIS, Z_AXIS, nullptr,
-      [&](const Vector &a, const Vector &, const Basis *) {
+      math::Y_AXIS, math::Z_AXIS, nullptr,
+      [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
         sink_a = a;
         ++n;
         return true;
@@ -1474,19 +1494,20 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
   HS_EXPECT_NEAR(sink_a.y, 1.0f, 1e-6f);
 
   // The planar basis rides the same chain.
-  const Basis pb{X_AXIS, Y_AXIS, Z_AXIS};
-  Vector tail_normal{};
+  const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  math::Vector tail_normal{};
   n = 0;
   pipe.could_intersect_clip(
-      Y_AXIS, Z_AXIS, &pb,
-      [&](const Vector &, const Vector &, const Basis *bp) {
+      math::Y_AXIS, math::Z_AXIS, &pb,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
         if (bp)
           tail_normal = bp->v;
         ++n;
         return false;
       });
   HS_EXPECT_EQ(n, 2);
-  const Vector expected_normal = rotate(rotate(Y_AXIS, q), step);
+  const math::Vector expected_normal =
+      math::rotate(math::rotate(math::Y_AXIS, q), step);
   HS_EXPECT_NEAR(tail_normal.x, expected_normal.x, 1e-4f);
   HS_EXPECT_NEAR(tail_normal.y, expected_normal.y, 1e-4f);
   HS_EXPECT_NEAR(tail_normal.z, expected_normal.z, 1e-4f);
@@ -1503,11 +1524,11 @@ inline void test_world_mobius_identity_and_transform() {
   math::MobiusParams identity; // a=1,b=0,c=0,d=1
   Filter::World::Mobius mob(identity);
 
-  const Vector v = Vector(0.4f, 0.3f, 0.86f).normalized();
-  Vector out{};
+  const math::Vector v = math::Vector(0.4f, 0.3f, 0.86f).normalized();
+  math::Vector out{};
   int n = 0;
   mob.plot(v, Pixel(1, 2, 3), 2.0f, 0.5f,
-           [&](const Vector &o, const Pixel &, float, float) {
+           [&](const math::Vector &o, const Pixel &, float, float) {
              out = o;
              ++n;
            });
@@ -1519,11 +1540,12 @@ inline void test_world_mobius_identity_and_transform() {
   // A translation map f(z) = z + 1 moves the point and keeps it on the sphere.
   math::MobiusParams shift(1, 0, 1, 0, 0, 0, 1, 0); // a=1, b=1, c=0, d=1
   Filter::World::Mobius mob2(shift);
-  Vector out2{};
-  mob2.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
-            [&](const Vector &o, const Pixel &, float, float) { out2 = o; });
+  math::Vector out2{};
+  mob2.plot(
+      v, Pixel(1, 1, 1), 0.0f, 1.0f,
+      [&](const math::Vector &o, const Pixel &, float, float) { out2 = o; });
   HS_EXPECT_NEAR(out2.length(), 1.0f, 1e-3f);
-  HS_EXPECT_GT(distance_between(out2, v), 0.05f);
+  HS_EXPECT_GT(math::distance_between(out2, v), 0.05f);
 
   // The map moves latitude non-rigidly and offers no cull_edge bound, so it
   // must force a full-canvas render through the pipeline fold.
@@ -1617,7 +1639,7 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
   constexpr int W = 32, H = 16;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
-  Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
+  math::Vector v = math::Vector(0.6f, 0.4f, 0.69f).normalized();
   {
     Canvas c(fx);
     pipe.plot(c, v, Pixel(40000, 20000, 10000), 0.0f, 1.0f);
@@ -1627,8 +1649,8 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
   // Exactly one pixel lit, carrying the source colour, at the coordinate
   // vector_to_pixel predicts.
   HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)1);
-  PixelCoords pc = vector_to_pixel<W, H>(v);
-  int ex = fast_wrap(static_cast<int>(std::round(pc.x)), W);
+  math::PixelCoords pc = math::vector_to_pixel<W, H>(v);
+  int ex = math::fast_wrap(static_cast<int>(std::round(pc.x)), W);
   int ey = static_cast<int>(std::round(pc.y));
   HS_EXPECT_PIXEL(fx.get_pixel(ex, ey), 40000, 20000, 10000);
 }
@@ -1643,7 +1665,7 @@ inline void test_pipeline_world_replicate_fans_out() {
   // longitude + W/2) -> two distinct columns -> two lit pixels.
   Pipeline<W, H, Filter::World::Replicate<W>> pipe(
       Filter::World::Replicate<W>(2));
-  Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
+  math::Vector v = math::Vector(0.6f, 0.4f, 0.69f).normalized();
   {
     hs_test::StubEffect fx(W, H);
     {
@@ -2198,10 +2220,10 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   // Oracle: the output row that samples source row R. by(y) = warped source row
   // for output row y, computed with the production helpers (x-independent, so use
   // column 0). Pick the y whose source row is closest to the band center.
-  const Vector NORTH(0.0f, 1.0f, 0.0f);
+  const math::Vector NORTH(0.0f, 1.0f, 0.0f);
   auto by = [&](int y) {
-    Vector v = pixel_to_vector<W, H>(0, y);
-    return phi_to_y<H>(Spherical(slerp(v, NORTH, drip)).phi);
+    math::Vector v = math::pixel_to_vector<W, H>(0, y);
+    return math::phi_to_y<H>(math::Spherical(math::slerp(v, NORTH, drip)).phi);
   };
   int oracle_y = R, best = H;
   for (int y = 0; y < H; ++y) {
@@ -2242,21 +2264,21 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   HS_EXPECT_LT(row_sum(R), peak / 4);
 }
 
-inline Vector north_cap_rotation_warp(const Vector &v,
-                                      const ::Feedback::Style &) {
+inline math::Vector north_cap_rotation_warp(const math::Vector &v,
+                                            const ::Feedback::Style &) {
   constexpr float ANGLE = 0.1f;
   const float c = std::cos(ANGLE);
   const float s = std::sin(ANGLE);
-  return Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+  return math::Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
 }
 
 inline float animated_cap_rotation_angle = 0.0f;
 
-inline Vector animated_cap_rotation_warp(const Vector &v,
-                                         const ::Feedback::Style &) {
+inline math::Vector animated_cap_rotation_warp(const math::Vector &v,
+                                               const ::Feedback::Style &) {
   const float c = std::cos(animated_cap_rotation_angle);
   const float s = std::sin(animated_cap_rotation_angle);
-  return Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+  return math::Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
 }
 
 struct FloatRowAccumulator {
@@ -2277,8 +2299,8 @@ expected_feedback_source_row(int y, int downsample,
   std::array<float, W> source{};
   std::array<float, W> reconstructed{};
   auto control_y = [&](int x) {
-    const auto point =
-        layout.project(style.space_fn(pixel_to_vector<W, H>(x, y), style));
+    const auto point = layout.project(
+        style.space_fn(math::pixel_to_vector<W, H>(x, y), style));
     const float offset = point.y - y;
     const int16_t quantized =
         static_cast<int16_t>(hs::clamp(offset * 128.0f, -32767.0f, 32767.0f));
@@ -2430,10 +2452,11 @@ inline void test_feedback_poles_resolve_one_source_longitude() {
   }
 }
 
-inline Vector metric_row_test_warp(const Vector &v, const ::Feedback::Style &) {
-  const Spherical s(v);
+inline math::Vector metric_row_test_warp(const math::Vector &v,
+                                         const ::Feedback::Style &) {
+  const math::Spherical s(v);
   const float delta = 0.08f * std::sin(s.phi) * std::sin(18.0f * s.phi);
-  return Vector(Spherical(s.theta, s.phi + delta));
+  return math::Vector(math::Spherical(s.theta, s.phi + delta));
 }
 
 /**
@@ -2471,9 +2494,9 @@ inline void test_feedback_spherical_ring_control_rows() {
                                                   DOWNSAMPLE, W / DOWNSAMPLE);
   for (int ring_index = 0; ring_index < layout.ring_count(); ++ring_index) {
     const int y = layout.ring(ring_index).y;
-    const Vector warped =
-        metric_row_test_warp(pixel_to_vector<W, H>(0, y), style);
-    const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+    const math::Vector warped =
+        metric_row_test_warp(math::pixel_to_vector<W, H>(0, y), style);
+    const float expected_y = math::phi_to_y<H>(math::Spherical(warped).phi);
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
   }
@@ -2506,20 +2529,21 @@ inline void test_feedback_spherical_field_angular_error() {
   // Log map of `measured` at `reference`, resolved on the equirect east/down
   // basis at (x, y): a great-circle error split into its azimuthal and
   // meridional parts.
-  auto tangent_error = [](const Vector &reference, const Vector &measured,
-                          int x, int y) {
-    const float theta = (2.0f * PI_F * x) / W;
-    const float phi = y_to_phi<H>(y);
-    const Vector east(-std::sin(theta), 0.0f, std::cos(theta));
-    const Vector down(std::cos(phi) * std::cos(theta), -std::sin(phi),
-                      std::cos(phi) * std::sin(theta));
-    const float c = hs::clamp(dot(reference, measured), -1.0f, 1.0f);
-    const Vector u = measured - reference * c;
-    const float len_sq = dot(u, u);
+  auto tangent_error = [](const math::Vector &reference,
+                          const math::Vector &measured, int x, int y) {
+    const float theta = (2.0f * math::PI_F * x) / W;
+    const float phi = math::y_to_phi<H>(y);
+    const math::Vector east(-std::sin(theta), 0.0f, std::cos(theta));
+    const math::Vector down(std::cos(phi) * std::cos(theta), -std::sin(phi),
+                            std::cos(phi) * std::sin(theta));
+    const float c = hs::clamp(math::dot(reference, measured), -1.0f, 1.0f);
+    const math::Vector u = measured - reference * c;
+    const float len_sq = math::dot(u, u);
     if (len_sq < math::EPS_NORMALIZE_SQ)
       return TangentError{0.0f, 0.0f};
-    const Vector delta = u * (fast_acos(c) * fast_rsqrt(len_sq));
-    return TangentError{dot(delta, east), dot(delta, down)};
+    const math::Vector delta =
+        u * (math::fast_acos(c) * math::fast_rsqrt(len_sq));
+    return TangentError{math::dot(delta, east), math::dot(delta, down)};
   };
   Animation::NoiseParams noise;
   ::Feedback::Style style{};
@@ -2542,16 +2566,17 @@ inline void test_feedback_spherical_field_angular_error() {
   for (int frame = 0; frame < 8; ++frame) {
     noise.time = 7.0f + frame * 3.25f;
     style.sync_noise();
-    field.populate(0, layout.ring_count() - 1,
-                   [&](const Vector &position, const auto &point) {
-                     const Spherical warped(style.space_fn(position, style));
-                     float dx = warped.theta * W / (2.0f * PI_F) - point.x;
-                     if (dx > W * 0.5f)
-                       dx -= W;
-                     else if (dx < -W * 0.5f)
-                       dx += W;
-                     return Offset{dx, phi_to_y<H>(warped.phi) - point.y};
-                   });
+    field.populate(
+        0, layout.ring_count() - 1,
+        [&](const math::Vector &position, const auto &point) {
+          const math::Spherical warped(style.space_fn(position, style));
+          float dx = warped.theta * W / (2.0f * math::PI_F) - point.x;
+          if (dx > W * 0.5f)
+            dx -= W;
+          else if (dx < -W * 0.5f)
+            dx += W;
+          return Offset{dx, math::phi_to_y<H>(warped.phi) - point.y};
+        });
 
     auto circular_lerp = [](const Offset &a, Offset b, float t) {
       if (b.x - a.x > W * 0.5f)
@@ -2587,26 +2612,26 @@ inline void test_feedback_spherical_field_angular_error() {
       float source_x = std::fmod(x + offset.x, static_cast<float>(W));
       if (source_x < 0.0f)
         source_x += W;
-      return pixel_to_vector<W, H>(source_x, y + offset.y);
+      return math::pixel_to_vector<W, H>(source_x, y + offset.y);
     };
 
     auto exact_offset = [&](int x, int y) {
-      const Spherical warped(
-          style.space_fn(pixel_to_vector<W, H>(x, y), style));
-      float dx = warped.theta * W / (2.0f * PI_F) - x;
+      const math::Spherical warped(
+          style.space_fn(math::pixel_to_vector<W, H>(x, y), style));
+      float dx = warped.theta * W / (2.0f * math::PI_F) - x;
       if (dx > W * 0.5f)
         dx -= W;
       else if (dx < -W * 0.5f)
         dx += W;
-      return Offset{dx, phi_to_y<H>(warped.phi) - y};
+      return Offset{dx, math::phi_to_y<H>(warped.phi) - y};
     };
     auto metric_approximate = [&](int x, int y) {
       int y0 = 0;
       int y1 = 0;
       while (y1 < y) {
         y0 = y1;
-        int step =
-            static_cast<int>(DOWNSAMPLE * std::sin(y_to_phi<H>(y1)) + 0.5f);
+        int step = static_cast<int>(
+            DOWNSAMPLE * std::sin(math::y_to_phi<H>(y1)) + 0.5f);
         step = hs::clamp(step, 1, DOWNSAMPLE);
         y1 = std::min(y1 + step, H - 1);
       }
@@ -2622,23 +2647,24 @@ inline void test_feedback_spherical_field_angular_error() {
       float source_x = std::fmod(x + offset.x, static_cast<float>(W));
       if (source_x < 0.0f)
         source_x += W;
-      return pixel_to_vector<W, H>(source_x, y + offset.y);
+      return math::pixel_to_vector<W, H>(source_x, y + offset.y);
     };
 
     for (int y = 5; y < 88; y += 2)
       for (int x = 3; x < W; x += 8) {
-        const Vector source = pixel_to_vector<W, H>(x, y);
-        const Vector exact = style.space_fn(source, style);
-        const Vector got = approximate(x, y);
+        const math::Vector source = math::pixel_to_vector<W, H>(x, y);
+        const math::Vector exact = style.space_fn(source, style);
+        const math::Vector got = approximate(x, y);
         const TangentError error = tangent_error(exact, got, x, y);
-        const double area_weight = std::sin(y_to_phi<H>(y));
+        const double area_weight = std::sin(math::y_to_phi<H>(y));
         east_sq += area_weight * error.east * error.east;
         down_sq += area_weight * error.down * error.down;
-        const float angular_error = angle_between(exact, got);
+        const float angular_error = math::angle_between(exact, got);
         if (y < 32) {
           polar_error += area_weight * angular_error;
           metric_polar_error +=
-              area_weight * angle_between(exact, metric_approximate(x, y));
+              area_weight *
+              math::angle_between(exact, metric_approximate(x, y));
           polar_weight += area_weight;
         } else if (y >= 56) {
           equator_error += area_weight * angular_error;
@@ -2660,12 +2686,13 @@ inline void test_feedback_spherical_field_angular_error() {
 
 /** @brief Displaces longitude alone, alternating a near-half-turn against a
  * small opposing step so adjacent controls straddle the seam correction. */
-inline Vector opposed_seam_warp(const Vector &v, const ::Feedback::Style &) {
-  const Spherical s(v);
+inline math::Vector opposed_seam_warp(const math::Vector &v,
+                                      const ::Feedback::Style &) {
+  const math::Spherical s(v);
   const int band =
-      static_cast<int>(std::floor(s.theta * (256.0f / (2.0f * PI_F))));
-  const float shift = (band & 1) ? (0.999f * PI_F) : (-0.1f * PI_F);
-  return Vector(Spherical(s.theta + shift, s.phi));
+      static_cast<int>(std::floor(s.theta * (256.0f / (2.0f * math::PI_F))));
+  const float shift = (band & 1) ? (0.999f * math::PI_F) : (-0.1f * math::PI_F);
+  return math::Vector(math::Spherical(s.theta + shift, s.phi));
 }
 
 /**
@@ -2871,10 +2898,11 @@ inline void test_feedback_warp_cache_matches_uncached() {
  *        columns land on opposite wrap branches while the true (unwrapped)
  *        field stays smooth.
  */
-inline Vector antipodal_ripple_warp(const Vector &v,
-                                    const ::Feedback::Style &) {
-  Spherical s(v);
-  return Vector(Spherical(s.theta + PI_F + 0.3f * std::sin(s.theta), s.phi));
+inline math::Vector antipodal_ripple_warp(const math::Vector &v,
+                                          const ::Feedback::Style &) {
+  math::Spherical s(v);
+  return math::Vector(
+      math::Spherical(s.theta + math::PI_F + 0.3f * std::sin(s.theta), s.phi));
 }
 
 /**
@@ -2893,7 +2921,7 @@ inline Vector antipodal_ripple_warp(const Vector &v,
  */
 inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   constexpr int W = 32, H = 16; // both divisible by the downsample (4)
-  constexpr float TWO_PI = 2.0f * PI_F;
+  constexpr float TWO_PI = 2.0f * math::PI_F;
   hs_test::StubEffect fx(W, H);
 
   ::Feedback::Style style{};
@@ -2937,7 +2965,7 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
       float s = p.g / 65535.0f * 2.0f - 1.0f;
       float decoded_x = std::atan2(s, c) / TWO_PI * W;
       float th = TWO_PI * x / W;
-      float expected_x = (th + PI_F + 0.3f * std::sin(th)) / TWO_PI * W;
+      float expected_x = (th + math::PI_F + 0.3f * std::sin(th)) / TWO_PI * W;
       float d = std::fmod(decoded_x - expected_x, static_cast<float>(W));
       if (d > W * 0.5f)
         d -= W;
@@ -2964,23 +2992,24 @@ inline void test_world_trails_int16_quantization_roundtrip() {
   Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
-  const Vector v0 = Vector(0.3f, -0.6f, 0.74f).normalized();
+  const math::Vector v0 = math::Vector(0.3f, -0.6f, 0.74f).normalized();
 
   // plot() passes the frame through and (age=0 -> ttl=10>0) stores it.
   int passthru = 0;
-  trails.plot(v0, Pixel(100, 100, 100), 0.0f, 1.0f,
-              [&](const Vector &, const Pixel &, float, float) { ++passthru; });
+  trails.plot(
+      v0, Pixel(100, 100, 100), 0.0f, 1.0f,
+      [&](const math::Vector &, const Pixel &, float, float) { ++passthru; });
   HS_EXPECT_EQ(passthru, 1);
   HS_EXPECT_EQ(trails.size(), (size_t)1);
 
   // flush() decodes the int16 entry and re-emits it, then ages (10->9, alive).
-  Vector decoded(0, 0, 0);
+  math::Vector decoded(0, 0, 0);
   int emitted = 0;
-  auto trail = [](const Vector &, float) {
+  auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
   trails.flush(WorldTrailFn(trail), 1.0f,
-               [&](const Vector &v, const Pixel &, float, float) {
+               [&](const math::Vector &v, const Pixel &, float, float) {
                  decoded = v;
                  ++emitted;
                });
@@ -3006,17 +3035,17 @@ inline void test_world_trails_clamps_out_of_range() {
 
   // x = 1.8 > 1: 1.8*32767 = 58980 would overflow int16 and wrap to ~-0.2 on
   // decode without the clamp. z = -1.5 likewise. Both must saturate to +/-1.
-  const Vector v = Vector(1.8f, 0.5f, -1.5f);
+  const math::Vector v = math::Vector(1.8f, 0.5f, -1.5f);
   trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
-              [](const Vector &, const Pixel &, float, float) {});
+              [](const math::Vector &, const Pixel &, float, float) {});
 
-  Vector decoded(0, 0, 0);
-  auto trail = [](const Vector &, float) {
+  math::Vector decoded(0, 0, 0);
+  auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
   trails.flush(
       WorldTrailFn(trail), 1.0f,
-      [&](const Vector &d, const Pixel &, float, float) { decoded = d; });
+      [&](const math::Vector &d, const Pixel &, float, float) { decoded = d; });
   HS_EXPECT_NEAR(decoded.x, 1.0f, 1e-3f);  // saturated, not wrapped negative
   HS_EXPECT_NEAR(decoded.y, 0.5f, 1e-3f);  // in range: untouched
   HS_EXPECT_NEAR(decoded.z, -1.0f, 1e-3f); // saturated
@@ -3037,21 +3066,22 @@ inline void test_world_trails_ring_evicts_oldest() {
   Filter::World::Trails<Cap> trails(/*lifetime=*/100);
   trails.init_storage(arena);
 
-  auto noop = [](const Vector &, const Pixel &, float, float) {};
-  Vector pushed[Cap + Overflow];
+  auto noop = [](const math::Vector &, const Pixel &, float, float) {};
+  math::Vector pushed[Cap + Overflow];
   for (int i = 0; i < Cap + Overflow; ++i) {
-    pushed[i] = Vector(static_cast<float>(i + 1), 1.0f, 0.5f).normalized();
+    pushed[i] =
+        math::Vector(static_cast<float>(i + 1), 1.0f, 0.5f).normalized();
     trails.plot(pushed[i], Pixel(1, 1, 1), 0.0f, 1.0f, noop);
   }
   HS_EXPECT_EQ(trails.size(), (size_t)Cap);
 
   // Survivors are the last Cap pushed, still in push order.
-  auto trail = [](const Vector &, float) {
+  auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
-  std::vector<Vector> decoded;
+  std::vector<math::Vector> decoded;
   trails.flush(WorldTrailFn(trail), 1.0f,
-               [&](const Vector &v, const Pixel &, float, float) {
+               [&](const math::Vector &v, const Pixel &, float, float) {
                  decoded.push_back(v);
                });
   HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
@@ -3073,26 +3103,26 @@ inline void test_world_trails_wraps_from_last_slot() {
   Filter::World::Trails<Cap> trails(/*lifetime=*/100);
   trails.init_storage(arena);
 
-  const Vector points[] = {
-      Vector(1, 0, 0),  Vector(0, 1, 0),  Vector(0, 0, 1),
-      Vector(-1, 0, 0), Vector(0, -1, 0),
+  const math::Vector points[] = {
+      math::Vector(1, 0, 0),  math::Vector(0, 1, 0),  math::Vector(0, 0, 1),
+      math::Vector(-1, 0, 0), math::Vector(0, -1, 0),
   };
-  auto noop = [](const Vector &, const Pixel &, float, float) {};
-  for (const Vector &point : points)
+  auto noop = [](const math::Vector &, const Pixel &, float, float) {};
+  for (const math::Vector &point : points)
     trails.plot(point, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
 
-  std::vector<Vector> decoded;
-  auto trail = [](const Vector &, float) {
+  std::vector<math::Vector> decoded;
+  auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
   trails.flush(WorldTrailFn(trail), 1.0f,
-               [&](const Vector &v, const Pixel &, float, float) {
+               [&](const math::Vector &v, const Pixel &, float, float) {
                  decoded.push_back(v);
                });
 
   HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
   for (int i = 0; i < Cap; ++i)
-    HS_EXPECT_GT(dot(decoded[i], points[i + 2]), 0.999f);
+    HS_EXPECT_GT(math::dot(decoded[i], points[i + 2]), 0.999f);
 }
 
 /**
@@ -3106,14 +3136,15 @@ inline void test_world_trails_ttl_expiry() {
   Filter::World::Trails<Cap> trails(/*lifetime=*/2);
   trails.init_storage(arena);
 
-  auto noop = [](const Vector &, const Pixel &, float, float) {};
-  trails.plot(Vector(0, 1, 0), Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl = 2
+  auto noop = [](const math::Vector &, const Pixel &, float, float) {};
+  trails.plot(math::Vector(0, 1, 0), Pixel(1, 1, 1), 0.0f, 1.0f,
+              noop); // ttl = 2
   HS_EXPECT_EQ(trails.size(), (size_t)1);
 
-  auto trail = [](const Vector &, float) {
+  auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
-  auto sink = [](const Vector &, const Pixel &, float, float) {};
+  auto sink = [](const math::Vector &, const Pixel &, float, float) {};
   trails.flush(WorldTrailFn(trail), 1.0f, sink); // ttl 2 -> 1, alive
   HS_EXPECT_EQ(trails.size(), (size_t)1);
   trails.flush(WorldTrailFn(trail), 1.0f, sink); // ttl 1 -> 0, popped
@@ -3136,20 +3167,21 @@ inline void test_world_trails_set_lifetime_shrink_clamps_t() {
   Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
 
-  const Vector v0 = Vector(0.3f, -0.6f, 0.74f).normalized();
-  trails.plot(v0, Pixel(100, 100, 100), 0.0f, 1.0f,
-              [](const Vector &, const Pixel &, float, float) {}); // ttl = 10
+  const math::Vector v0 = math::Vector(0.3f, -0.6f, 0.74f).normalized();
+  trails.plot(
+      v0, Pixel(100, 100, 100), 0.0f, 1.0f,
+      [](const math::Vector &, const Pixel &, float, float) {}); // ttl = 10
 
   // Shrink lifetime below the buffered ttl: t = 1 - ttl/lifetime would go < 0.
   trails.set_lifetime(2);
 
   float captured_t = -999.0f;
-  auto trail = [&](const Vector &, float t) {
+  auto trail = [&](const math::Vector &, float t) {
     captured_t = t;
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
   trails.flush(WorldTrailFn(trail), 1.0f,
-               [](const Vector &, const Pixel &, float, float) {});
+               [](const math::Vector &, const Pixel &, float, float) {});
 
   HS_EXPECT_GE(captured_t, 0.0f); // clamped, not the raw negative value
   HS_EXPECT_LE(captured_t, 1.0f);
@@ -3172,9 +3204,9 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
 
   // Orthogonal/antipodal unit vectors so int16-quantized decodes stay trivially
   // identifiable by dot product.
-  const Vector p0(1, 0, 0), p1(0, 1, 0), p2(0, 0, 1), p3(-1, 0, 0),
+  const math::Vector p0(1, 0, 0), p1(0, 1, 0), p2(0, 0, 1), p3(-1, 0, 0),
       p4(0, -1, 0);
-  auto noop = [](const Vector &, const Pixel &, float, float) {};
+  auto noop = [](const math::Vector &, const Pixel &, float, float) {};
 
   trails.plot(p0, Pixel(1, 1, 1), 0.0f, 1.0f,
               noop); // ttl 100 — oldest, long-lived
@@ -3188,9 +3220,9 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
 
   int live_drawn = 0;
   bool saw_p0 = false;
-  auto trail = [&](const Vector &v, float) {
+  auto trail = [&](const math::Vector &v, float) {
     ++live_drawn;
-    if (dot(v, p0) > 0.9f)
+    if (math::dot(v, p0) > 0.9f)
       saw_p0 = true;
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
@@ -3206,10 +3238,10 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   trails.plot(p4, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
 
   bool saw_p0_after = false, saw_p4_after = false;
-  auto trail2 = [&](const Vector &v, float) {
-    if (dot(v, p0) > 0.9f)
+  auto trail2 = [&](const math::Vector &v, float) {
+    if (math::dot(v, p0) > 0.9f)
       saw_p0_after = true;
-    if (dot(v, p4) > 0.9f)
+    if (math::dot(v, p4) > 0.9f)
       saw_p4_after = true;
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
@@ -3392,12 +3424,12 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
   hs_test::StubEffect fx(W, H);
   Canvas c(fx);
 
-  pipe.plot(c, Vector(0.3f, -0.6f, 0.74f).normalized(), Pixel(1, 2, 3), 0.0f,
-            1.0f);
+  pipe.plot(c, math::Vector(0.3f, -0.6f, 0.74f).normalized(), Pixel(1, 2, 3),
+            0.0f, 1.0f);
   HS_EXPECT_EQ(pipe.get<WorldTrails>().size(), (size_t)1);
 
   int world_emits = 0, screen_emits = 0;
-  auto world_trail = [&](const Vector &, float) {
+  auto world_trail = [&](const math::Vector &, float) {
     ++world_emits;
     return Color4(Pixel(9, 9, 9), 1.0f);
   };

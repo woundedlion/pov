@@ -53,7 +53,7 @@ inline uint8_t mr_scratch[256 * 1024];
  *          covered pixel becomes non-black and thus detectable.
  * @details The unnamed Vector parameter (surface position) is ignored.
  */
-inline void white(const Vector &, Fragment &f) {
+inline void white(const math::Vector &, Fragment &f) {
   f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
 }
 
@@ -124,10 +124,10 @@ inline void test_wireframe_draws_every_edge() {
   fx.advance_display();
 
   for (size_t e = 0; e < edges.size(); ++e) {
-    Vector a = mesh.vertices[edges[e].u];
-    Vector b = mesh.vertices[edges[e].v];
-    Vector mid = ((a + b) * 0.5f).normalized();
-    PixelCoords p = vector_to_pixel<W, H>(mid);
+    math::Vector a = mesh.vertices[edges[e].u];
+    math::Vector b = mesh.vertices[edges[e].v];
+    math::Vector mid = ((a + b) * 0.5f).normalized();
+    math::PixelCoords p = math::vector_to_pixel<W, H>(mid);
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 3)));
   }
 
@@ -170,15 +170,15 @@ inline void test_wireframe_pixels_lie_on_edges() {
 
   // Tolerance: a few rows of latitude to absorb single-pixel line width,
   // sampling granularity, and vector_to_pixel rounding.
-  const float tol = 4.0f * (PI_F / H);
+  const float tol = 4.0f * (math::PI_F / H);
   size_t lit = 0, off_arc = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
       if (is_black(fx.get_pixel(x, y)))
         continue;
       ++lit;
-      Vector v = pixel_to_vector<W, H>(x, y);
-      float best = PI_F;
+      math::Vector v = math::pixel_to_vector<W, H>(x, y);
+      float best = math::PI_F;
       for (size_t e = 0; e < edges.size(); ++e) {
         float d = arc_angular_distance(v, mesh.vertices[edges[e].u],
                                        mesh.vertices[edges[e].v]);
@@ -293,11 +293,11 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   const size_t num_f = mesh.get_face_counts_size();
   HS_EXPECT_EQ(num_f, (size_t)8); // octahedron has 8 triangular faces
   for (size_t f = 0; f < num_f; ++f) {
-    Vector centroid(0, 0, 0);
+    math::Vector centroid(0, 0, 0);
     for (int k = 0; k < fc[f]; ++k)
       centroid = centroid + mesh.vertices[fi[fo[f] + k]];
     centroid = centroid.normalized();
-    PixelCoords p = vector_to_pixel<W, H>(centroid);
+    math::PixelCoords p = math::vector_to_pixel<W, H>(centroid);
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
   }
 
@@ -316,13 +316,14 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
 inline void test_wide_face_preserves_near_horizon_interior() {
   constexpr int W = 288, H = 144;
   constexpr int X = 0, Y = H / 2;
-  TrigLUT<W, H>::init();
-  const Vector probe(TrigLUT<W, H>::sin_phi[Y], TrigLUT<W, H>::cos_phi[Y],
-                     0.0f);
-  const Vector axis = (probe * 0.008f + Vector(0, 0, 1)).normalized();
-  const Vector u = cross(axis, UP).normalized();
-  const Vector w = cross(axis, u).normalized();
-  Vector verts[4];
+  math::TrigLUT<W, H>::init();
+  const math::Vector probe(math::TrigLUT<W, H>::sin_phi[Y],
+                           math::TrigLUT<W, H>::cos_phi[Y], 0.0f);
+  const math::Vector axis =
+      (probe * 0.008f + math::Vector(0, 0, 1)).normalized();
+  const math::Vector u = math::cross(axis, math::UP).normalized();
+  const math::Vector w = math::cross(axis, u).normalized();
+  math::Vector verts[4];
   const uint16_t indices[4] = {0, 1, 2, 3};
   for (int i = 0; i < 4; ++i) {
     const float x = (i == 0 || i == 3) ? -200.0f : 200.0f;
@@ -334,15 +335,15 @@ inline void test_wide_face_preserves_near_horizon_interior() {
     Canvas canvas(fx);
     Pipeline<W, H> pipe;
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(std::span<const Vector>(verts, 4),
+    SDF::Face face(std::span<const math::Vector>(verts, 4),
                    std::span<const uint16_t>(indices, 4), scratch,
                    H + hs::H_OFFSET, H, &canvas.clip());
-    const float cosine = dot(probe, face.center);
+    const float cosine = math::dot(probe, face.center);
     HS_EXPECT_GT(cosine, 0.0f);
     HS_EXPECT_LT(cosine, 0.01f);
     HS_EXPECT_GT(face.radius, 100.0f);
-    HS_EXPECT_LT(fabsf(dot(probe, u) / cosine), 200.0f);
-    HS_EXPECT_LT(fabsf(dot(probe, w) / cosine), 200.0f);
+    HS_EXPECT_LT(fabsf(math::dot(probe, u) / cosine), 200.0f);
+    HS_EXPECT_LT(fabsf(math::dot(probe, w) / cosine), 200.0f);
     HS_EXPECT_LT(SDF::distance_of(face, probe).dist, 0.0f);
     Scan::rasterize_face<W, H>(pipe, canvas, face, white);
   }
@@ -377,7 +378,7 @@ inline void test_face_shader_setup_matches_face_index() {
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
     hs_test::StubEffect indexed(W, H);
-    auto shader = [&](const Vector &, Fragment &frag) {
+    auto shader = [&](const math::Vector &, Fragment &frag) {
       frag.color = colors[static_cast<size_t>(frag.v2)];
     };
     {
@@ -394,7 +395,7 @@ inline void test_face_shader_setup_matches_face_index() {
   hs_test::StubEffect selected(W, H);
   const Color4 *face_color = nullptr;
   auto select_face = [&](size_t face, float) { face_color = &colors[face]; };
-  auto shader = [&](const Vector &, Fragment &frag) {
+  auto shader = [&](const math::Vector &, Fragment &frag) {
     frag.color = *face_color;
   };
   {
@@ -446,15 +447,15 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
   }
   fx.advance_display();
 
-  const float tol = 4.0f * (PI_F / H);
+  const float tol = 4.0f * (math::PI_F / H);
   size_t lit = 0, off_arc = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
       if (is_black(fx.get_pixel(x, y)))
         continue;
       ++lit;
-      Vector v = pixel_to_vector<W, H>(x, y);
-      float best = PI_F;
+      math::Vector v = math::pixel_to_vector<W, H>(x, y);
+      float best = math::PI_F;
       for (size_t e = 0; e < edges.size(); ++e) {
         float d = arc_angular_distance(v, mesh.vertices[edges[e].u],
                                        mesh.vertices[edges[e].v]);
@@ -498,11 +499,11 @@ inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
   const size_t num_f = mesh.get_face_counts_size();
   for (size_t f = 0; f < num_f; ++f) {
     HS_CONTEXT("face", static_cast<long long>(f));
-    Vector centroid(0, 0, 0);
+    math::Vector centroid(0, 0, 0);
     for (int k = 0; k < fc[f]; ++k)
       centroid = centroid + mesh.vertices[fi[fo[f] + k]];
     centroid = centroid.normalized();
-    PixelCoords p = vector_to_pixel<W, H>(centroid);
+    math::PixelCoords p = math::vector_to_pixel<W, H>(centroid);
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
   }
 
@@ -672,7 +673,8 @@ inline void build_islamic_bake(size_t islamic_idx, Arena &seed_a, Arena &seed_b,
   PolyMesh poly = islamic[islamic_idx].generate(seed_a, seed_b);
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
   MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
-  MeshOps::build_mesh_class_bake(mesh, seed_a, geom, 2.0f * PI_F / W, bake);
+  MeshOps::build_mesh_class_bake(mesh, seed_a, geom, 2.0f * math::PI_F / W,
+                                 bake);
 }
 
 /**
@@ -689,7 +691,7 @@ inline void test_class_bake_borrowed_mode() {
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
   Arena geom(mr_geom, sizeof(mr_geom));
   constexpr int W = 288;
-  const float pixel_width = 2.0f * PI_F / W;
+  const float pixel_width = 2.0f * math::PI_F / W;
 
   const auto islamic = Solids::Collections::get_islamic_solids();
   HS_EXPECT_TRUE(!islamic.empty());
@@ -704,7 +706,8 @@ inline void test_class_bake_borrowed_mode() {
   MeshOps::build_mesh_class_bake(mesh, seed_a, geom, pixel_width, owned, 0);
 
   MeshState borrowed;
-  MeshOps::transform(mesh, borrowed, seed_b, [](const Vector &v) { return v; });
+  MeshOps::transform(mesh, borrowed, seed_b,
+                     [](const math::Vector &v) { return v; });
   HS_EXPECT_TRUE(!borrowed.topology.is_bound());
   HS_EXPECT_EQ(borrowed.get_topology_size(), mesh.get_topology_size());
 
@@ -816,7 +819,7 @@ inline void test_class_bake_registry_capacity() {
  *        interior-gradient deviations become channel deltas.
  * @param f Fragment whose color is overwritten from its v1 register.
  */
-inline void shade_by_distance(const Vector &, Fragment &f) {
+inline void shade_by_distance(const math::Vector &, Fragment &f) {
   float g = 30000.0f + 30000.0f * f.v1 / (0.15f + std::fabs(f.v1));
   uint16_t q = static_cast<uint16_t>(g);
   f.color = Color4(Pixel(q, q, q), 1.0f);
@@ -934,7 +937,7 @@ inline void test_class_lut_render_matches_exact_rippled() {
   // breaks a rigid canonical alignment. (Radial displacement would be a
   // false-pass: the gnomonic projection divides it out.)
   Animation::RippleParams rp;
-  rp.center = Vector(0.3f, 0.8f, -0.52f).normalized();
+  rp.center = math::Vector(0.3f, 0.8f, -0.52f).normalized();
   rp.amplitude = 0.15f;
   rp.thickness = 0.7f;
   rp.decay = 0.1f;
@@ -976,8 +979,9 @@ inline BakeAccounting bake_with_budget(size_t idx, float pixel_scale,
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
   MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
   MeshOps::MeshClassBake bake;
-  MeshOps::build_mesh_class_bake(
-      mesh, seed_a, geom, pixel_scale * (2.0f * PI_F / W), bake, budget_bytes);
+  MeshOps::build_mesh_class_bake(mesh, seed_a, geom,
+                                 pixel_scale * (2.0f * math::PI_F / W), bake,
+                                 budget_bytes);
   BakeAccounting a{};
   a.luts_built = bake.luts_built;
   a.degraded = bake.degraded_classes;
@@ -1167,7 +1171,8 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
-  std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
+  std::span<const math::Vector> verts(mesh.vertices.data(),
+                                      mesh.vertices.size());
 
   static SDF::FaceScratchBuffer face_scratch;
   std::vector<float> xy;

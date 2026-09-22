@@ -29,7 +29,7 @@ namespace Filter {
 using PassFn2D = FunctionRef<void(float, float, const ::Pixel &, float, float)>;
 /** @brief Callback that forwards a 3D plot (vector, pixel, age, alpha) downstream. */
 using PassFn3D =
-    FunctionRef<void(const Vector &, const ::Pixel &, float, float)>;
+    FunctionRef<void(const math::Vector &, const ::Pixel &, float, float)>;
 
 /**
  * @brief Rounds a sub-pixel column to its pixel center and wraps it into [0, W).
@@ -45,7 +45,7 @@ __attribute__((always_inline)) inline int round_wrap_column(float x) {
   const float xr = std::round(x);
   // fast_wrap corrects only a single +/-W offset, so xr must land in [-W, 2W).
   assert(xr >= -W && xr < 2 * W);
-  return fast_wrap(static_cast<int>(xr), W);
+  return math::fast_wrap(static_cast<int>(xr), W);
 }
 
 /**
@@ -176,7 +176,8 @@ concept PipelineFoldSurface = requires {
  * @brief Probe callable for the has_world_cull detection below.
  */
 struct PipelineCullEdgeProbe {
-  bool operator()(const Vector &, const Vector &, const Basis *) const {
+  bool operator()(const math::Vector &, const math::Vector &,
+                  const math::Basis *) const {
     return true;
   }
 };
@@ -184,7 +185,7 @@ struct PipelineCullEdgeProbe {
 /** @brief Whether a filter stage transforms edges before clip culling. */
 template <typename Stage>
 inline constexpr bool has_cull_edge =
-    requires(const Stage &stage, const Vector &v, const Basis *pb) {
+    requires(const Stage &stage, const math::Vector &v, const math::Basis *pb) {
       stage.cull_edge(v, v, pb, PipelineCullEdgeProbe{});
     };
 
@@ -265,14 +266,15 @@ public:
     pipeline().plot_prepared(cv, x, y, c, age, alpha);
   }
 
-  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
+  void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha) {
     pipeline().plot_prepared(cv, v, c, age, alpha);
   }
 
   template <typename Pred>
-  bool could_intersect_clip(const Vector &a, const Vector &b,
-                            const Basis *planar_basis, Pred &&pred) const {
+  bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
+                            const math::Basis *planar_basis,
+                            Pred &&pred) const {
     return pipeline().could_intersect_clip(a, b, planar_basis,
                                            std::forward<Pred>(pred));
   }
@@ -352,7 +354,7 @@ template <int W, int H> struct Pipeline<W, H> {
     assert(x >= -W && x < 2 * W);
     if (!cv.clip_contains_y(y))
       return;
-    int xi = fast_wrap(x, W);
+    int xi = math::fast_wrap(x, W);
     if (!cv.clip_contains_x(xi))
       return;
     plot_in_bounds(cv, xi, y, c, 0.0f, alpha);
@@ -402,9 +404,9 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param age Temporal age channel (frames).
    * @param alpha Blend alpha in [0, 1].
    */
-  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
+  void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha) {
-    auto p = vector_to_pixel<W, H>(v);
+    auto p = math::vector_to_pixel<W, H>(v);
     plot(cv, p.x, p.y, c, age, alpha);
   }
 
@@ -459,8 +461,9 @@ public:
    * @return pred(a, b, planar_basis).
    */
   template <typename Pred>
-  bool could_intersect_clip(const Vector &a, const Vector &b,
-                            const Basis *planar_basis, Pred &&pred) const {
+  bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
+                            const math::Basis *planar_basis,
+                            Pred &&pred) const {
     return pred(a, b, planar_basis);
   }
 };
@@ -632,7 +635,7 @@ struct Pipeline<W, H, Head, Tail...>
     plot_prepared(cv, x, y, c, age, alpha);
   }
 
-  void plot(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
+  void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha)
     requires(!terminal_replaces)
   {
@@ -660,7 +663,7 @@ private:
             next.plot_prepared(cv, nx, ny, nc, nage, nalpha);
           });
     } else {
-      Vector v = pixel_to_vector<W, H>(x, y);
+      math::Vector v = math::pixel_to_vector<W, H>(x, y);
       plot_prepared(cv, v, c, age, alpha);
     }
   }
@@ -693,16 +696,15 @@ private:
    * @details If Head is 3D it processes directly; otherwise the point is
    * projected to screen space and dispatched to the 2D path.
    */
-  void plot_prepared(Canvas &cv, const Vector &v, const ::Pixel &c, float age,
-                     float alpha) {
+  void plot_prepared(Canvas &cv, const math::Vector &v, const ::Pixel &c,
+                     float age, float alpha) {
     if constexpr (!Head::is_2d) {
       Head::plot(
           v, c, age, alpha,
-          [&](const Vector &nv, const ::Pixel &nc, float nage, float nalpha) {
-            next.plot_prepared(cv, nv, nc, nage, nalpha);
-          });
+          [&](const math::Vector &nv, const ::Pixel &nc, float nage,
+              float nalpha) { next.plot_prepared(cv, nv, nc, nage, nalpha); });
     } else {
-      auto p = vector_to_pixel<W, H>(v);
+      auto p = math::vector_to_pixel<W, H>(v);
       plot_prepared(cv, p.x, p.y, c, age, alpha);
     }
   }
@@ -718,9 +720,11 @@ public:
    *          Returns true once any transformed copy could intersect the band.
    */
   template <typename Pred>
-  bool could_intersect_clip(const Vector &a, const Vector &b,
-                            const Basis *planar_basis, Pred &&pred) const {
-    auto forward = [&](const Vector &fa, const Vector &fb, const Basis *fpb) {
+  bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
+                            const math::Basis *planar_basis,
+                            Pred &&pred) const {
+    auto forward = [&](const math::Vector &fa, const math::Vector &fb,
+                       const math::Basis *fpb) {
       return next.could_intersect_clip(fa, fb, fpb, pred);
     };
     if constexpr (Filter::has_cull_edge<Head>)
@@ -973,7 +977,7 @@ private:
     if constexpr (Head::has_history) {
       if constexpr (!Head::is_2d) {
         Head::flush(trailFn, alpha,
-                    [&](const Vector &nv, const ::Pixel &nc, float nage,
+                    [&](const math::Vector &nv, const ::Pixel &nc, float nage,
                         float nalpha) { next.plot(cv, nv, nc, nage, nalpha); });
       }
     }

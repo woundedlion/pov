@@ -128,9 +128,9 @@ private:
     static constexpr int RADIUS_GROW_FRAMES = 8;
     static constexpr float RADIUS_MAX = 0.3f; /**< Peak ring radius. */
 
-    int age = 0;               /**< Frames elapsed since (re)spawn. */
-    Orientation<> orientation; /**< Orientation snapshot at spawn time. */
-    Vector point;              /**< Thrust point on the unit sphere. */
+    int age = 0;                     /**< Frames elapsed since (re)spawn. */
+    math::Orientation<> orientation; /**< Orientation snapshot at spawn time. */
+    math::Vector point;              /**< Thrust point on the unit sphere. */
 
     /**
      * @brief Reinitializes this slot for a freshly spawned thruster.
@@ -140,7 +140,7 @@ private:
      *          memberwise copy. No member holds a reference into this slot, so a
      *          copy never has to be rebound.
      */
-    void reset(const Orientation<> &o, const Vector &p) {
+    void reset(const math::Orientation<> &o, const math::Vector &p) {
       orientation = o;
       point = p;
       age = 0;
@@ -200,28 +200,30 @@ private:
     const float amp = amplitude;
     const int frame = t_global;
 
-    warp_phase = hs::rand_f() * 2 * PI_F;
+    warp_phase = hs::rand_f() * 2 * math::PI_F;
 
     auto r_fn = [phase, amp, frame](float t) {
       return ring_fn(t, phase, amp, frame);
     };
-    Basis basis = make_basis(Quaternion(), ring_vec);
+    math::Basis basis = math::make_basis(math::Quaternion(), ring_vec);
     // Use params.radius (matching the visible ring) so the thrust pairs and the
     // derived spin axis track the ring under the Radius slider.
-    Vector thrust_point =
+    math::Vector thrust_point =
         Plot::DistortedRing::fn_point(r_fn, basis, params.radius, phase);
-    Vector thrust_opp =
-        Plot::DistortedRing::fn_point(r_fn, basis, params.radius, phase + PI_F);
+    math::Vector thrust_opp = Plot::DistortedRing::fn_point(
+        r_fn, basis, params.radius, phase + math::PI_F);
 
     warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_linear);
 
     // The warp can carry thrust_point onto ring_vec, vanishing their cross
     // product; the spin axis is arbitrary when parallel, so fall back.
-    Vector thrust_axis = normalized_or(
-        cross(orientation.orient(thrust_point), orientation.orient(ring_vec)),
-        Y_AXIS);
-    timeline.add(0, Animation::Rotation<W>(orientation, thrust_axis, 2 * PI_F,
-                                           8 * 16, ease_out_expo));
+    math::Vector thrust_axis =
+        math::normalized_or(math::cross(orientation.orient(thrust_point),
+                                        orientation.orient(ring_vec)),
+                            math::Y_AXIS);
+    timeline.add(0,
+                 Animation::Rotation<W>(orientation, thrust_axis,
+                                        2 * math::PI_F, 8 * 16, ease_out_expo));
 
     // spawn
     spawn_thruster(thrust_point);
@@ -232,7 +234,7 @@ private:
    * @brief Pushes a fresh thruster at `point`, evicting the oldest if full.
    * @param point Thrust point on the unit sphere where the ring spawns.
    */
-  HS_COLD_MEMBER void spawn_thruster(const Vector &point) {
+  HS_COLD_MEMBER void spawn_thruster(const math::Vector &point) {
     if (thrusters.is_full())
       thrusters.pop_front();
     thrusters.push_back(ThrusterContext());
@@ -254,7 +256,7 @@ private:
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
     // phase is radians; sin_wave's phase is cycles.
-    return sin_wave(-1, 1, 2, phase / (2 * PI_F))(t) *
+    return sin_wave(-1, 1, 2, phase / (2 * math::PI_F))(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) * amp;
   }
 
@@ -272,8 +274,8 @@ private:
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
     HS_PROFILE(th_thruster_draw);
-    Basis basis = make_basis(ctx.orientation.get(), ctx.point);
-    auto fragment_shader = [this, opacity](const Vector &, Fragment &f) {
+    math::Basis basis = math::make_basis(ctx.orientation.get(), ctx.point);
+    auto fragment_shader = [this, opacity](const math::Vector &, Fragment &f) {
       f.color = Color4(CRGB(255, 255, 255));
       // Opacity drives both color and alpha (a quadratic edge falloff) for the
       // alpha-blended thruster fade.
@@ -294,9 +296,9 @@ private:
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
     HS_PROFILE(th_ring_draw);
-    Basis basis = make_basis(orientation.get(), ring_vec);
+    math::Basis basis = math::make_basis(orientation.get(), ring_vec);
 
-    auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
+    auto fragment_shader = [this, opacity](const math::Vector &v, Fragment &f) {
       // v is the world-space fragment direction and is unit (the rasterizer
       // renormalizes every shaded position), so dot(world X, v) is just v.x;
       // the LUT is baked in that cos domain (dot_keyed).
@@ -324,8 +326,8 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
       filters; /**< Anti-aliasing render pipeline. */
 
-  Vector ring_vec;  /**< Unit normal of the main ring's plane. */
-  float amplitude;  /**< Current warp amplitude driven by warp_anim. */
+  math::Vector ring_vec; /**< Unit normal of the main ring's plane. */
+  float amplitude;       /**< Current warp amplitude driven by warp_anim. */
   float warp_phase; /**< Spatial warp phase in radians, randomized per fire. */
   int t_global; /**< Frame counter, wrapped to [0, 32) — ring_fn's modulation period; never overflows. */
   Animation::Mutation
@@ -336,7 +338,7 @@ private:
    * @details Declared before `timeline` so it outlives the Rotations that point
    * here, which ~Timeline clears on teardown.
    */
-  Orientation<> orientation;
+  math::Orientation<> orientation;
   Timeline timeline; /**< Animation timeline for sprite/timer/spin. */
 
   /**

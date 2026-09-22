@@ -138,7 +138,7 @@ public:
     // deferred hole shader reads, and the gate arrays in scratch_a, all live
     // across rasterize. A live tip is appended past the stored history.
     static constexpr size_t TRAIL_POINTS = TRAIL_LEN + 1;
-    static_assert(TRAIL_POINTS * (sizeof(Fragment) + sizeof(Vector)) +
+    static_assert(TRAIL_POINTS * (sizeof(Fragment) + sizeof(math::Vector)) +
                           Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_POINTS) <=
                       SCRATCH_BYTES,
                   "MindSplatter trail staging exceeds its scratch_a split; "
@@ -160,8 +160,8 @@ public:
     register_readonly_param("Particles", &params.active_count, 0.0f,
                             (float)NUM_PARTICLES);
 
-    timeline.add(0,
-                 Animation::RandomWalk<W, 4, true>(orientation, Y_AXIS, noise));
+    timeline.add(
+        0, Animation::RandomWalk<W, 4, true>(orientation, math::Y_AXIS, noise));
 
     // First dwell spans a full cadence period, so the opening preset holds as
     // long as every later one (dwell + blend).
@@ -264,7 +264,7 @@ private:
 
   template <size_t N>
   static consteval bool
-  event_horizons_do_not_overlap(const std::array<Vector, N> &vertices) {
+  event_horizons_do_not_overlap(const std::array<math::Vector, N> &vertices) {
     constexpr float MIN_CHORD_SQUARED = 4.0f * EVENT_HORIZON * EVENT_HORIZON;
     for (size_t i = 0; i < N; ++i) {
       for (size_t j = i + 1; j < N; ++j) {
@@ -286,12 +286,13 @@ private:
       "MindSplatter event-horizon caps must not overlap");
 
   static consteval bool attractors_are_signed_axes() {
-    constexpr std::array<Vector, 6> AXES = {X_AXIS,  -X_AXIS, Y_AXIS,
-                                            -Y_AXIS, Z_AXIS,  -Z_AXIS};
+    constexpr std::array<math::Vector, 6> AXES = {math::X_AXIS, -math::X_AXIS,
+                                                  math::Y_AXIS, -math::Y_AXIS,
+                                                  math::Z_AXIS, -math::Z_AXIS};
     if (Solids::Octahedron::vertices.size() != AXES.size())
       return false;
     for (size_t i = 0; i < AXES.size(); ++i) {
-      const Vector &v = Solids::Octahedron::vertices[i];
+      const math::Vector &v = Solids::Octahedron::vertices[i];
       if (v.x != AXES[i].x || v.y != AXES[i].y || v.z != AXES[i].z)
         return false;
     }
@@ -303,7 +304,7 @@ private:
                 "MindSplatter attractors must be the six signed axes in "
                 "+X,-X,+Y,-Y,+Z,-Z order");
 
-  static inline float octahedral_hole_alpha(const Vector &p,
+  static inline float octahedral_hole_alpha(const math::Vector &p,
                                             float cos_event_horizon) {
     const float m =
         std::max(std::abs(p.x), std::max(std::abs(p.y), std::abs(p.z)));
@@ -311,18 +312,20 @@ private:
       HS_MSP_COUNT(hole_early_outs);
       return 1.0f;
     }
-    const float d = fast_acos(hs::clamp(m, -1.0f, 1.0f));
-    return quintic_kernel(d / EVENT_HORIZON);
+    const float d = math::fast_acos(hs::clamp(m, -1.0f, 1.0f));
+    return math::quintic_kernel(d / EVENT_HORIZON);
   }
 
-  float attractor_hole_alpha(const Vector &p, float cos_event_horizon) const {
+  float attractor_hole_alpha(const math::Vector &p,
+                             float cos_event_horizon) const {
     float alpha = 1.0f;
     for (const auto &attractor : particle_system.attractors) {
-      const float cos_distance = dot(p, attractor.position);
+      const float cos_distance = math::dot(p, attractor.position);
       if (cos_distance < cos_event_horizon)
         continue;
-      const float distance = fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
-      alpha *= quintic_kernel(distance / EVENT_HORIZON);
+      const float distance =
+          math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
+      alpha *= math::quintic_kernel(distance / EVENT_HORIZON);
       if (alpha != 1.0f)
         return alpha;
     }
@@ -330,15 +333,16 @@ private:
   }
 
 #if HS_ENABLE_TEST_ORACLES
-  float reference_attractor_hole_alpha(const Vector &p,
+  float reference_attractor_hole_alpha(const math::Vector &p,
                                        float cos_event_horizon) const {
     float alpha = 1.0f;
     for (const auto &attractor : particle_system.attractors) {
-      const float cos_distance = dot(p, attractor.position);
+      const float cos_distance = math::dot(p, attractor.position);
       if (cos_distance < cos_event_horizon)
         continue;
-      const float distance = fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
-      alpha *= quintic_kernel(distance / EVENT_HORIZON);
+      const float distance =
+          math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
+      alpha *= math::quintic_kernel(distance / EVENT_HORIZON);
     }
     return alpha;
   }
@@ -416,7 +420,7 @@ private:
                 "range exposes the presets, it does not clamp them)");
 
   // orientation/noise/mobius are borrowed by timeline-resident animations.
-  Orientation<> orientation;
+  math::Orientation<> orientation;
   FastNoiseLite noise;
   math::MobiusParams mobius; /**< Current Mobius warp parameters. */
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
@@ -435,8 +439,8 @@ private:
    *          to also capture a 36-byte Basis, so it indexes this array by the
    *          captured i.
    */
-  std::array<Basis, MAX_EMITTERS> emitter_basis;
-  std::array<Vector, MAX_EMITTERS> emitter_positions;
+  std::array<math::Basis, MAX_EMITTERS> emitter_basis;
+  std::array<math::Vector, MAX_EMITTERS> emitter_positions;
   BaseMesh active_base_mesh = BaseMesh::CUBE;
 
 #if HS_ENABLE_TEST_ORACLES
@@ -454,7 +458,7 @@ private:
     return lut_sample_pixel(colors, MINDSPLATTER_PALETTE_LUT_SIZE, index);
   }
 
-  static std::span<const Vector> emitter_vertices(BaseMesh base_mesh) {
+  static std::span<const math::Vector> emitter_vertices(BaseMesh base_mesh) {
     switch (base_mesh) {
     case BaseMesh::TETRAHEDRON:
       return Solids::Tetrahedron::vertices;
@@ -472,7 +476,7 @@ private:
     }
   }
 
-  static std::span<const Vector> attractor_vertices(BaseMesh base_mesh) {
+  static std::span<const math::Vector> attractor_vertices(BaseMesh base_mesh) {
     switch (base_mesh) {
     case BaseMesh::TETRAHEDRON:
       return Solids::Tetrahedron::vertices;
@@ -491,31 +495,34 @@ private:
   }
 
   HS_FLASH_MEMBER void configure_particle_geometry(BaseMesh base_mesh) {
-    const std::span<const Vector> emitters = emitter_vertices(base_mesh);
-    const std::span<const Vector> attractors = attractor_vertices(base_mesh);
+    const std::span<const math::Vector> emitters = emitter_vertices(base_mesh);
+    const std::span<const math::Vector> attractors =
+        attractor_vertices(base_mesh);
 
     particle_system.emitters.clear();
     particle_system.attractors.clear();
     particle_system.set_signed_axis_attractors(base_mesh == BaseMesh::CUBE);
     emit_phases.fill(0.0f);
 
-    for (const Vector &v : attractors) {
-      const Vector position = base_mesh == BaseMesh::TETRAHEDRON ? -v : v;
+    for (const math::Vector &v : attractors) {
+      const math::Vector position = base_mesh == BaseMesh::TETRAHEDRON ? -v : v;
       particle_system.add_attractor(position, params.well_strength,
                                     ATTRACTOR_KILL_RADIUS, EVENT_HORIZON);
     }
 
     for (size_t i = 0; i < emitters.size(); ++i) {
       emitter_positions[i] = emitters[i];
-      emitter_basis[i] = make_basis(Quaternion(), emitter_positions[i]);
+      emitter_basis[i] =
+          math::make_basis(math::Quaternion(), emitter_positions[i]);
       particle_system.add_emitter([this, i](ParticleSystem &) {
         float angle = emit_phases[i];
         emit_phases[i] =
-            fmodf(emit_phases[i] + params.angular_speed, 2.0f * PI_F);
+            fmodf(emit_phases[i] + params.angular_speed, 2.0f * math::PI_F);
 
-        const Basis &basis = emitter_basis[i];
-        Vector vel = (basis.u * fast_cosf(angle) + basis.w * fast_sinf(angle)) *
-                     params.initial_speed;
+        const math::Basis &basis = emitter_basis[i];
+        math::Vector vel = (basis.u * math::fast_cosf(angle) +
+                            basis.w * math::fast_sinf(angle)) *
+                           params.initial_speed;
 
         const uint16_t color_seed = static_cast<uint16_t>(palette_sequence++)
                                     << 8;
@@ -559,8 +566,8 @@ private:
     if constexpr (requires { sink.prepare(canvas); })
       sink.prepare(canvas);
 
-    const float cos_event_horizon = fast_cosf(EVENT_HORIZON);
-    const RotationMatrix rotation(orientation.get());
+    const float cos_event_horizon = math::fast_cosf(EVENT_HORIZON);
+    const math::RotationMatrix rotation(orientation.get());
     const Pixel *trail_palette = nullptr;
 
     // Position pass: Mobius warp + orientation (decides cullability).
@@ -576,7 +583,8 @@ private:
     };
 
     // Signed-axis event-horizon falloff from the pre-warp position.
-    auto hole_shader = [&](FragmentRegisters f, const Vector &original_pos) {
+    auto hole_shader = [&](FragmentRegisters f,
+                           const math::Vector &original_pos) {
 #if HS_ENABLE_TEST_ORACLES
       if (reference_hole_kernel) {
         f.v3 *= reference_attractor_hole_alpha(original_pos, cos_event_horizon);
@@ -589,7 +597,7 @@ private:
         f.v3 *= attractor_hole_alpha(original_pos, cos_event_horizon);
     };
 
-    auto fragment_shader = [&](const Vector &, Fragment &f) {
+    auto fragment_shader = [&](const math::Vector &, Fragment &f) {
       const float alpha = std::max(0.0f, std::min(f.v0, f.v3));
       const float palette_t = 1.0f - f.v0;
       if (f.v0 <= 0.0f || f.v0 >= 1.0f)

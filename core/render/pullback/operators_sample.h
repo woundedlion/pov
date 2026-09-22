@@ -58,10 +58,10 @@ struct SampleGrid : SourceClockModel {
   using Params = GridSampleParams;
 
   static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
-    state.secondary =
-        fmodf(state.secondary + params.speed * params.secondary_rate, TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
+    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
+    state.secondary = fmodf(
+        state.secondary + params.speed * params.secondary_rate, math::TWO_PI_F);
+    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -93,10 +93,10 @@ struct SampleTwinWave : SourceClockModel {
   using Params = TwinWaveSampleParams;
 
   static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
-    state.secondary =
-        fmodf(state.secondary + params.speed * params.secondary_rate, TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
+    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
+    state.secondary = fmodf(
+        state.secondary + params.speed * params.secondary_rate, math::TWO_PI_F);
+    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -141,7 +141,7 @@ struct SampleRings : SourceClockModel {
   using Params = RingsSampleParams;
 
   static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
+    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -175,13 +175,14 @@ struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {
   }
   static void advance(State &state, const Params &params) {
     advance_walk(state.walk, params.wander, params.spin_rate);
-    state.phase = fmodf(state.phase + params.speed, TWO_PI_F);
+    state.phase = fmodf(state.phase + params.speed, math::TWO_PI_F);
   }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {
-    const Quaternion orientation =
-        make_rotation(X_AXIS, state.walk.spin_phase) * state.walk.wander;
-    return {rotate(Y_AXIS, orientation), state.phase};
+    const math::Quaternion orientation =
+        math::make_rotation(math::X_AXIS, state.walk.spin_phase) *
+        state.walk.wander;
+    return {math::rotate(math::Y_AXIS, orientation), state.phase};
   }
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
@@ -213,8 +214,8 @@ struct SampleSpiral : SourceClockModel {
   using Params = SpiralSampleParams;
 
   static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
+    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
+    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -278,8 +279,8 @@ struct SampleFractal : SourceClockModel {
   using Params = FractalSampleParams;
 
   static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
+    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
+    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -322,7 +323,7 @@ struct SampleTessellation : SourceClockModel {
   using Params = TessellationSampleParams;
 
   static void advance(State &state, const Params &params) {
-    state.angle = fmodf(state.angle + params.angle_rate, TWO_PI_F);
+    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
@@ -371,7 +372,7 @@ using SphericalNoiseSampleParams = Source::NoiseSourceParams;
     frame's loop offset. */
 struct PreparedNoiseSource {
   const FastNoiseLite *noise;
-  Vector loop_offset;
+  math::Vector loop_offset;
 };
 
 /** @brief PLANE→FIELD crossing: the projected-plane noise contour source. */
@@ -385,7 +386,7 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.noise_time_rate);
+    state.phase = math::wrap_t(state.phase + params.noise_time_rate);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -415,7 +416,7 @@ struct SampleSphericalNoise : ValueStateModel<NoisePhaseState> {
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.noise_time_rate);
+    state.phase = math::wrap_t(state.phase + params.noise_time_rate);
   }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {

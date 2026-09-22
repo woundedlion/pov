@@ -279,7 +279,7 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
   HS_EXPECT_EQ(keys.key_count, 2);
   HS_EXPECT_NEAR(key0.L, 0.2f, 3e-4f);
   HS_EXPECT_NEAR(key1.L, 0.8f, 3e-4f);
-  HS_EXPECT_NEAR(key1.h - key0.h, PI_F, 1e-5f);
+  HS_EXPECT_NEAR(key1.h - key0.h, math::PI_F, 1e-5f);
 
   recipe.lightness.curve = AxisCurve::BELL;
   const GenerativePalette bell(recipe);
@@ -291,7 +291,7 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
   const auto clockwise = GenerativePalette(recipe).snapshot();
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(clockwise, 1).h -
                      GenerativePalette::snapshot_key(clockwise, 0).h,
-                 -PI_F, 1e-5f);
+                 -math::PI_F, 1e-5f);
 
   recipe.hue.direction = HueDirection::COUNTERCLOCKWISE;
   recipe.hue.harmony = PaletteHarmony::TETRADIC;
@@ -299,17 +299,17 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
   const auto tetradic = GenerativePalette(recipe).snapshot();
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(tetradic, 1).h -
                      GenerativePalette::snapshot_key(tetradic, 0).h,
-                 PI_F / 3.0f, 1e-5f);
+                 math::PI_F / 3.0f, 1e-5f);
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(tetradic, 2).h -
                      GenerativePalette::snapshot_key(tetradic, 0).h,
-                 PI_F, 1e-5f);
+                 math::PI_F, 1e-5f);
 
   recipe.hue.harmony = PaletteHarmony::SQUARE;
   const auto square = GenerativePalette(recipe).snapshot();
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_NEAR(GenerativePalette::snapshot_key(square, i).h -
                        GenerativePalette::snapshot_key(square, i - 1).h,
-                   0.5f * PI_F, 1e-5f);
+                   0.5f * math::PI_F, 1e-5f);
 }
 
 /**
@@ -631,7 +631,7 @@ inline void test_mobius_longitude_singularity_saturates_to_endpoint() {
   HS_EXPECT_TRUE(std::isinf(R));
 
   const float t = (std::log(R) + 2.5f) / 5.0f;
-  const float wrapped = wrap(t, 1.0f);
+  const float wrapped = math::wrap(t, 1.0f);
   HS_EXPECT_TRUE(std::isnan(wrapped));
 
   const GenerativePalette palette(
@@ -995,7 +995,7 @@ inline void test_shader_ball_palette_rotations_morph_compatible() {
   GenerativePalette flyby_prev(
       EffectPaletteRecipes::shader_ball_flyby_at(0.0f));
   for (int i = 0; i < 24; ++i) {
-    rotation = wrap_t(rotation + GOLDEN_STEP);
+    rotation = math::wrap_t(rotation + GOLDEN_STEP);
     GenerativePalette liquid(
         EffectPaletteRecipes::shader_ball_liquid_at(rotation));
     GenerativePalette flyby(

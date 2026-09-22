@@ -45,7 +45,7 @@ public:
 
   // Cold section: the out-of-line pipeline body compiles for size.
   static HS_FLASH_MEMBER Color4
-  shade(const Vector &view,
+  shade(const math::Vector &view,
         const typename KaleidoscopeStainedGlass::Frame &frame) {
     return KaleidoscopeStainedGlass::RenderPipeline::shade(view, frame);
   }

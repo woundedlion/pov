@@ -93,7 +93,7 @@ public:
     // generation mirrors) and the raster phase (the oriented lattice); the two
     // run under disjoint scopes.
     constexpr size_t PHYSICS_SCRATCH_BYTES = 3u * RD_N * sizeof(float);
-    constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(Vector);
+    constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(math::Vector);
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
@@ -308,12 +308,12 @@ private:
    * most of the codegen win.
    */
   template <typename Grid>
-  HS_O3_FN Pixel shade_pixel(int seed, const Vector &center_rv,
-                             const Vector *world_nodes, const Grid &grid, int x,
-                             const FloatRgb &ca, const FloatRgb &cb,
+  HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
+                             const math::Vector *world_nodes, const Grid &grid,
+                             int x, const FloatRgb &ca, const FloatRgb &cb,
                              const FloatRgb &cc) const {
     int center = refine_render_center(center_rv, world_nodes, seed);
-    Vector spos[RD_K + 1];
+    math::Vector spos[RD_K + 1];
     uint16_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
     gather_stencil(world_nodes, center, spos, [&](int slot, int ni) {
       sa[slot] = state.A[ni];
@@ -324,7 +324,7 @@ private:
     constexpr float INV_SAMPLES = 1.0f / Grid::SAMPLES;
     float mix_a = 0, mix_b = 0, mix_c = 0;
     for (int i = 0; i < Grid::SAMPLES; ++i) {
-      Vector v = grid.at(x, i);
+      math::Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
       accumulate_stencil(v, spos, [&](int j, float w) {
         wa += sa[j] * w;
@@ -383,7 +383,7 @@ private:
       HS_PROFILE(bz_orient);
       return orient_lattice();
     }();
-    Vector *world_nodes = lattice.get();
+    math::Vector *world_nodes = lattice.get();
 
     const FloatRgb &ca = color_a;
     const FloatRgb &cb = color_b;

@@ -45,7 +45,7 @@ struct DistortedRing {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw_flat(PipelineRef pipeline, Canvas &canvas,
-                        const Basis &basis, float radius, float thickness,
+                        const math::Basis &basis, float radius, float thickness,
                         FragmentShaderFn fragment_shader, float phase = 0,
                         bool debug_bb = false,
                         bool suppress_pole_fill = false) {
@@ -73,10 +73,11 @@ struct DistortedRing {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, float thickness, ScalarFn shift_fn,
-                   float amplitude, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false) {
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, float thickness,
+                   ScalarFn shift_fn, float amplitude,
+                   FragmentShaderFn fragment_shader, float phase = 0,
+                   bool debug_bb = false) {
     SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude,
                              phase);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
@@ -104,8 +105,9 @@ struct DistortedRing {
    *        full-row filling it (dense ring stacks; see get_horizontal_intervals).
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, float thickness, const float *knots, int lut_n,
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, float thickness,
+                   const float *knots, int lut_n,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false, bool suppress_pole_fill = false) {
     SDF::KnotPrefilter prefilter;
@@ -147,7 +149,7 @@ struct DistortedRingStack {
                                         const SDF::DistortedRing *shapes,
                                         const int8_t *slot_by_ring,
                                         int n_slots) {
-    const float delta = PI_F / (n_rings + 1);
+    const float delta = math::PI_F / (n_rings + 1);
     for (int i = 0; i < n_rings; ++i) {
       const int s = slot_by_ring[i];
       if (s < 0)
@@ -156,11 +158,12 @@ struct DistortedRingStack {
       HS_CHECK(std::abs(shapes[s].target_angle - delta * (i + 1)) <= WINDOW_PAD,
                "ring stack colatitudes must be evenly spaced");
       HS_CHECK(shapes[s].phase == 0.0f, "ring stack rings must have no phase");
-      HS_CHECK(dot(shapes[s].normal, shapes[0].normal) >= 1.0f - TOLERANCE,
+      HS_CHECK(math::dot(shapes[s].normal, shapes[0].normal) >=
+                   1.0f - math::TOLERANCE,
                "ring stack rings must share slot 0's normal");
-      HS_CHECK(dot(shapes[s].u, shapes[0].u) >= 1.0f - TOLERANCE,
+      HS_CHECK(math::dot(shapes[s].u, shapes[0].u) >= 1.0f - math::TOLERANCE,
                "ring stack rings must share slot 0's u axis");
-      HS_CHECK(dot(shapes[s].w, shapes[0].w) >= 1.0f - TOLERANCE,
+      HS_CHECK(math::dot(shapes[s].w, shapes[0].w) >= 1.0f - math::TOLERANCE,
                "ring stack rings must share slot 0's w axis");
     }
   }
@@ -213,10 +216,10 @@ struct DistortedRingStack {
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n_slots >= 1, "ring stack needs at least one slot");
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
-    const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
+    const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
 
     // Union band and the global candidate half-width.
     int y_lo = H, y_hi = -1;
@@ -235,7 +238,7 @@ struct DistortedRingStack {
     // Window pad: fast_acos error plus float theta/index inversion slop; a
     // ring wrongly windowed in is discarded by its own exact cos reject.
     const float b_win = b_max + WINDOW_PAD;
-    const float inv_delta = (n_rings + 1) / PI_F;
+    const float inv_delta = (n_rings + 1) / math::PI_F;
 
     // The per-ring path suppresses the aliased exact-pole rows
     // (suppress_pole_fill); its full-scan fallback for a near-canvas-pole
@@ -243,21 +246,21 @@ struct DistortedRingStack {
     SDF::AxisProjection ap = SDF::project_axis(shapes[0].normal);
     const bool skip_pole_rows = ap.r_val >= SDF::MIN_HORIZONTAL_PROJ;
 
-    const Vector axis_v = shapes[0].normal;
-    const Vector axis_u = shapes[0].u;
-    const Vector axis_w = shapes[0].w;
+    const math::Vector axis_v = shapes[0].normal;
+    const math::Vector axis_u = shapes[0].u;
+    const math::Vector axis_w = shapes[0].w;
 
     SDF::DistanceResult res;
     Fragment frag;
     for (int y = y_lo; y <= y_hi; ++y) {
-      const float sp = TrigLUT<W, H>::sin_phi[y];
-      const float cp = TrigLUT<W, H>::cos_phi[y];
+      const float sp = math::TrigLUT<W, H>::sin_phi[y];
+      const float cp = math::TrigLUT<W, H>::cos_phi[y];
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
       walk_clip_columns<W>(xc, [&](int x) {
-        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-        const float d = dot(p, axis_v);
-        const float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        const float d = math::dot(p, axis_v);
+        const float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
         int ilo = static_cast<int>(ceilf((polar - b_win) * inv_delta)) - 1;
         int ihi = static_cast<int>(floorf((polar + b_win) * inv_delta)) - 1;
         if (ilo < 0)
@@ -266,12 +269,12 @@ struct DistortedRingStack {
           ihi = n_rings - 1;
         if (ilo > ihi)
           return;
-        const float dot_u = dot(p, axis_u);
-        const float dot_w = dot(p, axis_w);
-        float azimuth = fast_atan2(dot_w, dot_u);
+        const float dot_u = math::dot(p, axis_u);
+        const float dot_w = math::dot(p, axis_w);
+        float azimuth = math::fast_atan2(dot_w, dot_u);
         if (azimuth < 0)
-          azimuth += 2 * PI_F;
-        const float t_norm = wrap_t(azimuth / (2 * PI_F));
+          azimuth += 2 * math::PI_F;
+        const float t_norm = math::wrap_t(azimuth / (2 * math::PI_F));
         const float sin_polar =
             sqrtf(std::max(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
         for (int i = ilo; i <= ihi; ++i) {
@@ -284,7 +287,7 @@ struct DistortedRingStack {
             continue;
           // process_pixel's stroke epilogue with a slot-aware shader.
           const float aa = res.size;
-          const float alpha = aa > 0.0f ? quintic_kernel(-dd / aa) : 0.0f;
+          const float alpha = aa > 0.0f ? math::quintic_kernel(-dd / aa) : 0.0f;
           if (alpha <= MIN_ALPHA)
             continue;
           frag.color = Color4(0, 0, 0, 0);
@@ -326,10 +329,11 @@ struct PlanarPolygon {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int sides,
+                   FragmentShaderFn fragment_shader, float phase = 0,
+                   bool debug_bb = false) {
+    auto res = math::get_antipode(basis, radius);
     SDF::PlanarPolygon shape(res.first, res.second, sides, phase,
                              radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
@@ -341,10 +345,10 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
-                         const Basis &basis, float radius, int sides,
+                         const math::Basis &basis, float radius, int sides,
                          const Color4 &color, float phase = 0,
                          bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
+    auto res = math::get_antipode(basis, radius);
     SDF::PlanarPolygon shape(res.first, res.second, sides, phase,
                              radius > 1.0f);
     Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
@@ -369,8 +373,8 @@ struct Line {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &v1,
-                   const Vector &v2, float thickness,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const math::Vector &v1,
+                   const math::Vector &v2, float thickness,
                    FragmentShaderFn fragment_shader, bool debug_bb = false) {
     SDF::Line shape(v1, v2, thickness);
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
@@ -399,8 +403,8 @@ struct Ring {
    * azimuth origin and handedness, matching DistortedRing at the same radius.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, float thickness,
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
     SDF::Ring shape(basis, radius, thickness, phase);
@@ -423,11 +427,11 @@ struct Ring {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &normal,
-                   float radius, float thickness,
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Vector &normal, float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
-    Basis basis = make_basis(Quaternion(), normal);
+    math::Basis basis = math::make_basis(math::Quaternion(), normal);
     draw<W, H, ComputeUVs>(pipeline, canvas, basis, radius, thickness,
                            fragment_shader, phase, debug_bb);
   }
@@ -486,7 +490,7 @@ struct RingGroup {
              "ring group size must be in [1, MAX_RINGS]");
     if (debug_bb || canvas.debug()) {
       for (int s = 0; s < n; ++s) {
-        auto slot_shader = [&](const Vector &p, Fragment &f) {
+        auto slot_shader = [&](const math::Vector &p, Fragment &f) {
           shader(s, p, f);
         };
         Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], slot_shader,
@@ -495,8 +499,8 @@ struct RingGroup {
       return;
     }
 
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
 
     int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
     int y_lo = H, y_hi = -1;
@@ -523,10 +527,10 @@ struct RingGroup {
     for (int s = 0; s < n; ++s) {
       if (s == mid)
         continue;
-      float dev = fast_acos(hs::clamp(dot(shapes[mid].normal, shapes[s].normal),
-                                      -1.0f, 1.0f)) +
-                  std::abs(shapes[s].target_angle - shapes[mid].target_angle) +
-                  1e-3f;
+      float dev =
+          math::fast_acos(hs::clamp(
+              math::dot(shapes[mid].normal, shapes[s].normal), -1.0f, 1.0f)) +
+          std::abs(shapes[s].target_angle - shapes[mid].target_angle) + 1e-3f;
       pad_th = std::max(pad_th, shapes[s].thickness + dev);
     }
     SDF::Ring cover(shapes[mid].basis, shapes[mid].radius, pad_th);
@@ -539,8 +543,8 @@ struct RingGroup {
     // scan_region (-Os) forces the O3 pixel body out of line and calls it per
     // pixel. Runs come from the shared emit_row_runs, so the walked columns are
     // scan_region's.
-    const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
-    const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+    const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
+    const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
     const auto xc = cr.x_clip();
     StaticCircularBuffer<SDF::Interval, 4> intervals;
     StaticCircularBuffer<SDF::Interval, 8> norm;
@@ -554,10 +558,11 @@ struct RingGroup {
 
     auto pixel_run = [&](int x1, int x2, int y, float sp, float cp) {
       for (int x = x1; x < x2; ++x) {
-        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         for (int i = 0; i < n_active; ++i) {
           const int s = active[i];
-          const float alpha = shapes[s].stroke_alpha(dot(p, shapes[s].normal));
+          const float alpha =
+              shapes[s].stroke_alpha(math::dot(p, shapes[s].normal));
           if (alpha <= MIN_ALPHA)
             continue;
           frag.color = Color4(0, 0, 0, 0);
@@ -583,8 +588,8 @@ struct RingGroup {
           active[n_active++] = s;
       if (n_active == 0)
         continue;
-      float sp = TrigLUT<W, H>::sin_phi[y];
-      float cp = TrigLUT<W, H>::cos_phi[y];
+      float sp = math::TrigLUT<W, H>::sin_phi[y];
+      float cp = math::TrigLUT<W, H>::cos_phi[y];
       auto emit = [&](int x1, int x2) { pixel_run(x1, x2, y, sp, cp); };
 
       if (cover.needs_full_row_scan(sp)) {
@@ -622,10 +627,10 @@ struct Circle {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, FragmentShaderFn fragment_shader,
-                   bool debug_bb = false) {
-    float th = radius * (PI_F / 2.0f);
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius,
+                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
+    float th = radius * (math::PI_F / 2.0f);
     Ring::draw<W, H, ComputeUVs>(pipeline, canvas, basis, 0.0f, th,
                                  fragment_shader, 0, debug_bb);
   }
@@ -643,10 +648,10 @@ struct Circle {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &normal,
-                   float radius, FragmentShaderFn fragment_shader,
-                   bool debug_bb = false) {
-    Basis basis = make_basis(Quaternion(), normal);
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Vector &normal, float radius,
+                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
+    math::Basis basis = math::make_basis(math::Quaternion(), normal);
     draw<W, H, ComputeUVs>(pipeline, canvas, basis, radius, fragment_shader,
                            debug_bb);
   }
@@ -671,11 +676,11 @@ struct Point {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p,
+  static void draw(PipelineRef pipeline, Canvas &canvas, const math::Vector &p,
                    float thickness, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
     // Point is a Ring with radius 0.
-    Basis basis = make_basis(Quaternion(), p);
+    math::Basis basis = math::make_basis(math::Quaternion(), p);
     Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader,
                      0.0f, debug_bb);
   }
@@ -700,10 +705,11 @@ struct Star {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int sides,
+                   FragmentShaderFn fragment_shader, float phase = 0,
+                   bool debug_bb = false) {
+    auto res = math::get_antipode(basis, radius);
     SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
@@ -712,10 +718,10 @@ struct Star {
   /** @brief Rasterizes a constant-color solid star. */
   template <int W, int H, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
-                         const Basis &basis, float radius, int sides,
+                         const math::Basis &basis, float radius, int sides,
                          const Color4 &color, float phase = 0,
                          bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
+    auto res = math::get_antipode(basis, radius);
     SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
   }
@@ -740,10 +746,11 @@ struct Flower {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int sides,
+                   FragmentShaderFn fragment_shader, float phase = 0,
+                   bool debug_bb = false) {
+    auto res = math::get_antipode(basis, radius);
     SDF::Flower shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
@@ -752,10 +759,10 @@ struct Flower {
   /** @brief Rasterizes a constant-color solid flower. */
   template <int W, int H, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
-                         const Basis &basis, float radius, int sides,
+                         const math::Basis &basis, float radius, int sides,
                          const Color4 &color, float phase = 0,
                          bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
+    auto res = math::get_antipode(basis, radius);
     SDF::Flower shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color, debug_bb);
   }
@@ -783,11 +790,12 @@ struct SphericalPolygon {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int sides, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
-    float offset = PI_F / sides;
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int sides,
+                   FragmentShaderFn fragment_shader, float phase = 0,
+                   bool debug_bb = false) {
+    auto res = math::get_antipode(basis, radius);
+    float offset = math::PI_F / sides;
 
     SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
                                 radius > 1.0f);
@@ -801,11 +809,11 @@ struct SphericalPolygon {
    */
   template <int W, int H, bool SineDistance = false, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
-                         const Basis &basis, float radius, int sides,
+                         const math::Basis &basis, float radius, int sides,
                          const Color4 &color, float phase = 0,
                          bool debug_bb = false) {
-    auto res = get_antipode(basis, radius);
-    float offset = PI_F / sides;
+    auto res = math::get_antipode(basis, radius);
+    float offset = math::PI_F / sides;
     SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
                                 radius > 1.0f);
     Scan::rasterize_solid<W, H, SineDistance>(pipeline, canvas, shape, color,

@@ -15,11 +15,11 @@
 #include "math/3dmath.h"
 
 /** @brief Two Pi. */
-inline constexpr float tau = 2 * PI_F;
+inline constexpr float tau = 2 * math::PI_F;
 /** @brief Multiplication factor to convert degrees to radians. */
-inline constexpr float radians = PI_F / 180;
+inline constexpr float radians = math::PI_F / 180;
 /** @brief Multiplication factor to convert radians to degrees. */
-inline constexpr float degrees = 180 / PI_F;
+inline constexpr float degrees = 180 / math::PI_F;
 
 /**
  * @brief Wraps an angle of any magnitude into [0, 2PI).
@@ -68,8 +68,8 @@ public:
      * @param y Row index in [0, H), measured top-down.
      */
     Point(int x, int y)
-        : x(x), y(y), lambda(x * tau / W - PI_F),
-          phi((H - y) * PI_F / H - PI_F / 2) {}
+        : x(x), y(y), lambda(x * tau / W - math::PI_F),
+          phi((H - y) * math::PI_F / H - math::PI_F / 2) {}
 
     /**
      * @brief Constructs a Point from 8-bit pixel coordinates.
@@ -77,8 +77,8 @@ public:
      * @param y Row index in [0, H), measured top-down.
      */
     Point(uint8_t x, uint8_t y)
-        : x(x), y(y), lambda(x * tau / W - PI_F),
-          phi((H - y) * PI_F / H - PI_F / 2) {}
+        : x(x), y(y), lambda(x * tau / W - math::PI_F),
+          phi((H - y) * math::PI_F / H - math::PI_F / 2) {}
 
     /**
      * @brief Constructs a Point from floating-point pixel coordinates.
@@ -86,8 +86,8 @@ public:
      * @param y Row index in [0, H), measured top-down.
      */
     Point(float x, float y)
-        : x(x), y(y), lambda(x * tau / W - PI_F),
-          phi((H - y) * PI_F / H - PI_F / 2) {}
+        : x(x), y(y), lambda(x * tau / W - math::PI_F),
+          phi((H - y) * math::PI_F / H - math::PI_F / 2) {}
 
     /**
      * @brief Copy-constructs a Point.
@@ -138,9 +138,9 @@ public:
     Point p(src);
 
     p.lambda += delta_lambda;
-    if (p.lambda > PI_F) {
+    if (p.lambda > math::PI_F) {
       p.lambda -= tau;
-    } else if (p.lambda < -PI_F) {
+    } else if (p.lambda < -math::PI_F) {
       p.lambda += tau;
     }
 
@@ -156,8 +156,8 @@ public:
     p.phi = asinf(k * cos_dg + y * sin_dg);
 
     // back to equirectangular pixel (x, y)
-    p.x = wrap_index((p.lambda + PI_F) * W / tau, W);
-    p.y = H - ((p.phi + PI_F / 2) * H / PI_F);
+    p.x = wrap_index((p.lambda + math::PI_F) * W / tau, W);
+    p.y = H - ((p.phi + math::PI_F / 2) * H / math::PI_F);
 
     return p;
   }

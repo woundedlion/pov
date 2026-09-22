@@ -32,7 +32,8 @@ public:
    *        Borrowed, not copied: the backing array must outlive the filter.
    * @param axis Unit axis the point is projected onto to pick an orientation.
    */
-  OrientSlice(std::span<const Orientation<>> orientations, const Vector &axis)
+  OrientSlice(std::span<const math::Orientation<>> orientations,
+              const math::Vector &axis)
       : enabled(true), axis(axis.normalized()), orientations(orientations) {}
 
   /**
@@ -47,7 +48,7 @@ public:
    * @details Passes through untouched when disabled or the orientation list is empty.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
+  void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     if (!enabled || orientations.empty()) {
       pass(v, color, age, alpha);
@@ -56,16 +57,17 @@ public:
 
     float projection = v.x * axis.x + v.y * axis.y + v.z * axis.z;
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
-    float t = hs::clamp(1.0f - fast_acos(dot_val) / PI_F, 0.0f, 1.0f);
+    float t =
+        hs::clamp(1.0f - math::fast_acos(dot_val) / math::PI_F, 0.0f, 1.0f);
 
     size_t count = orientations.size();
     size_t idx = static_cast<size_t>(floorf(t * count));
     if (idx >= count)
       idx = count - 1;
 
-    const Orientation<> &q = orientations[idx];
-    tween(q, [&](const Quaternion &rot, float tween_t) {
-      pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha);
+    const math::Orientation<> &q = orientations[idx];
+    tween(q, [&](const math::Quaternion &rot, float tween_t) {
+      pass(math::rotate(v, rot), color, age + (1.0f - tween_t), alpha);
     });
   }
 
@@ -81,13 +83,13 @@ public:
    *          over all candidates rather than replicating the per-point selector.
    */
   template <typename FwdFn>
-  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
-                 FwdFn &&forward) const {
+  bool cull_edge(const math::Vector &a, const math::Vector &b,
+                 const math::Basis *pb, FwdFn &&forward) const {
     if (!enabled || orientations.empty())
       return forward(a, b, pb);
-    for (const Orientation<> &o : orientations) {
+    for (const math::Orientation<> &o : orientations) {
       bool hit = false;
-      tween(o, [&](const Quaternion &q, float) {
+      tween(o, [&](const math::Quaternion &q, float) {
         if (hit)
           return;
         hit = forward_rotated_edge(a, b, pb, q, forward);
@@ -103,13 +105,13 @@ public:
    * contract that the projection bucket math assumes.
    * @param a New slicing axis (any non-zero length; renormalized internally).
    */
-  void set_axis(const Vector &a) { axis = a.normalized(); }
+  void set_axis(const math::Vector &a) { axis = a.normalized(); }
 
   /**
    * @brief Accesses the current (unit-length) slicing axis.
    * @return The unit axis points are projected onto to select a slice.
    */
-  const Vector &get_axis() const { return axis; }
+  const math::Vector &get_axis() const { return axis; }
 
   /**
    * @brief Enables or disables the slice selection.
@@ -125,8 +127,9 @@ public:
 
 private:
   bool enabled; /**< When false, the filter passes points through unrotated. */
-  Vector axis;  /**< Unit axis points are projected onto to select a slice. */
-  std::span<const Orientation<>>
+  math::Vector
+      axis; /**< Unit axis points are projected onto to select a slice. */
+  std::span<const math::Orientation<>>
       orientations; /**< Candidate orientations indexed by projection; borrowed,
                          so the backing array must outlive the filter. */
 };

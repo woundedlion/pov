@@ -73,7 +73,7 @@ inline uint8_t solids_scratch_b[4 * 1024 * 1024];
  */
 inline void check_all_finite(const PolyMesh &m) {
   for (size_t i = 0; i < m.vertices.size(); ++i) {
-    const Vector &v = m.vertices[i];
+    const math::Vector &v = m.vertices[i];
     HS_EXPECT_TRUE(std::isfinite(v.x) && std::isfinite(v.y) &&
                    std::isfinite(v.z));
   }
@@ -224,14 +224,14 @@ inline float classifier_angle_deg(const PolyMesh &m, const uint16_t *idx,
                                   int count, int k) {
   const int prev_k = k == 0 ? count - 1 : k - 1;
   const int next_k = k + 1 == count ? 0 : k + 1;
-  const Vector e1 = m.vertices[idx[prev_k]] - m.vertices[idx[k]];
-  const Vector e2 = m.vertices[idx[next_k]] - m.vertices[idx[k]];
-  const float m1 = dot(e1, e1);
-  const float m2 = dot(e2, e2);
+  const math::Vector e1 = m.vertices[idx[prev_k]] - m.vertices[idx[k]];
+  const math::Vector e2 = m.vertices[idx[next_k]] - m.vertices[idx[k]];
+  const float m1 = math::dot(e1, e1);
+  const float m2 = math::dot(e2, e2);
   if (!(m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ))
     return 0.0f;
-  const float d = hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
-  return acosf(d) * 180.0f / PI_F;
+  const float d = hs::clamp(math::dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
+  return acosf(d) * 180.0f / math::PI_F;
 }
 
 /**
@@ -251,9 +251,9 @@ inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
   constexpr double PI_D = 3.14159265358979323846;
   const int prev_k = k == 0 ? count - 1 : k - 1;
   const int next_k = k + 1 == count ? 0 : k + 1;
-  const Vector &prev = m.vertices[idx[prev_k]];
-  const Vector &curr = m.vertices[idx[k]];
-  const Vector &next = m.vertices[idx[next_k]];
+  const math::Vector &prev = m.vertices[idx[prev_k]];
+  const math::Vector &curr = m.vertices[idx[k]];
+  const math::Vector &next = m.vertices[idx[next_k]];
   const double e1x = (double)prev.x - curr.x;
   const double e1y = (double)prev.y - curr.y;
   const double e1z = (double)prev.z - curr.z;
@@ -534,7 +534,7 @@ inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
       m1.faces.size() != m2.faces.size())
     return;
   HS_EXPECT_EQ(std::memcmp(m1.vertices.data(), m2.vertices.data(),
-                           m1.vertices.size() * sizeof(Vector)),
+                           m1.vertices.size() * sizeof(math::Vector)),
                0);
   HS_EXPECT_EQ(std::memcmp(m1.face_counts.data(), m2.face_counts.data(),
                            m1.face_counts.size() * sizeof(uint8_t)),
@@ -791,7 +791,7 @@ constexpr size_t HANKIN_SCRATCH_A_BUDGET =
 constexpr size_t HANKIN_SCRATCH_B_BUDGET =
     HankinFx::SCRATCH_B_BYTES; /**< HankinSolids scratch_b. */
 constexpr float HANKIN_ANGLE =
-    PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
+    math::PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
 
 /**
  * @brief Runs one simple solid through HankinSolids' full load AND render paths
@@ -833,7 +833,8 @@ inline void check_hankin_high_water_for_solid(const Solids::Entry &entry) {
   {
     ScratchScope render_scope(a);
     MeshState rotated;
-    MeshOps::transform(mesh, rotated, a, [](const Vector &v) { return v; });
+    MeshOps::transform(mesh, rotated, a,
+                       [](const math::Vector &v) { return v; });
     (void)a.allocate(sizeof(SDF::FaceScratchBuffer),
                      alignof(SDF::FaceScratchBuffer));
   }

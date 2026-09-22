@@ -85,7 +85,8 @@ struct PeriodicRippleParams {
   float decay = 0.1f;          /**< Attenuation with distance from center. */
   float thickness = 0.7f;      /**< Angular width of the wavelet. */
   float center_azimuth = 0.0f; /**< Center azimuth, in radians. */
-  float center_polar = 0.5f * PI_F; /**< Center polar angle, in radians. */
+  float center_polar =
+      0.5f * math::PI_F; /**< Center polar angle, in radians. */
 
   static constexpr auto FIELDS = std::array{
       Field<PeriodicRippleParams>{"period", &PeriodicRippleParams::period,
@@ -101,11 +102,11 @@ struct PeriodicRippleParams {
                                   FieldCurve::LOG_POSITIVE},
       Field<PeriodicRippleParams>{"center-azimuth",
                                   &PeriodicRippleParams::center_azimuth,
-                                  "Ripple Center Azimuth", 0.0f, TWO_PI_F,
+                                  "Ripple Center Azimuth", 0.0f, math::TWO_PI_F,
                                   FieldCurve::SHORTEST_PERIODIC},
       Field<PeriodicRippleParams>{
           "center-polar", &PeriodicRippleParams::center_polar,
-          "Ripple Center Polar", 0.0f, PI_F, FieldCurve::LERP},
+          "Ripple Center Polar", 0.0f, math::PI_F, FieldCurve::LERP},
   };
 };
 static_assert(field_ids_unique<PeriodicRippleParams>());
@@ -113,7 +114,7 @@ static_assert(field_defaults_in_range<PeriodicRippleParams>());
 
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
-  Vector loop_offset;
+  math::Vector loop_offset;
 };
 
 /** @brief Resolves this frame's loop point from the loop phase. */
@@ -123,7 +124,7 @@ HS_FLASH_INLINE inline PreparedLoop prepare(float phase) {
 
 /** @brief Loop point plus the steering frame the direct displacement reads. */
 struct PreparedDirect {
-  Vector loop_offset;
+  math::Vector loop_offset;
   float direction_cos;
   float direction_sin;
 };
@@ -138,12 +139,12 @@ HS_FLASH_INLINE inline PreparedRipple
 prepare_ripple(const PeriodicRippleParams &params, float cycle) {
   Animation::RippleParams ripple;
   ripple.center =
-      Vector::from_spherical(params.center_azimuth, params.center_polar);
+      math::Vector::from_spherical(params.center_azimuth, params.center_polar);
   ripple.amplitude = params.strength;
   ripple.decay = params.decay;
   ripple.thickness = params.thickness;
-  const float progress = wrap_t(cycle);
-  ripple.phase = progress * PI_F;
+  const float progress = math::wrap_t(cycle);
+  ripple.phase = progress * math::PI_F;
   const float attack = std::min(progress * 10.0f, 1.0f);
   ripple.amplitude *= attack * attack * (1.0f - progress);
   ripple.sync();
@@ -152,20 +153,21 @@ prepare_ripple(const PeriodicRippleParams &params, float cycle) {
 
 /** @brief Applies a prepared periodic ripple and reports its angular travel. */
 __attribute__((always_inline)) inline SurfaceResult
-periodic_ripple(const Vector &input, const PreparedRipple &prepared,
+periodic_ripple(const math::Vector &input, const PreparedRipple &prepared,
                 bool path_length_required) {
-  const Vector displaced = ripple_transform(input, prepared.ripple);
+  const math::Vector displaced = ripple_transform(input, prepared.ripple);
   if (!path_length_required ||
       (displaced.x == input.x && displaced.y == input.y &&
        displaced.z == input.z))
     return {displaced, 0.0f};
-  return {displaced, fast_acos(hs::clamp(dot(input, displaced), -1.0f, 1.0f))};
+  return {displaced,
+          math::fast_acos(hs::clamp(math::dot(input, displaced), -1.0f, 1.0f))};
 }
 
 /** @brief Resolves the loop point and steering frame for DirectNoise. */
 HS_FLASH_INLINE inline PreparedDirect prepare_direct(float phase,
                                                      float direction) {
-  const float angle = TWO_PI_F * direction;
+  const float angle = math::TWO_PI_F * direction;
   return {prepare(phase).loop_offset, cosf(angle), sinf(angle)};
 }
 
@@ -183,56 +185,60 @@ struct Midpoint2x {
   static constexpr Integrator VALUE = Integrator::MIDPOINT_2X;
 };
 
-__attribute__((always_inline)) inline float path_length(const Vector &step,
-                                                        bool required) {
-  return required ? sqrtf(dot(step, step)) : 0.0f;
+__attribute__((always_inline)) inline float
+path_length(const math::Vector &step, bool required) {
+  return required ? sqrtf(math::dot(step, step)) : 0.0f;
 }
 
 __attribute__((always_inline)) inline SurfaceResult
-finish_step(const Vector &input, const Vector &step,
+finish_step(const math::Vector &input, const math::Vector &step,
             bool path_length_required) {
   return {sphere_exp_map_half_radian(input, step),
           path_length(step, path_length_required)};
 }
 
 __attribute__((always_inline)) inline SurfaceResult
-direct_noise(const Vector &input, const FastNoiseLite &noise,
-             ::NoiseBasis basis, float scale, const Vector &loop_offset,
+direct_noise(const math::Vector &input, const FastNoiseLite &noise,
+             ::NoiseBasis basis, float scale, const math::Vector &loop_offset,
              float strength, float direction_cos, float direction_sin,
              bool path_length_required) {
   if (strength == 0.0f)
     return {input, 0.0f};
-  const Vector q = noise_sphere_coordinate(input, scale, loop_offset);
-  const Vector tangent = sample_direct_tangent(noise, basis, q, input,
-                                               direction_cos, direction_sin);
+  const math::Vector q = noise_sphere_coordinate(input, scale, loop_offset);
+  const math::Vector tangent = sample_direct_tangent(
+      noise, basis, q, input, direction_cos, direction_sin);
   return finish_step(input, strength * tangent, path_length_required);
 }
 
-__attribute__((always_inline)) inline Vector
-curl_field(const Vector &input, const FastNoiseLite &noise, ::NoiseBasis basis,
-           float scale, const Vector &loop_offset) {
-  const Vector q = noise_sphere_coordinate(input, scale, loop_offset);
+__attribute__((always_inline)) inline math::Vector
+curl_field(const math::Vector &input, const FastNoiseLite &noise,
+           ::NoiseBasis basis, float scale, const math::Vector &loop_offset) {
+  const math::Vector q = noise_sphere_coordinate(input, scale, loop_offset);
   return sample_curl_tangent(noise, basis, q, input);
 }
 
 __attribute__((always_inline)) inline SurfaceResult
-curl_midpoint_step(const Vector &input, const FastNoiseLite &noise,
-                   ::NoiseBasis basis, float scale, const Vector &loop_offset,
-                   float distance, bool path_length_required) {
-  const Vector first = curl_field(input, noise, basis, scale, loop_offset);
-  const Vector midpoint =
+curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
+                   ::NoiseBasis basis, float scale,
+                   const math::Vector &loop_offset, float distance,
+                   bool path_length_required) {
+  const math::Vector first =
+      curl_field(input, noise, basis, scale, loop_offset);
+  const math::Vector midpoint =
       sphere_exp_map_half_radian(input, 0.5f * distance * first);
-  const Vector midpoint_field =
+  const math::Vector midpoint_field =
       curl_field(midpoint, noise, basis, scale, loop_offset);
   return finish_step(
-      input, distance * parallel_transport(midpoint, input, midpoint_field),
+      input,
+      distance * math::parallel_transport(midpoint, input, midpoint_field),
       path_length_required);
 }
 
 HS_FLASH_INLINE inline SurfaceResult
-curl_noise(const Vector &input, const FastNoiseLite &noise, ::NoiseBasis basis,
-           Integrator integrator, float scale, const Vector &loop_offset,
-           float strength, bool path_length_required) {
+curl_noise(const math::Vector &input, const FastNoiseLite &noise,
+           ::NoiseBasis basis, Integrator integrator, float scale,
+           const math::Vector &loop_offset, float strength,
+           bool path_length_required) {
   if (strength == 0.0f)
     return {input, 0.0f};
   if (integrator == Integrator::EULER)
@@ -263,7 +269,9 @@ struct DirectNoise : ApproximationDefaults {
         { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
         { State::scale(frame) } -> std::same_as<float>;
         { State::strength(frame) } -> std::same_as<float>;
-        { State::prepare(frame).loop_offset } -> std::convertible_to<Vector>;
+        {
+          State::prepare(frame).loop_offset
+        } -> std::convertible_to<math::Vector>;
         { State::prepare(frame).direction_cos } -> std::convertible_to<float>;
         { State::prepare(frame).direction_sin } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
@@ -277,7 +285,7 @@ struct DirectNoise : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static SurfaceResult
-  apply(const Vector &input, const FrameState &frame,
+  apply(const math::Vector &input, const FrameState &frame,
         const Prepared &prepared) {
     return direct_noise(input, State::noise(frame), Basis, State::scale(frame),
                         prepared.loop_offset, State::strength(frame),
@@ -297,7 +305,9 @@ struct CurlNoise : ApproximationDefaults {
         { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
         { State::scale(frame) } -> std::same_as<float>;
         { State::strength(frame) } -> std::same_as<float>;
-        { State::prepare(frame).loop_offset } -> std::convertible_to<Vector>;
+        {
+          State::prepare(frame).loop_offset
+        } -> std::convertible_to<math::Vector>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } && requires {
         { IntegratorPolicy::VALUE } -> std::convertible_to<Integrator>;
@@ -310,7 +320,7 @@ struct CurlNoise : ApproximationDefaults {
     return State::prepare(frame);
   }
 
-  HS_FLASH_INLINE static SurfaceResult apply(const Vector &input,
+  HS_FLASH_INLINE static SurfaceResult apply(const math::Vector &input,
                                              const FrameState &frame,
                                              const Prepared &prepared) {
     return curl_noise(input, State::noise(frame), Basis,
@@ -338,7 +348,7 @@ template <typename State> struct PeriodicRipple : ApproximationDefaults {
     return prepare_ripple(State::params(frame), State::phase(frame));
   }
 
-  HS_FLASH_INLINE static SurfaceResult apply(const Vector &input,
+  HS_FLASH_INLINE static SurfaceResult apply(const math::Vector &input,
                                              const FrameState &frame,
                                              const Prepared &prepared) {
     return periodic_ripple(input, prepared, State::path_length_required(frame));

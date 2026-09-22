@@ -67,10 +67,11 @@ public:
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES - SCRATCH_B_BYTES,
                      SCRATCH_A_BYTES, SCRATCH_B_BYTES);
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
-    register_animated_param("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
+    register_animated_param("Angle", &params.hankin_angle, 0.0f,
+                            math::PI_F / 2.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS, noise,
+                        orientation, math::Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
     palette_bank.bake_all(persistent_arena);
@@ -224,8 +225,8 @@ private:
       return 0.0f;
     if (cycle_frame >= STRAP_BLEND_FRAMES)
       return 1.0f;
-    return cubic_kernel(static_cast<float>(cycle_frame) /
-                        static_cast<float>(STRAP_BLEND_FRAMES));
+    return math::cubic_kernel(static_cast<float>(cycle_frame) /
+                              static_cast<float>(STRAP_BLEND_FRAMES));
   }
 
   /**
@@ -241,8 +242,8 @@ private:
       return 0.0f;
     if (frames_away >= SHAPE_FRAMES)
       return 1.0f;
-    return cubic_kernel(static_cast<float>(frames_away) /
-                        static_cast<float>(SHAPE_FRAMES));
+    return math::cubic_kernel(static_cast<float>(frames_away) /
+                              static_cast<float>(SHAPE_FRAMES));
   }
 
   /**
@@ -438,7 +439,7 @@ private:
       split |= star_by_slot[s] != strap_by_slot[s];
     const int star_faces = static_cast<int>(node_faces);
 
-    auto split_shader = [&](const Vector &, Fragment &f) {
+    auto split_shader = [&](const math::Vector &, Fragment &f) {
       const int fi = mesh_face_index(f);
       const bool is_strap = fi >= star_faces;
       const SlotLutView &view = is_strap ? strap_view : star_view;
@@ -546,17 +547,18 @@ private:
     ScratchScope host_guard(scratch_arena_a);
     MeshState open_mesh;
     MeshOps::update_hankin(compiled_hankin, open_mesh, scratch_arena_a,
-                           PI_F / 2.0f);
+                           math::PI_F / 2.0f);
     for (size_t f = node_faces; f < faces; ++f) {
-      const Vector c = Animation::OpLeg::face_vertex_sum(
-                           open_mesh.vertices.data(), open_mesh.faces.data(),
-                           open_mesh.face_offsets[f], open_mesh.face_counts[f])
-                           .normalized();
+      const math::Vector c =
+          Animation::OpLeg::face_vertex_sum(
+              open_mesh.vertices.data(), open_mesh.faces.data(),
+              open_mesh.face_offsets[f], open_mesh.face_counts[f])
+              .normalized();
       size_t best = 0;
       float best_d = 1e9f;
       for (size_t j = 0; j < node_faces; ++j) {
-        const Vector d = c - node_face_centroid[j];
-        const float dsq = dot(d, d);
+        const math::Vector d = c - node_face_centroid[j];
+        const float dsq = math::dot(d, d);
         if (dsq < best_d) {
           best_d = dsq;
           best = j;
@@ -593,7 +595,7 @@ private:
     timeline.add_pausable(
         2,
         Animation::Mutation(params.hankin_angle,
-                            sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
+                            sin_wave(0.0f, math::PI_F / 2.0f, 1.0f, 0.0f),
                             HANKIN_SWEEP_FRAMES, ease_linear, false)
             .then([this]() {
               // Bookend-in: the sweep's final sample lands ~0.002
@@ -891,7 +893,7 @@ private:
       {}; /**< Per hankin-added face, the palette of the base face it lives
              inside — the rim color it collapses onto. See
              resolve_host_faces. */
-  Vector node_face_centroid[MAX_NODE_FACES] =
+  math::Vector node_face_centroid[MAX_NODE_FACES] =
       {};                /**< Unit centroid per node base face (geometric
                              palette provenance). */
   size_t node_faces = 0; /**< Face count of the current node's base mesh. */
@@ -929,16 +931,16 @@ private:
    * @brief User-adjustable rendering parameters.
    */
   struct Params {
-    float intensity = 1.2f;           /**< Edge-distance shading gain. */
-    float hankin_angle = PI_F / 4.0f; /**< Interlace angle in radians. */
+    float intensity = 1.2f;                 /**< Edge-distance shading gain. */
+    float hankin_angle = math::PI_F / 4.0f; /**< Interlace angle in radians. */
   } params;
 
   // orientation, noise, and the angle the sweep Mutation points at are borrowed
   // by timeline-resident animations, so they outlive the Timeline.
-  Orientation<> orientation; /**< Current camera orientation. */
-  FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
-  Timeline timeline;         /**< Schedules sweeps, sprites, and morphs. */
-  Pipeline<W, H> filters;    /**< Per-pixel filter pipeline applied on draw. */
+  math::Orientation<> orientation; /**< Current camera orientation. */
+  FastNoiseLite noise;    /**< Noise source driving the orientation walk. */
+  Timeline timeline;      /**< Schedules sweeps, sprites, and morphs. */
+  Pipeline<W, H> filters; /**< Per-pixel filter pipeline applied on draw. */
 };
 
 #include "core/control/registry.h"

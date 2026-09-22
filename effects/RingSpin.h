@@ -78,7 +78,7 @@ public:
     for (int i = 0; i < NUM_RINGS; ++i) {
       Ring &r = rings[i];
       timeline.add(0, Animation::RandomWalk<W>(
-                          r.orientation, Y_AXIS, r.noise,
+                          r.orientation, math::Y_AXIS, r.noise,
                           Animation::RandomWalk<W>::Options::Energetic()));
     }
   }
@@ -101,17 +101,17 @@ public:
       ring.trail.record(ring.orientation);
       // One fused scan per trail frame (see RingGroup for the blend-order and
       // AA-tail contract).
-      deep_tween_frames(ring.trail, [&](const Quaternion *qs, const float *ts,
-                                        int count) {
+      deep_tween_frames(ring.trail, [&](const math::Quaternion *qs,
+                                        const float *ts, int count) {
         constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
-        Basis bases[SUB_CAP];
+        math::Basis bases[SUB_CAP];
         Color4 colors[SUB_CAP];
         // SDF::Ring binds its Basis by reference, so it is neither default-
         // constructible nor assignable: slots are placement-new'd into raw
         // storage over the bases[] entry they must outlive.
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
         int slots = 0;
-        constexpr float pixel_w = 2.0f * PI_F / W;
+        constexpr float pixel_w = 2.0f * math::PI_F / W;
         // Trail-slot cut, deliberately above the MIN_ENCODABLE_ALPHA
         // per-sample encode floor.
         constexpr float MIN_SLOT_ALPHA = 0.001f;
@@ -129,7 +129,7 @@ public:
           float th =
               ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
               params.thickness;
-          bases[slots] = make_basis(qs[j], Y_AXIS);
+          bases[slots] = math::make_basis(qs[j], math::Y_AXIS);
           ::new (shape_mem + slots * sizeof(SDF::Ring))
               SDF::Ring(bases[slots], 1.0f, th);
           colors[slots] = c;
@@ -142,7 +142,9 @@ public:
         HS_PROFILE(rs_ring_scan);
         Scan::RingGroup::draw<W, H>(
             filters, canvas, shapes, slots,
-            [&](int s, const Vector &, Fragment &f) { f.color = colors[s]; },
+            [&](int s, const math::Vector &, Fragment &f) {
+              f.color = colors[s];
+            },
             params.debug_bb);
       });
     }
@@ -164,8 +166,8 @@ private:
    */
   struct Ring {
     const BakedPalette *palette;
-    Orientation<> orientation;
-    Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
+    math::Orientation<> orientation;
+    Animation::OrientationTrail<math::Orientation<>, TRAIL_LENGTH> trail;
     FastNoiseLite noise;
     /**
      * @brief Constructs a ring drawing from palette @p p.

@@ -336,8 +336,8 @@ inline void case_generate_recursion_too_deep() {
  * @details Math-core surface — length below epsilon fires the normalize guard.
  */
 inline void case_normalize_zero() {
-  Vector z{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
-  Vector n = z.normalized(); // length < eps -> HS_CHECK
+  math::Vector z{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
+  math::Vector n = z.normalized(); // length < eps -> HS_CHECK
   if (n.x == 42.0f)
     std::printf("x");
 }
@@ -352,9 +352,9 @@ inline void case_rotate_plane_degenerate() {
 
 /** @brief Death case: measuring an angle from a degenerate vector must trap. */
 inline void case_angle_between_zero() {
-  Vector zero{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
-  Vector x{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
-  float angle = angle_between(zero, x);
+  math::Vector zero{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
+  math::Vector x{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
+  float angle = math::angle_between(zero, x);
   if (angle == 42.0f)
     std::printf("x");
 }
@@ -368,8 +368,8 @@ inline void case_angle_between_zero() {
  */
 inline void case_normalize_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
-  Vector bad{nan, opaque(0.0f), opaque(0.0f)};
-  Vector n = bad.normalized(); // length is NaN -> HS_CHECK fails
+  math::Vector bad{nan, opaque(0.0f), opaque(0.0f)};
+  math::Vector n = bad.normalized(); // length is NaN -> HS_CHECK fails
   if (n.x == 42.0f)
     std::printf("x");
 }
@@ -464,11 +464,12 @@ inline void case_arena_vector_append_bulk_overflow() {
 inline void case_spatial_knn_over_max() {
   static uint8_t buf[512];
   Arena a(buf, sizeof(buf));
-  Vector pts[2] = {Vector(1.0f, 0.0f, 0.0f), Vector(0.0f, 1.0f, 0.0f)};
-  KDTree tree(a, std::span<const Vector>(pts, 2));
+  math::Vector pts[2] = {math::Vector(1.0f, 0.0f, 0.0f),
+                         math::Vector(0.0f, 1.0f, 0.0f)};
+  KDTree tree(a, std::span<const math::Vector>(pts, 2));
   // Tree is non-empty and k > 0, so the k <= MAX_K guard is reached.
   auto r =
-      tree.nearest(Vector(1.0f, 0.0f, 0.0f),
+      tree.nearest(math::Vector(1.0f, 0.0f, 0.0f),
                    opaque<size_t>(KDTree::MAX_K + 1)); // k > MAX_K -> HS_CHECK
   if (r.size() == static_cast<size_t>(0x7fff))
     std::printf("x");
@@ -481,7 +482,7 @@ inline void case_spatial_knn_over_max() {
  *          instead of naming the caller's mistake.
  */
 inline void case_reaction_graph_node_index_out_of_range() {
-  Vector v = ReactionGraph::node(opaque(ReactionGraph::RD_N));
+  math::Vector v = ReactionGraph::node(opaque(ReactionGraph::RD_N));
   if (v.x == 0x7fff)
     std::printf("x");
 }
@@ -1053,9 +1054,9 @@ inline void case_conway_degenerate_mesh() {
   Arena temp(temp_buf, sizeof(temp_buf));
   PolyMesh mesh;
   mesh.vertices.bind(source, 3);
-  mesh.vertices.push_back(Vector(1, 0, 0));
-  mesh.vertices.push_back(Vector(0, 1, 0));
-  mesh.vertices.push_back(Vector(0, 0, 1));
+  mesh.vertices.push_back(math::Vector(1, 0, 0));
+  mesh.vertices.push_back(math::Vector(0, 1, 0));
+  mesh.vertices.push_back(math::Vector(0, 0, 1));
   mesh.face_counts.bind(source, 1);
   mesh.face_counts.push_back(3);
   mesh.faces.bind(source, 3);
@@ -1096,7 +1097,7 @@ build_matching_relax_bake(PolyMesh &mesh, Arena &arena, uint32_t *bits) {
   build_solid<Solids::Tetrahedron>(mesh, arena);
   uint32_t output_hash = MeshOps::FNV1A_BASIS;
   for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-    const Vector &v = mesh.vertices[i];
+    const math::Vector &v = mesh.vertices[i];
     bits[3 * i] = std::bit_cast<uint32_t>(v.x);
     bits[3 * i + 1] = std::bit_cast<uint32_t>(v.y);
     bits[3 * i + 2] = std::bit_cast<uint32_t>(v.z);
@@ -1208,7 +1209,7 @@ inline void build_mismatched_polymesh(PolyMesh &mesh, Arena &arena,
                                       uint8_t side_count, size_t num_indices) {
   mesh.vertices.bind(arena, 4);
   for (size_t i = 0; i < 4; ++i)
-    mesh.vertices.push_back(Vector{});
+    mesh.vertices.push_back(math::Vector{});
   mesh.face_counts.bind(arena, 1);
   mesh.face_counts.push_back(opaque(side_count));
   mesh.faces.bind(arena, num_indices);
@@ -1295,7 +1296,7 @@ inline void case_mesh_compile_face_span_over_16bit() {
   PolyMesh mesh;
   mesh.vertices.bind(src_arena, 3);
   for (int i = 0; i < 3; ++i)
-    mesh.vertices.push_back(Vector{});
+    mesh.vertices.push_back(math::Vector{});
   mesh.face_counts.bind(src_arena, FACES);
   mesh.faces.bind(src_arena, FACES * 3);
   for (size_t f = 0; f < FACES; ++f) {
@@ -1573,7 +1574,7 @@ inline void build_polymesh(PolyMesh &mesh, Arena &arena, size_t num_verts,
                            const uint16_t *indices, size_t num_indices) {
   mesh.vertices.bind(arena, num_verts);
   for (size_t i = 0; i < num_verts; ++i)
-    mesh.vertices.push_back(Vector{});
+    mesh.vertices.push_back(math::Vector{});
   mesh.face_counts.bind(arena, num_faces);
   for (size_t i = 0; i < num_faces; ++i)
     mesh.face_counts.push_back(opaque(counts[i]));
@@ -1799,9 +1800,10 @@ inline void case_apply_step_bevel_no_depth() {
  */
 inline void case_slerp_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
-  Vector bad{nan, opaque(0.0f), opaque(0.0f)};
-  Vector dst{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
-  Vector v = slerp(bad, dst, opaque(0.5f)); // NaN -> normalized() -> HS_CHECK
+  math::Vector bad{nan, opaque(0.0f), opaque(0.0f)};
+  math::Vector dst{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
+  math::Vector v =
+      math::slerp(bad, dst, opaque(0.5f)); // NaN -> normalized() -> HS_CHECK
   if (v.x == 42.0f)
     std::printf("x");
 }
@@ -1814,10 +1816,10 @@ inline void case_slerp_nan() {
  */
 inline void case_make_rotation_vectors_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
-  Vector from{nan, opaque(0.0f), opaque(0.0f)};
-  Vector to{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
-  Quaternion q =
-      make_rotation(from, to); // NaN axis -> normalized() -> HS_CHECK
+  math::Vector from{nan, opaque(0.0f), opaque(0.0f)};
+  math::Vector to{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
+  math::Quaternion q =
+      math::make_rotation(from, to); // NaN axis -> normalized() -> HS_CHECK
   if (q.r == 42.0f)
     std::printf("x");
 }
@@ -1829,9 +1831,9 @@ inline void case_make_rotation_vectors_nan() {
  */
 inline void case_make_rotation_angle_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
-  Vector axis{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
-  Quaternion q =
-      make_rotation(axis, nan); // NaN quat -> normalized() -> HS_CHECK
+  math::Vector axis{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  math::Quaternion q =
+      math::make_rotation(axis, nan); // NaN quat -> normalized() -> HS_CHECK
   if (q.r == 42.0f)
     std::printf("x");
 }
@@ -1844,8 +1846,9 @@ inline void case_make_rotation_angle_nan() {
  */
 inline void case_make_basis_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
-  Vector normal{nan, opaque(0.0f), opaque(0.0f)};
-  Basis b = make_basis(Quaternion(), normal); // NaN -> normalized() -> HS_CHECK
+  math::Vector normal{nan, opaque(0.0f), opaque(0.0f)};
+  math::Basis b = math::make_basis(math::Quaternion(),
+                                   normal); // NaN -> normalized() -> HS_CHECK
   if (b.u.x == 42.0f)
     std::printf("x");
 }
@@ -1866,8 +1869,8 @@ inline void case_noise_transform_nan() {
   p.amplitude = opaque(0.5f); // active path (skips the zero-amplitude no-op)
   p.scale = opaque(4.0f);
   p.time = opaque(1.0f);
-  Vector v{nan, opaque(0.0f), opaque(0.0f)};
-  Vector r = noise_transform(v, p); // NaN -> normalized() -> HS_CHECK
+  math::Vector v{nan, opaque(0.0f), opaque(0.0f)};
+  math::Vector r = noise_transform(v, p); // NaN -> normalized() -> HS_CHECK
   if (r.x == 42.0f)
     std::printf("x");
 }
@@ -1879,9 +1882,9 @@ inline void case_noise_transform_nan() {
  *          unit-vector guard rather than silently skewing the rotation angle.
  */
 inline void case_make_rotation_nonunit() {
-  Vector from{opaque(2.0f), opaque(0.0f), opaque(0.0f)}; // |from| = 2
-  Vector to{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
-  Quaternion q = make_rotation(from, to); // |from| != 1 -> HS_CHECK
+  math::Vector from{opaque(2.0f), opaque(0.0f), opaque(0.0f)}; // |from| = 2
+  math::Vector to{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  math::Quaternion q = math::make_rotation(from, to); // |from| != 1 -> HS_CHECK
   if (q.r == 42.0f)
     std::printf("x");
 }
@@ -1923,7 +1926,8 @@ inline void case_transformer_pool_init_storage_twice() {
 inline void case_transformer_pool_spawn_before_init() {
   Timeline tl;
   RippleTransformer<2> rt(tl);
-  Animation::Ripple *p = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
+  Animation::Ripple *p =
+      rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
   if (p == reinterpret_cast<Animation::Ripple *>(0x1))
     std::printf("x");
 }
@@ -1952,8 +1956,8 @@ inline void case_transformer_pool_spawn_pausable_null_flag() {
   Timeline tl;
   RippleTransformer<2> rt(tl);
   rt.init_storage(persistent_arena);
-  Animation::Ripple *p =
-      rt.spawn_pausable(nullptr, 0, Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
+  Animation::Ripple *p = rt.spawn_pausable(nullptr, 0, math::Vector(0, 1, 0),
+                                           0.2f, 4); // -> HS_CHECK
   if (p == reinterpret_cast<Animation::Ripple *>(0x1))
     std::printf("x");
 }
@@ -2003,7 +2007,8 @@ inline void case_transformer_pool_arena_reclaimed() {
   RippleTransformer<2> rt(tl);
   rt.init_storage(persistent_arena);
   configure_arenas_default(); // rebinds under the live pool
-  Animation::Ripple *p = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
+  Animation::Ripple *p =
+      rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4); // -> HS_CHECK
   if (p == reinterpret_cast<Animation::Ripple *>(0x1))
     std::printf("x");
 }
@@ -2125,7 +2130,7 @@ inline void case_particle_lifetime_over_max() {
 
 /** @brief Pipeline stub for the particle-render lifetime death case. */
 struct DeathPlotPipeline {
-  void plot(Canvas &, const Vector &, const Pixel &, float, float) {}
+  void plot(Canvas &, const math::Vector &, const Pixel &, float, float) {}
   void plot(Canvas &, float, float, const Pixel &, float, float) {}
 };
 
@@ -2136,14 +2141,14 @@ inline void case_particle_render_zero_lifetime() {
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 1> ps;
   ps.init(arena, 0.85f, 0.0f, 1.0f);
-  ps.spawn(Vector(1, 0, 0), Vector(), 0);
+  ps.spawn(math::Vector(1, 0, 0), math::Vector(), 0);
   ps.max_life = 0;
 
   DeathEffect fx;
   Canvas canvas(fx);
   DeathPlotPipeline pipeline;
   Plot::ParticleSystem::draw<32, 16>(pipeline, canvas, ps,
-                                     [](const Vector &, Fragment &) {});
+                                     [](const math::Vector &, Fragment &) {});
 }
 
 /**
@@ -2328,11 +2333,12 @@ inline void case_scan_clip_rows_out_of_bounds() {
  */
 inline void case_face_scratch_retargeted() {
   constexpr int H = 16, HV = H + hs::H_OFFSET;
-  Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
-  Vector verts[6];
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
+  math::Vector verts[6];
   uint16_t idx_a[3], idx_b[3];
   for (int i = 0; i < 6; ++i) {
-    float a = (2.0f * PI_F * i) / 6.0f;
+    float a = (2.0f * math::PI_F * i) / 6.0f;
     verts[i] = (basis.v * cosf(0.6f) +
                 (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(0.6f))
                    .normalized();
@@ -2342,9 +2348,9 @@ inline void case_face_scratch_retargeted() {
     idx_b[i] = static_cast<uint16_t>(i + 3);
   }
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face first(std::span<const Vector>(verts, 6),
+  SDF::Face first(std::span<const math::Vector>(verts, 6),
                   std::span<const uint16_t>(idx_a, 3), scratch, HV, H);
-  SDF::Face second(std::span<const Vector>(verts, 6),
+  SDF::Face second(std::span<const math::Vector>(verts, 6),
                    std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
   (void)second;
   (void)first.get_vertical_bounds<H>();
@@ -2359,11 +2365,12 @@ inline void case_face_scratch_retargeted() {
  */
 inline void case_face_scratch_retargeted_by_culled_face() {
   constexpr int H = 16, HV = H + hs::H_OFFSET;
-  Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
-  Vector verts[4];
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
+  math::Vector verts[4];
   uint16_t idx_a[3], idx_b[3];
   for (int i = 0; i < 3; ++i) {
-    float a = (2.0f * PI_F * i) / 3.0f;
+    float a = (2.0f * math::PI_F * i) / 3.0f;
     verts[i] = (basis.v * cosf(0.6f) +
                 (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(0.6f))
                    .normalized();
@@ -2373,9 +2380,9 @@ inline void case_face_scratch_retargeted_by_culled_face() {
   }
   verts[3] = basis.v;
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face first(std::span<const Vector>(verts, 4),
+  SDF::Face first(std::span<const math::Vector>(verts, 4),
                   std::span<const uint16_t>(idx_a, 3), scratch, HV, H);
-  SDF::Face second(std::span<const Vector>(verts, 4),
+  SDF::Face second(std::span<const math::Vector>(verts, 4),
                    std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
   (void)second;
   (void)first.get_vertical_bounds<H>();
@@ -2438,7 +2445,7 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
   MeshState mesh;
   mesh.vertices.bind(geom, 3);
   for (int i = 0; i < 3; ++i)
-    mesh.vertices.push_back(Vector(0.0f, 1.0f, 0.0f));
+    mesh.vertices.push_back(math::Vector(0.0f, 1.0f, 0.0f));
   mesh.face_counts.bind(geom, 1);
   mesh.face_counts.push_back(opaque<uint8_t>(3));
   if (!omit_offsets) {
@@ -2454,7 +2461,7 @@ inline void scan_mesh_invalid_fixture(bool omit_offsets) {
   Canvas c(fx);
   Pipeline<W, H> pipe;
   Scan::Mesh::draw<W, H>(
-      pipe, c, mesh, [](const Vector &, Fragment &) {}, scratch);
+      pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch);
 }
 
 inline void case_scan_mesh_missing_offsets() {
@@ -2480,9 +2487,9 @@ inline void case_scan_mesh_class_id_out_of_range() {
 
   MeshState mesh;
   mesh.vertices.bind(geom, 3);
-  mesh.vertices.push_back(Vector(1.0f, 0.0f, 0.0f));
-  mesh.vertices.push_back(Vector(0.0f, 1.0f, 0.0f));
-  mesh.vertices.push_back(Vector(0.0f, 0.0f, 1.0f));
+  mesh.vertices.push_back(math::Vector(1.0f, 0.0f, 0.0f));
+  mesh.vertices.push_back(math::Vector(0.0f, 1.0f, 0.0f));
+  mesh.vertices.push_back(math::Vector(0.0f, 0.0f, 1.0f));
   mesh.face_counts.bind(geom, 1);
   mesh.face_counts.push_back(static_cast<uint8_t>(3));
   mesh.face_offsets.bind(geom, 1);
@@ -2500,7 +2507,7 @@ inline void case_scan_mesh_class_id_out_of_range() {
   Canvas c(fx);
   Pipeline<W, H> pipe;
   Scan::Mesh::draw<W, H>(
-      pipe, c, mesh, [](const Vector &, Fragment &) {}, scratch, &bake);
+      pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch, &bake);
 }
 
 /**
@@ -2521,7 +2528,9 @@ struct OverCapacityMockMesh {
      * @param Unused vertex index.
      * @return A constant Vector{0,1,0}.
      */
-    Vector operator[](size_t) const { return Vector{0.0f, 1.0f, 0.0f}; }
+    math::Vector operator[](size_t) const {
+      return math::Vector{0.0f, 1.0f, 0.0f};
+    }
     /**
      * @brief Reports the vertex count.
      * @return Always 1.
@@ -2571,8 +2580,8 @@ inline void case_plot_mesh_vertex_over_capacity() {
   DeathEffect fx;
   Canvas c(fx);
   Pipeline<W, H> pipe;
-  Plot::Mesh::draw<W, H>(
-      pipe, c, mesh, [](const Vector &, Fragment &) {}); // index 130 -> trap
+  Plot::Mesh::draw<W, H>(pipe, c, mesh, [](const math::Vector &, Fragment &) {
+  }); // index 130 -> trap
 }
 
 /**
@@ -2600,15 +2609,16 @@ inline void case_plot_canvas_dim_mismatch() {
   ArenaVector<Fragment> points;
   points.bind(scratch_arena_a, 2);
   Fragment f;
-  f.pos = Vector(1, 0, 0);
+  f.pos = math::Vector(1, 0, 0);
   points.push_back(f);
-  f.pos = Vector(0, 1, 0);
+  f.pos = math::Vector(0, 1, 0);
   points.push_back(f);
 
   DeathEffect fx(W, opaque(H + 1));
   Canvas c(fx);
   Pipeline<W, H> pipe;
-  Plot::rasterize<W, H>(pipe, c, points, [](const Vector &, Fragment &) {});
+  Plot::rasterize<W, H>(pipe, c, points,
+                        [](const math::Vector &, Fragment &) {});
 }
 
 /**
@@ -2623,18 +2633,18 @@ inline void case_plot_window_multi_segment() {
   ArenaVector<Fragment> points;
   points.bind(scratch_arena_a, 4);
   Fragment f;
-  f.pos = Vector(1, 0, 0);
+  f.pos = math::Vector(1, 0, 0);
   points.push_back(f);
-  f.pos = Vector(0, 1, 0);
+  f.pos = math::Vector(0, 1, 0);
   points.push_back(f);
-  f.pos = Vector(0, 0, 1);
+  f.pos = math::Vector(0, 0, 1);
   points.push_back(f); // 2 segments under a window -> HS_CHECK
 
   DeathEffect fx(W, H);
   Canvas c(fx);
   Pipeline<W, H> pipe;
   Plot::rasterize<W, H>(
-      pipe, c, points, [](const Vector &, Fragment &) {},
+      pipe, c, points, [](const math::Vector &, Fragment &) {},
       {.plot_t_start = opaque(0.25f), .plot_t_end = opaque(0.75f)});
 }
 
@@ -2698,8 +2708,8 @@ inline void case_screen_trails_plot_without_storage() {
  */
 inline void case_world_trails_plot_without_storage() {
   Filter::World::Trails<8> trails(4); // no init_storage() -> HS_CHECK
-  trails.plot(Vector(0, 1, 0), Pixel(1, 1, 1), 0.0f, 1.0f,
-              [](const Vector &, const Pixel &, float, float) {});
+  trails.plot(math::Vector(0, 1, 0), Pixel(1, 1, 1), 0.0f, 1.0f,
+              [](const math::Vector &, const Pixel &, float, float) {});
 }
 
 /**
@@ -2717,7 +2727,7 @@ inline void case_raster_point_projections_short() {
   points.bind(scratch_arena_a, 3);
   for (int i = 0; i < 3; ++i) {
     Fragment f;
-    f.pos = Vector(1, 0, 0);
+    f.pos = math::Vector(1, 0, 0);
     points.push_back(f);
   }
   float rows[3] = {0.0f, 0.0f, 0.0f};
@@ -2725,7 +2735,8 @@ inline void case_raster_point_projections_short() {
   DeathEffect fx(W, H);
   Canvas c(fx);
   Pipeline<W, H> pipe;
-  Plot::rasterize<W, H>(pipe, c, points, [](const Vector &, Fragment &) {},
+  Plot::rasterize<W, H>(pipe, c, points,
+                        [](const math::Vector &, Fragment &) {},
                         {.point_rows = rows,
                          .point_cols = cols,
                          // one per EDGE, not per point -> HS_CHECK
@@ -2755,7 +2766,7 @@ inline void case_spherical_field_populate_ring_end_oob() {
   static float values[layout.sample_count()];
   hs::SphericalField<float, 32, 16, 0> field(values, layout);
   field.populate(0, opaque(layout.ring_count()),
-                 [](const Vector &v, const auto &) { return v.y; });
+                 [](const math::Vector &v, const auto &) { return v.y; });
   if (values[0] == 42.0f)
     std::printf("x");
 }
@@ -2840,7 +2851,7 @@ inline void case_feedback_infinite_fade() {
  */
 inline void case_path_append_zero_samples() {
   Path<32> path;
-  path.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f,
+  path.append_segment([](float s) { return math::Vector(s, 0.0f, 0.0f); }, 1.0f,
                       opaque(0),
                       [](float t) { return t; }); // samples < 1 -> HS_CHECK
 }
@@ -3158,7 +3169,8 @@ inline void case_flywheel_period_zero() {
  *          so a single-row canvas would map every row to a non-finite phi.
  */
 inline void case_y_to_phi_degenerate_height() {
-  float phi = y_to_phi_virtual(opaque(0.0f), opaque(1)); // divisor 0 -> trap
+  float phi =
+      math::y_to_phi_virtual(opaque(0.0f), opaque(1)); // divisor 0 -> trap
   if (phi == opaque(42.0f))
     std::printf("x");
 }
@@ -3170,8 +3182,8 @@ inline void case_y_to_phi_degenerate_height() {
  *          stale or never-written quaternion instead of failing.
  */
 inline void case_orientation_frame_index_oob() {
-  Orientation<> orientation; // constructed with one frame
-  const Quaternion &q = orientation.get(opaque(3));
+  math::Orientation<> orientation; // constructed with one frame
+  const math::Quaternion &q = orientation.get(opaque(3));
   if (q.r == opaque(42.0f))
     std::printf("x");
 }
@@ -3183,9 +3195,9 @@ inline void case_orientation_frame_index_oob() {
  *          rotate it; the guard fires before the axes are built.
  */
 inline void case_make_basis_nonunit_quaternion() {
-  Quaternion q(opaque(2.0f), opaque(0.0f), opaque(0.0f), opaque(0.0f));
-  Vector normal{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
-  Basis b = make_basis(q, normal); // |q| = 2 -> HS_CHECK
+  math::Quaternion q(opaque(2.0f), opaque(0.0f), opaque(0.0f), opaque(0.0f));
+  math::Vector normal{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  math::Basis b = math::make_basis(q, normal); // |q| = 2 -> HS_CHECK
   if (b.u.x == opaque(42.0f))
     std::printf("x");
 }
@@ -3197,10 +3209,11 @@ inline void case_make_basis_nonunit_quaternion() {
  *          fires before the tangent is amplified.
  */
 inline void case_parallel_transport_antipodal() {
-  Vector from{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
-  Vector to{opaque(-1.0f), opaque(0.0f), opaque(0.0f)};
-  Vector tangent{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
-  Vector t = parallel_transport(from, to, tangent); // dot = -1 -> HS_CHECK
+  math::Vector from{opaque(1.0f), opaque(0.0f), opaque(0.0f)};
+  math::Vector to{opaque(-1.0f), opaque(0.0f), opaque(0.0f)};
+  math::Vector tangent{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
+  math::Vector t =
+      math::parallel_transport(from, to, tangent); // dot = -1 -> HS_CHECK
   if (t.x == opaque(42.0f))
     std::printf("x");
 }
@@ -3212,11 +3225,12 @@ inline void case_parallel_transport_antipodal() {
  *          reflection loop exhausts its passes and fires the guard.
  */
 inline void case_polyhedral_kaleidoscope_no_converge() {
-  const std::array<Vector, 3> mirrors = {Vector(opaque(1.0f), 0.0f, 0.0f),
-                                         Vector(opaque(-1.0f), 0.0f, 0.0f),
-                                         Vector(0.0f, opaque(1.0f), 0.0f)};
-  Vector v = lenses::polyhedral_kaleidoscope_lens(
-      Vector(opaque(0.5f), opaque(0.5f), 0.0f), mirrors);
+  const std::array<math::Vector, 3> mirrors = {
+      math::Vector(opaque(1.0f), 0.0f, 0.0f),
+      math::Vector(opaque(-1.0f), 0.0f, 0.0f),
+      math::Vector(0.0f, opaque(1.0f), 0.0f)};
+  math::Vector v = lenses::polyhedral_kaleidoscope_lens(
+      math::Vector(opaque(0.5f), opaque(0.5f), 0.0f), mirrors);
   if (v.x == opaque(42.0f))
     std::printf("x");
 }
@@ -3227,7 +3241,8 @@ inline void case_polyhedral_kaleidoscope_no_converge() {
  *          so a 2-gon has no interior for the distance to be measured against.
  */
 inline void case_sdf_polygon_side_count() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::PlanarPolygon poly(b, opaque(0.5f), opaque(2), opaque(0.0f));
   if (poly.apothem == opaque(42.0f))
     std::printf("x");
@@ -3239,9 +3254,10 @@ inline void case_sdf_polygon_side_count() {
  *          axis, so a non-unit one scales every folded copy off the sphere.
  */
 inline void case_sdf_angular_repeat_nonunit_axis() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::Ring ring(b, opaque(1.0f), opaque(0.1f));
-  Vector axis{opaque(0.0f), opaque(2.0f), opaque(0.0f)};
+  math::Vector axis{opaque(0.0f), opaque(2.0f), opaque(0.0f)};
   SDF::AngularRepeat<SDF::Ring> rep(ring, opaque(4), axis); // non-unit -> trap
   if (rep.sector == opaque(42.0f))
     std::printf("x");
@@ -3253,7 +3269,8 @@ inline void case_sdf_angular_repeat_nonunit_axis() {
  *          2π/n, so n == 0 wraps to knots[-1] on every probe.
  */
 inline void case_sdf_distorted_ring_zero_knots() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   const float knots[1] = {0.0f};
   SDF::KnotPrefilter pf;
   SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(0),
@@ -3542,7 +3559,7 @@ inline void case_opleg_reconcile_incomplete_handoff() {
   static uint8_t buf[1024];
   Arena arena(buf, sizeof(buf));
   PolyMesh seed;
-  static const Vector endpoints[1] = {Vector(0, 0, 1)};
+  static const math::Vector endpoints[1] = {math::Vector(0, 0, 1)};
   Animation::OpLeg::PaletteHandoff handoff;
   Animation::OpLeg leg(
       seed,
@@ -3617,7 +3634,7 @@ inline void case_motion_empty_path_origin_sample() {
   constexpr int W = 32, H = 16;
   DeathEffect fx(W, H);
   Canvas c(fx);
-  Orientation<4> orientation;
+  math::Orientation<4> orientation;
   static Path<32> path; // never appended -> get_point returns the origin
   Animation::Motion<W, 4> motion(orientation, path, opaque(10));
   motion.step(c);
@@ -3640,7 +3657,8 @@ inline void case_spherical_field_negative_equator_samples() {
  *          the shape must be built inverted about its antipode instead.
  */
 inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::SphericalPolygon poly(b, opaque(1.5f), opaque(5), opaque(0.0f));
   if (poly.circumradius == opaque(42.0f))
     std::printf("x");
@@ -3652,7 +3670,8 @@ inline void case_sdf_spherical_polygon_radius_over_hemisphere() {
  *          radius past the hemisphere inverts the band it derives.
  */
 inline void case_sdf_flower_radius_over_hemisphere() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::Flower flower(b, opaque(1.5f), opaque(5), opaque(0.0f));
   if (flower.circumradius == opaque(42.0f))
     std::printf("x");
@@ -3664,7 +3683,8 @@ inline void case_sdf_flower_radius_over_hemisphere() {
  *          zero radius hands every probe a non-finite distance.
  */
 inline void case_sdf_flower_zero_radius() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::Flower flower(b, opaque(0.0f), opaque(5), opaque(0.0f));
   if (flower.circumradius == opaque(42.0f))
     std::printf("x");
@@ -3708,18 +3728,19 @@ inline void case_sdf_class_lut_grid_too_small() {
  */
 inline void case_sdf_bind_class_lut_offset_out_of_range() {
   constexpr int H = 16, HV = H + hs::H_OFFSET;
-  Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
-  Vector verts[3];
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
+  math::Vector verts[3];
   uint16_t idx[3];
   for (int i = 0; i < 3; ++i) {
-    float a = (2.0f * PI_F * i) / 3.0f;
+    float a = (2.0f * math::PI_F * i) / 3.0f;
     verts[i] = (basis.v * cosf(0.6f) +
                 (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(0.6f))
                    .normalized();
     idx[i] = static_cast<uint16_t>(i);
   }
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const Vector>(verts, 3),
+  SDF::Face face(std::span<const math::Vector>(verts, 3),
                  std::span<const uint16_t>(idx, 3), scratch, HV, H);
   static const float canon_xy[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
   SDF::ClassLut lut;
@@ -3734,7 +3755,8 @@ inline void case_sdf_bind_class_lut_offset_out_of_range() {
  *          latitude.
  */
 inline void case_sdf_ring_radius_past_antipode() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::Ring ring(b, opaque(2.5f), opaque(0.05f));
   if (ring.thickness == opaque(42.0f))
     std::printf("x");
@@ -3747,7 +3769,8 @@ inline void case_sdf_ring_radius_past_antipode() {
  *          nothing.
  */
 inline void case_sdf_ring_negative_thickness() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::Ring ring(b, opaque(1.0f), opaque(-0.05f));
   if (ring.thickness == opaque(42.0f))
     std::printf("x");
@@ -3759,7 +3782,8 @@ inline void case_sdf_ring_negative_thickness() {
  *          radius * PI/2, which past 2 wraps its cosine limits.
  */
 inline void case_sdf_distorted_ring_radius_past_antipode() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::FlatDistortedRing ring(b, opaque(2.5f), opaque(0.05f));
   if (ring.thickness == opaque(42.0f))
     std::printf("x");
@@ -3772,7 +3796,8 @@ inline void case_sdf_distorted_ring_radius_past_antipode() {
  *          nothing.
  */
 inline void case_sdf_distorted_ring_negative_thickness() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   SDF::FlatDistortedRing ring(b, opaque(0.5f), opaque(-0.05f));
   if (ring.thickness == opaque(42.0f))
     std::printf("x");
@@ -3785,7 +3810,7 @@ inline void case_sdf_distorted_ring_negative_thickness() {
  *          the cull drops rows the arc covers.
  */
 inline void case_sdf_line_negative_thickness() {
-  SDF::Line line(Vector(1, 0, 0), Vector(0, 0, 1), opaque(-0.05f));
+  SDF::Line line(math::Vector(1, 0, 0), math::Vector(0, 0, 1), opaque(-0.05f));
   if (line.thickness == opaque(42.0f))
     std::printf("x");
 }
@@ -3797,7 +3822,8 @@ inline void case_sdf_line_negative_thickness() {
  *          probe, so a null one faults deep inside the rasterizer instead.
  */
 inline void case_sdf_distorted_ring_null_shift() {
-  const Basis b{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
   ScalarFn shift; // default-constructed -> empty
   SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), shift, opaque(0.1f),
                           opaque(0.0f));
@@ -3901,7 +3927,7 @@ inline void case_reconcile_vertices_size_mismatch() {
   Arena scratch(scratch_buf, sizeof(scratch_buf));
   PolyMesh identity;
   identity.vertices.bind(identity_arena, 1);
-  identity.vertices.push_back(Vector{});
+  identity.vertices.push_back(math::Vector{});
   PolyMesh authored;
   PolyMesh out;
   MeshOps::reconcile_vertices(identity, authored, out, target, scratch);
@@ -4152,13 +4178,13 @@ inline void case_opleg_no_event_slot() {
 /** @brief A cached bump offset must agree with the sample's cap distance. */
 inline void case_bump_offset_outside_cap_distance() {
   Animation::BumpParams params;
-  params.center = Y_AXIS;
-  params.axis = Y_AXIS;
+  params.center = math::Y_AXIS;
+  params.axis = math::Y_AXIS;
   params.radius = 0.5f;
   params.amplitude = 1.0f;
   params.envelope = 1.0f;
   params.sync();
-  (void)bump_field_with_y(Y_AXIS, params, opaque(0.25f));
+  (void)bump_field_with_y(math::Y_AXIS, params, opaque(0.25f));
 }
 
 /**
@@ -4585,12 +4611,12 @@ inline const Case *all_cases(int &n) {
        "(samples >= 1) "},
       {"motion_empty_path_origin_sample", case_motion_empty_path_origin_sample,
        "motion.h",
-       "(dot(current_v, current_v) >= math::EPS_LEN_SQ && dot(target_v, "
+       "(math::dot(current_v, current_v) >= math::EPS_LEN_SQ && math::dot(target_v, "
        "target_v) >= math::EPS_LEN_SQ) Motion: path sampled at the origin "
        "(empty or origin-crossing path)"},
       {"hue_wobble_depth_out_of_range", case_hue_wobble_depth_out_of_range,
        "composition.h",
-       "(fabsf(depth) * (2.0f * PI_F) < PALETTE_PHASE_ARG_LIMIT) "
+       "(fabsf(depth) * (2.0f * math::PI_F) < PALETTE_PHASE_ARG_LIMIT) "
        "HueWobbleShade: depth must stay inside the fast-trig argument range"},
       {"iridescent_weight_negative", case_iridescent_weight_negative,
        "composition.h",

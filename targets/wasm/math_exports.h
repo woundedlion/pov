@@ -30,7 +30,7 @@ using namespace emscripten;
  * @param r Vector to pack.
  * @return JS object with the x, y and z components as numbers.
  */
-static val vector_to_xyz(const Vector &r) {
+static val vector_to_xyz(const math::Vector &r) {
   val v = val::object();
   v.set("x", r.x);
   v.set("y", r.y);
@@ -147,7 +147,7 @@ static void bind_math_exports() {
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   function("lissajous",
            optional_override([](float m1, float m2, float a, float t) -> val {
-             return vector_to_xyz(lissajous(m1, m2, a, t));
+             return vector_to_xyz(math::lissajous(m1, m2, a, t));
            }));
 
   // Mobius sphere map (mobius_transforms.js coefficients), via stereographic.h.
@@ -158,7 +158,7 @@ static void bind_math_exports() {
                                 float br, float bi, float cr, float ci,
                                 float dr, float di) -> val {
              return vector_to_xyz(math::mobius_transform(
-                 Vector(x, y, z),
+                 math::Vector(x, y, z),
                  math::MobiusParams(ar, ai, br, bi, cr, ci, dr, di)));
            }));
 }

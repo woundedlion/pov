@@ -81,7 +81,8 @@ struct MeridianProjectChainParams : ProjectChainParams {
       ProjectChainParams::FIELDS,
       std::array{Field<MeridianProjectChainParams>{
           "central-meridian", &MeridianProjectChainParams::central_meridian,
-          "Central Meridian", 0.0f, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC}});
+          "Central Meridian", 0.0f, math::TWO_PI_F,
+          FieldCurve::SHORTEST_PERIODIC}});
 };
 static_assert(field_ids_unique<MeridianProjectChainParams>());
 static_assert(sizeof(MeridianProjectChainParams) ==
@@ -100,7 +101,7 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   using Output = PlaneSample;
   using Params = ParamsT;
   struct Prepared {
-    Quaternion conjugate;
+    math::Quaternion conjugate;
   };
 
   static void init(State &state, InstanceId id) {
@@ -113,14 +114,14 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
     if (params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY))
-      return {Quaternion()};
-    return {(make_rotation(Y_AXIS, state.spin_phase) * ctx.projection_base *
-             state.wander)
+      return {math::Quaternion()};
+    return {(math::make_rotation(math::Y_AXIS, state.spin_phase) *
+             ctx.projection_base * state.wander)
                 .conjugate()};
   }
   static PlaneSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
-    const Vector local = rotate(input.dir, prepared.conjugate);
+    const math::Vector local = math::rotate(input.dir, prepared.conjugate);
     return Kernel::project(input, local, Derived::project(local, params));
   }
 };
@@ -131,7 +132,8 @@ struct ProjectStereographic
   static constexpr const char *ID = "project.stereographic.v2";
   static constexpr const char *NAME = "Stereographic";
 
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     return Projection::stereographic(local, params.singularity_fade);
   }
 };
@@ -142,7 +144,8 @@ struct ProjectFoldedSinusoidal
   static constexpr const char *ID = "project.folded-sinusoidal.v2";
   static constexpr const char *NAME = "Folded Sinusoidal";
 
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     return Projection::folded_sinusoidal(local, params.central_meridian);
   }
 };
@@ -153,7 +156,8 @@ struct ProjectEquirectangular
   static constexpr const char *ID = "project.equirectangular.v2";
   static constexpr const char *NAME = "Equirectangular";
 
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     return Projection::equirectangular(local, params.central_meridian,
                                        params.singularity_fade);
   }
@@ -196,7 +200,8 @@ struct ProjectGnomonic : ProjectOpModel<ProjectGnomonic, GnomonicChainParams> {
              "project.gnomonic: invalid hemisphere");
     return ProjectOpModel::prepare(ctx, params, state);
   }
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     return Projection::gnomonic(
         local, params.singularity_fade,
         static_cast<Projection::GnomonicHemisphere>(params.hemisphere));
@@ -216,7 +221,8 @@ struct ProjectPeirce
   static constexpr const char *ID = "project.peirce.v2";
   static constexpr const char *NAME = "Peirce";
 
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     return Projection::peirce(
         local, params.central_meridian, PEIRCE_SQUARE_LAYOUT, 0.0f, true,
         PROJECT_COORDINATE_SCALE, params.singularity_fade);
@@ -235,7 +241,8 @@ struct ProjectPeirceSquareFast
       ApproximationOracleId::PEIRCE_FAST_SQUARE;
   static constexpr auto METRICS = Projection::PEIRCE_FAST_SQUARE_METRICS;
 
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     return Projection::peirce_fast_square(local, PROJECT_COORDINATE_SCALE,
                                           params.singularity_fade);
   }
@@ -244,7 +251,7 @@ struct ProjectPeirceSquareFast
 inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
 
 /** @brief Standard parallel magnitude of the chain's Bonne projection. */
-inline constexpr float BONNE_STANDARD_PARALLEL = PI_F * 0.25f;
+inline constexpr float BONNE_STANDARD_PARALLEL = math::PI_F * 0.25f;
 
 /** @brief Parameter family of project.bonne.v2. */
 struct BonneChainParams : MeridianProjectChainParams {
@@ -269,7 +276,8 @@ struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
   static constexpr const char *ID = "project.bonne.v2";
   static constexpr const char *NAME = "Bonne";
 
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     const float hemisphere = params.hemisphere == 0 ? 1.0f : -1.0f;
     return Projection::bonne(local, params.central_meridian,
                              hemisphere * BONNE_STANDARD_PARALLEL,
@@ -284,7 +292,8 @@ struct ProjectAirocean
   static constexpr const char *ID = "project.airocean.v2";
   static constexpr const char *NAME = "Airocean";
 
-  static ProjectionResult project(const Vector &local, const Params &params) {
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params) {
     return Projection::airocean(local, params.central_meridian, false, true,
                                 PROJECT_COORDINATE_SCALE);
   }

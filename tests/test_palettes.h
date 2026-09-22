@@ -117,7 +117,7 @@ inline void test_named_palette_hue_short_arc() {
   OKLCH a = pixel_to_oklch(Palettes::UNDERSEA.get(0.0f).color);
   OKLCH b = pixel_to_oklch(Palettes::UNDERSEA.get(1.0f).color);
   // Precondition: endpoints really do straddle the seam (numeric gap > PI).
-  HS_EXPECT_GT(std::fabs(b.h - a.h), PI_F);
+  HS_EXPECT_GT(std::fabs(b.h - a.h), math::PI_F);
 
   OKLCH mid = lerp_oklch(a, b, 0.5f);
   // The short-arc midpoint is the circular average of the two hues.

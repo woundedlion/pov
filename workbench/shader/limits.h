@@ -155,7 +155,8 @@ warp_stage_params_in_ranges(const WarpStageParams &params) {
          params.translation_x <= AFFINE_TRANSLATION_MAX &&
          params.translation_y >= -AFFINE_TRANSLATION_MAX &&
          params.translation_y <= AFFINE_TRANSLATION_MAX &&
-         params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
+         params.rotation >= -math::TWO_PI_F &&
+         params.rotation <= math::TWO_PI_F &&
          params.scale_x >= AFFINE_SCALE_MIN &&
          params.scale_x <= AFFINE_SCALE_MAX &&
          params.scale_y >= AFFINE_SCALE_MIN &&
@@ -163,7 +164,7 @@ warp_stage_params_in_ranges(const WarpStageParams &params) {
          params.shear >= -AFFINE_SHEAR_MAX &&
          params.shear <= AFFINE_SHEAR_MAX && params.frequency >= 0.0f &&
          params.frequency <= 64.0f && params.field_angle >= 0.0f &&
-         params.field_angle <= TWO_PI_F &&
+         params.field_angle <= math::TWO_PI_F &&
          params.center_x >= -VORTEX_CENTER_MAX &&
          params.center_x <= VORTEX_CENTER_MAX &&
          params.center_y >= -VORTEX_CENTER_MAX &&
@@ -174,7 +175,7 @@ warp_stage_params_in_ranges(const WarpStageParams &params) {
          params.turns <= VORTEX_TURNS_MAX &&
          params.center_orbit_radius >= 0.0f &&
          params.center_orbit_radius <= VORTEX_ORBIT_MAX &&
-         params.vector_angle >= 0.0f && params.vector_angle <= TWO_PI_F &&
+         params.vector_angle >= 0.0f && params.vector_angle <= math::TWO_PI_F &&
          params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
          params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
          params.offset_x >= -MIRROR_OFFSET_MAX &&
@@ -183,8 +184,9 @@ warp_stage_params_in_ranges(const WarpStageParams &params) {
          params.offset_y <= MIRROR_OFFSET_MAX &&
          params.radial_scale >= POLAR_RADIAL_SCALE_MIN &&
          params.radial_scale <= POLAR_RADIAL_SCALE_MAX &&
-         params.radial_phase >= 0.0f && params.radial_phase <= TWO_PI_F &&
-         params.angular_phase >= 0.0f && params.angular_phase <= TWO_PI_F &&
+         params.radial_phase >= 0.0f && params.radial_phase <= math::TWO_PI_F &&
+         params.angular_phase >= 0.0f &&
+         params.angular_phase <= math::TWO_PI_F &&
          params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
 }
 
@@ -247,11 +249,11 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
          p.projection.wander >= WANDER_MIN &&
          p.projection.wander <= WANDER_MAX &&
          p.projection.central_meridian >= 0.0f &&
-         p.projection.central_meridian <= TWO_PI_F &&
+         p.projection.central_meridian <= math::TWO_PI_F &&
          p.projection.coordinate_scale >= 0.25f &&
          p.projection.coordinate_scale <= 4.0f &&
          p.projection.bonne_standard_parallel >= 1e-3f &&
-         p.projection.bonne_standard_parallel <= 0.5f * PI_F &&
+         p.projection.bonne_standard_parallel <= 0.5f * math::PI_F &&
          p.projection.layout_scroll >= -1.0f &&
          p.projection.layout_scroll <= 1.0f &&
          p.outer_camera.wander >= WANDER_MIN &&
@@ -270,7 +272,7 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
          p.value.iso_level >= 0.0f && p.value.iso_level <= 1.0f &&
          p.value.iso_width >= SOFTNESS_MIN && p.value.iso_width <= 0.5f &&
          p.value.band_count >= 1 && p.value.band_count <= BAND_COUNT_MAX &&
-         p.value.band_phase >= 0.0f && p.value.band_phase <= TWO_PI_F &&
+         p.value.band_phase >= 0.0f && p.value.band_phase <= math::TWO_PI_F &&
          p.value.cutout_threshold >= 0.0f && p.value.cutout_threshold <= 1.0f &&
          p.value.cutout_softness >= SOFTNESS_MIN &&
          p.value.cutout_softness <= 0.5f && p.value.edge_width >= 0.0f &&

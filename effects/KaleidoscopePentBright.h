@@ -44,7 +44,7 @@ public:
 
   static constexpr Params initial_params() {
     Params value;
-    value.source.lattice_cell_scale = 5.0f / TWO_PI_F;
+    value.source.lattice_cell_scale = 5.0f / math::TWO_PI_F;
     value.source.lattice_shape_blend = 1.0f;
     value.source.lattice_softness = 0.377608389f;
     value.source.lattice_radius = 0.290762514f;

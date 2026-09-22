@@ -75,11 +75,12 @@ inline void test_offsets_are_contiguous() {
 
 inline void test_metric_spacing_is_uniform() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4);
-  constexpr float LATITUDE_STEP = 4.0f * PI_F / 146.0f;
+  constexpr float LATITUDE_STEP = 4.0f * math::PI_F / 146.0f;
   for (int i = 2; i + 2 < layout.ring_count(); ++i) {
     const auto ring = layout.ring(i);
-    const float phi = ring.y * PI_F / 146.0f;
-    const float longitude_step = 2.0f * PI_F * std::sin(phi) / ring.samples;
+    const float phi = ring.y * math::PI_F / 146.0f;
+    const float longitude_step =
+        2.0f * math::PI_F * std::sin(phi) / ring.samples;
     const float ratio = longitude_step / LATITUDE_STEP;
     HS_EXPECT_GT(ratio, 0.96f);
     HS_EXPECT_LT(ratio, 1.05f);
@@ -138,8 +139,8 @@ inline void test_populate_band_preserves_other_samples() {
   std::array<Pair, layout.sample_count()> values;
   values.fill(SENTINEL);
   hs::SphericalField<Pair, 64, 33, 0> field(values.data(), layout);
-  field.populate(2, 3, [](const Vector &v, const auto &point) {
-    return Pair{dot(v, v), point.y};
+  field.populate(2, 3, [](const math::Vector &v, const auto &point) {
+    return Pair{math::dot(v, v), point.y};
   });
   const auto first = layout.ring(2);
   const auto last = layout.ring(3);
@@ -154,17 +155,17 @@ inline void test_populate_band_preserves_other_samples() {
 
 inline void test_populate_recurrence_matches_exact_trig() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4);
-  static std::array<Vector, layout.sample_count()> values;
-  hs::SphericalField<Vector, 288, 144, 3> field(values.data(), layout);
+  static std::array<math::Vector, layout.sample_count()> values;
+  hs::SphericalField<math::Vector, 288, 144, 3> field(values.data(), layout);
   // The incremental rotation walks the whole ring from the meridian, so the
   // longest ring is where any drift in the recurrence accumulates.
   field.populate(0, layout.ring_count() - 1,
-                 [](const Vector &v, const auto &) { return v; });
+                 [](const math::Vector &v, const auto &) { return v; });
   for (int i = 0; i < layout.ring_count(); ++i) {
     const auto ring = layout.ring(i);
     for (int sample = 0; sample < ring.samples; ++sample) {
-      const Vector &stepped = values[ring.offset + sample];
-      const Vector exact = layout.sample_vector(ring, sample);
+      const math::Vector &stepped = values[ring.offset + sample];
+      const math::Vector exact = layout.sample_vector(ring, sample);
       HS_EXPECT_NEAR(stepped.x, exact.x, 2e-5f);
       HS_EXPECT_NEAR(stepped.y, exact.y, 2e-5f);
       HS_EXPECT_NEAR(stepped.z, exact.z, 2e-5f);

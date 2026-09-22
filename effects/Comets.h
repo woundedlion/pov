@@ -27,8 +27,8 @@ struct CometsWhiteBox;
 /** @brief Comets' live parameter set: the preset-driven Lissajous function
  *  plus the slider-bound render values. */
 struct CometsParams {
-  LissajousParams function; /**< Path function the comet head traces. */
-  float alpha = 1.0f;       /**< Overall trail opacity multiplier in [0, 1]. */
+  math::LissajousParams function; /**< Path function the comet head traces. */
+  float alpha = 1.0f;     /**< Overall trail opacity multiplier in [0, 1]. */
   float thickness = 0.0f; /**< Comet body half-width; initial_params() seeds the
                                resolution-derived default. */
   float cycle_duration = 80.0f; /**< Duration of one motion cycle, in frames. */
@@ -71,7 +71,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
 
   /** @brief Angular width of one canvas column, the comet thickness unit. */
-  static constexpr float THICKNESS_PX = 2.0f * PI_F / W;
+  static constexpr float THICKNESS_PX = 2.0f * math::PI_F / W;
 
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr float THICKNESS_MIN = 0.0f,
@@ -128,8 +128,8 @@ public:
     // Runs before motion exists, so its reanchor() is a no-op here; the path it
     // sets is still live because Motion below captures `path` by reference.
     update_path();
-    timeline.add(0,
-                 Animation::RandomWalk<W>(orientation, random_vector(), noise));
+    timeline.add(
+        0, Animation::RandomWalk<W>(orientation, math::random_vector(), noise));
     // Motion is infinite and added before any finite animation, so the
     // timeline never relocates it and the retained handle stays valid.
     motion = timeline.add_get(
@@ -171,14 +171,14 @@ public:
       return;
 
     HS_PROFILE(cm_draw_trail);
-    deep_tween(node->trail, [&](const Quaternion &q, float t) {
-      auto fragment_shader = [&](const Vector &, Fragment &f) {
+    deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
+      auto fragment_shader = [&](const math::Vector &, Fragment &f) {
         f.color = baked_palette.get(t);
-        f.color.alpha *= quintic_kernel(t) * params.alpha;
+        f.color.alpha *= math::quintic_kernel(t) * params.alpha;
       };
 
-      Vector v_local = rotate(node->v, q);
-      Vector v_final = orientation.orient(v_local);
+      math::Vector v_local = math::rotate(node->v, q);
+      math::Vector v_final = orientation.orient(v_local);
       HS_PROFILE_DEEP(cm_point_scan);
       Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
                               fragment_shader, params.debug_bb);
@@ -212,7 +212,7 @@ private:
     if (!Choreography::apply_preset(change))
       return false;
     if (change.origin == Effect::PresetChangeOrigin::MANUAL) {
-      node->orientation.set(Quaternion());
+      node->orientation.set(math::Quaternion());
       node->trail.clear();
       if (motion) {
         motion->rewind();
@@ -245,13 +245,14 @@ private:
    *          count at 1 so m2*domain < PI does not round to 0 and freeze the head
    *          at path_fn(0) (the table is authored data that gets extended).
    */
-  static float closing_domain(const LissajousParams &config) {
+  static float closing_domain(const math::LissajousParams &config) {
     HS_CHECK(config.m2 > 0,
              "Comets Lissajous entry needs m2 > 0; m2 divides the domain");
-    float closing_cycles = std::round(config.m2 * config.domain / (2 * PI_F));
+    float closing_cycles =
+        std::round(config.m2 * config.domain / (2 * math::PI_F));
     if (closing_cycles < 1.0f)
       closing_cycles = 1.0f;
-    return 2 * PI_F * closing_cycles / config.m2;
+    return 2 * math::PI_F * closing_cycles / config.m2;
   }
 
   /**
@@ -261,7 +262,7 @@ private:
    *          function switches.
    */
   void update_path() {
-    LissajousParams config = params.function;
+    math::LissajousParams config = params.function;
     // Snap so path_fn(domain) == path_fn(0); an unclosed endpoint pinches the
     // curve to a stray point each cycle.
     float closed_domain = closing_domain(config);
@@ -270,7 +271,7 @@ private:
     // capacity (no heap fallback on Arduino).
     const float m1 = config.m1, m2 = config.m2, a = config.a;
     path.f = [m1, m2, a, closed_domain](float t) {
-      return lissajous(m1, m2, a, t * closed_domain);
+      return math::lissajous(m1, m2, a, t * closed_domain);
     };
     // Re-anchor Motion's baseline to the freshly-swapped path: the two curves'
     // travel-tangent frames differ at the seam, so a missing re-anchor teleports
@@ -316,7 +317,8 @@ private:
   Pipeline<W, H>
       filters; /**< Render filter pipeline applied to drawn fragments. */
   ProceduralPath path; /**< Current path function the comet head traces. */
-  Orientation<> orientation; /**< World orientation walked by the RandomWalk. */
+  math::Orientation<>
+      orientation; /**< World orientation walked by the RandomWalk. */
   GenerativePalette
       palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
   BakedPaletteStorage
@@ -328,20 +330,20 @@ private:
    *           frequency, m2 orbital (Y) frequency, a phase shift in radians,
    *           domain the traversal length t (closing_domain() snaps it so the
    *           curve closes). */
-  static constexpr std::array<PresetEntry<LissajousParams>, 12> PRESETS = {
-      {// {m1, m2, a, domain}
-       {{1.06f, 1.06f, 0, 5.909f}},
-       {{6.06f, 1.0f, 0, 2 * PI_F}},
-       {{6.02f, 4.01f, 0, 3.132f}},
-       {{46.62f, 62.16f, 0, 0.404f}},
-       {{46.26f, 69.39f, 0, 0.272f}},
-       {{19.44f, 9.72f, 0, 0.646f}},
-       {{8.51f, 17.01f, 0, 0.739f}},
-       {{7.66f, 6.38f, 0, 4.924f}},
-       {{8.75f, 5.0f, 0, 5.027f}},
-       {{11.67f, 14.58f, 0, 2.154f}},
-       {{11.67f, 8.75f, 0, 2.154f}},
-       {{10.94f, 8.75f, 0, 2.872f}}}};
+  static constexpr std::array<PresetEntry<math::LissajousParams>, 12> PRESETS =
+      {{// {m1, m2, a, domain}
+        {{1.06f, 1.06f, 0, 5.909f}},
+        {{6.06f, 1.0f, 0, 2 * math::PI_F}},
+        {{6.02f, 4.01f, 0, 3.132f}},
+        {{46.62f, 62.16f, 0, 0.404f}},
+        {{46.26f, 69.39f, 0, 0.272f}},
+        {{19.44f, 9.72f, 0, 0.646f}},
+        {{8.51f, 17.01f, 0, 0.739f}},
+        {{7.66f, 6.38f, 0, 4.924f}},
+        {{8.75f, 5.0f, 0, 5.027f}},
+        {{11.67f, 14.58f, 0, 2.154f}},
+        {{11.67f, 8.75f, 0, 2.154f}},
+        {{10.94f, 8.75f, 0, 2.872f}}}};
   Node *node = nullptr; /**< Arena-allocated comet head state. */
   PaletteWipe wipe;     /**< Cross-fade state of the palette rollover. */
   Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion =

@@ -31,7 +31,7 @@ public:
    *        internally to the unit contract the angular mask assumes).
    * @param radius Angular radius of the hole in radians.
    */
-  Hole(const Vector &origin, float radius)
+  Hole(const math::Vector &origin, float radius)
       : origin(origin.normalized()), radius(radius) {}
 
   /**
@@ -39,7 +39,7 @@ public:
    * contract the angular mask assumes.
    * @param new_origin New center (any non-zero length; renormalized internally).
    */
-  void set_origin(const Vector &new_origin) {
+  void set_origin(const math::Vector &new_origin) {
     origin = new_origin.normalized();
   }
 
@@ -60,13 +60,13 @@ public:
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
+  void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    float d = angle_between(v, origin);
+    float d = math::angle_between(v, origin);
     if (d >= radius)
       pass(v, color, age, alpha);
     else {
-      float mask = quintic_kernel(d / radius);
+      float mask = math::quintic_kernel(d / radius);
       if (mask > MASK_CUTOFF)
         pass(v, color, age, alpha * mask);
     }
@@ -80,8 +80,8 @@ private:
    */
   static constexpr float MASK_CUTOFF = 1e-8f;
 
-  Vector origin; /**< Center of the hole (unit vector). */
-  float radius;  /**< Angular radius of the hole in radians. */
+  math::Vector origin; /**< Center of the hole (unit vector). */
+  float radius;        /**< Angular radius of the hole in radians. */
 };
 
 } // namespace World

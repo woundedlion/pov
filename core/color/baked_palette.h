@@ -348,7 +348,7 @@ template <typename Source> struct DotKeyed {
   const Source &source;
   Color4 get(float u) const {
     float d = hs::clamp(1.0f - 2.0f * u, -1.0f, 1.0f);
-    return source.get(fast_acos(d) / PI_F);
+    return source.get(math::fast_acos(d) / math::PI_F);
   }
 };
 

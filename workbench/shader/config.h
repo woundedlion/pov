@@ -278,24 +278,24 @@ struct WarpStageParams {
     speed = hs::lerp(a.speed, b.speed, t);
     translation_x = hs::lerp(a.translation_x, b.translation_x, t);
     translation_y = hs::lerp(a.translation_y, b.translation_y, t);
-    rotation =
-        rotation_is_rate
-            ? hs::lerp(a.rotation, b.rotation, t)
-            : interp::shortest_periodic(a.rotation, b.rotation, t, TWO_PI_F);
+    rotation = rotation_is_rate
+                   ? hs::lerp(a.rotation, b.rotation, t)
+                   : interp::shortest_periodic(a.rotation, b.rotation, t,
+                                               math::TWO_PI_F);
     scale_x = expf(hs::lerp(logf(a.scale_x), logf(b.scale_x), t));
     scale_y = expf(hs::lerp(logf(a.scale_y), logf(b.scale_y), t));
     shear = hs::lerp(a.shear, b.shear, t);
     frequency = hs::lerp(a.frequency, b.frequency, t);
-    field_angle =
-        interp::shortest_periodic(a.field_angle, b.field_angle, t, TWO_PI_F);
+    field_angle = interp::shortest_periodic(a.field_angle, b.field_angle, t,
+                                            math::TWO_PI_F);
     center_x = hs::lerp(a.center_x, b.center_x, t);
     center_y = hs::lerp(a.center_y, b.center_y, t);
     radius = hs::lerp(a.radius, b.radius, t);
     turns = hs::lerp(a.turns, b.turns, t);
     center_orbit_radius =
         hs::lerp(a.center_orbit_radius, b.center_orbit_radius, t);
-    vector_angle =
-        interp::shortest_periodic(a.vector_angle, b.vector_angle, t, TWO_PI_F);
+    vector_angle = interp::shortest_periodic(a.vector_angle, b.vector_angle, t,
+                                             math::TWO_PI_F);
     cell_x = hs::lerp(a.cell_x, b.cell_x, t);
     cell_y = hs::lerp(a.cell_y, b.cell_y, t);
     offset_x = hs::lerp(a.offset_x, b.offset_x, t);
@@ -328,7 +328,7 @@ struct ProjectionParams {
   float wander = 0.0f;
   float central_meridian = 0.0f;
   float coordinate_scale = 1.0f;
-  float bonne_standard_parallel = PI_F * 0.25f;
+  float bonne_standard_parallel = math::PI_F * 0.25f;
   float layout_scroll = 0.0f;
 
   HS_COLD_MEMBER constexpr ProjectionParams() = default;
@@ -350,7 +350,7 @@ struct ProjectionParams {
     spin_rate = hs::lerp(a.spin_rate, b.spin_rate, t);
     wander = hs::lerp(a.wander, b.wander, t);
     central_meridian = interp::shortest_periodic(
-        a.central_meridian, b.central_meridian, t, TWO_PI_F);
+        a.central_meridian, b.central_meridian, t, math::TWO_PI_F);
     coordinate_scale = hs::lerp(a.coordinate_scale, b.coordinate_scale, t);
     bonne_standard_parallel =
         hs::lerp(a.bonne_standard_parallel, b.bonne_standard_parallel, t);
@@ -427,8 +427,8 @@ struct ValueParams {
     iso_level = hs::lerp(a.iso_level, b.iso_level, t);
     iso_width = hs::lerp(a.iso_width, b.iso_width, t);
     band_count = t < 1.0f ? a.band_count : b.band_count;
-    band_phase =
-        interp::shortest_periodic(a.band_phase, b.band_phase, t, TWO_PI_F);
+    band_phase = interp::shortest_periodic(a.band_phase, b.band_phase, t,
+                                           math::TWO_PI_F);
     cutout_threshold = hs::lerp(a.cutout_threshold, b.cutout_threshold, t);
     cutout_softness = hs::lerp(a.cutout_softness, b.cutout_softness, t);
     edge_width = hs::lerp(a.edge_width, b.edge_width, t);

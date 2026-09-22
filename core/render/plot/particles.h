@@ -142,7 +142,7 @@ struct ParticleSystem {
       Fragments trail;
       trail.bind(scratch_arena_a, point_count);
       // Original (pre-shader) positions, kept for the deferred pass.
-      ArenaVector<Vector> orig;
+      ArenaVector<math::Vector> orig;
       if (has_deferred_shader)
         orig.bind(scratch_arena_a, point_count);
       {
@@ -151,7 +151,7 @@ struct ParticleSystem {
         hs::DwtStallBatch history_batch(
             hs::g_mindsplatter_stalls.history_vertex);
 #endif
-        auto emit = [&](const Vector &v, float t) {
+        auto emit = [&](const math::Vector &v, float t) {
           trail.emplace_back(
               Fragment{.pos = v, .v0 = t, .v2 = v2, .v3 = particle_life});
           if constexpr (FuseVertex)
@@ -225,8 +225,8 @@ struct ParticleSystem {
 
           for (size_t e = 0; e < edges; ++e) {
             HS_MSP_STALL_START(edge_gate_start);
-            const Vector &ea = trail[e].pos;
-            const Vector &eb = trail[e + 1].pos;
+            const math::Vector &ea = trail[e].pos;
+            const math::Vector &eb = trail[e + 1].pos;
             const bool one_dot = edge_fits_one_dot<W, H>(ea, eb);
             count_particle_edge_class(one_dot);
             if (one_dot) {

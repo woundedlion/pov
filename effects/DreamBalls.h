@@ -128,7 +128,7 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
-                        global_orientation, Y_AXIS, noise,
+                        global_orientation, math::Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
     // Wrap the integrated phase to [0,1) so the orbit trig stays in precise range.
     timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
@@ -210,7 +210,7 @@ private:
   struct SolidData {
     MeshState mesh_state; /**< Baked vertices and faces. */
     /** First tangent-basis vector per vertex; the second is cross(vertex, u). */
-    ArenaVector<Vector> tangent_u;
+    ArenaVector<math::Vector> tangent_u;
     ArenaVector<Plot::Mesh::Edge>
         original_edges; /**< Unique edges of the source mesh. */
     ArenaVector<Plot::Mesh::Edge>
@@ -229,7 +229,7 @@ private:
 
   FastNoiseLite noise;
 
-  Orientation<> global_orientation;
+  math::Orientation<> global_orientation;
 
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
   static constexpr int SPRITE_LIFE = 320; /**< Visible frames per sprite. */
@@ -253,7 +253,7 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       2 * BakedPalette::required_arena_bytes() +
       SOLID_COUNT * sizeof(SolidData) +
-      SOLID_COUNT * (Solids::MAX_SOLID_VERTICES * 2 * sizeof(Vector) +
+      SOLID_COUNT * (Solids::MAX_SOLID_VERTICES * 2 * sizeof(math::Vector) +
                      Solids::MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
                      Solids::MAX_SOLID_FACES * sizeof(uint8_t) +
                      3 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge)) +
@@ -272,7 +272,8 @@ private:
   // vertex + edge-head mesh in scratch_a, all live across Plot::Mesh::draw's
   // per-edge fragment scope and rasterize's sub-step cache.
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
-      (4 * WOVEN_VERTEX_BOUND + 2 * Solids::MAX_SOLID_EDGES) * sizeof(Vector) +
+      (4 * WOVEN_VERTEX_BOUND + 2 * Solids::MAX_SOLID_EDGES) *
+          sizeof(math::Vector) +
       Plot::Mesh::EDGE_MAX_POINTS * sizeof(Fragment) +
       Plot::rasterize_scratch_a_bytes<W>();
   static_assert(
@@ -371,7 +372,7 @@ private:
   }
 
   static float under_gap_alpha(float edge_t, float gap) {
-    return cubic_kernel((1.0f - edge_t) / gap);
+    return math::cubic_kernel((1.0f - edge_t) / gap);
   }
 
   HS_FLASH_MEMBER static void
@@ -395,23 +396,22 @@ private:
     return owners[edges[edge_index].u] == edge_index;
   }
 
-  HS_FLASH_MEMBER static Vector woven_vertex(const SolidData &solid,
-                                             bool medial, size_t vertex) {
+  HS_FLASH_MEMBER static math::Vector woven_vertex(const SolidData &solid,
+                                                   bool medial, size_t vertex) {
     if (!medial)
       return solid.mesh_state.vertices[vertex];
     const auto &edge = solid.original_edges[vertex];
-    return normalized_or(solid.mesh_state.vertices[edge.u] +
-                             solid.mesh_state.vertices[edge.v],
-                         solid.mesh_state.vertices[edge.u]);
+    return math::normalized_or(solid.mesh_state.vertices[edge.u] +
+                                   solid.mesh_state.vertices[edge.v],
+                               solid.mesh_state.vertices[edge.u]);
   }
 
-  HS_FLASH_MEMBER static void
-  prepare_woven_buffers(const SolidData &solid, bool medial,
-                        const ArenaVector<Plot::Mesh::Edge> &edges,
-                        ArenaVector<Vector> &base_vertices,
-                        ArenaVector<Vector> &frame_u,
-                        ArenaVector<Vector> &offsets, MeshState &framed_mesh,
-                        ArenaVector<Plot::Mesh::Edge> &framed_edges) {
+  HS_FLASH_MEMBER static void prepare_woven_buffers(
+      const SolidData &solid, bool medial,
+      const ArenaVector<Plot::Mesh::Edge> &edges,
+      ArenaVector<math::Vector> &base_vertices,
+      ArenaVector<math::Vector> &frame_u, ArenaVector<math::Vector> &offsets,
+      MeshState &framed_mesh, ArenaVector<Plot::Mesh::Edge> &framed_edges) {
     const size_t vertex_count =
         medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
     const size_t edge_count = edges.size();
@@ -419,19 +419,20 @@ private:
     base_vertices.bind(scratch_arena_a, vertex_count);
     frame_u.bind(scratch_arena_a, vertex_count);
     for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
-      const Vector base = woven_vertex(solid, medial, vertex);
+      const math::Vector base = woven_vertex(solid, medial, vertex);
       base_vertices.push_back(base);
       // Medial vertices are edge midpoints, absent from the baked table.
-      frame_u.push_back(medial ? tangent_axis(base) : solid.tangent_u[vertex]);
+      frame_u.push_back(medial ? math::tangent_axis(base)
+                               : solid.tangent_u[vertex]);
     }
 
     offsets.bind(scratch_arena_a, vertex_count);
     for (size_t vertex = 0; vertex < vertex_count; ++vertex)
-      offsets.push_back(Vector());
+      offsets.push_back(math::Vector());
 
     framed_mesh.vertices.bind(scratch_arena_a, vertex_count + edge_count);
     for (size_t vertex = 0; vertex < vertex_count + edge_count; ++vertex)
-      framed_mesh.vertices.push_back(Vector());
+      framed_mesh.vertices.push_back(math::Vector());
 
     framed_edges.bind(scratch_arena_b, edge_count);
     for (size_t edge = 0; edge < edge_count; ++edge)
@@ -478,7 +479,7 @@ private:
 
         data.tangent_u.bind(target, data.mesh_state.vertices.size());
         for (const auto &v : data.mesh_state.vertices)
-          data.tangent_u.push_back(tangent_axis(v));
+          data.tangent_u.push_back(math::tangent_axis(v));
 
         // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
         size_t edge_count = data.mesh_state.faces.size() / 2;
@@ -573,9 +574,11 @@ private:
    * @param phase Orbit angle in radians.
    * @return The unit offset direction at that phase.
    */
-  __attribute__((always_inline)) static Vector
-  tangent_orbit_offset(const Vector &base, const Vector &u, float phase) {
-    return u * fast_cosf(phase) + cross(base, u) * fast_sinf(phase);
+  __attribute__((always_inline)) static math::Vector
+  tangent_orbit_offset(const math::Vector &base, const math::Vector &u,
+                       float phase) {
+    return u * math::fast_cosf(phase) +
+           math::cross(base, u) * math::fast_sinf(phase);
   }
 
   /**
@@ -592,8 +595,8 @@ private:
    */
   HS_COLD_MEMBER void
   update_displaced_mesh(const MeshState &base, MeshState &target,
-                        const ArenaVector<Vector> &tangent_u, const Params &p,
-                        float angle_offset) {
+                        const ArenaVector<math::Vector> &tangent_u,
+                        const Params &p, float angle_offset) {
     size_t count = base.vertices.size();
     float r = p.offset_radius;
 
@@ -603,14 +606,15 @@ private:
              "DreamBalls: displaced-mesh target not pre-sized to base");
 
     for (size_t i = 0; i < count; ++i) {
-      const Vector &v = base.vertices[i];
+      const math::Vector &v = base.vertices[i];
 
       // orbit_phase is a fraction of a turn; scale to radians.
       float phase = i * VERTEX_PHASE_STAGGER;
-      float angle = orbit_phase * 2 * PI_F + phase + angle_offset;
+      float angle = orbit_phase * 2 * math::PI_F + phase + angle_offset;
 
-      const Vector disp = v + tangent_orbit_offset(v, tangent_u[i], angle) * r;
-      target.vertices[i] = normalized_or(disp, v);
+      const math::Vector disp =
+          v + tangent_orbit_offset(v, tangent_u[i], angle) * r;
+      target.vertices[i] = math::normalized_or(disp, v);
     }
   }
 
@@ -622,9 +626,9 @@ private:
         medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
     const size_t edge_count = edges.size();
 
-    ArenaVector<Vector> base_vertices;
-    ArenaVector<Vector> frame_u;
-    ArenaVector<Vector> offsets;
+    ArenaVector<math::Vector> base_vertices;
+    ArenaVector<math::Vector> frame_u;
+    ArenaVector<math::Vector> offsets;
     MeshState framed_mesh;
     ScratchScope scratch_b_guard(scratch_arena_b);
     ArenaVector<Plot::Mesh::Edge> framed_edges;
@@ -634,7 +638,7 @@ private:
     uint16_t *start_owners = scratch_arena_b.allocate_n<uint16_t>(vertex_count);
     assign_woven_start_owners(edges, start_owners, vertex_count);
 
-    auto woven_shader = [&](const Vector &, Fragment &f) {
+    auto woven_shader = [&](const math::Vector &, Fragment &f) {
       Color4 c = baked.get(f.v0);
       c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
       if (f.v0 == 0.0f) {
@@ -649,27 +653,27 @@ private:
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
     for (int copy = 0; copy < num_copies; ++copy) {
       const float copy_phase =
-          orbit_phase * 2 * PI_F +
-          (static_cast<float>(copy) / num_copies) * 2 * PI_F;
+          orbit_phase * 2 * math::PI_F +
+          (static_cast<float>(copy) / num_copies) * 2 * math::PI_F;
       {
         HS_PROFILE(db_displace);
         for (size_t vertex = 0; vertex < vertex_count; ++vertex) {
-          const Vector &base = base_vertices[vertex];
+          const math::Vector &base = base_vertices[vertex];
           const float phase =
               copy_phase + static_cast<float>(vertex) * VERTEX_PHASE_STAGGER;
           offsets[vertex] = tangent_orbit_offset(base, frame_u[vertex], phase);
-          framed_mesh.vertices[vertex] =
-              normalized_or(base + offsets[vertex] * p.offset_radius, base);
+          framed_mesh.vertices[vertex] = math::normalized_or(
+              base + offsets[vertex] * p.offset_radius, base);
         }
 
         for (size_t edge_index = 0; edge_index < edge_count; ++edge_index) {
           const auto &edge = edges[edge_index];
-          const Vector &from = base_vertices[edge.u];
-          const Vector &to = base_vertices[edge.v];
-          const Vector head_offset =
-              parallel_transport(from, to, offsets[edge.u]);
+          const math::Vector &from = base_vertices[edge.u];
+          const math::Vector &to = base_vertices[edge.v];
+          const math::Vector head_offset =
+              math::parallel_transport(from, to, offsets[edge.u]);
           framed_mesh.vertices[vertex_count + edge_index] =
-              normalized_or(to + head_offset * p.offset_radius, to);
+              math::normalized_or(to + head_offset * p.offset_radius, to);
         }
       }
 
@@ -699,7 +703,8 @@ private:
     const int num_copies_raw = static_cast<int>(p.num_copies);
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
     for (int copy = 0; copy < num_copies; ++copy) {
-      const float offset = (static_cast<float>(copy) / num_copies) * 2 * PI_F;
+      const float offset =
+          (static_cast<float>(copy) / num_copies) * 2 * math::PI_F;
       {
         HS_PROFILE(db_displace);
         update_displaced_mesh(solid.mesh_state, target, solid.tangent_u, p,
@@ -736,7 +741,7 @@ private:
     HS_PROFILE(db_draw_scene);
 
     if (p.weave_topology == WeaveTopology::ORIGINAL_WITH_DEFECTS) {
-      auto fragment_shader = [&](const Vector &, Fragment &f) {
+      auto fragment_shader = [&](const math::Vector &, Fragment &f) {
         Color4 c = baked.get(f.v0);
         c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
         f.color = c;
@@ -755,9 +760,10 @@ private:
    * @details Scheduled periodically to keep the whole cluster slowly tumbling.
    */
   void spin_slices() {
-    Vector axis = random_vector();
-    timeline.add(0, Animation::Rotation<W>(global_orientation, axis, 2 * PI_F,
-                                           80, ease_in_out_sin, false));
+    math::Vector axis = math::random_vector();
+    timeline.add(0, Animation::Rotation<W>(global_orientation, axis,
+                                           2 * math::PI_F, 80, ease_in_out_sin,
+                                           false));
   }
 };
 

@@ -269,7 +269,7 @@ concept HasPhaseHooks = requires(const S &s) {
  * the policy off the per-face path. */
 template <typename S>
 concept HasFaceOffset =
-    requires(const S &s, const Vector &c) { s.face_offset(c, 0, 0); };
+    requires(const S &s, const math::Vector &c) { s.face_offset(c, 0, 0); };
 
 /** @brief Whether a policy defines the face-local phase hook at the arity the
  * per-face draw path calls. */
@@ -299,14 +299,14 @@ concept Masked = requires(const S &s) {
 
 /** @brief Whether a policy warps vertices before the effect's ripple. */
 template <typename S>
-concept HasWarp = requires(const S &s, const Vector &v) {
-  { s.warp(v, 0.5f) } -> std::same_as<Vector>;
+concept HasWarp = requires(const S &s, const math::Vector &v) {
+  { s.warp(v, 0.5f) } -> std::same_as<math::Vector>;
 };
 
 /** @brief Whether a policy re-randomizes its per-transition state on a
  * direction. */
 template <typename S>
-concept HasRetarget = requires(S &s, const Vector &v) {
+concept HasRetarget = requires(S &s, const math::Vector &v) {
   { s.retarget(v) } -> std::same_as<void>;
 };
 
@@ -513,7 +513,7 @@ struct Lace : Base {
  */
 struct TerminatorSweep : Base {
   static constexpr bool LOCAL_SWEEP = true; /**< Sweep in mesh-local space. */
-  Vector axis = Y_AXIS;                     /**< Mesh-local sweep axis. */
+  math::Vector axis = math::Y_AXIS;         /**< Mesh-local sweep axis. */
   float fade_frames_min =
       4.0f; /**< Shortest per-face fade length, in frames. */
   float fade_frames_max =
@@ -542,7 +542,7 @@ struct TerminatorSweep : Base {
    * transition.
    * @param v Sweep direction; normalized into the mesh-local axis.
    */
-  void retarget(const Vector &v) {
+  void retarget(const math::Vector &v) {
     axis = v.normalized();
     fade_seed = static_cast<uint32_t>(hs::random()());
   }
@@ -551,8 +551,8 @@ struct TerminatorSweep : Base {
    * @return Position in [0, 1]: 1 at the axis's positive pole, which the front
    * reaches first.
    */
-  float face_offset(const Vector &center, int, int) const {
-    return 0.5f * (1.0f + dot(center, axis));
+  float face_offset(const math::Vector &center, int, int) const {
+    return 0.5f * (1.0f + math::dot(center, axis));
   }
   /** @brief Per-face fade length as a window fraction: a stable hash of the
    * face index into the frame range, divided by the scheduled window. Computed
@@ -562,7 +562,7 @@ struct TerminatorSweep : Base {
    * independent sliders, so the range is normalized here rather than assumed
    * ordered. */
   float face_fade_frac(int i) const {
-    float t = hash01(static_cast<uint32_t>(i), fade_seed);
+    float t = math::hash01(static_cast<uint32_t>(i), fade_seed);
     float lo = min_fade_frac();
     float hi =
         std::min(1.0f, std::max(fade_frames_min, fade_frames_max) * inv_window);
@@ -611,8 +611,8 @@ private:
  */
 struct Shockwave : Base {
   static constexpr float BAND =
-      0.3f;               /**< Wave-front softness, in phase units. */
-  Vector origin = Y_AXIS; /**< Unit-length world-space wave origin;
+      0.3f; /**< Wave-front softness, in phase units. */
+  math::Vector origin = math::Y_AXIS; /**< Unit-length world-space wave origin;
                                face_offset's acos orders faces only for a unit
                                vector. */
   /**
@@ -620,14 +620,15 @@ struct Shockwave : Base {
    * @param v World-space direction the wave expands from; normalized into the
    * origin.
    */
-  void retarget(const Vector &v) { origin = v.normalized(); }
+  void retarget(const math::Vector &v) { origin = v.normalized(); }
   /**
    * @brief Orders faces by angular distance from the origin.
    * @return Position in [0, 1]: 1 at the origin, which extinguishes first.
    */
-  float face_offset(const Vector &center, int, int) const {
-    float angle = fast_acos(hs::clamp(dot(center, origin), -1.0f, 1.0f));
-    return 1.0f - angle * (1.0f / PI_F);
+  float face_offset(const math::Vector &center, int, int) const {
+    float angle =
+        math::fast_acos(hs::clamp(math::dot(center, origin), -1.0f, 1.0f));
+    return 1.0f - angle * (1.0f / math::PI_F);
   }
   /**
    * @brief Face-local phase behind the eased wave front (see sweep_phase); the
@@ -692,7 +693,7 @@ struct Breakdown : Base {
    * out-of-range class takes the first rank.
    * @return Position in [0, 1]: 1 for the class that vanishes first.
    */
-  float face_offset(const Vector &, int, int cls) const {
+  float face_offset(const math::Vector &, int, int cls) const {
     if (num_classes <= 1)
       return 0.0f;
     int r = rank[(cls >= 0 && cls < num_classes) ? cls : 0];
@@ -728,12 +729,12 @@ struct Breakdown : Base {
  */
 struct SpinFlip : Base {
   static constexpr float REVS = 3.0f; /**< Extra revolutions at peak spin. */
-  Vector axis = Y_AXIS;               /**< Spin axis. */
+  math::Vector axis = math::Y_AXIS;   /**< Spin axis. */
   /**
    * @brief Aims the spin for the next transition.
    * @param v Spin direction; normalized into the axis.
    */
-  void retarget(const Vector &v) { axis = v.normalized(); }
+  void retarget(const math::Vector &v) { axis = v.normalized(); }
   /**
    * @brief Winds a vertex around the axis, fastest at phase 0 and stationary
    * at phase 1.
@@ -741,9 +742,10 @@ struct SpinFlip : Base {
    * @param phase Transition phase in [0, 1].
    * @return The rotated vertex.
    */
-  Vector warp(const Vector &v, float phase) const {
+  math::Vector warp(const math::Vector &v, float phase) const {
     float wind = 1.0f - phase;
-    return rotate(v, make_rotation(axis, wind * wind * REVS * 2.0f * PI_F));
+    return math::rotate(
+        v, math::make_rotation(axis, wind * wind * REVS * 2.0f * math::PI_F));
   }
 };
 
@@ -794,7 +796,7 @@ struct Dissolve : Base {
       0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
   /** @brief Re-rolls the ownership pattern for the next transition; the
    * direction every other policy retargets on is unused. */
-  void retarget(const Vector &) {
+  void retarget(const math::Vector &) {
     seed = static_cast<uint32_t>(hs::random()());
   }
   /**

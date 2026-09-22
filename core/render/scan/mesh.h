@@ -75,8 +75,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi))
       return;
 
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
   }
 
   auto build_runs = [&](int y) {
@@ -146,9 +146,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       return;
   }
 
-  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
-  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
-  constexpr float pixel_width = 2.0f * PI_F / W;
+  const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
+  const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
+  constexpr float pixel_width = 2.0f * math::PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
 
   SDF::DistanceResult res;
@@ -198,8 +198,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       if (num_runs == 0)
         continue;
     }
-    float sp = TrigLUT<W, H>::sin_phi[y];
-    float cp = TrigLUT<W, H>::cos_phi[y];
+    float sp = math::TrigLUT<W, H>::sin_phi[y];
+    float cp = math::TrigLUT<W, H>::cos_phi[y];
     const int stride = pole_lod_run(sp);
     float block_slack = 0.0f;
     float reject_dsq = base_reject_dsq;
@@ -218,7 +218,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if (stride > 1)
           next_block = pole_lod_block_anchor(next_block, stride);
       for (int x = runs[r].first; x < rx2;) {
-        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         float probe_min_cos = min_cos;
         if constexpr (pole_lod_blocks<SDF::Face>)
           if (stride > 1 && x == next_block && x + stride <= rx2 &&
@@ -376,14 +376,15 @@ struct Mesh {
 
     ScratchScope scope(scratch_arena);
     auto *scratch = new_face_scratch(scratch_arena);
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     constexpr int H_VIRT = H + hs::H_OFFSET;
     // Keep this table transient: a 288x144 cache would retain 588 bytes per
     // instantiation in DTCM instead of borrowing frame-local scratch.
     float *azimuth_pads = scratch_arena.allocate_n<float>(H_VIRT);
     for (int y = 0; y < H_VIRT; ++y)
-      azimuth_pads[y] = SDF::face_azimuth_pad(W, TrigLUT<W, H>::sin_phi[y]);
+      azimuth_pads[y] =
+          SDF::face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
@@ -411,7 +412,8 @@ struct Mesh {
       HS_CHECK(static_cast<size_t>(fo[i]) + count <= fi_size,
                "mesh face span exceeds face index array");
 
-      std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
+      std::span<const math::Vector> verts(mesh.vertices.data(),
+                                          mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
       // IIFE so the HS_PROFILE scope measures Face construction alone (prvalue
@@ -420,7 +422,7 @@ struct Mesh {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, H + hs::H_OFFSET, H,
                          &canvas.clip(), azimuth_pads,
-                         std::max(SDF::BOUNDS_MARGIN, TWO_PI_F / W));
+                         std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
       }();
 
       // Bind the face's congruence-class LUT: a vertex correlation aligns the
@@ -439,7 +441,7 @@ struct Mesh {
       }
 
       if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
-        auto wrapper = [&](const Vector &p, Fragment &f_in) {
+        auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
           // v2 carries the face index (decoded by mesh_face_index()).
           // Exact for i < 2^24 (float mantissa); meshes never approach that face count.
           f_in.v2 = static_cast<float>(i);

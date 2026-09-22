@@ -90,7 +90,7 @@ public:
         for (int dx = -1; dx <= 1; dx++) {
           float weight = kernel[k++] * inv;
           if (weight > TAP_CUTOFF) {
-            pass(static_cast<float>(fast_wrap(cx + dx, W)),
+            pass(static_cast<float>(math::fast_wrap(cx + dx, W)),
                  static_cast<float>(ny), color, age, alpha * weight);
           }
         }
