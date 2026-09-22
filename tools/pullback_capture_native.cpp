@@ -119,8 +119,8 @@ struct ShaderWorkbenchWhiteBox {
     if (!effect.selectPreset(source))
       return false;
     effect.setAnimationsPaused(true);
-    const auto &from = SB::PRESETS[source];
-    const auto &to = SB::PRESETS[destination];
+    const auto &from = Workbench::PRESETS[source];
+    const auto &to = Workbench::PRESETS[destination];
     const auto &from_config = selected_config(from);
     const auto &to_config = selected_config(to);
     if (!effect.prepare_resource_union(from_config, to_config))
@@ -142,7 +142,8 @@ struct ShaderWorkbenchWhiteBox {
   static bool selected_pipeline_active(const ShaderWorkbench &effect,
                                        size_t preset) {
     using SB = ShaderWorkbench;
-    return effect.active_pipeline == selected_pipeline<SB>(SB::PRESETS[preset]);
+    return effect.active_pipeline ==
+           selected_pipeline<SB>(Workbench::PRESETS[preset]);
   }
 
   template <int W, int H>
@@ -151,10 +152,10 @@ struct ShaderWorkbenchWhiteBox {
                              Operation operation, uint16_t &maximum,
                              uint32_t &samples) {
     using SB = ShaderWorkbench;
-    if (preset >= SB::PRESETS.size())
+    if (preset >= Workbench::PRESETS.size())
       return false;
     effect.runtime.clocks.hue_noise_phase = hue_noise_phase;
-    const auto &selected = SB::PRESETS[preset];
+    const auto &selected = Workbench::PRESETS[preset];
     const auto &config = selected_config(selected);
     if (!effect.prepare_resource_union(config, config))
       return false;
@@ -164,7 +165,7 @@ struct ShaderWorkbenchWhiteBox {
       return false;
     const auto optimized = program->shade;
     alignas(std::max_align_t)
-        std::byte prepared_storage[SB::PREPARED_BLOB_BYTES];
+        std::byte prepared_storage[Workbench::PREPARED_BLOB_BYTES];
     program->prepare(frame, prepared_storage);
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
@@ -197,22 +198,23 @@ private:
   }
 
   template <typename SB>
-  static Color4 exact_peirce_shade(const Vector &view,
-                                   const typename SB::FrameState &frame) {
+  static Color4
+  exact_peirce_shade(const Vector &view,
+                     const typename Workbench::FrameState &frame) {
     const Vector outer_local = Workbench::outer_camera_lookup(view, frame);
     const Vector lensed = lenses::dodecahedral_kaleidoscope_lens(outer_local);
     const Vector local = rotate(lensed, frame.transforms.projection_conj);
     const Pullback::ProjectionResult result = Pullback::Projection::peirce(
         local, 0.0f, 1, 0.0f, true, frame.params.projection.coordinate_scale,
         frame.params.projection.singularity_fade);
-    const typename SB::ProjectedLookup projected{
+    const typename Workbench::ProjectedLookup projected{
         result.coords, result.provenance, local, 0.0f};
     return Workbench::shade_projected(projected, frame);
   }
 
   template <typename SB>
   static Color4 exact_hue_shade(const Vector &view,
-                                const typename SB::FrameState &frame) {
+                                const typename Workbench::FrameState &frame) {
     const Vector outer_local = Workbench::outer_camera_lookup(view, frame);
     const auto projected =
         Workbench::surface_lens_project_lookup(outer_local, frame);
@@ -227,8 +229,8 @@ private:
   }
 
   template <typename SB>
-  static Color4 exact_colorize(const typename SB::FieldSample &sample,
-                               const typename SB::FrameState &frame) {
+  static Color4 exact_colorize(const typename Workbench::FieldSample &sample,
+                               const typename Workbench::FrameState &frame) {
     const float oscillation =
         frame.params.color.phase_oscillation_depth *
         fast_sinf(TWO_PI_F * frame.clocks.palette_oscillation_phase);
@@ -238,7 +240,7 @@ private:
         frame.params.color.mapping_phase + oscillation);
     Color4 color = frame.resources.generated_palette->get(palette_value);
     if (frame.prepared_hue_rotation.active &&
-        frame.slots.hue_shift == SB::HueShiftMode::NOISE) {
+        frame.slots.hue_shift == Workbench::HueShiftMode::NOISE) {
       const Vector q = noise_sphere_coordinate(
           sample.sphere, frame.params.color.hue_noise_scale,
           frame.clocks.hue_noise_phase);
