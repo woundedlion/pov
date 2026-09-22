@@ -218,7 +218,7 @@ struct AttractorSample {
   float dist_sq;  /**< Squared distance from pos to the attractor. */
 };
 
-[[maybe_unused]] HS_COLD static bool
+[[maybe_unused]] HS_COLD_MEMBER inline bool
 apply_signed_axis_attractor(uint16_t &life, Vector &velocity, const Vector &pos,
                             float max_delta, float gravity,
                             const Attractor &attractor, AttractorSample s) {
