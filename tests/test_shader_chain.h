@@ -625,6 +625,45 @@ inline void test_shader_chain_program_lifetime() {
   HS_EXPECT_EQ(CountLifecycle::destroys, 1);
 }
 
+inline void test_shader_chain_table_behavior() {
+  const auto ctx = shared_resources().context();
+  for (const auto &op : In::OPERATOR_TABLE) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    std::array<In::ChainEntryRequest, 5> chain{};
+    size_t count = 0;
+    const auto append = [&](const char *instance, const char *id) {
+      chain[count++] = {instance, id};
+    };
+    if (op.input != In::CarrierId::SPHERE)
+      append("project", "project.stereographic.v2");
+    if (op.input == In::CarrierId::FIELD)
+      append("sample", "sample.grid.v2");
+    append("subject", op.operator_id);
+    if (op.output == In::CarrierId::SPHERE)
+      append("project", "project.stereographic.v2");
+    if (op.output == In::CarrierId::SPHERE || op.output == In::CarrierId::PLANE)
+      append("sample", "sample.grid.v2");
+    if (op.output != In::CarrierId::COLOR)
+      append("colorize", "colorize.generated-palette.v3");
+    const auto status = fixture->program.compile(
+        std::span<const In::ChainEntryRequest>(chain.data(), count));
+    HS_EXPECT_EQ(static_cast<int>(status.code),
+                 static_cast<int>(In::ChainStatus::OK));
+    if (status.code != In::ChainStatus::OK)
+      continue;
+    for (int frame = 0; frame < 3; ++frame) {
+      fixture->program.advance();
+      fixture->program.prepare(ctx);
+      for (const auto &view : sweep_views()) {
+        const auto color = fixture->program.evaluate(view, ctx);
+        HS_EXPECT_TRUE(std::isfinite(color.alpha));
+        HS_EXPECT_GE(color.alpha, 0.0f);
+        HS_EXPECT_LE(color.alpha, 1.0f);
+      }
+    }
+  }
+}
+
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
@@ -4084,6 +4123,7 @@ inline void test_pullback_runtime_seed_contract() {
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
   test_shader_chain_table_integrity();
+  test_shader_chain_table_behavior();
   test_shader_chain_schema_and_field_ids();
   test_shader_chain_instance_id_wellformed();
   test_shader_chain_slot_and_hash_contract();
