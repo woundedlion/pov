@@ -968,10 +968,8 @@ inline float point_segment_distance(const AiroceanPoint &p,
  * along.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
-airocean_projection(const Vector &v, float central_meridian, bool horizontal,
-                    bool calculate_edge_distance = true) {
-  const float c = cosf(central_meridian);
-  const float s = sinf(central_meridian);
+airocean_projection(const Vector &v, float c, float s, bool horizontal,
+                    bool calculate_edge_distance) {
   const AiroceanVector p{v.x * c + v.z * s, v.z * c - v.x * s, v.y};
   uint8_t face = 0;
   for (; face < 23; ++face)
@@ -1057,6 +1055,13 @@ airocean_projection(const Vector &v, float central_meridian, bool horizontal,
           .traits = projection_traits(cut_edge ? ProjectionTrait::CUT
                                                : ProjectionTrait::GLUED),
           .edge_class = edge_identity};
+}
+
+HS_FLASH_INLINE inline ProjectionKernelResult
+airocean_projection(const Vector &v, float central_meridian, bool horizontal,
+                    bool calculate_edge_distance = true) {
+  return airocean_projection(v, cosf(central_meridian), sinf(central_meridian),
+                             horizontal, calculate_edge_distance);
 }
 
 } // namespace projections
