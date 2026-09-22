@@ -66,7 +66,7 @@ export function parseRegisteredEffects(src) {
     .map(m => m[1]);
 }
 
-export async function loadRegisteredEffects() {
+export async function loadEffectHeaders() {
   const dir = join(REPO_ROOT, 'effects');
   const headers = [];
   const visit = async current => {
@@ -77,6 +77,11 @@ export async function loadRegisteredEffects() {
     }
   };
   await visit(dir);
+  return headers;
+}
+
+export async function loadRegisteredEffects() {
+  const headers = await loadEffectHeaders();
   const names = new Set();
   for (const path of headers) {
     for (const name of parseRegisteredEffects(await readFile(path, 'utf8'))) {
