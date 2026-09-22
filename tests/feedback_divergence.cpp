@@ -308,6 +308,18 @@ void usage() {
 int main(int argc, char **argv) {
   if (argc >= 3 && std::strcmp(argv[1], "--dump") == 0)
     return dump(argv[2], argc > 3 ? atoi(argv[3]) : 1000);
+  if (argc >= 4 && std::strcmp(argv[1], "--check-comparator") == 0) {
+    if (compare(argv[2], argv[3]) != 0)
+      return 1;
+    FILE *file = fopen(argv[3], "r+b");
+    if (!file || fseek(file, 3 * sizeof(int), SEEK_SET) != 0)
+      return 1;
+    const int original = fgetc(file);
+    if (original == EOF || fseek(file, -1, SEEK_CUR) != 0 ||
+        fputc(original ^ 1, file) == EOF || fclose(file) != 0)
+      return 1;
+    return compare(argv[2], argv[3]) == 1 ? 0 : 1;
+  }
   if (argc >= 4 && std::strcmp(argv[1], "--compare") == 0)
     return compare(argv[2], argv[3]);
   usage();
