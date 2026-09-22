@@ -370,10 +370,12 @@ inline void test_lissajous_phase_is_radians() {
  *        direction.
  */
 inline void test_random_vector_unit_length() {
+  const auto saved = hs::random();
   for (int i = 0; i < 32; ++i) {
     Vector v = random_vector();
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
   }
+  hs::random() = saved;
 }
 
 /**
