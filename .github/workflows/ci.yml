@@ -1031,6 +1031,7 @@ jobs:
           )
 
       - name: Mirrored shader documents match their sources
+        shell: bash
         # The other directory install, checked the way the gallery is above: the
         # daydream deploy gate reads these documents, so a FILES_MATCHING pattern
         # that stops selecting one ships a simulator missing a shader.
@@ -1039,6 +1040,8 @@ jobs:
           out="${{ runner.temp }}"
           ( cd patterns && find . -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-source.txt"
           ( cd "$dd/shader/patterns" && find . -type f ) | sort > "$out/mirror-installed.txt"
+          test -s "$out/mirror-source.txt"
+          test -s "$out/mirror-installed.txt"
           diff -u "$out/mirror-source.txt" "$out/mirror-installed.txt"
 
       - name: Upload verified engine bundle
