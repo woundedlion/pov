@@ -22,8 +22,8 @@ MeshFeedback are from the on-device profile capture.
 
 | | ITCM | headroom to 196,608 B ceiling |
 |---|---|---|
-| `aeba37b5` (baseline, post arena cut) | 149,168 B | 47,432 B |
-| `d4816de0` (HEAD) | 194,528 B | **2,072 B** |
+| `aeba37b5` (baseline, post arena cut) | 149,168 B | 47,440 B |
+| `d4816de0` (HEAD) | 194,528 B | **2,080 B** |
 | **net spend** | **+45,360 B** | |
 
 Gross spend +53,952, gross reclaim −8,592. The "47k headroom before selective-O3"
@@ -122,7 +122,7 @@ values: see the sweep TSV referenced in the audit session.
 
 ## State at the window close (`d4816de0`)
 
-- ITCM 194,528 B / 196,608 B ceiling — 2,072 B free, no next bank reachable.
+- ITCM 194,528 B / 196,608 B ceiling — 2,080 B free, no next bank reachable.
 - The bank `aeba37b5` freed was handed to ITCM by `d9bd43da` and never returned.
 
 ## State at master tip (2026-07-19, post-audit)
@@ -130,7 +130,7 @@ values: see the sweep TSV referenced in the audit session.
 The audit window closes at `d4816de0`; **22 further commits landed on master
 while this audit ran**, and they materially change the headroom picture. Measured
 at tip: `variables:312,704 code:190,424 padding:6,184  free for local
-variables:14,976` — i.e. **6,184 B free, not 2,072**.
+variables:14,976` — i.e. **6,184 B free, not 2,080**.
 
 The reclaim is mostly `5b1cbdb7` (keep `rasterize_face` out of line: FP stack
 reloads in the pixel loop 22→1 at no size cost) and `2e4cef41` (bracketed grid
