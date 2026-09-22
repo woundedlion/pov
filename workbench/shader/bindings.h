@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
@@ -133,7 +134,7 @@ struct LensStateProvider {
   using Binding = ShaderWorkbenchBinding;
   using FrameState = typename Binding::FrameState;
 
-  static const MobiusParams &params(const FrameState &frame) {
+  static const math::MobiusParams &params(const FrameState &frame) {
     return frame.params.surface_lens.mobius;
   }
 };

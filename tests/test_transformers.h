@@ -55,6 +55,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "core/animation/transformer.h"
 #include "core/render/canvas.h"
 #include "core/math/easing.h"
@@ -149,9 +150,9 @@ inline void test_orient_transformer_known_rotation() {
  *        stereographic projection back to itself, staying on the unit sphere.
  */
 inline void test_mobius_identity_roundtrip() {
-  MobiusParams id;
+  math::MobiusParams id;
   Vector v = Vector(0.5f, 0.1f, 0.3f).normalized();
-  Vector r = mobius_transform(v, id);
+  Vector r = math::mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
   HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
@@ -170,9 +171,9 @@ inline void test_mobius_identity_roundtrip() {
  *          which the existing round-trip case cannot distinguish — fails here.
  */
 inline void test_mobius_known_rotation() {
-  MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0); // f(z) = 1/z
+  math::MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0); // f(z) = 1/z
   Vector v = Vector(0.5f, 0.1f, 0.3f).normalized();
-  Vector r = mobius_transform(v, inv);
+  Vector r = math::mobius_transform(v, inv);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 1e-3f);
   HS_EXPECT_NEAR(r.y, -v.y, 1e-3f);
@@ -193,7 +194,7 @@ inline void test_mobius_known_rotation() {
  */
 inline void test_mobius_matches_double_precision_oracle() {
   hs::random().seed(20260720);
-  auto oracle = [](const Vector &v, const MobiusParams &p) {
+  auto oracle = [](const Vector &v, const math::MobiusParams &p) {
     double s = 1.0 - static_cast<double>(v.y);
     double zr = static_cast<double>(v.x) / s;
     double zi = static_cast<double>(v.z) / s;
@@ -238,7 +239,7 @@ inline void test_mobius_matches_double_precision_oracle() {
     const float ci = hs::rand_f(-2, 2);
     const float dr = hs::rand_f(-2, 2);
     const float di = hs::rand_f(-2, 2);
-    MobiusParams p(ar, ai, br, bi, cr, ci, dr, di);
+    math::MobiusParams p(ar, ai, br, bi, cr, ci, dr, di);
     // Skip a near-singular draw: ad - bc ~ 0 collapses the map and both forms
     // are then dominated by cancellation, not by the formulation.
     float det_re =
@@ -248,10 +249,10 @@ inline void test_mobius_matches_double_precision_oracle() {
     if (det_re * det_re + det_im * det_im < 0.25f)
       continue;
 
-    Vector got = mobius_transform(v, p);
+    Vector got = math::mobius_transform(v, p);
     nonfinite += !finite_vec(got);
     worst_unit_err = std::max(worst_unit_err, std::fabs(got.length() - 1.0f));
-    if (1.0f - v.y < STEREO_POLE_EPS)
+    if (1.0f - v.y < projections::STEREO_POLE_EPS)
       continue;
     Vector want = oracle(v, p);
     ++compared;
@@ -271,17 +272,17 @@ inline void test_mobius_matches_double_precision_oracle() {
  *        and the south pole (the origin) to b/d.
  */
 inline void test_mobius_poles_map_to_coefficient_ratios() {
-  MobiusParams p(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f);
-  Vector north = mobius_transform(Vector(0, 1, 0), p);
+  math::MobiusParams p(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f);
+  Vector north = math::mobius_transform(Vector(0, 1, 0), p);
   HS_EXPECT_TRUE(finite_vec(north));
-  Vector north_want = inv_stereo(p.a / p.c);
+  Vector north_want = projections::inv_stereo(p.a / p.c);
   HS_EXPECT_NEAR(north.x, north_want.x, 1e-4f);
   HS_EXPECT_NEAR(north.y, north_want.y, 1e-4f);
   HS_EXPECT_NEAR(north.z, north_want.z, 1e-4f);
 
-  Vector south = mobius_transform(Vector(0, -1, 0), p);
+  Vector south = math::mobius_transform(Vector(0, -1, 0), p);
   HS_EXPECT_TRUE(finite_vec(south));
-  Vector south_want = inv_stereo(p.b / p.d);
+  Vector south_want = projections::inv_stereo(p.b / p.d);
   HS_EXPECT_NEAR(south.x, south_want.x, 1e-4f);
   HS_EXPECT_NEAR(south.y, south_want.y, 1e-4f);
   HS_EXPECT_NEAR(south.z, south_want.z, 1e-4f);
@@ -293,9 +294,9 @@ inline void test_mobius_poles_map_to_coefficient_ratios() {
  *        singularity where the projection saturates to the infinity sentinel.
  */
 inline void test_gnomonic_mobius_identity_roundtrip() {
-  MobiusParams id;
+  math::MobiusParams id;
   Vector v = Vector(0.3f, 0.7f, 0.2f).normalized();
-  Vector r = gnomonic_mobius_transform(v, id);
+  Vector r = math::gnomonic_mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
   HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
@@ -306,7 +307,7 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
     for (float theta = 0.0f; theta < 2.0f * PI_F; theta += 0.31f) {
       const Vector near_equator =
           Vector(cosf(theta), y, sinf(theta)).normalized();
-      const Vector back = gnomonic_mobius_transform(near_equator, id);
+      const Vector back = math::gnomonic_mobius_transform(near_equator, id);
       HS_EXPECT_TRUE(finite_vec(back));
       HS_EXPECT_NEAR(back.x, near_equator.x, 2e-3f);
       HS_EXPECT_NEAR(back.y, near_equator.y, 2e-3f);
@@ -326,10 +327,10 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
  *          identity implementation that the round-trip case admits fails here.
  */
 inline void test_gnomonic_mobius_known_rotation() {
-  MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
+  math::MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
   for (float y : {0.7f, -0.7f}) {
     const Vector v = Vector(0.3f, y, 0.2f).normalized();
-    const Vector r = gnomonic_mobius_transform(v, neg);
+    const Vector r = math::gnomonic_mobius_transform(v, neg);
     HS_EXPECT_TRUE(finite_vec(r));
     HS_EXPECT_NEAR(r.x, -v.x, 1e-3f);
     HS_EXPECT_NEAR(r.y, v.y, 1e-3f);
@@ -347,10 +348,10 @@ inline void test_gnomonic_mobius_known_rotation() {
  *          shows as a broken round-trip.
  */
 inline void test_gnomonic_mobius_signed_zero_equator() {
-  MobiusParams id;
+  math::MobiusParams id;
   for (float y : {-0.0f, 0.0f, -1e-12f, 1e-12f}) {
     const Vector v(1.0f, y, 0.0f);
-    const Vector r = gnomonic_mobius_transform(v, id);
+    const Vector r = math::gnomonic_mobius_transform(v, id);
     HS_EXPECT_NEAR(r.x, 1.0f, 1e-3f);
     HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
     HS_EXPECT_NEAR(r.z, 0.0f, 1e-3f);

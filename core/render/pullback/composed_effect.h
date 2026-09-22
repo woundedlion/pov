@@ -12,6 +12,7 @@
  *        that assembles the pipeline over the engine's preset choreography.
  */
 
+#include "math/mobius.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -181,7 +182,7 @@ template <typename BindingT> struct ProjectionProvider {
 template <typename BindingT> struct LensProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const MobiusParams &params(const FrameState &frame) {
+  static const math::MobiusParams &params(const FrameState &frame) {
     return frame.params.lens.mobius;
   }
 };
@@ -1028,7 +1029,7 @@ protected:
    * timeline animation driving them.
    */
   HS_COLD_MEMBER void blend_params(float progress) {
-    MobiusParams animated_mobius;
+    math::MobiusParams animated_mobius;
     if constexpr (requires { Derived::ANIMATED_MOBIUS; })
       if constexpr (Derived::ANIMATED_MOBIUS)
         animated_mobius = params.lens.mobius;

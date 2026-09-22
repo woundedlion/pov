@@ -219,7 +219,9 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
 │   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / folded sinusoidal / equirectangular sphere → plane kernels (Airocean uses PROJ-derived code, MIT)
-│   │   ├── stereographic.h         Stereographic / gnomonic / Möbius sphere ↔ plane maps, pole attenuation, pattern normalization
+│   │   ├── stereographic.h         Stereographic / gnomonic forward and inverse projection kernels
+│   │   ├── mobius.h                Fractional-linear complex transforms and sphere mappings
+│   │   ├── projection_patterns.h   Pole attenuation and bounded pattern coordinates
 │   │   ├── lenses.h                Glitch fold, twist, kaleidoscope and polyhedral reflection-group sphere lenses
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   ├── interpolate.h           Per-domain interpolators: scalar, positive scale, periodic angle, unit vector

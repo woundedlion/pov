@@ -46,7 +46,7 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "math/3dmath.h"
+#include "math/stereographic.h"
 
 namespace projections {
 
