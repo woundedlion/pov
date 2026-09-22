@@ -165,6 +165,7 @@ _doxyfile-local:
 # simulator tree are always the ones the runtime gate just exercised.
 install: smoke
     cmake --build --preset wasm-release-install
+    node scripts/wasm_smoke.mjs ../daydream/holosphere_wasm.js
 
 # Teensy 4 shipping-image gates + compile profiles (CI parity for a VMicro developer).
 # Needs PlatformIO (`pip install platformio`); the Teensy toolchain auto-installs
