@@ -119,7 +119,7 @@ inline float face_azimuth_pad(int w, float sin_phi) {
  *  x=0 seam); render/scan/raster.h statically checks both capacities. */
 inline constexpr size_t INTERVAL_SPAN_CAP = 32;
 
-/** A scanline span [first, second) in fractional column units. An aggregate, so
+/** A scanline span [start, end) in fractional column units. An aggregate, so
  *  a span buffer's slots are left uninitialized when the buffer is constructed;
  *  std::pair's default constructor value-initializes every slot, which the
  *  per-draw and per-row buffers below would pay on every construction. */
