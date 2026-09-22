@@ -402,7 +402,7 @@ if(EMSCRIPTEN)
       "install (set -DDAYDREAM_DIR=<path> and re-run cmake to enable).")
     # The configure-time warning above is not reprinted by a build against an
     # already-configured tree, which is every `just install` after the first.
-    install(CODE "message(WARNING \"DAYDREAM_DIR '${DAYDREAM_DIR}' not found; installed nothing. Set -DDAYDREAM_DIR=<path> and re-run cmake.\")")
+    install(CODE "message(FATAL_ERROR \"DAYDREAM_DIR '${DAYDREAM_DIR}' not found; installed nothing. Set -DDAYDREAM_DIR=<path> and re-run cmake.\")")
   endif()
 
 else()
