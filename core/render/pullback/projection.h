@@ -240,6 +240,15 @@ airocean(const Vector &input, float central_meridian, bool horizontal,
                      coordinate_scale);
 }
 
+__attribute__((always_inline)) inline ProjectionResult
+airocean(const Vector &input, bool horizontal, bool edge_distance_required,
+         float coordinate_scale, float meridian_cos, float meridian_sin) {
+  return from_kernel(projections::airocean_projection(input, meridian_cos,
+                                                      meridian_sin, horizontal,
+                                                      edge_distance_required),
+                     coordinate_scale);
+}
+
 /** @brief Bonne pseudoconical equal-area projection; `North` picks the sign of
     the standard parallel, and so the hemisphere the cone opens toward. */
 template <typename State, bool North> struct Bonne : ApproximationDefaults {
