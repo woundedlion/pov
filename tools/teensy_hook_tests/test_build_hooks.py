@@ -329,22 +329,27 @@ class TestNanoSpecs(unittest.TestCase):
 class TestIsystemDemotion(unittest.TestCase):
     """teensy_isystem.py: vendored include dirs must move from -I to -isystem."""
 
-    def _run(self, cpppath, lib_builders=0):
+    def _run(self, cpppath, lib_builders=0, packages=None):
         projenv = FakeEnv(CPPPATH=list(cpppath))
-        env = FakeEnv(CPPPATH=list(cpppath))
+        env = FakeEnv(
+            CPPPATH=list(cpppath),
+            PROJECT_PACKAGES_DIR=packages or _abs("home", "runner", ".platformio", "packages"),
+            PROJECT_LIBDEPS_DIR=_abs("work", "Holosphere", ".pio", "libdeps"))
         env.lib_builders = [types.SimpleNamespace(env=FakeEnv())
                             for _ in range(lib_builders)]
         load_hook("teensy_isystem.py", env=env, projenv=projenv)
         return projenv, env
 
     def test_vendored_dirs_move_out_of_cpppath(self):
-        projenv, env = self._run(FIRST_PARTY + [LIBDEPS, FRAMEWORK, RELOCATED])
-        for build_env in (projenv, env):
-            self.assertEqual(build_env["CPPPATH"], FIRST_PARTY)
-            self.assertEqual(build_env["CCFLAGS"],
-                             ["-isystem", LIBDEPS,
-                              "-isystem", FRAMEWORK,
-                              "-isystem", RELOCATED])
+        for packages, include in [
+                (_abs("home", "runner", ".platformio", "packages"), FRAMEWORK),
+                (_abs("opt", "pio-core", "packages"), RELOCATED)]:
+            with self.subTest(packages=packages):
+                projenv, env = self._run(FIRST_PARTY + [LIBDEPS, include], packages=packages)
+                for build_env in (projenv, env):
+                    self.assertEqual(build_env["CPPPATH"], FIRST_PARTY)
+                    self.assertEqual(build_env["CCFLAGS"],
+                                     ["-isystem", LIBDEPS, "-isystem", include])
 
     def test_first_party_dirs_are_never_demoted(self):
         _, env = self._run(FIRST_PARTY + [FRAMEWORK])
@@ -368,7 +373,10 @@ class TestIsystemDemotion(unittest.TestCase):
 
     def test_one_env_carrying_the_vendored_dirs_is_enough(self):
         projenv = FakeEnv(CPPPATH=list(FIRST_PARTY))
-        env = FakeEnv(CPPPATH=FIRST_PARTY + [FRAMEWORK])
+        env = FakeEnv(
+            CPPPATH=FIRST_PARTY + [FRAMEWORK],
+            PROJECT_PACKAGES_DIR=_abs("home", "runner", ".platformio", "packages"),
+            PROJECT_LIBDEPS_DIR=_abs("work", "Holosphere", ".pio", "libdeps"))
         load_hook("teensy_isystem.py", env=env, projenv=projenv)
         self.assertEqual(projenv["CPPPATH"], FIRST_PARTY)
         self.assertEqual(env["CCFLAGS"], ["-isystem", FRAMEWORK])
