@@ -2687,6 +2687,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
   Animation::NoiseParams noise;
+  ScratchScope persistent_scope(persistent_arena);
 
   ::Feedback::Style style{};
   style.space_fn = &::Feedback::noise_warp;
@@ -2764,6 +2765,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
   auto run = [&](bool cached) {
     std::vector<std::vector<Pixel>> frames;
     hs_test::StubEffect fx(W, H);
+    ScratchScope persistent_scope(persistent_arena);
     Animation::NoiseParams np;
     ::Feedback::Style s{};
     s.noise = &np;
