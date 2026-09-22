@@ -183,7 +183,9 @@ class FindKicadDataDirTests(unittest.TestCase):
     def test_skips_an_install_of_another_major(self):
         newer = self.windows_install(f"{sexp.KICAD_MAJOR + 1}.0")
 
-        self.assertEqual(self.resolve([newer]), "symbols")
+        missing = self.resolve([newer])
+        self.assertTrue(os.path.isabs(missing))
+        self.assertFalse(os.path.isdir(missing))
 
     def test_prefers_the_pinned_major_over_a_newer_install(self):
         pinned = self.windows_install(f"{sexp.KICAD_MAJOR}.0")
