@@ -3651,6 +3651,20 @@ inline void test_periodic_timer_set_period_reschedules_from_now() {
  * Period 4 over 8 frames must fire at t=4 and t=8.
  */
 inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
+  for (int period : {0, -1, std::numeric_limits<int>::min()}) {
+    int calls = 0;
+    Animation::PeriodicTimer clamped(period, [&](Canvas &) { ++calls; }, true);
+    for (int frame = 0; frame < 3; ++frame) {
+      clamped.step(fake_canvas());
+      HS_EXPECT_EQ(calls, frame + 1);
+    }
+    clamped.set_period(10);
+    clamped.step(fake_canvas());
+    HS_EXPECT_EQ(calls, 3);
+    clamped.set_period(period);
+    clamped.step(fake_canvas());
+    HS_EXPECT_EQ(calls, 4);
+  }
   struct {
     int fires = 0;
   } st;
