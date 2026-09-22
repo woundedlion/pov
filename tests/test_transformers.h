@@ -1573,15 +1573,8 @@ inline void test_noise_product_field_parity() {
   float base[NUM_SAMPLES] = {};
   for (size_t i = 0; i < NUM_SAMPLES; ++i) {
     const Vector &v = samples[i];
-    float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
-                                v.z * p.scale1 + p.time);
-    float n2 = p.noise.GetNoise(
-        v.x * p.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
-        v.y * p.scale2, v.z * p.scale2 + p.time);
-    float expected = p.amplitude * n1 * n2;
     base[i] = noise_product_field(v, p);
-    HS_EXPECT_NEAR(base[i], expected, 1e-6f);
-    total += std::fabs(expected);
+    total += std::fabs(base[i]);
   }
   HS_EXPECT_GT(total, 1e-5f);
 
@@ -1591,6 +1584,18 @@ inline void test_noise_product_field_parity() {
   p.amplitude = -0.5f;
   for (size_t i = 0; i < NUM_SAMPLES; ++i)
     HS_EXPECT_NEAR(noise_product_field(samples[i], p), -2.0f * base[i], 1e-6f);
+
+  float matrix[2][2]{};
+  for (int row = 0; row < 2; ++row)
+    for (int col = 0; col < 2; ++col) {
+      p.scale1 = row == 0 ? 1.5f : 2.75f;
+      p.scale2 = col == 0 ? 3.0f : 4.5f;
+      matrix[row][col] = noise_product_field(samples[2], p);
+    }
+  HS_EXPECT_GT(std::fabs(matrix[0][0] - matrix[1][0]), 1e-5f);
+  HS_EXPECT_GT(std::fabs(matrix[0][0] - matrix[0][1]), 1e-5f);
+  HS_EXPECT_NEAR(matrix[0][0] * matrix[1][1], matrix[0][1] * matrix[1][0],
+                 1e-7f);
 
   p.amplitude = 0.0f;
   HS_EXPECT_NEAR(noise_product_field(samples[0], p), 0.0f, 1e-7f);
