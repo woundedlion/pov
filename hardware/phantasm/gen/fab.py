@@ -1266,6 +1266,24 @@ def verify_main():
     print(f"fab package verified: {checked} digests match {SHIPPED_SUMS}")
 
 
+def promote_package(staged, destination):
+    """Replace a complete package, restoring the previous directory on failure."""
+    backup = destination + ".previous"
+    if os.path.lexists(backup):
+        raise UploadPackageError(f"recover previous package before promotion: {backup}")
+    previous = os.path.exists(destination)
+    if previous:
+        os.replace(destination, backup)
+    try:
+        os.replace(staged, destination)
+    except OSError:
+        if previous:
+            os.replace(backup, destination)
+        raise
+    if previous:
+        shutil.rmtree(backup)
+
+
 def main():
     print(f"kicad-cli: {kicad_cli()}")
     if not os.path.exists(PCB):
@@ -1400,64 +1418,56 @@ def main():
         except UploadPackageError as exc:
             sys.exit(str(exc))
 
-        if os.path.isdir(JLC):
-            for name in os.listdir(JLC):
-                stale = os.path.join(JLC, name)
-                if os.path.isdir(stale) and not os.path.islink(stale):
-                    shutil.rmtree(stale)
-                else:
-                    os.remove(stale)
-        os.makedirs(JLC, exist_ok=True)
-        for name in os.listdir(staged):
-            os.replace(os.path.join(staged, name), os.path.join(JLC, name))
-    print(f"  creation stamps: {len(stamped)} artifact(s) normalized to "
-          f"{FAB_TIMESTAMP}")
+        print("[8/9] BOM + CPL")
+        # BOM grouped by (value, footprint)
+        groups = {}
+        for r in assembled:
+            lcsc = assembly_metadata[r]["lcsc"]
+            key = (comps[r]["value"], comps[r]["footprint"].split(":")[-1], lcsc)
+            groups.setdefault(key, []).append(r)
+        with open(os.path.join(staged, "phantasm-BOM.csv"), "w", newline='',
+                  encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #",
+                        "Manufacturer", "Manufacturer Part Number", "Description"])
+            for (v, f, lcsc), refs in sorted(groups.items()):
+                part = PART_BY_LCSC[lcsc]
+                w.writerow([
+                    v,
+                    ",".join(sorted(refs)),
+                    f,
+                    lcsc,
+                    part["manufacturer"],
+                    part["mpn"],
+                    part["description"],
+                ])
+        with open(os.path.join(staged, "phantasm-CPL.csv"), "w", newline='',
+                  encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
+            for r in assembled:
+                p = assembly_metadata[r]
+                rot = f"{cpl_rotation(r, p['rotation']):.6f}"
+                w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
+
+        print("[9/9] JLC upload zip")
+        zpath = os.path.join(staged, ARCHIVE)
+        try:
+            members = zip_members(os.listdir(staged))
+        except UploadPackageError as exc:
+            sys.exit(str(exc))
+        write_upload_zip(staged, members, zpath)
+
+        manifest_path = os.path.join(staged, SUMS_FILE)
+        with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(package_manifest(staged, members, os.path.basename(zpath)))
+
+        promote_package(staged, JLC)
+    zpath = os.path.join(JLC, ARCHIVE)
+    manifest_path = os.path.join(JLC, SUMS_FILE)
+    print(f"  creation stamps: {len(stamped)} artifact(s) normalized to {FAB_TIMESTAMP}")
     print(f"  export content: every plotted layer draws; {holes['plated']} "
           f"plated and {holes['unplated']} unplated holes match the board")
-
-    print("[8/9] BOM + CPL")
-    # BOM grouped by (value, footprint)
-    groups = {}
-    for r in assembled:
-        lcsc = assembly_metadata[r]["lcsc"]
-        key = (comps[r]["value"], comps[r]["footprint"].split(":")[-1], lcsc)
-        groups.setdefault(key, []).append(r)
-    with open(os.path.join(JLC, "phantasm-BOM.csv"), "w", newline='',
-              encoding="utf-8") as fh:
-        w = csv.writer(fh)
-        w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #",
-                    "Manufacturer", "Manufacturer Part Number", "Description"])
-        for (v, f, lcsc), refs in sorted(groups.items()):
-            part = PART_BY_LCSC[lcsc]
-            w.writerow([
-                v,
-                ",".join(sorted(refs)),
-                f,
-                lcsc,
-                part["manufacturer"],
-                part["mpn"],
-                part["description"],
-            ])
-    with open(os.path.join(JLC, "phantasm-CPL.csv"), "w", newline='',
-              encoding="utf-8") as fh:
-        w = csv.writer(fh)
-        w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
-        for r in assembled:
-            p = assembly_metadata[r]
-            rot = f"{cpl_rotation(r, p['rotation']):.6f}"
-            w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
-
-    print("[9/9] JLC upload zip")
-    zpath = os.path.join(JLC, ARCHIVE)
-    try:
-        members = zip_members(os.listdir(JLC))
-    except UploadPackageError as exc:
-        sys.exit(str(exc))
-    write_upload_zip(JLC, members, zpath)
-
-    manifest_path = os.path.join(JLC, SUMS_FILE)
-    with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(package_manifest(JLC, members, os.path.basename(zpath)))
 
     print(f"\nDone. {len(assembled)} assembled SMD parts; "
           f"{len(groups)} BOM lines.")
