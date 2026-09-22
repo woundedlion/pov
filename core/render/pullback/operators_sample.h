@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "math/projection_patterns.h"
 #include "platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -65,7 +66,7 @@ struct SampleGrid : SourceClockModel {
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::grid(
-        stereo_pattern_args(input.coords, params.pattern_freq),
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
         static_cast<const Source::GridSourceParams &>(params), prepared);
     return finish_sample(input, raw, params, ctx);
   }
@@ -100,7 +101,8 @@ struct SampleTwinWave : SourceClockModel {
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::twin_wave(
-        stereo_pattern_args(input.coords, params.pattern_freq), prepared);
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+        prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };
@@ -144,7 +146,8 @@ struct SampleRings : SourceClockModel {
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::rings(
-        stereo_pattern_args(input.coords, params.pattern_freq), prepared);
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+        prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };
@@ -216,7 +219,8 @@ struct SampleSpiral : SourceClockModel {
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::spiral(
-        stereo_pattern_args(input.coords, params.pattern_freq), prepared);
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+        prepared);
     return finish_sample(input, raw, params, ctx);
   }
 };

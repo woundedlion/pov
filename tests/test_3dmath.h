@@ -17,7 +17,8 @@
 #include "core/math/3dmath.h"
 #include "core/math/4dmath.h"
 #include "core/math/lenses.h"
-#include "core/math/stereographic.h"
+#include "core/math/mobius.h"
+#include "core/math/projection_patterns.h"
 #include "core/math/rotate.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -42,7 +43,7 @@ inline void test_constants() {
   HS_EXPECT_NEAR(INV_PHI, 0.6180339887f, 1e-7f);
   HS_EXPECT_NEAR(math::TOLERANCE, 0.0001f, 1e-9f);
   HS_EXPECT_NEAR(PI_F, 3.14159265f, 1e-5f);
-  HS_EXPECT_NEAR_REL(STEREO_INF, 1e4f, 1e-7f);
+  HS_EXPECT_NEAR_REL(projections::STEREO_INF, 1e4f, 1e-7f);
 }
 
 // ============================================================================
@@ -1136,37 +1137,40 @@ inline void test_stereo_roundtrip() {
       Vector(0.6f, 0.0f, 0.8f), Vector(0.5f, 0.5f, 0.7071f).normalized(),
   };
   for (const Vector &v : samples) {
-    Complex z = stereo(v);
-    Vector back = inv_stereo(z);
+    Complex z = projections::stereo(v);
+    Vector back = projections::inv_stereo(z);
     HS_EXPECT_VEC(back, v, 5e-3f);
   }
 
   // North pole maps to the infinity sentinel (azimuth undefined → +real axis).
-  Complex zN = stereo(Vector(0, 1, 0));
-  HS_EXPECT_NEAR(zN.re, STEREO_INF, 1.0f);
+  Complex zN = projections::stereo(Vector(0, 1, 0));
+  HS_EXPECT_NEAR(zN.re, projections::STEREO_INF, 1.0f);
   HS_EXPECT_NEAR(zN.im, 0.0f, 1.0f);
 
   // Inside the pole cap (denom < STEREO_POLE_EPS) the sentinel preserves the
   // (x,z) azimuth at magnitude STEREO_INF rather than collapsing onto +real.
   // At this scale the unit vector's y rounds to 1, so denom is exactly zero.
   Vector nearPole = Vector(6e-5f, 1.0f, 2.1e-5f).normalized();
-  Complex zCap = stereo(nearPole);
-  HS_EXPECT_NEAR(std::sqrt(zCap.re * zCap.re + zCap.im * zCap.im), STEREO_INF,
-                 1.0f);
+  Complex zCap = projections::stereo(nearPole);
+  HS_EXPECT_NEAR(std::sqrt(zCap.re * zCap.re + zCap.im * zCap.im),
+                 projections::STEREO_INF, 1.0f);
   HS_EXPECT_NEAR(std::atan2(zCap.im, zCap.re),
                  std::atan2(nearPole.z, nearPole.x), 1e-3f);
 
   // The cap boundary is the crossover where the raw quotient would reach the
   // sentinel, not a step: outside it the projection stays below STEREO_INF.
-  Complex zOut = stereo(Vector(0.006f, 0.99998f, 0.0021f).normalized());
-  HS_EXPECT_LT(std::sqrt(zOut.re * zOut.re + zOut.im * zOut.im), STEREO_INF);
+  Complex zOut =
+      projections::stereo(Vector(0.006f, 0.99998f, 0.0021f).normalized());
+  HS_EXPECT_LT(std::sqrt(zOut.re * zOut.re + zOut.im * zOut.im),
+               projections::STEREO_INF);
 
   // Large complex magnitude maps back to north pole.
-  Vector pole = inv_stereo(Complex(STEREO_INF, 0));
+  Vector pole = projections::inv_stereo(Complex(projections::STEREO_INF, 0));
   HS_EXPECT_VEC(pole, Vector(0, 1, 0), 1e-3f);
 
   // Plane origin maps to south pole.
-  HS_EXPECT_VEC(inv_stereo(Complex(0, 0)), Vector(0, -1, 0), 1e-3f);
+  HS_EXPECT_VEC(projections::inv_stereo(Complex(0, 0)), Vector(0, -1, 0),
+                1e-3f);
 }
 
 // ============================================================================
@@ -1203,26 +1207,26 @@ inline void test_complex_arithmetic() {
   HS_EXPECT_COMPLEX(a * Complex(1, 0), a, 1e-6f);
 
   // project_div matches ordinary division away from the singularity.
-  HS_EXPECT_COMPLEX(project_div(a, b), a / b, 1e-6f);
+  HS_EXPECT_COMPLEX(math::project_div(a, b), a / b, 1e-6f);
 
   // project_div convention: 0 / 0 → 0.
-  HS_EXPECT_COMPLEX(project_div(Complex(0, 0), Complex(0, 0)), Complex(0, 0),
-                    1e-6f);
+  HS_EXPECT_COMPLEX(math::project_div(Complex(0, 0), Complex(0, 0)),
+                    Complex(0, 0), 1e-6f);
 
   // project_div convention: nonzero / 0 → large magnitude in the numerator
   // direction.
-  Complex inf_dir = project_div(Complex(1, 0), Complex(0, 0));
+  Complex inf_dir = math::project_div(Complex(1, 0), Complex(0, 0));
   HS_EXPECT_TRUE(std::abs(inf_dir.re) > 1e3f);
 
   // A divisor whose squared magnitude underflows is still a divisor, so a
   // tiny-but-equal homogeneous pair divides to 1 rather than to the sentinel.
   const Complex tiny(1e-30f, 0.0f);
-  HS_EXPECT_COMPLEX(project_div(tiny, tiny), Complex(1, 0), 1e-6f);
-  HS_EXPECT_COMPLEX(project_div(Complex(3e-30f, 4e-30f), tiny), Complex(3, 4),
-                    1e-5f);
+  HS_EXPECT_COMPLEX(math::project_div(tiny, tiny), Complex(1, 0), 1e-6f);
+  HS_EXPECT_COMPLEX(math::project_div(Complex(3e-30f, 4e-30f), tiny),
+                    Complex(3, 4), 1e-5f);
   // A normal numerator over that same divisor is still the point at infinity.
-  Complex underflow_inf = project_div(Complex(1, 0), tiny);
-  HS_EXPECT_NEAR(underflow_inf.re, STEREO_INF, 1e-1f);
+  Complex underflow_inf = math::project_div(Complex(1, 0), tiny);
+  HS_EXPECT_NEAR(underflow_inf.re, projections::STEREO_INF, 1e-1f);
   HS_EXPECT_NEAR(underflow_inf.im, 0.0f, 1e-6f);
 }
 
@@ -1235,18 +1239,19 @@ inline void test_complex_arithmetic() {
  *        default) and that the a,b,c,d coefficients land in order.
  */
 inline void test_mobius_params_accessors() {
-  MobiusParams p(1, 2, 3, 4, 5, 6, 7, 8);
+  math::MobiusParams p(1, 2, 3, 4, 5, 6, 7, 8);
   HS_EXPECT_COMPLEX(p.a, Complex(1, 2), 0.0f);
   HS_EXPECT_COMPLEX(p.b, Complex(3, 4), 0.0f);
   HS_EXPECT_COMPLEX(p.c, Complex(5, 6), 0.0f);
   HS_EXPECT_COMPLEX(p.d, Complex(7, 8), 0.0f);
 
-  MobiusParams q(Complex(1, 2), Complex(3, 4), Complex(5, 6), Complex(7, 8));
+  math::MobiusParams q(Complex(1, 2), Complex(3, 4), Complex(5, 6),
+                       Complex(7, 8));
   HS_EXPECT_COMPLEX(q.a, Complex(1, 2), 0.0f);
   HS_EXPECT_COMPLEX(q.d, Complex(7, 8), 0.0f);
 
   // Identity Mobius default: a=d=1, b=c=0.
-  MobiusParams id;
+  math::MobiusParams id;
   HS_EXPECT_COMPLEX(id.a, Complex(1, 0), 0.0f);
   HS_EXPECT_COMPLEX(id.b, Complex(0, 0), 0.0f);
   HS_EXPECT_COMPLEX(id.c, Complex(0, 0), 0.0f);
@@ -1260,37 +1265,42 @@ inline void test_mobius_params_accessors() {
 inline void test_mobius_transform() {
   Complex z(0.3f, 0.7f);
 
-  MobiusParams id;
-  HS_EXPECT_COMPLEX(mobius(z, id), z, 1e-4f);
+  math::MobiusParams id;
+  HS_EXPECT_COMPLEX(math::mobius(z, id), z, 1e-4f);
 
   // Pure translation: (1·z + (2 - i)) / (0·z + 1) = z + (2 - i)
-  MobiusParams trans(1, 0, 2.0f, -1.0f, 0, 0, 1, 0);
-  HS_EXPECT_COMPLEX(mobius(z, trans), Complex(z.re + 2.0f, z.im - 1.0f), 1e-4f);
+  math::MobiusParams trans(1, 0, 2.0f, -1.0f, 0, 0, 1, 0);
+  HS_EXPECT_COMPLEX(math::mobius(z, trans), Complex(z.re + 2.0f, z.im - 1.0f),
+                    1e-4f);
 
   // Pure scaling: (3·z) / 1 = 3z
-  MobiusParams scl(3, 0, 0, 0, 0, 0, 1, 0);
-  HS_EXPECT_COMPLEX(mobius(z, scl), Complex(z.re * 3.0f, z.im * 3.0f), 1e-4f);
+  math::MobiusParams scl(3, 0, 0, 0, 0, 0, 1, 0);
+  HS_EXPECT_COMPLEX(math::mobius(z, scl), Complex(z.re * 3.0f, z.im * 3.0f),
+                    1e-4f);
 
   // Inversion: 1/z = conj(z) / |z|^2.
-  MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0);
+  math::MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0);
   const float r2 = z.re * z.re + z.im * z.im;
-  HS_EXPECT_COMPLEX(mobius(z, inv), Complex(z.re / r2, -z.im / r2), 1e-4f);
+  HS_EXPECT_COMPLEX(math::mobius(z, inv), Complex(z.re / r2, -z.im / r2),
+                    1e-4f);
 
   // General c != 0: (z + 1) / (z - 1).
-  MobiusParams gen(1, 0, 1, 0, 1, 0, -1, 0);
-  HS_EXPECT_COMPLEX(mobius(z, gen), Complex(-0.42857143f, -1.42857143f), 1e-4f);
+  math::MobiusParams gen(1, 0, 1, 0, 1, 0, -1, 0);
+  HS_EXPECT_COMPLEX(math::mobius(z, gen), Complex(-0.42857143f, -1.42857143f),
+                    1e-4f);
 
   // Its pole z = -d/c = 1 vanishes the denominator: project_div substitutes the
   // point at infinity along the numerator's direction, which inv_stereo reads
   // back as the north pole.
-  Complex at_pole = mobius(Complex(1, 0), gen);
-  HS_EXPECT_NEAR(at_pole.re, STEREO_INF, 1.0f);
+  Complex at_pole = math::mobius(Complex(1, 0), gen);
+  HS_EXPECT_NEAR(at_pole.re, projections::STEREO_INF, 1.0f);
   HS_EXPECT_NEAR(at_pole.im, 0.0f, 1e-4f);
-  HS_EXPECT_VEC(inv_stereo(at_pole), Vector(0, 1, 0), 1e-6f);
+  HS_EXPECT_VEC(projections::inv_stereo(at_pole), Vector(0, 1, 0), 1e-6f);
 
   // A pole of the degenerate map (ad - bc == 0) is the indeterminate 0/0 form.
-  MobiusParams degenerate(1, 0, -1, 0, 1, 0, -1, 0);
-  HS_EXPECT_COMPLEX(mobius(Complex(1, 0), degenerate), Complex(0, 0), 0.0f);
+  math::MobiusParams degenerate(1, 0, -1, 0, 1, 0, -1, 0);
+  HS_EXPECT_COMPLEX(math::mobius(Complex(1, 0), degenerate), Complex(0, 0),
+                    0.0f);
 }
 
 // ============================================================================
@@ -1304,55 +1314,61 @@ inline void test_mobius_transform() {
  */
 inline void test_gnomonic_roundtrip() {
   Vector vUp = Vector(0.3f, 0.8f, 0.4f).normalized();
-  Complex zUp = gnomonic(vUp);
-  Vector vUp_back = inv_gnomonic(zUp, 1.0f);
+  Complex zUp = projections::gnomonic(vUp);
+  Vector vUp_back = projections::inv_gnomonic(zUp, 1.0f);
   HS_EXPECT_VEC(vUp_back, vUp, 5e-3f);
 
   // Lower hemisphere: the hemisphere sign is passed to inv_gnomonic explicitly.
   Vector vDn = Vector(0.3f, -0.8f, 0.4f).normalized();
-  Complex zDn = gnomonic(vDn);
-  Vector vDn_back = inv_gnomonic(zDn, -1.0f);
+  Complex zDn = projections::gnomonic(vDn);
+  Vector vDn_back = projections::inv_gnomonic(zDn, -1.0f);
   HS_EXPECT_VEC(vDn_back, vDn, 5e-3f);
 
   // North-pole pre-image: gnomonic(0,1,0) = (0, 0); inv → (0, 1, 0)
-  HS_EXPECT_COMPLEX(gnomonic(Vector(0, 1, 0)), Complex(0, 0), 1e-4f);
-  HS_EXPECT_VEC(inv_gnomonic(Complex(0, 0), 1.0f), Vector(0, 1, 0), 1e-6f);
+  HS_EXPECT_COMPLEX(projections::gnomonic(Vector(0, 1, 0)), Complex(0, 0),
+                    1e-4f);
+  HS_EXPECT_VEC(projections::inv_gnomonic(Complex(0, 0), 1.0f), Vector(0, 1, 0),
+                1e-6f);
 
   // Saturated input → the equator point in the direction of z, sign-dependent
   // (gnomonic's singularity is the equator, not a pole).
-  HS_EXPECT_VEC(inv_gnomonic(Complex(STEREO_INF, 0), 1.0f), Vector(1, 0, 0),
-                1e-3f);
-  HS_EXPECT_VEC(inv_gnomonic(Complex(STEREO_INF, 0), -1.0f), Vector(-1, 0, 0),
-                1e-3f);
-  HS_EXPECT_VEC(inv_gnomonic(Complex(0, -STEREO_INF), 1.0f), Vector(0, 0, -1),
-                1e-3f);
+  HS_EXPECT_VEC(
+      projections::inv_gnomonic(Complex(projections::STEREO_INF, 0), 1.0f),
+      Vector(1, 0, 0), 1e-3f);
+  HS_EXPECT_VEC(
+      projections::inv_gnomonic(Complex(projections::STEREO_INF, 0), -1.0f),
+      Vector(-1, 0, 0), 1e-3f);
+  HS_EXPECT_VEC(
+      projections::inv_gnomonic(Complex(0, -projections::STEREO_INF), 1.0f),
+      Vector(0, 0, -1), 1e-3f);
   // A magnitude far past the sentinel must not square to infinity.
-  HS_EXPECT_VEC(inv_gnomonic(Complex(3e30f, 4e30f), 1.0f),
+  HS_EXPECT_VEC(projections::inv_gnomonic(Complex(3e30f, 4e30f), 1.0f),
                 Vector(0.6f, 0.0f, 0.8f), 1e-3f);
   // The sentinel test is radial: a diagonal point past the recognition radius
   // snaps back even though neither component reaches it alone.
-  HS_EXPECT_VEC(inv_gnomonic(Complex(4e3f, 4e3f), 1.0f),
+  HS_EXPECT_VEC(projections::inv_gnomonic(Complex(4e3f, 4e3f), 1.0f),
                 Vector(0.70710678f, 0.0f, 0.70710678f), 1e-3f);
 
   // Near-equator inputs get clamped to STEREO_INF
-  Complex zEq = gnomonic(Vector(1.0f, 1e-10f, 0.0f));
-  HS_EXPECT_TRUE(std::abs(zEq.re) >= STEREO_INF - 1.0f);
+  Complex zEq = projections::gnomonic(Vector(1.0f, 1e-10f, 0.0f));
+  HS_EXPECT_TRUE(std::abs(zEq.re) >= projections::STEREO_INF - 1.0f);
 
   // Round-trip identity through the singularity: |v.y| below ~2e-4 saturates
   // the projection, and the inverse must still land on the input.
   for (float y : {2e-4f, 1e-5f, 1e-9f, 0.0f, -1e-9f, -1e-5f, -2e-4f}) {
     for (float theta = 0.0f; theta < 2.0f * PI_F; theta += 0.37f) {
       const Vector v = Vector(cosf(theta), y, sinf(theta)).normalized();
-      const Vector back = inv_gnomonic(gnomonic(v), copysignf(1.0f, y));
+      const Vector back = projections::inv_gnomonic(projections::gnomonic(v),
+                                                    copysignf(1.0f, y));
       HS_EXPECT_VEC(back, v, 1e-3f);
     }
   }
 
   // The floored divisor keys on the sign bit, so -0.0f projects like the tiny
   // negatives it is the limit of, not like +0.0f.
-  Complex z_neg_zero = gnomonic(Vector(1.0f, -0.0f, 0.0f));
-  Complex z_tiny_neg = gnomonic(Vector(1.0f, -1e-12f, 0.0f));
-  Complex z_pos_zero = gnomonic(Vector(1.0f, 0.0f, 0.0f));
+  Complex z_neg_zero = projections::gnomonic(Vector(1.0f, -0.0f, 0.0f));
+  Complex z_tiny_neg = projections::gnomonic(Vector(1.0f, -1e-12f, 0.0f));
+  Complex z_pos_zero = projections::gnomonic(Vector(1.0f, 0.0f, 0.0f));
   HS_EXPECT_TRUE(std::signbit(z_neg_zero.re) == std::signbit(z_tiny_neg.re));
   HS_EXPECT_TRUE(std::signbit(z_neg_zero.re) != std::signbit(z_pos_zero.re));
 }

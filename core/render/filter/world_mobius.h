@@ -5,7 +5,7 @@
 #pragma once
 
 #include "render/filter/pipeline.h"
-#include "math/stereographic.h"
+#include "math/mobius.h"
 #include "math/geometry.h"
 #include "color/color.h"
 
@@ -33,7 +33,7 @@ public:
    * @brief Binds the filter to a live Mobius parameter set.
    * @param params Mobius transform parameters applied per point.
    */
-  Mobius(MobiusParams &params) : params(params) {}
+  Mobius(math::MobiusParams &params) : params(params) {}
   /**
    * @brief Stereographically projects, applies the Mobius map, and re-emits.
    * @param v World-space point on the unit sphere.
@@ -47,11 +47,12 @@ public:
   template <typename PassFnT>
   void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha);
+    pass(projections::inv_stereo(math::mobius(projections::stereo(v), params)),
+         color, age, alpha);
   }
 
 private:
-  MobiusParams &params; /**< Live Mobius transform parameters. */
+  math::MobiusParams &params; /**< Live Mobius transform parameters. */
 };
 
 } // namespace World

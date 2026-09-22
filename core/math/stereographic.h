@@ -4,18 +4,13 @@
  */
 #pragma once
 
-/**
- * @file stereographic.h
- * @brief The stereographic, gnomonic and Mobius maps between the sphere and
- *        the complex plane, with the shading helpers for stereographic-space
- *        patterns: pole attenuation, pattern normalization and trig-argument
- *        clamping.
+/** @file stereographic.h
+ * @brief Stereographic and gnomonic forward/inverse projection kernels.
  */
 
-#include <algorithm>
-#include <cmath>
-
 #include "math/3dmath.h"
+
+namespace projections {
 
 /**
  * @brief Conventional representation of the point at infinity on the complex
@@ -36,17 +31,6 @@ inline constexpr float STEREO_INF = 1e4f;
 inline constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 
 /**
- * @brief Soft-limit for a stereographic coordinate fed (times a pattern
- * frequency) into fast_sinf/fast_cosf, beyond which range reduction bands.
- * @details Unclamped, stereo()'s up-to-1e4 magnitudes times a pattern frequency
- * drive trig arguments toward ~2e5, where a float's ULP (~0.02 rad) makes
- * fast_sinf's range reduction band near the pole. Clamping to ±this bound holds
- * the reduction error to ~5e-4 rad in the pole cap; non-pole coordinates
- * (|z| ~ O(10)) never reach it.
- */
-inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
-
-/**
  * @brief 1 - v.y below which stereo() is inside the north-pole cap and emits the
  * sentinel magnitude instead of the raw quotient.
  * @details Placed at the algebraic crossover: on the unit sphere
@@ -59,14 +43,6 @@ inline constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
  * retune below 2^-24 is inert.
  */
 inline constexpr float STEREO_POLE_EPS = 2.0f / (STEREO_INF * STEREO_INF);
-
-/**
- * @brief Squared magnitude below which mobius_transform treats a homogeneous
- * pair (p : s) as the degenerate exact-pole form and substitutes the point at
- * infinity. Tighter than math::EPS_LEN_SQ so only a pair essentially exactly
- * zero loses its direction.
- */
-inline constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
 
 /**
  * @brief Radius (a length, not squared) in the (x,z) plane below which the
@@ -92,92 +68,6 @@ inline Complex radial_scale(const Complex &direction, float length,
 }
 
 } // namespace stereographic_detail
-
-/**
- * @brief Projection-domain complex division for the stereographic/Mobius maps.
- * @param num Numerator.
- * @param den Divisor.
- * @return num/den, except a quotient whose magnitude would reach STEREO_INF
- * collapses to the infinity sentinel scaled along the numerator's direction (so
- * a near-singular divisor still yields a finite point). Only an exactly zero
- * numerator is the indeterminate 0/0 form, which returns (0,0); a nonzero
- * numerator keeps its direction however small it is.
- * @details NOT general complex division (see Complex::operator/): the STEREO_INF
- * clamp and the 0/0 -> 0 case are the point-at-infinity conventions the sphere
- * projections depend on.
- */
-inline Complex project_div(const Complex &num, const Complex &den) {
-  float den_re = den.re;
-  float den_im = den.im;
-  float num_re = num.re;
-  float num_im = num.im;
-  float denom = den_re * den_re + den_im * den_im;
-  if (denom == 0.0f && (den_re != 0.0f || den_im != 0.0f)) {
-    // Squaring flushes a divisor below 2^-75 to zero, which would read as an
-    // exact pole and send a finite quotient to the sentinel. 2^96 is exact and
-    // lifts any such pair back into the normal range.
-    constexpr float UNDERFLOW_LIFT = 79228162514264337593543950336.0f;
-    den_re *= UNDERFLOW_LIFT;
-    den_im *= UNDERFLOW_LIFT;
-    num_re *= UNDERFLOW_LIFT;
-    num_im *= UNDERFLOW_LIFT;
-    denom = den_re * den_re + den_im * den_im;
-  }
-  float num_mag = num_re * num_re + num_im * num_im;
-  if (num_mag >= denom * (STEREO_INF * STEREO_INF)) {
-    // Normalize by the larger component first: a numerator squared far above
-    // the sentinel overflows to infinity and one far below it underflows to
-    // zero, and either collapses the direction onto the origin.
-    const float peak = std::max(std::abs(num.re), std::abs(num.im));
-    if (peak == 0.0f)
-      return Complex(0, 0);
-    const float re = num.re / peak;
-    const float im = num.im / peak;
-    return stereographic_detail::radial_scale(
-        Complex(re, im), sqrtf(re * re + im * im), STEREO_INF);
-  }
-  return Complex((num_re * den_re + num_im * den_im) / denom,
-                 (num_im * den_re - num_re * den_im) / denom);
-}
-
-/**
- * @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d).
- * @details Stores the four coefficients as first-class `Complex` values;
- * animators mutate the `.re`/`.im` components in place. The eight-float
- * constructor is retained for terse literal initialization.
- */
-struct MobiusParams {
-  Complex a, b, c, d; /**< The four transform coefficients. */
-
-  /**
-   * @brief Default constructor producing the identity transform (a=d=1, b=c=0).
-   */
-  constexpr MobiusParams() : a(1, 0), b(0, 0), c(0, 0), d(1, 0) {}
-  /**
-   * @brief Constructs from four Complex coefficients.
-   * @param coeff_a Coefficient a.
-   * @param coeff_b Coefficient b.
-   * @param coeff_c Coefficient c.
-   * @param coeff_d Coefficient d.
-   */
-  constexpr MobiusParams(Complex coeff_a, Complex coeff_b, Complex coeff_c,
-                         Complex coeff_d)
-      : a(coeff_a), b(coeff_b), c(coeff_c), d(coeff_d) {}
-  /**
-   * @brief Constructs from eight floats (real/imaginary pairs per coefficient).
-   * @param ar Real part of a.
-   * @param ai Imaginary part of a.
-   * @param br Real part of b.
-   * @param bi Imaginary part of b.
-   * @param cr Real part of c.
-   * @param ci Imaginary part of c.
-   * @param dr Real part of d.
-   * @param di Imaginary part of d.
-   */
-  constexpr MobiusParams(float ar, float ai, float br, float bi, float cr,
-                         float ci, float dr, float di)
-      : a(ar, ai), b(br, bi), c(cr, ci), d(dr, di) {}
-};
 
 /**
  * @brief Stereographic Projection: Sphere -> Complex Plane.
@@ -212,18 +102,6 @@ inline Vector inv_stereo(const Complex &z) {
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return Vector(0.0f, 1.0f, 0.0f);
   return Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1), 2 * z.im / (r2 + 1));
-}
-
-/**
- * @brief Mobius Transformation: f(z) = (az + b) / (cz + d).
- * @param z The complex input point.
- * @param params The four transform coefficients.
- * @return The transformed complex point.
- */
-inline Complex mobius(const Complex &z, const MobiusParams &params) {
-  Complex num = (params.a * z) + params.b;
-  Complex den = (params.c * z) + params.d;
-  return project_div(num, den);
 }
 
 /**
@@ -297,105 +175,4 @@ inline Vector inv_gnomonic(const Complex &z, float hemisphere_sign) {
   );
 }
 
-/**
- * @brief Applies a Mobius transformation to a vector.
- * @param v Unit vector to transform.
- * @param params Mobius transformation coefficients.
- * @return The transformed vector.
- * @details Fused stereographic projection, Mobius map and inverse projection.
- * Carrying the plane coordinate as the homogeneous pair (p : s) — the
- * projection's numerator and denominator, never their quotient — keeps the
- * whole composition one complex fraction n/m, so it costs a single divide and
- * the pole is an ordinary value (s = 0) rather than the STEREO_INF sentinel
- * the split form needs.
- */
-inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
-  float px = v.x, pz = v.z;
-  float s = 1.0f - v.y;
-  // Exact north pole leaves (p : s) = (0 : 0); its projective image is the
-  // point at infinity, (1 : 0). Approaching the pole needs no such nudge:
-  // |p| ~ sqrt(2s) dominates s, so the ratio tends to infinity on its own.
-  if (px * px + pz * pz < STEREO_DIV_NUM_EPS_SQ && s < STEREO_DIV_NUM_EPS_SQ) {
-    px = 1.0f;
-    pz = 0.0f;
-    s = 0.0f;
-  }
-
-  const float n_re = params.a.re * px - params.a.im * pz + params.b.re * s;
-  const float n_im = params.a.re * pz + params.a.im * px + params.b.im * s;
-  const float m_re = params.c.re * px - params.c.im * pz + params.d.re * s;
-  const float m_im = params.c.re * pz + params.c.im * px + params.d.im * s;
-
-  const float n2 = n_re * n_re + n_im * n_im;
-  const float m2 = m_re * m_re + m_im * m_im;
-  const float den = n2 + m2;
-  // Only a singular transform (ad = bc) can null both, and it collapses the
-  // sphere to a point; the split form reached the pole here via its sentinel.
-  if (den < STEREO_DIV_NUM_EPS_SQ)
-    return Vector(0.0f, 1.0f, 0.0f);
-
-  const float inv = 1.0f / den;
-  return Vector(2.0f * (n_re * m_re + n_im * m_im) * inv, (n2 - m2) * inv,
-                2.0f * (n_im * m_re - n_re * m_im) * inv);
-}
-
-/**
- * @brief Applies a gnomonic Mobius transformation to a vector.
- * @param v Unit vector to transform.
- * @param params Mobius transformation coefficients.
- * @return The transformed vector.
- * @details Projects to the gnomonic plane, applies the Mobius map, then
- * projects back to the hemisphere selected by the sign of v.y.
- */
-inline Vector gnomonic_mobius_transform(const Vector &v,
-                                        const MobiusParams &params) {
-  Complex z = gnomonic(v);
-  Complex w = mobius(z, params);
-  // copysignf keys on the sign bit, matching gnomonic's divisor floor: a >= 0
-  // test would send v.y == -0.0f to the opposite hemisphere from the divisor.
-  return inv_gnomonic(w, copysignf(1.0f, v.y));
-}
-
-/**
- * @brief Smooth pole attenuation for stereographic-space effects.
- * @param r_sq Pre-computed |z|² (z.re² + z.im²).
- * @param singularity_fade Attenuation radius (larger = wider fade zone).
- * @return Falloff factor 1/(1 + r²/singularity_fade²) in (0, 1].
- * @details Stereographic projection sends the far pole to infinity, so |z|²
- * grows without bound near it; this falloff is 1 at the projection origin and
- * decays toward 0 with distance, taming that singularity.
- */
-__attribute__((always_inline)) inline float
-pole_attenuation(float r_sq, float singularity_fade) {
-  // Floor the radius so a 0 singularity_fade can't divide by zero and poison the warp.
-  const float pf = singularity_fade > 1e-3f ? singularity_fade : 1e-3f;
-  return 1.0f / (1.0f + (r_sq / (pf * pf)));
-}
-
-/**
- * @brief Pole-attenuates a stereographic pattern value and maps it to [0, 1].
- * @param pattern Raw pattern value in [-1, 1].
- * @param r_sq Pre-computed |z|² driving the pole fade.
- * @param singularity_fade Attenuation radius (larger = wider fade zone).
- * @return Pole-attenuated value normalized to [0, 1].
- */
-inline float pole_normalize_pattern(float pattern, float r_sq,
-                                    float singularity_fade) {
-  return (pattern * pole_attenuation(r_sq, singularity_fade) + 1.0f) * 0.5f;
-}
-
-/**
- * @brief Scales a warped stereographic coordinate into bounded trig arguments.
- * @param w Warped stereographic coordinate.
- * @param pattern_freq Spatial frequency multiplier.
- * @return Frequency-scaled components clamped to ±STEREO_PATTERN_ARG_LIMIT.
- * @details Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5
- * where fast_sinf range reduction bands; the clamp keeps both components inside
- * the accurate range.
- */
-inline Complex stereo_pattern_args(const Complex &w, float pattern_freq) {
-  return Complex(hs::clamp(w.re * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                           STEREO_PATTERN_ARG_LIMIT),
-                 hs::clamp(w.im * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                           STEREO_PATTERN_ARG_LIMIT));
-}
+} // namespace projections

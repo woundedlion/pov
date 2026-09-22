@@ -19,6 +19,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -503,15 +504,18 @@ static_assert(
                              GenerativePalette::Snapshot &&, int, EasingFn>,
     "ColorWipe must REJECT a temporary target snapshot (would dangle)");
 
-static_assert(std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
-                                      const float &, const float &, int>,
-              "MobiusFlow must accept lvalue (effect-owned) scalars");
-static_assert(!std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
-                                       const float &&, const float &, int>,
-              "MobiusFlow must REJECT a temporary num_rings (would dangle)");
-static_assert(!std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
-                                       const float &, const float &&, int>,
-              "MobiusFlow must REJECT a temporary num_lines (would dangle)");
+static_assert(
+    std::is_constructible_v<Animation::MobiusFlow, math::MobiusParams &,
+                            const float &, const float &, int>,
+    "MobiusFlow must accept lvalue (effect-owned) scalars");
+static_assert(
+    !std::is_constructible_v<Animation::MobiusFlow, math::MobiusParams &,
+                             const float &&, const float &, int>,
+    "MobiusFlow must REJECT a temporary num_rings (would dangle)");
+static_assert(
+    !std::is_constructible_v<Animation::MobiusFlow, math::MobiusParams &,
+                             const float &, const float &&, int>,
+    "MobiusFlow must REJECT a temporary num_lines (would dangle)");
 } // namespace borrow_guard
 
 // ============================================================================
@@ -3215,7 +3219,7 @@ inline void test_colorwipe_paused_holds_keys() {
  * b == 0 at completion and reporting done() only on the final frame.
  */
 inline void test_mobiuswarp_closes_at_completion() {
-  MobiusParams params;
+  math::MobiusParams params;
   const float scale = 0.4f;
   const int duration = 8;
   Animation::MobiusWarp warp(params, scale, duration, /*repeat=*/false,
@@ -3240,7 +3244,7 @@ inline void test_mobiuswarp_closes_at_completion() {
  * captured construction-time scale.
  */
 inline void test_mobiuswarp_bind_scale_reads_live() {
-  MobiusParams params;
+  math::MobiusParams params;
   float live = 1.0f;
   const int duration = 4;
   Animation::MobiusWarp warp(params, /*scale=*/0.0f, duration, /*repeat=*/false,
@@ -3256,7 +3260,7 @@ inline void test_mobiuswarp_bind_scale_reads_live() {
  * landing at (scale, 0) at completion and reporting the done() boundary.
  */
 inline void test_mobiuswarp_circular_traces_radius() {
-  MobiusParams params;
+  math::MobiusParams params;
   const float scale = 0.3f;
   const int duration = 8;
   Animation::MobiusWarpCircular warp(params, scale, duration, /*repeat=*/false,
@@ -3279,7 +3283,7 @@ inline void test_mobiuswarp_circular_traces_radius() {
  * referent instead of the captured construction-time scale.
  */
 inline void test_mobiuswarp_circular_bind_scale_reads_live() {
-  MobiusParams params;
+  math::MobiusParams params;
   float live = 0.5f;
   const int duration = 4;
   Animation::MobiusWarpCircular warp(params, /*scale=*/0.0f, duration,
@@ -3298,12 +3302,12 @@ inline void test_mobiuswarp_circular_bind_scale_reads_live() {
  */
 inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
   hs::random().seed(1337);
-  MobiusParams params(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 0.0f);
+  math::MobiusParams params(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 0.0f);
   const float scale = 0.5f;
   Animation::MobiusWarpEvolving warp(params, scale, /*speed=*/0.05f);
   HS_EXPECT_FALSE(warp.done());
 
-  const MobiusParams base = params;
+  const math::MobiusParams base = params;
   const float baseline[8] = {base.a.re, base.a.im, base.b.re, base.b.im,
                              base.c.re, base.c.im, base.d.re, base.d.im};
   float peak[8] = {};
@@ -3684,7 +3688,7 @@ inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
  * (a and d are conjugate-reciprocal) while actually moving the parameters.
  */
 inline void test_mobiusflow_step_preserves_unit_product() {
-  MobiusParams params;
+  math::MobiusParams params;
   const float rings = 2.0f, lines = 4.0f;
   const int duration = 8;
   Animation::MobiusFlow flow(params, rings, lines, duration, /*repeat=*/false);

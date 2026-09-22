@@ -11,6 +11,7 @@
  *        attractors through a Mobius warp.
  */
 
+#include "math/mobius.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 // 256 x 256 Pixels = 393,216 B of flash, about a fifth of the Teensy budget;
@@ -417,7 +418,7 @@ private:
   // orientation/noise/mobius are borrowed by timeline-resident animations.
   Orientation<> orientation;
   FastNoiseLite noise;
-  MobiusParams mobius; /**< Current Mobius warp parameters. */
+  math::MobiusParams mobius; /**< Current Mobius warp parameters. */
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
   ParticleSystem particle_system;
   /**
@@ -564,7 +565,7 @@ private:
 
     // Position pass: Mobius warp + orientation (decides cullability).
     auto vertex_shader = [&](Fragment &f) {
-      f.pos = mobius_transform(f.pos, mobius);
+      f.pos = math::mobius_transform(f.pos, mobius);
 #if HS_ENABLE_TEST_ORACLES
       if (reference_orientation) {
         f.pos = orientation.orient(f.pos);

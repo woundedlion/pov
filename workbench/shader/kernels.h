@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include "math/projection_patterns.h"
+#include "math/mobius.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
@@ -34,7 +36,7 @@ __attribute__((always_inline)) inline Complex
 mirror_tile(const Complex &input, const WarpStageParams &params,
             const PreparedWarpStage &prepared);
 HS_FLASH_MEMBER inline Vector mobius_lens(const Vector &v,
-                                          const MobiusParams &params);
+                                          const math::MobiusParams &params);
 HS_FLASH_MEMBER inline float primitive_lattice(const Complex &p,
                                                const SourceParams &params);
 __attribute__((always_inline)) inline Vector
@@ -440,7 +442,8 @@ inline Complex condition_source_coords(const Complex &coords,
       frame.slots.function == Function::FRACTAL ||
       frame.slots.function == Function::TESSELLATION)
     return coords;
-  return stereo_pattern_args(coords, frame.params.source.pattern_freq);
+  return projections::stereo_pattern_args(coords,
+                                          frame.params.source.pattern_freq);
 }
 
 __attribute__((always_inline)) inline float
@@ -820,7 +823,7 @@ apply_frame_free_lens(const Vector &v, SurfaceLens lens) {
 }
 
 HS_FLASH_MEMBER inline Vector mobius_lens(const Vector &v,
-                                          const MobiusParams &params) {
+                                          const math::MobiusParams &params) {
   return Pullback::Lens::mobius(v, params);
 }
 
@@ -841,7 +844,7 @@ HS_FLASH_MEMBER inline Complex project_point(const Vector &v,
   case Projection::EQUIRECTANGULAR:
     return projections::equirectangular(v);
   case Projection::STEREOGRAPHIC:
-    return stereo(v);
+    return projections::stereo(v);
   case Projection::GNOMONIC:
     return Workbench::gnomonic(v);
   case Projection::BONNE:

@@ -15,7 +15,7 @@
  */
 
 #include "math/3dmath.h"
-#include "math/stereographic.h"
+#include "math/mobius.h"
 #include "engine/concepts.h"
 #include "engine/memory.h"
 #include <new>
@@ -37,7 +37,7 @@ namespace transformer_detail {
 template <typename T> struct ExternalParamsHooks {};
 
 /** @brief MobiusParams (math/stereographic.h) carries neither hook. */
-template <> struct ExternalParamsHooks<MobiusParams> {
+template <> struct ExternalParamsHooks<math::MobiusParams> {
   static constexpr bool NEEDS_REFRESH_FROM = false;
   static constexpr bool NEEDS_SYNC = false;
 };
@@ -1004,8 +1004,9 @@ using NoiseProductTransformer =
  * @tparam CAPACITY Maximum number of concurrent Mobius warp transformations.
  */
 template <int CAPACITY>
-using MobiusWarpTransformer = Transformer<MobiusParams, Animation::MobiusWarp,
-                                          mobius_transform, CAPACITY>;
+using MobiusWarpTransformer =
+    Transformer<math::MobiusParams, Animation::MobiusWarp,
+                math::mobius_transform, CAPACITY>;
 
 /**
  * @brief Performs circular Mobius warps that stay warped throughout, suitable
@@ -1023,8 +1024,8 @@ using MobiusWarpTransformer = Transformer<MobiusParams, Animation::MobiusWarp,
  */
 template <int CAPACITY>
 using MobiusWarpCircularTransformer =
-    Transformer<MobiusParams, Animation::MobiusWarpCircular, mobius_transform,
-                CAPACITY>;
+    Transformer<math::MobiusParams, Animation::MobiusWarpCircular,
+                math::mobius_transform, CAPACITY>;
 
 /**
  * @brief Performs a changing Mobius warp using gnomonic projection.
@@ -1034,8 +1035,8 @@ using MobiusWarpCircularTransformer =
  */
 template <int CAPACITY>
 using MobiusWarpGnomonicTransformer =
-    Transformer<MobiusParams, Animation::MobiusWarpEvolving,
-                gnomonic_mobius_transform, CAPACITY>;
+    Transformer<math::MobiusParams, Animation::MobiusWarpEvolving,
+                math::gnomonic_mobius_transform, CAPACITY>;
 
 /**
  * @brief Applies 3D noise distortion to vectors.

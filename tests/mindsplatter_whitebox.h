@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "effects/MindSplatter.h"
 
 #include <array>
@@ -40,7 +41,7 @@ struct MindSplatterWhiteBox {
     ObjectBytes<Params> params{};
     ObjectBytes<Transition> transition{};
     ObjectBytes<Orientation<>> orientation{};
-    ObjectBytes<MobiusParams> mobius{};
+    ObjectBytes<math::MobiusParams> mobius{};
     std::array<float, EffectType::MAX_EMITTERS> emit_phases{};
     uint8_t palette_sequence = 0;
     ClipRegion clip{};
@@ -74,10 +75,10 @@ struct MindSplatterWhiteBox {
     HS_CHECK(snapshot.particles.size() <= UINT16_MAX);
     HS_CHECK(sizeof(Particle) <= UINT16_MAX);
     HS_CHECK(sizeof(Orientation<>) <= UINT16_MAX);
-    HS_CHECK(sizeof(MobiusParams) <= UINT16_MAX);
+    HS_CHECK(sizeof(math::MobiusParams) <= UINT16_MAX);
 
     std::vector<unsigned char> bytes;
-    bytes.reserve(24 + sizeof(Orientation<>) + sizeof(MobiusParams) +
+    bytes.reserve(24 + sizeof(Orientation<>) + sizeof(math::MobiusParams) +
                   snapshot.particles.size() * sizeof(Particle));
     append_u32(bytes, REPLAY_MAGIC);
     append_u16(bytes, REPLAY_VERSION);
@@ -85,12 +86,12 @@ struct MindSplatterWhiteBox {
     append_u16(bytes, H);
     append_u16(bytes, static_cast<uint16_t>(sizeof(Particle)));
     append_u16(bytes, static_cast<uint16_t>(sizeof(Orientation<>)));
-    append_u16(bytes, static_cast<uint16_t>(sizeof(MobiusParams)));
+    append_u16(bytes, static_cast<uint16_t>(sizeof(math::MobiusParams)));
     append_u16(bytes, static_cast<uint16_t>(snapshot.particles.size()));
     append_u16(bytes, snapshot.max_life);
     bytes.push_back(static_cast<unsigned char>(snapshot.active_base_mesh));
     append_object<Orientation<>>(bytes, snapshot.orientation);
-    append_object<MobiusParams>(bytes, snapshot.mobius);
+    append_object<math::MobiusParams>(bytes, snapshot.mobius);
     for (const ObjectBytes<Particle> &particle : snapshot.particles)
       append_object<Particle>(bytes, particle);
     return bytes;
@@ -228,7 +229,7 @@ struct MindSplatterWhiteBox {
              "MindSplatter replay particle layout differs");
     HS_CHECK(reader.read_u16() == sizeof(Orientation<>),
              "MindSplatter replay orientation layout differs");
-    HS_CHECK(reader.read_u16() == sizeof(MobiusParams),
+    HS_CHECK(reader.read_u16() == sizeof(math::MobiusParams),
              "MindSplatter replay Mobius layout differs");
     const uint16_t particle_count = reader.read_u16();
     const uint16_t max_life = reader.read_u16();
@@ -242,7 +243,7 @@ struct MindSplatterWhiteBox {
 
     ms.configure_particle_geometry(active_base_mesh);
     restore_object(ms.orientation, reader.read_object<Orientation<>>());
-    restore_object(ms.mobius, reader.read_object<MobiusParams>());
+    restore_object(ms.mobius, reader.read_object<math::MobiusParams>());
     ms.particle_system.max_life = max_life;
     for (uint16_t i = 0; i < particle_count; ++i) {
       ms.particle_system.spawn(Vector(), Vector(), 0);
@@ -352,14 +353,15 @@ struct MindSplatterWhiteBox {
   static Vector attractor_position(const MindSplatter<W, H> &ms, size_t i) {
     return ms.particle_system.attractors[i].position;
   }
-  static Vector matrix_vertex(const Vector &v, const MobiusParams &mobius,
+  static Vector matrix_vertex(const Vector &v, const math::MobiusParams &mobius,
                               const Quaternion &orientation) {
     RotationMatrix rotation(orientation);
-    return rotation.apply(mobius_transform(v, mobius));
+    return rotation.apply(math::mobius_transform(v, mobius));
   }
-  static Vector reference_vertex(const Vector &v, const MobiusParams &mobius,
+  static Vector reference_vertex(const Vector &v,
+                                 const math::MobiusParams &mobius,
                                  const Quaternion &orientation) {
-    return rotate(mobius_transform(v, mobius), orientation);
+    return rotate(math::mobius_transform(v, mobius), orientation);
   }
   static constexpr int trail_length() { return MS::TRAIL_LEN; }
   template <int W, int H>

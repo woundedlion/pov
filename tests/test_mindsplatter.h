@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -352,10 +353,10 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
   using WB = MindSplatterWhiteBox;
   constexpr int W = DEFAULT_W;
   constexpr int H = DEFAULT_H;
-  const MobiusParams transforms[] = {
-      MobiusParams(), MobiusParams(1, 0, -1.2f, 0, 0, 0, 1, 0),
-      MobiusParams(1, 0, -0.6f, 0.6f, 0, 0, 1, 0),
-      MobiusParams(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f)};
+  const math::MobiusParams transforms[] = {
+      math::MobiusParams(), math::MobiusParams(1, 0, -1.2f, 0, 0, 0, 1, 0),
+      math::MobiusParams(1, 0, -0.6f, 0.6f, 0, 0, 1, 0),
+      math::MobiusParams(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f)};
   const Quaternion orientations[] = {
       Quaternion(),
       make_rotation(X_AXIS, PI_F * 0.5f),
@@ -390,7 +391,7 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
   int max_q16_error = 0;
   size_t sample_count = 0;
 
-  auto check = [&](const Vector &v, const MobiusParams &transform,
+  auto check = [&](const Vector &v, const math::MobiusParams &transform,
                    const Quaternion &orientation) {
     const Vector reference = WB::reference_vertex(v, transform, orientation);
     const Vector matrix = WB::matrix_vertex(v, transform, orientation);
@@ -444,7 +445,7 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
       Vector(-1.0f, 1.0f, -1.0f).normalized(),
   };
   hs::random().seed(0x6D617472);
-  for (const MobiusParams &transform : transforms) {
+  for (const math::MobiusParams &transform : transforms) {
     for (const Quaternion &orientation : orientations) {
       for (const Vector &v : representative_vectors)
         check(v, transform, orientation);

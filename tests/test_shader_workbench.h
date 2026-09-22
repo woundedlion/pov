@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "math/projection_patterns.h"
+#include "math/mobius.h"
 #include <array>
 #include <bit>
 #include <limits>
@@ -1394,14 +1396,14 @@ inline void test_shader_workbench_pipeline_contract() {
   HS_EXPECT_EQ(outer.z, expected_outer.z);
 
   const WB::ProjectedLookup projected = WB::surface_project(outer, frame);
-  const Complex expected =
-      stereo(rotate(expected_outer, frame.transforms.projection_conj));
+  const Complex expected = projections::stereo(
+      rotate(expected_outer, frame.transforms.projection_conj));
   HS_EXPECT_EQ(projected.coords.re, expected.re);
   HS_EXPECT_EQ(projected.coords.im, expected.im);
   const float radius_sq = expected.re * expected.re + expected.im * expected.im;
-  HS_EXPECT_EQ(
-      projected.provenance.value_weight,
-      pole_attenuation(radius_sq, frame.params.projection.singularity_fade));
+  HS_EXPECT_EQ(projected.provenance.value_weight,
+               projections::pole_attenuation(
+                   radius_sq, frame.params.projection.singularity_fade));
   HS_EXPECT_TRUE(projected.provenance.boundary_flags != 0);
   HS_EXPECT_TRUE(std::isfinite(projected.provenance.fade_edge_distance));
 
@@ -1451,7 +1453,7 @@ inline void test_shader_workbench_legacy_spatial_slots() {
   for (const Vector &v : directions) {
     const Complex stereo_actual =
         WB::project_point(v, WB::Projection::STEREOGRAPHIC);
-    const Complex stereo_expected = stereo(v);
+    const Complex stereo_expected = projections::stereo(v);
     HS_EXPECT_EQ(stereo_actual.re, stereo_expected.re);
     HS_EXPECT_EQ(stereo_actual.im, stereo_expected.im);
 
@@ -1508,7 +1510,7 @@ inline void test_shader_workbench_legacy_spatial_slots() {
       static_cast<uint8_t>(WB::boundary_cut() | WB::boundary_singular()));
 
   const Vector v(0.6f, 0.48f, 0.64f);
-  const Complex lensed = stereo(lenses::glitch_lens(v));
+  const Complex lensed = projections::stereo(lenses::glitch_lens(v));
   WB::FrameState frame = WB::frame(landmark_sb);
   frame.slots.projection = WB::Projection::STEREOGRAPHIC;
   frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
@@ -4124,10 +4126,11 @@ inline void test_mobius_grid_circular_animation() {
   HS_EXPECT_EQ(effect.getPresetCount(), size_t(2));
   HS_EXPECT_TRUE(FX::PRESET_IDS[1] == "mobius-grid-2");
 
-  const MobiusParams initial = effect.serialize_parameters().params.lens.mobius;
+  const math::MobiusParams initial =
+      effect.serialize_parameters().params.lens.mobius;
   effect.draw_frame();
   effect.advance_display();
-  const MobiusParams animated =
+  const math::MobiusParams animated =
       effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_TRUE(animated.b.re != initial.b.re ||
                  animated.b.im != initial.b.im);
@@ -4135,29 +4138,31 @@ inline void test_mobius_grid_circular_animation() {
                  1.0f, 1e-5f);
   effect.draw_frame();
   effect.advance_display();
-  const MobiusParams advanced =
+  const math::MobiusParams advanced =
       effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_TRUE(advanced.b.re != animated.b.re ||
                  advanced.b.im != animated.b.im);
   effect.setAnimationsPaused(true);
   effect.draw_frame();
   effect.advance_display();
-  const MobiusParams paused = effect.serialize_parameters().params.lens.mobius;
+  const math::MobiusParams paused =
+      effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_EQ(paused.b.re, advanced.b.re);
   HS_EXPECT_EQ(paused.b.im, advanced.b.im);
 
   effect.setAnimationsPaused(false);
   effect.draw_frame();
   effect.advance_display();
-  const MobiusParams resumed = effect.serialize_parameters().params.lens.mobius;
+  const math::MobiusParams resumed =
+      effect.serialize_parameters().params.lens.mobius;
   HS_EXPECT_TRUE(resumed.b.re != paused.b.re || resumed.b.im != paused.b.im);
 
-  MobiusParams previous = resumed;
+  math::MobiusParams previous = resumed;
   const size_t initial_preset = effect.getPresetIndex();
   for (int frame = 0; frame < 1400; ++frame) {
     effect.draw_frame();
     effect.advance_display();
-    const MobiusParams current =
+    const math::MobiusParams current =
         effect.serialize_parameters().params.lens.mobius;
     HS_EXPECT_NEAR(current.b.re * current.b.re + current.b.im * current.b.im,
                    1.0f, 1e-5f);
@@ -5162,7 +5167,7 @@ inline void test_shader_workbench_projection_and_admission_contracts() {
   bonne.params.projection.bonne_standard_parallel = 1e-3f;
   HS_EXPECT_TRUE(WB::valid_config(bonne));
 
-  MobiusParams mobius(1.0f, 0.2f, 0.3f, -0.1f, -0.2f, 0.1f, 0.9f, -0.15f);
+  math::MobiusParams mobius(1.0f, 0.2f, 0.3f, -0.1f, -0.2f, 0.1f, 0.9f, -0.15f);
   WB::RequestedConfig mobius_config = WB::legacy_config();
   mobius_config.slots.surface_lens = WB::SurfaceLens::MOBIUS;
   mobius_config.params.surface_lens.mobius = mobius;

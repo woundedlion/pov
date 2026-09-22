@@ -8,6 +8,7 @@
 #include "render/pullback/fields.h"
 #include "render/pullback/material.h"
 #include "math/3dmath.h"
+#include "math/projection_patterns.h"
 #include <iterator>
 #include <limits>
 
@@ -467,8 +468,9 @@ wave_shear(const Complex &input, const Params &params, float phase,
   // fast_sinf's reduction loses the low bits past this bound, and the plane
   // coordinate reaches STEREO_INF at the projection pole.
   const float offset =
-      amplitude * fast_sinf(hs::clamp(angle, -STEREO_PATTERN_ARG_LIMIT,
-                                      STEREO_PATTERN_ARG_LIMIT));
+      amplitude *
+      fast_sinf(hs::clamp(angle, -projections::STEREO_PATTERN_ARG_LIMIT,
+                          projections::STEREO_PATTERN_ARG_LIMIT));
   const Complex delta(-s * offset, c * offset);
   return {{input.re + delta.re, input.im + delta.im},
           path_length_required ? fabsf(offset) : 0.0f};

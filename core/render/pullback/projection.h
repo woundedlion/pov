@@ -118,7 +118,7 @@ peirce_weight(const Vector &input, float central_meridian,
 
 __attribute__((always_inline)) inline ProjectionResult
 stereographic(const Vector &input, float singularity_fade) {
-  const Complex coords = stereo(input);
+  const Complex coords = projections::stereo(input);
   return {coords,
           {0, 0, static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
            std::max(0.0f, 1.0f - input.y),

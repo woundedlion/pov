@@ -23,6 +23,7 @@
 
 #include "color/generative_palette.h"
 #include "color/baked_palette.h"
+#include "math/mobius.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>

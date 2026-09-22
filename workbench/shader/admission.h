@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
@@ -27,12 +28,13 @@ namespace Workbench {
 HS_COLD_MEMBER inline constexpr bool
 coefficient_in_range(const Complex &coefficient);
 HS_COLD_MEMBER inline constexpr bool
-mobius_coefficients_in_range(const MobiusParams &params);
+mobius_coefficients_in_range(const math::MobiusParams &params);
 HS_COLD_MEMBER inline constexpr bool curl_pair_stable(const WarpStageSpec &spec,
                                                       const WarpStageParams &a,
                                                       const WarpStageParams &b);
 HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config);
-HS_COLD_MEMBER inline constexpr bool valid_mobius(const MobiusParams &params);
+HS_COLD_MEMBER inline constexpr bool
+valid_mobius(const math::MobiusParams &params);
 inline constexpr bool valid_slot_enums(const Slots &slots);
 HS_COLD_MEMBER inline constexpr bool
 valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params);
@@ -308,9 +310,9 @@ valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
 HS_COLD_MEMBER inline constexpr float
 projection_coordinate_bound(const Config &config) {
   if (config.slots.surface_lens == SurfaceLens::MOBIUS)
-    return STEREO_INF;
+    return projections::STEREO_INF;
   if (config.slots.projection == Projection::STEREOGRAPHIC)
-    return STEREO_INF;
+    return projections::STEREO_INF;
   if (config.slots.projection == Projection::GNOMONIC)
     return 1.0f / GNOMONIC_AXIS_EPS;
   if (strict_projection(config.slots.projection))
@@ -389,7 +391,8 @@ HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config) {
   return true;
 }
 
-HS_COLD_MEMBER inline constexpr bool valid_mobius(const MobiusParams &params) {
+HS_COLD_MEMBER inline constexpr bool
+valid_mobius(const math::MobiusParams &params) {
   const float ad_re = params.a.re * params.d.re - params.a.im * params.d.im;
   const float ad_im = params.a.re * params.d.im + params.a.im * params.d.re;
   const float bc_re = params.b.re * params.c.re - params.b.im * params.c.im;
@@ -407,7 +410,7 @@ coefficient_in_range(const Complex &coefficient) {
 }
 
 HS_COLD_MEMBER inline constexpr bool
-mobius_coefficients_in_range(const MobiusParams &params) {
+mobius_coefficients_in_range(const math::MobiusParams &params) {
   return coefficient_in_range(params.a) && coefficient_in_range(params.b) &&
          coefficient_in_range(params.c) && coefficient_in_range(params.d);
 }

@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "math/projection_patterns.h"
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
 #include "math/3dmath.h"
@@ -514,8 +515,9 @@ template <typename State> struct TwinWave : ApproximationDefaults {
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return twin_wave(stereo_pattern_args(input.coords, params.pattern_freq),
-                     prepared);
+    return twin_wave(
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+        prepared);
   }
 };
 
@@ -542,8 +544,9 @@ template <typename State> struct Rings : ApproximationDefaults {
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return rings(stereo_pattern_args(input.coords, params.pattern_freq),
-                 prepared);
+    return rings(
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+        prepared);
   }
 };
 
@@ -600,8 +603,9 @@ template <typename State> struct Spiral : ApproximationDefaults {
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return spiral(stereo_pattern_args(input.coords, params.pattern_freq),
-                  prepared);
+    return spiral(
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+        prepared);
   }
 };
 
@@ -633,8 +637,9 @@ template <typename State> struct Grid : ApproximationDefaults {
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     const auto &params = State::params(frame);
-    return grid(stereo_pattern_args(input.coords, params.pattern_freq), params,
-                prepared);
+    return grid(
+        projections::stereo_pattern_args(input.coords, params.pattern_freq),
+        params, prepared);
   }
 };
 

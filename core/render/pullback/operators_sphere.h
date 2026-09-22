@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -264,13 +265,14 @@ struct LensMobius : StatelessModel {
   using Output = SphereSample;
   using Params = MobiusChainParams;
   struct Prepared {
-    MobiusParams mobius;
+    math::MobiusParams mobius;
   };
 
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &) {
-    return {MobiusParams{params.a_re, params.a_im, params.b_re, params.b_im,
-                         params.c_re, params.c_im, params.d_re, params.d_im}};
+    return {math::MobiusParams{params.a_re, params.a_im, params.b_re,
+                               params.b_im, params.c_re, params.c_im,
+                               params.d_re, params.d_im}};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
