@@ -1036,7 +1036,7 @@ class ZipMembershipTests(unittest.TestCase):
 
 class PackagePromotionTests(unittest.TestCase):
     def test_invalid_members_preserve_the_previous_package(self):
-        for replacement in (None, "unexpected-In1_Cu.g1"):
+        for replacement in (None, "unexpected-In1_Cu.g1", "archive-failure"):
             with self.subTest(replacement=replacement), \
                     tempfile.TemporaryDirectory() as directory, \
                     contextlib.ExitStack() as stack:
@@ -1057,7 +1057,9 @@ class PackagePromotionTests(unittest.TestCase):
                         target.write_text("Ref,PosX,PosY,Rot,Side\n")
                     elif stage == "gerber":
                         names = set(ZipMembershipTests.EXPORTED) - {"phantasm-In1_Cu.g1"}
-                        if replacement:
+                        if replacement == "archive-failure":
+                            names.add("phantasm-In1_Cu.g1")
+                        elif replacement:
                             names.add(replacement)
                         for name in names:
                             (target / name).write_text("fixture export")
@@ -1080,7 +1082,11 @@ class PackagePromotionTests(unittest.TestCase):
                     stack.enter_context(unittest.mock.patch.object(fab, name, return_value=value))
                 stack.enter_context(unittest.mock.patch.object(fab, "run_export", side_effect=export))
                 stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
-                with self.assertRaisesRegex(SystemExit, "phantasm-In1_Cu.g1|unexpected-In1_Cu.g1"):
+                if replacement == "archive-failure":
+                    stack.enter_context(unittest.mock.patch.object(
+                        fab, "write_upload_zip", side_effect=OSError("injected archive failure")))
+                with self.assertRaisesRegex((SystemExit, OSError),
+                                            "phantasm-In1_Cu.g1|unexpected-In1_Cu.g1|injected archive failure"):
                     fab.main()
                 self.assertEqual({p.name: p.read_bytes() for p in jlc.iterdir()}, previous)
 
