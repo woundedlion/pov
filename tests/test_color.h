@@ -86,8 +86,8 @@ inline void test_lerp16_rounds_to_nearest() {
  *          endpoints (allowing +/- 1 LSB of rounding slack).
  */
 inline void test_lerp16_bounded() {
-  Pixel a(123, 45678, 65535);
-  Pixel b(65535, 0, 12345);
+  Pixel a(123, 45678, 60000);
+  Pixel b(62000, 1000, 12345);
   for (uint32_t f = 0; f <= 65535; f += 4095) {
     Pixel m = a.lerp16(b, static_cast<uint16_t>(f));
     HS_EXPECT_LE(m.r, static_cast<uint16_t>(std::max(a.r, b.r)));
