@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 import unittest.mock
+from unittest import mock
 import zipfile
 from pathlib import Path
 
@@ -550,6 +551,13 @@ class AssemblyPolicyTests(unittest.TestCase):
         self.assertEqual(fab.cpl_rotation("R_D1", 180), 180)
 
 class SchematicParityTests(unittest.TestCase):
+    def test_nonzero_exit_fails_even_with_clean_report(self):
+        with mock.patch.object(fab, "kicad_cli", return_value="kicad-cli"), \
+                mock.patch.object(fab, "run", return_value=mock.Mock(returncode=2)), \
+                mock.patch.object(fab, "require_schematic_parity", return_value=0):
+            with self.assertRaisesRegex(fab.SchematicParityError, "status 2"):
+                fab.run_parity("missing-parity-fixture.json")
+
     def test_committed_artifacts_pass_pinned_kicad_parity(self):
         try:
             fab.kicad_cli()
