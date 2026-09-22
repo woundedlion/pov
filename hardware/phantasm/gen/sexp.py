@@ -45,7 +45,7 @@ def kicad_data_dir_patterns(kind):
 # Stock KiCad data directories (symbols, footprints, 3dmodels). Override with
 # the matching env var if installed elsewhere or on a newer/older KiCad version.
 def find_kicad_data_dir(kind, env_name):
-    """Locate a stock KICAD_MAJOR data directory, falling back to the bare `kind`.
+    """Locate a stock KICAD_MAJOR data directory, returning an absolute missing path when absent.
 
     An install whose path names another major is skipped: its land patterns and
     symbol graphics differ from what the pinned kicad-cli validates, so drawing
@@ -64,7 +64,8 @@ def find_kicad_data_dir(kind, env_name):
                 if kicad_version_key(hit)[0] in (0, KICAD_MAJOR)]
         if hits:
             return max(hits, key=kicad_version_key)   # newest minor
-    return kind
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        ".missing-kicad-data", kind)
 
 
 KICAD_SHARE = find_kicad_data_dir("symbols", "KICAD_SYMBOL_DIR")
