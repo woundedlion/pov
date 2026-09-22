@@ -108,7 +108,7 @@ public:
    *               black frame) in a single transfer — zero gap, no spin.
    * @return true if the frame was handed to the DMA engine; false if dropped on
    *         overrun (prior transfer still in flight). The fail-dark latch gates
-   *         on this; the steady-state column path ignores it (self-heals).
+   *         on this; the segmented column path schedules a retry on failure.
    */
   [[nodiscard]] bool submit_frame(bool with_bg = false) {
     if (!spi.is_complete()) {
