@@ -5,6 +5,9 @@ if(NOT IS_DIRECTORY "${HS_MIRROR_SOURCE}")
   message(FATAL_ERROR
     "Pattern mirror source is not a directory: ${HS_MIRROR_SOURCE}")
 endif()
+if(NOT EXISTS "${HS_MIRROR_SOURCE}/../CMakeLists.txt")
+  message(FATAL_ERROR "Mirror source is not an engine checkout: ${HS_MIRROR_SOURCE}")
+endif()
 if(NOT EXISTS "${HS_DAYDREAM_DIR}/daydream.js")
   message(FATAL_ERROR
     "Pattern mirror destination is not a daydream checkout: "
@@ -21,6 +24,9 @@ file(GLOB _hs_source_patterns
   RELATIVE "${HS_MIRROR_SOURCE}"
   "${HS_MIRROR_SOURCE}/*.shader.json"
   "${HS_MIRROR_SOURCE}/shaderball_migration.json")
+if(NOT _hs_source_patterns)
+  message(FATAL_ERROR "Mirror source contains no patterns: ${HS_MIRROR_SOURCE}")
+endif()
 file(GLOB _hs_installed_patterns
   LIST_DIRECTORIES FALSE
   RELATIVE "${_hs_mirror_destination}"
