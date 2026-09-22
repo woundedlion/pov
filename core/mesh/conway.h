@@ -675,7 +675,8 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
       HS_CHECK(he_mesh.faces[i].half_edge != HE_NONE, "dual: empty face");
       Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
-      out_mesh.vertices.push_back(normalized_or(c, first_v));
+      out_mesh.vertices.push_back(
+          normalized_or(c, normalized_or(first_v, X_AXIS)));
     }
 
     bool *visited_verts = target.allocate_n<bool>(V);
