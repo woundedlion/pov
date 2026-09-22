@@ -85,12 +85,12 @@ alone.**
 ### Is the per-row-span residual recoverable? No.
 
 The four span-episode deltas sum to +416 B (added 3,344 − removed 2,928), which
-reads like leftover residual. Direct inspection at HEAD refutes that:
+reads like leftover residual. Inspection at the window-close commit `d4816de0` refuted that:
 - The experiment's named machinery (`emit_row_spans`, `raster_rowspan`) is **fully
   gone** from `scan.h`/`sdf.h`. (The `*_row_span` symbols in `plot/cull.h` are the
   unrelated trail-clip edge-span feature; the `span` tokens in `scan.h` are the
   ordinary per-row longitude-interval rasterizer that always existed.)
-- `rasterize_face` at HEAD is the bounding-rectangle scan with no row-narrowing.
+- `rasterize_face` at `d4816de0` was the bounding-rectangle scan with no row-narrowing. The current rasterizer in `core/render/scan/mesh.h` has since changed.
 - **~10 commits rewrote the touched functions after the revert** (`6cab193d`
   inlining, `d59384d6`/`ab8bad4e` branchless walks, `a9a8d500` modulo drop), so
   whatever layout/scheduling drift the episode left has been subsumed and
