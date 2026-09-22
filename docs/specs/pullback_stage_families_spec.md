@@ -788,7 +788,7 @@ gates run in CI rather than at compile time.
 
 ### 7.1 One operator authority
 
-**Status: LANDED.** `OperatorDescriptor` and `make_operator_descriptor()`
+**Status: PARTIAL.** `OperatorDescriptor` and `make_operator_descriptor()`
 (`core/render/pullback/operator_model.h`), the `OPERATOR_TABLE` built from
 those records (`core/render/pullback/operator_table.h`), and the generated
 catalog (`core/render/pullback/catalog_export.h`) golden-pinned by
