@@ -115,10 +115,33 @@ class MalformedNetlistTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
+    def test_old_shared_input_is_rejected_for_revision_1_2(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            ok = check.check(committed_board_nets(), "1.2")
+        self.assertFalse(ok)
+        self.assertIn("FAIL FRAME_SYNC", output.getvalue())
+        self.assertIn("FAIL SYNC_TX", output.getvalue())
+
+    def test_transmit_pulldown_is_required(self):
+        nets = expected_nodes()
+        nets["GND"] = [node for node in nets["GND"] if node[0] != "R_TX"]
+        ok, out = run(nets)
+        self.assertFalse(ok)
+        self.assertIn("FAIL GND\n   missing ['R_TX']", out)
+
+    def test_unknown_revision_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "unsupported board revision"):
+            check.check({}, "1.3")
+
+    def test_netlist_without_revision_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "no root-sheet board revision"):
+            check.netlist_revision(netlist(expected_nodes()))
+
     def test_accepts_committed_board(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            ok = check.check(committed_board_nets())
+            ok = check.check(committed_board_nets(), "1.1")
         self.assertTrue(ok, output.getvalue())
         self.assertEqual(output.getvalue(), "")
 

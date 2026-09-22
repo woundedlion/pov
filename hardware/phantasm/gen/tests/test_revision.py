@@ -58,13 +58,12 @@ class RevisionTests(unittest.TestCase):
     def test_schematic_title_block_carries_the_silk_revision(self):
         self.assertEqual(title_block_rev(SCH), self.revision)
 
-    def test_the_schematic_generator_emits_the_silk_revision(self):
-        self.assertEqual(builder.REVISION, self.revision)
+    def test_generator_targets_revision_1_2(self):
+        self.assertEqual(builder.REVISION, "1.2")
 
     def test_the_board_generator_stamps_the_silk_from_builder(self):
         self.assertEqual(pcb.SILK_REVISION,
                          f"Phantasm Rev {builder.REVISION}")
-        self.assertEqual(pcb.SILK_REVISION, f"Phantasm Rev {self.revision}")
 
 
 if __name__ == "__main__":
