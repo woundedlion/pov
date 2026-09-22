@@ -2509,10 +2509,17 @@ inline void test_volume_trace_nearly_tied_minimum() {
                                                     RADIUS, 17, AA, expected);
   float actual_d = Scan::Volume::trace_closest(torus, ORIGIN, DIRECTION, RADIUS,
                                                17, AA, actual);
+#if defined(HS_TEST_FAST_MATH)
+  HS_EXPECT_NEAR(expected_d, actual_d, 1e-5f);
+  HS_EXPECT_NEAR(expected.x, actual.x, 1e-4f);
+  HS_EXPECT_NEAR(expected.y, actual.y, 1e-4f);
+  HS_EXPECT_NEAR(expected.z, actual.z, 1e-4f);
+#else
   HS_EXPECT_EQ(expected_d, actual_d);
   HS_EXPECT_EQ(expected.x, actual.x);
   HS_EXPECT_EQ(expected.y, actual.y);
   HS_EXPECT_EQ(expected.z, actual.z);
+#endif
 }
 
 /**
