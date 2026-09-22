@@ -1202,7 +1202,8 @@ private:
     }
     register_color_field<&ColorParams::opacity_low>("Opacity at Value 0");
     register_color_field<&ColorParams::opacity_high>("Opacity at Value 1");
-    register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
+    if constexpr (HueV != HueMode::NONE)
+      register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
     if constexpr (HueV == HueMode::NOISE) {
       register_color_field<&ColorParams::hue_noise_scale>("Hue Noise Scale");
       register_color_field<&ColorParams::hue_noise_speed>("Hue Noise Speed");
