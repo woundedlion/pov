@@ -374,8 +374,9 @@ peirce_projection(const Vector &v, float central_meridian, uint8_t layout,
   const float rotated_x = cp * cl;
   const float rotated_z = cp * sl;
   float edge = NO_EDGE_DISTANCE;
-  uint8_t boundary = projection_boundary(ProjectionBoundary::SINGULAR);
+  uint8_t boundary = 0;
   if (calculate_edge_distance) {
+    boundary = projection_boundary(ProjectionBoundary::SINGULAR);
     // The four singularities are the poles of the two diagonal axes cos_a and
     // cos_b measure from, so the nearest sits at acos of the larger magnitude.
     edge = acosf(hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
