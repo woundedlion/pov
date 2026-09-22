@@ -3989,6 +3989,13 @@ void verify_fixed_shader_export(
   for (int frame = 0; frame < 3; ++frame)
     WB::advance_fixed_clocks(shader, config);
   const WB::FrameState dynamic = WB::config_frame(shader, config);
+  if constexpr (requires { own.params.source.speed; })
+    HS_EXPECT_EQ(own.source_primary, dynamic.clocks.source_primary);
+  if constexpr (requires { own.params.source.secondary_rate; })
+    HS_EXPECT_EQ(own.source_secondary, dynamic.clocks.source_secondary);
+  if constexpr (requires { own.params.source.angle_rate; })
+    HS_EXPECT_EQ(own.source_angle, dynamic.clocks.source_angle);
+  HS_EXPECT_EQ(own.inner_phase, dynamic.clocks.warp_inner_phase);
   const auto reference = fixed_reference_frame<FixedEffect>(own, dynamic);
   HS_EXPECT_TRUE(reference.projection_conjugate ==
                  dynamic.transforms.projection_conj);
