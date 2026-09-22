@@ -790,6 +790,22 @@ inline void test_chromatic_shift_fanout() {
   HS_EXPECT_EQ(taps[3].c.g, 0);
   HS_EXPECT_EQ(taps[3].c.b, src.b);
 
+  count = 0;
+  cs.plot(63.0f, 5.0f, src, 0.0f, 1.0f,
+          [&](float x, float y, const Pixel &c, float, float a) {
+            if (count < 8)
+              taps[count] = {x, y, c, a};
+            ++count;
+          });
+  HS_EXPECT_EQ(count, 4);
+  HS_EXPECT_EQ(taps[0].x, 63.0f);
+  HS_EXPECT_EQ(taps[1].x, 0.0f);
+  HS_EXPECT_EQ(taps[2].x, 1.0f);
+  HS_EXPECT_EQ(taps[3].x, 2.0f);
+  HS_EXPECT_EQ(taps[1].c.r, src.r);
+  HS_EXPECT_EQ(taps[2].c.g, src.g);
+  HS_EXPECT_EQ(taps[3].c.b, src.b);
+
   // A wider Spread scales every fringe offset and the margin that covers them.
   static_assert(Filter::Pixel::ChromaticShift<W, 3>::segment_margin == 9);
   Filter::Pixel::ChromaticShift<W, 3> wide;
