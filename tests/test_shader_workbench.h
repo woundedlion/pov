@@ -1195,6 +1195,10 @@ inline void test_shader_workbench_clocks_wrapped() {
   affine.params.warp.outer.rotation = 0.5f;
   HS_EXPECT_TRUE(WB::valid_config(affine));
   expect_shader_workbench_clocks_wrapped(affine);
+  affine.slots.warp_program.inner = affine.slots.warp_program.outer;
+  affine.params.warp.inner = affine.params.warp.outer;
+  HS_EXPECT_TRUE(WB::valid_config(affine));
+  expect_shader_workbench_clocks_wrapped(affine);
 }
 
 /** @brief Pause gates preset selection while all live motion keeps advancing. */
