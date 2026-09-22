@@ -215,7 +215,7 @@ The same step runs with `just docs-check` and before `just docs` publishes the A
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
-│   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / stereographic / gnomonic sphere → plane kernels (Airocean uses PROJ-derived code, MIT)
+│   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / folded sinusoidal / equirectangular sphere → plane kernels (Airocean uses PROJ-derived code, MIT)
 │   │   ├── stereographic.h         Stereographic / gnomonic / Möbius sphere ↔ plane maps, pole attenuation, pattern normalization
 │   │   ├── lenses.h                Glitch fold, twist, kaleidoscope and polyhedral reflection-group sphere lenses
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
