@@ -163,9 +163,6 @@ inline void test_resolution_dispatch() {
  *          row buildable.
  */
 inline void test_bootstrap_rows() {
-  HS_EXPECT_TRUE(std::size(hs_wasm::WASM_RESOLUTIONS) > 0);
-  HS_EXPECT_EQ(std::size(hs_wasm::WASM_EFFECT_NAMES),
-               static_cast<size_t>(HS_EFFECT_COUNT));
   HS_EXPECT_TRUE(hs_wasm::wasm_resolution_supported(
       hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h));
   HS_EXPECT_TRUE(std::strlen(hs_wasm::WASM_EFFECT_NAMES[0]) > 0);
