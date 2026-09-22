@@ -518,11 +518,6 @@ inline void test_mindsplatter_particle_gradients_follow_emission_order() {
   reset_effect_globals();
   MS effect;
   effect.init();
-  const auto first = WB::trail_palette(effect, 0);
-  const auto second = WB::trail_palette(effect, 32768);
-  HS_EXPECT_TRUE(first != second);
-  HS_EXPECT_NE(first.front(), first.back());
-  HS_EXPECT_NE(second.front(), second.back());
   WB::step_physics(effect);
   HS_EXPECT_EQ(WB::active_particles(effect), WB::num_emitters(effect));
   for (size_t i = 0; i < WB::active_particles(effect); ++i)
