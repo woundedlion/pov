@@ -212,7 +212,8 @@ inline void test_chamfer_zero_area_birth_limit() {
       HS_EXPECT_TRUE(born_area > prev_area);
       if (limit_slope == 0.0f)
         limit_slope = born_area / t;
-      HS_EXPECT_TRUE(born_area / t < 1.1f * limit_slope);
+      else
+        HS_EXPECT_TRUE(born_area / t < 1.1f * limit_slope);
       HS_EXPECT_TRUE(max_centroid_shift < 1e-4f);
       HS_EXPECT_TRUE(max_vertex_shift < 2.0f * t);
       prev_area = born_area;
