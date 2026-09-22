@@ -32,7 +32,7 @@ framing is a conflation: selective-O3 landed *before* this window (07-15); the
 to fund ITCM promotions — exactly its purpose. There is no next bank available:
 DTCM needs all 10 banks for 312,736 B of variables plus the 12,288 B stack floor.
 
-## Spends that bought a cadence tier (74% of the total)
+## Spends that bought a cadence tier (69.7% of gross spend)
 
 | Δ ITCM | commit | measured benefit | effect |
 |---|---|---|---|
