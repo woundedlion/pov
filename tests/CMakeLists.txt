@@ -745,7 +745,7 @@ add_test(NAME unit_feedback_dump_b COMMAND feedback_divergence --dump
   "${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke-b.bin" 1)
 set_tests_properties(unit_feedback_dump_a unit_feedback_dump_b PROPERTIES
   FIXTURES_SETUP feedback_dump)
-add_test(NAME unit_feedback_compare COMMAND feedback_divergence --compare
+add_test(NAME unit_feedback_compare COMMAND feedback_divergence --check-comparator
   "${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke-a.bin"
   "${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke-b.bin")
 set_tests_properties(unit_feedback_compare PROPERTIES
