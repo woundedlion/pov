@@ -1,0 +1,114 @@
+"""Behavioral fixtures for shell selection, build, and profiling gates."""
+
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+class ShellGateTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        (self.root / "stubs").mkdir()
+        self.env = dict(os.environ, GIT_CONFIG_GLOBAL=str(self.root / "no-config"),
+                        GIT_CONFIG_SYSTEM=str(self.root / "no-config"))
+        self.git("init", "--quiet")
+        self.git("config", "core.autocrlf", "false")
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args], env=self.env,
+                              check=True, capture_output=True)
+
+    def stub(self, name, body):
+        path = self.root / "stubs" / name
+        path.write_text("#!/usr/bin/env bash\n" + body + "\n", encoding="utf-8", newline="\n")
+        path.chmod(0o755)
+
+    def gate(self, name, *args, script=None):
+        return subprocess.run(
+            ["bash", "-c", 'export PATH="$PWD/stubs:$PATH"; exec bash "$@"',
+             "fixture", str(script or REPO / "tools" / name), *args],
+            cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+
+    def test_eol_checks_worktree_bytes_and_refuses_an_empty_selection(self):
+        empty = self.gate("eol_gate.sh")
+        self.assertNotEqual(empty.returncode, 0)
+        self.assertIn("no tracked file", empty.stderr)
+        (self.root / ".gitattributes").write_text("*.txt text eol=lf\n", encoding="utf-8")
+        payload = self.root / "payload.txt"
+        payload.write_bytes(b"line\n")
+        self.git("add", "--", ".gitattributes", "payload.txt")
+        good = self.gate("eol_gate.sh")
+        self.assertEqual(good.returncode, 0, good.stdout + good.stderr)
+        payload.write_bytes(b"line\r\n")
+        bad = self.gate("eol_gate.sh")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("worktree line endings are crlf", bad.stdout)
+
+    def test_ruff_selection_includes_failed_lints_but_not_empty_reports(self):
+        self.stub("ruff", "exit 1")
+        self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
+        self.stub("ruff", "echo source.py; exit 1")
+        selected = self.gate("ruff_selection_guard.sh")
+        self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
+
+    def test_eslint_selection_requires_a_file_path(self):
+        self.stub("npx", "echo '[]'")
+        self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
+        self.stub("npx", "echo '[{\"filePath\":\"source.js\"}]'; exit 1")
+        selected = self.gate("eslint_selection_guard.sh")
+        self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
+
+    def test_shellcheck_refuses_empty_selection_and_propagates_lint_failure(self):
+        empty = self.gate("shellcheck_gate.sh")
+        self.assertNotEqual(empty.returncode, 0)
+        self.assertIn("no shell files selected", empty.stdout)
+        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.git("add", "--", "selected.sh")
+        self.stub("shellcheck", "printf '%s\\n' \"$*\"; exit 9")
+        bad = self.gate("shellcheck_gate.sh")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("selected.sh", bad.stdout)
+
+    def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
+        for name in ("build", "build_cache"):
+            directory = self.root / ".pio" / name
+            directory.mkdir(parents=True)
+            (directory / "stale").write_text("cached", encoding="utf-8")
+        sentinel = self.root / ".pio" / "keep"
+        sentinel.write_text("keep", encoding="utf-8")
+        self.stub("pio", "echo fixture-build-failure; exit 7")
+        failed = self.gate("teensy_cold_build.sh", "capture.log")
+        self.assertEqual(failed.returncode, 7, failed.stdout + failed.stderr)
+        self.assertFalse((self.root / ".pio" / "build").exists())
+        self.assertFalse((self.root / ".pio" / "build_cache").exists())
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "keep")
+        self.assertIn("fixture-build-failure", (self.root / "capture.log").read_text())
+
+    def test_profile_sweep_detects_a_missing_playlist_member_without_hardware(self):
+        tools = self.root / "tools"
+        tools.mkdir()
+        script = tools / "profile_sweep.sh"
+        shutil.copyfile(REPO / "tools" / script.name, script)
+        playlist = self.root / "targets" / "Phantasm" / "phantasm_playlist.h"
+        playlist.parent.mkdir(parents=True)
+        shutil.copyfile(REPO / "targets" / "Phantasm" / playlist.name, playlist)
+        valid = self.gate(script.name, "check", script=script)
+        self.assertEqual(valid.returncode, 0, valid.stdout + valid.stderr)
+        text = playlist.read_text(encoding="utf-8")
+        text = text.replace("#define HS_PHANTASM_EFFECT_LIST(X)",
+                            "#define HS_PHANTASM_EFFECT_LIST(X) \\\n  X(FixtureMissingEffect, 1) ", 1)
+        playlist.write_text(text, encoding="utf-8", newline="\n")
+        bad = self.gate(script.name, "check", script=script)
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("FixtureMissingEffect", bad.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()
