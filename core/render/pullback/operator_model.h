@@ -512,6 +512,7 @@ constexpr OperatorDescriptor make_operator_descriptor() {
                     alignof(State) <= alignof(std::max_align_t),
                 "operator model: block alignment exceeds the arena guarantee");
   static_assert(field_ids_unique<Params>());
+  static_assert(field_defaults_in_range<Params>());
   static_assert(schema_ids_unique(SCHEMA<Model>));
   static_assert(topology_wellformed(SCHEMA<Model>));
   static_assert(defaults_in_range(SCHEMA<Model>),

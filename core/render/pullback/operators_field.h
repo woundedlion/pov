@@ -80,6 +80,7 @@ struct SmoothBandsChainParams {
   };
 };
 static_assert(field_ids_unique<SmoothBandsChainParams>());
+static_assert(field_defaults_in_range<SmoothBandsChainParams>());
 
 /** @brief FIELD endomorphism: the cosine banding transfer. */
 struct TransferSmoothBands

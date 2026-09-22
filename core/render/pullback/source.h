@@ -50,6 +50,7 @@ struct GridSourceParams {
   };
 };
 static_assert(field_ids_unique<GridSourceParams>());
+static_assert(field_defaults_in_range<GridSourceParams>());
 
 /**
  * @brief Source parameters for the two-wave interference field
@@ -78,6 +79,7 @@ struct TwinWaveSourceParams {
   };
 };
 static_assert(field_ids_unique<TwinWaveSourceParams>());
+static_assert(field_defaults_in_range<TwinWaveSourceParams>());
 
 /**
  * @brief Source parameters for the rotating spiral field
@@ -100,6 +102,7 @@ struct SpiralSourceParams {
   };
 };
 static_assert(field_ids_unique<SpiralSourceParams>());
+static_assert(field_defaults_in_range<SpiralSourceParams>());
 
 /**
  * @brief Source parameters for the noise-contour sources
@@ -124,6 +127,7 @@ struct NoiseSourceParams {
   };
 };
 static_assert(field_ids_unique<NoiseSourceParams>());
+static_assert(field_defaults_in_range<NoiseSourceParams>());
 
 /**
  * @brief Source family selecting the plane-domain noise contour
@@ -168,6 +172,7 @@ struct LatticeSourceParams {
   };
 };
 static_assert(field_ids_unique<LatticeSourceParams>());
+static_assert(field_defaults_in_range<LatticeSourceParams>());
 
 /** @brief Source parameters for latitude bands on a moving sphere. */
 struct SphericalRingsSourceParams {
@@ -200,6 +205,7 @@ struct SphericalRingsSourceParams {
   };
 };
 static_assert(field_ids_unique<SphericalRingsSourceParams>());
+static_assert(field_defaults_in_range<SphericalRingsSourceParams>());
 
 /** @brief Source parameters for the quadratic escape-time fractal. */
 struct FractalSourceParams {
@@ -238,6 +244,7 @@ struct FractalSourceParams {
   };
 };
 static_assert(field_ids_unique<FractalSourceParams>());
+static_assert(field_defaults_in_range<FractalSourceParams>());
 
 enum class TessellationKind : uint8_t {
   TRIANGULAR = 0,
@@ -268,6 +275,7 @@ struct TessellationSourceParams {
   };
 };
 static_assert(field_ids_unique<TessellationSourceParams>());
+static_assert(field_defaults_in_range<TessellationSourceParams>());
 
 /** @brief The source stage's phases, resolved once per frame. */
 struct PreparedSource {
