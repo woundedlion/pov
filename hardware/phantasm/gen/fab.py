@@ -1057,7 +1057,7 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
             continue
         net = sexp.val(via, "net", [])
         valid_vias.append((x_mm, y_mm, diameter_mm,
-                           str(net[0]) if net else None))
+                           str(net[0]).lstrip("/") if net and str(net[0]) != "0" else None))
         if diameter_mm < MIN_STANDARD_VIA_DIAMETER_MM:
             diagnostics.append(
                 f"via at {location}: {diameter_mm:g} mm diameter is below "
