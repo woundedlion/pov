@@ -151,6 +151,14 @@ class RequireWritableTests(unittest.TestCase):
         self.assertIn("Re-run with --force-teensy-library", message)
 
 
+class FormatCoordinateTests(unittest.TestCase):
+    def test_six_decimal_coordinates_and_canonical_zero(self):
+        self.assertEqual(kicad_common.fmt(1.234567), "1.234567")
+        self.assertEqual(kicad_common.fmt(-0.0000001), "0")
+        self.assertEqual(kicad_common.fmt(1.9999999), "2")
+        self.assertEqual(kicad_common.fmt(12.5), "12.5")
+
+
 if __name__ == "__main__":
     unittest.main()
 
