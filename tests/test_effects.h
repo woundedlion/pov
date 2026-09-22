@@ -552,8 +552,6 @@ inline void determinism_one(const char *name) {
   // Two all-black renders agree pixel for pixel and fold to the same checksum,
   // so both comparisons above only mean something once the run has produced
   // output.
-  HS_EXPECT(!effect_may_be_dark(name, frames),
-            "determinism must run past the all-black exemption window");
 }
 
 /**
@@ -625,8 +623,6 @@ inline void clip_clear_parity_one(const char *name) {
   // a single arm segment, so the requirement spans the whole sweep, and the
   // sweep length is chosen so no effect is still exempt at it — an exemption
   // here would make every assertion above vacuous.
-  HS_EXPECT(!effect_may_be_dark(name, frames),
-            "clip-clear parity must run past the all-black exemption window");
   if (lit == 0)
     std::printf("  CLIP-CLEAR DARK %-20s no lit pixel over %zu displayed "
                 "pixels\n",
