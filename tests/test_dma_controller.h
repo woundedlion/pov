@@ -283,11 +283,32 @@ inline void test_end_to_end_wire_bytes() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  Frame ref;
-  pack_wire_pattern(ref);
   pack_wire_pattern(ctl.back_frame());
   HS_EXPECT_TRUE(ctl.submit_frame(false));
-  expect_captured_frame(ref);
+  const auto &capture = MockStrip::state().capture;
+  HS_EXPECT_EQ(MockStrip::state().last_len,
+               static_cast<size_t>(Frame::BUFFER_SIZE));
+  for (int byte = 0; byte < 4; ++byte)
+    HS_EXPECT_EQ(capture[byte], 0);
+  for (int pixel = 0; pixel < N; ++pixel) {
+    const int base = 4 + pixel * 4;
+    HS_EXPECT_EQ(capture[base], 255);
+    HS_EXPECT_EQ(capture[base + 1], WIRE_COLORS[pixel].b);
+    HS_EXPECT_EQ(capture[base + 2], WIRE_COLORS[pixel].g);
+    HS_EXPECT_EQ(capture[base + 3], WIRE_COLORS[pixel].r);
+  }
+  for (int byte = 4 + N * 4; byte < Frame::BUFFER_SIZE; ++byte)
+    HS_EXPECT_EQ(capture[byte], 0);
+  MockStrip::state().complete = true;
+  Frame::set_correction(127, 255, 255);
+  Frame::set_temperature(255, 127, 255);
+  Frame::set_brightness(127);
+  ctl.back_frame().pack_pixel(0, Pixel(65535, 65535, 65535));
+  HS_EXPECT_TRUE(ctl.submit_frame(false));
+  HS_EXPECT_EQ(capture[5], 188);
+  HS_EXPECT_EQ(capture[6], 137);
+  HS_EXPECT_EQ(capture[7], 137);
+  hd107s_tests::reset_correction<N>();
 }
 
 /**
