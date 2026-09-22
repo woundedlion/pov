@@ -282,7 +282,8 @@ check_fragment_shader(FragmentShaderFn fragment_shader) {
  * @param d Signed distance to the surface, negative inside.
  * @param pixel_width Angular width of one column, the AA half-reach.
  * @return Coverage in [0, 1]; 1 at or inside a full pixel of depth.
- * @details The single spelling of the solid AA ramp, shared by every scan loop.
+ * @details Shared edges of separately composited solids use source-over: two
+ * half-covered faces produce 0.75 coverage, not a fully covered union.
  */
 __attribute__((always_inline)) inline float solid_coverage(float d,
                                                            float pixel_width) {
