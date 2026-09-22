@@ -109,9 +109,9 @@ struct Params {
 template <typename ParamsT> struct FrameState {
   /** Conjugate of the projection orientation; identity unless the effect sets
       `ANIMATED_PROJECTION`. */
-  Quaternion projection_conjugate;
+  math::Quaternion projection_conjugate;
   /** Conjugate of the outer camera orientation. */
-  Quaternion outer_conjugate;
+  math::Quaternion outer_conjugate;
   const FastNoiseLite *outer_noise;  /**< Null unless `HAS_OUTER_NOISE`. */
   const FastNoiseLite *source_noise; /**< Null unless `HAS_SOURCE_NOISE`. */
   const FastNoiseLite
@@ -152,7 +152,7 @@ template <typename FrameT> struct Binding {
 template <typename BindingT> struct OuterCameraProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const Quaternion &conjugate(const FrameState &frame) {
+  static const math::Quaternion &conjugate(const FrameState &frame) {
     return frame.outer_conjugate;
   }
 };
@@ -167,7 +167,7 @@ template <typename BindingT> struct OuterCameraProvider {
 template <typename BindingT> struct ProjectionProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const Quaternion &conjugate(const FrameState &frame) {
+  static const math::Quaternion &conjugate(const FrameState &frame) {
     return frame.projection_conjugate;
   }
   static float singularity_fade(const FrameState &frame) {
@@ -533,18 +533,18 @@ template <> struct ProjectionWalkNoise<true> {
 
 /** @brief Persistent projection-walk state; empty when disabled. */
 template <bool Enabled> struct ProjectionWalkState {
-  Quaternion frame_conjugate() const { return Quaternion(); }
+  math::Quaternion frame_conjugate() const { return math::Quaternion(); }
 };
 template <> struct ProjectionWalkState<true> {
-  Orientation<> projection_walk;
-  Quaternion projection_walk_previous;
-  Quaternion projection_wander;
-  Quaternion projection_conjugate;
-  Quaternion base_orientation =
-      make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
+  math::Orientation<> projection_walk;
+  math::Quaternion projection_walk_previous;
+  math::Quaternion projection_wander;
+  math::Quaternion projection_conjugate;
+  math::Quaternion base_orientation =
+      math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
   float projection_spin = 0.0f;
 
-  Quaternion frame_conjugate() const { return projection_conjugate; }
+  math::Quaternion frame_conjugate() const { return projection_conjugate; }
 };
 
 /** @brief Projection a composed effect's surface stage composes. */
@@ -922,13 +922,13 @@ public:
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
                                   ease_in_out_sin);
     if constexpr (AnimatedProjection)
-      timeline.add(0,
-                   Animation::RandomWalk<W>(
-                       this->projection_walk, UP, state->projection_walk_noise,
-                       typename Animation::RandomWalk<W>::Options{},
-                       PROJECTION_WALK_SEED));
+      timeline.add(0, Animation::RandomWalk<W>(
+                          this->projection_walk, math::UP,
+                          state->projection_walk_noise,
+                          typename Animation::RandomWalk<W>::Options{},
+                          PROJECTION_WALK_SEED));
     timeline.add(0, Animation::RandomWalk<W>(
-                        outer_walk, UP, state->outer_walk_noise,
+                        outer_walk, math::UP, state->outer_walk_noise,
                         typename Animation::RandomWalk<W>::Options{},
                         CAMERA_WALK_SEED));
     register_parameters();
@@ -961,9 +961,10 @@ public:
         Derived::RenderPipeline::prepare(prepare_frame());
     {
       HS_PROFILE(fx_shader_draw);
-      Scan::Shader::draw_cached<W, H, 1>(canvas, [&frame](const Vector &view) {
-        return Derived::shade(view, frame);
-      });
+      Scan::Shader::draw_cached<W, H, 1>(canvas,
+                                         [&frame](const math::Vector &view) {
+                                           return Derived::shade(view, frame);
+                                         });
     }
   }
 
@@ -972,7 +973,8 @@ public:
    * @param view Unit view direction for the pixel.
    * @param frame Per-frame transforms, params and LUTs from the runtime.
    */
-  static HS_FLASH_INLINE Color4 shade(const Vector &view, const Frame &frame) {
+  static HS_FLASH_INLINE Color4 shade(const math::Vector &view,
+                                      const Frame &frame) {
     return RenderPipeline::shade(view, frame);
   }
 
@@ -1219,71 +1221,78 @@ private:
    */
   HS_COLD_MEMBER void advance_runtime() {
     if constexpr (requires { params.source.speed; }) {
-      source_primary = fmodf(source_primary + params.source.speed, TWO_PI_F);
+      source_primary =
+          fmodf(source_primary + params.source.speed, math::TWO_PI_F);
       if constexpr (requires { params.source.secondary_rate; })
         source_secondary =
             fmodf(source_secondary +
                       params.source.speed * params.source.secondary_rate,
-                  TWO_PI_F);
+                  math::TWO_PI_F);
       if constexpr (requires { params.source.angle_rate; })
-        source_angle = fmodf(source_angle + params.source.angle_rate, TWO_PI_F);
+        source_angle =
+            fmodf(source_angle + params.source.angle_rate, math::TWO_PI_F);
     }
     if constexpr (requires { params.source.noise_time_rate; })
       source_noise_time =
-          wrap_t(source_noise_time + params.source.noise_time_rate);
+          math::wrap_t(source_noise_time + params.source.noise_time_rate);
     if constexpr (std::is_same_v<typename ParamsT::surface_type,
                                  PeriodicRippleParams>)
       surface_phase = fmodf(surface_phase + 1.0f, params.surface.period);
     else if constexpr (HAS_SURFACE)
-      surface_phase = wrap_t(surface_phase + params.surface.speed);
+      surface_phase = math::wrap_t(surface_phase + params.surface.speed);
     if constexpr (AnimatedProjection)
-      this->projection_spin =
-          fmodf(this->projection_spin + params.projection.spin_rate, TWO_PI_F);
+      this->projection_spin = fmodf(
+          this->projection_spin + params.projection.spin_rate, math::TWO_PI_F);
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
-      camera_spin = fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, TWO_PI_F);
+      camera_spin =
+          fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
     if constexpr (HueV == HueMode::NOISE)
-      hue_noise_phase = wrap_t(hue_noise_phase + params.color.hue_noise_speed);
+      hue_noise_phase =
+          math::wrap_t(hue_noise_phase + params.color.hue_noise_speed);
     if constexpr (std::is_same_v<typename Params::outer_warp_type,
                                  AffineParams>)
       outer_rotation =
-          TWO_PI_F *
-          wrap_t((outer_rotation +
-                  params.outer_warp.speed * params.outer_warp.rotation_rate) /
-                 TWO_PI_F);
-    outer_phase = wrap_t(outer_phase + params.outer_warp.speed);
-    inner_phase = wrap_t(inner_phase + params.inner_warp.speed);
-    palette_oscillation_phase = wrap_t(palette_oscillation_phase +
-                                       params.color.phase_oscillation_speed);
+          math::TWO_PI_F *
+          math::wrap_t((outer_rotation + params.outer_warp.speed *
+                                             params.outer_warp.rotation_rate) /
+                       math::TWO_PI_F);
+    outer_phase = math::wrap_t(outer_phase + params.outer_warp.speed);
+    inner_phase = math::wrap_t(inner_phase + params.inner_warp.speed);
+    palette_oscillation_phase = math::wrap_t(
+        palette_oscillation_phase + params.color.phase_oscillation_speed);
   }
 
   HS_COLD_MEMBER void update_spatial_frames() {
     // prepare_frame() reads projection_conjugate only for an animated
     // projection.
     if constexpr (AnimatedProjection) {
-      const Quaternion projection = this->projection_walk.get();
-      const Quaternion projection_delta =
+      const math::Quaternion projection = this->projection_walk.get();
+      const math::Quaternion projection_delta =
           projection * this->projection_walk_previous.conjugate();
       this->projection_walk_previous = projection;
       this->projection_wander =
-          (scaled_rotation_delta(projection_delta.normalized(),
-                                 params.projection.wander) *
+          (math::scaled_rotation_delta(projection_delta.normalized(),
+                                       params.projection.wander) *
            this->projection_wander)
               .normalized();
       this->projection_conjugate =
-          (make_rotation(Y_AXIS, this->projection_spin) *
+          (math::make_rotation(math::Y_AXIS, this->projection_spin) *
            this->base_orientation * this->projection_wander)
               .conjugate();
     }
-    const Quaternion outer = outer_walk.get();
-    const Quaternion outer_delta = outer * outer_walk_previous.conjugate();
+    const math::Quaternion outer = outer_walk.get();
+    const math::Quaternion outer_delta =
+        outer * outer_walk_previous.conjugate();
     outer_walk_previous = outer;
-    outer_wander = (scaled_rotation_delta(outer_delta.normalized(),
-                                          params.projection.camera_wander) *
-                    outer_wander)
-                       .normalized();
+    outer_wander =
+        (math::scaled_rotation_delta(outer_delta.normalized(),
+                                     params.projection.camera_wander) *
+         outer_wander)
+            .normalized();
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       outer_conjugate =
-          (make_rotation(Y_AXIS, camera_spin) * outer_wander).conjugate();
+          (math::make_rotation(math::Y_AXIS, camera_spin) * outer_wander)
+              .conjugate();
     else
       outer_conjugate = outer_wander.conjugate();
   }
@@ -1405,10 +1414,10 @@ private:
           params.color.palette_mapping);
   Pullback::Color::PaletteMappingWeights mapping_from;
   Pullback::Color::PaletteMappingWeights mapping_to;
-  Orientation<> outer_walk;
-  Quaternion outer_walk_previous;
-  Quaternion outer_wander;
-  Quaternion outer_conjugate;
+  math::Orientation<> outer_walk;
+  math::Quaternion outer_walk_previous;
+  math::Quaternion outer_wander;
+  math::Quaternion outer_conjugate;
   float source_primary = 0.0f;
   float source_secondary = 0.0f;
   float source_angle = 0.0f;

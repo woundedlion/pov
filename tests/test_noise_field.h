@@ -52,14 +52,14 @@ inline void test_noise_field_key_identity() {
 }
 
 inline void test_noise_field_periodic_coordinates() {
-  const Vector v = Vector(0.25f, -0.5f, 0.8291562f).normalized();
-  const Vector sphere0 = noise_sphere_coordinate(v, 3.0f, 0.0f);
-  const Vector sphere1 = noise_sphere_coordinate(v, 3.0f, 1.0f);
-  HS_EXPECT_EQ(std::memcmp(&sphere0, &sphere1, sizeof(Vector)), 0);
-  const Complex p(1.25f, -0.75f);
-  const Vector projected0 = noise_projected_coordinate(p, 0.5f, 0.0f);
-  const Vector projected1 = noise_projected_coordinate(p, 0.5f, 1.0f);
-  HS_EXPECT_EQ(std::memcmp(&projected0, &projected1, sizeof(Vector)), 0);
+  const math::Vector v = math::Vector(0.25f, -0.5f, 0.8291562f).normalized();
+  const math::Vector sphere0 = noise_sphere_coordinate(v, 3.0f, 0.0f);
+  const math::Vector sphere1 = noise_sphere_coordinate(v, 3.0f, 1.0f);
+  HS_EXPECT_EQ(std::memcmp(&sphere0, &sphere1, sizeof(math::Vector)), 0);
+  const math::Complex p(1.25f, -0.75f);
+  const math::Vector projected0 = noise_projected_coordinate(p, 0.5f, 0.0f);
+  const math::Vector projected1 = noise_projected_coordinate(p, 0.5f, 1.0f);
+  HS_EXPECT_EQ(std::memcmp(&projected0, &projected1, sizeof(math::Vector)), 0);
 }
 
 /**
@@ -68,26 +68,27 @@ inline void test_noise_field_periodic_coordinates() {
  *        a numeric change.
  */
 inline void test_noise_field_hoisted_loop_offsets() {
-  const Vector v = Vector(-0.6f, 0.3f, 0.7416198f).normalized();
-  const Complex p(-2.5f, 0.875f);
+  const math::Vector v = math::Vector(-0.6f, 0.3f, 0.7416198f).normalized();
+  const math::Complex p(-2.5f, 0.875f);
   for (float phase : {0.0f, 0.125f, 0.4f, 0.9375f, 1.75f, -0.3f}) {
-    const Vector sphere = noise_sphere_coordinate(v, 3.0f, phase);
-    const Vector sphere_hoisted =
+    const math::Vector sphere = noise_sphere_coordinate(v, 3.0f, phase);
+    const math::Vector sphere_hoisted =
         noise_sphere_coordinate(v, 3.0f, noise_sphere_loop_offset(phase));
-    HS_EXPECT_EQ(std::memcmp(&sphere, &sphere_hoisted, sizeof(Vector)), 0);
-    const Vector projected = noise_projected_coordinate(p, 0.5f, phase);
-    const Vector projected_hoisted =
-        noise_projected_coordinate(p, 0.5f, noise_projected_loop_offset(phase));
-    HS_EXPECT_EQ(std::memcmp(&projected, &projected_hoisted, sizeof(Vector)),
+    HS_EXPECT_EQ(std::memcmp(&sphere, &sphere_hoisted, sizeof(math::Vector)),
                  0);
+    const math::Vector projected = noise_projected_coordinate(p, 0.5f, phase);
+    const math::Vector projected_hoisted =
+        noise_projected_coordinate(p, 0.5f, noise_projected_loop_offset(phase));
+    HS_EXPECT_EQ(
+        std::memcmp(&projected, &projected_hoisted, sizeof(math::Vector)), 0);
   }
 }
 
 inline void test_noise_field_octave_formulas() {
   const FastNoiseLite noise = make_noise(-317);
-  constexpr std::array<Vector, 4> POINTS = {
-      Vector(0.0f, 0.0f, 0.0f), Vector(3.25f, -7.5f, 11.0f),
-      Vector(-31.75f, 0.125f, 2.5f), Vector(64.0f, 32.0f, -16.0f)};
+  constexpr std::array<math::Vector, 4> POINTS = {
+      math::Vector(0.0f, 0.0f, 0.0f), math::Vector(3.25f, -7.5f, 11.0f),
+      math::Vector(-31.75f, 0.125f, 2.5f), math::Vector(64.0f, 32.0f, -16.0f)};
   constexpr std::array<std::array<float, 4>, 3> EXPECTED = {{
       {0.0f, 0.111684620f, 0.477153748f, -0.110211231f},
       {0.0f, -0.00533447927f, 0.00685898308f, -0.173915580f},
@@ -105,7 +106,7 @@ inline void test_noise_field_octave_formulas() {
 
 inline void test_noise_field_ridged_channel_pairs() {
   const FastNoiseLite noise = make_noise(991);
-  const Vector q(-3.0f, 8.5f, 29.0f);
+  const math::Vector q(-3.0f, 8.5f, 29.0f);
   for (size_t channel = 0; channel < 3; ++channel) {
     const float c = sample_noise_octaves(noise, NoiseBasis::RIDGED3,
                                          q + NOISE_CHANNEL_OFFSETS[channel]);
@@ -119,26 +120,26 @@ inline void test_noise_field_ridged_channel_pairs() {
 
 inline void test_noise_field_direct_tangent() {
   const FastNoiseLite noise = make_noise(1337);
-  constexpr std::array<Vector, 6> DIRECTIONS = {
-      Vector(1.0f, 0.0f, 0.0f), Vector(-1.0f, 0.0f, 0.0f),
-      Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, -1.0f, 0.0f),
-      Vector(0.0f, 0.0f, 1.0f), Vector(0.0f, 0.0f, -1.0f)};
-  for (const Vector &v : DIRECTIONS) {
-    const Vector q = noise_sphere_coordinate(v, 1.0f, 0.375f);
-    const Vector simplex =
+  constexpr std::array<math::Vector, 6> DIRECTIONS = {
+      math::Vector(1.0f, 0.0f, 0.0f), math::Vector(-1.0f, 0.0f, 0.0f),
+      math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, -1.0f, 0.0f),
+      math::Vector(0.0f, 0.0f, 1.0f), math::Vector(0.0f, 0.0f, -1.0f)};
+  for (const math::Vector &v : DIRECTIONS) {
+    const math::Vector q = noise_sphere_coordinate(v, 1.0f, 0.375f);
+    const math::Vector simplex =
         sample_direct_tangent(noise, NoiseBasis::SIMPLEX, q, v, 1.0f, 0.0f);
-    const Vector specialized = sample_direct_simplex_tangent(noise, q, v);
-    const Vector quarter_turn =
+    const math::Vector specialized = sample_direct_simplex_tangent(noise, q, v);
+    const math::Vector quarter_turn =
         sample_direct_tangent(noise, NoiseBasis::SIMPLEX, q, v, 0.0f, 1.0f);
-    const Vector expected_turn = cross(v, simplex);
+    const math::Vector expected_turn = math::cross(v, simplex);
     HS_EXPECT_NEAR(quarter_turn.x, expected_turn.x, 1e-6f);
     HS_EXPECT_NEAR(quarter_turn.y, expected_turn.y, 1e-6f);
     HS_EXPECT_NEAR(quarter_turn.z, expected_turn.z, 1e-6f);
-    HS_EXPECT_EQ(std::memcmp(&simplex, &specialized, sizeof(Vector)), 0);
+    HS_EXPECT_EQ(std::memcmp(&simplex, &specialized, sizeof(math::Vector)), 0);
     for (NoiseBasis basis : {NoiseBasis::FBM3, NoiseBasis::RIDGED3}) {
-      const Vector u0 = sample_direct_tangent(noise, basis, q, v, 0.0f);
-      const Vector u1 = sample_direct_tangent(noise, basis, q, v, 1.0f);
-      HS_EXPECT_NEAR(dot(u0, v), 0.0f, 1e-6f);
+      const math::Vector u0 = sample_direct_tangent(noise, basis, q, v, 0.0f);
+      const math::Vector u1 = sample_direct_tangent(noise, basis, q, v, 1.0f);
+      HS_EXPECT_NEAR(math::dot(u0, v), 0.0f, 1e-6f);
       HS_EXPECT_LE(u0.length(), 1.000001f);
       HS_EXPECT_GT(u0.length(), 0.001f);
       HS_EXPECT_NEAR(u0.x, u1.x, 1e-6f);
@@ -149,13 +150,15 @@ inline void test_noise_field_direct_tangent() {
 }
 
 inline void test_noise_field_tetrahedral_gradient() {
-  auto linear = [](const Vector &p) { return 0.25f * p.x - 0.5f * p.y + p.z; };
-  constexpr std::array<Vector, 3> POINTS = {Vector(0.0f, 0.0f, 0.0f),
-                                            Vector(1.0f, -2.0f, 3.0f),
-                                            Vector(-4.0f, 0.5f, -1.25f)};
-  for (const Vector &q : POINTS) {
-    const Vector expected(0.25f, -0.5f, 1.0f);
-    const Vector actual = tetrahedral_gradient(q, linear);
+  auto linear = [](const math::Vector &p) {
+    return 0.25f * p.x - 0.5f * p.y + p.z;
+  };
+  constexpr std::array<math::Vector, 3> POINTS = {
+      math::Vector(0.0f, 0.0f, 0.0f), math::Vector(1.0f, -2.0f, 3.0f),
+      math::Vector(-4.0f, 0.5f, -1.25f)};
+  for (const math::Vector &q : POINTS) {
+    const math::Vector expected(0.25f, -0.5f, 1.0f);
+    const math::Vector actual = tetrahedral_gradient(q, linear);
     HS_EXPECT_NEAR(actual.x, expected.x, 2e-4f);
     HS_EXPECT_NEAR(actual.y, expected.y, 2e-4f);
     HS_EXPECT_NEAR(actual.z, expected.z, 2e-4f);
@@ -164,10 +167,10 @@ inline void test_noise_field_tetrahedral_gradient() {
 
 inline void test_noise_field_analytic_gradient() {
   constexpr float STEP = 1.0f / 2048.0f;
-  constexpr std::array<Vector, 5> POINTS = {
-      Vector(0.0f, 0.0f, 0.0f), Vector(0.25f, -0.75f, 1.5f),
-      Vector(-3.125f, 8.0f, 0.0625f), Vector(31.0f, -17.0f, 9.0f),
-      Vector(-0.499f, 0.501f, -0.001f)};
+  constexpr std::array<math::Vector, 5> POINTS = {
+      math::Vector(0.0f, 0.0f, 0.0f), math::Vector(0.25f, -0.75f, 1.5f),
+      math::Vector(-3.125f, 8.0f, 0.0625f), math::Vector(31.0f, -17.0f, 9.0f),
+      math::Vector(-0.499f, 0.501f, -0.001f)};
   for (FastNoiseLite::RotationType3D rotation :
        {FastNoiseLite::RotationType3D_None,
         FastNoiseLite::RotationType3D_ImproveXYPlanes,
@@ -175,20 +178,20 @@ inline void test_noise_field_analytic_gradient() {
     FastNoiseLite noise = make_noise(-991);
     noise.SetFrequency(0.73f);
     noise.SetRotationType3D(rotation);
-    for (const Vector &point : POINTS) {
-      Vector gradient;
+    for (const math::Vector &point : POINTS) {
+      math::Vector gradient;
       noise.GetNoiseGradientSingle(point.x, point.y, point.z, gradient.x,
                                    gradient.y, gradient.z);
-      const auto derivative = [&](const Vector &axis) {
-        const Vector low = point - STEP * axis;
-        const Vector high = point + STEP * axis;
+      const auto derivative = [&](const math::Vector &axis) {
+        const math::Vector low = point - STEP * axis;
+        const math::Vector high = point + STEP * axis;
         return (noise.GetNoiseSingle(high.x, high.y, high.z) -
                 noise.GetNoiseSingle(low.x, low.y, low.z)) /
                (2.0f * STEP);
       };
-      HS_EXPECT_NEAR(gradient.x, derivative(X_AXIS), 8e-3f);
-      HS_EXPECT_NEAR(gradient.y, derivative(Y_AXIS), 8e-3f);
-      HS_EXPECT_NEAR(gradient.z, derivative(Z_AXIS), 8e-3f);
+      HS_EXPECT_NEAR(gradient.x, derivative(math::X_AXIS), 8e-3f);
+      HS_EXPECT_NEAR(gradient.y, derivative(math::Y_AXIS), 8e-3f);
+      HS_EXPECT_NEAR(gradient.z, derivative(math::Z_AXIS), 8e-3f);
     }
   }
 }
@@ -202,15 +205,15 @@ inline void test_noise_field_simplex_curl_approximation() {
     const float y = latitude / 8.0f;
     const float radius = sqrtf(1.0f - y * y);
     for (int longitude = 0; longitude < 48; ++longitude) {
-      const float angle = TWO_PI_F * longitude / 48.0f;
-      const Vector v(radius * cosf(angle), y, radius * sinf(angle));
-      const Vector q = noise_sphere_coordinate(v, 2.0f, 0.125f);
-      const Vector analytic = sample_simplex_curl_tangent(noise, q, v);
-      const Vector reference_gradient =
-          tetrahedral_gradient(q, [&](const Vector &point) {
+      const float angle = math::TWO_PI_F * longitude / 48.0f;
+      const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
+      const math::Vector q = noise_sphere_coordinate(v, 2.0f, 0.125f);
+      const math::Vector analytic = sample_simplex_curl_tangent(noise, q, v);
+      const math::Vector reference_gradient =
+          tetrahedral_gradient(q, [&](const math::Vector &point) {
             return sample_noise_octaves(noise, NoiseBasis::SIMPLEX, point);
           });
-      Vector reference = cross(v, reference_gradient);
+      math::Vector reference = math::cross(v, reference_gradient);
       const float length = reference.length();
       if (length > 1.0f)
         reference /= length;
@@ -232,14 +235,14 @@ inline void test_noise_field_curl_tangent() {
       const float y = latitude / 8.0f;
       const float radius = sqrtf(1.0f - y * y);
       for (int longitude = 0; longitude < 24; ++longitude) {
-        const float angle = TWO_PI_F * longitude / 24.0f;
-        const Vector v(radius * cosf(angle), y, radius * sinf(angle));
-        const Vector q = noise_sphere_coordinate(v, 2.0f, 0.125f);
-        const Vector u = sample_curl_tangent(noise, basis, q, v);
+        const float angle = math::TWO_PI_F * longitude / 24.0f;
+        const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
+        const math::Vector q = noise_sphere_coordinate(v, 2.0f, 0.125f);
+        const math::Vector u = sample_curl_tangent(noise, basis, q, v);
         magnitude_sum += u.length();
         HS_EXPECT_TRUE(std::isfinite(u.x) && std::isfinite(u.y) &&
                        std::isfinite(u.z));
-        HS_EXPECT_NEAR(dot(u, v), 0.0f, 2e-5f);
+        HS_EXPECT_NEAR(math::dot(u, v), 0.0f, 2e-5f);
         HS_EXPECT_LE(u.length(), 1.00001f);
       }
     }
@@ -248,34 +251,37 @@ inline void test_noise_field_curl_tangent() {
 }
 
 inline void test_sphere_exp_map_and_transport() {
-  const Vector v(0.0f, 1.0f, 0.0f);
-  HS_EXPECT_EQ(sphere_exp_map(v, Vector()), v);
-  const Vector tangent(0.25f, 0.0f, -0.1f);
-  const Vector moved = sphere_exp_map(v, tangent);
+  const math::Vector v(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_EQ(sphere_exp_map(v, math::Vector()), v);
+  const math::Vector tangent(0.25f, 0.0f, -0.1f);
+  const math::Vector moved = sphere_exp_map(v, tangent);
   HS_EXPECT_NEAR(moved.length(), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(fast_acos(dot(v, moved)), tangent.length(), 5.1e-5f);
-  const Vector transported = parallel_transport(v, moved, tangent);
-  HS_EXPECT_NEAR(dot(transported, moved), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::fast_acos(math::dot(v, moved)), tangent.length(),
+                 5.1e-5f);
+  const math::Vector transported = math::parallel_transport(v, moved, tangent);
+  HS_EXPECT_NEAR(math::dot(transported, moved), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(transported.length(), tangent.length(), 1e-6f);
 }
 
 inline void test_half_radian_exp_map_approximation() {
   float max_error = 0.0f;
   for (int latitude_step = -16; latitude_step <= 16; ++latitude_step) {
-    const float latitude = latitude_step * (0.5f * PI_F / 16.0f);
+    const float latitude = latitude_step * (0.5f * math::PI_F / 16.0f);
     const float radius = cosf(latitude);
     for (int longitude_step = 0; longitude_step < 64; ++longitude_step) {
-      const float longitude = longitude_step * (TWO_PI_F / 64.0f);
-      const Vector v(radius * cosf(longitude), sinf(latitude),
-                     radius * sinf(longitude));
-      Vector tangent = cross(v, Z_AXIS);
-      if (dot(tangent, tangent) < 1e-6f)
-        tangent = cross(v, X_AXIS);
+      const float longitude = longitude_step * (math::TWO_PI_F / 64.0f);
+      const math::Vector v(radius * cosf(longitude), sinf(latitude),
+                           radius * sinf(longitude));
+      math::Vector tangent = math::cross(v, math::Z_AXIS);
+      if (math::dot(tangent, tangent) < 1e-6f)
+        tangent = math::cross(v, math::X_AXIS);
       tangent = tangent.normalized();
       for (int distance_step = 0; distance_step <= 64; ++distance_step) {
-        const Vector displacement = (0.5f * distance_step / 64.0f) * tangent;
-        const Vector exact = sphere_exp_map(v, displacement);
-        const Vector approximate = sphere_exp_map_half_radian(v, displacement);
+        const math::Vector displacement =
+            (0.5f * distance_step / 64.0f) * tangent;
+        const math::Vector exact = sphere_exp_map(v, displacement);
+        const math::Vector approximate =
+            sphere_exp_map_half_radian(v, displacement);
         max_error = std::max(
             max_error, std::max(fabsf(exact.x - approximate.x),
                                 std::max(fabsf(exact.y - approximate.y),

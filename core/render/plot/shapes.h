@@ -38,7 +38,7 @@ struct FragmentDrawParams {
   bool close_loop = false; /**< Passed to rasterize (closes last→first edge). */
   bool omit_end =
       false; /**< Skip the final endpoint plot of an open line, so abutting arcs tile without a double-plot. */
-  const Basis *planar_basis =
+  const math::Basis *planar_basis =
       nullptr; /**< Planar projection basis (null = geodesic). */
   Fragment *loop_seam =
       nullptr; /**< Optional closing target with seam-specific registers. */
@@ -99,8 +99,8 @@ struct Line {
    * @return The interpolated fragment, registers included.
    */
   static Fragment sample_point(const Fragment &f1, const Fragment &f2,
-                               const GeodesicEdgeSpan &es, const Vector &perp,
-                               float t) {
+                               const GeodesicEdgeSpan &es,
+                               const math::Vector &perp, float t) {
     Fragment f = Fragment::lerp(f1, f2, t);
     if (t <= 0.0f)
       f.pos = f1.pos;
@@ -110,10 +110,10 @@ struct Line {
       // fast trig's 0.17% error breaks c^2+s^2==1, so renormalize: callers
       // (vector_to_pixel's acos) require a unit position.
       float s, c;
-      fast_sincosf_0_pi(es.total * t, s, c);
-      Vector p = (f1.pos * c) + (perp * s);
+      math::fast_sincosf_0_pi(es.total * t, s, c);
+      math::Vector p = (f1.pos * c) + (perp * s);
       HS_PLOT_COUNT(normalizations);
-      f.pos = p * fast_rsqrt(dot(p, p));
+      f.pos = p * math::fast_rsqrt(math::dot(p, p));
     }
 
     f.v0 = t;
@@ -156,7 +156,7 @@ struct Line {
       return;
     }
 
-    const Vector perp = cross(es.axis, f1.pos);
+    const math::Vector perp = math::cross(es.axis, f1.pos);
     for (int i = 0; i <= density; ++i)
       points.push_back(
           sample_point(f1, f2, es, perp, static_cast<float>(i) / density));
@@ -237,11 +237,11 @@ struct Multiline {
 
     for (; len_it != end; ++len_it) {
       const Fragment &curr = *len_it;
-      total_len += angle_between(prev.pos, curr.pos);
+      total_len += math::angle_between(prev.pos, curr.pos);
       prev = curr;
     }
     if (closed) {
-      total_len += angle_between(prev.pos, first.pos);
+      total_len += math::angle_between(prev.pos, first.pos);
     }
 
     if (total_len < math::EPS_GEOMETRIC) {
@@ -263,7 +263,7 @@ struct Multiline {
     int idx = 1;
     for (; it != end; ++it) {
       const Fragment &curr = *it;
-      float dist = angle_between(prev.pos, curr.pos);
+      float dist = math::angle_between(prev.pos, curr.pos);
       current_len += dist;
 
       f = curr;
@@ -275,7 +275,7 @@ struct Multiline {
     }
 
     if (closed) {
-      float dist = angle_between(prev.pos, first.pos);
+      float dist = math::angle_between(prev.pos, first.pos);
       current_len += dist;
       f = first;
       f.v0 = 1.0f;
@@ -354,7 +354,7 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
     Fragment f;
     f.pos = pos_fn(i);
     if (i > 0)
-      cumulative_len += angle_between(points.back().pos, f.pos);
+      cumulative_len += math::angle_between(points.back().pos, f.pos);
     f.v0 = static_cast<float>(i) / num_verts;
     f.v1 = cumulative_len;
     f.v2 = static_cast<float>(i);
@@ -364,7 +364,7 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
 
   // Manual close (overlap): duplicate vertex 0 with continued arc length.
   Fragment last = points[start_idx];
-  cumulative_len += angle_between(points.back().pos, last.pos);
+  cumulative_len += math::angle_between(points.back().pos, last.pos);
   last.v0 = 1.0f;
   last.v1 = cumulative_len;
   last.v2 = static_cast<float>(num_verts);
@@ -378,13 +378,14 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
  * samplers so a future LUT-recovery correction stays in one place.
  */
 template <int W, int H>
-static inline Vector ring_tangent(int i, const Vector &u, const Vector &w,
-                                  float cos_phase, float sin_phase) {
+static inline math::Vector ring_tangent(int i, const math::Vector &u,
+                                        const math::Vector &w, float cos_phase,
+                                        float sin_phase) {
   assert(i >= 0 && i < W);
-  float cos_t = TrigLUT<W, H>::cos_theta(i) * cos_phase -
-                TrigLUT<W, H>::sin_theta[i] * sin_phase;
-  float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
-                TrigLUT<W, H>::cos_theta(i) * sin_phase;
+  float cos_t = math::TrigLUT<W, H>::cos_theta(i) * cos_phase -
+                math::TrigLUT<W, H>::sin_theta[i] * sin_phase;
+  float sin_t = math::TrigLUT<W, H>::sin_theta[i] * cos_phase +
+                math::TrigLUT<W, H>::cos_theta(i) * sin_phase;
   return (u * cos_t) + (w * sin_t);
 }
 
@@ -411,7 +412,7 @@ template <int W> static inline int ring_lut_stride(float r_val) {
 
 /** @brief Antipode-folded working basis and the ring's colatitude trig. */
 struct RingFrame {
-  Basis basis;
+  math::Basis basis;
   float theta_eq;  ///< Ring colatitude (radians).
   float sin_theta; ///< Tangent-plane radius of the ring.
   float cos_theta; ///< Ring offset along the pole axis.
@@ -426,9 +427,9 @@ struct RingFrame {
  * resolve their frame here; a divergence would detach sampled points from the
  * visible ring.
  */
-inline RingFrame ring_frame(const Basis &basis, float radius) {
-  auto res = get_antipode(basis, radius);
-  const float theta_eq = res.second * (PI_F / 2.0f);
+inline RingFrame ring_frame(const math::Basis &basis, float radius) {
+  auto res = math::get_antipode(basis, radius);
+  const float theta_eq = res.second * (math::PI_F / 2.0f);
   return {res.first, theta_eq, sinf(theta_eq), cosf(theta_eq)};
 }
 
@@ -452,23 +453,24 @@ struct Ring {
    * analytic arc length (theta·sin(theta_eq), theta_eq being the ring's
    * colatitude).
    */
-  static void sample(Fragments &points, const Basis &basis, float radius,
+  static void sample(Fragments &points, const math::Basis &basis, float radius,
                      int num_samples, float phase = 0) {
     HS_CHECK(num_samples >= 1, "Ring::sample: num_samples %d < 1", num_samples);
     const RingFrame frame = ring_frame(basis, radius);
-    const Vector &v = frame.basis.v;
-    const Vector &u = frame.basis.u;
-    const Vector &w = frame.basis.w;
+    const math::Vector &v = frame.basis.v;
+    const math::Vector &u = frame.basis.u;
+    const math::Vector &w = frame.basis.w;
     const float r_val = frame.sin_theta;
     const float d_val = frame.cos_theta;
 
-    const float step = 2.0f * PI_F / num_samples;
+    const float step = 2.0f * math::PI_F / num_samples;
 
-    Vector first_pos; // Reused for the overlap-close vertex (i == 0 position).
+    math::Vector
+        first_pos; // Reused for the overlap-close vertex (i == 0 position).
     for (int i = 0; i < num_samples; i++) {
       float theta = i * step;
       float t = theta + phase;
-      Vector u_temp = (u * cosf(t)) + (w * sinf(t));
+      math::Vector u_temp = (u * cosf(t)) + (w * sinf(t));
 
       Fragment f;
       HS_PLOT_COUNT(normalizations);
@@ -489,7 +491,7 @@ struct Ring {
     Fragment f;
     f.pos = first_pos;
     f.v0 = 1.0f;
-    f.v1 = 2.0f * PI_F * r_val;
+    f.v1 = 2.0f * math::PI_F * r_val;
     f.v2 = static_cast<float>(num_samples);
     f.age = 0;
     points.push_back(f);
@@ -513,25 +515,25 @@ struct Ring {
    * samplers, whose vertex counts do not match the LUT grid.
    */
   template <int W, int H>
-  static void sample(Fragments &points, const Basis &basis, float radius,
+  static void sample(Fragments &points, const math::Basis &basis, float radius,
                      float phase = 0) {
     const RingFrame frame = ring_frame(basis, radius);
-    const Vector &v = frame.basis.v;
-    const Vector &u = frame.basis.u;
-    const Vector &w = frame.basis.w;
+    const math::Vector &v = frame.basis.v;
+    const math::Vector &u = frame.basis.u;
+    const math::Vector &w = frame.basis.w;
     const float r_val = frame.sin_theta;
     const float d_val = frame.cos_theta;
 
-    const float step = 2.0f * PI_F / W;
+    const float step = 2.0f * math::PI_F / W;
     const int stride = ring_lut_stride<W>(r_val);
 
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     const float cos_phase = cosf(phase);
     const float sin_phase = sinf(phase);
 
     for (int i = 0; i < W; i += stride) {
-      Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
+      math::Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
 
       Fragment f;
       HS_PLOT_COUNT(normalizations);
@@ -546,11 +548,11 @@ struct Ring {
 
     // Manual Close (Overlap): θ = 2π folds to (cos φ, sin φ) by periodicity.
     Fragment f;
-    Vector u_temp = (u * cos_phase) + (w * sin_phase);
+    math::Vector u_temp = (u * cos_phase) + (w * sin_phase);
     HS_PLOT_COUNT(normalizations);
     f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
     f.v0 = 1.0f;
-    f.v1 = (2.0f * PI_F) * r_val;
+    f.v1 = (2.0f * math::PI_F) * r_val;
     f.v2 = static_cast<float>(W);
     f.age = 0;
     points.push_back(f);
@@ -569,8 +571,9 @@ struct Ring {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, FragmentShaderFn fragment_shader,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius,
+                   FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader,
@@ -590,9 +593,9 @@ struct Ring {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, FragmentShaderFn fragment_shader,
-                   float phase = 0) {
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius,
+                   FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, fragment_shader, {}, phase);
   }
 };
@@ -605,8 +608,8 @@ struct Ring {
  *       shorter chord polygon.
  */
 struct PlanarProjection {
-  static const Basis *edge_basis(const Basis &basis, float radius,
-                                 Basis &storage) {
+  static const math::Basis *edge_basis(const math::Basis &basis, float radius,
+                                       math::Basis &storage) {
     storage = radius > 1.0f ? planar_chart_basis(-basis.v) : basis;
     return &storage;
   }
@@ -616,7 +619,8 @@ struct PlanarProjection {
 
 /** @brief Great-circle edge projection. */
 struct GeodesicProjection {
-  static const Basis *edge_basis(const Basis &, float, Basis &) {
+  static const math::Basis *edge_basis(const math::Basis &, float,
+                                       math::Basis &) {
     return nullptr;
   }
 
@@ -624,7 +628,8 @@ struct GeodesicProjection {
     float cumulative_length = 0.0f;
     for (size_t i = start_idx; i < points.size(); ++i) {
       if (i > start_idx)
-        cumulative_length += angle_between(points[i - 1].pos, points[i].pos);
+        cumulative_length +=
+            math::angle_between(points[i - 1].pos, points[i].pos);
       points[i].v1 = cumulative_length;
     }
   }
@@ -640,11 +645,12 @@ template <typename Projection> struct Polygon {
    * @param num_sides Number of sides.
    * @param phase Rotation phase (radians).
    */
-  static void sample(Fragments &points, const Basis &basis, float radius,
+  static void sample(Fragments &points, const math::Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Polygon::sample: num_sides %d < 1", num_sides);
     const size_t start_idx = points.size();
-    Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
+    Ring::sample(points, basis, radius, num_sides,
+                 phase + math::PI_F / num_sides);
     Projection::finish_polygon_sample(points, start_idx);
   }
 
@@ -662,13 +668,13 @@ template <typename Projection> struct Polygon {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Polygon::draw: num_sides %d < 1", num_sides);
-    Basis projection_basis;
-    const Basis *edge_basis =
+    math::Basis projection_basis;
+    const math::Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
@@ -693,8 +699,8 @@ template <typename Projection> struct Polygon {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
                phase);
@@ -723,15 +729,15 @@ struct DistortedRing {
    * but are not bit-identical. There is no phase parameter: a ring drawn with a
    * non-zero phase is rotated away from the returned point.
    */
-  static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
-                         float angle) {
+  static math::Vector fn_point(ScalarFn shift_fn, const math::Basis &basis,
+                               float radius, float angle) {
     const RingFrame frame = ring_frame(basis, radius);
-    const Vector &v = frame.basis.v;
-    const Vector &u = frame.basis.u;
-    const Vector &w = frame.basis.w;
+    const math::Vector &v = frame.basis.v;
+    const math::Vector &u = frame.basis.u;
+    const math::Vector &w = frame.basis.w;
 
-    const float polar = frame.theta_eq + shift_fn(angle / (2.0f * PI_F));
-    Vector u_temp = (u * cosf(angle)) + (w * sinf(angle));
+    const float polar = frame.theta_eq + shift_fn(angle / (2.0f * math::PI_F));
+    math::Vector u_temp = (u * cosf(angle)) + (w * sinf(angle));
     HS_PLOT_COUNT(normalizations);
     return ((v * cosf(polar)) + (u_temp * sinf(polar))).normalized();
   }
@@ -746,21 +752,21 @@ struct DistortedRing {
    * @param shift_fn Radial distortion sampled per vertex.
    * @param phase Rotation phase (radians).
    */
-  static void sample(Fragments &points, const Basis &basis, float radius,
+  static void sample(Fragments &points, const math::Basis &basis, float radius,
                      ScalarFn shift_fn, float phase = 0) {
     const RingFrame frame = ring_frame(basis, radius);
-    const Vector &v = frame.basis.v;
-    const Vector &u = frame.basis.u;
-    const Vector &w = frame.basis.w;
+    const math::Vector &v = frame.basis.v;
+    const math::Vector &u = frame.basis.u;
+    const math::Vector &w = frame.basis.w;
     const float r_val = frame.sin_theta;
     const float d_val = frame.cos_theta;
 
     const int num_samples = W;
-    const float step = 2.0f * PI_F / num_samples;
+    const float step = 2.0f * math::PI_F / num_samples;
 
     // Precompute phase for angle-addition: cos/sin(θ+φ) via TrigLUT
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     const float cos_phase = cosf(phase);
     const float sin_phase = sinf(phase);
 
@@ -768,9 +774,9 @@ struct DistortedRing {
     // length accumulation, and overlap close are the shared closed-ring skeleton.
     sample_closed_ring(points, num_samples, [&](int i) {
       float theta = i * step;
-      Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
+      math::Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
 
-      float shift = shift_fn(theta / (2.0f * PI_F));
+      float shift = shift_fn(theta / (2.0f * math::PI_F));
       float cos_shift = cosf(shift);
       float sin_shift = sinf(shift);
 
@@ -796,8 +802,8 @@ struct DistortedRing {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, ScalarFn shift_fn,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
@@ -820,8 +826,8 @@ struct DistortedRing {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, ScalarFn shift_fn,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, ScalarFn shift_fn,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, shift_fn, fragment_shader, {},
                phase);
@@ -850,13 +856,14 @@ public:
   };
 
 private:
-  static void sample_positions_impl(Fragments &points, const Basis &work_basis,
+  static void sample_positions_impl(Fragments &points,
+                                    const math::Basis &work_basis,
                                     int num_sides, float phase,
                                     const RadiusTrig &radius_trig,
                                     const StepTrig &step_trig) {
-    const Vector &v = work_basis.v;
-    const Vector &u = work_basis.u;
-    const Vector &w = work_basis.w;
+    const math::Vector &v = work_basis.v;
+    const math::Vector &u = work_basis.u;
+    const math::Vector &w = work_basis.w;
     const size_t start_idx = points.size();
     float cos_theta = cosf(phase);
     float sin_theta = sinf(phase);
@@ -876,16 +883,16 @@ private:
   }
 
   template <bool EmitRegisters>
-  static void sample_impl(Fragments &points, const Basis &basis, float radius,
-                          int num_sides, float phase) {
+  static void sample_impl(Fragments &points, const math::Basis &basis,
+                          float radius, int num_sides, float phase) {
     HS_CHECK(num_sides >= 1, "Star::sample: num_sides %d < 1", num_sides);
     const RingFrame frame = ring_frame(basis, radius);
-    const Vector &v = frame.basis.v;
-    const Vector &u = frame.basis.u;
-    const Vector &w = frame.basis.w;
+    const math::Vector &v = frame.basis.v;
+    const math::Vector &u = frame.basis.u;
+    const math::Vector &w = frame.basis.w;
 
     float inner_radius = frame.theta_eq * STAR_INNER_RATIO;
-    float angle_step = PI_F / num_sides;
+    float angle_step = math::PI_F / num_sides;
     const float sin_radius[2] = {frame.sin_theta, sinf(inner_radius)};
     const float cos_radius[2] = {frame.cos_theta, cosf(inner_radius)};
 
@@ -896,7 +903,8 @@ private:
         float cos_r = cos_radius[i & 1];
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
-        Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+        math::Vector p =
+            (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
         HS_PLOT_COUNT(normalizations);
         p.normalize();
         return p;
@@ -914,8 +922,9 @@ private:
   }
 
   template <bool EmitRegisters>
-  static void sample_continuous_impl(Fragments &points, const Basis &basis,
-                                     float radius, int num_sides, float phase) {
+  static void sample_continuous_impl(Fragments &points,
+                                     const math::Basis &basis, float radius,
+                                     int num_sides, float phase) {
     HS_CHECK(num_sides >= 1, "Star::sample_continuous: num_sides %d < 1",
              num_sides);
     HS_CHECK(radius >= 0.0f && radius <= 2.0f,
@@ -924,13 +933,14 @@ private:
                  ? static_cast<int>(radius * 1000.0f)
                  : static_cast<int>(INT32_MIN));
 
-    const float outer_radius = radius * (PI_F / 2.0f);
+    const float outer_radius = radius * (math::PI_F / 2.0f);
     const float inner_radius =
         radius <= 1.0f
             ? outer_radius * STAR_INNER_RATIO
-            : STAR_INNER_RATIO * (PI_F / 2.0f) +
-                  (radius - 1.0f) * (PI_F - STAR_INNER_RATIO * (PI_F / 2.0f));
-    const float angle_step = PI_F / num_sides;
+            : STAR_INNER_RATIO * (math::PI_F / 2.0f) +
+                  (radius - 1.0f) *
+                      (math::PI_F - STAR_INNER_RATIO * (math::PI_F / 2.0f));
+    const float angle_step = math::PI_F / num_sides;
     const float sin_radius[2] = {sinf(outer_radius), sinf(inner_radius)};
     const float cos_radius[2] = {cosf(outer_radius), cosf(inner_radius)};
 
@@ -938,8 +948,8 @@ private:
       const float theta = phase + i * angle_step;
       const float sin_r = sin_radius[i & 1];
       const float cos_r = cos_radius[i & 1];
-      Vector p = (basis.v * cos_r) + (basis.u * (cosf(theta) * sin_r)) +
-                 (basis.w * (sinf(theta) * sin_r));
+      math::Vector p = (basis.v * cos_r) + (basis.u * (cosf(theta) * sin_r)) +
+                       (basis.w * (sinf(theta) * sin_r));
       HS_PLOT_COUNT(normalizations);
       p.normalize();
       return p;
@@ -962,7 +972,7 @@ public:
   /** @brief Computes reusable radius trigonometry for position-only sampling. */
   static RadiusTrig radius_trig(float radius) {
     const float work_radius = radius > 1.0f ? 2.0f - radius : radius;
-    const float outer_radius = work_radius * (PI_F / 2.0f);
+    const float outer_radius = work_radius * (math::PI_F / 2.0f);
     const float inner_radius = outer_radius * STAR_INNER_RATIO;
     return {{sinf(outer_radius), sinf(inner_radius)},
             {cosf(outer_radius), cosf(inner_radius)}};
@@ -970,7 +980,7 @@ public:
 
   /** @brief Computes reusable angular-step trigonometry for a side count. */
   static StepTrig step_trig(int num_sides) {
-    const float angle_step = PI_F / num_sides;
+    const float angle_step = math::PI_F / num_sides;
     return {sinf(angle_step), cosf(angle_step)};
   }
 
@@ -982,7 +992,7 @@ public:
    * @param num_sides Number of points.
    * @param phase Rotation phase (radians).
    */
-  static void sample(Fragments &points, const Basis &basis, float radius,
+  static void sample(Fragments &points, const math::Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     sample_impl<true>(points, basis, radius, num_sides, phase);
   }
@@ -998,31 +1008,32 @@ public:
    *   per-vertex normalize sample() does; positions come back off-unit by
    *   ~4e-6, inside what rasterize()'s fast paths plot verbatim.
    */
-  static void sample_positions(Fragments &points, const Basis &basis,
+  static void sample_positions(Fragments &points, const math::Basis &basis,
                                float radius, int num_sides, float phase = 0) {
     sample_impl<false>(points, basis, radius, num_sides, phase);
   }
 
   /** @brief Samples positions with caller-cached trigonometric values. */
-  static void sample_positions(Fragments &points, const Basis &basis,
+  static void sample_positions(Fragments &points, const math::Basis &basis,
                                float radius, int num_sides, float phase,
                                const RadiusTrig &radius_trig,
                                const StepTrig &step_trig) {
     HS_CHECK(num_sides >= 1, "Star::sample_positions: num_sides %d < 1",
              num_sides);
-    const Basis work_basis = get_antipode(basis, radius).first;
+    const math::Basis work_basis = math::get_antipode(basis, radius).first;
     sample_positions_impl(points, work_basis, num_sides, phase, radius_trig,
                           step_trig);
   }
 
   /** @brief Samples Star levels that continue to the opposite pole. */
-  static void sample_continuous(Fragments &points, const Basis &basis,
+  static void sample_continuous(Fragments &points, const math::Basis &basis,
                                 float radius, int num_sides, float phase = 0) {
     sample_continuous_impl<true>(points, basis, radius, num_sides, phase);
   }
 
   /** @brief Samples Star levels that remain continuous across the equator. */
-  static void sample_continuous_positions(Fragments &points, const Basis &basis,
+  static void sample_continuous_positions(Fragments &points,
+                                          const math::Basis &basis,
                                           float radius, int num_sides,
                                           float phase = 0) {
     sample_continuous_impl<false>(points, basis, radius, num_sides, phase);
@@ -1042,13 +1053,13 @@ public:
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Star::draw: num_sides %d < 1", num_sides);
-    Basis projection_basis;
-    const Basis *edge_basis =
+    math::Basis projection_basis;
+    const math::Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
@@ -1063,13 +1074,13 @@ public:
   /** @brief Draws a Star level that continues across the equator. */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw_continuous(PipelineT &pipeline, Canvas &canvas,
-                              const Basis &basis, float radius, int num_sides,
-                              FragmentShaderFn fragment_shader,
+                              const math::Basis &basis, float radius,
+                              int num_sides, FragmentShaderFn fragment_shader,
                               float phase = 0) {
     HS_CHECK(num_sides >= 1, "Star::draw_continuous: num_sides %d < 1",
              num_sides);
-    Basis projection_basis;
-    const Basis *edge_basis =
+    math::Basis projection_basis;
+    const math::Basis *edge_basis =
         Projection::edge_basis(basis, radius, projection_basis);
 
     draw_fragments<W, H>(pipeline, canvas, {}, fragment_shader,
@@ -1095,8 +1106,8 @@ public:
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
                phase);
@@ -1123,17 +1134,17 @@ struct Flower {
    * @param num_sides Number of petals.
    * @param phase Rotation phase (radians).
    */
-  static void sample(Fragments &points, const Basis &basis, float radius,
+  static void sample(Fragments &points, const math::Basis &basis, float radius,
                      int num_sides, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Flower::sample: num_sides %d < 1", num_sides);
     const RingFrame frame = ring_frame(basis, radius);
-    const Vector &v = frame.basis.v;
-    const Vector &u = frame.basis.u;
-    const Vector &w = frame.basis.w;
+    const math::Vector &v = frame.basis.v;
+    const math::Vector &u = frame.basis.u;
+    const math::Vector &w = frame.basis.w;
 
-    float apothem = PI_F - frame.theta_eq;
-    float safe_apothem = std::min(apothem, PI_F - 1e-4f);
-    float angle_step = PI_F / num_sides;
+    float apothem = math::PI_F - frame.theta_eq;
+    float safe_apothem = std::min(apothem, math::PI_F - 1e-4f);
+    float angle_step = math::PI_F / num_sides;
     const float sin_r = sinf(safe_apothem);
     const float cos_r = cosf(safe_apothem);
 
@@ -1143,7 +1154,8 @@ struct Flower {
       float theta = phase + i * angle_step;
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
-      Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
+      math::Vector p =
+          (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
       HS_PLOT_COUNT(normalizations);
       p.normalize();
       return p;
@@ -1164,16 +1176,16 @@ struct Flower {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     HS_CHECK(num_sides >= 1, "Flower::draw: num_sides %d < 1", num_sides);
     // Center the chart on the antipode pole, opposite the petal ring: projecting
     // the constant-radius ring through the far-pole chart bows its straight edges
     // outward into petals.
-    Basis planar_basis =
-        planar_chart_basis(get_antipode(basis, radius).first.v);
+    math::Basis planar_basis =
+        planar_chart_basis(math::get_antipode(basis, radius).first.v);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
@@ -1197,8 +1209,8 @@ struct Flower {
    * @param phase Rotation phase.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, int num_sides,
+  static void draw(PipelineT &pipeline, Canvas &canvas,
+                   const math::Basis &basis, float radius, int num_sides,
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, num_sides, fragment_shader, {},
                phase);

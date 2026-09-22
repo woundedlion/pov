@@ -76,7 +76,7 @@ struct SmoothBandsChainParams {
           32.0f, FieldCurve::SNAP},
       Field<SmoothBandsChainParams>{
           "band-phase", &SmoothBandsChainParams::band_phase, "Band Phase", 0.0f,
-          TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
+          math::TWO_PI_F, FieldCurve::SHORTEST_PERIODIC},
   };
 };
 static_assert(field_ids_unique<SmoothBandsChainParams>());

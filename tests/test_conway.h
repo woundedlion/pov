@@ -59,10 +59,10 @@ inline int count_inward_winding(const PolyMesh &m) {
   for (size_t fi = 0; fi < m.face_counts.size(); ++fi) {
     int count = m.face_counts[fi];
     if (count >= 3) {
-      Vector n = face_newell_normal(m, offset, count);
-      Vector c = face_centroid_pos(m, offset, count);
+      math::Vector n = face_newell_normal(m, offset, count);
+      math::Vector c = face_centroid_pos(m, offset, count);
       // Skip degenerate normals (colinear vertices).
-      if (n.length() > 1e-6f && dot(n, c) <= 0.0f)
+      if (n.length() > 1e-6f && math::dot(n, c) <= 0.0f)
         ++bad;
     }
     offset += count;
@@ -395,9 +395,9 @@ inline void test_normalize_pushes_to_unit_sphere() {
   m.vertices.bind(arena, 3);
   m.face_counts.bind(arena, 1);
   m.faces.bind(arena, 3);
-  m.vertices.push_back(Vector(3, 4, 0)); // length 5
-  m.vertices.push_back(Vector(0, 0, 7)); // length 7
-  m.vertices.push_back(Vector(2, 2, 2)); // length √12
+  m.vertices.push_back(math::Vector(3, 4, 0)); // length 5
+  m.vertices.push_back(math::Vector(0, 0, 7)); // length 7
+  m.vertices.push_back(math::Vector(2, 2, 2)); // length √12
   m.face_counts.push_back(3);
   m.faces.push_back(0);
   m.faces.push_back(1);
@@ -673,7 +673,7 @@ template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
     for (int k = 0; k < c; ++k) {
       const int a = faces[idx + k];
       const int b = faces[idx + (k + 1) % c];
-      sum += distance_between(m.vertices[a], m.vertices[b]);
+      sum += math::distance_between(m.vertices[a], m.vertices[b]);
       ++n;
     }
     idx += c;
@@ -687,7 +687,8 @@ template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
     for (int k = 0; k < c; ++k) {
       const int a = faces[idx + k];
       const int b = faces[idx + (k + 1) % c];
-      const float d = distance_between(m.vertices[a], m.vertices[b]) - mean;
+      const float d =
+          math::distance_between(m.vertices[a], m.vertices[b]) - mean;
       var += static_cast<double>(d) * d;
     }
     idx += c;
@@ -748,10 +749,10 @@ inline void test_relax_open_mesh_partial() {
 
   PolyMesh strip;
   strip.vertices.bind(target, 4);
-  strip.vertices.push_back(Vector(1, 0, 0).normalized());
-  strip.vertices.push_back(Vector(0, 1, 0).normalized());
-  strip.vertices.push_back(Vector(0, 0, 1).normalized());
-  strip.vertices.push_back(Vector(1, 1, 0).normalized());
+  strip.vertices.push_back(math::Vector(1, 0, 0).normalized());
+  strip.vertices.push_back(math::Vector(0, 1, 0).normalized());
+  strip.vertices.push_back(math::Vector(0, 0, 1).normalized());
+  strip.vertices.push_back(math::Vector(1, 1, 0).normalized());
   strip.face_counts.bind(target, 2);
   strip.face_counts.push_back(3);
   strip.face_counts.push_back(3);
@@ -764,7 +765,7 @@ inline void test_relax_open_mesh_partial() {
   strip.faces.push_back(1);
 
   const float shared_edge_before =
-      distance_between(strip.vertices[0], strip.vertices[1]);
+      math::distance_between(strip.vertices[0], strip.vertices[1]);
 
   PolyMesh r = MeshOps::relax(strip, target, temp, /*iterations*/ 5);
 
@@ -779,20 +780,20 @@ inline void test_relax_open_mesh_partial() {
   // Vertices 0 and 1 span the one interior edge and are the only two with a
   // paired incoming half-edge; 2 and 3 reach boundary edges alone and get no
   // force, so they move by nothing beyond the renormalize.
-  HS_EXPECT_GT(distance_between(r.vertices[0], strip.vertices[0]), 1e-2f);
-  HS_EXPECT_GT(distance_between(r.vertices[1], strip.vertices[1]), 1e-2f);
-  HS_EXPECT_LT(distance_between(r.vertices[2], strip.vertices[2]), 1e-5f);
-  HS_EXPECT_LT(distance_between(r.vertices[3], strip.vertices[3]), 1e-5f);
+  HS_EXPECT_GT(math::distance_between(r.vertices[0], strip.vertices[0]), 1e-2f);
+  HS_EXPECT_GT(math::distance_between(r.vertices[1], strip.vertices[1]), 1e-2f);
+  HS_EXPECT_LT(math::distance_between(r.vertices[2], strip.vertices[2]), 1e-5f);
+  HS_EXPECT_LT(math::distance_between(r.vertices[3], strip.vertices[3]), 1e-5f);
 
   // The forced pair pulls the over-long shared edge toward the mesh mean, and
   // no two vertices merge on the way.
-  HS_EXPECT_LT(distance_between(r.vertices[0], r.vertices[1]),
+  HS_EXPECT_LT(math::distance_between(r.vertices[0], r.vertices[1]),
                shared_edge_before);
   float min_separation = 1e9f;
   for (size_t i = 0; i < r.vertices.size(); ++i)
     for (size_t j = i + 1; j < r.vertices.size(); ++j)
-      min_separation = std::min(min_separation,
-                                distance_between(r.vertices[i], r.vertices[j]));
+      min_separation = std::min(
+          min_separation, math::distance_between(r.vertices[i], r.vertices[j]));
   HS_EXPECT_GT(min_separation, 0.5f);
 }
 
@@ -925,8 +926,8 @@ inline void test_conway_composition_polarity() {
  * @param m Mesh whose vertices are copied out (so its arena can be reused).
  * @return Copy of m's vertex positions in order.
  */
-inline std::vector<Vector> collect_vertices(const PolyMesh &m) {
-  std::vector<Vector> out;
+inline std::vector<math::Vector> collect_vertices(const PolyMesh &m) {
+  std::vector<math::Vector> out;
   out.reserve(m.vertices.size());
   for (size_t i = 0; i < m.vertices.size(); ++i)
     out.push_back(m.vertices[i]);
@@ -940,8 +941,8 @@ inline std::vector<Vector> collect_vertices(const PolyMesh &m) {
  * @return Max Euclidean distance between corresponding vertices, or infinity if
  *   the lists differ in length.
  */
-inline float max_vertex_delta(const std::vector<Vector> &a,
-                              const std::vector<Vector> &b) {
+inline float max_vertex_delta(const std::vector<math::Vector> &a,
+                              const std::vector<math::Vector> &b) {
   if (a.size() != b.size())
     return std::numeric_limits<float>::infinity();
   float worst = 0.0f;
@@ -959,7 +960,7 @@ inline float max_vertex_delta(const std::vector<Vector> &a,
  *          kis(dual(ambo)) while differing from kis(ambo).
  */
 inline void test_meta_is_kis_dual_ambo() {
-  std::vector<Vector> meta_verts, kda_verts, ka_verts;
+  std::vector<math::Vector> meta_verts, kda_verts, ka_verts;
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -1040,7 +1041,7 @@ inline void test_snub_cube_is_well_formed() {
 inline void test_snub_twist_rotates_primary_faces() {
   const float twist = 0.28f;
 
-  std::vector<Vector> base;
+  std::vector<math::Vector> base;
   std::vector<std::vector<uint16_t>> primary_faces;
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
@@ -1064,7 +1065,7 @@ inline void test_snub_twist_rotates_primary_faces() {
     }
   }
 
-  std::vector<Vector> twisted;
+  std::vector<math::Vector> twisted;
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -1079,10 +1080,10 @@ inline void test_snub_twist_rotates_primary_faces() {
 
   for (const auto &ids : primary_faces) {
     const int sides = static_cast<int>(ids.size());
-    Vector n(0, 0, 0);
+    math::Vector n(0, 0, 0);
     for (int k = 0; k < sides; ++k) {
-      const Vector &p = base[ids[k]];
-      const Vector &q = base[ids[(k + 1) % sides]];
+      const math::Vector &p = base[ids[k]];
+      const math::Vector &q = base[ids[(k + 1) % sides]];
       n.x += (p.y - q.y) * (p.z + q.z);
       n.y += (p.z - q.z) * (p.x + q.x);
       n.z += (p.x - q.x) * (p.y + q.y);
@@ -1090,11 +1091,11 @@ inline void test_snub_twist_rotates_primary_faces() {
     n = n.normalized();
     for (int k = 0; k < sides; ++k) {
       uint16_t a0 = ids[k], a1 = ids[(k + 1) % sides];
-      Vector e_base = base[a1] - base[a0];
-      Vector e_twist = twisted[a1] - twisted[a0];
+      math::Vector e_base = base[a1] - base[a0];
+      math::Vector e_twist = twisted[a1] - twisted[a0];
       HS_EXPECT_NEAR(e_twist.length(), e_base.length(), 3e-3f);
-      float ang =
-          std::atan2(dot(cross(e_base, e_twist), n), dot(e_base, e_twist));
+      float ang = std::atan2(math::dot(math::cross(e_base, e_twist), n),
+                             math::dot(e_base, e_twist));
       HS_EXPECT_NEAR(ang, twist, 5e-3f);
     }
   }
@@ -1117,10 +1118,10 @@ inline void test_transform_applies_translation_chain() {
 
   MeshState src;
   src.vertices.bind(src_arena, 4);
-  src.vertices.push_back(Vector(1, 0, 0));
-  src.vertices.push_back(Vector(0, 1, 0));
-  src.vertices.push_back(Vector(0, 0, 1));
-  src.vertices.push_back(Vector(0.577f, 0.577f, 0.577f));
+  src.vertices.push_back(math::Vector(1, 0, 0));
+  src.vertices.push_back(math::Vector(0, 1, 0));
+  src.vertices.push_back(math::Vector(0, 0, 1));
+  src.vertices.push_back(math::Vector(0.577f, 0.577f, 0.577f));
   src.face_counts.bind(src_arena, 1);
   src.face_counts.push_back(3);
   src.faces.bind(src_arena, 3);
@@ -1131,13 +1132,13 @@ inline void test_transform_applies_translation_chain() {
   src.topology.push_back(7);
 
   MeshState dst;
-  auto scale = [](const Vector &v) { return v * 2.0f; };
-  auto shift = [](const Vector &v) { return v + Vector(1, 0, 0); };
+  auto scale = [](const math::Vector &v) { return v * 2.0f; };
+  auto shift = [](const math::Vector &v) { return v + math::Vector(1, 0, 0); };
   MeshOps::transform(src, dst, dst_arena, scale, shift);
 
   HS_EXPECT_SIZE_OR_RETURN(dst.vertices, src.vertices.size());
   for (size_t i = 0; i < src.vertices.size(); ++i) {
-    Vector expected = src.vertices[i] * 2.0f + Vector(1, 0, 0);
+    math::Vector expected = src.vertices[i] * 2.0f + math::Vector(1, 0, 0);
     HS_EXPECT_NEAR(dst.vertices[i].x, expected.x, 1e-5f);
     HS_EXPECT_NEAR(dst.vertices[i].y, expected.y, 1e-5f);
     HS_EXPECT_NEAR(dst.vertices[i].z, expected.z, 1e-5f);
@@ -1158,8 +1159,8 @@ inline void test_transform_in_place_preserves_topology() {
   Arena arena(conway_target_buf, sizeof(conway_target_buf));
   MeshState mesh;
   mesh.vertices.bind(arena, 2);
-  mesh.vertices.push_back(Vector(1, 0, 0));
-  mesh.vertices.push_back(Vector(0, 1, 0));
+  mesh.vertices.push_back(math::Vector(1, 0, 0));
+  mesh.vertices.push_back(math::Vector(0, 1, 0));
   mesh.face_counts.bind(arena, 1);
   mesh.face_counts.push_back(2);
   mesh.faces.bind(arena, 2);
@@ -1168,12 +1169,12 @@ inline void test_transform_in_place_preserves_topology() {
   mesh.topology.bind(arena, 1);
   mesh.topology.push_back(7);
 
-  auto scale = [](const Vector &v) { return v * 2.0f; };
-  auto shift = [](const Vector &v) { return v + Vector(1, 0, 0); };
+  auto scale = [](const math::Vector &v) { return v * 2.0f; };
+  auto shift = [](const math::Vector &v) { return v + math::Vector(1, 0, 0); };
   MeshOps::transform_in_place(mesh, scale, shift);
 
-  HS_EXPECT_EQ(mesh.vertices[0], Vector(3, 0, 0));
-  HS_EXPECT_EQ(mesh.vertices[1], Vector(1, 2, 0));
+  HS_EXPECT_EQ(mesh.vertices[0], math::Vector(3, 0, 0));
+  HS_EXPECT_EQ(mesh.vertices[1], math::Vector(1, 2, 0));
   HS_EXPECT_EQ(mesh.face_counts[0], 2);
   HS_EXPECT_EQ(mesh.faces[0], 0);
   HS_EXPECT_EQ(mesh.faces[1], 1);
@@ -1196,9 +1197,9 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
 
   MeshState src;
   src.vertices.bind(src_arena, 3);
-  src.vertices.push_back(Vector(1, 0, 0));
-  src.vertices.push_back(Vector(0, 1, 0));
-  src.vertices.push_back(Vector(0, 0, 1));
+  src.vertices.push_back(math::Vector(1, 0, 0));
+  src.vertices.push_back(math::Vector(0, 1, 0));
+  src.vertices.push_back(math::Vector(0, 0, 1));
   src.face_counts.bind(src_arena, 1);
   src.face_counts.push_back(3);
   src.faces.bind(src_arena, 3);
@@ -1250,12 +1251,12 @@ inline void test_face_centroid_for_cube_top_face() {
 
   HalfEdgeMesh he(arena, cube);
   int count = 0;
-  Vector c = MeshOps::face_centroid(he, cube, 0, count);
+  math::Vector c = MeshOps::face_centroid(he, cube, 0, count);
   HS_EXPECT_EQ(count, 4);
   // Each half-edge stores its head vertex, so the loop walk sums face 0's
   // vertices rotated by one against the flat-index order of the reference;
   // the tolerance covers that reassociation.
-  Vector expected = face_centroid_pos(cube, 0, 4);
+  math::Vector expected = face_centroid_pos(cube, 0, 4);
   HS_EXPECT_NEAR(c.x, expected.x, 1e-6f);
   HS_EXPECT_NEAR(c.y, expected.y, 1e-6f);
   HS_EXPECT_NEAR(c.z, expected.z, 1e-6f);
@@ -1285,8 +1286,8 @@ inline void build_degenerate_digon(PolyMesh &m, Arena &arena) {
   m.vertices.bind(arena, 2);
   m.face_counts.bind(arena, 1);
   m.faces.bind(arena, 2);
-  m.vertices.push_back(Vector(1.0f, 0.0f, 0.0f));
-  m.vertices.push_back(Vector(-1.0f, 0.0f, 0.0f));
+  m.vertices.push_back(math::Vector(1.0f, 0.0f, 0.0f));
+  m.vertices.push_back(math::Vector(-1.0f, 0.0f, 0.0f));
   m.face_counts.push_back(2);
   m.faces.push_back(0);
   m.faces.push_back(1);

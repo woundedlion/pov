@@ -118,7 +118,7 @@ struct Mesh {
     int cuts = 0;
     if (split) {
       cuts = geodesic_clip_splits(fu.pos, fv.pos, es, cb, ts);
-      const Vector perp = cross(es.axis, fu.pos);
+      const math::Vector perp = math::cross(es.axis, fu.pos);
       points.push_back(Line::sample_point(fu, fv, es, perp, 0.0f));
       for (int i = 0; i < cuts; ++i)
         points.push_back(Line::sample_point(fu, fv, es, perp, ts[i]));

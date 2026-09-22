@@ -437,7 +437,8 @@ public:
     stack_paint_canary(); // reset stack HWM by repainting unused region
 
     hs_wasm::dispatch_resolution(pixel_width, pixel_height, []<int W, int H>() {
-      init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
+      math::init_geometry_luts<W,
+                               H>(); // eager-fill LUTs before the first frame
     });
     // Per-load RNG stream keyed by the effect's stable id, mirroring the
     // device's per-effect reseed. Reseeded after the outgoing effect is gone, so

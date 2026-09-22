@@ -23,14 +23,15 @@ namespace SDF {
  * @details Register semantics: the DistanceResult table (stroke row: Ring).
  */
 struct Ring {
-  const Basis &basis; /**< Orientation frame (v = ring axis); retained by
+  const math::Basis &basis; /**< Orientation frame (v = ring axis); retained by
                          reference, so it must outlive the shape. */
-  float radius;       /**< Ring radius as a fraction of the hemisphere. */
-  float thickness;    /**< Half-width of the stroke (radians). */
-  float phase;        /**< Azimuth phase offset (radians). */
+  float radius;             /**< Ring radius as a fraction of the hemisphere. */
+  float thickness;          /**< Half-width of the stroke (radians). */
+  float phase;              /**< Azimuth phase offset (radians). */
 
-  Vector normal, u, w; /**< Ring axis and the two in-plane basis vectors. */
-  float ny;            /**< y-component of the ring axis. */
+  math::Vector normal, u,
+      w;    /**< Ring axis and the two in-plane basis vectors. */
+  float ny; /**< y-component of the ring axis. */
   float target_angle,
       center_phi; /**< Centerline polar angle and axis colatitude. */
   float cos_max, cos_min, cos_target,
@@ -49,7 +50,7 @@ struct Ring {
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
    */
-  Ring(const Basis &b, float r, float th, float ph = 0)
+  Ring(const math::Basis &b, float r, float th, float ph = 0)
       : basis(b), radius(r), thickness(th), phase(ph) {
     HS_CHECK(radius >= 0.0f && radius <= 2.0f, "Ring: radius outside [0, 2]");
     // A negative half-width inverts the band, culling every probe.
@@ -60,18 +61,18 @@ struct Ring {
     AxisProjection ap = project_axis(normal);
     ny = ap.ny;
 
-    target_angle = radius * (PI_F / 2.0f);
+    target_angle = radius * (math::PI_F / 2.0f);
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
 
     float ang_min = std::max(0.0f, target_angle - thickness);
-    float ang_max = std::min(PI_F, target_angle + thickness);
+    float ang_max = std::min(math::PI_F, target_angle + thickness);
     cos_max = cosf(ang_min);
     cos_min = cosf(ang_max);
     cos_target = cosf(target_angle);
 
     bool safe_approx =
         (target_angle > POLE_SAFE_MARGIN &&
-         target_angle < PI_F - POLE_SAFE_MARGIN &&
+         target_angle < math::PI_F - POLE_SAFE_MARGIN &&
          thickness < RING_LINEARIZE_TAN_FRAC * std::abs(tanf(target_angle)));
     inv_sin_target = safe_approx ? (1.0f / sinf(target_angle)) : 0.0f;
 
@@ -84,7 +85,7 @@ struct Ring {
    * @details The ring retains its basis by reference, so binding a temporary
    * would leave every later read of basis dangling.
    */
-  Ring(const Basis &&, float, float, float = 0) = delete;
+  Ring(const math::Basis &&, float, float, float = 0) = delete;
 
   /**
    * @brief Maps the ring's latitude band to its inclusive scanline row range.
@@ -100,7 +101,7 @@ struct Ring {
     // break-even trim, where that peak equals the cut exactly.
     float eff_th = 0.95f * thickness;
     float f_phi_min = std::max(0.0f, band.phi_min - eff_th);
-    float f_phi_max = std::min(PI_F, band.phi_max + eff_th);
+    float f_phi_max = std::min(math::PI_F, band.phi_max + eff_th);
 
     return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
   }
@@ -118,10 +119,10 @@ struct Ring {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    float cos_phi = TrigLUT<W, H>::cos_phi[y];
-    float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    float cos_phi = math::TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
 
     if (needs_full_row_scan(sin_phi))
       return false;
@@ -158,13 +159,13 @@ struct Ring {
     if (inv_sin_target != 0) {
       dist = std::abs(d - cos_target) * inv_sin_target;
     } else {
-      float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+      float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
       dist = std::abs(polar - target_angle);
     }
     float sd = dist - thickness;
     if (sd >= 0.0f || thickness <= 0.0f)
       return 0.0f;
-    return quintic_kernel(-sd / thickness);
+    return math::quintic_kernel(-sd / thickness);
   }
 
   /**
@@ -175,8 +176,8 @@ struct Ring {
    *        centerline distance, t = azimuth in [0,1) when ComputeUVs.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    float d = dot(p, normal);
+  void distance(const math::Vector &p, DistanceResult &res) const {
+    float d = math::dot(p, normal);
     if (d < cos_min || d > cos_max) {
       res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
@@ -186,13 +187,13 @@ struct Ring {
     if (inv_sin_target != 0) {
       dist = std::abs(d - cos_target) * inv_sin_target;
     } else {
-      float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+      float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
       dist = std::abs(polar - target_angle);
     }
 
     float t = 0.0f;
     if constexpr (ComputeUVs) {
-      t = wrap_t(basis_azimuth(p, u, w, phase) / TWO_PI_F);
+      t = math::wrap_t(basis_azimuth(p, u, w, phase) / math::TWO_PI_F);
     }
 
     res = DistanceResult(dist - thickness, t, dist, 0.0f, thickness);
@@ -216,12 +217,12 @@ struct KnotPrefilter {
  * DistortedRing).
  */
 struct DistortedRing {
-  const Basis &basis; /**< Orientation frame (v = ring axis); retained by
+  const math::Basis &basis; /**< Orientation frame (v = ring axis); retained by
                          reference, so it must outlive the shape. */
-  float radius;       /**< Ring radius as a fraction of the hemisphere. */
-  float thickness;    /**< Half-width of the stroke (radians). */
-  float thickness2;   /**< Squared half-width of the stroke. */
-  ScalarFn shift_fn;  /**< Per-azimuth centerline shift, t in [0,1) -> radians;
+  float radius;             /**< Ring radius as a fraction of the hemisphere. */
+  float thickness;          /**< Half-width of the stroke (radians). */
+  float thickness2;         /**< Squared half-width of the stroke. */
+  ScalarFn shift_fn; /**< Per-azimuth centerline shift, t in [0,1) -> radians;
                          empty in knot mode. */
   const float *knots =
       nullptr;   /**< Optional lut_n + 1 shift knots (entry lut_n repeats entry
@@ -234,8 +235,9 @@ struct DistortedRing {
   float max_distortion; /**< Maximum magnitude of the shift (radians). */
   float phase;          /**< Azimuth phase offset (radians). */
 
-  Vector normal, u, w; /**< Ring axis and the two in-plane basis vectors. */
-  float ny;            /**< y-component of the ring axis. */
+  math::Vector normal, u,
+      w;    /**< Ring axis and the two in-plane basis vectors. */
+  float ny; /**< y-component of the ring axis. */
   float target_angle,
       center_phi;      /**< Centerline polar angle and axis colatitude. */
   float max_thickness; /**< thickness + max_distortion (radians). */
@@ -266,7 +268,7 @@ struct DistortedRing {
    *          can render thinner than the requested stroke; the knot
    *          constructor takes the exact polyline distance instead.
    */
-  DistortedRing(const Basis &b, float r, float th, ScalarFn sf, float md,
+  DistortedRing(const math::Basis &b, float r, float th, ScalarFn sf, float md,
                 float ph)
       : DistortedRing(b, r, th, md, ph) {
     HS_CHECK(sf, "DistortedRing: shift_fn must be non-null");
@@ -278,7 +280,8 @@ struct DistortedRing {
    * @details The ring retains its basis by reference, so binding a temporary
    * would leave every later read of basis dangling.
    */
-  DistortedRing(const Basis &&, float, float, ScalarFn, float, float) = delete;
+  DistortedRing(const math::Basis &&, float, float, ScalarFn, float,
+                float) = delete;
 
 protected:
   /**
@@ -291,7 +294,7 @@ protected:
    * @param md Maximum magnitude of the centerline shift (radians).
    * @param ph Azimuth phase offset (radians).
    */
-  DistortedRing(const Basis &b, float r, float th, float md, float ph)
+  DistortedRing(const math::Basis &b, float r, float th, float md, float ph)
       : basis(b), radius(r), thickness(th), thickness2(th * th),
         max_distortion(md), phase(ph) {
     HS_CHECK(radius >= 0.0f && radius <= 2.0f,
@@ -303,7 +306,7 @@ protected:
     w = basis.w;
     AxisProjection ap = project_axis(normal);
     ny = ap.ny;
-    target_angle = radius * (PI_F / 2.0f);
+    target_angle = radius * (math::PI_F / 2.0f);
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     max_thickness = thickness + max_distortion;
 
@@ -311,7 +314,7 @@ protected:
     alpha_angle = ap.alpha_angle;
 
     float ang_min = std::max(0.0f, target_angle - max_thickness);
-    float ang_max = std::min(PI_F, target_angle + max_thickness);
+    float ang_max = std::min(math::PI_F, target_angle + max_thickness);
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
   }
@@ -332,7 +335,7 @@ public:
    * @param ph Azimuth phase offset (radians).
    * @param pf Prefilter storage filled here; must outlive the shape.
    */
-  DistortedRing(const Basis &b, float r, float th, const float *kn, int n,
+  DistortedRing(const math::Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter &pf)
       : DistortedRing(b, r, th, 0.0f, ph) {
     HS_CHECK(kn != nullptr && n >= 1,
@@ -340,7 +343,7 @@ public:
     knots = kn;
     lut_n = n;
     knot_count = static_cast<float>(n);
-    knot_cell_angle = TWO_PI_F / n;
+    knot_cell_angle = math::TWO_PI_F / n;
     prefilter = &pf;
     float min_shift = kn[0];
     float max_shift = kn[0];
@@ -368,8 +371,10 @@ public:
 
     max_distortion = std::max(std::abs(min_shift), std::abs(max_shift));
     max_thickness = thickness + max_distortion;
-    float ang_min = hs::clamp(target_angle + min_shift - thickness, 0.0f, PI_F);
-    float ang_max = hs::clamp(target_angle + max_shift + thickness, 0.0f, PI_F);
+    float ang_min =
+        hs::clamp(target_angle + min_shift - thickness, 0.0f, math::PI_F);
+    float ang_max =
+        hs::clamp(target_angle + max_shift + thickness, 0.0f, math::PI_F);
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
   }
@@ -379,7 +384,7 @@ public:
    * @details The ring retains its basis by reference, so binding a temporary
    * would leave every later read of basis dangling.
    */
-  DistortedRing(const Basis &&, float, float, const float *, int, float,
+  DistortedRing(const math::Basis &&, float, float, const float *, int, float,
                 KnotPrefilter &) = delete;
 
   /**
@@ -392,7 +397,7 @@ public:
 
     float margin = max_thickness + BOUNDS_MARGIN_WIDE;
     float f_phi_min = std::max(0.0f, band.phi_min - margin);
-    float f_phi_max = std::min(PI_F, band.phi_max + margin);
+    float f_phi_max = std::min(math::PI_F, band.phi_max + margin);
 
     return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
   }
@@ -408,10 +413,10 @@ public:
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    float cos_phi = TrigLUT<W, H>::cos_phi[y];
-    float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    float cos_phi = math::TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
 
     if (r_val < MIN_HORIZONTAL_PROJ)
       return false;
@@ -440,16 +445,16 @@ public:
    * = unsigned centerline distance, t = azimuth in [0,1) when ComputeUVs.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    float d = dot(p, normal);
+  void distance(const math::Vector &p, DistanceResult &res) const {
+    float d = math::dot(p, normal);
     // Early reject: outside bounding annulus
     if (d < cos_min_limit || d > cos_max_limit) {
       res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
     }
-    float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+    float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
 
-    float t_norm = wrap_t(basis_azimuth(p, u, w, phase) / TWO_PI_F);
+    float t_norm = math::wrap_t(basis_azimuth(p, u, w, phase) / math::TWO_PI_F);
 
     float dist;
     if (knots)
@@ -532,7 +537,7 @@ private:
     // whose polar offset clears all three knot ranges by more than thickness
     // skips the segment search (most band pixels, in a displaced ring).
     constexpr int CHUNKS = KnotPrefilter::CHUNKS;
-    const float chunk_u = (TWO_PI_F / CHUNKS) * sin_polar;
+    const float chunk_u = (math::TWO_PI_F / CHUNKS) * sin_polar;
     if (chunk_u >= thickness) {
       const KnotPrefilter &pf = *prefilter;
       int c = static_cast<int>(t_norm * CHUNKS);
@@ -651,7 +656,7 @@ struct FlatDistortedRing : private DistortedRing {
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
    */
-  FlatDistortedRing(const Basis &b, float r, float th, float ph = 0.0f)
+  FlatDistortedRing(const math::Basis &b, float r, float th, float ph = 0.0f)
       : DistortedRing(b, r, th, 0.0f, ph) {}
 
   /**
@@ -659,7 +664,7 @@ struct FlatDistortedRing : private DistortedRing {
    * @details The ring retains its basis by reference, so binding a temporary
    * would leave every later read of basis dangling.
    */
-  FlatDistortedRing(const Basis &&, float, float, float = 0.0f) = delete;
+  FlatDistortedRing(const math::Basis &&, float, float, float = 0.0f) = delete;
 
   /**
    * @brief Maps the undisplaced ring's latitude band to its row range.
@@ -672,8 +677,9 @@ struct FlatDistortedRing : private DistortedRing {
    */
   template <int H> Bounds get_vertical_bounds() const {
     PhiBand band = clamp_phi_band(center_phi, target_angle);
-    return phi_bounds_to_rows<H>(std::max(0.0f, band.phi_min - thickness),
-                                 std::min(PI_F, band.phi_max + thickness));
+    return phi_bounds_to_rows<H>(
+        std::max(0.0f, band.phi_min - thickness),
+        std::min(math::PI_F, band.phi_max + thickness));
   }
 
   /**
@@ -684,17 +690,17 @@ struct FlatDistortedRing : private DistortedRing {
    *        centerline distance, t = azimuth in [0,1) when ComputeUVs.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    float d = dot(p, normal);
+  void distance(const math::Vector &p, DistanceResult &res) const {
+    float d = math::dot(p, normal);
     if (d < cos_min_limit || d > cos_max_limit) {
       res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, thickness);
       return;
     }
 
-    float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+    float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
     float t_norm = 0.0f;
     if constexpr (ComputeUVs) {
-      t_norm = wrap_t(basis_azimuth(p, u, w, phase) / TWO_PI_F);
+      t_norm = math::wrap_t(basis_azimuth(p, u, w, phase) / math::TWO_PI_F);
     }
 
     float dist = std::abs(polar - target_angle);

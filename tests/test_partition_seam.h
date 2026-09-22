@@ -82,7 +82,7 @@ inline void render(std::vector<Pixel> &out, const MeshState &mesh,
  * @brief Renders a mesh filled flat with FILL on every face.
  */
 inline void render_flat(std::vector<Pixel> &out, const MeshState &mesh) {
-  render(out, mesh, [](const Vector &, Fragment &f) {
+  render(out, mesh, [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(FILL, FILL, FILL), 1.0f);
   });
 }
@@ -93,7 +93,7 @@ inline void render_flat(std::vector<Pixel> &out, const MeshState &mesh) {
  */
 inline void render_gradient(std::vector<Pixel> &out, const MeshState &mesh,
                             float gain) {
-  render(out, mesh, [gain](const Vector &, Fragment &f) {
+  render(out, mesh, [gain](const math::Vector &, Fragment &f) {
     const float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
     const uint16_t v = static_cast<uint16_t>(t * FILL);
     f.color = Color4(Pixel(v, v, v), 1.0f);
@@ -140,16 +140,16 @@ struct SeamStats {
  * @param px Receives the column.
  * @param py Receives the row.
  */
-inline void project(const Vector &v, int &px, int &py) {
+inline void project(const math::Vector &v, int &px, int &py) {
   float best = -2.0f;
   px = py = 0;
   for (int y = 0; y < PS_H; ++y) {
-    const float sp = TrigLUT<PS_W, PS_H>::sin_phi[y];
-    const float cp = TrigLUT<PS_W, PS_H>::cos_phi[y];
+    const float sp = math::TrigLUT<PS_W, PS_H>::sin_phi[y];
+    const float cp = math::TrigLUT<PS_W, PS_H>::cos_phi[y];
     for (int x = 0; x < PS_W; ++x) {
-      const Vector p(sp * TrigLUT<PS_W, PS_H>::cos_theta(x), cp,
-                     sp * TrigLUT<PS_W, PS_H>::sin_theta[x]);
-      const float d = dot(p, v);
+      const math::Vector p(sp * math::TrigLUT<PS_W, PS_H>::cos_theta(x), cp,
+                           sp * math::TrigLUT<PS_W, PS_H>::sin_theta[x]);
+      const float d = math::dot(p, v);
       if (d > best) {
         best = d;
         px = x;
@@ -167,7 +167,7 @@ inline void project(const Vector &v, int &px, int &py) {
  */
 inline SeamStats compare(const std::vector<Pixel> &a,
                          const std::vector<Pixel> &b,
-                         const std::vector<Vector> &verts) {
+                         const std::vector<math::Vector> &verts) {
   SeamStats st;
   const size_t n = a.size();
   std::vector<uint8_t> changed(n, 0);
@@ -258,7 +258,7 @@ inline SeamStats compare(const std::vector<Pixel> &a,
     return st;
 
   std::vector<uint8_t> near_v(n, 0);
-  for (const Vector &v : verts) {
+  for (const math::Vector &v : verts) {
     int px = 0, py = 0;
     project(v, px, py);
     for (int dy = -VERT_RADIUS; dy <= VERT_RADIUS; ++dy) {
@@ -522,8 +522,8 @@ inline std::vector<Pixel> diff_image(const std::vector<Pixel> &a,
 /**
  * @brief Copies a mesh's vertices out for the near-vertex split.
  */
-inline std::vector<Vector> vertex_list(const PolyMesh &m) {
-  std::vector<Vector> v;
+inline std::vector<math::Vector> vertex_list(const PolyMesh &m) {
+  std::vector<math::Vector> v;
   for (size_t i = 0; i < m.vertices.size(); ++i)
     v.push_back(m.vertices[i]);
   return v;

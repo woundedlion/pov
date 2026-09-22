@@ -164,24 +164,24 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     HS_CHECK(static_cast<size_t>(fo[f]) + count <= fi_size,
              "mesh face span exceeds face index array");
     const uint16_t *idx = fi + fo[f];
-    Vector center(0, 0, 0);
+    math::Vector center(0, 0, 0);
     for (int k = 0; k < count; ++k) {
       HS_CHECK(static_cast<size_t>(idx[k]) < V,
                "mesh face vertex index out of range");
       center = center + mesh.vertices[idx[k]];
     }
-    center =
-        normalized_or(center, normalized_or(mesh.vertices[idx[0]], X_AXIS));
-    Vector u = perpendicular_axis(center);
-    Vector w = cross(center, u).normalized();
+    center = math::normalized_or(
+        center, math::normalized_or(mesh.vertices[idx[0]], math::X_AXIS));
+    math::Vector u = math::perpendicular_axis(center);
+    math::Vector w = math::cross(center, u).normalized();
     float mx = 0.0f, my = 0.0f;
     for (int k = 0; k < count; ++k) {
-      const Vector &v = mesh.vertices[idx[k]];
-      float d = dot(v, center);
+      const math::Vector &v = mesh.vertices[idx[k]];
+      float d = math::dot(v, center);
       if (fabsf(d) < math::TOLERANCE)
         d = copysignf(math::TOLERANCE, d);
-      zx[k] = dot(v, u) / d;
-      zy[k] = dot(v, w) / d;
+      zx[k] = math::dot(v, u) / d;
+      zy[k] = math::dot(v, w) / d;
       mx += zx[k];
       my += zy[k];
     }

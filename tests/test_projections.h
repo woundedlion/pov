@@ -24,15 +24,15 @@ static_assert(std::size(AIROCEAN_PLANAR_FACES) == AIROCEAN_FACE_COUNT);
 static_assert(std::size(AIROCEAN_TRANSFORMS) == AIROCEAN_FACE_COUNT);
 static_assert(std::size(AIROCEAN_CUT_MASKS) == AIROCEAN_FACE_COUNT);
 
-inline Vector direction(float latitude, float longitude) {
+inline math::Vector direction(float latitude, float longitude) {
   const float radius = cosf(latitude);
-  return Vector(radius * cosf(longitude), sinf(latitude),
-                radius * sinf(longitude));
+  return math::Vector(radius * cosf(longitude), sinf(latitude),
+                      radius * sinf(longitude));
 }
 
 /** @brief The kernel's y-up to z-up permutation, as airocean_projection does it
  *         at a zero central meridian. */
-inline AiroceanVector airocean_axes(const Vector &v) {
+inline AiroceanVector airocean_axes(const math::Vector &v) {
   return AiroceanVector{v.x, v.z, v.y};
 }
 
@@ -93,23 +93,24 @@ inline void test_wrap_longitude_range() {
   for (int step = -40; step <= 40; ++step) {
     const float raw = step * 0.4f;
     const float wrapped = wrap_longitude(raw);
-    HS_EXPECT_GE(wrapped, -PI_F);
-    HS_EXPECT_LT(wrapped, PI_F);
+    HS_EXPECT_GE(wrapped, -math::PI_F);
+    HS_EXPECT_LT(wrapped, math::PI_F);
     HS_EXPECT_NEAR(cosf(wrapped), cosf(raw), 2e-6f);
     HS_EXPECT_NEAR(sinf(wrapped), sinf(raw), 2e-6f);
     HS_EXPECT_NEAR(wrap_longitude(wrapped), wrapped, 1e-6f);
   }
-  HS_EXPECT_EQ(wrap_longitude(PI_F), -PI_F);
-  HS_EXPECT_EQ(wrap_longitude(-PI_F), -PI_F);
-  HS_EXPECT_EQ(wrap_longitude(3.0f * PI_F), -PI_F);
+  HS_EXPECT_EQ(wrap_longitude(math::PI_F), -math::PI_F);
+  HS_EXPECT_EQ(wrap_longitude(-math::PI_F), -math::PI_F);
+  HS_EXPECT_EQ(wrap_longitude(3.0f * math::PI_F), -math::PI_F);
 }
 
 inline void test_bonne_sinusoidal_limit() {
   for (int latitude_step = -12; latitude_step <= 12; ++latitude_step) {
-    const float latitude = latitude_step * (0.5f * PI_F / 12.0f);
+    const float latitude = latitude_step * (0.5f * math::PI_F / 12.0f);
     for (int longitude_step = 0; longitude_step < 16; ++longitude_step) {
-      const float longitude = longitude_step * (TWO_PI_F / 16.0f) - PI_F + 0.1f;
-      const Vector v = direction(latitude, longitude);
+      const float longitude =
+          longitude_step * (math::TWO_PI_F / 16.0f) - math::PI_F + 0.1f;
+      const math::Vector v = direction(latitude, longitude);
       const ProjectionKernelResult flat = bonne_projection(v, 0.0f, 0.0f);
       const float measured_latitude = asinf(hs::clamp(v.y, -1.0f, 1.0f));
       const float measured_longitude = wrap_longitude(atan2f(v.z, v.x));
@@ -124,9 +125,9 @@ inline void test_bonne_sinusoidal_limit() {
 }
 
 inline void test_bonne_polar_limit_is_finite() {
-  for (float standard_parallel : {0.5f * PI_F, -0.5f * PI_F}) {
+  for (float standard_parallel : {0.5f * math::PI_F, -0.5f * math::PI_F}) {
     for (int step = -8; step <= 8; ++step) {
-      const Vector v = direction(step * (0.5f * PI_F / 8.0f), 0.7f);
+      const math::Vector v = direction(step * (0.5f * math::PI_F / 8.0f), 0.7f);
       const ProjectionKernelResult werner =
           bonne_projection(v, 0.0f, standard_parallel);
       HS_EXPECT_TRUE(std::isfinite(werner.coords.re));
@@ -137,15 +138,15 @@ inline void test_bonne_polar_limit_is_finite() {
 }
 
 inline void test_peirce_elliptic_integral_shape() {
-  HS_EXPECT_NEAR(peirce_elliptic_integral(0.25f * PI_F), 0.8260178762492452f,
-                 1e-6f);
+  HS_EXPECT_NEAR(peirce_elliptic_integral(0.25f * math::PI_F),
+                 0.8260178762492452f, 1e-6f);
   HS_EXPECT_NEAR(peirce_elliptic_integral(0.0f), 0.0f, 1e-7f);
-  HS_EXPECT_NEAR(peirce_elliptic_integral(0.5f * PI_F), PEIRCE_QUARTER_PERIOD,
-                 1e-6f);
-  float previous = peirce_elliptic_integral(-0.5f * PI_F);
+  HS_EXPECT_NEAR(peirce_elliptic_integral(0.5f * math::PI_F),
+                 PEIRCE_QUARTER_PERIOD, 1e-6f);
+  float previous = peirce_elliptic_integral(-0.5f * math::PI_F);
   HS_EXPECT_NEAR(previous, -PEIRCE_QUARTER_PERIOD, 1e-6f);
   for (int step = -63; step <= 64; ++step) {
-    const float phi = step * (0.5f * PI_F / 64.0f);
+    const float phi = step * (0.5f * math::PI_F / 64.0f);
     const float value = peirce_elliptic_integral(phi);
     HS_EXPECT_GT(value, previous);
     HS_EXPECT_NEAR(peirce_elliptic_integral(-phi), -value, 1e-6f);
@@ -154,23 +155,24 @@ inline void test_peirce_elliptic_integral_shape() {
 }
 
 inline void test_peirce_sector_longitude_snapping() {
-  HS_EXPECT_EQ(peirce_sector_longitude(Vector(0.0f, 1.0f, 0.0f), 0.0f),
-               0.5f * PI_F);
-  HS_EXPECT_EQ(peirce_sector_longitude(Vector(0.0f, -1.0f, 0.0f), 0.0f),
-               0.5f * PI_F);
-  constexpr std::array<float, 4> BOUNDARIES = {-0.75f * PI_F, -0.25f * PI_F,
-                                               0.25f * PI_F, 0.75f * PI_F};
+  HS_EXPECT_EQ(peirce_sector_longitude(math::Vector(0.0f, 1.0f, 0.0f), 0.0f),
+               0.5f * math::PI_F);
+  HS_EXPECT_EQ(peirce_sector_longitude(math::Vector(0.0f, -1.0f, 0.0f), 0.0f),
+               0.5f * math::PI_F);
+  constexpr std::array<float, 4> BOUNDARIES = {
+      -0.75f * math::PI_F, -0.25f * math::PI_F, 0.25f * math::PI_F,
+      0.75f * math::PI_F};
   for (float boundary : BOUNDARIES)
     for (float offset : {-1e-6f, 0.0f, 1e-6f}) {
       const float angle = boundary + offset;
-      const Vector v(cosf(angle), 0.0f, sinf(angle));
+      const math::Vector v(cosf(angle), 0.0f, sinf(angle));
       HS_EXPECT_EQ(peirce_sector_longitude(v, 0.0f), boundary);
     }
-  const Vector interior(cosf(0.5f), 0.0f, sinf(0.5f));
+  const math::Vector interior(cosf(0.5f), 0.0f, sinf(0.5f));
   HS_EXPECT_NEAR(peirce_sector_longitude(interior, 0.0f), 0.5f, 1e-6f);
 }
 
-inline void check_peirce_fast_square_matches_exact(const Vector &v) {
+inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
   const ProjectionKernelResult exact = peirce_projection(
       v, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
   const ProjectionKernelResult fast = peirce_projection_fast_square(v);
@@ -191,9 +193,10 @@ inline void test_peirce_fast_square_matches_exact() {
     const float y = -1.0f + 2.0f * latitude_step / 96.0f;
     const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
     for (int longitude_step = 0; longitude_step < 96; ++longitude_step) {
-      const float angle = PI_F * (2 * longitude_step + 1) / 96.0f - PI_F;
+      const float angle =
+          math::PI_F * (2 * longitude_step + 1) / 96.0f - math::PI_F;
       check_peirce_fast_square_matches_exact(
-          Vector(radius * cosf(angle), y, radius * sinf(angle)));
+          math::Vector(radius * cosf(angle), y, radius * sinf(angle)));
     }
   }
 }
@@ -203,10 +206,10 @@ inline void test_peirce_fast_square_rounded_pole_cap() {
   for (float sign : {-1.0f, 1.0f})
     for (float radius : {1e-6f, 1e-5f, 1e-4f, 2e-4f, 3e-4f, 1e-3f})
       for (int longitude = 0; longitude < 64; ++longitude) {
-        const float angle = (longitude + 0.5f) * TWO_PI_F / 64.0f;
-        const Vector v(radius * cosf(angle),
-                       sign * sqrtf(1.0f - radius * radius),
-                       radius * sinf(angle));
+        const float angle = (longitude + 0.5f) * math::TWO_PI_F / 64.0f;
+        const math::Vector v(radius * cosf(angle),
+                             sign * sqrtf(1.0f - radius * radius),
+                             radius * sinf(angle));
         const auto exact = peirce_projection(
             v, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
         const auto fast = peirce_projection_fast_square(v);
@@ -216,20 +219,23 @@ inline void test_peirce_fast_square_rounded_pole_cap() {
 
 inline void test_peirce_fast_square_on_seams_and_poles() {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
-  check_peirce_fast_square_matches_exact(Vector(0.0f, 1.0f, 0.0f));
-  check_peirce_fast_square_matches_exact(Vector(0.0f, -1.0f, 0.0f));
+  check_peirce_fast_square_matches_exact(math::Vector(0.0f, 1.0f, 0.0f));
+  check_peirce_fast_square_matches_exact(math::Vector(0.0f, -1.0f, 0.0f));
   for (int latitude_step = -7; latitude_step <= 7; ++latitude_step) {
     const float y = latitude_step / 8.0f;
     const float radius = sqrtf(1.0f - y * y);
     const float diagonal = radius * INV_SQRT_TWO;
-    check_peirce_fast_square_matches_exact(Vector(diagonal, y, diagonal));
-    check_peirce_fast_square_matches_exact(Vector(-diagonal, y, diagonal));
-    check_peirce_fast_square_matches_exact(Vector(-diagonal, y, -diagonal));
-    check_peirce_fast_square_matches_exact(Vector(diagonal, y, -diagonal));
-    check_peirce_fast_square_matches_exact(Vector(radius, y, 0.0f));
-    check_peirce_fast_square_matches_exact(Vector(0.0f, y, radius));
-    check_peirce_fast_square_matches_exact(Vector(-radius, y, 0.0f));
-    check_peirce_fast_square_matches_exact(Vector(0.0f, y, -radius));
+    check_peirce_fast_square_matches_exact(math::Vector(diagonal, y, diagonal));
+    check_peirce_fast_square_matches_exact(
+        math::Vector(-diagonal, y, diagonal));
+    check_peirce_fast_square_matches_exact(
+        math::Vector(-diagonal, y, -diagonal));
+    check_peirce_fast_square_matches_exact(
+        math::Vector(diagonal, y, -diagonal));
+    check_peirce_fast_square_matches_exact(math::Vector(radius, y, 0.0f));
+    check_peirce_fast_square_matches_exact(math::Vector(0.0f, y, radius));
+    check_peirce_fast_square_matches_exact(math::Vector(-radius, y, 0.0f));
+    check_peirce_fast_square_matches_exact(math::Vector(0.0f, y, -radius));
   }
 }
 
@@ -249,11 +255,11 @@ inline void test_peirce_fast_square_ties_the_diagonal_band_to_its_seam() {
       const float sx = static_cast<float>(QUADRANT_X[quadrant]);
       const float sz = static_cast<float>(QUADRANT_Z[quadrant]);
       const ProjectionKernelResult seam = peirce_projection_fast_square(
-          Vector(sx * diagonal, y, sz * diagonal));
+          math::Vector(sx * diagonal, y, sz * diagonal));
       for (float offset : OFFSETS) {
         const ProjectionKernelResult banded = peirce_projection_fast_square(
-            Vector(sx * diagonal * (1.0f + offset), y,
-                   sz * diagonal * (1.0f - offset)));
+            math::Vector(sx * diagonal * (1.0f + offset), y,
+                         sz * diagonal * (1.0f - offset)));
         HS_EXPECT_EQ(banded.region_id, seam.region_id);
         HS_EXPECT_EQ(banded.edge_class, seam.edge_class);
       }
@@ -269,7 +275,7 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
   constexpr float SATURATION = 1e-3f;
   for (float x : {INV_SQRT_TWO, -INV_SQRT_TWO})
     for (float z : {INV_SQRT_TWO, -INV_SQRT_TWO}) {
-      const Vector singular(x, 0.0f, z);
+      const math::Vector singular(x, 0.0f, z);
       for (uint8_t layout : {uint8_t(0), uint8_t(1), uint8_t(2), uint8_t(3)})
         HS_EXPECT_NEAR(peirce_projection(
                            singular, 0.0f,
@@ -282,18 +288,18 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
   // The four regular equatorial points sit a half-quadrant from the nearest
   // singularity, and read the same distance on both sides of the equator.
   for (int quadrant = 0; quadrant < 4; ++quadrant) {
-    const float longitude = quadrant * (0.5f * PI_F);
+    const float longitude = quadrant * (0.5f * math::PI_F);
     for (float latitude : {-1e-4f, 1e-4f})
       HS_EXPECT_NEAR(
           peirce_projection(direction(latitude, longitude), 0.0f,
                             static_cast<projections::PeirceLayout>(1), 0.0f)
               .fade_edge_distance,
-          0.25f * PI_F, 1e-4f);
+          0.25f * math::PI_F, 1e-4f);
   }
   // Distance falls monotonically as the equator walks into the singularity.
   float previous = -1.0f;
   for (int step = 0; step <= 16; ++step) {
-    const float longitude = 0.25f * PI_F * (1.0f - step / 16.0f);
+    const float longitude = 0.25f * math::PI_F * (1.0f - step / 16.0f);
     const float distance =
         peirce_projection(direction(0.0f, longitude), 0.0f,
                           static_cast<projections::PeirceLayout>(1), 0.0f)
@@ -306,10 +312,11 @@ inline void test_peirce_edge_distance_locates_the_singularities() {
 inline void test_peirce_square_is_the_rotated_diamond() {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   for (int latitude_step = -8; latitude_step <= 8; ++latitude_step) {
-    const float latitude = latitude_step * (0.5f * PI_F / 8.0f);
+    const float latitude = latitude_step * (0.5f * math::PI_F / 8.0f);
     for (int longitude_step = 0; longitude_step < 12; ++longitude_step) {
-      const Vector v = direction(latitude, longitude_step * (TWO_PI_F / 12.0f) -
-                                               PI_F + 0.2f);
+      const math::Vector v =
+          direction(latitude, longitude_step * (math::TWO_PI_F / 12.0f) -
+                                  math::PI_F + 0.2f);
       const ProjectionKernelResult diamond = peirce_projection(
           v, 0.0f, static_cast<projections::PeirceLayout>(0), 0.0f);
       const ProjectionKernelResult square = peirce_projection(
@@ -328,10 +335,11 @@ inline void test_peirce_square_is_the_rotated_diamond() {
 inline void test_peirce_strip_scroll_is_periodic() {
   for (uint8_t layout : {uint8_t(2), uint8_t(3)})
     for (int latitude_step = -6; latitude_step <= 6; ++latitude_step) {
-      const float latitude = latitude_step * (0.5f * PI_F / 6.0f);
+      const float latitude = latitude_step * (0.5f * math::PI_F / 6.0f);
       for (int longitude_step = 0; longitude_step < 8; ++longitude_step) {
-        const Vector v = direction(
-            latitude, longitude_step * (TWO_PI_F / 8.0f) - PI_F + 0.15f);
+        const math::Vector v =
+            direction(latitude, longitude_step * (math::TWO_PI_F / 8.0f) -
+                                    math::PI_F + 0.15f);
         const ProjectionKernelResult base = peirce_projection(
             v, 0.0f, static_cast<projections::PeirceLayout>(layout), 0.125f);
         const ProjectionKernelResult wrapped = peirce_projection(
@@ -348,8 +356,8 @@ inline void test_peirce_strip_scroll_is_periodic() {
 inline void test_peirce_strip_tears_the_unglued_equator() {
   constexpr float LATITUDE = 1e-4f;
   for (uint8_t layout : {uint8_t(2), uint8_t(3)}) {
-    const float torn = layout == 2 ? 0.0f : 0.5f * PI_F;
-    const float glued = layout == 2 ? 0.5f * PI_F : 0.0f;
+    const float torn = layout == 2 ? 0.0f : 0.5f * math::PI_F;
+    const float glued = layout == 2 ? 0.5f * math::PI_F : 0.0f;
     const ProjectionKernelResult north =
         peirce_projection(direction(LATITUDE, torn), 0.0f,
                           static_cast<projections::PeirceLayout>(layout), 0.0f);
@@ -507,8 +515,9 @@ inline void test_airocean_projection_stays_inside_its_face() {
     const float y = -1.0f + 2.0f * latitude_step / 48.0f;
     const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
     for (int longitude_step = 0; longitude_step < 64; ++longitude_step) {
-      const float angle = TWO_PI_F * (longitude_step + 0.31f) / 64.0f - PI_F;
-      const Vector v(radius * cosf(angle), y, radius * sinf(angle));
+      const float angle =
+          math::TWO_PI_F * (longitude_step + 0.31f) / 64.0f - math::PI_F;
+      const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
       const ProjectionKernelResult net = airocean_projection(v, 0.0f, false);
       const size_t face = net.region_id;
       HS_EXPECT_LT(face, AIROCEAN_FACE_COUNT);
@@ -554,7 +563,7 @@ inline void test_airocean_projection_face_index_stays_in_range() {
               magnitude /
               sqrtf(seam.x * seam.x + seam.y * seam.y + seam.z * seam.z);
           // Inverse of airocean_axes: the kernel reads y-up, the faces z-up.
-          const Vector v(seam.x * scale, seam.z * scale, seam.y * scale);
+          const math::Vector v(seam.x * scale, seam.z * scale, seam.y * scale);
           HS_EXPECT_LT(size_t(airocean_projection(v, 0.0f, false).region_id),
                        AIROCEAN_FACE_COUNT);
         }
@@ -566,7 +575,8 @@ inline void test_airocean_projection_face_index_stays_in_range() {
     for (float y : exotic)
       for (float z : exotic)
         HS_EXPECT_LT(
-            size_t(airocean_projection(Vector(x, y, z), 0.4f, false).region_id),
+            size_t(airocean_projection(math::Vector(x, y, z), 0.4f, false)
+                       .region_id),
             AIROCEAN_FACE_COUNT);
 }
 
@@ -596,10 +606,10 @@ inline void test_projection_trait_packing() {
                                  ProjectionTrait::SINGULAR),
                19);
   const ProjectionKernelResult bonne =
-      bonne_projection(Vector(1.0f, 0.0f, 0.0f), 0.0f, 0.4f);
+      bonne_projection(math::Vector(1.0f, 0.0f, 0.0f), 0.0f, 0.4f);
   HS_EXPECT_EQ(bonne.traits, projection_traits(ProjectionTrait::CUT));
   const ProjectionKernelResult peirce =
-      peirce_projection(Vector(1.0f, 0.0f, 0.0f), 0.0f,
+      peirce_projection(math::Vector(1.0f, 0.0f, 0.0f), 0.0f,
                         static_cast<projections::PeirceLayout>(1), 0.0f);
   HS_EXPECT_EQ(peirce.traits & projection_traits(ProjectionTrait::GLUED,
                                                  ProjectionTrait::FOLDED,
@@ -612,7 +622,7 @@ inline void test_projection_trait_packing() {
 inline void test_cylindrical_coordinates() {
   for (float latitude : {-0.7f, 0.0f, 0.7f}) {
     for (float longitude : {-2.0f, -0.5f, 0.5f, 2.0f}) {
-      const Vector v = direction(latitude, longitude);
+      const math::Vector v = direction(latitude, longitude);
       const auto rectangular = equirectangular(v, 0.2f);
       const auto folded = folded_sinusoidal(v, 0.2f);
       HS_EXPECT_NEAR(rectangular.re, longitude - 0.2f, 0.005f);

@@ -575,7 +575,7 @@ private:
  * @tparam CAPACITY Max number of active transformations.
  */
 template <typename ParamsT, typename AnimT,
-          Vector (*TransformFunc)(const Vector &, const ParamsT &),
+          math::Vector (*TransformFunc)(const math::Vector &, const ParamsT &),
           int CAPACITY = 32>
 class Transformer : public TransformerPool<ParamsT, AnimT, CAPACITY> {
 public:
@@ -588,7 +588,7 @@ public:
    * @note Reads each active entity's prepared state; see prepare_frame() for the
    * ordering contract. Per-pixel hot path — no guard here by design.
    */
-  HS_O3_FN Vector transform(Vector v) const {
+  HS_O3_FN math::Vector transform(math::Vector v) const {
     for (int k = 0; k < this->active_slot_count; ++k) {
       v = TransformFunc(v, this->entities[this->active_slots[k]].params);
     }
@@ -600,7 +600,9 @@ public:
    * @param v Vector to transform.
    * @return The transformed vector.
    */
-  HS_O3_FN Vector operator()(const Vector &v) const { return transform(v); }
+  HS_O3_FN math::Vector operator()(const math::Vector &v) const {
+    return transform(v);
+  }
 };
 
 /** @brief Denominator floor below which DominantFieldAccumulator::value()
@@ -650,7 +652,7 @@ private:
  * dominant blend never exceeds the largest contribution in magnitude.
  */
 template <typename ParamsT, typename AnimT,
-          float (*FieldFunc)(const Vector &, const ParamsT &),
+          float (*FieldFunc)(const math::Vector &, const ParamsT &),
           int CAPACITY = 32>
 class FieldTransformer : public TransformerPool<ParamsT, AnimT, CAPACITY> {
 public:
@@ -663,7 +665,7 @@ public:
    * @note Reads each active entity's prepared state; see prepare_frame() for the
    * ordering contract. Per-sample hot path — no guard here by design.
    */
-  float field(const Vector &p) const {
+  float field(const math::Vector &p) const {
     float s = 0.0f;
     for (int k = 0; k < this->active_slot_count; ++k) {
       s += FieldFunc(p, this->entities[this->active_slots[k]].params);
@@ -676,7 +678,7 @@ public:
    * @param p Sample point (unit vector).
    * @return The superposed field value.
    */
-  float operator()(const Vector &p) const { return field(p); }
+  float operator()(const math::Vector &p) const { return field(p); }
 
   /**
    * @brief Upper bound on |field()| over the sphere this frame.
@@ -698,14 +700,14 @@ public:
  * @tparam CAPACITY History capacity of the wrapped Orientation.
  */
 template <int CAPACITY = 4> struct OrientTransformer {
-  const Orientation<CAPACITY> &
+  const math::Orientation<CAPACITY> &
       orientation; /**< Orientation applied by each transform; retained by reference. */
 
   /**
    * @brief Constructs an adapter wrapping an orientation.
    * @param ori Orientation to apply; retained by reference.
    */
-  explicit OrientTransformer(const Orientation<CAPACITY> &ori)
+  explicit OrientTransformer(const math::Orientation<CAPACITY> &ori)
       : orientation(ori) {}
 
   /**
@@ -713,14 +715,14 @@ template <int CAPACITY = 4> struct OrientTransformer {
    * @details The adapter retains its argument by reference, so binding a
    * temporary would leave every later transform() reading a dead object.
    */
-  explicit OrientTransformer(const Orientation<CAPACITY> &&) = delete;
+  explicit OrientTransformer(const math::Orientation<CAPACITY> &&) = delete;
 
   /**
    * @brief Orients a vector through the wrapped orientation.
    * @param v Vector to transform.
    * @return The oriented vector.
    */
-  HS_O3_FN Vector transform(const Vector &v) const {
+  HS_O3_FN math::Vector transform(const math::Vector &v) const {
     return orientation.orient(v);
   }
 
@@ -729,11 +731,14 @@ template <int CAPACITY = 4> struct OrientTransformer {
    * @param v Vector to transform.
    * @return The oriented vector.
    */
-  HS_O3_FN Vector operator()(const Vector &v) const { return transform(v); }
+  HS_O3_FN math::Vector operator()(const math::Vector &v) const {
+    return transform(v);
+  }
 };
 
 template <int CAPACITY>
-OrientTransformer(const Orientation<CAPACITY> &) -> OrientTransformer<CAPACITY>;
+OrientTransformer(const math::Orientation<CAPACITY> &)
+    -> OrientTransformer<CAPACITY>;
 
 /** @brief Largest ripple rotation the series-form quaternion may take; at
  * theta/2 <= 0.075 the truncated sin/cos series err under 3 float ulps. */
@@ -747,18 +752,18 @@ constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
  * @param phase Angular position of the wavelet peak.
  * @return The displaced vector.
  */
-HS_O3_FN inline Vector
-ripple_transform_at_distance(const Vector &v,
+HS_O3_FN inline math::Vector
+ripple_transform_at_distance(const math::Vector &v,
                              const Animation::RippleParams &params,
                              float distance, float phase) {
   float dist_from_peak = distance - phase;
   float half_width = params.half_width();
   float t = (dist_from_peak / half_width) * 2.0f;
   float theta = params.amplitude * (1.0f - t * t) *
-                fast_expf(-0.5f * t * t - params.decay * distance);
+                math::fast_expf(-0.5f * t * t - params.decay * distance);
 
-  Vector axis = cross(params.center, v);
-  float len_sq = dot(axis, axis);
+  math::Vector axis = math::cross(params.center, v);
+  float len_sq = math::dot(axis, axis);
   if (len_sq > 1e-6f) {
     axis = axis * (1.0f / sqrtf(len_sq));
     if (fabsf(theta) <= RIPPLE_SMALL_ANGLE_MAX) {
@@ -766,10 +771,10 @@ ripple_transform_at_distance(const Vector &v,
       float h2 = h * h;
       float s = h * (1.0f - h2 * (1.0f / 6.0f));
       float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f));
-      return rotate(v, Quaternion(c, s * axis));
+      return math::rotate(v, math::Quaternion(c, s * axis));
     }
-    Quaternion q = make_rotation(axis, theta);
-    return rotate(v, q);
+    math::Quaternion q = math::make_rotation(axis, theta);
+    return math::rotate(v, q);
   }
 
   return v;
@@ -781,8 +786,8 @@ ripple_transform_at_distance(const Vector &v,
  * @param params The ripple parameters.
  * @return The displaced vector.
  */
-HS_O3_FN inline Vector ripple_transform(const Vector &v,
-                                        const Animation::RippleParams &params) {
+HS_O3_FN inline math::Vector
+ripple_transform(const math::Vector &v, const Animation::RippleParams &params) {
   // Between ripples the envelope drives amplitude to 0; skip the whole per-pixel
   // wavelet (fast_acos + fast_expf) when there is nothing to displace.
   if (params.amplitude <= 0.001f)
@@ -792,12 +797,12 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
   // angle, so cos_threshold_min holds the LARGER cosine (nearest angle d_min)
   // and cos_threshold_max the smaller (farthest d_max) — the ordering reads
   // inverted but is correct; do not "fix" it.
-  float cos_d = dot(v, params.center);
+  float cos_d = math::dot(v, params.center);
   if (cos_d > params.cos_threshold_min || cos_d < params.cos_threshold_max) {
     return v;
   }
 
-  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  float d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
   return ripple_transform_at_distance(v, params, d, params.phase);
 }
 
@@ -812,8 +817,8 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v,
  * soft-caps the slide to avoid cross-hemisphere jumps, then renormalizes. No-op
  * when amplitude is negligible.
  */
-inline Vector noise_transform(const Vector &v,
-                              const Animation::NoiseParams &params) {
+inline math::Vector noise_transform(const math::Vector &v,
+                                    const Animation::NoiseParams &params) {
   if (params.amplitude <= 0.001f)
     return v;
 
@@ -836,15 +841,16 @@ inline Vector noise_transform(const Vector &v,
                                    v.y * scale + CHANNEL_Z_OFFSET,
                                    v.z * scale + time_val + CHANNEL_Z_OFFSET);
 
-  Vector raw_noise = Vector(nx, ny, nz) * (params.amplitude * 0.05f);
+  math::Vector raw_noise =
+      math::Vector(nx, ny, nz) * (params.amplitude * 0.05f);
 
   // Project noise onto the tangent plane at v.
-  float inward_pull = dot(raw_noise, v);
-  Vector surface_distortion = raw_noise - (v * inward_pull);
+  float inward_pull = math::dot(raw_noise, v);
+  math::Vector surface_distortion = raw_noise - (v * inward_pull);
 
   // Soft-cap the slide distance to prevent cross-hemisphere grabs.
   constexpr float max_slide = 0.5f;
-  float sd_len_sq = dot(surface_distortion, surface_distortion);
+  float sd_len_sq = math::dot(surface_distortion, surface_distortion);
   if (sd_len_sq > max_slide * max_slide) {
     surface_distortion = surface_distortion * (max_slide / sqrtf(sd_len_sq));
   }
@@ -868,7 +874,8 @@ inline float bump_field_profile(const Animation::BumpParams &params,
   float abs_y = std::fabs(y);
   float x_sq = std::max(d * d - y * y, 0.0f);
   float depth = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
-  float drape = std::min(params.amplitude * sinf(PI_F * abs_y / r_eff), 1.0f);
+  float drape =
+      std::min(params.amplitude * sinf(math::PI_F * abs_y / r_eff), 1.0f);
   return copysignf(depth * drape, y);
 }
 
@@ -882,15 +889,15 @@ inline float bump_field_profile(const Animation::BumpParams &params,
  * @return Whether @p v lies inside the cap and the gain is non-negligible.
  */
 __attribute__((always_inline)) inline bool
-bump_cap_hit(const Vector &v, const Animation::BumpParams &params, float &r_eff,
-             float &d) {
+bump_cap_hit(const math::Vector &v, const Animation::BumpParams &params,
+             float &r_eff, float &d) {
   r_eff = params.radius * params.envelope;
   if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
     return false;
-  float cos_d = dot(v, params.center);
+  float cos_d = math::dot(v, params.center);
   if (cos_d <= params.cos_radius)
     return false;
-  d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
   return d < r_eff;
 }
 
@@ -906,7 +913,7 @@ bump_cap_hit(const Vector &v, const Animation::BumpParams &params, float &r_eff,
  * bump axis). A @p y disagreeing with @p v breaks bump_field_profile()'s bound
  * and with it BumpParams::field_bound().
  */
-inline float bump_field_with_y(const Vector &v,
+inline float bump_field_with_y(const math::Vector &v,
                                const Animation::BumpParams &params, float y) {
   float r_eff, d;
   if (!bump_cap_hit(v, params, r_eff, d))
@@ -933,7 +940,8 @@ inline float bump_field_with_y(const Vector &v,
  * pushes toward larger colatitude about the axis; points outside the cap are
  * untouched.
  */
-inline float bump_field(const Vector &v, const Animation::BumpParams &params) {
+inline float bump_field(const math::Vector &v,
+                        const Animation::BumpParams &params) {
   float r_eff, d;
   if (!bump_cap_hit(v, params, r_eff, d))
     return 0.0f;
@@ -943,8 +951,9 @@ inline float bump_field(const Vector &v, const Animation::BumpParams &params) {
   // small-cap approximation. The boundary arc at this azimuth sits at
   // +-sqrt(r_eff^2 - x_sq), so (arc - |y|) is the polar depth inside the cap —
   // an arc-shaped profile along the ring, which keeps the bulge round.
-  float y = fast_acos(hs::clamp(dot(params.axis, v), -1.0f, 1.0f)) -
-            fast_acos(hs::clamp(dot(params.axis, params.center), -1.0f, 1.0f));
+  float y = math::fast_acos(hs::clamp(math::dot(params.axis, v), -1.0f, 1.0f)) -
+            math::fast_acos(
+                hs::clamp(math::dot(params.axis, params.center), -1.0f, 1.0f));
   return bump_field_profile(params, r_eff, d, y);
 }
 
@@ -956,7 +965,7 @@ inline float bump_field(const Vector &v, const Animation::BumpParams &params) {
  * @details Octave 1 envelopes octave 2, so perturbations bunch where the
  * envelope is strong and vanish where it crosses zero.
  */
-inline float noise_product_field(const Vector &v,
+inline float noise_product_field(const math::Vector &v,
                                  const Animation::NoiseProductParams &params) {
   if (std::fabs(params.amplitude) <= 0.001f)
     return 0.0f;

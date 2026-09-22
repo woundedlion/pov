@@ -359,7 +359,7 @@ public:
   }
 
   /** @brief Seeds the entry carrier and runs the chain over @p view. */
-  Color4 evaluate(const Vector &view, const FrameContext &ctx) const {
+  Color4 evaluate(const math::Vector &view, const FrameContext &ctx) const {
     alignas(SLOT_ALIGN) uint8_t slot_a[SLOT_SIZE];
     alignas(SLOT_ALIGN) uint8_t slot_b[SLOT_SIZE];
     void *in = slot_a;

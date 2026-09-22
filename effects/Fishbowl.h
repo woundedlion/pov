@@ -45,7 +45,7 @@ public:
 
   /** @brief Compact multiline control point carrying its palette coordinate. */
   struct TrailVertex {
-    Vector pos;
+    math::Vector pos;
     float palette_t;
 
     operator Fragment() const {
@@ -66,7 +66,7 @@ public:
   HS_COLD_MEMBER Fishbowl()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
-        path([](float) { return Vector(0, 1, 0); }), orientation(),
+        path([](float) { return math::Vector(0, 1, 0); }), orientation(),
         fire_palette({{0.00f, CPixel{0x000000}},
                       {0.18f, CPixel{0x260000}},
                       {0.40f, CPixel{0xD01000}},
@@ -129,17 +129,18 @@ public:
     noise_xform.template_params.speed = params.speed;
 
     // m2 * domain = 5 * 2*PI: path.f(1) == path.f(0), so the curve closes.
-    static constexpr LissajousParams PATH_CONFIG{12.0f, 5.0f, 0, 2 * PI_F};
+    static constexpr math::LissajousParams PATH_CONFIG{12.0f, 5.0f, 0,
+                                                       2 * math::PI_F};
     path.f = [](float t) {
-      return lissajous(PATH_CONFIG.m1, PATH_CONFIG.m2, PATH_CONFIG.a,
-                       t * PATH_CONFIG.domain);
+      return math::lissajous(PATH_CONFIG.m1, PATH_CONFIG.m2, PATH_CONFIG.a,
+                             t * PATH_CONFIG.domain);
     };
 
     auto *warp = noise_xform.spawn_pinned(0, -1);
     HS_CHECK(warp, "Fishbowl: pinned noise spawn must succeed");
 
-    timeline.add(0,
-                 Animation::RandomWalk<W>(orientation, random_vector(), noise));
+    timeline.add(
+        0, Animation::RandomWalk<W>(orientation, math::random_vector(), noise));
     motion = timeline.add_get(
         0,
         Animation::Motion<W, ORIENTATION_SUBSTEPS>(
@@ -196,15 +197,15 @@ public:
 
     {
       HS_PROFILE(fish_build_vertices);
-      Quaternion previous_q;
-      Vector previous_pos;
+      math::Quaternion previous_q;
+      math::Vector previous_pos;
       float previous_t = 0.0f;
       bool have_previous = false;
-      deep_tween(node->trail, [&](const Quaternion &q, float t) {
-        const Vector pos = warped_position(q);
+      deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
+        const math::Vector pos = warped_position(q);
         if (have_previous) {
-          const Quaternion mid_q = slerp(previous_q, q, 0.5f);
-          const Vector mid_pos = warped_position(mid_q);
+          const math::Quaternion mid_q = math::slerp(previous_q, q, 0.5f);
+          const math::Vector mid_pos = warped_position(mid_q);
           if (needs_adaptive_midpoint(previous_pos, mid_pos, pos)) {
             vertices.push_back({mid_pos, 0.5f * (previous_t + t) * fill_scale});
           }
@@ -220,7 +221,7 @@ public:
       });
     }
 
-    auto fragment_shader = [&](const Vector &, Fragment &frag) {
+    auto fragment_shader = [&](const math::Vector &, Fragment &frag) {
       const float age_t = frag.v3 / fill_scale;
       frag.color = shade_trail(frag.v3, age_t);
     };
@@ -255,7 +256,7 @@ private:
     const float *duty_cycle;
 
     float modify(float t) const {
-      const float u = wrap_t(t);
+      const float u = math::wrap_t(t);
       const float duty = hs::clamp(*duty_cycle, 0.0f, 1.0f);
       return duty > 0.0f && u < duty ? u / duty : 1.0f;
     }
@@ -297,10 +298,10 @@ private:
    * @param q Recorded trail orientation.
    * @return Unit position on the sphere.
    */
-  Vector warped_position(const Quaternion &q) const {
-    const Vector pos =
-        noise_xform.transform(orientation.orient(rotate(node->v, q)));
-    return normalized_or(pos, Vector(1, 0, 0));
+  math::Vector warped_position(const math::Quaternion &q) const {
+    const math::Vector pos =
+        noise_xform.transform(orientation.orient(math::rotate(node->v, q)));
+    return math::normalized_or(pos, math::Vector(1, 0, 0));
   }
 
   /**
@@ -312,11 +313,12 @@ private:
    * @return True once `mid` strays a quarter pixel-column from the geodesic
    * midpoint of `a` and `b`.
    */
-  static bool needs_adaptive_midpoint(const Vector &a, const Vector &mid,
-                                      const Vector &b) {
-    constexpr float MAX_ERROR = 0.25f * 2.0f * PI_F / W;
-    const Vector geodesic_mid = slerp(a, b, 0.5f);
-    return angle_between(mid, geodesic_mid) > MAX_ERROR;
+  static bool needs_adaptive_midpoint(const math::Vector &a,
+                                      const math::Vector &mid,
+                                      const math::Vector &b) {
+    constexpr float MAX_ERROR = 0.25f * 2.0f * math::PI_F / W;
+    const math::Vector geodesic_mid = math::slerp(a, b, 0.5f);
+    return math::angle_between(mid, geodesic_mid) > MAX_ERROR;
   }
 
   /**
@@ -331,16 +333,17 @@ private:
     Color4 color = static_palette.get(palette_t);
     if (color.color == Pixel())
       color.alpha = 0.0f;
-    color.alpha *= quintic_kernel(age_t) * params.alpha;
+    color.alpha *= math::quintic_kernel(age_t) * params.alpha;
     return color;
   }
 
   FastNoiseLite noise; /**< Noise source for the random walk. */
   Timeline timeline;   /**< Drives all per-frame animations. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
-      filters;               /**< Anti-aliasing render pipeline. */
-  ProceduralPath path;       /**< Lissajous path the node follows. */
-  Orientation<> orientation; /**< Random-walk orientation reference frame. */
+      filters;         /**< Anti-aliasing render pipeline. */
+  ProceduralPath path; /**< Lissajous path the node follows. */
+  math::Orientation<>
+      orientation; /**< Random-walk orientation reference frame. */
 
   /**
    * @brief Live-tunable parameters exposed as sliders.

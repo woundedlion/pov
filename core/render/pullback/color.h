@@ -155,7 +155,7 @@ palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
   if (mapping == PaletteMapping::LINEAR && frequency == 1.0f && offset == 0.0f)
     return value;
   const float phase =
-      wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
+      math::wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
   switch (mapping) {
   case PaletteMapping::CUP:
     return unit_cup(phase);
@@ -177,7 +177,7 @@ palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
         value, static_cast<PaletteMapping>(weights.exact), frequency, offset);
 
   const float phase =
-      wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
+      math::wrap_t(std::min(value, UNIT_OPEN_MAX) * frequency + offset);
   const float cup = unit_cup(phase);
   const float bell = 1.0f - cup;
   return weights.values[static_cast<size_t>(PaletteMapping::CUP)] * cup +
@@ -233,7 +233,8 @@ HS_HOT_FLASH_MEMBER inline Color4
 apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
   const float oscillation =
-      state.oscillation_depth * fast_sinf(TWO_PI_F * state.oscillation_phase);
+      state.oscillation_depth *
+      math::fast_sinf(math::TWO_PI_F * state.oscillation_phase);
   const float palette_value = palette_mapping_coordinate(
       sample.value, state.mapping, state.mapping_frequency,
       state.mapping_phase + oscillation);
@@ -246,7 +247,8 @@ apply_generated_palette(const FieldSample &sample,
   } else {
     color = state.palette->get(palette_value);
     if (state.hue_rotation.active && state.hue_mode == HueMode::PATH_LENGTH) {
-      const float amount = wrap_t(state.hue_shift_amount * sample.path_length);
+      const float amount =
+          math::wrap_t(state.hue_shift_amount * sample.path_length);
       if (amount != 0.0f)
         color.color =
             sample_hue_rotation_lut(state.hue_rotation, palette_value, amount);

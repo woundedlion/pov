@@ -64,14 +64,15 @@ public:
     // Whole footprint lives in the persistent arena with no per-frame scratch, so
     // keep the default split (no configure_arenas()); FOOTPRINT_BYTES asserts it
     // fits the device default partition.
-    fibers = persistent_arena.allocate_n<Spherical>(ACTUAL_FIBERS);
+    fibers = persistent_arena.allocate_n<math::Spherical>(ACTUAL_FIBERS);
 
     trails = persistent_arena.make_n<Animation::VectorTrail<TRAIL_LEN>>(
         ACTUAL_FIBERS);
 
     init_fibers();
-    timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
-                                           ease_linear, true));
+    timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS,
+                                           2 * math::PI_F, 600, ease_linear,
+                                           true));
     timeline.add(
         0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE, true));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
@@ -100,7 +101,7 @@ public:
     {
       HS_PROFILE(hf_project_record);
       for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
-        Vector v = hopf_project(i);
+        math::Vector v = hopf_project(i);
         // Store unoriented — oriented at render time.
         trails[i].record(v);
       }
@@ -115,13 +116,13 @@ private:
   static constexpr int RINGS = 15;
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
-  static constexpr float PHASE_STEP = PI_F / ACTUAL_FIBERS;
+  static constexpr float PHASE_STEP = math::PI_F / ACTUAL_FIBERS;
 
   // Persistent allocations: palette LUT + one Spherical and one trail per fiber,
   // each block plus the alignment slack its allocate() call can waste.
   static constexpr size_t FOOTPRINT_BYTES =
-      BakedPalette::required_arena_bytes() + ACTUAL_FIBERS * sizeof(Spherical) +
-      alignof(Spherical) +
+      BakedPalette::required_arena_bytes() +
+      ACTUAL_FIBERS * sizeof(math::Spherical) + alignof(math::Spherical) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>) +
       alignof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
@@ -147,9 +148,9 @@ private:
   // Phases accumulate as wrapped fractions of their period ("turns") and scale
   // back to radians at use. tumble_angle_x also feeds the half-angle fold_base
   // term, so it wraps over 4pi to keep both terms continuous.
-  static constexpr float FLOW_PERIOD = 2 * PI_F;
-  static constexpr float TUMBLE_X_PERIOD = 4 * PI_F;
-  static constexpr float TUMBLE_Y_PERIOD = 2 * PI_F;
+  static constexpr float FLOW_PERIOD = 2 * math::PI_F;
+  static constexpr float TUMBLE_X_PERIOD = 4 * math::PI_F;
+  static constexpr float TUMBLE_Y_PERIOD = 2 * math::PI_F;
 
   // Per-unit driver rates, in turns (radians-per-unit-speed / period).
   static constexpr float FLOW_RATE = (0.02f * 0.2f) / FLOW_PERIOD;
@@ -160,7 +161,7 @@ private:
   float flow_offset = 0.0f;
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
-  Spherical *fibers = nullptr;
+  math::Spherical *fibers = nullptr;
   Animation::VectorTrail<TRAIL_LEN> *trails = nullptr;
 
   // Per-frame values reused across all fibers (refreshed in advance_tumble).
@@ -182,7 +183,7 @@ private:
   // orientation and the phase accumulators above are borrowed by
   // timeline-resident animations, as are the params speeds the Drivers point
   // at, so all of them are declared before the Timeline to outlive it.
-  Orientation<> orientation;
+  math::Orientation<> orientation;
   Timeline timeline;
   BakedPaletteStorage baked_sunset;
 
@@ -199,9 +200,9 @@ private:
   void init_fibers() {
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
-      float polar = PI_F * (i + 0.5f) / RINGS;
+      float polar = math::PI_F * (i + 0.5f) / RINGS;
       for (int j = 0; j < PER_RING; ++j) {
-        float azimuth = 2 * PI_F * j / PER_RING;
+        float azimuth = 2 * math::PI_F * j / PER_RING;
         std::construct_at(&fibers[idx], azimuth, polar);
         ++idx;
       }
@@ -218,13 +219,13 @@ private:
     const float ax = tumble_angle_x * TUMBLE_X_PERIOD;
     ty_rad = tumble_angle_y * TUMBLE_Y_PERIOD;
     flow_rad = flow_offset * FLOW_PERIOD;
-    cx = fast_cosf(ax);
-    sx = fast_sinf(ax);
-    cy = fast_cosf(ty_rad);
-    sy = fast_sinf(ty_rad);
+    cx = math::fast_cosf(ax);
+    sx = math::fast_sinf(ax);
+    cy = math::fast_cosf(ty_rad);
+    sy = math::fast_sinf(ty_rad);
     // fold_base needs sin(ax/2); ax*0.5 spans [0,2pi) continuously across the
     // 4pi wrap.
-    fold_base = fast_sinf(ax * 0.5f) * 0.5f;
+    fold_base = math::fast_sinf(ax * 0.5f) * 0.5f;
   }
 
   /**
@@ -234,27 +235,27 @@ private:
    * stereographic projection; falls back to (1, 0, 0) at a degenerate pole.
    * @details Pipeline: folding -> twist -> S3 -> tumble -> stereographic R3.
    */
-  Vector hopf_project(size_t i) const {
-    const Spherical &sph = fibers[i];
+  math::Vector hopf_project(size_t i) const {
+    const math::Spherical &sph = fibers[i];
     float polar = sph.phi;
     float azimuth = sph.theta;
 
     // Folding: amplitude gated by the Folding slider so it persists when tumble
     // is frozen, though its phase still tracks ty_rad.
     float eta = polar / 2.0f;
-    eta +=
-        fast_sinf(azimuth * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
+    eta += math::fast_sinf(azimuth * 2.0f + ty_rad + fold_base) * 0.2f *
+           params.folding;
 
     // Twist
     azimuth += eta * params.twist;
 
     // S3 point
     float beta = flow_rad + static_cast<float>(i) * PHASE_STEP;
-    float cos_eta = fast_cosf(eta), sin_eta = fast_sinf(eta);
-    float q0 = cos_eta * fast_cosf(azimuth + beta);
-    float q1 = cos_eta * fast_sinf(azimuth + beta);
-    float q2 = sin_eta * fast_cosf(beta);
-    float q3 = sin_eta * fast_sinf(beta);
+    float cos_eta = math::fast_cosf(eta), sin_eta = math::fast_sinf(eta);
+    float q0 = cos_eta * math::fast_cosf(azimuth + beta);
+    float q1 = cos_eta * math::fast_sinf(azimuth + beta);
+    float q2 = sin_eta * math::fast_cosf(beta);
+    float q3 = sin_eta * math::fast_sinf(beta);
 
     // Tumble (R_xw, R_yz)
     float q0_r = q0 * cx - q3 * sx;
@@ -267,8 +268,9 @@ private:
     // Stereographic S3 -> R3; at a fiber pole the direction is undefined, so
     // fall back to a stable axis.
     float factor = 1.0f / ((1.0f + STEREO_POLE_EPSILON) - q3);
-    return normalized_or(Vector(q0 * factor, q1 * factor, q2 * factor),
-                         Vector(1, 0, 0));
+    return math::normalized_or(
+        math::Vector(q0 * factor, q1 * factor, q2 * factor),
+        math::Vector(1, 0, 0));
   }
 
   /**
@@ -342,7 +344,7 @@ private:
         edge_flags = bits;
       }
 
-      auto shader = [this](const Vector &, Fragment &f) {
+      auto shader = [this](const math::Vector &, Fragment &f) {
         float t = f.v0; // 0 = oldest, 1 = newest
         Color4 c = baked_sunset.get(1.0f - t);
         c.alpha *= t * params.alpha; // fade out tail

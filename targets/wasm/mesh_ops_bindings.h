@@ -53,7 +53,7 @@ static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
                       hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT,
               "a stage at the 16-bit ceiling must still fit a scratch arena");
 
-static_assert(sizeof(Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
+static_assert(sizeof(math::Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
                   hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
               "finalized mesh element must fit its predicted arena bytes");
 
@@ -349,12 +349,12 @@ public:
     begin_mesh_op();
     if (!wrapper_live())
       return val::null();
-    static_assert(std::is_standard_layout_v<Vector> &&
-                      offsetof(Vector, x) == 0 &&
-                      offsetof(Vector, y) == sizeof(float) &&
-                      offsetof(Vector, z) == 2 * sizeof(float) &&
-                      sizeof(Vector) == 3 * sizeof(float) &&
-                      alignof(Vector) == alignof(float),
+    static_assert(std::is_standard_layout_v<math::Vector> &&
+                      offsetof(math::Vector, x) == 0 &&
+                      offsetof(math::Vector, y) == sizeof(float) &&
+                      offsetof(math::Vector, z) == 2 * sizeof(float) &&
+                      sizeof(math::Vector) == 3 * sizeof(float) &&
+                      alignof(math::Vector) == alignof(float),
                   "flat [x,y,z] view requires tightly packed vertices");
     return val::global("Float32Array")
         .new_(val(typed_memory_view(
@@ -662,7 +662,7 @@ public:
    * contact rays leave the edge perpendicular to it, and past that they tilt
    * back into the neighbouring face, mirroring an angle already in domain.
    */
-  static constexpr float MAX_HANKIN_ANGLE = PI_F / 2.0f;
+  static constexpr float MAX_HANKIN_ANGLE = math::PI_F / 2.0f;
 
   /**
    * @brief Applies the Hankin interlace operator to the mesh.

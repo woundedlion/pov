@@ -34,9 +34,9 @@ HS_O3_BEGIN
 template <typename SDF> struct TransformedVolume {
   /** Largest trustworthy clearance report from the underlying shape. */
   static constexpr float REJECT_MARGIN = ::SDF::reject_margin<SDF>;
-  const SDF &sdf;   /**< Underlying SDF evaluated in local space. */
-  Vector center;    /**< World-space origin of the local frame. */
-  Quaternion q_inv; /**< Precomputed inverse rotation (world→local). */
+  const SDF &sdf;         /**< Underlying SDF evaluated in local space. */
+  math::Vector center;    /**< World-space origin of the local frame. */
+  math::Quaternion q_inv; /**< Precomputed inverse rotation (world→local). */
 
   /**
    * @brief Constructs the transform from a center and a local→world rotation.
@@ -44,7 +44,8 @@ template <typename SDF> struct TransformedVolume {
    * @param center World-space origin of the local frame.
    * @param q Local→world rotation; its inverse is precomputed.
    */
-  TransformedVolume(const SDF &sdf, const Vector &center, const Quaternion &q)
+  TransformedVolume(const SDF &sdf, const math::Vector &center,
+                    const math::Quaternion &q)
       : sdf(sdf), center(center), q_inv(q.inverse()) {}
 
   /**
@@ -53,9 +54,9 @@ template <typename SDF> struct TransformedVolume {
    * @param vd Ray direction in world space.
    * @return Pair of {local origin, local direction}.
    */
-  std::pair<Vector, Vector> ray_to_local(const Vector &ro,
-                                         const Vector &vd) const {
-    return {rotate(ro - center, q_inv), rotate(vd, q_inv)};
+  std::pair<math::Vector, math::Vector>
+  ray_to_local(const math::Vector &ro, const math::Vector &vd) const {
+    return {math::rotate(ro - center, q_inv), math::rotate(vd, q_inv)};
   }
 
   /**
@@ -65,8 +66,8 @@ template <typename SDF> struct TransformedVolume {
    * @details The local direction is constant across the draw, so the volume loop
    * precomputes it once and calls this per pixel to transform only the origin.
    */
-  Vector origin_to_local(const Vector &ro) const {
-    return rotate(ro - center, q_inv);
+  math::Vector origin_to_local(const math::Vector &ro) const {
+    return math::rotate(ro - center, q_inv);
   }
 
   /**
@@ -74,7 +75,9 @@ template <typename SDF> struct TransformedVolume {
    * @param local_p Query point in local space.
    * @return Signed distance to the surface in local units.
    */
-  float distance(const Vector &local_p) const { return sdf.distance(local_p); }
+  float distance(const math::Vector &local_p) const {
+    return sdf.distance(local_p);
+  }
 };
 
 /**
@@ -89,8 +92,8 @@ template <typename SDF> struct TransformedVolume {
  */
 __attribute__((always_inline)) inline float
 volume_edge_coverage(float dist, float hit_threshold, float aa_width) {
-  return quintic_kernel(1.0f -
-                        (dist - hit_threshold) / (aa_width - hit_threshold));
+  return math::quintic_kernel(1.0f - (dist - hit_threshold) /
+                                         (aa_width - hit_threshold));
 }
 
 /**
@@ -144,14 +147,14 @@ struct Volume {
    */
   template <typename Shape>
   static __attribute__((always_inline)) float
-  trace_closest(const Shape &shape, const Vector &local_ro,
-                const Vector &local_vd, float bounds_radius, int max_steps,
-                float aa_width, Vector &closest_local) {
+  trace_closest(const Shape &shape, const math::Vector &local_ro,
+                const math::Vector &local_vd, float bounds_radius,
+                int max_steps, float aa_width, math::Vector &closest_local) {
     HS_PROFILE_DEEP(vol_trace);
     float t = 0.0f;
-    Vector local_p = local_ro;
+    math::Vector local_p = local_ro;
     closest_local = local_ro;
-    const float END_T = bounds_radius - dot(local_ro, local_vd);
+    const float END_T = bounds_radius - math::dot(local_ro, local_vd);
     // Sentinel for "no surface seen yet": any real signed distance the
     // trace reports is smaller, so the first sample always wins.
     float closest_d = FLT_MAX;
@@ -173,9 +176,9 @@ struct Volume {
         // the ray conservatively. The rejected sample updates nothing.
         float back = prev_r - step_len;
         t += back;
-        local_p =
-            Vector(local_p.x + local_vd.x * back, local_p.y + local_vd.y * back,
-                   local_p.z + local_vd.z * back);
+        local_p = math::Vector(local_p.x + local_vd.x * back,
+                               local_p.y + local_vd.y * back,
+                               local_p.z + local_vd.z * back);
         omega = 1.0f;
         prev_r = 0.0f;
         step_len = 0.0f;
@@ -204,9 +207,9 @@ struct Volume {
       // below instead uses a bounds_radius-relative floor for coarse punch-through.
       step_len = std::max(d * 0.9f * omega, 1e-5f);
       t += step_len;
-      local_p = Vector(local_p.x + local_vd.x * step_len,
-                       local_p.y + local_vd.y * step_len,
-                       local_p.z + local_vd.z * step_len);
+      local_p = math::Vector(local_p.x + local_vd.x * step_len,
+                             local_p.y + local_vd.y * step_len,
+                             local_p.z + local_vd.z * step_len);
     }
     return closest_d;
   }
@@ -216,9 +219,9 @@ struct Volume {
    */
   struct Occluder {
     bool solid; /**< A solid surface sits behind the halo (behind is valid). */
-    Vector behind;  /**< Local-space hit point when solid, else the grazed
+    math::Vector behind; /**< Local-space hit point when solid, else the grazed
                         background edge's closest approach when soft > 0. */
-    float distance; /**< Signed distance at behind. */
+    float distance;      /**< Signed distance at behind. */
     float
         soft; /**< Coverage of a grazed background edge, for the corner fill. */
   };
@@ -239,21 +242,21 @@ struct Volume {
    */
   template <typename Shape>
   static __attribute__((always_inline)) Occluder probe_occluder(
-      const Shape &shape, const Vector &closest_local, const Vector &local_vd,
-      float bounds_radius, float hit_threshold, float aa_width,
-      float seed_distance = FLT_MAX) {
+      const Shape &shape, const math::Vector &closest_local,
+      const math::Vector &local_vd, float bounds_radius, float hit_threshold,
+      float aa_width, float seed_distance = FLT_MAX) {
     HS_PROFILE_DEEP(vol_probe);
     // March forward from the closest approach for a surface this halo occludes;
     // a solid hit is a self-occlusion edge (antialias over it). Step is floored
     // to punch past the stalled foreground; termination is the bounding sphere's
     // back face. With no solid hit, report a grazed background edge (local min of
     // pd) and its coverage for the corner fill.
-    Vector probe = closest_local;
-    const float END_S = bounds_radius - dot(closest_local, local_vd);
+    math::Vector probe = closest_local;
+    const float END_S = bounds_radius - math::dot(closest_local, local_vd);
     float prev = FLT_MAX;  // previous step's distance
     bool climbing = false; // pd has risen off the foreground graze
     float min_behind = FLT_MAX;
-    Vector min_pos = closest_local;
+    math::Vector min_pos = closest_local;
     // Bracket samples around the running minimum, as offsets along the ray from
     // min_pos, for the parabolic refinement below.
     float s = 0.0f, prev_s = 0.0f, min_s = 0.0f;
@@ -289,8 +292,9 @@ struct Volume {
       float floor = bounds_radius *
                     (i < PROBE_NEAR_STEPS ? PROBE_FLOOR_NEAR : PROBE_FLOOR_FAR);
       float step = std::max(pd * 0.9f, floor);
-      probe = Vector(probe.x + local_vd.x * step, probe.y + local_vd.y * step,
-                     probe.z + local_vd.z * step);
+      probe =
+          math::Vector(probe.x + local_vd.x * step, probe.y + local_vd.y * step,
+                       probe.z + local_vd.z * step);
       s += step;
     }
 
@@ -309,8 +313,9 @@ struct Volume {
       if (den < -1e-12f) {
         float ds = -0.5f * (q * q * yb - p * p * ya) / den;
         if (ds > -p && ds < -q) {
-          Vector rp(min_pos.x + local_vd.x * ds, min_pos.y + local_vd.y * ds,
-                    min_pos.z + local_vd.z * ds);
+          math::Vector rp(min_pos.x + local_vd.x * ds,
+                          min_pos.y + local_vd.y * ds,
+                          min_pos.z + local_vd.z * ds);
           float rpd = shape.distance(rp);
           if (rpd < min_behind) {
             min_behind = rpd;
@@ -352,7 +357,7 @@ struct Volume {
    */
   template <int W, int H, typename Shape>
   static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const Vector &bounds_center, float bounds_radius,
+                   const math::Vector &bounds_center, float bounds_radius,
                    const Shape &shape, FragmentShaderFn frag_fn,
                    int max_steps = 15, float aa_width = 0.01f) {
     check_canvas_dims<W, H>(canvas);
@@ -362,7 +367,7 @@ struct Volume {
 
     // The scanned band is a cap around bounds_center, which is the
     // orthographic footprint only under a radial view.
-    const Vector vd = -bounds_center;
+    const math::Vector vd = -bounds_center;
 
     // Ray must start behind the farthest extent of the shape.
     float start_offset = 1.0f + bounds_radius;
@@ -370,27 +375,28 @@ struct Volume {
     // bounds_center projected onto the view plane (⊥ vd).
     float bc_dot_vd = bounds_center.x * vd.x + bounds_center.y * vd.y +
                       bounds_center.z * vd.z;
-    Vector bc_proj(bounds_center.x - bc_dot_vd * vd.x,
-                   bounds_center.y - bc_dot_vd * vd.y,
-                   bounds_center.z - bc_dot_vd * vd.z);
+    math::Vector bc_proj(bounds_center.x - bc_dot_vd * vd.x,
+                         bounds_center.y - bc_dot_vd * vd.y,
+                         bounds_center.z - bc_dot_vd * vd.z);
     float bounds_r2 = bounds_radius * bounds_radius;
 
     // Scalar ray progress requires a unit local direction and origin-centered
     // bounds. The local direction is shared across all pixels.
     auto [local_bc, local_vd] = shape.ray_to_local(bounds_center, vd);
     HS_CHECK(fabsf(local_vd.x * local_vd.x + local_vd.y * local_vd.y +
-                   local_vd.z * local_vd.z - 1.0f) < TOLERANCE,
+                   local_vd.z * local_vd.z - 1.0f) < math::TOLERANCE,
              "Scan::Volume: ray_to_local must preserve length");
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
                      local_bc.z * local_bc.z <
-                 TOLERANCE,
+                 math::TOLERANCE,
              "Scan::Volume: bounds_center must map to the shape's origin");
     // The scan band below is a cap around bounds_center of angular radius
     // asin(bounds_radius), which equals the orthographic footprint only for a
     // unit-length center: BoundingSphere reads center.y as cos(phi). Unit
     // length also backs the ray start offset above: farther out along the view
     // axis a ray can start in front of the shape.
-    HS_CHECK(fabsf(dot(bounds_center, bounds_center) - 1.0f) < TOLERANCE,
+    HS_CHECK(fabsf(math::dot(bounds_center, bounds_center) - 1.0f) <
+                 math::TOLERANCE,
              "Scan::Volume: bounds_center must be unit length");
     // aa_width > 0 is the contract: volume_edge_coverage divides by (aa_width -
     // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
@@ -408,7 +414,7 @@ struct Volume {
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
-        [&](int px, int py, const Vector &p, int) {
+        [&](int px, int py, const math::Vector &p, int) {
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
           if (facing >= 0.0f)
@@ -425,14 +431,15 @@ struct Volume {
             return 1;
 
           // Orthographic ray origin: outside the unit sphere
-          Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
-                    pp_z - vd.z * start_offset);
+          math::Vector ro(pp_x - vd.x * start_offset,
+                          pp_y - vd.y * start_offset,
+                          pp_z - vd.z * start_offset);
 
           // Transform the ray origin to local space once per pixel. The local
           // direction is constant across the draw (local_vd, computed above), so
           // only the origin is transformed here.
-          Vector local_ro = shape.origin_to_local(ro);
-          Vector closest_local;
+          math::Vector local_ro = shape.origin_to_local(ro);
+          math::Vector closest_local;
 
           // --- Sphere tracing in local space ---
           float closest_d =

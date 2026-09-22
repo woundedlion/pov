@@ -87,7 +87,7 @@ public:
    * the arenas, constructs, runs, and deletes the effect.
    */
   template <typename E> void show(unsigned long duration) {
-    GeometryResolution<E>::init();
+    math::GeometryResolution<E>::init();
     configure_arenas_default(); // Reset before init so effects can override
     E *e = new (std::nothrow) E();
     HS_CHECK(e != nullptr, "effect allocation failed (OOM)");

@@ -92,7 +92,8 @@ iso_contour(float value, float level, float width) {
     value, offset by @p band_phase. */
 __attribute__((always_inline)) inline float
 smooth_bands(float value, float band_count, float band_phase) {
-  return 0.5f - 0.5f * fast_cosf(TWO_PI_F * band_count * value + band_phase);
+  return 0.5f - 0.5f * math::fast_cosf(math::TWO_PI_F * band_count * value +
+                                       band_phase);
 }
 
 template <typename State>

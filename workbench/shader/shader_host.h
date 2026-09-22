@@ -232,7 +232,7 @@ public:
 
 protected:
   /** @brief Schedules one orientation walk whose period follows canvas width. */
-  virtual void add_walk(Timeline &timeline, Orientation<> &orientation,
+  virtual void add_walk(Timeline &timeline, math::Orientation<> &orientation,
                         FastNoiseLite &noise) = 0;
   /** @brief Rasterizes one prepared frame over the canvas. */
   virtual void scan_frame_shader(Canvas &canvas,
@@ -950,7 +950,8 @@ private:
     } else if (transfer == Workbench::ValueTransfer::SMOOTH_BANDS) {
       register_animated_int_param("Band Count", &params.band_count, 1,
                                   Workbench::BAND_COUNT_MAX);
-      register_animated_param("Band Phase", &params.band_phase, 0.0f, TWO_PI_F);
+      register_animated_param("Band Phase", &params.band_phase, 0.0f,
+                              math::TWO_PI_F);
     }
   }
 
@@ -1133,7 +1134,7 @@ private:
         strict_projection(slots.projection)) {
       register_animated_param("Central Meridian",
                               &params.projection.central_meridian, 0.0f,
-                              TWO_PI_F);
+                              math::TWO_PI_F);
     }
     if (strict_projection(slots.projection)) {
       register_animated_param("Projection Scale",
@@ -1152,7 +1153,7 @@ private:
     if (slots.projection == Workbench::Projection::BONNE)
       register_animated_param("Bonne Standard Parallel",
                               &params.projection.bonne_standard_parallel, 1e-3f,
-                              0.5f * PI_F);
+                              0.5f * math::PI_F);
     if (slots.projection == Workbench::Projection::PEIRCE_QUINCUNCIAL &&
         (slots.peirce_layout == Workbench::PeirceLayout::HORIZONTAL ||
          slots.peirce_layout == Workbench::PeirceLayout::VERTICAL))
@@ -1287,13 +1288,13 @@ private:
                             &params.scale_y,       &params.shear};
         const float minimum[] = {-Workbench::AFFINE_TRANSLATION_MAX,
                                  -Workbench::AFFINE_TRANSLATION_MAX,
-                                 -TWO_PI_F,
+                                 -math::TWO_PI_F,
                                  Workbench::AFFINE_SCALE_MIN,
                                  Workbench::AFFINE_SCALE_MIN,
                                  -Workbench::AFFINE_SHEAR_MAX};
         const float maximum[] = {Workbench::AFFINE_TRANSLATION_MAX,
                                  Workbench::AFFINE_TRANSLATION_MAX,
-                                 TWO_PI_F,
+                                 math::TWO_PI_F,
                                  Workbench::AFFINE_SCALE_MAX,
                                  Workbench::AFFINE_SCALE_MAX,
                                  Workbench::AFFINE_SHEAR_MAX};
@@ -1306,7 +1307,7 @@ private:
       register_current(names[Workbench::WARP_NAME_FREQUENCY], &params.frequency,
                        0.0f, domain_scaled_max(64.0f, 8.0f, domain_scale));
       register_current(names[Workbench::WARP_NAME_FIELD_ANGLE],
-                       &params.field_angle, 0.0f, TWO_PI_F);
+                       &params.field_angle, 0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
                        &params.edge_width, Workbench::SOFTNESS_MIN, 0.5f);
       break;
@@ -1337,13 +1338,13 @@ private:
                                 : Workbench::VECTOR_WARP_SCALE_MAX,
                             1.0f, domain_scale));
       register_current(names[Workbench::WARP_NAME_VECTOR_ANGLE],
-                       &params.vector_angle, 0.0f, TWO_PI_F);
+                       &params.vector_angle, 0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
                        &params.edge_width, Workbench::SOFTNESS_MIN, 0.5f);
       break;
     case Workbench::WarpStageKind::MIRROR_TILE:
       register_current(names[Workbench::WARP_NAME_ROTATION], &params.rotation,
-                       0.0f, TWO_PI_F);
+                       0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_CELL_X], &params.cell_x,
                        Workbench::CELL_MIN, Workbench::CELL_MAX);
       register_current(names[Workbench::WARP_NAME_CELL_Y], &params.cell_y,
@@ -1360,9 +1361,9 @@ private:
                        &params.radial_scale, Workbench::POLAR_RADIAL_SCALE_MIN,
                        Workbench::POLAR_RADIAL_SCALE_MAX);
       register_current(names[Workbench::WARP_NAME_RADIAL_PHASE],
-                       &params.radial_phase, 0.0f, TWO_PI_F);
+                       &params.radial_phase, 0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_ANGULAR_PHASE],
-                       &params.angular_phase, 0.0f, TWO_PI_F);
+                       &params.angular_phase, 0.0f, math::TWO_PI_F);
       break;
     case Workbench::WarpStageKind::NONE:
     case Workbench::WarpStageKind::LEGACY_STEREO_NOISE:
@@ -1650,8 +1651,8 @@ public:
 
 private:
   struct WalkDeltas {
-    Quaternion projection;
-    Quaternion outer;
+    math::Quaternion projection;
+    math::Quaternion outer;
   };
 
   struct ParamMorphRuntime {
@@ -1843,7 +1844,7 @@ private:
     frame.clocks = endpoint.clocks;
     frame.transforms = {animated_projection
                             ? endpoint.transforms.projection_conj
-                            : Quaternion(),
+                            : math::Quaternion(),
                         endpoint.transforms.outer_conj};
     frame.meridian_cos = cosf(config.params.projection.central_meridian);
     frame.meridian_sin = sinf(config.params.projection.central_meridian);
@@ -2051,12 +2052,12 @@ private:
 #if HS_ENABLE_TEST_HOOKS
     ++walk_step_count;
 #endif
-    const Quaternion projection = projection_walk.get();
-    const Quaternion projection_delta =
+    const math::Quaternion projection = projection_walk.get();
+    const math::Quaternion projection_delta =
         projection * projection_walk_prev.conjugate();
     projection_walk_prev = projection;
-    const Quaternion outer = outer_walk.get();
-    const Quaternion outer_delta = outer * outer_walk_prev.conjugate();
+    const math::Quaternion outer = outer_walk.get();
+    const math::Quaternion outer_delta = outer * outer_walk_prev.conjugate();
     outer_walk_prev = outer;
     return {projection_delta.normalized(), outer_delta.normalized()};
   }
@@ -2065,20 +2066,21 @@ private:
   update_spatial_frames(Workbench::EndpointRuntime &endpoint,
                         const Workbench::Config &config,
                         const WalkDeltas &deltas) const {
-    endpoint.projection_wander = (slerp(Quaternion(), deltas.projection,
-                                        config.params.projection.wander) *
-                                  endpoint.projection_wander)
-                                     .normalized();
-    endpoint.outer_wander =
-        (slerp(Quaternion(), deltas.outer, config.params.outer_camera.wander) *
-         endpoint.outer_wander)
+    endpoint.projection_wander =
+        (math::slerp(math::Quaternion(), deltas.projection,
+                     config.params.projection.wander) *
+         endpoint.projection_wander)
             .normalized();
-    endpoint.source_wander =
-        (slerp(Quaternion(), deltas.outer, config.params.source.ring_wander) *
-         endpoint.source_wander)
-            .normalized();
+    endpoint.outer_wander = (math::slerp(math::Quaternion(), deltas.outer,
+                                         config.params.outer_camera.wander) *
+                             endpoint.outer_wander)
+                                .normalized();
+    endpoint.source_wander = (math::slerp(math::Quaternion(), deltas.outer,
+                                          config.params.source.ring_wander) *
+                              endpoint.source_wander)
+                                 .normalized();
     endpoint.transforms.projection_conj =
-        (make_rotation(Y_AXIS, endpoint.clocks.projection_spin) *
+        (math::make_rotation(math::Y_AXIS, endpoint.clocks.projection_spin) *
          base_orientation * endpoint.projection_wander)
             .conjugate();
     endpoint.transforms.outer_conj = endpoint.outer_wander.conjugate();
@@ -2088,44 +2090,45 @@ private:
                                       const Workbench::Config &config,
                                       const WalkDeltas &deltas) const {
     const Workbench::Params &params = config.params;
-    endpoint.clocks.source_primary =
-        fmodf(endpoint.clocks.source_primary + params.source.speed, TWO_PI_F);
+    endpoint.clocks.source_primary = fmodf(
+        endpoint.clocks.source_primary + params.source.speed, math::TWO_PI_F);
     endpoint.clocks.source_secondary =
         fmodf(endpoint.clocks.source_secondary +
                   params.source.speed * params.source.secondary_rate,
-              TWO_PI_F);
-    endpoint.clocks.source_angle = fmodf(
-        endpoint.clocks.source_angle + params.source.angle_rate, TWO_PI_F);
+              math::TWO_PI_F);
+    endpoint.clocks.source_angle =
+        fmodf(endpoint.clocks.source_angle + params.source.angle_rate,
+              math::TWO_PI_F);
     endpoint.clocks.projection_spin =
         fmodf(endpoint.clocks.projection_spin + params.projection.spin_rate,
-              TWO_PI_F);
-    endpoint.clocks.hue_noise_phase =
-        wrap_t(endpoint.clocks.hue_noise_phase + params.color.hue_noise_speed);
-    endpoint.clocks.source_noise_time = wrap_t(
+              math::TWO_PI_F);
+    endpoint.clocks.hue_noise_phase = math::wrap_t(
+        endpoint.clocks.hue_noise_phase + params.color.hue_noise_speed);
+    endpoint.clocks.source_noise_time = math::wrap_t(
         endpoint.clocks.source_noise_time + params.source.noise_time_rate);
-    endpoint.clocks.surface_noise_time =
-        wrap_t(endpoint.clocks.surface_noise_time + params.surface_noise.rate);
+    endpoint.clocks.surface_noise_time = math::wrap_t(
+        endpoint.clocks.surface_noise_time + params.surface_noise.rate);
     if (config.slots.warp_program.outer.kind ==
         Workbench::WarpStageKind::AFFINE_FRAME)
       endpoint.clocks.warp_outer_rotation =
-          TWO_PI_F *
-          wrap_t((endpoint.clocks.warp_outer_rotation +
-                  params.warp.outer.speed * params.warp.outer.rotation) /
-                 TWO_PI_F);
+          math::TWO_PI_F *
+          math::wrap_t((endpoint.clocks.warp_outer_rotation +
+                        params.warp.outer.speed * params.warp.outer.rotation) /
+                       math::TWO_PI_F);
     if (config.slots.warp_program.inner.kind ==
         Workbench::WarpStageKind::AFFINE_FRAME)
       endpoint.clocks.warp_inner_rotation =
-          TWO_PI_F *
-          wrap_t((endpoint.clocks.warp_inner_rotation +
-                  params.warp.inner.speed * params.warp.inner.rotation) /
-                 TWO_PI_F);
-    endpoint.clocks.warp_outer_phase =
-        wrap_t(endpoint.clocks.warp_outer_phase + params.warp.outer.speed);
-    endpoint.clocks.warp_inner_phase =
-        wrap_t(endpoint.clocks.warp_inner_phase + params.warp.inner.speed);
+          math::TWO_PI_F *
+          math::wrap_t((endpoint.clocks.warp_inner_rotation +
+                        params.warp.inner.speed * params.warp.inner.rotation) /
+                       math::TWO_PI_F);
+    endpoint.clocks.warp_outer_phase = math::wrap_t(
+        endpoint.clocks.warp_outer_phase + params.warp.outer.speed);
+    endpoint.clocks.warp_inner_phase = math::wrap_t(
+        endpoint.clocks.warp_inner_phase + params.warp.inner.speed);
     endpoint.clocks.palette_oscillation_phase =
-        wrap_t(endpoint.clocks.palette_oscillation_phase +
-               params.color.phase_oscillation_speed);
+        math::wrap_t(endpoint.clocks.palette_oscillation_phase +
+                     params.color.phase_oscillation_speed);
     update_spatial_frames(endpoint, config, deltas);
   }
 
@@ -2412,7 +2415,8 @@ private:
       append_range_warning("Translate Y", params.translation_y,
                            -Workbench::AFFINE_TRANSLATION_MAX,
                            Workbench::AFFINE_TRANSLATION_MAX);
-      append_range_warning("Rotation", params.rotation, -TWO_PI_F, TWO_PI_F);
+      append_range_warning("Rotation", params.rotation, -math::TWO_PI_F,
+                           math::TWO_PI_F);
       append_range_warning("Scale X", params.scale_x,
                            Workbench::AFFINE_SCALE_MIN,
                            Workbench::AFFINE_SCALE_MAX);
@@ -2474,7 +2478,7 @@ private:
       break;
     }
     case Workbench::WarpStageKind::MIRROR_TILE:
-      append_range_warning("Rotation", params.rotation, 0.0f, TWO_PI_F);
+      append_range_warning("Rotation", params.rotation, 0.0f, math::TWO_PI_F);
       append_range_warning("Cell X", params.cell_x, Workbench::CELL_MIN,
                            Workbench::CELL_MAX);
       append_range_warning("Cell Y", params.cell_y, Workbench::CELL_MIN,
@@ -2492,7 +2496,7 @@ private:
 
   const char *program_bounds_warning(const Workbench::Config &candidate) const {
     float bound = projection_coordinate_bound(candidate);
-    const Complex source_period = source_cartesian_period(candidate);
+    const math::Complex source_period = source_cartesian_period(candidate);
     const Workbench::WarpStageSpec stages[] = {
         candidate.slots.warp_program.outer, candidate.slots.warp_program.inner};
     const Workbench::WarpStageParams params[] = {candidate.params.warp.outer,
@@ -2610,7 +2614,7 @@ private:
             static_cast<double>(periods),
             static_cast<double>(
                 nearest_periods /
-                (TWO_PI_F * static_cast<float>(polar->polar_harmonic))),
+                (math::TWO_PI_F * static_cast<float>(polar->polar_harmonic))),
             position);
       const float suggested_frequency =
           nearest_periods / static_cast<float>(polar->polar_harmonic);
@@ -2807,16 +2811,16 @@ private:
 
   static constexpr Workbench::Choreo CHOREO{0, 0, 480, false};
 
-  Orientation<> projection_walk;
-  Orientation<> outer_walk;
+  math::Orientation<> projection_walk;
+  math::Orientation<> outer_walk;
   Timeline timeline;
   size_t prepared_noise_count = 0;
   StateBundle *state = nullptr;
 
-  Quaternion base_orientation =
-      make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
-  Quaternion projection_walk_prev;
-  Quaternion outer_walk_prev;
+  math::Quaternion base_orientation =
+      math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
+  math::Quaternion projection_walk_prev;
+  math::Quaternion outer_walk_prev;
 
   GeneratedPaletteBank generated_palettes;
 
@@ -2879,9 +2883,10 @@ public:
   HS_COLD_MEMBER Shader() : ShaderWorkbench(W, H) {}
 
 private:
-  HS_COLD_MEMBER void add_walk(Timeline &timeline, Orientation<> &orientation,
+  HS_COLD_MEMBER void add_walk(Timeline &timeline,
+                               math::Orientation<> &orientation,
                                FastNoiseLite &noise) override {
-    timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, math::UP, noise));
   }
 
   HS_FLASH_MEMBER void

@@ -74,10 +74,11 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
-    pass(static_cast<float>(fast_wrap(xi + Spread, W)), y, r_col, age, alpha);
-    pass(static_cast<float>(fast_wrap(xi + 2 * Spread, W)), y, g_col, age,
+    pass(static_cast<float>(math::fast_wrap(xi + Spread, W)), y, r_col, age,
          alpha);
-    pass(static_cast<float>(fast_wrap(xi + 3 * Spread, W)), y, b_col, age,
+    pass(static_cast<float>(math::fast_wrap(xi + 2 * Spread, W)), y, g_col, age,
+         alpha);
+    pass(static_cast<float>(math::fast_wrap(xi + 3 * Spread, W)), y, b_col, age,
          alpha);
   }
 };

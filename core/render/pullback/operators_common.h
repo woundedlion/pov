@@ -43,9 +43,9 @@ inline void init_effect_noise(FastNoiseLite &noise,
  */
 struct SpatialWalkState {
   FastNoiseLite walk_noise;
-  Vector position;
-  Vector direction;
-  Quaternion wander;
+  math::Vector position;
+  math::Vector direction;
+  math::Quaternion wander;
   float angular_velocity = 0.0f;
   float spin_phase = 0.0f;
   uint32_t walk_time = 0;
@@ -54,8 +54,8 @@ struct SpatialWalkState {
 inline void init_walk(SpatialWalkState &state, int32_t seed) {
   init_effect_noise(state.walk_noise, seed);
   state.walk_noise.SetFrequency(WALK_OPTIONS.noise_scale);
-  state.position = UP;
-  state.direction = perpendicular_axis(state.position);
+  state.position = math::UP;
+  state.direction = math::perpendicular_axis(state.position);
 }
 
 inline void advance_walk(SpatialWalkState &state, float wander,
@@ -64,9 +64,10 @@ inline void advance_walk(SpatialWalkState &state, float wander,
   const Animation::RandomWalkDelta delta = Animation::step_random_walk<false>(
       state.position, state.direction, state.angular_velocity, state.walk_noise,
       WALK_OPTIONS, state.walk_time);
-  state.wander = (scaled_rotation_delta(delta.rotation, wander) * state.wander)
-                     .normalized();
-  state.spin_phase = fmodf(state.spin_phase + spin_rate, TWO_PI_F);
+  state.wander =
+      (math::scaled_rotation_delta(delta.rotation, wander) * state.wander)
+          .normalized();
+  state.spin_phase = fmodf(state.spin_phase + spin_rate, math::TWO_PI_F);
 }
 
 /** @brief Instance state of the noise-driven operators: the owned field plus

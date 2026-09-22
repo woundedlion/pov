@@ -50,7 +50,7 @@ public:
   HS_COLD_MEMBER void init() override {
     transformer.init_storage(persistent_arena);
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
-    spiral_cache = persistent_arena.allocate_n<Vector>(MAX_POINTS);
+    spiral_cache = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);
 
     register_param("Points", &params.points, 100.0f,
                    static_cast<float>(MAX_POINTS));
@@ -68,7 +68,7 @@ public:
     baked_palette.bake(persistent_arena, Palettes::MANGO_PEEL);
 
     timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, Y_AXIS, noise,
+                        orientation, math::Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
   }
 
@@ -88,7 +88,7 @@ public:
       timeline.step(canvas);
     }
 
-    auto fragment_shader = [this](const Vector &p, Fragment &frag) {
+    auto fragment_shader = [this](const math::Vector &p, Fragment &frag) {
       float t = (p.y + 1.0f) * 0.5f; // Y in [-1, 1] -> gradient t in [0, 1]
       Color4 c = baked_palette.get(t);
       frag.color = c;
@@ -109,7 +109,7 @@ public:
       // their pole, so neither cap is bare and no star pins to the projection
       // pole.
       for (int i = 0; i < points; i++) {
-        spiral_cache[i] = fib_spiral(points, /*eps=*/0.5f, i);
+        spiral_cache[i] = math::fib_spiral(points, /*eps=*/0.5f, i);
       }
       cached_points = points;
     }
@@ -117,11 +117,11 @@ public:
     {
       HS_PROFILE(gn_draw_stars);
       for (int i = 0; i < points; i++) {
-        Vector v = transformer.transform(spiral_cache[i]);
+        math::Vector v = transformer.transform(spiral_cache[i]);
 
         // make_basis() rotates its normal by the orientation; pass the raw warp
         // output so the orientation is applied exactly once, not twice.
-        Basis basis = make_basis(orientation.get(), v);
+        math::Basis basis = math::make_basis(orientation.get(), v);
 
         {
           HS_PROFILE(gn_star_scan);
@@ -152,18 +152,18 @@ private:
   using MobiusEntity = typename MobiusWarpGnomonicTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
-      alignof(int) + MAX_POINTS * sizeof(Vector) + alignof(Vector) +
+      alignof(int) + MAX_POINTS * sizeof(math::Vector) + alignof(math::Vector) +
       BakedPalette::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "GnomonicStars persistent footprint exceeds the default "
                 "partition; retune MAX_POINTS or carve arenas");
 
-  Orientation<> orientation; /**< Current field orientation quaternion. */
-  FastNoiseLite noise;       /**< Noise source driving the RandomWalk. */
-  Timeline timeline;         /**< Animation timeline for warp and walk. */
-  Pipeline<W, H> filters;    /**< Render filter pipeline for star scan. */
+  math::Orientation<> orientation; /**< Current field orientation quaternion. */
+  FastNoiseLite noise;             /**< Noise source driving the RandomWalk. */
+  Timeline timeline;               /**< Animation timeline for warp and walk. */
+  Pipeline<W, H> filters;          /**< Render filter pipeline for star scan. */
 
-  Vector *spiral_cache =
+  math::Vector *spiral_cache =
       nullptr;           /**< Persistent base lattice, MAX_POINTS slots. */
   int cached_points = 0; /**< Point count the cache holds (0 = unbuilt). */
   BakedPaletteStorage

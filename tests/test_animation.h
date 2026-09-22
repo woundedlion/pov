@@ -70,11 +70,11 @@ inline Canvas &fake_canvas() { return *fake_canvas_ptr(); }
  */
 inline void test_path_empty_returns_origin() {
   Path<32> p;
-  Vector v = p.get_point(0.0f);
+  math::Vector v = p.get_point(0.0f);
   HS_EXPECT_NEAR(v.x, 0.0f, 0.0f);
   HS_EXPECT_NEAR(v.y, 0.0f, 0.0f);
   HS_EXPECT_NEAR(v.z, 0.0f, 0.0f);
-  Vector v1 = p.get_point(1.0f);
+  math::Vector v1 = p.get_point(1.0f);
   HS_EXPECT_NEAR(v1.x, 0.0f, 0.0f);
 }
 
@@ -85,25 +85,25 @@ inline void test_path_empty_returns_origin() {
 inline void test_path_endpoints_and_clamp() {
   Path<32> p;
   // A straight ramp along X: f(s) = (s, 0, 0), 4 samples, x in [0,1].
-  p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
+  p.append_segment([](float s) { return math::Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
                    ease_linear);
 
-  Vector start = p.get_point(0.0f);
+  math::Vector start = p.get_point(0.0f);
   HS_EXPECT_NEAR(start.x, 0.0f, 1e-5f);
 
-  Vector end = p.get_point(1.0f);
+  math::Vector end = p.get_point(1.0f);
   HS_EXPECT_NEAR(end.x, 1.0f, 1e-5f);
 
-  Vector over = p.get_point(2.0f);
+  math::Vector over = p.get_point(2.0f);
   HS_EXPECT_NEAR(over.x, end.x, 1e-5f);
 
   // Only the clamp keeps this out of a negative float->size_t cast.
-  Vector under = p.get_point(-1.0f);
+  math::Vector under = p.get_point(-1.0f);
   HS_EXPECT_NEAR(under.x, start.x, 1e-5f);
   HS_EXPECT_NEAR(under.y, start.y, 1e-5f);
   HS_EXPECT_NEAR(under.z, start.z, 1e-5f);
 
-  Vector mid = p.get_point(0.5f);
+  math::Vector mid = p.get_point(0.5f);
   HS_EXPECT_NEAR(mid.x, 0.5f, 1e-5f);
 }
 
@@ -113,12 +113,12 @@ inline void test_path_endpoints_and_clamp() {
  */
 inline void test_path_collapse_keeps_last() {
   Path<32> p;
-  p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
+  p.append_segment([](float s) { return math::Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
                    ease_linear);
-  Vector last_before = p.get_point(1.0f);
+  math::Vector last_before = p.get_point(1.0f);
   p.collapse();
-  Vector a = p.get_point(0.0f);
-  Vector b = p.get_point(1.0f);
+  math::Vector a = p.get_point(0.0f);
+  math::Vector b = p.get_point(1.0f);
   HS_EXPECT_NEAR(a.x, last_before.x, 1e-5f);
   HS_EXPECT_NEAR(b.x, last_before.x, 1e-5f);
 }
@@ -396,12 +396,12 @@ inline void test_lerp_midpoint() {
  * first recorded, the last index the newest.
  */
 inline void test_orientation_trail_index_zero_is_oldest() {
-  Animation::OrientationTrail<Orientation<4>, 8> trail;
+  Animation::OrientationTrail<math::Orientation<4>, 8> trail;
 
-  Orientation<4> a, b, c;
-  a.set(make_rotation(Vector(0, 1, 0), 0.1f));
-  b.set(make_rotation(Vector(0, 1, 0), 0.2f));
-  c.set(make_rotation(Vector(0, 1, 0), 0.3f));
+  math::Orientation<4> a, b, c;
+  a.set(math::make_rotation(math::Vector(0, 1, 0), 0.1f));
+  b.set(math::make_rotation(math::Vector(0, 1, 0), 0.2f));
+  c.set(math::make_rotation(math::Vector(0, 1, 0), 0.3f));
 
   trail.record(a);
   trail.record(b);
@@ -409,8 +409,8 @@ inline void test_orientation_trail_index_zero_is_oldest() {
   HS_EXPECT_EQ(trail.length(), static_cast<size_t>(3));
 
   // Index 0 == oldest (a); last index == newest (c).
-  HS_EXPECT_NEAR(std::abs(dot(trail.get(0).get(), a.get())), 1.0f, 1e-4f);
-  HS_EXPECT_NEAR(std::abs(dot(trail.get(2).get(), c.get())), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(std::abs(math::dot(trail.get(0).get(), a.get())), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(std::abs(math::dot(trail.get(2).get(), c.get())), 1.0f, 1e-4f);
 }
 
 /**
@@ -418,23 +418,23 @@ inline void test_orientation_trail_index_zero_is_oldest() {
  * index 0.
  */
 inline void test_orientation_trail_expire_drops_oldest() {
-  Animation::OrientationTrail<Orientation<4>, 8> trail;
-  Orientation<4> a, b;
-  a.set(make_rotation(Vector(0, 1, 0), 0.1f));
-  b.set(make_rotation(Vector(0, 1, 0), 0.2f));
+  Animation::OrientationTrail<math::Orientation<4>, 8> trail;
+  math::Orientation<4> a, b;
+  a.set(math::make_rotation(math::Vector(0, 1, 0), 0.1f));
+  b.set(math::make_rotation(math::Vector(0, 1, 0), 0.2f));
   trail.record(a);
   trail.record(b);
   trail.expire(); // removes the oldest (a)
   HS_EXPECT_EQ(trail.length(), static_cast<size_t>(1));
-  HS_EXPECT_NEAR(std::abs(dot(trail.get(0).get(), b.get())), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(std::abs(math::dot(trail.get(0).get(), b.get())), 1.0f, 1e-4f);
 }
 
 /**
  * @brief Verifies clear() empties the trail.
  */
 inline void test_orientation_trail_clear() {
-  Animation::OrientationTrail<Orientation<4>, 8> trail;
-  Orientation<4> a;
+  Animation::OrientationTrail<math::Orientation<4>, 8> trail;
+  math::Orientation<4> a;
   trail.record(a);
   trail.record(a);
   trail.clear();
@@ -450,7 +450,7 @@ inline void test_orientation_trail_clear() {
 // ============================================================================
 namespace borrow_guard {
 /** @brief Orientation alias used by the borrow-contract static_asserts. */
-using Ori = Orientation<16>;
+using Ori = math::Orientation<16>;
 
 static_assert(std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
                                       ProceduralPath &, int>,
@@ -553,15 +553,15 @@ inline void test_rotation_substeps_shared_and_tight() {
  * total_angle / duration.
  */
 inline void test_rotation_accumulates_subthreshold_deltas() {
-  using Ori = Orientation<16>;
+  using Ori = math::Orientation<16>;
   Ori o; // identity
   // 0.05 rad over 1000 frames => 5e-5 rad/frame, half of TOLERANCE, so every
   // frame's raw delta is below the early-out threshold.
-  Animation::Rotation<288, 16> rot(o, Z_AXIS, 0.05f, 1000, ease_linear);
+  Animation::Rotation<288, 16> rot(o, math::Z_AXIS, 0.05f, 1000, ease_linear);
   for (int i = 0; i < 20; ++i)
     rot.step(fake_canvas());
   // A Z rotation sends +X toward +Y.
-  Vector v = o.orient(X_AXIS, o.length() - 1);
+  math::Vector v = o.orient(math::X_AXIS, o.length() - 1);
   HS_EXPECT_GT(v.y, 5e-4f);
   HS_EXPECT_NEAR(v.x, 1.0f, 1e-3f);
 }
@@ -573,19 +573,20 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
  * it slips the residual (~1e-4 rad here) once per cycle.
  */
 inline void test_rotation_applies_final_frame_residual() {
-  using Ori = Orientation<16>;
+  using Ori = math::Orientation<16>;
   constexpr float ANGLE = 0.2f;
   constexpr int DURATION = 1000;
   constexpr int CYCLES = 10;
   Ori o; // identity
-  Animation::Rotation<288, 16> rot(o, Z_AXIS, ANGLE, DURATION, ease_in_out_sin);
+  Animation::Rotation<288, 16> rot(o, math::Z_AXIS, ANGLE, DURATION,
+                                   ease_in_out_sin);
   for (int c = 0; c < CYCLES; ++c) {
     for (int i = 0; i < DURATION; ++i)
       rot.step(fake_canvas());
     rot.rewind();
   }
   // A Z rotation sends +X to (cos, sin) of the accumulated angle.
-  Vector v = o.orient(X_AXIS, o.length() - 1);
+  math::Vector v = o.orient(math::X_AXIS, o.length() - 1);
   HS_EXPECT_NEAR(std::atan2(v.y, v.x), ANGLE * CYCLES, 2e-4f);
 }
 
@@ -599,21 +600,23 @@ inline void test_rotation_applies_final_frame_residual() {
  * dereferences the canvas.
  */
 inline void test_timeline_shared_orientation_composes_motion_blur() {
-  using Ori = Orientation<16>;
+  using Ori = math::Orientation<16>;
   Ori o; // identity, single frame
   Timeline tl;
   // Two quarter-turn rotations about the same axis, each completing in one frame.
-  tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_linear));
-  tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_linear));
+  tl.add(0, Animation::Rotation<288, 16>(o, math::Z_AXIS, math::PI_F / 2, 1,
+                                         ease_linear));
+  tl.add(0, Animation::Rotation<288, 16>(o, math::Z_AXIS, math::PI_F / 2, 1,
+                                         ease_linear));
   tl.step(fake_canvas());
 
   HS_EXPECT_GE(o.length(), 2);
   // Oldest sub-frame is the pre-frame orientation (identity): +X stays +X.
-  Vector oldest = o.orient(X_AXIS, 0);
+  math::Vector oldest = o.orient(math::X_AXIS, 0);
   HS_EXPECT_NEAR(oldest.x, 1.0f, 1e-3f);
   HS_EXPECT_NEAR(oldest.y, 0.0f, 1e-3f);
   // Newest reflects both rotations (a half turn): +X -> -X.
-  Vector newest = o.orient(X_AXIS, o.length() - 1);
+  math::Vector newest = o.orient(math::X_AXIS, o.length() - 1);
   HS_EXPECT_NEAR(newest.x, -1.0f, 1e-3f);
 }
 
@@ -627,17 +630,17 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
  */
 inline void test_timeline_collapse_past_id_cache() {
   constexpr int N = Timeline::MAX_COLLAPSE_IDS + 2;
-  Orientation<16> orientations[N];
+  math::Orientation<16> orientations[N];
   Timeline tl;
   for (int i = 0; i < N; ++i) {
-    orientations[i].push(make_rotation(Z_AXIS, PI_F / 2));
-    tl.add(0, Animation::Rotation<288, 16>(orientations[i], Z_AXIS, PI_F / 2, 1,
-                                           ease_linear));
+    orientations[i].push(math::make_rotation(math::Z_AXIS, math::PI_F / 2));
+    tl.add(0, Animation::Rotation<288, 16>(orientations[i], math::Z_AXIS,
+                                           math::PI_F / 2, 1, ease_linear));
   }
   tl.step(fake_canvas());
 
   for (int i = 0; i < N; ++i) {
-    Vector oldest = orientations[i].orient(X_AXIS, 0);
+    math::Vector oldest = orientations[i].orient(math::X_AXIS, 0);
     HS_EXPECT_NEAR(oldest.y, 1.0f, 1e-3f);
   }
 }
@@ -1165,8 +1168,9 @@ inline void test_timeline_remove_clear_hook_unregisters_by_ctx() {
  * on.
  */
 inline void test_orientation_upsample_then_collapse() {
-  Orientation<8> o;                        // identity, 1 frame
-  o.push(make_rotation(Z_AXIS, PI_F / 2)); // 2 frames: identity, +90 about Z
+  math::Orientation<8> o; // identity, 1 frame
+  o.push(math::make_rotation(
+      math::Z_AXIS, math::PI_F / 2)); // 2 frames: identity, +90 about Z
   HS_EXPECT_EQ(o.length(), 2);
 
   o.upsample(5);
@@ -1174,22 +1178,22 @@ inline void test_orientation_upsample_then_collapse() {
 
   // Endpoints preserved: frame 0 ~ identity (+X stays +X); frame 4 ~ the +90
   // rotation about Z (+X -> +Y).
-  Vector f0 = o.orient(X_AXIS, 0);
+  math::Vector f0 = o.orient(math::X_AXIS, 0);
   HS_EXPECT_NEAR(f0.x, 1.0f, 1e-3f);
-  Vector f4 = o.orient(X_AXIS, 4);
+  math::Vector f4 = o.orient(math::X_AXIS, 4);
   HS_EXPECT_NEAR(f4.y, 1.0f, 1e-3f);
 
   // SLERP is monotone: +X decreases across the interpolated frames.
   float prevx = 2.0f;
   for (int i = 0; i < 5; ++i) {
-    float x = o.orient(X_AXIS, i).x;
+    float x = o.orient(math::X_AXIS, i).x;
     HS_EXPECT_LE(x, prevx + 1e-4f);
     prevx = x;
   }
 
   o.collapse();
   HS_EXPECT_EQ(o.length(), 1);
-  Vector c = o.orient(X_AXIS, 0);
+  math::Vector c = o.orient(math::X_AXIS, 0);
   HS_EXPECT_NEAR(c.y, 1.0f, 1e-3f);
 }
 
@@ -1213,20 +1217,22 @@ inline void test_orientation_upsample_then_collapse() {
 constexpr float MOTION_WARP_TOL = 0.1f;
 
 inline void test_motion_repeating_does_not_drift() {
-  using Ori = Orientation<16>;
+  using Ori = math::Orientation<16>;
   constexpr int duration = 40;
   ProceduralPath path;
   // lissajous(.,.,.,0) == +Y, so the identity-start orientation places the head
   // on the path at phase 0.
-  path.f = [](float t) { return lissajous(1.06f, 1.06f, 0.0f, t * 5.909f); };
+  path.f = [](float t) {
+    return math::lissajous(1.06f, 1.06f, 0.0f, t * 5.909f);
+  };
 
   Ori o; // identity, single frame; orient(+Y) starts on the path
-  const Vector node_v = Y_AXIS;
+  const math::Vector node_v = math::Y_AXIS;
 
   Timeline tl;
   tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
 
-  Vector late_heads[duration + 1]; // indexed by phase 1..duration
+  math::Vector late_heads[duration + 1]; // indexed by phase 1..duration
   const int cycles = 600;
   for (int c = 0; c < cycles; ++c) {
     for (int fr = 1; fr <= duration; ++fr) {
@@ -1240,11 +1246,12 @@ inline void test_motion_repeating_does_not_drift() {
   // Lissajous internal angle; a rigid precession leaves these untouched, so any
   // growth is genuine warp. Interior phases only (the boundary frame rewinds).
   const int anchor = 1;
-  const Vector ideal_anchor = path.f((float)anchor / duration);
+  const math::Vector ideal_anchor = path.f((float)anchor / duration);
   for (int fr = 2; fr < duration; ++fr) {
-    const Vector ideal_fr = path.f((float)fr / duration);
-    HS_EXPECT_NEAR(angle_between(late_heads[anchor], late_heads[fr]),
-                   angle_between(ideal_anchor, ideal_fr), MOTION_WARP_TOL);
+    const math::Vector ideal_fr = path.f((float)fr / duration);
+    HS_EXPECT_NEAR(math::angle_between(late_heads[anchor], late_heads[fr]),
+                   math::angle_between(ideal_anchor, ideal_fr),
+                   MOTION_WARP_TOL);
   }
 }
 
@@ -1262,33 +1269,34 @@ inline void test_motion_repeating_does_not_drift() {
  * cumulative travel is large (so the co-driver is provably active, not a no-op).
  */
 inline void test_motion_codriven_survives_repeat_seam() {
-  using Ori = Orientation<16>;
+  using Ori = math::Orientation<16>;
   const int duration = 30;
   ProceduralPath path;
   // A closed great circle: path(0) == path(1) with matching tangent, so Motion's
   // per-cycle delta product is identity.
   path.f = [](float t) {
-    float a = 2.0f * PI_F * t;
-    return Vector(std::cos(a), std::sin(a), 0.0f);
+    float a = 2.0f * math::PI_F * t;
+    return math::Vector(std::cos(a), std::sin(a), 0.0f);
   };
 
   Ori o; // identity
   Timeline tl;
   // Repeating Motion + a repeating co-driver rotation about Y, both driving `o`.
   tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
-  tl.add(0, Animation::Rotation<288, 16>(o, Y_AXIS, 2.0f * PI_F, duration,
-                                         ease_linear, /*repeat=*/true));
+  tl.add(0,
+         Animation::Rotation<288, 16>(o, math::Y_AXIS, 2.0f * math::PI_F,
+                                      duration, ease_linear, /*repeat=*/true));
 
-  const Vector probe = Z_AXIS;
-  Vector prev = o.orient(probe);
+  const math::Vector probe = math::Z_AXIS;
+  math::Vector prev = o.orient(probe);
   float max_step = 0.0f;
   float total_travel = 0.0f;
   const int cycles = 8;
   for (int c = 0; c < cycles; ++c) {
     for (int fr = 1; fr <= duration; ++fr) {
       tl.step(fake_canvas());
-      Vector cur = o.orient(probe);
-      float step = angle_between(prev, cur);
+      math::Vector cur = o.orient(probe);
+      float step = math::angle_between(prev, cur);
       max_step = std::max(max_step, step);
       total_travel += step;
       prev = cur;
@@ -1319,15 +1327,16 @@ inline void test_particle_system_spawn_and_capacity_guard() {
   ps.init(arena);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 0);
 
-  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
-  ps.spawn(Vector(0, 1, 0), Vector(0, 0, 0), 1);
+  ps.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
+  ps.spawn(math::Vector(0, 1, 0), math::Vector(0, 0, 0), 1);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 2);
 
-  ps.spawn(Vector(0, 0, 1), Vector(0, 0, 0), 2);
-  ps.spawn(Vector(-1, 0, 0), Vector(0, 0, 0), 3);
+  ps.spawn(math::Vector(0, 0, 1), math::Vector(0, 0, 0), 2);
+  ps.spawn(math::Vector(-1, 0, 0), math::Vector(0, 0, 0), 3);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
   HS_EXPECT_EQ(ps.dropped_spawns(), uint32_t{0});
-  ps.spawn(Vector(0, -1, 0), Vector(0, 0, 0), 4); // capacity is 4 — rejected
+  ps.spawn(math::Vector(0, -1, 0), math::Vector(0, 0, 0),
+           4); // capacity is 4 — rejected
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
   HS_EXPECT_EQ(ps.dropped_spawns(), uint32_t{1});
 }
@@ -1361,7 +1370,7 @@ inline void test_particle_system_reclaims_at_life_expiry() {
   Animation::ParticleSystem<32, 1> ps;
   // Gravity 0 + zero velocity isolates life expiry from physics kills.
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/3.0f);
-  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+  ps.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
 
   ps.step(fake_canvas());
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
@@ -1372,7 +1381,7 @@ inline void test_particle_system_reclaims_at_life_expiry() {
   ps.step(fake_canvas());
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 0);
 
-  ps.spawn(Vector(0, 1, 0), Vector(0, 0, 0), 1);
+  ps.spawn(math::Vector(0, 1, 0), math::Vector(0, 0, 0), 1);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
   HS_EXPECT_EQ(ps.dropped_spawns(), (uint32_t)0);
 }
@@ -1386,10 +1395,11 @@ inline void test_particle_system_attractor_kills_within_radius() {
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.001f, /*max_life=*/600.0f);
-  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+  ps.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
   // Attractor co-located (distance 0 < kill_radius): removed by the kill check,
   // not life expiry (life is 600).
-  ps.add_attractor(Vector(1, 0, 0), /*strength=*/1.0f, /*kill_radius=*/0.5f,
+  ps.add_attractor(math::Vector(1, 0, 0), /*strength=*/1.0f,
+                   /*kill_radius=*/0.5f,
                    /*event_horizon=*/2.0f);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
@@ -1415,8 +1425,8 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   // gravity 0 and no attractor: the only state change is the step's bookkeeping.
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/120.0f);
 
-  const Vector pos(0.6f, 0.0f, 0.8f);
-  const Vector vel(0.0f, 0.01f, 0.0f);
+  const math::Vector pos(0.6f, 0.0f, 0.8f);
+  const math::Vector vel(0.0f, 0.01f, 0.0f);
   ps.spawn(pos, vel, /*seed=*/42);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
@@ -1443,7 +1453,7 @@ inline void test_particle_system_sparse_trail_sampling() {
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 1, 8, 8, 8, false, 3> ps;
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/30.0f);
-  ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+  ps.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
 
   ps.step(fake_canvas());
   HS_EXPECT_EQ(ps.pool[0].history_length(), (size_t)1);
@@ -1477,8 +1487,8 @@ inline void test_particle_system_attractor_kill_radius_boundary() {
     Arena arena(buf, sizeof(buf));
     Animation::ParticleSystem<32, 4> ps;
     ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.001f, /*max_life=*/600.0f);
-    ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
-    ps.add_attractor(Vector(1.0f + dist, 0, 0), /*strength=*/1.0f,
+    ps.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
+    ps.add_attractor(math::Vector(1.0f + dist, 0, 0), /*strength=*/1.0f,
                      /*kill_radius=*/kr, /*event_horizon=*/0.0f);
     ps.step(fake_canvas());
     return ps.active() == 1;
@@ -1497,12 +1507,13 @@ template <typename PS>
 inline void add_signed_axis_attractors(PS &ps, float strength = 0.85f,
                                        float kill_radius = 0.003f,
                                        float event_horizon = 0.2f) {
-  const Vector axes[] = {X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, Z_AXIS, -Z_AXIS};
-  for (const Vector &axis : axes)
+  const math::Vector axes[] = {math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
+                               -math::Y_AXIS, math::Z_AXIS,  -math::Z_AXIS};
+  for (const math::Vector &axis : axes)
     ps.add_attractor(axis, strength, kill_radius, event_horizon);
 }
 
-inline float max_component_delta(const Vector &a, const Vector &b) {
+inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
   return std::max(std::abs(a.x - b.x),
                   std::max(std::abs(a.y - b.y), std::abs(a.z - b.z)));
 }
@@ -1518,7 +1529,8 @@ inline float max_component_delta(const Vector &a, const Vector &b) {
  * the angle under measurement. Differencing the normalized endpoints in double
  * keeps the subtraction exact and resolves an angle of 1e-8.
  */
-inline double small_angle_between(const Vector &a, const Vector &b) {
+inline double small_angle_between(const math::Vector &a,
+                                  const math::Vector &b) {
   const double ax = a.x, ay = a.y, az = a.z;
   const double bx = b.x, by = b.y, bz = b.z;
   const double na = std::sqrt(ax * ax + ay * ay + az * az);
@@ -1552,18 +1564,18 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   const auto saved = hs::random();
   hs::random().seed(0x61786973);
   for (int i = 0; i < COUNT; ++i) {
-    Vector pos;
+    math::Vector pos;
     do {
       const float pos_x = hs::rand_f(-1.0f, 1.0f);
       const float pos_y = hs::rand_f(-1.0f, 1.0f);
       const float pos_z = hs::rand_f(-1.0f, 1.0f);
-      pos = Vector(pos_x, pos_y, pos_z);
+      pos = math::Vector(pos_x, pos_y, pos_z);
     } while (pos.length() < 0.1f);
     pos.normalize();
     const float vel_x = hs::rand_f(-0.1f, 0.1f);
     const float vel_y = hs::rand_f(-0.1f, 0.1f);
     const float vel_z = hs::rand_f(-0.1f, 0.1f);
-    Vector velocity(vel_x, vel_y, vel_z);
+    math::Vector velocity(vel_x, vel_y, vel_z);
     reference.spawn(pos, velocity, static_cast<uint16_t>(i));
     specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
   }
@@ -1589,8 +1601,8 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
                                   max_component_delta(a.velocity, b.velocity));
     max_angle_error =
         std::max(max_angle_error, small_angle_between(a.position, b.position));
-    max_norm_drift =
-        std::max(max_norm_drift, std::abs(dot(a.position, a.position) - 1.0f));
+    max_norm_drift = std::max(
+        max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
   }
   std::printf("axis one-step particles=%u pos=%.9g vel=%.9g angle=%.9g "
               "norm=%.9g\n",
@@ -1611,7 +1623,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
 
 /** @brief Pins signed-axis kill, horizon, and cross-axis fallback boundaries. */
 inline void test_particle_system_signed_axis_boundaries() {
-  auto compare = [](const Vector &position, const Vector &velocity,
+  auto compare = [](const math::Vector &position, const math::Vector &velocity,
                     float kill_radius, float event_horizon) {
     uint8_t reference_buf[4096];
     uint8_t specialized_buf[4096];
@@ -1640,36 +1652,38 @@ inline void test_particle_system_signed_axis_boundaries() {
   };
   auto at_chord_distance = [](float distance) {
     const float x = 1.0f - 0.5f * distance * distance;
-    return Vector(x, sqrtf(std::max(0.0f, 1.0f - x * x)), 0.0f);
+    return math::Vector(x, sqrtf(std::max(0.0f, 1.0f - x * x)), 0.0f);
   };
 
   constexpr float KILL = 0.003f;
   constexpr float HORIZON = 0.2f;
-  for (const Vector &axis :
-       {X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, Z_AXIS, -Z_AXIS}) {
-    Vector tangent = cross(axis, X_AXIS);
-    if (dot(tangent, tangent) < 0.5f)
-      tangent = cross(axis, Y_AXIS);
+  for (const math::Vector &axis :
+       {math::X_AXIS, -math::X_AXIS, math::Y_AXIS, -math::Y_AXIS, math::Z_AXIS,
+        -math::Z_AXIS}) {
+    math::Vector tangent = math::cross(axis, math::X_AXIS);
+    if (math::dot(tangent, tangent) < 0.5f)
+      tangent = math::cross(axis, math::Y_AXIS);
     tangent.normalize();
     for (float distance :
          {std::nextafter(KILL, 0.0f), KILL,
           std::nextafter(KILL, std::numeric_limits<float>::infinity()),
           std::nextafter(HORIZON, 0.0f), HORIZON,
           std::nextafter(HORIZON, std::numeric_limits<float>::infinity())}) {
-      const Vector local = at_chord_distance(distance);
-      compare(axis * local.x + tangent * local.y, Vector(), KILL, HORIZON);
+      const math::Vector local = at_chord_distance(distance);
+      compare(axis * local.x + tangent * local.y, math::Vector(), KILL,
+              HORIZON);
     }
   }
 
-  for (const Vector &position : {
-           X_AXIS,
-           Vector(1.0f, 1e-7f, 0.0f).normalized(),
-           Vector(1.0f, 1e-5f, 0.0f).normalized(),
-           -X_AXIS,
-           Vector(-1.0f, 1e-7f, 0.0f).normalized(),
-           Vector(-1.0f, 1e-5f, 0.0f).normalized(),
+  for (const math::Vector &position : {
+           math::X_AXIS,
+           math::Vector(1.0f, 1e-7f, 0.0f).normalized(),
+           math::Vector(1.0f, 1e-5f, 0.0f).normalized(),
+           -math::X_AXIS,
+           math::Vector(-1.0f, 1e-7f, 0.0f).normalized(),
+           math::Vector(-1.0f, 1e-5f, 0.0f).normalized(),
        })
-    compare(position, Vector(), 0.0f, 0.0f);
+    compare(position, math::Vector(), 0.0f, 0.0f);
 }
 
 /** @brief Bounds deterministic multi-step signed-axis trajectory divergence. */
@@ -1687,15 +1701,20 @@ inline void test_particle_system_signed_axis_trajectory() {
   add_signed_axis_attractors(reference, 2.55f);
   add_signed_axis_attractors(specialized, 2.55f);
 
-  const Vector cube[] = {
-      Vector(-1, -1, -1).normalized(), Vector(1, -1, -1).normalized(),
-      Vector(1, 1, -1).normalized(),   Vector(-1, 1, -1).normalized(),
-      Vector(-1, -1, 1).normalized(),  Vector(1, -1, 1).normalized(),
-      Vector(1, 1, 1).normalized(),    Vector(-1, 1, 1).normalized(),
+  const math::Vector cube[] = {
+      math::Vector(-1, -1, -1).normalized(),
+      math::Vector(1, -1, -1).normalized(),
+      math::Vector(1, 1, -1).normalized(),
+      math::Vector(-1, 1, -1).normalized(),
+      math::Vector(-1, -1, 1).normalized(),
+      math::Vector(1, -1, 1).normalized(),
+      math::Vector(1, 1, 1).normalized(),
+      math::Vector(-1, 1, 1).normalized(),
   };
   for (int i = 0; i < COUNT; ++i) {
-    const Vector pos = cube[i % 8];
-    Vector velocity = cross(pos, i % 2 ? Y_AXIS : Z_AXIS).normalized();
+    const math::Vector pos = cube[i % 8];
+    math::Vector velocity =
+        math::cross(pos, i % 2 ? math::Y_AXIS : math::Z_AXIS).normalized();
     velocity *= 0.025f + 0.069f * static_cast<float>(i % 7) / 6.0f;
     reference.spawn(pos, velocity, static_cast<uint16_t>(i));
     specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
@@ -1719,10 +1738,10 @@ inline void test_particle_system_signed_axis_trajectory() {
           max_position_error, max_component_delta(a.position, b.position));
       max_velocity_error = std::max(
           max_velocity_error, max_component_delta(a.velocity, b.velocity));
-      max_angle_error =
-          std::max(max_angle_error, angle_between(a.position, b.position));
-      max_norm_drift = std::max(max_norm_drift,
-                                std::abs(dot(a.position, a.position) - 1.0f));
+      max_angle_error = std::max(max_angle_error,
+                                 math::angle_between(a.position, b.position));
+      max_norm_drift = std::max(
+          max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
     }
   }
   std::printf("axis trajectory steps=%d particles=%u pos=%.9g vel=%.9g "
@@ -2035,7 +2054,7 @@ inline void test_dissolve_segue_reseeds_per_frame_and_transition() {
   HS_EXPECT_TRUE(f0.incoming.invert != f0.outgoing.invert);
 
   uint32_t before = dissolve.mask_pair(0.5f, 0u).incoming.salt;
-  dissolve.retarget(Vector(0, 1, 0));
+  dissolve.retarget(math::Vector(0, 1, 0));
   HS_EXPECT_NE(dissolve.mask_pair(0.5f, 0u).incoming.salt, before);
 }
 
@@ -2085,7 +2104,7 @@ inline void test_dissolve_segue_overlaps_the_full_fade_window() {
  */
 inline void test_breakdown_guards_degenerate_class_inputs() {
   Segue::Breakdown bd; // default: one class, no reorder() yet
-  const Vector any(0.0f, 1.0f, 0.0f);
+  const math::Vector any(0.0f, 1.0f, 0.0f);
   HS_EXPECT_EQ(bd.num_classes, 1);
   HS_EXPECT_NEAR(bd.face_offset(any, 0, 0), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(bd.face_offset(any, 0, 5), 0.0f, 1e-6f);
@@ -2252,14 +2271,15 @@ inline void test_sweep_phase_front_ordering() {
  */
 inline void test_terminator_sweep_orders_by_axis() {
   Segue::TerminatorSweep term;
-  Vector raw_axis(1.0f, 2.0f, -0.5f);
-  Vector axis = raw_axis.normalized();
+  math::Vector raw_axis(1.0f, 2.0f, -0.5f);
+  math::Vector axis = raw_axis.normalized();
   term.retarget(raw_axis);
   HS_EXPECT_NEAR(term.axis.length(), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(term.face_offset(axis, 0, 0), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(term.face_offset(-axis, 0, 0), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(term.face_offset(cross(axis, X_AXIS).normalized(), 0, 0), 0.5f,
-                 1e-2f);
+  HS_EXPECT_NEAR(
+      term.face_offset(math::cross(axis, math::X_AXIS).normalized(), 0, 0),
+      0.5f, 1e-2f);
   HS_EXPECT_NEAR(term.opacity(0.4f), 0.16f, 1e-6f);
   HS_EXPECT_NEAR(term.opacity(0.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(term.opacity(1.0f), 1.0f, 1e-6f);
@@ -2317,7 +2337,7 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
 inline void test_terminator_sweep_fade_sliders_apply_without_reschedule() {
   Timeline tl;
   MeshCarousel<Segue::TerminatorSweep> carousel;
-  carousel.segue().retarget(Y_AXIS);
+  carousel.segue().retarget(math::Y_AXIS);
   carousel.segue().fade_frames_min = 4.0f;
   carousel.segue().fade_frames_max = 4.0f;
   carousel.schedule_segue(
@@ -2340,7 +2360,7 @@ inline void test_terminator_sweep_per_face_fade_random_in_range() {
   Timeline tl;
   const int dur = 400, window = 64;
   MeshCarousel<Segue::TerminatorSweep> carousel;
-  carousel.segue().retarget(Y_AXIS); // rolls the per-face fade seed
+  carousel.segue().retarget(math::Y_AXIS); // rolls the per-face fade seed
   carousel.segue().fade_frames_min = 4.0f;
   carousel.segue().fade_frames_max = 16.0f;
   carousel.schedule_segue(
@@ -2366,45 +2386,47 @@ inline void test_terminator_sweep_per_face_fade_random_in_range() {
  */
 inline void test_shockwave_orders_by_distance_from_origin() {
   Segue::Shockwave wave;
-  Vector origin = Vector(0.3f, -1.0f, 0.7f).normalized();
+  math::Vector origin = math::Vector(0.3f, -1.0f, 0.7f).normalized();
   wave.retarget(origin);
   HS_EXPECT_NEAR(wave.face_offset(origin, 0, 0), 1.0f, 1e-2f);
   HS_EXPECT_NEAR(wave.face_offset(-origin, 0, 0), 0.0f, 1e-2f);
   // Equidistant ring sits mid-order.
-  HS_EXPECT_NEAR(wave.face_offset(cross(origin, X_AXIS).normalized(), 0, 0),
-                 0.5f, 2e-2f);
+  HS_EXPECT_NEAR(
+      wave.face_offset(math::cross(origin, math::X_AXIS).normalized(), 0, 0),
+      0.5f, 2e-2f);
 }
 
 /** @brief The per-face hook set the mesh draw calls once face_offset resolves.
  */
 template <typename SegueT>
-concept PerFaceSegueDrawable = requires(const SegueT &s, const Vector &c) {
-  s.face_offset(c, 0, 0);
-  s.face_fade_frac(0);
-  s.face_phase(0.5f, 0.5f, 0.1f);
-};
+concept PerFaceSegueDrawable =
+    requires(const SegueT &s, const math::Vector &c) {
+      s.face_offset(c, 0, 0);
+      s.face_fade_frac(0);
+      s.face_phase(0.5f, 0.5f, 0.1f);
+    };
 
 /** @brief A policy whose face_phase takes two arguments: the authoring slip
  * MeshCarousel's per-face contract assert rejects. */
 struct TwoArgFacePhaseSegue : Segue::Base {
-  float face_offset(const Vector &, int, int) const { return 0.0f; }
+  float face_offset(const math::Vector &, int, int) const { return 0.0f; }
   float face_phase(float phase, float) const { return phase; }
 };
 
 /** @brief A policy whose face_offset drops the palette-class argument: the
  * per-face draw path's call site no longer resolves. */
 struct DriftedFaceOffsetSegue : Segue::Base {
-  float face_offset(const Vector &, int) const { return 0.0f; }
+  float face_offset(const math::Vector &, int) const { return 0.0f; }
   float face_phase(float phase, float, float) const { return phase; }
 };
 
 /** @brief Policies whose optional hooks carry drifted signatures: each is named
  * but uncallable at the contract's argument list. */
 struct DriftedWarpSegue : Segue::Base {
-  Vector warp(const Vector &v, float, int) const { return v; }
+  math::Vector warp(const math::Vector &v, float, int) const { return v; }
 };
 struct DriftedRetargetSegue : Segue::Base {
-  int retarget(const Vector &) { return 0; }
+  int retarget(const math::Vector &) { return 0; }
 };
 struct DriftedReorderSegue : Segue::Base {
   template <typename Classes> void reorder(const Classes &, int) {}
@@ -2419,7 +2441,7 @@ struct DriftedLocalSweepSegue : Segue::Base {
 /** @brief A final policy: no name carrier can be merged into it, so every
  * Declares* probe answers false, its drifted warp included. */
 struct FinalSegue final : Segue::Base {
-  Vector warp(const Vector &v, float, int) const { return v; }
+  math::Vector warp(const math::Vector &v, float, int) const { return v; }
 };
 
 /** @brief A policy shadowing Base's visible() with a float: every phase would
@@ -2592,7 +2614,7 @@ inline void test_breakdown_fades_classes_sequentially() {
   for (int r = 0; r < n; ++r)
     HS_EXPECT_TRUE(seen[r]); // a permutation: every rank assigned once
 
-  Vector any(0.0f, 1.0f, 0.0f);
+  math::Vector any(0.0f, 1.0f, 0.0f);
   for (int c = 0; c < n; ++c) {
     float o = bd.face_offset(any, 0, c);
     int r = bd.rank[c];
@@ -2640,22 +2662,22 @@ inline void test_breakdown_fades_classes_sequentially() {
  */
 inline void test_spin_flip_warp_is_rigid() {
   Segue::SpinFlip spin;
-  spin.retarget(Vector(0.5f, 0.5f, -0.7f));
+  spin.retarget(math::Vector(0.5f, 0.5f, -0.7f));
   HS_EXPECT_NEAR(spin.axis.length(), 1.0f, 1e-6f);
-  Vector a = Vector(1.0f, 0.2f, 0.1f).normalized();
-  Vector b = Vector(-0.3f, 0.9f, 0.4f).normalized();
-  Vector wa = spin.warp(a, 0.3f), wb = spin.warp(b, 0.3f);
-  HS_EXPECT_NEAR(dot(wa, wb), dot(a, b), 1e-3f);
+  math::Vector a = math::Vector(1.0f, 0.2f, 0.1f).normalized();
+  math::Vector b = math::Vector(-0.3f, 0.9f, 0.4f).normalized();
+  math::Vector wa = spin.warp(a, 0.3f), wb = spin.warp(b, 0.3f);
+  HS_EXPECT_NEAR(math::dot(wa, wb), math::dot(a, b), 1e-3f);
   HS_EXPECT_NEAR(wa.length(), 1.0f, 1e-3f);
 
   // Winding is (1 - phase)^2 * REVS revolutions; this phase makes it a quarter
   // turn, so an axis-perpendicular input lands perpendicular to where it began.
   float quarter = 1.0f - std::sqrt(0.25f / Segue::SpinFlip::REVS);
-  Vector perp = cross(spin.axis, a).normalized();
-  Vector wperp = spin.warp(perp, quarter);
-  HS_EXPECT_NEAR(dot(wperp, perp), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(dot(wperp, spin.axis), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(dot(wperp, cross(spin.axis, perp)), 1.0f, 1e-3f);
+  math::Vector perp = math::cross(spin.axis, a).normalized();
+  math::Vector wperp = spin.warp(perp, quarter);
+  HS_EXPECT_NEAR(math::dot(wperp, perp), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::dot(wperp, spin.axis), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::dot(wperp, math::cross(spin.axis, perp)), 1.0f, 1e-3f);
 
   HS_EXPECT_NEAR((spin.warp(a, 1.0f) - a).length(), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(spin.opacity(0.0f), 1.0f,
@@ -2698,24 +2720,26 @@ inline void test_gold_convergence_grades_to_gold() {
  * instead of failing deep inside deep_tween_frames' instantiation.
  */
 inline void test_tweenable_rejects_bare_orientation() {
-  static_assert(Tweenable<Animation::OrientationTrail<Orientation<8>, 8>>,
+  static_assert(Tweenable<Animation::OrientationTrail<math::Orientation<8>, 8>>,
                 "OrientationTrail must satisfy Tweenable");
-  static_assert(!Tweenable<Orientation<8>>,
+  static_assert(!Tweenable<math::Orientation<8>>,
                 "a bare Orientation must not satisfy Tweenable");
 }
 
 /** @brief Verifies Orientation tween skips only a shared motion boundary. */
 inline void test_tween_orientation_skips_shared_boundary() {
-  Orientation<5> orientation;
+  math::Orientation<5> orientation;
   std::vector<float> ts;
-  tween(orientation, [&](const Quaternion &, float t) { ts.push_back(t); });
+  tween(orientation,
+        [&](const math::Quaternion &, float t) { ts.push_back(t); });
   HS_EXPECT_SIZE_OR_RETURN(ts, 1);
   HS_EXPECT_NEAR(ts.front(), 1.0f, 1e-6f);
 
-  orientation.push(make_rotation(Z_AXIS, 0.5f));
+  orientation.push(math::make_rotation(math::Z_AXIS, 0.5f));
   orientation.upsample(5);
   ts.clear();
-  tween(orientation, [&](const Quaternion &, float t) { ts.push_back(t); });
+  tween(orientation,
+        [&](const math::Quaternion &, float t) { ts.push_back(t); });
   HS_EXPECT_SIZE_OR_RETURN(ts, 4);
   HS_EXPECT_NEAR(ts.front(), 0.25f, 1e-6f);
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
@@ -2731,18 +2755,19 @@ inline void test_tween_orientation_skips_shared_boundary() {
  * boundary.
  */
 inline void test_deep_tween_global_t_spans_unit_interval() {
-  using Ori = Orientation<8>;
+  using Ori = math::Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   const int N = 3, M = 3;
   for (int k = 0; k < N; ++k) {
     Ori o;
-    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1)));
+    o.push(math::make_rotation(math::Z_AXIS, 0.3f * (k + 1)));
     o.upsample(M);
     trail.record(o);
   }
 
   std::vector<float> gts;
-  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail,
+             [&](const math::Quaternion &, float gt) { gts.push_back(gt); });
 
   HS_EXPECT_SIZE_OR_RETURN(gts, M + (N - 1) * (M - 1));
   HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
@@ -2759,11 +2784,11 @@ inline void test_deep_tween_global_t_spans_unit_interval() {
  * collapsed frame shares with its predecessor.
  */
 inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
-  using Ori = Orientation<8>;
+  using Ori = math::Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   for (int k = 0; k < 2; ++k) {
     Ori o;
-    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1)));
+    o.push(math::make_rotation(math::Z_AXIS, 0.3f * (k + 1)));
     o.upsample(3);
     trail.record(o);
   }
@@ -2771,7 +2796,8 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
   trail.record(still);
 
   std::vector<float> gts;
-  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail,
+             [&](const math::Quaternion &, float gt) { gts.push_back(gt); });
 
   // The collapsed tail frame is dropped, so the count matches the two
   // contentful frames (M=3 sub-frames each): M + (contentful-1)*(M-1).
@@ -2790,7 +2816,7 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
  * render it invisible under quintic_kernel(0).
  */
 inline void test_deep_tween_all_collapsed_reaches_one() {
-  using Ori = Orientation<8>;
+  using Ori = math::Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   for (int k = 0; k < 3; ++k) {
     Ori still; // length 1 — no motion any frame
@@ -2798,7 +2824,8 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
   }
 
   std::vector<float> gts;
-  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail,
+             [&](const math::Quaternion &, float gt) { gts.push_back(gt); });
 
   HS_EXPECT_SIZE_OR_RETURN(gts, 1);
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
@@ -2811,24 +2838,25 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
  * (quaternion, t) stream equals deep_tween's exactly.
  */
 inline void test_deep_tween_frames_groups_flat_emission() {
-  using Ori = Orientation<8>;
+  using Ori = math::Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   const int N = 3, M = 4;
   for (int k = 0; k < N; ++k) {
     Ori o;
-    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1)));
+    o.push(math::make_rotation(math::Z_AXIS, 0.3f * (k + 1)));
     o.upsample(M);
     trail.record(o);
   }
 
-  std::vector<std::pair<Quaternion, float>> flat;
-  deep_tween(trail,
-             [&](const Quaternion &q, float t) { flat.emplace_back(q, t); });
+  std::vector<std::pair<math::Quaternion, float>> flat;
+  deep_tween(trail, [&](const math::Quaternion &q, float t) {
+    flat.emplace_back(q, t);
+  });
 
   size_t idx = 0;
   int frames = 0;
   deep_tween_frames(
-      trail, [&](const Quaternion *qs, const float *ts, int count) {
+      trail, [&](const math::Quaternion *qs, const float *ts, int count) {
         HS_EXPECT_EQ(count, frames == 0 ? M : M - 1);
         for (int i = 0; i < count && idx < flat.size(); ++i, ++idx) {
           HS_EXPECT_EQ(qs[i].r, flat[idx].first.r);
@@ -2850,11 +2878,11 @@ inline void test_deep_tween_frames_groups_flat_emission() {
  * frames stay evenly spaced across [0,1] instead of straddling a ~1/span gap.
  */
 inline void test_deep_tween_interior_motionless_frame_no_gap() {
-  using Ori = Orientation<8>;
+  using Ori = math::Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   {
     Ori o;
-    o.push(make_rotation(Z_AXIS, 0.3f));
+    o.push(math::make_rotation(math::Z_AXIS, 0.3f));
     o.upsample(3);
     trail.record(o);
   }
@@ -2864,13 +2892,14 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
   }
   {
     Ori o;
-    o.push(make_rotation(Z_AXIS, 0.6f));
+    o.push(math::make_rotation(math::Z_AXIS, 0.6f));
     o.upsample(3);
     trail.record(o);
   }
 
   std::vector<float> gts;
-  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail,
+             [&](const math::Quaternion &, float gt) { gts.push_back(gt); });
 
   const float expected[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
   HS_EXPECT_SIZE_OR_RETURN(gts, 5);
@@ -2880,16 +2909,17 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
 
 /** @brief Verifies a motionless oldest frame occupies its age slot endpoint. */
 inline void test_deep_tween_oldest_motionless_frame_no_gap() {
-  using Ori = Orientation<8>;
+  using Ori = math::Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   trail.record(Ori());
   Ori moving;
-  moving.push(make_rotation(Z_AXIS, 0.6f));
+  moving.push(math::make_rotation(math::Z_AXIS, 0.6f));
   moving.upsample(3);
   trail.record(moving);
 
   std::vector<float> gts;
-  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail,
+             [&](const math::Quaternion &, float gt) { gts.push_back(gt); });
   HS_EXPECT_SIZE_OR_RETURN(gts, 3);
   HS_EXPECT_NEAR(gts[0], 0.5f, 1e-6f);
   HS_EXPECT_NEAR(gts[1], 0.75f, 1e-6f);
@@ -2904,17 +2934,17 @@ inline void test_deep_tween_oldest_motionless_frame_no_gap() {
  */
 inline void test_tween_vectortrail_single_sample_reaches_one() {
   Animation::VectorTrail<8> trail;
-  trail.record(Vector(1, 0, 0));
+  trail.record(math::Vector(1, 0, 0));
 
   std::vector<float> ts;
-  tween(trail, [&](const Vector &, float t) { ts.push_back(t); });
+  tween(trail, [&](const math::Vector &, float t) { ts.push_back(t); });
   HS_EXPECT_SIZE_OR_RETURN(ts, 1);
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
 
-  trail.record(Vector(0, 1, 0));
-  trail.record(Vector(0, 0, 1));
+  trail.record(math::Vector(0, 1, 0));
+  trail.record(math::Vector(0, 0, 1));
   ts.clear();
-  tween(trail, [&](const Vector &, float t) { ts.push_back(t); });
+  tween(trail, [&](const math::Vector &, float t) { ts.push_back(t); });
   HS_EXPECT_SIZE_OR_RETURN(ts, 3);
   HS_EXPECT_NEAR(ts.front(), 0.0f, 1e-6f); // oldest = tail
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);  // newest = head
@@ -2929,30 +2959,31 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
   constexpr float QUANT_ERR = 1.0f / 65534.0f;
 
   Animation::QuantizedVectorTrail<8> trail;
-  trail.record(Vector(1, 0, 0));
-  trail.record(Vector(0, -1, 0));
+  trail.record(math::Vector(1, 0, 0));
+  trail.record(math::Vector(0, -1, 0));
   HS_EXPECT_EQ(trail.get(0).x, 1.0f);
   HS_EXPECT_EQ(trail.get(0).y, 0.0f);
   HS_EXPECT_EQ(trail.get(1).y, -1.0f);
 
   for (int i = 0; i < 32; ++i) {
-    Vector v = Vector::from_spherical(0.37f + 0.19f * i, 0.11f + 0.09f * i);
+    math::Vector v =
+        math::Vector::from_spherical(0.37f + 0.19f * i, 0.11f + 0.09f * i);
     trail.record(v);
-    Vector d = trail.get(trail.length() - 1);
+    math::Vector d = trail.get(trail.length() - 1);
     HS_EXPECT_NEAR(d.x, v.x, QUANT_ERR);
     HS_EXPECT_NEAR(d.y, v.y, QUANT_ERR);
     HS_EXPECT_NEAR(d.z, v.z, QUANT_ERR);
   }
 
   trail.clear();
-  trail.record(Vector(1.5f, -2.0f, 0.25f));
+  trail.record(math::Vector(1.5f, -2.0f, 0.25f));
   HS_EXPECT_EQ(trail.get(0).x, 1.0f);
   HS_EXPECT_EQ(trail.get(0).y, -1.0f);
   HS_EXPECT_NEAR(trail.get(0).z, 0.25f, QUANT_ERR);
 
   Animation::QuantizedVectorTrail<4> ring;
   for (int i = 0; i < 6; ++i)
-    ring.record(Vector(0, 0, 0.1f * i));
+    ring.record(math::Vector(0, 0, 0.1f * i));
   HS_EXPECT_EQ(ring.length(), static_cast<size_t>(4));
   HS_EXPECT_NEAR(ring.get(0).z, 0.2f, QUANT_ERR); // oldest retained = 3rd
   HS_EXPECT_NEAR(ring.get(3).z, 0.5f, QUANT_ERR); // newest = last recorded
@@ -2961,7 +2992,7 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
   HS_EXPECT_NEAR(ring.get(0).z, 0.3f, QUANT_ERR);
 
   std::vector<float> ts;
-  tween(ring, [&](const Vector &, float t) { ts.push_back(t); });
+  tween(ring, [&](const math::Vector &, float t) { ts.push_back(t); });
   HS_EXPECT_SIZE_OR_RETURN(ts, 3);
   HS_EXPECT_NEAR(ts.front(), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(ts[1], 0.5f, 1e-6f);
@@ -2976,8 +3007,8 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
  * unambiguous.
  */
 inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
-  static const Vector verts[6] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
-                                  {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
+  static const math::Vector verts[6] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
+                                        {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
   static const uint16_t tris[8][3] = {{0, 2, 4}, {2, 1, 4}, {1, 3, 4},
                                       {3, 0, 4}, {2, 0, 5}, {1, 2, 5},
                                       {3, 1, 5}, {0, 3, 5}};
@@ -3030,7 +3061,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
   HS_EXPECT_TRUE(after_reset_ran);
   HS_EXPECT_TRUE(carousel.current().is_bound());
   HS_EXPECT_EQ(carousel.current().vertices.size(), v_front);
-  HS_EXPECT_VEC(carousel.current().vertices[0], Vector(1, 0, 0), 1e-5f);
+  HS_EXPECT_VEC(carousel.current().vertices[0], math::Vector(1, 0, 0), 1e-5f);
   HS_EXPECT_FALSE(carousel.slot(1).is_bound());
   HS_EXPECT_GT(reinterpret_cast<uintptr_t>(&carousel.current().vertices[0]),
                reinterpret_cast<uintptr_t>(bake_ptr));
@@ -3339,7 +3370,7 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
 inline void test_ripple_envelope_and_done_boundary() {
   Animation::RippleParams params;
   params.amplitude = 2.0f; // peak captured at construction
-  const Vector center(0.0f, 1.0f, 0.0f);
+  const math::Vector center(0.0f, 1.0f, 0.0f);
   const int duration = 20;
   Animation::Ripple ripple(params, center, /*speed=*/0.2f, duration);
 
@@ -3431,20 +3462,20 @@ inline void test_random_walk_stays_unit_and_travels() {
 
   // Records one seeded walk's trace of the probe pair, asserting the rigid-body
   // invariants as it goes.
-  auto run = [&](int seed, std::vector<Vector> &trace) {
-    Orientation<4> o; // identity
+  auto run = [&](int seed, std::vector<math::Vector> &trace) {
+    math::Orientation<4> o; // identity
     FastNoiseLite noise;
-    Walk walk(o, Y_AXIS, noise, options, seed);
-    const Vector probe = X_AXIS, companion = Z_AXIS;
+    Walk walk(o, math::Y_AXIS, noise, options, seed);
+    const math::Vector probe = math::X_AXIS, companion = math::Z_AXIS;
     const float rest =
         static_cast<float>(small_angle_between(probe, companion));
-    Vector prev = o.orient(probe);
+    math::Vector prev = o.orient(probe);
     float travel = 0.0f;
     for (int fr = 0; fr < RANDOM_WALK_FRAMES; ++fr) {
       HS_CONTEXT("frame", fr);
       walk.step(fake_canvas());
-      const Vector cur = o.orient(probe);
-      const Vector other = o.orient(companion);
+      const math::Vector cur = o.orient(probe);
+      const math::Vector other = o.orient(companion);
       trace.push_back(cur);
       HS_EXPECT_NEAR(cur.length(), 1.0f, 1e-4f);
       HS_EXPECT_NEAR(other.length(), 1.0f, 1e-4f);
@@ -3458,7 +3489,7 @@ inline void test_random_walk_stays_unit_and_travels() {
     return travel;
   };
 
-  std::vector<Vector> trace, replay, divergent;
+  std::vector<math::Vector> trace, replay, divergent;
   const float travel = run(1234, trace);
   HS_EXPECT_GT(travel, 0.01f);
   HS_EXPECT_LE(travel, options.speed * RANDOM_WALK_FRAMES);
@@ -3489,20 +3520,20 @@ inline void test_random_walk_stable_rotation_tracks_default() {
   // composition under the shipping fast-math flags.
   constexpr float DRIFT_BOUND = 128.0f * std::numeric_limits<float>::epsilon();
 
-  Orientation<4> default_orientation;
-  Orientation<4> stable_orientation;
+  math::Orientation<4> default_orientation;
+  math::Orientation<4> stable_orientation;
   FastNoiseLite default_noise;
   FastNoiseLite stable_noise;
-  DefaultWalk default_walk(default_orientation, Y_AXIS, default_noise,
+  DefaultWalk default_walk(default_orientation, math::Y_AXIS, default_noise,
                            DefaultWalk::Options::Energetic(), /*seed=*/1234);
-  StableWalk stable_walk(stable_orientation, Y_AXIS, stable_noise,
+  StableWalk stable_walk(stable_orientation, math::Y_AXIS, stable_noise,
                          StableWalk::Options::Energetic(), /*seed=*/1234);
 
   for (int frame = 0; frame < FRAMES; ++frame) {
     default_walk.step(fake_canvas());
     stable_walk.step(fake_canvas());
-    const Quaternion &expected = default_orientation.get();
-    const Quaternion &actual = stable_orientation.get();
+    const math::Quaternion &expected = default_orientation.get();
+    const math::Quaternion &actual = stable_orientation.get();
     HS_EXPECT_NEAR(actual.r, expected.r, DRIFT_BOUND);
     HS_EXPECT_NEAR(actual.v.x, expected.v.x, DRIFT_BOUND);
     HS_EXPECT_NEAR(actual.v.y, expected.v.y, DRIFT_BOUND);
@@ -3714,7 +3745,7 @@ inline void test_particle_system_emitter_dispatch() {
   int calls = 0;
   ps.add_emitter([&](Animation::ParticleSystem<32, 4> &sys) {
     calls++;
-    sys.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+    sys.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
   });
   ps.step(fake_canvas());
   HS_EXPECT_EQ(calls, 1);
@@ -3731,29 +3762,29 @@ inline void test_particle_system_emitter_dispatch() {
  * between the two parameterizations — the post-change step stays a small move.
  */
 inline void test_motion_set_duration_reanchors_no_teleport() {
-  using Ori = Orientation<16>;
+  using Ori = math::Orientation<16>;
   ProceduralPath path;
   path.f = [](float t) {
-    float a = 2.0f * PI_F * t;
-    return Vector(std::cos(a), std::sin(a), 0.0f);
+    float a = 2.0f * math::PI_F * t;
+    return math::Vector(std::cos(a), std::sin(a), 0.0f);
   };
   Ori o; // identity
   Animation::Motion<288, 16> motion(o, path, 60, /*repeat=*/true);
 
-  const Vector probe = X_AXIS;
+  const math::Vector probe = math::X_AXIS;
   for (int i = 0; i < 30; ++i)
     motion.step(fake_canvas());
-  const Vector before = o.orient(probe);
+  const math::Vector before = o.orient(probe);
 
   motion.set_duration(120);
   motion.step(fake_canvas());
-  const Vector reanchored = o.orient(probe);
+  const math::Vector reanchored = o.orient(probe);
 
-  HS_EXPECT_LT(angle_between(before, reanchored), 0.5f);
+  HS_EXPECT_LT(math::angle_between(before, reanchored), 0.5f);
   motion.step(fake_canvas());
-  const Vector continued = o.orient(probe);
+  const math::Vector continued = o.orient(probe);
   HS_EXPECT_GT(small_angle_between(reanchored, continued), 1e-4);
-  HS_EXPECT_LT(angle_between(reanchored, continued), 0.5f);
+  HS_EXPECT_LT(math::angle_between(reanchored, continued), 0.5f);
 }
 
 /**
@@ -3764,20 +3795,20 @@ inline void test_motion_set_duration_reanchors_no_teleport() {
  * — a full-cycle desync from one drag of a live duration slider.
  */
 inline void test_motion_set_duration_below_position_rescales() {
-  using Ori = Orientation<16>;
+  using Ori = math::Orientation<16>;
   ProceduralPath path;
   path.f = [](float t) {
-    float a = 2.0f * PI_F * t;
-    return Vector(std::cos(a), std::sin(a), 0.0f);
+    float a = 2.0f * math::PI_F * t;
+    return math::Vector(std::cos(a), std::sin(a), 0.0f);
   };
   Ori o;
   Animation::Motion<288, 16> motion(o, path, 60, /*repeat=*/true);
 
-  const Vector probe = X_AXIS;
+  const math::Vector probe = math::X_AXIS;
   for (int i = 0; i < 40; ++i)
     motion.step(fake_canvas());
   HS_EXPECT_FALSE(motion.done());
-  const Vector before = o.orient(probe);
+  const math::Vector before = o.orient(probe);
 
   // 40 frames into a 60-frame loop; 20 frames is behind that position.
   motion.set_duration(20);
@@ -3785,7 +3816,7 @@ inline void test_motion_set_duration_below_position_rescales() {
 
   // Phase is preserved, so the next step stays incremental.
   motion.step(fake_canvas());
-  HS_EXPECT_LT(angle_between(before, o.orient(probe)), 0.5f);
+  HS_EXPECT_LT(math::angle_between(before, o.orient(probe)), 0.5f);
 }
 
 /**
@@ -3818,17 +3849,17 @@ inline void test_progress_pause_and_eased_bounds() {
 
 inline void test_trail_body_records_independent_orientation_history() {
   Animation::TrailBody<2, 2> body;
-  HS_EXPECT_VEC(body.v, Y_AXIS, 0.0f);
+  HS_EXPECT_VEC(body.v, math::Y_AXIS, 0.0f);
   HS_EXPECT_EQ(body.trail.length(), size_t{0});
   body.trail.record(body.orientation);
-  body.orientation.set(make_rotation(Z_AXIS, PI_F * 0.5f));
-  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), Y_AXIS, 1e-6f);
+  body.orientation.set(math::make_rotation(math::Z_AXIS, math::PI_F * 0.5f));
+  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), math::Y_AXIS, 1e-6f);
   body.trail.record(body.orientation);
-  body.orientation.set(Quaternion());
+  body.orientation.set(math::Quaternion());
   body.trail.record(body.orientation);
   HS_EXPECT_EQ(body.trail.length(), size_t{2});
-  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), -X_AXIS, 1e-5f);
-  HS_EXPECT_VEC(body.trail.get(1).orient(body.v), Y_AXIS, 1e-6f);
+  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), -math::X_AXIS, 1e-5f);
+  HS_EXPECT_VEC(body.trail.get(1).orient(body.v), math::Y_AXIS, 1e-6f);
 }
 
 inline int run_animation_tests() {

@@ -194,10 +194,10 @@ inline void test_half_edge_mesh_open_boundary_edges() {
   open.face_counts.bind(arena, 2);
   open.faces.bind(arena, 6);
   // Positions are irrelevant to half-edge topology; any distinct points work.
-  open.vertices.push_back(Vector(0, 0, 1));
-  open.vertices.push_back(Vector(1, 0, 0));
-  open.vertices.push_back(Vector(0, 1, 0));
-  open.vertices.push_back(Vector(-1, 0, 0));
+  open.vertices.push_back(math::Vector(0, 0, 1));
+  open.vertices.push_back(math::Vector(1, 0, 0));
+  open.vertices.push_back(math::Vector(0, 1, 0));
+  open.vertices.push_back(math::Vector(-1, 0, 0));
   open.face_counts.push_back(3);
   open.face_counts.push_back(3);
   const uint16_t idx[] = {0, 1, 2, 0, 2, 3}; // tri A: 0->1->2, tri B: 0->2->3
@@ -322,10 +322,10 @@ inline void test_compile_drops_degenerate_faces() {
   m.face_counts.bind(src, /*faces*/ 3);
   m.faces.bind(src, /*indices*/ 7);
   // The triangle references vertices 0-2; vertex 3 only the degenerate faces.
-  m.vertices.push_back(Vector(1, 0, 0));
-  m.vertices.push_back(Vector(0, 1, 0));
-  m.vertices.push_back(Vector(0, 0, 1));
-  m.vertices.push_back(Vector(-1, -1, -1));
+  m.vertices.push_back(math::Vector(1, 0, 0));
+  m.vertices.push_back(math::Vector(0, 1, 0));
+  m.vertices.push_back(math::Vector(0, 0, 1));
+  m.vertices.push_back(math::Vector(-1, -1, -1));
 
   // Face counts: 3 (valid), then two degenerate 2-vertex faces.
   m.face_counts.push_back(3);
@@ -510,9 +510,9 @@ inline void test_classify_faces_uncompiled_degenerate() {
   m.vertices.bind(geom, 3);
   m.face_counts.bind(geom, 2);
   m.faces.bind(geom, 5);
-  m.vertices.push_back(Vector(1, 0, 0));
-  m.vertices.push_back(Vector(0, 1, 0));
-  m.vertices.push_back(Vector(0, 0, 1));
+  m.vertices.push_back(math::Vector(1, 0, 0));
+  m.vertices.push_back(math::Vector(0, 1, 0));
+  m.vertices.push_back(math::Vector(0, 0, 1));
   m.face_counts.push_back(3);
   m.face_counts.push_back(2);
   m.faces.push_back(0);
@@ -680,16 +680,16 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
            "face_topo_record: face sides overrun angles[]");
   if (count >= 3) {
     for (int k = 0; k < count; ++k) {
-      const Vector &prev = mesh.vertices[idx[(k - 1 + count) % count]];
-      const Vector &curr = mesh.vertices[idx[k]];
-      const Vector &next = mesh.vertices[idx[(k + 1) % count]];
-      const Vector e1 = prev - curr;
-      const Vector e2 = next - curr;
-      const float m1 = dot(e1, e1), m2 = dot(e2, e2);
+      const math::Vector &prev = mesh.vertices[idx[(k - 1 + count) % count]];
+      const math::Vector &curr = mesh.vertices[idx[k]];
+      const math::Vector &next = mesh.vertices[idx[(k + 1) % count]];
+      const math::Vector e1 = prev - curr;
+      const math::Vector e2 = next - curr;
+      const float m1 = math::dot(e1, e1), m2 = math::dot(e2, e2);
       float ang = 0.0f;
       if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ)
-        ang = acosf(hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f));
-      const float degrees = ang * 180.0f / PI_F;
+        ang = acosf(hs::clamp(math::dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f));
+      const float degrees = ang * 180.0f / math::PI_F;
       rec.angles[k] = static_cast<int>(std::round(degrees));
     }
     std::sort(rec.angles, rec.angles + count);

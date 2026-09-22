@@ -38,21 +38,23 @@ inline float ease_in_out_cubic(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_in_out_sin(float t) { return -(cosf(PI_F * t) - 1) / 2; }
+inline float ease_in_out_sin(float t) {
+  return -(cosf(math::PI_F * t) - 1) / 2;
+}
 
 /**
  * @brief Easing function: Sine Interpolation (In).
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_in_sin(float t) { return 1 - cosf((t * PI_F) / 2); }
+inline float ease_in_sin(float t) { return 1 - cosf((t * math::PI_F) / 2); }
 
 /**
  * @brief Easing function: Sine Interpolation (Out).
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_out_sin(float t) { return sinf((t * PI_F) / 2); }
+inline float ease_out_sin(float t) { return sinf((t * math::PI_F) / 2); }
 
 /**
  * @brief Easing function: Cubic Interpolation (In).
@@ -115,7 +117,7 @@ inline float ease_out_cubic(float t) {
  * @return The eased factor.
  */
 inline float ease_out_elastic(float x) {
-  const float c4 = (2 * PI_F) / 3;
+  const float c4 = (2 * math::PI_F) / 3;
   // Endpoint guards: pin exactly 0/1 and floor at 0 (2^(-10x) explodes for x < 0).
   return x <= 0.0f ? 0.0f
          : x == 1.0f

@@ -25,8 +25,8 @@ namespace Pullback {
 namespace Kernel {
 
 __attribute__((always_inline)) inline SphereSample
-rotate_dir(const SphereSample &input, const Quaternion &conjugate) {
-  return {rotate(input.dir, conjugate), input.path_length};
+rotate_dir(const SphereSample &input, const math::Quaternion &conjugate) {
+  return {math::rotate(input.dir, conjugate), input.path_length};
 }
 
 /** @brief Displacement adds to the path accumulator, never replaces it. */
@@ -36,7 +36,7 @@ displace(const SphereSample &input, const SurfaceResult &step) {
 }
 
 __attribute__((always_inline)) inline SphereSample
-lens(const SphereSample &input, const Vector &lensed) {
+lens(const SphereSample &input, const math::Vector &lensed) {
   return {lensed, input.path_length};
 }
 
@@ -44,7 +44,7 @@ lens(const SphereSample &input, const Vector &lensed) {
     coords and provenance embed unchanged; `sphere` is combinator state
     written from the pre-projection point. */
 __attribute__((always_inline)) inline PlaneSample
-project(const SphereSample &input, const Vector &local,
+project(const SphereSample &input, const math::Vector &local,
         const ProjectionResult &result) {
   return {result.coords, result.provenance, local, input.path_length};
 }
@@ -106,14 +106,14 @@ template <typename Policy, typename FrameState>
 consteval bool warp_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
     return requires(
-        const Complex &input, const ProjectionProvenance &provenance,
+        const math::Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const typename Policy::Prepared &prepared) {
       {
         Policy::apply(input, provenance, frame, prepared)
       } -> std::same_as<WarpStepResult>;
     };
   else
-    return requires(const Complex &input,
+    return requires(const math::Complex &input,
                     const ProjectionProvenance &provenance,
                     const FrameState &frame) {
       {
@@ -159,29 +159,31 @@ consteval bool orientation_policy_callable() {
                     const typename Policy::Prepared &prepared) {
       {
         Policy::conjugate(frame, prepared)
-      } -> std::same_as<const Quaternion &>;
+      } -> std::same_as<const math::Quaternion &>;
     };
   else
     return requires(const FrameState &frame) {
-      { Policy::conjugate(frame) } -> std::same_as<const Quaternion &>;
+      { Policy::conjugate(frame) } -> std::same_as<const math::Quaternion &>;
     };
 }
 
 template <typename Policy, typename FrameState>
 consteval bool projection_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
-    return requires(const Vector &input, const FrameState &frame,
+    return requires(const math::Vector &input, const FrameState &frame,
                     const typename Policy::Prepared &prepared) {
       {
         Policy::frame_conjugate(frame, prepared)
-      } -> std::same_as<const Quaternion &>;
+      } -> std::same_as<const math::Quaternion &>;
       {
         Policy::project(input, frame, prepared)
       } -> std::same_as<ProjectionResult>;
     };
   else
-    return requires(const Vector &input, const FrameState &frame) {
-      { Policy::frame_conjugate(frame) } -> std::same_as<const Quaternion &>;
+    return requires(const math::Vector &input, const FrameState &frame) {
+      {
+        Policy::frame_conjugate(frame)
+      } -> std::same_as<const math::Quaternion &>;
       { Policy::project(input, frame) } -> std::same_as<ProjectionResult>;
     };
 }
@@ -259,7 +261,7 @@ struct Displace
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      Detail::apply_policy_callable<SurfacePolicyT, Vector, SurfaceResult,
+      Detail::apply_policy_callable<SurfacePolicyT, math::Vector, SurfaceResult,
                                     typename Binding::FrameState>();
 
   template <typename Binding>
@@ -297,7 +299,7 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
 
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
-      Detail::apply_policy_callable<LensPolicyT, Vector, Vector,
+      Detail::apply_policy_callable<LensPolicyT, math::Vector, math::Vector,
                                     typename Binding::FrameState>();
 
   template <typename Binding>
@@ -313,7 +315,7 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    Vector lensed;
+    math::Vector lensed;
     if constexpr (Detail::PolicyPrepares<LensPolicyT,
                                          typename Binding::FrameState>)
       lensed = LensPolicyT::apply(input.dir, frame, prepared);
@@ -363,15 +365,16 @@ struct Project
                                    typename Binding::FrameState> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    Vector local;
+    math::Vector local;
     ProjectionResult result;
     if constexpr (Detail::PolicyPrepares<ProjectionPolicyT,
                                          typename Binding::FrameState>) {
-      local = rotate(input.dir,
-                     ProjectionPolicyT::frame_conjugate(frame, prepared));
+      local = math::rotate(input.dir,
+                           ProjectionPolicyT::frame_conjugate(frame, prepared));
       result = ProjectionPolicyT::project(local, frame, prepared);
     } else {
-      local = rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
+      local =
+          math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
       result = ProjectionPolicyT::project(local, frame);
     }
     const PlaneSample output = Kernel::project(input, local, result);

@@ -196,8 +196,8 @@ inline float max_edge_length_deviation(const PolyMesh &m) {
   for (size_t fi = 0; fi < m.face_counts.size(); ++fi) {
     const int c = m.face_counts[fi];
     for (int k = 0; k < c; ++k) {
-      sum += distance_between(m.vertices[m.faces[off + k]],
-                              m.vertices[m.faces[off + (k + 1) % c]]);
+      sum += math::distance_between(m.vertices[m.faces[off + k]],
+                                    m.vertices[m.faces[off + (k + 1) % c]]);
       ++n;
     }
     off += c;
@@ -208,9 +208,10 @@ inline float max_edge_length_deviation(const PolyMesh &m) {
   for (size_t fi = 0; fi < m.face_counts.size(); ++fi) {
     const int c = m.face_counts[fi];
     for (int k = 0; k < c; ++k) {
-      const float d = distance_between(m.vertices[m.faces[off + k]],
-                                       m.vertices[m.faces[off + (k + 1) % c]]) -
-                      mean;
+      const float d =
+          math::distance_between(m.vertices[m.faces[off + k]],
+                                 m.vertices[m.faces[off + (k + 1) % c]]) -
+          mean;
       worst = std::max(worst, std::abs(d));
     }
     off += c;
@@ -226,12 +227,13 @@ inline float poly_face_area(const PolyMesh &m, size_t fi) {
   for (size_t i = 0; i < fi; ++i)
     off += m.face_counts[i];
   const int n = m.face_counts[fi];
-  Vector s(0.0f, 0.0f, 0.0f);
+  math::Vector s(0.0f, 0.0f, 0.0f);
   for (int k = 1; k + 1 < n; ++k) {
-    const Vector e1 = m.vertices[m.faces[off + k]] - m.vertices[m.faces[off]];
-    const Vector e2 =
+    const math::Vector e1 =
+        m.vertices[m.faces[off + k]] - m.vertices[m.faces[off]];
+    const math::Vector e2 =
         m.vertices[m.faces[off + k + 1]] - m.vertices[m.faces[off]];
-    s = s + cross(e1, e2);
+    s = s + math::cross(e1, e2);
   }
   return 0.5f * s.length();
 }
@@ -286,7 +288,7 @@ inline void check_primary_faces_match_seed(const PolyMesh &seed,
     const int oc = out.face_counts[fi];
     HS_EXPECT_EQ(oc, bc * corners_per_source);
     for (int k = 0; k < bc; ++k) {
-      const Vector corner = seed.vertices[seed.faces[seed_off + k]];
+      const math::Vector corner = seed.vertices[seed.faces[seed_off + k]];
       int near_count = 0;
       for (int j = 0; j < oc; ++j) {
         if ((out.vertices[out.faces[out_off + j]] - corner).length() <= tol)
@@ -532,8 +534,8 @@ inline void test_jitterbug_sweep_holds_topology() {
       for (int j = 0; j < c; ++j)
         min_edge = std::min(
             min_edge,
-            distance_between(out.vertices[out.faces[off + j]],
-                             out.vertices[out.faces[off + (j + 1) % c]]));
+            math::distance_between(out.vertices[out.faces[off + j]],
+                                   out.vertices[out.faces[off + (j + 1) % c]]));
       off += c;
     }
     HS_EXPECT_GE(min_edge, 0.019f);
@@ -753,7 +755,8 @@ inline void check_equal_within_relax_gate(const PolyMesh &got,
       got.faces.size() != want.faces.size())
     return;
   for (size_t i = 0; i < got.vertices.size(); ++i)
-    HS_EXPECT_LE(distance_between(got.vertices[i], want.vertices[i]), tol);
+    HS_EXPECT_LE(math::distance_between(got.vertices[i], want.vertices[i]),
+                 tol);
   for (size_t i = 0; i < got.face_counts.size(); ++i)
     HS_EXPECT_EQ((int)got.face_counts[i], (int)want.face_counts[i]);
   for (size_t i = 0; i < got.faces.size(); ++i)
@@ -906,10 +909,10 @@ constexpr int SWEEP_SAMPLES = 16;
  *        its count and order frame to frame.
  */
 struct LegDrawProbe {
-  size_t drawn = 0;           /**< Frames handed to the callback. */
-  size_t faces = 0;           /**< Face count latched on the first frame. */
-  float worst_step = 0.0f;    /**< Largest per-vertex motion between frames. */
-  std::vector<Vector> prev_v; /**< Previous frame's vertices. */
+  size_t drawn = 0;        /**< Frames handed to the callback. */
+  size_t faces = 0;        /**< Face count latched on the first frame. */
+  float worst_step = 0.0f; /**< Largest per-vertex motion between frames. */
+  std::vector<math::Vector> prev_v; /**< Previous frame's vertices. */
 
   /**
    * @brief Folds one drawn frame in.
@@ -928,8 +931,8 @@ struct LegDrawProbe {
     if (!prev_v.empty()) {
       HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
       for (size_t i = 0; i < m.vertices.size(); ++i)
-        worst_step =
-            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
+        worst_step = std::max(worst_step,
+                              math::distance_between(m.vertices[i], prev_v[i]));
     }
     prev_v.assign(m.vertices.begin(), m.vertices.end());
     ++drawn;
@@ -1612,7 +1615,7 @@ enum class HankinBranch : uint8_t {
 
 /** @brief One dynamic vertex's solved position and the branch that made it. */
 struct HankinSolve {
-  Vector pos;
+  math::Vector pos;
   HankinBranch branch;
   /** dist^2(star, corner) / max(dist^2(m, corner)); this mirror takes the
    * fallback above STAR_FAR_RATIO_SQ. Zero on the non-intersect branches. */
@@ -1623,7 +1626,7 @@ struct HankinSolve {
 inline float hankin_blend_above(float value, float start, float end) {
   const float t =
       std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
-  return quintic_kernel(t);
+  return math::quintic_kernel(t);
 }
 
 /**
@@ -1644,43 +1647,49 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
   out.assign(compiled.dynamic_instructions.size(), HankinSolve{});
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const HankinInstruction &instr = compiled.dynamic_instructions[i];
-    const Vector p_corner = compiled.corner(instr.v_corner);
-    const Vector cn = normalized_or(p_corner, p_corner);
+    const math::Vector p_corner = compiled.corner(instr.v_corner);
+    const math::Vector cn = math::normalized_or(p_corner, p_corner);
 
     if (is_flat) {
       out[i] = {cn, HankinBranch::COLLAPSED};
       continue;
     }
 
-    const Vector m1 = compiled.static_vertices[instr.idx_m1];
-    const Vector m2 = compiled.static_vertices[instr.idx_m2];
-    const Vector cross1 = cross(compiled.corner(instr.v_prev), p_corner);
-    const Vector cross2 = cross(p_corner, compiled.corner(instr.v_next));
-    if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
-        dot(cross2, cross2) < math::EPS_CROSS_SQ) {
+    const math::Vector m1 = compiled.static_vertices[instr.idx_m1];
+    const math::Vector m2 = compiled.static_vertices[instr.idx_m2];
+    const math::Vector cross1 =
+        math::cross(compiled.corner(instr.v_prev), p_corner);
+    const math::Vector cross2 =
+        math::cross(p_corner, compiled.corner(instr.v_next));
+    if (math::dot(cross1, cross1) < math::EPS_CROSS_SQ ||
+        math::dot(cross2, cross2) < math::EPS_CROSS_SQ) {
       out[i] = {cn, HankinBranch::COLLAPSED};
       continue;
     }
 
-    const Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
-    const Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
-    Vector intersect =
-        cross(rotate(cross1.normalized(), q1), rotate(cross2.normalized(), q2));
-    const float plane_cross_sq = dot(intersect, intersect);
+    const math::Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y,
+                              sin_ha * m1.z);
+    const math::Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y,
+                              -sin_ha * m2.z);
+    math::Vector intersect = math::cross(math::rotate(cross1.normalized(), q1),
+                                         math::rotate(cross2.normalized(), q2));
+    const float plane_cross_sq = math::dot(intersect, intersect);
 
-    Vector fallback = normalized_or(m1 + m2, cn);
-    if (dot(fallback, p_corner) < 0.0f)
+    math::Vector fallback = math::normalized_or(m1 + m2, cn);
+    if (math::dot(fallback, p_corner) < 0.0f)
       fallback = -fallback;
-    const Vector oriented_intersect = intersect * dot(intersect, p_corner);
-    const Vector raw_star = normalized_or(oriented_intersect, fallback);
-    const float local_sq =
-        std::max(distance_squared(m1, cn), distance_squared(m2, cn));
+    const math::Vector oriented_intersect =
+        intersect * math::dot(intersect, p_corner);
+    const math::Vector raw_star =
+        math::normalized_or(oriented_intersect, fallback);
+    const float local_sq = std::max(math::distance_squared(m1, cn),
+                                    math::distance_squared(m2, cn));
     if (!(local_sq > math::EPS_LEN_SQ)) {
       out[i] = {fallback, HankinBranch::FALLBACK, 0.0f};
       continue;
     }
 
-    const float raw_ratio_sq = distance_squared(raw_star, cn) / local_sq;
+    const float raw_ratio_sq = math::distance_squared(raw_star, cn) / local_sq;
     const float conditioned = hankin_blend_above(
         raw_ratio_sq, MeshOps::HANKIN_CONDITIONED_NEAR_RATIO_SQ,
         MeshOps::HANKIN_CONDITIONED_FAR_RATIO_SQ);
@@ -1689,9 +1698,10 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
                  MeshOps::HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
         conditioned * std::max(0.0f, MeshOps::HANKIN_CONDITIONED_CLEAR_SQ -
                                          plane_cross_sq);
-    intersect = normalized_or(oriented_intersect + fallback * anchor, fallback);
+    intersect =
+        math::normalized_or(oriented_intersect + fallback * anchor, fallback);
 
-    const float far_ratio = distance_squared(intersect, cn) / local_sq;
+    const float far_ratio = math::distance_squared(intersect, cn) / local_sq;
     const float parallel_gate = hankin_blend_above(
         -plane_cross_sq, -MeshOps::HANKIN_PARALLEL_GATE_HI_SQ,
         -MeshOps::HANKIN_PARALLEL_GATE_LO_SQ);
@@ -1704,9 +1714,9 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
       continue;
     }
     if (fallback_blend > 0.0f) {
-      out[i] = {normalized_or(intersect * (1.0f - fallback_blend) +
-                                  fallback * fallback_blend,
-                              fallback),
+      out[i] = {math::normalized_or(intersect * (1.0f - fallback_blend) +
+                                        fallback * fallback_blend,
+                                    fallback),
                 HankinBranch::BLENDED, far_ratio};
       continue;
     }
@@ -1751,19 +1761,19 @@ inline float hankin_check_mirror(CompiledHankin &compiled, float angle,
  */
 inline void hankin_face_normals(const CompiledHankin &compiled,
                                 const std::vector<HankinSolve> &dyn,
-                                std::vector<Vector> &out) {
+                                std::vector<math::Vector> &out) {
   auto vertex_at = [&](uint16_t idx) {
     return idx < compiled.static_offset ? compiled.static_vertices[idx]
                                         : dyn[idx - compiled.static_offset].pos;
   };
-  out.assign(compiled.face_counts.size(), Vector());
+  out.assign(compiled.face_counts.size(), math::Vector());
   size_t base = 0;
   for (size_t f = 0; f < compiled.face_counts.size(); ++f) {
     const size_t n = compiled.face_counts[f];
-    Vector normal;
+    math::Vector normal;
     for (size_t k = 0; k < n; ++k) {
-      const Vector a = vertex_at(compiled.faces[base + k]);
-      const Vector b = vertex_at(compiled.faces[base + (k + 1) % n]);
+      const math::Vector a = vertex_at(compiled.faces[base + k]);
+      const math::Vector b = vertex_at(compiled.faces[base + (k + 1) % n]);
       normal.x += (a.y - b.y) * (a.z + b.z);
       normal.y += (a.z - b.z) * (a.x + b.x);
       normal.z += (a.x - b.x) * (a.y + b.y);
@@ -1802,19 +1812,19 @@ struct HankinStepStats {
  */
 inline void hankin_step_stats(const CompiledHankin &compiled,
                               const std::vector<HankinSolve> &prev,
-                              const std::vector<Vector> &prev_normals,
+                              const std::vector<math::Vector> &prev_normals,
                               const std::vector<HankinSolve> &curr,
-                              const std::vector<Vector> &curr_normals,
+                              const std::vector<math::Vector> &curr_normals,
                               HankinStepStats &stats) {
   for (size_t i = 0; i < curr.size(); ++i) {
     stats.max_far_ratio = std::max(stats.max_far_ratio, curr[i].far_ratio);
-    const Vector cn = normalized_or(
+    const math::Vector cn = math::normalized_or(
         compiled.base_vertices[compiled.dynamic_instructions[i].v_corner],
         curr[i].pos);
     stats.max_corner_chord =
         std::max(stats.max_corner_chord, (curr[i].pos - cn).magnitude());
   }
-  for (const Vector &n : curr_normals)
+  for (const math::Vector &n : curr_normals)
     if (n.magnitude() < HANKIN_FLAT_FACE)
       ++stats.flat_faces;
   if (prev.empty())
@@ -1832,7 +1842,7 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
     if (prev_normals[f].magnitude() < HANKIN_FLAT_FACE ||
         curr_normals[f].magnitude() < HANKIN_FLAT_FACE)
       continue;
-    if (dot(prev_normals[f], curr_normals[f]) < 0)
+    if (math::dot(prev_normals[f], curr_normals[f]) < 0)
       ++stats.normal_flips;
   }
 }
@@ -1937,11 +1947,12 @@ inline void test_hankin_sweep_vertex_stability() {
     float max_local_sq = 0;
     for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
       const HankinInstruction &instr = compiled.dynamic_instructions[i];
-      const Vector cn = normalized_or(compiled.base_vertices[instr.v_corner],
-                                      compiled.base_vertices[instr.v_corner]);
+      const math::Vector cn =
+          math::normalized_or(compiled.base_vertices[instr.v_corner],
+                              compiled.base_vertices[instr.v_corner]);
       const float local_sq = std::max(
-          distance_squared(compiled.static_vertices[instr.idx_m1], cn),
-          distance_squared(compiled.static_vertices[instr.idx_m2], cn));
+          math::distance_squared(compiled.static_vertices[instr.idx_m1], cn),
+          math::distance_squared(compiled.static_vertices[instr.idx_m2], cn));
       max_local_sq = std::max(max_local_sq, local_sq);
       if (MeshOps::STAR_FAR_RATIO_SQ * local_sq >= 4.0f)
         ++unreachable;
@@ -1950,7 +1961,7 @@ inline void test_hankin_sweep_vertex_stability() {
     std::printf("  [hankin-stability] %s: theta* = %.1f deg, base F=%zu, "
                 "dyn V=%zu, hankin F=%zu, guard-unreachable %d/%zu "
                 "(max local_sq %.4f)\n",
-                site.name, site.theta_star * 180.0f / PI_F,
+                site.name, site.theta_star * 180.0f / math::PI_F,
                 seed.face_counts.size(), collapsed.size(),
                 compiled.face_counts.size(), unreachable, collapsed.size(),
                 max_local_sq);
@@ -1960,13 +1971,13 @@ inline void test_hankin_sweep_vertex_stability() {
 
     // Three parameterizations over the same sample grid.
     std::vector<HankinStepStats> tables[3];
-    std::vector<std::vector<Vector>> resolve_pos(SAMPLES);
+    std::vector<std::vector<math::Vector>> resolve_pos(SAMPLES);
     float path_dev = 0;
     const char *mode_name[3] = {"resolve-uniform", "resolve-eased",
                                 "slerp-eased    "};
     for (int mode = 0; mode < 3; ++mode) {
       std::vector<HankinSolve> prev, curr;
-      std::vector<Vector> prev_normals, curr_normals;
+      std::vector<math::Vector> prev_normals, curr_normals;
       for (int s = 0; s < SAMPLES; ++s) {
         const float u = static_cast<float>(s) / (SAMPLES - 1);
         const float k = mode == 0 ? u : ease_in_out_sin(u);
@@ -1975,7 +1986,7 @@ inline void test_hankin_sweep_vertex_stability() {
           row.theta = site.theta_star;
           curr.assign(arrival.size(), HankinSolve{});
           for (size_t i = 0; i < arrival.size(); ++i) {
-            curr[i] = {slerp(collapsed[i].pos, arrival[i].pos, k),
+            curr[i] = {math::slerp(collapsed[i].pos, arrival[i].pos, k),
                        arrival[i].branch, 0.0f};
             path_dev = std::max(path_dev,
                                 (curr[i].pos - resolve_pos[s][i]).magnitude());
@@ -2031,12 +2042,14 @@ inline void test_hankin_sweep_vertex_stability() {
     float end0 = 0, end1 = 0;
     size_t exact0 = 0, exact1 = 0;
     for (size_t i = 0; i < arrival.size(); ++i) {
-      const Vector s0 = slerp(collapsed[i].pos, arrival[i].pos, 0.0f);
-      const Vector s1 = slerp(collapsed[i].pos, arrival[i].pos, 1.0f);
+      const math::Vector s0 =
+          math::slerp(collapsed[i].pos, arrival[i].pos, 0.0f);
+      const math::Vector s1 =
+          math::slerp(collapsed[i].pos, arrival[i].pos, 1.0f);
       end0 = std::max(end0, (s0 - collapsed[i].pos).magnitude());
       end1 = std::max(end1, (s1 - arrival[i].pos).magnitude());
-      exact0 += std::memcmp(&s0, &collapsed[i].pos, sizeof(Vector)) == 0;
-      exact1 += std::memcmp(&s1, &arrival[i].pos, sizeof(Vector)) == 0;
+      exact0 += std::memcmp(&s0, &collapsed[i].pos, sizeof(math::Vector)) == 0;
+      exact1 += std::memcmp(&s1, &arrival[i].pos, sizeof(math::Vector)) == 0;
     }
     std::printf("      endpoints: k=0 max_err=%.3e bitwise=%zu/%zu, "
                 "k=1 max_err=%.3e bitwise=%zu/%zu\n",
@@ -2068,15 +2081,15 @@ inline void test_hankin_sweep_vertex_stability() {
     constexpr float K_EPS_BUDGET = 1.0f / K_STEPS;
     float k_eps = 1.0f;
     std::vector<HankinSolve> probe(arrival.size());
-    std::vector<Vector> probe_normals;
+    std::vector<math::Vector> probe_normals;
     for (int q = 1; q <= K_STEPS; ++q) {
       const float k = static_cast<float>(q) / K_STEPS;
       for (size_t i = 0; i < arrival.size(); ++i)
-        probe[i] = {slerp(collapsed[i].pos, arrival[i].pos, k),
+        probe[i] = {math::slerp(collapsed[i].pos, arrival[i].pos, k),
                     arrival[i].branch, 0.0f};
       hankin_face_normals(compiled, probe, probe_normals);
       bool all_lit = true;
-      for (const Vector &n : probe_normals)
+      for (const math::Vector &n : probe_normals)
         all_lit &= n.magnitude() >= HANKIN_FLAT_FACE;
       if (all_lit) {
         k_eps = k;
@@ -2405,7 +2418,8 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
       size_t nearest = 0;
       float best = 1e9f;
       for (size_t j = 0; j < seed.vertices.size(); ++j) {
-        const float d = distance_between(relaxed.vertices[i], seed.vertices[j]);
+        const float d =
+            math::distance_between(relaxed.vertices[i], seed.vertices[j]);
         if (d < best) {
           best = d;
           nearest = j;
@@ -2422,7 +2436,8 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
       PolyMesh swept;
       MeshOps::clone(seed, swept, a);
       for (size_t i = 0; i < swept.vertices.size(); ++i)
-        swept.vertices[i] = slerp(seed.vertices[i], relaxed.vertices[i], k);
+        swept.vertices[i] =
+            math::slerp(seed.vertices[i], relaxed.vertices[i], k);
       const SweepFingerprint fp = check_sweep_sample(swept, a, b);
       if (s == 0) {
         first = fp;
@@ -2504,18 +2519,18 @@ inline float medial_vertex_set_dist(const PolyMesh &x, const PolyMesh &y) {
   for (const auto &vx : x.vertices) {
     float best = 1e9f;
     for (const auto &vy : y.vertices)
-      best = std::min(best, distance_between(vx, vy));
+      best = std::min(best, math::distance_between(vx, vy));
     worst = std::max(worst, best);
   }
   return worst;
 }
-inline float medial_vertex_set_dist(const ArenaVector<Vector> &x,
+inline float medial_vertex_set_dist(const ArenaVector<math::Vector> &x,
                                     const PolyMesh &y) {
   float worst = 0.0f;
   for (const auto &vx : x) {
     float best = 1e9f;
     for (const auto &vy : y.vertices)
-      best = std::min(best, distance_between(vx, vy));
+      best = std::min(best, math::distance_between(vx, vy));
     worst = std::max(worst, best);
   }
   return worst;
@@ -2528,15 +2543,16 @@ inline double medial_total_solid_angle(const PolyMesh &m) {
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const int n = m.face_counts[f];
-    Vector c(0, 0, 0);
+    math::Vector c(0, 0, 0);
     for (int k = 0; k < n; ++k)
       c = c + m.vertices[m.faces[off + k]];
     c = c.normalized();
     for (int k = 0; k < n; ++k) {
-      const Vector a = m.vertices[m.faces[off + k]];
-      const Vector b = m.vertices[m.faces[off + (k + 1) % n]];
-      const double num = dot(c, cross(a, b));
-      const double den = 1.0 + dot(c, a) + dot(a, b) + dot(b, c);
+      const math::Vector a = m.vertices[m.faces[off + k]];
+      const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
+      const double num = math::dot(c, math::cross(a, b));
+      const double den =
+          1.0 + math::dot(c, a) + math::dot(a, b) + math::dot(b, c);
       total += 2.0 * std::atan2(num, den);
     }
     off += n;
@@ -2550,15 +2566,15 @@ inline double medial_min_face_area(const PolyMesh &m) {
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const int n = m.face_counts[f];
-    Vector c(0, 0, 0);
+    math::Vector c(0, 0, 0);
     for (int k = 0; k < n; ++k)
       c = c + m.vertices[m.faces[off + k]];
     c = c.normalized();
     double area = 0.0;
     for (int k = 0; k < n; ++k) {
-      const Vector a = m.vertices[m.faces[off + k]];
-      const Vector b = m.vertices[m.faces[off + (k + 1) % n]];
-      area += 0.5 * cross(a - c, b - c).length();
+      const math::Vector a = m.vertices[m.faces[off + k]];
+      const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
+      area += 0.5 * math::cross(a - c, b - c).length();
     }
     mn = std::min(mn, area);
     off += n;
@@ -2572,17 +2588,17 @@ inline int medial_inverted_faces(const PolyMesh &m) {
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const int n = m.face_counts[f];
-    Vector c(0, 0, 0);
+    math::Vector c(0, 0, 0);
     for (int k = 0; k < n; ++k)
       c = c + m.vertices[m.faces[off + k]];
     c = c.normalized();
-    Vector nrm(0, 0, 0);
+    math::Vector nrm(0, 0, 0);
     for (int k = 0; k < n; ++k) {
-      const Vector a = m.vertices[m.faces[off + k]];
-      const Vector b = m.vertices[m.faces[off + (k + 1) % n]];
-      nrm = nrm + cross(a, b);
+      const math::Vector a = m.vertices[m.faces[off + k]];
+      const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
+      nrm = nrm + math::cross(a, b);
     }
-    if (dot(nrm, c) < 0.0f)
+    if (math::dot(nrm, c) < 0.0f)
       ++inv;
     off += n;
   }
@@ -2613,7 +2629,7 @@ inline void test_medial_dual_bridge_wellformed() {
     Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
 
     PolyMesh med_a;
-    ArenaVector<Vector> med_b;
+    ArenaVector<math::Vector> med_b;
     MeshOps::medial(P, med_a, med_b, a, b);
 
     // Correspondence proof: s = 0 is ambo(P), s = 1 (b_e positions) is
@@ -2645,11 +2661,11 @@ inline void test_medial_dual_bridge_wellformed() {
     size_t bit_diff = 0;
     float worst_bit = 0.0f;
     for (size_t v = 0; v < pair_n; ++v) {
-      const Vector &mv = med_a.vertices[v];
-      const Vector &av = ambo_p.vertices[v];
+      const math::Vector &mv = med_a.vertices[v];
+      const math::Vector &av = ambo_p.vertices[v];
       if (mv.x != av.x || mv.y != av.y || mv.z != av.z) {
         ++bit_diff;
-        worst_bit = std::max(worst_bit, distance_between(mv, av));
+        worst_bit = std::max(worst_bit, math::distance_between(mv, av));
       }
     }
     HS_EXPECT_EQ(bit_diff, size_t(0));
@@ -2662,9 +2678,9 @@ inline void test_medial_dual_bridge_wellformed() {
     // quantized-then-decoded positions the leg actually slerps, not the
     // full-precision medial output.
     for (auto &v : med_a.vertices)
-      v = Snorm3::encode(v).decode().normalized();
+      v = math::Snorm3::encode(v).decode().normalized();
     for (auto &v : med_b)
-      v = Snorm3::encode(v).decode().normalized();
+      v = math::Snorm3::encode(v).decode().normalized();
 
     // Every medial vertex sits on an ambo(P) vertex at s=0 and an ambo(dual(P))
     // vertex at s=1 (set containment; a lossy dual makes s=1 many-to-one).
@@ -2676,8 +2692,8 @@ inline void test_medial_dual_bridge_wellformed() {
     // No antipodal/coincident slerp inputs.
     float min_dot = 2.0f;
     for (size_t v = 0; v < med_a.vertices.size(); ++v)
-      min_dot = std::min(
-          min_dot, dot(med_a.vertices[v].normalized(), med_b[v].normalized()));
+      min_dot = std::min(min_dot, math::dot(med_a.vertices[v].normalized(),
+                                            med_b[v].normalized()));
     HS_EXPECT_GT(min_dot, MIN_ENDPOINT_DOT);
 
     // Slerp sweep: fixed connectivity, per-vertex slerp; well-formed throughout.
@@ -2685,14 +2701,14 @@ inline void test_medial_dual_bridge_wellformed() {
     double worst_4pi = 0.0, min_area = 1e9;
     float max_step = 0.0f;
     SweepFingerprint first;
-    std::vector<Vector> prev(med_a.vertices.size());
+    std::vector<math::Vector> prev(med_a.vertices.size());
     for (int s = 0; s < SAMPLES; ++s) {
       const float k = static_cast<float>(s) / (SAMPLES - 1);
       ScratchScope frame_a(aux);
       PolyMesh frame;
       frame.vertices.bind(aux, med_a.vertices.size());
       for (size_t v = 0; v < med_a.vertices.size(); ++v)
-        frame.vertices.push_back(slerp(med_a.vertices[v], med_b[v], k));
+        frame.vertices.push_back(math::slerp(med_a.vertices[v], med_b[v], k));
       frame.face_counts.bind(aux, med_a.face_counts.size());
       frame.face_counts.append_bulk(med_a.face_counts.data(),
                                     med_a.face_counts.size());
@@ -2714,8 +2730,8 @@ inline void test_medial_dual_bridge_wellformed() {
       min_area = std::min(min_area, medial_min_face_area(frame));
       if (s > 0)
         for (size_t v = 0; v < frame.vertices.size(); ++v)
-          max_step =
-              std::max(max_step, distance_between(frame.vertices[v], prev[v]));
+          max_step = std::max(
+              max_step, math::distance_between(frame.vertices[v], prev[v]));
       prev.assign(frame.vertices.begin(), frame.vertices.end());
     }
 
@@ -2778,11 +2794,11 @@ inline void test_opleg_medial_leg_smoke() {
     }
     const size_t prev_faces = ambo_p.face_counts.size();
     std::vector<uint8_t> pal(prev_faces);
-    std::vector<Vector> centroid(prev_faces);
+    std::vector<math::Vector> centroid(prev_faces);
     size_t off = 0;
     for (size_t f = 0; f < prev_faces; ++f) {
       pal[f] = static_cast<uint8_t>(
-          wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
+          math::wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
       const int n = ambo_p.face_counts[f];
       centroid[f] = face_centroid_unit(ambo_p, off, n);
       off += n;
@@ -2898,7 +2914,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     std::vector<uint8_t> pal2(nf);
     for (size_t f = 0; f < nf; ++f)
       pal2[f] = static_cast<uint8_t>(
-          wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
+          math::wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
     hs_test::StubEffect fx(RW, RH);
     std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
     int drawn = 0, rasterize_at = -1;
@@ -2906,7 +2922,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       ++drawn;
       if (drawn != rasterize_at)
         return;
-      auto shader = [&](const Vector &, Fragment &frag) {
+      auto shader = [&](const math::Vector &, Fragment &frag) {
         int fi = static_cast<int>(frag.v2);
         int ramp =
             (fi >= 0 && fi < static_cast<int>(sh.faces)) ? sh.face_ramp[fi] : 0;
@@ -2948,11 +2964,11 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     // Leg-3 handoff, exactly as schedule_dual_untruncate builds it: departed
     // centroids and palettes cached by leg 2.
     std::vector<uint8_t> pal3(nf);
-    std::vector<Vector> cen3(nf);
+    std::vector<math::Vector> cen3(nf);
     const PolyMesh &arrival = *landing2.arrival_topology;
     size_t off = 0;
     for (size_t f = 0; f < nf; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
+      math::Vector c(0.0f, 0.0f, 0.0f);
       for (int j = 0; j < arrival.face_counts[f]; ++j) {
         const size_t v = arrival.faces[off + j];
         c = c + landing2.arrival_point[v].decode().normalized();
@@ -3006,7 +3022,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       int bad_match = 0, non_bijective = 0;
       size_t off = 0;
       for (size_t l = 0; l < nf; ++l) {
-        Vector c(0.0f, 0.0f, 0.0f);
+        math::Vector c(0.0f, 0.0f, 0.0f);
         for (int j = 0; j < ambo_d.face_counts[l]; ++j)
           c = c + ambo_d.vertices[ambo_d.faces[off + j]];
         c = c.normalized();
@@ -3014,7 +3030,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         size_t best = 0;
         float bd = 1e9f;
         for (size_t m = 0; m < nf; ++m) {
-          const float d = distance_between(c, cen3[m]);
+          const float d = math::distance_between(c, cen3[m]);
           if (d < bd) {
             bd = d;
             best = m;
@@ -3118,11 +3134,11 @@ inline constexpr int PAUSED_REDRAWS = 2;
  * from the seed's own classification and the bookend from the step's clean
  * endpoint, exactly as IslamicStars derives them.
  */
-inline void
-check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
-                     float max_step_chord, EasingFn easing = ease_in_out_sin,
-                     std::vector<std::vector<Vector>> *frames_out = nullptr,
-                     int pause_after = 0) {
+inline void check_step_leg_smoke(
+    StepLegKind kind, const StepLegSite &site, int frames, float max_step_chord,
+    EasingFn easing = ease_in_out_sin,
+    std::vector<std::vector<math::Vector>> *frames_out = nullptr,
+    int pause_after = 0) {
   using Animation::OpLeg;
   const int failed_before = hs_test::stats().failed;
 
@@ -3169,11 +3185,11 @@ check_step_leg_smoke(StepLegKind kind, const StepLegSite &site, int frames,
 
   const size_t prev_faces = seed.face_counts.size();
   uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
-  Vector *prev_centroid = leg_arena.allocate_n<Vector>(prev_faces);
+  math::Vector *prev_centroid = leg_arena.allocate_n<math::Vector>(prev_faces);
   size_t off = 0;
   for (size_t f = 0; f < prev_faces; ++f) {
     prev_pal[f] = static_cast<uint8_t>(
-        slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
+        slots[math::wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
     const int n = seed.face_counts[f];
     prev_centroid[f] = face_centroid_unit(seed, off, n);
     off += n;
@@ -3314,7 +3330,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
   for (size_t f = 0; f < prev_faces; ++f)
     prev_pal[f] = static_cast<uint8_t>(
-        slots[wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
+        slots[math::wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
 
   OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                 .prev_face_palette = prev_pal,
@@ -3411,7 +3427,7 @@ inline void test_opleg_step_paused_holds_frame() {
   constexpr int PAUSE_AFTER = 4;
   // Short leg: the chord bound is the smoke test's concern, not this one.
   constexpr float CHORD_MAX = 1.0f;
-  std::vector<std::vector<Vector>> unpaused, held;
+  std::vector<std::vector<math::Vector>> unpaused, held;
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
                        CHORD_MAX, ease_in_out_sin, &unpaused);
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
@@ -3421,8 +3437,8 @@ inline void test_opleg_step_paused_holds_frame() {
   if (held.size() != (size_t)(FRAMES + PAUSED_REDRAWS))
     return;
 
-  auto identical = [](const std::vector<Vector> &a,
-                      const std::vector<Vector> &b) {
+  auto identical = [](const std::vector<math::Vector> &a,
+                      const std::vector<math::Vector> &b) {
     if (a.size() != b.size() || a.empty())
       return false;
     for (size_t i = 0; i < a.size(); ++i)
@@ -3465,21 +3481,22 @@ inline void test_opleg_step_leg_overshooting_easing() {
                                   probe_icosa_ambo, 0.49f};
   constexpr int FRAMES = 24;
   for (int k = 0; k < 2; ++k) {
-    std::vector<std::vector<Vector>> drawn;
+    std::vector<std::vector<math::Vector>> drawn;
     const bool truncate = k == 0;
     check_step_leg_smoke(truncate ? StepLegKind::TRUNCATE : StepLegKind::SNUB,
                          truncate ? NEAR_AMBO : SNUB_LEG_SITES[0], FRAMES, 2.0f,
                          ease_out_elastic, &drawn);
     HS_EXPECT_EQ(drawn.size(), (size_t)FRAMES);
-    const std::vector<Vector> &arrival = drawn.back();
-    const std::vector<Vector> &peak = drawn[3];
-    const std::vector<Vector> &opening = drawn[0];
+    const std::vector<math::Vector> &arrival = drawn.back();
+    const std::vector<math::Vector> &peak = drawn[3];
+    const std::vector<math::Vector> &opening = drawn[0];
     HS_EXPECT_EQ(peak.size(), arrival.size());
     float worst_peak = 0.0f, worst_opening = 0.0f;
     for (size_t i = 0; i < arrival.size(); ++i) {
-      worst_peak = std::max(worst_peak, distance_between(peak[i], arrival[i]));
-      worst_opening =
-          std::max(worst_opening, distance_between(opening[i], arrival[i]));
+      worst_peak =
+          std::max(worst_peak, math::distance_between(peak[i], arrival[i]));
+      worst_opening = std::max(worst_opening,
+                               math::distance_between(opening[i], arrival[i]));
     }
     HS_EXPECT_LT(worst_peak, 1e-5f);
     HS_EXPECT_GT(worst_opening, 1e-3f);
@@ -3526,8 +3543,8 @@ inline void test_opleg_edge_leg_crossfade() {
     bool from_ok = true, to_ok = true;
     for (size_t f = 0; f < sh.faces; ++f) {
       const uint8_t from = lp->from_palette[f];
-      const uint8_t to = lp->to_palette[wrap(static_cast<int>(lp->topology[f]),
-                                             OpLeg::PALETTES)];
+      const uint8_t to = lp->to_palette[math::wrap(
+          static_cast<int>(lp->topology[f]), OpLeg::PALETTES)];
       from_ok = from_ok && matches(sh, f, from);
       to_ok = to_ok && matches(sh, f, to);
     }
@@ -3538,8 +3555,8 @@ inline void test_opleg_edge_leg_crossfade() {
     int n = 0;
     for (size_t f = 0; f < lp->faces; ++f)
       if (lp->from_palette[f] !=
-          lp->to_palette[wrap(static_cast<int>(lp->topology[f]),
-                              OpLeg::PALETTES)])
+          lp->to_palette[math::wrap(static_cast<int>(lp->topology[f]),
+                                    OpLeg::PALETTES)])
         ++n;
     return n;
   };
@@ -3755,7 +3772,7 @@ inline ChainPeaks replay_build_chain(const char *name,
 
     hs_test::StubEffect fx(288, 144);
     uint8_t prev_pal_buf[MAX_FACES];
-    Vector prev_centroid[MAX_FACES];
+    math::Vector prev_centroid[MAX_FACES];
     uint8_t carried_to[MAX_FACES] = {};
     const bool pin_final = supported;
     std::vector<int> full_topo;
@@ -3789,7 +3806,7 @@ inline ChainPeaks replay_build_chain(const char *name,
         for (size_t f = 0; f < prev_faces; ++f) {
           const int cls = seed_slot.topology[f];
           prev_pal_buf[f] =
-              static_cast<uint8_t>(order[wrap(cls, OpLeg::PALETTES)]);
+              static_cast<uint8_t>(order[math::wrap(cls, OpLeg::PALETTES)]);
         }
         prev_pal = prev_pal_buf;
       } else {
@@ -4346,7 +4363,7 @@ inline void test_reconcile_bijection_wellposed() {
       int best = -1;
       float best_dot = -2.0f;
       for (size_t j = 0; j < V; ++j) {
-        const float d = dot(identity.vertices[i], authored.vertices[j]);
+        const float d = math::dot(identity.vertices[i], authored.vertices[j]);
         if (d > best_dot) {
           best_dot = d;
           best = static_cast<int>(j);
@@ -4358,9 +4375,9 @@ inline void test_reconcile_bijection_wellposed() {
         used[best] = true;
       match[i] = best;
       if (best >= 0)
-        worst_chord =
-            std::max(worst_chord, distance_between(identity.vertices[i],
-                                                   authored.vertices[best]));
+        worst_chord = std::max(worst_chord,
+                               math::distance_between(identity.vertices[i],
+                                                      authored.vertices[best]));
     }
     HS_EXPECT_TRUE(injective);
     HS_EXPECT_LT(worst_chord, MAX_RESIDUAL_CHORD);

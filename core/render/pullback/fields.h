@@ -132,7 +132,7 @@ HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
   case FieldCurve::LOG_POSITIVE:
     return interp::log_positive(from, to, t);
   case FieldCurve::SHORTEST_PERIODIC:
-    return interp::shortest_periodic(from, to, t, TWO_PI_F);
+    return interp::shortest_periodic(from, to, t, math::TWO_PI_F);
   case FieldCurve::SHORTEST_TURN:
     return interp::shortest_periodic(from, to, t, 1.0f);
   case FieldCurve::SNAP:

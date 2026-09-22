@@ -40,7 +40,7 @@ public:
    */
   void set_count(int new_count) {
     count = hs::clamp(new_count, 1, W);
-    step = make_rotation(Y_AXIS, 2 * PI_F / count);
+    step = math::make_rotation(math::Y_AXIS, 2 * math::PI_F / count);
   }
   /**
    * @brief Emits the point plus count-1 rotated copies around the Y axis.
@@ -53,15 +53,15 @@ public:
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
+  void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    Vector r = v;
+    math::Vector r = v;
     pass(r, color, age, alpha);
     for (int i = 1; i < count; i++) {
-      r = rotate(r, step);
+      r = math::rotate(r, step);
       // First-order renormalization: exact to float precision only because r
       // starts near unit length and each rotation drifts it by ~1 ulp.
-      r = r * (1.5f - 0.5f * dot(r, r));
+      r = r * (1.5f - 0.5f * math::dot(r, r));
       pass(r, color, age, alpha);
     }
   }
@@ -78,19 +78,19 @@ public:
    *          copies are drawn at, not the source geometry's.
    */
   template <typename FwdFn>
-  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
-                 FwdFn &&forward) const {
+  bool cull_edge(const math::Vector &a, const math::Vector &b,
+                 const math::Basis *pb, FwdFn &&forward) const {
     if (forward(a, b, pb))
       return true;
-    Vector ra = a, rb = b;
-    Basis rp;
+    math::Vector ra = a, rb = b;
+    math::Basis rp;
     if (pb)
       rp = *pb;
     for (int i = 1; i < count; i++) {
-      ra = rotate(ra, step).normalized();
-      rb = rotate(rb, step).normalized();
+      ra = math::rotate(ra, step).normalized();
+      rb = math::rotate(rb, step).normalized();
       if (pb) {
-        rp = rotate(rp, step);
+        rp = math::rotate(rp, step);
         renormalize(rp);
         if (forward(ra, rb, &rp))
           return true;
@@ -108,14 +108,14 @@ private:
    * @details cull_edge rotates the basis once per copy off the previous copy's,
    * so up to W - 1 chained rotations drift the axes off unit length.
    */
-  static void renormalize(Basis &b) {
+  static void renormalize(math::Basis &b) {
     b.u = b.u.normalized();
     b.v = b.v.normalized();
     b.w = b.w.normalized();
   }
 
-  int count;       /**< Number of copies emitted, in [1, W]. */
-  Quaternion step; /**< Per-copy Y-axis rotation (2*pi / count). */
+  int count;             /**< Number of copies emitted, in [1, W]. */
+  math::Quaternion step; /**< Per-copy Y-axis rotation (2*pi / count). */
 };
 
 } // namespace World

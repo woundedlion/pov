@@ -49,7 +49,8 @@ public:
     int l1, m1;
     int l2, m2;
     float blend;
-    RotationMatrix orientation_conj; /**< World->local rotation (conjugate of
+    math::RotationMatrix
+        orientation_conj; /**< World->local rotation (conjugate of
                                         the shape orientation). */
     float N1, N2; /**< Per-mode harmonic scales, precomputed once per shape. */
 
@@ -64,7 +65,8 @@ public:
      * harmonic once instead of twice per sample.
      * @param q Orientation quaternion of the shape.
      */
-    HarmonicField(int l1, int m1, int l2, int m2, float blend, Quaternion q)
+    HarmonicField(int l1, int m1, int l2, int m2, float blend,
+                  math::Quaternion q)
         : l1(l1), m1(m1), l2(l2), m2(m2),
           blend(l1 == l2 && m1 == m2 ? 0.0f : blend),
           orientation_conj(q.conjugate()), N1(SHMath::harmonic_scale(l1, m1)),
@@ -77,8 +79,8 @@ public:
      * @details Rotates p into the shape's local frame and evaluates both modes
      * there.
      */
-    float sample(const Vector &p) const {
-      Vector local = orientation_conj.apply(p);
+    float sample(const math::Vector &p) const {
+      math::Vector local = orientation_conj.apply(p);
 
       // The shape spins about an arbitrary axis, so the local frame varies
       // across a screen row even though the WORLD latitude is row-constant.
@@ -110,10 +112,10 @@ public:
 
     current_idx = SEED_MODE_IDX;
 
-    Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
+    math::Vector axis = math::Vector(0.5f, 1.0f, 0.2f).normalized();
     timeline.add(0, Animation::Rotation<W>(orientation, axis,
-                                           2 * PI_F * SPIN_TURNS, SPIN_FRAMES,
-                                           ease_linear, true));
+                                           2 * math::PI_F * SPIN_TURNS,
+                                           SPIN_FRAMES, ease_linear, true));
 
     start_morph();
   }
@@ -139,7 +141,7 @@ public:
 
     {
       HS_PROFILE(sh_rasterize);
-      Scan::Shader::draw<W, H>(canvas, [&frame](const Vector &view) {
+      Scan::Shader::draw<W, H>(canvas, [&frame](const math::Vector &view) {
         return RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
       });
     }
@@ -185,7 +187,7 @@ private:
     int l2;
     int m2;
     float blend;
-    Quaternion orientation;
+    math::Quaternion orientation;
   };
 
   struct HarmonicMaterialState {
@@ -233,8 +235,8 @@ private:
         pos.alpha);
 
     constexpr float TRANSITION = 0.03f;
-    const float blend_t =
-        quintic_kernel(hs::clamp(val / TRANSITION * 0.5f + 0.5f, 0.0f, 1.0f));
+    const float blend_t = math::quintic_kernel(
+        hs::clamp(val / TRANSITION * 0.5f + 0.5f, 0.0f, 1.0f));
     Color4 base = pos.lerp(neg, 1.0f - blend_t);
 
     const float shadow =
@@ -295,8 +297,8 @@ private:
         &anims_paused);
   }
 
-  Orientation<> orientation; /**< Current sphere orientation. */
-  Timeline timeline;         /**< Drives spin and morph animations. */
+  math::Orientation<> orientation; /**< Current sphere orientation. */
+  Timeline timeline;               /**< Drives spin and morph animations. */
   BakedPaletteStorage
       baked_palette; /**< Precomputed color LUT for the shader. */
 

@@ -140,14 +140,14 @@ struct ShaderWorkbenchWhiteBox {
              "ShaderWorkbench test preset resources must fit");
     return sb.prepare_frame(preset, sb.runtime);
   }
-  static Color4 sinusoidal_curl_shade(const Vector &view,
+  static Color4 sinusoidal_curl_shade(const math::Vector &view,
                                       const FrameState &frame) {
     using Pipeline = Workbench::SinusoidalLatticeMeltPipeline;
     const typename Pipeline::PreparedTuple prepared =
         Pipeline::prepare_stages(frame);
     return Pipeline::shade_prepared(view, frame, &prepared);
   }
-  static Color4 stereographic_dodecahedral_grid_shade(const Vector &view,
+  static Color4 stereographic_dodecahedral_grid_shade(const math::Vector &view,
                                                       const FrameState &frame) {
     using Pipeline =
         Workbench::StereographicDodecahedralGridInnerMirrorPipeline;
@@ -170,7 +170,7 @@ struct ShaderWorkbenchWhiteBox {
   static bool edge_distance_required(const FrameState &frame) {
     return Workbench::projection_edge_distance_required(frame);
   }
-  static Pullback::ProjectionResult project_peirce(const Vector &view,
+  static Pullback::ProjectionResult project_peirce(const math::Vector &view,
                                                    const FrameState &frame) {
     return Workbench::project_peirce(view, frame);
   }
@@ -331,23 +331,26 @@ struct ShaderWorkbenchWhiteBox {
         to_program == nullptr ? InversePipelineId::NONE : to_program->id;
   }
   static const EndpointRuntime &runtime(const SB &sb) { return sb.runtime; }
-  static Quaternion projection_walk(const SB &sb) {
+  static math::Quaternion projection_walk(const SB &sb) {
     return sb.projection_walk.get();
   }
-  static Quaternion outer_walk(const SB &sb) { return sb.outer_walk.get(); }
+  static math::Quaternion outer_walk(const SB &sb) {
+    return sb.outer_walk.get();
+  }
   static void advance_runtime(SB &sb, EndpointRuntime &runtime,
                               const RequestedConfig &config,
                               const WalkDeltas &deltas) {
     sb.advance_runtime(runtime, config, deltas);
   }
   static void advance_fixed_clocks(SB &sb, const RequestedConfig &config) {
-    sb.advance_runtime(sb.runtime, config, {Quaternion(), Quaternion()});
+    sb.advance_runtime(sb.runtime, config,
+                       {math::Quaternion(), math::Quaternion()});
   }
   static ThroughClearPhase through_clear_phase(uint16_t elapsed,
                                                uint16_t duration) {
     return SB::through_clear_phase(elapsed, duration);
   }
-  static Color4 shade_through_clear(const Vector &view,
+  static Color4 shade_through_clear(const math::Vector &view,
                                     const FrameState *visible,
                                     const ThroughClearPhase &phase) {
     if (phase.clear)
@@ -370,7 +373,7 @@ struct ShaderWorkbenchWhiteBox {
   static void step_param_morph(SB &sb) {
     sb.prepare_param_morph();
     sb.advance_runtime(sb.runtime, {sb.active_slots, sb.blend.params},
-                       {Quaternion(), Quaternion()});
+                       {math::Quaternion(), math::Quaternion()});
     sb.finish_transitions();
   }
   static void finish_transition(SB &sb) { sb.finish_transitions(); }
@@ -394,10 +397,11 @@ struct ShaderWorkbenchWhiteBox {
   static constexpr uint8_t projection_folded() {
     return Workbench::PROJECTION_FLAG_FOLDED;
   }
-  static Vector outer_lookup(const Vector &v, const FrameState &frame) {
+  static math::Vector outer_lookup(const math::Vector &v,
+                                   const FrameState &frame) {
     return Workbench::outer_camera_lookup(v, frame);
   }
-  static ProjectedLookup surface_project(const Vector &v,
+  static ProjectedLookup surface_project(const math::Vector &v,
                                          const FrameState &frame) {
     return Workbench::surface_lens_project_lookup(v, frame);
   }
@@ -412,10 +416,10 @@ struct ShaderWorkbenchWhiteBox {
    *        into, so the caller states which one `spec` describes.
    */
   static PlanarWarpStageResult
-  warp_stage(const Complex &input, const ProjectedLookup &projected,
+  warp_stage(const math::Complex &input, const ProjectedLookup &projected,
              const WarpStageSpec &spec, const WarpStageParams &params,
              const FrameState &frame, bool inner = false,
-             const Complex &source_period = Complex()) {
+             const math::Complex &source_period = math::Complex()) {
     const float phase =
         inner ? frame.clocks.warp_inner_phase : frame.clocks.warp_outer_phase;
     const float affine_rotation = inner ? frame.clocks.warp_inner_rotation
@@ -428,17 +432,18 @@ struct ShaderWorkbenchWhiteBox {
                                       affine_rotation),
         Workbench::tracks_displacement(frame));
   }
-  static auto prepared_warp_stage(const WarpStageSpec &spec,
-                                  const WarpStageParams &params, float phase,
-                                  const Complex &source_period = Complex(),
-                                  float affine_rotation = 0.0f) {
+  static auto
+  prepared_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
+                      float phase,
+                      const math::Complex &source_period = math::Complex(),
+                      float affine_rotation = 0.0f) {
     return Workbench::prepare_warp_stage(spec, params, phase, source_period,
                                          affine_rotation);
   }
   static FieldSample material(const ProjectedLookup &projected,
                               const PlanarWarpResult &warped,
                               const FrameState &frame) {
-    const Complex source_coords =
+    const math::Complex source_coords =
         Workbench::condition_source_coords(warped.coords, frame);
     const float field =
         Workbench::sample_source(source_coords, projected, frame);
@@ -446,7 +451,7 @@ struct ShaderWorkbenchWhiteBox {
   }
   static float source(const ProjectedLookup &projected,
                       const FrameState &frame) {
-    const Complex source_coords =
+    const math::Complex source_coords =
         Workbench::condition_source_coords(projected.coords, frame);
     return Workbench::sample_source(source_coords, projected, frame);
   }
@@ -483,16 +488,18 @@ struct ShaderWorkbenchWhiteBox {
     const Color4 base = frame.resources.generated_palette->get(value);
     return ::hue_rotate_lut_gamut(base, amount).color;
   }
-  static float prepared_hue_noise(const FrameState &frame, const Vector &v) {
+  static float prepared_hue_noise(const FrameState &frame,
+                                  const math::Vector &v) {
     return Workbench::sample_hue_noise_lut(frame.prepared_hue_noise, v);
   }
-  static float direct_hue_noise(const FrameState &frame, const Vector &v) {
-    const Vector q = noise_sphere_coordinate(
+  static float direct_hue_noise(const FrameState &frame,
+                                const math::Vector &v) {
+    const math::Vector q = noise_sphere_coordinate(
         v, frame.params.color.hue_noise_scale, frame.clocks.hue_noise_phase);
     return frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z);
   }
   static Pixel prepared_hue_noise_color(const FrameState &frame,
-                                        const Vector &v, float value) {
+                                        const math::Vector &v, float value) {
     const float palette_value = Workbench::palette_mapping_coordinate(
         value, frame.slots.palette_mapping,
         frame.params.color.mapping_frequency, frame.params.color.mapping_phase);
@@ -501,8 +508,8 @@ struct ShaderWorkbenchWhiteBox {
     return Workbench::sample_hue_rotation_lut(frame.prepared_hue_rotation,
                                               palette_value, amount);
   }
-  static Pixel direct_hue_noise_color(const FrameState &frame, const Vector &v,
-                                      float value) {
+  static Pixel direct_hue_noise_color(const FrameState &frame,
+                                      const math::Vector &v, float value) {
     const float palette_value = Workbench::palette_mapping_coordinate(
         value, frame.slots.palette_mapping,
         frame.params.color.mapping_frequency, frame.params.color.mapping_phase);
@@ -512,10 +519,10 @@ struct ShaderWorkbenchWhiteBox {
         frame.params.color.hue_shift_amount * direct_hue_noise(frame, v);
     return hue_rotate_lut_gamut(base, amount).color;
   }
-  static Color4 shade(const Vector &v, const FrameState &frame) {
+  static Color4 shade(const math::Vector &v, const FrameState &frame) {
     return Workbench::shade_dynamic(v, frame, nullptr);
   }
-  static Color4 pipeline_shade(const Vector &v, const FrameState &frame) {
+  static Color4 pipeline_shade(const math::Vector &v, const FrameState &frame) {
     const auto *program = Workbench::resolve_inverse_program(frame);
     HS_CHECK(program != nullptr,
              "ShaderWorkbench test topology has no compiled inverse pipeline");
@@ -675,18 +682,20 @@ struct ShaderWorkbenchWhiteBox {
                Workbench::ShaderWorkbenchBinding>::METRICS[index]
         .limit;
   }
-  static Complex project_point(const Vector &v, Projection projection) {
+  static math::Complex project_point(const math::Vector &v,
+                                     Projection projection) {
     return Workbench::project_point(v, projection);
   }
   static Pullback::ProjectionResult
-  finalize_projection(const Vector &v, const Complex &coords,
+  finalize_projection(const math::Vector &v, const math::Complex &coords,
                       Projection projection, float singularity_fade,
                       GnomonicHemispherePolicy hemisphere) {
     return Workbench::finalize_projection(v, coords, projection,
                                           singularity_fade, hemisphere);
   }
-  static Complex curl_vector(const Complex &p, const FastNoiseLite &noise,
-                             NoiseBasis basis, float scale, float time) {
+  static math::Complex curl_vector(const math::Complex &p,
+                                   const FastNoiseLite &noise, NoiseBasis basis,
+                                   float scale, float time) {
     return Workbench::curl_vector(p, noise, basis, scale, time);
   }
   static ProjectionParams lerp_projection(const ProjectionParams &a,
@@ -695,28 +704,31 @@ struct ShaderWorkbenchWhiteBox {
     result.lerp(a, b, t);
     return result;
   }
-  static Vector apply_lens(const Vector &v, SurfaceLens lens) {
+  static math::Vector apply_lens(const math::Vector &v, SurfaceLens lens) {
     return Workbench::apply_frame_free_lens(v, lens);
   }
   /** @brief Lens overload covering the kinds that read FrameState params. */
-  static Vector apply_lens(const Vector &v, const FrameState &frame) {
+  static math::Vector apply_lens(const math::Vector &v,
+                                 const FrameState &frame) {
     return Workbench::apply_lens(v, frame);
   }
-  static Vector surface_noise(const Vector &v, const FrameState &frame) {
+  static math::Vector surface_noise(const math::Vector &v,
+                                    const FrameState &frame) {
     return Workbench::apply_surface_noise(v, frame);
   }
-  static Vector surface_curl_field(const Vector &v, const FrameState &frame) {
+  static math::Vector surface_curl_field(const math::Vector &v,
+                                         const FrameState &frame) {
     return Workbench::surface_curl_field(v, frame);
   }
-  static Vector dodecahedral_reference(const Vector &v) {
+  static math::Vector dodecahedral_reference(const math::Vector &v) {
     return lenses::polyhedral_kaleidoscope_lens(v,
                                                 lenses::DODECAHEDRAL_MIRRORS);
   }
-  static float sample_function(Function function, const Complex &p,
+  static float sample_function(Function function, const math::Complex &p,
                                const SourceState &source) {
     return Workbench::sample_function(function, p, source);
   }
-  static float grid(const Complex &p, const SourceParams &params,
+  static float grid(const math::Complex &p, const SourceParams &params,
                     const SourceState &source) {
     return Workbench::grid(p, params, source);
   }
@@ -1151,7 +1163,7 @@ inline void expect_shader_workbench_clocks_wrapped(
   sb.setAnimationsPaused(true);
   HS_EXPECT_TRUE(WB::published_config(sb) == config);
 
-  constexpr float ANGLE_SEED = TWO_PI_F * 4.0f;
+  constexpr float ANGLE_SEED = math::TWO_PI_F * 4.0f;
   constexpr float UNIT_SEED = 4.0f;
   const auto rotation_seed = [](const WB::WarpStageSpec &spec) {
     return spec.kind == WB::WarpStageKind::AFFINE_FRAME ? ANGLE_SEED : 0.0f;
@@ -1181,7 +1193,7 @@ inline void expect_shader_workbench_clocks_wrapped(
           clocks.projection_spin, clocks.warp_outer_rotation,
           clocks.warp_inner_rotation}) {
       HS_EXPECT_GE(angle, 0.0f);
-      HS_EXPECT_LT(angle, TWO_PI_F);
+      HS_EXPECT_LT(angle, math::TWO_PI_F);
     }
     for (float unit :
          {clocks.hue_noise_phase, clocks.source_noise_time,
@@ -1235,8 +1247,8 @@ inline void test_shader_workbench_pause_semantics() {
   sb.setAnimationsPaused(true);
 
   const WB::ClockState paused_clocks = WB::clocks(sb);
-  const Quaternion paused_projection_walk = WB::projection_walk(sb);
-  const Quaternion paused_outer_walk = WB::outer_walk(sb);
+  const math::Quaternion paused_projection_walk = WB::projection_walk(sb);
+  const math::Quaternion paused_outer_walk = WB::outer_walk(sb);
   const uint32_t paused_walk_steps = WB::walk_steps(sb);
   const uint32_t paused_generated_steps = WB::generated_palette_steps(sb);
   const Pixel paused_generated_color = WB::generated_color(sb, 0.25f);
@@ -1378,7 +1390,7 @@ inline void test_shader_workbench_pipeline_contract() {
   WB::FrameState frame = WB::frame(sb);
   using BoundProbe = TopologyRunProbe::Bind<Workbench::ShaderWorkbenchBinding>;
   static_assert(std::is_same_v<BoundProbe::Descriptor, TopologyRunProbe>);
-  const Pullback::SphereSample probe{X_AXIS, 1.0f};
+  const Pullback::SphereSample probe{math::X_AXIS, 1.0f};
   HS_EXPECT_EQ(
       BoundProbe::run(probe, frame, BoundProbe::prepare(frame)).path_length,
       8.0f);
@@ -1386,18 +1398,19 @@ inline void test_shader_workbench_pipeline_contract() {
   frame.slots.surface_lens = WB::SurfaceLens::NONE;
   frame.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   frame.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
-  frame.transforms.outer_conj = make_rotation(X_AXIS, 0.3f);
-  frame.transforms.projection_conj = make_rotation(Y_AXIS, -0.2f);
-  const Vector view = Vector(0.4f, -0.8f, 0.3f).normalized();
-  const Vector outer = WB::outer_lookup(view, frame);
-  const Vector expected_outer = rotate(view, frame.transforms.outer_conj);
+  frame.transforms.outer_conj = math::make_rotation(math::X_AXIS, 0.3f);
+  frame.transforms.projection_conj = math::make_rotation(math::Y_AXIS, -0.2f);
+  const math::Vector view = math::Vector(0.4f, -0.8f, 0.3f).normalized();
+  const math::Vector outer = WB::outer_lookup(view, frame);
+  const math::Vector expected_outer =
+      math::rotate(view, frame.transforms.outer_conj);
   HS_EXPECT_EQ(outer.x, expected_outer.x);
   HS_EXPECT_EQ(outer.y, expected_outer.y);
   HS_EXPECT_EQ(outer.z, expected_outer.z);
 
   const WB::ProjectedLookup projected = WB::surface_project(outer, frame);
-  const Complex expected = projections::stereo(
-      rotate(expected_outer, frame.transforms.projection_conj));
+  const math::Complex expected = projections::stereo(
+      math::rotate(expected_outer, frame.transforms.projection_conj));
   HS_EXPECT_EQ(projected.coords.re, expected.re);
   HS_EXPECT_EQ(projected.coords.im, expected.im);
   const float radius_sq = expected.re * expected.re + expected.im * expected.im;
@@ -1447,25 +1460,26 @@ constexpr float LENS_UNIT_TOL = 4e-3f;
 /** @brief Legacy projection and lens slots retain their shipped kernels. */
 inline void test_shader_workbench_legacy_spatial_slots() {
   using WB = ShaderWorkbenchWhiteBox;
-  const Vector directions[] = {Vector(1, 0, 0), Vector(0, 1, 0),
-                               Vector(0, -1, 0), Vector(1, 1, 1).normalized(),
-                               Vector(-1, 2, -3).normalized()};
-  for (const Vector &v : directions) {
-    const Complex stereo_actual =
+  const math::Vector directions[] = {
+      math::Vector(1, 0, 0), math::Vector(0, 1, 0), math::Vector(0, -1, 0),
+      math::Vector(1, 1, 1).normalized(), math::Vector(-1, 2, -3).normalized()};
+  for (const math::Vector &v : directions) {
+    const math::Complex stereo_actual =
         WB::project_point(v, WB::Projection::STEREOGRAPHIC);
-    const Complex stereo_expected = projections::stereo(v);
+    const math::Complex stereo_expected = projections::stereo(v);
     HS_EXPECT_EQ(stereo_actual.re, stereo_expected.re);
     HS_EXPECT_EQ(stereo_actual.im, stereo_expected.im);
 
-    const Complex sinusoidal = WB::project_point(v, WB::Projection::SINUSOIDAL);
+    const math::Complex sinusoidal =
+        WB::project_point(v, WB::Projection::SINUSOIDAL);
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
-    HS_EXPECT_NEAR(sinusoidal.re, std::fabs(fast_atan2(v.z, v.x)) * radius,
-                   1e-6f);
-    HS_EXPECT_EQ(sinusoidal.im, 0.5f * PI_F - fast_acos(v.y));
+    HS_EXPECT_NEAR(sinusoidal.re,
+                   std::fabs(math::fast_atan2(v.z, v.x)) * radius, 1e-6f);
+    HS_EXPECT_EQ(sinusoidal.im, 0.5f * math::PI_F - math::fast_acos(v.y));
 
-    const Complex gnomonic_actual =
+    const math::Complex gnomonic_actual =
         WB::project_point(v, WB::Projection::GNOMONIC);
-    const Complex gnomonic_expected =
+    const math::Complex gnomonic_expected =
         Pullback::Projection::gnomonic(
             v, 0.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
             .coords;
@@ -1485,38 +1499,42 @@ inline void test_shader_workbench_legacy_spatial_slots() {
   landmark_frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   landmark_frame.slots.surface_lens = WB::SurfaceLens::NONE;
   landmark_frame.slots.surface_noise = WB::SurfaceNoise::NONE;
-  landmark_frame.transforms.projection_conj = Quaternion();
-  HS_EXPECT_EQ(WB::surface_project(Vector(0.0f, 1.0f, 0.0f), landmark_frame)
-                   .provenance.fade_edge_distance,
-               0.0f);
-  HS_EXPECT_EQ(WB::surface_project(Vector(0.0f, -1.0f, 0.0f), landmark_frame)
-                   .provenance.fade_edge_distance,
-               2.0f);
-  HS_EXPECT_EQ(WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame)
-                   .provenance.boundary_flags,
-               WB::boundary_singular());
+  landmark_frame.transforms.projection_conj = math::Quaternion();
+  HS_EXPECT_EQ(
+      WB::surface_project(math::Vector(0.0f, 1.0f, 0.0f), landmark_frame)
+          .provenance.fade_edge_distance,
+      0.0f);
+  HS_EXPECT_EQ(
+      WB::surface_project(math::Vector(0.0f, -1.0f, 0.0f), landmark_frame)
+          .provenance.fade_edge_distance,
+      2.0f);
+  HS_EXPECT_EQ(
+      WB::surface_project(math::Vector(1.0f, 0.0f, 0.0f), landmark_frame)
+          .provenance.boundary_flags,
+      WB::boundary_singular());
   landmark_frame.slots.projection = WB::Projection::SINUSOIDAL;
   const WB::ProjectedLookup sinusoidal =
-      WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame);
+      WB::surface_project(math::Vector(1.0f, 0.0f, 0.0f), landmark_frame);
   HS_EXPECT_EQ(sinusoidal.provenance.boundary_flags, uint8_t(0));
   HS_EXPECT_EQ(sinusoidal.provenance.flags, WB::projection_folded());
-  HS_EXPECT_EQ(WB::surface_project(Vector(0.0f, 0.0f, -1.0f), landmark_frame)
-                   .provenance.region_id,
-               uint8_t(1));
+  HS_EXPECT_EQ(
+      WB::surface_project(math::Vector(0.0f, 0.0f, -1.0f), landmark_frame)
+          .provenance.region_id,
+      uint8_t(1));
   landmark_frame.slots.projection = WB::Projection::GNOMONIC;
   HS_EXPECT_EQ(
-      WB::surface_project(Vector(1.0f, 0.0f, 0.0f), landmark_frame)
+      WB::surface_project(math::Vector(1.0f, 0.0f, 0.0f), landmark_frame)
           .provenance.boundary_flags,
       static_cast<uint8_t>(WB::boundary_cut() | WB::boundary_singular()));
 
-  const Vector v(0.6f, 0.48f, 0.64f);
-  const Complex lensed = projections::stereo(lenses::glitch_lens(v));
+  const math::Vector v(0.6f, 0.48f, 0.64f);
+  const math::Complex lensed = projections::stereo(lenses::glitch_lens(v));
   WB::FrameState frame = WB::frame(landmark_sb);
   frame.slots.projection = WB::Projection::STEREOGRAPHIC;
   frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   frame.slots.surface_lens = WB::SurfaceLens::GLITCH;
   frame.slots.surface_noise = WB::SurfaceNoise::NONE;
-  frame.transforms.projection_conj = Quaternion();
+  frame.transforms.projection_conj = math::Quaternion();
   const WB::ProjectedLookup glitched = WB::surface_project(v, frame);
   // glitch_lens' polar terms are FMA-contractable, so the reference above and
   // the pipeline's own call can round 2 ULP apart under -O2; a wrong lens
@@ -1528,27 +1546,28 @@ inline void test_shader_workbench_legacy_spatial_slots() {
 /** @brief The reflection-only six-sector fold matches the legacy polar map. */
 inline void test_shader_workbench_kaleidoscope_reflection_fold() {
   using WB = ShaderWorkbenchWhiteBox;
-  constexpr float SECTOR = TWO_PI_F / 6.0f;
-  auto reference = [&](const Vector &v) {
+  constexpr float SECTOR = math::TWO_PI_F / 6.0f;
+  auto reference = [&](const math::Vector &v) {
     const float radius = sqrtf(v.x * v.x + v.z * v.z);
-    float azimuth = fmodf(fast_atan2(v.z, v.x) + PI_F, SECTOR);
+    float azimuth = fmodf(math::fast_atan2(v.z, v.x) + math::PI_F, SECTOR);
     if (azimuth > 0.5f * SECTOR)
       azimuth = SECTOR - azimuth;
-    return Vector(radius * fast_cosf(azimuth), v.y,
-                  radius * fast_sinf(azimuth));
+    return math::Vector(radius * math::fast_cosf(azimuth), v.y,
+                        radius * math::fast_sinf(azimuth));
   };
 
   float max_coordinate_error = 0.0f;
   float max_length_error = 0.0f;
   for (int latitude_step = -64; latitude_step <= 64; ++latitude_step) {
-    const float latitude = latitude_step * (0.5f * PI_F / 64.0f);
+    const float latitude = latitude_step * (0.5f * math::PI_F / 64.0f);
     const float radius = cosf(latitude);
     const float y = sinf(latitude);
     for (int longitude_step = 0; longitude_step < 1440; ++longitude_step) {
-      const float longitude = longitude_step * (TWO_PI_F / 1440.0f);
-      const Vector input(radius * cosf(longitude), y, radius * sinf(longitude));
-      const Vector expected = reference(input);
-      const Vector actual =
+      const float longitude = longitude_step * (math::TWO_PI_F / 1440.0f);
+      const math::Vector input(radius * cosf(longitude), y,
+                               radius * sinf(longitude));
+      const math::Vector expected = reference(input);
+      const math::Vector actual =
           WB::apply_lens(input, WB::SurfaceLens::KALEIDOSCOPE);
       max_coordinate_error = std::max(
           max_coordinate_error,
@@ -1562,13 +1581,13 @@ inline void test_shader_workbench_kaleidoscope_reflection_fold() {
 
   constexpr float BOUNDARY_EPSILON = 1e-5f;
   for (int boundary = -6; boundary <= 6; ++boundary) {
-    const float angle = boundary * (PI_F / 6.0f);
-    Vector folded[3];
+    const float angle = boundary * (math::PI_F / 6.0f);
+    math::Vector folded[3];
     for (int side = -1; side <= 1; ++side) {
       const float sample_angle = angle + side * BOUNDARY_EPSILON;
-      folded[side + 1] =
-          WB::apply_lens(Vector(cosf(sample_angle), 0.0f, sinf(sample_angle)),
-                         WB::SurfaceLens::KALEIDOSCOPE);
+      folded[side + 1] = WB::apply_lens(
+          math::Vector(cosf(sample_angle), 0.0f, sinf(sample_angle)),
+          WB::SurfaceLens::KALEIDOSCOPE);
       HS_EXPECT_GE(folded[side + 1].z, -2e-6f);
       HS_EXPECT_GE(folded[side + 1].x,
                    1.7320508075688772f * folded[side + 1].z - 2e-6f);
@@ -1583,51 +1602,56 @@ inline void test_shader_workbench_polyhedral_kaleidoscopes() {
   using WB = ShaderWorkbenchWhiteBox;
   struct Symmetry {
     WB::SurfaceLens lens;
-    std::array<Vector, 3> mirrors;
+    std::array<math::Vector, 3> mirrors;
   };
   static constexpr Symmetry SYMMETRIES[] = {
       {WB::SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL,
-       {Vector(1.0f, 0.0f, 0.0f), Vector(-0.5f, 0.8660254038f, 0.0f),
-        Vector(0.0f, -0.5773502692f, 0.8164965809f)}},
+       {math::Vector(1.0f, 0.0f, 0.0f),
+        math::Vector(-0.5f, 0.8660254038f, 0.0f),
+        math::Vector(0.0f, -0.5773502692f, 0.8164965809f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_OCTAHEDRAL,
-       {Vector(1.0f, 0.0f, 0.0f), Vector(-0.7071067812f, 0.7071067812f, 0.0f),
-        Vector(0.0f, -0.7071067812f, 0.7071067812f)}},
+       {math::Vector(1.0f, 0.0f, 0.0f),
+        math::Vector(-0.7071067812f, 0.7071067812f, 0.0f),
+        math::Vector(0.0f, -0.7071067812f, 0.7071067812f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL,
-       {Vector(1.0f, 0.0f, 0.0f), Vector(-0.8090169944f, 0.3090169944f, -0.5f),
-        Vector(0.0f, 0.0f, 1.0f)}},
+       {math::Vector(1.0f, 0.0f, 0.0f),
+        math::Vector(-0.8090169944f, 0.3090169944f, -0.5f),
+        math::Vector(0.0f, 0.0f, 1.0f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_TRIANGULAR_PRISM,
-       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-        Vector(0.8660254038f, 0.0f, -0.5f)}},
+       {math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+        math::Vector(0.8660254038f, 0.0f, -0.5f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_SQUARE_PRISM,
-       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-        Vector(0.7071067812f, 0.0f, -0.7071067812f)}},
+       {math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+        math::Vector(0.7071067812f, 0.0f, -0.7071067812f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM,
-       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-        Vector(0.5877852523f, 0.0f, -0.8090169944f)}},
+       {math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+        math::Vector(0.5877852523f, 0.0f, -0.8090169944f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_HEXAGONAL_PRISM,
-       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-        Vector(0.5f, 0.0f, -0.8660254038f)}},
+       {math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+        math::Vector(0.5f, 0.0f, -0.8660254038f)}},
       {WB::SurfaceLens::KALEIDOSCOPE_OCTAGONAL_PRISM,
-       {Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-        Vector(0.3826834324f, 0.0f, -0.9238795325f)}}};
-  const Vector direction = Vector(-0.371f, 0.557f, -0.743f).normalized();
-  Vector folded[std::size(SYMMETRIES)];
+       {math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+        math::Vector(0.3826834324f, 0.0f, -0.9238795325f)}}};
+  const math::Vector direction =
+      math::Vector(-0.371f, 0.557f, -0.743f).normalized();
+  math::Vector folded[std::size(SYMMETRIES)];
 
   for (size_t index = 0; index < std::size(SYMMETRIES); ++index) {
     const Symmetry &symmetry = SYMMETRIES[index];
     folded[index] = WB::apply_lens(direction, symmetry.lens);
     HS_EXPECT_NEAR(folded[index].length(), 1.0f, 1e-5f);
-    const Vector idempotent = WB::apply_lens(folded[index], symmetry.lens);
+    const math::Vector idempotent =
+        WB::apply_lens(folded[index], symmetry.lens);
     HS_EXPECT_NEAR(idempotent.x, folded[index].x, 1e-6f);
     HS_EXPECT_NEAR(idempotent.y, folded[index].y, 1e-6f);
     HS_EXPECT_NEAR(idempotent.z, folded[index].z, 1e-6f);
 
-    for (const Vector &normal : symmetry.mirrors) {
-      const float distance = dot(direction, normal);
-      const Vector reflected(direction.x - 2.0f * distance * normal.x,
-                             direction.y - 2.0f * distance * normal.y,
-                             direction.z - 2.0f * distance * normal.z);
-      const Vector equivalent = WB::apply_lens(reflected, symmetry.lens);
+    for (const math::Vector &normal : symmetry.mirrors) {
+      const float distance = math::dot(direction, normal);
+      const math::Vector reflected(direction.x - 2.0f * distance * normal.x,
+                                   direction.y - 2.0f * distance * normal.y,
+                                   direction.z - 2.0f * distance * normal.z);
+      const math::Vector equivalent = WB::apply_lens(reflected, symmetry.lens);
       HS_EXPECT_NEAR(equivalent.x, folded[index].x, 2e-5f);
       HS_EXPECT_NEAR(equivalent.y, folded[index].y, 2e-5f);
       HS_EXPECT_NEAR(equivalent.z, folded[index].z, 2e-5f);
@@ -1638,14 +1662,15 @@ inline void test_shader_workbench_polyhedral_kaleidoscopes() {
     HS_EXPECT_TRUE(folded[index - 1] != folded[index]);
 
   for (int latitude_step = -64; latitude_step <= 64; ++latitude_step) {
-    const float latitude = latitude_step * (0.5f * PI_F / 64.0f);
+    const float latitude = latitude_step * (0.5f * math::PI_F / 64.0f);
     const float radius = cosf(latitude);
     const float y = sinf(latitude);
     for (int longitude_step = 0; longitude_step < 1440; ++longitude_step) {
-      const float longitude = longitude_step * (TWO_PI_F / 1440.0f);
-      const Vector input(radius * cosf(longitude), y, radius * sinf(longitude));
-      const Vector expected = WB::dodecahedral_reference(input);
-      const Vector actual =
+      const float longitude = longitude_step * (math::TWO_PI_F / 1440.0f);
+      const math::Vector input(radius * cosf(longitude), y,
+                               radius * sinf(longitude));
+      const math::Vector expected = WB::dodecahedral_reference(input);
+      const math::Vector actual =
           WB::apply_lens(input, WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
       HS_EXPECT_EQ(actual.x, expected.x);
       HS_EXPECT_EQ(actual.y, expected.y);
@@ -1691,12 +1716,13 @@ inline void test_shader_workbench_equirectangular_projection() {
   using WB = ShaderWorkbenchWhiteBox;
   auto lon_lat = [](float longitude, float latitude) {
     const float cp = cosf(latitude);
-    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
+    return math::Vector(cp * cosf(longitude), sinf(latitude),
+                        cp * sinf(longitude));
   };
   for (float longitude : {-2.5f, -0.75f, 0.0f, 0.75f, 2.5f})
     for (float latitude : {-1.2f, -0.3f, 0.0f, 0.3f, 1.2f}) {
-      const Complex coords = WB::project_point(lon_lat(longitude, latitude),
-                                               WB::Projection::EQUIRECTANGULAR);
+      const math::Complex coords = WB::project_point(
+          lon_lat(longitude, latitude), WB::Projection::EQUIRECTANGULAR);
       HS_EXPECT_NEAR(coords.re, longitude, EQUIRECT_LON_TOL);
       HS_EXPECT_NEAR(coords.im, latitude, EQUIRECT_LAT_TOL);
     }
@@ -1709,32 +1735,32 @@ inline void test_shader_workbench_equirectangular_projection() {
   frame.slots.projection_frame = WB::ProjectionFramePolicy::IDENTITY;
   frame.slots.surface_lens = WB::SurfaceLens::NONE;
   frame.slots.surface_noise = WB::SurfaceNoise::NONE;
-  frame.transforms.projection_conj = Quaternion();
+  frame.transforms.projection_conj = math::Quaternion();
   frame.params.projection.central_meridian = 0.0f;
 
   const WB::ProjectedLookup prime =
-      WB::surface_project(Vector(1.0f, 0.0f, 0.0f), frame);
+      WB::surface_project(math::Vector(1.0f, 0.0f, 0.0f), frame);
   HS_EXPECT_EQ(prime.provenance.flags, uint8_t(0));
   HS_EXPECT_EQ(prime.provenance.boundary_flags, WB::boundary_cut());
   HS_EXPECT_EQ(prime.provenance.region_id, uint8_t(0));
   HS_EXPECT_NEAR(prime.coords.re, 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(prime.provenance.fade_edge_distance, PI_F, 1e-5f);
+  HS_EXPECT_NEAR(prime.provenance.fade_edge_distance, math::PI_F, 1e-5f);
 
   const WB::ProjectedLookup seam =
-      WB::surface_project(Vector(-1.0f, 0.0f, 0.0f), frame);
+      WB::surface_project(math::Vector(-1.0f, 0.0f, 0.0f), frame);
   HS_EXPECT_NEAR(seam.provenance.fade_edge_distance, 0.0f, 1e-5f);
 
   const WB::ProjectedLookup east =
-      WB::surface_project(Vector(0.0f, 0.0f, 1.0f), frame);
+      WB::surface_project(math::Vector(0.0f, 0.0f, 1.0f), frame);
   const WB::ProjectedLookup west =
-      WB::surface_project(Vector(0.0f, 0.0f, -1.0f), frame);
-  HS_EXPECT_NEAR(east.coords.re, 0.5f * PI_F, 5e-3f);
-  HS_EXPECT_NEAR(west.coords.re, -0.5f * PI_F, 5e-3f);
+      WB::surface_project(math::Vector(0.0f, 0.0f, -1.0f), frame);
+  HS_EXPECT_NEAR(east.coords.re, 0.5f * math::PI_F, 5e-3f);
+  HS_EXPECT_NEAR(west.coords.re, -0.5f * math::PI_F, 5e-3f);
   HS_EXPECT_EQ(east.provenance.region_id, west.provenance.region_id);
 
-  frame.params.projection.central_meridian = 0.5f * PI_F;
+  frame.params.projection.central_meridian = 0.5f * math::PI_F;
   const WB::ProjectedLookup recentred =
-      WB::surface_project(Vector(0.0f, 0.0f, 1.0f), frame);
+      WB::surface_project(math::Vector(0.0f, 0.0f, 1.0f), frame);
   HS_EXPECT_NEAR(recentred.coords.re, 0.0f, 5e-3f);
   frame.params.projection.central_meridian = 0.0f;
 
@@ -1757,8 +1783,9 @@ inline void test_shader_workbench_equirectangular_projection() {
   HS_EXPECT_EQ(WB::active_slots(sb).projection,
                WB::Projection::EQUIRECTANGULAR);
   HS_EXPECT_EQ(WB::active_pipeline(sb), WB::InversePipelineId::NONE);
-  const Color4 color = WB::shade(Vector(0.31f, 0.87f, -0.38f).normalized(),
-                                 WB::config_frame(sb, config));
+  const Color4 color =
+      WB::shade(math::Vector(0.31f, 0.87f, -0.38f).normalized(),
+                WB::config_frame(sb, config));
   HS_EXPECT_TRUE(std::isfinite(color.alpha));
   HS_EXPECT_GE(color.alpha, 0.0f);
   HS_EXPECT_LE(color.alpha, 1.0f);
@@ -1780,20 +1807,21 @@ inline void test_shader_workbench_projection_value_weights() {
   constexpr float FADE = 2.0f;
   auto lon_lat = [](float longitude, float latitude) {
     const float cp = cosf(latitude);
-    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
+    return math::Vector(cp * cosf(longitude), sinf(latitude),
+                        cp * sinf(longitude));
   };
 
-  HS_EXPECT_EQ(Projection::stereographic(UP, FADE).provenance.value_weight,
-               0.0f);
-  HS_EXPECT_EQ(Projection::stereographic(-UP, FADE).provenance.value_weight,
-               1.0f);
-  HS_EXPECT_NEAR(Projection::stereographic(Vector(1.0f, 0.0f, 0.0f), FADE)
+  HS_EXPECT_EQ(
+      Projection::stereographic(math::UP, FADE).provenance.value_weight, 0.0f);
+  HS_EXPECT_EQ(
+      Projection::stereographic(-math::UP, FADE).provenance.value_weight, 1.0f);
+  HS_EXPECT_NEAR(Projection::stereographic(math::Vector(1.0f, 0.0f, 0.0f), FADE)
                      .provenance.value_weight,
                  0.8f, 1e-6f);
 
-  const Vector north = UP;
-  const Vector south = -UP;
-  const Vector equator = Vector(1.0f, 0.0f, 0.0f);
+  const math::Vector north = math::UP;
+  const math::Vector south = -math::UP;
+  const math::Vector equator = math::Vector(1.0f, 0.0f, 0.0f);
   HS_EXPECT_EQ(
       Projection::equirectangular(north, 0.0f, FADE).provenance.value_weight,
       0.0f);
@@ -1803,8 +1831,8 @@ inline void test_shader_workbench_projection_value_weights() {
   HS_EXPECT_EQ(
       Projection::equirectangular(equator, 2.0f, FADE).provenance.value_weight,
       1.0f);
-  const Vector latitude_a = lon_lat(-1.7f, 0.9f);
-  const Vector latitude_b = lon_lat(2.2f, 0.9f);
+  const math::Vector latitude_a = lon_lat(-1.7f, 0.9f);
+  const math::Vector latitude_b = lon_lat(2.2f, 0.9f);
   const float latitude_weight =
       Projection::equirectangular(latitude_a, 0.0f, FADE)
           .provenance.value_weight;
@@ -1827,10 +1855,11 @@ inline void test_shader_workbench_projection_value_weights() {
       1.0f);
 
   constexpr float MERIDIAN = 0.63f;
-  const Vector singular = lon_lat(MERIDIAN + 0.25f * PI_F, 0.0f);
-  const Vector cardinal = lon_lat(MERIDIAN, 0.0f);
-  const Vector southern_fold = lon_lat(MERIDIAN + 0.25f * PI_F, -0.4f);
-  const Vector regular = lon_lat(MERIDIAN + 0.2f, 0.55f);
+  const math::Vector singular = lon_lat(MERIDIAN + 0.25f * math::PI_F, 0.0f);
+  const math::Vector cardinal = lon_lat(MERIDIAN, 0.0f);
+  const math::Vector southern_fold =
+      lon_lat(MERIDIAN + 0.25f * math::PI_F, -0.4f);
+  const math::Vector regular = lon_lat(MERIDIAN + 0.2f, 0.55f);
   const auto peirce_singular =
       Projection::peirce(singular, MERIDIAN, 1, 0.0f, false, 1.0f, FADE);
   const auto peirce_cardinal =
@@ -1856,15 +1885,15 @@ inline void test_shader_workbench_projection_value_weights() {
   HS_EXPECT_EQ(Projection::peirce(north, MERIDIAN, 1, 0.0f, false, 1.0f, FADE)
                    .provenance.value_weight,
                1.0f);
-  HS_EXPECT_LT(
-      Projection::peirce_fast_square(lon_lat(0.25f * PI_F, 0.0f), 1.0f, FADE)
-          .provenance.value_weight,
-      1e-6f);
+  HS_EXPECT_LT(Projection::peirce_fast_square(lon_lat(0.25f * math::PI_F, 0.0f),
+                                              1.0f, FADE)
+                   .provenance.value_weight,
+               1e-6f);
   HS_EXPECT_NEAR(Projection::peirce_fast_square(equator, 1.0f, FADE)
                      .provenance.value_weight,
                  0.8f, 1e-6f);
 
-  HS_EXPECT_EQ(Projection::bonne(regular, MERIDIAN, 0.25f * PI_F, 1.0f)
+  HS_EXPECT_EQ(Projection::bonne(regular, MERIDIAN, 0.25f * math::PI_F, 1.0f)
                    .provenance.value_weight,
                1.0f);
   HS_EXPECT_EQ(Projection::airocean(regular, MERIDIAN, false, false, 1.0f)
@@ -1876,7 +1905,7 @@ inline void test_shader_workbench_projection_value_weights() {
   WB::SB sb;
   sb.init();
   WB::FrameState frame = WB::frame(sb);
-  frame.transforms.projection_conj = Quaternion();
+  frame.transforms.projection_conj = math::Quaternion();
   frame.slots.surface_lens = WB::SurfaceLens::NONE;
   frame.slots.surface_noise = WB::SurfaceNoise::NONE;
   frame.params.projection.singularity_fade = FADE;
@@ -1915,8 +1944,10 @@ inline void test_shader_workbench_flush_edge_fade() {
   frame.slots.coverage = WB::CoveragePolicy::EDGE_FADE;
   frame.params.value.edge_width = 0.1f;
   const WB::PlanarWarpResult warped{};
-  WB::ProjectedLookup under{
-      Complex(), {0, 0, WB::boundary_cut(), 0.01f, 1.0f, 0}, Vector(), 0.0f};
+  WB::ProjectedLookup under{math::Complex(),
+                            {0, 0, WB::boundary_cut(), 0.01f, 1.0f, 0},
+                            math::Vector(),
+                            0.0f};
   WB::ProjectedLookup over = under;
   const auto coverage = [&](const WB::ProjectedLookup &projected) {
     return WB::shape(0.0f, projected, warped, frame).coverage;
@@ -1958,23 +1989,24 @@ constexpr float SOURCE_DRIFT_BOUND =
 inline void test_shader_workbench_legacy_sources() {
   using WB = ShaderWorkbenchWhiteBox;
   const float values[] = {-6.0f, -2.5f, -0.7f, 0.0f, 0.9f, 3.1f, 5.8f};
-  const WB::SourceState source{0.9f, 1.1f, 0.7f, fast_cosf(0.7f),
-                               fast_sinf(0.7f)};
+  const WB::SourceState source{0.9f, 1.1f, 0.7f, math::fast_cosf(0.7f),
+                               math::fast_sinf(0.7f)};
   for (float re : values) {
     for (float im : values) {
-      const Complex p(re, im);
+      const math::Complex p(re, im);
       const float rotated = re * source.angle_cos + im * source.angle_sin;
       HS_EXPECT_EQ(
           Workbench::sample_function(WB::Function::TWIN_WAVE, p, source),
-          0.5f * (fast_sinf(re + source.primary) +
-                  fast_sinf(rotated + source.primary)));
+          0.5f * (math::fast_sinf(re + source.primary) +
+                  math::fast_sinf(rotated + source.primary)));
       HS_EXPECT_EQ(Workbench::sample_function(WB::Function::RINGS, p, source),
-                   fast_sinf(sqrtf(re * re + im * im) - source.primary));
+                   math::fast_sinf(sqrtf(re * re + im * im) - source.primary));
       const float radius = sqrtf(re * re + im * im);
-      const float azimuth = fast_atan2(im, re);
+      const float azimuth = math::fast_atan2(im, re);
       HS_EXPECT_NEAR(
           Workbench::sample_function(WB::Function::SPIRAL, p, source),
-          fast_sinf(radius - 3.0f * (azimuth + source.angle) - source.primary),
+          math::fast_sinf(radius - 3.0f * (azimuth + source.angle) -
+                          source.primary),
           SOURCE_DRIFT_BOUND);
     }
   }
@@ -1987,7 +2019,7 @@ inline void test_shader_workbench_coupled_source() {
   const float phases[] = {0.0f, 0.8f, 2.4f, 4.9f};
   for (float re : values) {
     for (float im : values) {
-      const Complex p(re, im);
+      const math::Complex p(re, im);
       for (float primary : phases) {
         for (float secondary : phases) {
           const WB::SourceState source{primary, secondary, 0.0f, 1.0f, 0.0f};
@@ -1995,16 +2027,17 @@ inline void test_shader_workbench_coupled_source() {
             WB::SourceParams params;
             params.complexity = complexity;
             const float coupled =
-                fast_sinf(re + primary + complexity * fast_sinf(im + primary)) *
-                fast_cosf(im - secondary +
-                          complexity * fast_cosf(re - secondary));
+                math::fast_sinf(re + primary +
+                                complexity * math::fast_sinf(im + primary)) *
+                math::fast_cosf(im - secondary +
+                                complexity * math::fast_cosf(re - secondary));
             HS_EXPECT_NEAR(Workbench::grid(p, params, source), coupled,
                            SOURCE_DRIFT_BOUND);
           }
           WB::SourceParams params;
           params.pattern_mix = 1.0f;
           const float direct =
-              fast_sinf(re + primary) * fast_cosf(im - secondary);
+              math::fast_sinf(re + primary) * math::fast_cosf(im - secondary);
           HS_EXPECT_EQ(Workbench::grid(p, params, source), direct);
         }
       }
@@ -3007,7 +3040,7 @@ inline void test_shader_workbench_polar_gui_repair() {
     const char *radial_scale =
         first ? "Planar Warp 1 Radial Scale" : "Planar Warp 2 Radial Scale";
     const char *density = lattice ? "Lattice Cell Scale" : "Pattern Freq";
-    const float repaired = lattice ? 8.0f / (TWO_PI_F * 2.0f) : 1.5f;
+    const float repaired = lattice ? 8.0f / (math::TWO_PI_F * 2.0f) : 1.5f;
 
     HS_EXPECT_EQ(sb.updateParameter(
                      root, static_cast<float>(WB::WarpStageKind::POLAR_CHART)),
@@ -3154,7 +3187,7 @@ inline void test_shader_workbench_structural_admission() {
   polar_bound_params.radial_scale = 16.0f;
   HS_EXPECT_EQ(
       WB::stage_coordinate_bound(polar_bound_spec, polar_bound_params, 4.0f),
-      16.0f * 1.414214f * 4.0f + TWO_PI_F);
+      16.0f * 1.414214f * 4.0f + math::TWO_PI_F);
 
   const WB::RequestedConfig discrete_base = WB::legacy_config();
   WB::RequestedConfig discrete = discrete_base;
@@ -3197,7 +3230,7 @@ inline void test_shader_workbench_structural_admission() {
   const WB::FrameState edge_frame = WB::config_frame(edge_sb, mirror_edge);
   HS_EXPECT_FALSE(WB::edge_distance_required(flat_frame));
   HS_EXPECT_FALSE(WB::edge_distance_required(edge_frame));
-  Vector probe(0.3f, -0.4f, 0.8f);
+  math::Vector probe(0.3f, -0.4f, 0.8f);
   probe.normalize();
   const Pullback::ProjectionResult flat_projection =
       WB::project_peirce(probe, flat_frame);
@@ -3275,9 +3308,9 @@ inline void test_shader_workbench_additive_delta_precision() {
   params.strength = 0.001f;
   params.frequency = 0.0f;
   params.field_angle = 0.0f;
-  const Complex input(32768.0f, 32768.0f);
+  const math::Complex input(32768.0f, 32768.0f);
   const WB::ProjectedLookup projected{
-      input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
+      input, {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f};
   const auto result = WB::warp_stage(input, projected, spec, params, frame);
   HS_EXPECT_NEAR(result.path_length, 0.001f, 1e-7f);
   HS_EXPECT_EQ(result.coords.im, input.im);
@@ -3296,7 +3329,7 @@ inline void test_shader_workbench_profile_presets() {
   WB::SB sb;
   sb.init();
   const auto &presets = WB::presets();
-  std::vector<Complex> probes(presets.size());
+  std::vector<math::Complex> probes(presets.size());
   for (size_t index = 0; index < presets.size(); ++index) {
     HS_CONTEXT("preset", static_cast<long long>(index));
     sb.profile_select_preset(index);
@@ -3306,10 +3339,10 @@ inline void test_shader_workbench_profile_presets() {
     HS_EXPECT_FALSE(WB::transition_active(sb));
     HS_EXPECT_FALSE(WB::param_morph_active(sb));
     const auto projected = WB::surface_project(
-        Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
+        math::Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
     const float fade = projected.provenance.fade_edge_distance;
     HS_EXPECT_GE(fade, 0.0f);
-    HS_EXPECT_TRUE(fade <= PI_F || fade == projections::NO_EDGE_DISTANCE);
+    HS_EXPECT_TRUE(fade <= math::PI_F || fade == projections::NO_EDGE_DISTANCE);
     HS_EXPECT_GE(projected.provenance.value_weight, 0.0f);
     HS_EXPECT_LE(projected.provenance.value_weight, 1.0f);
     HS_EXPECT_GE(projected.provenance.domain_coverage, 0.0f);
@@ -4015,12 +4048,12 @@ void verify_fixed_shader_export(
       FixedEffect::RenderPipeline::prepare(reference);
   HS_CONTEXT("effect preset", static_cast<long long>(fixed_preset));
   for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
-    const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
+    const float latitude = latitude_step * (0.5f * math::PI_F / 9.0f);
     const float radius = cosf(latitude);
     for (int longitude_step = 0; longitude_step < 37; ++longitude_step) {
-      const float longitude = longitude_step * (TWO_PI_F / 37.0f);
-      const Vector view(radius * cosf(longitude), sinf(latitude),
-                        radius * sinf(longitude));
+      const float longitude = longitude_step * (math::TWO_PI_F / 37.0f);
+      const math::Vector view(radius * cosf(longitude), sinf(latitude),
+                              radius * sinf(longitude));
       const Color4 expected = WB::shade(view, dynamic);
       const Color4 actual = FixedEffect::shade(view, compiled);
       expect_color_within(actual, expected, 1, 1e-6f);
@@ -4256,22 +4289,22 @@ inline void test_shader_workbench_lens_domain_ranges() {
 /** @brief New cartographic kernels preserve landmarks and stay finite. */
 inline void test_shader_workbench_projection_catalog() {
   using WB = ShaderWorkbenchWhiteBox;
-  const float standard_parallel = PI_F * 0.25f;
-  const Vector bonne_origin(cosf(standard_parallel), sinf(standard_parallel),
-                            0.0f);
+  const float standard_parallel = math::PI_F * 0.25f;
+  const math::Vector bonne_origin(cosf(standard_parallel),
+                                  sinf(standard_parallel), 0.0f);
   const auto bonne =
       projections::bonne_projection(bonne_origin, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne.coords.im, 0.0f, 2e-5f);
 
   const auto peirce = projections::peirce_projection(
-      UP, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
+      math::UP, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
   HS_EXPECT_NEAR(peirce.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(peirce.coords.im, 0.0f, 2e-5f);
 
   const auto &center = projections::AIROCEAN_CENTERS[0];
   const auto airocean = projections::airocean_projection(
-      Vector(center.x, center.z, center.y), 0.0f, false);
+      math::Vector(center.x, center.z, center.y), 0.0f, false);
   const auto &triangle = projections::AIROCEAN_PLANAR_FACES[0];
   HS_EXPECT_NEAR(airocean.coords.re,
                  (triangle[0].x + triangle[1].x + triangle[2].x) / 3.0f, 2e-4f);
@@ -4279,9 +4312,9 @@ inline void test_shader_workbench_projection_catalog() {
                  (triangle[0].y + triangle[1].y + triangle[2].y) / 3.0f, 2e-4f);
   HS_EXPECT_EQ(airocean.region_id, uint8_t(0));
 
-  const Vector equator_zero(1.0f, 0.0f, 0.0f);
-  const Vector equator_east(0.0f, 0.0f, 1.0f);
-  const Vector antimeridian(-1.0f, 0.0f, 0.0f);
+  const math::Vector equator_zero(1.0f, 0.0f, 0.0f);
+  const math::Vector equator_east(0.0f, 0.0f, 1.0f);
+  const math::Vector antimeridian(-1.0f, 0.0f, 0.0f);
   const auto bonne_equator =
       projections::bonne_projection(equator_zero, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_equator.coords.re, 0.0f, 2e-5f);
@@ -4291,19 +4324,19 @@ inline void test_shader_workbench_projection_catalog() {
   HS_EXPECT_NEAR(bonne_east.coords.re, 1.3758501640f, 3e-5f);
   HS_EXPECT_NEAR(bonne_east.coords.im, -0.1378413458f, 3e-5f);
   const auto bonne_shifted = projections::bonne_projection(
-      equator_east, 0.5f * PI_F, standard_parallel);
+      equator_east, 0.5f * math::PI_F, standard_parallel);
   HS_EXPECT_NEAR(bonne_shifted.coords.re, 0.0f, 2e-5f);
   HS_EXPECT_NEAR(bonne_shifted.coords.im, -0.7853981634f, 2e-5f);
   const auto bonne_cut =
       projections::bonne_projection(antimeridian, 0.0f, standard_parallel);
   HS_EXPECT_NEAR(bonne_cut.fade_edge_distance, 0.0f, 2e-5f);
   const auto werner =
-      projections::bonne_projection(equator_east, 0.0f, 0.5f * PI_F);
+      projections::bonne_projection(equator_east, 0.0f, 0.5f * math::PI_F);
   HS_EXPECT_NEAR(werner.coords.re, 1.3217795320f, 3e-5f);
   HS_EXPECT_NEAR(werner.coords.im, -0.8487048774f, 3e-5f);
 
   constexpr float PEIRCE_K = 1.8540746773013719f;
-  const Vector south_pole(0.0f, -1.0f, 0.0f);
+  const math::Vector south_pole(0.0f, -1.0f, 0.0f);
   const auto peirce_diamond = projections::peirce_projection(
       south_pole, 0.0f, static_cast<projections::PeirceLayout>(0), 0.0f);
   const auto peirce_square = projections::peirce_projection(
@@ -4346,15 +4379,17 @@ inline void test_shader_workbench_projection_catalog() {
   HS_EXPECT_NEAR(peirce_scroll_mid.coords.im, peirce_scroll0.coords.im, 3e-5f);
   const auto peirce_zero_fade = projections::peirce_projection(
       equator_zero, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f);
-  HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.25f * PI_F, 2e-5f);
+  HS_EXPECT_NEAR(peirce_zero_fade.fade_edge_distance, 0.25f * math::PI_F,
+                 2e-5f);
 
   auto lon_lat = [](float longitude, float latitude) {
     const float cp = cosf(latitude);
-    return Vector(cp * cosf(longitude), sinf(latitude), cp * sinf(longitude));
+    return math::Vector(cp * cosf(longitude), sinf(latitude),
+                        cp * sinf(longitude));
   };
-  const Vector peirce_oracle_point =
-      lon_lat(23.0f * PI_F / 180.0f, 28.0f * PI_F / 180.0f);
-  const Complex peirce_oracles[] = {
+  const math::Vector peirce_oracle_point =
+      lon_lat(23.0f * math::PI_F / 180.0f, 28.0f * math::PI_F / 180.0f);
+  const math::Complex peirce_oracles[] = {
       {0.4550257621f, -1.1120261272f},
       {1.1080730174f, -0.4645694134f},
       {-0.4349300830f, -1.1120261272f},
@@ -4375,10 +4410,10 @@ inline void test_shader_workbench_projection_catalog() {
     uint8_t exact;
   };
   const SectorTie sector_ties[] = {
-      {-0.75f * PI_F, 1, 2},
-      {-0.25f * PI_F, 2, 3},
-      {0.25f * PI_F, 3, 4},
-      {0.75f * PI_F, 4, 1},
+      {-0.75f * math::PI_F, 1, 2},
+      {-0.25f * math::PI_F, 2, 3},
+      {0.25f * math::PI_F, 3, 4},
+      {0.75f * math::PI_F, 4, 1},
   };
   for (const auto &tie : sector_ties) {
     const auto before = projections::peirce_projection(
@@ -4393,8 +4428,8 @@ inline void test_shader_workbench_projection_catalog() {
 
   constexpr float MERIDIAN = 0.37f;
   constexpr float MERIDIAN_LATITUDE = 0.28f;
-  const Vector on_meridian = lon_lat(MERIDIAN, MERIDIAN_LATITUDE);
-  const Vector zero_meridian = lon_lat(0.0f, MERIDIAN_LATITUDE);
+  const math::Vector on_meridian = lon_lat(MERIDIAN, MERIDIAN_LATITUDE);
+  const math::Vector zero_meridian = lon_lat(0.0f, MERIDIAN_LATITUDE);
   for (uint8_t layout = 0; layout < 4; ++layout) {
     const auto shifted = projections::peirce_projection(
         on_meridian, MERIDIAN, static_cast<projections::PeirceLayout>(layout),
@@ -4416,11 +4451,11 @@ inline void test_shader_workbench_projection_catalog() {
                  2e-5f);
   HS_EXPECT_EQ(airocean_shifted.region_id, airocean_reference.region_id);
 
-  const float oracle_longitude = 23.0f * PI_F / 180.0f;
-  const float oracle_latitude = 28.0f * PI_F / 180.0f;
-  const Vector oracle_point(cosf(oracle_latitude) * cosf(oracle_longitude),
-                            sinf(oracle_latitude),
-                            cosf(oracle_latitude) * sinf(oracle_longitude));
+  const float oracle_longitude = 23.0f * math::PI_F / 180.0f;
+  const float oracle_latitude = 28.0f * math::PI_F / 180.0f;
+  const math::Vector oracle_point(
+      cosf(oracle_latitude) * cosf(oracle_longitude), sinf(oracle_latitude),
+      cosf(oracle_latitude) * sinf(oracle_longitude));
   const auto airocean_oracle =
       projections::airocean_projection(oracle_point, 0.0f, false);
   HS_EXPECT_NEAR(airocean_oracle.coords.re, 2.1265288136f, 4e-5f);
@@ -4433,21 +4468,26 @@ inline void test_shader_workbench_projection_catalog() {
                  4e-5f);
 
   struct AiroceanOracle {
-    Vector point;
+    math::Vector point;
     uint8_t face;
-    Complex coords;
+    math::Complex coords;
   };
   const AiroceanOracle face_oracles[] = {
-      {Vector(-0.0913057694774583f, -0.7547095802227720f, 0.6496743076188996f),
-       18, Complex(0.751563669073068f, 5.176900182371453f)},
-      {Vector(-0.125688534945440f, -0.951056516295154f, 0.282301071545602f), 19,
-       Complex(1.209325099973815f, 0.174221877187437f)},
-      {Vector(-0.788802981658962f, -0.156434465040231f, 0.594405681562271f), 20,
-       Complex(0.504542659515686f, 4.382713723716426f)},
-      {Vector(-0.540579378237808f, 0.121869343405147f, 0.832419244709073f), 21,
-       Complex(0.821525205008616f, 4.204640141604954f)},
-      {Vector(-0.806181892476771f, 0.275637355816999f, 0.523540642472755f), 22,
-       Complex(0.414678953083584f, 3.507358320698008f)},
+      {math::Vector(-0.0913057694774583f, -0.7547095802227720f,
+                    0.6496743076188996f),
+       18, math::Complex(0.751563669073068f, 5.176900182371453f)},
+      {math::Vector(-0.125688534945440f, -0.951056516295154f,
+                    0.282301071545602f),
+       19, math::Complex(1.209325099973815f, 0.174221877187437f)},
+      {math::Vector(-0.788802981658962f, -0.156434465040231f,
+                    0.594405681562271f),
+       20, math::Complex(0.504542659515686f, 4.382713723716426f)},
+      {math::Vector(-0.540579378237808f, 0.121869343405147f,
+                    0.832419244709073f),
+       21, math::Complex(0.821525205008616f, 4.204640141604954f)},
+      {math::Vector(-0.806181892476771f, 0.275637355816999f,
+                    0.523540642472755f),
+       22, math::Complex(0.414678953083584f, 3.507358320698008f)},
   };
   for (const auto &oracle : face_oracles) {
     const auto mapped =
@@ -4457,14 +4497,14 @@ inline void test_shader_workbench_projection_catalog() {
     HS_EXPECT_NEAR(mapped.coords.im, oracle.coords.im, 2e-5f);
   }
 
-  const Vector glued_points[] = {
+  const math::Vector glued_points[] = {
       {0.00321530370315651f, 0.902108328962722f, 0.431497653108545f},
       {0.00321964224570043f, 0.902105871397194f, 0.431502758617508f},
       {0.00321096516044884f, 0.902110786482306f, 0.431492547577607f},
   };
   const uint8_t glued_faces[] = {1, 1, 2};
   const uint8_t glued_edges[] = {0, 0, 2};
-  const Complex glued_coords[] = {
+  const math::Complex glued_coords[] = {
       {1.365889495965044f, 3.417252228774369f},
       {1.365892745153149f, 3.417257856533251f},
       {1.365886246776939f, 3.417246601015487f},
@@ -4486,14 +4526,14 @@ inline void test_shader_workbench_projection_catalog() {
                    5e-5f);
   }
 
-  const Vector cut_points[] = {
+  const math::Vector cut_points[] = {
       {0.456082461583071f, 0.767833736470940f, -0.449911259442795f},
       {0.456076125629434f, 0.767836786220573f, -0.449912477441232f},
       {0.456088797513479f, 0.767830686682203f, -0.449910041421443f},
   };
   const uint8_t cut_faces[] = {3, 3, 4};
   const uint8_t cut_edges[] = {0, 0, 2};
-  const Complex cut_coords[] = {
+  const math::Complex cut_coords[] = {
       {1.821185994620058f, 2.628655560595667f},
       {1.821179496243847f, 2.628655560595667f},
       {2.276485742463179f, 2.891526744414116f},
@@ -4515,7 +4555,7 @@ inline void test_shader_workbench_projection_catalog() {
   for (uint8_t face = 0; face < 23; ++face) {
     const auto &face_center = projections::AIROCEAN_CENTERS[face];
     const auto mapped = projections::airocean_projection(
-        Vector(face_center.x, face_center.z, face_center.y), 0.0f, false);
+        math::Vector(face_center.x, face_center.z, face_center.y), 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, face);
   }
   HS_EXPECT_TRUE(projections::airocean_edge_is_cut(14, 0));
@@ -4527,9 +4567,9 @@ inline void test_shader_workbench_projection_catalog() {
     const auto &b = projections::AIROCEAN_FACES[14][1];
     const auto &center = projections::AIROCEAN_CENTERS[14];
     const float to_weight = 1.0f - from_weight;
-    return Vector(from_weight * a.x + to_weight * b.x + 1e-4f * center.x,
-                  from_weight * a.z + to_weight * b.z + 1e-4f * center.z,
-                  from_weight * a.y + to_weight * b.y + 1e-4f * center.y)
+    return math::Vector(from_weight * a.x + to_weight * b.x + 1e-4f * center.x,
+                        from_weight * a.z + to_weight * b.z + 1e-4f * center.z,
+                        from_weight * a.y + to_weight * b.y + 1e-4f * center.y)
         .normalized();
   };
   const auto japan_cut =
@@ -4589,13 +4629,14 @@ inline void test_shader_workbench_projection_catalog() {
   }
 
   const auto peirce_seam_a = projections::peirce_projection(
-      lon_lat(0.25f * PI_F - TIE_EPS, SOUTH_LATITUDE), 0.0f,
+      lon_lat(0.25f * math::PI_F - TIE_EPS, SOUTH_LATITUDE), 0.0f,
       static_cast<projections::PeirceLayout>(1), 0.0f);
   const auto peirce_seam_b = projections::peirce_projection(
-      lon_lat(0.25f * PI_F + TIE_EPS, SOUTH_LATITUDE), 0.0f,
+      lon_lat(0.25f * math::PI_F + TIE_EPS, SOUTH_LATITUDE), 0.0f,
       static_cast<projections::PeirceLayout>(1), 0.0f);
-  const Complex peirce_seam_delta = peirce_seam_a.coords - peirce_seam_b.coords;
-  const Complex airocean_seam_delta = cut_coords[1] - cut_coords[2];
+  const math::Complex peirce_seam_delta =
+      peirce_seam_a.coords - peirce_seam_b.coords;
+  const math::Complex airocean_seam_delta = cut_coords[1] - cut_coords[2];
   HS_EXPECT_GT(sqrtf(peirce_seam_delta.re * peirce_seam_delta.re +
                      peirce_seam_delta.im * peirce_seam_delta.im),
                2.0f);
@@ -4606,12 +4647,12 @@ inline void test_shader_workbench_projection_catalog() {
                0.5f);
 
   for (int latitude_index = -8; latitude_index <= 8; ++latitude_index) {
-    const float latitude = latitude_index * (PI_F / 18.0f);
+    const float latitude = latitude_index * (math::PI_F / 18.0f);
     for (int longitude_index = -18; longitude_index < 18; ++longitude_index) {
-      const float longitude = longitude_index * (PI_F / 18.0f);
+      const float longitude = longitude_index * (math::PI_F / 18.0f);
       const float cp = cosf(latitude);
-      const Vector v(cp * cosf(longitude), sinf(latitude),
-                     cp * sinf(longitude));
+      const math::Vector v(cp * cosf(longitude), sinf(latitude),
+                           cp * sinf(longitude));
       const auto b = projections::bonne_projection(v, 0.37f, standard_parallel);
       HS_EXPECT_TRUE(std::isfinite(b.coords.re));
       HS_EXPECT_TRUE(std::isfinite(b.coords.im));
@@ -4761,12 +4802,12 @@ inline void test_shader_workbench_prepared_hue_noise() {
     const WB::FrameState frame = WB::preset_frame(sb, preset);
     HS_EXPECT_TRUE(frame.prepared_hue_noise.active);
     for (int latitude_step = -48; latitude_step <= 48; ++latitude_step) {
-      const float latitude = latitude_step * (0.5f * PI_F / 48.0f);
+      const float latitude = latitude_step * (0.5f * math::PI_F / 48.0f);
       const float radius = cosf(latitude);
       for (int longitude_step = -192; longitude_step < 192; ++longitude_step) {
-        const float longitude = longitude_step * (PI_F / 192.0f);
-        const Vector direction(radius * cosf(longitude), sinf(latitude),
-                               radius * sinf(longitude));
+        const float longitude = longitude_step * (math::PI_F / 192.0f);
+        const math::Vector direction(radius * cosf(longitude), sinf(latitude),
+                                     radius * sinf(longitude));
         const float error = fabsf(WB::prepared_hue_noise(frame, direction) -
                                   WB::direct_hue_noise(frame, direction));
         max_error = std::max(max_error, error);
@@ -4810,12 +4851,12 @@ inline void test_shader_workbench_prepared_hue_noise_color() {
     WB::set_clocks(sb, clocks);
     const WB::FrameState frame = WB::preset_frame(sb, preset);
     for (int latitude_step = -24; latitude_step <= 24; ++latitude_step) {
-      const float latitude = latitude_step * (0.5f * PI_F / 24.0f);
+      const float latitude = latitude_step * (0.5f * math::PI_F / 24.0f);
       const float radius = cosf(latitude);
       for (int longitude_step = -96; longitude_step < 96; ++longitude_step) {
-        const float longitude = longitude_step * (PI_F / 96.0f);
-        const Vector direction(radius * cosf(longitude), sinf(latitude),
-                               radius * sinf(longitude));
+        const float longitude = longitude_step * (math::PI_F / 96.0f);
+        const math::Vector direction(radius * cosf(longitude), sinf(latitude),
+                                     radius * sinf(longitude));
         for (int value_step = 0; value_step <= 16; ++value_step) {
           const float value = value_step / 16.0f;
           const Pixel exact =
@@ -4850,12 +4891,12 @@ inline void test_shader_workbench_fast_peirce_square() {
   float max_edge_error = 0.0f;
   bool metadata_matches = true;
   for (int latitude_step = -64; latitude_step <= 64; ++latitude_step) {
-    const float latitude = latitude_step * (0.5f * PI_F / 64.0f);
+    const float latitude = latitude_step * (0.5f * math::PI_F / 64.0f);
     const float radius = cosf(latitude);
     for (int longitude_step = -256; longitude_step < 256; ++longitude_step) {
-      const float longitude = longitude_step * (PI_F / 256.0f);
-      const Vector input(radius * cosf(longitude), sinf(latitude),
-                         radius * sinf(longitude));
+      const float longitude = longitude_step * (math::PI_F / 256.0f);
+      const math::Vector input(radius * cosf(longitude), sinf(latitude),
+                               radius * sinf(longitude));
       const auto exact = projections::peirce_projection(
           input, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f, true);
       const auto fast = projections::peirce_projection_fast_square(input);
@@ -4897,15 +4938,15 @@ inline void test_shader_workbench_fast_peirce_square() {
   constexpr float TIE_EPSILON = 2e-6f;
   constexpr float LATITUDE = -0.41f;
   const float radius = cosf(LATITUDE);
-  for (float boundary :
-       {-0.75f * PI_F, -0.25f * PI_F, 0.25f * PI_F, 0.75f * PI_F}) {
+  for (float boundary : {-0.75f * math::PI_F, -0.25f * math::PI_F,
+                         0.25f * math::PI_F, 0.75f * math::PI_F}) {
     // Half the snap width: at the band edge itself the exact kernel's snap
     // turns on atan2f round-trip error and goes different ways per quadrant,
     // so the two kernels' tie predicates are not comparable there.
     for (float offset : {-0.5f * TIE_EPSILON, 0.0f, 0.5f * TIE_EPSILON}) {
       const float longitude = boundary + offset;
-      const Vector input(radius * cosf(longitude), sinf(LATITUDE),
-                         radius * sinf(longitude));
+      const math::Vector input(radius * cosf(longitude), sinf(LATITUDE),
+                               radius * sinf(longitude));
       const auto exact = projections::peirce_projection(
           input, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f, true);
       const auto fast = projections::peirce_projection_fast_square(input);
@@ -5104,15 +5145,15 @@ inline void test_shader_workbench_inverse_program_equivalence() {
     const WB::FrameState frame = WB::preset_frame(sb, preset_index);
     HS_CONTEXT("preset", static_cast<long long>(preset_index));
     for (int latitude_step = -32; latitude_step <= 32; ++latitude_step) {
-      const float latitude = latitude_step * (0.5f * PI_F / 32.0f);
+      const float latitude = latitude_step * (0.5f * math::PI_F / 32.0f);
       const float radius = cosf(latitude);
       // Per-ring, not per-sample: a frame pushed inside the 256-step longitude
       // loop costs more than the shading it labels.
       HS_CONTEXT("latitude step", latitude_step);
       for (int longitude_step = 0; longitude_step < 256; ++longitude_step) {
-        const float longitude = longitude_step * (TWO_PI_F / 256.0f);
-        const Vector view(radius * cosf(longitude), sinf(latitude),
-                          radius * sinf(longitude));
+        const float longitude = longitude_step * (math::TWO_PI_F / 256.0f);
+        const math::Vector view(radius * cosf(longitude), sinf(latitude),
+                                radius * sinf(longitude));
         const Color4 expected = WB::shade(view, frame);
         const Color4 actual = WB::pipeline_shade(view, frame);
         expect_color_within(actual, expected, 1, 1e-6f);
@@ -5123,9 +5164,9 @@ inline void test_shader_workbench_inverse_program_equivalence() {
   WB::FrameState peirce = WB::preset_frame(sb, 4);
   peirce.set_central_meridian(0.375f);
   for (int step = 0; step < 64; ++step) {
-    const float longitude = step * (TWO_PI_F / 64.0f);
-    const Vector view(cosf(longitude), 0.25f, sinf(longitude));
-    const Vector normalized = view.normalized();
+    const float longitude = step * (math::TWO_PI_F / 64.0f);
+    const math::Vector view(cosf(longitude), 0.25f, sinf(longitude));
+    const math::Vector normalized = view.normalized();
     const Color4 expected = WB::shade(normalized, peirce);
     const Color4 actual = WB::pipeline_shade(normalized, peirce);
     expect_color_within(actual, expected, 1, 1e-6f);
@@ -5135,9 +5176,9 @@ inline void test_shader_workbench_inverse_program_equivalence() {
 /** @brief Domain policies, gauges, and analytic admission reject unsafe tuples. */
 inline void test_shader_workbench_projection_and_admission_contracts() {
   using WB = ShaderWorkbenchWhiteBox;
-  const Vector front_neighbor(1.0f, 1e-5f, 0.0f);
-  const Vector back_neighbor(1.0f, -1e-5f, 0.0f);
-  const Vector axis(1.0f, 0.0f, 0.0f);
+  const math::Vector front_neighbor(1.0f, 1e-5f, 0.0f);
+  const math::Vector back_neighbor(1.0f, -1e-5f, 0.0f);
+  const math::Vector axis(1.0f, 0.0f, 0.0f);
   const auto front = WB::finalize_projection(
       front_neighbor,
       WB::project_point(front_neighbor, WB::Projection::GNOMONIC),
@@ -5194,10 +5235,10 @@ inline void test_shader_workbench_projection_and_admission_contracts() {
   HS_EXPECT_FALSE(WB::valid_config(affine));
 
   FastNoiseLite noise;
-  const Complex curl_one =
-      WB::curl_vector(Complex(), noise, WB::NoiseBasis::SIMPLEX, 1.0f, 0.2f);
-  const Complex curl_two =
-      WB::curl_vector(Complex(), noise, WB::NoiseBasis::SIMPLEX, 2.0f, 0.2f);
+  const math::Complex curl_one = WB::curl_vector(
+      math::Complex(), noise, WB::NoiseBasis::SIMPLEX, 1.0f, 0.2f);
+  const math::Complex curl_two = WB::curl_vector(
+      math::Complex(), noise, WB::NoiseBasis::SIMPLEX, 2.0f, 0.2f);
   HS_EXPECT_NEAR(curl_two.re, curl_one.re, 1e-5f);
   HS_EXPECT_NEAR(curl_two.im, curl_one.im, 1e-5f);
   reset_effect_globals();
@@ -5205,9 +5246,9 @@ inline void test_shader_workbench_projection_and_admission_contracts() {
   sb.init();
   WB::FrameState frame = WB::frame(sb);
   frame.resources.outer_warp_noise = nullptr;
-  const Complex point(0.31f, -0.27f);
+  const math::Complex point(0.31f, -0.27f);
   const WB::ProjectedLookup projected{
-      point, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
+      point, {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f};
   WB::WarpStageParams periodic_params;
   periodic_params.strength = 0.8f;
   periodic_params.frequency = 2.5f;
@@ -5235,17 +5276,17 @@ inline void test_shader_workbench_planar_warp_animation() {
   sb.init();
   WB::FrameState frame = WB::frame(sb);
   frame.resources.outer_warp_noise = nullptr;
-  const Complex input(0.31f, -0.27f);
+  const math::Complex input(0.31f, -0.27f);
   const WB::ProjectedLookup projected{
-      input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
+      input, {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f};
 
   auto sample = [&](WB::WarpStageKind kind, WB::WarpStageParams params,
                     float phase, float affine_rotation = 0.0f) {
     frame.clocks.warp_outer_phase = phase;
     frame.clocks.warp_outer_rotation = affine_rotation;
-    const Complex source_period = kind == WB::WarpStageKind::AFFINE_FRAME
-                                      ? Complex(1.0f, 1.0f)
-                                      : Complex();
+    const math::Complex source_period = kind == WB::WarpStageKind::AFFINE_FRAME
+                                            ? math::Complex(1.0f, 1.0f)
+                                            : math::Complex();
     return WB::warp_stage(input, projected, WB::WarpStageSpec{kind}, params,
                           frame, false, source_period);
   };
@@ -5350,40 +5391,41 @@ inline void test_shader_workbench_planar_warp_animation() {
   WB::EndpointRuntime stationary;
   for (int frame_index = 0; frame_index < 16; ++frame_index)
     WB::advance_runtime(sb, stationary, lattice_scroll,
-                        {Quaternion(), Quaternion()});
+                        {math::Quaternion(), math::Quaternion()});
   HS_EXPECT_EQ(stationary.clocks.warp_outer_rotation, 0.0f);
 
   WB::RequestedConfig rotating = lattice_scroll;
   rotating.params.warp.outer.speed = 1.0f / 64.0f;
-  rotating.params.warp.outer.rotation = TWO_PI_F;
+  rotating.params.warp.outer.rotation = math::TWO_PI_F;
   WB::RequestedConfig zero_speed = rotating;
   zero_speed.params.warp.outer.speed = 0.0f;
   WB::EndpointRuntime zero_speed_runtime;
   WB::advance_runtime(sb, zero_speed_runtime, zero_speed,
-                      {Quaternion(), Quaternion()});
+                      {math::Quaternion(), math::Quaternion()});
   HS_EXPECT_EQ(zero_speed_runtime.clocks.warp_outer_rotation, 0.0f);
   WB::EndpointRuntime clockwise;
   WB::EndpointRuntime counterclockwise;
   for (int step = 1; step <= 4; ++step) {
-    WB::advance_runtime(sb, clockwise, rotating, {Quaternion(), Quaternion()});
+    WB::advance_runtime(sb, clockwise, rotating,
+                        {math::Quaternion(), math::Quaternion()});
     const float expected = step * rotating.params.warp.outer.speed *
                            rotating.params.warp.outer.rotation;
     const auto prepared = WB::prepared_warp_stage(
         rotating.slots.warp_program.outer, rotating.params.warp.outer,
-        clockwise.clocks.warp_outer_phase, Complex(),
+        clockwise.clocks.warp_outer_phase, math::Complex(),
         clockwise.clocks.warp_outer_rotation);
     HS_EXPECT_NEAR(prepared.rotation_cos, cosf(expected), 1e-6f);
     HS_EXPECT_NEAR(prepared.rotation_sin, sinf(expected), 1e-6f);
   }
-  rotating.params.warp.outer.rotation = -TWO_PI_F;
+  rotating.params.warp.outer.rotation = -math::TWO_PI_F;
   for (int step = 1; step <= 4; ++step) {
     WB::advance_runtime(sb, counterclockwise, rotating,
-                        {Quaternion(), Quaternion()});
+                        {math::Quaternion(), math::Quaternion()});
     const float expected = step * rotating.params.warp.outer.speed *
                            rotating.params.warp.outer.rotation;
     const auto prepared = WB::prepared_warp_stage(
         rotating.slots.warp_program.outer, rotating.params.warp.outer,
-        counterclockwise.clocks.warp_outer_phase, Complex(),
+        counterclockwise.clocks.warp_outer_phase, math::Complex(),
         counterclockwise.clocks.warp_outer_rotation);
     HS_EXPECT_NEAR(prepared.rotation_cos, cosf(expected), 1e-6f);
     HS_EXPECT_NEAR(prepared.rotation_sin, sinf(expected), 1e-6f);
@@ -5393,13 +5435,13 @@ inline void test_shader_workbench_planar_warp_animation() {
   inner_rotating.slots.warp_program.inner.kind =
       WB::WarpStageKind::AFFINE_FRAME;
   inner_rotating.params.warp.inner.speed = 1.0f / 64.0f;
-  inner_rotating.params.warp.inner.rotation = -TWO_PI_F;
+  inner_rotating.params.warp.inner.rotation = -math::TWO_PI_F;
   WB::EndpointRuntime inner_runtime;
   WB::advance_runtime(sb, inner_runtime, inner_rotating,
-                      {Quaternion(), Quaternion()});
+                      {math::Quaternion(), math::Quaternion()});
   const auto prepared_inner = WB::prepared_warp_stage(
       inner_rotating.slots.warp_program.inner, inner_rotating.params.warp.inner,
-      inner_runtime.clocks.warp_inner_phase, Complex(),
+      inner_runtime.clocks.warp_inner_phase, math::Complex(),
       inner_runtime.clocks.warp_inner_rotation);
   const float expected_inner = inner_rotating.params.warp.inner.speed *
                                inner_rotating.params.warp.inner.rotation;
@@ -5418,13 +5460,13 @@ inline void test_shader_workbench_planar_warp_animation() {
     WB::set_clocks(sb, clocks);
     const WB::FrameState lattice_frame = WB::config_frame(sb, lattice_scroll);
     const WB::ProjectedLookup lattice_projected{
-        Complex(x, y), {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
+        math::Complex(x, y), {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f};
     const WB::PlanarWarpResult warped =
         WB::warp(lattice_projected, lattice_frame);
     return std::pair{warped.coords,
                      WB::source(WB::ProjectedLookup{warped.coords,
                                                     {0, 0, 0, 1.0f, 1.0f, 0},
-                                                    Vector(),
+                                                    math::Vector(),
                                                     0.0f},
                                 lattice_frame)};
   };
@@ -5469,18 +5511,18 @@ inline void test_shader_workbench_planar_warp_animation() {
       sb.getParameters().find("Planar Warp 1 Rotation");
   HS_EXPECT_TRUE(affine_rotation != nullptr);
   if (affine_rotation != nullptr) {
-    HS_EXPECT_NEAR(affine_rotation->min, -TWO_PI_F, 1e-7f);
-    HS_EXPECT_NEAR(affine_rotation->max, TWO_PI_F, 1e-7f);
+    HS_EXPECT_NEAR(affine_rotation->min, -math::TWO_PI_F, 1e-7f);
+    HS_EXPECT_NEAR(affine_rotation->max, math::TWO_PI_F, 1e-7f);
   }
 
   WB::RequestedConfig signed_affine = WB::presets()[6];
-  signed_affine.params.warp.outer.rotation = -TWO_PI_F;
+  signed_affine.params.warp.outer.rotation = -math::TWO_PI_F;
   HS_EXPECT_TRUE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = -TWO_PI_F - 0.001f;
+  signed_affine.params.warp.outer.rotation = -math::TWO_PI_F - 0.001f;
   HS_EXPECT_FALSE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = TWO_PI_F;
+  signed_affine.params.warp.outer.rotation = math::TWO_PI_F;
   HS_EXPECT_TRUE(WB::valid_config(signed_affine));
-  signed_affine.params.warp.outer.rotation = TWO_PI_F + 0.001f;
+  signed_affine.params.warp.outer.rotation = math::TWO_PI_F + 0.001f;
   HS_EXPECT_FALSE(WB::valid_config(signed_affine));
 
   WB::Params from_rate = WB::presets()[6].params;
@@ -5502,8 +5544,8 @@ inline void test_shader_workbench_planar_warp_animation() {
   const auto polar_quarter =
       sample(WB::WarpStageKind::POLAR_CHART, polar, 0.25f);
   HS_EXPECT_NEAR(polar_start.coords.re, polar_quarter.coords.re, 1e-6f);
-  HS_EXPECT_NEAR(polar_quarter.coords.im - polar_start.coords.im, 0.5f * PI_F,
-                 2e-5f);
+  HS_EXPECT_NEAR(polar_quarter.coords.im - polar_start.coords.im,
+                 0.5f * math::PI_F, 2e-5f);
 
   for (WB::WarpStageKind kind :
        {WB::WarpStageKind::AFFINE_FRAME, WB::WarpStageKind::MIRROR_TILE,
@@ -5548,7 +5590,7 @@ inline void test_shader_workbench_kernel_catalog() {
   reset_effect_globals();
   WB::SB sb;
   sb.init();
-  const Vector view = Vector(0.31f, 0.87f, -0.38f).normalized();
+  const math::Vector view = math::Vector(0.31f, 0.87f, -0.38f).normalized();
   WB::RequestedConfig config = WB::legacy_config();
   config.slots.surface_lens = WB::SurfaceLens::NONE;
   config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
@@ -5620,12 +5662,12 @@ inline void test_shader_workbench_kernel_catalog() {
   frame.resources.outer_warp_noise = nullptr;
   WB::WarpStageParams zero_params;
   zero_params.strength = 0.0f;
-  const Complex input(0.27f, -0.41f);
+  const math::Complex input(0.27f, -0.41f);
   for (uint8_t value = 0; value <= 5; ++value) {
     WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
-    const auto identity =
-        WB::warp_stage(input, {input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f},
-                       spec, zero_params, frame);
+    const auto identity = WB::warp_stage(
+        input, {input, {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f}, spec,
+        zero_params, frame);
     HS_EXPECT_EQ(identity.coords.re, input.re);
     HS_EXPECT_EQ(identity.coords.im, input.im);
     HS_EXPECT_EQ(identity.path_length, 0.0f);
@@ -5637,7 +5679,7 @@ inline void test_shader_workbench_kernel_catalog() {
   for (uint8_t value = 6; value <= 7; ++value) {
     HS_CONTEXT("warp kind", value);
     const WB::ProjectedLookup lookup{
-        input, {0, 0, 0, 1.0f, 1.0f, 0}, Vector(), 0.0f};
+        input, {0, 0, 0, 1.0f, 1.0f, 0}, math::Vector(), 0.0f};
     WB::WarpStageSpec spec{static_cast<WB::WarpStageKind>(value)};
     const auto mapped = WB::warp_stage(input, lookup, spec, zero_params, frame);
     const auto forced = WB::warp_stage(input, lookup, spec, driven, frame);
@@ -5670,7 +5712,8 @@ inline void test_shader_workbench_stable_preset_transition() {
     WB::step_param_morph(sb);
     const float live_speed = WB::live_params(sb).source.speed;
     const float phase = WB::clocks(sb).source_primary;
-    HS_EXPECT_NEAR(phase, fmodf(previous_phase + live_speed, TWO_PI_F), 1e-6f);
+    HS_EXPECT_NEAR(phase, fmodf(previous_phase + live_speed, math::TWO_PI_F),
+                   1e-6f);
     previous_phase = phase;
     if (WB::param_morph_elapsed(sb) == 6) {
       HS_EXPECT_GT(WB::live_params(sb).surface_noise.scale,
@@ -5715,7 +5758,7 @@ inline void test_shader_workbench_discrete_transition() {
     reset_effect_globals();
     WB::SB sb;
     sb.init();
-    const Vector view(0.2f, 0.9f, -0.3f);
+    const math::Vector view(0.2f, 0.9f, -0.3f);
     const WB::FrameState valid = WB::frame(sb);
     const Color4 expected = WB::shade(view, valid);
     const auto clear_phase = WB::through_clear_phase(30, 60);
@@ -5774,10 +5817,10 @@ inline void test_shader_workbench_discrete_transition() {
     HS_EXPECT_EQ(WB::prepared_surface_noise_seed(sb), from_seed + 91);
     HS_EXPECT_EQ(WB::transition_from_runtime(sb).clocks.source_primary,
                  source_phase_at_clear);
-    HS_EXPECT_NEAR(
-        WB::transition_to_runtime(sb).clocks.source_primary,
-        fmodf(destination_phase_at_clear + to.params.source.speed, TWO_PI_F),
-        1e-6f);
+    HS_EXPECT_NEAR(WB::transition_to_runtime(sb).clocks.source_primary,
+                   fmodf(destination_phase_at_clear + to.params.source.speed,
+                         math::TWO_PI_F),
+                   1e-6f);
   }
 
   {
@@ -5786,8 +5829,8 @@ inline void test_shader_workbench_discrete_transition() {
     sb.init();
     WB::EndpointRuntime authored_runtime;
     WB::EndpointRuntime generated_runtime;
-    const WB::WalkDeltas deltas{make_rotation(Y_AXIS, 0.2f),
-                                make_rotation(X_AXIS, 0.3f)};
+    const WB::WalkDeltas deltas{math::make_rotation(math::Y_AXIS, 0.2f),
+                                math::make_rotation(math::X_AXIS, 0.3f)};
     const WB::RequestedConfig authored = WB::presets()[10];
     WB::advance_runtime(sb, authored_runtime, authored, deltas);
     WB::advance_runtime(sb, generated_runtime, WB::legacy_config(), deltas);
@@ -5838,9 +5881,10 @@ inline void test_shader_workbench_discrete_transition() {
     HS_EXPECT_EQ(WB::clocks(sb).source_primary, visible_phase);
     sb.draw_frame();
     sb.advance_display();
-    HS_EXPECT_NEAR(WB::clocks(sb).source_primary,
-                   fmodf(visible_phase + queued.params.source.speed, TWO_PI_F),
-                   1e-6f);
+    HS_EXPECT_NEAR(
+        WB::clocks(sb).source_primary,
+        fmodf(visible_phase + queued.params.source.speed, math::TWO_PI_F),
+        1e-6f);
 
     const WB::RequestedConfig manual = WB::presets()[5];
     HS_EXPECT_TRUE(WB::transition_admitted(captured_source, manual));
@@ -5852,7 +5896,8 @@ inline void test_shader_workbench_discrete_transition() {
     sb.advance_display();
     HS_EXPECT_NEAR(
         WB::clocks(sb).source_primary,
-        fmodf(committed_phase + manual.params.source.speed, TWO_PI_F), 1e-6f);
+        fmodf(committed_phase + manual.params.source.speed, math::TWO_PI_F),
+        1e-6f);
   }
 }
 
@@ -6018,8 +6063,8 @@ inline void test_shader_workbench_brightness_envelopes() {
   sb.init();
   WB::RequestedConfig config = WB::legacy_config();
   config.slots.hue_shift = WB::HueShiftMode::NONE;
-  const WB::FieldSample sample{0.37f, 0.6f,
-                               Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
+  const WB::FieldSample sample{
+      0.37f, 0.6f, math::Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
   const Color4 default_color =
       WB::colorize(sample, WB::config_frame(sb, config));
   HS_EXPECT_EQ(default_color.color,
@@ -6074,8 +6119,8 @@ inline void test_shader_workbench_hue_shift_modes() {
   base.params.color = {1.0f, 2.0f, 0.0f};
   HS_EXPECT_TRUE(WB::valid_config(base));
 
-  const WB::FieldSample sample{0.37f, 1.0f,
-                               Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
+  const WB::FieldSample sample{
+      0.37f, 1.0f, math::Vector(0.31f, 0.87f, -0.38f).normalized(), 0.0f};
   const Color4 plain = WB::colorize(sample, WB::config_frame(sb, base));
   WB::RequestedConfig noisy = base;
   noisy.slots.hue_shift = WB::HueShiftMode::NOISE;
@@ -6179,31 +6224,32 @@ inline void test_shader_workbench_surface_noise_geometry_and_composition() {
   HS_EXPECT_TRUE(sb.getParameters().find("Surface Noise Direction") != nullptr);
   HS_EXPECT_TRUE(sb.getParameters().find("Lens Mix") == nullptr);
 
-  const std::array<Vector, 8> directions = {
-      Vector(1.0f, 0.0f, 0.0f),
-      Vector(-1.0f, 0.0f, 0.0f),
-      Vector(0.0f, 1.0f, 0.0f),
-      Vector(0.0f, -1.0f, 0.0f),
-      Vector(0.0f, 0.0f, 1.0f),
-      Vector(0.0f, 0.0f, -1.0f),
-      Vector(1.0f, 2.0f, 3.0f).normalized(),
-      Vector(-2.0f, 1.0f, -0.5f).normalized()};
+  const std::array<math::Vector, 8> directions = {
+      math::Vector(1.0f, 0.0f, 0.0f),
+      math::Vector(-1.0f, 0.0f, 0.0f),
+      math::Vector(0.0f, 1.0f, 0.0f),
+      math::Vector(0.0f, -1.0f, 0.0f),
+      math::Vector(0.0f, 0.0f, 1.0f),
+      math::Vector(0.0f, 0.0f, -1.0f),
+      math::Vector(1.0f, 2.0f, 3.0f).normalized(),
+      math::Vector(-2.0f, 1.0f, -0.5f).normalized()};
   // Surface noise geometry is a stage contract, so the sweep prepares each
   // config directly instead of asking the roster to compile it.
   WB::FrameState frame = WB::config_frame(sb, config);
-  for (const Vector &v : directions) {
+  for (const math::Vector &v : directions) {
     frame.params.surface_noise.direction = 0.0f;
-    const Vector a = WB::surface_noise(v, frame);
+    const math::Vector a = WB::surface_noise(v, frame);
     frame.params.surface_noise.direction = 1.0f;
-    const Vector b = WB::surface_noise(v, frame);
+    const math::Vector b = WB::surface_noise(v, frame);
     HS_EXPECT_NEAR(a.length(), 1.0f, 1e-5f);
-    HS_EXPECT_LE(fast_acos(hs::clamp(dot(v, a), -1.0f, 1.0f)), 0.30001f);
+    HS_EXPECT_LE(math::fast_acos(hs::clamp(math::dot(v, a), -1.0f, 1.0f)),
+                 0.30001f);
     HS_EXPECT_NEAR(a.x, b.x, 1e-5f);
     HS_EXPECT_NEAR(a.y, b.y, 1e-5f);
     HS_EXPECT_NEAR(a.z, b.z, 1e-5f);
     frame.params.surface_noise.strength = 0.0f;
-    const Vector identity = WB::surface_noise(v, frame);
-    HS_EXPECT_EQ(std::memcmp(&identity, &v, sizeof(Vector)), 0);
+    const math::Vector identity = WB::surface_noise(v, frame);
+    HS_EXPECT_EQ(std::memcmp(&identity, &v, sizeof(math::Vector)), 0);
     frame.params.surface_noise.strength = 0.3f;
   }
 
@@ -6214,27 +6260,28 @@ inline void test_shader_workbench_surface_noise_geometry_and_composition() {
         WB::SurfaceCurlIntegrator::MIDPOINT_2X}) {
     config.params.surface_noise.integrator = integrator;
     frame = WB::config_frame(sb, config);
-    for (const Vector &v : directions) {
-      const Vector positive = WB::surface_noise(v, frame);
+    for (const math::Vector &v : directions) {
+      const math::Vector positive = WB::surface_noise(v, frame);
       frame.params.surface_noise.strength = -0.3f;
-      const Vector negative = WB::surface_noise(v, frame);
+      const math::Vector negative = WB::surface_noise(v, frame);
       HS_EXPECT_NEAR(positive.length(), 1.0f, 1e-5f);
       HS_EXPECT_NEAR(negative.length(), 1.0f, 1e-5f);
-      HS_EXPECT_LE(fast_acos(hs::clamp(dot(v, positive), -1.0f, 1.0f)),
-                   0.3001f);
+      HS_EXPECT_LE(
+          math::fast_acos(hs::clamp(math::dot(v, positive), -1.0f, 1.0f)),
+          0.3001f);
       frame.params.surface_noise.strength = 0.3f;
     }
   }
   frame = WB::config_frame(sb, config);
   frame.params.surface_noise.integrator = WB::SurfaceCurlIntegrator::EULER;
-  const Vector circulation =
+  const math::Vector circulation =
       Workbench::surface_curl_field(directions.back(), frame);
   frame.params.surface_noise.strength = 0.01f;
-  const Vector positive = WB::surface_noise(directions.back(), frame);
+  const math::Vector positive = WB::surface_noise(directions.back(), frame);
   frame.params.surface_noise.strength = -0.01f;
-  const Vector negative = WB::surface_noise(directions.back(), frame);
-  HS_EXPECT_GT(dot(positive - directions.back(), circulation), 0.0f);
-  HS_EXPECT_LT(dot(negative - directions.back(), circulation), 0.0f);
+  const math::Vector negative = WB::surface_noise(directions.back(), frame);
+  HS_EXPECT_GT(math::dot(positive - directions.back(), circulation), 0.0f);
+  HS_EXPECT_LT(math::dot(negative - directions.back(), circulation), 0.0f);
 
   config.slots.surface_noise = WB::SurfaceNoise::DIRECT;
   config.params.surface_noise.basis = WB::NoiseBasis::FBM3;
@@ -6290,9 +6337,9 @@ inline void test_shader_workbench_surface_noise_geometry_and_composition() {
                    static_cast<long long>(lens));
         HS_CONTEXT("placement", static_cast<long long>(placement));
         frame.slots.surface_noise_placement = placement;
-        const Vector probe = directions.back();
+        const math::Vector probe = directions.back();
         const WB::ProjectedLookup projected = WB::surface_project(probe, frame);
-        const Vector surfaced =
+        const math::Vector surfaced =
             placement == WB::SurfaceNoisePlacement::BEFORE_LENS
                 ? WB::apply_lens(WB::surface_noise(probe, frame), frame)
                 : WB::surface_noise(WB::apply_lens(probe, frame), frame);
@@ -6359,9 +6406,11 @@ inline void test_shader_workbench_noise_contour_domains() {
     config.slots.projection = WB::Projection::STEREOGRAPHIC;
     config.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
     WB::FrameState frame = WB::config_frame(sb, config);
-    frame.transforms.projection_conj = make_rotation(Y_AXIS, -0.37f);
-    const Vector point = Vector(0.4f, -0.8f, 0.3f).normalized();
-    const Vector expected = rotate(point, frame.transforms.projection_conj);
+    frame.transforms.projection_conj =
+        math::make_rotation(math::Y_AXIS, -0.37f);
+    const math::Vector point = math::Vector(0.4f, -0.8f, 0.3f).normalized();
+    const math::Vector expected =
+        math::rotate(point, frame.transforms.projection_conj);
     float sphere_reference = 0.0f;
     for (size_t index = 0; index < PROJECTIONS.size(); ++index) {
       frame.slots.projection = PROJECTIONS[index];

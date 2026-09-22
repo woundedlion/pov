@@ -56,7 +56,7 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  *          init, so the double-precision folding below is off the per-frame render
  *          path; see the implementation note for why the wider math is needed.
  */
-HS_COLD_MEMBER inline Vector node(int i) {
+HS_COLD_MEMBER inline math::Vector node(int i) {
   HS_CHECK(i >= 0 && i < RD_N, "node() index outside the lattice");
   // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
   // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
@@ -72,9 +72,9 @@ HS_COLD_MEMBER inline Vector node(int i) {
   // exactly on the axis regardless of theta.
   double radius = std::sqrt(1.0 - y * y);
   double theta = std::fmod(golden_angle * i, two_pi);
-  return Vector(static_cast<float>(std::cos(theta) * radius),
-                static_cast<float>(y),
-                static_cast<float>(std::sin(theta) * radius));
+  return math::Vector(static_cast<float>(std::cos(theta) * radius),
+                      static_cast<float>(y),
+                      static_cast<float>(std::sin(theta) * radius));
 }
 
 /**
@@ -131,7 +131,7 @@ struct CubemapLUT {
     // node() is double-precision trig; precompute every lattice point once into
     // scratch so the hill-climb reads a table instead of recomputing per hop.
     ScratchScope lattice_guard(arena);
-    Vector *lattice = arena.allocate_n<Vector>(RD_N);
+    math::Vector *lattice = arena.allocate_n<math::Vector>(RD_N);
     for (int i = 0; i < RD_N; ++i)
       lattice[i] = node(i);
     for (int face = 0; face < 6; ++face) {
@@ -160,7 +160,7 @@ struct CubemapLUT {
    *         among the seed and its neighbors (see
    *         ReactionDiffusionBase::refine_render_center in effects/).
    */
-  int lookup(const Vector &p) const {
+  int lookup(const math::Vector &p) const {
     // debug-only: device hot path stays a single load (assert compiles out).
     assert(std::fabs(p.x * p.x + p.y * p.y + p.z * p.z - 1.0f) < 1e-3f);
     float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
@@ -232,20 +232,20 @@ private:
    *          normalized() traps if that invariant is ever broken instead of
    *          dividing by zero.
    */
-  static Vector texel_direction(int face, float u, float v) {
-    Vector dir;
+  static math::Vector texel_direction(int face, float u, float v) {
+    math::Vector dir;
     if (face == 0)
-      dir = Vector(1.0f, v, -u); // +X
+      dir = math::Vector(1.0f, v, -u); // +X
     else if (face == 1)
-      dir = Vector(-1.0f, v, u); // -X
+      dir = math::Vector(-1.0f, v, u); // -X
     else if (face == 2)
-      dir = Vector(u, 1.0f, -v); // +Y
+      dir = math::Vector(u, 1.0f, -v); // +Y
     else if (face == 3)
-      dir = Vector(u, -1.0f, v); // -Y
+      dir = math::Vector(u, -1.0f, v); // -Y
     else if (face == 4)
-      dir = Vector(u, v, 1.0f); // +Z
+      dir = math::Vector(u, v, 1.0f); // +Z
     else
-      dir = Vector(-u, v, -1.0f); // -Z
+      dir = math::Vector(-u, v, -1.0f); // -Z
     return dir.normalized();
   }
 
@@ -272,18 +272,18 @@ private:
    *          catch it — it seeds at the answer). Do not convert to best-of-neighbors
    *          without also raising the cap.
    */
-  HS_COLD_MEMBER static int find_nearest_node(const Vector &p,
-                                              const Vector *lattice) {
+  HS_COLD_MEMBER static int find_nearest_node(const math::Vector &p,
+                                              const math::Vector *lattice) {
     int cur =
         static_cast<int>(hs::clamp((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f,
                                    0.0f, static_cast<float>(RD_N - 1)));
-    float best_d = distance_squared(p, lattice[cur]);
+    float best_d = math::distance_squared(p, lattice[cur]);
     bool converged = false;
     for (int iter = 0; iter < 64; ++iter) {
       bool improved = false;
       for (int k = 0; k < RD_K; ++k) {
         int ni = neighbors[cur][k];
-        float d = distance_squared(p, lattice[ni]);
+        float d = math::distance_squared(p, lattice[ni]);
         if (d < best_d) {
           best_d = d;
           cur = ni;

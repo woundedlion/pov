@@ -104,7 +104,7 @@ inline float normalization(int l, int m) {
            "spherical harmonic normalization: l + |m| = %d collapses the float "
            "factorial ratio",
            l + abs_m);
-  float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * PI_F)) *
+  float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * math::PI_F)) *
                   (factorial(l - abs_m) / factorial(l + abs_m)));
   return (m != 0) ? sqrtf(2.0f) * N : N;
 }
@@ -131,7 +131,7 @@ inline float harmonic_scale(int l, int m) {
  * the Cartesian power supplies. Evaluating the pair together leaves the whole
  * harmonic polynomial in (x, y, z): no angle, sine, square root, or division.
  */
-inline float spherical_harmonic(int l, int m, const Vector &p, float N) {
+inline float spherical_harmonic(int l, int m, const math::Vector &p, float N) {
   int abs_m = std::abs(m);
   float re = 1.0f, im = 0.0f;
   for (int i = 0; i < abs_m; i++) {

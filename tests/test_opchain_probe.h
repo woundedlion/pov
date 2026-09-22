@@ -73,8 +73,8 @@ inline void face_offsets(const PolyMesh &m, std::vector<size_t> &out) {
 }
 
 /** @brief Unit vertex-average centroid of every face, in emission order. */
-inline void face_centroids(const PolyMesh &m, std::vector<Vector> &out) {
-  out.assign(m.face_counts.size(), Vector(0, 0, 0));
+inline void face_centroids(const PolyMesh &m, std::vector<math::Vector> &out) {
+  out.assign(m.face_counts.size(), math::Vector(0, 0, 0));
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const int n = m.face_counts[f];
@@ -88,7 +88,7 @@ inline bool face_is_culled(const PolyMesh &m, size_t off, int n) {
   if (static_cast<size_t>(n) > SDF::FaceScratchBuffer::MAX_VERTS)
     return false;
   SDF::Face face(
-      std::span<const Vector>(m.vertices.data(), m.vertices.size()),
+      std::span<const math::Vector>(m.vertices.data(), m.vertices.size()),
       std::span<const uint16_t>(m.faces.data() + off, static_cast<size_t>(n)),
       probe_face_scratch, PROBE_HV, PROBE_H);
   return face.y_min > face.y_max;
@@ -160,7 +160,7 @@ inline void test_chamfer_zero_area_birth_limit() {
     }
     const size_t F = seed.face_counts.size();
     const size_t E = seed.faces.size() / 2;
-    std::vector<Vector> seed_centroid;
+    std::vector<math::Vector> seed_centroid;
     face_centroids(seed, seed_centroid);
 
     std::printf("  [chamfer-birth] %s (F=%zu E=%zu)\n", site.name, F, E);
@@ -176,8 +176,9 @@ inline void test_chamfer_zero_area_birth_limit() {
       face_offsets(out, off);
       float born_area = 0.0f;
       for (size_t f = F; f < out.face_counts.size(); ++f) {
-        const Vector n = face_area_vector(out, off[f], out.face_counts[f]);
-        born_area += std::sqrt(dot(n, n));
+        const math::Vector n =
+            face_area_vector(out, off[f], out.face_counts[f]);
+        born_area += std::sqrt(math::dot(n, n));
       }
       // Preserved faces: same side count, centroid held, and every vertex
       // converging on a seed vertex as t -> 0.
@@ -186,21 +187,22 @@ inline void test_chamfer_zero_area_birth_limit() {
       for (size_t f = 0; f < F; ++f) {
         HS_EXPECT_EQ(static_cast<int>(out.face_counts[f]),
                      static_cast<int>(seed.face_counts[f]));
-        Vector c(0, 0, 0);
+        math::Vector c(0, 0, 0);
         const int n = out.face_counts[f];
         for (int k = 0; k < n; ++k) {
-          const Vector &v = out.vertices[out.faces[off[f] + k]];
+          const math::Vector &v = out.vertices[out.faces[off[f] + k]];
           c = c + v;
           float near_sq = 1e9f;
           for (size_t s = 0; s < seed.vertices.size(); ++s) {
-            const Vector e = v - seed.vertices[s];
-            near_sq = std::min(near_sq, dot(e, e));
+            const math::Vector e = v - seed.vertices[s];
+            near_sq = std::min(near_sq, math::dot(e, e));
           }
           max_vertex_shift = std::max(max_vertex_shift, std::sqrt(near_sq));
         }
         c = c.normalized();
-        const Vector d = c - seed_centroid[f];
-        max_centroid_shift = std::max(max_centroid_shift, std::sqrt(dot(d, d)));
+        const math::Vector d = c - seed_centroid[f];
+        max_centroid_shift =
+            std::max(max_centroid_shift, std::sqrt(math::dot(d, d)));
       }
       std::printf("      t=%-8.5f born_area=%.3e (area/t=%.4f) "
                   "preserved_centroid=%.3e preserved_vertex=%.3e\n",
@@ -244,8 +246,8 @@ inline void test_chamfer_sweep_holds_topology() {
     }
 
     size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
-    std::vector<Vector> prev_vertices;
-    std::vector<Vector> prev_normal;
+    std::vector<math::Vector> prev_vertices;
+    std::vector<math::Vector> prev_normal;
     std::vector<size_t> off;
     float max_step = 0.0f;
     float min_outward = 1e9f;
@@ -277,29 +279,30 @@ inline void test_chamfer_sweep_holds_topology() {
       conway_tests::check_euler_genus0(swept);
 
       face_offsets(swept, off);
-      std::vector<Vector> normal(swept.face_counts.size());
+      std::vector<math::Vector> normal(swept.face_counts.size());
       for (size_t f = 0; f < swept.face_counts.size(); ++f) {
         normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
-        Vector c(0, 0, 0);
+        math::Vector c(0, 0, 0);
         const int n = swept.face_counts[f];
         for (int k = 0; k < n; ++k)
           c = c + swept.vertices[swept.faces[off[f] + k]];
-        const float len =
-            std::sqrt(dot(normal[f], normal[f])) * std::sqrt(dot(c, c));
+        const float len = std::sqrt(math::dot(normal[f], normal[f])) *
+                          std::sqrt(math::dot(c, c));
         if (len > 0.0f)
-          min_outward = std::min(min_outward, dot(normal[f], c) / len);
+          min_outward = std::min(min_outward, math::dot(normal[f], c) / len);
       }
       if (s > 0) {
         for (size_t v = 0; v < swept.vertices.size(); ++v) {
-          const Vector d = swept.vertices[v] - prev_vertices[v];
-          max_step = std::max(max_step, std::sqrt(dot(d, d)));
+          const math::Vector d = swept.vertices[v] - prev_vertices[v];
+          max_step = std::max(max_step, std::sqrt(math::dot(d, d)));
         }
         for (size_t f = 0; f < normal.size(); ++f) {
-          const float la = std::sqrt(dot(prev_normal[f], prev_normal[f]));
-          const float lb = std::sqrt(dot(normal[f], normal[f]));
+          const float la = std::sqrt(math::dot(prev_normal[f], prev_normal[f]));
+          const float lb = std::sqrt(math::dot(normal[f], normal[f]));
           if (la > 0.0f && lb > 0.0f)
-            min_normal_dot = std::min(
-                min_normal_dot, dot(prev_normal[f], normal[f]) / (la * lb));
+            min_normal_dot =
+                std::min(min_normal_dot,
+                         math::dot(prev_normal[f], normal[f]) / (la * lb));
         }
       }
       prev_vertices.assign(swept.vertices.data(),
@@ -389,7 +392,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
     }
 
     size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
-    std::vector<Vector> prev_normal;
+    std::vector<math::Vector> prev_normal;
     std::vector<size_t> off;
     float min_area = 1e9f;
     float min_outward = 1e9f;
@@ -420,27 +423,29 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       conway_tests::check_euler_genus0(swept);
 
       face_offsets(swept, off);
-      std::vector<Vector> normal(swept.face_counts.size());
+      std::vector<math::Vector> normal(swept.face_counts.size());
       for (size_t f = 0; f < swept.face_counts.size(); ++f) {
         normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
         // Planar area: no face collapses or inverts anywhere in the sweep.
-        min_area = std::min(min_area, std::sqrt(dot(normal[f], normal[f])));
-        Vector c(0, 0, 0);
+        min_area =
+            std::min(min_area, std::sqrt(math::dot(normal[f], normal[f])));
+        math::Vector c(0, 0, 0);
         const int n = swept.face_counts[f];
         for (int k = 0; k < n; ++k)
           c = c + swept.vertices[swept.faces[off[f] + k]];
-        const float len =
-            std::sqrt(dot(normal[f], normal[f])) * std::sqrt(dot(c, c));
+        const float len = std::sqrt(math::dot(normal[f], normal[f])) *
+                          std::sqrt(math::dot(c, c));
         if (len > 0.0f)
-          min_outward = std::min(min_outward, dot(normal[f], c) / len);
+          min_outward = std::min(min_outward, math::dot(normal[f], c) / len);
       }
       if (s > 0) {
         for (size_t f = 0; f < normal.size(); ++f) {
-          const float la = std::sqrt(dot(prev_normal[f], prev_normal[f]));
-          const float lb = std::sqrt(dot(normal[f], normal[f]));
+          const float la = std::sqrt(math::dot(prev_normal[f], prev_normal[f]));
+          const float lb = std::sqrt(math::dot(normal[f], normal[f]));
           if (la > 0.0f && lb > 0.0f)
-            min_normal_dot = std::min(
-                min_normal_dot, dot(prev_normal[f], normal[f]) / (la * lb));
+            min_normal_dot =
+                std::min(min_normal_dot,
+                         math::dot(prev_normal[f], normal[f]) / (la * lb));
         }
       }
       prev_normal = normal;
@@ -586,9 +591,9 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       if (t <= FAR_SIDE_NEAR_LIMIT) {
         face_offsets(swept, off);
         for (size_t f = 0; f < swept.face_counts.size(); ++f) {
-          const Vector n =
+          const math::Vector n =
               face_area_vector(swept, off[f], swept.face_counts[f]);
-          min_area_near = std::min(min_area_near, std::sqrt(dot(n, n)));
+          min_area_near = std::min(min_area_near, std::sqrt(math::dot(n, n)));
         }
       }
     }
@@ -712,14 +717,15 @@ template <typename Fn> inline void for_each_shipping_chain(Fn &&fn) {
 }
 
 /** @brief Nearest and second-nearest chord distance from c into `pts`. */
-inline void two_nearest(const Vector &c, const std::vector<Vector> &pts,
-                        size_t &best, float &d1, float &d2) {
+inline void two_nearest(const math::Vector &c,
+                        const std::vector<math::Vector> &pts, size_t &best,
+                        float &d1, float &d2) {
   best = 0;
   d1 = 1e9f;
   d2 = 1e9f;
   for (size_t j = 0; j < pts.size(); ++j) {
-    const Vector d = c - pts[j];
-    const float dsq = dot(d, d);
+    const math::Vector d = c - pts[j];
+    const float dsq = math::dot(d, d);
     if (dsq < d1) {
       d2 = d1;
       d1 = dsq;
@@ -754,7 +760,7 @@ inline void test_build_chain_centroid_spacing() {
       ScratchScope ga(a);
       ScratchScope gb(b);
       PolyMesh m = Solids::build_steps(site.seed, site.steps, k, a, b);
-      std::vector<Vector> c;
+      std::vector<math::Vector> c;
       face_centroids(m, c);
       std::vector<float> nn(c.size(), 0.0f);
       float min_spacing = 1e9f;
@@ -763,8 +769,8 @@ inline void test_build_chain_centroid_spacing() {
         for (size_t g = 0; g < c.size(); ++g) {
           if (g == f)
             continue;
-          const Vector d = c[f] - c[g];
-          best = std::min(best, dot(d, d));
+          const math::Vector d = c[f] - c[g];
+          best = std::min(best, math::dot(d, d));
         }
         nn[f] = std::sqrt(best);
         min_spacing = std::min(min_spacing, nn[f]);
@@ -823,7 +829,7 @@ inline void test_build_chain_provenance_ambiguity() {
       ScratchScope ga(a);
       ScratchScope gb(b);
       PolyMesh seed = Solids::build_steps(site.seed, site.steps, k, a, b);
-      std::vector<Vector> prev_c;
+      std::vector<math::Vector> prev_c;
       face_centroids(seed, prev_c);
       const size_t prev_faces = prev_c.size();
       if (prev_faces > max_prev_faces) {
@@ -852,7 +858,7 @@ inline void test_build_chain_provenance_ambiguity() {
       default:
         continue;
       }
-      std::vector<Vector> start_c;
+      std::vector<math::Vector> start_c;
       face_centroids(start, start_c);
       const size_t total = start_c.size();
       const bool full = total == prev_faces;
@@ -942,8 +948,8 @@ inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
   face_offsets(m, off);
   float min_area = 1e9f;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
-    const Vector n = face_area_vector(m, off[f], m.face_counts[f]);
-    min_area = std::min(min_area, std::sqrt(dot(n, n)));
+    const math::Vector n = face_area_vector(m, off[f], m.face_counts[f]);
+    min_area = std::min(min_area, std::sqrt(math::dot(n, n)));
   }
   for (size_t v = 0; v < m.vertices.size(); ++v)
     HS_EXPECT_TRUE(std::isfinite(m.vertices[v].length()));

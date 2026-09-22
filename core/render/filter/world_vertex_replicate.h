@@ -42,7 +42,7 @@ public:
   template <typename VertexArray>
   void set_vertices(const VertexArray &vertices) {
     for (int i = 0; i < N; ++i)
-      rotations[i] = make_rotation(vertices[0], vertices[i]);
+      rotations[i] = math::make_rotation(vertices[0], vertices[i]);
   }
 
   /**
@@ -56,10 +56,10 @@ public:
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
+  void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     for (int i = 0; i < N; ++i) {
-      pass(rotate(v, rotations[i]), color, age, alpha);
+      pass(math::rotate(v, rotations[i]), color, age, alpha);
     }
   }
 
@@ -76,8 +76,8 @@ public:
    *          segment band (docs/specs/segmented_stateful_effects_spec.md).
    */
   template <typename FwdFn>
-  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
-                 FwdFn &&forward) const {
+  bool cull_edge(const math::Vector &a, const math::Vector &b,
+                 const math::Basis *pb, FwdFn &&forward) const {
     for (int i = 0; i < N; ++i) {
       if (forward_rotated_edge(a, b, pb, rotations[i], forward))
         return true;
@@ -86,7 +86,7 @@ public:
   }
 
 private:
-  std::array<Quaternion, N>
+  std::array<math::Quaternion, N>
       rotations; /**< Rotation from vertices[0] to each vertex. */
 };
 

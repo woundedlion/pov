@@ -20,25 +20,26 @@ namespace hs_test {
  * @param tol Per-component absolute tolerance.
  * @return True if every component of a and b agrees within tol.
  */
-inline bool approx_vec(const Vector &a, const Vector &b, float tol) {
+inline bool approx_vec(const math::Vector &a, const math::Vector &b,
+                       float tol) {
   return approx(a.x, b.x, tol) && approx(a.y, b.y, tol) &&
          approx(a.z, b.z, tol);
 }
 
 /** @brief Returns angular distance from a unit direction to a geodesic arc. */
-inline float arc_angular_distance(const Vector &p, const Vector &a,
-                                  const Vector &b) {
-  const auto angle = [](const Vector &u, const Vector &v) {
-    return acosf(hs::clamp(dot(u, v), -1.0f, 1.0f));
+inline float arc_angular_distance(const math::Vector &p, const math::Vector &a,
+                                  const math::Vector &b) {
+  const auto angle = [](const math::Vector &u, const math::Vector &v) {
+    return acosf(hs::clamp(math::dot(u, v), -1.0f, 1.0f));
   };
   const float endpoint_distance = std::min(angle(p, a), angle(p, b));
-  Vector normal = cross(a, b);
+  math::Vector normal = math::cross(a, b);
   const float normal_length = normal.length();
   if (normal_length < 1e-6f)
     return endpoint_distance;
   normal = normal / normal_length;
-  const float offset = dot(p, normal);
-  Vector foot = p - normal * offset;
+  const float offset = math::dot(p, normal);
+  math::Vector foot = p - normal * offset;
   const float foot_length = foot.length();
   if (foot_length > 1e-6f) {
     foot = foot / foot_length;
@@ -55,7 +56,8 @@ inline float arc_angular_distance(const Vector &p, const Vector &a,
  * @param tol Per-component absolute tolerance.
  * @return True if the scalar and vector parts of a and b agree within tol.
  */
-inline bool approx_quat(const Quaternion &a, const Quaternion &b, float tol) {
+inline bool approx_quat(const math::Quaternion &a, const math::Quaternion &b,
+                        float tol) {
   return approx(a.r, b.r, tol) && approx_vec(a.v, b.v, tol);
 }
 /**
@@ -65,7 +67,8 @@ inline bool approx_quat(const Quaternion &a, const Quaternion &b, float tol) {
  * @param tol Per-component absolute tolerance.
  * @return True if the real and imaginary parts of a and b agree within tol.
  */
-inline bool approx_complex(const Complex &a, const Complex &b, float tol) {
+inline bool approx_complex(const math::Complex &a, const math::Complex &b,
+                           float tol) {
   return approx(a.re, b.re, tol) && approx(a.im, b.im, tol);
 }
 

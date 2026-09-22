@@ -34,10 +34,10 @@ namespace geometry_tests {
  * @brief Verifies X/Y/Z_AXIS are the canonical unit axes and UP aliases Y_AXIS.
  */
 inline void test_axis_constants() {
-  HS_EXPECT_VEC(X_AXIS, Vector(1, 0, 0), 0.0f);
-  HS_EXPECT_VEC(Y_AXIS, Vector(0, 1, 0), 0.0f);
-  HS_EXPECT_VEC(Z_AXIS, Vector(0, 0, 1), 0.0f);
-  HS_EXPECT_VEC(UP, Y_AXIS, 0.0f);
+  HS_EXPECT_VEC(math::X_AXIS, math::Vector(1, 0, 0), 0.0f);
+  HS_EXPECT_VEC(math::Y_AXIS, math::Vector(0, 1, 0), 0.0f);
+  HS_EXPECT_VEC(math::Z_AXIS, math::Vector(0, 0, 1), 0.0f);
+  HS_EXPECT_VEC(math::UP, math::Y_AXIS, 0.0f);
 }
 
 // ============================================================================
@@ -49,9 +49,9 @@ inline void test_axis_constants() {
  * @details The mapping is phi = y*PI/(h_virt-1).
  */
 inline void test_y_to_phi_virtual() {
-  HS_EXPECT_NEAR(y_to_phi_virtual(0.0f, 145), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(y_to_phi_virtual(144.0f, 145), PI_F, 1e-5f);
-  HS_EXPECT_NEAR(y_to_phi_virtual(72.0f, 145), PI_F * 0.5f, 1e-5f);
+  HS_EXPECT_NEAR(math::y_to_phi_virtual(0.0f, 145), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::y_to_phi_virtual(144.0f, 145), math::PI_F, 1e-5f);
+  HS_EXPECT_NEAR(math::y_to_phi_virtual(72.0f, 145), math::PI_F * 0.5f, 1e-5f);
 }
 
 /**
@@ -59,9 +59,9 @@ inline void test_y_to_phi_virtual() {
  *        row, PI/2→midpoint.
  */
 inline void test_phi_to_y_virtual() {
-  HS_EXPECT_NEAR(phi_to_y_virtual(0.0f, 145), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(phi_to_y_virtual(PI_F, 145), 144.0f, 1e-5f);
-  HS_EXPECT_NEAR(phi_to_y_virtual(PI_F * 0.5f, 145), 72.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::phi_to_y_virtual(0.0f, 145), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::phi_to_y_virtual(math::PI_F, 145), 144.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::phi_to_y_virtual(math::PI_F * 0.5f, 145), 72.0f, 1e-5f);
 }
 
 /**
@@ -76,18 +76,18 @@ inline void test_phi_to_y_virtual() {
  */
 inline void test_phi_to_y_south_pole_row_in_bounds() {
   for (int h_virt : {16, 64, 145, 23}) {
-    int row = static_cast<int>(phi_to_y_virtual(PI_F, h_virt));
+    int row = static_cast<int>(math::phi_to_y_virtual(math::PI_F, h_virt));
     HS_EXPECT_GE(row, 0);
     HS_EXPECT_LE(row, h_virt - 1);
   }
 
   constexpr int H = 32;
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  int row_t = static_cast<int>(phi_to_y<H>(PI_F));
+  int row_t = static_cast<int>(math::phi_to_y<H>(math::PI_F));
   HS_EXPECT_GE(row_t, 0);
   HS_EXPECT_LE(row_t, H_VIRT - 1);
 
-  PixelCoords p = vector_to_pixel<H, H>(Vector(0, -1, 0));
+  math::PixelCoords p = math::vector_to_pixel<H, H>(math::Vector(0, -1, 0));
   int row_v = static_cast<int>(p.y);
   HS_EXPECT_GE(row_v, 0);
   HS_EXPECT_LE(row_v, H_VIRT - 1);
@@ -100,8 +100,8 @@ inline void test_phi_to_y_south_pole_row_in_bounds() {
 inline void test_y_phi_roundtrip() {
   for (int h_virt : {16, 64, 145}) {
     for (int i = 0; i < h_virt; ++i) {
-      float phi = y_to_phi_virtual(static_cast<float>(i), h_virt);
-      float y = phi_to_y_virtual(phi, h_virt);
+      float phi = math::y_to_phi_virtual(static_cast<float>(i), h_virt);
+      float y = math::phi_to_y_virtual(phi, h_virt);
       HS_EXPECT_NEAR(y, static_cast<float>(i), 1e-4f);
     }
   }
@@ -115,18 +115,19 @@ inline void test_y_phi_roundtrip() {
 inline void test_y_to_phi_templated_LUT() {
   constexpr int H = 32;
   for (int y = 0; y < H; ++y) {
-    float lut = y_to_phi<H>(y);
-    float direct = y_to_phi_virtual(static_cast<float>(y), H + hs::H_OFFSET);
+    float lut = math::y_to_phi<H>(y);
+    float direct =
+        math::y_to_phi_virtual(static_cast<float>(y), H + hs::H_OFFSET);
     HS_EXPECT_NEAR(lut, direct, 1e-5f);
   }
 
-  HS_EXPECT_TRUE(PhiLUT<H>::initialized);
+  HS_EXPECT_TRUE(math::PhiLUT<H>::initialized);
 
-  HS_EXPECT_EQ(y_to_phi<H>(5.0f), y_to_phi<H>(5));
+  HS_EXPECT_EQ(math::y_to_phi<H>(5.0f), math::y_to_phi<H>(5));
   // Sub-pixel rows resolve continuously; they are not snapped onto a row.
-  HS_EXPECT_NEAR(y_to_phi<H>(5.5f), 0.5f * (y_to_phi<H>(5) + y_to_phi<H>(6)),
-                 1e-6f);
-  HS_EXPECT_GT(y_to_phi<H>(5.0f + 1e-5f), y_to_phi<H>(5));
+  HS_EXPECT_NEAR(math::y_to_phi<H>(5.5f),
+                 0.5f * (math::y_to_phi<H>(5) + math::y_to_phi<H>(6)), 1e-6f);
+  HS_EXPECT_GT(math::y_to_phi<H>(5.0f + 1e-5f), math::y_to_phi<H>(5));
 }
 
 /**
@@ -148,16 +149,17 @@ inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
   constexpr int H_VIRT = H + OFF; // 23
   const float bottom_phys = static_cast<float>(H - 1); // y = 19
 
-  float correct = y_to_phi_virtual(bottom_phys, H_VIRT); // 19*PI/22
-  HS_EXPECT_NEAR(correct, bottom_phys * PI_F / (H_VIRT - 1), 1e-5f);
-  HS_EXPECT_TRUE(correct < PI_F);
+  float correct = math::y_to_phi_virtual(bottom_phys, H_VIRT); // 19*PI/22
+  HS_EXPECT_NEAR(correct, bottom_phys * math::PI_F / (H_VIRT - 1), 1e-5f);
+  HS_EXPECT_TRUE(correct < math::PI_F);
 
   // A double-applied offset would divide by (H + 2*OFF - 1) = 25.
-  float double_applied = bottom_phys * PI_F / (H + 2 * OFF - 1); // 19*PI/24
+  float double_applied =
+      bottom_phys * math::PI_F / (H + 2 * OFF - 1); // 19*PI/24
   HS_EXPECT_TRUE(std::abs(correct - double_applied) > 1e-2f);
 
-  HS_EXPECT_NEAR(y_to_phi_virtual(static_cast<float>(H_VIRT - 1), H_VIRT), PI_F,
-                 1e-5f);
+  HS_EXPECT_NEAR(math::y_to_phi_virtual(static_cast<float>(H_VIRT - 1), H_VIRT),
+                 math::PI_F, 1e-5f);
 }
 
 // ============================================================================
@@ -172,11 +174,11 @@ inline void test_pixel_to_vector_unit_length() {
   constexpr int W = 32, H = 32;
   for (int y = 0; y < H + hs::H_OFFSET; ++y) {
     for (int x = 0; x < W; x += 4) {
-      Vector v = pixel_to_vector<W, H>(x, y);
+      math::Vector v = math::pixel_to_vector<W, H>(x, y);
       HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
     }
   }
-  HS_EXPECT_TRUE((TrigLUT<W, H>::initialized));
+  HS_EXPECT_TRUE((math::TrigLUT<W, H>::initialized));
 }
 
 /**
@@ -189,13 +191,13 @@ inline void test_pixel_to_vector_known_samples() {
   // sampled row sits a half row south, residual 0.051, against 0.151 for a
   // one-row shift. The magnitude cannot separate the two shift directions
   // (adjacent rows straddle the equator symmetrically), so the sign does.
-  Vector v = pixel_to_vector<W, H>(0, (H + hs::H_OFFSET) / 2);
-  HS_EXPECT_VEC(v, Vector(1, 0, 0), 0.09f);
+  math::Vector v = math::pixel_to_vector<W, H>(0, (H + hs::H_OFFSET) / 2);
+  HS_EXPECT_VEC(v, math::Vector(1, 0, 0), 0.09f);
   HS_EXPECT_LT(v.y, 0.0f);
 
   // y=0 (north pole): phi=0 ⇒ Vector(0, 1, 0).
-  Vector north = pixel_to_vector<W, H>(0, 0);
-  HS_EXPECT_VEC(north, Vector(0, 1, 0), 5e-2f);
+  math::Vector north = math::pixel_to_vector<W, H>(0, 0);
+  HS_EXPECT_VEC(north, math::Vector(0, 1, 0), 5e-2f);
 }
 
 /**
@@ -209,9 +211,9 @@ inline void test_pixel_to_vector_known_samples() {
 inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
   constexpr int W = 32, H = 32;
   for (float y : {0.5f, 5.25f, 12.75f, 20.5f}) {
-    Vector v = pixel_to_vector<W, H>(0.0f, y);
+    math::Vector v = math::pixel_to_vector<W, H>(0.0f, y);
     float recovered_phi = std::acos(std::clamp(v.y, -1.0f, 1.0f));
-    HS_EXPECT_NEAR(recovered_phi, y_to_phi<H>(y), 1e-4f);
+    HS_EXPECT_NEAR(recovered_phi, math::y_to_phi<H>(y), 1e-4f);
   }
 }
 
@@ -227,9 +229,9 @@ inline void test_pixel_to_vector_float_out_of_lut_domain() {
   constexpr int W = 32, H = 32;
   constexpr int H_VIRT = H + hs::H_OFFSET;
   for (int y : {0, 7, H_VIRT - 1}) {
-    const Vector wrapped =
-        pixel_to_vector<W, H>(static_cast<float>(W), static_cast<float>(y));
-    const Vector origin = pixel_to_vector<W, H>(0, y);
+    const math::Vector wrapped = math::pixel_to_vector<W, H>(
+        static_cast<float>(W), static_cast<float>(y));
+    const math::Vector origin = math::pixel_to_vector<W, H>(0, y);
     HS_EXPECT_VEC(wrapped, origin, 1e-4f);
     HS_EXPECT_NEAR(wrapped.length(), 1.0f, 1e-4f);
   }
@@ -252,8 +254,8 @@ inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
   int ys[] = {8, 16, 24, 40};
   for (int x : xs) {
     for (int y : ys) {
-      Vector v = pixel_to_vector<W, H>(x, y);
-      PixelCoords p = vector_to_pixel<W, H>(v);
+      math::Vector v = math::pixel_to_vector<W, H>(x, y);
+      math::PixelCoords p = math::vector_to_pixel<W, H>(v);
       HS_EXPECT_NEAR(p.x, static_cast<float>(x), TOL_X);
       HS_EXPECT_NEAR(p.y, static_cast<float>(y), TOL_Y);
     }
@@ -269,7 +271,7 @@ inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
  */
 inline void test_fib_spiral_unit_length() {
   for (int i = 0; i < 32; ++i) {
-    Vector v = fib_spiral(32, 0.5f, i);
+    math::Vector v = math::fib_spiral(32, 0.5f, i);
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
   }
 }
@@ -281,14 +283,14 @@ inline void test_fib_spiral_unit_length() {
  *          handedness, so any change to the generator moves at least one.
  */
 inline void test_fib_spiral_deterministic() {
-  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 0), Vector(0.176084816f, 0.984375f, 0.0f),
-                1e-6f);
-  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 7),
-                Vector(-0.296496123f, 0.765625f, 0.57088393f), 1e-6f);
-  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 31),
-                Vector(0.540769398f, 0.015625f, 0.84102571f), 1e-6f);
-  HS_EXPECT_VEC(fib_spiral(64, 0.5f, 63),
-                Vector(0.162100419f, -0.984375f, -0.0687697679f), 1e-6f);
+  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 0),
+                math::Vector(0.176084816f, 0.984375f, 0.0f), 1e-6f);
+  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 7),
+                math::Vector(-0.296496123f, 0.765625f, 0.57088393f), 1e-6f);
+  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 31),
+                math::Vector(0.540769398f, 0.015625f, 0.84102571f), 1e-6f);
+  HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 63),
+                math::Vector(0.162100419f, -0.984375f, -0.0687697679f), 1e-6f);
 }
 
 /**
@@ -297,8 +299,8 @@ inline void test_fib_spiral_deterministic() {
  * @details i=0 sits near one pole, i=N-1 near the other.
  */
 inline void test_fib_spiral_endpoints() {
-  Vector first = fib_spiral(16, 0.5f, 0);
-  Vector last = fib_spiral(16, 0.5f, 15);
+  math::Vector first = math::fib_spiral(16, 0.5f, 0);
+  math::Vector last = math::fib_spiral(16, 0.5f, 15);
   HS_EXPECT_NEAR(first.length(), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(last.length(), 1.0f, 1e-3f);
   HS_EXPECT_TRUE(first.y * last.y < 0.0f);
@@ -315,16 +317,16 @@ inline void test_fib_spiral_endpoints() {
 inline void test_fib_spiral_golden_angle() {
   const int n = 64;
   auto wrap_pi = [](float a) {
-    while (a > PI_F)
-      a -= 2.0f * PI_F;
-    while (a <= -PI_F)
-      a += 2.0f * PI_F;
+    while (a > math::PI_F)
+      a -= 2.0f * math::PI_F;
+    while (a <= -math::PI_F)
+      a += 2.0f * math::PI_F;
     return a;
   };
-  const float step = wrap_pi(2.0f * PI_F * INV_PHI);
+  const float step = wrap_pi(2.0f * math::PI_F * math::INV_PHI);
   for (int i = 8; i < n - 8; ++i) {
-    Vector a = fib_spiral(n, 0.5f, i);
-    Vector b = fib_spiral(n, 0.5f, i + 1);
+    math::Vector a = math::fib_spiral(n, 0.5f, i);
+    math::Vector b = math::fib_spiral(n, 0.5f, i + 1);
     float delta = wrap_pi(atan2f(b.z, b.x) - atan2f(a.z, a.x));
     HS_EXPECT_NEAR(delta, step, 1e-3f);
   }
@@ -340,7 +342,7 @@ inline void test_fib_spiral_golden_angle() {
  */
 inline void test_lissajous_unit_length() {
   for (float t = 0.0f; t < 6.28f; t += 0.3f) {
-    Vector v = lissajous(3, 2, 0.5f, t);
+    math::Vector v = math::lissajous(3, 2, 0.5f, t);
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
   }
 }
@@ -355,7 +357,7 @@ inline void test_lissajous_unit_length() {
  *          this rules out.
  */
 inline void test_lissajous_phase_is_radians() {
-  Vector v = lissajous(1.0f, 1.0f, 1.0f, 1.0f);
+  math::Vector v = math::lissajous(1.0f, 1.0f, 1.0f, 1.0f);
   HS_EXPECT_NEAR(v.x, sinf(1.0f), 1e-5f);
   HS_EXPECT_NEAR(v.y, cosf(1.0f), 1e-5f);
   HS_EXPECT_NEAR(v.z, 0.0f, 1e-5f);
@@ -372,7 +374,7 @@ inline void test_lissajous_phase_is_radians() {
 inline void test_random_vector_unit_length() {
   const auto saved = hs::random();
   for (int i = 0; i < 32; ++i) {
-    Vector v = random_vector();
+    math::Vector v = math::random_vector();
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
   }
   hs::random() = saved;
@@ -390,13 +392,13 @@ inline void test_random_vector_unit_length() {
 inline void test_random_vector_deterministic() {
   auto saved = hs::random();
   constexpr int N = 16;
-  Vector first[N];
+  math::Vector first[N];
   hs::random().seed(1337);
   for (int i = 0; i < N; ++i)
-    first[i] = random_vector();
+    first[i] = math::random_vector();
   hs::random().seed(1337);
   for (int i = 0; i < N; ++i) {
-    Vector v = random_vector();
+    math::Vector v = math::random_vector();
     HS_EXPECT_VEC(v, first[i], 0.0f);
   }
   hs::random() = saved;
@@ -426,7 +428,7 @@ inline void test_random_vector_distribution() {
   int posx = 0, posy = 0, posz = 0;
   int abs_bins[BIN_COUNT] = {};
   for (int i = 0; i < N; ++i) {
-    Vector v = random_vector();
+    math::Vector v = math::random_vector();
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
     sx += v.x;
     sy += v.y;
@@ -465,14 +467,14 @@ inline void test_random_vector_distribution() {
  *        given normal.
  */
 inline void test_make_basis_orthonormal() {
-  Quaternion id(1, 0, 0, 0);
-  Basis b = make_basis(id, Vector(0, 1, 0));
-  HS_EXPECT_VEC(b.v, Vector(0, 1, 0), 1e-4f);
+  math::Quaternion id(1, 0, 0, 0);
+  math::Basis b = math::make_basis(id, math::Vector(0, 1, 0));
+  HS_EXPECT_VEC(b.v, math::Vector(0, 1, 0), 1e-4f);
   HS_EXPECT_NEAR(b.u.length(), 1.0f, 1e-4f);
   HS_EXPECT_NEAR(b.w.length(), 1.0f, 1e-4f);
-  HS_EXPECT_NEAR(dot(b.u, b.v), 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(dot(b.v, b.w), 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(dot(b.u, b.w), 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(math::dot(b.u, b.v), 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(math::dot(b.v, b.w), 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(math::dot(b.u, b.w), 0.0f, 1e-4f);
 }
 
 /**
@@ -480,12 +482,12 @@ inline void test_make_basis_orthonormal() {
  *        tilted normal.
  */
 inline void test_make_basis_alternate_normals() {
-  Quaternion id(1, 0, 0, 0);
-  Vector n = Vector(0.5f, 0.5f, 0.7071f).normalized();
-  Basis b = make_basis(id, n);
+  math::Quaternion id(1, 0, 0, 0);
+  math::Vector n = math::Vector(0.5f, 0.5f, 0.7071f).normalized();
+  math::Basis b = math::make_basis(id, n);
   HS_EXPECT_VEC(b.v, n, 1e-3f);
-  HS_EXPECT_NEAR(dot(b.u, b.v), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(dot(b.u, b.w), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::dot(b.u, b.v), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::dot(b.u, b.w), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(b.u.length(), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(b.w.length(), 1.0f, 1e-3f);
 }
@@ -495,8 +497,9 @@ inline void test_make_basis_alternate_normals() {
  *        radius <= 1.
  */
 inline void test_get_antipode_short_arc_unchanged() {
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
-  auto [nb, nr] = get_antipode(b, 0.5f);
+  math::Basis b =
+      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
+  auto [nb, nr] = math::get_antipode(b, 0.5f);
   HS_EXPECT_VEC(nb.u, b.u, 1e-6f);
   HS_EXPECT_VEC(nb.v, b.v, 1e-6f);
   HS_EXPECT_VEC(nb.w, b.w, 1e-6f);
@@ -508,8 +511,9 @@ inline void test_get_antipode_short_arc_unchanged() {
  *        returns 2 - radius.
  */
 inline void test_get_antipode_long_arc_flips() {
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
-  auto [nb, nr] = get_antipode(b, 1.4f);
+  math::Basis b =
+      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
+  auto [nb, nr] = math::get_antipode(b, 1.4f);
   HS_EXPECT_VEC(nb.u, -b.u, 1e-6f);
   HS_EXPECT_VEC(nb.v, -b.v, 1e-6f);
   HS_EXPECT_VEC(nb.w, b.w, 1e-6f);
@@ -524,9 +528,9 @@ inline void test_get_antipode_long_arc_flips() {
  * @brief Verifies a fresh Orientation holds a single identity rotation.
  */
 inline void test_orientation_default_is_identity() {
-  Orientation<8> o;
+  math::Orientation<8> o;
   HS_EXPECT_EQ(o.length(), 1);
-  HS_EXPECT_QUAT(o.get(), Quaternion(1, 0, 0, 0), 1e-6f);
+  HS_EXPECT_QUAT(o.get(), math::Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
 /**
@@ -534,12 +538,12 @@ inline void test_orientation_default_is_identity() {
  *        orientation.
  */
 inline void test_orientation_set_clears_history() {
-  Orientation<8> o;
-  o.push(make_rotation(Vector(0, 1, 0), 0.5f));
-  o.push(make_rotation(Vector(0, 1, 0), 1.0f));
+  math::Orientation<8> o;
+  o.push(math::make_rotation(math::Vector(0, 1, 0), 0.5f));
+  o.push(math::make_rotation(math::Vector(0, 1, 0), 1.0f));
   HS_EXPECT_EQ(o.length(), 3);
 
-  Quaternion target = make_rotation(Vector(1, 0, 0), 0.7f);
+  math::Quaternion target = math::make_rotation(math::Vector(1, 0, 0), 0.7f);
   o.set(target);
   HS_EXPECT_EQ(o.length(), 1);
   HS_EXPECT_QUAT(o.get(), target, 1e-6f);
@@ -550,9 +554,9 @@ inline void test_orientation_set_clears_history() {
  *        returns the latest.
  */
 inline void test_orientation_push_tracks_history() {
-  Orientation<4> o;
-  Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.1f);
-  Quaternion q2 = make_rotation(Vector(0, 1, 0), 0.2f);
+  math::Orientation<4> o;
+  math::Quaternion q1 = math::make_rotation(math::Vector(0, 1, 0), 0.1f);
+  math::Quaternion q2 = math::make_rotation(math::Vector(0, 1, 0), 0.2f);
   o.push(q1);
   o.push(q2);
   HS_EXPECT_EQ(o.length(), 3); // identity + 2 pushes
@@ -565,12 +569,13 @@ inline void test_orientation_push_tracks_history() {
  * @brief Verifies unorient inverts orient, recovering the original vector.
  */
 inline void test_orientation_orient_round_trips() {
-  Orientation<4> o;
-  Quaternion q = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
+  math::Orientation<4> o;
+  math::Quaternion q =
+      math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
   o.set(q);
-  Vector v(1, 0, 0);
-  Vector rotated = o.orient(v);
-  Vector back = o.unorient(rotated);
+  math::Vector v(1, 0, 0);
+  math::Vector rotated = o.orient(v);
+  math::Vector back = o.unorient(rotated);
   HS_EXPECT_VEC(back, v, 1e-3f);
 }
 
@@ -579,9 +584,9 @@ inline void test_orientation_orient_round_trips() {
  *        orientation.
  */
 inline void test_orientation_collapse_keeps_latest() {
-  Orientation<8> o;
-  Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.1f);
-  Quaternion q2 = make_rotation(Vector(0, 1, 0), 0.2f);
+  math::Orientation<8> o;
+  math::Quaternion q1 = math::make_rotation(math::Vector(0, 1, 0), 0.1f);
+  math::Quaternion q2 = math::make_rotation(math::Vector(0, 1, 0), 0.2f);
   o.push(q1);
   o.push(q2);
   HS_EXPECT_EQ(o.length(), 3);
@@ -596,9 +601,10 @@ inline void test_orientation_collapse_keeps_latest() {
  *        both endpoints.
  */
 inline void test_orientation_upsample_preserves_endpoints() {
-  Orientation<16> o;
-  Quaternion start = Quaternion(1, 0, 0, 0);
-  Quaternion end = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
+  math::Orientation<16> o;
+  math::Quaternion start = math::Quaternion(1, 0, 0, 0);
+  math::Quaternion end =
+      math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
   o.set(start);
   o.push(end);
   HS_EXPECT_EQ(o.length(), 2);
@@ -606,8 +612,8 @@ inline void test_orientation_upsample_preserves_endpoints() {
   o.upsample(8);
   HS_EXPECT_EQ(o.length(), 8);
   // slerp may flip sign — same orientation.
-  HS_EXPECT_NEAR(std::abs(dot(o.get(0), start)), 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(std::abs(dot(o.get(7), end)), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(std::abs(math::dot(o.get(0), start)), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(std::abs(math::dot(o.get(7), end)), 1.0f, 1e-3f);
 }
 
 /**
@@ -615,10 +621,10 @@ inline void test_orientation_upsample_preserves_endpoints() {
  *        than current.
  */
 inline void test_orientation_upsample_noop_if_already_long() {
-  Orientation<16> o;
-  o.push(make_rotation(Vector(0, 1, 0), 0.1f));
-  o.push(make_rotation(Vector(0, 1, 0), 0.2f));
-  o.push(make_rotation(Vector(0, 1, 0), 0.3f));
+  math::Orientation<16> o;
+  o.push(math::make_rotation(math::Vector(0, 1, 0), 0.1f));
+  o.push(math::make_rotation(math::Vector(0, 1, 0), 0.2f));
+  o.push(math::make_rotation(math::Vector(0, 1, 0), 0.3f));
   int before = o.length();
   o.upsample(static_cast<int>(before) - 1);
   HS_EXPECT_EQ(o.length(), before);
@@ -629,17 +635,18 @@ inline void test_orientation_upsample_noop_if_already_long() {
  *        soft-degrade path) while keeping endpoints exact and writes in-bounds.
  */
 inline void test_orientation_upsample_clamps_past_capacity() {
-  Orientation<4> o;
-  Quaternion start = Quaternion(1, 0, 0, 0);
-  Quaternion end = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
+  math::Orientation<4> o;
+  math::Quaternion start = math::Quaternion(1, 0, 0, 0);
+  math::Quaternion end =
+      math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
   o.set(start);
   o.push(end);
 
   o.upsample(100);
   HS_EXPECT_EQ(o.length(), 4);
   // slerp may flip sign — same orientation.
-  HS_EXPECT_NEAR(std::abs(dot(o.get(0), start)), 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(std::abs(dot(o.get(3), end)), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(std::abs(math::dot(o.get(0), start)), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(std::abs(math::dot(o.get(3), end)), 1.0f, 1e-3f);
 }
 
 /**
@@ -648,25 +655,26 @@ inline void test_orientation_upsample_clamps_past_capacity() {
  *        quaternion.
  */
 inline void test_orientation_historical_index_accessors() {
-  Orientation<8> o;
-  Quaternion q0 = make_rotation(Vector(1, 0, 0), 0.3f);
-  Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.7f);
-  Quaternion q2 = make_rotation(Vector(0, 0, 1), 1.1f);
+  math::Orientation<8> o;
+  math::Quaternion q0 = math::make_rotation(math::Vector(1, 0, 0), 0.3f);
+  math::Quaternion q1 = math::make_rotation(math::Vector(0, 1, 0), 0.7f);
+  math::Quaternion q2 = math::make_rotation(math::Vector(0, 0, 1), 1.1f);
   o.set(q0);
   o.push(q1);
   o.push(q2);
   HS_EXPECT_EQ(o.length(), 3);
 
-  const Vector v(0.2f, 0.4f, 0.9f);
+  const math::Vector v(0.2f, 0.4f, 0.9f);
   for (int i = 0; i < 3; ++i) {
-    HS_EXPECT_VEC(o.orient(v, i), rotate(v, o.get(i)), 1e-5f);
-    HS_EXPECT_VEC(o.unorient(v, i), rotate(v, o.get(i).conjugate()), 1e-5f);
+    HS_EXPECT_VEC(o.orient(v, i), math::rotate(v, o.get(i)), 1e-5f);
+    HS_EXPECT_VEC(o.unorient(v, i), math::rotate(v, o.get(i).conjugate()),
+                  1e-5f);
   }
 
-  Quaternion q_new = make_rotation(Vector(0, 1, 0), 0.25f);
+  math::Quaternion q_new = math::make_rotation(math::Vector(0, 1, 0), 0.25f);
   o.set_at(1, q_new);
   HS_EXPECT_QUAT(o.get(1), q_new, 1e-6f);
-  HS_EXPECT_VEC(o.orient(v, 1), rotate(v, q_new), 1e-5f);
+  HS_EXPECT_VEC(o.orient(v, 1), math::rotate(v, q_new), 1e-5f);
 }
 
 /**
@@ -675,15 +683,16 @@ inline void test_orientation_historical_index_accessors() {
  *        untouched.
  */
 inline void test_orientation_set_at_normalized() {
-  Orientation<8> o;
-  Quaternion q0 = make_rotation(Vector(1, 0, 0), 0.3f);
-  Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.7f);
-  Quaternion q2 = make_rotation(Vector(0, 0, 1), 1.1f);
+  math::Orientation<8> o;
+  math::Quaternion q0 = math::make_rotation(math::Vector(1, 0, 0), 0.3f);
+  math::Quaternion q1 = math::make_rotation(math::Vector(0, 1, 0), 0.7f);
+  math::Quaternion q2 = math::make_rotation(math::Vector(0, 0, 1), 1.1f);
   o.set(q0);
   o.push(q1);
   o.push(q2);
 
-  Quaternion unit = make_rotation(Vector(0.6f, 0.0f, 0.8f), 0.9f);
+  math::Quaternion unit =
+      math::make_rotation(math::Vector(0.6f, 0.0f, 0.8f), 0.9f);
   o.set_at_normalized(1, unit * 7.5f);
   HS_EXPECT_NEAR(o.get(1).squared_magnitude(), 1.0f, 1e-6f);
   HS_EXPECT_QUAT(o.get(1), unit, 1e-6f);
@@ -694,9 +703,9 @@ inline void test_orientation_set_at_normalized() {
   o.set_at_normalized(2, q1);
   HS_EXPECT_QUAT(o.get(2), q1, 1e-6f);
 
-  const Vector v(0.2f, 0.4f, 0.9f);
-  HS_EXPECT_VEC(o.orient(v, 1), rotate(v, unit), 1e-5f);
-  HS_EXPECT_VEC(o.unorient(v, 1), rotate(v, unit.conjugate()), 1e-5f);
+  const math::Vector v(0.2f, 0.4f, 0.9f);
+  HS_EXPECT_VEC(o.orient(v, 1), math::rotate(v, unit), 1e-5f);
+  HS_EXPECT_VEC(o.unorient(v, 1), math::rotate(v, unit.conjugate()), 1e-5f);
 }
 
 // --- wrap(float, m) / wrap_t ------------------------------------------------
@@ -707,15 +716,15 @@ inline void test_orientation_set_at_normalized() {
  *          periods, a non-unit base, and that results stay in [0, m) across signs.
  */
 inline void test_wrap_float() {
-  HS_EXPECT_NEAR(wrap(0.25f, 1.0f), 0.25f, 1e-6f);
-  HS_EXPECT_NEAR(wrap(-0.25f, 1.0f), 0.75f, 1e-6f);
-  HS_EXPECT_NEAR(wrap(1.25f, 1.0f), 0.25f, 1e-6f);
-  HS_EXPECT_NEAR(wrap(-3.25f, 1.0f), 0.75f, 1e-6f);
-  HS_EXPECT_NEAR(wrap(7.0f, 5.0f), 2.0f, 1e-6f);
-  HS_EXPECT_NEAR(wrap(-1.0f, 5.0f), 4.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(0.25f, 1.0f), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(-0.25f, 1.0f), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(1.25f, 1.0f), 0.25f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(-3.25f, 1.0f), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(7.0f, 5.0f), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(-1.0f, 5.0f), 4.0f, 1e-6f);
 
   for (int i = -30; i <= 30; ++i) {
-    float w = wrap(i * 0.37f, 2.0f);
+    float w = math::wrap(i * 0.37f, 2.0f);
     HS_EXPECT_TRUE(w >= 0.0f && w < 2.0f);
   }
 }
@@ -724,18 +733,18 @@ inline void test_wrap_float() {
  * @brief Verifies wrap_t folds any real into the unit interval [0, 1) (the m==1 case).
  */
 inline void test_wrap_t() {
-  HS_EXPECT_NEAR(wrap_t(0.0f), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(wrap_t(0.4f), 0.4f, 1e-6f);
-  HS_EXPECT_NEAR(wrap_t(1.4f), 0.4f, 1e-6f);
-  HS_EXPECT_NEAR(wrap_t(-0.25f), 0.75f, 1e-6f);
-  HS_EXPECT_NEAR(wrap_t(-2.1f), 0.9f, 1e-5f);
+  HS_EXPECT_NEAR(math::wrap_t(0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap_t(0.4f), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap_t(1.4f), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap_t(-0.25f), 0.75f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap_t(-2.1f), 0.9f, 1e-5f);
   // Tiny negative t: t - floorf(t) rounds up to exactly 1.0f, which the guard
   // must fold back to 0 to keep the half-open [0, 1) contract.
-  float tiny = wrap_t(-1e-8f);
+  float tiny = math::wrap_t(-1e-8f);
   HS_EXPECT_TRUE(tiny >= 0.0f && tiny < 1.0f);
   HS_EXPECT_NEAR(tiny, 0.0f, 1e-6f);
   for (int i = -50; i <= 50; ++i) {
-    float w = wrap_t(i * 0.13f);
+    float w = math::wrap_t(i * 0.13f);
     HS_EXPECT_TRUE(w >= 0.0f && w < 1.0f);
   }
 }
@@ -747,21 +756,21 @@ inline void test_wrap_t() {
  * @details The exact (int, int) match selects the integer overload, so no float math runs.
  */
 inline void test_wrap_int() {
-  HS_EXPECT_EQ(wrap(3, 5), 3);
-  HS_EXPECT_EQ(wrap(5, 5), 0);
-  HS_EXPECT_EQ(wrap(7, 5), 2);
-  HS_EXPECT_EQ(wrap(-1, 5), 4);
-  HS_EXPECT_EQ(wrap(-6, 5), 4);
+  HS_EXPECT_EQ(math::wrap(3, 5), 3);
+  HS_EXPECT_EQ(math::wrap(5, 5), 0);
+  HS_EXPECT_EQ(math::wrap(7, 5), 2);
+  HS_EXPECT_EQ(math::wrap(-1, 5), 4);
+  HS_EXPECT_EQ(math::wrap(-6, 5), 4);
   for (int i = -17; i <= 17; ++i) {
-    int w = wrap(i, 6);
+    int w = math::wrap(i, 6);
     HS_EXPECT_TRUE(w >= 0 && w < 6);
   }
   // A non-positive modulus returns x rather than dividing: [0, m) is empty and
   // INT_MIN % -1 would overflow.
-  HS_EXPECT_EQ(wrap(7, 0), 7);
-  HS_EXPECT_EQ(wrap(7, -3), 7);
-  HS_EXPECT_EQ(wrap(-7, -3), -7);
-  HS_EXPECT_EQ(wrap(std::numeric_limits<int>::min(), -1),
+  HS_EXPECT_EQ(math::wrap(7, 0), 7);
+  HS_EXPECT_EQ(math::wrap(7, -3), 7);
+  HS_EXPECT_EQ(math::wrap(-7, -3), -7);
+  HS_EXPECT_EQ(math::wrap(std::numeric_limits<int>::min(), -1),
                std::numeric_limits<int>::min());
 }
 
@@ -774,12 +783,12 @@ inline void test_wrap_int() {
  *          float math, which geometry.h relies on.
  */
 inline void test_wrap_mixed_type() {
-  static_assert(std::is_same_v<decltype(wrap(3, 2.5f)), float>,
+  static_assert(std::is_same_v<decltype(math::wrap(3, 2.5f)), float>,
                 "wrap(int, float) returns the common type (float)");
-  HS_EXPECT_NEAR(wrap(3, 2.5f), 0.5f, 1e-6f); // fmod(3, 2.5) == 0.5
-  HS_EXPECT_NEAR(wrap(7, 2.5f), 2.0f, 1e-6f);
-  HS_EXPECT_NEAR(wrap(-1, 2.5f), 1.5f, 1e-6f);
-  HS_EXPECT_NEAR(wrap(7.5f, 5), 2.5f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(3, 2.5f), 0.5f, 1e-6f); // fmod(3, 2.5) == 0.5
+  HS_EXPECT_NEAR(math::wrap(7, 2.5f), 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(-1, 2.5f), 1.5f, 1e-6f);
+  HS_EXPECT_NEAR(math::wrap(7.5f, 5), 2.5f, 1e-6f);
 }
 
 // --- fast_wrap --------------------------------------------------------------
@@ -793,14 +802,14 @@ inline void test_wrap_mixed_type() {
 inline void test_fast_wrap() {
   constexpr int W = 8;
   for (int x = 0; x < W; ++x)
-    HS_EXPECT_EQ(fast_wrap(x, W), x);
-  HS_EXPECT_EQ(fast_wrap(W, W), 0);
-  HS_EXPECT_EQ(fast_wrap(W + 3, W), 3);
-  HS_EXPECT_EQ(fast_wrap(2 * W - 1, W), W - 1);
-  HS_EXPECT_EQ(fast_wrap(-1, W), W - 1);
-  HS_EXPECT_EQ(fast_wrap(-W, W), 0);
+    HS_EXPECT_EQ(math::fast_wrap(x, W), x);
+  HS_EXPECT_EQ(math::fast_wrap(W, W), 0);
+  HS_EXPECT_EQ(math::fast_wrap(W + 3, W), 3);
+  HS_EXPECT_EQ(math::fast_wrap(2 * W - 1, W), W - 1);
+  HS_EXPECT_EQ(math::fast_wrap(-1, W), W - 1);
+  HS_EXPECT_EQ(math::fast_wrap(-W, W), 0);
   for (int x = -W; x < 2 * W; ++x) {
-    int w = fast_wrap(x, W);
+    int w = math::fast_wrap(x, W);
     HS_EXPECT_TRUE(w >= 0 && w < W);
   }
 }
@@ -813,15 +822,15 @@ inline void test_fast_wrap() {
 inline void test_fast_wrap_float() {
   constexpr int W = 8;
   constexpr float PERIOD = static_cast<float>(W);
-  HS_EXPECT_EQ(fast_wrap(3.5f, W), 3.5f);
-  HS_EXPECT_EQ(fast_wrap(PERIOD, W), 0.0f);
-  HS_EXPECT_EQ(fast_wrap(PERIOD + 2.25f, W), 2.25f);
-  HS_EXPECT_EQ(fast_wrap(-1.5f, W), PERIOD - 1.5f);
-  HS_EXPECT_EQ(fast_wrap(-PERIOD, W), 0.0f);
+  HS_EXPECT_EQ(math::fast_wrap(3.5f, W), 3.5f);
+  HS_EXPECT_EQ(math::fast_wrap(PERIOD, W), 0.0f);
+  HS_EXPECT_EQ(math::fast_wrap(PERIOD + 2.25f, W), 2.25f);
+  HS_EXPECT_EQ(math::fast_wrap(-1.5f, W), PERIOD - 1.5f);
+  HS_EXPECT_EQ(math::fast_wrap(-PERIOD, W), 0.0f);
   // -1e-9f + 8.0f is exactly 8.0f in float; the fold must return 0.
-  HS_EXPECT_EQ(fast_wrap(-1e-9f, W), 0.0f);
+  HS_EXPECT_EQ(math::fast_wrap(-1e-9f, W), 0.0f);
   for (int i = -79; i < 160; ++i) {
-    float w = fast_wrap(i * 0.1f, W);
+    float w = math::fast_wrap(i * 0.1f, W);
     HS_EXPECT_TRUE(w >= 0.0f && w < PERIOD);
   }
 }
@@ -834,14 +843,14 @@ inline void test_fast_wrap_float() {
  *          is exactly m/2 for antipodal points, and is always bounded by [0, m/2].
  */
 inline void test_shortest_distance() {
-  HS_EXPECT_NEAR(shortest_distance(0.0f, 1.0f, 10.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(shortest_distance(1.0f, 0.0f, 10.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(shortest_distance(1.0f, 9.0f, 10.0f), 2.0f, 1e-5f);
-  HS_EXPECT_NEAR(shortest_distance(0.0f, 5.0f, 10.0f), 5.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::shortest_distance(0.0f, 1.0f, 10.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::shortest_distance(1.0f, 0.0f, 10.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::shortest_distance(1.0f, 9.0f, 10.0f), 2.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::shortest_distance(0.0f, 5.0f, 10.0f), 5.0f, 1e-5f);
   // Across the seam the wrap arc (2) must beat the direct arc (8).
-  HS_EXPECT_TRUE(shortest_distance(1.0f, 9.0f, 10.0f) < 9.0f - 1.0f);
+  HS_EXPECT_TRUE(math::shortest_distance(1.0f, 9.0f, 10.0f) < 9.0f - 1.0f);
   for (int i = 0; i < 20; ++i) {
-    float d = shortest_distance(i * 0.5f, 3.3f, 10.0f);
+    float d = math::shortest_distance(i * 0.5f, 3.3f, 10.0f);
     HS_EXPECT_TRUE(d >= 0.0f && d <= 5.0f + 1e-5f);
   }
 }
@@ -855,17 +864,17 @@ inline void test_shortest_distance() {
  * @return The module's failure count.
  */
 inline void test_cubic_kernel_and_smooth_ramp() {
-  HS_EXPECT_EQ(cubic_kernel(-1.0f), 0.0f);
-  HS_EXPECT_EQ(cubic_kernel(0.0f), 0.0f);
-  HS_EXPECT_EQ(cubic_kernel(0.25f), 0.15625f);
-  HS_EXPECT_EQ(cubic_kernel(0.5f), 0.5f);
-  HS_EXPECT_EQ(cubic_kernel(0.75f), 0.84375f);
-  HS_EXPECT_EQ(cubic_kernel(1.0f), 1.0f);
-  HS_EXPECT_EQ(cubic_kernel(2.0f), 1.0f);
-  HS_EXPECT_EQ(smooth_ramp(2.0f, 6.0f, 3.0f), 0.15625f);
-  HS_EXPECT_EQ(smooth_ramp(2.0f, 6.0f, -1.0f), 0.0f);
-  HS_EXPECT_EQ(smooth_ramp(2.0f, 6.0f, 9.0f), 1.0f);
-  HS_EXPECT_EQ(smooth_ramp(6.0f, 2.0f, 3.0f), 0.84375f);
+  HS_EXPECT_EQ(math::cubic_kernel(-1.0f), 0.0f);
+  HS_EXPECT_EQ(math::cubic_kernel(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::cubic_kernel(0.25f), 0.15625f);
+  HS_EXPECT_EQ(math::cubic_kernel(0.5f), 0.5f);
+  HS_EXPECT_EQ(math::cubic_kernel(0.75f), 0.84375f);
+  HS_EXPECT_EQ(math::cubic_kernel(1.0f), 1.0f);
+  HS_EXPECT_EQ(math::cubic_kernel(2.0f), 1.0f);
+  HS_EXPECT_EQ(math::smooth_ramp(2.0f, 6.0f, 3.0f), 0.15625f);
+  HS_EXPECT_EQ(math::smooth_ramp(2.0f, 6.0f, -1.0f), 0.0f);
+  HS_EXPECT_EQ(math::smooth_ramp(2.0f, 6.0f, 9.0f), 1.0f);
+  HS_EXPECT_EQ(math::smooth_ramp(6.0f, 2.0f, 3.0f), 0.84375f);
 }
 
 inline int run_geometry_tests() {

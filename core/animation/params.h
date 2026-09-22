@@ -271,7 +271,7 @@ public:
     // steps and the value freezes.
     mutant.get() += speed;
     if (wrap) {
-      mutant.get() = wrap_t(mutant.get());
+      mutant.get() = math::wrap_t(mutant.get());
     }
   }
 
@@ -469,7 +469,7 @@ public:
     float lines = num_lines;
     if (!std::isfinite(lines) || lines < 1.0f)
       lines = 1.0f;
-    float angle = progress * (2 * PI_F / lines);
+    float angle = progress * (2 * math::PI_F / lines);
 
     params.get().a.re = s * cosf(angle);
     params.get().a.im = s * sinf(angle);
@@ -526,7 +526,7 @@ public:
   void step(Canvas &canvas) override {
     FiniteParamAnimationBase<Derived>::step(canvas);
     float progress = easing(this->normalized_progress());
-    float angle = progress * 2 * PI_F;
+    float angle = progress * 2 * math::PI_F;
     float s = scale;
     if (scale_ref) {
       float s2 = *scale_ref;
@@ -665,7 +665,7 @@ private:
  * @brief Parameters for a ripple wave effect.
  */
 struct RippleParams {
-  Vector center;          /**< Center point of the ripple source. */
+  math::Vector center;    /**< Center point of the ripple source. */
   float amplitude = 0.0f; /**< Current height of the wave. */
   float phase = 0.0f;     /**< Current phase offset (time). */
   float decay{5.0};       /**< Spatial decay rate. */
@@ -703,8 +703,8 @@ struct RippleParams {
     // so cos(clamped) keeps the fast-reject band engaged past phase=π instead of
     // collapsing both bounds to accept-all. cos(0)=1 and cos(π)=-1 reproduce the
     // out-of-range sentinels at the endpoints.
-    float d_min = hs::clamp(phase - hw * 2.0f, 0.0f, PI_F);
-    float d_max = hs::clamp(phase + hw * 2.0f, 0.0f, PI_F);
+    float d_min = hs::clamp(phase - hw * 2.0f, 0.0f, math::PI_F);
+    float d_max = hs::clamp(phase + hw * 2.0f, 0.0f, math::PI_F);
     cos_threshold_min = cosf(d_min);
     cos_threshold_max = cosf(d_max);
   }
@@ -740,7 +740,7 @@ public:
    * @param speed How fast the waves travel.
    * @param duration How long the ripple lasts in frames.
    */
-  Ripple(RippleParams &params, const Vector &center, float speed = 0.2f,
+  Ripple(RippleParams &params, const math::Vector &center, float speed = 0.2f,
          int duration = 100)
       : AnimationBase(duration, false), params(params), speed(speed),
         peak_amplitude(params.amplitude) {
@@ -883,8 +883,8 @@ private:
  * @brief Parameters for a spherical-cap bump displacement field.
  */
 struct BumpParams {
-  Vector center;       /**< Bump center direction (unit vector). */
-  Vector axis;         /**< Oriented stack axis the drape push acts along. */
+  math::Vector center; /**< Bump center direction (unit vector). */
+  math::Vector axis;   /**< Oriented stack axis the drape push acts along. */
   float radius = 0.5f; /**< Angular radius of the bump footprint (radians). */
   float amplitude =
       1.0f; /**< Drape gain; the weight saturates at full boundary clearance for gains > 1. */
@@ -901,7 +901,7 @@ struct BumpParams {
   /**
    * @brief Refreshes the effective-radius fast-reject bound.
    */
-  void sync() { cos_radius = cosf(std::min(radius * envelope, PI_F)); }
+  void sync() { cos_radius = cosf(std::min(radius * envelope, math::PI_F)); }
 
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
@@ -938,8 +938,8 @@ public:
    * @param azimuth Meridian the bump falls along (radians).
    * @param duration Fall time in frames.
    */
-  BallDrop(BumpParams &params, const Orientation<CAP> &orientation,
-           const Vector &normal, float azimuth, int duration)
+  BallDrop(BumpParams &params, const math::Orientation<CAP> &orientation,
+           const math::Vector &normal, float azimuth, int duration)
       : AnimationBase<BallDrop<CAP>>(duration, false), params(params),
         orientation(&orientation), normal(normal), azimuth(azimuth) {
     HS_CHECK(duration >= 2, "BallDrop duration must be >= 2");
@@ -950,8 +950,8 @@ public:
 
   // Borrow contract: the orientation is read every frame, so it must outlive
   // the Timeline; this deleted overload rejects a temporary.
-  BallDrop(BumpParams &params, const Orientation<CAP> &&orientation,
-           const Vector &normal, float azimuth, int duration) = delete;
+  BallDrop(BumpParams &params, const math::Orientation<CAP> &&orientation,
+           const math::Vector &normal, float azimuth, int duration) = delete;
 
   /**
    * @brief Steps the fall: advances the bump's colatitude down the world
@@ -963,13 +963,13 @@ public:
     AnimationBase<BallDrop<CAP>>::step(canvas);
     float progress =
         std::min(static_cast<float>(this->t) / this->duration, 1.0f);
-    float phi = progress * PI_F;
+    float phi = progress * math::PI_F;
     BumpParams &p = params.get();
-    p.center =
-        Vector(sinf(phi) * cosf(azimuth), cosf(phi), sinf(phi) * sinf(azimuth));
-    p.axis = make_basis(orientation->get(), normal).v;
-    p.envelope = quintic_kernel(progress / EDGE_FRACTION) *
-                 quintic_kernel((1.0f - progress) / EDGE_FRACTION);
+    p.center = math::Vector(sinf(phi) * cosf(azimuth), cosf(phi),
+                            sinf(phi) * sinf(azimuth));
+    p.axis = math::make_basis(orientation->get(), normal).v;
+    p.envelope = math::quintic_kernel(progress / EDGE_FRACTION) *
+                 math::quintic_kernel((1.0f - progress) / EDGE_FRACTION);
     // Re-prepare the reject bound against the envelope just written, so the
     // render never tests the new envelope against a bound cached at the old one.
     p.sync();
@@ -980,10 +980,10 @@ private:
       0.15f; /**< Fade window at either pole, as a fraction of the fall. */
 
   std::reference_wrapper<BumpParams> params; /**< Bump params to animate. */
-  const Orientation<CAP>
-      *orientation; /**< Stack frame the push axis tracks; not owned. */
-  Vector normal;    /**< Un-oriented stack axis. */
-  float azimuth;    /**< Fall meridian (radians). */
+  const math::Orientation<CAP>
+      *orientation;    /**< Stack frame the push axis tracks; not owned. */
+  math::Vector normal; /**< Un-oriented stack axis. */
+  float azimuth;       /**< Fall meridian (radians). */
 };
 
 /**

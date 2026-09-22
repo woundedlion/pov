@@ -289,8 +289,8 @@ struct PreparedSource {
 
 /** @brief Per-frame axis and phase of the spherical ring source. */
 struct PreparedSphericalRings {
-  Vector axis; /**< Unit normal of the rings' equatorial plane. */
-  float phase; /**< Angular band offset, in radians. */
+  math::Vector axis; /**< Unit normal of the rings' equatorial plane. */
+  float phase;       /**< Angular band offset, in radians. */
 };
 
 /** @brief Wraps this frame's source phases with the rotation's cosine pair. */
@@ -306,74 +306,80 @@ concept StateProvider = Detail::ParamsProvider<State, Binding> &&
                         };
 
 template <typename Prepared>
-HS_FLASH_MEMBER inline float twin_wave(const Complex &input,
+HS_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
                                        const Prepared &prepared) {
   const float rotated =
       input.re * prepared.angle_cos + input.im * prepared.angle_sin;
-  return 0.5f * (fast_sinf(input.re + prepared.primary) +
-                 fast_sinf(rotated + prepared.primary));
+  return 0.5f * (math::fast_sinf(input.re + prepared.primary) +
+                 math::fast_sinf(rotated + prepared.primary));
 }
 
 template <typename Prepared>
-HS_FLASH_MEMBER inline float rings(const Complex &input,
+HS_FLASH_MEMBER inline float rings(const math::Complex &input,
                                    const Prepared &prepared) {
-  return fast_sinf(sqrtf(input.re * input.re + input.im * input.im) -
-                   prepared.primary);
+  return math::fast_sinf(sqrtf(input.re * input.re + input.im * input.im) -
+                         prepared.primary);
 }
 
 template <typename Params>
 HS_FLASH_MEMBER inline float
-spherical_rings(const Vector &input, const Params &params,
+spherical_rings(const math::Vector &input, const Params &params,
                 const PreparedSphericalRings &prepared) {
-  const float axis_height = hs::clamp(dot(input, prepared.axis), -1.0f, 1.0f);
-  const float latitude = fast_atan2(
+  const float axis_height =
+      hs::clamp(math::dot(input, prepared.axis), -1.0f, 1.0f);
+  const float latitude = math::fast_atan2(
       axis_height, sqrtf(std::max(0.0f, 1.0f - axis_height * axis_height)));
   const float count = std::max(params.ring_count, 1.0f);
   const float cycle =
-      wrap_t((count * latitude - prepared.phase) / PI_F + 0.5f) - 0.5f;
-  const float distance = fabsf(cycle) * PI_F / count;
-  const float edge =
-      ::smooth_ramp(params.ring_thickness,
-                    params.ring_thickness + params.ring_softness, distance);
+      math::wrap_t((count * latitude - prepared.phase) / math::PI_F + 0.5f) -
+      0.5f;
+  const float distance = fabsf(cycle) * math::PI_F / count;
+  const float edge = ::math::smooth_ramp(
+      params.ring_thickness, params.ring_thickness + params.ring_softness,
+      distance);
   return 1.0f - 2.0f * edge;
 }
 
 template <typename Prepared>
-HS_FLASH_MEMBER inline float spiral(const Complex &input,
+HS_FLASH_MEMBER inline float spiral(const math::Complex &input,
                                     const Prepared &prepared) {
   const float radius = sqrtf(input.re * input.re + input.im * input.im);
-  const float azimuth = fast_atan2(input.im, input.re);
-  return fast_sinf(radius - 3.0f * (azimuth + prepared.angle) -
-                   prepared.primary);
+  const float azimuth = math::fast_atan2(input.im, input.re);
+  return math::fast_sinf(radius - 3.0f * (azimuth + prepared.angle) -
+                         prepared.primary);
 }
 
 template <typename Params, typename Prepared>
-HS_FLASH_MEMBER inline float grid(const Complex &input, const Params &params,
+HS_FLASH_MEMBER inline float grid(const math::Complex &input,
+                                  const Params &params,
                                   const Prepared &prepared) {
   const float x = input.re * prepared.angle_cos + input.im * prepared.angle_sin;
   const float y =
       -input.re * prepared.angle_sin + input.im * prepared.angle_cos;
   if (params.pattern_mix == 1.0f)
-    return fast_sinf(x + prepared.primary) * fast_cosf(y - prepared.secondary);
+    return math::fast_sinf(x + prepared.primary) *
+           math::fast_cosf(y - prepared.secondary);
   float re = x + prepared.primary;
   float im = y - prepared.secondary;
   if (params.complexity != 0.0f) {
-    re += params.complexity * fast_sinf(y + prepared.primary);
-    im += params.complexity * fast_cosf(x - prepared.secondary);
+    re += params.complexity * math::fast_sinf(y + prepared.primary);
+    im += params.complexity * math::fast_cosf(x - prepared.secondary);
   }
-  const float coupled = fast_sinf(re) * fast_cosf(im);
+  const float coupled = math::fast_sinf(re) * math::fast_cosf(im);
   if (params.pattern_mix == 0.0f)
     return coupled;
-  const float direct =
-      fast_sinf(x + prepared.primary) * fast_cosf(y - prepared.secondary);
+  const float direct = math::fast_sinf(x + prepared.primary) *
+                       math::fast_cosf(y - prepared.secondary);
   return hs::lerp(coupled, direct, params.pattern_mix);
 }
 
 template <typename Params>
-HS_FLASH_MEMBER inline float primitive_lattice(const Complex &input,
+HS_FLASH_MEMBER inline float primitive_lattice(const math::Complex &input,
                                                const Params &params) {
-  const float x = wrap_t(params.lattice_cell_scale * input.re + 0.5f) - 0.5f;
-  const float y = wrap_t(params.lattice_cell_scale * input.im + 0.5f) - 0.5f;
+  const float x =
+      math::wrap_t(params.lattice_cell_scale * input.re + 0.5f) - 0.5f;
+  const float y =
+      math::wrap_t(params.lattice_cell_scale * input.im + 0.5f) - 0.5f;
   const float circle = sqrtf(x * x + y * y) - params.lattice_radius;
   const float bx = fabsf(x) - params.lattice_radius;
   const float by = fabsf(y) - params.lattice_radius;
@@ -381,20 +387,20 @@ HS_FLASH_MEMBER inline float primitive_lattice(const Complex &input,
                              std::max(by, 0.0f) * std::max(by, 0.0f)) +
                        std::min(std::max(bx, by), 0.0f);
   const float distance = hs::lerp(circle, square, params.lattice_shape_blend);
-  return 1.0f - 2.0f * ::smooth_ramp(-params.lattice_softness,
-                                     params.lattice_softness, distance);
+  return 1.0f - 2.0f * ::math::smooth_ramp(-params.lattice_softness,
+                                           params.lattice_softness, distance);
 }
 
 template <typename Params, typename Prepared>
-HS_FLASH_MEMBER inline float escape_fractal(const Complex &input,
+HS_FLASH_MEMBER inline float escape_fractal(const math::Complex &input,
                                             const Params &params,
                                             const Prepared &prepared) {
   const float x = params.scale * (input.re * prepared.angle_cos +
                                   input.im * prepared.angle_sin);
   const float y = params.scale * (-input.re * prepared.angle_sin +
                                   input.im * prepared.angle_cos);
-  const float seed_cos = fast_cosf(prepared.primary);
-  const float seed_sin = fast_sinf(prepared.primary);
+  const float seed_cos = math::fast_cosf(prepared.primary);
+  const float seed_sin = math::fast_sinf(prepared.primary);
   const float seed_re = params.julia_re * seed_cos - params.julia_im * seed_sin;
   const float seed_im = params.julia_re * seed_sin + params.julia_im * seed_cos;
   const float mix = hs::clamp(params.julia_mix, 0.0f, 1.0f);
@@ -414,14 +420,14 @@ HS_FLASH_MEMBER inline float escape_fractal(const Complex &input,
           (static_cast<float>(iteration) +
            hs::clamp((magnitude_squared - 4.0f) / 12.0f, 0.0f, 1.0f)) /
           static_cast<float>(iterations);
-      return fast_cosf(TWO_PI_F * params.contours * orbit);
+      return math::fast_cosf(math::TWO_PI_F * params.contours * orbit);
     }
   }
   return 1.0f;
 }
 
 HS_FLASH_INLINE inline float distance_to_lattice_line(float coordinate) {
-  return fabsf(wrap_t(coordinate + 0.5f) - 0.5f);
+  return fabsf(math::wrap_t(coordinate + 0.5f) - 0.5f);
 }
 
 /** @brief Distance from the scaled, rotated plane point to the nearest cell
@@ -436,8 +442,8 @@ tessellation_distance(float x, float y, TessellationKind kind) {
         std::min(distance_to_lattice_line(0.5f * x + 0.5f * SQRT_3 * y),
                  distance_to_lattice_line(-0.5f * x + 0.5f * SQRT_3 * y)));
   case TessellationKind::SQUARE: {
-    const float cell_x = wrap_t(x + 0.5f) - 0.5f;
-    const float cell_y = wrap_t(y + 0.5f) - 0.5f;
+    const float cell_x = math::wrap_t(x + 0.5f) - 0.5f;
+    const float cell_y = math::wrap_t(y + 0.5f) - 0.5f;
     return 0.5f - std::max(fabsf(cell_x), fabsf(cell_y));
   }
   case TessellationKind::HEXAGONAL:
@@ -468,22 +474,22 @@ tessellation_distance(float x, float y, TessellationKind kind) {
 
 template <typename Params, typename Prepared>
 HS_FLASH_MEMBER inline float
-tessellation(const Complex &input, const Params &params, TessellationKind kind,
-             const Prepared &prepared) {
+tessellation(const math::Complex &input, const Params &params,
+             TessellationKind kind, const Prepared &prepared) {
   const float x = params.cell_scale * (input.re * prepared.angle_cos +
                                        input.im * prepared.angle_sin);
   const float y = params.cell_scale * (-input.re * prepared.angle_sin +
                                        input.im * prepared.angle_cos);
   const float distance = tessellation_distance(x, y, kind);
-  const float edge =
-      ::smooth_ramp(params.line_thickness,
-                    params.line_thickness + params.line_softness, distance);
+  const float edge = ::math::smooth_ramp(
+      params.line_thickness, params.line_thickness + params.line_softness,
+      distance);
   return 1.0f - 2.0f * edge;
 }
 
 HS_FLASH_INLINE inline float noise_contour(const FastNoiseLite &noise,
                                            ::NoiseBasis basis,
-                                           const Vector &coordinate,
+                                           const math::Vector &coordinate,
                                            float contrast) {
   const float sample =
       hs::clamp(sample_noise_octaves(noise, basis, coordinate), -1.0f, 1.0f);
@@ -561,7 +567,7 @@ template <typename State> struct SphericalRings : ApproximationDefaults {
         { State::params(frame).ring_count } -> std::convertible_to<float>;
         { State::params(frame).ring_thickness } -> std::convertible_to<float>;
         { State::params(frame).ring_softness } -> std::convertible_to<float>;
-        { State::prepare(frame).axis } -> std::convertible_to<Vector>;
+        { State::prepare(frame).axis } -> std::convertible_to<math::Vector>;
         { State::prepare(frame).phase } -> std::convertible_to<float>;
       };
 
@@ -745,7 +751,7 @@ struct ProjectedNoise : ApproximationDefaults {
         { State::noise_contrast(frame) } -> std::same_as<float>;
       };
 
-  using Prepared = Vector;
+  using Prepared = math::Vector;
 
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return noise_projected_loop_offset(State::noise_time(frame));
@@ -770,7 +776,7 @@ struct SphericalNoise : ApproximationDefaults {
   static constexpr bool PROVIDER_VALID =
       ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
 
-  using Prepared = Vector;
+  using Prepared = math::Vector;
 
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return noise_sphere_loop_offset(State::noise_time(frame));

@@ -787,13 +787,13 @@ inline void test_sh_cartesian_matches_spherical() {
       const float scale = SHMath::harmonic_scale(l, m);
       const int abs_m = std::abs(m);
       for (int i = 0; i <= 40; ++i) {
-        const double phi = PI_F * i / 40.0;
+        const double phi = math::PI_F * i / 40.0;
         const double sin_phi = std::sin(phi), cos_phi = std::cos(phi);
         for (int j = 0; j < 64; ++j) {
-          const double theta = 2.0 * PI_F * j / 64.0;
-          Vector p(static_cast<float>(sin_phi * std::cos(theta)),
-                   static_cast<float>(cos_phi),
-                   static_cast<float>(sin_phi * std::sin(theta)));
+          const double theta = 2.0 * math::PI_F * j / 64.0;
+          math::Vector p(static_cast<float>(sin_phi * std::cos(theta)),
+                         static_cast<float>(cos_phi),
+                         static_cast<float>(sin_phi * std::sin(theta)));
 
           const double azimuthal = (m > 0)   ? std::cos(abs_m * theta)
                                    : (m < 0) ? std::sin(abs_m * theta)
@@ -836,20 +836,23 @@ struct SphericalHarmonicsWhiteBox {
   static int current_idx(const SH &fx) { return fx.current_idx; }
   static int next_idx(const SH &fx) { return fx.next_idx; }
   static float morph_alpha(const SH &fx) { return fx.morph_alpha; }
-  static Quaternion orientation(const SH &fx) { return fx.orientation.get(); }
+  static math::Quaternion orientation(const SH &fx) {
+    return fx.orientation.get();
+  }
   static const BakedPalette &palette(const SH &fx) { return fx.baked_palette; }
   static float amplitude(const SH &fx) { return fx.params.amplitude; }
   static constexpr int max_mode_idx() { return SH::MAX_MODE_IDX; }
 
   static PipelineFrame prepare_pipeline(const SH &fx, int l1, int m1, int l2,
                                         int m2, float blend,
-                                        const Quaternion &orientation,
+                                        const math::Quaternion &orientation,
                                         float amplitude) {
     return Pipeline::prepare({{l1, m1, l2, m2, blend, orientation},
                               {&fx.baked_palette.view(), amplitude}});
   }
 
-  static Color4 shade_pipeline(const Vector &view, const PipelineFrame &frame) {
+  static Color4 shade_pipeline(const math::Vector &view,
+                               const PipelineFrame &frame) {
     return Pipeline::evaluate(view, frame.ctx, frame.prepared);
   }
 
@@ -878,9 +881,9 @@ struct SphericalHarmonicsWhiteBox {
  */
 inline void test_sh_field_write_through_and_endpoints() {
   using Field = SphericalHarmonicsWhiteBox::Field;
-  const Quaternion spin =
-      make_rotation(Vector(0.3f, 0.8f, -0.5f).normalized(), 1.1f);
-  const Quaternion identity;
+  const math::Quaternion spin =
+      math::make_rotation(math::Vector(0.3f, 0.8f, -0.5f).normalized(), 1.1f);
+  const math::Quaternion identity;
 
   constexpr int LA = 1, MA = 0, LB = 3, MB = 2;
   Field mix_start(LA, MA, LB, MB, 0.0f, spin);
@@ -893,11 +896,11 @@ inline void test_sh_field_write_through_and_endpoints() {
   int positives = 0, negatives = 0;
   double worst_start = 0.0, worst_end = 0.0, worst_frame = 0.0;
   for (int i = 0; i <= PHI_STEPS; ++i) {
-    const float phi = PI_F * i / PHI_STEPS;
+    const float phi = math::PI_F * i / PHI_STEPS;
     for (int j = 0; j < THETA_STEPS; ++j) {
-      const float theta = 2.0f * PI_F * j / THETA_STEPS;
-      const Vector p(sinf(phi) * cosf(theta), cosf(phi),
-                     sinf(phi) * sinf(theta));
+      const float theta = 2.0f * math::PI_F * j / THETA_STEPS;
+      const math::Vector p(sinf(phi) * cosf(theta), cosf(phi),
+                           sinf(phi) * sinf(theta));
       const float start = mix_start.sample(p);
       const float end = mix_end.sample(p);
       const float a = pure_a.sample(p);
@@ -905,7 +908,7 @@ inline void test_sh_field_write_through_and_endpoints() {
       const float unspun = pure_a_unrotated.sample(p);
       // Rotating the sample by the same quaternion the shape carries must land
       // back on the unrotated shape's value.
-      const float spun = pure_a.sample(rotate(p, spin));
+      const float spun = pure_a.sample(math::rotate(p, spin));
 
       if (a > 0.02f)
         ++positives;
@@ -933,8 +936,8 @@ inline void test_sh_field_write_through_and_endpoints() {
 /** @brief Keeps every shipped harmonic morph inside SampleSphere's signed range. */
 inline void test_sh_field_stays_inside_unit_range() {
   using WB = SphericalHarmonicsWhiteBox;
-  const Quaternion orientation =
-      make_rotation(Vector(0.3f, 0.8f, -0.5f).normalized(), 1.1f);
+  const math::Quaternion orientation =
+      math::make_rotation(math::Vector(0.3f, 0.8f, -0.5f).normalized(), 1.1f);
   constexpr std::array<float, 5> BLENDS{0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
   constexpr int PHI_STEPS = 48;
   constexpr int THETA_STEPS = 64;
@@ -947,11 +950,11 @@ inline void test_sh_field_stays_inside_unit_range() {
     for (float blend : BLENDS) {
       const WB::Field field(l1, m1, l2, m2, blend, orientation);
       for (int i = 0; i <= PHI_STEPS; ++i) {
-        const float phi = PI_F * i / PHI_STEPS;
+        const float phi = math::PI_F * i / PHI_STEPS;
         for (int j = 0; j < THETA_STEPS; ++j) {
-          const float theta = TWO_PI_F * j / THETA_STEPS;
-          const Vector point(sinf(phi) * cosf(theta), cosf(phi),
-                             sinf(phi) * sinf(theta));
+          const float theta = math::TWO_PI_F * j / THETA_STEPS;
+          const math::Vector point(sinf(phi) * cosf(theta), cosf(phi),
+                                   sinf(phi) * sinf(theta));
           peak = std::max(peak, std::fabs(field.sample(point)));
         }
       }
@@ -969,8 +972,8 @@ inline void test_sh_pullback_matches_legacy_shader() {
   WB::SH fx;
   fx.init();
 
-  const Quaternion orientation =
-      make_rotation(Vector(-0.4f, 0.2f, 0.9f).normalized(), 0.83f);
+  const math::Quaternion orientation =
+      math::make_rotation(math::Vector(-0.4f, 0.2f, 0.9f).normalized(), 0.83f);
   constexpr std::array<float, 3> BLENDS{0.0f, 0.5f, 1.0f};
   constexpr std::array<float, 3> AMPLITUDES{0.2f, 3.2f, 7.0f};
   constexpr int PHI_STEPS = 24;
@@ -988,11 +991,11 @@ inline void test_sh_pullback_matches_legacy_shader() {
         const WB::PipelineFrame frame = WB::prepare_pipeline(
             fx, l1, m1, l2, m2, blend, orientation, amplitude);
         for (int i = 0; i <= PHI_STEPS; ++i) {
-          const float phi = PI_F * i / PHI_STEPS;
+          const float phi = math::PI_F * i / PHI_STEPS;
           for (int j = 0; j < THETA_STEPS; ++j) {
-            const float theta = TWO_PI_F * j / THETA_STEPS;
-            const Vector point(sinf(phi) * cosf(theta), cosf(phi),
-                               sinf(phi) * sinf(theta));
+            const float theta = math::TWO_PI_F * j / THETA_STEPS;
+            const math::Vector point(sinf(phi) * cosf(theta), cosf(phi),
+                                     sinf(phi) * sinf(theta));
             const Color4 legacy =
                 WB::shade_legacy(fx, legacy_field.sample(point), amplitude);
             const Color4 pullback = WB::shade_pipeline(point, frame);
@@ -1073,7 +1076,7 @@ inline void test_sh_polarity_split_and_ao_shaping() {
         for (int y = 0; y < SMALL_H; ++y)
           for (int x = 0; x < SMALL_W; ++x) {
             const float val =
-                field.sample(pixel_to_vector<SMALL_W, SMALL_H>(x, y));
+                field.sample(math::pixel_to_vector<SMALL_W, SMALL_H>(x, y));
             const Pixel &px = fx.get_pixel(x, y);
             const bool positive = val > 0.0f;
             // A dipole's two lobes are antipodal mirrors, so their magnitude
@@ -1133,7 +1136,7 @@ inline void test_sh_polarity_split_and_ao_shaping() {
         for (int y = 0; y < SMALL_H; ++y)
           for (int x = 0; x < SMALL_W; ++x) {
             const float val =
-                field.sample(pixel_to_vector<SMALL_W, SMALL_H>(x, y));
+                field.sample(math::pixel_to_vector<SMALL_W, SMALL_H>(x, y));
             const float mag = std::fabs(val) * amp;
             const Pixel want = WB::palette(fx).get(std::min(1.0f, mag)).color;
             const uint32_t want_energy =
@@ -1333,7 +1336,7 @@ struct GSWhiteBox {
   static const uint16_t *b_field(const GS &gs) { return gs.state.B; }
   static const uint16_t *a_field(const GS &gs) { return gs.state.A; }
   static float dissolve_hash(int i, uint32_t seed) {
-    return ::hash01(static_cast<uint32_t>(i), seed);
+    return ::math::hash01(static_cast<uint32_t>(i), seed);
   }
   static void convert(GS &gs, float phase, uint32_t seed) {
     gs.transition.dissolve_seed = seed;
@@ -1418,17 +1421,17 @@ struct GSWhiteBox {
   template <int W, int H> static ShaderError shared_shader_error(GS &gs) {
     ScratchScope guard(scratch_arena_a);
     auto lattice = gs.orient_lattice();
-    Vector *world_nodes = lattice.get();
+    math::Vector *world_nodes = lattice.get();
     using Grid = Scan::Shader::SsaaGrid<W, H>;
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     Grid grid;
     ShaderError error;
     for (int y = 0; y < H; ++y) {
       grid.set_row(y);
       for (int x = 0; x < W; ++x) {
         Fragment frag;
-        frag.pos = pixel_to_vector<W, H>(x, y);
+        frag.pos = math::pixel_to_vector<W, H>(x, y);
         gs.seed_face_lut(frag);
         int seed = static_cast<int>(frag.v0);
         int shared_center =
@@ -1439,7 +1442,7 @@ struct GSWhiteBox {
 
         Pixel expected(0, 0, 0);
         for (int i = 0; i < 4; ++i) {
-          Vector sample_v = grid.at(x, i);
+          math::Vector sample_v = grid.at(x, i);
           ++error.stencil_samples;
           if (gs.refine_center(sample_v, world_nodes, seed) != shared_center)
             ++error.stencil_changes;
@@ -1469,7 +1472,7 @@ struct GSWhiteBox {
         error.total_channel += dr + dg + db;
       }
     }
-    Pixel culled = gs.shade_pixel(-1, Vector(), world_nodes, grid, 0);
+    Pixel culled = gs.shade_pixel(-1, math::Vector(), world_nodes, grid, 0);
     if (culled != Pixel(0, 0, 0))
       ++error.different;
     return error;
@@ -1577,7 +1580,7 @@ inline void test_gs_q16_roundtrip() {
  */
 inline void test_gs_render_certificates_bound_lattice() {
   const int n = GSWhiteBox::N;
-  std::vector<Vector> lattice(static_cast<size_t>(n));
+  std::vector<math::Vector> lattice(static_cast<size_t>(n));
   for (int i = 0; i < n; ++i)
     lattice[static_cast<size_t>(i)] = ReactionGraph::node(i);
 
@@ -1587,11 +1590,11 @@ inline void test_gs_render_certificates_bound_lattice() {
   float pole_min_d2 = 4.0f;
   int tight_band = 0; // band width the sub-bulk-spacing nodes actually need
   for (int i = 0; i < n; ++i) {
-    const Vector &p = lattice[static_cast<size_t>(i)];
+    const math::Vector &p = lattice[static_cast<size_t>(i)];
     float best = 4.0f;
     for (int step = -1; step <= 1; step += 2) {
       for (int j = i + step; j >= 0 && j < n; j += step) {
-        const Vector &q = lattice[static_cast<size_t>(j)];
+        const math::Vector &q = lattice[static_cast<size_t>(j)];
         float dy = p.y - q.y;
         if (dy * dy >= best)
           break;
@@ -1969,7 +1972,7 @@ struct BZWhiteBox {
     bz.state.B = b;
     bz.state.C = c;
   }
-  static int nearest_node(const Vector &v, const Vector *nodes) {
+  static int nearest_node(const math::Vector &v, const math::Vector *nodes) {
     int nearest = 0;
     float nearest_d2 = BZ::dist2(v, nodes[0]);
     for (int i = 1; i < N; ++i) {
@@ -1998,14 +2001,14 @@ struct BZWhiteBox {
   template <int W, int H> static CenterError render_center_error(BZ &bz) {
     ScratchScope guard(scratch_arena_a);
     auto lattice = bz.orient_lattice();
-    Vector *world_nodes = lattice.get();
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    math::Vector *world_nodes = lattice.get();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     CenterError error;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         Fragment frag;
-        frag.pos = pixel_to_vector<W, H>(x, y);
+        frag.pos = math::pixel_to_vector<W, H>(x, y);
         bz.seed_face_lut(frag);
         int seed = static_cast<int>(frag.v0);
         int reference = BZ::refine_center(frag.pos, world_nodes, seed);
@@ -2018,18 +2021,19 @@ struct BZWhiteBox {
     }
     return error;
   }
-  static Pixel shade(const BZ &bz, int seed, const Vector &center,
-                     const Vector *nodes, const Grid &grid, int x,
+  static Pixel shade(const BZ &bz, int seed, const math::Vector &center,
+                     const math::Vector *nodes, const Grid &grid, int x,
                      const Color4 &ca, const Color4 &cb, const Color4 &cc) {
     BZ::FloatRgb fa(ca.color), fb(cb.color), fc(cc.color);
     return bz.shade_pixel(seed, center, nodes, grid, x, fa, fb, fc);
   }
-  static Pixel reference_shade(const BZ &bz, int seed, const Vector &center_rv,
-                               const Vector *world_nodes, const Grid &grid,
-                               int x, const Color4 &ca, const Color4 &cb,
-                               const Color4 &cc) {
+  static Pixel reference_shade(const BZ &bz, int seed,
+                               const math::Vector &center_rv,
+                               const math::Vector *world_nodes,
+                               const Grid &grid, int x, const Color4 &ca,
+                               const Color4 &cb, const Color4 &cc) {
     int center = BZ::refine_center(center_rv, world_nodes, seed);
-    Vector spos[BZ::RD_K + 1];
+    math::Vector spos[BZ::RD_K + 1];
     uint16_t sa[BZ::RD_K + 1], sb[BZ::RD_K + 1], sc[BZ::RD_K + 1];
     spos[0] = world_nodes[center];
     sa[0] = bz.state.A[center];
@@ -2047,7 +2051,7 @@ struct BZWhiteBox {
     constexpr float INV_SAMPLES = 1.0f / 4.0f;
     Pixel accum(0, 0, 0);
     for (int i = 0; i < 4; ++i) {
-      Vector v = grid.at(x, i);
+      math::Vector v = grid.at(x, i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
       for (int j = 0; j < BZ::RD_K + 1; ++j)
         BZ::with_wendland_weight(BZ::dist2(v, spos[j]), [&](float w) {
@@ -2370,7 +2374,7 @@ inline void test_bz_raster_matches_reference() {
   using WhiteBox = BZWhiteBox;
   constexpr int MAX_ROUNDING_DRIFT = 3;
   auto drift = [](uint16_t p, uint16_t q) { return p > q ? p - q : q - p; };
-  std::vector<Vector> nodes(WhiteBox::N);
+  std::vector<math::Vector> nodes(WhiteBox::N);
   std::vector<uint16_t> a(WhiteBox::N), b(WhiteBox::N), c(WhiteBox::N);
   for (int i = 0; i < WhiteBox::N; ++i) {
     nodes[i] = ReactionGraph::node(i);
@@ -2381,8 +2385,8 @@ inline void test_bz_raster_matches_reference() {
 
   WhiteBox::BZ bz;
   WhiteBox::set_state(bz, a.data(), b.data(), c.data());
-  if (!TrigLUT<SMALL_W, SMALL_H>::initialized)
-    TrigLUT<SMALL_W, SMALL_H>::init();
+  if (!math::TrigLUT<SMALL_W, SMALL_H>::initialized)
+    math::TrigLUT<SMALL_W, SMALL_H>::init();
   WhiteBox::Grid grid;
   const Color4 ca(Pixel(61123, 913, 17771), 1.0f);
   const Color4 cb(Pixel(2819, 59731, 1207), 1.0f);
@@ -2393,7 +2397,7 @@ inline void test_bz_raster_matches_reference() {
     for (int y = 0; y < SMALL_H; y += 2) {
       grid.set_row(y);
       for (int x = 0; x < SMALL_W; x += 3) {
-        Vector center = pixel_to_vector<SMALL_W, SMALL_H>(x, y);
+        math::Vector center = math::pixel_to_vector<SMALL_W, SMALL_H>(x, y);
         int seed = WhiteBox::nearest_node(center, nodes.data());
         Pixel expected = WhiteBox::reference_shade(
             bz, seed, center, nodes.data(), grid, x, ca, cb, cc);
@@ -2582,8 +2586,8 @@ struct DreamBallsWhiteBox {
   static float under_gap_alpha(float edge_t, float gap) {
     return DB::under_gap_alpha(edge_t, gap);
   }
-  static Vector woven_vertex(const DB &db, size_t solid, bool medial,
-                             size_t vertex) {
+  static math::Vector woven_vertex(const DB &db, size_t solid, bool medial,
+                                   size_t vertex) {
     return DB::woven_vertex(db.loaded_solids[solid], medial, vertex);
   }
   static DB::BaseMesh live_mesh(const DB &db) { return db.params.base_mesh; }
@@ -2801,7 +2805,7 @@ inline void test_dreamballs_max_edge_solid_render() {
 
   // Three per-vertex buffers plus the framed vertex + edge-head mesh, at the
   // medial bound; a peak below this would mean the wide path never ran.
-  const size_t staged_bytes = 6 * widest_edges * sizeof(Vector);
+  const size_t staged_bytes = 6 * widest_edges * sizeof(math::Vector);
   HS_EXPECT_GE(scratch_arena_a.get_high_water_mark(), staged_bytes);
   HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), WB::SCRATCH_A_PEAK_BYTES);
 
@@ -2876,14 +2880,18 @@ inline void test_dreamballs_weave_topology() {
                 ? 1
                 : 0;
 
-        const Vector from = WB::woven_vertex(db, i, !four_regular, edge.u);
-        const Vector to = WB::woven_vertex(db, i, !four_regular, edge.v);
-        const Vector frame_u = tangent_axis(from);
-        const Vector offset = frame_u * 0.6f + cross(from, frame_u) * 0.8f;
-        const Vector transported = parallel_transport(from, to, offset);
-        HS_EXPECT_NEAR(dot(transported, to), 0.0f, 2e-5f);
-        HS_EXPECT_NEAR(dot(transported, transported), 1.0f, 2e-5f);
-        HS_EXPECT_VEC(parallel_transport(to, from, transported), offset, 2e-5f);
+        const math::Vector from =
+            WB::woven_vertex(db, i, !four_regular, edge.u);
+        const math::Vector to = WB::woven_vertex(db, i, !four_regular, edge.v);
+        const math::Vector frame_u = math::tangent_axis(from);
+        const math::Vector offset =
+            frame_u * 0.6f + math::cross(from, frame_u) * 0.8f;
+        const math::Vector transported =
+            math::parallel_transport(from, to, offset);
+        HS_EXPECT_NEAR(math::dot(transported, to), 0.0f, 2e-5f);
+        HS_EXPECT_NEAR(math::dot(transported, transported), 1.0f, 2e-5f);
+        HS_EXPECT_VEC(math::parallel_transport(to, from, transported), offset,
+                      2e-5f);
       }
     }
     for (size_t vertex = 0; vertex < automatic_vertex_count; ++vertex) {
@@ -3256,15 +3264,15 @@ struct CometsWhiteBox {
   static void check_paths_close() {
     using C = Comets<DEFAULT_W, DEFAULT_H>;
     int idx = 0;
-    for (const PresetEntry<LissajousParams> &entry : C::PRESETS) {
-      const LissajousParams &cfg = entry.params;
+    for (const PresetEntry<math::LissajousParams> &entry : C::PRESETS) {
+      const math::LissajousParams &cfg = entry.params;
       const float cd = C::closing_domain(cfg);
       HS_EXPECT_GT(cd, 0.0f); // floor-at-1 keeps the head moving
       // Every authored entry must clear the floor (m2*domain >= PI rounds to >= 1
       // closing cycle) so the floor never silently rewrites an authored domain.
-      HS_EXPECT_GE(cfg.m2 * cfg.domain, PI_F);
-      const Vector start = lissajous(cfg.m1, cfg.m2, cfg.a, 0.0f);
-      const Vector end = lissajous(cfg.m1, cfg.m2, cfg.a, cd);
+      HS_EXPECT_GE(cfg.m2 * cfg.domain, math::PI_F);
+      const math::Vector start = math::lissajous(cfg.m1, cfg.m2, cfg.a, 0.0f);
+      const math::Vector end = math::lissajous(cfg.m1, cfg.m2, cfg.a, cd);
       const float gap = (end - start).magnitude();
       if (gap > 1e-3f)
         std::printf("  COMETS entry %d does not close: gap=%.6f\n", idx,
@@ -3286,7 +3294,7 @@ struct CometsWhiteBox {
   static const GenerativePalette::Snapshot &palette_target(const C &c) {
     return c.wipe.target;
   }
-  static const Quaternion &node_orientation(const C &c) {
+  static const math::Quaternion &node_orientation(const C &c) {
     return c.node->orientation.get();
   }
   static size_t trail_length(const C &c) { return c.node->trail.length(); }
@@ -3367,12 +3375,12 @@ inline void test_comets_manual_preset_restarts_path() {
 
   constexpr size_t PRESET = 4;
   HS_EXPECT_TRUE(effect.selectPreset(PRESET));
-  HS_EXPECT_EQ(WB::node_orientation(effect), Quaternion());
+  HS_EXPECT_EQ(WB::node_orientation(effect), math::Quaternion());
   HS_EXPECT_EQ(WB::trail_length(effect), 0u);
 
   effect.draw_frame();
   effect.advance_display();
-  const Quaternion first_step = WB::node_orientation(effect);
+  const math::Quaternion first_step = WB::node_orientation(effect);
   HS_EXPECT_EQ(WB::trail_length(effect), 1u);
 
   for (int f = 0; f < 7; ++f) {
@@ -3380,7 +3388,7 @@ inline void test_comets_manual_preset_restarts_path() {
     effect.advance_display();
   }
   HS_EXPECT_TRUE(effect.selectPreset(PRESET));
-  HS_EXPECT_EQ(WB::node_orientation(effect), Quaternion());
+  HS_EXPECT_EQ(WB::node_orientation(effect), math::Quaternion());
   HS_EXPECT_EQ(WB::trail_length(effect), 0u);
 
   effect.draw_frame();
@@ -3471,9 +3479,11 @@ struct ThrustersWhiteBox {
     effect.on_fire_thruster();
     HS_EXPECT_EQ(effect.thrusters.size(), size_t{2});
 
-    const Vector a = azimuth_dir(effect.thrusters[0].point, effect.ring_vec);
-    const Vector b = azimuth_dir(effect.thrusters[1].point, effect.ring_vec);
-    HS_EXPECT_NEAR(dot(a, b), -1.0f, 1e-4f);
+    const math::Vector a =
+        azimuth_dir(effect.thrusters[0].point, effect.ring_vec);
+    const math::Vector b =
+        azimuth_dir(effect.thrusters[1].point, effect.ring_vec);
+    HS_EXPECT_NEAR(math::dot(a, b), -1.0f, 1e-4f);
   }
 
   /**
@@ -3492,9 +3502,9 @@ struct ThrustersWhiteBox {
     effect.params.radius = 1e-7f;
     effect.on_fire_thruster();
     HS_EXPECT_EQ(effect.thrusters.size(), size_t{2});
-    HS_EXPECT_NEAR(dot(effect.thrusters[0].point, effect.ring_vec), 1.0f,
+    HS_EXPECT_NEAR(math::dot(effect.thrusters[0].point, effect.ring_vec), 1.0f,
                    1e-6f);
-    HS_EXPECT_NEAR(dot(effect.thrusters[1].point, effect.ring_vec), 1.0f,
+    HS_EXPECT_NEAR(math::dot(effect.thrusters[1].point, effect.ring_vec), 1.0f,
                    1e-6f);
   }
 
@@ -3508,7 +3518,7 @@ struct ThrustersWhiteBox {
 
     constexpr size_t CAPACITY = 16;
     constexpr int FIRES = CAPACITY / 2 + 1;
-    Vector lead[FIRES];
+    math::Vector lead[FIRES];
     for (int fire = 0; fire < FIRES; ++fire) {
       effect.on_fire_thruster();
       const size_t spawned = 2u * static_cast<size_t>(fire + 1);
@@ -3519,7 +3529,8 @@ struct ThrustersWhiteBox {
     }
     // The last fire pushed two slots into a full pool, retiring fire 0's pair
     // and leaving fire 1's first slot at the front.
-    HS_EXPECT_NEAR(dot(effect.thrusters.front().point, lead[1]), 1.0f, 1e-6f);
+    HS_EXPECT_NEAR(math::dot(effect.thrusters.front().point, lead[1]), 1.0f,
+                   1e-6f);
   }
 
   /**
@@ -3552,8 +3563,9 @@ struct ThrustersWhiteBox {
 
 private:
   /** @brief Unit azimuth of @p p about @p axis, with the radial warp removed. */
-  static Vector azimuth_dir(const Vector &p, const Vector &axis) {
-    return (p - axis * dot(p, axis)).normalized();
+  static math::Vector azimuth_dir(const math::Vector &p,
+                                  const math::Vector &axis) {
+    return (p - axis * math::dot(p, axis)).normalized();
   }
 };
 
@@ -3625,8 +3637,9 @@ struct DynamoWhiteBox {
     // angle_between(v, normal) across the full [0, PI] band span.
     constexpr int STEPS = 256;
     for (int i = 0; i <= STEPS; ++i) {
-      float theta = PI_F * static_cast<float>(i) / static_cast<float>(STEPS);
-      Vector v(std::sin(theta), 0.0f, std::cos(theta));
+      float theta =
+          math::PI_F * static_cast<float>(i) / static_cast<float>(STEPS);
+      math::Vector v(std::sin(theta), 0.0f, std::cos(theta));
       Color4 c = effect.color(v, 0.5f);
       HS_EXPECT_TRUE(std::isfinite(c.alpha));
       HS_EXPECT_GE(c.alpha, 0.0f);
@@ -3729,9 +3742,9 @@ inline void test_dynamo_emitted_points_counts_ring_seeds() {
 struct HopfWhiteBox {
   using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
   static size_t fiber_count() { return HF::ACTUAL_FIBERS; }
-  static Vector project(HF &fx, size_t i) { return fx.hopf_project(i); }
+  static math::Vector project(HF &fx, size_t i) { return fx.hopf_project(i); }
   static void set_fiber(HF &fx, size_t i, float azimuth, float polar) {
-    fx.fibers[i] = Spherical(azimuth, polar);
+    fx.fibers[i] = math::Spherical(azimuth, polar);
   }
   static void set_cache(HF &fx, float cx, float sx, float cy, float sy,
                         float fold_base, float flow_rad, float ty_rad) {
@@ -3777,12 +3790,13 @@ inline void test_hopf_projection_math() {
 
   const float polar = 1.2f, azimuth = 0.7f;
   WB::set_fiber(fx, 0, azimuth, polar);
-  const Vector v = WB::project(fx, 0);
+  const math::Vector v = WB::project(fx, 0);
 
   const float eta = polar * 0.5f;
-  const float ce = fast_cosf(eta), se = fast_sinf(eta);
-  const Vector expected =
-      Vector(ce * fast_cosf(azimuth), ce * fast_sinf(azimuth), se).normalized();
+  const float ce = math::fast_cosf(eta), se = math::fast_sinf(eta);
+  const math::Vector expected = math::Vector(ce * math::fast_cosf(azimuth),
+                                             ce * math::fast_sinf(azimuth), se)
+                                    .normalized();
   HS_EXPECT_NEAR(v.x, expected.x, 1e-4f);
   HS_EXPECT_NEAR(v.y, expected.y, 1e-4f);
   HS_EXPECT_NEAR(v.z, expected.z, 1e-4f);
@@ -3790,16 +3804,17 @@ inline void test_hopf_projection_math() {
 
   // Every fiber projects to a finite unit direction under active tumble/fold/twist.
   const float ax = 0.9f, ay = 0.4f;
-  WB::set_cache(fx, fast_cosf(ax), fast_sinf(ax), fast_cosf(ay), fast_sinf(ay),
-                fast_sinf(ax * 0.5f) * 0.5f, 0.3f, ay);
+  WB::set_cache(fx, math::fast_cosf(ax), math::fast_sinf(ax),
+                math::fast_cosf(ay), math::fast_sinf(ay),
+                math::fast_sinf(ax * 0.5f) * 0.5f, 0.3f, ay);
   WB::set_folding(fx, 0.5f);
   WB::set_twist(fx, 2.0f);
   for (size_t i = 0; i < WB::fiber_count(); ++i) {
-    const Vector p = WB::project(fx, i);
+    const math::Vector p = WB::project(fx, i);
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
-    const Vector again =
+    const math::Vector again =
         WB::project(fx, i); // pure fn of the cache -> repeatable
     HS_EXPECT_NEAR(p.x, again.x, 1e-6f);
     HS_EXPECT_NEAR(p.y, again.y, 1e-6f);
@@ -3871,7 +3886,7 @@ struct RaymarchWhiteBox {
   }
 
   template <int W, int H>
-  static Quaternion volume_spin(const Raymarch<W, H> &effect, int index) {
+  static math::Quaternion volume_spin(const Raymarch<W, H> &effect, int index) {
     return effect.volume_spins[index].orientation.get();
   }
 
@@ -3899,7 +3914,7 @@ struct RaymarchWhiteBox {
   }
 
   template <int W, int H>
-  static std::array<float, 7> surface_frame(const Vector &loc, int twist,
+  static std::array<float, 7> surface_frame(const math::Vector &loc, int twist,
                                             float amplitude, float major_r,
                                             float minor_r) {
     SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
@@ -3924,13 +3939,13 @@ inline void test_raymarch_volume_random_walks_are_independent() {
 
   effect.draw_frame();
   effect.advance_display();
-  const Quaternion first = RaymarchWhiteBox::volume_spin(effect, 0);
+  const math::Quaternion first = RaymarchWhiteBox::volume_spin(effect, 0);
   int distinct = 0;
   for (int i = 1; i < count; ++i) {
-    const Quaternion q = RaymarchWhiteBox::volume_spin(effect, i);
+    const math::Quaternion q = RaymarchWhiteBox::volume_spin(effect, i);
     const float dr = q.r - first.r;
-    const Vector dv = q.v - first.v;
-    if (dr * dr + dot(dv, dv) > 1e-8f)
+    const math::Vector dv = q.v - first.v;
+    if (dr * dr + math::dot(dv, dv) > 1e-8f)
       ++distinct;
   }
   HS_EXPECT_EQ(distinct, count - 1);
@@ -4015,9 +4030,9 @@ inline void test_raymarch_surface_frame_uv() {
   const float cos_v = cosf(v);
   const float sin_v = sinf(v);
   const float radial = MAJOR_R + MINOR_R * cos_v;
-  const Vector loc(radial * cos_u,
-                   AMPLITUDE * sinf(TWIST * u) + MINOR_R * sin_v,
-                   radial * sin_u);
+  const math::Vector loc(radial * cos_u,
+                         AMPLITUDE * sinf(TWIST * u) + MINOR_R * sin_v,
+                         radial * sin_u);
   const auto frame = RaymarchWhiteBox::surface_frame<SMALL_W, SMALL_H>(
       loc, TWIST, AMPLITUDE, MAJOR_R, MINOR_R);
   HS_EXPECT_NEAR(frame[3], cos_u, 1e-5f);
@@ -4027,13 +4042,14 @@ inline void test_raymarch_surface_frame_uv() {
 
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
       {MAJOR_R, MINOR_R}, {TWIST, AMPLITUDE, MAJOR_R}};
-  const Vector expected_normal = torus.normal(loc);
+  const math::Vector expected_normal = torus.normal(loc);
   HS_EXPECT_NEAR(frame[0], expected_normal.x, 1e-5f);
   HS_EXPECT_NEAR(frame[1], expected_normal.y, 1e-5f);
   HS_EXPECT_NEAR(frame[2], expected_normal.z, 1e-5f);
-  for (float radius : {0.0f, 0.5f * TOLERANCE, TOLERANCE, 2.0f * TOLERANCE}) {
+  for (float radius : {0.0f, 0.5f * math::TOLERANCE, math::TOLERANCE,
+                       2.0f * math::TOLERANCE}) {
     const auto frame = RaymarchWhiteBox::surface_frame<SMALL_W, SMALL_H>(
-        Vector(radius, 0.1f, 0.0f), 2, 0.35f, 0.45f, 0.14f);
+        math::Vector(radius, 0.1f, 0.0f), 2, 0.35f, 0.45f, 0.14f);
     for (float value : frame)
       HS_EXPECT_TRUE(std::isfinite(value));
   }
@@ -4052,27 +4068,28 @@ inline void test_raymarch_constexpr_sqrt_converges() {
   double worst = 0.0;
   for (int i = 1; i <= 80; ++i) {
     const float x = 0.05f * static_cast<float>(i); // 0.05 .. 4.0
-    worst = std::max(worst, std::fabs(static_cast<double>(constexpr_sqrt(x)) -
-                                      std::sqrt(static_cast<double>(x))));
+    worst =
+        std::max(worst, std::fabs(static_cast<double>(math::constexpr_sqrt(x)) -
+                                  std::sqrt(static_cast<double>(x))));
   }
   HS_EXPECT_LT(worst, 1e-6);
 
   const float radicand = WB::MAJOR * WB::MAJOR + WB::TWIST * WB::TWIST;
-  HS_EXPECT_NEAR(constexpr_sqrt(radicand), std::sqrt(radicand), 1e-7);
+  HS_EXPECT_NEAR(math::constexpr_sqrt(radicand), std::sqrt(radicand), 1e-7);
 
   // Radicands far outside O(1), where a fixed iteration count stops short.
   for (int i = 0; i < 6; ++i) {
     const float x = std::pow(10.0f, static_cast<float>(4 * i + 2));
     HS_CONTEXT("decade", static_cast<long long>(4 * i + 2));
-    HS_EXPECT_NEAR_REL(static_cast<double>(constexpr_sqrt(x)),
+    HS_EXPECT_NEAR_REL(static_cast<double>(math::constexpr_sqrt(x)),
                        std::sqrt(static_cast<double>(x)), 1e-6);
   }
 
-  static_assert(constexpr_sqrt(400.0f) == 20.0f);
-  static_assert(constexpr_sqrt(1.0e4f) == 100.0f);
-  static_assert(constexpr_sqrt(0.0f) == 0.0f);
-  static_assert(constexpr_sqrt(-1.0f) == 0.0f);
-  HS_EXPECT_EQ(constexpr_sqrt(0.0f), 0.0f);
+  static_assert(math::constexpr_sqrt(400.0f) == 20.0f);
+  static_assert(math::constexpr_sqrt(1.0e4f) == 100.0f);
+  static_assert(math::constexpr_sqrt(0.0f) == 0.0f);
+  static_assert(math::constexpr_sqrt(-1.0f) == 0.0f);
+  HS_EXPECT_EQ(math::constexpr_sqrt(0.0f), 0.0f);
 }
 
 /**
@@ -4111,8 +4128,8 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
         const double a = TWO_PI_DBL * j / 256;
         const double s = R + r * std::cos(a);
         const double y = y_mid + r * std::sin(a);
-        const Vector p(static_cast<float>(s * ct), static_cast<float>(y),
-                       static_cast<float>(s * st));
+        const math::Vector p(static_cast<float>(s * ct), static_cast<float>(y),
+                             static_cast<float>(s * st));
         max_off_surface =
             std::max(max_off_surface,
                      std::fabs(static_cast<double>(wv.raw_distance(p))));
@@ -4126,9 +4143,9 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
       for (int j = 0; j <= 64; ++j) {
         const double ph = 0.5 * TWO_PI_DBL * j / 64;
         const double sp = std::sin(ph);
-        const Vector q(static_cast<float>(bound * sp * std::cos(th)),
-                       static_cast<float>(bound * std::cos(ph)),
-                       static_cast<float>(bound * sp * std::sin(th)));
+        const math::Vector q(static_cast<float>(bound * sp * std::cos(th)),
+                             static_cast<float>(bound * std::cos(ph)),
+                             static_cast<float>(bound * sp * std::sin(th)));
         min_on_shell =
             std::min(min_on_shell, static_cast<double>(wv.raw_distance(q)));
       }
@@ -4165,11 +4182,12 @@ struct GnomonicStarsWhiteBox {
     return fx.cached_points;
   }
   template <int W, int H>
-  static Vector cache_at(const GnomonicStars<W, H> &fx, int i) {
+  static math::Vector cache_at(const GnomonicStars<W, H> &fx, int i) {
     return fx.spiral_cache[i];
   }
   template <int W, int H>
-  static void poison_cache(GnomonicStars<W, H> &fx, int i, const Vector &v) {
+  static void poison_cache(GnomonicStars<W, H> &fx, int i,
+                           const math::Vector &v) {
     fx.spiral_cache[i] = v;
   }
 };
@@ -4197,8 +4215,8 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
   };
   auto expect_lattice = [&](int n) {
     for (int i = 0; i < n; ++i) {
-      const Vector want = fib_spiral(n, 0.5f, i);
-      const Vector got = WB::cache_at(fx, i);
+      const math::Vector want = math::fib_spiral(n, 0.5f, i);
+      const math::Vector got = WB::cache_at(fx, i);
       HS_EXPECT_EQ(got.x, want.x);
       HS_EXPECT_EQ(got.y, want.y);
       HS_EXPECT_EQ(got.z, want.z);
@@ -4210,7 +4228,7 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
   expect_lattice(64);
 
   // An unchanged count leaves the cache alone, so the poison survives.
-  const Vector poison(0.0f, 0.0f, 1.0f);
+  const math::Vector poison(0.0f, 0.0f, 1.0f);
   WB::poison_cache(fx, 7, poison);
   step(64.0f);
   HS_EXPECT_EQ(WB::cached_points(fx), 64);
@@ -4241,9 +4259,9 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
 inline void test_gnomonicstars_radius_px_spans_one_column() {
   using WB = GnomonicStarsWhiteBox;
   constexpr int W = DEFAULT_W, H = DEFAULT_H;
-  const double column = 2.0 * static_cast<double>(PI_F) / W;
-  const double small_column = 2.0 * static_cast<double>(PI_F) / SMALL_W;
-  const Basis basis = make_basis(Quaternion(), X_AXIS);
+  const double column = 2.0 * static_cast<double>(math::PI_F) / W;
+  const double small_column = 2.0 * static_cast<double>(math::PI_F) / SMALL_W;
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
 
   for (int k : {1, 2, 12}) {
     const SDF::Star shape(basis, k * WB::radius_px<W, H>(), 5, 0.0f);
@@ -4260,7 +4278,7 @@ inline void test_gnomonicstars_radius_px_spans_one_column() {
     Canvas c(fx);
     Scan::Star::draw<W, H, false>(
         pipe, c, basis, SPAN_PX * WB::radius_px<W, H>(), /*sides=*/5,
-        [](const Vector &, Fragment &f) {
+        [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
@@ -4274,9 +4292,10 @@ inline void test_gnomonicstars_radius_px_spans_one_column() {
       if (p.r == 0 && p.g == 0 && p.b == 0)
         continue;
       ++lit;
-      const Vector v = pixel_to_vector<W, H>(x, y);
-      max_arc = std::max(max_arc, static_cast<double>(std::acos(
-                                      hs::clamp(dot(v, X_AXIS), -1.0f, 1.0f))));
+      const math::Vector v = math::pixel_to_vector<W, H>(x, y);
+      max_arc =
+          std::max(max_arc, static_cast<double>(std::acos(hs::clamp(
+                                math::dot(v, math::X_AXIS), -1.0f, 1.0f))));
     }
 
   HS_EXPECT_GT(lit, (size_t)0);
@@ -4294,7 +4313,7 @@ struct FishbowlWhiteBox {
   using EffectType = Fishbowl<SMALL_W, SMALL_H>;
   static size_t tween_vertices(const EffectType &fx) {
     size_t n = 0;
-    deep_tween(fx.node->trail, [&](const Quaternion &, float) { ++n; });
+    deep_tween(fx.node->trail, [&](const math::Quaternion &, float) { ++n; });
     return n;
   }
   static Color4 sample_fire(const EffectType &fx, float t) {
@@ -4312,8 +4331,9 @@ struct FishbowlWhiteBox {
                             float age_t) {
     return fx.shade_trail(palette_t, age_t);
   }
-  static bool needs_adaptive_midpoint(const Vector &a, const Vector &mid,
-                                      const Vector &b) {
+  static bool needs_adaptive_midpoint(const math::Vector &a,
+                                      const math::Vector &mid,
+                                      const math::Vector &b) {
     return EffectType::needs_adaptive_midpoint(a, mid, b);
   }
 };
@@ -4386,10 +4406,10 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   HS_EXPECT_NEAR(filling_speed, cycle_speed - coordinate_shift, 1e-7f);
   HS_EXPECT_NEAR(saturated_speed - coordinate_shift, filling_speed, 1e-7f);
 
-  const Vector a = X_AXIS;
-  const Vector b = Y_AXIS;
-  HS_EXPECT_FALSE(WB::needs_adaptive_midpoint(a, slerp(a, b, 0.5f), b));
-  HS_EXPECT_TRUE(WB::needs_adaptive_midpoint(a, Z_AXIS, b));
+  const math::Vector a = math::X_AXIS;
+  const math::Vector b = math::Y_AXIS;
+  HS_EXPECT_FALSE(WB::needs_adaptive_midpoint(a, math::slerp(a, b, 0.5f), b));
+  HS_EXPECT_TRUE(WB::needs_adaptive_midpoint(a, math::Z_AXIS, b));
   HS_EXPECT_EQ(WB::EffectType::MAX_FRAGMENTS,
                2 * WB::EffectType::TRAIL_LENGTH *
                    WB::EffectType::ORIENTATION_SUBSTEPS);
@@ -4444,14 +4464,14 @@ struct RingSpinWhiteBox {
     return fx.rings[i].orientation.length();
   }
   /** @brief World-space axis of ring @p i's great circle at sub-frame @p s. */
-  static Vector axis(const RS &fx, int i, int s) {
-    return fx.rings[i].orientation.orient(Y_AXIS, s).normalized();
+  static math::Vector axis(const RS &fx, int i, int s) {
+    return fx.rings[i].orientation.orient(math::Y_AXIS, s).normalized();
   }
   /** @brief Ring-pool size. */
   static int num_rings() { return RS::NUM_RINGS; }
   /** @brief Half-width in radians of the trail-head stroke. */
   static float head_half_width(const RS &fx) {
-    return 2.0f * (2.0f * PI_F / DEFAULT_W) * fx.params.thickness;
+    return 2.0f * (2.0f * math::PI_F / DEFAULT_W) * fx.params.thickness;
   }
 };
 
@@ -4487,11 +4507,12 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
       if (p.r == 0 && p.g == 0 && p.b == 0)
         continue;
       ++lit;
-      const Vector v = pixel_to_vector<DEFAULT_W, DEFAULT_H>(x, y);
+      const math::Vector v = math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(x, y);
       float nearest = 1.0f;
       for (int i = 0; i < WB::num_rings(); ++i)
         for (int s = 0; s < WB::substeps(fx, i); ++s)
-          nearest = std::min(nearest, std::abs(dot(v, WB::axis(fx, i, s))));
+          nearest =
+              std::min(nearest, std::abs(math::dot(v, WB::axis(fx, i, s))));
       worst = std::max(worst, nearest);
       if (nearest > band)
         ++off_circle;
@@ -4683,7 +4704,7 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static Color4 current_ring_color(const DisplacementField<W, H> &effect,
                                    float ring_t) {
-    return effect.palette.get(wrap_t(ring_t + effect.color_spin));
+    return effect.palette.get(math::wrap_t(ring_t + effect.color_spin));
   }
 
   template <int W, int H>
@@ -4692,7 +4713,7 @@ struct DisplacementFieldWhiteBox {
     const float feature_scale = effect.params.scale1 + effect.params.scale2;
     return hs::clamp(
         static_cast<int>(ceilf(DisplacementField<W, H>::LUT_SAMPLES_PER_UNIT *
-                               2.0f * PI_F * feature_scale * sin_theta)),
+                               2.0f * math::PI_F * feature_scale * sin_theta)),
         DisplacementField<W, H>::LUT_MIN_SAMPLES, W);
   }
 };
@@ -5019,46 +5040,47 @@ inline void test_displacement_field_clip_tiles_full() {
 inline void test_shader_workbench_glitch_lens_unit_norm() {
   for (float polar : {0.4f, 0.9f, 2.0f}) {
     for (float azimuth : {-2.1f, -0.4f, 0.7f, 1.8f}) {
-      const Vector input(sinf(polar) * cosf(azimuth), cosf(polar),
-                         sinf(polar) * sinf(azimuth));
-      const Vector mapped = lenses::glitch_lens(input);
+      const math::Vector input(sinf(polar) * cosf(azimuth), cosf(polar),
+                               sinf(polar) * sinf(azimuth));
+      const math::Vector mapped = lenses::glitch_lens(input);
       HS_EXPECT_NEAR(mapped.x, sinf(2 * polar) * cosf(3 * azimuth), 2e-6f);
       HS_EXPECT_NEAR(mapped.y, cosf(2 * polar), 2e-6f);
       HS_EXPECT_NEAR(mapped.z, sinf(2 * polar) * sinf(3 * azimuth), 2e-6f);
     }
   }
-  const Vector dirs[] = {Vector(1, 0, 0),
-                         Vector(0, 0, 1),
-                         Vector(-1, 0, 0),
-                         Vector(0, 0, -1),
-                         Vector(1, 1, 1).normalized(),
-                         Vector(-1, 2, -3).normalized(),
-                         Vector(3, -1, 2).normalized(),
-                         Vector(0.2f, -0.9f, 0.4f).normalized(),
-                         Vector(-0.7f, 0.1f, 0.7f).normalized()};
-  for (const Vector &v : dirs) {
+  const math::Vector dirs[] = {math::Vector(1, 0, 0),
+                               math::Vector(0, 0, 1),
+                               math::Vector(-1, 0, 0),
+                               math::Vector(0, 0, -1),
+                               math::Vector(1, 1, 1).normalized(),
+                               math::Vector(-1, 2, -3).normalized(),
+                               math::Vector(3, -1, 2).normalized(),
+                               math::Vector(0.2f, -0.9f, 0.4f).normalized(),
+                               math::Vector(-0.7f, 0.1f, 0.7f).normalized()};
+  for (const math::Vector &v : dirs) {
     HS_EXPECT_NEAR(lenses::glitch_lens(v).length(), 1.0f, 1e-3f);
   }
 
-  const Vector equator_x = lenses::glitch_lens(Vector(1, 0, 0));
+  const math::Vector equator_x = lenses::glitch_lens(math::Vector(1, 0, 0));
   HS_EXPECT_NEAR(equator_x.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(equator_x.y, -1.0f, 1e-6f);
   HS_EXPECT_NEAR(equator_x.z, 0.0f, 1e-6f);
 
-  const Vector north = lenses::glitch_lens(Vector(0, 1, 0));
+  const math::Vector north = lenses::glitch_lens(math::Vector(0, 1, 0));
   HS_EXPECT_NEAR(north.y, 1.0f, 1e-6f);
-  const Vector south = lenses::glitch_lens(Vector(0, -1, 0));
+  const math::Vector south = lenses::glitch_lens(math::Vector(0, -1, 0));
   HS_EXPECT_NEAR(south.y, 1.0f, 1e-6f);
 
   constexpr float EPSILON = 1e-4f;
   const float radial = sqrtf(1.0f - EPSILON * EPSILON);
-  const Vector center = lenses::glitch_lens(Vector(0.8f, 0.0f, 0.6f));
-  const Vector above =
-      lenses::glitch_lens(Vector(0.8f * radial, EPSILON, 0.6f * radial));
-  const Vector below =
-      lenses::glitch_lens(Vector(0.8f * radial, -EPSILON, 0.6f * radial));
-  const Vector forward = above - center;
-  const Vector backward = center - below;
+  const math::Vector center =
+      lenses::glitch_lens(math::Vector(0.8f, 0.0f, 0.6f));
+  const math::Vector above =
+      lenses::glitch_lens(math::Vector(0.8f * radial, EPSILON, 0.6f * radial));
+  const math::Vector below =
+      lenses::glitch_lens(math::Vector(0.8f * radial, -EPSILON, 0.6f * radial));
+  const math::Vector forward = above - center;
+  const math::Vector backward = center - below;
   HS_EXPECT_NEAR(forward.x, backward.x, 1e-6f);
   HS_EXPECT_NEAR(forward.y, backward.y, 1e-6f);
   HS_EXPECT_NEAR(forward.z, backward.z, 1e-6f);
@@ -5070,7 +5092,7 @@ struct MobiusRingsWhiteBox {
   static float conformal_coord(float z, float phase) {
     return MR::conformal_coord(z, phase);
   }
-  static Quaternion counter_rotation(const Vector &mid) {
+  static math::Quaternion counter_rotation(const math::Vector &mid) {
     return MR::counter_rotation(mid);
   }
 };
@@ -5090,10 +5112,11 @@ inline void test_mobius_rings_conformal_and_counter_rotation() {
   HS_EXPECT_NEAR(WB::conformal_coord(1.0f, 0.3f), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(WB::conformal_coord(-1.0f, 0.7f), 1.0f, 1e-6f);
 
-  HS_EXPECT_EQ(WB::counter_rotation(Vector(0.0f, 0.0f, 0.0f)), Quaternion());
+  HS_EXPECT_EQ(WB::counter_rotation(math::Vector(0.0f, 0.0f, 0.0f)),
+               math::Quaternion());
 
-  Vector mid(0.3f, -0.7f, 0.4f);
-  Vector r = rotate(mid.normalized(), WB::counter_rotation(mid));
+  math::Vector mid(0.3f, -0.7f, 0.4f);
+  math::Vector r = math::rotate(mid.normalized(), WB::counter_rotation(mid));
   HS_EXPECT_NEAR(r.x, 0.0f, 1e-3f);
   HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
   HS_EXPECT_NEAR(r.z, 1.0f, 1e-3f);
@@ -5365,23 +5388,23 @@ struct VoronoiWhiteBox {
   }
   /** @brief Spin axis of seeded site @p i. */
   template <int W, int H>
-  static Vector site_axis(const Voronoi<W, H> &v, size_t i) {
+  static math::Vector site_axis(const Voronoi<W, H> &v, size_t i) {
     return v.sites_buffer[i].axis;
   }
 
   /** @brief Position of seeded site @p i. */
   template <int W, int H>
-  static Vector site_position(const Voronoi<W, H> &v, size_t i) {
+  static math::Vector site_position(const Voronoi<W, H> &v, size_t i) {
     return v.sites_buffer[i].pos;
   }
 
   /** @brief Installs deterministic sites and index-coded colors. */
   template <int W, int H>
-  static void set_sites(Voronoi<W, H> &v, std::span<const Vector> sites) {
+  static void set_sites(Voronoi<W, H> &v, std::span<const math::Vector> sites) {
     v.sites_buffer.clear();
     for (size_t i = 0; i < sites.size(); ++i) {
       v.sites_buffer.push_back(
-          {sites[i], Vector(1, 0, 0),
+          {sites[i], math::Vector(1, 0, 0),
            Color4(Pixel(static_cast<uint16_t>(i + 1), 0, 0))});
     }
     v.current_num_sites = static_cast<int>(sites.size());
@@ -5405,7 +5428,7 @@ inline void test_voronoi_axes_use_uniform_sampler() {
   HS_EXPECT_GT(sites, 0u);
   hs::random().seed(1337u);
   for (size_t i = 0; i < sites; ++i)
-    HS_EXPECT_VEC(WB::site_axis(effect, i), random_vector(), 0.0f);
+    HS_EXPECT_VEC(WB::site_axis(effect, i), math::random_vector(), 0.0f);
 }
 
 /**
@@ -5418,7 +5441,7 @@ inline void test_voronoi_axes_use_uniform_sampler() {
  *         true nearest site.
  */
 template <int W, int H>
-inline double voronoi_render_nearest_match(std::span<const Vector> sites,
+inline double voronoi_render_nearest_match(std::span<const math::Vector> sites,
                                            float &max_deficit) {
   using WB = VoronoiWhiteBox;
   reset_effect_globals();
@@ -5432,10 +5455,10 @@ inline double voronoi_render_nearest_match(std::span<const Vector> sites,
   max_deficit = 0.0f;
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
-      const Vector p = pixel_to_vector<W, H>(x, y);
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
       float exact = -2.0f;
       for (size_t i = 0; i < WB::site_count(effect); ++i)
-        exact = std::max(exact, dot(p, WB::site_position(effect, i)));
+        exact = std::max(exact, math::dot(p, WB::site_position(effect, i)));
 
       const Pixel rendered = effect.get_pixel(x, y);
       const size_t rendered_site = rendered.r - 1u;
@@ -5443,8 +5466,9 @@ inline double voronoi_render_nearest_match(std::span<const Vector> sites,
                            rendered.b == 0 &&
                            rendered_site < WB::site_count(effect);
       const float deficit =
-          encoded ? exact - dot(p, WB::site_position(effect, rendered_site))
-                  : 4.0f;
+          encoded
+              ? exact - math::dot(p, WB::site_position(effect, rendered_site))
+              : 4.0f;
       if (deficit <= 0.0f)
         ++matched;
       else
@@ -5470,12 +5494,12 @@ inline double voronoi_render_nearest_match(std::span<const Vector> sites,
 inline void test_voronoi_union_candidates_cover_nearest() {
   float deficit = 0.0f;
 
-  const Vector octahedral[] = {
-      Vector(1, 0, 0),  Vector(-1, 0, 0), Vector(0, 1, 0),
-      Vector(0, -1, 0), Vector(0, 0, 1),  Vector(0, 0, -1),
+  const math::Vector octahedral[] = {
+      math::Vector(1, 0, 0),  math::Vector(-1, 0, 0), math::Vector(0, 1, 0),
+      math::Vector(0, -1, 0), math::Vector(0, 0, 1),  math::Vector(0, 0, -1),
   };
   const size_t octa_count = sizeof(octahedral) / sizeof(octahedral[0]);
-  const std::span<const Vector> sparse(octahedral, octa_count);
+  const std::span<const math::Vector> sparse(octahedral, octa_count);
   const double octa_match =
       voronoi_render_nearest_match<DEFAULT_W, DEFAULT_H>(sparse, deficit);
   HS_EXPECT_EQ(octa_match, 1.0);
@@ -5487,10 +5511,10 @@ inline void test_voronoi_union_candidates_cover_nearest() {
   // Voronoi::seed_sites places them, so the adaptive block floors at
   // COHERENCE_BLOCK_MIN.
   constexpr int N = VoronoiWhiteBox::MAX_SITES;
-  static Vector fib[N];
+  static math::Vector fib[N];
   for (int i = 0; i < N; ++i)
-    fib[i] = fib_spiral(N, /*eps=*/0.5f, i);
-  const std::span<const Vector> dense(fib, N);
+    fib[i] = math::fib_spiral(N, /*eps=*/0.5f, i);
+  const std::span<const math::Vector> dense(fib, N);
   const double fib_match =
       voronoi_render_nearest_match<DEFAULT_W, DEFAULT_H>(dense, deficit);
   HS_EXPECT_GE(fib_match, 0.999);
@@ -5586,7 +5610,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
   constexpr int W = 288, H = 144;
   constexpr size_t SCRATCH_A = 24 * 1024, SCRATCH_B = 32 * 1024;
   constexpr size_t MEASURE = 1024 * 1024; // headroom so a peak never traps here
-  constexpr float ANGLE = PI_F / 4.0f;
+  constexpr float ANGLE = math::PI_F / 4.0f;
 
   auto solids = Solids::Collections::get_simple_solids();
   for (size_t idx = 0; idx < solids.size(); ++idx) {
@@ -5622,14 +5646,14 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     // FaceScratchBuffer on top (the scratch_a-binding path per init's comment).
     {
       ScratchScope a_guard(scratch_arena_a);
-      Orientation<> orientation;
+      math::Orientation<> orientation;
       OrientTransformer camera(orientation);
       MeshState rotated;
       MeshOps::transform(mesh, rotated, scratch_arena_a, camera);
       hs_test::StubEffect fx(W, H);
       Canvas canvas(fx);
       Pipeline<W, H> filters;
-      auto frag = [](const Vector &, Fragment &f) {
+      auto frag = [](const math::Vector &, Fragment &f) {
         f.color = Color4(Pixel(1000, 1000, 1000), 1.0f);
       };
       Scan::Mesh::draw<W, H>(filters, canvas, rotated, frag, scratch_arena_a);

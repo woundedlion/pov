@@ -273,8 +273,8 @@ struct PreparedTrace {
 };
 
 template <int W, int H> constexpr float pixel_half_angle() {
-  constexpr float HORIZONTAL = TWO_PI_F / static_cast<float>(W);
-  constexpr float VERTICAL = RADIANS_PER_ROW<H>;
+  constexpr float HORIZONTAL = math::TWO_PI_F / static_cast<float>(W);
+  constexpr float VERTICAL = math::RADIANS_PER_ROW<H>;
   return 0.5f * (HORIZONTAL > VERTICAL ? HORIZONTAL : VERTICAL);
 }
 
@@ -282,7 +282,7 @@ template <int W, int H> constexpr float pixel_half_angle() {
 // path.
 __attribute__((always_inline)) inline float
 lattice_ramp(float edge0, float edge1, float value) {
-  return cubic_kernel((value - edge0) / (edge1 - edge0));
+  return math::cubic_kernel((value - edge0) / (edge1 - edge0));
 }
 
 inline float wire_coverage(float metric_sq, float radius, float half_width) {
@@ -294,13 +294,13 @@ __attribute__((always_inline)) inline float
 fast_wire_coverage(float metric_sq, float radius, float half_width) {
   const float signed_distance = sqrtf(metric_sq) - radius;
   const float ramp_position =
-      0.5f + 0.5f * signed_distance * fast_reciprocal(half_width);
-  return 1.0f - cubic_kernel(ramp_position);
+      0.5f + 0.5f * signed_distance * math::fast_reciprocal(half_width);
+  return 1.0f - math::cubic_kernel(ramp_position);
 }
 
 inline float near_field_coverage(float distance, float near_start,
                                  float near_inv_span) {
-  return cubic_kernel((distance - near_start) * near_inv_span);
+  return math::cubic_kernel((distance - near_start) * near_inv_span);
 }
 
 inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
@@ -313,7 +313,7 @@ inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
 }
 
 inline float next_plane_offset(float origin, bool positive) {
-  const float fraction = wrap_t(origin);
+  const float fraction = math::wrap_t(origin);
   if (fraction == 0.0f)
     return 1.0f;
   return positive ? 1.0f - fraction : fraction;
@@ -444,7 +444,7 @@ struct TraceCursor {
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0,
           typename ConsumeFn>
 __attribute__((always_inline)) inline void
-trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
+trace_layers_mode(const math::Vector &normal, const PreparedTrace &prepared,
                   ConsumeFn consume) {
   HS_PROFILE_DEEP(hl_trace_layers);
   constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
@@ -538,12 +538,13 @@ trace_layers_mode(const Vector &normal, const PreparedTrace &prepared,
 }
 
 template <typename ConsumeFn>
-inline void trace_layers(const Vector &normal, const PreparedTrace &prepared,
-                         ConsumeFn consume) {
+inline void trace_layers(const math::Vector &normal,
+                         const PreparedTrace &prepared, ConsumeFn consume) {
   trace_layers_mode(normal, prepared, consume);
 }
 
-inline TraceHit trace(const Vector &normal, const PreparedTrace &prepared) {
+inline TraceHit trace(const math::Vector &normal,
+                      const PreparedTrace &prepared) {
   TraceHit nearest;
   trace_layers(normal, prepared, [&](const TraceHit &hit) {
     nearest = hit;
@@ -779,20 +780,20 @@ public:
       if (uses_specialized_slice(frame.ctx.params)) {
         if (frame.ctx.params.shells == ShellCount::THREE) {
           Scan::Shader::draw_cached<W, H, 1>(
-              canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
+              canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
                 return HyperLatticeDetail::SpecializedRenderPipeline<
                     3>::evaluate(view, frame.ctx, frame.prepared);
               });
         } else {
           Scan::Shader::draw_cached<W, H, 1>(
-              canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
+              canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
                 return HyperLatticeDetail::SpecializedRenderPipeline<
                     2>::evaluate(view, frame.ctx, frame.prepared);
               });
         }
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
-            canvas, [&frame](const Vector &view) HS_HOT_FLASH_MEMBER {
+            canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
               return HyperLatticeDetail::RenderPipeline::evaluate(
                   view, frame.ctx, frame.prepared);
             });
@@ -829,15 +830,15 @@ private:
     static constexpr float RATE[6] = {1.0f, 0.731f, 0.517f,
                                       1.0f, 0.707f, 0.419f};
     for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
-      origin[axis] = wrap_t(origin[axis] + params.speed * VELOCITY[axis]);
+      origin[axis] = math::wrap_t(origin[axis] + params.speed * VELOCITY[axis]);
     for (int plane = 0; plane < 3; ++plane)
-      rotation_phase[plane] =
-          wrap(rotation_phase[plane] + params.spin_3d * RATE[plane], TWO_PI_F);
+      rotation_phase[plane] = math::wrap(
+          rotation_phase[plane] + params.spin_3d * RATE[plane], math::TWO_PI_F);
     const float SPIN_4D_STEP =
         HyperLatticeDetail::dimension_mix(params.mode) * params.spin_4d;
     for (int plane = 3; plane < 6; ++plane)
-      rotation_phase[plane] =
-          wrap(rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], TWO_PI_F);
+      rotation_phase[plane] = math::wrap(
+          rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], math::TWO_PI_F);
   }
 
   static void next_depth_palette(void *, uint32_t sequence,

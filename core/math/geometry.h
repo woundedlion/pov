@@ -21,6 +21,8 @@
 #include <limits>
 #include <type_traits>
 
+namespace math {
+
 /**
  * @brief Wraps a floating-point value around a modulo base (m).
  * @details Result is non-negative and in [0, m). Precondition: m > 0 (the debug
@@ -891,3 +893,5 @@ inline std::pair<Basis, float> get_antipode(const Basis &basis, float radius) {
   }
   return {basis, radius};
 }
+
+} // namespace math

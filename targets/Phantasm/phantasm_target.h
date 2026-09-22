@@ -109,7 +109,7 @@ Effect *construct_effect() {
                 "effect exceeds the heap-object budget");
   // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
   // never observes a half-filled table.
-  GeometryResolution<E>::init();
+  math::GeometryResolution<E>::init();
   configure_arenas_default(); // Reset before init so effects can override
   E *e = new (std::nothrow) E();
   HS_CHECK(e != nullptr, "effect allocation failed (OOM)");

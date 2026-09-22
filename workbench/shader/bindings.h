@@ -88,7 +88,7 @@ struct ProjectionStateProvider {
   using Binding = ShaderWorkbenchBinding;
   using FrameState = typename Binding::FrameState;
 
-  static const Quaternion &conjugate(const FrameState &frame) {
+  static const math::Quaternion &conjugate(const FrameState &frame) {
     return frame.transforms.projection_conj;
   }
   static float singularity_fade(const FrameState &frame) {
@@ -150,7 +150,7 @@ template <bool Outer> struct WarpStateProvider {
       return frame.params.warp.inner;
   }
   static PreparedWarpStage prepare(const FrameState &frame) {
-    const Complex period = source_cartesian_period(
+    const math::Complex period = source_cartesian_period(
         frame.slots.function, frame.params.source.lattice_cell_scale);
     if constexpr (Outer)
       return prepare_warp_stage(frame.slots.warp_program.outer,

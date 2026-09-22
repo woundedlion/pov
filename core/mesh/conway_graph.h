@@ -186,7 +186,7 @@ inline constexpr float T_JITTERBUG_ICOSA = 0.72990924f;
 inline constexpr float TWIST_JITTERBUG_ICOSA = -0.38813952f;
 /** Jitterbug octa twist: snub(tetrahedron, 0.5, -pi/3) merges its 12 vertices
  * pairwise onto the octahedron's 6 (the jitterbug closure). */
-inline constexpr float TWIST_JITTERBUG_OCTA = -PI_F / 3.0f;
+inline constexpr float TWIST_JITTERBUG_OCTA = -math::PI_F / 3.0f;
 
 /**
  * @brief One bidirectional graph edge: a single operator sweep on one seed.

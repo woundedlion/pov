@@ -275,8 +275,8 @@ struct TweenableModel {
     /** @brief Sub-frame count, signed as Orientation's is. */
     int length() const { return 0; }
     /** @brief Sub-frame accessor. */
-    const Quaternion &get(int) const { return q; }
-    Quaternion q; /**< Storage backing get(). */
+    const math::Quaternion &get(int) const { return q; }
+    math::Quaternion q; /**< Storage backing get(). */
   };
   /** @brief Frame count, consumed as a size_t. */
   size_t length() const { return 0; }

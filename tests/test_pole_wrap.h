@@ -25,7 +25,7 @@ inline void test_pole_wrap_in_range_is_identity() {
   int rows[] = {0, 1, 30, H - 1};
   for (int r : rows) {
     int col = 17, row = r;
-    HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+    HS_EXPECT_TRUE((math::pole_wrap<W, H>(col, row)));
     HS_EXPECT_EQ(col, 17);
     HS_EXPECT_EQ(row, r);
   }
@@ -38,19 +38,19 @@ inline void test_pole_wrap_in_range_is_identity() {
 inline void test_pole_wrap_north_reflects_half_turn() {
   constexpr int W = 64, H = 64;
   int col = 5, row = -1;
-  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE((math::pole_wrap<W, H>(col, row)));
   HS_EXPECT_EQ(row, 1);
   HS_EXPECT_EQ(col, 5 + W / 2);
 
   col = 40;
   row = -3;
-  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE((math::pole_wrap<W, H>(col, row)));
   HS_EXPECT_EQ(row, 3);
   HS_EXPECT_EQ(col, 40 - W / 2);
 
   col = 5;
   row = -(H + 5);
-  HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE(!(math::pole_wrap<W, H>(col, row)));
 }
 
 /**
@@ -61,7 +61,7 @@ inline void test_pole_wrap_south_reflects_about_virtual_pole() {
   constexpr int W = 64, H = 64;
   constexpr int SOUTH = H + hs::H_OFFSET - 1;
   int col = 9, row = H;
-  const bool live = pole_wrap<W, H>(col, row);
+  const bool live = math::pole_wrap<W, H>(col, row);
   if constexpr (hs::H_OFFSET == 0) {
     // The south pole is the last rendered row, so row H mirrors to H - 2.
     HS_EXPECT_TRUE(live);
@@ -74,7 +74,7 @@ inline void test_pole_wrap_south_reflects_about_virtual_pole() {
 
   col = 9;
   row = 2 * SOUTH - (H - 2);
-  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE((math::pole_wrap<W, H>(col, row)));
   HS_EXPECT_EQ(row, H - 2);
   HS_EXPECT_EQ(col, 9 + W / 2);
 
@@ -84,28 +84,28 @@ inline void test_pole_wrap_south_reflects_about_virtual_pole() {
   constexpr int FIRST_LIVE = 2 * SOUTH - (H - 1) >= H ? 2 * SOUTH - (H - 1) : H;
   col = 40;
   row = FIRST_LIVE;
-  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE((math::pole_wrap<W, H>(col, row)));
   HS_EXPECT_EQ(row, 2 * SOUTH - FIRST_LIVE);
   HS_EXPECT_EQ(col, 40 - W / 2);
   if constexpr (hs::H_OFFSET > 0) {
     col = 40;
     row = FIRST_LIVE - 1;
-    HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
+    HS_EXPECT_TRUE(!(math::pole_wrap<W, H>(col, row)));
   }
 
   col = 40;
   row = 2 * SOUTH;
-  HS_EXPECT_TRUE((pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE((math::pole_wrap<W, H>(col, row)));
   HS_EXPECT_EQ(row, 0);
   HS_EXPECT_EQ(col, 40 - W / 2);
 
   col = 9;
   row = 2 * SOUTH + 1;
-  HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE(!(math::pole_wrap<W, H>(col, row)));
 
   col = 9;
   row = 4 * H;
-  HS_EXPECT_TRUE(!(pole_wrap<W, H>(col, row)));
+  HS_EXPECT_TRUE(!(math::pole_wrap<W, H>(col, row)));
 }
 
 /**

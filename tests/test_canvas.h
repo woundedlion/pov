@@ -1442,7 +1442,7 @@ struct StubPipe {
     float_x = x;
     float_y = y;
   }
-  void plot(Canvas &, const Vector &, const Pixel &, float, float) {}
+  void plot(Canvas &, const math::Vector &, const Pixel &, float, float) {}
 };
 
 /**

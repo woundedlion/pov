@@ -93,8 +93,8 @@ struct Run {
   // would mean the image died, not that the perturbation was absorbed.
   static void emit(Canvas &c, int frame) {
     const float t = frame * 0.05f;
-    const int cx = (int)(W * 0.5f + W * 0.30f * fast_cosf(t));
-    const int cy = (int)(H * 0.5f + H * 0.30f * fast_sinf(t * 0.7f));
+    const int cx = (int)(W * 0.5f + W * 0.30f * math::fast_cosf(t));
+    const int cy = (int)(H * 0.5f + H * 0.30f * math::fast_sinf(t * 0.7f));
     for (int dy = -10; dy <= 10; ++dy)
       for (int dx = -10; dx <= 10; ++dx) {
         if (dx * dx + dy * dy > 100)

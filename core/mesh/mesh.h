@@ -25,9 +25,9 @@
  * @brief A simple dynamic mesh structure compatible with MeshOps templates.
  */
 struct PolyMesh {
-  ArenaVector<Vector> vertices;     /**< Vertex positions. */
-  ArenaVector<uint8_t> face_counts; /**< Number of sides for each face. */
-  ArenaVector<uint16_t> faces;      /**< Flat per-face vertex index list. */
+  ArenaVector<math::Vector> vertices; /**< Vertex positions. */
+  ArenaVector<uint8_t> face_counts;   /**< Number of sides for each face. */
+  ArenaVector<uint16_t> faces;        /**< Flat per-face vertex index list. */
   /**
    * @brief Per-face topology class id, as filled by
    * classify_faces_by_topology.
@@ -120,7 +120,7 @@ struct PolyMesh {
  */
 template <typename M>
 concept MeshLike = requires(M &mesh, const M &const_mesh, Arena &arena) {
-  { mesh.vertices } -> std::same_as<ArenaVector<Vector> &>;
+  { mesh.vertices } -> std::same_as<ArenaVector<math::Vector> &>;
   { mesh.face_counts } -> std::same_as<ArenaVector<uint8_t> &>;
   { mesh.faces } -> std::same_as<ArenaVector<uint16_t> &>;
   { mesh.topology } -> std::same_as<ArenaVector<uint16_t> &>;
@@ -502,12 +502,13 @@ inline void vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
  * @return The normalized midpoint, or the head endpoint's direction when the
  *   endpoints are antipodal and the midpoint is degenerate.
  */
-inline Vector edge_midpoint(const HalfEdgeMesh &he_mesh, const PolyMesh &mesh,
-                            uint16_t he_idx) {
+inline math::Vector edge_midpoint(const HalfEdgeMesh &he_mesh,
+                                  const PolyMesh &mesh, uint16_t he_idx) {
   const HalfEdge &he = he_mesh.half_edges[he_idx];
-  const Vector &head = mesh.vertices[he.vertex];
-  const Vector &tail = mesh.vertices[he_mesh.half_edges[he.prev].vertex];
-  return normalized_or((head + tail) * 0.5f, normalized_or(head, X_AXIS));
+  const math::Vector &head = mesh.vertices[he.vertex];
+  const math::Vector &tail = mesh.vertices[he_mesh.half_edges[he.prev].vertex];
+  return math::normalized_or((head + tail) * 0.5f,
+                             math::normalized_or(head, math::X_AXIS));
 }
 
 /**
@@ -900,19 +901,20 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       for (int k = 0; k < count; ++k) {
         const int prev_k = k == 0 ? count - 1 : k - 1;
         const int next_k = k + 1 == count ? 0 : k + 1;
-        const Vector &prev = mesh.vertices[faces[offset + prev_k]];
-        const Vector &curr = mesh.vertices[faces[offset + k]];
-        const Vector &next = mesh.vertices[faces[offset + next_k]];
-        const Vector e1 = prev - curr;
-        const Vector e2 = next - curr;
-        const float m1 = dot(e1, e1);
-        const float m2 = dot(e2, e2);
+        const math::Vector &prev = mesh.vertices[faces[offset + prev_k]];
+        const math::Vector &curr = mesh.vertices[faces[offset + k]];
+        const math::Vector &next = mesh.vertices[faces[offset + next_k]];
+        const math::Vector e1 = prev - curr;
+        const math::Vector e2 = next - curr;
+        const float m1 = math::dot(e1, e1);
+        const float m2 = math::dot(e2, e2);
         float ang = 0.0f;
         if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ) {
-          const float d = hs::clamp(dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
+          const float d =
+              hs::clamp(math::dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
           ang = acosf(d);
         }
-        angles[k] = static_cast<int>(std::round(ang * 180.0f / PI_F));
+        angles[k] = static_cast<int>(std::round(ang * 180.0f / math::PI_F));
       }
       for (int k = 1; k < count; ++k) {
         const int x = angles[k];

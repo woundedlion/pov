@@ -183,7 +183,7 @@ private:
 #endif
 
   ProceduralPalette palette; /**< Color palette sampled by ring hue. */
-  Orientation<>
+  math::Orientation<>
       orientation; /**< Shared orientation driven by the timeline rotation. */
 
   /** @brief Render pipeline: world-space orientation then screen-space anti-aliasing. */
@@ -201,7 +201,8 @@ private:
     for (int i = 0; i < NUM_SAMPLES; ++i) {
       float t_norm = static_cast<float>(i) / NUM_SAMPLES;
       float shift =
-          PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t_norm));
+          PETAL_DEPTH *
+          std::abs(math::fast_sinf(PETAL_LOBES * math::PI_F * t_norm));
       exp_shift[i] = expf(shift);
     }
   }
@@ -213,8 +214,9 @@ private:
    * frame zero rather than filling in over time.
    */
   HS_COLD_MEMBER void init_timeline() {
-    timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
-                                           ease_linear, true));
+    timeline.add(0, Animation::Rotation<W>(orientation, math::UP,
+                                           math::PI_F / 4.0f, 160, ease_linear,
+                                           true));
     gap_accumulator = 0.0f;
     timeline.add(0, Animation::PeriodicTimer(
                         1, [this](Canvas &) { this->check_spawn(); }, true));
@@ -271,7 +273,7 @@ private:
         rings[i].rho = initial_rho;
         rings[i].hue = next_hue;
         constexpr float HUE_STEP = 0.13f;
-        next_hue = wrap(next_hue + HUE_STEP, 1.0f);
+        next_hue = math::wrap(next_hue + HUE_STEP, 1.0f);
 #if HS_ENABLE_TEST_HOOKS
         ++spawns;
 #endif
@@ -327,7 +329,7 @@ private:
     float effective_opacity = opacity * params.alpha;
 
     constexpr int num_samples = NUM_SAMPLES;
-    const float step = 2.0f * PI_F / num_samples;
+    const float step = 2.0f * math::PI_F / num_samples;
 
     Color4 base_col = palette.get(ring.hue).color;
     base_col.alpha = effective_opacity;
@@ -352,17 +354,17 @@ private:
 
         float r2 = R * R;
         float denom = 1.0f + r2;
-        float x = 2.0f * R * fast_cosf(final_theta) / denom;
-        float y = 2.0f * R * fast_sinf(final_theta) / denom;
+        float x = 2.0f * R * math::fast_cosf(final_theta) / denom;
+        float y = 2.0f * R * math::fast_sinf(final_theta) / denom;
         float z = (r2 - 1.0f) / denom;
 
         Fragment f;
-        f.pos = Vector(x, y, z);
+        f.pos = math::Vector(x, y, z);
         fragments.push_back(f);
       }
     }
 
-    auto fragment_shader = [&](const Vector &, Fragment &f) {
+    auto fragment_shader = [&](const math::Vector &, Fragment &f) {
       f.color = base_col;
     };
 

@@ -122,7 +122,7 @@ inline void render_faces(std::vector<Pixel> &out, const MeshState &mesh,
     Arena scan_scratch(cc_scan_buf, sizeof(cc_scan_buf));
     Scan::Mesh::draw<FB_W, FB_H>(
         pipe, c, mesh,
-        [&](const Vector &, Fragment &f) {
+        [&](const math::Vector &, Fragment &f) {
           f.color = color_of(static_cast<int>(f.v2));
         },
         scan_scratch);
@@ -333,17 +333,18 @@ inline void check_flat_star_faces_match_base(const PolyMesh &base,
     HS_EXPECT_EQ(oc, 2 * bc);
 
     // Candidate boundary points of base face fi on the unit sphere.
-    std::vector<Vector> corners, mids;
+    std::vector<math::Vector> corners, mids;
     for (int k = 0; k < bc; ++k) {
-      const Vector c0 = base.vertices[base.faces[base_off + k]];
-      const Vector c1 = base.vertices[base.faces[base_off + (k + 1) % bc]];
+      const math::Vector c0 = base.vertices[base.faces[base_off + k]];
+      const math::Vector c1 =
+          base.vertices[base.faces[base_off + (k + 1) % bc]];
       corners.push_back(c0.normalized());
       mids.push_back(((c0 + c1) * 0.5f).normalized());
     }
 
     int corner_hits = 0;
     for (int k = 0; k < oc; ++k) {
-      const Vector v = flat.vertices[flat.faces[flat_off + k]];
+      const math::Vector v = flat.vertices[flat.faces[flat_off + k]];
       bool on_corner = false, on_mid = false;
       for (int j = 0; j < bc; ++j) {
         if ((v - corners[j]).length() <= TOL)
@@ -510,7 +511,7 @@ inline void test_palette_carry_across_arrivals() {
     int landed[PALETTES] = {};
     int shown[PALETTES] = {};
     for (size_t f = 0; f < nf; ++f) {
-      ++landed[to_palette[wrap(topo[f], PALETTES)]];
+      ++landed[to_palette[math::wrap(topo[f], PALETTES)]];
       ++shown[Probe::node_face_palette(fx)[f]];
     }
     const int failed_before = hs_test::stats().failed;
@@ -804,7 +805,7 @@ constexpr float HOST_TIE_SQ = 1e-4f;
 /**
  * @brief Unit-sphere vertex-average centroid of face fi.
  */
-inline Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
+inline math::Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
   size_t off = 0;
   for (size_t i = 0; i < fi; ++i)
     off += m.face_counts[i];
@@ -858,10 +859,10 @@ inline void test_collapsing_faces_land_on_host_palette() {
     if (dep_faces > MAX_FACES || survivors > MAX_FACES)
       continue;
     uint8_t pal[MAX_FACES];
-    Vector cen[MAX_FACES];
+    math::Vector cen[MAX_FACES];
     for (size_t f = 0, off = 0; f < dep_faces; ++f) {
       pal[f] = static_cast<uint8_t>(departed.face_counts[f] % PALETTES);
-      Vector c(0.0f, 0.0f, 0.0f);
+      math::Vector c(0.0f, 0.0f, 0.0f);
       for (int k = 0; k < departed.face_counts[f]; ++k)
         c = c + departed.vertices[departed.faces[off + k]];
       cen[f] = c.normalized();
@@ -874,7 +875,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
 
     // Arrival geometry: the collapsed form the leg lands on, whose centroids
     // name the survivor each dying face closes into.
-    Vector arrival_cen[MAX_FACES];
+    math::Vector arrival_cen[MAX_FACES];
     size_t arrival_faces = 0;
     {
       Arena a(cc_scan_buf, sizeof(cc_scan_buf) / 2);
@@ -928,17 +929,18 @@ inline void test_collapsing_faces_land_on_host_palette() {
     for (size_t f = survivors; f < landing.faces; ++f) {
       float best = 1e9f;
       for (size_t j = 0; j < survivors; ++j) {
-        const Vector d = arrival_cen[f] - arrival_cen[j];
-        best = std::min(best, dot(d, d));
+        const math::Vector d = arrival_cen[f] - arrival_cen[j];
+        best = std::min(best, math::dot(d, d));
       }
       // A sliver that collapses onto a vertex or an edge is equidistant from
       // every survivor meeting there, so any of them is a legal host.
       bool hosted = false;
       for (size_t j = 0; j < survivors && !hosted; ++j) {
-        const Vector d = arrival_cen[f] - arrival_cen[j];
-        hosted = dot(d, d) <= best + HOST_TIE_SQ &&
-                 wrap(static_cast<int>(landing.topology[f]), PALETTES) ==
-                     wrap(static_cast<int>(landing.topology[j]), PALETTES);
+        const math::Vector d = arrival_cen[f] - arrival_cen[j];
+        hosted =
+            math::dot(d, d) <= best + HOST_TIE_SQ &&
+            math::wrap(static_cast<int>(landing.topology[f]), PALETTES) ==
+                math::wrap(static_cast<int>(landing.topology[j]), PALETTES);
       }
       HS_EXPECT_TRUE(hosted);
     }
@@ -1011,7 +1013,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   step_and_snapshot(anim, fx, snap);
   HS_EXPECT_EQ(snap.colors.size(), landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to = landing.to_palette[wrap(
+    const uint8_t to = landing.to_palette[math::wrap(
         static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
     const uint8_t from = f < landing.primary_faces
                              ? pal[f]
@@ -1025,7 +1027,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   for (int f = 1; f < SWEEP; ++f)
     step_and_snapshot(anim, fx, snap);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to = landing.to_palette[wrap(
+    const uint8_t to = landing.to_palette[math::wrap(
         static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
       expect_color_eq(snap.colors[f][s],
@@ -1105,7 +1107,7 @@ inline void test_palette_mapping_total_all_edges() {
     step_and_snapshot(anim, fx, snap); // frame 1: w == 0
     HS_EXPECT_EQ(snap.colors.size(), landing.faces);
     for (size_t f = 0; f < snap.colors.size(); ++f) {
-      const uint8_t to = landing.to_palette[wrap(
+      const uint8_t to = landing.to_palette[math::wrap(
           static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
       const uint8_t from = f < landing.primary_faces ? pal[f] : to;
       for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
@@ -1323,7 +1325,7 @@ inline void test_leg_start_seed_frame_continuity() {
     // Departed-node handoff: alternating palettes, real centroids.
     const size_t prev_faces = node_mesh.face_counts.size();
     uint8_t pal[128];
-    Vector cents[128];
+    math::Vector cents[128];
     HS_EXPECT_LE(prev_faces, (size_t)128);
     // The script threads state leg to leg, so an over-cap node cannot be
     // skipped: stop the walk instead of writing past pal/cents.
@@ -1364,12 +1366,12 @@ inline void test_leg_start_seed_frame_continuity() {
     if (total > 128)
       return;
     for (size_t f = 0; f < total; ++f) {
-      const Vector c = poly_face_centroid(start, f);
+      const math::Vector c = poly_face_centroid(start, f);
       size_t best = 0;
       float best_d = 1e9f;
       for (size_t g = 0; g < prev_faces; ++g) {
-        const Vector d = c - cents[g];
-        const float dsq = dot(d, d);
+        const math::Vector d = c - cents[g];
+        const float dsq = math::dot(d, d);
         if (dsq < best_d) {
           best_d = dsq;
           best = g;
@@ -1608,7 +1610,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
     const size_t nf = Probe::node_faces(fx);
     bool star[PALETTES] = {}, strap[PALETTES] = {};
     for (size_t f = 0; f < mesh.topology.size(); ++f) {
-      const int slot = wrap(static_cast<int>(mesh.topology[f]), PALETTES);
+      const int slot = math::wrap(static_cast<int>(mesh.topology[f]), PALETTES);
       (f < nf ? star[slot] : strap[slot]) = true;
     }
     const uint8_t mask = Probe::strap_blend_mask(fx);
@@ -1791,7 +1793,7 @@ template <int W, int H>
 inline float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
   const float progress = static_cast<float>(cycle_frame) /
                          conway_soak_tests::HankinWalkProbe::sweep_frames(fx);
-  return sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f)(ease_linear(progress));
+  return sin_wave(0.0f, math::PI_F / 2.0f, 1.0f, 0.0f)(ease_linear(progress));
 }
 
 /** Hard-recolor pixel count between two captured frames. */

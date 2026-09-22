@@ -40,7 +40,7 @@ struct MindSplatterWhiteBox {
     std::vector<ObjectBytes<Attractor>> attractors;
     ObjectBytes<Params> params{};
     ObjectBytes<Transition> transition{};
-    ObjectBytes<Orientation<>> orientation{};
+    ObjectBytes<math::Orientation<>> orientation{};
     ObjectBytes<math::MobiusParams> mobius{};
     std::array<float, EffectType::MAX_EMITTERS> emit_phases{};
     uint8_t palette_sequence = 0;
@@ -74,23 +74,24 @@ struct MindSplatterWhiteBox {
     using Particle = typename Snapshot::Particle;
     HS_CHECK(snapshot.particles.size() <= UINT16_MAX);
     HS_CHECK(sizeof(Particle) <= UINT16_MAX);
-    HS_CHECK(sizeof(Orientation<>) <= UINT16_MAX);
+    HS_CHECK(sizeof(math::Orientation<>) <= UINT16_MAX);
     HS_CHECK(sizeof(math::MobiusParams) <= UINT16_MAX);
 
     std::vector<unsigned char> bytes;
-    bytes.reserve(24 + sizeof(Orientation<>) + sizeof(math::MobiusParams) +
+    bytes.reserve(24 + sizeof(math::Orientation<>) +
+                  sizeof(math::MobiusParams) +
                   snapshot.particles.size() * sizeof(Particle));
     append_u32(bytes, REPLAY_MAGIC);
     append_u16(bytes, REPLAY_VERSION);
     append_u16(bytes, W);
     append_u16(bytes, H);
     append_u16(bytes, static_cast<uint16_t>(sizeof(Particle)));
-    append_u16(bytes, static_cast<uint16_t>(sizeof(Orientation<>)));
+    append_u16(bytes, static_cast<uint16_t>(sizeof(math::Orientation<>)));
     append_u16(bytes, static_cast<uint16_t>(sizeof(math::MobiusParams)));
     append_u16(bytes, static_cast<uint16_t>(snapshot.particles.size()));
     append_u16(bytes, snapshot.max_life);
     bytes.push_back(static_cast<unsigned char>(snapshot.active_base_mesh));
-    append_object<Orientation<>>(bytes, snapshot.orientation);
+    append_object<math::Orientation<>>(bytes, snapshot.orientation);
     append_object<math::MobiusParams>(bytes, snapshot.mobius);
     for (const ObjectBytes<Particle> &particle : snapshot.particles)
       append_object<Particle>(bytes, particle);
@@ -208,7 +209,7 @@ struct MindSplatterWhiteBox {
       restore_object(ms.particle_system.attractors[i], snapshot.attractors[i]);
     for (const ObjectBytes<Particle> &bytes : snapshot.particles) {
       const size_t i = ms.particle_system.active();
-      ms.particle_system.spawn(Vector(), Vector(), 0);
+      ms.particle_system.spawn(math::Vector(), math::Vector(), 0);
       restore_object(ms.particle_system.pool[i], bytes);
     }
   }
@@ -227,7 +228,7 @@ struct MindSplatterWhiteBox {
              "MindSplatter replay corpus resolution differs");
     HS_CHECK(reader.read_u16() == sizeof(Particle),
              "MindSplatter replay particle layout differs");
-    HS_CHECK(reader.read_u16() == sizeof(Orientation<>),
+    HS_CHECK(reader.read_u16() == sizeof(math::Orientation<>),
              "MindSplatter replay orientation layout differs");
     HS_CHECK(reader.read_u16() == sizeof(math::MobiusParams),
              "MindSplatter replay Mobius layout differs");
@@ -242,11 +243,11 @@ struct MindSplatterWhiteBox {
     HS_CHECK(particle_count <= ms.particle_system.pool.capacity());
 
     ms.configure_particle_geometry(active_base_mesh);
-    restore_object(ms.orientation, reader.read_object<Orientation<>>());
+    restore_object(ms.orientation, reader.read_object<math::Orientation<>>());
     restore_object(ms.mobius, reader.read_object<math::MobiusParams>());
     ms.particle_system.max_life = max_life;
     for (uint16_t i = 0; i < particle_count; ++i) {
-      ms.particle_system.spawn(Vector(), Vector(), 0);
+      ms.particle_system.spawn(math::Vector(), math::Vector(), 0);
       restore_object(ms.particle_system.pool[i],
                      reader.read_object<Particle>());
     }
@@ -322,46 +323,48 @@ struct MindSplatterWhiteBox {
   }
   static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
   static float event_horizon() { return MS::EVENT_HORIZON; }
-  static float hole_alpha(const Vector &p) {
-    return MS::octahedral_hole_alpha(p, fast_cosf(MS::EVENT_HORIZON));
+  static float hole_alpha(const math::Vector &p) {
+    return MS::octahedral_hole_alpha(p, math::fast_cosf(MS::EVENT_HORIZON));
   }
-  static float reference_hole_alpha(const Vector &p) {
-    const float cos_event_horizon = fast_cosf(MS::EVENT_HORIZON);
+  static float reference_hole_alpha(const math::Vector &p) {
+    const float cos_event_horizon = math::fast_cosf(MS::EVENT_HORIZON);
     float alpha = 1.0f;
-    for (const Vector &axis : Solids::Octahedron::vertices) {
-      const float cos_d = dot(p, axis);
+    for (const math::Vector &axis : Solids::Octahedron::vertices) {
+      const float cos_d = math::dot(p, axis);
       if (cos_d < cos_event_horizon)
         continue;
-      const float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-      alpha *= quintic_kernel(d / MS::EVENT_HORIZON);
+      const float d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+      alpha *= math::quintic_kernel(d / MS::EVENT_HORIZON);
     }
     return alpha;
   }
   template <int W, int H>
   static float attractor_hole_alpha(const MindSplatter<W, H> &ms,
-                                    const Vector &p) {
+                                    const math::Vector &p) {
     return ms.attractor_hole_alpha(
-        p, fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
+        p, math::fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
   }
   template <int W, int H>
   static float reference_attractor_hole_alpha(const MindSplatter<W, H> &ms,
-                                              const Vector &p) {
+                                              const math::Vector &p) {
     return ms.reference_attractor_hole_alpha(
-        p, fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
+        p, math::fast_cosf(MindSplatter<W, H>::EVENT_HORIZON));
   }
   template <int W, int H>
-  static Vector attractor_position(const MindSplatter<W, H> &ms, size_t i) {
+  static math::Vector attractor_position(const MindSplatter<W, H> &ms,
+                                         size_t i) {
     return ms.particle_system.attractors[i].position;
   }
-  static Vector matrix_vertex(const Vector &v, const math::MobiusParams &mobius,
-                              const Quaternion &orientation) {
-    RotationMatrix rotation(orientation);
+  static math::Vector matrix_vertex(const math::Vector &v,
+                                    const math::MobiusParams &mobius,
+                                    const math::Quaternion &orientation) {
+    math::RotationMatrix rotation(orientation);
     return rotation.apply(math::mobius_transform(v, mobius));
   }
-  static Vector reference_vertex(const Vector &v,
-                                 const math::MobiusParams &mobius,
-                                 const Quaternion &orientation) {
-    return rotate(math::mobius_transform(v, mobius), orientation);
+  static math::Vector reference_vertex(const math::Vector &v,
+                                       const math::MobiusParams &mobius,
+                                       const math::Quaternion &orientation) {
+    return math::rotate(math::mobius_transform(v, mobius), orientation);
   }
   static constexpr int trail_length() { return MS::TRAIL_LEN; }
   template <int W, int H>
@@ -448,7 +451,7 @@ struct MindSplatterWhiteBox {
     while (ms.particle_system.active() < ms.particle_system.pool.capacity()) {
       const size_t destination = ms.particle_system.active();
       const auto source = ms.particle_system.pool[destination % source_count];
-      ms.particle_system.spawn(Vector(), Vector(), 0);
+      ms.particle_system.spawn(math::Vector(), math::Vector(), 0);
       ms.particle_system.pool[destination] = source;
     }
     ms.params.active_count = static_cast<float>(ms.particle_system.active());

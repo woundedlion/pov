@@ -42,7 +42,7 @@ struct EntryStage
                                     const TestFrame &frame,
                                     const Pullback::NoPrepared &) {
     record(frame, 0);
-    return {Vector(input.dir.x + 1.0f, input.dir.y, input.dir.z),
+    return {math::Vector(input.dir.x + 1.0f, input.dir.y, input.dir.z),
             input.path_length + 1.0f};
   }
 };
@@ -57,7 +57,7 @@ struct CrossingStage
                                    const TestFrame &frame,
                                    const Pullback::NoPrepared &) {
     record(frame, 1);
-    return {Complex(input.dir.x, input.dir.y),
+    return {math::Complex(input.dir.x, input.dir.y),
             {1, 2, 3, 0.25f, 0.5f, 4, 5, 6, 0.8f},
             input.dir,
             input.path_length};
@@ -441,7 +441,8 @@ inline void test_pullback_validation_predicates() {
 
 inline void test_pullback_evaluation_order() {
   const TestPipeline::Frame frame = TestPipeline::prepare(TestFrame{});
-  const Color4 result = TestPipeline::shade(Vector(1.0f, 2.0f, 3.0f), frame);
+  const Color4 result =
+      TestPipeline::shade(math::Vector(1.0f, 2.0f, 3.0f), frame);
   HS_EXPECT_EQ(frame.ctx.call_count, 6U);
   for (size_t index = 0; index < frame.ctx.call_count; ++index)
     HS_EXPECT_EQ(frame.ctx.calls[index], index);
@@ -478,9 +479,9 @@ inline void test_pullback_placement_transparency() {
   const TestPipeline::Frame flat = TestPipeline::prepare(TestFrame{});
   const GroupedPipeline::Frame grouped = GroupedPipeline::prepare(TestFrame{});
   const Color4 flat_result =
-      TestPipeline::shade(Vector(1.0f, 2.0f, 3.0f), flat);
+      TestPipeline::shade(math::Vector(1.0f, 2.0f, 3.0f), flat);
   const Color4 grouped_result =
-      GroupedPipeline::shade(Vector(1.0f, 2.0f, 3.0f), grouped);
+      GroupedPipeline::shade(math::Vector(1.0f, 2.0f, 3.0f), grouped);
   HS_EXPECT_EQ(grouped.ctx.call_count, 6U);
   for (size_t index = 0; index < grouped.ctx.call_count; ++index)
     HS_EXPECT_EQ(grouped.ctx.calls[index], index);
@@ -556,38 +557,41 @@ struct CountingOrientationState {
   using Binding = CountingBinding;
   using FrameState = TestFrame;
 
-  static const Quaternion &conjugate(const FrameState &) {
-    static constexpr Quaternion IDENTITY;
+  static const math::Quaternion &conjugate(const FrameState &) {
+    static constexpr math::Quaternion IDENTITY;
     return IDENTITY;
   }
 };
 
 struct CountingSurfacePolicy : Pullback::ApproximationDefaults {
-  static Pullback::SurfaceResult apply(const Vector &input, const TestFrame &) {
+  static Pullback::SurfaceResult apply(const math::Vector &input,
+                                       const TestFrame &) {
     return {input, 0.5f};
   }
 };
 
 struct CountingLensPolicy : Pullback::ApproximationDefaults {
-  static Vector apply(const Vector &input, const TestFrame &) { return input; }
+  static math::Vector apply(const math::Vector &input, const TestFrame &) {
+    return input;
+  }
 };
 
 struct CountingProjectionPolicy : Pullback::ApproximationDefaults {
-  static const Quaternion &frame_conjugate(const TestFrame &) {
-    static constexpr Quaternion IDENTITY;
+  static const math::Quaternion &frame_conjugate(const TestFrame &) {
+    static constexpr math::Quaternion IDENTITY;
     return IDENTITY;
   }
-  static Pullback::ProjectionResult project(const Vector &input,
+  static Pullback::ProjectionResult project(const math::Vector &input,
                                             const TestFrame &) {
-    return {Complex(input.x, input.y), {0, 0, 0, 1.0f, 0.5f, 0}};
+    return {math::Complex(input.x, input.y), {0, 0, 0, 1.0f, 0.5f, 0}};
   }
 };
 
 struct CountingWarpPolicy : Pullback::ApproximationDefaults {
-  static Pullback::WarpStepResult apply(const Complex &input,
+  static Pullback::WarpStepResult apply(const math::Complex &input,
                                         const Pullback::ProjectionProvenance &,
                                         const TestFrame &) {
-    return {Complex(input.re + 1.0f, input.im), 3.0f};
+    return {math::Complex(input.re + 1.0f, input.im), 3.0f};
   }
 };
 
@@ -627,9 +631,10 @@ struct PreparedOrientationPolicy {
   using Prepared = int;
   static Prepared prepare(const FrameState &) { return 1; }
   // Index 1, what prepare() returns, is a half turn about y.
-  static const Quaternion &conjugate(const FrameState &, const Prepared &p) {
-    static constexpr Quaternion ROTATIONS[] = {
-        Quaternion(), Quaternion(0.0f, 0.0f, 1.0f, 0.0f)};
+  static const math::Quaternion &conjugate(const FrameState &,
+                                           const Prepared &p) {
+    static constexpr math::Quaternion ROTATIONS[] = {
+        math::Quaternion(), math::Quaternion(0.0f, 0.0f, 1.0f, 0.0f)};
     return ROTATIONS[p];
   }
 };
@@ -637,23 +642,23 @@ struct PreparedOrientationPolicy {
 struct PreparedLensPolicy : Pullback::ApproximationDefaults {
   using Prepared = int;
   static Prepared prepare(const TestFrame &) { return 2; }
-  static Vector apply(const Vector &input, const TestFrame &,
-                      const Prepared &p) {
-    return input + Vector(static_cast<float>(p), 0.0f, 0.0f);
+  static math::Vector apply(const math::Vector &input, const TestFrame &,
+                            const Prepared &p) {
+    return input + math::Vector(static_cast<float>(p), 0.0f, 0.0f);
   }
 };
 
 struct PreparedProjectionPolicy : Pullback::ApproximationDefaults {
   using Prepared = int;
   static Prepared prepare(const TestFrame &) { return 3; }
-  static const Quaternion &frame_conjugate(const TestFrame &,
-                                           const Prepared &) {
-    static constexpr Quaternion IDENTITY;
+  static const math::Quaternion &frame_conjugate(const TestFrame &,
+                                                 const Prepared &) {
+    static constexpr math::Quaternion IDENTITY;
     return IDENTITY;
   }
   static Pullback::ProjectionResult
-  project(const Vector &input, const TestFrame &, const Prepared &p) {
-    return {Complex(input.x + static_cast<float>(p), input.y),
+  project(const math::Vector &input, const TestFrame &, const Prepared &p) {
+    return {math::Complex(input.x + static_cast<float>(p), input.y),
             {0, 0, 0, 1.0f, 1.0f, 0}};
   }
 };
@@ -743,7 +748,7 @@ using CountingPipeline = Pullback::Pipeline<
 inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
   static_cast<void>(CountingPipeline::shade(
-      Vector(1.0f, 2.0f, 3.0f), CountingPipeline::prepare(TestFrame{})));
+      math::Vector(1.0f, 2.0f, 3.0f), CountingPipeline::prepare(TestFrame{})));
   constexpr std::array EXPECTED{Pullback::ProfileEvent::SURFACE_NOISE,
                                 Pullback::ProfileEvent::LENS,
                                 Pullback::ProfileEvent::PROJECTION,
@@ -761,7 +766,7 @@ inline void test_pullback_counting_instrumentation() {
 inline void test_pullback_prepared_stage_policies() {
   CountingInstrumentation::count = 0;
   const TestFrame frame;
-  const Pullback::SphereSample sphere{Vector(1.0f, 2.0f, 3.0f), 0.0f};
+  const Pullback::SphereSample sphere{math::Vector(1.0f, 2.0f, 3.0f), 0.0f};
 
   using BoundRotate =
       Pullback::Stage::Rotate<PreparedOrientationPolicy>::Bind<CountingBinding>;
@@ -795,8 +800,10 @@ inline void test_pullback_prepared_stage_policies() {
   using BoundSample = Pullback::Stage::Sample<
       PreparedSourcePolicy, PreparedWeightPolicy,
       PreparedSampleCoveragePolicy>::Bind<CountingBinding>;
-  const Pullback::PlaneSample plane{
-      Complex(1.0f, 0.0f), {0, 0, 0, 0.0f, 1.0f, 0, 0, 0, 0.8f}, X_AXIS, 0.75f};
+  const Pullback::PlaneSample plane{math::Complex(1.0f, 0.0f),
+                                    {0, 0, 0, 0.0f, 1.0f, 0, 0, 0, 0.8f},
+                                    math::X_AXIS,
+                                    0.75f};
   const auto sample_prepared = BoundSample::prepare(frame);
   HS_EXPECT_EQ(std::get<0>(sample_prepared), 0.5f);
   HS_EXPECT_EQ(std::get<1>(sample_prepared), 0.5f);
@@ -807,7 +814,7 @@ inline void test_pullback_prepared_stage_policies() {
   HS_EXPECT_EQ(sampled.coverage, 0.2f);
   HS_EXPECT_EQ(sampled.path_length, 0.75f);
 
-  const Pullback::FieldSample field{0.25f, 0.8f, X_AXIS, 0.0f};
+  const Pullback::FieldSample field{0.25f, 0.8f, math::X_AXIS, 0.0f};
   using BoundTransfer =
       Pullback::Stage::Transfer<PreparedTransferPolicy>::Bind<CountingBinding>;
   const auto transfer_prepared = BoundTransfer::prepare(frame);
@@ -831,7 +838,7 @@ inline void test_pullback_stage_combinators() {
 
   using BoundProject =
       Pullback::Stage::Project<CountingProjectionPolicy>::Bind<CountingBinding>;
-  const Pullback::SphereSample view{Vector(1.0f, 2.0f, 3.0f), 0.5f};
+  const Pullback::SphereSample view{math::Vector(1.0f, 2.0f, 3.0f), 0.5f};
   const Pullback::PlaneSample projected =
       BoundProject::run(view, frame, BoundProject::prepare(frame));
   HS_EXPECT_EQ(projected.coords.re, 1.0f);
@@ -938,7 +945,7 @@ inline void test_pullback_provider_contracts() {
   // Runtime half: a provider that declares no Prepared collapses to an empty
   // bound prepared state, and the bound stage still runs.
   const TestFrame frame;
-  const Pullback::SphereSample sphere{Vector(1.0f, 2.0f, 3.0f), 4.0f};
+  const Pullback::SphereSample sphere{math::Vector(1.0f, 2.0f, 3.0f), 4.0f};
   using BoundStatelessRotate =
       Pullback::Stage::Rotate<CountingOrientationState>::Bind<CountingBinding>;
   HS_EXPECT_TRUE(std::is_empty_v<typename BoundStatelessRotate::Prepared>);
@@ -968,35 +975,38 @@ inline void test_pullback_concrete_catalog() {
   };
   constexpr Prepared prepared{0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   constexpr Prepared shifted{0.7f, 0.3f, 0.0f, 1.0f, 0.0f};
-  constexpr Prepared turned{0.0f, 0.0f, PI_F * 0.5f, 0.0f, 1.0f};
+  constexpr Prepared turned{0.0f, 0.0f, math::PI_F * 0.5f, 0.0f, 1.0f};
   constexpr Params params{1.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
   constexpr Params coupled{0.0f, 0.0f, 1.0f, 0.0f, 0.1f, 0.25f};
-  const Complex origin;
-  const Complex off(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
+  const math::Complex origin;
+  const math::Complex off(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
   HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, prepared), 0.0f);
   HS_EXPECT_NEAR(Pullback::Source::twin_wave(off, turned),
-                 0.5f * (fast_sinf(0.6f) + fast_sinf(0.25f)), 2e-3f);
+                 0.5f * (math::fast_sinf(0.6f) + math::fast_sinf(0.25f)),
+                 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::rings(origin, prepared), 0.0f);
-  HS_EXPECT_NEAR(Pullback::Source::rings(off, shifted), fast_sinf(-0.05f),
+  HS_EXPECT_NEAR(Pullback::Source::rings(off, shifted), math::fast_sinf(-0.05f),
                  2e-3f);
   HS_EXPECT_NEAR(Pullback::Source::spiral(origin, prepared), 1.0f, 2e-3f);
   HS_EXPECT_NEAR(Pullback::Source::spiral(off, shifted),
-                 fast_sinf(-0.05f - 3.0f * fast_atan2(0.25f, 0.6f)), 2e-3f);
+                 math::fast_sinf(-0.05f - 3.0f * math::fast_atan2(0.25f, 0.6f)),
+                 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::grid(origin, params, prepared), 0.0f);
   HS_EXPECT_NEAR(Pullback::Source::grid(origin, coupled, shifted),
-                 fast_sinf(0.7f) * fast_cosf(-0.3f), 2e-3f);
+                 math::fast_sinf(0.7f) * math::fast_cosf(-0.3f), 2e-3f);
   HS_EXPECT_EQ(Pullback::Source::primitive_lattice(origin, params), 1.0f);
   // Cell coordinate (0.2, 0.1) sits inside the softness band, so the edge ramp
   // resolves between its saturated ends.
   HS_EXPECT_NEAR(
-      Pullback::Source::primitive_lattice(Complex(0.2f, 0.1f), params),
+      Pullback::Source::primitive_lattice(math::Complex(0.2f, 0.1f), params),
       0.38671f, 2e-3f);
 
   const Pullback::Source::SphericalRingsSourceParams ring_params;
-  const Pullback::Source::PreparedSphericalRings ring_frame{Y_AXIS, 0.0f};
+  const Pullback::Source::PreparedSphericalRings ring_frame{math::Y_AXIS, 0.0f};
   HS_EXPECT_EQ(
-      Pullback::Source::spherical_rings(X_AXIS, ring_params, ring_frame), 1.0f);
-  const Vector between_rings(0.9659258f, 0.2588190f, 0.0f);
+      Pullback::Source::spherical_rings(math::X_AXIS, ring_params, ring_frame),
+      1.0f);
+  const math::Vector between_rings(0.9659258f, 0.2588190f, 0.0f);
   HS_EXPECT_EQ(
       Pullback::Source::spherical_rings(between_rings, ring_params, ring_frame),
       -1.0f);
@@ -1005,13 +1015,13 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(
       Pullback::Source::escape_fractal(origin, fractal_params, prepared), 1.0f);
   // c = 0.6 escapes on iteration 3 of 8, landing on contour cycle 0.4219.
-  HS_EXPECT_NEAR(Pullback::Source::escape_fractal(Complex(1.2f, 0.0f),
+  HS_EXPECT_NEAR(Pullback::Source::escape_fractal(math::Complex(1.2f, 0.0f),
                                                   fractal_params, prepared),
                  -0.38298f, 5e-3f);
 
   const Pullback::Source::TessellationSourceParams tessellation_params;
   HS_EXPECT_EQ(Pullback::Source::tessellation(
-                   Complex(0.5f, 0.0f), tessellation_params,
+                   math::Complex(0.5f, 0.0f), tessellation_params,
                    Pullback::Source::TessellationKind::SQUARE, prepared),
                1.0f);
   HS_EXPECT_EQ(Pullback::Source::tessellation(
@@ -1019,14 +1029,14 @@ inline void test_pullback_concrete_catalog() {
                    Pullback::Source::TessellationKind::SQUARE, prepared),
                -1.0f);
 
-  const Vector axis =
-      Pullback::Lens::Glitch::apply(Vector(0.0f, 1.0f, 0.0f), TestFrame{});
+  const math::Vector axis = Pullback::Lens::Glitch::apply(
+      math::Vector(0.0f, 1.0f, 0.0f), TestFrame{});
   HS_EXPECT_EQ(axis.x, 0.0f);
   HS_EXPECT_EQ(axis.y, 1.0f);
   HS_EXPECT_EQ(axis.z, 0.0f);
 
   const projections::ProjectionKernelResult kernel{
-      Complex(1.0f, 2.0f), 3, 4, 5, 3.0f, 6, 7, 8};
+      math::Complex(1.0f, 2.0f), 3, 4, 5, 3.0f, 6, 7, 8};
   const Pullback::ProjectionResult projected =
       Pullback::Projection::from_kernel(kernel, 2.0f);
   HS_EXPECT_EQ(projected.coords.re, 2.0f);
@@ -1069,8 +1079,8 @@ inline void test_pullback_warp_phase_loop() {
                  vector_1.transform.noise_loop.offset.y, 1e-6f);
   HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.z,
                  vector_1.transform.noise_loop.offset.z, 1e-6f);
-  const Vector curl_0 = noise_projected_loop_offset(0.0f);
-  const Vector curl_1 = noise_projected_loop_offset(1.0f);
+  const math::Vector curl_0 = noise_projected_loop_offset(0.0f);
+  const math::Vector curl_1 = noise_projected_loop_offset(1.0f);
   HS_EXPECT_NEAR(curl_0.x, curl_1.x, 1e-6f);
   HS_EXPECT_NEAR(curl_0.y, curl_1.y, 1e-6f);
   HS_EXPECT_NEAR(curl_0.z, curl_1.z, 1e-6f);
@@ -1113,7 +1123,8 @@ inline void test_pullback_periodic_ripple() {
   params.thickness = 0.7f;
   params.center_polar = 0.0f;
 
-  const Vector midpoint = Vector::from_spherical(0.0f, 0.5f * PI_F);
+  const math::Vector midpoint =
+      math::Vector::from_spherical(0.0f, 0.5f * math::PI_F);
   const Pullback::SurfaceResult start = Pullback::Surface::periodic_ripple(
       midpoint, Pullback::Surface::prepare_ripple(params, 0.0f), true);
   HS_EXPECT_EQ(start.sphere.x, midpoint.x);
@@ -1135,14 +1146,14 @@ inline void test_pullback_periodic_ripple() {
 }
 
 struct AddLens : Pullback::ApproximationDefaults {
-  static Vector apply(const Vector &input, const TestFrame &) {
-    return Vector(input.x + 1.0f, input.y, input.z);
+  static math::Vector apply(const math::Vector &input, const TestFrame &) {
+    return math::Vector(input.x + 1.0f, input.y, input.z);
   }
 };
 
 struct ScaleLens : Pullback::ApproximationDefaults {
-  static Vector apply(const Vector &input, const TestFrame &) {
-    return Vector(input.x * 2.0f, input.y, input.z);
+  static math::Vector apply(const math::Vector &input, const TestFrame &) {
+    return math::Vector(input.x * 2.0f, input.y, input.z);
   }
 };
 
@@ -1152,7 +1163,8 @@ inline void test_pullback_lens_stack() {
   using BoundScale = Pullback::Stage::Lens<ScaleLens>::Bind<TestBinding>;
   const TestFrame frame;
   const Pullback::SphereSample stacked = BoundScale::run(
-      BoundAdd::run({Vector(3.0f, 2.0f, 1.0f), 0.0f}, frame, {}), frame, {});
+      BoundAdd::run({math::Vector(3.0f, 2.0f, 1.0f), 0.0f}, frame, {}), frame,
+      {});
   HS_EXPECT_EQ(stacked.dir.x, 8.0f);
   HS_EXPECT_EQ(stacked.dir.y, 2.0f);
   HS_EXPECT_EQ(stacked.dir.z, 1.0f);
@@ -1179,7 +1191,7 @@ inline void test_pullback_rank_skip_crossing() {
   static_assert(SkyPipeline::Validation::ENTRY);
   static_assert(SkyPipeline::Validation::EXIT);
   const SkyPipeline::Frame frame = SkyPipeline::prepare(TestFrame{});
-  const Color4 sky = SkyPipeline::shade(Vector(0.5f, 0.0f, 0.0f), frame);
+  const Color4 sky = SkyPipeline::shade(math::Vector(0.5f, 0.0f, 0.0f), frame);
   HS_EXPECT_EQ(sky.color.g, 5);
   HS_EXPECT_EQ(sky.alpha, 0.5f);
 }
@@ -1205,9 +1217,9 @@ inline void test_pullback_field_curves() {
   HS_EXPECT_NEAR(apply_curve(FieldCurve::LERP, 0.9f, 0.1f, 0.25f), 0.7f, 1e-6f);
   HS_EXPECT_EQ(apply_curve(FieldCurve::SHORTEST_TURN, 0.9f, 0.1f, 0.0f), 0.9f);
   HS_EXPECT_EQ(apply_curve(FieldCurve::SHORTEST_TURN, 0.9f, 0.1f, 1.0f), 0.1f);
-  HS_EXPECT_NEAR(
-      apply_curve(FieldCurve::SHORTEST_PERIODIC, TWO_PI_F - 0.1f, 0.1f, 0.25f),
-      TWO_PI_F - 0.05f, 1e-5f);
+  HS_EXPECT_NEAR(apply_curve(FieldCurve::SHORTEST_PERIODIC,
+                             math::TWO_PI_F - 0.1f, 0.1f, 0.25f),
+                 math::TWO_PI_F - 0.05f, 1e-5f);
 
   Pullback::Surface::DirectSurfaceParams from;
   Pullback::Surface::DirectSurfaceParams to;
@@ -1257,12 +1269,12 @@ inline void test_pullback_hard_edge_kernels() {
 
 inline void test_pullback_hexagonal_edges() {
   using namespace Pullback::Source;
-  const Complex vertices[] = {
+  const math::Complex vertices[] = {
       {1.0f, 0.0f},  {0.5f, 0.8660254038f},   {-0.5f, 0.8660254038f},
       {-1.0f, 0.0f}, {-0.5f, -0.8660254038f}, {0.5f, -0.8660254038f}};
-  for (const Complex center :
-       {Complex(0.0f, 0.0f), Complex(0.0f, 1.7320508076f),
-        Complex(1.5f, -0.8660254038f)}) {
+  for (const math::Complex center :
+       {math::Complex(0.0f, 0.0f), math::Complex(0.0f, 1.7320508076f),
+        math::Complex(1.5f, -0.8660254038f)}) {
     for (float scale : {0.5f, 1.0f, 3.0f}) {
       for (float angle : {0.0f, 0.37f}) {
         TessellationSourceParams params;
@@ -1270,33 +1282,35 @@ inline void test_pullback_hexagonal_edges() {
         PreparedSource prepared{};
         prepared.angle_cos = std::cos(angle);
         prepared.angle_sin = std::sin(angle);
-        auto sample = [&](const Complex &point) {
+        auto sample = [&](const math::Complex &point) {
           const float X = center.re + point.re;
           const float Y = center.im + point.im;
-          const Complex input(
+          const math::Complex input(
               (X * prepared.angle_cos - Y * prepared.angle_sin) / scale,
               (X * prepared.angle_sin + Y * prepared.angle_cos) / scale);
           return tessellation(input, params, TessellationKind::HEXAGONAL,
                               prepared);
         };
-        HS_EXPECT_EQ(sample(Complex(0.0f, 0.0f)), -1.0f);
+        HS_EXPECT_EQ(sample(math::Complex(0.0f, 0.0f)), -1.0f);
         for (int edge = 0; edge < 6; ++edge) {
-          const Complex &a = vertices[edge];
-          const Complex &b = vertices[(edge + 1) % 6];
-          const Complex midpoint((a.re + b.re) * 0.5f, (a.im + b.im) * 0.5f);
+          const math::Complex &a = vertices[edge];
+          const math::Complex &b = vertices[(edge + 1) % 6];
+          const math::Complex midpoint((a.re + b.re) * 0.5f,
+                                       (a.im + b.im) * 0.5f);
           const float LENGTH = std::hypot(midpoint.re, midpoint.im);
-          const Complex normal(midpoint.re / LENGTH, midpoint.im / LENGTH);
+          const math::Complex normal(midpoint.re / LENGTH,
+                                     midpoint.im / LENGTH);
           HS_EXPECT_EQ(sample(a), 1.0f);
           HS_EXPECT_EQ(sample(midpoint), 1.0f);
           for (float direction : {-1.0f, 1.0f}) {
-            HS_EXPECT_EQ(
-                sample(Complex(midpoint.re + direction * 0.08f * normal.re,
-                               midpoint.im + direction * 0.08f * normal.im)),
-                -1.0f);
-            HS_EXPECT_NEAR(
-                sample(Complex(midpoint.re + direction * 0.05f * normal.re,
+            HS_EXPECT_EQ(sample(math::Complex(
+                             midpoint.re + direction * 0.08f * normal.re,
+                             midpoint.im + direction * 0.08f * normal.im)),
+                         -1.0f);
+            HS_EXPECT_NEAR(sample(math::Complex(
+                               midpoint.re + direction * 0.05f * normal.re,
                                midpoint.im + direction * 0.05f * normal.im)),
-                0.0f, 1e-4f);
+                           0.0f, 1e-4f);
           }
         }
       }
@@ -1305,10 +1319,10 @@ inline void test_pullback_hexagonal_edges() {
 }
 
 inline void test_pullback_displacement_overflow() {
-  for (const Complex delta :
-       {Complex(3.0f, 4.0f), Complex(0.0f, 0.0f), Complex(1e10f, -1e10f),
-        Complex(5.22e19f, 5.22e19f), Complex(1e30f, -1e30f),
-        Complex(1e30f, 0.0f)}) {
+  for (const math::Complex delta :
+       {math::Complex(3.0f, 4.0f), math::Complex(0.0f, 0.0f),
+        math::Complex(1e10f, -1e10f), math::Complex(5.22e19f, 5.22e19f),
+        math::Complex(1e30f, -1e30f), math::Complex(1e30f, 0.0f)}) {
     HS_EXPECT_EQ(Pullback::Warp::displacement(delta, false), 0.0f);
     const float distance = Pullback::Warp::displacement(delta, true);
     const double EXPECTED = std::hypot(static_cast<double>(delta.re),

@@ -22,7 +22,8 @@ namespace SDF {
  * @details Register semantics: the DistanceResult table (row: PlanarPolygon).
  */
 struct PlanarPolygon {
-  const Basis &basis; /**< Orientation frame (v = polygon axis); retained by
+  const math::Basis
+      &basis;         /**< Orientation frame (v = polygon axis); retained by
                          reference, so it must outlive the shape. */
   float circumradius; /**< Angular radius from center to vertex (radians). */
   int sides;          /**< Number of polygon sides. */
@@ -48,7 +49,7 @@ struct PlanarPolygon {
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
-  PlanarPolygon(const Basis &b, float radius, int s, float ph,
+  PlanarPolygon(const math::Basis &b, float radius, int s, float ph,
                 bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3, "SDF PlanarPolygon: sides must be at least 3");
@@ -56,10 +57,10 @@ struct PlanarPolygon {
     // arc_stretch<PlanarPolygon> = 2 holds only within a hemisphere; a wider
     // shape must be built inverted, about its antipode.
     HS_CHECK(radius <= 1.0f, "SDF PlanarPolygon: radius exceeds unit sphere");
-    circumradius = radius * (PI_F / 2.0f);
-    sector = TWO_PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
-    apothem = circumradius * cosf(PI_F / sides);
+    circumradius = radius * (math::PI_F / 2.0f);
+    sector = math::TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
+    apothem = circumradius * cosf(math::PI_F / sides);
 
     CapBounds cb = cap_bounds(basis.v, circumradius, invert);
     ny = cb.ny;
@@ -76,7 +77,7 @@ struct PlanarPolygon {
    * @details The polygon retains its basis by reference and reads it in every
    * distance() call, so binding a temporary would leave those reads dangling.
    */
-  PlanarPolygon(const Basis &&, float, int, float, bool = false) = delete;
+  PlanarPolygon(const math::Basis &&, float, int, float, bool = false) = delete;
 
   /**
    * @brief Maps the polygon's latitude band to its inclusive row range.
@@ -124,15 +125,16 @@ struct PlanarPolygon {
    *       metric.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    float polar = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
+  void distance(const math::Vector &p, DistanceResult &res) const {
+    float polar =
+        math::fast_acos(hs::clamp(math::dot(p, basis.v), -1.0f, 1.0f));
 
     float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
-    float dist_edge =
-        std::max(polar * fast_cosf(local) - apothem, polar - circumradius);
+    float dist_edge = std::max(polar * math::fast_cosf(local) - apothem,
+                               polar - circumradius);
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
       t_val = polar / circumradius;
@@ -149,12 +151,12 @@ struct PlanarPolygon {
  * Register semantics: the DistanceResult table (row: SphericalPolygon).
  */
 struct SphericalPolygon {
-  const Basis &basis;      /**< Orientation frame (v = polygon axis); retained
+  const math::Basis &basis; /**< Orientation frame (v = polygon axis); retained
                               by reference, so it must outlive the shape. */
-  int sides;               /**< Number of polygon sides. */
-  float phase;             /**< Azimuth phase offset (radians). */
-  float sector;            /**< Angular width of one polygon sector. */
-  float reciprocal_sector; /**< Reciprocal angular sector width. */
+  int sides;                /**< Number of polygon sides. */
+  float phase;              /**< Azimuth phase offset (radians). */
+  float sector;             /**< Angular width of one polygon sector. */
+  float reciprocal_sector;  /**< Reciprocal angular sector width. */
   float circumradius; /**< Angular distance from center to vertex (radians). */
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
@@ -177,7 +179,7 @@ struct SphericalPolygon {
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
-  SphericalPolygon(const Basis &b, float radius, int s, float ph,
+  SphericalPolygon(const math::Basis &b, float radius, int s, float ph,
                    bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3, "SDF SphericalPolygon: sides must be at least 3");
@@ -186,23 +188,25 @@ struct SphericalPolygon {
     // antipode.
     HS_CHECK(radius <= 1.0f,
              "SDF SphericalPolygon: radius exceeds unit sphere");
-    sector = TWO_PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
-    circumradius = radius * (PI_F / 2.0f);
+    sector = math::TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
+    circumradius = radius * (math::PI_F / 2.0f);
 
     // Build canonical edge: between vertices at azimuth ±π/n from
     // the sector bisector (u-axis), at angular distance circumradius
-    float half_step = PI_F / sides;
+    float half_step = math::PI_F / sides;
     float sin_r = sinf(circumradius);
     float cos_r = cosf(circumradius);
     float cos_hs = cosf(half_step);
     float sin_hs = sinf(half_step);
 
-    Vector v1 = basis.v * cos_r + (basis.u * cos_hs + basis.w * sin_hs) * sin_r;
-    Vector v2 = basis.v * cos_r + (basis.u * cos_hs - basis.w * sin_hs) * sin_r;
+    math::Vector v1 =
+        basis.v * cos_r + (basis.u * cos_hs + basis.w * sin_hs) * sin_r;
+    math::Vector v2 =
+        basis.v * cos_r + (basis.u * cos_hs - basis.w * sin_hs) * sin_r;
 
     // Normal pointing outward (away from polygon interior)
-    Vector en = cross(v2, v1);
+    math::Vector en = math::cross(v2, v1);
     float len = en.magnitude();
     if (len > 1e-9f) {
       en = en * (1.0f / len);
@@ -213,11 +217,11 @@ struct SphericalPolygon {
       en = basis.u;
     }
     // Ensure outward: dot(center, n) should be negative
-    if (dot(en, basis.v) > 0)
+    if (math::dot(en, basis.v) > 0)
       en = -en;
 
-    edge_nv = dot(en, basis.v);
-    edge_nu = dot(en, basis.u);
+    edge_nv = math::dot(en, basis.v);
+    edge_nu = math::dot(en, basis.u);
 
     CapBounds cb = cap_bounds(basis.v, circumradius, invert);
     ny = cb.ny;
@@ -234,7 +238,8 @@ struct SphericalPolygon {
    * @details The polygon retains its basis by reference and reads it in every
    * distance() call, so binding a temporary would leave those reads dangling.
    */
-  SphericalPolygon(const Basis &&, float, int, float, bool = false) = delete;
+  SphericalPolygon(const math::Basis &&, float, int, float,
+                   bool = false) = delete;
 
   /**
    * @brief Maps the polygon's latitude band to its inclusive row range.
@@ -277,9 +282,9 @@ struct SphericalPolygon {
    *       bounds of the true distance, so the max of the two is too.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
-    float polar = fast_acos(cos_p);
+  void distance(const math::Vector &p, DistanceResult &res) const {
+    float cos_p = hs::clamp(math::dot(p, basis.v), -1.0f, 1.0f);
+    float polar = math::fast_acos(cos_p);
 
     float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
@@ -288,7 +293,7 @@ struct SphericalPolygon {
     // Angular distance to the nearest great circle edge via precomputed normal
     // cos(local) is even, so sector folding works automatically
     float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
-    float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
+    float dp = edge_nv * cos_p + edge_nu * math::fast_cosf(local) * sin_p;
     float dist_edge =
         std::max(asinf(hs::clamp(dp, -1.0f, 1.0f)), polar - circumradius);
 
@@ -308,14 +313,14 @@ struct SphericalPolygon {
    *       so the tighter bound past a vertex costs no transcendental here.
    *       The hemisphere bound can dominate only beyond angular distance PI/2.
    */
-  float sine_distance(const Vector &p) const {
-    float cos_p = hs::clamp(dot(p, basis.v), -1.0f, 1.0f);
+  float sine_distance(const math::Vector &p) const {
+    float cos_p = hs::clamp(math::dot(p, basis.v), -1.0f, 1.0f);
     float sin_p = sqrtf(std::max(0.0f, 1.0f - cos_p * cos_p));
 
     float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
-    float dp = edge_nv * cos_p + edge_nu * fast_cosf(local) * sin_p;
+    float dp = edge_nv * cos_p + edge_nu * math::fast_cosf(local) * sin_p;
     float disc = sin_p * cos_cap - cos_p * sin_cap;
     return sign * std::max(hs::clamp(dp, -cos_p, 1.0f), disc);
   }
@@ -326,12 +331,12 @@ struct SphericalPolygon {
  * @details Register semantics: the DistanceResult table (row: Star).
  */
 struct Star {
-  const Basis &basis;      /**< Orientation frame (v = star axis); retained by
+  const math::Basis &basis; /**< Orientation frame (v = star axis); retained by
                               reference, so it must outlive the shape. */
-  int sides;               /**< Number of star points. */
-  float phase;             /**< Azimuth phase offset (radians). */
-  float sector;            /**< Angular width of one star sector. */
-  float reciprocal_sector; /**< Reciprocal angular sector width. */
+  int sides;                /**< Number of star points. */
+  float phase;              /**< Azimuth phase offset (radians). */
+  float sector;             /**< Angular width of one star sector. */
+  float reciprocal_sector;  /**< Reciprocal angular sector width. */
   static constexpr bool is_solid =
       true; /**< Star renders as a filled region. */
 
@@ -355,18 +360,18 @@ struct Star {
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
-  Star(const Basis &b, float radius, int s, float ph, bool invert = false)
+  Star(const math::Basis &b, float radius, int s, float ph, bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3, "SDF Star: sides must be at least 3");
     HS_CHECK(radius > 0.0f, "SDF Star: radius must be positive");
     // arc_stretch<Star> = 2 holds only within a hemisphere; a wider shape must
     // be built inverted, about its antipode.
     HS_CHECK(radius <= 1.0f, "SDF Star: radius exceeds unit sphere");
-    sector = TWO_PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
-    float outer_radius = radius * (PI_F / 2.0f);
+    sector = math::TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
+    float outer_radius = radius * (math::PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
-    float angle_step = PI_F / sides;
+    float angle_step = math::PI_F / sides;
 
     float v_t = outer_radius;
     float v_vx = inner_radius * cosf(angle_step);
@@ -395,7 +400,7 @@ struct Star {
    * @details The star retains its basis by reference and reads it in every
    * distance() call, so binding a temporary would leave those reads dangling.
    */
-  Star(const Basis &&, float, int, float, bool = false) = delete;
+  Star(const math::Basis &&, float, int, float, bool = false) = delete;
 
   /**
    * @brief Maps the star's latitude band to its inclusive row range.
@@ -446,23 +451,24 @@ struct Star {
    *       march-safe metric.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    float scan_dist = fast_acos(hs::clamp(dot(p, basis.v), -1.0f, 1.0f));
+  void distance(const math::Vector &p, DistanceResult &res) const {
+    float scan_dist =
+        math::fast_acos(hs::clamp(math::dot(p, basis.v), -1.0f, 1.0f));
     float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local_azimuth =
         centered_sector_angle(azimuth, sector, reciprocal_sector);
     local_azimuth = std::abs(local_azimuth);
 
-    float px = scan_dist * fast_cosf(local_azimuth);
-    float py = scan_dist * fast_sinf(local_azimuth);
+    float px = scan_dist * math::fast_cosf(local_azimuth);
+    float py = scan_dist * math::fast_sinf(local_azimuth);
 
     float dist_edge = std::max(-(px * edge_nx + py * edge_ny + plane_d),
                                scan_dist - circumradius);
 
     float t = 0.0f;
     if constexpr (ComputeUVs)
-      t = wrap_t(azimuth / TWO_PI_F);
+      t = math::wrap_t(azimuth / math::TWO_PI_F);
     res = DistanceResult(sign * dist_edge, t, scan_dist, 0.0f, circumradius);
   }
 };
@@ -472,16 +478,17 @@ struct Star {
  * @details Register semantics: the DistanceResult table (row: Flower).
  */
 struct Flower {
-  const Basis &basis; /**< Orientation frame (-v = flower center); retained by
+  const math::Basis
+      &basis;   /**< Orientation frame (-v = flower center); retained by
                               reference, so it must outlive the shape. */
-  int sides;          /**< Number of petals. */
-  float phase;        /**< Azimuth phase offset (radians). */
-  float sector;       /**< Angular width of one flower sector. */
+  int sides;    /**< Number of petals. */
+  float phase;  /**< Azimuth phase offset (radians). */
+  float sector; /**< Angular width of one flower sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float circumradius;      /**< Angular radius from the antipode to petal tip
                          (radians). */
   float apothem;           /**< Petal inradius offset (PI - outer radius). */
-  Vector antipode;         /**< Antipode of the flower axis (scan origin). */
+  math::Vector antipode;   /**< Antipode of the flower axis (scan origin). */
   float ny, r_val, alpha_angle; /**< Antipode y-component, XZ projection length
                                      and azimuth. */
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
@@ -500,17 +507,18 @@ struct Flower {
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
-  Flower(const Basis &b, float radius, int s, float ph, bool invert = false)
+  Flower(const math::Basis &b, float radius, int s, float ph,
+         bool invert = false)
       : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides >= 3, "SDF Flower: sides must be at least 3");
     HS_CHECK(radius > 0.0f, "SDF Flower: radius must be positive");
     // A shape wider than a hemisphere must be built inverted, about its
     // antipode.
     HS_CHECK(radius <= 1.0f, "SDF Flower: radius exceeds unit sphere");
-    sector = TWO_PI_F / sides;
-    reciprocal_sector = static_cast<float>(sides) / TWO_PI_F;
-    float outer = radius * (PI_F / 2.0f);
-    apothem = PI_F - outer;
+    sector = math::TWO_PI_F / sides;
+    reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
+    float outer = radius * (math::PI_F / 2.0f);
+    apothem = math::PI_F - outer;
     circumradius = outer;
     antipode = -basis.v;
 
@@ -529,7 +537,7 @@ struct Flower {
    * @details The flower retains its basis by reference and reads it in every
    * distance() call, so binding a temporary would leave those reads dangling.
    */
-  Flower(const Basis &&, float, int, float, bool = false) = delete;
+  Flower(const math::Basis &&, float, int, float, bool = false) = delete;
 
   /**
    * @brief Maps the flower's latitude band to its inclusive row range.
@@ -568,15 +576,16 @@ struct Flower {
    *        scan_dist/circumradius when ComputeUVs.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
-    float scan_dist = fast_acos(hs::clamp(dot(p, antipode), -1.0f, 1.0f));
-    float polar = PI_F - scan_dist;
+  void distance(const math::Vector &p, DistanceResult &res) const {
+    float scan_dist =
+        math::fast_acos(hs::clamp(math::dot(p, antipode), -1.0f, 1.0f));
+    float polar = math::PI_F - scan_dist;
 
     float azimuth = basis_azimuth(p, basis.u, basis.w, phase);
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
 
-    float dist_edge = polar * fast_cosf(local) - apothem;
+    float dist_edge = polar * math::fast_cosf(local) - apothem;
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
       t_val = scan_dist / circumradius;
@@ -594,16 +603,16 @@ struct Flower {
  * circle through them, bounded and culled as such.
  */
 struct Line {
-  Vector a, b;     /**< Arc endpoints (unit vectors). */
-  float thickness; /**< Half-width of the stroke (radians). */
+  math::Vector a, b; /**< Arc endpoints (unit vectors). */
+  float thickness;   /**< Half-width of the stroke (radians). */
 
-  Vector n;               /**< Great-circle plane normal of the arc. */
+  math::Vector n;         /**< Great-circle plane normal of the arc. */
   float len;              /**< Arc length (radians). */
   float phi_min, phi_max; /**< Precomputed vertical bounds (radians). */
 
   // Bounding-cap geometry, loop-invariant across scanlines (precomputed in
   // ctor).
-  Vector mid; /**< Arc midpoint axis (bounding-cap center). */
+  math::Vector mid; /**< Arc midpoint axis (bounding-cap center). */
   float mid_ny = 0.0f, mid_r = 0.0f,
         mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
   float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
@@ -619,13 +628,13 @@ struct Line {
    * @param end Second endpoint (unit vector).
    * @param th Half-width of the stroke (radians).
    */
-  Line(const Vector &start, const Vector &end, float th)
+  Line(const math::Vector &start, const math::Vector &end, float th)
       : a(start), b(end), thickness(th) {
     // A negative half-width inverts the band, culling every probe.
     HS_CHECK(thickness >= 0.0f, "Line: negative stroke half-width");
-    len = angle_between(a, b);
+    len = math::angle_between(a, b);
     bool antipodal = false;
-    Vector cr = cross(a, b);
+    math::Vector cr = math::cross(a, b);
     // EPS_CROSS_SQ, not EPS_NORMALIZE_SQ: the bound is on the direction the
     // cross carries, not on whether it normalizes at all. |cross| = sin of
     // the endpoint separation, so 1e-8 names the same band an angular 1e-4
@@ -635,19 +644,20 @@ struct Line {
     if (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z < math::EPS_CROSS_SQ) {
       // sin collapses at both ends of the range, so the dot's sign separates
       // them; angle_between cannot, its acos having no resolution there.
-      if (dot(a, b) < 0.0f) {
+      if (math::dot(a, b) < 0.0f) {
         // Antipodal endpoints (len ~ π) leave the arc plane undefined: any great
         // circle through them serves, and distance() then measures the whole
         // circle rather than an arc (every projected point sits at
         // ang_a + ang_b == len). Pick a plane the endpoints actually lie in.
         antipodal = true;
-        Vector ref = (fabsf(a.y) < 0.9f) ? Vector(0, 1, 0) : Vector(1, 0, 0);
-        n = cross(a, ref).normalized();
+        math::Vector ref =
+            (fabsf(a.y) < 0.9f) ? math::Vector(0, 1, 0) : math::Vector(1, 0, 0);
+        n = math::cross(a, ref).normalized();
       } else {
         // Coincident endpoints: the arc is the point `a`. len is zeroed so
         // distance() takes the same branch.
         len = 0.0f;
-        n = Vector(0, 0, 0);
+        n = math::Vector(0, 0, 0);
       }
     } else {
       n = cr.normalized();
@@ -663,8 +673,8 @@ struct Line {
     // The latitude turns inside the arc iff the forward tangent's y-component
     // (cross(n, p).y) flips sign between endpoints; the extremum is
     // ±sqrt(1-n.y²).
-    float t0 = cross(n, a).y;
-    float t1 = cross(n, b).y;
+    float t0 = math::cross(n, a).y;
+    float t1 = math::cross(n, b).y;
     if ((t0 > 0.0f) != (t1 > 0.0f)) {
       float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
       float phi_ext = acosf(t0 > 0.0f ? peak : -peak);
@@ -673,17 +683,17 @@ struct Line {
     }
     float margin = thickness + BOUNDS_MARGIN;
     phi_min = std::max(0.0f, phi_lo - margin);
-    phi_max = std::min(PI_F, phi_hi + margin);
+    phi_max = std::min(math::PI_F, phi_hi + margin);
 
     // Bounding cap centered on the segment midpoint. Antipodal endpoints sum to
     // ~0 (no defined midpoint); guard the normalize.
-    mid = normalized_or(a + b, Vector(1, 0, 0));
+    mid = math::normalized_or(a + b, math::Vector(1, 0, 0));
     mid_ny = mid.y;
     mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
     mid_alpha = atan2f(mid.z, mid.x);
     // A cap wider than pi covers the sphere; cos turns back up past pi, so an
     // unclamped radius would report a tighter cap than the arc occupies.
-    float cap_radius = std::min(len * 0.5f + thickness, PI_F);
+    float cap_radius = std::min(len * 0.5f + thickness, math::PI_F);
     cap_D_min = cosf(cap_radius);
     cap_horiz_valid = mid_r >= MIN_HORIZONTAL_PROJ;
 
@@ -693,7 +703,7 @@ struct Line {
       // bounds it, so drop the horizontal cull.
       float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
       phi_min = std::max(0.0f, acosf(peak) - margin);
-      phi_max = std::min(PI_F, acosf(-peak) + margin);
+      phi_max = std::min(math::PI_F, acosf(-peak) + margin);
       cap_horiz_valid = false;
     }
   }
@@ -715,28 +725,28 @@ struct Line {
    *        raw_dist = unsigned angular distance to the segment.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
+  void distance(const math::Vector &p, DistanceResult &res) const {
     if (len < 1e-6f) {
-      float dist = angle_between(p, a);
+      float dist = math::angle_between(p, a);
       res = DistanceResult(dist - thickness, 0.0f, dist, 0.0f, thickness);
       return;
     }
 
-    float d_plane = dot(p, n);
-    Vector p_proj_plane = p - n * d_plane;
+    float d_plane = math::dot(p, n);
+    math::Vector p_proj_plane = p - n * d_plane;
     float proj_mag = p_proj_plane.magnitude();
 
     if (proj_mag < 1e-6f) {
-      float d_a = angle_between(p, a);
-      float d_b = angle_between(p, b);
+      float d_a = math::angle_between(p, a);
+      float d_b = math::angle_between(p, b);
       float dist = std::min(d_a, d_b);
       res = DistanceResult(dist - thickness, 0.0f, dist, 0.0f, thickness);
       return;
     }
 
-    Vector p_proj = p_proj_plane / proj_mag;
-    float ang_a = angle_between(a, p_proj);
-    float ang_b = angle_between(b, p_proj);
+    math::Vector p_proj = p_proj_plane / proj_mag;
+    float ang_a = math::angle_between(a, p_proj);
+    float ang_b = math::angle_between(b, p_proj);
 
     float dist_seg = 0.0f;
     // Two geodesic metrics, C0-continuous at the join: in-segment the foot lies
@@ -746,8 +756,8 @@ struct Line {
     if (ang_a + ang_b <= len + 1e-4f) {
       dist_seg = asinf(std::abs(d_plane));
     } else {
-      float d_a = angle_between(p, a);
-      float d_b = angle_between(p, b);
+      float d_a = math::angle_between(p, a);
+      float d_b = math::angle_between(p, b);
       dist_seg = std::min(d_a, d_b);
     }
 
@@ -769,10 +779,10 @@ struct Line {
     if (!cap_horiz_valid)
       return false;
 
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    float cos_phi = TrigLUT<W, H>::cos_phi[y];
-    float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    float cos_phi = math::TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
 
     return emit_cap_interval<W>(cap_D_min, mid_ny, mid_r, mid_alpha, cos_phi,
                                 sin_phi, out);

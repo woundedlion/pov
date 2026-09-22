@@ -150,7 +150,7 @@ public:
 
   /** @brief Reconcile leg closing a smooth kis/needle path. */
   struct ReconcileSpec {
-    const Vector *to_positions =
+    const math::Vector *to_positions =
         nullptr;          /**< Authored vertex positions, one per seed vertex
                     (index-corresponded through the caller's bijection); slerp
                     endpoints. */
@@ -243,7 +243,7 @@ public:
     const uint8_t *prev_face_palette =
         nullptr;           /**< Per-face palette of the departed base mesh. */
     size_t prev_faces = 0; /**< Face count of the departed base mesh. */
-    const Vector *prev_face_centroid =
+    const math::Vector *prev_face_centroid =
         nullptr; /**< Unit centroid per departed base face; enables the
                     geometric provenance mapping. */
     FaceCorrespondence correspondence =
@@ -290,18 +290,18 @@ public:
     uint8_t landed_palette(size_t f) const {
       HS_CHECK(topology && f < faces,
                "OpLeg::Landing: landed_palette face out of range");
-      return to_palette[wrap(static_cast<int>(topology[f]), PALETTES)];
+      return to_palette[math::wrap(static_cast<int>(topology[f]), PALETTES)];
     }
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
-    const Snorm3 *arrival_point =
+    const math::Snorm3 *arrival_point =
         nullptr; /**< Packed arrival vertices for a later bridge handoff. */
     size_t arrival_points = 0; /**< Length of arrival_point. */
     const CompiledHankin *hankin =
         nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
                     otherwise); with star_point it rebuilds the arrival mesh
                     through arrival_mesh(). */
-    const Snorm3 *star_point =
+    const math::Snorm3 *star_point =
         nullptr;            /**< Arrival star points (snorm16-packed). */
     size_t star_points = 0; /**< Star-point count. */
   };
@@ -500,12 +500,13 @@ public:
       const size_t dyn = arrival.vertices.size() - statics;
       tr.hk_final.bind(arena, dyn);
       for (size_t i = 0; i < dyn; ++i)
-        tr.hk_final.push_back(Snorm3::encode(arrival.vertices[statics + i]));
+        tr.hk_final.push_back(
+            math::Snorm3::encode(arrival.vertices[statics + i]));
       tr.landing.hankin = &tr.hankin;
       tr.landing.star_point = tr.hk_final.data();
       tr.landing.star_points = tr.hk_final.size();
 
-      const Vector *start_centroid = nullptr;
+      const math::Vector *start_centroid = nullptr;
       PolyMesh start_mesh;
       if (handoff.prev_face_centroid) {
         hankin_at(tr, start_mesh, scratch_arena_b, tr.t_start);
@@ -585,7 +586,7 @@ public:
 
       // The opening frame is the seed verbatim, so its face centroids are the
       // provenance source.
-      const Vector *start_centroid = nullptr;
+      const math::Vector *start_centroid = nullptr;
       if (handoff.prev_face_centroid)
         start_centroid = face_centroids(tr.seed, scratch_arena_a);
 
@@ -644,7 +645,7 @@ public:
       // classifier splits symmetry orbits under the quantum, so perturbing its
       // input would inflate the leg's distinct palette-pair count.
       PolyMesh med;
-      ArenaVector<Vector> med_b;
+      ArenaVector<math::Vector> med_b;
       MeshOps::medial(seed, med, med_b, scratch_arena_a, scratch_arena_b);
       tr.seed_faces = med.face_counts.size();
       HS_CHECK(med_b.size() == med.vertices.size(),
@@ -655,14 +656,14 @@ public:
       tr.medial_a.bind(arena, medial_verts);
       tr.medial_b.bind(arena, medial_verts);
       for (size_t i = 0; i < medial_verts; ++i) {
-        tr.medial_a.push_back(Snorm3::encode(med.vertices[i]));
-        tr.medial_b.push_back(Snorm3::encode(med_b[i]));
+        tr.medial_a.push_back(math::Snorm3::encode(med.vertices[i]));
+        tr.medial_b.push_back(math::Snorm3::encode(med_b[i]));
       }
 
       // The opening frame is ambo(P) verbatim (the packed a_e), so med's s=0
       // vertices are the geometric provenance source; snapshot their centroids
       // before the in-place overwrite below.
-      const Vector *start_centroid = nullptr;
+      const math::Vector *start_centroid = nullptr;
       if (handoff.prev_face_centroid)
         start_centroid = face_centroids(med, scratch_arena_a);
 
@@ -735,8 +736,8 @@ public:
       tr.medial_a.bind(arena, n);
       tr.medial_b.bind(arena, n);
       for (size_t i = 0; i < n; ++i) {
-        tr.medial_a.push_back(Snorm3::encode(from_mesh.vertices[i]));
-        tr.medial_b.push_back(Snorm3::encode(spec.to_positions[i]));
+        tr.medial_a.push_back(math::Snorm3::encode(from_mesh.vertices[i]));
+        tr.medial_b.push_back(math::Snorm3::encode(spec.to_positions[i]));
       }
 
       // Arrival: the identity connectivity carrying the authored positions.
@@ -751,7 +752,7 @@ public:
 
       // The opening frame is the identity mesh verbatim (the packed a_e), so its
       // face centroids are the geometric provenance source.
-      const Vector *start_centroid = nullptr;
+      const math::Vector *start_centroid = nullptr;
       if (handoff.prev_face_centroid)
         start_centroid = face_centroids(from_mesh, scratch_arena_a);
 
@@ -893,7 +894,7 @@ private:
           else
             for (size_t i = 0; i < swept.vertices.size(); ++i)
               swept.vertices[i] =
-                  slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
+                  math::slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
         }
       }
     }
@@ -964,8 +965,8 @@ public:
     const int from_end = duration - frame;
     if (from_end >= win)
       return 0.0f;
-    return cubic_kernel(static_cast<float>(win - from_end) /
-                        static_cast<float>(win));
+    return math::cubic_kernel(static_cast<float>(win - from_end) /
+                              static_cast<float>(win));
   }
 
   /**
@@ -991,10 +992,10 @@ public:
    * @param n Side count of this face.
    * @return Sum of the face's vertex positions.
    */
-  __attribute__((always_inline)) static Vector
-  face_vertex_sum(const Vector *vertices, const uint16_t *faces, size_t off,
-                  int n) {
-    Vector c(0.0f, 0.0f, 0.0f);
+  __attribute__((always_inline)) static math::Vector
+  face_vertex_sum(const math::Vector *vertices, const uint16_t *faces,
+                  size_t off, int n) {
+    math::Vector c(0.0f, 0.0f, 0.0f);
     for (int k = 0; k < n; ++k)
       c = c + vertices[faces[off + k]];
     return c;
@@ -1006,7 +1007,7 @@ public:
    * @param out Receives one unit vector per face, in emission order.
    */
   HS_COLD_MEMBER static void face_centroids_into(const PolyMesh &m,
-                                                 Vector *out) {
+                                                 math::Vector *out) {
     size_t off = 0;
     for (size_t f = 0; f < m.face_counts.size(); ++f) {
       const int n = m.face_counts[f];
@@ -1032,7 +1033,7 @@ private:
                               the ones that keep no seed. */
     LegKind kind = LegKind::CONWAY_SWEEP; /**< Swept-mesh production path. */
     CompiledHankin hankin; /**< Baked topology (HANKIN_SWEEP legs). */
-    ArenaVector<Snorm3>
+    ArenaVector<math::Snorm3>
         hk_final; /**< Arrival star points, snorm16-packed (HANKIN_SWEEP). */
     ConwayGraph::MorphOp op =
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
@@ -1042,12 +1043,12 @@ private:
     int settle_frames = 0;              /**< Relax-slerp frames. */
     float t_start = 0, t_end = 0;       /**< Clamped sweep endpoints. */
     float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
-    ArenaVector<Vector>
+    ArenaVector<math::Vector>
         relaxed; /**< Relaxed endpoint vertices (settling and relax legs). */
-    ArenaVector<Snorm3>
+    ArenaVector<math::Snorm3>
         medial_a; /**< Medial a_e (ambo(P)) endpoint, snorm16-packed
                      (MEDIAL_SLERP). */
-    ArenaVector<Snorm3>
+    ArenaVector<math::Snorm3>
         medial_b; /**< Medial b_e (ambo(dual(P))) endpoint, snorm16-packed
                      (MEDIAL_SLERP). */
     ArenaVector<uint16_t>
@@ -1159,10 +1160,11 @@ private:
     // truncate(dual) [D-faces][D-vertices]), so the departed centroids cannot
     // stand in for the start centroids: provenance needs the start mesh's own,
     // built here, before the arrival, so the two never co-reside in scratch.
-    const Vector *start_centroid = nullptr;
+    const math::Vector *start_centroid = nullptr;
     if (bridge_provenance && handoff.prev_face_centroid &&
         tr.t_start > tr.t_end) {
-      Vector *cen = scratch_arena_a.allocate_n<Vector>(handoff.prev_faces);
+      math::Vector *cen =
+          scratch_arena_a.allocate_n<math::Vector>(handoff.prev_faces);
       {
         ScratchScope ta(scratch_arena_a);
         ScratchScope tb(scratch_arena_b);
@@ -1394,17 +1396,17 @@ private:
     size_t off = 0;
     for (size_t f = 0; f < arrival.face_counts.size(); ++f) {
       const int n = arrival.face_counts[f];
-      const Vector c =
-          normalized_or(face_vertex_sum(arrival.vertices.data(),
-                                        arrival.faces.data(), off, n),
-                        arrival.vertices[arrival.faces[off]]);
+      const math::Vector c =
+          math::normalized_or(face_vertex_sum(arrival.vertices.data(),
+                                              arrival.faces.data(), off, n),
+                              arrival.vertices[arrival.faces[off]]);
 
       // The orbit's own source vertex: the dual face's centroid lies in that
       // vertex's cell, so the nearest seed vertex is it.
-      Vector v = tr.seed.vertices[0];
+      math::Vector v = tr.seed.vertices[0];
       float best_dot = -2.0f;
       for (size_t i = 0; i < tr.seed.vertices.size(); ++i) {
-        const float d = dot(tr.seed.vertices[i], c);
+        const float d = math::dot(tr.seed.vertices[i], c);
         if (d > best_dot) {
           best_dot = d;
           v = tr.seed.vertices[i];
@@ -1415,8 +1417,8 @@ private:
       float best_sq = 1e9f;
       for (int k = 0; k < n; ++k) {
         const uint16_t j = arrival.faces[off + k];
-        const Vector d = arrival.vertices[j] - v;
-        const float dsq = dot(d, d);
+        const math::Vector d = arrival.vertices[j] - v;
+        const float dsq = math::dot(d, d);
         if (dsq < best_sq) {
           best_sq = dsq;
           best_face = j;
@@ -1532,8 +1534,8 @@ private:
    * bookend swap is bitwise, not 1 ULP off.
    */
   HS_COLD_MEMBER static void slerp_vertices(PolyMesh &out, Arena &arena,
-                                            const Vector *from,
-                                            const Vector *to, size_t n,
+                                            const math::Vector *from,
+                                            const math::Vector *to, size_t n,
                                             float k) {
     out.vertices.bind(arena, n);
     if (k >= 1.0f) {
@@ -1541,7 +1543,7 @@ private:
       return;
     }
     for (size_t i = 0; i < n; ++i)
-      out.vertices.push_back(slerp(from[i], to[i], k));
+      out.vertices.push_back(math::slerp(from[i], to[i], k));
   }
 
   /**
@@ -1593,9 +1595,10 @@ private:
         out.vertices.push_back(tr.hk_final[i].decode().normalized());
     } else {
       for (size_t i = 0; i < dyn; ++i) {
-        const Vector corner = hk.corner(hk.dynamic_instructions[i].v_corner);
+        const math::Vector corner =
+            hk.corner(hk.dynamic_instructions[i].v_corner);
         out.vertices.push_back(
-            slerp(corner.normalized(), tr.hk_final[i].decode(), k));
+            math::slerp(corner.normalized(), tr.hk_final[i].decode(), k));
       }
     }
     copy_topology(out, arena, hk.face_counts, hk.faces);
@@ -1634,7 +1637,7 @@ private:
     } else {
       for (size_t i = 0; i < n; ++i)
         out.vertices.push_back(
-            slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k));
+            math::slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k));
     }
     copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
@@ -1651,9 +1654,9 @@ private:
    * @param arena Arena receiving the centroid array.
    * @return One unit vector per face, in emission order.
    */
-  HS_COLD_MEMBER static const Vector *face_centroids(const PolyMesh &m,
-                                                     Arena &arena) {
-    Vector *out = arena.allocate_n<Vector>(m.face_counts.size());
+  HS_COLD_MEMBER static const math::Vector *face_centroids(const PolyMesh &m,
+                                                           Arena &arena) {
+    math::Vector *out = arena.allocate_n<math::Vector>(m.face_counts.size());
     face_centroids_into(m, out);
     return out;
   }
@@ -1665,12 +1668,12 @@ private:
    * @return Index into the handoff arrays.
    */
   HS_COLD_MEMBER static size_t
-  nearest_prev_face(const Vector &c, const PaletteHandoff &handoff) {
+  nearest_prev_face(const math::Vector &c, const PaletteHandoff &handoff) {
     size_t best = 0;
     float best_d = 1e9f;
     for (size_t j = 0; j < handoff.prev_faces; ++j) {
-      const Vector d = c - handoff.prev_face_centroid[j];
-      const float dsq = dot(d, d);
+      const math::Vector d = c - handoff.prev_face_centroid[j];
+      const float dsq = math::dot(d, d);
       if (dsq < best_d) {
         best_d = dsq;
         best = j;
@@ -1688,7 +1691,7 @@ private:
       return 0.0f;
     if (p >= OUT)
       return 1.0f;
-    return cubic_kernel((p - IN) / (OUT - IN));
+    return math::cubic_kernel((p - IN) / (OUT - IN));
   }
 
   // always_inline, not a plain helper: an out-of-line copy inherits no cold
@@ -1738,7 +1741,7 @@ private:
       }
       HS_CHECK(out == corners, "OpLeg: dual corner hosts incomplete");
     }
-    const Vector *arrival_centroid =
+    const math::Vector *arrival_centroid =
         landed < total && !structural_closing
             ? face_centroids(arrival, scratch_arena_a)
             : nullptr;
@@ -1755,8 +1758,8 @@ private:
       size_t host = 0;
       float best_d = 1e9f;
       for (size_t j = 0; j < landed; ++j) {
-        const Vector d = arrival_centroid[f] - arrival_centroid[j];
-        const float dsq = dot(d, d);
+        const math::Vector d = arrival_centroid[f] - arrival_centroid[j];
+        const float dsq = math::dot(d, d);
         if (dsq < best_d) {
           best_d = dsq;
           host = j;
@@ -1811,10 +1814,12 @@ private:
    * nearest departed palette, so T_EPS-wide births open in the underlying
    * face's colors instead of popping in as target-colored slivers.
    */
-  HS_COLD_MEMBER void build_palette_mapping(
-      Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
-      const BookendClasses &bookend, Arena &arena, const Vector *start_centroid,
-      size_t survivors, const uint8_t *forced_from = nullptr) {
+  HS_COLD_MEMBER void
+  build_palette_mapping(Transients &tr, const PolyMesh &arrival,
+                        const PaletteHandoff &handoff,
+                        const BookendClasses &bookend, Arena &arena,
+                        const math::Vector *start_centroid, size_t survivors,
+                        const uint8_t *forced_from = nullptr) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed_faces;
     tr.landing.faces = total;
@@ -1863,9 +1868,8 @@ private:
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
-      const uint8_t to =
-          tr.landing
-              .to_palette[wrap(static_cast<int>(target_topo[f]), PALETTES)];
+      const uint8_t to = tr.landing.to_palette[math::wrap(
+          static_cast<int>(target_topo[f]), PALETTES)];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
       if (forced_from) {
         from = forced_from[f];
@@ -1875,8 +1879,9 @@ private:
         from = handoff.prev_face_palette[f];
       } else if (full_correspondence) {
         const size_t j = nearest_prev_face(start_centroid[f], handoff);
-        const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
-        HS_CHECK(!prev_used[j] && dot(d, d) < PROVENANCE_TOL_SQ,
+        const math::Vector d =
+            start_centroid[f] - handoff.prev_face_centroid[j];
+        HS_CHECK(!prev_used[j] && math::dot(d, d) < PROVENANCE_TOL_SQ,
                  "OpLeg: start face has no unique departed counterpart");
         prev_used[j] = true;
         from = handoff.prev_face_palette[j];
@@ -1884,7 +1889,8 @@ private:
         if (f < handoff.prev_faces) {
           from = handoff.prev_face_palette[f];
         } else {
-          const int slot = wrap(static_cast<int>(target_topo[f]), PALETTES);
+          const int slot =
+              math::wrap(static_cast<int>(target_topo[f]), PALETTES);
           if (newborn_from[slot] < 0)
             newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
                 start_centroid[f], handoff)];

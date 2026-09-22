@@ -61,10 +61,10 @@ inline constexpr float STEREO_EQUATOR_EPS = 1e-9f;
 namespace stereographic_detail {
 
 /** @brief Scales a nonzero planar direction from its supplied length. */
-inline Complex radial_scale(const Complex &direction, float length,
-                            float radius) {
+inline math::Complex radial_scale(const math::Complex &direction, float length,
+                                  float radius) {
   const float scale = radius / length;
-  return Complex(direction.re * scale, direction.im * scale);
+  return math::Complex(direction.re * scale, direction.im * scale);
 }
 
 } // namespace stereographic_detail
@@ -77,17 +77,18 @@ inline Complex radial_scale(const Complex &direction, float length,
  * sentinel magnitude carrying the (x,z) azimuth; only the exact pole, where the
  * azimuth is undefined, lands on the real axis.
  */
-inline Complex stereo(const Vector &v) {
+inline math::Complex stereo(const math::Vector &v) {
   float denom = 1.0f - v.y;
   if (denom < STEREO_POLE_EPS) {
     // North-pole cap: emit the sentinel but keep the (x,z) azimuth. At the exact
     // pole (x = z = 0) the azimuth is undefined → +real fallback.
     float r = sqrtf(v.x * v.x + v.z * v.z);
     if (r < STEREO_AZIMUTH_EPS)
-      return Complex(STEREO_INF, 0.0f);
-    return stereographic_detail::radial_scale(Complex(v.x, v.z), r, STEREO_INF);
+      return math::Complex(STEREO_INF, 0.0f);
+    return stereographic_detail::radial_scale(math::Complex(v.x, v.z), r,
+                                              STEREO_INF);
   }
-  return Complex(v.x / denom, v.z / denom);
+  return math::Complex(v.x / denom, v.z / denom);
 }
 
 /**
@@ -95,13 +96,14 @@ inline Complex stereo(const Vector &v) {
  * @param z Complex-plane coordinate (the infinity sentinel maps to the pole).
  * @return The corresponding point on the unit sphere.
  */
-inline Vector inv_stereo(const Complex &z) {
+inline math::Vector inv_stereo(const math::Complex &z) {
   // |z| >= STEREO_INF_RECOGNIZE → North Pole (catches the sentinel and any point
   // within ~0.02° of the pole; squared compare avoids a sqrt).
   float r2 = z.re * z.re + z.im * z.im;
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
-    return Vector(0.0f, 1.0f, 0.0f);
-  return Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1), 2 * z.im / (r2 + 1));
+    return math::Vector(0.0f, 1.0f, 0.0f);
+  return math::Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1),
+                      2 * z.im / (r2 + 1));
 }
 
 /**
@@ -115,7 +117,7 @@ inline Vector inv_stereo(const Complex &z) {
  * inv_gnomonic must track the sign of `v.y` and pass it back via
  * inv_gnomonic's `hemisphere_sign`.
  */
-inline Complex gnomonic(const Vector &v) {
+inline math::Complex gnomonic(const math::Vector &v) {
   // Floor the divisor to ±STEREO_EQUATOR_EPS to avoid div-by-zero at v.y == 0,
   // then clamp the magnitude to STEREO_INF. A near-equator point clamps to the
   // sentinel, which inv_gnomonic snaps back to the equator.
@@ -131,10 +133,10 @@ inline Complex gnomonic(const Vector &v) {
   // azimuth the inverse reads back.
   const float magnitude_sq = gx * gx + gz * gz;
   if (magnitude_sq > STEREO_INF * STEREO_INF) {
-    return stereographic_detail::radial_scale(Complex(gx, gz),
+    return stereographic_detail::radial_scale(math::Complex(gx, gz),
                                               sqrtf(magnitude_sq), STEREO_INF);
   }
-  return Complex(gx, gz);
+  return math::Complex(gx, gz);
 }
 
 /**
@@ -147,7 +149,8 @@ inline Complex gnomonic(const Vector &v) {
  * the equator point in the direction of z, not a pole (the projection ray
  * flattens into y = 0 as |z| grows).
  */
-inline Vector inv_gnomonic(const Complex &z, float hemisphere_sign) {
+inline math::Vector inv_gnomonic(const math::Complex &z,
+                                 float hemisphere_sign) {
   // Clamped-to-infinity → equator, recognized from STEREO_INF_RECOGNIZE (margin
   // snaps a Mobius-shrunk sentinel back to the limit). Radial, matching the
   // forward clamp: a per-component test would make the snap-back radius
@@ -160,18 +163,18 @@ inline Vector inv_gnomonic(const Complex &z, float hemisphere_sign) {
     const float scale = 1.0f / std::max(std::abs(z.re), std::abs(z.im));
     const float re = z.re * scale;
     const float im = z.im * scale;
-    const Complex equator = stereographic_detail::radial_scale(
-        Complex(re, im), sqrtf(re * re + im * im), hemisphere_sign);
-    return Vector(equator.re, 0.0f, equator.im);
+    const math::Complex equator = stereographic_detail::radial_scale(
+        math::Complex(re, im), sqrtf(re * re + im * im), hemisphere_sign);
+    return math::Vector(equator.re, 0.0f, equator.im);
   }
   // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
   float inv_len = 1.0f / len;
 
   // Restore hemisphere sign (Upper or Lower)
-  return Vector(z.re * inv_len * hemisphere_sign, // i
-                inv_len * hemisphere_sign,        // j
-                z.im * inv_len * hemisphere_sign  // k
+  return math::Vector(z.re * inv_len * hemisphere_sign, // i
+                      inv_len * hemisphere_sign,        // j
+                      z.im * inv_len * hemisphere_sign  // k
   );
 }
 

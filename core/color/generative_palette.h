@@ -249,12 +249,13 @@ public:
       return false;
     for (int i = 1; i < key_count; ++i) {
       if (fabsf((keys[i].h - keys[i - 1].h) -
-                (other.keys[i].h - other.keys[i - 1].h)) >= PI_F)
+                (other.keys[i].h - other.keys[i - 1].h)) >= math::PI_F)
         return false;
     }
     if (domain == PaletteDomain::LOOP) {
       if (fabsf((closing_hue - keys[key_count - 1].h) -
-                (other.closing_hue - other.keys[key_count - 1].h)) >= PI_F)
+                (other.closing_hue - other.keys[key_count - 1].h)) >=
+          math::PI_F)
         return false;
       if (loop_turns() != other.loop_turns())
         return false;
@@ -457,7 +458,7 @@ private:
   static constexpr float MAX_CUSTOM_DELTA = 16.0f;
   static constexpr float MAX_CUSTOM_ABS_INPUT = 4096.0f;
   static constexpr float MAX_CHROMA_CONTROL = 1.0f;
-  static constexpr float MAX_ABS_TORSION = 4.0f * PI_F;
+  static constexpr float MAX_ABS_TORSION = 4.0f * math::PI_F;
   static constexpr float SWEEP_INTEGER_EPS = 1e-6f;
   static constexpr float SNAPSHOT_AXIS_STEPS = 4095.0f;
 
@@ -758,7 +759,7 @@ private:
                 PaletteRecipeField::INPUT_OFFSET, status);
     clamp_field(recipe.input.span, 0.0f, 1.0f - recipe.input.offset,
                 PaletteRecipeField::INPUT_SPAN, status);
-    const float wrapped_base = wrap_t(recipe.hue.base_turns);
+    const float wrapped_base = math::wrap_t(recipe.hue.base_turns);
     if (wrapped_base != recipe.hue.base_turns) {
       recipe.hue.base_turns = wrapped_base;
       status.adjustments.wrapped_fields |=
@@ -852,12 +853,12 @@ private:
   /** @brief Whole turns of a loop's closing travel from the first key. */
   int loop_turns() const {
     return static_cast<int>(
-        roundf((closing_hue - keys[0].h) * (1.0f / (2.0f * PI_F))));
+        roundf((closing_hue - keys[0].h) * (1.0f / (2.0f * math::PI_F))));
   }
 
   HS_COLD_MEMBER static float directed_delta(float delta,
                                              HueDirection direction) {
-    const float wrapped = wrap_t(delta);
+    const float wrapped = math::wrap_t(delta);
     switch (direction) {
     case HueDirection::SHORTEST:
       if (wrapped < 0.5f)
@@ -1014,10 +1015,10 @@ private:
     resolve_hues(recipe, key_count, hues, closing_hue);
 
     for (int i = 0; i < key_count; ++i)
-      keys[i] = {lightness[i], chroma[i], hues[i] * 2.0f * PI_F};
+      keys[i] = {lightness[i], chroma[i], hues[i] * 2.0f * math::PI_F};
     for (int i = key_count; i < PALETTE_MAX_KEYS; ++i)
       keys[i] = {};
-    closing_hue *= 2.0f * PI_F;
+    closing_hue *= 2.0f * math::PI_F;
     input_offset = recipe.input.offset;
     input_span = recipe.input.span;
     domain = recipe.domain;
@@ -1100,9 +1101,9 @@ private:
     case SegmentEase::LINEAR:
       return progress;
     case SegmentEase::COSINE:
-      return 0.5f - 0.5f * fast_cosf(PI_F * progress);
+      return 0.5f - 0.5f * math::fast_cosf(math::PI_F * progress);
     case SegmentEase::SMOOTHSTEP:
-      return cubic_kernel(progress);
+      return math::cubic_kernel(progress);
     }
     return progress;
   }
@@ -1402,9 +1403,9 @@ inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
   PaletteRecipe recipe;
   recipe.domain = domain;
   recipe.hue.mode = HueMode::CUSTOM;
-  recipe.hue.custom_turns[0] = a.h / (2.0f * PI_F);
-  recipe.hue.custom_turns[1] = b.h / (2.0f * PI_F);
-  recipe.hue.custom_turns[2] = c.h / (2.0f * PI_F);
+  recipe.hue.custom_turns[0] = a.h / (2.0f * math::PI_F);
+  recipe.hue.custom_turns[1] = b.h / (2.0f * math::PI_F);
+  recipe.hue.custom_turns[2] = c.h / (2.0f * math::PI_F);
   recipe.lightness.curve = AxisCurve::CUSTOM;
   recipe.lightness.custom[0] = a.L;
   recipe.lightness.custom[1] = b.L;

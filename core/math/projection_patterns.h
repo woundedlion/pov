@@ -60,11 +60,12 @@ inline float pole_normalize_pattern(float pattern, float r_sq,
  * where fast_sinf range reduction bands; the clamp keeps both components inside
  * the accurate range.
  */
-inline Complex stereo_pattern_args(const Complex &w, float pattern_freq) {
-  return Complex(hs::clamp(w.re * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                           STEREO_PATTERN_ARG_LIMIT),
-                 hs::clamp(w.im * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
-                           STEREO_PATTERN_ARG_LIMIT));
+inline math::Complex stereo_pattern_args(const math::Complex &w,
+                                         float pattern_freq) {
+  return math::Complex(hs::clamp(w.re * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                                 STEREO_PATTERN_ARG_LIMIT),
+                       hs::clamp(w.im * pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
+                                 STEREO_PATTERN_ARG_LIMIT));
 }
 
 } // namespace projections

@@ -43,7 +43,7 @@ using ReactionGraph::node;
  * @details Monotone in arc length for points on the unit sphere, so it orders
  *          neighbors without a sqrt.
  */
-static inline float chord2(const Vector &a, const Vector &b) {
+static inline float chord2(const math::Vector &a, const math::Vector &b) {
   float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
   return dx * dx + dy * dy + dz * dz;
 }
@@ -97,18 +97,20 @@ inline void test_node_ordered_and_distinct() {
   // sensitivity of x/z to a theta error — peaks at i = 3*(RD_N-1)/4, and RD_N-2
   // is the largest theta (~18400 rad) on a non-degenerate radius; a float32 fold
   // moves all three by more than the tolerance.
-  HS_EXPECT_VEC(node(1234), Vector(-0.416881472f, 0.678604007f, 0.604736686f),
-                1e-6f);
+  HS_EXPECT_VEC(node(1234),
+                math::Vector(-0.416881472f, 0.678604007f, 0.604736686f), 1e-6f);
   HS_EXPECT_VEC(node(5759),
-                Vector(-0.0421082303f, -0.499934882f, -0.865038753f), 1e-6f);
+                math::Vector(-0.0421082303f, -0.499934882f, -0.865038753f),
+                1e-6f);
   HS_EXPECT_VEC(node(RD_N - 2),
-                Vector(-0.00214281073f, -0.999739528f, -0.0227209534f), 1e-6f);
+                math::Vector(-0.00214281073f, -0.999739528f, -0.0227209534f),
+                1e-6f);
   // The walk stops at RD_N-1 so node(i+1) never reads past [0, RD_N).
-  Vector prev = node(0);
+  math::Vector prev = node(0);
   int out_of_order = 0;
   int coincident = 0;
   for (int i = 0; i < RD_N - 1; ++i) {
-    Vector next = node(i + 1);
+    math::Vector next = node(i + 1);
     // y = 1 - 2i/(RD_N-1): index order is the north-to-south sweep order.
     out_of_order += next.y >= prev.y;
     coincident += chord2(prev, next) <= 0.0f;
@@ -150,7 +152,7 @@ inline void test_table_shape_matches_constants() {
   static_assert(sizeof(neighbors[0]) / sizeof(neighbors[0][0]) == RD_K,
                 "neighbors column count must equal RD_K");
 
-  const Vector last = node(RD_N - 1);
+  const math::Vector last = node(RD_N - 1);
   int valid = 0;
   for (int k = 0; k < RD_K; ++k) {
     int16_t ni = neighbors[RD_N - 1][k];
@@ -269,7 +271,7 @@ inline void test_degree_is_exactly_rd_k() {
 inline void test_neighbors_are_local() {
   int first_far_slot = -1;
   for (int i = 0; i < RD_N; ++i) {
-    Vector p = node(i);
+    math::Vector p = node(i);
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
@@ -294,7 +296,7 @@ inline void test_neighbors_are_local() {
 inline void test_neighbors_closer_than_far_point() {
   int first_violation_slot = -1;
   for (int i = 0; i < RD_N; ++i) {
-    Vector p = node(i);
+    math::Vector p = node(i);
     int far_point = (i + RD_N / 2) % RD_N;
     float far2 = chord2(p, node(far_point));
     for (int k = 0; k < RD_K; ++k) {
@@ -319,7 +321,7 @@ inline void test_neighbors_match_brute_force_knn() {
   constexpr int STRIDE = 37;
   int first_bad_row = -1;
   for (int i = 0; i < RD_N; i += STRIDE) {
-    const Vector p = node(i);
+    const math::Vector p = node(i);
     float best2[RD_K];
     int best[RD_K];
     int filled = 0;
@@ -400,7 +402,7 @@ inline void test_edge_reciprocity_high() {
 inline void test_cubemap_lut_roundtrip() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
                          ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     RD_N * sizeof(Vector) + 64];
+                     RD_N * sizeof(math::Vector) + 64];
   Arena arena(buf, sizeof(buf));
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
@@ -446,7 +448,7 @@ inline void test_cubemap_lut_roundtrip() {
 inline void test_cubemap_lut_offlattice() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
                          ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     RD_N * sizeof(Vector) + 64];
+                     RD_N * sizeof(math::Vector) + 64];
   Arena arena(buf, sizeof(buf));
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
@@ -456,13 +458,13 @@ inline void test_cubemap_lut_offlattice() {
   int exact = 0, near = 0, miss = 0;
   for (int s = 0; s < SAMPLES; ++s) {
     // Reject near-origin draws that normalize unstably.
-    Vector q;
+    math::Vector q;
     float len2;
     do {
       const float x = rand_uniform(rng, -1.0f, 1.0f);
       const float y = rand_uniform(rng, -1.0f, 1.0f);
       const float z = rand_uniform(rng, -1.0f, 1.0f);
-      q = Vector(x, y, z);
+      q = math::Vector(x, y, z);
       len2 = q.x * q.x + q.y * q.y + q.z * q.z;
     } while (len2 < 0.01f);
     q = q.normalized();
@@ -518,7 +520,7 @@ inline void test_cubemap_lut_offlattice() {
 inline void test_cubemap_lut_equatorial() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
                          ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     RD_N * sizeof(Vector) + 64];
+                     RD_N * sizeof(math::Vector) + 64];
   Arena arena(buf, sizeof(buf));
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
@@ -531,7 +533,7 @@ inline void test_cubemap_lut_equatorial() {
     // whose longitude is unrelated to the seed's.
     float y = (j & 1) ? 1e-4f : -1e-4f;
     float r = std::sqrt(1.0f - y * y);
-    Vector q(std::cos(lon) * r, y, std::sin(lon) * r);
+    math::Vector q(std::cos(lon) * r, y, std::sin(lon) * r);
 
     int best = 0;
     float best_d = chord2(q, node(0));

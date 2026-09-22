@@ -66,14 +66,14 @@ __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
 
   const float y_floor = floorf(y);
   const float x_floor = floorf(x);
-  const float xs = quintic_kernel(x - x_floor);
-  const float ys = quintic_kernel(y - y_floor);
+  const float xs = math::quintic_kernel(x - x_floor);
+  const float ys = math::quintic_kernel(y - y_floor);
 
   SplatTaps t;
   t.y0 = static_cast<int>(y_floor);
   t.y1 = t.y0 + 1;
-  t.x0 = fast_wrap(static_cast<int>(x_floor), W);
-  t.x1 = fast_wrap(t.x0 + 1, W);
+  t.x0 = math::fast_wrap(static_cast<int>(x_floor), W);
+  t.x1 = math::fast_wrap(t.x0 + 1, W);
   t.y0_physical = t.y0 >= 0 && t.y0 < H;
   t.y1_physical = t.y1 >= 0 && t.y1 < H;
 

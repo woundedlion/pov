@@ -48,7 +48,7 @@ struct Torus {
    * @param p Query point in Cartesian ray-space.
    * @return Signed distance (negative inside, positive outside).
    */
-  float distance(const Vector &p) const {
+  float distance(const math::Vector &p) const {
     float q = sqrtf(p.x * p.x + p.z * p.z) - R;
     return sqrtf(q * q + p.y * p.y) - r;
   }
@@ -61,9 +61,9 @@ struct Torus {
    *         normalizes, or folds `p` through a linear map that it then
    *         normalizes.
    */
-  Vector normal_raw(const Vector &p, float inv_xz_len) const {
+  math::Vector normal_raw(const math::Vector &p, float inv_xz_len) const {
     float scale = R * inv_xz_len;
-    return p - Vector(p.x * scale, 0.0f, p.z * scale);
+    return p - math::Vector(p.x * scale, 0.0f, p.z * scale);
   }
 
   /**
@@ -71,9 +71,9 @@ struct Torus {
    * @param p Query point in Cartesian ray-space.
    * @return Unit outward normal.
    */
-  Vector normal(const Vector &p) const {
+  math::Vector normal(const math::Vector &p) const {
     float xz_len = sqrtf(p.x * p.x + p.z * p.z);
-    float inv_xz_len = (xz_len > TOLERANCE) ? 1.0f / xz_len : 0.0f;
+    float inv_xz_len = (xz_len > math::TOLERANCE) ? 1.0f / xz_len : 0.0f;
     return normal_raw(p, inv_xz_len).normalized();
   }
 
@@ -85,9 +85,9 @@ struct Torus {
    * @note Volumetric register convention (README "Volumetric Path"), distinct
    *        from Scan's v2 stroke-coverage and mesh face-index conventions.
    */
-  void populate(const Vector &p, Fragment &frag) const {
-    Vector n = normal(p);
-    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / TWO_PI_F;
+  void populate(const math::Vector &p, Fragment &frag) const {
+    math::Vector n = normal(p);
+    frag.v0 = (math::fast_atan2(p.z, p.x) + math::PI_F) / math::TWO_PI_F;
     frag.v1 = n.x;
     frag.v2 = n.y;
     frag.v3 = n.z;
@@ -149,7 +149,9 @@ struct Twist {
    * @param p Query point.
    * @return The radial distance s in the XZ plane.
    */
-  Ctx make_ctx(const Vector &p) const { return sqrtf(p.x * p.x + p.z * p.z); }
+  Ctx make_ctx(const math::Vector &p) const {
+    return sqrtf(p.x * p.x + p.z * p.z);
+  }
 
   /**
    * @brief Warps the domain by displacing Y by amplitude * sin(twist * θ).
@@ -157,8 +159,8 @@ struct Twist {
    * @param s Shared context from make_ctx(p).
    * @return The warped point.
    */
-  Vector apply(const Vector &p, Ctx s) const {
-    return Vector(p.x, p.y - amplitude * sin_ntheta(p, s), p.z);
+  math::Vector apply(const math::Vector &p, Ctx s) const {
+    return math::Vector(p.x, p.y - amplitude * sin_ntheta(p, s), p.z);
   }
 
   /**
@@ -171,7 +173,7 @@ struct Twist {
    * rather than an atan2 and a sine. Exact to float rounding, where
    * fast_atan2/fast_sinf each carry approximation error.
    */
-  float sin_ntheta(const Vector &p, Ctx s) const {
+  float sin_ntheta(const math::Vector &p, Ctx s) const {
     return sin_ntheta_inv(p, s).sin_n;
   }
 
@@ -193,8 +195,8 @@ struct Twist {
    * Lipschitz clamp would select there anyway, so no caller needs a second
    * branch.
    */
-  SinInv sin_ntheta_inv(const Vector &p, Ctx s) const {
-    if (twist == 0 || s <= TOLERANCE)
+  SinInv sin_ntheta_inv(const math::Vector &p, Ctx s) const {
+    if (twist == 0 || s <= math::TOLERANCE)
       return {0.0f, two_over_r};
     const float inv_s = 1.0f / s;
     const float two_cos = 2.0f * p.x * inv_s;
@@ -215,8 +217,8 @@ struct Twist {
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return cos(twist * theta).
    */
-  float cos_ntheta(const Vector &p, Ctx s) const {
-    if (twist == 0 || s <= TOLERANCE)
+  float cos_ntheta(const math::Vector &p, Ctx s) const {
+    if (twist == 0 || s <= math::TOLERANCE)
       return 1.0f;
     const float inv_s = 1.0f / s;
     const float two_cos = 2.0f * p.x * inv_s;
@@ -244,8 +246,8 @@ struct Twist {
    * @details For the hit path, which needs both: the march path needs only the
    * sine and calls sin_ntheta so it does not pay for the cosine sequence.
    */
-  SinCos sincos_ntheta(const Vector &p, Ctx s) const {
-    return sincos_ntheta_inv(p, (s > TOLERANCE) ? 1.0f / s : 0.0f);
+  SinCos sincos_ntheta(const math::Vector &p, Ctx s) const {
+    return sincos_ntheta_inv(p, (s > math::TOLERANCE) ? 1.0f / s : 0.0f);
   }
 
   /**
@@ -254,7 +256,7 @@ struct Twist {
    * @param inv_s Reciprocal of the XZ radius; 0 marks the degenerate axis.
    * @return Both harmonics, matching sincos_ntheta bit for bit.
    */
-  SinCos sincos_ntheta_inv(const Vector &p, float inv_s) const {
+  SinCos sincos_ntheta_inv(const math::Vector &p, float inv_s) const {
     if (twist == 0 || inv_s == 0.0f)
       return {0.0f, 1.0f};
     const float two_cos = 2.0f * p.x * inv_s;
@@ -282,7 +284,7 @@ struct Twist {
    * reaches s < R/2, where the clamp under-reports the true norm and a sphere
    * trace would step through.
    */
-  float lipschitz(const Vector & /*p*/, Ctx s) const {
+  float lipschitz(const math::Vector & /*p*/, Ctx s) const {
     return lipschitz(1.0f / std::max(s, R * 0.5f));
   }
 
@@ -331,8 +333,9 @@ struct Twist {
    * @param s Precomputed context (radial distance in the XZ plane).
    * @return The corrected unit normal accounting for the warp.
    */
-  Vector correct_normal(const Vector &p, const Vector &base_n, Ctx s) const {
-    if (twist == 0 || amplitude < TOLERANCE)
+  math::Vector correct_normal(const math::Vector &p, const math::Vector &base_n,
+                              Ctx s) const {
+    if (twist == 0 || amplitude < math::TOLERANCE)
       return base_n;
     return correct_normal(p, base_n, s, cos_ntheta(p, s));
   }
@@ -348,10 +351,10 @@ struct Twist {
    * the result and the final normalize cancels it — an unnormalized base normal
    * gives the identical unit result and saves a normalize.
    */
-  Vector correct_normal(const Vector &p, const Vector &base_n, Ctx s,
-                        float cos_n) const {
-    return correct_normal_inv(p, base_n, (s > TOLERANCE) ? 1.0f / s : 0.0f,
-                              cos_n);
+  math::Vector correct_normal(const math::Vector &p, const math::Vector &base_n,
+                              Ctx s, float cos_n) const {
+    return correct_normal_inv(p, base_n,
+                              (s > math::TOLERANCE) ? 1.0f / s : 0.0f, cos_n);
   }
 
   /**
@@ -362,16 +365,17 @@ struct Twist {
    * @param cos_n cos(twist * theta) at `p`.
    * @return The corrected unit normal.
    */
-  Vector correct_normal_inv(const Vector &p, const Vector &base_n, float inv_s,
-                            float cos_n) const {
+  math::Vector correct_normal_inv(const math::Vector &p,
+                                  const math::Vector &base_n, float inv_s,
+                                  float cos_n) const {
     float dh_dtheta = twist_amp * cos_n;
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;
     float dh_dz = dh_dtheta * p.x * inv_s2;
 
-    return Vector(base_n.x - base_n.y * dh_dx, base_n.y,
-                  base_n.z - base_n.y * dh_dz)
+    return math::Vector(base_n.x - base_n.y * dh_dx, base_n.y,
+                        base_n.z - base_n.y * dh_dz)
         .normalized();
   }
 };
@@ -387,9 +391,9 @@ HS_O3_END
  */
 template <typename T>
 concept VolumeWarp =
-    requires(const T &w, const Vector &p, typename T::Ctx ctx) {
+    requires(const T &w, const math::Vector &p, typename T::Ctx ctx) {
       { w.make_ctx(p) } -> std::same_as<typename T::Ctx>;
-      { w.apply(p, ctx) } -> std::same_as<Vector>;
+      { w.apply(p, ctx) } -> std::same_as<math::Vector>;
       { w.lipschitz(p, ctx) } -> std::same_as<float>;
       { w.bounding_inflation() } -> std::same_as<float>;
     };
@@ -399,9 +403,9 @@ concept VolumeWarp =
  * @tparam T Candidate base shape type.
  */
 template <typename T>
-concept VolumeShape = requires(const T &s, const Vector &p, Fragment &f) {
+concept VolumeShape = requires(const T &s, const math::Vector &p, Fragment &f) {
   { s.distance(p) } -> std::same_as<float>;
-  { s.normal(p) } -> std::same_as<Vector>;
+  { s.normal(p) } -> std::same_as<math::Vector>;
   s.populate(p, f);
 };
 
@@ -450,7 +454,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @param p Query point in Cartesian ray-space.
    * @return A lower bound on the distance to the warped surface.
    */
-  float bounding_distance(const Vector &p) const {
+  float bounding_distance(const math::Vector &p) const {
     if constexpr (TORUS_TWIST) {
       // Twist moves only y, by at most bounding_inflation(), so the warped
       // surface lies inside the torus swept +-A along y; this is that solid's
@@ -470,7 +474,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @return The base SDF evaluated at the warped point (use for surface
    * projection).
    */
-  float raw_distance(const Vector &p) const {
+  float raw_distance(const math::Vector &p) const {
     auto ctx = warp.make_ctx(p);
     return base.distance(warp.apply(p, ctx));
   }
@@ -481,7 +485,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @param p Query point in Cartesian ray-space.
    * @return A sphere-tracing-safe (under-estimated) distance to the surface.
    */
-  float distance(const Vector &p) const {
+  float distance(const math::Vector &p) const {
     const float gate =
         (precision > 0.0f) ? precision : warp.bounding_inflation();
     if constexpr (TORUS_TWIST) {
@@ -496,7 +500,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
         return sqrtf(qq) - base.r;
 
       const auto h = warp.sin_ntheta_inv(p, s);
-      const Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
+      const math::Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
       float d = base.distance(warped);
       if (d > 0.0f)
         d *= warp.lipschitz_inv(h.lipschitz_arg);
@@ -522,7 +526,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @param p Query point in Cartesian ray-space.
    * @return The corrected unit surface normal.
    */
-  Vector normal(const Vector &p) const {
+  math::Vector normal(const math::Vector &p) const {
     auto ctx = warp.make_ctx(p);
     if constexpr (TORUS_TWIST) {
       // Twist displaces only y, so the warped point keeps p's XZ radius `ctx`
@@ -531,15 +535,15 @@ template <typename SDF, typename Warp> struct WarpedVolume {
       // correction normalizes, so the base normal can stay unnormalized.
       // twist == 0 needs no special case: it gives cos_n = 1, hence a zero
       // gradient and an unchanged normal.
-      const float inv_s = (ctx > TOLERANCE) ? 1.0f / ctx : 0.0f;
-      if (warp.amplitude < TOLERANCE)
+      const float inv_s = (ctx > math::TOLERANCE) ? 1.0f / ctx : 0.0f;
+      if (warp.amplitude < math::TOLERANCE)
         return base.normal_raw(p, inv_s).normalized();
       auto h = warp.sincos_ntheta_inv(p, inv_s);
-      Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
+      math::Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
       return warp.correct_normal_inv(p, base.normal_raw(warped, inv_s), inv_s,
                                      h.cos_n);
     } else {
-      Vector base_n = base.normal(warp.apply(p, ctx));
+      math::Vector base_n = base.normal(warp.apply(p, ctx));
       if constexpr (requires { warp.correct_normal(p, base_n, ctx); }) {
         return warp.correct_normal(p, base_n, ctx);
       }
@@ -555,9 +559,9 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @note Volumetric register convention (README "Volumetric Path"), distinct
    *        from Scan's v2 stroke-coverage and mesh face-index conventions.
    */
-  void populate(const Vector &p, Fragment &frag) const {
-    Vector n = normal(p);
-    frag.v0 = (fast_atan2(p.z, p.x) + PI_F) / TWO_PI_F;
+  void populate(const math::Vector &p, Fragment &frag) const {
+    math::Vector n = normal(p);
+    frag.v0 = (math::fast_atan2(p.z, p.x) + math::PI_F) / math::TWO_PI_F;
     frag.v1 = n.x;
     frag.v2 = n.y;
     frag.v3 = n.z;

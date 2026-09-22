@@ -107,7 +107,7 @@ public:
                    (float)RIPPLE_DURATION_MAX);
     register_param("Trans Speed", &params.trans_speed, 1.0f, 8.0f);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, math::UP, noise));
 
 #ifndef HS_ISLAMICSTARS_PROFILE_SHAPE
     // Open on a recipe entry so the op-by-op build is the first thing drawn;
@@ -192,7 +192,7 @@ private:
   // they are declared before the Timeline to outlive it; ripple_gen must stay
   // after it, since a TransformerPool drops its clear hook through the
   // reference it holds.
-  Orientation<> orientation;
+  math::Orientation<> orientation;
   FastNoiseLite noise;
   Timeline timeline;
   Pipeline<W, H> filters;
@@ -313,10 +313,10 @@ private:
    * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
-    Vector origin = random_vector();
+    math::Vector origin = math::random_vector();
     for (int i = 0; i < burst_size_eff; i++) {
       if (!ripple_gen.spawn(i * ripple_stagger_eff, origin,
-                            PI_F / ripple_dur_eff, ripple_dur_eff))
+                            math::PI_F / ripple_dur_eff, ripple_dur_eff))
         hs::log("IslamicStars: ripple pool full, dropping spawn");
     }
   }
@@ -403,11 +403,11 @@ private:
       const uint16_t *foff = sweep_state.get_face_offsets_data();
       const uint8_t *fcnt = sweep_state.get_face_counts_data();
       for (size_t f = 0; f < faces; ++f) {
-        const Vector c = Animation::OpLeg::face_vertex_sum(
+        const math::Vector c = Animation::OpLeg::face_vertex_sum(
             sweep_state.vertices.data(), fidx, foff[f], fcnt[f]);
         const int cls = MeshPaletteBank::slot_of(face_classes[f]);
-        float off =
-            seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
+        float off = seg.face_offset(math::normalized_or(c, math::UP),
+                                    static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
         face_phases.push_back(seg.face_phase(phase, off, fade));
         face_palettes.push_back(&palette_bank[face_palette[f]].view());
@@ -718,8 +718,8 @@ private:
     // Segues with a spatial anchor (sweep axis, wave origin, spin axis) get a
     // fresh random one per transition. Safe mid-carousel: those segues are
     // sequential, so the previous sprite has already finished.
-    if constexpr (requires(SegueT &s, const Vector &v) { s.retarget(v); })
-      carousel.segue().retarget(random_vector());
+    if constexpr (requires(SegueT &s, const math::Vector &v) { s.retarget(v); })
+      carousel.segue().retarget(math::random_vector());
 
     // Per-shape choreography: segue in, hold still one second, ripple, settle
     // one second, segue out. Duration is derived from the stage lengths so the
@@ -977,9 +977,9 @@ private:
     const size_t prev_faces = build_seed.face_counts.size();
     HS_CHECK(prev_faces <= MAX_BUILD_FACES,
              "IslamicStars: leg seed exceeds MAX_BUILD_FACES");
-    Vector *prev_centroid = nullptr;
+    math::Vector *prev_centroid = nullptr;
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
-      prev_centroid = scratch.allocate_n<Vector>(prev_faces);
+      prev_centroid = scratch.allocate_n<math::Vector>(prev_faces);
       Animation::OpLeg::face_centroids_into(build_seed, prev_centroid);
     }
     const uint8_t *prev_pal;
@@ -1019,10 +1019,10 @@ private:
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing &&
                  build_landing->faces >= nf,
              "IslamicStars: landing does not cover the departed mesh");
-    Vector *cen = nullptr;
+    math::Vector *cen = nullptr;
     uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
     if (correspondence == Animation::OpLeg::FaceCorrespondence::GEOMETRIC) {
-      cen = scratch.allocate_n<Vector>(nf);
+      cen = scratch.allocate_n<math::Vector>(nf);
       Animation::OpLeg::face_centroids_into(departed, cen);
     }
     for (size_t f = 0; f < nf; ++f)

@@ -111,7 +111,7 @@ inline void test_named_presets_preserve_frame_hue() {
     s.sync_hue();
     // The cached angle comes from fast trig, which lands within 2.3e-4 turns
     // over this table; the bound carries ~4x margin.
-    HS_EXPECT_NEAR(std::atan2(s.hue_sa, s.hue_ca) / (2.0f * PI_F),
+    HS_EXPECT_NEAR(std::atan2(s.hue_sa, s.hue_ca) / (2.0f * math::PI_F),
                    c.frame_shift, 1e-3f);
   }
 }
@@ -137,7 +137,7 @@ inline void test_sync_hue_rotates_per_efold() {
       s.fade = std::exp(-efold);
       s.hue_shift = shift;
       s.sync_hue();
-      const float radians = 2.0f * PI_F * efold * shift;
+      const float radians = 2.0f * math::PI_F * efold * shift;
       HS_EXPECT_NEAR(s.hue_ca, std::cos(radians), HS_TURN_TOL);
       HS_EXPECT_NEAR(s.hue_sa, std::sin(radians), HS_TURN_TOL);
     }
@@ -231,8 +231,8 @@ inline void test_lerp_scalars_and_snapping() {
 inline void test_noise_warp_null_is_identity() {
   Feedback::Style s{};
   s.noise = nullptr;
-  Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
-  Vector out = Feedback::noise_warp(v, s);
+  math::Vector v = math::Vector(0.6f, 0.4f, 0.69f).normalized();
+  math::Vector out = Feedback::noise_warp(v, s);
   HS_EXPECT_NEAR(out.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(out.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(out.z, v.z, 1e-6f);
@@ -249,8 +249,8 @@ inline void test_melt_warp_drifts_toward_north() {
   s.speed = 1.0f;
   s.amplitude = 0.0f;
   s.noise = nullptr;
-  Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
-  Vector out = Feedback::melt_warp(v, s);
+  math::Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
+  math::Vector out = Feedback::melt_warp(v, s);
   // speed=1 slerps 0.04 of the 90 deg arc toward the pole: y rises ~0.0637, x
   // drops ~0.002. Pin a minimum drift so a no-op warp can't pass.
   HS_EXPECT_TRUE(out.y > 0.05f);
@@ -278,11 +278,11 @@ inline void test_noise_warp_bound_distorts() {
   s.noise = &np;
   s.sync_noise();
 
-  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
-                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 0, 1),
+                                  math::Vector(0.4f, 0.6f, 0.7f).normalized()};
   float total_moved = 0.0f;
-  for (const Vector &v : samples) {
-    Vector out = Feedback::noise_warp(v, s);
+  for (const math::Vector &v : samples) {
+    math::Vector out = Feedback::noise_warp(v, s);
     HS_EXPECT_NEAR(out.length(), 1.0f, 1e-3f);
     total_moved +=
         std::abs(out.x - v.x) + std::abs(out.y - v.y) + std::abs(out.z - v.z);
@@ -311,12 +311,12 @@ inline void test_melt_warp_bound_noise_perturbs() {
   Feedback::Style drip_only = s;
   drip_only.noise = nullptr;
 
-  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
-                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  const math::Vector samples[] = {math::Vector(1, 0, 0), math::Vector(0, 0, 1),
+                                  math::Vector(0.4f, 0.6f, 0.7f).normalized()};
   float total_divergence = 0.0f;
-  for (const Vector &v : samples) {
-    Vector with_noise = Feedback::melt_warp(v, s);
-    Vector pure_drip = Feedback::melt_warp(v, drip_only);
+  for (const math::Vector &v : samples) {
+    math::Vector with_noise = Feedback::melt_warp(v, s);
+    math::Vector pure_drip = Feedback::melt_warp(v, drip_only);
     HS_EXPECT_NEAR(with_noise.length(), 1.0f, 1e-3f);
     total_divergence += std::abs(with_noise.x - pure_drip.x) +
                         std::abs(with_noise.y - pure_drip.y) +
@@ -509,7 +509,7 @@ inline void test_hue_fade_apply2_tracks_scalar() {
       s.sync_hue();
       // The composite folds the fade and the u16 normalization into k.
       float k[9];
-      const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
+      const float sc = math::fast_cbrt(fade * (1.0f / 65535.0f));
       for (int i = 0; i < 9; ++i)
         k[i] = s.hue_k[i] * sc;
 
@@ -539,7 +539,7 @@ inline void test_hue_fade_apply2_tracks_scalar() {
   s.hue_shift = 0.2f;
   s.sync_hue();
   float k[9];
-  const float sc = fast_cbrt(0.9f * (1.0f / 65535.0f));
+  const float sc = math::fast_cbrt(0.9f * (1.0f / 65535.0f));
   for (int i = 0; i < 9; ++i)
     k[i] = s.hue_k[i] * sc;
   Pixel p0, p1;

@@ -18,10 +18,10 @@ namespace hs_test {
  * @return The equivalent difference in (-PI, PI].
  */
 inline float wrap_hue_delta(float dh) {
-  while (dh > PI_F)
-    dh -= 2.0f * PI_F;
-  while (dh < -PI_F)
-    dh += 2.0f * PI_F;
+  while (dh > math::PI_F)
+    dh -= 2.0f * math::PI_F;
+  while (dh < -math::PI_F)
+    dh += 2.0f * math::PI_F;
   return dh;
 }
 

@@ -87,7 +87,7 @@ __attribute__((always_inline)) inline int pole_lod_block_anchor(int x,
 template <int W, typename ShapeT>
 __attribute__((always_inline)) inline float pole_lod_slack(int run,
                                                            float sin_phi) {
-  return static_cast<float>(run - 1) * (2.0f * PI_F / W) * sin_phi *
+  return static_cast<float>(run - 1) * (2.0f * math::PI_F / W) * sin_phi *
          SDF::arc_stretch<std::remove_cvref_t<ShapeT>>;
 }
 
@@ -290,7 +290,7 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
                                                            float pixel_width) {
   if (d <= -pixel_width)
     return 1.0f;
-  return quintic_kernel(0.5f - d / (2.0f * pixel_width));
+  return math::quintic_kernel(0.5f - d / (2.0f * pixel_width));
 }
 
 /**
@@ -321,15 +321,15 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
-inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
-                         Canvas &canvas, const auto &shape,
+inline int process_pixel(int x, int y, const math::Vector &p,
+                         PipelineT &pipeline, Canvas &canvas, const auto &shape,
                          FragmentShaderFn fragment_shader, bool debug_bb,
                          SDF::DistanceResult &result_scratch,
                          Fragment &frag_scratch, int max_run = 1) {
   shape.template distance<ComputeUVs>(p, result_scratch);
 
   float d = result_scratch.dist;
-  constexpr float pixel_width = 2.0f * PI_F / W;
+  constexpr float pixel_width = 2.0f * math::PI_F / W;
   constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
   float threshold = solid ? pixel_width : 0.0f;
 
@@ -361,7 +361,7 @@ inline int process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       // edge (alpha 0) and d=-size the centerline (alpha 1).
       float aa_thickness = result_scratch.size;
       if (aa_thickness > 0) {
-        alpha = quintic_kernel(-d / aa_thickness);
+        alpha = math::quintic_kernel(-d / aa_thickness);
       } else {
         alpha = 0.0f;
       }
@@ -606,8 +606,8 @@ inline constexpr bool fits_top_span_cap =
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
                         PixelFn &&pixel_fn, ClipRegion::XClip xc = {}) {
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
 
   // Interval scratch (~1.5 KiB) lives in scratch_arena_b, not the stack:
   // Phantasm's DTCM stack is tight and scan_region is on the deepest render
@@ -627,8 +627,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   auto &norm = *scratch_arena_b.make<NormBuf>();
 
   const float *cos_theta =
-      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
-  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+      math::TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
+  const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
 
   // A full canvas-aligned block of `stride` columns is offered to the sink as
   // one call probed at the block's first column; the sink returns how many
@@ -645,22 +645,23 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
           next_block += stride;
           if (x + stride <= x2) {
             x +=
-                pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
+                pixel_fn(x, y,
+                         math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
                          stride) -
                 1;
             continue;
           }
         }
       }
-      pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
+      pixel_fn(x, y, math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
     }
   };
 
   // Inverted range (y_min > y_max) is a no-op: a disjoint CSG Intersection or a
   // fully-culled Face reports y_min=1, y_max=0, and the loop never runs.
   for (int y = y_min; y <= y_max; ++y) {
-    float sp = TrigLUT<W, H>::sin_phi[y];
-    float cp = TrigLUT<W, H>::cos_phi[y];
+    float sp = math::TrigLUT<W, H>::sin_phi[y];
+    float cp = math::TrigLUT<W, H>::cos_phi[y];
     const int stride = pole_lod_run(sp);
 
     // Clear before the producer runs: a producer that emits and then returns
@@ -691,19 +692,19 @@ template <int W, int H> struct BoundingSphere {
    * @param center World-space unit vector at the sphere center.
    * @param bounds_radius Bounding radius in world units (sin of angular extent).
    */
-  BoundingSphere(const Vector &center, float bounds_radius) {
+  BoundingSphere(const math::Vector &center, float bounds_radius) {
     float angular_radius = asinf(std::min(bounds_radius, 1.0f));
-    center_theta = vector_to_theta<W>(center);
+    center_theta = math::vector_to_theta<W>(center);
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
     cos_rho = cosf(angular_radius);
     cos_center_phi = cosf(center_phi);
     sin_center_phi = sinf(center_phi);
     // Round the band outward (floor the top, ceil the bottom) so a fractional cap
     // edge keeps the fringe row it touches.
-    y_min = std::max(
-        0, static_cast<int>(floorf(phi_to_y<H>(center_phi - angular_radius))));
-    y_max = std::min(H - 1, static_cast<int>(ceilf(
-                                phi_to_y<H>(center_phi + angular_radius))));
+    y_min = std::max(0, static_cast<int>(floorf(
+                            math::phi_to_y<H>(center_phi - angular_radius))));
+    y_max = std::min(H - 1, static_cast<int>(ceilf(math::phi_to_y<H>(
+                                center_phi + angular_radius))));
   }
 
   /**
@@ -717,8 +718,8 @@ template <int W, int H> struct BoundingSphere {
   template <typename OutFn> bool get_intervals(int y, OutFn &&out) const {
     // Phi trig from the static LUT (bit-identical to sinf(y_to_phi(y))), as on the
     // rest of the Volume hot path.
-    float sin_phi = TrigLUT<W, H>::sin_phi[y];
-    float cos_phi = TrigLUT<W, H>::cos_phi[y];
+    float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
+    float cos_phi = math::TrigLUT<W, H>::cos_phi[y];
     float theta_span;
     // Exact cap longitude half-width at this row from the spherical law of cosines:
     // cos(dtheta) = (cos rho - cos phi cos phi_c) / (sin phi sin phi_c). denom <= 0
@@ -731,7 +732,7 @@ template <int W, int H> struct BoundingSphere {
       theta_span = static_cast<float>(W);
     } else {
       float dtheta = acosf(cos_dtheta < 1.0f ? cos_dtheta : 1.0f);
-      theta_span = dtheta * W / (2.0f * PI_F);
+      theta_span = dtheta * W / (2.0f * math::PI_F);
     }
     // +1 absorbs ceil/round-off at the span edges; the downstream per-pixel
     // ray-sphere test rejects any extra column. The W/2 .. (W+1)/2 caps bound
@@ -814,7 +815,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
-      [&](int wx, int y, const Vector &p, int max_run) {
+      [&](int wx, int y, const math::Vector &p, int max_run) {
         return process_pixel<W, H, ComputeUVs>(
             wx, y, p, pipeline, canvas, shape, fragment_shader, effective_debug,
             result_scratch, frag_scratch, max_run);
@@ -862,7 +863,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
     return;
 
   SDF::DistanceResult result;
-  constexpr float PIXEL_WIDTH = 2.0f * PI_F / W;
+  constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   Pixel plot_color = color.color;
   if (effective_debug)
     plot_color = plot_color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
@@ -871,7 +872,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       [&](int y, auto &&out) {
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
-      [&](int x, int y, const Vector &p, int max_run) {
+      [&](int x, int y, const math::Vector &p, int max_run) {
         if (effective_debug) {
           for (int i = 0; i < max_run; ++i)
             pipeline.plot(canvas, x + i, y, plot_color, 0, 1.0f);

@@ -45,8 +45,8 @@ struct ProjectionParams {
                               "Camera Wander", 0.0f, 1.0f, FieldCurve::LERP},
       Field<ProjectionParams>{
           "central-meridian", &ProjectionParams::central_meridian,
-          "Central Meridian", 0.0f, TWO_PI_F, FieldCurve::SHORTEST_PERIODIC,
-          FieldGate::CENTRAL_MERIDIAN},
+          "Central Meridian", 0.0f, math::TWO_PI_F,
+          FieldCurve::SHORTEST_PERIODIC, FieldGate::CENTRAL_MERIDIAN},
   };
 };
 static_assert(field_ids_unique<ProjectionParams>());
@@ -77,7 +77,7 @@ singularity_attenuation(float regular_distance_sq, float singular_distance_sq,
 }
 
 __attribute__((always_inline)) inline float
-equirectangular_weight(const Vector &input, float singularity_fade) {
+equirectangular_weight(const math::Vector &input, float singularity_fade) {
   return singularity_attenuation(input.x * input.x + input.z * input.z,
                                  input.y * input.y, singularity_fade);
 }
@@ -91,7 +91,7 @@ equirectangular_weight(float latitude, float singularity_fade) {
 }
 
 __attribute__((always_inline)) inline float
-peirce_weight(const Vector &input, float meridian_cos, float meridian_sin,
+peirce_weight(const math::Vector &input, float meridian_cos, float meridian_sin,
               float singularity_fade) {
   const float rotated_x = input.x * meridian_cos + input.z * meridian_sin;
   const float rotated_z = input.z * meridian_cos - input.x * meridian_sin;
@@ -110,15 +110,15 @@ peirce_weight(const Vector &input, float meridian_cos, float meridian_sin,
 }
 
 __attribute__((always_inline)) inline float
-peirce_weight(const Vector &input, float central_meridian,
+peirce_weight(const math::Vector &input, float central_meridian,
               float singularity_fade) {
   return peirce_weight(input, cosf(central_meridian), sinf(central_meridian),
                        singularity_fade);
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-stereographic(const Vector &input, float singularity_fade) {
-  const Complex coords = projections::stereo(input);
+stereographic(const math::Vector &input, float singularity_fade) {
+  const math::Complex coords = projections::stereo(input);
   return {coords,
           {0, 0, static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
            std::max(0.0f, 1.0f - input.y),
@@ -134,9 +134,9 @@ __attribute__((noinline))
 #else
 __attribute__((always_inline))
 #endif
-inline ProjectionResult folded_sinusoidal(const Vector &input,
+inline ProjectionResult folded_sinusoidal(const math::Vector &input,
                                           float central_meridian) {
-  const Complex coords =
+  const math::Complex coords =
       projections::folded_sinusoidal(input, central_meridian);
   return {coords,
           {static_cast<uint8_t>(input.z < 0.0f), 0, 0,
@@ -144,22 +144,23 @@ inline ProjectionResult folded_sinusoidal(const Vector &input,
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-equirectangular(const Vector &input, float central_meridian,
+equirectangular(const math::Vector &input, float central_meridian,
                 float singularity_fade) {
-  const Complex coords = projections::equirectangular(input, central_meridian);
+  const math::Complex coords =
+      projections::equirectangular(input, central_meridian);
   return {coords,
           {0, 0, static_cast<uint8_t>(ProjectionBoundary::CUT),
-           PI_F - fabsf(coords.re),
+           math::PI_F - fabsf(coords.re),
            equirectangular_weight(input, singularity_fade), 0}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-gnomonic(const Vector &input, float singularity_fade,
+gnomonic(const math::Vector &input, float singularity_fade,
          GnomonicHemisphere hemisphere) {
   float y = input.y;
   if (fabsf(y) < GNOMONIC_AXIS_EPS)
     y = y < 0.0f ? -GNOMONIC_AXIS_EPS : GNOMONIC_AXIS_EPS;
-  const Complex coords(input.x / y, input.z / y);
+  const math::Complex coords(input.x / y, input.z / y);
   const bool in_domain =
       hemisphere == GnomonicHemisphere::FOLDED ||
       (hemisphere == GnomonicHemisphere::FRONT ? input.y >= 0.0f
@@ -188,15 +189,15 @@ from_kernel(const projections::ProjectionKernelResult &result,
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-bonne(const Vector &input, float central_meridian, float standard_parallel,
-      float coordinate_scale) {
+bonne(const math::Vector &input, float central_meridian,
+      float standard_parallel, float coordinate_scale) {
   return from_kernel(
       projections::bonne_projection(input, central_meridian, standard_parallel),
       coordinate_scale);
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-peirce(const Vector &input, float central_meridian, uint8_t layout,
+peirce(const math::Vector &input, float central_meridian, uint8_t layout,
        float layout_scroll, bool edge_distance_required, float coordinate_scale,
        float singularity_fade, float meridian_cos, float meridian_sin) {
   return from_kernel(
@@ -209,7 +210,7 @@ peirce(const Vector &input, float central_meridian, uint8_t layout,
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-peirce(const Vector &input, float central_meridian, uint8_t layout,
+peirce(const math::Vector &input, float central_meridian, uint8_t layout,
        float layout_scroll, bool edge_distance_required, float coordinate_scale,
        float singularity_fade) {
   return peirce(input, central_meridian, layout, layout_scroll,
@@ -218,7 +219,7 @@ peirce(const Vector &input, float central_meridian, uint8_t layout,
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-peirce_fast_square(const Vector &input, float coordinate_scale,
+peirce_fast_square(const math::Vector &input, float coordinate_scale,
                    float singularity_fade) {
   return from_kernel(projections::peirce_projection_fast_square(input),
                      coordinate_scale,
@@ -230,11 +231,11 @@ concept FrameProvider = Detail::ProviderFor<State, Binding> &&
                         requires(const typename Binding::FrameState &frame) {
                           {
                             State::conjugate(frame)
-                          } -> std::same_as<const Quaternion &>;
+                          } -> std::same_as<const math::Quaternion &>;
                         };
 
 __attribute__((always_inline)) inline ProjectionResult
-airocean(const Vector &input, float central_meridian, bool horizontal,
+airocean(const math::Vector &input, float central_meridian, bool horizontal,
          bool edge_distance_required, float coordinate_scale) {
   return from_kernel(projections::airocean_projection(input, central_meridian,
                                                       horizontal,
@@ -243,8 +244,9 @@ airocean(const Vector &input, float central_meridian, bool horizontal,
 }
 
 __attribute__((always_inline)) inline ProjectionResult
-airocean(const Vector &input, bool horizontal, bool edge_distance_required,
-         float coordinate_scale, float meridian_cos, float meridian_sin) {
+airocean(const math::Vector &input, bool horizontal,
+         bool edge_distance_required, float coordinate_scale,
+         float meridian_cos, float meridian_sin) {
   return from_kernel(projections::airocean_projection(input, meridian_cos,
                                                       meridian_sin, horizontal,
                                                       edge_distance_required),
@@ -266,13 +268,13 @@ template <typename State, bool North> struct Bonne : ApproximationDefaults {
         { State::coordinate_scale(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     const float hemisphere = North ? 1.0f : -1.0f;
     return bonne(input, State::central_meridian(frame),
                  hemisphere * State::standard_parallel(frame),
@@ -293,13 +295,13 @@ template <typename State> struct Stereographic : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     return stereographic(input, State::singularity_fade(frame));
   }
 };
@@ -318,13 +320,13 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
         { State::central_meridian(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     return folded_sinusoidal(input, State::central_meridian(frame));
   }
 };
@@ -343,13 +345,13 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     return equirectangular(input, State::central_meridian(frame),
                            State::singularity_fade(frame));
   }
@@ -369,13 +371,13 @@ struct Gnomonic : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     return gnomonic(input, State::singularity_fade(frame), Hemisphere);
   }
 };
@@ -400,13 +402,13 @@ struct Peirce : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     return peirce(input, State::central_meridian(frame), Layout,
                   State::layout_scroll(frame), EdgeDistanceRequired,
                   State::coordinate_scale(frame),
@@ -448,12 +450,12 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
       } && State::ZERO_CENTRAL_MERIDIAN;
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     return peirce_fast_square(input, State::coordinate_scale(frame),
                               State::singularity_fade(frame));
   }
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
@@ -480,7 +482,7 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
       };
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     if (State::central_meridian(frame) == 0.0f)
       return peirce_fast_square(input, State::coordinate_scale(frame),
                                 State::singularity_fade(frame));
@@ -508,13 +510,13 @@ struct Airocean : ApproximationDefaults {
         { State::coordinate_scale(frame) } -> std::same_as<float>;
       };
 
-  __attribute__((always_inline)) static const Quaternion &
+  __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame) {
     return airocean(input, State::central_meridian(frame), Horizontal,
                     EdgeDistanceRequired, State::coordinate_scale(frame));
   }

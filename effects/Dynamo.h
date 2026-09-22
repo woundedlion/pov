@@ -139,8 +139,8 @@ public:
     {
       HS_PROFILE(dy_filter_flush);
       filters.flush(
-          canvas, [this](const Vector &v, float t) { return color(v, t); },
-          1.0f);
+          canvas,
+          [this](const math::Vector &v, float t) { return color(v, t); }, 1.0f);
     }
   }
 
@@ -181,8 +181,9 @@ private:
    * @brief Schedules a half-turn rotation about a random axis, eased in/out.
    */
   void rotate() {
-    timeline.add(0, Animation::Rotation<W>(orientation, random_vector(), PI_F,
-                                           40, ease_in_out_sin, false));
+    timeline.add(0, Animation::Rotation<W>(orientation, math::random_vector(),
+                                           math::PI_F, 40, ease_in_out_sin,
+                                           false));
   }
 
   /**
@@ -212,7 +213,7 @@ private:
     // finish out of order, so pop_back would evict a still-animating boundary.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(
-        0, Animation::Transition(palette_boundaries.front(), PI_F,
+        0, Animation::Transition(palette_boundaries.front(), math::PI_F,
                                  (int)params.wipe_duration, ease_linear)
                .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
   }
@@ -262,16 +263,17 @@ private:
    * @details Walks the active palette boundaries from the newest (front) to the
    *          oldest to find the band containing the angle.
    */
-  Color4 color(const Vector &v, float t) {
+  Color4 color(const math::Vector &v, float t) {
     if (palette_boundaries.size() == 0)
       return baked_palettes[0].get(t);
 
     // Cross-fade half-width per boundary side, in radians.
-    constexpr float blend_width = PI_F / 4;
+    constexpr float blend_width = math::PI_F / 4;
     // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
     // makes the `a < next_boundary_lower_edge` test pass.
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
-    float a = fast_acos(hs::clamp(dot(v, PALETTE_NORMAL), -1.0f, 1.0f));
+    float a =
+        math::fast_acos(hs::clamp(math::dot(v, PALETTE_NORMAL), -1.0f, 1.0f));
 
     // The scan assumes palette_boundaries is monotonically non-decreasing; a live
     // Wipe-Dur change can transiently invert it, picking a stale palette for a few
@@ -323,15 +325,15 @@ private:
   void draw_nodes(Canvas &canvas, float age) {
     for (size_t i = 0; i < NUM_NODES; ++i) {
       if (i == 0) {
-        auto from = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
+        auto from = math::pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
         Color4 c = color(from, 0);
         c.alpha *= 0.5f;
         ++emitted_points;
         filters.plot(canvas, from, c.color, age, c.alpha);
       } else {
-        auto from = pixel_to_vector<W, H>(nodes[i - 1].x, nodes[i - 1].y);
-        auto to = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
-        auto fragment_shader = [this](const Vector &v, Fragment &f) {
+        auto from = math::pixel_to_vector<W, H>(nodes[i - 1].x, nodes[i - 1].y);
+        auto to = math::pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
+        auto fragment_shader = [this](const math::Vector &v, Fragment &f) {
           f.color = color(v, 0);
           f.color.alpha *= 0.5f;
           ++emitted_points;
@@ -396,10 +398,11 @@ private:
    *       test is false.
    */
   void drag(Node &leader, Node &follower) {
-    int dest = wrap(follower.x + follower.v, W);
-    if (shortest_distance(dest, leader.x, W) > (int)params.gap) {
+    int dest = math::wrap(follower.x + follower.v, W);
+    if (math::shortest_distance(dest, leader.x, W) > (int)params.gap) {
       follower.v = leader.v;
-      while (shortest_distance(follower.x, leader.x, W) > (int)params.gap) {
+      while (math::shortest_distance(follower.x, leader.x, W) >
+             (int)params.gap) {
         move(follower);
       }
     } else {
@@ -411,7 +414,7 @@ private:
    * @brief Advances a node by its velocity, wrapping x into [0, W).
    * @param node Node to move in place.
    */
-  void move(Node &node) { node.x = wrap(node.x + node.v, W); }
+  void move(Node &node) { node.x = math::wrap(node.x + node.v, W); }
 
   /**
    * @brief Computes the unit travel direction for a signed speed.
@@ -427,7 +430,7 @@ private:
    * @details Declared before `timeline` so it outlives the Rotations that point
    * here, which ~Timeline clears on teardown.
    */
-  Orientation<> orientation;
+  math::Orientation<> orientation;
   Timeline timeline; /**< Drives reverse/wipe/rotate animations and timers. */
 
   static constexpr size_t MAX_PALETTES = 16; /**< Max live palettes. */
@@ -456,7 +459,7 @@ private:
   /** @brief Evenly spaced Y-axis copies of the strand the pipeline emits. */
   static constexpr int STRAND_COPIES = 3;
   /** @brief Reference axis for band angle selection. */
-  static constexpr Vector PALETTE_NORMAL = Z_AXIS;
+  static constexpr math::Vector PALETTE_NORMAL = math::Z_AXIS;
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
    * @details Sized to the persistent partition left by the nodes and the baked

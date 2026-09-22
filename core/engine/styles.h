@@ -32,7 +32,7 @@ struct Style;
  * @details Receives the sample vector and the full Style for state access,
  * returning the warped sample direction.
  */
-using SpaceFn = Vector (*)(const Vector &, const Style &);
+using SpaceFn = math::Vector (*)(const math::Vector &, const Style &);
 /**
  * @brief Pointer type for a color (fade) transform.
  * @details Receives the pixel, the per-frame fade value, and the Style,
@@ -51,7 +51,7 @@ using ColorFn = Pixel (*)(const Pixel &, float fade, const Style &);
  * @param s Style supplying the bound NoiseParams.
  * @return Warped sample direction.
  */
-inline Vector noise_warp(const Vector &v, const Style &s);
+inline math::Vector noise_warp(const math::Vector &v, const Style &s);
 
 /**
  * @brief Downward melt space transform: slerps toward the north pole so the
@@ -60,7 +60,7 @@ inline Vector noise_warp(const Vector &v, const Style &s);
  * @param s Style supplying speed (drip rate) and the bound NoiseParams.
  * @return Warped sample direction.
  */
-inline Vector melt_warp(const Vector &v, const Style &s);
+inline math::Vector melt_warp(const math::Vector &v, const Style &s);
 
 /**
  * @brief Hue-rotating fade (default color transform).
@@ -319,22 +319,22 @@ static_assert(Style::Miasma().fade == 0.80586f &&
 
 // --- Deferred inline definitions (Style is now complete) ----------------------
 
-inline Vector noise_warp(const Vector &v, const Style &s) {
+inline math::Vector noise_warp(const math::Vector &v, const Style &s) {
   if (!s.noise)
     return v;
   return noise_transform(v, *s.noise);
 }
 
-inline Vector melt_warp(const Vector &v, const Style &s) {
+inline math::Vector melt_warp(const math::Vector &v, const Style &s) {
   // Shift sample toward north pole → image appears to drip south. speed controls
   // drip rate; amplitude controls noise wobble.
-  static constexpr Vector NORTH = {0.0f, 1.0f, 0.0f};
+  static constexpr math::Vector NORTH = {0.0f, 1.0f, 0.0f};
   // Slerp fraction toward the pole per frame at speed=1 (preset speeds scale it).
   static constexpr float MELT_STEP_PER_FRAME = 0.04f;
   // Amplitude floor below which the noise wobble is skipped.
   static constexpr float MELT_NOISE_AMP_FLOOR = 0.001f;
   float drip = s.speed * MELT_STEP_PER_FRAME;
-  Vector drifted = slerp(v, NORTH, drip);
+  math::Vector drifted = math::slerp(v, NORTH, drip);
 
   if (s.noise && s.amplitude > MELT_NOISE_AMP_FLOOR) {
     return noise_transform(drifted, *s.noise);
@@ -357,7 +357,7 @@ HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
                                      float b) {
   LMS lms = linear_rgb_to_lms(r, g, b);
   float cl, cm, cs;
-  fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
+  math::fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
   float rr, gg, bb;
   lms_cbrt_transform_rgb(k, cl, cm, cs, rr, gg, bb);
   return Pixel(float_to_pixel16(rr), float_to_pixel16(gg),
@@ -388,7 +388,7 @@ HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
   LMS lms1 = linear_rgb_to_lms(r1, g1, b1);
   const float lms6[6] = {lms0.l, lms0.m, lms0.s, lms1.l, lms1.m, lms1.s};
   float c6[6];
-  fast_cbrt6(lms6, c6);
+  math::fast_cbrt6(lms6, c6);
   float rr0, gg0, bb0, rr1, gg1, bb1;
   lms_cbrt_transform_rgb2(k, c6[0], c6[1], c6[2], c6[3], c6[4], c6[5], rr0, gg0,
                           bb0, rr1, gg1, bb1);
@@ -402,7 +402,7 @@ HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
 // cbrt(fade/65535 * LMS) = cbrt(fade/65535) * cbrt(LMS). Uses the rotation
 // matrix precomputed once per frame by Style::sync_hue.
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
-  const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
+  const float sc = math::fast_cbrt(fade * (1.0f / 65535.0f));
   float k[9];
   for (int i = 0; i < 9; ++i)
     k[i] = s.hue_k[i] * sc;

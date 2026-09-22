@@ -27,7 +27,7 @@ namespace shading_tests {
  */
 inline void test_fragment_lerp_endpoints() {
   Fragment a;
-  a.pos = Vector(1, 0, 0);
+  a.pos = math::Vector(1, 0, 0);
   a.v0 = 1.0f;
   a.v1 = 2.0f;
   a.v2 = 3.0f;
@@ -37,7 +37,7 @@ inline void test_fragment_lerp_endpoints() {
   a.color = Color4(Pixel(0, 0, 0), 0.2f);
 
   Fragment b;
-  b.pos = Vector(0, 1, 0);
+  b.pos = math::Vector(0, 1, 0);
   b.v0 = 10.0f;
   b.v1 = 20.0f;
   b.v2 = 30.0f;
@@ -64,7 +64,7 @@ inline void test_fragment_lerp_endpoints() {
  */
 inline void test_fragment_lerp_midpoint_carries_registers() {
   Fragment a;
-  a.pos = Vector(2, 0, 0);
+  a.pos = math::Vector(2, 0, 0);
   a.v0 = 0.0f;
   a.v1 = 0.0f;
   a.v2 = 0.0f;
@@ -74,7 +74,7 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
   a.color = Color4(Pixel(2000, 4000, 6000), 0.0f);
 
   Fragment b;
-  b.pos = Vector(0, 4, 0);
+  b.pos = math::Vector(0, 4, 0);
   b.v0 = 8.0f;
   b.v1 = 12.0f;
   b.v2 = 16.0f;
@@ -104,7 +104,7 @@ inline void test_fragment_lerp_midpoint_carries_registers() {
  */
 inline void test_fragment_lerp_registers_leaves_pos_and_color_default() {
   Fragment a;
-  a.pos = Vector(2, 0, 0);
+  a.pos = math::Vector(2, 0, 0);
   a.v0 = 0.0f;
   a.v1 = 0.0f;
   a.v2 = 0.0f;
@@ -114,7 +114,7 @@ inline void test_fragment_lerp_registers_leaves_pos_and_color_default() {
   a.color = Color4(Pixel(2000, 4000, 6000), 1.0f);
 
   Fragment b;
-  b.pos = Vector(0, 4, 0);
+  b.pos = math::Vector(0, 4, 0);
   b.v0 = 8.0f;
   b.v1 = 12.0f;
   b.v2 = 16.0f;
@@ -200,17 +200,17 @@ inline void test_mesh_topology_slot_out_of_range_falls_back() {
  *        re-normalized again.
  */
 inline void test_blinn_phong_half() {
-  const Vector up(0, 0, 1);
-  const Vector zero(0, 0, 0);
+  const math::Vector up(0, 0, 1);
+  const math::Vector zero(0, 0, 0);
 
   // No tilt leaves the half vector on the view axis.
-  Vector h = blinn_phong_half(up, zero);
+  math::Vector h = blinn_phong_half(up, zero);
   HS_EXPECT_NEAR(h.x, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.y, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.z, 1.0f, 1e-6f);
 
   // Tilted: light = normalize((0.3, 0, 1)), half = normalize(light + view).
-  h = blinn_phong_half(up, Vector(1, 0, 0));
+  h = blinn_phong_half(up, math::Vector(1, 0, 0));
   HS_EXPECT_NEAR(h.x, 0.14521314f, 1e-6f);
   HS_EXPECT_NEAR(h.y, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(h.z, 0.98940040f, 1e-6f);
@@ -223,7 +223,7 @@ inline void test_blinn_phong_half() {
  *        five-squaring ^32 specular, and the cubed Fresnel rim.
  */
 inline void test_shade_blinn_phong() {
-  const Vector up(0, 0, 1);
+  const math::Vector up(0, 0, 1);
 
   // All weights zero leaves only the 0.05 ambient base.
   HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 0.0f, 0.0f), 0.05f, 1e-6f);
@@ -231,21 +231,24 @@ inline void test_shade_blinn_phong() {
   // Half-Lambert diffuse: (n·v * 0.5 + 0.5)^2, specular/fresnel off.
   HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 1.0f, 0.0f, 0.0f), 1.05f,
                  1e-6f); // n·v = 1 -> diffuse = 1
-  HS_EXPECT_NEAR(shade_blinn_phong(up, Vector(1, 0, 0), up, 1.0f, 0.0f, 0.0f),
-                 0.30f, 1e-6f); // n·v = 0 -> diffuse = 0.25
-  HS_EXPECT_NEAR(shade_blinn_phong(up, Vector(0, 0, -1), up, 1.0f, 0.0f, 0.0f),
-                 0.05f, 1e-6f); // n·v = -1 -> diffuse = 0
+  HS_EXPECT_NEAR(
+      shade_blinn_phong(up, math::Vector(1, 0, 0), up, 1.0f, 0.0f, 0.0f), 0.30f,
+      1e-6f); // n·v = 0 -> diffuse = 0.25
+  HS_EXPECT_NEAR(
+      shade_blinn_phong(up, math::Vector(0, 0, -1), up, 1.0f, 0.0f, 0.0f),
+      0.05f, 1e-6f); // n·v = -1 -> diffuse = 0
 
   // Specular ^32 at a half vector with z = 0.8: n·h = 0.8 -> spec = 0.8^32.
-  const Vector u(0.6f, 0, 0.8f);
+  const math::Vector u(0.6f, 0, 0.8f);
   HS_EXPECT_NEAR(shade_blinn_phong(up, up, u, 0.0f, 1.0f, 0.0f),
                  0.05f + 0.0007922816251426434f, 1e-6f);
   // Headlight peak: half == normal -> n·h = 1 -> spec = 1.
   HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 1.0f, 0.0f), 1.05f, 1e-6f);
 
   // Cubed Fresnel rim: (1 - clamp(n·v))^3.
-  HS_EXPECT_NEAR(shade_blinn_phong(up, Vector(1, 0, 0), up, 0.0f, 0.0f, 1.0f),
-                 1.05f, 1e-6f); // n·v = 0 -> fresnel = 1
+  HS_EXPECT_NEAR(
+      shade_blinn_phong(up, math::Vector(1, 0, 0), up, 0.0f, 0.0f, 1.0f), 1.05f,
+      1e-6f); // n·v = 0 -> fresnel = 1
   HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, 0.0f, 0.0f, 1.0f), 0.05f,
                  1e-6f); // n·v = 1 -> fresnel = 0
 
@@ -361,7 +364,7 @@ inline void test_face_palette_shader_defaults() {
   shader.set_palette(&palette.view());
   Fragment fragment;
   fragment.v1 = -0.5f;
-  shader(Vector(), fragment);
+  shader(math::Vector(), fragment);
 
   HS_EXPECT_EQ(fragment.color.color.r, mid.r);
   HS_EXPECT_EQ(fragment.color.color.g, mid.g);
@@ -372,16 +375,16 @@ inline void test_face_palette_shader_defaults() {
   shader.scale = 2.0f;
   shader.alpha = 0.25f;
   fragment.v1 = -0.25f;
-  shader(Vector(), fragment);
+  shader(math::Vector(), fragment);
   HS_EXPECT_EQ(fragment.color.color.r, mid.r);
   HS_EXPECT_NEAR(fragment.color.alpha, 0.25f, 1e-6f);
 
   fragment.v1 = -3.0f;
-  shader(Vector(), fragment);
+  shader(math::Vector(), fragment);
   HS_EXPECT_EQ(fragment.color.color.r, light.r);
 
   fragment.v1 = 0.5f;
-  shader(Vector(), fragment);
+  shader(math::Vector(), fragment);
   HS_EXPECT_EQ(fragment.color.color.r, dark.r);
 }
 

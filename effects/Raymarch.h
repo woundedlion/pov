@@ -259,11 +259,12 @@ public:
                        palette_state->hue_noise_lut.data());
     refresh_hue_noise();
 
-    timeline.add(0, Animation::RandomWalk<W>(camera, Y_AXIS, camera_noise));
+    timeline.add(0,
+                 Animation::RandomWalk<W>(camera, math::Y_AXIS, camera_noise));
     for (int i = 0; i < MAX_POINTS; ++i) {
       VolumeSpin &spin = volume_spins[i];
       timeline.add(0, Animation::RandomWalk<W>(
-                          spin.orientation, random_vector(), spin.noise,
+                          spin.orientation, math::random_vector(), spin.noise,
                           Animation::RandomWalk<W>::Options::Energetic()));
     }
 
@@ -271,7 +272,7 @@ public:
     // each step, so the trig argument never grows. spin_phase is scaled to
     // radians by *2pi where consumed.
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
-                                      1.5f / (60.0f * TWO_PI_F), true));
+                                      1.5f / (60.0f * math::TWO_PI_F), true));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
                                       0.05f / 60.0f, true));
   }
@@ -288,7 +289,7 @@ public:
       HS_PROFILE(rm_timeline_step);
       timeline.step(canvas);
     }
-    hue_noise_phase = wrap_t(hue_noise_phase + params.hue_noise_speed);
+    hue_noise_phase = math::wrap_t(hue_noise_phase + params.hue_noise_speed);
     refresh_hue_noise();
     draw_fn(canvas);
   }
@@ -321,7 +322,7 @@ private:
 
   // Farthest point of the MINOR_K tube about the twisted centerline.
   static constexpr float UNIT_BOUNDS =
-      constexpr_sqrt(MAJOR_K * MAJOR_K + TWIST_K * TWIST_K) + MINOR_K;
+      math::constexpr_sqrt(MAJOR_K * MAJOR_K + TWIST_K * TWIST_K) + MINOR_K;
 
   /**
    * @brief Builds the vertex directions, per-vertex orientation quaternions,
@@ -361,7 +362,7 @@ private:
   }
 
   struct SurfaceFrame {
-    Vector normal;
+    math::Vector normal;
     float cos_u;
     float sin_u;
     float cos_v;
@@ -370,14 +371,17 @@ private:
 
   HS_O3_FN static SurfaceFrame
   surface_frame(const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> &torus,
-                const Vector &loc) {
+                const math::Vector &loc) {
     const float radial = sqrtf(loc.x * loc.x + loc.z * loc.z);
-    const float inverse_radial = radial > TOLERANCE ? 1.0f / radial : 0.0f;
+    const float inverse_radial =
+        radial > math::TOLERANCE ? 1.0f / radial : 0.0f;
     const auto harmonic = torus.warp.sincos_ntheta_inv(loc, inverse_radial);
-    const Vector warped(loc.x, loc.y - torus.warp.amplitude * harmonic.sin_n,
-                        loc.z);
-    const Vector raw_normal = torus.base.normal_raw(warped, inverse_radial);
-    const float inverse_tube = fast_rsqrt(dot(raw_normal, raw_normal));
+    const math::Vector warped(
+        loc.x, loc.y - torus.warp.amplitude * harmonic.sin_n, loc.z);
+    const math::Vector raw_normal =
+        torus.base.normal_raw(warped, inverse_radial);
+    const float inverse_tube =
+        math::fast_rsqrt(math::dot(raw_normal, raw_normal));
     return {torus.warp.correct_normal_inv(loc, raw_normal, inverse_radial,
                                           harmonic.cos_n),
             loc.x * inverse_radial, loc.z * inverse_radial,
@@ -396,8 +400,8 @@ private:
     int max_steps = params.max_steps;
 
     // spin_phase rides in [0,1); scale to radians for make_rotation.
-    float spin_angle = spin_phase * TWO_PI_F;
-    Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
+    float spin_angle = spin_phase * math::TWO_PI_F;
+    math::Quaternion spin_q = math::make_rotation(math::X_AXIS, spin_angle);
 
     for (int i = 0; i < active_count; ++i) {
       // Per-vertex auto-size: fit the ring's outer edge to `fill` of this
@@ -416,26 +420,26 @@ private:
       SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
           {major_r, minor_r}, {twist_n, twist_amp, major_r}, 2.0f * aa_width};
 
-      Vector center = camera.orient(points[i]);
+      math::Vector center = camera.orient(points[i]);
 
-      Quaternion world_q = camera.get() * raw_quats[i] *
-                           volume_spins[i].orientation.get() * spin_q;
-      Vector tangent = rotate(Vector(1, 0, 0), world_q);
-      Vector half_w = blinn_phong_half(center, tangent);
+      math::Quaternion world_q = camera.get() * raw_quats[i] *
+                                 volume_spins[i].orientation.get() * spin_q;
+      math::Vector tangent = math::rotate(math::Vector(1, 0, 0), world_q);
+      math::Vector half_w = blinn_phong_half(center, tangent);
 
       float palette_offset =
           palette_phase + static_cast<float>(i) / active_count;
 
-      auto frag_fn = [&](const Vector &loc, Fragment &frag) HS_O3_FN {
+      auto frag_fn = [&](const math::Vector &loc, Fragment &frag) HS_O3_FN {
         SurfaceFrame surface = surface_frame(torus, loc);
-        Vector n_world = rotate(surface.normal, world_q);
+        math::Vector n_world = math::rotate(surface.normal, world_q);
         float shade = shade_blinn_phong(n_world, center, half_w, params.diffuse,
                                         params.specular, params.fresnel);
 
         float surface_noise = noise_palette.noise_uv(
             surface.cos_u, surface.sin_u, surface.cos_v, surface.sin_v);
         float palette_t =
-            wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
+            math::wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
         float hue_shift = params.hue_shift * surface_noise;
         Pixel color = params.hue_shift == 0.0f
                           ? baked_palette.get_color(palette_t)
@@ -452,7 +456,7 @@ private:
   }
 
   struct VolumeSpin {
-    Orientation<> orientation;
+    math::Orientation<> orientation;
     FastNoiseLite noise;
   };
 
@@ -465,7 +469,7 @@ private:
   };
 
   FastNoiseLite camera_noise;
-  Orientation<> camera;
+  math::Orientation<> camera;
   VolumeSpin *volume_spins = nullptr;
   PaletteState *palette_state = nullptr;
   float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
@@ -473,8 +477,8 @@ private:
   float hue_noise_phase = 0.0f;
   int active_count = 0;
   PlacementSolid active_base_solid = PlacementSolid::COUNT;
-  std::array<Vector, MAX_POINTS> points;
-  std::array<Quaternion, MAX_POINTS> raw_quats;
+  std::array<math::Vector, MAX_POINTS> points;
+  std::array<math::Quaternion, MAX_POINTS> raw_quats;
   /** Per-vertex nearest-neighbour gaps in radians. */
   std::array<float, MAX_POINTS> nn_angle;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs

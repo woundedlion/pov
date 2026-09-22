@@ -33,7 +33,7 @@
  * with MinimalFragment refreshes v1 alone.
  */
 struct Fragment {
-  Vector pos;        /**< Position (typically a unit vector on the sphere). */
+  math::Vector pos;  /**< Position (typically a unit vector on the sphere). */
   float v0 = 0.0f;   /**< Register 0 (usually normalized progress t) */
   float v1 = 0.0f;   /**< Register 1 (usually arc length/distance) */
   float v2 = 0.0f;   /**< Register 2 (stroke coverage or index/id) */
@@ -140,7 +140,7 @@ inline int mesh_topology_slot(const Fragment &f, const uint16_t *topology,
   int face_idx = mesh_face_index(f);
   int topo_idx =
       (face_idx >= 0 && face_idx < num_faces) ? topology[face_idx] : 0;
-  return wrap(topo_idx, static_cast<int>(NumPalettes));
+  return math::wrap(topo_idx, static_cast<int>(NumPalettes));
 }
 
 /**
@@ -220,7 +220,7 @@ struct FacePaletteShader {
     palette = value;
   }
 
-  void operator()(const Vector &, Fragment &frag) const {
+  void operator()(const math::Vector &, Fragment &frag) const {
     assert(palette != nullptr);
     float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
     frag.color.color = palette->get_color_unit(t);
@@ -252,12 +252,13 @@ inline constexpr int BLINN_PHONG_SPECULAR_EXP = 32;
  *          half-vector once and passes it to every shade_blinn_phong call.
  */
 HS_O3_BEGIN
-inline Vector blinn_phong_half(const Vector &view_dir, const Vector &tangent) {
-  Vector light = view_dir + tangent * BLINN_PHONG_TANGENT_TILT;
+inline math::Vector blinn_phong_half(const math::Vector &view_dir,
+                                     const math::Vector &tangent) {
+  math::Vector light = view_dir + tangent * BLINN_PHONG_TANGENT_TILT;
   float ll = light.length();
   if (ll > math::TOLERANCE)
     light /= ll;
-  Vector half = light + view_dir;
+  math::Vector half = light + view_dir;
   float hl = half.length();
   if (hl > math::TOLERANCE)
     half /= hl;
@@ -279,14 +280,15 @@ inline Vector blinn_phong_half(const Vector &view_dir, const Vector &tangent) {
  *         Fresnel terms); the caller multiplies it by the surface color for
  *         the metallic look.
  */
-inline float shade_blinn_phong(const Vector &normal_w, const Vector &view_dir,
-                               const Vector &half_w, float diffuse_w,
+inline float shade_blinn_phong(const math::Vector &normal_w,
+                               const math::Vector &view_dir,
+                               const math::Vector &half_w, float diffuse_w,
                                float specular_w, float fresnel_w) {
-  float ndotv = dot(normal_w, view_dir);
+  float ndotv = math::dot(normal_w, view_dir);
   float half_lam = ndotv * 0.5f + 0.5f;
   float diffuse = half_lam * half_lam;
 
-  float ndoth = std::max(0.0f, dot(normal_w, half_w));
+  float ndoth = std::max(0.0f, math::dot(normal_w, half_w));
   static_assert(BLINN_PHONG_SPECULAR_EXP == 32,
                 "the squaring chain below spells exactly ^32");
   float spec = ndoth * ndoth;

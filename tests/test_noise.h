@@ -251,16 +251,19 @@ inline void test_noise_transform_golden() {
   p.sync();
 
   struct Case {
-    Vector in;
-    Vector out;
+    math::Vector in;
+    math::Vector out;
   };
   const Case cases[] = {
-      {Vector(1, 0, 0), Vector(0.999982476f, 0.000889263f, -0.005846164f)},
-      {Vector(0, 1, 0), Vector(0.013488254f, 0.999905467f, -0.002678307f)},
-      {Vector(0, 0, 1), Vector(0.009780074f, -0.009725943f, 0.999904871f)},
+      {math::Vector(1, 0, 0),
+       math::Vector(0.999982476f, 0.000889263f, -0.005846164f)},
+      {math::Vector(0, 1, 0),
+       math::Vector(0.013488254f, 0.999905467f, -0.002678307f)},
+      {math::Vector(0, 0, 1),
+       math::Vector(0.009780074f, -0.009725943f, 0.999904871f)},
   };
   for (const Case &c : cases) {
-    Vector r = noise_transform(c.in, p);
+    math::Vector r = noise_transform(c.in, p);
     HS_EXPECT_NEAR(r.x, c.out.x, 1e-5f);
     HS_EXPECT_NEAR(r.y, c.out.y, 1e-5f);
     HS_EXPECT_NEAR(r.z, c.out.z, 1e-5f);

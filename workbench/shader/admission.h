@@ -26,7 +26,7 @@ namespace Workbench {
 // Declared ahead of first use: at namespace scope an unqualified
 // call would otherwise bind to a same-named function at global scope.
 HS_COLD_MEMBER inline constexpr bool
-coefficient_in_range(const Complex &coefficient);
+coefficient_in_range(const math::Complex &coefficient);
 HS_COLD_MEMBER inline constexpr bool
 mobius_coefficients_in_range(const math::MobiusParams &params);
 HS_COLD_MEMBER inline constexpr bool curl_pair_stable(const WarpStageSpec &spec,
@@ -58,7 +58,7 @@ HS_COLD_MEMBER inline constexpr SourceTraits source_traits(Function function) {
   return {false, false};
 }
 
-HS_COLD_MEMBER inline constexpr Complex
+HS_COLD_MEMBER inline constexpr math::Complex
 source_cartesian_period(Function function, float lattice_cell_scale) {
   if (function != Function::PRIMITIVE_LATTICE || !(lattice_cell_scale > 0.0f))
     return {};
@@ -66,7 +66,7 @@ source_cartesian_period(Function function, float lattice_cell_scale) {
   return {period, period};
 }
 
-HS_COLD_MEMBER inline constexpr Complex
+HS_COLD_MEMBER inline constexpr math::Complex
 source_cartesian_period(const Config &config) {
   return source_cartesian_period(config.slots.function,
                                  config.params.source.lattice_cell_scale);
@@ -126,7 +126,7 @@ HS_COLD_MEMBER inline constexpr float
 polar_seam_periods(const RequestedConfig &config, const WarpStageSpec &polar) {
   const float harmonic = static_cast<float>(polar.polar_harmonic);
   if (config.slots.function == Function::PRIMITIVE_LATTICE)
-    return TWO_PI_F * harmonic * config.params.source.lattice_cell_scale;
+    return math::TWO_PI_F * harmonic * config.params.source.lattice_cell_scale;
   return config.params.source.pattern_freq * harmonic;
 }
 
@@ -258,7 +258,8 @@ valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
            params.translation_x <= AFFINE_TRANSLATION_MAX &&
            params.translation_y >= -AFFINE_TRANSLATION_MAX &&
            params.translation_y <= AFFINE_TRANSLATION_MAX &&
-           params.rotation >= -TWO_PI_F && params.rotation <= TWO_PI_F &&
+           params.rotation >= -math::TWO_PI_F &&
+           params.rotation <= math::TWO_PI_F &&
            params.scale_x >= AFFINE_SCALE_MIN &&
            params.scale_x <= AFFINE_SCALE_MAX &&
            params.scale_y >= AFFINE_SCALE_MIN &&
@@ -295,7 +296,7 @@ valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
                    curl_intervals(spec.curl_integrator) <=
                0.5f;
   case WarpStageKind::MIRROR_TILE:
-    return params.rotation >= 0.0f && params.rotation <= TWO_PI_F &&
+    return params.rotation >= 0.0f && params.rotation <= math::TWO_PI_F &&
            params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
            params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
            params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
@@ -322,7 +323,7 @@ projection_coordinate_bound(const Config &config) {
 
 HS_COLD_MEMBER inline constexpr float
 stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
-                       float input_bound, const Complex &source_period) {
+                       float input_bound, const math::Complex &source_period) {
   switch (spec.kind) {
   case WarpStageKind::COUNT:
     break;
@@ -361,8 +362,8 @@ stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
         params.radial_scale * (spec.polar_mode == PolarMode::LOGARITHMIC
                                    ? 12.0f
                                    : 1.414214f * input_bound) +
-        TWO_PI_F;
-    return radial > 20.0f * PI_F ? radial : 20.0f * PI_F;
+        math::TWO_PI_F;
+    return radial > 20.0f * math::PI_F ? radial : 20.0f * math::PI_F;
   }
   }
   return WARP_COORD_LIMIT + 1.0f;
@@ -370,7 +371,7 @@ stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
 
 HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config) {
   float bound = projection_coordinate_bound(config);
-  const Complex source_period = source_cartesian_period(config);
+  const math::Complex source_period = source_cartesian_period(config);
   const WarpStageSpec stages[] = {config.slots.warp_program.outer,
                                   config.slots.warp_program.inner};
   const WarpStageParams params[] = {config.params.warp.outer,
@@ -404,7 +405,7 @@ valid_mobius(const math::MobiusParams &params) {
 }
 
 HS_COLD_MEMBER inline constexpr bool
-coefficient_in_range(const Complex &coefficient) {
+coefficient_in_range(const math::Complex &coefficient) {
   return coefficient.re >= -8.0f && coefficient.re <= 8.0f &&
          coefficient.im >= -8.0f && coefficient.im <= 8.0f;
 }

@@ -90,7 +90,7 @@ struct KaleidoscopeSmoothWhiteBox {
             frame.clocks.palette_oscillation_phase};
   }
 
-  static Color4 shade(const Vector &view, const Ctx &frame) {
+  static Color4 shade(const math::Vector &view, const Ctx &frame) {
     return FX::RenderPipeline::shade(view, FX::RenderPipeline::prepare(frame));
   }
 };

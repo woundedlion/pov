@@ -83,7 +83,7 @@ struct OracleState {
   float amplitude = 1.0f;
   float alpha = 0.625f;
   bool opposite = false;
-  Quaternion orientation;
+  math::Quaternion orientation;
   OracleClip clip;
 };
 
@@ -183,11 +183,12 @@ struct ShapeShifterWhiteBox {
   }
 
   template <typename F>
-  static void
-  dispatch_plot_reference(OracleEffect &effect, Canvas &canvas,
-                          const Basis &basis, OracleEffect::ShapeType shape,
-                          float radius, int sides, const F &fragment_shader,
-                          float shape_phase) {
+  static void dispatch_plot_reference(OracleEffect &effect, Canvas &canvas,
+                                      const math::Basis &basis,
+                                      OracleEffect::ShapeType shape,
+                                      float radius, int sides,
+                                      const F &fragment_shader,
+                                      float shape_phase) {
     using ShapeType = OracleEffect::ShapeType;
     PipelineRef pipeline(effect.plot_filters, canvas);
     switch (shape) {
@@ -228,7 +229,8 @@ struct ShapeShifterWhiteBox {
                                 static_cast<int>(OracleEffect::SIDES_MAX));
     const ShapeType shape = effect.selected_shape();
     const auto function = effect.selected_function();
-    const Basis basis = make_basis(effect.orientation.get(), X_AXIS);
+    const math::Basis basis =
+        math::make_basis(effect.orientation.get(), math::X_AXIS);
     const float global_alpha = effect.alpha * effect.preset_opacity;
 
     const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
@@ -245,7 +247,7 @@ struct ShapeShifterWhiteBox {
           direction * effect.params.amplitude *
           effect.evaluate(function, radius_t + effect.phase);
       const Color4 color = palette.get(radius_t);
-      auto shader = [&](const Vector &, Fragment &fragment) {
+      auto shader = [&](const math::Vector &, Fragment &fragment) {
         fragment.color = color;
         fragment.color.alpha *= global_alpha;
       };
@@ -452,9 +454,10 @@ inline std::array<OracleState, 20> shape_function_matrix() {
   const int counts[] = {1, 2, 7, 75};
   const int sides[] = {3, 5, 9, 16, 7};
   const float phases[] = {0.0f, 0.249f, 0.5f, 0.999f};
-  const Quaternion orientations[] = {
-      Quaternion(), make_rotation(X_AXIS, Y_AXIS),
-      make_rotation(X_AXIS, -Y_AXIS), make_rotation(X_AXIS, Z_AXIS)};
+  const math::Quaternion orientations[] = {
+      math::Quaternion(), math::make_rotation(math::X_AXIS, math::Y_AXIS),
+      math::make_rotation(math::X_AXIS, -math::Y_AXIS),
+      math::make_rotation(math::X_AXIS, math::Z_AXIS)};
 
   std::array<OracleState, 20> matrix;
   size_t index = 0;
@@ -653,7 +656,8 @@ inline void test_star_projection_policies_render_different_edges() {
   state.count = 3;
   state.sides = 5;
   state.phase = 0.17f;
-  state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
+  state.orientation =
+      math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
   const OracleFrame planar = capture_frame(state, candidate_renderer());
   state.shape = OracleEffect::ShapeType::SPHERICAL_STAR;
   const OracleFrame spherical = capture_frame(state, candidate_renderer());
@@ -673,7 +677,8 @@ inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
     state.count = 17;
     state.sides = 7;
     state.phase = 0.23f;
-    state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
+    state.orientation =
+        math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
     const OracleFrame uniform = capture_frame(state, candidate_renderer());
     state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
     const OracleFrame balanced = capture_frame(state, candidate_renderer());
@@ -717,13 +722,13 @@ inline void test_star_options_and_shipping_presets_are_planar() {
 inline void test_high_count_star_preset_stays_within_visual_budget() {
   using Function = OracleEffect::PhaseFunction;
   using Shape = OracleEffect::ShapeType;
-  const std::array<Quaternion, 6> orientations = {{
-      Quaternion(),
-      make_rotation(X_AXIS, Y_AXIS),
-      make_rotation(X_AXIS, -Y_AXIS),
-      make_rotation(X_AXIS, Z_AXIS),
-      Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
-      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
+  const std::array<math::Quaternion, 6> orientations = {{
+      math::Quaternion(),
+      math::make_rotation(math::X_AXIS, math::Y_AXIS),
+      math::make_rotation(math::X_AXIS, -math::Y_AXIS),
+      math::make_rotation(math::X_AXIS, math::Z_AXIS),
+      math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
+      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
   }};
   const std::array<float, 6> phases = {
       {0.0f, 0.125f, 0.249f, 0.5f, 0.75f, 0.999f}};
@@ -751,7 +756,8 @@ inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
   state.sides = 7;
   state.phase = 0.249f;
   state.alpha = 0.274f;
-  state.orientation = Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
+  state.orientation =
+      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
   expect_candidate_within_visual_budget(state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT,
                                         MAX_STAR_HIGH_ERROR_PIXELS);
 }
@@ -764,7 +770,7 @@ inline void test_high_count_star_preset_covers_north_pole() {
   state.sides = 7;
   state.phase = 0.125f;
   state.alpha = 0.274f;
-  state.orientation = make_rotation(X_AXIS, Y_AXIS);
+  state.orientation = math::make_rotation(math::X_AXIS, math::Y_AXIS);
   const RenderComparison comparison =
       compare_renders(state, reference_renderer(), candidate_renderer());
   const uint64_t reference_pole_energy = row_energy(comparison.reference, 0);
@@ -787,8 +793,10 @@ inline void test_high_count_star_preset_covers_north_pole() {
 }
 
 inline uint32_t minimum_energy_around(const OracleFrame &frame,
-                                      const Vector &position, float radius_px) {
-  const PixelCoords center = vector_to_pixel<ORACLE_W, ORACLE_H>(position);
+                                      const math::Vector &position,
+                                      float radius_px) {
+  const math::PixelCoords center =
+      math::vector_to_pixel<ORACLE_W, ORACLE_H>(position);
   uint32_t minimum = UINT32_MAX;
   for (int y = 0; y < ORACLE_H; ++y) {
     for (int x = 0; x < ORACLE_W; ++x) {
@@ -807,16 +815,16 @@ inline uint32_t minimum_energy_around(const OracleFrame &frame,
 
 inline void test_high_count_planar_star_caps_cover_chart_centers() {
   constexpr uint32_t MIN_CAP_ENERGY = 60000;
-  const std::array<Quaternion, 4> orientations = {{
-      Quaternion(),
-      Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
-      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
-      Quaternion(0.51f, 0.63f, -0.28f, 0.51f).normalized(),
+  const std::array<math::Quaternion, 4> orientations = {{
+      math::Quaternion(),
+      math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(),
+      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
+      math::Quaternion(0.51f, 0.63f, -0.28f, 0.51f).normalized(),
   }};
   for (const auto [count, spacing] :
        {std::pair{144, OracleEffect::RadiusSpacing::UNIFORM},
         std::pair{208, OracleEffect::RadiusSpacing::SCREEN_BALANCED}}) {
-    for (const Quaternion &orientation : orientations) {
+    for (const math::Quaternion &orientation : orientations) {
       OracleState state;
       state.shape = OracleEffect::ShapeType::PLANAR_STAR;
       state.function = OracleEffect::PhaseFunction::SINE;
@@ -827,8 +835,8 @@ inline void test_high_count_planar_star_caps_cover_chart_centers() {
       state.alpha = 0.274f;
       state.orientation = orientation;
       const OracleFrame frame = capture_frame(state, candidate_renderer());
-      const Vector near = rotate(X_AXIS, orientation);
-      const Vector far = -near;
+      const math::Vector near = math::rotate(math::X_AXIS, orientation);
+      const math::Vector far = -near;
       HS_EXPECT_GE(minimum_energy_around(frame, near, 1.5f), MIN_CAP_ENERGY);
       HS_EXPECT_GE(minimum_energy_around(frame, far, 1.5f), MIN_CAP_ENERGY);
     }
@@ -854,7 +862,7 @@ inline void test_high_count_spherical_star_contours_reach_display_north() {
     state.sides = 7;
     state.phase = phase;
     state.alpha = 0.274f;
-    state.orientation = Quaternion();
+    state.orientation = math::Quaternion();
     const OracleFrame frame = capture_frame(state, candidate_renderer());
     HS_EXPECT_LE(first_covered_north_row(frame), 1);
   }
@@ -977,12 +985,13 @@ inline void test_screen_balanced_spacing_follows_sampling_envelope() {
   const float equator_equivalent_count =
       1.0f / (mapped(COUNT / 2 - 1) - mapped(COUNT / 2 - 2));
   const float pole_equivalent_count = 1.0f / (mapped(1) - mapped(0));
-  const float density_scale = COUNT * PI_F / (2.0f * DENSITY_INTEGRAL);
+  const float density_scale = COUNT * math::PI_F / (2.0f * DENSITY_INTEGRAL);
   HS_EXPECT_NEAR(equator_equivalent_count, density_scale, 0.2f);
   HS_EXPECT_NEAR(equator_equivalent_count, OracleEffect::MAX_SHAPES, 1.8f);
   HS_EXPECT_NEAR(pole_equivalent_count, density_scale * DENSITY_FLOOR, 0.2f);
   HS_EXPECT_NEAR(pole_equivalent_count, ORACLE_H, 1.0f);
-  HS_EXPECT_NEAR(mapped(0) * PI_F, 2.0f * DENSITY_INTEGRAL / COUNT, 1e-6f);
+  HS_EXPECT_NEAR(mapped(0) * math::PI_F, 2.0f * DENSITY_INTEGRAL / COUNT,
+                 1e-6f);
 
   for (int index = 0; index < COUNT; ++index) {
     const float radius_t =

@@ -57,7 +57,7 @@ struct Rotate : ValueStateModel<SpatialWalkState> {
   using Output = SphereSample;
   using Params = RotateChainParams;
   struct Prepared {
-    Quaternion conjugate;
+    math::Quaternion conjugate;
   };
 
   static void init(State &state, InstanceId id) {
@@ -68,8 +68,8 @@ struct Rotate : ValueStateModel<SpatialWalkState> {
   }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {
-    return {
-        (make_rotation(Y_AXIS, state.spin_phase) * state.wander).conjugate()};
+    return {(math::make_rotation(math::Y_AXIS, state.spin_phase) * state.wander)
+                .conjugate()};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &prepared) {
@@ -269,9 +269,9 @@ struct ColorizeGeneratedPaletteV2 : ValueStateModel<ColorClockState> {
 
   static void advance(State &state, const Params &params) {
     state.oscillation_phase =
-        wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
+        math::wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
     state.hue_noise_phase =
-        wrap_t(state.hue_noise_phase + params.hue_noise_speed);
+        math::wrap_t(state.hue_noise_phase + params.hue_noise_speed);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
@@ -300,9 +300,9 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
 
   static void advance(State &state, const Params &params) {
     state.oscillation_phase =
-        wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
+        math::wrap_t(state.oscillation_phase + params.phase_oscillation_speed);
     state.hue_noise_phase =
-        wrap_t(state.hue_noise_phase + params.hue_noise_speed);
+        math::wrap_t(state.hue_noise_phase + params.hue_noise_speed);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {

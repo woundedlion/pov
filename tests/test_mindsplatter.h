@@ -357,19 +357,19 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
       math::MobiusParams(), math::MobiusParams(1, 0, -1.2f, 0, 0, 0, 1, 0),
       math::MobiusParams(1, 0, -0.6f, 0.6f, 0, 0, 1, 0),
       math::MobiusParams(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f)};
-  const Quaternion orientations[] = {
-      Quaternion(),
-      make_rotation(X_AXIS, PI_F * 0.5f),
-      make_rotation(Y_AXIS, PI_F),
-      make_rotation(Z_AXIS, -PI_F * 0.75f),
-      Quaternion(0.3f, -0.4f, 0.5f, -0.7f).normalized(),
-      -Quaternion(0.2f, 0.8f, -0.3f, 0.45f).normalized()};
+  const math::Quaternion orientations[] = {
+      math::Quaternion(),
+      math::make_rotation(math::X_AXIS, math::PI_F * 0.5f),
+      math::make_rotation(math::Y_AXIS, math::PI_F),
+      math::make_rotation(math::Z_AXIS, -math::PI_F * 0.75f),
+      math::Quaternion(0.3f, -0.4f, 0.5f, -0.7f).normalized(),
+      -math::Quaternion(0.2f, 0.8f, -0.3f, 0.45f).normalized()};
 
   struct Tap {
     int x, y;
     uint16_t alpha;
   };
-  auto taps = [](const PixelCoords &p) {
+  auto taps = [](const math::PixelCoords &p) {
     std::array<Tap, 4> result{};
     size_t count = 0;
     Filter::Screen::AntiAlias<W, H> aa;
@@ -391,10 +391,11 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
   int max_q16_error = 0;
   size_t sample_count = 0;
 
-  auto check = [&](const Vector &v, const math::MobiusParams &transform,
-                   const Quaternion &orientation) {
-    const Vector reference = WB::reference_vertex(v, transform, orientation);
-    const Vector matrix = WB::matrix_vertex(v, transform, orientation);
+  auto check = [&](const math::Vector &v, const math::MobiusParams &transform,
+                   const math::Quaternion &orientation) {
+    const math::Vector reference =
+        WB::reference_vertex(v, transform, orientation);
+    const math::Vector matrix = WB::matrix_vertex(v, transform, orientation);
     max_component_error =
         std::max(max_component_error,
                  std::max(std::abs(reference.x - matrix.x),
@@ -404,8 +405,9 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     max_angular_error = std::max(
         max_angular_error, 2.0f * asinf(hs::clamp(chord * 0.5f, 0.0f, 1.0f)));
 
-    const PixelCoords reference_pixel = vector_to_pixel<W, H>(reference);
-    const PixelCoords matrix_pixel = vector_to_pixel<W, H>(matrix);
+    const math::PixelCoords reference_pixel =
+        math::vector_to_pixel<W, H>(reference);
+    const math::PixelCoords matrix_pixel = math::vector_to_pixel<W, H>(matrix);
     float dx = std::abs(reference_pixel.x - matrix_pixel.x);
     dx = std::min(dx, static_cast<float>(W) - dx);
     max_column_error = std::max(max_column_error, dx);
@@ -434,28 +436,28 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     ++sample_count;
   };
 
-  const Vector representative_vectors[] = {
-      X_AXIS,
-      Y_AXIS,
-      Z_AXIS,
-      -X_AXIS,
-      -Y_AXIS,
-      -Z_AXIS,
-      Vector(1.0f, 1.0f, 1.0f).normalized(),
-      Vector(-1.0f, 1.0f, -1.0f).normalized(),
+  const math::Vector representative_vectors[] = {
+      math::X_AXIS,
+      math::Y_AXIS,
+      math::Z_AXIS,
+      -math::X_AXIS,
+      -math::Y_AXIS,
+      -math::Z_AXIS,
+      math::Vector(1.0f, 1.0f, 1.0f).normalized(),
+      math::Vector(-1.0f, 1.0f, -1.0f).normalized(),
   };
   hs::random().seed(0x6D617472);
   for (const math::MobiusParams &transform : transforms) {
-    for (const Quaternion &orientation : orientations) {
-      for (const Vector &v : representative_vectors)
+    for (const math::Quaternion &orientation : orientations) {
+      for (const math::Vector &v : representative_vectors)
         check(v, transform, orientation);
       for (int i = 0; i < 20000; ++i) {
-        Vector v;
+        math::Vector v;
         do {
           const float vx = hs::rand_f(-1.0f, 1.0f);
           const float vy = hs::rand_f(-1.0f, 1.0f);
           const float vz = hs::rand_f(-1.0f, 1.0f);
-          v = Vector(vx, vy, vz);
+          v = math::Vector(vx, vy, vz);
         } while (v.length() < 0.1f);
         v.normalize();
         check(v, transform, orientation);
@@ -773,18 +775,20 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
 inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
   using WB = MindSplatterWhiteBox;
   constexpr float INV_SNORM16 = 1.0f / 32767.0f;
-  auto check = [](const Vector &p) {
+  auto check = [](const math::Vector &p) {
     HS_EXPECT_EQ(WB::hole_alpha(p), WB::reference_hole_alpha(p));
   };
 
-  const Vector axes[] = {X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, Z_AXIS, -Z_AXIS};
-  for (const Vector &axis : axes) {
-    Vector tangent = cross(axis, Y_AXIS);
+  const math::Vector axes[] = {math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
+                               -math::Y_AXIS, math::Z_AXIS,  -math::Z_AXIS};
+  for (const math::Vector &axis : axes) {
+    math::Vector tangent = math::cross(axis, math::Y_AXIS);
     if (tangent.length() < 0.5f)
-      tangent = cross(axis, X_AXIS);
+      tangent = math::cross(axis, math::X_AXIS);
     tangent = tangent.normalized();
     for (int i = 0; i <= 4096; ++i) {
-      const float angle = (PI_F * 0.25f) * static_cast<float>(i) / 4096.0f;
+      const float angle =
+          (math::PI_F * 0.25f) * static_cast<float>(i) / 4096.0f;
       check(axis * cosf(angle) + tangent * sinf(angle));
     }
     const float horizon = WB::event_horizon();
@@ -797,18 +801,18 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
   hs::random().seed(0x0C7A);
   int outside_unit_sphere = 0;
   for (int i = 0; i < 100000; ++i) {
-    Vector p;
+    math::Vector p;
     do {
       const float px = hs::rand_f(-1.0f, 1.0f);
       const float py = hs::rand_f(-1.0f, 1.0f);
       const float pz = hs::rand_f(-1.0f, 1.0f);
-      p = Vector(px, py, pz);
+      p = math::Vector(px, py, pz);
     } while (p.length() < 0.1f);
     p = p.normalized();
-    p = Vector(roundf(p.x * 32767.0f) * INV_SNORM16,
-               roundf(p.y * 32767.0f) * INV_SNORM16,
-               roundf(p.z * 32767.0f) * INV_SNORM16);
-    if (dot(p, p) > 1.0f)
+    p = math::Vector(roundf(p.x * 32767.0f) * INV_SNORM16,
+                     roundf(p.y * 32767.0f) * INV_SNORM16,
+                     roundf(p.z * 32767.0f) * INV_SNORM16);
+    if (math::dot(p, p) > 1.0f)
       ++outside_unit_sphere;
     check(p);
   }
@@ -833,17 +837,17 @@ inline void test_mindsplatter_attractor_hole_alpha_equivalence() {
     effect.advance_display();
 
     for (size_t i = 0; i < WB::active_attractors(effect); ++i) {
-      const Vector attractor = WB::attractor_position(effect, i);
-      Vector tangent = cross(attractor, Y_AXIS);
+      const math::Vector attractor = WB::attractor_position(effect, i);
+      math::Vector tangent = math::cross(attractor, math::Y_AXIS);
       if (tangent.length() < 0.5f)
-        tangent = cross(attractor, X_AXIS);
+        tangent = math::cross(attractor, math::X_AXIS);
       tangent = tangent.normalized();
       constexpr float FRACTIONS[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.25f};
       constexpr float EXPECTED[] = {0.0f, 0.103515625f, 0.5f, 0.896484375f,
                                     1.0f};
       for (size_t sample = 0; sample < std::size(FRACTIONS); ++sample) {
         const float angle = WB::event_horizon() * FRACTIONS[sample];
-        const Vector p = attractor * cosf(angle) + tangent * sinf(angle);
+        const math::Vector p = attractor * cosf(angle) + tangent * sinf(angle);
         HS_EXPECT_NEAR(WB::attractor_hole_alpha(effect, p), EXPECTED[sample],
                        1e-3f);
       }
@@ -867,7 +871,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
   ms.init();
   HS_EXPECT_EQ(ms.updateParameter("Ang Spd", 1.0f), ParamSetResult::APPLIED);
 
-  const float two_pi = 2.0f * PI_F;
+  const float two_pi = 2.0f * math::PI_F;
   const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
   std::vector<float> previous(WB::num_emitters(ms), 0.0f);
   int laps = 0;

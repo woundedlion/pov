@@ -68,7 +68,7 @@ using ProjectionBoundary = projections::ProjectionBoundary;
  * returned in s0-s3 across out-of-line boundaries.
  */
 struct SphereSample {
-  Vector dir;
+  math::Vector dir;
   float path_length;
 };
 
@@ -87,7 +87,7 @@ struct ProjectionProvenance {
 
 /** @brief The projection policy protocol: planar coordinates plus provenance. */
 struct ProjectionResult {
-  Complex coords;
+  math::Complex coords;
   ProjectionProvenance provenance;
 };
 
@@ -98,9 +98,9 @@ struct ProjectionResult {
  * and `sphere` are immutable once the crossing writes them.
  */
 struct PlaneSample {
-  Complex coords;
+  math::Complex coords;
   ProjectionProvenance provenance;
-  Vector sphere;
+  math::Vector sphere;
   float path_length;
 };
 
@@ -113,7 +113,7 @@ struct PlaneSample {
 struct FieldSample {
   float value;
   float coverage;
-  Vector sphere;
+  math::Vector sphere;
   float path_length;
 };
 
@@ -122,13 +122,13 @@ struct FieldSample {
 
 /** @brief The surface policy protocol: a displaced point plus its step length. */
 struct SurfaceResult {
-  Vector sphere;
+  math::Vector sphere;
   float path_length;
 };
 
 /** @brief The warp policy protocol: stepped coordinates plus the step length. */
 struct WarpStepResult {
-  Complex coords;
+  math::Complex coords;
   float path_length;
 };
 
@@ -1033,17 +1033,18 @@ public:
 
   /** @brief Seeds the entry carrier and runs the chain over @p view. */
   __attribute__((always_inline)) static Color4
-  evaluate(const Vector &view, const FrameState &ctx,
+  evaluate(const math::Vector &view, const FrameState &ctx,
            const PreparedTuple &prepared) {
     return Core::template run_stage<0>(SphereSample{view, 0.0f}, ctx, prepared);
   }
 
-  HS_FLASH_MEMBER static Color4 shade(const Vector &view, const Frame &frame) {
+  HS_FLASH_MEMBER static Color4 shade(const math::Vector &view,
+                                      const Frame &frame) {
     return evaluate(view, frame.ctx, frame.prepared);
   }
 
   /** @brief Type-erased shade over prepare_into()'s storage. */
-  HS_FLASH_MEMBER static Color4 shade_prepared(const Vector &view,
+  HS_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
                                                const FrameState &ctx,
                                                const void *storage) {
     return evaluate(view, ctx, *static_cast<const PreparedTuple *>(storage));

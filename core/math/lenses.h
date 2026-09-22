@@ -37,37 +37,39 @@ inline constexpr float POLYHEDRAL_MIRROR_EPS = 1e-6f;
 inline constexpr int POLYHEDRAL_REFLECTION_LIMIT = 24;
 
 /** @brief Inward mirror normals of the tetrahedral (*332) chamber. */
-inline constexpr std::array<Vector, 3> TETRAHEDRAL_MIRRORS = {
-    Vector(1.0f, 0.0f, 0.0f), Vector(-0.5f, 0.8660254038f, 0.0f),
-    Vector(0.0f, -0.5773502692f, 0.8164965809f)};
+inline constexpr std::array<math::Vector, 3> TETRAHEDRAL_MIRRORS = {
+    math::Vector(1.0f, 0.0f, 0.0f), math::Vector(-0.5f, 0.8660254038f, 0.0f),
+    math::Vector(0.0f, -0.5773502692f, 0.8164965809f)};
 /** @brief Inward mirror normals of the octahedral (*432) chamber. */
-inline constexpr std::array<Vector, 3> OCTAHEDRAL_MIRRORS = {
-    Vector(1.0f, 0.0f, 0.0f), Vector(-0.7071067812f, 0.7071067812f, 0.0f),
-    Vector(0.0f, -0.7071067812f, 0.7071067812f)};
+inline constexpr std::array<math::Vector, 3> OCTAHEDRAL_MIRRORS = {
+    math::Vector(1.0f, 0.0f, 0.0f),
+    math::Vector(-0.7071067812f, 0.7071067812f, 0.0f),
+    math::Vector(0.0f, -0.7071067812f, 0.7071067812f)};
 /** @brief Inward mirror normals of the dodecahedral (*532) chamber. */
-inline constexpr std::array<Vector, 3> DODECAHEDRAL_MIRRORS = {
-    Vector(1.0f, 0.0f, 0.0f), Vector(-0.8090169944f, 0.3090169944f, -0.5f),
-    Vector(0.0f, 0.0f, 1.0f)};
+inline constexpr std::array<math::Vector, 3> DODECAHEDRAL_MIRRORS = {
+    math::Vector(1.0f, 0.0f, 0.0f),
+    math::Vector(-0.8090169944f, 0.3090169944f, -0.5f),
+    math::Vector(0.0f, 0.0f, 1.0f)};
 /** @brief Inward mirror normals of the triangular-prism chamber. */
-inline constexpr std::array<Vector, 3> TRIANGULAR_PRISM_MIRRORS = {
-    Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-    Vector(0.8660254038f, 0.0f, -0.5f)};
+inline constexpr std::array<math::Vector, 3> TRIANGULAR_PRISM_MIRRORS = {
+    math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+    math::Vector(0.8660254038f, 0.0f, -0.5f)};
 /** @brief Inward mirror normals of the square-prism chamber. */
-inline constexpr std::array<Vector, 3> SQUARE_PRISM_MIRRORS = {
-    Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-    Vector(0.7071067812f, 0.0f, -0.7071067812f)};
+inline constexpr std::array<math::Vector, 3> SQUARE_PRISM_MIRRORS = {
+    math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+    math::Vector(0.7071067812f, 0.0f, -0.7071067812f)};
 /** @brief Inward mirror normals of the pentagonal-prism chamber. */
-inline constexpr std::array<Vector, 3> PENTAGONAL_PRISM_MIRRORS = {
-    Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-    Vector(0.5877852523f, 0.0f, -0.8090169944f)};
+inline constexpr std::array<math::Vector, 3> PENTAGONAL_PRISM_MIRRORS = {
+    math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+    math::Vector(0.5877852523f, 0.0f, -0.8090169944f)};
 /** @brief Inward mirror normals of the hexagonal-prism chamber. */
-inline constexpr std::array<Vector, 3> HEXAGONAL_PRISM_MIRRORS = {
-    Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-    Vector(0.5f, 0.0f, -0.8660254038f)};
+inline constexpr std::array<math::Vector, 3> HEXAGONAL_PRISM_MIRRORS = {
+    math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+    math::Vector(0.5f, 0.0f, -0.8660254038f)};
 /** @brief Inward mirror normals of the octagonal-prism chamber. */
-inline constexpr std::array<Vector, 3> OCTAGONAL_PRISM_MIRRORS = {
-    Vector(0.0f, 1.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f),
-    Vector(0.3826834324f, 0.0f, -0.9238795325f)};
+inline constexpr std::array<math::Vector, 3> OCTAGONAL_PRISM_MIRRORS = {
+    math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f),
+    math::Vector(0.3826834324f, 0.0f, -0.9238795325f)};
 
 /**
  * @brief Applies a trig-free glitch lens to a sphere direction.
@@ -75,19 +77,19 @@ inline constexpr std::array<Vector, 3> OCTAGONAL_PRISM_MIRRORS = {
  * @return Direction after latitude doubling and azimuth tripling; returns
  * the up vector near the lens axis.
  */
-inline Vector glitch_lens(const Vector &v) {
+inline math::Vector glitch_lens(const math::Vector &v) {
   const float x2 = v.x * v.x;
   const float z2 = v.z * v.z;
   const float radius2 = x2 + z2;
   constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
   if (radius2 < MIN_AXIS_RADIUS2)
-    return Vector(0.0f, 1.0f, 0.0f);
+    return math::Vector(0.0f, 1.0f, 0.0f);
 
   const float inverse_radius2 = 1.0f / radius2;
   const float double_y = 2.0f * v.y;
-  return Vector(double_y * v.x * (4.0f * x2 * inverse_radius2 - 3.0f),
-                2.0f * v.y * v.y - 1.0f,
-                double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
+  return math::Vector(double_y * v.x * (4.0f * x2 * inverse_radius2 - 3.0f),
+                      2.0f * v.y * v.y - 1.0f,
+                      double_y * v.z * (3.0f - 4.0f * z2 * inverse_radius2));
 }
 
 /**
@@ -97,11 +99,11 @@ inline Vector glitch_lens(const Vector &v) {
  * @note The fast trigonometric approximation can move a unit input up to
  *       1.7e-3 away from unit length; the result is not renormalized.
  */
-inline Vector twist_lens(const Vector &v) {
+inline math::Vector twist_lens(const math::Vector &v) {
   const float angle = TWIST_RATE * v.y;
-  const float c = fast_cosf(angle);
-  const float s = fast_sinf(angle);
-  return Vector(v.x * c - v.z * s, v.y, v.x * s + v.z * c);
+  const float c = math::fast_cosf(angle);
+  const float s = math::fast_sinf(angle);
+  return math::Vector(v.x * c - v.z * s, v.y, v.x * s + v.z * c);
 }
 
 /**
@@ -109,7 +111,7 @@ inline Vector twist_lens(const Vector &v) {
  * @param v Unit direction on the sphere.
  * @return A symmetry-equivalent direction inside the wedge.
  */
-HS_FLASH_MEMBER inline Vector kaleidoscope_lens(const Vector &v) {
+HS_FLASH_MEMBER inline math::Vector kaleidoscope_lens(const math::Vector &v) {
   constexpr float COS_60 = 0.5f;
   constexpr float SIN_60 = 0.8660254037844386f;
   constexpr float SQRT_3 = 1.7320508075688772f;
@@ -125,7 +127,7 @@ HS_FLASH_MEMBER inline Vector kaleidoscope_lens(const Vector &v) {
     z = SIN_60 * x - COS_60 * z;
     x = reflected_x;
   }
-  return Vector(x, v.y, z);
+  return math::Vector(x, v.y, z);
 }
 
 /**
@@ -135,14 +137,15 @@ HS_FLASH_MEMBER inline Vector kaleidoscope_lens(const Vector &v) {
  * @return A symmetry-equivalent direction inside the chamber.
  */
 template <size_t N>
-HS_O3_FN inline Vector
-polyhedral_kaleidoscope_lens(Vector v, const std::array<Vector, N> &mirrors) {
+HS_O3_FN inline math::Vector
+polyhedral_kaleidoscope_lens(math::Vector v,
+                             const std::array<math::Vector, N> &mirrors) {
   [[maybe_unused]] uint32_t reflections = 0;
   for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
        ++reflection) {
     bool inside = true;
-    for (const Vector &normal : mirrors) {
-      const float distance = dot(v, normal);
+    for (const math::Vector &normal : mirrors) {
+      const float distance = math::dot(v, normal);
       if (distance >= -POLYHEDRAL_MIRROR_EPS)
         continue;
       v.x -= 2.0f * distance * normal.x;
@@ -178,16 +181,16 @@ polyhedral_kaleidoscope_lens(Vector v, const std::array<Vector, N> &mirrors) {
  * @param v Unit direction on the sphere.
  * @return A symmetry-equivalent direction inside the chamber.
  */
-HS_O3_FN __attribute__((always_inline)) inline Vector
-dodecahedral_kaleidoscope_lens(Vector v) {
+HS_O3_FN __attribute__((always_inline)) inline math::Vector
+dodecahedral_kaleidoscope_lens(math::Vector v) {
   [[maybe_unused]] uint32_t reflections = 0;
-  constexpr Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
+  constexpr math::Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
   for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
        ++reflection) {
     if (v.x < -POLYHEDRAL_MIRROR_EPS) {
       v.x = -v.x;
     } else {
-      const float distance = dot(v, OBLIQUE);
+      const float distance = math::dot(v, OBLIQUE);
       if (distance < -POLYHEDRAL_MIRROR_EPS) {
         v.x -= 2.0f * distance * OBLIQUE.x;
         v.y -= 2.0f * distance * OBLIQUE.y;

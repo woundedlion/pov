@@ -25,6 +25,8 @@
 #include "platform/platform.h"
 #include <cassert>
 
+namespace math {
+
 /**
  * @brief The Golden Ratio constant (Phi).
  */
@@ -52,7 +54,6 @@ inline constexpr float INV_PHI = 1 / PHI;
  *   EPS_UNIT_QUAT_SQ — generous |q|^2 is-unit assertion slack (0.01f)
  *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack (0.02f)
  */
-namespace math {
 inline constexpr float TOLERANCE = 1e-4f;
 inline constexpr float EPS_GEOMETRIC = 1e-5f;
 inline constexpr float EPS_LEN_SQ = 1e-6f;
@@ -83,11 +84,6 @@ inline constexpr float EPS_UNIT_VEC_SQ = 0.02f;
  * (degenerate) cross when building a frame. Switches only near-parallel (~0.8°).
  */
 inline constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
-} // namespace math
-/**
- * @brief Global alias for math::TOLERANCE.
- */
-inline constexpr float TOLERANCE = math::TOLERANCE;
 /**
  * @brief Floating-point representation of PI.
  */
@@ -1547,3 +1543,5 @@ scaled_rotation_delta(const Quaternion &delta, float amount) {
     return Quaternion();
   return slerp(Quaternion(), delta, amount);
 }
+
+} // namespace math

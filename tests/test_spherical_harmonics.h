@@ -68,7 +68,7 @@ inline double legendre_reference(int l, int m, double x) {
  *        the x-z plane from +x.
  * @return The harmonic value.
  */
-inline double harmonic_reference(int l, int m, const Vector &p) {
+inline double harmonic_reference(int l, int m, const math::Vector &p) {
   const int abs_m = std::abs(m);
   double norm = std::sqrt(
       ((2.0 * l + 1.0) / (4.0 * PI_D)) *
@@ -84,11 +84,11 @@ inline double harmonic_reference(int l, int m, const Vector &p) {
 }
 
 /** @brief Unit direction at polar angle @p phi and azimuth @p theta. */
-inline Vector spherical_direction(double phi, double theta) {
+inline math::Vector spherical_direction(double phi, double theta) {
   const double radius = std::sin(phi);
-  return Vector(static_cast<float>(radius * std::cos(theta)),
-                static_cast<float>(std::cos(phi)),
-                static_cast<float>(radius * std::sin(theta)));
+  return math::Vector(static_cast<float>(radius * std::cos(theta)),
+                      static_cast<float>(std::cos(phi)),
+                      static_cast<float>(radius * std::sin(theta)));
 }
 
 /** @brief SHMath::factorial reproduces the product for every argument that
@@ -175,7 +175,7 @@ inline void test_spherical_harmonic_matches_the_angular_reference() {
         for (int theta_step = 0; theta_step < 16; ++theta_step) {
           const double phi = phi_step * (PI_D / 12.0);
           const double theta = theta_step * (2.0 * PI_D / 16.0) - PI_D;
-          const Vector p = spherical_direction(phi, theta);
+          const math::Vector p = spherical_direction(phi, theta);
           HS_EXPECT_NEAR(
               static_cast<double>(SHMath::spherical_harmonic(l, m, p, scale)),
               harmonic_reference(l, m, p), 3e-4);
@@ -187,7 +187,7 @@ inline void test_spherical_harmonic_matches_the_angular_reference() {
  *         every other mode vanishes. */
 inline void test_spherical_harmonic_poles_keep_only_the_zonal_modes() {
   for (float pole : {1.0f, -1.0f}) {
-    const Vector p(0.0f, pole, 0.0f);
+    const math::Vector p(0.0f, pole, 0.0f);
     for (int l = 0; l <= 5; ++l)
       for (int m = -l; m <= l; ++m) {
         const float value =
@@ -221,7 +221,8 @@ inline void test_spherical_harmonics_are_orthonormal() {
     const double phi = (phi_step + 0.5) * d_phi;
     const double weight = std::sin(phi) * d_phi * d_theta;
     for (int theta_step = 0; theta_step < THETA_STEPS; ++theta_step) {
-      const Vector p = spherical_direction(phi, theta_step * d_theta - PI_D);
+      const math::Vector p =
+          spherical_direction(phi, theta_step * d_theta - PI_D);
       for (int idx = 0; idx < MODES; ++idx) {
         const std::pair<int, int> lm = SHMath::decode_lm(idx);
         value[idx] =

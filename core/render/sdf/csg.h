@@ -153,7 +153,7 @@ template <typename A, typename B> struct Union {
    * @param res Output result; the nearer child's full result is kept.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
+  void distance(const math::Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
@@ -233,7 +233,7 @@ template <typename A, typename B> struct SmoothUnion {
   template <int H> int pad_rows() const {
     constexpr int H_VIRT = H + hs::H_OFFSET;
     // phi spans [0,π] over (H_VIRT-1) rows.
-    return std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
+    return std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / math::PI_F)));
   }
 
   /**
@@ -249,17 +249,17 @@ template <typename A, typename B> struct SmoothUnion {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     ScratchScope scratch(scratch_arena_b);
     MergedIntervalBuffer &merged = scratch_spans<MergedIntervalBuffer>(scratch);
     // Great-circle weld radius k spans k/sin(phi) columns of azimuth; the
     // equatorial conversion under-covers toward the poles. Clamp to full width
     // where the latitude factor diverges.
-    float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
     float pad_px =
         sin_phi > INTERVAL_DENOM_EPS
-            ? std::min(k * W / TWO_PI_F / sin_phi, static_cast<float>(W))
+            ? std::min(k * W / math::TWO_PI_F / sin_phi, static_cast<float>(W))
             : static_cast<float>(W);
 
     // One child fell back to full width: the whole row needs the full scan, so
@@ -313,7 +313,7 @@ template <typename A, typename B> struct SmoothUnion {
    *          Lipschitz-corrected distance) — scanline rasterization only.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
+  void distance(const math::Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
@@ -443,7 +443,7 @@ template <typename A, typename B> struct Subtract {
    *       margin outruns the AA reach.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
+  void distance(const math::Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
@@ -611,7 +611,7 @@ template <typename A, typename B> struct Intersection {
    * @param res Output result; the farther child's full result is kept.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
+  void distance(const math::Vector &p, DistanceResult &res) const {
     a.template distance<ComputeUVs>(p, res);
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
@@ -634,7 +634,7 @@ template <typename A, typename B> struct Intersection {
  */
 template <typename Shape> struct AngularRepeat {
   const Shape &shape; /**< Child shape being repeated. */
-  Vector axis, u,
+  math::Vector axis, u,
       w; /**< Rotation axis and the derived perpendicular plane (u, w). */
   int repetitions; /**< Number of copies around the axis. */
   float sector;    /**< Angular width of one sector, 2*PI / repetitions. */
@@ -651,19 +651,19 @@ template <typename Shape> struct AngularRepeat {
    * @param reps Number of copies (must be > 0).
    * @param ax Rotation axis (unit length).
    */
-  AngularRepeat(const Shape &s, int reps, const Vector &ax)
+  AngularRepeat(const Shape &s, int reps, const math::Vector &ax)
       : shape(s), axis(ax), repetitions(reps),
-        sector(TWO_PI_F / static_cast<float>(reps)),
-        reciprocal_sector(static_cast<float>(reps) / TWO_PI_F) {
+        sector(math::TWO_PI_F / static_cast<float>(reps)),
+        reciprocal_sector(static_cast<float>(reps) / math::TWO_PI_F) {
     HS_CHECK(reps > 0, "SDF CSG: repetition count must be positive");
     HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f,
              "SDF CSG: repetition axis must be unit length");
     // Perpendicular plane by Gram-Schmidt against the less parallel body axis,
     // which leaves |u| >= 0.43 before normalization.
-    const Vector ref = (fabsf(ax.y) < 0.9f) ? Y_AXIS : X_AXIS;
-    u = ref - ax * dot(ref, ax);
+    const math::Vector ref = (fabsf(ax.y) < 0.9f) ? math::Y_AXIS : math::X_AXIS;
+    u = ref - ax * math::dot(ref, ax);
     u = u * (1.0f / u.length());
-    w = cross(ax, u);
+    w = math::cross(ax, u);
   }
 
   /**
@@ -672,7 +672,7 @@ template <typename Shape> struct AngularRepeat {
    * @param reps Number of copies (must be > 0).
    */
   AngularRepeat(const Shape &s, int reps)
-      : AngularRepeat(s, reps, Vector(0, 1, 0)) {}
+      : AngularRepeat(s, reps, math::Vector(0, 1, 0)) {}
 
   /**
    * @brief Deleted constructors from a temporary child.
@@ -680,7 +680,7 @@ template <typename Shape> struct AngularRepeat {
    * binding a temporary would dangle from the first distance() call. The axis
    * is copied, so a temporary Vector stays legal.
    */
-  AngularRepeat(const Shape &&, int, const Vector &) = delete;
+  AngularRepeat(const Shape &&, int, const math::Vector &) = delete;
   AngularRepeat(const Shape &&, int) = delete;
 
   /**
@@ -752,8 +752,8 @@ template <typename Shape> struct AngularRepeat {
       return false;
 
     const float step = static_cast<float>(W) / static_cast<float>(repetitions);
-    const float pad =
-        1.0f + ANGULAR_REPEAT_FOLD_SLOP * static_cast<float>(W) / TWO_PI_F;
+    const float pad = 1.0f + ANGULAR_REPEAT_FOLD_SLOP * static_cast<float>(W) /
+                                 math::TWO_PI_F;
     for (size_t i = 0; i < child.size(); ++i)
       // Copies of a span this wide abut, covering every column anyway, and a
       // padded span at least a sector long would break the len <= W contract.
@@ -782,29 +782,29 @@ template <typename Shape> struct AngularRepeat {
    *       shape within its sector.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
+  void distance(const math::Vector &p, DistanceResult &res) const {
     // Project p into local coordinate system
     float local_u = p.x * u.x + p.y * u.y + p.z * u.z;
     float local_v = p.x * axis.x + p.y * axis.y + p.z * axis.z;
     float local_w = p.x * w.x + p.y * w.y + p.z * w.z;
 
     // Fold angle in the u-w plane
-    float theta = fast_atan2(local_w, local_u);
+    float theta = math::fast_atan2(local_w, local_u);
     if (theta < 0)
-      theta += TWO_PI_F;
+      theta += math::TWO_PI_F;
 
     float folded_theta =
         centered_sector_angle(theta, sector, reciprocal_sector);
 
     // Reconstruct folded local coordinates (preserving axis component)
     float r = sqrtf(local_u * local_u + local_w * local_w);
-    float fu = r * fast_cosf(folded_theta);
-    float fw = r * fast_sinf(folded_theta);
+    float fu = r * math::fast_cosf(folded_theta);
+    float fw = r * math::fast_sinf(folded_theta);
 
     // Project back to world space
-    Vector folded_p(fu * u.x + local_v * axis.x + fw * w.x,
-                    fu * u.y + local_v * axis.y + fw * w.y,
-                    fu * u.z + local_v * axis.z + fw * w.z);
+    math::Vector folded_p(fu * u.x + local_v * axis.x + fw * w.x,
+                          fu * u.y + local_v * axis.y + fw * w.y,
+                          fu * u.z + local_v * axis.z + fw * w.z);
 
     shape.template distance<ComputeUVs>(folded_p, res);
   }

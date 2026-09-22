@@ -82,7 +82,7 @@ template <typename OrientationType, int CAP>
 using OrientationTrail = Trail<OrientationType, CAP>;
 
 /** @brief History of world-space Vector positions. */
-template <int CAP> using VectorTrail = Trail<Vector, CAP>;
+template <int CAP> using VectorTrail = Trail<math::Vector, CAP>;
 
 /**
  * @brief One animated body: world orientation, its recorded trail, and the
@@ -92,13 +92,13 @@ template <int CAP> using VectorTrail = Trail<Vector, CAP>;
  *         trail and Motion.
  */
 template <int CAP, int SUBSTEPS> struct TrailBody {
-  Orientation<SUBSTEPS> orientation; /**< Current world orientation. */
-  OrientationTrail<Orientation<SUBSTEPS>, CAP>
-      trail; /**< Recorded past orientations. */
-  Vector v;  /**< Local direction vector drawn as the body axis. */
+  math::Orientation<SUBSTEPS> orientation; /**< Current world orientation. */
+  OrientationTrail<math::Orientation<SUBSTEPS>, CAP>
+      trail;      /**< Recorded past orientations. */
+  math::Vector v; /**< Local direction vector drawn as the body axis. */
 
   /** @brief Constructs a body with its direction vector on the Y axis. */
-  TrailBody() : v(Y_AXIS) {}
+  TrailBody() : v(math::Y_AXIS) {}
 };
 
 /**
@@ -117,8 +117,8 @@ public:
    * @param source The position to copy into the trail; components outside
    *        [-1, 1] are clamped.
    */
-  void record(const Vector &source) {
-    snapshots.record(Snorm3::encode(source));
+  void record(const math::Vector &source) {
+    snapshots.record(math::Snorm3::encode(source));
   }
 
   /**
@@ -133,7 +133,7 @@ public:
    *          newest (same ordering as Trail).
    * @return The decoded position, by value.
    */
-  Vector get(size_t i) const { return snapshots.get(i).decode(); }
+  math::Vector get(size_t i) const { return snapshots.get(i).decode(); }
 
   /**
    * @brief Visits decoded snapshots with normalized oldest-to-newest progress.
@@ -148,7 +148,7 @@ public:
       return;
     }
     const float denominator = static_cast<float>(len - 1);
-    snapshots.for_each([&](const Snorm3 &s, uint32_t i) {
+    snapshots.for_each([&](const math::Snorm3 &s, uint32_t i) {
       callback(s.decode(), static_cast<float>(i) / denominator);
     });
   }
@@ -164,7 +164,7 @@ public:
   void expire() { snapshots.expire(); }
 
 private:
-  Trail<Snorm3, CAP> snapshots;
+  Trail<math::Snorm3, CAP> snapshots;
 };
 
 } // namespace Animation
@@ -177,7 +177,8 @@ private:
  * float t)`, with t in (0, 1] — index 0 is skipped, so a multi-step history
  * never emits t = 0.
  */
-template <int CAP> void tween(const Orientation<CAP> &o, TweenFn callback) {
+template <int CAP>
+void tween(const math::Orientation<CAP> &o, TweenFn callback) {
   int len = o.length();
   // Index 0 is the pose collapse() carried over from the previous frame's end,
   // so emitting it would redraw that shared boundary. A lone snapshot has no
@@ -298,9 +299,9 @@ void deep_tween_frames(const Tweenable auto &trail, FrameFn &&callback) {
  * t)`.
  */
 void deep_tween(const Tweenable auto &trail, TweenFn callback) {
-  deep_tween_frames(trail,
-                    [&](const Quaternion *qs, const float *ts, int count) {
-                      for (int i = 0; i < count; ++i)
-                        callback(qs[i], ts[i]);
-                    });
+  deep_tween_frames(
+      trail, [&](const math::Quaternion *qs, const float *ts, int count) {
+        for (int i = 0; i < count; ++i)
+          callback(qs[i], ts[i]);
+      });
 }

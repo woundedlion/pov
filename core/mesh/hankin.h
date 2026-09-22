@@ -40,8 +40,9 @@ struct HankinInstruction {
  * static_offset refers to star point (index - static_offset).
  */
 struct CompiledHankin {
-  ArenaVector<Vector> base_vertices; /**< Owned corner vertices (copy mode). */
-  ArenaVector<Vector>
+  ArenaVector<math::Vector>
+      base_vertices; /**< Owned corner vertices (copy mode). */
+  ArenaVector<math::Vector>
       static_vertices; /**< Edge midpoints; angle-independent. */
   ArenaVector<HankinInstruction>
       dynamic_instructions;         /**< One per dynamic vertex. */
@@ -54,7 +55,7 @@ struct CompiledHankin {
    * A span, not a raw pointer: in debug builds it carries the source's arena
    * stamps, so a corner read after the source arena was reset or rewound
    * faults instead of returning reissued bytes. */
-  ArenaSpan<Vector> corner_src;
+  ArenaSpan<math::Vector> corner_src;
   /** MeshOps::connectivity_key of the faces this pattern emits; 0 until
    * compiled. Two seeds can share every census figure (a cube and an
    * octahedron both compile to 14 faces over 96 indices), so this is what
@@ -62,7 +63,7 @@ struct CompiledHankin {
   uint32_t topology_key = 0;
 
   /** Returns the corner vertex a HankinInstruction index refers to. */
-  const Vector &corner(size_t i) const { return corner_src[i]; }
+  const math::Vector &corner(size_t i) const { return corner_src[i]; }
 
   /**
    * @brief Empties all owned vectors and drops the corner source.
@@ -77,7 +78,7 @@ struct CompiledHankin {
     faces.clear();
     static_offset = 0;
     topology_key = 0;
-    corner_src = ArenaSpan<Vector>();
+    corner_src = ArenaSpan<math::Vector>();
   }
 
   /**
@@ -110,7 +111,7 @@ struct CompiledHankin {
     MeshOps::copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
     dst.topology_key = src.topology_key;
-    dst.corner_src = ArenaSpan<Vector>(dst.base_vertices);
+    dst.corner_src = ArenaSpan<math::Vector>(dst.base_vertices);
   }
 };
 
@@ -148,13 +149,13 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   compiled = CompiledHankin();
 
   if (borrow_base_vertices) {
-    compiled.corner_src = ArenaSpan<Vector>(mesh.vertices);
+    compiled.corner_src = ArenaSpan<math::Vector>(mesh.vertices);
   } else {
     compiled.base_vertices.bind(target_arena, V);
     for (size_t i = 0; i < V; ++i) {
       compiled.base_vertices.push_back(mesh.vertices[i]);
     }
-    compiled.corner_src = ArenaSpan<Vector>(compiled.base_vertices);
+    compiled.corner_src = ArenaSpan<math::Vector>(compiled.base_vertices);
   }
   // Static pool is I/2 midpoints; largest emitted index is (I/2)+(I-1). Guard
   // adds 1 to both sides to dodge the unsigned underflow of I-1 at I == 0.
@@ -373,64 +374,66 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
   const auto blend_above = [](float value, float start, float end) {
     const float t =
         std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
-    return quintic_kernel(t);
+    return math::quintic_kernel(t);
   };
   HS_CHECK(compiled.corner_src.data() != nullptr,
            "update_hankin needs a compiled topology (corner_src is null after "
            "CompiledHankin::clear)");
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &instr = compiled.dynamic_instructions[i];
-    Vector p_corner = compiled.corner(instr.v_corner);
+    math::Vector p_corner = compiled.corner(instr.v_corner);
 
     if (is_flat) {
-      out_mesh.vertices.push_back(normalized_or(p_corner, p_corner));
+      out_mesh.vertices.push_back(math::normalized_or(p_corner, p_corner));
       continue;
     }
 
-    Vector m1 = compiled.static_vertices[instr.idx_m1];
-    Vector m2 = compiled.static_vertices[instr.idx_m2];
-    Vector p_prev = compiled.corner(instr.v_prev);
-    Vector p_next = compiled.corner(instr.v_next);
+    math::Vector m1 = compiled.static_vertices[instr.idx_m1];
+    math::Vector m2 = compiled.static_vertices[instr.idx_m2];
+    math::Vector p_prev = compiled.corner(instr.v_prev);
+    math::Vector p_next = compiled.corner(instr.v_next);
 
-    Vector cross1 = cross(p_prev, p_corner);
-    Vector cross2 = cross(p_corner, p_next);
+    math::Vector cross1 = math::cross(p_prev, p_corner);
+    math::Vector cross2 = math::cross(p_corner, p_next);
 
-    if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
-        dot(cross2, cross2) < math::EPS_CROSS_SQ) {
-      out_mesh.vertices.push_back(normalized_or(p_corner, p_corner));
+    if (math::dot(cross1, cross1) < math::EPS_CROSS_SQ ||
+        math::dot(cross2, cross2) < math::EPS_CROSS_SQ) {
+      out_mesh.vertices.push_back(math::normalized_or(p_corner, p_corner));
       continue; // zero length edge
     }
 
-    Vector n_edge1 = cross1.normalized();
+    math::Vector n_edge1 = cross1.normalized();
     // Sign convention: the two edge normals are rotated by opposite-signed
     // contact angles (+ha about m1, -ha about m2) so both Hankin planes tilt
     // toward the shared corner; the dot(intersect, p_corner)<0 flip below then
     // selects the corner-side hemisphere of their intersection.
     // m1/m2 are unit (midpoints normalized at compile time), so (cos_ha,
     // sin_ha*axis) is already a unit quaternion as rotate() requires.
-    Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
-    Vector n_hankin1 = rotate(n_edge1, q1);
+    math::Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
+    math::Vector n_hankin1 = math::rotate(n_edge1, q1);
 
-    Vector n_edge2 = cross2.normalized();
+    math::Vector n_edge2 = cross2.normalized();
     // cos(-x) = cos(x), sin(-x) = -sin(x); m2 unit per the precondition above.
-    Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
-    Vector n_hankin2 = rotate(n_edge2, q2);
+    math::Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
+    math::Vector n_hankin2 = math::rotate(n_edge2, q2);
 
-    Vector intersect = cross(n_hankin1, n_hankin2);
-    const float plane_cross_sq = dot(intersect, intersect);
-    Vector cn = normalized_or(p_corner, p_corner);
-    Vector fallback = normalized_or(m1 + m2, cn);
-    if (dot(fallback, p_corner) < 0.0f)
+    math::Vector intersect = math::cross(n_hankin1, n_hankin2);
+    const float plane_cross_sq = math::dot(intersect, intersect);
+    math::Vector cn = math::normalized_or(p_corner, p_corner);
+    math::Vector fallback = math::normalized_or(m1 + m2, cn);
+    if (math::dot(fallback, p_corner) < 0.0f)
       fallback = -fallback;
-    const Vector oriented_intersect = intersect * dot(intersect, p_corner);
-    const Vector raw_star = normalized_or(oriented_intersect, fallback);
-    const float local_sq =
-        std::max(distance_squared(m1, cn), distance_squared(m2, cn));
+    const math::Vector oriented_intersect =
+        intersect * math::dot(intersect, p_corner);
+    const math::Vector raw_star =
+        math::normalized_or(oriented_intersect, fallback);
+    const float local_sq = std::max(math::distance_squared(m1, cn),
+                                    math::distance_squared(m2, cn));
     if (!(local_sq > math::EPS_LEN_SQ)) {
       out_mesh.vertices.push_back(fallback);
       continue;
     }
-    const float raw_ratio_sq = distance_squared(raw_star, cn) / local_sq;
+    const float raw_ratio_sq = math::distance_squared(raw_star, cn) / local_sq;
     const float conditioned =
         blend_above(raw_ratio_sq, HANKIN_CONDITIONED_NEAR_RATIO_SQ,
                     HANKIN_CONDITIONED_FAR_RATIO_SQ);
@@ -438,10 +441,11 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
         std::max(0.0f, HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
         conditioned *
             std::max(0.0f, HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
-    intersect = normalized_or(oriented_intersect + fallback * anchor, fallback);
+    intersect =
+        math::normalized_or(oriented_intersect + fallback * anchor, fallback);
     // Near-parallel contact planes fling the intersection geodesically far
     // from the corner, yielding a sliver face that renders as a long line.
-    const float ratio_sq = distance_squared(intersect, cn) / local_sq;
+    const float ratio_sq = math::distance_squared(intersect, cn) / local_sq;
     // Gate the fallback on parallelism: blend_above(-plane_cross_sq, ...) rises
     // as plane_cross_sq falls — 0 above the HI threshold (planes well-separated,
     // keep the true intersection), 1 below LO (near-parallel, take the
@@ -458,9 +462,9 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
       out_mesh.vertices.push_back(
           fallback_blend >= 1.0f
               ? fallback
-              : normalized_or(intersect * (1.0f - fallback_blend) +
-                                  fallback * fallback_blend,
-                              fallback));
+              : math::normalized_or(intersect * (1.0f - fallback_blend) +
+                                        fallback * fallback_blend,
+                                    fallback));
       continue;
     }
 

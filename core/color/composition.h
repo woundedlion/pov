@@ -107,7 +107,7 @@ struct BreatheModifier {
     assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
-      cached_sin = fast_sinf(*phase);
+      cached_sin = math::fast_sinf(*phase);
       primed = true;
     }
     return t + cached_sin * amplitude;
@@ -146,9 +146,9 @@ struct RippleModifier {
    * @return t plus the local sine distortion.
    */
   float modify(float t) const {
-    const float arg = t * frequency * PI_F * 2.0f + *phase;
+    const float arg = t * frequency * math::PI_F * 2.0f + *phase;
     assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
-    return t + fast_sinf(arg) * amplitude;
+    return t + math::fast_sinf(arg) * amplitude;
   }
 };
 
@@ -185,8 +185,8 @@ struct NoiseWarpModifier {
    * @return t plus a displacement in [-amplitude, amplitude].
    */
   float modify(float t) const {
-    return t + (value_noise_2d(t * frequency, *time, seed) - 0.5f) * 2.0f *
-                   amplitude;
+    return t + (math::value_noise_2d(t * frequency, *time, seed) - 0.5f) *
+                   2.0f * amplitude;
   }
 };
 
@@ -233,7 +233,8 @@ struct DriftModifier {
   float modify(float t) const {
     if (!primed || *time != cached_time) {
       cached_time = *time;
-      cached_walk = (value_noise_1d(cached_time * speed, seed) - 0.5f) * 2.0f;
+      cached_walk =
+          (math::value_noise_1d(cached_time * speed, seed) - 0.5f) * 2.0f;
       primed = true;
     }
     return t + cached_walk * amplitude;
@@ -275,7 +276,7 @@ struct FoldModifier {
 
     // Triangle wave over a [0, 2) reduction: a negative scaled would otherwise
     // fold above 1.
-    return fabsf(wrap(scaled, 2.0f) - 1.0f);
+    return fabsf(math::wrap(scaled, 2.0f) - 1.0f);
   }
 };
 
@@ -312,7 +313,7 @@ struct PinchModifier {
       return t;
 
     // Center the wrapped coordinate into [-1, 1].
-    float wrapped_t = wrap_t(t);
+    float wrapped_t = math::wrap_t(t);
     float centered = wrapped_t * 2.0f - 1.0f;
     float sign = centered < 0.0f ? -1.0f : 1.0f;
 
@@ -487,7 +488,7 @@ struct WrapModifier {
    * @param t Input coordinate.
    * @return t folded into [0, 1).
    */
-  float modify(float t) const { return wrap_t(t); }
+  float modify(float t) const { return math::wrap_t(t); }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -529,7 +530,7 @@ struct HueSpinShade {
    */
   Color4 shade(Color4 c, float t) const {
     (void)t;
-    assert(fabsf(*amount) * (2.0f * PI_F) < PALETTE_PHASE_ARG_LIMIT);
+    assert(fabsf(*amount) * (2.0f * math::PI_F) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *amount != cached_amount) {
       cached_amount = *amount;
       float ca, sa;
@@ -540,7 +541,7 @@ struct HueSpinShade {
     LinRGB rgb = pixel_to_linrgb(c.color);
     LMS lms = linear_rgb_to_lms(rgb.r, rgb.g, rgb.b);
     float cl, cm, cs;
-    fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
+    math::fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
     lms_cbrt_transform_rgb(matrix, cl, cm, cs, rgb.r, rgb.g, rgb.b);
     c.color = linrgb_to_pixel(rgb);
     return c;
@@ -570,7 +571,7 @@ struct HueWobbleShade {
   HueWobbleShade(const float *phase, float freq = 1.0f, float depth = 0.1f)
       : phase(phase), frequency(freq), depth(depth) {
     HS_CHECK(phase, "HueWobbleShade: phase driver must not be null");
-    HS_CHECK(fabsf(depth) * (2.0f * PI_F) < PALETTE_PHASE_ARG_LIMIT,
+    HS_CHECK(fabsf(depth) * (2.0f * math::PI_F) < PALETTE_PHASE_ARG_LIMIT,
              "HueWobbleShade: depth must stay inside the fast-trig argument "
              "range");
   }
@@ -583,9 +584,9 @@ struct HueWobbleShade {
    * @return The hue-rotated sample.
    */
   Color4 shade(Color4 c, float t) const {
-    const float arg = t * frequency * PI_F * 2.0f + *phase;
+    const float arg = t * frequency * math::PI_F * 2.0f + *phase;
     assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
-    return hue_rotate(c, depth * fast_sinf(arg));
+    return hue_rotate(c, depth * math::fast_sinf(arg));
   }
 };
 
@@ -622,7 +623,7 @@ struct SparkleShade {
    * @return The sample, lerped toward white by the over-threshold excess.
    */
   Color4 shade(Color4 c, float t) const {
-    float n = value_noise_2d(t * frequency, *time, seed);
+    float n = math::value_noise_2d(t * frequency, *time, seed);
     if (n <= threshold)
       return c;
     float w = (n - threshold) / (1.0f - threshold);
@@ -675,7 +676,7 @@ struct ChromaPulseShade {
     assert(fabsf(*phase) < PALETTE_PHASE_ARG_LIMIT);
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
-      cached_sin = fast_sinf(cached_phase);
+      cached_sin = math::fast_sinf(cached_phase);
       primed = true;
     }
     const float scale = 1.0f + depth * cached_sin;
@@ -725,7 +726,7 @@ struct LightnessGrainShade {
    * @return The gain-scaled sample, alpha untouched.
    */
   Color4 shade(Color4 c, float t) const {
-    float n = value_noise_2d(t * frequency, *time, seed);
+    float n = math::value_noise_2d(t * frequency, *time, seed);
     c.color = c.color * (1.0f + amplitude * (2.0f * n - 1.0f));
     return c;
   }
@@ -763,13 +764,14 @@ struct IridescentShade {
    *         untouched.
    */
   Color4 shade(Color4 c, float t) const {
-    const float arg = t * frequency * PI_F * 2.0f + *phase;
+    const float arg = t * frequency * math::PI_F * 2.0f + *phase;
     assert(fabsf(arg) < PALETTE_PHASE_ARG_LIMIT);
-    constexpr float THIRD = 2.0f * PI_F / 3.0f;
+    constexpr float THIRD = 2.0f * math::PI_F / 3.0f;
     Pixel sheen(
-        srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
-        srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + THIRD)),
-        srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + 2.0f * THIRD)));
+        srgb_to_linear_interp(0.5f + 0.5f * math::fast_cosf(arg)),
+        srgb_to_linear_interp(0.5f + 0.5f * math::fast_cosf(arg + THIRD)),
+        srgb_to_linear_interp(0.5f +
+                              0.5f * math::fast_cosf(arg + 2.0f * THIRD)));
     c.color += sheen * weight;
     return c;
   }
@@ -828,12 +830,12 @@ struct EdgeFadeShade {
     Pixel black(0, 0, 0);
     if (t < edge)
       return Color4(
-          black.lerp16(c.color, frac_to_q16(quintic_kernel(t / edge))),
+          black.lerp16(c.color, frac_to_q16(math::quintic_kernel(t / edge))),
           c.alpha);
     if (t >= 1.0f - edge)
-      return Color4(
-          black.lerp16(c.color, frac_to_q16(quintic_kernel((1.0f - t) / edge))),
-          c.alpha);
+      return Color4(black.lerp16(c.color, frac_to_q16(math::quintic_kernel(
+                                              (1.0f - t) / edge))),
+                    c.alpha);
     return c;
   }
 };
@@ -860,9 +862,9 @@ struct EdgeAlphaShade {
    */
   Color4 shade(Color4 c, float t) const {
     if (t < edge)
-      c.alpha *= quintic_kernel(t / edge);
+      c.alpha *= math::quintic_kernel(t / edge);
     else if (t >= 1.0f - edge)
-      c.alpha *= quintic_kernel((1.0f - t) / edge);
+      c.alpha *= math::quintic_kernel((1.0f - t) / edge);
     return c;
   }
 };
@@ -1075,7 +1077,7 @@ public:
 
     float u = ft;
     if constexpr (Wrap)
-      u = wrap_t(ft);
+      u = math::wrap_t(ft);
     Color4 c = source->get(u);
 
     float shade_coordinate;

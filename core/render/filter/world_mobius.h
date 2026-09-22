@@ -45,7 +45,7 @@ public:
    * @param pass Downstream 3D callback.
    */
   template <typename PassFnT>
-  void plot(const Vector &v, const ::Pixel &color, float age, float alpha,
+  void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     pass(projections::inv_stereo(math::mobius(projections::stereo(v), params)),
          color, age, alpha);

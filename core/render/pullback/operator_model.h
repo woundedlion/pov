@@ -101,7 +101,7 @@ struct FrameContext {
   uint32_t frame = 0;
   float time = 0.0f;
   /** Base orientation composed under the projection spin/wander frame. */
-  Quaternion projection_base;
+  math::Quaternion projection_base;
   /** Generated palette bakes, indexed by the colorize palette-mode value. */
   std::array<const BakedPalette *, 3> palettes{};
   const Pixel *hue_rotation_lut = nullptr;

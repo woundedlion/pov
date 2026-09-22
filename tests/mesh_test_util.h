@@ -42,7 +42,7 @@ inline void build_icosahedron_meshstate(Arena &seed_a, Arena &seed_b,
                                         Arena &geometry, MeshState &mesh) {
   PolyMesh base = Solids::Platonic::icosahedron(seed_a, seed_b);
   mesh.vertices.bind(geometry, base.vertices.size());
-  for (const Vector &vertex : base.vertices)
+  for (const math::Vector &vertex : base.vertices)
     mesh.vertices.push_back(vertex);
   mesh.faces.bind(geometry, base.faces.size());
   mesh.face_counts.bind(geometry, base.face_counts.size());
@@ -164,9 +164,11 @@ inline void check_no_sliver_edges(const PolyMesh &m) {
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     const int n = m.face_counts[f];
     for (int i = 0; i < n; ++i) {
-      const Vector u = m.vertices[m.faces[off + i]].normalized();
-      const Vector v = m.vertices[m.faces[off + (i + 1) % n]].normalized();
-      edges.push_back(std::acos(std::max(-1.0f, std::min(1.0f, dot(u, v)))));
+      const math::Vector u = m.vertices[m.faces[off + i]].normalized();
+      const math::Vector v =
+          m.vertices[m.faces[off + (i + 1) % n]].normalized();
+      edges.push_back(
+          std::acos(std::max(-1.0f, std::min(1.0f, math::dot(u, v)))));
     }
     off += n;
   }
@@ -188,12 +190,13 @@ inline void check_no_sliver_edges(const PolyMesh &m) {
  * @details Newell's method is robust for non-planar faces (e.g. curved faces
  *          on the unit sphere) where a simple cross product would be ambiguous.
  */
-inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
-                                 int count) {
-  Vector n(0, 0, 0);
+inline math::Vector face_newell_normal(const PolyMesh &m,
+                                       size_t face_idx_offset, int count) {
+  math::Vector n(0, 0, 0);
   for (int k = 0; k < count; ++k) {
-    const Vector &curr = m.vertices[m.faces[face_idx_offset + k]];
-    const Vector &next = m.vertices[m.faces[face_idx_offset + (k + 1) % count]];
+    const math::Vector &curr = m.vertices[m.faces[face_idx_offset + k]];
+    const math::Vector &next =
+        m.vertices[m.faces[face_idx_offset + (k + 1) % count]];
     n.x += (curr.y - next.y) * (curr.z + next.z);
     n.y += (curr.z - next.z) * (curr.x + next.x);
     n.z += (curr.x - next.x) * (curr.y + next.y);
@@ -209,8 +212,8 @@ inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
  * @return Face normal scaled to the planar face area — half
  *         face_newell_normal(), which carries twice the area.
  */
-inline Vector face_area_vector(const PolyMesh &m, size_t face_idx_offset,
-                               int count) {
+inline math::Vector face_area_vector(const PolyMesh &m, size_t face_idx_offset,
+                                     int count) {
   return face_newell_normal(m, face_idx_offset, count) * 0.5f;
 }
 
@@ -221,9 +224,9 @@ inline Vector face_area_vector(const PolyMesh &m, size_t face_idx_offset,
  * @param count Number of vertices (sides) in the face.
  * @return Arithmetic mean of the face's vertex positions.
  */
-inline Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
-                                int count) {
-  Vector c(0, 0, 0);
+inline math::Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
+                                      int count) {
+  math::Vector c(0, 0, 0);
   for (int k = 0; k < count; ++k)
     c = c + m.vertices[m.faces[face_idx_offset + k]];
   return c * (1.0f / static_cast<float>(count));
@@ -237,9 +240,9 @@ inline Vector face_centroid_pos(const PolyMesh &m, size_t face_idx_offset,
  * @return Normalised centroid direction; the vertex sum is normalised directly,
  *         so the division by count of face_centroid_pos() is skipped.
  */
-inline Vector face_centroid_unit(const PolyMesh &m, size_t face_idx_offset,
-                                 int count) {
-  Vector c(0.0f, 0.0f, 0.0f);
+inline math::Vector face_centroid_unit(const PolyMesh &m,
+                                       size_t face_idx_offset, int count) {
+  math::Vector c(0.0f, 0.0f, 0.0f);
   for (int k = 0; k < count; ++k)
     c = c + m.vertices[m.faces[face_idx_offset + k]];
   return c.normalized();
