@@ -472,7 +472,18 @@ class InstallSet(unittest.TestCase):
         self.assertEqual(bp.check_install_eol(bp.installed_sources()), [])
 
     def test_an_unpinned_file_is_reported(self):
-        self.assertEqual(len(bp.check_install_eol(["unpinned/file.txt"])), 1)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            attributes = root / ".gitattributes"
+            attributes.write_text(
+                "* text=auto eol=lf\nunpinned/file.txt !eol !binary\n",
+                encoding="utf-8", newline="\n")
+            with unittest.mock.patch.object(bp, "ROOT", root):
+                self.assertEqual(bp.check_install_eol(["pinned/file.txt"]), [])
+                self.assertEqual(len(bp.check_install_eol(["unpinned/file.txt"])), 1)
+                attributes.write_text("* text=auto eol=lf\n", encoding="utf-8", newline="\n")
+                self.assertEqual(bp.check_install_eol(["unpinned/file.txt"]), [])
 
     def test_an_empty_set_fails_instead_of_passing_vacuously(self):
         self.assertTrue(bp.check_install_eol([]))
