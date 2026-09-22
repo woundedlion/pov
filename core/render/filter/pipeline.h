@@ -843,12 +843,14 @@ public:
         "a 2D history stage (Screen::Trails, Pixel::Feedback) left unflushed "
         "never decays. Pass a ScreenTrailFn instead.");
     static_assert(
-        !any_2d_history,
-        "Incomplete flush(): this Pipeline also carries a 2D history stage "
+        !any_2d_trail_history,
+        "Incomplete flush(): this Pipeline also carries a 2D trail stage "
         "(Screen::Trails, Pixel::Feedback) that this overload leaves "
         "unflushed, so it never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, trailFn, alpha);
+    if constexpr (any_terminal_history)
+      flush_stages(cv, alpha);
   }
 
   /**
