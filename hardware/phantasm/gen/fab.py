@@ -790,10 +790,14 @@ def run_parity(report_path):
         os.remove(report_path)
     # KiCad reports parity items at warning severity, so they are invisible to
     # the error-severity DRC gate and need their own run.
-    run([kicad_cli(), "pcb", "drc", "--schematic-parity", "--format", "json",
+    result = run([kicad_cli(), "pcb", "drc", "--schematic-parity", "--format", "json",
          "--severity-error", "--severity-warning", "-o", report_path, PCB],
         check=False)
-    return require_schematic_parity(report_path)
+    count = require_schematic_parity(report_path)
+    if result.returncode:
+        raise SchematicParityError(
+            f"kicad-cli parity check exited with status {result.returncode}")
+    return count
 
 
 class NetlistSpecError(ValueError):
