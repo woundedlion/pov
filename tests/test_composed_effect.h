@@ -1194,7 +1194,21 @@ inline void test_composed_preset_choreography() {
 }
 
 /** @brief Sweeps the crossfade interpolation over every specialization. */
+inline void test_composed_log_positive_curve() {
+  using Pullback::FieldCurve;
+  using Pullback::Fields::apply_curve;
+  HS_EXPECT_EQ(apply_curve(FieldCurve::LOG_POSITIVE, 1.0f, 81.0f, 0.0f), 1.0f);
+  HS_EXPECT_EQ(apply_curve(FieldCurve::LOG_POSITIVE, 1.0f, 81.0f, 1.0f), 81.0f);
+  HS_EXPECT_NEAR(apply_curve(FieldCurve::LOG_POSITIVE, 1.0f, 81.0f, 0.25f),
+                 3.0f, 1e-5f);
+  HS_EXPECT_NEAR(apply_curve(FieldCurve::LOG_POSITIVE, 1.0f, 81.0f, 0.5f), 9.0f,
+                 1e-5f);
+  HS_EXPECT_NEAR(apply_curve(FieldCurve::LOG_POSITIVE, 81.0f, 1.0f, 0.75f),
+                 3.0f, 1e-5f);
+}
+
 inline void test_composed_preset_interpolation() {
+  test_composed_log_positive_curve();
 #define HS_COMPOSED_INTERP(name, seconds)                                      \
   check_preset_interpolation<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_INTERP)
