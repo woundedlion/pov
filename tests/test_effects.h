@@ -2517,7 +2517,7 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
  */
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
-  static constexpr int PRESETS = 10;
+  static constexpr int PRESETS = static_cast<int>(DB::PRESETS.size());
   static constexpr size_t SOLID_COUNT = DB::SOLID_COUNT;
   static constexpr size_t MAX_SOLID_EDGES = Solids::MAX_SOLID_EDGES;
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
