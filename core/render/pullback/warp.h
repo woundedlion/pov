@@ -100,6 +100,7 @@ struct MirrorParams {
   };
 };
 static_assert(field_ids_unique<MirrorParams>());
+static_assert(field_defaults_in_range<MirrorParams>());
 
 /** @brief Warp parameters for the sine shear (Pullback::Warp::WaveShear). */
 struct WaveShearParams {
@@ -126,6 +127,7 @@ struct WaveShearParams {
   };
 };
 static_assert(field_ids_unique<WaveShearParams>());
+static_assert(field_defaults_in_range<WaveShearParams>());
 
 /**
  * @brief Warp parameters for the noise-vector displacement
@@ -157,6 +159,7 @@ struct VectorNoiseParams {
   };
 };
 static_assert(field_ids_unique<VectorNoiseParams>());
+static_assert(field_defaults_in_range<VectorNoiseParams>());
 
 /**
  * @brief Warp parameters for the affine frame change
@@ -198,6 +201,7 @@ struct AffineParams {
   };
 };
 static_assert(field_ids_unique<AffineParams>());
+static_assert(field_defaults_in_range<AffineParams>());
 
 /** @brief Warp parameters for the polar chart (Pullback::Warp::PolarChart). */
 struct PolarParams {
@@ -222,6 +226,7 @@ struct PolarParams {
   };
 };
 static_assert(field_ids_unique<PolarParams>());
+static_assert(field_defaults_in_range<PolarParams>());
 
 /** @brief Warp parameters for the orbiting vortex (Pullback::Warp::Vortex). */
 struct VortexParams {
@@ -251,6 +256,7 @@ struct VortexParams {
   };
 };
 static_assert(field_ids_unique<VortexParams>());
+static_assert(field_defaults_in_range<VortexParams>());
 
 /** @brief Affine warp coefficients, with the phase oscillation applied. */
 struct PreparedAffine {

@@ -111,6 +111,7 @@ struct ColorParams {
   constexpr bool operator==(const ColorParams &) const = default;
 };
 static_assert(field_ids_unique<ColorParams>());
+static_assert(field_defaults_in_range<ColorParams>());
 
 struct PaletteMappingWeights {
   std::array<float, 4> values{};
