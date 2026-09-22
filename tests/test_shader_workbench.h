@@ -30,98 +30,100 @@ using effects_tests::SMALL_W;
 /** @brief White-box access to ShaderWorkbench's typed pipeline. */
 struct ShaderWorkbenchWhiteBox {
   using SB = Shader<SMALL_W, SMALL_H>;
-  using Function = SB::Function;
-  using Projection = SB::Projection;
-  using PeirceLayout = SB::PeirceLayout;
-  using AiroceanLayout = SB::AiroceanLayout;
-  using BonneHemisphere = SB::BonneHemisphere;
-  using GnomonicHemispherePolicy = SB::GnomonicHemispherePolicy;
-  using ProjectionFramePolicy = SB::ProjectionFramePolicy;
-  using SurfaceLens = SB::SurfaceLens;
-  using SurfaceNoise = SB::SurfaceNoise;
-  using SurfaceNoisePlacement = SB::SurfaceNoisePlacement;
-  using SurfaceCurlIntegrator = SB::SurfaceCurlIntegrator;
+  using Function = Workbench::Function;
+  using Projection = Workbench::Projection;
+  using PeirceLayout = Workbench::PeirceLayout;
+  using AiroceanLayout = Workbench::AiroceanLayout;
+  using BonneHemisphere = Workbench::BonneHemisphere;
+  using GnomonicHemispherePolicy = Workbench::GnomonicHemispherePolicy;
+  using ProjectionFramePolicy = Workbench::ProjectionFramePolicy;
+  using SurfaceLens = Workbench::SurfaceLens;
+  using SurfaceNoise = Workbench::SurfaceNoise;
+  using SurfaceNoisePlacement = Workbench::SurfaceNoisePlacement;
+  using SurfaceCurlIntegrator = Workbench::SurfaceCurlIntegrator;
   using NoiseBasis = SB::NoiseBasis;
-  using WarpEnvelope = SB::WarpEnvelope;
-  using PolarMode = SB::PolarMode;
-  using CurlIntegrator = SB::CurlIntegrator;
-  using WarpStageKind = SB::WarpStageKind;
-  using WarpStageSpec = SB::WarpStageSpec;
-  using WarpStageParams = SB::WarpStageParams;
-  using ProjectionParams = SB::ProjectionParams;
-  using SurfaceNoiseParams = SB::SurfaceNoiseParams;
-  using SignalWeight = SB::SignalWeight;
-  using ValueTransfer = SB::ValueTransfer;
-  using CoveragePolicy = SB::CoveragePolicy;
-  using PaletteMode = SB::PaletteMode;
-  using PaletteMapping = SB::PaletteMapping;
-  using PaletteMappingWeights = SB::PaletteMappingWeights;
-  using BrightnessEnvelope = SB::BrightnessEnvelope;
-  using HueShiftMode = SB::HueShiftMode;
-  using Slots = SB::Slots;
-  using SourceParams = SB::SourceParams;
-  using Params = SB::Params;
-  using RequestedConfig = SB::RequestedConfig;
-  using SourceState = SB::SourceState;
-  using PreparedWarpStage = SB::PreparedWarpStage;
-  using FrameState = SB::FrameState;
-  using ProjectedLookup = SB::ProjectedLookup;
-  using PlanarWarpStageResult = SB::PlanarWarpStageResult;
-  using PlanarWarpResult = SB::PlanarWarpResult;
-  using FieldSample = SB::FieldSample;
-  using ClockState = SB::ClockState;
-  using EndpointRuntime = SB::EndpointRuntime;
+  using WarpEnvelope = Workbench::WarpEnvelope;
+  using PolarMode = Workbench::PolarMode;
+  using CurlIntegrator = Workbench::CurlIntegrator;
+  using WarpStageKind = Workbench::WarpStageKind;
+  using WarpStageSpec = Workbench::WarpStageSpec;
+  using WarpStageParams = Workbench::WarpStageParams;
+  using ProjectionParams = Workbench::ProjectionParams;
+  using SurfaceNoiseParams = Workbench::SurfaceNoiseParams;
+  using SignalWeight = Workbench::SignalWeight;
+  using ValueTransfer = Workbench::ValueTransfer;
+  using CoveragePolicy = Workbench::CoveragePolicy;
+  using PaletteMode = Workbench::PaletteMode;
+  using PaletteMapping = Workbench::PaletteMapping;
+  using PaletteMappingWeights = Workbench::PaletteMappingWeights;
+  using BrightnessEnvelope = Workbench::BrightnessEnvelope;
+  using HueShiftMode = Workbench::HueShiftMode;
+  using Slots = Workbench::Slots;
+  using SourceParams = Workbench::SourceParams;
+  using Params = Workbench::Params;
+  using RequestedConfig = Workbench::RequestedConfig;
+  using SourceState = Workbench::SourceState;
+  using PreparedWarpStage = Workbench::PreparedWarpStage;
+  using FrameState = Workbench::FrameState;
+  using ProjectedLookup = Workbench::ProjectedLookup;
+  using PlanarWarpStageResult = Workbench::PlanarWarpStageResult;
+  using PlanarWarpResult = Workbench::PlanarWarpResult;
+  using FieldSample = Workbench::FieldSample;
+  using ClockState = Workbench::ClockState;
+  using EndpointRuntime = Workbench::EndpointRuntime;
   using WalkDeltas = SB::WalkDeltas;
   using ThroughClearPhase = SB::ThroughClearPhase;
   using ConfigFieldId = SB::ConfigFieldId;
   using ConfigRestoreResult = SB::ConfigRestoreResult;
   using FullConfigSnapshot = SB::FullConfigSnapshot;
-  using TopologyKey = SB::TopologyKey;
-  using InversePipelineId = SB::InversePipelineId;
-  using CodeEmission = SB::CodeEmission;
-  using ApproximationOracleId = SB::ApproximationOracleId;
-  using ProjectionStateProvider = SB::ProjectionStateProvider;
-  using SurfaceStateProvider = SB::SurfaceStateProvider;
-  using LensStateProvider = SB::LensStateProvider;
-  using SourceStateProvider = SB::SourceStateProvider;
-  using ValueStateProvider = SB::ValueStateProvider;
-  using ColorStateProvider = SB::ColorStateProvider;
+  using TopologyKey = Workbench::TopologyKey;
+  using InversePipelineId = Workbench::InversePipelineId;
+  using CodeEmission = Workbench::CodeEmission;
+  using ApproximationOracleId = Workbench::ApproximationOracleId;
+  using ProjectionStateProvider = Workbench::ProjectionStateProvider;
+  using SurfaceStateProvider = Workbench::SurfaceStateProvider;
+  using LensStateProvider = Workbench::LensStateProvider;
+  using SourceStateProvider = Workbench::SourceStateProvider;
+  using ValueStateProvider = Workbench::ValueStateProvider;
+  using ColorStateProvider = Workbench::ColorStateProvider;
   template <bool Outer>
   using WarpStateProvider = Workbench::WarpStateProvider<Outer>;
 
-  static constexpr float AXIS_EPS = SB::GNOMONIC_AXIS_EPS;
+  static constexpr float AXIS_EPS = Workbench::GNOMONIC_AXIS_EPS;
   static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
 
-  static constexpr int NUM_FUNCTIONS = SB::NUM_FUNCTIONS;
-  static constexpr int NUM_PROJECTIONS = SB::NUM_PROJECTIONS;
-  static constexpr int NUM_PEIRCE_LAYOUTS = SB::NUM_PEIRCE_LAYOUTS;
-  static constexpr int NUM_AIROCEAN_LAYOUTS = SB::NUM_AIROCEAN_LAYOUTS;
-  static constexpr int NUM_BONNE_HEMISPHERES = SB::NUM_BONNE_HEMISPHERES;
-  static constexpr int NUM_GNOMONIC_HEMISPHERES = SB::NUM_GNOMONIC_HEMISPHERES;
-  static constexpr int NUM_PROJECTION_FRAMES = SB::NUM_PROJECTION_FRAMES;
-  static constexpr int NUM_LENSES = SB::NUM_LENSES;
-  static constexpr int NUM_SURFACE_NOISE = SB::NUM_SURFACE_NOISE;
+  static constexpr int NUM_FUNCTIONS = Workbench::NUM_FUNCTIONS;
+  static constexpr int NUM_PROJECTIONS = Workbench::NUM_PROJECTIONS;
+  static constexpr int NUM_PEIRCE_LAYOUTS = Workbench::NUM_PEIRCE_LAYOUTS;
+  static constexpr int NUM_AIROCEAN_LAYOUTS = Workbench::NUM_AIROCEAN_LAYOUTS;
+  static constexpr int NUM_BONNE_HEMISPHERES = Workbench::NUM_BONNE_HEMISPHERES;
+  static constexpr int NUM_GNOMONIC_HEMISPHERES =
+      Workbench::NUM_GNOMONIC_HEMISPHERES;
+  static constexpr int NUM_PROJECTION_FRAMES = Workbench::NUM_PROJECTION_FRAMES;
+  static constexpr int NUM_LENSES = Workbench::NUM_LENSES;
+  static constexpr int NUM_SURFACE_NOISE = Workbench::NUM_SURFACE_NOISE;
   static constexpr int NUM_SURFACE_NOISE_PLACEMENTS =
-      SB::NUM_SURFACE_NOISE_PLACEMENTS;
+      Workbench::NUM_SURFACE_NOISE_PLACEMENTS;
   static constexpr int NUM_SURFACE_CURL_INTEGRATORS =
-      SB::NUM_SURFACE_CURL_INTEGRATORS;
-  static constexpr int NUM_WARPS = SB::NUM_WARPS;
-  static constexpr int NUM_NOISE_BASES = SB::NUM_NOISE_BASES;
-  static constexpr int NUM_POLAR_MODES = SB::NUM_POLAR_MODES;
-  static constexpr int NUM_CURL_INTEGRATORS = SB::NUM_CURL_INTEGRATORS;
-  static constexpr int NUM_WARP_ENVELOPES = SB::NUM_WARP_ENVELOPES;
-  static constexpr int NUM_SIGNALS = SB::NUM_SIGNALS;
-  static constexpr int NUM_VALUE_TRANSFERS = SB::NUM_VALUE_TRANSFERS;
-  static constexpr int NUM_COVERAGE_POLICIES = SB::NUM_COVERAGE_POLICIES;
-  static constexpr int NUM_PALETTES = SB::NUM_PALETTES;
-  static constexpr int NUM_PALETTE_MAPPINGS = SB::NUM_PALETTE_MAPPINGS;
-  static constexpr int NUM_BRIGHTNESS_ENVELOPES = SB::NUM_BRIGHTNESS_ENVELOPES;
-  static constexpr int NUM_HUE_SHIFT_MODES = SB::NUM_HUE_SHIFT_MODES;
+      Workbench::NUM_SURFACE_CURL_INTEGRATORS;
+  static constexpr int NUM_WARPS = Workbench::NUM_WARPS;
+  static constexpr int NUM_NOISE_BASES = Workbench::NUM_NOISE_BASES;
+  static constexpr int NUM_POLAR_MODES = Workbench::NUM_POLAR_MODES;
+  static constexpr int NUM_CURL_INTEGRATORS = Workbench::NUM_CURL_INTEGRATORS;
+  static constexpr int NUM_WARP_ENVELOPES = Workbench::NUM_WARP_ENVELOPES;
+  static constexpr int NUM_SIGNALS = Workbench::NUM_SIGNALS;
+  static constexpr int NUM_VALUE_TRANSFERS = Workbench::NUM_VALUE_TRANSFERS;
+  static constexpr int NUM_COVERAGE_POLICIES = Workbench::NUM_COVERAGE_POLICIES;
+  static constexpr int NUM_PALETTES = Workbench::NUM_PALETTES;
+  static constexpr int NUM_PALETTE_MAPPINGS = Workbench::NUM_PALETTE_MAPPINGS;
+  static constexpr int NUM_BRIGHTNESS_ENVELOPES =
+      Workbench::NUM_BRIGHTNESS_ENVELOPES;
+  static constexpr int NUM_HUE_SHIFT_MODES = Workbench::NUM_HUE_SHIFT_MODES;
 
   static void hold_initial_preset(SB &sb, uint16_t frames) {
     sb.hold_initial_preset(frames);
   }
-  static const SB::Preset &preset_for_view(const SB &sb, size_t index) {
+  static const Workbench::Preset &preset_for_view(const SB &sb, size_t index) {
     return sb.preset_for_view(index);
   }
 
@@ -131,21 +133,22 @@ struct ShaderWorkbenchWhiteBox {
   }
   static FrameState frame(const SB &sb) { return sb.prepare_frame(); }
   static FrameState preset_frame(SB &sb, size_t index) {
-    const auto &preset = SB::PRESETS[index].config;
+    const auto &preset = Workbench::PRESETS[index].config;
     HS_CHECK(sb.prepare_resource_union(preset, preset),
              "ShaderWorkbench test preset resources must fit");
     return sb.prepare_frame(preset, sb.runtime);
   }
   static Color4 sinusoidal_curl_shade(const Vector &view,
                                       const FrameState &frame) {
-    using Pipeline = SB::SinusoidalLatticeMeltPipeline;
+    using Pipeline = Workbench::SinusoidalLatticeMeltPipeline;
     const typename Pipeline::PreparedTuple prepared =
         Pipeline::prepare_stages(frame);
     return Pipeline::shade_prepared(view, frame, &prepared);
   }
   static Color4 stereographic_dodecahedral_grid_shade(const Vector &view,
                                                       const FrameState &frame) {
-    using Pipeline = SB::StereographicDodecahedralGridInnerMirrorPipeline;
+    using Pipeline =
+        Workbench::StereographicDodecahedralGridInnerMirrorPipeline;
     const typename Pipeline::PreparedTuple prepared =
         Pipeline::prepare_stages(frame);
     return Pipeline::shade_prepared(view, frame, &prepared);
@@ -177,7 +180,7 @@ struct ShaderWorkbenchWhiteBox {
     return {sb.active_slots, sb.blend.params};
   }
   static constexpr Slots generated_surface_noise_slots() {
-    return SB::GENERATED_SURFACE_NOISE_SLOTS;
+    return Workbench::GENERATED_SURFACE_NOISE_SLOTS;
   }
   static constexpr Slots legacy_slots() {
     return {Function::TWIN_WAVE,
@@ -352,10 +355,10 @@ struct ShaderWorkbenchWhiteBox {
     const auto *program = Workbench::resolve_inverse_program(*visible);
     HS_CHECK(program != nullptr,
              "through-clear test topology has no compiled inverse pipeline");
-    alignas(std::max_align_t) std::byte storage[SB::PREPARED_BLOB_BYTES];
+    alignas(std::max_align_t) std::byte storage[Workbench::PREPARED_BLOB_BYTES];
     program->prepare(*visible, storage);
-    typename SB::FrameShader shader{visible, phase.alpha, program->shade,
-                                    storage};
+    typename Workbench::FrameShader shader{visible, phase.alpha, program->shade,
+                                           storage};
     return shader(view);
   }
   static void begin_blend(SB &sb) {
@@ -382,10 +385,12 @@ struct ShaderWorkbenchWhiteBox {
   static uint32_t generated_palette_steps(const SB &sb) {
     return sb.generated_palette_step_count;
   }
-  static constexpr uint8_t boundary_cut() { return SB::BOUNDARY_CUT; }
-  static constexpr uint8_t boundary_singular() { return SB::BOUNDARY_SINGULAR; }
+  static constexpr uint8_t boundary_cut() { return Workbench::BOUNDARY_CUT; }
+  static constexpr uint8_t boundary_singular() {
+    return Workbench::BOUNDARY_SINGULAR;
+  }
   static constexpr uint8_t projection_folded() {
-    return SB::PROJECTION_FLAG_FOLDED;
+    return Workbench::PROJECTION_FLAG_FOLDED;
   }
   static Vector outer_lookup(const Vector &v, const FrameState &frame) {
     return Workbench::outer_camera_lookup(v, frame);
@@ -512,7 +517,7 @@ struct ShaderWorkbenchWhiteBox {
     const auto *program = Workbench::resolve_inverse_program(frame);
     HS_CHECK(program != nullptr,
              "ShaderWorkbench test topology has no compiled inverse pipeline");
-    alignas(std::max_align_t) std::byte storage[SB::PREPARED_BLOB_BYTES];
+    alignas(std::max_align_t) std::byte storage[Workbench::PREPARED_BLOB_BYTES];
     program->prepare(frame, storage);
     return program->shade(v, frame, storage);
   }
@@ -593,7 +598,7 @@ struct ShaderWorkbenchWhiteBox {
     return SB::pipeline_name(inverse_program_id(index));
   }
   static InversePipelineId preset_program_id(size_t index) {
-    return SB::PRESETS[index].pipeline;
+    return Workbench::PRESETS[index].pipeline;
   }
   static InversePipelineId inverse_program_id(const FrameState &frame) {
     const auto *program = Workbench::resolve_inverse_program(frame);
@@ -622,16 +627,18 @@ struct ShaderWorkbenchWhiteBox {
     // A chain that stops before Color4 fails EXIT; a rank-reversed chain
     // fails the adjacency and entry rows.
     using TruncatedGate =
-        Pullback::PipelineValidation<SB::ShaderWorkbenchBinding,
-                                     SB::OuterCameraStage>;
+        Pullback::PipelineValidation<Workbench::ShaderWorkbenchBinding,
+                                     Workbench::OuterCameraStage>;
     using ReversedGate =
-        Pullback::PipelineValidation<SB::ShaderWorkbenchBinding, SB::ColorStage,
-                                     SB::OuterCameraStage>;
-    using Peirce = SB::PeirceDodecahedralGridPipeline;
+        Pullback::PipelineValidation<Workbench::ShaderWorkbenchBinding,
+                                     Workbench::ColorStage,
+                                     Workbench::OuterCameraStage>;
+    using Peirce = Workbench::PeirceDodecahedralGridPipeline;
     using Validation = Peirce::Validation;
     using ProjectStage = Peirce::stage_at<2>;
-    using BoundProject = ProjectStage::Bind<SB::ShaderWorkbenchBinding>;
-    using BoundColor = SB::ColorStage::Bind<SB::ShaderWorkbenchBinding>;
+    using BoundProject = ProjectStage::Bind<Workbench::ShaderWorkbenchBinding>;
+    using BoundColor =
+        Workbench::ColorStage::Bind<Workbench::ShaderWorkbenchBinding>;
     return !TruncatedGate::EXIT && !ReversedGate::CARRIERS &&
            !ReversedGate::ENTRY && !ReversedGate::EXIT &&
            Validation::NONEMPTY && Validation::CONTRACTS &&
@@ -658,11 +665,12 @@ struct ShaderWorkbenchWhiteBox {
     return Workbench::SelectedProjectStage<
                Projection::PEIRCE_QUINCUNCIAL,
                SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL>::
-        Bind<SB::ShaderWorkbenchBinding>::METRICS[index]
+        Bind<Workbench::ShaderWorkbenchBinding>::METRICS[index]
             .limit;
   }
   static float color_metric_limit(size_t index) {
-    return SB::ColorStage::Bind<SB::ShaderWorkbenchBinding>::METRICS[index]
+    return Workbench::ColorStage::Bind<
+               Workbench::ShaderWorkbenchBinding>::METRICS[index]
         .limit;
   }
   static Complex project_point(const Vector &v, Projection projection) {
@@ -711,13 +719,13 @@ struct ShaderWorkbenchWhiteBox {
     return Workbench::grid(p, params, source);
   }
   static constexpr auto presets() {
-    std::array<RequestedConfig, SB::PRESETS.size()> configs{};
+    std::array<RequestedConfig, Workbench::PRESETS.size()> configs{};
     for (size_t index = 0; index < configs.size(); ++index)
-      configs[index] = SB::PRESETS[index].config;
+      configs[index] = Workbench::PRESETS[index].config;
     return configs;
   }
   static constexpr InversePipelineId preset_pipeline(size_t index) {
-    return SB::PRESETS[index].pipeline;
+    return Workbench::PRESETS[index].pipeline;
   }
   static auto encode_config(const RequestedConfig &config) {
     return SB::encode_config_values(config);

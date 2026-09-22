@@ -214,348 +214,17 @@ struct ShaderWorkbenchWhiteBox;
  */
 class ShaderWorkbench : public Effect {
 public:
-  // The authored vocabulary, re-exported so consumers keep naming it
-  // through the effect.
-  using Function = Workbench::Function;
-  using Projection = Workbench::Projection;
-  using PeirceLayout = Workbench::PeirceLayout;
-  using AiroceanLayout = Workbench::AiroceanLayout;
-  using BonneHemisphere = Workbench::BonneHemisphere;
-  using GnomonicHemispherePolicy = Workbench::GnomonicHemispherePolicy;
-  using SurfaceLens = Workbench::SurfaceLens;
-  using WarpEnvelope = Workbench::WarpEnvelope;
-  using PolarMode = Workbench::PolarMode;
-  using CurlIntegrator = Workbench::CurlIntegrator;
-  using SurfaceCurlIntegrator = Workbench::SurfaceCurlIntegrator;
-  using SurfaceNoise = Workbench::SurfaceNoise;
-  using SurfaceNoisePlacement = Workbench::SurfaceNoisePlacement;
-  using WarpStageKind = Workbench::WarpStageKind;
-  using WarpStageSpec = Workbench::WarpStageSpec;
-  using WarpProgram = Workbench::WarpProgram;
-  using ProjectionFramePolicy = Workbench::ProjectionFramePolicy;
-  using SignalWeight = Workbench::SignalWeight;
-  using ValueTransfer = Workbench::ValueTransfer;
-  using CoveragePolicy = Workbench::CoveragePolicy;
-  using PaletteMode = Workbench::PaletteMode;
-  using PaletteMapping = Workbench::PaletteMapping;
-  using PaletteMappingWeights = Workbench::PaletteMappingWeights;
-  using BrightnessEnvelope = Workbench::BrightnessEnvelope;
-  using HueShiftMode = Workbench::HueShiftMode;
-  using Slots = Workbench::Slots;
-  using SourceParams = Workbench::SourceParams;
-  using WarpStageParams = Workbench::WarpStageParams;
-  using WarpParams = Workbench::WarpParams;
-  using ProjectionParams = Workbench::ProjectionParams;
-  using SurfaceLensParams = Workbench::SurfaceLensParams;
-  using SurfaceNoiseParams = Workbench::SurfaceNoiseParams;
-  using ValueParams = Workbench::ValueParams;
-  using ColorParams = Workbench::ColorParams;
-  using OuterCameraParams = Workbench::OuterCameraParams;
-  using Params = Workbench::Params;
-  using Config = Workbench::Config;
-  using RequestedConfig = Workbench::RequestedConfig;
-  using Blend = Workbench::Blend;
-  using Choreo = Workbench::Choreo;
-  using SourceState = Workbench::SourceState;
-  using ProjectedLookup = Workbench::ProjectedLookup;
-  using SourceTraits = Workbench::SourceTraits;
-  using PlanarWarpResult = Workbench::PlanarWarpResult;
-  using SurfaceNoiseResult = Workbench::SurfaceNoiseResult;
-  using PlanarWarpStageResult = Workbench::PlanarWarpStageResult;
-  using FieldSample = Workbench::FieldSample;
-  using ClockState = Workbench::ClockState;
-  using PreparedTransforms = Workbench::PreparedTransforms;
-  using PreparedAffineFrame = Workbench::PreparedAffineFrame;
-  using PreparedMirrorTile = Workbench::PreparedMirrorTile;
-  using PreparedVortex = Workbench::PreparedVortex;
-  using PreparedNoiseLoop = Workbench::PreparedNoiseLoop;
-  using PreparedWarpStage = Workbench::PreparedWarpStage;
-  using PreparedWarpProgram = Workbench::PreparedWarpProgram;
-  using PreparedSurfaceNoise = Workbench::PreparedSurfaceNoise;
-  using PreparedHueRotation = Workbench::PreparedHueRotation;
-  using PreparedHueNoise = Workbench::PreparedHueNoise;
-  using ResourceBindings = Workbench::ResourceBindings;
-  static constexpr auto MAX_NOISE_RESOURCES = Workbench::MAX_NOISE_RESOURCES;
-  using DynamicPrepared = Workbench::DynamicPrepared;
-  using FrameState = Workbench::FrameState;
-  using InversePipelineId = Workbench::InversePipelineId;
-  using SelectedConfig = Workbench::SelectedConfig;
-  using Preset = Workbench::Preset;
-  static constexpr auto &PRESETS = Workbench::PRESETS;
-  static constexpr auto BOUNDARY_CUT = Workbench::BOUNDARY_CUT;
-  static constexpr auto BOUNDARY_SINGULAR = Workbench::BOUNDARY_SINGULAR;
-  static constexpr auto GNOMONIC_AXIS_EPS = Workbench::GNOMONIC_AXIS_EPS;
-  static constexpr auto WARP_COORD_LIMIT = Workbench::WARP_COORD_LIMIT;
-  static constexpr auto NOISE_LATTICE_LIMIT = Workbench::NOISE_LATTICE_LIMIT;
-  static constexpr auto &FUNCTION_OPTIONS = Workbench::FUNCTION_OPTIONS;
-  static constexpr auto NUM_FUNCTIONS = Workbench::NUM_FUNCTIONS;
-  static constexpr auto &PROJECTION_OPTIONS = Workbench::PROJECTION_OPTIONS;
-  static constexpr auto NUM_PROJECTIONS = Workbench::NUM_PROJECTIONS;
-  static constexpr auto NUM_PEIRCE_LAYOUTS = Workbench::NUM_PEIRCE_LAYOUTS;
-  static constexpr auto NUM_AIROCEAN_LAYOUTS = Workbench::NUM_AIROCEAN_LAYOUTS;
-  static constexpr auto &LENS_OPTIONS = Workbench::LENS_OPTIONS;
-  static constexpr auto &LENS_EXPORT_OPTIONS = Workbench::LENS_EXPORT_OPTIONS;
-  static constexpr auto NUM_LENSES = Workbench::NUM_LENSES;
-  static constexpr auto NUM_SURFACE_NOISE = Workbench::NUM_SURFACE_NOISE;
-  static constexpr auto &WARP_OPTIONS = Workbench::WARP_OPTIONS;
-  static constexpr auto &WARP_EXPORT_OPTIONS = Workbench::WARP_EXPORT_OPTIONS;
-  static constexpr auto NUM_WARPS = Workbench::NUM_WARPS;
-  static constexpr auto &NOISE_BASIS_OPTIONS = Workbench::NOISE_BASIS_OPTIONS;
-  static constexpr auto NUM_NOISE_BASES = Workbench::NUM_NOISE_BASES;
-  static constexpr auto &POLAR_MODE_OPTIONS = Workbench::POLAR_MODE_OPTIONS;
-  static constexpr auto NUM_POLAR_MODES = Workbench::NUM_POLAR_MODES;
-  static constexpr auto NUM_CURL_INTEGRATORS = Workbench::NUM_CURL_INTEGRATORS;
-  static constexpr auto POLAR_HARMONIC_MAX = Workbench::POLAR_HARMONIC_MAX;
-  static constexpr auto BAND_COUNT_MAX = Workbench::BAND_COUNT_MAX;
-  static constexpr auto NUM_WARP_ENVELOPES = Workbench::NUM_WARP_ENVELOPES;
-  static constexpr auto &SIGNAL_OPTIONS = Workbench::SIGNAL_OPTIONS;
-  static constexpr auto NUM_SIGNALS = Workbench::NUM_SIGNALS;
-  static constexpr auto NUM_VALUE_TRANSFERS = Workbench::NUM_VALUE_TRANSFERS;
-  static constexpr auto &COVERAGE_OPTIONS = Workbench::COVERAGE_OPTIONS;
-  static constexpr auto &PALETTE_OPTIONS = Workbench::PALETTE_OPTIONS;
-  static constexpr auto NUM_PALETTES = Workbench::NUM_PALETTES;
-  static constexpr auto NUM_PALETTE_MAPPINGS = Workbench::NUM_PALETTE_MAPPINGS;
-  static constexpr auto &HUE_SHIFT_OPTIONS = Workbench::HUE_SHIFT_OPTIONS;
-  static constexpr auto NUM_HUE_SHIFT_MODES = Workbench::NUM_HUE_SHIFT_MODES;
-  using WarpParamName = Workbench::WarpParamName;
-  static constexpr auto WARP_SCALE_MIN = Workbench::WARP_SCALE_MIN;
-  static constexpr auto WARP_SCALE_MAX = Workbench::WARP_SCALE_MAX;
-  static constexpr auto WARP_STRENGTH_MIN = Workbench::WARP_STRENGTH_MIN;
-  static constexpr auto WARP_STRENGTH_MAX = Workbench::WARP_STRENGTH_MAX;
-  static constexpr auto CURL_WARP_SCALE_MAX = Workbench::CURL_WARP_SCALE_MAX;
-  static constexpr auto WARP_SPEED_MIN = Workbench::WARP_SPEED_MIN;
-  static constexpr auto WARP_SPEED_MAX = Workbench::WARP_SPEED_MAX;
-  static constexpr auto PATTERN_FREQ_MAX = Workbench::PATTERN_FREQ_MAX;
-  static constexpr auto SPEED_MIN = Workbench::SPEED_MIN;
-  static constexpr auto COMPLEXITY_MIN = Workbench::COMPLEXITY_MIN;
-  static constexpr auto PATTERN_MIX_MIN = Workbench::PATTERN_MIX_MIN;
-  static constexpr auto PHASE2_RATE_MIN = Workbench::PHASE2_RATE_MIN;
-  static constexpr auto SINGULARITY_FADE_MAX = Workbench::SINGULARITY_FADE_MAX;
-  static constexpr auto SINGULARITY_FADE_MIN = Workbench::SINGULARITY_FADE_MIN;
-  static constexpr auto SPIN_RATE_MIN = Workbench::SPIN_RATE_MIN;
-  static constexpr auto WANDER_MIN = Workbench::WANDER_MIN;
-  static constexpr auto HUE_SHIFT_AMOUNT_MAX = Workbench::HUE_SHIFT_AMOUNT_MAX;
-  static constexpr auto HUE_NOISE_AMOUNT_MAX = Workbench::HUE_NOISE_AMOUNT_MAX;
-  static constexpr auto HUE_NOISE_SCALE_MIN = Workbench::HUE_NOISE_SCALE_MIN;
-  static constexpr auto HUE_NOISE_SCALE_MAX = Workbench::HUE_NOISE_SCALE_MAX;
-  static constexpr auto HUE_NOISE_SPEED_MAX = Workbench::HUE_NOISE_SPEED_MAX;
-  static constexpr auto PALETTE_CHROMA_MIN = Workbench::PALETTE_CHROMA_MIN;
-  static constexpr auto PALETTE_CHROMA_MAX = Workbench::PALETTE_CHROMA_MAX;
-  static constexpr auto MAPPING_PHASE_MIN = Workbench::MAPPING_PHASE_MIN;
-  static constexpr auto MAPPING_PHASE_MAX = Workbench::MAPPING_PHASE_MAX;
-  static constexpr auto BRIGHTNESS_GAIN_MIN = Workbench::BRIGHTNESS_GAIN_MIN;
-  static constexpr auto BRIGHTNESS_GAIN_MAX = Workbench::BRIGHTNESS_GAIN_MAX;
-  static constexpr auto VALUE_OPACITY_MIN = Workbench::VALUE_OPACITY_MIN;
-  static constexpr auto VALUE_OPACITY_MAX = Workbench::VALUE_OPACITY_MAX;
-  static constexpr auto WAVE_SPIN_MIN = Workbench::WAVE_SPIN_MIN;
-  static constexpr auto LENS_NOISE_SCALE_MIN = Workbench::LENS_NOISE_SCALE_MIN;
-  static constexpr auto LENS_NOISE_SCALE_MAX = Workbench::LENS_NOISE_SCALE_MAX;
-  static constexpr auto NOISE_RATE_MIN = Workbench::NOISE_RATE_MIN;
-  static constexpr auto NOISE_RATE_MAX = Workbench::NOISE_RATE_MAX;
-  static constexpr auto NOISE_SPEED_MIN = Workbench::NOISE_SPEED_MIN;
-  static constexpr auto NOISE_SPEED_MAX = Workbench::NOISE_SPEED_MAX;
-  static constexpr auto CELL_MIN = Workbench::CELL_MIN;
-  static constexpr auto CELL_MAX = Workbench::CELL_MAX;
-  static constexpr auto SOFTNESS_MIN = Workbench::SOFTNESS_MIN;
-  static constexpr auto SPEED_MAX = Workbench::SPEED_MAX;
-  static constexpr auto COMPLEXITY_MAX = Workbench::COMPLEXITY_MAX;
-  static constexpr auto PATTERN_MIX_MAX = Workbench::PATTERN_MIX_MAX;
-  static constexpr auto PHASE2_RATE_MAX = Workbench::PHASE2_RATE_MAX;
-  static constexpr auto SPIN_RATE_MAX = Workbench::SPIN_RATE_MAX;
-  static constexpr auto WANDER_MAX = Workbench::WANDER_MAX;
-  static constexpr auto WAVE_SPIN_MAX = Workbench::WAVE_SPIN_MAX;
-  using ShaderWorkbenchInstrumentation =
-      Workbench::ShaderWorkbenchInstrumentation;
-  using ShaderWorkbenchBinding = Workbench::ShaderWorkbenchBinding;
-  using ProjectionStateProvider = Workbench::ProjectionStateProvider;
-  using SurfaceStateProvider = Workbench::SurfaceStateProvider;
-  using LensStateProvider = Workbench::LensStateProvider;
-  using SourceStateProvider = Workbench::SourceStateProvider;
-  using ValueStateProvider = Workbench::ValueStateProvider;
-  using ColorStateProvider = Workbench::ColorStateProvider;
-  using CodeEmission = Workbench::CodeEmission;
-  using ApproximationOracleId = Workbench::ApproximationOracleId;
-  using ApproximationDomain = Workbench::ApproximationDomain;
-  using ApproximationAggregation = Workbench::ApproximationAggregation;
-  using ApproximationMetric = Workbench::ApproximationMetric;
-  using TopologyKey = Workbench::TopologyKey;
-  using OuterCameraStage = Workbench::OuterCameraStage;
-  using SinusoidalCurlDisplaceStage = Workbench::SinusoidalCurlDisplaceStage;
-  using SinusoidalCurlProjectStage = Workbench::SinusoidalCurlProjectStage;
-  using SinusoidalCurlSphereRun = Workbench::SinusoidalCurlSphereRun;
-  using IsoContourTransferStage = Workbench::IsoContourTransferStage;
-  using ColorStage = Workbench::ColorStage;
-  using GlitchNoiseGridWaveShearPipelineBase =
-      Workbench::GlitchNoiseGridWaveShearPipelineBase;
-  using GlitchNoiseGridWaveShearPipeline =
-      Workbench::GlitchNoiseGridWaveShearPipeline;
-  using KaleidoscopeTwinWaveInnerMirrorPipeline =
-      Workbench::KaleidoscopeTwinWaveInnerMirrorPipeline;
-  using StereographicMobiusTwinWaveInnerMirrorPipeline =
-      Workbench::StereographicMobiusTwinWaveInnerMirrorPipeline;
-  using StereographicHexagonalPrismTwinWaveInnerMirrorPipeline =
-      Workbench::StereographicHexagonalPrismTwinWaveInnerMirrorPipeline;
-  using GnomonicKaleidoscopeGridMirrorPipeline =
-      Workbench::GnomonicKaleidoscopeGridMirrorPipeline;
-  using GnomonicAlienCoreMirrorPipeline =
-      Workbench::GnomonicAlienCoreMirrorPipeline;
-  using PeirceDodecahedralGridPipelineBase =
-      Workbench::PeirceDodecahedralGridPipelineBase;
-  using PeirceDodecahedralGridPipeline =
-      Workbench::PeirceDodecahedralGridPipeline;
-  using GnomonicDodecahedralGridWaveMirrorPipelineBase =
-      Workbench::GnomonicDodecahedralGridWaveMirrorPipelineBase;
-  using GnomonicDodecahedralGridWaveMirrorPipeline =
-      Workbench::GnomonicDodecahedralGridWaveMirrorPipeline;
-  using GnomonicDodecahedralGridVectorMirrorPipeline =
-      Workbench::GnomonicDodecahedralGridVectorMirrorPipeline;
-  using GnomonicAffineLatticeContourPipeline =
-      Workbench::GnomonicAffineLatticeContourPipeline;
-  using SinusoidalLatticeMeltPipeline =
-      Workbench::SinusoidalLatticeMeltPipeline;
-  using StereographicPrismPolarWaveLatticePipeline =
-      Workbench::StereographicPrismPolarWaveLatticePipeline;
-  using StereographicDodecahedralGridInnerMirrorPipeline =
-      Workbench::StereographicDodecahedralGridInnerMirrorPipeline;
-  using EquirectangularDodecahedralGridInnerMirrorPipeline =
-      Workbench::EquirectangularDodecahedralGridInnerMirrorPipeline;
-  using StereographicAlienCoreMirrorPipeline =
-      Workbench::StereographicAlienCoreMirrorPipeline;
-  using ProgramDescriptor = Workbench::ProgramDescriptor;
-  static constexpr auto PREPARED_BLOB_BYTES = Workbench::PREPARED_BLOB_BYTES;
-  static constexpr auto PREPARED_BLOB_ALIGN = Workbench::PREPARED_BLOB_ALIGN;
-
-  static constexpr auto PROJECTION_FLAG_FOLDED =
-      Workbench::PROJECTION_FLAG_FOLDED;
-  static constexpr auto &FUNCTION_EXPORT_OPTIONS =
-      Workbench::FUNCTION_EXPORT_OPTIONS;
-  static constexpr auto &TESSELLATION_KIND_OPTIONS =
-      Workbench::TESSELLATION_KIND_OPTIONS;
-  static constexpr auto &TESSELLATION_KIND_EXPORT_OPTIONS =
-      Workbench::TESSELLATION_KIND_EXPORT_OPTIONS;
-  static constexpr auto NUM_TESSELLATION_KINDS =
-      Workbench::NUM_TESSELLATION_KINDS;
-  static constexpr auto &PROJECTION_EXPORT_OPTIONS =
-      Workbench::PROJECTION_EXPORT_OPTIONS;
-  static constexpr auto &PEIRCE_LAYOUT_OPTIONS =
-      Workbench::PEIRCE_LAYOUT_OPTIONS;
-  static constexpr auto &PEIRCE_LAYOUT_EXPORT_OPTIONS =
-      Workbench::PEIRCE_LAYOUT_EXPORT_OPTIONS;
-  static constexpr auto &AIROCEAN_LAYOUT_OPTIONS =
-      Workbench::AIROCEAN_LAYOUT_OPTIONS;
-  static constexpr auto &AIROCEAN_LAYOUT_EXPORT_OPTIONS =
-      Workbench::AIROCEAN_LAYOUT_EXPORT_OPTIONS;
-  static constexpr auto &BONNE_HEMISPHERE_OPTIONS =
-      Workbench::BONNE_HEMISPHERE_OPTIONS;
-  static constexpr auto &BONNE_HEMISPHERE_EXPORT_OPTIONS =
-      Workbench::BONNE_HEMISPHERE_EXPORT_OPTIONS;
-  static constexpr auto NUM_BONNE_HEMISPHERES =
-      Workbench::NUM_BONNE_HEMISPHERES;
-  static constexpr auto &GNOMONIC_HEMISPHERE_OPTIONS =
-      Workbench::GNOMONIC_HEMISPHERE_OPTIONS;
-  static constexpr auto &GNOMONIC_HEMISPHERE_EXPORT_OPTIONS =
-      Workbench::GNOMONIC_HEMISPHERE_EXPORT_OPTIONS;
-  static constexpr auto NUM_GNOMONIC_HEMISPHERES =
-      Workbench::NUM_GNOMONIC_HEMISPHERES;
-  static constexpr auto &PROJECTION_FRAME_OPTIONS =
-      Workbench::PROJECTION_FRAME_OPTIONS;
-  static constexpr auto &PROJECTION_FRAME_EXPORT_OPTIONS =
-      Workbench::PROJECTION_FRAME_EXPORT_OPTIONS;
-  static constexpr auto NUM_PROJECTION_FRAMES =
-      Workbench::NUM_PROJECTION_FRAMES;
-  static constexpr auto &SURFACE_NOISE_OPTIONS =
-      Workbench::SURFACE_NOISE_OPTIONS;
-  static constexpr auto &SURFACE_NOISE_EXPORT_OPTIONS =
-      Workbench::SURFACE_NOISE_EXPORT_OPTIONS;
-  static constexpr auto &SURFACE_NOISE_PLACEMENT_OPTIONS =
-      Workbench::SURFACE_NOISE_PLACEMENT_OPTIONS;
-  static constexpr auto &SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS =
-      Workbench::SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS;
-  static constexpr auto NUM_SURFACE_NOISE_PLACEMENTS =
-      Workbench::NUM_SURFACE_NOISE_PLACEMENTS;
-  static constexpr auto &SURFACE_CURL_INTEGRATOR_OPTIONS =
-      Workbench::SURFACE_CURL_INTEGRATOR_OPTIONS;
-  static constexpr auto &SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS =
-      Workbench::SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS;
-  static constexpr auto NUM_SURFACE_CURL_INTEGRATORS =
-      Workbench::NUM_SURFACE_CURL_INTEGRATORS;
-  static constexpr auto &NOISE_BASIS_EXPORT_OPTIONS =
-      Workbench::NOISE_BASIS_EXPORT_OPTIONS;
-  static constexpr auto &POLAR_MODE_EXPORT_OPTIONS =
-      Workbench::POLAR_MODE_EXPORT_OPTIONS;
-  static constexpr auto &CURL_INTEGRATOR_OPTIONS =
-      Workbench::CURL_INTEGRATOR_OPTIONS;
-  static constexpr auto &CURL_INTEGRATOR_EXPORT_OPTIONS =
-      Workbench::CURL_INTEGRATOR_EXPORT_OPTIONS;
-  static constexpr auto &WARP_ENVELOPE_OPTIONS =
-      Workbench::WARP_ENVELOPE_OPTIONS;
-  static constexpr auto &WARP_ENVELOPE_EXPORT_OPTIONS =
-      Workbench::WARP_ENVELOPE_EXPORT_OPTIONS;
-  static constexpr auto &SIGNAL_EXPORT_OPTIONS =
-      Workbench::SIGNAL_EXPORT_OPTIONS;
-  static constexpr auto &VALUE_TRANSFER_OPTIONS =
-      Workbench::VALUE_TRANSFER_OPTIONS;
-  static constexpr auto &VALUE_TRANSFER_EXPORT_OPTIONS =
-      Workbench::VALUE_TRANSFER_EXPORT_OPTIONS;
-  static constexpr auto &COVERAGE_EXPORT_OPTIONS =
-      Workbench::COVERAGE_EXPORT_OPTIONS;
-  static constexpr auto NUM_COVERAGE_POLICIES =
-      Workbench::NUM_COVERAGE_POLICIES;
-  static constexpr auto &PALETTE_EXPORT_OPTIONS =
-      Workbench::PALETTE_EXPORT_OPTIONS;
-  static constexpr auto &PALETTE_MAPPING_OPTIONS =
-      Workbench::PALETTE_MAPPING_OPTIONS;
-  static constexpr auto &PALETTE_MAPPING_EXPORT_OPTIONS =
-      Workbench::PALETTE_MAPPING_EXPORT_OPTIONS;
-  static constexpr auto &BRIGHTNESS_ENVELOPE_OPTIONS =
-      Workbench::BRIGHTNESS_ENVELOPE_OPTIONS;
-  static constexpr auto &BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS =
-      Workbench::BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS;
-  static constexpr auto NUM_BRIGHTNESS_ENVELOPES =
-      Workbench::NUM_BRIGHTNESS_ENVELOPES;
-  static constexpr auto &HUE_SHIFT_EXPORT_OPTIONS =
-      Workbench::HUE_SHIFT_EXPORT_OPTIONS;
-
-  static constexpr auto VECTOR_WARP_SCALE_MAX =
-      Workbench::VECTOR_WARP_SCALE_MAX;
-  static constexpr auto VECTOR_WARP_STRENGTH_MAX =
-      Workbench::VECTOR_WARP_STRENGTH_MAX;
-  static constexpr auto CURL_WARP_STRENGTH_MAX =
-      Workbench::CURL_WARP_STRENGTH_MAX;
-  static constexpr auto CURL_VECTOR_COMPONENT_MAX =
-      Workbench::CURL_VECTOR_COMPONENT_MAX;
-  static constexpr auto GRID_PATTERN_FREQ_MAX =
-      Workbench::GRID_PATTERN_FREQ_MAX;
-  static constexpr auto MAPPING_FREQUENCY_MIN =
-      Workbench::MAPPING_FREQUENCY_MIN;
-  static constexpr auto MAPPING_FREQUENCY_MAX =
-      Workbench::MAPPING_FREQUENCY_MAX;
-  static constexpr auto PHASE_OSCILLATION_DEPTH_MIN =
-      Workbench::PHASE_OSCILLATION_DEPTH_MIN;
-  static constexpr auto PHASE_OSCILLATION_DEPTH_MAX =
-      Workbench::PHASE_OSCILLATION_DEPTH_MAX;
-  static constexpr auto PHASE_OSCILLATION_SPEED_MAX =
-      Workbench::PHASE_OSCILLATION_SPEED_MAX;
-  static constexpr auto SOURCE_NOISE_SCALE_MIN =
-      Workbench::SOURCE_NOISE_SCALE_MIN;
-  static constexpr auto SOURCE_NOISE_SCALE_MAX =
-      Workbench::SOURCE_NOISE_SCALE_MAX;
-  static constexpr auto SOURCE_NOISE_RATE_MIN =
-      Workbench::SOURCE_NOISE_RATE_MIN;
-  static constexpr auto SOURCE_NOISE_RATE_MAX =
-      Workbench::SOURCE_NOISE_RATE_MAX;
-
 private:
   struct WalkDeltas;
-  using ShadeFunction = Workbench::ShadeFunction;
-  using FrameShader = Workbench::FrameShader;
 
 public:
   static constexpr std::string_view EFFECT_ID = "shader";
   static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
   static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
-  static constexpr size_t authored_preset_count() { return PRESETS.size(); }
+  static constexpr size_t authored_preset_count() {
+    return Workbench::PRESETS.size();
+  }
 
   HS_COLD_MEMBER ShaderWorkbench(int w, int h)
       : Effect(w, h, {.strobe = true}) {}
@@ -583,7 +252,7 @@ public:
     state = persistent_arena.make<StateBundle>();
     use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    const Preset &initial = preset_for_view(0);
+    const Workbench::Preset &initial = preset_for_view(0);
     active_slots = initial.config.slots;
     active_pipeline = initial.pipeline;
     blend.params = initial.config.params;
@@ -644,7 +313,7 @@ public:
     if (state->transition.active) {
       draw_through_clear_transition(canvas);
     } else {
-      PreparedEndpoint prepared;
+      Workbench::PreparedEndpoint prepared;
       HS_CHECK(prepare_endpoint(state->render_config, runtime, 1.0f,
                                 active_pipeline, prepared),
                "ShaderWorkbench active endpoint has no renderer");
@@ -672,8 +341,8 @@ private:
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     const size_t index = change.to;
     if (change.origin == PresetChangeOrigin::AUTOMATIC) {
-      const Choreo choreo = preset_choreo();
-      const Preset &to = preset_for_view(index);
+      const Workbench::Choreo choreo = preset_choreo();
+      const Workbench::Preset &to = preset_for_view(index);
       if (!try_apply_config(to.config, choreo.blend_frames, choreo.staggered,
                             true))
         return false;
@@ -689,7 +358,7 @@ private:
 
     state->param_morph.active = false;
     state->transition.active = false;
-    const SelectedConfig &selected = preset_for_view(index);
+    const Workbench::SelectedConfig &selected = preset_for_view(index);
     active_slots = selected.config.slots;
     active_pipeline = selected.pipeline;
     blend.params = selected.config.params;
@@ -744,7 +413,7 @@ public:
 
   static constexpr size_t CONFIG_FIELD_BYTES =
 #define HS_SHADER_WORKBENCH_FIELD_BYTES(name, path)                            \
-  sizeof(std::declval<const Config &>().path) +
+  sizeof(std::declval<const Workbench::Config &>().path) +
       HS_SHADER_WORKBENCH_CONFIG_FIELDS(HS_SHADER_WORKBENCH_FIELD_BYTES)
 #undef HS_SHADER_WORKBENCH_FIELD_BYTES
           size_t{0};
@@ -754,7 +423,7 @@ public:
   // entry the second. Their difference is alignment padding, so the list
   // covers every Config byte that carries a value.
   static_assert(
-      sizeof(Config) == 528 && CONFIG_FIELD_BYTES == 501,
+      sizeof(Workbench::Config) == 528 && CONFIG_FIELD_BYTES == 501,
       "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
 
   struct ConfigFieldLayout {
@@ -822,7 +491,7 @@ public:
   }
 
   static ConfigFieldLayout config_field_layout(ConfigFieldId id) {
-    Config config{};
+    Workbench::Config config{};
     const uintptr_t base = reinterpret_cast<uintptr_t>(&config);
     switch (id) {
 #define HS_SHADER_WORKBENCH_FIELD_LAYOUT(name, path)                           \
@@ -834,7 +503,7 @@ public:
     case ConfigFieldId::COUNT:
       break;
     }
-    return {sizeof(Config), 0};
+    return {sizeof(Workbench::Config), 0};
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -866,100 +535,116 @@ private:
   HS_COLD_MEMBER void rebind_parameters() {
     registered_range_clamped = false;
     reset_parameters();
-    Slots &slots = requested_config.slots;
-    register_animated_param("Function", &slots.function, FUNCTION_OPTIONS,
-                            FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
+    Workbench::Slots &slots = requested_config.slots;
+    register_animated_param(
+        "Function", &slots.function, Workbench::FUNCTION_OPTIONS,
+        Workbench::FUNCTION_EXPORT_OPTIONS, Workbench::NUM_FUNCTIONS);
     const float domain_scale = lens_domain_linear_scale(slots.surface_lens);
     register_source_controls(slots.function, requested_config.params.source,
                              domain_scale);
-    register_animated_param("Projection", &slots.projection, PROJECTION_OPTIONS,
-                            PROJECTION_EXPORT_OPTIONS, NUM_PROJECTIONS);
-    register_projection_controls(slots, requested_config.params);
     register_animated_param(
-        "Projection Frame", &slots.projection_frame, PROJECTION_FRAME_OPTIONS,
-        PROJECTION_FRAME_EXPORT_OPTIONS, NUM_PROJECTION_FRAMES);
+        "Projection", &slots.projection, Workbench::PROJECTION_OPTIONS,
+        Workbench::PROJECTION_EXPORT_OPTIONS, Workbench::NUM_PROJECTIONS);
+    register_projection_controls(slots, requested_config.params);
+    register_animated_param("Projection Frame", &slots.projection_frame,
+                            Workbench::PROJECTION_FRAME_OPTIONS,
+                            Workbench::PROJECTION_FRAME_EXPORT_OPTIONS,
+                            Workbench::NUM_PROJECTION_FRAMES);
     register_projection_frame_controls(slots.projection_frame,
                                        requested_config.params, domain_scale);
     register_animated_param("Camera Wander",
                             &requested_config.params.outer_camera.wander,
-                            WANDER_MIN, WANDER_MAX);
-    register_animated_param("Surface Noise", &slots.surface_noise,
-                            SURFACE_NOISE_OPTIONS, SURFACE_NOISE_EXPORT_OPTIONS,
-                            NUM_SURFACE_NOISE);
+                            Workbench::WANDER_MIN, Workbench::WANDER_MAX);
+    register_animated_param(
+        "Surface Noise", &slots.surface_noise, Workbench::SURFACE_NOISE_OPTIONS,
+        Workbench::SURFACE_NOISE_EXPORT_OPTIONS, Workbench::NUM_SURFACE_NOISE);
     register_surface_noise_controls(
         slots, requested_config.params.surface_noise,
-        slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS
+        slots.surface_noise_placement ==
+                Workbench::SurfaceNoisePlacement::AFTER_LENS
             ? domain_scale
             : 1.0f);
-    register_animated_param("Lens", &slots.surface_lens, LENS_OPTIONS,
-                            LENS_EXPORT_OPTIONS, NUM_LENSES);
+    register_animated_param(
+        "Lens", &slots.surface_lens, Workbench::LENS_OPTIONS,
+        Workbench::LENS_EXPORT_OPTIONS, Workbench::NUM_LENSES);
     register_lens_controls(slots.surface_lens,
                            requested_config.params.surface_lens);
     register_animated_param("Planar Warp 1", &slots.warp_program.outer.kind,
-                            WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
+                            Workbench::WARP_OPTIONS,
+                            Workbench::WARP_EXPORT_OPTIONS,
+                            Workbench::NUM_WARPS);
     register_stage_slot_controls(true, slots.warp_program.outer);
     register_active_warp_controls(true, slots.warp_program.outer,
                                   requested_config.params.warp.outer,
                                   domain_scale);
     register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
-                            WARP_OPTIONS, WARP_EXPORT_OPTIONS, NUM_WARPS);
+                            Workbench::WARP_OPTIONS,
+                            Workbench::WARP_EXPORT_OPTIONS,
+                            Workbench::NUM_WARPS);
     register_stage_slot_controls(false, slots.warp_program.inner);
     register_active_warp_controls(false, slots.warp_program.inner,
                                   requested_config.params.warp.inner,
                                   domain_scale);
-    register_animated_param("Signal Weight", &slots.signal_weight,
-                            SIGNAL_OPTIONS, SIGNAL_EXPORT_OPTIONS, NUM_SIGNALS);
+    register_animated_param(
+        "Signal Weight", &slots.signal_weight, Workbench::SIGNAL_OPTIONS,
+        Workbench::SIGNAL_EXPORT_OPTIONS, Workbench::NUM_SIGNALS);
     register_animated_param("Value Transfer", &slots.value_transfer,
-                            VALUE_TRANSFER_OPTIONS,
-                            VALUE_TRANSFER_EXPORT_OPTIONS, NUM_VALUE_TRANSFERS);
+                            Workbench::VALUE_TRANSFER_OPTIONS,
+                            Workbench::VALUE_TRANSFER_EXPORT_OPTIONS,
+                            Workbench::NUM_VALUE_TRANSFERS);
     register_value_transfer_controls(slots.value_transfer,
                                      requested_config.params.value);
-    register_animated_param("Coverage", &slots.coverage, COVERAGE_OPTIONS,
-                            COVERAGE_EXPORT_OPTIONS, NUM_COVERAGE_POLICIES);
-    register_coverage_controls(slots.coverage, requested_config.params.value);
-    register_animated_param("Palette", &slots.palette, PALETTE_OPTIONS,
-                            PALETTE_EXPORT_OPTIONS, NUM_PALETTES);
-    register_animated_param("Palette Chroma",
-                            &requested_config.params.color.palette_chroma,
-                            PALETTE_CHROMA_MIN, PALETTE_CHROMA_MAX);
     register_animated_param(
-        "Palette Mapping", &slots.palette_mapping, PALETTE_MAPPING_OPTIONS,
-        PALETTE_MAPPING_EXPORT_OPTIONS, NUM_PALETTE_MAPPINGS);
-    register_animated_param("Mapping Frequency",
-                            &requested_config.params.color.mapping_frequency,
-                            MAPPING_FREQUENCY_MIN, MAPPING_FREQUENCY_MAX);
-    register_animated_param("Mapping Phase",
-                            &requested_config.params.color.mapping_phase,
-                            MAPPING_PHASE_MIN, MAPPING_PHASE_MAX);
+        "Coverage", &slots.coverage, Workbench::COVERAGE_OPTIONS,
+        Workbench::COVERAGE_EXPORT_OPTIONS, Workbench::NUM_COVERAGE_POLICIES);
+    register_coverage_controls(slots.coverage, requested_config.params.value);
+    register_animated_param(
+        "Palette", &slots.palette, Workbench::PALETTE_OPTIONS,
+        Workbench::PALETTE_EXPORT_OPTIONS, Workbench::NUM_PALETTES);
+    register_animated_param(
+        "Palette Chroma", &requested_config.params.color.palette_chroma,
+        Workbench::PALETTE_CHROMA_MIN, Workbench::PALETTE_CHROMA_MAX);
+    register_animated_param("Palette Mapping", &slots.palette_mapping,
+                            Workbench::PALETTE_MAPPING_OPTIONS,
+                            Workbench::PALETTE_MAPPING_EXPORT_OPTIONS,
+                            Workbench::NUM_PALETTE_MAPPINGS);
+    register_animated_param(
+        "Mapping Frequency", &requested_config.params.color.mapping_frequency,
+        Workbench::MAPPING_FREQUENCY_MIN, Workbench::MAPPING_FREQUENCY_MAX);
+    register_animated_param(
+        "Mapping Phase", &requested_config.params.color.mapping_phase,
+        Workbench::MAPPING_PHASE_MIN, Workbench::MAPPING_PHASE_MAX);
     register_animated_param(
         "Phase Oscillation Depth",
         &requested_config.params.color.phase_oscillation_depth,
-        PHASE_OSCILLATION_DEPTH_MIN, PHASE_OSCILLATION_DEPTH_MAX);
+        Workbench::PHASE_OSCILLATION_DEPTH_MIN,
+        Workbench::PHASE_OSCILLATION_DEPTH_MAX);
     register_animated_param(
         "Phase Oscillation Speed",
         &requested_config.params.color.phase_oscillation_speed,
-        -PHASE_OSCILLATION_SPEED_MAX, PHASE_OSCILLATION_SPEED_MAX);
+        -Workbench::PHASE_OSCILLATION_SPEED_MAX,
+        Workbench::PHASE_OSCILLATION_SPEED_MAX);
     register_animated_param("Brightness Envelope", &slots.brightness_envelope,
-                            BRIGHTNESS_ENVELOPE_OPTIONS,
-                            BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
-                            NUM_BRIGHTNESS_ENVELOPES);
-    if (slots.brightness_envelope != BrightnessEnvelope::NONE) {
-      register_animated_param("Brightness Bottom",
-                              &requested_config.params.color.brightness_bottom,
-                              BRIGHTNESS_GAIN_MIN, BRIGHTNESS_GAIN_MAX);
-      register_animated_param("Brightness Top",
-                              &requested_config.params.color.brightness_top,
-                              BRIGHTNESS_GAIN_MIN, BRIGHTNESS_GAIN_MAX);
+                            Workbench::BRIGHTNESS_ENVELOPE_OPTIONS,
+                            Workbench::BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
+                            Workbench::NUM_BRIGHTNESS_ENVELOPES);
+    if (slots.brightness_envelope != Workbench::BrightnessEnvelope::NONE) {
+      register_animated_param(
+          "Brightness Bottom", &requested_config.params.color.brightness_bottom,
+          Workbench::BRIGHTNESS_GAIN_MIN, Workbench::BRIGHTNESS_GAIN_MAX);
+      register_animated_param(
+          "Brightness Top", &requested_config.params.color.brightness_top,
+          Workbench::BRIGHTNESS_GAIN_MIN, Workbench::BRIGHTNESS_GAIN_MAX);
     }
-    register_animated_param("Opacity at Value 0",
-                            &requested_config.params.color.opacity_low,
-                            VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
-    register_animated_param("Opacity at Value 1",
-                            &requested_config.params.color.opacity_high,
-                            VALUE_OPACITY_MIN, VALUE_OPACITY_MAX);
-    register_animated_param("Hue Shift Mode", &slots.hue_shift,
-                            HUE_SHIFT_OPTIONS, HUE_SHIFT_EXPORT_OPTIONS,
-                            NUM_HUE_SHIFT_MODES);
+    register_animated_param(
+        "Opacity at Value 0", &requested_config.params.color.opacity_low,
+        Workbench::VALUE_OPACITY_MIN, Workbench::VALUE_OPACITY_MAX);
+    register_animated_param(
+        "Opacity at Value 1", &requested_config.params.color.opacity_high,
+        Workbench::VALUE_OPACITY_MIN, Workbench::VALUE_OPACITY_MAX);
+    register_animated_param(
+        "Hue Shift Mode", &slots.hue_shift, Workbench::HUE_SHIFT_OPTIONS,
+        Workbench::HUE_SHIFT_EXPORT_OPTIONS, Workbench::NUM_HUE_SHIFT_MODES);
     register_color_controls(slots.hue_shift, requested_config.params.color,
                             domain_scale);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1014,10 +699,10 @@ private:
     const bool is_pending = pending_edit_at(id) < pending_edit_count;
     const bool curl_scale = (id == ConfigFieldId::WARP_OUTER_SCALE &&
                              requested_config.slots.warp_program.outer.kind ==
-                                 WarpStageKind::CURL_FLOW) ||
+                                 Workbench::WarpStageKind::CURL_FLOW) ||
                             (id == ConfigFieldId::WARP_INNER_SCALE &&
                              requested_config.slots.warp_program.inner.kind ==
-                                 WarpStageKind::CURL_FLOW);
+                                 Workbench::WarpStageKind::CURL_FLOW);
     if (before_count != pending_edit_count || was_pending != is_pending ||
         (is_enum && schema_selector(name)) || curl_scale)
       rebind_parameters();
@@ -1049,7 +734,7 @@ private:
   }
 
   static ConfigFieldId config_field_id(size_t offset, size_t size) {
-    Config config{};
+    Workbench::Config config{};
     const uintptr_t base = reinterpret_cast<uintptr_t>(&config);
 #define HS_SHADER_WORKBENCH_FIELD_MATCH(name, path)                            \
   if (reinterpret_cast<uintptr_t>(&config.path) - base == offset &&            \
@@ -1073,7 +758,7 @@ private:
     pending_edits[pending_edit_count++] = {name, id, offset, size};
   }
 
-  void copy_pending_value(Config &to, const Config &from,
+  void copy_pending_value(Workbench::Config &to, const Workbench::Config &from,
                           const PendingEdit &edit) const {
     std::memcpy(reinterpret_cast<uint8_t *>(&to) + edit.offset,
                 reinterpret_cast<const uint8_t *>(&from) + edit.offset,
@@ -1127,7 +812,7 @@ private:
       return;
     }
 
-    Config candidate = requested_config;
+    Workbench::Config candidate = requested_config;
     for (size_t index = 0; index < pending_edit_count; ++index)
       copy_pending_value(candidate, accepted_config, pending_edits[index]);
     if (admissible_config(candidate))
@@ -1196,7 +881,7 @@ private:
   }
 
   bool range_repairs_admission() const {
-    Config candidate = requested_config;
+    Workbench::Config candidate = requested_config;
     const uintptr_t requested = reinterpret_cast<uintptr_t>(&requested_config);
     bool repaired = false;
     for (const ParamDef &parameter : getParameters()) {
@@ -1252,73 +937,78 @@ private:
   }
 #endif
 
-  HS_COLD_MEMBER void register_value_transfer_controls(ValueTransfer transfer,
-                                                       ValueParams &params) {
-    if (transfer == ValueTransfer::ISO_CONTOUR) {
+  HS_COLD_MEMBER void
+  register_value_transfer_controls(Workbench::ValueTransfer transfer,
+                                   Workbench::ValueParams &params) {
+    if (transfer == Workbench::ValueTransfer::ISO_CONTOUR) {
       register_animated_param("Iso Level", &params.iso_level, 0.0f, 1.0f);
-      register_animated_param("Iso Width", &params.iso_width, SOFTNESS_MIN,
-                              0.5f);
-    } else if (transfer == ValueTransfer::SMOOTH_BANDS) {
+      register_animated_param("Iso Width", &params.iso_width,
+                              Workbench::SOFTNESS_MIN, 0.5f);
+    } else if (transfer == Workbench::ValueTransfer::SMOOTH_BANDS) {
       register_animated_int_param("Band Count", &params.band_count, 1,
-                                  BAND_COUNT_MAX);
+                                  Workbench::BAND_COUNT_MAX);
       register_animated_param("Band Phase", &params.band_phase, 0.0f, TWO_PI_F);
     }
   }
 
-  HS_COLD_MEMBER void register_coverage_controls(CoveragePolicy coverage,
-                                                 ValueParams &params) {
-    if (coverage == CoveragePolicy::VALUE_CUTOUT) {
+  HS_COLD_MEMBER void
+  register_coverage_controls(Workbench::CoveragePolicy coverage,
+                             Workbench::ValueParams &params) {
+    if (coverage == Workbench::CoveragePolicy::VALUE_CUTOUT) {
       register_animated_param("Cutout Threshold", &params.cutout_threshold,
                               0.0f, 1.0f);
       register_animated_param("Cutout Softness", &params.cutout_softness,
-                              SOFTNESS_MIN, 0.5f);
-    } else if (coverage == CoveragePolicy::EDGE_FADE) {
+                              Workbench::SOFTNESS_MIN, 0.5f);
+    } else if (coverage == Workbench::CoveragePolicy::EDGE_FADE) {
       register_animated_param("Edge Fade Width", &params.edge_width, 0.0f,
                               0.5f);
     }
   }
 
-  HS_COLD_MEMBER void register_stage_slot_controls(bool outer,
-                                                   WarpStageSpec &spec) {
-    if (spec.kind == WarpStageKind::VECTOR_NOISE ||
-        spec.kind == WarpStageKind::CURL_FLOW) {
-      register_animated_param(outer ? "Planar Warp 1 Noise Basis"
-                                    : "Planar Warp 2 Noise Basis",
-                              &spec.basis, NOISE_BASIS_OPTIONS,
-                              NOISE_BASIS_EXPORT_OPTIONS, NUM_NOISE_BASES);
+  HS_COLD_MEMBER void
+  register_stage_slot_controls(bool outer, Workbench::WarpStageSpec &spec) {
+    if (spec.kind == Workbench::WarpStageKind::VECTOR_NOISE ||
+        spec.kind == Workbench::WarpStageKind::CURL_FLOW) {
+      register_animated_param(
+          outer ? "Planar Warp 1 Noise Basis" : "Planar Warp 2 Noise Basis",
+          &spec.basis, Workbench::NOISE_BASIS_OPTIONS,
+          Workbench::NOISE_BASIS_EXPORT_OPTIONS, Workbench::NUM_NOISE_BASES);
     }
     if (warp_uses_envelope(spec.kind)) {
       register_animated_param(outer ? "Planar Warp 1 Envelope"
                                     : "Planar Warp 2 Envelope",
-                              &spec.envelope, WARP_ENVELOPE_OPTIONS,
-                              WARP_ENVELOPE_EXPORT_OPTIONS, NUM_WARP_ENVELOPES);
+                              &spec.envelope, Workbench::WARP_ENVELOPE_OPTIONS,
+                              Workbench::WARP_ENVELOPE_EXPORT_OPTIONS,
+                              Workbench::NUM_WARP_ENVELOPES);
     }
-    if (spec.kind == WarpStageKind::CURL_FLOW)
+    if (spec.kind == Workbench::WarpStageKind::CURL_FLOW)
       register_animated_param(outer ? "Planar Warp 1 Curl Integrator"
                                     : "Planar Warp 2 Curl Integrator",
-                              &spec.curl_integrator, CURL_INTEGRATOR_OPTIONS,
-                              CURL_INTEGRATOR_EXPORT_OPTIONS,
-                              NUM_CURL_INTEGRATORS);
-    if (spec.kind == WarpStageKind::POLAR_CHART) {
-      register_animated_param(outer ? "Planar Warp 1 Polar Mode"
-                                    : "Planar Warp 2 Polar Mode",
-                              &spec.polar_mode, POLAR_MODE_OPTIONS,
-                              POLAR_MODE_EXPORT_OPTIONS, NUM_POLAR_MODES);
+                              &spec.curl_integrator,
+                              Workbench::CURL_INTEGRATOR_OPTIONS,
+                              Workbench::CURL_INTEGRATOR_EXPORT_OPTIONS,
+                              Workbench::NUM_CURL_INTEGRATORS);
+    if (spec.kind == Workbench::WarpStageKind::POLAR_CHART) {
+      register_animated_param(
+          outer ? "Planar Warp 1 Polar Mode" : "Planar Warp 2 Polar Mode",
+          &spec.polar_mode, Workbench::POLAR_MODE_OPTIONS,
+          Workbench::POLAR_MODE_EXPORT_OPTIONS, Workbench::NUM_POLAR_MODES);
       register_animated_int_param(outer ? "Planar Warp 1 Polar Harmonic"
                                         : "Planar Warp 2 Polar Harmonic",
-                                  &spec.polar_harmonic, 1, POLAR_HARMONIC_MAX);
+                                  &spec.polar_harmonic, 1,
+                                  Workbench::POLAR_HARMONIC_MAX);
     }
   }
 
-  HS_COLD_MEMBER void register_source_controls(Function function,
-                                               SourceParams &params,
+  HS_COLD_MEMBER void register_source_controls(Workbench::Function function,
+                                               Workbench::SourceParams &params,
                                                float domain_scale) {
-    if (function == Function::SPHERICAL_RINGS) {
+    if (function == Workbench::Function::SPHERICAL_RINGS) {
       register_animated_int_param("Ring Count", &params.ring_count, 1, 32);
       register_clamped_animated_param("Ring Thickness", &params.ring_thickness,
                                       1.0f / 512.0f, 0.5f);
       register_clamped_animated_param("Ring Softness", &params.ring_softness,
-                                      SOFTNESS_MIN, 0.25f);
+                                      Workbench::SOFTNESS_MIN, 0.25f);
       register_clamped_animated_param("Ring Speed", &params.speed, -0.5f, 0.5f);
       register_clamped_animated_param("Ring Spin Speed", &params.angle_rate,
                                       -0.05f, 0.05f);
@@ -1326,7 +1016,7 @@ private:
                                       1.0f);
       return;
     }
-    if (function == Function::FRACTAL) {
+    if (function == Workbench::Function::FRACTAL) {
       register_clamped_animated_param("Fractal Scale", &params.fractal_scale,
                                       1.0f / 64.0f, 8.0f);
       register_animated_int_param("Fractal Iterations",
@@ -1345,47 +1035,51 @@ private:
                                       -0.05f, 0.05f);
       return;
     }
-    if (function == Function::TESSELLATION) {
+    if (function == Workbench::Function::TESSELLATION) {
       register_clamped_animated_param(
           "Cell Scale", &params.tessellation_cell_scale, 1.0f / 64.0f, 8.0f);
       register_clamped_animated_param("Line Thickness",
                                       &params.tessellation_line_thickness,
-                                      SOFTNESS_MIN, 0.25f);
+                                      Workbench::SOFTNESS_MIN, 0.25f);
       register_clamped_animated_param("Line Softness",
                                       &params.tessellation_line_softness,
-                                      SOFTNESS_MIN, 0.25f);
+                                      Workbench::SOFTNESS_MIN, 0.25f);
       register_clamped_animated_param("Tessellation Spin Speed",
                                       &params.angle_rate, -0.05f, 0.05f);
       register_animated_param("Tessellation Kind", &params.tessellation_kind,
-                              TESSELLATION_KIND_OPTIONS,
-                              TESSELLATION_KIND_EXPORT_OPTIONS,
-                              NUM_TESSELLATION_KINDS);
+                              Workbench::TESSELLATION_KIND_OPTIONS,
+                              Workbench::TESSELLATION_KIND_EXPORT_OPTIONS,
+                              Workbench::NUM_TESSELLATION_KINDS);
       return;
     }
     if (is_noise_contour(function)) {
       register_clamped_animated_param(
-          "Source Noise Scale", &params.noise_scale, SOURCE_NOISE_SCALE_MIN,
-          domain_scaled_max(SOURCE_NOISE_SCALE_MAX, 0.5f, domain_scale));
+          "Source Noise Scale", &params.noise_scale,
+          Workbench::SOURCE_NOISE_SCALE_MIN,
+          domain_scaled_max(Workbench::SOURCE_NOISE_SCALE_MAX, 0.5f,
+                            domain_scale));
       register_animated_param("Source Noise Contrast", &params.noise_contrast,
                               0.0f, 8.0f);
       register_clamped_animated_param(
           "Source Noise Speed", &params.noise_time_rate,
-          -domain_scaled_max(SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
+          -domain_scaled_max(Workbench::SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
                              domain_scale),
-          domain_scaled_max(SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
+          domain_scaled_max(Workbench::SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
                             domain_scale));
       register_animated_param("Source Noise Basis", &params.noise_basis,
-                              NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
-                              NUM_NOISE_BASES);
+                              Workbench::NOISE_BASIS_OPTIONS,
+                              Workbench::NOISE_BASIS_EXPORT_OPTIONS,
+                              Workbench::NUM_NOISE_BASES);
       return;
     }
-    if (function == Function::PRIMITIVE_LATTICE) {
-      register_clamped_animated_param(
-          "Lattice Cell Scale", &params.lattice_cell_scale, CELL_MIN, CELL_MAX);
+    if (function == Workbench::Function::PRIMITIVE_LATTICE) {
+      register_clamped_animated_param("Lattice Cell Scale",
+                                      &params.lattice_cell_scale,
+                                      Workbench::CELL_MIN, Workbench::CELL_MAX);
       register_animated_param("Lattice Shape", &params.lattice_shape_blend,
                               0.0f, 1.0f);
       register_animated_param("Lattice Softness", &params.lattice_softness,
-                              SOFTNESS_MIN, 1.0f);
+                              Workbench::SOFTNESS_MIN, 1.0f);
       register_animated_param("Lattice Radius", &params.lattice_radius,
                               1.0f / 64.0f, 0.49f);
       return;
@@ -1395,40 +1089,44 @@ private:
                                     pattern_freq_max(function));
     register_clamped_animated_param(
         "Speed", &params.speed, 0.0f,
-        domain_scaled_max(SPEED_MAX, 0.5f, domain_scale));
+        domain_scaled_max(Workbench::SPEED_MAX, 0.5f, domain_scale));
     register_clamped_animated_param(
         "Source Angle Speed", &params.angle_rate, 0.0f,
-        domain_scaled_max(WAVE_SPIN_MAX, 0.03f, domain_scale));
-    if (function == Function::GRID) {
-      register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN,
-                              COMPLEXITY_MAX);
+        domain_scaled_max(Workbench::WAVE_SPIN_MAX, 0.03f, domain_scale));
+    if (function == Workbench::Function::GRID) {
+      register_animated_param("Complexity", &params.complexity,
+                              Workbench::COMPLEXITY_MIN,
+                              Workbench::COMPLEXITY_MAX);
       register_animated_param("Pattern Mix", &params.pattern_mix,
-                              PATTERN_MIX_MIN, PATTERN_MIX_MAX);
+                              Workbench::PATTERN_MIX_MIN,
+                              Workbench::PATTERN_MIX_MAX);
       register_clamped_animated_param(
-          "Drift", &params.secondary_rate, PHASE2_RATE_MIN,
-          domain_scaled_max(PHASE2_RATE_MAX, 1.25f, domain_scale));
+          "Drift", &params.secondary_rate, Workbench::PHASE2_RATE_MIN,
+          domain_scaled_max(Workbench::PHASE2_RATE_MAX, 1.25f, domain_scale));
     }
   }
 
-  HS_COLD_MEMBER void register_projection_controls(Slots &slots,
-                                                   Params &params) {
-    if (slots.projection == Projection::PEIRCE_QUINCUNCIAL)
+  HS_COLD_MEMBER void register_projection_controls(Workbench::Slots &slots,
+                                                   Workbench::Params &params) {
+    if (slots.projection == Workbench::Projection::PEIRCE_QUINCUNCIAL)
       register_animated_param("Peirce Layout", &slots.peirce_layout,
-                              PEIRCE_LAYOUT_OPTIONS,
-                              PEIRCE_LAYOUT_EXPORT_OPTIONS, NUM_PEIRCE_LAYOUTS);
-    if (slots.projection == Projection::AIROCEAN)
+                              Workbench::PEIRCE_LAYOUT_OPTIONS,
+                              Workbench::PEIRCE_LAYOUT_EXPORT_OPTIONS,
+                              Workbench::NUM_PEIRCE_LAYOUTS);
+    if (slots.projection == Workbench::Projection::AIROCEAN)
+      register_animated_param("Airocean Layout", &slots.airocean_layout,
+                              Workbench::AIROCEAN_LAYOUT_OPTIONS,
+                              Workbench::AIROCEAN_LAYOUT_EXPORT_OPTIONS,
+                              Workbench::NUM_AIROCEAN_LAYOUTS);
+    if (slots.projection == Workbench::Projection::EQUIRECTANGULAR ||
+        slots.projection == Workbench::Projection::STEREOGRAPHIC ||
+        slots.projection == Workbench::Projection::GNOMONIC ||
+        slots.projection == Workbench::Projection::PEIRCE_QUINCUNCIAL)
       register_animated_param(
-          "Airocean Layout", &slots.airocean_layout, AIROCEAN_LAYOUT_OPTIONS,
-          AIROCEAN_LAYOUT_EXPORT_OPTIONS, NUM_AIROCEAN_LAYOUTS);
-    if (slots.projection == Projection::EQUIRECTANGULAR ||
-        slots.projection == Projection::STEREOGRAPHIC ||
-        slots.projection == Projection::GNOMONIC ||
-        slots.projection == Projection::PEIRCE_QUINCUNCIAL)
-      register_animated_param("Singularity Fade",
-                              &params.projection.singularity_fade,
-                              SINGULARITY_FADE_MIN, SINGULARITY_FADE_MAX);
-    if (slots.projection == Projection::SINUSOIDAL ||
-        slots.projection == Projection::EQUIRECTANGULAR ||
+          "Singularity Fade", &params.projection.singularity_fade,
+          Workbench::SINGULARITY_FADE_MIN, Workbench::SINGULARITY_FADE_MAX);
+    if (slots.projection == Workbench::Projection::SINUSOIDAL ||
+        slots.projection == Workbench::Projection::EQUIRECTANGULAR ||
         strict_projection(slots.projection)) {
       register_animated_param("Central Meridian",
                               &params.projection.central_meridian, 0.0f,
@@ -1438,43 +1136,47 @@ private:
       register_animated_param("Projection Scale",
                               &params.projection.coordinate_scale, 0.25f, 4.0f);
     }
-    if (slots.projection == Projection::BONNE)
-      register_animated_param(
-          "Bonne Hemisphere", &slots.bonne_hemisphere, BONNE_HEMISPHERE_OPTIONS,
-          BONNE_HEMISPHERE_EXPORT_OPTIONS, NUM_BONNE_HEMISPHERES);
-    if (slots.projection == Projection::GNOMONIC)
+    if (slots.projection == Workbench::Projection::BONNE)
+      register_animated_param("Bonne Hemisphere", &slots.bonne_hemisphere,
+                              Workbench::BONNE_HEMISPHERE_OPTIONS,
+                              Workbench::BONNE_HEMISPHERE_EXPORT_OPTIONS,
+                              Workbench::NUM_BONNE_HEMISPHERES);
+    if (slots.projection == Workbench::Projection::GNOMONIC)
       register_animated_param("Gnomonic Hemisphere", &slots.gnomonic_hemisphere,
-                              GNOMONIC_HEMISPHERE_OPTIONS,
-                              GNOMONIC_HEMISPHERE_EXPORT_OPTIONS,
-                              NUM_GNOMONIC_HEMISPHERES);
-    if (slots.projection == Projection::BONNE)
+                              Workbench::GNOMONIC_HEMISPHERE_OPTIONS,
+                              Workbench::GNOMONIC_HEMISPHERE_EXPORT_OPTIONS,
+                              Workbench::NUM_GNOMONIC_HEMISPHERES);
+    if (slots.projection == Workbench::Projection::BONNE)
       register_animated_param("Bonne Standard Parallel",
                               &params.projection.bonne_standard_parallel, 1e-3f,
                               0.5f * PI_F);
-    if (slots.projection == Projection::PEIRCE_QUINCUNCIAL &&
-        (slots.peirce_layout == PeirceLayout::HORIZONTAL ||
-         slots.peirce_layout == PeirceLayout::VERTICAL))
+    if (slots.projection == Workbench::Projection::PEIRCE_QUINCUNCIAL &&
+        (slots.peirce_layout == Workbench::PeirceLayout::HORIZONTAL ||
+         slots.peirce_layout == Workbench::PeirceLayout::VERTICAL))
       register_animated_param("Projection Layout Scroll",
                               &params.projection.layout_scroll, -1.0f, 1.0f);
   }
 
   HS_COLD_MEMBER void
-  register_projection_frame_controls(ProjectionFramePolicy frame,
-                                     Params &params, float domain_scale) {
-    if (frame == ProjectionFramePolicy::SPIN_WANDER) {
+  register_projection_frame_controls(Workbench::ProjectionFramePolicy frame,
+                                     Workbench::Params &params,
+                                     float domain_scale) {
+    if (frame == Workbench::ProjectionFramePolicy::SPIN_WANDER) {
       register_clamped_animated_param(
-          "Projection Spin Speed", &params.projection.spin_rate, SPIN_RATE_MIN,
-          domain_scaled_max(SPIN_RATE_MAX, 0.04f, domain_scale));
+          "Projection Spin Speed", &params.projection.spin_rate,
+          Workbench::SPIN_RATE_MIN,
+          domain_scaled_max(Workbench::SPIN_RATE_MAX, 0.04f, domain_scale));
       register_animated_param("Projection Wander", &params.projection.wander,
-                              WANDER_MIN, WANDER_MAX);
+                              Workbench::WANDER_MIN, Workbench::WANDER_MAX);
     }
   }
 
-  HS_COLD_MEMBER void register_lens_controls(SurfaceLens lens,
-                                             SurfaceLensParams &params) {
-    if (lens == SurfaceLens::NONE)
+  HS_COLD_MEMBER void
+  register_lens_controls(Workbench::SurfaceLens lens,
+                         Workbench::SurfaceLensParams &params) {
+    if (lens == Workbench::SurfaceLens::NONE)
       return;
-    if (lens == SurfaceLens::MOBIUS) {
+    if (lens == Workbench::SurfaceLens::MOBIUS) {
       register_animated_param("Mobius A Real", &params.mobius.a.re, -8.0f,
                               8.0f);
       register_animated_param("Mobius A Imag", &params.mobius.a.im, -8.0f,
@@ -1495,21 +1197,24 @@ private:
   }
 
   HS_COLD_MEMBER void
-  register_surface_noise_controls(Slots &slots, SurfaceNoiseParams &params,
+  register_surface_noise_controls(Workbench::Slots &slots,
+                                  Workbench::SurfaceNoiseParams &params,
                                   float domain_scale) {
-    if (slots.surface_noise == SurfaceNoise::NONE)
+    if (slots.surface_noise == Workbench::SurfaceNoise::NONE)
       return;
+    register_animated_param("Surface Noise Placement",
+                            &slots.surface_noise_placement,
+                            Workbench::SURFACE_NOISE_PLACEMENT_OPTIONS,
+                            Workbench::SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS,
+                            Workbench::NUM_SURFACE_NOISE_PLACEMENTS);
     register_animated_param(
-        "Surface Noise Placement", &slots.surface_noise_placement,
-        SURFACE_NOISE_PLACEMENT_OPTIONS, SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS,
-        NUM_SURFACE_NOISE_PLACEMENTS);
-    register_animated_param("Surface Noise Basis", &params.basis,
-                            NOISE_BASIS_OPTIONS, NOISE_BASIS_EXPORT_OPTIONS,
-                            NUM_NOISE_BASES);
+        "Surface Noise Basis", &params.basis, Workbench::NOISE_BASIS_OPTIONS,
+        Workbench::NOISE_BASIS_EXPORT_OPTIONS, Workbench::NUM_NOISE_BASES);
     register_clamped_animated_param("Surface Noise Scale", &params.scale,
-                                    LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
+                                    Workbench::LENS_NOISE_SCALE_MIN,
+                                    Workbench::LENS_NOISE_SCALE_MAX);
     const float strength_min =
-        slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f;
+        slots.surface_noise == Workbench::SurfaceNoise::CURL ? -0.5f : 0.0f;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     register_animated_param_preserving_value(
         "Surface Noise Strength", &params.strength, strength_min, 0.5f);
@@ -1518,55 +1223,55 @@ private:
                             strength_min, 0.5f);
 #endif
     const float speed_max =
-        domain_scaled_max(NOISE_RATE_MAX, 0.002f, domain_scale);
+        domain_scaled_max(Workbench::NOISE_RATE_MAX, 0.002f, domain_scale);
     register_clamped_animated_param("Surface Noise Speed", &params.rate,
                                     -speed_max, speed_max);
-    if (slots.surface_noise == SurfaceNoise::DIRECT)
+    if (slots.surface_noise == Workbench::SurfaceNoise::DIRECT)
       register_animated_param("Surface Noise Direction", &params.direction,
                               0.0f, 1.0f);
     else
       register_animated_param("Surface Noise Integrator", &params.integrator,
-                              SURFACE_CURL_INTEGRATOR_OPTIONS,
-                              SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS,
-                              NUM_SURFACE_CURL_INTEGRATORS);
+                              Workbench::SURFACE_CURL_INTEGRATOR_OPTIONS,
+                              Workbench::SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS,
+                              Workbench::NUM_SURFACE_CURL_INTEGRATORS);
   }
 
-  HS_COLD_MEMBER void register_active_warp_controls(bool outer,
-                                                    const WarpStageSpec &spec,
-                                                    WarpStageParams &params,
-                                                    float domain_scale) {
-    if (spec.kind == WarpStageKind::NONE)
+  HS_COLD_MEMBER void register_active_warp_controls(
+      bool outer, const Workbench::WarpStageSpec &spec,
+      Workbench::WarpStageParams &params, float domain_scale) {
+    if (spec.kind == Workbench::WarpStageKind::NONE)
       return;
-    const char *const *names =
-        outer ? OUTER_WARP_PARAM_NAMES : INNER_WARP_PARAM_NAMES;
+    const char *const *names = outer ? Workbench::OUTER_WARP_PARAM_NAMES
+                                     : Workbench::INNER_WARP_PARAM_NAMES;
     const char *speed_name =
         outer ? "Planar Warp 1 Speed" : "Planar Warp 2 Speed";
     auto register_current = [&](const char *name, float *target, float minimum,
                                 float maximum) {
       register_clamped_animated_param(name, target, minimum, maximum);
     };
-    if (spec.kind == WarpStageKind::WAVE_SHEAR ||
-        spec.kind == WarpStageKind::VECTOR_NOISE ||
-        spec.kind == WarpStageKind::CURL_FLOW) {
+    if (spec.kind == Workbench::WarpStageKind::WAVE_SHEAR ||
+        spec.kind == Workbench::WarpStageKind::VECTOR_NOISE ||
+        spec.kind == Workbench::WarpStageKind::CURL_FLOW) {
       const char *strength_name =
           outer ? "Planar Warp 1 Strength" : "Planar Warp 2 Strength";
-      const bool signed_strength = spec.kind == WarpStageKind::WAVE_SHEAR ||
-                                   spec.kind == WarpStageKind::CURL_FLOW;
-      float strength_max = spec.kind == WarpStageKind::VECTOR_NOISE
-                               ? VECTOR_WARP_STRENGTH_MAX
+      const bool signed_strength =
+          spec.kind == Workbench::WarpStageKind::WAVE_SHEAR ||
+          spec.kind == Workbench::WarpStageKind::CURL_FLOW;
+      float strength_max = spec.kind == Workbench::WarpStageKind::VECTOR_NOISE
+                               ? Workbench::VECTOR_WARP_STRENGTH_MAX
                                : 4.0f;
-      if (spec.kind == WarpStageKind::CURL_FLOW)
+      if (spec.kind == Workbench::WarpStageKind::CURL_FLOW)
         strength_max = curl_strength_limit(spec, params);
       register_current(strength_name, &params.strength,
                        signed_strength ? -strength_max : 0.0f, strength_max);
     }
     const float speed_max =
-        domain_scaled_max(NOISE_SPEED_MAX, 0.005f, domain_scale);
+        domain_scaled_max(Workbench::NOISE_SPEED_MAX, 0.005f, domain_scale);
     register_current(speed_name, &params.speed, -speed_max, speed_max);
     switch (spec.kind) {
-    case WarpStageKind::COUNT:
+    case Workbench::WarpStageKind::COUNT:
       break;
-    case WarpStageKind::AFFINE_FRAME: {
+    case Workbench::WarpStageKind::AFFINE_FRAME: {
       const float snapped_x = roundf(params.translation_x);
       const float snapped_y = roundf(params.translation_y);
       registered_range_clamped |= snapped_x != params.translation_x ||
@@ -1594,15 +1299,15 @@ private:
       }
       break;
     }
-    case WarpStageKind::WAVE_SHEAR:
+    case Workbench::WarpStageKind::WAVE_SHEAR:
       register_current(names[Workbench::WARP_NAME_FREQUENCY], &params.frequency,
                        0.0f, domain_scaled_max(64.0f, 8.0f, domain_scale));
       register_current(names[Workbench::WARP_NAME_FIELD_ANGLE],
                        &params.field_angle, 0.0f, TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
-                       &params.edge_width, SOFTNESS_MIN, 0.5f);
+                       &params.edge_width, Workbench::SOFTNESS_MIN, 0.5f);
       break;
-    case WarpStageKind::VORTEX:
+    case Workbench::WarpStageKind::VORTEX:
       register_current(names[Workbench::WARP_NAME_CENTER_X], &params.center_x,
                        -Workbench::VORTEX_CENTER_MAX,
                        Workbench::VORTEX_CENTER_MAX);
@@ -1619,26 +1324,27 @@ private:
                        &params.center_orbit_radius, 0.0f,
                        Workbench::VORTEX_ORBIT_MAX);
       break;
-    case WarpStageKind::VECTOR_NOISE:
-    case WarpStageKind::CURL_FLOW:
-      register_current(outer ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale",
-                       &params.scale, 1.0f / 64.0f,
-                       domain_scaled_max(spec.kind == WarpStageKind::CURL_FLOW
-                                             ? CURL_WARP_SCALE_MAX
-                                             : VECTOR_WARP_SCALE_MAX,
-                                         1.0f, domain_scale));
+    case Workbench::WarpStageKind::VECTOR_NOISE:
+    case Workbench::WarpStageKind::CURL_FLOW:
+      register_current(
+          outer ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale", &params.scale,
+          1.0f / 64.0f,
+          domain_scaled_max(spec.kind == Workbench::WarpStageKind::CURL_FLOW
+                                ? Workbench::CURL_WARP_SCALE_MAX
+                                : Workbench::VECTOR_WARP_SCALE_MAX,
+                            1.0f, domain_scale));
       register_current(names[Workbench::WARP_NAME_VECTOR_ANGLE],
                        &params.vector_angle, 0.0f, TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
-                       &params.edge_width, SOFTNESS_MIN, 0.5f);
+                       &params.edge_width, Workbench::SOFTNESS_MIN, 0.5f);
       break;
-    case WarpStageKind::MIRROR_TILE:
+    case Workbench::WarpStageKind::MIRROR_TILE:
       register_current(names[Workbench::WARP_NAME_ROTATION], &params.rotation,
                        0.0f, TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_CELL_X], &params.cell_x,
-                       CELL_MIN, CELL_MAX);
+                       Workbench::CELL_MIN, Workbench::CELL_MAX);
       register_current(names[Workbench::WARP_NAME_CELL_Y], &params.cell_y,
-                       CELL_MIN, CELL_MAX);
+                       Workbench::CELL_MIN, Workbench::CELL_MAX);
       register_current(names[Workbench::WARP_NAME_OFFSET_X], &params.offset_x,
                        -Workbench::MIRROR_OFFSET_MAX,
                        Workbench::MIRROR_OFFSET_MAX);
@@ -1646,7 +1352,7 @@ private:
                        -Workbench::MIRROR_OFFSET_MAX,
                        Workbench::MIRROR_OFFSET_MAX);
       break;
-    case WarpStageKind::POLAR_CHART:
+    case Workbench::WarpStageKind::POLAR_CHART:
       register_current(names[Workbench::WARP_NAME_RADIAL_SCALE],
                        &params.radial_scale, Workbench::POLAR_RADIAL_SCALE_MIN,
                        Workbench::POLAR_RADIAL_SCALE_MAX);
@@ -1655,43 +1361,41 @@ private:
       register_current(names[Workbench::WARP_NAME_ANGULAR_PHASE],
                        &params.angular_phase, 0.0f, TWO_PI_F);
       break;
-    case WarpStageKind::NONE:
-    case WarpStageKind::LEGACY_STEREO_NOISE:
+    case Workbench::WarpStageKind::NONE:
+    case Workbench::WarpStageKind::LEGACY_STEREO_NOISE:
       break;
     }
   }
 
-  HS_COLD_MEMBER void register_color_controls(HueShiftMode mode,
-                                              ColorParams &params,
+  HS_COLD_MEMBER void register_color_controls(Workbench::HueShiftMode mode,
+                                              Workbench::ColorParams &params,
                                               float domain_scale) {
-    if (mode == HueShiftMode::NONE)
+    if (mode == Workbench::HueShiftMode::NONE)
       return;
     register_clamped_animated_param("Hue Shift Amount",
                                     &params.hue_shift_amount,
                                     -Workbench::hue_shift_amount_max(mode),
                                     Workbench::hue_shift_amount_max(mode));
-    if (mode != HueShiftMode::NOISE)
+    if (mode != Workbench::HueShiftMode::NOISE)
       return;
     register_clamped_animated_param(
-        "Hue Noise Scale", &params.hue_noise_scale, HUE_NOISE_SCALE_MIN,
-        domain_scaled_max(HUE_NOISE_SCALE_MAX, 2.0f, domain_scale));
+        "Hue Noise Scale", &params.hue_noise_scale,
+        Workbench::HUE_NOISE_SCALE_MIN,
+        domain_scaled_max(Workbench::HUE_NOISE_SCALE_MAX, 2.0f, domain_scale));
     register_clamped_animated_param("Hue Noise Speed", &params.hue_noise_speed,
-                                    -HUE_NOISE_SPEED_MAX, HUE_NOISE_SPEED_MAX);
+                                    -Workbench::HUE_NOISE_SPEED_MAX,
+                                    Workbench::HUE_NOISE_SPEED_MAX);
   }
 
-  size_t preset_count_for_view() const { return PRESETS.size(); }
+  size_t preset_count_for_view() const { return Workbench::PRESETS.size(); }
 
-  const Preset &preset_for_view(size_t index) const {
+  const Workbench::Preset &preset_for_view(size_t index) const {
     HS_CHECK(index < preset_count_for_view(),
              "preset_for_view: index out of range");
-    return PRESETS[index];
+    return Workbench::PRESETS[index];
   }
 
-  using PreparedEndpoint = Workbench::PreparedEndpoint;
-
   enum class ProfileEndpoint : uint8_t { STEADY, FROM, TO };
-
-  using EndpointRuntime = Workbench::EndpointRuntime;
 
   template <typename T> static uint32_t encode_field_value(const T &value) {
     static_assert(sizeof(T) <= sizeof(uint32_t));
@@ -1715,7 +1419,7 @@ private:
     return true;
   }
 
-  static ConfigValues encode_config_values(const Config &config) {
+  static ConfigValues encode_config_values(const Workbench::Config &config) {
     ConfigValues values{};
 #define HS_SHADER_WORKBENCH_ENCODE_FIELD(name, path)                           \
   values[static_cast<size_t>(ConfigFieldId::name)] =                           \
@@ -1731,7 +1435,8 @@ private:
     return values;
   }
 
-  static bool decode_config_values(const ConfigValues &values, Config &config) {
+  static bool decode_config_values(const ConfigValues &values,
+                                   Workbench::Config &config) {
     bool valid = true;
 #define HS_SHADER_WORKBENCH_DECODE_FIELD(name, path)                           \
   valid = decode_field_value(values[static_cast<size_t>(ConfigFieldId::name)], \
@@ -1756,47 +1461,49 @@ private:
     return valid;
   }
 
-  static constexpr uint32_t surface_lens_storage_id(SurfaceLens lens) {
+  static constexpr uint32_t
+  surface_lens_storage_id(Workbench::SurfaceLens lens) {
     const uint8_t value = static_cast<uint8_t>(lens);
-    if (lens == SurfaceLens::TANGENT_NOISE)
+    if (lens == Workbench::SurfaceLens::TANGENT_NOISE)
       return 5;
     return value < 5 ? value : value + 1;
   }
 
-  static bool decode_surface_lens_storage(uint32_t id, SurfaceLens &lens) {
+  static bool decode_surface_lens_storage(uint32_t id,
+                                          Workbench::SurfaceLens &lens) {
     if (id <= 4) {
-      lens = static_cast<SurfaceLens>(id);
+      lens = static_cast<Workbench::SurfaceLens>(id);
       return true;
     }
     if (id == 5) {
-      lens = SurfaceLens::TANGENT_NOISE;
+      lens = Workbench::SurfaceLens::TANGENT_NOISE;
       return true;
     }
-    if (id <= static_cast<uint32_t>(SurfaceLens::COUNT)) {
-      lens = static_cast<SurfaceLens>(id - 1);
+    if (id <= static_cast<uint32_t>(Workbench::SurfaceLens::COUNT)) {
+      lens = static_cast<Workbench::SurfaceLens>(id - 1);
       return true;
     }
     return false;
   }
 
-  static constexpr uint32_t warp_storage_id(WarpStageKind kind) {
-    if (kind == WarpStageKind::LEGACY_STEREO_NOISE)
+  static constexpr uint32_t warp_storage_id(Workbench::WarpStageKind kind) {
+    if (kind == Workbench::WarpStageKind::LEGACY_STEREO_NOISE)
       return 1;
     const uint8_t value = static_cast<uint8_t>(kind);
     return value == 0 ? 0 : value + 1;
   }
 
-  static bool decode_warp_storage(uint32_t id, WarpStageKind &kind) {
+  static bool decode_warp_storage(uint32_t id, Workbench::WarpStageKind &kind) {
     if (id == 0) {
-      kind = WarpStageKind::NONE;
+      kind = Workbench::WarpStageKind::NONE;
       return true;
     }
     if (id == 1) {
-      kind = WarpStageKind::LEGACY_STEREO_NOISE;
+      kind = Workbench::WarpStageKind::LEGACY_STEREO_NOISE;
       return true;
     }
-    if (id <= static_cast<uint32_t>(WarpStageKind::COUNT)) {
-      kind = static_cast<WarpStageKind>(id - 1);
+    if (id <= static_cast<uint32_t>(Workbench::WarpStageKind::COUNT)) {
+      kind = static_cast<Workbench::WarpStageKind>(id - 1);
       return true;
     }
     return false;
@@ -1812,7 +1519,7 @@ public:
     for (size_t index = 0; index < pending_edit_count; ++index)
       snapshot.pending[static_cast<size_t>(pending_edits[index].id)] = 1;
     snapshot.has_runtime = true;
-    const ClockState &clocks = runtime.clocks;
+    const Workbench::ClockState &clocks = runtime.clocks;
     snapshot.runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_PRIMARY)] =
         clocks.source_primary;
     snapshot.runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_SECONDARY)] =
@@ -1850,8 +1557,8 @@ public:
     if (!config_version_supported(snapshot.schema_version))
       return ConfigRestoreResult::UNSUPPORTED_VERSION;
 
-    Config next_accepted{};
-    Config next_requested{};
+    Workbench::Config next_accepted{};
+    Workbench::Config next_requested{};
     if (!decode_config_values(snapshot.accepted, next_accepted) ||
         !decode_config_values(snapshot.requested, next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
@@ -1907,7 +1614,7 @@ public:
     }
     display_config = next_requested;
     if (snapshot.has_runtime) {
-      ClockState &clocks = runtime.clocks;
+      Workbench::ClockState &clocks = runtime.clocks;
       clocks.source_primary =
           next_runtime[static_cast<size_t>(RuntimeFieldId::SOURCE_PRIMARY)];
       clocks.source_secondary =
@@ -1945,11 +1652,12 @@ private:
   };
 
   struct ParamMorphRuntime {
-    Params from;
-    Params to;
-    PaletteMappingWeights mapping_from;
-    PaletteMappingWeights mapping_to;
-    PaletteMapping mapping_destination = PaletteMapping::LINEAR;
+    Workbench::Params from;
+    Workbench::Params to;
+    Workbench::PaletteMappingWeights mapping_from;
+    Workbench::PaletteMappingWeights mapping_to;
+    Workbench::PaletteMapping mapping_destination =
+        Workbench::PaletteMapping::LINEAR;
     uint16_t elapsed = 0;
     uint16_t duration = 0;
     bool staggered = false;
@@ -1958,26 +1666,31 @@ private:
   };
 
   struct TransitionRuntime {
-    Config from_config;
-    Config to_config;
-    EndpointRuntime from_runtime;
-    EndpointRuntime to_runtime;
+    Workbench::Config from_config;
+    Workbench::Config to_config;
+    Workbench::EndpointRuntime from_runtime;
+    Workbench::EndpointRuntime to_runtime;
     uint16_t elapsed = 0;
     uint16_t duration = 0;
     bool continue_choreo = false;
     bool active = false;
-    InversePipelineId from_pipeline = InversePipelineId::NONE;
-    InversePipelineId to_pipeline = InversePipelineId::NONE;
+    Workbench::InversePipelineId from_pipeline =
+        Workbench::InversePipelineId::NONE;
+    Workbench::InversePipelineId to_pipeline =
+        Workbench::InversePipelineId::NONE;
   };
 
   struct StateBundle {
-    FrameState frame;
-    alignas(PREPARED_BLOB_ALIGN) std::byte prepared_blob[PREPARED_BLOB_BYTES];
-    Config render_config;
-    std::array<FastNoiseLite, MAX_NOISE_RESOURCES> noise_resources;
-    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> prepared_noise_keys{};
-    std::array<Pixel, PreparedHueRotation::LUT_SIZE> hue_rotation_lut;
-    std::array<int8_t, PreparedHueNoise::LUT_SIZE> hue_noise_lut;
+    Workbench::FrameState frame;
+    alignas(Workbench::PREPARED_BLOB_ALIGN) std::byte
+        prepared_blob[Workbench::PREPARED_BLOB_BYTES];
+    Workbench::Config render_config;
+    std::array<FastNoiseLite, Workbench::MAX_NOISE_RESOURCES> noise_resources;
+    std::array<NoiseFieldKey, Workbench::MAX_NOISE_RESOURCES>
+        prepared_noise_keys{};
+    std::array<Pixel, Workbench::PreparedHueRotation::LUT_SIZE>
+        hue_rotation_lut;
+    std::array<int8_t, Workbench::PreparedHueNoise::LUT_SIZE> hue_noise_lut;
     Pullback::Color::HueNoiseBakeCache hue_noise_bake;
     FastNoiseLite projection_walk_noise;
     FastNoiseLite outer_walk_noise;
@@ -1993,9 +1706,9 @@ private:
     bool clear;
   };
 
-  HS_COLD_MEMBER bool prepare_resource_union(const Config &from,
-                                             const Config &to) {
-    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
+  HS_COLD_MEMBER bool prepare_resource_union(const Workbench::Config &from,
+                                             const Workbench::Config &to) {
+    std::array<NoiseFieldKey, Workbench::MAX_NOISE_RESOURCES> keys{};
     size_t count = 0;
     if (!append_config_resource_keys(from, keys, count) ||
         !append_config_resource_keys(to, keys, count))
@@ -2021,39 +1734,40 @@ private:
   }
 
   HS_COLD_MEMBER const FastNoiseLite *
-  resolve_warp_resource(const WarpStageSpec &spec) const {
+  resolve_warp_resource(const Workbench::WarpStageSpec &spec) const {
     return warp_uses_noise(spec.kind)
                ? resolve_resource(warp_resource_key(spec))
                : nullptr;
   }
 
   HS_COLD_MEMBER const FastNoiseLite *
-  resolve_source_resource(const Config &config) const {
+  resolve_source_resource(const Workbench::Config &config) const {
     return is_noise_contour(config.slots.function)
                ? resolve_resource(source_resource_key(config))
                : nullptr;
   }
 
   HS_COLD_MEMBER const FastNoiseLite *
-  resolve_surface_noise_resource(const Config &config) const {
-    return config.slots.surface_noise != SurfaceNoise::NONE
+  resolve_surface_noise_resource(const Workbench::Config &config) const {
+    return config.slots.surface_noise != Workbench::SurfaceNoise::NONE
                ? resolve_resource(surface_noise_resource_key(config))
                : nullptr;
   }
 
   HS_COLD_MEMBER const FastNoiseLite *
-  resolve_color_noise_resource(const Config &config) const {
-    if (config.slots.hue_shift != HueShiftMode::NOISE ||
+  resolve_color_noise_resource(const Workbench::Config &config) const {
+    if (config.slots.hue_shift != Workbench::HueShiftMode::NOISE ||
         config.params.color.hue_shift_amount == 0.0f)
       return nullptr;
     return resolve_resource(Workbench::color_noise_resource_key());
   }
 
-  HS_COLD_MEMBER const BakedPalette &palette_for(PaletteMode mode) const {
+  HS_COLD_MEMBER const BakedPalette &
+  palette_for(Workbench::PaletteMode mode) const {
     return generated_palettes.palette(mode);
   }
 
-  PaletteMode visible_palette_mode() const {
+  Workbench::PaletteMode visible_palette_mode() const {
     if (!state->transition.active)
       return active_slots.palette;
     const ThroughClearPhase phase = through_clear_phase(
@@ -2072,7 +1786,7 @@ private:
                : state->transition.to_config.params.color.palette_chroma;
   }
 
-  void step_generated_palettes(PaletteMode visible) {
+  void step_generated_palettes(Workbench::PaletteMode visible) {
     generated_palettes.step(visible);
   }
 
@@ -2080,35 +1794,37 @@ private:
     generated_palettes.set_chroma(chroma);
   }
 
-  HS_COLD_MEMBER FrameState prepare_frame() const {
-    FrameState frame;
+  HS_COLD_MEMBER Workbench::FrameState prepare_frame() const {
+    Workbench::FrameState frame;
     prepare_frame({active_slots, blend.params}, runtime, frame);
     return frame;
   }
 
-  HS_COLD_MEMBER FrameState
-  prepare_frame(const Config &config, const EndpointRuntime &endpoint) const {
-    FrameState frame;
+  HS_COLD_MEMBER Workbench::FrameState
+  prepare_frame(const Workbench::Config &config,
+                const Workbench::EndpointRuntime &endpoint) const {
+    Workbench::FrameState frame;
     prepare_frame(config, endpoint, frame);
     return frame;
   }
 
-  HS_COLD_MEMBER void prepare_frame(const Config &config,
-                                    const EndpointRuntime &endpoint,
-                                    FrameState &frame) const {
+  HS_COLD_MEMBER void prepare_frame(const Workbench::Config &config,
+                                    const Workbench::EndpointRuntime &endpoint,
+                                    Workbench::FrameState &frame) const {
     const bool animated_projection =
-        config.slots.projection_frame == ProjectionFramePolicy::SPIN_WANDER;
+        config.slots.projection_frame ==
+        Workbench::ProjectionFramePolicy::SPIN_WANDER;
     const BakedPalette *palette = &palette_for(config.slots.palette);
-    PreparedHueRotation prepared_hue_rotation{
+    Workbench::PreparedHueRotation prepared_hue_rotation{
         state->hue_rotation_lut.data(),
-        config.slots.hue_shift != HueShiftMode::NONE &&
+        config.slots.hue_shift != Workbench::HueShiftMode::NONE &&
             config.params.color.hue_shift_amount != 0.0f};
     if (prepared_hue_rotation.active)
       prepare_hue_rotation_lut(prepared_hue_rotation, *palette);
     const FastNoiseLite *color_noise = resolve_color_noise_resource(config);
-    PreparedHueNoise prepared_hue_noise{
+    Workbench::PreparedHueNoise prepared_hue_noise{
         state->hue_noise_lut.data(),
-        config.slots.hue_shift == HueShiftMode::NOISE &&
+        config.slots.hue_shift == Workbench::HueShiftMode::NOISE &&
             config.params.color.hue_shift_amount != 0.0f};
     if (prepared_hue_noise.active && color_noise != nullptr)
       state->hue_noise_bake.refresh(state->hue_noise_lut, *color_noise,
@@ -2169,15 +1885,16 @@ private:
         state->transition.elapsed, state->transition.duration);
     if (phase.clear)
       return;
-    PreparedEndpoint prepared;
-    const Config &config = phase.from_endpoint ? state->transition.from_config
-                                               : state->transition.to_config;
-    const EndpointRuntime &endpoint = phase.from_endpoint
-                                          ? state->transition.from_runtime
-                                          : state->transition.to_runtime;
-    const InversePipelineId pipeline = phase.from_endpoint
-                                           ? state->transition.from_pipeline
-                                           : state->transition.to_pipeline;
+    Workbench::PreparedEndpoint prepared;
+    const Workbench::Config &config = phase.from_endpoint
+                                          ? state->transition.from_config
+                                          : state->transition.to_config;
+    const Workbench::EndpointRuntime &endpoint =
+        phase.from_endpoint ? state->transition.from_runtime
+                            : state->transition.to_runtime;
+    const Workbench::InversePipelineId pipeline =
+        phase.from_endpoint ? state->transition.from_pipeline
+                            : state->transition.to_pipeline;
     HS_CHECK(
         prepare_endpoint(config, endpoint, phase.alpha, pipeline, prepared),
         "ShaderWorkbench transition endpoint has no renderer");
@@ -2186,13 +1903,14 @@ private:
                                       : ProfileEndpoint::TO);
   }
 
-  HS_COLD_MEMBER bool prepare_endpoint(const Config &config,
-                                       const EndpointRuntime &endpoint,
-                                       float alpha, InversePipelineId selected,
-                                       PreparedEndpoint &prepared) const {
-    const ProgramDescriptor *program = get_inverse_program(selected);
-    ShadeFunction shade;
-    bool (*resources_ready)(const FrameState &);
+  HS_COLD_MEMBER bool
+  prepare_endpoint(const Workbench::Config &config,
+                   const Workbench::EndpointRuntime &endpoint, float alpha,
+                   Workbench::InversePipelineId selected,
+                   Workbench::PreparedEndpoint &prepared) const {
+    const Workbench::ProgramDescriptor *program = get_inverse_program(selected);
+    Workbench::ShadeFunction shade;
+    bool (*resources_ready)(const Workbench::FrameState &);
     if (program != nullptr) {
       if (program->key != make_topology_key(config))
         return false;
@@ -2200,7 +1918,8 @@ private:
       resources_ready = program->resources_ready;
     } else {
 #if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND
-      if (selected != InversePipelineId::NONE || !valid_config(config))
+      if (selected != Workbench::InversePipelineId::NONE ||
+          !valid_config(config))
         return false;
       shade = &Workbench::shade_dynamic;
       resources_ready = &Workbench::pipeline_resources_ready;
@@ -2228,55 +1947,59 @@ private:
   }
 
   HS_FLASH_MEMBER void
-  draw_endpoint(Canvas &canvas, PreparedEndpoint &prepared,
+  draw_endpoint(Canvas &canvas, Workbench::PreparedEndpoint &prepared,
                 ProfileEndpoint endpoint = ProfileEndpoint::STEADY) {
 #if defined(HS_PROFILE_ENABLE)
     emit_pullback_program(prepared, endpoint);
 #else
     (void)endpoint;
 #endif
-    FrameShader shader{prepared.frame, prepared.alpha, prepared.shade,
-                       prepared.prepared};
+    Workbench::FrameShader shader{prepared.frame, prepared.alpha,
+                                  prepared.shade, prepared.prepared};
     HS_PROFILE(sb_shader_draw);
     scan_frame_shader(canvas, shader);
   }
 
-  static constexpr const char *pipeline_name(InversePipelineId pipeline) {
+  static constexpr const char *
+  pipeline_name(Workbench::InversePipelineId pipeline) {
     switch (pipeline) {
-    case InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR:
+    case Workbench::InversePipelineId::GLITCH_NOISE_GRID_WAVE_SHEAR:
       return "GLITCH_NOISE_GRID_WAVE_SHEAR";
-    case InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR:
+    case Workbench::InversePipelineId::KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR:
       return "KALEIDOSCOPE_TWIN_WAVE_INNER_MIRROR";
-    case InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR:
+    case Workbench::InversePipelineId::GNOMONIC_KALEIDOSCOPE_GRID_MIRROR:
       return "GNOMONIC_KALEIDOSCOPE_GRID_MIRROR";
-    case InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR:
+    case Workbench::InversePipelineId::GNOMONIC_ALIEN_CORE_MIRROR:
       return "GNOMONIC_ALIEN_CORE_MIRROR";
-    case InversePipelineId::PEIRCE_DODECAHEDRAL_GRID:
+    case Workbench::InversePipelineId::PEIRCE_DODECAHEDRAL_GRID:
       return "PEIRCE_DODECAHEDRAL_GRID";
-    case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR:
+    case Workbench::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR:
       return "GNOMONIC_DODECAHEDRAL_GRID_WAVE_MIRROR";
-    case InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR:
+    case Workbench::InversePipelineId::GNOMONIC_AFFINE_LATTICE_CONTOUR:
       return "GNOMONIC_AFFINE_LATTICE_CONTOUR";
-    case InversePipelineId::SINUSOIDAL_LATTICE_MELT:
+    case Workbench::InversePipelineId::SINUSOIDAL_LATTICE_MELT:
       return "SINUSOIDAL_LATTICE_MELT";
-    case InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE:
+    case Workbench::InversePipelineId::STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE:
       return "STEREOGRAPHIC_PRISM_POLAR_WAVE_LATTICE";
-    case InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR:
+    case Workbench::InversePipelineId::GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR:
       return "GNOMONIC_DODECAHEDRAL_GRID_VECTOR_MIRROR";
-    case InversePipelineId::STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR:
+    case Workbench::InversePipelineId::
+        STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR:
       return "STEREOGRAPHIC_DODECAHEDRAL_GRID_INNER_MIRROR";
-    case InversePipelineId::
+    case Workbench::InversePipelineId::
         STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR:
       return "STEREOGRAPHIC_HEXAGONAL_PRISM_TWIN_WAVE_INNER_MIRROR";
-    case InversePipelineId::EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR:
+    case Workbench::InversePipelineId::
+        EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR:
       return "EQUIRECTANGULAR_DODECAHEDRAL_GRID_INNER_MIRROR";
-    case InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR:
+    case Workbench::InversePipelineId::STEREOGRAPHIC_ALIEN_CORE_MIRROR:
       return "STEREOGRAPHIC_ALIEN_CORE_MIRROR";
-    case InversePipelineId::STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR:
+    case Workbench::InversePipelineId::
+        STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR:
       return "STEREOGRAPHIC_MOBIUS_TWIN_WAVE_INNER_MIRROR";
-    case InversePipelineId::COUNT:
+    case Workbench::InversePipelineId::COUNT:
       return "COUNT";
-    case InversePipelineId::NONE:
+    case Workbench::InversePipelineId::NONE:
       return "NONE";
     }
     return "NONE";
@@ -2295,8 +2018,8 @@ private:
     return "steady";
   }
 
-  size_t selected_preset_index(const Config &config,
-                               InversePipelineId pipeline) const {
+  size_t selected_preset_index(const Workbench::Config &config,
+                               Workbench::InversePipelineId pipeline) const {
     for (size_t index = 0; index < preset_count_for_view(); ++index)
       if (preset_for_view(index).pipeline == pipeline &&
           preset_for_view(index).config == config)
@@ -2304,7 +2027,7 @@ private:
     return getPresetIndex();
   }
 
-  void emit_pullback_program(const PreparedEndpoint &prepared,
+  void emit_pullback_program(const Workbench::PreparedEndpoint &prepared,
                              ProfileEndpoint endpoint) {
     if (profile_program_valid && profile_program_preset == prepared.preset &&
         profile_program_pipeline == prepared.pipeline &&
@@ -2335,9 +2058,10 @@ private:
     return {projection_delta.normalized(), outer_delta.normalized()};
   }
 
-  HS_COLD_MEMBER void update_spatial_frames(EndpointRuntime &endpoint,
-                                            const Config &config,
-                                            const WalkDeltas &deltas) const {
+  HS_COLD_MEMBER void
+  update_spatial_frames(Workbench::EndpointRuntime &endpoint,
+                        const Workbench::Config &config,
+                        const WalkDeltas &deltas) const {
     endpoint.projection_wander = (slerp(Quaternion(), deltas.projection,
                                         config.params.projection.wander) *
                                   endpoint.projection_wander)
@@ -2357,10 +2081,10 @@ private:
     endpoint.transforms.outer_conj = endpoint.outer_wander.conjugate();
   }
 
-  HS_COLD_MEMBER void advance_runtime(EndpointRuntime &endpoint,
-                                      const Config &config,
+  HS_COLD_MEMBER void advance_runtime(Workbench::EndpointRuntime &endpoint,
+                                      const Workbench::Config &config,
                                       const WalkDeltas &deltas) const {
-    const Params &params = config.params;
+    const Workbench::Params &params = config.params;
     endpoint.clocks.source_primary =
         fmodf(endpoint.clocks.source_primary + params.source.speed, TWO_PI_F);
     endpoint.clocks.source_secondary =
@@ -2378,13 +2102,15 @@ private:
         endpoint.clocks.source_noise_time + params.source.noise_time_rate);
     endpoint.clocks.surface_noise_time =
         wrap_t(endpoint.clocks.surface_noise_time + params.surface_noise.rate);
-    if (config.slots.warp_program.outer.kind == WarpStageKind::AFFINE_FRAME)
+    if (config.slots.warp_program.outer.kind ==
+        Workbench::WarpStageKind::AFFINE_FRAME)
       endpoint.clocks.warp_outer_rotation =
           TWO_PI_F *
           wrap_t((endpoint.clocks.warp_outer_rotation +
                   params.warp.outer.speed * params.warp.outer.rotation) /
                  TWO_PI_F);
-    if (config.slots.warp_program.inner.kind == WarpStageKind::AFFINE_FRAME)
+    if (config.slots.warp_program.inner.kind ==
+        Workbench::WarpStageKind::AFFINE_FRAME)
       endpoint.clocks.warp_inner_rotation =
           TWO_PI_F *
           wrap_t((endpoint.clocks.warp_inner_rotation +
@@ -2405,7 +2131,7 @@ private:
       return;
     const float mix =
         transition_mix(state->param_morph.elapsed, state->param_morph.duration);
-    blend.palette_mapping = PaletteMappingWeights::lerp(
+    blend.palette_mapping = Workbench::PaletteMappingWeights::lerp(
         state->param_morph.mapping_from, state->param_morph.mapping_to, mix);
     if (mix == 0.0f)
       blend.params = state->param_morph.from;
@@ -2441,9 +2167,9 @@ private:
       if (before_count != pending_edit_count)
         rebind_parameters();
     }
-    const Config &next_config = accepted_config;
+    const Workbench::Config &next_config = accepted_config;
 #else
-    const Config &next_config = requested_config;
+    const Workbench::Config &next_config = requested_config;
     if (!valid_config(next_config)) {
       reject_requested_config();
       return;
@@ -2491,17 +2217,17 @@ private:
     rebind_parameters();
   }
 
-  HS_COLD_MEMBER bool try_apply_config(const Config &candidate,
+  HS_COLD_MEMBER bool try_apply_config(const Workbench::Config &candidate,
                                        uint16_t duration, bool staggered,
                                        bool continue_choreo) {
     if (!admissible_config(candidate) || duration == 0)
       return false;
     if (state->transition.active)
       return false;
-    Config &current = state->render_config;
+    Workbench::Config &current = state->render_config;
     current.slots = active_slots;
     current.params = blend.params;
-    Config &target = state->transition.to_config;
+    Workbench::Config &target = state->transition.to_config;
     target = candidate;
     if (!transition_admitted(current, target))
       return false;
@@ -2590,7 +2316,7 @@ private:
 #endif
     published_config = {active_slots, blend.params};
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-    Config next_requested = published_config;
+    Workbench::Config next_requested = published_config;
     for (size_t index = 0; index < pending_edit_count; ++index)
       copy_pending_value(next_requested, requested_config,
                          pending_edits[index]);
@@ -2625,7 +2351,7 @@ private:
    * device builds additionally require a compiled inverse pipeline.
    */
   HS_COLD_MEMBER static bool
-  admissible_config(const RequestedConfig &candidate) {
+  admissible_config(const Workbench::RequestedConfig &candidate) {
     if (!valid_config(candidate))
       return false;
 #if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND
@@ -2665,17 +2391,18 @@ private:
     return true;
   }
 
-  const char *stage_tuple_warning(const char *position,
-                                  const WarpStageSpec &spec,
-                                  const WarpStageParams &params) const {
+  const char *
+  stage_tuple_warning(const char *position,
+                      const Workbench::WarpStageSpec &spec,
+                      const Workbench::WarpStageParams &params) const {
     begin_warning("%s %s rejected.", position, warp_option(spec.kind));
     switch (spec.kind) {
-    case WarpStageKind::COUNT:
+    case Workbench::WarpStageKind::COUNT:
       break;
-    case WarpStageKind::NONE:
-    case WarpStageKind::LEGACY_STEREO_NOISE:
+    case Workbench::WarpStageKind::NONE:
+    case Workbench::WarpStageKind::LEGACY_STEREO_NOISE:
       break;
-    case WarpStageKind::AFFINE_FRAME:
+    case Workbench::WarpStageKind::AFFINE_FRAME:
       append_range_warning("Translate X", params.translation_x,
                            -Workbench::AFFINE_TRANSLATION_MAX,
                            Workbench::AFFINE_TRANSLATION_MAX);
@@ -2692,13 +2419,14 @@ private:
       append_range_warning("Shear", params.shear, -Workbench::AFFINE_SHEAR_MAX,
                            Workbench::AFFINE_SHEAR_MAX);
       break;
-    case WarpStageKind::WAVE_SHEAR:
+    case Workbench::WarpStageKind::WAVE_SHEAR:
       append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
       append_range_warning("Frequency", params.frequency, 0.0f, 64.0f);
-      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
-                           NOISE_SPEED_MAX);
+      append_range_warning("Warp Speed", params.speed,
+                           Workbench::NOISE_SPEED_MIN,
+                           Workbench::NOISE_SPEED_MAX);
       break;
-    case WarpStageKind::VORTEX:
+    case Workbench::WarpStageKind::VORTEX:
       append_range_warning("Radius", params.radius,
                            Workbench::VORTEX_RADIUS_MIN,
                            Workbench::VORTEX_RADIUS_MAX);
@@ -2706,41 +2434,50 @@ private:
                            Workbench::VORTEX_TURNS_MAX);
       append_range_warning("Orbit Radius", params.center_orbit_radius, 0.0f,
                            Workbench::VORTEX_ORBIT_MAX);
-      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
-                           NOISE_SPEED_MAX);
+      append_range_warning("Warp Speed", params.speed,
+                           Workbench::NOISE_SPEED_MIN,
+                           Workbench::NOISE_SPEED_MAX);
       break;
-    case WarpStageKind::VECTOR_NOISE:
+    case Workbench::WarpStageKind::VECTOR_NOISE:
       append_range_warning("Warp Strength", params.strength, 0.0f,
-                           VECTOR_WARP_STRENGTH_MAX);
-      append_range_warning("Warp Scale", params.scale, WARP_SCALE_MIN,
-                           VECTOR_WARP_SCALE_MAX);
-      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
-                           NOISE_SPEED_MAX);
+                           Workbench::VECTOR_WARP_STRENGTH_MAX);
+      append_range_warning("Warp Scale", params.scale,
+                           Workbench::WARP_SCALE_MIN,
+                           Workbench::VECTOR_WARP_SCALE_MAX);
+      append_range_warning("Warp Speed", params.speed,
+                           Workbench::NOISE_SPEED_MIN,
+                           Workbench::NOISE_SPEED_MAX);
       break;
-    case WarpStageKind::CURL_FLOW: {
+    case Workbench::WarpStageKind::CURL_FLOW: {
       append_range_warning("Warp Strength", params.strength,
-                           -CURL_WARP_STRENGTH_MAX, CURL_WARP_STRENGTH_MAX);
-      append_range_warning("Warp Scale", params.scale, WARP_SCALE_MIN,
-                           CURL_WARP_SCALE_MAX);
-      append_range_warning("Warp Speed", params.speed, NOISE_SPEED_MIN,
-                           NOISE_SPEED_MAX);
+                           -Workbench::CURL_WARP_STRENGTH_MAX,
+                           Workbench::CURL_WARP_STRENGTH_MAX);
+      append_range_warning("Warp Scale", params.scale,
+                           Workbench::WARP_SCALE_MIN,
+                           Workbench::CURL_WARP_SCALE_MAX);
+      append_range_warning("Warp Speed", params.speed,
+                           Workbench::NOISE_SPEED_MIN,
+                           Workbench::NOISE_SPEED_MAX);
       const float strength_limit = curl_strength_limit(spec, params);
       if (Workbench::abs_value(params.strength) > strength_limit)
         append_warning(
             " %s at Warp Scale %.7g requires |Warp Strength| <= %.9f; "
             "current value is %.7g.",
-            CURL_INTEGRATOR_OPTIONS[static_cast<uint8_t>(spec.curl_integrator)],
+            Workbench::CURL_INTEGRATOR_OPTIONS[static_cast<uint8_t>(
+                spec.curl_integrator)],
             static_cast<double>(params.scale),
             static_cast<double>(strength_limit),
             static_cast<double>(params.strength));
       break;
     }
-    case WarpStageKind::MIRROR_TILE:
+    case Workbench::WarpStageKind::MIRROR_TILE:
       append_range_warning("Rotation", params.rotation, 0.0f, TWO_PI_F);
-      append_range_warning("Cell X", params.cell_x, CELL_MIN, CELL_MAX);
-      append_range_warning("Cell Y", params.cell_y, CELL_MIN, CELL_MAX);
+      append_range_warning("Cell X", params.cell_x, Workbench::CELL_MIN,
+                           Workbench::CELL_MAX);
+      append_range_warning("Cell Y", params.cell_y, Workbench::CELL_MIN,
+                           Workbench::CELL_MAX);
       break;
-    case WarpStageKind::POLAR_CHART:
+    case Workbench::WarpStageKind::POLAR_CHART:
       append_range_warning("Radial Scale", params.radial_scale,
                            Workbench::POLAR_RADIAL_SCALE_MIN,
                            Workbench::POLAR_RADIAL_SCALE_MAX);
@@ -2750,20 +2487,21 @@ private:
     return warning_text.data();
   }
 
-  const char *program_bounds_warning(const Config &candidate) const {
+  const char *program_bounds_warning(const Workbench::Config &candidate) const {
     float bound = projection_coordinate_bound(candidate);
     const Complex source_period = source_cartesian_period(candidate);
-    const WarpStageSpec stages[] = {candidate.slots.warp_program.outer,
-                                    candidate.slots.warp_program.inner};
-    const WarpStageParams params[] = {candidate.params.warp.outer,
-                                      candidate.params.warp.inner};
+    const Workbench::WarpStageSpec stages[] = {
+        candidate.slots.warp_program.outer, candidate.slots.warp_program.inner};
+    const Workbench::WarpStageParams params[] = {candidate.params.warp.outer,
+                                                 candidate.params.warp.inner};
     const char *positions[] = {"Planar Warp 1", "Planar Warp 2"};
     for (size_t index = 0; index < 2; ++index) {
-      if (stages[index].kind == WarpStageKind::VECTOR_NOISE ||
-          stages[index].kind == WarpStageKind::CURL_FLOW) {
+      if (stages[index].kind == Workbench::WarpStageKind::VECTOR_NOISE ||
+          stages[index].kind == Workbench::WarpStageKind::CURL_FLOW) {
         const float lattice_bound = params[index].scale * (bound + 100.0f);
-        if (lattice_bound > NOISE_LATTICE_LIMIT) {
-          const float scale_limit = NOISE_LATTICE_LIMIT / (bound + 100.0f);
+        if (lattice_bound > Workbench::NOISE_LATTICE_LIMIT) {
+          const float scale_limit =
+              Workbench::NOISE_LATTICE_LIMIT / (bound + 100.0f);
           return begin_warning(
               "%s %s rejected: Warp Scale %.7g produces noise coordinate "
               "bound %.7g above %.7g. Set Warp Scale <= %.7g or choose a "
@@ -2771,19 +2509,20 @@ private:
               positions[index], warp_option(stages[index].kind),
               static_cast<double>(params[index].scale),
               static_cast<double>(lattice_bound),
-              static_cast<double>(NOISE_LATTICE_LIMIT),
+              static_cast<double>(Workbench::NOISE_LATTICE_LIMIT),
               static_cast<double>(scale_limit));
         }
       }
       bound = stage_coordinate_bound(stages[index], params[index], bound,
                                      source_period);
-      if (bound > WARP_COORD_LIMIT)
+      if (bound > Workbench::WARP_COORD_LIMIT)
         return begin_warning(
             "%s %s rejected: its predicted coordinate bound %.7g exceeds "
             "%.7g. Reduce this warp's displacement/translation controls or "
             "choose a projection/lens with a smaller coordinate extent.",
             positions[index], warp_option(stages[index].kind),
-            static_cast<double>(bound), static_cast<double>(WARP_COORD_LIMIT));
+            static_cast<double>(bound),
+            static_cast<double>(Workbench::WARP_COORD_LIMIT));
     }
     const float source_bound = candidate.params.source.noise_scale * bound;
     return begin_warning(
@@ -2792,66 +2531,72 @@ private:
         "or reduce the preceding warp extent.",
         static_cast<double>(candidate.params.source.noise_scale),
         static_cast<double>(source_bound),
-        static_cast<double>(NOISE_LATTICE_LIMIT),
-        static_cast<double>(NOISE_LATTICE_LIMIT / bound));
+        static_cast<double>(Workbench::NOISE_LATTICE_LIMIT),
+        static_cast<double>(Workbench::NOISE_LATTICE_LIMIT / bound));
   }
 
-  const char *admission_warning(const Config &candidate,
+  const char *admission_warning(const Workbench::Config &candidate,
                                 const char *edited_name) const {
-    const WarpStageSpec &outer = candidate.slots.warp_program.outer;
-    const WarpStageSpec &inner = candidate.slots.warp_program.inner;
+    const Workbench::WarpStageSpec &outer = candidate.slots.warp_program.outer;
+    const Workbench::WarpStageSpec &inner = candidate.slots.warp_program.inner;
     if (is_sphere_source(candidate.slots.function) &&
-        outer.kind != WarpStageKind::NONE && inner.kind != WarpStageKind::NONE)
+        outer.kind != Workbench::WarpStageKind::NONE &&
+        inner.kind != Workbench::WarpStageKind::NONE)
       return begin_warning(
           "%s rejects Planar Warp 1 %s and Planar Warp 2 %s. Set both warps "
           "to None, or select a plane-space Function.",
-          FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
+          Workbench::FUNCTION_OPTIONS[static_cast<uint8_t>(
+              candidate.slots.function)],
           warp_option(outer.kind), warp_option(inner.kind));
     if (is_sphere_source(candidate.slots.function) &&
-        (outer.kind != WarpStageKind::NONE ||
-         inner.kind != WarpStageKind::NONE)) {
-      const bool outer_active = outer.kind != WarpStageKind::NONE;
+        (outer.kind != Workbench::WarpStageKind::NONE ||
+         inner.kind != Workbench::WarpStageKind::NONE)) {
+      const bool outer_active = outer.kind != Workbench::WarpStageKind::NONE;
       const char *position = outer_active ? "Planar Warp 1" : "Planar Warp 2";
-      const WarpStageKind kind = outer_active ? outer.kind : inner.kind;
+      const Workbench::WarpStageKind kind =
+          outer_active ? outer.kind : inner.kind;
       return begin_warning(
           "%s rejects %s %s. Set %s to None, or select a plane-space "
           "Function.",
-          FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
+          Workbench::FUNCTION_OPTIONS[static_cast<uint8_t>(
+              candidate.slots.function)],
           position, warp_option(kind), position);
     }
-    if (outer.kind == WarpStageKind::POLAR_CHART &&
-        inner.kind != WarpStageKind::NONE &&
-        inner.kind != WarpStageKind::WAVE_SHEAR)
+    if (outer.kind == Workbench::WarpStageKind::POLAR_CHART &&
+        inner.kind != Workbench::WarpStageKind::NONE &&
+        inner.kind != Workbench::WarpStageKind::WAVE_SHEAR)
       return begin_warning(
           "Planar Warp 1 Polar Chart cannot run while Planar Warp 2 is %s. Set "
           "Planar Warp 2 to None or Wave Shear, or choose a different Planar "
           "Warp 1.",
           warp_option(inner.kind));
-    if (inner.kind == WarpStageKind::POLAR_CHART &&
-        outer.kind != WarpStageKind::NONE)
+    if (inner.kind == Workbench::WarpStageKind::POLAR_CHART &&
+        outer.kind != Workbench::WarpStageKind::NONE)
       return begin_warning(
           "Planar Warp 2 Polar Chart cannot run while Planar Warp 1 is %s. Set "
           "Planar Warp 1 to None or choose a different Planar Warp 2.",
           warp_option(outer.kind));
-    const WarpStageSpec *polar =
-        outer.kind == WarpStageKind::POLAR_CHART   ? &outer
-        : inner.kind == WarpStageKind::POLAR_CHART ? &inner
-                                                   : nullptr;
+    const Workbench::WarpStageSpec *polar =
+        outer.kind == Workbench::WarpStageKind::POLAR_CHART   ? &outer
+        : inner.kind == Workbench::WarpStageKind::POLAR_CHART ? &inner
+                                                              : nullptr;
     if (polar != nullptr && !polar_source_compatible(candidate, *polar)) {
       const char *position =
           polar == &outer ? "Planar Warp 1" : "Planar Warp 2";
-      const SourceTraits traits = source_traits(candidate.slots.function);
+      const Workbench::SourceTraits traits =
+          source_traits(candidate.slots.function);
       if (!traits.y_periodic || !traits.polar_angle_compatible)
         return begin_warning(
             "%s Polar Chart requires a polar-periodic Function; %s is not "
             "compatible. Select Grid or Primitive Lattice, or "
             "choose another %s.",
             position,
-            FUNCTION_OPTIONS[static_cast<uint8_t>(candidate.slots.function)],
+            Workbench::FUNCTION_OPTIONS[static_cast<uint8_t>(
+                candidate.slots.function)],
             position);
       const float periods = polar_seam_periods(candidate, *polar);
       const float nearest_periods = floorf(periods + 0.5f);
-      if (candidate.slots.function == Function::PRIMITIVE_LATTICE)
+      if (candidate.slots.function == Workbench::Function::PRIMITIVE_LATTICE)
         return begin_warning(
             "%s Polar Chart requires 2*pi x Lattice Cell Scale x Polar "
             "Harmonic to be a whole number. %.7g x %u gives %.7g. Set Lattice "
@@ -2879,22 +2624,22 @@ private:
       const bool outer_scroll =
           affine_has_translation(outer, candidate.params.warp.outer);
       const char *position = outer_scroll ? "Planar Warp 1" : "Planar Warp 2";
-      const WarpStageParams &params = outer_scroll
-                                          ? candidate.params.warp.outer
-                                          : candidate.params.warp.inner;
+      const Workbench::WarpStageParams &params =
+          outer_scroll ? candidate.params.warp.outer
+                       : candidate.params.warp.inner;
       if (!Workbench::whole_affine_winding(params.translation_x) ||
           !Workbench::whole_affine_winding(params.translation_y))
         return begin_warning(
             "%s Affine Frame translation must use whole source-cell windings. "
             "Set Translation X and Translation Y to whole numbers.",
             position);
-      if (candidate.slots.function != Function::PRIMITIVE_LATTICE)
+      if (candidate.slots.function != Workbench::Function::PRIMITIVE_LATTICE)
         return begin_warning(
             "%s Affine Frame translation requires an exactly periodic "
             "Function. Select Primitive Lattice or set both translations to "
             "zero.",
             position);
-      if (outer_scroll && inner.kind != WarpStageKind::NONE)
+      if (outer_scroll && inner.kind != Workbench::WarpStageKind::NONE)
         return begin_warning(
             "Planar Warp 1 Affine Frame translation cannot precede Planar "
             "Warp 2 %s because the later warp breaks its source-period seam. "
@@ -2907,10 +2652,10 @@ private:
           position);
     }
     if (!strict_seam_compatible(candidate)) {
-      begin_warning(
-          "Projection %s requires seam-safe stages.",
-          PROJECTION_OPTIONS[static_cast<uint8_t>(candidate.slots.projection)]);
-      if (candidate.slots.function == Function::NOISE_CONTOUR)
+      begin_warning("Projection %s requires seam-safe stages.",
+                    Workbench::PROJECTION_OPTIONS[static_cast<uint8_t>(
+                        candidate.slots.projection)]);
+      if (candidate.slots.function == Workbench::Function::NOISE_CONTOUR)
         append_warning(" Function Noise Contour (Projected) is not seam-safe.");
       if (seam_sensitive_warp(outer.kind))
         append_warning(" Planar Warp 1 %s is not seam-safe.",
@@ -2922,24 +2667,29 @@ private:
                      "Stereographic, Gnomonic, or Equirectangular.");
       return warning_text.data();
     }
-    const SurfaceNoiseParams &surface_noise = candidate.params.surface_noise;
+    const Workbench::SurfaceNoiseParams &surface_noise =
+        candidate.params.surface_noise;
     const float minimum_surface_strength =
-        candidate.slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f;
-    if (surface_noise.scale < LENS_NOISE_SCALE_MIN ||
-        surface_noise.scale > LENS_NOISE_SCALE_MAX ||
+        candidate.slots.surface_noise == Workbench::SurfaceNoise::CURL ? -0.5f
+                                                                       : 0.0f;
+    if (surface_noise.scale < Workbench::LENS_NOISE_SCALE_MIN ||
+        surface_noise.scale > Workbench::LENS_NOISE_SCALE_MAX ||
         surface_noise.strength < minimum_surface_strength ||
-        surface_noise.strength > 0.5f || surface_noise.rate < NOISE_RATE_MIN ||
-        surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
-        surface_noise.direction > 1.0f) {
+        surface_noise.strength > 0.5f ||
+        surface_noise.rate < Workbench::NOISE_RATE_MIN ||
+        surface_noise.rate > Workbench::NOISE_RATE_MAX ||
+        surface_noise.direction < 0.0f || surface_noise.direction > 1.0f) {
       begin_warning("Surface Noise %s rejected.",
-                    SURFACE_NOISE_OPTIONS[static_cast<uint8_t>(
+                    Workbench::SURFACE_NOISE_OPTIONS[static_cast<uint8_t>(
                         candidate.slots.surface_noise)]);
       append_range_warning("Surface Noise Scale", surface_noise.scale,
-                           LENS_NOISE_SCALE_MIN, LENS_NOISE_SCALE_MAX);
+                           Workbench::LENS_NOISE_SCALE_MIN,
+                           Workbench::LENS_NOISE_SCALE_MAX);
       append_range_warning("Surface Noise Strength", surface_noise.strength,
                            minimum_surface_strength, 0.5f);
       append_range_warning("Surface Noise Rate", surface_noise.rate,
-                           NOISE_RATE_MIN, NOISE_RATE_MAX);
+                           Workbench::NOISE_RATE_MIN,
+                           Workbench::NOISE_RATE_MAX);
       append_range_warning("Surface Noise Direction", surface_noise.direction,
                            0.0f, 1.0f);
       append_warning(" Set the named Surface Noise control within its range.");
@@ -2963,7 +2713,7 @@ private:
                                  candidate.params.warp.inner);
     if (!safe_program_bounds(candidate))
       return program_bounds_warning(candidate);
-    if (candidate.slots.surface_lens == SurfaceLens::MOBIUS &&
+    if (candidate.slots.surface_lens == Workbench::SurfaceLens::MOBIUS &&
         !Workbench::valid_mobius(candidate.params.surface_lens.mobius)) {
       const MobiusParams &m = candidate.params.surface_lens.mobius;
       const float det_re =
@@ -2985,10 +2735,11 @@ private:
         edited_name);
   }
 
-  const char *uncompiled_program_warning(const Config &candidate,
+  const char *uncompiled_program_warning(const Workbench::Config &candidate,
                                          const char *edited_name) const {
-    const TopologyKey key = make_topology_key(candidate);
-    for (const ProgramDescriptor &program : Workbench::inverse_programs())
+    const Workbench::TopologyKey key = make_topology_key(candidate);
+    for (const Workbench::ProgramDescriptor &program :
+         Workbench::inverse_programs())
       if (program.key == key)
         return begin_warning(
             "%s is outside what the compiled pipeline for this stage "
@@ -3001,7 +2752,7 @@ private:
   }
 #endif
 
-  HS_COLD_MEMBER static constexpr Choreo preset_choreo() {
+  HS_COLD_MEMBER static constexpr Workbench::Choreo preset_choreo() {
 #ifdef HS_PROFILE_SHADER_WORKBENCH_FAST_CYCLE
     return {32, 32, 2, false};
 #else
@@ -3015,7 +2766,7 @@ private:
       preset_dwell_armed = false;
       return;
     }
-    const Choreo choreo = preset_choreo();
+    const Workbench::Choreo choreo = preset_choreo();
     preset_dwell_remaining = static_cast<uint16_t>(
         hs::rand_int(choreo.dwell_min, choreo.dwell_max + 1));
     preset_dwell_armed = true;
@@ -3051,13 +2802,7 @@ private:
   static constexpr uint32_t HUE_STEP = GeneratedPaletteBank::HUE_STEP;
   static constexpr size_t PARAM_CAPACITY = 80;
 
-  static constexpr auto &GENERATED_SURFACE_NOISE_SLOTS =
-      Workbench::GENERATED_SURFACE_NOISE_SLOTS;
-  static constexpr auto &OUTER_WARP_PARAM_NAMES =
-      Workbench::OUTER_WARP_PARAM_NAMES;
-  static constexpr auto &INNER_WARP_PARAM_NAMES =
-      Workbench::INNER_WARP_PARAM_NAMES;
-  static constexpr Choreo CHOREO{0, 0, 480, false};
+  static constexpr Workbench::Choreo CHOREO{0, 0, 480, false};
 
   Orientation<> projection_walk;
   Orientation<> outer_walk;
@@ -3072,31 +2817,33 @@ private:
 
   GeneratedPaletteBank generated_palettes;
 
-  Slots active_slots = PRESETS[0].config.slots;
-  InversePipelineId active_pipeline = PRESETS[0].pipeline;
+  Workbench::Slots active_slots = Workbench::PRESETS[0].config.slots;
+  Workbench::InversePipelineId active_pipeline = Workbench::PRESETS[0].pipeline;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  Config display_config = PRESETS[0].config;
+  Workbench::Config display_config = Workbench::PRESETS[0].config;
   std::array<PendingEdit, PARAM_CAPACITY> pending_edits{};
   size_t pending_edit_count = 0;
-  Config fixpoint_requested{};
-  Config fixpoint_accepted{};
+  Workbench::Config fixpoint_requested{};
+  Workbench::Config fixpoint_accepted{};
   std::array<ConfigFieldId, PARAM_CAPACITY> fixpoint_edits{};
   size_t fixpoint_edit_count = 0;
   bool fixpoint_recorded = false;
   mutable std::array<char, 1024> warning_text{};
 #endif
-  RequestedConfig requested_config = PRESETS[0].config;
-  Config published_config = PRESETS[0].config;
+  Workbench::RequestedConfig requested_config = Workbench::PRESETS[0].config;
+  Workbench::Config published_config = Workbench::PRESETS[0].config;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  Config accepted_config = PRESETS[0].config;
+  Workbench::Config accepted_config = Workbench::PRESETS[0].config;
 #endif
   bool requested_schema_bound = false;
   bool registered_range_clamped = false;
   uint16_t preset_dwell_remaining = 0;
   bool preset_dwell_armed = false;
-  Blend blend{PRESETS[0].config.params,
-              palette_mapping_weights(PRESETS[0].config.slots.palette_mapping)};
-  EndpointRuntime runtime;
+  Workbench::Blend blend{
+      Workbench::PRESETS[0].config.params,
+      palette_mapping_weights(
+          Workbench::PRESETS[0].config.slots.palette_mapping)};
+  Workbench::EndpointRuntime runtime;
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t generated_palette_step_count = 0;
@@ -3104,7 +2851,8 @@ private:
 #if defined(HS_PROFILE_ENABLE)
   bool profile_program_valid = false;
   size_t profile_program_preset = 0;
-  InversePipelineId profile_program_pipeline = InversePipelineId::NONE;
+  Workbench::InversePipelineId profile_program_pipeline =
+      Workbench::InversePipelineId::NONE;
   ProfileEndpoint profile_program_endpoint = ProfileEndpoint::STEADY;
 #endif
 
