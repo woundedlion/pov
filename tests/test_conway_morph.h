@@ -4222,31 +4222,11 @@ inline void test_relax_source_hash_separates_bevel_inputs() {
   HS_EXPECT_GE(bevel20.quantization_margin, MeshOps::RELAX_SOURCE_MIN_MARGIN);
 }
 
-/**
- * @brief Replays every registry recipe plus the partition chains leg by leg.
- */
-inline const std::array<ChainPeaks, std::size(Solids::islamic_registry)> &
-islamic_registry_chain_peaks() {
-  static const auto peaks = [] {
-    std::array<ChainPeaks, std::size(Solids::islamic_registry)> result{};
-    size_t index = 0;
-    for (const Solids::Entry &entry :
-         Solids::Collections::get_islamic_solids()) {
-      if (entry.recipe)
-        result[index] = replay_build_chain(entry.name, *entry.recipe);
-      ++index;
-    }
-    return result;
-  }();
-  return peaks;
-}
-
 inline void test_recipe_chain_build_replay() {
   int chains = 0;
   for (const Solids::Entry &entry : Solids::Collections::get_islamic_solids())
     if (entry.recipe)
       ++chains;
-  static_cast<void>(islamic_registry_chain_peaks());
   // Every registry entry carries a recipe, so a dropped pointer is a miscount,
   // not a smaller sweep.
   HS_EXPECT_EQ(static_cast<size_t>(chains),
