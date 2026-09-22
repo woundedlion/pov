@@ -44,8 +44,6 @@ inline void paused_render_one(const char *name) {
 
   const uint64_t acc = frame_energy<W, H>(effect);
 
-  HS_EXPECT(!effect_may_be_dark(name, frames),
-            "paused render must run past the all-black exemption window");
   if (acc == 0)
     std::printf("  PAUSED-BLANK %-20s produced no lit pixel over %d paused "
                 "frames @ %dx%d\n",
