@@ -181,29 +181,12 @@ inline void test_kaleidoscope_smooth_transition_contract() {
 }
 
 inline void test_kaleidoscope_smooth_shader_workbench_equivalence() {
-  using WB = KaleidoscopeSmoothWhiteBox;
-  reset_effect_globals();
-  ShaderWorkbenchWB::SB shader_workbench;
-  shader_workbench.init();
-
-  for (size_t preset : {size_t{11}, size_t{13}, size_t{14}}) {
-    const ShaderWorkbenchWB::FrameState reference =
-        ShaderWorkbenchWB::preset_frame(shader_workbench, preset);
-    const WB::Ctx compiled = WB::from_reference(reference);
-    for (int latitude_step = -9; latitude_step <= 9; ++latitude_step) {
-      const float latitude = latitude_step * (0.5f * PI_F / 9.0f);
-      const float radius = cosf(latitude);
-      for (int longitude_step = 0; longitude_step < 37; ++longitude_step) {
-        const float longitude = longitude_step * (TWO_PI_F / 37.0f);
-        const Vector view(radius * cosf(longitude), sinf(latitude),
-                          radius * sinf(longitude));
-        expect_color_exact(
-            WB::shade(view, compiled),
-            ShaderWorkbenchWB::stereographic_dodecahedral_grid_shade(
-                view, reference));
-      }
-    }
-  }
+  shader_workbench_tests::verify_fixed_shader_export<
+      KaleidoscopeSmoothWhiteBox::FX>(11, 0);
+  shader_workbench_tests::verify_fixed_shader_export<
+      KaleidoscopeSmoothWhiteBox::FX>(13, 1);
+  shader_workbench_tests::verify_fixed_shader_export<
+      KaleidoscopeSmoothWhiteBox::FX>(14, 2);
 }
 
 inline int run_kaleidoscope_smooth_tests() {
