@@ -1337,6 +1337,14 @@ class PackageVerificationTests(unittest.TestCase):
                          len(fab.ZIP_MEMBERS)
                          + len(fab.ASSEMBLY_MEMBERS) + 1)
 
+    def test_rejects_duplicate_manifest_entries(self):
+        directory, baseline = self.package()
+        manifest = directory / fab.SUMS_FILE
+        content = manifest.read_text(encoding="utf-8")
+        manifest.write_text(content + content.splitlines()[0] + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(fab.PackageVerificationError, "duplicate manifest entry"):
+            fab.verify_package(str(directory), str(baseline))
+
     def test_rejects_a_malformed_manifest_line(self):
         directory, baseline = self.package()
         (directory / fab.SUMS_FILE).write_text("not a digest line\n",
