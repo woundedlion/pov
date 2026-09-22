@@ -200,8 +200,10 @@ peirce(const Vector &input, float central_meridian, uint8_t layout,
        float layout_scroll, bool edge_distance_required, float coordinate_scale,
        float singularity_fade, float meridian_cos, float meridian_sin) {
   return from_kernel(
-      projections::peirce_projection(input, central_meridian, layout,
-                                     layout_scroll, edge_distance_required),
+      projections::peirce_projection(
+          input, central_meridian,
+          static_cast<projections::PeirceLayout>(layout), layout_scroll,
+          edge_distance_required),
       coordinate_scale,
       peirce_weight(input, meridian_cos, meridian_sin, singularity_fade));
 }
