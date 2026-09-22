@@ -1198,7 +1198,8 @@ inline void test_srgb_to_linear_interp_recovers_subpixel_precision() {
   uint16_t prev = 0;
   for (int k = 0; k <= 1000; ++k) {
     uint16_t v = srgb_to_linear_interp(k / 1000.0f);
-    HS_EXPECT_TRUE(v >= prev);
+    if (k > 0)
+      HS_EXPECT_TRUE(v >= prev);
     prev = v;
   }
 }
@@ -1253,7 +1254,8 @@ inline void test_gradient_in_range_valid_and_monotone() {
     if (t > 0.999f)
       t = 0.999f; // index = uint8_t(t*255); keep within [0,255]
     Color4 c = grad.get(t);
-    HS_EXPECT_GE(c.color.r, prev);
+    if (i > 0)
+      HS_EXPECT_GE(c.color.r, prev);
     prev = c.color.r;
   }
 }
@@ -1596,7 +1598,8 @@ inline void test_dot_key_inverts_dot_keyed_coordinate() {
     const float d = -1.0f + 2.0f * (static_cast<float>(i) / STEPS);
     const float u = dot_key(d);
     HS_EXPECT_TRUE(u >= 0.0f && u <= 1.0f);
-    HS_EXPECT_LT(u, previous_u);
+    if (i > 0)
+      HS_EXPECT_LT(u, previous_u);
     previous_u = u;
     // The bake's u -> d leg recovers the dot product dot_key was handed.
     HS_EXPECT_NEAR(1.0f - 2.0f * u, d, 1e-6f);
@@ -1633,7 +1636,8 @@ inline void test_dot_keyed_bake_round_trips_through_dot_key() {
   for (int i = STEPS; i >= 0; --i) {
     const float d = -1.0f + 2.0f * (static_cast<float>(i) / STEPS);
     const int got = baked.get(dot_key(d)).color.r;
-    HS_EXPECT_TRUE(got >= previous);
+    if (i < STEPS)
+      HS_EXPECT_TRUE(got >= previous);
     previous = got;
   }
 

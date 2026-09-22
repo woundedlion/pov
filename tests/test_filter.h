@@ -1921,9 +1921,11 @@ inline void expect_pole_row_collapsed(hs_test::StubEffect &fx, int w, int y,
   const Pixel first = fx.get_pixel(0, y);
   for (int x = 0; x < w; ++x) {
     const Pixel px = fx.get_pixel(x, y);
-    HS_EXPECT_NEAR(px.r, first.r, LANE_TOL);
-    HS_EXPECT_NEAR(px.g, first.g, LANE_TOL);
-    HS_EXPECT_NEAR(px.b, first.b, LANE_TOL);
+    if (x > 0) {
+      HS_EXPECT_NEAR(px.r, first.r, LANE_TOL);
+      HS_EXPECT_NEAR(px.g, first.g, LANE_TOL);
+      HS_EXPECT_NEAR(px.b, first.b, LANE_TOL);
+    }
     HS_EXPECT_NEAR(px.r, pole.r, ROUND_TRIP_TOL);
     HS_EXPECT_NEAR(px.g, pole.g, ROUND_TRIP_TOL);
     HS_EXPECT_NEAR(px.b, pole.b, ROUND_TRIP_TOL);
