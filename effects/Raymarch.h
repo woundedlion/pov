@@ -254,7 +254,8 @@ public:
     prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE>(
                                  palette_state->hue_rotation_lut),
                              baked_palette);
-    noise_palette.bind(&baked_palette, palette_state->hue_rotation_lut.data(),
+    noise_palette.bind(&baked_palette.view(),
+                       palette_state->hue_rotation_lut.data(),
                        palette_state->hue_noise_lut.data());
     refresh_hue_noise();
 
@@ -478,7 +479,7 @@ private:
   std::array<float, MAX_POINTS> nn_angle;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{EffectPaletteRecipes::raymarch()};
-  BakedPalette baked_palette;
+  BakedPaletteStorage baked_palette;
   NoiseHuePalette<BakedPalette> noise_palette;
 
   // init() bakes one palette LUT into the persistent arena. Effect keeps the

@@ -37,7 +37,7 @@ struct HyperLatticeWhiteBox {
     return &effect.depth_palette.palette();
   }
   static const BakedPalette *axis_palette(const Effect &effect) {
-    return &effect.axis_palette;
+    return &effect.axis_palette.view();
   }
 };
 

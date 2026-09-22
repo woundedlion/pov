@@ -353,7 +353,7 @@ private:
 
   GenerativePalette palette; /**< Currently displayed palette. */
   PaletteWipe wipe;          /**< Cross-fade state of the palette rollover. */
-  BakedPalette
+  BakedPaletteStorage
       baked_palette; /**< LUT-baked copy of `palette` the shaders sample. */
   /**
    * @brief User-tunable parameters.

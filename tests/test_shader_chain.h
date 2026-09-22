@@ -84,7 +84,7 @@ struct GradientSource {
 struct ColorResources {
   alignas(std::max_align_t) uint8_t
       palette_bytes[3 * BakedPalette::required_arena_bytes() + 64];
-  BakedPalette palettes[3];
+  BakedPaletteStorage palettes[3];
   std::array<Pixel, PB::Color::HueRotationLutView::SIZE> hue_rotation{};
   std::array<int8_t, PB::Color::HueNoiseLutView::SIZE> hue_noise{};
 
@@ -110,7 +110,8 @@ struct ColorResources {
     ctx.frame = 7;
     ctx.time = 7.0f / 30.0f;
     ctx.projection_base = make_rotation(Vector(0, 0, -1), Vector(0, -1, 0));
-    ctx.palettes = {&palettes[0], &palettes[1], &palettes[2]};
+    ctx.palettes = {&palettes[0].view(), &palettes[1].view(),
+                    &palettes[2].view()};
     ctx.hue_rotation_lut = hue_rotation.data();
     ctx.hue_noise_lut = hue_noise.data();
     return ctx;

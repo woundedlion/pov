@@ -770,7 +770,7 @@ public:
         rotation_phase,
         HyperLatticeDetail::pixel_half_angle<W, H>(),
         &depth_palette.palette(),
-        &axis_palette};
+        &axis_palette.view()};
     const auto frame = HyperLatticeDetail::RenderPipeline::prepare(context);
     {
       HS_PROFILE(hl_shader_draw);
@@ -875,7 +875,7 @@ private:
   Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
-  BakedPalette axis_palette;
+  BakedPaletteStorage axis_palette;
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 

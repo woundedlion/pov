@@ -286,7 +286,7 @@ struct FoldModifier {
  *
  * Null tension driver is the deliberate "no pinch" pass-through mode.
  * @details A bound driver costs a powf per sample; suited to bake-time sampling
- * (BakedPalette::rebake) rather than tight per-pixel loops.
+ * (BakedPaletteStorage::rebake) rather than tight per-pixel loops.
  */
 struct PinchModifier {
   /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
@@ -551,7 +551,7 @@ struct HueSpinShade {
  * @brief Rotates hue by an amount that varies along the palette domain, so
  * different parts of the gradient drift in opposite directions (iridescence).
  * @details Builds a rotation per sample; suited to bake-time sampling
- * (BakedPalette::rebake) rather than tight per-pixel loops.
+ * (BakedPaletteStorage::rebake) rather than tight per-pixel loops.
  */
 struct HueWobbleShade {
   const float *phase;
@@ -1101,7 +1101,7 @@ private:
  * @brief Runtime Palette facade over a compile-time StaticPalette composition.
  * @tparam SP StaticPalette composition type exposing Color4 get(float) const.
  * @details Bridges a zero-overhead StaticPalette into the polymorphic
- * `const Palette*` world (preset tables, BakedPalette::bake). The virtual call
+ * `const Palette*` world (preset tables, BakedPaletteStorage::bake). The virtual call
  * is paid only at bake time (cold), never on the per-pixel path.
  *
  * SP must not wrap its coordinate. A wrapping source folds t = 1 back to 0 and

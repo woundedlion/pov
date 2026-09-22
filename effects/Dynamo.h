@@ -245,10 +245,10 @@ private:
    *          it to the front strands no LUT storage.
    */
   void rotate_and_rebake_front() {
-    BakedPalette recycled = baked_palettes[MAX_PALETTES - 1];
+    BakedPaletteStorage recycled = std::move(baked_palettes[MAX_PALETTES - 1]);
     for (size_t i = MAX_PALETTES - 1; i > 0; --i)
-      baked_palettes[i] = baked_palettes[i - 1];
-    baked_palettes[0] = recycled;
+      baked_palettes[i] = std::move(baked_palettes[i - 1]);
+    baked_palettes[0] = std::move(recycled);
     baked_palettes[0].rebake(palettes[0]);
   }
 
@@ -475,7 +475,7 @@ private:
    *          reap pops from the back, which shifts nothing. One slot per possible
    *          live palette, so churn never reallocates.
    */
-  std::array<BakedPalette, MAX_PALETTES> baked_palettes;
+  std::array<BakedPaletteStorage, MAX_PALETTES> baked_palettes;
 
   // init() allocates the nodes, Trails ring buffer, and baked palette LUTs from
   // the persistent arena.

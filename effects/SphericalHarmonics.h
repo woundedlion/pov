@@ -135,7 +135,7 @@ public:
     auto [l2, m2] = SHMath::decode_lm(next_idx);
     const typename RenderPipeline::Frame frame = RenderPipeline::prepare(
         {{l1, m1, l2, m2, morph_alpha, orientation.get()},
-         {&baked_palette, params.amplitude}});
+         {&baked_palette.view(), params.amplitude}});
 
     {
       HS_PROFILE(sh_rasterize);
@@ -295,9 +295,10 @@ private:
         &anims_paused);
   }
 
-  Orientation<> orientation;  /**< Current sphere orientation. */
-  Timeline timeline;          /**< Drives spin and morph animations. */
-  BakedPalette baked_palette; /**< Precomputed color LUT for the shader. */
+  Orientation<> orientation; /**< Current sphere orientation. */
+  Timeline timeline;         /**< Drives spin and morph animations. */
+  BakedPaletteStorage
+      baked_palette; /**< Precomputed color LUT for the shader. */
 
   // init() bakes one palette LUT into the persistent arena. Effect keeps the
   // default arena split, so the total must fit the device persistent partition.

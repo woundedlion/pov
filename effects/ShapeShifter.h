@@ -830,8 +830,8 @@ private:
   FastNoiseLite noise;
   Orientation<> orientation;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
-  BakedPalette baked_constant;
-  BakedPalette baked_toward_equator;
+  BakedPaletteStorage baked_constant;
+  BakedPaletteStorage baked_toward_equator;
   float *spaced_radius_t = nullptr;
   float *phase_sin = nullptr;
   float *phase_cos = nullptr;

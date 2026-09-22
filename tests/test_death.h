@@ -2911,24 +2911,6 @@ inline void case_noise_hue_palette_null_noise_lut() {
 }
 
 /**
- * @brief Death case: rebaking an endpoint-aliasing blend result must trap.
- * @details Color surface — bake_palette_blend's w <= 0 fast path hands @c dst
- *          the @c from endpoint's LUT storage rather than baking a copy, so a
- *          rebake through @c dst would silently rewrite the endpoint every
- *          other consumer samples.
- */
-inline void case_baked_palette_rebake_aliased() {
-  static uint8_t buf[4 * BakedPalette::required_arena_bytes()];
-  Arena a(buf, sizeof(buf));
-  SolidColorPalette src(Color4(Pixel(255, 0, 0), 1.0f));
-  BakedPalette from, to, dst;
-  from.bake(a, src);
-  to.bake(a, src);
-  bake_palette_blend(dst, a, from, to, opaque(0.0f)); // dst aliases from
-  dst.rebake(src);                                    // -> HS_CHECK
-}
-
-/**
  * @brief Death case: cloning a BakedPalette from itself must trap.
  * @details Color surface — clone_from allocates fresh storage into this handle
  *          before reading @c src, so a self-clone memcpys uninitialized arena
@@ -2938,9 +2920,9 @@ inline void case_baked_palette_clone_from_self() {
   static uint8_t buf[4 * BakedPalette::required_arena_bytes()];
   Arena a(buf, sizeof(buf));
   SolidColorPalette src(Color4(Pixel(255, 0, 0), 1.0f));
-  BakedPalette lut;
+  BakedPaletteStorage lut;
   lut.bake(a, src);
-  BakedPalette &self = *opaque(&lut);
+  const BakedPalette &self = opaque(&lut)->view();
   lut.clone_from(self, a); // -> HS_CHECK
 }
 
@@ -2955,10 +2937,10 @@ inline void case_baked_palette_bake_blend_self() {
   static uint8_t buf[4 * BakedPalette::required_arena_bytes()];
   Arena a(buf, sizeof(buf));
   SolidColorPalette src(Color4(Pixel(255, 0, 0), 1.0f));
-  BakedPalette from, dst;
+  BakedPaletteStorage from, dst;
   from.bake(a, src);
   dst.bake(a, src);
-  BakedPalette &self = *opaque(&dst);
+  const BakedPalette &self = opaque(&dst)->view();
   dst.bake_blend(a, from, self, opaque(0.5f)); // -> HS_CHECK
 }
 
@@ -4626,15 +4608,12 @@ inline const Case *all_cases(int &n) {
       {"generated_palette_bank_unknown_mode",
        case_generated_palette_bank_unknown_mode, "palette_cycler.h",
        "(false) GeneratedPaletteBank::palette: unknown palette mode"},
-      {"baked_palette_rebake_aliased", case_baked_palette_rebake_aliased,
-       "baked_palette.h",
-       "(!aliased) BakedPalette::rebake through an aliasing handle"},
       {"baked_palette_clone_from_self", case_baked_palette_clone_from_self,
        "baked_palette.h",
-       "(&src != this) BakedPalette::clone_from from itself"},
+       "(&src != &table) BakedPaletteStorage::clone_from from itself"},
       {"baked_palette_bake_blend_self", case_baked_palette_bake_blend_self,
        "baked_palette.h",
-       "(&from != this && &to != this) BakedPalette::bake_blend endpoint is "
+       "(&from != &table && &to != &table) BakedPaletteStorage::bake_blend endpoint is "
        "the output"},
       {"register_param_overflow", case_register_param_overflow, "param_host.h",
        "(parameters.count < parameters.capacity()) register_param: "
@@ -5438,7 +5417,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"timers.h", 1},
     {"color_space.h", 1},
     {"composition.h", 22},
-    {"baked_palette.h", 11},
+    {"baked_palette.h", 9},
     {"generative_palette.h", 4},
     {"palette_cycler.h", 8},
     {"choreography.h", 1},

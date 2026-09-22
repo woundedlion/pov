@@ -166,7 +166,7 @@ private:
   Vector *spiral_cache =
       nullptr;           /**< Persistent base lattice, MAX_POINTS slots. */
   int cached_points = 0; /**< Point count the cache holds (0 = unbuilt). */
-  BakedPalette
+  BakedPaletteStorage
       baked_palette; /**< LUT-baked MANGO_PEEL sampled by the shader. */
 
   MobiusWarpGnomonicTransformer<1>
