@@ -106,7 +106,8 @@ def uid():
 
 
 def fmt(v):
-    return str(int(v)) if float(v) == int(v) else f"{v:.4f}".rstrip("0").rstrip(".")
+    rounded = round(float(v), 6)
+    return str(int(rounded)) if rounded == int(rounded) else f"{rounded:.6f}".rstrip("0").rstrip(".")
 
 
 def F(n, k):
