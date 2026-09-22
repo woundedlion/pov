@@ -119,6 +119,13 @@ template <typename Owner> struct TopologyField {
   const char *const *value_ids; /**< Kebab-case value spellings. */
   uint8_t value_count;
   uint8_t def; /**< Default value index. */
+
+  template <size_t N>
+  constexpr TopologyField(const char *id, uint8_t Owner::*member,
+                          const char *const (&value_ids)[N], uint8_t def)
+      : id(id), member(member), value_ids(value_ids), value_count(N), def(def) {
+    static_assert(N > 0 && N <= UINT8_MAX);
+  }
 };
 
 /**

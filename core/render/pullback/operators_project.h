@@ -39,7 +39,7 @@ template <typename Params, typename... Extra>
 constexpr std::array<TopologyField<Params>, 1 + sizeof...(Extra)>
 projection_frame_topology(const Extra &...extra) {
   return {
-      TopologyField<Params>{"frame", &Params::frame, PROJECTION_FRAME_IDS, 2,
+      TopologyField<Params>{"frame", &Params::frame, PROJECTION_FRAME_IDS,
                             static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER)},
       extra...};
 }
@@ -163,7 +163,7 @@ struct GnomonicChainParams : ProjectChainParams {
       projection_frame_topology<GnomonicChainParams>(
           TopologyField<GnomonicChainParams>{
               "hemisphere", &GnomonicChainParams::hemisphere,
-              GNOMONIC_HEMISPHERE_IDS, 3,
+              GNOMONIC_HEMISPHERE_IDS,
               static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED)});
 };
 static_assert(field_ids_unique<GnomonicChainParams>());
@@ -238,7 +238,7 @@ struct BonneChainParams : MeridianProjectChainParams {
   static constexpr auto TOPOLOGY = projection_frame_topology<BonneChainParams>(
       TopologyField<BonneChainParams>{"hemisphere",
                                       &BonneChainParams::hemisphere,
-                                      BONNE_HEMISPHERE_IDS, 2, 0});
+                                      BONNE_HEMISPHERE_IDS, 0});
 };
 static_assert(field_ids_unique<BonneChainParams>());
 

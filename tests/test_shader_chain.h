@@ -51,7 +51,7 @@ struct MismatchedTopologyDefaults {
   uint8_t mode = 1;
   static constexpr auto TOPOLOGY = std::array{
       In::TopologyField<MismatchedTopologyDefaults>{
-          "mode", &MismatchedTopologyDefaults::mode, MISMATCHED_TOPOLOGY_IDS, 2,
+          "mode", &MismatchedTopologyDefaults::mode, MISMATCHED_TOPOLOGY_IDS,
           0},
   };
 };

@@ -194,10 +194,10 @@ template <typename Params, typename... Extra>
 constexpr std::array<TopologyField<Params>, 2 + sizeof...(Extra)>
 sample_crossing_topology(const Extra &...extra) {
   return {TopologyField<Params>{"weight-mode", &Params::weight_mode,
-                                WEIGHT_MODE_IDS, 2,
+                                WEIGHT_MODE_IDS,
                                 static_cast<uint8_t>(WeightMode::PROJECTION)},
           TopologyField<Params>{
-              "coverage-mode", &Params::coverage_mode, COVERAGE_MODE_IDS, 4,
+              "coverage-mode", &Params::coverage_mode, COVERAGE_MODE_IDS,
               static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
           extra...};
 }

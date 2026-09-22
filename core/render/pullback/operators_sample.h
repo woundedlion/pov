@@ -291,7 +291,7 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
   static constexpr auto TOPOLOGY =
       sample_crossing_topology<TessellationSampleParams>(
           TopologyField<TessellationSampleParams>{
-              "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS, 3,
+              "kind", &TessellationSampleParams::kind, TESSELLATION_KIND_IDS,
               static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR)});
 };
 static_assert(field_ids_unique<TessellationSampleParams>());
@@ -339,7 +339,7 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
   static constexpr auto TOPOLOGY =
       sample_crossing_topology<ProjectedNoiseSampleParams>(
           TopologyField<ProjectedNoiseSampleParams>{
-              "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS, 3,
+              "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS,
               static_cast<uint8_t>(::NoiseBasis::SIMPLEX)});
 };
 static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
