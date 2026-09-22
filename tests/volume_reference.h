@@ -10,6 +10,11 @@ namespace hs_test::scan_tests {
 
 // Vector-accumulating reference for scalar ray-state differential tests.
 struct VolumeReference : Scan::Volume {
+  static constexpr float OVERRELAX_OMEGA = 1.3f;
+  static constexpr int PROBE_STEPS = 24;
+  static constexpr int PROBE_NEAR_STEPS = 6;
+  static constexpr float PROBE_FLOOR_NEAR = 0.04f;
+  static constexpr float PROBE_FLOOR_FAR = 0.12f;
   template <typename Shape>
   static __attribute__((always_inline)) float
   trace_closest(const Shape &shape, const Vector &local_ro,
