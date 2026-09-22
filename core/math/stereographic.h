@@ -82,6 +82,17 @@ inline constexpr float STEREO_AZIMUTH_EPS = 1e-12f;
  */
 inline constexpr float STEREO_EQUATOR_EPS = 1e-9f;
 
+namespace stereographic_detail {
+
+/** @brief Scales a nonzero planar direction from its supplied length. */
+inline Complex radial_scale(const Complex &direction, float length,
+                            float radius) {
+  const float scale = radius / length;
+  return Complex(direction.re * scale, direction.im * scale);
+}
+
+} // namespace stereographic_detail
+
 /**
  * @brief Projection-domain complex division for the stereographic/Mobius maps.
  * @param num Numerator.
@@ -122,8 +133,8 @@ inline Complex project_div(const Complex &num, const Complex &den) {
       return Complex(0, 0);
     const float re = num.re / peak;
     const float im = num.im / peak;
-    const float scale = STEREO_INF / sqrtf(re * re + im * im);
-    return Complex(re * scale, im * scale);
+    return stereographic_detail::radial_scale(
+        Complex(re, im), sqrtf(re * re + im * im), STEREO_INF);
   }
   return Complex((num_re * den_re + num_im * den_im) / denom,
                  (num_im * den_re - num_re * den_im) / denom);
@@ -184,8 +195,7 @@ inline Complex stereo(const Vector &v) {
     float r = sqrtf(v.x * v.x + v.z * v.z);
     if (r < STEREO_AZIMUTH_EPS)
       return Complex(STEREO_INF, 0.0f);
-    float scale = STEREO_INF / r;
-    return Complex(v.x * scale, v.z * scale);
+    return stereographic_detail::radial_scale(Complex(v.x, v.z), r, STEREO_INF);
   }
   return Complex(v.x / denom, v.z / denom);
 }
@@ -243,9 +253,8 @@ inline Complex gnomonic(const Vector &v) {
   // azimuth the inverse reads back.
   const float magnitude_sq = gx * gx + gz * gz;
   if (magnitude_sq > STEREO_INF * STEREO_INF) {
-    const float scale = STEREO_INF / sqrtf(magnitude_sq);
-    gx *= scale;
-    gz *= scale;
+    return stereographic_detail::radial_scale(Complex(gx, gz),
+                                              sqrtf(magnitude_sq), STEREO_INF);
   }
   return Complex(gx, gz);
 }
@@ -273,8 +282,9 @@ inline Vector inv_gnomonic(const Complex &z, float hemisphere_sign) {
     const float scale = 1.0f / std::max(std::abs(z.re), std::abs(z.im));
     const float re = z.re * scale;
     const float im = z.im * scale;
-    const float inv_len = hemisphere_sign / sqrtf(re * re + im * im);
-    return Vector(re * inv_len, 0.0f, im * inv_len);
+    const Complex equator = stereographic_detail::radial_scale(
+        Complex(re, im), sqrtf(re * re + im * im), hemisphere_sign);
+    return Vector(equator.re, 0.0f, equator.im);
   }
   // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
