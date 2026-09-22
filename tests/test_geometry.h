@@ -852,10 +852,25 @@ inline void test_shortest_distance() {
  * @brief Runs every geometry test case.
  * @return The module's failure count.
  */
+inline void test_cubic_kernel_and_smooth_ramp() {
+  HS_EXPECT_EQ(cubic_kernel(-1.0f), 0.0f);
+  HS_EXPECT_EQ(cubic_kernel(0.0f), 0.0f);
+  HS_EXPECT_EQ(cubic_kernel(0.25f), 0.15625f);
+  HS_EXPECT_EQ(cubic_kernel(0.5f), 0.5f);
+  HS_EXPECT_EQ(cubic_kernel(0.75f), 0.84375f);
+  HS_EXPECT_EQ(cubic_kernel(1.0f), 1.0f);
+  HS_EXPECT_EQ(cubic_kernel(2.0f), 1.0f);
+  HS_EXPECT_EQ(smooth_ramp(2.0f, 6.0f, 3.0f), 0.15625f);
+  HS_EXPECT_EQ(smooth_ramp(2.0f, 6.0f, -1.0f), 0.0f);
+  HS_EXPECT_EQ(smooth_ramp(2.0f, 6.0f, 9.0f), 1.0f);
+  HS_EXPECT_EQ(smooth_ramp(6.0f, 2.0f, 3.0f), 0.84375f);
+}
+
 inline int run_geometry_tests() {
   hs_test::ModuleFixture fixture("geometry");
 
   test_axis_constants();
+  test_cubic_kernel_and_smooth_ramp();
 
   test_y_to_phi_virtual();
   test_phi_to_y_virtual();
