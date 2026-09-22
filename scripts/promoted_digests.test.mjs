@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdir, readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { loadEffectHeaders } from './effect_roster.mjs';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   compilePatternDocuments,
@@ -16,11 +17,11 @@ const INTEGER_CONSTANT = (name) =>
   new RegExp(`${name}\\s*=\\s*(\\d+)`);
 
 const promotedHeaders = async () => {
-  const names = (await readdir(resolve(ROOT, 'effects')))
-    .filter((name) => name.endsWith('.h'));
+  const paths = await loadEffectHeaders();
   const headers = new Map();
-  for (const name of names) {
-    const source = await readFile(resolve(ROOT, 'effects', name), 'utf8');
+  for (const path of paths) {
+    const name = relative(resolve(ROOT, 'effects'), path);
+    const source = await readFile(path, 'utf8');
     const descriptor = CONSTANT('DESCRIPTOR_DIGEST').exec(source);
     const presetBank = CONSTANT('PRESET_BANK_DIGEST').exec(source);
     if (!descriptor && !presetBank) continue;
@@ -65,7 +66,12 @@ test('every promoted header digest matches its pattern document', async () => {
       `effects/${header.name} DESCRIPTOR_DIGEST is stale against patterns/${entry.name}`);
     assert.equal(header.presetBank, entry.compiled.preset_bank_digest,
       `effects/${header.name} PRESET_BANK_DIGEST is stale against patterns/${entry.name}`);
-    for (const dwell of Object.values(entry.compiled.document.preset_bank.choreography.dwell))
+    const dwells = Object.values(entry.compiled.document.preset_bank.choreography.dwell);
+    assert.ok(dwells.length > 0, `patterns/${entry.name} has no dwell entries`);
+    assert.ok(entry.compiled.document.preset_bank.presets.length === 1 ||
+      entry.compiled.document.preset_bank.edges.length > 0,
+      `patterns/${entry.name} has no transition edges`);
+    for (const dwell of dwells)
       assert.equal(dwell, header.dwell,
         `patterns/${entry.name} choreography dwell differs from effects/${header.name}`);
     for (const edge of entry.compiled.document.preset_bank.edges)
