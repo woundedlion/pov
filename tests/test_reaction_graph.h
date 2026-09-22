@@ -77,14 +77,11 @@ constexpr float PADDED_ROW_CHORD2 = 0.037f;
  */
 inline void test_nodes_on_unit_sphere() {
   float worst_deviation = 0.0f;
-  int probed = 0;
   for (int i = 0; i < RD_N; ++i) {
     worst_deviation =
         std::max(worst_deviation, std::fabs(node(i).length() - 1.0f));
-    ++probed;
   }
   HS_EXPECT_LT(worst_deviation, 1e-3f);
-  HS_EXPECT_EQ(probed, RD_N);
   // Endpoints sit near the poles (y ~ +1 at i=0, y ~ -1 at i=RD_N-1).
   HS_EXPECT_GT(node(0).y, 0.999f);
   HS_EXPECT_LT(node(RD_N - 1).y, -0.999f);
@@ -110,18 +107,15 @@ inline void test_node_ordered_and_distinct() {
   Vector prev = node(0);
   int out_of_order = 0;
   int coincident = 0;
-  int walked = 0;
   for (int i = 0; i < RD_N - 1; ++i) {
     Vector next = node(i + 1);
     // y = 1 - 2i/(RD_N-1): index order is the north-to-south sweep order.
     out_of_order += next.y >= prev.y;
     coincident += chord2(prev, next) <= 0.0f;
     prev = next;
-    ++walked;
   }
   HS_EXPECT_EQ(out_of_order, 0);
   HS_EXPECT_EQ(coincident, 0);
-  HS_EXPECT_EQ(walked, RD_N - 1);
 }
 
 /**
