@@ -238,6 +238,19 @@ inline void test_trace_layers_are_front_to_back() {
 }
 
 inline void test_layer_composite_reveals_background() {
+  LayerComposite empty;
+  HS_EXPECT_EQ(empty.finish().alpha, 0.0f);
+  HS_EXPECT_FALSE(empty.saturated());
+  empty.add(Pixel(60000, 0, 0), 0.5f);
+  empty.add(Pixel(0, 60000, 0), 0.5f);
+  const Color4 partial = empty.finish();
+  HS_EXPECT_EQ(partial.alpha, 0.75f);
+  HS_EXPECT_EQ(partial.color.r, 40000);
+  HS_EXPECT_EQ(partial.color.g, 20000);
+  HS_EXPECT_EQ(partial.color.b, 0);
+  HS_EXPECT_FALSE(empty.saturated());
+  empty.add(Pixel(0, 0, 60000), 1.0f);
+  HS_EXPECT_TRUE(empty.saturated());
   LayerComposite composite;
   composite.add(Pixel(65535, 0, 0), 0.5f);
   composite.add(Pixel(0, 65535, 0), 1.0f);
