@@ -526,8 +526,18 @@ class AssemblyPolicyTests(unittest.TestCase):
                 "rotation corrections missing from assembly: U1"):
             fab.validate_rotation_refs(assembled)
 
-    def test_d_bus_cathode_rotation(self):
-        self.assertEqual(fab.cpl_rotation("D_BUS", 90), 270)
+    def test_d_bus_exports_committed_rotation_and_cathode_net(self):
+        footprint, = [
+            fp for fp in fab.F(fab.read_board(fab.PCB), "footprint")
+            if fab.footprint_reference(fp) == "D_BUS"
+        ]
+        rotation = float(fab.sexp.val(footprint, "at")[2])
+        self.assertEqual(rotation, 90)
+        self.assertEqual(fab.cpl_rotation("D_BUS", rotation), 90)
+        self.assertEqual(
+            {str(pad[1]): fab.sexp.val(pad, "net")[-1]
+             for pad in fab.F(footprint, "pad")},
+            {"1": "/SYNC_BUS", "2": "GND"})
 
     def test_nonpolarized_resistor_rotation_is_unchanged(self):
         self.assertEqual(fab.cpl_rotation("R_D1", 180), 180)

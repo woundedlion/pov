@@ -517,7 +517,6 @@ LCSC_BY_REF = {
 # KiCad angle of 180 reads wrong in JLC's viewer; a +270 correction (180 -> 90)
 # lands pin 1 on the silk mark. Verify each against the assembly preview.
 ROT_CORRECTION = {
-    "D_BUS": 180,  # SOD-323: JLC cathode band aligned to pad 1
     "Q_REV": 180,  # SOT-23: JLC single-lead side aligned to pad 3
     "U1": 270,    # SOIC-14: KiCad 180 -> 90, pin 1 on silk mark
 }
