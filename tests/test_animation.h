@@ -1320,8 +1320,10 @@ inline void test_particle_system_spawn_and_capacity_guard() {
   ps.spawn(Vector(0, 0, 1), Vector(0, 0, 0), 2);
   ps.spawn(Vector(-1, 0, 0), Vector(0, 0, 0), 3);
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
+  HS_EXPECT_EQ(ps.dropped_spawns(), uint32_t{0});
   ps.spawn(Vector(0, -1, 0), Vector(0, 0, 0), 4); // capacity is 4 — rejected
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
+  HS_EXPECT_EQ(ps.dropped_spawns(), uint32_t{1});
 }
 
 /**
