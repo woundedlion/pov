@@ -6,7 +6,7 @@
 # asserted non-empty before it is linted.
 #
 # usage: shellcheck_gate.sh
-set -eu
+set -euo pipefail
 
 if [ "$#" -ne 0 ]; then
   echo "usage: $0" >&2
@@ -24,3 +24,12 @@ if [ ! -s "$tmp" ]; then
 fi
 
 xargs -d '\n' shellcheck -x < "$tmp"
+
+while IFS= read -r action; do
+  awk '
+    /^[[:space:]]+run: \|$/ { active = 1; next }
+    active && /^        / { sub(/^        /, ""); print; next }
+    active && /^[[:space:]]*$/ { print; next }
+    { active = 0 }
+  ' "$action" | shellcheck -s bash -
+done < <(git ls-files -- '.github/actions/*/action.yml' '.github/actions/*/action.yaml')
