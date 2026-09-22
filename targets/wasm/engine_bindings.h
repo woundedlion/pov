@@ -20,6 +20,7 @@
 #endif
 #include "core/control/registry.h"
 #include "core/platform/platform.h"
+#include "hardware/pov_segment_map.h"
 #include "targets/wasm/arena_metrics.h"
 #include "targets/wasm/effect_factory.h" // pure, host-tested factory + dispatch
 #include "targets/wasm/param_marshal.h"  // pure, host-tested param marshaling
@@ -506,7 +507,8 @@ public:
     // Cross-segment stateful effects must render the FULL canvas in every worker
     // (a band-clipped worker has stale cv.prev outside its band, so trails seam);
     // keep the full clip. See docs/specs/segmented_stateful_effects_spec.md.
-    if (current_effect->needs_full_frame())
+    if (!pov::segment_clip_applies(current_effect->needs_full_frame(),
+                                   current_effect->persists_pixels()))
       return ClipSetResult::FULL_FRAME_KEPT;
     current_effect->set_clip(static_cast<int>(y0), static_cast<int>(y1),
                              static_cast<int>(x0), static_cast<int>(x1));
