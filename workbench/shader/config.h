@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
@@ -359,8 +360,8 @@ struct ProjectionParams {
 };
 
 struct SurfaceLensParams {
-  MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                      0.7071067811865475f, 0.0f};
+  math::MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                            0.7071067811865475f, 0.0f};
 
   HS_COLD_MEMBER constexpr SurfaceLensParams() = default;
 

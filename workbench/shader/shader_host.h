@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
@@ -2717,7 +2718,7 @@ private:
       return program_bounds_warning(candidate);
     if (candidate.slots.surface_lens == Workbench::SurfaceLens::MOBIUS &&
         !Workbench::valid_mobius(candidate.params.surface_lens.mobius)) {
-      const MobiusParams &m = candidate.params.surface_lens.mobius;
+      const math::MobiusParams &m = candidate.params.surface_lens.mobius;
       const float det_re =
           m.a.re * m.d.re - m.a.im * m.d.im - m.b.re * m.c.re + m.b.im * m.c.im;
       const float det_im =

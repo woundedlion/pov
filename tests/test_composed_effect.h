@@ -24,6 +24,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include <array>
 #include <bit>
 #include <cstddef>
@@ -223,11 +224,12 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
 }
 
 /** @brief Bitwise-compares the eight Mobius coefficients. */
-inline void verify_mobius_equal(const MobiusParams &actual,
-                                const MobiusParams &expected) {
-  constexpr Complex MobiusParams::*COEFFICIENTS[] = {
-      &MobiusParams::a, &MobiusParams::b, &MobiusParams::c, &MobiusParams::d};
-  for (Complex MobiusParams::*coefficient : COEFFICIENTS) {
+inline void verify_mobius_equal(const math::MobiusParams &actual,
+                                const math::MobiusParams &expected) {
+  constexpr Complex math::MobiusParams::*COEFFICIENTS[] = {
+      &math::MobiusParams::a, &math::MobiusParams::b, &math::MobiusParams::c,
+      &math::MobiusParams::d};
+  for (Complex math::MobiusParams::*coefficient : COEFFICIENTS) {
     HS_EXPECT_EQ(bits((actual.*coefficient).re),
                  bits((expected.*coefficient).re));
     HS_EXPECT_EQ(bits((actual.*coefficient).im),

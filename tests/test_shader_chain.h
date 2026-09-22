@@ -22,6 +22,7 @@
  */
 #pragma once
 
+#include "math/mobius.h"
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -1289,7 +1290,7 @@ struct SphereOpMirrorFrame {
   In::Op::CurlDisplaceParams curl;
   In::Op::DirectDisplaceParams direct;
   PB::Surface::PeriodicRippleParams ripple;
-  MobiusParams mobius;
+  math::MobiusParams mobius;
   float phase = 0.0f;
 };
 
@@ -1344,7 +1345,7 @@ struct RippleMirrorProvider {
 struct MobiusMirrorProvider {
   using Binding = SphereOpMirrorBinding;
   using FrameState = SphereOpMirrorFrame;
-  static const MobiusParams &params(const FrameState &frame) {
+  static const math::MobiusParams &params(const FrameState &frame) {
     return frame.mobius;
   }
 };
@@ -1418,8 +1419,8 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
   if (id == In::Op::LensMobius::ID) {
     const auto &params = param_as<In::Op::MobiusChainParams>(program, 1);
     mirror.mobius =
-        MobiusParams{params.a_re, params.a_im, params.b_re, params.b_im,
-                     params.c_re, params.c_im, params.d_re, params.d_im};
+        math::MobiusParams{params.a_re, params.a_im, params.b_re, params.b_im,
+                           params.c_re, params.c_im, params.d_re, params.d_im};
   }
   return mirror;
 }
