@@ -441,8 +441,7 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
     // paint it.
     if (x1 == x2)
       x2++;
-    // After the wrap/split start>=0 and end<=W, so x2>W only from the widen at
-    // the right edge; x1<0 is a defensive floor.
+    // Clamp rounded columns to the canvas bounds.
     if (x1 < 0)
       x1 = 0;
     if (x2 > W)
