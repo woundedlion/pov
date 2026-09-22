@@ -1185,6 +1185,8 @@ inline void test_composed_snapshot_contract() {
 
 /** @brief Sweeps the preset choreography over every specialization. */
 inline void test_composed_preset_choreography() {
+  const auto polar = KaleidoscopePentBright<SMALL_W, SMALL_H>::initial_params();
+  HS_EXPECT_NEAR(polar.source.lattice_cell_scale * TWO_PI_F, 5.0f, 1e-6f);
 #define HS_COMPOSED_PRESETS(name, seconds)                                     \
   check_preset_choreography<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_PRESETS)

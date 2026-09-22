@@ -37,14 +37,14 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "27365967105ac1855d8ab3d5e00953436be958ec1238de5cadfebb42ae49e0f2";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "50720ad712274ad1d2a4e56ee85af0f9dd3795f9e224dc3996bb568e7c53b1b3";
+      "6e6135099d89c44bf87a5efd49ee5a7747132b6bdc370e3ebf3358fc41488512";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"polar-wave"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 
   static constexpr Params initial_params() {
     Params value;
-    value.source.lattice_cell_scale = 0.774140596f;
+    value.source.lattice_cell_scale = 5.0f / TWO_PI_F;
     value.source.lattice_shape_blend = 1.0f;
     value.source.lattice_softness = 0.377608389f;
     value.source.lattice_radius = 0.290762514f;
