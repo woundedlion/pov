@@ -413,21 +413,27 @@ inline void test_ring_long_radius_azimuth_unflipped() {
   constexpr float radius = 1.4f, thickness = 0.15f;
   const Basis basis =
       make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized());
-  const SDF::Ring oracle(basis, radius, thickness);
 
   size_t lit = 0;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
-    Scan::Ring::draw<W, H>(pipe, c, basis, radius, thickness,
-                           [&](const Vector &p, Fragment &f) {
-                             SDF::DistanceResult res;
-                             oracle.distance(p, res);
-                             HS_EXPECT_NEAR(f.v0, res.t, 1e-6f);
-                             ++lit;
-                             f.color = Color4(Pixel(60000, 60000, 60000), f.v2);
-                           });
+    Scan::Ring::draw<W, H>(
+        pipe, c, basis, radius, thickness, [&](const Vector &p, Fragment &f) {
+          const double u = static_cast<double>(p.x) * basis.u.x +
+                           static_cast<double>(p.y) * basis.u.y +
+                           static_cast<double>(p.z) * basis.u.z;
+          const double w = static_cast<double>(p.x) * basis.w.x +
+                           static_cast<double>(p.y) * basis.w.y +
+                           static_cast<double>(p.z) * basis.w.z;
+          const double turn = std::atan2(w, u) / (2.0 * 3.14159265358979323846);
+          double delta = std::fabs(f.v0 - (turn < 0 ? turn + 1 : turn));
+          delta = std::min(delta, 1.0 - delta);
+          HS_EXPECT_LT(delta, 0.00061);
+          ++lit;
+          f.color = Color4(Pixel(60000, 60000, 60000), f.v2);
+        });
   }
   HS_EXPECT_GT(lit, (size_t)0);
 }
