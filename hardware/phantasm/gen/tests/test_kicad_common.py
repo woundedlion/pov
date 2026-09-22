@@ -11,100 +11,51 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import kicad_common  # noqa: E402
-import sexp  # noqa: E402
 
 
 class FindKicadCliTests(unittest.TestCase):
-    """Every tool that shells out to KiCad resolves the binary through here."""
-
-    def test_env_override_wins_when_it_exists(self):
-        with tempfile.TemporaryDirectory() as directory:
-            cli = Path(directory) / "kicad-cli"
-            cli.touch()
-            with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}), \
-                    mock.patch.object(kicad_common, "kicad_cli_major",
-                                      return_value=sexp.KICAD_MAJOR):
-                self.assertEqual(kicad_common.find_kicad_cli(), str(cli))
-
-    def test_env_override_rejects_another_major(self):
-        with tempfile.TemporaryDirectory() as directory:
-            cli = Path(directory) / "kicad-cli"
-            cli.touch()
-            with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}), \
-                    mock.patch.object(kicad_common, "kicad_cli_major",
-                                      return_value=sexp.KICAD_MAJOR + 1), \
-                    self.assertRaisesRegex(SystemExit, "fab gates require"):
-                kicad_common.find_kicad_cli()
-
-    def path_fallback(self, major):
-        with mock.patch.dict(os.environ, {"KICAD_CLI": "missing-kicad-cli"}), \
-                mock.patch.object(kicad_common.glob, "glob", return_value=[]), \
-                mock.patch.object(kicad_common, "kicad_cli_major",
-                                  return_value=major):
-            return kicad_common.find_kicad_cli()
-
-    def test_falls_back_to_the_path_name(self):
-        self.assertEqual(self.path_fallback(sexp.KICAD_MAJOR), "kicad-cli")
-
-    def test_a_path_install_off_the_pin_is_refused(self):
-        with self.assertRaises(SystemExit) as caught:
-            self.path_fallback(sexp.KICAD_MAJOR + 1)
-        self.assertIn(f"KiCad {sexp.KICAD_MAJOR + 1}", str(caught.exception))
-        self.assertIn("KICAD_CLI", str(caught.exception))
-
-    def test_no_kicad_cli_on_path_is_refused(self):
-        with self.assertRaises(SystemExit) as caught:
-            self.path_fallback(None)
-        self.assertIn("unknown", str(caught.exception))
-
-    def windows_install(self, version):
-        return rf"C:\Program Files\KiCad\{version}\bin\kicad-cli.exe"
-
-    def resolve(self, installs):
+    def resolve(self, reported, installs=None):
         with mock.patch.dict(os.environ, {}, clear=True), \
                 mock.patch.object(kicad_common.glob, "glob",
-                                  side_effect=lambda p: installs if "Program" in p
-                                  and "x86" not in p else []):
-            return kicad_common.find_kicad_cli()
+                                  return_value=installs or []), \
+                mock.patch.object(kicad_common.subprocess, "run",
+                                  return_value=subprocess.CompletedProcess(
+                                      [], 0, stdout=reported)) as run:
+            result = kicad_common.find_kicad_cli()
+        self.assertEqual(run.call_args.args[0][-1], "--version")
+        return result
 
-    def test_prefers_the_pinned_major_over_a_newer_install(self):
-        pinned = self.windows_install(f"{sexp.KICAD_MAJOR}.0")
-        newer = self.windows_install(f"{sexp.KICAD_MAJOR + 1}.0")
+    def test_exact_release_on_path(self):
+        self.assertEqual(self.resolve(kicad_common.KICAD_VERSION), "kicad-cli")
 
-        self.assertEqual(self.resolve([pinned, newer]), pinned)
+    def test_adjacent_patch_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            self.resolve("10.0.5")
 
-    def test_takes_the_newest_minor_of_the_pinned_major(self):
-        installs = [self.windows_install(f"{sexp.KICAD_MAJOR}.{minor}")
-                    for minor in (0, 3)]
+    def test_windows_directory_does_not_substitute_for_reported_version(self):
+        cli = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
+        with self.assertRaises(SystemExit):
+            self.resolve("10.0.5", [cli])
+        self.assertEqual(self.resolve(kicad_common.KICAD_VERSION, [cli]), cli)
 
-        self.assertEqual(self.resolve(installs), installs[1])
+    def test_env_override_requires_exact_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cli = Path(directory) / "kicad-cli"
+            cli.touch()
+            with mock.patch.dict(os.environ, {"KICAD_CLI": str(cli)}), \
+                    mock.patch.object(kicad_common, "kicad_cli_version",
+                                      return_value="10.0.5"), \
+                    self.assertRaises(SystemExit):
+                kicad_common.find_kicad_cli()
 
-    def test_exits_when_no_install_is_the_pinned_major(self):
-        newer = self.windows_install(f"{sexp.KICAD_MAJOR + 1}.0")
-
-        with self.assertRaises(SystemExit) as caught:
-            self.resolve([newer])
-        self.assertIn(f"KiCad {sexp.KICAD_MAJOR}", str(caught.exception))
-        self.assertIn(newer, str(caught.exception))
-        self.assertIn("KICAD_CLI", str(caught.exception))
-
-    def test_an_unversioned_path_is_asked_for_its_version(self):
-        completed = subprocess.CompletedProcess(
-            [], 0, stdout=f"{sexp.KICAD_MAJOR}.0.1\n")
+    def test_unreadable_release(self):
         with mock.patch.object(kicad_common.subprocess, "run",
-                               return_value=completed) as run:
-            self.assertEqual(self.resolve(["/usr/bin/kicad-cli"]),
-                             "/usr/bin/kicad-cli")
-        self.assertEqual(run.call_args.args[0],
-                         ["/usr/bin/kicad-cli", "--version"])
+                               side_effect=OSError):
+            self.assertIsNone(kicad_common.kicad_cli_version("missing"))
 
-    def test_an_unversioned_path_reporting_another_major_is_refused(self):
-        completed = subprocess.CompletedProcess(
-            [], 0, stdout=f"{sexp.KICAD_MAJOR + 1}.0.0\n")
-        with mock.patch.object(kicad_common.subprocess, "run",
-                               return_value=completed), \
-                self.assertRaises(SystemExit):
-            self.resolve(["/usr/bin/kicad-cli"])
+    def test_major_only_release_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            self.resolve("10.0")
 
 
 class KicadCliTests(unittest.TestCase):
