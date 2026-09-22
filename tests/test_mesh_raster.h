@@ -1184,7 +1184,7 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
       xy.push_back(face.poly_2d[k].y);
     }
     const bool concave = MeshOps::polygon_is_concave(xy.data(), face.count);
-    HS_EXPECT_EQ(face.convex, !concave);
+    HS_EXPECT_FALSE(face.convex && concave);
     // The budget is spent per concave class, so a flagged class must hold no
     // face the rasterizer serves convex. The converse does not hold: a corner
     // turning within a hair of TURN_EPS_SQ reads convex on the class
