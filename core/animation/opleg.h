@@ -95,10 +95,28 @@ public:
                   centroids from the leg's own start (closing) or arrival
                   (opening) mesh, since the departed face blocks are
                   transposed against the handoff. */
-    bool borrow_seed =
-        false; /**< Sweep the caller's live mesh each frame instead of a
-                  leg-local clone; legal only where the seed outlives the leg
-                  unmoved. */
+  };
+
+  /** @brief Conway sweep source; cloned unless explicitly borrowed. */
+  class SweepSeed {
+  public:
+    SweepSeed(const PolyMesh &mesh) : mesh(mesh) {}
+    SweepSeed(PolyMesh &&) = delete;
+    SweepSeed(const PolyMesh &&) = delete;
+
+    /** @brief Borrows a mesh that remains unmoved until the leg completes. */
+    static SweepSeed borrow(const PolyMesh &mesh) {
+      return SweepSeed(mesh, true);
+    }
+    static SweepSeed borrow(PolyMesh &&) = delete;
+    static SweepSeed borrow(const PolyMesh &&) = delete;
+
+  private:
+    friend class OpLeg;
+    const PolyMesh &mesh;
+    bool borrowed = false;
+    SweepSeed(const PolyMesh &mesh, bool borrowed)
+        : mesh(mesh), borrowed(borrowed) {}
   };
 
   /** @brief Hankin contact-angle sweep on a fixed seed. */
@@ -316,20 +334,13 @@ public:
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0),
              "OpLeg: settle frames disagree with the edge");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: edge sweep leg has an incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
+    Transients &tr = init_transients(LegKind::CONWAY_SWEEP, spec.sweep_frames,
+                                     arena, handoff, blend_fn);
 
-    clone_geometry(seed, tr.seed, arena);
-    tr.seed_ref = &tr.seed;
-    tr.seed_faces = seed.face_counts.size();
+    bind_sweep_seed(tr, seed, arena);
     tr.op = edge.op;
     tr.reverse = spec.reverse;
-    tr.sweep_frames = spec.sweep_frames;
     tr.settle_frames = spec.settle_frames;
-    tr.bank = handoff.bank;
-    tr.blend_fn = blend_fn;
 
     // Clamp both endpoints inside the topology-constant open interval; the
     // truncate upper clamp dodges the ambo short-circuit at exactly 0.5, and
@@ -358,7 +369,7 @@ public:
    * @brief Constructs a recipe-step Conway sweep leg: one primitive op swept
    * t_start -> t_end on a fixed seed, no graph edge
    * (docs/specs/opchain_morph_spec.md, "Leg kinds").
-   * @param seed Seed mesh the op sweeps on (cloned unless spec.borrow_seed).
+   * @param source Sweep mesh, cloned unless wrapped by SweepSeed::borrow().
    * @param spec Swept operator, parameter endpoints and frame count.
    * @param arena Leg arena backing the cloned seed and hoisted state.
    * @param draw Draw callback invoked once per frame.
@@ -369,7 +380,7 @@ public:
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, const ParamSweepSpec &spec, Arena &arena,
+  OpLeg(SweepSeed source, const ParamSweepSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
@@ -378,27 +389,11 @@ public:
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: param sweep leg has an incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
+    Transients &tr = init_transients(LegKind::CONWAY_SWEEP, spec.sweep_frames,
+                                     arena, handoff, blend_fn);
 
-    // Borrowed seed: the swept op reads the caller's live mesh each frame
-    // instead of a leg-local clone, dropping one full copy of the (tripled)
-    // dual-bridge seed from the persistent arena. Only legal where the source
-    // outlives the leg unmoved (the dt-bridge seed is persistent-resident and
-    // untouched until the leg completes); every other caller clones.
-    if (spec.borrow_seed) {
-      tr.seed_ref = &seed;
-    } else {
-      clone_geometry(seed, tr.seed, arena);
-      tr.seed_ref = &tr.seed;
-    }
-    tr.seed_faces = seed.face_counts.size();
+    bind_sweep_seed(tr, source, arena);
     tr.op = spec.op;
-    tr.sweep_frames = spec.sweep_frames;
-    tr.bank = handoff.bank;
-    tr.blend_fn = blend_fn;
 
     // Truncate births below T_EPS when the arrival is itself below T_EPS, so a
     // 0.01 target sweeps from a smaller positive birth instead of clamping both
@@ -461,19 +456,13 @@ public:
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: hankin sweep leg has an incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
+    Transients &tr = init_transients(LegKind::HANKIN_SWEEP, spec.sweep_frames,
+                                     arena, handoff, blend_fn);
 
     // No seed clone: the compiled hankin topology borrows the seed's vertices,
     // so the seed must outlive the leg and must not move; hankin_at reads them
     // every frame.
     tr.seed_faces = seed.face_counts.size();
-    tr.kind = LegKind::HANKIN_SWEEP;
-    tr.sweep_frames = spec.sweep_frames;
-    tr.bank = handoff.bank;
-    tr.blend_fn = blend_fn;
 
     // Hankin legs sweep the slerp fraction, not the contact angle: re-solving
     // the contact-plane intersection per frame sends star points on geodesic
@@ -566,19 +555,13 @@ public:
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(spec.bake || spec.iterations >= 1,
              "OpLeg: relax leg needs a positive iteration count");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: relax leg has an incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
+    Transients &tr = init_transients(LegKind::RELAX_SLERP, spec.sweep_frames,
+                                     arena, handoff, blend_fn);
 
     // relax_at slerps out of the seed vertices every frame, so the seed stays
     // in the leg arena; only its per-face class ids are dead here.
     clone_geometry(seed, tr.seed, arena);
     tr.seed_faces = seed.face_counts.size();
-    tr.kind = LegKind::RELAX_SLERP;
-    tr.sweep_frames = spec.sweep_frames;
-    tr.bank = handoff.bank;
-    tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
     tr.t_end = 1.0f;
 
@@ -642,15 +625,9 @@ public:
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: medial leg has an incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
+    Transients &tr = init_transients(LegKind::MEDIAL_SLERP, spec.sweep_frames,
+                                     arena, handoff, blend_fn);
 
-    tr.kind = LegKind::MEDIAL_SLERP;
-    tr.sweep_frames = spec.sweep_frames;
-    tr.bank = handoff.bank;
-    tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
     tr.t_end = 1.0f;
 
@@ -740,15 +717,9 @@ public:
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(spec.to_positions, "OpLeg: reconcile leg carries no endpoints");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: reconcile leg has an incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
+    Transients &tr = init_transients(LegKind::MEDIAL_SLERP, spec.sweep_frames,
+                                     arena, handoff, blend_fn);
 
-    tr.kind = LegKind::MEDIAL_SLERP;
-    tr.sweep_frames = spec.sweep_frames;
-    tr.bank = handoff.bank;
-    tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
     tr.t_end = 1.0f;
 
@@ -819,17 +790,12 @@ public:
       : AnimationBase(2 * spec.gate_frames + 1, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.gate_frames >= 1, "OpLeg needs a positive gate length");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
-                 handoff.prev_faces > 0,
-             "OpLeg: gated swap leg has an incomplete palette handoff");
-    Transients &tr = bind_transients(arena);
+    Transients &tr = init_transients(LegKind::GATED_SWAP, spec.gate_frames,
+                                     arena, handoff, classic_blend);
 
     MeshOps::clone(seed, tr.seed, arena);
     tr.seed_faces = seed.face_counts.size();
-    tr.kind = LegKind::GATED_SWAP;
     tr.swap_op = spec.op;
-    tr.sweep_frames = spec.gate_frames;
-    tr.bank = handoff.bank;
 
     init_gated(handoff, bookend, arena);
     seal_transients();
@@ -1107,6 +1073,32 @@ private:
     BlendWeightFn blend_fn = classic_blend;  /**< Swept crossfade curve. */
     Landing landing; /**< Arrival data exposed to the effect. */
   };
+
+  HS_COLD_MEMBER Transients &init_transients(LegKind kind, int sweep_frames,
+                                             Arena &arena,
+                                             const PaletteHandoff &handoff,
+                                             BlendWeightFn blend_fn) {
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+                 handoff.prev_faces > 0,
+             "OpLeg: incomplete palette handoff");
+    Transients &tr = bind_transients(arena);
+    tr.kind = kind;
+    tr.sweep_frames = sweep_frames;
+    tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
+    return tr;
+  }
+
+  HS_COLD_MEMBER static void bind_sweep_seed(Transients &tr, SweepSeed source,
+                                             Arena &arena) {
+    if (source.borrowed) {
+      tr.seed_ref = &source.mesh;
+    } else {
+      clone_geometry(source.mesh, tr.seed, arena);
+      tr.seed_ref = &tr.seed;
+    }
+    tr.seed_faces = source.mesh.face_counts.size();
+  }
 
   HS_COLD_MEMBER static const uint8_t *
   dual_closing_palettes(const PolyMesh &dual, const PaletteHandoff &handoff,
