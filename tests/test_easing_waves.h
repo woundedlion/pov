@@ -102,6 +102,14 @@ inline void test_easing_endpoints() {
  *          behavior; expo/elastic overshoot, so they get finiteness only.
  */
 inline void test_easing_finite_and_monotone() {
+  HS_EXPECT_NEAR(ease_in_out_cubic(0.25f), 0.0625f, 1e-5f);
+  HS_EXPECT_NEAR(ease_in_out_sin(0.25f), 0.1464466094f, 1e-5f);
+  HS_EXPECT_NEAR(ease_in_sin(0.25f), 0.0761204675f, 1e-5f);
+  HS_EXPECT_NEAR(ease_out_sin(0.25f), 0.3826834324f, 1e-5f);
+  HS_EXPECT_NEAR(ease_in_cubic(0.25f), 0.015625f, 1e-5f);
+  HS_EXPECT_NEAR(ease_out_cubic(0.25f), 0.578125f, 1e-5f);
+  HS_EXPECT_NEAR(ease_in_circ(0.25f), 0.0317541634f, 1e-5f);
+  HS_EXPECT_NEAR(ease_out_circ(0.25f), 0.6614378278f, 1e-5f);
   check_curve(ease_in_out_cubic, true, "ease_in_out_cubic");
   check_curve(ease_in_out_sin, true, "ease_in_out_sin");
   check_curve(ease_in_sin, true, "ease_in_sin");
