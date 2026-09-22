@@ -78,6 +78,8 @@ inline bool check_one(const char *, FieldCoverage &coverage) {
   }
   HS_EXPECT_EQ(views.size(), n);
   HS_EXPECT_EQ(values.size(), n);
+  if (views.size() != n || values.size() != n)
+    return false;
 
   // For every i, name/value/type from the independent passes must match the
   // source param.
@@ -143,6 +145,8 @@ inline bool check_one(const char *, FieldCoverage &coverage) {
   std::vector<hs_wasm::ParamView> views2;
   hs_wasm::collect_param_views(effect, views2);
   HS_EXPECT_EQ(views2.size(), views.size());
+  if (views2.size() != views.size())
+    return false;
   HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
   for (size_t k = 0; k < views2.size(); ++k)
     HS_EXPECT_EQ(std::string_view(views2[k].name),

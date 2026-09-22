@@ -203,6 +203,8 @@ inline void test_fixed_preset_ids() {
         6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
         13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
     HS_EXPECT_EQ(harmonics->preset_count, 24u);
+    if (harmonics->preset_count != EXPECTED_MODES.size())
+      return;
     for (size_t index = 0; index < harmonics->preset_count; ++index) {
       const auto [l, m] = SHMath::decode_lm(EXPECTED_MODES[index]);
       char expected[24];

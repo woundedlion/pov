@@ -1163,6 +1163,7 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
 
   constexpr int H = 144;
   const size_t F = mesh.num_faces();
+  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, F);
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
@@ -1189,6 +1190,11 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
     // turning within a hair of TURN_EPS_SQ reads convex on the class
     // representative and concave on a congruent member's own projection.
     const MeshOps::FaceClassRec &rec = bake.face_recs[f];
+    if (rec.class_id != MeshOps::NO_CLASS) {
+      HS_EXPECT_LT(rec.class_id, bake.classes.size());
+      if (rec.class_id >= bake.classes.size())
+        return;
+    }
     if (rec.class_id != MeshOps::NO_CLASS && bake.classes[rec.class_id].concave)
       HS_EXPECT_FALSE(face.convex);
     ++checked;

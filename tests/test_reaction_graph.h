@@ -374,6 +374,9 @@ inline void test_edge_reciprocity_high() {
       int16_t ni = neighbors[i][k];
       if (ni < 0)
         continue;
+      HS_EXPECT_LT(ni, RD_N);
+      if (ni >= RD_N)
+        return;
       ++total;
       for (int j = 0; j < RD_K; ++j) {
         if (neighbors[ni][j] == i) {
