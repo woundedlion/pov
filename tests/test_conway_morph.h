@@ -51,6 +51,21 @@
 namespace hs_test {
 namespace conway_morph_tests {
 
+template <typename Mesh>
+concept BorrowableSweepSeed = requires(Mesh &&mesh) {
+  Animation::OpLeg::SweepSeed::borrow(std::forward<Mesh>(mesh));
+};
+
+static_assert(std::is_constructible_v<Animation::OpLeg::SweepSeed, PolyMesh &>);
+static_assert(
+    !std::is_constructible_v<Animation::OpLeg::SweepSeed, PolyMesh &&>);
+static_assert(
+    !std::is_constructible_v<Animation::OpLeg::SweepSeed, const PolyMesh &&>);
+static_assert(BorrowableSweepSeed<PolyMesh &>);
+static_assert(BorrowableSweepSeed<const PolyMesh &>);
+static_assert(!BorrowableSweepSeed<PolyMesh>);
+static_assert(!BorrowableSweepSeed<const PolyMesh>);
+
 inline uint8_t morph_target_buf[256 * 1024]; /**< Op output arena. */
 inline uint8_t morph_temp_buf[256 * 1024];   /**< Op scratch arena. */
 inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
@@ -2969,13 +2984,12 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
                                    .correspondence =
                                        OpLeg::FaceCorrespondence::DUAL_CLOSING};
     OpLeg::BookendClasses bookend3{.topology = D.topology.data(), .faces = DF};
-    OpLeg leg3(D,
+    OpLeg leg3(OpLeg::SweepSeed::borrow(D),
                OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
                                      .t_start = 0.5f,
                                      .t_end = 0.0f,
                                      .sweep_frames = SWEEP,
-                                     .bridge_provenance = true,
-                                     .borrow_seed = true},
+                                     .bridge_provenance = true},
                leg, cb, handoff3, bookend3);
     const OpLeg::Landing &landing3 = leg3.landing();
     HS_EXPECT_EQ(landing3.faces, nf);

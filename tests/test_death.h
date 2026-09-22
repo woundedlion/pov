@@ -4932,18 +4932,18 @@ inline const Case *all_cases(int &n) {
       {"opleg_incomplete_palette_handoff",
        case_opleg_incomplete_palette_handoff, "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
-       "OpLeg: param sweep leg has an incomplete palette handoff"},
+       "OpLeg: incomplete palette handoff"},
       {"opleg_edge_settle_mismatch", case_opleg_edge_settle_mismatch, "opleg.h",
        "(spec.settle_frames >= 0 && edge.settle == (spec.settle_frames > 0)) "
        "OpLeg: settle frames disagree with the edge"},
       {"opleg_edge_sweep_incomplete_handoff",
        case_opleg_edge_sweep_incomplete_handoff, "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
-       "OpLeg: edge sweep leg has an incomplete palette handoff"},
+       "OpLeg: incomplete palette handoff"},
       {"opleg_hankin_incomplete_handoff", case_opleg_hankin_incomplete_handoff,
        "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
-       "OpLeg: hankin sweep leg has an incomplete palette handoff"},
+       "OpLeg: incomplete palette handoff"},
       {"opleg_hankin_backward_theta", case_opleg_hankin_backward_theta,
        "opleg.h",
        "(spec.theta_start <= spec.theta_end) OpLeg: hankin leg sweeps back to "
@@ -4954,11 +4954,11 @@ inline const Case *all_cases(int &n) {
       {"opleg_relax_incomplete_handoff", case_opleg_relax_incomplete_handoff,
        "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
-       "OpLeg: relax leg has an incomplete palette handoff"},
+       "OpLeg: incomplete palette handoff"},
       {"opleg_medial_incomplete_handoff", case_opleg_medial_incomplete_handoff,
        "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
-       "OpLeg: medial leg has an incomplete palette handoff"},
+       "OpLeg: incomplete palette handoff"},
       {"opleg_reconcile_no_endpoints", case_opleg_reconcile_no_endpoints,
        "opleg.h",
        "(spec.to_positions) OpLeg: reconcile leg carries no "
@@ -4966,14 +4966,14 @@ inline const Case *all_cases(int &n) {
       {"opleg_reconcile_incomplete_handoff",
        case_opleg_reconcile_incomplete_handoff, "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
-       "OpLeg: reconcile leg has an incomplete palette handoff"},
+       "OpLeg: incomplete palette handoff"},
       {"opleg_gated_swap_zero_gate_frames",
        case_opleg_gated_swap_zero_gate_frames, "opleg.h",
        "(spec.gate_frames >= 1) OpLeg needs a positive gate length"},
       {"opleg_gated_swap_incomplete_handoff",
        case_opleg_gated_swap_incomplete_handoff, "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
-       "OpLeg: gated swap leg has an incomplete palette handoff"},
+       "OpLeg: incomplete palette handoff"},
       {"opleg_shading_face_out_of_range", case_opleg_shading_face_out_of_range,
        "opleg.h", "(face < faces) OpLeg::Shading: ramp face out of range"},
       {"pullback_operator_invalid_coverage_mode",
