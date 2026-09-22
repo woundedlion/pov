@@ -1685,6 +1685,8 @@ inline void test_gs_dissolve_frontier_fades_before_clear() {
   }
   HS_EXPECT(cleared >= 0 && fading >= 0,
             "dissolve probe did not find clear and fade nodes");
+  if (cleared < 0 || fading < 0)
+    return;
   GSWhiteBox::set_node(gs, cleared, 0, 65535);
   GSWhiteBox::set_node(gs, fading, 0, 65535);
   GSWhiteBox::convert(gs, phase, seed);
