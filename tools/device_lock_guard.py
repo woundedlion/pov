@@ -85,4 +85,9 @@ def update_claim(directory, operation, value):
 if __name__ == "__main__":
     operation, directory = sys.argv[1:3]
     value = sys.stdin.read() if operation == "claim" else sys.argv[3]
-    sys.exit(0 if update_claim(directory, operation, value) else 1)
+    try:
+        result = update_claim(directory, operation, value)
+    except Exception as error:
+        print(f"device: lock guard failed: {error}", file=sys.stderr)
+        sys.exit(2)
+    sys.exit(0 if result else 1)
