@@ -1764,6 +1764,35 @@ render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
  * generic AntiAlias pipeline across poles, seams, clips and random splats, and
  * that every clip case deposits samples into the frame it compares.
  */
+inline void test_direct_antialias_sink_stale_clip() {
+  constexpr int W = 17, H = 9;
+  hs_test::StubEffect fx(W, H);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  const ::Pixel *original = nullptr;
+  {
+    Canvas cv(fx);
+    sink.prepare(cv);
+    original = cv.data();
+    HS_EXPECT_TRUE(sink.prepared_for(cv));
+  }
+  fx.advance_display();
+  {
+    Canvas cv(fx);
+    HS_EXPECT_NE(cv.data(), original);
+    HS_EXPECT_FALSE(sink.prepared_for(cv));
+  }
+  fx.advance_display();
+  fx.set_clip(2, H - 2, 2, W - 2);
+  {
+    Canvas cv(fx);
+    HS_EXPECT_EQ(cv.data(), original);
+    HS_EXPECT_FALSE(sink.prepared_for(cv));
+    sink.prepare(cv);
+    HS_EXPECT_TRUE(sink.prepared_for(cv));
+  }
+  fx.advance_display();
+}
+
 inline void test_direct_antialias_sink_framebuffer_parity() {
   constexpr int W = 17;
   constexpr int H = 9;
@@ -3713,6 +3742,7 @@ inline int run_filter_tests() {
   test_pipeline_2d_into_3d_head_roundtrips();
   test_pipeline_screen_antialias_routes_to_sink();
   test_direct_antialias_sink_framebuffer_parity();
+  test_direct_antialias_sink_stale_clip();
   test_feedback_flush_blends_prev_frame();
   test_feedback_north_pole_uses_single_physical_sample();
   test_feedback_south_pole_uses_single_physical_sample();
