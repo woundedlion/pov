@@ -55,6 +55,7 @@ constexpr pov::sync::Config show_config() {
   auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W,
                                         HS_PHANTASM_EFFECT_COUNT);
   cfg.effect_revolutions = EFFECT_REVOLUTIONS;
+  cfg.effect_revolutions_count = std::size(EFFECT_REVOLUTIONS);
   return cfg;
 }
 
