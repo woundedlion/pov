@@ -24,56 +24,45 @@ KICAD_CLI_PATTERNS = (
 )
 
 
-def kicad_cli_major(path):
-    """Major version of the kicad-cli at `path`, or None if unreadable.
+KICAD_VERSION = "10.0.4"
 
-    Stock Windows installs carry the version in the path; the Unix ones do not,
-    so those are asked directly.
-    """
-    major = sexp.kicad_version_key(path)[0]
-    if major:
-        return major
+
+def kicad_cli_version(path):
+    """Full reported KiCad release, or None when the binary cannot be queried."""
     try:
         reported = subprocess.run([path, "--version"], capture_output=True,
                                   text=True, check=True).stdout
     except (OSError, subprocess.SubprocessError):
         return None
-    found = re.search(r"(\d+)\.\d+", reported)
-    return int(found.group(1)) if found else None
+    found = re.search(r"(\d+\.\d+\.\d+)", reported)
+    return found.group(1) if found else None
 
 
 def find_kicad_cli():
-    """Path to kicad-cli: $KICAD_CLI, else a KICAD_MAJOR install, else the PATH name.
-
-    Exits unless the resolved binary is KICAD_MAJOR: a newer KiCad upgrades the
-    board on open and formats the fab outputs differently. The PATH name is
-    checked like the rest -- it is how Homebrew, flatpak and snap installs
-    resolve, so leaving it unverified would exempt the majority of Unix
-    machines from the pin.
-    """
+    """Resolve a binary matching the exact fab-output release."""
     env = os.environ.get("KICAD_CLI")
     if env and os.path.exists(env):
-        major = kicad_cli_major(env)
-        if major == sexp.KICAD_MAJOR:
+        version = kicad_cli_version(env)
+        if version == KICAD_VERSION:
             return env
-        sys.exit(f"KICAD_CLI reports KiCad {major or 'unknown'}; the fab gates "
-                 f"require KiCad {sexp.KICAD_MAJOR}: {env}")
+        sys.exit(f"KICAD_CLI reports KiCad {version or 'unknown'}; the fab gates "
+                 f"require KiCad {KICAD_VERSION}: {env}")
     hits = [hit for pattern in KICAD_CLI_PATTERNS for hit in glob.glob(pattern)]
-    pinned = [hit for hit in hits if kicad_cli_major(hit) == sexp.KICAD_MAJOR]
+    pinned = [hit for hit in hits if kicad_cli_version(hit) == KICAD_VERSION]
     if pinned:
         return max(pinned, key=sexp.kicad_version_key)
     if hits:
-        sys.exit(f"the fab gates are pinned to KiCad {sexp.KICAD_MAJOR}, which is not "
+        sys.exit(f"the fab gates are pinned to KiCad {KICAD_VERSION}, which is not "
                  "installed\n"
                  f"  found: {', '.join(hits)}\n"
-                 f"  Install KiCad {sexp.KICAD_MAJOR} or set KICAD_CLI to its "
+                 f"  Install KiCad {KICAD_VERSION} or set KICAD_CLI to its "
                  "kicad-cli.")
-    major = kicad_cli_major("kicad-cli")
-    if major == sexp.KICAD_MAJOR:
+    version = kicad_cli_version("kicad-cli")
+    if version == KICAD_VERSION:
         return "kicad-cli"
-    sys.exit(f"kicad-cli on PATH reports KiCad {major or 'unknown'}; the fab "
-             f"gates require KiCad {sexp.KICAD_MAJOR}\n"
-             f"  Install KiCad {sexp.KICAD_MAJOR} or set KICAD_CLI to its "
+    sys.exit(f"kicad-cli on PATH reports KiCad {version or 'unknown'}; the fab "
+             f"gates require KiCad {KICAD_VERSION}\n"
+             f"  Install KiCad {KICAD_VERSION} or set KICAD_CLI to its "
              "kicad-cli.")
 
 
