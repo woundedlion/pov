@@ -39,7 +39,6 @@ inline void test_islamic_registry_arena_survey() {
       Solids::Collections::get_islamic_solids();
   std::array<Row, std::size(Solids::islamic_registry)> rows{};
   size_t n = 0;
-  const auto &peaks = conway_morph_tests::islamic_registry_chain_peaks();
 
   for (const Solids::Entry &entry : entries) {
     const Recipe *chain = entry.recipe;
@@ -47,7 +46,7 @@ inline void test_islamic_registry_arena_survey() {
     if (!chain)
       continue;
     rows[n].name = entry.name;
-    rows[n].peaks = peaks[static_cast<size_t>(&entry - entries.data())];
+    rows[n].peaks = conway_morph_tests::replay_build_chain(entry.name, *chain);
     ++n;
   }
   HS_EXPECT_EQ(n, entries.size());
