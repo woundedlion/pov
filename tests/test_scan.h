@@ -2834,17 +2834,18 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
  * @param axis Cap centre (the ring's basis axis).
  * @param thickness Cap angular radius in radians.
  * @return Stroke coverage in [0, 1]; 0 at or beyond the rim.
- * @details Mirrors SDF::Ring::distance at radius 0 op for op — the same
- * fast_acos and the same quintic — so the comparison is exact, not approximate.
+ * @details Uses double-precision trigonometry and the analytic quintic.
  */
 inline float cap_coverage(const Vector &v, const Vector &axis,
                           float thickness) {
-  const float d = dot(v, axis);
-  const float angle = fast_acos(hs::clamp(d, -1.0f, 1.0f));
-  const float sd = angle - thickness;
-  if (sd >= 0.0f || thickness <= 0.0f)
+  if (thickness <= 0.0f)
     return 0.0f;
-  return quintic_kernel(-sd / thickness);
+  const double d = static_cast<double>(v.x) * axis.x +
+                   static_cast<double>(v.y) * axis.y +
+                   static_cast<double>(v.z) * axis.z;
+  const double angle = std::acos(std::clamp(d, -1.0, 1.0));
+  const double t = std::clamp(1.0 - angle / thickness, 0.0, 1.0);
+  return static_cast<float>(t * t * t * (10.0 + t * (6.0 * t - 15.0)));
 }
 
 /**
@@ -2903,8 +2904,8 @@ inline void test_point_draws_the_analytic_cap() {
       }
     HS_EXPECT_GT(covered, (size_t)0);
     HS_EXPECT_GT(lit, (size_t)0);
-    // Blend rounding only; the coverage itself is reproduced exactly.
-    HS_EXPECT_LT(worst_value_error, 2.0f);
+    // 60000 * max(quintic derivative) * acos error / thickness, plus rounding.
+    HS_EXPECT_LT(worst_value_error, 18.0f);
   }
 }
 
