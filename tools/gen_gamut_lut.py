@@ -32,7 +32,7 @@ Usage: python tools/gen_gamut_lut.py [output_path]
        python tools/gen_gamut_lut.py --check
 
 --check regenerates the table in memory and diffs it against the committed
-header in full, pins the constants mirrored below against core/color/color.h,
+header in full, pins the constants mirrored below against core/color/color_space.h,
 pins the mirrored diamond angle against core/math/3dmath.h, and round-trips the
 angle parameterization. Wired as ctest unit_gamut_lut and CI
 gamut-lut-provenance.
@@ -78,24 +78,24 @@ BISECT_ITERS = 28
 # it. A ray that fails re-solves with the full coarse scan.
 CONNECT_CHECKS = 24
 
-# Matches core/color/color.h linear_rgb_in_gamut(). --check pins these against
+# Matches core/color/color_space.h linear_rgb_in_gamut(). --check pins these against
 # that header.
 GAMUT_EPS = 1e-4
 GAMUT_LO = -GAMUT_EPS
 GAMUT_HI = 1.0 + GAMUT_EPS
 
-# Mirrors color.h oklab_to_lms_cbrt(): (a, b) coefficients per cone row.
+# Mirrors color_space.h oklab_to_lms_cbrt(): (a, b) coefficients per cone row.
 OKLAB_TO_LMS = ((0.3963377774, 0.2158037573),
                 (-0.1055613458, -0.0638541728),
                 (-0.0894841775, -1.2914855480))
-# Mirrors color.h lms_cbrt_to_linear_rgb(): (l, m, s) coefficients per channel.
+# Mirrors color_space.h lms_cbrt_to_linear_rgb(): (l, m, s) coefficients per channel.
 LMS_TO_RGB = ((+4.0767416621, -3.3077115913, +0.2309699292),
               (-1.2684380046, +2.6097574011, -0.3413193965),
               (-0.0041960863, -0.7034186147, +1.7076147010))
 
 
 def oklab_to_lms_cbrt(L, a, b):
-    """Inverse OKLab matrix; mirrors color.h oklab_to_lms_cbrt()."""
+    """Inverse OKLab matrix; mirrors color_space.h oklab_to_lms_cbrt()."""
     l_ = L + OKLAB_TO_LMS[0][0] * a + OKLAB_TO_LMS[0][1] * b
     m_ = L + OKLAB_TO_LMS[1][0] * a + OKLAB_TO_LMS[1][1] * b
     s_ = L + OKLAB_TO_LMS[2][0] * a + OKLAB_TO_LMS[2][1] * b
@@ -103,7 +103,7 @@ def oklab_to_lms_cbrt(L, a, b):
 
 
 def lms_cbrt_to_linear_rgb(l_, m_, s_):
-    """Cube plus RGB matrix; mirrors color.h lms_cbrt_to_linear_rgb()."""
+    """Cube plus RGB matrix; mirrors color_space.h lms_cbrt_to_linear_rgb()."""
     l = l_ * l_ * l_
     m = m_ * m_ * m_
     s = s_ * s_ * s_
@@ -522,7 +522,7 @@ def check_diamond_angle_mirror(math_h_path):
 
 
 def check_mirrors(color_h_path, math_h_path):
-    """Diffs the mirrored OKLab matrices and gamut epsilon against color.h, and
+    """Diffs the mirrored OKLab matrices and gamut epsilon against color_space.h, and
     the mirrored diamond angle against 3dmath.h."""
     with open(color_h_path, "r", encoding="utf-8") as f:
         text = f.read()
@@ -564,7 +564,7 @@ def check_mirrors(color_h_path, math_h_path):
         return False
     lo, one, eps = (float(m.group(i)) for i in (1, 2, 3))
     if (lo, one + eps) != (GAMUT_LO, GAMUT_HI):
-        sys.stderr.write("gamut slack drift\n  color.h: %r %r\n  here:    %r %r\n"
+        sys.stderr.write("gamut slack drift\n  color_space.h: %r %r\n  here:    %r %r\n"
                          % (lo, one + eps, GAMUT_LO, GAMUT_HI))
         ok = False
     return check_diamond_angle_mirror(math_h_path) and ok
@@ -612,10 +612,10 @@ def main():
     parser.add_argument(
         "--check", action="store_true",
         help="diff a fresh table against the header and pin the mirrored"
-             " constants against color.h and 3dmath.h instead of writing")
+             " constants against color_space.h and 3dmath.h instead of writing")
     args = parser.parse_args()
 
-    color_h = os.path.join(root, "core", "color", "color.h")
+    color_h = os.path.join(root, "core", "color", "color_space.h")
     math_h = os.path.join(root, "core", "math", "3dmath.h")
 
     if args.check:

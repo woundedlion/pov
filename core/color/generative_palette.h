@@ -4,21 +4,14 @@
  */
 #pragma once
 
-#ifndef HS_COLOR_INTERNAL
-#error internal fragment of color.h; include "color/color.h" instead
-#endif
-
-/**
- * @file generative_palette.h
- * @brief The recipe-compiled palette core of color.h: PaletteRecipe
- *        canonicalization, GenerativePalette and the stock recipes.
- * @details A fragment of color.h, spliced in before composition.h, not a
- * standalone header. It builds on color.h's Palette interface and its
- * Pixel/Color4 and PaletteRecipe types and cannot include color.h back, because
- * color.h includes this file — the two would form an include cycle. The split
- * keeps one logical header navigable; the gate above reports a direct include
- * as a single diagnostic instead of a wall of undefined types.
+/** @file generative_palette.h
+ * @brief Recipe-compiled perceptual palettes and stock recipes.
  */
+
+#include "color/palette.h"
+#include "color/palette_recipe.h"
+#include "color/color_space.h"
+#include "math/geometry.h"
 
 /**
  * @brief A perceptual palette compiled from a PaletteRecipe.
