@@ -155,17 +155,17 @@ struct LegacyGeneratedPaletteParams {
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<LegacyGeneratedPaletteParams>{
           "palette-mode", &LegacyGeneratedPaletteParams::palette_mode,
-          PALETTE_MODE_IDS, 3, static_cast<uint8_t>(PaletteMode::TRIADIC)},
+          PALETTE_MODE_IDS, static_cast<uint8_t>(PaletteMode::TRIADIC)},
       TopologyField<LegacyGeneratedPaletteParams>{
           "palette-mapping", &LegacyGeneratedPaletteParams::mapping_mode,
-          PALETTE_MAPPING_IDS, 4,
+          PALETTE_MAPPING_IDS,
           static_cast<uint8_t>(Color::PaletteMapping::LINEAR)},
       TopologyField<LegacyGeneratedPaletteParams>{
           "hue-shift-mode", &LegacyGeneratedPaletteParams::hue_mode,
-          HUE_SHIFT_MODE_IDS, 3, static_cast<uint8_t>(HueShiftMode::NOISE)},
+          HUE_SHIFT_MODE_IDS, static_cast<uint8_t>(HueShiftMode::NOISE)},
       TopologyField<LegacyGeneratedPaletteParams>{
           "brightness-envelope", &LegacyGeneratedPaletteParams::envelope_mode,
-          BRIGHTNESS_ENVELOPE_IDS, 5, static_cast<uint8_t>(EnvelopeMode::NONE)},
+          BRIGHTNESS_ENVELOPE_IDS, static_cast<uint8_t>(EnvelopeMode::NONE)},
   };
 };
 static_assert(field_ids_unique<LegacyGeneratedPaletteParams>());
@@ -182,17 +182,17 @@ struct GeneratedPaletteParams : Color::ColorParams {
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<GeneratedPaletteParams>{
           "palette-mode", &GeneratedPaletteParams::palette_mode,
-          PALETTE_MODE_IDS, 3, static_cast<uint8_t>(PaletteMode::TRIADIC)},
+          PALETTE_MODE_IDS, static_cast<uint8_t>(PaletteMode::TRIADIC)},
       TopologyField<GeneratedPaletteParams>{
           "palette-mapping", &GeneratedPaletteParams::mapping_mode,
-          PALETTE_MAPPING_IDS, 4,
+          PALETTE_MAPPING_IDS,
           static_cast<uint8_t>(Color::PaletteMapping::LINEAR)},
       TopologyField<GeneratedPaletteParams>{
           "hue-shift-mode", &GeneratedPaletteParams::hue_mode,
-          HUE_SHIFT_MODE_IDS, 3, static_cast<uint8_t>(HueShiftMode::NOISE)},
+          HUE_SHIFT_MODE_IDS, static_cast<uint8_t>(HueShiftMode::NOISE)},
       TopologyField<GeneratedPaletteParams>{
           "brightness-envelope", &GeneratedPaletteParams::envelope_mode,
-          BRIGHTNESS_ENVELOPE_IDS, 5, static_cast<uint8_t>(EnvelopeMode::NONE)},
+          BRIGHTNESS_ENVELOPE_IDS, static_cast<uint8_t>(EnvelopeMode::NONE)},
   };
 };
 static_assert(field_ids_unique<GeneratedPaletteParams>());

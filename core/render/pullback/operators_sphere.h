@@ -34,11 +34,11 @@ struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlDisplaceParams>{
-          "basis", &CurlDisplaceParams::basis, NOISE_BASIS_IDS, 3,
+          "basis", &CurlDisplaceParams::basis, NOISE_BASIS_IDS,
           static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
       TopologyField<CurlDisplaceParams>{
           "integrator", &CurlDisplaceParams::integrator, SURFACE_INTEGRATOR_IDS,
-          3, static_cast<uint8_t>(Surface::Integrator::EULER)},
+          static_cast<uint8_t>(Surface::Integrator::EULER)},
   };
 };
 static_assert(field_ids_unique<CurlDisplaceParams>());
@@ -88,7 +88,7 @@ struct DirectDisplaceParams : Surface::DirectSurfaceParams {
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<DirectDisplaceParams>{
-          "basis", &DirectDisplaceParams::basis, NOISE_BASIS_IDS, 3,
+          "basis", &DirectDisplaceParams::basis, NOISE_BASIS_IDS,
           static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
   };
 };
@@ -289,7 +289,7 @@ struct KaleidoscopeChainParams {
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<KaleidoscopeChainParams>{
           "symmetry", &KaleidoscopeChainParams::symmetry,
-          KALEIDOSCOPE_SYMMETRY_IDS, 9,
+          KALEIDOSCOPE_SYMMETRY_IDS,
           static_cast<uint8_t>(KaleidoscopeSymmetry::AZIMUTHAL)},
   };
 };
