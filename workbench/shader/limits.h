@@ -92,6 +92,8 @@ inline constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
 
 inline constexpr float lens_domain_linear_scale(SurfaceLens lens) {
   switch (lens) {
+  case SurfaceLens::COUNT:
+    break;
   case SurfaceLens::KALEIDOSCOPE:
     return 1.0f;
   case SurfaceLens::KALEIDOSCOPE_TETRAHEDRAL:

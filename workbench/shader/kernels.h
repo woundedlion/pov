@@ -369,6 +369,8 @@ HS_FLASH_MEMBER inline PlanarWarpStageResult warp_stage_lookup(
       warp_envelope(provenance, spec.envelope, params.edge_width);
   const float amplitude = params.strength * envelope;
   switch (spec.kind) {
+  case WarpStageKind::COUNT:
+    break;
   case WarpStageKind::NONE:
   case WarpStageKind::LEGACY_STEREO_NOISE:
     break;
@@ -703,6 +705,8 @@ sample_hue_rotation_lut(const PreparedHueRotation &prepared, float value,
 HS_FLASH_MEMBER inline Vector apply_lens(const Vector &v,
                                          const FrameState &frame) {
   switch (frame.slots.surface_lens) {
+  case SurfaceLens::COUNT:
+    break;
   case SurfaceLens::NONE:
   case SurfaceLens::GLITCH:
   case SurfaceLens::TWIST:
@@ -778,6 +782,8 @@ HS_FLASH_MEMBER inline Vector apply_surface_noise(const Vector &v,
 __attribute__((always_inline)) inline Vector
 apply_frame_free_lens(const Vector &v, SurfaceLens lens) {
   switch (lens) {
+  case SurfaceLens::COUNT:
+    break;
   case SurfaceLens::NONE:
     return v;
   case SurfaceLens::GLITCH:
