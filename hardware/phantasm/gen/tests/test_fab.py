@@ -126,6 +126,21 @@ class ViaGeometryTests(unittest.TestCase):
         )
         self.assertEqual(self.validate_source(source), 2)
 
+    def test_accepts_root_sheet_aliases_of_the_same_via_net(self):
+        root = fab.sexp.parse_one(
+            '(kicad_pcb '
+            '(via (at 1 2) (size 0.45) (drill 0.20) (net "/GND")) '
+            '(via (at 1.48 2) (size 0.45) (drill 0.20) (net "GND")))')
+        self.assertEqual(fab.validate_via_geometry("fixture", min_vias=0, board=root), 2)
+
+    def test_rejects_close_unnamed_vias(self):
+        root = fab.sexp.parse_one(
+            '(kicad_pcb '
+            '(via (at 1 2) (size 0.45) (drill 0.20) (net 0)) '
+            '(via (at 1.48 2) (size 0.45) (drill 0.20) (net 0)))')
+        with self.assertRaises(fab.ViaGeometryError):
+            fab.validate_via_geometry("fixture", min_vias=0, board=root)
+
     def test_rejects_close_via_copper_on_different_nets(self):
         source = (
             "(kicad_pcb "
