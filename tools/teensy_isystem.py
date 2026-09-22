@@ -32,16 +32,21 @@ Import("env", "projenv")  # noqa: F821  (SCons globals injected by PlatformIO)
 
 # A path is third-party if it lives under PlatformIO's libdeps or packages trees.
 # The repo's own include dirs (., core, effects, hardware) match none of these.
-_THIRD_PARTY_MARKERS = (
-    os.sep + ".pio" + os.sep,        # .pio/libdeps/<env>/FastLED/src
-    os.sep + ".platformio" + os.sep, # ~/.platformio/packages/framework-arduinoteensy/...
-    os.sep + "packages" + os.sep,    # PLATFORMIO_CORE_DIR override that relocates packages/
+_THIRD_PARTY_ROOTS = tuple(
+    os.path.normcase(os.path.realpath(env.subst(variable)))  # noqa: F821
+    for variable in ("$PROJECT_PACKAGES_DIR", "$PROJECT_LIBDEPS_DIR")
 )
 
 
 def _is_third_party(path):
-    norm = os.sep + os.path.normpath(path).strip(os.sep) + os.sep
-    return any(marker in norm for marker in _THIRD_PARTY_MARKERS)
+    norm = os.path.normcase(os.path.realpath(path))
+    for root in _THIRD_PARTY_ROOTS:
+        try:
+            if os.path.commonpath((norm, root)) == root:
+                return True
+        except ValueError:
+            pass
+    return False
 
 
 def _demote_includes(build_env):
@@ -72,7 +77,7 @@ def _demote_includes(build_env):
 if not sum(_demote_includes(build_env) for build_env in (projenv, env)):
     raise SystemExit(
         "teensy_isystem: demoted 0 third-party include dirs — no CPPPATH entry "
-        "matched " + ", ".join(_THIRD_PARTY_MARKERS) + "; the vendored-path "
+        "matched " + ", ".join(_THIRD_PARTY_ROOTS) + "; the vendored-path "
         "markers no longer match PlatformIO's layout.")
 
 # 2. Library builders: their own source is third-party; disable its warnings.
