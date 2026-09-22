@@ -29,7 +29,7 @@ the fabrication source of truth and has no unconnected pads.
 | `phantasm.kicad_pcb` | Completed routed PCB with validated placement, control routing, planes, mounting, and service clearances |
 | `quilter_incremental/` | Historical protected input snapshot used for the completed control-net routing — written by `gen/make_quilter_incremental.py`, which now refuses to run because the board is routed |
 | `unplaced/phantasm_unplaced.kicad_pcb` | **4-layer** (SIG/GND/GND/SIG) outline + net-assigned footprints **staged below the board, unrouted** — for an autoplacer (Quilter). Stackup encoded in-file. A KiCad GUI re-save; `python gen/pcb.py --unplaced --force` regenerates it and discards that re-save |
-| `unplaced/phantasm_unplaced.kicad_pro` | **Captured artifact — no generator writes it.** Quilter-facing DRC rules and net class for the unplaced board, wider than the routed project's. Pinned by `gen/constraints.py` (`UNPLACED_RULES`, `UNPLACED_DEFAULT_CLASS`) and `gen/tests/test_constraints.py`; restore from those if it is ever lost |
+| `unplaced/phantasm_unplaced.kicad_pro` | Quilter-facing DRC rules and net class, wider than the routed project's. `pcb.py --unplaced` generates or updates its output project from `gen/constraints.py` (`UNPLACED_RULES`, `UNPLACED_DEFAULT_CLASS`) plus new-layout mask and silk floors |
 | `phantasm.kicad_sym` | Project symbol library: custom `Teensy4.0` + `+5V_RAW/+5V_LOGIC` power symbols |
 | `phantasm.pretty/` | Project footprint library: generated `Teensy4.0` footprint (2×14 0.1″ THT) |
 | `sym-lib-table` / `fp-lib-table` | Register the `phantasm` symbol / footprint libraries |
@@ -38,6 +38,39 @@ the fabrication source of truth and has no unconnected pads.
 Open `phantasm.kicad_pro` in KiCad 10. Stock symbols/footprints come from the
 standard KiCad libraries; the custom Teensy + power symbols and the Teensy
 footprint come from the project `phantasm.kicad_sym` / `phantasm.pretty`.
+
+## DFM defaults and corrected geometry
+
+`gen/pcb.py` emits the corrected routed board's solder-mask settings: a
+**0.10 mm minimum mask web**, no mask bridges within footprints, and vias
+**tented on both sides**. Pad mask expansion remains **0 mm**, matching the
+accepted fabrication source. `gen/fab.py` checks these settings before any
+export and rejects individual vias that disable tenting.
+
+New projects from `gen/board.py` also set **0.15 mm silkscreen clearance** and
+**0.10 mm solder-mask-to-copper clearance**, with silk over exposed copper an
+error. The July 28 JLCDFM reports show the silk-to-pad minimum improving from
+0.03 to 0.17 mm and the mask-to-trace minimum from 0.07 to 0.10 mm. Deliberate
+schematic or PCB regeneration merges these floors into its output project,
+preserving stricter values and unrelated settings. Unplaced generation also
+writes or updates its own project with the wider unplaced constraints. Reading
+or exporting the accepted board does not change its project. The shared rule
+checks and `heal_clearance.py`
+preserve its **0.1016 mm hole clearance** floor; the unplaced project's floor
+is **0.25 mm**.
+
+The corrected placement and routing remain in `phantasm.kicad_pcb`; use
+`gen/make_quilter_incremental.py` to carry them into a routing job. A fresh
+`gen/pcb.py` run creates a placement draft: it reserves space for reference
+labels, keeps the back legend between the Teensy's pad rows, and separates
+the connector labels from their outlines. Footprints that differ from the
+captured fixed layout (the keyed inlet and hand-solder resistor lands) are
+staged for placement instead of locked at incompatible coordinates. It does
+not reconstruct routing or the four widened resistor lands. Its clearances
+still need checking after placement and routing. The final saved JLCDFM
+report retains pad-spacing dangers and annular-ring, mask-expansion, and
+silkscreen warnings, so reproducing the accepted board is not a claim of
+zero JLCDFM findings. Run KiCad DRC and JLCDFM on every new routed package.
 
 ## Validation
 

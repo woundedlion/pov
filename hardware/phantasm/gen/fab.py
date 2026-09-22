@@ -36,7 +36,7 @@ import check as netlist_spec
 import sexp
 from connectivity import footprint_reference
 from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
-                         EXCLUDE_VAL_SUBSTR, RULE_MINIMUMS)
+                         EXCLUDE_VAL_SUBSTR, MIN_SOLDER_MASK_WEB_MM, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
 from kicad_common import F, is_copper_pour, kicad_cli
 
@@ -959,6 +959,39 @@ def read_board(pcb_path, error=BoardReadError, what="board"):
         raise error(f"cannot read {what}: {pcb_path}") from exc
 
 
+class SolderMaskError(ValueError):
+    pass
+
+
+def validate_solder_mask(pcb_path, board=None):
+    """Require the corrected board's mask web and tented via defaults."""
+    root = board if board is not None else read_board(
+        pcb_path, SolderMaskError, "PCB solder mask")
+    setups = F(root, "setup")
+    if len(setups) != 1:
+        raise SolderMaskError(f"{pcb_path}: expected one PCB setup")
+    setup = setups[0]
+    diagnostics = []
+    try:
+        width = float(sexp.val(setup, "solder_mask_min_width", [0])[0])
+    except (ValueError, TypeError, IndexError):
+        width = float("nan")
+    if not math.isfinite(width) or width < MIN_SOLDER_MASK_WEB_MM:
+        diagnostics.append(f"solder mask web must be at least {MIN_SOLDER_MASK_WEB_MM:g} mm")
+    if sexp.val(setup, "allow_soldermask_bridges_in_footprints", []) != ["no"]:
+        diagnostics.append("solder mask bridges within footprints must be disabled")
+    for node in [setup] + F(root, "via"):
+        tenting = F(node, "tenting")
+        if not tenting and node is not setup:
+            continue
+        for side in ("front", "back"):
+            value = sexp.val(tenting[0], side, []) if tenting else []
+            if value == ["no"] or (node is setup and value != ["yes"]):
+                diagnostics.append(f"{node[0]}: {side} via tenting must be enabled")
+    if diagnostics:
+        raise SolderMaskError(f"{pcb_path}: " + "; ".join(diagnostics))
+
+
 def validate_plot_origin(pcb_path, board=None):
     """Return the board plot origin, or raise unless it is absolute (0, 0).
 
@@ -1237,13 +1270,18 @@ def main():
         board = read_board(PCB)
     except BoardReadError as exc:
         sys.exit(str(exc))
-    print("[1/9] Plot origin")
+    print("[1/9] Plot origin + solder mask")
     try:
         validate_plot_origin(PCB, board=board)
     except PlotOriginError as exc:
         sys.exit(str(exc))
     print("  plot origin: absolute board coordinates for gerbers, drill, "
           "and centroid")
+    try:
+        validate_solder_mask(PCB, board=board)
+    except SolderMaskError as exc:
+        sys.exit(str(exc))
+    print(f"  solder mask: {MIN_SOLDER_MASK_WEB_MM:g} mm minimum web; vias tented on both sides")
     print("[2/9] Via geometry")
     try:
         num_vias = validate_via_geometry(PCB, board=board)

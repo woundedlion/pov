@@ -27,7 +27,8 @@ import board    # noqa: E402
 import builder  # noqa: E402
 import sexp     # noqa: E402
 import shorts   # noqa: E402
-from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS  # noqa: E402
+from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES,  # noqa: E402
+                         RULE_MINIMUMS)
 from kicad_common import F  # noqa: E402
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
@@ -125,7 +126,8 @@ class BoardEntryPointTests(unittest.TestCase):
 class ProjectSeedTests(unittest.TestCase):
     def test_uses_all_fabrication_rule_minimums(self):
         project = json.loads(board.project_seed("root-uuid"))
-        self.assertEqual(project["board"]["design_settings"]["rules"], RULE_MINIMUMS)
+        self.assertEqual(project["board"]["design_settings"]["rules"],
+                         {**RULE_MINIMUMS, **NEW_LAYOUT_RULES})
         default = project["net_settings"]["classes"][0]
         for field, minimum in DEFAULT_CLASS_MINIMUMS.items():
             with self.subTest(field=field):
@@ -135,7 +137,7 @@ class ProjectSeedTests(unittest.TestCase):
         with unittest.mock.patch.dict(RULE_MINIMUMS, {"min_test_clearance": 0.4}):
             project = json.loads(board.project_seed("root-uuid"))
             self.assertEqual(project["board"]["design_settings"]["rules"],
-                             RULE_MINIMUMS)
+                             {**RULE_MINIMUMS, **NEW_LAYOUT_RULES})
 
     def test_links_the_root_sheet(self):
         project = json.loads(board.project_seed("root-uuid"))

@@ -308,14 +308,25 @@ class UnplacedBoardTests(unittest.TestCase):
 
     def test_locks_the_mechanical_placements(self):
         placed = {}
+        comps = {}
+        locked = set()
         for footprint in F(self.root, "footprint"):
+            ref = reference(footprint)
+            comps[ref] = (ref, str(footprint[1]), "", False)
+            if sexp.val(footprint, "locked", []) == ["yes"]:
+                locked.add(ref)
             at = sexp.val(footprint, "at")
-            placed[reference(footprint)] = (
+            placed[ref] = (
                 float(at[0]), float(at[1]),
                 float(at[2]) if len(at) > 2 else 0.0)
-        for ref, (x, y, rot) in pcb.QUILTER_FIXED.items():
+        fixed = pcb.fixed_placements(comps)
+        self.assertEqual(locked - {"H1", "H2", "H3", "H4"}, set(fixed))
+        for ref, (x, y, rot) in fixed.items():
             with self.subTest(ref=ref):
                 self.assertEqual(placed[ref], (float(x), float(y), float(rot)))
+        for ref in pcb.QUILTER_FIXED.keys() - fixed.keys():
+            with self.subTest(staged=ref):
+                self.assertGreater(placed[ref][1], pcb.PCB_W)
 
     def test_labels_the_id_straps_on_the_front_silkscreen(self):
         texts = [str(node[1]) for node in F(self.root, "gr_text")
