@@ -790,7 +790,7 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 
 ### Pipeline Domain Transitions
 
-The filter pipeline operates across three stage domains. Each filter declares its domain; the pipeline converts world to screen coordinates at compile time and orders the stages by domain:
+The filter pipeline operates across three stage domains. Each filter declares its domain; the pipeline selects world-to-screen conversion at compile time and requires stages in nondecreasing domain order, rejecting misordered stages with a static assertion:
 
 ```
           World Space                Screen Space             Pixel Space
