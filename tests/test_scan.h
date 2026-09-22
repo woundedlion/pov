@@ -2071,6 +2071,19 @@ inline void test_star_pixel_placement() {
   const float r_max = RADIUS * (PI_F / 2.0f);
   expect_filled_cap<W, H>(fx, /*cap_north=*/true, r_max * STAR_INNER_RATIO,
                           r_max);
+  const Basis basis = make_basis(Quaternion(), Y_AXIS);
+  const float probe_radius = r_max * 0.7f;
+  const auto probe = [&](float azimuth) {
+    const Vector direction =
+        basis.v * cosf(probe_radius) +
+        (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) *
+            sinf(probe_radius);
+    const auto pixel = vector_to_pixel<W, H>(direction);
+    return fx.get_pixel(static_cast<int>(std::round(pixel.x)) % W,
+                        static_cast<int>(std::round(pixel.y)));
+  };
+  HS_EXPECT_FALSE(is_black(probe(0.0f)));
+  HS_EXPECT_TRUE(is_black(probe(PI_F / 5.0f)));
 }
 
 /** @brief Verifies a filled PlanarPolygon caps the basis.v (+Y) pole, not the other. */
