@@ -42,6 +42,12 @@ struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
   };
 };
 static_assert(field_ids_unique<CurlDisplaceParams>());
+static_assert(sizeof(CurlDisplaceParams) ==
+                  ((sizeof(Surface::SurfaceNoiseParams) + 2 +
+                    alignof(CurlDisplaceParams) - 1) /
+                   alignof(CurlDisplaceParams)) *
+                      alignof(CurlDisplaceParams),
+              "appended parameters must not reuse base tail padding");
 static_assert(field_defaults_in_range<CurlDisplaceParams>());
 
 /** @brief The displacement operators' prepared block: the owned noise field
@@ -94,6 +100,12 @@ struct DirectDisplaceParams : Surface::DirectSurfaceParams {
   };
 };
 static_assert(field_ids_unique<DirectDisplaceParams>());
+static_assert(sizeof(DirectDisplaceParams) ==
+                  ((sizeof(Surface::DirectSurfaceParams) + 1 +
+                    alignof(DirectDisplaceParams) - 1) /
+                   alignof(DirectDisplaceParams)) *
+                      alignof(DirectDisplaceParams),
+              "appended parameters must not reuse base tail padding");
 static_assert(field_defaults_in_range<DirectDisplaceParams>());
 
 /** @brief The direct displacement's prepared block: noise field, loop point
