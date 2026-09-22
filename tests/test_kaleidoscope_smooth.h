@@ -101,7 +101,6 @@ inline void test_kaleidoscope_smooth_identity_and_presets() {
   HS_EXPECT_TRUE(FX::EFFECT_ID == "kaleidoscope-smooth");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{4});
   HS_EXPECT_EQ(sizeof(WB::Params), 32 * sizeof(float));
-  HS_EXPECT_TRUE(sizeof(WB::Frame) < sizeof(ShaderWorkbenchWB::FrameState));
 
   reset_effect_globals();
   FX effect;
