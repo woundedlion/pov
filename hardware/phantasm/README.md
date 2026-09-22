@@ -194,6 +194,17 @@ the netlist is what's verified.
 | `H1`–`H4` | — | `MountingHole:MountingHole_2.7mm_M2.5` | four NPTH rotor mounting holes |
 | `JP_SHLD/JP_ID0/JP_ID1/JP_ID2` | `Jumper:SolderJumper_2_Open` | `SolderJumper-2_P1.3mm_Open_...` | shield (master only) / ID straps (JP_ID2 read at N=8) |
 
+## Assembly polarity review
+
+`D_BUS` is polarized: its cathode band must face pad 1 (`SYNC_BUS`), aligned
+with the silkscreen bar. On the routed board this is the end **away from
+`R_PD`, toward the board edge**; pad 2 (anode) connects to `GND`.
+`gen/fab.py` exports its committed 90-degree placement without a rotation
+correction. Check the band against pad 1 in the assembly house's final preview
+and on the assembled board; the exported angle alone does not establish the
+supplier model's polarity. A reversed `D_BUS` forward-biases during a HIGH
+sync pulse and clamps `SYNC_BUS`.
+
 ## Hand assembly (not done by the PCBA house)
 
 The assembly house reflows top-side SMD only; `gen/fab.py` excludes the Teensy,
