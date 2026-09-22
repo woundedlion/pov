@@ -85,11 +85,15 @@ struct ParamDef {
     return static_cast<float>(value);
   }
 
+private:
+  friend class ParamHost;
+
   template <typename Integer> void set_integer(float value) {
     const Integer stored = static_cast<Integer>(value);
     std::memcpy(target, &stored, sizeof(stored));
   }
 
+public:
   /** @brief Reads one value source as a float (bool maps to 0/1). */
   float get_from(const void *source) const {
     switch (target_type) {
@@ -132,15 +136,9 @@ struct ParamDef {
    */
   float get_requested() const { return get_from(target); }
 
-  /**
-   * @brief Write a float value (bool threshold at 0.5).
-   * @param v Value to store; a bool target is set true when v > 0.5.
-   * @warning Raw write: applies no readonly/finite/[min,max] gate. That
-   * contract lives solely in Effect::updateParameter — any write from outside
-   * trusted engine code must route through there, not call set() on a handle
-   * from ParamList::find().
-   */
-  void set(float v) {
+private:
+  /** @brief Stores an already-validated value in the target representation. */
+  void write_unchecked(float v) {
     switch (target_type) {
     case TargetType::FLOAT:
       *static_cast<float *>(target) = v;
@@ -161,10 +159,11 @@ struct ParamDef {
     case TargetType::INT_U32:
       return set_integer<uint32_t>(v);
     }
-    HS_CHECK(false, "ParamDef::set: unknown target type %u",
+    HS_CHECK(false, "ParamDef::write_unchecked: unknown target type %u",
              static_cast<unsigned>(target_type));
   }
 
+public:
   /**
    * @brief Check if this parameter targets a bool.
    * @return True if the target is a bool pointer, false if a float pointer.

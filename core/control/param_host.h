@@ -49,7 +49,7 @@ public:
     if (def == nullptr)
       return ParamSetResult::UNKNOWN_PARAM;
     // Untrusted JS boundary: reject readonly-param writes and non-finite input,
-    // and clamp floats to [min,max]. Bools are thresholded at 0.5 by set().
+    // and clamp floats to [min,max]. Bools are thresholded at 0.5 by write_unchecked().
     if (def->readonly)
       return ParamSetResult::READONLY;
     if (!std::isfinite(value))
@@ -67,11 +67,11 @@ public:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     const char *updated_name = def->name;
     const bool updated_enum = def->is_enum();
-    def->set(value);
+    def->write_unchecked(value);
     if (parameter_updated_hook != nullptr)
       parameter_updated_hook(this, updated_name, updated_enum);
 #else
-    def->set(value);
+    def->write_unchecked(value);
 #endif
     parameter_written();
     return ParamSetResult::APPLIED;
@@ -127,6 +127,11 @@ public:
   bool animations_paused() const { return anims_paused; }
 
 protected:
+  /** @brief Stores a trusted internal value without edit policy or callbacks. */
+  static void write_parameter_unchecked(ParamDef &parameter, float value) {
+    parameter.write_unchecked(value);
+  }
+
   /**
    * @brief Runs after any accepted parameter write.
    * @details Preset crossfades must stop rewriting the manually edited state.
