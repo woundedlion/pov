@@ -197,7 +197,9 @@ public:
   /**
    * @brief Invokes the callback once with this frame's eased progress.
    */
-  void advance(Canvas &) { f(easing_fn(normalized_progress())); }
+  void advance(Canvas &) {
+    f(hs::clamp(easing_fn(normalized_progress()), 0.0f, 1.0f));
+  }
 
 private:
   StepFn f;           /**< Callback invoked with eased progress. */
