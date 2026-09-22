@@ -337,6 +337,11 @@ inline void test_pipeline_sink_is_2d() {
   static_assert(!NonTerminal::is_terminal);
   static_assert(!RawFramePlotter<Terminal>);
   static_assert(!TerminalFlusher<Terminal>);
+  static_assert(!TerminalFlusher<Filter::Pixel::Feedback<32, 32>>);
+  using RetrievedFeedback = std::remove_reference_t<
+      decltype(std::declval<Terminal &>()
+                   .template get<Filter::Pixel::Feedback<32, 32>>())>;
+  static_assert(!TerminalFlusher<RetrievedFeedback>);
   static_assert(ReplacementFrameStarter<Terminal>);
   static_assert(std::is_empty_v<Prepared>);
   static_assert(Filter::PipelineFoldSurface<Prepared>);
