@@ -192,12 +192,17 @@ jobs:
           fi
           echo "All run_tests roster modules are registered in CTest."
 
-      # Surface the cache hit rate so the ccache wiring above is verified to
-      # actually fire, not just assumed. A run showing zero hits means the
-      # compiler-launcher integration regressed and the cache is dead weight.
+      # Cache misses also prove the compiler launcher is active on a cold cache.
       - name: ccache stats
         if: always()
-        run: ccache -sv
+        shell: bash
+        run: |
+          ccache -sv
+          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
+          if [ "$calls" -eq 0 ]; then
+            echo "::error::ccache recorded no cacheable compiler calls"
+            exit 1
+          fi
 
       - name: Test
         id: native_tests
@@ -311,7 +316,14 @@ jobs:
 
       - name: ccache stats
         if: always()
-        run: ccache -sv
+        shell: bash
+        run: |
+          ccache -sv
+          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
+          if [ "$calls" -eq 0 ]; then
+            echo "::error::ccache recorded no cacheable compiler calls"
+            exit 1
+          fi
 
       - name: Test
         # Deep smoke pass (see the plain tests job) so the sanitized run reaches
@@ -393,7 +405,14 @@ jobs:
 
       - name: ccache stats
         if: always()
-        run: ccache -sv
+        shell: bash
+        run: |
+          ccache -sv
+          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
+          if [ "$calls" -eq 0 ]; then
+            echo "::error::ccache recorded no cacheable compiler calls"
+            exit 1
+          fi
 
       - name: Test
         # Deep smoke window like the other jobs, so the segmented handoff walks
@@ -522,7 +541,14 @@ jobs:
 
       - name: ccache stats
         if: always()
-        run: ccache -sv
+        shell: bash
+        run: |
+          ccache -sv
+          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
+          if [ "$calls" -eq 0 ]; then
+            echo "::error::ccache recorded no cacheable compiler calls"
+            exit 1
+          fi
 
       - name: Test
         # Shard 3 covers full IEEE effects; fastmath covers shipping float flags.
