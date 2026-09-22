@@ -666,7 +666,7 @@ sequencing.
 Device fades use `F = 2` revolutions on each side of the clear interval. The
 outgoing envelope is derived from the synchronized `rev_in_effect` counter, not
 from receipt time of the EPOCH symbol: it is exactly one through the earlier
-revolutions, follows `1 - EASE_IN_OUT_SIN(progress)` over the final F
+revolutions, follows `0.5 * (1 + cos(pi * progress))` over the final F
 revolutions, and is exactly zero at boundary B. A board that accepts only a
 repeat therefore has the same envelope as a board that accepted the primary.
 
@@ -690,7 +690,7 @@ incoming effect is constructed, clipped to this segment and `draw_frame()`-ed
 inside K, then published as an (effect, build generation) pair; at the B+R+K
 deadline the ISR adopts it only if `committable()` finds that generation equal
 to the one the wire advertises, and destination identity commits with that
-adopt. The envelope then follows `EASE_IN_OUT_SIN(progress)` for F revolutions
+adopt. The envelope then follows `0.5 * (1 - cos(pi * progress))` for F revolutions
 and reaches exact one at the end.
 
 Repeated EPOCH symbols are idempotent. Losing the primary or any proper subset
