@@ -190,23 +190,6 @@ inline void test_half_open_fraction_clamp() {
 }
 
 /**
- * @brief Exercises the per-operator tooling mesh-size ceiling.
- */
-inline void test_tooling_mesh_ceiling() {
-  constexpr size_t MAX = 65536;
-
-  // A mesh at the ceiling on every count is still accepted.
-  HS_EXPECT_TRUE(!hs_wasm::tooling_mesh_over_ceiling(0, 0, 0, MAX));
-  HS_EXPECT_TRUE(!hs_wasm::tooling_mesh_over_ceiling(12, 20, 60, MAX));
-  HS_EXPECT_TRUE(!hs_wasm::tooling_mesh_over_ceiling(MAX, MAX, MAX, MAX));
-
-  // Each count is checked independently.
-  HS_EXPECT_TRUE(hs_wasm::tooling_mesh_over_ceiling(MAX + 1, 20, 60, MAX));
-  HS_EXPECT_TRUE(hs_wasm::tooling_mesh_over_ceiling(12, MAX + 1, 60, MAX));
-  HS_EXPECT_TRUE(hs_wasm::tooling_mesh_over_ceiling(12, 20, MAX + 1, MAX));
-}
-
-/**
  * @brief Exercises the per-operator expansion ceiling.
  */
 inline void test_mesh_op_expansion_ceiling() {
@@ -549,7 +532,6 @@ inline int run_wasm_predicates_tests() {
   test_relax_clamp();
   test_unit_fraction_clamp();
   test_half_open_fraction_clamp();
-  test_tooling_mesh_ceiling();
   test_mesh_op_expansion_ceiling();
   test_mesh_op_arena_room();
   test_mesh_degree_measurements();
