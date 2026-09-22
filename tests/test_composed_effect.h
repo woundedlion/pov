@@ -508,7 +508,14 @@ inline void check_preset_interpolation(const char *name) {
     for (size_t to = 0; to < FX::PRESET_IDS.size(); ++to) {
       HS_CONTEXT("preset pair", static_cast<int>(from), static_cast<int>(to));
       const Params a = preset_params_or_initial<FX>(from);
-      const Params b = preset_params_or_initial<FX>(to);
+      Params b = preset_params_or_initial<FX>(to);
+      if constexpr (FX::PRESET_IDS.size() == 1) {
+        b.color.opacity_low = a.color.opacity_low == 0.0f ? 1.0f : 0.0f;
+        HS_EXPECT_NE(a.color.opacity_low, b.color.opacity_low);
+        HS_EXPECT_NEAR(Pullback::interpolate(a, b, 0.5f).color.opacity_low,
+                       0.5f * (a.color.opacity_low + b.color.opacity_low),
+                       1e-6f);
+      }
       for (float progress : PROGRESS)
         HS_EXPECT_TRUE(FX::valid_params(Pullback::interpolate(a, b, progress)));
       verify_params_equal(Pullback::interpolate(a, b, 0.0f), a);
