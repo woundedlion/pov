@@ -12,7 +12,7 @@
 
 #include <array>
 
-#include "color/color.h"
+#include "color/generative_palette.h"
 
 /** @brief PaletteRecipe builders owned by the effects that render them. */
 namespace EffectPaletteRecipes {

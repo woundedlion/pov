@@ -6,7 +6,7 @@
 
 #include <span>
 
-#include "color/color.h"
+#include "color/color_space.h"
 #include "math/noise_field.h"
 
 /**

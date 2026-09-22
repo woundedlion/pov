@@ -66,7 +66,7 @@ class TestGamutLutMirrors(unittest.TestCase):
         self.assertIn("re-derive the mirror", error.getvalue())
 
     def test_operand_swaps_fail_the_oklab_mirror_check(self):
-        color_h = (ROOT / "core" / "color" / "color.h").read_text(
+        color_h = (ROOT / "core" / "color" / "color_space.h").read_text(
             encoding="utf-8")
         mutations = (
             ("0.3963377774f * lab.a + 0.2158037573f * lab.b",
@@ -80,7 +80,7 @@ class TestGamutLutMirrors(unittest.TestCase):
                 mutated = color_h.replace(original, replacement)
                 self.assertNotEqual(mutated, color_h)
                 with tempfile.TemporaryDirectory() as directory:
-                    path = Path(directory) / "color.h"
+                    path = Path(directory) / "color_space.h"
                     path.write_text(mutated, encoding="utf-8")
                     with contextlib.redirect_stderr(io.StringIO()):
                         result = generator.check_mirrors(path, math_h)

@@ -121,6 +121,19 @@ target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
   "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
+set(_color_header_sources)
+foreach(_header pixel palette_recipe color_space palette palette_sources
+                generative_palette composition baked_palette palette_wipe)
+  set(_source "${CMAKE_CURRENT_BINARY_DIR}/color_header_${_header}.cpp")
+  file(WRITE "${_source}" "#include \"color/${_header}.h\"\n")
+  list(APPEND _color_header_sources "${_source}")
+endforeach()
+add_library(color_header_checks OBJECT ${_color_header_sources})
+target_include_directories(color_header_checks PRIVATE ${HS_ROOT}/core)
+_hs_warnings(color_header_checks)
+add_dependencies(run_tests color_header_checks)
+
+
 # Census of the engine's HS_CHECK sites, so the death harness can print how
 # much of the fail-fast surface its cases actually pin. Generated, never
 # committed: a written-down guard list drifts away from the guards.

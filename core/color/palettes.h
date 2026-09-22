@@ -12,7 +12,8 @@
 
 #include <array>
 
-#include "color/color.h"
+#include "color/palette_sources.h"
+#include "color/baked_palette.h"
 
 /** @brief Unpacks a parenthesized coefficient triple into its three floats. */
 #define HS_PALETTE_VEC3(x, y, z) x, y, z

@@ -19,7 +19,7 @@
 #include <type_traits> // std::remove_cvref_t
 #include <utility>     // std::forward
 #include "math/3dmath.h"
-#include "color/color.h"       // Pixel
+#include "color/pixel.h"       // Pixel
 #include "platform/platform.h" // Fn
 
 struct Basis; // core/math/geometry.h; used only as const Basis* below
