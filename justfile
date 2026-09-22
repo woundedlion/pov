@@ -50,9 +50,10 @@ screenshots:
 # Native unit-test suite (Clang) + CTest at the smoke window every CI leg drives.
 # The 8-frame default arms no preset transition, so the pause, slot-reuse and
 # FIFO-expiry paths never run; pass a narrower window for a fast iteration loop.
-test $HS_SMOKE_FRAMES="120":
+test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1":
     cmake --preset tests
     cmake --build --preset tests
+    cmake --build --preset tests --target excluded_targets
     ctest --preset tests
 
 # Python, JavaScript and shell lint checks used by CI. ruff's and shellcheck's
