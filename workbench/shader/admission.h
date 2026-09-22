@@ -150,7 +150,9 @@ strict_seam_compatible(const Config &config) {
 HS_COLD_MEMBER inline constexpr bool
 valid_config(const RequestedConfig &candidate) {
   const Slots &slots = candidate.slots;
-  if (!valid_slot_enums(slots))
+  if (!valid_slot_enums(slots) ||
+      !enum_at_most(candidate.params.color.palette_mapping,
+                    Pullback::Color::PaletteMapping::REVERSE))
     return false;
   if (is_sphere_source(slots.function) &&
       (slots.warp_program.outer.kind != WarpStageKind::NONE ||
