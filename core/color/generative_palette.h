@@ -1231,7 +1231,7 @@ private:
   HS_COLD_MEMBER float diagnostic_q(float C, float boundary,
                                     float control) const {
     if (chroma_basis == ChromaBasis::LOCAL_GAMUT)
-      return control;
+      return std::min(control, headroom);
     return boundary > 0.0f ? C / boundary : control;
   }
 
