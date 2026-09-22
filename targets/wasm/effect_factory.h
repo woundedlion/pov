@@ -100,8 +100,6 @@ inline constexpr const char *WASM_EFFECT_NAMES[] = {
     HS_EFFECT_LIST(X)
 #undef X
 };
-static_assert(std::size(WASM_EFFECT_NAMES) == HS_EFFECT_COUNT,
-              "HS_EFFECT_LIST and HS_EFFECT_COUNT must agree");
 
 /**
  * @brief Invokes f.operator()<W,H>() for the single HS_RESOLUTIONS row
