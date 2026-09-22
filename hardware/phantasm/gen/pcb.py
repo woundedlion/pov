@@ -12,10 +12,12 @@ import copy
 import math
 import os
 import sys
+import board as schematic_generator
 import builder
 import check
 import sexp
-from constraints import EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR
+from constraints import (EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR,
+                         MIN_SOLDER_MASK_WEB_MM)
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable)
 
@@ -349,7 +351,33 @@ def embedded_footprint(ref, libid,
         copy.deepcopy(load_mod(libid))
     if ref == "D_BUS":
         set_d_bus_land_pattern(node)
+    position_reference(node, ref)
     return node
+
+
+def position_reference(node, ref):
+    bounds = fp_bbox(node, graphic_layers=("F.SilkS", "F.CrtYd"))
+    for prop in F(node, "property"):
+        if prop[1] != "Reference":
+            continue
+        prop[2] = ref
+        for child in prop:
+            if isinstance(child, list) and child and child[0] == "at":
+                child[1:] = [(bounds[0] + bounds[2]) / 2, bounds[1] - 0.8, 0]
+            elif isinstance(child, list) and child and child[0] == "effects":
+                child[1:] = sexp.parse_one(
+                    "(effects (font (size 0.8 0.8) (thickness 0.15)))")[1:]
+
+
+def reference_bbox(node, ref):
+    bounds = fp_bbox(node)
+    for prop in F(node, "property"):
+        if prop[1] == "Reference":
+            x, y = map(float, sexp.val(prop, "at")[:2])
+            half_width = len(ref) * 0.8 * 0.6 + 0.075
+            bounds = (min(bounds[0], x - half_width), min(bounds[1], y - 0.475),
+                      max(bounds[2], x + half_width), max(bounds[3], y + 0.475))
+    return bounds
 
 
 def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
@@ -397,6 +425,8 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
         if isinstance(c, list) and c and c[0] == "property":
             if c[1] == "Reference":
                 c[2] = ref
+                for at in F(c, "at"):
+                    at[3:] = [rot]
                 if hide_reference and not any(
                         isinstance(d, list) and d and d[0] == "hide" for d in c):
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
@@ -544,6 +574,20 @@ QUILTER_FIXED = {
     "D_BUS": (46.0, 26.5, 90),
     "R_PD": (46.0, 23.0, 90),
 }
+
+QUILTER_FIXED_FOOTPRINTS = {
+    "J1": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
+    "R1": "Resistor_SMD:R_0603_1608Metric",
+    "R2": "Resistor_SMD:R_0603_1608Metric",
+    "R_PD": "Resistor_SMD:R_0603_1608Metric",
+    "R_S": "Resistor_SMD:R_0805_2012Metric",
+}
+
+
+def fixed_placements(comps):
+    return {ref: placement for ref, placement in QUILTER_FIXED.items()
+            if ref in comps and (ref not in QUILTER_FIXED_FOOTPRINTS or
+                                 comps[ref][1] == QUILTER_FIXED_FOOTPRINTS[ref])}
 
 
 def _column_height(refs, bxs, gap):
@@ -719,15 +763,16 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     crt_bxs = {}
     for ref, (_, fp, _, _) in comps.items():
         node = embedded_footprint(ref, fp)
-        bxs[ref] = fp_bbox(node)
+        bxs[ref] = reference_bbox(node, ref)
         pad_bxs[ref] = fp_bbox(node, pads_only=True)
         crt_bxs[ref] = fp_bbox(node, graphic_layers=COURTYARD_LAYERS)
     if unplaced:
         L = QUILTER_LENGTH
+        fixed = fixed_placements(comps)
         staged = unplaced_layout(bxs, L, PCB_W)
-        PLACE = {r: QUILTER_FIXED.get(r, staged[r]) for r in bxs}
+        PLACE = {r: fixed.get(r, staged[r]) for r in bxs}
         # the staged grid sits below the outline by design; only locked parts are on it
-        bounded = [r for r in bxs if r in QUILTER_FIXED]
+        bounded = list(fixed)
         OUTFILE = UNPLACED_FILE
         NOTE = (f'PHANTASM segment board UNPLACED  -  {fmt(L)}x{fmt(PCB_W)}mm outline '
                 f'(width <={fmt(PCB_W_MAX)}mm); mechanical and signal-integrity '
@@ -757,7 +802,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     consumed = set()
     for ref, (x, y, rot) in PLACE.items():
         _, fp, val, dnp = comps[ref]
-        lock = unplaced and ref in QUILTER_FIXED
+        lock = unplaced and ref in fixed
         foot_nodes.append(embed(fp, ref, val, x, y, rot, pad_net, netid,
                                 path=paths.get(ref), locked=lock, dnp=dnp,
                                 hand_assembled=is_hand_assembled(fp, val),
@@ -767,7 +812,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     for ref, (x, y) in HOLES.items():
         foot_nodes.append(embed(MOUNTING_HOLE_FOOTPRINT, ref, "M2.5",
                                 x, y, 0, pad_net, netid, locked=unplaced,
-                                hide_reference=unplaced, consumed=consumed))
+                                hide_reference=True, consumed=consumed))
     # A netlist pin with no pad of that name would drop its connection silently;
     # refs that were never embedded drop their nets by design.
     embedded = set(PLACE) | set(HOLES)
@@ -797,6 +842,9 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     lines += [f"\t\t\t{layer}" for layer in STACKUP]
     lines.append("\t\t)")
     lines.append("\t\t(pad_to_mask_clearance 0)")
+    lines.append(f"\t\t(solder_mask_min_width {fmt(MIN_SOLDER_MASK_WEB_MM)})")
+    lines.append("\t\t(allow_soldermask_bridges_in_footprints no)")
+    lines.append("\t\t(tenting (front yes) (back yes))")
     lines.append("\t)")
     # nets
     for nm, i in sorted(netid.items(), key=lambda kv: kv[1]):
@@ -853,17 +901,17 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
         front_silk = [
-            ("S", 48.0, 11.7, 0),
-            ("G", 48.0, 14.24, 0),
-            ("H", 48.0, 16.78, 0),
-            ("S", 48.0, 20.6, 0),
-            ("G", 48.0, 23.14, 0),
-            ("H", 48.0, 25.68, 0),
-            ("SYNC IN", 52.0, 14.24, 90),
-            ("SYNC OUT", 52.0, 23.14, 90),
-            ("ID0", 53.9, 8.9, 90),
+            ("S", 52.0, 11.7, 0),
+            ("G", 52.0, 14.24, 0),
+            ("H", 52.0, 16.78, 0),
+            ("S", 52.0, 20.6, 0),
+            ("G", 52.0, 23.14, 0),
+            ("H", 52.0, 25.68, 0),
+            ("SYNC IN", 53.2, 14.24, 90),
+            ("SYNC OUT", 53.2, 23.14, 90),
+            ("ID0", 54.3, 8.9, 90),
             ("ID1", 54.3, 11.9, 90),
-            ("ID2", 54.1, 15.3, 90),
+            ("ID2", 54.3, 15.3, 90),
             ("SHLD", 54.3, 19.0, 90),
         ]
         for text, x, y, angle in front_silk:
@@ -880,8 +928,11 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("BOARD ID: ____", 23.5, 2.0),
         (SILK_REVISION, 29.5, 1.0),
     ]
-    for text, y, size in back_silk:
-        lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(L/2)} {fmt(y)} 0)'
+    legend_x, legend_y, _ = PLACE["U_MCU"]
+    for index, (text, _, size) in enumerate(back_silk):
+        y = legend_y - 5.25 + index * 1.5
+        size = min(size, 0.8)
+        lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(legend_x)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'
                      f' (thickness {fmt(max(0.15, size*0.15))})) (justify mirror)))')
@@ -909,6 +960,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
     with open(outpath, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
+    project_path = os.path.splitext(outpath)[0] + ".kicad_pro"
+    with open(SCH, encoding="utf-8") as f:
+        root_uuid = sexp.val(sexp.parse_one(f.read()), "uuid", [""])[0]
+    schematic_generator.write_project(project_path, root_uuid, unplaced=unplaced)
 
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:

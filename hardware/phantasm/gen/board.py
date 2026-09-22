@@ -14,7 +14,8 @@ import json
 import os
 import builder as B
 import sexp
-from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
+from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,
+                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
 from kicad_common import require_writable, reset_uid_sequence
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -37,7 +38,10 @@ def parse_args(argv=None):
 
 def project_seed(root_uuid):
     return json.dumps({
-        "board": {"design_settings": {"rules": dict(RULE_MINIMUMS)}},
+        "board": {"design_settings": {
+            "rules": {**RULE_MINIMUMS, **NEW_LAYOUT_RULES},
+            "rule_severities": {"silk_over_copper": "error"},
+        }},
         "boards": [],
         "cvpcb": {"equivalence_files": []},
         "libraries": {"pinned_footprint_libs": [], "pinned_symbol_libs": []},
@@ -54,6 +58,34 @@ def project_seed(root_uuid):
         "sheets": [[root_uuid, "Root"]],
         "text_variables": {},
     }, indent=2) + "\n"
+
+
+def write_project(path, root_uuid="", unplaced=False):
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as file:
+            project = json.load(file)
+    else:
+        project = json.loads(project_seed(root_uuid))
+    project.setdefault("meta", {})["filename"] = os.path.basename(path)
+    if root_uuid:
+        sheets = [entry for entry in project.get("sheets", []) if entry[1] != "Root"]
+        project["sheets"] = [[root_uuid, "Root"], *sheets]
+    settings = project.setdefault("board", {}).setdefault("design_settings", {})
+    rules = settings.setdefault("rules", {})
+    floors = UNPLACED_RULES if unplaced else RULE_MINIMUMS
+    for name, minimum in {**floors, **NEW_LAYOUT_RULES}.items():
+        rules[name] = max(rules.get(name, 0) or 0, minimum)
+    settings.setdefault("rule_severities", {})["silk_over_copper"] = "error"
+    classes = project.setdefault("net_settings", {}).setdefault("classes", [])
+    default = next((entry for entry in classes if entry.get("name") == "Default"), None)
+    if default is None:
+        default = {"name": "Default"}
+        classes.append(default)
+    for name, minimum in (UNPLACED_DEFAULT_CLASS if unplaced else
+                          DEFAULT_CLASS_MINIMUMS).items():
+        default[name] = max(default.get(name, 0) or 0, minimum)
+    with open(path, "w", encoding="utf-8", newline="\n") as file:
+        file.write(json.dumps(project, indent=2) + "\n")
 
 
 def main(force=False):
@@ -445,15 +477,8 @@ def main(force=False):
             '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.kicad_sym")'
             '(options "")(descr "PHANTASM custom symbols"))\n)\n')
 
-    # bootstrap seed only. An existing project carries the routed board's validated DRC
-    # rules (min_clearance 0.1016, min_track_width 0.13, min_copper_edge_clearance 0.3)
-    # and net classes, none of which this generator reproduces -- never overwrite it.
     PRO = os.path.join(OUT, "phantasm.kicad_pro")
-    if os.path.exists(PRO):
-        print("kept existing phantasm.kicad_pro (DRC rules preserved)")
-    else:
-        with open(PRO, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(project_seed(b.uuid))
+    write_project(PRO, b.uuid)
 
     print("wrote files  symbols:", len(b.symbols), "wires:", len(b.wires),
           "labels:", len(b.labels), "texts:", len(b.texts))

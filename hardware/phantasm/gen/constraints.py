@@ -3,23 +3,29 @@
 RULE_MINIMUMS = {
     "min_clearance": 0.1016,
     "min_copper_edge_clearance": 0.3,
+    "min_hole_clearance": 0.1016,
     "min_through_hole_diameter": 0.2,
     "min_track_width": 0.13,
     "min_via_annular_width": 0.125,
     "min_via_diameter": 0.45,
 }
 
+NEW_LAYOUT_RULES = {
+    "min_silk_clearance": 0.15,
+    "solder_mask_to_copper_clearance": 0.1,
+}
+
+MIN_SOLDER_MASK_WEB_MM = 0.1
+
 DEFAULT_CLASS_MINIMUMS = {
     "via_diameter": RULE_MINIMUMS["min_via_diameter"],
     "via_drill": 0.2,
 }
 
-# unplaced/phantasm_unplaced.kicad_pro is a captured artifact: no generator
-# writes it, and `pcb.py --unplaced` produces only the board and fp-lib-table.
-# Its constraints are wider than the routed board's; these are the values to
-# restore.
+# Quilter placement starts with wider constraints than the accepted routed board.
 UNPLACED_RULES = {
     "min_clearance": 0.2,
+    "min_hole_clearance": 0.25,
     "min_through_hole_diameter": 0.3,
     "min_via_annular_width": 0.125,
     "min_via_diameter": 0.5,
