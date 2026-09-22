@@ -183,6 +183,7 @@ report_stretch(const SDF::AngularRepeat<Shape> &shape) {
 template <typename ShapeT>
 inline constexpr bool pole_lod_blocks =
     POLE_LOD_ENABLED &&
+    SDF::reject_margin<std::remove_cvref_t<ShapeT>> > 0.0f &&
     SDF::arc_stretch<std::remove_cvref_t<ShapeT>> < SDF::ARC_STRETCH_UNBOUNDED;
 
 /**
