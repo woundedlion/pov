@@ -243,6 +243,8 @@ curl_strength_limit(const WarpStageSpec &spec, const WarpStageParams &params) {
 HS_COLD_MEMBER inline constexpr bool
 valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
   switch (spec.kind) {
+  case WarpStageKind::COUNT:
+    break;
   case WarpStageKind::NONE:
     return true;
   case WarpStageKind::LEGACY_STEREO_NOISE:
@@ -318,6 +320,8 @@ HS_COLD_MEMBER inline constexpr float
 stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
                        float input_bound, const Complex &source_period) {
   switch (spec.kind) {
+  case WarpStageKind::COUNT:
+    break;
   case WarpStageKind::NONE:
     return input_bound;
   case WarpStageKind::LEGACY_STEREO_NOISE:

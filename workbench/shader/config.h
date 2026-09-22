@@ -63,6 +63,7 @@ enum class SurfaceLens : uint8_t {
   KALEIDOSCOPE_PENTAGONAL_PRISM,
   KALEIDOSCOPE_HEXAGONAL_PRISM,
   KALEIDOSCOPE_OCTAGONAL_PRISM,
+  COUNT,
   TANGENT_NOISE = 255
 };
 enum class WarpEnvelope : uint8_t { FLAT, PROJECTION_WEIGHT, EDGE_FADE };
@@ -80,6 +81,7 @@ enum class WarpStageKind : uint8_t {
   CURL_FLOW,
   MIRROR_TILE,
   POLAR_CHART,
+  COUNT,
   LEGACY_STEREO_NOISE = 255
 };
 struct WarpStageSpec {
