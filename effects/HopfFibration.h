@@ -184,7 +184,7 @@ private:
   // at, so all of them are declared before the Timeline to outlive it.
   Orientation<> orientation;
   Timeline timeline;
-  BakedPalette baked_sunset;
+  BakedPaletteStorage baked_sunset;
 
   // AA only; trail points are oriented by hand in render_trails, so no Orient
   // filter is needed.

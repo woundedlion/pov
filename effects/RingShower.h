@@ -120,7 +120,7 @@ private:
      * @details Per-fragment lookup is then a LUT read, not a GenerativePalette
      *          OKLCH evaluation (the palette is immutable after spawn).
      */
-    BakedPalette palette;
+    BakedPaletteStorage palette;
     int age = 0; /**< Frames elapsed since (re)spawn. */
     int life =
         0; /**< Total visible frames; the slot is free once age >= life. */

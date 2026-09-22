@@ -186,10 +186,10 @@ public:
       keys[i].chroma = chroma;
   }
 
-  /** @brief True when the second half replays the first; BakedPalette::rebake
+  /** @brief True when the second half replays the first; BakedPaletteStorage::rebake
    *  bakes only the first half and mirrors it. */
   bool mirrors_domain() const { return domain == PaletteDomain::MIRROR; }
-  /** @brief True when t = 1 rejoins t = 0; BakedPalette::rebake copies entry
+  /** @brief True when t = 1 rejoins t = 0; BakedPaletteStorage::rebake copies entry
    *  zero onto the last entry so the quantized seam is exact. */
   bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
@@ -234,7 +234,7 @@ public:
    * additionally requires the same integer closing travel, or its seam breaks
    * mid-morph.
    * Incompatible palettes must transition through a baked crossfade
-   * (BakedPalette::rebake_crossfade) instead.
+   * (BakedPaletteStorage::rebake_crossfade) instead.
    */
   bool morph_compatible(const GenerativePalette &other) const {
     if (domain != other.domain || easing != other.easing ||
