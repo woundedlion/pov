@@ -1044,6 +1044,7 @@ class PackagePromotionTests(unittest.TestCase):
                 gates = {
                     "kicad_cli": "fixture-cli", "read_board": [],
                     "validate_plot_origin": None, "validate_via_geometry": 0,
+                    "validate_solder_mask": None,
                     "validate_zone_geometry": 0, "validate_project_rules": 0,
                     "run_drc": (0, 0), "run_parity": 0,
                     "validate_netlist_spec": 0, "parse_components": {},
