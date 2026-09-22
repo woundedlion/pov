@@ -18,6 +18,7 @@ import check
 import sexp
 from constraints import (EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR,
                          MIN_SOLDER_MASK_WEB_MM)
+from kicad_common import atomic_write_text
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
                           export_netlist, kicad_cli, require_writable)
 
@@ -958,8 +959,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                          flag="--force-teensy-library")
     outpath = os.path.join(OUT, OUTFILE)
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    with open(outpath, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(lines) + "\n")
+    atomic_write_text(outpath, "\n".join(lines) + "\n")
     project_path = os.path.splitext(outpath)[0] + ".kicad_pro"
     with open(SCH, encoding="utf-8") as f:
         root_uuid = sexp.val(sexp.parse_one(f.read()), "uuid", [""])[0]
@@ -967,13 +967,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
 
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:
-        with open(mod_path, "w", encoding="utf-8", newline="\n") as f:
-            f.write(mod_text)
+        atomic_write_text(mod_path, mod_text)
     fplt = os.path.join(OUT, "fp-lib-table")
     if not os.path.exists(fplt):
-        with open(fplt, "w", encoding="utf-8", newline="\n") as f:
-            f.write(
-                '(fp_lib_table\n\t(version 7)\n'
+        atomic_write_text(fplt, '(fp_lib_table\n\t(version 7)\n'
                 '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.pretty")'
                 '(options "")(descr "PHANTASM custom footprints"))\n)\n')
     print(f"wrote {OUTFILE}  footprints:{len(foot_nodes)} nets:{len(netid)} length:{L:.0f}mm")

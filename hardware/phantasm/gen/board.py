@@ -16,6 +16,7 @@ import builder as B
 import sexp
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,
                          UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
+from kicad_common import atomic_write_text
 from kicad_common import require_writable, reset_uid_sequence
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -84,8 +85,7 @@ def write_project(path, root_uuid="", unplaced=False):
     for name, minimum in (UNPLACED_DEFAULT_CLASS if unplaced else
                           DEFAULT_CLASS_MINIMUMS).items():
         default[name] = max(default.get(name, 0) or 0, minimum)
-    with open(path, "w", encoding="utf-8", newline="\n") as file:
-        file.write(json.dumps(project, indent=2) + "\n")
+    atomic_write_text(path, json.dumps(project, indent=2) + "\n")
 
 
 def main(force=False):
@@ -455,8 +455,7 @@ def main(force=False):
     flag(GND, 317.5, fy)
 
     # ---------------------------------------------------------------- write files
-    with open(SCH, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(b.dumps())
+    atomic_write_text(SCH, b.dumps())
 
     lib_lines = ['(kicad_symbol_lib', f'\t(version {sexp.SYMBOL_LIB_FORMAT})',
                  '\t(generator "phantasm-gen")',
@@ -466,14 +465,9 @@ def main(force=False):
             node = copy.deepcopy(b.lib_defs[lib_id]); node[1] = lib_id.split(":", 1)[1]
             lib_lines.append(sexp.dumps(node, indent=1))
     lib_lines.append(')')
-    with open(os.path.join(OUT, "phantasm.kicad_sym"), "w", encoding="utf-8",
-              newline="\n") as fh:
-        fh.write("\n".join(lib_lines) + "\n")
+    atomic_write_text(os.path.join(OUT, "phantasm.kicad_sym"), "\n".join(lib_lines) + "\n")
 
-    with open(os.path.join(OUT, "sym-lib-table"), "w", encoding="utf-8",
-              newline="\n") as fh:
-        fh.write(
-            '(sym_lib_table\n\t(version 7)\n'
+    atomic_write_text(os.path.join(OUT, "sym-lib-table"), '(sym_lib_table\n\t(version 7)\n'
             '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.kicad_sym")'
             '(options "")(descr "PHANTASM custom symbols"))\n)\n')
 

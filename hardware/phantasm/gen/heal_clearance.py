@@ -19,6 +19,7 @@ import argparse
 import glob
 import json
 import os
+from kicad_common import atomic_write_text
 import sys
 
 from constraints import (DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS,
@@ -92,9 +93,7 @@ def heal_project(p, dry_run=False):
             else:
                 rules[field] = minimum
         if not dry_run:
-            with open(p, "w", encoding="utf-8", newline=newline) as project_file:
-                json.dump(d, project_file, indent=2)
-                project_file.write("\n")
+            atomic_write_text(p, json.dumps(d, indent=2) + "\n", newline=newline)
         summary = ", ".join(
             f"{field} {old} -> {new}"
             for field, (old, new) in changes.items()

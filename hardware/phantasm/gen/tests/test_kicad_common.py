@@ -153,3 +153,17 @@ class RequireWritableTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AtomicWriteTests(unittest.TestCase):
+    def test_failed_replace_keeps_original(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "board.kicad_sch"
+            path.write_text("original", encoding="utf-8")
+            with mock.patch.object(kicad_common.os, "replace", side_effect=OSError("failed")):
+                with self.assertRaises(OSError):
+                    kicad_common.atomic_write_text(path, "replacement")
+            self.assertEqual(path.read_text(encoding="utf-8"), "original")
+            self.assertEqual(list(Path(directory).iterdir()), [path])
+            kicad_common.atomic_write_text(path, "complete\n")
+            self.assertEqual(path.read_bytes(), b"complete\n")

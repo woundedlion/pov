@@ -217,3 +217,20 @@ def export_netlist(kcli, sch):
     finally:
         if os.path.exists(net):
             os.remove(net)
+
+
+def atomic_write_text(path, text, newline="\n"):
+    """Replace one UTF-8 artifact only after its complete write succeeds."""
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline=newline,
+                                         dir=os.path.dirname(os.path.abspath(path)),
+                                         prefix=".kicad-write-", delete=False) as output:
+            temporary = output.name
+            output.write(text)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and os.path.exists(temporary):
+            os.unlink(temporary)
