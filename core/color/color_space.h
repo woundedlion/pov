@@ -1,0 +1,1133 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+/** @file color_space.h
+ * @brief Perceptual color spaces, gamut mapping, and blending.
+ */
+
+#include "color/pixel.h"
+#include "color/gamut_lut.h"
+#include "math/3dmath.h"
+#include "engine/memory.h"
+
+/**
+ * @brief High-precision sRGB float [0,1] -> linear float [0,1].
+ * @param s sRGB value in [0, 1].
+ * @return Linear value in [0, 1].
+ * @details Not constexpr: powf is not a constant expression. inline for ODR.
+ */
+inline float srgb_to_linear_float(float s) {
+  return (s <= 0.04045f) ? s / 12.92f : powf((s + 0.055f) / 1.055f, 2.4f);
+}
+
+/**
+ * @brief Inverse: linear float [0,1] -> sRGB float [0,1].
+ * @param l Linear value in [0, 1].
+ * @return sRGB value in [0, 1].
+ */
+inline float linear_to_srgb_float(float l) {
+  return (l <= 0.0031308f) ? l * 12.92f
+                           : 1.055f * powf(l, 1.0f / 2.4f) - 0.055f;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// OKLab / OKLCH Color Space (Björn Ottosson, 2020)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/**
+ * @brief OKLab perceptual color: lightness L and chroma axes a, b.
+ */
+struct OKLab {
+  float L, a, b;
+};
+/**
+ * @brief OKLCH polar color: lightness L, chroma C, hue h (radians).
+ */
+struct OKLCH {
+  float L, C, h;
+};
+
+/** @brief Cone-response (LMS) triple, the OKLab intermediate before the cube-root
+ *  nonlinearity. */
+struct LMS {
+  float l, m, s;
+};
+
+/** @brief Linear-RGB triple in [0,1] (may sit slightly out of gamut before
+ *  clamping). */
+struct LinRGB {
+  float r, g, b;
+};
+
+/**
+ * @brief Linear-RGB -> LMS cone response (the first OKLab matrix).
+ * @param r Linear red in [0, 1].
+ * @param g Linear green in [0, 1].
+ * @param b Linear blue in [0, 1].
+ * @return The (l, m, s) cone responses, before the cube-root nonlinearity.
+ * @details Shared by linear_rgb_to_oklab and hue_rotate; each applies its own
+ * cube-root (exact cbrtf vs fast_cbrt) then calls lms_to_oklab.
+ */
+HS_O3_FN inline LMS linear_rgb_to_lms(float r, float g, float b) {
+  return {0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b,
+          0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b,
+          0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b};
+}
+
+/**
+ * @brief Cube-rooted LMS -> OKLab (the second OKLab matrix).
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
+ * @return The color in OKLab space.
+ * @details Takes the already-cube-rooted triple so the caller picks the
+ * cube-root flavour.
+ */
+HS_O3_FN inline OKLab lms_to_oklab(float l_cbrt, float m_cbrt, float s_cbrt) {
+  return {
+      0.2104542553f * l_cbrt + 0.7936177850f * m_cbrt - 0.0040720468f * s_cbrt,
+      1.9779984951f * l_cbrt - 2.4285922050f * m_cbrt + 0.4505937099f * s_cbrt,
+      0.0259040371f * l_cbrt + 0.7827717662f * m_cbrt - 0.8086757660f * s_cbrt};
+}
+
+/**
+ * @brief Converts linear RGB [0,1] to OKLab.
+ * @param r Linear red in [0, 1].
+ * @param g Linear green in [0, 1].
+ * @param b Linear blue in [0, 1].
+ * @return The color in OKLab space.
+ */
+inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
+  LMS lms = linear_rgb_to_lms(r, g, b);
+  return lms_to_oklab(cbrtf(lms.l), cbrtf(lms.m), cbrtf(lms.s));
+}
+
+/**
+ * @brief Converts linear RGB [0,1] to OKLab through fast_cbrt.
+ * @param r Linear red in [0, 1].
+ * @param g Linear green in [0, 1].
+ * @param b Linear blue in [0, 1].
+ * @return The color in OKLab space, accurate to fast_cbrt.
+ */
+__attribute__((always_inline)) inline OKLab
+linear_rgb_to_oklab_fast(float r, float g, float b) {
+  LMS lms = linear_rgb_to_lms(r, g, b);
+  return lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+}
+
+/**
+ * @brief Converts OKLab to cube-rooted LMS (the inverse OKLab matrix).
+ * @param lab Source color in OKLab space.
+ * @param l_cbrt Out: cube-rooted l cone response.
+ * @param m_cbrt Out: cube-rooted m cone response.
+ * @param s_cbrt Out: cube-rooted s cone response.
+ */
+HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_cbrt, float &m_cbrt,
+                                       float &s_cbrt) {
+  l_cbrt = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
+  m_cbrt = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
+  s_cbrt = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
+}
+
+/**
+ * @brief Converts cube-rooted LMS to linear RGB [0,1] (cube + RGB matrix).
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
+ * @param r Out: linear red (may exit gamut before clamping).
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ */
+HS_O3_FN
+inline void lms_cbrt_to_linear_rgb(float l_cbrt, float m_cbrt, float s_cbrt,
+                                   float &r, float &g, float &b) {
+  float l = l_cbrt * l_cbrt * l_cbrt, m = m_cbrt * m_cbrt * m_cbrt,
+        s = s_cbrt * s_cbrt * s_cbrt;
+
+  r = +4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s;
+  g = -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s;
+  b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
+}
+
+/**
+ * @brief Converts OKLab to linear RGB [0,1].
+ * @param lab Source color in OKLab space.
+ * @param r Out: linear red in [0, 1] (may exit gamut before clamping).
+ * @param g Out: linear green in [0, 1].
+ * @param b Out: linear blue in [0, 1].
+ */
+HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g,
+                                         float &b) {
+  float l_cbrt, m_cbrt, s_cbrt;
+  oklab_to_lms_cbrt(lab, l_cbrt, m_cbrt, s_cbrt);
+  lms_cbrt_to_linear_rgb(l_cbrt, m_cbrt, s_cbrt, r, g, b);
+}
+
+/**
+ * @brief Converts OKLab to linear RGB [0,1].
+ * @param lab Source color in OKLab space.
+ * @return The linear-RGB triple (may exit gamut before clamping).
+ */
+HS_O3_FN inline LinRGB oklab_to_linear_rgb(OKLab lab) {
+  LinRGB rgb;
+  oklab_to_linear_rgb(lab, rgb.r, rgb.g, rgb.b);
+  return rgb;
+}
+
+/**
+ * @brief Tests whether a linear-RGB triple lies inside the [0,1] display cube.
+ * @param r Linear red.
+ * @param g Linear green.
+ * @param b Linear blue.
+ * @return True if every channel is within [0,1] (with a small epsilon slack).
+ * @details The epsilon slack absorbs float rounding that can leave an in-gamut
+ * color a hair past 1.0 after the OKLab inverse.
+ */
+HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
+  constexpr float lo = -1e-4f, hi = 1.0f + 1e-4f;
+  const float least = __builtin_fminf(__builtin_fminf(r, g), b);
+  const float most = __builtin_fmaxf(__builtin_fmaxf(r, g), b);
+  return least >= lo && most <= hi;
+}
+
+// Chroma pulled back off the refined crossing; without it the caller's own
+// re-conversion rounds a channel a part in a million past the gate.
+inline constexpr float GAMUT_CLIP_MARGIN = 2e-5f;
+
+// Chroma below which an OKLCH color has no usable hue angle and is treated as
+// gray by the hue-carrying paths (interpolation, palette keys). The gamut clip
+// keeps its own, far tighter divide guard.
+inline constexpr float OKLCH_ACHROMATIC_C = 1e-4f;
+
+/**
+ * @brief Gamut boundary bracket grid and the scales indexing it.
+ * @details Defaults to the full-resolution flash master, so the clip path is
+ * always usable and no effect has to opt in to being correct. Grouped in one
+ * object so the per-pixel path loads a single base address rather than five
+ * unrelated globals.
+ */
+struct GamutLut {
+  /** @brief Flash master, or an arena copy once one is armed. */
+  const uint16_t *table = GAMUT_LUT;
+  /** @brief Diamond-angle buckets over [0, 4). */
+  int angle_steps = GAMUT_LUT_ANGLE_STEPS;
+  /** @brief Lightness buckets over [0, 1]. */
+  int l_steps = GAMUT_LUT_L_STEPS;
+  /** @brief angle_steps / 4, the index scale. */
+  float angle_scale = GAMUT_LUT_ANGLE_STEPS * 0.25f;
+  /** @brief l_steps, the index scale. */
+  float l_scale = GAMUT_LUT_L_STEPS;
+};
+
+/**
+ * @brief A gamut-grid cell, with the un-truncated coordinates it was binned
+ *        from.
+ */
+struct GamutCell {
+  float angle;         /**< Diamond angle scaled onto the angle grid. */
+  float lightness;     /**< Lightness scaled onto the L grid. */
+  int angle_index;     /**< Clamped truncation of `angle`. */
+  int lightness_index; /**< Clamped truncation of `lightness`. */
+};
+
+/**
+ * @brief Bins a hue direction and lightness onto a gamut grid.
+ * @param lut Grid to index: the flash master or an arena copy.
+ * @param L OKLab lightness, already clamped to [0, 1].
+ * @param a OKLab a coordinate of the hue direction.
+ * @param b OKLab b coordinate of the hue direction.
+ * @return The cell the ray falls in, plus its fractional coordinates.
+ * @details One spelling of the binning for every reader, so a change to it
+ * cannot leave the flash master and an arena copy disagreeing about which cell
+ * a ray falls in. The direction is only binned, so it need not be unit length.
+ */
+__attribute__((always_inline)) inline GamutCell
+gamut_cell(const GamutLut &lut, float L, float a, float b) {
+  const float angle = diamond_angle(b, a) * lut.angle_scale;
+  const float lightness = L * lut.l_scale;
+  return {angle, lightness,
+          hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1),
+          hs::clamp(static_cast<int>(lightness), 0, lut.l_steps - 1)};
+}
+
+/**
+ * @brief The single live boundary grid.
+ * @details Points at the flash master until an effect arms an arena copy, which
+ * only buys read latency: the scattered per-pixel reads land in RAM rather than
+ * QSPI flash. Worth it only at per-pixel call rates. configure_arenas() restores
+ * the flash default before the storage under a copy is handed out again.
+ *
+ * constinit is load-bearing: an inline variable's dynamic init is unordered
+ * against other translation units' static initializers, so a runtime fill would
+ * let a namespace-scope Gradient clip through a null table.
+ */
+inline constinit GamutLut g_gamut_lut;
+
+/** @brief The full-resolution flash grid, whatever g_gamut_lut points at. */
+inline constexpr GamutLut GAMUT_LUT_MASTER{};
+
+/** @brief Coarsest downsample the clip's chroma deficit stays bounded at.
+ *  @details Over a 142,683-ray sweep the refined chroma falls short of the
+ *  first exit by at most 0.0027 on the 256 x 128 master, 0.0043 at 128 x 64,
+ *  0.0063 at 64 x 32 and 0.0070 at 32 x 16. Resolution does not bound the
+ *  other direction: at every grid, the master included, the GAMUT_SCAN_STEPS
+ *  walk strides a disconnected in-gamut interval on a handful of rays and lands
+ *  past the first exit by up to 0.05 chroma, which the bisection cannot
+ *  recover. A finer grid lowers how many rays do that — 5 at 256 x 128, 9 at
+ *  128 x 64, 24 at 32 x 16 — but not by how far. */
+inline constexpr int GAMUT_LUT_MIN_ANGLE_STEPS = 128;
+inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
+
+/**
+ * @brief Downsamples GAMUT_LUT into @p arena and points the clip path at it.
+ * @param arena Arena to hold the copy; configure_arenas() drops the pointer
+ *        before this storage is handed out again.
+ * @param angle_steps Diamond-angle buckets; must divide GAMUT_LUT_ANGLE_STEPS
+ *        and be at least GAMUT_LUT_MIN_ANGLE_STEPS.
+ * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS and be at
+ *        least GAMUT_LUT_MIN_L_STEPS.
+ * @details Optional, and only worth its arena bytes at per-pixel clip rates:
+ * the flash master already serves the clip correctly and at higher resolution.
+ * gamut_max_chroma() is the only reader it accelerates;
+ * gamut_continuous_chroma_sample() and gamut_scale_to_boundary_lut() consume
+ * the stored minima directly and stay on the flash master, so an effect that
+ * uses only those two spends the arena for nothing.
+ * Call after the arenas are configured, from the owning effect's init(). A
+ * coarse cell takes the minimum of the merged minima and the maximum of the
+ * merged maxima, so the true boundary of every ray in the cell still lies
+ * inside the stored bracket at any resolution. Cost in arena bytes is
+ * gamut_lut_bytes(angle_steps, l_steps). Resolution only sets how wide the
+ * bracket starts, and the per-pixel bisection sets how far it is narrowed; the
+ * floor bounds the chroma deficit that leaves (see
+ * GAMUT_LUT_MIN_ANGLE_STEPS).
+ */
+HS_COLD_MEMBER inline void init_gamut_lut(Arena &arena, int angle_steps,
+                                          int l_steps) {
+  HS_CHECK(angle_steps >= GAMUT_LUT_MIN_ANGLE_STEPS &&
+               l_steps >= GAMUT_LUT_MIN_L_STEPS &&
+               GAMUT_LUT_ANGLE_STEPS % angle_steps == 0 &&
+               GAMUT_LUT_L_STEPS % l_steps == 0,
+           "init_gamut_lut: %d x %d must divide the %d x %d flash master and "
+           "be at least %d x %d",
+           angle_steps, l_steps, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS,
+           GAMUT_LUT_MIN_ANGLE_STEPS, GAMUT_LUT_MIN_L_STEPS);
+
+  const int sa = GAMUT_LUT_ANGLE_STEPS / angle_steps;
+  const int sl = GAMUT_LUT_L_STEPS / l_steps;
+  uint16_t *dst = arena.allocate_n<uint16_t>(angle_steps * l_steps * 2);
+
+  for (int l = 0; l < l_steps; ++l) {
+    for (int a = 0; a < angle_steps; ++a) {
+      uint16_t c_lo = 0xFFFF, c_hi = 0;
+      for (int dl = 0; dl < sl; ++dl) {
+        const uint16_t *row =
+            &GAMUT_LUT[((l * sl + dl) * GAMUT_LUT_ANGLE_STEPS + a * sa) * 2];
+        for (int da = 0; da < sa; ++da) {
+          c_lo = std::min(c_lo, row[da * 2]);
+          c_hi = std::max(c_hi, row[da * 2 + 1]);
+        }
+      }
+      dst[(l * angle_steps + a) * 2] = c_lo;
+      dst[(l * angle_steps + a) * 2 + 1] = c_hi;
+    }
+  }
+
+  g_gamut_lut = {dst, angle_steps, l_steps, angle_steps * 0.25f,
+                 static_cast<float>(l_steps)};
+}
+
+/**
+ * @brief Drops any arena copy and points the clip path back at the flash master.
+ * @details Runs before persistent storage is handed out again, so no owner can
+ * leave a pointer into freed storage behind. The clip stays correct across the
+ * swap; only read latency changes.
+ */
+inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
+
+/**
+ * @brief Registration that makes every arena hand-out drop the copy.
+ */
+inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
+
+// Equal steps the stored bracket is walked in, looking for the first one that
+// leaves the gamut. A walk rather than a straight bisection because the gate's
+// tolerance lets the in-gamut set along a ray break into pieces: bisecting a
+// bracket that spans a gap converges on the far side of it, which is in gamut
+// but past the first exit and discontinuous in L against the neighbouring cell.
+// The walk narrows that to the rays whose gap is shorter than one step rather
+// than to none; GAMUT_LUT_MIN_ANGLE_STEPS carries the measured residue.
+inline constexpr int GAMUT_SCAN_STEPS = 4;
+
+// Bisections inside the walk step that straddles the crossing. Residual is the
+// bracket width over GAMUT_SCAN_STEPS, halved once per step, so this is an
+// accuracy knob and not a cap: three take the 256 x 128 grid's worst
+// mid-lightness bracket to 0.0016 chroma.
+inline constexpr int GAMUT_BRACKET_STEPS = 3;
+/** Extra bisections for the whole-ray fallback, whose bracket is up to 25 times
+ * wider than one scan step. */
+inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
+
+/**
+ * @brief Largest in-gamut scale of (a, b) inside a bracketed scale range.
+ * @param L Lightness held fixed along the ray.
+ * @param a OKLab a of the input, unnormalized; the ray is u * (a, b).
+ * @param b OKLab b of the input, unnormalized.
+ * @param lo Bracket lower bound; probed, not assumed to be in gamut.
+ * @param hi Bracket upper bound; probed, and returned only if it is in gamut.
+ * @return The refined scale, in gamut by construction.
+ * @details With l_cbrt = L + A*u and (L + X*u)^3 expanded in u, every linear-RGB
+ * channel is a cubic in u whose four coefficients depend only on L and the hue
+ * direction and are built once here. A refinement step is then three Horner
+ * evaluations and the six bound tests, not an OKLab round trip. The bound tests
+ * use linear_rgb_in_gamut's own tolerance, so a solved crossing is the crossing
+ * the gate reports. `lo` is probed before it is trusted: a cell minimum that
+ * over-reads its region drops the search back to zero chroma rather than
+ * returning a color outside the cube. The matrix constants below restate
+ * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb(); those two are the source of
+ * truth tools/gen_gamut_lut.py pins its mirror against, and
+ * test_gamut_refine_matrices_match_the_conversions() pins these literals
+ * against column by column.
+ */
+HS_O3_FN __attribute__((noinline)) inline float
+gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
+  const float ka = 0.3963377774f * a + 0.2158037573f * b;
+  const float km = -0.1055613458f * a - 0.0638541728f * b;
+  const float ks = -0.0894841775f * a - 1.2914855480f * b;
+
+  const float ka2 = ka * ka, ka3 = ka2 * ka;
+  const float km2 = km * km, km3 = km2 * km;
+  const float ks2 = ks * ks, ks3 = ks2 * ks;
+  const float l3 = L * L * L, q = 3.0f * L * L, c = 3.0f * L;
+
+  const float r3 =
+      4.0767416621f * ka3 - 3.3077115913f * km3 + 0.2309699292f * ks3;
+  const float r2 =
+      c * (4.0767416621f * ka2 - 3.3077115913f * km2 + 0.2309699292f * ks2);
+  const float r1 =
+      q * (4.0767416621f * ka - 3.3077115913f * km + 0.2309699292f * ks);
+  const float g3 =
+      -1.2684380046f * ka3 + 2.6097574011f * km3 - 0.3413193965f * ks3;
+  const float g2 =
+      c * (-1.2684380046f * ka2 + 2.6097574011f * km2 - 0.3413193965f * ks2);
+  const float g1 =
+      q * (-1.2684380046f * ka + 2.6097574011f * km - 0.3413193965f * ks);
+  const float b3 =
+      -0.0041960863f * ka3 - 0.7034186147f * km3 + 1.7076147010f * ks3;
+  const float b2 =
+      c * (-0.0041960863f * ka2 - 0.7034186147f * km2 + 1.7076147010f * ks2);
+  const float b1 =
+      q * (-0.0041960863f * ka - 0.7034186147f * km + 1.7076147010f * ks);
+
+  const auto inside = [&](float u) {
+    const float rv = ((r3 * u + r2) * u + r1) * u + l3;
+    const float gv = ((g3 * u + g2) * u + g1) * u + l3;
+    const float bv = ((b3 * u + b2) * u + b1) * u + l3;
+    return linear_rgb_in_gamut(rv, gv, bv);
+  };
+
+  float x = lo, y = hi;
+  int bracket_steps = GAMUT_BRACKET_STEPS;
+  if (inside(lo)) {
+    const float step = (hi - lo) * (1.0f / GAMUT_SCAN_STEPS);
+    int i = 0;
+    for (; i < GAMUT_SCAN_STEPS; ++i) {
+      y = (i + 1 == GAMUT_SCAN_STEPS) ? hi : x + step;
+      if (!inside(y))
+        break;
+      x = y;
+    }
+    // The whole bracket held: the crossing is at or above hi, and hi is capped
+    // at the cell maximum, which bounds it from above.
+    if (i == GAMUT_SCAN_STEPS)
+      return hi;
+  } else {
+    // The cell minimum over-reads its region; fall back to the whole ray.
+    x = 0.0f;
+    y = lo;
+    bracket_steps += GAMUT_FALLBACK_BRACKET_STEPS;
+  }
+
+  for (int i = 0; i < bracket_steps; ++i) {
+    const float mid = 0.5f * (x + y);
+    if (inside(mid))
+      x = mid;
+    else
+      y = mid;
+  }
+  return x;
+}
+
+/**
+ * @brief Returns the first sRGB gamut-boundary chroma along a hue direction.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param a Unit OKLab a coordinate of the hue direction.
+ * @param b Unit OKLab b coordinate of the hue direction.
+ * @return The first-exit chroma minus the shared numerical margin.
+ */
+HS_O3_FN __attribute__((noinline)) inline float
+gamut_max_chroma(float L, float a, float b) {
+  const GamutLut &lut = g_gamut_lut;
+  L = hs::clamp(L, 0.0f, 1.0f);
+  if (L == 0.0f || L == 1.0f)
+    return 0.0f;
+
+  const GamutCell cell = gamut_cell(lut, L, a, b);
+  const uint16_t *entry =
+      &lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
+                 2];
+  const float c_lo = static_cast<float>(entry[0]) * GAMUT_LUT_INV_SCALE;
+  const float c_hi = static_cast<float>(entry[1]) * GAMUT_LUT_INV_SCALE;
+  const float boundary = gamut_bracket_refine(L, a, b, c_lo, c_hi);
+  return std::max(0.0f, boundary - GAMUT_CLIP_MARGIN);
+}
+
+/**
+ * @brief Returns the first sRGB gamut-boundary chroma at an OKLCH coordinate.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param h Hue in radians.
+ * @return The first-exit chroma minus the shared numerical margin.
+ */
+HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
+                                                                 float h) {
+  return gamut_max_chroma(L, cosf(h), sinf(h));
+}
+
+/**
+ * @brief Samples a continuous, conservative gamut envelope along a hue
+ *        direction.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param a OKLab a coordinate of the hue direction.
+ * @param b OKLab b coordinate of the hue direction.
+ * @return A conservative chroma boundary that varies continuously in L and hue.
+ * @details Exact clipping uses gamut_max_chroma(); relative-chroma palette
+ * generation uses the hue-smoothed wrapper below. The direction is only binned,
+ * so it need not be exactly unit length.
+ */
+// Bake-time only (relative-chroma palette generation); the per-pixel clip
+// stays on gamut_max_chroma.
+HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
+                                                            float b) {
+  // Not g_gamut_lut: this path consumes the stored minima directly, so a
+  // coarse grid's width is never narrowed back.
+  const GamutLut &lut = GAMUT_LUT_MASTER;
+  L = hs::clamp(L, 0.0f, 1.0f);
+  if (L == 0.0f || L == 1.0f)
+    return 0.0f;
+
+  const GamutCell cell = gamut_cell(lut, L, a, b);
+  const int ai = cell.angle_index;
+  const int li = cell.lightness_index;
+  const float af = cell.angle - floorf(cell.angle);
+  const float lf = cell.lightness - floorf(cell.lightness);
+
+  const int angles[3] = {(ai + lut.angle_steps - 1) % lut.angle_steps, ai,
+                         (ai + 1) % lut.angle_steps};
+  const int lightnesses[3] = {std::max(li - 1, 0), li,
+                              std::min(li + 1, lut.l_steps - 1)};
+  const auto read_cell_minimum = [&](int l, int a) {
+    return static_cast<float>(lut.table[(l * lut.angle_steps + a) * 2]) *
+           GAMUT_LUT_INV_SCALE;
+  };
+
+  float cell_minima[3][3];
+  for (int l = 0; l < 3; ++l)
+    for (int a = 0; a < 3; ++a)
+      cell_minima[l][a] = read_cell_minimum(lightnesses[l], angles[a]);
+
+  const auto vertex_minimum = [&](int l, int a) {
+    return std::min(std::min(cell_minima[l][a], cell_minima[l][a + 1]),
+                    std::min(cell_minima[l + 1][a], cell_minima[l + 1][a + 1]));
+  };
+  const float v00 = vertex_minimum(0, 0);
+  const float v10 = vertex_minimum(0, 1);
+  const float v01 = vertex_minimum(1, 0);
+  const float v11 = vertex_minimum(1, 1);
+  const float angle_blend = cubic_kernel(af);
+  const float lightness_blend = cubic_kernel(lf);
+  const float low = v00 + (v10 - v00) * angle_blend;
+  const float high = v01 + (v11 - v01) * angle_blend;
+  return low + (high - low) * lightness_blend;
+}
+
+/**
+ * @brief Samples the continuous gamut envelope at a hue angle.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param h Hue in radians.
+ * @return A conservative chroma boundary that varies continuously in L and hue.
+ */
+HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
+  return gamut_continuous_chroma_sample(L, cosf(h), sinf(h));
+}
+
+/**
+ * @brief Returns a hue-smoothed, in-gamut chroma envelope.
+ * @details The filtered value is capped by the center sample, so smoothing can
+ * only move a color farther inside the gamut. The four offset taps rotate the
+ * center direction by angle addition rather than calling sin/cos again.
+ */
+HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
+  constexpr float STEP_SIN = 0x1.415e54p-4f; // sinf(PI_F / 40.0f)
+  constexpr float STEP_COS = 0x1.fe6bf2p-1f; // cosf(PI_F / 40.0f)
+  constexpr float STEP2_SIN = 2.0f * STEP_SIN * STEP_COS;
+  constexpr float STEP2_COS = STEP_COS * STEP_COS - STEP_SIN * STEP_SIN;
+  const float sin_h = sinf(h);
+  const float cos_h = cosf(h);
+  const auto tap = [&](float ds, float dc) {
+    return gamut_continuous_chroma_sample(L, cos_h * dc - sin_h * ds,
+                                          sin_h * dc + cos_h * ds);
+  };
+  const float center = gamut_continuous_chroma_sample(L, cos_h, sin_h);
+  const float smoothed =
+      (tap(-STEP2_SIN, STEP2_COS) + 2.0f * tap(-STEP_SIN, STEP_COS) +
+       4.0f * center + 2.0f * tap(STEP_SIN, STEP_COS) +
+       tap(STEP2_SIN, STEP2_COS)) *
+      0.1f;
+  return std::min(center, smoothed);
+}
+
+/**
+ * @brief Reduces OKLab chroma to the first sRGB gamut boundary.
+ * @param lab Source color; lightness is clamped to [0,1].
+ * @return The source color or its fixed-lightness, fixed-hue projection.
+ */
+HS_O3_FN __attribute__((noinline)) inline OKLab
+gamut_clip_preserve_chroma(OKLab lab) {
+  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+  const float c_sq = lab.a * lab.a + lab.b * lab.b;
+  // divide guard on the hue direction, not the OKLCH_ACHROMATIC_C classifier
+  if (!(c_sq > 1e-12f))
+    return {lab.L, 0.0f, 0.0f};
+
+  const float C = sqrtf(c_sq);
+  const float inverse_C = 1.0f / C;
+  const float C_MAX =
+      gamut_max_chroma(lab.L, lab.a * inverse_C, lab.b * inverse_C);
+  if (C <= C_MAX)
+    return lab;
+  const float scale = C_MAX * inverse_C;
+  return {lab.L, lab.a * scale, lab.b * scale};
+}
+
+/**
+ * @brief OKLab -> linear RGB with chroma-reduction gamut mapping off the fast
+ * path.
+ * @param lab Source color in OKLab space.
+ * @param r Out: linear red in [0,1] (may sit a hair past the bound; callers
+ * still clamp).
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ * @details Converts directly first; only when the result leaves the [0,1] cube
+ * does it pay for gamut_clip_preserve_chroma and re-convert. In-gamut colors
+ * cost one matrix mul plus the gate test, no search.
+ */
+inline void oklab_to_linear_rgb_gamut(OKLab lab, float &r, float &g, float &b) {
+  oklab_to_linear_rgb(lab, r, g, b);
+  if (!linear_rgb_in_gamut(r, g, b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
+  }
+}
+
+/**
+ * @brief OKLab -> linear RGB with chroma-reduction gamut mapping off the fast
+ * path.
+ * @param lab Source color in OKLab space.
+ * @return The gamut-mapped linear-RGB triple (may sit a hair past the bound;
+ * callers still clamp).
+ */
+inline LinRGB oklab_to_linear_rgb_gamut(OKLab lab) {
+  LinRGB rgb;
+  oklab_to_linear_rgb_gamut(lab, rgb.r, rgb.g, rgb.b);
+  return rgb;
+}
+
+/**
+ * @brief Builds the cbrt-LMS-space 3x3 equivalent to an OKLab chroma rotation.
+ * @param ca Cosine of the rotation angle.
+ * @param sa Sine of the rotation angle.
+ * @param k Out: row-major 3x3 acting on cube-rooted LMS.
+ * @details The OKLab a/b rotation is linear in cube-rooted LMS, so
+ * oklab_to_lms_cbrt . rotate . lms_to_oklab folds into one matrix. Columns are
+ * derived by pushing basis vectors through those functions.
+ */
+inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
+  for (int i = 0; i < 3; ++i) {
+    OKLab lab = lms_to_oklab(i == 0 ? 1.0f : 0.0f, i == 1 ? 1.0f : 0.0f,
+                             i == 2 ? 1.0f : 0.0f);
+    float a2 = lab.a * ca - lab.b * sa;
+    float b2 = lab.a * sa + lab.b * ca;
+    float l_cbrt, m_cbrt, s_cbrt;
+    oklab_to_lms_cbrt({lab.L, a2, b2}, l_cbrt, m_cbrt, s_cbrt);
+    k[i] = l_cbrt;
+    k[3 + i] = m_cbrt;
+    k[6 + i] = s_cbrt;
+  }
+}
+
+/**
+ * @brief Applies a cbrt-LMS 3x3 (from hue_rotate_lms_matrix, optionally
+ * uniformly scaled) and converts to linear RGB with gamut mapping.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
+ * @param r Out: gamut-mapped linear red (may sit a hair past the bound;
+ * callers still clamp).
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ * @details In-gamut colors never leave cbrt-LMS; the OKLab form is recomputed
+ * only on the chroma-clip slow path.
+ */
+HS_O3_FN
+inline void lms_cbrt_transform_rgb(const float k[9], float l_cbrt, float m_cbrt,
+                                   float s_cbrt, float &r, float &g, float &b) {
+  float ul = k[0] * l_cbrt + k[1] * m_cbrt + k[2] * s_cbrt;
+  float um = k[3] * l_cbrt + k[4] * m_cbrt + k[5] * s_cbrt;
+  float us = k[6] * l_cbrt + k[7] * m_cbrt + k[8] * s_cbrt;
+  lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
+  if (!linear_rgb_in_gamut(r, g, b)) {
+    HS_PROFILE_DEEP(gamut_clip);
+    OKLab lab = lms_to_oklab(ul, um, us);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
+  }
+}
+
+/**
+ * @brief Two-pixel lms_cbrt_transform_rgb sharing one code path.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l0 Cube-rooted l cone response of the first pixel.
+ * @param m0 Cube-rooted m of the first pixel.
+ * @param s0 Cube-rooted s of the first pixel.
+ * @param l1 Cube-rooted l of the second pixel.
+ * @param m1 Cube-rooted m of the second pixel.
+ * @param s1 Cube-rooted s of the second pixel.
+ * @param r0 Out: gamut-mapped linear red of the first pixel.
+ * @param g0 Out: linear green of the first pixel.
+ * @param b0 Out: linear blue of the first pixel.
+ * @param r1 Out: linear red of the second pixel.
+ * @param g1 Out: linear green of the second pixel.
+ * @param b1 Out: linear blue of the second pixel.
+ * @details Results match two lms_cbrt_transform_rgb calls bit for bit; only the
+ * statement order differs, so an in-order FPU can overlap the two independent
+ * chains. The uniform work stays interleaved and only the rare chroma-clip
+ * fixups run per pixel.
+ */
+HS_O3_FN
+inline void lms_cbrt_transform_rgb2(const float k[9], float l0, float m0,
+                                    float s0, float l1, float m1, float s1,
+                                    float &r0, float &g0, float &b0, float &r1,
+                                    float &g1, float &b1) {
+  float ul0 = k[0] * l0 + k[1] * m0 + k[2] * s0;
+  float ul1 = k[0] * l1 + k[1] * m1 + k[2] * s1;
+  float um0 = k[3] * l0 + k[4] * m0 + k[5] * s0;
+  float um1 = k[3] * l1 + k[4] * m1 + k[5] * s1;
+  float us0 = k[6] * l0 + k[7] * m0 + k[8] * s0;
+  float us1 = k[6] * l1 + k[7] * m1 + k[8] * s1;
+  lms_cbrt_to_linear_rgb(ul0, um0, us0, r0, g0, b0);
+  lms_cbrt_to_linear_rgb(ul1, um1, us1, r1, g1, b1);
+  bool ok0 = linear_rgb_in_gamut(r0, g0, b0);
+  bool ok1 = linear_rgb_in_gamut(r1, g1, b1);
+  if (!ok0) {
+    HS_PROFILE_DEEP(gamut_clip);
+    OKLab lab = lms_to_oklab(ul0, um0, us0);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r0, g0, b0);
+  }
+  if (!ok1) {
+    HS_PROFILE_DEEP(gamut_clip);
+    OKLab lab = lms_to_oklab(ul1, um1, us1);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r1, g1, b1);
+  }
+}
+
+/**
+ * @brief Quantizes a [0,1] linear channel to a 16-bit Pixel component.
+ * @param v Linear channel value; clamped to [0, 1].
+ * @return The channel as a 16-bit value in [0, 65535].
+ * @details Clamps, then rounds (+0.5f) rather than truncating; truncation
+ * would bias every channel down by up to ~1/65535.
+ */
+HS_O3_FN inline uint16_t float_to_pixel16(float v) {
+  return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
+}
+
+/**
+ * @brief Normalizes a 16-bit linear Pixel to a linear-RGB [0,1] triple.
+ * @param p Source color in 16-bit linear space.
+ * @return The three channels scaled by 1/65535.
+ */
+__attribute__((always_inline)) inline LinRGB pixel_to_linrgb(const Pixel &p) {
+  constexpr float INV16 = 1.0f / 65535.0f;
+  return {p.r * INV16, p.g * INV16, p.b * INV16};
+}
+
+/**
+ * @brief Quantizes a linear-RGB [0,1] triple to a 16-bit linear Pixel.
+ * @param rgb Source channels; each is clamped to [0, 1].
+ * @return The triple as a 16-bit linear Pixel.
+ */
+__attribute__((always_inline)) inline Pixel linrgb_to_pixel(const LinRGB &rgb) {
+  return Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
+               float_to_pixel16(rgb.b));
+}
+
+/**
+ * @brief Quantizes a [0,1] linear channel to an 8-bit sRGB component.
+ * @param l Linear channel value; clamped to [0, 1].
+ * @return The channel as an 8-bit sRGB value in [0, 255].
+ */
+inline uint8_t linear_float_to_srgb8(float l) {
+  return static_cast<uint8_t>(
+      hs::clamp(linear_to_srgb_float(hs::clamp(l, 0.0f, 1.0f)) * 255.0f + 0.5f,
+                0.0f, 255.0f));
+}
+
+/**
+ * @brief Rotates the (a,b) chroma plane in OKLab on a linear-RGB float triple.
+ * @param r In/out: linear red in [0, 1].
+ * @param g In/out: linear green.
+ * @param b In/out: linear blue.
+ * @param ca Cosine of the rotation angle.
+ * @param sa Sine of the rotation angle.
+ * @details fast_cbrt forward, exact cubes inverse, direct 2D rotation of (a,b)
+ * (no atan2/sqrt OKLCH polar round-trip). Preserves lightness to fast_cbrt
+ * accuracy, chroma to fast-trig accuracy.
+ */
+HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
+                                    float sa) {
+  OKLab lab = linear_rgb_to_oklab_fast(r, g, b);
+
+  float a2 = lab.a * ca - lab.b * sa;
+  float b2 = lab.a * sa + lab.b * ca;
+
+  oklab_to_linear_rgb_gamut({lab.L, a2, b2}, r, g, b);
+}
+
+inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
+  LinRGB rgb = pixel_to_linrgb(c.color);
+
+  hue_rotate_rgb(rgb.r, rgb.g, rgb.b, ca, sa);
+
+  Color4 result = c;
+  result.color = linrgb_to_pixel(rgb);
+  return result;
+}
+
+/**
+ * @brief Cosine/sine of a turn angle from fast trig, renormalized to unit
+ * length.
+ * @param turns Angle in turns (0..1 = full turn).
+ * @param ca Out: cosine of the angle.
+ * @param sa Out: sine of the angle.
+ * @details fast trig is non-orthonormal; renormalizing keeps a chroma rotation
+ * length-preserving (else the scaling compounds per frame under feedback).
+ */
+__attribute__((always_inline)) inline void
+turn_to_unit_cos_sin(float turns, float &ca, float &sa) {
+  float angle = turns * (2.0f * PI_F);
+  ca = fast_cosf(angle);
+  sa = fast_sinf(angle);
+  float inv = 1.0f / sqrtf(ca * ca + sa * sa);
+  ca *= inv;
+  sa *= inv;
+}
+
+inline Color4 hue_rotate(const Color4 &c, float amount) {
+  float ca, sa;
+  turn_to_unit_cos_sin(amount, ca, sa);
+  return hue_rotate(c, ca, sa);
+}
+
+/**
+ * @brief A Color4 pre-converted to OKLab for repeated hue rotations.
+ * @details Caches the forward linear-RGB -> cbrt-LMS -> OKLab transform of a
+ * fixed base color so each rotation pays only the (a,b) rotation and the
+ * inverse transform; hue_rotate(base, amount) matches hue_rotate(c, amount)
+ * exactly.
+ */
+struct HueRotateBase {
+  OKLab lab;   /**< Base color in OKLab. */
+  Color4 base; /**< Original color; alpha is carried into each result. */
+};
+
+/**
+ * @brief Precomputes the OKLab form of a color for repeated hue rotations.
+ * @param c Base color.
+ * @return The precomputed base for hue_rotate(base, amount).
+ */
+inline HueRotateBase make_hue_rotate_base(const Color4 &c) {
+  LinRGB rgb = pixel_to_linrgb(c.color);
+  OKLab lab = linear_rgb_to_oklab_fast(rgb.r, rgb.g, rgb.b);
+  return {lab, c};
+}
+
+/**
+ * @brief Perceptual (OKLab) hue rotation of a precomputed base color.
+ * @param hb Precomputed base from make_hue_rotate_base().
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color.
+ */
+inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
+  float ca, sa;
+  turn_to_unit_cos_sin(amount, ca, sa);
+
+  float a2 = hb.lab.a * ca - hb.lab.b * sa;
+  float b2 = hb.lab.a * sa + hb.lab.b * ca;
+  float r, g, b;
+  oklab_to_linear_rgb_gamut({hb.lab.L, a2, b2}, r, g, b);
+
+  Color4 result = hb.base;
+  result.color = linrgb_to_pixel({r, g, b});
+  return result;
+}
+
+/**
+ * @brief Rescales an OKLab color onto the tabulated sRGB gamut boundary.
+ * @param lab Source color; lightness is clamped to [0, 1] first.
+ * @return The color scaled to the tabulated boundary chroma for its hue and
+ *         lightness cell, or the neutral axis when chroma underflows.
+ * @details Scales unconditionally, so an in-gamut color is pushed outward to
+ * the boundary; call only once the color is known to be out of gamut. Reads
+ * the stored cell minimum without the bracket refinement gamut_max_chroma()
+ * runs, and normalizes with one Newton step off the reciprocal-square-root
+ * seed. That single step is one-sided low, so the rescale lands at or inside
+ * the boundary; fast_rsqrt()'s second step would only cost cycles here.
+ */
+HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
+  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+  const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
+  if (!(chroma_sq > 1e-12f))
+    return {lab.L, 0.0f, 0.0f};
+  uint32_t inverse_bits;
+  std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
+  inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
+  float inverse_chroma;
+  std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
+  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
+  // Not g_gamut_lut: this path consumes the stored minima directly, so a
+  // coarse grid's width is never narrowed back.
+  const GamutLut &lut = GAMUT_LUT_MASTER;
+  const GamutCell cell = gamut_cell(lut, lab.L, lab.a, lab.b);
+  const uint16_t stored =
+      lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
+                2];
+  const float max_chroma =
+      std::max(0.0f, static_cast<float>(stored) * GAMUT_LUT_INV_SCALE -
+                         GAMUT_CLIP_MARGIN);
+  const float scale = max_chroma * inverse_chroma;
+  return {lab.L, lab.a * scale, lab.b * scale};
+}
+
+/**
+ * @brief Cosine and sine of a turn angle from a parabolic approximation.
+ * @param turns Angle in turns; wrapped internally.
+ * @param cosine Output cosine.
+ * @param sine Output sine.
+ * @details Not renormalized, unlike turn_to_unit_cos_sin(): the pair is off
+ * unit length by up to 0.1%, so a rotation built from it scales the rotated
+ * vector by that much.
+ */
+inline void hue_sincos(float turns, float &cosine, float &sine) {
+  const float x = 2.0f * (turns - floorf(turns + 0.5f));
+  const auto sine_turn = [](float value) {
+    const float parabolic = 4.0f * value * (1.0f - fabsf(value));
+    return parabolic * (0.775f + 0.225f * fabsf(parabolic));
+  };
+  sine = sine_turn(x);
+  cosine = sine_turn(0.5f - fabsf(x));
+}
+
+/**
+ * @brief Perceptual (OKLab) hue rotation clipped straight off the gamut LUT.
+ * @param base Precomputed base from make_hue_rotate_base().
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color, carrying the base alpha.
+ * @details The cheap counterpart of hue_rotate(): approximate turn trig, and
+ * gamut_scale_to_boundary_lut() only when the rotated color leaves the gamut.
+ * The trig is not renormalized, so chroma scales by up to 0.1% with @p amount;
+ * every call rotates a fresh base, so the scaling never compounds.
+ */
+inline Color4 hue_rotate_lut_gamut(const HueRotateBase &base, float amount) {
+  float cosine, sine;
+  hue_sincos(amount, cosine, sine);
+  OKLab lab = base.lab;
+  const float rotated_a = lab.a * cosine - lab.b * sine;
+  const float rotated_b = lab.a * sine + lab.b * cosine;
+  lab = {lab.L, rotated_a, rotated_b};
+  LinRGB output = oklab_to_linear_rgb(lab);
+  if (!linear_rgb_in_gamut(output.r, output.g, output.b))
+    output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
+  return Color4(linrgb_to_pixel(output), base.base.alpha);
+}
+
+/**
+ * @brief Perceptual (OKLab) hue rotation clipped straight off the gamut LUT.
+ * @param color Source color.
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color, carrying the source alpha.
+ */
+inline Color4 hue_rotate_lut_gamut(const Color4 &color, float amount) {
+  const LinRGB input = pixel_to_linrgb(color.color);
+  return hue_rotate_lut_gamut(
+      {linear_rgb_to_oklab_fast(input.r, input.g, input.b), color}, amount);
+}
+
+/**
+ * @brief Blends two straight-alpha colors in premultiplied linear space.
+ * @param from Color at mix 0.
+ * @param to Color at mix 1.
+ * @param mix Blend weight; clamped to [0, 1].
+ * @return The blend, unpremultiplied back to straight alpha; a zero-alpha
+ *         result carries zero RGB. mix 0 and mix 1 return the corresponding
+ *         endpoint verbatim, RGB included.
+ * @details Weighting is premultiplied, so a transparent endpoint contributes
+ * no RGB — the opposite of Color4::lerp(), which interpolates color and alpha
+ * independently.
+ */
+HS_FLASH_INLINE inline Color4 blend_outputs(const Color4 &from,
+                                            const Color4 &to, float mix) {
+  mix = hs::clamp(mix, 0.0f, 1.0f);
+  if (mix == 0.0f)
+    return from;
+  if (mix == 1.0f)
+    return to;
+  const float alpha = hs::lerp(from.alpha, to.alpha, mix);
+  if (alpha == 0.0f)
+    return Color4();
+  constexpr float MIN_NORMAL_ALPHA = 0x1p-126f;
+  float from_weight;
+  float to_weight;
+  float denominator = alpha;
+  if (alpha < MIN_NORMAL_ALPHA) {
+    const float scale = MIN_NORMAL_ALPHA / alpha;
+    from_weight = (from.alpha * scale) * (1.0f - mix);
+    to_weight = (to.alpha * scale) * mix;
+    denominator *= scale;
+  } else {
+    from_weight = from.alpha * (1.0f - mix);
+    to_weight = to.alpha * mix;
+  }
+  const float inv_alpha = 1.0f / denominator;
+  return Color4(
+      Pixel(static_cast<uint16_t>(hs::clamp(
+                (from.color.r * from_weight + to.color.r * to_weight) *
+                        inv_alpha +
+                    0.5f,
+                0.0f, 65535.0f)),
+            static_cast<uint16_t>(hs::clamp(
+                (from.color.g * from_weight + to.color.g * to_weight) *
+                        inv_alpha +
+                    0.5f,
+                0.0f, 65535.0f)),
+            static_cast<uint16_t>(hs::clamp(
+                (from.color.b * from_weight + to.color.b * to_weight) *
+                        inv_alpha +
+                    0.5f,
+                0.0f, 65535.0f))),
+      alpha);
+}
+
+/**
+ * @brief Converts OKLab (Cartesian a,b) to OKLCH (polar C, h).
+ * @param lab Source color in OKLab space.
+ * @return The color in OKLCH space; hue h in radians.
+ */
+inline OKLCH oklab_to_oklch(OKLab lab) {
+  float C = sqrtf(lab.a * lab.a + lab.b * lab.b);
+  float h = atan2f(lab.b, lab.a);
+  return {lab.L, C, h};
+}
+
+/**
+ * @brief Converts OKLCH (polar) to OKLab (Cartesian).
+ * @param lch Source color in OKLCH space.
+ * @return The color in OKLab space.
+ */
+inline OKLab oklch_to_oklab(OKLCH lch) {
+  return {lch.L, lch.C * cosf(lch.h), lch.C * sinf(lch.h)};
+}
+
+/**
+ * @brief Convenience: sRGB [0-255] channels to OKLCH.
+ * @param r Red channel in [0, 255].
+ * @param g Green channel in [0, 255].
+ * @param b Blue channel in [0, 255].
+ * @return The color in OKLCH space.
+ */
+inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
+  constexpr float INV16 = 1.0f / 65535.0f;
+  float rf = srgb_to_linear_lut[r] * INV16;
+  float gf = srgb_to_linear_lut[g] * INV16;
+  float bf = srgb_to_linear_lut[b] * INV16;
+  return oklab_to_oklch(linear_rgb_to_oklab(rf, gf, bf));
+}
+
+/**
+ * @brief Converts a 16-bit linear Pixel to OKLCH.
+ * @param p Source color in 16-bit linear space.
+ * @return The color in OKLCH space.
+ */
+inline OKLCH pixel_to_oklch(const Pixel &p) {
+  LinRGB rgb = pixel_to_linrgb(p);
+  return oklab_to_oklch(linear_rgb_to_oklab(rgb.r, rgb.g, rgb.b));
+}
+
+/**
+ * @brief Converts OKLCH to a 16-bit linear Pixel (gamut-clamped).
+ * @param lch Source color in OKLCH space.
+ * @return The color as a linear-space Pixel.
+ */
+inline Pixel oklch_to_pixel(OKLCH lch) {
+  LinRGB rgb = oklab_to_linear_rgb_gamut(oklch_to_oklab(lch));
+  return linrgb_to_pixel(rgb);
+}
+
+/**
+ * @brief Wraps an angle in radians to [-pi, pi].
+ * @param x Angle to wrap; any magnitude.
+ * @return The equivalent angle in [-pi, pi]. Both endpoints are reachable: an
+ * exact half turn keeps the sign it arrived with. Callers use the result as a
+ * shortest-arc delta, for which -pi and +pi are equivalent.
+ */
+inline float wrap_angle_pi(float x) {
+  // At large |x| the subtraction below rounds away and the loop never finishes.
+  // Negated so NaN takes this branch too.
+  if (!(fabsf(x) <= 4.0f * PI_F))
+    x = fmodf(x, 2.0f * PI_F);
+  while (x > PI_F)
+    x -= 2.0f * PI_F;
+  while (x < -PI_F)
+    x += 2.0f * PI_F;
+  return x;
+}
+
+/**
+ * @brief Interpolates two OKLCH colors along the shortest-arc hue.
+ * @param a Start color at t == 0.
+ * @param b End color at t == 1.
+ * @param t Blend weight; may extrapolate outside [0, 1].
+ * @return The interpolated OKLCH color with L and C clamped valid.
+ * @details An extrapolated t can overshoot a valid endpoint into an invalid
+ * OKLCH: negative L renders near-black, negative C flips the hue 180°. L and C
+ * are clamped valid; hue is left free to wrap.
+ */
+inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
+  // An achromatic (gray) endpoint has no meaningful hue angle: take the
+  // chromatic endpoint's hue for the whole segment. If both ends are gray,
+  // pin it to 0.
+  float h;
+  if (a.C < OKLCH_ACHROMATIC_C && b.C < OKLCH_ACHROMATIC_C) {
+    h = 0.0f;
+  } else if (a.C < OKLCH_ACHROMATIC_C) {
+    h = b.h;
+  } else if (b.C < OKLCH_ACHROMATIC_C) {
+    h = a.h;
+  } else {
+    h = a.h + wrap_angle_pi(b.h - a.h) * t;
+  }
+  float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
+  float C = std::max(0.0f, a.C + (b.C - a.C) * t);
+  return {L, C, h};
+}

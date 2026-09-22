@@ -21,6 +21,8 @@
  * because it is the path for a Driver with no live source bound.
  */
 
+#include "color/generative_palette.h"
+#include "color/baked_palette.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>
