@@ -853,7 +853,9 @@ inline void test_classify_faces_roster_hash_collision_free() {
       Arena scratch_b(mesh_arena_c + sizeof(mesh_arena_c) / 2,
                       sizeof(mesh_arena_c) / 2);
       MeshOps::classify_faces_by_topology(mesh, scratch_a, scratch_b, a);
-      HS_EXPECT_SIZE_OR_RETURN(mesh.topology, F);
+      HS_EXPECT_EQ(mesh.topology.size(), F);
+      if (mesh.topology.size() != F)
+        continue;
 
       // Dense ids, so a per-id slot table is enough for one direction; the
       // class count is small, so the reverse direction is a linear scan.
