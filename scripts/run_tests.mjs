@@ -14,6 +14,13 @@ import { join, relative } from 'node:path';
 const COUNTER = new URL('./count_assertions.mjs', import.meta.url).href;
 const CASE_REPORTER = new URL('./report_cases.mjs', import.meta.url).href;
 const args = process.argv.slice(2);
+if (args.includes('--all')) {
+  const discovered = spawnSync('git', ['ls-files', '-z', '--cached', '--others',
+    '--exclude-standard', '--', '*.test.mjs'], { encoding: 'utf8' });
+  if (discovered.error) throw discovered.error;
+  if (discovered.status !== 0) process.exit(discovered.status ?? 1);
+  args.splice(args.indexOf('--all'), 1, ...new Set(discovered.stdout.split('\0').filter(Boolean)));
+}
 
 if (!args.some((arg) => !arg.startsWith('-'))) {
   console.error(
