@@ -184,6 +184,7 @@ struct FrameState {
       rotate by it are per-pixel, the meridian is not. */
   float meridian_cos = 1.0f;
   float meridian_sin = 0.0f;
+  bool edge_distance_required = false;
   PreparedHueRotation prepared_hue_rotation;
   PreparedHueNoise prepared_hue_noise;
   ResourceBindings resources;
