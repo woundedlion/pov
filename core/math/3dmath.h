@@ -917,6 +917,14 @@ struct Complex {
    */
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
+    if (denom == 0.0f && (b.re != 0.0f || b.im != 0.0f)) [[unlikely]] {
+      constexpr float UNDERFLOW_LIFT = 79228162514264337593543950336.0f;
+      const float den_re = b.re * UNDERFLOW_LIFT;
+      const float den_im = b.im * UNDERFLOW_LIFT;
+      denom = den_re * den_re + den_im * den_im;
+      return Complex(((re * den_re + im * den_im) / denom) * UNDERFLOW_LIFT,
+                     ((im * den_re - re * den_im) / denom) * UNDERFLOW_LIFT);
+    }
     return Complex((re * b.re + im * b.im) / denom,
                    (im * b.re - re * b.im) / denom);
   }
