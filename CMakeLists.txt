@@ -29,7 +29,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-add_custom_target(docs_sync ALL
+add_custom_target(docs_sync
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/docs_check.py"
     --root "${CMAKE_CURRENT_SOURCE_DIR}" --sync --auto-checkout
   COMMENT "Synchronizing and validating documentation"
