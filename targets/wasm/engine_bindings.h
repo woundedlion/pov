@@ -265,8 +265,7 @@ public:
     // suite silently diverge.
     HS_CHECK(EffectRegistry::entries().size() ==
                  static_cast<size_t>(HS_EFFECT_COUNT),
-             "each effect header must be included by exactly one translation "
-             "unit");
+             "registered effect count differs from HS_EFFECT_LIST");
 
     // Pre-size the view-backed readback buffers ONCE: under ALLOW_MEMORY_GROWTH
     // a reallocation detaches the ArrayBuffer behind a typed_memory_view, so the
