@@ -312,6 +312,7 @@ public:
         pov::sync::phantasm_config(F_CPU_ACTUAL, RPM, CANVAS_W, R);
     cfg.effect_revolutions =
         effect_revolutions ? &(*effect_revolutions)[0] : nullptr;
+    cfg.effect_revolutions_count = effect_revolutions ? R : 0;
 #ifdef HS_PROFILE_EPOCH_REVS
     // Profiling knob: stretch the epoch so one effect instance covers a full
     // preset cycle in a single capture.

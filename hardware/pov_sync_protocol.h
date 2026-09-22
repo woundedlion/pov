@@ -121,16 +121,9 @@ struct Config {
   // Content layer (spec §6).
   uint32_t revs_per_effect =
       960; /**< Effect duration in revolutions (120 s). */
-  /**
-   * @brief Optional per-roster-entry effect durations, in revolutions.
-   * @details CONTRACT — when non-null this must point at at least
-   * effect_count entries: revolutions_for_effect() indexes it unguarded, and
-   * valid() itself sweeps [0, effect_count), so a short table reads out of
-   * bounds inside the validator. No length travels with the pointer, so hold
-   * the two together at the definition site (both sketches size the table off
-   * the same roster macro and static_assert the match).
-   */
+  /** Optional per-roster-entry effect durations, in revolutions. */
   const uint32_t *effect_revolutions = nullptr;
+  size_t effect_revolutions_count = 0;
   int32_t epoch_repeats = 3;     /**< EPOCH redundancy repeats (spec §6.3). */
   uint32_t refractory_revs = 16; /**< EPOCH dedup window (spec §6.1). */
   /**
@@ -406,6 +399,9 @@ struct Config {
       return "epoch_repeats >= 0";
     if (!(refractory_revs > commit_revs + static_cast<uint32_t>(epoch_repeats)))
       return "refractory_revs > commit_revs + epoch_repeats";
+    if (effect_revolutions &&
+        effect_revolutions_count < static_cast<size_t>(effect_count))
+      return "effect_revolutions_count >= effect_count";
     for (int32_t i = 0; i < effect_count; ++i)
       if (!(revolutions_for_effect(i) > refractory_revs))
         return "revolutions_for_effect(i) > refractory_revs";
