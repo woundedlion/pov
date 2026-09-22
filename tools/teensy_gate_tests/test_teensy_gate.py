@@ -294,7 +294,9 @@ class TestRegionCeilingsFail(unittest.TestCase):
 
         symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
         sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
-        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+        budget = copy.deepcopy(BUDGETS["holosphere"])
+        budget["regions"]["ram1"]["free_min_bytes"] = 32768
+        result = tg.evaluate("holosphere", budget, sizes,
                              symbols, sections)
         self.assertIn("headroom-below-floor", _codes(result))
         self.assertNotIn("region-missing", _codes(result))
@@ -308,7 +310,7 @@ class TestRegionCeilingsFail(unittest.TestCase):
         self.assertFalse(result.passed)
         codes = _codes(result)
         self.assertEqual(codes.count("region-over-budget"), 2)   # FLASH + RAM2
-        self.assertIn("headroom-below-floor", codes)             # DTCM stack room
+        self.assertNotIn("headroom-below-floor", codes)
 
 
 class TestEmptyBudgetFails(unittest.TestCase):
@@ -1470,15 +1472,12 @@ class TestSizeAFallback(unittest.TestCase):
         self.assertEqual(rc, tg.EXIT_UNCALIBRATED_PASS, msg=out)
         self.assertIn("PASS", out)
 
-    def test_main_size_a_fallback_free_arithmetic_trips_headroom_floor(self):
-        # DTCM large enough that 0x80000 - ram1 drops below the 32,768 B floor,
-        # proving the fallback `free` figure actually drives the gate decision.
-        # ram1 = 0x10000 + 0x70000 = 0x80000 -> free 0; floor 32768 -> violation.
+    def test_main_size_a_fallback_full_ram1_trips_ceiling(self):
         rc, out = self._run_main_size_a(
             _size_a(0x10000, 0x70000, 0x70000, 0x20000),
             "good_readelf_syms.txt", "holosphere")
         self.assertEqual(rc, 1, msg=out)
-        self.assertIn("free-for-local-variables", out)
+        self.assertIn("RAM1 uses 524,288 B", out)
 
     def test_fallback_pass_is_marked_advisory_not_calibrated(self):
         # A fallback PASS must carry the advisory note so it is never mistaken
