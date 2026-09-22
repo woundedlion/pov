@@ -353,7 +353,7 @@ private:
     frame = 0;
   }
 
-  HS_COLD_MEMBER static void bake_entry(BakedPalette &lut, Arena &arena,
+  HS_COLD_MEMBER static void bake_entry(BakedPaletteStorage &lut, Arena &arena,
                                         const Entry &entry) {
     // clone_from copies the prebaked table verbatim; sampling it through
     // get() would round-trip every entry through the float interpolator.
@@ -368,7 +368,7 @@ private:
   // Generative entries bake through their concrete type: the mirror and loop
   // domain shortcuts are invisible through the Palette base pointer, and a
   // loop's exact seam entry comes only from the shortcut.
-  HS_COLD_MEMBER static void rebake_entry(BakedPalette &lut,
+  HS_COLD_MEMBER static void rebake_entry(BakedPaletteStorage &lut,
                                           const Entry &entry) {
     if (entry.baked != nullptr)
       lut.rebake_copy(*entry.baked);
@@ -386,9 +386,9 @@ private:
   }
 
   const Entry *entries = nullptr; /**< Caller-owned entry array. */
-  BakedPalette display;   /**< The LUT handed to shaders via palette(). */
-  BakedPalette fade_from; /**< Crossfade w = 0 endpoint scratch. */
-  BakedPalette fade_to;   /**< Crossfade w = 1 endpoint scratch. */
+  BakedPaletteStorage display; /**< The LUT handed to shaders via palette(). */
+  BakedPaletteStorage fade_from; /**< Crossfade w = 0 endpoint scratch. */
+  BakedPaletteStorage fade_to;   /**< Crossfade w = 1 endpoint scratch. */
   /** @brief Arena-owned key-morph scratch rebaked into the display; allocated
    *  by init() only when some pair key-morphs. */
   GenerativePalette *morph = nullptr;

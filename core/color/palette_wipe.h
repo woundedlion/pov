@@ -23,7 +23,7 @@
  */
 template <typename Source>
 inline void step_wipe_rebake(bool &wipe_pending, int &wipe_frames_remaining,
-                             BakedPalette &baked, const Source &source) {
+                             BakedPaletteStorage &baked, const Source &source) {
   if (wipe_pending) {
     wipe_pending = false;
   } else if (wipe_frames_remaining > 0) {
@@ -70,7 +70,7 @@ struct PaletteWipe {
    * @param source Palette mutated in place by the in-flight ColorWipe.
    */
   template <typename Source>
-  void step(BakedPalette &baked, const Source &source) {
+  void step(BakedPaletteStorage &baked, const Source &source) {
     step_wipe_rebake(pending, frames_remaining, baked, source);
   }
 };

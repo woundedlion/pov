@@ -249,7 +249,7 @@ private:
    * @details A spawn rebakes the inactive slot, so a rebake never lands on the
    *          slot a sprite is drawing from.
    */
-  BakedPalette baked_palettes[2];
+  BakedPaletteStorage baked_palettes[2];
   static constexpr size_t FOOTPRINT_BYTES =
       2 * BakedPalette::required_arena_bytes() +
       SOLID_COUNT * sizeof(SolidData) +

@@ -427,7 +427,7 @@ inline void test_generative_palette_domain_invariants() {
   alignas(std::max_align_t)
       uint8_t storage[BakedPalette::required_arena_bytes()];
   Arena arena(storage, sizeof(storage));
-  BakedPalette baked;
+  BakedPaletteStorage baked;
   baked.bake(arena, mirror);
   for (int i = 0; i < 128; ++i) {
     const Pixel left = baked.get(i / 255.0f).color;
@@ -676,11 +676,11 @@ inline void test_baked_palette_rebake_crossfade() {
       buf[4 * BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
-  BakedPalette from;
+  BakedPaletteStorage from;
   from.bake(arena, ramp);
-  BakedPalette to;
+  BakedPaletteStorage to;
   to.bake(arena, warm);
-  BakedPalette out;
+  BakedPaletteStorage out;
   out.bake(arena, ramp);
 
   out.rebake_crossfade(from, to, 0.0f);
@@ -688,7 +688,7 @@ inline void test_baked_palette_rebake_crossfade() {
   out.rebake_crossfade(from, to, 1.0f);
   expect_baked_equal(out, to);
 
-  BakedPalette expected;
+  BakedPaletteStorage expected;
   expected.bake_blend(arena, from, to, 0.37f);
   out.rebake_crossfade(from, to, 0.37f);
   expect_baked_equal(out, expected);
@@ -757,11 +757,11 @@ inline void test_generative_palette_lerp_mixed_curves_continuous() {
   alignas(std::max_align_t) static uint8_t
       buf[4 * BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
-  BakedPalette from_lut;
+  BakedPaletteStorage from_lut;
   from_lut.bake(arena, from);
-  BakedPalette to_lut;
+  BakedPaletteStorage to_lut;
   to_lut.bake(arena, to);
-  BakedPalette morph_lut;
+  BakedPaletteStorage morph_lut;
   morph_lut.bake(arena, from);
 
   GenerativePalette morph;
@@ -787,7 +787,7 @@ inline void test_generative_palette_lerp_mixed_curves_continuous() {
                                                 PaletteHarmony::ANALOGOUS,
                                                 AxisCurve::ASCENDING, 0.1f))
           .snapshot();
-  BakedPalette endpoint_lut;
+  BakedPaletteStorage endpoint_lut;
   endpoint_lut.bake(arena, bell);
 
   GenerativePalette snapshot_morph(bell_recipe);
@@ -849,7 +849,7 @@ inline void test_palette_cycler_key_morph_cycle() {
   PaletteCycler cycler;
   cycler.init(cycler_arena, entries.data(), entries.size(), 3, 4);
 
-  BakedPalette ref;
+  BakedPaletteStorage ref;
   ref.bake(ref_arena, first);
   expect_baked_equal(cycler.palette(), ref);
   HS_EXPECT_EQ(cycler.current_index(), 0);
@@ -866,7 +866,7 @@ inline void test_palette_cycler_key_morph_cycle() {
   cycler.step();
   GenerativePalette expected_morph;
   expected_morph.lerp(first, second, 0.25f);
-  BakedPalette expected;
+  BakedPaletteStorage expected;
   expected.bake(ref_arena, expected_morph);
   expect_baked_equal(cycler.palette(), expected);
 
@@ -895,23 +895,23 @@ inline void test_palette_cycler_heterogeneous_crossfade() {
       buf[8 * BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
-  BakedPalette prebaked;
+  BakedPaletteStorage prebaked;
   prebaked.bake(arena, solid);
 
   const std::array<PaletteCycler::Entry, 3> entries = {
-      {ramp, prebaked, generative}};
+      {ramp, prebaked.view(), generative}};
 
   PaletteCycler cycler;
   cycler.init(arena, entries.data(), entries.size(), 1, 2);
 
-  BakedPalette ramp_lut;
+  BakedPaletteStorage ramp_lut;
   ramp_lut.bake(arena, ramp);
   expect_baked_equal(cycler.palette(), ramp_lut);
 
   cycler.step();
   HS_EXPECT_TRUE(cycler.fading());
   cycler.step();
-  BakedPalette expected;
+  BakedPaletteStorage expected;
   expected.bake(arena, ramp);
   expected.rebake_crossfade(ramp_lut, prebaked, 0.5f);
   expect_baked_equal(cycler.palette(), expected);
@@ -925,7 +925,7 @@ inline void test_palette_cycler_heterogeneous_crossfade() {
   cycler.step();
   cycler.step();
   HS_EXPECT_EQ(cycler.current_index(), 2);
-  BakedPalette generative_lut;
+  BakedPaletteStorage generative_lut;
   generative_lut.bake(arena, generative);
   expect_baked_equal(cycler.palette(), generative_lut);
 
@@ -946,7 +946,7 @@ inline void test_palette_cycler_pause_and_static() {
   const std::array<PaletteCycler::Entry, 1> single = {{ramp}};
   PaletteCycler static_cycler;
   static_cycler.init(arena, single.data(), single.size(), 1, 1);
-  BakedPalette ref;
+  BakedPaletteStorage ref;
   ref.bake(arena, ramp);
   for (int i = 0; i < 5; ++i)
     static_cycler.step();
@@ -1019,7 +1019,7 @@ inline void test_palette_cycler_generated_cycle() {
   cycler.init_generated(arena, scripted_next_palette, &provider_calls, 0, 2);
   HS_EXPECT_EQ(provider_calls, 2);
 
-  BakedPalette ref;
+  BakedPaletteStorage ref;
   ref.bake(arena, GenerativePalette(PaletteRecipes::balanced_analogous(0.1f)));
   expect_baked_equal(cycler.palette(), ref);
 
@@ -1030,7 +1030,7 @@ inline void test_palette_cycler_generated_cycle() {
   GenerativePalette mid;
   mid.lerp(GenerativePalette(PaletteRecipes::balanced_analogous(0.1f)),
            GenerativePalette(PaletteRecipes::balanced_analogous(0.3f)), 0.5f);
-  BakedPalette expected;
+  BakedPaletteStorage expected;
   expected.bake(arena, mid);
   expect_baked_equal(cycler.palette(), expected);
 
@@ -1057,7 +1057,7 @@ inline void test_palette_cycler_generated_cycle() {
   cycler.step();
   GenerativePalette blended;
   blended.lerp(first, second, 0.5f);
-  BakedPalette blended_lut;
+  BakedPaletteStorage blended_lut;
   blended_lut.bake(reinit_arena, blended);
   expect_baked_equal(cycler.palette(), blended_lut);
   HS_EXPECT_EQ(provider_calls, 3);
@@ -1140,7 +1140,7 @@ inline void test_palette_cycler_bake_generation() {
 
   PaletteCycler cycler;
   cycler.init(arena, pair.data(), pair.size(), 2, 4);
-  BakedPalette snapshot;
+  BakedPaletteStorage snapshot;
   snapshot.bake(arena, a);
   snapshot.rebake_copy(cycler.palette());
   uint32_t generation = cycler.bake_generation();
@@ -1185,7 +1185,7 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
   PaletteCycler cycler;
   cycler.init(arena, pair.data(), pair.size(), 0, 2);
 
-  BakedPalette ref;
+  BakedPaletteStorage ref;
   ref.bake(arena, a);
   expect_baked_equal(cycler.palette(), ref);
   HS_EXPECT_FALSE(cycler.fading());
@@ -1196,7 +1196,7 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
   cycler.step();
   GenerativePalette mid;
   mid.lerp(a, b, 0.5f);
-  BakedPalette expected;
+  BakedPaletteStorage expected;
   expected.bake(arena, mid);
   expect_baked_equal(cycler.palette(), expected);
 

@@ -845,8 +845,8 @@ struct SphericalHarmonicsWhiteBox {
                                         int m2, float blend,
                                         const Quaternion &orientation,
                                         float amplitude) {
-    return Pipeline::prepare(
-        {{l1, m1, l2, m2, blend, orientation}, {&fx.baked_palette, amplitude}});
+    return Pipeline::prepare({{l1, m1, l2, m2, blend, orientation},
+                              {&fx.baked_palette.view(), amplitude}});
   }
 
   static Color4 shade_pipeline(const Vector &view, const PipelineFrame &frame) {
@@ -854,7 +854,7 @@ struct SphericalHarmonicsWhiteBox {
   }
 
   static Color4 shade_legacy(const SH &fx, float value, float amplitude) {
-    return SH::colorize_harmonic(value, {&fx.baked_palette, amplitude});
+    return SH::colorize_harmonic(value, {&fx.baked_palette.view(), amplitude});
   }
 
   // Pinning both morph endpoints on one mode makes the blend an identity, so a

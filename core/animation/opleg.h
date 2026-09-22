@@ -1503,20 +1503,18 @@ private:
     const int num_ramps = seed_side ? tr.seed_num_ramps : tr.num_ramps;
     BakedPalette *ramps = scratch_arena_b.make_n<BakedPalette>(num_ramps);
     for (int r = 0; r < num_ramps; ++r) {
-      // A copied bank entry is a non-owning handle onto the bank's LUT: mark it
-      // so a rebake through it traps instead of overwriting the bank.
       if (seed_side) {
         ramps[r] = tr.bank->entries[tr.seed_ramp_pal[r]];
-        ramps[r].mark_aliased();
+
         continue;
       }
       const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
       const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
       if (tr.ramp_from[r] == tr.ramp_to[r]) {
         ramps[r] = to;
-        ramps[r].mark_aliased();
+
       } else
-        bake_palette_blend(ramps[r], scratch_arena_b, from, to, w);
+        ramps[r] = bake_palette_blend(scratch_arena_b, from, to, w);
     }
 
     Shading sh{ramps, face_ramp.data(), face_ramp.size()};

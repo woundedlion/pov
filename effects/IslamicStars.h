@@ -410,7 +410,7 @@ private:
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
         face_phases.push_back(seg.face_phase(phase, off, fade));
-        face_palettes.push_back(&palette_bank[face_palette[f]]);
+        face_palettes.push_back(&palette_bank[face_palette[f]].view());
       }
     }
 

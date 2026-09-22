@@ -584,7 +584,7 @@ private:
   } transition;
 
   /** @brief 16-bit LUT baked from the generative palette mapping B to RGB. */
-  BakedPalette palette;
+  BakedPaletteStorage palette;
 
   /**
    * @brief GUI-tunable Gray-Scott parameters.

@@ -348,7 +348,7 @@ inline void test_face_palette_shader_defaults() {
   alignas(std::max_align_t) static uint8_t
       buffer[BakedPalette::required_arena_bytes()];
   Arena arena(buffer, sizeof(buffer));
-  BakedPalette palette;
+  BakedPaletteStorage palette;
   palette.bake(arena, source);
 
   const Pixel dark = palette.get_color_unit(0.0f);
@@ -358,7 +358,7 @@ inline void test_face_palette_shader_defaults() {
   HS_EXPECT_LT(mid.r, light.r);
 
   FacePaletteShader shader;
-  shader.set_palette(&palette);
+  shader.set_palette(&palette.view());
   Fragment fragment;
   fragment.v1 = -0.5f;
   shader(Vector(), fragment);

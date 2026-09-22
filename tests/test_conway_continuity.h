@@ -1628,7 +1628,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
           resolve_arena.reset();
           Probe::resolve_slot_luts(fx, cf, blended, star_by_slot, strap_by_slot,
                                    resolve_arena);
-          HS_EXPECT_TRUE(star_by_slot[s] == &bank.entries[idx[s]]);
+          HS_EXPECT_TRUE(star_by_slot[s] == &bank.entries[idx[s]].view());
         }
       }
       if (!strap[s])

@@ -73,7 +73,7 @@ public:
     }
 
     rings = persistent_arena.make_n_indexed<Ring>(NUM_RINGS, [&](size_t i) {
-      return Ring(&baked_palettes[i % NUM_PALETTES]);
+      return Ring(&baked_palettes[i % NUM_PALETTES].view());
     });
     for (int i = 0; i < NUM_RINGS; ++i) {
       Ring &r = rings[i];
@@ -163,7 +163,7 @@ private:
    * trail orientation, fixed at the draw site.
    */
   struct Ring {
-    BakedPalette *palette;
+    const BakedPalette *palette;
     Orientation<> orientation;
     Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
     FastNoiseLite noise;
@@ -171,14 +171,14 @@ private:
      * @brief Constructs a ring drawing from palette @p p.
      * @param p Baked palette used to color the ring's trail.
      */
-    Ring(BakedPalette *p) : palette(p) {}
+    Ring(const BakedPalette *p) : palette(p) {}
   };
 
   Timeline timeline;
   Pipeline<W, H> filters;
   Ring *rings = nullptr;
 
-  std::array<BakedPalette, NUM_PALETTES> baked_palettes;
+  std::array<BakedPaletteStorage, NUM_PALETTES> baked_palettes;
 
   /**
    * @brief Tunable rendering parameters for the effect.

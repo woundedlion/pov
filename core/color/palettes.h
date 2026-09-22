@@ -181,7 +181,7 @@ struct MeshPaletteBank {
    * @param i Slot index in [0, N).
    * @return Mutable reference to the baked palette.
    */
-  BakedPalette &operator[](int i) {
+  BakedPaletteStorage &operator[](int i) {
     assert(i >= 0 && i < N && "MeshPaletteBank index out of range");
     return bank.entries[i];
   }
