@@ -523,7 +523,7 @@ inline constexpr TopologyKey make_topology_key(const Config &config) {
   TopologyKey key{
       slots.function,
       slots.projection,
-      slots.projection_frame,
+      ProjectionFramePolicy{},
       slots.surface_lens,
       slots.signal_weight,
       slots.value_transfer,
