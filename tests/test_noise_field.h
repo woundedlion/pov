@@ -128,6 +128,12 @@ inline void test_noise_field_direct_tangent() {
     const Vector simplex =
         sample_direct_tangent(noise, NoiseBasis::SIMPLEX, q, v, 1.0f, 0.0f);
     const Vector specialized = sample_direct_simplex_tangent(noise, q, v);
+    const Vector quarter_turn =
+        sample_direct_tangent(noise, NoiseBasis::SIMPLEX, q, v, 0.0f, 1.0f);
+    const Vector expected_turn = cross(v, simplex);
+    HS_EXPECT_NEAR(quarter_turn.x, expected_turn.x, 1e-6f);
+    HS_EXPECT_NEAR(quarter_turn.y, expected_turn.y, 1e-6f);
+    HS_EXPECT_NEAR(quarter_turn.z, expected_turn.z, 1e-6f);
     HS_EXPECT_EQ(std::memcmp(&simplex, &specialized, sizeof(Vector)), 0);
     for (NoiseBasis basis : {NoiseBasis::FBM3, NoiseBasis::RIDGED3}) {
       const Vector u0 = sample_direct_tangent(noise, basis, q, v, 0.0f);
