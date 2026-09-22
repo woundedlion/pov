@@ -12,9 +12,10 @@ HankinSolids solids with true geometric morphs: each transition sweeps the
 continuous parameter of the destination solid's own Conway chain, so faces
 visibly truncate, expand, and twist from one polyhedron into the next. Exactly
 one mesh is on screen at all times — there is no crossfade or dissolve
-anywhere in the design (§2.5). `Animation::MeshMorph` itself remains for other
-effects (MeshFeedback); the edge graph is fully connected, so HankinSolids no
-longer needs it. `Segue::Dissolve` remains available for other transitions.
+anywhere in the design (§2.5). `Animation::MeshMorph` remained available for other effects at this design
+revision, but has since been removed. The edge graph was fully connected, so
+HankinSolids no longer needed it. `Segue::Dissolve` remains available for other
+transitions.
 
 **Device result** (both build configs, two full 30-leg tours, 6,848 frames):
 **0 spilled frames, 16 fps on all 18 holds and all 30 legs**. The morph is the
