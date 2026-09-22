@@ -255,8 +255,13 @@ inline void check_segment_clips(int S, int N, int w) {
       HS_EXPECT_EQ(c.y1 - c.y0, PPS);
       const int EXPECTED_Y0 = m.y_step > 0 ? m.y_base : m.y_base - (PPS - 1);
       HS_EXPECT_EQ(c.y0, EXPECTED_Y0);
-      // Arm B paints the opposite column half from arm A in the same window.
-      HS_EXPECT_EQ(c.x0 == 0, m.arm_b ? !arm_a_left : arm_a_left);
+      const int rotation_start = arm_a_left ? 0 : w / 2;
+      for (int rotation = rotation_start; rotation < rotation_start + w / 2;
+           ++rotation) {
+        const int sampled_column = segment_x_col(m.arm_b, rotation, w);
+        HS_EXPECT_GE(sampled_column, c.x0);
+        HS_EXPECT_LT(sampled_column, c.x1);
+      }
 
       for (int y = c.y0; y < c.y1; ++y)
         for (int x = c.x0; x < c.x1; ++x)
