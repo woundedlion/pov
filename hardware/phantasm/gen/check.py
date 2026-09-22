@@ -8,6 +8,7 @@ import argparse
 import os
 import sys
 
+import builder
 import sexp
 from kicad_common import F, export_netlist, kicad_cli
 
@@ -17,7 +18,7 @@ from kicad_common import F, export_netlist, kicad_cli
 # ref alone. Each such ref is expected on two nets, so a bridged or open
 # terminal still fails. D_BUS (CDSOD323-T05L) is a unidirectional TVS and is
 # pin-keyed: pin 1 cathode on SYNC_BUS, pin 2 anode on GND.
-SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_LF",
+SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_LF", "R_TX",
              "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "F1", "FB",
              "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD"}
 
@@ -27,7 +28,7 @@ def node_key(ref, pin):
 
 
 # Expected named net -> set of node keys across the electrical requirements.
-EXPECT = {
+EXPECT_REV_1_1 = {
     "+5V_IN":     {"J1.1", "F1"},
     "+5V_RAW":    {"F1", "Q_REV.3"},
     "+5V_PROT":   {"Q_REV.2", "FB"},
@@ -57,6 +58,30 @@ EXPECT = {
                    "U1.1", "U1.4", "U1.7", "U1.12", "U_MCU.GND"},
 }
 
+EXPECT = {name: set(nodes) for name, nodes in EXPECT_REV_1_1.items()}
+EXPECT["FRAME_SYNC"].remove("U1.9")
+EXPECT["SYNC_TX"] = {"U_MCU.4", "U1.9", "R_TX"}
+EXPECT["GND"].add("R_TX")
+
+
+def expected_nets(revision):
+    if revision == "1.1":
+        return EXPECT_REV_1_1
+    if revision == "1.2":
+        return EXPECT
+    raise ValueError(f"unsupported board revision: {revision!r}")
+
+
+def netlist_revision(root):
+    for design in F(root, "design"):
+        for sheet in F(design, "sheet"):
+            if sexp.val(sheet, "name") == ["/"]:
+                for title in F(sheet, "title_block"):
+                    revision = str(sexp.val(title, "rev", [""])[0])
+                    expected_nets(revision)
+                    return revision
+    raise ValueError("netlist has no root-sheet board revision")
+
 
 def netlist_nets(root):
     """Parsed netlist -> {net name: set of node keys}."""
@@ -77,15 +102,16 @@ def netlist_nets(root):
     return got
 
 
-def check(got):
+def check(got, revision=builder.REVISION):
     """Report every net that differs from EXPECT; return True when all match.
 
     A named net absent from EXPECT is printed as an advisory NOTE and does not
     move the verdict: the gate partitions the nets it knows, it does not close
     the set.
     """
+    expected = expected_nets(revision)
     ok = True
-    for name, keys in sorted(EXPECT.items()):
+    for name, keys in sorted(expected.items()):
         g = got.get(name, set())
         if g != keys:
             ok = False
@@ -96,7 +122,7 @@ def check(got):
     for name, g in got.items():
         if name.startswith(("unconnected", "Net-")):
             continue
-        if name not in EXPECT:
+        if name not in expected:
             print(f"NOTE extra named net {name}: {sorted(g)}")
     return ok
 
@@ -107,7 +133,8 @@ def main(argv=None):
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "phantasm.kicad_sch"))
     args = parser.parse_args(argv)
-    ok = check(netlist_nets(export_netlist(kicad_cli(), args.schematic)))
+    root = export_netlist(kicad_cli(), args.schematic)
+    ok = check(netlist_nets(root), netlist_revision(root))
     print("NETLIST OK" if ok else "NETLIST MISMATCH")
     return 0 if ok else 1
 

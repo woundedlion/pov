@@ -1,5 +1,10 @@
 # PHANTASM Segment Board — KiCad project
 
+**Generator target: rev 1.2. Committed routed artifacts: rev 1.1.** Rev 1.2
+separates sync transmit from the filtered receive node; see
+[Revision 1.2](#revision-12). The existing fabrication ZIP and routed board
+remain the rev 1.1 manufacturing record.
+
 KiCad 10 schematic for the per-segment carrier board specified in
 [../../docs/specs/phantasm_pcb_spec.md](../../docs/specs/phantasm_pcb_spec.md). One identical
 PCB is built ×4 for the qualified configuration; a solder strap selects each
@@ -127,8 +132,11 @@ committed board directly need no KiCad and run in CI
   space in the upload zip.
 - **Board-revision gate:** `gen/tests/test_revision.py` reads the revision off
   the bottom silkscreen (`Phantasm Rev 1.1`) and requires the schematic title
-  block, the routed board's title block and `gen/builder.py`'s `REVISION` to
-  agree with it. The board title block is what KiCad writes into the Gerber X2
+  block and the routed board's title block to agree with it. Generated artifacts
+  are checked separately against `gen/builder.py`'s `REVISION` (1.2).
+  `pcb.py` rejects a source schematic from another revision, and the electrical
+  and assembly gates select their exact requirements by artifact revision.
+  The board title block is what KiCad writes into the Gerber X2
   `ProjectId` attribute; without it the gerbers ship `rev?`.
 - **Part-catalog gate:** every assigned LCSC number must resolve to a catalog
   entry with a non-blank manufacturer, MPN, and description, so each JLCPCB
@@ -392,6 +400,33 @@ strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `MASTER_EN` and
 dimension within that width. Narrowing the width lengthens the board (less room to
 pack beside the Teensy). The committed routed dimensions are reported in the generated
 facts block above.
+
+## Revision 1.2
+
+Every master and follower uses the same PCB, populated parts, and pin map.
+The ID straps select the role; `MASTER_EN` still gates both U1 channels C/D.
+
+| Signal | Connections | Master | Follower |
+|---|---|---|---|
+| `FRAME_SYNC` | Teensy D3, R1/R2 divider, C_SYNC 220 pF | Receive-only, echo ignored | Receive with pad hysteresis |
+| `SYNC_TX` | Teensy D4, U1 pin 9, R_TX 10 kΩ to GND | Sync pulse output | Output held LOW |
+| `MASTER_EN` | Teensy D5, U1 pins 10/13, R_MEN pull-up | LOW after TX initialization | HIGH |
+
+`R_TX` is populated on **every board**, including the master. It holds the AHCT
+input LOW during reset while the GPIO is high impedance. The receive RC no
+longer loads an AHCT input. `R_TX` uses the same 0603 10 kΩ catalog part as
+`R_MEN` (C25804).
+
+**Firmware compatibility:** the current firmware targets rev 1.1 and transmits
+on D3. Rev 1.2 requires transmission on D4, D3 configured as input with HYS,
+and D4 initialized LOW as an output on every board before enabling the master.
+Followers keep D4 LOW; only the master emits pulses. Use the corresponding
+firmware pin map before operating a rev 1.2 board. No firmware or routed copper
+is changed by updating these generators.
+
+Generating rev 1.2 requires regenerating the schematic before either PCB draft.
+The resulting PCB is unrouted and needs placement/routing validation before
+fabrication; changing its revision label alone does not convert rev 1.1 copper.
 
 ## Regenerating
 

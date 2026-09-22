@@ -65,7 +65,7 @@ MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 # Fast / critical nets for the 24 MHz SPI + sync (post-relabel source-side names
 # DATA_SRC/CLK_SRC/SYNC_SRC are pre-terminator stubs -- included as fast too).
 SPI = ["DATA", "CLK", "DATA_IN", "CLK_IN", "DATA_SRC", "CLK_SRC"]
-SYNC = ["SYNC_BUS", "FRAME_SYNC", "SYNC_SRC"]
+SYNC = ["SYNC_BUS", "FRAME_SYNC", "SYNC_TX", "SYNC_SRC"]
 CRIT = SPI + SYNC
 # the two pairs we care about phase/length matching on
 PAIRS = [("DATA", "CLK"), ("DATA_IN", "CLK_IN")]
@@ -187,6 +187,9 @@ def run_drc(pcb_path):
 def analyze(path):
     with open(path, encoding="utf-8") as fh:
         root = sexp.parse(fh.read())[0]
+    title = blocks(root, "title_block")
+    revision = field(title[0], "rev") if title else "1.1"
+    required = CRIT if revision == "1.2" else [n for n in CRIT if n != "SYNC_TX"]
     segs = blocks(root, "segment")
     arcs = blocks(root, "arc")
     vias = blocks(root, "via")
@@ -236,7 +239,7 @@ def analyze(path):
             f"no critical net ({', '.join(CRIT)}) resolved by name in {path}; "
             "copper is present but its nets are unnamed, so the SI ranking "
             "would be scored on zeroes")
-    unrouted = [n for n in CRIT if netlen.get(n, 0) <= 0]
+    unrouted = [n for n in required if netlen.get(n, 0) <= 0]
     if unrouted:
         raise ValueError(
             f"unrouted critical nets in {path}: {', '.join(unrouted)}; "
