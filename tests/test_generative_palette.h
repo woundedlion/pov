@@ -448,13 +448,31 @@ inline void test_generative_palette_domain_invariants() {
   HS_EXPECT_EQ(first.alpha, last.alpha);
 }
 
+inline void test_generative_palette_morph_policy_contracts() {
+  const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
+  const GenerativePalette to(PaletteRecipes::balanced_analogous(0.3f));
+  const GenerativePalette policy(PaletteRecipes::isolight_spectral_loop(0.5f));
+  HS_EXPECT_TRUE(from.morph_compatible(to));
+  HS_EXPECT_TRUE(policy.palette_domain() != from.palette_domain());
+  GenerativePalette whole = policy;
+  whole.morph_palettes(from, to, 0.5f);
+  HS_EXPECT_EQ(whole.palette_domain(), from.palette_domain());
+  HS_EXPECT_EQ(whole.palette_color_path(), from.palette_color_path());
+  HS_EXPECT_EQ(whole.palette_headroom(), from.palette_headroom());
+  GenerativePalette keys = policy;
+  keys.morph_snapshots(from.snapshot(), to.snapshot(), 0.5f);
+  HS_EXPECT_EQ(keys.palette_domain(), policy.palette_domain());
+  HS_EXPECT_EQ(keys.palette_color_path(), policy.palette_color_path());
+  HS_EXPECT_EQ(keys.palette_headroom(), policy.palette_headroom());
+}
+
 inline void test_generative_palette_snapshot_lerp() {
   GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.75f));
   const auto first = from.snapshot();
   const auto last = to.snapshot();
 
-  from.lerp(first, last, 0.5f);
+  from.morph_snapshots(first, last, 0.5f);
   const auto middle = from.snapshot();
   const auto first_key = GenerativePalette::snapshot_key(first, 0);
   const auto last_key = GenerativePalette::snapshot_key(last, 0);
@@ -463,7 +481,7 @@ inline void test_generative_palette_snapshot_lerp() {
   HS_EXPECT_NEAR(middle_key.chroma, 0.5f * (first_key.chroma + last_key.chroma),
                  3e-4f);
 
-  from.lerp(first, last, 1.0f);
+  from.morph_snapshots(first, last, 1.0f);
   const GenerativePalette::Snapshot target = from.snapshot();
   HS_EXPECT_EQ(std::memcmp(&target, &last, sizeof(last)), 0);
 }
@@ -487,7 +505,7 @@ inline void test_generative_palette_lerp_accumulates_segment_deltas() {
   HS_EXPECT_EQ(from.palette_key_count(), (uint8_t)3);
 
   GenerativePalette morph;
-  morph.lerp(from, to, 0.5f);
+  morph.morph_palettes(from, to, 0.5f);
   for (int i = 0; i < 3; ++i) {
     const float start = from.resolved_oklch_key(i).h;
     const float travel = to.resolved_oklch_key(i).h - start;
@@ -520,9 +538,9 @@ inline void test_generative_palette_lerp_target_aliases_this() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.25f));
   GenerativePalette expected;
-  expected.lerp(from, to, 0.25f);
+  expected.morph_palettes(from, to, 0.25f);
   GenerativePalette aliased = to;
-  aliased.lerp(from, aliased, 0.25f);
+  aliased.morph_palettes(from, aliased, 0.25f);
   for (int i = 0; i <= 16; ++i) {
     const Pixel landed = aliased.get(i / 16.0f).color;
     const Pixel reference = expected.get(i / 16.0f).color;
@@ -535,7 +553,7 @@ inline void test_generative_palette_lerp_target_aliases_this() {
 inline void test_generative_palette_snapshot_lerp_closes_loop() {
   GenerativePalette morph(PaletteRecipes::isolight_spectral_loop(0.13f));
   const GenerativePalette target(PaletteRecipes::isolight_spectral_loop(0.37f));
-  morph.lerp(morph.snapshot(), target.snapshot(), 1.0f);
+  morph.morph_snapshots(morph.snapshot(), target.snapshot(), 1.0f);
   for (int i = 0; i <= 16; ++i) {
     const Pixel landed = morph.get(i / 16.0f).color;
     const Pixel expected = target.get(i / 16.0f).color;
@@ -765,12 +783,12 @@ inline void test_generative_palette_lerp_mixed_curves_continuous() {
   morph_lut.bake(arena, from);
 
   GenerativePalette morph;
-  morph.lerp(from, to, 0.999f);
+  morph.morph_palettes(from, to, 0.999f);
   morph_lut.rebake(morph);
   std::printf("  [lerp-endpoint] to worst=%d\n",
               expect_baked_near(morph_lut, to_lut, LERP_ENDPOINT_TOLERANCE));
 
-  morph.lerp(from, to, 0.001f);
+  morph.morph_palettes(from, to, 0.001f);
   morph_lut.rebake(morph);
   std::printf("  [lerp-endpoint] from worst=%d\n",
               expect_baked_near(morph_lut, from_lut, LERP_ENDPOINT_TOLERANCE));
@@ -791,18 +809,19 @@ inline void test_generative_palette_lerp_mixed_curves_continuous() {
   endpoint_lut.bake(arena, bell);
 
   GenerativePalette snapshot_morph(bell_recipe);
-  snapshot_morph.lerp(bell_keys, ascending_keys, 0.0f);
+  snapshot_morph.morph_snapshots(bell_keys, ascending_keys, 0.0f);
   endpoint_lut.rebake(snapshot_morph);
-  snapshot_morph.lerp(bell_keys, ascending_keys, MIXED_CURVE_ENDPOINT_STEP);
+  snapshot_morph.morph_snapshots(bell_keys, ascending_keys,
+                                 MIXED_CURVE_ENDPOINT_STEP);
   morph_lut.rebake(snapshot_morph);
   std::printf(
       "  [lerp-endpoint] mixed-curve from worst=%d\n",
       expect_baked_near(morph_lut, endpoint_lut, LERP_ENDPOINT_TOLERANCE));
 
-  snapshot_morph.lerp(bell_keys, ascending_keys, 1.0f);
+  snapshot_morph.morph_snapshots(bell_keys, ascending_keys, 1.0f);
   endpoint_lut.rebake(snapshot_morph);
-  snapshot_morph.lerp(bell_keys, ascending_keys,
-                      1.0f - MIXED_CURVE_ENDPOINT_STEP);
+  snapshot_morph.morph_snapshots(bell_keys, ascending_keys,
+                                 1.0f - MIXED_CURVE_ENDPOINT_STEP);
   morph_lut.rebake(snapshot_morph);
   std::printf(
       "  [lerp-endpoint] mixed-curve to worst=%d\n",
@@ -814,7 +833,7 @@ inline void test_generative_palette_lerp_interpolates_loop_seam() {
   const GenerativePalette b(PaletteRecipes::isolight_spectral_loop(0.4f));
   GenerativePalette morph;
   for (const float amount : {0.25f, 0.5f, 0.75f}) {
-    morph.lerp(a, b, amount);
+    morph.morph_palettes(a, b, amount);
     const Pixel seam = morph.get(1.0f).color;
     const Pixel start = morph.get(0.0f).color;
     HS_EXPECT_TRUE(std::abs(int(seam.r) - int(start.r)) <= 220);
@@ -865,7 +884,7 @@ inline void test_palette_cycler_key_morph_cycle() {
 
   cycler.step();
   GenerativePalette expected_morph;
-  expected_morph.lerp(first, second, 0.25f);
+  expected_morph.morph_palettes(first, second, 0.25f);
   BakedPaletteStorage expected;
   expected.bake(ref_arena, expected_morph);
   expect_baked_equal(cycler.palette(), expected);
@@ -1028,8 +1047,9 @@ inline void test_palette_cycler_generated_cycle() {
 
   cycler.step();
   GenerativePalette mid;
-  mid.lerp(GenerativePalette(PaletteRecipes::balanced_analogous(0.1f)),
-           GenerativePalette(PaletteRecipes::balanced_analogous(0.3f)), 0.5f);
+  mid.morph_palettes(
+      GenerativePalette(PaletteRecipes::balanced_analogous(0.1f)),
+      GenerativePalette(PaletteRecipes::balanced_analogous(0.3f)), 0.5f);
   BakedPaletteStorage expected;
   expected.bake(arena, mid);
   expect_baked_equal(cycler.palette(), expected);
@@ -1056,7 +1076,7 @@ inline void test_palette_cycler_generated_cycle() {
   cycler.step();
   cycler.step();
   GenerativePalette blended;
-  blended.lerp(first, second, 0.5f);
+  blended.morph_palettes(first, second, 0.5f);
   BakedPaletteStorage blended_lut;
   blended_lut.bake(reinit_arena, blended);
   expect_baked_equal(cycler.palette(), blended_lut);
@@ -1195,7 +1215,7 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
 
   cycler.step();
   GenerativePalette mid;
-  mid.lerp(a, b, 0.5f);
+  mid.morph_palettes(a, b, 0.5f);
   BakedPaletteStorage expected;
   expected.bake(arena, mid);
   expect_baked_equal(cycler.palette(), expected);

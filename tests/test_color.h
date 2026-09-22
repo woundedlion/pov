@@ -502,7 +502,7 @@ inline void test_lerp_oklch_endpoints() {
 /**
  * @brief Verifies extrapolating amounts still yield a valid OKLCH.
  * @details Extrapolating amounts (reachable via unbounded
- *          GenerativePalette::lerp / ColorWipe paths) must clamp L to [0,1] and
+ *          GenerativePalette::morph_snapshots / ColorWipe paths) must clamp L to [0,1] and
  *          keep C non-negative, so an overshoot can't flip the hue 180deg or
  *          render near-black.
  */
@@ -1293,7 +1293,7 @@ inline void test_gradient_interpolates_between_entries() {
 /**
  * @brief Verifies Gradient::get clamps t to [0,1] for out-of-range input.
  * @details Out-of-range input saturates to an endpoint and never indexes past
- *          the 256-entry table (GenerativePalette::lerp can pass t slightly
+ *          the 256-entry table (GenerativePalette::morph_snapshots can pass t slightly
  *          outside the unit interval). NaN folds to the hi bound.
  */
 inline void test_gradient_get_clamps_out_of_range() {
@@ -2810,6 +2810,7 @@ inline int run_color_tests() {
   test_generative_palette_blue_cusp_is_continuous();
   test_generative_palette_local_gamut_stays_in_gamut();
   test_generative_palette_domain_invariants();
+  test_generative_palette_morph_policy_contracts();
   test_generative_palette_snapshot_lerp();
   test_generative_palette_lerp_accumulates_segment_deltas();
   test_generative_palette_snapshot_keeps_faint_chroma_chromatic();
