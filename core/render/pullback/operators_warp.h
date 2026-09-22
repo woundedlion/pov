@@ -99,6 +99,7 @@ struct WaveShearWarpParams : Warp::WaveShearParams {
   };
 };
 static_assert(field_ids_unique<WaveShearWarpParams>());
+static_assert(field_defaults_in_range<WaveShearWarpParams>());
 
 /** @brief The wave shear's prepared block: the field frame plus the phase the
     kernel consumes per sample. */
@@ -175,6 +176,7 @@ struct VectorNoiseWarpParams : Warp::VectorNoiseParams {
   };
 };
 static_assert(field_ids_unique<VectorNoiseWarpParams>());
+static_assert(field_defaults_in_range<VectorNoiseWarpParams>());
 
 /** @brief The vector-noise warp's prepared block: the owned noise field plus
     the vector frame and loop point. */
@@ -265,6 +267,7 @@ struct PolarChartParams : Warp::PolarParams {
   };
 };
 static_assert(field_ids_unique<PolarChartParams>());
+static_assert(field_defaults_in_range<PolarChartParams>());
 
 /** @brief PLANE endomorphism: the polar chart change. */
 struct WarpPolarChart : ValueStateModel<WarpPhaseState> {
@@ -326,6 +329,7 @@ struct CurlFlowParams {
   };
 };
 static_assert(field_ids_unique<CurlFlowParams>());
+static_assert(field_defaults_in_range<CurlFlowParams>());
 
 /** @brief The curl flow's prepared block: the owned noise field, this frame's
     point on the loop, and the sub-step count decoded from the integrator. */

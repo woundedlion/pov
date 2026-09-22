@@ -24,6 +24,7 @@ struct NoSurfaceParams {
   static constexpr std::array<Field<NoSurfaceParams>, 0> FIELDS{};
 };
 static_assert(field_ids_unique<NoSurfaceParams>());
+static_assert(field_defaults_in_range<NoSurfaceParams>());
 
 /**
  * @brief Surface parameters for the sphere-space curl displacement
@@ -47,6 +48,7 @@ struct SurfaceNoiseParams {
   };
 };
 static_assert(field_ids_unique<SurfaceNoiseParams>());
+static_assert(field_defaults_in_range<SurfaceNoiseParams>());
 
 /**
  * @brief Surface parameters for the direction-steered displacement
@@ -74,6 +76,7 @@ struct DirectSurfaceParams {
   };
 };
 static_assert(field_ids_unique<DirectSurfaceParams>());
+static_assert(field_defaults_in_range<DirectSurfaceParams>());
 
 /** @brief Parameters for a periodically expanding spherical ripple. */
 struct PeriodicRippleParams {
@@ -106,6 +109,7 @@ struct PeriodicRippleParams {
   };
 };
 static_assert(field_ids_unique<PeriodicRippleParams>());
+static_assert(field_defaults_in_range<PeriodicRippleParams>());
 
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
