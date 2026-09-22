@@ -1134,7 +1134,31 @@ private:
                             field.max);
   }
 
+  template <typename T> static consteval size_t named_field_count() {
+    size_t count = 0;
+    for (const auto &field : T::FIELDS)
+      if (field.name != nullptr && Derived::field_gate_open(field.gate))
+        ++count;
+    return count;
+  }
+
   HS_COLD_MEMBER void register_parameters() {
+    constexpr size_t count =
+        named_field_count<decltype(params.source)>() +
+        named_field_count<decltype(params.projection)>() +
+        named_field_count<decltype(params.surface)>() +
+        named_field_count<decltype(params.outer_warp)>() +
+        named_field_count<decltype(params.inner_warp)>() +
+        named_field_count<decltype(params.value)>() +
+        (!std::is_same_v<decltype(params.outer_warp), NoWarpParams>)+(
+            !std::is_same_v<decltype(params.inner_warp),
+                            NoWarpParams>)+(requires {
+          params.lens.mobius;
+        } ? 8 : 0) +
+        9 + (BrightnessV != Pullback::Color::BrightnessEnvelope::NONE ? 2 : 0) +
+        (HueV == HueMode::NOISE ? 2 : 0);
+    static_assert(count <= PARAM_CAPACITY,
+                  "ComposedEffect parameter descriptors exceed PARAM_CAPACITY");
     register_fields(params.source);
     register_fields(params.projection);
     register_fields(params.surface);
