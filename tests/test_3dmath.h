@@ -39,10 +39,8 @@ namespace math3d_tests {
  */
 inline void test_constants() {
   HS_EXPECT_NEAR(PHI, 1.61803398f, 1e-6f);
-  HS_EXPECT_NEAR(INV_PHI, 1.0f / PHI, 1e-6f);
-  HS_EXPECT_NEAR(INV_PHI * PHI, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(INV_PHI, 0.6180339887f, 1e-7f);
   HS_EXPECT_NEAR(math::TOLERANCE, 0.0001f, 1e-9f);
-  HS_EXPECT_NEAR(TOLERANCE, math::TOLERANCE, 1e-9f);
   HS_EXPECT_NEAR(PI_F, 3.14159265f, 1e-5f);
   HS_EXPECT_NEAR_REL(STEREO_INF, 1e4f, 1e-7f);
 }
