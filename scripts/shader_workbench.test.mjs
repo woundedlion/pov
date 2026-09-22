@@ -1056,3 +1056,12 @@ test('every promoted ShaderWorkbench preset has one stable migration destination
       `${destination.effect_id} is missing from product discovery`);
   }
 });
+
+test('document exports sort integer-like metadata keys lexically', () => {
+  const document = example();
+  document.study_metadata = { '2': 'second', '10': 'tenth', nested: { '2': 2, '10': 10 } };
+  const output = exportShaderDocumentJson(document);
+  assert.ok(output.indexOf('"10": "tenth"') < output.indexOf('"2": "second"'));
+  assert.ok(output.indexOf('"10": 10') < output.indexOf('"2": 2'));
+  assert.deepEqual(JSON.parse(output).study_metadata, document.study_metadata);
+});
