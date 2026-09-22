@@ -45,22 +45,20 @@ public:
       "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the Islamic solid registry");
 #endif
 
-  /** Per-shape arena split (bytes). A smooth kis/needle macro bridges
-   * truncate(seed) (~3x the seed's half-edges); rendering and classifying that
-   * tripled mesh needs a scratch_a heavier than the default, while the bridge's
-   * per-leg compaction keeps its persistent well under the default. So a bridge
-   * shape spawns on a scratch_a-heavy split; other recipe builds trade 2 KB of
-   * scratch_b for persistent; generated whole shapes retain the wider scratch_b.
-   * Each split's persistent is the device-arena remainder and both scratch
-   * arenas are hard-capped at their device sizes. Needle's measured peak is
-   * 131,770 / 70,228 / 96,600 bytes against the bridge split's 132,608 /
-   * 75,776 / 96,768: persistent is the binding arena at 168 bytes spare, so a
-   * new persistent mesh field on a bridge shape must be paid for here. */
-  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 116 * 1024;      // 118,784
-  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 129 * 1024 + 512; // 132,608
-  static constexpr size_t SPLIT_SCRATCH_B_DEFAULT = 74 * 1024;       // 75,776
-  static constexpr size_t SPLIT_SCRATCH_B_BUILD = 72 * 1024;         // 73,728
-  static constexpr size_t SPLIT_SCRATCH_B_BRIDGE = 74 * 1024;        // 75,776
+  struct ArenaBudget {
+    size_t scratch_a;
+    size_t scratch_b;
+
+    constexpr size_t persistent(size_t total = DEVICE_GLOBAL_ARENA_SIZE) const {
+      return total - scratch_a - scratch_b;
+    }
+  };
+
+  static constexpr ArenaBudget GENERATED_BUDGET{116 * 1024, 74 * 1024};
+  static constexpr ArenaBudget RECIPE_BUDGET{116 * 1024, 72 * 1024};
+  static constexpr ArenaBudget BRIDGE_BUDGET{129 * 1024 + 512, 74 * 1024};
+  static_assert(BRIDGE_BUDGET.scratch_a + BRIDGE_BUDGET.scratch_b <
+                DEVICE_GLOBAL_ARENA_SIZE);
 
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
@@ -74,13 +72,9 @@ public:
    *        with the orientation walk and the first shape.
    */
   HS_COLD_MEMBER void init() override {
-    // Asymmetric scratch split (190 KB total): the leg-by-leg build chain
-    // peaks at ~114 KB in a and ~69 KB in b, and compact_keep_front evacuates
-    // the front slot (up to 63.7 KB) through b. The remainder is persistent:
-    // carousel slots + BakedPaletteBank (~18 KB).
-    configure_arenas(GLOBAL_ARENA_SIZE - SPLIT_SCRATCH_A_DEFAULT -
-                         SPLIT_SCRATCH_B_DEFAULT,
-                     SPLIT_SCRATCH_A_DEFAULT, SPLIT_SCRATCH_B_DEFAULT);
+    configure_arenas(GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
+                     GENERATED_BUDGET.scratch_a, GENERATED_BUDGET.scratch_b);
+    device_persistent_budget = GENERATED_BUDGET.persistent();
 
     ripple_gen.init_storage(persistent_arena);
     claim_face_palettes(persistent_arena);
@@ -259,10 +253,18 @@ private:
                                                        kis/needle macro. */
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
-  /** Continuation the smooth dual bridge chains after its closing leg: plain
-   * finish_build_leg for a lone DUAL, or a macro's next stage. Bound by
-   * schedule_dual_bridge from its argument, so it is never stale. */
-  Fn<void(), 16> dual_bridge_done;
+  enum class BuildContinuation : uint8_t {
+    FINISH,
+    DUAL_MEDIAL,
+    DUAL_UNTRUNCATE,
+    DUAL_DONE,
+    DT_AFTER_TRUNCATE,
+    DT_AFTER_BRIDGE,
+    DTD_AFTER_BRIDGE1,
+    DTD_AFTER_TRUNCATE,
+    DTD_AFTER_BRIDGE2,
+  };
+  BuildContinuation dual_bridge_done = BuildContinuation::FINISH;
 
   /**
    * @brief Draw callback for build-leg frames.
@@ -573,14 +575,12 @@ private:
    */
   HS_COLD_MEMBER void resplit_for_spawn(bool has_recipe) {
     const bool bridge_split = has_recipe && build_uses_smooth_bridge();
-    const size_t split_a =
-        bridge_split ? SPLIT_SCRATCH_A_BRIDGE : SPLIT_SCRATCH_A_DEFAULT;
-    const size_t split_b =
-        bridge_split
-            ? SPLIT_SCRATCH_B_BRIDGE
-            : (has_recipe ? SPLIT_SCRATCH_B_BUILD : SPLIT_SCRATCH_B_DEFAULT);
-    device_persistent_budget = DEVICE_GLOBAL_ARENA_SIZE - split_a - split_b;
-    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - split_b, split_a, split_b);
+    const ArenaBudget budget = bridge_split ? BRIDGE_BUDGET
+                               : has_recipe ? RECIPE_BUDGET
+                                            : GENERATED_BUDGET;
+    device_persistent_budget = budget.persistent();
+    resplit_arenas(budget.persistent(GLOBAL_ARENA_SIZE), budget.scratch_a,
+                   budget.scratch_b);
   }
 
   /**
@@ -805,7 +805,7 @@ private:
     // the smooth three-leg bridge; it builds its own endpoints and chains its
     // legs, then rejoins at finish_build_leg.
     if (step.op == Solids::Op::DUAL) {
-      schedule_dual_bridge([this] { finish_build_leg(); });
+      schedule_dual_bridge(BuildContinuation::FINISH);
       return;
     }
 
@@ -901,10 +901,51 @@ private:
     }
   }
 
-  HS_COLD_MEMBER void schedule_build_leg(Animation::OpLeg &&leg) {
+  HS_COLD_MEMBER void
+  schedule_build_leg(Animation::OpLeg &&leg,
+                     BuildContinuation next = BuildContinuation::FINISH) {
+    check_build_budget();
     build_landing = &leg.landing();
     Animation::OpLeg::require_event_slot();
-    timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
+    timeline.add(0,
+                 std::move(leg).then([this, next] { continue_build(next); }));
+  }
+
+  void check_build_budget() const {
+    HS_CHECK(persistent_arena.get_offset() <= device_persistent_budget,
+             "IslamicStars: build leg exceeds the device persistent budget");
+  }
+
+  HS_COLD_MEMBER void continue_build(BuildContinuation next) {
+    switch (next) {
+    case BuildContinuation::FINISH:
+      finish_build_leg();
+      break;
+    case BuildContinuation::DUAL_MEDIAL:
+      schedule_dual_medial();
+      break;
+    case BuildContinuation::DUAL_UNTRUNCATE:
+      schedule_dual_untruncate();
+      break;
+    case BuildContinuation::DUAL_DONE:
+      continue_build(dual_bridge_done);
+      break;
+    case BuildContinuation::DT_AFTER_TRUNCATE:
+      dt_after_truncate();
+      break;
+    case BuildContinuation::DT_AFTER_BRIDGE:
+      dt_after_bridge();
+      break;
+    case BuildContinuation::DTD_AFTER_BRIDGE1:
+      dtd_after_bridge1();
+      break;
+    case BuildContinuation::DTD_AFTER_TRUNCATE:
+      dtd_after_truncate();
+      break;
+    case BuildContinuation::DTD_AFTER_BRIDGE2:
+      dtd_after_bridge2();
+      break;
+    }
   }
 
   /**
@@ -1013,11 +1054,15 @@ private:
    * leg's scheduler compacts the arena before it runs, reclaiming the finished
    * legs and the endpoints they no longer need -- the heaviest gyro and
    * ambo_dual seeds run the whole bridge co-resident ~21 KB over budget.
-   * @param done Continuation the closing leg chains into. Taken by value so no
-   * caller can reach the bridge with a stale or unbound continuation.
+   * @param done Build stage entered after the closing leg.
    */
-  HS_COLD_MEMBER void schedule_dual_bridge(Fn<void(), 16> done) {
-    dual_bridge_done = std::move(done);
+  HS_COLD_MEMBER void schedule_dual_bridge(BuildContinuation done) {
+    HS_CHECK(done == BuildContinuation::FINISH ||
+                 done == BuildContinuation::DT_AFTER_BRIDGE ||
+                 done == BuildContinuation::DTD_AFTER_BRIDGE1 ||
+                 done == BuildContinuation::DTD_AFTER_BRIDGE2,
+             "IslamicStars: invalid dual bridge continuation");
+    dual_bridge_done = done;
     ++dual_bridges_built;
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       dual_bridge_ambo =
@@ -1039,9 +1084,7 @@ private:
                                          .bridge_provenance = true,
                                          .borrow_seed = true},
         persistent_arena, draw_build_fn, handoff);
-    build_landing = &leg.landing();
-    Animation::OpLeg::require_event_slot();
-    timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
+    schedule_build_leg(std::move(leg), BuildContinuation::DUAL_MEDIAL);
   }
 
   /**
@@ -1086,10 +1129,7 @@ private:
         persistent_arena, draw_build_fn, handoff,
         Animation::OpLeg::BookendClasses{.topology = medial_topology,
                                          .faces = medial_faces});
-    build_landing = &leg.landing();
-    Animation::OpLeg::require_event_slot();
-    timeline.add(0,
-                 std::move(leg).then([this] { schedule_dual_untruncate(); }));
+    schedule_build_leg(std::move(leg), BuildContinuation::DUAL_UNTRUNCATE);
   }
 
   /**
@@ -1145,11 +1185,7 @@ private:
                                          .bridge_provenance = true,
                                          .borrow_seed = true},
         persistent_arena, draw_build_fn, handoff, bookend);
-    build_landing = &leg.landing();
-    Animation::OpLeg::require_event_slot();
-    // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
-    // next stage of a smooth kis/needle macro.
-    timeline.add(0, std::move(leg).then([this] { dual_bridge_done(); }));
+    schedule_build_leg(std::move(leg), BuildContinuation::DUAL_DONE);
   }
 
   /**
@@ -1190,10 +1226,10 @@ private:
    * @brief Schedules a plain truncate sweep of the current build seed to
    * MACRO_TRUNCATE_T, landing on build_next_seed = truncate(seed, 1/3).
    * @param log Log label ("dt truncate" / "dtd truncate").
-   * @param then Completion chained after the leg.
+   * @param next Build stage entered after the leg.
    */
-  template <typename Then>
-  HS_COLD_MEMBER void schedule_macro_truncate(const char *log, Then &&then) {
+  HS_COLD_MEMBER void schedule_macro_truncate(const char *log,
+                                              BuildContinuation next) {
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       build_next_seed = Solids::finalize_solid(
           MeshOps::truncate(build_seed, a, b, MACRO_TRUNCATE_T), target);
@@ -1212,9 +1248,7 @@ private:
                                          .bridge_provenance = true,
                                          .borrow_seed = true},
         persistent_arena, draw_build_fn, handoff, bookend);
-    build_landing = &leg.landing();
-    Animation::OpLeg::require_event_slot();
-    timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
+    schedule_build_leg(std::move(leg), next);
   }
 
   /**
@@ -1223,11 +1257,12 @@ private:
    * exact kis(dual(X)) mesh. Covers both the DUAL step and its trailing KIS.
    */
   HS_COLD_MEMBER void schedule_dt_macro() {
-    schedule_macro_truncate("dt truncate", [this] { dt_after_truncate(); });
+    schedule_macro_truncate("dt truncate",
+                            BuildContinuation::DT_AFTER_TRUNCATE);
   }
   HS_COLD_MEMBER void dt_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(X, 1/3)
-    schedule_dual_bridge([this] { dt_after_bridge(); });
+    schedule_dual_bridge(BuildContinuation::DT_AFTER_BRIDGE);
   }
   HS_COLD_MEMBER void dt_after_bridge() {
     carry_landing_to_seed(); // build_seed = dual(truncate(X, 1/3)) (identity)
@@ -1243,15 +1278,16 @@ private:
    * reconcile onto the exact kis(X) mesh. Runs entirely on the KIS step.
    */
   HS_COLD_MEMBER void schedule_dtd_macro() {
-    schedule_dual_bridge([this] { dtd_after_bridge1(); });
+    schedule_dual_bridge(BuildContinuation::DTD_AFTER_BRIDGE1);
   }
   HS_COLD_MEMBER void dtd_after_bridge1() {
     carry_landing_to_seed(); // build_seed = dual(X)
-    schedule_macro_truncate("dtd truncate", [this] { dtd_after_truncate(); });
+    schedule_macro_truncate("dtd truncate",
+                            BuildContinuation::DTD_AFTER_TRUNCATE);
   }
   HS_COLD_MEMBER void dtd_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(dual(X), 1/3)
-    schedule_dual_bridge([this] { dtd_after_bridge2(); });
+    schedule_dual_bridge(BuildContinuation::DTD_AFTER_BRIDGE2);
   }
   HS_COLD_MEMBER void dtd_after_bridge2() {
     carry_landing_to_seed(); // build_seed = dual(truncate(dual(X), 1/3))
@@ -1295,9 +1331,7 @@ private:
                              .to_positions = build_next_seed.vertices.data(),
                              .sweep_frames = frames},
                          persistent_arena, draw_build_fn, handoff, bookend);
-    build_landing = &leg.landing();
-    Animation::OpLeg::require_event_slot();
-    timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
+    schedule_build_leg(std::move(leg));
   }
 
   /**

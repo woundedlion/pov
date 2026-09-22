@@ -611,9 +611,9 @@ inline void test_determinism_complex_islamic() {
 using IslamicFx = IslamicStars<288, 144>;
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    IslamicFx::SPLIT_SCRATCH_A_DEFAULT; /**< IslamicStars scratch_a split. */
+    IslamicFx::GENERATED_BUDGET.scratch_a; /**< IslamicStars scratch_a split. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    IslamicFx::SPLIT_SCRATCH_B_DEFAULT; /**< IslamicStars scratch_b split. */
+    IslamicFx::GENERATED_BUDGET.scratch_b; /**< IslamicStars scratch_b split. */
 
 /**
  * @brief Runs one Islamic recipe through a real-budget arena pair and asserts

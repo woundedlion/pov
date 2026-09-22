@@ -3636,9 +3636,9 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 using IslamicFx = IslamicStars<288, 144>;
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    IslamicFx::SPLIT_SCRATCH_A_DEFAULT; /**< IslamicStars scratch_a split. */
+    IslamicFx::GENERATED_BUDGET.scratch_a; /**< IslamicStars scratch_a split. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    IslamicFx::SPLIT_SCRATCH_B_BUILD; /**< IslamicStars build scratch_b. */
+    IslamicFx::RECIPE_BUDGET.scratch_b; /**< IslamicStars build scratch_b. */
 /** Device persistent budget of IslamicStars' arena split. */
 constexpr size_t ISLAMIC_PERSISTENT_BUDGET = DEVICE_GLOBAL_ARENA_SIZE -
                                              ISLAMIC_SCRATCH_A_BUDGET -

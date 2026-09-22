@@ -5672,6 +5672,14 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
  */
 struct IslamicBuildProbe {
   using IS = IslamicStars<SMALL_W, SMALL_H>;
+  static void check_build_budget(IS &e, size_t budget) {
+    e.device_persistent_budget = budget;
+    e.check_build_budget();
+  }
+  static void invalid_bridge_continuation(IS &e) {
+    e.schedule_dual_bridge(IS::BuildContinuation::DUAL_DONE);
+  }
+
   template <int W, int H>
   static void set_trans_speed(IslamicStars<W, H> &e, float v) {
     e.params.trans_speed = v;
@@ -5702,13 +5710,13 @@ struct IslamicBuildProbe {
     return e.carousel.slot(slot).topology.size();
   }
   static constexpr size_t bridge_scratch_a() {
-    return IS::SPLIT_SCRATCH_A_BRIDGE;
+    return IS::BRIDGE_BUDGET.scratch_a;
   }
   static constexpr size_t default_scratch_a() {
-    return IS::SPLIT_SCRATCH_A_DEFAULT;
+    return IS::GENERATED_BUDGET.scratch_a;
   }
   static constexpr size_t bridge_scratch_b() {
-    return IS::SPLIT_SCRATCH_B_BRIDGE;
+    return IS::BRIDGE_BUDGET.scratch_b;
   }
   static constexpr int sprite_fade_frames() { return IS::SPRITE_FADE_FRAMES; }
   /**

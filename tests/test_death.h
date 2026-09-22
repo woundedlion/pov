@@ -3879,6 +3879,18 @@ inline void case_spherical_harmonics_invalid_morph_mode() {
     WB::step_timeline(effect, canvas);
 }
 
+inline void case_islamicstars_build_budget() {
+  configure_arenas_default();
+  persistent_arena.allocate_n<uint8_t>(1);
+  effects_tests::IslamicBuildProbe::IS effect;
+  effects_tests::IslamicBuildProbe::check_build_budget(effect, 0);
+}
+
+inline void case_islamicstars_bridge_continuation() {
+  effects_tests::IslamicBuildProbe::IS effect;
+  effects_tests::IslamicBuildProbe::invalid_bridge_continuation(effect);
+}
+
 /** @brief Death case: a Hankin step has no eagerly generated endpoint. */
 inline void case_islamicstars_hankin_eager_endpoint() {
   using WB = effects_tests::IslamicBuildProbe;
@@ -4883,6 +4895,17 @@ inline const Case *all_cases(int &n) {
       {"spherical_harmonics_invalid_morph_mode",
        case_spherical_harmonics_invalid_morph_mode, "SphericalHarmonics.h",
        "(synchronizePreset(preset_index_for_mode(current_idx))) "},
+      {"islamicstars_build_budget", case_islamicstars_build_budget,
+       "IslamicStars.h",
+       "(persistent_arena.get_offset() <= device_persistent_budget) "
+       "IslamicStars: build leg exceeds the device persistent budget"},
+      {"islamicstars_bridge_continuation",
+       case_islamicstars_bridge_continuation, "IslamicStars.h",
+       "(done == BuildContinuation::FINISH || "
+       "done == BuildContinuation::DT_AFTER_BRIDGE || "
+       "done == BuildContinuation::DTD_AFTER_BRIDGE1 || "
+       "done == BuildContinuation::DTD_AFTER_BRIDGE2) "
+       "IslamicStars: invalid dual bridge continuation"},
       {"islamicstars_hankin_eager_endpoint",
        case_islamicstars_hankin_eager_endpoint, "IslamicStars.h",
        "(false) IslamicStars: step builds no eager endpoint"},
