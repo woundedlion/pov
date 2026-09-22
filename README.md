@@ -180,6 +180,9 @@ The same step runs with `just docs-check` and before `just docs` publishes the A
 
 ### Holosphere (engine + firmware)
 
+The generated engine map omits `.gitattributes` and `.gitignore`; these tracked
+files define line-ending policy and working-artifact exclusions.
+
 <!-- docs-check: tree exhaustive -->
 ```
 ├── core/                       Rendering engine
