@@ -131,7 +131,7 @@ inline void test_blend_outputs_denormal_alpha() {
   HS_EXPECT_NEAR(static_cast<float>(blended.color.r), 2000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.g), 3000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.b), 4000.0f, 1.0f);
-  HS_EXPECT_NEAR(blended.alpha, alpha, alpha);
+  HS_EXPECT_EQ(blended.alpha, alpha);
 #endif
 }
 
@@ -143,7 +143,7 @@ inline void test_blend_outputs_tiny_normal_alpha() {
   HS_EXPECT_NEAR(static_cast<float>(blended.color.r), 2000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.g), 3000.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(blended.color.b), 4000.0f, 1.0f);
-  HS_EXPECT_NEAR(blended.alpha, alpha, alpha);
+  HS_EXPECT_EQ(blended.alpha, alpha);
 }
 
 /**
