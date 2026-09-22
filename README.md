@@ -241,14 +241,21 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── kd_tree.h               KDTree k-nearest-neighbor search
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── color/                  Color math and palettes
-│   │   ├── color.h                 Pixel (16-bit linear), Color4, blend helpers, palettes
-│   │   ├── composition.h           Palette modifiers + StaticPalette composition (via color.h)
+│   │   ├── color.h                 Color and palette umbrella
+│   │   ├── pixel.h                 Linear pixels, alpha, and integer sRGB conversion
+│   │   ├── color_space.h           Perceptual color spaces and gamut mapping
+│   │   ├── palette.h               Palette interface and source traits
+│   │   ├── palette_recipe.h        Palette authoring recipes and diagnostics
+│   │   ├── palette_sources.h       Gradient and procedural palette implementations
+│   │   ├── baked_palette.h         Arena-backed LUTs and palette crossfades
+│   │   ├── palette_wipe.h          Snapshot transitions and rebake windows
+│   │   ├── composition.h           Palette modifiers + StaticPalette composition
 │   │   ├── layer_composite.h       LayerComposite: front-to-back "over" accumulator for layered coverage
 │   │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
 │   │   ├── srgb_decode.h           Branchless linear16 → sRGB8 encode from DTCM split tables
 │   │   ├── srgb_decode_lut.h       Generated split-decode tables behind srgb_decode.h
 │   │   ├── gamut_lut.h             Generated sRGB gamut-boundary chroma table for OKLab clipping
-│   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation (via color.h)
+│   │   ├── generative_palette.h    GenerativePalette + PaletteRecipe compilation
 │   │   ├── noise_hue_palette.h     Sphere-noise hue LUTs + reusable NoiseHuePalette wrapper
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
 │   │   ├── effect_palette_recipes.h Per-effect authored PaletteRecipe constructors
