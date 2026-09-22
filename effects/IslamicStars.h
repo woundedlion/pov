@@ -1076,13 +1076,12 @@ private:
     const int frames = dual_sub_frames(0);
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
     Animation::OpLeg leg(
-        build_seed,
+        Animation::OpLeg::SweepSeed::borrow(build_seed),
         Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
                                          .t_start = 0.0f,
                                          .t_end = 0.5f,
                                          .sweep_frames = frames,
-                                         .bridge_provenance = true,
-                                         .borrow_seed = true},
+                                         .bridge_provenance = true},
         persistent_arena, draw_build_fn, handoff);
     schedule_build_leg(std::move(leg), BuildContinuation::DUAL_MEDIAL);
   }
@@ -1177,13 +1176,12 @@ private:
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(
-        build_next_seed,
+        Animation::OpLeg::SweepSeed::borrow(build_next_seed),
         Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
                                          .t_start = 0.5f,
                                          .t_end = 0.0f,
                                          .sweep_frames = frames,
-                                         .bridge_provenance = true,
-                                         .borrow_seed = true},
+                                         .bridge_provenance = true},
         persistent_arena, draw_build_fn, handoff, bookend);
     schedule_build_leg(std::move(leg), BuildContinuation::DUAL_DONE);
   }
@@ -1240,13 +1238,12 @@ private:
     const int frames = build_macro_sweep_frames;
     hs::log("Build leg: %s (%d frames)", log, frames);
     Animation::OpLeg leg(
-        build_seed,
+        Animation::OpLeg::SweepSeed::borrow(build_seed),
         Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
                                          .t_start = 0.0f,
                                          .t_end = MACRO_TRUNCATE_T,
                                          .sweep_frames = frames,
-                                         .bridge_provenance = true,
-                                         .borrow_seed = true},
+                                         .bridge_provenance = true},
         persistent_arena, draw_build_fn, handoff, bookend);
     schedule_build_leg(std::move(leg), next);
   }
