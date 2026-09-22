@@ -350,19 +350,19 @@ public:
    *          resolution's length rather than detached, so it must be re-fetched
    *          and its length compared against getBufferLength().
    */
-  ResolutionSetResult setResolution(int w, int h) {
+  ResolutionSetResult setResolution(double w, double h) {
     if (w == pixel_width && h == pixel_height)
       return ResolutionSetResult::ALREADY_ACTIVE;
 
     // Reject unsupported sizes and keep the prior valid state alive rather than
     // switching to a null effect that renders blank with no signal to JS.
     if (!hs_wasm::wasm_resolution_supported(w, h)) {
-      hs::log("WASM: Unsupported resolution %dx%d — ignored", w, h);
+      hs::log("WASM: Unsupported resolution %gx%g — ignored", w, h);
       return ResolutionSetResult::UNSUPPORTED;
     }
 
-    pixel_width = w;
-    pixel_height = h;
+    pixel_width = static_cast<int>(w);
+    pixel_height = static_cast<int>(h);
     const int count = pixel_width * pixel_height * CHANNELS;
     std::fill_n(pixel_buffer.data(), count, uint16_t{0});
 

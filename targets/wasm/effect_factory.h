@@ -134,8 +134,11 @@ template <typename F> inline bool dispatch_resolution(int w, int h, F &&f) {
  * @param h Candidate canvas height in pixels.
  * @return true iff (w,h) is one of the HS_RESOLUTIONS rows.
  */
-inline bool wasm_resolution_supported(int w, int h) {
-  return dispatch_resolution(w, h, []<int W, int H>() {});
+inline bool wasm_resolution_supported(double w, double h) {
+  for (const auto &resolution : WASM_RESOLUTIONS)
+    if (w == resolution.w && h == resolution.h)
+      return true;
+  return false;
 }
 
 } // namespace hs_wasm
