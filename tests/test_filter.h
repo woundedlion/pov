@@ -3380,6 +3380,7 @@ inline void test_mixed_domain_flush_drains_both_buffers() {
   world_emits = screen_emits = 0;
   pipe.flush(c, WorldTrailFn(world_trail), ScreenTrailFn(screen_trail), 1.0f);
   HS_EXPECT_EQ(world_emits, 0);
+  HS_EXPECT_EQ(screen_emits, 0);
 }
 
 // ============================================================================
