@@ -805,7 +805,7 @@ separated *in time* on the same wire.
   `Σ(i+1)·dᵢ mod 8` checksum (weighting the four data digits 1–4 so digit
   transpositions and compensating miscounts — which a plain sum passes — are
   rejected, at no extra wire cost). Fixed digit
-  count = end-of-frame detection; total worst-case length ≈ 26 ms at 1-column
+  count = end-of-frame detection; total worst-case length ≈ 23.9 ms (five 7-column pulse spans plus four 5-column gaps) at 1-column
   pitch, comfortably inside the half-rev.
 - **Integrity model:** unlike boundary symbols (exactness via pitch > M, §5.2),
   the beacon tolerates corruption by *rejection*: any checksum mismatch, wrong
