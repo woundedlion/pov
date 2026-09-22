@@ -3179,6 +3179,7 @@ inline void test_shader_workbench_structural_admission() {
   HS_EXPECT_TRUE(WB::valid_config(mirror_edge));
   HS_EXPECT_TRUE(WB::topology_key(mirror_flat) ==
                  WB::topology_key(mirror_edge));
+  reset_effect_globals();
   WB::SB edge_sb;
   edge_sb.init();
   const WB::FrameState flat_frame = WB::config_frame(edge_sb, mirror_flat);
