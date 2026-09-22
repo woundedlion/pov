@@ -15,6 +15,13 @@ if [ "$#" -ne 0 ]; then
   exit 2
 fi
 
+CF="${CLANG_FORMAT:-clang-format}"
+major="$("$CF" --version | sed -n 's/.*version \([0-9][0-9]*\).*/\1/p')"
+if [ "$major" != 22 ]; then
+  echo "clang-format 22 is required; found ${major:-unknown}" >&2
+  exit 1
+fi
+
 tmp=$(mktemp)
 trap 'rm -f -- "$tmp"' EXIT
 
@@ -25,4 +32,4 @@ if [ ! -s "$tmp" ]; then
   exit 1
 fi
 
-xargs -d '\n' clang-format --dry-run --Werror --style=file < "$tmp"
+xargs -d '\n' "$CF" --dry-run --Werror --style=file < "$tmp"
