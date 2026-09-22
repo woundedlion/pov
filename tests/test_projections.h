@@ -609,9 +609,25 @@ inline void test_projection_trait_packing() {
                                  ProjectionTrait::PERIODIC));
 }
 
+inline void test_cylindrical_coordinates() {
+  for (float latitude : {-0.7f, 0.0f, 0.7f}) {
+    for (float longitude : {-2.0f, -0.5f, 0.5f, 2.0f}) {
+      const Vector v = direction(latitude, longitude);
+      const auto rectangular = equirectangular(v, 0.2f);
+      const auto folded = folded_sinusoidal(v, 0.2f);
+      HS_EXPECT_NEAR(rectangular.re, longitude - 0.2f, 0.005f);
+      HS_EXPECT_NEAR(rectangular.im, latitude, 0.005f);
+      HS_EXPECT_NEAR(folded.re, fabsf(longitude - 0.2f) * cosf(latitude),
+                     0.005f);
+      HS_EXPECT_NEAR(folded.im, latitude, 0.005f);
+    }
+  }
+}
+
 inline int run_projections_tests() {
   hs_test::ModuleFixture fixture("projections");
   test_wrap_longitude_range();
+  test_cylindrical_coordinates();
   test_bonne_sinusoidal_limit();
   test_bonne_polar_limit_is_finite();
   test_peirce_elliptic_integral_shape();
