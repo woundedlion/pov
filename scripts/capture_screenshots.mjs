@@ -29,13 +29,13 @@ import {
 import { descendToHonoredResolution } from './screenshot_resolution.mjs';
 
 // Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
-async function numEnv(name, def) {
+async function numEnv(name, def, max = Infinity) {
   const raw = process.env[name];
   if (raw === undefined) return def;
   const v = Number(raw);
-  if (raw.trim() !== '' && Number.isFinite(v) && v >= 0) return v;
+  if (raw.trim() !== '' && Number.isFinite(v) && v > 0 && v <= max) return v;
   console.error('========================================================');
-  console.error(`capture_screenshots: ERROR — ${name} must be a finite, non-negative number.`);
+  console.error(`capture_screenshots: ERROR — ${name} must be a finite, positive number no greater than ${max}.`);
   console.error(`Received: ${JSON.stringify(raw)}`);
   console.error('========================================================');
   process.exitCode = 2;
@@ -48,7 +48,7 @@ const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
 const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
-const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR);
+const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR, 1);
 
 // The effect roster (and the docs/screenshots freshness gate that mirrors it)
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
