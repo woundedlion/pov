@@ -1564,6 +1564,8 @@ private:
         domain_scaled_max(NOISE_SPEED_MAX, 0.005f, domain_scale);
     register_current(speed_name, &params.speed, -speed_max, speed_max);
     switch (spec.kind) {
+    case WarpStageKind::COUNT:
+      break;
     case WarpStageKind::AFFINE_FRAME: {
       const float snapped_x = roundf(params.translation_x);
       const float snapped_y = roundf(params.translation_y);
@@ -1770,7 +1772,7 @@ private:
       lens = SurfaceLens::TANGENT_NOISE;
       return true;
     }
-    if (id <= 13) {
+    if (id <= static_cast<uint32_t>(SurfaceLens::COUNT)) {
       lens = static_cast<SurfaceLens>(id - 1);
       return true;
     }
@@ -1793,7 +1795,7 @@ private:
       kind = WarpStageKind::LEGACY_STEREO_NOISE;
       return true;
     }
-    if (id <= 8) {
+    if (id <= static_cast<uint32_t>(WarpStageKind::COUNT)) {
       kind = static_cast<WarpStageKind>(id - 1);
       return true;
     }
@@ -2667,6 +2669,8 @@ private:
                                   const WarpStageParams &params) const {
     begin_warning("%s %s rejected.", position, warp_option(spec.kind));
     switch (spec.kind) {
+    case WarpStageKind::COUNT:
+      break;
     case WarpStageKind::NONE:
     case WarpStageKind::LEGACY_STEREO_NOISE:
       break;
