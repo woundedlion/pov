@@ -1642,7 +1642,7 @@ inline void test_dot_keyed_bake_round_trips_through_dot_key() {
   }
 
   // Away from the poles the u -> angle curve is gentle enough for the 256-entry
-  // LUT to reproduce the source to within a couple of 16-bit counts.
+  // LUT to reproduce the source to within 32 counts of a 16-bit channel.
   for (int i = -3; i <= 3; ++i) {
     const float d = static_cast<float>(i) / 4.0f;
     const uint16_t got = baked.get(dot_key(d)).color.r;
