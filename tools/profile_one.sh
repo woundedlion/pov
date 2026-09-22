@@ -36,7 +36,7 @@
 # HS_PROFILE_MINDSPLATTER=counts|stalls builds a dedicated MindSplatter
 # instrumentation image and writes a suffixed log. Count images also enable the
 # generic Plot counters; neither image is valid for timing comparisons.
-set -eo pipefail
+set -euo pipefail
 # shellcheck source-path=SCRIPTDIR source=device_lock.sh
 . "$(dirname "$0")/device_lock.sh"
 # Without this, a short/split argument list makes `shift 4` fail and set -e
@@ -82,7 +82,7 @@ esac
 LOWER=$(echo "$EFFECT" | tr '[:upper:]' '[:lower:]')
 DEEP=""
 DEEP_SUFFIX=""
-if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
+if [ -n "${HS_PROFILE_DEEP:-}" ] && [ "${HS_PROFILE_DEEP:-}" != "0" ]; then
   DEEP="-D HS_PROFILE_DEEP_ENABLE"
   DEEP_SUFFIX="_deep"
 fi
