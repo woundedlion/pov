@@ -1442,7 +1442,10 @@ inline void case_param_def_unknown_set_target_type() {
   ParamDef def;
   def.target = &storage;
   def.target_type = static_cast<ParamDef::TargetType>(opaque<uint8_t>(9));
-  def.set(opaque(1.0f));
+  struct InternalWriter : ParamHost {
+    using ParamHost::write_parameter_unchecked;
+  };
+  InternalWriter::write_parameter_unchecked(def, opaque(1.0f));
   if (storage == opaque(42.0f))
     std::printf("x");
 }
@@ -4575,7 +4578,7 @@ inline const Case *all_cases(int &n) {
        "(false) ParamDef::get_from: unknown target type "},
       {"param_def_unknown_set_target_type",
        case_param_def_unknown_set_target_type, "params.h",
-       "(false) ParamDef::set: unknown target type "},
+       "(false) ParamDef::write_unchecked: unknown target type "},
       {"driver_null_speed_src", case_driver_null_speed_src, "params.h",
        "(speed_src != nullptr) Driver: live speed_src is null"},
       {"path_append_zero_samples", case_path_append_zero_samples, "motion.h",
