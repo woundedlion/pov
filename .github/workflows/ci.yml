@@ -634,7 +634,11 @@ jobs:
             --min-directory core/engine=85 \
             --min-directory core/math=95 \
             --min-directory core/mesh=80 \
-            --min-directory core/render=90
+            --min-directory core/render=90 \
+            --min-directory core/spatial=1 \
+            --min-directory core/platform=1 \
+            --min-directory hardware=1 \
+            --min-directory targets=1
           {
             echo '## Native suite coverage'
             echo
