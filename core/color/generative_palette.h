@@ -116,7 +116,7 @@ public:
   }
 
   /**
-   * @brief Captures the morphable state for lerp() and ColorWipe.
+   * @brief Captures the morphable state for morph_snapshots() and ColorWipe.
    * @return This palette's keys and axes, quantized into 48 bytes.
    */
   Snapshot snapshot() const {
@@ -225,7 +225,7 @@ public:
   }
 
   /**
-   * @brief True when this palette and @p other can be key-morphed by lerp().
+   * @brief True when this palette and @p other can be key-morphed by morph_palettes().
    * @details Requires identical evaluation policy — domain, easing, color
    * path, chroma basis, complementary evaluation, axis curves, key count,
    * chroma headroom, torsion, falloff, input window — plus corresponding
@@ -271,8 +271,9 @@ public:
    * interpolates the loop-closing hue delta, which snapshots do not carry.
    * Callers gate on morph_compatible().
    */
-  HS_COLD_MEMBER void lerp(const GenerativePalette &from,
-                           const GenerativePalette &to, float amount) {
+  HS_COLD_MEMBER void morph_palettes(const GenerativePalette &from,
+                                     const GenerativePalette &to,
+                                     float amount) {
     amount = hs::clamp(amount, 0.0f, 1.0f);
     if (amount == 0.0f) {
       *this = from;
@@ -288,7 +289,7 @@ public:
     const float closing_from = from.closing_hue - from.keys[0].h;
     const float closing_to = to.closing_hue - to.keys[0].h;
     *this = from;
-    lerp(from_keys, to_keys, amount);
+    morph_snapshots(from_keys, to_keys, amount);
     closing_hue =
         keys[0].h + closing_from + (closing_to - closing_from) * amount;
   }
@@ -305,12 +306,13 @@ public:
    * disagree morphs through CUSTOM at every amount, so an endpoint lands on
    * that snapshot's key run rather than on its analytic axis curve.
    */
-  HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
-                           float amount) {
-    HS_CHECK(from.key_count >= 2 && from.key_count <= PALETTE_MAX_KEYS &&
-                 to.key_count >= 2 && to.key_count <= PALETTE_MAX_KEYS &&
-                 from.key_count == to.key_count,
-             "GenerativePalette::lerp snapshot key count out of range");
+  HS_COLD_MEMBER void morph_snapshots(const Snapshot &from, const Snapshot &to,
+                                      float amount) {
+    HS_CHECK(
+        from.key_count >= 2 && from.key_count <= PALETTE_MAX_KEYS &&
+            to.key_count >= 2 && to.key_count <= PALETTE_MAX_KEYS &&
+            from.key_count == to.key_count,
+        "GenerativePalette::morph_snapshots snapshot key count out of range");
     amount = hs::clamp(amount, 0.0f, 1.0f);
     const float closing_travel = closing_hue - keys[0].h;
     const bool matched_curves = from.lightness_curve == to.lightness_curve &&

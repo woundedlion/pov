@@ -406,7 +406,7 @@ public:
    */
   void advance(Canvas &) {
     float amount = normalized_progress();
-    palette.get().lerp(start.get(), target.get(), easing_fn(amount));
+    palette.get().morph_snapshots(start.get(), target.get(), easing_fn(amount));
   }
 
 private:
