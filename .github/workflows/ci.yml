@@ -525,9 +525,7 @@ jobs:
         run: ccache -sv
 
       - name: Test
-        # On master, shard 3 is the full IEEE effects correctness leg and the
-        # fastmath entry covers the shipping float configuration. Pull requests
-        # use the quick tier; master catches production-resolution regressions.
+        # Shard 3 covers full IEEE effects; fastmath covers shipping float flags.
         # --no-tests=error for the same reason as the tests job.
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job: shards
         # 3, 4 and fastmath all run unit_canvas / unit_pov_segmented.
@@ -535,8 +533,8 @@ jobs:
         # loses the key must fail the leg, not downgrade it to the quick tier.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && matrix.effects_full || 0 }}
-          HS_REQUIRE_EFFECTS_FULL: ${{ github.event_name != 'pull_request' && 1 || 0 }}
+          HS_EFFECTS_FULL: ${{ matrix.effects_full || 0 }}
+          HS_REQUIRE_EFFECTS_FULL: 1
           HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
@@ -661,7 +659,6 @@ jobs:
 
   windows-tests:
     name: Native unit tests (Windows / Clang)
-    if: github.event_name != 'pull_request'
     # The native toolchain file's most intricate logic — the lld-link multicall
     # alias, CMAKE_LINKER_TYPE LLD, and the Windows SDK rc.exe discovery — only
     # runs on Windows and was previously exercised on no CI runner at all, on the
@@ -2016,7 +2013,7 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
           # Space-separated jobs allowed to report `skipped` on pull requests.
-          ALLOW_SKIPPED: 'windows-tests'
+          ALLOW_SKIPPED: ''
         run: |
           WF=.github/workflows/ci.yml
 
