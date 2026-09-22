@@ -140,6 +140,11 @@ inline void test_resolution_dispatch() {
     HS_EXPECT_EQ(seen_h, row.h);
   }
 
+  HS_EXPECT_FALSE(hs_wasm::wasm_resolution_supported(288.7, 144.2));
+  HS_EXPECT_FALSE(hs_wasm::wasm_resolution_supported(288, 144.2));
+  HS_EXPECT_FALSE(hs_wasm::wasm_resolution_supported(
+      std::numeric_limits<double>::quiet_NaN(), 144));
+  HS_EXPECT_FALSE(hs_wasm::wasm_resolution_supported(4294967584.0, 144));
   HS_EXPECT_TRUE(!hs_wasm::wasm_resolution_supported(0, 0));
   HS_EXPECT_TRUE(!hs_wasm::wasm_resolution_supported(-1, -1));
   HS_EXPECT_TRUE(!hs_wasm::wasm_resolution_supported(
