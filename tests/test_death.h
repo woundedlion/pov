@@ -2044,6 +2044,11 @@ struct DeathEffect : public Effect {
    * @param p Pointer to the backing float storage.
    */
   void reg(const char *n, float *p) { register_param(n, p, 0.0f, 1.0f); }
+  /** @brief Registers a typed enum with the requested option count. */
+  template <typename Enum> void reg_enum(Enum *p, int count) {
+    static constexpr const char *OPTIONS[] = {"zero"};
+    register_param("enum", p, OPTIONS, nullptr, count);
+  }
   /**
    * @brief Registers an integer parameter, exposing register_int_param.
    * @param n Parameter name.
@@ -2207,6 +2212,20 @@ inline void case_register_int_param_range() {
   DeathEffect fx;
   static uint8_t slot = 0;
   fx.reg_int("count", &slot, 0, opaque(256));
+}
+
+inline void case_register_enum_param_range() {
+  enum class Mode : uint8_t { ZERO };
+  DeathEffect fx;
+  Mode slot = Mode::ZERO;
+  fx.reg_enum(&slot, opaque(257));
+}
+
+inline void case_register_enum_param_bound_inexact() {
+  enum class Mode : uint32_t { ZERO };
+  DeathEffect fx;
+  Mode slot = Mode::ZERO;
+  fx.reg_enum(&slot, opaque(16777218));
 }
 
 inline void case_register_int_param_max_inexact() {
@@ -4612,6 +4631,15 @@ inline const Case *all_cases(int &n) {
       {"register_param_default_outside_range",
        case_register_param_default_outside_range, "param_host.h",
        "(*ptr >= min && *ptr <= max) register_param: default *ptr outside [min,max]"},
+      {"register_enum_param_range", case_register_enum_param_range,
+       "param_host.h",
+       "(static_cast<int64_t>(option_count - 1) <= "
+       "static_cast<int64_t>(std::numeric_limits<Integer>::max())) "
+       "register_param: options must fit the target enum type"},
+      {"register_enum_param_bound_inexact",
+       case_register_enum_param_bound_inexact, "param_host.h",
+       "(static_cast<int64_t>(static_cast<float>(option_count - 1)) == "
+       "option_count - 1) register_param: enum bound must be exactly representable as float"},
       {"register_int_param_range", case_register_int_param_range,
        "param_host.h",
        "(range_fits) register_int_param: [min,max] must fit the target "

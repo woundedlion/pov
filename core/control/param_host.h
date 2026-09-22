@@ -349,6 +349,14 @@ protected:
              "register_param: exceeded ParamList capacity");
     HS_CHECK(parameters.find(name) == nullptr,
              "register_param: duplicate parameter name");
+    using Integer = std::underlying_type_t<Enum>;
+    HS_CHECK(static_cast<int64_t>(option_count - 1) <=
+                 static_cast<int64_t>(std::numeric_limits<Integer>::max()),
+             "register_param: options must fit the target enum type");
+    HS_CHECK(
+        static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
+            option_count - 1,
+        "register_param: enum bound must be exactly representable as float");
     const float value =
         static_cast<float>(static_cast<std::underlying_type_t<Enum>>(*ptr));
     HS_CHECK(value >= 0.0f && value < static_cast<float>(option_count),
