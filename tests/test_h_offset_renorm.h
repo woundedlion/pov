@@ -27,28 +27,29 @@ namespace h_offset_renorm {
 constexpr int W = 32;
 constexpr int H = 16;
 
-inline void face_white(const Vector &, Fragment &fragment) {
+inline void face_white(const math::Vector &, Fragment &fragment) {
   fragment.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
 }
 
 /** @brief Verifies Face row bounds and rasterization use the virtual height. */
 inline void test_face_bounds_use_virtual_height() {
   constexpr float PHI_MIN = 1.2f;
-  constexpr float PHI_MAX = PI_F * 0.5f;
+  constexpr float PHI_MAX = math::PI_F * 0.5f;
   const auto point = [](float phi, float theta) {
-    return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta));
+    return math::Vector(sinf(phi) * cosf(theta), cosf(phi),
+                        sinf(phi) * sinf(theta));
   };
-  const Vector vertices[] = {point(PHI_MAX, -0.2f), point(PHI_MIN, 0.0f),
-                             point(PHI_MAX, 0.2f)};
+  const math::Vector vertices[] = {point(PHI_MAX, -0.2f), point(PHI_MIN, 0.0f),
+                                   point(PHI_MAX, 0.2f)};
   const uint16_t indices[] = {0, 1, 2};
 
   hs_test::StubEffect effect(W, H);
-  PixelCoords centroid;
+  math::PixelCoords centroid;
   {
     Canvas canvas(effect);
     Pipeline<W, H> pipeline;
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(std::span<const Vector>(vertices, 3),
+    SDF::Face face(std::span<const math::Vector>(vertices, 3),
                    std::span<const uint16_t>(indices, 3), scratch,
                    H + hs::H_OFFSET, H, &canvas.clip());
     const SDF::Bounds actual = face.get_vertical_bounds<H>();
@@ -58,7 +59,7 @@ inline void test_face_bounds_use_virtual_height() {
     HS_EXPECT_EQ(actual.y_min, expected.y_min);
     HS_EXPECT_EQ(actual.y_max, expected.y_max);
     HS_EXPECT_LT(actual.y_max, H);
-    centroid = vector_to_pixel<W, H>(face.center);
+    centroid = math::vector_to_pixel<W, H>(face.center);
     Scan::rasterize_face<W, H>(pipeline, canvas, face, face_white);
   }
   effect.advance_display();
@@ -112,7 +113,7 @@ inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
  *          (H_VIRT-1) still reaches the pole exactly (sin == 0).
  */
 inline void test_offset_is_active_and_lut_nondegenerate() {
-  using LUT = TrigLUT<W, H>;
+  using LUT = math::TrigLUT<W, H>;
   const int h_virt = LUT::H_VIRT;
   HS_EXPECT_EQ(hs::H_OFFSET, 3);
   HS_EXPECT_EQ(h_virt, H + 3);
@@ -213,7 +214,7 @@ inline void test_boundary_energy_independent_of_x_fraction() {
  *          where every column shades the same direction.
  */
 inline void test_scan_bottom_row_is_a_latitude_ring() {
-  using LUT = TrigLUT<W, H>;
+  using LUT = math::TrigLUT<W, H>;
   if (!LUT::initialized)
     LUT::init();
 
@@ -221,14 +222,15 @@ inline void test_scan_bottom_row_is_a_latitude_ring() {
   hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
-    Scan::Shader::draw<W, H, 1>(c, [](const Vector &v) {
+    Scan::Shader::draw<W, H, 1>(c, [](const math::Vector &v) {
       float theta = std::atan2(v.z, v.x);
       if (theta < 0.0f)
-        theta += 2.0f * PI_F;
+        theta += 2.0f * math::PI_F;
       // Latitude in red, azimuth in green.
       return Color4(
           Pixel(static_cast<uint16_t>((v.y + 1.0f) * 0.5f * FULL_SCALE),
-                static_cast<uint16_t>(theta * FULL_SCALE / (2.0f * PI_F)), 0),
+                static_cast<uint16_t>(theta * FULL_SCALE / (2.0f * math::PI_F)),
+                0),
           1.0f);
     });
   }
@@ -262,14 +264,15 @@ inline int plot_stroke_lit_pixels(float colatitude) {
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe; // bare sink: raw sample placement, no AA spill
   Fragment f1, f2;
-  f1.pos = Vector(sin_phi, cos_phi, 0.0f);
-  f2.pos = Vector(sin_phi * std::cos(AZIMUTH_SPAN), cos_phi,
-                  sin_phi * std::sin(AZIMUTH_SPAN));
+  f1.pos = math::Vector(sin_phi, cos_phi, 0.0f);
+  f2.pos = math::Vector(sin_phi * std::cos(AZIMUTH_SPAN), cos_phi,
+                        sin_phi * std::sin(AZIMUTH_SPAN));
   {
     Canvas c(fx);
-    Plot::Line::draw<W, H>(pipe, c, f1, f2, [](const Vector &, Fragment &f) {
-      f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-    });
+    Plot::Line::draw<W, H>(pipe, c, f1, f2,
+                           [](const math::Vector &, Fragment &f) {
+                             f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+                           });
   }
   fx.advance_display();
 
@@ -292,8 +295,8 @@ inline int plot_stroke_lit_pixels(float colatitude) {
  *          distinction does not exist.
  */
 inline void test_plot_below_last_row_is_clipped() {
-  const float bottom_row_phi = y_to_phi<H>(static_cast<float>(H - 1));
-  const float gap_phi = y_to_phi<H>(static_cast<float>(H + 1));
+  const float bottom_row_phi = math::y_to_phi<H>(static_cast<float>(H - 1));
+  const float gap_phi = math::y_to_phi<H>(static_cast<float>(H + 1));
 
   HS_EXPECT_GT(plot_stroke_lit_pixels(bottom_row_phi), 0);
   HS_EXPECT_EQ(plot_stroke_lit_pixels(gap_phi), 0);
@@ -301,11 +304,11 @@ inline void test_plot_below_last_row_is_clipped() {
 
 /** @brief Rotation about +Y: preserves latitude, shifts longitude. */
 inline constexpr float LONGITUDE_WARP_ANGLE = 0.6f;
-inline Vector longitude_rotation_warp(const Vector &v,
-                                      const ::Feedback::Style &) {
+inline math::Vector longitude_rotation_warp(const math::Vector &v,
+                                            const ::Feedback::Style &) {
   const float c = std::cos(LONGITUDE_WARP_ANGLE);
   const float s = std::sin(LONGITUDE_WARP_ANGLE);
-  return Vector(c * v.x - s * v.z, v.y, s * v.x + c * v.z);
+  return math::Vector(c * v.x - s * v.z, v.y, s * v.x + c * v.z);
 }
 
 /**
@@ -344,7 +347,7 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
   fx.advance_display();
 
   // The premise: the bottom row is off the pole at this offset.
-  using LUT = TrigLUT<W, H>;
+  using LUT = math::TrigLUT<W, H>;
   HS_EXPECT_GT(LUT::sin_phi[H - 1], 0.1f);
 
   // Brightness centroid of the row, unwrapped around the source column so the
@@ -369,7 +372,7 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
   HS_EXPECT_LT(lit_columns, W);
   // The row carried the warp's full longitude shift.
   const double expected =
-      -static_cast<double>(LONGITUDE_WARP_ANGLE) * W / (2.0 * PI_F);
+      -static_cast<double>(LONGITUDE_WARP_ANGLE) * W / (2.0 * math::PI_F);
   HS_EXPECT_NEAR(moment / mass, expected, 0.5);
 }
 

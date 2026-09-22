@@ -55,7 +55,7 @@ public:
         palette(EffectPaletteRecipes::mobius_rings(
             EffectPaletteRecipes::random_base_turns())),
         mobius_gen(timeline),
-        filters(NorthHole(Y_AXIS, 1.2f), SouthHole(-Y_AXIS, 1.2f),
+        filters(NorthHole(math::Y_AXIS, 1.2f), SouthHole(-math::Y_AXIS, 1.2f),
                 Filter::World::Orient(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
@@ -79,8 +79,8 @@ public:
     HS_CHECK(warp, "MobiusRings: pinned warp spawn must succeed");
 
     timeline
-        .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400,
-                                       ease_linear, true))
+        .add(0, Animation::Rotation<W>(orientation, math::Y_AXIS,
+                                       2 * math::PI_F, 400, ease_linear, true))
         .add(0, Animation::PeriodicTimer(
                     WIPE_PERIOD, [this](Canvas &) { wipe_palette(); }, true))
         .add_pausable(0,
@@ -117,20 +117,20 @@ public:
     float phase = static_cast<float>(timeline.frame() % SCROLL_PERIOD) /
                   static_cast<float>(SCROLL_PERIOD);
 
-    Vector n_trans = mobius_gen.transform(Y_AXIS);
-    Vector s_trans = mobius_gen.transform(-Y_AXIS);
-    Quaternion q = counter_rotation(n_trans + s_trans);
+    math::Vector n_trans = mobius_gen.transform(math::Y_AXIS);
+    math::Vector s_trans = mobius_gen.transform(-math::Y_AXIS);
+    math::Quaternion q = counter_rotation(n_trans + s_trans);
 
     filters.template get<NorthHole>().set_origin(
-        normalized_or(rotate(n_trans, q), Vector(1, 0, 0)));
+        math::normalized_or(math::rotate(n_trans, q), math::Vector(1, 0, 0)));
     filters.template get<SouthHole>().set_origin(
-        normalized_or(rotate(s_trans, q), Vector(1, 0, 0)));
+        math::normalized_or(math::rotate(s_trans, q), math::Vector(1, 0, 0)));
 
     {
       HS_PROFILE(mg_draw_grid);
       {
         HS_PROFILE(mg_rings_draw);
-        draw_axis_rings(canvas, Y_AXIS, params.num_rings, phase, q);
+        draw_axis_rings(canvas, math::Y_AXIS, params.num_rings, phase, q);
       }
       {
         HS_PROFILE(mg_lines_draw);
@@ -171,12 +171,12 @@ private:
    *         two poles cancel (mid ~ 0 at the strip singularity) and the direction
    *         is undefined — feeding a zero vector to make_rotation is avoided.
    */
-  static Quaternion counter_rotation(Vector mid) {
+  static math::Quaternion counter_rotation(math::Vector mid) {
     if (mid.length() > 0.001f) {
       mid.normalize();
-      return make_rotation(mid, Z_AXIS);
+      return math::make_rotation(mid, math::Z_AXIS);
     }
-    return Quaternion();
+    return math::Quaternion();
   }
 
   /**
@@ -195,7 +195,7 @@ private:
     float log_r = 0.5f * logf((1.0f + y) / (1.0f - y));
     float t =
         (log_r - CONFORMAL_LOG_MIN) / (CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN);
-    return wrap(t - phase, 1.0f);
+    return math::wrap(t - phase, 1.0f);
   }
 
   /**
@@ -218,7 +218,7 @@ private:
    *          given ring/line index.
    */
   struct Curve {
-    Basis basis;  /**< Orthonormal basis of the spherical polygon. */
+    math::Basis basis; /**< Orthonormal basis of the spherical polygon. */
     float radius; /**< Sampling radius of the curve, in unit-sphere coords. */
   };
 
@@ -240,7 +240,7 @@ private:
    *          differs between the ring and longitude passes.
    */
   template <typename CurveFn, typename ShaderFn>
-  void draw_curves(Canvas &canvas, float num, const Quaternion &q,
+  void draw_curves(Canvas &canvas, float num, const math::Quaternion &q,
                    CurveFn curve_fn, ShaderFn make_shader) {
     int count = static_cast<int>(std::ceil(num));
     for (int i = 0; i < count; ++i) {
@@ -257,9 +257,10 @@ private:
       // the sampler's arc-length/index registers are unused here.
       size_t n = m_fragments.size();
       for (size_t k = 0; k < n; ++k) {
-        Vector transformed = mobius_gen.transform(m_fragments[k].pos);
+        math::Vector transformed = mobius_gen.transform(m_fragments[k].pos);
         Fragment &f = m_fragments[k];
-        f.pos = normalized_or(rotate(transformed, q), Vector(1, 0, 0));
+        f.pos = math::normalized_or(math::rotate(transformed, q),
+                                    math::Vector(1, 0, 0));
         f.v1 = 0.0f;
         f.v2 = 0.0f;
       }
@@ -286,25 +287,26 @@ private:
    *          scrolled by phase, mapped through an atan so spacing matches the
    *          stereographic projection.
    */
-  void draw_axis_rings(Canvas &canvas, const Vector &normal, float num,
-                       float phase, const Quaternion &q) {
+  void draw_axis_rings(Canvas &canvas, const math::Vector &normal, float num,
+                       float phase, const math::Quaternion &q) {
     const float range = CONFORMAL_LOG_MAX - CONFORMAL_LOG_MIN;
 
     // normal is loop-invariant, so the basis is identical for every ring.
-    const Basis ring_basis = make_basis(Quaternion(), normal);
+    const math::Basis ring_basis = math::make_basis(math::Quaternion(), normal);
 
     draw_curves(
         canvas, num, q,
         [&](int i) -> Curve {
-          float t = wrap((static_cast<float>(i) / num) + phase, 1.0f);
+          float t = math::wrap((static_cast<float>(i) / num) + phase, 1.0f);
           float r_val = expf(CONFORMAL_LOG_MIN + t * range);
-          float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
+          float radius = (4.0f / math::PI_F) * atanf(1.0f / r_val);
           return {ring_basis, radius};
         },
         [&](int i, float opacity) {
           Color4 c = baked_palette.get(static_cast<float>(i) / num);
           c.alpha *= opacity * params.alpha;
-          return [c](const Vector &, Fragment &f_val) { f_val.color = c; };
+          return
+              [c](const math::Vector &, Fragment &f_val) { f_val.color = c; };
         });
   }
 
@@ -320,22 +322,22 @@ private:
    *          phase.
    */
   void draw_longitudes(Canvas &canvas, float num, float phase,
-                       const Quaternion &q) {
+                       const math::Quaternion &q) {
     draw_curves(
         canvas, num, q,
         [&](int i) -> Curve {
-          float theta = (static_cast<float>(i) / num) * PI_F;
-          Vector normal(cosf(theta), 0.0f, -sinf(theta));
+          float theta = (static_cast<float>(i) / num) * math::PI_F;
+          math::Vector normal(cosf(theta), 0.0f, -sinf(theta));
           // Explicit basis construction to match JS texture alignment.
-          Vector v = normal;
-          Vector w = Y_AXIS;
-          Vector u = cross(v, w);
-          return {Basis{u, v, w}, 1.0f};
+          math::Vector v = normal;
+          math::Vector w = math::Y_AXIS;
+          math::Vector u = math::cross(v, w);
+          return {math::Basis{u, v, w}, 1.0f};
         },
         [&](int, float opacity) {
           const float alpha = opacity * params.alpha;
-          return [this, phase, alpha](const Vector &, Fragment &f_val) {
-            float y = fast_sinf(f_val.v0 * 2.0f * PI_F);
+          return [this, phase, alpha](const math::Vector &, Fragment &f_val) {
+            float y = math::fast_sinf(f_val.v0 * 2.0f * math::PI_F);
             Color4 c = baked_palette.get(conformal_coord(y, phase));
             c.alpha *= alpha;
             f_val.color = c;
@@ -377,7 +379,7 @@ private:
    * @details Declared before `timeline` so it outlives the Rotation that points
    * here, which ~Timeline clears on teardown.
    */
-  Orientation<> orientation;
+  math::Orientation<> orientation;
   Timeline timeline; /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
 

@@ -330,7 +330,7 @@ private:
    */
   void replicate(Canvas &c, int x, int y, const CHSV &color, int n) {
     for (int i = 0; i < W; i += W / n) {
-      c(wrap(x + i, W), y) = color;
+      c(math::wrap(x + i, W), y) = color;
     }
   }
 
@@ -343,8 +343,8 @@ private:
    * forward (+x), negative going backward.
    */
   int distance(int a, int b, int m) {
-    int fwd = wrap(b - a, m);
-    int rev = wrap(a - b, m);
+    int fwd = math::wrap(b - a, m);
+    int rev = math::wrap(a - b, m);
     if (fwd <= rev) {
       return fwd;
     }
@@ -393,14 +393,15 @@ private:
    * leader's so the chain stays taut.
    */
   void drag(Canvas &c, Dot &leader, Dot &follower) {
-    int dest = wrap(follower.x + follower.v, W);
+    int dest = math::wrap(follower.x + follower.v, W);
     if (abs(distance(dest, leader.x, W)) > gap) {
       // Sweep out to the far end of the leader's just-traveled path...
-      dest = wrap(leader.x - dir(leader.v) * (abs(leader.v) - 1 + gap), W);
+      dest =
+          math::wrap(leader.x - dir(leader.v) * (abs(leader.v) - 1 + gap), W);
       follower.v = distance(follower.x, dest, W);
       move(c, follower);
       // ...then settle one gap-length behind the leader.
-      dest = wrap(leader.x - dir(leader.v) * gap, W);
+      dest = math::wrap(leader.x - dir(leader.v) * gap, W);
       follower.v = distance(follower.x, dest, W);
       move(c, follower);
       follower.v = leader.v;
@@ -416,14 +417,14 @@ private:
    * @details Draws replicated copies along the whole swept path so no gaps
    * appear between frames.
    */
-  void move(Canvas &c, Dot &dot) {
-    int dest = wrap(dot.x + dot.v, W);
-    for (int i = dot.x;; i = wrap(i + dir(dot.v), W)) {
-      replicate(c, i, dot.y, CHSV(dot.hue, 255, 255), replicas);
+  void move(Canvas &c, Dot &math::dot) {
+    int dest = math::wrap(math::dot.x + math::dot.v, W);
+    for (int i = math::dot.x;; i = math::wrap(i + dir(math::dot.v), W)) {
+      replicate(c, i, math::dot.y, CHSV(math::dot.hue, 255, 255), replicas);
       if (i == dest)
         break;
     }
-    dot.x = dest;
+    math::dot.x = dest;
   }
 
   Dot dots[H];    /**< Per-row chain beads. */
@@ -464,7 +465,7 @@ public:
    * @return The stored pixel from column wrap(x - pos[y], W) on row y.
    */
   const Pixel &get_pixel(int x, int y) const override {
-    return Effect::get_pixel(wrap(x - pos[y], W), y);
+    return Effect::get_pixel(math::wrap(x - pos[y], W), y);
   }
 
   /**
@@ -529,15 +530,15 @@ private:
       block(y);
       return;
     }
-    move(y, pos[y], wrap(pos[y] + dir, W), dir);
+    move(y, pos[y], math::wrap(pos[y] + dir, W), dir);
     for (int i = y - 1; i >= 0; --i) {
       if (distance(pos[i], pos[i + 1], dir) > lead_length) {
-        move(i, pos[i], wrap(pos[i + 1] - lead_length * dir, W), dir);
+        move(i, pos[i], math::wrap(pos[i + 1] - lead_length * dir, W), dir);
       }
     }
     for (int i = y + 1; i < H; ++i) {
       if (distance(pos[i], pos[i - 1], dir) > lead_length) {
-        move(i, pos[i], wrap(pos[i - 1] - lead_length * dir, W), dir);
+        move(i, pos[i], math::wrap(pos[i - 1] - lead_length * dir, W), dir);
       }
     }
   }
@@ -553,7 +554,7 @@ private:
     bool all_stop = true;
     for (int i = 0; i < H; ++i) {
       if (distance(pos[i], pos[y], dir) != 0) {
-        move(i, pos[i], wrap(pos[i] + dir, W), dir);
+        move(i, pos[i], math::wrap(pos[i] + dir, W), dir);
         all_stop = false;
       }
     }
@@ -574,7 +575,7 @@ private:
    * @return Number of columns from a to b along the ring in that direction.
    */
   int distance(int a, int b, int direction) {
-    return direction > 0 ? wrap(b - a, W) : wrap(a - b, W);
+    return direction > 0 ? math::wrap(b - a, W) : math::wrap(a - b, W);
   }
 
   /**
@@ -590,7 +591,7 @@ private:
     pos[y] = x1;
     for (int x = 0; x < W; x += W / COUNT) {
       for (int d = 0; d < distance(x0, x1, direction); ++d) {
-        add_trail(*canvas, y, wrap(x - direction, W), direction);
+        add_trail(*canvas, y, math::wrap(x - direction, W), direction);
       }
     }
   }
@@ -605,11 +606,12 @@ private:
    * and decays it, extending the trail until it hits a black pixel or the seed.
    */
   void add_trail(Canvas &c, int y, int x, int direction) {
-    if (c(wrap(x + direction, W), y) == CRGB(0, 0, 0) || c(x, y) == seed) {
+    if (c(math::wrap(x + direction, W), y) == CRGB(0, 0, 0) ||
+        c(x, y) == seed) {
       return;
     }
-    add_trail(c, y, wrap(x - direction, W), direction);
-    c(x, y) = c(wrap(x + direction, W), y);
+    add_trail(c, y, math::wrap(x - direction, W), direction);
+    c(x, y) = c(math::wrap(x + direction, W), y);
     decay(c(x, y));
   }
 
@@ -733,7 +735,7 @@ public:
       plot(c, -num, 255, (i * W / COUNT + W - 1 - offset) % W, color);
     }
 
-    num = wrap(num - 1, 1024);
+    num = math::wrap(num - 1, 1024);
     color_offset++;
     offset = (offset + 1) % W;
   }
@@ -750,7 +752,7 @@ private:
    */
   void plot(Canvas &cv, int n, int d, int c, const CHSV &color) {
     for (int y = 0; y < H; ++y) {
-      cv(wrap(y * n / d + c, W), y) = color;
+      cv(math::wrap(y * n / d + c, W), y) = color;
     }
   }
 
@@ -887,7 +889,7 @@ public:
   /**
    * @brief Constructs the effect, builds the palette, and clears the TTL field.
    */
-  FLASHMEM RingTrails() : Effect(W, H, {.persist = true}), dot(0) {
+  FLASHMEM RingTrails() : Effect(W, H, {.persist = true}), math::dot(0) {
     fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
                         rgb2hsv_approximate(CRGB(162, 84, 84)),
@@ -925,7 +927,7 @@ public:
     uint8_t dg = beatsin8(2, 1, 3, 16384);
     uint8_t dp = beatsin8(3, 1, 3, 32768);
     projection.rotate(dl, dg, dp);
-    dot = (dot + 1) % W;
+    math::dot = (math::dot + 1) % W;
   }
 
 private:
@@ -934,7 +936,7 @@ private:
   uint8_t hue = HUE_RED;       /**< Base hue. */
   CHSVPalette256 palette;      /**< Warm gradient palette. */
   int ttl[W][H];               /**< Per-cell time-to-live for trails. */
-  int dot;                     /**< Current ring scan position. */
+  int math::dot;               /**< Current ring scan position. */
   NoColorCorrection _; /**< Disables color correction for this effect. */
 };
 
@@ -1357,17 +1359,17 @@ private:
    * @details When ttl hits 0, respawns it at a random position with a fresh
    * lifetime; otherwise steps one cell respecting direction.
    */
-  void move(Dot &dot) {
-    if (dot.ttl == 0) {
-      dot.x = random8() % W;
-      dot.ttl = (random8() % 30) + 20;
-    } else if (dot.rev) {
-      dot.x = (dot.x - 1 + W) % W;
-      dot.ttl--;
+  void move(Dot &math::dot) {
+    if (math::dot.ttl == 0) {
+      math::dot.x = random8() % W;
+      math::dot.ttl = (random8() % 30) + 20;
+    } else if (math::dot.rev) {
+      math::dot.x = (math::dot.x - 1 + W) % W;
+      math::dot.ttl--;
     } else {
-      dot.x = addmod8(dot.x, 1, W);
-      dot.drawn = true;
-      dot.ttl--;
+      math::dot.x = addmod8(math::dot.x, 1, W);
+      math::dot.drawn = true;
+      math::dot.ttl--;
     }
   }
 

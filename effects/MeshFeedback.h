@@ -165,7 +165,8 @@ public:
     apply_params();
 
     timeline.add(0, Animation::Noise(noise_params));
-    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, walk_noise));
+    timeline.add(
+        0, Animation::RandomWalk<W>(orientation, math::Y_AXIS, walk_noise));
   }
 
   /**
@@ -200,7 +201,7 @@ public:
       const Color4 shade = mesh_shade;
       Plot::Mesh::draw<W, H>(
           frame_filters, canvas, mesh, edges,
-          [&](const Vector &, Fragment &f) { f.color = shade; });
+          [&](const math::Vector &, Fragment &f) { f.color = shade; });
     }
   }
 
@@ -277,7 +278,7 @@ private:
   // "Distort Freq" slider.
   FastNoiseLite walk_noise;
 
-  Orientation<> orientation;
+  math::Orientation<> orientation;
 
   Color4 mesh_shade; /**< Wireframe shade; sampled once in init(). */
 
@@ -293,7 +294,7 @@ private:
       filters;
 
   static constexpr size_t MESH_STORAGE_BYTES =
-      Solids::MAX_SOLID_VERTICES * sizeof(Vector) +
+      Solids::MAX_SOLID_VERTICES * sizeof(math::Vector) +
       Solids::MAX_SOLID_FACES * (sizeof(uint8_t) + sizeof(uint16_t)) +
       Solids::MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
       Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge);

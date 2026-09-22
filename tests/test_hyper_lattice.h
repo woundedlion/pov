@@ -86,7 +86,7 @@ inline void test_so4_rotation() {
   HL::FrameState frame{};
   frame.params.mode = HL::LatticeMode::FOUR_D_SLICE;
   frame.params.far_distance = 8.0f;
-  frame.rotation_phase[3] = 0.5f * PI_F;
+  frame.rotation_phase[3] = 0.5f * math::PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
   const Vec4 rotated =
       prepared.world_to_lattice.apply({{1.0f, 0.0f, 0.0f, 0.0f}});
@@ -106,7 +106,7 @@ inline void test_so4_rotation() {
 inline void test_dimensional_rotation_wrap_is_continuous() {
   HL::FrameState frame{};
   frame.params.mode = HL::LatticeMode::DIMENSIONAL_RIFT;
-  frame.rotation_phase[3] = TWO_PI_F - 1.0e-4f;
+  frame.rotation_phase[3] = math::TWO_PI_F - 1.0e-4f;
   const Vec4 before = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
   frame.rotation_phase[3] = 0.0f;
@@ -226,7 +226,7 @@ inline void test_trace_layers_are_front_to_back() {
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
   float previous_distance = 0.0f;
   int layers = 0;
-  HL::trace_layers(X_AXIS, prepared, [&](const HL::TraceHit &hit) {
+  HL::trace_layers(math::X_AXIS, prepared, [&](const HL::TraceHit &hit) {
     HS_EXPECT_GT(hit.coverage, 0.0f);
     HS_EXPECT_LE(hit.coverage, 1.0f);
     HS_EXPECT_GT(hit.distance, previous_distance);
@@ -266,15 +266,17 @@ inline void test_surface_origin_parallax() {
   frame.params = HyperLattice<96, 20>::preset_params(0);
   frame.params.sphere_radius = 0.0f;
   frame.origin = {{0.25f, 0.0f, 0.31f, 0.43f}};
-  const HL::TraceHit centered = HL::trace(X_AXIS, HL::prepare_trace(frame));
+  const HL::TraceHit centered =
+      HL::trace(math::X_AXIS, HL::prepare_trace(frame));
   frame.params.cell_size = 2.0f;
   const HL::PreparedTrace scaled_trace = HL::prepare_trace(frame);
-  const HL::TraceHit scaled = HL::trace(X_AXIS, scaled_trace);
+  const HL::TraceHit scaled = HL::trace(math::X_AXIS, scaled_trace);
   frame.params.sphere_radius = 0.4f;
   const HL::TraceHit scaled_surface =
-      HL::trace(X_AXIS, HL::prepare_trace(frame));
+      HL::trace(math::X_AXIS, HL::prepare_trace(frame));
   frame.params.cell_size = 1.0f;
-  const HL::TraceHit surfaced = HL::trace(X_AXIS, HL::prepare_trace(frame));
+  const HL::TraceHit surfaced =
+      HL::trace(math::X_AXIS, HL::prepare_trace(frame));
   HS_EXPECT_NEAR(centered.distance, 0.75f, 1e-6f);
   HS_EXPECT_NEAR(scaled.distance, 1.5f, 1e-6f);
   HS_EXPECT_NEAR(scaled_surface.distance, 0.7f, 1e-6f);
@@ -287,9 +289,9 @@ inline void test_hyperplane_event() {
   frame.params = HyperLattice<96, 20>::preset_params(1);
   frame.params.sphere_radius = 0.4f;
   frame.origin = {{0.0f, 0.0f, 0.31f, 0.25f}};
-  frame.rotation_phase[3] = 0.5f * PI_F;
+  frame.rotation_phase[3] = 0.5f * math::PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  const HL::TraceHit hit = HL::trace(X_AXIS, prepared);
+  const HL::TraceHit hit = HL::trace(math::X_AXIS, prepared);
   HS_EXPECT_GT(hit.coverage, 0.0f);
   HS_EXPECT_EQ(hit.free_axis, uint8_t(2));
   HS_EXPECT_NEAR(hit.distance, 0.35f, 3e-4f);
@@ -304,7 +306,7 @@ inline void test_coincident_planes_form_one_layer() {
   constexpr float INV_SQRT_TWO = 0.707106781f;
   float previous_distance = 0.0f;
   int layers = 0;
-  HL::trace_layers(Vector(INV_SQRT_TWO, INV_SQRT_TWO, 0.0f), prepared,
+  HL::trace_layers(math::Vector(INV_SQRT_TWO, INV_SQRT_TWO, 0.0f), prepared,
                    [&](const HL::TraceHit &hit) {
                      HS_EXPECT_GT(hit.distance, previous_distance);
                      previous_distance = hit.distance;
@@ -395,7 +397,7 @@ inline void expect_shade_samples(const char *label, const ShadeSample *rendered,
  */
 inline void test_render_signature() {
   reset_globals();
-  static constexpr Vector DIRECTIONS[] = {
+  static constexpr math::Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
       {-1.0f, 0.0f, 0.0f},
       {0.0f, 1.0f, 0.0f},
@@ -492,7 +494,7 @@ inline void test_specialized_slice_transition() {
       const HL::PreparedTrace prepared = HL::prepare_trace(frame);
       for (int y = 0; y < 144; ++y)
         for (int x = 0; x < 288; ++x) {
-          const Vector direction = pixel_to_vector<288, 144>(x, y);
+          const math::Vector direction = math::pixel_to_vector<288, 144>(x, y);
           const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
           const Color4 specialized = HL::shade_mode<true, SHELL_COUNT>(
               {direction, 0.0f}, frame, prepared);
@@ -532,7 +534,7 @@ inline void test_specialized_slice_transition() {
  */
 inline void test_specialized_render_signature() {
   reset_globals();
-  static constexpr Vector DIRECTIONS[] = {
+  static constexpr math::Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
       {0.0f, 1.0f, 0.0f},
       {0.0f, 0.0f, 1.0f},
@@ -721,7 +723,7 @@ inline void test_dimensional_rift_layers() {
   frame.origin = {{0.25f, 0.02f, 0.03f, 0.05f}};
   const auto nearest = [&](HL::LatticeMode mode) {
     frame.params.mode = mode;
-    return HL::trace(X_AXIS, HL::prepare_trace(frame));
+    return HL::trace(math::X_AXIS, HL::prepare_trace(frame));
   };
   const HL::TraceHit cubic = nearest(HL::LatticeMode::THREE_D);
   const HL::TraceHit hyper = nearest(HL::LatticeMode::FOUR_D_SLICE);
@@ -741,7 +743,7 @@ inline void test_dimensional_rift_layers() {
   frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
   frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  static constexpr Vector DIRECTIONS[] = {
+  static constexpr math::Vector DIRECTIONS[] = {
       {1.0f, 0.0f, 0.0f},
       {0.0f, 1.0f, 0.0f},
       {0.0f, 0.0f, 1.0f},
@@ -750,7 +752,7 @@ inline void test_dimensional_rift_layers() {
       {0.301511345f, -0.904534034f, 0.301511345f},
   };
   int layers = 0;
-  for (const Vector &direction : DIRECTIONS) {
+  for (const math::Vector &direction : DIRECTIONS) {
     float previous_distance = 0.0f;
     HL::trace_layers(direction, prepared, [&](const HL::TraceHit &hit) {
       HS_EXPECT_GT(hit.coverage, 0.0f);
@@ -791,7 +793,7 @@ inline void test_axis_color_and_single_shell() {
   const auto layers = [&](HL::ShellCount shells) {
     frame.params.shells = shells;
     std::vector<HL::TraceHit> hits;
-    HL::trace_layers(X_AXIS, HL::prepare_trace(frame),
+    HL::trace_layers(math::X_AXIS, HL::prepare_trace(frame),
                      [&](const HL::TraceHit &hit) {
                        hits.push_back(hit);
                        return true;
@@ -813,11 +815,11 @@ inline void test_axis_color_and_single_shell() {
 
   frame.params.color = HL::ColorMode::AXIS;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  const HL::TraceHit hit = HL::trace(X_AXIS, prepared);
-  const Color4 axis = HL::shade({X_AXIS, 0.0f}, frame, prepared);
+  const HL::TraceHit hit = HL::trace(math::X_AXIS, prepared);
+  const Color4 axis = HL::shade({math::X_AXIS, 0.0f}, frame, prepared);
   frame.params.color = HL::ColorMode::DEPTH;
   const Color4 depth =
-      HL::shade({X_AXIS, 0.0f}, frame, HL::prepare_trace(frame));
+      HL::shade({math::X_AXIS, 0.0f}, frame, HL::prepare_trace(frame));
   HS_EXPECT_NEAR(hit.coverage, one.front().coverage, 1e-6f);
   HS_EXPECT_NEAR(axis.alpha, hit.coverage, 1e-6f);
   HS_EXPECT_EQ(axis.alpha, depth.alpha);

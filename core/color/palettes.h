@@ -149,7 +149,7 @@ struct MeshPaletteBank {
    *        fold aliases every N-th class onto the same slot.
    * @return Slot index in [0, N).
    */
-  static int slot_of(int cls) { return wrap(cls, N); }
+  static int slot_of(int cls) { return math::wrap(cls, N); }
 
   /**
    * @brief Assigns every face the palette its topology class maps to.

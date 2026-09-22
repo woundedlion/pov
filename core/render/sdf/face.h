@@ -227,12 +227,13 @@ struct FaceScratchBuffer {
   static constexpr size_t MAX_INTERVALS =
       2; /**< Capacity of the azimuth coverage array: one span, or two when the
               covered arc straddles theta=0. */
-  std::array<Vector, MAX_VERTS + 1>
+  std::array<math::Vector, MAX_VERTS + 1>
       poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
-  std::array<Vector, MAX_VERTS> edge_vectors; /**< Per-edge 2D vectors. */
+  std::array<math::Vector, MAX_VERTS> edge_vectors; /**< Per-edge 2D vectors. */
   std::array<float, MAX_VERTS>
-      edge_lengths_sq;                  /**< Per-edge squared lengths. */
-  std::array<Vector, MAX_VERTS> planes; /**< Per-edge great-circle normals. */
+      edge_lengths_sq; /**< Per-edge squared lengths. */
+  std::array<math::Vector, MAX_VERTS>
+      planes; /**< Per-edge great-circle normals. */
   std::array<Interval, MAX_INTERVALS>
       intervals;                       /**< Azimuth coverage intervals. */
   std::array<float, MAX_VERTS> thetas; /**< Per-vertex azimuth angles. */
@@ -240,7 +241,7 @@ struct FaceScratchBuffer {
       inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
   std::array<float, MAX_VERTS>
       inv_edge_j; /**< Reciprocal of each edge's y-component. */
-  std::array<Vector, MAX_VERTS + 1>
+  std::array<math::Vector, MAX_VERTS + 1>
       verts_3d; /**< 3D vertices (+1 wrap entry). */
 
   /**
@@ -315,17 +316,18 @@ __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
  * retargeted Face once per draw, ahead of any probe.
  */
 struct Face {
-  Vector center; /**< Normalized face centroid (projection axis). */
-  Vector basis_v, basis_u, basis_w; /**< Local tangent frame (v = center). */
-  int count;                        /**< Vertex/edge count; 0 if culled. */
+  math::Vector center; /**< Normalized face centroid (projection axis). */
+  math::Vector basis_v, basis_u,
+      basis_w;              /**< Local tangent frame (v = center). */
+  int count;                /**< Vertex/edge count; 0 if culled. */
   float size = 0.0f;        /**< Inradius metric for AA normalization; radians
                                  unless linear_dist. */
   float radius = 0.0f;      /**< Circumradius in the 2D projection. */
   float max_dist = 0.0f;    /**< Cull radius (circumradius plus margin). */
   float max_dist_sq = 0.0f; /**< Squared cull radius. */
 
-  std::span<Vector> poly_2d;      /**< Projected 2D polygon (+1 wrap entry). */
-  std::span<Vector> edge_vectors; /**< Per-edge 2D vectors. */
+  std::span<math::Vector> poly_2d; /**< Projected 2D polygon (+1 wrap entry). */
+  std::span<math::Vector> edge_vectors; /**< Per-edge 2D vectors. */
   std::span<float> edge_lengths_sq;     /**< Per-edge squared lengths. */
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
   std::span<float> inv_edge_j; /**< Reciprocal of each edge's y-component. */
@@ -420,7 +422,7 @@ struct Face {
    *        rendering antialiasing fringes must pass at least `2π / width`;
    *        the default is suitable only when that reach is not required.
    */
-  HS_O3_FN Face(std::span<const Vector> vertices,
+  HS_O3_FN Face(std::span<const math::Vector> vertices,
                 std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
                 int h_virt, int height, const ClipRegion *clip = nullptr,
                 const float *azimuth_pads = nullptr,
@@ -500,7 +502,7 @@ struct Face {
       compute_inradius(scratch);
     }
 
-    edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
+    edge_vectors = std::span<math::Vector>(scratch.edge_vectors.data(), count);
     edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
     inv_edge_lengths_sq =
         std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
@@ -574,7 +576,7 @@ struct Face {
                     build_azimuth_pads[band_y_max]);
     } else {
       const int h_virt = cr.h + hs::H_OFFSET;
-      const float phi_scale = PI_F / static_cast<float>(h_virt - 1);
+      const float phi_scale = math::PI_F / static_cast<float>(h_virt - 1);
       const float sin_phi =
           std::min(sinf(band_y_min * phi_scale), sinf(band_y_max * phi_scale));
       pw = face_azimuth_pad(Wd, sin_phi);
@@ -583,8 +585,8 @@ struct Face {
     for (const auto &iv : intervals) {
       // Mirrors get_horizontal_intervals' radians->column mapping, so the cull
       // matches the emitted columns exactly.
-      int a = static_cast<int>(floorf((iv.start - pw) * Wd / TWO_PI_F));
-      int b = static_cast<int>(ceilf((iv.end + pw) * Wd / TWO_PI_F));
+      int a = static_cast<int>(floorf((iv.start - pw) * Wd / math::TWO_PI_F));
+      int b = static_cast<int>(ceilf((iv.end + pw) * Wd / math::TWO_PI_F));
       int len = b - a;
       if (len <= 0)
         continue;
@@ -613,7 +615,7 @@ struct Face {
    *         canvas-row range.
    */
   __attribute__((always_inline)) bool
-  compute_phi_extent(std::span<const Vector> vertices,
+  compute_phi_extent(std::span<const math::Vector> vertices,
                      std::span<const uint16_t> indices, int h_virt, int height,
                      float bounds_margin) const {
     float min_y_val = 2.0f;
@@ -625,8 +627,8 @@ struct Face {
       max_y_val = __builtin_fmaxf(y, max_y_val);
     }
 
-    float min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
-    float max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
+    float min_phi_check = math::fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
+    float max_phi_check = math::fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     Bounds rows =
         phi_bounds_to_rows(min_phi_check - bounds_margin,
                            max_phi_check + bounds_margin, h_virt, height);
@@ -644,36 +646,36 @@ struct Face {
    * vertex array.
    */
   __attribute__((always_inline)) void
-  setup_frame_and_polygon(std::span<const Vector> vertices,
+  setup_frame_and_polygon(std::span<const math::Vector> vertices,
                           std::span<const uint16_t> indices,
                           FaceScratchBuffer &scratch) {
     // Single gather over the shared pool: every later pass reads the local
     // copy instead of chasing indices back into `vertices`.
-    center = Vector(0, 0, 0);
+    center = math::Vector(0, 0, 0);
     for (int i = 0; i < count; ++i) {
-      const Vector &v = vertices[indices[i]];
+      const math::Vector &v = vertices[indices[i]];
       scratch.verts_3d[i] = v;
       center = center + v;
     }
     center.normalize();
 
     basis_v = center;
-    basis_u = perpendicular_axis(center);
-    basis_w = cross(center, basis_u).normalized();
+    basis_u = math::perpendicular_axis(center);
+    basis_w = math::cross(center, basis_u).normalized();
 
     float max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
-      const Vector &v = scratch.verts_3d[i];
+      const math::Vector &v = scratch.verts_3d[i];
       // Gnomonic projection divides by d = cos(angle from face center),
       // singular near the center's antipode; clamp d away from zero,
       // sign-preserving.
-      float d = dot(v, basis_v);
+      float d = math::dot(v, basis_v);
       if (fabsf(d) < math::TOLERANCE)
         d = copysignf(math::TOLERANCE, d);
-      float px = dot(v, basis_u) / d;
-      float py = dot(v, basis_w) / d;
+      float px = math::dot(v, basis_u) / d;
+      float py = math::dot(v, basis_w) / d;
 
-      scratch.poly_2d[i] = Vector(px, py, 0);
+      scratch.poly_2d[i] = math::Vector(px, py, 0);
 
       float r2 = px * px + py * py;
       max_r2 = __builtin_fmaxf(r2, max_r2);
@@ -683,7 +685,7 @@ struct Face {
     max_dist_sq = max_dist * max_dist;
 
     scratch.poly_2d[count] = scratch.poly_2d[0];
-    poly_2d = std::span<Vector>(scratch.poly_2d.data(), count + 1);
+    poly_2d = std::span<math::Vector>(scratch.poly_2d.data(), count + 1);
 
     scratch.verts_3d[count] = scratch.verts_3d[0];
   }
@@ -700,15 +702,15 @@ struct Face {
   compute_inradius(const FaceScratchBuffer &scratch) {
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
-      const Vector &v1 = scratch.poly_2d[i];
-      const Vector &edge = scratch.edge_vectors[i];
+      const math::Vector &v1 = scratch.poly_2d[i];
+      const math::Vector &edge = scratch.edge_vectors[i];
       float t = 0.0f;
       const float inv_edge_len_sq = scratch.inv_edge_lengths_sq[i];
       if (inv_edge_len_sq > 0.0f) {
-        t = dot(-v1, edge) * inv_edge_len_sq;
+        t = math::dot(-v1, edge) * inv_edge_len_sq;
         t = __builtin_fmaxf(0.0f, __builtin_fminf(1.0f, t));
       }
-      Vector closest = v1 + edge * t;
+      math::Vector closest = v1 + edge * t;
       float d_line = closest.magnitude();
 
       min_edge_dist = __builtin_fminf(d_line, min_edge_dist);
@@ -718,7 +720,7 @@ struct Face {
     // distance() reports radians for a large face; the same fast_atan2 keeps
     // dist/size exactly 1 at the inradius.
     if (!linear_dist)
-      size = fast_atan2(size, 1.0f);
+      size = math::fast_atan2(size, 1.0f);
   }
 
   /**
@@ -759,10 +761,10 @@ struct Face {
     bool pos = false, neg = false;
     // The turn test carries the previous edge in registers, so the ring closes
     // without indexing edge_vectors through a modulo.
-    const Vector *e1 = &edge_vectors[count - 1];
+    const math::Vector *e1 = &edge_vectors[count - 1];
     float l1 = edge_lengths_sq[count - 1];
     for (int i = 0; i < count; ++i) {
-      const Vector &e2 = edge_vectors[i];
+      const math::Vector &e2 = edge_vectors[i];
       float cr = e1->x * e2.y - e1->y * e2.x;
       float scale = l1 * edge_lengths_sq[i];
       e1 = &e2;
@@ -959,10 +961,10 @@ struct Face {
   __attribute__((always_inline)) void
   compute_thetas(FaceScratchBuffer &scratch) const {
     for (int i = 0; i < count; ++i) {
-      const Vector &v = scratch.verts_3d[i];
-      float theta = fast_atan2(v.z, v.x);
+      const math::Vector &v = scratch.verts_3d[i];
+      float theta = math::fast_atan2(v.z, v.x);
       if (theta < 0)
-        theta += TWO_PI_F;
+        theta += math::TWO_PI_F;
       scratch.thetas[i] = theta;
     }
   }
@@ -994,7 +996,7 @@ struct Face {
     float gap_start = 0;
     for (int i = 0; i < count; ++i) {
       float next = (i + 1 < count) ? scratch.thetas[i + 1]
-                                   : (scratch.thetas[0] + TWO_PI_F);
+                                   : (scratch.thetas[0] + math::TWO_PI_F);
       float diff = next - scratch.thetas[i];
       if (diff > max_gap) {
         max_gap = diff;
@@ -1003,12 +1005,12 @@ struct Face {
     }
 
     int interval_count = 0;
-    if (max_gap > PI_F) {
+    if (max_gap > math::PI_F) {
       full_width = false;
-      float start_t = fmodf(gap_start + max_gap, TWO_PI_F);
+      float start_t = fmodf(gap_start + max_gap, math::TWO_PI_F);
       // fmodf can leave start_t at ~2*PI instead of ~0, producing a degenerate
       // [~2*PI, 2*PI] sliver below; snap to 0.
-      if (start_t > TWO_PI_F - 1e-4f)
+      if (start_t > math::TWO_PI_F - 1e-4f)
         start_t = 0.0f;
       float end_t = gap_start;
 
@@ -1016,7 +1018,7 @@ struct Face {
         scratch.intervals[interval_count++] = {start_t, end_t};
       } else {
         scratch.intervals[interval_count++] = {0.0f, end_t};
-        scratch.intervals[interval_count++] = {start_t, TWO_PI_F};
+        scratch.intervals[interval_count++] = {start_t, math::TWO_PI_F};
       }
     } else {
       full_width = true;
@@ -1138,8 +1140,8 @@ struct Face {
    * fold its phi into the bounds.
    */
   static __attribute__((always_inline)) void
-  refine_phi_from_arc_extremum(const Vector &n, const Vector &v1,
-                               const Vector &v2, float &min_phi,
+  refine_phi_from_arc_extremum(const math::Vector &n, const math::Vector &v1,
+                               const math::Vector &v2, float &min_phi,
                                float &max_phi) {
     float ny = n.y;
     if (std::abs(ny) < 0.99999f) {
@@ -1161,11 +1163,11 @@ struct Face {
                     (ptz * v2.x - ptx * v2.z) * ny +
                     (ptx * v2.y - pty * v2.x) * nz;
         if (cx1 > 0 && cx2 > 0)
-          min_phi =
-              __builtin_fminf(fast_acos(hs::clamp(pty, -1.0f, 1.0f)), min_phi);
+          min_phi = __builtin_fminf(
+              math::fast_acos(hs::clamp(pty, -1.0f, 1.0f)), min_phi);
         if (cx1 < 0 && cx2 < 0)
-          max_phi =
-              __builtin_fmaxf(fast_acos(hs::clamp(-pty, -1.0f, 1.0f)), max_phi);
+          max_phi = __builtin_fmaxf(
+              math::fast_acos(hs::clamp(-pty, -1.0f, 1.0f)), max_phi);
       }
     }
   }
@@ -1180,14 +1182,14 @@ struct Face {
    */
   static __attribute__((always_inline)) void
   snap_phi_for_pole_planes(const FaceScratchBuffer &scratch, int planes_count,
-                           const Vector &center, float &min_phi,
+                           const math::Vector &center, float &min_phi,
                            float &max_phi) {
     bool np_inside = (planes_count > 0);
     bool sp_inside = (planes_count > 0);
     // Both flags only ever clear, so the scan is done once neither survives.
     for (int pi = 0; pi < planes_count && (np_inside || sp_inside); ++pi) {
       float py = scratch.planes[pi].y;
-      bool center_pos = dot(center, scratch.planes[pi]) > 0;
+      bool center_pos = math::dot(center, scratch.planes[pi]) > 0;
       if ((py > 0) != center_pos)
         np_inside = false;
       if ((py < 0) != center_pos)
@@ -1196,7 +1198,7 @@ struct Face {
     if (np_inside)
       min_phi = 0.0f;
     if (sp_inside)
-      max_phi = PI_F;
+      max_phi = math::PI_F;
   }
 
   /**
@@ -1212,34 +1214,33 @@ struct Face {
    * @param y_max_out Output: last covered row.
    * @param bounds_margin Angular padding around the vertical bounds.
    */
-  HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch,
-                                           int count, const Vector &center,
-                                           int h_virt, int height,
-                                           int &y_min_out, int &y_max_out,
-                                           float bounds_margin) {
+  HS_O3_FN static void
+  compute_full_bounds(FaceScratchBuffer &scratch, int count,
+                      const math::Vector &center, int h_virt, int height,
+                      int &y_min_out, int &y_max_out, float bounds_margin) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
     for (int i = 0; i < count; ++i) {
-      const Vector &v1 = scratch.verts_3d[i];
-      const Vector &v2 = scratch.verts_3d[i + 1];
-      Vector edge = scratch.poly_2d[i + 1] - scratch.poly_2d[i];
+      const math::Vector &v1 = scratch.verts_3d[i];
+      const math::Vector &v2 = scratch.verts_3d[i + 1];
+      math::Vector edge = scratch.poly_2d[i + 1] - scratch.poly_2d[i];
       scratch.edge_vectors[i] = edge;
-      float edge_len_sq = dot(edge, edge);
+      float edge_len_sq = math::dot(edge, edge);
       scratch.edge_lengths_sq[i] = edge_len_sq;
       scratch.inv_edge_lengths_sq[i] =
           (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
       scratch.inv_edge_j[i] =
           (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
-      Vector normal = cross(v1, v2);
-      float len_sq = dot(normal, normal);
+      math::Vector normal = math::cross(v1, v2);
+      float len_sq = math::dot(normal, normal);
       // planes[] is COMPACTED: a degenerate edge pushes no plane, so planes[k]
       // does NOT correspond to edge k (unlike the per-edge arrays indexed by
       // i). Downstream consumers treat planes[] as a standalone set, never by
       // edge.
       if (len_sq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalized();
-      float phi_val = fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
+      float phi_val = math::fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
       min_phi = __builtin_fminf(phi_val, min_phi);
       max_phi = __builtin_fmaxf(phi_val, max_phi);
       // Arc Extrema Logic: only when this edge pushed its own plane, else
@@ -1293,7 +1294,7 @@ struct Face {
       narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_LO));
     if (y_lo <= EQUATOR_HI && EQUATOR_HI <= y_hi)
       narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_HI));
-    const float column_scale = W / TWO_PI_F;
+    const float column_scale = W / math::TWO_PI_F;
     for (const auto &iv : intervals) {
       if (floorf((iv.start - narrow_pad) * column_scale) !=
               floorf((iv.start - wide_pad) * column_scale) ||
@@ -1311,9 +1312,9 @@ struct Face {
       return true;
     const float first_pad = azimuth_pad_at_row<W, H>(first_y);
     const float second_pad = azimuth_pad_at_row<W, H>(second_y);
-    if (first_pad == PI_F || second_pad == PI_F)
+    if (first_pad == math::PI_F || second_pad == math::PI_F)
       return first_pad == second_pad;
-    const float column_scale = W / TWO_PI_F;
+    const float column_scale = W / math::TWO_PI_F;
     for (const auto &iv : intervals) {
       if (floorf((iv.start - first_pad) * column_scale) !=
               floorf((iv.start - second_pad) * column_scale) ||
@@ -1347,11 +1348,11 @@ struct Face {
     if (full_width)
       return false;
     const float pad = azimuth_pad_at_row<W, H>(y);
-    if (pad == PI_F)
+    if (pad == math::PI_F)
       return false;
     for (const auto &iv : intervals) {
-      float f_x1 = (iv.start - pad) * W / TWO_PI_F;
-      float f_x2 = (iv.end + pad) * W / TWO_PI_F;
+      float f_x1 = (iv.start - pad) * W / math::TWO_PI_F;
+      float f_x2 = (iv.end + pad) * W / math::TWO_PI_F;
       out(floorf(f_x1), ceilf(f_x2));
     }
     return true;
@@ -1361,9 +1362,9 @@ struct Face {
   template <int W, int H> float azimuth_pad_at_row(int y) const {
     if (build_azimuth_pads)
       return build_azimuth_pads[y];
-    if (!TrigLUT<W, H>::initialized)
-      TrigLUT<W, H>::init();
-    return face_azimuth_pad(W, TrigLUT<W, H>::sin_phi[y]);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    return face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
   }
 
   /**
@@ -1497,13 +1498,13 @@ struct Face {
    *       angle.
    */
   template <bool ComputeUVs = true>
-  HS_O3_FN void distance(const Vector &p, DistanceResult &res,
+  HS_O3_FN void distance(const math::Vector &p, DistanceResult &res,
                          float reject_dsq = FLT_MAX) const {
     distance_with_flags<ComputeUVs>(p, res, reject_dsq, probe_flags());
   }
 
   template <bool ComputeUVs = true>
-  HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
+  HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
                                     float reject_dsq,
                                     uint32_t probe_flags) const {
     const float min_cos = 1.0f / sqrtf(1.0f + max_dist_sq);
@@ -1523,7 +1524,7 @@ struct Face {
    * @param min_cos Cosine of the radial cull angle.
    */
   template <bool ComputeUVs = true>
-  HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
+  HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
                                     float reject_dsq, uint32_t probe_flags,
                                     float min_cos) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
@@ -1531,7 +1532,7 @@ struct Face {
     HS_PROBE_COUNT(n_probe);
     HS_PROBE_MARK(hs_t);
 
-    float cos_angle = dot(p, center);
+    float cos_angle = math::dot(p, center);
     if (cos_angle < min_cos) {
       HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
       HS_PROBE_SPAN(point, hs_t);
@@ -1542,8 +1543,8 @@ struct Face {
     HS_PROBE_SPAN(point, hs_t);
 
     float inv_cos = 1.0f / cos_angle;
-    float px = dot(p, basis_u) * inv_cos;
-    float py = dot(p, basis_w) * inv_cos;
+    float px = math::dot(p, basis_u) * inv_cos;
+    float py = math::dot(p, basis_w) * inv_cos;
     HS_PROBE_SPAN(project, hs_t);
 
     float plane_dist;
@@ -1613,8 +1614,9 @@ struct Face {
 
     // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
     // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
-    float raw = (probe_flags & PROBE_LINEAR) ? plane_dist
-                                             : fast_atan2(plane_dist, 1.0f);
+    float raw = (probe_flags & PROBE_LINEAR)
+                    ? plane_dist
+                    : math::fast_atan2(plane_dist, 1.0f);
     res = DistanceResult(raw, 0.0f, raw, 0.0f, size);
     HS_PROBE_SPAN(pack, hs_t);
   }

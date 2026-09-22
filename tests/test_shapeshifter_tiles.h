@@ -50,7 +50,7 @@ inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
 
   for (int shape = 0; shape < 5; ++shape) {
     OracleState full_state = matrix[shape * 4 + shape % 4];
-    full_state.orientation = Quaternion();
+    full_state.orientation = math::Quaternion();
     OracleFrame full = capture_frame(full_state, render);
     OracleFrame tiled;
     tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
@@ -98,10 +98,11 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   state.sides = 7;
   state.phase = 0.37f;
   state.alpha = 0.274f;
-  state.orientation = Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
+  state.orientation =
+      math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
   expect_tiled(state);
   state.phase = 0.125f;
-  state.orientation = make_rotation(X_AXIS, Y_AXIS);
+  state.orientation = math::make_rotation(math::X_AXIS, math::Y_AXIS);
   expect_tiled(state);
 }
 
@@ -118,11 +119,11 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
                                 {0, ORACLE_H, ORACLE_W / 4, ORACLE_W / 2},
                                 {0, ORACLE_H, ORACLE_W / 2, 3 * ORACLE_W / 4},
                                 {0, ORACLE_H, 3 * ORACLE_W / 4, ORACLE_W}};
-  const std::array<Quaternion, 4> orientations = {{
-      Quaternion(),
-      make_rotation(X_AXIS, Z_AXIS),
-      Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(),
-      Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
+  const std::array<math::Quaternion, 4> orientations = {{
+      math::Quaternion(),
+      math::make_rotation(math::X_AXIS, math::Z_AXIS),
+      math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(),
+      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(),
   }};
   const std::array<float, 4> phases = {{0.0f, 0.37f, 0.5f, 0.83f}};
 

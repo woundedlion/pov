@@ -28,7 +28,7 @@ struct KDNode {
    * @brief Copy of the split point (not an index into the source array) to
    * avoid lifetime dependence on that array.
    */
-  Vector point;
+  math::Vector point;
   uint16_t original_index = 0; /**< Index of this point in the source array. */
   int16_t axis = 0;            /**< Splitting axis: 0=x, 1=y, 2=z. */
   int16_t left = -1;           /**< Left child node index, or -1 if none. */
@@ -41,7 +41,7 @@ struct KDNode {
  * KDNode's internal tree links, which are meaningless outside the tree.
  */
 struct Neighbor {
-  Vector point;                /**< Copy of the neighbor's position. */
+  math::Vector point;          /**< Copy of the neighbor's position. */
   uint16_t original_index = 0; /**< Index of this point in the source array. */
   float d_sq = 0.0f;           /**< Squared distance from the query point. */
 };
@@ -82,7 +82,7 @@ public:
    * that (N points): 8000 B retained over a 1600 B transient at Voronoi's
    * MAX_SITES = 400.
    */
-  HS_COLD_MEMBER KDTree(Arena &arena, std::span<const Vector> points) {
+  HS_COLD_MEMBER KDTree(Arena &arena, std::span<const math::Vector> points) {
     if (points.empty())
       return;
 
@@ -121,7 +121,7 @@ public:
    *        otherwise). Soft-capped at the point count.
    * @return Buffer of neighbors (point + source index + squared distance), closest first.
    */
-  StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
+  StaticCircularBuffer<Neighbor, MAX_K> nearest(const math::Vector &target,
                                                 size_t k = 1) const {
     StaticCircularBuffer<Neighbor, MAX_K> result;
     HS_CHECK(k <= static_cast<size_t>(MAX_K),
@@ -203,7 +203,7 @@ private:
    * @details Cycles the split axis by depth%3, partitioning around the median
    * along that axis and reordering `indices` in place.
    */
-  HS_COLD_MEMBER int build(std::span<const Vector> points, int *indices,
+  HS_COLD_MEMBER int build(std::span<const math::Vector> points, int *indices,
                            int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
@@ -256,13 +256,13 @@ private:
    * reference in nearest().
    */
   template <typename PushFn, typename MaxDistFn>
-  void search_k(int node_idx, const Vector &target, PushFn &&offer_candidate,
-                MaxDistFn &&get_worst_dist) const {
+  void search_k(int node_idx, const math::Vector &target,
+                PushFn &&offer_candidate, MaxDistFn &&get_worst_dist) const {
     if (node_idx == -1)
       return;
 
     const KDNode &node = nodes[node_idx];
-    float d_sq = distance_squared(node.point, target);
+    float d_sq = math::distance_squared(node.point, target);
 
     if (d_sq <= get_worst_dist())
       offer_candidate(d_sq, node_idx);

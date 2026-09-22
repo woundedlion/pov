@@ -76,7 +76,7 @@ public:
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const float a = (2.0f * c + 1.0f) * (PI_F / BAKE_CHUNKS);
+      const float a = (2.0f * c + 1.0f) * (math::PI_F / BAKE_CHUNKS);
       chunk_cos[c] = cosf(a);
       chunk_sin[c] = sinf(a);
     }
@@ -128,7 +128,7 @@ public:
    * render.
    */
   void draw_frame() override {
-    color_spin = wrap_t(color_spin + COLOR_SPIN_RATE);
+    color_spin = math::wrap_t(color_spin + COLOR_SPIN_RATE);
 
     balls.template_params.amplitude =
         params.ball_amp * BALL_DRAPE_PER_AMPLITUDE;
@@ -181,7 +181,7 @@ public:
 
 private:
   /** @brief Evaluates the active ball fields using cached ring geometry. */
-  HS_O3_FN float ball_field(const Vector &p, const int *ks, int n,
+  HS_O3_FN float ball_field(const math::Vector &p, const int *ks, int n,
                             float theta) const {
     DominantFieldAccumulator accumulator;
     for (int j = 0; j < n; ++j) {
@@ -212,13 +212,13 @@ private:
    * widening also absorbs the one-column rounding overhang.
    */
   __attribute__((always_inline)) uint32_t
-  visible_chunk_mask(const Basis &basis, float theta, float cos_t, float sin_t,
-                     float band_r) const {
+  visible_chunk_mask(const math::Basis &basis, float theta, float cos_t,
+                     float sin_t, float band_r) const {
     HS_PROFILE(df_chunk_cull);
-    const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band_r;
+    const float chunk_reach = (math::PI_F / BAKE_CHUNKS) * sin_t + band_r;
     uint32_t raw = 0u;
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      Vector mid =
+      math::Vector mid =
           (basis.v * cos_t) +
           ((basis.u * chunk_cos[c]) + (basis.w * chunk_sin[c])) * sin_t;
       if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach))
@@ -229,11 +229,11 @@ private:
     const float th_lo = theta - band_r;
     const float th_hi = theta + band_r;
     int pad_chunks = BAKE_CHUNKS;
-    if (th_lo > 0.0f && th_hi < PI_F) {
+    if (th_lo > 0.0f && th_hi < math::PI_F) {
       float sin_lo = std::min(sinf(th_lo), sinf(th_hi));
       // A band hugging a pole drives sin_lo to zero; clamp before the cast.
       const float pad_f =
-          ceilf(params.thickness * BAKE_CHUNKS / (2.0f * PI_F * sin_lo));
+          ceilf(params.thickness * BAKE_CHUNKS / (2.0f * math::PI_F * sin_lo));
       pad_chunks = 1 + static_cast<int>(hs::clamp(
                            pad_f, 0.0f, static_cast<float>(BAKE_CHUNKS)));
     }
@@ -315,19 +315,19 @@ private:
     int n_rings = static_cast<int>(params.num_rings);
     HS_CHECK(n_rings <= RING_SLOTS,
              "DisplacementField: Rings slider exceeds the baked-ring pool");
-    Basis basis = make_basis(orientation.get(), STACK_AXIS);
+    math::Basis basis = math::make_basis(orientation.get(), STACK_AXIS);
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing the rasterizer's soft stroke cross-section past
     // the clip's margin.
-    const float pad = 3.0f * PI_F / H;
+    const float pad = 3.0f * math::PI_F / H;
     const float noise_bound = noise_field.field_bound();
 
     const int n_balls = balls.active_count();
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
-      ball_colat[b] =
-          fast_acos(hs::clamp(dot(basis.v, sp.center), -1.0f, 1.0f));
+      ball_colat[b] = math::fast_acos(
+          hs::clamp(math::dot(basis.v, sp.center), -1.0f, 1.0f));
       ball_reach[b] = sp.field_bound();
       ball_scale[b] = 2.0f / sp.radius;
     }
@@ -343,7 +343,7 @@ private:
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
-      float theta = radius * (PI_F / 2.0f);
+      float theta = radius * (math::PI_F / 2.0f);
 
       int n_local = 0;
       float band = 0.0f;
@@ -362,7 +362,7 @@ private:
         continue;
 
       Color4 ring_color =
-          palette.get(wrap_t((i + 0.5f) / n_rings + color_spin));
+          palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
       HueRotateBase hue_base = make_hue_rotate_base(ring_color);
 
       float *slut = shift_pool + n_slots * (W + 1);
@@ -384,9 +384,10 @@ private:
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
-        lut_n = hs::clamp(static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f *
-                                                 PI_F * feature_scale * sin_t)),
-                          LUT_MIN_SAMPLES, W);
+        lut_n = hs::clamp(
+            static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * math::PI_F *
+                                   feature_scale * sin_t)),
+            LUT_MIN_SAMPLES, W);
 
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
@@ -426,7 +427,7 @@ private:
 
         HS_PROFILE(df_lut_bake);
 
-        const float dphi = 2.0f * PI_F / lut_n;
+        const float dphi = 2.0f * math::PI_F / lut_n;
         const float cos_d = cosf(dphi);
         const float sin_d = sinf(dphi);
         float cos_a = 1.0f;
@@ -437,8 +438,8 @@ private:
           const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
           if (visible & (1u << c)) {
             for (; x < x_end; ++x) {
-              Vector p = (basis.v * cos_t) +
-                         ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+              math::Vector p = (basis.v * cos_t) +
+                               ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
               float s = ball_field(p, ball_local, n_local, theta) +
                         noise_field.field(p);
               slut[x] = s;
@@ -479,22 +480,23 @@ private:
 
     // v2 is the stroke coverage the scan applies again on plot, so the ring
     // edge ramps as coverage squared.
-    auto ring_shader = [this](int s, const Vector &, Fragment &f) {
+    auto ring_shader = [this](int s, const math::Vector &, Fragment &f) {
       const Pixel *hue = hue_pool + s * (W + 1);
-      float x = wrap_t(f.v0) * slot_lut_n[s];
+      float x = math::wrap_t(f.v0) * slot_lut_n[s];
       int j = static_cast<int>(x);
-      f.color =
-          Color4(hue[j].lerp16(hue[j + 1], frac_to_q16(quintic_kernel(x - j))),
-                 slot_frag_alpha[s] * f.v2);
+      f.color = Color4(
+          hue[j].lerp16(hue[j + 1], frac_to_q16(math::quintic_kernel(x - j))),
+          slot_frag_alpha[s] * f.v2);
     };
     if (canvas.debug()) {
       // Per-ring rasterizes so the bounding-box tint has per-shape scan
       // bounds; ascending slot order keeps the fused pass's blend order.
       for (int s = 0; s < n_slots; ++s) {
         shapes[s].suppress_pole_fill = true;
-        Scan::rasterize<W, H>(
-            filters, canvas, shapes[s],
-            [&, s](const Vector &p, Fragment &f) { ring_shader(s, p, f); });
+        Scan::rasterize<W, H>(filters, canvas, shapes[s],
+                              [&, s](const math::Vector &p, Fragment &f) {
+                                ring_shader(s, p, f);
+                              });
       }
     } else {
       HS_PROFILE(df_fused_scan);
@@ -528,7 +530,7 @@ private:
   Pixel sample_hue_table_with(float amount, float domain, bool cyclic,
                               Ensure ensure) const {
     float t = amount / domain;
-    t = cyclic ? wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
+    t = cyclic ? math::wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
     float x = t * HUE_TABLE_SIZE;
     if (x >= HUE_TABLE_SIZE) {
       ensure(HUE_TABLE_SIZE);
@@ -598,7 +600,7 @@ private:
       hs::log("DisplacementField: ball pool full, dropping spawn");
     }
     balls.spawn_pausable(&anims_paused, 0, orientation, STACK_AXIS,
-                         hs::rand_f(0.0f, 2.0f * PI_F), fall_frames);
+                         hs::rand_f(0.0f, 2.0f * math::PI_F), fall_frames);
   }
 
   /**
@@ -657,7 +659,7 @@ private:
   static constexpr int NOISE_HOLD_FRAMES =
       600; /**< Full-noise dwell before fading out into the next ball phase. */
   /** @brief Un-oriented axis the ring stack and every ball fall share. */
-  static constexpr Vector STACK_AXIS = X_AXIS;
+  static constexpr math::Vector STACK_AXIS = math::X_AXIS;
 
   BallDropTransformer<MAX_BALLS>
       balls; /**< Falling-ball displacement fields. */
@@ -668,7 +670,7 @@ private:
       palette; /**< Active palette (mutated by an in-flight ColorWipe). */
   GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
-  Orientation<> orientation;
+  math::Orientation<> orientation;
 
   /** @brief Displacement-phase state: the noise field or falling balls. */
   enum class Phase { BALLS, NOISE };
@@ -701,7 +703,8 @@ private:
   static constexpr int LUT_MIN_SAMPLES =
       16; /**< Bake-column floor for tiny/low-scale rings. */
   static constexpr float THICKNESS_PX =
-      2.0f * PI_F / W; /**< One pixel of azimuth in ring-space; the Thickness
+      2.0f * math::PI_F /
+      W; /**< One pixel of azimuth in ring-space; the Thickness
                             slider range is authored in multiples of it. */
   static constexpr int HUE_TABLE_SIZE =
       64; /**< Hue-turn interpolation cells per ring. */

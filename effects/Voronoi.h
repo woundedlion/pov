@@ -93,8 +93,8 @@ public:
         // Renormalize: rotate() drifts |pos| off the unit sphere over a long run,
         // and the unit-site invariants (nearest-by-Euclidean == nearest-by-max-dot,
         // and the border acosf(dot) staying in range) require unit vectors.
-        const Quaternion q(half_cos, half_sin * site.axis);
-        site.pos = rotate(site.pos, q).normalized();
+        const math::Quaternion q(half_cos, half_sin * site.axis);
+        site.pos = math::rotate(site.pos, q).normalized();
       }
     }
 
@@ -102,16 +102,17 @@ public:
     // sphere nearest-by-Euclidean == nearest-by-max-dot (|p-s|^2 = 2 - 2*p*s),
     // so the k=2 query is exact.
     ScratchScope scope_guard(scratch_arena_a);
-    Vector *positions = static_cast<Vector *>(scratch_arena_a.allocate(
-        sites_buffer.size() * sizeof(Vector), alignof(Vector)));
+    math::Vector *positions =
+        static_cast<math::Vector *>(scratch_arena_a.allocate(
+            sites_buffer.size() * sizeof(math::Vector), alignof(math::Vector)));
     // IIFE times the per-frame KD build while keeping `tree` at frame scope
     // (guaranteed copy elision on the prvalue return).
     KDTree tree = [&]() -> KDTree {
       HS_PROFILE(vo_kdtree);
       for (size_t i = 0; i < sites_buffer.size(); ++i)
         positions[i] = sites_buffer[i].pos;
-      return KDTree(scratch_arena_a,
-                    std::span<const Vector>(positions, sites_buffer.size()));
+      return KDTree(scratch_arena_a, std::span<const math::Vector>(
+                                         positions, sites_buffer.size()));
     }();
 
     // One node for all per-pixel work (corner pre-pass + shading loop); never
@@ -135,8 +136,8 @@ public:
     // with the site count, floored at the edge MAX_SITES would give at this H.
     // Rows map uniformly over [0,π], so an equal-area cell spans sqrt(4π/n)·H/π
     // rows and this edge is 1/sqrt(π) ≈ 0.56 of that.
-    const float cell_px =
-        (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites_buffer.size()));
+    const float cell_px = (2.0f * H / math::PI_F) /
+                          sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
                             COHERENCE_BLOCK);
     // Canvas-anchored grid origin (the block boundary at or before the clip):
@@ -155,8 +156,8 @@ public:
 
     for (int k = 0; k < nby; ++k)
       for (int j = 0; j < nbx; ++j)
-        cells[k * nbx + j] =
-            classify(tree, pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
+        cells[k * nbx + j] = classify(
+            tree, math::pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
 
     // One candidate set per block column, rebuilt on each block-row change.
     // Positions are copied in so the per-pixel scan runs over contiguous data.
@@ -198,11 +199,11 @@ public:
       for (int x = x0; x < x1; ++x) {
         const CandSet &cs = cands[(x - gx0) / B];
 
-        Vector p = pixel_to_vector<W, H>(x, y);
+        math::Vector p = math::pixel_to_vector<W, H>(x, y);
         float d0 = NO_DOT, d1 = NO_DOT;
         uint8_t b0 = 0, b1 = 0;
         for (uint8_t i = 0; i < cs.n; ++i) {
-          float d = dot(p, cs.pos[i]);
+          float d = math::dot(p, cs.pos[i]);
           if (d > d0) {
             d1 = d0;
             b1 = b0;
@@ -228,9 +229,9 @@ private:
    *        spins about, and the cell fill color.
    */
   struct Site {
-    Vector pos;   /**< Position on the unit sphere. */
-    Vector axis;  /**< Unit rotation axis the site spins about. */
-    Color4 color; /**< Cell fill color (16-bit linear channels). */
+    math::Vector pos;  /**< Position on the unit sphere. */
+    math::Vector axis; /**< Unit rotation axis the site spins about. */
+    Color4 color;      /**< Cell fill color (16-bit linear channels). */
   };
 
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
@@ -243,9 +244,9 @@ private:
       but classifies more corners; the render path shrinks the block toward
       COHERENCE_BLOCK_MIN as the site count rises. */
   static constexpr int COHERENCE_BLOCK_MIN = std::max(
-      1,
-      static_cast<int>((2.0 * H / static_cast<double>(PI_F)) /
-                       constexpr_sqrt(MAX_SITES))); /**< Smallest adaptive block
+      1, static_cast<int>(
+             (2.0 * H / static_cast<double>(math::PI_F)) /
+             math::constexpr_sqrt(MAX_SITES))); /**< Smallest adaptive block
       edge: the render path's edge formula evaluated at MAX_SITES, so the
       densest site count a resolution can reach still gets a block narrower
       than one cell (that formula is ~0.56 of the cell extent). A fixed
@@ -275,7 +276,7 @@ private:
    * @return The nearest pair as an ordered {lo, hi} index set, so the two
    *         query orders along a cell seam map to the same identity.
    */
-  static CellId classify(const KDTree &tree, const Vector &p) {
+  static CellId classify(const KDTree &tree, const math::Vector &p) {
     auto knn = tree.nearest(p, 2);
     uint16_t a = knn[0].original_index;
     uint16_t b = knn.size() > 1 ? knn[1].original_index : a;
@@ -307,7 +308,7 @@ private:
       const Site &sec_site = sites_buffer[i1];
       float diff = d0 - d1;
       float factor = std::min(1.0f, diff * params.sharpness);
-      factor = quintic_kernel(factor);
+      factor = math::quintic_kernel(factor);
       float t = 0.5f + 0.5f * factor;
 
       uint16_t frac = static_cast<uint16_t>(t * 65535.0f + 0.5f);
@@ -340,9 +341,9 @@ private:
   /** @brief Shading candidates for one block: the deduped union of its four
    *  corners' CellId pairs, positions copied in for the per-pixel dot scan. */
   struct CandSet {
-    Vector pos[MAX_CANDIDATES];   /**< Candidate site positions (parallel to
+    math::Vector pos[MAX_CANDIDATES]; /**< Candidate site positions (parallel to
                                        idx). */
-    uint16_t idx[MAX_CANDIDATES]; /**< Candidate site indices into
+    uint16_t idx[MAX_CANDIDATES];     /**< Candidate site indices into
                                        sites_buffer. */
     uint8_t n; /**< Number of distinct candidates (1..MAX_CANDIDATES). */
   };
@@ -352,7 +353,8 @@ private:
   //   build:   positions + KD nodes + KD build-index scratch
   //   shading: positions + KD nodes + corner cells + candidate-row sets
   static constexpr size_t SCRATCH_A_BYTES = 64 * 1024;
-  static constexpr size_t POSITIONS_BYTES = size_t(MAX_SITES) * sizeof(Vector);
+  static constexpr size_t POSITIONS_BYTES =
+      size_t(MAX_SITES) * sizeof(math::Vector);
   static constexpr size_t KD_NODES_BYTES = size_t(MAX_SITES) * sizeof(KDNode);
   static constexpr size_t KD_BUILD_SCRATCH_BYTES =
       size_t(MAX_SITES) * sizeof(int);
@@ -408,9 +410,9 @@ private:
     sites_buffer.clear();
 
     for (int i = 0; i < n; i++) {
-      Vector pos = fib_spiral(n, /*eps=*/0.5f, i);
+      math::Vector pos = math::fib_spiral(n, /*eps=*/0.5f, i);
 
-      Vector axis = random_vector();
+      math::Vector axis = math::random_vector();
 
       float t = i / (float)(n > 1 ? n - 1 : 1);
       Color4 color = Palettes::RICH_SUNSET.get(t);

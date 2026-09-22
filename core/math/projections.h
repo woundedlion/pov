@@ -116,7 +116,7 @@ inline constexpr float NO_EDGE_DISTANCE_SQUARED =
 /** @brief One projection kernel's plane coordinates plus its seam metadata. */
 struct ProjectionKernelResult {
   /** Plane position in the kernel's native units. */
-  Complex coords{};
+  math::Complex coords{};
   /** Which sheet of an interrupted image the point fell in. */
   uint8_t region_id = 0;
   /** Disconnected component within the region. */
@@ -142,10 +142,10 @@ struct ProjectionKernelResult {
  *         range gets it on the negative side only.
  */
 inline float wrap_longitude(float longitude) {
-  float wrapped = fmodf(longitude + PI_F, TWO_PI_F);
+  float wrapped = fmodf(longitude + math::PI_F, math::TWO_PI_F);
   if (wrapped < 0.0f)
-    wrapped += TWO_PI_F;
-  return wrapped - PI_F;
+    wrapped += math::TWO_PI_F;
+  return wrapped - math::PI_F;
 }
 
 /**
@@ -158,12 +158,13 @@ inline float wrap_longitude(float longitude) {
  * hemispheres onto one image, so the antimeridian carries no seam; the
  * cos(latitude) taper collapses each pole to a point.
  */
-HS_FLASH_INLINE inline Complex
-folded_sinusoidal(const Vector &v, float central_meridian = 0.0f) {
+HS_FLASH_INLINE inline math::Complex
+folded_sinusoidal(const math::Vector &v, float central_meridian = 0.0f) {
   const float radius = sqrtf(v.x * v.x + v.z * v.z);
-  return {std::fabs(wrap_longitude(fast_atan2(v.z, v.x) - central_meridian)) *
-              radius,
-          0.5f * PI_F - fast_acos(v.y)};
+  return {
+      std::fabs(wrap_longitude(math::fast_atan2(v.z, v.x) - central_meridian)) *
+          radius,
+      0.5f * math::PI_F - math::fast_acos(v.y)};
 }
 
 /**
@@ -175,10 +176,10 @@ folded_sinusoidal(const Vector &v, float central_meridian = 0.0f) {
  * @details Longitude is periodic, so the image is cut at the antimeridian and
  * each pole spreads across a full image row.
  */
-HS_FLASH_INLINE inline Complex equirectangular(const Vector &v,
-                                               float central_meridian = 0.0f) {
-  return {wrap_longitude(fast_atan2(v.z, v.x) - central_meridian),
-          0.5f * PI_F - fast_acos(v.y)};
+HS_FLASH_INLINE inline math::Complex
+equirectangular(const math::Vector &v, float central_meridian = 0.0f) {
+  return {wrap_longitude(math::fast_atan2(v.z, v.x) - central_meridian),
+          0.5f * math::PI_F - math::fast_acos(v.y)};
 }
 
 /**
@@ -193,18 +194,18 @@ HS_FLASH_INLINE inline Complex equirectangular(const Vector &v,
  *         angular distance to the antimeridian cut.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
-bonne_projection(const Vector &v, float central_meridian,
+bonne_projection(const math::Vector &v, float central_meridian,
                  float standard_parallel) {
   const float longitude = wrap_longitude(atan2f(v.z, v.x) - central_meridian);
   const float latitude = asinf(hs::clamp(v.y, -1.0f, 1.0f));
   const float cos_latitude = cosf(latitude);
-  const float cut_distance = cos_latitude * (PI_F - fabsf(longitude));
-  Complex coords;
+  const float cut_distance = cos_latitude * (math::PI_F - fabsf(longitude));
+  math::Complex coords;
   if (standard_parallel == 0.0f) {
     // cot(phi1) diverges here; the limit is the sinusoidal projection.
-    coords = Complex(longitude * cos_latitude, latitude);
+    coords = math::Complex(longitude * cos_latitude, latitude);
   } else {
-    const float c = fabsf(standard_parallel) == 0.5f * PI_F
+    const float c = fabsf(standard_parallel) == 0.5f * math::PI_F
                         ? 0.0f
                         : cosf(standard_parallel) / sinf(standard_parallel);
     const float rho = c + standard_parallel - latitude;
@@ -212,8 +213,9 @@ bonne_projection(const Vector &v, float central_meridian,
     if (fabsf(rho) > 1e-7f)
       e = longitude * cos_latitude / rho;
     const float half_sine = sinf(0.5f * e);
-    coords = Complex(rho * sinf(e), latitude - standard_parallel +
-                                        2.0f * rho * half_sine * half_sine);
+    coords =
+        math::Complex(rho * sinf(e), latitude - standard_parallel +
+                                         2.0f * rho * half_sine * half_sine);
   }
   return {.coords = coords,
           .region_id = static_cast<uint8_t>(longitude < 0.0f),
@@ -243,7 +245,7 @@ inline float peirce_elliptic_integral(float phi) {
                          3.12960480765314e-5f,  5.30394739921063e-5f,
                          -0.0012804644680613f,  -0.00575574836830288f,
                          0.0914203033408211f};
-  float y = phi * (2.0f / PI_F);
+  float y = phi * (2.0f / math::PI_F);
   y = 2.0f * y * y - 1.0f;
   const float y2 = 2.0f * y;
   float d1 = 0.0f;
@@ -263,12 +265,13 @@ inline float peirce_elliptic_integral(float phi) {
  * @return The wrapped longitude, or the exact sector boundary when within
  *         2e-6 rad of one so both sides of a seam agree; pi/2 on the poles.
  */
-inline float peirce_sector_longitude(const Vector &v, float central_meridian) {
+inline float peirce_sector_longitude(const math::Vector &v,
+                                     float central_meridian) {
   if (v.x == 0.0f && v.z == 0.0f)
-    return 0.5f * PI_F;
+    return 0.5f * math::PI_F;
   float longitude = wrap_longitude(atan2f(v.z, v.x) - central_meridian);
-  constexpr float BOUNDARIES[] = {-0.75f * PI_F, -0.25f * PI_F, 0.25f * PI_F,
-                                  0.75f * PI_F};
+  constexpr float BOUNDARIES[] = {-0.75f * math::PI_F, -0.25f * math::PI_F,
+                                  0.25f * math::PI_F, 0.75f * math::PI_F};
   constexpr float TIE_EPSILON = 2e-6f;
   for (float boundary : BOUNDARIES)
     if (fabsf(longitude - boundary) <= TIE_EPSILON)
@@ -300,8 +303,9 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  * alongside GLUED and measure the torn side's distance to the equator.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
-peirce_projection(const Vector &v, float central_meridian, PeirceLayout layout,
-                  float scroll, bool calculate_edge_distance = true) {
+peirce_projection(const math::Vector &v, float central_meridian,
+                  PeirceLayout layout, float scroll,
+                  bool calculate_edge_distance = true) {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float K = 1.8540746773013719f;
   constexpr float SHIFT = 2.0f * K;
@@ -329,22 +333,22 @@ peirce_projection(const Vector &v, float central_meridian, PeirceLayout layout,
   uint8_t flags = 0;
   if (v.y < 0.0f) {
     flags = 1;
-    if (longitude < -0.75f * PI_F || longitude >= 0.75f * PI_F)
+    if (longitude < -0.75f * math::PI_F || longitude >= 0.75f * math::PI_F)
       region = 1;
-    else if (longitude < -0.25f * PI_F)
+    else if (longitude < -0.25f * math::PI_F)
       region = 2;
-    else if (longitude < 0.25f * PI_F)
+    else if (longitude < 0.25f * math::PI_F)
       region = 3;
     else
       region = 4;
     if (layout <= PeirceLayout::SQUARE) {
-      if (longitude < -0.75f * PI_F) {
+      if (longitude < -0.75f * math::PI_F) {
         projected_y = SHIFT - projected_y;
-      } else if (longitude < -0.25f * PI_F) {
+      } else if (longitude < -0.25f * math::PI_F) {
         x = -SHIFT - x;
-      } else if (longitude < 0.25f * PI_F) {
+      } else if (longitude < 0.25f * math::PI_F) {
         projected_y = -SHIFT - projected_y;
-      } else if (longitude < 0.75f * PI_F) {
+      } else if (longitude < 0.75f * math::PI_F) {
         x = SHIFT - x;
       } else {
         projected_y = SHIFT - projected_y;
@@ -414,7 +418,7 @@ peirce_projection(const Vector &v, float central_meridian, PeirceLayout layout,
   if (layout >= PeirceLayout::HORIZONTAL)
     traits =
         static_cast<uint8_t>(traits | projection_traits(ProjectionTrait::CUT));
-  return {.coords = Complex(x, projected_y),
+  return {.coords = math::Complex(x, projected_y),
           .region_id = region,
           .component_id = 0,
           .boundary_flags = boundary,
@@ -431,7 +435,7 @@ peirce_projection(const Vector &v, float central_meridian, PeirceLayout layout,
  *         terms.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
-peirce_projection_fast_square(const Vector &v) {
+peirce_projection_fast_square(const math::Vector &v) {
   constexpr float INV_SQRT_TWO = 0.7071067811865475f;
   constexpr float K = 1.8540746773013719f;
   constexpr float SHIFT = 2.0f * K;
@@ -442,10 +446,12 @@ peirce_projection_fast_square(const Vector &v) {
   const float cos_sum = hs::clamp(cos_a * cos_b - sin_product, -1.0f, 1.0f);
   const float cos_difference =
       hs::clamp(cos_a * cos_b + sin_product, -1.0f, 1.0f);
-  float m = 0.5f * PI_F -
-            fast_acos(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cos_sum))));
-  float n = 0.5f * PI_F -
-            fast_acos(sqrtf(fabsf(1.0f - std::max(0.0f, cos_difference))));
+  float m =
+      0.5f * math::PI_F -
+      math::fast_acos(sqrtf(std::max(0.0f, 1.0f + std::min(0.0f, cos_sum))));
+  float n =
+      0.5f * math::PI_F -
+      math::fast_acos(sqrtf(fabsf(1.0f - std::max(0.0f, cos_difference))));
   uint8_t sector = 0;
   uint8_t edge_class = 0;
   const float horizontal_sq = v.x * v.x + v.z * v.z;
@@ -453,13 +459,13 @@ peirce_projection_fast_square(const Vector &v) {
     const float longitude = peirce_sector_longitude(v, 0.0f);
     if (longitude < 0.0f)
       m = -m;
-    if (longitude > -0.5f * PI_F && longitude < 0.5f * PI_F)
+    if (longitude > -0.5f * math::PI_F && longitude < 0.5f * math::PI_F)
       n = -n;
-    if (longitude < -0.75f * PI_F || longitude >= 0.75f * PI_F)
+    if (longitude < -0.75f * math::PI_F || longitude >= 0.75f * math::PI_F)
       sector = 1;
-    else if (longitude < -0.25f * PI_F)
+    else if (longitude < -0.25f * math::PI_F)
       sector = 2;
-    else if (longitude < 0.25f * PI_F)
+    else if (longitude < 0.25f * math::PI_F)
       sector = 3;
     else
       sector = 4;
@@ -507,16 +513,17 @@ peirce_projection_fast_square(const Vector &v) {
   const float old_x = x;
   x = INV_SQRT_TWO * (x - projected_y);
   projected_y = INV_SQRT_TWO * (old_x + projected_y);
-  float edge =
-      fast_acos(hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
+  float edge = math::fast_acos(
+      hs::clamp(std::max(fabsf(cos_a), fabsf(cos_b)), 0.0f, 1.0f));
   if (v.y < 0.0f) {
     const float fold_sine = fabsf(fabsf(v.z) - fabsf(v.x)) * INV_SQRT_TWO;
-    edge = std::min(edge,
-                    0.5f * PI_F - fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
+    edge =
+        std::min(edge, 0.5f * math::PI_F -
+                           math::fast_acos(hs::clamp(fold_sine, 0.0f, 1.0f)));
   }
   if (fabsf(v.y) >= 1.0f)
     edge_class = 0;
-  return {.coords = Complex(x, projected_y),
+  return {.coords = math::Complex(x, projected_y),
           .region_id = region,
           .component_id = 0,
           .boundary_flags = projection_boundary(ProjectionBoundary::SINGULAR),
@@ -972,7 +979,7 @@ inline float point_segment_distance(const AiroceanPoint &p,
  * along.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
-airocean_projection(const Vector &v, float c, float s, bool horizontal,
+airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
                     bool calculate_edge_distance) {
   const AiroceanVector p{v.x * c + v.z * s, v.z * c - v.x * s, v.y};
   uint8_t face = 0;
@@ -1047,7 +1054,7 @@ airocean_projection(const Vector &v, float c, float s, bool horizontal,
   }
   if (horizontal)
     output = {AIROCEAN_NET_HEIGHT - output.y, output.x};
-  return {.coords = Complex(output.x, output.y),
+  return {.coords = math::Complex(output.x, output.y),
           .region_id = face,
           .component_id = 0,
           .boundary_flags = static_cast<uint8_t>(
@@ -1062,8 +1069,8 @@ airocean_projection(const Vector &v, float c, float s, bool horizontal,
 }
 
 HS_FLASH_INLINE inline ProjectionKernelResult
-airocean_projection(const Vector &v, float central_meridian, bool horizontal,
-                    bool calculate_edge_distance = true) {
+airocean_projection(const math::Vector &v, float central_meridian,
+                    bool horizontal, bool calculate_edge_distance = true) {
   return airocean_projection(v, cosf(central_meridian), sinf(central_meridian),
                              horizontal, calculate_edge_distance);
 }

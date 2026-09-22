@@ -226,10 +226,10 @@ inline void verify_family_equal(const Family &actual, const Family &expected) {
 /** @brief Bitwise-compares the eight Mobius coefficients. */
 inline void verify_mobius_equal(const math::MobiusParams &actual,
                                 const math::MobiusParams &expected) {
-  constexpr Complex math::MobiusParams::*COEFFICIENTS[] = {
+  constexpr math::Complex math::MobiusParams::*COEFFICIENTS[] = {
       &math::MobiusParams::a, &math::MobiusParams::b, &math::MobiusParams::c,
       &math::MobiusParams::d};
-  for (Complex math::MobiusParams::*coefficient : COEFFICIENTS) {
+  for (math::Complex math::MobiusParams::*coefficient : COEFFICIENTS) {
     HS_EXPECT_EQ(bits((actual.*coefficient).re),
                  bits((expected.*coefficient).re));
     HS_EXPECT_EQ(bits((actual.*coefficient).im),
@@ -1195,7 +1195,7 @@ inline void test_composed_snapshot_contract() {
 /** @brief Sweeps the preset choreography over every specialization. */
 inline void test_composed_preset_choreography() {
   const auto polar = KaleidoscopePentBright<SMALL_W, SMALL_H>::initial_params();
-  HS_EXPECT_NEAR(polar.source.lattice_cell_scale * TWO_PI_F, 5.0f, 1e-6f);
+  HS_EXPECT_NEAR(polar.source.lattice_cell_scale * math::TWO_PI_F, 5.0f, 1e-6f);
 #define HS_COMPOSED_PRESETS(name, seconds)                                     \
   check_preset_choreography<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_PRESETS)

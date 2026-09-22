@@ -173,11 +173,11 @@ public:
    * @param sample_index Sample position in [0, ring.samples).
    * @return Unit vector for sample_coordinates(), whose x lies in [0, W).
    */
-  Vector sample_vector(const Ring &ring, int sample_index) const {
+  math::Vector sample_vector(const Ring &ring, int sample_index) const {
     const Coordinates point = sample_coordinates(ring, sample_index);
-    const float theta = point.x * (2.0f * PI_F) / W;
-    const float phi = y_to_phi_virtual(point.y, H + HOffset);
-    return Vector(Spherical(theta, phi));
+    const float theta = point.x * (2.0f * math::PI_F) / W;
+    const float phi = math::y_to_phi_virtual(point.y, H + HOffset);
+    return math::Vector(math::Spherical(theta, phi));
   }
 
   /**
@@ -190,10 +190,10 @@ public:
    *   x is signed because Spherical::theta is atan2's [-pi, pi], unlike
    *   sample_coordinates()' [0, W); longitude() accepts either convention.
    */
-  Coordinates project(const Vector &value) const {
-    const Spherical spherical(value);
-    return {(spherical.theta * W) / (2.0f * PI_F),
-            phi_to_y_virtual(spherical.phi, H + HOffset)};
+  Coordinates project(const math::Vector &value) const {
+    const math::Spherical spherical(value);
+    return {(spherical.theta * W) / (2.0f * math::PI_F),
+            math::phi_to_y_virtual(spherical.phi, H + HOffset)};
   }
 
   /**
@@ -259,7 +259,7 @@ public:
 
   /** @brief Reflects one lattice coordinate across spherical seams and poles. */
   static bool wrap_sample(int &x, int &y) {
-    return ::pole_wrap<W, H, HOffset>(x, y);
+    return ::math::pole_wrap<W, H, HOffset>(x, y);
   }
 
   /**
@@ -374,7 +374,7 @@ public:
   constexpr Longitude longitude(const Ring &ring, float x) const {
     // fmod turns either infinity into NaN, which wrap() passes through; the
     // clamp saturates it before the cast, which would otherwise be UB.
-    const float wrapped_x = wrap(x, static_cast<float>(W));
+    const float wrapped_x = math::wrap(x, static_cast<float>(W));
     const float position = hs::clamp(wrapped_x * ring.samples / W, 0.0f,
                                      static_cast<float>(ring.samples));
     // The scale rounds up to exactly ring.samples near the seam, so the
@@ -466,7 +466,7 @@ private:
     assert(std::fabs(y) < ROW_LIMIT);
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
-    const int x0 = ::fast_wrap(static_cast<int>(floor_x), W);
+    const int x0 = ::math::fast_wrap(static_cast<int>(floor_x), W);
     return {x0, x0 + 1 < W ? x0 + 1 : 0, static_cast<int>(floor_y), x - floor_x,
             y - floor_y};
   }
@@ -540,9 +540,9 @@ private:
   /** @brief sin(phi) at row y, as a Taylor series because sinf is not
    *  constexpr. */
   static constexpr float latitude_sine(int y) {
-    float phi = (static_cast<float>(y) * PI_F) / (H + HOffset - 1);
-    if (phi > PI_F * 0.5f)
-      phi = PI_F - phi;
+    float phi = (static_cast<float>(y) * math::PI_F) / (H + HOffset - 1);
+    if (phi > math::PI_F * 0.5f)
+      phi = math::PI_F - phi;
     const float phi2 = phi * phi;
     return phi *
            (1.0f + phi2 * (-1.0f / 6.0f +
@@ -614,15 +614,15 @@ public:
     Ring ring = layout.ring(ring_begin);
     for (int ring_index = ring_begin; ring_index <= ring_end;
          ++ring_index, ring = layout.next_ring(ring)) {
-      const Vector meridian = layout.sample_vector(ring, 0);
-      const float theta_step = 2.0f * PI_F / ring.samples;
+      const math::Vector meridian = layout.sample_vector(ring, 0);
+      const float theta_step = 2.0f * math::PI_F / ring.samples;
       const float step_cos = cosf(theta_step);
       const float step_sin = sinf(theta_step);
       float theta_cos = 1.0f;
       float theta_sin = 0.0f;
       for (int sample = 0; sample < ring.samples; ++sample) {
-        const Vector position(meridian.x * theta_cos, meridian.y,
-                              meridian.x * theta_sin);
+        const math::Vector position(meridian.x * theta_cos, meridian.y,
+                                    meridian.x * theta_sin);
         values[ring.offset + sample] =
             populate_sample(position, layout.sample_coordinates(ring, sample));
         const float next_cos = theta_cos * step_cos - theta_sin * step_sin;

@@ -28,10 +28,12 @@
 inline auto sin_wave(float from, float to, float freq, float phase) {
   // Hoist only 2π·phase: reassociating freq·t·2π could shift the last bit,
   // perturbing determinism for a given target (sinf's libm differs per target).
-  const float phase_term = 2 * PI_F * phase;
+  const float phase_term = 2 * math::PI_F * phase;
   return [=](float t) -> float {
     // −π/2 anchors t=0, phase=0 at the trough.
-    auto w = (sinf(freq * t * 2 * PI_F - (PI_F / 2) + phase_term) + 1) / 2;
+    auto w =
+        (sinf(freq * t * 2 * math::PI_F - (math::PI_F / 2) + phase_term) + 1) /
+        2;
     return hs::lerp(from, to, w);
   };
 }
@@ -49,7 +51,7 @@ inline auto sin_wave(float from, float to, float freq, float phase) {
 inline auto tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
     // wrap_t folds a negative phase into [0,1), keeping the triangle continuous.
-    float w = wrap_t(t * freq + phase);
+    float w = math::wrap_t(t * freq + phase);
     if (w < 0.5f) {
       w = 2.0f * w;
     } else {
@@ -77,7 +79,7 @@ inline auto square_wave(float from, float to, float freq, float duty_cycle,
   return [=](float t) -> float {
     // wrap_t, not raw fmod: fmod keeps the dividend's sign, so a negative phase
     // would stay < duty_cycle and wrongly latch the wave "on".
-    if (wrap_t(t * freq + phase) < duty_cycle) {
+    if (math::wrap_t(t * freq + phase) < duty_cycle) {
       return to;
     }
     return from;

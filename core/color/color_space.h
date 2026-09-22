@@ -115,7 +115,8 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
 __attribute__((always_inline)) inline OKLab
 linear_rgb_to_oklab_fast(float r, float g, float b) {
   LMS lms = linear_rgb_to_lms(r, g, b);
-  return lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+  return lms_to_oklab(math::fast_cbrt(lms.l), math::fast_cbrt(lms.m),
+                      math::fast_cbrt(lms.s));
 }
 
 /**
@@ -246,7 +247,7 @@ struct GamutCell {
  */
 __attribute__((always_inline)) inline GamutCell
 gamut_cell(const GamutLut &lut, float L, float a, float b) {
-  const float angle = diamond_angle(b, a) * lut.angle_scale;
+  const float angle = math::diamond_angle(b, a) * lut.angle_scale;
   const float lightness = L * lut.l_scale;
   return {angle, lightness,
           hs::clamp(static_cast<int>(angle), 0, lut.angle_steps - 1),
@@ -545,8 +546,8 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
   const float v10 = vertex_minimum(0, 1);
   const float v01 = vertex_minimum(1, 0);
   const float v11 = vertex_minimum(1, 1);
-  const float angle_blend = cubic_kernel(af);
-  const float lightness_blend = cubic_kernel(lf);
+  const float angle_blend = math::cubic_kernel(af);
+  const float lightness_blend = math::cubic_kernel(lf);
   const float low = v00 + (v10 - v00) * angle_blend;
   const float high = v01 + (v11 - v01) * angle_blend;
   return low + (high - low) * lightness_blend;
@@ -826,9 +827,9 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
  */
 __attribute__((always_inline)) inline void
 turn_to_unit_cos_sin(float turns, float &ca, float &sa) {
-  float angle = turns * (2.0f * PI_F);
-  ca = fast_cosf(angle);
-  sa = fast_sinf(angle);
+  float angle = turns * (2.0f * math::PI_F);
+  ca = math::fast_cosf(angle);
+  sa = math::fast_sinf(angle);
   float inv = 1.0f / sqrtf(ca * ca + sa * sa);
   ca *= inv;
   sa *= inv;
@@ -1094,12 +1095,12 @@ inline Pixel oklch_to_pixel(OKLCH lch) {
 inline float wrap_angle_pi(float x) {
   // At large |x| the subtraction below rounds away and the loop never finishes.
   // Negated so NaN takes this branch too.
-  if (!(fabsf(x) <= 4.0f * PI_F))
-    x = fmodf(x, 2.0f * PI_F);
-  while (x > PI_F)
-    x -= 2.0f * PI_F;
-  while (x < -PI_F)
-    x += 2.0f * PI_F;
+  if (!(fabsf(x) <= 4.0f * math::PI_F))
+    x = fmodf(x, 2.0f * math::PI_F);
+  while (x > math::PI_F)
+    x -= 2.0f * math::PI_F;
+  while (x < -math::PI_F)
+    x += 2.0f * math::PI_F;
   return x;
 }
 

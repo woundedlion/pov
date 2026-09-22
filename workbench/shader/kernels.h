@@ -25,37 +25,39 @@ namespace Workbench {
 
 // Declared ahead of first use: at namespace scope an unqualified
 // call would otherwise bind to a same-named function at global scope.
-__attribute__((always_inline)) inline Vector
-apply_frame_free_lens(const Vector &v, SurfaceLens lens);
+__attribute__((always_inline)) inline math::Vector
+apply_frame_free_lens(const math::Vector &v, SurfaceLens lens);
 HS_FLASH_MEMBER inline SurfaceNoiseResult
-apply_surface_noise_result(const Vector &v, const FrameState &frame);
-HS_FLASH_MEMBER inline Complex gnomonic(const Vector &v);
-HS_O3_FN inline float grid(const Complex &p, const SourceParams &params,
+apply_surface_noise_result(const math::Vector &v, const FrameState &frame);
+HS_FLASH_MEMBER inline math::Complex gnomonic(const math::Vector &v);
+HS_O3_FN inline float grid(const math::Complex &p, const SourceParams &params,
                            const SourceState &source);
-__attribute__((always_inline)) inline Complex
-mirror_tile(const Complex &input, const WarpStageParams &params,
+__attribute__((always_inline)) inline math::Complex
+mirror_tile(const math::Complex &input, const WarpStageParams &params,
             const PreparedWarpStage &prepared);
-HS_FLASH_MEMBER inline Vector mobius_lens(const Vector &v,
-                                          const math::MobiusParams &params);
-HS_FLASH_MEMBER inline float primitive_lattice(const Complex &p,
+HS_FLASH_MEMBER inline math::Vector
+mobius_lens(const math::Vector &v, const math::MobiusParams &params);
+HS_FLASH_MEMBER inline float primitive_lattice(const math::Complex &p,
                                                const SourceParams &params);
-__attribute__((always_inline)) inline Vector
-profiled_apply_lens(const Vector &v, const FrameState &frame);
+__attribute__((always_inline)) inline math::Vector
+profiled_apply_lens(const math::Vector &v, const FrameState &frame);
 __attribute__((always_inline)) inline ProjectedLookup
-profiled_project_branch(const Vector &v, const FrameState &frame);
-HS_FLASH_MEMBER inline float rings(const Complex &p, const SourceState &source);
-HS_FLASH_MEMBER inline float
-sample_function(Function function, const Complex &p, const SourceState &source);
+profiled_project_branch(const math::Vector &v, const FrameState &frame);
+HS_FLASH_MEMBER inline float rings(const math::Complex &p,
+                                   const SourceState &source);
+HS_FLASH_MEMBER inline float sample_function(Function function,
+                                             const math::Complex &p,
+                                             const SourceState &source);
 HS_FLASH_MEMBER inline Color4 shade_projected(const ProjectedLookup &projected,
                                               const FrameState &frame);
-HS_FLASH_MEMBER inline float spiral(const Complex &p,
+HS_FLASH_MEMBER inline float spiral(const math::Complex &p,
                                     const SourceState &source);
-HS_FLASH_MEMBER inline float twin_wave(const Complex &p,
+HS_FLASH_MEMBER inline float twin_wave(const math::Complex &p,
                                        const SourceState &source);
 inline float warp_envelope(const Pullback::ProjectionProvenance &provenance,
                            WarpEnvelope envelope, float edge_width);
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_stage_lookup(const Complex &input,
+warp_stage_lookup(const math::Complex &input,
                   const Pullback::ProjectionProvenance &provenance,
                   const WarpStageSpec &spec, const WarpStageParams &params,
                   float stage_phase, const FastNoiseLite *stage_noise,
@@ -64,7 +66,7 @@ warp_stage_lookup(const Complex &input,
 struct ShaderWorkbenchBinding;
 
 __attribute__((always_inline)) inline Pullback::ProjectionResult
-stereographic_lookup(const Vector &local, const FrameState &frame) {
+stereographic_lookup(const math::Vector &local, const FrameState &frame) {
   return Pullback::Projection::stereographic(
       local, frame.params.projection.singularity_fade);
 }
@@ -85,17 +87,17 @@ inline bool projection_edge_distance_required(const FrameState &frame) {
           program.inner.envelope == WarpEnvelope::EDGE_FADE);
 }
 
-__attribute__((always_inline)) inline Vector
-outer_camera_lookup(const Vector &view, const FrameState &frame) {
-  return rotate(view, frame.transforms.outer_conj);
+__attribute__((always_inline)) inline math::Vector
+outer_camera_lookup(const math::Vector &view, const FrameState &frame) {
+  return math::rotate(view, frame.transforms.outer_conj);
 }
 
 #if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND ||                              \
     (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
-inline ProjectedLookup surface_lens_project_lookup(const Vector &v,
+inline ProjectedLookup surface_lens_project_lookup(const math::Vector &v,
                                                    const FrameState &frame) {
   const Slots &slots = frame.slots;
-  Vector pre_lens = v;
+  math::Vector pre_lens = v;
   float surface_path_length = 0.0f;
   if (slots.surface_noise != SurfaceNoise::NONE &&
       slots.surface_noise_placement == SurfaceNoisePlacement::BEFORE_LENS) {
@@ -105,10 +107,10 @@ inline ProjectedLookup surface_lens_project_lookup(const Vector &v,
     surface_path_length = displaced.path_length;
     HS_SB_STAGE_SPAN(surface_noise, surface_start);
   }
-  const Vector lensed = slots.surface_lens == SurfaceLens::NONE
-                            ? pre_lens
-                            : profiled_apply_lens(pre_lens, frame);
-  Vector post_lens = lensed;
+  const math::Vector lensed = slots.surface_lens == SurfaceLens::NONE
+                                  ? pre_lens
+                                  : profiled_apply_lens(pre_lens, frame);
+  math::Vector post_lens = lensed;
   if (slots.surface_noise != SurfaceNoise::NONE &&
       slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS) {
     HS_SB_STAGE_MARK(surface_start);
@@ -125,7 +127,7 @@ inline ProjectedLookup surface_lens_project_lookup(const Vector &v,
 #endif
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-project_bonne(const Vector &local, const FrameState &frame) {
+project_bonne(const math::Vector &local, const FrameState &frame) {
   return Pullback::Projection::bonne(
       local, frame.params.projection.central_meridian,
       (frame.slots.bonne_hemisphere == BonneHemisphere::NORTH ? 1.0f : -1.0f) *
@@ -134,7 +136,7 @@ project_bonne(const Vector &local, const FrameState &frame) {
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-project_peirce(const Vector &local, const FrameState &frame) {
+project_peirce(const math::Vector &local, const FrameState &frame) {
   if (frame.slots.peirce_layout == PeirceLayout::SQUARE &&
       frame.params.projection.central_meridian == 0.0f)
     return Pullback::Projection::peirce_fast_square(
@@ -150,7 +152,7 @@ project_peirce(const Vector &local, const FrameState &frame) {
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-project_airocean(const Vector &local, const FrameState &frame) {
+project_airocean(const math::Vector &local, const FrameState &frame) {
   return Pullback::Projection::airocean(
       local, frame.slots.airocean_layout == AiroceanLayout::HORIZONTAL,
       frame.edge_distance_required, frame.params.projection.coordinate_scale,
@@ -158,13 +160,13 @@ project_airocean(const Vector &local, const FrameState &frame) {
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-project_sinusoidal(const Vector &local, const FrameState &frame) {
+project_sinusoidal(const math::Vector &local, const FrameState &frame) {
   return Pullback::Projection::folded_sinusoidal(
       local, frame.params.projection.central_meridian);
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-project_equirectangular(const Vector &local, const FrameState &frame) {
+project_equirectangular(const math::Vector &local, const FrameState &frame) {
   return Pullback::Projection::equirectangular(
       local, frame.params.projection.central_meridian,
       frame.params.projection.singularity_fade);
@@ -184,14 +186,14 @@ pullback_gnomonic_hemisphere(GnomonicHemispherePolicy policy) {
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-project_gnomonic(const Vector &local, const FrameState &frame) {
+project_gnomonic(const math::Vector &local, const FrameState &frame) {
   return Pullback::Projection::gnomonic(
       local, frame.params.projection.singularity_fade,
       pullback_gnomonic_hemisphere(frame.slots.gnomonic_hemisphere));
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-project_nonstereographic(const Vector &local, const FrameState &frame) {
+project_nonstereographic(const math::Vector &local, const FrameState &frame) {
   if (frame.slots.projection == Projection::BONNE)
     return project_bonne(local, frame);
   if (frame.slots.projection == Projection::PEIRCE_QUINCUNCIAL)
@@ -208,9 +210,9 @@ project_nonstereographic(const Vector &local, const FrameState &frame) {
   __builtin_unreachable();
 }
 
-HS_FLASH_MEMBER inline ProjectedLookup project_branch(const Vector &v,
+HS_FLASH_MEMBER inline ProjectedLookup project_branch(const math::Vector &v,
                                                       const FrameState &frame) {
-  const Vector local = rotate(v, frame.transforms.projection_conj);
+  const math::Vector local = math::rotate(v, frame.transforms.projection_conj);
   const Pullback::ProjectionResult result =
       frame.slots.projection != Projection::STEREOGRAPHIC
           ? project_nonstereographic(local, frame)
@@ -219,7 +221,7 @@ HS_FLASH_MEMBER inline ProjectedLookup project_branch(const Vector &v,
 }
 
 __attribute__((always_inline)) inline ProjectedLookup
-profiled_project_branch(const Vector &v, const FrameState &frame) {
+profiled_project_branch(const math::Vector &v, const FrameState &frame) {
   HS_SB_STAGE_MARK(stage_start);
   const ProjectedLookup projected = project_branch(v, frame);
   HS_SB_STAGE_SPAN(projection, stage_start);
@@ -227,8 +229,8 @@ profiled_project_branch(const Vector &v, const FrameState &frame) {
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-finalize_projection(const Vector &local, const Complex &, Projection projection,
-                    float singularity_fade,
+finalize_projection(const math::Vector &local, const math::Complex &,
+                    Projection projection, float singularity_fade,
                     GnomonicHemispherePolicy gnomonic_hemisphere =
                         GnomonicHemispherePolicy::FOLDED) {
   switch (projection) {
@@ -284,21 +286,21 @@ planar_warp_lookup(const ProjectedLookup &projected, const FrameState &frame) {
 #endif
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-finish_closed_form_warp(const Complex &input, const Complex &output,
+finish_closed_form_warp(const math::Complex &input, const math::Complex &output,
                         bool path_length_required) {
   return Pullback::Warp::finish_closed_form(input, output,
                                             path_length_required);
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_affine_frame(const Complex &input, const WarpStageParams &,
+warp_affine_frame(const math::Complex &input, const WarpStageParams &,
                   const PreparedWarpStage &prepared,
                   bool path_length_required) {
   return Pullback::Warp::affine_frame(input, prepared, path_length_required);
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_wave_shear(const Complex &input, const WarpStageParams &params,
+warp_wave_shear(const math::Complex &input, const WarpStageParams &params,
                 float stage_phase, float amplitude,
                 const PreparedWarpStage &prepared, bool path_length_required) {
   return Pullback::Warp::wave_shear(input, params, stage_phase, amplitude,
@@ -306,13 +308,13 @@ warp_wave_shear(const Complex &input, const WarpStageParams &params,
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_vortex(const Complex &input, const PreparedWarpStage &prepared,
+warp_vortex(const math::Complex &input, const PreparedWarpStage &prepared,
             bool path_length_required) {
   return Pullback::Warp::vortex(input, prepared, path_length_required);
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_vector_noise(const Complex &input, const WarpStageSpec &spec,
+warp_vector_noise(const math::Complex &input, const WarpStageSpec &spec,
                   const WarpStageParams &params, float amplitude,
                   const FastNoiseLite &noise, const PreparedWarpStage &prepared,
                   bool path_length_required) {
@@ -322,7 +324,7 @@ warp_vector_noise(const Complex &input, const WarpStageSpec &spec,
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
+warp_curl_flow(const math::Complex &input, const WarpStageSpec &spec,
                const WarpStageParams &params, float amplitude,
                const FastNoiseLite &noise, const PreparedWarpStage &prepared,
                bool path_length_required) {
@@ -333,7 +335,7 @@ warp_curl_flow(const Complex &input, const WarpStageSpec &spec,
 }
 
 HS_FLASH_MEMBER inline PlanarWarpStageResult
-warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
+warp_polar_chart(const math::Complex &input, const WarpStageSpec &spec,
                  const WarpStageParams &params, float stage_phase) {
   return Pullback::Warp::polar_chart(input, params, stage_phase,
                                      spec.polar_mode == PolarMode::LOGARITHMIC,
@@ -358,11 +360,13 @@ warp_polar_chart(const Complex &input, const WarpStageSpec &spec,
  * and the integrated arc length for curl flow. It is zero when
  * @p path_length_required is false.
  */
-HS_FLASH_MEMBER inline PlanarWarpStageResult warp_stage_lookup(
-    const Complex &input, const Pullback::ProjectionProvenance &provenance,
-    const WarpStageSpec &spec, const WarpStageParams &params, float stage_phase,
-    const FastNoiseLite *stage_noise, const PreparedWarpStage &prepared,
-    bool path_length_required) {
+HS_FLASH_MEMBER inline PlanarWarpStageResult
+warp_stage_lookup(const math::Complex &input,
+                  const Pullback::ProjectionProvenance &provenance,
+                  const WarpStageSpec &spec, const WarpStageParams &params,
+                  float stage_phase, const FastNoiseLite *stage_noise,
+                  const PreparedWarpStage &prepared,
+                  bool path_length_required) {
   if (spec.kind == WarpStageKind::NONE)
     return {input, 0.0f};
   const float envelope =
@@ -419,24 +423,24 @@ inline float warp_envelope(const Pullback::ProjectionProvenance &provenance,
       provenance, edge_width, static_cast<Pullback::Warp::Envelope>(envelope));
 }
 
-HS_FLASH_MEMBER inline Complex curl_vector(const Complex &p,
-                                           const FastNoiseLite &noise,
-                                           NoiseBasis basis, float scale,
-                                           float phase) {
+HS_FLASH_MEMBER inline math::Complex curl_vector(const math::Complex &p,
+                                                 const FastNoiseLite &noise,
+                                                 NoiseBasis basis, float scale,
+                                                 float phase) {
   return Pullback::Warp::curl_vector(p, noise, basis, scale,
                                      noise_projected_loop_offset(phase));
 }
 
-__attribute__((always_inline)) inline Complex
-mirror_tile(const Complex &input, const WarpStageParams &params,
+__attribute__((always_inline)) inline math::Complex
+mirror_tile(const math::Complex &input, const WarpStageParams &params,
             const PreparedWarpStage &prepared) {
   return Pullback::Warp::mirror_tile_coords(input, params, prepared);
 }
 
 #if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND ||                              \
     (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
-inline Complex condition_source_coords(const Complex &coords,
-                                       const FrameState &frame) {
+inline math::Complex condition_source_coords(const math::Complex &coords,
+                                             const FrameState &frame) {
   if (is_noise_contour(frame.slots.function) ||
       frame.slots.function == Function::PRIMITIVE_LATTICE ||
       frame.slots.function == Function::FRACTAL ||
@@ -518,7 +522,7 @@ inline FieldSample shape_material(float field, const ProjectedLookup &projected,
  * @param frame Frame snapshot.
  * @return Signed field value in [-1, 1].
  */
-HS_FLASH_MEMBER inline float sample_noise_contour(const Vector &q,
+HS_FLASH_MEMBER inline float sample_noise_contour(const math::Vector &q,
                                                   const FrameState &frame) {
   return Pullback::Source::noise_contour(*frame.resources.source_noise,
                                          frame.params.source.noise_basis, q,
@@ -551,7 +555,7 @@ tessellation_params(const SourceParams &params) {
           params.tessellation_line_softness, params.angle_rate};
 }
 
-HS_FLASH_MEMBER inline float sample_source(const Complex &p,
+HS_FLASH_MEMBER inline float sample_source(const math::Complex &p,
                                            const ProjectedLookup &projected,
                                            const FrameState &frame) {
   if (frame.slots.function == Function::SPHERICAL_RINGS)
@@ -584,7 +588,7 @@ HS_FLASH_MEMBER inline float sample_source(const Complex &p,
 }
 #endif
 
-HS_FLASH_MEMBER inline float primitive_lattice(const Complex &p,
+HS_FLASH_MEMBER inline float primitive_lattice(const math::Complex &p,
                                                const SourceParams &params) {
   return Pullback::Source::primitive_lattice(p, params);
 }
@@ -691,7 +695,7 @@ prepare_hue_rotation_lut(PreparedHueRotation &prepared,
 }
 
 HS_FLASH_MEMBER inline float
-sample_hue_noise_lut(const PreparedHueNoise &prepared, const Vector &v) {
+sample_hue_noise_lut(const PreparedHueNoise &prepared, const math::Vector &v) {
   return Pullback::Color::sample_hue_noise_lut({prepared.lut, prepared.active},
                                                v);
 }
@@ -703,8 +707,8 @@ sample_hue_rotation_lut(const PreparedHueRotation &prepared, float value,
       {prepared.lut, prepared.active}, value, amount);
 }
 
-HS_FLASH_MEMBER inline Vector apply_lens(const Vector &v,
-                                         const FrameState &frame) {
+HS_FLASH_MEMBER inline math::Vector apply_lens(const math::Vector &v,
+                                               const FrameState &frame) {
   switch (frame.slots.surface_lens) {
   case SurfaceLens::COUNT:
     break;
@@ -729,16 +733,16 @@ HS_FLASH_MEMBER inline Vector apply_lens(const Vector &v,
   __builtin_unreachable();
 }
 
-__attribute__((always_inline)) inline Vector
-profiled_apply_lens(const Vector &v, const FrameState &frame) {
+__attribute__((always_inline)) inline math::Vector
+profiled_apply_lens(const math::Vector &v, const FrameState &frame) {
   HS_SB_STAGE_MARK(stage_start);
-  const Vector lensed = apply_lens(v, frame);
+  const math::Vector lensed = apply_lens(v, frame);
   HS_SB_STAGE_SPAN(lens, stage_start);
   return lensed;
 }
 
-HS_FLASH_MEMBER inline Vector surface_curl_field(const Vector &v,
-                                                 const FrameState &frame) {
+HS_FLASH_MEMBER inline math::Vector
+surface_curl_field(const math::Vector &v, const FrameState &frame) {
   return Pullback::Surface::curl_field(v, *frame.resources.surface_noise,
                                        frame.params.surface_noise.basis,
                                        frame.params.surface_noise.scale,
@@ -746,7 +750,7 @@ HS_FLASH_MEMBER inline Vector surface_curl_field(const Vector &v,
 }
 
 HS_FLASH_MEMBER inline SurfaceNoiseResult
-apply_surface_noise_result(const Vector &v, const FrameState &frame) {
+apply_surface_noise_result(const math::Vector &v, const FrameState &frame) {
   const SurfaceNoiseParams &params = frame.params.surface_noise;
   const bool path_length_required = tracks_displacement(frame);
   if (frame.slots.surface_noise == SurfaceNoise::DIRECT) {
@@ -768,8 +772,8 @@ apply_surface_noise_result(const Vector &v, const FrameState &frame) {
                                        params.strength, path_length_required);
 }
 
-HS_FLASH_MEMBER inline Vector apply_surface_noise(const Vector &v,
-                                                  const FrameState &frame) {
+HS_FLASH_MEMBER inline math::Vector
+apply_surface_noise(const math::Vector &v, const FrameState &frame) {
   return apply_surface_noise_result(v, frame).sphere;
 }
 
@@ -780,8 +784,8 @@ HS_FLASH_MEMBER inline Vector apply_surface_noise(const Vector &v,
  *        rejected here.
  * @return The lensed direction.
  */
-__attribute__((always_inline)) inline Vector
-apply_frame_free_lens(const Vector &v, SurfaceLens lens) {
+__attribute__((always_inline)) inline math::Vector
+apply_frame_free_lens(const math::Vector &v, SurfaceLens lens) {
   switch (lens) {
   case SurfaceLens::COUNT:
     break;
@@ -822,8 +826,8 @@ apply_frame_free_lens(const Vector &v, SurfaceLens lens) {
   __builtin_unreachable();
 }
 
-HS_FLASH_MEMBER inline Vector mobius_lens(const Vector &v,
-                                          const math::MobiusParams &params) {
+HS_FLASH_MEMBER inline math::Vector
+mobius_lens(const math::Vector &v, const math::MobiusParams &params) {
   return Pullback::Lens::mobius(v, params);
 }
 
@@ -836,8 +840,8 @@ HS_FLASH_MEMBER inline Vector mobius_lens(const Vector &v,
  *        `project_branch` instead.
  * @return Plane coordinates in the projection's native units.
  */
-HS_FLASH_MEMBER inline Complex project_point(const Vector &v,
-                                             Projection projection) {
+HS_FLASH_MEMBER inline math::Complex project_point(const math::Vector &v,
+                                                   Projection projection) {
   switch (projection) {
   case Projection::SINUSOIDAL:
     return projections::folded_sinusoidal(v);
@@ -855,14 +859,14 @@ HS_FLASH_MEMBER inline Complex project_point(const Vector &v,
   __builtin_unreachable();
 }
 
-HS_FLASH_MEMBER inline Complex gnomonic(const Vector &v) {
+HS_FLASH_MEMBER inline math::Complex gnomonic(const math::Vector &v) {
   return Pullback::Projection::gnomonic(
              v, 0.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
       .coords;
 }
 
 HS_FLASH_MEMBER inline float sample_function(Function function,
-                                             const Complex &p,
+                                             const math::Complex &p,
                                              const SourceState &source) {
   switch (function) {
   case Function::TWIN_WAVE:
@@ -883,22 +887,22 @@ HS_FLASH_MEMBER inline float sample_function(Function function,
   __builtin_unreachable();
 }
 
-HS_FLASH_MEMBER inline float twin_wave(const Complex &p,
+HS_FLASH_MEMBER inline float twin_wave(const math::Complex &p,
                                        const SourceState &source) {
   return Pullback::Source::twin_wave(p, source);
 }
 
-HS_FLASH_MEMBER inline float rings(const Complex &p,
+HS_FLASH_MEMBER inline float rings(const math::Complex &p,
                                    const SourceState &source) {
   return Pullback::Source::rings(p, source);
 }
 
-HS_FLASH_MEMBER inline float spiral(const Complex &p,
+HS_FLASH_MEMBER inline float spiral(const math::Complex &p,
                                     const SourceState &source) {
   return Pullback::Source::spiral(p, source);
 }
 
-HS_O3_FN inline float grid(const Complex &p, const SourceParams &params,
+HS_O3_FN inline float grid(const math::Complex &p, const SourceParams &params,
                            const SourceState &source) {
   return Pullback::Source::grid(p, params, source);
 }
@@ -916,9 +920,9 @@ HS_O3_FN inline float grid(const Complex &p, const SourceParams &params,
  * be joined in the plane, so the branches are shaded separately and their
  * outputs blended instead.
  */
-inline Color4 shade_dynamic(const Vector &view, const FrameState &frame,
+inline Color4 shade_dynamic(const math::Vector &view, const FrameState &frame,
                             const void *) {
-  const Vector outer_local = outer_camera_lookup(view, frame);
+  const math::Vector outer_local = outer_camera_lookup(view, frame);
   const ProjectedLookup projected =
       surface_lens_project_lookup(outer_local, frame);
   return shade_projected(projected, frame);
@@ -936,7 +940,8 @@ HS_FLASH_MEMBER inline Color4 shade_projected(const ProjectedLookup &projected,
   HS_SB_STAGE_MARK(stage_start);
   const PlanarWarpResult warped = planar_warp_lookup(projected, frame);
   HS_SB_STAGE_SPAN(planar_warp, stage_start);
-  const Complex source_coords = condition_source_coords(warped.coords, frame);
+  const math::Complex source_coords =
+      condition_source_coords(warped.coords, frame);
   const float field = sample_source(source_coords, projected, frame);
   HS_SB_STAGE_SPAN(source, stage_start);
   const FieldSample material = shape_material(field, projected, warped, frame);

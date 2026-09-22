@@ -72,12 +72,12 @@ namespace plot_scan_tests {
  * @return A unit Vector; draws inside a 0.1-radius ball are rejected and
  *         redrawn, so the normalize is well conditioned.
  */
-inline Vector rand_unit() {
+inline math::Vector rand_unit() {
   for (;;) {
     const float rx = hs::rand_f(-1, 1);
     const float ry = hs::rand_f(-1, 1);
     const float rz = hs::rand_f(-1, 1);
-    Vector r(rx, ry, rz);
+    math::Vector r(rx, ry, rz);
     if (r.length() > 0.1f)
       return r.normalized();
   }
@@ -111,18 +111,20 @@ inline void test_geodesic_sincos_bit_parity() {
   int probed = 0;
   auto check = [&](float ang) {
     float s, c;
-    fast_sincosf_0_pi(ang, s, c);
+    math::fast_sincosf_0_pi(ang, s, c);
     ++probed;
-    if (std::bit_cast<uint32_t>(s) != std::bit_cast<uint32_t>(fast_sinf(ang)) ||
-        std::bit_cast<uint32_t>(c) != std::bit_cast<uint32_t>(fast_cosf(ang))) {
+    if (std::bit_cast<uint32_t>(s) !=
+            std::bit_cast<uint32_t>(math::fast_sinf(ang)) ||
+        std::bit_cast<uint32_t>(c) !=
+            std::bit_cast<uint32_t>(math::fast_cosf(ang))) {
       if (divergent == 0)
         first_bad = ang;
       ++divergent;
     }
   };
 
-  const uint32_t PI_BITS = std::bit_cast<uint32_t>(PI_F);
-  const uint32_t HALF_PI_BITS = std::bit_cast<uint32_t>(PI_F * 0.5f);
+  const uint32_t PI_BITS = std::bit_cast<uint32_t>(math::PI_F);
+  const uint32_t HALF_PI_BITS = std::bit_cast<uint32_t>(math::PI_F * 0.5f);
   constexpr uint32_t BOUNDARY_ULPS = 65536;
   for (uint32_t bits = 0; bits <= BOUNDARY_ULPS; ++bits)
     check(std::bit_cast<float>(bits));
@@ -134,7 +136,7 @@ inline void test_geodesic_sincos_bit_parity() {
   constexpr uint32_t STRIDE = 4093;
   for (uint64_t bits = 0; bits <= PI_BITS; bits += STRIDE)
     check(std::bit_cast<float>(static_cast<uint32_t>(bits)));
-  check(PI_F);
+  check(math::PI_F);
 
   HS_EXPECT_EQ(divergent, 0);
   HS_EXPECT_EQ(first_bad, -1.0f);
@@ -155,9 +157,9 @@ inline void test_geodesic_sincos_bit_parity() {
  * these paths.
  */
 struct CapturePipeline {
-  std::vector<Vector>
+  std::vector<math::Vector>
       plotted; /**< World positions handed to plot(), in order. */
-  void plot(Canvas &, const Vector &v, const Pixel &, float, float) {
+  void plot(Canvas &, const math::Vector &v, const Pixel &, float, float) {
     plotted.push_back(v);
   }
   void plot(Canvas &, float, float, const Pixel &, float, float) {}
@@ -171,9 +173,10 @@ struct DirectCapturePipeline : CapturePipeline {
 
 /** @brief Pipeline stub recording world positions and effective alpha. */
 struct AlphaCapturePipeline {
-  std::vector<Vector> plotted;
+  std::vector<math::Vector> plotted;
   std::vector<float> alphas;
-  void plot(Canvas &, const Vector &v, const Pixel &, float, float alpha) {
+  void plot(Canvas &, const math::Vector &v, const Pixel &, float,
+            float alpha) {
     plotted.push_back(v);
     alphas.push_back(alpha);
   }
@@ -181,7 +184,7 @@ struct AlphaCapturePipeline {
 };
 
 /** @brief Identity fragment shader (leaves the fragment untouched). */
-inline void noop_shader(const Vector &, Fragment &) {}
+inline void noop_shader(const math::Vector &, Fragment &) {}
 
 /**
  * @brief Largest angular gap (radians) between consecutive recorded positions.
@@ -189,12 +192,13 @@ inline void noop_shader(const Vector &, Fragment &) {}
  * @param wrap When true, also measures the gap from the last point back to the
  *             first (closed-loop seam continuity).
  */
-inline float max_consecutive_gap(const std::vector<Vector> &pts, bool wrap) {
+inline float max_consecutive_gap(const std::vector<math::Vector> &pts,
+                                 bool wrap) {
   float worst = 0.0f;
   for (size_t i = 1; i < pts.size(); ++i)
-    worst = std::max(worst, angle_between(pts[i - 1], pts[i]));
+    worst = std::max(worst, math::angle_between(pts[i - 1], pts[i]));
   if (wrap && pts.size() >= 2)
-    worst = std::max(worst, angle_between(pts.back(), pts.front()));
+    worst = std::max(worst, math::angle_between(pts.back(), pts.front()));
   return worst;
 }
 
@@ -204,11 +208,11 @@ inline float max_consecutive_gap(const std::vector<Vector> &pts, bool wrap) {
  * undefined and all columns meet.
  */
 template <int W, int H>
-inline float max_projected_gap(const std::vector<Vector> &points) {
+inline float max_projected_gap(const std::vector<math::Vector> &points) {
   float worst = 0.0f;
   for (size_t i = 1; i < points.size(); ++i) {
-    const PixelCoords a = vector_to_pixel<W, H>(points[i - 1]);
-    const PixelCoords b = vector_to_pixel<W, H>(points[i]);
+    const math::PixelCoords a = math::vector_to_pixel<W, H>(points[i - 1]);
+    const math::PixelCoords b = math::vector_to_pixel<W, H>(points[i]);
     float dx = std::abs(a.x - b.x);
     dx = std::min(dx, static_cast<float>(W) - dx);
     if (a.y < 2.0f || b.y < 2.0f || a.y > H - 3.0f || b.y > H - 3.0f)
@@ -233,8 +237,8 @@ inline void test_line_sample_endpoints_and_unit_length() {
   points.bind(plot_arena(), 16);
 
   Fragment a, b;
-  a.pos = Vector(1, 0, 0);
-  b.pos = Vector(0, 1, 0);
+  a.pos = math::Vector(1, 0, 0);
+  b.pos = math::Vector(0, 1, 0);
   const int density = 8;
   Plot::Line::sample(points, a, b, density);
 
@@ -251,9 +255,9 @@ inline void test_line_sample_endpoints_and_unit_length() {
 
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[density].v0, 1.0f, 1e-6f);
-  float total_angle = angle_between(a.pos, b.pos);
+  float total_angle = math::angle_between(a.pos, b.pos);
   HS_EXPECT_NEAR(points[density].v1, total_angle, 1e-4f);
-  HS_EXPECT_NEAR(total_angle, PI_F * 0.5f, 1e-4f);
+  HS_EXPECT_NEAR(total_angle, math::PI_F * 0.5f, 1e-4f);
 }
 
 /** Angular slack on a Line::sample position: fast_sincosf carries 0.17% of a
@@ -276,18 +280,18 @@ inline void test_line_sample_interior_between_endpoints() {
   points.bind(plot_arena(), 16);
 
   Fragment a, b;
-  a.pos = Vector(1, 0, 0);
-  b.pos = Vector(0, 1, 0);
+  a.pos = math::Vector(1, 0, 0);
+  b.pos = math::Vector(0, 1, 0);
   const int density = 4;
   Plot::Line::sample(points, a, b, density);
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
 
-  const float total = angle_between(a.pos, b.pos);
+  const float total = math::angle_between(a.pos, b.pos);
   for (size_t i = 1; i + 1 < points.size(); ++i) {
     HS_CONTEXT("sample", (long long)i);
-    const Vector &p = points[i].pos;
-    const float from_a = angle_between(a.pos, p);
-    const float from_b = angle_between(b.pos, p);
+    const math::Vector &p = points[i].pos;
+    const float from_a = math::angle_between(a.pos, p);
+    const float from_b = math::angle_between(b.pos, p);
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
     HS_EXPECT_NEAR(from_a + from_b, total, LINE_SAMPLE_ANGLE_TOL);
     HS_EXPECT_NEAR(from_a, total * static_cast<float>(i) / density,
@@ -308,8 +312,8 @@ inline void test_line_sample_degenerate_segment() {
   points.bind(plot_arena(), 16);
 
   Fragment a, b;
-  a.pos = Vector(0, 0, 1);
-  b.pos = Vector(0, 0, 1);
+  a.pos = math::Vector(0, 0, 1);
+  b.pos = math::Vector(0, 0, 1);
 
   Plot::Line::sample(points, a, b, 8);
 
@@ -339,8 +343,8 @@ inline void test_line_sample_antipodal_stable_axis() {
   points.bind(plot_arena(), 16);
 
   Fragment a, b;
-  a.pos = Vector(1, 0, 0);
-  b.pos = Vector(-1, 0, 0);
+  a.pos = math::Vector(1, 0, 0);
+  b.pos = math::Vector(-1, 0, 0);
   const int density = 8;
   Plot::Line::sample(points, a, b, density);
 
@@ -349,16 +353,16 @@ inline void test_line_sample_antipodal_stable_axis() {
   HS_EXPECT_NEAR(points[density].pos.x, b.pos.x, 1e-6f);
 
   for (size_t i = 0; i < points.size(); ++i) {
-    const Vector &p = points[i].pos;
+    const math::Vector &p = points[i].pos;
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
 
   // The midpoint is ~90deg from each antipodal endpoint.
-  const Vector &mid = points[density / 2].pos;
-  HS_EXPECT_NEAR(angle_between(a.pos, mid), PI_F * 0.5f, 1e-3f);
-  HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
+  const math::Vector &mid = points[density / 2].pos;
+  HS_EXPECT_NEAR(math::angle_between(a.pos, mid), math::PI_F * 0.5f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(b.pos, mid), math::PI_F * 0.5f, 1e-3f);
 }
 
 /**
@@ -380,33 +384,33 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   points.bind(plot_arena(), 16);
 
   Fragment a, b;
-  a.pos = Vector(-0.28f, 0.96f, 0.0f);
+  a.pos = math::Vector(-0.28f, 0.96f, 0.0f);
   b.pos = a.pos * -(1.0f + 0x1p-23f); // one ULP longer than -a
 
   // The arc pole cannot come from the cross product: it is unnormalizable.
-  const Vector pole = cross(a.pos, b.pos);
-  HS_EXPECT_LT(dot(pole, pole), math::EPS_NORMALIZE_SQ);
+  const math::Vector pole = math::cross(a.pos, b.pos);
+  HS_EXPECT_LT(math::dot(pole, pole), math::EPS_NORMALIZE_SQ);
 
   const int density = 8;
   Plot::Line::sample(points, a, b, density);
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
   for (size_t i = 0; i < points.size(); ++i) {
-    const Vector &p = points[i].pos;
+    const math::Vector &p = points[i].pos;
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
-  const Vector &mid = points[density / 2].pos;
-  HS_EXPECT_NEAR(angle_between(a.pos, mid), PI_F * 0.5f, 1e-3f);
-  HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
+  const math::Vector &mid = points[density / 2].pos;
+  HS_EXPECT_NEAR(math::angle_between(a.pos, mid), math::PI_F * 0.5f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(b.pos, mid), math::PI_F * 0.5f, 1e-3f);
 
   // The span setup resolves the same edge to a unit arc pole perpendicular to a.
   const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
   HS_EXPECT_TRUE(es.have_axis);
   HS_EXPECT_TRUE(es.antipodal);
   HS_EXPECT_NEAR(es.axis.length(), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(dot(es.axis, a.pos.normalized()), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::dot(es.axis, a.pos.normalized()), 0.0f, 1e-5f);
 
   // And so does rasterize_geodesic_strategy, reached through the rasterizer.
   constexpr int W = 128, H = 64;
@@ -418,7 +422,7 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   }
   fx.advance_display();
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)0);
-  for (const Vector &p : pipe.plotted) {
+  for (const math::Vector &p : pipe.plotted) {
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
@@ -678,12 +682,14 @@ inline void test_clip_x_wrap_matches_modulo() {
  * @details Mirrors make_basis's construction; picks a reference axis that is not
  *          near-parallel to n to keep the cross products well-conditioned.
  */
-inline Basis basis_from_normal(const Vector &n) {
-  Vector v = n.normalized();
-  Vector ref =
-      std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL ? Y_AXIS : X_AXIS;
-  Vector u = cross(v, ref).normalized();
-  Vector w = cross(v, u).normalized();
+inline math::Basis basis_from_normal(const math::Vector &n) {
+  math::Vector v = n.normalized();
+  math::Vector ref =
+      std::abs(math::dot(v, math::X_AXIS)) > math::COS_AXIS_PARALLEL
+          ? math::Y_AXIS
+          : math::X_AXIS;
+  math::Vector u = math::cross(v, ref).normalized();
+  math::Vector w = math::cross(v, u).normalized();
   return {u, v, w};
 }
 
@@ -697,8 +703,8 @@ inline Basis basis_from_normal(const Vector &n) {
  */
 inline void test_row_span_covers_arc_bulge() {
   constexpr int TW = 288, TH = 144;
-  auto row_of = [](const Vector &v) {
-    return vector_to_pixel<TW, TH>(v.normalized()).y;
+  auto row_of = [](const math::Vector &v) {
+    return math::vector_to_pixel<TW, TH>(v.normalized()).y;
   };
 
   hs::random().seed(20260609);
@@ -706,9 +712,9 @@ inline void test_row_span_covers_arc_bulge() {
 
   for (int trial = 0; trial < 6000; ++trial) {
     const bool planar = (trial & 1);
-    Vector a, b;
-    Basis basis;
-    const Basis *pb = nullptr;
+    math::Vector a, b;
+    math::Basis basis;
+    const math::Basis *pb = nullptr;
 
     if (planar) {
       // A planar-polygon edge: two points on a disk of angular radius `radius`
@@ -716,22 +722,22 @@ inline void test_row_span_covers_arc_bulge() {
       const float cx = hs::rand_f(-1, 1);
       const float cy = hs::rand_f(-1, 1);
       const float cz = hs::rand_f(-1, 1);
-      Vector center(cx, cy, cz);
+      math::Vector center(cx, cy, cz);
       if (center.length() < 0.1f)
         continue;
       basis = basis_from_normal(center.normalized());
       pb = &basis;
       float radius = hs::rand_f(0.2f, 1.4f);
       auto on_disk = [&](float ang) {
-        Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
+        math::Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
         return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
       };
-      float a0 = hs::rand_f(0, 2 * PI_F);
+      float a0 = hs::rand_f(0, 2 * math::PI_F);
       a = on_disk(a0);
       b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
       // Antipodal-seam edges fall back to the geodesic strategy; skip them.
-      if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-          dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+          math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
         continue;
     } else {
       const float rax = hs::rand_f(-1, 1);
@@ -740,13 +746,13 @@ inline void test_row_span_covers_arc_bulge() {
       const float rbx = hs::rand_f(-1, 1);
       const float rby = hs::rand_f(-1, 1);
       const float rbz = hs::rand_f(-1, 1);
-      Vector ra(rax, ray, raz);
-      Vector rb(rbx, rby, rbz);
+      math::Vector ra(rax, ray, raz);
+      math::Vector rb(rbx, rby, rbz);
       if (ra.length() < 0.1f || rb.length() < 0.1f)
         continue;
       a = ra.normalized();
       b = rb.normalized();
-      if (angle_between(a, b) < 0.05f)
+      if (math::angle_between(a, b) < 0.05f)
         continue;
     }
 
@@ -755,20 +761,21 @@ inline void test_row_span_covers_arc_bulge() {
     constexpr int N = 2000;
     std::pair<float, float> p1{}, p2{};
     float ang = 0.0f;
-    Vector vperp = a;
+    math::Vector vperp = a;
     if (planar) {
       p1 = Plot::azimuthal_project(a, basis);
       p2 = Plot::azimuthal_project(b, basis);
     } else {
-      ang = angle_between(a, b);
-      vperp = cross(cross(a, b).normalized(), a);
+      ang = math::angle_between(a, b);
+      vperp = math::cross(math::cross(a, b).normalized(), a);
     }
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      Vector p = planar ? Plot::azimuthal_unproject(
-                              p1.first + (p2.first - p1.first) * t,
-                              p1.second + (p2.second - p1.second) * t, basis)
-                        : (a * cosf(ang * t) + vperp * sinf(ang * t));
+      math::Vector p = planar
+                           ? Plot::azimuthal_unproject(
+                                 p1.first + (p2.first - p1.first) * t,
+                                 p1.second + (p2.second - p1.second) * t, basis)
+                           : (a * cosf(ang * t) + vperp * sinf(ang * t));
       float r = row_of(p);
       t_lo = std::min(t_lo, r);
       t_hi = std::max(t_hi, r);
@@ -803,19 +810,19 @@ inline void test_row_span_covers_arc_bulge() {
     const float rax = hs::rand_f(-1, 1);
     const float ray = hs::rand_f(-1, 1);
     const float raz = hs::rand_f(-1, 1);
-    Vector ra(rax, ray, raz);
+    math::Vector ra(rax, ray, raz);
     if (ra.length() < 0.1f)
       continue;
-    Vector a = ra.normalized();
-    Vector b = a * -1.0f;
-    Vector axis = Plot::stable_perpendicular_axis(a);
-    Vector vperp = cross(axis, a);
+    math::Vector a = ra.normalized();
+    math::Vector b = a * -1.0f;
+    math::Vector axis = Plot::stable_perpendicular_axis(a);
+    math::Vector vperp = math::cross(axis, a);
 
     float t_lo = 1e9f, t_hi = -1e9f;
     constexpr int N = 2000;
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      Vector p = a * cosf(PI_F * t) + vperp * sinf(PI_F * t);
+      math::Vector p = a * cosf(math::PI_F * t) + vperp * sinf(math::PI_F * t);
       float r = row_of(p);
       t_lo = std::min(t_lo, r);
       t_hi = std::max(t_hi, r);
@@ -864,29 +871,30 @@ inline void test_cap_may_touch_clip_is_conservative() {
       const float dx = hs::rand_f(-1, 1);
       const float dy = hs::rand_f(-1, 1);
       const float dz = hs::rand_f(-1, 1);
-      Vector d(dx, dy, dz);
+      math::Vector d(dx, dy, dz);
       if (d.length() < 0.1f)
         continue;
-      const Vector dir = d.normalized();
+      const math::Vector dir = d.normalized();
       const float half_angle = hs::rand_f(0.01f, 1.2f);
       const bool passed = Plot::cap_may_touch_clip<H>(cr, dir, half_angle);
       if (!passed)
         rejects++;
 
-      const Basis basis = basis_from_normal(dir);
+      const math::Basis basis = basis_from_normal(dir);
       bool reached = false;
       for (int i = 0; i <= 24 && !reached; ++i) {
         const float t = half_angle * static_cast<float>(i) / 24.0f;
         for (int j = 0; j < 64; ++j) {
-          const float az = 2.0f * PI_F * static_cast<float>(j) / 64.0f;
-          const Vector rim = basis.u * cosf(az) + basis.w * sinf(az);
-          const Vector p = (dir * cosf(t) + rim * sinf(t)).normalized();
-          const float row = phi_to_y<H>(acosf(hs::clamp(p.y, -1.0f, 1.0f)));
+          const float az = 2.0f * math::PI_F * static_cast<float>(j) / 64.0f;
+          const math::Vector rim = basis.u * cosf(az) + basis.w * sinf(az);
+          const math::Vector p = (dir * cosf(t) + rim * sinf(t)).normalized();
+          const float row =
+              math::phi_to_y<H>(acosf(hs::clamp(p.y, -1.0f, 1.0f)));
           float lam = atan2f(p.z, p.x);
           if (lam < 0.0f)
-            lam += 2.0f * PI_F;
+            lam += 2.0f * math::PI_F;
           const int col =
-              std::min(W - 1, static_cast<int>(lam * W / (2.0f * PI_F)));
+              std::min(W - 1, static_cast<int>(lam * W / (2.0f * math::PI_F)));
           if (row >= cr.render_y_start() && row < cr.render_y_end() &&
               cr.contains_x(col)) {
             reached = true;
@@ -955,8 +963,8 @@ inline void test_clip_arcs_overlap() {
  */
 inline void test_col_span_covers_arc() {
   constexpr int TW = 288;
-  auto col_of = [](const Vector &v) {
-    return vector_to_theta<TW>(v.normalized());
+  auto col_of = [](const math::Vector &v) {
+    return math::vector_to_theta<TW>(v.normalized());
   };
   auto contains = [](int s, int len, float c) {
     int ci = static_cast<int>(floorf(c));
@@ -972,18 +980,18 @@ inline void test_col_span_covers_arc() {
   int over_bound = 0;
 
   for (int trial = 0; trial < 4000; ++trial) {
-    Vector a, b;
+    math::Vector a, b;
     if (trial % 3 == 2) {
       // Near-meridian circle: an axis close to the equator plane produces
       // pole-grazing arcs whose longitude sweeps far past the endpoints.
       const float adx = hs::rand_f(-1, 1);
       const float ady = hs::rand_f(-0.05f, 0.05f);
       const float adz = hs::rand_f(-1, 1);
-      Vector ad(adx, ady, adz);
+      math::Vector ad(adx, ady, adz);
       if (ad.length() < 0.1f)
         continue;
-      Basis cb = basis_from_normal(ad.normalized());
-      float a0 = hs::rand_f(0, 2 * PI_F);
+      math::Basis cb = basis_from_normal(ad.normalized());
+      float a0 = hs::rand_f(0, 2 * math::PI_F);
       float a1 = a0 + hs::rand_f(0.5f, 3.0f);
       a = (cb.u * cosf(a0) + cb.w * sinf(a0)).normalized();
       b = (cb.u * cosf(a1) + cb.w * sinf(a1)).normalized();
@@ -991,7 +999,7 @@ inline void test_col_span_covers_arc() {
       a = rand_unit();
       b = rand_unit();
     }
-    float ang = angle_between(a, b);
+    float ang = math::angle_between(a, b);
     if (ang < 0.05f)
       continue;
 
@@ -1003,14 +1011,14 @@ inline void test_col_span_covers_arc() {
     }
 
     // Dense ground truth along the renderer's own circle.
-    Vector axis = (std::abs(PI_F - ang) < TOLERANCE)
-                      ? Plot::stable_perpendicular_axis(a)
-                      : cross(a, b).normalized();
-    Vector vperp = cross(axis, a);
+    math::Vector axis = (std::abs(math::PI_F - ang) < math::TOLERANCE)
+                            ? Plot::stable_perpendicular_axis(a)
+                            : math::cross(a, b).normalized();
+    math::Vector vperp = math::cross(axis, a);
     constexpr int N = 1000;
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      Vector p = a * cosf(ang * t) + vperp * sinf(ang * t);
+      math::Vector p = a * cosf(ang * t) + vperp * sinf(ang * t);
       ++geodesic_samples;
       geodesic_escapes += !contains(s, len, col_of(p));
     }
@@ -1034,18 +1042,18 @@ inline void test_col_span_covers_arc() {
   // bulges about stable_perpendicular_axis, not just the endpoint columns.
   int antipodal_escapes = 0, antipodal_samples = 0;
   for (int trial = 0; trial < 500; ++trial) {
-    Vector a = rand_unit();
-    Vector b = a * -1.0f;
+    math::Vector a = rand_unit();
+    math::Vector b = a * -1.0f;
     int s, len;
     if (!Plot::geodesic_col_span<TW>(a, b, Plot::make_geodesic_edge_span(a, b),
                                      s, len))
       continue;
-    Vector axis = Plot::stable_perpendicular_axis(a);
-    Vector vperp = cross(axis, a);
+    math::Vector axis = Plot::stable_perpendicular_axis(a);
+    math::Vector vperp = math::cross(axis, a);
     constexpr int N = 1000;
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      Vector p = a * cosf(PI_F * t) + vperp * sinf(PI_F * t);
+      math::Vector p = a * cosf(math::PI_F * t) + vperp * sinf(math::PI_F * t);
       ++antipodal_samples;
       antipodal_escapes += !contains(s, len, col_of(p));
     }
@@ -1059,19 +1067,19 @@ inline void test_col_span_covers_arc() {
   int planar_bounded = 0, planar_fallbacks = 0;
   int planar_escapes = 0, planar_samples = 0;
   for (int trial = 0; trial < 3000; ++trial) {
-    Vector center = rand_unit();
-    Basis basis = basis_from_normal(center);
+    math::Vector center = rand_unit();
+    math::Basis basis = basis_from_normal(center);
     float radius = hs::rand_f(0.2f, 1.4f);
     auto on_disk = [&](float ang2) {
-      Vector dir = basis.u * cosf(ang2) + basis.w * sinf(ang2);
+      math::Vector dir = basis.u * cosf(ang2) + basis.w * sinf(ang2);
       return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
     };
-    float a0 = hs::rand_f(0, 2 * PI_F);
-    Vector a = on_disk(a0);
-    Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+    float a0 = hs::rand_f(0, 2 * math::PI_F);
+    math::Vector a = on_disk(a0);
+    math::Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
     // Antipode-seam segments render geodesic (use_planar is false there).
-    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
 
     int s, len;
@@ -1087,7 +1095,7 @@ inline void test_col_span_covers_arc() {
     constexpr int N = 1000;
     for (int i = 0; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      Vector p = Plot::azimuthal_unproject(
+      math::Vector p = Plot::azimuthal_unproject(
           p1.first + (p2.first - p1.first) * t,
           p1.second + (p2.second - p1.second) * t, basis);
       ++planar_samples;
@@ -1160,26 +1168,26 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
     const int band_len = xc.length(TW);
 
     for (int trial = 0; trial < 2000; ++trial) {
-      Vector a = rand_unit();
-      Vector b;
+      math::Vector a = rand_unit();
+      math::Vector b;
       switch (trial % 7) {
       case 0:
         b = a * -1.0f; // antipodal
         break;
       case 1: // near-collapsed
-        b = (a + Vector(1e-4f, 0.0f, 0.0f)).normalized();
+        b = (a + math::Vector(1e-4f, 0.0f, 0.0f)).normalized();
         break;
       case 2: { // near-meridian arc (pole-grazing, axis.y ~ 0)
         const float adx = hs::rand_f(-1, 1);
         const float ady = hs::rand_f(-0.05f, 0.05f);
         const float adz = hs::rand_f(-1, 1);
-        Vector ad(adx, ady, adz);
+        math::Vector ad(adx, ady, adz);
         if (ad.length() < 0.1f) {
           b = rand_unit();
           break;
         }
-        Basis cb = basis_from_normal(ad.normalized());
-        float a0 = hs::rand_f(0, 2 * PI_F);
+        math::Basis cb = basis_from_normal(ad.normalized());
+        float a0 = hs::rand_f(0, 2 * math::PI_F);
         a = (cb.u * cosf(a0) + cb.w * sinf(a0)).normalized();
         b = (cb.u * cosf(a0 + 1.5f) + cb.w * sinf(a0 + 1.5f)).normalized();
         break;
@@ -1208,19 +1216,19 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
     }
 
     for (int trial = 0; trial < 2000; ++trial) {
-      Vector center = rand_unit();
-      Basis basis = basis_from_normal(center);
+      math::Vector center = rand_unit();
+      math::Basis basis = basis_from_normal(center);
       float radius = hs::rand_f(0.2f, 1.4f);
       auto on_disk = [&](float ang) {
-        Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
+        math::Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
         return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
       };
-      float a0 = hs::rand_f(0, 2 * PI_F);
-      Vector a = on_disk(a0);
-      Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+      float a0 = hs::rand_f(0, 2 * math::PI_F);
+      math::Vector a = on_disk(a0);
+      math::Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
       // Antipode-seam segments render geodesic (use_planar is false there).
-      if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-          dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+          math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
         continue;
 
       const bool got =
@@ -1337,7 +1345,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
   edges.bind(ga, mesh.faces.size());
   Plot::Mesh::extract_edges(mesh, edges);
 
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
   };
 
@@ -1356,12 +1364,13 @@ inline void test_mesh_edge_gate_pixel_parity() {
     const float axis_x = hs::rand_f(-1, 1);
     const float axis_y = hs::rand_f(-1, 1);
     const float axis_z = hs::rand_f(-1, 1);
-    Vector axis = Vector(axis_x, axis_y, axis_z);
+    math::Vector axis = math::Vector(axis_x, axis_y, axis_z);
     if (axis.length() < 0.1f)
-      axis = Y_AXIS;
-    Quaternion q = make_rotation(axis.normalized(), hs::rand_f(0, 2 * PI_F));
+      axis = math::Y_AXIS;
+    math::Quaternion q =
+        math::make_rotation(axis.normalized(), hs::rand_f(0, 2 * math::PI_F));
     for (size_t i = 0; i < mesh.vertices.size(); ++i)
-      posed.vertices[i] = rotate(mesh.vertices[i], q);
+      posed.vertices[i] = math::rotate(mesh.vertices[i], q);
 
     auto render = [&](hs_test::StubEffect &fx) {
       Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
@@ -1389,8 +1398,8 @@ inline void test_mesh_edge_gate_pixel_parity() {
       int worst_run = 0;
       const ClipRegion &clip = fx.clip();
       for (const auto &edge : edges) {
-        const PixelCoords endpoint =
-            vector_to_pixel<W, H>(posed.vertices[edge.v]);
+        const math::PixelCoords endpoint =
+            math::vector_to_pixel<W, H>(posed.vertices[edge.v]);
         const int x = static_cast<int>(endpoint.x);
         const int y = static_cast<int>(endpoint.y);
         if (!clip.contains_x(x) || !clip.contains_y(y))
@@ -1436,11 +1445,11 @@ inline void test_mesh_edge_gate_pixel_parity() {
 /** @brief An open upper window retains the whole edge's terminal sample. */
 inline void test_rasterize_window_preserves_terminal_sample() {
   constexpr int W = 96, H = 48;
-  const std::pair<Vector, Vector> EDGES[] = {
-      {Vector(-0x1.6a5c08p-1f, -0x1.38938ap-2f, 0x1.463602p-1f),
-       Vector(0x1.d7291p-6f, 0x1.835d7cp-2f, 0x1.d9b94cp-1f)},
-      {Vector(-0x1.55a9acp-2f, 0x1.84c37cp-1f, -0x1.1e0c5p-1f),
-       Vector(-0x1.8aa97ep-1f, 0x1.f1a1bap-2f, -0x1.a5ca0ep-2f)},
+  const std::pair<math::Vector, math::Vector> EDGES[] = {
+      {math::Vector(-0x1.6a5c08p-1f, -0x1.38938ap-2f, 0x1.463602p-1f),
+       math::Vector(0x1.d7291p-6f, 0x1.835d7cp-2f, 0x1.d9b94cp-1f)},
+      {math::Vector(-0x1.55a9acp-2f, 0x1.84c37cp-1f, -0x1.1e0c5p-1f),
+       math::Vector(-0x1.8aa97ep-1f, 0x1.f1a1bap-2f, -0x1.a5ca0ep-2f)},
   };
   for (const auto &[start, end] : EDGES) {
     ScratchScope sc(plot_arena());
@@ -1459,7 +1468,9 @@ inline void test_rasterize_window_preserves_terminal_sample() {
       Canvas canvas(fx);
       CapturePipeline full, clipped;
       float terminal_t = 0.0f;
-      auto shade = [&](const Vector &, Fragment &f) { terminal_t = f.v0; };
+      auto shade = [&](const math::Vector &, Fragment &f) {
+        terminal_t = f.v0;
+      };
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
           full, canvas, points, shade);
       const float FULL_TERMINAL_T = terminal_t;
@@ -1515,11 +1526,11 @@ inline void test_mesh_dissolve_masks_partition_edges() {
 
   Segue::Dissolve dissolve;
   hs::random().seed(0xD155);
-  dissolve.retarget(Y_AXIS);
+  dissolve.retarget(math::Y_AXIS);
 
   auto drawn_set = [&](const DissolveMask &mask) {
     std::vector<bool> seen(num_edges, false);
-    auto shade = [&](const Vector &, Fragment &f) {
+    auto shade = [&](const math::Vector &, Fragment &f) {
       const int ei = static_cast<int>(f.v2);
       HS_EXPECT_TRUE(ei >= 0 && static_cast<size_t>(ei) < num_edges);
       seen[static_cast<size_t>(ei)] = true;
@@ -1571,7 +1582,7 @@ inline void test_mesh_dissolve_masks_partition_edges() {
  */
 inline void test_rasterize_column_cull_pixel_parity() {
   constexpr int W = 96, H = 48;
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
   };
 
@@ -1583,24 +1594,24 @@ inline void test_rasterize_column_cull_pixel_parity() {
   for (int trial = 0; trial < 50; ++trial) {
     const bool planar = (trial & 1);
     constexpr size_t WALK = 6;
-    Vector walk[WALK];
-    Basis chart;
+    math::Vector walk[WALK];
+    math::Basis chart;
 
     if (planar) {
       // Planar polyline: points on a chart disk, as Ring/Petals emit them.
       chart = basis_from_normal(rand_unit());
       float radius = hs::rand_f(0.3f, 1.3f);
-      float a0 = hs::rand_f(0, 2 * PI_F);
+      float a0 = hs::rand_f(0, 2 * math::PI_F);
       for (size_t i = 0; i < WALK; ++i) {
         float ang = a0 + hs::rand_f(0.2f, 1.0f) * static_cast<float>(i);
-        Vector dir = chart.u * cosf(ang) + chart.w * sinf(ang);
+        math::Vector dir = chart.u * cosf(ang) + chart.w * sinf(ang);
         walk[i] = (chart.v * cosf(radius) + dir * sinf(radius)).normalized();
       }
     } else {
       // Trail-like random walk: successive short geodesic hops.
       walk[0] = rand_unit();
       for (size_t i = 1; i < WALK; ++i) {
-        Vector step = cross(walk[i - 1], rand_unit());
+        math::Vector step = math::cross(walk[i - 1], rand_unit());
         if (step.length() < 0.05f) {
           walk[i] = walk[i - 1];
           continue;
@@ -1617,7 +1628,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
       ScratchScope sc(plot_arena());
       Fragments pts;
       pts.bind(plot_arena(), WALK);
-      for (const Vector &v : walk) {
+      for (const math::Vector &v : walk) {
         Fragment f;
         f.pos = v;
         pts.push_back(f);
@@ -1668,13 +1679,13 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH, Filter::Screen::AntiAlias<TW, TH>> pipeline{
       Filter::Screen::AntiAlias<TW, TH>()};
-  const Vector a(-0.616987944f, -0.142148912f, 0.774028182f);
-  const Vector b(-0.623163402f, 0.021294117f, 0.78180176f);
+  const math::Vector a(-0.616987944f, -0.142148912f, 0.774028182f);
+  const math::Vector b(-0.623163402f, 0.021294117f, 0.78180176f);
 
   ScratchScope sc(plot_arena());
   Fragments trail;
   trail.bind(plot_arena(), 2);
-  for (const Vector &v : {a, b}) {
+  for (const math::Vector &v : {a, b}) {
     Fragment f;
     f.pos = v;
     trail.push_back(f);
@@ -1707,8 +1718,8 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
 inline void test_raw_geodesic_edge_gate_parity() {
   constexpr int W = 288, H = 144;
   auto exact_gate = [](const ClipRegion &cr, const ClipRegion::XClip &xc,
-                       float ra, float rb, float ca, float cb, const Vector &a,
-                       const Vector &b) {
+                       float ra, float rb, float ca, float cb,
+                       const math::Vector &a, const math::Vector &b) {
     const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
     float row_lo, row_hi;
     Plot::geodesic_row_span_rows<H>(ra, rb, a, b, es, row_lo, row_hi);
@@ -1720,12 +1731,13 @@ inline void test_raw_geodesic_edge_gate_parity() {
     return !Plot::geodesic_col_span_cols<W>(ca, cb, a, es, col_s, col_len) ||
            ClipRegion::arcs_overlap(xc.rs, xc.length(W), col_s, col_len, W);
   };
-  auto run = [&](const ClipRegion &cr, const Vector &a, const Vector &b) {
+  auto run = [&](const ClipRegion &cr, const math::Vector &a,
+                 const math::Vector &b) {
     const auto xc = cr.x_clip();
     const float ra = Plot::y_to_screen_row<H>(a.y);
     const float rb = Plot::y_to_screen_row<H>(b.y);
-    const float ca = vector_to_theta<W>(a);
-    const float cb = vector_to_theta<W>(b);
+    const float ca = math::vector_to_theta<W>(a);
+    const float cb = math::vector_to_theta<W>(b);
     const bool exact = exact_gate(cr, xc, ra, rb, ca, cb, a, b);
     const auto raw =
         Plot::raw_geodesic_edge_gate<W, H>(cr, xc, ra, rb, ca, cb, a, b);
@@ -1742,15 +1754,15 @@ inline void test_raw_geodesic_edge_gate_parity() {
   cr.x_start = 0;
   cr.x_end = W / 2;
 
-  const Vector a = X_AXIS;
-  auto arc = [&](float angle, const Vector &tangent) {
+  const math::Vector a = math::X_AXIS;
+  auto arc = [&](float angle, const math::Vector &tangent) {
     return (a * cosf(angle) + tangent * sinf(angle)).normalized();
   };
-  HS_EXPECT_EQ(run(cr, a, arc(0.0005f, Z_AXIS)),
+  HS_EXPECT_EQ(run(cr, a, arc(0.0005f, math::Z_AXIS)),
                Plot::RawGeodesicGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(run(cr, a, arc(PI_F - 0.0005f, Z_AXIS)),
+  HS_EXPECT_EQ(run(cr, a, arc(math::PI_F - 0.0005f, math::Z_AXIS)),
                Plot::RawGeodesicGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(run(cr, a, arc(0.4f, Y_AXIS)),
+  HS_EXPECT_EQ(run(cr, a, arc(0.4f, math::Y_AXIS)),
                Plot::RawGeodesicGateResult::EXACT_FALLBACK);
 
   hs::random().seed(0xC2055);
@@ -1765,25 +1777,26 @@ inline void test_raw_geodesic_edge_gate_parity() {
     cr.x_start = bounds[2];
     cr.x_end = bounds[3];
     for (int trial = 0; trial < 5000; ++trial) {
-      Vector p;
+      math::Vector p;
       do {
         const float px = hs::rand_f(-1.0f, 1.0f);
         const float py = hs::rand_f(-1.0f, 1.0f);
         const float pz = hs::rand_f(-1.0f, 1.0f);
-        p = Vector(px, py, pz);
+        p = math::Vector(px, py, pz);
       } while (p.length() < 0.1f);
       p = p.normalized();
-      Vector tangent;
+      math::Vector tangent;
       do {
         const float rx = hs::rand_f(-1.0f, 1.0f);
         const float ry = hs::rand_f(-1.0f, 1.0f);
         const float rz = hs::rand_f(-1.0f, 1.0f);
-        Vector r(rx, ry, rz);
-        tangent = r - p * dot(r, p);
+        math::Vector r(rx, ry, rz);
+        tangent = r - p * math::dot(r, p);
       } while (tangent.length() < 0.05f);
       tangent = tangent.normalized();
-      const float angle = hs::rand_f(0.03f, PI_F - 0.03f);
-      const Vector q = (p * cosf(angle) + tangent * sinf(angle)).normalized();
+      const float angle = hs::rand_f(0.03f, math::PI_F - 0.03f);
+      const math::Vector q =
+          (p * cosf(angle) + tangent * sinf(angle)).normalized();
       const auto result = run(cr, p, q);
       if (result != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
         ++raw_count;
@@ -1791,16 +1804,17 @@ inline void test_raw_geodesic_edge_gate_parity() {
 
     for (int pole = 0; pole < 200; ++pole) {
       const float epsilon = hs::rand_f(1.0e-4f, 0.05f);
-      const float azimuth = hs::rand_f(0.0f, 2.0f * PI_F);
+      const float azimuth = hs::rand_f(0.0f, 2.0f * math::PI_F);
       const float sp = sinf(epsilon);
-      const Vector p(sp * cosf(azimuth),
-                     (pole & 1) ? cosf(epsilon) : -cosf(epsilon),
-                     sp * sinf(azimuth));
-      Vector tangent = cross(p, Y_AXIS);
+      const math::Vector p(sp * cosf(azimuth),
+                           (pole & 1) ? cosf(epsilon) : -cosf(epsilon),
+                           sp * sinf(azimuth));
+      math::Vector tangent = math::cross(p, math::Y_AXIS);
       if (tangent.length() < 1.0e-4f)
-        tangent = cross(p, X_AXIS);
+        tangent = math::cross(p, math::X_AXIS);
       tangent = tangent.normalized();
-      const Vector q = (p * cosf(0.08f) + tangent * sinf(0.08f)).normalized();
+      const math::Vector q =
+          (p * cosf(0.08f) + tangent * sinf(0.08f)).normalized();
       const auto result = run(cr, p, q);
       if (result != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
         ++raw_count;
@@ -1808,8 +1822,8 @@ inline void test_raw_geodesic_edge_gate_parity() {
 
     const float guarded_angles[] = {1.0e-6f, 5.0e-4f, 1.5e-3f, 2.5e-3f};
     for (float angle : guarded_angles) {
-      for (float end_angle : {angle, PI_F - angle}) {
-        const auto result = run(cr, a, arc(end_angle, Z_AXIS));
+      for (float end_angle : {angle, math::PI_F - angle}) {
+        const auto result = run(cr, a, arc(end_angle, math::Z_AXIS));
         if (result != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
           ++raw_count;
       }
@@ -1854,7 +1868,7 @@ inline void test_wrap_one_period_matches_modulo() {
   auto check = [&](float d) {
     ++probed;
     const float fast = Plot::wrap_one_period<W>(d);
-    const float exact = wrap(d, FW);
+    const float exact = math::wrap(d, FW);
     if (std::bit_cast<uint32_t>(fast) != std::bit_cast<uint32_t>(exact)) {
       if (divergent == 0)
         first_bad = d;
@@ -1907,11 +1921,11 @@ inline void test_cartesian_quadrant_gate_classification() {
     return cr;
   };
   auto classify = [](const ClipRegion &cr,
-                     std::initializer_list<Vector> points) {
+                     std::initializer_list<math::Vector> points) {
     ScratchScope sc(plot_arena());
     Fragments trail;
     trail.bind(plot_arena(), points.size());
-    for (const Vector &p : points) {
+    for (const math::Vector &p : points) {
       Fragment f;
       f.pos = p.normalized();
       trail.push_back(f);
@@ -1922,42 +1936,42 @@ inline void test_cartesian_quadrant_gate_classification() {
 
   const ClipRegion north_left = clip(0, H / 2, 0, W / 2);
   const ClipRegion south_right = clip(H / 2, H, W / 2, W);
-  HS_EXPECT_EQ(classify(north_left, {Vector(0.5f, -0.8f, 0.3f),
-                                     Vector(0.51f, -0.79f, 0.31f)}),
+  HS_EXPECT_EQ(classify(north_left, {math::Vector(0.5f, -0.8f, 0.3f),
+                                     math::Vector(0.51f, -0.79f, 0.31f)}),
                Plot::CartesianTrailGateResult::LATITUDE_REJECT);
-  HS_EXPECT_EQ(classify(north_left, {Vector(0.3f, 0.5f, -0.8f),
-                                     Vector(0.31f, 0.51f, -0.79f)}),
+  HS_EXPECT_EQ(classify(north_left, {math::Vector(0.3f, 0.5f, -0.8f),
+                                     math::Vector(0.31f, 0.51f, -0.79f)}),
                Plot::CartesianTrailGateResult::MERIDIAN_REJECT);
-  HS_EXPECT_EQ(classify(south_right, {Vector(0.5f, 0.8f, 0.3f),
-                                      Vector(0.51f, 0.79f, 0.31f)}),
+  HS_EXPECT_EQ(classify(south_right, {math::Vector(0.5f, 0.8f, 0.3f),
+                                      math::Vector(0.51f, 0.79f, 0.31f)}),
                Plot::CartesianTrailGateResult::LATITUDE_REJECT);
-  HS_EXPECT_EQ(classify(south_right, {Vector(0.3f, -0.5f, 0.8f),
-                                      Vector(0.31f, -0.51f, 0.79f)}),
+  HS_EXPECT_EQ(classify(south_right, {math::Vector(0.3f, -0.5f, 0.8f),
+                                      math::Vector(0.31f, -0.51f, 0.79f)}),
                Plot::CartesianTrailGateResult::MERIDIAN_REJECT);
 
   // Poles and both quadrant boundaries remain exact-fallback cases.
-  HS_EXPECT_EQ(classify(north_left, {Y_AXIS, Y_AXIS}),
+  HS_EXPECT_EQ(classify(north_left, {math::Y_AXIS, math::Y_AXIS}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(classify(south_right, {-Y_AXIS, -Y_AXIS}),
+  HS_EXPECT_EQ(classify(south_right, {-math::Y_AXIS, -math::Y_AXIS}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(classify(north_left, {X_AXIS, X_AXIS}),
+  HS_EXPECT_EQ(classify(north_left, {math::X_AXIS, math::X_AXIS}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(classify(north_left, {Z_AXIS, Z_AXIS}),
+  HS_EXPECT_EQ(classify(north_left, {math::Z_AXIS, math::Z_AXIS}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
 
   // Large and antipodal arcs retain enough slack to fall back; a tiny trail
   // well outside still takes the cheap rejection.
-  HS_EXPECT_EQ(classify(north_left, {Vector(0.6f, -0.8f, 0.0f),
-                                     Vector(-0.6f, -0.8f, 0.0f)}),
+  HS_EXPECT_EQ(classify(north_left, {math::Vector(0.6f, -0.8f, 0.0f),
+                                     math::Vector(-0.6f, -0.8f, 0.0f)}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(classify(north_left, {X_AXIS, -X_AXIS}),
+  HS_EXPECT_EQ(classify(north_left, {math::X_AXIS, -math::X_AXIS}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(classify(north_left, {Vector(0.0f, -1.0f, 0.001f),
-                                     Vector(0.0f, -1.0f, 0.00101f)}),
+  HS_EXPECT_EQ(classify(north_left, {math::Vector(0.0f, -1.0f, 0.001f),
+                                     math::Vector(0.0f, -1.0f, 0.00101f)}),
                Plot::CartesianTrailGateResult::LATITUDE_REJECT);
 
   ClipRegion wedge = clip(0, H / 2, 10, 100);
-  HS_EXPECT_EQ(classify(wedge, {Y_AXIS, Y_AXIS}),
+  HS_EXPECT_EQ(classify(wedge, {math::Y_AXIS, math::Y_AXIS}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
 }
 
@@ -1996,22 +2010,23 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
       constexpr size_t N = 6;
       Fragments trail;
       trail.bind(plot_arena(), N);
-      Vector p = trial % 13 == 0
-                     ? Vector(0.001f, trial % 26 == 0 ? 1.0f : -1.0f, 0.001f)
-                           .normalized()
-                     : rand_unit();
+      math::Vector p =
+          trial % 13 == 0
+              ? math::Vector(0.001f, trial % 26 == 0 ? 1.0f : -1.0f, 0.001f)
+                    .normalized()
+              : rand_unit();
       for (size_t k = 0; k < N; ++k) {
         Fragment f;
         f.pos = p;
         trail.push_back(f);
-        Vector next = rand_unit();
+        math::Vector next = rand_unit();
         if (k == 2 && trial % 17 == 0)
           p = -p;
         else {
           const float hop = trial % 5 == 0   ? 1e-5f
                             : trial % 7 == 0 ? 2.7f
                                              : hs::rand_f(0.01f, 0.7f);
-          Vector tangent = next - p * dot(next, p);
+          math::Vector tangent = next - p * math::dot(next, p);
           if (tangent.length() > 1e-4f)
             p = (p * cosf(hop) + tangent.normalized() * sinf(hop)).normalized();
         }
@@ -2071,12 +2086,12 @@ inline void test_gate_trail_edges_matches_edge_visible() {
       const size_t n = 2 + static_cast<size_t>(hs::rand_f(0.0f, 38.0f));
       Fragments trail;
       trail.bind(plot_arena(), n);
-      Vector p = rand_unit();
+      math::Vector p = rand_unit();
       for (size_t k = 0; k < n; ++k) {
         Fragment f;
         f.pos = p;
         trail.push_back(f);
-        Vector step = cross(p, rand_unit());
+        math::Vector step = math::cross(p, rand_unit());
         if (step.length() < 0.05f)
           continue;
         const float hop = hs::rand_f(0.005f, 0.4f);
@@ -2159,7 +2174,7 @@ inline void test_mesh_clip_cut_separates_band() {
       const int n = Plot::geodesic_clip_splits(fa.pos, fb.pos, es, cb, ts);
       cuts += n;
 
-      const Vector perp = cross(es.axis, fa.pos);
+      const math::Vector perp = math::cross(es.axis, fa.pos);
       Fragments points;
       points.bind(plot_arena(), Plot::Mesh::EDGE_MAX_POINTS);
       points.push_back(Plot::Line::sample_point(fa, fb, es, perp, 0.0f));
@@ -2174,8 +2189,9 @@ inline void test_mesh_clip_cut_separates_band() {
 
       for (int s = 0; s <= SWEEP; ++s) {
         const float t = static_cast<float>(s) / SWEEP;
-        const Vector p = Plot::Line::sample_point(fa, fb, es, perp, t).pos;
-        const PixelCoords px = vector_to_pixel<TW, TH>(p);
+        const math::Vector p =
+            Plot::Line::sample_point(fa, fb, es, perp, t).pos;
+        const math::PixelCoords px = math::vector_to_pixel<TW, TH>(p);
         const bool shown = cr.contains_x(static_cast<int>(px.x)) &&
                            cr.contains_y(static_cast<int>(px.y));
         int piece = 0;
@@ -2206,7 +2222,7 @@ inline void test_mesh_clip_cut_separates_band() {
  */
 inline void test_rasterize_gate_bits_pixel_parity() {
   constexpr int W = 96, H = 48;
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
   };
   hs::random().seed(0x617E);
@@ -2217,10 +2233,10 @@ inline void test_rasterize_gate_bits_pixel_parity() {
 
   for (int trial = 0; trial < 40; ++trial) {
     constexpr size_t WALK = 8;
-    Vector walk[WALK];
+    math::Vector walk[WALK];
     walk[0] = rand_unit();
     for (size_t i = 1; i < WALK; ++i) {
-      Vector step = cross(walk[i - 1], rand_unit());
+      math::Vector step = math::cross(walk[i - 1], rand_unit());
       if (step.length() < 0.05f) {
         walk[i] = walk[i - 1];
         continue;
@@ -2237,7 +2253,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
         ScratchScope sc(plot_arena());
         Fragments pts;
         pts.bind(plot_arena(), WALK);
-        for (const Vector &v : walk) {
+        for (const math::Vector &v : walk) {
           Fragment f;
           f.pos = v;
           pts.push_back(f);
@@ -2312,19 +2328,19 @@ inline void test_rasterize_gate_bits_pixel_parity() {
 inline void test_screen_step_matches_analytic_unclamped() {
   constexpr int W = 288, H = 144;
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  constexpr float base_step = (2.0f * PI_F) / W;
-  const float KX = W / (2.0f * PI_F);
-  const float KY = (H_VIRT - 1) / PI_F;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
+  const float KX = W / (2.0f * math::PI_F);
+  const float KY = (H_VIRT - 1) / math::PI_F;
 
-  auto screen_speed = [&](const Vector &pos, const Vector &tan) {
+  auto screen_speed = [&](const math::Vector &pos, const math::Vector &tan) {
     const float ds = 1e-4f;
-    auto xy = [&](const Vector &p) {
+    auto xy = [&](const math::Vector &p) {
       float phi = std::acos(hs::clamp(p.y, -1.0f, 1.0f));
       float lam = std::atan2(p.z, p.x);
       return std::pair<float, float>(lam * KX, phi * KY);
     };
-    Vector pp = (pos * std::cos(ds) + tan * std::sin(ds)).normalized();
-    Vector pm = (pos * std::cos(ds) - tan * std::sin(ds)).normalized();
+    math::Vector pp = (pos * std::cos(ds) + tan * std::sin(ds)).normalized();
+    math::Vector pm = (pos * std::cos(ds) - tan * std::sin(ds)).normalized();
     auto a = xy(pp);
     auto b = xy(pm);
     float dx = (a.first - b.first) / (2.0f * ds);
@@ -2333,19 +2349,20 @@ inline void test_screen_step_matches_analytic_unclamped() {
   };
 
   struct Case {
-    Vector pos, tan;
+    math::Vector pos, tan;
   };
   // The tangent must be perpendicular to pos (a genuine arc-length tangent), or
   // the geodesic oracle and screen_step's formula parametrize differently.
-  const Vector pos_off(std::sqrt(0.75f), 0.5f, 0.0f);
-  const Vector raw(0.0f, 1.0f,
-                   1.0f); // arbitrary; projected onto the tangent plane
-  const Vector tan_mixed = (raw - pos_off * dot(raw, pos_off)).normalized();
+  const math::Vector pos_off(std::sqrt(0.75f), 0.5f, 0.0f);
+  const math::Vector raw(0.0f, 1.0f,
+                         1.0f); // arbitrary; projected onto the tangent plane
+  const math::Vector tan_mixed =
+      (raw - pos_off * math::dot(raw, pos_off)).normalized();
   // Equatorial longitudinal, off-equator longitudinal, and a mixed (colatitude +
   // longitude) tangent — all verified below to land inside the clamp window.
   const Case cases[] = {
-      {Vector(1.0f, 0.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f)},
-      {pos_off, Vector(0.0f, 0.0f, 1.0f)},
+      {math::Vector(1.0f, 0.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f)},
+      {pos_off, math::Vector(0.0f, 0.0f, 1.0f)},
       {pos_off, tan_mixed},
   };
 
@@ -2380,25 +2397,26 @@ inline void test_screen_step_matches_analytic_unclamped() {
  */
 inline void test_edge_fits_one_dot_is_conservative() {
   constexpr int W = 288, H = 144;
-  constexpr float base_step = (2.0f * PI_F) / W;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
   hs::random().seed(20260720);
 
   int accepted = 0;
   for (int n = 0; n < 20000; ++n) {
-    Vector a;
+    math::Vector a;
     if (n % 7 == 0) {
       // Pole-proximal start: predicate must stay safe as sin(phi) -> 0.
       float e = hs::rand_f(0.0f, 0.05f);
-      float az = hs::rand_f(0.0f, 2.0f * PI_F);
+      float az = hs::rand_f(0.0f, 2.0f * math::PI_F);
       float s = std::sin(e);
-      a = Vector(s * std::cos(az), (n % 14 == 0) ? std::cos(e) : -std::cos(e),
-                 s * std::sin(az));
+      a = math::Vector(s * std::cos(az),
+                       (n % 14 == 0) ? std::cos(e) : -std::cos(e),
+                       s * std::sin(az));
     } else {
       for (;;) {
         const float rx = hs::rand_f(-1, 1);
         const float ry = hs::rand_f(-1, 1);
         const float rz = hs::rand_f(-1, 1);
-        Vector r(rx, ry, rz);
+        math::Vector r(rx, ry, rz);
         if (r.length() > 0.1f) {
           a = r.normalized();
           break;
@@ -2408,22 +2426,22 @@ inline void test_edge_fits_one_dot_is_conservative() {
     const float raw_x = hs::rand_f(-1, 1);
     const float raw_y = hs::rand_f(-1, 1);
     const float raw_z = hs::rand_f(-1, 1);
-    Vector raw(raw_x, raw_y, raw_z);
-    Vector t = raw - a * dot(raw, a);
+    math::Vector raw(raw_x, raw_y, raw_z);
+    math::Vector t = raw - a * math::dot(raw, a);
     if (t.length() < 1e-3f)
       continue;
     t = t.normalized();
     float theta = base_step * std::pow(10.0f, hs::rand_f(-4.0f, 0.5f));
-    Vector b = (a * std::cos(theta) + t * std::sin(theta)).normalized();
+    math::Vector b = (a * std::cos(theta) + t * std::sin(theta)).normalized();
 
     if (!Plot::edge_fits_one_dot<W, H>(a, b))
       continue;
     ++accepted;
 
-    float total = angle_between(a, b);
+    float total = math::angle_between(a, b);
     HS_EXPECT_GE(total, math::EPS_GEOMETRIC);
-    Vector axis = cross(a, b).normalized();
-    Vector v_perp = cross(axis, a);
+    math::Vector axis = math::cross(a, b).normalized();
+    math::Vector v_perp = math::cross(axis, a);
     float first_step = Plot::screen_step<W, H>(a, v_perp, base_step);
     HS_EXPECT_LE(total, first_step);
   }
@@ -2473,12 +2491,12 @@ inline void test_antialiased_dot_clip_footprint() {
 inline void test_geodesic_edge_gate_keeps_upper_antialias_tap() {
   constexpr int W = 96, H = 48;
   constexpr float EDGE_ROW = 10.25f;
-  const float phi = y_to_phi_virtual(EDGE_ROW, H + hs::H_OFFSET);
+  const float phi = math::y_to_phi_virtual(EDGE_ROW, H + hs::H_OFFSET);
   const float sp = sinf(phi);
   const float cp = cosf(phi);
   const float theta = 0.2f;
-  const Vector a(sp * cosf(theta), cp, sp * sinf(theta));
-  const Vector b(sp * cosf(theta), cp, -sp * sinf(theta));
+  const math::Vector a(sp * cosf(theta), cp, sp * sinf(theta));
+  const math::Vector b(sp * cosf(theta), cp, -sp * sinf(theta));
   const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
 
   ClipRegion cr;
@@ -2499,10 +2517,10 @@ inline void test_geodesic_edge_gate_keeps_upper_antialias_tap() {
   HS_EXPECT_GT(row_hi, cr.render_y_start() - Plot::GEODESIC_ROW_AA_PAD);
   HS_EXPECT_TRUE((Plot::exact_geodesic_edge_visible<W, H>(
       cr, xc, ra, rb, a, b, es, [](int &, int &) { return false; })));
-  HS_EXPECT_EQ(
-      (Plot::raw_geodesic_edge_gate<W, H>(cr, xc, ra, rb, vector_to_theta<W>(a),
-                                          vector_to_theta<W>(b), a, b)),
-      Plot::RawGeodesicGateResult::VISIBLE);
+  HS_EXPECT_EQ((Plot::raw_geodesic_edge_gate<W, H>(
+                   cr, xc, ra, rb, math::vector_to_theta<W>(a),
+                   math::vector_to_theta<W>(b), a, b)),
+               Plot::RawGeodesicGateResult::VISIBLE);
 
   Filter::Screen::AntiAlias<W, H> aa;
   bool emitted_in_margin = false;
@@ -2592,7 +2610,8 @@ inline void test_ring_sample_unit_length_and_progress() {
   const int N = 32;
   points.bind(plot_arena(), N + 2);
 
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
+  math::Basis b =
+      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
   Plot::Ring::sample(points, b, 0.5f, N, 0.0f);
 
   // N samples + 1 manual-close overlap fragment.
@@ -2618,28 +2637,28 @@ inline void test_ring_sample_unit_length_and_progress() {
  * @param W Number of control vertices (the close vertex is not emitted).
  * @return The W expected unit positions, in sample order.
  */
-inline std::vector<Vector> ring_vertices_direct(const Basis &b, float radius,
-                                                float phase, int W) {
-  auto res = get_antipode(b, radius);
-  const Basis &wb = res.first;
-  const float theta_eq = res.second * (PI_F / 2.0f);
+inline std::vector<math::Vector>
+ring_vertices_direct(const math::Basis &b, float radius, float phase, int W) {
+  auto res = math::get_antipode(b, radius);
+  const math::Basis &wb = res.first;
+  const float theta_eq = res.second * (math::PI_F / 2.0f);
   const float r_val = sinf(theta_eq);
   const float d_val = cosf(theta_eq);
-  const float step = 2.0f * PI_F / W;
+  const float step = 2.0f * math::PI_F / W;
 
-  std::vector<Vector> expected;
+  std::vector<math::Vector> expected;
   expected.reserve(static_cast<size_t>(W));
   for (int i = 0; i < W; ++i) {
     const float t = i * step + phase;
-    const Vector u_temp = (wb.u * cosf(t)) + (wb.w * sinf(t));
+    const math::Vector u_temp = (wb.u * cosf(t)) + (wb.w * sinf(t));
     expected.push_back(((wb.v * d_val) + (u_temp * r_val)).normalized());
   }
   return expected;
 }
 
 /** @brief sin of a ring's polar radius: the arc-length scale of its v1. */
-inline float ring_arc_scale(const Basis &b, float radius) {
-  return sinf(get_antipode(b, radius).second * (PI_F / 2.0f));
+inline float ring_arc_scale(const math::Basis &b, float radius) {
+  return sinf(math::get_antipode(b, radius).second * (math::PI_F / 2.0f));
 }
 
 /**
@@ -2657,17 +2676,18 @@ inline void test_ring_sample_lut_matches_direct() {
   Fragments points;
   points.bind(plot_arena(), W + 2);
 
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
+  math::Basis b =
+      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
   const float radius = 0.5f;
   const float phase = 0.7f;
   Plot::Ring::sample<W, H>(points, b, radius, phase);
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(W + 1));
 
-  const std::vector<Vector> expected =
+  const std::vector<math::Vector> expected =
       ring_vertices_direct(b, radius, phase, W);
   const float r_val = ring_arc_scale(b, radius);
-  const float step = 2.0f * PI_F / W;
+  const float step = 2.0f * math::PI_F / W;
 
   for (int i = 0; i < W; ++i) {
     HS_EXPECT_NEAR(points[i].pos.x, expected[i].x, 2e-3f);
@@ -2684,7 +2704,7 @@ inline void test_ring_sample_lut_matches_direct() {
 
   // Close vertex carries the full-perimeter arc length: the ring's true
   // great-circle circumference 2*pi*sin(theta_eq).
-  HS_EXPECT_NEAR(points.back().v1, 2.0f * PI_F * r_val, 2e-3f);
+  HS_EXPECT_NEAR(points.back().v1, 2.0f * math::PI_F * r_val, 2e-3f);
 }
 
 /**
@@ -2700,16 +2720,18 @@ inline void test_ring_sample_lut_matches_direct() {
  */
 inline void test_ring_draw_stride_tracks_full_grid() {
   constexpr int W = 96, H = 48;
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
   };
 
-  const Vector centers[] = {Vector(0, 1, 0), Vector(0.3f, 0.8f, 0.5f),
-                            Vector(1, 0, 0)};
-  for (const Vector &center : centers) {
-    Basis b = make_basis(Quaternion(1, 0, 0, 0), center);
+  const math::Vector centers[] = {math::Vector(0, 1, 0),
+                                  math::Vector(0.3f, 0.8f, 0.5f),
+                                  math::Vector(1, 0, 0)};
+  for (const math::Vector &center : centers) {
+    math::Basis b = math::make_basis(math::Quaternion(1, 0, 0, 0), center);
     for (float radius : {0.06f, 0.15f, 0.3f}) {
-      HS_EXPECT_GT((Plot::ring_lut_stride<W>(sinf(radius * PI_F / 2.0f))), 1);
+      HS_EXPECT_GT((Plot::ring_lut_stride<W>(sinf(radius * math::PI_F / 2.0f))),
+                   1);
 
       auto render = [&](auto &&draw_one) {
         std::vector<uint8_t> mask(static_cast<size_t>(W) * H, 0);
@@ -2809,8 +2831,9 @@ inline void test_ring_draw_accepts_direct_sink() {
   {
     Canvas canvas(fx);
     sink.prepare(canvas);
-    const Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
-    auto shade = [](const Vector &, Fragment &f) {
+    const math::Basis basis =
+        math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
+    auto shade = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
     };
     Plot::Ring::draw<W, H>(sink, canvas, basis, 0.5f, shade);
@@ -2842,7 +2865,8 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
   Fragments points;
   points.bind(plot_arena(), W + 2);
 
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
+  math::Basis b =
+      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
   const float radius = 0.5f;
   const float phase = 0.7f;
   ScalarFn zero_shift = [](float) { return 0.0f; };
@@ -2851,7 +2875,7 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(W + 1));
 
-  const std::vector<Vector> expected =
+  const std::vector<math::Vector> expected =
       ring_vertices_direct(b, radius, phase, W);
   for (int i = 0; i < W; ++i) {
     HS_EXPECT_NEAR(points[i].pos.x, expected[i].x, 2e-3f);
@@ -2874,11 +2898,12 @@ inline void test_distorted_ring_shift_matches_fn_point() {
   Fragments points;
   points.bind(plot_arena(), W + 2);
 
-  const Basis b = make_basis(Quaternion(0.92387953f, 0.0f, 0.38268343f, 0.0f),
-                             Vector(0, 1, 0));
+  const math::Basis b =
+      math::make_basis(math::Quaternion(0.92387953f, 0.0f, 0.38268343f, 0.0f),
+                       math::Vector(0, 1, 0));
   const float radius = 0.5f;
   auto shift_shape = [](float t) {
-    return 0.3f * sinf(2.0f * PI_F * t) + 0.1f;
+    return 0.3f * sinf(2.0f * math::PI_F * t) + 0.1f;
   };
   ScalarFn shift_fn = shift_shape;
 
@@ -2886,14 +2911,15 @@ inline void test_distorted_ring_shift_matches_fn_point() {
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(W + 1));
 
   const Plot::RingFrame frame = Plot::ring_frame(b, radius);
-  const float step = 2.0f * PI_F / W;
+  const float step = 2.0f * math::PI_F / W;
   for (int i = 0; i < W; ++i) {
     HS_CONTEXT("vertex", static_cast<long long>(i));
     const float angle = i * step;
-    const float polar = frame.theta_eq + shift_shape(angle / (2.0f * PI_F));
-    HS_EXPECT_NEAR(dot(points[i].pos, frame.basis.v), cosf(polar), 2e-3f);
+    const float polar =
+        frame.theta_eq + shift_shape(angle / (2.0f * math::PI_F));
+    HS_EXPECT_NEAR(math::dot(points[i].pos, frame.basis.v), cosf(polar), 2e-3f);
 
-    const Vector direct =
+    const math::Vector direct =
         Plot::DistortedRing::fn_point(shift_fn, b, radius, angle);
     HS_EXPECT_NEAR(direct.length(), 1.0f, 1e-3f);
     HS_EXPECT_NEAR(points[i].pos.x, direct.x, 2e-3f);
@@ -2917,11 +2943,11 @@ inline void test_multiline_sample_arclength_param() {
   Fragments verts;
   verts.bind(plot_arena(), 4);
   Fragment v;
-  v.pos = Vector(1, 0, 0);
+  v.pos = math::Vector(1, 0, 0);
   verts.push_back(v);
-  v.pos = Vector(0, 1, 0);
+  v.pos = math::Vector(0, 1, 0);
   verts.push_back(v);
-  v.pos = Vector(-1, 0, 0);
+  v.pos = math::Vector(-1, 0, 0);
   verts.push_back(v);
 
   Fragments points;
@@ -2939,7 +2965,7 @@ inline void test_multiline_sample_arclength_param() {
     HS_EXPECT_NEAR(points[i].v2, static_cast<float>(i), 1e-6f);
   }
   // v1 cumulative arc length sums the two equal 90deg hops.
-  HS_EXPECT_NEAR(points.back().v1, PI_F, 1e-3f);
+  HS_EXPECT_NEAR(points.back().v1, math::PI_F, 1e-3f);
 
   Fragments closed_points;
   closed_points.bind(plot_arena(), 8);
@@ -2949,7 +2975,7 @@ inline void test_multiline_sample_arclength_param() {
   HS_EXPECT_NEAR(seam.pos.x, closed_points[0].pos.x, 1e-6f);
   HS_EXPECT_NEAR(seam.pos.y, closed_points[0].pos.y, 1e-6f);
   HS_EXPECT_NEAR(seam.v0, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(seam.v1, 2.0f * PI_F, 1e-3f);
+  HS_EXPECT_NEAR(seam.v1, 2.0f * math::PI_F, 1e-3f);
   HS_EXPECT_NEAR(seam.v2, 3.0f, 1e-6f);
 }
 
@@ -2961,21 +2987,22 @@ inline void test_multiline_sample_arclength_param() {
 // ============================================================================
 
 /** @brief Four non-coplanar control directions used by the Multiline cases. */
-inline void multiline_control_points(std::vector<Vector> &out) {
-  out = {Vector(1.0f, 0.0f, 0.0f), Vector(0.3f, 0.9f, 0.2f).normalized(),
-         Vector(-0.5f, 0.2f, 0.84f).normalized(),
-         Vector(-0.2f, -0.85f, 0.49f).normalized()};
+inline void multiline_control_points(std::vector<math::Vector> &out) {
+  out = {math::Vector(1.0f, 0.0f, 0.0f),
+         math::Vector(0.3f, 0.9f, 0.2f).normalized(),
+         math::Vector(-0.5f, 0.2f, 0.84f).normalized(),
+         math::Vector(-0.2f, -0.85f, 0.49f).normalized()};
 }
 
 /** @brief Rejects a great-circle foot on the complementary arc. */
 inline void test_arc_angular_distance_clamps_to_minor_arc() {
   const auto equator = [](float degrees) {
-    const float angle = degrees * PI_F / 180.0f;
-    return Vector(cosf(angle), 0.0f, sinf(angle));
+    const float angle = degrees * math::PI_F / 180.0f;
+    return math::Vector(cosf(angle), 0.0f, sinf(angle));
   };
   HS_EXPECT_NEAR(
       arc_angular_distance(equator(270.0f), equator(0.0f), equator(150.0f)),
-      PI_F * 0.5f, 1e-5f);
+      math::PI_F * 0.5f, 1e-5f);
 }
 
 /**
@@ -2987,15 +3014,15 @@ inline void test_arc_angular_distance_clamps_to_minor_arc() {
  */
 inline void test_multiline_draw_covers_only_its_geodesic_edges() {
   constexpr int W = 128, H = 64;
-  const float row = PI_F / (H - 1);
+  const float row = math::PI_F / (H - 1);
 
-  std::vector<Vector> control;
+  std::vector<math::Vector> control;
   multiline_control_points(control);
 
   ScratchScope sc(plot_arena());
   Fragments verts;
   verts.bind(plot_arena(), control.size());
-  for (const Vector &v : control) {
+  for (const math::Vector &v : control) {
     Fragment f;
     f.pos = v;
     verts.push_back(f);
@@ -3011,9 +3038,9 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
 
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)0);
   float worst_off_path = 0.0f;
-  for (const Vector &p : pipe.plotted) {
+  for (const math::Vector &p : pipe.plotted) {
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
-    float nearest = PI_F;
+    float nearest = math::PI_F;
     for (size_t i = 1; i < control.size(); ++i)
       nearest = std::min(nearest,
                          arc_angular_distance(p, control[i - 1], control[i]));
@@ -3022,10 +3049,10 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
   HS_EXPECT_LT(worst_off_path, row);
 
   // Every control point is reached, so no edge was skipped.
-  for (const Vector &c : control) {
-    float nearest = PI_F;
-    for (const Vector &p : pipe.plotted)
-      nearest = std::min(nearest, angle_between(p, c));
+  for (const math::Vector &c : control) {
+    float nearest = math::PI_F;
+    for (const math::Vector &p : pipe.plotted)
+      nearest = std::min(nearest, math::angle_between(p, c));
     HS_EXPECT_LT(nearest, row);
   }
 
@@ -3042,14 +3069,15 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
  */
 inline void test_multiline_draw_closed_adds_the_seam_edge() {
   constexpr int W = 128, H = 64;
-  const float row = PI_F / (H - 1);
+  const float row = math::PI_F / (H - 1);
 
-  std::vector<Vector> control;
+  std::vector<math::Vector> control;
   multiline_control_points(control);
-  const Vector seam_midpoint = (control.back() + control.front()).normalized();
+  const math::Vector seam_midpoint =
+      (control.back() + control.front()).normalized();
 
   // The midpoint is only a seam witness if it is off every drawn open edge.
-  float midpoint_to_open_path = PI_F;
+  float midpoint_to_open_path = math::PI_F;
   for (size_t i = 1; i < control.size(); ++i)
     midpoint_to_open_path = std::min(
         midpoint_to_open_path,
@@ -3060,7 +3088,7 @@ inline void test_multiline_draw_closed_adds_the_seam_edge() {
     ScratchScope sc(plot_arena());
     Fragments verts;
     verts.bind(plot_arena(), control.size());
-    for (const Vector &v : control) {
+    for (const math::Vector &v : control) {
       Fragment f;
       f.pos = v;
       verts.push_back(f);
@@ -3072,9 +3100,9 @@ inline void test_multiline_draw_closed_adds_the_seam_edge() {
       Plot::Multiline::draw<W, H>(pipe, c, verts, noop_shader, closed);
     }
     fx.advance_display();
-    float nearest = PI_F;
-    for (const Vector &p : pipe.plotted)
-      nearest = std::min(nearest, angle_between(p, seam_midpoint));
+    float nearest = math::PI_F;
+    for (const math::Vector &p : pipe.plotted)
+      nearest = std::min(nearest, math::angle_between(p, seam_midpoint));
     return std::pair<size_t, float>{pipe.plotted.size(), nearest};
   };
 
@@ -3103,13 +3131,14 @@ inline void test_plot_line_over_pole_reaches_row0() {
   // Geodesic from 0.4 rad down the +Z side of the N pole to 0.4 rad down the
   // -Z side; its midpoint is the pole (row 0).
   Fragment f1, f2;
-  f1.pos = Vector(0.0f, cosf(0.4f), sinf(0.4f));
-  f2.pos = Vector(0.0f, cosf(0.4f), -sinf(0.4f));
+  f1.pos = math::Vector(0.0f, cosf(0.4f), sinf(0.4f));
+  f2.pos = math::Vector(0.0f, cosf(0.4f), -sinf(0.4f));
   {
     Canvas c(fx);
-    Plot::Line::draw<W, H>(pipe, c, f1, f2, [](const Vector &, Fragment &f) {
-      f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-    });
+    Plot::Line::draw<W, H>(pipe, c, f1, f2,
+                           [](const math::Vector &, Fragment &f) {
+                             f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+                           });
   }
   fx.advance_display();
 
@@ -3140,7 +3169,8 @@ inline void test_star_sample_unit_length_closed() {
   const int sides = 5;
   points.bind(plot_arena(), sides * 2 + 2);
 
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
+  math::Basis b =
+      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
   Plot::Star<Plot::PlanarProjection>::sample(points, b, 0.5f, sides, 0.0f);
 
   // 2*sides vertices + 1 close fragment.
@@ -3153,13 +3183,15 @@ inline void test_star_sample_unit_length_closed() {
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
 
   // Alternating outer/inner colatitude about the center axis.
-  const Vector axis = get_antipode(b, 0.5f).first.v;
-  const float outer = angle_between(points[0].pos, axis); // even index -> outer
-  const float inner = angle_between(points[1].pos, axis); // odd index  -> inner
+  const math::Vector axis = math::get_antipode(b, 0.5f).first.v;
+  const float outer =
+      math::angle_between(points[0].pos, axis); // even index -> outer
+  const float inner =
+      math::angle_between(points[1].pos, axis); // odd index  -> inner
   HS_EXPECT_GT(outer, inner + 1e-3f);
   HS_EXPECT_NEAR(inner / outer, Plot::STAR_INNER_RATIO, 1e-2f);
   for (int i = 0; i < sides * 2; ++i) {
-    const float colat = angle_between(points[i].pos, axis);
+    const float colat = math::angle_between(points[i].pos, axis);
     HS_EXPECT_NEAR(colat, (i % 2 == 0) ? outer : inner, 1e-3f);
   }
 }
@@ -3185,8 +3217,8 @@ constexpr float STAR_INSTANTIATION_DRIFT =
  */
 inline void test_star_sample_radius_trig_parity() {
   ScratchScope sc(plot_arena());
-  const Basis b =
-      make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
+  const math::Basis b = math::make_basis(
+      math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
 
   for (int sides : {3, 7, 16}) {
     for (float radius : {0.01f, 0.57f, 1.0f, 1.73f, 1.99f}) {
@@ -3209,11 +3241,11 @@ inline void test_star_sample_radius_trig_parity() {
             Plot::Star<Plot::PlanarProjection>::radius_trig(radius),
             Plot::Star<Plot::PlanarProjection>::step_trig(sides));
 
-        auto res = get_antipode(b, radius);
-        const Basis &work_basis = res.first;
-        const float outer_radius = res.second * (PI_F / 2.0f);
+        auto res = math::get_antipode(b, radius);
+        const math::Basis &work_basis = res.first;
+        const float outer_radius = res.second * (math::PI_F / 2.0f);
         const float inner_radius = outer_radius * Plot::STAR_INNER_RATIO;
-        const float angle_step = PI_F / sides;
+        const float angle_step = math::PI_F / sides;
         Plot::sample_closed_ring(reference, sides * 2, [&](int i) {
           const float theta = phase + i * angle_step;
           const float r = (i % 2 == 0) ? outer_radius : inner_radius;
@@ -3221,8 +3253,9 @@ inline void test_star_sample_radius_trig_parity() {
           const float cos_r = cosf(r);
           const float cos_t = cosf(theta);
           const float sin_t = sinf(theta);
-          Vector p = (work_basis.v * cos_r) + (work_basis.u * (cos_t * sin_r)) +
-                     (work_basis.w * (sin_t * sin_r));
+          math::Vector p = (work_basis.v * cos_r) +
+                           (work_basis.u * (cos_t * sin_r)) +
+                           (work_basis.w * (sin_t * sin_r));
           p.normalize();
           return p;
         });
@@ -3270,8 +3303,8 @@ inline void test_star_sample_radius_trig_parity() {
 inline void test_star_continuous_matches_standard_near_side() {
   constexpr float NEAR_SIDE_TOL = 1e-5f;
   ScratchScope sc(plot_arena());
-  const Basis basis =
-      make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
+  const math::Basis basis = math::make_basis(
+      math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
   for (float radius : {0.0f, 0.31f, 0.87f, 1.0f}) {
     ScratchScope iteration(plot_arena());
     Fragments standard;
@@ -3294,7 +3327,7 @@ inline void test_star_continuous_matches_standard_near_side() {
 /** @brief Continuous Star vertices do not jump at the equatorial level. */
 inline void test_star_continuous_crosses_equator() {
   ScratchScope sc(plot_arena());
-  const Basis basis = make_basis(Quaternion(), X_AXIS);
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
   Fragments below;
   Fragments seam;
   Fragments above;
@@ -3310,16 +3343,16 @@ inline void test_star_continuous_crosses_equator() {
   HS_EXPECT_SIZE_OR_RETURN(below, seam.size());
   HS_EXPECT_SIZE_OR_RETURN(above, seam.size());
   for (size_t i = 0; i < seam.size(); ++i) {
-    HS_EXPECT_LT(angle_between(below[i].pos, seam[i].pos), 0.001f);
-    HS_EXPECT_LT(angle_between(seam[i].pos, above[i].pos), 0.001f);
+    HS_EXPECT_LT(math::angle_between(below[i].pos, seam[i].pos), 0.001f);
+    HS_EXPECT_LT(math::angle_between(seam[i].pos, above[i].pos), 0.001f);
   }
 }
 
 /** @brief The final continuous Star level collapses to the opposite pole. */
 inline void test_star_continuous_collapses_at_antipode() {
   ScratchScope sc(plot_arena());
-  const Basis basis =
-      make_basis(Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), X_AXIS);
+  const math::Basis basis = math::make_basis(
+      math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
   Fragments points;
   points.bind(plot_arena(), 16);
   const int sides = 7;
@@ -3327,7 +3360,7 @@ inline void test_star_continuous_collapses_at_antipode() {
       points, basis, 2.0f, sides, 0.37f);
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
   for (const Fragment &point : points)
-    HS_EXPECT_LT(angle_between(point.pos, -basis.v), 0.001f);
+    HS_EXPECT_LT(math::angle_between(point.pos, -basis.v), 0.001f);
 }
 
 /**
@@ -3345,7 +3378,8 @@ inline void test_flower_sample_unit_length_closed() {
   const int sides = 6;
   points.bind(plot_arena(), sides * 2 + 2);
 
-  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
+  math::Basis b =
+      math::make_basis(math::Quaternion(1, 0, 0, 0), math::Vector(0, 1, 0));
   Plot::Flower::sample(points, b, 0.5f, sides, 0.0f);
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(sides * 2 + 1));
@@ -3356,10 +3390,10 @@ inline void test_flower_sample_unit_length_closed() {
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
 
   // Constant colatitude about the center axis.
-  const Vector axis = get_antipode(b, 0.5f).first.v;
-  const float colat0 = angle_between(points[0].pos, axis);
+  const math::Vector axis = math::get_antipode(b, 0.5f).first.v;
+  const float colat0 = math::angle_between(points[0].pos, axis);
   for (int i = 0; i < sides * 2; ++i) {
-    const float colat = angle_between(points[i].pos, axis);
+    const float colat = math::angle_between(points[i].pos, axis);
     HS_EXPECT_NEAR(colat, colat0, 1e-3f);
   }
 }
@@ -3380,9 +3414,9 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   points.bind(plot_arena(), 4);
 
   Fragment a, b;
-  a.pos = Vector(1, 0, 0);
+  a.pos = math::Vector(1, 0, 0);
   // ~0.02 rad apart, well under base_step (2*pi/W = ~0.049 rad).
-  b.pos = Vector(1.0f, 0.02f, 0.0f).normalized();
+  b.pos = math::Vector(1.0f, 0.02f, 0.0f).normalized();
   points.push_back(a);
   points.push_back(b);
 
@@ -3400,7 +3434,7 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   // tolerance this tight. The chord tracks the angle to within angle^3/24.
   HS_EXPECT_NEAR((pipe.plotted.front() - a.pos).length(), 0.0f, 1e-4f);
   HS_EXPECT_NEAR((pipe.plotted.back() - b.pos).length(), 0.0f, 1e-4f);
-  for (const Vector &p : pipe.plotted)
+  for (const math::Vector &p : pipe.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
 
@@ -3411,15 +3445,15 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
  */
 inline void test_rasterize_open_segment_gap_free() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * PI_F) / W;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
 
   Fragment a, b;
-  a.pos = Vector(1, 0, 0);
-  b.pos = Vector(0, 1, 0);
+  a.pos = math::Vector(1, 0, 0);
+  b.pos = math::Vector(0, 1, 0);
   points.push_back(a);
   points.push_back(b);
 
@@ -3434,9 +3468,9 @@ inline void test_rasterize_open_segment_gap_free() {
   // Adaptive sub-stepping caps each advance at ~base_step (slack for quantization).
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * base_step);
-  HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-3f);
-  for (const Vector &p : pipe.plotted)
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-3f);
+  for (const math::Vector &p : pipe.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
 
@@ -3447,7 +3481,7 @@ inline void test_rasterize_open_segment_gap_free() {
  */
 inline void test_rasterize_closed_loop_gap_free_no_dup() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * PI_F) / W;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -3455,9 +3489,9 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
 
   // A spherical triangle with well-separated vertices.
   Fragment v0, v1, v2;
-  v0.pos = Vector(1, 0, 0);
-  v1.pos = Vector(0, 1, 0);
-  v2.pos = Vector(0, 0, 1);
+  v0.pos = math::Vector(1, 0, 0);
+  v1.pos = math::Vector(0, 1, 0);
+  v2.pos = math::Vector(0, 0, 1);
   points.push_back(v0);
   points.push_back(v1);
   points.push_back(v2);
@@ -3475,7 +3509,8 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
                1.5f * base_step);
   // No vertex plotted twice: consecutive samples stay distinct.
   for (size_t i = 1; i < pipe.plotted.size(); ++i)
-    HS_EXPECT_GT(angle_between(pipe.plotted[i - 1], pipe.plotted[i]), 1e-5f);
+    HS_EXPECT_GT(math::angle_between(pipe.plotted[i - 1], pipe.plotted[i]),
+                 1e-5f);
 }
 
 /**
@@ -3492,11 +3527,11 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
 
   // planar basis centered on +Z; the second endpoint sits within the antipodal
   // margin of -Z (dot < -COS_PLANAR_ANTIPODE), tripping the seam guard.
-  Basis basis = basis_from_normal(Vector(0, 0, 1));
+  math::Basis basis = basis_from_normal(math::Vector(0, 0, 1));
   Fragment a, b;
-  a.pos = Vector(1, 0, 0);
-  b.pos = Vector(0.02f, 0.0f, -1.0f).normalized();
-  HS_EXPECT_LT(dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  a.pos = math::Vector(1, 0, 0);
+  b.pos = math::Vector(0.02f, 0.0f, -1.0f).normalized();
+  HS_EXPECT_LT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
   points.push_back(a);
   points.push_back(b);
 
@@ -3535,7 +3570,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
  */
 inline void test_rasterize_planar_segment_gap_free_arclength() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * PI_F) / W;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -3543,17 +3578,17 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
 
   // Planar disk about +Y; endpoints sweep colatitude 0.3 -> 1.3 across azimuths
   // so the chord crosses regions of differing azimuthal stretch (r / sin r).
-  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
   auto on_disk = [&](float colat, float az) {
-    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
     return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
   };
   Fragment a, b;
   a.pos = on_disk(0.3f, 0.0f);
   b.pos = on_disk(1.3f, 1.0f);
   // Stays out of the antipodal-seam fallback so the planar strategy is used.
-  HS_EXPECT_GT(dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
-  HS_EXPECT_GT(dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_GT(math::dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_GT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
   points.push_back(a);
   points.push_back(b);
 
@@ -3569,9 +3604,9 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * base_step);
   // Endpoints land within map_planar's project/unproject round-trip error.
-  HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
-  HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);
-  for (const Vector &p : pipe.plotted)
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);
+  for (const math::Vector &p : pipe.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
 
@@ -3592,16 +3627,16 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
 
   // Same non-seam planar disk edge as the gap-free test: colatitude 0.3 -> 1.3
   // across azimuths, so the rendered edge bows well clear of its chord.
-  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
   auto on_disk = [&](float colat, float az) {
-    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
     return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
   };
   Fragment a, b;
   a.pos = on_disk(0.3f, 0.0f);
   b.pos = on_disk(1.3f, 1.0f);
-  HS_EXPECT_GT(dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
-  HS_EXPECT_GT(dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_GT(math::dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_GT(math::dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
   // Bare control points default v0/v1 to 0, so any nonzero arc below comes
   // solely from the rasterizer's rendered-arc override.
   points.push_back(a);
@@ -3609,7 +3644,7 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
 
   CapturePipeline pipe;
   std::vector<float> v0s, v1s;
-  auto capture = [&](const Vector &, Fragment &f) {
+  auto capture = [&](const math::Vector &, Fragment &f) {
     v0s.push_back(f.v0);
     v1s.push_back(f.v1);
   };
@@ -3631,7 +3666,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
       Plot::make_planar_edge_sampler(a.pos, b.pos, basis);
   float rendered = 0.0f;
   double independent_rendered = 0.0;
-  const auto independent_angle = [](const Vector &u, const Vector &v) {
+  const auto independent_angle = [](const math::Vector &u,
+                                    const math::Vector &v) {
     const double uv = static_cast<double>(u.x) * v.x +
                       static_cast<double>(u.y) * v.y +
                       static_cast<double>(u.z) * v.z;
@@ -3643,11 +3679,12 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
                       static_cast<double>(v.z) * v.z;
     return std::acos(std::clamp(uv / std::sqrt(uu * vv), -1.0, 1.0));
   };
-  Vector previous = sampler.unproject(0.0f);
-  const Vector mapped_start = previous;
+  math::Vector previous = sampler.unproject(0.0f);
+  const math::Vector mapped_start = previous;
   for (int i = 1; i <= 32; ++i) {
-    const Vector current = sampler.unproject(static_cast<float>(i) / 32.0f);
-    rendered += angle_between(previous, current);
+    const math::Vector current =
+        sampler.unproject(static_cast<float>(i) / 32.0f);
+    rendered += math::angle_between(previous, current);
     independent_rendered += independent_angle(previous, current);
     previous = current;
   }
@@ -3679,20 +3716,22 @@ inline void test_planar_sampler_from_cull_parity() {
   constexpr float PARITY_TOL = 1e-4f;
   hs::random().seed(0xC0115A9u);
   for (int trial = 0; trial < 400; ++trial) {
-    Vector normal(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                  hs::rand_f(-1.0f, 1.0f));
+    math::Vector normal(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                        hs::rand_f(-1.0f, 1.0f));
     if (normal.length() < 0.01f)
-      normal = Y_AXIS;
-    const Basis basis = basis_from_normal(normal.normalized());
+      normal = math::Y_AXIS;
+    const math::Basis basis = basis_from_normal(normal.normalized());
     auto point = [&](float radius, float angle) {
-      const Vector radial = basis.u * cosf(angle) + basis.w * sinf(angle);
+      const math::Vector radial = basis.u * cosf(angle) + basis.w * sinf(angle);
       return (basis.v * cosf(radius) + radial * sinf(radius)).normalized();
     };
-    const Vector a = point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-PI_F, PI_F));
-    const Vector b = point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-PI_F, PI_F));
+    const math::Vector a =
+        point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-math::PI_F, math::PI_F));
+    const math::Vector b =
+        point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-math::PI_F, math::PI_F));
     const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
     int col_s, col_len;
-    Vector end;
+    math::Vector end;
     Plot::planar_col_span<W>(a, basis, span, col_s, col_len, &end);
     const Plot::PlanarEdgeSampler rebuilt =
         Plot::make_planar_edge_sampler(a, b, basis);
@@ -3717,7 +3756,8 @@ inline void test_planar_sampler_from_cull_parity() {
     for (float t : {0.0f, 0.17f, 0.51f, 0.88f}) {
       const Plot::SamplePT original = rebuilt.one_pass(t);
       const Plot::SamplePT optimized = reused.one_pass_monotonic(t, interval);
-      const Vector position = reused.position_monotonic(t, position_interval);
+      const math::Vector position =
+          reused.position_monotonic(t, position_interval);
       expect_parity(original.pos.x, optimized.pos.x);
       expect_parity(original.pos.y, optimized.pos.y);
       expect_parity(original.pos.z, optimized.pos.z);
@@ -3744,16 +3784,16 @@ inline void test_rasterize_planar_policy_parity() {
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 16);
-  const Basis shape_basis =
-      make_basis(Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), X_AXIS);
+  const math::Basis shape_basis = math::make_basis(
+      math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), math::X_AXIS);
   constexpr float RADIUS = 0.74f;
   Plot::Star<Plot::PlanarProjection>::sample(points, shape_basis, RADIUS, 7,
                                              1.37f);
-  const Basis planar_basis =
-      Plot::planar_chart_basis(get_antipode(shape_basis, RADIUS).first.v);
+  const math::Basis planar_basis =
+      Plot::planar_chart_basis(math::get_antipode(shape_basis, RADIUS).first.v);
 
   struct Stream {
-    std::vector<Vector> positions;
+    std::vector<math::Vector> positions;
     std::vector<std::array<uint32_t, 3>> registers;
   };
   auto capture = [&]<bool DerivePlanarArcRegisters, bool InterpolateRegisters>(
@@ -3762,7 +3802,7 @@ inline void test_rasterize_planar_policy_parity() {
     fx.set_clip(0, H, 0, W / 2);
     DirectCapturePipeline pipeline;
     Stream stream;
-    auto shader = [&](const Vector &, Fragment &f) {
+    auto shader = [&](const math::Vector &, Fragment &f) {
       stream.registers.push_back({std::bit_cast<uint32_t>(f.v0),
                                   std::bit_cast<uint32_t>(f.v1),
                                   std::bit_cast<uint32_t>(f.v2)});
@@ -3871,11 +3911,11 @@ inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
 
   ParticleDrawCapture capture;
   CapturePipeline pipe;
-  auto fragment_shader = [&](const Vector &, Fragment &) {
+  auto fragment_shader = [&](const math::Vector &, Fragment &) {
     ++capture.fragment_calls;
   };
   auto vertex_shader = [&](Fragment &) { ++capture.vertex_calls; };
-  auto deferred_shader = [&](FragmentRegisters, const Vector &) {
+  auto deferred_shader = [&](FragmentRegisters, const math::Vector &) {
     ++capture.deferred_calls;
   };
   {
@@ -3935,7 +3975,7 @@ inline StubParticle make_particle_trail(int samples) {
     float y = -0.3f + 0.02f * i;
     float radial = std::sqrt(1.0f - y * y);
     particle.history.record(
-        Vector(radial * std::cos(theta), y, radial * std::sin(theta)));
+        math::Vector(radial * std::cos(theta), y, radial * std::sin(theta)));
   }
   return particle;
 }
@@ -3947,7 +3987,7 @@ render_particle_materialization(const StubParticle &particle,
   constexpr int W = 96, H = 48;
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> filters;
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(50000, 30000, 10000),
                      hs::clamp(std::min(f.v0, f.v3), 0.0f, 1.0f));
   };
@@ -3959,7 +3999,7 @@ render_particle_materialization(const StubParticle &particle,
       trail.bind(scratch_arena_a,
                  std::remove_cvref_t<decltype(particle.history)>::CAPACITY);
       const float inv_max_life = 1.0f / 100.0f;
-      tween(particle.history, [&](const Vector &v, float t) {
+      tween(particle.history, [&](const math::Vector &v, float t) {
         Fragment f;
         f.pos = v;
         f.v0 = t;
@@ -4008,15 +4048,16 @@ inline void test_particle_system_draws_active_trails_with_registers() {
 
   StubParticle p0;
   p0.life = 60;
-  const Vector t0[3] = {Vector(1, 0, 0), Vector(0.7071f, 0.0f, 0.7071f),
-                        Vector(0, 0, 1)}; // equatorial +X -> +Z arc
-  for (const Vector &v : t0)
+  const math::Vector t0[3] = {math::Vector(1, 0, 0),
+                              math::Vector(0.7071f, 0.0f, 0.7071f),
+                              math::Vector(0, 0, 1)}; // equatorial +X -> +Z arc
+  for (const math::Vector &v : t0)
     p0.history.record(v);
 
   StubParticle p1; // inactive: parked on the poles, must NOT be drawn
   p1.life = 99;
-  p1.history.record(Vector(0, 1, 0));
-  p1.history.record(Vector(0, -1, 0));
+  p1.history.record(math::Vector(0, 1, 0));
+  p1.history.record(math::Vector(0, -1, 0));
 
   sys.pool.push_back(p0);
   sys.pool.push_back(p1);
@@ -4026,7 +4067,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   {
     Canvas c(fx);
     Plot::ParticleSystem::draw<W, H>(pipe, c, sys,
-                                     [&](const Vector &, Fragment &f) {
+                                     [&](const math::Vector &, Fragment &f) {
                                        v2_lo = std::min(v2_lo, f.v2);
                                        v2_hi = std::max(v2_hi, f.v2);
                                        v3_lo = std::min(v3_lo, f.v3);
@@ -4037,7 +4078,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
 
   // (1)+(2) Active trail follows its recorded arc; the inactive ±Y particle is absent.
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)2);
-  for (const Vector &v : pipe.plotted) {
+  for (const math::Vector &v : pipe.plotted) {
     HS_EXPECT_LE(arc_angular_distance(v, t0[0], t0[2]), 0.05f);
     HS_EXPECT_LT(std::fabs(v.y), 0.1f);
   }
@@ -4070,8 +4111,8 @@ inline void test_particle_system_empty_zero_lifetime_is_noop() {
  */
 inline void test_particle_system_skips_unrenderable_trails() {
   StubParticle dead;
-  dead.history.record(Vector(1, 0, 0));
-  dead.history.record(Vector(0, 0, 1));
+  dead.history.record(math::Vector(1, 0, 0));
+  dead.history.record(math::Vector(0, 0, 1));
   ParticleDrawCapture dead_capture = capture_particle_draw(dead);
   HS_EXPECT_EQ(dead_capture.vertex_calls, 0);
   HS_EXPECT_EQ(dead_capture.deferred_calls, 0);
@@ -4080,7 +4121,7 @@ inline void test_particle_system_skips_unrenderable_trails() {
 
   StubParticle one_point;
   one_point.life = 60;
-  one_point.history.record(Vector(1, 0, 0));
+  one_point.history.record(math::Vector(1, 0, 0));
   ParticleDrawCapture one_point_capture = capture_particle_draw(one_point);
   HS_EXPECT_EQ(one_point_capture.vertex_calls, 0);
   HS_EXPECT_EQ(one_point_capture.deferred_calls, 0);
@@ -4089,8 +4130,8 @@ inline void test_particle_system_skips_unrenderable_trails() {
 
   StubParticle trail;
   trail.life = 60;
-  trail.history.record(Vector(1, 0, 0));
-  trail.history.record(Vector(0, 0, 1));
+  trail.history.record(math::Vector(1, 0, 0));
+  trail.history.record(math::Vector(0, 0, 1));
   ParticleDrawCapture trail_capture = capture_particle_draw(trail);
   HS_EXPECT_EQ(trail_capture.vertex_calls, 2);
   HS_EXPECT_EQ(trail_capture.deferred_calls, 2);
@@ -4110,7 +4151,7 @@ inline void test_particle_system_direct_trail_materialization_registers() {
     const size_t len = particle.history.length();
     HS_EXPECT_SIZE_OR_RETURN(vertices, len);
     for (size_t i = 0; i < len; ++i) {
-      Vector expected = particle.history.get(i);
+      math::Vector expected = particle.history.get(i);
       HS_EXPECT_EQ(vertices[i].pos.x, expected.x);
       HS_EXPECT_EQ(vertices[i].pos.y, expected.y);
       HS_EXPECT_EQ(vertices[i].pos.z, expected.z);
@@ -4131,12 +4172,12 @@ inline void test_particle_system_sparse_history_live_tip() {
   Animation::ParticleSystem<96, 1, 4, 8, 8, false, 6> system;
   system.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f,
               /*max_life=*/100.0f);
-  system.spawn(Vector(0, 0, 1), Vector(0, 0, 0), 0);
+  system.spawn(math::Vector(0, 0, 1), math::Vector(0, 0, 0), 0);
 
   auto &particle = system.pool[0];
-  particle.history.record(Vector(1, 0, 0));
-  particle.history.record(Vector(0, 1, 0));
-  particle.position = Vector(0, 0, 1);
+  particle.history.record(math::Vector(1, 0, 0));
+  particle.history.record(math::Vector(0, 1, 0));
+  particle.position = math::Vector(0, 0, 1);
   particle.life = 50;
 
   std::vector<Fragment> vertices = capture_particle_system_vertices(system);
@@ -4166,10 +4207,10 @@ inline void test_particle_system_v0_zero_at_oldest_sample() {
   constexpr size_t CAP =
       std::remove_cvref_t<decltype(particle.history)>::CAPACITY;
   const size_t recorded = CAP + 5;
-  std::vector<Vector> order;
+  std::vector<math::Vector> order;
   for (size_t i = 0; i < recorded; ++i) {
     float theta = 0.2f + 0.04f * static_cast<float>(i);
-    Vector v(std::cos(theta), 0.0f, std::sin(theta));
+    math::Vector v(std::cos(theta), 0.0f, std::sin(theta));
     particle.history.record(v);
     order.push_back(v);
   }
@@ -4177,13 +4218,14 @@ inline void test_particle_system_v0_zero_at_oldest_sample() {
   std::vector<Fragment> vertices = capture_particle_vertices(particle);
   HS_EXPECT_SIZE_OR_RETURN(vertices, CAP);
 
-  const Vector oldest = order[recorded - CAP];
-  const Vector newest = order.back();
-  HS_EXPECT_GT(angle_between(oldest, newest), 0.1f);
+  const math::Vector oldest = order[recorded - CAP];
+  const math::Vector newest = order.back();
+  HS_EXPECT_GT(math::angle_between(oldest, newest), 0.1f);
   HS_EXPECT_EQ(vertices.front().v0, 0.0f);
   HS_EXPECT_EQ(vertices.back().v0, 1.0f);
-  HS_EXPECT_NEAR(angle_between(vertices.front().pos, oldest), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(angle_between(vertices.back().pos, newest), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(vertices.front().pos, oldest), 0.0f,
+                 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(vertices.back().pos, newest), 0.0f, 1e-3f);
 }
 
 /** @brief A custom v2 mapper runs once per materialized particle. */
@@ -4342,7 +4384,9 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   // Shaded-space equatorial arcs (theta -> column x = theta * W / 2pi):
   // trail 0 spans columns ~40..58 (crosses band_x1 = 48), trail 1 ~64..76
   // (wholly outside [0,49) incl. the +-1 render margin, clear of the seam).
-  auto shaded = [](float theta) { return Vector(cosf(theta), 0, sinf(theta)); };
+  auto shaded = [](float theta) {
+    return math::Vector(cosf(theta), 0, sinf(theta));
+  };
   const float T0[5] = {2.6f, 2.9f, 3.2f, 3.5f, 3.8f};
   const float T1[3] = {4.2f, 4.6f, 5.0f};
 
@@ -4360,20 +4404,20 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   sys.pool.push_back(p0);
   sys.pool.push_back(p1);
 
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
   };
-  std::vector<Vector> shaded_positions;
+  std::vector<math::Vector> shaded_positions;
   auto position_pass = [&](Fragment &f) {
     f.pos = f.pos * -1.0f;
     shaded_positions.push_back(f.pos);
   };
   int deferred_calls[2] = {0, 0};
   int orig_mismatches = 0;
-  auto deferred_pass = [&](FragmentRegisters f, const Vector &orig) {
+  auto deferred_pass = [&](FragmentRegisters f, const math::Vector &orig) {
     // orig must be a pre-shader position: the negation of a shaded one.
     bool matched = false;
-    for (const Vector &s : shaded_positions)
+    for (const math::Vector &s : shaded_positions)
       if ((orig * -1.0f - s).length() <= 1e-4f) {
         matched = true;
         break;
@@ -4451,13 +4495,14 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   for (int t = 0; t < NT; ++t) {
     StubParticle p;
     p.life = static_cast<uint16_t>(40 + (t % 60));
-    Vector v = (t % 5 == 0) ? Vector(0, t % 10 == 0 ? 1 : -1, 0) : rand_unit();
+    math::Vector v =
+        (t % 5 == 0) ? math::Vector(0, t % 10 == 0 ? 1 : -1, 0) : rand_unit();
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
       const float step_x = hs::rand_f(-1, 1);
       const float step_y = hs::rand_f(-1, 1);
       const float step_z = hs::rand_f(-1, 1);
-      Vector step(step_x, step_y, step_z);
+      math::Vector step(step_x, step_y, step_z);
       // Occasional huge step: a near-antipodal edge must trip the coarse
       // walk's half-sweep guard, not get mis-culled.
       float scale = (k == 7 && t % 9 == 0) ? 4.0f : 0.12f;
@@ -4467,11 +4512,11 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   }
   sys.active_count = NT;
 
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
   };
   auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
-  auto deferred_pass = [](FragmentRegisters f, const Vector &) {
+  auto deferred_pass = [](FragmentRegisters f, const math::Vector &) {
     f.v3 *= 0.7f;
   };
   auto combined = [](Fragment &f) {
@@ -4528,7 +4573,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
  */
 inline void test_particle_system_subpixel_trail_dot_parity() {
   constexpr int W = 96, H = 48;
-  constexpr float base_step = (2.0f * PI_F) / W;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
   hs::random().seed(20260720);
 
   StubSystem sys;
@@ -4538,26 +4583,26 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
     StubParticle p;
     p.life = static_cast<uint16_t>(50 + t % 40);
     float lat = -1.2f + 2.4f * (static_cast<float>(t) / (NT - 1));
-    float az = hs::rand_f(0.0f, 2.0f * PI_F);
-    Vector v(std::cos(lat) * std::cos(az), std::sin(lat),
-             std::cos(lat) * std::sin(az));
+    float az = hs::rand_f(0.0f, 2.0f * math::PI_F);
+    math::Vector v(std::cos(lat) * std::cos(az), std::sin(lat),
+                   std::cos(lat) * std::sin(az));
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
       const float step_x = hs::rand_f(-1, 1);
       const float step_y = hs::rand_f(-1, 1);
       const float step_z = hs::rand_f(-1, 1);
-      Vector step(step_x, step_y, step_z);
+      math::Vector step(step_x, step_y, step_z);
       v = (v + step * (base_step * 0.2f)).normalized();
     }
     sys.pool.push_back(p);
   }
   sys.active_count = NT;
 
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 40000, 20000), hs::clamp(f.v3, 0.0f, 1.0f));
   };
   auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
-  auto deferred_pass = [](FragmentRegisters f, const Vector &) {
+  auto deferred_pass = [](FragmentRegisters f, const math::Vector &) {
     f.v3 *= 0.7f;
   };
   auto combined = [](Fragment &f) {
@@ -4605,8 +4650,9 @@ inline void test_rasterize_cull_follows_filter_orientation() {
   constexpr int W = 128, H = 64;
   constexpr int BAND = H / 4; // bottom band [H-BAND, H) the rotated arc enters
 
-  Orientation<> orientation(make_rotation(X_AXIS, PI_F / 2.0f));
-  auto shade = [](const Vector &, Fragment &f) {
+  math::Orientation<> orientation(
+      math::make_rotation(math::X_AXIS, math::PI_F / 2.0f));
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
   };
 
@@ -4620,9 +4666,9 @@ inline void test_rasterize_cull_follows_filter_orientation() {
       Fragments pts;
       pts.bind(plot_arena(), 4);
       Fragment a, b;
-      a.pos = Vector(1, 0, 0); // equator (+X)
-      b.pos =
-          Vector(0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
+      a.pos = math::Vector(1, 0, 0); // equator (+X)
+      b.pos = math::Vector(
+          0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
       pts.push_back(a);
       pts.push_back(b);
       Canvas c(fx);
@@ -4661,12 +4707,13 @@ inline void test_rasterize_cull_follows_filter_orientation() {
  * @brief Full-precision azimuthal unprojection (libm), an oracle independent of
  *        plot.h's LUT-based fast-trig path.
  */
-inline Vector az_unproject_exact(float Px, float Py, const Basis &b) {
+inline math::Vector az_unproject_exact(float Px, float Py,
+                                       const math::Basis &b) {
   float R = std::sqrt(Px * Px + Py * Py);
   if (R < math::EPS_GEOMETRIC)
     return b.v;
   float th = std::atan2(Py, Px);
-  Vector axis = b.u * std::cos(th) + b.w * std::sin(th);
+  math::Vector axis = b.u * std::cos(th) + b.w * std::sin(th);
   return b.v * std::cos(R) + axis * std::sin(R);
 }
 
@@ -4676,8 +4723,8 @@ inline Vector az_unproject_exact(float Px, float Py, const Basis &b) {
  *          fast_acos (via angle_between) collapses sub-milliradian steps to zero,
  *          which would corrupt a fine-quadrature reference.
  */
-inline float az_arc_exact(const Vector &p, const Vector &q) {
-  return std::atan2(cross(p, q).length(), dot(p, q));
+inline float az_arc_exact(const math::Vector &p, const math::Vector &q) {
+  return std::atan2(math::cross(p, q).length(), math::dot(p, q));
 }
 
 /**
@@ -4690,13 +4737,13 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
   hs::random().seed(0xA21E);
   int mid = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
-    Vector p = rand_unit();
-    float geo = angle_between(p, basis.v);
+    math::Basis basis = basis_from_normal(rand_unit());
+    math::Vector p = rand_unit();
+    float geo = math::angle_between(p, basis.v);
     auto proj = Plot::azimuthal_project(p, basis);
     float r = std::hypot(proj.first, proj.second);
     HS_EXPECT_NEAR(r, geo, 5e-3f * (geo + 1.0f));
-    if (geo > 0.3f && geo < PI_F - 0.3f)
+    if (geo > 0.3f && geo < math::PI_F - 0.3f)
       ++mid;
   }
   HS_EXPECT_GT(mid, 1000);
@@ -4717,27 +4764,28 @@ inline void test_azimuthal_roundtrip_identity() {
   hs::random().seed(0xB33F);
   int fwd = 0, inv = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = basis_from_normal(rand_unit());
 
-    float R = hs::rand_f(0.05f, PI_F - 0.05f);
-    float th = hs::rand_f(-PI_F, PI_F);
+    float R = hs::rand_f(0.05f, math::PI_F - 0.05f);
+    float th = hs::rand_f(-math::PI_F, math::PI_F);
     float Px = R * std::cos(th), Py = R * std::sin(th);
-    Vector s = Plot::azimuthal_unproject(Px, Py, basis);
+    math::Vector s = Plot::azimuthal_unproject(Px, Py, basis);
     auto rp = Plot::azimuthal_project(s, basis);
     HS_EXPECT_NEAR(rp.first, Px, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
     HS_EXPECT_NEAR(rp.second, Py, AZ_ROUNDTRIP_REL_TOL * (R + 1.0f));
     // Only a roundtrip clear of the chart's degenerate spots — the center,
     // where the azimuth is undefined, and the antipodal band — inverts.
     if (std::hypot(rp.first, rp.second) > math::EPS_GEOMETRIC &&
-        dot(s, basis.v) > -Plot::COS_PLANAR_ANTIPODE)
+        math::dot(s, basis.v) > -Plot::COS_PLANAR_ANTIPODE)
       ++inv;
 
-    Vector p = rand_unit();
-    if (dot(p, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    math::Vector p = rand_unit();
+    if (math::dot(p, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
     auto proj = Plot::azimuthal_project(p, basis);
-    Vector back = Plot::azimuthal_unproject(proj.first, proj.second, basis);
-    HS_EXPECT_NEAR(angle_between(p, back), 0.0f, 1.5e-2f);
+    math::Vector back =
+        Plot::azimuthal_unproject(proj.first, proj.second, basis);
+    HS_EXPECT_NEAR(math::angle_between(p, back), 0.0f, 1.5e-2f);
     ++fwd;
   }
   HS_EXPECT_GT(inv, 3000);
@@ -4754,18 +4802,18 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
   hs::random().seed(0xC0DE);
   int n = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
-    float R = hs::rand_f(0.02f, PI_F - 0.02f);
-    float th = hs::rand_f(-PI_F, PI_F);
-    Vector got =
+    math::Basis basis = basis_from_normal(rand_unit());
+    float R = hs::rand_f(0.02f, math::PI_F - 0.02f);
+    float th = hs::rand_f(-math::PI_F, math::PI_F);
+    math::Vector got =
         Plot::azimuthal_unproject(R * std::cos(th), R * std::sin(th), basis);
-    Vector axis = basis.u * std::cos(th) + basis.w * std::sin(th);
-    Vector want = basis.v * std::cos(R) + axis * std::sin(R);
-    HS_EXPECT_NEAR(angle_between(got, want), 0.0f, 1e-2f);
+    math::Vector axis = basis.u * std::cos(th) + basis.w * std::sin(th);
+    math::Vector want = basis.v * std::cos(R) + axis * std::sin(R);
+    HS_EXPECT_NEAR(math::angle_between(got, want), 0.0f, 1e-2f);
     // The unprojection landed off both poles of the chart, so the oracle
     // compared a point with a defined azimuth.
-    float got_R = angle_between(got, basis.v);
-    if (got_R > 0.05f && got_R < PI_F - 0.05f)
+    float got_R = math::angle_between(got, basis.v);
+    if (got_R > 0.05f && got_R < math::PI_F - 0.05f)
       ++n;
   }
   HS_EXPECT_GT(n, 3900);
@@ -4786,25 +4834,26 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
   int bows = 0;
   float max_rel_err = 0.0f;
   for (int trial = 0; trial < 3000; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = basis_from_normal(rand_unit());
     float R1 = hs::rand_f(0.2f, 1.2f), R2 = hs::rand_f(0.2f, 1.2f);
-    float t1 = hs::rand_f(-PI_F, PI_F), t2 = t1 + hs::rand_f(0.15f, 0.8f);
-    Vector a =
+    float t1 = hs::rand_f(-math::PI_F, math::PI_F),
+          t2 = t1 + hs::rand_f(0.15f, 0.8f);
+    math::Vector a =
         Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
-    Vector b =
+    math::Vector b =
         Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
-    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
 
     auto p1 = Plot::azimuthal_project(a, basis);
     auto p2 = Plot::azimuthal_project(b, basis);
     constexpr int N = 2000;
     float fine = 0.0f;
-    Vector prev = az_unproject_exact(p1.first, p1.second, basis);
+    math::Vector prev = az_unproject_exact(p1.first, p1.second, basis);
     for (int i = 1; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      Vector cur =
+      math::Vector cur =
           az_unproject_exact(p1.first + (p2.first - p1.first) * t,
                              p1.second + (p2.second - p1.second) * t, basis);
       fine += az_arc_exact(prev, cur);
@@ -4834,28 +4883,28 @@ inline void test_dual_metric_radial_vs_azimuthal() {
   hs::random().seed(0xE1A5);
   int radial = 0, azi = 0;
   for (int trial = 0; trial < 2000; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = basis_from_normal(rand_unit());
 
-    float th = hs::rand_f(-PI_F, PI_F);
+    float th = hs::rand_f(-math::PI_F, math::PI_F);
     float Ra = hs::rand_f(0.1f, 0.6f), Rb = hs::rand_f(0.8f, 1.4f);
-    Vector a =
+    math::Vector a =
         Plot::azimuthal_unproject(Ra * std::cos(th), Ra * std::sin(th), basis);
-    Vector b =
+    math::Vector b =
         Plot::azimuthal_unproject(Rb * std::cos(th), Rb * std::sin(th), basis);
-    HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), angle_between(a, b),
-                   1.2e-2f);
+    HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis),
+                   math::angle_between(a, b), 1.2e-2f);
     // The two radii unprojected to a genuine radial edge, not a collapsed one.
-    if (angle_between(a, b) > 0.1f)
+    if (math::angle_between(a, b) > 0.1f)
       ++radial;
 
-    float a1 = hs::rand_f(-PI_F, PI_F), a2 = a1 + 2.4f;
+    float a1 = hs::rand_f(-math::PI_F, math::PI_F), a2 = a1 + 2.4f;
     float chord = 0.0f;
     auto bow = [&](float rad) {
-      Vector p = Plot::azimuthal_unproject(rad * std::cos(a1),
-                                           rad * std::sin(a1), basis);
-      Vector q = Plot::azimuthal_unproject(rad * std::cos(a2),
-                                           rad * std::sin(a2), basis);
-      chord = angle_between(p, q);
+      math::Vector p = Plot::azimuthal_unproject(rad * std::cos(a1),
+                                                 rad * std::sin(a1), basis);
+      math::Vector q = Plot::azimuthal_unproject(rad * std::cos(a2),
+                                                 rad * std::sin(a2), basis);
+      chord = math::angle_between(p, q);
       return Plot::planar_arc_length(p, q, basis) - chord;
     };
     float lo = bow(1.0f), hi = bow(1.3f);
@@ -4882,15 +4931,16 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
   hs::random().seed(0xF00D);
   int checked = 0;
   for (int trial = 0; trial < 2000; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = basis_from_normal(rand_unit());
     float R1 = hs::rand_f(0.1f, 1.3f), R2 = hs::rand_f(0.1f, 1.3f);
-    float t1 = hs::rand_f(-PI_F, PI_F), t2 = t1 + hs::rand_f(0.3f, 1.5f);
-    Vector a =
+    float t1 = hs::rand_f(-math::PI_F, math::PI_F),
+          t2 = t1 + hs::rand_f(0.3f, 1.5f);
+    math::Vector a =
         Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
-    Vector b =
+    math::Vector b =
         Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
-    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
 
     auto p1 = Plot::azimuthal_project(a, basis);
@@ -4907,7 +4957,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     // — and the pre-pass takes planar_arc_length. All three must total the
     // same length.
     const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
-    const Vector span_end = Plot::azimuthal_unproject(
+    const math::Vector span_end = Plot::azimuthal_unproject(
         span.p1.first + span.dX, span.p1.second + span.dY, basis);
     const Plot::PlanarEdgeSampler sampler =
         Plot::make_planar_edge_sampler(span, span_end, basis);
@@ -4918,11 +4968,11 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     // Spherical triangle inequality against the endpoints the table actually
     // joins: a total that dropped, duplicated, or mis-scaled a chord violates
     // it. No agreement between the accumulators can supply this.
-    const Vector chart_start =
+    const math::Vector chart_start =
         Plot::azimuthal_unproject(p1.first, p1.second, basis);
-    const float endpoint_cos =
-        dot(chart_start, span_end) /
-        sqrtf(dot(chart_start, chart_start) * dot(span_end, span_end));
+    const float endpoint_cos = math::dot(chart_start, span_end) /
+                               sqrtf(math::dot(chart_start, chart_start) *
+                                     math::dot(span_end, span_end));
     constexpr float CHORD_ERROR_BUDGET = Plot::PLANAR_LEN_SAMPLES * 5.1e-5f;
     HS_EXPECT_GE(cumul[Plot::PLANAR_LEN_SAMPLES],
                  acosf(hs::clamp(endpoint_cos, -1.0f, 1.0f)) -
@@ -4943,8 +4993,9 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
  * @param basis Azimuthal-equidistant projection basis.
  * @return The sampler, with its cumulative-arc table already filled.
  */
-inline Plot::PlanarEdgeSampler planar_sampler(const Vector &a, const Vector &b,
-                                              const Basis &basis) {
+inline Plot::PlanarEdgeSampler planar_sampler(const math::Vector &a,
+                                              const math::Vector &b,
+                                              const math::Basis &basis) {
   Fragment fa, fb;
   fa.pos = a;
   fb.pos = b;
@@ -4972,13 +5023,13 @@ inline void test_planar_one_pass_matches_forward_difference() {
   float worst_len = 0.0f, worst_pos = 0.0f, worst_tan_len = 0.0f;
   float worst_tan_dot = 1.0f;
   for (int trial = 0; trial < 400; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
-    Vector a = rand_unit();
-    Vector b = rand_unit();
+    math::Basis basis = basis_from_normal(rand_unit());
+    math::Vector a = rand_unit();
+    math::Vector b = rand_unit();
     // Both endpoints clear of the antipodal seam, where the planar strategy
     // is not the path the rasterizer takes.
-    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
     Plot::PlanarEdgeSampler s = planar_sampler(a, b, basis);
     if (s.dist < 0.05f)
@@ -4990,15 +5041,15 @@ inline void test_planar_one_pass_matches_forward_difference() {
       // Short enough to track the arc, long enough to clear float cancellation.
       constexpr float DT = 1.0f / 256.0f;
       const bool fwd = (t + DT <= 1.0f);
-      const Vector fd_pos = s.pos(t);
-      const Vector step = s.pos(fwd ? t + DT : t - DT);
-      const Vector fd_tan =
+      const math::Vector fd_pos = s.pos(t);
+      const math::Vector step = s.pos(fwd ? t + DT : t - DT);
+      const math::Vector fd_tan =
           (fwd ? (step - fd_pos) : (fd_pos - step)).normalized();
       worst_len = std::max(worst_len, std::abs(one.pos.length() - 1.0f));
-      worst_pos = std::max(worst_pos, angle_between(one.pos, fd_pos));
+      worst_pos = std::max(worst_pos, math::angle_between(one.pos, fd_pos));
       worst_tan_len =
           std::max(worst_tan_len, std::abs(one.tan.length() - 1.0f));
-      worst_tan_dot = std::min(worst_tan_dot, dot(one.tan, fd_tan));
+      worst_tan_dot = std::min(worst_tan_dot, math::dot(one.tan, fd_tan));
       ++checked;
     }
   }
@@ -5025,11 +5076,11 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
   int checked = 0;
   float worst_orth = 0.0f;
   for (int trial = 0; trial < 400; ++trial) {
-    Basis basis = basis_from_normal(rand_unit());
-    Vector a = rand_unit();
-    Vector b = rand_unit();
-    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
-        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+    math::Basis basis = basis_from_normal(rand_unit());
+    math::Vector a = rand_unit();
+    math::Vector b = rand_unit();
+    if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
     Plot::PlanarEdgeSampler s = planar_sampler(a, b, basis);
     if (s.dist < 0.2f)
@@ -5038,11 +5089,11 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
     for (int k = 0; k <= 4; ++k) {
       const float t = static_cast<float>(k) / 4.0f;
       Plot::SamplePT one = s.one_pass(t);
-      worst_orth = std::max(worst_orth, std::abs(dot(one.pos, one.tan)));
+      worst_orth = std::max(worst_orth, std::abs(math::dot(one.pos, one.tan)));
       const float step = 1.0f / 64.0f;
-      const Vector ahead = s.pos(std::min(1.0f, t + step));
-      const Vector behind = s.pos(std::max(0.0f, t - step));
-      HS_EXPECT_GT(dot(one.tan, ahead - behind), 0.0f);
+      const math::Vector ahead = s.pos(std::min(1.0f, t + step));
+      const math::Vector behind = s.pos(std::max(0.0f, t - step));
+      HS_EXPECT_GT(math::dot(one.tan, ahead - behind), 0.0f);
       ++checked;
     }
   }
@@ -5060,15 +5111,15 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
  */
 inline void test_rasterize_single_pass_planar_matches_two_pass() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * PI_F) / W;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 4);
 
-  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
   auto on_disk = [&](float colat, float az) {
-    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
     return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
   };
   Fragment a, b;
@@ -5094,19 +5145,21 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   HS_EXPECT_GT(single.plotted.size(), (size_t)10);
   HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/false),
                1.5f * base_step);
-  for (const Vector &p : single.plotted)
+  for (const math::Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(angle_between(single.plotted.front(), a.pos), 0.0f, 1e-2f);
-  HS_EXPECT_NEAR(angle_between(single.plotted.back(), b.pos), 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(math::angle_between(single.plotted.front(), a.pos), 0.0f,
+                 1e-2f);
+  HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), b.pos), 0.0f,
+                 1e-2f);
 
   // Same curve: the two paths size their sub-steps from the same screen
   // velocity, so every emitted sample lies within a dot of the other path's.
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + 2);
   HS_EXPECT_GE(single.plotted.size() + 2, cached.plotted.size());
-  for (const Vector &p : single.plotted) {
-    float nearest = PI_F;
-    for (const Vector &q : cached.plotted)
-      nearest = std::min(nearest, angle_between(p, q));
+  for (const math::Vector &p : single.plotted) {
+    float nearest = math::PI_F;
+    for (const math::Vector &q : cached.plotted)
+      nearest = std::min(nearest, math::angle_between(p, q));
     HS_EXPECT_LE(nearest, base_step);
   }
 }
@@ -5119,16 +5172,16 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
  */
 inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   constexpr int W = 128, H = 64;
-  constexpr float base_step = (2.0f * PI_F) / W;
+  constexpr float base_step = (2.0f * math::PI_F) / W;
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 8);
 
-  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
   for (int i = 0; i < 5; ++i) {
-    float az = (2.0f * PI_F * i) / 5.0f;
-    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    float az = (2.0f * math::PI_F * i) / 5.0f;
+    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
     Fragment f;
     f.pos = (basis.v * cosf(0.7f) + dir * sinf(0.7f)).normalized();
     points.push_back(f);
@@ -5152,16 +5205,17 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   HS_EXPECT_GT(single.plotted.size(), (size_t)20);
   HS_EXPECT_LE(max_consecutive_gap(single.plotted, /*wrap=*/true),
                1.5f * base_step);
-  for (const Vector &p : single.plotted)
+  for (const math::Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + points.size());
   HS_EXPECT_GE(single.plotted.size() + points.size(), cached.plotted.size());
-  HS_EXPECT_LE(angle_between(single.plotted.front(), single.plotted.back()),
-               1.5f * base_step);
-  for (const Vector &p : single.plotted) {
-    float nearest = PI_F;
-    for (const Vector &q : cached.plotted)
-      nearest = std::min(nearest, angle_between(p, q));
+  HS_EXPECT_LE(
+      math::angle_between(single.plotted.front(), single.plotted.back()),
+      1.5f * base_step);
+  for (const math::Vector &p : single.plotted) {
+    float nearest = math::PI_F;
+    for (const math::Vector &q : cached.plotted)
+      nearest = std::min(nearest, math::angle_between(p, q));
     HS_EXPECT_LE(nearest, base_step);
   }
 }
@@ -5169,19 +5223,19 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
 /** @brief Endpoint-aware single-pass steps match constant-speed replay. */
 inline void test_rasterize_single_pass_balances_terminal_interval() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 2);
 
-  Vector start(1.0f, 0.0f, 0.0f);
-  Vector tangent(0.0f, 0.0f, 1.0f);
+  math::Vector start(1.0f, 0.0f, 0.0f);
+  math::Vector tangent(0.0f, 0.0f, 1.0f);
   float desired_step = Plot::screen_step<W, H>(start, tangent, BASE_STEP);
   float arc = desired_step * 1.01f;
   Fragment a, b;
   a.pos = start;
   a.v0 = 0.0f;
-  b.pos = Vector(cosf(arc), 0.0f, sinf(arc));
+  b.pos = math::Vector(cosf(arc), 0.0f, sinf(arc));
   b.v0 = 1.0f;
   points.push_back(a);
   points.push_back(b);
@@ -5191,7 +5245,9 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
     CapturePipeline pipeline;
     Canvas canvas(fx);
     std::vector<float> samples;
-    auto shader = [&](const Vector &, Fragment &f) { samples.push_back(f.v0); };
+    auto shader = [&](const math::Vector &, Fragment &f) {
+      samples.push_back(f.v0);
+    };
     if (single_pass)
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
           pipeline, canvas, points, shader);
@@ -5220,7 +5276,7 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
  */
 inline void test_rasterize_step_budget_backstop_finishes_segment() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = (2.0f * PI_F) / W;
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   constexpr size_t BUDGET = 16;
   ScratchScope sc(plot_arena());
   Fragments points;
@@ -5229,13 +5285,13 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
   // Equatorial quarter turn: ~36 sub-steps at the equatorial cadence, well past
   // the lowered budget.
   Fragment a, b;
-  a.pos = Vector(1.0f, 0.0f, 0.0f);
-  b.pos = Vector(0.0f, 0.0f, 1.0f);
+  a.pos = math::Vector(1.0f, 0.0f, 0.0f);
+  b.pos = math::Vector(0.0f, 0.0f, 1.0f);
   points.push_back(a);
   points.push_back(b);
 
   struct Capture {
-    std::vector<Vector> plotted;
+    std::vector<math::Vector> plotted;
     uint32_t backstops = 0;
   };
   auto draw = [&](bool single_pass) {
@@ -5267,8 +5323,10 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
 
   // Both endpoints drawn, no hole in between, and the emitted count still bound
   // by the budget rather than by the unstretched cadence.
-  HS_EXPECT_NEAR(angle_between(single.plotted.front(), a.pos), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(angle_between(single.plotted.back(), b.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(single.plotted.front(), a.pos), 0.0f,
+                 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), b.pos), 0.0f,
+                 1e-3f);
   const float single_gap = max_consecutive_gap(single.plotted, /*wrap=*/false);
   const float cached_gap = max_consecutive_gap(cached.plotted, /*wrap=*/false);
   HS_EXPECT_LE(single_gap, 2.5f * BASE_STEP);
@@ -5290,19 +5348,19 @@ inline void test_rasterize_default_sampling_policy_parity() {
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 18);
-  const Basis shape_basis =
-      make_basis(Quaternion(0.91f, -0.17f, 0.31f, 0.21f).normalized(), X_AXIS);
+  const math::Basis shape_basis = math::make_basis(
+      math::Quaternion(0.91f, -0.17f, 0.31f, 0.21f).normalized(), math::X_AXIS);
   constexpr float RADIUS = 0.83f;
   Plot::Star<Plot::PlanarProjection>::sample(points, shape_basis, RADIUS, 8,
                                              0.73f);
-  const Basis planar_basis =
-      Plot::planar_chart_basis(get_antipode(shape_basis, RADIUS).first.v);
+  const math::Basis planar_basis =
+      Plot::planar_chart_basis(math::get_antipode(shape_basis, RADIUS).first.v);
 
   auto capture = [&]<bool ExplicitDefault>() {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
-    auto shader = [](const Vector &, Fragment &f) {
+    auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
     };
     if constexpr (ExplicitDefault) {
@@ -5329,7 +5387,7 @@ inline void test_rasterize_default_sampling_policy_parity() {
   AlphaCapturePipeline selectable_default;
   {
     Canvas canvas(selectable_fx);
-    auto shader = [](const Vector &, Fragment &f) {
+    auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
     };
     Plot::rasterize<W, H,
@@ -5377,13 +5435,14 @@ inline void test_rasterize_default_sampling_policy_parity() {
 /** @brief Balanced sampling leaves cached and one-dot raster paths unchanged. */
 inline void test_rasterize_balanced_sampling_scope() {
   constexpr int W = 128, H = 64;
-  const Basis basis = basis_from_normal(Vector(0, 1, 0));
+  const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
   auto on_disk = [&](float colat, float az) {
-    const Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    const math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
     return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
   };
 
-  auto compare = [&]<bool SinglePass>(const Vector &start, const Vector &end) {
+  auto compare = [&]<bool SinglePass>(const math::Vector &start,
+                                      const math::Vector &end) {
     ScratchScope sc(plot_arena());
     Fragments points;
     points.bind(plot_arena(), 2);
@@ -5396,7 +5455,7 @@ inline void test_rasterize_balanced_sampling_scope() {
       hs_test::StubEffect fx(W, H);
       AlphaCapturePipeline pipeline;
       Canvas canvas(fx);
-      auto shader = [](const Vector &, Fragment &f) {
+      auto shader = [](const math::Vector &, Fragment &f) {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
       };
       Plot::rasterize<W, H,
@@ -5437,10 +5496,10 @@ inline void test_rasterize_balanced_sampling_scope() {
 /** @brief Balanced long edges trade sample density for alpha-weighted coverage. */
 inline void test_rasterize_balanced_sampling_density_and_alpha() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = 2.0f * PI_F / W;
-  const Basis basis = basis_from_normal(Vector(0, 1, 0));
+  constexpr float BASE_STEP = 2.0f * math::PI_F / W;
+  const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
   auto on_disk = [&](float colat, float az) {
-    const Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    const math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
     return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
   };
   ScratchScope sc(plot_arena());
@@ -5456,7 +5515,7 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
-    auto shader = [](const Vector &, Fragment &f) {
+    auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
     };
     Plot::rasterize<W, H,
@@ -5489,16 +5548,17 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
       Plot::balanced_sample_alpha(0.4f, candidate_step / default_step), 1e-6f);
   // Bhaskara sin/cos leaves the raw one_pass position up to 1.7e-3 off unit;
   // the rasterizer's Newton correction holds it under 5e-6.
-  for (const Vector &point : balanced.plotted)
+  for (const math::Vector &point : balanced.plotted)
     HS_EXPECT_NEAR(point.length(), 1.0f, 2e-5f);
 }
 
 /** @brief Balanced sampling keeps default cadence in the polar clamp region. */
 inline void test_rasterize_balanced_pole_guard() {
   constexpr int W = 144, H = 72;
-  const Basis basis = basis_from_normal(Y_AXIS);
+  const math::Basis basis = basis_from_normal(math::Y_AXIS);
   auto near_pole = [&](float azimuth) {
-    const Vector radial = basis.u * cosf(azimuth) + basis.w * sinf(azimuth);
+    const math::Vector radial =
+        basis.u * cosf(azimuth) + basis.w * sinf(azimuth);
     return (basis.v * cosf(0.02f) + radial * sinf(0.02f)).normalized();
   };
   ScratchScope sc(plot_arena());
@@ -5515,7 +5575,7 @@ inline void test_rasterize_balanced_pole_guard() {
   Canvas canvas(fx);
   Plot::g_planar_full_samples = 0;
   Plot::g_planar_position_samples = 0;
-  auto shader = [](const Vector &, Fragment &f) {
+  auto shader = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
   };
   Plot::rasterize<W, H,
@@ -5542,14 +5602,14 @@ inline void test_rasterize_balanced_pole_guard() {
  */
 inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = 2.0f * PI_F / W;
+  constexpr float BASE_STEP = 2.0f * math::PI_F / W;
   constexpr float POLICY_TOL = 1e-4f;
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 2);
   Fragment a, b;
-  a.pos = Vector(0.8f, 0.3f, 0.5196152f).normalized();
-  b.pos = Vector(-0.2f, -0.7f, 0.6855655f).normalized();
+  a.pos = math::Vector(0.8f, 0.3f, 0.5196152f).normalized();
+  b.pos = math::Vector(-0.2f, -0.7f, 0.6855655f).normalized();
   points.push_back(a);
   points.push_back(b);
 
@@ -5559,7 +5619,7 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
     Canvas canvas(fx);
     Plot::g_planar_full_samples = 0;
     Plot::g_planar_position_samples = 0;
-    auto shader = [](const Vector &, Fragment &f) {
+    auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
     };
     Plot::rasterize<W, H,
@@ -5583,7 +5643,7 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
   HS_EXPECT_LE((max_projected_gap<W, H>(balanced.plotted)), 1.3f);
   const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
-  const Plot::GeodesicEdgeSampler sampler{a.pos, cross(es.axis, a.pos),
+  const Plot::GeodesicEdgeSampler sampler{a.pos, math::cross(es.axis, a.pos),
                                           es.total};
   const Plot::SamplePT first = sampler(0.0f);
   const float default_step =
@@ -5598,7 +5658,7 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   HS_EXPECT_NEAR(
       balanced.alphas.front(),
       Plot::balanced_sample_alpha(0.4f, candidate_step / default_step), 1e-6f);
-  for (const Vector &point : balanced.plotted)
+  for (const math::Vector &point : balanced.plotted)
     HS_EXPECT_NEAR(point.length(), 1.0f, 2e-5f);
 
   HS_EXPECT_SIZE_OR_RETURN(always_balanced.plotted, balanced.plotted.size());
@@ -5623,12 +5683,12 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
  */
 inline void test_rasterize_balanced_high_alpha_saturates() {
   constexpr int W = 128, H = 64;
-  constexpr float BASE_STEP = 2.0f * PI_F / W;
+  constexpr float BASE_STEP = 2.0f * math::PI_F / W;
   constexpr float ALPHA = 0.95f;
   auto sphere_point = [](float colatitude, float longitude) {
     const float radial = sinf(colatitude);
-    return Vector(radial * cosf(longitude), cosf(colatitude),
-                  radial * sinf(longitude))
+    return math::Vector(radial * cosf(longitude), cosf(colatitude),
+                        radial * sinf(longitude))
         .normalized();
   };
   ScratchScope sc(plot_arena());
@@ -5644,7 +5704,7 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
-    auto shader = [](const Vector &, Fragment &f) {
+    auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(65535, 65535, 65535), ALPHA);
     };
     Plot::rasterize<W, H,
@@ -5662,7 +5722,7 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
       capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
 
   const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
-  const Plot::GeodesicEdgeSampler sampler{a.pos, cross(es.axis, a.pos),
+  const Plot::GeodesicEdgeSampler sampler{a.pos, math::cross(es.axis, a.pos),
                                           es.total};
   const Plot::SamplePT first = sampler(0.0f);
   const float default_step =
@@ -5693,16 +5753,19 @@ inline void test_rasterize_balanced_star_visual_budget() {
   constexpr int W = 144, H = 72;
   constexpr int CLIP_CHANNEL_TOL = 16;
   struct StarState {
-    Quaternion orientation;
+    math::Quaternion orientation;
     float radius;
     int sides;
     float phase;
   };
   const std::array<StarState, 4> states = {{
-      {Quaternion(), 0.45f, 4, 0.0f},
-      {Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.98f, 7, 0.37f},
-      {Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 1.02f, 7, 1.2f},
-      {Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.72f, 16, 2.1f},
+      {math::Quaternion(), 0.45f, 4, 0.0f},
+      {math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.98f, 7,
+       0.37f},
+      {math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 1.02f, 7,
+       1.2f},
+      {math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.72f, 16,
+       2.1f},
   }};
   struct Frame {
     std::vector<Pixel> pixels;
@@ -5723,16 +5786,17 @@ inline void test_rasterize_balanced_star_visual_budget() {
       ScratchScope sc(plot_arena());
       Fragments points;
       points.bind(plot_arena(), static_cast<size_t>(state.sides * 2 + 2));
-      const Basis basis = make_basis(state.orientation, X_AXIS);
+      const math::Basis basis =
+          math::make_basis(state.orientation, math::X_AXIS);
       Plot::Star<Plot::PlanarProjection>::sample_positions(
           points, basis, state.radius, state.sides, state.phase);
-      const Basis planar_basis =
-          Plot::planar_chart_basis(get_antipode(basis, state.radius).first.v);
+      const math::Basis planar_basis = Plot::planar_chart_basis(
+          math::get_antipode(basis, state.radius).first.v);
       Filter::Screen::DirectAntiAliasSink<W, H> sink;
       Canvas canvas(fx);
       initialize_parity_frame<W, H>(canvas);
       sink.prepare(canvas);
-      auto shader = [](const Vector &, Fragment &f) {
+      auto shader = [](const math::Vector &, Fragment &f) {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.32f);
       };
       Plot::rasterize<W, H,
@@ -5867,8 +5931,8 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
   points.bind(plot_arena(), 2);
 
   Fragment a, b;
-  a.pos = Vector(0.8f, 0.3f, 0.5196152f).normalized();
-  b.pos = Vector(-0.2f, -0.7f, 0.6855655f).normalized();
+  a.pos = math::Vector(0.8f, 0.3f, 0.5196152f).normalized();
+  b.pos = math::Vector(-0.2f, -0.7f, 0.6855655f).normalized();
   points.push_back(a);
   points.push_back(b);
 
@@ -5880,15 +5944,15 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
         pipeline, canvas, points, noop_shader, {.omit_end = omit_end});
     return pipeline.plotted;
   };
-  const std::vector<Vector> complete = draw(false);
-  const std::vector<Vector> omitted = draw(true);
+  const std::vector<math::Vector> complete = draw(false);
+  const std::vector<math::Vector> omitted = draw(true);
 
   HS_EXPECT_GT(omitted.size(), size_t{2});
   HS_EXPECT_SIZE_OR_RETURN(complete, omitted.size() + 1);
-  HS_EXPECT_NEAR(angle_between(complete.front(), a.pos), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(angle_between(complete.back(), b.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(complete.front(), a.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(complete.back(), b.pos), 0.0f, 1e-3f);
   for (size_t i = 0; i < omitted.size(); ++i)
-    HS_EXPECT_NEAR(angle_between(complete[i], omitted[i]), 0.0f, 1e-3f);
+    HS_EXPECT_NEAR(math::angle_between(complete[i], omitted[i]), 0.0f, 1e-3f);
 }
 
 /** @brief Single-pass geodesics remain gap-free at poles, seams, and long arcs. */
@@ -5896,17 +5960,18 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
   constexpr int W = 128, H = 64;
   auto sphere_point = [](float colatitude, float longitude) {
     const float radial = sinf(colatitude);
-    return Vector(radial * cosf(longitude), cosf(colatitude),
-                  radial * sinf(longitude))
+    return math::Vector(radial * cosf(longitude), cosf(colatitude),
+                        radial * sinf(longitude))
         .normalized();
   };
-  const std::array<std::pair<Vector, Vector>, 6> arcs = {{
-      {Vector(0, 1, 0), sphere_point(0.9f, 1.1f)},
-      {sphere_point(PI_F - 0.8f, -0.7f), Vector(0, -1, 0)},
-      {sphere_point(0.45f, 0.0f), sphere_point(0.45f, PI_F)},
-      {sphere_point(1.2f, PI_F - 0.12f), sphere_point(1.3f, -PI_F + 0.14f)},
-      {sphere_point(0.35f, -1.0f), sphere_point(PI_F - 0.4f, 2.05f)},
-      {sphere_point(1.0f, 0.25f), sphere_point(2.1f, PI_F - 0.25f)},
+  const std::array<std::pair<math::Vector, math::Vector>, 6> arcs = {{
+      {math::Vector(0, 1, 0), sphere_point(0.9f, 1.1f)},
+      {sphere_point(math::PI_F - 0.8f, -0.7f), math::Vector(0, -1, 0)},
+      {sphere_point(0.45f, 0.0f), sphere_point(0.45f, math::PI_F)},
+      {sphere_point(1.2f, math::PI_F - 0.12f),
+       sphere_point(1.3f, -math::PI_F + 0.14f)},
+      {sphere_point(0.35f, -1.0f), sphere_point(math::PI_F - 0.4f, 2.05f)},
+      {sphere_point(1.0f, 0.25f), sphere_point(2.1f, math::PI_F - 0.25f)},
   }};
 
   for (const auto &[start, end] : arcs) {
@@ -5927,9 +5992,11 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
 
     HS_EXPECT_GT(pipeline.plotted.size(), size_t{2});
     HS_EXPECT_LE((max_projected_gap<W, H>(pipeline.plotted)), 1.5f);
-    HS_EXPECT_NEAR(angle_between(pipeline.plotted.front(), start), 0.0f, 1e-3f);
-    HS_EXPECT_NEAR(angle_between(pipeline.plotted.back(), end), 0.0f, 1e-3f);
-    for (const Vector &p : pipeline.plotted)
+    HS_EXPECT_NEAR(math::angle_between(pipeline.plotted.front(), start), 0.0f,
+                   1e-3f);
+    HS_EXPECT_NEAR(math::angle_between(pipeline.plotted.back(), end), 0.0f,
+                   1e-3f);
+    for (const math::Vector &p : pipeline.plotted)
       HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
 }
@@ -5951,7 +6018,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
       {2, H / 2},
       {W - 2, H / 2},
   }};
-  auto shade = [](const Vector &, Fragment &f) {
+  auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.8f);
   };
   auto render = [&](hs_test::StubEffect &fx) {
@@ -5961,7 +6028,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     points.bind(plot_arena(), control_pixels.size());
     for (const auto &[x, y] : control_pixels) {
       Fragment f;
-      f.pos = pixel_to_vector<W, H>(x, y);
+      f.pos = math::pixel_to_vector<W, H>(x, y);
       points.push_back(f);
     }
 

@@ -75,7 +75,7 @@ inline void test_shader_constant_fills_canvas() {
   hs_test::StubEffect fx(W, H);
   {
     Canvas c(fx);
-    Scan::Shader::draw<W, H, 1>(c, [](const Vector &) {
+    Scan::Shader::draw<W, H, 1>(c, [](const math::Vector &) {
       return Color4(Pixel(40000, 20000, 10000), 1.0f);
     });
   }
@@ -110,11 +110,11 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
     // Opacity keys on the sub-sample's position, not call order: the 2x2 grid's
     // +0.25/-0.25 px x-offsets land at fractional theta-grid phase 0.25 vs 0.75,
     // so two of the four samples per pixel are opaque regardless of iteration.
-    Scan::Shader::draw<W, H, 4>(c, [](const Vector &v) -> Color4 {
+    Scan::Shader::draw<W, H, 4>(c, [](const math::Vector &v) -> Color4 {
       float theta = std::atan2(v.z, v.x);
       if (theta < 0.0f)
-        theta += 2.0f * PI_F;
-      float g = theta * W / (2.0f * PI_F);
+        theta += 2.0f * math::PI_F;
+      float g = theta * W / (2.0f * math::PI_F);
       float frac = g - std::floor(g);
       bool opaque = frac < 0.5f;
       return opaque ? Color4(Pixel(60000, 0, 0), 1.0f)
@@ -152,12 +152,12 @@ inline void test_shader_split_ssaa_averages_subsamples() {
     Canvas c(fx);
     Scan::Shader::draw<W, H, 4>(
         c,
-        [&](const Vector &v, Fragment &f) {
+        [&](const math::Vector &v, Fragment &f) {
           ++fragment_calls;
           float theta = std::atan2(v.z, v.x);
           if (theta < 0.0f)
-            theta += 2.0f * PI_F;
-          float g = theta * W / (2.0f * PI_F);
+            theta += 2.0f * math::PI_F;
+          float g = theta * W / (2.0f * math::PI_F);
           bool opaque = (g - std::floor(g)) < 0.5f;
           // Green carries the vertex seed: a sub-fragment that missed it reads 0.
           f.color = opaque
@@ -197,7 +197,7 @@ inline void test_shader_positional_maps_latitude() {
   {
     Canvas c(fx);
     // Green encodes latitude: north pole (v.y≈+1) bright, south (v.y≈-1) dark.
-    Scan::Shader::draw<W, H, 1>(c, [](const Vector &v) {
+    Scan::Shader::draw<W, H, 1>(c, [](const math::Vector &v) {
       uint16_t g = (uint16_t)((v.y * 0.5f + 0.5f) * 60000.0f);
       return Color4(Pixel(0, g, 0), 1.0f);
     });
@@ -222,8 +222,9 @@ inline void test_shader_respects_clip_band() {
 
   {
     Canvas c(fx);
-    Scan::Shader::draw<W, H, 1>(
-        c, [](const Vector &) { return Color4(Pixel(0, 0, 50000), 1.0f); });
+    Scan::Shader::draw<W, H, 1>(c, [](const math::Vector &) {
+      return Color4(Pixel(0, 0, 50000), 1.0f);
+    });
   }
   fx.advance_display();
 
@@ -244,7 +245,7 @@ inline void test_shader_respects_clip_band() {
 inline void test_shader_clip_arc_matches_predicate() {
   constexpr int W = 32, H = 16;
 
-  auto positional = [](const Vector &v) {
+  auto positional = [](const math::Vector &v) {
     return Color4(Pixel(static_cast<uint16_t>((v.x * 0.5f + 0.5f) * 60000.0f),
                         static_cast<uint16_t>((v.z * 0.5f + 0.5f) * 60000.0f),
                         30000),
@@ -263,12 +264,14 @@ inline void test_shader_clip_arc_matches_predicate() {
       break;
     case 2:
       Scan::Shader::draw<W, H, 1>(
-          c, [&](const Vector &v, Fragment &f) { f.color = positional(v); },
+          c,
+          [&](const math::Vector &v, Fragment &f) { f.color = positional(v); },
           [](Fragment &f) { f.v0 = 1.0f; });
       break;
     case 3:
       Scan::Shader::draw<W, H, 4>(
-          c, [&](const Vector &v, Fragment &f) { f.color = positional(v); },
+          c,
+          [&](const math::Vector &v, Fragment &f) { f.color = positional(v); },
           [](Fragment &f) { f.v0 = 1.0f; });
       break;
     default:
@@ -358,26 +361,27 @@ inline void test_ring_rasterize_produces_bounded_output() {
 
   {
     Canvas c(fx);
-    Basis basis = make_basis(Quaternion(), Y_AXIS);
-    Scan::Ring::draw<W, H, false>(
-        pipe, c, basis, radius, thickness, [](const Vector &, Fragment &f) {
-          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-        });
+    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+    Scan::Ring::draw<W, H, false>(pipe, c, basis, radius, thickness,
+                                  [](const math::Vector &, Fragment &f) {
+                                    f.color = Color4(Pixel(60000, 60000, 60000),
+                                                     1.0f);
+                                  });
   }
   fx.advance_display();
 
-  const float target = radius * (PI_F / 2.0f); // ring-centre polar angle
-  const float row = PI_F / (H - 1);            // angular height of one row
+  const float target = radius * (math::PI_F / 2.0f); // ring-centre polar angle
+  const float row = math::PI_F / (H - 1); // angular height of one row
   // Two rows of quantization either side of the nominal stroke: inside the
   // inner bound the ring is solid, outside the outer one it is clear.
   const float core = thickness - 2.0f * row;
   const float band = thickness + 2.0f * row;
   size_t plotted = 0, solid = 0;
-  float widest_lit = 0.0f, nearest_dark = PI_F;
+  float widest_lit = 0.0f, nearest_dark = math::PI_F;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
       HS_CONTEXT("px", x, y);
-      const Vector v = pixel_to_vector<W, H>(x, y);
+      const math::Vector v = math::pixel_to_vector<W, H>(x, y);
       const float offset = fabsf(acosf(hs::clamp(v.y, -1.0f, 1.0f)) - target);
       const bool lit = !is_black(fx.get_pixel(x, y));
       if (lit) {
@@ -411,8 +415,8 @@ inline void test_ring_rasterize_produces_bounded_output() {
 inline void test_ring_long_radius_azimuth_unflipped() {
   constexpr int W = 96, H = 64;
   constexpr float radius = 1.4f, thickness = 0.15f;
-  const Basis basis =
-      make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized());
+  const math::Basis basis = math::make_basis(
+      math::Quaternion(), math::Vector(0.3f, 0.8f, -0.5f).normalized());
 
   size_t lit = 0;
   hs_test::StubEffect fx(W, H);
@@ -420,7 +424,8 @@ inline void test_ring_long_radius_azimuth_unflipped() {
   {
     Canvas c(fx);
     Scan::Ring::draw<W, H>(
-        pipe, c, basis, radius, thickness, [&](const Vector &p, Fragment &f) {
+        pipe, c, basis, radius, thickness,
+        [&](const math::Vector &p, Fragment &f) {
           const double u = static_cast<double>(p.x) * basis.u.x +
                            static_cast<double>(p.y) * basis.u.y +
                            static_cast<double>(p.z) * basis.u.z;
@@ -457,24 +462,25 @@ inline void test_ring_rasterize_lit_pixels_on_band() {
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
-    Basis basis = make_basis(Quaternion(), Y_AXIS);
-    Scan::Ring::draw<W, H, false>(
-        pipe, c, basis, radius, thickness, [](const Vector &, Fragment &f) {
-          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-        });
+    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+    Scan::Ring::draw<W, H, false>(pipe, c, basis, radius, thickness,
+                                  [](const math::Vector &, Fragment &f) {
+                                    f.color = Color4(Pixel(60000, 60000, 60000),
+                                                     1.0f);
+                                  });
   }
   fx.advance_display();
 
-  const float target = radius * (PI_F / 2.0f); // ring-centre polar angle
-  const float row = PI_F / (H - 1);            // angular height of one row
-  const float band = thickness + 2.0f * row;   // stroke + AA + quantization
+  const float target = radius * (math::PI_F / 2.0f); // ring-centre polar angle
+  const float row = math::PI_F / (H - 1);    // angular height of one row
+  const float band = thickness + 2.0f * row; // stroke + AA + quantization
   size_t lit = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
       if (is_black(fx.get_pixel(x, y)))
         continue;
       ++lit;
-      Vector v = pixel_to_vector<W, H>(x, y);
+      math::Vector v = math::pixel_to_vector<W, H>(x, y);
       float polar = acosf(hs::clamp(v.y, -1.0f, 1.0f));
       HS_EXPECT_LE(fabsf(polar - target), band);
     }
@@ -497,9 +503,9 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
 
   {
     Canvas c(fx);
-    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
     Scan::Ring::draw<W, H, false>(
-        pipe, c, basis, 0.5f, 0.4f, [](const Vector &, Fragment &f) {
+        pipe, c, basis, 0.5f, 0.4f, [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
@@ -519,11 +525,11 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
 inline void test_distorted_ring_flat_matches_zero_knot_raster() {
   constexpr int W = 96, H = 64, LUT_N = 16;
   float knots[LUT_N + 1] = {};
-  Basis basis =
-      make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized());
+  math::Basis basis = math::make_basis(
+      math::Quaternion(), math::Vector(0.3f, 0.8f, -0.5f).normalized());
 
   auto check = [&](bool partial_clip) {
-    auto shader = [](const Vector &, Fragment &f) {
+    auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(51000, 27000, 9000), 0.8f * f.v2);
     };
     std::vector<Pixel> expected(W * H);
@@ -604,8 +610,8 @@ inline void test_ring_group_matches_sequential() {
   constexpr int N = 4;
   const ScopedPoleLod lod(0.0f);
 
-  auto run_case = [&](const Vector &normal, bool partial_clip) {
-    Basis bases[N];
+  auto run_case = [&](const math::Vector &normal, bool partial_clip) {
+    math::Basis bases[N];
     const float ths[N] = {0.08f, 0.04f, 0.04f, 0.08f};
     const Color4 colors[N] = {Color4(Pixel(60000, 10000, 5000), 0.9f),
                               Color4(Pixel(5000, 60000, 10000), 0.6f),
@@ -614,9 +620,9 @@ inline void test_ring_group_matches_sequential() {
     alignas(SDF::Ring) unsigned char mem[N * sizeof(SDF::Ring)];
     auto *shapes = reinterpret_cast<SDF::Ring *>(mem);
     for (int s = 0; s < N; ++s) {
-      Quaternion q =
-          make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.02f * s);
-      bases[s] = make_basis(q, normal);
+      math::Quaternion q = math::make_rotation(
+          math::Vector(0.2f, 0.5f, 0.8f).normalized(), 0.02f * s);
+      bases[s] = math::make_basis(q, normal);
       new (&shapes[s]) SDF::Ring(bases[s], 1.0f, ths[s]);
     }
 
@@ -631,7 +637,7 @@ inline void test_ring_group_matches_sequential() {
       {
         Canvas canvas(seq);
         for (int s = 0; s < N; ++s) {
-          auto shader = [&](const Vector &, Fragment &f) {
+          auto shader = [&](const math::Vector &, Fragment &f) {
             f.color = colors[s];
           };
           Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], shader);
@@ -651,9 +657,9 @@ inline void test_ring_group_matches_sequential() {
     Pipeline<W, H> pipeline;
     {
       Canvas canvas(fused);
-      Scan::RingGroup::draw<W, H>(
-          pipeline, canvas, shapes, N,
-          [&](int s, const Vector &, Fragment &f) { f.color = colors[s]; });
+      Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N,
+                                  [&](int s, const math::Vector &,
+                                      Fragment &f) { f.color = colors[s]; });
     }
     fused.advance_display();
 
@@ -687,11 +693,11 @@ inline void test_ring_group_matches_sequential() {
 #endif
   };
 
-  run_case(Vector(0.3f, 0.8f, -0.5f).normalized(), false);
-  run_case(Vector(0.3f, 0.8f, -0.5f).normalized(), true);
+  run_case(math::Vector(0.3f, 0.8f, -0.5f).normalized(), false);
+  run_case(math::Vector(0.3f, 0.8f, -0.5f).normalized(), true);
   // Near-pole axis: r_val under the horizontal-projection floor forces the
   // group's full-row-scan fallback.
-  run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false);
+  run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false);
 }
 
 /**
@@ -731,14 +737,16 @@ inline void test_distorted_ring_stack_matches_sequential() {
                                   Color4(Pixel(30000, 0, 30000), 0.7f),
                                   Color4(Pixel(45000, 0, 20000), 1.0f)};
 
-  auto run_case = [&](const Vector &normal, bool partial_clip, int culled) {
-    Basis basis = make_basis(
-        make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f), normal);
+  auto run_case = [&](const math::Vector &normal, bool partial_clip,
+                      int culled) {
+    math::Basis basis = math::make_basis(
+        math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f),
+        normal);
 
     float knots[N_RINGS][LUT_N + 1];
     for (int i = 0; i < N_RINGS; ++i) {
       for (int k = 0; k < LUT_N; ++k) {
-        float t = 2.0f * PI_F * k / LUT_N;
+        float t = 2.0f * math::PI_F * k / LUT_N;
         knots[i][k] = 0.06f * sinf((i + 2) * t) + 0.03f * cosf(3.0f * t + i);
       }
       knots[i][LUT_N] = knots[i][0];
@@ -768,7 +776,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
     }
 
     auto shade = [&](int s, Fragment &f) {
-      const uint16_t g = static_cast<uint16_t>(wrap_t(f.v0) * 60000.0f);
+      const uint16_t g = static_cast<uint16_t>(math::wrap_t(f.v0) * 60000.0f);
       f.color = Color4(Pixel(slot_color[s].color.r, g, slot_color[s].color.b),
                        slot_color[s].alpha * f.v2);
     };
@@ -787,7 +795,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
           const int s = slot_by_ring[i];
           if (s < 0)
             continue;
-          auto shader = [&](const Vector &, Fragment &f) { shade(s, f); };
+          auto shader = [&](const math::Vector &, Fragment &f) { shade(s, f); };
           Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis,
                                           ring_radius(i), ths[i], knots[i],
                                           LUT_N, shader, 0.0f, false,
@@ -810,7 +818,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
       Canvas canvas(fused);
       Scan::DistortedRingStack::draw<W, H>(
           pipeline, canvas, N_RINGS, shapes, slot_by_ring, n_slots,
-          [&](int s, const Vector &, Fragment &f) { shade(s, f); });
+          [&](int s, const math::Vector &, Fragment &f) { shade(s, f); });
     }
     fused.advance_display();
 
@@ -839,13 +847,13 @@ inline void test_distorted_ring_stack_matches_sequential() {
     HS_EXPECT_GT(lit, (size_t)200);
   };
 
-  const Vector axis = Vector(0.3f, 0.8f, -0.5f).normalized();
+  const math::Vector axis = math::Vector(0.3f, 0.8f, -0.5f).normalized();
   run_case(axis, false, -1);
   run_case(axis, true, -1);
   run_case(axis, false, 2);
   // Near-pole axis: r_val under the horizontal-projection floor forces the
   // full-row-scan fallback on both paths.
-  run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
+  run_case(math::Vector(0.005f, 1.0f, 0.0f).normalized(), false, -1);
 }
 
 /**
@@ -861,25 +869,27 @@ inline void test_fused_walks_ignore_pole_lod() {
   constexpr int W = 96, H = 64;
   constexpr int N = 4, LUT_N = 32;
   const ScopedPoleLod scoped_lod(0.0f);
-  const Vector normal = Vector(0.3f, 0.8f, -0.5f).normalized();
-  const Basis basis = make_basis(
-      make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f), normal);
+  const math::Vector normal = math::Vector(0.3f, 0.8f, -0.5f).normalized();
+  const math::Basis basis = math::make_basis(
+      math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(), 0.3f),
+      normal);
   const float ths[N] = {0.08f, 0.04f, 0.06f, 0.05f};
   const Color4 colors[N] = {Color4(Pixel(60000, 10000, 5000), 0.9f),
                             Color4(Pixel(5000, 60000, 10000), 0.6f),
                             Color4(Pixel(10000, 5000, 60000), 0.4f),
                             Color4(Pixel(30000, 30000, 30000), 0.7f)};
-  auto shader = [&](int s, const Vector &, Fragment &f) {
+  auto shader = [&](int s, const math::Vector &, Fragment &f) {
     f.color = colors[s];
   };
 
   auto draw_group = [&](std::vector<Pixel> &out) {
-    Basis bases[N];
+    math::Basis bases[N];
     alignas(SDF::Ring) unsigned char mem[N * sizeof(SDF::Ring)];
     auto *shapes = reinterpret_cast<SDF::Ring *>(mem);
     for (int s = 0; s < N; ++s) {
-      bases[s] = make_basis(
-          make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.02f * s),
+      bases[s] = math::make_basis(
+          math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(),
+                              0.02f * s),
           normal);
       new (&shapes[s]) SDF::Ring(bases[s], 1.0f, ths[s]);
     }
@@ -897,7 +907,7 @@ inline void test_fused_walks_ignore_pole_lod() {
     float knots[N][LUT_N + 1];
     for (int i = 0; i < N; ++i) {
       for (int k = 0; k < LUT_N; ++k) {
-        const float t = 2.0f * PI_F * k / LUT_N;
+        const float t = 2.0f * math::PI_F * k / LUT_N;
         knots[i][k] = 0.06f * sinf((i + 2) * t) + 0.03f * cosf(3.0f * t + i);
       }
       knots[i][LUT_N] = knots[i][0];
@@ -968,20 +978,20 @@ inline void test_face_rasterize_matches_scan_region() {
 
   // x0 == x1 leaves the frame unclipped; a margin that underflows x0 gives the
   // seam-wrapping band.
-  auto run_case = [&](const Vector &axis, float rho, int sides, float phase,
-                      int x0, int x1, int margin) {
+  auto run_case = [&](const math::Vector &axis, float rho, int sides,
+                      float phase, int x0, int x1, int margin) {
     HS_CONTEXT("face", sides, x0);
-    Basis basis = make_basis(Quaternion(), axis);
-    Vector verts[8];
+    math::Basis basis = math::make_basis(math::Quaternion(), axis);
+    math::Vector verts[8];
     uint16_t idx[8];
     for (int i = 0; i < sides; ++i) {
-      float a = (TWO_PI_F * i) / sides + phase;
+      float a = (math::TWO_PI_F * i) / sides + phase;
       verts[i] = (basis.v * cosf(rho) +
                   (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
                      .normalized();
       idx[i] = static_cast<uint16_t>(i);
     }
-    std::span<const Vector> vspan(verts, sides);
+    std::span<const math::Vector> vspan(verts, sides);
     std::span<const uint16_t> ispan(idx, sides);
     const Color4 color(Pixel(60000, 20000, 40000), 0.75f);
 
@@ -995,7 +1005,9 @@ inline void test_face_rasterize_matches_scan_region() {
         Canvas canvas(fx);
         SDF::FaceScratchBuffer scratch;
         SDF::Face face(vspan, ispan, scratch, HV, H, &canvas.clip());
-        auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+        auto shader = [&](const math::Vector &, Fragment &f) {
+          f.color = color;
+        };
         if (fused)
           Scan::rasterize_face<W, H, Pipeline<W, H>>(pipeline, canvas, face,
                                                      shader);
@@ -1037,17 +1049,17 @@ inline void test_face_rasterize_matches_scan_region() {
   };
 
   // Mid-latitude hexagon, whose azimuth wedge sits around column 80.
-  const Vector mid = Vector(0.3f, 0.8f, -0.5f).normalized();
+  const math::Vector mid = math::Vector(0.3f, 0.8f, -0.5f).normalized();
   run_case(mid, 0.45f, 6, 0.37f, 0, 0, 0);
   run_case(mid, 0.45f, 6, 0.37f, 62, 94, 0);
   // Centred on theta=0, so the wedge straddles the seam. The band [90, 96) u
   // [0, 46) that the margin wraps around the seam covers it.
-  const Vector seam = Vector(1.0f, 0.15f, 0.0f).normalized();
+  const math::Vector seam = math::Vector(1.0f, 0.15f, 0.0f).normalized();
   run_case(seam, 0.5f, 5, 0.0f, 0, 0, 0);
   run_case(seam, 0.5f, 5, 0.0f, 0, 40, 6);
   // Face over the pole: runs are rebuilt per row and the rows it cannot bound
   // fall back to a full-width scan.
-  const Vector pole = Vector(0.02f, 1.0f, 0.0f).normalized();
+  const math::Vector pole = math::Vector(0.02f, 1.0f, 0.0f).normalized();
   run_case(pole, 0.35f, 4, 0.11f, 0, 0, 0);
   run_case(pole, 0.35f, 4, 0.11f, 12, 62, 0);
   run_case(pole, 0.35f, 4, 0.11f, 0, 40, 6);
@@ -1074,7 +1086,7 @@ inline void test_scan_region_seam_no_double_plot() {
         out((float)(W - 2), (float)(W + 2)); // seam-crosser  -> W-2,W-1,0,1
         return true;
       },
-      [&](int wx, int, const Vector &, int run) {
+      [&](int wx, int, const math::Vector &, int run) {
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W)
             counts[wx + i]++;
@@ -1115,7 +1127,7 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
         out(5.6f, 8.0f); // floor(5.6)=5 would re-plot x=5 without the clamp
         return true;
       },
-      [&](int wx, int, const Vector &, int run) {
+      [&](int wx, int, const math::Vector &, int run) {
         for (int i = 0; i < run; ++i)
           if (wx + i >= 0 && wx + i < W)
             counts[wx + i]++;
@@ -1150,10 +1162,10 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   constexpr int H = 144;
   const int y = 2; // near the north pole, so sin(phi) is small and stride > 1
 
-  TrigLUT<W, H>::init();
+  math::TrigLUT<W, H>::init();
 
   const ScopedPoleLod lod(1.0f);
-  const int lod_stride = Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]);
+  const int lod_stride = Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
   HS_EXPECT_GT(lod_stride, 1);
 
   // probe[x] = the column whose shade settled x, -1 if unvisited.
@@ -1165,7 +1177,7 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
           out(0.0f, (float)W);
           return true;
         },
-        [&](int wx, int, const Vector &, int run) {
+        [&](int wx, int, const math::Vector &, int run) {
           for (int i = 0; i < run; ++i) {
             const int x = wx + i;
             if (x >= 0 && x < W)
@@ -1228,7 +1240,7 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
 
   // Aggressiveness 0 is exactly one column per run.
   pole_lod_aggressiveness = 0.0f;
-  HS_EXPECT_EQ(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[y]), 1);
+  HS_EXPECT_EQ(Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
 }
 
@@ -1308,16 +1320,16 @@ inline void test_pole_lod_shading_matches_undecimated() {
 
   // Ring axis tilted just off the canvas pole, so the stroke band's two arcs
   // cross the rows whose stride exceeds 1.
-  auto draw_ring = [&](float lod, const Vector &axis, float radius) {
+  auto draw_ring = [&](float lod, const math::Vector &axis, float radius) {
     pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
       Canvas c(fx);
-      Basis basis = make_basis(Quaternion(), axis);
+      math::Basis basis = math::make_basis(math::Quaternion(), axis);
       Scan::Ring::draw<W, H, false>(
           pipe, c, basis, radius, /*thickness=*/0.05f,
-          [&](const Vector &, Fragment &f) { f.color = color; });
+          [&](const math::Vector &, Fragment &f) { f.color = color; });
     }
     fx.advance_display();
     return readback(fx);
@@ -1326,12 +1338,12 @@ inline void test_pole_lod_shading_matches_undecimated() {
   auto draw_face = [&](float lod, float tilt, float rho, int sides, float phase,
                        bool fused) {
     pole_lod_aggressiveness = lod;
-    const Vector axis = Vector(tilt, 1.0f, 0.0f).normalized();
-    Basis basis = make_basis(Quaternion(), axis);
-    Vector verts[8];
+    const math::Vector axis = math::Vector(tilt, 1.0f, 0.0f).normalized();
+    math::Basis basis = math::make_basis(math::Quaternion(), axis);
+    math::Vector verts[8];
     uint16_t idx[8];
     for (int i = 0; i < sides; ++i) {
-      float a = (TWO_PI_F * i) / sides + phase;
+      float a = (math::TWO_PI_F * i) / sides + phase;
       verts[i] = (basis.v * cosf(rho) +
                   (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
                      .normalized();
@@ -1342,10 +1354,10 @@ inline void test_pole_lod_shading_matches_undecimated() {
     {
       Canvas canvas(fx);
       SDF::FaceScratchBuffer scratch;
-      SDF::Face face(std::span<const Vector>(verts, sides),
+      SDF::Face face(std::span<const math::Vector>(verts, sides),
                      std::span<const uint16_t>(idx, sides), scratch, HV, H,
                      &canvas.clip());
-      auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+      auto shader = [&](const math::Vector &, Fragment &f) { f.color = color; };
       if (fused)
         Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
       else
@@ -1355,21 +1367,21 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
-  auto draw_folded = [&](auto tag, float lod, const Vector &axis, float radius,
-                         int sides, bool typed) {
+  auto draw_folded = [&](auto tag, float lod, const math::Vector &axis,
+                         float radius, int sides, bool typed) {
     using ShapeT = typename decltype(tag)::type;
     pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
       Canvas c(fx);
-      Basis basis = make_basis(Quaternion(), axis);
+      math::Basis basis = math::make_basis(math::Quaternion(), axis);
       if (typed)
         ShapeT::template draw_solid<W, H>(pipe, c, basis, radius, sides, color);
       else
         ShapeT::template draw<W, H, false>(
             pipe, c, basis, radius, sides,
-            [&](const Vector &, Fragment &f) { f.color = color; });
+            [&](const math::Vector &, Fragment &f) { f.color = color; });
     }
     fx.advance_display();
     return readback(fx);
@@ -1385,14 +1397,18 @@ inline void test_pole_lod_shading_matches_undecimated() {
     Pipeline<W, H> pipe;
     {
       Canvas c(fx);
-      const Basis poly_basis = make_basis(Quaternion(), Vector(0, 1, 0));
-      const Vector ring_axis = Vector(0.12f, 1.0f, 0.0f).normalized();
-      const Basis ring_basis = make_basis(Quaternion(), ring_axis);
-      SDF::PlanarPolygon poly(poly_basis, /*radius=*/0.35f / (PI_F / 2.0f),
+      const math::Basis poly_basis =
+          math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
+      const math::Vector ring_axis =
+          math::Vector(0.12f, 1.0f, 0.0f).normalized();
+      const math::Basis ring_basis =
+          math::make_basis(math::Quaternion(), ring_axis);
+      SDF::PlanarPolygon poly(poly_basis,
+                              /*radius=*/0.35f / (math::PI_F / 2.0f),
                               /*sides=*/5, 0.0f);
       // Centerline through the canvas pole: the stroke crosses the decimated
       // rows the polygon's interior covers.
-      SDF::Ring ring(ring_basis, /*radius=*/0.12f / (PI_F / 2.0f),
+      SDF::Ring ring(ring_basis, /*radius=*/0.12f / (math::PI_F / 2.0f),
                      /*thickness=*/0.05f);
       SDF::Subtract<SDF::PlanarPolygon, SDF::Ring> carved(poly, ring);
       if (typed)
@@ -1400,7 +1416,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
       else
         Scan::rasterize<W, H, false>(
             pipe, c, carved,
-            [&](const Vector &, Fragment &f) { f.color = color; });
+            [&](const math::Vector &, Fragment &f) { f.color = color; });
     }
     fx.advance_display();
     return readback(fx);
@@ -1423,19 +1439,21 @@ inline void test_pole_lod_shading_matches_undecimated() {
       // decimated rows, close enough to the pole that the circumradius spans
       // most of a sector in azimuth.
       const float rho = 0.30f;
-      const float theta = PI_F / static_cast<float>(reps);
-      const Vector centre(sinf(rho) * cosf(theta), cosf(rho),
-                          -sinf(rho) * sinf(theta));
-      const Basis child_basis = make_basis(Quaternion(), centre);
+      const float theta = math::PI_F / static_cast<float>(reps);
+      const math::Vector centre(sinf(rho) * cosf(theta), cosf(rho),
+                                -sinf(rho) * sinf(theta));
+      const math::Basis child_basis =
+          math::make_basis(math::Quaternion(), centre);
       SDF::PlanarPolygon child(child_basis, /*circumradius=*/0.15f, /*sides=*/5,
                                0.0f);
-      SDF::AngularRepeat<SDF::PlanarPolygon> rep(child, reps, Vector(0, 1, 0));
+      SDF::AngularRepeat<SDF::PlanarPolygon> rep(child, reps,
+                                                 math::Vector(0, 1, 0));
       if (typed)
         Scan::rasterize_solid<W, H>(pipe, c, rep, color);
       else
         Scan::rasterize<W, H, false>(
             pipe, c, rep,
-            [&](const Vector &, Fragment &f) { f.color = color; });
+            [&](const math::Vector &, Fragment &f) { f.color = color; });
     }
     fx.advance_display();
     return readback(fx);
@@ -1447,11 +1465,11 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // times an angular step.
   auto draw_sliver_face = [&](float lod, bool fused, float tilt, float spin) {
     pole_lod_aggressiveness = lod;
-    const Vector axis = Vector(sinf(tilt), cosf(tilt), 0.0f);
-    const Basis basis = make_basis(Quaternion(), axis);
+    const math::Vector axis = math::Vector(sinf(tilt), cosf(tilt), 0.0f);
+    const math::Basis basis = math::make_basis(math::Quaternion(), axis);
     const float px[3] = {0.7f, -0.35f, -0.35f};
     const float py[3] = {0.0f, 0.06f, -0.06f};
-    Vector verts[3];
+    math::Vector verts[3];
     uint16_t idx[3];
     for (int i = 0; i < 3; ++i) {
       const float rx = px[i] * cosf(spin) - py[i] * sinf(spin);
@@ -1464,12 +1482,12 @@ inline void test_pole_lod_shading_matches_undecimated() {
     {
       Canvas canvas(fx);
       SDF::FaceScratchBuffer scratch;
-      SDF::Face face(std::span<const Vector>(verts, 3),
+      SDF::Face face(std::span<const math::Vector>(verts, 3),
                      std::span<const uint16_t>(idx, 3), scratch, HV, H,
                      &canvas.clip());
       HS_EXPECT_TRUE(face.linear_dist);
       HS_EXPECT_GT(face.max_dist_sq, 0.25f);
-      auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+      auto shader = [&](const math::Vector &, Fragment &f) { f.color = color; };
       if (fused)
         Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
       else
@@ -1482,8 +1500,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // The rows the draws reach must actually be decimated, or the comparison is
   // vacuous.
   pole_lod_aggressiveness = 1.0f;
-  TrigLUT<W, H>::init();
-  HS_EXPECT_GT(Scan::pole_lod_run(TrigLUT<W, H>::sin_phi[2]), 1);
+  math::TrigLUT<W, H>::init();
+  HS_EXPECT_GT(Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[2]), 1);
 
   // Poses whose decimated rows carry a per-arc report rate the shared
   // change-per-arc factor alone undercuts.
@@ -1495,7 +1513,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
                         SliverCase{0.46f, 7}, SliverCase{0.56f, 7}})
     for (float lod : {1.0f, 4.0f})
       for (bool fused : {false, true}) {
-        const float spin = (TWO_PI_F * sc.spin_step) / 48.0f;
+        const float spin = (math::TWO_PI_F * sc.spin_step) / 48.0f;
         HS_CONTEXT("sliver", static_cast<int>(sc.tilt * 100.0f),
                    static_cast<int>(lod) * 2 + fused);
         compare(draw_sliver_face(0.0f, fused, sc.tilt, spin),
@@ -1517,8 +1535,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
 
   for (float tilt : {0.12f, 0.3f}) {
     HS_CONTEXT("ring", static_cast<int>(tilt * 100.0f));
-    const Vector axis = Vector(tilt, 1.0f, 0.0f).normalized();
-    const float radius = tilt / (PI_F / 2.0f);
+    const math::Vector axis = math::Vector(tilt, 1.0f, 0.0f).normalized();
+    const float radius = tilt / (math::PI_F / 2.0f);
     compare(draw_ring(0.0f, axis, radius), draw_ring(1.0f, axis, radius));
   }
 
@@ -1541,11 +1559,11 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // Cap axis tilted off the canvas pole at a near-hemispherical radius, so the
   // rim -- where the fold's polar/sin(polar) term peaks -- crosses the
   // decimated rows.
-  const Vector rim_axis = Vector(1.0f, 0.5f, 0.0f).normalized();
+  const math::Vector rim_axis = math::Vector(1.0f, 0.5f, 0.0f).normalized();
   // Flower's petals meet at the antipode of basis.v, so that axis sits by the
   // canvas pole: across it the sign alternates over a vanishing arc, which no
   // finite slack bounds.
-  const Vector fold_axis = Vector(0.10f, -1.0f, 0.0f).normalized();
+  const math::Vector fold_axis = math::Vector(0.10f, -1.0f, 0.0f).normalized();
   // 4.0 is inside the live WASM range and lengthens every run, so a slack that
   // undercuts the shape's own stretch mis-shades a fringe column there.
   for (float lod : {1.0f, 4.0f})
@@ -1574,14 +1592,14 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
   struct FaceCase {
     float tilt, rho, rho_inner, phase;
   };
-  for (const FaceCase fc : {FaceCase{0.1f, 0.12f, 0.036f, PI_F / 3.0f},
-                            FaceCase{0.45f, 0.65f, 0.30f, PI_F / 4.0f}}) {
-    const Basis basis =
-        make_basis(Quaternion(), Vector(fc.tilt, 1.0f, 0.0f).normalized());
-    Vector vertices[8];
+  for (const FaceCase fc : {FaceCase{0.1f, 0.12f, 0.036f, math::PI_F / 3.0f},
+                            FaceCase{0.45f, 0.65f, 0.30f, math::PI_F / 4.0f}}) {
+    const math::Basis basis = math::make_basis(
+        math::Quaternion(), math::Vector(fc.tilt, 1.0f, 0.0f).normalized());
+    math::Vector vertices[8];
     uint16_t indices[8];
     for (int i = 0; i < 8; ++i) {
-      const float angle = TWO_PI_F * i / 8.0f + fc.phase;
+      const float angle = math::TWO_PI_F * i / 8.0f + fc.phase;
       const float rho = i % 2 ? fc.rho_inner : fc.rho;
       vertices[i] =
           (basis.v * cosf(rho) +
@@ -1596,12 +1614,12 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
       {
         Canvas canvas(fx);
         SDF::FaceScratchBuffer scratch;
-        SDF::Face face(std::span<const Vector>(vertices, 8),
+        SDF::Face face(std::span<const math::Vector>(vertices, 8),
                        std::span<const uint16_t>(indices, 8), scratch,
                        H + hs::H_OFFSET, H, &canvas.clip());
         HS_EXPECT_FALSE(face.convex);
         HS_EXPECT_EQ(face.linear_dist, fc.rho < 0.2f);
-        auto shade = [](const Vector &, Fragment &f) {
+        auto shade = [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 45000, 30000), 1.0f);
         };
         Scan::rasterize_face<W, H>(pipe, canvas, face, shade);
@@ -1651,7 +1669,7 @@ inline void test_scan_region_clip_arc_matches_predicate() {
           out((float)(W - 4), (float)(W + 2)); // seam-crosser
           return true;
         },
-        [&](int wx, int, const Vector &, int run) {
+        [&](int wx, int, const math::Vector &, int run) {
           for (int i = 0; i < run; ++i)
             if (wx + i >= 0 && wx + i < W)
               counts[wx + i]++;
@@ -1709,14 +1727,14 @@ struct AlphaSink {
  * @return The forwarded AA alpha, or -1 if the pixel was not drawn.
  */
 template <int W, int H>
-inline float scan_alpha_at(const auto &shape, const Vector &p, Canvas &c,
+inline float scan_alpha_at(const auto &shape, const math::Vector &p, Canvas &c,
                            int *count = nullptr) {
   AlphaSink sink;
   SDF::DistanceResult res;
   Fragment frag;
   Scan::process_pixel<W, H, false>(
       0, 0, p, sink, c, shape,
-      [](const Vector &, Fragment &f) {
+      [](const math::Vector &, Fragment &f) {
         f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
       },
       /*debug_bb=*/false, res, frag);
@@ -1734,18 +1752,18 @@ inline void test_scan_shader_v2_contract() {
   constexpr int W = 288, H = 144;
   hs_test::StubEffect fx(W, H);
   Canvas canvas(fx);
-  Basis basis = make_basis(Quaternion(), Y_AXIS);
+  math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   constexpr float RADIUS = 0.5f;
   constexpr float THICKNESS = 0.1f;
-  const float phi = RADIUS * (PI_F / 2.0f) + THICKNESS * 0.5f;
-  const Vector p(sinf(phi), cosf(phi), 0.0f);
+  const float phi = RADIUS * (math::PI_F / 2.0f) + THICKNESS * 0.5f;
+  const math::Vector p(sinf(phi), cosf(phi), 0.0f);
   SDF::Ring ring(basis, RADIUS, THICKNESS);
 
   SDF::DistanceResult expected_result;
   ring.distance<false>(p, expected_result);
   const float expected_coverage =
-      quintic_kernel(-expected_result.dist / expected_result.size);
-  const float legacy_factor = quintic_kernel(
+      math::quintic_kernel(-expected_result.dist / expected_result.size);
+  const float legacy_factor = math::quintic_kernel(
       1.0f -
       hs::clamp(expected_result.raw_dist / expected_result.size, 0.0f, 1.0f));
 
@@ -1755,7 +1773,7 @@ inline void test_scan_shader_v2_contract() {
   float shader_coverage = -1.0f;
   Scan::process_pixel<W, H, false>(
       0, 0, p, sink, canvas, ring,
-      [&](const Vector &, Fragment &f) {
+      [&](const math::Vector &, Fragment &f) {
         shader_coverage = f.v2;
         f.color = Color4(Pixel(60000, 60000, 60000), f.v2);
       },
@@ -1768,12 +1786,12 @@ inline void test_scan_shader_v2_contract() {
   HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * expected_coverage, 1e-6f);
   HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * legacy_factor, 2e-6f);
 
-  SDF::PlanarPolygon solid(basis, 0.5f / (PI_F / 2.0f), 6, 0.0f);
+  SDF::PlanarPolygon solid(basis, 0.5f / (math::PI_F / 2.0f), 6, 0.0f);
   AlphaSink solid_sink;
   float solid_v2 = -1.0f;
   Scan::process_pixel<W, H, false>(
       0, 0, basis.v, solid_sink, canvas, solid,
-      [&](const Vector &, Fragment &f) {
+      [&](const math::Vector &, Fragment &f) {
         solid_v2 = f.v2;
         f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
       },
@@ -1791,11 +1809,12 @@ inline void test_scan_shader_v2_contract() {
  */
 inline void test_report_stretch_forwards_through_csg() {
   constexpr int H = 144, HV = H + hs::H_OFFSET;
-  const Basis basis = make_basis(Quaternion(), Vector(0, 1, 0));
-  Vector verts[6];
+  const math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
+  math::Vector verts[6];
   uint16_t small_idx[3], large_idx[3];
   for (int i = 0; i < 3; ++i) {
-    const float a = (2.0f * PI_F * static_cast<float>(i)) / 3.0f;
+    const float a = (2.0f * math::PI_F * static_cast<float>(i)) / 3.0f;
     const auto ring = [&](float polar) {
       return (basis.v * cosf(polar) +
               (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(polar))
@@ -1807,10 +1826,10 @@ inline void test_report_stretch_forwards_through_csg() {
     large_idx[i] = static_cast<uint16_t>(i + 3);
   }
   static SDF::FaceScratchBuffer small_scratch, large_scratch;
-  const SDF::Face small(std::span<const Vector>(verts, 6),
+  const SDF::Face small(std::span<const math::Vector>(verts, 6),
                         std::span<const uint16_t>(small_idx, 3), small_scratch,
                         HV, H);
-  const SDF::Face large(std::span<const Vector>(verts, 6),
+  const SDF::Face large(std::span<const math::Vector>(verts, 6),
                         std::span<const uint16_t>(large_idx, 3), large_scratch,
                         HV, H);
 
@@ -1850,14 +1869,14 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
 
   const float thin = 0.05f, thick = 0.30f;
   // Thin line: equatorial arc +X -> +Z (great circle in the y=0 plane).
-  SDF::Line thin_line(Vector(1, 0, 0), Vector(0, 0, 1), thin);
+  SDF::Line thin_line(math::Vector(1, 0, 0), math::Vector(0, 0, 1), thin);
   // Thick line: opposite equatorial quadrant, far from the test point so the
   // Union always selects the thin line; it exists only to push the wrapper's
   // max-thickness up to `thick`.
-  SDF::Line thick_line(Vector(-1, 0, 0), Vector(0, 0, -1), thick);
+  SDF::Line thick_line(math::Vector(-1, 0, 0), math::Vector(0, 0, -1), thick);
   SDF::Union<SDF::Line, SDF::Line> u(thin_line, thick_line);
   // Same geometry as `thick_line` but standalone, for the contrast check.
-  SDF::Line thick_solo(Vector(1, 0, 0), Vector(0, 0, 1), thick);
+  SDF::Line thick_solo(math::Vector(1, 0, 0), math::Vector(0, 0, 1), thick);
 
   static_assert(!SDF::Union<SDF::Line, SDF::Line>::is_solid,
                 "a Union of strokes is not solid");
@@ -1865,8 +1884,8 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   // Point at geodesic distance 0.025 (half the thin thickness) north of the
   // thin arc, projecting to azimuth 45 deg (well inside the arc).
   const float dist = 0.025f;
-  Vector p(cosf(dist) * cosf(PI_F / 4), sinf(dist),
-           cosf(dist) * sinf(PI_F / 4));
+  math::Vector p(cosf(dist) * cosf(math::PI_F / 4), sinf(dist),
+                 cosf(dist) * sinf(math::PI_F / 4));
 
   int n_union = 0, n_bare = 0;
   float a_union = scan_alpha_at<W, H>(u, p, c, &n_union);
@@ -1898,9 +1917,10 @@ inline void test_ring_rasterize_lights_expected_row() {
     Pipeline<W, H> pipe;
     {
       Canvas c(fx);
-      Basis basis = make_basis(Quaternion(), Y_AXIS); // axis = north pole (+Y)
+      math::Basis basis = math::make_basis(
+          math::Quaternion(), math::Y_AXIS); // axis = north pole (+Y)
       Scan::Ring::draw<W, H, false>(pipe, c, basis, radius, /*thickness=*/0.05f,
-                                    [](const Vector &, Fragment &f) {
+                                    [](const math::Vector &, Fragment &f) {
                                       f.color = Color4(
                                           Pixel(60000, 60000, 60000), 1.0f);
                                     });
@@ -1931,8 +1951,8 @@ inline void test_ring_rasterize_lights_expected_row() {
   };
 
   for (float radius : {0.5f, 1.0f}) {
-    float target = radius * (PI_F / 2.0f);
-    float expected_y = phi_to_y<H>(target);
+    float target = radius * (math::PI_F / 2.0f);
+    float expected_y = math::phi_to_y<H>(target);
     auto r = centroid_and_band(radius);
 
     // The ring is a full circle of latitude: most columns light up its row.
@@ -1961,8 +1981,8 @@ inline void test_stroke_aa_is_monotone_ramp() {
 
   const float radius = 0.5f;     // centerline at polar PI/4
   const float thickness = 0.10f; // band half-width in radians
-  const float target = radius * (PI_F / 2.0f);
-  Basis basis = make_basis(Quaternion(), Y_AXIS);
+  const float target = radius * (math::PI_F / 2.0f);
+  math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   SDF::Ring ring(basis, radius, thickness);
 
   // March outward from the centerline along the az=0 meridian. raw distance to
@@ -1974,7 +1994,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
   for (int i = 0; i < N; ++i) {
     float delta = (thickness * 1.4f) * i / (N - 1); // 0 .. 1.4*thickness
     float ph = target + delta;
-    Vector p(sinf(ph), cosf(ph), 0.0f); // az=0, polar angle ph
+    math::Vector p(sinf(ph), cosf(ph), 0.0f); // az=0, polar angle ph
     int count = 0;
     float a = scan_alpha_at<W, H>(ring, p, c, &count);
     if (count == 0)
@@ -2049,7 +2069,7 @@ inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north,
   HS_EXPECT_TRUE((row_has_lit<W>(fx, near_row)));
   HS_EXPECT_FALSE((row_has_lit<W>(fx, far_row)));
 
-  const float rows_per_radian = static_cast<float>(H) / PI_F;
+  const float rows_per_radian = static_cast<float>(H) / math::PI_F;
   const float slack_rows = 3.0f;
   const int lit = static_cast<int>(count_lit_region<W, H>(fx));
   HS_EXPECT_GE(lit,
@@ -2066,30 +2086,31 @@ inline void test_star_pixel_placement() {
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
-    Basis basis = make_basis(Quaternion(), Y_AXIS);
-    Scan::Star::draw<W, H, false>(
-        pipe, c, basis, RADIUS, /*sides=*/5, [](const Vector &, Fragment &f) {
-          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-        });
+    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+    Scan::Star::draw<W, H, false>(pipe, c, basis, RADIUS, /*sides=*/5,
+                                  [](const math::Vector &, Fragment &f) {
+                                    f.color = Color4(Pixel(60000, 60000, 60000),
+                                                     1.0f);
+                                  });
   }
   fx.advance_display();
   // Tips at the circumradius, notches at STAR_INNER_RATIO of it.
-  const float r_max = RADIUS * (PI_F / 2.0f);
+  const float r_max = RADIUS * (math::PI_F / 2.0f);
   expect_filled_cap<W, H>(fx, /*cap_north=*/true, r_max * STAR_INNER_RATIO,
                           r_max);
-  const Basis basis = make_basis(Quaternion(), Y_AXIS);
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   const float probe_radius = r_max * 0.7f;
   const auto probe = [&](float azimuth) {
-    const Vector direction =
+    const math::Vector direction =
         basis.v * cosf(probe_radius) +
         (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) *
             sinf(probe_radius);
-    const auto pixel = vector_to_pixel<W, H>(direction);
+    const auto pixel = math::vector_to_pixel<W, H>(direction);
     return fx.get_pixel(static_cast<int>(std::round(pixel.x)) % W,
                         static_cast<int>(std::round(pixel.y)));
   };
   HS_EXPECT_FALSE(is_black(probe(0.0f)));
-  HS_EXPECT_TRUE(is_black(probe(PI_F / 5.0f)));
+  HS_EXPECT_TRUE(is_black(probe(math::PI_F / 5.0f)));
 }
 
 /** @brief Verifies a filled PlanarPolygon caps the basis.v (+Y) pole, not the other. */
@@ -2101,17 +2122,17 @@ inline void test_planar_polygon_pixel_placement() {
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
-    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
     Scan::PlanarPolygon::draw<W, H, false>(
-        pipe, c, basis, RADIUS, SIDES, [](const Vector &, Fragment &f) {
+        pipe, c, basis, RADIUS, SIDES, [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
   fx.advance_display();
   // Vertices at the circumradius, edge midpoints at the apothem.
-  const float r_max = RADIUS * (PI_F / 2.0f);
-  expect_filled_cap<W, H>(fx, /*cap_north=*/true, r_max * cosf(PI_F / SIDES),
-                          r_max);
+  const float r_max = RADIUS * (math::PI_F / 2.0f);
+  expect_filled_cap<W, H>(fx, /*cap_north=*/true,
+                          r_max * cosf(math::PI_F / SIDES), r_max);
 }
 
 /**
@@ -2128,17 +2149,18 @@ inline void test_flower_pixel_placement() {
   Pipeline<W, H> pipe;
   {
     Canvas c(fx);
-    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
     Scan::Flower::draw<W, H, false>(
-        pipe, c, basis, RADIUS, SIDES, [](const Vector &, Fragment &f) {
+        pipe, c, basis, RADIUS, SIDES, [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
   fx.advance_display();
   // Petal boundary (PI - r) * cos(local) == PI - r_max: the tip at local 0,
   // narrowest at the sector edge.
-  const float r_max = RADIUS * (PI_F / 2.0f);
-  const float r_min = PI_F - (PI_F - r_max) / cosf(PI_F / SIDES);
+  const float r_max = RADIUS * (math::PI_F / 2.0f);
+  const float r_min =
+      math::PI_F - (math::PI_F - r_max) / cosf(math::PI_F / SIDES);
   expect_filled_cap<W, H>(fx, /*cap_north=*/false, r_min, r_max);
 }
 
@@ -2167,10 +2189,13 @@ inline void test_solid_color_path_matches_generic() {
         Pipeline<W, H> generic_pipeline;
         {
           Canvas canvas(generic_fx);
-          Basis basis = make_basis(
-              make_rotation(Vector(0.3f, 0.7f, 0.2f).normalized(), 0.4f),
-              Y_AXIS);
-          auto shader = [&](const Vector &, Fragment &f) { f.color = color; };
+          math::Basis basis = math::make_basis(
+              math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
+                                  0.4f),
+              math::Y_AXIS);
+          auto shader = [&](const math::Vector &, Fragment &f) {
+            f.color = color;
+          };
           switch (shape) {
           case SolidShape::PLANAR_POLYGON:
             Scan::PlanarPolygon::draw<W, H, false>(generic_pipeline, canvas,
@@ -2208,9 +2233,10 @@ inline void test_solid_color_path_matches_generic() {
         Pipeline<W, H> solid_pipeline;
         {
           Canvas canvas(solid_fx);
-          Basis basis = make_basis(
-              make_rotation(Vector(0.3f, 0.7f, 0.2f).normalized(), 0.4f),
-              Y_AXIS);
+          math::Basis basis = math::make_basis(
+              math::make_rotation(math::Vector(0.3f, 0.7f, 0.2f).normalized(),
+                                  0.4f),
+              math::Y_AXIS);
           switch (shape) {
           case SolidShape::PLANAR_POLYGON:
             Scan::PlanarPolygon::draw_solid<W, H>(solid_pipeline, canvas, basis,
@@ -2261,8 +2287,9 @@ inline void test_spherical_sine_distance_framebuffer_error() {
   constexpr int W = 288;
   constexpr int H = 144;
   const Color4 color(Pixel(61000, 43000, 17000), 0.73f);
-  Basis basis = make_basis(
-      make_rotation(Vector(-0.2f, 0.9f, 0.4f).normalized(), 0.63f), Y_AXIS);
+  math::Basis basis = math::make_basis(
+      math::make_rotation(math::Vector(-0.2f, 0.9f, 0.4f).normalized(), 0.63f),
+      math::Y_AXIS);
   struct Case {
     float radius;
     int sides;
@@ -2337,17 +2364,17 @@ inline void test_overlapping_strokes_composite_blend() {
   constexpr uint16_t red = 60000, green = 50000;
   {
     Canvas c(fx);
-    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
     // First fill: red at half alpha over black -> red*0.5.
     Scan::PlanarPolygon::draw<W, H, false>(
         pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
-        [](const Vector &, Fragment &f) {
+        [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(red, 0, 0), 0.5f);
         });
     // Second fill: green at half alpha over the red -> red*0.25 + green*0.5.
     Scan::PlanarPolygon::draw<W, H, false>(
         pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
-        [](const Vector &, Fragment &f) {
+        [](const math::Vector &, Fragment &f) {
           f.color = Color4(Pixel(0, green, 0), 0.5f);
         });
   }
@@ -2378,7 +2405,7 @@ struct SphereSDF {
    * @param p Query point in local space.
    * @return |p| - radius (negative inside, zero on the surface).
    */
-  float distance(const Vector &p) const { return p.length() - radius; }
+  float distance(const math::Vector &p) const { return p.length() - radius; }
 };
 
 /**
@@ -2389,16 +2416,17 @@ struct SphereSDF {
  * self-occludes the background — the case Volume::draw's occluder probe handles.
  */
 struct TwoSphereSDF {
-  Vector fg_center; /**< Foreground sphere centre (nearer the camera). */
-  float fg_radius;  /**< Foreground sphere radius. */
-  Vector bg_center; /**< Background sphere centre (deeper along the ray). */
-  float bg_radius;  /**< Background sphere radius. */
+  math::Vector fg_center; /**< Foreground sphere centre (nearer the camera). */
+  float fg_radius;        /**< Foreground sphere radius. */
+  math::Vector
+      bg_center;   /**< Background sphere centre (deeper along the ray). */
+  float bg_radius; /**< Background sphere radius. */
   /**
    * @brief Signed distance to the union of the two spheres.
    * @param p Query point in local space.
    * @return The nearer of the two surface distances.
    */
-  float distance(const Vector &p) const {
+  float distance(const math::Vector &p) const {
     return std::min((p - fg_center).length() - fg_radius,
                     (p - bg_center).length() - bg_radius);
   }
@@ -2407,7 +2435,7 @@ struct TwoSphereSDF {
 template <typename Shape> struct CountedVolume {
   const Shape &shape;
   mutable int samples = 0;
-  float distance(const Vector &p) const {
+  float distance(const math::Vector &p) const {
     ++samples;
     return shape.distance(p);
   }
@@ -2419,10 +2447,11 @@ inline void test_volume_scalar_state_differential() {
   float max_probe_position = 0.0f, max_probe_coverage = 0.0f;
   int rays = 0, limited = 0, halos = 0, background_grazes = 0;
   int solid_changes = 0;
-  auto compare = [&](const auto &shape, const Vector &ro, const Vector &vd,
-                     float radius, int steps, float aa) {
+  auto compare = [&](const auto &shape, const math::Vector &ro,
+                     const math::Vector &vd, float radius, int steps,
+                     float aa) {
     CountedVolume counted{shape};
-    Vector old_p, new_p;
+    math::Vector old_p, new_p;
     float old_d = VolumeReference::trace_closest(counted, ro, vd, radius, steps,
                                                  aa, old_p);
     limited += counted.samples == steps;
@@ -2457,15 +2486,16 @@ inline void test_volume_scalar_state_differential() {
           {twist, 0.35f * scale, 0.45f * scale}};
       torus.precision = 0.14f * scale;
       for (int angle = 0; angle < 5; ++angle) {
-        Quaternion q = make_rotation(Vector(0.3f, 1.0f, -0.2f).normalized(),
-                                     angle * 0.59f);
-        Vector vd = rotate(Vector(0, 0, -1), q);
+        math::Quaternion q = math::make_rotation(
+            math::Vector(0.3f, 1.0f, -0.2f).normalized(), angle * 0.59f);
+        math::Vector vd = math::rotate(math::Vector(0, 0, -1), q);
         for (int steps : {1, 14, 18, 40}) {
           for (int y = -16; y <= 16; ++y) {
             for (int x = -16; x <= 16; ++x) {
-              Vector ro = rotate(
-                  Vector(x * 0.045f * scale, y * 0.045f * scale, 0.72f * scale),
-                  q);
+              math::Vector ro =
+                  math::rotate(math::Vector(x * 0.045f * scale,
+                                            y * 0.045f * scale, 0.72f * scale),
+                               q);
               compare(torus, ro, vd, 0.72f * scale, steps, 0.07f * scale);
             }
           }
@@ -2473,11 +2503,13 @@ inline void test_volume_scalar_state_differential() {
       }
     }
   }
-  TwoSphereSDF pair{Vector(0, 0, 0.2f), 0.18f, Vector(0.28f, 0, -0.2f), 0.3f};
+  TwoSphereSDF pair{math::Vector(0, 0, 0.2f), 0.18f,
+                    math::Vector(0.28f, 0, -0.2f), 0.3f};
   for (int x = -20; x <= 20; ++x)
     for (int y = -20; y <= 20; ++y)
-      compare(pair, Vector(0.0357f + x * 0.0003f, 0.1797f + y * 0.0003f, 1),
-              Vector(0, 0, -1), 0.6f, 40, 0.01f);
+      compare(pair,
+              math::Vector(0.0357f + x * 0.0003f, 0.1797f + y * 0.0003f, 1),
+              math::Vector(0, 0, -1), 0.6f, 40, 0.01f);
   printf(
       "scalar ray differential: %d rays, %d limited, %d halos, %d background "
       "grazes; max distance %.9g, position %.9g, coverage %.9g, probe "
@@ -2502,9 +2534,9 @@ inline void test_volume_trace_nearly_tied_minimum() {
   const float AA = 0x1.634edap-4f;
   const float RADIUS = 0x1.852f16p-2f;
   torus.precision = 2.0f * AA;
-  const Vector ORIGIN(-0x1.c9d22p-2f, -0x1.5bf194p-3f, 0x1.2c3592p-3f);
-  const Vector DIRECTION(0x1.acc1c2p-2f, 0x1.af3f2ep-1f, -0x1.5ba266p-2f);
-  Vector expected, actual;
+  const math::Vector ORIGIN(-0x1.c9d22p-2f, -0x1.5bf194p-3f, 0x1.2c3592p-3f);
+  const math::Vector DIRECTION(0x1.acc1c2p-2f, 0x1.af3f2ep-1f, -0x1.5ba266p-2f);
+  math::Vector expected, actual;
   float expected_d = VolumeReference::trace_closest(torus, ORIGIN, DIRECTION,
                                                     RADIUS, 17, AA, expected);
   float actual_d = Scan::Volume::trace_closest(torus, ORIGIN, DIRECTION, RADIUS,
@@ -2538,7 +2570,7 @@ struct VolumeSink {
     alpha.push_back(a);
   }
   void plot(Canvas &, float, float, const Pixel &, float, float) {}
-  void plot(Canvas &, const Vector &, const Pixel &, float, float) {}
+  void plot(Canvas &, const math::Vector &, const Pixel &, float, float) {}
 };
 
 /**
@@ -2552,26 +2584,26 @@ struct VolumeSink {
  */
 inline void test_transformed_volume_world_local_roundtrip() {
   SphereSDF sphere{0.3f};
-  const Vector center(0.2f, -0.5f, 0.8f);
-  const Quaternion q =
-      make_rotation(Vector(0.3f, 1.0f, -0.2f).normalized(), 0.7f);
+  const math::Vector center(0.2f, -0.5f, 0.8f);
+  const math::Quaternion q =
+      math::make_rotation(math::Vector(0.3f, 1.0f, -0.2f).normalized(), 0.7f);
   Scan::TransformedVolume vol(sphere, center, q);
 
   // bounds_center maps to the local origin (the cull precondition).
-  Vector local_bc = vol.origin_to_local(center);
+  math::Vector local_bc = vol.origin_to_local(center);
   HS_EXPECT_NEAR(local_bc.length(), 0.0f, 1e-5f);
 
   // A local point pushed out to world and back is recovered exactly.
-  const Vector lp(0.1f, 0.2f, -0.25f);
-  Vector world = center + rotate(lp, q);
-  Vector back = vol.origin_to_local(world);
+  const math::Vector lp(0.1f, 0.2f, -0.25f);
+  math::Vector world = center + math::rotate(lp, q);
+  math::Vector back = vol.origin_to_local(world);
   HS_EXPECT_NEAR(back.x, lp.x, 1e-5f);
   HS_EXPECT_NEAR(back.y, lp.y, 1e-5f);
   HS_EXPECT_NEAR(back.z, lp.z, 1e-5f);
 
   // ray_to_local maps the origin like origin_to_local and keeps a unit direction
   // unit (rigid map, no scale) — the |local_vd| == 1 precondition.
-  const Vector vd(0.0f, 0.0f, -1.0f);
+  const math::Vector vd(0.0f, 0.0f, -1.0f);
   auto [lro, lvd] = vol.ray_to_local(world, vd);
   HS_EXPECT_NEAR(lro.x, lp.x, 1e-5f);
   HS_EXPECT_NEAR(lro.y, lp.y, 1e-5f);
@@ -2597,13 +2629,13 @@ inline void test_transformed_volume_world_local_roundtrip() {
  */
 inline void test_volume_raymarch_silhouette_and_registers() {
   constexpr int W = 96, H = 64;
-  const Vector center(0.0f, 0.0f, 1.0f); // bounds centre in LED space
+  const math::Vector center(0.0f, 0.0f, 1.0f); // bounds centre in LED space
   const float bounds_radius = 0.35f;
   const float sphere_r = 0.28f; // < bounds so the SDF fits the cull sphere
   const float aa_width = 0.01f;
 
   SphereSDF sphere{sphere_r};
-  Scan::TransformedVolume vol(sphere, center, Quaternion());
+  Scan::TransformedVolume vol(sphere, center, math::Quaternion());
 
   hs_test::StubEffect fx(W, H);
   VolumeSink sink;
@@ -2611,12 +2643,12 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   int hits = 0;
   float max_surf_err = 0.0f; // worst |‖pos‖ - radius| over all hits
   float max_reg_d = 0.0f;    // worst |frag.size| (closest_d) over all hits
-  Vector centroid_sum(0.0f, 0.0f, 0.0f);
+  math::Vector centroid_sum(0.0f, 0.0f, 0.0f);
   {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
         sink, c, center, bounds_radius, vol,
-        [&](const Vector &loc, Fragment &frag) {
+        [&](const math::Vector &loc, Fragment &frag) {
           ++hits;
           max_surf_err =
               std::max(max_surf_err, std::fabs(loc.length() - sphere_r));
@@ -2638,7 +2670,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   HS_EXPECT_LE(max_reg_d, aa_width);
 
   // (3) The hit centroid is on the camera-facing (+Z) cap.
-  Vector centroid = centroid_sum * (1.0f / static_cast<float>(hits));
+  math::Vector centroid = centroid_sum * (1.0f / static_cast<float>(hits));
   HS_EXPECT_GT(centroid.z, 0.1f);
 }
 
@@ -2657,7 +2689,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
  */
 inline void test_volume_draw_occluded_edge_blends_over_background() {
   constexpr int W = 96, H = 64;
-  const Vector center(0.0f, 0.0f, 1.0f);
+  const math::Vector center(0.0f, 0.0f, 1.0f);
   const float bounds_radius = 0.50f;
   const float aa_width = 0.01f;
 
@@ -2666,9 +2698,9 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   // The modest step budget lets the grazing ray stall on the foreground edge
   // (landing in the AA band) rather than reaching the background solidly, so the
   // occluder probe — not the main trace — is what discovers the surface behind.
-  TwoSphereSDF shape{Vector(0.0f, 0.0f, 0.20f), 0.18f,
-                     Vector(0.0f, 0.0f, -0.20f), 0.30f};
-  Scan::TransformedVolume vol(shape, center, Quaternion());
+  TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
+                     math::Vector(0.0f, 0.0f, -0.20f), 0.30f};
+  Scan::TransformedVolume vol(shape, center, math::Quaternion());
 
   hs_test::StubEffect fx(W, H);
   VolumeSink sink;
@@ -2676,7 +2708,7 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
     Canvas c(fx);
     Scan::Volume::draw<W, H>(
         sink, c, center, bounds_radius, vol,
-        [&](const Vector &, Fragment &frag) {
+        [&](const math::Vector &, Fragment &frag) {
           frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         },
         /*max_steps=*/12, aa_width);
@@ -2717,16 +2749,16 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
  */
 inline void test_volume_trace_closest_stops_at_first_graze() {
   const float aa_width = 0.01f;
-  TwoSphereSDF shape{Vector(0.0f, 0.0f, 0.20f), 0.18f,
-                     Vector(0.0f, 0.0f, -0.20f), 0.30f};
+  TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
+                     math::Vector(0.0f, 0.0f, -0.20f), 0.30f};
 
   // Grazing ray: passes 0.005 outside the foreground silhouette, then through
   // the background sphere's interior.
-  const Vector ro(0.185f, 0.0f, 1.0f);
-  const Vector vd(0.0f, 0.0f, -1.0f);
+  const math::Vector ro(0.185f, 0.0f, 1.0f);
+  const math::Vector vd(0.0f, 0.0f, -1.0f);
 
   for (int max_steps : {14, 40}) {
-    Vector closest_local;
+    math::Vector closest_local;
     float closest_d = Scan::Volume::trace_closest(
         shape, ro, vd, 0.5f, max_steps, aa_width, closest_local);
     HS_EXPECT_GT(closest_d, 0.003f);
@@ -2748,14 +2780,14 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
 inline void test_volume_probe_occluder_reports_background_graze_point() {
   const float aa_width = 0.01f;
   const float hit_threshold = aa_width * 0.1f;
-  TwoSphereSDF shape{Vector(0.0f, 0.0f, 0.20f), 0.18f,
-                     Vector(0.28f, 0.0f, -0.20f), 0.30f};
+  TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
+                     math::Vector(0.28f, 0.0f, -0.20f), 0.30f};
 
   // Silhouette-crossing corner, offset outward of both circles by ~0.004.
-  const Vector ro(0.0357f, 0.1797f, 1.0f);
-  const Vector vd(0.0f, 0.0f, -1.0f);
+  const math::Vector ro(0.0357f, 0.1797f, 1.0f);
+  const math::Vector vd(0.0f, 0.0f, -1.0f);
 
-  Vector closest_local;
+  math::Vector closest_local;
   float closest_d = Scan::Volume::trace_closest(shape, ro, vd, 0.6f, 40,
                                                 aa_width, closest_local);
   HS_EXPECT_GT(closest_d, hit_threshold);
@@ -2787,21 +2819,21 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
                                                         {2, 0.35f, 0.45f}};
   const float bounds_radius = 0.72f;
   const float aa_width = 0.07f;
-  const Vector vd(0.0f, 0.0f, -1.0f);
+  const math::Vector vd(0.0f, 0.0f, -1.0f);
 
   int covered = 0, hits = 0;
   for (int iy = -14; iy <= 14; ++iy) {
     for (int ix = -14; ix <= 14; ++ix) {
-      Vector ro(ix * 0.045f, iy * 0.045f, bounds_radius);
+      math::Vector ro(ix * 0.045f, iy * 0.045f, bounds_radius);
 
-      Vector closest_local;
+      math::Vector closest_local;
       float closest_d = Scan::Volume::trace_closest(
           torus, ro, vd, bounds_radius, 18, aa_width, closest_local);
 
       // Dense reference: true closest approach along the same ray segment.
       float ref_min = FLT_MAX;
       for (int s = 0; s <= 4000; ++s) {
-        Vector p(ro.x, ro.y, ro.z - s * (2.0f * bounds_radius / 4000.0f));
+        math::Vector p(ro.x, ro.y, ro.z - s * (2.0f * bounds_radius / 4000.0f));
         float d = torus.distance(p);
         if (d < ref_min)
           ref_min = d;
@@ -2843,7 +2875,7 @@ inline void test_volume_trace_closest_overrelax_never_skips_surface() {
  * @return Stroke coverage in [0, 1]; 0 at or beyond the rim.
  * @details Uses double-precision trigonometry and the analytic quintic.
  */
-inline float cap_coverage(const Vector &v, const Vector &axis,
+inline float cap_coverage(const math::Vector &v, const math::Vector &axis,
                           float thickness) {
   if (thickness <= 0.0f)
     return 0.0f;
@@ -2867,17 +2899,17 @@ inline void test_point_draws_the_analytic_cap() {
   constexpr int W = 96, H = 64;
   constexpr uint16_t LEVEL = 60000;
   constexpr float THICKNESS = 0.35f;
-  TrigLUT<W, H>::init();
+  math::TrigLUT<W, H>::init();
 
-  const Vector axes[] = {Y_AXIS, Vector(1.0f, 0.0f, 0.0f),
-                         Vector(0.3f, -0.6f, 0.74f).normalized()};
-  for (const Vector &axis : axes) {
+  const math::Vector axes[] = {math::Y_AXIS, math::Vector(1.0f, 0.0f, 0.0f),
+                               math::Vector(0.3f, -0.6f, 0.74f).normalized()};
+  for (const math::Vector &axis : axes) {
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
       Canvas c(fx);
       Scan::Point::draw<W, H>(
-          pipe, c, axis, THICKNESS, [](const Vector &, Fragment &f) {
+          pipe, c, axis, THICKNESS, [](const math::Vector &, Fragment &f) {
             f.color = Color4(Pixel(LEVEL, LEVEL, LEVEL), 1.0f);
           });
     }
@@ -2885,12 +2917,12 @@ inline void test_point_draws_the_analytic_cap() {
 
     // The cap centre must be the basis axis the wrapper built, not the raw
     // vector: make_basis can reorient, so read it back rather than assuming.
-    const Basis basis = make_basis(Quaternion(), axis);
+    const math::Basis basis = math::make_basis(math::Quaternion(), axis);
     size_t lit = 0, covered = 0;
     float worst_value_error = 0.0f;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
-        const Vector v = pixel_to_vector<W, H>(x, y);
+        const math::Vector v = math::pixel_to_vector<W, H>(x, y);
         const float coverage = cap_coverage(v, basis.v, THICKNESS);
         const bool is_lit = !is_black(fx.get_pixel(x, y));
         if (is_lit)
@@ -2925,8 +2957,8 @@ inline void test_point_draws_the_analytic_cap() {
  */
 inline void test_pole_centred_cap_takes_the_full_row_scan() {
   constexpr int W = 96, H = 64;
-  TrigLUT<W, H>::init();
-  const Basis pole = make_basis(Quaternion(), Y_AXIS);
+  math::TrigLUT<W, H>::init();
+  const math::Basis pole = math::make_basis(math::Quaternion(), math::Y_AXIS);
   const SDF::Ring degenerate(pole, 0.0f, 0.35f);
 
   const auto rows = degenerate.get_vertical_bounds<H>();
@@ -2934,18 +2966,19 @@ inline void test_pole_centred_cap_takes_the_full_row_scan() {
   HS_EXPECT_GT(rows.y_max, 0);
   int full_scan_rows = 0;
   for (int y = rows.y_min; y <= rows.y_max; ++y)
-    if (degenerate.needs_full_row_scan(TrigLUT<W, H>::sin_phi[y]))
+    if (degenerate.needs_full_row_scan(math::TrigLUT<W, H>::sin_phi[y]))
       ++full_scan_rows;
   HS_EXPECT_EQ(full_scan_rows, rows.y_max - rows.y_min + 1);
 
   // An equatorial cap of the same size answers with intervals on most rows, so
   // the two axes above cover both sides of the branch.
-  const Basis equator = make_basis(Quaternion(), Vector(1.0f, 0.0f, 0.0f));
+  const math::Basis equator =
+      math::make_basis(math::Quaternion(), math::Vector(1.0f, 0.0f, 0.0f));
   const SDF::Ring ordinary(equator, 0.0f, 0.35f);
   const auto eq_rows = ordinary.get_vertical_bounds<H>();
   int interval_rows = 0;
   for (int y = eq_rows.y_min; y <= eq_rows.y_max; ++y)
-    if (!ordinary.needs_full_row_scan(TrigLUT<W, H>::sin_phi[y]))
+    if (!ordinary.needs_full_row_scan(math::TrigLUT<W, H>::sin_phi[y]))
       ++interval_rows;
   HS_EXPECT_GT(interval_rows, 0);
 }
@@ -2960,7 +2993,7 @@ inline void test_pole_centred_cap_takes_the_full_row_scan() {
 inline void test_circle_and_point_match_their_rings() {
   constexpr int W = 96, H = 64;
   Pipeline<W, H> pipe;
-  auto shader = [](const Vector &p, Fragment &f) {
+  auto shader = [](const math::Vector &p, Fragment &f) {
     // Position-dependent so a mismatched basis or phase shows up as color, not
     // only as coverage.
     f.color =
@@ -2969,7 +3002,8 @@ inline void test_circle_and_point_match_their_rings() {
                1.0f);
   };
 
-  const Basis basis = make_basis(Quaternion(), Vector(0.2f, 0.8f, -0.5f));
+  const math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0.2f, 0.8f, -0.5f));
   std::vector<Pixel> circle_frame, ring_frame;
   {
     hs_test::StubEffect fx(W, H);
@@ -2984,7 +3018,7 @@ inline void test_circle_and_point_match_their_rings() {
     hs_test::StubEffect fx(W, H);
     {
       Canvas c(fx);
-      Scan::Ring::draw<W, H>(pipe, c, basis, 0.0f, 0.4f * (PI_F / 2.0f),
+      Scan::Ring::draw<W, H>(pipe, c, basis, 0.0f, 0.4f * (math::PI_F / 2.0f),
                              shader);
     }
     fx.advance_display();
@@ -3000,7 +3034,7 @@ inline void test_circle_and_point_match_their_rings() {
   HS_EXPECT_GT(circle_lit, (size_t)0);
   HS_EXPECT_EQ(circle_diff, (size_t)0);
 
-  const Vector center(-0.4f, 0.5f, 0.766f);
+  const math::Vector center(-0.4f, 0.5f, 0.766f);
   std::vector<Pixel> point_frame, point_ring_frame;
   {
     hs_test::StubEffect fx(W, H);
@@ -3013,7 +3047,8 @@ inline void test_circle_and_point_match_their_rings() {
   }
   {
     hs_test::StubEffect fx(W, H);
-    const Basis point_basis = make_basis(Quaternion(), center);
+    const math::Basis point_basis =
+        math::make_basis(math::Quaternion(), center);
     {
       Canvas c(fx);
       Scan::Ring::draw<W, H>(pipe, c, point_basis, 0.0f, 0.3f, shader);
@@ -3041,7 +3076,8 @@ inline void test_circle_and_point_match_their_rings() {
  */
 inline void test_circle_extent_follows_its_radius() {
   constexpr int W = 96, H = 64;
-  const Basis basis = make_basis(Quaternion(), Vector(0.0f, 0.0f, 1.0f));
+  const math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0.0f, 0.0f, 1.0f));
   size_t previous_lit = 0;
   for (float radius : {0.15f, 0.3f, 0.6f}) {
     hs_test::StubEffect fx(W, H);
@@ -3049,28 +3085,28 @@ inline void test_circle_extent_follows_its_radius() {
     {
       Canvas c(fx);
       Scan::Circle::draw<W, H>(
-          pipe, c, basis, radius, [](const Vector &, Fragment &f) {
+          pipe, c, basis, radius, [](const math::Vector &, Fragment &f) {
             f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
           });
     }
     fx.advance_display();
 
-    const float rim = radius * (PI_F / 2.0f);
+    const float rim = radius * (math::PI_F / 2.0f);
     size_t lit = 0;
     float widest = 0.0f;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
         if (!is_black(fx.get_pixel(x, y))) {
           ++lit;
-          const Vector v = pixel_to_vector<W, H>(x, y);
-          widest = std::max(widest,
-                            fast_acos(hs::clamp(dot(v, basis.v), -1.0f, 1.0f)));
+          const math::Vector v = math::pixel_to_vector<W, H>(x, y);
+          widest = std::max(widest, math::fast_acos(hs::clamp(
+                                        math::dot(v, basis.v), -1.0f, 1.0f)));
         }
     HS_EXPECT_GT(lit, previous_lit);
     // No lit pixel past the rim, and the cap is sampled close enough to it
     // that the widest lit direction is within a row of the rim.
     HS_EXPECT_LT(widest, rim);
-    HS_EXPECT_GT(widest, rim - 2.0f * (PI_F / (H - 1)));
+    HS_EXPECT_GT(widest, rim - 2.0f * (math::PI_F / (H - 1)));
     previous_lit = lit;
   }
 }

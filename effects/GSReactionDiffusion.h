@@ -98,7 +98,7 @@ public:
     // flags); the two run under disjoint scopes.
     constexpr size_t PHYSICS_SCRATCH_BYTES = 4u * RD_N * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
-        RD_N * sizeof(Vector) + 2u * RD_N * sizeof(uint8_t);
+        RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
@@ -236,7 +236,8 @@ private:
    */
   void convert_below(float phase) {
     for (int i = 0; i < RD_N; i++) {
-      float h = hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
+      float h =
+          math::hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
       if (h < phase) {
         state.A[i] = 65535;
         state.B[i] = 0;
@@ -383,7 +384,8 @@ private:
    * pixel and re-weights it inline. This one-sample form is the oracle
    * tests/test_effects.h bounds that shared stencil against.
    */
-  float interpolate_b(const Vector &p, int seed, const Vector *nodes) const {
+  float interpolate_b(const math::Vector &p, int seed,
+                      const math::Vector *nodes) const {
     float tw = 0, wb = 0;
     refine_and_accumulate(p, nodes, seed, [&](int i, float w) {
       wb += from_q16(state.B[i]) * w;
@@ -411,14 +413,14 @@ private:
    * across the four sub-pixel samples.
    */
   template <typename Grid>
-  HS_O3_FN Pixel shade_pixel(int seed, const Vector &center_rv,
-                             const Vector *world_nodes, const Grid &grid,
+  HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
+                             const math::Vector *world_nodes, const Grid &grid,
                              int x) const {
     if (seed < 0)
       return Pixel(0, 0, 0);
 
     int center = refine_render_center(center_rv, world_nodes, seed);
-    Vector spos[RD_K + 1];
+    math::Vector spos[RD_K + 1];
     uint16_t sb[RD_K + 1];
     gather_stencil(world_nodes, center, spos,
                    [&](int slot, int ni) { sb[slot] = state.B[ni]; });
@@ -426,7 +428,7 @@ private:
     constexpr uint32_t SAMPLES = Grid::SAMPLES;
     uint32_t accum_r = 0, accum_g = 0, accum_b = 0;
     for (int i = 0; i < Grid::SAMPLES; ++i) {
-      Vector v = grid.at(x, i);
+      math::Vector v = grid.at(x, i);
       float tw = 0.0f, wb = 0.0f;
       accumulate_stencil(v, spos, [&](int j, float w) {
         wb += sb[j] * w;
@@ -533,7 +535,7 @@ private:
       HS_PROFILE(grd_orient);
       return orient_lattice();
     }();
-    Vector *world_nodes = lattice.get();
+    math::Vector *world_nodes = lattice.get();
     uint8_t *hot1 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *hot2 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     {

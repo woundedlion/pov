@@ -63,11 +63,13 @@ inline float centered_sector_angle(float angle, float sector,
  * @param phase Azimuth phase offset (radians), added after the fold.
  * @return The azimuth folded into [0, 2*PI), offset by phase.
  */
-__attribute__((always_inline)) inline float
-basis_azimuth(const Vector &p, const Vector &u, const Vector &w, float phase) {
-  float azimuth = fast_atan2(dot(p, w), dot(p, u));
+__attribute__((always_inline)) inline float basis_azimuth(const math::Vector &p,
+                                                          const math::Vector &u,
+                                                          const math::Vector &w,
+                                                          float phase) {
+  float azimuth = math::fast_atan2(math::dot(p, w), math::dot(p, u));
   if (azimuth < 0)
-    azimuth += TWO_PI_F;
+    azimuth += math::TWO_PI_F;
   return azimuth + phase;
 }
 
@@ -91,7 +93,7 @@ inline constexpr float TURN_EPS_SQ = 1e-12f;
  *  @param w Canvas width in columns.
  *  @return Half-width pad added to each end of an azimuth interval. */
 constexpr float face_azimuth_pad(int w) {
-  return 1.25f * (TWO_PI_F / static_cast<float>(w));
+  return 1.25f * (math::TWO_PI_F / static_cast<float>(w));
 }
 
 /**
@@ -102,7 +104,7 @@ constexpr float face_azimuth_pad(int w) {
  */
 inline float face_azimuth_pad(int w, float sin_phi) {
   const float pad = face_azimuth_pad(w);
-  return sin_phi <= pad ? PI_F : asinf(pad / sin_phi);
+  return sin_phi <= pad ? math::PI_F : asinf(pad / sin_phi);
 }
 
 // Scanline interval protocol. get_horizontal_intervals returns true when the
@@ -463,7 +465,7 @@ normalize_intervals_to_range(const StaticCircularBuffer<Interval, N> &src,
       push_interval(dst, 0.0f, Wf);
       continue;
     }
-    const float s = wrap(src[i].start, Wf);
+    const float s = math::wrap(src[i].start, Wf);
     const float e = s + len;
     if (e <= Wf) {
       push_interval(dst, s, e);
@@ -517,10 +519,10 @@ inline void merge_intervals(StaticCircularBuffer<Interval, N> &merged,
  * input (e.g. a Ring radius > 2 driving center_phi ± target_angle past range).
  */
 inline float clamp_phi(float x) {
-  x = fabsf(x);           // cos(-x) = cos(x): fold negatives
-  x = fmodf(x, TWO_PI_F); // 2π-periodic -> [0, 2π)
-  if (x > PI_F)
-    x = TWO_PI_F - x; // reflect (π, 2π) across the south pole -> (0, π)
+  x = fabsf(x);                 // cos(-x) = cos(x): fold negatives
+  x = fmodf(x, math::TWO_PI_F); // 2π-periodic -> [0, 2π)
+  if (x > math::PI_F)
+    x = math::TWO_PI_F - x; // reflect (π, 2π) across the south pole -> (0, π)
   return x;
 }
 
@@ -627,7 +629,7 @@ struct DistanceResult {
  * @return The shape's DistanceResult at p, with UVs computed.
  */
 template <typename S>
-inline DistanceResult distance_of(const S &shape, const Vector &p) {
+inline DistanceResult distance_of(const S &shape, const math::Vector &p) {
   DistanceResult res;
   shape.template distance<true>(p, res);
   return res;
@@ -662,8 +664,8 @@ concept SDFShape = requires {
  */
 template <typename T, int W, int H>
 concept ScanShape =
-    SDFShape<T> && requires(const T &s, const Vector &p, DistanceResult &r,
-                            void (*out)(float, float)) {
+    SDFShape<T> && requires(const T &s, const math::Vector &p,
+                            DistanceResult &r, void (*out)(float, float)) {
       { s.template get_vertical_bounds<H>() } -> std::convertible_to<Bounds>;
       {
         s.template get_horizontal_intervals<W, H>(0, out)
@@ -684,7 +686,7 @@ struct AxisProjection {
  * @param axis The axis vector.
  * @return Components nx/ny/nz, XZ-projection length r_val, azimuth alpha_angle.
  */
-inline AxisProjection project_axis(const Vector &axis) {
+inline AxisProjection project_axis(const math::Vector &axis) {
   return {axis.x, axis.y, axis.z, sqrtf(axis.x * axis.x + axis.z * axis.z),
           atan2f(axis.z, axis.x)};
 }
@@ -710,7 +712,8 @@ struct CapBounds {
  * @return Axis projection, the bounding band widened by BOUNDS_MARGIN_WIDE, and
  *         the cap radius' cosine and sine.
  */
-inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
+inline CapBounds cap_bounds(const math::Vector &axis, float radius,
+                            bool invert) {
   AxisProjection ap = project_axis(axis);
   float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ap.ny)));
   float margin = radius + BOUNDS_MARGIN_WIDE;
@@ -718,7 +721,7 @@ inline CapBounds cap_bounds(const Vector &axis, float radius, bool invert) {
           ap.r_val,
           ap.alpha_angle,
           invert ? 0.0f : std::max(0.0f, center_phi - margin),
-          invert ? PI_F : std::min(PI_F, center_phi + margin),
+          invert ? math::PI_F : std::min(math::PI_F, center_phi + margin),
           cosf(radius),
           sinf(radius)};
 }
@@ -760,8 +763,8 @@ inline bool emit_cap_interval(float cos_cap, float ny, float r_val,
 
   // fast_acos: ~5e-5 rad peak error ≈ 0.002 px at W=288, far under the
   // floor/ceil pad below. Matches the Ring/DistortedRing scanline path.
-  float d_alpha = fast_acos(C_min);
-  float scale = W / TWO_PI_F;
+  float d_alpha = math::fast_acos(C_min);
+  float scale = W / math::TWO_PI_F;
   float x1 = floorf((alpha_angle - d_alpha) * scale);
   float x2 = ceilf((alpha_angle + d_alpha) * scale);
   out(x1, x2);
@@ -792,20 +795,20 @@ inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
                                 OutputIt out) {
   if (sign < 0.0f)
     return false;
-  if (!TrigLUT<W, H>::initialized)
-    TrigLUT<W, H>::init();
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
   // Column 1 of the theta LUT is one pixel of azimuth, so the cap pad is an
   // angle addition rather than a per-row cosf.
-  const float cos_pad = TrigLUT<W, H>::cos_theta(1);
+  const float cos_pad = math::TrigLUT<W, H>::cos_theta(1);
   // A cap padded past pi covers the sphere; cos turns back up there, so the
   // addition would report a cap tighter than the shape.
   const float cos_padded =
       cos_cap <= -cos_pad
           ? -1.0f
-          : cos_cap * cos_pad - sin_cap * TrigLUT<W, H>::sin_theta[1];
+          : cos_cap * cos_pad - sin_cap * math::TrigLUT<W, H>::sin_theta[1];
   return emit_cap_interval<W>(cos_padded, ny, r_val, alpha_angle,
-                              TrigLUT<W, H>::cos_phi[y],
-                              TrigLUT<W, H>::sin_phi[y], out);
+                              math::TrigLUT<W, H>::cos_phi[y],
+                              math::TrigLUT<W, H>::sin_phi[y], out);
 }
 
 /**
@@ -824,10 +827,11 @@ inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
  */
 inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
                                  int height) {
-  int y_min =
-      std::max(0, static_cast<int>(floorf((phi_min * (h_virt - 1)) / PI_F)));
-  int y_max = std::min(
-      height - 1, static_cast<int>(ceilf((phi_max * (h_virt - 1)) / PI_F)));
+  int y_min = std::max(
+      0, static_cast<int>(floorf((phi_min * (h_virt - 1)) / math::PI_F)));
+  int y_max =
+      std::min(height - 1,
+               static_cast<int>(ceilf((phi_max * (h_virt - 1)) / math::PI_F)));
   return {y_min, y_max};
 }
 
@@ -869,8 +873,8 @@ inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
   float max_cos = std::min(1.0f, C_max);
   if (min_cos > max_cos)
     return false; // Empty row
-  angle_min = fast_acos(max_cos);
-  angle_max = fast_acos(min_cos);
+  angle_min = math::fast_acos(max_cos);
+  angle_max = math::fast_acos(min_cos);
   return true;
 }
 
@@ -900,15 +904,15 @@ inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
                            angle_max))
     return;
 
-  float scale = W / TWO_PI_F;
-  float safe_threshold = TWO_PI_F / W;
+  float scale = W / math::TWO_PI_F;
+  float safe_threshold = math::TWO_PI_F / W;
 
   if (angle_min <= safe_threshold) {
     out(floorf((alpha_angle - angle_max) * scale),
         ceilf((alpha_angle + angle_max) * scale));
-  } else if (angle_max >= PI_F - safe_threshold) {
+  } else if (angle_max >= math::PI_F - safe_threshold) {
     out(floorf((alpha_angle + angle_min) * scale),
-        ceilf((alpha_angle + TWO_PI_F - angle_min) * scale));
+        ceilf((alpha_angle + math::TWO_PI_F - angle_min) * scale));
   } else {
     out(floorf((alpha_angle - angle_max) * scale),
         ceilf((alpha_angle - angle_min) * scale));

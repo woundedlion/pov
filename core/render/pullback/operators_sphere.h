@@ -69,7 +69,7 @@ struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -127,7 +127,7 @@ struct DisplaceDirect : ValueStateModel<NoisePhaseState> {
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static void advance(State &state, const Params &params) {
-    state.phase = wrap_t(state.phase + params.speed);
+    state.phase = math::wrap_t(state.phase + params.speed);
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -196,14 +196,18 @@ template <typename Derived> struct FixedLensModel : StatelessModel {
 struct LensGlitch : FixedLensModel<LensGlitch> {
   static constexpr const char *ID = "sphere.lens.glitch.v2";
   static constexpr const char *NAME = "Glitch Lens";
-  static Vector lens(const Vector &input) { return lenses::glitch_lens(input); }
+  static math::Vector lens(const math::Vector &input) {
+    return lenses::glitch_lens(input);
+  }
 };
 
 /** @brief SPHERE endomorphism: the longitude-dependent twist lens. */
 struct LensTwist : FixedLensModel<LensTwist> {
   static constexpr const char *ID = "sphere.lens.twist.v2";
   static constexpr const char *NAME = "Twist Lens";
-  static Vector lens(const Vector &input) { return lenses::twist_lens(input); }
+  static math::Vector lens(const math::Vector &input) {
+    return lenses::twist_lens(input);
+  }
 };
 
 /** @brief Slider range of each flat Mobius coefficient, single-sourced from
@@ -314,7 +318,8 @@ static_assert(field_ids_unique<KaleidoscopeChainParams>());
 static_assert(field_defaults_in_range<KaleidoscopeChainParams>());
 
 /** @brief The symmetry switch over the shared kaleidoscope lens kernels. */
-inline Vector kaleidoscope_lens(const Vector &input, uint8_t symmetry) {
+inline math::Vector kaleidoscope_lens(const math::Vector &input,
+                                      uint8_t symmetry) {
   switch (static_cast<KaleidoscopeSymmetry>(symmetry)) {
   case KaleidoscopeSymmetry::TETRAHEDRAL:
     return lenses::polyhedral_kaleidoscope_lens(input,

@@ -33,7 +33,8 @@ inline constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
  * clamp and the 0/0 -> 0 case are the point-at-infinity conventions the sphere
  * projections depend on.
  */
-inline Complex project_div(const Complex &num, const Complex &den) {
+inline math::Complex project_div(const math::Complex &num,
+                                 const math::Complex &den) {
   float den_re = den.re;
   float den_im = den.im;
   float num_re = num.re;
@@ -57,14 +58,15 @@ inline Complex project_div(const Complex &num, const Complex &den) {
     // zero, and either collapses the direction onto the origin.
     const float peak = std::max(std::abs(num.re), std::abs(num.im));
     if (peak == 0.0f)
-      return Complex(0, 0);
+      return math::Complex(0, 0);
     const float re = num.re / peak;
     const float im = num.im / peak;
     return projections::stereographic_detail::radial_scale(
-        Complex(re, im), sqrtf(re * re + im * im), projections::STEREO_INF);
+        math::Complex(re, im), sqrtf(re * re + im * im),
+        projections::STEREO_INF);
   }
-  return Complex((num_re * den_re + num_im * den_im) / denom,
-                 (num_im * den_re - num_re * den_im) / denom);
+  return math::Complex((num_re * den_re + num_im * den_im) / denom,
+                       (num_im * den_re - num_re * den_im) / denom);
 }
 
 /**
@@ -74,7 +76,7 @@ inline Complex project_div(const Complex &num, const Complex &den) {
  * constructor is retained for terse literal initialization.
  */
 struct MobiusParams {
-  Complex a, b, c, d; /**< The four transform coefficients. */
+  math::Complex a, b, c, d; /**< The four transform coefficients. */
 
   /**
    * @brief Default constructor producing the identity transform (a=d=1, b=c=0).
@@ -87,8 +89,8 @@ struct MobiusParams {
    * @param coeff_c Coefficient c.
    * @param coeff_d Coefficient d.
    */
-  constexpr MobiusParams(Complex coeff_a, Complex coeff_b, Complex coeff_c,
-                         Complex coeff_d)
+  constexpr MobiusParams(math::Complex coeff_a, math::Complex coeff_b,
+                         math::Complex coeff_c, math::Complex coeff_d)
       : a(coeff_a), b(coeff_b), c(coeff_c), d(coeff_d) {}
   /**
    * @brief Constructs from eight floats (real/imaginary pairs per coefficient).
@@ -112,9 +114,10 @@ struct MobiusParams {
  * @param params The four transform coefficients.
  * @return The transformed complex point.
  */
-inline Complex mobius(const Complex &z, const MobiusParams &params) {
-  Complex num = (params.a * z) + params.b;
-  Complex den = (params.c * z) + params.d;
+inline math::Complex mobius(const math::Complex &z,
+                            const MobiusParams &params) {
+  math::Complex num = (params.a * z) + params.b;
+  math::Complex den = (params.c * z) + params.d;
   return project_div(num, den);
 }
 
@@ -130,7 +133,8 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * the pole is an ordinary value (s = 0) rather than the STEREO_INF sentinel
  * the split form needs.
  */
-inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
+inline math::Vector mobius_transform(const math::Vector &v,
+                                     const MobiusParams &params) {
   float px = v.x, pz = v.z;
   float s = 1.0f - v.y;
   // Exact north pole leaves (p : s) = (0 : 0); its projective image is the
@@ -153,11 +157,11 @@ inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
   // Only a singular transform (ad = bc) can null both, and it collapses the
   // sphere to a point; the split form reached the pole here via its sentinel.
   if (den < STEREO_DIV_NUM_EPS_SQ)
-    return Vector(0.0f, 1.0f, 0.0f);
+    return math::Vector(0.0f, 1.0f, 0.0f);
 
   const float inv = 1.0f / den;
-  return Vector(2.0f * (n_re * m_re + n_im * m_im) * inv, (n2 - m2) * inv,
-                2.0f * (n_im * m_re - n_re * m_im) * inv);
+  return math::Vector(2.0f * (n_re * m_re + n_im * m_im) * inv, (n2 - m2) * inv,
+                      2.0f * (n_im * m_re - n_re * m_im) * inv);
 }
 
 /**
@@ -168,10 +172,10 @@ inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
  * @details Projects to the gnomonic plane, applies the Mobius map, then
  * projects back to the hemisphere selected by the sign of v.y.
  */
-inline Vector gnomonic_mobius_transform(const Vector &v,
-                                        const MobiusParams &params) {
-  Complex z = projections::gnomonic(v);
-  Complex w = mobius(z, params);
+inline math::Vector gnomonic_mobius_transform(const math::Vector &v,
+                                              const MobiusParams &params) {
+  math::Complex z = projections::gnomonic(v);
+  math::Complex w = mobius(z, params);
   // copysignf keys on the sign bit, matching gnomonic's divisor floor: a >= 0
   // test would send v.y == -0.0f to the opposite hemisphere from the divisor.
   return projections::inv_gnomonic(w, copysignf(1.0f, v.y));
