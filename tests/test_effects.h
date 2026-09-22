@@ -5021,6 +5021,16 @@ inline void test_displacement_field_clip_tiles_full() {
  *          latitude topology, and matching one-sided derivatives at the fold.
  */
 inline void test_shader_workbench_glitch_lens_unit_norm() {
+  for (float polar : {0.4f, 0.9f, 2.0f}) {
+    for (float azimuth : {-2.1f, -0.4f, 0.7f, 1.8f}) {
+      const Vector input(sinf(polar) * cosf(azimuth), cosf(polar),
+                         sinf(polar) * sinf(azimuth));
+      const Vector mapped = lenses::glitch_lens(input);
+      HS_EXPECT_NEAR(mapped.x, sinf(2 * polar) * cosf(3 * azimuth), 2e-6f);
+      HS_EXPECT_NEAR(mapped.y, cosf(2 * polar), 2e-6f);
+      HS_EXPECT_NEAR(mapped.z, sinf(2 * polar) * sinf(3 * azimuth), 2e-6f);
+    }
+  }
   const Vector dirs[] = {Vector(1, 0, 0),
                          Vector(0, 0, 1),
                          Vector(-1, 0, 0),
