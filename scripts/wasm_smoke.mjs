@@ -120,6 +120,11 @@ async function main(probe) {
     process.exitCode = 1;
     return;
   }
+  if (process.env.CI && FRAMES_PER_EFFECT < 120) {
+    console.error('wasm_smoke: CI requires at least 120 frames per effect');
+    process.exitCode = 1;
+    return;
+  }
   try {
     await access(jsPath);
   } catch {
