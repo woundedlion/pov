@@ -1178,6 +1178,16 @@ inline void test_stereo_roundtrip() {
  *        magnitude in the numerator direction).
  */
 inline void test_complex_arithmetic() {
+  for (float numerator : {0.0f, 1.0f, 1e15f}) {
+    const Complex quotient = Complex(numerator, 0) / Complex(1e-23f, 0);
+    HS_EXPECT_TRUE(std::isfinite(quotient.re));
+    HS_EXPECT_EQ(quotient.im, 0.0f);
+    HS_EXPECT_NEAR(quotient.re * 1e-23f / std::max(numerator, 1.0f),
+                   numerator == 0.0f ? 0.0f : 1.0f, 2e-6f);
+  }
+  const Complex diagonal = Complex(1, 0) / Complex(1e-23f, 1e-23f);
+  HS_EXPECT_NEAR(diagonal.re * 1e-23f, 0.5f, 2e-6f);
+  HS_EXPECT_NEAR(diagonal.im * 1e-23f, -0.5f, 2e-6f);
   Complex a(1, 2), b(3, 4);
 
   HS_EXPECT_COMPLEX(a + b, Complex(4, 6), 1e-6f);
