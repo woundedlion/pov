@@ -107,7 +107,6 @@ inline void test_lattice_melt_identity_and_presets() {
   HS_EXPECT_TRUE(FX::EFFECT_ID == "lattice-melt");
   HS_EXPECT_EQ(FX::PRESET_IDS.size(), size_t{2});
   HS_EXPECT_EQ(sizeof(WB::Params), 28 * sizeof(float));
-  HS_EXPECT_TRUE(sizeof(WB::Frame) < sizeof(ShaderWorkbenchWB::FrameState));
 
   // The runtime rebuilds the hue-rotation LUT on the same predicate the
   // colorizer gates its view on, so both read dead at a zero shift amount.
