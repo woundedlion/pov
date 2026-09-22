@@ -16,6 +16,7 @@ import dataclasses
 import io
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -1977,6 +1978,36 @@ def mock_patch(obj, attr, value):
         yield
     finally:
         setattr(obj, attr, orig)
+
+
+class IncludeClassificationTests(unittest.TestCase):
+    def test_checkout_packages_component_stays_first_party(self):
+        class Environment(dict):
+            def subst(self, value):
+                return {"$PROJECT_PACKAGES_DIR": "/pio/packages",
+                        "$PROJECT_LIBDEPS_DIR": "/work/packages/repo/.pio/libdeps"}.get(value, value)
+
+            def Replace(self, **values):
+                self.update(values)
+
+            def Append(self, **values):
+                for key, value in values.items():
+                    self.setdefault(key, []).extend(value)
+
+            def GetLibBuilders(self):
+                return []
+
+        env = Environment(CPPPATH=["/pio/packages/teensy/core",
+                                   "/work/packages/repo/core"])
+        script = os.path.join(os.path.dirname(__file__), "..", "teensy_isystem.py")
+        module = runpy.run_path(script, init_globals={
+            "Import": lambda *names: None, "env": env, "projenv": env})
+        classify = module["_is_third_party"]
+        self.assertFalse(classify("/work/packages/repo/core"))
+        self.assertFalse(classify("/pio/packages-other/core"))
+        self.assertTrue(classify("/pio/packages/teensy/core"))
+        self.assertTrue(classify("/work/packages/repo/.pio/libdeps/target/FastLED"))
+        self.assertEqual(env["CPPPATH"], ["/work/packages/repo/core"])
 
 
 if __name__ == "__main__":
