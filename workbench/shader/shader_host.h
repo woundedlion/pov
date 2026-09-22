@@ -873,7 +873,8 @@ private:
           target + size > requested + sizeof(requested_config))
         continue;
       ParamDef writable = parameter;
-      writable.set(
+      write_parameter_unchecked(
+          writable,
           hs::clamp(parameter.get_requested(), parameter.min, parameter.max));
       clamped = true;
     }
@@ -895,7 +896,8 @@ private:
       ParamDef candidate_parameter = parameter;
       candidate_parameter.target =
           reinterpret_cast<uint8_t *>(&candidate) + (target - requested);
-      candidate_parameter.set(
+      write_parameter_unchecked(
+          candidate_parameter,
           hs::clamp(parameter.get_requested(), parameter.min, parameter.max));
       repaired = true;
     }
