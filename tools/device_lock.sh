@@ -158,9 +158,23 @@ _hs_lock_is_stale() {  # <dir>
 _HS_LOCK_HELPER="${BASH_SOURCE[0]//\\//}"
 _HS_LOCK_HELPER="${_HS_LOCK_HELPER%/*}/device_lock_guard.py"
 
+_hs_resolve_python() {
+  [ -n "${_HS_LOCK_PYTHON:-}" ] && return 0
+  local candidate
+  for candidate in "${HS_PYTHON:-}" python3 python; do
+    if "$candidate" --version >/dev/null 2>&1; then
+      _HS_LOCK_PYTHON="$candidate"
+      return 0
+    fi
+  done
+  echo "device: no working Python for the lock guard (set HS_PYTHON)" >&2
+  return 2
+}
+
 # _hs_break_lock <dir> <token> — evicts only the claim identified by token.
 _hs_break_lock() {
-  python "$_HS_LOCK_HELPER" break "$1" "$2"
+  _hs_resolve_python || return 2
+  "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" break "$1" "$2"
 }
 
 # _hs_try_claim <dir> <port> <effect> <env> <eta> — mkdir-or-fail, then record
@@ -168,7 +182,8 @@ _hs_break_lock() {
 # the flash and the capture can never drift onto a peer's device.
 _hs_try_claim() {
   local d=$1 port=$2 effect=$3 env=$4 eta=$5
-  local token info now
+  local token info now result
+  _hs_resolve_python || return 2
   token="$$-$(_hs_now)-$RANDOM"; now=$(_hs_now)
   info=$(
     echo "token=$token"
@@ -183,7 +198,14 @@ _hs_try_claim() {
     echo "deadline=$((now + eta))"
     echo "deadline_h=$(date -d "@$((now + eta))" '+%H:%M:%S' 2>/dev/null || echo '?')"
   )
-  printf '%s\n' "$info" | python "$_HS_LOCK_HELPER" claim "$d" || return 1
+  if printf '%s\n' "$info" | "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" claim "$d"; then
+    :
+  else
+    result=$?
+    [ "$result" -eq 1 ] && return 1
+    echo "device: lock guard could not run (exit $result)" >&2
+    return 2
+  fi
   if [ "$(_hs_lock_field "$d" token)" != "$token" ]; then
     echo "device: cannot record the claim in $d/info — leaving ${port:-auto} unclaimed" >&2
     _hs_break_lock "$d" "$token" || :
@@ -207,6 +229,7 @@ _hs_try_claim() {
 hs_device_acquire() {
   local effect=$1 env=$2 eta=$3
   local waited=0 wait_for=${HS_DEVICE_WAIT:-0} p port d
+  _hs_resolve_python || return 2
   # No claim can be recorded under a path that does not exist, and a claim
   # that cannot be recorded is indistinguishable from a busy board: the
   # status line then reads "ALL DEVICES BUSY" over a list of free ones.
@@ -229,6 +252,8 @@ hs_device_acquire() {
       if _hs_try_claim "$d" "$port" "$effect" "$env" "$eta"; then
         echo "device: using ${port:-auto-search} (lock $d)" >&2
         return 0
+      else
+        [ "$?" -eq 1 ] || return 2
       fi
     done
     # Only once every board is busy: breaking a claim is a last resort, so a

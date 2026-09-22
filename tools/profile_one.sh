@@ -310,7 +310,7 @@ capture() {
   # on a port already held by a peer, and those look identical from the exit
   # code alone. Under set -e this aborts the run, so without the message the
   # failure reaches the caller with no reason attached.
-  if ! python tools/profile_capture.py --seconds "$SECONDS_ARG" --out "$OUT" >/dev/null; then
+  if ! "$_HS_LOCK_PYTHON" tools/profile_capture.py --seconds "$SECONDS_ARG" --out "$OUT" >/dev/null; then
     echo "CAPTURE FAILED (device trap, or port held by a peer?): $OUT" >&2
     return 1
   fi
