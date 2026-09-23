@@ -41,7 +41,9 @@
  * into a local DMALEDController frame.
  *
  * Include directly from target .ino files:
- *   #include "../../hardware/pov_segmented.h"
+ * @code{.cpp}
+ * #include "../../hardware/pov_segmented.h"
+ * @endcode
  */
 #pragma once
 #include "core/platform/led.h"
