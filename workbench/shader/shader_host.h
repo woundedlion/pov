@@ -836,6 +836,7 @@ private:
     } while (admitted);
   }
 
+  /** @brief Borrows up to 1023 warning bytes; truncated text ends in "...". */
   const char *parameter_warning(const char *name) const override {
     const ParamDef *parameter = getParameters().find(name);
     if (parameter != nullptr && parameter_out_of_range(*parameter))
@@ -2374,7 +2375,10 @@ private:
   const char *begin_warning(const char *format, ...) const {
     va_list args;
     va_start(args, format);
-    std::vsnprintf(warning_text.data(), warning_text.size(), format, args);
+    const int written =
+        std::vsnprintf(warning_text.data(), warning_text.size(), format, args);
+    if (written >= static_cast<int>(warning_text.size()))
+      std::memcpy(warning_text.data() + warning_text.size() - 4, "...", 4);
     va_end(args);
     return warning_text.data();
   }
@@ -2385,8 +2389,11 @@ private:
       return;
     va_list args;
     va_start(args, format);
-    std::vsnprintf(warning_text.data() + length, warning_text.size() - length,
-                   format, args);
+    const size_t available = warning_text.size() - length;
+    const int written =
+        std::vsnprintf(warning_text.data() + length, available, format, args);
+    if (written >= static_cast<int>(available))
+      std::memcpy(warning_text.data() + warning_text.size() - 4, "...", 4);
     va_end(args);
   }
 
