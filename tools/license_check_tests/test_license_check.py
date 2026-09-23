@@ -109,6 +109,8 @@ class TestHeaderIssue(unittest.TestCase):
 
     def test_a_third_party_header_needs_no_first_party_notice(self):
         head = f"// {lc.MIT_TITLE}\n// {lc.MIT_GRANT}, free of charge\n"
+        self.assertIsNotNone(lc.header_issue("core/vendor/FastNoiseLite.h", head))
+        head += "// Copyright(c) 2023 Jordan Peck\n// Copyright(c) 2023 Contributors\n"
         self.assertIsNone(lc.header_issue("core/vendor/FastNoiseLite.h", head))
 
     def test_the_alternate_spelling_of_the_license_name_passes(self):
