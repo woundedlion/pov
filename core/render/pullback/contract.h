@@ -1048,7 +1048,8 @@ public:
   HS_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
                                                const FrameState &ctx,
                                                const void *storage) {
-    return evaluate(view, ctx, *static_cast<const PreparedTuple *>(storage));
+    return evaluate(view, ctx,
+                    *std::launder(static_cast<const PreparedTuple *>(storage)));
   }
 
   /** @brief Fold of every leaf's topology matcher, exposed only when every
