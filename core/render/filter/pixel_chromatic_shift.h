@@ -52,7 +52,7 @@ public:
    * @param y Row coordinate in pixels.
    * @param c Source color; split into single-channel copies.
    * @param age Temporal age channel (frames), forwarded unchanged.
-   * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @param alpha Source blend alpha in [0, 1]; fringe taps use one quarter.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
@@ -74,12 +74,13 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
+    const float fringe_alpha = alpha * 0.25f;
     pass(static_cast<float>(math::fast_wrap(xi + Spread, W)), y, r_col, age,
-         alpha);
+         fringe_alpha);
     pass(static_cast<float>(math::fast_wrap(xi + 2 * Spread, W)), y, g_col, age,
-         alpha);
+         fringe_alpha);
     pass(static_cast<float>(math::fast_wrap(xi + 3 * Spread, W)), y, b_col, age,
-         alpha);
+         fringe_alpha);
   }
 };
 
