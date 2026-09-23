@@ -170,12 +170,10 @@ class RoutedBoardLandTests(unittest.TestCase):
 
 
 class PowerInletTests(unittest.TestCase):
-    """J1 ships unkeyed on both artifacts while gen/board.py names a keyed JST XA,
-    and fab.EXCLUDE_FP_SUBSTR holds both spellings, so the assembly gate cannot
-    see the substitution."""
+    """The routed inlet and the polarized generator inlet are hand-soldered."""
 
     SHIPPED = "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
-    KEYED = "Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical"
+    KEYED = "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical"
 
     def test_schematic_ships_the_unkeyed_header(self):
         footprints = {ref: fp for ref, fp, _, _ in pcb.schematic_components()}

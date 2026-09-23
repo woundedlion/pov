@@ -132,12 +132,12 @@ clean to **≥30 MHz** so headroom exists.
   > backwards and leaves the unfused GND-plane fault above reachable in practice; cutting
   > VIN/VUSB per R-ASM-7 does not disconnect USB ground. Until the board is re-worked, the
   > harness carries the polarity marking — **do not energize J1 with USB attached until its
-  > polarity is verified.** `gen/board.py` names the keyed
-  > `Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical`, so a regenerated board would
-  > satisfy this requirement; the shipped copper needs a re-place and a re-route to get there,
-  > because the JST body and its 2.50 mm pitch do not fit the header's routed pads. The JLC
-  > assembly gate cannot catch the substitution: `fab.EXCLUDE_FP_SUBSTR` excludes both
-  > `PinHeader` and `JST_` as hand-soldered. Full as-built detail is in the deviations note in
+  > polarity is verified.** `gen/board.py` selects the polarized 2.54 mm
+  > `Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical` for a matching
+  > KK 254 housing. Preserve the routed pin centres and polarity when orienting its
+  > footprint; verify body clearance and drill sizes, refill zones and rerun DRC.
+  > The generator choice does not repair the shipped board. The assembly gate excludes
+  > both `PinHeader` and `Molex_KK-254` as hand-soldered. Full as-built detail is in
   > `hardware/phantasm/README.md`.
 - **R-PWR-8 — Per-card overcurrent.** The card's ~0.15 A logic feed wants only a **small fuse/PTC (F1,
   ~0.5–1 A)** at J1, or documentation that it's covered upstream. (Strip overcurrent lives with the

@@ -505,6 +505,7 @@ class AssemblyPolicyTests(unittest.TestCase):
         for footprint in (
                 "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
                 "Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical",
+                "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
                 "Jumper:SolderJumper-2_P1.3mm_Open_TrianglePad1.0x1.5mm",
                 "Capacitor_THT:CP_Radial_D8.0mm_P3.50mm"):
             with self.subTest(footprint=footprint):
