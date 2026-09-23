@@ -1850,8 +1850,7 @@ private:
                             ? endpoint.transforms.projection_conj
                             : math::Quaternion(),
                         endpoint.transforms.outer_conj};
-    frame.meridian_cos = cosf(config.params.projection.central_meridian);
-    frame.meridian_sin = sinf(config.params.projection.central_meridian);
+    frame.set_central_meridian(config.params.projection.central_meridian);
     frame.dynamic = {
         prepare_source_state(endpoint.clocks),
         prepare_spherical_rings(endpoint),
