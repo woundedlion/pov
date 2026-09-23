@@ -259,7 +259,9 @@ every step below is performed by whoever builds the card.
 
 - **R-ASM-7 — cut the VIN/VUSB pad on every Teensy 4.0. Mandatory, before the
   Teensy is soldered down.** The board feeds Teensy `VIN` from the rotor rail and
-  `J4` exposes serial for USB debug. With the pad intact, `VUSB` is tied to `VIN`:
+  `J4.4` reserves Teensy pin 1 for future UART debug; current diagnostics use
+  USB `Serial`, and no `Serial1` driver is enabled. With the pad intact,
+  `VUSB` is tied to `VIN`:
   plugging USB into a powered board back-feeds the live 5 V rotor rail into the
   host's USB `VBUS` (and a host's `VBUS` into the rotor rail when the rail is
   down). Nothing on the card blocks it — `Q_REV` protects the `J1` feed, not the
