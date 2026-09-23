@@ -377,6 +377,10 @@ struct Project
           math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
       result = ProjectionPolicyT::project(local, frame);
     }
+    HS_AUDIT_CHECK(
+        fabsf(input.dir.x * input.dir.x + input.dir.y * input.dir.y +
+              input.dir.z * input.dir.z - 1.0f) <= 0.004f,
+        "Project requires a unit direction within lens approximation error");
     const PlaneSample output = Kernel::project(input, local, result);
     Instrumentation::template span<ProfileEvent::PROJECTION>(start);
     return output;
