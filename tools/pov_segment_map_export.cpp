@@ -54,14 +54,28 @@ constexpr int WIDTH_COUNT = static_cast<int>(std::size(WIDTHS));
  * @brief Emits one segment's mapping as a JSON object on a single line.
  * @param m Segment mapping from pov::segment_map.
  * @param pps LEDs per segment (S / N).
+ * @param cfg LED and segment counts.
  * @param tail Separator after the object: "," unless this is the last segment.
  */
-void emit_segment(const pov::SegmentMap &m, int pps, const char *tail) {
+void emit_segment(const pov::SegmentMap &m, int pps, const Config &cfg,
+                  const char *tail) {
   std::printf("        { \"arm_b\": %s,", m.arm_b ? "true" : "false");
   std::printf(" \"y_base\": %d, \"y_step\": %d,", m.y_base, m.y_step);
   std::printf(" \"y\": [");
   for (int i = 0; i < pps; i++)
     std::printf("%s%d", i ? ", " : "", pov::segment_y(m, i));
+  std::printf("], \"clips\": [");
+  for (int i = 0; i < WIDTH_COUNT; ++i) {
+    for (bool first_half : {false, true}) {
+      const auto CLIP =
+          pov::segment_clip(m, first_half, cfg.leds, cfg.segments, WIDTHS[i]);
+      std::printf("%s{ \"width\": %d, \"first_half\": %s,",
+                  (i || first_half) ? ", " : "", WIDTHS[i],
+                  first_half ? "true" : "false");
+      std::printf(" \"y0\": %d, \"y1\": %d, \"x0\": %d, \"x1\": %d }", CLIP.y0,
+                  CLIP.y1, CLIP.x0, CLIP.x1);
+    }
+  }
   std::printf("] }%s\n", tail);
 }
 
@@ -83,7 +97,7 @@ void emit_config(const Config &cfg, const char *tail) {
   std::printf("      \"pps\": %d,\n", pps);
   std::printf("      \"segments\": [\n");
   for (int id = 0; id < N; id++)
-    emit_segment(pov::segment_map(id, S, N), pps, id == N - 1 ? "" : ",");
+    emit_segment(pov::segment_map(id, S, N), pps, cfg, id == N - 1 ? "" : ",");
   std::printf("      ]\n");
   std::printf("    }%s\n", tail);
 }
