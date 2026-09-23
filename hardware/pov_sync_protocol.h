@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "core/platform/platform.h" // HS_FLASH_MEMBER on Config::valid()
