@@ -326,16 +326,16 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(skipped, {"daydream"})
 
     def test_multi_word_tree_tag_is_parsed_or_reported(self):
-        self.assertEqual(dc._tree_directive("tree"),
+        self.assertEqual(dc.tree_directive("tree"),
                          dc.TreeDirective("", False))
-        self.assertEqual(dc._tree_directive("tree exhaustive"),
+        self.assertEqual(dc.tree_directive("tree exhaustive"),
                          dc.TreeDirective("", True))
-        self.assertEqual(dc._tree_directive("tree daydream"),
+        self.assertEqual(dc.tree_directive("tree daydream"),
                          dc.TreeDirective("daydream", False))
-        self.assertEqual(dc._tree_directive("tree daydream exhaustive"),
+        self.assertEqual(dc.tree_directive("tree daydream exhaustive"),
                          dc.TreeDirective("daydream", True))
-        self.assertIsNone(dc._tree_directive("tree daydream extra"))
-        self.assertIsNone(dc._tree_directive("trees"))
+        self.assertIsNone(dc.tree_directive("tree daydream extra"))
+        self.assertIsNone(dc.tree_directive("trees"))
 
     def test_tree_row_indented_past_its_parent_is_reported(self):
         text = ("<!-- docs-check: tree -->\n"
@@ -413,7 +413,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_stale_untracked_allowances_are_named(self):
         allowances = ("tracked.txt", "uncited.txt", "used.txt")
         used = {dc._cited(dc._UNTRACKED_LIST, "used.txt")}
-        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", allowances),                 mock.patch.object(dc, "_TREE_UNMAPPED", ()):
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED", allowances),                 mock.patch.object(dc, "TREE_UNMAPPED", ()):
             stale = dict(item.split(" ", 1) for item in dc._stale_allowances(
                 {PurePosixPath("tracked.txt")}, used))
         self.assertEqual(stale["tracked.txt"], "(now tracked)")
@@ -425,8 +425,8 @@ class TestDocumentationChecker(unittest.TestCase):
         entries = {PurePosixPath("uncited.txt"), PurePosixPath("tests"),
                    PurePosixPath("tests/run.cpp")}
         used = {dc._cited(dc._TREE_UNMAPPED_LIST, "tests/")}
-        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", ()), \
-                mock.patch.object(dc, "_TREE_UNMAPPED", unmapped):
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED", ()), \
+                mock.patch.object(dc, "TREE_UNMAPPED", unmapped):
             stale = dc._stale_allowances(entries, used)
         self.assertEqual(stale, ["tree-unmapped:gone/ (untracked)",
                                  "tree-unmapped:uncited.txt (uncited)"])
@@ -437,9 +437,9 @@ class TestDocumentationChecker(unittest.TestCase):
         checkouts = {"daydream": {PurePosixPath("tracked"),
                                   PurePosixPath("tracked/file.js")}}
         used = {dc._cited("daydream", "node_modules/")}
-        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", ()), \
-                mock.patch.object(dc, "_TREE_UNMAPPED", ()), \
-                mock.patch.object(dc, "_CHECKOUT_UNTRACKED_ALLOWED", allowed):
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED", ()), \
+                mock.patch.object(dc, "TREE_UNMAPPED", ()), \
+                mock.patch.object(dc, "CHECKOUT_UNTRACKED_ALLOWED", allowed):
             stale = dc._stale_allowances(set(), used, checkouts)
         # The "absent" checkout got no --checkout root, so nothing can judge it.
         self.assertEqual(stale, ["daydream:tracked/ (now tracked)",
@@ -482,7 +482,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_cited_untracked_allowance_is_recorded(self):
         used: set[str] = set()
         allowance = "scripts/run-tests.mjs"
-        with mock.patch.object(dc, "_UNTRACKED_ALLOWED", (allowance,)):
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED", (allowance,)):
             issue = dc._path_span_issue(PurePosixPath("README.md"), 1,
                                         allowance,
                                         {PurePosixPath("scripts")}, used)
