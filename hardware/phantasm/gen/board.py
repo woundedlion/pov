@@ -375,12 +375,12 @@ def main(force=False):
     # power unit
     to_power(U1E, "14", "+5V_LOGIC"); to_power(U1E, "7", GND)
 
-    # --- J2 strip SIGNAL out (3-pin, no power): DI / CI / SIG_GND (R-CON-1) ---
+    # --- J2 strip SIGNAL out (3-pin, no power): DI / SIG_GND / CI (R-CON-1) ---
     # Strip 5 V/GND are injected off-board (spec 2.3); SIG_GND is the card's logic GND,
     # landed on the strip GND pin at the load end (the off-board ground star).
-    J2 = place("Connector_Generic:Conn_01x03", "J2", "LED sig DI/CI/SIG_GND", 281.94, 165.1,
+    J2 = place("Connector_Generic:Conn_01x03", "J2", "LED sig DI/SIG_GND/CI", 281.94, 165.1,
                fp="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
-    to_label(J2, "1", "DATA"); to_label(J2, "2", "CLK"); to_power(J2, "3", GND)
+    to_label(J2, "1", "DATA"); to_power(J2, "2", GND); to_label(J2, "3", "CLK")
 
     # ============================================================ BLOCK 3: SYNC
     b.text((220, 180), "SYNC BUS  -  RX DIVIDER + DAISY (Belden 8451)", 2.2)
