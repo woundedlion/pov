@@ -199,6 +199,8 @@ const baseValues = (spec) => {
     'value-opacity-high': defaults.color['value-opacity-high'],
     'hue-shift-amount': defaults.color['hue-shift-amount'],
   };
+  if (['folded-sinusoidal', 'bonne', 'airocean'].includes(spec.projection))
+    delete values['pole-fade'];
   if (spec.animatedProjection) {
     values['projection-spin-speed'] = 0;
     values['projection-wander'] = 0;
