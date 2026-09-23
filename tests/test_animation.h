@@ -3724,6 +3724,24 @@ inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
   HS_EXPECT_EQ(st.fires, 2);
 }
 
+inline void test_mobiusflow_degenerate_inputs_remain_finite() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  const float INF_VALUE = std::numeric_limits<float>::infinity();
+  for (float rings : {-1.0f, NAN_VALUE, INF_VALUE}) {
+    for (float lines : {0.0f, NAN_VALUE, INF_VALUE}) {
+      math::MobiusParams params;
+      Animation::MobiusFlow flow(params, rings, lines, 8, false);
+      flow.step(fake_canvas());
+      HS_EXPECT_TRUE(std::isfinite(params.a.re));
+      HS_EXPECT_TRUE(std::isfinite(params.a.im));
+      HS_EXPECT_TRUE(std::isfinite(params.d.re));
+      HS_EXPECT_TRUE(std::isfinite(params.d.im));
+      HS_EXPECT_NEAR(params.a.re * params.d.re - params.a.im * params.d.im,
+                     1.0f, 1e-4f);
+    }
+  }
+}
+
 /**
  * @brief Verifies MobiusFlow::step keeps the transform's a·d product at unity
  * (a and d are conjugate-reciprocal) while actually moving the parameters.
@@ -4014,6 +4032,7 @@ inline int run_animation_tests() {
   test_finished_param_animation_progress_is_finite();
   test_periodic_timer_set_period_reschedules_from_now();
   test_periodic_timer_set_period_unchanged_does_not_defer();
+  test_mobiusflow_degenerate_inputs_remain_finite();
   test_mobiusflow_step_preserves_unit_product();
   test_particle_system_emitter_dispatch();
   test_motion_set_duration_reanchors_no_teleport();
