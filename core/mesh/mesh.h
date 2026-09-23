@@ -252,6 +252,12 @@ HS_COLD static inline void require_flat_face_length(const uint8_t *counts,
 }
 
 class HalfEdgeMesh;
+/**
+ * @brief Inclusive representable bounds enforced by mesh builders and operators.
+ * @details Vertex indices use signed 16-bit storage; half-edge and face counts
+ * use unsigned 16-bit storage, and face degree uses unsigned 8-bit storage.
+ * Exceeding a bound traps before conversion. Arena byte capacity is independent.
+ */
 namespace MeshLimits {
 inline constexpr size_t MAX_VERTEX_INDEX = INT16_MAX;
 inline constexpr size_t MAX_VERTICES = MAX_VERTEX_INDEX + 1;
