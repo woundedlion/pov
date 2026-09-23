@@ -302,8 +302,9 @@ public:
         master_on_crossing(c, now);
     }
 
+    int32_t beacon_position = -1;
     if (is_master_board)
-      maybe_schedule_beacon(now);
+      maybe_schedule_beacon(now, beacon_position);
 
     bool aborted = false;
     if (is_master_board && emitter.tick(now, protocol_config, &aborted))
@@ -317,7 +318,8 @@ public:
              !content_tracker.identity_known ||
              content_tracker.constructing(protocol_config);
     if (!a.dark) {
-      const int32_t x = fly.position(now);
+      const int32_t x =
+          beacon_position >= 0 ? beacon_position : fly.position(now);
       if (x != last_rendered_x) { // idempotent wake-up contract (spec §4.1)
         a.render_column = x;
         last_rendered_x = x;
@@ -703,8 +705,9 @@ private:
    * @brief Master: queue a beacon frame once per revolution at the beacon point
    * when one is due.
    * @param now Current timestamp, in cycles.
+   * @param position Receives the column if the due-beacon check computes it.
    */
-  void maybe_schedule_beacon(uint32_t now) {
+  void maybe_schedule_beacon(uint32_t now, int32_t &position) {
     // Beacon point: x ≈ W/4, mid-way through the ZERO→HALF half-rev where the
     // wire is otherwise quiet (spec §6.4).
     if (beacon_done_this_rev || fly.current_boundary() != Boundary::ZERO)
@@ -726,7 +729,8 @@ private:
     // while current_boundary() has already advanced — so this revolution emits
     // no beacon. That is an accepted skip, not a missed-emission bug: the
     // protocol self-heals on the next due beacon, within rejoin_bound_revs().
-    if (fly.position(now) < protocol_config.W / 4)
+    position = fly.position(now);
+    if (position < protocol_config.W / 4)
       return;
     uint8_t digits[5];
     encode_beacon_digits(content_tracker.effect_index, rev, digits);
