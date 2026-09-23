@@ -410,7 +410,8 @@ private:
    */
   void draw_all(Canvas &canvas) {
     HS_PROFILE(ss_draw_all);
-    const int count = hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES);
+    constexpr int DRAW_LIMIT = std::min(MAX_SHAPES, 2 * H);
+    const int count = hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT);
     if (count != baked_palette_count || params.spacing != prepared_spacing)
       prepare_count(count);
     const BakedPalette &palette = selected_palette();
