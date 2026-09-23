@@ -46,8 +46,7 @@ static_assert(std::size(BENCH_REVOLUTIONS) == std::size(EFFECT_FACTORIES));
 
 constexpr pov::sync::Config bench_config() {
   auto cfg = pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1);
-  cfg.effect_revolutions = BENCH_REVOLUTIONS;
-  cfg.effect_revolutions_count = std::size(BENCH_REVOLUTIONS);
+  cfg.set_effect_revolutions(BENCH_REVOLUTIONS);
   return cfg;
 }
 
