@@ -16,7 +16,7 @@ import board as schematic_generator
 import builder
 import check
 import sexp
-from constraints import (EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR,
+from constraints import (EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, MAX_BOARD_WIDTH_MM,
                          MIN_SOLDER_MASK_WEB_MM)
 from kicad_common import atomic_write_text
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
@@ -34,7 +34,7 @@ UNPLACED_REASON = (
     "  KiCad GUI edits these generators do not reproduce.")
 FP_DIR = sexp.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
 #: R-MECH-6 board-width cap (mm).
-PCB_W_MAX = 35.0
+PCB_W_MAX = MAX_BOARD_WIDTH_MM
 PCB_W = 32.0  # board width (mm), trimmed to part extent
 if PCB_W > PCB_W_MAX:
     raise ValueError(f"PCB_W {fmt(PCB_W)} mm exceeds the R-MECH-6 cap of "
