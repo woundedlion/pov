@@ -140,8 +140,11 @@ public:
    *          instead, or sort `entries()` by name at use.
    */
   static int add(EffectRegistration reg) {
-    if (reg.stable_id.empty())
+    if (reg.stable_id.empty()) {
+      HS_CHECK(reg.stable_id_fn != nullptr,
+               "effect registration needs a stable id or provider");
       reg.stable_id = reg.stable_id_fn();
+    }
 
     for (const auto &existing : entries()) {
       HS_CHECK(existing.name != reg.name,
