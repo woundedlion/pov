@@ -310,7 +310,7 @@ private:
    */
   HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
-    int n_rings = static_cast<int>(params.num_rings);
+    const int n_rings = std::min(params.num_rings, H);
     HS_CHECK(n_rings <= RING_SLOTS,
              "DisplacementField: Rings slider exceeds the baked-ring pool");
     math::Basis basis = math::make_basis(orientation.get(), STACK_AXIS);
