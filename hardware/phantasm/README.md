@@ -87,9 +87,9 @@ committed board directly need no KiCad and run in CI
 - **ERC: 0 errors — verified once by hand.** No runner exists: `gen/` has no
   ERC step, `erc*.rpt` is gitignored, and neither CI nor the `just` recipes
   re-run it, so re-check it in KiCad (`kicad-cli sch erc`) after any schematic
-  change. A warning-inclusive KiCad 10 run reports nine `lib_symbol_mismatch`
-  notices for embedded copies of stock/custom symbols; the exported
-  connectivity is verified separately below.
+  change. The current warning-inclusive KiCad 10.0.4 check reports no violations.
+  Power symbols have empty footprints; only `U_MCU` carries the Teensy land.
+  The exported connectivity is verified separately below.
 - **Netlist matches the electrical specification** — `gen/fab.py` holds the
   netlist it exports to the named-net table in `gen/check.py`, which also runs
   standalone against the committed schematic: every net in the table must match
