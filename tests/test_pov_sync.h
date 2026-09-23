@@ -54,7 +54,8 @@ struct SyncBoardTestAccess {
   static ContentTracker &content(SyncBoard &b) { return b.content_mut(); }
   static SymbolEmitter &emitter(SyncBoard &b) { return b.emitter; }
   static void maybe_schedule_beacon(SyncBoard &b, uint32_t now) {
-    b.maybe_schedule_beacon(now);
+    int32_t position = -1;
+    b.maybe_schedule_beacon(now, position);
   }
   static bool beacon_done(const SyncBoard &b) { return b.beacon_done_this_rev; }
   static const Flywheel &flywheel(const SyncBoard &b) { return b.flywheel(); }
