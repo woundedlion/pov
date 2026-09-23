@@ -3,6 +3,8 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+
+#include "render/render_policy.h"
 #include <algorithm>
 #include <cmath>
 #include <iterator>
@@ -25,7 +27,7 @@ namespace Plot {
 /**
  * @brief Inner/outer radius ratio for star shapes.
  */
-inline constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
+inline constexpr float STAR_INNER_RATIO = Render::STAR_INNER_RATIO;
 
 /**
  * @brief Per-primitive geometry/rasterization options for draw_fragments.

@@ -8,6 +8,7 @@
 #include <type_traits>
 #include "render/sdf.h"
 #include "render/shading.h"
+#include "render/render_policy.h"
 #include "color/color.h"
 #include "render/filter/pipeline.h"
 #include "containers/static_circular_buffer.h"
@@ -40,21 +41,21 @@ inline constexpr float MIN_ALPHA = 0.001f;
  * @brief Columns one shade may cover at a row's colatitude.
  * @param sin_phi Sine of the row's colatitude; sign is ignored.
  * @return Run length in columns, 1 when decimation is off or unwarranted.
- * @details `pole_lod_aggressiveness / sin(phi)`, clamped to POLE_LOD_MAX_RUN.
+ * @details `Render::pole_lod_aggressiveness / sin(phi)`, clamped to Render::POLE_LOD_MAX_RUN.
  *          Returns 1 at aggressiveness 0, which makes every caller's walk
  *          bit-identical to an undecimated one.
  */
 inline int pole_lod_run(float sin_phi) {
-  const float lod = pole_lod_aggressiveness;
+  const float lod = Render::pole_lod_aggressiveness;
   if (lod <= 0.0f)
     return 1;
   const float a = sin_phi < 0.0f ? -sin_phi : sin_phi;
   if (a < 1e-6f)
-    return POLE_LOD_MAX_RUN;
+    return Render::POLE_LOD_MAX_RUN;
   const int run = static_cast<int>(lod / a);
   if (run <= 1)
     return 1;
-  return run < POLE_LOD_MAX_RUN ? run : POLE_LOD_MAX_RUN;
+  return run < Render::POLE_LOD_MAX_RUN ? run : Render::POLE_LOD_MAX_RUN;
 }
 
 /**
@@ -182,7 +183,7 @@ report_stretch(const SDF::AngularRepeat<Shape> &shape) {
  */
 template <typename ShapeT>
 inline constexpr bool pole_lod_blocks =
-    POLE_LOD_ENABLED &&
+    Render::POLE_LOD_ENABLED &&
     SDF::reject_margin<std::remove_cvref_t<ShapeT>> > 0.0f &&
     SDF::arc_stretch<std::remove_cvref_t<ShapeT>> < SDF::ARC_STRETCH_UNBOUNDED;
 
@@ -584,7 +585,7 @@ inline constexpr bool fits_top_span_cap =
  * @details Iterates y in [y_min, y_max], collects float intervals per row via
  * get_intervals, wraps x coordinates, and offers pixel_fn column runs.
  *
- * Near-pole rows offer whole blocks of `pole_lod_aggressiveness / sin(phi)`
+ * Near-pole rows offer whole blocks of `Render::pole_lod_aggressiveness / sin(phi)`
  * columns (constants.h) so the sink can settle physically-overlapping columns
  * with one probe; the sink keeps per-column resolution wherever its probe
  * cannot vouch for the block. Only full canvas-aligned blocks are offered, so an
@@ -636,11 +637,11 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // settled column is always settled from its own block's anchor.
   auto walk = [&](int x1, int x2, int y, float sp, float cp, int stride) {
     [[maybe_unused]] int next_block = x1;
-    if constexpr (POLE_LOD_ENABLED)
+    if constexpr (Render::POLE_LOD_ENABLED)
       if (stride > 1)
         next_block = pole_lod_block_anchor(x1, stride);
     for (int x = x1; x < x2; ++x) {
-      if constexpr (POLE_LOD_ENABLED) {
+      if constexpr (Render::POLE_LOD_ENABLED) {
         if (stride > 1 && x == next_block) {
           next_block += stride;
           if (x + stride <= x2) {

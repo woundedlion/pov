@@ -123,7 +123,7 @@ inline void reset_globals() {
   Timeline().clear();
   hs::random().seed(1337u);
   hs::clear_mock_time();
-  pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+  Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
   HS_SCAN_METRIC(hs::g_scan_metrics.reset());
 }
 

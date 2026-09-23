@@ -169,9 +169,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   [[maybe_unused]] float block_min_cos = min_cos;
   if constexpr (pole_lod_blocks<SDF::Face>) {
     if (!(probe_flags & SDF::Face::PROBE_CONVEX) &&
-        pole_lod_aggressiveness > 0.0f) {
+        Render::pole_lod_aggressiveness > 0.0f) {
       const float block_reach = std::min(
-          pixel_width + pole_lod_aggressiveness * pixel_width *
+          pixel_width + Render::pole_lod_aggressiveness * pixel_width *
                             SDF::arc_stretch<SDF::Face> * plane_stretch,
           SDF::reject_margin<SDF::Face>);
       float block_radius =

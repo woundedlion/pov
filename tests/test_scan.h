@@ -11,10 +11,10 @@
  *     against the generic one.
  *   - The fused walks: RingGroup and DistortedRingStack against per-ring
  *     draws, rasterize_face against scan_region, and their independence from
- *     pole_lod_aggressiveness.
+ *     Render::pole_lod_aggressiveness.
  *   - scan_region itself: seam and fractional-boundary single plotting, clip
  *     arcs against the predicate, and near-pole LOD (canvas-anchored runs, the
- *     POLE_LOD_MAX_RUN clamp, decimated vs undecimated shading).
+ *     Render::POLE_LOD_MAX_RUN clamp, decimated vs undecimated shading).
  *   - CSG through the scan: report_stretch forwarding and the stroke AA
  *     thickness of the winning child.
  *   - Filled-shape placement oracles for Star, PlanarPolygon and Flower;
@@ -44,7 +44,7 @@ namespace hs_test {
 namespace scan_tests {
 
 /**
- * @brief Pins pole_lod_aggressiveness for a scope and restores it on exit.
+ * @brief Pins Render::pole_lod_aggressiveness for a scope and restores it on exit.
  * @details The knob is process-global, so an early return between a hand-rolled
  * save and restore would hand every later case in the module a different LOD
  * regime.
@@ -55,10 +55,10 @@ struct ScopedPoleLod {
    * @brief Pins the knob.
    * @param value Aggressiveness held for the scope.
    */
-  explicit ScopedPoleLod(float value) : saved(pole_lod_aggressiveness) {
-    pole_lod_aggressiveness = value;
+  explicit ScopedPoleLod(float value) : saved(Render::pole_lod_aggressiveness) {
+    Render::pole_lod_aggressiveness = value;
   }
-  ~ScopedPoleLod() { pole_lod_aggressiveness = saved; }
+  ~ScopedPoleLod() { Render::pole_lod_aggressiveness = saved; }
   ScopedPoleLod(const ScopedPoleLod &) = delete;
   ScopedPoleLod &operator=(const ScopedPoleLod &) = delete;
 };
@@ -649,7 +649,7 @@ constexpr int GROUP_MAX_DIFF_PIXELS = 16;
  * is the truer SDF coverage), so mismatches must be both rare and small.
  * Covered: full frame, a partial clip with an x band, and a near-pole axis
  * that forces the group's full-row-scan fallback. The claim is scoped to
- * pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
+ * Render::pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
  * column while the per-ring path decimates near-pole rows.
  */
 inline void test_ring_group_matches_sequential() {
@@ -758,7 +758,7 @@ inline void test_ring_group_matches_sequential() {
  * the pixels. Covered: full frame, a partial clip with an x band, a culled
  * middle ring (slot_by_ring -1), and a near-pole axis that forces the
  * full-row-scan fallback on both paths. The claim is scoped to
- * pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
+ * Render::pole_lod_aggressiveness 0, which the test pins: the fused scan shades every
  * column while the per-ring path decimates near-pole rows.
  *
  * Which pixels light is exact. Channel values carry a tolerance: the shipping
@@ -905,7 +905,7 @@ inline void test_distorted_ring_stack_matches_sequential() {
 
 /**
  * @brief Verifies the fused RingGroup and DistortedRingStack walks ignore
- *        pole_lod_aggressiveness.
+ *        Render::pole_lod_aggressiveness.
  * @details Both replace the per-ring scan_region walk with one row-local scan
  * that shades every column, so the knob that decimates scan_region rows cannot
  * reach them. Each is rendered at aggressiveness 0 and at 4, where
@@ -986,9 +986,9 @@ inline void test_fused_walks_ignore_pole_lod() {
   auto expect_knob_independent = [&](const char *label, auto &&draw) {
     HS_CONTEXT(label);
     std::vector<Pixel> undecimated, decimated;
-    pole_lod_aggressiveness = 0.0f;
+    Render::pole_lod_aggressiveness = 0.0f;
     draw(undecimated);
-    pole_lod_aggressiveness = 4.0f;
+    Render::pole_lod_aggressiveness = 4.0f;
     HS_EXPECT_GT(Scan::pole_lod_run(1.0f), 1);
     draw(decimated);
     size_t lit = 0;
@@ -1014,7 +1014,7 @@ inline void test_fused_walks_ignore_pole_lod() {
  * any divergence in either the run set or the AA band a framebuffer difference.
  * Covered: a mid-latitude face, one whose azimuth wedge straddles theta=0, a
  * pole-touching face (per-row runs plus the full-row fallback), and both a
- * plain and a seam-wrapping x clip. Scoped to pole_lod_aggressiveness 0 to
+ * plain and a seam-wrapping x clip. Scoped to Render::pole_lod_aggressiveness 0 to
  * isolate the paths' LUT-versus-sqrt sin-phi evaluation and culling asymmetry
  * from near-pole row decimation.
  */
@@ -1286,35 +1286,36 @@ inline void test_pole_lod_runs_are_canvas_anchored() {
   HS_EXPECT_GT(moved, (size_t)0);
 
   // Aggressiveness 0 is exactly one column per run.
-  pole_lod_aggressiveness = 0.0f;
+  Render::pole_lod_aggressiveness = 0.0f;
   HS_EXPECT_EQ(Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
 }
 
 /**
- * @brief Pins pole_lod_run on both sides of the POLE_LOD_MAX_RUN clamp.
+ * @brief Pins pole_lod_run on both sides of the Render::POLE_LOD_MAX_RUN clamp.
  * @details The run is aggressiveness over |sin(phi)|, truncated: 1 wherever
  * that quotient is under 2, the quotient itself below the clamp, and
- * POLE_LOD_MAX_RUN past it and at the pole, where sin(phi) is zero. At
+ * Render::POLE_LOD_MAX_RUN past it and at the pole, where sin(phi) is zero. At
  * aggressiveness 0 every row is one column, the pole included.
  */
 inline void test_pole_lod_run_clamps_to_max_run() {
-  static_assert(16 < POLE_LOD_MAX_RUN);
+  static_assert(16 < Render::POLE_LOD_MAX_RUN);
   const ScopedPoleLod lod(1.0f);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(0.75f), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(0.25f), 4);
   HS_EXPECT_EQ(Scan::pole_lod_run(-0.25f), 4);
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / 16.0f), 16);
-  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / POLE_LOD_MAX_RUN), POLE_LOD_MAX_RUN);
-  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / (2 * POLE_LOD_MAX_RUN)),
-               POLE_LOD_MAX_RUN);
-  HS_EXPECT_EQ(Scan::pole_lod_run(0.0f), POLE_LOD_MAX_RUN);
-  pole_lod_aggressiveness = 4.0f;
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / Render::POLE_LOD_MAX_RUN),
+               Render::POLE_LOD_MAX_RUN);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / (2 * Render::POLE_LOD_MAX_RUN)),
+               Render::POLE_LOD_MAX_RUN);
+  HS_EXPECT_EQ(Scan::pole_lod_run(0.0f), Render::POLE_LOD_MAX_RUN);
+  Render::pole_lod_aggressiveness = 4.0f;
   HS_EXPECT_EQ(Scan::pole_lod_run(1.0f), 4);
-  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / 16.0f), POLE_LOD_MAX_RUN);
-  pole_lod_aggressiveness = 0.0f;
-  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / (2 * POLE_LOD_MAX_RUN)), 1);
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / 16.0f), Render::POLE_LOD_MAX_RUN);
+  Render::pole_lod_aggressiveness = 0.0f;
+  HS_EXPECT_EQ(Scan::pole_lod_run(1.0f / (2 * Render::POLE_LOD_MAX_RUN)), 1);
   HS_EXPECT_EQ(Scan::pole_lod_run(0.0f), 1);
 }
 
@@ -1323,7 +1324,7 @@ inline void test_pole_lod_run_clamps_to_max_run() {
  *        undecimated walk.
  * @details A block is settled from one probe only where that probe bounds the
  * whole block, so a constant-color draw lands the same framebuffer at
- * pole_lod_aggressiveness 1.0 as at 0: a cleared block paints nothing either
+ * Render::pole_lod_aggressiveness 1.0 as at 0: a cleared block paints nothing either
  * way, and a splatted interior block is at full coverage in every column. A
  * shape that reports FAR_SENTINEL past a zero-margin reject band bounds
  * nothing, so an ungated block test drops whole runs of opaque columns here.
@@ -1368,7 +1369,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // Ring axis tilted just off the canvas pole, so the stroke band's two arcs
   // cross the rows whose stride exceeds 1.
   auto draw_ring = [&](float lod, const math::Vector &axis, float radius) {
-    pole_lod_aggressiveness = lod;
+    Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
@@ -1384,7 +1385,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
 
   auto draw_face = [&](float lod, float tilt, float rho, int sides, float phase,
                        bool fused) {
-    pole_lod_aggressiveness = lod;
+    Render::pole_lod_aggressiveness = lod;
     const math::Vector axis = math::Vector(tilt, 1.0f, 0.0f).normalized();
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
     math::Vector verts[8];
@@ -1417,7 +1418,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
   auto draw_folded = [&](auto tag, float lod, const math::Vector &axis,
                          float radius, int sides, bool typed) {
     using ShapeT = typename decltype(tag)::type;
-    pole_lod_aggressiveness = lod;
+    Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
@@ -1439,7 +1440,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // column reports the polygon's own depth and an ungated splat paints the
   // carve shut.
   auto draw_carved = [&](float lod, bool typed) {
-    pole_lod_aggressiveness = lod;
+    Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
@@ -1476,7 +1477,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // lies. A block settled from one such probe drops that fringe. Sector
   // boundaries converge at the pole, so a block on a decimated row spans them.
   auto draw_repeat = [&](float lod, bool typed, int reps) {
-    pole_lod_aggressiveness = lod;
+    Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipe;
     {
@@ -1511,7 +1512,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
   // keeps the face on the plane-distance path, whose report runs up to 1 + r^2
   // times an angular step.
   auto draw_sliver_face = [&](float lod, bool fused, float tilt, float spin) {
-    pole_lod_aggressiveness = lod;
+    Render::pole_lod_aggressiveness = lod;
     const math::Vector axis = math::Vector(sinf(tilt), cosf(tilt), 0.0f);
     const math::Basis basis = math::make_basis(math::Quaternion(), axis);
     const float px[3] = {0.7f, -0.35f, -0.35f};
@@ -1546,7 +1547,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
 
   // The rows the draws reach must actually be decimated, or the comparison is
   // vacuous.
-  pole_lod_aggressiveness = 1.0f;
+  Render::pole_lod_aggressiveness = 1.0f;
   math::TrigLUT<W, H>::init();
   HS_EXPECT_GT(Scan::pole_lod_run(math::TrigLUT<W, H>::sin_phi[2]), 1);
 
@@ -1655,7 +1656,7 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
       indices[i] = static_cast<uint16_t>(i);
     }
     auto draw = [&](float lod) {
-      pole_lod_aggressiveness = lod;
+      Render::pole_lod_aggressiveness = lod;
       hs_test::StubEffect fx(W, H);
       Pipeline<W, H> pipe;
       {
@@ -2141,10 +2142,10 @@ inline void test_star_pixel_placement() {
                                   });
   }
   fx.advance_display();
-  // Tips at the circumradius, notches at STAR_INNER_RATIO of it.
+  // Tips at the circumradius, notches at Render::STAR_INNER_RATIO of it.
   const float r_max = RADIUS * (math::PI_F / 2.0f);
-  expect_filled_cap<W, H>(fx, /*cap_north=*/true, r_max * STAR_INNER_RATIO,
-                          r_max);
+  expect_filled_cap<W, H>(fx, /*cap_north=*/true,
+                          r_max * Render::STAR_INNER_RATIO, r_max);
   const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   const float probe_radius = r_max * 0.7f;
   const auto probe = [&](float azimuth) {
