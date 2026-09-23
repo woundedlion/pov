@@ -71,8 +71,8 @@ public:
                                   hd107s::LINEAR_WARM_GAIN.b);
     ledController.set_brightness(255);
 #else
-    FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds,
-                                                                        S);
+    FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB,
+                    DATA_RATE_MHZ(FASTLED_CLOCK_MHZ)>(leds, S);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
     FastLED.setBrightness(255);
@@ -115,6 +115,11 @@ private:
    */
   static constexpr unsigned long COLUMN_TRANSFER_US =
       dma::transfer_us(HD107SFrame<S>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
+#else
+  static constexpr uint32_t FASTLED_CLOCK_MHZ = 6;
+  // FastLED's WS2801Controller waits up to 1000 us before each transmission.
+  static constexpr unsigned long FASTLED_SHOW_US =
+      1000UL + (24UL * S + FASTLED_CLOCK_MHZ - 1) / FASTLED_CLOCK_MHZ;
 #endif
 
   /**
@@ -173,6 +178,10 @@ private:
     HS_CHECK(interval_us > COLUMN_TRANSFER_US,
              "LED transfer outlasts the column period (S, RPM and canvas width "
              "would overrun the DMA every column)");
+#else
+    HS_CHECK(interval_us >
+                 FASTLED_SHOW_US * (effect->strobe_columns() ? 2UL : 1UL),
+             "FastLED transfer outlasts the column period");
 #endif
     HS_CHECK(timer.begin(show_col, interval_us),
              "column IntervalTimer failed to start (no PIT channel)");
