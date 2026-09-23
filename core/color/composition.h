@@ -49,6 +49,7 @@ struct CycleModifier {
   /**
    * @brief Constructs with an optional offset driver.
    * @param driver_offset Pointer to the per-frame offset, or null for static.
+   *   The non-null pointee must outlive this modifier.
    */
   CycleModifier(const float *driver_offset = nullptr) : offset(driver_offset) {}
 
@@ -88,6 +89,7 @@ struct BreatheModifier {
   /**
    * @brief Constructs with a mandatory phase driver and amplitude.
    * @param driver_phase Pointer to the per-frame phase; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param amp Oscillation amplitude; defaults to 0.1.
    * @details Mandatory phase driver: a null one is trapped at construction so
    * per-pixel modify() can dereference unconditionally. The driver must keep
@@ -129,6 +131,7 @@ struct RippleModifier {
   /**
    * @brief Constructs with a mandatory phase driver, frequency, and amplitude.
    * @param phase Pointer to the per-frame phase; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param freq Spatial frequency of the ripple; defaults to 3.0.
    * @param amp Distortion amplitude; defaults to 0.1.
    * @details Mandatory phase driver (no default) — trap a null one at
@@ -169,6 +172,7 @@ struct NoiseWarpModifier {
   /**
    * @brief Constructs with a mandatory time driver, frequency, and amplitude.
    * @param time Pointer to the per-frame noise time axis; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param freq Spatial frequency of the noise over t; defaults to 3.0.
    * @param amp Peak displacement of the coordinate; defaults to 0.1.
    * @param seed Noise stream selector; defaults to 0.
@@ -215,6 +219,7 @@ struct DriftModifier {
   /**
    * @brief Constructs with a mandatory time driver, walk speed, and amplitude.
    * @param time Pointer to the per-frame time; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param speed Walk rate in noise cells per time unit; defaults to 0.25.
    * @param amp Peak offset; defaults to 0.25.
    * @param seed Noise stream selector; defaults to 0.
@@ -261,6 +266,7 @@ struct FoldModifier {
    * @brief Constructs with a fold count and optional phase driver.
    * @param folds Number of bounces; defaults to 2.0 (one full bounce).
    * @param phase Pointer to an optional phase offset, or null for none.
+   *   The non-null pointee must outlive this modifier.
    */
   FoldModifier(float folds = 2.0f, const float *phase = nullptr)
       : phase(phase), folds(folds) {}
@@ -300,6 +306,7 @@ struct PinchModifier {
   /**
    * @brief Constructs with an optional tension driver.
    * @param t Pointer to the tension value, or null for pass-through.
+   *   The non-null pointee must outlive this modifier.
    */
   PinchModifier(const float *t = nullptr) : tension(t) {}
 
@@ -342,6 +349,7 @@ struct QuantizeModifier {
    * @brief Constructs with a base step count and optional dynamic driver.
    * @param steps Base number of quantization steps.
    * @param d_steps Pointer to an animated step count, or null to use base.
+   *   The non-null pointee must outlive this modifier.
    */
   QuantizeModifier(float steps, const float *d_steps = nullptr)
       : dynamic_steps(d_steps), base_steps(steps) {}
@@ -378,6 +386,7 @@ struct ScaleModifier {
    * @brief Constructs with a base scale and optional dynamic driver.
    * @param s Base scale factor; defaults to 1.0.
    * @param d_scale Pointer to an animated scale, or null to use base.
+   *   The non-null pointee must outlive this modifier.
    */
   ScaleModifier(float s = 1.0f, const float *d_scale = nullptr)
       : dynamic_scale(d_scale), base_scale(s) {}
@@ -385,6 +394,7 @@ struct ScaleModifier {
   /**
    * @brief Constructs driven purely by an animated scale.
    * @param d_scale Pointer to an animated scale; must not be null.
+   *   The non-null pointee must outlive this modifier.
    */
   ScaleModifier(const float *d_scale)
       : dynamic_scale(d_scale), base_scale(1.0f) {
@@ -513,6 +523,7 @@ struct HueSpinShade {
   /**
    * @brief Constructs with a mandatory rotation driver.
    * @param amount Pointer to the per-frame rotation in turns; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @details The driver must keep |amount * 2pi| under
    * PALETTE_PHASE_ARG_LIMIT.
    */
@@ -560,6 +571,7 @@ struct HueWobbleShade {
   /**
    * @brief Constructs with a mandatory phase driver, frequency, and depth.
    * @param phase Pointer to the per-frame phase; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param freq Wobble frequency over the domain; defaults to 1.0.
    * @param depth Peak hue rotation in turns; |depth| * 2pi must stay under
    *        PALETTE_PHASE_ARG_LIMIT. Defaults to 0.1.
@@ -601,6 +613,7 @@ struct SparkleShade {
   /**
    * @brief Constructs with a mandatory time driver, density, and threshold.
    * @param time Pointer to the per-frame noise time axis; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param freq Glint density over the domain; defaults to 24.0.
    * @param threshold Noise level in [0, 1) above which a glint ignites; higher
    *        is sparser. Defaults to 0.75.
@@ -651,6 +664,7 @@ struct ChromaPulseShade {
   /**
    * @brief Constructs with a mandatory phase driver and pulse depth.
    * @param phase Pointer to the per-frame phase; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param depth Pulse depth in [0, 1]: chroma swings over [1-depth, 1+depth].
    *        Defaults to 0.5.
    * @details The driver must keep |phase| under PALETTE_PHASE_ARG_LIMIT.
@@ -704,6 +718,7 @@ struct LightnessGrainShade {
   /**
    * @brief Constructs with a mandatory time driver, grain density, and depth.
    * @param time Pointer to the per-frame noise time axis; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param freq Grain density over the domain; defaults to 12.0.
    * @param amp Gain swing in [0, 1]: brightness scales over [1-amp, 1+amp].
    *        Defaults to 0.25.
@@ -743,6 +758,7 @@ struct IridescentShade {
   /**
    * @brief Constructs with a mandatory phase driver, frequency, and weight.
    * @param phase Pointer to the per-frame phase; must not be null.
+   *   The non-null pointee must outlive this modifier.
    * @param freq Sheen frequency over the domain; defaults to 3.0.
    * @param weight Overlay strength; must be non-negative. Defaults to 0.25.
    * @details The caller must keep |t * freq * 2pi + phase| under
@@ -1041,6 +1057,7 @@ public:
 
   /**
    * @brief Binds the source and modifier chains by pointer.
+   * @pre Source and modifiers must outlive the binding.
    * @param src Source palette; must not be null.
    * @param cms Coordinate-modifier pointers, one per CMods entry; none null.
    * @param xms Color-modifier pointers, one per XMods entry; none null.
@@ -1122,6 +1139,7 @@ public:
   /**
    * @brief Constructs a facade bound to a composition.
    * @param sp Composition to forward get() to; must not be null.
+   *   The composition must outlive the binding.
    */
   explicit PaletteFacade(const SP *sp) : composition(sp) {
     HS_CHECK(sp != nullptr, "PaletteFacade constructed with null composition");
@@ -1129,6 +1147,7 @@ public:
   /**
    * @brief Binds the facade to a composition.
    * @param sp Composition to forward get() to; must not be null.
+   *   The composition must outlive the binding.
    */
   void bind(const SP *sp) {
     HS_CHECK(sp != nullptr, "PaletteFacade bound to null composition");
