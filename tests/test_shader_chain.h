@@ -4143,6 +4143,8 @@ inline void test_pullback_runtime_seed_contract() {
 
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
+  HS_EXPECT_TRUE(std::string_view(In::chain_status_name(
+                     static_cast<In::ChainStatus>(255))) == "UNKNOWN");
   test_shader_chain_table_integrity();
   test_shader_chain_table_behavior();
   test_shader_chain_schema_and_field_ids();
