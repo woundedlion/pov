@@ -172,8 +172,7 @@ public:
   bool is_finite() const override { return duration >= 0; }
   /**
    * @brief Advances the animation state by one frame.
-   * @details The canvas buffer is unused by the base class and passed through
-   * to derived classes.
+   * @details This implementation ignores the canvas and increments the timer.
    */
   void step(Canvas &) override { t++; }
 
