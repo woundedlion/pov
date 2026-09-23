@@ -62,7 +62,7 @@ public:
     float mix;
   };
 
-  /** @brief Field coordinates: longitude x in [0, W), latitude row y. */
+  /** @brief Field coordinates: longitude x in columns (possibly signed), latitude row y. */
   struct Coordinates {
     float x;
     float y;
