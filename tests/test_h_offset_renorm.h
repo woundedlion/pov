@@ -24,8 +24,13 @@ namespace h_offset_renorm {
 
 // With HS_TEST_H_OFFSET=3, H_VIRT = H + 3 and the bottom physical row y=H-1
 // lands SHORT of the south pole (sin(phi) > 0).
+#ifdef HS_OFFSET_DEVICE_RESOLUTION
+constexpr int W = 96;
+constexpr int H = 20;
+#else
 constexpr int W = 32;
 constexpr int H = 16;
+#endif
 
 inline void face_white(const math::Vector &, Fragment &fragment) {
   fragment.color = Color4(Pixel(60000, 60000, 60000), 1.0f);

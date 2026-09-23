@@ -66,7 +66,7 @@ jobs:
             skips_are_errors: 1
           - &shard3_entry
             shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|mindsplatter|effects_smoke|effect_factory|shader_workbench|lattice_melt|kaleidoscope_smooth|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|stack_budget|arena_budget)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|mindsplatter|effects_smoke|effect_factory|shader_workbench|lattice_melt|kaleidoscope_smooth|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|h_offset_device|stack_budget|arena_budget)$"
             test_exclude: *generated_exclude
             skips_are_errors: 1
             effects_full: 1

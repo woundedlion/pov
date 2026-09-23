@@ -666,6 +666,20 @@ _hs_warnings(h_offset_renorm_check)
 _hs_sanitize(h_offset_renorm_check)
 add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
+add_executable(h_offset_device_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+target_compile_definitions(h_offset_device_check PRIVATE
+  HS_TEST_H_OFFSET=3 HS_OFFSET_DEVICE_RESOLUTION=1)
+target_link_libraries(h_offset_device_check PRIVATE hs_host_storage)
+target_include_directories(h_offset_device_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+_hs_warnings(h_offset_device_check)
+_hs_sanitize(h_offset_device_check)
+add_test(NAME unit_h_offset_device COMMAND h_offset_device_check)
+
+
 # Host stack high-water-mark gate across every effect. Built -Os + the device
 # math flags so codegen frame sizes track the Phantasm size build as closely as a
 # host compiler can. stack_measure.cpp heap-constructs effects like the firmware
