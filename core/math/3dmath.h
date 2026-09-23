@@ -14,7 +14,6 @@
  */
 
 #include <cmath>
-#include <cfloat>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

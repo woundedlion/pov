@@ -8,6 +8,8 @@
  * @brief Fractional-linear complex transforms and their sphere mappings.
  */
 
+#include <algorithm>
+#include <cmath>
 #include "math/stereographic.h"
 
 namespace math {
