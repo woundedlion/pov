@@ -194,8 +194,10 @@ committed board directly need no KiCad and run in CI
   already-generated package against that manifest and against
   `fab-SHA256SUMS.txt` — the baseline recording what was ordered, kept beside
   the board because `gen/out/` is gitignored. That baseline is **not yet
-  recorded**: the shipped package predates this gate and re-exporting it needs
-  KiCad 10, so commit the manifest the next fab run writes.
+  recorded**. Verify the retained package against its manifest and confirm that
+  its Gerber zip, BOM, and CPL are the files submitted for the order before
+  copying its manifest to `fab-SHA256SUMS.txt`. A fresh export from the current
+  board does not establish the bytes used for an earlier order.
 
 ## How connectivity is drawn
 
