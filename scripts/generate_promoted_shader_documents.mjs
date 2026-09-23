@@ -144,9 +144,11 @@ const parameterSpec = (id, value, source) => {
   return {
     id, classification: 'preset',
     storage: 'binary32', unit, domain,
-    interpolation: angle && !phase
-      ? { kind: 'SHORTEST_PERIODIC', period: TAU }
-      : { kind: positive ? 'LOG_POSITIVE' : 'LINEAR' },
+    interpolation: id.startsWith('mobius-')
+      ? { kind: 'SNAP' }
+      : angle && !phase
+        ? { kind: 'SHORTEST_PERIODIC', period: TAU }
+        : { kind: positive ? 'LOG_POSITIVE' : 'LINEAR' },
     default: value,
   };
 };
