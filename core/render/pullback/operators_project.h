@@ -123,12 +123,20 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   static void init(State &state, InstanceId id) {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
   }
+  static void validate_frame(const Params &params) {
+    HS_CHECK(params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY) ||
+                 params.frame ==
+                     static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER),
+             "projection operator: invalid frame policy");
+  }
   static void advance(State &state, const Params &params) {
+    validate_frame(params);
     if (params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER))
       advance_walk(state, params.wander, params.spin_rate);
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
+    validate_frame(params);
     if (params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY))
       return {math::Quaternion()};
     return {(math::make_rotation(math::Y_AXIS, state.spin_phase) *

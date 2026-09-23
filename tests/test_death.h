@@ -4257,6 +4257,22 @@ inline void case_peirce_invalid_layout() {
       static_cast<projections::PeirceLayout>(opaque<uint8_t>(255)), 0);
 }
 
+inline void case_projection_invalid_frame_advance() {
+  using Op = Pullback::Interp::Op::ProjectStereographic;
+  Op::Params params;
+  params.frame = opaque<uint8_t>(255);
+  Op::State state;
+  Op::advance(state, params);
+}
+
+inline void case_projection_invalid_frame_prepare() {
+  using Op = Pullback::Interp::Op::ProjectStereographic;
+  Op::Params params;
+  params.frame = opaque<uint8_t>(255);
+  Op::State state;
+  (void)Op::prepare(Pullback::Interp::FrameContext{}, params, state);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4266,6 +4282,14 @@ inline void case_peirce_invalid_layout() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"projection_invalid_frame_prepare",
+       case_projection_invalid_frame_prepare,
+       "core/render/pullback/operators_project.h",
+       "(params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY) || params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER)) projection operator: invalid frame policy"},
+      {"projection_invalid_frame_advance",
+       case_projection_invalid_frame_advance,
+       "core/render/pullback/operators_project.h",
+       "(params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY) || params.frame == static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER)) projection operator: invalid frame policy"},
       {"peirce_invalid_layout", case_peirce_invalid_layout,
        "core/math/projections.h",
        "(FOLDED_LAYOUT || STRIP_LAYOUT) Peirce projection: invalid layout"},
