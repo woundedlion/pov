@@ -70,7 +70,7 @@ jobs:
             effects_full: 1
           - &shard4_entry
             shard: 4
-            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|presets|styles|shading|death|conway_morph|pullback|pullback_manifest|pullback_capture_determinism|shader_chain)$"
+            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|presets|styles|shading|death|death_child_dispatch|conway_morph|pullback|pullback_manifest|pullback_capture_determinism|shader_chain)$"
             test_exclude: *generated_exclude
             skips_are_errors: 1
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
