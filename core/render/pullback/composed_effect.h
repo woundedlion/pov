@@ -1160,7 +1160,7 @@ private:
     }
   }
 
-  template <float ColorParams::*Member>
+  template <float Color::ColorControls::*Member>
   static consteval const Field<ColorParams> &color_descriptor() {
     constexpr size_t index = [] {
       for (size_t i = 0; i < ColorParams::FIELDS.size(); ++i)
@@ -1173,7 +1173,7 @@ private:
     return ColorParams::FIELDS[index];
   }
 
-  template <float ColorParams::*Member>
+  template <float Color::ColorControls::*Member>
   HS_COLD_MEMBER void register_color_field(const char *name) {
     constexpr const auto &field = color_descriptor<Member>();
     register_animated_param(name, &(params.color.*Member), field.min,
