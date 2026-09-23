@@ -64,7 +64,7 @@ PINS = {
     # red unrelated engine changes and make a re-run of an unchanged commit flip
     # its verdict. daydream pins this repository the same way, in
     # holosphere_wasm.sha -- so the pair is circular and daydream lands first.
-    "daydream": "83ece43511a412f3eb19adf2d937d1d33eff9beb",
+    "daydream": "f5028201cdd80435b2cca0e15cd0eee2fe9a23b9",
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
     "emsdk": "5.0.0",
     # PyPI's rust-just, so the recipe runner is installed and held like ruff.
