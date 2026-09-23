@@ -762,6 +762,8 @@ The mesh system is split across twelve files:
 
 `PolyMesh` stores vertices and face connectivity via `ArenaVector` arrays. `MeshState` (in `mesh_state.h`) is the flat compiled format consumed by the renderer. `HalfEdgeMesh` provides a half-edge traversal structure built from either a `PolyMesh` or `MeshState`.
 
+`MeshOps::require_closed_manifold()` temporarily allocates a `uint16_t` fan count for every index from zero through the largest referenced vertex. Budget `2 * (largest_index + 1)` bytes plus alignment in its scratch arena, up to 65,536 bytes at `MeshLimits::MAX_VERTICES`. This scratch is additional to the resident `HalfEdgeMesh` and is rewound before return.
+
 ### Core MeshOps (`core/mesh/mesh.h`)
 
 | Operation | Description |
