@@ -453,6 +453,8 @@ A head traces a fixed 12:5 spherical Lissajous figure whose long trail is contin
 
 **Parameters**: Alpha, Cycle Dur, Speed, Jitter Amp, Noise Scale, Scale Factor, Cycle Speed, Duty Cycle
 
+Duty Cycle 0 hides the trail; positive values control its visible fraction.
+
 </td></tr></table>
 
 <table border="0"><tr>
