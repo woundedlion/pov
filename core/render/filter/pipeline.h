@@ -618,6 +618,8 @@ struct Pipeline<W, H, Head, Tail...>
    * @details Walks the whole stage list, so a pipeline carrying more than one
    * storage-bearing stage cannot be left half-initialised. Call it from the
    * effect's init(), after any configure_arenas().
+   * The allocated storage must remain live for every subsequent pipeline use.
+   * Stages may retain the arena for lifetime validation; keep it alive too.
    */
   void init_storage(Arena &arena) {
     if constexpr (requires { Head::init_storage(arena); })
