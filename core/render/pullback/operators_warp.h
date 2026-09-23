@@ -392,8 +392,13 @@ struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
                           const State &state) {
     check_noise_basis(params.basis);
     HS_CHECK(params.integrator < 3, "warp.curl-flow: invalid integrator");
+    const uint8_t intervals = static_cast<uint8_t>(1U << params.integrator);
+    HS_CHECK(params.scale * fabsf(params.strength) *
+                     Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
+                 0.5f,
+             "warp.curl-flow: unstable scale and strength for integrator");
     return {&state.noise, math::noise_projected_loop_offset(state.phase),
-            static_cast<uint8_t>(1U << params.integrator)};
+            intervals};
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
