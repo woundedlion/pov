@@ -166,8 +166,8 @@ private:
    * @brief Mean per-node |dB| per frame below which the field counts as
    * settled, at DEFAULT_DT and BASELINE_STEPS_PER_FRAME; the detector rescales
    * it by params.dt / DEFAULT_DT and by EVOLUTION_STEPS_PER_FRAME /
-   * BASELINE_STEPS_PER_FRAME, so neither the 30x Speed range nor the frame's
-   * physics budget moves the stabilization point.
+   * BASELINE_STEPS_PER_FRAME. This is a calibration heuristic: Q16
+   * quantization makes the low-Speed response nonlinear.
    * @details Loose relative to the 1.1e-6..4.0e-6 Q16 chatter a converged field
    * floors at; fires at ~222 baseline frames.
    */
@@ -321,7 +321,7 @@ private:
     transition.grow_frames++;
     if (transition.grow_frames < MIN_GROW_FRAMES)
       return;
-    // Per-frame |dB| scales with the timestep, so the floor tracks Speed.
+    // Scale the calibrated floor with the requested timestep.
     const float floor_db = MEAN_DB_STABLE * (params.dt * (1.0f / DEFAULT_DT)) *
                            (static_cast<float>(EVOLUTION_STEPS_PER_FRAME) /
                             BASELINE_STEPS_PER_FRAME);
