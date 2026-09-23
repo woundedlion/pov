@@ -2669,13 +2669,14 @@ private:
     const float minimum_surface_strength =
         candidate.slots.surface_noise == Workbench::SurfaceNoise::CURL ? -0.5f
                                                                        : 0.0f;
-    if (surface_noise.scale < Workbench::LENS_NOISE_SCALE_MIN ||
-        surface_noise.scale > Workbench::LENS_NOISE_SCALE_MAX ||
-        surface_noise.strength < minimum_surface_strength ||
-        surface_noise.strength > 0.5f ||
-        surface_noise.rate < Workbench::NOISE_RATE_MIN ||
-        surface_noise.rate > Workbench::NOISE_RATE_MAX ||
-        surface_noise.direction < 0.0f || surface_noise.direction > 1.0f) {
+    if (candidate.slots.surface_noise != Workbench::SurfaceNoise::NONE &&
+        (surface_noise.scale < Workbench::LENS_NOISE_SCALE_MIN ||
+         surface_noise.scale > Workbench::LENS_NOISE_SCALE_MAX ||
+         surface_noise.strength < minimum_surface_strength ||
+         surface_noise.strength > 0.5f ||
+         surface_noise.rate < Workbench::NOISE_RATE_MIN ||
+         surface_noise.rate > Workbench::NOISE_RATE_MAX ||
+         surface_noise.direction < 0.0f || surface_noise.direction > 1.0f)) {
       begin_warning("Surface Noise %s rejected.",
                     Workbench::SURFACE_NOISE_OPTIONS[static_cast<uint8_t>(
                         candidate.slots.surface_noise)]);

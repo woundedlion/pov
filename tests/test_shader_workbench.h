@@ -995,6 +995,24 @@ inline void test_shader_workbench_surface_noise_range_rebind() {
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Strength") ==
                  nullptr);
 
+  pending_curl.requested[noise_slot] =
+      static_cast<uint32_t>(WB::SurfaceNoise::NONE);
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(pending_curl),
+               WB::ConfigRestoreResult::APPLIED);
+  sb.draw_frame();
+  sb.advance_display();
+  WB::refresh_display(sb);
+  const WB::FullConfigSnapshot disabled = sb.capture_full_config_snapshot();
+  HS_EXPECT_EQ(disabled.accepted[noise_slot],
+               static_cast<uint32_t>(WB::SurfaceNoise::NONE));
+  HS_EXPECT_EQ(disabled.accepted[strength],
+               shader_workbench_float_payload(-0.25f));
+  HS_EXPECT_EQ(disabled.pending[noise_slot], uint8_t{0});
+  HS_EXPECT_EQ(WB::display_config(sb).slots.surface_noise,
+               WB::SurfaceNoise::NONE);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Surface Noise Strength") ==
+                 nullptr);
+
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(settled),
                WB::ConfigRestoreResult::APPLIED);
   HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
