@@ -18,7 +18,11 @@ trap 'rm -f -- "$tmp"' EXIT
 # --show-files reports the selection; emptiness is the gate, not its status.
 ruff check --no-cache --show-files . > "$tmp" || true
 
-python - "$tmp" <<'PY'
+ruff_python=${HS_PYTHON:-python3}
+if [ -z "${HS_PYTHON:-}" ] && ! "$ruff_python" --version >/dev/null 2>&1; then
+  ruff_python=python
+fi
+"$ruff_python" - "$tmp" <<'PY'
 import pathlib
 import subprocess
 import sys
