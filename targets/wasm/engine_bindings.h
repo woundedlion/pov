@@ -420,7 +420,6 @@ public:
       return EffectSetResult::UNSUPPORTED_RESOLUTION;
     }
 
-    hs::log("WASM: setEffect called with %s", name.c_str());
     if (!entry) {
       hs::log("WASM: setEffect unknown effect '%s' — keeping current effect",
               name.c_str());
@@ -456,7 +455,6 @@ public:
     const size_t init_hwm = stack_high_water_mark();
     if (init_hwm > init_stack_peak)
       init_stack_peak = init_hwm;
-    hs::log("WASM: init stack HWM = %u bytes", (unsigned)init_hwm);
     stack_paint_canary();
     return EffectSetResult::INSTALLED;
   }
