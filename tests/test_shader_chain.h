@@ -1516,6 +1516,10 @@ inline void run_lens_parity(const char *op_id, ValueSet set) {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   arm_sphere_op_chain<OpParams>(program, op_id, 3, set);
+  if constexpr (std::is_same_v<OpParams, In::Op::MobiusChainParams>) {
+    if (set != ValueSet::DEFAULTS)
+      param_as<OpParams>(program, 1).d_re *= -1.0f;
+  }
   const In::FrameContext ctx = shared_resources().context();
   using Bound = typename PB::Stage::Lens<LensPolicy>::template Bind<
       SphereOpMirrorBinding>;
