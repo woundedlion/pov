@@ -5778,7 +5778,7 @@ inline void test_shader_workbench_discrete_transition() {
     reset_effect_globals();
     WB::SB sb;
     sb.init();
-    const math::Vector view(0.2f, 0.9f, -0.3f);
+    const math::Vector view = math::Vector(0.2f, 0.9f, -0.3f).normalized();
     const WB::FrameState valid = WB::frame(sb);
     const Color4 expected = WB::shade(view, valid);
     const auto clear_phase = WB::through_clear_phase(30, 60);

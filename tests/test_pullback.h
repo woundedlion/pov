@@ -748,7 +748,7 @@ using CountingPipeline = Pullback::Pipeline<
 inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
   static_cast<void>(CountingPipeline::shade(
-      math::Vector(1.0f, 2.0f, 3.0f), CountingPipeline::prepare(TestFrame{})));
+      math::X_AXIS, CountingPipeline::prepare(TestFrame{})));
   constexpr std::array EXPECTED{Pullback::ProfileEvent::SURFACE_NOISE,
                                 Pullback::ProfileEvent::LENS,
                                 Pullback::ProfileEvent::PROJECTION,
@@ -789,7 +789,9 @@ inline void test_pullback_prepared_stage_policies() {
       Pullback::Stage::Project<PreparedProjectionPolicy>::Bind<CountingBinding>;
   const auto project_prepared = BoundProject::prepare(frame);
   HS_EXPECT_EQ(project_prepared, 3);
-  HS_EXPECT_EQ(BoundProject::run(sphere, frame, project_prepared).coords.re,
+  HS_EXPECT_EQ(BoundProject::run({math::X_AXIS, sphere.path_length}, frame,
+                                 project_prepared)
+                   .coords.re,
                4.0f);
 
   using BoundSourceOnlySample =
@@ -838,14 +840,14 @@ inline void test_pullback_stage_combinators() {
 
   using BoundProject =
       Pullback::Stage::Project<CountingProjectionPolicy>::Bind<CountingBinding>;
-  const Pullback::SphereSample view{math::Vector(1.0f, 2.0f, 3.0f), 0.5f};
+  const Pullback::SphereSample view{math::X_AXIS, 0.5f};
   const Pullback::PlaneSample projected =
       BoundProject::run(view, frame, BoundProject::prepare(frame));
   HS_EXPECT_EQ(projected.coords.re, 1.0f);
-  HS_EXPECT_EQ(projected.coords.im, 2.0f);
+  HS_EXPECT_EQ(projected.coords.im, 0.0f);
   HS_EXPECT_EQ(projected.provenance.value_weight, 0.5f);
   HS_EXPECT_EQ(projected.sphere.x, 1.0f);
-  HS_EXPECT_EQ(projected.sphere.z, 3.0f);
+  HS_EXPECT_EQ(projected.sphere.z, 0.0f);
   HS_EXPECT_EQ(projected.path_length, 0.5f);
 
   using BoundWarp =
