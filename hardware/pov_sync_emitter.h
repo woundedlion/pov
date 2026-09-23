@@ -40,11 +40,11 @@ public:
    * @param at_cycles Boundary instant the burst should start at, in cycles.
    * @param now Current timestamp, in cycles.
    * @param cfg Protocol configuration.
-   * @return False if the symbol was self-censored (caller counts it).
+   * @return False if an emission is active or the symbol is self-censored.
    */
   bool schedule_boundary(Symbol symbol, uint32_t at_cycles, uint32_t now,
                          const Config &cfg) {
-    if (symbol == Symbol::INVALID)
+    if (symbol == Symbol::INVALID || !idle())
       return false;
     // Signed lateness so a future boundary isn't read as a huge positive
     // lateness through the unsigned wrap of now - at_cycles.
