@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile AshCloud`).
 Raw capture: `build/prof/ashcloud_ship.log`, sourced from the isolated sweep tree.
-Replaces `profile_ashcloud_teensy_2026-08-23.md` with the full 2026-08-26 sweep capture.
+Replaces the historical 2026-08-23 capture (report no longer retained) with the full 2026-08-26 sweep capture.
 
 ## Setup
 

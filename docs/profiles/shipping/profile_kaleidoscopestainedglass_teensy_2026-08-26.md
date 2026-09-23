@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile KaleidoscopeStainedGlass`).
 Raw capture: `build/prof/kaleidoscopestainedglass_ship.log`, sourced from the isolated sweep tree.
-Replaces `profile_kaleidoscopestainedglass_teensy_2026-08-16.md` with the full 2026-08-26 sweep capture.
+Replaces the historical 2026-08-16 capture (report no longer retained) with the full 2026-08-26 sweep capture.
 
 ## Setup
 
