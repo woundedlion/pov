@@ -256,7 +256,8 @@ public:
   /**
    * @brief Spawns a new transformation animation.
    * @tparam Args Constructor argument types forwarded to the Animation.
-   * @param in_frames Delay in frames before the animation starts.
+   * @param in_frames Delay before the first animation step. Constructor-seeded
+   * params compose during the delay; delayed effects must seed a neutral state.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no pool slot or
@@ -276,7 +277,8 @@ public:
    * @brief Like spawn(), but gates the timeline event on a pause flag.
    * @tparam Args Constructor argument types forwarded to the Animation.
    * @param paused Pause flag that must outlive the event.
-   * @param in_frames Delay in frames before the animation starts.
+   * @param in_frames Delay before the first animation step. Constructor-seeded
+   * params compose during the delay; delayed effects must seed a neutral state.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no pool slot or
@@ -295,7 +297,8 @@ public:
    * @brief Like spawn(), but pins the event so the returned pointer may be
    * retained across frames (e.g. registered as a live GUI param).
    * @tparam Args Constructor argument types forwarded to the Animation.
-   * @param in_frames Delay in frames before the animation starts.
+   * @param in_frames Delay before the first animation step. Constructor-seeded
+   * params compose during the delay; delayed effects must seed a neutral state.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no pool slot is
@@ -485,7 +488,8 @@ private:
    * @tparam Args Constructor argument types forwarded to the Animation.
    * @param pin Whether the timeline event is pinned (retained-handle contract).
    * @param paused Event-level pause gate, or nullptr for none.
-   * @param in_frames Delay in frames before the animation starts.
+   * @param in_frames Delay before the first animation step. Constructor-seeded
+   * params compose during the delay; delayed effects must seed a neutral state.
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no pool slot or
