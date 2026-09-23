@@ -141,7 +141,7 @@ public:
    * holds none.
    */
   static ControlKey snapshot_key(const Snapshot &snapshot, int index) {
-    const int last = static_cast<int>(snapshot.key_count) - 1;
+    const int last = std::min<int>(snapshot.key_count, PALETTE_MAX_KEYS) - 1;
     if (last < 0)
       return {};
     index = hs::clamp(index, 0, last);
