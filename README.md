@@ -1348,6 +1348,13 @@ The four Three.js pages reuse `vendor-importmap.js`, so they resolve from the CD
 
 ---
 
+### Adding an effect
+
+1. Add the effect header under `effects/` and register its class in `HS_EFFECT_LIST` in `targets/effects.h`. The native roster and include tests check registration; `just docs-check` updates the repository map and counts.
+2. Add the effect to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
+3. Add a capture offset to `scripts/screenshot_capture_config.mjs`, capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
+4. Build Phantasm to check the effect object size budget, then run the native tests and `just teensy-size` to check firmware budgets. Add behavior tests appropriate to the effect.
+
 ## 11. Building
 
 The two repos should be checked out as siblings so the WASM install step can write directly into the simulator tree:
