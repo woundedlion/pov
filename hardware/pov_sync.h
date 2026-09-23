@@ -221,10 +221,7 @@ public:
     if (burst)
       handle_burst(*burst, a);
 
-    // Suspect-burst timeout: a lone far burst held pending in handle_burst that
-    // saw no follow-up was not beacon data — count it as a gate rejection so a
-    // corrupted-timebase board still reaches the §5.3 ACQUIRE fallback. The
-    // signed re-check rejects a wrapped modular difference.
+    // Isolated wire noise can consume at most one rejection per half-revolution.
     if (suspect_pending &&
         (now - suspect_last_cycles) >
             protocol_config.interdigit_timeout_cycles() &&
@@ -233,8 +230,13 @@ public:
       // The gate exists only in LOCKED; note_rejection() no-ops in ACQUIRE.
       if (fly.lock() == LockState::LOCKED) {
         saturating_increment(telemetry_counters.symbols_rejected_gate);
-        if (fly.note_rejection())
-          saturating_increment(telemetry_counters.lock_transitions);
+        if (!have_suspect_rejection ||
+            suspect_rejection_half != halves_since_snap) {
+          have_suspect_rejection = true;
+          suspect_rejection_half = halves_since_snap;
+          if (fly.note_rejection())
+            saturating_increment(telemetry_counters.lock_transitions);
+        }
       }
     }
 
@@ -437,6 +439,8 @@ private:
     prev_burst_end = 0;
     suspect_pending = false;
     suspect_last_cycles = 0;
+    have_suspect_rejection = false;
+    suspect_rejection_half = 0;
     epoch_emits_left = 0;
     beacon_done_this_rev = false;
     beacon_busy_counted_this_rev = false;
@@ -559,6 +563,7 @@ private:
     if (!was_locked)
       saturating_increment(telemetry_counters.lock_transitions);
     halves_since_snap = 0;
+    have_suspect_rejection = false;
     // MUST precede on_epoch_symbol: a ZERO_EPOCH folds rev_in_effect here so the
     // j-inference below reads the post-fold rev (§6.3.1). Deduped against the
     // later fold-loop apply_flip.
@@ -784,6 +789,8 @@ private:
       0; /**< Quiet past which prev_burst_end ages out (cached). */
   bool suspect_pending = false; /**< Lone far burst awaiting train/timeout. */
   uint32_t suspect_last_cycles = 0;
+  bool have_suspect_rejection = false;
+  uint32_t suspect_rejection_half = 0;
   uint32_t epoch_emits_left =
       0; /**< ZERO boundaries left in the EPOCH train. */
   bool beacon_done_this_rev = false;
