@@ -766,12 +766,21 @@ template <typename Bound> consteval bool bound_prepares() {
   };
 }
 
+constexpr bool approximation_metadata_wellformed(bool approximate,
+                                                 ApproximationOracleId oracle,
+                                                 size_t metric_count,
+                                                 bool exact_fields,
+                                                 bool framebuffer_metric) {
+  return approximate
+             ? oracle != ApproximationOracleId::NONE && metric_count != 0 &&
+                   exact_fields && framebuffer_metric
+             : oracle == ApproximationOracleId::NONE && metric_count == 0;
+}
+
 template <typename Bound> consteval bool bound_approximation_wellformed() {
-  return (Bound::APPROXIMATE && Bound::ORACLE != ApproximationOracleId::NONE &&
-          Bound::METRICS.size() != 0 && Bound::NON_FLOATING_FIELDS_EXACT &&
-          has_final_framebuffer_metric<Bound>()) ||
-         (!Bound::APPROXIMATE && Bound::ORACLE == ApproximationOracleId::NONE &&
-          Bound::METRICS.size() == 0);
+  return approximation_metadata_wellformed(
+      Bound::APPROXIMATE, Bound::ORACLE, Bound::METRICS.size(),
+      Bound::NON_FLOATING_FIELDS_EXACT, has_final_framebuffer_metric<Bound>());
 }
 
 template <bool BindingsValid, typename Binding, typename LeafList>
