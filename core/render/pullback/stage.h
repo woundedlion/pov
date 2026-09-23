@@ -283,8 +283,9 @@ struct Displace
       step = SurfacePolicyT::apply(input.dir, frame, prepared);
     else
       step = SurfacePolicyT::apply(input.dir, frame);
+    const SphereSample output = Kernel::displace(input, step);
     Instrumentation::template span<ProfileEvent::SURFACE_NOISE>(start);
-    return Kernel::displace(input, step);
+    return output;
   }
 };
 
@@ -321,8 +322,9 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
       lensed = LensPolicyT::apply(input.dir, frame, prepared);
     else
       lensed = LensPolicyT::apply(input.dir, frame);
+    const SphereSample output = Kernel::lens(input, lensed);
     Instrumentation::template span<ProfileEvent::LENS>(start);
-    return Kernel::lens(input, lensed);
+    return output;
   }
 };
 
@@ -554,10 +556,8 @@ struct SampleSphere
       raw = SourcePolicyT::sample(input, frame, prepared);
     else
       raw = SourcePolicyT::sample(input, frame);
-    Instrumentation::template span<ProfileEvent::SOURCE>(source_span);
-    const auto material_span = Instrumentation::mark();
     const FieldSample output = Kernel::sample(input, raw);
-    Instrumentation::template span<ProfileEvent::MATERIAL>(material_span);
+    Instrumentation::template span<ProfileEvent::SOURCE>(source_span);
     return output;
   }
 };

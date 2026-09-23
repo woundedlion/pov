@@ -761,6 +761,16 @@ inline void test_pullback_counting_instrumentation() {
   HS_EXPECT_EQ(CountingInstrumentation::count, EXPECTED.size());
   for (size_t index = 0; index < EXPECTED.size(); ++index)
     HS_EXPECT_EQ(CountingInstrumentation::events[index], EXPECTED[index]);
+
+  CountingInstrumentation::count = 0;
+  using SphereSource = Pullback::Stage::SampleSphere<
+      CountingSphericalSourcePolicy>::Bind<CountingBinding>;
+  const TestFrame frame;
+  static_cast<void>(SphereSource::run({math::X_AXIS, 0.0f}, frame,
+                                      SphereSource::prepare(frame)));
+  HS_EXPECT_EQ(CountingInstrumentation::count, size_t{1});
+  HS_EXPECT_EQ(CountingInstrumentation::events[0],
+               Pullback::ProfileEvent::SOURCE);
 }
 
 inline void test_pullback_prepared_stage_policies() {
