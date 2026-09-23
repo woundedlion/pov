@@ -501,7 +501,9 @@ KNOWN_PARITY_ITEMS = {
     ("footprint_symbol_mismatch", "JP_SHLD"): "Exclude from bill of materials",
 }
 KNOWN_PARITY_WARNING_COUNTS = {
-    "lib_footprint_mismatch": 11,
+    ("lib_footprint_mismatch", ref): 1
+    for ref in ("R_D1", "R2", "R_D2", "U1", "R_PD", "U_MCU", "C_DEC2",
+                "D_BUS", "R_S", "J4", "R1")
 }
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
@@ -748,14 +750,17 @@ def require_schematic_parity(report_path):
     warning_counts = {}
     for violation in violations:
         kind = str(violation.get("type", ""))
-        warning_counts[kind] = warning_counts.get(kind, 0) + 1
-    for kind in sorted(set(warning_counts) |
-                       set(KNOWN_PARITY_WARNING_COUNTS)):
-        actual = warning_counts.get(kind, 0)
-        expected = KNOWN_PARITY_WARNING_COUNTS.get(kind, 0)
+        refs = parity_refs(violation)
+        ref = refs[0] if len(refs) == 1 else repr(refs)
+        key = (kind, ref)
+        warning_counts[key] = warning_counts.get(key, 0) + 1
+    for kind, ref in sorted(set(warning_counts) |
+                            set(KNOWN_PARITY_WARNING_COUNTS)):
+        actual = warning_counts.get((kind, ref), 0)
+        expected = KNOWN_PARITY_WARNING_COUNTS.get((kind, ref), 0)
         if actual != expected:
             diagnostics.append(
-                f"{kind}: reported {actual} times in {report_path}, "
+                f"{kind}: {ref} reported {actual} times in {report_path}, "
                 f"expected {expected}")
 
     seen = {}
