@@ -1755,6 +1755,64 @@ inline void case_mesh_require_matching_half_edge_loops() {
   MeshOps::require_matching_half_edges(half_edges, mesh, "death");
 }
 
+inline void case_noise_hue_bake_invalid_scale() {
+  static std::array<int8_t, HueNoiseLutView::SIZE> output{};
+  FastNoiseLite noise;
+  HueNoiseBakeCache cache;
+  (void)cache.refresh(output, noise, opaque(0.0f), 0.0f);
+}
+
+inline void run_invalid_recipe_step(const Solids::OpStep &step) {
+  static uint8_t a_buf[64 * 1024];
+  static uint8_t b_buf[64 * 1024];
+  Arena a(a_buf, sizeof(a_buf));
+  Arena b(b_buf, sizeof(b_buf));
+  (void)Solids::build_steps(opaque<uint8_t>(1), &step, 1, a, b);
+}
+
+inline void case_recipe_bake_wrong_op() {
+  const MeshOps::RelaxBake bake{};
+  run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, 0.0f, &bake});
+}
+
+inline void case_recipe_twist_wrong_op() {
+  run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, opaque(0.1f)});
+}
+
+inline void case_recipe_bake_live_iterations() {
+  const MeshOps::RelaxBake bake{};
+  run_invalid_recipe_step({Solids::Op::RELAX, opaque(1.0f), 0.0f, &bake});
+}
+
+inline void case_pullback_mobius_degenerate() {
+  Pullback::Interp::Op::MobiusChainParams params;
+  params.a_re = opaque(0.0f);
+  params.d_re = opaque(0.0f);
+  Pullback::Interp::Op::LensMobius::State state;
+  Pullback::Interp::FrameContext context{};
+  (void)Pullback::Interp::Op::LensMobius::prepare(context, params, state);
+}
+
+inline void case_pullback_curl_unstable() {
+  Pullback::Interp::Op::CurlFlowParams params;
+  params.scale = opaque(100.0f);
+  params.strength = opaque(100.0f);
+  params.integrator = 0;
+  Pullback::Interp::Op::NoisePhaseState state;
+  Pullback::Interp::FrameContext context{};
+  (void)Pullback::Interp::Op::WarpCurlFlow::prepare(context, params, state);
+}
+
+inline void case_mindsplatter_profile_preset_oob() {
+  MindSplatter<96, 20> effect;
+  effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
+}
+
+inline void case_workbench_lens_missing_frame() {
+  (void)Workbench::apply_frame_free_lens(math::Vector{1.0f, 0.0f, 0.0f},
+                                         Workbench::SurfaceLens::MOBIUS);
+}
+
 /**
  * @brief Death case: a HANKIN step with no contact angle must trap.
  * @details Recipe-replay surface — the zero default collapses every star point
@@ -4367,6 +4425,30 @@ inline void case_direct_sink_unprepared_plot() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"noise_hue_bake_invalid_scale", case_noise_hue_bake_invalid_scale,
+       "core/color/noise_hue_palette.h",
+       "(std::isfinite(bake_scale) && bake_scale > 0.0f) HueNoiseBakeCache: scale must be finite and positive"},
+      {"recipe_bake_wrong_op", case_recipe_bake_wrong_op, "core/mesh/recipe.h",
+       "(!step.bake || step.op == Op::RELAX) apply_step: only RELAX accepts a bake"},
+      {"recipe_twist_wrong_op", case_recipe_twist_wrong_op,
+       "core/mesh/recipe.h",
+       "(step.twist == 0.0f || step.op == Op::SNUB) apply_step: only SNUB accepts a twist"},
+      {"recipe_bake_live_iterations", case_recipe_bake_live_iterations,
+       "core/mesh/recipe.h",
+       "(!step.bake || step.param == 0.0f) apply_step: a baked RELAX step must not specify live iterations"},
+      {"pullback_mobius_degenerate", case_pullback_mobius_degenerate,
+       "core/render/pullback/operators_sphere.h",
+       "(Lens::MobiusLensParams::nondegenerate(mobius)) sphere.lens.mobius: degenerate coefficients"},
+      {"pullback_curl_unstable", case_pullback_curl_unstable,
+       "core/render/pullback/operators_warp.h",
+       "(params.scale * fabsf(params.strength) * Warp::CURL_VECTOR_COMPONENT_MAX / intervals <= 0.5f) warp.curl-flow: unstable scale and strength for integrator"},
+      {"mindsplatter_profile_preset_oob", case_mindsplatter_profile_preset_oob,
+       "effects/MindSplatter.h",
+       "(index < PRESETS.size()) MindSplatter profile preset index out of range"},
+      {"workbench_lens_missing_frame", case_workbench_lens_missing_frame,
+       "workbench/shader/kernels.h",
+       "(false) frame-parameterized lens needs the FrameState overload"},
+
       {"direct_sink_unprepared_plot", case_direct_sink_unprepared_plot,
        "core/render/filter/screen_direct_aa_sink.h",
        "(prepared_for(cv)) DirectAntiAliasSink: prepare current canvas before plotting"},
@@ -4714,7 +4796,7 @@ inline const Case *all_cases(int &n) {
        "(relax_topology_hash(mesh) == bake.topology_hash) relax_baked: source "
        "topology differs"},
       {"relax_baked_source_mismatch", case_relax_baked_source_mismatch,
-       "core/mesh/conway.h",
+       "core/mesh/relax_bake.h",
        "(relax_source_hash(mesh) == bake.source_hash) relax_baked: source "
        "vertices differ"},
       {"relax_baked_output_hash_mismatch",
@@ -5213,7 +5295,7 @@ inline const Case *all_cases(int &n) {
       {"spherical_harmonics_invalid_morph_mode",
        case_spherical_harmonics_invalid_morph_mode,
        "effects/SphericalHarmonics.h",
-       "(synchronizePreset(preset_index_for_mode(current_idx))) "},
+       "(synchronized) SphericalHarmonics preset synchronization failed"},
       {"islamicstars_build_budget", case_islamicstars_build_budget,
        "effects/IslamicStars.h",
        "(persistent_arena.get_offset() <= device_persistent_budget) "
