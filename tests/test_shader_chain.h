@@ -3300,6 +3300,14 @@ inline void test_shader_chain_refusal_shape() {
 }
 
 inline void test_shader_chain_refusal_budget_overflows() {
+  auto oversized_table = In::OPERATOR_TABLE;
+  oversized_table[0].runtime.param.size = 0xfffffffcu;
+  auto oversized =
+      std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, oversized_table);
+  HS_EXPECT_EQ(oversized->program.compile(DEFAULT_CHAIN).code,
+               In::ChainStatus::ARENA_OVERFLOW);
+  HS_EXPECT_FALSE(oversized->program.compiled());
+
   // Exact-fit boundary: capacity == used commits, capacity - 1 refuses.
   auto measured = std::make_unique<ProgramFixture>();
   arm_default_chain(measured->program, 0, ValueSet::DEFAULTS);
