@@ -8,7 +8,7 @@ PROJECT = GEN.parent / "phantasm.kicad_pro"
 UNPLACED_PROJECT = GEN.parent / "unplaced" / "phantasm_unplaced.kicad_pro"
 sys.path.insert(0, str(GEN))
 
-from constraints import (DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS,  # noqa: E402
+from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,  # noqa: E402
                          UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
 
 
@@ -21,9 +21,12 @@ class CommittedProjectConstraintTests(unittest.TestCase):
     def test_project_satisfies_fabrication_constraints(self):
         project = json.loads(PROJECT.read_text(encoding="utf-8"))
         rules = project["board"]["design_settings"]["rules"]
-        for field, minimum in RULE_MINIMUMS.items():
+        for field, minimum in {**RULE_MINIMUMS, **NEW_LAYOUT_RULES}.items():
             with self.subTest(field=field):
                 self.assertGreaterEqual(rules[field], minimum)
+
+        self.assertEqual(project["board"]["design_settings"]["rule_severities"][
+            "silk_over_copper"], "error")
 
         default = default_class(project)
         for field, minimum in DEFAULT_CLASS_MINIMUMS.items():
