@@ -30,8 +30,7 @@ namespace Op {
     recurrence the spin-and-wander operators step. */
 inline constexpr Animation::RandomWalkOptions WALK_OPTIONS{};
 
-inline void init_effect_noise(FastNoiseLite &noise,
-                              int32_t seed = EFFECT_NOISE_SEED) {
+inline void init_effect_noise(FastNoiseLite &noise, int32_t seed) {
   noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
   noise.SetSeed(seed);
   noise.SetFrequency(1.0f);
