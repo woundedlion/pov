@@ -217,32 +217,6 @@ from: the shipped composition core defines no `Pullback::StageKind`, and the
 fixed six-role sequence below is replaced by the ranked family chain in
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md) §3.
 
-Core standardizes this evaluation order:
-
-```text
-OUTER_CAMERA -> SURFACE_PROJECT -> PLANAR_WARP
-             -> SOURCE -> MATERIAL -> COLOR
-```
-
-`StageKind` has exactly those six enumerators in that order. They describe
-pullback evaluation, not authored forward order. Version 1 still requires one
-stage of each kind. Variation within a role is expressed by sub-policies and
-fused stage combinators rather than by changing the role sequence.
-
-| Kind | Exact input | Exact output |
-|---|---|---|
-| `OUTER_CAMERA` | `Vector` | `Vector` |
-| `SURFACE_PROJECT` | `Vector` | `ProjectionSample` |
-| `PLANAR_WARP` | `ProjectionSample` | `SourceInput` |
-| `SOURCE` | `SourceInput` | `MaterialInput` |
-| `MATERIAL` | `MaterialInput` | `MaterialSample` |
-| `COLOR` | `MaterialSample` | `Color4` |
-
-The fixed roles are intentional. They capture the stable semantic interfaces
-that make concrete operators interoperable. A future renderer needing a
-different cardinality or semantic sequence may add a sibling pipeline type; it
-must not weaken this pipeline's diagnostics into an untyped arbitrary chain.
-
 ### 5.2 Public carriers
 
 The shipped carriers live in `core/render/pullback/contract.h`, which is the
