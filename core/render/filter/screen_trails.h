@@ -91,7 +91,9 @@ public:
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
    * @details At MAX_PIXELS the slot at index 0 is evicted; decay()'s unordered
-   * compaction leaves that point's age arbitrary.
+   * compaction leaves that point's age arbitrary. A fresh sample is forwarded
+   * immediately and emitted again by flush() in the same frame, so both
+   * contributions composite at its position.
    */
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
