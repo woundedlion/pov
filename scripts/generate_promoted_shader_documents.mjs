@@ -597,6 +597,6 @@ if (CHECK) {
     process.exit(1);
   }
   console.log(
-    `patterns/ matches the generator in full (${effects.length} documents) `
+    `patterns/ generated subset matches its specs (${effects.length} documents) `
       + `and is canonical (${patterns.length} documents).`);
 }
