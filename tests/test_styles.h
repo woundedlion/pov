@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Direct unit tests for core/engine/styles.h — the Feedback::Style POD: named presets,
+ * Direct unit tests for core/render/filter/feedback_style.h — the Feedback::Style POD: named presets,
  * scalar lerp with function-pointer/discrete snapping, the transform functions
  * (noise_warp — both the unbound identity path and the bound-noise production
  * branch — melt_warp, and hue_fade with its LMS rotation cache), sync_hue(),
@@ -14,7 +14,7 @@
 
 #include <iterator>
 
-#include "core/engine/styles.h"
+#include "core/render/filter/feedback_style.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
