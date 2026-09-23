@@ -22,7 +22,7 @@ class EngineSourceState(unittest.TestCase):
         self.git("config", "user.email", "source-state@example.invalid")
         self.git("config", "core.autocrlf", "false")
         self.git("config", "core.hooksPath", ".no-hooks")
-        self.original = "Authored explanation.\n\n<!-- docs-check: tree exhaustive -->\n```\n└── old.txt  Existing description\n```\n"
+        self.original = "Authored explanation.\n\n<!-- docs-check: tree exhaustive -->\n```\n├── absent.txt  Stale entry\n├── old.txt  Existing description\n└── new.txt  New source\n```\n"
         self.write("README.md", self.original)
         self.write("old.txt", "source")
         self.write("new.txt", "added source")
