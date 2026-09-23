@@ -1336,6 +1336,7 @@ inline void test_emitter() {
     SymbolEmitter e;
     const uint32_t b = 1000000u;
     HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, b, b + COL / 8, cfg));
+    HS_EXPECT_FALSE(e.schedule_boundary(Symbol::HALF, b, b, cfg));
     std::vector<uint32_t> pulses;
     for (uint32_t t = b + COL / 8; t < b + 8 * COL; t += COL / 8) {
       if (e.tick(t, cfg, &aborted))
@@ -1398,6 +1399,7 @@ inline void test_emitter() {
     encode_beacon_digits(3, 9, d);
     HS_EXPECT_TRUE(e.schedule_beacon(d, 2000000u, cfg));
     HS_EXPECT_FALSE(e.schedule_beacon(d, 2000000u, cfg));
+    HS_EXPECT_FALSE(e.schedule_boundary(Symbol::HALF, 2000000u, 2000000u, cfg));
     HS_EXPECT_FALSE(e.idle());
     HS_EXPECT_EQ(e.drop_pending_emission(), Dropped::BEACON);
     HS_EXPECT_TRUE(e.idle());
