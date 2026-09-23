@@ -107,11 +107,15 @@ teensy-warnings:
     bash tools/teensy_cold_build.sh teensy_build.log
     {{py}} tools/teensy_warnings.py --build-log teensy_build.log
 
+# Regenerate documentation maps and derived reference data.
+docs-sync:
+    {{py}} tools/docs_check.py --sync --auto-checkout
+
 # Validate tracked Markdown using the same commands as the ci.yml docs-markdown
 # job, plus the docs-images job's checker: this recipe runs that checker's unit
 # tests, which say nothing about the tracked tree on their own.
 docs-check:
-    {{py}} tools/docs_check.py --sync --auto-checkout
+    {{py}} tools/docs_check.py --auto-checkout
     {{py}} tools/docs_images.py
     {{py}} tools/build_pins.py --check
 
