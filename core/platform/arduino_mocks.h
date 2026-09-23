@@ -520,7 +520,7 @@ inline int16_t sin16(uint16_t theta) {
  * @return The current phase in [0, 65535].
  * @details Sourced from hs::millis() so the test time-injection seam keeps beats
  *          deterministic. The * 280 constant is FastLED's ms->phase scale
- *          (~65536 * 1000 / 60000). The `unsigned long` intermediate wraps mod
+ *          (~2^32 / (256 * 60000), including bpm88 scaling and >>16). The `unsigned long` intermediate wraps mod
  *          2^32 on the device but not on a LP64 host; harmless because only bits
  *          16..31 (the `>>16` result) are returned, and those are identical
  *          either way.
