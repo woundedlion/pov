@@ -497,8 +497,8 @@ namespace hs {
 /**
  * @brief Clamps a float to [lo, hi] (x86 SSE backend).
  * @param v Value to clamp; a NaN maps to hi (load-bearing contract).
- * @param lo Lower bound.
- * @param hi Upper bound.
+ * @param lo Lower bound; must not be NaN.
+ * @param hi Upper bound; must not be NaN.
  * @return v clamped to [lo, hi]; hi when v is NaN.
  * @details CONTRACT (load-bearing): computes max(lo, min(v, hi)) with v as the
  *          FIRST operand to the inner min. The x86 minss instruction returns its
@@ -524,8 +524,8 @@ inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
 /**
  * @brief Clamps a float to [lo, hi] (Cortex-M7 / WASM backend).
  * @param v Value to clamp; a NaN maps to hi (same contract as the x86 backend).
- * @param lo Lower bound.
- * @param hi Upper bound.
+ * @param lo Lower bound; must not be NaN.
+ * @param hi Upper bound; must not be NaN.
  * @return v clamped to [lo, hi]; hi when v is NaN.
  * @details IEEE __builtin_fminf/fmaxf are NaN-SUPPRESSING (return the non-NaN
  *          operand regardless of position), so min(NaN, hi) == hi; this backend
@@ -543,8 +543,8 @@ inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
 /**
  * @brief Clamps an integer to [lo, hi].
  * @param v Value to clamp.
- * @param lo Lower bound.
- * @param hi Upper bound.
+ * @param lo Lower bound; must not be NaN.
+ * @param hi Upper bound; must not be NaN.
  * @return v clamped to [lo, hi].
  */
 inline constexpr __attribute__((always_inline)) int clamp(int v, int lo,

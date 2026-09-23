@@ -2710,11 +2710,22 @@ inline void test_wrap_angle_pi_half_turn_keeps_sign() {
   HS_EXPECT_TRUE(past_minus_pi > 0.0f && past_minus_pi <= math::PI_F);
 }
 
+inline void test_clamp_finite_bounds_backend_parity() {
+  for (float lo : {-2.0f, 0.0f, 0.5f})
+    for (float hi : {1.0f, 2.0f})
+      for (float value : {-INFINITY, -3.0f, 0.5f, 3.0f, INFINITY, NAN}) {
+        volatile float input = value;
+        HS_EXPECT_EQ(hs::clamp(input, lo, hi),
+                     __builtin_fmaxf(lo, __builtin_fminf(input, hi)));
+      }
+}
+
 // Clamp-before-cast / NaN-saturation checks whose contract must also hold under
 // the shipping WASM fast-math codegen. fastmath_clamp_check.cpp iterates this
 // same list, so adding a case here automatically extends both the default-IEEE
 // run and the -ffast-math -fno-finite-math-only pass.
 #define HS_FASTMATH_CLAMP_TESTS(X)                                             \
+  X(test_clamp_finite_bounds_backend_parity)                                   \
   X(test_blend_alpha_clamps_before_cast)                                       \
   X(test_pixel_scale_clamps_before_cast)                                       \
   X(test_gradient_get_clamps_out_of_range)                                     \
