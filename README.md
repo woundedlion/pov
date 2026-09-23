@@ -27,7 +27,12 @@ Building the WASM target in Holosphere installs the `.js`/`.wasm` module and its
 
 To explore effects, open the [live simulator](https://woundedlion.github.io/daydream/).
 
-For local development, clone Holosphere and daydream as sibling directories. Install CMake, Ninja and Emscripten, then activate `emsdk_env` and run from Holosphere:
+For local development, clone Holosphere and daydream as sibling directories.
+Install Python with pip, Node.js with npm, CMake, Ninja and Emscripten.
+`tools/build_pins.py` records the CI tool versions; each repository's
+`package.json` declares its Node requirement. Install the pinned `just` command
+with `python -m pip install --require-hashes -r requirements/just.txt`.
+Then activate `emsdk_env` and run from Holosphere:
 
 ```bash
 cmake --preset wasm-release
