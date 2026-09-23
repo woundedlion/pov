@@ -70,8 +70,8 @@
     }
   ],
   "x_cols": [
-    { "width": 8, "arm_a": 0, "arm_b": 4 },
-    { "width": 96, "arm_a": 0, "arm_b": 48 },
-    { "width": 288, "arm_a": 0, "arm_b": 144 }
+    { "width": 8, "arm_a": 0, "arm_b": 4, "samples": [{ "x": 0, "arm_a": 0, "arm_b": 4 }, { "x": 3, "arm_a": 3, "arm_b": 7 }, { "x": 4, "arm_a": 4, "arm_b": 0 }, { "x": 7, "arm_a": 7, "arm_b": 3 }] },
+    { "width": 96, "arm_a": 0, "arm_b": 48, "samples": [{ "x": 0, "arm_a": 0, "arm_b": 48 }, { "x": 47, "arm_a": 47, "arm_b": 95 }, { "x": 48, "arm_a": 48, "arm_b": 0 }, { "x": 95, "arm_a": 95, "arm_b": 47 }] },
+    { "width": 288, "arm_a": 0, "arm_b": 144, "samples": [{ "x": 0, "arm_a": 0, "arm_b": 144 }, { "x": 143, "arm_a": 143, "arm_b": 287 }, { "x": 144, "arm_a": 144, "arm_b": 0 }, { "x": 287, "arm_a": 287, "arm_b": 143 }] }
   ]
 }
