@@ -4016,6 +4016,41 @@ inline void case_chain_table_rank_decreases() {
       std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
 }
 
+inline void chain_invalid_layout(unsigned variant) {
+  using namespace Pullback::Interp;
+  ChainProgram program;
+  OperatorDescriptor descriptor = OPERATOR_TABLE[0];
+  alignas(std::max_align_t) uint8_t block_a[512], block_b[512];
+  size_t capacity = sizeof(block_a);
+  switch (variant) {
+  case 0:
+    descriptor.runtime.param.align = 0;
+    break;
+  case 1:
+    descriptor.runtime.prepared.align = 3;
+    break;
+  case 2:
+    descriptor.runtime.state.align = 2 * alignof(std::max_align_t);
+    break;
+  case 3:
+    descriptor.runtime.param.size = 0;
+    break;
+  case 4:
+    descriptor.runtime.state.size = 3;
+    break;
+  case 5:
+    capacity = std::numeric_limits<uint32_t>::max();
+    break;
+  }
+  program.bind_storage(block_a, block_b, capacity, {&descriptor, 1});
+}
+inline void case_chain_zero_alignment() { chain_invalid_layout(0); }
+inline void case_chain_non_power_alignment() { chain_invalid_layout(1); }
+inline void case_chain_overaligned_block() { chain_invalid_layout(2); }
+inline void case_chain_zero_size() { chain_invalid_layout(3); }
+inline void case_chain_misaligned_size() { chain_invalid_layout(4); }
+inline void case_chain_capacity_overflow() { chain_invalid_layout(5); }
+
 inline void case_pullback_project_nonunit_direction() {
   using namespace hs_test::pullback_tests;
   using Project =
@@ -5136,6 +5171,24 @@ inline const Case *all_cases(int &n) {
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "core/render/sdf/shapes.h",
        "(thickness >= 0.0f) Line: negative stroke half-width"},
+      {"chain_zero_alignment", case_chain_zero_alignment,
+       "core/render/pullback/interpreter.h",
+       "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_non_power_alignment", case_chain_non_power_alignment,
+       "core/render/pullback/interpreter.h",
+       "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_overaligned_block", case_chain_overaligned_block,
+       "core/render/pullback/interpreter.h",
+       "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_zero_size", case_chain_zero_size,
+       "core/render/pullback/interpreter.h",
+       "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},
+      {"chain_misaligned_size", case_chain_misaligned_size,
+       "core/render/pullback/interpreter.h",
+       "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},
+      {"chain_capacity_overflow", case_chain_capacity_overflow,
+       "core/render/pullback/interpreter.h",
+       "(block_capacity < std::numeric_limits<uint32_t>::max()) ChainProgram::bind_storage: capacity exceeds offset range"},
       {"chain_table_rank_decreases", case_chain_table_rank_decreases,
        "core/render/pullback/interpreter.h",
        "(entry.input <= entry.output) ChainProgram::bind_storage: operator "
