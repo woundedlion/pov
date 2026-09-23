@@ -239,6 +239,9 @@ async function main(probe) {
           fail(`setEffect("${name}") was rejected at ${w}x${h}`);
           continue;
         }
+        if (engine.getParameterDefinitions().length !== engine.getParamValues().length) {
+          fail(`${name}: parameter definitions and values differ immediately after installation`);
+        }
         if (name === 'Shader') {
           const presetCount = engine.getPresetCount();
           for (let preset = 0; preset < presetCount; preset++) {
