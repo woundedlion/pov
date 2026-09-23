@@ -2893,6 +2893,9 @@ inline void test_feedback_warp_cache_matches_uncached() {
   auto ref = run(false);
   auto got = run(true);
   for (int frame = 0; frame < FRAMES; ++frame) {
+    HS_EXPECT_TRUE(
+        std::any_of(ref[frame].begin(), ref[frame].end(),
+                    [](const Pixel &p) { return p.r || p.g || p.b; }));
     int mismatches = 0;
     for (size_t i = 0; i < ref[frame].size(); ++i)
       if (!(ref[frame][i] == got[frame][i]))
