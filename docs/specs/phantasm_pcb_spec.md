@@ -66,6 +66,7 @@ Companion documents:
 
 | Teensy pin | Net | Direction | Notes |
 |---|---|---|---|
+| 1 (TX1) | **SERIAL1_TX** → J4 pin 4 | reserved | Routed for a future UART debug output; current firmware does not initialize or drive `Serial1`. Firmware diagnostics use USB `Serial`. |
 | 11 (MOSI) | LED **DATA** → DI | out | → '125 ch A → 33 Ω → strip DI |
 | 13 (SCK)  | LED **CLK** → CI  | out | → '125 ch B → 33 Ω → strip CI |
 | 3  | **FRAME_SYNC** | in/out | OUTPUT on master, INPUT on slaves (mutually exclusive); drive via '125 ch C, receive via divider |
