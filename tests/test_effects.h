@@ -1970,7 +1970,7 @@ struct BZWhiteBox {
     bz.perturb_state(nA, nB, nC);
   }
   static int num_perturbations() { return BZ::NUM_PERTURBATIONS; }
-  static int perturb_amount() { return BZ::PERTURB_AMOUNT; }
+  static constexpr int perturb_amount() { return BZ::PERTURB_AMOUNT; }
   static void step(BZ &bz, uint16_t *sA, uint16_t *sB, uint16_t *sC) {
     std::vector<float> fA(N), fB(N), fC(N);
     bz.step_physics(sA, sB, sC, fA.data(), fB.data(), fC.data());
@@ -2306,10 +2306,9 @@ inline void test_bz_perturb_scales_with_timestep() {
   }
   {
     constexpr float DT = 0.35f;
-    const int full = BZWhiteBox::perturb_amount();
-    const int step = static_cast<int>(full * DT);
-    HS_EXPECT_GT(step, 0);
-    HS_EXPECT_GT(full, step);
+    constexpr int full = BZWhiteBox::perturb_amount();
+    constexpr int step = static_cast<int>(full * DT);
+    static_assert(step > 0 && full > step);
 
     BZWhiteBox::BZ bz;
     BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, DT);
