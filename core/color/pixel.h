@@ -357,24 +357,6 @@ lut_sample_pixel(const Entry *table, int size, float idx) {
                                            lut_index_weight(idx, lo));
 }
 
-/**
- * @brief Perceptual (OKLab) hue rotation with a precomputed rotation.
- * @param c Source color.
- * @param ca Cosine of the rotation angle.
- * @param sa Sine of the rotation angle.
- * @return The hue-rotated color.
- * @details Precomputed (ca, sa) lets frame-constant callers hoist sin/cos out
- * of the per-pixel loop.
- */
-inline Color4 hue_rotate(const Color4 &c, float ca, float sa);
-/**
- * @brief Perceptual (OKLab) hue rotation by a turn amount.
- * @param c Source color.
- * @param amount Rotation in turns (0..1 = full turn).
- * @return The hue-rotated color.
- */
-inline Color4 hue_rotate(const Color4 &c, float amount);
-
 #include "color/color_luts.h"
 
 inline uint16_t srgb_to_linear(uint8_t srgb) {
