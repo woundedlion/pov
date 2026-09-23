@@ -525,6 +525,8 @@ inline math::Vector edge_midpoint(const HalfEdgeMesh &he_mesh,
  * whose incident half-edges split into more than one fan.
  * @param he_mesh Half-edge connectivity to validate.
  * @param scratch Arena for the per-vertex fan sizes (LIFO-restored on return).
+ * Requires 2 * (largest referenced vertex index + 1) bytes, plus alignment;
+ * at MeshLimits::MAX_VERTICES this is 65,536 bytes.
  * @param op Operator name, interpolated into the trap message on failure.
  * @details Operators size output pools assuming a closed manifold (E = I/2); an
  * unpaired half-edge would otherwise overrun them and trap far from the cause.
