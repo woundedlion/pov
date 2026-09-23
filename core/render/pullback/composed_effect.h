@@ -1264,6 +1264,8 @@ private:
         palette_oscillation_phase + params.color.phase_oscillation_speed);
   }
 
+  // Rotation samples are eased within each walk step; chain walks apply the
+  // recurrence directly and use different seeds. Nonzero wander differs.
   HS_COLD_MEMBER void update_spatial_frames() {
     // prepare_frame() reads projection_conjugate only for an animated
     // projection.
