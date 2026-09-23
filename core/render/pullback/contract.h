@@ -73,14 +73,23 @@ struct SphereSample {
 
 /** @brief Exactly what a projection computes: regions, fades, weights. */
 struct ProjectionProvenance {
+  /** Sheet of the interrupted projection image. */
   uint8_t region_id;
+  /** Disconnected component within the sheet. */
   uint8_t component_id;
+  /** projections::ProjectionBoundary mask for the measured edge. */
   uint8_t boundary_flags;
+  /** Nearest boundary distance in the scaled projection coordinate units. */
   float fade_edge_distance;
+  /** Projection weight applied by the selected signal or coverage policy. */
   float value_weight;
+  /** Kernel-specific per-point flags. */
   uint8_t flags;
+  /** projections::ProjectionTrait mask describing the image sheet. */
   uint8_t traits = 0;
+  /** Nearest edge identity, shared across both sides of a glued seam. */
   uint8_t edge_class = 0;
+  /** Domain coverage in [0, 1], multiplied into coverage at Sample. */
   float domain_coverage = 1.0f;
 };
 
