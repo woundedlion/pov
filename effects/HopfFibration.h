@@ -336,12 +336,12 @@ private:
       }
 
       uint8_t bits[TRAIL_LEN - 1];
-      const uint8_t *edge_flags = nullptr;
+      std::span<const uint8_t> edge_flags;
       if (clip_active) {
         HS_PROFILE(hf_trail_gate);
         if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, points, bits))
           continue;
-        edge_flags = bits;
+        edge_flags = {bits, points.size() - 1};
       }
 
       auto shader = [this](const math::Vector &, Fragment &f) {
@@ -355,7 +355,7 @@ private:
         HS_PROFILE(hf_trail_raster);
         Plot::rasterize<W, H>(
             trail_pipeline, canvas, points, shader,
-            {.edge_flags = edge_flags, .edge_flags_len = points.size() - 1});
+            {.projection = Plot::RasterProjection::geodesic(edge_flags)});
       }
     }
   }

@@ -63,6 +63,33 @@
 namespace hs_test {
 namespace plot_scan_tests {
 
+template <typename Chart>
+concept BorrowableRasterBasis = requires(Chart &&basis) {
+  Plot::RasterProjection::planar(std::forward<Chart>(basis));
+};
+
+static_assert(BorrowableRasterBasis<math::Basis &>);
+static_assert(BorrowableRasterBasis<const math::Basis &>);
+static_assert(!BorrowableRasterBasis<math::Basis>);
+static_assert(!BorrowableRasterBasis<const math::Basis>);
+
+static_assert(std::is_aggregate_v<Plot::RasterOptions>);
+static_assert(std::is_trivially_copyable_v<Plot::RasterOptions>);
+static_assert(sizeof(Plot::RasterOptions) == (sizeof(void *) == 8 ? 88 : 48));
+static_assert(
+    !std::is_constructible_v<Plot::RasterLoop, bool, const Fragment *>);
+static_assert(
+    !std::is_constructible_v<Plot::RasterProjection, const math::Basis *,
+                             std::span<const uint8_t>>);
+static_assert(std::is_constructible_v<Plot::PointProjections,
+                                      const float (&)[3], const float (&)[3]>);
+static_assert(!std::is_constructible_v<Plot::PointProjections,
+                                       const float (&)[3], const float (&)[2]>);
+static_assert(!std::is_constructible_v<Plot::PointProjections, const float *,
+                                       const float *, size_t>);
+static_assert(!Plot::RasterLoop{}.is_closed());
+static_assert(Plot::RasterLoop::closed().is_closed());
+
 // ---------------------------------------------------------------------------
 // Local arena for sampling.
 // ---------------------------------------------------------------------------
@@ -1635,8 +1662,10 @@ inline void test_rasterize_column_cull_pixel_parity() {
       }
       Canvas c(fx);
       initialize_parity_frame<W, H>(c);
-      Plot::rasterize<W, H>(filters, c, pts, shade,
-                            {.planar_basis = planar ? &chart : nullptr});
+      Plot::rasterize<W, H>(
+          filters, c, pts, shade,
+          {.projection = planar ? Plot::RasterProjection::planar(chart)
+                                : Plot::RasterProjection{}});
     };
 
     std::vector<Pixel> ref(static_cast<size_t>(W) * H);
@@ -2260,7 +2289,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
         }
         Canvas c(fx);
         uint8_t bits[WALK - 1];
-        const uint8_t *vis = nullptr;
+        std::span<const uint8_t> vis;
         if (use_bits) {
           const ClipRegion &cr = fx.clip();
           const auto xc = cr.x_clip();
@@ -2269,11 +2298,11 @@ inline void test_rasterize_gate_bits_pixel_parity() {
           // buffers still compare equal.
           if (!Plot::gate_trail_edges<W, H>(filters, cr, xc, pts, bits))
             return;
-          vis = bits;
+          vis = {bits, pts.size() - 1};
         }
         Plot::rasterize<W, H>(
             filters, c, pts, shade,
-            {.edge_flags = vis, .edge_flags_len = pts.size() - 1});
+            {.projection = Plot::RasterProjection::geodesic(vis)});
       };
 
       std::vector<Pixel> ref(static_cast<size_t>(W) * H);
@@ -3499,7 +3528,8 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
   CapturePipeline pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, noop_shader, {.close_loop = true});
+    Plot::rasterize<W, H>(pipe, c, points, noop_shader,
+                          {.loop = Plot::RasterLoop::closed()});
   }
   fx.advance_display();
 
@@ -3538,8 +3568,9 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   CapturePipeline planar_pipe, geo_pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(planar_pipe, c, points, noop_shader,
-                          {.planar_basis = &basis});
+    Plot::rasterize<W, H>(
+        planar_pipe, c, points, noop_shader,
+        {.projection = Plot::RasterProjection::planar(basis)});
   }
   fx.advance_display();
   {
@@ -3595,8 +3626,9 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   CapturePipeline pipe;
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, noop_shader,
-                          {.planar_basis = &basis});
+    Plot::rasterize<W, H>(
+        pipe, c, points, noop_shader,
+        {.projection = Plot::RasterProjection::planar(basis)});
   }
   fx.advance_display();
 
@@ -3650,7 +3682,9 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   };
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, capture, {.planar_basis = &basis});
+    Plot::rasterize<W, H>(
+        pipe, c, points, capture,
+        {.projection = Plot::RasterProjection::planar(basis)});
   }
   fx.advance_display();
 
@@ -3816,7 +3850,7 @@ inline void test_rasterize_planar_policy_parity() {
                                          .interpolate_registers =
                                              InterpolateRegisters}>(
           pipeline, canvas, points, shader,
-          {.planar_basis = &planar_basis,
+          {.projection = Plot::RasterProjection::planar(planar_basis),
            .omit_end = true,
            .rebuild_planar_sampler = rebuild_sampler});
     }
@@ -5132,13 +5166,15 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   {
     Canvas c(fx);
     Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
-        single, c, points, noop_shader, {.planar_basis = &basis});
+        single, c, points, noop_shader,
+        {.projection = Plot::RasterProjection::planar(basis)});
   }
   fx.advance_display();
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(cached, c, points, noop_shader,
-                          {.planar_basis = &basis});
+    Plot::rasterize<W, H>(
+        cached, c, points, noop_shader,
+        {.projection = Plot::RasterProjection::planar(basis)});
   }
   fx.advance_display();
 
@@ -5187,8 +5223,10 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
     points.push_back(f);
   }
 
-  const Plot::RasterOptions opts = {
-      .close_loop = true, .planar_basis = &basis, .omit_end = true};
+  const Plot::RasterOptions opts = {.loop = Plot::RasterLoop::closed(),
+                                    .projection =
+                                        Plot::RasterProjection::planar(basis),
+                                    .omit_end = true};
   CapturePipeline single, cached;
   {
     Canvas c(fx);
@@ -5370,11 +5408,13 @@ inline void test_rasterize_default_sampling_policy_parity() {
                           .sampling_policy =
                               Plot::RasterSamplingPolicy::DEFAULT}>(
           pipeline, canvas, points, shader,
-          {.planar_basis = &planar_basis, .omit_end = true});
+          {.projection = Plot::RasterProjection::planar(planar_basis),
+           .omit_end = true});
     } else {
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
           pipeline, canvas, points, shader,
-          {.planar_basis = &planar_basis, .omit_end = true});
+          {.projection = Plot::RasterProjection::planar(planar_basis),
+           .omit_end = true});
     }
     return pipeline;
   };
@@ -5396,7 +5436,7 @@ inline void test_rasterize_default_sampling_policy_parity() {
                         .sampling_policy =
                             Plot::RasterSamplingPolicy::SELECTABLE}>(
         selectable_default, canvas, points, shader,
-        {.planar_basis = &planar_basis,
+        {.projection = Plot::RasterProjection::planar(planar_basis),
          .omit_end = true,
          .balanced_sampling = false});
   }
@@ -5462,7 +5502,7 @@ inline void test_rasterize_balanced_sampling_scope() {
                       Plot::RasterConfig{.single_pass = SinglePass,
                                          .sampling_policy = Policy}>(
           pipeline, canvas, points, shader,
-          {.planar_basis = &basis,
+          {.projection = Plot::RasterProjection::planar(basis),
            .balanced_sampling =
                Policy == Plot::RasterSamplingPolicy::SELECTABLE});
       return pipeline;
@@ -5522,7 +5562,7 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
                     Plot::RasterConfig{.single_pass = true,
                                        .sampling_policy = Policy}>(
         pipeline, canvas, points, shader,
-        {.planar_basis = &basis,
+        {.projection = Plot::RasterProjection::planar(basis),
          .balanced_sampling =
              Policy == Plot::RasterSamplingPolicy::SELECTABLE});
     return pipeline;
@@ -5586,7 +5626,8 @@ inline void test_rasterize_balanced_pole_guard() {
                       .sampling_policy =
                           Plot::RasterSamplingPolicy::SELECTABLE}>(
       pipeline, canvas, points, shader,
-      {.planar_basis = &basis, .balanced_sampling = true});
+      {.projection = Plot::RasterProjection::planar(basis),
+       .balanced_sampling = true});
   HS_EXPECT_GT(Plot::g_planar_full_samples, uint32_t{2});
   HS_EXPECT_EQ(Plot::g_planar_position_samples, uint32_t{0});
   for (float alpha : pipeline.alphas)
@@ -5805,7 +5846,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
                                          .interpolate_registers = false,
                                          .sampling_policy = Policy}>(
           sink, canvas, points, shader,
-          {.planar_basis = &planar_basis,
+          {.projection = Plot::RasterProjection::planar(planar_basis),
            .omit_end = true,
            .balanced_sampling =
                Policy == Plot::RasterSamplingPolicy::SELECTABLE});
@@ -6038,16 +6079,16 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
     std::array<uint8_t, control_pixels.size() - 1> bits{};
-    const uint8_t *visible = nullptr;
+    std::span<const uint8_t> visible;
     if (!clip.is_full()) {
       if (!Plot::gate_trail_edges<W, H>(sink, clip, x_clip, points,
                                         bits.data()))
         return;
-      visible = bits.data();
+      visible = bits;
     }
     Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
         sink, canvas, points, shade,
-        {.edge_flags = visible, .edge_flags_len = points.size() - 1});
+        {.projection = Plot::RasterProjection::geodesic(visible)});
   };
 
   std::vector<Pixel> reference(static_cast<size_t>(W) * H);

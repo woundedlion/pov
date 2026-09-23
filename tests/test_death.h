@@ -2712,6 +2712,44 @@ inline void case_world_trails_plot_without_storage() {
               [](const math::Vector &, const Pixel &, float, float) {});
 }
 
+inline void case_plot_open_loop_seam() {
+  constexpr int W = 32, H = 16;
+  Fragment seam;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Pipeline<W, H> pipeline;
+  Plot::draw_fragments<W, H>(
+      pipeline, canvas, nullptr, [](const math::Vector &, Fragment &) {},
+      {.capacity = 2, .loop_seam = &seam}, [](Fragments &) {});
+}
+
+inline void case_raster_point_projection_pair_mismatch() {
+  float rows[3] = {};
+  float cols[3] = {};
+  (void)Plot::PointProjections::paired({rows, opaque<size_t>(3)},
+                                       {cols, opaque<size_t>(2)});
+}
+
+inline void case_raster_edge_flags_short() {
+  constexpr int W = 32, H = 16;
+  configure_arenas_default();
+  ScratchScope scope(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, 3);
+  for (int i = 0; i < 3; ++i) {
+    Fragment f;
+    f.pos = math::Vector(1, 0, 0);
+    points.push_back(f);
+  }
+  uint8_t flags[1] = {Plot::RasterOptions::EDGE_VISIBLE};
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Pipeline<W, H> pipeline;
+  Plot::rasterize<W, H>(
+      pipeline, canvas, points, [](const math::Vector &, Fragment &) {},
+      {.projection = Plot::RasterProjection::geodesic(flags)});
+}
+
 /**
  * @brief Death case: hoisted point projections shorter than the polyline must
  *        trap.
@@ -2735,12 +2773,10 @@ inline void case_raster_point_projections_short() {
   DeathEffect fx(W, H);
   Canvas c(fx);
   Pipeline<W, H> pipe;
-  Plot::rasterize<W, H>(pipe, c, points,
-                        [](const math::Vector &, Fragment &) {},
-                        {.point_rows = rows,
-                         .point_cols = cols,
-                         // one per EDGE, not per point -> HS_CHECK
-                         .point_projections_len = opaque<size_t>(2)});
+  Plot::rasterize<W, H>(
+      pipe, c, points, [](const math::Vector &, Fragment &) {},
+      {.point_projections = Plot::PointProjections::paired(
+           {rows, opaque<size_t>(2)}, {cols, opaque<size_t>(2)})});
 }
 
 /**
@@ -4753,9 +4789,16 @@ inline const Case *all_cases(int &n) {
       {"world_trails_plot_without_storage",
        case_world_trails_plot_without_storage, "world_trails.h",
        "(items) World::Trails needs init_storage() from effect init()"},
+      {"plot_open_loop_seam", case_plot_open_loop_seam, "shapes.h",
+       "(params.loop_seam == nullptr || params.close_loop) a raster seam fragment requires a closed loop"},
+      {"raster_point_projection_pair_mismatch",
+       case_raster_point_projection_pair_mismatch, "raster.h",
+       "(rows.size() == cols.size()) hoisted point projection rows and columns differ in length"},
+      {"raster_edge_flags_short", case_raster_edge_flags_short, "raster.h",
+       "(edge_flags == nullptr || opts.projection.flags().size() == count) edge_flags length must match the rasterized edge count"},
       {"raster_point_projections_short", case_raster_point_projections_short,
        "raster.h",
-       "(point_rows == nullptr || opts.point_projections_len == len) hoisted "
+       "(point_rows == nullptr || opts.point_projections.size() == len) hoisted "
        "point projections need one entry per polyline point"},
       {"spherical_field_ring_index_oob", case_spherical_field_ring_index_oob,
        "spherical_field.h",
@@ -5479,7 +5522,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"operator_model.h", 1},
     {"operators.h", 1},
     {"pixel_feedback.h", 7},
-    {"raster.h", 10},
+    {"raster.h", 6},
     {"screen_trails.h", 2},
     {"shader.h", 2},
     {"shading.h", 1},
