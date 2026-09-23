@@ -930,6 +930,21 @@ inline void test_line_perpendicular_off() {
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
+inline void test_line_just_above_cross_threshold() {
+  const auto a = math::Vector(0.3f, -0.5f, 0.8f).normalized();
+  const auto tangent = math::cross(a, math::Y_AXIS).normalized();
+  for (float direction : {-1.0f, 1.0f}) {
+    const auto b = (a * direction + tangent * 0.000102f).normalized();
+    const auto cross = math::cross(a, b);
+    HS_EXPECT_GT(math::dot(cross, cross), math::EPS_CROSS_SQ);
+    const SDF::Line line(a, b, 0.01f);
+    const auto midpoint = (a + b).normalized();
+    const auto result = SDF::distance_of(line, midpoint);
+    HS_EXPECT_LT(result.raw_dist, 0.003f);
+    HS_EXPECT_LT(result.dist, 0.0f);
+  }
+}
+
 /**
  * @brief Verifies a zero-length line degenerates to a point.
  * @details On the point reads dist = -thickness; a quarter-turn away reads
@@ -3537,6 +3552,7 @@ inline int run_sdf_tests() {
   test_line_on_arc_is_inside();
   test_line_endpoint_is_on_line();
   test_line_perpendicular_off();
+  test_line_just_above_cross_threshold();
   test_line_degenerate_zero_length();
   test_line_near_coincident_endpoints_stay_point_like();
 
