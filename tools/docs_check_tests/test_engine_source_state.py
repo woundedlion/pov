@@ -37,7 +37,7 @@ class EngineSourceState(unittest.TestCase):
         (self.root / name).write_text(text, encoding="utf-8", newline="\n")
 
     def generate(self):
-        _, entries = docs_check._tracked_entries(self.root)
+        _, entries = docs_check.tracked_entries(self.root)
         with contextlib.redirect_stdout(io.StringIO()):
             generated = docs_sync.sync_text(
                 PurePosixPath("README.md"), self.original, entries, {}, {})
