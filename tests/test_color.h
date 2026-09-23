@@ -2742,7 +2742,34 @@ inline void test_clamp_finite_bounds_backend_parity() {
  * @return Process exit code from hs_test::end_module: 0 on success, non-zero on
  *         any failure.
  */
+inline void test_lms_transform_pair_matches_scalar() {
+  const float matrices[][9] = {
+      {1, 0, 0, 0, 1, 0, 0, 0, 1},
+      {0.8f, -0.3f, 0.5f, 0.2f, 1.2f, -0.4f, -0.1f, 0.3f, 0.8f}};
+  const float samples[][3] = {{0, 0, 0},
+                              {1, 1, 1},
+                              {0.2f, 0.7f, 0.4f},
+                              {-0.2f, 1.2f, 0.5f},
+                              {0.9f, 0.1f, 0.7f}};
+  for (const auto &matrix : matrices) {
+    for (const auto &a : samples) {
+      for (const auto &b : samples) {
+        float scalar[6], paired[6];
+        lms_cbrt_transform_rgb(matrix, a[0], a[1], a[2], scalar[0], scalar[1],
+                               scalar[2]);
+        lms_cbrt_transform_rgb(matrix, b[0], b[1], b[2], scalar[3], scalar[4],
+                               scalar[5]);
+        lms_cbrt_transform_rgb2(matrix, a[0], a[1], a[2], b[0], b[1], b[2],
+                                paired[0], paired[1], paired[2], paired[3],
+                                paired[4], paired[5]);
+        HS_EXPECT_EQ(std::memcmp(scalar, paired, sizeof(scalar)), 0);
+      }
+    }
+  }
+}
+
 inline int run_color_tests() {
+  test_lms_transform_pair_matches_scalar();
   hs_test::ModuleFixture fixture("color");
   test_baked_palette_storage_and_views();
   test_lerp16_endpoints();
