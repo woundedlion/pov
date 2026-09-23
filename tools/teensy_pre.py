@@ -27,6 +27,7 @@ SKETCH = {
     "phantasm8": os.path.join("targets", "Phantasm", "Phantasm.ino"),
     "profile": os.path.join("targets", "Profile", "Profile.ino"),
     "profile_o3": os.path.join("targets", "Profile", "Profile.ino"),
+    "bench": os.path.join("targets", "Bench", "Bench.ino"),
 }
 
 pioenv = env["PIOENV"]
