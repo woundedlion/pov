@@ -12,6 +12,7 @@
  */
 
 #include "control/params.h"
+#include "engine/memory.h"
 #include "platform/platform.h"
 #include <array>
 #include <cmath>
@@ -45,6 +46,7 @@ public:
    *          animation pause before storing the manual value.
    */
   ParamSetResult updateParameter(const char *name, float value) {
+    check_parameter_storage();
     auto *def = parameters.find(name);
     if (def == nullptr)
       return ParamSetResult::UNKNOWN_PARAM;
@@ -81,7 +83,10 @@ public:
    * @brief Retrieves the list of registered parameters.
    * @return Const reference to the parameter list.
    */
-  const ParamList &getParameters() const { return parameters; }
+  const ParamList &getParameters() const {
+    check_parameter_storage();
+    return parameters;
+  }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Refreshes values exposed through parameter display mirrors. */
@@ -160,6 +165,9 @@ protected:
     HS_CHECK(storage != nullptr && capacity > 0,
              "use_parameter_storage: invalid external storage");
 #if HS_PARAM_EXTERNAL_STORAGE
+#ifndef NDEBUG
+    parameter_storage_stamp.clear();
+#endif
     parameters.external_elements = storage;
     parameters.external_capacity = capacity;
     parameters.bump_schema_generation();
@@ -167,6 +175,16 @@ protected:
     (void)storage;
     (void)capacity;
     HS_CHECK(false, "use_parameter_storage: external storage is disabled");
+#endif
+  }
+
+  /** @brief Binds arena-owned descriptor storage and records its lifetime. */
+  void use_parameter_storage(Arena &arena, ParamDef *storage, size_t capacity) {
+    use_parameter_storage(storage, capacity);
+#ifndef NDEBUG
+    parameter_storage_stamp.record(arena);
+#else
+    (void)arena;
 #endif
   }
 
@@ -546,6 +564,17 @@ protected:
   }
 
 private:
+#ifndef NDEBUG
+  ArenaBlockStamp parameter_storage_stamp;
+#endif
+  void check_parameter_storage() const {
+#if HS_PARAM_EXTERNAL_STORAGE
+    HS_ASSERT_BLOCK_ALIVE(parameter_storage_stamp, parameters.external_elements,
+                          parameters.external_capacity * sizeof(ParamDef),
+                          "ParamHost");
+#endif
+  }
+
   /** @brief TargetType matching an integral storage type's width and sign. */
   template <typename Integer>
   static constexpr ParamDef::TargetType integer_target_type() {

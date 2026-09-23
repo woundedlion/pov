@@ -52,7 +52,8 @@ public:
   /** @brief Allocates chain storage and color resources, compiles the default
       chain, and registers its parameters. */
   HS_COLD_MEMBER void init() override {
-    use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
+    use_parameter_storage(persistent_arena,
+                          persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     resources = persistent_arena.make<Resources>();
     resources->hue_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
