@@ -518,8 +518,9 @@ inline Vector fib_spiral(int n, float eps, int i) {
                                  static_cast<float>(n),
                       -1.0f, 1.0f);
   float radius = sqrtf(1.0f - y * y);
-  float theta =
-      fmodf((2.0f * PI_F * static_cast<float>(i) * INV_PHI), (2.0f * PI_F));
+  constexpr double INV_PHI_PRECISE = 0.6180339887498948482;
+  const float theta = static_cast<float>(
+      std::fmod(2.0 * PI * static_cast<double>(i) * INV_PHI_PRECISE, 2.0 * PI));
   // Y-up; unit by construction, so no normalize().
   return Vector(radius * cosf(theta), y, radius * sinf(theta));
 }

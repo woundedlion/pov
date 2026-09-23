@@ -284,13 +284,17 @@ inline void test_fib_spiral_unit_length() {
  */
 inline void test_fib_spiral_deterministic() {
   HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 0),
-                math::Vector(0.176084816f, 0.984375f, 0.0f), 1e-6f);
+                math::Vector(0.1760848073f, 0.9843750000f, 0.0000000000f),
+                1e-6f);
   HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 7),
-                math::Vector(-0.296496123f, 0.765625f, 0.57088393f), 1e-6f);
+                math::Vector(-0.2964955671f, 0.7656250000f, 0.5708841722f),
+                1e-6f);
   HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 31),
-                math::Vector(0.540769398f, 0.015625f, 0.84102571f), 1e-6f);
+                math::Vector(0.5407717141f, 0.0156250000f, 0.8410242640f),
+                1e-6f);
   HS_EXPECT_VEC(math::fib_spiral(64, 0.5f, 63),
-                math::Vector(0.162100419f, -0.984375f, -0.0687697679f), 1e-6f);
+                math::Vector(0.1620999636f, -0.9843750000f, -0.0687710781f),
+                1e-6f);
 }
 
 /**
@@ -315,7 +319,6 @@ inline void test_fib_spiral_endpoints() {
  *        near the poles sin(phi) -> 0 makes the recovered azimuth noisy.
  */
 inline void test_fib_spiral_golden_angle() {
-  const int n = 64;
   auto wrap_pi = [](float a) {
     while (a > math::PI_F)
       a -= 2.0f * math::PI_F;
@@ -324,12 +327,13 @@ inline void test_fib_spiral_golden_angle() {
     return a;
   };
   const float step = wrap_pi(2.0f * math::PI_F * math::INV_PHI);
-  for (int i = 8; i < n - 8; ++i) {
-    math::Vector a = math::fib_spiral(n, 0.5f, i);
-    math::Vector b = math::fib_spiral(n, 0.5f, i + 1);
-    float delta = wrap_pi(atan2f(b.z, b.x) - atan2f(a.z, a.x));
-    HS_EXPECT_NEAR(delta, step, 1e-3f);
-  }
+  for (const int n : {64, 7680, 40000})
+    for (int i = n / 4; i < 3 * n / 4; ++i) {
+      math::Vector a = math::fib_spiral(n, 0.5f, i);
+      math::Vector b = math::fib_spiral(n, 0.5f, i + 1);
+      float delta = wrap_pi(atan2f(b.z, b.x) - atan2f(a.z, a.x));
+      HS_EXPECT_NEAR(delta, step, 1e-3f);
+    }
 }
 
 // ============================================================================
