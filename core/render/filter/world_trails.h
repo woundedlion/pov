@@ -55,12 +55,17 @@ public:
   /**
    * @brief Retunes the trail length at runtime (e.g. from a "Trail Len" slider).
    * @param new_lifetime New fade divisor in frames; must be in [1, 255].
-   * @details Same bounds as the constructor; buffered points keep their ttl and
-   * age out under the new length within a few frames.
+   * @details Shortening caps buffered points to the new remaining lifetime.
    */
   void set_lifetime(int new_lifetime) {
     HS_CHECK(new_lifetime > 0 && new_lifetime <= 255,
              "World::Trails: lifetime %d outside [1, 255]", new_lifetime);
+    if (new_lifetime < lifetime && items) {
+      check_storage_alive();
+      for (size_t i = 0; i < count; ++i)
+        at(i).ttl =
+            static_cast<uint8_t>(std::min<int>(at(i).ttl, new_lifetime));
+    }
     lifetime = new_lifetime;
   }
 
