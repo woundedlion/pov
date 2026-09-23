@@ -240,7 +240,8 @@ struct ProjectGnomonic : ProjectOpModel<ProjectGnomonic, GnomonicChainParams> {
 /** Fixed kernel-projection arguments: the chain pins the square Peirce
     layout, a zero layout scroll, unit plane scale, and unconditional edge
     distances. */
-inline constexpr uint8_t PEIRCE_SQUARE_LAYOUT = 1;
+inline constexpr uint8_t PEIRCE_SQUARE_LAYOUT =
+    static_cast<uint8_t>(projections::PeirceLayout::SQUARE);
 inline constexpr float PROJECT_COORDINATE_SCALE = 1.0f;
 
 /** @brief SPHERE→PLANE crossing: the exact Peirce quincuncial projection on
