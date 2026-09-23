@@ -98,8 +98,7 @@ def refresh_rows(rows: list[Row], entries: set[PurePosixPath],
         if (any(fnmatch.fnmatchcase(candidate, pattern) for pattern in drawn)
                 or dc._tree_unmapped(candidate, unmapped)):
             continue
-        directory = any(path in entry.parents for entry in entries)
-        refreshed.append(Row([path.name + ("/" if directory else "")], ""))
+        raise ValueError(f"add a repository-map row with a role description for {candidate}")
     return refreshed
 
 

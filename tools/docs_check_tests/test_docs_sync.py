@@ -26,13 +26,10 @@ class TreeSync(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             return ds.sync_trees(text, paths, checkouts or {})
 
-    def test_empty_tree_is_populated(self):
+    def test_new_paths_require_authored_descriptions(self):
         text = "<!-- docs-check: tree exhaustive -->\n```\n```\n"
-        paths = entries("new.h")
-        after = self.sync(text, paths)
-        self.assertIn("new.h", after)
-        self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
-        self.assertEqual(after, self.sync(after, paths))
+        with self.assertRaisesRegex(ValueError, "role description for new.h"):
+            self.sync(text, entries("new.h"))
 
     def test_preserves_prose_descriptions_and_spacing_and_is_idempotent(self):
         text = ("# Overview\n\nAuthored prose.\n\n<!-- docs-check: tree exhaustive -->\n```\n"
@@ -41,13 +38,11 @@ class TreeSync(unittest.TestCase):
                 "│   └── live.h     Authored description\n"
                 "│                    continuation retained\n│\n"
                 "└── docs/          A compact overview\n```\n\nMore prose.\n")
-        paths = entries("core/live.h", "core/new.h", "docs/guide.md")
+        paths = entries("core/live.h", "docs/guide.md")
         after = self.sync(text, paths)
-        self.assertIn("Authored description\n│   │                continuation retained\n", after)
-        self.assertIn("new.h\n│\n└── docs/", after)
+        self.assertIn("Authored description\n│                    continuation retained\n", after)
         self.assertIn("core/          Engine description", after)
         self.assertIn("docs/          A compact overview", after)
-        self.assertIn("new.h", after)
         self.assertNotIn("gone.h", after)
         self.assertNotIn("guide.md", after)
         self.assertTrue(after.startswith("# Overview\n\nAuthored prose.\n\n"))
@@ -70,16 +65,6 @@ class TreeSync(unittest.TestCase):
         self.assertEqual(after, self.sync(after, paths))
         self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
 
-    def test_inline_child_lists_accept_additions_and_deletions(self):
-        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
-                "└── core/  Helpers (one, gone)\n```\n")
-        paths = entries("core/one.h", "core/new.h")
-        after = self.sync(text, paths)
-        self.assertIn("Helpers (one)", after)
-        self.assertIn("new.h", after)
-        self.assertEqual(after, self.sync(after, paths))
-        self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, paths), [])
-
     def test_missing_sibling_is_left_untouched(self):
         text = "<!-- docs-check: tree daydream exhaustive -->\n```\n└── old.js   Keep this description\n```\n"
         self.assertEqual(self.sync(text, set()), text)
@@ -90,13 +75,6 @@ class TreeSync(unittest.TestCase):
                 "               two)\n```\n")
         paths = entries("core/one.h", "core/two.h")
         self.assertEqual(self.sync(text, paths), text)
-
-    def test_sibling_map_uses_only_supplied_tree(self):
-        text = "<!-- docs-check: tree daydream exhaustive -->\n```\n└── old.js\n```\n"
-        after = self.sync(text, entries("unrelated.h"), {"daydream": entries("new.js")})
-        self.assertIn("new.js", after)
-        self.assertNotIn("old.js", after)
-        self.assertNotIn("unrelated", after)
 
     def test_broken_fences_and_links_still_fail(self):
         text = "[bad](missing.md)\n<!-- docs-check: tree exhaustive -->\n```\n└── old.h\n"
@@ -134,14 +112,13 @@ class RepositorySync(unittest.TestCase):
 
     def test_sync_writes_only_when_content_changes(self):
         readme = self.root / "README.md"
-        readme.write_text("<!-- docs-check: tree exhaustive -->\n```\n└── old.h\n```\n", encoding="utf-8")
+        readme.write_text("<!-- docs-check: tree exhaustive -->\n```\n├── old.h  Stale entry\n└── new.h  New source\n```\n", encoding="utf-8")
         (self.root / "new.h").write_text("", encoding="utf-8")
         self.git("add", "README.md", "new.h")
         with contextlib.redirect_stdout(io.StringIO()):
             ds.sync_repository(self.root, {}, {})
         with mock.patch.object(Path, "write_text", side_effect=AssertionError("rewrote unchanged document")):
             ds.sync_repository(self.root, {}, {})
-        self.assertIn("new.h", readme.read_text(encoding="utf-8"))
 
     def test_roster_counts_sync_without_rewriting_surrounding_prose(self):
         header = self.root / dc._EFFECT_ROSTER_SOURCE
