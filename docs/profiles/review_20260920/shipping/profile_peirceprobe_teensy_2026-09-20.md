@@ -1,6 +1,6 @@
 # PeirceProbe on-device profile — Teensy 4.0, segmented mode (2026-09-20, **selective -O3**)
 
-Point-in-time experimental snapshot. This nonshipping diagnostic does not replace any roster report. Raw capture: `C:/work/Holosphere/build/prof/review_20260920/115/candidate_ship.log`; captured 2026-09-20T00:23:26 America/Los_Angeles. See [comparison](../finding_115.md) for matched A/B/A results and limitations.
+Point-in-time experimental snapshot. This nonshipping diagnostic does not replace any roster report. Raw capture: `C:/work/Holosphere/build/prof/review_20260920/115/candidate_ship.log`; captured 2026-09-20T00:23:26 America/Los_Angeles. See [comparison](../peirce_pole_classification.md) for matched A/B/A results and limitations.
 
 ## Setup
 
