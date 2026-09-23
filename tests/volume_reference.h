@@ -4,12 +4,75 @@
  */
 #pragma once
 
-#include "core/render/scan/volume.h"
+#include <algorithm>
+#include <cfloat>
+#include "core/math/3dmath.h"
 
 namespace hs_test::scan_tests {
 
-// Vector-accumulating reference for scalar ray-state differential tests.
-struct VolumeReference : Scan::Volume {
+/** @brief Dense fixed-step oracle, independent of sphere-tracing policy. */
+struct VolumeReference {
+  struct Sample {
+    math::Vector position;
+    float distance;
+  };
+
+  template <typename Shape, typename Visit>
+  static void march(const Shape &shape, const math::Vector &origin,
+                    const math::Vector &direction, float radius, Visit visit) {
+    constexpr int STEPS = 16384;
+    const float END = radius - math::dot(origin, direction);
+    for (int i = 0; i <= STEPS; ++i) {
+      const float T = END * static_cast<float>(i) / STEPS;
+      const math::Vector P(origin.x + direction.x * T,
+                           origin.y + direction.y * T,
+                           origin.z + direction.z * T);
+      if (!visit(Sample{P, shape.distance(P)}))
+        break;
+    }
+  }
+
+  static float coverage(float distance, float threshold, float width) {
+    const double X =
+        std::clamp((width - distance) / (width - threshold), 0.0f, 1.0f);
+    return static_cast<float>(X * X * X * (10.0 + X * (-15.0 + 6.0 * X)));
+  }
+
+  template <typename Shape>
+  static Sample trace(const Shape &shape, const math::Vector &origin,
+                      const math::Vector &direction, float radius, float aa) {
+    Sample closest{origin, FLT_MAX};
+    march(shape, origin, direction, radius, [&](Sample sample) {
+      if (sample.distance < closest.distance)
+        closest = sample;
+      else if (closest.distance < aa)
+        return false;
+      return closest.distance > 0.02f * aa;
+    });
+    return closest;
+  }
+
+  template <typename Shape>
+  static Sample behind(const Shape &shape, const math::Vector &origin,
+                       const math::Vector &direction, float radius) {
+    Sample closest{origin, FLT_MAX};
+    float previous = FLT_MAX;
+    bool climbing = false;
+    march(shape, origin, direction, radius, [&](Sample sample) {
+      if (sample.distance > previous)
+        climbing = true;
+      if (climbing && sample.distance < previous &&
+          sample.distance < closest.distance)
+        closest = sample;
+      previous = sample.distance;
+      return true;
+    });
+    return closest;
+  }
+};
+
+// Vector-accumulating baseline for scalar ray-state regression tests.
+struct VolumeScalarRegression {
   static constexpr float OVERRELAX_OMEGA = 1.3f;
   static constexpr int PROBE_STEPS = 24;
   static constexpr int PROBE_NEAR_STEPS = 6;
@@ -141,7 +204,7 @@ struct VolumeReference : Scan::Volume {
     }
     float soft =
         (min_behind < aa_width)
-            ? Scan::volume_edge_coverage(min_behind, hit_threshold, aa_width)
+            ? VolumeReference::coverage(min_behind, hit_threshold, aa_width)
             : 0.0f;
     return {false, min_pos, min_behind, soft};
   }
