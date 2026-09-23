@@ -275,6 +275,10 @@ Landed as `core/mesh/mesh_classes.h` (clustering + bake), with runtime records
 and per-slot bakes in IslamicStars (rebaked unconditionally after every
 `compact_keep_front`). Deviations from the design above:
 
+- **§4's alignment guard is squared.** The shipped constant is
+  `SDF::ALIGN_MIN_CORR_SQ = 0.25f`; binding falls back when
+  `r2 <= ALIGN_MIN_CORR_SQ * a.cc * a.zz`, comparing squared normalized
+  correlation without a square root.
 - **§§5 and 9 use design-only binding members.** `SDF::Face` stores `lut_data`,
   `lut_n`, `lut_q_safe`, the affine coefficients `lut_ax`/`lut_bx`/`lut_cx` and
   `lut_ay`/`lut_by`/`lut_cy`, `lut_clamp` and `lut_dequant`. The affine map folds
