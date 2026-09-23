@@ -879,6 +879,18 @@ struct Complex {
    */
   constexpr Complex(float r, float i) : re(r), im(i) {}
 
+  /** @brief Sum of the squared real and imaginary components. */
+  constexpr float squared_magnitude() const { return re * re + im * im; }
+
+  /** @brief Euclidean magnitude, with ordinary float overflow behavior. */
+  float magnitude() const { return sqrtf(squared_magnitude()); }
+
+  /** @brief Complex conjugate, reflecting the imaginary component. */
+  constexpr Complex conjugate() const { return Complex(re, -im); }
+
+  /** @brief Exact component equality; NaNs compare unequal. */
+  constexpr bool operator==(const Complex &) const = default;
+
   /**
    * @brief Complex addition.
    * @param b The right-hand operand.
@@ -912,7 +924,7 @@ struct Complex {
    * point-at-infinity conventions (magnitude clamp, 0/0 -> 0) use project_div().
    */
   Complex operator/(const Complex &b) const {
-    float denom = b.re * b.re + b.im * b.im;
+    float denom = b.squared_magnitude();
     if (denom == 0.0f && (b.re != 0.0f || b.im != 0.0f)) [[unlikely]] {
       constexpr float UNDERFLOW_LIFT = 79228162514264337593543950336.0f;
       const float den_re = b.re * UNDERFLOW_LIFT;
