@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file wasm_predicates.h
  * @brief Pure (no-Emscripten) boundary predicates for the WASM bridge.
  *

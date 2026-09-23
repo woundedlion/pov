@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file mesh_ops_bindings.h
  * @brief JS-facing mesh editor bridge: the MeshOpsWrapper class and its embind
  *        registration.
