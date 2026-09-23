@@ -304,6 +304,7 @@ public:
             candidate.ops[constructed].op->runtime.destroy(
                 block_ptr(active ^ 1, candidate.ops[constructed].state_offset));
           candidate.count = 0;
+          candidate.used_bytes = 0;
           return {ChainStatus::MIGRATE_FAILED, static_cast<int16_t>(index)};
         }
       } else {
