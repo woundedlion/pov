@@ -166,12 +166,9 @@ install: smoke
     cmake --build --preset wasm-release-install
     node scripts/wasm_smoke.mjs ../daydream/holosphere_wasm.js
 
-# Build and flash the stationary bench test image (targets/Bench) to an attached
-# Teensy. Every board on the rig takes the same image, and it reads with the
-# sphere at rest: one colour across the whole canvas, holding on red, green,
-# blue and white. Flash `phantasm` to put the show back.
+# Build and flash the stationary bench image under the per-board device lock.
 bench:
-    pio run -e bench -t upload
+    bash tools/upload_one.sh bench
 
 # Teensy 4 shipping-image gates + compile profiles (CI parity for a VMicro developer).
 # Needs PlatformIO (`pip install platformio`); the Teensy toolchain auto-installs
