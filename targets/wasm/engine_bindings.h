@@ -957,7 +957,7 @@ public:
    *          init(), which no repaint erases, so the two peaks can be gated
    *          separately.
    */
-  val getArenaMetrics() {
+  val getArenaMetrics() const {
     val metrics = collect_engine_arena_metrics();
 
     // Stack region. No running usage: the live depth at this call is outside any
@@ -980,7 +980,7 @@ public:
    * @return JS object mapping each effect name to its hint size at the current
    *         resolution; empty map if unsupported/uninitialized.
    */
-  val getEffectSizes() {
+  val getEffectSizes() const {
     val sizes = val::object(); // unsupported/uninitialized — empty map
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height,
@@ -993,7 +993,7 @@ public:
    * @return JS object mapping every effect name to its preset count; empty map
    *         if unsupported or uninitialized.
    */
-  val getEffectPresetCounts() {
+  val getEffectPresetCounts() const {
     val counts = val::object();
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
@@ -1312,7 +1312,7 @@ private:
    * @tparam H Canvas height in pixels.
    * @return JS object mapping each effect name to its hint size, for the GUI.
    */
-  template <int W, int H> val get_effect_sizes_helper() {
+  template <int W, int H> static val get_effect_sizes_helper() {
     val s = val::object();
     const auto &factory = hs_wasm::get_factory<W, H>();
     for (const auto &entry : factory)
