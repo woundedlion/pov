@@ -70,7 +70,7 @@ def update_claim(directory, operation, value):
                     shutil.rmtree(directory)
                     raise
             elif operation == "break":
-                if not directory.is_dir() or read_token(directory) != value:
+                if not value or not directory.is_dir() or read_token(directory) != value:
                     return False
                 shutil.rmtree(directory)
             else:
