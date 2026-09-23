@@ -417,14 +417,14 @@ private:
    * @details Draws replicated copies along the whole swept path so no gaps
    * appear between frames.
    */
-  void move(Canvas &c, Dot &math::dot) {
-    int dest = math::wrap(math::dot.x + math::dot.v, W);
-    for (int i = math::dot.x;; i = math::wrap(i + dir(math::dot.v), W)) {
-      replicate(c, i, math::dot.y, CHSV(math::dot.hue, 255, 255), replicas);
+  void move(Canvas &c, Dot &dot) {
+    int dest = math::wrap(dot.x + dot.v, W);
+    for (int i = dot.x;; i = math::wrap(i + dir(dot.v), W)) {
+      replicate(c, i, dot.y, CHSV(dot.hue, 255, 255), replicas);
       if (i == dest)
         break;
     }
-    math::dot.x = dest;
+    dot.x = dest;
   }
 
   Dot dots[H];    /**< Per-row chain beads. */
@@ -889,7 +889,7 @@ public:
   /**
    * @brief Constructs the effect, builds the palette, and clears the TTL field.
    */
-  FLASHMEM RingTrails() : Effect(W, H, {.persist = true}), math::dot(0) {
+  FLASHMEM RingTrails() : Effect(W, H, {.persist = true}), dot(0) {
     fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
                         rgb2hsv_approximate(CRGB(162, 84, 84)),
@@ -927,7 +927,7 @@ public:
     uint8_t dg = beatsin8(2, 1, 3, 16384);
     uint8_t dp = beatsin8(3, 1, 3, 32768);
     projection.rotate(dl, dg, dp);
-    math::dot = (math::dot + 1) % W;
+    dot = (dot + 1) % W;
   }
 
 private:
@@ -936,7 +936,7 @@ private:
   uint8_t hue = HUE_RED;       /**< Base hue. */
   CHSVPalette256 palette;      /**< Warm gradient palette. */
   int ttl[W][H];               /**< Per-cell time-to-live for trails. */
-  int math::dot;               /**< Current ring scan position. */
+  int dot;                     /**< Current ring scan position. */
   NoColorCorrection _; /**< Disables color correction for this effect. */
 };
 
@@ -1359,17 +1359,17 @@ private:
    * @details When ttl hits 0, respawns it at a random position with a fresh
    * lifetime; otherwise steps one cell respecting direction.
    */
-  void move(Dot &math::dot) {
-    if (math::dot.ttl == 0) {
-      math::dot.x = random8() % W;
-      math::dot.ttl = (random8() % 30) + 20;
-    } else if (math::dot.rev) {
-      math::dot.x = (math::dot.x - 1 + W) % W;
-      math::dot.ttl--;
+  void move(Dot &dot) {
+    if (dot.ttl == 0) {
+      dot.x = random8() % W;
+      dot.ttl = (random8() % 30) + 20;
+    } else if (dot.rev) {
+      dot.x = (dot.x - 1 + W) % W;
+      dot.ttl--;
     } else {
-      math::dot.x = addmod8(math::dot.x, 1, W);
-      math::dot.drawn = true;
-      math::dot.ttl--;
+      dot.x = addmod8(dot.x, 1, W);
+      dot.drawn = true;
+      dot.ttl--;
     }
   }
 
