@@ -9,8 +9,8 @@
  * @brief Four families: the core primitives (Vector, Quaternion, Complex,
  *        Spherical) with the geometric epsilons; the fast-math approximations
  *        (trig, exp, rsqrt, cbrt, atan2); the hash and value-noise lattice;
- *        and the Snorm3 direction packing. The stereographic, gnomonic and
- *        Mobius maps built on the primitives live in stereographic.h.
+ *        and the Snorm3 direction packing. Stereographic and gnomonic maps
+ *        live in stereographic.h; fractional-linear maps live in mobius.h.
  */
 
 #include <cmath>
