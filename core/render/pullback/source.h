@@ -317,8 +317,7 @@ HS_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
 template <typename Prepared>
 HS_FLASH_MEMBER inline float rings(const math::Complex &input,
                                    const Prepared &prepared) {
-  return math::fast_sinf(sqrtf(input.re * input.re + input.im * input.im) -
-                         prepared.primary);
+  return math::fast_sinf(input.magnitude() - prepared.primary);
 }
 
 template <typename Params>
@@ -343,7 +342,7 @@ spherical_rings(const math::Vector &input, const Params &params,
 template <typename Prepared>
 HS_FLASH_MEMBER inline float spiral(const math::Complex &input,
                                     const Prepared &prepared) {
-  const float radius = sqrtf(input.re * input.re + input.im * input.im);
+  const float radius = input.magnitude();
   const float azimuth = math::fast_atan2(input.im, input.re);
   return math::fast_sinf(radius - 3.0f * (azimuth + prepared.angle) -
                          prepared.primary);
