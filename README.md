@@ -1516,8 +1516,8 @@ overlap.
 The simulator is a static web app. Serve the daydream directory from any HTTP server:
 
 ```bash
-python3 -m http.server 8080
-# open http://localhost:8080
+python3 -m http.server 8000
+# open http://localhost:8000
 ```
 
 URL parameters control the initial state (mirrored back by `URLSync`, §10.4):
