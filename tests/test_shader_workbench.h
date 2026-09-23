@@ -3171,6 +3171,26 @@ inline void test_shader_workbench_structural_admission() {
   HS_EXPECT_FALSE(WB::stable_topology(from, to));
   HS_EXPECT_FALSE(WB::stable_parameter_path_admitted(from, to));
 
+  WB::WarpStageSpec affine_bound_spec;
+  affine_bound_spec.kind = WB::WarpStageKind::AFFINE_FRAME;
+  WB::WarpStageParams affine_bound_params;
+  affine_bound_params.scale_x = 4.0f;
+  affine_bound_params.scale_y = 1.0f;
+  const float affine_bound = WB::stage_coordinate_bound(
+      affine_bound_spec, affine_bound_params, 100.0f);
+  HS_EXPECT_TRUE(affine_bound >= 565.68f);
+  affine_bound_params.scale_x = 0.25f;
+  HS_EXPECT_EQ(WB::stage_coordinate_bound(affine_bound_spec,
+                                          affine_bound_params, 100.0f),
+               affine_bound);
+  WB::WarpStageParams affine_path;
+  WB::WarpStageParams affine_other = affine_bound_params;
+  affine_other.scale_x = 8.0f;
+  Workbench::maximize_stage_path(affine_path, affine_bound_params,
+                                 affine_other);
+  HS_EXPECT_TRUE(WB::stage_coordinate_bound(affine_bound_spec, affine_path,
+                                            100.0f) >= 1131.36f);
+
   WB::WarpStageSpec curl_bound_spec;
   curl_bound_spec.kind = WB::WarpStageKind::CURL_FLOW;
   curl_bound_spec.basis = WB::NoiseBasis::SIMPLEX;
