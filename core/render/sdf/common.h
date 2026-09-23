@@ -404,16 +404,12 @@ inline constexpr float arc_stretch<Subtract<A, B>> =
  * @param buf Per-row interval buffer to append to.
  * @param start Interval start column (float).
  * @param end Interval end column (float).
- * @details StaticCircularBuffer::push_back evicts the OLDEST entry when full
- * (correct for trails, wrong here), so an overflow would silently drop
- * geometry. A row exceeding capacity is a sizing bug, so trap at the violation
- * site.
  */
 template <size_t N>
 inline void push_interval(StaticCircularBuffer<Interval, N> &buf, float start,
                           float end) {
-  HS_CHECK(!buf.is_full(), "SDF scanline interval buffer overflow in one row");
-  buf.push_back({start, end});
+  HS_CHECK(buf.try_push_back({start, end}),
+           "SDF scanline interval buffer overflow in one row");
 }
 
 /**
