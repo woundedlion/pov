@@ -1094,7 +1094,7 @@ jobs:
     # other one once its engine pin moves. This job closes that direction by
     # driving daydream's tests over the verified bundle the wasm job published.
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1168,7 +1168,60 @@ jobs:
         run: |
           npm ci
           npm test
-          node scripts/workbench-probe.mjs
+
+      - name: Install the browser pinned by Puppeteer
+        working-directory: daydream
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          import { install, Browser } from '@puppeteer/browsers';
+          import { PUPPETEER_REVISIONS } from 'puppeteer-core';
+          const browser = await install({
+            browser: Browser.CHROME,
+            buildId: PUPPETEER_REVISIONS.chrome,
+            cacheDir: `${process.env.RUNNER_TEMP}/puppeteer`,
+          });
+          appendFileSync(process.env.GITHUB_ENV, `CHROME_PATH=${browser.executablePath}\n`);
+          NODE
+      - name: Drive every browser probe
+        working-directory: daydream
+        shell: bash
+        env:
+          # Ceiling for one script, and for the loop as a whole. The budget sits
+          # inside timeout-minutes so a hang is reported here, against the script
+          # that hung, rather than killed by the runner with the rest unrun.
+          PROBE_TIMEOUT_S: '420'
+          PROBE_BUDGET_S: '1500'
+        run: |
+          status=0
+          deadline=$(( $(date +%s) + PROBE_BUDGET_S ))
+          for script in \
+            scripts/browser-smoke.mjs \
+            scripts/workbench-probe.mjs \
+            scripts/panel-probe.mjs \
+            scripts/solids-probe.mjs \
+            scripts/palettes-probe.mjs \
+            scripts/mobius-probe.mjs \
+            scripts/lissajous-probe.mjs
+          do
+            echo "::group::$script"
+            left=$(( deadline - $(date +%s) ))
+            limit=$(( left < PROBE_TIMEOUT_S ? left : PROBE_TIMEOUT_S ))
+            if [ "$limit" -le 0 ]; then
+              echo "::error::$script never ran: the ${PROBE_BUDGET_S}s probe budget is spent"
+              status=1
+            else
+              timeout -k 10s "${limit}s" node "$script" && code=0 || code=$?
+              if [ "$code" -ne 0 ]; then
+                status=1
+                if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
+                  echo "::error::$script was killed after ${limit}s without finishing"
+                fi
+              fi
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
 
   lut-provenance:
     name: Generated LUTs match committed header
