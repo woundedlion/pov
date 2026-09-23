@@ -196,6 +196,29 @@ def require_writable(path, force, reason=DEFAULT_OVERWRITE_REASON, flag="--force
              f"  Re-run with {flag} to regenerate it from scratch anyway.")
 
 
+def require_annotated_export(result, sch):
+    """Check symbol identities and surface KiCad's annotation diagnostic.
+
+    Descriptive refs such as U_MCU trigger KiCad's numeric-suffix warning.
+    They remain valid project identities; duplicate refs/units do not.
+    """
+    with open(sch, encoding="utf-8") as source:
+        root = sexp.parse_one(source.read())
+    seen = set()
+    for symbol in root:
+        if not isinstance(symbol, list) or symbol[0] != "symbol":
+            continue
+        ref = next((p[2] for p in symbol if isinstance(p, list)
+                    and p[:2] == ["property", "Reference"]), "")
+        identity = (ref, tuple(sexp.val(symbol, "unit", [])))
+        if not ref or ref.endswith("?") or ref in ("#PWR", "#FLG") or identity in seen:
+            sys.exit(f"netlist export failed: unannotated or duplicate symbol {ref!r}")
+        seen.add(identity)
+    output = (result.stdout or "") + (result.stderr or "")
+    if "annotation errors" in output.lower():
+        sys.stderr.write(output.rstrip() + "\n")
+
+
 def export_netlist(kcli, sch):
     """Export `sch` to a kicadsexpr netlist via kicad-cli; return its parsed root.
 
@@ -205,8 +228,9 @@ def export_netlist(kcli, sch):
     fd, net = tempfile.mkstemp(suffix=".net")
     os.close(fd)
     try:
-        subprocess.run([kcli, "sch", "export", "netlist", "--format", "kicadsexpr",
-                        "-o", net, sch], check=True, capture_output=True, text=True)
+        result = subprocess.run([kcli, "sch", "export", "netlist", "--format", "kicadsexpr",
+                                 "-o", net, sch], check=True, capture_output=True, text=True)
+        require_annotated_export(result, sch)
         with open(net, encoding="utf-8") as fh:
             return sexp.parse_one(fh.read())
     except FileNotFoundError:

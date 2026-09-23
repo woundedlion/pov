@@ -40,7 +40,7 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
                          MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
                          NEW_LAYOUT_RULES, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
-from kicad_common import F, is_copper_pour, kicad_cli
+from kicad_common import F, is_copper_pour, kicad_cli, require_annotated_export
 
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(GEN)                       # hardware/phantasm
@@ -616,7 +616,10 @@ def run(args, check=True, **kw):
 def run_export(stage, args):
     """Run an export step, exiting with a diagnostic like the other stages."""
     try:
-        return run(args)
+        result = run(args)
+        if stage == "netlist":
+            require_annotated_export(result, args[-1])
+        return result
     except subprocess.CalledProcessError as exc:
         sys.exit(f"{stage} export failed: kicad-cli exited {exc.returncode}")
 

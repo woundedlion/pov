@@ -4240,7 +4240,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "a68735ae-8e17-40ed-86a9-eb5d3f82e115")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR001"
 			(at 33.02 53.34 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4260,7 +4260,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR001") (unit 1)
 				)
 			)
 		)
@@ -4274,7 +4274,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "9505425c-a5a8-4f60-a805-8d42687d76f0")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR002"
 			(at 53.34 66.04 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4294,7 +4294,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR002") (unit 1)
 				)
 			)
 		)
@@ -4308,7 +4308,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "d7ec18e4-45fe-4868-8104-1cd736bb061f")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR003"
 			(at 219.71 50.8 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4328,7 +4328,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR003") (unit 1)
 				)
 			)
 		)
@@ -4517,7 +4517,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3344a2b3-d04a-4514-bc23-3b2f5cdcbf49")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR004"
 			(at 166.37 91.44 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4537,7 +4537,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR004") (unit 1)
 				)
 			)
 		)
@@ -4595,7 +4595,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "2eb8373a-a5fc-40a1-b97f-dbb2c56496eb")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR005"
 			(at 82.55 154.94 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4615,7 +4615,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR005") (unit 1)
 				)
 			)
 		)
@@ -4629,7 +4629,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "4b6ecf17-46f8-4dd2-a628-21749697d8b5")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR006"
 			(at 82.55 160.02 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4649,7 +4649,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR006") (unit 1)
 				)
 			)
 		)
@@ -4663,7 +4663,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "2813e290-6216-4d22-9fc6-dff08ffa357b")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR007"
 			(at 82.55 165.1 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4683,7 +4683,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR007") (unit 1)
 				)
 			)
 		)
@@ -4981,7 +4981,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "77eb7487-d06c-4b97-ae70-fa9ff3be3c35")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR008"
 			(at 152.4 140.97 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5001,7 +5001,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR008") (unit 1)
 				)
 			)
 		)
@@ -5015,7 +5015,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "59ad237e-0cb3-4f06-8f2c-d18cdad66696")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR009"
 			(at 152.4 171.45 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5035,7 +5035,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR009") (unit 1)
 				)
 			)
 		)
@@ -5049,7 +5049,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f4863554-2884-47e5-b283-ed40a167e529")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR010"
 			(at 142.24 223.52 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5069,7 +5069,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR010") (unit 1)
 				)
 			)
 		)
@@ -5083,7 +5083,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "4465cf83-e163-4cb9-8c8a-bfa30e4bfeaf")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR011"
 			(at 215.9 116.84 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5103,7 +5103,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR011") (unit 1)
 				)
 			)
 		)
@@ -5117,7 +5117,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3f694afb-32e0-423c-8ff6-92691d829e0f")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR012"
 			(at 215.9 147.32 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5137,7 +5137,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR012") (unit 1)
 				)
 			)
 		)
@@ -5187,7 +5187,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "56184059-a687-471c-af59-84ff8c62301f")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR013"
 			(at 274.32 162.56 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5207,7 +5207,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR013") (unit 1)
 				)
 			)
 		)
@@ -5326,7 +5326,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "19825236-0c2d-4c88-a4a2-32fd8b2b8283")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR014"
 			(at 246.38 229.87 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5346,7 +5346,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR014") (unit 1)
 				)
 			)
 		)
@@ -5360,7 +5360,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "d5f53687-6526-47f7-a8ff-0a5bab059c79")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR015"
 			(at 275.59 212.09 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5380,7 +5380,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR015") (unit 1)
 				)
 			)
 		)
@@ -5464,7 +5464,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "2fd110ae-5bf6-470f-b19d-2cf003402421")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR016"
 			(at 298.45 226.06 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5484,7 +5484,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR016") (unit 1)
 				)
 			)
 		)
@@ -5570,7 +5570,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "6b884714-dc3a-4f56-b216-db9abb636465")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR017"
 			(at 322.58 200.66 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5590,7 +5590,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR017") (unit 1)
 				)
 			)
 		)
@@ -5604,7 +5604,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "1f8dfbaa-a468-44b0-bd17-3b24096b74dc")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR018"
 			(at 322.58 228.6 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5624,7 +5624,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR018") (unit 1)
 				)
 			)
 		)
@@ -5673,7 +5673,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "037325cd-e78b-48d3-8192-ada596fa9d58")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR019"
 			(at 370.84 243.84 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5693,7 +5693,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR019") (unit 1)
 				)
 			)
 		)
@@ -5742,7 +5742,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "7de5c89e-7fca-4917-bd3e-3c6ff0444ba8")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR020"
 			(at 76.2 250.19 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5762,7 +5762,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR020") (unit 1)
 				)
 			)
 		)
@@ -5811,7 +5811,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "be06779a-439a-434a-9d99-22d202b24b98")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR021"
 			(at 134.62 269.24 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5831,7 +5831,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR021") (unit 1)
 				)
 			)
 		)
@@ -5880,7 +5880,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "cc62e0e7-8d61-4c83-988b-2221eaecb188")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR022"
 			(at 160.02 269.24 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5900,7 +5900,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR022") (unit 1)
 				)
 			)
 		)
@@ -5949,7 +5949,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "a018f41d-7c3c-4dbf-a844-603b3a1cf8ed")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR023"
 			(at 185.42 269.24 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -5969,7 +5969,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR023") (unit 1)
 				)
 			)
 		)
@@ -6020,7 +6020,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "779021ac-4f24-42aa-9116-040904ad7e85")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR024"
 			(at 30.48 259.08 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6040,7 +6040,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR024") (unit 1)
 				)
 			)
 		)
@@ -6054,7 +6054,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "dbdc27a3-0517-488b-854c-4f030bd7b574")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR025"
 			(at 30.48 261.62 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6074,7 +6074,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR025") (unit 1)
 				)
 			)
 		)
@@ -6088,7 +6088,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "552bb01e-a817-4d80-8f45-5ee58ee17017")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR026"
 			(at 246.38 269.24 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6108,7 +6108,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR026") (unit 1)
 				)
 			)
 		)
@@ -6122,7 +6122,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "172b1c44-1947-472d-a7e6-f4be67a4326f")
-		(property "Reference" "#FLG"
+		(property "Reference" "#FLG001"
 			(at 246.38 264.16 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6142,7 +6142,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#FLG") (unit 1)
+					(reference "#FLG001") (unit 1)
 				)
 			)
 		)
@@ -6156,7 +6156,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "93001317-8837-42ad-99f0-640d71309257")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR027"
 			(at 284.48 269.24 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6176,7 +6176,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR027") (unit 1)
 				)
 			)
 		)
@@ -6190,7 +6190,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "c9bf50bb-a836-47d6-a4fb-fec00898b75b")
-		(property "Reference" "#FLG"
+		(property "Reference" "#FLG002"
 			(at 284.48 264.16 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6210,7 +6210,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#FLG") (unit 1)
+					(reference "#FLG002") (unit 1)
 				)
 			)
 		)
@@ -6224,7 +6224,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "93e5b412-8999-48c5-82e3-d325d751dce3")
-		(property "Reference" "#PWR"
+		(property "Reference" "#PWR028"
 			(at 317.5 269.24 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6244,7 +6244,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#PWR") (unit 1)
+					(reference "#PWR028") (unit 1)
 				)
 			)
 		)
@@ -6258,7 +6258,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "9b60188a-3385-4886-88f6-3424f234262d")
-		(property "Reference" "#FLG"
+		(property "Reference" "#FLG003"
 			(at 317.5 264.16 0)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -6278,7 +6278,7 @@
 		(instances
 			(project "phantasm"
 				(path "/928f299b-a262-40fe-9d10-61bd500c5b4b"
-					(reference "#FLG") (unit 1)
+					(reference "#FLG003") (unit 1)
 				)
 			)
 		)
