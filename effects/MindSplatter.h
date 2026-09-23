@@ -510,6 +510,9 @@ private:
                                     ATTRACTOR_KILL_RADIUS, EVENT_HORIZON);
     }
 
+    HS_CHECK(emitters.size() <= emitter_positions.size() &&
+                 emitters.size() <= emitter_basis.size(),
+             "MindSplatter: emitter count exceeds fixed storage");
     for (size_t i = 0; i < emitters.size(); ++i) {
       emitter_positions[i] = emitters[i];
       emitter_basis[i] =
