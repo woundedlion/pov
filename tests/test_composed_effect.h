@@ -1161,6 +1161,16 @@ inline void check_document_values(const char *name) {
       HS_EXPECT(slot != nullptr, "value key names a chain instance");
       if (slot == nullptr)
         continue;
+      if constexpr (requires { built.source.lattice_cell_scale; }) {
+        if (slot->role == SlotRole::WARP && field_id == "lattice-period") {
+          HS_EXPECT_NEAR(
+              static_cast<float>(value.number),
+              1.0f /
+                  preset_params_or_initial<FX>(index).source.lattice_cell_scale,
+              1e-6f);
+          continue;
+        }
+      }
       HS_EXPECT(apply_document_value<FX>(built, *slot, field_id, value),
                 "document value maps onto the effect");
     }

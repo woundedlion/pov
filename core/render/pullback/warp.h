@@ -167,8 +167,8 @@ static_assert(field_defaults_in_range<VectorNoiseParams>());
  *        (Pullback::Warp::AffineFrame).
  * @details Translation is scaled by the plane units per lattice cell that
  * Warp::prepare receives: the composed path reads that from its
- * LatticeSourceParams source, the chain path fixes it at 1 so translation is
- * in plane units. Only whole windings scroll seamlessly; a fractional
+ * LatticeSourceParams source; the chain operator carries an explicit
+ * lattice period. Only whole windings scroll seamlessly; a fractional
  * translation jumps when the phase wraps.
  */
 struct AffineParams {

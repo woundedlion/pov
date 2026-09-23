@@ -10,6 +10,8 @@
 // strings and arrays -- kept here, free of the module, so
 // wasm_smoke_predicates.test.mjs can gate them with no build.
 
+import { fixedDerivedBinding } from './shader_workbench.mjs';
+
 /** Effect whose rings expand from zero radius, so a short window is black. */
 export const DARK_EXEMPT = 'RingShower';
 
@@ -237,7 +239,7 @@ export function engineControlNames(parameterId) {
  * not know still lands.
  *
  * @param {object} run
- * @param {{document: string, effect: string, parameterIds: string[]}[]} run.documents
+ * @param {{document: string, effect: string, parameterIds: string[], presets?: object[]}[]} run.documents
  * @param {Map<string, Set<string>>} run.controls Control names per effect id.
  * @param {Set<string>} run.bakedFields From bakedTopologyFields().
  * @returns {string[]} One message per problem; empty means every id resolves.
@@ -245,13 +247,26 @@ export function engineControlNames(parameterId) {
 export function promotedBindingProblems({ documents, controls, bakedFields }) {
   const problems = [];
   const seenConstants = new Set();
-  for (const { document, effect, parameterIds } of documents) {
+  for (const { document, effect, parameterIds, presets = [], descriptor } of documents) {
     const registered = controls.get(effect);
     if (!registered) {
       problems.push(`${document}: the running roster carries no effect "${effect}"`);
       continue;
     }
     for (const parameterId of parameterIds) {
+      const authored = presets.filter((preset) =>
+        Object.hasOwn(preset.values ?? {}, parameterId));
+      const derived = fixedDerivedBinding(descriptor, parameterId, authored[0]?.values ?? {});
+      if (derived) {
+        if (authored.length === 0 || authored.some(({ values }) =>
+          !fixedDerivedBinding(descriptor, parameterId, values).valid) ||
+            (derived.sourceId !== null && !engineControlNames(derived.sourceId)
+              .some((name) => registered.has(name)))) {
+          problems.push(`${document}: "${parameterId}" must match the compiled affine ` +
+            'period derived from its source parameters');
+        }
+        continue;
+      }
       if (BAKED_CONSTANT_IDS.has(parameterId)) {
         seenConstants.add(parameterId);
         continue;

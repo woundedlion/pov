@@ -53,7 +53,7 @@ const defaults = Object.freeze({
   vector: { speed: 0, strength: 0, scale: 1, 'vector-angle': 0 },
   affine: {
     speed: 0, 'rotation-rate': 0, 'translation-x': 0, 'translation-y': 0,
-    'scale-x': 1, 'scale-y': 1, shear: 0,
+    'scale-x': 1, 'scale-y': 1, shear: 0, 'lattice-period': 1,
   },
   polar: { speed: 0, 'radial-scale': 1, 'radial-phase': 0, 'angular-phase': 0 },
   edge: { 'edge-width': 0.1 },
@@ -93,7 +93,7 @@ const parameterSpec = (id, value, source) => {
     id.endsWith('scale-x') || id.endsWith('scale-y') || id.endsWith('radial-scale') ||
     id === 'lattice-cell-scale' || id === 'lattice-softness' ||
     id === 'iso-width' || id.endsWith('frequency') || id === 'hue-noise-scale' ||
-    id.endsWith('-scale');
+    id.endsWith('-scale') || id.endsWith('lattice-period');
   let domain = { minimum: -30, maximum: 30 };
   let unit = 'ratio';
   if (id === 'pattern-freq')
@@ -121,6 +121,7 @@ const parameterSpec = (id, value, source) => {
     domain = { minimum: -8, maximum: 8 };
   else if (id.endsWith('scale-x') || id.endsWith('scale-y') ||
            id.endsWith('radial-scale')) domain = { minimum: 1 / 64, maximum: 64 };
+  else if (id.endsWith('lattice-period')) domain = { minimum: 1 / 8, maximum: 64 };
   else if (id === 'lattice-cell-scale') domain = { minimum: 1 / 64, maximum: 8 };
   else if (id === 'lattice-softness' || id === 'iso-width')
     domain = { minimum: 1 / 1024, maximum: 1 };
@@ -219,7 +220,13 @@ const bank = (spec, base) => {
   const presets = spec.presets.map((preset) => ({
     preset_id: preset.id,
     display_name: preset.name,
-    values: { ...base, ...preset.values },
+    values: (() => {
+      const values = { ...base, ...preset.values };
+      for (const slot of ['outer', 'inner'])
+        if (spec[`${slot}Key`] === 'affine')
+          values[`${slot}-lattice-period`] = 1 / values['lattice-cell-scale'];
+      return values;
+    })(),
   }));
   const edges = presets.length < 2 ? []
     : presets.map((preset, index) => ({

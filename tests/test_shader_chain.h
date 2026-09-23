@@ -1601,7 +1601,8 @@ struct AffineMirrorProvider {
     return frame.affine;
   }
   static PB::Warp::PreparedAffineSlot prepare(const FrameState &frame) {
-    return PB::Warp::prepare(frame.affine, frame.phase, frame.rotation, 1.0f);
+    return PB::Warp::prepare(frame.affine, frame.phase, frame.rotation,
+                             frame.affine.lattice_period);
   }
   static float phase(const FrameState &frame) { return frame.phase; }
   static bool path_length_required(const FrameState &) { return true; }

@@ -251,3 +251,23 @@ test('the baked topology fields are the catalog flag less the live mapping', () 
   assert.deepEqual([...fields], ['symmetry']);
   assert.deepEqual([...bakedTopologyFields(null)], []);
 });
+
+
+test('a compiled affine period is derived from the authored lattice scale', () => {
+  const run = bindings();
+  run.documents.push({ document: 'grid_space.shader.json', effect: 'grid-space',
+    parameterIds: ['warp1.lattice-period', 'sample.lattice-cell-scale'],
+    descriptor: { chain: [{label: 'warp1', operator: 'warp.affine.v2'},
+      {label: 'sample', operator: 'sample.lattice.v2'}] },
+    presets: [{ values: { 'warp1.lattice-period': 0.25, 'sample.lattice-cell-scale': 4 } }],
+  });
+  run.controls.set('grid-space', new Set(['Lattice Cell Scale']));
+  assert.deepEqual(promotedBindingProblems(run), []);
+  run.documents[1].presets[0].values['warp1.lattice-period'] = 0.5;
+  assert.match(promotedBindingProblems(run)[0], /must match the compiled affine/);
+  run.documents[1].presets[0].values['warp1.lattice-period'] = 0.25;
+  run.documents[1].presets.push({ values: {
+    'warp1.lattice-period': 0.5, 'sample.lattice-cell-scale': 4,
+  } });
+  assert.match(promotedBindingProblems(run)[0], /must match the compiled affine/);
+});
