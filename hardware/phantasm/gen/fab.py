@@ -913,12 +913,14 @@ def validate_assembly_exclusions(comps, assembled, board):
     return len(excluded)
 
 
-def validate_assembled_refs(assembled, revision=netlist_spec.builder.REVISION):
+def validate_assembled_refs(assembled, revision):
     actual = set(assembled)
-    netlist_spec.expected_nets(revision)
-    expected = set(LCSC_BY_REF)
-    if revision == "1.1":
-        expected.remove("R_TX")
+    connected_refs = {
+        node.split(".", 1)[0]
+        for nodes in netlist_spec.expected_nets(revision).values()
+        for node in nodes
+    }
+    expected = set(LCSC_BY_REF) & connected_refs
     diagnostics = []
     if missing := sorted(expected - actual):
         diagnostics.append(

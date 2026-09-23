@@ -554,7 +554,7 @@ class AssemblyPolicyTests(unittest.TestCase):
         self.assertEqual(excluded & set(fab.LCSC_BY_REF), set())
 
     def test_accepts_exact_assigned_part_set(self):
-        fab.validate_assembled_refs(fab.LCSC_BY_REF)
+        fab.validate_assembled_refs(fab.LCSC_BY_REF, "1.2")
 
     def test_revision_1_1_assembly_has_no_transmit_pulldown(self):
         assembled = set(fab.LCSC_BY_REF) - {"R_TX"}
@@ -569,7 +569,7 @@ class AssemblyPolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(
                 fab.AssemblyMetadataError,
                 "assigned parts missing from assembly: U1"):
-            fab.validate_assembled_refs(assembled)
+            fab.validate_assembled_refs(assembled, "1.2")
 
     def test_rejects_rotation_correction_missing_from_assembly(self):
         assembled = set(fab.LCSC_BY_REF) - {"U1"}
