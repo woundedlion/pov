@@ -51,6 +51,17 @@ class ShellGateTests(unittest.TestCase):
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("worktree line endings are crlf", bad.stdout)
 
+    def test_eol_repair_preserves_unstaged_edits_and_index(self):
+        (self.root / ".gitattributes").write_text("*.txt text eol=lf\n", encoding="utf-8")
+        payload = self.root / "payload.txt"
+        payload.write_bytes(b"staged\n")
+        self.git("add", "--", ".gitattributes", "payload.txt")
+        payload.write_bytes(b"staged\r\nuser edit\n")
+        repaired = self.gate("eol_gate.sh", "--fix-worktree")
+        self.assertEqual(repaired.returncode, 0, repaired.stdout + repaired.stderr)
+        self.assertEqual(payload.read_bytes(), b"staged\nuser edit\n")
+        self.assertEqual(self.git("show", ":payload.txt").stdout, b"staged\n")
+
     def test_ruff_selection_includes_failed_lints_but_not_empty_reports(self):
         self.stub("ruff", "exit 1")
         self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
