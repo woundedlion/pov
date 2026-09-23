@@ -666,7 +666,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── tsconfig.json               checkJs settings for the worker-protocol module set
 ├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step
 ├── .githooks/                  staged pre-commit checks, a pre-push mirror of the JS/browser suites, and the master fast-forward guard
-├── .github/workflows/          ci.yml (PR aggregate), deploy.yml (engine gate → Pages), js-unit-suite.yml + browser-smoke.yml (reusable suites)
+├── .github/workflows/          ci.yml (PR aggregate), engine-bundle.yml (verified engine gate), deploy.yml (engine gate → Pages), js-unit-suite.yml + browser-smoke.yml (reusable suites)
 ├── .github/dependabot.yml      Monthly grouped bump pull requests for the SHA-pinned actions and the locked Node dependencies
 │
 ├── three.js/                   Optional vendored Three.js checkout
