@@ -22,7 +22,7 @@ import os
 from kicad_common import atomic_write_text
 import sys
 
-from constraints import (DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS,
+from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,
                          UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,10 +57,15 @@ def rule_shortfalls(d, rule_minimums, class_minimums):
     """
     rules = d.get("board", {}).get("design_settings", {}).get("rules", {})
     shortfalls = {}
-    for field, minimum in rule_minimums.items():
+    for field, minimum in {**rule_minimums, **NEW_LAYOUT_RULES}.items():
         current = rules.get(field, 0) or 0
         if current < minimum:
             shortfalls[field] = (current, minimum)
+
+    severity = d.get("board", {}).get("design_settings", {}).get(
+        "rule_severities", {}).get("silk_over_copper")
+    if severity != "error":
+        shortfalls["rule_severities.silk_over_copper"] = (severity, "error")
 
     classes = d.get("net_settings", {}).get("classes", [])
     default = next((item for item in classes if item.get("name") == "Default"), None)
@@ -90,6 +95,9 @@ def heal_project(p, dry_run=False):
         for field, (_, minimum) in changes.items():
             if field.startswith("Default."):
                 default[field[len("Default."):]] = minimum
+            elif field.startswith("rule_severities."):
+                d["board"]["design_settings"].setdefault("rule_severities", {})[
+                    field[len("rule_severities."):]] = minimum
             else:
                 rules[field] = minimum
         if not dry_run:
