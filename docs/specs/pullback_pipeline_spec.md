@@ -187,7 +187,7 @@ Pullback::Interp                   chain interpreter: operator model and table, 
 ```
 
 Carrier declarations live in `core/render/pullback/contract.h`; `Color4` is
-defined in `core/color/color.h`. See §5.2.
+defined in `core/color/pixel.h`. See §5.2.
 
 `pullback.h` may include headers from `core/math`, `core/color`,
 `core/animation` (`surface.h` takes `Animation::RippleParams` from
@@ -276,7 +276,7 @@ struct WarpStepResult {         // the warp policy protocol
 };
 ```
 
-Rank 3 is `Color4` from `core/color/color.h`, straight alpha; final
+Rank 3 is `Color4` from `core/color/pixel.h`, straight alpha; final
 premultiplication stays in `Scan::Shader`, after the chain.
 
 `SphereSample` must stay all-float: as a four-float homogeneous aggregate it
