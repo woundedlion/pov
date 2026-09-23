@@ -4767,6 +4767,7 @@ inline void test_shader_workbench_hue_rotate_lut_gamut() {
       }
     }
   }
+  HS_EXPECT_EQ(error.channels, uint64_t(142155));
   std::printf("  [hue-lut] max=%u mean=%llu\n", error.max,
               static_cast<unsigned long long>(error.mean()));
   HS_EXPECT_LE(error.max, HUE_LUT_MAX_CHANNEL_ERROR);
@@ -4802,6 +4803,7 @@ inline void test_shader_workbench_prepared_hue_rotation() {
       error.add(direct, prepared);
     }
   }
+  HS_EXPECT_EQ(error.channels, uint64_t(50115));
   std::printf("  [prepared-hue-rotation] max=%u mean=%llu\n", error.max,
               static_cast<unsigned long long>(error.mean()));
   HS_EXPECT_LE(error.max, PREPARED_HUE_ROTATION_MAX_CHANNEL_ERROR);
@@ -4860,6 +4862,7 @@ inline void test_shader_workbench_prepared_hue_noise() {
       }
     }
   }
+  HS_EXPECT_EQ(samples, uint64_t(111744));
   std::printf("  [prepared-hue-noise] max=%.9g mean=%.9g\n",
               static_cast<double>(max_error), total_error / samples);
   HS_EXPECT_LE(max_error, PREPARED_HUE_NOISE_MAX_ERROR);
@@ -4912,6 +4915,7 @@ inline void test_shader_workbench_prepared_hue_noise_color() {
       }
     }
   }
+  HS_EXPECT_EQ(error.channels, uint64_t(1439424));
   std::printf("  [hue-noise-color] max=%u mean=%llu\n", error.max,
               static_cast<unsigned long long>(error.mean()));
 #if HS_HAVE_PULLBACK_MANIFEST
