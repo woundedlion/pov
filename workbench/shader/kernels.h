@@ -229,8 +229,8 @@ profiled_project_branch(const math::Vector &v, const FrameState &frame) {
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
-finalize_projection(const math::Vector &local, const math::Complex &,
-                    Projection projection, float singularity_fade,
+finalize_projection(const math::Vector &local, Projection projection,
+                    float singularity_fade,
                     GnomonicHemispherePolicy gnomonic_hemisphere =
                         GnomonicHemispherePolicy::FOLDED) {
   switch (projection) {
@@ -241,8 +241,7 @@ finalize_projection(const math::Vector &local, const math::Complex &,
   case Projection::GNOMONIC:
     return Pullback::Projection::gnomonic(
         local, singularity_fade,
-        static_cast<Pullback::Projection::GnomonicHemisphere>(
-            gnomonic_hemisphere));
+        pullback_gnomonic_hemisphere(gnomonic_hemisphere));
   case Projection::STEREOGRAPHIC:
   case Projection::BONNE:
   case Projection::PEIRCE_QUINCUNCIAL:
