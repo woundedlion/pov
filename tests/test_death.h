@@ -5935,8 +5935,7 @@ inline void report_guard_coverage(const Case *cs, int n) {
   int worst_gap[GAPS] = {};
   for (const GuardSiteCount &f : GUARD_SITE_COUNTS) {
     int pinned = pinned_guards_in(cs, n, f.file);
-    if (pinned > f.sites)
-      pinned = f.sites;
+    HS_EXPECT_LE(pinned, f.sites);
     covered += pinned;
     int gap = f.sites - pinned;
     const int allowed = allowed_guard_gap(f.file);
