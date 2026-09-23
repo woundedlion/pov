@@ -198,13 +198,14 @@ valid_config(const RequestedConfig &candidate) {
   if (!enum_at_most(surface_noise.basis, math::NoiseBasis::RIDGED3) ||
       !enum_at_most(surface_noise.integrator,
                     SurfaceCurlIntegrator::MIDPOINT_2X) ||
-      surface_noise.scale < LENS_NOISE_SCALE_MIN ||
-      surface_noise.scale > LENS_NOISE_SCALE_MAX ||
-      surface_noise.strength <
-          (slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f) ||
-      surface_noise.strength > 0.5f || surface_noise.rate < NOISE_RATE_MIN ||
-      surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
-      surface_noise.direction > 1.0f)
+      (slots.surface_noise != SurfaceNoise::NONE &&
+       (surface_noise.scale < LENS_NOISE_SCALE_MIN ||
+        surface_noise.scale > LENS_NOISE_SCALE_MAX ||
+        surface_noise.strength <
+            (slots.surface_noise == SurfaceNoise::CURL ? -0.5f : 0.0f) ||
+        surface_noise.strength > 0.5f || surface_noise.rate < NOISE_RATE_MIN ||
+        surface_noise.rate > NOISE_RATE_MAX || surface_noise.direction < 0.0f ||
+        surface_noise.direction > 1.0f)))
     return false;
   return true;
 }
