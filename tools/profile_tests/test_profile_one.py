@@ -15,6 +15,20 @@ PROFILE_ONE = REPO / "tools" / "profile_one.sh"
 EFFECTS = REPO / "effects"
 
 
+class ProfileSweepTests(unittest.TestCase):
+    def test_roster_tool_failures_cannot_report_success(self):
+        sweep = (REPO / "tools" / "profile_sweep.sh").as_posix()
+        for tool in ("comm", "sort", "sed", "tr"):
+            with self.subTest(tool=tool):
+                result = subprocess.run(
+                    ["bash", "-c", f'{tool}() {{ return 3; }}; export -f {tool}; '
+                     'bash "$1" check', "sweep-test", sweep],
+                    capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("profile_sweep: cannot", result.stderr)
+                self.assertNotIn("effect(s) match", result.stdout)
+
+
 def shell_function(name):
     source = PROFILE_ONE.read_text(encoding="utf-8")
     match = re.search(rf"(?ms)^{name}\(\) \{{\n.*?^\}}\n", source)
