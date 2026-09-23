@@ -35,13 +35,10 @@ HS_O3_BEGIN
  * @tparam H Canvas height in pixels.
  * @tparam PipelineT Plotting pipeline type.
  * @tparam MinimalFragment When true, only v1 (raw distance) is refreshed per
- *         pixel. Nothing else ever writes the fragment: pos, v0, v2, v3, size,
- *         age and color hold their struct defaults until the shader itself
- *         writes them, and from then on whatever the previous pixel left. The
- *         shader must therefore write frag.color on every pixel it is called
- *         for, and must not read a register it did not set — with v2 at 0 and
- *         size at 1, mesh_face_index() reports face 0 and fragment_edge_dist()
- *         returns an unnormalized distance for every face.
+ *         pixel. Other input registers are NaN in debug builds and retain
+ *         defaults or previous values in release builds. The shader must not
+ *         read inputs it did not set. It must write color on every call; age
+ *         retains its default or the value left by the shader.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape Face to rasterize.
@@ -261,6 +258,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         }
         HS_PROFILE_DEEP(raster_shade);
         if constexpr (MinimalFragment) {
+#ifndef NDEBUG
+          frag.poison_inputs();
+#endif
           frag.v1 = res.raw_dist;
         } else {
           frag.color = Color4(0, 0, 0, 0);
