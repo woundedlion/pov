@@ -480,7 +480,9 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── license_check.py        Checks every tracked C/C++ source against the terms LICENSE grants it (CI)
 │   ├── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, build pins, docs and license checks
 │   ├── docs_sync.py
-│   └── engine_source_state.py
+│   ├── engine_source_state.py
+│   ├── teensy_flash.sh
+│   └── upload_one.sh
 ├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus design specs (docs/specs/), the ITCM and device/host divergence ledgers (docs/ledgers/), on-device profiles (docs/profiles/), and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
@@ -1397,6 +1399,11 @@ Each hardware target has its own `.ino` entry point in `targets/`:
 > with the bench build. Install PlatformIO from `requirements/platformio.txt`:
 > the recipe opens with `build_pins.py --check-tool platformio` and refuses any
 > version but the pinned one.
+
+The `bench` environment runs the stationary colour diagnostic. `just bench` builds
+and uploads it under the per-board device lock; set `HS_TEENSY_PORT=COMn` to
+select a board when several are attached. It is a diagnostic image without a
+shipping resource budget.
 
 Target-specific constants live with their target rather than in a global `constants.h` — the Holosphere entry defines its own, while the Phantasm-class targets share `targets/Phantasm/phantasm_target.h` (`TOTAL_PIXELS = 288`, `RPM = 480`):
 ```cpp
