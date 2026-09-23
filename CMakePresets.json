@@ -62,7 +62,7 @@
       "name": "tests",
       "configurePreset": "tests",
       "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error", "jobs": 4 }
     }
   ]
 }
