@@ -128,7 +128,7 @@ HS_O3_BEGIN
  * @param borrow_base_vertices When true, corner reads alias @p mesh's vertices
  * instead of copying them; the caller must keep @p mesh alive for every
  * update_hankin/hankin_at call that reads the compiled topology. Defaults to
- * false (owned copy), which every persisted or re-updated CompiledHankin needs.
+ * false (owned copy); a borrow remains valid while the source storage lives.
  * @details Builds a half-edge mesh, emits one shared midpoint per edge into
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
  * records the star and rosette faces. The closed-manifold precondition is
