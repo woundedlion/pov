@@ -1,8 +1,8 @@
 # Holosphere
 
-### [▶ Play with the live WebAssembly simulator](https://woundedlion.github.io/daydream/)
+[▶ Play with the live WebAssembly simulator](https://woundedlion.github.io/daydream/)
 
-### [📖 API documentation (Doxygen)](https://woundedlion.github.io/pov/)
+[📖 API documentation (Doxygen)](https://woundedlion.github.io/pov/)
 
 ---
 
