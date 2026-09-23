@@ -525,7 +525,7 @@ const validateParameterBinding = (parameter, path, chainOperators, report) => {
         Math.fround(domain.maximum) !== Math.fround(field.max))
       report('SCALAR_DOMAIN_MISMATCH', `${path}.domain`,
         `Field "${parameter.id}" must carry the catalog's numeric domain.`);
-    if (scalarCurve(parameter) !== field.curve)
+    if (parameter.interpolation.kind !== 'SNAP' && scalarCurve(parameter) !== field.curve)
       report('SCALAR_DOMAIN_MISMATCH', `${path}.interpolation`,
         `Field "${parameter.id}" must use the catalog's "${field.curve}" curve.`);
   }
