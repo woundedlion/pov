@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 
 import sexp
+from constraints import MAX_BOARD_WIDTH_MM
 from connectivity import zone_layers
 from kicad_common import arc_extrema, is_copper_pour
 
@@ -23,6 +24,7 @@ class MetadataError(ValueError):
 
 @dataclass(frozen=True)
 class BoardMetadata:
+    """Axis-aligned extents: width_mm is X (arm length), height_mm is Y (arm width)."""
     width_mm: Decimal
     height_mm: Decimal
     thickness_mm: Decimal
@@ -303,6 +305,14 @@ def check_facts(readme, facts):
         )
 
 
+def validate_mechanical_width(metadata):
+    """Enforce R-MECH-6 across the arm (the board's Y extent)."""
+    if metadata.height_mm > Decimal(str(MAX_BOARD_WIDTH_MM)):
+        raise MetadataError(
+            f"R-MECH-6: cross-arm width {metadata.height_mm} mm exceeds "
+            f"{MAX_BOARD_WIDTH_MM:g} mm")
+
+
 def main(argv=None):
     base = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
@@ -314,7 +324,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        facts = render_facts(load_board(args.board))
+        metadata = load_board(args.board)
+        validate_mechanical_width(metadata)
+        facts = render_facts(metadata)
         if args.check or args.write_readme:
             readme = args.readme.read_text(encoding="utf-8")
             if args.check:
