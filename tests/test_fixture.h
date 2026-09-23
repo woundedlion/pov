@@ -14,6 +14,7 @@
 #include "core/engine/memory.h"
 #include "core/platform/platform.h"
 #include "core/render/canvas.h"
+#include "core/render/render_policy.h"
 #include "tests/test_harness.h"
 
 #include <cstdlib>
