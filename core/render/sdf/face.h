@@ -1447,11 +1447,14 @@ struct Face {
     int s = lo;
 
     float d = FLT_MAX;
+    int nearest = s;
+    float nearest_t = 0.5f;
     // kmax < SECTOR_MIN_COUNT <= count, so one wrap correction suffices.
     int idx = s - sector_kmax;
     if (idx < 0)
       idx += count;
     for (int k = -sector_kmax; k <= sector_kmax; ++k) {
+      const int edge_index = idx;
       const auto &ep = packed_edges[idx];
       if (++idx == count)
         idx = 0;
@@ -1460,11 +1463,29 @@ struct Face {
           hs::clamp((wx * ep.ex + wy * ep.ey) * ep.inv_len_sq, 0.0f, 1.0f);
       float bx = wx - ep.ex * t, by = wy - ep.ey * t;
       float dsq = bx * bx + by * by;
-      d = __builtin_fminf(dsq, d);
+      if (dsq < d) {
+        d = dsq;
+        nearest = edge_index;
+        nearest_t = t;
+      }
     }
-    const auto &e0 = packed_edges[s];
+    const auto &e0 = packed_edges[nearest];
     float cr = e0.ex * (py - e0.vy) - e0.ey * (px - e0.vx);
     inside_out = cr * sector_sgn >= 0.0f;
+    if (nearest_t == 0.0f || nearest_t == 1.0f) {
+      const int vertex = nearest_t == 0.0f ? nearest : (nearest + 1) % count;
+      const auto &before = packed_edges[(vertex + count - 1) % count];
+      const auto &after = packed_edges[vertex];
+      const float vx = px - after.vx, vy = py - after.vy;
+      const bool left_before =
+          (before.ex * vy - before.ey * vx) * sector_sgn >= 0.0f;
+      const bool left_after =
+          (after.ex * vy - after.ey * vx) * sector_sgn >= 0.0f;
+      const bool convex_vertex =
+          (before.ex * after.ey - before.ey * after.ex) * sector_sgn >= 0.0f;
+      inside_out =
+          convex_vertex ? left_before && left_after : left_before || left_after;
+    }
     return d;
   }
 
