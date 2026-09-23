@@ -1346,15 +1346,15 @@ inline void test_shader_workbench_manual_edit_timing() {
   const float before_speed = WB::active_config(sb).params.source.speed;
 
   sb.setAnimationsPaused(false);
-  HS_EXPECT_EQ(sb.updateParameter("Speed", before_speed + 0.5f),
+  HS_EXPECT_EQ(sb.updateParameter("Speed", before_speed + 0.1f),
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(sb.animations_paused());
   HS_EXPECT_EQ(WB::active_config(sb).params.source.speed, before_speed);
   sb.draw_frame();
   sb.advance_display();
   HS_EXPECT_FALSE(WB::param_morph_active(sb));
-  HS_EXPECT_EQ(WB::active_config(sb).params.source.speed, before_speed + 0.5f);
-  HS_EXPECT_EQ(WB::frame(sb).params.source.speed, before_speed + 0.5f);
+  HS_EXPECT_EQ(WB::active_config(sb).params.source.speed, before_speed + 0.1f);
+  HS_EXPECT_EQ(WB::frame(sb).params.source.speed, before_speed + 0.1f);
   HS_EXPECT_TRUE(WB::requested_config(sb) == WB::active_config(sb));
   HS_EXPECT_TRUE(WB::published_config(sb) == WB::active_config(sb));
 
@@ -4273,7 +4273,7 @@ inline void test_shader_workbench_lens_domain_ranges() {
       ParamSetResult::APPLIED);
   HS_EXPECT_EQ(parameter("Pattern Freq")->max, 64.0f);
   HS_EXPECT_EQ(parameter("Pattern Freq")->min, 0.01f);
-  HS_EXPECT_EQ(parameter("Speed")->max, 5.0f);
+  HS_EXPECT_EQ(parameter("Speed")->max, 0.5f);
   HS_EXPECT_EQ(parameter("Hue Noise Speed")->max, 0.001f);
   HS_EXPECT_EQ(sb.updateParameter("Speed", 5.0f), ParamSetResult::APPLIED);
 
