@@ -35,6 +35,9 @@
 #pragma once
 
 #include <array>
+#include <cerrno>
+#include <chrono>
+#include <thread>
 #include <bit>
 #include <cstdio>
 #include <cstdlib>
@@ -90,25 +93,18 @@
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
 #include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
 #else
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #include <fcntl.h>   // _O_WRONLY / _O_CREAT / _O_TRUNC for the capture redirect
 #include <io.h>      // _dup / _dup2 / _sopen_s / _close
 #include <process.h> // _spawnv / _P_WAIT / _getpid — shell-free child spawn
 #include <share.h>   // _SH_DENYNO
 #include <sys/stat.h> // _S_IREAD / _S_IWRITE for the created capture file
-#endif
-
-#if defined(_WIN32)
-/**
- * @brief Local declaration of the Win32 SetErrorMode (no <windows.h>).
- * @param uMode Bitmask of error-mode flags; 0x0001|0x0002 =
- *              SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX.
- * @return The previous error-mode bitmask.
- * @details Declared locally to suppress the WER "stopped working" box for the
- *          children we intentionally crash. kernel32 is linked by default for a
- *          Windows-Clang console build.
- */
-extern "C" __declspec(dllimport) unsigned int __stdcall
-SetErrorMode(unsigned int uMode);
 #endif
 
 namespace hs_test {
@@ -5260,6 +5256,10 @@ inline void run_child_case(const char *name) {
 #if defined(_WIN32)
   SetErrorMode(0x0001u | 0x0002u);
 #endif
+  if (std::strcmp(name, "__timeout_check__") == 0) {
+    for (;;)
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
   if (std::strcmp(name, SHAPE_PROBE_CASE) == 0) {
     HS_CHECK(false, "death-harness trap-shape probe"); // always traps
     return;
@@ -5398,13 +5398,14 @@ inline void set_case_env(const char *name) {
 /**
  * @brief Spawns the test binary as a child running the given death case.
  * @param name Case selector passed to the child via HS_DEATH_CASE.
+ * @param timeout_ms Maximum child runtime in milliseconds.
  * @return The child's raw status (_spawnv() on Windows, fork+execv wait status
  *         on POSIX). -1 on a spawn failure.
  * @details Child stdout/stderr are redirected to child_capture_path() and the
  *          tail is loaded into child_output(), so the caller can require the
  *          HS_CHECK breadcrumb of the guard the case is supposed to fire.
  */
-inline int spawn_child(const char *name) {
+inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
   set_case_env(name);
   const char *capture_path = child_capture_path();
   // Drop the previous spawn's capture up front: a spawn that fails before the
@@ -5416,7 +5417,7 @@ inline int spawn_child(const char *name) {
   // Shell-free spawn: hand argv straight to the CRT so no cmd.exe parsing can
   // mangle a self_exe() path containing &, %, ^, or quotes. Child stdout/stderr
   // reach the capture file by redirecting fds 1/2 across the synchronous
-  // _P_WAIT spawn (the child inherits the CRT fd table), then the descriptors
+  // _P_NOWAIT spawn (the child inherits the CRT fd table), then the descriptors
   // are restored.
   std::fflush(stdout);
   std::fflush(stderr);
@@ -5435,7 +5436,23 @@ inline int spawn_child(const char *name) {
     }
   }
   const char *argv[] = {self_exe(), nullptr};
-  intptr_t rc = _spawnv(_P_WAIT, self_exe(), argv);
+  intptr_t process = _spawnv(_P_NOWAIT, self_exe(), argv);
+  int rc = -1;
+  bool timed_out = false;
+  if (process != -1) {
+    HANDLE handle = reinterpret_cast<HANDLE>(process);
+    DWORD wait = WaitForSingleObject(handle, timeout_ms);
+    timed_out = wait == WAIT_TIMEOUT;
+    if (wait != WAIT_OBJECT_0) {
+      TerminateProcess(handle, 1);
+      WaitForSingleObject(handle, 5000);
+    } else {
+      DWORD exit_code = 0;
+      if (GetExitCodeProcess(handle, &exit_code))
+        rc = static_cast<int>(exit_code);
+    }
+    CloseHandle(handle);
+  }
   // capture is only open when both saves succeeded, so the restore is reached
   // only with valid descriptors.
   if (capture >= 0) {
@@ -5448,7 +5465,10 @@ inline int spawn_child(const char *name) {
   if (saved_err >= 0)
     _close(saved_err);
   load_child_output();
-  return static_cast<int>(rc);
+  if (timed_out)
+    std::fprintf(stderr, "death child timed out after %u ms: %s\n", timeout_ms,
+                 name);
+  return rc;
 #else
   // Shell-free spawn: fork and execv the binary directly so no /bin/sh parsing
   // can mangle a self_exe() path containing a quote or shell metacharacter. The
@@ -5473,8 +5493,25 @@ inline int spawn_child(const char *name) {
     _exit(127); // exec failed — never returns to the harness
   }
   int status = 0;
-  if (waitpid(pid, &status, 0) < 0)
-    return -1;
+  const auto DEADLINE =
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+  for (;;) {
+    const pid_t WAITED = waitpid(pid, &status, WNOHANG);
+    if (WAITED == pid)
+      break;
+    if (WAITED < 0 && errno != EINTR)
+      return -1;
+    if (std::chrono::steady_clock::now() >= DEADLINE) {
+      kill(pid, SIGKILL);
+      while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+      }
+      load_child_output();
+      std::fprintf(stderr, "death child timed out after %u ms: %s\n",
+                   timeout_ms, name);
+      return -1;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
   load_child_output();
   return status;
 #endif
@@ -5819,6 +5856,8 @@ inline int run_death_tests() {
     report_unrunnable("no argv[0] to re-exec", 0);
     return fixture.result();
   }
+
+  HS_EXPECT_EQ(spawn_child("__timeout_check__", 100), -1);
 
   // Control: a child given an unknown case must exit cleanly.
   int control = spawn_child("__spawn_check__");
