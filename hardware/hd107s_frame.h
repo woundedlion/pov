@@ -67,8 +67,8 @@ struct ChannelScale {
   uint8_t b;
 };
 
-inline constexpr ChannelScale TYPICAL_LED_STRIP{255, 176, 240};
-inline constexpr ChannelScale CANDLE{255, 147, 41};
+inline constexpr ChannelScale LINEAR_STRIP_GAIN{255, 176, 240};
+inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
 
 } // namespace hd107s
 
@@ -89,8 +89,8 @@ inline constexpr ChannelScale CANDLE{255, 147, 41};
  *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
  * Color correction pipeline (pack_pixel() takes already-linear Pixel input):
- *   1. Color correction multiply       (TypicalLEDStrip equivalent)
- *   2. Temperature correction multiply (Candle equivalent)
+ *   1. Color correction multiply       (linear channel gains)
+ *   2. Temperature correction multiply (linear warm gains)
  *   3. Brightness scaling
  *   4. Linear 16-bit → sRGB 8-bit      (linear_to_srgb8)
  */
