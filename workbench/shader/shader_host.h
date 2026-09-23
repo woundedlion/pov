@@ -251,7 +251,8 @@ public:
     set_parameter_updated_hook(&ShaderWorkbench::dispatch_parameter_updated);
 #endif
     state = persistent_arena.make<StateBundle>();
-    use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
+    use_parameter_storage(persistent_arena,
+                          persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     const Workbench::Preset &initial = preset_for_view(0);
     active_slots = initial.config.slots;

@@ -909,7 +909,8 @@ public:
   HS_COLD_MEMBER void init() override {
     this->begin_choreography();
     state = persistent_arena.make<State>();
-    use_parameter_storage(persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
+    use_parameter_storage(persistent_arena,
+                          persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     configure_noise(state->color_noise, HUE_NOISE_SEED);
     if constexpr (HAS_OUTER_NOISE)
