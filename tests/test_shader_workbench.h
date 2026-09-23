@@ -249,9 +249,10 @@ struct ShaderWorkbenchWhiteBox {
   static constexpr bool seam_compatible(const RequestedConfig &config) {
     return Workbench::strict_seam_compatible(config);
   }
-  static constexpr bool transition_admitted(const RequestedConfig &from,
-                                            const RequestedConfig &to) {
-    return Workbench::transition_admitted(from, to);
+  static constexpr bool
+  transition_endpoints_admitted(const RequestedConfig &from,
+                                const RequestedConfig &to) {
+    return Workbench::transition_endpoints_admitted(from, to);
   }
   static constexpr bool stable_topology(const RequestedConfig &from,
                                         const RequestedConfig &to) {
@@ -2699,8 +2700,8 @@ inline void test_shader_workbench_config_admission() {
 
     const WB::RequestedConfig legacy_config = WB::legacy_config();
     HS_EXPECT_TRUE(WB::valid_config(legacy_config));
-    HS_EXPECT_TRUE(
-        WB::transition_admitted(WB::active_config(sb), legacy_config));
+    HS_EXPECT_TRUE(WB::transition_endpoints_admitted(WB::active_config(sb),
+                                                     legacy_config));
     HS_EXPECT_FALSE(WB::has_inverse_program(legacy_config));
     WB::request_config(sb, legacy_config);
     HS_EXPECT_TRUE(WB::active_config(sb) == legacy_config);
@@ -2709,7 +2710,8 @@ inline void test_shader_workbench_config_admission() {
     const WB::RequestedConfig compiled = WB::presets()[0];
     HS_EXPECT_TRUE(WB::valid_config(compiled));
     HS_EXPECT_TRUE(WB::has_inverse_program(compiled));
-    HS_EXPECT_TRUE(WB::transition_admitted(WB::active_config(sb), compiled));
+    HS_EXPECT_TRUE(
+        WB::transition_endpoints_admitted(WB::active_config(sb), compiled));
     WB::request_config(sb, compiled);
     HS_EXPECT_TRUE(WB::active_config(sb) == compiled);
     HS_EXPECT_FALSE(WB::transition_active(sb));
@@ -2722,7 +2724,8 @@ inline void test_shader_workbench_config_admission() {
     resource_to.params.source.noise_basis = WB::NoiseBasis::FBM3;
     HS_EXPECT_TRUE(WB::valid_config(resource_from));
     HS_EXPECT_TRUE(WB::valid_config(resource_to));
-    HS_EXPECT_TRUE(WB::transition_admitted(resource_from, resource_to));
+    HS_EXPECT_TRUE(
+        WB::transition_endpoints_admitted(resource_from, resource_to));
 
     WB::RequestedConfig shared_owner = WB::legacy_config();
     shared_owner.slots.warp_program.outer.kind =
@@ -2734,7 +2737,8 @@ inline void test_shader_workbench_config_admission() {
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
     shared_owner.slots.warp_program.inner.basis = WB::NoiseBasis::FBM3;
     HS_EXPECT_TRUE(WB::valid_config(shared_owner));
-    HS_EXPECT_TRUE(WB::transition_admitted(shared_owner, shared_owner));
+    HS_EXPECT_TRUE(
+        WB::transition_endpoints_admitted(shared_owner, shared_owner));
   }
 
   {
@@ -3187,7 +3191,7 @@ inline void test_shader_workbench_structural_admission() {
   to.params.warp.outer.scale = 1.0f / 64.0f;
   HS_EXPECT_TRUE(WB::valid_config(from));
   HS_EXPECT_TRUE(WB::valid_config(to));
-  HS_EXPECT_TRUE(WB::transition_admitted(from, to));
+  HS_EXPECT_TRUE(WB::transition_endpoints_admitted(from, to));
   HS_EXPECT_FALSE(WB::stable_topology(from, to));
   HS_EXPECT_FALSE(WB::stable_parameter_path_admitted(from, to));
 
@@ -5519,7 +5523,8 @@ inline void test_shader_workbench_planar_warp_animation() {
   WB::RequestedConfig changed_winding = lattice_scroll;
   changed_winding.params.warp.outer.translation_x = 1.0f;
   HS_EXPECT_TRUE(WB::valid_config(changed_winding));
-  HS_EXPECT_TRUE(WB::transition_admitted(lattice_scroll, changed_winding));
+  HS_EXPECT_TRUE(
+      WB::transition_endpoints_admitted(lattice_scroll, changed_winding));
   HS_EXPECT_FALSE(
       WB::stable_parameter_path_admitted(lattice_scroll, changed_winding));
   WB::RequestedConfig incompatible_scroll = lattice_scroll;
@@ -5766,7 +5771,7 @@ inline void test_shader_workbench_stable_preset_transition() {
   for (size_t index = 0; index < presets.size(); ++index) {
     HS_EXPECT_TRUE(WB::valid_config(presets[index]));
     const auto &next = presets[(index + 1) % presets.size()];
-    HS_EXPECT_TRUE(WB::transition_admitted(presets[index], next));
+    HS_EXPECT_TRUE(WB::transition_endpoints_admitted(presets[index], next));
   }
 }
 
@@ -5908,7 +5913,7 @@ inline void test_shader_workbench_discrete_transition() {
         WB::transition_from_runtime(sb).clocks.source_primary;
     const WB::RequestedConfig queued = WB::presets()[2];
     HS_EXPECT_TRUE(WB::valid_config(queued));
-    HS_EXPECT_TRUE(WB::transition_admitted(captured_source, queued));
+    HS_EXPECT_TRUE(WB::transition_endpoints_admitted(captured_source, queued));
     WB::request_config(sb, queued);
     HS_EXPECT_GT(elapsed_before_takeover, uint16_t(0));
     HS_EXPECT_FALSE(WB::transition_active(sb));
@@ -5923,7 +5928,7 @@ inline void test_shader_workbench_discrete_transition() {
         1e-6f);
 
     const WB::RequestedConfig manual = WB::presets()[5];
-    HS_EXPECT_TRUE(WB::transition_admitted(captured_source, manual));
+    HS_EXPECT_TRUE(WB::transition_endpoints_admitted(captured_source, manual));
     WB::request_config(sb, manual);
     HS_EXPECT_FALSE(WB::transition_active(sb));
     HS_EXPECT_TRUE(WB::active_config(sb) == manual);
