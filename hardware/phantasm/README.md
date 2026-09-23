@@ -512,7 +512,7 @@ Regenerating for a new revision — **discards the committed design**:
 
 ```sh
 cd gen
-python board.py --force  # ../phantasm.kicad_{sch,sym} + sym-lib-table (.kicad_pro seeded only if absent)
+python board.py --force  # ../phantasm.kicad_{sch,sym} + sym-lib-table; merges rule floors into .kicad_pro
 python pcb.py --force    # ../phantasm.kicad_pcb (placed, unrouted) + phantasm.pretty + fp-lib-table
 python pcb.py --unplaced --force # ../unplaced/phantasm_unplaced.kicad_pcb (footprints staged below outline, for Quilter)
 ```
