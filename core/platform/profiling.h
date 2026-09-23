@@ -97,7 +97,7 @@ struct ShaderWorkbenchStageCycles {
   uint32_t source = 0;            /**< Source-function cycles. */
   uint32_t material = 0;          /**< Material evaluation cycles. */
   uint32_t color = 0;             /**< Color mapping cycles. */
-  uint32_t mirror_tile = 0;       /**< Mirror tiling cycles. */
+  uint32_t mirror_tile = 0;       /**< Subset of planar_warp cycles. */
   uint32_t polyhedral_pixels = 0; /**< Pixels entering polyhedral projection. */
   uint32_t polyhedral_reflections = 0; /**< Reflection iterations executed. */
   uint32_t polyhedral_max_reflections =

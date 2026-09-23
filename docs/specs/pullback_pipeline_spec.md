@@ -607,7 +607,9 @@ struct NoInstrumentation {
 
 `ProfileEvent` covers the existing generic boundaries: `LENS`,
 `SURFACE_NOISE`, `PROJECTION`, `PLANAR_WARP`, `MIRROR_TILE`, `SOURCE`,
-`MATERIAL`, and `COLOR`. `NoInstrumentation` compiles to no statements.
+`MATERIAL`, and `COLOR`. `MIRROR_TILE` is nested inside `PLANAR_WARP`;
+its cycles are a subset and must not be added again when totaling stage time.
+`NoInstrumentation` compiles to no statements.
 ShaderWorkbench supplies a hook policy that maps these events to the existing
 `HS_SB_STAGE_MARK`/`HS_SB_STAGE_SPAN` counters. Instrumented builds shall
 preserve the current boundary and nesting order. Shipping builds shall show no
