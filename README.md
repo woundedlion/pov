@@ -529,6 +529,9 @@ files define line-ending policy and working-artifact exclusions.
 ├── display_aliases.js          The display-buffer aliases every renderer writes through, healed together
 ├── segment_policy.js           Segmented spawn epoch plus the single-engine fallback a failed spawn runs
 ├── effect_gui.js               Effect panel lifecycle: build, mount, value sync, Export, teardown
+├── effect_panel_edits.js      Slider edit lifetime and deferred persistence
+├── effect_panel_view.js       Panel mounting and focus restoration
+├── effect_persistence.js      Effect URL state, presets, and replay
 ├── shader_stages.js            DOM-free shader stage taxonomy: schema detection, stage assignment, control labels
 ├── legacy_shader_import.js     ShaderWorkbench URL/save-state migration importer
 ├── effect_sequencing.js        DOM-free effect/resolution apply-order and resolution-preset rules
@@ -547,8 +550,8 @@ files define line-ending policy and working-artifact exclusions.
 ├── pole_lod.js                 Pole LOD binding, held until the engine the module load builds exists
 ├── global_stats_view.js        Single-engine stats bar: frame draw duration and per-arena usage
 ├── module_warmer.js            Epoch-fenced shared-WASM compilation and warm-cache state
-├── segment_controller.js       Orchestrates the segmented-POV worker pool:
-│                                  dispatch, generation fence, and compositing
+├── segment_controller.js       Worker lifecycle, protocol dispatch, and generation fence
+├── segment_compositor.js      Frame compositing, band caches, and boundary overlays
 ├── segment_worker.js           Web Worker that hosts one WASM instance per
 │                                  Phantasm hardware segment (parallel render)
 ├── segment_layout.js           Pure segment-layout math (Node-unit-testable, no WASM/Worker)
@@ -569,6 +572,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── chain_apply.js          Applies a compiled chain document: setShaderChain, then the preset values
 │   ├── chain_document_store.js v2 chain document store: span replacement, legality, reconciliation, undo
 │   ├── chain_strip.js          Pipeline strip: the chain as stage chips banded by carrier
+│   ├── chain_presentation.js  Catalog-backed chain labels and carrier presentation
 │   ├── solids.html             Conway operator playground (uses MeshOps bridge)
 │   ├── solids.css              Solids page layout and control styling
 │   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
@@ -583,6 +587,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── export_params.js        Formatter behind the GUI's Export action
 │   ├── flyout.js               Button-controlled flyout with outside-click and Escape dismissal
 │   ├── kb_format.js            Dependency-free kilobyte formatter shared by the stat readouts
+│   ├── labels.js              Shared display-label formatting
 │   ├── lissajous_math.js       Pure Lissajous curve math from lissajous.html
 │   ├── lissajous_page.js       Page module extracted from lissajous.html's inline script
 │   ├── mobius_page.js          Controller for the Möbius tool page
