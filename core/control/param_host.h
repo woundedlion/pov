@@ -104,7 +104,8 @@ public:
   /**
    * @brief Reports an actionable GUI warning for one parameter.
    * @param name Registered parameter name.
-   * @return Warning text, or null when the parameter is valid.
+   * @return Borrowed warning text, or null when the parameter is valid.
+   * Copy the text before the next warning query or mutation of this host.
    */
   virtual const char *parameter_warning(const char *name) const {
     (void)name;
