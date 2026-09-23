@@ -1557,18 +1557,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # Discover finds test files by pattern, so a pattern matching nothing runs
-      # no suite and stays green; require_test_files.sh fails on an empty match.
       # No --sync: it rewrites the maps and counts before checking them, so a
-      # drifted README would pass. `just docs-check` is the repairer.
+      # drifted README would pass. `just docs-sync` refreshes generated sections.
       - name: Validate tracked Markdown
         run: |
           python tools/docs_check.py --checkout daydream=daydream
           python tools/build_pins.py --check
-
-      # --check above prints PASS whether or not its three checks still parse the
-      # shapes they read (workflow YAML, package.json's `>=X` range); these drive
-      # each against a fixture that must fail.
 
       # An ignore rule is inert against an already-tracked path, so .gitignore
       # alone cannot keep a session artifact out of the repo.
@@ -1596,8 +1590,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Discover finds test files by pattern, so a pattern matching nothing runs
-      # no suite and stays green; require_test_files.sh fails on an empty match.
       - name: Check tracked license headers
         run: |
           python tools/license_check.py
