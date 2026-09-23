@@ -14,8 +14,9 @@
  *     frequency 0.125): tolerance-checked sample grids.
  *   - noise_transform: pinned displaced output for fixed params and inputs.
  *
- * Provenance: no generator emits these arrays. Each was captured by running the
- * sample expression stated beside it against the vendored FastNoiseLite
+ * Capture: cmake --build --preset tests --target noise_golden_gen, then run
+ * build/tests/tests/noise_golden_gen to print candidate grid arrays.
+ * Provenance: each array was captured against the vendored FastNoiseLite
  * (upstream VERSION 1.1.1 plus the in-tree patches core/vendor/
  * FastNoiseLite_config.h records), built by the native clang test toolchain
  * (cmake/toolchain-native-clang.cmake). A vendor update requires independent

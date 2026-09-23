@@ -495,6 +495,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pullback_crosscheck.py  Isolated base/candidate pullback capture runner and comparator
 │   ├── device_lock.sh          Host-global per-board lock every device path takes
 │   ├── device_lock_guard.py    OS file-lock guard for claim creation and removal
+│   ├── noise_golden_export.cpp    Native noise golden grid capture tool
 │   ├── pov_segment_map_export.cpp  Generator for the committed segment-map golden
 │   ├── relax_bakes.py / relax_bake_harness.cpp  Relaxed-mesh bake generator of record
 │   ├── gen_gamut_lut.py        sRGB gamut-boundary generator of record (emits core/color/gamut_lut.h)

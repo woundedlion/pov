@@ -860,3 +860,6 @@ foreach(_hs_test IN LISTS _hs_registered_tests)
     set_tests_properties(${_hs_test} PROPERTIES TIMEOUT ${_hs_test_timeout})
   endif()
 endforeach()
+
+add_executable(noise_golden_gen ${HS_ROOT}/tools/noise_golden_export.cpp)
+target_include_directories(noise_golden_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
