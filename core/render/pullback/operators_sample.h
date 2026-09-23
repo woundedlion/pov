@@ -124,6 +124,8 @@ struct RingsSampleParams : SampleCrossingParams {
   static constexpr auto TOPOLOGY =
       sample_crossing_topology<RingsSampleParams>();
 };
+static_assert(sizeof(RingsSampleParams) ==
+              sizeof(SampleCrossingParams) + 2 * sizeof(float));
 static_assert(field_ids_unique<RingsSampleParams>());
 static_assert(sizeof(RingsSampleParams) == ((sizeof(SampleCrossingParams) + 8 +
                                              alignof(RingsSampleParams) - 1) /

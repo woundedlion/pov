@@ -170,10 +170,10 @@ struct SampleCrossingParams {
 /**
  * @brief Whether @p Params spells the crossing's three members with the same
  *        defaults as SampleCrossingParams.
- * @details A family that appends a member of its own cannot inherit the
- * crossing: the MSVC ABI would leave the base's tail padding unused where the
- * Itanium one packs into it, and the two operator catalogs pin a single param
- * block size. Such a family repeats the members and asserts this instead.
+ * @details Members that can occupy the crossing's two tail-padding bytes
+ * produce different inherited layouts under MSVC and Itanium ABIs. Those
+ * families repeat the crossing members and assert this instead. Appended
+ * floats require four-byte alignment and cannot occupy that padding.
  */
 template <typename Params> consteval bool sample_crossing_defaults_match() {
   constexpr Params PARAMS{};
