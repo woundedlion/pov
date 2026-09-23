@@ -17,8 +17,6 @@
 #include <emscripten/bind.h>
 #include "core/engine/memory.h"
 
-using namespace emscripten;
-
 /**
  * @brief Adds one arena's {usage, high_water_mark, lifetime_high_water_mark,
  *        capacity} entry to a report.
@@ -33,9 +31,9 @@ using namespace emscripten;
  *          — a re-split moves the boundary — so an overrun gate reads the
  *          windowed mark.
  */
-static void add_arena_metrics(val &metrics, const char *name,
+static void add_arena_metrics(emscripten::val &metrics, const char *name,
                               const Arena &arena) {
-  val m = val::object();
+  emscripten::val m = emscripten::val::object();
   m.set("usage", arena.get_offset());
   m.set("high_water_mark", arena.get_high_water_mark());
   m.set("lifetime_high_water_mark", arena.get_lifetime_high_water_mark());
@@ -51,8 +49,8 @@ static void add_arena_metrics(val &metrics, const char *name,
  *          this covers only the arenas an engine instance can move; the tooling
  *          arenas are reported by collect_arena_metrics().
  */
-static val collect_engine_arena_metrics() {
-  val metrics = val::object();
+static emscripten::val collect_engine_arena_metrics() {
+  emscripten::val metrics = emscripten::val::object();
   add_arena_metrics(metrics, "scratch_arena_a", scratch_arena_a);
   add_arena_metrics(metrics, "scratch_arena_b", scratch_arena_b);
   add_arena_metrics(metrics, "persistent_arena", persistent_arena);
