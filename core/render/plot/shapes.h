@@ -67,6 +67,8 @@ inline void draw_fragments(PipelineT &pipeline, Canvas &canvas,
                            VertexShaderRef vertex_shader,
                            FragmentShaderFn fragment_shader,
                            const FragmentDrawParams &params, FillFn &&fill) {
+  HS_CHECK(params.loop_seam == nullptr || params.close_loop,
+           "a raster seam fragment requires a closed loop");
   ScratchScope frag_guard(scratch_arena_a);
   Fragments points;
   points.bind(scratch_arena_a, params.capacity);
@@ -74,11 +76,14 @@ inline void draw_fragments(PipelineT &pipeline, Canvas &canvas,
   apply_vertex_shader(vertex_shader, points);
   if (params.loop_seam != nullptr && vertex_shader)
     vertex_shader(*params.loop_seam);
-  rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                  {.close_loop = params.close_loop,
-                   .planar_basis = params.planar_basis,
-                   .omit_end = params.omit_end,
-                   .loop_seam = params.loop_seam});
+  rasterize<W, H>(
+      pipeline, canvas, points, fragment_shader,
+      {.loop = params.close_loop ? RasterLoop::closed(params.loop_seam)
+                                 : RasterLoop{},
+       .projection = params.planar_basis
+                         ? RasterProjection::planar(*params.planar_basis)
+                         : RasterProjection{},
+       .omit_end = params.omit_end});
 }
 
 /**
