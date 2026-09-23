@@ -640,6 +640,8 @@ jobs:
         # the largest core/ subtrees carry their own floors, derived from the
         # measured coverage. A directory the report names no file under fails
         # rather than passing vacuously.
+        # The 1% entries for core/spatial, core/platform, hardware and targets
+        # are presence checks, not measured coverage-regression floors.
         shell: bash
         run: |
           llvm-profdata-22 merge -sparse -o cov/run_tests.profdata cov/*.profraw
