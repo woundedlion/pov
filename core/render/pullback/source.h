@@ -487,11 +487,11 @@ tessellation(const math::Complex &input, const Params &params,
 }
 
 HS_FLASH_INLINE inline float noise_contour(const FastNoiseLite &noise,
-                                           ::NoiseBasis basis,
+                                           math::NoiseBasis basis,
                                            const math::Vector &coordinate,
                                            float contrast) {
-  const float sample =
-      hs::clamp(sample_noise_octaves(noise, basis, coordinate), -1.0f, 1.0f);
+  const float sample = hs::clamp(
+      math::sample_noise_octaves(noise, basis, coordinate), -1.0f, 1.0f);
   return sample * (1.0f + contrast) / (1.0f + contrast * fabsf(sample));
 }
 
@@ -735,7 +735,7 @@ struct Tessellation : ApproximationDefaults {
   }
 };
 
-template <typename State, ::NoiseBasis BasisV>
+template <typename State, math::NoiseBasis BasisV>
 struct ProjectedNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -753,20 +753,20 @@ struct ProjectedNoise : ApproximationDefaults {
   using Prepared = math::Vector;
 
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return noise_projected_loop_offset(State::noise_time(frame));
+    return math::noise_projected_loop_offset(State::noise_time(frame));
   }
 
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     return noise_contour(State::noise(frame), BasisV,
-                         noise_projected_coordinate(
+                         math::noise_projected_coordinate(
                              input.coords, State::noise_scale(frame), prepared),
                          State::noise_contrast(frame));
   }
 };
 
-template <typename State, ::NoiseBasis BasisV>
+template <typename State, math::NoiseBasis BasisV>
 struct SphericalNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -778,7 +778,7 @@ struct SphericalNoise : ApproximationDefaults {
   using Prepared = math::Vector;
 
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return noise_sphere_loop_offset(State::noise_time(frame));
+    return math::noise_sphere_loop_offset(State::noise_time(frame));
   }
 
   /** @brief Post-projection form: samples the plane carrier's retained
@@ -787,17 +787,17 @@ struct SphericalNoise : ApproximationDefaults {
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
     return noise_contour(State::noise(frame), BasisV,
-                         noise_sphere_coordinate(
+                         math::noise_sphere_coordinate(
                              input.sphere, State::noise_scale(frame), prepared),
                          State::noise_contrast(frame));
   }
   __attribute__((always_inline)) static float sample(const SphereSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
-    return noise_contour(
-        State::noise(frame), BasisV,
-        noise_sphere_coordinate(input.dir, State::noise_scale(frame), prepared),
-        State::noise_contrast(frame));
+    return noise_contour(State::noise(frame), BasisV,
+                         math::noise_sphere_coordinate(
+                             input.dir, State::noise_scale(frame), prepared),
+                         State::noise_contrast(frame));
   }
 };
 

@@ -195,7 +195,7 @@ valid_config(const RequestedConfig &candidate) {
       !valid_mobius(candidate.params.surface_lens.mobius))
     return false;
   const SurfaceNoiseParams &surface_noise = candidate.params.surface_noise;
-  if (!enum_at_most(surface_noise.basis, NoiseBasis::RIDGED3) ||
+  if (!enum_at_most(surface_noise.basis, math::NoiseBasis::RIDGED3) ||
       !enum_at_most(surface_noise.integrator,
                     SurfaceCurlIntegrator::MIDPOINT_2X) ||
       surface_noise.scale < LENS_NOISE_SCALE_MIN ||
@@ -211,7 +211,7 @@ valid_config(const RequestedConfig &candidate) {
 
 HS_COLD_MEMBER inline constexpr bool
 valid_warp_spec(const WarpStageSpec &spec) {
-  return enum_at_most(spec.basis, NoiseBasis::RIDGED3) &&
+  return enum_at_most(spec.basis, math::NoiseBasis::RIDGED3) &&
          enum_at_most(spec.envelope, WarpEnvelope::EDGE_FADE) &&
          enum_at_most(spec.polar_mode, PolarMode::LOGARITHMIC) &&
          enum_at_most(spec.curl_integrator, CurlIntegrator::MIDPOINT_4) &&
@@ -223,7 +223,8 @@ HS_COLD_MEMBER inline constexpr float abs_value(float value) {
 }
 
 /** @brief Maximum component emitted by the bounded curl vector field. */
-HS_COLD_MEMBER inline constexpr float curl_vector_component_bound(NoiseBasis) {
+HS_COLD_MEMBER inline constexpr float
+curl_vector_component_bound(math::NoiseBasis) {
   return CURL_VECTOR_COMPONENT_MAX;
 }
 

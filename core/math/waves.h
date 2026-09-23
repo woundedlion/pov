@@ -14,6 +14,8 @@
 #include <cmath>
 #include "math/geometry.h"
 
+namespace math {
+
 /**
  * @brief Builds a sine oscillator over the range [from, to].
  * @param from The output value at the trough.
@@ -85,3 +87,5 @@ inline auto square_wave(float from, float to, float freq, float duty_cycle,
     return from;
   };
 }
+
+} // namespace math

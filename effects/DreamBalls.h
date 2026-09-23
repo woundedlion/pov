@@ -762,8 +762,8 @@ private:
   void spin_slices() {
     math::Vector axis = math::random_vector();
     timeline.add(0, Animation::Rotation<W>(global_orientation, axis,
-                                           2 * math::PI_F, 80, ease_in_out_sin,
-                                           false));
+                                           2 * math::PI_F, 80,
+                                           math::ease_in_out_sin, false));
   }
 };
 

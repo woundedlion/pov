@@ -1793,7 +1793,8 @@ template <int W, int H>
 inline float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
   const float progress = static_cast<float>(cycle_frame) /
                          conway_soak_tests::HankinWalkProbe::sweep_frames(fx);
-  return sin_wave(0.0f, math::PI_F / 2.0f, 1.0f, 0.0f)(ease_linear(progress));
+  return math::sin_wave(0.0f, math::PI_F / 2.0f, 1.0f,
+                        0.0f)(math::ease_linear(progress));
 }
 
 /** Hard-recolor pixel count between two captured frames. */

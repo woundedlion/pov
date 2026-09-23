@@ -221,7 +221,7 @@ struct SaturatedPresetEffect
     : ChoreographedEffect<SaturatedPresetEffect, HoldParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
                                                               "second"};
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{4, ease_linear};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{4, math::ease_linear};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   SaturatedPresetEffect() : ChoreographedEffect(8, 8) {}

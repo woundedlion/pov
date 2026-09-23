@@ -246,7 +246,7 @@ private:
     Color4 color = frame.resources.generated_palette->get(palette_value);
     if (frame.prepared_hue_rotation.active &&
         frame.slots.hue_shift == Workbench::HueShiftMode::NOISE) {
-      const math::Vector q = noise_sphere_coordinate(
+      const math::Vector q = math::noise_sphere_coordinate(
           sample.sphere, frame.params.color.hue_noise_scale,
           frame.clocks.hue_noise_phase);
       const float noise =

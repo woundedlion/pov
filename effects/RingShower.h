@@ -155,7 +155,7 @@ private:
      */
     float opacity_at() const {
       if (age + 1 < FADE_IN_FRAMES)
-        return ease_linear(static_cast<float>(age + 1) / FADE_IN_FRAMES);
+        return math::ease_linear(static_cast<float>(age + 1) / FADE_IN_FRAMES);
       return 1.0f;
     }
   };

@@ -24,7 +24,7 @@ struct SpriteFade {
   /** @brief Ramp length in frames; in [0, MAX_FADE_DURATION]. */
   int duration = 0;
   /** @brief Easing applied across the ramp. */
-  EasingFn easing = ease_linear;
+  EasingFn easing = math::ease_linear;
 };
 
 /** @brief Optional envelope and gating of a Sprite. */

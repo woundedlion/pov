@@ -12,6 +12,8 @@
 
 #include "math/3dmath.h"
 
+namespace math {
+
 /** @brief Component count of the four-dimensional primitives below. */
 inline constexpr int VEC4_DIMENSIONS = 4;
 
@@ -76,3 +78,5 @@ HS_COLD static inline void rotate_plane(Mat4 &matrix, int a, int b,
     matrix.m[b][column] = s * av + c * bv;
   }
 }
+
+} // namespace math

@@ -87,7 +87,7 @@ enum class WarpStageKind : uint8_t {
 };
 struct WarpStageSpec {
   WarpStageKind kind;
-  NoiseBasis basis = NoiseBasis::SIMPLEX;
+  math::NoiseBasis basis = math::NoiseBasis::SIMPLEX;
   WarpEnvelope envelope = WarpEnvelope::FLAT;
   PolarMode polar_mode = PolarMode::LINEAR;
   CurlIntegrator curl_integrator = CurlIntegrator::EULER_1;
@@ -163,7 +163,7 @@ struct SourceParams {
   float lattice_shape_blend = 0.0f;
   float lattice_softness = 0.05f;
   float lattice_radius = 0.25f;
-  NoiseBasis noise_basis = NoiseBasis::SIMPLEX;
+  math::NoiseBasis noise_basis = math::NoiseBasis::SIMPLEX;
   int32_t noise_seed = 2927;
   uint8_t ring_count = 6;
   float ring_thickness = 0.08f;
@@ -386,7 +386,7 @@ struct SurfaceLensParams {
 };
 
 struct SurfaceNoiseParams {
-  NoiseBasis basis = NoiseBasis::SIMPLEX;
+  math::NoiseBasis basis = math::NoiseBasis::SIMPLEX;
   SurfaceCurlIntegrator integrator = SurfaceCurlIntegrator::EULER;
   int32_t seed = 1337;
   float scale = 1.0f;
@@ -539,7 +539,8 @@ struct Params {
   }
 
   HS_COLD_MEMBER static float phase_t(float t, int phase, int phase_count) {
-    return ease_in_out_sin(hs::clamp(t * phase_count - phase, 0.0f, 1.0f));
+    return math::ease_in_out_sin(
+        hs::clamp(t * phase_count - phase, 0.0f, 1.0f));
   }
 };
 

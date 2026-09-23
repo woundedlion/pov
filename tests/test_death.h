@@ -345,8 +345,8 @@ inline void case_normalize_zero() {
 
 /** @brief Death case: rotating in a degenerate coordinate plane must trap. */
 inline void case_rotate_plane_degenerate() {
-  Mat4 m = Mat4::identity();
-  rotate_plane(m, opaque(1), opaque(1), 0.5f); // a == b -> HS_CHECK
+  math::Mat4 m = math::Mat4::identity();
+  math::rotate_plane(m, opaque(1), opaque(1), 0.5f); // a == b -> HS_CHECK
   if (m.m[0][0] == 42.0f)
     std::printf("x");
 }
@@ -637,8 +637,8 @@ inline void case_timeline_handled_relocation() {
 inline void case_timeline_move_into_live_destination() {
   Timeline tl;
   float v = 0.0f;
-  tl.add(0, Animation::Transition(v, 1.0f, 10, ease_linear));
-  tl.add(0, Animation::Transition(v, 1.0f, 10, ease_linear));
+  tl.add(0, Animation::Transition(v, 1.0f, 10, math::ease_linear));
+  tl.add(0, Animation::Transition(v, 1.0f, 10, math::ease_linear));
   global_timeline_events[opaque(0)].move_into(global_timeline_events[1]);
 }
 
@@ -648,7 +648,7 @@ inline void case_timeline_move_into_live_destination() {
 inline void case_timeline_negative_delay() {
   Timeline tl;
   float value = 0.0f;
-  tl.add(opaque(-1), Animation::Transition(value, 1.0f, 1, ease_linear));
+  tl.add(opaque(-1), Animation::Transition(value, 1.0f, 1, math::ease_linear));
 }
 
 /**
@@ -658,7 +658,7 @@ inline void case_timeline_start_overflow() {
   Timeline tl;
   global_timeline_t = opaque<uint32_t>(UINT32_MAX - 1);
   float value = 0.0f;
-  tl.add(opaque(2), Animation::Transition(value, 1.0f, 1, ease_linear));
+  tl.add(opaque(2), Animation::Transition(value, 1.0f, 1, math::ease_linear));
 }
 
 /**
@@ -683,7 +683,7 @@ inline void case_timeline_handled_completion() {
   // case_timeline_pinned_finite_animation), so the event is marked handled
   // directly to reach step()'s completion branch. A 1-frame Transition is finite
   // and the sole event, so step() routes it through completion/destroy.
-  tl.add(0, Animation::Transition(v, 1.0f, 1, ease_linear));
+  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
   global_timeline_events[0].handled = opaque(true);
   tl.step(canvas); // t=1: done() && !repeats() && !canceled, keep=false -> trap
 }
@@ -699,7 +699,7 @@ inline void case_timeline_handled_completion() {
 inline void case_timeline_pinned_finite_animation() {
   Timeline tl;
   float v = 0.0f;
-  tl.add_get(0, Animation::Transition(v, 1.0f, opaque(1), ease_linear),
+  tl.add_get(0, Animation::Transition(v, 1.0f, opaque(1), math::ease_linear),
              Timeline::Pin::PINNED);
 }
 
@@ -715,7 +715,7 @@ inline void case_timeline_pinned_add_on_full_timeline() {
   Timeline tl;
   float sink = 0.0f;
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
-    tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
   tl.add_get(0,
              Animation::PeriodicTimer(
                  1, [](Canvas &) {}, /*repeat=*/true),
@@ -752,7 +752,7 @@ inline void case_timeline_pinned_one_shot_timer() {
 inline void case_timeline_clear_pinned() {
   Timeline tl;
   float v = 0.0f;
-  tl.add(0, Animation::Transition(v, 1.0f, 1, ease_linear));
+  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
   global_timeline_events[0].handled = opaque(true);
   tl.clear(); // HS_CHECK(!handled) -> trap
 }
@@ -769,7 +769,7 @@ inline void case_timeline_clear_during_step() {
   static Canvas canvas(fx);
   Timeline tl;
   float v = 0.0f;
-  tl.add(0, Animation::Transition(v, 1.0f, 1, ease_linear).then([&tl]() {
+  tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear).then([&tl]() {
     tl.clear();
   }));
   tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
@@ -813,7 +813,8 @@ struct FadeChoreoDeathEffect
   /** @brief Fills the timeline down to @p free slots. */
   void fill(int free) {
     while (Timeline::remaining() > free)
-      timeline.add(0, Animation::Transition(sink, 1.0f, 1000, ease_linear));
+      timeline.add(0,
+                   Animation::Transition(sink, 1.0f, 1000, math::ease_linear));
   }
 
   /** @brief Arms the choreography, which the Fade policy routes into the
@@ -840,7 +841,7 @@ inline void case_preset_choreography_no_slots() {
 /** @brief Death case: finite parameter animations reject the -1 sentinel. */
 inline void case_finite_param_perpetual_duration() {
   float value = 0.0f;
-  Animation::Transition transition(value, 1.0f, opaque(-1), ease_linear);
+  Animation::Transition transition(value, 1.0f, opaque(-1), math::ease_linear);
   if (transition.done())
     std::printf("x");
 }
@@ -849,7 +850,8 @@ inline void case_finite_param_perpetual_duration() {
 inline void case_transition_nonfinite_target() {
   float value = 0.0f;
   Animation::Transition transition(
-      value, opaque(std::numeric_limits<float>::quiet_NaN()), 1, ease_linear);
+      value, opaque(std::numeric_limits<float>::quiet_NaN()), 1,
+      math::ease_linear);
   if (transition.done())
     std::printf("x");
 }
@@ -858,7 +860,7 @@ inline void case_transition_nonfinite_target() {
 inline void add_event_from_clear_hook(void *ctx) {
   static float value = 0.0f;
   static_cast<Timeline *>(ctx)->add(
-      0, Animation::Transition(value, 1.0f, 1, ease_linear));
+      0, Animation::Transition(value, 1.0f, 1, math::ease_linear));
 }
 
 /** @brief Death case: clear hooks must not mutate timeline event storage. */
@@ -880,7 +882,7 @@ inline void case_segue_sprite_no_slot() {
   Timeline tl;
   float sink = 0.0f;
   while (Timeline::remaining() > 0)
-    tl.add(0, Animation::Transition(sink, 1.0f, 1000, ease_linear));
+    tl.add(0, Animation::Transition(sink, 1.0f, 1000, math::ease_linear));
   Segue::schedule_faded_sprite(tl, [](Canvas &, float) {}, 4, 1);
 }
 
@@ -4238,7 +4240,7 @@ inline void case_opleg_no_event_slot() {
   Timeline tl;
   float sink = 0.0f;
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
-    tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
   Animation::OpLeg::require_event_slot();
 }
 
@@ -5101,7 +5103,7 @@ inline const Case *all_cases(int &n) {
        "(params.integrator < 3) warp.curl-flow: invalid integrator"},
       {"pullback_operator_invalid_noise_basis",
        case_pullback_operator_invalid_noise_basis, "operators_common.h",
-       "(basis <= static_cast<uint8_t>(::NoiseBasis::RIDGED3)) "
+       "(basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3)) "
        "pullback operator: invalid noise basis"},
       {"pullback_operator_invalid_tessellation_kind",
        case_pullback_operator_invalid_tessellation_kind, "operators_sample.h",

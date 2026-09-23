@@ -504,7 +504,7 @@ public:
    * @param easing The easing function to use (default: ease_in_out_sin).
    */
   MobiusWarpBase(math::MobiusParams &params, float scale, int duration,
-                 bool repeat = true, EasingFn easing = ease_in_out_sin)
+                 bool repeat = true, EasingFn easing = math::ease_in_out_sin)
       : FiniteParamAnimationBase<Derived>(duration, repeat), params(params),
         scale(scale), easing(easing) {
     HS_CHECK(std::isfinite(scale), "Mobius warp scale must be finite");

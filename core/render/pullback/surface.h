@@ -119,7 +119,7 @@ struct PreparedLoop {
 
 /** @brief Resolves this frame's loop point from the loop phase. */
 HS_FLASH_INLINE inline PreparedLoop prepare(float phase) {
-  return {noise_sphere_loop_offset(phase)};
+  return {math::noise_sphere_loop_offset(phase)};
 }
 
 /** @brief Loop point plus the steering frame the direct displacement reads. */
@@ -193,39 +193,43 @@ path_length(const math::Vector &step, bool required) {
 __attribute__((always_inline)) inline SurfaceResult
 finish_step(const math::Vector &input, const math::Vector &step,
             bool path_length_required) {
-  return {sphere_exp_map_half_radian(input, step),
+  return {math::sphere_exp_map_half_radian(input, step),
           path_length(step, path_length_required)};
 }
 
 __attribute__((always_inline)) inline SurfaceResult
 direct_noise(const math::Vector &input, const FastNoiseLite &noise,
-             ::NoiseBasis basis, float scale, const math::Vector &loop_offset,
-             float strength, float direction_cos, float direction_sin,
+             math::NoiseBasis basis, float scale,
+             const math::Vector &loop_offset, float strength,
+             float direction_cos, float direction_sin,
              bool path_length_required) {
   if (strength == 0.0f)
     return {input, 0.0f};
-  const math::Vector q = noise_sphere_coordinate(input, scale, loop_offset);
-  const math::Vector tangent = sample_direct_tangent(
+  const math::Vector q =
+      math::noise_sphere_coordinate(input, scale, loop_offset);
+  const math::Vector tangent = math::sample_direct_tangent(
       noise, basis, q, input, direction_cos, direction_sin);
   return finish_step(input, strength * tangent, path_length_required);
 }
 
 __attribute__((always_inline)) inline math::Vector
 curl_field(const math::Vector &input, const FastNoiseLite &noise,
-           ::NoiseBasis basis, float scale, const math::Vector &loop_offset) {
-  const math::Vector q = noise_sphere_coordinate(input, scale, loop_offset);
-  return sample_curl_tangent(noise, basis, q, input);
+           math::NoiseBasis basis, float scale,
+           const math::Vector &loop_offset) {
+  const math::Vector q =
+      math::noise_sphere_coordinate(input, scale, loop_offset);
+  return math::sample_curl_tangent(noise, basis, q, input);
 }
 
 __attribute__((always_inline)) inline SurfaceResult
 curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
-                   ::NoiseBasis basis, float scale,
+                   math::NoiseBasis basis, float scale,
                    const math::Vector &loop_offset, float distance,
                    bool path_length_required) {
   const math::Vector first =
       curl_field(input, noise, basis, scale, loop_offset);
   const math::Vector midpoint =
-      sphere_exp_map_half_radian(input, 0.5f * distance * first);
+      math::sphere_exp_map_half_radian(input, 0.5f * distance * first);
   const math::Vector midpoint_field =
       curl_field(midpoint, noise, basis, scale, loop_offset);
   return finish_step(
@@ -236,7 +240,7 @@ curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
 
 HS_FLASH_INLINE inline SurfaceResult
 curl_noise(const math::Vector &input, const FastNoiseLite &noise,
-           ::NoiseBasis basis, Integrator integrator, float scale,
+           math::NoiseBasis basis, Integrator integrator, float scale,
            const math::Vector &loop_offset, float strength,
            bool path_length_required) {
   if (strength == 0.0f)
@@ -258,7 +262,7 @@ curl_noise(const math::Vector &input, const FastNoiseLite &noise,
   return second;
 }
 
-template <typename State, ::NoiseBasis Basis>
+template <typename State, math::NoiseBasis Basis>
 struct DirectNoise : ApproximationDefaults {
   using FrameState = typename State::FrameState;
 
@@ -294,7 +298,7 @@ struct DirectNoise : ApproximationDefaults {
   }
 };
 
-template <typename State, ::NoiseBasis Basis, typename IntegratorPolicy>
+template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy>
 struct CurlNoise : ApproximationDefaults {
   using FrameState = typename State::FrameState;
 

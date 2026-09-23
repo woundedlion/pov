@@ -21,16 +21,16 @@
 
 namespace Workbench {
 
-HS_COLD_MEMBER inline constexpr NoiseFieldKey
+HS_COLD_MEMBER inline constexpr math::NoiseFieldKey
 warp_resource_key(const WarpStageSpec &spec) {
-  return {NoiseDomain::PROJECTED_2D,
+  return {math::NoiseDomain::PROJECTED_2D,
           spec.basis,
           spec.seed,
           spec.kind == WarpStageKind::CURL_FLOW
-              ? NoiseChannelLayout::CURL_V1
-              : (spec.basis == NoiseBasis::SIMPLEX
-                     ? NoiseChannelLayout::DIRECT_VECTOR_V2
-                     : NoiseChannelLayout::DIRECT_V1),
+              ? math::NoiseChannelLayout::CURL_V1
+              : (spec.basis == math::NoiseBasis::SIMPLEX
+                     ? math::NoiseChannelLayout::DIRECT_VECTOR_V2
+                     : math::NoiseChannelLayout::DIRECT_V1),
           1,
           1,
           static_cast<uint8_t>(spec.kind == WarpStageKind::CURL_FLOW ? 1 : 0),
@@ -38,14 +38,14 @@ warp_resource_key(const WarpStageSpec &spec) {
           1.0f};
 }
 
-HS_COLD_MEMBER inline constexpr NoiseFieldKey
+HS_COLD_MEMBER inline constexpr math::NoiseFieldKey
 source_resource_key(const Config &config) {
   return {config.slots.function == Function::NOISE_CONTOUR_SPHERE
-              ? NoiseDomain::SPHERE_3D
-              : NoiseDomain::PROJECTED_2D,
+              ? math::NoiseDomain::SPHERE_3D
+              : math::NoiseDomain::PROJECTED_2D,
           config.params.source.noise_basis,
           config.params.source.noise_seed,
-          NoiseChannelLayout::SCALAR_V1,
+          math::NoiseChannelLayout::SCALAR_V1,
           1,
           1,
           0,
@@ -53,18 +53,18 @@ source_resource_key(const Config &config) {
           1.0f};
 }
 
-HS_COLD_MEMBER inline constexpr NoiseFieldKey
+HS_COLD_MEMBER inline constexpr math::NoiseFieldKey
 surface_noise_resource_key(const Config &config) {
-  return {NoiseDomain::SPHERE_3D,
+  return {math::NoiseDomain::SPHERE_3D,
           config.params.surface_noise.basis,
           config.params.surface_noise.seed,
           config.slots.surface_noise == SurfaceNoise::CURL
-              ? (config.params.surface_noise.basis == NoiseBasis::SIMPLEX
-                     ? NoiseChannelLayout::CURL_ANALYTIC_V2
-                     : NoiseChannelLayout::CURL_V1)
-              : (config.params.surface_noise.basis == NoiseBasis::SIMPLEX
-                     ? NoiseChannelLayout::DIRECT_VECTOR_V2
-                     : NoiseChannelLayout::DIRECT_V1),
+              ? (config.params.surface_noise.basis == math::NoiseBasis::SIMPLEX
+                     ? math::NoiseChannelLayout::CURL_ANALYTIC_V2
+                     : math::NoiseChannelLayout::CURL_V1)
+              : (config.params.surface_noise.basis == math::NoiseBasis::SIMPLEX
+                     ? math::NoiseChannelLayout::DIRECT_VECTOR_V2
+                     : math::NoiseChannelLayout::DIRECT_V1),
           1,
           1,
           static_cast<uint8_t>(
@@ -73,11 +73,11 @@ surface_noise_resource_key(const Config &config) {
           1.0f};
 }
 
-HS_COLD_MEMBER inline constexpr NoiseFieldKey color_noise_resource_key() {
-  return {NoiseDomain::SPHERE_3D,
-          NoiseBasis::SIMPLEX,
+HS_COLD_MEMBER inline constexpr math::NoiseFieldKey color_noise_resource_key() {
+  return {math::NoiseDomain::SPHERE_3D,
+          math::NoiseBasis::SIMPLEX,
           Pullback::HUE_NOISE_SEED,
-          NoiseChannelLayout::SCALAR_V1,
+          math::NoiseChannelLayout::SCALAR_V1,
           1,
           1,
           0,
@@ -86,8 +86,8 @@ HS_COLD_MEMBER inline constexpr NoiseFieldKey color_noise_resource_key() {
 }
 
 HS_COLD_MEMBER inline constexpr bool
-append_resource_key(const NoiseFieldKey &key,
-                    std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> &keys,
+append_resource_key(const math::NoiseFieldKey &key,
+                    std::array<math::NoiseFieldKey, MAX_NOISE_RESOURCES> &keys,
                     size_t &count) {
   for (size_t index = 0; index < count; ++index)
     if (keys[index] == key)
@@ -99,8 +99,8 @@ append_resource_key(const NoiseFieldKey &key,
 }
 
 HS_COLD_MEMBER inline constexpr bool append_config_resource_keys(
-    const Config &config, std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> &keys,
-    size_t &count) {
+    const Config &config,
+    std::array<math::NoiseFieldKey, MAX_NOISE_RESOURCES> &keys, size_t &count) {
   if (warp_uses_noise(config.slots.warp_program.outer.kind) &&
       !append_resource_key(warp_resource_key(config.slots.warp_program.outer),
                            keys, count))
@@ -131,7 +131,7 @@ static_assert(
       from.slots.surface_noise = SurfaceNoise::DIRECT;
       from.slots.hue_shift = HueShiftMode::NOISE;
       from.params.color.hue_shift_amount = 1.0f;
-      std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
+      std::array<math::NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
       size_t count = 0;
       return append_config_resource_keys(from, keys, count) &&
              count == MAX_NOISE_RESOURCES;

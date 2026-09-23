@@ -297,7 +297,7 @@ private:
                  .snapshot(),
              WIPE_FRAMES);
     timeline.add(0, Animation::ColorWipe(palette, wipe.start, wipe.target,
-                                         WIPE_FRAMES, ease_linear));
+                                         WIPE_FRAMES, math::ease_linear));
   }
 
   static constexpr int WIPE_FRAMES =

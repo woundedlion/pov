@@ -65,7 +65,8 @@ public:
         Pullback::Interp::CHAIN_ARENA_BYTES, alignof(std::max_align_t)));
     program.bind_storage(block_a, block_b);
 
-    generated_palettes.init(persistent_arena, DEFAULT_CHROMA, ease_in_out_sin);
+    generated_palettes.init(persistent_arena, DEFAULT_CHROMA,
+                            math::ease_in_out_sin);
 
     static constexpr ChainEntryRequest DEFAULT_CHAIN[] = {
         {"camera", "sphere.rotate.v2"},

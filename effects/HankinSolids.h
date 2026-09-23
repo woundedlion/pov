@@ -595,8 +595,8 @@ private:
     timeline.add_pausable(
         2,
         Animation::Mutation(params.hankin_angle,
-                            sin_wave(0.0f, math::PI_F / 2.0f, 1.0f, 0.0f),
-                            HANKIN_SWEEP_FRAMES, ease_linear, false)
+                            math::sin_wave(0.0f, math::PI_F / 2.0f, 1.0f, 0.0f),
+                            HANKIN_SWEEP_FRAMES, math::ease_linear, false)
             .then([this]() {
               // Bookend-in: the sweep's final sample lands ~0.002
               // rad off the flat p_corner branch; force exact 0 so

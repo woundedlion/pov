@@ -71,8 +71,8 @@ public:
 
     init_fibers();
     timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS,
-                                           2 * math::PI_F, 600, ease_linear,
-                                           true));
+                                           2 * math::PI_F, 600,
+                                           math::ease_linear, true));
     timeline.add(
         0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE, true));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,

@@ -19,6 +19,8 @@
 #include "math/3dmath.h"
 #include "vendor/FastNoiseLite.h"
 
+namespace math {
+
 /** @brief Which coordinate the caller hands the lattice. */
 enum class NoiseDomain : uint8_t {
   /** A direction on the sphere. */
@@ -493,3 +495,5 @@ sphere_exp_map_half_radian(const math::Vector &v, const math::Vector &tangent) {
                                            distance_sq * (-1.0f / 5040.0f)));
   return cosine * v + sinc * tangent;
 }
+
+} // namespace math

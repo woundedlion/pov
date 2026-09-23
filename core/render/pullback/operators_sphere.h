@@ -30,13 +30,13 @@ inline constexpr const char *SURFACE_INTEGRATOR_IDS[] = {"euler", "midpoint",
 
 /** @brief Parameter family of sphere.displace.curl.v2. */
 struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
-  uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
+  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
   uint8_t integrator = static_cast<uint8_t>(Surface::Integrator::EULER);
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlDisplaceParams>{
           "basis", &CurlDisplaceParams::basis, NOISE_BASIS_IDS,
-          static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
+          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
       TopologyField<CurlDisplaceParams>{
           "integrator", &CurlDisplaceParams::integrator, SURFACE_INTEGRATOR_IDS,
           static_cast<uint8_t>(Surface::Integrator::EULER)},
@@ -83,21 +83,22 @@ struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
                           const Params &params, const Prepared &prepared) {
     return Kernel::displace(
         input,
-        Surface::curl_noise(
-            input.dir, *prepared.noise, static_cast<::NoiseBasis>(params.basis),
-            static_cast<Surface::Integrator>(params.integrator), params.scale,
-            prepared.loop.loop_offset, params.strength, true));
+        Surface::curl_noise(input.dir, *prepared.noise,
+                            static_cast<math::NoiseBasis>(params.basis),
+                            static_cast<Surface::Integrator>(params.integrator),
+                            params.scale, prepared.loop.loop_offset,
+                            params.strength, true));
   }
 };
 
 /** @brief Parameter family of sphere.displace.direct.v2. */
 struct DirectDisplaceParams : Surface::DirectSurfaceParams {
-  uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
+  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<DirectDisplaceParams>{
           "basis", &DirectDisplaceParams::basis, NOISE_BASIS_IDS,
-          static_cast<uint8_t>(::NoiseBasis::SIMPLEX)},
+          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
   };
 };
 static_assert(field_ids_unique<DirectDisplaceParams>());
@@ -140,7 +141,7 @@ struct DisplaceDirect : ValueStateModel<NoisePhaseState> {
     return Kernel::displace(
         input,
         Surface::direct_noise(input.dir, *prepared.noise,
-                              static_cast<::NoiseBasis>(params.basis),
+                              static_cast<math::NoiseBasis>(params.basis),
                               params.scale, prepared.direct.loop_offset,
                               params.strength, prepared.direct.direction_cos,
                               prepared.direct.direction_sin, true));

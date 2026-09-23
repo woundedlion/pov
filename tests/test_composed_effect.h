@@ -1350,7 +1350,7 @@ inline void test_composed_direct_surface_placement() {
                                Pullback::HueMode::PATH_LENGTH,
                                Pullback::Color::BrightnessEnvelope::NONE>;
   using Displace = Pullback::Stage::Displace<Pullback::Surface::DirectNoise<
-      Pullback::SurfaceProvider<FX::Binding, true>, NoiseBasis::SIMPLEX>>;
+      Pullback::SurfaceProvider<FX::Binding, true>, math::NoiseBasis::SIMPLEX>>;
   using Lens =
       Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>;
   using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
@@ -1396,13 +1396,13 @@ static_assert(
         typename Pullback::SourcePolicyFor<Pullback::SphericalNoiseSourceParams,
                                            ReachBinding>::Type,
         Pullback::Source::SphericalNoise<Pullback::SourceProvider<ReachBinding>,
-                                         ::NoiseBasis::SIMPLEX>>);
+                                         math::NoiseBasis::SIMPLEX>>);
 static_assert(
     std::is_same_v<
         typename Pullback::SourcePolicyFor<Pullback::ProjectedNoiseSourceParams,
                                            ReachBinding>::Type,
         Pullback::Source::ProjectedNoise<Pullback::SourceProvider<ReachBinding>,
-                                         ::NoiseBasis::SIMPLEX>>);
+                                         math::NoiseBasis::SIMPLEX>>);
 static_assert(
     std::is_same_v<typename Pullback::WarpPolicyFor<
                        Pullback::PolarParams, ReachBinding, true, false>::Type,
@@ -1415,7 +1415,7 @@ static_assert(
                                          ReachBinding, false, false>::Type,
         Pullback::Warp::VectorNoise<
             Pullback::WarpProvider<ReachBinding, false, false>,
-            ::NoiseBasis::SIMPLEX, Pullback::Warp::FlatEnvelope>>);
+            math::NoiseBasis::SIMPLEX, Pullback::Warp::FlatEnvelope>>);
 
 /**
  * @brief How much of one catalog operator's vocabulary a ComposedEffect
@@ -1838,7 +1838,8 @@ class LerpChoreoProbe
 public:
   using Params = ChoreoProbeParams;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{8, ease_linear, Pausable};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{8, math::ease_linear,
+                                                    Pausable};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
       {{{0.0f}}, {{1.0f}}}};

@@ -215,8 +215,8 @@ private:
    */
   HS_COLD_MEMBER void init_timeline() {
     timeline.add(0, Animation::Rotation<W>(orientation, math::UP,
-                                           math::PI_F / 4.0f, 160, ease_linear,
-                                           true));
+                                           math::PI_F / 4.0f, 160,
+                                           math::ease_linear, true));
     gap_accumulator = 0.0f;
     timeline.add(0, Animation::PeriodicTimer(
                         1, [this](Canvas &) { this->check_spawn(); }, true));

@@ -164,7 +164,7 @@ public:
         if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
           timeline.add(0, Animation::Transition(master_gain, 0.0f,
                                                 NOISE_FADE_FRAMES,
-                                                ease_in_out_sin));
+                                                math::ease_in_out_sin));
         if (noise_hold == 0 && master_gain <= 0.0f)
           enter_balls();
         break;
@@ -609,7 +609,7 @@ private:
     master_gain = 0.0f;
     noise_hold = NOISE_HOLD_FRAMES;
     timeline.add(0, Animation::Transition(master_gain, 1.0f, NOISE_FADE_FRAMES,
-                                          ease_in_out_sin));
+                                          math::ease_in_out_sin));
   }
 
   /**
@@ -628,8 +628,9 @@ private:
   void roll_palette() {
     palette_start = palette.snapshot();
     palette_target = make_palette().snapshot();
-    timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target,
-                                         PALETTE_WIPE_FRAMES, ease_linear));
+    timeline.add(0,
+                 Animation::ColorWipe(palette, palette_start, palette_target,
+                                      PALETTE_WIPE_FRAMES, math::ease_linear));
   }
 
   FastNoiseLite walk_noise;

@@ -31,7 +31,7 @@ struct HyperLatticeWhiteBox;
 
 namespace HyperLatticeDetail {
 
-constexpr int DIMENSIONS = VEC4_DIMENSIONS;
+constexpr int DIMENSIONS = math::VEC4_DIMENSIONS;
 constexpr int MAX_SHELLS = 3;
 constexpr float DIRECTION_EPSILON = 1.0e-4f;
 
@@ -56,14 +56,14 @@ struct TransitionalMetrics {
 };
 
 __attribute__((always_inline)) inline float
-periodic_distance_at(const Vec4 &ray_origin, const Vec4 &direction, int axis,
-                     float distance) {
+periodic_distance_at(const math::Vec4 &ray_origin, const math::Vec4 &direction,
+                     int axis, float distance) {
   return periodic_distance(ray_origin[axis] + distance * direction[axis]);
 }
 
 template <int AXIS0, int AXIS1>
 __attribute__((always_inline)) EdgeMetric edge_metric_3d_axes(
-    const Vec4 &ray_origin, const Vec4 &direction, float distance) {
+    const math::Vec4 &ray_origin, const math::Vec4 &direction, float distance) {
   const float component0 =
       periodic_distance_at(ray_origin, direction, AXIS0, distance);
   const float component1 =
@@ -74,8 +74,8 @@ __attribute__((always_inline)) EdgeMetric edge_metric_3d_axes(
           static_cast<uint8_t>(component1_sq > component0_sq ? AXIS1 : AXIS0)};
 }
 
-inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
-                                    const Vec4 &direction, int plane_axis,
+inline EdgeMetric edge_metric_3d_at(const math::Vec4 &ray_origin,
+                                    const math::Vec4 &direction, int plane_axis,
                                     float distance) {
   switch (plane_axis) {
   case 0:
@@ -89,9 +89,9 @@ inline EdgeMetric edge_metric_3d_at(const Vec4 &ray_origin,
 
 template <int AXIS0, int AXIS1, int AXIS2, bool NEED_AXIS = true>
 __attribute__((always_inline)) bool
-edge_metric_4d_axes_bounded(const Vec4 &ray_origin, const Vec4 &direction,
-                            float distance, float limit, float limit_sq,
-                            EdgeMetric &result) {
+edge_metric_4d_axes_bounded(const math::Vec4 &ray_origin,
+                            const math::Vec4 &direction, float distance,
+                            float limit, float limit_sq, EdgeMetric &result) {
   const float component0 =
       periodic_distance_at(ray_origin, direction, AXIS0, distance);
   const float component1 =
@@ -129,10 +129,11 @@ edge_metric_4d_axes_bounded(const Vec4 &ray_origin, const Vec4 &direction,
 }
 
 template <bool NEED_AXIS = true>
-inline bool edge_metric_4d_at_bounded(const Vec4 &ray_origin,
-                                      const Vec4 &direction, int plane_axis,
-                                      float distance, float limit,
-                                      float limit_sq, EdgeMetric &result) {
+inline bool edge_metric_4d_at_bounded(const math::Vec4 &ray_origin,
+                                      const math::Vec4 &direction,
+                                      int plane_axis, float distance,
+                                      float limit, float limit_sq,
+                                      EdgeMetric &result) {
   switch (plane_axis) {
   case 0:
     return edge_metric_4d_axes_bounded<1, 2, 3, NEED_AXIS>(
@@ -151,7 +152,7 @@ inline bool edge_metric_4d_at_bounded(const Vec4 &ray_origin,
 
 template <int AXIS0, int AXIS1>
 __attribute__((always_inline)) TransitionalMetrics transitional_metrics_axes(
-    const Vec4 &ray_origin, const Vec4 &direction, float distance) {
+    const math::Vec4 &ray_origin, const math::Vec4 &direction, float distance) {
   const float component0 =
       periodic_distance_at(ray_origin, direction, AXIS0, distance);
   const float component1 =
@@ -177,8 +178,8 @@ __attribute__((always_inline)) TransitionalMetrics transitional_metrics_axes(
           {sum_4d - farthest_4d, free_axis_4d}};
 }
 
-inline TransitionalMetrics transitional_metrics_at(const Vec4 &ray_origin,
-                                                   const Vec4 &direction,
+inline TransitionalMetrics transitional_metrics_at(const math::Vec4 &ray_origin,
+                                                   const math::Vec4 &direction,
                                                    int plane_axis,
                                                    float distance) {
   switch (plane_axis) {
@@ -245,7 +246,7 @@ static_assert(sizeof(Params) == 44, "HyperLattice::Params width changed");
 
 struct FrameState {
   Params params;
-  Vec4 origin;
+  math::Vec4 origin;
   std::array<float, 6> rotation_phase;
   float pixel_half_angle;
   const BakedPalette *depth_palette;
@@ -259,8 +260,8 @@ struct Binding {
 
 struct PreparedTrace {
   Params params;
-  Vec4 origin;
-  Mat4 world_to_lattice;
+  math::Vec4 origin;
+  math::Mat4 world_to_lattice;
   float far_distance;
   float inv_far;
   float aa_scale;
@@ -331,16 +332,19 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   PreparedTrace prepared;
   prepared.params = frame.params;
   prepared.origin = frame.origin;
-  prepared.world_to_lattice = Mat4::identity();
-  rotate_plane(prepared.world_to_lattice, 0, 1, frame.rotation_phase[0]);
-  rotate_plane(prepared.world_to_lattice, 0, 2, frame.rotation_phase[1]);
-  rotate_plane(prepared.world_to_lattice, 1, 2, frame.rotation_phase[2]);
+  prepared.world_to_lattice = math::Mat4::identity();
+  math::rotate_plane(prepared.world_to_lattice, 0, 1, frame.rotation_phase[0]);
+  math::rotate_plane(prepared.world_to_lattice, 0, 2, frame.rotation_phase[1]);
+  math::rotate_plane(prepared.world_to_lattice, 1, 2, frame.rotation_phase[2]);
   prepared.mode = frame.params.mode;
   prepared.dimension_mix = dimension_mix(frame.params.mode);
   if (prepared.mode != LatticeMode::THREE_D) {
-    rotate_plane(prepared.world_to_lattice, 0, 3, frame.rotation_phase[3]);
-    rotate_plane(prepared.world_to_lattice, 1, 3, frame.rotation_phase[4]);
-    rotate_plane(prepared.world_to_lattice, 2, 3, frame.rotation_phase[5]);
+    math::rotate_plane(prepared.world_to_lattice, 0, 3,
+                       frame.rotation_phase[3]);
+    math::rotate_plane(prepared.world_to_lattice, 1, 3,
+                       frame.rotation_phase[4]);
+    math::rotate_plane(prepared.world_to_lattice, 2, 3,
+                       frame.rotation_phase[5]);
   }
   const float inv_cell_size = 1.0f / frame.params.cell_size;
   for (int row = 0; row < DIMENSIONS; ++row)
@@ -369,8 +373,9 @@ struct TraceHit {
 
 template <bool SLICE_4D, uint8_t FIXED_SHELL_COUNT = 0>
 __attribute__((always_inline)) inline TraceHit
-trace_plane(const Vec4 &ray_origin, const Vec4 &direction, int plane_axis,
-            float distance, float plane_step, const PreparedTrace &prepared) {
+trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
+            int plane_axis, float distance, float plane_step,
+            const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
   constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
   if (distance <= prepared.near_start)
@@ -449,9 +454,9 @@ trace_layers_mode(const math::Vector &normal, const PreparedTrace &prepared,
   HS_PROFILE_DEEP(hl_trace_layers);
   constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
   constexpr float GROUP_EPSILON = 1.0e-4f;
-  const Vec4 direction =
+  const math::Vec4 direction =
       prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
-  Vec4 ray_origin = prepared.origin;
+  math::Vec4 ray_origin = prepared.origin;
   if (prepared.params.sphere_radius != 0.0f) {
     for (int axis = 0; axis < DIMENSIONS; ++axis)
       ray_origin[axis] += prepared.sphere_radius_world * direction[axis];
@@ -629,7 +634,7 @@ public:
 
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "cubic-flight", "hypercube-flight", "deep-grid"};
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, ease_in_out_sin,
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 8;
@@ -750,7 +755,7 @@ public:
     register_animated_param("Shells", &params.shells, SHELL_OPTIONS,
                             SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
-                                 0, PALETTE_FADE_FRAMES, ease_in_out_sin);
+                                 0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
     const GenerativePalette fixed_axis_palette{
         EffectPaletteRecipes::raymarch()};
     axis_palette.bake(persistent_arena, fixed_axis_palette);
@@ -873,7 +878,7 @@ private:
   static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
 
-  Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
+  math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
   BakedPaletteStorage axis_palette;

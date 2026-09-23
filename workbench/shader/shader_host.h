@@ -275,7 +275,7 @@ public:
     add_walk(timeline, projection_walk, state->projection_walk_noise);
     add_walk(timeline, outer_walk, state->outer_walk_noise);
 
-    generated_palettes.init(persistent_arena, 0.62f, ease_in_out_sin);
+    generated_palettes.init(persistent_arena, 0.62f, math::ease_in_out_sin);
     update_palette_chroma(
         preset_for_view(0).config.params.color.palette_chroma);
 
@@ -337,7 +337,7 @@ public:
 
 private:
   friend struct ::hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox;
-  using NoiseBasis = ::NoiseBasis;
+  using NoiseBasis = math::NoiseBasis;
 
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     const size_t index = change.to;
@@ -1690,7 +1690,7 @@ private:
         prepared_blob[Workbench::PREPARED_BLOB_BYTES];
     Workbench::Config render_config;
     std::array<FastNoiseLite, Workbench::MAX_NOISE_RESOURCES> noise_resources;
-    std::array<NoiseFieldKey, Workbench::MAX_NOISE_RESOURCES>
+    std::array<math::NoiseFieldKey, Workbench::MAX_NOISE_RESOURCES>
         prepared_noise_keys{};
     std::array<Pixel, Workbench::PreparedHueRotation::LUT_SIZE>
         hue_rotation_lut;
@@ -1712,7 +1712,7 @@ private:
 
   HS_COLD_MEMBER bool prepare_resource_union(const Workbench::Config &from,
                                              const Workbench::Config &to) {
-    std::array<NoiseFieldKey, Workbench::MAX_NOISE_RESOURCES> keys{};
+    std::array<math::NoiseFieldKey, Workbench::MAX_NOISE_RESOURCES> keys{};
     size_t count = 0;
     if (!append_config_resource_keys(from, keys, count) ||
         !append_config_resource_keys(to, keys, count))
@@ -1730,7 +1730,7 @@ private:
   }
 
   HS_COLD_MEMBER const FastNoiseLite *
-  resolve_resource(const NoiseFieldKey &key) const {
+  resolve_resource(const math::NoiseFieldKey &key) const {
     for (size_t index = 0; index < prepared_noise_count; ++index)
       if (state->prepared_noise_keys[index] == key)
         return &state->noise_resources[index];
@@ -1879,8 +1879,8 @@ private:
     const float phase = from_endpoint ? static_cast<float>(elapsed) / center
                                       : static_cast<float>(elapsed - center) /
                                             (duration - center);
-    return {from_endpoint ? 1.0f - ease_in_out_sin(phase)
-                          : ease_in_out_sin(phase),
+    return {from_endpoint ? 1.0f - math::ease_in_out_sin(phase)
+                          : math::ease_in_out_sin(phase),
             from_endpoint, false};
   }
 
@@ -2156,7 +2156,7 @@ private:
       return 0.0f;
     if (elapsed >= duration)
       return 1.0f;
-    return ease_in_out_sin(static_cast<float>(elapsed) / duration);
+    return math::ease_in_out_sin(static_cast<float>(elapsed) / duration);
   }
 
   __attribute__((noinline)) HS_COLD_MEMBER void apply_requested_config() {

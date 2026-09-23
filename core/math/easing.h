@@ -16,6 +16,8 @@
 #include <cmath>
 #include "math/3dmath.h"
 
+namespace math {
+
 // Convention: t is the normalized time factor in [0, 1]. Most easings are
 // UNCLAMPED (matching the easings.net reference) — an out-of-[0,1] t
 // extrapolates and cubic/elastic variants can return values outside [0, 1]. The
@@ -124,3 +126,5 @@ inline float ease_out_elastic(float x) {
              ? 1.0f
              : exp2f(-10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
 }
+
+} // namespace math

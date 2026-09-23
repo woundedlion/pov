@@ -1430,7 +1430,7 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
   return mirror;
 }
 
-template <::NoiseBasis Basis, typename Integrator>
+template <math::NoiseBasis Basis, typename Integrator>
 inline void run_curl_displace_variant(In::ChainProgram &program,
                                       const In::FrameContext &ctx) {
   using Bound = typename PB::Stage::Displace<
@@ -1439,7 +1439,7 @@ inline void run_curl_displace_variant(In::ChainProgram &program,
   expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
 }
 
-template <::NoiseBasis Basis>
+template <math::NoiseBasis Basis>
 inline void run_curl_displace_basis(In::ChainProgram &program,
                                     const In::FrameContext &ctx) {
   auto &params = param_as<In::Op::CurlDisplaceParams>(program, 1);
@@ -1462,14 +1462,14 @@ inline void test_shader_chain_parity_displace_curl() {
     arm_sphere_op_chain<In::Op::CurlDisplaceParams>(
         program, In::Op::DisplaceCurl::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
-    run_curl_displace_basis<::NoiseBasis::SIMPLEX>(program, ctx);
-    run_curl_displace_basis<::NoiseBasis::FBM3>(program, ctx);
-    run_curl_displace_basis<::NoiseBasis::RIDGED3>(program, ctx);
+    run_curl_displace_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
+    run_curl_displace_basis<math::NoiseBasis::FBM3>(program, ctx);
+    run_curl_displace_basis<math::NoiseBasis::RIDGED3>(program, ctx);
     program.clear();
   }
 }
 
-template <::NoiseBasis Basis>
+template <math::NoiseBasis Basis>
 inline void run_direct_displace_variant(In::ChainProgram &program,
                                         const In::FrameContext &ctx) {
   auto &params = param_as<In::Op::DirectDisplaceParams>(program, 1);
@@ -1488,9 +1488,9 @@ inline void test_shader_chain_parity_displace_direct() {
     arm_sphere_op_chain<In::Op::DirectDisplaceParams>(
         program, In::Op::DisplaceDirect::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
-    run_direct_displace_variant<::NoiseBasis::SIMPLEX>(program, ctx);
-    run_direct_displace_variant<::NoiseBasis::FBM3>(program, ctx);
-    run_direct_displace_variant<::NoiseBasis::RIDGED3>(program, ctx);
+    run_direct_displace_variant<math::NoiseBasis::SIMPLEX>(program, ctx);
+    run_direct_displace_variant<math::NoiseBasis::FBM3>(program, ctx);
+    run_direct_displace_variant<math::NoiseBasis::RIDGED3>(program, ctx);
     program.clear();
   }
 }
@@ -1848,7 +1848,7 @@ inline void test_shader_chain_parity_warp_vortex() {
   }
 }
 
-template <::NoiseBasis Basis, typename Envelope>
+template <math::NoiseBasis Basis, typename Envelope>
 inline void run_vector_noise_variant(In::ChainProgram &program,
                                      const In::FrameContext &ctx,
                                      In::Op::WarpEnvelope envelope) {
@@ -1861,7 +1861,7 @@ inline void run_vector_noise_variant(In::ChainProgram &program,
   expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
 }
 
-template <::NoiseBasis Basis>
+template <math::NoiseBasis Basis>
 inline void run_vector_noise_basis(In::ChainProgram &program,
                                    const In::FrameContext &ctx) {
   run_vector_noise_variant<Basis, PB::Warp::FlatEnvelope>(
@@ -1889,9 +1889,9 @@ inline void test_shader_chain_parity_warp_vector_noise() {
     HS_EXPECT_EQ(state.noise.GetNoise(0.25f, -0.5f, 0.75f),
                  authored_noise.GetNoise(0.25f, -0.5f, 0.75f));
     const In::FrameContext ctx = shared_resources().context();
-    run_vector_noise_basis<::NoiseBasis::SIMPLEX>(program, ctx);
-    run_vector_noise_basis<::NoiseBasis::FBM3>(program, ctx);
-    run_vector_noise_basis<::NoiseBasis::RIDGED3>(program, ctx);
+    run_vector_noise_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
+    run_vector_noise_basis<math::NoiseBasis::FBM3>(program, ctx);
+    run_vector_noise_basis<math::NoiseBasis::RIDGED3>(program, ctx);
     program.clear();
   }
 }
@@ -1971,7 +1971,7 @@ inline void test_shader_chain_parity_warp_polar_chart() {
   }
 }
 
-template <::NoiseBasis Basis, typename Integrator>
+template <math::NoiseBasis Basis, typename Integrator>
 inline void run_curl_flow_variant(In::ChainProgram &program,
                                   const In::FrameContext &ctx,
                                   uint8_t integrator) {
@@ -1984,7 +1984,7 @@ inline void run_curl_flow_variant(In::ChainProgram &program,
   expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
 }
 
-template <::NoiseBasis Basis>
+template <math::NoiseBasis Basis>
 inline void run_curl_flow_basis(In::ChainProgram &program,
                                 const In::FrameContext &ctx) {
   run_curl_flow_variant<Basis, PB::Warp::Euler1>(program, ctx, 0);
@@ -2001,9 +2001,9 @@ inline void test_shader_chain_parity_warp_curl_flow() {
     arm_warp_op_chain<In::Op::CurlFlowParams>(program, In::Op::WarpCurlFlow::ID,
                                               4, set);
     const In::FrameContext ctx = shared_resources().context();
-    run_curl_flow_basis<::NoiseBasis::SIMPLEX>(program, ctx);
-    run_curl_flow_basis<::NoiseBasis::FBM3>(program, ctx);
-    run_curl_flow_basis<::NoiseBasis::RIDGED3>(program, ctx);
+    run_curl_flow_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
+    run_curl_flow_basis<math::NoiseBasis::FBM3>(program, ctx);
+    run_curl_flow_basis<math::NoiseBasis::RIDGED3>(program, ctx);
     program.clear();
   }
 }
@@ -2992,17 +2992,17 @@ inline void test_shader_chain_parity_sample_projected_noise() {
     const In::FrameContext ctx = shared_resources().context();
     uint8_t *basis = topology_byte(program, 2, "basis");
     HS_EXPECT_TRUE(basis != nullptr);
-    *basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
+    *basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
     run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
-                                                    ::NoiseBasis::SIMPLEX>>(
+                                                    math::NoiseBasis::SIMPLEX>>(
         program, ctx);
-    *basis = static_cast<uint8_t>(::NoiseBasis::FBM3);
+    *basis = static_cast<uint8_t>(math::NoiseBasis::FBM3);
     run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
-                                                    ::NoiseBasis::FBM3>>(
+                                                    math::NoiseBasis::FBM3>>(
         program, ctx);
-    *basis = static_cast<uint8_t>(::NoiseBasis::RIDGED3);
+    *basis = static_cast<uint8_t>(math::NoiseBasis::RIDGED3);
     run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
-                                                    ::NoiseBasis::RIDGED3>>(
+                                                    math::NoiseBasis::RIDGED3>>(
         program, ctx);
     program.clear();
   }
@@ -3018,7 +3018,7 @@ inline void test_shader_chain_parity_sample_spherical_noise() {
         program, In::Op::SampleSphericalNoise::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
-        SphericalNoiseSampleMirror, ::NoiseBasis::SIMPLEX>>(program, ctx);
+        SphericalNoiseSampleMirror, math::NoiseBasis::SIMPLEX>>(program, ctx);
     program.clear();
   }
 }
