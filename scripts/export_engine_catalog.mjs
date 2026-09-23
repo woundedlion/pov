@@ -8,8 +8,16 @@ if (!modulePath || !outputPath) {
   process.exit(2);
 }
 
-const { default: createModule } = await import(pathToFileURL(modulePath));
-const module = await createModule();
-const catalog = module.HolosphereEngine.getShaderChainCatalog();
-JSON.parse(catalog);
-await writeFile(outputPath, `${catalog}\n`);
+try {
+  const { default: createModule } = await import(pathToFileURL(modulePath));
+  const module = await createModule();
+  const catalog = module.HolosphereEngine.getShaderChainCatalog();
+  const parsed = JSON.parse(catalog);
+  if (!parsed || !Array.isArray(parsed.operators) || !parsed.operators.length
+      || !Array.isArray(parsed.carriers) || !parsed.carriers.length || !parsed.budgets)
+    throw new Error('engine returned an incomplete operator catalog');
+  await writeFile(outputPath, `${catalog}\n`);
+} catch (error) {
+  console.error(`catalog export failed: ${error.message}`);
+  process.exitCode = 1;
+}
