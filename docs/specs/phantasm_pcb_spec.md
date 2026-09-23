@@ -69,7 +69,7 @@ Companion documents:
 | 11 (MOSI) | LED **DATA** → DI | out | → '125 ch A → 33 Ω → strip DI |
 | 13 (SCK)  | LED **CLK** → CI  | out | → '125 ch B → 33 Ω → strip CI |
 | 3  | **FRAME_SYNC** | in/out | OUTPUT on master, INPUT on slaves (mutually exclusive); drive via '125 ch C, receive via divider |
-| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (boot-safe disable, R-LS-5) ([pov_segmented.h — PIN_MASTER_EN, run_show()](../../hardware/pov_segmented.h)) |
+| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (disabled after 3V3 rises; see R-LS-5) ([pov_segmented.h — PIN_MASTER_EN, run_show()](../../hardware/pov_segmented.h)) |
 | 21 | **ID0** | in (PULLUP) | strap bit 0; ground = bit set |
 | 22 | **ID1** | in (PULLUP) | strap bit 1; ground = bit set |
 | 23 | **ID2** | in (PULLUP) | strap bit 2 — read at N=8; unread at N≤4 |
@@ -195,13 +195,19 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
   than DIP here — lower profile, low mass, no socket/shunt to sling off at 480 RPM, so no RTV needed.
   Part = **SN74AHCT125** (e.g. SN74AHCT125DR). The 5 V-tolerance caveat below is about signal
   *direction*, not package.
-- **R-LS-5 — Default the sync driver disabled at boot.** Ch C `/OE` is MASTER_EN (Teensy pin 5),
+- **R-LS-5 — Hold sync transmission inactive through power-up.** Ch C `/OE` is MASTER_EN (Teensy pin 5),
   which **floats from power-on until the first statement of `setup()` parks it disabled**
   ([pov_segmented.h — PIN_MASTER_EN, park_sync_out()](../../hardware/pov_segmented.h));
   a floating `/OE` that settles LOW briefly enables a slave's bus driver — the transient phantom-master
   hazard. Fit a **pull-up R_MEN (10 kΩ) on pin 5 → 3V3** (not 5 V — keeps pin 5 safe; 3.3 V is a solid
-  AHCT TTL HIGH = `/OE` disabled). Every board then boots with its sync driver **off**, enabled only
-  when firmware actively asserts master. *Companion
+  AHCT TTL HIGH = `/OE` disabled once 3V3 is established). R_MEN cannot disable U1
+  during the interval when its 5 V rail is live but the Teensy's 3V3 rail has not
+  reached a valid HIGH. Rev 1.1 can therefore re-drive SYNC_BUS during power-up;
+  firmware parking after reset cannot close this earlier interval.
+  **Rev 1.2 is the boot-safety remedy:** the separate SYNC_TX input and its R_TX
+  pull-down hold the driver input LOW even while `/OE` is not yet disabled.
+  It requires the rev-1.2 firmware pin map and validated routed board.
+  *Companion
   (optional):* weak pulls on the ch A/B inputs (Teensy 11/13) to define DATA/CLK during the same
   boot window, since those '125 inputs float too — **intentionally not in the base BOM** (APA102-class
   strips latch no garbage from a brief boot transient; add only if a startup flash is objectionable).

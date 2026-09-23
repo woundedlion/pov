@@ -455,6 +455,13 @@ input LOW during reset while the GPIO is high impedance. The receive RC no
 longer loads an AHCT input. `R_TX` uses the same 0603 10 kΩ catalog part as
 `R_MEN` (C25804).
 
+Rev 1.2 also closes rev 1.1's power-up feedback path. R_MEN pulls `/OE` to the
+Teensy's 3V3 rail, which can rise after U1's 5 V supply; it cannot guarantee a
+disabled driver throughout power-up. On rev 1.1 the briefly enabled receive-to-
+transmit path can re-drive SYNC_BUS. Rev 1.2's separate SYNC_TX input and R_TX
+hold its input LOW during that interval. This protection requires the revised
+copper and firmware described below; the generator alone does not retrofit it.
+
 **Firmware compatibility:** the current firmware targets rev 1.1 and transmits
 on D3. Rev 1.2 requires transmission on D4, D3 configured as input with HYS,
 and D4 initialized LOW as an output on every board before enabling the master.
