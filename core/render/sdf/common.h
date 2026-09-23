@@ -10,6 +10,7 @@
 #include <cstddef>
 #include "math/geometry.h"
 #include "platform/constants.h"
+#include "render/render_policy.h"
 #include "engine/memory.h"
 #include "containers/static_circular_buffer.h"
 
@@ -39,7 +40,7 @@ inline constexpr float RING_LINEARIZE_TAN_FRAC = 0.1f;
 /** Pole-on-boundary tolerance, as a fraction of a face's 2D circumradius. */
 inline constexpr float POLE_BOUNDARY_TOL = 1e-3f;
 /** Inner/outer radius ratio for star shapes. */
-inline constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
+inline constexpr float STAR_INNER_RATIO = Render::STAR_INNER_RATIO;
 /** Minimum inradius-to-circumradius ratio used to floor Face::size,
  *  preventing degenerate near-zero inradii from collapsing AA. */
 inline constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
