@@ -142,6 +142,8 @@ ELF_NAME = "firmware.elf"
 
 def regions_from_sections(sizes: dict[str, int]) -> dict[str, int]:
     """Project parsed section sizes onto the tracked regions."""
+    if ".text.itcm" not in sizes:
+        raise ElfFormatError("required .text.itcm section is missing")
     out = {region: sizes.get(section, 0) for section, region in _SECTION_REGION}
     out["ram1"] = sum(out[part] for part in _RAM1_PARTS)
     return out
