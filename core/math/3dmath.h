@@ -1222,7 +1222,9 @@ inline Vector least_parallel_axis(const Vector &v) {
 
 /**
  * @brief Returns a unit vector perpendicular to @p v.
- * @param v Vector to find a perpendicular for; need not be unit.
+ * @param v Nonzero vector to find a perpendicular for; need not be unit.
+ * @pre The cross product with least_parallel_axis(v) must have squared
+ * magnitude at least EPS_NORMALIZE_SQ.
  * @return cross(v, least_parallel_axis(v)), normalized.
  * @details The canonical "some tangent at @p v": which one is unspecified, only
  *          that it is unit and well-conditioned for every @p v. Distinct from
