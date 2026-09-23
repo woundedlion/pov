@@ -107,7 +107,7 @@ inline const char *chain_status_name(ChainStatus status) {
   case ChainStatus::MIGRATE_FAILED:
     return "MIGRATE_FAILED";
   }
-  __builtin_unreachable();
+  return "UNKNOWN";
 }
 
 /** @brief Structured refusal: the code plus the offending entry index
