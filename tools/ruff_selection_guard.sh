@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fail when ruff's file selection is empty.
+# Require lint coverage of every tracked Python source.
 #
 # A linter handed nothing exits 0, so a broken ruff.toml exclude list or
 # .gitignore rule would leave the lint gate green over no files at all.
@@ -18,7 +18,17 @@ trap 'rm -f -- "$tmp"' EXIT
 # --show-files reports the selection; emptiness is the gate, not its status.
 ruff check --no-cache --show-files . > "$tmp" || true
 
-if [ ! -s "$tmp" ]; then
-  echo "ruff selected no files -- the ruff.toml exclude list or a .gitignore rule is broken"
-  exit 1
-fi
+python - "$tmp" <<'PY'
+import pathlib
+import subprocess
+import sys
+expected = subprocess.check_output(
+    ["git", "ls-files", "-z", "--", "*.py"], text=True).split("\0")
+expected = {pathlib.Path(path).resolve() for path in expected if path}
+selected = {pathlib.Path(path).resolve()
+            for path in pathlib.Path(sys.argv[1]).read_text().splitlines() if path}
+missing = sorted(expected - selected)
+if not expected or missing:
+    print("ruff omitted tracked sources:", *(str(path) for path in missing), sep="\n")
+    sys.exit(1)
+PY
