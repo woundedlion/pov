@@ -1063,6 +1063,7 @@ public:
     return Core::template run_stage<0>(SphereSample{view, 0.0f}, ctx, prepared);
   }
 
+  /** @brief Shades a view direction using a frame returned by prepare(). */
   HS_FLASH_MEMBER static Color4 shade(const math::Vector &view,
                                       const Frame &frame) {
     return evaluate(view, frame.ctx, frame.prepared);

@@ -256,16 +256,19 @@ public:
   static constexpr int segment_margin = PipelineT::segment_margin;
   static constexpr int total_segment_margin = PipelineT::total_segment_margin;
 
+  /** @brief Plots at pixel coordinates through the prepared pipeline. */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha) {
     pipeline().plot_prepared(cv, x, y, c, age, alpha);
   }
 
+  /** @brief Plots at pixel coordinates through the prepared pipeline. */
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
             float alpha) {
     pipeline().plot_prepared(cv, x, y, c, age, alpha);
   }
 
+  /** @brief Plots at world position through the prepared pipeline. */
   void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha) {
     pipeline().plot_prepared(cv, v, c, age, alpha);
@@ -622,6 +625,7 @@ struct Pipeline<W, H, Head, Tail...>
     next.init_storage(arena);
   }
 
+  /** @brief Plots at pixel coordinates through the prepared pipeline. */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha)
     requires(!terminal_replaces)
@@ -629,12 +633,14 @@ struct Pipeline<W, H, Head, Tail...>
     plot_prepared(cv, x, y, c, age, alpha);
   }
 
+  /** @brief Plots at pixel coordinates through the prepared pipeline. */
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age, float alpha)
     requires(!terminal_replaces)
   {
     plot_prepared(cv, x, y, c, age, alpha);
   }
 
+  /** @brief Plots at world position through the prepared pipeline. */
   void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha)
     requires(!terminal_replaces)
