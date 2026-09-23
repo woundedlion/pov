@@ -854,6 +854,11 @@ private:
 
   // init() allocates the six MAX_SHAPES-sized contour tables and prepare_count()
   // bakes both alpha-falloff palette LUTs, from the persistent arena.
+  static constexpr size_t SCRATCH_A_PEAK_BYTES =
+      (2 * static_cast<size_t>(SIDES_MAX) + 4) * sizeof(Fragment) +
+      2 * alignof(Fragment);
+  static_assert(SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
+                "ShapeShifter nested contour buffers exceed scratch_a");
   static constexpr size_t FOOTPRINT_BYTES =
       MAX_SHAPES * (4 * sizeof(float) + sizeof(uint16_t) +
                     sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +
