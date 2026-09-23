@@ -29,6 +29,8 @@ namespace effect_factory_tests {
 
 /** @brief Frames rendered per factory-built effect. */
 constexpr int FACTORY_FRAMES = 2;
+/** @brief Maximum startup window for a factory-built effect to produce output. */
+constexpr int FACTORY_OUTPUT_WINDOW = 64;
 
 /**
  * @brief Checks one resolution's factory table against the registry.
@@ -100,6 +102,7 @@ template <int W, int H> inline void drive_factory_lifecycle() {
   for (const FactoryEntry &entry : hs_wasm::get_factory<W, H>()) {
     effects_tests::reset_effect_globals();
 
+    pin_frame_clock(0);
     std::unique_ptr<Effect> effect = entry.creator();
     HS_EXPECT_TRUE(effect != nullptr);
     if (!effect)
@@ -109,12 +112,26 @@ template <int W, int H> inline void drive_factory_lifecycle() {
 
     effect->init();
     HS_EXPECT_EQ(entry.preset_count, effect->getPresetCount());
-    for (int f = 0; f < FACTORY_FRAMES; ++f) {
+    bool lit = false;
+    for (int f = 0; f < FACTORY_OUTPUT_WINDOW; ++f) {
+      pin_frame_clock(f);
       effect->draw_frame();
       // Consume the queued frame, else the next Canvas ctor spin-waits.
       effect->advance_display();
+      for (int y = 0; y < H && !lit; ++y)
+        for (int x = 0; x < W; ++x) {
+          const Pixel p = effect->get_pixel(x, y);
+          lit = lit || p.r || p.g || p.b;
+        }
+      if (lit && f + 1 >= FACTORY_FRAMES)
+        break;
     }
+    if (!lit)
+      std::printf("  factory produced no output: %s @ %dx%d\n",
+                  entry.name.data(), W, H);
+    HS_EXPECT_TRUE(lit);
     effect.reset();
+    hs::clear_mock_time();
   }
 }
 
