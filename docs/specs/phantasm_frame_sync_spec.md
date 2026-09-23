@@ -903,7 +903,7 @@ Invariants:
    piece of sync state — `x`, `epoch_cycles`, `cycles_per_half_rev`,
    `last_flipped`, lock state, epoch schedule, telemetry counters — has exactly
    **one writer: the flywheel ISR**. The sync-wire ISR writes only the mailbox
-   (`edge_count`, `first_edge_cycles`, `last_edge_cycles`); the foreground only
+   (`count`, `first_cycles`, `last_cycles`); the foreground only
    reads published flags. The mailbox handoff is a brief
    IRQ-off copy in the consumer — nanoseconds, not a masked window. With
    single-writer ownership the NVIC priority relationship between the two ISRs
