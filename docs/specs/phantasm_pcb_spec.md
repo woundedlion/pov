@@ -296,9 +296,16 @@ conductors carry the signal pair; the drain handles the screen:
   unused drain tail; never ground the shield at two boards.
 - **R-SYNC-8 — Bus transient clamp.** Pin 3 is well protected (R1 = 10 kΩ limits its clamp
   current), but the '125 output sits directly on a 1–2 m cable in a BLDC field with no clamp. A small
-  **Bourns CDSOD323-T05L TVS (D_BUS) at the bus tap** protects that exposed low-impedance node
+  **Bourns CDSOD323-T08L TVS (D_BUS) at the bus tap** protects that exposed low-impedance node
   against inductive/ESD transients. Populate it on every board; its 1 pF capacitance does not
   materially load the bus.
+  The bus idles LOW; its HIGH pulses can exceed 5 V. The selected T08L has
+  8 V working standoff and at most 2 µA leakage at that voltage (25 °C),
+  versus the former T05L's 5 V rating. Both use the same land and polarity.
+  The tradeoff is a higher maximum clamp at 1 A: 13.4 V instead of 9.8 V;
+  verify transient waveforms at the bus and buffer on the assembled rotor.
+  See the [Bourns electrical table](https://www.bourns.com/data/global/pdfs/CDSOD323-TxxLC.pdf)
+  and [supplier part C1973344](https://item.szlcsc.com/2064882.html).
 
 ---
 
@@ -484,7 +491,7 @@ hand-soldered by you.
 | R_MEN | MASTER_EN boot pull-up | 10 kΩ → 3V3 | 0603 | **SMD** |
 | FB | Ferrite bead | ≈600 Ω @ 100 MHz, logic branch (~0.15 A) | 1206 | **SMD** |
 | Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** |
-| D_BUS | Bus transient clamp | Bourns CDSOD323-T05L, JLCPCB C1975255 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** |
+| D_BUS | Bus transient clamp | Bourns CDSOD323-T08L, JLCPCB C1973344 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** |
 | F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** |
 | J1 | Logic power in | 2-pin ~1 A (0.1″ / JST) | TH | TH |
 | J2 | Strip signal out | 3-pin 0.1″ (DI/CI/SIG_GND) | TH | TH |
@@ -563,7 +570,7 @@ assembly, not a hard electrical or mechanical constraint — partial PCBA supers
 | C_DEC1,2 (0.1 µF), C_LF (22 µF) | C_IN (≥100 µF) electrolytic — RTV-bonded |
 | FB ferrite (1206), Q_REV (Schottky/P-FET), F1 (fuse) | ID strap links, JP_SHLD — manual |
 | C_SYNC (220 pF, **populated** — noise filter, R-SYNC-3) | C_BULK + LED power harness — **off-board** (§2.3) |
-| D_BUS (CDSOD323-T05L sync-bus TVS) | — |
+| D_BUS (CDSOD323-T08L sync-bus TVS) | — |
 
 Rationale: SMD pad joints carry negligible centrifugal load at these masses; electrolytics rely on
 pads alone would be a bad trade at 480 RPM, so they stay TH + RTV (R-PWR-6 / R-MECH-3).

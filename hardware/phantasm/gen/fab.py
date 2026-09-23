@@ -513,7 +513,7 @@ KNOWN_PARITY_WARNING_COUNTS = {
 LCSC_BY_REF = {
     "C_DEC1": "C14663", "C_DEC2": "C14663",
     "C_LF": "C12891", "C_SYNC": "C1603",
-    "D_BUS": "C1975255", "F1": "C261952", "FB": "C73732",
+    "D_BUS": "C1973344", "F1": "C261952", "FB": "C73732",
     "Q_REV": "C15127",
     "R1": "C25804", "R_MEN": "C25804", "R_PD": "C25804", "R_TX": "C25804",
     "R2": "C22809", "R_D1": "C17634", "R_D2": "C17634",
@@ -546,10 +546,10 @@ PART_BY_LCSC = {
         "mpn": "CL10B221KB8NNNC",
         "description": "220pF 50V X7R +/-10% 0603 MLCC",
     },
-    "C1975255": {
+    "C1973344": {
         "manufacturer": "Bourns",
-        "mpn": "CDSOD323-T05L",
-        "description": "5V unidirectional 1pF 9.8V-clamp 350W SOD-323 TVS diode",
+        "mpn": "CDSOD323-T08L",
+        "description": "8V unidirectional 1pF 13.4V-clamp 350W SOD-323 TVS diode",
     },
     "C261952": {
         "manufacturer": "TLC",

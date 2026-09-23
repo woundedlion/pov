@@ -16,7 +16,7 @@ from kicad_common import F, export_netlist, kicad_cli
 # non-polarized caps, the fuse, the bead, solder jumpers. Their pin numbers
 # follow schematic geometry rather than the spec, so these nodes are keyed on
 # ref alone. Each such ref is expected on two nets, so a bridged or open
-# terminal still fails. D_BUS (CDSOD323-T05L) is a unidirectional TVS and is
+# terminal still fails. D_BUS (CDSOD323-T08L) is a unidirectional TVS and is
 # pin-keyed: pin 1 cathode on SYNC_BUS, pin 2 anode on GND.
 SYMMETRIC = {"R1", "R2", "R_D1", "R_D2", "R_S", "R_PD", "R_MEN", "R_LF", "R_TX",
              "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "F1", "FB",

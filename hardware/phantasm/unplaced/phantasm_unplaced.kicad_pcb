@@ -3397,7 +3397,7 @@
 				)
 			)
 		)
-		(property "Value" "CDSOD323-T05L"
+		(property "Value" "CDSOD323-T08L"
 			(at 0.1 1.9 0)
 			(layer "F.Fab")
 			(uuid "4462a71d-7ec3-5ab4-9b4d-306f38b92604")
