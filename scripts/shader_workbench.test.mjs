@@ -6,6 +6,7 @@ import {
   ShaderDocumentError,
   applyEasing,
   canonicalPresetBank,
+  chainArenaBytes,
   classifyExport,
   compileShaderDocument,
   evaluateTransition,
@@ -55,35 +56,47 @@ const validate = (document) =>
   validateShaderDocument(document, { catalog: CATALOG });
 
 test('sparse imports enforce the runtime parameter budget at its exact boundary', () => {
-  for (const parameterCount of [224, 225]) {
+  const budget = CATALOG.budgets.max_params;
+  const base = example();
+  const [camera, project, sample, colorize] = base.descriptor.chain;
+  const operatorFor = (entry) => CATALOG.operators.find((operator) => operator.id === entry.operator);
+  const baseFields = base.descriptor.chain.reduce((count, entry) => count + operatorFor(entry).params.length, 0);
+  const warps = CATALOG.operators.filter((operator) => operator.input === 'plane'
+    && operator.output === 'plane' && operator.params.length > 0);
+  const counts = new Map([[baseFields, []]]);
+  const maxCount = budget + Math.max(...warps.map((operator) => operator.params.length));
+  for (let depth = 0; depth < CATALOG.budgets.max_chain_ops - base.descriptor.chain.length; depth++) {
+    for (const [count, chain] of [...counts]) {
+      if (chain.length !== depth) continue;
+      for (const operator of warps) {
+        const next = count + operator.params.length;
+        if (next <= maxCount && !counts.has(next)) counts.set(next, [...chain, operator]);
+      }
+    }
+  }
+  assert.ok(counts.has(budget), 'catalog operators must express the exact parameter budget');
+  const nextCount = Math.min(...[...counts.keys()].filter((count) => count > budget));
+  assert.ok(Number.isFinite(nextCount), 'catalog operators must express an over-budget chain');
+  for (const parameterCount of [budget, nextCount]) {
     const document = example();
-    const [camera, project, sample, colorize] = document.descriptor.chain;
-    const boundaryWarp = parameterCount === 224 ? 'warp.curl-flow.v2' : 'warp.wave-shear.v2';
-    document.descriptor.chain = [
-      camera,
-      { label: 'displace', operator: 'sphere.displace.direct.v2' },
-      project,
-      ...Array.from({ length: 27 }, (_, index) => ({
-        label: `warp-${index}`,
-        operator: index === 0 ? boundaryWarp : 'warp.affine.v2',
-      })),
-      sample,
-      colorize,
-    ];
-    assert.equal(document.descriptor.chain.length, CATALOG.budgets.max_chain_ops);
-    assert.equal(document.descriptor.parameters.length, 4);
-    const runtimeFields = document.descriptor.chain.reduce((count, entry) => count
-      + CATALOG.operators.find((operator) => operator.id === entry.operator).params.length, 0);
-    assert.equal(runtimeFields, parameterCount);
+    document.descriptor.chain = [camera, project,
+      ...counts.get(parameterCount).map((operator, index) => ({ label: `warp-${index}`, operator: operator.id })),
+      sample, colorize];
+    assert.ok(document.descriptor.chain.length <= CATALOG.budgets.max_chain_ops);
+    assert.equal(document.descriptor.parameters.length, base.descriptor.parameters.length);
+    const operators = document.descriptor.chain.map(operatorFor);
+    assert.equal(operators.reduce((count, operator) => count + operator.params.length, 0), parameterCount);
+    assert.ok(chainArenaBytes(operators, CATALOG.budgets) <= CATALOG.budgets.arena_bytes);
     const compiled = compile(document);
-    if (parameterCount === CATALOG.budgets.max_params) {
+    if (parameterCount === budget) {
       assert.equal(compiled.status, 'VALID');
     } else {
       assert.notEqual(compiled.status, 'VALID');
       assert.deepEqual(compiled.diagnostics.map(({ code, path }) => ({ code, path })), [
         { code: 'BUDGET_EXCEEDED', path: '$.descriptor.chain' },
       ]);
-      assert.match(compiled.diagnostics[0].message, /225.*224/);
+      assert.ok(compiled.diagnostics[0].message.includes(`${parameterCount}`));
+      assert.ok(compiled.diagnostics[0].message.includes(`${budget}`));
     }
   }
 });
