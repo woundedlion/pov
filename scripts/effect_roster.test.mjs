@@ -28,9 +28,9 @@ test('parseEffectRoster survives CRLF continuations', () => {
   assert.deepEqual(parseEffectRoster(src), ['Alpha', 'Beta']);
 });
 
-test('parseEffectRoster drops line-commented rows', () => {
+test('parseEffectRoster splices continuations before dropping line comments', () => {
   assert.deepEqual(parseEffectRoster(rosterOf('X(Alpha)', '// X(Dropped)')),
-    ['Alpha', 'Last']);
+    ['Alpha']);
 });
 
 test('parseEffectRoster drops block-commented rows, including multi-line ones', () => {
