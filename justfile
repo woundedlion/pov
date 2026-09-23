@@ -85,14 +85,12 @@ clang-format:
     {{py}} tools/build_pins.py --check-tool clang-format
     bash tools/clang_format_gate.sh
 
-# Every tracked C/C++ source carries the header LICENSE grants it, plus the
-# checker's own unit tests -- the ci.yml license-headers job.
+# Check license headers on tracked C/C++ sources; unit tests run via python-test.
 license-headers:
     {{py}} tools/license_check.py
 
-# The committed gamut LUT matches what the generator emits, plus the generator's
-# own unit tests -- the ci.yml gamut-lut-provenance job. The solve runs 1-2
-# minutes. numpy decides the emitted bytes, so the module the interpreter imports
+# Check the committed gamut LUT against its generator; unit tests run via
+# python-test. The solve runs 1-2 minutes. numpy decides the emitted bytes, so the module the interpreter imports
 # is held to the pin that job installs, the way ruff is above.
 gamut-lut:
     {{py}} tools/build_pins.py --check-tool numpy
@@ -111,9 +109,8 @@ teensy-warnings:
 docs-sync:
     {{py}} tools/docs_check.py --sync --auto-checkout
 
-# Validate tracked Markdown using the same commands as the ci.yml docs-markdown
-# job, plus the docs-images job's checker: this recipe runs that checker's unit
-# tests, which say nothing about the tracked tree on their own.
+# Validate tracked Markdown, image references and build pins.
+# Checker unit tests run via python-test.
 docs-check:
     {{py}} tools/docs_check.py --auto-checkout
     {{py}} tools/docs_images.py

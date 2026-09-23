@@ -105,8 +105,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   tracked tree. It only reports; `--stage` copies the images into a built
   Doxygen tree and is the sole mode that writes.
 - **License headers:** `python tools/license_check.py`. The staged-tree
-  pre-commit check runs it; `just license-headers` also runs the checker's own
-  unit tests.
+  pre-commit check and `just license-headers` run it; `just python-test` runs
+  the checker's unit tests.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
   `pre-push` hook runs lint, typecheck, the import-map check and the JS suite,
   and refuses a push from a tree that cannot run them. The `daydream-consumer`
