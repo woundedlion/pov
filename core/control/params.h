@@ -204,7 +204,7 @@ struct ParamList {
   friend class ParamHost;
 
   /** @brief Slot count of the default inline storage. */
-  static constexpr size_t FIXED_CAPACITY = 32;
+  static constexpr size_t FIXED_CAPACITY = HS_INLINE_PARAM_CAPACITY;
 
   const ParamDef *data() const {
 #if HS_PARAM_EXTERNAL_STORAGE
