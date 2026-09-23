@@ -778,6 +778,15 @@ inline void test_chromatic_shift_fanout() {
   HS_EXPECT_EQ(taps[0].c.g, src.g);
   HS_EXPECT_EQ(taps[0].c.b, src.b);
 
+  HS_EXPECT_EQ(taps[0].alpha, 1.0f);
+  for (int i = 1; i < 4; ++i) {
+    const Pixel lit(400, 400, 400);
+    const Pixel mixed = blend_alpha(taps[i].alpha)(lit, taps[i].c);
+    HS_EXPECT_GE(mixed.r, 299);
+    HS_EXPECT_GE(mixed.g, 299);
+    HS_EXPECT_GE(mixed.b, 299);
+  }
+
   // Red-only copy at x+1.
   HS_EXPECT_NEAR(taps[1].x, 11.0f, 1e-5f);
   HS_EXPECT_EQ(taps[1].c.r, src.r);
@@ -1623,8 +1632,8 @@ inline void test_pipeline_composition_alpha_and_draw_order() {
       HS_EXPECT_NEAR(center.r, reverse ? 20000 : 10000, 2);
       HS_EXPECT_NEAR(center.b, reverse ? 10000 : 20000, 2);
       HS_EXPECT_EQ(center.g, 0);
-      HS_EXPECT_NEAR(fx.get_pixel(5, y).r, reverse ? 20000 : 10000, 2);
-      HS_EXPECT_NEAR(fx.get_pixel(7, y).b, reverse ? 10000 : 20000, 2);
+      HS_EXPECT_NEAR(fx.get_pixel(5, y).r, reverse ? 5000 : 4375, 2);
+      HS_EXPECT_NEAR(fx.get_pixel(7, y).b, reverse ? 4375 : 5000, 2);
       HS_EXPECT_TRUE(is_black(fx.get_pixel(6, y)));
     }
     HS_EXPECT_EQ(count_lit_canvas(fx), size_t{6});
