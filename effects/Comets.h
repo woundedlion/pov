@@ -88,7 +88,9 @@ public:
   }
 
   static bool valid_params(const Params &p) {
-    return p.function.m2 > 0.0f && p.alpha >= ALPHA_MIN &&
+    return std::isfinite(p.function.m1) && std::isfinite(p.function.m2) &&
+           std::isfinite(p.function.a) && std::isfinite(p.function.domain) &&
+           p.function.m2 > 0.0f && p.alpha >= ALPHA_MIN &&
            p.alpha <= ALPHA_MAX && p.thickness >= THICKNESS_MIN &&
            p.thickness <= THICKNESS_MAX &&
            p.cycle_duration >= CYCLE_DURATION_MIN &&
