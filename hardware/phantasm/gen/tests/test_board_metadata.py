@@ -1,5 +1,6 @@
 import sys
 from decimal import Decimal
+from dataclasses import replace
 from pathlib import Path
 import unittest
 
@@ -13,6 +14,16 @@ import fab   # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):
+    def test_cross_arm_width_is_capped_independently_of_arm_length(self):
+        metadata = board_metadata.load_board(
+            GEN_DIR.parent / "phantasm.kicad_pcb")
+        board_metadata.validate_mechanical_width(metadata)
+        board_metadata.validate_mechanical_width(replace(
+            metadata, width_mm=Decimal("100"), height_mm=Decimal("35")))
+        with self.assertRaisesRegex(board_metadata.MetadataError, "R-MECH-6"):
+            board_metadata.validate_mechanical_width(replace(
+                metadata, height_mm=Decimal("35.001")))
+
     def test_rendered_dimensions_preserve_integer_zeroes(self):
         for width, height, expected in (
             ("10", "30", "10 × 30"),
