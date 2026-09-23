@@ -34,10 +34,13 @@ class CandidateBoardTests(unittest.TestCase):
             expected = candidates / "Candidate 1"
             expected.mkdir(parents=True)
             (candidates / "Candidate_2").mkdir()
+            prefixed = candidates / "Quilter_phantasm_unplaced.kicad_pcb_Candidate_4"
+            prefixed.mkdir()
 
             with mock.patch.object(analyze_candidates, "PROJ", directory):
                 self.assertEqual(analyze_candidates.default_candidates(),
-                                 [str(expected), str(candidates / "Candidate_2")])
+                                 [str(expected), str(candidates / "Candidate_2"),
+                                  str(prefixed)])
 
     def test_rejects_ambiguous_boards(self):
         with tempfile.TemporaryDirectory() as directory:
