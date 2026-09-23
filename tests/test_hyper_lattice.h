@@ -238,6 +238,9 @@ inline void test_trace_layers_are_front_to_back() {
 }
 
 inline void test_layer_composite_reveals_background() {
+  LayerComposite boundary;
+  boundary.remaining = MIN_ENCODABLE_ALPHA;
+  HS_EXPECT_FALSE(boundary.saturated());
   LayerComposite empty;
   HS_EXPECT_EQ(empty.finish().alpha, 0.0f);
   HS_EXPECT_FALSE(empty.saturated());
