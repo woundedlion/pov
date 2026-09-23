@@ -521,13 +521,11 @@ constexpr OperatorDescriptor make_operator_descriptor() {
                 "operator model: a field's topology gate names no enum8 of "
                 "this schema, or selects every value or none");
   static_assert(
-      Detail::model_approximate<Model>()
-          ? (Detail::model_oracle<Model>() != ApproximationOracleId::NONE &&
-             Detail::model_metric_count<Model>() > 0 &&
-             Detail::model_non_floating_fields_exact<Model>() &&
-             Detail::model_final_framebuffer_metric<Model>())
-          : (Detail::model_oracle<Model>() == ApproximationOracleId::NONE &&
-             Detail::model_metric_count<Model>() == 0),
+      Pullback::Detail::approximation_metadata_wellformed(
+          Detail::model_approximate<Model>(), Detail::model_oracle<Model>(),
+          Detail::model_metric_count<Model>(),
+          Detail::model_non_floating_fields_exact<Model>(),
+          Detail::model_final_framebuffer_metric<Model>()),
       "operator model: malformed approximation metadata — an approximate "
       "operator declares an oracle, exact non-floating fields, and metrics "
       "including a final framebuffer bound; an exact one declares none");
