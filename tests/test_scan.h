@@ -67,6 +67,38 @@ struct ScopedPoleLod {
 // Scan::Shader::draw — full-sphere per-pixel shader
 // ============================================================================
 
+/** @brief Alpha at the cutoff is discarded; the next representable value draws. */
+inline void test_min_alpha_boundary() {
+  constexpr int W = 32, H = 16;
+  const math::Basis BASIS = math::make_basis(math::Quaternion(), math::UP);
+  SDF::PlanarPolygon shape(BASIS, 0.5f, 5, 0.0f);
+  for (float alpha : {std::nextafter(Scan::MIN_ALPHA, 0.0f), Scan::MIN_ALPHA,
+                      std::nextafter(Scan::MIN_ALPHA, 1.0f)}) {
+    for (bool constant : {false, true}) {
+      hs_test::StubEffect fx(W, H);
+      {
+        Canvas canvas(fx);
+        Pipeline<W, H> pipe;
+        const Color4 COLOR(Pixel(65535, 65535, 65535), alpha);
+        if (constant)
+          Scan::rasterize_solid<W, H>(pipe, canvas, shape, COLOR);
+        else
+          Scan::rasterize<W, H, false>(
+              pipe, canvas, shape,
+              [&](const math::Vector &, Fragment &f) { f.color = COLOR; });
+      }
+      fx.advance_display();
+      size_t lit = 0;
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const Pixel p = fx.get_pixel(x, y);
+          lit += (p.r || p.g || p.b) ? 1 : 0;
+        }
+      HS_EXPECT_EQ(lit > 0, alpha > Scan::MIN_ALPHA);
+    }
+  }
+}
+
 /**
  * @brief Verifies a constant-color shader fills every pixel of the full sphere.
  */
@@ -3186,6 +3218,7 @@ inline void test_circle_extent_follows_its_radius() {
 inline int run_scan_tests() {
   hs_test::ModuleFixture fixture("scan");
 
+  test_min_alpha_boundary();
   test_shader_constant_fills_canvas();
   test_shader_ssaa_premultiplies_partial_coverage();
   test_shader_split_ssaa_averages_subsamples();
