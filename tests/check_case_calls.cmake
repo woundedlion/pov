@@ -237,7 +237,7 @@ foreach(_hdr IN LISTS _headers)
   endwhile()
 
   foreach(_case IN LISTS _seen)
-    if(NOT _name STREQUAL "test_death.h" AND
+    if(NOT (_name STREQUAL "test_death.h" AND _case MATCHES "^case_") AND
        NOT _case IN_LIST _entries AND NOT _assertion_reached_${_case})
       list(APPEND _unasserted "${_name}:${_case}")
     endif()
