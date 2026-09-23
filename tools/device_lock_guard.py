@@ -83,6 +83,11 @@ def update_claim(directory, operation, value):
 
 
 if __name__ == "__main__":
+    if (len(sys.argv) < 3 or sys.argv[1] not in ("claim", "break")
+            or len(sys.argv) != (3 if sys.argv[1] == "claim" else 4)):
+        print("usage: device_lock_guard.py claim <directory> | break <directory> <token>",
+              file=sys.stderr)
+        sys.exit(2)
     operation, directory = sys.argv[1:3]
     value = sys.stdin.read() if operation == "claim" else sys.argv[3]
     try:

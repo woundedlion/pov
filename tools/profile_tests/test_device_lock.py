@@ -26,6 +26,18 @@ LOCK_GUARD = REPO / "tools" / "device_lock_guard.py"
 GRACE = 120  # HS_DEVICE_STALE_GRACE default
 
 
+class LockGuardUsageTests(unittest.TestCase):
+    def test_invalid_arguments_report_usage(self):
+        for args in ([], ["claim"], ["break", "directory"],
+                     ["unknown", "directory", "token"], ["claim", "directory", "extra"]):
+            with self.subTest(args=args):
+                result = subprocess.run([sys.executable, str(LOCK_GUARD), *args],
+                                        capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("usage:", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
+
 def is_stale(lock_dir):
     """Run _hs_lock_is_stale against lock_dir; True = breakable."""
     script = f'. "{LOCK_SH}"; _hs_lock_is_stale "{lock_dir}"'
