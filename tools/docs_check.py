@@ -1330,7 +1330,7 @@ def main(argv: list[str] | None = None) -> int:
     skipped: set[str] = set()
     try:
         revisions = {}
-        if args.sync or args.auto_checkout:
+        if args.sync or args.auto_checkout or checkout_roots:
             import docs_sync
             if args.auto_checkout and "daydream" not in checkout_roots:
                 checkout = docs_sync.discover_daydream(args.root.resolve())
