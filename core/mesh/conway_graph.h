@@ -312,6 +312,15 @@ constexpr bool no_edge_sweeps_chamfer() {
 // form, so a chamfer row would have no reachable node.
 static_assert(no_edge_sweeps_chamfer());
 
+static_assert(
+    [] {
+      for (const auto &edge : EDGES)
+        if (edge.from_node == edge.to_node)
+          return false;
+      return true;
+    }(),
+    "Conway graph edges must join distinct nodes");
+
 /** Largest node degree in the table (cuboctahedron, icosidodecahedron,
  * octahedron). */
 inline constexpr int MAX_DEGREE = 5;
