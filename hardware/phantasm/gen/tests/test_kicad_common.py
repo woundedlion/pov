@@ -109,6 +109,30 @@ class ExportNetlistTests(unittest.TestCase):
         self.assertIn("kicad-cli exited 2", message)
         self.assertIn("phantasm.kicad_sch", message)
 
+    def test_rejects_unannotated_power_symbols_on_success(self):
+        for stream in ("stdout", "stderr"):
+            with self.subTest(stream=stream):
+                result = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+                setattr(result, stream, "Warning: schematic has annotation errors")
+                schematic = '(kicad_sch (symbol (property "Reference" "#PWR") (unit 1)))'
+                with mock.patch.object(kicad_common.subprocess, "run", return_value=result), \
+                        mock.patch("builtins.open", mock.mock_open(read_data=schematic)), \
+                        self.assertRaisesRegex(SystemExit, "unannotated or duplicate"):
+                    kicad_common.export_netlist("kicad-cli", "phantasm.kicad_sch")
+
+    def test_allows_descriptive_refs_and_distinct_units(self):
+        schematic = '(kicad_sch (symbol (property "Reference" "U_MCU") (unit 1)) (symbol (property "Reference" "U1") (unit 1)) (symbol (property "Reference" "U1") (unit 2)))'
+        with mock.patch("builtins.open", mock.mock_open(read_data=schematic)):
+            kicad_common.require_annotated_export(
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""), "board.sch")
+
+    def test_rejects_duplicate_ref_and_unit(self):
+        schematic = '(kicad_sch (symbol (property "Reference" "#PWR001") (unit 1)) (symbol (property "Reference" "#PWR001") (unit 1)))'
+        with mock.patch("builtins.open", mock.mock_open(read_data=schematic)), \
+                self.assertRaisesRegex(SystemExit, "duplicate"):
+            kicad_common.require_annotated_export(
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""), "board.sch")
+
 
 class RequireWritableTests(unittest.TestCase):
     def setUp(self):
