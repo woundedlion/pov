@@ -693,6 +693,8 @@ template <int W, int H> struct BoundingSphere {
    * @param bounds_radius Bounding radius in world units (sin of angular extent).
    */
   BoundingSphere(const math::Vector &center, float bounds_radius) {
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     float angular_radius = asinf(std::min(bounds_radius, 1.0f));
     center_theta = math::vector_to_theta<W>(center);
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
