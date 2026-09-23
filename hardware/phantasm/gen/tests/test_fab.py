@@ -618,8 +618,9 @@ class SchematicParityTests(unittest.TestCase):
         for ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD")
     ]
     KNOWN_WARNINGS = [
-        {"type": kind, "description": "Known warning"}
-        for kind, count in sorted(fab.KNOWN_PARITY_WARNING_COUNTS.items())
+        {"type": kind, "description": "Known warning",
+         "items": [{"description": f"Footprint {ref}"}]}
+        for (kind, ref), count in sorted(fab.KNOWN_PARITY_WARNING_COUNTS.items())
         for _ in range(count)
     ]
 
@@ -659,14 +660,22 @@ class SchematicParityTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
                 fab.SchematicParityError,
-                r"via_dangling: reported 1 times .* expected 0"):
+                r"via_dangling: .* reported 1 times .* expected 0"):
             self.require(self.KNOWN, violations)
 
     def test_rejects_known_warning_count_drift(self):
         with self.assertRaisesRegex(
                 fab.SchematicParityError,
-                r"lib_footprint_mismatch: reported 10 times .* expected 11"):
+                r"lib_footprint_mismatch: .* reported 0 times .* expected 1"):
             self.require(self.KNOWN, self.KNOWN_WARNINGS[:-1])
+
+    def test_rejects_replacement_warning_with_same_total(self):
+        violations = self.KNOWN_WARNINGS[:-1] + [{
+            "type": "lib_footprint_mismatch", "description": "New warning",
+            "items": [{"description": "Footprint C_DEC1"}]}]
+        with self.assertRaisesRegex(fab.SchematicParityError,
+                                    r"C_DEC1 reported 1 times .* expected 0"):
+            self.require(self.KNOWN, violations)
 
     def test_rejects_report_missing_known_differences(self):
         with self.assertRaisesRegex(
