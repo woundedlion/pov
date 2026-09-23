@@ -446,6 +446,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // Replay can overshoot t=1 by an ULP.
   const float plot_t_hi =
       plot_t_end < 1.0f ? plot_t_end : std::numeric_limits<float>::infinity();
+  const bool PLOT_START =
+      !plot_window || (plot_t_start <= 0.0f && plot_t_hi >= 0.0f);
+  const bool PLOT_END =
+      !plot_window || (plot_t_start <= 1.0f && plot_t_hi >= 1.0f);
   HS_CHECK(!plot_window || count == 1,
            "a plot window requires a single-segment polyline");
   HS_PLOT_ADD(edges, count);
@@ -548,7 +552,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
-      if (!should_omit) {
+      if (!should_omit && PLOT_START) {
         Fragment f_copy;
         if constexpr (INTERPOLATE_REGISTERS)
           f_copy = curr;
@@ -612,17 +616,19 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // arc-length test would undersample into a beaded line.
     if (total_dist <= first_step) {
       HS_PLOT_COUNT(one_dot);
-      Fragment f;
-      if constexpr (INTERPOLATE_REGISTERS)
-        f = curr;
-      f.pos = curr.pos;
-      f.color = Color4(0, 0, 0, 0);
-      set_arc_uv(f, 0.0f);
-      HS_PLOT_COUNT(shader_calls);
-      shade_fragment(curr.pos, f);
-      HS_PLOT_COUNT(plotted_samples);
-      pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
-      if (!close_loop && is_last_segment && !omit_end) {
+      if (PLOT_START) {
+        Fragment f;
+        if constexpr (INTERPOLATE_REGISTERS)
+          f = curr;
+        f.pos = curr.pos;
+        f.color = Color4(0, 0, 0, 0);
+        set_arc_uv(f, 0.0f);
+        HS_PLOT_COUNT(shader_calls);
+        shade_fragment(curr.pos, f);
+        HS_PLOT_COUNT(plotted_samples);
+        pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
+      }
+      if (!close_loop && is_last_segment && !omit_end && PLOT_END) {
         Fragment fl;
         if constexpr (INTERPOLATE_REGISTERS)
           fl = next;
@@ -909,6 +915,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // Emits one shader-run dot for points[k]; the precomputed projection is
   // consumed only when no world stage would lift it back to a world vector.
   auto plot_dot = [&](const Fragment &src, size_t k) {
+    if (plot_window && ((k == 0 && !PLOT_START) || (k == 1 && !PLOT_END)))
+      return;
     Fragment f;
     if constexpr (INTERPOLATE_REGISTERS)
       f = src;
