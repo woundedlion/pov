@@ -483,7 +483,8 @@ struct GeodesicEdgeSpan {
   float total;    /**< angle_between(a, b) in radians. */
   bool antipodal; /**< axis came from stable_perpendicular_axis, not cross. */
   bool have_axis; /**< axis holds a unit arc pole. */
-  math::Vector axis; /**< Unit arc pole (valid iff have_axis). */
+  bool azimuth_bounded; /**< The unnormalized pole resolves sweep direction. */
+  math::Vector axis;    /**< Unit arc pole (valid iff have_axis). */
 };
 
 #if HS_ENABLE_TEST_ORACLES
@@ -511,6 +512,7 @@ make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
     es.antipodal = false;
     es.axis = math::Vector(0.0f, 0.0f, 0.0f);
     es.have_axis = false;
+    es.azimuth_bounded = false;
     return es;
   }
   math::Vector pole = math::cross(a, b);
@@ -518,9 +520,11 @@ make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
   es.antipodal = pole_len_sq < EPS_ARC_POLE_SQ;
   if (es.antipodal) {
     es.axis = stable_perpendicular_axis(a);
+    es.azimuth_bounded = std::abs(es.axis.y) >= AXIS_Y_EPS;
   } else {
     HS_PLOT_COUNT(normalizations);
     es.axis = pole * (1.0f / sqrtf(pole_len_sq));
+    es.azimuth_bounded = std::abs(pole.y) >= AXIS_Y_EPS;
   }
   es.have_axis = true;
   return es;
@@ -848,7 +852,7 @@ geodesic_col_span_cols(float ca, float cb, const math::Vector &a,
   } else {
     if (!es.have_axis)
       return false;
-    if (std::abs(es.axis.y) < AXIS_Y_EPS)
+    if (!es.azimuth_bounded)
       return false;
 
     float ce;
@@ -1009,7 +1013,7 @@ static inline int geodesic_clip_splits(const math::Vector &a,
     }
   };
 
-  if (cb.cols && std::abs(es.axis.y) >= AXIS_Y_EPS) {
+  if (cb.cols && es.azimuth_bounded) {
     for (int i = 0; i < 2; ++i) {
       const float dx = cb.col_x[i];
       const float dz = cb.col_z[i];

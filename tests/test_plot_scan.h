@@ -972,6 +972,16 @@ inline void test_clip_arcs_overlap() {
   HS_EXPECT_FALSE(ClipRegion::arcs_overlap(10, 5, 10, 0, W));
 }
 
+inline void test_col_span_rejects_ill_conditioned_pole() {
+  const math::Vector a(1.0f, 0.0f, 0.0f);
+  const math::Vector b = math::Vector(-1.0f, 0.0002f, 0.0000001f).normalized();
+  const auto span = Plot::make_geodesic_edge_span(a, b);
+  HS_EXPECT_FALSE(span.antipodal);
+  HS_EXPECT_GT(std::abs(span.axis.y), Plot::AXIS_Y_EPS);
+  int start = 0, length = 0;
+  HS_EXPECT_FALSE(Plot::geodesic_col_span<288>(a, b, span, start, length));
+}
+
 /**
  * @brief Verifies the col-span helpers conservatively cover the rendered arc's
  *        screen-column sweep and stay within the half-width sweep bound.
@@ -2005,10 +2015,10 @@ inline void test_cartesian_quadrant_gate_classification() {
 }
 
 /**
- * @brief Pins every Cartesian rejection to the existing exact edge gate.
+ * @brief Checks Cartesian rejections against per-edge bounds and dense arc taps.
  * @details Random tiny, ordinary, large, polar, seam, and antipodal edges are
  *          swept over all four hardware quadrants. A Cartesian rejection must
- *          imply that every exact per-edge verdict is invisible.
+ *          contain no bilinear tap in the clip, including unbounded-pole cases.
  */
 inline void test_cartesian_quadrant_gate_is_conservative() {
   constexpr int W = 288, H = 144;
@@ -2071,7 +2081,25 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
       for (size_t e = 0; e + 1 < trail.size(); ++e) {
         const bool visible = Plot::edge_visible_in_clip<W, H>(
             pipeline, cr, xc, trail[e].pos, trail[e + 1].pos, nullptr);
-        HS_EXPECT_FALSE(visible);
+        if (visible) {
+          const auto &a = trail[e].pos;
+          const auto &b = trail[e + 1].pos;
+          const auto span = Plot::make_geodesic_edge_span(a, b);
+          const auto tangent = math::cross(span.axis, a);
+          for (int sample = 0; sample <= 4096; ++sample) {
+            const float angle = span.total * (sample / 4096.0f);
+            const auto p = a * cosf(angle) + tangent * sinf(angle);
+            const auto screen = math::vector_to_pixel<W, H>(p);
+            const int x = static_cast<int>(floorf(screen.x));
+            const int y = static_cast<int>(floorf(screen.y));
+            for (int dy = 0; dy <= 1; ++dy)
+              for (int dx = 0; dx <= 1; ++dx) {
+                const int wx = (x + dx + W) % W;
+                HS_EXPECT_FALSE(y + dy >= cr.y_start && y + dy < cr.y_end &&
+                                wx >= cr.x_start && wx < cr.x_end);
+              }
+          }
+        }
       }
     }
   }
@@ -6147,6 +6175,7 @@ inline int run_plot_scan_tests() {
   test_row_span_covers_arc_bulge();
   test_cap_may_touch_clip_is_conservative();
   test_clip_arcs_overlap();
+  test_col_span_rejects_ill_conditioned_pole();
   test_col_span_covers_arc();
   test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
