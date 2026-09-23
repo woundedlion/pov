@@ -64,6 +64,16 @@ inline Canvas &fake_canvas() { return *fake_canvas_ptr(); }
 // Path::get_point
 // ============================================================================
 
+inline void test_path_adjacent_segments_fill_exact_capacity() {
+  Path<5> path;
+  path.append_segment([](float t) { return math::Vector(t, 0, 0); }, 2.0f, 2,
+                      ease_linear);
+  path.append_segment([](float t) { return math::Vector(2.0f + t, 0, 0); },
+                      2.0f, 2, ease_linear);
+  for (int i = 0; i < 5; ++i)
+    HS_EXPECT_NEAR(path.get_point(i * 0.25f).x, static_cast<float>(i), 1e-6f);
+}
+
 /**
  * @brief Verifies an empty Path returns the origin for any t (the no-points
  * guard).
@@ -3873,6 +3883,7 @@ inline int run_animation_tests() {
   test_progress_pause_and_eased_bounds();
   test_trail_body_records_independent_orientation_history();
 
+  test_path_adjacent_segments_fill_exact_capacity();
   test_path_empty_returns_origin();
   test_path_endpoints_and_clamp();
   test_path_collapse_keeps_last();

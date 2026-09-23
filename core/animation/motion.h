@@ -28,7 +28,7 @@ public:
 
   /**
    * @brief Appends a procedurally generated segment to the path.
-   * @param plot The function generating points.
+   * @param plot Point generator; its first point must match the current endpoint.
    * @param domain The input domain scale.
    * @param samples The number of sample intervals to take (>= 1); the loop
    *        emits samples + 1 points so the endpoint easing(1.0) is always hit.
