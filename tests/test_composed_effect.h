@@ -1195,7 +1195,34 @@ inline void test_composed_slider_registration() {
 }
 
 /** @brief Sweeps the parameter snapshot contract over every specialization. */
+struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
+  using MobiusGrid<SMALL_W, SMALL_H>::params;
+};
+
+inline void test_mobius_frame_admission() {
+  reset_effect_globals();
+  auto effect = std::make_unique<MobiusFrameProbe>();
+  effect->init();
+  for (const math::MobiusParams bad :
+       {math::MobiusParams{1, 0, 1, 0, 1, 0, 1, 0},
+        math::MobiusParams{std::numeric_limits<float>::quiet_NaN(), 0, 0, 0, 0,
+                           0, 1, 0}}) {
+    effect->params.lens.mobius = bad;
+    const auto frame = effect->frame_for_test();
+    verify_mobius_equal(frame.params.lens.mobius, math::MobiusParams{});
+    for (const math::Vector view :
+         {math::Vector{1, 0, 0}, math::Vector{0, 1, 0},
+          math::Vector{0, 0, 1}}) {
+      const auto output =
+          math::mobius_transform(view, frame.params.lens.mobius);
+      HS_EXPECT_TRUE(std::isfinite(output.x) && std::isfinite(output.y) &&
+                     std::isfinite(output.z));
+    }
+  }
+}
+
 inline void test_composed_snapshot_contract() {
+  test_mobius_frame_admission();
 #define HS_COMPOSED_SNAPSHOT(name, seconds)                                    \
   check_snapshot_contract<name>(#name);
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_SNAPSHOT)
