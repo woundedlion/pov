@@ -41,7 +41,7 @@ EXPECT_REV_1_1 = {
     "DATA_SRC":   {"U1.3", "R_D1"},
     "CLK_SRC":    {"U1.6", "R_D2"},
     "DATA":       {"R_D1", "J2.1"},
-    "CLK":        {"R_D2", "J2.2"},
+    "CLK":        {"R_D2", "J2.3"},
     "FRAME_SYNC": {"U_MCU.3", "U1.9", "R1", "R2", "C_SYNC"},
     "MASTER_EN":  {"U_MCU.5", "U1.10", "U1.13", "R_MEN", "J4.3"},
     "SYNC_SRC":   {"U1.8", "R_S"},
@@ -53,7 +53,7 @@ EXPECT_REV_1_1 = {
     "SHIELD":     {"J3A.3", "J3B.3", "JP_SHLD"},
     "SERIAL1_TX": {"U_MCU.1", "J4.4"},
     "GND":        {"C_IN.2", "C_LF", "C_DEC1", "C_DEC2", "C_SYNC", "D_BUS.2",
-                   "J1.2", "J2.3", "J3A.2", "J3B.2", "J4.2",
+                   "J1.2", "J2.2", "J3A.2", "J3B.2", "J4.2",
                    "JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD", "Q_REV.1", "R2",
                    "U1.1", "U1.4", "U1.7", "U1.12", "U_MCU.GND"},
 }
