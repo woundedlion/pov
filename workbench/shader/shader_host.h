@@ -2238,7 +2238,7 @@ private:
     current.params = blend.params;
     Workbench::Config &target = state->transition.to_config;
     target = candidate;
-    if (!transition_admitted(current, target))
+    if (!transition_endpoints_admitted(current, target))
       return false;
     if (target == current) {
       state->param_morph.active = false;
