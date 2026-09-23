@@ -1184,10 +1184,19 @@ plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
 | `core/math/3dmath.h`, `core/math/4dmath.h` | Vectors, matrices, complex arithmetic, fast scalar approximations, and four-dimensional rotations. |
 | `core/math/geometry.h` | Sphere/pixel coordinates, angular intervals, and display latitude conventions, including `H_OFFSET`. |
 | `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
-| `core/math/stereographic.h`, `core/math/lenses.h` | Stereographic and fractional-linear transforms, plus sphere-domain lens kernels. |
+| `core/math/stereographic.h`, `core/math/mobius.h`, `core/math/lenses.h` | Stereographic projections, fractional-linear transforms, and sphere-domain lens kernels. |
+| `core/math/rotate.h`, `core/math/projection_patterns.h` | Angle wrapping, canvas-to-sphere projection, and shared projected-pattern coordinates. |
 | `core/math/noise_field.h`, `core/math/spherical_field.h`, `core/math/spherical_harmonics.h` | Noise sampling, spherical fields, and harmonic evaluation. |
 | `core/math/easing.h`, `core/math/waves.h`, `core/math/interpolate.h` | Scalar easing curves, periodic waves, and interpolation helpers. |
 
 Projection results carry their coordinate and validity contracts in the headers.
 The pullback policies in `core/render/pullback/` bind these kernels to effect
 parameters and frame state.
+
+## 7.12 Spatial Queries (`core/spatial/`)
+
+`kd_tree.h` provides arena-backed three-dimensional nearest-neighbor queries.
+`reaction_graph.h` defines the Fibonacci reaction lattice and node lookup;
+`reaction_graph.cpp` stores its generated neighbor table. The generator of record
+is `scripts/generate_reaction_graph.py`. Reaction-diffusion effects use these
+neighbors to advance their fields without rebuilding adjacency per frame.
