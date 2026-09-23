@@ -439,7 +439,7 @@ public:
         !sizeof(T *),
         "Wrong flush() domain: this Pipeline has no filter stages, so "
         "it has no terminal stage and this overload emits nothing. "
-        "Drop the flush() call, or add Pixel::Feedback.");
+        "Drop the flush() call, or add Pixel::Feedback and use begin_frame().");
   }
 
   /** @brief Terminates the recursive arena-storage walk. */
@@ -844,12 +844,12 @@ public:
         any_3d_history,
         "Wrong flush() domain: this Pipeline has no 3D history stage, so the "
         "WorldTrailFn overload emits nothing. Aging happens inside flush() — "
-        "a 2D history stage (Screen::Trails, Pixel::Feedback) left unflushed "
+        "a Screen::Trails stage left unflushed "
         "never decays. Pass a ScreenTrailFn instead.");
     static_assert(
         !any_2d_trail_history,
         "Incomplete flush(): this Pipeline also carries a 2D trail stage "
-        "(Screen::Trails, Pixel::Feedback) that this overload leaves "
+        "(Screen::Trails) that this overload leaves "
         "unflushed, so it never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, trailFn, alpha);
