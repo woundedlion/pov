@@ -465,7 +465,8 @@ private:
   }
 
   void fail_safe(EffectTransitionStatus status) {
-    last_failure = status;
+    if (last_failure == EffectTransitionStatus::OK)
+      last_failure = status;
     adapter.set_output_envelope(0.0f);
     adapter.enter_clear_failsafe(status);
     state = EffectTransitionState::CLEAR_FAILSAFE;
