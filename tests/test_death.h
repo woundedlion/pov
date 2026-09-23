@@ -5413,6 +5413,10 @@ inline void run_child_case(const char *name) {
 #if defined(_WIN32)
   SetErrorMode(0x0001u | 0x0002u);
 #endif
+#if defined(_WIN32)
+  if (std::strcmp(name, "__literal_trap_exit__") == 0)
+    std::exit(static_cast<int>(EXCEPTION_ILLEGAL_INSTRUCTION));
+#endif
   if (std::strcmp(name, "__timeout_check__") == 0) {
     for (;;)
       std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -5552,11 +5556,19 @@ inline void set_case_env(const char *name) {
 #endif
 }
 
+#if defined(_WIN32)
+/** @brief Whether the latest child raised an unhandled illegal instruction. */
+inline bool &child_unhandled_illegal_instruction() {
+  static bool observed = false;
+  return observed;
+}
+#endif
+
 /**
  * @brief Spawns the test binary as a child running the given death case.
  * @param name Case selector passed to the child via HS_DEATH_CASE.
  * @param timeout_ms Maximum child runtime in milliseconds.
- * @return The child's raw status (_spawnv() on Windows, fork+execv wait status
+ * @return The child's raw status (debugged process on Windows, fork+execv wait status
  *         on POSIX). -1 on a spawn failure.
  * @details Child stdout/stderr are redirected to child_capture_path() and the
  *          tail is loaded into child_output(), so the caller can require the
@@ -5571,56 +5583,107 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
   child_output()[0] = '\0';
   std::remove(capture_path);
 #if defined(_WIN32)
-  // Shell-free spawn: hand argv straight to the CRT so no cmd.exe parsing can
-  // mangle a self_exe() path containing &, %, ^, or quotes. Child stdout/stderr
-  // reach the capture file by redirecting fds 1/2 across the synchronous
-  // _P_NOWAIT spawn (the child inherits the CRT fd table), then the descriptors
-  // are restored.
-  std::fflush(stdout);
-  std::fflush(stderr);
-  int saved_out = _dup(1);
-  int saved_err = _dup(2);
-  int capture = -1;
-  // Redirect only when both originals were saved: a failed _dup leaves no way
-  // to restore, so skipping the redirect keeps the parent's streams intact
-  // (a muted parent would silence reporting for every remaining case).
-  if (saved_out >= 0 && saved_err >= 0) {
-    _sopen_s(&capture, capture_path, _O_WRONLY | _O_CREAT | _O_TRUNC,
-             _SH_DENYNO, _S_IREAD | _S_IWRITE);
-    if (capture >= 0) {
-      _dup2(capture, 1);
-      _dup2(capture, 2);
-    }
-  }
-  const char *argv[] = {self_exe(), nullptr};
-  intptr_t process = _spawnv(_P_NOWAIT, self_exe(), argv);
+  child_unhandled_illegal_instruction() = false;
+  SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+  HANDLE capture = CreateFileA(capture_path, GENERIC_WRITE,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE, &security,
+                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (capture == INVALID_HANDLE_VALUE)
+    return -1;
+  STARTUPINFOA startup{};
+  startup.cb = sizeof(startup);
+  startup.dwFlags = STARTF_USESTDHANDLES;
+  startup.hStdOutput = capture;
+  startup.hStdError = capture;
+  startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+  PROCESS_INFORMATION process{};
+  std::string command = std::string("\"") + self_exe() + "\"";
+  const BOOL started =
+      CreateProcessA(self_exe(), command.data(), nullptr, nullptr, TRUE,
+                     DEBUG_ONLY_THIS_PROCESS | CREATE_NO_WINDOW, nullptr,
+                     nullptr, &startup, &process);
+  CloseHandle(capture);
+  if (!started)
+    return -1;
   int rc = -1;
   bool timed_out = false;
-  if (process != -1) {
-    HANDLE handle = reinterpret_cast<HANDLE>(process);
-    DWORD wait = WaitForSingleObject(handle, timeout_ms);
-    timed_out = wait == WAIT_TIMEOUT;
-    if (wait != WAIT_OBJECT_0) {
-      TerminateProcess(handle, 1);
-      WaitForSingleObject(handle, 5000);
-    } else {
-      DWORD exit_code = 0;
-      if (GetExitCodeProcess(handle, &exit_code))
-        rc = static_cast<int>(exit_code);
+  bool stopping = false;
+  bool initial_breakpoint = true;
+  auto deadline =
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+  for (;;) {
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+      if (stopping) {
+        DebugActiveProcessStop(process.dwProcessId);
+        WaitForSingleObject(process.hProcess, 5000);
+        break;
+      }
+      timed_out = true;
+      stopping = true;
+      TerminateProcess(process.hProcess, 1);
+      deadline = now + std::chrono::seconds(5);
     }
-    CloseHandle(handle);
+    const auto remaining =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now())
+            .count();
+    DEBUG_EVENT event{};
+    if (!WaitForDebugEvent(
+            &event, static_cast<DWORD>(std::max<int64_t>(1, remaining)))) {
+      if (GetLastError() == ERROR_SEM_TIMEOUT)
+        continue;
+      TerminateProcess(process.hProcess, 1);
+      DebugActiveProcessStop(process.dwProcessId);
+      WaitForSingleObject(process.hProcess, 5000);
+      break;
+    }
+    DWORD continuation = DBG_CONTINUE;
+    bool exited = false;
+    switch (event.dwDebugEventCode) {
+    case CREATE_PROCESS_DEBUG_EVENT:
+      if (event.u.CreateProcessInfo.hFile)
+        CloseHandle(event.u.CreateProcessInfo.hFile);
+      break;
+    case LOAD_DLL_DEBUG_EVENT:
+      if (event.u.LoadDll.hFile)
+        CloseHandle(event.u.LoadDll.hFile);
+      break;
+    case EXCEPTION_DEBUG_EVENT: {
+      const auto &exception = event.u.Exception;
+      const DWORD code = exception.ExceptionRecord.ExceptionCode;
+      if (initial_breakpoint && exception.dwFirstChance &&
+          code == EXCEPTION_BREAKPOINT) {
+        initial_breakpoint = false;
+      } else {
+        continuation = DBG_EXCEPTION_NOT_HANDLED;
+        if (!exception.dwFirstChance && code == EXCEPTION_ILLEGAL_INSTRUCTION)
+          child_unhandled_illegal_instruction() = true;
+      }
+      break;
+    }
+    case EXIT_PROCESS_DEBUG_EVENT:
+      if (!stopping)
+        rc = static_cast<int>(event.u.ExitProcess.dwExitCode);
+      exited = true;
+      break;
+    }
+    if (!ContinueDebugEvent(event.dwProcessId, event.dwThreadId,
+                            continuation)) {
+      TerminateProcess(process.hProcess, 1);
+      DebugActiveProcessStop(process.dwProcessId);
+      WaitForSingleObject(process.hProcess, 5000);
+      rc = -1;
+      break;
+    }
+    if (exited) {
+      if (WaitForSingleObject(process.hProcess, 5000) != WAIT_OBJECT_0)
+        rc = -1;
+      break;
+    }
   }
-  // capture is only open when both saves succeeded, so the restore is reached
-  // only with valid descriptors.
-  if (capture >= 0) {
-    _dup2(saved_out, 1);
-    _dup2(saved_err, 2);
-    _close(capture);
-  }
-  if (saved_out >= 0)
-    _close(saved_out);
-  if (saved_err >= 0)
-    _close(saved_err);
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
   load_child_output();
   if (timed_out)
     std::fprintf(stderr, "death child timed out after %u ms: %s\n", timeout_ms,
@@ -5677,8 +5740,7 @@ inline int spawn_child(const char *name, unsigned timeout_ms = 10000) {
 #if defined(_WIN32)
 /**
  * @brief The Windows EXCEPTION_ILLEGAL_INSTRUCTION process exit code.
- * @details An unhandled trap sets it as the process exit code, which _spawnv()
- *          returns directly to the parent.
+ * @details Accepted only with a second-chance illegal-instruction debug event.
  */
 inline constexpr int TRAP_STATUS = static_cast<int>(0xC000001D);
 #endif
@@ -5707,7 +5769,9 @@ enum class TrapShape { None, Signal, Exit128 };
  */
 inline TrapShape classify_trap(int rc) {
 #if defined(_WIN32)
-  return rc == TRAP_STATUS ? TrapShape::Signal : TrapShape::None;
+  return rc == TRAP_STATUS && child_unhandled_illegal_instruction()
+             ? TrapShape::Signal
+             : TrapShape::None;
 #else
   if (rc == -1)
     return TrapShape::None;
@@ -6057,6 +6121,12 @@ inline int run_death_tests() {
     return fixture.result();
   }
 
+#if defined(_WIN32)
+  const int literal_exit = spawn_child("__literal_trap_exit__");
+  HS_EXPECT_EQ(literal_exit, TRAP_STATUS);
+  HS_EXPECT_FALSE(child_trapped(literal_exit, shape));
+#endif
+
   const int determinism_a = spawn_child(DETERMINISM_PROBE_CASE);
   const std::string fold_a = child_output();
   const int determinism_b = spawn_child(DETERMINISM_PROBE_CASE);
@@ -6066,6 +6136,11 @@ inline int run_death_tests() {
   // A child that skipped the probe leaves two empty captures that compare equal.
   HS_EXPECT_EQ(fold_a.find_first_not_of("0123456789abcdef"), size_t{16});
   HS_EXPECT_EQ(fold_a, fold_b);
+
+#if defined(_WIN32)
+  DWORD handles_before = 0;
+  HS_EXPECT_TRUE(GetProcessHandleCount(GetCurrentProcess(), &handles_before));
+#endif
 
   for (int i = 0; i < n; ++i) {
     int rc = spawn_child(cs[i].name);
@@ -6083,6 +6158,12 @@ inline int run_death_tests() {
       std::printf("      expected %s: %s\n      child logged: %s\n",
                   cs[i].guard_file, cs[i].guard_text, child_output());
   }
+
+#if defined(_WIN32)
+  DWORD handles_after = 0;
+  HS_EXPECT_TRUE(GetProcessHandleCount(GetCurrentProcess(), &handles_after));
+  HS_EXPECT_EQ(handles_after, handles_before);
+#endif
 
   std::remove(child_capture_path());
   set_case_env(""); // leave the env clean for anything that runs after us
