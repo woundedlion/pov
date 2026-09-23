@@ -943,7 +943,8 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
     }
   }
   if (cb.rows) {
-    const int rows[2] = {cr.render_y_start() - CLIP_CUT_ROW_PAD,
+    const int rows[2] = {cr.render_y_start() - CLIP_CUT_ROW_PAD -
+                             static_cast<int>(GEODESIC_ROW_AA_PAD),
                          cr.render_y_end() + CLIP_CUT_ROW_PAD};
     for (int i = 0; i < 2; ++i)
       cb.row_y[i] =
