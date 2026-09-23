@@ -389,8 +389,8 @@ the semantics cannot fork between the two execution paths.
   never stack, so a migrated edge-fade chain does not silently acquire a
   projection-weight factor. The two consumers name their modes
   differently, so the normative migration is two tables. ComposedEffect
-  `CoverageKind`: `PROJECTION` → `Weight`, `PROJECTION_SQUARED` →
-  `WeightSquared`, `EDGE_FADE` → `EdgeFade`. ShaderWorkbench
+  `ProjectionCoverageMode`: `NONE` → `None`, `WEIGHT` → `Weight`,
+  `WEIGHT_SQUARED` → `WeightSquared`, `EDGE_FADE` → `EdgeFade`. ShaderWorkbench
   `CoveragePolicy`: `OPAQUE` → `None`, `PROJECTION_WEIGHT` → `Weight`,
   `PROJECTION_WEIGHT_SQUARED` → `WeightSquared`, `EDGE_FADE` →
   `EdgeFade`, `VALUE_CUTOUT` → `None` at the crossing plus a
