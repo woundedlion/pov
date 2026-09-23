@@ -986,6 +986,8 @@ The shader interface, the SDF/scan and curve rasterizers, the animation system, 
 
 ## 8. The Effect System
 
+Phantasm limits each effect object to **3,584 bytes** (`HS_PHANTASM_EFFECT_HEAP_BYTES` in `targets/Phantasm/phantasm_target.h`). A compile-time assertion checks `sizeof` against this ceiling; arena allocations have separate budgets.
+
 Every visual effect inherits from `Effect`:
 
 ```cpp
