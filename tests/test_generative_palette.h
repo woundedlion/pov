@@ -306,6 +306,13 @@ inline void test_generative_palette_resolves_axes_and_harmony() {
 
   recipe.hue.harmony = PaletteHarmony::SQUARE;
   const auto square = GenerativePalette(recipe).snapshot();
+  auto oversized = square;
+  oversized.key_count = 255;
+  const auto bounded_last = GenerativePalette::snapshot_key(square, 3);
+  const auto oversized_last = GenerativePalette::snapshot_key(oversized, 254);
+  HS_EXPECT_EQ(oversized_last.L, bounded_last.L);
+  HS_EXPECT_EQ(oversized_last.chroma, bounded_last.chroma);
+  HS_EXPECT_EQ(oversized_last.h, bounded_last.h);
   for (int i = 1; i < 4; ++i)
     HS_EXPECT_NEAR(GenerativePalette::snapshot_key(square, i).h -
                        GenerativePalette::snapshot_key(square, i - 1).h,
