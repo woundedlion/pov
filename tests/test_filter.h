@@ -658,6 +658,33 @@ inline void test_blur_wraps_column_taps() {
   expect_seam(W - 1, W - 2, 0);
 }
 
+/** @brief Constructor and update clamp strength to the nearest endpoint kernel. */
+inline void test_blur_clamps_factor() {
+  constexpr int W = 32, H = 32;
+  for (float factor : {-3.0f, 2.0f}) {
+    for (bool update : {false, true}) {
+      Filter::Screen::Blur<W, H> blur(update ? 0.5f : factor);
+      if (update)
+        blur.update(factor);
+      float weights[3][3] = {};
+      blur.plot(15, 16, Pixel(1, 2, 3), 0, 1,
+                [&](float x, float y, const Pixel &, float, float alpha) {
+                  weights[static_cast<int>(y) - 15][static_cast<int>(x) - 14] +=
+                      alpha;
+                });
+      for (int y = 0; y < 3; ++y)
+        for (int x = 0; x < 3; ++x) {
+          float expected =
+              factor < 0 ? ((x == 1 && y == 1) ? 1.0f : 0.0f)
+                         : ((x == 1 && y == 1)
+                                ? 0.25f
+                                : ((x == 1 || y == 1) ? 0.125f : 0.0625f));
+          HS_EXPECT_EQ(weights[y][x], expected);
+        }
+    }
+  }
+}
+
 /**
  * @brief Verifies update() rebuilds the kernel: update(0) collapses a full blur
  *        back to identity.
@@ -3775,6 +3802,7 @@ inline int run_filter_tests() {
   test_blur_full_kernel_sums_to_alpha();
   test_blur_kernel_weights_by_offset();
   test_blur_update_changes_kernel();
+  test_blur_clamps_factor();
   test_blur_wraps_column_taps();
   test_blur_pole_row_renormalizes();
 
