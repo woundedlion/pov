@@ -35,6 +35,9 @@ inline void test_pole_lod_clamp() {
   HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(1e9f),
                hs_wasm::MAX_POLE_LOD_AGGRESSIVENESS);
   HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(NAN), 0.0f);
+  HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(INFINITY),
+               hs_wasm::MAX_POLE_LOD_AGGRESSIVENESS);
+  HS_EXPECT_EQ(hs_wasm::clamp_pole_lod_aggressiveness(-INFINITY), 0.0f);
 }
 
 /**
