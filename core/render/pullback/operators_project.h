@@ -90,7 +90,7 @@ static_assert(sizeof(MeridianProjectChainParams) ==
                     alignof(MeridianProjectChainParams) - 1) /
                    alignof(MeridianProjectChainParams)) *
                       alignof(MeridianProjectChainParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<MeridianProjectChainParams>());
 
 /** @brief Projection parameters without a singularity-fade control. */
@@ -198,7 +198,7 @@ static_assert(sizeof(GnomonicChainParams) ==
                     alignof(GnomonicChainParams) - 1) /
                    alignof(GnomonicChainParams)) *
                       alignof(GnomonicChainParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<GnomonicChainParams>());
 
 /** @brief SPHERE→PLANE crossing: the gnomonic projection under a hemisphere
@@ -281,7 +281,7 @@ static_assert(sizeof(BonneChainParams) == ((sizeof(MeridianProjectChainParams) +
                                             1 + alignof(BonneChainParams) - 1) /
                                            alignof(BonneChainParams)) *
                                               alignof(BonneChainParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<BonneChainParams>());
 
 /** @brief SPHERE→PLANE crossing: the Bonne projection under a hemisphere

@@ -120,7 +120,7 @@ static_assert(sizeof(WaveShearWarpParams) ==
                     alignof(WaveShearWarpParams) - 1) /
                    alignof(WaveShearWarpParams)) *
                       alignof(WaveShearWarpParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<WaveShearWarpParams>());
 
 /** @brief The wave shear's prepared block: the field frame plus the phase the
@@ -203,7 +203,7 @@ static_assert(sizeof(VectorNoiseWarpParams) ==
                     alignof(VectorNoiseWarpParams) - 1) /
                    alignof(VectorNoiseWarpParams)) *
                       alignof(VectorNoiseWarpParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<VectorNoiseWarpParams>());
 
 /** @brief The vector-noise warp's prepared block: the owned noise field plus
@@ -299,7 +299,7 @@ static_assert(sizeof(PolarChartParams) == ((sizeof(Warp::PolarParams) + 2 +
                                             alignof(PolarChartParams) - 1) /
                                            alignof(PolarChartParams)) *
                                               alignof(PolarChartParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<PolarChartParams>());
 
 /** @brief PLANE endomorphism: the polar chart change. */
