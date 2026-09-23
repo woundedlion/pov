@@ -25,7 +25,15 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const expected = execFileSync('git', ['ls-files', '-z', '--', '*.js', '*.mjs', '*.cjs'],
   { encoding: 'utf8' }).split('\0').filter(Boolean).map(name => path.resolve(name));
-const selected = new Set(JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+  if (!Array.isArray(report)) throw new Error('expected an array');
+} catch (error) {
+  console.error('eslint report is invalid; the lint run itself failed:', error.message);
+  process.exit(1);
+}
+const selected = new Set(report
   .filter(row => typeof row.filePath === 'string').map(row => path.resolve(row.filePath)));
 const missing = expected.filter(name => !selected.has(name));
 if (!expected.length || missing.length) {
