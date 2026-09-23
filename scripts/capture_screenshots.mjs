@@ -11,7 +11,9 @@
 //
 // SIM_URL overrides the simulator origin (defaults to the README's local
 // http.server port); WAIT_MS overrides every configured capture offset.
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { inspectPng } from './png_probe.mjs';
 import { join } from 'node:path';
 import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 import {
@@ -325,7 +327,14 @@ try {
       const b64 = dataUrl.split(',', 2)[1];
       const buf = Buffer.from(b64, 'base64');
       const out = join(OUT_DIR, `${effect}.png`);
-      await writeFile(out, buf);
+      inspectPng(buf);
+      const temporary = `${out}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporary, buf, { flag: 'wx' });
+        await rename(temporary, out);
+      } finally {
+        await rm(temporary, { force: true });
+      }
       console.log(`saved ${out} @ ${usedRes} after ${offsetMs}ms ` +
         `(${sourceWidth}x${sourceHeight} source, ${pct}% lit)`);
     } catch (e) {
