@@ -39,7 +39,8 @@ public:
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
-        warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_linear) {}
+        warp_anim(
+            amplitude, [](float) { return 0.0f; }, 0, math::ease_linear) {}
 
   /**
    * @brief Registers tunable params, bakes the ring palette, and seeds the
@@ -66,7 +67,7 @@ public:
     timeline.add(
         0, Animation::Sprite(
                [this](Canvas &c, float opacity) { draw_ring(c, opacity); }, -1,
-               {.fade_in = {16, ease_in_sin}}));
+               {.fade_in = {16, math::ease_in_sin}}));
 
     timeline.add(
         0, Animation::RandomTimer({.min = 16, .max = 48, .repeat = true},
@@ -106,7 +107,8 @@ public:
       for (size_t i = 0; i < thrusters.size(); ++i) {
         ThrusterContext &ctx = thrusters[i];
         float progress = static_cast<float>(ctx.age) / ThrusterContext::LIFE;
-        float opacity = 1.0f - ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
+        float opacity =
+            1.0f - math::ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
         draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
         ++ctx.age;
       }
@@ -213,7 +215,8 @@ private:
     math::Vector thrust_opp = Plot::DistortedRing::fn_point(
         r_fn, basis, params.radius, phase + math::PI_F);
 
-    warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_linear);
+    warp_anim =
+        Animation::Mutation(amplitude, warp_decay, 32, math::ease_linear);
 
     // The warp can carry thrust_point onto ring_vec, vanishing their cross
     // product; the spin axis is arbitrary when parallel, so fall back.
@@ -221,9 +224,9 @@ private:
         math::normalized_or(math::cross(orientation.orient(thrust_point),
                                         orientation.orient(ring_vec)),
                             math::Y_AXIS);
-    timeline.add(0,
-                 Animation::Rotation<W>(orientation, thrust_axis,
-                                        2 * math::PI_F, 8 * 16, ease_out_expo));
+    timeline.add(0, Animation::Rotation<W>(orientation, thrust_axis,
+                                           2 * math::PI_F, 8 * 16,
+                                           math::ease_out_expo));
 
     // spawn
     spawn_thruster(thrust_point);
@@ -256,8 +259,8 @@ private:
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
     // phase is radians; sin_wave's phase is cycles.
-    return sin_wave(-1, 1, 2, phase / (2 * math::PI_F))(t) *
-           sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) * amp;
+    return math::sin_wave(-1, 1, 2, phase / (2 * math::PI_F))(t) *
+           math::sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) * amp;
   }
 
   /**

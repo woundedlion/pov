@@ -313,7 +313,8 @@ struct ShaderWorkbenchWhiteBox {
   }
   static int32_t prepared_surface_noise_seed(const SB &sb) {
     for (size_t index = 0; index < sb.prepared_noise_count; ++index)
-      if (sb.state->prepared_noise_keys[index].domain == NoiseDomain::SPHERE_3D)
+      if (sb.state->prepared_noise_keys[index].domain ==
+          math::NoiseDomain::SPHERE_3D)
         return sb.state->prepared_noise_keys[index].seed;
     return 0;
   }
@@ -494,7 +495,7 @@ struct ShaderWorkbenchWhiteBox {
   }
   static float direct_hue_noise(const FrameState &frame,
                                 const math::Vector &v) {
-    const math::Vector q = noise_sphere_coordinate(
+    const math::Vector q = math::noise_sphere_coordinate(
         v, frame.params.color.hue_noise_scale, frame.clocks.hue_noise_phase);
     return frame.resources.color_noise->GetNoiseSingle(q.x, q.y, q.z);
   }
@@ -694,8 +695,9 @@ struct ShaderWorkbenchWhiteBox {
                                           hemisphere);
   }
   static math::Complex curl_vector(const math::Complex &p,
-                                   const FastNoiseLite &noise, NoiseBasis basis,
-                                   float scale, float time) {
+                                   const FastNoiseLite &noise,
+                                   math::NoiseBasis basis, float scale,
+                                   float time) {
     return Workbench::curl_vector(p, noise, basis, scale, time);
   }
   static ProjectionParams lerp_projection(const ProjectionParams &a,
@@ -744,7 +746,7 @@ struct ShaderWorkbenchWhiteBox {
   static auto encode_config(const RequestedConfig &config) {
     return SB::encode_config_values(config);
   }
-  static constexpr NoiseChannelLayout
+  static constexpr math::NoiseChannelLayout
   warp_channel_layout(const WarpStageSpec &spec) {
     return Workbench::warp_resource_key(spec).channel_layout;
   }
@@ -2320,7 +2322,7 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(vector_mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(WB::warp_channel_layout(vector_mirror.slots.warp_program.outer),
-               NoiseChannelLayout::DIRECT_VECTOR_V2);
+               math::NoiseChannelLayout::DIRECT_VECTOR_V2);
   HS_EXPECT_EQ(vector_mirror.params.source.pattern_freq, 4.9755f);
   HS_EXPECT_EQ(vector_mirror.params.warp.outer.strength, 0.138f);
   HS_EXPECT_EQ(vector_mirror.params.warp.outer.field_angle, 2.23053074f);
@@ -5002,25 +5004,26 @@ inline void test_shader_workbench_operator_catalog_census() {
   static_assert(static_cast<uint8_t>(WB::WarpStageKind::LEGACY_STEREO_NOISE) ==
                 255);
 
-  using SurfaceDirect = Pullback::Surface::DirectNoise<WB::SurfaceStateProvider,
-                                                       NoiseBasis::RIDGED3>;
+  using SurfaceDirect =
+      Pullback::Surface::DirectNoise<WB::SurfaceStateProvider,
+                                     math::NoiseBasis::RIDGED3>;
   using SurfaceCurl =
-      Pullback::Surface::CurlNoise<WB::SurfaceStateProvider, NoiseBasis::FBM3,
+      Pullback::Surface::CurlNoise<WB::SurfaceStateProvider,
+                                   math::NoiseBasis::FBM3,
                                    Pullback::Surface::Midpoint2x>;
   using Mobius = Pullback::Lens::Mobius<WB::LensStateProvider>;
   using Equirectangular =
       Pullback::Projection::Equirectangular<WB::ProjectionStateProvider>;
   using Vortex = Pullback::Warp::Vortex<Workbench::WarpStateProvider<true>>;
-  using Curl =
-      Pullback::Warp::CurlFlow<Workbench::WarpStateProvider<true>,
-                               NoiseBasis::RIDGED3, Pullback::Warp::Midpoint4,
-                               Pullback::Warp::EdgeFadeEnvelope>;
+  using Curl = Pullback::Warp::CurlFlow<
+      Workbench::WarpStateProvider<true>, math::NoiseBasis::RIDGED3,
+      Pullback::Warp::Midpoint4, Pullback::Warp::EdgeFadeEnvelope>;
   using ProjectedNoise =
       Pullback::Source::ProjectedNoise<WB::SourceStateProvider,
-                                       NoiseBasis::FBM3>;
+                                       math::NoiseBasis::FBM3>;
   using SphericalNoise =
       Pullback::Source::SphericalNoise<WB::SourceStateProvider,
-                                       NoiseBasis::SIMPLEX>;
+                                       math::NoiseBasis::SIMPLEX>;
   using Generated = Pullback::Color::GeneratedPalette<WB::ColorStateProvider>;
   static_assert(std::is_empty_v<SurfaceDirect> &&
                 std::is_empty_v<SurfaceCurl> && std::is_empty_v<Mobius> &&

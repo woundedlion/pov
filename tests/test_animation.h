@@ -67,9 +67,9 @@ inline Canvas &fake_canvas() { return *fake_canvas_ptr(); }
 inline void test_path_adjacent_segments_fill_exact_capacity() {
   Path<5> path;
   path.append_segment([](float t) { return math::Vector(t, 0, 0); }, 2.0f, 2,
-                      ease_linear);
+                      math::ease_linear);
   path.append_segment([](float t) { return math::Vector(2.0f + t, 0, 0); },
-                      2.0f, 2, ease_linear);
+                      2.0f, 2, math::ease_linear);
   for (int i = 0; i < 5; ++i)
     HS_EXPECT_NEAR(path.get_point(i * 0.25f).x, static_cast<float>(i), 1e-6f);
 }
@@ -96,7 +96,7 @@ inline void test_path_endpoints_and_clamp() {
   Path<32> p;
   // A straight ramp along X: f(s) = (s, 0, 0), 4 samples, x in [0,1].
   p.append_segment([](float s) { return math::Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
-                   ease_linear);
+                   math::ease_linear);
 
   math::Vector start = p.get_point(0.0f);
   HS_EXPECT_NEAR(start.x, 0.0f, 1e-5f);
@@ -124,7 +124,7 @@ inline void test_path_endpoints_and_clamp() {
 inline void test_path_collapse_keeps_last() {
   Path<32> p;
   p.append_segment([](float s) { return math::Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
-                   ease_linear);
+                   math::ease_linear);
   math::Vector last_before = p.get_point(1.0f);
   p.collapse();
   math::Vector a = p.get_point(0.0f);
@@ -144,7 +144,7 @@ inline void test_path_collapse_keeps_last() {
 inline void test_transition_reaches_target_linear() {
   float v = 0.0f;
   const int duration = 10;
-  Animation::Transition tr(v, 100.0f, duration, ease_linear);
+  Animation::Transition tr(v, 100.0f, duration, math::ease_linear);
   HS_EXPECT_FALSE(tr.done());
   for (int i = 0; i < duration; ++i) {
     tr.step(fake_canvas());
@@ -160,7 +160,7 @@ inline void test_transition_reaches_target_linear() {
 inline void test_transition_monotonic_and_starts_from_current() {
   float v = 5.0f;
   const int duration = 8;
-  Animation::Transition tr(v, 25.0f, duration, ease_linear);
+  Animation::Transition tr(v, 25.0f, duration, math::ease_linear);
   v = 9.0f;
   float prev = v;
   bool monotonic = true;
@@ -181,7 +181,7 @@ inline void test_transition_monotonic_and_starts_from_current() {
  */
 inline void test_transition_duration_zero_no_divide_by_zero() {
   float v = 0.0f;
-  Animation::Transition tr(v, 42.0f, 0, ease_linear);
+  Animation::Transition tr(v, 42.0f, 0, math::ease_linear);
   tr.step(fake_canvas());
   HS_EXPECT_TRUE(std::isfinite(v));
   HS_EXPECT_NEAR(v, 42.0f, 1e-3f);
@@ -195,7 +195,8 @@ inline void test_transition_duration_zero_no_divide_by_zero() {
 inline void test_transition_quantized_floors_result() {
   float v = 0.0f;
   const int duration = 4;
-  Animation::Transition tr(v, 3.7f, duration, ease_linear, {.quantized = true});
+  Animation::Transition tr(v, 3.7f, duration, math::ease_linear,
+                           {.quantized = true});
   for (int i = 0; i < duration; ++i) {
     tr.step(fake_canvas());
   }
@@ -213,7 +214,7 @@ inline void test_transition_repeat_retraverses_each_cycle() {
   Timeline tl;
   float v = 0.0f;
   const int duration = 4;
-  tl.add(0, Animation::Transition(v, 10.0f, duration, ease_linear,
+  tl.add(0, Animation::Transition(v, 10.0f, duration, math::ease_linear,
                                   {.repeat = true}));
   for (int i = 0; i < duration; ++i)
     tl.step(fake_canvas());
@@ -235,7 +236,7 @@ inline void test_transition_paused_holds_value() {
   bool paused = true;
   float v = 0.0f;
   const int duration = 4;
-  Animation::Transition tr(v, 10.0f, duration, ease_linear,
+  Animation::Transition tr(v, 10.0f, duration, math::ease_linear,
                            {.paused = &paused});
   for (int i = 0; i < duration; ++i)
     tr.step(fake_canvas());
@@ -265,7 +266,7 @@ inline void test_mutation_applies_function_of_eased_time() {
   const int duration = 5;
   // f(e) = e * 10; at completion e==1 -> v==10.
   Animation::Mutation m(
-      v, [](float e) { return e * 10.0f; }, duration, ease_linear);
+      v, [](float e) { return e * 10.0f; }, duration, math::ease_linear);
   for (int i = 0; i < duration; ++i) {
     m.step(fake_canvas());
   }
@@ -279,7 +280,7 @@ inline void test_mutation_applies_function_of_eased_time() {
  */
 inline void test_mutation_duration_zero_finite() {
   float v = 0.0f;
-  Animation::Mutation m(v, [](float e) { return e; }, 0, ease_linear);
+  Animation::Mutation m(v, [](float e) { return e; }, 0, math::ease_linear);
   m.step(fake_canvas());
   HS_EXPECT_TRUE(std::isfinite(v));
   HS_EXPECT_NEAR(v, 1.0f, 1e-3f);
@@ -371,7 +372,7 @@ inline void test_lerp_drives_subject_to_target() {
   start.value = 0.0f;
   target.value = 200.0f;
   const int duration = 10;
-  Animation::Lerp l(subject, start, target, duration, ease_linear);
+  Animation::Lerp l(subject, start, target, duration, math::ease_linear);
   for (int i = 0; i < duration; ++i) {
     l.step(fake_canvas());
   }
@@ -388,7 +389,7 @@ inline void test_lerp_midpoint() {
   start.value = 10.0f;
   target.value = 20.0f;
   const int duration = 4;
-  Animation::Lerp l(subject, start, target, duration, ease_linear);
+  Animation::Lerp l(subject, start, target, duration, math::ease_linear);
   l.step(fake_canvas()); // t=1 -> progress 0.25 -> 12.5
   l.step(fake_canvas()); // t=2 -> progress 0.50 -> 15.0
   HS_EXPECT_NEAR(subject.value, 15.0f, 1e-3f);
@@ -567,7 +568,8 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
   Ori o; // identity
   // 0.05 rad over 1000 frames => 5e-5 rad/frame, half of TOLERANCE, so every
   // frame's raw delta is below the early-out threshold.
-  Animation::Rotation<288, 16> rot(o, math::Z_AXIS, 0.05f, 1000, ease_linear);
+  Animation::Rotation<288, 16> rot(o, math::Z_AXIS, 0.05f, 1000,
+                                   math::ease_linear);
   for (int i = 0; i < 20; ++i)
     rot.step(fake_canvas());
   // A Z rotation sends +X toward +Y.
@@ -589,7 +591,7 @@ inline void test_rotation_applies_final_frame_residual() {
   constexpr int CYCLES = 10;
   Ori o; // identity
   Animation::Rotation<288, 16> rot(o, math::Z_AXIS, ANGLE, DURATION,
-                                   ease_in_out_sin);
+                                   math::ease_in_out_sin);
   for (int c = 0; c < CYCLES; ++c) {
     for (int i = 0; i < DURATION; ++i)
       rot.step(fake_canvas());
@@ -615,9 +617,9 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
   Timeline tl;
   // Two quarter-turn rotations about the same axis, each completing in one frame.
   tl.add(0, Animation::Rotation<288, 16>(o, math::Z_AXIS, math::PI_F / 2, 1,
-                                         ease_linear));
+                                         math::ease_linear));
   tl.add(0, Animation::Rotation<288, 16>(o, math::Z_AXIS, math::PI_F / 2, 1,
-                                         ease_linear));
+                                         math::ease_linear));
   tl.step(fake_canvas());
 
   HS_EXPECT_GE(o.length(), 2);
@@ -644,8 +646,9 @@ inline void test_timeline_collapse_past_id_cache() {
   Timeline tl;
   for (int i = 0; i < N; ++i) {
     orientations[i].push(math::make_rotation(math::Z_AXIS, math::PI_F / 2));
-    tl.add(0, Animation::Rotation<288, 16>(orientations[i], math::Z_AXIS,
-                                           math::PI_F / 2, 1, ease_linear));
+    tl.add(0,
+           Animation::Rotation<288, 16>(orientations[i], math::Z_AXIS,
+                                        math::PI_F / 2, 1, math::ease_linear));
   }
   tl.step(fake_canvas());
 
@@ -665,9 +668,10 @@ inline void test_timeline_collapse_past_id_cache() {
 inline void test_timeline_sequences_events_by_start_frame() {
   Timeline tl;
   float a = 0.0f, b = 0.0f;
-  tl.add(0, Animation::Transition(a, 10.0f, 2, ease_linear)); // starts now
-  tl.add(3,
-         Animation::Transition(b, 20.0f, 2, ease_linear)); // delayed 3 frames
+  tl.add(0,
+         Animation::Transition(a, 10.0f, 2, math::ease_linear)); // starts now
+  tl.add(3, Animation::Transition(b, 20.0f, 2,
+                                  math::ease_linear)); // delayed 3 frames
 
   tl.step(fake_canvas()); // t=1
   HS_EXPECT_GT(a, 0.0f);
@@ -695,11 +699,11 @@ inline void test_timeline_pausable_event_uses_active_time() {
   float ambient = 0.0f;
   int completions = 0;
   tl.add_pausable(
-      3, Animation::Transition(value, 9.0f, 3, ease_linear).then([&]() {
+      3, Animation::Transition(value, 9.0f, 3, math::ease_linear).then([&]() {
         ++completions;
       }),
       &paused);
-  tl.add(0, Animation::Transition(ambient, 1.0f, 2, ease_linear));
+  tl.add(0, Animation::Transition(ambient, 1.0f, 2, math::ease_linear));
 
   for (int i = 0; i < 5; ++i)
     tl.step(fake_canvas());
@@ -735,7 +739,7 @@ inline void test_timeline_accepts_maximum_start_frame() {
   Timeline tl;
   global_timeline_t = UINT32_MAX - 2;
   float value = 0.0f;
-  tl.add(2, Animation::Transition(value, 1.0f, 1, ease_linear));
+  tl.add(2, Animation::Transition(value, 1.0f, 1, math::ease_linear));
 
   HS_EXPECT_EQ(global_timeline_events[0].start, UINT32_MAX);
   tl.step(fake_canvas());
@@ -756,7 +760,8 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   Timeline tl;
   float v = -1.0f;
   tl.add(0, Animation::Mutation(
-                v, [](float e) { return e; }, 2, ease_linear, /*repeat=*/true));
+                v, [](float e) { return e; }, 2, math::ease_linear,
+                /*repeat=*/true));
 
   tl.step(fake_canvas()); // t=1 -> v = eased(0.5) = 0.5
   HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
@@ -780,7 +785,7 @@ inline void test_timeline_cancel_removes_repeating_animation() {
   float v = -1.0f;
   auto *h = tl.add_get(0,
                        Animation::Mutation(
-                           v, [](float e) { return e; }, 2, ease_linear,
+                           v, [](float e) { return e; }, 2, math::ease_linear,
                            /*repeat=*/true),
                        Timeline::Pin::PINNED);
   tl.step(fake_canvas());
@@ -815,7 +820,7 @@ inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
   } st; // one capture keeps the callback inside Fn's inplace budget
   st.anim = tl.add_get(0,
                        Animation::Mutation(
-                           v, [](float e) { return e; }, 2, ease_linear,
+                           v, [](float e) { return e; }, 2, math::ease_linear,
                            /*repeat=*/true)
                            .then([&st]() {
                              st.thens++;
@@ -842,7 +847,7 @@ inline void test_timeline_cancel_fires_post_callback() {
   int thens = 0;
   auto *h = tl.add_get(0,
                        Animation::Mutation(
-                           v, [](float e) { return e; }, 8, ease_linear)
+                           v, [](float e) { return e; }, 8, math::ease_linear)
                            .then([&]() { thens++; }),
                        Timeline::Pin::UNPINNED);
   tl.step(fake_canvas());
@@ -868,7 +873,7 @@ inline void test_timeline_cancel_while_paused_removes_event() {
   int thens = 0;
   auto *h = tl.add_get(0,
                        Animation::Mutation(
-                           v, [](float e) { return e; }, 4, ease_linear,
+                           v, [](float e) { return e; }, 4, math::ease_linear,
                            /*repeat=*/true)
                            .then([&]() { thens++; }),
                        Timeline::Pin::PINNED, &paused);
@@ -901,12 +906,12 @@ inline void test_timeline_cancel_while_paused_removes_event() {
 inline void test_timeline_compaction_preserves_later_events() {
   Timeline tl;
   float a = 0.0f, b = 0.0f, c = 0.0f;
-  tl.add(0,
-         Animation::Transition(a, 10.0f, 1, ease_linear)); // completes at t=1
+  tl.add(0, Animation::Transition(a, 10.0f, 1,
+                                  math::ease_linear)); // completes at t=1
   tl.add(0, Animation::Transition(b, 100.0f, 5,
-                                  ease_linear)); // in-flight survivor
+                                  math::ease_linear)); // in-flight survivor
   tl.add(0, Animation::Transition(c, 200.0f, 5,
-                                  ease_linear)); // in-flight survivor
+                                  math::ease_linear)); // in-flight survivor
   HS_EXPECT_EQ(tl.event_count(), 3);
 
   tl.step(fake_canvas()); // t=1: a done+removed; b,c step once and shift down
@@ -936,8 +941,8 @@ inline void test_timeline_then_chains_follow_up_event() {
   Timeline tl;
   float a = 0.0f, b = 0.0f;
   // 'a' completes in one frame; its .then() schedules 'b' to start immediately.
-  tl.add(0, Animation::Transition(a, 10.0f, 1, ease_linear).then([&]() {
-    tl.add(0, Animation::Transition(b, 20.0f, 1, ease_linear));
+  tl.add(0, Animation::Transition(a, 10.0f, 1, math::ease_linear).then([&]() {
+    tl.add(0, Animation::Transition(b, 20.0f, 1, math::ease_linear));
   }));
 
   tl.step(fake_canvas()); // t=1: a completes -> callback adds b (gap-filled in)
@@ -1046,7 +1051,7 @@ inline void test_timer_then_self_cancellation_completes_once() {
 inline void test_timeline_clear_destroys_events_keeping_frame() {
   Timeline tl;
   float a = 0.0f;
-  tl.add(0, Animation::Transition(a, 10.0f, 5, ease_linear));
+  tl.add(0, Animation::Transition(a, 10.0f, 5, math::ease_linear));
   tl.step(fake_canvas());
   HS_EXPECT_EQ(tl.event_count(), 1);
   HS_EXPECT_EQ(global_timeline_t, 1u);
@@ -1057,7 +1062,7 @@ inline void test_timeline_clear_destroys_events_keeping_frame() {
 
   // Reusable after clear().
   float b = 0.0f;
-  tl.add(0, Animation::Transition(b, 5.0f, 1, ease_linear));
+  tl.add(0, Animation::Transition(b, 5.0f, 1, math::ease_linear));
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(b, 5.0f, 1e-3f);
   HS_EXPECT_EQ(tl.event_count(), 0);
@@ -1101,15 +1106,15 @@ inline void test_timeline_full_guard_rejects_overflow() {
   HS_EXPECT_EQ(tl.remaining(), Timeline::MAX_EVENTS);
   // Fill to capacity (these events share one float).
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
-    tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
   HS_EXPECT_EQ(tl.event_count(), Timeline::MAX_EVENTS);
   HS_EXPECT_EQ(tl.remaining(), 0);
 
   // The overflow event has its own target so a silent enqueue would show up.
   float rejected = 0.0f;
   const uint32_t dropped_before = Timeline::dropped_events();
-  tl.add(0,
-         Animation::Transition(rejected, 42.0f, 10, ease_linear)); // past full
+  tl.add(0, Animation::Transition(rejected, 42.0f, 10,
+                                  math::ease_linear)); // past full
   HS_EXPECT_EQ(tl.event_count(), Timeline::MAX_EVENTS);
   HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 1);
 
@@ -1124,8 +1129,8 @@ inline void test_timeline_full_guard_rejects_overflow() {
   HS_EXPECT_EQ(tl.event_count(), 0);
   HS_EXPECT_FALSE(global_timeline_drop_logged);
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
-    tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
-  tl.add(0, Animation::Transition(rejected, 42.0f, 10, ease_linear));
+    tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
+  tl.add(0, Animation::Transition(rejected, 42.0f, 10, math::ease_linear));
   HS_EXPECT_EQ(Timeline::dropped_events(), dropped_before + 2);
   HS_EXPECT_TRUE(global_timeline_drop_logged);
 }
@@ -1293,9 +1298,9 @@ inline void test_motion_codriven_survives_repeat_seam() {
   Timeline tl;
   // Repeating Motion + a repeating co-driver rotation about Y, both driving `o`.
   tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
-  tl.add(0,
-         Animation::Rotation<288, 16>(o, math::Y_AXIS, 2.0f * math::PI_F,
-                                      duration, ease_linear, /*repeat=*/true));
+  tl.add(0, Animation::Rotation<288, 16>(o, math::Y_AXIS, 2.0f * math::PI_F,
+                                         duration, math::ease_linear,
+                                         /*repeat=*/true));
 
   const math::Vector probe = math::Z_AXIS;
   math::Vector prev = o.orient(probe);
@@ -3148,7 +3153,7 @@ inline void test_colorwipe_reaches_target_keys() {
   GenerativePalette::Snapshot target = to.snapshot();
 
   const int duration = 6;
-  Animation::ColorWipe wipe(from, start, target, duration, ease_linear);
+  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear);
   HS_EXPECT_FALSE(wipe.done());
 
   for (int i = 0; i < duration - 1; ++i)
@@ -3179,7 +3184,7 @@ inline void test_colorwipe_uses_owned_start_snapshot() {
   const GenerativePalette::Snapshot start = from.snapshot();
   const GenerativePalette::Snapshot target = to.snapshot();
   const int duration = 4;
-  Animation::ColorWipe wipe(from, start, target, duration, ease_linear);
+  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear);
 
   from = make_palette(CPixel(200, 200, 200), CPixel(200, 200, 200),
                       CPixel(200, 200, 200));
@@ -3203,7 +3208,7 @@ inline void test_colorwipe_slow_fade_resolves_every_frame() {
   const GenerativePalette::Snapshot start = from.snapshot();
   const GenerativePalette::Snapshot target = to.snapshot();
   const int duration = 600;
-  Animation::ColorWipe wipe(from, start, target, duration, ease_linear);
+  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear);
 
   int advanced = 0;
   float prev = -1.0f;
@@ -3232,7 +3237,7 @@ inline void test_colorwipe_paused_holds_keys() {
   const float start_l = GenerativePalette::snapshot_key(from.snapshot(), 0).L;
 
   const int duration = 4;
-  Animation::ColorWipe wipe(from, start, target, duration, ease_linear,
+  Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear,
                             &paused);
   for (int i = 0; i < duration; ++i)
     wipe.step(fake_canvas());
@@ -3264,7 +3269,7 @@ inline void test_mobiuswarp_closes_at_completion() {
   const float scale = 0.4f;
   const int duration = 8;
   Animation::MobiusWarp warp(params, scale, duration, /*repeat=*/false,
-                             ease_linear);
+                             math::ease_linear);
   HS_EXPECT_FALSE(warp.done());
 
   warp.step(fake_canvas()); // t=1: b lifts off the origin
@@ -3289,7 +3294,7 @@ inline void test_mobiuswarp_bind_scale_reads_live() {
   float live = 1.0f;
   const int duration = 4;
   Animation::MobiusWarp warp(params, /*scale=*/0.0f, duration, /*repeat=*/false,
-                             ease_linear);
+                             math::ease_linear);
   warp.bind_scale(live);
   warp.step(
       fake_canvas()); // captured scale is 0, so any motion comes from live
@@ -3305,7 +3310,7 @@ inline void test_mobiuswarp_circular_traces_radius() {
   const float scale = 0.3f;
   const int duration = 8;
   Animation::MobiusWarpCircular warp(params, scale, duration, /*repeat=*/false,
-                                     ease_linear);
+                                     math::ease_linear);
   warp.step(fake_canvas()); // |b| sits on the scale-radius circle every frame
   HS_EXPECT_NEAR(
       std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im), scale,
@@ -3328,7 +3333,7 @@ inline void test_mobiuswarp_circular_bind_scale_reads_live() {
   float live = 0.5f;
   const int duration = 4;
   Animation::MobiusWarpCircular warp(params, /*scale=*/0.0f, duration,
-                                     /*repeat=*/false, ease_linear);
+                                     /*repeat=*/false, math::ease_linear);
   warp.bind_scale(live);
   warp.step(fake_canvas()); // captured scale is 0: any radius comes from live
   HS_EXPECT_NEAR(

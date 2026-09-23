@@ -355,7 +355,7 @@ HS_FLASH_INLINE inline PreparedVectorNoiseSlot
 prepare(const VectorNoiseParams &warp, float phase) {
   PreparedVectorNoiseSlot prepared{
       cosf(warp.vector_angle), sinf(warp.vector_angle), {}};
-  prepared.transform.noise_loop = {noise_projected_loop_offset(phase)};
+  prepared.transform.noise_loop = {math::noise_projected_loop_offset(phase)};
   return prepared;
 }
 
@@ -524,28 +524,35 @@ inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
 
 HS_FLASH_INLINE inline math::Complex
 curl_vector(const math::Complex &input, const FastNoiseLite &noise,
-            ::NoiseBasis basis, float scale, const math::Vector &loop_offset) {
-  const math::Vector q = noise_projected_coordinate(input, scale, loop_offset);
+            math::NoiseBasis basis, float scale,
+            const math::Vector &loop_offset) {
+  const math::Vector q =
+      math::noise_projected_coordinate(input, scale, loop_offset);
   const float dx =
-      (sample_noise_octaves(
-           noise, basis, q + math::Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
-       sample_noise_octaves(
-           noise, basis, q - math::Vector(NOISE_STENCIL_RADIUS, 0.0f, 0.0f))) /
-      (2.0f * NOISE_STENCIL_RADIUS);
+      (math::sample_noise_octaves(
+           noise, basis,
+           q + math::Vector(math::NOISE_STENCIL_RADIUS, 0.0f, 0.0f)) -
+       math::sample_noise_octaves(
+           noise, basis,
+           q - math::Vector(math::NOISE_STENCIL_RADIUS, 0.0f, 0.0f))) /
+      (2.0f * math::NOISE_STENCIL_RADIUS);
   const float dy =
-      (sample_noise_octaves(
-           noise, basis, q + math::Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f)) -
-       sample_noise_octaves(
-           noise, basis, q - math::Vector(0.0f, NOISE_STENCIL_RADIUS, 0.0f))) /
-      (2.0f * NOISE_STENCIL_RADIUS);
+      (math::sample_noise_octaves(
+           noise, basis,
+           q + math::Vector(0.0f, math::NOISE_STENCIL_RADIUS, 0.0f)) -
+       math::sample_noise_octaves(
+           noise, basis,
+           q - math::Vector(0.0f, math::NOISE_STENCIL_RADIUS, 0.0f))) /
+      (2.0f * math::NOISE_STENCIL_RADIUS);
   return {hs::clamp(-dy, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX),
           hs::clamp(dx, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX)};
 }
 
 HS_FLASH_INLINE inline WarpStepResult
 curl_flow(const math::Complex &input, const FastNoiseLite &noise,
-          ::NoiseBasis basis, uint8_t intervals, float scale, float distance,
-          const math::Vector &loop_offset, bool path_length_required) {
+          math::NoiseBasis basis, uint8_t intervals, float scale,
+          float distance, const math::Vector &loop_offset,
+          bool path_length_required) {
   if (distance == 0.0f)
     return {input, 0.0f};
   if (intervals == 1) {
@@ -588,24 +595,24 @@ polar_chart(const math::Complex &input, const Params &params, float phase,
   return {output, 0.0f};
 }
 
-template <::NoiseBasis BasisV, typename Params, typename Prepared>
+template <math::NoiseBasis BasisV, typename Params, typename Prepared>
 HS_FLASH_MEMBER inline WarpStepResult
 vector_noise_fixed(const math::Complex &input, const Params &params,
                    float amplitude, const FastNoiseLite &noise,
                    const Prepared &prepared, bool path_length_required) {
   if (params.strength == 0.0f)
     return {input, 0.0f};
-  const math::Vector q = noise_projected_coordinate(
+  const math::Vector q = math::noise_projected_coordinate(
       input, params.scale, prepared.transform.noise_loop.offset);
   float nx;
   float ny;
-  if constexpr (BasisV == ::NoiseBasis::SIMPLEX) {
-    const math::Vector field = sample_simplex_vector(noise, q);
+  if constexpr (BasisV == math::NoiseBasis::SIMPLEX) {
+    const math::Vector field = math::sample_simplex_vector(noise, q);
     nx = field.x;
     ny = field.y;
   } else {
-    nx = sample_noise_vector_channel(noise, BasisV, q, 0);
-    ny = sample_noise_vector_channel(noise, BasisV, q, 1);
+    nx = math::sample_noise_vector_channel(noise, BasisV, q, 0);
+    ny = math::sample_noise_vector_channel(noise, BasisV, q, 1);
   }
   const float c = prepared.rotation_cos;
   const float s = prepared.rotation_sin;
@@ -618,17 +625,17 @@ vector_noise_fixed(const math::Complex &input, const Params &params,
 template <typename Params, typename Prepared>
 HS_FLASH_MEMBER inline WarpStepResult
 vector_noise(const math::Complex &input, const Params &params, float amplitude,
-             const FastNoiseLite &noise, ::NoiseBasis basis,
+             const FastNoiseLite &noise, math::NoiseBasis basis,
              const Prepared &prepared, bool path_length_required) {
   switch (basis) {
-  case ::NoiseBasis::SIMPLEX:
-    return vector_noise_fixed<::NoiseBasis::SIMPLEX>(
+  case math::NoiseBasis::SIMPLEX:
+    return vector_noise_fixed<math::NoiseBasis::SIMPLEX>(
         input, params, amplitude, noise, prepared, path_length_required);
-  case ::NoiseBasis::FBM3:
-    return vector_noise_fixed<::NoiseBasis::FBM3>(
+  case math::NoiseBasis::FBM3:
+    return vector_noise_fixed<math::NoiseBasis::FBM3>(
         input, params, amplitude, noise, prepared, path_length_required);
-  case ::NoiseBasis::RIDGED3:
-    return vector_noise_fixed<::NoiseBasis::RIDGED3>(
+  case math::NoiseBasis::RIDGED3:
+    return vector_noise_fixed<math::NoiseBasis::RIDGED3>(
         input, params, amplitude, noise, prepared, path_length_required);
   }
   return {input, 0.0f};
@@ -787,7 +794,7 @@ struct PolarChart : ApproximationDefaults {
   }
 };
 
-template <typename State, ::NoiseBasis BasisV, typename Envelope>
+template <typename State, math::NoiseBasis BasisV, typename Envelope>
 struct VectorNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -827,7 +834,7 @@ struct VectorNoise : ApproximationDefaults {
   }
 };
 
-template <typename State, ::NoiseBasis BasisV, typename IntegratorPolicy,
+template <typename State, math::NoiseBasis BasisV, typename IntegratorPolicy,
           typename Envelope = FlatEnvelope>
 struct CurlFlow : ApproximationDefaults {
   static_assert(IntegratorPolicy::INTERVALS == 1 ||
@@ -855,7 +862,7 @@ struct CurlFlow : ApproximationDefaults {
   using Prepared = math::Vector;
 
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return noise_projected_loop_offset(State::phase(frame));
+    return math::noise_projected_loop_offset(State::phase(frame));
   }
 
   __attribute__((always_inline)) static WarpStepResult

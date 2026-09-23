@@ -348,7 +348,7 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
   float edge_width = 0.1f;
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-  uint8_t basis = static_cast<uint8_t>(::NoiseBasis::SIMPLEX);
+  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
 
   static constexpr auto FIELDS = concat_fields<ProjectedNoiseSampleParams>(
       Source::NoiseSourceParams::FIELDS,
@@ -357,7 +357,7 @@ struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
       sample_crossing_topology<ProjectedNoiseSampleParams>(
           TopologyField<ProjectedNoiseSampleParams>{
               "basis", &ProjectedNoiseSampleParams::basis, NOISE_BASIS_IDS,
-              static_cast<uint8_t>(::NoiseBasis::SIMPLEX)});
+              static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)});
 };
 static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
 static_assert(field_defaults_in_range<ProjectedNoiseSampleParams>());
@@ -392,14 +392,14 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
                           const State &state) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
     check_noise_basis(params.basis);
-    return {&state.noise, noise_projected_loop_offset(state.phase)};
+    return {&state.noise, math::noise_projected_loop_offset(state.phase)};
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::noise_contour(
-        *prepared.noise, static_cast<::NoiseBasis>(params.basis),
-        noise_projected_coordinate(input.coords, params.noise_scale,
-                                   prepared.loop_offset),
+        *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
+        math::noise_projected_coordinate(input.coords, params.noise_scale,
+                                         prepared.loop_offset),
         params.noise_contrast);
     return finish_sample(input, raw, params, ctx);
   }
@@ -420,14 +420,14 @@ struct SampleSphericalNoise : ValueStateModel<NoisePhaseState> {
   }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {
-    return {&state.noise, noise_sphere_loop_offset(state.phase)};
+    return {&state.noise, math::noise_sphere_loop_offset(state.phase)};
   }
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::noise_contour(
-        *prepared.noise, ::NoiseBasis::SIMPLEX,
-        noise_sphere_coordinate(input.dir, params.noise_scale,
-                                prepared.loop_offset),
+        *prepared.noise, math::NoiseBasis::SIMPLEX,
+        math::noise_sphere_coordinate(input.dir, params.noise_scale,
+                                      prepared.loop_offset),
         params.noise_contrast);
     return Kernel::sample(input, raw);
   }

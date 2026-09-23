@@ -370,7 +370,7 @@ public:
    */
   Rotation()
       : AnimationBase<Rotation<W, CAP>>(0, false), orientation(nullptr),
-        axis(math::X_AXIS), total_angle(0), easing_fn(ease_linear),
+        axis(math::X_AXIS), total_angle(0), easing_fn(math::ease_linear),
         last_angle(0), space(Space::World) {}
 
   /**
@@ -731,7 +731,7 @@ public:
         v, direction, angular_velocity, noise_generator.get(), options,
         this->t);
     Rotation<W, CAP>::animate(canvas, orientation, delta.axis, options.speed,
-                              ease_linear);
+                              math::ease_linear);
   }
 
 private:
