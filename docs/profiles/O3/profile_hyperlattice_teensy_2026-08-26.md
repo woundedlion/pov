@@ -2,7 +2,7 @@
 
 Global-O3 twin of the [shipping report](../shipping/profile_hyperlattice_teensy_2026-08-26.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh HyperLattice profile_o3 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"`). Raw capture:
-`build/prof/hyperlattice_o3.log`, captured 2026-08-26 02:37 local. This replaces `profile_hyperlattice_teensy_2026-08-25.md`.
+`build/prof/hyperlattice_o3.log`, captured 2026-08-26 02:37 local. This replaces the historical 2026-08-25 capture (report no longer retained).
 
 ## Setup
 

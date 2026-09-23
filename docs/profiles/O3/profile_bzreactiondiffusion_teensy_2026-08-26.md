@@ -2,7 +2,7 @@
 
 Global-O3 twin of the [shipping report](../shipping/profile_bzreactiondiffusion_teensy_2026-08-26.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh BZReactionDiffusion profile_o3 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"`). Raw capture:
-`build/prof/bzreactiondiffusion_o3.log`, captured 2026-08-26 01:16 local. This replaces `profile_bzreactiondiffusion_teensy_2026-08-03.md`.
+`build/prof/bzreactiondiffusion_o3.log`, captured 2026-08-26 01:16 local. This replaces the historical 2026-08-03 capture (report no longer retained).
 
 ## Setup
 

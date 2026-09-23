@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile Flyby`).
 Raw capture: `build/prof/flyby_ship.log`. Replaces
-`profile_flyby_teensy_2026-07-25.md`.
+the historical 2026-07-25 capture (report no longer retained).
 
 ## Setup
 

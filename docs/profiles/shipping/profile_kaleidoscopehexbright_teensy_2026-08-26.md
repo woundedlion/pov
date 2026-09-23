@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile KaleidoscopeHexBright`).
 Raw capture: `build/prof/kaleidoscopehexbright_ship.log`, sourced from the isolated sweep tree.
-Replaces `profile_kaleidoscopehexbright_teensy_2026-08-16.md` with the full 2026-08-26 sweep capture.
+Replaces the historical 2026-08-16 capture (report no longer retained) with the full 2026-08-26 sweep capture.
 
 ## Setup
 

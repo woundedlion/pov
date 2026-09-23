@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile PetalFlow`).
 Raw capture: `build/prof/petalflow_ship.log`, sourced from the isolated sweep tree.
-Replaces `profile_petalflow_teensy_2026-07-25.md` with the full 2026-08-26 sweep capture.
+Replaces the historical 2026-07-25 capture (report no longer retained) with the full 2026-08-26 sweep capture.
 
 ## Setup
 

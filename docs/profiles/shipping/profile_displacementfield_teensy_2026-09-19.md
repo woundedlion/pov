@@ -1,7 +1,7 @@
 # DisplacementField on-device profile — Teensy 4.0, segmented mode (2026-09-19, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile DisplacementField`).
-Raw captures: after: `build/prof/astra-regression-after-2026-09-19/build/prof/displacementfield_ship.log`, before: `build/prof/astra-regression-before-2026-09-19/build/prof/displacementfield_ship.log`. Replaces `profile_displacementfield_teensy_2026-08-26.md`; the before/after comparison below uses fresh matched captures, not that older report.
+Raw captures: after: `build/prof/astra-regression-after-2026-09-19/build/prof/displacementfield_ship.log`, before: `build/prof/astra-regression-before-2026-09-19/build/prof/displacementfield_ship.log`. Replaces the historical 2026-08-26 capture (report no longer retained); the before/after comparison below uses fresh matched captures, not that older report.
 
 ## Setup
 

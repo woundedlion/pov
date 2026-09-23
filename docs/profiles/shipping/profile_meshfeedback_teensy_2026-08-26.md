@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile MeshFeedback`).
 Raw capture: `build/prof/meshfeedback_ship.log`, sourced from the isolated sweep tree.
-Replaces `profile_meshfeedback_teensy_2026-08-05.md` with the full 2026-08-26 sweep capture.
+Replaces the historical 2026-08-05 capture (report no longer retained) with the full 2026-08-26 sweep capture.
 
 ## Setup
 
