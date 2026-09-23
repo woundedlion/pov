@@ -37,6 +37,7 @@ import sexp
 from connectivity import footprint_reference
 from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
                          EXCLUDE_VAL_SUBSTR, MIN_SOLDER_MASK_WEB_MM,
+                         MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
                          NEW_LAYOUT_RULES, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
 from kicad_common import F, is_copper_pour, kicad_cli
@@ -473,13 +474,13 @@ BOARD_EXCLUSION_FLAGS = frozenset(
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 MIN_VIA_TO_VIA_COPPER_SPACING_MM = 0.15
-MIN_ZONE_GAP_MM = RULE_MINIMUMS["min_clearance"]
+MIN_ZONE_GAP_MM = MIN_THERMAL_GAP_MM
 MIN_ZONE_WIDTH_MM = RULE_MINIMUMS["min_track_width"]
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
 ZONE_FEATURE_MINIMUMS = {
     "min_thickness": MIN_ZONE_WIDTH_MM,
     "thermal_gap": MIN_ZONE_GAP_MM,
-    "thermal_bridge_width": MIN_ZONE_WIDTH_MM,
+    "thermal_bridge_width": MIN_THERMAL_SPOKE_MM,
 }
 # Floors on what a routed board holds: the committed board carries 99 vias
 # (gen/board_metadata.py) and pours the In1/In2 reference planes.
@@ -1332,7 +1333,7 @@ def main():
     print(
         f"  zone geometry: {num_zones} copper pours relieve their pads and "
         f"meet the {MIN_ZONE_GAP_MM:g} mm gap and "
-        f"{MIN_ZONE_WIDTH_MM:g} mm width minimums")
+        f"{MIN_THERMAL_SPOKE_MM:g} mm spoke / {MIN_ZONE_WIDTH_MM:g} mm fill minimums")
     os.makedirs(OUT, exist_ok=True)
     print("[4/9] DRC report + schematic parity")
     try:

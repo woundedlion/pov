@@ -322,7 +322,7 @@ def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
         '\t\t(keepout (tracks allowed) (vias allowed) (pads allowed)'
         ' (copperpour allowed) (footprints not_allowed))\n'
         '\t\t(placement (enabled no) (sheetname ""))\n'
-        '\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.3))\n'
+        '\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.4))\n'
         '\t\t(polygon (pts (xy -30 -5) (xy -18.5 -5)'
         ' (xy -18.5 5) (xy -30 5)))\n'
         '\t)\n')
@@ -887,7 +887,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append('\t\t(keepout (tracks not_allowed) (vias not_allowed) (pads allowed)'
                      ' (copperpour not_allowed) (footprints allowed))')
         lines.append('\t\t(placement (enabled no) (sheetname ""))')
-        lines.append('\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.3))')
+        lines.append('\t\t(fill (thermal_gap 0.3) (thermal_bridge_width 0.4))')
         lines.append('\t\t(polygon (pts '
                      f'(xy {fmt(kx0)} {fmt(ky0)}) (xy {fmt(kx1)} {fmt(ky0)}) '
                      f'(xy {fmt(kx1)} {fmt(ky1)}) (xy {fmt(kx0)} {fmt(ky1)})))')
