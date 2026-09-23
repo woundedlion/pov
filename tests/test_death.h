@@ -2730,6 +2730,24 @@ inline void case_raster_point_projection_pair_mismatch() {
                                        {cols, opaque<size_t>(2)});
 }
 
+inline void case_raster_nonfinite_point() {
+  constexpr int W = 32, H = 16;
+  configure_arenas_default();
+  ScratchScope scope(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, 2);
+  Fragment point;
+  point.pos = math::Vector(1, 0, 0);
+  points.push_back(point);
+  point.pos.x = opaque(std::numeric_limits<float>::quiet_NaN());
+  points.push_back(point);
+  DeathEffect effect(W, H);
+  Canvas canvas(effect);
+  Pipeline<W, H> pipeline;
+  Plot::rasterize<W, H>(pipeline, canvas, points,
+                        [](const math::Vector &, Fragment &) {});
+}
+
 inline void case_raster_edge_flags_short() {
   constexpr int W = 32, H = 16;
   configure_arenas_default();
@@ -4794,6 +4812,8 @@ inline const Case *all_cases(int &n) {
       {"raster_point_projection_pair_mismatch",
        case_raster_point_projection_pair_mismatch, "raster.h",
        "(rows.size() == cols.size()) hoisted point projection rows and columns differ in length"},
+      {"raster_nonfinite_point", case_raster_nonfinite_point, "raster.h",
+       "(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) && std::isfinite(point.pos.z)) rasterize control points must be finite"},
       {"raster_edge_flags_short", case_raster_edge_flags_short, "raster.h",
        "(edge_flags == nullptr || opts.projection.flags().size() == count) edge_flags length must match the rasterized edge count"},
       {"raster_point_projections_short", case_raster_point_projections_short,
