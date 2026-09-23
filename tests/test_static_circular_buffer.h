@@ -963,9 +963,24 @@ inline void test_is_linear_tracks_head() {
  * @brief Runs every StaticCircularBuffer test case.
  * @return The module's failure count (number of failed assertions).
  */
+inline void test_try_push_back_preserves_full_buffer() {
+  StaticCircularBuffer<int, 2> buffer;
+  const int first = 7;
+  HS_EXPECT_TRUE(buffer.try_push_back(first));
+  HS_EXPECT_TRUE(buffer.try_push_back(9));
+  HS_EXPECT_FALSE(buffer.try_push_back(11));
+  HS_EXPECT_EQ(buffer.front(), 7);
+  HS_EXPECT_EQ(buffer.back(), 9);
+  buffer.pop_front();
+  HS_EXPECT_TRUE(buffer.try_push_back(13));
+  HS_EXPECT_EQ(buffer.front(), 9);
+  HS_EXPECT_EQ(buffer.back(), 13);
+}
+
 inline int run_static_circular_buffer_tests() {
   hs_test::ModuleFixture fixture("scb");
 
+  test_try_push_back_preserves_full_buffer();
   test_default_state();
   test_initializer_list_within_capacity();
   test_initializer_list_at_capacity();

@@ -148,6 +148,22 @@ public:
     return ref;
   }
 
+  /** @brief Appends without eviction; returns false when full. */
+  [[nodiscard]] bool try_push_back(const T &item) {
+    if (is_full())
+      return false;
+    push_back(item);
+    return true;
+  }
+
+  /** @brief Appends without eviction; a full buffer leaves item untouched. */
+  [[nodiscard]] bool try_push_back(T &&item) {
+    if (is_full())
+      return false;
+    push_back(std::move(item));
+    return true;
+  }
+
   /**
    * @brief Inserts an element at the back by copy.
    * @param item Element to copy into the new back slot.
