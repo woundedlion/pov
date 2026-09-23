@@ -37,6 +37,9 @@
 namespace hs_test {
 namespace platform_tests {
 
+static_assert(hs::clamp(-1, 2, 0) == 2);
+static_assert(hs::clamp(3, 2, 0) == 2);
+
 inline constexpr double TWO_PI = 6.283185307179586;
 
 /**
