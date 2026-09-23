@@ -806,6 +806,15 @@ HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
   oklab_to_linear_rgb_gamut({lab.L, a2, b2}, r, g, b);
 }
 
+/**
+ * @brief Perceptual (OKLab) hue rotation with a precomputed rotation.
+ * @param c Source color.
+ * @param ca Cosine of the rotation angle.
+ * @param sa Sine of the rotation angle.
+ * @return The hue-rotated color.
+ * @details Precomputed (ca, sa) lets frame-constant callers hoist sin/cos out
+ * of the per-pixel loop.
+ */
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   LinRGB rgb = pixel_to_linrgb(c.color);
 
@@ -835,6 +844,12 @@ turn_to_unit_cos_sin(float turns, float &ca, float &sa) {
   sa *= inv;
 }
 
+/**
+ * @brief Perceptual (OKLab) hue rotation by a turn amount.
+ * @param c Source color.
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color.
+ */
 inline Color4 hue_rotate(const Color4 &c, float amount) {
   float ca, sa;
   turn_to_unit_cos_sin(amount, ca, sa);
