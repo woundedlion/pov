@@ -172,7 +172,7 @@ HS_COLD_MEMBER inline size_t expand_to_primitives(const Recipe &recipe,
     const OpStep &step = recipe.steps[i];
     switch (step.op) {
     case Op::GYRO:
-      emit({Op::SNUB, 0.5f, 0.0f});
+      emit({Op::SNUB, MeshOps::SNUB_DEFAULT_T, MeshOps::SNUB_DEFAULT_TWIST});
       emit({Op::DUAL});
       break;
     case Op::META:
