@@ -67,6 +67,21 @@ struct ScopedPoleLod {
 // Scan::Shader::draw — full-sphere per-pixel shader
 // ============================================================================
 
+/** @brief A standalone bounding sphere prepares its row lookup table. */
+inline void test_bounding_sphere_initializes_trig() {
+  constexpr int W = 36, H = 19;
+  math::TrigLUT<W, H>::initialized = false;
+  Scan::BoundingSphere<W, H> bounds(math::Vector(1, 0, 0), 0.2f);
+  HS_EXPECT_TRUE((math::TrigLUT<W, H>::initialized));
+  int intervals = 0;
+  bounds.get_intervals(H / 2, [&](float start, float end) {
+    ++intervals;
+    HS_EXPECT_GT(end - start, 0.0f);
+    HS_EXPECT_LT(end - start, W * 0.5f);
+  });
+  HS_EXPECT_EQ(intervals, 1);
+}
+
 /** @brief Alpha at the cutoff is discarded; the next representable value draws. */
 inline void test_min_alpha_boundary() {
   constexpr int W = 32, H = 16;
@@ -3218,6 +3233,7 @@ inline void test_circle_extent_follows_its_radius() {
 inline int run_scan_tests() {
   hs_test::ModuleFixture fixture("scan");
 
+  test_bounding_sphere_initializes_trig();
   test_min_alpha_boundary();
   test_shader_constant_fills_canvas();
   test_shader_ssaa_premultiplies_partial_coverage();
