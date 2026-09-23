@@ -483,7 +483,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── engine_source_state.py Hashes tracked and working engine source for build provenance
 │   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
-├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus design specs (docs/specs/), the ITCM and device/host divergence ledgers (docs/ledgers/), on-device profiles (docs/profiles/), and the docs/screenshots/ gallery
+├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus agent_workflow.md, phantasm_circuit.svg, design specs (docs/specs/), the ITCM and device/host divergence ledgers (docs/ledgers/), on-device profiles (docs/profiles/), and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
