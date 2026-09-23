@@ -149,6 +149,8 @@ protected:
           "cancelled crossfade's blend outlives its own transition and "
           "completes the next one early");
       if (change.origin == PresetChangeOrigin::AUTOMATIC) {
+        if (transition.active)
+          return false;
         constexpr auto SEGUE = Derived::PRESET_SEGUE;
         const bool *paused = SEGUE.pausable ? &anims_paused : nullptr;
         if (timeline.add_get(
