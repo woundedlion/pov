@@ -113,9 +113,9 @@ public:
     current_idx = SEED_MODE_IDX;
 
     math::Vector axis = math::Vector(0.5f, 1.0f, 0.2f).normalized();
-    timeline.add(0, Animation::Rotation<W>(orientation, axis,
-                                           2 * math::PI_F * SPIN_TURNS,
-                                           SPIN_FRAMES, ease_linear, true));
+    timeline.add(0, Animation::Rotation<W>(
+                        orientation, axis, 2 * math::PI_F * SPIN_TURNS,
+                        SPIN_FRAMES, math::ease_linear, true));
 
     start_morph();
   }
@@ -281,7 +281,7 @@ private:
 
     timeline.add_pausable(
         0,
-        Animation::Transition(morph_alpha, 1.0f, 64, ease_linear)
+        Animation::Transition(morph_alpha, 1.0f, 64, math::ease_linear)
             .then([this, generation]() {
               if (generation != morph_generation) {
                 morph_alpha = 0.0f;

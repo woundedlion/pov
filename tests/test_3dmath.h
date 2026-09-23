@@ -1671,7 +1671,7 @@ constexpr float COMPOSED_ROTATION_TOLERANCE = 4e-6f;
  * @param v Vector to measure.
  * @return The sum of squared components.
  */
-inline float vec4_norm_squared(const Vec4 &v) {
+inline float vec4_norm_squared(const math::Vec4 &v) {
   return v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3];
 }
 
@@ -1682,9 +1682,9 @@ inline float vec4_norm_squared(const Vec4 &v) {
  * @param j Second row index.
  * @return The dot product of rows i and j.
  */
-inline float mat4_row_dot(const Mat4 &matrix, int i, int j) {
+inline float mat4_row_dot(const math::Mat4 &matrix, int i, int j) {
   float sum = 0.0f;
-  for (int column = 0; column < VEC4_DIMENSIONS; ++column)
+  for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
     sum += matrix.m[i][column] * matrix.m[j][column];
   return sum;
 }
@@ -1694,9 +1694,9 @@ inline float mat4_row_dot(const Mat4 &matrix, int i, int j) {
  * @param rng Generator supplying the components.
  * @return The sampled vector.
  */
-inline Vec4 rand_vec4(hs::Pcg32 &rng) {
-  Vec4 v{};
-  for (int i = 0; i < VEC4_DIMENSIONS; ++i)
+inline math::Vec4 rand_vec4(hs::Pcg32 &rng) {
+  math::Vec4 v{};
+  for (int i = 0; i < math::VEC4_DIMENSIONS; ++i)
     v[i] = rand_uniform(rng, -2.0f, 2.0f);
   return v;
 }
@@ -1705,26 +1705,27 @@ inline Vec4 rand_vec4(hs::Pcg32 &rng) {
  * @brief Pins Mat4::identity() and the row-major reading of Mat4::apply().
  */
 inline void test_mat4_identity_and_apply() {
-  const Mat4 id = Mat4::identity();
-  for (int row = 0; row < VEC4_DIMENSIONS; ++row)
-    for (int column = 0; column < VEC4_DIMENSIONS; ++column)
+  const math::Mat4 id = math::Mat4::identity();
+  for (int row = 0; row < math::VEC4_DIMENSIONS; ++row)
+    for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
       HS_EXPECT_EQ(id.m[row][column], row == column ? 1.0f : 0.0f);
 
-  const Vec4 v{{1.0f, -2.0f, 3.5f, 0.25f}};
-  const Vec4 unchanged = id.apply(v);
-  for (int i = 0; i < VEC4_DIMENSIONS; ++i)
+  const math::Vec4 v{{1.0f, -2.0f, 3.5f, 0.25f}};
+  const math::Vec4 unchanged = id.apply(v);
+  for (int i = 0; i < math::VEC4_DIMENSIONS; ++i)
     HS_EXPECT_EQ(unchanged[i], v[i]);
 
   // A transposed reading would still fix the identity, so apply() is also
   // scored against an asymmetric matrix.
-  Mat4 ramp{};
-  for (int row = 0; row < VEC4_DIMENSIONS; ++row)
-    for (int column = 0; column < VEC4_DIMENSIONS; ++column)
-      ramp.m[row][column] = static_cast<float>(row * VEC4_DIMENSIONS + column);
-  const Vec4 mapped = ramp.apply(v);
-  for (int row = 0; row < VEC4_DIMENSIONS; ++row) {
+  math::Mat4 ramp{};
+  for (int row = 0; row < math::VEC4_DIMENSIONS; ++row)
+    for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
+      ramp.m[row][column] =
+          static_cast<float>(row * math::VEC4_DIMENSIONS + column);
+  const math::Vec4 mapped = ramp.apply(v);
+  for (int row = 0; row < math::VEC4_DIMENSIONS; ++row) {
     float expected = 0.0f;
-    for (int column = 0; column < VEC4_DIMENSIONS; ++column)
+    for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
       expected += ramp.m[row][column] * v[column];
     HS_EXPECT_NEAR(mapped[row], expected, 1e-5f);
   }
@@ -1741,25 +1742,25 @@ inline void test_mat4_identity_and_apply() {
 inline void expect_plane_rotation_isometry(int a, int b, float angle,
                                            hs::Pcg32 &rng) {
   HS_CONTEXT(__func__, a, b);
-  Mat4 rotation = Mat4::identity();
-  rotate_plane(rotation, a, b, angle);
+  math::Mat4 rotation = math::Mat4::identity();
+  math::rotate_plane(rotation, a, b, angle);
 
   for (int sample = 0; sample < 8; ++sample) {
-    const Vec4 v = rand_vec4(rng);
-    const Vec4 rotated = rotation.apply(v);
+    const math::Vec4 v = rand_vec4(rng);
+    const math::Vec4 rotated = rotation.apply(v);
     HS_EXPECT_NEAR(vec4_norm_squared(rotated), vec4_norm_squared(v),
                    PLANE_ROTATION_TOLERANCE * vec4_norm_squared(v));
     // The rows outside the plane are still identity rows, so those two
     // coordinates survive bit for bit, not merely within tolerance.
-    for (int i = 0; i < VEC4_DIMENSIONS; ++i)
+    for (int i = 0; i < math::VEC4_DIMENSIONS; ++i)
       if (i != a && i != b)
         HS_EXPECT_EQ(rotated[i], v[i]);
   }
 
-  for (int i = 0; i < VEC4_DIMENSIONS; ++i) {
+  for (int i = 0; i < math::VEC4_DIMENSIONS; ++i) {
     HS_EXPECT_NEAR(mat4_row_dot(rotation, i, i), 1.0f,
                    PLANE_ROTATION_TOLERANCE);
-    for (int j = i + 1; j < VEC4_DIMENSIONS; ++j)
+    for (int j = i + 1; j < math::VEC4_DIMENSIONS; ++j)
       HS_EXPECT_NEAR(mat4_row_dot(rotation, i, j), 0.0f,
                      PLANE_ROTATION_TOLERANCE);
   }
@@ -1787,11 +1788,11 @@ inline void test_rotate_plane_isometry() {
 inline void test_rotate_plane_quarter_turn() {
   for (const std::array<int, 2> &plane : PLANE_AXES) {
     HS_CONTEXT(__func__, plane[0], plane[1]);
-    Mat4 rotation = Mat4::identity();
-    rotate_plane(rotation, plane[0], plane[1], math::PI_F * 0.5f);
-    Vec4 first_axis{};
+    math::Mat4 rotation = math::Mat4::identity();
+    math::rotate_plane(rotation, plane[0], plane[1], math::PI_F * 0.5f);
+    math::Vec4 first_axis{};
     first_axis[plane[0]] = 1.0f;
-    const Vec4 image = rotation.apply(first_axis);
+    const math::Vec4 image = rotation.apply(first_axis);
     HS_EXPECT_NEAR(image[plane[0]], 0.0f, PLANE_ROTATION_TOLERANCE);
     HS_EXPECT_NEAR(image[plane[1]], 1.0f, PLANE_ROTATION_TOLERANCE);
   }
@@ -1806,22 +1807,22 @@ inline void test_rotate_plane_inverse_composition() {
     for (int step = 0; step < 8; ++step) {
       const float angle = 0.1f + step * 0.37f;
       HS_CONTEXT(__func__, plane[0], plane[1]);
-      Mat4 rotation = Mat4::identity();
-      rotate_plane(rotation, plane[0], plane[1], angle);
-      rotate_plane(rotation, plane[0], plane[1], -angle);
-      for (int row = 0; row < VEC4_DIMENSIONS; ++row)
-        for (int column = 0; column < VEC4_DIMENSIONS; ++column)
+      math::Mat4 rotation = math::Mat4::identity();
+      math::rotate_plane(rotation, plane[0], plane[1], angle);
+      math::rotate_plane(rotation, plane[0], plane[1], -angle);
+      for (int row = 0; row < math::VEC4_DIMENSIONS; ++row)
+        for (int column = 0; column < math::VEC4_DIMENSIONS; ++column)
           HS_EXPECT_NEAR(rotation.m[row][column], row == column ? 1.0f : 0.0f,
                          PLANE_ROTATION_TOLERANCE);
     }
 }
 
 inline void test_rotate_plane_composition_order() {
-  Mat4 rotation = Mat4::identity();
-  rotate_plane(rotation, 0, 1, math::PI_F * 0.5f);
-  rotate_plane(rotation, 1, 2, math::PI_F * 0.5f);
-  const Vec4 image = rotation.apply(Vec4{{1.0f, 0.0f, 0.0f, 0.0f}});
-  for (int axis = 0; axis < VEC4_DIMENSIONS; ++axis)
+  math::Mat4 rotation = math::Mat4::identity();
+  math::rotate_plane(rotation, 0, 1, math::PI_F * 0.5f);
+  math::rotate_plane(rotation, 1, 2, math::PI_F * 0.5f);
+  const math::Vec4 image = rotation.apply(math::Vec4{{1.0f, 0.0f, 0.0f, 0.0f}});
+  for (int axis = 0; axis < math::VEC4_DIMENSIONS; ++axis)
     HS_EXPECT_NEAR(image[axis], axis == 2 ? 1.0f : 0.0f,
                    PLANE_ROTATION_TOLERANCE);
 }
@@ -1831,25 +1832,25 @@ inline void test_rotate_plane_composition_order() {
  *        builds — to stay an isometry with orthonormal rows.
  */
 inline void test_rotate_plane_composition_stays_isometric() {
-  Mat4 orientation = Mat4::identity();
+  math::Mat4 orientation = math::Mat4::identity();
   float phase = 0.37f;
   for (const std::array<int, 2> &plane : PLANE_AXES) {
-    rotate_plane(orientation, plane[0], plane[1], phase);
+    math::rotate_plane(orientation, plane[0], plane[1], phase);
     phase += 0.61f;
   }
 
   hs::Pcg32 rng(20260826u);
   for (int sample = 0; sample < 32; ++sample) {
-    const Vec4 v = rand_vec4(rng);
-    const Vec4 rotated = orientation.apply(v);
+    const math::Vec4 v = rand_vec4(rng);
+    const math::Vec4 rotated = orientation.apply(v);
     HS_EXPECT_NEAR(vec4_norm_squared(rotated), vec4_norm_squared(v),
                    COMPOSED_ROTATION_TOLERANCE * vec4_norm_squared(v));
   }
 
-  for (int i = 0; i < VEC4_DIMENSIONS; ++i) {
+  for (int i = 0; i < math::VEC4_DIMENSIONS; ++i) {
     HS_EXPECT_NEAR(mat4_row_dot(orientation, i, i), 1.0f,
                    COMPOSED_ROTATION_TOLERANCE);
-    for (int j = i + 1; j < VEC4_DIMENSIONS; ++j)
+    for (int j = i + 1; j < math::VEC4_DIMENSIONS; ++j)
       HS_EXPECT_NEAR(mat4_row_dot(orientation, i, j), 0.0f,
                      COMPOSED_ROTATION_TOLERANCE);
   }

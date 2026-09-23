@@ -326,7 +326,7 @@ public:
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = ease_in_out_sin)
+        EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(spec.sweep_frames + spec.settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
     HS_CHECK(spec.edge, "OpLeg: edge sweep carries no graph edge");
@@ -385,7 +385,7 @@ public:
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = ease_in_out_sin)
+        EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -452,7 +452,7 @@ public:
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = ease_in_out_sin)
+        EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -550,7 +550,7 @@ public:
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = ease_in_out_sin)
+        EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -622,7 +622,7 @@ public:
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = ease_in_out_sin)
+        EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -713,7 +713,7 @@ public:
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
         BlendWeightFn blend_fn = classic_blend,
-        EasingFn easing_fn = ease_in_out_sin)
+        EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -787,7 +787,7 @@ public:
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
                                                        .faces = 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(2 * spec.gate_frames + 1, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(spec.gate_frames >= 1, "OpLeg needs a positive gate length");

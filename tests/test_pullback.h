@@ -1081,8 +1081,8 @@ inline void test_pullback_warp_phase_loop() {
                  vector_1.transform.noise_loop.offset.y, 1e-6f);
   HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.z,
                  vector_1.transform.noise_loop.offset.z, 1e-6f);
-  const math::Vector curl_0 = noise_projected_loop_offset(0.0f);
-  const math::Vector curl_1 = noise_projected_loop_offset(1.0f);
+  const math::Vector curl_0 = math::noise_projected_loop_offset(0.0f);
+  const math::Vector curl_1 = math::noise_projected_loop_offset(1.0f);
   HS_EXPECT_NEAR(curl_0.x, curl_1.x, 1e-6f);
   HS_EXPECT_NEAR(curl_0.y, curl_1.y, 1e-6f);
   HS_EXPECT_NEAR(curl_0.z, curl_1.z, 1e-6f);

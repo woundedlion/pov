@@ -613,11 +613,11 @@ template <typename B> struct SourcePolicyFor<LatticeSourceParams, B> {
 };
 template <typename B> struct SourcePolicyFor<ProjectedNoiseSourceParams, B> {
   using Type = Pullback::Source::ProjectedNoise<SourceProvider<B>,
-                                                ::NoiseBasis::SIMPLEX>;
+                                                math::NoiseBasis::SIMPLEX>;
 };
 template <typename B> struct SourcePolicyFor<SphericalNoiseSourceParams, B> {
   using Type = Pullback::Source::SphericalNoise<SourceProvider<B>,
-                                                ::NoiseBasis::SIMPLEX>;
+                                                math::NoiseBasis::SIMPLEX>;
 };
 
 template <typename Family, typename Binding, bool Outer, bool TrackPath>
@@ -636,9 +636,9 @@ struct WarpPolicyFor<WaveShearParams, B, O, T> {
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<VectorNoiseParams, B, O, T> {
-  using Type =
-      Pullback::Warp::VectorNoise<WarpProvider<B, O, T>, NoiseBasis::SIMPLEX,
-                                  Pullback::Warp::FlatEnvelope>;
+  using Type = Pullback::Warp::VectorNoise<WarpProvider<B, O, T>,
+                                           math::NoiseBasis::SIMPLEX,
+                                           Pullback::Warp::FlatEnvelope>;
 };
 template <typename B, bool O, bool T>
 struct WarpPolicyFor<AffineParams, B, O, T> {
@@ -789,7 +789,7 @@ public:
   using Binding = Pullback::Binding<FrameState>;
   /** Preset policy: an automatic change crossfades the parameters; pause
       never freezes an in-flight crossfade. */
-  static constexpr Segue::Preset::Lerp PRESET_SEGUE{480, ease_in_out_sin};
+  static constexpr Segue::Preset::Lerp PRESET_SEGUE{480, math::ease_in_out_sin};
   static constexpr bool ANIMATED_PROJECTION = AnimatedProjection;
   /** Whether the effect owns a surface-noise field and seed. */
   static constexpr bool HAS_SURFACE_NOISE =
@@ -825,11 +825,11 @@ private:
   static_assert(!SURFACE_AFTER_LENS || CURL_SURFACE || DIRECT_SURFACE);
   using CurlDisplacePolicy =
       Pullback::Surface::CurlNoise<SurfaceProvider<Binding, TRACK_PATH>,
-                                   NoiseBasis::SIMPLEX,
+                                   math::NoiseBasis::SIMPLEX,
                                    Pullback::Surface::Euler>;
   using DirectDisplacePolicy =
       Pullback::Surface::DirectNoise<SurfaceProvider<Binding, TRACK_PATH>,
-                                     NoiseBasis::SIMPLEX>;
+                                     math::NoiseBasis::SIMPLEX>;
   using RippleDisplacePolicy =
       Pullback::Surface::PeriodicRipple<SurfaceProvider<Binding, TRACK_PATH>>;
   using NoiseDisplaceStage = Pullback::Stage::Displace<std::conditional_t<
@@ -920,7 +920,7 @@ public:
     if constexpr (HAS_SURFACE_NOISE)
       configure_noise(state->surface.noise, Derived::SURFACE_NOISE_SEED);
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
-                                  ease_in_out_sin);
+                                  math::ease_in_out_sin);
     if constexpr (AnimatedProjection)
       timeline.add(0, Animation::RandomWalk<W>(
                           this->projection_walk, math::UP,

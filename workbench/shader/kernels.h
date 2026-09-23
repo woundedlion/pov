@@ -424,10 +424,10 @@ inline float warp_envelope(const Pullback::ProjectionProvenance &provenance,
 
 HS_FLASH_MEMBER inline math::Complex curl_vector(const math::Complex &p,
                                                  const FastNoiseLite &noise,
-                                                 NoiseBasis basis, float scale,
-                                                 float phase) {
+                                                 math::NoiseBasis basis,
+                                                 float scale, float phase) {
   return Pullback::Warp::curl_vector(p, noise, basis, scale,
-                                     noise_projected_loop_offset(phase));
+                                     math::noise_projected_loop_offset(phase));
 }
 
 __attribute__((always_inline)) inline math::Complex
@@ -572,14 +572,14 @@ HS_FLASH_MEMBER inline float sample_source(const math::Complex &p,
     return grid(p, frame.params.source, frame.dynamic.source);
   if (frame.slots.function == Function::NOISE_CONTOUR)
     return sample_noise_contour(
-        noise_projected_coordinate(p, frame.params.source.noise_scale,
-                                   frame.clocks.source_noise_time),
+        math::noise_projected_coordinate(p, frame.params.source.noise_scale,
+                                         frame.clocks.source_noise_time),
         frame);
   if (frame.slots.function == Function::NOISE_CONTOUR_SPHERE)
     return sample_noise_contour(
-        noise_sphere_coordinate(projected.sphere,
-                                frame.params.source.noise_scale,
-                                frame.clocks.source_noise_time),
+        math::noise_sphere_coordinate(projected.sphere,
+                                      frame.params.source.noise_scale,
+                                      frame.clocks.source_noise_time),
         frame);
   if (frame.slots.function == Function::PRIMITIVE_LATTICE)
     return primitive_lattice(p, frame.params.source);

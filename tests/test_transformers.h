@@ -972,7 +972,7 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   rt.init_storage(persistent_arena);
 
   float dummy = 0.0f;
-  tl.add(0, Animation::Transition(dummy, 1.0f, 2, ease_linear));
+  tl.add(0, Animation::Transition(dummy, 1.0f, 2, math::ease_linear));
 
   Animation::Ripple *p = rt.spawn(0, math::Vector(0, 1, 0), 0.2f, 4);
   HS_EXPECT_TRUE(p != nullptr);

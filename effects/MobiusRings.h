@@ -79,20 +79,23 @@ public:
     HS_CHECK(warp, "MobiusRings: pinned warp spawn must succeed");
 
     timeline
-        .add(0, Animation::Rotation<W>(orientation, math::Y_AXIS,
-                                       2 * math::PI_F, 400, ease_linear, true))
+        .add(0,
+             Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * math::PI_F,
+                                    400, math::ease_linear, true))
         .add(0, Animation::PeriodicTimer(
                     WIPE_PERIOD, [this](Canvas &) { wipe_palette(); }, true))
-        .add_pausable(0,
-                      Animation::Mutation(params.num_rings,
-                                          sin_wave(1.0f, 12.0f, 1.0f, 0.5f),
-                                          320, ease_linear, true),
-                      &anims_paused)
-        .add_pausable(0,
-                      Animation::Mutation(params.num_lines,
-                                          sin_wave(1.0f, 12.0f, 1.0f, 0.0f),
-                                          320, ease_linear, true),
-                      &anims_paused);
+        .add_pausable(
+            0,
+            Animation::Mutation(params.num_rings,
+                                math::sin_wave(1.0f, 12.0f, 1.0f, 0.5f), 320,
+                                math::ease_linear, true),
+            &anims_paused)
+        .add_pausable(
+            0,
+            Animation::Mutation(params.num_lines,
+                                math::sin_wave(1.0f, 12.0f, 1.0f, 0.0f), 320,
+                                math::ease_linear, true),
+            &anims_paused);
   }
 
   /**
@@ -209,7 +212,7 @@ private:
                  .snapshot(),
              WIPE_FRAMES);
     timeline.add(0, Animation::ColorWipe(palette, wipe.start, wipe.target,
-                                         WIPE_FRAMES, ease_linear));
+                                         WIPE_FRAMES, math::ease_linear));
   }
 
   /**

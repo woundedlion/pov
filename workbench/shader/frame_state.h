@@ -245,7 +245,7 @@ HS_FLASH_MEMBER inline PreparedSurfaceNoise
 prepare_surface_noise(const ClockState &clocks, const Params &params) {
   const float surface_direction =
       math::TWO_PI_F * params.surface_noise.direction;
-  return {noise_sphere_loop_offset(clocks.surface_noise_time),
+  return {math::noise_sphere_loop_offset(clocks.surface_noise_time),
           cosf(surface_direction), sinf(surface_direction)};
 }
 
@@ -287,7 +287,8 @@ prepare_warp_stage(const WarpStageSpec &spec, const WarpStageParams &params,
     };
   } else if (spec.kind == WarpStageKind::VECTOR_NOISE ||
              spec.kind == WarpStageKind::CURL_FLOW) {
-    prepared.transform.noise_loop = {noise_projected_loop_offset(stage_phase)};
+    prepared.transform.noise_loop = {
+        math::noise_projected_loop_offset(stage_phase)};
   }
   prepared.rotation_cos = cosf(rotation);
   prepared.rotation_sin = sinf(rotation);
