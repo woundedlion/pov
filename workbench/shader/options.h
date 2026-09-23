@@ -156,7 +156,8 @@ inline constexpr const char *warp_option(WarpStageKind kind) {
 inline constexpr const char *NOISE_BASIS_OPTIONS[] = {"Simplex", "FBM 3",
                                                       "Ridged 3"};
 inline constexpr const char *NOISE_BASIS_EXPORT_OPTIONS[] = {
-    "NoiseBasis::SIMPLEX", "NoiseBasis::FBM3", "NoiseBasis::RIDGED3"};
+    "math::NoiseBasis::SIMPLEX", "math::NoiseBasis::FBM3",
+    "math::NoiseBasis::RIDGED3"};
 inline constexpr int NUM_NOISE_BASES = std::size(NOISE_BASIS_OPTIONS);
 inline constexpr const char *POLAR_MODE_OPTIONS[] = {"Linear", "Logarithmic"};
 inline constexpr const char *POLAR_MODE_EXPORT_OPTIONS[] = {
@@ -350,7 +351,8 @@ static_assert(NUM_SURFACE_NOISE_PLACEMENTS ==
 static_assert(NUM_SURFACE_CURL_INTEGRATORS ==
               option_count_through(SurfaceCurlIntegrator::MIDPOINT_2X));
 static_assert(NUM_WARPS == option_count_through(WarpStageKind::POLAR_CHART));
-static_assert(NUM_NOISE_BASES == option_count_through(NoiseBasis::RIDGED3));
+static_assert(NUM_NOISE_BASES ==
+              option_count_through(math::NoiseBasis::RIDGED3));
 static_assert(NUM_POLAR_MODES == option_count_through(PolarMode::LOGARITHMIC));
 static_assert(NUM_CURL_INTEGRATORS ==
               option_count_through(CurlIntegrator::MIDPOINT_4));

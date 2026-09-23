@@ -89,7 +89,7 @@ struct SourceClockState {
   float angle = 0.0f;
 };
 
-/** @brief Noise-basis topology values, in ::NoiseBasis order. */
+/** @brief Noise-basis topology values, in math::NoiseBasis order. */
 inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
 
 /**
@@ -98,7 +98,7 @@ inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
  * switches stay total and carry no guard.
  */
 inline void check_noise_basis(uint8_t basis) {
-  HS_CHECK(basis <= static_cast<uint8_t>(::NoiseBasis::RIDGED3),
+  HS_CHECK(basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3),
            "pullback operator: invalid noise basis");
 }
 

@@ -219,7 +219,7 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
          p.source.lattice_softness <= 1.0f &&
          p.source.lattice_radius >= 1.0f / 64.0f &&
          p.source.lattice_radius <= 0.49f &&
-         enum_at_most(p.source.noise_basis, NoiseBasis::RIDGED3) &&
+         enum_at_most(p.source.noise_basis, math::NoiseBasis::RIDGED3) &&
          p.source.ring_count >= 1 && p.source.ring_count <= 32 &&
          p.source.ring_thickness >= 1.0f / 512.0f &&
          p.source.ring_thickness <= 0.5f &&
@@ -266,7 +266,7 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
          p.surface_noise.rate <= NOISE_RATE_MAX &&
          p.surface_noise.direction >= 0.0f &&
          p.surface_noise.direction <= 1.0f &&
-         enum_at_most(p.surface_noise.basis, NoiseBasis::RIDGED3) &&
+         enum_at_most(p.surface_noise.basis, math::NoiseBasis::RIDGED3) &&
          enum_at_most(p.surface_noise.integrator,
                       SurfaceCurlIntegrator::MIDPOINT_2X) &&
          p.value.iso_level >= 0.0f && p.value.iso_level <= 1.0f &&

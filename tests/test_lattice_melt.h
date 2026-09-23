@@ -34,8 +34,8 @@ struct LatticeMeltWhiteBox {
   static void tick_choreography(FX &effect) { effect.step_choreography(); }
   static void saturate_timeline(FX &effect, float &sink) {
     while (Timeline::remaining() > 0)
-      effect.timeline.add(0,
-                          Animation::Transition(sink, 1.0f, 10, ease_linear));
+      effect.timeline.add(
+          0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
   }
   static void clear_timeline(FX &effect) { effect.timeline.clear(); }
   static void drive_transition(FX &effect, float progress) {
@@ -227,15 +227,15 @@ inline void test_lattice_melt_overshoot_finishes_on_frame_count() {
 
   bool saw_overshoot = false;
   for (uint16_t frame = 1; frame < FX::TRANSITION_DURATION; ++frame) {
-    const float progress =
-        ease_out_elastic(static_cast<float>(frame) / FX::TRANSITION_DURATION);
+    const float progress = math::ease_out_elastic(static_cast<float>(frame) /
+                                                  FX::TRANSITION_DURATION);
     WB::drive_transition(effect, progress);
     saw_overshoot |= progress > 1.0f;
     HS_EXPECT_TRUE(WB::transition_active(effect));
   }
   HS_EXPECT_TRUE(saw_overshoot);
 
-  WB::drive_transition(effect, ease_out_elastic(1.0f));
+  WB::drive_transition(effect, math::ease_out_elastic(1.0f));
   HS_EXPECT_FALSE(WB::transition_active(effect));
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
                  FX::preset_params(1).surface.scale, 0.0f);

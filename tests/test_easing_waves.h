@@ -71,29 +71,29 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
  *          special-cased: the formulas only approach 1 asymptotically.
  */
 inline void test_easing_endpoints() {
-  HS_EXPECT_NEAR(ease_in_out_cubic(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_out_cubic(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_out_sin(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_out_sin(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_out_cubic(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_out_cubic(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_out_sin(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_out_sin(1.0f), 1.0f, 1e-5f);
 
-  HS_EXPECT_NEAR(ease_in_sin(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_sin(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_cubic(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_cubic(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_circ(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_circ(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_EQ(ease_in_circ(std::nextafter(1.0f, 2.0f)), 1.0f);
-  HS_EXPECT_EQ(ease_out_circ(std::nextafter(0.0f, -1.0f)), 0.0f);
-  HS_EXPECT_EQ(ease_out_circ(-1e-6f), 0.0f);
+  HS_EXPECT_NEAR(math::ease_in_sin(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_sin(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_cubic(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_cubic(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_circ(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_circ(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_EQ(math::ease_in_circ(std::nextafter(1.0f, 2.0f)), 1.0f);
+  HS_EXPECT_EQ(math::ease_out_circ(std::nextafter(0.0f, -1.0f)), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_circ(-1e-6f), 0.0f);
 
-  HS_EXPECT_NEAR(ease_out_expo(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_expo(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_elastic(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_elastic(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_expo(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_expo(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_elastic(0.0f), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_elastic(1.0f), 1.0f, 1e-5f);
 
-  HS_EXPECT_NEAR(ease_linear(0.0f), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(ease_linear(0.5f), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(ease_linear(1.0f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::ease_linear(0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::ease_linear(0.5f), 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(math::ease_linear(1.0f), 1.0f, 1e-6f);
 }
 
 /**
@@ -102,26 +102,26 @@ inline void test_easing_endpoints() {
  *          behavior; expo/elastic overshoot, so they get finiteness only.
  */
 inline void test_easing_finite_and_monotone() {
-  HS_EXPECT_NEAR(ease_in_out_cubic(0.25f), 0.0625f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_out_sin(0.25f), 0.1464466094f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_sin(0.25f), 0.0761204675f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_sin(0.25f), 0.3826834324f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_cubic(0.25f), 0.015625f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_cubic(0.25f), 0.578125f, 1e-5f);
-  HS_EXPECT_NEAR(ease_in_circ(0.25f), 0.0317541634f, 1e-5f);
-  HS_EXPECT_NEAR(ease_out_circ(0.25f), 0.6614378278f, 1e-5f);
-  check_curve(ease_in_out_cubic, true, "ease_in_out_cubic");
-  check_curve(ease_in_out_sin, true, "ease_in_out_sin");
-  check_curve(ease_in_sin, true, "ease_in_sin");
-  check_curve(ease_out_sin, true, "ease_out_sin");
-  check_curve(ease_in_cubic, true, "ease_in_cubic");
-  check_curve(ease_out_cubic, true, "ease_out_cubic");
-  check_curve(ease_in_circ, true, "ease_in_circ");
-  check_curve(ease_out_circ, true, "ease_out_circ");
-  check_curve(ease_linear, true, "ease_linear");
+  HS_EXPECT_NEAR(math::ease_in_out_cubic(0.25f), 0.0625f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_out_sin(0.25f), 0.1464466094f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_sin(0.25f), 0.0761204675f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_sin(0.25f), 0.3826834324f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_cubic(0.25f), 0.015625f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_cubic(0.25f), 0.578125f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_in_circ(0.25f), 0.0317541634f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_circ(0.25f), 0.6614378278f, 1e-5f);
+  check_curve(math::ease_in_out_cubic, true, "ease_in_out_cubic");
+  check_curve(math::ease_in_out_sin, true, "ease_in_out_sin");
+  check_curve(math::ease_in_sin, true, "ease_in_sin");
+  check_curve(math::ease_out_sin, true, "ease_out_sin");
+  check_curve(math::ease_in_cubic, true, "ease_in_cubic");
+  check_curve(math::ease_out_cubic, true, "ease_out_cubic");
+  check_curve(math::ease_in_circ, true, "ease_in_circ");
+  check_curve(math::ease_out_circ, true, "ease_out_circ");
+  check_curve(math::ease_linear, true, "ease_linear");
   // Overshooting / non-monotone curves: finiteness only.
-  check_curve(ease_out_expo, false, "ease_out_expo");
-  check_curve(ease_out_elastic, false, "ease_out_elastic");
+  check_curve(math::ease_out_expo, false, "ease_out_expo");
+  check_curve(math::ease_out_elastic, false, "ease_out_elastic");
 }
 
 /**
@@ -139,12 +139,12 @@ inline void test_easing_finite_and_monotone() {
  *          The elastic x=0.5 value also pins the defining overshoot (> 1).
  */
 inline void test_easing_expo_elastic_interior_reference() {
-  HS_EXPECT_NEAR(ease_out_expo(0.25f), 0.8232233f, 1e-4f);
-  HS_EXPECT_NEAR(ease_out_expo(0.5f), 0.96875f, 1e-5f);
+  HS_EXPECT_NEAR(math::ease_out_expo(0.25f), 0.8232233f, 1e-4f);
+  HS_EXPECT_NEAR(math::ease_out_expo(0.5f), 0.96875f, 1e-5f);
 
-  HS_EXPECT_NEAR(ease_out_elastic(0.25f), 0.9116117f, 1e-4f);
-  HS_EXPECT_NEAR(ease_out_elastic(0.5f), 1.015625f, 1e-4f);
-  HS_EXPECT_GT(ease_out_elastic(0.5f), 1.0f);
+  HS_EXPECT_NEAR(math::ease_out_elastic(0.25f), 0.9116117f, 1e-4f);
+  HS_EXPECT_NEAR(math::ease_out_elastic(0.5f), 1.015625f, 1e-4f);
+  HS_EXPECT_GT(math::ease_out_elastic(0.5f), 1.0f);
 }
 
 /**
@@ -152,8 +152,8 @@ inline void test_easing_expo_elastic_interior_reference() {
  * @details Each in-out curve passes through 0.5 at t=0.5.
  */
 inline void test_easing_in_out_symmetry_midpoint() {
-  HS_EXPECT_NEAR(ease_in_out_sin(0.5f), 0.5f, 1e-4f);
-  HS_EXPECT_NEAR(ease_in_out_cubic(0.5f), 0.5f, 1e-4f);
+  HS_EXPECT_NEAR(math::ease_in_out_sin(0.5f), 0.5f, 1e-4f);
+  HS_EXPECT_NEAR(math::ease_in_out_cubic(0.5f), 0.5f, 1e-4f);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,19 +168,20 @@ inline void test_easing_in_out_symmetry_midpoint() {
  *          midpoint, matching tri_wave's direction at the same value.
  */
 inline void test_sin_wave_bounds_and_phase() {
-  auto w = sin_wave(2.0f, 5.0f, 1.0f, 0.0f);
+  auto w = math::sin_wave(2.0f, 5.0f, 1.0f, 0.0f);
   for (int i = 0; i <= N; ++i) {
     float v = w(frac(i) * 3.0f);
     HS_EXPECT(std::isfinite(v), "sin_wave finite");
     HS_EXPECT_GE(v, 2.0f - 1e-3f);
     HS_EXPECT_LE(v, 5.0f + 1e-3f);
   }
-  HS_EXPECT_NEAR(sin_wave(0.0f, 1.0f, 1.0f, 0.0f)(0.0f), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::sin_wave(0.0f, 1.0f, 1.0f, 0.0f)(0.0f), 0.0f, 1e-3f);
   // A quarter-cycle phase puts t=0 at the rising midpoint (forward phase).
-  auto wp = sin_wave(0.0f, 1.0f, 1.0f, 0.25f);
+  auto wp = math::sin_wave(0.0f, 1.0f, 1.0f, 0.25f);
   HS_EXPECT_NEAR(wp(0.0f), 0.5f, 1e-3f);
   HS_EXPECT(wp(0.05f) > 0.5f, "sin_wave phase 0.25 rises at t=0 like tri_wave");
-  HS_EXPECT_NEAR(wp(0.0f), tri_wave(0.0f, 1.0f, 1.0f, 0.25f)(0.0f), 1e-3f);
+  HS_EXPECT_NEAR(wp(0.0f), math::tri_wave(0.0f, 1.0f, 1.0f, 0.25f)(0.0f),
+                 1e-3f);
 }
 
 /**
@@ -192,7 +193,8 @@ inline void test_sin_wave_bounds_and_phase() {
  *          amplitude and the DC level).
  */
 inline void test_sin_wave_amplitude_period_symmetry() {
-  auto w = sin_wave(2.0f, 5.0f, 1.0f, 0.0f); // period 1; trough@0, peak@0.5
+  auto w =
+      math::sin_wave(2.0f, 5.0f, 1.0f, 0.0f); // period 1; trough@0, peak@0.5
   float lo = w(0.0f), hi = w(0.0f);
   for (int i = 0; i <= N; ++i) {
     float v = w(frac(i)); // one full period
@@ -216,7 +218,7 @@ inline void test_sin_wave_amplitude_period_symmetry() {
  *          across multiple periods.
  */
 inline void test_tri_wave_shape() {
-  auto w = tri_wave(0.0f, 1.0f, 1.0f, 0.0f);
+  auto w = math::tri_wave(0.0f, 1.0f, 1.0f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.5f, 1e-6f);
   HS_EXPECT_NEAR(w(-0.5f), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(w(-1.75f), 0.5f, 1e-6f);
@@ -241,7 +243,7 @@ inline void test_tri_wave_shape() {
  *          distinguishes the duty from its complement, and at both endpoints.
  */
 inline void test_square_wave_binary() {
-  auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
+  auto w = math::square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   for (int i = 0; i <= N; ++i) {
     float v = w(frac(i) * 2.0f);
     bool is_from = hs_test::approx(v, 0.0f, 1e-5f);
@@ -255,7 +257,7 @@ inline void test_square_wave_binary() {
   HS_EXPECT_NEAR(w(0.6f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(w(0.9f), 0.0f, 1e-5f);
 
-  auto quarter = square_wave(0.0f, 1.0f, 1.0f, 0.25f, 0.0f);
+  auto quarter = math::square_wave(0.0f, 1.0f, 1.0f, 0.25f, 0.0f);
   HS_EXPECT_NEAR(quarter(0.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(quarter(0.2f), 1.0f, 1e-5f);
   HS_EXPECT_EQ(quarter(0.25f), 0.0f);
@@ -263,8 +265,8 @@ inline void test_square_wave_binary() {
   HS_EXPECT_NEAR(quarter(0.74f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(quarter(1.2f), 1.0f, 1e-5f);
 
-  auto never = square_wave(0.0f, 1.0f, 1.0f, 0.0f, 0.0f);
-  auto always = square_wave(0.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+  auto never = math::square_wave(0.0f, 1.0f, 1.0f, 0.0f, 0.0f);
+  auto always = math::square_wave(0.0f, 1.0f, 1.0f, 1.0f, 0.0f);
   for (int i = 0; i <= N; ++i) {
     float t = frac(i) * 2.0f;
     HS_EXPECT_NEAR(never(t), 0.0f, 1e-5f);
@@ -280,7 +282,7 @@ inline void test_square_wave_binary() {
  *          Checks w(t-1) == w(t) over a full sweep.
  */
 inline void test_square_wave_negative_phase() {
-  auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
+  auto w = math::square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.0f,
                  1e-5f);                 // wrap(-0.25)=0.75 -> low, not latched
   HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f); // wrap(-0.9)=0.1 -> high

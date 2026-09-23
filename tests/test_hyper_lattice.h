@@ -16,7 +16,7 @@ namespace HL = HyperLatticeDetail;
 struct HyperLatticeWhiteBox {
   using Effect = HyperLattice<96, 20>;
 
-  static Vec4 origin(const Effect &effect) { return effect.origin; }
+  static math::Vec4 origin(const Effect &effect) { return effect.origin; }
   static std::array<float, 6> rotation_phase(const Effect &effect) {
     return effect.rotation_phase;
   }
@@ -52,8 +52,8 @@ inline void test_periodic_distance() {
 }
 
 inline void test_edge_metrics() {
-  const Vec4 origin{{0.0f, 0.0f, 0.0f, 0.0f}};
-  const Vec4 direction{{0.0f, 0.02f, 0.4f, 0.1f}};
+  const math::Vec4 origin{{0.0f, 0.0f, 0.0f, 0.0f}};
+  const math::Vec4 direction{{0.0f, 0.02f, 0.4f, 0.1f}};
   const HL::EdgeMetric cubic =
       HL::edge_metric_3d_at(origin, direction, 0, 1.0f);
   HS_EXPECT_NEAR(cubic.distance_sq, 0.0004f, 1e-7f);
@@ -88,7 +88,7 @@ inline void test_so4_rotation() {
   frame.params.far_distance = 8.0f;
   frame.rotation_phase[3] = 0.5f * math::PI_F;
   const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  const Vec4 rotated =
+  const math::Vec4 rotated =
       prepared.world_to_lattice.apply({{1.0f, 0.0f, 0.0f, 0.0f}});
   HS_EXPECT_NEAR(rotated[0], 0.0f, 2e-4f);
   HS_EXPECT_NEAR(rotated[3], 1.0f, 2e-4f);
@@ -98,7 +98,7 @@ inline void test_so4_rotation() {
   HS_EXPECT_NEAR(norm_sq, 1.0f, 2e-4f);
 
   frame.params.mode = HL::LatticeMode::THREE_D;
-  const Vec4 cubic = HL::prepare_trace(frame).world_to_lattice.apply(
+  const math::Vec4 cubic = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
   HS_EXPECT_EQ(cubic[3], 0.0f);
 }
@@ -107,10 +107,10 @@ inline void test_dimensional_rotation_wrap_is_continuous() {
   HL::FrameState frame{};
   frame.params.mode = HL::LatticeMode::DIMENSIONAL_RIFT;
   frame.rotation_phase[3] = math::TWO_PI_F - 1.0e-4f;
-  const Vec4 before = HL::prepare_trace(frame).world_to_lattice.apply(
+  const math::Vec4 before = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
   frame.rotation_phase[3] = 0.0f;
-  const Vec4 after = HL::prepare_trace(frame).world_to_lattice.apply(
+  const math::Vec4 after = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
   for (int axis = 0; axis < HL::DIMENSIONS; ++axis)
     HS_EXPECT_NEAR(before[axis], after[axis], 2.0e-4f);
@@ -177,20 +177,20 @@ inline void test_pause_does_not_stop_motion() {
   effect.init();
   effect.setAnimationsPaused(true);
 
-  const Vec4 origin_before = HyperLatticeWhiteBox::origin(effect);
+  const math::Vec4 origin_before = HyperLatticeWhiteBox::origin(effect);
   const auto rotation_before = HyperLatticeWhiteBox::rotation_phase(effect);
   effect.draw_frame();
   effect.advance_display();
-  const Vec4 origin_after = HyperLatticeWhiteBox::origin(effect);
+  const math::Vec4 origin_after = HyperLatticeWhiteBox::origin(effect);
   const auto rotation_after = HyperLatticeWhiteBox::rotation_phase(effect);
   HS_EXPECT_NE(origin_after[0], origin_before[0]);
   HS_EXPECT_NE(rotation_after[0], rotation_before[0]);
 
   HyperLatticeWhiteBox::params(effect).speed = 0.0f;
-  const Vec4 stopped_before = HyperLatticeWhiteBox::origin(effect);
+  const math::Vec4 stopped_before = HyperLatticeWhiteBox::origin(effect);
   effect.draw_frame();
   effect.advance_display();
-  const Vec4 stopped_after = HyperLatticeWhiteBox::origin(effect);
+  const math::Vec4 stopped_after = HyperLatticeWhiteBox::origin(effect);
   for (int axis = 0; axis < HL::DIMENSIONS; ++axis)
     HS_EXPECT_EQ(stopped_after[axis], stopped_before[axis]);
 }
@@ -414,7 +414,7 @@ inline void test_render_signature() {
       {-0.270598050f, 0.653281482f, 0.707106781f},
       {0.5f, -0.5f, 0.707106781f},
   };
-  static constexpr Vec4 ORIGINS[] = {
+  static constexpr math::Vec4 ORIGINS[] = {
       {{0.17f, 0.31f, 0.43f, 0.59f}},
       {{0.91f, 0.07f, 0.73f, 0.37f}},
   };
@@ -551,7 +551,7 @@ inline void test_specialized_render_signature() {
       {0.5f, -0.5f, 0.707106781f},
       {-1.0f, 0.0f, 0.0f},
   };
-  static constexpr Vec4 ORIGINS[] = {
+  static constexpr math::Vec4 ORIGINS[] = {
       {{0.17f, 0.31f, 0.43f, 0.59f}},
       {{0.91f, 0.07f, 0.73f, 0.37f}},
   };

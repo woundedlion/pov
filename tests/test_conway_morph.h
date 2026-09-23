@@ -1936,8 +1936,8 @@ inline void test_hankin_sweep_vertex_stability() {
       const float span = site.theta_star - THETA_EPS;
       mirror_chord = std::max(
           {mirror_chord, hankin_check_mirror(compiled, THETA_EPS + span * u, b),
-           hankin_check_mirror(compiled, THETA_EPS + span * ease_in_out_sin(u),
-                               b)});
+           hankin_check_mirror(
+               compiled, THETA_EPS + span * math::ease_in_out_sin(u), b)});
     }
 
     // Guard headroom: the far-star guard is scaled by the corner's local edge
@@ -1980,7 +1980,7 @@ inline void test_hankin_sweep_vertex_stability() {
       std::vector<math::Vector> prev_normals, curr_normals;
       for (int s = 0; s < SAMPLES; ++s) {
         const float u = static_cast<float>(s) / (SAMPLES - 1);
-        const float k = mode == 0 ? u : ease_in_out_sin(u);
+        const float k = mode == 0 ? u : math::ease_in_out_sin(u);
         HankinStepStats row;
         if (mode == 2) {
           row.theta = site.theta_star;
@@ -3136,7 +3136,7 @@ inline constexpr int PAUSED_REDRAWS = 2;
  */
 inline void check_step_leg_smoke(
     StepLegKind kind, const StepLegSite &site, int frames, float max_step_chord,
-    EasingFn easing = ease_in_out_sin,
+    EasingFn easing = math::ease_in_out_sin,
     std::vector<std::vector<math::Vector>> *frames_out = nullptr,
     int pause_after = 0) {
   using Animation::OpLeg;
@@ -3429,9 +3429,9 @@ inline void test_opleg_step_paused_holds_frame() {
   constexpr float CHORD_MAX = 1.0f;
   std::vector<std::vector<math::Vector>> unpaused, held;
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
-                       CHORD_MAX, ease_in_out_sin, &unpaused);
+                       CHORD_MAX, math::ease_in_out_sin, &unpaused);
   check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], FRAMES,
-                       CHORD_MAX, ease_in_out_sin, &held, PAUSE_AFTER);
+                       CHORD_MAX, math::ease_in_out_sin, &held, PAUSE_AFTER);
   HS_EXPECT_EQ(unpaused.size(), (size_t)FRAMES);
   HS_EXPECT_EQ(held.size(), (size_t)(FRAMES + PAUSED_REDRAWS));
   if (held.size() != (size_t)(FRAMES + PAUSED_REDRAWS))
@@ -3485,7 +3485,7 @@ inline void test_opleg_step_leg_overshooting_easing() {
     const bool truncate = k == 0;
     check_step_leg_smoke(truncate ? StepLegKind::TRUNCATE : StepLegKind::SNUB,
                          truncate ? NEAR_AMBO : SNUB_LEG_SITES[0], FRAMES, 2.0f,
-                         ease_out_elastic, &drawn);
+                         math::ease_out_elastic, &drawn);
     HS_EXPECT_EQ(drawn.size(), (size_t)FRAMES);
     const std::vector<math::Vector> &arrival = drawn.back();
     const std::vector<math::Vector> &peak = drawn[3];

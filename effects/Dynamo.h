@@ -182,8 +182,8 @@ private:
    */
   void rotate() {
     timeline.add(0, Animation::Rotation<W>(orientation, math::random_vector(),
-                                           math::PI_F, 40, ease_in_out_sin,
-                                           false));
+                                           math::PI_F, 40,
+                                           math::ease_in_out_sin, false));
   }
 
   /**
@@ -214,7 +214,7 @@ private:
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(
         0, Animation::Transition(palette_boundaries.front(), math::PI_F,
-                                 (int)params.wipe_duration, ease_linear)
+                                 (int)params.wipe_duration, math::ease_linear)
                .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
   }
 

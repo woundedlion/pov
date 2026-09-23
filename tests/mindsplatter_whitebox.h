@@ -407,7 +407,8 @@ struct MindSplatterWhiteBox {
   template <int W, int H>
   static void saturate_timeline(MindSplatter<W, H> &ms, float &sink) {
     while (Timeline::remaining() > 0)
-      ms.timeline.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
+      ms.timeline.add(0,
+                      Animation::Transition(sink, 1.0f, 10, math::ease_linear));
   }
   template <int W, int H> static void clear_timeline(MindSplatter<W, H> &ms) {
     ms.timeline.clear();

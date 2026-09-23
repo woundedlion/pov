@@ -40,17 +40,17 @@ struct TopologyKey {
   GnomonicHemispherePolicy gnomonic_hemisphere{};
   SurfaceNoise surface_noise{};
   SurfaceNoisePlacement surface_noise_placement{};
-  NoiseBasis surface_noise_basis{};
+  math::NoiseBasis surface_noise_basis{};
   SurfaceCurlIntegrator surface_curl_integrator{};
-  NoiseBasis source_noise_basis{};
+  math::NoiseBasis source_noise_basis{};
   WarpStageKind outer_warp{};
-  NoiseBasis outer_warp_basis{};
+  math::NoiseBasis outer_warp_basis{};
   WarpEnvelope outer_warp_envelope{};
   PolarMode outer_polar_mode{};
   CurlIntegrator outer_curl_integrator{};
   uint8_t outer_polar_harmonic{};
   WarpStageKind inner_warp{};
-  NoiseBasis inner_warp_basis{};
+  math::NoiseBasis inner_warp_basis{};
   WarpEnvelope inner_warp_envelope{};
   PolarMode inner_polar_mode{};
   CurlIntegrator inner_curl_integrator{};
@@ -180,12 +180,12 @@ struct SelectedProjectStage
 struct SinusoidalCurlDisplaceStage
     : TopologyStage<SinusoidalCurlDisplaceStage,
                     Pullback::Stage::Displace<Pullback::Surface::CurlNoise<
-                        SurfaceStateProvider, NoiseBasis::SIMPLEX,
+                        SurfaceStateProvider, math::NoiseBasis::SIMPLEX,
                         Pullback::Surface::Euler>>> {
   static constexpr bool implements(const TopologyKey &key) {
     return key.surface_noise == SurfaceNoise::CURL &&
            key.surface_noise_placement == SurfaceNoisePlacement::BEFORE_LENS &&
-           key.surface_noise_basis == NoiseBasis::SIMPLEX &&
+           key.surface_noise_basis == math::NoiseBasis::SIMPLEX &&
            key.surface_curl_integrator == SurfaceCurlIntegrator::EULER;
   }
 };
@@ -218,7 +218,7 @@ using WarpPolicy = std::conditional_t<
             std::conditional_t<
                 KindV == WarpStageKind::VECTOR_NOISE,
                 Pullback::Warp::VectorNoise<WarpStateProvider<Outer>,
-                                            NoiseBasis::SIMPLEX,
+                                            math::NoiseBasis::SIMPLEX,
                                             Pullback::Warp::FlatEnvelope>,
                 std::conditional_t<
                     KindV == WarpStageKind::MIRROR_TILE,
@@ -246,7 +246,7 @@ struct SelectedWarpStage
              (KindV != WarpStageKind::WAVE_SHEAR ||
               key.outer_warp_envelope == WarpEnvelope::FLAT) &&
              (KindV != WarpStageKind::VECTOR_NOISE ||
-              (key.outer_warp_basis == NoiseBasis::SIMPLEX &&
+              (key.outer_warp_basis == math::NoiseBasis::SIMPLEX &&
                key.outer_warp_envelope == WarpEnvelope::FLAT)) &&
              (KindV != WarpStageKind::POLAR_CHART ||
               (key.outer_polar_mode == PolarMode::LINEAR &&
@@ -501,7 +501,7 @@ inline constexpr size_t PREPARED_BLOB_BYTES = 256;
 inline constexpr size_t PREPARED_BLOB_ALIGN = alignof(std::max_align_t);
 
 inline constexpr void canonicalize_warp_key(WarpStageKind kind,
-                                            NoiseBasis &basis,
+                                            math::NoiseBasis &basis,
                                             WarpEnvelope &envelope,
                                             PolarMode &polar_mode,
                                             CurlIntegrator &curl_integrator,
