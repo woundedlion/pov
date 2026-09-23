@@ -168,6 +168,11 @@ public:
   }
 };
 
+// Dependent-false constant so a static_assert in a discarded `if constexpr`
+// branch only fires when that branch is actually instantiated. A bare
+// `static_assert(false)` would be ill-formed even in the taken branches.
+template <int> constexpr bool unsupported_resolution = false;
+
 /**
  * @brief Selects the fill function pointer matching the given <W,H>.
  * @tparam W Frame width in pixels.
@@ -179,11 +184,6 @@ public:
  *          unlisted <W,H> into a COMPILE error instead of silently
  *          mis-instantiating an unrecognised resolution.
  */
-// Dependent-false constant so a static_assert in a discarded `if constexpr`
-// branch only fires when that branch is actually instantiated. A bare
-// `static_assert(false)` would be ill-formed even in the taken branches.
-template <int> constexpr bool unsupported_resolution = false;
-
 template <int W, int H>
 constexpr auto get_fill_fn(const EffectRegistration &reg) {
 #define HS_REG_FILL_BRANCH(w, h)                                               \
