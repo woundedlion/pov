@@ -375,6 +375,7 @@ concept ParamsProvider =
         std::declval<const typename Binding::FrameState &>()))>>;
 
 __attribute__((always_inline)) inline float clamp_unit(float value) {
+  HS_AUDIT_CHECK(value == value, "unit clamp: NaN input");
   if (value <= 0.0f)
     return 0.0f;
   if (value >= 1.0f)
