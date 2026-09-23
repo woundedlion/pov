@@ -261,9 +261,9 @@ struct RasterOptions {
    * Lets a clipped caller keep the whole segment's step schedule -- so sample
    * positions stay clip-independent -- while skipping the work the clip would
    * discard anyway. Single-segment polylines only.
-   * @details Widening the window costs work but cannot change output:
-   * ClipRegion::contains_x/contains_y run per plotted pixel, so a sample
-   * admitted here is still dropped if it falls outside the band.
+   * @details Samples outside the window never reach pipeline stages. Widening
+   * it may change history-stage state even when terminal clipping discards the
+   * extra samples from the current framebuffer.
    */
   float plot_t_start = 0.0f;
   /** Upper bound of the plot_t_start window. */
