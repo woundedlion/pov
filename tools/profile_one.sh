@@ -39,6 +39,8 @@
 set -euo pipefail
 # shellcheck source-path=SCRIPTDIR source=device_lock.sh
 . "$(dirname "$0")/device_lock.sh"
+# shellcheck source-path=SCRIPTDIR source=teensy_flash.sh
+. "$(dirname "$0")/teensy_flash.sh"
 # Without this, a short/split argument list makes `shift 4` fail and set -e
 # aborts with no message.
 [ $# -ge 4 ] || {
@@ -168,7 +170,6 @@ if [ -n "$REPLAY_SUFFIX" ]; then
   MARKER="replay corpus:"
 fi
 
-TEENSY_TOOLS=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
 
 build_image() {
   local env=$1 log=$2
@@ -287,25 +288,11 @@ build_and_attest() {
   } >"$PROVENANCE_OUT"
 }
 
-# teensy_post_compile identifies a board by its USB location, not its COM name.
-flash() {
-  [ -n "$HS_TEENSY_PORT" ] ||
-    { echo "device lock did not pin a Teensy port"; return 1; }
-  local line loc label
-  line=$("$TEENSY_TOOLS/teensy_ports.exe" -L | grep " $HS_TEENSY_PORT " || true)
-  [ -n "$line" ] || { echo "no Teensy at $HS_TEENSY_PORT"; return 1; }
-  loc=$(echo "$line" | awk '{print $1}')
-  label=$(echo "$line" | awk '{print $2" "$3" "$4}')
-  "$TEENSY_TOOLS/teensy_post_compile.exe" -file=firmware \
-    -path="$(cygpath -w "$PWD/.pio/build/$ENV")" \
-    -tools="$(cygpath -w "$TEENSY_TOOLS")" -board=TEENSY40 -reboot \
-    "-port=$loc" "-portlabel=$label" -portprotocol=Teensy
-}
 
 capture() {
   echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   build_and_attest
-  flash
+  hs_teensy_flash "$ENV"
   # Let the capture's stderr through: it dies on a device trap (USB drops) and
   # on a port already held by a peer, and those look identical from the exit
   # code alone. Under set -e this aborts the run, so without the message the
