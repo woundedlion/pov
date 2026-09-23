@@ -3195,8 +3195,7 @@ inline void test_world_trails_set_lifetime_shrink_clamps_t() {
   trails.flush(WorldTrailFn(trail), 1.0f,
                [](const math::Vector &, const Pixel &, float, float) {});
 
-  HS_EXPECT_GE(captured_t, 0.0f); // clamped, not the raw negative value
-  HS_EXPECT_LE(captured_t, 1.0f);
+  HS_EXPECT_EQ(captured_t, 0.0f);
   trails.flush(WorldTrailFn(trail), 1.0f,
                [](const math::Vector &, const Pixel &, float, float) {});
   HS_EXPECT_NEAR(captured_t, 0.5f, 1e-6f);
@@ -3340,8 +3339,7 @@ inline void test_screen_trails_set_lifetime_shrink_clamps_t() {
   trails.flush(c, ScreenTrailFn(trail), 1.0f,
                [](float, float, const Pixel &, float, float) {});
 
-  HS_EXPECT_GE(captured_t, 0.0f);
-  HS_EXPECT_LE(captured_t, 1.0f);
+  HS_EXPECT_EQ(captured_t, 0.0f);
   trails.flush(c, ScreenTrailFn(trail), 1.0f,
                [](float, float, const Pixel &, float, float) {});
   HS_EXPECT_NEAR(captured_t, 0.5f, 1e-6f);
