@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <limits>
 #include "platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -209,9 +210,20 @@ public:
                  0,
              "ChainProgram::bind_storage: block_b misaligned");
     HS_CHECK(blocks[0] == nullptr, "ChainProgram::bind_storage: rebinding");
+    HS_CHECK(block_capacity < std::numeric_limits<uint32_t>::max(),
+             "ChainProgram::bind_storage: capacity exceeds offset range");
     for (const OperatorDescriptor &entry : operator_table) {
       HS_CHECK(entry.input <= entry.output,
                "ChainProgram::bind_storage: operator family rank decreases");
+      for (BlockLayout layout :
+           {entry.runtime.param, entry.runtime.prepared, entry.runtime.state}) {
+        HS_CHECK(layout.align != 0 &&
+                     (layout.align & (layout.align - 1)) == 0 &&
+                     layout.align <= alignof(std::max_align_t),
+                 "ChainProgram::bind_storage: invalid block alignment");
+        HS_CHECK(layout.size > 0 && layout.size % layout.align == 0,
+                 "ChainProgram::bind_storage: invalid block size");
+      }
       for (uint16_t field = 0; field < entry.schema_count; ++field)
         HS_CHECK(std::string_view(entry.schema[field].id).size() <=
                      MAX_FIELD_ID,
@@ -442,10 +454,6 @@ private:
     size_t used_bytes = 0;
   };
 
-  static size_t align_up(size_t offset, size_t alignment) {
-    return (offset + alignment - 1) & ~(alignment - 1);
-  }
-
   void *block_ptr(uint8_t side, uint32_t offset) {
     return blocks[side] + offset;
   }
@@ -466,20 +474,27 @@ private:
     uint8_t *base = out != nullptr ? blocks[active ^ 1] : nullptr;
     for (size_t index = 0; index < request.size(); ++index) {
       const OperatorRuntime &runtime = resolved[index]->runtime;
-      cursor = align_up(cursor, runtime.param.align);
-      const size_t param_offset = cursor;
-      cursor += runtime.param.size;
-      cursor = align_up(cursor, runtime.prepared.align);
-      const size_t prepared_offset = cursor;
-      cursor += runtime.prepared.size;
-      cursor = align_up(cursor, runtime.state.align);
-      const size_t state_offset = cursor;
-      cursor += runtime.state.size;
-      const size_t id_offset = cursor;
-      cursor += PER_OP_OVERHEAD_BYTES;
-      const size_t name_offset = cursor;
-      cursor += static_cast<size_t>(resolved[index]->schema_count) *
-                PER_PARAM_NAME_BYTES;
+      const auto reserve = [&](size_t size, size_t alignment, size_t &offset) {
+        const size_t padding = (alignment - cursor % alignment) % alignment;
+        if (padding > capacity - cursor)
+          return false;
+        offset = cursor + padding;
+        if (size > capacity - offset)
+          return false;
+        cursor = offset + size;
+        return true;
+      };
+      size_t param_offset, prepared_offset, state_offset, id_offset,
+          name_offset;
+      if (!reserve(runtime.param.size, runtime.param.align, param_offset) ||
+          !reserve(runtime.prepared.size, runtime.prepared.align,
+                   prepared_offset) ||
+          !reserve(runtime.state.size, runtime.state.align, state_offset) ||
+          !reserve(PER_OP_OVERHEAD_BYTES, 1, id_offset) ||
+          !reserve(static_cast<size_t>(resolved[index]->schema_count) *
+                       PER_PARAM_NAME_BYTES,
+                   1, name_offset))
+        return capacity + 1;
       if (out != nullptr) {
         char *id_copy = reinterpret_cast<char *>(base + id_offset);
         const std::string_view instance = request[index].instance_id;
