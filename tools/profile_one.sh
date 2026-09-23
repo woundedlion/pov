@@ -318,6 +318,7 @@ capture() {
 }
 
 RETRY_CACHE=""
+TREE_LOCK=""
 prepare_retry() {
   rm -rf ".pio/build/$ENV"
   RETRY_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/hs-profile-cache.XXXXXX")
@@ -326,6 +327,7 @@ prepare_retry() {
 
 cleanup() {
   hs_device_release
+  [ -z "$TREE_LOCK" ] || rmdir -- "$TREE_LOCK"
   [ -z "$RETRY_CACHE" ] || rm -rf "$RETRY_CACHE"
 }
 
@@ -389,6 +391,12 @@ trap 'exit 143' TERM
 # ETA covers a clean rebuild + the capture + one retry: overshooting only
 # delays a stale-break (safe), undershooting invites a peer to evict a live
 # capture (not), and a crashed holder is reaped by the PID check regardless.
+if ! mkdir -- "$TREE/.profile-lock"; then
+  echo "profile checkout is already claimed: $TREE/.profile-lock" >&2
+  exit 1
+fi
+TREE_LOCK="$TREE/.profile-lock"
+
 hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
 
 capture
