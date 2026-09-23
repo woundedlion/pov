@@ -1,6 +1,6 @@
-# IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-09-20, **-O3**) - experimental finding 126
+# IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-09-20, **-O3**) - experimental horizon interiors
 
-Point-in-time snapshot of an **unlanded experimental correction (finding 126)**.
+Point-in-time snapshot of an **unlanded experimental horizon interior correction**.
 Regenerate with the explicit worktree command below; the normal
 `just profile IslamicStars` entry point does not select this experimental source.
 Raw capture: `build/prof/review_20260920/islamic_126_o3.log`;
@@ -218,7 +218,7 @@ separate native applicability run measures geometry coverage, not device speed.
 - `filter_blend` is a per-pixel scope and adds measurement overhead. Both configurations use the same instrumented harness; a counter whose latched parent is inactive is emitted as a standalone root.
 - Shipping selective-O3 regions cover IslamicStars mesh transforms/draws, SDF Face setup/distance, and the face-specialized scan loop. The global-O3 image changes all eligible code generation and is a reference, not the full-roster shipping build.
 - Trans Speed 4, window 16 and epoch 1920 are capture knobs. The current build/ripple choreography means TS4 changes temporal sampling as well as duration. Do not treat it as the default TS1 frame distribution.
-- The native TS1 and TS4 full-cycle geometry surveys saw maximum cull radius about 1.514 and zero activations of the 0.01 cosine floor, whose threshold is about 99.995. Ordinary IslamicStars captures cannot measure the extra extreme-geometry work admitted by finding 126. See the [review comparison](../../../review_2026-09-20.md).
+- The native TS1 and TS4 full-cycle geometry surveys saw maximum cull radius about 1.514 and zero activations of the 0.01 cosine floor, whose threshold is about 99.995. Ordinary IslamicStars captures cannot measure the extra extreme-geometry work admitted by the horizon interior correction. See the [review comparison](../../../review_2026-09-20.md).
 - This is the unlanded variant at the attested commit above, separate from the baseline and the other experimental correction. Before/after conclusions belong in the comparison report.
 
 ## Harness
