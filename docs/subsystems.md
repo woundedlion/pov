@@ -1182,7 +1182,7 @@ plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
 | Headers | Surface |
 |---|---|
 | `core/math/3dmath.h`, `core/math/4dmath.h` | Vectors, matrices, complex arithmetic, fast scalar approximations, and four-dimensional rotations. |
-| `core/math/geometry.h` | Sphere/pixel coordinates, angular intervals, and display latitude conventions, including `H_OFFSET`. |
+| `core/math/geometry.h` | Sphere/pixel coordinates, angular intervals, and display latitude conventions, using `H_OFFSET` defined in `core/platform/platform.h`. |
 | `core/math/projections.h` | Bonne, Peirce quincuncial, Airocean, folded sinusoidal, and equirectangular sphere-to-plane kernels. |
 | `core/math/stereographic.h`, `core/math/mobius.h`, `core/math/lenses.h` | Stereographic projections, fractional-linear transforms, and sphere-domain lens kernels. |
 | `core/math/rotate.h`, `core/math/projection_patterns.h` | Angle wrapping, canvas-to-sphere projection, and shared projected-pattern coordinates. |
