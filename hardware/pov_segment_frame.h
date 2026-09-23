@@ -16,7 +16,12 @@
 
 namespace pov {
 
-/** @brief Retains the previous image outside this frame's segment half. */
+/**
+ * @brief Retains the previous image outside this frame's segment half.
+ * @pre The display clip is one non-wrapping horizontal half, [0, width/2) or
+ * [width/2, width), as returned by segment_clip() for an even canvas width.
+ * Only rows within the display clip are preserved.
+ */
 inline void preserve_segment_half(Canvas &canvas) {
   HS_PROFILE(pov_preserve_half);
   const ClipRegion &clip = canvas.clip();
