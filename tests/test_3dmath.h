@@ -1225,6 +1225,16 @@ inline void test_stereo_roundtrip() {
  *        magnitude in the numerator direction).
  */
 inline void test_complex_arithmetic() {
+  constexpr math::Complex VALUE(3.0f, -4.0f);
+  static_assert(VALUE.squared_magnitude() == 25.0f);
+  static_assert(VALUE.conjugate() == math::Complex(3.0f, 4.0f));
+  static_assert(VALUE.conjugate().conjugate() == VALUE);
+  static_assert(math::Complex(0.0f, -0.0f) == math::Complex(-0.0f, 0.0f));
+  static_assert(math::Complex(1.0f, 0.0f) != math::Complex(1.00001f, 0.0f));
+  HS_EXPECT_EQ(VALUE.magnitude(), 5.0f);
+  HS_EXPECT_TRUE(VALUE * VALUE.conjugate() == math::Complex(25.0f, 0.0f));
+  const math::Complex nonfinite(std::numeric_limits<float>::quiet_NaN(), 0);
+  HS_EXPECT_FALSE(nonfinite == nonfinite.conjugate());
   for (float numerator : {0.0f, 1.0f, 1e15f}) {
     const math::Complex quotient =
         math::Complex(numerator, 0) / math::Complex(1e-23f, 0);
