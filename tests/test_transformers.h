@@ -866,6 +866,36 @@ inline void test_transformer_spawn_applies_and_composes() {
   HS_EXPECT_GT(total_divergence, 1e-3f);
 }
 
+inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
+  Timeline timeline;
+  global_timeline_t = 0;
+  NoiseTransformer<4> transformer(timeline);
+  transformer.init_storage(persistent_arena);
+  transformer.template_params.time = 3.0f;
+  transformer.template_params.set_seed(42);
+  HS_EXPECT_TRUE(transformer.spawn_pinned(0) != nullptr);
+  transformer.template_params.amplitude = 0.7f;
+  transformer.template_params.speed = 0.2f;
+  transformer.template_params.frequency = 0.4f;
+  transformer.template_params.scale = 6.0f;
+  transformer.template_params.time = 99.0f;
+  transformer.template_params.set_seed(99);
+  transformer.prepare_frame();
+  const auto &active = transformer.active_params(0);
+  HS_EXPECT_EQ(active.amplitude, 0.7f);
+  HS_EXPECT_EQ(active.speed, 0.2f);
+  HS_EXPECT_EQ(active.frequency, 0.4f);
+  HS_EXPECT_EQ(active.scale, 6.0f);
+  HS_EXPECT_EQ(active.time, 3.0f);
+  HS_EXPECT_EQ(active.seed, 42);
+  Animation::NoiseParams expected;
+  expected.frequency = 0.4f;
+  expected.set_seed(42);
+  expected.sync();
+  HS_EXPECT_EQ(active.noise.GetNoise(0.3f, 0.7f, 1.2f),
+               expected.noise.GetNoise(0.3f, 0.7f, 1.2f));
+}
+
 // ============================================================================
 // Transformer<> spawn_pausable() gates the whole event, start delay included
 // ============================================================================
@@ -1780,6 +1810,7 @@ inline int run_transformers_tests() {
   test_noise_cross_hemisphere_cap();
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
+  test_transformer_live_edit_preserves_instance_phase_and_seed();
   test_transformer_spawn_pausable_freezes_start_delay();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
   test_transformer_callback_after_pool_destroyed();
