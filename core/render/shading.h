@@ -10,6 +10,7 @@
 #include <cassert>
 
 #include <array>
+#include <limits>
 
 #include "engine/memory.h"
 #include "math/geometry.h"
@@ -26,7 +27,8 @@
  * @brief Represents a "Fragment" or a potential pixel/vertex with associated
  * data registers. Mirrors the JS Fragment structure for shader compatibility.
  * @details A rasterizer refreshes only the fields its own documentation names;
- * the rest keep whatever the previous invocation left, so a shader must write
+ * unrefreshed input registers are NaN in debug builds and stale in release.
+ * A shader must write
  * color unconditionally and must never read a field it did not set itself.
  * Scan::process_pixel and Scan::DistortedRingStack refresh every field;
  * Scan::RingGroup refreshes pos, v2, size, age and color; Scan::rasterize_face
@@ -41,6 +43,15 @@ struct Fragment {
   float size = 1.0f; /**< Size metric (e.g. radius/apothem) for normalization */
   float age = 0.0f;  /**< Age of the operation/trail */
   Color4 color = Color4(0, 0, 0, 0); /**< Output Color (RGBA) */
+
+#ifndef NDEBUG
+  /** @brief Poisons input registers before a partial rasterizer refresh. */
+  void poison_inputs() {
+    const float invalid = std::numeric_limits<float>::quiet_NaN();
+    pos = math::Vector(invalid, invalid, invalid);
+    v0 = v1 = v2 = v3 = size = invalid;
+  }
+#endif
 
   /**
    * @brief Linear interpolation of the shading registers only.

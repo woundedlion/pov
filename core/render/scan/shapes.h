@@ -450,10 +450,9 @@ struct RingGroup {
    * @tparam RingShaderT Per-ring shader: shader(int slot, const Vector &p,
    *         Fragment &f). One Fragment serves the whole scan and only color,
    *         pos, v2 (stroke coverage), size and age are refreshed per pixel —
-   *         no UVs, no raw distance. v0, v1 and v3 hold their struct defaults
-   *         until the shader itself writes them, and from then on whatever the
-   *         previous invocation left, so a shader must not read a register it
-   *         did not set.
+   *         no UVs, no raw distance. v0, v1 and v3 are NaN in debug builds and
+   *         retain defaults or previous values in release builds. The shader
+   *         must not read inputs it did not set.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param shapes Ring shapes in draw order.
@@ -565,6 +564,9 @@ struct RingGroup {
               shapes[s].stroke_alpha(math::dot(p, shapes[s].normal));
           if (alpha <= MIN_ALPHA)
             continue;
+#ifndef NDEBUG
+          frag.poison_inputs();
+#endif
           frag.color = Color4(0, 0, 0, 0);
           frag.pos = p;
           frag.v2 = alpha;
