@@ -89,6 +89,8 @@ inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
                                                    "analogous"};
 static_assert(std::size(PALETTE_MODE_IDS) ==
               static_cast<size_t>(PaletteMode::ANALOGOUS) + 1);
+static_assert(std::size(PALETTE_MODE_IDS) == FrameContext{}.palettes.size(),
+              "frame palette storage must cover every palette mode");
 inline constexpr const char *PALETTE_MAPPING_IDS[] = {"cup", "bell", "linear",
                                                       "reverse"};
 static_assert(std::size(PALETTE_MAPPING_IDS) ==
