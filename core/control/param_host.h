@@ -285,20 +285,14 @@ protected:
                                      float min = 0.0f, float max = 1.0f) {
     // Overflowing the fixed ParamList is an authoring bug (also upholds the WASM
     // no-realloc memory-view invariant).
-    HS_CHECK(parameters.count < parameters.capacity(),
-             "register_param: exceeded ParamList capacity");
     // A duplicate name shadows: find() returns the FIRST match, so a second
     // registration's slot is unreachable by name.
-    HS_CHECK(parameters.find(name) == nullptr,
-             "register_param: duplicate parameter name");
     HS_CHECK(min <= max, "register_param: min must be <= max");
     // A starting *ptr outside [min,max] would snap on the first GUI edit (every
     // updateParameter clamps).
     HS_CHECK(*ptr >= min && *ptr <= max,
              "register_param: default *ptr outside [min,max]");
-    auto &def = parameters.data()[parameters.count++];
-    def = {};
-    def.name = name;
+    auto &def = append_parameter(name);
     def.target = ptr;
     def.min = min;
     def.max = max;
@@ -314,14 +308,8 @@ protected:
                                                                float *ptr,
                                                                float min,
                                                                float max) {
-    HS_CHECK(parameters.count < parameters.capacity(),
-             "register_param: exceeded ParamList capacity");
-    HS_CHECK(parameters.find(name) == nullptr,
-             "register_param: duplicate parameter name");
     HS_CHECK(min <= max, "register_param: min must be <= max");
-    auto &def = parameters.data()[parameters.count++];
-    def = {};
-    def.name = name;
+    auto &def = append_parameter(name);
     def.target = ptr;
     def.min = min;
     def.max = max;
@@ -367,10 +355,6 @@ protected:
                  const char *const *export_options, int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
-    HS_CHECK(parameters.count < parameters.capacity(),
-             "register_param: exceeded ParamList capacity");
-    HS_CHECK(parameters.find(name) == nullptr,
-             "register_param: duplicate parameter name");
     using Integer = std::underlying_type_t<Enum>;
     HS_CHECK(static_cast<int64_t>(option_count - 1) <=
                  static_cast<int64_t>(std::numeric_limits<Integer>::max()),
@@ -385,9 +369,7 @@ protected:
              "register_param: default enum outside option range");
     constexpr auto TARGET_TYPE =
         integer_target_type<std::underlying_type_t<Enum>>();
-    auto &def = parameters.data()[parameters.count++];
-    def = {};
-    def.name = name;
+    auto &def = append_parameter(name);
     def.target = ptr;
     def.min = 0.0f;
     def.max = static_cast<float>(option_count - 1);
@@ -416,10 +398,6 @@ protected:
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
   HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
                                          int min, int max) {
-    HS_CHECK(parameters.count < parameters.capacity(),
-             "register_int_param: exceeded ParamList capacity");
-    HS_CHECK(parameters.find(name) == nullptr,
-             "register_int_param: duplicate parameter name");
     HS_CHECK(min <= max, "register_int_param: min must be <= max");
     // set() narrows through static_cast<Integer>(float), which is UB outside
     // the target's range.
@@ -439,9 +417,7 @@ protected:
     const int value = static_cast<int>(*ptr);
     HS_CHECK(value >= min && value <= max,
              "register_int_param: default *ptr outside [min,max]");
-    auto &def = parameters.data()[parameters.count++];
-    def = {};
-    def.name = name;
+    auto &def = append_parameter(name);
     def.target = ptr;
     def.min = static_cast<float>(min);
     def.max = static_cast<float>(max);
@@ -466,14 +442,7 @@ protected:
    *   target, symmetric with the float overload.
    */
   HS_COLD_MEMBER void register_param(const char *name, bool *ptr) {
-    HS_CHECK(parameters.count < parameters.capacity(),
-             "register_param: exceeded ParamList capacity");
-    // Duplicate name guard, see the float overload.
-    HS_CHECK(parameters.find(name) == nullptr,
-             "register_param: duplicate parameter name");
-    auto &def = parameters.data()[parameters.count++];
-    def = {};
-    def.name = name;
+    auto &def = append_parameter(name);
     def.target = ptr;
     def.max = 1.0f;
     def.target_type = ParamDef::TargetType::BOOL;
@@ -534,15 +503,9 @@ protected:
              "register_param: enum needs at least one option");
     HS_CHECK(option_count - 1 <= std::numeric_limits<uint8_t>::max(),
              "register_param: enum options exceed uint8_t range");
-    HS_CHECK(parameters.count < parameters.capacity(),
-             "register_param: exceeded ParamList capacity");
-    HS_CHECK(parameters.find(name) == nullptr,
-             "register_param: duplicate parameter name");
     HS_CHECK(*ptr < option_count,
              "register_param: default enum outside option range");
-    auto &def = parameters.data()[parameters.count++];
-    def = {};
-    def.name = name;
+    auto &def = append_parameter(name);
     def.target = ptr;
     def.min = 0.0f;
     def.max = static_cast<float>(option_count - 1);
@@ -565,6 +528,17 @@ protected:
   }
 
 private:
+  HS_COLD_MEMBER ParamDef &append_parameter(const char *name) {
+    HS_CHECK(parameters.count < parameters.capacity(),
+             "register_param: exceeded ParamList capacity");
+    HS_CHECK(parameters.find(name) == nullptr,
+             "register_param: duplicate parameter name");
+    auto &def = parameters.data()[parameters.count++];
+    def = {};
+    def.name = name;
+    return def;
+  }
+
 #ifndef NDEBUG
   ArenaBlockStamp parameter_storage_stamp;
 #endif
