@@ -37,6 +37,7 @@ build-debug:
 # is the CI `wasm` job's runtime gate — run it locally so `just build` is not
 # shipping an un-exercised module. Builds first so it runs against fresh output.
 # Node is held to the pin that job's setup-node installs.
+# Build and smoke-test the WASM engine.
 smoke: build
     {{py}} tools/build_pins.py --check-tool node
     node scripts/wasm_smoke.mjs
@@ -44,12 +45,14 @@ smoke: build
 # Capture the WebGL effect gallery to docs/screenshots/ (Playwright, headless).
 # Needs the sibling daydream checkout served (see README) and the chromium
 # browser installed once via `npx playwright install chromium`.
+# Capture the effect gallery with headless Chromium.
 screenshots:
     node scripts/capture_screenshots.mjs
 
 # Native unit-test suite (Clang) + CTest at the smoke window every CI leg drives.
 # The 8-frame default arms no preset transition, so the pause, slot-reuse and
 # FIFO-expiry paths never run; pass a narrower window for a fast iteration loop.
+# Build and run the native suite over the configured smoke window.
 test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1":
     cmake --preset tests
     cmake --build --preset tests
@@ -67,6 +70,7 @@ test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1":
 normalize-eol:
     bash tools/eol_gate.sh --fix-worktree
 
+# Run CI Python, JavaScript, shell, and line-ending checks.
 lint:
     bash tools/eol_gate.sh
     {{py}} tools/build_pins.py --check-tool ruff
@@ -81,6 +85,7 @@ lint:
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
 # clang-format job's invocation. Majors reflow differently, so the
 # binary on PATH is held to CI's pin the way ruff is above.
+# Check formatting of all tracked first-party C++ sources.
 clang-format:
     {{py}} tools/build_pins.py --check-tool clang-format
     bash tools/clang_format_gate.sh
@@ -92,6 +97,7 @@ license-headers:
 # Check the committed gamut LUT against its generator; unit tests run via
 # python-test. The solve runs 1-2 minutes. numpy decides the emitted bytes, so the module the interpreter imports
 # is held to the pin that job installs, the way ruff is above.
+# Check the committed gamut LUT against its pinned generator.
 gamut-lut:
     {{py}} tools/build_pins.py --check-tool numpy
     {{py}} tools/gen_gamut_lut.py --check
@@ -100,6 +106,7 @@ gamut-lut:
 # ci.yml teensy-warnings job. The warning set is the pinned toolchain's, which
 # the pinned PlatformIO selects. The build is cold, so budget tens of minutes;
 # teensy_build.log is gitignored.
+# Build every firmware environment and check first-party warnings.
 teensy-warnings:
     {{py}} tools/build_pins.py --check-tool platformio
     bash tools/teensy_cold_build.sh teensy_build.log
@@ -111,6 +118,7 @@ docs-sync:
 
 # Validate tracked Markdown, image references and build pins.
 # Checker unit tests run via python-test.
+# Validate tracked Markdown, image references, and build pins.
 docs-check:
     {{py}} tools/docs_check.py --auto-checkout
     {{py}} tools/docs_images.py
@@ -121,6 +129,7 @@ docs-check:
 # synthesizes the gitignored Doxyfile.local (Doxyfile + theme overrides, mirroring
 # .github/workflows/docs.yml). Requires doxygen on PATH at the pinned version:
 # warning text and generated markup move between releases.
+# Build the themed Doxygen API reference.
 docs: docs-check _doxygen-theme _doxyfile-local
     {{py}} tools/build_pins.py --check-tool doxygen
     cmake -E make_directory build/docs
@@ -159,6 +168,7 @@ _doxyfile-local:
 # WASM release build + install the module into ../daydream. Gated on `smoke`
 # (which builds first), so the module and provenance triple written into the
 # simulator tree are always the ones the runtime gate just exercised.
+# Build, smoke-test, and install WASM into ../daydream.
 install: smoke
     cmake --build --preset wasm-release-install
     node scripts/wasm_smoke.mjs ../daydream/holosphere_wasm.js
@@ -181,6 +191,7 @@ bench:
 # linked into the worktree's pending record, which the post-commit hook stamps
 # onto the next commit. Error-suppressed (`-`) on purpose — a missing ELF, no
 # python or no git repo leaves the trail alone instead of failing the build.
+# Build all firmware environments and check size budgets.
 teensy-size:
     {{py}} tools/build_pins.py --check-tool platformio
     {{py}} tools/teensy_size_table.py
@@ -206,6 +217,7 @@ teensy-gate-test: python-test
 # deep=1 turns on the HS_PROFILE_DEEP sub-scopes (per-pixel/per-cell counters in
 # shared render code) and captures to build/prof/<effect>_ship_deep.log instead,
 # leaving the roster log untouched.
+# Build, flash, and capture one effect under the device lock.
 profile effect="DisplacementField" seconds="150" deep="0":
     HS_PROFILE_DEEP="{{deep}}" bash tools/profile_one.sh "{{effect}}" profile "{{seconds}}" 32
 
@@ -222,5 +234,6 @@ profile-mindsplatter-replay-ab env="profile" seconds="150":
 # generators, which would discard the routing + silk; needs kicad-cli on PATH
 # (or set KICAD_CLI to its full path).
 # Outputs: Gerbers + Excellon drill, JLCPCB upload zip, assembly BOM + CPL, DRC.
+# Export fabrication files from the committed routed board.
 pcb:
     {{py}} hardware/phantasm/gen/fab.py
