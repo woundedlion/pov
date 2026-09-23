@@ -32,7 +32,7 @@ inline constexpr float MAX_POLE_LOD_AGGRESSIVENESS = 8.0f;
  * @return A finite value in [0, MAX_POLE_LOD_AGGRESSIVENESS].
  */
 inline float clamp_pole_lod_aggressiveness(float aggressiveness) {
-  if (!std::isfinite(aggressiveness) || aggressiveness < 0.0f)
+  if (std::isnan(aggressiveness) || aggressiveness < 0.0f)
     return 0.0f;
   return aggressiveness > MAX_POLE_LOD_AGGRESSIVENESS
              ? MAX_POLE_LOD_AGGRESSIVENESS
