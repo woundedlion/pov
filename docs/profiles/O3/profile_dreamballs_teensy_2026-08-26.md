@@ -2,7 +2,7 @@
 
 Global-O3 twin of the [shipping report](../shipping/profile_dreamballs_teensy_2026-08-26.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh DreamBalls profile_o3 230 16 "-D HS_PROFILE_EPOCH_REVS=2000"`). Raw capture:
-`build/prof/dreamballs_o3.log`, captured 2026-08-26 02:19 local. This replaces `profile_dreamballs_teensy_2026-08-09.md`.
+`build/prof/dreamballs_o3.log`, captured 2026-08-26 02:19 local. This replaces the historical 2026-08-09 capture (report no longer retained).
 
 ## Setup
 

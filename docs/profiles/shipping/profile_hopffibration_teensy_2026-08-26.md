@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile HopfFibration`).
 Raw capture: `build/prof/hopffibration_ship.log`, sourced from the isolated sweep tree.
-Replaces `profile_hopffibration_teensy_2026-07-30.md` with the full 2026-08-26 sweep capture.
+Replaces the historical 2026-07-30 capture (report no longer retained) with the full 2026-08-26 sweep capture.
 
 ## Setup
 

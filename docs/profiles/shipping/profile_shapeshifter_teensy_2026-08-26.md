@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile ShapeShifter`).
 Raw capture: `build/prof/shapeshifter_ship.log`, sourced from the isolated sweep tree.
-Replaces `profile_shapeshifter_teensy_2026-08-08.md` with the full 2026-08-26 sweep capture.
+Replaces the historical 2026-08-08 capture (report no longer retained) with the full 2026-08-26 sweep capture.
 
 ## Setup
 

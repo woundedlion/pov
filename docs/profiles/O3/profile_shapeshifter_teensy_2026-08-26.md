@@ -2,7 +2,7 @@
 
 Global-O3 twin of the [shipping report](../shipping/profile_shapeshifter_teensy_2026-08-26.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh ShapeShifter profile_o3 155 16 "-D HS_PROFILE_EPOCH_REVS=1600"`). Raw capture:
-`build/prof/shapeshifter_o3.log`, captured 2026-08-26 03:11 local. This replaces `profile_shapeshifter_teensy_2026-08-08.md`.
+`build/prof/shapeshifter_o3.log`, captured 2026-08-26 03:11 local. This replaces the historical 2026-08-08 capture (report no longer retained).
 
 ## Setup
 
