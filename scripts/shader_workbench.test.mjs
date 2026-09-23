@@ -1113,6 +1113,16 @@ test('CLI reports usage and missing files with exit code 2', () => {
   assert.match(unknown.stderr, /Usage:/);
 });
 
+test('documents can snap an otherwise interpolatable scalar', () => {
+  const document = example();
+  const parameter = document.descriptor.parameters[0];
+  parameter.interpolation = { kind: 'SNAP' };
+  assert.deepEqual(validate(document), []);
+  assert.equal(interpolateValue(parameter, 1, 2, 0.99), 1);
+  assert.equal(interpolateValue(parameter, 1, 2, 1), 2);
+});
+
+
 test('fixed affine period follows the lattice source with float32 rounding', () => {
   const descriptor = { chain: [
     { label: 'affine', operator: 'warp.affine.v2' },
