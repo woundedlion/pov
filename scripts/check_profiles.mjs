@@ -85,9 +85,8 @@ export function validateReport(report, directory, key, date, file, errors) {
     }
     if (i > 0 && positions[i] < positions[i - 1])
       errors.push(`${subject} has out-of-order profile sections`);
-    const end = positions[i + 1] < 0 || i + 1 === positions.length
-      ? report.length
-      : positions[i + 1];
+    const end = Math.min(report.length,
+      ...positions.filter(position => position > positions[i]));
     const bodyStart = report.indexOf('\n', positions[i]) + 1;
     if (bodyStart === 0 || report.slice(bodyStart, end).trim() === '')
       errors.push(`${subject} has no content under ${REQUIRED_SECTIONS[i]}`);
