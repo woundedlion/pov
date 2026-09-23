@@ -428,17 +428,21 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
  * folded over every displayed frame (not just the last). Lets a caller detect
  * mid-run nondeterminism that reconverges before the final frame, which the
  * final-buffer copy alone cannot see. Ignored when nullptr.
+ * @param lit Optional output: whether any displayed frame contains a lit pixel.
  * @details Resets every shared global the smoke path does (RNG seed, arenas,
  * Timeline, pole-LOD knob, scan counters) and pins the mock clock to the frame
  * cadence, so two calls start from an identical state.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void render_capture(std::vector<Pixel> &out, int frames,
-                           uint64_t *frame_fold = nullptr) {
+                           uint64_t *frame_fold = nullptr,
+                           bool *lit = nullptr) {
   reset_effect_globals();
   // Pre-init epoch, so construction sees the same clock on both runs.
   pin_frame_clock(0);
 
+  if (lit)
+    *lit = false;
   uint64_t fold = hs_test::FNV1A64_BASIS;
   const auto fold_byte = [&fold](uint8_t byte) {
     fold = hs_test::fnv1a64_byte(fold, byte);
@@ -450,10 +454,12 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
     pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
-    if (frame_fold)
+    if (frame_fold || lit)
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           const Pixel p = effect.get_pixel(x, y);
+          if (lit && (p.r || p.g || p.b))
+            *lit = true;
           fold_byte(p.r & 0xFF);
           fold_byte(p.r >> 8);
           fold_byte(p.g & 0xFF);
@@ -512,9 +518,10 @@ inline void determinism_one(const char *name) {
       effect_may_be_dark(name, window) ? PARITY_FRAMES_SLOW : window;
   std::vector<Pixel> a, b;
   uint64_t fold_a = 0, fold_b = 0;
-  render_capture<E, W, H>(a, frames, &fold_a);
+  bool lit_a = false, lit_b = false;
+  render_capture<E, W, H>(a, frames, &fold_a, &lit_a);
   perturb_determinism_globals();
-  render_capture<E, W, H>(b, frames, &fold_b);
+  render_capture<E, W, H>(b, frames, &fold_b, &lit_b);
   hs::clear_mock_time();
 
   // Per-frame fold catches mid-run divergence that reconverges by the final
@@ -549,9 +556,8 @@ inline void determinism_one(const char *name) {
   }
   HS_EXPECT(first_diff < 0,
             "effect must render identically across runs under a fixed clock");
-  // Two all-black renders agree pixel for pixel and fold to the same checksum,
-  // so both comparisons above only mean something once the run has produced
-  // output.
+  HS_EXPECT_TRUE(lit_a);
+  HS_EXPECT_TRUE(lit_b);
 }
 
 /**
