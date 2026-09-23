@@ -330,7 +330,7 @@ consteval bool gates_wellformed(const std::array<ParamFieldInfo, N> &schema) {
       if (candidate.topology &&
           std::string_view(candidate.id) == field.gated_by)
         gate = &candidate;
-    if (gate == nullptr)
+    if (gate == nullptr || gate->enum_count > 16)
       return false;
     const uint32_t all = (uint32_t{1} << gate->enum_count) - 1u;
     const uint32_t live = field.gate_values;
