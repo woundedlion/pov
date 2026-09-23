@@ -1835,8 +1835,8 @@ private:
                                     config.params.color.hue_noise_scale,
                                     endpoint.clocks.hue_noise_phase);
     frame.slots = config.slots;
-    frame.edge_distance_required = projection_edge_distance_required(frame);
     frame.params = config.params;
+    frame.edge_distance_required = projection_edge_distance_required(frame);
     frame.palette_mapping =
         state->param_morph.active
             ? blend.palette_mapping
