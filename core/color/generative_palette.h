@@ -44,14 +44,14 @@ public:
       std::array<uint8_t, 7> bytes{};
     };
 
-    std::array<Key, PALETTE_MAX_KEYS> keys;
-    float lightness_low;
-    float lightness_high;
-    float chroma_low;
-    float chroma_high;
-    uint8_t key_count;
-    AxisCurve lightness_curve;
-    AxisCurve chroma_curve;
+    std::array<Key, PALETTE_MAX_KEYS> keys{};
+    float lightness_low = 0.0f;
+    float lightness_high = 0.0f;
+    float chroma_low = 0.0f;
+    float chroma_high = 0.0f;
+    uint8_t key_count = 0;
+    AxisCurve lightness_curve = AxisCurve::CONSTANT;
+    AxisCurve chroma_curve = AxisCurve::CONSTANT;
     uint8_t reserved = 0;
   };
 
