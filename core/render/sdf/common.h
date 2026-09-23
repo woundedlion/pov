@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
