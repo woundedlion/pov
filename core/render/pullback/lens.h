@@ -26,6 +26,15 @@ static_assert(field_defaults_in_range<NoLensParams>());
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
   static constexpr float COEFFICIENT_LIMIT = 4.0f;
+  static constexpr float MOBIUS_MIN_DET_SQ = 1e-6f;
+
+  static constexpr bool nondegenerate(const math::MobiusParams &params) {
+    const float re = params.a.re * params.d.re - params.a.im * params.d.im -
+                     params.b.re * params.c.re + params.b.im * params.c.im;
+    const float im = params.a.re * params.d.im + params.a.im * params.d.re -
+                     params.b.re * params.c.im - params.b.im * params.c.re;
+    return re * re + im * im >= MOBIUS_MIN_DET_SQ;
+  }
 
   /** Mobius coefficients; the default is the identity map. */
   math::MobiusParams mobius{0.7071067811865475f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
