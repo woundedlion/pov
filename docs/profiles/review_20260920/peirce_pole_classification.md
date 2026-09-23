@@ -1,4 +1,4 @@
-# Finding 115: Peirce pole-cap classification A/B/A
+# Peirce pole-cap classification A/B/A
 
 Experimental Teensy 4.0 diagnostic, COM4, 600 MHz, real segmented POV driver. All arms use identical target, stable effect seed, fixed preset parameters, instrumentation, 70-second capture, and 32-frame windows. Runs are sequential on the same board. A is instrumentation-only commit `3156f636ff9c247370ee2bbfd861efbfa7d49aea`; B is `bf4fa1223439ab092855f10b41259e1d2cd68cdb`, adding only the classification fix and its regression test. These were isolated commits at capture time. The production correction was subsequently landed as e91e74d82 after user approval; the diagnostic instrumentation remains separate.
 
