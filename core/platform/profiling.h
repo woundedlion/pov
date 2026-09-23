@@ -471,6 +471,8 @@ struct CycleCounter {
    * parent cycle.
    */
   ~CycleCounter() {
+    if (active == this)
+      active = nullptr;
     for (CycleCounter **p = &head; *p;) {
       if (*p == this) {
         *p = next;
