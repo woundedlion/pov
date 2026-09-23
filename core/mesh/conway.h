@@ -382,6 +382,7 @@ inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
  * @tparam EmitFn Callable (uint16_t he_idx) pushing that half-edge's output
  *   vertex indices onto out_mesh.faces.
  * @param he_mesh Half-edge connectivity to walk.
+ * @param mesh Source mesh matching the supplied connectivity.
  * @param out_mesh Destination mesh receiving one face per well-formed source
  *   face.
  * @param verts_per_side Indices emit_fn pushes per half-edge; scales the emitted
@@ -392,11 +393,12 @@ inline void emit_edge_midpoints(const HalfEdgeMesh &he_mesh,
  *   loop. Shared by ambo, medial and truncate.
  */
 template <typename EmitFn>
-inline void emit_primary_faces(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
+inline void emit_primary_faces(const HalfEdgeMesh &he_mesh,
+                               const PolyMesh &mesh, PolyMesh &out_mesh,
                                int verts_per_side, EmitFn &&emit_fn) {
   for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
     uint16_t start = he_mesh.faces[fi].half_edge;
-    int count = face_side_count(he_mesh, start);
+    int count = mesh.get_face_counts_data()[fi];
     if (count < 3)
       continue;
     out_mesh.face_counts.push_back(narrow_face_count(count * verts_per_side));
@@ -791,7 +793,7 @@ HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
                         [](const HalfEdge &) {});
 
     // Reconstruct Original Faces (Shrunk)
-    emit_primary_faces(he_mesh, out_mesh, 1, [&](uint16_t he_idx) {
+    emit_primary_faces(he_mesh, mesh, out_mesh, 1, [&](uint16_t he_idx) {
       out_mesh.faces.push_back(edge_to_vert[he_idx]);
     });
 
@@ -919,7 +921,7 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
         });
 
     // Reconstruct Original Faces (Shrunk) — the ambo primary-face layout.
-    emit_primary_faces(he_mesh, out_a, 1, [&](uint16_t he_idx) {
+    emit_primary_faces(he_mesh, mesh, out_a, 1, [&](uint16_t he_idx) {
       out_a.faces.push_back(edge_to_vert[he_idx]);
     });
 
@@ -1025,7 +1027,7 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
       }
     }
 
-    emit_primary_faces(he_mesh, out_mesh, 2, [&](uint16_t he_idx) {
+    emit_primary_faces(he_mesh, mesh, out_mesh, 2, [&](uint16_t he_idx) {
       auto [tail_cut, head_cut] =
           truncate_oriented_cut(he_mesh, edge_to_vert, he_idx);
       out_mesh.faces.push_back(tail_cut);
