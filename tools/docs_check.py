@@ -4,7 +4,7 @@
 Structure only. A green run means every fence closes, every anchor resolves,
 every link into this repository or a supplied sibling checkout resolves, every
 backticked repo path exists, every tree fence matches the tracked tree it
-draws, the cardinalities _CARDINALITY_CLAIMS names match their source
+draws, the cardinalities CARDINALITY_CLAIMS names match their source
 macros, and the composed-effect roster in docs/effects.md matches each
 effect's PRESET_IDS and the product group -- not that the prose is true. A
 link to any other host is never
@@ -82,14 +82,14 @@ _PATH_SPAN_RE = re.compile(r"^([A-Za-z0-9_.][\w.\-/]*)(?::\d+(?:-\d+)?)?$")
 _DIRECTIVE_RE = re.compile(r"^ {0,3}<!--[ \t]*docs-check:[ \t]*(.*?)[ \t]*-->[ \t]*$")
 _TREE_TAG = "tree"
 _TREE_EXHAUSTIVE = "exhaustive"
-_TREE_ROW_RE = re.compile(r"^(?P<indent>(?:│   |    )*)(?:├──|└──) +(?P<rest>\S.*)$")
+TREE_ROW_RE = re.compile(r"^(?P<indent>(?:│   |    )*)(?:├──|└──) +(?P<rest>\S.*)$")
 _TREE_INDENT = 4
 # A directory row may enumerate its children in prose rather than draw one row
 # apiece, wrapping onto continuation lines that carry the spine but no branch.
 # Within such a row every parenthesized group whose comma-separated parts are
 # all bare stems names children of it, gated in both directions like a row.
 _TREE_CONT_RE = re.compile(r"^[│ \t]*(?P<rest>\S.*)$")
-_TREE_LIST_RE = re.compile(r"\(([^()]*)\)")
+TREE_LIST_RE = re.compile(r"\(([^()]*)\)")
 _TREE_STEM_RE = re.compile(r"[a-z0-9_]+")
 # A drawn name: a path segment chain, optionally a directory's trailing slash,
 # optionally a glob. Bare ellipsis rows elide a subtree and name nothing.
@@ -114,16 +114,16 @@ _CHECKOUT_REPO_PATH_RE = re.compile(
 # gate sees the counts it states. Both are derivable: headers from the tracked
 # tree, effects from the roster macro's cardinality.
 _EFFECTS_TREE_ROW = "README.md"
-_EFFECTS_ROW_RE = re.compile(
+EFFECTS_ROW_RE = re.compile(
     r"\beffects/\s+(?P<headers>\d+) headers(?: covering (?P<effects>\d+) effects|: "
     r"one per effect \((?P<legacy_effects>\d+)\))")
 # The architecture diagram restates the roster's cardinality in its own words,
 # outside any tree fence and in a spelling the summary row's regex never
 # matches, so it is derivable from the same source and gated the same way.
-_EFFECTS_DIAGRAM_RE = re.compile(
+EFFECTS_DIAGRAM_RE = re.compile(
     r"\beffects/\s+\((?P<effects>\d+) visual algorithms\)")
-_EFFECTS_DIR = PurePosixPath("effects")
-_EFFECT_ROSTER_SOURCE = PurePosixPath("targets/effects.h")
+EFFECTS_DIR = PurePosixPath("effects")
+EFFECT_ROSTER_SOURCE = PurePosixPath("targets/effects.h")
 _EFFECT_ROSTER_DEFINE = "#define HS_EFFECT_LIST(X)"
 # Shared X-row spelling with scripts/effect_roster.mjs and tools/profile_sweep.sh:
 # whitespace inside the parens is tolerated so a reformat to `X( Foo )` cannot
@@ -135,7 +135,7 @@ _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 
 # The device playlist repeats the full roster's cardinality in README prose.
-_PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
+PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
 # The shader promotion product group lives beside HS_EFFECT_LIST, and the ITCM
 # ledger restates its cardinality in prose.
@@ -157,7 +157,7 @@ _NUMBER_WORDS = {
         "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"))
 } | {"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
      "eighty": 80, "ninety": 90}
-_CARDINALITY_CLAIMS = (
+CARDINALITY_CLAIMS = (
     ("README.md",
      re.compile(r"compile-time roster and tests carry (\d+) firmware-capable"),
      "HS_EFFECT_LIST", "the firmware-capable roster size"),
@@ -190,7 +190,7 @@ _PREDEFINED_NAME_RE = re.compile(r"^[A-Za-z_]\w*")
 # DOXYGEN enables doc-only branches and need not appear in source.
 _PREDEFINED_UNREFERENCED_ALLOWED = frozenset({"DOXYGEN"})
 
-_UNTRACKED_ALLOWED = (
+UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
 )
 _UNTRACKED_LIST = "untracked-allowed"
@@ -199,7 +199,7 @@ _TREE_UNMAPPED_LIST = "tree-unmapped"
 # Tracked paths an exhaustive tree deliberately leaves without a row: VCS
 # metadata, the map's own document, and the test tree the map draws as one
 # summary row plus its shared fixtures. A trailing slash covers a subtree.
-_TREE_UNMAPPED = (
+TREE_UNMAPPED = (
     ".gitattributes",
     ".gitignore",
     "README.md",
@@ -208,7 +208,7 @@ _TREE_UNMAPPED = (
 )
 
 # Rows a checkout's own repository gitignores, keyed by the directive's name.
-_CHECKOUT_UNTRACKED_ALLOWED = {
+CHECKOUT_UNTRACKED_ALLOWED = {
     "daydream": ("node_modules/", "three.js/", "vendor/"),
 }
 
@@ -224,8 +224,8 @@ def _cited(allowlist: str, entry: str) -> str:
 
 
 def _untracked_allowance(candidate: str, used: set[str] | None) -> bool:
-    """Reports whether an _UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
-    for prefix in _UNTRACKED_ALLOWED:
+    """Reports whether an UNTRACKED_ALLOWED prefix exempts candidate, recording it."""
+    for prefix in UNTRACKED_ALLOWED:
         if candidate.startswith(prefix):
             if used is not None:
                 used.add(_cited(_UNTRACKED_LIST, prefix))
@@ -238,25 +238,25 @@ def _stale_allowances(entries: set[PurePosixPath], used: set[str],
 ) -> list[str]:
     """Names allowlist entries the exemption no longer buys anything for.
 
-    An _UNTRACKED_ALLOWED prefix exempts a path the docs cite and this
+    An UNTRACKED_ALLOWED prefix exempts a path the docs cite and this
     repository does not track, so tracking it makes the entry stale; a
-    _TREE_UNMAPPED prefix exempts a tracked path from needing a tree row, so
+    TREE_UNMAPPED prefix exempts a tracked path from needing a tree row, so
     untracking it does. A checkout allowance is judged only against a checkout
     a --checkout root supplied, since nothing else can say what it tracks.
     """
     stale = []
-    for prefix in _UNTRACKED_ALLOWED:
+    for prefix in UNTRACKED_ALLOWED:
         if PurePosixPath(prefix.rstrip("/")) in entries:
             stale.append(f"{prefix} (now tracked)")
         elif _cited(_UNTRACKED_LIST, prefix) not in used:
             stale.append(f"{prefix} (uncited)")
-    for prefix in _TREE_UNMAPPED:
+    for prefix in TREE_UNMAPPED:
         entry = _cited(_TREE_UNMAPPED_LIST, prefix)
         if PurePosixPath(prefix.rstrip("/")) not in entries:
             stale.append(f"{entry} (untracked)")
         elif entry not in used:
             stale.append(f"{entry} (uncited)")
-    for checkout, prefixes in _CHECKOUT_UNTRACKED_ALLOWED.items():
+    for checkout, prefixes in CHECKOUT_UNTRACKED_ALLOWED.items():
         tracked = (checkouts or {}).get(checkout)
         if tracked is None:
             continue
@@ -329,7 +329,7 @@ class Fence:
     body: tuple[tuple[int, str], ...]
 
 
-def _visible_lines(path: PurePosixPath,
+def visible_lines(path: PurePosixPath,
                    text: str) -> tuple[list[VisibleLine], list[Fence], list[Issue]]:
     visible = []
     fences = []
@@ -629,7 +629,7 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
     return Issue(source.as_posix(), line, f"backticked path {candidate!r} does not exist")
 
 
-def _tree_names(rest: str) -> list[str]:
+def tree_names(rest: str) -> list[str]:
     """Names one tree row draws: its leading token plus any ` / ` siblings."""
     tokens = rest.split()
     if not tokens or not _TREE_NAME_RE.match(tokens[0]):
@@ -643,21 +643,21 @@ def _tree_names(rest: str) -> list[str]:
     return names
 
 
-def _tree_listed(description: str) -> list[str]:
+def tree_listed(description: str) -> list[str]:
     """Child stems a directory row's prose enumerates, in the order drawn.
 
     A group holding anything but bare stems is prose, not a list, and names
     nothing; the row then elides its subtree as an undescribed one does.
     """
     stems = []
-    for group in _TREE_LIST_RE.findall(description):
+    for group in TREE_LIST_RE.findall(description):
         parts = [part.strip() for part in group.split(",")]
         if parts and all(_TREE_STEM_RE.fullmatch(part) for part in parts):
             stems.extend(parts)
     return stems
 
 
-def _tree_stem_paths(directory: str, stem: str,
+def tree_stem_paths(directory: str, stem: str,
                      entries: set[PurePosixPath]) -> list[str]:
     """Resolves a prose-named stem to the children it names, suffix and all.
 
@@ -686,7 +686,7 @@ class TreeDirective:
     exhaustive: bool
 
 
-def _tree_directive(tag: str) -> TreeDirective | None:
+def tree_directive(tag: str) -> TreeDirective | None:
     """Parses `tree [<checkout>] [exhaustive]`; None when the tag is not one."""
     tokens = tag.split()
     if not tokens or tokens[0] != _TREE_TAG:
@@ -734,13 +734,13 @@ def _tree_rows(source: PurePosixPath, fence: Fence,
             line_number, directory = described
             rows.extend(
                 (line_number, path)
-                for stem in _tree_listed(" ".join(words))
-                for path in _tree_stem_paths(directory, stem, entries))
+                for stem in tree_listed(" ".join(words))
+                for path in tree_stem_paths(directory, stem, entries))
         described = None
         words.clear()
 
     for line_number, line in fence.body:
-        match = _TREE_ROW_RE.match(line)
+        match = TREE_ROW_RE.match(line)
         if not match:
             continuation = described and _TREE_CONT_RE.match(line)
             if continuation:
@@ -750,7 +750,7 @@ def _tree_rows(source: PurePosixPath, fence: Fence,
             continue
         close()
         depth = len(match.group("indent")) // _TREE_INDENT
-        names = _tree_names(match.group("rest"))
+        names = tree_names(match.group("rest"))
         if not names:
             continue
         if depth > len(stack):
@@ -803,12 +803,12 @@ def _tree_omissions(source: PurePosixPath, fence: Fence,
             continue
         omitted.update(child for child in siblings
                        if not is_drawn(child)
-                       and not _tree_unmapped(child, unmapped, used))
+                       and not tree_unmapped(child, unmapped, used))
     return [Issue(source.as_posix(), fence.start,
                   f"tree omits tracked path {path!r}") for path in sorted(omitted)]
 
 
-def _tree_unmapped(candidate: str, prefixes: tuple[str, ...],
+def tree_unmapped(candidate: str, prefixes: tuple[str, ...],
                    used: set[str] | None = None) -> bool:
     for prefix in prefixes:
         if candidate == prefix or candidate.startswith(prefix):
@@ -830,7 +830,7 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
     for fence in fences:
         if not fence.tag.split():
             continue
-        directive = _tree_directive(fence.tag)
+        directive = tree_directive(fence.tag)
         if directive is None:
             issues.append(Issue(source.as_posix(), fence.start,
                                 f"unknown docs-check directive {fence.tag!r}"))
@@ -843,7 +843,7 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
                 if skipped is not None:
                     skipped.add(directive.checkout)
                 continue
-            prefixes = _CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
+            prefixes = CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
             allowed = functools.partial(_checkout_allowance,
                                         checkout=directive.checkout,
                                         prefixes=prefixes, used=used)
@@ -851,7 +851,7 @@ def _tree_issues(source: PurePosixPath, fences: list[Fence],
         else:
             target = entries
             allowed = functools.partial(_untracked_allowance, used=used)
-            unmapped = _TREE_UNMAPPED
+            unmapped = TREE_UNMAPPED
         rows, row_issues = _tree_rows(source, fence, target)
         issues.extend(row_issues)
         issues.extend(
@@ -903,12 +903,12 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
     the exhaustive-tree gate never reaches it.
     """
     headers = sum(1 for entry in entries
-                  if entry.parent == _EFFECTS_DIR and entry.suffix == ".h")
+                  if entry.parent == EFFECTS_DIR and entry.suffix == ".h")
     issues = []
     matched = False
     diagram_matched = False
     for number, line in enumerate(text.splitlines(), 1):
-        diagram = _EFFECTS_DIAGRAM_RE.search(line)
+        diagram = EFFECTS_DIAGRAM_RE.search(line)
         if diagram:
             diagram_matched = True
             drawn = int(diagram.group("effects"))
@@ -916,14 +916,14 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
                 issues.append(Issue(
                     _EFFECTS_TREE_ROW, number,
                     f"architecture diagram claims {drawn} effects, but "
-                    f"{_EFFECT_ROSTER_SOURCE} defines no HS_EFFECT_LIST to "
+                    f"{EFFECT_ROSTER_SOURCE} defines no HS_EFFECT_LIST to "
                     f"check it against"))
             elif drawn != len(roster):
                 issues.append(Issue(
                     _EFFECTS_TREE_ROW, number,
                     f"architecture diagram claims {drawn} effects, "
                     f"HS_EFFECT_LIST names {len(roster)}"))
-        match = _EFFECTS_ROW_RE.search(line)
+        match = EFFECTS_ROW_RE.search(line)
         if not match:
             continue
         matched = True
@@ -938,7 +938,7 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
             issues.append(Issue(
                 _EFFECTS_TREE_ROW, number,
                 f"effects/ row claims {drawn_effects} effects, but "
-                f"{_EFFECT_ROSTER_SOURCE} defines no HS_EFFECT_LIST to "
+                f"{EFFECT_ROSTER_SOURCE} defines no HS_EFFECT_LIST to "
                 f"check it against"))
         elif drawn_effects != len(roster):
             issues.append(Issue(
@@ -1024,7 +1024,7 @@ def shader_product_group(source: str) -> set[str]:
         _macro_body(source, _PRODUCT_GROUP_DEFINE)))
 
 
-def _claimed_count(token: str) -> int | None:
+def claimed_count(token: str) -> int | None:
     """The count a prose claim spells, in digits or English number words."""
     digits = token.replace(",", "")
     if digits.isdigit():
@@ -1042,25 +1042,25 @@ def roster_claim_issues(sources: dict[PurePosixPath, str], roster: set[str],
                         products: set[str]) -> list[Issue]:
     """Checks prose roster cardinalities against their source macros."""
     if not playlist:
-        return [Issue(_PHANTASM_PLAYLIST_SOURCE.as_posix(), 1,
+        return [Issue(PHANTASM_PLAYLIST_SOURCE.as_posix(), 1,
                       "no HS_PHANTASM_EFFECT_LIST, so every playlist count "
                       "restated in prose goes unchecked")]
     if not products:
-        return [Issue(_EFFECT_ROSTER_SOURCE.as_posix(), 1,
+        return [Issue(EFFECT_ROSTER_SOURCE.as_posix(), 1,
                       "no HS_SHADER_PRODUCT_GROUP, so every product count "
                       "restated in prose goes unchecked")]
     counts = {"HS_EFFECT_LIST": len(roster),
               "HS_PHANTASM_EFFECT_LIST": len(playlist),
               "HS_SHADER_PRODUCT_GROUP": len(products)}
     issues = []
-    for document, pattern, macro, subject in _CARDINALITY_CLAIMS:
+    for document, pattern, macro, subject in CARDINALITY_CLAIMS:
         expected = counts[macro]
         text = sources.get(PurePosixPath(document), "")
         matched = False
         for number, line in enumerate(text.splitlines(), 1):
             for match in pattern.finditer(line):
                 matched = True
-                claimed = _claimed_count(match.group(1))
+                claimed = claimed_count(match.group(1))
                 if claimed is None:
                     issues.append(Issue(
                         document, number,
@@ -1100,7 +1100,7 @@ def composed_roster_issues(root: Path, effects_text: str,
                       "no composed-effect roster table, so its preset counts "
                       "go unchecked")]
     for effect, (number, claimed) in rows.items():
-        header = _EFFECTS_DIR / f"{effect}.h"
+        header = EFFECTS_DIR / f"{effect}.h"
         if header not in entries:
             issues.append(Issue(
                 _EFFECTS_REFERENCE, number,
@@ -1145,7 +1145,7 @@ def check_text(source: PurePosixPath, text: str,
                skipped: set[str] | None = None,
                seen_trees: set[tuple[PurePosixPath, TreeDirective]] | None = None
 ) -> list[Issue]:
-    visible, fences, issues = _visible_lines(source, text)
+    visible, fences, issues = visible_lines(source, text)
     issues.extend(_tree_issues(source, fences, entries, used, checkouts, skipped,
                                seen_trees))
     # The source's own anchors always resolve; cross-document ones need the
@@ -1189,7 +1189,7 @@ def check_text(source: PurePosixPath, text: str,
     return sorted(issues)
 
 
-def _tracked_entries(root: Path, revision: str | None = None
+def tracked_entries(root: Path, revision: str | None = None
                      ) -> tuple[list[PurePosixPath], set[PurePosixPath]]:
     command = ["git", "-c", f"safe.directory={root.as_posix()}",
                "-C", str(root)]
@@ -1213,8 +1213,8 @@ def check_repository(
         skipped: set[str] | None = None,
         checkout_revisions: dict[str, str] | None = None
 ) -> tuple[list[PurePosixPath], list[Issue], list[str]]:
-    markdown, entries = _tracked_entries(root)
-    checkouts = {name: _tracked_entries(path, (checkout_revisions or {}).get(name))[1]
+    markdown, entries = tracked_entries(root)
+    checkouts = {name: tracked_entries(path, (checkout_revisions or {}).get(name))[1]
                  for name, path in (checkout_roots or {}).items()}
     issues = []
     used: set[str] = set()
@@ -1230,7 +1230,7 @@ def check_repository(
                                 f"cannot read tracked Markdown as UTF-8: {error}"))
 
     # Anchors first: a link may point at a heading in any other tracked document.
-    anchors = {relative: _anchors(_visible_lines(relative, text)[0])
+    anchors = {relative: _anchors(visible_lines(relative, text)[0])
                for relative, text in sources.items()}
     seen_trees: set[tuple[PurePosixPath, TreeDirective]] = set()
     for relative, text in sources.items():
@@ -1250,15 +1250,15 @@ def check_repository(
                 "tree goes unchecked"))
     effects_text = sources.get(PurePosixPath(_EFFECTS_TREE_ROW), "")
     roster_claimed = bool(
-        _EFFECTS_ROW_RE.search(effects_text)
-        or _EFFECTS_DIAGRAM_RE.search(effects_text)
+        EFFECTS_ROW_RE.search(effects_text)
+        or EFFECTS_DIAGRAM_RE.search(effects_text)
         or any(macro == "HS_EFFECT_LIST"
                and pattern.search(sources.get(PurePosixPath(document), ""))
-               for document, pattern, macro, _ in _CARDINALITY_CLAIMS))
-    if _EFFECT_ROSTER_SOURCE in entries:
+               for document, pattern, macro, _ in CARDINALITY_CLAIMS))
+    if EFFECT_ROSTER_SOURCE in entries:
         try:
             header = root.joinpath(
-                *_EFFECT_ROSTER_SOURCE.parts).read_text(encoding="utf-8")
+                *EFFECT_ROSTER_SOURCE.parts).read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             header = ""
         roster = effect_roster(header)
@@ -1266,7 +1266,7 @@ def check_repository(
             effects_text, entries, roster or None))
         try:
             playlist_header = root.joinpath(
-                *_PHANTASM_PLAYLIST_SOURCE.parts).read_text(encoding="utf-8")
+                *PHANTASM_PLAYLIST_SOURCE.parts).read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             playlist_header = ""
         products = shader_product_group(header)
@@ -1278,9 +1278,9 @@ def check_repository(
                 entries, products))
     elif roster_claimed:
         issues.append(Issue(
-            _EFFECT_ROSTER_SOURCE.as_posix(), 1,
+            EFFECT_ROSTER_SOURCE.as_posix(), 1,
             "tracked documentation states effect-roster cardinalities, but "
-            f"{_EFFECT_ROSTER_SOURCE} is not tracked"))
+            f"{EFFECT_ROSTER_SOURCE} is not tracked"))
     if _DOXYFILE in entries:
         try:
             doxyfile = root.joinpath(*_DOXYFILE.parts).read_text(encoding="utf-8")
@@ -1352,7 +1352,7 @@ def main(argv: list[str] | None = None) -> int:
     # checker -- but only by naming the checkout in --skip-checkout, and the
     # verdict line says so either way.
     unvalidated = skipped - set(args.skip_checkout)
-    # Warning only, like a stale _UNTRACKED_ALLOWED entry: a name that skips
+    # Warning only, like a stale UNTRACKED_ALLOWED entry: a name that skips
     # nothing is a stale exemption, and dropping it must not red a commit.
     unused_skips = sorted(set(args.skip_checkout) - skipped)
     if unused_skips:
@@ -1365,7 +1365,7 @@ def main(argv: list[str] | None = None) -> int:
     # Warning only: dropping the last citation of an exempt path improves the
     # tree and must not red the build for whoever lands that commit.
     if markdown and stale:
-        print("::warning::_UNTRACKED_ALLOWED in tools/docs_check.py is stale - "
+        print("::warning::UNTRACKED_ALLOWED in tools/docs_check.py is stale - "
               f"drop these entries: {', '.join(stale)}")
     if issues:
         for issue in issues:

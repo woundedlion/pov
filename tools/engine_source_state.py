@@ -22,11 +22,11 @@ def changed_sources(root: Path) -> list[str]:
         return changed
 
     with contextlib.redirect_stdout(io.StringIO()):
-        _, entries = docs_check._tracked_entries(root)
+        _, entries = docs_check.tracked_entries(root)
         checkout = docs_sync.discover_daydream(root)
         roots = {"daydream": checkout} if checkout else {}
         revisions = docs_sync.checkout_revisions(roots)
-        checkouts = {name: docs_check._tracked_entries(path, revisions[name])[1]
+        checkouts = {name: docs_check.tracked_entries(path, revisions[name])[1]
                      for name, path in roots.items()}
         counts = docs_sync.source_counts(root)
         dirty = []

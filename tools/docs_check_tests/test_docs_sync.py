@@ -107,8 +107,8 @@ class RepositorySync(unittest.TestCase):
         (self.root / "pinned.js").unlink()
         (self.root / "live.js").write_text("new", encoding="utf-8")
         self.git("add", "pinned.js", "live.js")
-        self.assertEqual(dc._tracked_entries(self.root, tree)[1], entries("pinned.js"))
-        self.assertEqual(dc._tracked_entries(self.root)[1], entries("live.js"))
+        self.assertEqual(dc.tracked_entries(self.root, tree)[1], entries("pinned.js"))
+        self.assertEqual(dc.tracked_entries(self.root)[1], entries("live.js"))
 
     def test_sync_writes_only_when_content_changes(self):
         readme = self.root / "README.md"
@@ -121,29 +121,29 @@ class RepositorySync(unittest.TestCase):
             ds.sync_repository(self.root, {}, {})
 
     def test_roster_counts_sync_without_rewriting_surrounding_prose(self):
-        header = self.root / dc._EFFECT_ROSTER_SOURCE
+        header = self.root / dc.EFFECT_ROSTER_SOURCE
         header.parent.mkdir(parents=True)
         header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n", encoding="utf-8")
-        playlist = self.root / dc._PHANTASM_PLAYLIST_SOURCE
+        playlist = self.root / dc.PHANTASM_PLAYLIST_SOURCE
         playlist.parent.mkdir(parents=True)
         playlist.write_text("#define HS_PHANTASM_EFFECT_LIST(X) \\\n    X(One, 10)\n", encoding="utf-8")
         readme = self.root / "README.md"
         readme.write_text("The playlist contains 99 effects today.\n", encoding="utf-8")
-        self.git("add", "README.md", str(dc._EFFECT_ROSTER_SOURCE), str(dc._PHANTASM_PLAYLIST_SOURCE))
+        self.git("add", "README.md", str(dc.EFFECT_ROSTER_SOURCE), str(dc.PHANTASM_PLAYLIST_SOURCE))
         with contextlib.redirect_stdout(io.StringIO()):
             ds.sync_repository(self.root, {}, {})
         self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains 1 effects today.\n")
 
     def test_a_correct_spelled_out_count_is_left_alone(self):
-        header = self.root / dc._EFFECT_ROSTER_SOURCE
+        header = self.root / dc.EFFECT_ROSTER_SOURCE
         header.parent.mkdir(parents=True)
         header.write_text("#define HS_EFFECT_LIST(X) \\\n    X(One) \\\n    X(Two)\n", encoding="utf-8")
-        playlist = self.root / dc._PHANTASM_PLAYLIST_SOURCE
+        playlist = self.root / dc.PHANTASM_PLAYLIST_SOURCE
         playlist.parent.mkdir(parents=True)
         playlist.write_text("#define HS_PHANTASM_EFFECT_LIST(X) \\\n    X(One, 10)\n", encoding="utf-8")
         readme = self.root / "README.md"
         readme.write_text("The playlist contains one effects today.\n", encoding="utf-8")
-        self.git("add", "README.md", str(dc._EFFECT_ROSTER_SOURCE), str(dc._PHANTASM_PLAYLIST_SOURCE))
+        self.git("add", "README.md", str(dc.EFFECT_ROSTER_SOURCE), str(dc.PHANTASM_PLAYLIST_SOURCE))
         with contextlib.redirect_stdout(io.StringIO()):
             ds.sync_repository(self.root, {}, {})
         self.assertEqual(readme.read_text(encoding="utf-8"), "The playlist contains one effects today.\n")

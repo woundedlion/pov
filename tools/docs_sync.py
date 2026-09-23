@@ -26,7 +26,7 @@ def parse_rows(body: list[str]) -> list[Row]:
     roots: list[Row] = []
     stack: list[Row] = []
     for line in body:
-        match = dc._TREE_ROW_RE.match(line)
+        match = dc.TREE_ROW_RE.match(line)
         if match is None:
             if stack and line.strip("│ "):
                 stack[-1].continuation.append(line[len(stack) * 4:])
@@ -35,7 +35,7 @@ def parse_rows(body: list[str]) -> list[Row]:
                 stack[min(depth, len(stack) - 1)].separators.append(line)
             continue
         depth = len(match["indent"]) // 4
-        names = dc._tree_names(match["rest"])
+        names = dc.tree_names(match["rest"])
         if not names or depth > len(stack):
             raise ValueError(f"invalid generated tree row: {line}")
         name_text = " / ".join(names)
@@ -70,18 +70,18 @@ def refresh_rows(rows: list[Row], entries: set[PurePosixPath],
         listed = set()
         if names[0].endswith("/"):
             def refresh_list(match: re.Match) -> str:
-                stems = dc._tree_listed(match[0])
+                stems = dc.tree_listed(match[0])
                 if not stems:
                     return match[0]
                 live = [stem for stem in stems if any(
                     path.parent.as_posix() == directory and path.stem == stem
                     for path in entries)]
                 listed.update(path for stem in live
-                              for path in dc._tree_stem_paths(directory, stem, entries))
+                              for path in dc.tree_stem_paths(directory, stem, entries))
                 if live == stems:
                     return match[0]
                 return "(" + ", ".join(live) + ")" if live else ""
-            description = dc._TREE_LIST_RE.sub(refresh_list, "\n".join([row.description, *row.continuation]))
+            description = dc.TREE_LIST_RE.sub(refresh_list, "\n".join([row.description, *row.continuation]))
             row.description, *row.continuation = description.split("\n")
         if row.children or listed:
             row.children = refresh_rows(row.children, entries, allowed, unmapped, directory, listed)
@@ -96,7 +96,7 @@ def refresh_rows(rows: list[Row], entries: set[PurePosixPath],
             continue
         candidate = path.as_posix()
         if (any(fnmatch.fnmatchcase(candidate, pattern) for pattern in drawn)
-                or dc._tree_unmapped(candidate, unmapped)):
+                or dc.tree_unmapped(candidate, unmapped)):
             continue
         raise ValueError(f"add a repository-map row with a role description for {candidate}")
     return refreshed
@@ -118,19 +118,19 @@ def render_rows(rows: list[Row], prefix: str = "") -> list[str]:
 def sync_trees(text: str, entries: set[PurePosixPath],
                checkouts: dict[str, set[PurePosixPath]]) -> str:
     lines = text.splitlines(keepends=True)
-    _, fences, issues = dc._visible_lines(PurePosixPath("README.md"), text)
+    _, fences, issues = dc.visible_lines(PurePosixPath("README.md"), text)
     if issues:
         return text
     for fence in reversed(fences):
-        directive = dc._tree_directive(fence.tag)
+        directive = dc.tree_directive(fence.tag)
         if directive is None or not directive.exhaustive:
             continue
         target = checkouts.get(directive.checkout) if directive.checkout else entries
         if target is None:
             continue
-        allowed = (dc._CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
-                   if directive.checkout else dc._UNTRACKED_ALLOWED)
-        unmapped = () if directive.checkout else dc._TREE_UNMAPPED
+        allowed = (dc.CHECKOUT_UNTRACKED_ALLOWED.get(directive.checkout, ())
+                   if directive.checkout else dc.UNTRACKED_ALLOWED)
+        unmapped = () if directive.checkout else dc.TREE_UNMAPPED
         rows = parse_rows([line for _, line in fence.body])
         replacement = render_rows(refresh_rows(rows, target, allowed, unmapped))
         if fence.body:
@@ -150,8 +150,8 @@ def replace_count(match: re.Match, counts: dict[str | int, int]) -> str:
 
 
 def source_counts(root: Path) -> dict[str, int]:
-    header = root / dc._EFFECT_ROSTER_SOURCE
-    playlist = root / dc._PHANTASM_PLAYLIST_SOURCE
+    header = root / dc.EFFECT_ROSTER_SOURCE
+    playlist = root / dc.PHANTASM_PLAYLIST_SOURCE
     counts = {}
     if header.is_file() and playlist.is_file():
         source = header.read_text(encoding="utf-8")
@@ -167,15 +167,15 @@ def sync_text(relative: PurePosixPath, text: str, entries: set[PurePosixPath],
         text = sync_trees(text, entries, checkouts)
         if counts:
             count = counts["HS_EFFECT_LIST"]
-            headers = sum(entry.parent == dc._EFFECTS_DIR and entry.suffix == ".h" for entry in entries)
-            text = dc._EFFECTS_ROW_RE.sub(lambda match: replace_count(match, {
+            headers = sum(entry.parent == dc.EFFECTS_DIR and entry.suffix == ".h" for entry in entries)
+            text = dc.EFFECTS_ROW_RE.sub(lambda match: replace_count(match, {
                 "headers": headers, "effects": count, "legacy_effects": count}), text)
-            text = dc._EFFECTS_DIAGRAM_RE.sub(lambda match: replace_count(match, {"effects": count}), text)
-    for document, pattern, macro, _ in dc._CARDINALITY_CLAIMS:
+            text = dc.EFFECTS_DIAGRAM_RE.sub(lambda match: replace_count(match, {"effects": count}), text)
+    for document, pattern, macro, _ in dc.CARDINALITY_CLAIMS:
         if relative.as_posix() == document and macro in counts:
             text = pattern.sub(
                 lambda match, expected=counts[macro]:
-                    match[0] if dc._claimed_count(match[1]) == expected
+                    match[0] if dc.claimed_count(match[1]) == expected
                     else replace_count(match, {1: expected}),
                 text)
     return text
@@ -183,8 +183,8 @@ def sync_text(relative: PurePosixPath, text: str, entries: set[PurePosixPath],
 
 def sync_repository(root: Path, checkout_roots: dict[str, Path],
                     revisions: dict[str, str]) -> None:
-    markdown, entries = dc._tracked_entries(root)
-    checkouts = {name: dc._tracked_entries(path, revisions.get(name))[1]
+    markdown, entries = dc.tracked_entries(root)
+    checkouts = {name: dc.tracked_entries(path, revisions.get(name))[1]
                  for name, path in checkout_roots.items()}
     counts = source_counts(root)
     for relative in markdown:
