@@ -131,12 +131,18 @@ polar_seam_periods(const RequestedConfig &config, const WarpStageSpec &polar) {
   return config.params.source.pattern_freq * harmonic;
 }
 
+HS_COLD_MEMBER inline constexpr bool polar_seam_checked(const Config &config) {
+  return config.slots.warp_program.inner.kind != WarpStageKind::WAVE_SHEAR;
+}
+
 HS_COLD_MEMBER inline constexpr bool
 polar_source_compatible(const RequestedConfig &config,
                         const WarpStageSpec &polar) {
   const SourceTraits traits = source_traits(config.slots.function);
   if (!traits.y_periodic || !traits.polar_angle_compatible)
     return false;
+  if (!polar_seam_checked(config))
+    return true;
   const float periods = polar_seam_periods(config, polar);
   return periods == static_cast<float>(static_cast<int>(periods));
 }
@@ -173,12 +179,6 @@ valid_config(const RequestedConfig &candidate) {
       !polar_source_compatible(candidate, slots.warp_program.inner))
     return false;
   if (outer_polar &&
-      slots.warp_program.inner.kind == WarpStageKind::WAVE_SHEAR) {
-    const SourceTraits traits = source_traits(slots.function);
-    if (!traits.y_periodic || !traits.polar_angle_compatible)
-      return false;
-  }
-  if (outer_polar && slots.warp_program.inner.kind == WarpStageKind::NONE &&
       !polar_source_compatible(candidate, slots.warp_program.outer))
     return false;
   if (!affine_translation_compatible(candidate) ||
