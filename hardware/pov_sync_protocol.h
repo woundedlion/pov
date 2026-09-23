@@ -124,6 +124,16 @@ struct Config {
   /** Optional per-roster-entry effect durations, in revolutions. */
   const uint32_t *effect_revolutions = nullptr;
   size_t effect_revolutions_count = 0;
+  template <size_t N>
+  constexpr void set_effect_revolutions(const uint32_t (&durations)[N]) {
+    effect_revolutions = durations;
+    effect_revolutions_count = N;
+  }
+  constexpr void clear_effect_revolutions() {
+    effect_revolutions = nullptr;
+    effect_revolutions_count = 0;
+  }
+
   int32_t epoch_repeats = 3;     /**< EPOCH redundancy repeats (spec §6.3). */
   uint32_t refractory_revs = 16; /**< EPOCH dedup window (spec §6.1). */
   /**
