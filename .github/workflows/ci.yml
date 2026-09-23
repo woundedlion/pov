@@ -1166,6 +1166,7 @@ jobs:
         run: |
           npm ci
           npm test
+          node scripts/workbench-probe.mjs
 
   lut-provenance:
     name: Generated LUTs match committed header
