@@ -4283,6 +4283,31 @@ inline void case_sample_sphere_nan() {
   (void)Pullback::Kernel::sample(Pullback::SphereSample{}, NAN_VALUE);
 }
 
+inline void case_screen_storage_twice() {
+  static uint8_t storage[8192];
+  Arena arena(storage, sizeof(storage));
+  Filter::Screen::Trails<4> stage(10);
+  stage.init_storage(arena);
+  stage.init_storage(arena);
+}
+
+inline void case_world_storage_twice() {
+  static uint8_t storage[8192];
+  Arena arena(storage, sizeof(storage));
+  Filter::World::Trails<4> stage(10);
+  stage.init_storage(arena);
+  stage.init_storage(arena);
+}
+
+inline void case_feedback_storage_twice() {
+  static uint8_t storage[8192];
+  Arena arena(storage, sizeof(storage));
+  ::Feedback::Style style{};
+  Filter::Pixel::Feedback<16, 8> stage(style);
+  stage.init_storage(arena);
+  stage.init_storage(arena);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4292,6 +4317,15 @@ inline void case_sample_sphere_nan() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"feedback_storage_twice", case_feedback_storage_twice,
+       "core/render/filter/pixel_feedback.h",
+       "(!cached_warp_x || !stamp.block_alive(cached_warp_x, CACHE_CELLS * sizeof(int16_t))) feedback filter: storage already initialized"},
+      {"world_storage_twice", case_world_storage_twice,
+       "core/render/filter/world_trails.h",
+       "(!items || !stamp.block_alive(items, STORAGE_BYTES)) world filter: storage already initialized"},
+      {"screen_storage_twice", case_screen_storage_twice,
+       "core/render/filter/screen_trails.h",
+       "(!points || !stamp.block_alive(points, STORAGE_BYTES)) screen filter: storage already initialized"},
       {"sample_sphere_nan", case_sample_sphere_nan,
        "core/render/pullback/contract.h",
        "(value == value) unit clamp: NaN input"},
