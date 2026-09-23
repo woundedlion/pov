@@ -210,10 +210,9 @@ struct ContentTracker {
    * instead of the primary cannot skew the commit (§6.3.1). A board whose
    * revolution count is not absolute (it beacon-joined mid-effect, §6.4)
    * lands outside the train window and falls back to j = 0 — it commits up
-   * to j revolutions late, an epoch-bounded degradation confined to that
-   * case. The resulting counter slip is then resynced from the next beacon's
-   * rev cross-check (handle_beacon_burst), so every subsequent epoch is
-   * lockstep.
+   * to j revolutions late. The next beacon corrects the schedule counter,
+   * but the effect remains 2j display frames behind until the following
+   * epoch reconstructs it. Subsequent epochs are lockstep.
    */
   bool on_epoch_symbol(const Config &cfg) {
     if (refractory_revs_left > 0)
