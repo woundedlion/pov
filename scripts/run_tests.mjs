@@ -10,11 +10,13 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { moduleRosterFailures } from './module_roster.mjs';
 
 const COUNTER = new URL('./count_assertions.mjs', import.meta.url).href;
 const CASE_REPORTER = new URL('./report_cases.mjs', import.meta.url).href;
 const args = process.argv.slice(2);
-if (args.includes('--all')) {
+const all = args.includes('--all');
+if (all) {
   const discovered = spawnSync('git', ['ls-files', '-z', '--cached', '--others',
     '--exclude-standard', '--', '*.test.mjs'], { encoding: 'utf8' });
   if (discovered.error) throw discovered.error;
@@ -48,6 +50,7 @@ const countsDir = join(scratch, 'assertions');
 const assertions = new Map();
 const casesWithoutAssertions = new Map();
 const cases = new Map();
+const loadedModules = new Set();
 let status;
 let tallied = false;
 
@@ -76,9 +79,10 @@ try {
   status = run.status ?? 1;
 
   for (const entry of readdirSync(countsDir)) {
-    const { file, count, emptyCases } = JSON.parse(
+    const { file, count, emptyCases, loaded = [] } = JSON.parse(
       readFileSync(join(countsDir, entry), 'utf8'),
     );
+    for (const module of loaded) loadedModules.add(keyOf(module));
     const key = keyOf(file);
     if (key.startsWith('..') || !suffixes.some((suffix) => key.endsWith(suffix)))
       continue;
@@ -105,6 +109,21 @@ try {
 }
 
 if (status !== 0) process.exit(status);
+if (all) {
+  const tracked = spawnSync('git', ['ls-files', '-z', '--', '*.mjs', '*.js'], {
+    encoding: 'utf8',
+  });
+  if (tracked.error) throw tracked.error;
+  if (tracked.status !== 0) process.exit(tracked.status ?? 1);
+  const exemptions = JSON.parse(readFileSync(
+    new URL('../tests/uncovered-modules.json', import.meta.url), 'utf8'));
+  const failures = moduleRosterFailures(
+    tracked.stdout.split('\0').filter(Boolean), loadedModules, exemptions);
+  if (failures.length) {
+    console.error(`run_tests: module roster failed:\n${failures.join('\n')}`);
+    process.exit(1);
+  }
+}
 if (assertions.size === 0) {
   console.error(
     'run_tests: no assertion counts were reported - refusing a green run.',
