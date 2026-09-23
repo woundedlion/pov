@@ -51,7 +51,6 @@ Section 7 of the [Holosphere README](https://github.com/woundedlion/pov/blob/mas
   - [Single-Teensy POV Driver](#single-teensy-pov-driver-pov_singleh)
   - [Multi-Teensy Segmented POV Driver](#multi-teensy-segmented-pov-driver-pov_segmentedh)
   - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
-
 - [7.11 Mathematical Kernels](#711-mathematical-kernels-coremath)
 
 ---
