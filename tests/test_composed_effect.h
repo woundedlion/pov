@@ -899,6 +899,32 @@ constexpr const char *palette_mode_id(PaletteHarmony harmony) {
  * symmetry, noise basis/integrator, polar mode) have no per-effect constant to
  * compare and are accepted as covered by the descriptor digest.
  */
+template <typename Lens> constexpr std::string_view lens_symmetry_id() {
+  if constexpr (std::is_same_v<Lens, Pullback::Lens::Kaleidoscope>)
+    return "azimuthal";
+  if constexpr (std::is_same_v<Lens, Pullback::Lens::TetrahedralKaleidoscope>)
+    return "tetrahedral";
+  if constexpr (std::is_same_v<Lens, Pullback::Lens::OctahedralKaleidoscope>)
+    return "octahedral";
+  if constexpr (std::is_same_v<Lens, Pullback::Lens::DodecahedralKaleidoscope>)
+    return "dodecahedral";
+  if constexpr (std::is_same_v<Lens,
+                               Pullback::Lens::TriangularPrismKaleidoscope>)
+    return "triangular-prism";
+  if constexpr (std::is_same_v<Lens, Pullback::Lens::SquarePrismKaleidoscope>)
+    return "square-prism";
+  if constexpr (std::is_same_v<Lens,
+                               Pullback::Lens::PentagonalPrismKaleidoscope>)
+    return "pentagonal-prism";
+  if constexpr (std::is_same_v<Lens,
+                               Pullback::Lens::HexagonalPrismKaleidoscope>)
+    return "hexagonal-prism";
+  if constexpr (std::is_same_v<Lens,
+                               Pullback::Lens::OctagonalPrismKaleidoscope>)
+    return "octagonal-prism";
+  return {};
+}
+
 template <typename FX>
 inline bool
 apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
@@ -1004,7 +1030,11 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     }
     return false;
   case SlotRole::LENS:
-    return field_id == "symmetry";
+    if (field_id == "symmetry") {
+      HS_EXPECT_EQ(text, lens_symmetry_id<typename Spec::LensPolicy>());
+      return true;
+    }
+    return false;
   case SlotRole::SURFACE:
     return field_id == "basis" || field_id == "integrator";
   case SlotRole::WARP:
@@ -1073,6 +1103,25 @@ inline void check_document_values(const char *name) {
     slot.label = label->text;
     slot.role = classify_operator(operator_id->text);
     HS_EXPECT(slot.role != SlotRole::UNKNOWN, "chain operator classified");
+    if (slot.role == SlotRole::PROJECT) {
+      using Spec = typename TraitsOf<FX>::Spec;
+      const char *expected = nullptr;
+      switch (Spec::PROJECTION) {
+      case Pullback::ProjectionKind::STEREOGRAPHIC:
+        expected = "project.stereographic.v2";
+        break;
+      case Pullback::ProjectionKind::GNOMONIC_FOLDED:
+        expected = "project.gnomonic.v2";
+        break;
+      case Pullback::ProjectionKind::EQUIRECTANGULAR:
+        expected = "project.equirectangular.v2";
+        break;
+      case Pullback::ProjectionKind::FOLDED_SINUSOIDAL:
+        expected = "project.folded-sinusoidal.v2";
+        break;
+      }
+      HS_EXPECT_TRUE(expected != nullptr && operator_id->text == expected);
+    }
     if (slot.role == SlotRole::WARP) {
       // The v1 expansion keeps the warp's slot position in its label even
       // when the other slot's identity op is omitted from the chain.
