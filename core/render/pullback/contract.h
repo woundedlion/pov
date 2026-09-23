@@ -117,6 +117,12 @@ struct FieldSample {
   float path_length;
 };
 
+static_assert(sizeof(SphereSample) == 4 * sizeof(float));
+static_assert(std::is_trivially_copyable_v<SphereSample>);
+static_assert(std::is_trivially_copyable_v<PlaneSample>);
+static_assert(std::is_trivially_copyable_v<FieldSample>);
+static_assert(std::is_trivially_copyable_v<Color4>);
+
 // Rank 3 is Color4, straight alpha: endomorphisms are Color4 -> Color4 and
 // final premultiplication stays in Scan::Shader, after the chain.
 
