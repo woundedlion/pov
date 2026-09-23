@@ -272,7 +272,8 @@ valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
            params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
   case WarpStageKind::WAVE_SHEAR:
     return params.strength >= -4.0f && params.strength <= 4.0f &&
-           params.frequency >= 0.0f && params.frequency <= 64.0f &&
+           params.frequency >= WAVE_FREQUENCY_MIN &&
+           params.frequency <= WAVE_FREQUENCY_MAX &&
            params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
   case WarpStageKind::VORTEX:
     return params.radius >= VORTEX_RADIUS_MIN &&
