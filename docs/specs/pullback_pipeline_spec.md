@@ -1650,9 +1650,8 @@ When Phase A lands, the v1 spec is provisionally amended:
 - the coordinator, standard carriers, emission metadata, and approximation
   metadata live in `core/render/pullback.h`;
 - `InversePipeline` is a ShaderWorkbench alias of `Pullback::Pipeline`;
-- the stage signature remains the two-argument
-  `run(input, const FrameState&)`; revision 5's unshipped `Context` parameter is
-  discarded;
+- the shipped stage signature is `run(input, const FrameState&, const Prepared&)`,
+  with each stage receiving its prepared record as described in §6.2;
 - validator rules are pinned by constexpr predicate tests rather than the
   aspirational negative-TU harness described in v1;
 - all program-set, state, selection, and size obligations remain in force;
