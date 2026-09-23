@@ -28,7 +28,7 @@ namespace Pixel {
  * field, then interpolated within and between rings.
  * flush() iterates the full pixel grid within the active clip band. TERMINAL:
  * flush() composites directly into the Canvas rather than re-emitting downstream,
- * so it must be the last Pipeline stage. The effect must call flush() BEFORE
+ * so it must be the last Pipeline stage. The effect must call Pipeline::begin_frame() BEFORE
  * the frame's plot() calls (see `terminal_replaces`); flushing last, as a
  * non-replacing terminal permits, blanks the frame at alpha >= 1.
  *
