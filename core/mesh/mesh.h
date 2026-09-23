@@ -744,7 +744,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
 template <MeshLike MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
   HS_CHECK(&src != &dst, "MeshOps::clone src must not alias dst");
-  if constexpr (std::is_same_v<MeshT, MeshState>) {
+  if constexpr (requires { dst.face_offsets; }) {
     MeshState::clone(src, dst, arena);
     return;
   }
