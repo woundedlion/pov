@@ -802,18 +802,13 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * @tparam HueV Hue-rotation source: none, noise field, or path length.
  * @tparam BrightnessV Brightness envelope applied by the color stage.
  * @tparam AnimatedProjection Whether the projection owns a random walk.
- * @tparam HasOuterNoise Forces an outer-camera noise field on an effect
- *         whose warp slots do not themselves imply one.
- * @tparam HasSourceNoise Forces a source-noise field on a source family that
- *         does not itself imply one.
  * @tparam SurfacePlacementV Placement of the displacement stage relative to the
  *         lens stage.
  */
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony Harmony, HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool AnimatedProjection = true, bool HasOuterNoise = false,
-          bool HasSourceNoise = false,
+          bool AnimatedProjection = true,
           SurfacePlacement SurfacePlacementV = SurfacePlacement::BEFORE_LENS>
 class ComposedEffect : public ChoreographedEffect<Derived, ParamsT>,
                        private ProjectionWalkState<AnimatedProjection> {
@@ -837,18 +832,15 @@ public:
       std::is_same_v<typename ParamsT::surface_type, SurfaceNoiseParams> ||
       std::is_same_v<typename ParamsT::surface_type, DirectSurfaceParams>;
 
-  /** Whether the effect owns an outer-camera noise field and seed: the
-      template argument, or implied by a warp slot that samples one. Both warp
+  /** Whether the effect owns an outer-camera noise field and seed, as
+      implied by a warp slot that samples one. Both warp
       slots read the outer field (see WarpProvider::noise). */
   static constexpr bool HAS_OUTER_NOISE =
-      HasOuterNoise ||
       std::is_same_v<typename ParamsT::outer_warp_type, VectorNoiseParams> ||
       std::is_same_v<typename ParamsT::inner_warp_type, VectorNoiseParams>;
 
-  /** Whether the effect owns a source-noise field and seed: the template
-      argument, or implied by a source family that samples one. */
+  /** Whether the source family samples a noise field and owns its seed. */
   static constexpr bool HAS_SOURCE_NOISE =
-      HasSourceNoise ||
       std::is_same_v<typename ParamsT::source_type,
                      ProjectedNoiseSourceParams> ||
       std::is_same_v<typename ParamsT::source_type, SphericalNoiseSourceParams>;
