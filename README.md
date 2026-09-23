@@ -76,6 +76,7 @@ Design decisions are indexed under [Engineering Philosophies](#2-engineering-phi
    - [Parameter Registration](#parameter-registration)
    - [The `EffectConfig` Flags](#the-effectconfig-flags)
    - [Fenced Effect-to-Effect Transition](#fenced-effect-to-effect-transition-controltransitionh)
+   - [Adding an effect](#adding-an-effect)
 9. [Effects Reference](#9-effects-reference)
 10. [The Web Simulator (Daydream)](#10-the-web-simulator-daydream)
     - [10.1 Process and Threading Model](#101-process-and-threading-model)
@@ -1071,6 +1072,13 @@ Every host-side operation the graph needs is a pure virtual on `EffectTransition
 
 ---
 
+### Adding an effect
+
+1. Add the effect header under `effects/` and register its class in `HS_EFFECT_LIST` in `targets/effects.h`. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
+2. Add the effect to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
+3. Add a capture offset to `scripts/screenshot_capture_config.mjs`, capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
+4. Build Phantasm to check the effect object size budget, then run the native tests and `just teensy-size` to check firmware budgets. Add behavior tests appropriate to the effect.
+
 ## 9. Effects Reference
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
@@ -1368,13 +1376,6 @@ Five standalone HTML pages. Four render with Three.js; `palettes.html` renders w
 The four Three.js pages reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`. `palettes.html` imports only page-relative modules, so it carries no importmap script and its CSP `script-src` drops the `https://cdn.jsdelivr.net` origin the other four allow, keeping `'self' 'unsafe-inline' 'wasm-unsafe-eval'`; its `style-src` and `font-src` still name the Google Fonts origins the self-hosted-font fallback needs.
 
 ---
-
-### Adding an effect
-
-1. Add the effect header under `effects/` and register its class in `HS_EFFECT_LIST` in `targets/effects.h`. The native roster and include tests check registration; `just docs-sync` updates the repository map and counts.
-2. Add the effect to `HS_PHANTASM_EFFECT_LIST`, or explicitly exclude it with `HS_PHANTASM_EXCLUDED_EFFECTS`, in `targets/Phantasm/phantasm_playlist.h`. Compile-time roster assertions check the partition.
-3. Add a capture offset to `scripts/screenshot_capture_config.mjs`, capture its PNG with `scripts/capture_screenshots.mjs`, and add its section to `docs/effects.md`. The screenshot and documentation gates check gallery membership, image validity, and documentation structure.
-4. Build Phantasm to check the effect object size budget, then run the native tests and `just teensy-size` to check firmware budgets. Add behavior tests appropriate to the effect.
 
 ## 11. Building
 
