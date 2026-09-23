@@ -21,7 +21,9 @@ import fab  # noqa: E402
 class ProjectRulesTests(unittest.TestCase):
     def write_project(self, directory, rules=None, default=None):
         document = {
-            "board": {"design_settings": {"rules": dict(fab.RULE_MINIMUMS)}},
+            "board": {"design_settings": {
+                "rules": {**fab.RULE_MINIMUMS, **fab.NEW_LAYOUT_RULES},
+                "rule_severities": {"silk_over_copper": "error"}}},
             "net_settings": {
                 "classes": [dict(fab.DEFAULT_CLASS_MINIMUMS, name="Default")]
             },
@@ -37,7 +39,8 @@ class ProjectRulesTests(unittest.TestCase):
             project = self.write_project(directory)
             self.assertEqual(
                 fab.validate_project_rules(project),
-                len(fab.RULE_MINIMUMS) + len(fab.DEFAULT_CLASS_MINIMUMS))
+                len(fab.RULE_MINIMUMS) + len(fab.NEW_LAYOUT_RULES)
+                + len(fab.DEFAULT_CLASS_MINIMUMS) + 1)
 
     def test_rejects_gui_rezeroed_clearance(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -73,7 +76,29 @@ class ProjectRulesTests(unittest.TestCase):
     def test_committed_project_meets_the_fabrication_floors(self):
         self.assertEqual(
             fab.validate_project_rules(),
-            len(fab.RULE_MINIMUMS) + len(fab.DEFAULT_CLASS_MINIMUMS))
+            len(fab.RULE_MINIMUMS) + len(fab.NEW_LAYOUT_RULES)
+            + len(fab.DEFAULT_CLASS_MINIMUMS) + 1)
+
+    def test_rejects_disabled_layout_constraints(self):
+        for field in fab.NEW_LAYOUT_RULES:
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                project = self.write_project(directory, rules={field: 0})
+                with self.assertRaisesRegex(fab.ProjectRulesError, field):
+                    fab.validate_project_rules(project)
+
+    def test_heal_restores_silk_severity(self):
+        import heal_clearance
+        with tempfile.TemporaryDirectory() as directory:
+            project = self.write_project(directory)
+            document = json.loads(project.read_text(encoding="utf-8"))
+            document["board"]["design_settings"]["rule_severities"][
+                "silk_over_copper"] = "warning"
+            project.write_text(json.dumps(document), encoding="utf-8")
+            with self.assertRaisesRegex(fab.ProjectRulesError, "silk_over_copper"):
+                fab.validate_project_rules(project)
+            self.assertTrue(heal_clearance.heal_project(project))
+            fab.validate_project_rules(project)
+            self.assertFalse(heal_clearance.heal_project(project))
 
 
 class ViaGeometryTests(unittest.TestCase):

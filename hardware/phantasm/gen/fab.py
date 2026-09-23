@@ -36,7 +36,8 @@ import check as netlist_spec
 import sexp
 from connectivity import footprint_reference
 from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
-                         EXCLUDE_VAL_SUBSTR, MIN_SOLDER_MASK_WEB_MM, RULE_MINIMUMS)
+                         EXCLUDE_VAL_SUBSTR, MIN_SOLDER_MASK_WEB_MM,
+                         NEW_LAYOUT_RULES, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
 from kicad_common import F, is_copper_pour, kicad_cli
 
@@ -682,12 +683,12 @@ def validate_project_rules(project_path=PRO):
 
     if shortfalls:
         summary = "; ".join(
-            f"{field} is {current:g}, below the {minimum:g} mm floor"
+            f"{field} is {current!r}, requires {minimum!r}"
             for field, (current, minimum) in sorted(shortfalls.items()))
         raise ProjectRulesError(
             f"{project_path} would compute DRC under relaxed constraints: "
             f"{summary}. Run gen/heal_clearance.py before fab.py.")
-    return len(RULE_MINIMUMS) + len(DEFAULT_CLASS_MINIMUMS)
+    return len(RULE_MINIMUMS) + len(NEW_LAYOUT_RULES) + len(DEFAULT_CLASS_MINIMUMS) + 1
 
 
 def run_drc(report_path):
