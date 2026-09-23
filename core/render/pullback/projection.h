@@ -490,9 +490,11 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
     if (State::central_meridian(frame) == 0.0f)
       return peirce_fast_square(input, State::coordinate_scale(frame),
                                 State::singularity_fade(frame));
-    return peirce(
-        input, State::central_meridian(frame), 1, State::layout_scroll(frame),
-        true, State::coordinate_scale(frame), State::singularity_fade(frame));
+    return peirce(input, State::central_meridian(frame),
+                  static_cast<uint8_t>(projections::PeirceLayout::SQUARE),
+                  State::layout_scroll(frame), true,
+                  State::coordinate_scale(frame),
+                  State::singularity_fade(frame));
   }
 };
 
