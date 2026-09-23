@@ -333,12 +333,15 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   plane to host ground, shorting the supply through the cable. `F1` is only in J1's +5 V
   leg, so this fault path is unfused; cutting VIN/VUSB per R-ASM-7 does not disconnect USB
   ground. Do not energize J1 with USB attached until its polarity is verified.
-  `gen/board.py` names the keyed
-  `Connector_JST:JST_XA_B02B-XASK-1-A_1x02_P2.50mm_Vertical` (mates XAP-02V-1 +
-  SXA-001T-P0.6); it reaches copper only after a re-place and a re-route, because the
-  JST body and its 2.50 mm pitch do not fit the header's routed pads. Until then the
-  harness carries the polarity marking. The JLC assembly gate cannot catch the
-  substitution: `fab.EXCLUDE_FP_SUBSTR` excludes both `PinHeader` and `JST_` as
+  `gen/board.py` selects the polarized 2.54 mm
+  [Molex 22-27-2021](https://www.molex.com/en-us/products/part-detail/22272021),
+  using `Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical` with a
+  matching polarized KK 254 housing. Its pin pitch matches the routed inlet;
+  orient the replacement to preserve pin centres and polarity, check its body
+  clearance and 1.19 mm library drills, refill zones and rerun DRC before promotion.
+  This is a generator choice, not an installed repair of the shipped board.
+  Until promotion the harness carries the polarity marking. The assembly gate
+  excludes both `PinHeader` and `Molex_KK-254` as
   hand-soldered, so `gen/tests/test_pcb_lands.py` pins J1's shipped footprint instead.
 - **ID straps** use the Teensy's internal pull-ups; the former optional `R_ID0`
   footprint is not required. `D_BUS` is populated on every board. `JP_SHLD` is
@@ -473,7 +476,7 @@ fabrication; changing its revision label alone does not convert rev 1.1 copper.
 > `(path …)` links `phantasm.kicad_pcb` holds into the schematic. Even
 > uuid-normalised, a fresh `board.py` run differs from the committed schematic by
 > roughly 170 lines — KiCad file version, power-symbol annotation (`#PWR` vs
-> `#PWR01`), `J1`'s keyed JST footprint, the four spec §11.1 hand-solder lands, and
+> `#PWR01`), `J1`'s polarized footprint, the four spec §11.1 hand-solder lands, and
 > some label placement. `gen/` is the design *description* and the source of the
 > gates above; it is not a rebuild of what ships.
 >
