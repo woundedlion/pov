@@ -152,7 +152,8 @@ template <typename FrameT> struct Binding {
 template <typename BindingT> struct OuterCameraProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const math::Quaternion &conjugate(const FrameState &frame) {
+  __attribute__((always_inline)) static const math::Quaternion &
+  conjugate(const FrameState &frame) {
     return frame.outer_conjugate;
   }
 };
@@ -167,13 +168,16 @@ template <typename BindingT> struct OuterCameraProvider {
 template <typename BindingT> struct ProjectionProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const math::Quaternion &conjugate(const FrameState &frame) {
+  __attribute__((always_inline)) static const math::Quaternion &
+  conjugate(const FrameState &frame) {
     return frame.projection_conjugate;
   }
-  static float singularity_fade(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  singularity_fade(const FrameState &frame) {
     return frame.params.projection.singularity_fade;
   }
-  static float central_meridian(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  central_meridian(const FrameState &frame) {
     return frame.params.projection.central_meridian;
   }
 };
@@ -182,7 +186,8 @@ template <typename BindingT> struct ProjectionProvider {
 template <typename BindingT> struct LensProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const math::MobiusParams &params(const FrameState &frame) {
+  __attribute__((always_inline)) static const math::MobiusParams &
+  params(const FrameState &frame) {
     return frame.params.lens.mobius;
   }
 };
@@ -201,13 +206,14 @@ template <typename BindingT, bool Outer, bool TrackPath = false>
 struct WarpProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const auto &params(const FrameState &frame) {
+  __attribute__((always_inline)) static const auto &
+  params(const FrameState &frame) {
     if constexpr (Outer)
       return frame.params.outer_warp;
     else
       return frame.params.inner_warp;
   }
-  static auto prepare(const FrameState &frame) {
+  __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
     if constexpr (std::is_same_v<WarpT, AffineParams>) {
       static_assert(
@@ -227,16 +233,20 @@ struct WarpProvider {
       return Pullback::Warp::prepare(params(frame), phase(frame));
     }
   }
-  static float phase(const FrameState &frame) {
+  __attribute__((always_inline)) static float phase(const FrameState &frame) {
     if constexpr (Outer)
       return frame.outer_phase;
     else
       return frame.inner_phase;
   }
-  static const FastNoiseLite &noise(const FrameState &frame) {
+  __attribute__((always_inline)) static const FastNoiseLite &
+  noise(const FrameState &frame) {
     return *frame.outer_noise;
   }
-  static bool path_length_required(const FrameState &) { return TrackPath; }
+  __attribute__((always_inline)) static bool
+  path_length_required(const FrameState &) {
+    return TrackPath;
+  }
 };
 
 /**
@@ -248,20 +258,22 @@ struct WarpProvider {
 template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const FastNoiseLite &noise(const FrameState &frame) {
+  __attribute__((always_inline)) static const FastNoiseLite &
+  noise(const FrameState &frame) {
     return *frame.surface_noise;
   }
-  static auto prepare(const FrameState &frame) {
+  __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     if constexpr (requires { frame.params.surface.direction; })
       return Pullback::Surface::prepare_direct(frame.surface_phase,
                                                frame.params.surface.direction);
     else
       return Pullback::Surface::prepare(frame.surface_phase);
   }
-  static const auto &params(const FrameState &frame) {
+  __attribute__((always_inline)) static const auto &
+  params(const FrameState &frame) {
     return frame.params.surface;
   }
-  static float phase(const FrameState &frame) {
+  __attribute__((always_inline)) static float phase(const FrameState &frame) {
     using SurfaceParams =
         typename std::remove_cvref_t<decltype(frame.params)>::surface_type;
     if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)
@@ -269,13 +281,17 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
     else
       return frame.surface_phase;
   }
-  static float scale(const FrameState &frame) {
+  __attribute__((always_inline)) static float scale(const FrameState &frame) {
     return frame.params.surface.scale;
   }
-  static float strength(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  strength(const FrameState &frame) {
     return frame.params.surface.strength;
   }
-  static bool path_length_required(const FrameState &) { return TrackPath; }
+  __attribute__((always_inline)) static bool
+  path_length_required(const FrameState &) {
+    return TrackPath;
+  }
 };
 
 /**
@@ -287,23 +303,29 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
 template <typename BindingT> struct SourceProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static const auto &params(const FrameState &frame) {
+  __attribute__((always_inline)) static const auto &
+  params(const FrameState &frame) {
     return frame.params.source;
   }
-  static Pullback::Source::PreparedSource prepare(const FrameState &frame) {
+  __attribute__((always_inline)) static Pullback::Source::PreparedSource
+  prepare(const FrameState &frame) {
     return Pullback::Source::prepare(
         frame.source_primary, frame.source_secondary, frame.source_angle);
   }
-  static const FastNoiseLite &noise(const FrameState &frame) {
+  __attribute__((always_inline)) static const FastNoiseLite &
+  noise(const FrameState &frame) {
     return *frame.source_noise;
   }
-  static float noise_scale(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  noise_scale(const FrameState &frame) {
     return frame.params.source.noise_scale;
   }
-  static float noise_time(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  noise_time(const FrameState &frame) {
     return frame.source_noise_time;
   }
-  static float noise_contrast(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  noise_contrast(const FrameState &frame) {
     return frame.params.source.noise_contrast;
   }
 };
@@ -318,19 +340,24 @@ template <typename BindingT> struct SourceProvider {
 template <typename BindingT> struct ValueProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static float iso_level(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  iso_level(const FrameState &frame) {
     return frame.params.value.iso_level;
   }
-  static float iso_width(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  iso_width(const FrameState &frame) {
     return frame.params.value.iso_width;
   }
-  static float edge_width(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  edge_width(const FrameState &frame) {
     return frame.params.value.edge_width;
   }
-  static float cutout_threshold(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  cutout_threshold(const FrameState &frame) {
     return frame.params.value.cutout_threshold;
   }
-  static float cutout_softness(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  cutout_softness(const FrameState &frame) {
     return frame.params.value.cutout_softness;
   }
 };
@@ -359,53 +386,67 @@ template <typename BindingT, HueMode HueV,
 struct ColorProvider {
   using Binding = BindingT;
   using FrameState = typename Binding::FrameState;
-  static Pullback::Color::PaletteMappingWeights
+  __attribute__((always_inline)) static Pullback::Color::PaletteMappingWeights
   mapping_weights(const FrameState &frame) {
     return frame.palette_mapping;
   }
-  static float mapping_frequency(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  mapping_frequency(const FrameState &frame) {
     return frame.params.color.mapping_frequency;
   }
-  static float mapping_phase(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  mapping_phase(const FrameState &frame) {
     return frame.params.color.mapping_phase;
   }
-  static float oscillation_depth(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  oscillation_depth(const FrameState &frame) {
     return frame.params.color.phase_oscillation_depth;
   }
-  static float oscillation_phase(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  oscillation_phase(const FrameState &frame) {
     return frame.palette_oscillation_phase;
   }
-  static const BakedPalette &palette(const FrameState &frame) {
+  __attribute__((always_inline)) static const BakedPalette &
+  palette(const FrameState &frame) {
     return *frame.palette;
   }
-  static Pullback::Color::HueMode hue_mode(const FrameState &) { return HueV; }
-  static float hue_shift_amount(const FrameState &frame) {
+  __attribute__((always_inline)) static Pullback::Color::HueMode
+  hue_mode(const FrameState &) {
+    return HueV;
+  }
+  __attribute__((always_inline)) static float
+  hue_shift_amount(const FrameState &frame) {
     return frame.params.color.hue_shift_amount;
   }
-  static Pullback::Color::HueRotationLutView
+  __attribute__((always_inline)) static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
     return {frame.hue_rotation_lut,
             hue_rotation_active<HueV>(frame.params.color)};
   }
-  static Pullback::Color::HueNoiseLutView hue_noise(const FrameState &frame) {
+  __attribute__((always_inline)) static Pullback::Color::HueNoiseLutView
+  hue_noise(const FrameState &frame) {
     return {frame.hue_noise_lut,
             HueV == HueMode::NOISE &&
                 hue_rotation_active<HueV>(frame.params.color)};
   }
-  static Pullback::Color::BrightnessEnvelope
+  __attribute__((always_inline)) static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const FrameState &) {
     return BrightnessV;
   }
-  static float brightness_bottom(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  brightness_bottom(const FrameState &frame) {
     return frame.params.color.brightness_bottom;
   }
-  static float brightness_top(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  brightness_top(const FrameState &frame) {
     return frame.params.color.brightness_top;
   }
-  static float opacity_low(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  opacity_low(const FrameState &frame) {
     return frame.params.color.opacity_low;
   }
-  static float opacity_high(const FrameState &frame) {
+  __attribute__((always_inline)) static float
+  opacity_high(const FrameState &frame) {
     return frame.params.color.opacity_high;
   }
 };
