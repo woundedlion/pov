@@ -532,6 +532,8 @@ protected:
                                                     int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
+    HS_CHECK(option_count - 1 <= std::numeric_limits<uint8_t>::max(),
+             "register_param: enum options exceed uint8_t range");
     HS_CHECK(parameters.count < parameters.capacity(),
              "register_param: exceeded ParamList capacity");
     HS_CHECK(parameters.find(name) == nullptr,
