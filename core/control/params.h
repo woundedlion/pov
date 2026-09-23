@@ -19,13 +19,6 @@
 #include <type_traits>
 #include <utility>
 
-// External ParamDef storage covers the GUI bridge and builds that opt in.
-#if HS_ENABLE_PARAM_GUI_BRIDGE || HS_EXTERNAL_PARAM_STORAGE
-#define HS_PARAM_EXTERNAL_STORAGE 1
-#else
-#define HS_PARAM_EXTERNAL_STORAGE 0
-#endif
-
 class ParamHost;
 
 /**
