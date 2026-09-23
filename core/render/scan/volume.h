@@ -342,7 +342,8 @@ struct Volume {
    * @param canvas Destination canvas.
    * @param bounds_center Bounding sphere center in physical LED space; must be
    *        a unit vector (on the canvas sphere).
-   * @param bounds_radius Bounding sphere radius in world units.
+   * @param bounds_radius Bounding sphere radius in world units, including
+   *        the outward aa_width halo used by soft coverage.
    * @param shape Volume shape providing ray_to_local() and distance().
    * @param frag_fn Fragment shader invoked once per hit.
    * @param max_steps Maximum sphere-tracing steps per ray.
