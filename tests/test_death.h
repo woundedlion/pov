@@ -5288,8 +5288,10 @@ inline bool breadcrumb_names_guard(const char *out, const char *file,
 inline void set_case_env(const char *name) {
 #if defined(_WIN32)
   _putenv_s("HS_DEATH_CASE", name);
+  _putenv_s("HS_DEATH_CHILD", name[0] ? "harness" : "");
 #else
   setenv("HS_DEATH_CASE", name, 1);
+  setenv("HS_DEATH_CHILD", name[0] ? "harness" : "", 1);
 #endif
 }
 

@@ -369,7 +369,7 @@ static int check_modules(int argc, char **argv) {
  * @return 0 on success, 1 if any test failed, a case was skipped under
  * HS_SKIPS_ARE_ERRORS, or a required CI depth lever is missing, 2 on an unknown
  * module name, 3 on a --check-modules divergence.
- * @details Dispatches the HS_DEATH_CASE child case if set, else runs the full
+ * @details Dispatches marked death-harness children, else runs the full
  * roster or only the modules named on argv.
  */
 int main(int argc, char **argv) {
@@ -385,19 +385,16 @@ int main(int argc, char **argv) {
 
   hs_test::death_tests::self_exe() = (argc > 0) ? argv[0] : nullptr;
 
-  // Child death-case dispatch: when HS_DEATH_CASE is set, run ONLY that single
-  // trap-triggering case and exit — never the full suite (which would re-spawn
-  // children recursively). The case is expected to __builtin_trap(); reaching
-  // the return here means it did NOT trap, so we exit 0 and let the parent flag
-  // the missing trap.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  if (const char *dc = std::getenv("HS_DEATH_CASE")) {
+  const char *death_child = std::getenv("HS_DEATH_CHILD");
+  const char *death_case = std::getenv("HS_DEATH_CASE");
 #pragma clang diagnostic pop
-    if (dc[0] != '\0') {
-      hs_test::death_tests::run_child_case(dc);
-      return 0;
-    }
+  const bool IS_DEATH_CHILD =
+      death_child && std::strcmp(death_child, "harness") == 0;
+  if (IS_DEATH_CHILD && (argc > 1 || !death_case || death_case[0] == '\0')) {
+    std::fprintf(stderr, "run_tests: invalid death-child invocation\n");
+    return 2;
   }
 
   if (argc > 1) {
@@ -414,6 +411,11 @@ int main(int argc, char **argv) {
 
   if (check_ci_levers(argc, argv))
     return 1;
+
+  if (IS_DEATH_CHILD) {
+    hs_test::death_tests::run_child_case(death_case);
+    return 0;
+  }
 
   int failures = 0;
   if (argc > 1) {
