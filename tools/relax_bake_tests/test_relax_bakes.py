@@ -137,7 +137,7 @@ class EmitHeader(unittest.TestCase):
         bakes = relax_bakes.parse_dump(dump)
         header = relax_bakes.emit_header(bakes)
         self.assertIn("namespace Solids {\nnamespace RelaxBakes {", header)
-        self.assertIn('#include "mesh/conway.h"', header)
+        self.assertIn('#include "mesh/relax_bake.h"', header)
         self.assertIn(
             "inline const uint32_t foo_bar_bits[] "
             "HS_PROGMEM_UNIQUE(foo_bar_bits) = {",
