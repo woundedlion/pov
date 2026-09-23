@@ -3223,6 +3223,109 @@ inline void test_circle_extent_follows_its_radius() {
   }
 }
 
+struct EpilogueCapture {
+  struct Point {
+    int x, y;
+    Pixel color;
+    float age, alpha;
+  };
+  std::vector<Point> points;
+  void plot(Canvas &, int x, int y, const Pixel &color, float age,
+            float alpha) {
+    points.push_back({x, y, color, age, alpha});
+  }
+};
+
+/** @brief Every scan tail preserves shader output and multiplies coverage once. */
+inline void test_scan_epilogue_contract() {
+  constexpr int W = 96, H = 48;
+  const ScopedPoleLod lod(0.0f);
+  const Pixel color(45000, 17000, 32000);
+  constexpr float OPACITY = 0.37f;
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  SDF::Ring ring(basis, 1.0f, 0.18f);
+  float knots[9]{};
+  SDF::KnotPrefilter prefilter;
+  SDF::DistortedRing distorted(basis, 1.0f, 0.18f, knots, 8, 0.0f, prefilter);
+  const int8_t slots[1] = {0};
+  math::Vector vertices[4];
+  const uint16_t indices[4] = {0, 1, 2, 3};
+  for (int i = 0; i < 4; ++i) {
+    const float angle = i * math::PI_F * 0.5f;
+    vertices[i] = (basis.v * cosf(0.7f) +
+                   (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(0.7f))
+                      .normalized();
+  }
+  for (int path = 0; path < 5; ++path) {
+    HS_CONTEXT("epilogue path", path);
+    StubEffect effect(W, H);
+    EpilogueCapture capture;
+    std::vector<EpilogueCapture::Point> expected;
+    size_t shaded = 0;
+    {
+      Canvas canvas(effect);
+      SDF::FaceScratchBuffer scratch;
+      SDF::Face face(vertices, indices, scratch, H + hs::H_OFFSET, H,
+                     &canvas.clip());
+      const auto face_coverage = [&](const math::Vector &point) {
+        const float d = SDF::distance_of(face, point).dist;
+        return Scan::solid_coverage(d, math::TWO_PI_F / W);
+      };
+      auto shader = [&](const math::Vector &point, Fragment &fragment) {
+        HS_EXPECT_PIXEL(fragment.color.color, 0, 0, 0);
+        HS_EXPECT_EQ(fragment.color.alpha, 0.0f);
+        HS_EXPECT_EQ(fragment.age, 0.0f);
+        const size_t variant = shaded++ % 3;
+        if (variant == 0)
+          return;
+        fragment.color =
+            Color4(color, variant == 1 ? Scan::MIN_ALPHA : OPACITY);
+        fragment.age = 7.0f;
+        if (variant == 2) {
+          const float coverage = path == 2 ? face_coverage(point) : fragment.v2;
+          expected.push_back({0, 0, color, 7.0f, OPACITY * coverage});
+        }
+      };
+      if (path == 0)
+        Scan::rasterize<W, H, false>(capture, canvas, ring, shader);
+      else if (path == 1)
+        Scan::rasterize_solid<W, H>(capture, canvas, face,
+                                    Color4(color, OPACITY));
+      else if (path == 2)
+        Scan::rasterize_face<W, H>(capture, canvas, face, shader);
+      else if (path == 3)
+        Scan::DistortedRingStack::draw<W, H>(
+            capture, canvas, 1, &distorted, slots, 1,
+            [&](int, const math::Vector &point, Fragment &fragment) {
+              shader(point, fragment);
+            });
+      else
+        Scan::RingGroup::draw<W, H>(
+            capture, canvas, &ring, 1,
+            [&](int, const math::Vector &point, Fragment &fragment) {
+              shader(point, fragment);
+            });
+      if (path == 1)
+        for (const auto &point : capture.points)
+          expected.push_back(
+              {0, 0, color, 0.0f,
+               OPACITY * face_coverage(
+                             math::pixel_to_vector<W, H>(point.x, point.y))});
+    }
+    effect.advance_display();
+    HS_EXPECT_GT(capture.points.size(), size_t{20});
+    HS_EXPECT_EQ(capture.points.size(), expected.size());
+    for (size_t index = 0;
+         index < std::min(capture.points.size(), expected.size()); ++index) {
+      const auto &actual = capture.points[index];
+      const auto &want = expected[index];
+      HS_EXPECT_PIXEL(actual.color, want.color.r, want.color.g, want.color.b);
+      HS_EXPECT_EQ(actual.age, want.age);
+      HS_EXPECT_NEAR(actual.alpha, want.alpha, 1e-5f);
+    }
+  }
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -3236,6 +3339,7 @@ inline int run_scan_tests() {
 
   test_bounding_sphere_initializes_trig();
   test_min_alpha_boundary();
+  test_scan_epilogue_contract();
   test_shader_constant_fills_canvas();
   test_shader_ssaa_premultiplies_partial_coverage();
   test_shader_split_ssaa_averages_subsamples();
