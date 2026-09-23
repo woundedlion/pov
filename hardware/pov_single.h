@@ -12,7 +12,9 @@
  * the virtual canvas width.
  *
  * Include directly from target .ino files:
- *   #include "../../hardware/pov_single.h"
+ * @code{.cpp}
+ * #include "../../hardware/pov_single.h"
+ * @endcode
  */
 #pragma once
 #include "core/platform/led.h" // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
