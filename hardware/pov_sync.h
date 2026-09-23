@@ -153,6 +153,8 @@ public:
    * @details Master is born locked with identity (effect 0, rev 0) — it is the
    * reference. Downstream boards start in ACQUIRE, dark, and join via boundary
    * symbols + beacon.
+   * @warning Call only with the board's interrupts detached or disabled; seed
+   * replaces ISR-owned state.
    */
   void seed(uint32_t now, bool is_master) {
     is_master_board = is_master;
