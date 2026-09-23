@@ -1225,6 +1225,61 @@ inline void test_face_concavity_agrees() {
     check_face_concavity_agrees(i);
 }
 
+/** @brief Empty meshes emit nothing; one triangular face draws only its patch. */
+inline void test_empty_and_single_face_meshes() {
+  constexpr int W = 72, H = 36;
+  for (bool populated : {false, true}) {
+    configure_arenas_default();
+    Arena geom(mr_geom, sizeof(mr_geom));
+    Arena scratch(mr_scratch, sizeof(mr_scratch));
+    MeshState mesh;
+    mesh.vertices.bind(geom, 3);
+    mesh.face_counts.bind(geom, 1);
+    mesh.faces.bind(geom, 3);
+    mesh.face_offsets.bind(geom, 1);
+    if (populated) {
+      mesh.vertices.push_back(math::Vector(1, 0, 0));
+      mesh.vertices.push_back(math::Vector(0, 1, 0));
+      mesh.vertices.push_back(math::Vector(0, 0, 1));
+      mesh.face_counts.push_back(3);
+      mesh.face_offsets.push_back(0);
+      for (uint16_t i = 0; i < 3; ++i)
+        mesh.faces.push_back(i);
+    }
+    ArenaVector<Plot::Mesh::Edge> edges;
+    edges.bind(geom, 3);
+    Plot::Mesh::extract_edges(mesh, edges);
+    HS_EXPECT_EQ(edges.size(), populated ? size_t(3) : size_t(0));
+    for (int mode = 0; mode < 4; ++mode) {
+      hs_test::StubEffect fx(W, H);
+      {
+        Canvas canvas(fx);
+        Pipeline<W, H> pipe;
+        if (mode == 0)
+          Plot::Mesh::draw<W, H>(pipe, canvas, mesh, white);
+        else if (mode == 1)
+          Plot::Mesh::draw<W, H>(pipe, canvas, mesh, edges, white);
+        else if (mode == 2)
+          Scan::Mesh::draw<W, H>(pipe, canvas, mesh, white, scratch);
+        else {
+          auto setup = [](size_t, float) {};
+          Scan::Mesh::draw_specialized<W, H>(pipe, canvas, mesh, white, scratch,
+                                             nullptr, setup);
+        }
+      }
+      fx.advance_display();
+      const size_t LIT = count_lit_region<W, H>(fx);
+      HS_EXPECT_EQ(LIT > 0, populated);
+      HS_EXPECT_LT(LIT, size_t(W * H / 2));
+      if (populated && mode >= 2) {
+        const auto CENTER =
+            math::vector_to_pixel<W, H>(math::Vector(1, 1, 1).normalized());
+        HS_EXPECT_TRUE((lit_near<W, H>(fx, CENTER.x, CENTER.y, 1)));
+      }
+    }
+  }
+}
+
 /**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
@@ -1232,6 +1287,7 @@ inline void test_face_concavity_agrees() {
 inline int run_mesh_raster_tests() {
   hs_test::ModuleFixture fixture("mesh_raster");
 
+  test_empty_and_single_face_meshes();
   test_wireframe_draws_every_edge();
   test_wireframe_pixels_lie_on_edges();
   test_wireframe_reuses_geodesic_cull_span();
