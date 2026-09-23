@@ -1978,10 +1978,16 @@ inline void run_curl_flow_variant(In::ChainProgram &program,
   auto &params = param_as<In::Op::CurlFlowParams>(program, 2);
   params.basis = static_cast<uint8_t>(Basis);
   params.integrator = integrator;
+  const float strength_limit =
+      0.5f * static_cast<float>(1U << integrator) /
+      (params.scale * PB::Warp::CURL_VECTOR_COMPONENT_MAX);
+  const float requested_strength = params.strength;
+  params.strength = hs::clamp(params.strength, -strength_limit, strength_limit);
   using Bound = typename PB::Stage::Warp<
       PB::Warp::CurlFlow<CurlFlowMirrorProvider, Basis,
                          Integrator>>::template Bind<WarpMirrorBinding>;
   expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
+  params.strength = requested_strength;
 }
 
 template <math::NoiseBasis Basis>
