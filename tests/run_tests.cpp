@@ -4,6 +4,10 @@
  */
 #include <cstdio>
 #include <cstring>
+#if defined(_WIN32)
+#include <crtdbg.h>
+#include <cstdlib>
+#endif
 
 // Pull in the engine barrel first, exactly as a real target does, so geometry.h
 // (which defines Orientation<CAP=4>) is ordered ahead of filter.h and the
@@ -369,6 +373,13 @@ static int check_modules(int argc, char **argv) {
  * roster or only the modules named on argv.
  */
 int main(int argc, char **argv) {
+#if defined(_WIN32)
+  SetErrorMode(0x0001u | 0x0002u);
+  _set_error_mode(_OUT_TO_STDERR);
+  _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+  _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+  _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+#endif
   // Unbuffered stdout so progress survives a trap/abort in a death-case child.
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 

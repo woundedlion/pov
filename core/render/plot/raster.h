@@ -426,6 +426,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // as Line::sample does.
   if (len < 2)
     return;
+  for (const Fragment &point : points)
+    HS_CHECK(std::isfinite(point.pos.x) && std::isfinite(point.pos.y) &&
+                 std::isfinite(point.pos.z),
+             "rasterize control points must be finite");
   // Trap a null shader once per polyline so the per-pixel fragment_shader()
   // calls below can't invoke a null thunk.
   if constexpr (std::same_as<std::decay_t<FragmentShaderT>, FragmentShaderFn>)
