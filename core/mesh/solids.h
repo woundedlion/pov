@@ -434,6 +434,7 @@ inline constexpr Recipe ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE = {
 
 /**
  * @brief Registry of Islamic star-pattern solids.
+ * @details Carousel arena budgets assume this order: only adjacent entries coexist.
  */
 inline constexpr Entry islamic_registry[] = {
     {"dodecahedron_hk62_ambo_hk62",
