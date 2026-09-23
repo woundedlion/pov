@@ -144,11 +144,10 @@ struct DistortedRingStack {
    * slot 0 alone, so a divergent basis would silently render its ring at slot
    * 0's orientation.
    */
-  HS_COLD_MEMBER
-  static void check_stack_preconditions(int n_rings,
-                                        const SDF::DistortedRing *shapes,
-                                        const int8_t *slot_by_ring,
-                                        int n_slots) {
+  template <typename ShapeRange>
+  HS_COLD_MEMBER static void
+  check_stack_preconditions(int n_rings, ShapeRange shapes,
+                            const int8_t *slot_by_ring, int n_slots) {
     const float delta = math::PI_F / (n_rings + 1);
     for (int i = 0; i < n_rings; ++i) {
       const int s = slot_by_ring[i];
@@ -204,10 +203,11 @@ struct DistortedRingStack {
    * unlike RingGroup there is no per-ring fallback, so the bounding-box tint
    * never reaches a stack.
    */
-  template <int W, int H, typename PipelineT, typename RingShaderT>
+  template <int W, int H, typename PipelineT, typename RingShaderT,
+            typename ShapeRange>
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
-                   const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
-                   int n_slots, RingShaderT &&shader) {
+                   ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
+                   RingShaderT &&shader) {
     // Spelled inline rather than through check_canvas_dims: the helper is
     // HS_NOINLINE_NOCLONE, and calling out to it from inside this HS_O3 region
     // costs 1,616 B of ITCM.

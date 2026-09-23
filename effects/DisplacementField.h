@@ -70,8 +70,7 @@ public:
     slot_frag_alpha = persistent_arena.allocate_n<float>(RING_SLOTS);
     slot_lut_n = persistent_arena.allocate_n<int>(RING_SLOTS);
     slot_by_ring = persistent_arena.allocate_n<int8_t>(RING_SLOTS);
-    shapes_raw = persistent_arena.allocate(
-        RING_SLOTS * sizeof(SDF::DistortedRing), alignof(SDF::DistortedRing));
+    shape_storage = persistent_arena.make<ShapeStorage>();
     prefilters = persistent_arena.allocate_n<SDF::KnotPrefilter>(RING_SLOTS);
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
@@ -335,8 +334,7 @@ private:
     const float noise_feature =
         noise_bound > 0.0f ? params.scale1 + params.scale2 : 0.0f;
 
-    auto *shapes =
-        std::launder(reinterpret_cast<SDF::DistortedRing *>(shapes_raw));
+    const ShapeView shapes{shape_storage};
     int n_slots = 0;
     for (int i = 0; i < n_rings; ++i)
       slot_by_ring[i] = -1;
@@ -466,7 +464,7 @@ private:
         hlut[lut_n] = hlut[0];
       }
 
-      ::new (static_cast<void *>(shapes + n_slots))
+      ::new (static_cast<void *>(&(*shape_storage)[n_slots].ring))
           SDF::DistortedRing(basis, radius, params.thickness, slut, lut_n, 0.0f,
                              prefilters[n_slots]);
       slot_lut_n[n_slots] = lut_n;
@@ -732,8 +730,21 @@ private:
   int *slot_lut_n = nullptr; /**< Per-slot bake column count. */
   int8_t *slot_by_ring =
       nullptr; /**< Ring index -> slot, -1 for culled rings; rebuilt per frame. */
-  void *shapes_raw =
-      nullptr; /**< Raw storage for RING_SLOTS placement-built SDF::DistortedRing shapes. */
+  union RingSlot {
+    char empty;
+    SDF::DistortedRing ring;
+    RingSlot() : empty{} {}
+    ~RingSlot() {}
+  };
+  static_assert(sizeof(RingSlot) == sizeof(SDF::DistortedRing));
+  using ShapeStorage = std::array<RingSlot, RING_SLOTS>;
+  struct ShapeView {
+    ShapeStorage *storage;
+    SDF::DistortedRing &operator[](size_t index) const {
+      return (*storage)[index].ring;
+    }
+  };
+  ShapeStorage *shape_storage = nullptr;
   SDF::KnotPrefilter *prefilters =
       nullptr; /**< RING_SLOTS knot prefilters, one per shape slot. */
   float *chunk_cos =
