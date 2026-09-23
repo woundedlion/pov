@@ -529,7 +529,7 @@ inline math::Vector edge_midpoint(const HalfEdgeMesh &he_mesh,
  * @details Operators size output pools assuming a closed manifold (E = I/2); an
  * unpaired half-edge would otherwise overrun them and trap far from the cause.
  * Edge-manifoldness is not enough for the orbit scaffolding, which emits one
- * output face per source vertex from a single prev->pair walk: at a bowtie
+ * output face per source vertex from a single incident-edge ring walk: at a bowtie
  * vertex that walk closes over one fan and the rest are silently dropped, so
  * the walk length is checked against the vertex's incident half-edge count.
  */
