@@ -307,8 +307,10 @@ inline constexpr uint8_t BOUNDARY_CUT =
     projections::projection_boundary(projections::ProjectionBoundary::CUT);
 inline constexpr uint8_t BOUNDARY_SINGULAR =
     projections::projection_boundary(projections::ProjectionBoundary::SINGULAR);
-inline constexpr uint8_t PROJECTION_FLAG_FOLDED = 1U << 0;
-inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
+inline constexpr uint8_t PROJECTION_FLAG_FOLDED =
+    Pullback::Projection::FOLDED_FLAG;
+inline constexpr float GNOMONIC_AXIS_EPS =
+    Pullback::Projection::GNOMONIC_AXIS_EPS;
 inline constexpr float WARP_COORD_LIMIT = 65536.0f;
 inline constexpr float NOISE_LATTICE_LIMIT = 1048576.0f;
 
