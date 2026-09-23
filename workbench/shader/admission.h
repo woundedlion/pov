@@ -321,6 +321,10 @@ projection_coordinate_bound(const Config &config) {
   return 4.0f;
 }
 
+HS_COLD_MEMBER inline constexpr float affine_scale_bound(float scale) {
+  return scale > 1.0f ? scale : 1.0f / scale;
+}
+
 HS_COLD_MEMBER inline constexpr float
 stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
                        float input_bound, const math::Complex &source_period) {
@@ -333,10 +337,11 @@ stage_coordinate_bound(const WarpStageSpec &spec, const WarpStageParams &params,
     return WARP_COORD_LIMIT + 1.0f;
   case WarpStageKind::AFFINE_FRAME: {
     const float rotated = 1.414214f * input_bound;
-    const float x_bound = rotated / params.scale_x +
-                          abs_value(params.shear) * rotated / params.scale_y +
-                          abs_value(params.translation_x * source_period.re);
-    const float y_bound = rotated / params.scale_y +
+    const float x_bound =
+        rotated * affine_scale_bound(params.scale_x) +
+        abs_value(params.shear) * rotated * affine_scale_bound(params.scale_y) +
+        abs_value(params.translation_x * source_period.re);
+    const float y_bound = rotated * affine_scale_bound(params.scale_y) +
                           abs_value(params.translation_y * source_period.im);
     return x_bound > y_bound ? x_bound : y_bound;
   }
@@ -433,8 +438,10 @@ maximize_stage_path(WarpStageParams &out, const WarpStageParams &a,
                     const WarpStageParams &b) {
   out.translation_x = max_abs_value(a.translation_x, b.translation_x);
   out.translation_y = max_abs_value(a.translation_y, b.translation_y);
-  out.scale_x = min_value(a.scale_x, b.scale_x);
-  out.scale_y = min_value(a.scale_y, b.scale_y);
+  out.scale_x =
+      max_value(affine_scale_bound(a.scale_x), affine_scale_bound(b.scale_x));
+  out.scale_y =
+      max_value(affine_scale_bound(a.scale_y), affine_scale_bound(b.scale_y));
   out.shear = max_abs_value(a.shear, b.shear);
   out.strength = max_abs_value(a.strength, b.strength);
   out.scale = max_value(a.scale, b.scale);
