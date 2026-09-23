@@ -4273,6 +4273,16 @@ inline void case_projection_invalid_frame_prepare() {
   (void)Op::prepare(Pullback::Interp::FrameContext{}, params, state);
 }
 
+inline void case_sample_plane_nan() {
+  const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
+  (void)Pullback::Kernel::sample(Pullback::PlaneSample{}, NAN_VALUE, 1.0f);
+}
+
+inline void case_sample_sphere_nan() {
+  const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
+  (void)Pullback::Kernel::sample(Pullback::SphereSample{}, NAN_VALUE);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4282,6 +4292,12 @@ inline void case_projection_invalid_frame_prepare() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"sample_sphere_nan", case_sample_sphere_nan,
+       "core/render/pullback/contract.h",
+       "(value == value) unit clamp: NaN input"},
+      {"sample_plane_nan", case_sample_plane_nan,
+       "core/render/pullback/contract.h",
+       "(value == value) unit clamp: NaN input"},
       {"projection_invalid_frame_prepare",
        case_projection_invalid_frame_prepare,
        "core/render/pullback/operators_project.h",
