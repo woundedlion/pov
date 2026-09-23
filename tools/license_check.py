@@ -141,6 +141,14 @@ def header_issue(path: str, head: str) -> str | None:
         if contradiction.lower() in folded:
             return (f"header carries {contradiction!r} alongside {marker!r}; "
                     f"LICENSE gives this path only the latter")
+    if marker in THIRD_PARTY:
+        holders = ("Frank Warmerdam", "PROJ contributors", "Gerald I. Evenden",
+                   "Kristian Evers", "Toby C Wilkinson") if path == "core/math/projections.h" else (
+                       "Jordan Peck", "Contributors")
+        for holder in holders:
+            if not any("copyright" in line.lower() and holder.lower() in line.lower()
+                       for line in head.splitlines()):
+                return f"missing upstream copyright notice for {holder}"
     return None
 
 
