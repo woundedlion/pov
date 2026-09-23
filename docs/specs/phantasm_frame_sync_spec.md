@@ -603,7 +603,7 @@ benign" true at Layer 3 as well as Layer 2.
 
 ## 6. Layer 3 — Content: epoch-synchronized animation + playlist
 
-The gap finding #1's fix alone leaves open. Two divergence sources:
+The gap left by synchronizing frame boundaries alone. Two divergence sources:
 
 1. **Frame-index drift** — a board that drops a render falls behind in `t`
    permanently within an effect.
