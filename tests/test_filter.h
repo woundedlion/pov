@@ -3185,6 +3185,13 @@ inline void test_world_trails_set_lifetime_shrink_clamps_t() {
 
   HS_EXPECT_GE(captured_t, 0.0f); // clamped, not the raw negative value
   HS_EXPECT_LE(captured_t, 1.0f);
+  trails.flush(WorldTrailFn(trail), 1.0f,
+               [](const math::Vector &, const Pixel &, float, float) {});
+  HS_EXPECT_NEAR(captured_t, 0.5f, 1e-6f);
+  captured_t = -1.0f;
+  trails.flush(WorldTrailFn(trail), 1.0f,
+               [](const math::Vector &, const Pixel &, float, float) {});
+  HS_EXPECT_EQ(captured_t, -1.0f);
 }
 
 /**
@@ -3210,10 +3217,8 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
 
   trails.plot(p0, Pixel(1, 1, 1), 0.0f, 1.0f,
               noop); // ttl 100 — oldest, long-lived
-  trails.set_lifetime(1);
-  trails.plot(p1, Pixel(1, 1, 1), 0.0f, 1.0f,
+  trails.plot(p1, Pixel(1, 1, 1), 99.0f, 1.0f,
               noop); // ttl 1 — dies on next flush
-  trails.set_lifetime(100);
   trails.plot(p2, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
   trails.plot(p3, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
   HS_EXPECT_EQ(trails.size(), (size_t)Cap);          // [p0, p1, p2, p3] — full
@@ -3325,6 +3330,13 @@ inline void test_screen_trails_set_lifetime_shrink_clamps_t() {
 
   HS_EXPECT_GE(captured_t, 0.0f);
   HS_EXPECT_LE(captured_t, 1.0f);
+  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+               [](float, float, const Pixel &, float, float) {});
+  HS_EXPECT_NEAR(captured_t, 0.5f, 1e-6f);
+  captured_t = -1.0f;
+  trails.flush(c, ScreenTrailFn(trail), 1.0f,
+               [](float, float, const Pixel &, float, float) {});
+  HS_EXPECT_EQ(captured_t, -1.0f);
 }
 
 /**

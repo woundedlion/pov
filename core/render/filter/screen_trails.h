@@ -40,12 +40,17 @@ public:
   /**
    * @brief Retunes the trail length at runtime (e.g. from a "Trail Len" slider).
    * @param new_lifetime New fade divisor in frames; must be positive.
-   * @details Buffered points keep their ttl and age out under the new length
-   * within a few frames.
+   * @details Shortening caps buffered points to the new remaining lifetime.
    */
   void set_lifetime(int new_lifetime) {
     HS_CHECK(new_lifetime > 0, "Screen::Trails: lifetime %d must be positive",
              new_lifetime);
+    if (new_lifetime < lifetime && points) {
+      check_storage_alive();
+      for (int i = 0; i < num_pixels; ++i)
+        points[i].ttl =
+            __builtin_fminf(points[i].ttl, static_cast<float>(new_lifetime));
+    }
     lifetime = new_lifetime;
   }
 
