@@ -66,7 +66,7 @@ A `Fragment` (`render/shading.h`) is the data packet exchanged between rasterize
 
 ```cpp
 struct Fragment {
-  Vector pos;              // Position (typically a unit vector on the sphere)
+  math::Vector pos;              // Position (typically a unit vector on the sphere)
   float v0 = 0.0f;        // Register 0: normalized progress t (0–1)
   float v1 = 0.0f;        // Register 1: arc length / distance
   float v2 = 0.0f;        // Register 2: stroke coverage / face ID
@@ -85,7 +85,7 @@ Two shader types are defined as zero-allocation `FunctionRef` callables (`concep
 
 | Signature | Type | Role |
 |---|---|---|
-| `FragmentShaderFn` | `void(const Vector &, Fragment &)` | Per-pixel/per-sample shader. Receives the world position and a pre-populated Fragment; writes `color`. Called for every rasterized point. |
+| `FragmentShaderFn` | `void(const math::Vector &, Fragment &)` | Per-pixel/per-sample shader. Receives the world position and a pre-populated Fragment; writes `color`. Called for every rasterized point. |
 | `VertexShaderRef` | `void(Fragment &)` | Per-vertex or per-pixel-center shader. Runs once before sub-sampling to set up expensive shared state in the Fragment registers. Optional on the `Plot::` primitives (a null callable is skipped); required by `Scan::Shader::draw`'s split vertex/fragment overload, which traps on a null one. |
 
 `FunctionRef` is a non-owning, non-allocating type-erased callable (similar to `std::function_ref` from C++26). It captures a pointer to any lambda, functor, or function pointer with zero heap allocation — critical for ISR-safe code on Teensy.
@@ -93,7 +93,7 @@ Two shader types are defined as zero-allocation `FunctionRef` callables (`concep
 Effects pass lambdas that capture their state:
 
 ```cpp
-auto shader = [&](const Vector &p, Fragment &f) {
+auto shader = [&](const math::Vector &p, Fragment &f) {
     float t = f.v0;           // read: normalized progress from rasterizer
     f.color = palette.get(t); // write: color from palette lookup
 };
