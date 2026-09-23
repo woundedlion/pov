@@ -184,6 +184,8 @@ public:
    *         steps wait on.
    */
   virtual bool presentation_complete() const = 0;
+  /** @brief Publishes the outgoing frame with the current output envelope. */
+  virtual void publish_outgoing_frame() = 0;
   /** @brief Destroys the outgoing effect. Reached only behind a dark frame. */
   virtual void destroy_outgoing() = 0;
   /**
@@ -415,6 +417,7 @@ private:
     adapter.set_output_envelope(
         evaluation == destination.fade_ticks ? 0.0f : 1.0f - progress);
     if (evaluation == destination.fade_ticks) {
+      adapter.publish_outgoing_frame();
       state = EffectTransitionState::CLEAR_PRESENTED;
       return;
     }
