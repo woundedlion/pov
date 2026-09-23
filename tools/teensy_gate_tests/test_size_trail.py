@@ -105,6 +105,10 @@ class ElfParser(unittest.TestCase):
         self.assertEqual(regions["ram1"], 195696 + 3776 + 309984)
         self.assertEqual(set(regions), set(tst.REGIONS))
 
+    def test_missing_itcm_is_not_an_improvement(self):
+        with self.assertRaisesRegex(tst.ElfFormatError, "text.itcm"):
+            tst.regions_from_sections({".text.renamed": 195696})
+
     def test_absent_section_reads_zero(self):
         regions = tst.regions_from_sections(
             tst.parse_elf_section_sizes(make_elf({".text.itcm": 8})))
