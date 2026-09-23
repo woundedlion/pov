@@ -89,7 +89,7 @@ void emit_config(const Config &cfg, const char *tail) {
 }
 
 /**
- * @brief Emits the columns arm A and arm B sample at rotation column 0.
+ * @brief Emits arm columns at the origin and both sides of the wrap boundary.
  * @param w Canvas width.
  * @param tail Separator after the object: "," unless this is the last width.
  */
@@ -97,7 +97,15 @@ void emit_x_cols(int w, const char *tail) {
   const int arm_a = pov::segment_x_col(false, 0, w);
   const int arm_b = pov::segment_x_col(true, 0, w);
   std::printf("    { \"width\": %d,", w);
-  std::printf(" \"arm_a\": %d, \"arm_b\": %d }%s\n", arm_a, arm_b, tail);
+  std::printf(" \"arm_a\": %d, \"arm_b\": %d, \"samples\": [", arm_a, arm_b);
+  const int XS[] = {0, w / 2 - 1, w / 2, w - 1};
+  for (size_t i = 0; i < std::size(XS); ++i) {
+    const int X = XS[i];
+    std::printf("%s{ \"x\": %d, \"arm_a\": %d, \"arm_b\": %d }", i ? ", " : "",
+                X, pov::segment_x_col(false, X, w),
+                pov::segment_x_col(true, X, w));
+  }
+  std::printf("] }%s\n", tail);
 }
 
 } // namespace
