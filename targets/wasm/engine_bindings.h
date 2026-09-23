@@ -370,10 +370,10 @@ public:
 
     if (current_effect) {
       ++effect_generation;
+      param_views.clear();
       current_effect = nullptr;
       current_effect_type_key = nullptr;
       current_factory_entry = nullptr;
-      param_views.clear();
       // Same teardown setEffect() performs: without the re-partition the
       // destroyed effect's arena usage keeps reading as live from
       // getArenaMetrics().
@@ -430,10 +430,10 @@ public:
     }
 
     ++effect_generation;
+    param_views.clear();
     current_effect.reset();
     current_effect_type_key = nullptr;
     current_factory_entry = nullptr;
-    param_views.clear();
     configure_arenas_default(); // Reset before init so effects can override
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
