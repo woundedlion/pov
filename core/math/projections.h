@@ -966,7 +966,8 @@ inline float point_segment_distance(const AiroceanPoint &p,
  * @brief Fuller Airocean (Dymaxion) projection onto the unfolded icosahedral
  *        net.
  * @param v Unit direction on the sphere.
- * @param central_meridian Longitude rotated onto the net's axis, in radians.
+ * @param c Cosine of the central-meridian longitude.
+ * @param s Sine of the central-meridian longitude.
  * @param horizontal Rotates the finished net a quarter turn.
  * @param calculate_edge_distance When false, `fade_edge_distance` is left at
  *        NO_EDGE_DISTANCE and the per-edge cut distances are skipped.

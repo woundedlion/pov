@@ -11,7 +11,8 @@ USE_MDFILE_AS_MAINPAGE = README.md
 # Document the engine, effects, workbench surfaces, hardware drivers, and both
 # target flavors — the WASM bridge and the Arduino .ino firmware entry points.
 # Tests are omitted from the API reference on purpose.
-INPUT                  = README.md core effects workbench hardware targets
+INPUT                  = README.md core effects workbench hardware targets \
+                         docs/ledgers/device_host_divergence_ledger.md
 FILE_PATTERNS          = *.h *.cpp *.ino
 # .ino is Arduino C++; Doxygen has no built-in mapping for the extension.
 EXTENSION_MAPPING      = ino=C++
