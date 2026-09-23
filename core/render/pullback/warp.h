@@ -404,10 +404,10 @@ __attribute__((always_inline)) inline float
 displacement(const math::Complex &delta, bool required) {
   if (!required)
     return 0.0f;
-  const float SQUARED = delta.squared_magnitude();
-  if (SQUARED > std::numeric_limits<float>::max())
+  const float squared = delta.squared_magnitude();
+  if (squared > std::numeric_limits<float>::max())
     return std::hypot(delta.re, delta.im);
-  return sqrtf(SQUARED);
+  return sqrtf(squared);
 }
 
 __attribute__((always_inline)) inline WarpStepResult
