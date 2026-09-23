@@ -11,8 +11,8 @@
 
 /**
  * @file frame_state.h
- * @brief Prepared stage payloads, resource bindings, and the immutable
- *        FrameState read by a shading pass.
+ * @brief Prepared stage payloads, resource bindings, and FrameState, which
+ *        remains immutable during each shading pass.
  */
 
 #include "workbench/shader/config.h"
