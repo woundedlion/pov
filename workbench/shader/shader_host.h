@@ -2402,6 +2402,8 @@ private:
                       const Workbench::WarpStageSpec &spec,
                       const Workbench::WarpStageParams &params) const {
     begin_warning("%s %s rejected.", position, warp_option(spec.kind));
+    append_range_warning("Warp Speed", params.speed, Workbench::NOISE_SPEED_MIN,
+                         Workbench::NOISE_SPEED_MAX);
     switch (spec.kind) {
     case Workbench::WarpStageKind::COUNT:
       break;
@@ -2429,9 +2431,6 @@ private:
     case Workbench::WarpStageKind::WAVE_SHEAR:
       append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
       append_range_warning("Frequency", params.frequency, 0.0f, 64.0f);
-      append_range_warning("Warp Speed", params.speed,
-                           Workbench::NOISE_SPEED_MIN,
-                           Workbench::NOISE_SPEED_MAX);
       break;
     case Workbench::WarpStageKind::VORTEX:
       append_range_warning("Radius", params.radius,
@@ -2441,9 +2440,6 @@ private:
                            Workbench::VORTEX_TURNS_MAX);
       append_range_warning("Orbit Radius", params.center_orbit_radius, 0.0f,
                            Workbench::VORTEX_ORBIT_MAX);
-      append_range_warning("Warp Speed", params.speed,
-                           Workbench::NOISE_SPEED_MIN,
-                           Workbench::NOISE_SPEED_MAX);
       break;
     case Workbench::WarpStageKind::VECTOR_NOISE:
       append_range_warning("Warp Strength", params.strength, 0.0f,
@@ -2451,9 +2447,6 @@ private:
       append_range_warning("Warp Scale", params.scale,
                            Workbench::WARP_SCALE_MIN,
                            Workbench::VECTOR_WARP_SCALE_MAX);
-      append_range_warning("Warp Speed", params.speed,
-                           Workbench::NOISE_SPEED_MIN,
-                           Workbench::NOISE_SPEED_MAX);
       break;
     case Workbench::WarpStageKind::CURL_FLOW: {
       append_range_warning("Warp Strength", params.strength,
@@ -2462,9 +2455,6 @@ private:
       append_range_warning("Warp Scale", params.scale,
                            Workbench::WARP_SCALE_MIN,
                            Workbench::CURL_WARP_SCALE_MAX);
-      append_range_warning("Warp Speed", params.speed,
-                           Workbench::NOISE_SPEED_MIN,
-                           Workbench::NOISE_SPEED_MAX);
       const float strength_limit = curl_strength_limit(spec, params);
       if (Workbench::abs_value(params.strength) > strength_limit)
         append_warning(
