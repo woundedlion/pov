@@ -35,8 +35,6 @@
 #include <memory>
 #include <string>
 
-using namespace emscripten;
-
 // ---- Stack canary painting for high water mark tracking ----
 inline constexpr uint8_t STACK_CANARY = 0xCD;
 
@@ -608,9 +606,9 @@ public:
    *          caller caching the view across frames MUST therefore test both:
    *          buffer.byteLength !== 0 and length === getBufferLength().
    */
-  val getPixels() {
-    return val(typed_memory_view(pixel_width * pixel_height * CHANNELS,
-                                 pixel_buffer.data()));
+  emscripten::val getPixels() {
+    return emscripten::val(emscripten::typed_memory_view(
+        pixel_width * pixel_height * CHANNELS, pixel_buffer.data()));
   }
 
   /**
@@ -707,8 +705,8 @@ public:
   }
 
   /** Stable preset IDs in the same order as the numeric navigation API. */
-  val getPresetIds() const {
-    val ids = val::array();
+  emscripten::val getPresetIds() const {
+    emscripten::val ids = emscripten::val::array();
     if (!current_effect || !current_factory_entry ||
         !current_factory_entry->preset_id)
       return ids;
@@ -846,27 +844,27 @@ public:
    *          The order matches getParamValues(); pin getParamGeneration() beside
    *          a snapshot to detect a rebind.
    */
-  val getParameterDefinitions() {
+  emscripten::val getParameterDefinitions() {
     if (!current_effect)
-      return val::array();
+      return emscripten::val::array();
 
     current_effect->refresh_parameter_display();
-    val result = val::array();
+    emscripten::val result = emscripten::val::array();
     // Both streams walk the effect's registered ParamList in order. The
     // generation token covers effect replacement and dynamic schema rebinds.
     hs_wasm::collect_param_views(*current_effect, param_views);
 
     int i = 0;
     for (const auto &v : param_views) {
-      val entry = val::object();
-      entry.set("name", val(v.name));
+      emscripten::val entry = emscripten::val::object();
+      entry.set("name", emscripten::val(v.name));
 
       if (v.is_bool) {
         // Emit a JS boolean so the frontend renders a checkbox; toggles omit
         // min/max (no range).
-        entry.set("value", val(v.value > 0.5f));
-        entry.set("requestedValue", val(v.requested_value > 0.5f));
-        entry.set("acceptedValue", val(v.accepted_value > 0.5f));
+        entry.set("value", emscripten::val(v.value > 0.5f));
+        entry.set("requestedValue", emscripten::val(v.requested_value > 0.5f));
+        entry.set("acceptedValue", emscripten::val(v.accepted_value > 0.5f));
       } else {
         entry.set("value", v.value);
         entry.set("requestedValue", v.requested_value);
@@ -877,23 +875,23 @@ public:
           entry.set("step", 1);
         if (v.option_count > 0) {
           // Enum: label array indexed by value; the frontend renders a dropdown.
-          val opts = val::array();
+          emscripten::val opts = emscripten::val::array();
           for (int k = 0; k < v.option_count; ++k)
-            opts.set(k, val(v.options[k]));
+            opts.set(k, emscripten::val(v.options[k]));
           entry.set("options", opts);
           if (v.export_options != nullptr) {
-            val export_opts = val::array();
+            emscripten::val export_opts = emscripten::val::array();
             for (int k = 0; k < v.option_count; ++k)
-              export_opts.set(k, val(v.export_options[k]));
+              export_opts.set(k, emscripten::val(v.export_options[k]));
             entry.set("exportOptions", export_opts);
           }
         }
       }
-      entry.set("animated", val(v.animated));
-      entry.set("readonly", val(v.readonly));
-      entry.set("preset", val(v.preset));
+      entry.set("animated", emscripten::val(v.animated));
+      entry.set("readonly", emscripten::val(v.readonly));
+      entry.set("preset", emscripten::val(v.preset));
       if (const char *warning = current_effect->parameter_warning(v.name))
-        entry.set("warning", val(warning));
+        entry.set("warning", emscripten::val(warning));
       result.set(i++, entry);
     }
     return result;
@@ -909,20 +907,22 @@ public:
    *          never reallocates here (size <= MAX_PARAMS), so emitting it triggers
    *          no heap growth that could detach other outstanding views.
    */
-  val getParamValues() {
+  emscripten::val getParamValues() {
     if (!current_effect) {
       // Empty Float32Array (not a JS Array) so callers get a consistent typed
       // view whether or not an effect is set. clear() retains the ctor's
       // reserve, which keeps the zero-length view's backing pointer valid.
       param_values.clear();
-      return val(typed_memory_view(param_values.size(), param_values.data()));
+      return emscripten::val(emscripten::typed_memory_view(
+          param_values.size(), param_values.data()));
     }
 
     current_effect->refresh_parameter_display();
 
     // Same order as getParameterDefinitions().
     hs_wasm::fill_param_values(*current_effect, param_values);
-    return val(typed_memory_view(param_values.size(), param_values.data()));
+    return emscripten::val(emscripten::typed_memory_view(param_values.size(),
+                                                         param_values.data()));
   }
 
   /**
@@ -957,15 +957,15 @@ public:
    *          init(), which no repaint erases, so the two peaks can be gated
    *          separately.
    */
-  val getArenaMetrics() const {
-    val metrics = collect_engine_arena_metrics();
+  emscripten::val getArenaMetrics() const {
+    emscripten::val metrics = collect_engine_arena_metrics();
 
     // Stack region. No running usage: the live depth at this call is outside any
     // render, so only the high-water marks are meaningful.
     {
       uintptr_t base = emscripten_stack_get_base();
       uintptr_t end = emscripten_stack_get_end();
-      val m = val::object();
+      emscripten::val m = emscripten::val::object();
       m.set("high_water_mark", static_cast<size_t>(stack_high_water_mark()));
       m.set("init_high_water_mark", init_stack_peak);
       m.set("capacity", static_cast<size_t>(base >= end ? base - end : 0));
@@ -980,8 +980,9 @@ public:
    * @return JS object mapping each effect name to its hint size at the current
    *         resolution; empty map if unsupported/uninitialized.
    */
-  val getEffectSizes() const {
-    val sizes = val::object(); // unsupported/uninitialized — empty map
+  emscripten::val getEffectSizes() const {
+    emscripten::val sizes =
+        emscripten::val::object(); // unsupported/uninitialized — empty map
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height,
         [&]<int W, int H>() { sizes = get_effect_sizes_helper<W, H>(); });
@@ -993,8 +994,8 @@ public:
    * @return JS object mapping every effect name to its preset count; empty map
    *         if unsupported or uninitialized.
    */
-  val getEffectPresetCounts() const {
-    val counts = val::object();
+  emscripten::val getEffectPresetCounts() const {
+    emscripten::val counts = emscripten::val::object();
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
           for (const auto &entry : hs_wasm::get_factory<W, H>())
@@ -1020,16 +1021,16 @@ public:
    *          replaying the parameter stream entry by entry walks through
    *          combinations it refuses.
    */
-  val getFullConfigSnapshot() {
-    val output = val::null();
+  emscripten::val getFullConfigSnapshot() {
+    emscripten::val output = emscripten::val::null();
     with_shader_workbench([&]<typename SB>(SB &shader) {
       const typename SB::FullConfigSnapshot snapshot =
           shader.capture_full_config_snapshot();
-      output = val::object();
+      output = emscripten::val::object();
       output.set("schemaVersion", snapshot.schema_version);
       output.set("accepted", uint32_array(snapshot.accepted));
       output.set("requested", uint32_array(snapshot.requested));
-      val pending_ids = val::array();
+      emscripten::val pending_ids = emscripten::val::array();
       size_t pending_count = 0;
       for (size_t index = 0; index < snapshot.pending.size(); ++index)
         if (snapshot.pending[index] != 0)
@@ -1057,7 +1058,8 @@ public:
    *          NOT_SHADER_WORKBENCH also covers an input whose accessors swap
    *          the loaded effect out while the snapshot is being decoded.
    */
-  FullConfigRestoreResult restoreFullConfigSnapshot(const val &input) {
+  FullConfigRestoreResult
+  restoreFullConfigSnapshot(const emscripten::val &input) {
     FullConfigRestoreResult result =
         FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
     with_shader_workbench([&]<typename SB>(SB &shader) {
@@ -1074,7 +1076,7 @@ public:
         result = FullConfigRestoreResult::INVALID_LENGTH;
         return;
       }
-      const val schema_version = input["schemaVersion"];
+      const emscripten::val schema_version = input["schemaVersion"];
       if (!schema_version.isNumber()) {
         result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
         return;
@@ -1089,7 +1091,7 @@ public:
         result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
         return;
       }
-      const val has_runtime = input["hasRuntime"];
+      const emscripten::val has_runtime = input["hasRuntime"];
       if (!has_runtime.isTrue() && !has_runtime.isFalse()) {
         result = FullConfigRestoreResult::INVALID_VALUE;
         return;
@@ -1107,7 +1109,7 @@ public:
                      : FullConfigRestoreResult::INVALID_VALUE;
         return;
       }
-      const val pending_ids = input["pendingFieldIds"];
+      const emscripten::val pending_ids = input["pendingFieldIds"];
       if (!is_array(pending_ids)) {
         result = FullConfigRestoreResult::INVALID_PENDING;
         return;
@@ -1118,7 +1120,7 @@ public:
         return;
       }
       for (size_t index = 0; index < pending_count; ++index) {
-        const val field_id = pending_ids[index];
+        const emscripten::val field_id = pending_ids[index];
         if (!field_id.isNumber()) {
           result = FullConfigRestoreResult::INVALID_PENDING;
           return;
@@ -1159,12 +1161,12 @@ public:
    *          config path. A caller labels a field through this rather than a
    *          hardcoded index, which moves when the schema gains a field.
    */
-  val getFullConfigFieldDefinitions() {
-    val output = val::null();
+  emscripten::val getFullConfigFieldDefinitions() {
+    emscripten::val output = emscripten::val::null();
     with_shader_workbench([&]<typename SB>(SB &) {
-      output = val::array();
+      output = emscripten::val::array();
       for (size_t index = 0; index < SB::CONFIG_FIELD_COUNT; ++index) {
-        val field = val::object();
+        emscripten::val field = emscripten::val::object();
         field.set("id", index);
         field.set("name", SB::config_field_name(
                               static_cast<typename SB::ConfigFieldId>(index)));
@@ -1216,7 +1218,7 @@ public:
    * leaves the previous program, its parameter definitions, the generation,
    * and all instance state untouched.
    */
-  val setShaderChain(const val &entries) {
+  emscripten::val setShaderChain(const emscripten::val &entries) {
     const SnapshotDecodeGuard decode_guard;
     using Pullback::Interp::ChainStatus;
     if (!with_shader_chain([]<typename SC>(SC &) {}))
@@ -1237,12 +1239,12 @@ public:
     std::vector<std::string> instances(count);
     std::vector<std::string> operators(count);
     for (size_t index = 0; index < count; ++index) {
-      const val entry = entries[index];
+      const emscripten::val entry = entries[index];
       if (entry.isNull() || entry.isUndefined())
         return chain_result(ChainStatus::MALFORMED_PAYLOAD,
                             static_cast<int>(index));
-      const val instance = entry["instance"];
-      const val operator_id = entry["operator"];
+      const emscripten::val instance = entry["instance"];
+      const emscripten::val operator_id = entry["operator"];
       if (!instance.isString() || !operator_id.isString())
         return chain_result(ChainStatus::MALFORMED_PAYLOAD,
                             static_cast<int>(index));
@@ -1293,11 +1295,11 @@ public:
    *          hand-mirroring the list, so the supported set can never silently
    *          drift.
    */
-  static val getSupportedResolutions() {
-    val out = val::array();
+  static emscripten::val getSupportedResolutions() {
+    emscripten::val out = emscripten::val::array();
     int i = 0;
     for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS) {
-      val pair = val::array();
+      emscripten::val pair = emscripten::val::array();
       pair.set(0, row.w);
       pair.set(1, row.h);
       out.set(i++, pair);
@@ -1312,8 +1314,8 @@ private:
    * @tparam H Canvas height in pixels.
    * @return JS object mapping each effect name to its hint size, for the GUI.
    */
-  template <int W, int H> static val get_effect_sizes_helper() {
-    val s = val::object();
+  template <int W, int H> static emscripten::val get_effect_sizes_helper() {
+    emscripten::val s = emscripten::val::object();
     const auto &factory = hs_wasm::get_factory<W, H>();
     for (const auto &entry : factory)
       s.set(std::string(entry.name), static_cast<int>(entry.size));
@@ -1384,13 +1386,14 @@ private:
   }
 
   /** @brief Result with enum status, legacy string code, and entry index. */
-  static val chain_result(Pullback::Interp::ChainStatus code, int entry_index) {
-    val result = val::object();
-    result.set("code", val(std::string(
+  static emscripten::val chain_result(Pullback::Interp::ChainStatus code,
+                                      int entry_index) {
+    emscripten::val result = emscripten::val::object();
+    result.set("code", emscripten::val(std::string(
                            code == Pullback::Interp::ChainStatus::OK
                                ? "APPLIED"
                                : Pullback::Interp::chain_status_name(code))));
-    result.set("status", val(code));
+    result.set("status", emscripten::val(code));
     result.set("entryIndex", entry_index);
     return result;
   }
@@ -1403,8 +1406,8 @@ private:
     BAD_VALUE,  /**< An element outside what its slot admits. */
   };
 
-  static bool is_array(const val &value) {
-    return val::global("Array").call<bool>("isArray", value);
+  static bool is_array(const emscripten::val &value) {
+    return emscripten::val::global("Array").call<bool>("isArray", value);
   }
 
   static bool whole_uint32(double value) {
@@ -1414,28 +1417,28 @@ private:
   }
 
   template <size_t N>
-  static val uint32_array(const std::array<uint32_t, N> &values) {
-    val output = val::array();
+  static emscripten::val uint32_array(const std::array<uint32_t, N> &values) {
+    emscripten::val output = emscripten::val::array();
     for (size_t index = 0; index < N; ++index)
       output.set(index, values[index]);
     return output;
   }
 
   template <size_t N>
-  static val float_array(const std::array<float, N> &values) {
-    val output = val::array();
+  static emscripten::val float_array(const std::array<float, N> &values) {
+    emscripten::val output = emscripten::val::array();
     for (size_t index = 0; index < N; ++index)
       output.set(index, values[index]);
     return output;
   }
 
   template <size_t N>
-  static ArrayDecode decode_uint32_array(const val &input,
+  static ArrayDecode decode_uint32_array(const emscripten::val &input,
                                          std::array<uint32_t, N> &output) {
     if (!is_array(input) || input["length"].as<size_t>() != N)
       return ArrayDecode::BAD_LENGTH;
     for (size_t index = 0; index < N; ++index) {
-      const val element = input[index];
+      const emscripten::val element = input[index];
       if (!element.isNumber())
         return ArrayDecode::BAD_VALUE;
       const double number = element.as<double>();
@@ -1447,12 +1450,12 @@ private:
   }
 
   template <size_t N>
-  static ArrayDecode decode_runtime(const val &input,
+  static ArrayDecode decode_runtime(const emscripten::val &input,
                                     std::array<float, N> &output) {
     if (!is_array(input) || input["length"].as<size_t>() != N)
       return ArrayDecode::BAD_LENGTH;
     for (size_t index = 0; index < N; ++index) {
-      const val element = input[index];
+      const emscripten::val element = input[index];
       if (!element.isNumber())
         return ArrayDecode::BAD_VALUE;
       output[index] = element.as<float>();
@@ -1520,31 +1523,31 @@ private:
 /** @brief Registers the render bridge's enums and class with Embind. */
 static void bind_engine() {
   emscripten::constant("H_OFFSET", hs::H_OFFSET);
-  enum_<ParamSetResult>("ParamSetResult")
+  emscripten::enum_<ParamSetResult>("ParamSetResult")
       .value("APPLIED", ParamSetResult::APPLIED)
       .value("NO_EFFECT", ParamSetResult::NO_EFFECT)
       .value("UNKNOWN_PARAM", ParamSetResult::UNKNOWN_PARAM)
       .value("READONLY", ParamSetResult::READONLY)
       .value("NON_FINITE", ParamSetResult::NON_FINITE);
 
-  enum_<ClipSetResult>("ClipSetResult")
+  emscripten::enum_<ClipSetResult>("ClipSetResult")
       .value("APPLIED", ClipSetResult::APPLIED)
       .value("NO_EFFECT", ClipSetResult::NO_EFFECT)
       .value("INVALID_BOUNDS", ClipSetResult::INVALID_BOUNDS)
       .value("FULL_FRAME_KEPT", ClipSetResult::FULL_FRAME_KEPT);
 
-  enum_<ResolutionSetResult>("ResolutionSetResult")
+  emscripten::enum_<ResolutionSetResult>("ResolutionSetResult")
       .value("RESIZED", ResolutionSetResult::RESIZED)
       .value("ALREADY_ACTIVE", ResolutionSetResult::ALREADY_ACTIVE)
       .value("UNSUPPORTED", ResolutionSetResult::UNSUPPORTED);
 
-  enum_<EffectSetResult>("EffectSetResult")
+  emscripten::enum_<EffectSetResult>("EffectSetResult")
       .value("INSTALLED", EffectSetResult::INSTALLED)
       .value("UNKNOWN_EFFECT", EffectSetResult::UNKNOWN_EFFECT)
       .value("UNSUPPORTED_RESOLUTION", EffectSetResult::UNSUPPORTED_RESOLUTION);
 
 #if HS_ENABLE_SHADER_WORKBENCH
-  enum_<FullConfigRestoreResult>("FullConfigRestoreResult")
+  emscripten::enum_<FullConfigRestoreResult>("FullConfigRestoreResult")
       .value("APPLIED", FullConfigRestoreResult::APPLIED)
       .value("NOT_SHADER_WORKBENCH",
              FullConfigRestoreResult::NOT_SHADER_WORKBENCH)
@@ -1557,7 +1560,7 @@ static void bind_engine() {
 #endif // HS_ENABLE_SHADER_WORKBENCH
 
 #if HS_ENABLE_CHAIN_INTERPRETER
-  enum_<Pullback::Interp::ChainStatus>("ChainStatus")
+  emscripten::enum_<Pullback::Interp::ChainStatus>("ChainStatus")
       .value("OK", Pullback::Interp::ChainStatus::OK)
       .value("NOT_CHAIN_EFFECT",
              Pullback::Interp::ChainStatus::NOT_CHAIN_EFFECT)
@@ -1580,7 +1583,7 @@ static void bind_engine() {
       .value("MIGRATE_FAILED", Pullback::Interp::ChainStatus::MIGRATE_FAILED);
 #endif
 
-  class_<HolosphereEngine>("HolosphereEngine")
+  emscripten::class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
       .function("setResolution", &HolosphereEngine::setResolution)
       .function("setEffect", &HolosphereEngine::setEffect)

@@ -28,8 +28,6 @@
 #include <string>
 #include <type_traits>
 
-using namespace emscripten;
-
 // Arenas for the JS mesh-editor tools (8 MB build + two 4 MB scratch), used
 // only by MeshOpsWrapper. malloc'd lazily on first MeshOps use (start at
 // capacity 0) so engine/worker instances that never touch MeshOps don't reserve
@@ -130,8 +128,8 @@ static bool ensure_tooling_arenas() {
  *          against, and an operator that overruns one takes the module down, so
  *          they are reported alongside the rest rather than left unobservable.
  */
-static val collect_arena_metrics() {
-  val metrics = collect_engine_arena_metrics();
+static emscripten::val collect_arena_metrics() {
+  emscripten::val metrics = collect_engine_arena_metrics();
   add_arena_metrics(metrics, "tooling_arena", tooling_arena);
   add_arena_metrics(metrics, "tooling_scratch_a", tooling_scratch_a);
   add_arena_metrics(metrics, "tooling_scratch_b", tooling_scratch_b);
@@ -349,10 +347,10 @@ public:
    * @details Copies directly from packed arena storage without allocating in
    *          WASM, so this readback cannot detach outstanding memory views.
    */
-  val getVertices() const {
+  emscripten::val getVertices() const {
     begin_mesh_op();
     if (!wrapper_live())
-      return val::null();
+      return emscripten::val::null();
     static_assert(std::is_standard_layout_v<math::Vector> &&
                       offsetof(math::Vector, x) == 0 &&
                       offsetof(math::Vector, y) == sizeof(float) &&
@@ -360,8 +358,8 @@ public:
                       sizeof(math::Vector) == 3 * sizeof(float) &&
                       alignof(math::Vector) == alignof(float),
                   "flat [x,y,z] view requires tightly packed vertices");
-    return val::global("Float32Array")
-        .new_(val(typed_memory_view(
+    return emscripten::val::global("Float32Array")
+        .new_(emscripten::val(emscripten::typed_memory_view(
             mesh.vertices.size() * 3,
             reinterpret_cast<const float *>(mesh.vertices.data()))));
   }
@@ -375,18 +373,18 @@ public:
    *         Null if a clearToolingMemory() reclaimed this wrapper's storage;
    *         getLastResult() then reports STALE_WRAPPER.
    */
-  val getFaces() const {
+  emscripten::val getFaces() const {
     begin_mesh_op();
     if (!wrapper_live())
-      return val::null();
-    val out = val::object();
-    out.set("indices", val::global("Uint16Array")
-                           .new_(val(typed_memory_view(
+      return emscripten::val::null();
+    emscripten::val out = emscripten::val::object();
+    out.set("indices", emscripten::val::global("Uint16Array")
+                           .new_(emscripten::val(emscripten::typed_memory_view(
                                mesh.get_faces_size(), mesh.get_faces_data()))));
-    out.set("counts",
-            val::global("Uint8Array")
-                .new_(val(typed_memory_view(mesh.get_face_counts_size(),
-                                            mesh.get_face_counts_data()))));
+    out.set("counts", emscripten::val::global("Uint8Array")
+                          .new_(emscripten::val(emscripten::typed_memory_view(
+                              mesh.get_face_counts_size(),
+                              mesh.get_face_counts_data()))));
     return out;
   }
 
@@ -409,25 +407,25 @@ public:
    *          (as getPixels and palette compilation do), it MUST be read before
    *          the next allocation, per that memory-view contract.
    */
-  val classifyFaces() {
+  emscripten::val classifyFaces() {
     begin_mesh_op();
     if (!wrapper_live())
-      return val::null();
+      return emscripten::val::null();
     // Only the topology block lands in tooling_arena — one uint16_t per face,
     // not a second finalized mesh.
     if (tooling_bounds_reject(mesh.vertices.size(), mesh.get_face_counts_size(),
                               mesh.get_faces_size(), 1, "classifyFaces",
                               sizeof(uint16_t)))
-      return val::null();
+      return emscripten::val::null();
     ToolingOpGuard guard;
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
     MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a,
                                         tooling_scratch_b, tooling_arena);
     // Copies (see the contract note above); does not alias WASM memory.
-    return val::global("Int32Array")
-        .new_(
-            val(typed_memory_view(mesh.topology.size(), mesh.topology.data())));
+    return emscripten::val::global("Int32Array")
+        .new_(emscripten::val(emscripten::typed_memory_view(
+            mesh.topology.size(), mesh.topology.data())));
   }
 
   // --- Conway/Goldberg operators -------------------------------------------
@@ -726,12 +724,12 @@ public:
    * @brief Lists all available solids for the editor's solid picker.
    * @return JS array of {name, category} objects, one per registered solid.
    */
-  static val getRegistry() {
-    val registry = val::array();
+  static emscripten::val getRegistry() {
+    emscripten::val registry = emscripten::val::array();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       const auto &entry = Solids::get_entry(i);
-      val item = val::object();
-      item.set("name", val(entry.name));
+      emscripten::val item = emscripten::val::object();
+      item.set("name", emscripten::val(entry.name));
       item.set("category", entry.category == Solids::Category::Simple
                                ? "Simple"
                                : "Complex");
@@ -793,26 +791,26 @@ public:
    *          known entry is the normal not-morphable case and returns null
    *          without logging.
    */
-  static val getRecipe(const std::string &name) {
+  static emscripten::val getRecipe(const std::string &name) {
     begin_mesh_op();
     const Solids::Entry *entry = Solids::find_entry(name);
     if (!entry) {
       hs::log("WASM: getRecipe unknown solid '%s' — ignored", name.c_str());
       last_mesh_op_result = MeshOpResult::UNKNOWN_NAME;
-      return val::null();
+      return emscripten::val::null();
     }
     if (!entry->recipe)
-      return val::null();
+      return emscripten::val::null();
     const Solids::Recipe &recipe = *entry->recipe;
     // recipe.seed indexes simple_registry specifically (get_entry spans all
     // three registries and would misresolve it).
-    val out = val::object();
-    out.set("seed", val(Solids::simple_registry[recipe.seed].name));
-    val ops = val::array();
+    emscripten::val out = emscripten::val::object();
+    out.set("seed", emscripten::val(Solids::simple_registry[recipe.seed].name));
+    emscripten::val ops = emscripten::val::array();
     for (size_t i = 0; i < recipe.count; ++i) {
       const Solids::OpStep &step = recipe.steps[i];
-      val item = val::object();
-      item.set("op", val(op_name(step.op)));
+      emscripten::val item = emscripten::val::object();
+      item.set("op", emscripten::val(op_name(step.op)));
       item.set("param", step.param);
       item.set("twist", step.twist);
       ops.set(i, item);
@@ -834,7 +832,7 @@ public:
    *          CMakeLists.txt). Measures each solid in the scratch arenas only —
    *          never tooling_arena, which backs live wrappers the JS side holds.
    */
-  static val getMaxBounds() {
+  static emscripten::val getMaxBounds() {
     begin_mesh_op();
     int max_v = 0;
     int max_f = 0;
@@ -846,7 +844,7 @@ public:
     ToolingOpGuard guard;
     if (!ensure_tooling_arenas()) {
       last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
-      return val::null();
+      return emscripten::val::null();
     }
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       // Measure in the scratch arenas only — never tooling_arena, which backs
@@ -877,13 +875,13 @@ public:
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
 
-    val stats = val::object();
+    emscripten::val stats = emscripten::val::object();
     stats.set("max_v", max_v);
-    stats.set("v_name", val(mv_name));
+    stats.set("v_name", emscripten::val(mv_name));
     stats.set("max_f", max_f);
-    stats.set("f_name", val(mf_name));
+    stats.set("f_name", emscripten::val(mf_name));
     stats.set("max_i", max_i);
-    stats.set("i_name", val(mi_name));
+    stats.set("i_name", emscripten::val(mi_name));
     return stats;
   }
 #endif
@@ -893,7 +891,7 @@ public:
    * @return JS object of {usage, high_water_mark, lifetime_high_water_mark,
    *         capacity} metrics per arena, in bytes.
    */
-  static val getArenaMetrics() { return collect_arena_metrics(); }
+  static emscripten::val getArenaMetrics() { return collect_arena_metrics(); }
 
   /**
    * @brief Reports why the most recent MeshOps call answered null.
@@ -922,7 +920,7 @@ public:
 
 /** @brief Registers the mesh editor bridge's enum and class with Embind. */
 static void bind_mesh_ops() {
-  enum_<MeshOpResult>("MeshOpResult")
+  emscripten::enum_<MeshOpResult>("MeshOpResult")
       .value("OK", MeshOpResult::OK)
       .value("UNKNOWN_NAME", MeshOpResult::UNKNOWN_NAME)
       .value("CONNECTIVITY_OVERFLOW", MeshOpResult::CONNECTIVITY_OVERFLOW)
@@ -935,7 +933,7 @@ static void bind_mesh_ops() {
 
   // No public .constructor<>(): all construction goes through fromSolidName so
   // JS cannot wrap an empty mesh past the operator boundary's wrapper_live().
-  class_<MeshOpsWrapper>("MeshOps")
+  emscripten::class_<MeshOpsWrapper>("MeshOps")
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
       .class_function("getLastResult", &MeshOpsWrapper::getLastResult)
       .class_function("getLastAdjusted", &MeshOpsWrapper::getLastAdjusted)

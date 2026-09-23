@@ -24,8 +24,6 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/platform/platform.h"
 
-using namespace emscripten;
-
 inline constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
 inline constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
 // Bake targets for every PaletteOps instance and call, handed to JS as views
@@ -47,7 +45,9 @@ struct PaletteOps {
    *         canonicalRecipe, lut}. See compile() for the memory-view contract
    *         the lut view rides on.
    */
-  val compileAndBakeV4(const val &input) { return compile(input, false); }
+  emscripten::val compileAndBakeV4(const emscripten::val &input) {
+    return compile(input, false);
+  }
 
   /**
    * @brief Compiles a recipe and bakes per-sample diagnostics with its LUT.
@@ -56,18 +56,20 @@ struct PaletteOps {
    *         h_path, h_final}) and fallback (one gamut-mapping flag per sample),
    *         under the same memory-view contract.
    */
-  val inspectV4(const val &input) { return compile(input, true); }
+  emscripten::val inspectV4(const emscripten::val &input) {
+    return compile(input, true);
+  }
 
   /**
    * @brief Publishes every effect-owned palette recipe.
    * @return JS array of {name, randomHue, recipe}, each recipe in the schema
    *         compileAndBakeV4() and inspectV4() accept.
    */
-  val effectPresetsV4() {
-    val output = val::array();
+  emscripten::val effectPresetsV4() {
+    emscripten::val output = emscripten::val::array();
     int index = 0;
     for (const auto &preset : EffectPaletteRecipes::presets()) {
-      val entry = val::object();
+      emscripten::val entry = emscripten::val::object();
       entry.set("name", std::string(preset.name));
       entry.set("randomHue", preset.random_hue);
       entry.set("recipe", encode_recipe(preset.recipe));
@@ -90,8 +92,8 @@ private:
    *          type. NaN fails the test and is rejected.
    */
   template <typename Enum>
-  static bool decode_enum(const val &object, const char *name, Enum &output,
-                          PaletteRecipeField field,
+  static bool decode_enum(const emscripten::val &object, const char *name,
+                          Enum &output, PaletteRecipeField field,
                           PaletteCompileStatus &status) {
     using Underlying = std::underlying_type_t<Enum>;
     static_assert(std::is_unsigned<Underlying>::value,
@@ -101,7 +103,7 @@ private:
                   "double");
     constexpr double LAST =
         static_cast<double>(std::numeric_limits<Underlying>::max());
-    const val field_value = object[name];
+    const emscripten::val field_value = object[name];
     if (!field_value.isNumber()) {
       status.code = PaletteCompileCode::INVALID_SCHEMA;
       status.field = field;
@@ -127,7 +129,7 @@ private:
    *          names the field. A bare as<float>() instead throws a JS TypeError
    *          out through the binding under -sASSERTIONS=1.
    */
-  static float leaf_float(const val &value) {
+  static float leaf_float(const emscripten::val &value) {
     if (!value.isNumber())
       return std::numeric_limits<float>::quiet_NaN();
     return value.as<float>();
@@ -139,7 +141,7 @@ private:
    * @param name Field key.
    * @return The field as a float, or NaN when it is missing or not a number.
    */
-  static float leaf_float(const val &object, const char *name) {
+  static float leaf_float(const emscripten::val &object, const char *name) {
     return leaf_float(object[name]);
   }
 
@@ -149,7 +151,7 @@ private:
    *        which GenerativePalette::try_compile() rejects as NON_FINITE.
    * @param output Key array to fill.
    */
-  static void decode_key_values(const val &input,
+  static void decode_key_values(const emscripten::val &input,
                                 std::array<float, PALETTE_MAX_KEYS> &output) {
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
       output[i] = leaf_float(input[i]);
@@ -165,7 +167,8 @@ private:
    *          binding instead of returning a status; every other type yields
    *          undefined leaves, which GenerativePalette's own validation rejects.
    */
-  static bool block_present(const val &block, PaletteRecipeField field,
+  static bool block_present(const emscripten::val &block,
+                            PaletteRecipeField field,
                             PaletteCompileStatus &status) {
     if (!block.isUndefined() && !block.isNull())
       return true;
@@ -186,17 +189,17 @@ private:
    *          a missing or non-numeric one decodes to NaN and try_compile()'s
    *          finite validation names the field.
    */
-  static bool decode_recipe(const val &input, PaletteRecipe &recipe,
+  static bool decode_recipe(const emscripten::val &input, PaletteRecipe &recipe,
                             PaletteCompileStatus &status) {
     if (!block_present(input, PaletteRecipeField::NONE, status))
       return false;
-    const val schema_version = input["schemaVersion"];
+    const emscripten::val schema_version = input["schemaVersion"];
     recipe.schema_version =
         schema_version.isNumber() &&
                 schema_version.as<double>() == PaletteRecipe::SCHEMA_VERSION
             ? PaletteRecipe::SCHEMA_VERSION
             : 0;
-    const val recipe_input = input["input"];
+    const emscripten::val recipe_input = input["input"];
     if (!block_present(recipe_input, PaletteRecipeField::INPUT_OFFSET, status))
       return false;
     recipe.input.offset = leaf_float(recipe_input, "offset");
@@ -209,7 +212,7 @@ private:
                      PaletteRecipeField::COLOR_PATH, status))
       return false;
 
-    const val hue = input["hue"];
+    const emscripten::val hue = input["hue"];
     if (!block_present(hue, PaletteRecipeField::HUE_MODE, status))
       return false;
     if (!decode_enum(hue, "mode", recipe.hue.mode, PaletteRecipeField::HUE_MODE,
@@ -222,13 +225,13 @@ private:
     recipe.hue.base_turns = leaf_float(hue, "baseTurns");
     recipe.hue.spread_turns = leaf_float(hue, "spreadTurns");
     recipe.hue.sweep_turns = leaf_float(hue, "sweepTurns");
-    const val custom_turns = hue["customTurns"];
+    const emscripten::val custom_turns = hue["customTurns"];
     if (!block_present(custom_turns, PaletteRecipeField::CUSTOM_TURNS_0,
                        status))
       return false;
     decode_key_values(custom_turns, recipe.hue.custom_turns);
 
-    const val lightness = input["lightness"];
+    const emscripten::val lightness = input["lightness"];
     if (!block_present(lightness, PaletteRecipeField::LIGHTNESS_CURVE, status))
       return false;
     if (!decode_enum(lightness, "curve", recipe.lightness.curve,
@@ -236,13 +239,13 @@ private:
       return false;
     recipe.lightness.center = leaf_float(lightness, "center");
     recipe.lightness.range = leaf_float(lightness, "range");
-    const val lightness_custom = lightness["custom"];
+    const emscripten::val lightness_custom = lightness["custom"];
     if (!block_present(lightness_custom, PaletteRecipeField::LIGHTNESS_CUSTOM_0,
                        status))
       return false;
     decode_key_values(lightness_custom, recipe.lightness.custom);
 
-    const val chroma = input["chroma"];
+    const emscripten::val chroma = input["chroma"];
     if (!block_present(chroma, PaletteRecipeField::CHROMA_CURVE, status))
       return false;
     if (!decode_enum(chroma, "curve", recipe.chroma.curve,
@@ -253,7 +256,7 @@ private:
     recipe.chroma.center = leaf_float(chroma, "center");
     recipe.chroma.range = leaf_float(chroma, "range");
     recipe.chroma.headroom = leaf_float(chroma, "headroom");
-    const val chroma_custom = chroma["custom"];
+    const emscripten::val chroma_custom = chroma["custom"];
     if (!block_present(chroma_custom, PaletteRecipeField::CHROMA_CUSTOM_0,
                        status))
       return false;
@@ -269,9 +272,9 @@ private:
    * @param input Key array to encode.
    * @return JS array of PALETTE_MAX_KEYS numbers.
    */
-  static val
+  static emscripten::val
   encode_key_values(const std::array<float, PALETTE_MAX_KEYS> &input) {
-    val output = val::array();
+    emscripten::val output = emscripten::val::array();
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
       output.set(i, input[i]);
     return output;
@@ -282,12 +285,12 @@ private:
    * @param recipe Recipe to encode.
    * @return JS recipe object; enums cross as their integer values.
    */
-  static val encode_recipe(const PaletteRecipe &recipe) {
-    val recipe_input = val::object();
+  static emscripten::val encode_recipe(const PaletteRecipe &recipe) {
+    emscripten::val recipe_input = emscripten::val::object();
     recipe_input.set("offset", recipe.input.offset);
     recipe_input.set("span", recipe.input.span);
 
-    val hue = val::object();
+    emscripten::val hue = emscripten::val::object();
     hue.set("mode", static_cast<int>(recipe.hue.mode));
     hue.set("harmony", static_cast<int>(recipe.hue.harmony));
     hue.set("direction", static_cast<int>(recipe.hue.direction));
@@ -296,13 +299,13 @@ private:
     hue.set("sweepTurns", recipe.hue.sweep_turns);
     hue.set("customTurns", encode_key_values(recipe.hue.custom_turns));
 
-    val lightness = val::object();
+    emscripten::val lightness = emscripten::val::object();
     lightness.set("curve", static_cast<int>(recipe.lightness.curve));
     lightness.set("center", recipe.lightness.center);
     lightness.set("range", recipe.lightness.range);
     lightness.set("custom", encode_key_values(recipe.lightness.custom));
 
-    val chroma = val::object();
+    emscripten::val chroma = emscripten::val::object();
     chroma.set("curve", static_cast<int>(recipe.chroma.curve));
     chroma.set("basis", static_cast<int>(recipe.chroma.basis));
     chroma.set("center", recipe.chroma.center);
@@ -310,7 +313,7 @@ private:
     chroma.set("headroom", recipe.chroma.headroom);
     chroma.set("custom", encode_key_values(recipe.chroma.custom));
 
-    val output = val::object();
+    emscripten::val output = emscripten::val::object();
     output.set("schemaVersion", recipe.schema_version);
     output.set("input", recipe_input);
     output.set("domain", static_cast<int>(recipe.domain));
@@ -332,7 +335,7 @@ private:
    *         keyed by PaletteRecipeField. Exact only while every field bit fits
    *         the double mantissa, which the static_assert below holds.
    */
-  static val encode_status(const PaletteCompileStatus &status) {
+  static emscripten::val encode_status(const PaletteCompileStatus &status) {
     // A bitset wider than the mantissa would silently round on the JS boundary,
     // dropping adjustment reports rather than failing.
     static_assert(static_cast<int>(PaletteRecipeField::COUNT) <=
@@ -340,7 +343,7 @@ private:
                   "PaletteRecipeField has outgrown the double the adjustment "
                   "masks cross as; hand the masks to JS as BigInt or as a pair "
                   "of 32-bit halves");
-    val output = val::object();
+    emscripten::val output = emscripten::val::object();
     output.set("code", static_cast<int>(status.code));
     output.set("field", static_cast<int>(status.field));
     output.set("wrappedFields",
@@ -438,10 +441,10 @@ private:
    *          (buffer.byteLength === 0). A caller must therefore read or copy a
    *          view before its next call into the module.
    */
-  static val compile(const val &input, bool inspect) {
+  static emscripten::val compile(const emscripten::val &input, bool inspect) {
     PaletteRecipe recipe;
     PaletteCompileStatus status;
-    val output = val::object();
+    emscripten::val output = emscripten::val::object();
     if (!decode_recipe(input, recipe, status)) {
       output.set("status", encode_status(status));
       return output;
@@ -457,12 +460,14 @@ private:
     bake(palette, inspect);
     output.set("status", encode_status(status));
     output.set("canonicalRecipe", encode_recipe(canonical));
-    output.set("lut", val(typed_memory_view(PALETTE_LUT_BYTES, palette_lut)));
+    output.set("lut", emscripten::val(emscripten::typed_memory_view(
+                          PALETTE_LUT_BYTES, palette_lut)));
     if (inspect) {
-      output.set("diagnostics", val(typed_memory_view(PALETTE_DIAGNOSTIC_FLOATS,
-                                                      palette_diagnostics)));
-      output.set("fallback",
-                 val(typed_memory_view(size_t{256}, palette_fallback)));
+      output.set("diagnostics",
+                 emscripten::val(emscripten::typed_memory_view(
+                     PALETTE_DIAGNOSTIC_FLOATS, palette_diagnostics)));
+      output.set("fallback", emscripten::val(emscripten::typed_memory_view(
+                                 size_t{256}, palette_fallback)));
     }
     return output;
   }
@@ -474,7 +479,7 @@ private:
  *          parity tests call through a constructed PaletteOps.
  */
 static void bind_palette_ops() {
-  class_<PaletteOps>("PaletteOps")
+  emscripten::class_<PaletteOps>("PaletteOps")
       .constructor<>()
       .function("compileAndBakeV4", &PaletteOps::compileAndBakeV4)
       .function("inspectV4", &PaletteOps::inspectV4)
