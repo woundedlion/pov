@@ -1,14 +1,23 @@
 cmake_minimum_required(VERSION 3.29)
 
+execute_process(
+  COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/../tools/build_pins.py" clang
+  OUTPUT_VARIABLE _required_clang_major
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  COMMAND_ERROR_IS_FATAL ANY)
+if(NOT _required_clang_major MATCHES "^[0-9]+$")
+  message(FATAL_ERROR "Invalid Clang major from tools/build_pins.py")
+endif()
+
 string(REGEX MATCH "^[0-9]+" _compiler_major "${COMPILER_VERSION}")
-if(NOT COMPILER_ID STREQUAL "Clang" OR NOT _compiler_major EQUAL 22)
+if(NOT COMPILER_ID STREQUAL "Clang" OR NOT _compiler_major EQUAL _required_clang_major)
   if(REQUIRE_COMPILER_MATCH)
     message(FATAL_ERROR
-      "MindSplatter replay form pin requires Clang 22, got "
+      "MindSplatter replay form pin requires Clang ${_required_clang_major}, got "
       "${COMPILER_ID} ${COMPILER_VERSION}")
   endif()
   message(STATUS
-    "MindSplatter replay form pin requires Clang 22; skipping "
+    "MindSplatter replay form pin requires Clang ${_required_clang_major}; skipping "
     "${COMPILER_ID} ${COMPILER_VERSION}")
   cmake_language(EXIT ${SKIP_CODE})
 endif()
