@@ -318,6 +318,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume)
+│   │   ├── render_policy.h         Shape ratios and pole shading policy
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below

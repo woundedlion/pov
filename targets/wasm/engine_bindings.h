@@ -257,9 +257,9 @@ public:
              "HolosphereEngine is a singleton: delete() the live instance "
              "before constructing another (its Effect and arenas are shared "
              "module-global storage)");
-    // The scan reads pole_lod_aggressiveness as a module global; claim it for
+    // The scan reads Render::pole_lod_aggressiveness as a module global; claim it for
     // this instance so a fresh engine never inherits a predecessor's setting.
-    pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+    Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
     stack_paint_canary();
 
     // SSOT guard: the self-registering effect count must match the static roster
@@ -815,7 +815,7 @@ public:
    *          re-send it to every worker (README §10.7).
    */
   void setPoleLod(float aggressiveness) {
-    pole_lod_aggressiveness =
+    Render::pole_lod_aggressiveness =
         hs_wasm::clamp_pole_lod_aggressiveness(aggressiveness);
   }
 
@@ -824,7 +824,7 @@ public:
    * @return The clamped value of the last setPoleLod() on this engine, else
    *         HS_POLE_LOD_DEFAULT.
    */
-  float getPoleLod() const { return pole_lod_aggressiveness; }
+  float getPoleLod() const { return Render::pole_lod_aggressiveness; }
 
   /**
    * @brief Builds the GUI's parameter descriptor list.
