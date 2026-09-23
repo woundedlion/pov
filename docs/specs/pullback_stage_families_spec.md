@@ -582,8 +582,8 @@ the pipeline exposes trait folds over its flattened leaf list —
 `any_stage<Predicate>`, `stage_matching<Predicate>` — with predicates
 matching over `Policies`; `Placed` is invisible to them by the
 transparency rule above. That is the mechanism by which ShaderWorkbench's
-`ExtraValidation` ("`EDGE_DISTANCE_UNCONDITIONAL` on the projection
-requires an edge-fade coverage") is re-expressed once positional slot
+`ExtraValidation` ("edge-fade coverage requires
+`EDGE_DISTANCE_AVAILABLE` on the projection") is re-expressed once positional slot
 typedefs are gone.
 
 ## 5. Validation
