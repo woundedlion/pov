@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file pov_sync.h
  * @brief Pure, host-testable core of the Phantasm synchronization design
  *        (docs/specs/phantasm_frame_sync_spec.md): one local flywheel timebase per

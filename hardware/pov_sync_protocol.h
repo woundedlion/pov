@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file pov_sync_protocol.h
  * @brief Shared vocabulary of the Phantasm sync protocol: signed-correct
  *        ring arithmetic, the Config constant block, the count-coded symbol

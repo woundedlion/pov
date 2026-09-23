@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file pov_sync_content.h
  * @brief Layer 3 of the Phantasm sync design (spec §6): the index-beacon
  *        codec and the per-board content tracker that the epoch and beacon

@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file bench_pattern.h
  * @brief Stationary bench test pattern: one colour across the whole canvas,
  *        cycling through the primaries and white.
