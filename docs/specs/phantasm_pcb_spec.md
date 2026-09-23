@@ -102,6 +102,11 @@ clean to **≥30 MHz** so headroom exists.
 
 - **R-PWR-1** Logic power enters on a **small** TH connector (J1), `+5 V`/`GND`, carrying **~0.5 A** through a connector rated for **~1 A**
   (card draws ~0.15 A). This is the **light logic feed**, separate from the LED-power harness (§2.3).
+  **J1 must remain at or above 4.75 V at the board terminals under the hot operating
+  load**, including harness and connector drop. Verify this at the rotor, not only
+  at the supply. The documented 0.15 A series-drop budget leaves about 90 mV above
+  U1's 4.5 V minimum; a higher load or post-trip fuse resistance requires a new
+  measured rail budget before operation.
 - **R-PWR-2** Card copper carries only ~0.15 A → **1 oz is sufficient**, no heavy pours. Strip 5 V/GND
   sizing lives off-board with the power harness (§2.3, R-PWR-10).
 - **R-PWR-3 — Bulk moves off-board.** The **1000 µF strip bulk is at the off-board injection point**
