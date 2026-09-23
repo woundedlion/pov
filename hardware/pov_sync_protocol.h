@@ -124,9 +124,14 @@ struct Config {
   // Content layer (spec §6).
   uint32_t revs_per_effect =
       960; /**< Effect duration in revolutions (120 s). */
-  /** Optional per-roster-entry effect durations, in revolutions. */
+  /** Borrowed per-roster-entry durations in revolutions; storage must outlive
+      every Config copy and the running synchronization driver. */
   const uint32_t *effect_revolutions = nullptr;
   size_t effect_revolutions_count = 0;
+  /** @brief Borrows an effect-duration table without copying its entries.
+   * @param durations Table that remains alive and unchanged while any driver
+   *        uses this Config or a copy, including from its ISR.
+   */
   template <size_t N>
   constexpr void set_effect_revolutions(const uint32_t (&durations)[N]) {
     effect_revolutions = durations;
