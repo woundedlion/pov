@@ -82,6 +82,7 @@ class ShellGateTests(unittest.TestCase):
         self.git("add", "--", "source.js")
         self.stub("npx", "echo '[]'")
         self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
+
         self.stub("npx", "echo '[{\"filePath\":\"source.js\"}]'; exit 1")
         selected = self.gate("eslint_selection_guard.sh")
         self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
@@ -91,6 +92,13 @@ class ShellGateTests(unittest.TestCase):
         (self.root / "omitted.js").touch()
         self.git("add", "--", "omitted.js")
         self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
+
+    def test_eslint_selection_reports_a_failed_lint_run(self):
+        for payload in ("", "not-json", "{}"):
+            self.stub("npx", f"echo '{payload}'; exit 2")
+            result = self.gate("eslint_selection_guard.sh")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("the lint run itself failed", result.stderr)
 
     def test_shellcheck_refuses_empty_selection_and_propagates_lint_failure(self):
         empty = self.gate("shellcheck_gate.sh")
