@@ -6244,6 +6244,8 @@ inline int run_effects_tests() {
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
     test_islamicstars_dual_bridge_fits_budget();
+  } else {
+    std::printf("  [TIER] full effects cases omitted; set HS_EFFECTS_FULL=1\n");
   }
 
   return fixture.result();
