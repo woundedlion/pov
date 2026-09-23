@@ -93,6 +93,20 @@ static_assert(sizeof(MeridianProjectChainParams) ==
               "appended parameters must not reuse base tail padding");
 static_assert(field_defaults_in_range<MeridianProjectChainParams>());
 
+/** @brief Projection parameters without a singularity-fade control. */
+struct RegularProjectChainParams : MeridianProjectChainParams {
+  static constexpr auto FIELDS = [] {
+    std::array<Field<MeridianProjectChainParams>,
+               MeridianProjectChainParams::FIELDS.size() - 1>
+        out{};
+    size_t index = 0;
+    for (const auto &field : MeridianProjectChainParams::FIELDS)
+      if (std::string_view(field.id) != "singularity-fade")
+        out[index++] = field;
+    return out;
+  }();
+};
+
 /** @brief Shared shape of the projection operators: the walk state, the
     frame-composed conjugate, and the per-family projection call. */
 template <typename Derived, typename ParamsT>
@@ -140,7 +154,7 @@ struct ProjectStereographic
 
 /** @brief SPHERE→PLANE crossing: the folded sinusoidal projection. */
 struct ProjectFoldedSinusoidal
-    : ProjectOpModel<ProjectFoldedSinusoidal, MeridianProjectChainParams> {
+    : ProjectOpModel<ProjectFoldedSinusoidal, RegularProjectChainParams> {
   static constexpr const char *ID = "project.folded-sinusoidal.v2";
   static constexpr const char *NAME = "Folded Sinusoidal";
 
@@ -254,7 +268,7 @@ inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
 inline constexpr float BONNE_STANDARD_PARALLEL = math::PI_F * 0.25f;
 
 /** @brief Parameter family of project.bonne.v2. */
-struct BonneChainParams : MeridianProjectChainParams {
+struct BonneChainParams : RegularProjectChainParams {
   uint8_t hemisphere = 0; /**< 0 north, 1 south. */
 
   static constexpr auto TOPOLOGY = projection_frame_topology<BonneChainParams>(
@@ -288,7 +302,7 @@ struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
 /** @brief SPHERE→PLANE crossing: the airocean projection on the vertical
     layout. */
 struct ProjectAirocean
-    : ProjectOpModel<ProjectAirocean, MeridianProjectChainParams> {
+    : ProjectOpModel<ProjectAirocean, RegularProjectChainParams> {
   static constexpr const char *ID = "project.airocean.v2";
   static constexpr const char *NAME = "Airocean";
 
