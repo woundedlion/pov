@@ -152,6 +152,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   bool restored_published = false;
   bool committed = false;
   bool failsafe = false;
+  hs::EffectTransitionStatus failsafe_reason = hs::EffectTransitionStatus::OK;
   int preflights = 0;
   int restores = 0;
   int discards = 0;
@@ -199,7 +200,8 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
     return restore_prepare_status;
   }
   void publish_restore_frame() override { restored_published = true; }
-  void enter_clear_failsafe(hs::EffectTransitionStatus) override {
+  void enter_clear_failsafe(hs::EffectTransitionStatus reason) override {
+    failsafe_reason = reason;
     failsafe = true;
   }
 };
@@ -497,6 +499,7 @@ inline void test_effect_transition_refusal_branches() {
   HS_EXPECT_EQ(adapter.restores, 2);
   HS_EXPECT_FALSE(adapter.restored_published);
   HS_EXPECT_TRUE(adapter.failsafe);
+  HS_EXPECT_EQ(adapter.failsafe_reason, controller.failure());
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
   HS_EXPECT_EQ(controller.failure(),
@@ -515,6 +518,7 @@ inline void test_effect_transition_refusal_branches() {
   HS_EXPECT_EQ(frame.restores, 1);
   HS_EXPECT_FALSE(frame.restored_published);
   HS_EXPECT_TRUE(frame.failsafe);
+  HS_EXPECT_EQ(frame.failsafe_reason, second.failure());
   HS_EXPECT_EQ(second.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
   HS_EXPECT_EQ(second.failure(),
@@ -1136,7 +1140,8 @@ inline void test_register_float_and_bool_params() {
   const auto *fl = params.find("Flag");
   HS_EXPECT_TRUE(fl != nullptr);
   HS_EXPECT_TRUE(fl->is_bool());
-  HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f); // captured *ptr (true) → reads as 1.0
+  HS_EXPECT_NEAR(fl->get(), 1.0f,
+                 1e-6f);   // captured *ptr (true) → reads as 1.0
   HS_EXPECT_TRUE(fx.flag); // register_param(bool) leaves *ptr as-is
 
   HS_EXPECT_TRUE(params.find("Missing") == nullptr);
