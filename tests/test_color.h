@@ -1916,6 +1916,7 @@ inline void test_palette_modifiers() {
 
   // Pinch with a negative coordinate re-anchors to t's own integer cell.
   float tension_p = 0.5f;
+  HS_EXPECT_NEAR(PinchModifier(&tension_p).modify(-1e-8f), -1e-8f, 1e-7f);
   float pinched_neg = PinchModifier(&tension_p).modify(-0.75f);
   HS_EXPECT_GE(pinched_neg, -1.0f);
   HS_EXPECT_LE(pinched_neg, 0.0f);
