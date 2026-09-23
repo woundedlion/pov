@@ -131,18 +131,12 @@ static_assert(
       from.slots.surface_noise = SurfaceNoise::DIRECT;
       from.slots.hue_shift = HueShiftMode::NOISE;
       from.params.color.hue_shift_amount = 1.0f;
-      Config to = from;
-      to.slots.warp_program.outer.seed += 1;
-      to.slots.warp_program.inner.seed += 1;
-      to.params.source.noise_seed += 1;
-      to.params.surface_noise.seed += 1;
       std::array<NoiseFieldKey, MAX_NOISE_RESOURCES> keys{};
       size_t count = 0;
       return append_config_resource_keys(from, keys, count) &&
-             append_config_resource_keys(to, keys, count) &&
              count == MAX_NOISE_RESOURCES;
     }(),
-    "MAX_NOISE_RESOURCES holds exactly the union of two configs' noise keys");
+    "MAX_NOISE_RESOURCES holds every noise key in one parameter topology");
 
 } // namespace Workbench
 
