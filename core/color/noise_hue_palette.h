@@ -134,6 +134,8 @@ struct HueNoiseBakeCache {
   HS_FLASH_INLINE bool refresh(std::span<int8_t, HueNoiseLutView::SIZE> output,
                                const FastNoiseLite &noise, float bake_scale,
                                float bake_phase) {
+    HS_CHECK(std::isfinite(bake_scale) && bake_scale > 0.0f,
+             "HueNoiseBakeCache: scale must be finite and positive");
     if (scale == bake_scale && phase == bake_phase)
       return false;
     prepare_hue_noise_lut(output, noise, bake_scale, bake_phase);
