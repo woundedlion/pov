@@ -601,6 +601,8 @@ private:
     };
 
     auto fragment_shader = [&](const math::Vector &, Fragment &f) {
+      assert(trail_palette != nullptr &&
+             "particle palette must precede shading");
       const float alpha = std::max(0.0f, std::min(f.v0, f.v3));
       const float palette_t = 1.0f - f.v0;
       if (f.v0 <= 0.0f || f.v0 >= 1.0f)
