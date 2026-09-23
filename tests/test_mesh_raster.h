@@ -229,6 +229,8 @@ inline void test_wireframe_reuses_geodesic_cull_span() {
   const Frame rebuilt = render(true);
   const Frame reused = render(false);
   Plot::g_rebuild_mesh_cull_span = false;
+  HS_EXPECT_TRUE(std::any_of(rebuilt.pixels.begin(), rebuilt.pixels.end(),
+                             [](const Pixel &p) { return !is_black(p); }));
   HS_EXPECT_EQ(rebuilt.pixels.size(), reused.pixels.size());
   for (size_t i = 0; i < rebuilt.pixels.size(); ++i)
     HS_EXPECT_EQ(rebuilt.pixels[i], reused.pixels[i]);
@@ -405,6 +407,7 @@ inline void test_face_shader_setup_matches_face_index() {
                                        select_face);
   }
   selected.advance_display();
+  HS_EXPECT_GT((count_lit_region<W, H>(selected)), size_t(0));
 
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
