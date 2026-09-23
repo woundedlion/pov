@@ -115,16 +115,16 @@ inline float ease_out_cubic(float t) {
 
 /**
  * @brief Easing function: Elastic easing out.
- * @param x The time factor (0.0 to 1.0).
+ * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_out_elastic(float x) {
+inline float ease_out_elastic(float t) {
   const float c4 = (2 * math::PI_F) / 3;
-  // Endpoint guards: pin exactly 0/1 and floor at 0 (2^(-10x) explodes for x < 0).
-  return x <= 0.0f ? 0.0f
-         : x == 1.0f
+  // Endpoint guards: pin exactly 0/1 and floor at 0 (2^(-10t) explodes for t < 0).
+  return t <= 0.0f ? 0.0f
+         : t == 1.0f
              ? 1.0f
-             : exp2f(-10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
+             : exp2f(-10.0f * t) * sinf((t * 10.0f - 0.75f) * c4) + 1.0f;
 }
 
 } // namespace math
