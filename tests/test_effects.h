@@ -3639,7 +3639,6 @@ struct DynamoWhiteBox {
     // path the safety claim rests on.
     effect.palette_boundaries[0] = 1.5f; // newer, overtaken ahead of the older
     effect.palette_boundaries[1] = 0.5f; // older, left behind
-    HS_EXPECT_GT(effect.palette_boundaries[0], effect.palette_boundaries[1]);
 
     // PALETTE_NORMAL is Z_AXIS, so v = (sin theta, 0, cos theta) sweeps
     // angle_between(v, normal) across the full [0, PI] band span.
