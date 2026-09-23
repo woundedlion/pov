@@ -176,6 +176,20 @@ inline void test_stored_functionref_rvalue_rejection() {
   static_assert(std::is_constructible_v<FunctionRef<int(int)>, DualCall &&>,
                 "FunctionRef must accept an rvalue (call-scoped borrow)");
 
+  static_assert(
+      std::is_constructible_v<StoredFunctionRef<int(int)>, int (*)(int)>);
+  static_assert(
+      std::is_constructible_v<StoredFunctionRef<int(int)>, std::nullptr_t>);
+  StoredFunctionRef<int(int)> pointer = +[](int value) { return value + 2; };
+  HS_EXPECT_EQ(pointer(3), 5);
+  StoredFunctionRef<int(int)> nonthrowing =
+      +[](int value) noexcept { return value + 3; };
+  HS_EXPECT_EQ(nonthrowing(3), 6);
+  static_assert(!std::is_constructible_v<StoredFunctionRef<int(int)>,
+                                         decltype([](int x) { return x; })>);
+  StoredFunctionRef<int(int)> empty = nullptr;
+  HS_EXPECT_FALSE(static_cast<bool>(empty));
+
   DualCall f;
   StoredFunctionRef<int(int)> s = f;
   HS_EXPECT_EQ(s(0), 1);
