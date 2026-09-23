@@ -1204,7 +1204,7 @@ The view aliases WASM linear memory and is **not** bound once. Two independent
 events invalidate it, and a cached view must be tested for both:
 
 - **Heap growth** — with `ALLOW_MEMORY_GROWTH` (e.g. the lazy 16 MB MeshOps
-  allocation) any later growth detaches the `ArrayBuffer` and leaves the cached
+  allocation or the first factory-table lookup at a resolution) any later growth detaches the `ArrayBuffer` and leaves the cached
   view zero-length (`wasmPixels.buffer.byteLength === 0`).
 - **A resolution change** — the backing buffer is pre-sized to `MAX_W × MAX_H`
   and never reallocated (§10.10), so `setResolution` detaches nothing. It moves

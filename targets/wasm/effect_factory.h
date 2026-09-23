@@ -28,6 +28,8 @@ namespace hs_wasm {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @return Reference to the lazily-built, static per-(W,H) factory table.
+ * @details The first call per resolution allocates and may grow WASM memory,
+ * invalidating outstanding JavaScript typed-memory views.
  */
 template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
   static std::vector<FactoryEntry> table = []() {
