@@ -25,6 +25,9 @@
 #ifndef HS_PROFILE_WINDOW
 #define HS_PROFILE_WINDOW 128
 #endif
+#if HS_PROFILE_WINDOW < 1
+#error "HS_PROFILE_WINDOW must be at least 1"
+#endif
 
 #ifndef HS_PROFILE_ENABLE
 #error "Profile builds require HS_PROFILE_ENABLE (use the `profile` env)"
