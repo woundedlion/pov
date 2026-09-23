@@ -61,7 +61,7 @@ static void bind_math_exports() {
                          return static_cast<int>(srgb_to_linear_interp(s));
                        }));
 
-  // OKLab matrices (color.js linearRgbToOklab / oklabToLinearRgb).
+  // OKLab matrix oracle used by daydream/tests/color_parity_wasm.test.js.
   emscripten::function("linear_rgb_to_oklab",
                        emscripten::optional_override(
                            [](float r, float g, float b) -> emscripten::val {
