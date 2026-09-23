@@ -129,7 +129,7 @@ static_assert(sizeof(RingsSampleParams) == ((sizeof(SampleCrossingParams) + 8 +
                                              alignof(RingsSampleParams) - 1) /
                                             alignof(RingsSampleParams)) *
                                                alignof(RingsSampleParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<RingsSampleParams>());
 
 /** @brief PLANE→FIELD crossing: the expanding concentric ring source. */

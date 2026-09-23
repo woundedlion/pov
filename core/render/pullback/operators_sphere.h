@@ -48,7 +48,7 @@ static_assert(sizeof(CurlDisplaceParams) ==
                     alignof(CurlDisplaceParams) - 1) /
                    alignof(CurlDisplaceParams)) *
                       alignof(CurlDisplaceParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<CurlDisplaceParams>());
 
 /** @brief The displacement operators' prepared block: the owned noise field
@@ -106,7 +106,7 @@ static_assert(sizeof(DirectDisplaceParams) ==
                     alignof(DirectDisplaceParams) - 1) /
                    alignof(DirectDisplaceParams)) *
                       alignof(DirectDisplaceParams),
-              "appended parameters must not reuse base tail padding");
+              "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<DirectDisplaceParams>());
 
 /** @brief The direct displacement's prepared block: noise field, loop point
