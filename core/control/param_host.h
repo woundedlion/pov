@@ -291,7 +291,6 @@ protected:
     // registration's slot is unreachable by name.
     HS_CHECK(parameters.find(name) == nullptr,
              "register_param: duplicate parameter name");
-    // An inverted range feeds hs::clamp() lo > hi (implementation-defined).
     HS_CHECK(min <= max, "register_param: min must be <= max");
     // A starting *ptr outside [min,max] would snap on the first GUI edit (every
     // updateParameter clamps).

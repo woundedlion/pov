@@ -543,13 +543,14 @@ inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
 /**
  * @brief Clamps an integer to [lo, hi].
  * @param v Value to clamp.
- * @param lo Lower bound; must not be NaN.
- * @param hi Upper bound; must not be NaN.
+ * @param lo Lower bound.
+ * @param hi Upper bound.
  * @return v clamped to [lo, hi].
  */
 inline constexpr __attribute__((always_inline)) int clamp(int v, int lo,
                                                           int hi) {
-  return (v < lo) ? lo : ((v > hi) ? hi : v);
+  const int upper = v > hi ? hi : v;
+  return upper < lo ? lo : upper;
 }
 
 /**
