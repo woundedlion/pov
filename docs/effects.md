@@ -149,7 +149,7 @@ A latitude-longitude grid that undergoes live Möbius transformation animation v
 
 ### Voronoi
 
-Spherical Voronoi diagram with animated seed positions. Cells are always filled with per-site palette colors (blended across the seam between the nearest two sites); an optional black border seam is painted between neighboring cells when **Border Thick** > 0 (off by default).
+Spherical Voronoi diagram with animated seed positions. Cells are always filled with per-site palette colors (blended across the seam between the nearest two sites when **Sharpness** > 0); an optional black border seam is painted between neighboring cells when **Border Thick** > 0 (off by default).
 
 **Parameters**: Num Sites, Speed, Sharpness, Border Thick
 
