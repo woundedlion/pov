@@ -252,6 +252,14 @@ HS_COLD static inline void require_flat_face_length(const uint8_t *counts,
 }
 
 class HalfEdgeMesh;
+namespace MeshLimits {
+inline constexpr size_t MAX_VERTEX_INDEX = INT16_MAX;
+inline constexpr size_t MAX_VERTICES = MAX_VERTEX_INDEX + 1;
+inline constexpr size_t MAX_HALF_EDGES = UINT16_MAX;
+inline constexpr size_t MAX_FACES = UINT16_MAX;
+inline constexpr int MAX_FACE_DEGREE = UINT8_MAX;
+} // namespace MeshLimits
+
 /**
  * @brief Fills a HalfEdgeMesh's connectivity arrays from a flat (vertex count,
  * per-face side counts, flat face-index list) representation.
@@ -267,14 +275,6 @@ class HalfEdgeMesh;
  * flat face lengths, a 16-bit index overflow, a zero-side face or a pair of
  * faces wound the same way around a shared edge.
  */
-namespace MeshLimits {
-inline constexpr size_t MAX_VERTEX_INDEX = INT16_MAX;
-inline constexpr size_t MAX_VERTICES = MAX_VERTEX_INDEX + 1;
-inline constexpr size_t MAX_HALF_EDGES = UINT16_MAX;
-inline constexpr size_t MAX_FACES = UINT16_MAX;
-inline constexpr int MAX_FACE_DEGREE = UINT8_MAX;
-} // namespace MeshLimits
-
 [[maybe_unused]] HS_COLD static void
 build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
                      const uint8_t *counts, size_t num_faces,
