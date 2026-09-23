@@ -366,7 +366,7 @@ inline void test_config_validation() {
   vr.effect_revolutions = variable_revolutions;
   vr.effect_revolutions_count = 0;
   HS_EXPECT_TRUE(vr.valid() != nullptr);
-  vr.effect_revolutions_count = std::size(variable_revolutions);
+  vr.set_effect_revolutions(variable_revolutions);
   HS_EXPECT_TRUE(vr.valid() == nullptr);
   variable_revolutions[2] = vr.refractory_revs;
   HS_EXPECT_TRUE(vr.valid() != nullptr);
@@ -2320,8 +2320,7 @@ inline void test_sim_epoch_commit() {
 inline void test_sim_variable_effect_durations() {
   uint32_t effect_revolutions[4] = {24, 52, 32, 64};
   Config cfg = test_config();
-  cfg.effect_revolutions = effect_revolutions;
-  cfg.effect_revolutions_count = std::size(effect_revolutions);
+  cfg.set_effect_revolutions(effect_revolutions);
   const int32_t ppm[4] = {0, 30, -25, 10};
   Sim sim(cfg, 4, ppm);
 
