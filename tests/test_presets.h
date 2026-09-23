@@ -264,6 +264,16 @@ inline void test_preset_saturation_veto_restarts_dwell() {
   HS_EXPECT_TRUE(effect.blending());
 }
 
+inline void test_preset_crossfade_rejects_rearming() {
+  hs_test::reset_globals();
+  SaturatedPresetEffect effect;
+  effect.arm();
+  HS_EXPECT_TRUE(effect.attempt());
+  HS_EXPECT_FALSE(effect.attempt());
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_TRUE(effect.blending());
+}
+
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
@@ -272,6 +282,7 @@ inline int run_presets_tests() {
   test_preset_zero_supplies_startup_params();
   test_hold_initial_preset_overrides_first_dwell();
   test_preset_saturation_veto_restarts_dwell();
+  test_preset_crossfade_rejects_rearming();
 
   return fixture.result();
 }
