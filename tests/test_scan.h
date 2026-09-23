@@ -2441,7 +2441,7 @@ template <typename Shape> struct CountedVolume {
   }
 };
 
-/** @brief Compares scalar ray state with the vector-accumulating oracle. */
+/** @brief Compares scalar ray state with the vector-accumulating baseline. */
 inline void test_volume_scalar_state_differential() {
   float max_distance = 0.0f, max_position = 0.0f, max_coverage = 0.0f;
   float max_probe_position = 0.0f, max_probe_coverage = 0.0f;
@@ -2452,8 +2452,8 @@ inline void test_volume_scalar_state_differential() {
                      float aa) {
     CountedVolume counted{shape};
     math::Vector old_p, new_p;
-    float old_d = VolumeReference::trace_closest(counted, ro, vd, radius, steps,
-                                                 aa, old_p);
+    float old_d = VolumeScalarRegression::trace_closest(counted, ro, vd, radius,
+                                                        steps, aa, old_p);
     limited += counted.samples == steps;
     float new_d =
         Scan::Volume::trace_closest(shape, ro, vd, radius, steps, aa, new_p);
@@ -2466,8 +2466,8 @@ inline void test_volume_scalar_state_differential() {
     max_coverage = std::max(max_coverage, fabsf(old_alpha - new_alpha));
     if (old_d > aa * 0.1f && old_d < aa && new_d > aa * 0.1f && new_d < aa) {
       ++halos;
-      auto old_occ = VolumeReference::probe_occluder(shape, old_p, vd, radius,
-                                                     aa * 0.1f, aa);
+      auto old_occ = VolumeScalarRegression::probe_occluder(
+          shape, old_p, vd, radius, aa * 0.1f, aa);
       auto new_occ = Scan::Volume::probe_occluder(shape, new_p, vd, radius,
                                                   aa * 0.1f, aa, new_d);
       solid_changes += old_occ.solid != new_occ.solid;
@@ -2527,6 +2527,45 @@ inline void test_volume_scalar_state_differential() {
   HS_EXPECT_EQ(solid_changes, 0);
 }
 
+/** @brief Checks silhouettes and occlusion against a dense fixed-step march. */
+inline void test_volume_dense_reference() {
+  const math::Vector DIRECTION(0, 0, -1);
+  const float AA = 0.01f;
+  const float THRESHOLD = AA * 0.1f;
+  auto compare = [&](const auto &shape, const math::Vector &origin,
+                     float radius) {
+    auto expected =
+        VolumeReference::trace(shape, origin, DIRECTION, radius, AA);
+    math::Vector actual;
+    float distance = Scan::Volume::trace_closest(shape, origin, DIRECTION,
+                                                 radius, 128, AA, actual);
+    HS_EXPECT_NEAR(VolumeReference::coverage(expected.distance, THRESHOLD, AA),
+                   Scan::volume_edge_coverage(distance, THRESHOLD, AA), 0.015f);
+    if (expected.distance > THRESHOLD && expected.distance < AA) {
+      HS_EXPECT_NEAR(distance, expected.distance, 0.0003f);
+      auto background =
+          VolumeReference::behind(shape, expected.position, DIRECTION, radius);
+      auto occluder = Scan::Volume::probe_occluder(shape, expected.position,
+                                                   DIRECTION, radius, THRESHOLD,
+                                                   AA, expected.distance);
+      HS_EXPECT_EQ(occluder.solid, background.distance < THRESHOLD);
+      if (!occluder.solid)
+        HS_EXPECT_NEAR(
+            occluder.soft,
+            VolumeReference::coverage(background.distance, THRESHOLD, AA),
+            0.03f);
+    }
+  };
+  for (int i = -8; i <= 20; ++i) {
+    float offset = i * 0.0005f;
+    compare(SphereSDF{0.3f}, math::Vector(0.3f + offset, 0, 0.7f), 0.7f);
+    compare(SDF::Torus{0.3f, 0.1f}, math::Vector(0.4f + offset, 0, 0.7f), 0.7f);
+    TwoSphereSDF pair{math::Vector(0, 0, 0.2f), 0.18f,
+                      math::Vector(0.28f, 0, -0.2f), 0.3f};
+    compare(pair, math::Vector(0.0357f + offset, 0.1797f, 1), 0.6f);
+  }
+}
+
 /** @brief Pins closest-sample ownership at a nearly tied silhouette minimum. */
 inline void test_volume_trace_nearly_tied_minimum() {
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
@@ -2537,8 +2576,8 @@ inline void test_volume_trace_nearly_tied_minimum() {
   const math::Vector ORIGIN(-0x1.c9d22p-2f, -0x1.5bf194p-3f, 0x1.2c3592p-3f);
   const math::Vector DIRECTION(0x1.acc1c2p-2f, 0x1.af3f2ep-1f, -0x1.5ba266p-2f);
   math::Vector expected, actual;
-  float expected_d = VolumeReference::trace_closest(torus, ORIGIN, DIRECTION,
-                                                    RADIUS, 17, AA, expected);
+  float expected_d = VolumeScalarRegression::trace_closest(
+      torus, ORIGIN, DIRECTION, RADIUS, 17, AA, expected);
   float actual_d = Scan::Volume::trace_closest(torus, ORIGIN, DIRECTION, RADIUS,
                                                17, AA, actual);
 #if defined(HS_TEST_FAST_MATH)
@@ -3192,6 +3231,7 @@ inline int run_scan_tests() {
   test_volume_raymarch_silhouette_and_registers();
   test_volume_draw_occluded_edge_blends_over_background();
   test_volume_scalar_state_differential();
+  test_volume_dense_reference();
   test_volume_trace_nearly_tied_minimum();
   test_volume_trace_closest_stops_at_first_graze();
   test_volume_probe_occluder_reports_background_graze_point();
