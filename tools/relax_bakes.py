@@ -165,7 +165,7 @@ def emit_header(bakes: list[dict]) -> str:
         "#include <cstdint>",
         "#include <bit>",
         "#include <iterator>",
-        '#include "mesh/conway.h"',
+        '#include "mesh/relax_bake.h"',
         "",
         "// clang-format off",
         "namespace Solids {",
