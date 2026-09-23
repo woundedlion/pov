@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @file styles.h
+ * @file feedback_style.h
  * @brief Feedback::Style: presets bundling the feedback filter's spatial and
  *        color transforms with their scalar parameters.
  */

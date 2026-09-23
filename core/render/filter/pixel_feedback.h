@@ -7,7 +7,7 @@
 #include <bitset>
 #include "math/spherical_field.h"
 #include "engine/memory.h"
-#include "engine/styles.h"
+#include "render/filter/feedback_style.h"
 #include "render/filter/pipeline.h"
 
 /**

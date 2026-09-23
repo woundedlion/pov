@@ -5025,11 +5025,11 @@ inline const Case *all_cases(int &n) {
        "(equator_samples >= 0) SphericalFieldLayout: equator_samples -1 must "
        "be >= 0"},
       {"feedback_negative_fade", case_feedback_negative_fade,
-       "core/engine/styles.h",
+       "core/render/filter/feedback_style.h",
        "(fade >= 0.0f && fade <= 1.0f) Feedback::Style::fade must be in "
        "[0, 1]"},
       {"feedback_infinite_fade", case_feedback_infinite_fade,
-       "core/engine/styles.h",
+       "core/render/filter/feedback_style.h",
        "(fade >= 0.0f && fade <= 1.0f) Feedback::Style::fade must be in "
        "[0, 1]"},
       {"gradient_no_stops", case_gradient_no_stops,
