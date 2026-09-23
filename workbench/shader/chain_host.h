@@ -65,7 +65,6 @@ public:
         Pullback::Interp::CHAIN_ARENA_BYTES, alignof(std::max_align_t)));
     program.bind_storage(block_a, block_b);
 
-    init_gamut_lut(persistent_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
     generated_palettes.init(persistent_arena, DEFAULT_CHROMA, ease_in_out_sin);
 
     static constexpr ChainEntryRequest DEFAULT_CHAIN[] = {
@@ -278,7 +277,6 @@ private:
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(Resources) +
       alignof(Resources) +
       2 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
-      gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS) +
       GeneratedPaletteBank::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= WASM_PERSISTENT_BUDGET,
                 "ShaderChain persistent footprint exceeds the browser "

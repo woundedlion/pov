@@ -275,7 +275,6 @@ public:
     add_walk(timeline, projection_walk, state->projection_walk_noise);
     add_walk(timeline, outer_walk, state->outer_walk_noise);
 
-    init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
     generated_palettes.init(persistent_arena, 0.62f, ease_in_out_sin);
     update_palette_chroma(
         preset_for_view(0).config.params.color.palette_chroma);
@@ -2865,7 +2864,6 @@ private:
 #endif
 
   static constexpr size_t FOOTPRINT_BYTES =
-      gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
       GeneratedPaletteBank::required_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(StateBundle) +
       alignof(StateBundle);
