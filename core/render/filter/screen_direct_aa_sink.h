@@ -77,7 +77,9 @@ public:
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
-    assert(prepared_for(cv));
+    HS_AUDIT_CHECK(
+        prepared_for(cv),
+        "DirectAntiAliasSink: prepare current canvas before plotting");
     (void)age;
     (void)cv;
 

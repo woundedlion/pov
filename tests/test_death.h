@@ -4316,6 +4316,13 @@ inline void case_timeline_add_into_live_slot() {
   timeline.add(0, Animation::Transition(value, 1.0f, 10, math::ease_linear));
 }
 
+inline void case_direct_sink_unprepared_plot() {
+  hs_test::StubEffect effect(16, 8);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  sink.plot(canvas, 2, 2, Pixel(65535, 0, 0), 0, 1);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4325,6 +4332,9 @@ inline void case_timeline_add_into_live_slot() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"direct_sink_unprepared_plot", case_direct_sink_unprepared_plot,
+       "core/render/filter/screen_direct_aa_sink.h",
+       "(prepared_for(cv)) DirectAntiAliasSink: prepare current canvas before plotting"},
       {"timeline_add_into_live_slot", case_timeline_add_into_live_slot,
        "core/animation/timeline.h",
        "(!e.manager) add_get would overwrite a live animation"},
