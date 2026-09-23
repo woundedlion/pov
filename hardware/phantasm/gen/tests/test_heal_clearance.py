@@ -10,7 +10,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import heal_clearance
-from constraints import UNPLACED_DEFAULT_CLASS, UNPLACED_RULES
+from constraints import NEW_LAYOUT_RULES, UNPLACED_DEFAULT_CLASS, UNPLACED_RULES
 
 
 class MainTests(unittest.TestCase):
@@ -111,7 +111,7 @@ class MainTests(unittest.TestCase):
 
             healed = json.loads(project.read_text(encoding="utf-8"))
             self.assertEqual(healed["board"]["design_settings"]["rules"],
-                             dict(UNPLACED_RULES))
+                             {**UNPLACED_RULES, **NEW_LAYOUT_RULES})
             default = healed["net_settings"]["classes"][0]
             for field, expected in UNPLACED_DEFAULT_CLASS.items():
                 self.assertEqual(default[field], expected)
