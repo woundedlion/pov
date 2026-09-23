@@ -10,6 +10,7 @@ import {
   compileShaderDocument,
   evaluateTransition,
   exportShaderDocumentJson,
+  fixedDerivedBinding,
   interpolateNormalizedGroup,
   interpolateValue,
   parseShaderDocument,
@@ -1110,4 +1111,35 @@ test('CLI reports usage and missing files with exit code 2', () => {
   const unknown = run('unknown', document);
   assert.equal(unknown.status, 2);
   assert.match(unknown.stderr, /Usage:/);
+});
+
+test('fixed affine period follows the lattice source with float32 rounding', () => {
+  const descriptor = { chain: [
+    { label: 'affine', operator: 'warp.affine.v2' },
+    { label: 'cells', operator: 'sample.lattice.v2' },
+  ] };
+  const values = { 'affine.lattice-period': 0.813504159450531,
+    'cells.lattice-cell-scale': 1.2292499542236328 };
+  assert.equal(fixedDerivedBinding(descriptor, 'affine.speed', values), null);
+  const binding = fixedDerivedBinding(descriptor, 'affine.lattice-period', values);
+  assert.equal(binding.sourceId, 'cells.lattice-cell-scale');
+  assert.equal(binding.valid, true);
+  for (const bad of [undefined, NaN, Infinity, 0, -1, 1]) {
+    assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', {
+      ...values, 'cells.lattice-cell-scale': bad,
+    }).valid, false);
+  }
+  assert.equal(fixedDerivedBinding(descriptor, 'affine.lattice-period', {
+    ...values, 'affine.lattice-period': 0.5,
+  }).valid, false);
+});
+
+test('a fixed affine warp without a lattice source has unit period', () => {
+  const descriptor = { chain: [{ label: 'frame', operator: 'warp.affine.v2' }] };
+  const parameter = 'frame.lattice-period';
+  assert.deepEqual(fixedDerivedBinding(descriptor, parameter, { [parameter]: 1 }),
+    { sourceId: null, valid: true, expected: 1 });
+  assert.equal(fixedDerivedBinding(descriptor, parameter, { [parameter]: 0.5 }).valid, false);
+  descriptor.chain[0].operator = 'warp.wave-shear.v2';
+  assert.equal(fixedDerivedBinding(descriptor, parameter, { [parameter]: 1 }), null);
 });

@@ -49,11 +49,26 @@ struct WarpPhaseState {
   float phase = 0.0f;
 };
 
-/** @brief Parameter family of warp.affine.v2.
-    @details Translation is in plane units per phase turn: the chain has no
-    lattice source coupling, so the composed path's cell scaling is fixed
-    at 1. */
-using AffineWarpParams = Warp::AffineParams;
+/** @brief Parameter family of warp.affine.v2; translations are lattice cells. */
+struct AffineWarpParams : Warp::AffineParams {
+  float lattice_period = 1.0f;
+  static constexpr auto FIELDS = [] {
+    std::array<Field<AffineWarpParams>, Warp::AffineParams::FIELDS.size() + 1>
+        out{};
+    size_t index = 0;
+    for (const auto &field : Warp::AffineParams::FIELDS)
+      out[index++] = {field.id,  field.member, field.name, field.min,
+                      field.max, field.curve,  field.gate, field.topology_gate};
+    out[index] = {"lattice-period",
+                  &AffineWarpParams::lattice_period,
+                  "Lattice Period",
+                  1.0f / 8.0f,
+                  64.0f,
+                  FieldCurve::LOG_POSITIVE};
+    return out;
+  }();
+};
+static_assert(field_defaults_in_range<AffineWarpParams>());
 
 /** @brief Phase clock plus the accumulated frame rotation of warp.affine.v2. */
 struct AffineClockState {
@@ -79,7 +94,8 @@ struct WarpAffine : ValueStateModel<AffineClockState> {
   }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    return Warp::prepare(params, state.phase, state.rotation, 1.0f);
+    return Warp::prepare(params, state.phase, state.rotation,
+                         params.lattice_period);
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &, const Prepared &prepared) {

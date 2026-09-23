@@ -33,7 +33,7 @@ const EXPECTED_OPERATOR_CATALOG = await loadOperatorCatalog();
  * carry. A document with no `effect_id` backs no effect — the CLI's sample —
  * and is skipped.
  *
- * @returns {Promise<{document: string, effect: string, parameterIds: string[]}[]>}
+ * @returns {Promise<{document: string, effect: string, parameterIds: string[], presets: object[]}[]>}
  */
 async function promotedDocuments() {
   const documents = [];
@@ -48,7 +48,9 @@ async function promotedDocuments() {
     const ids = new Set();
     for (const preset of compiled.document.preset_bank.presets)
       for (const id of Object.keys(preset.values)) ids.add(id);
-    documents.push({ document: `patterns/${name}`, effect, parameterIds: [...ids] });
+    documents.push({ document: `patterns/${name}`, effect, parameterIds: [...ids],
+      presets: compiled.document.preset_bank.presets,
+      descriptor: compiled.document.descriptor });
   }
   return documents;
 }
