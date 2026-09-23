@@ -57,8 +57,7 @@ public:
     // KD-tree (positions + nodes + build indices).
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
-    register_param("Num Sites", &params.num_sites, 1.0f,
-                   static_cast<float>(MAX_SITES));
+    register_int_param("Num Sites", &params.num_sites, 1, MAX_SITES);
     register_param("Speed", &params.speed, 0.0f, 100.0f);
     register_param("Sharpness", &params.sharpness, 0.0f, 500.0f);
     register_param("Border Thick", &params.border_thickness, 0.0f, 0.1f);
@@ -426,7 +425,7 @@ private:
    * @brief Live-tunable GUI parameters for the Voronoi effect.
    */
   struct Params {
-    float num_sites = 200.0f; /**< Live-tunable site count (GUI slider). */
+    int num_sites = 200;      /**< Live-tunable site count (GUI slider). */
     float speed = 20.0f;      /**< Site spin rate (GUI slider). */
     float sharpness = 100.0f; /**< Edge sharpening; larger narrows the border
                                   blend band, while 0 disables it entirely. */

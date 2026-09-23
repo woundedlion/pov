@@ -57,8 +57,7 @@ public:
 
     register_param("Speed", &params.speed, -10.0f, 10.0f);
     register_param("Gap", &params.gap, 1.0f, GAP_MAX);
-    register_param("Trail Len", &params.trail_length, 1.0f,
-                   static_cast<float>(TRAIL_LEN_MAX));
+    register_int_param("Trail Len", &params.trail_length, 1, TRAIL_LEN_MAX);
     register_readonly_param("Trail Cap", &params.trail_ceiling, 1.0f,
                             static_cast<float>(TRAIL_LEN_MAX));
     register_param("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
@@ -520,7 +519,7 @@ private:
   struct Params {
     float speed = 2.0f;          /**< Strand travel speed. */
     float gap = 5.0f;            /**< Target spacing between adjacent nodes. */
-    float trail_length = 8.0f;   /**< Active trail length. */
+    int trail_length = 8;        /**< Active trail length. */
     float wipe_duration = 20.0f; /**< Color-wipe transition duration. */
     /** Longest trail the ring can hold, in frames (engine-written). */
     float trail_ceiling = static_cast<float>(TRAIL_LEN_MAX);
