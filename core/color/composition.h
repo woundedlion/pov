@@ -323,9 +323,7 @@ struct PinchModifier {
 
     centered = sign * powf(std::abs(centered), power);
 
-    // Re-anchor to t's own integer cell: floorf(t) pairs with wrap_t(t), correct
-    // even for negative t.
-    return floorf(t) + ((centered + 1.0f) * 0.5f);
+    return (t - wrapped_t) + ((centered + 1.0f) * 0.5f);
   }
 };
 
