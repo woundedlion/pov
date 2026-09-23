@@ -321,7 +321,7 @@ def candidate_board(path):
 
 def default_candidates():
     """Return Quilter candidate folders using its supported separators."""
-    pattern = os.path.join(PROJ, "candidates", "Candidate[ _-]*")
+    pattern = os.path.join(PROJ, "candidates", "*Candidate[ _-]*")
     return sorted(path for path in glob.glob(pattern) if os.path.isdir(path))
 
 
