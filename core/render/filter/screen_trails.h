@@ -49,7 +49,7 @@ public:
       check_storage_alive();
       for (int i = 0; i < num_pixels; ++i)
         points[i].ttl =
-            __builtin_fminf(points[i].ttl, static_cast<float>(new_lifetime));
+            std::min(points[i].ttl, static_cast<float>(new_lifetime));
     }
     lifetime = new_lifetime;
   }
