@@ -743,7 +743,7 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
  * @param scratch Arena backing the intermediate mesh; nothing is retained
  *        after return.
  * @param temp Alternate scratch arena for odd pipeline stages.
- * @param name Registry name of the solid; traps if unknown.
+ * @param entry Resolved registry entry for the solid.
  * @param max_points Capacity of the output arrays; traps if exceeded.
  * @param points Out: vertex directions projected onto the unit sphere (Catalan
  *        vertices sit at multiple radii).
