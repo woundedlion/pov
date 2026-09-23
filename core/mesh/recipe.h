@@ -224,6 +224,10 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
                                 bool allow_composite) {
   HS_CHECK(!step.bake || step.op == Op::RELAX,
            "apply_step: only RELAX accepts a bake");
+  HS_CHECK(step.twist == 0.0f || step.op == Op::SNUB,
+           "apply_step: only SNUB accepts a twist");
+  HS_CHECK(!step.bake || step.param == 0.0f,
+           "apply_step: a baked RELAX step must not specify live iterations");
   switch (step.op) {
   case Op::TRUNCATE:
     HS_CHECK(step.param > 0.0f, "apply_step: TRUNCATE step has no depth");
