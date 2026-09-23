@@ -459,6 +459,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── check_profiles.mjs      Validates indexed timing reports against their rosters and document contract (CI)
 │   ├── check_profiles.test.mjs Node regression tests for timing report structure and set discovery
 │   ├── run_tests.mjs           `npm test`: runs the .test.mjs suite and rejects empty cases/files
+│   ├── module_roster.mjs       Checks first-party module loads and reasoned exemptions
 │   ├── run_tests.test.mjs      Node regression test for the empty-case rejection
 │   ├── count_assertions.mjs    NODE_OPTIONS shim counting node:assert calls and zero-delta cases
 │   └── report_cases.mjs        node:test reporter tallying per-file case counts
