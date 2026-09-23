@@ -274,6 +274,8 @@ struct WarpMirrorTile : ValueStateModel<WarpPhaseState> {
 enum class PolarMode : uint8_t { LINEAR = 0, LOGARITHMIC = 1 };
 
 inline constexpr const char *POLAR_MODE_IDS[] = {"linear", "logarithmic"};
+static_assert(std::size(POLAR_MODE_IDS) ==
+              static_cast<size_t>(PolarMode::LOGARITHMIC) + 1);
 
 /** @brief Harmonic topology values h1..h16, indexed by harmonic - 1. */
 inline constexpr const char *POLAR_HARMONIC_IDS[] = {
@@ -336,6 +338,7 @@ struct WarpPolarChart : ValueStateModel<WarpPhaseState> {
 
 inline constexpr const char *CURL_INTEGRATOR_IDS[] = {"euler-1", "midpoint-2",
                                                       "midpoint-4"};
+static_assert(std::size(CURL_INTEGRATOR_IDS) == 3);
 
 /** @brief Parameter family of warp.curl-flow.v2. */
 struct CurlFlowParams {
