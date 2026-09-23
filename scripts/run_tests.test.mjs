@@ -4,6 +4,17 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { moduleRosterFailures } from './module_roster.mjs';
+
+test('module roster rejects unloaded sources and stale or unexplained exemptions', () => {
+  assert.deepEqual(moduleRosterFailures(['a.mjs'], new Set(['a.mjs']), {}), []);
+  assert.match(moduleRosterFailures(['a.mjs'], new Set(), {}).join(), /never loaded/);
+  assert.deepEqual(moduleRosterFailures(['a.mjs'], new Set(), { 'a.mjs': 'Browser entry' }), []);
+  assert.match(moduleRosterFailures(['a.mjs'], new Set(), { 'a.mjs': '' }).join(), /written reason/);
+  assert.match(moduleRosterFailures([], new Set(), { 'a.mjs': 'Browser entry' }).join(), /not a tracked source/);
+  assert.match(moduleRosterFailures(['a.mjs'], new Set(['a.mjs']), { 'a.mjs': 'Browser entry' }).join(), /no longer needs/);
+  assert.match(moduleRosterFailures([], new Set(), {}).join(), /no first-party/);
+});
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // Under the gitignored build tree: run_tests.mjs resolves the case relative

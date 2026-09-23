@@ -7,10 +7,19 @@ import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach } from 'node:test';
+import { registerHooks } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const dir = process.env.HS_ASSERTION_COUNTS;
 const file = process.argv[1];
 if (dir && file && process.env.NODE_TEST_CONTEXT) {
+  const loaded = new Set();
+  registerHooks({
+    load(url, context, nextLoad) {
+      if (url.startsWith('file:')) loaded.add(fileURLToPath(url));
+      return nextLoad(url, context);
+    },
+  });
   let count = 0;
   let countBeforeCase = 0;
   let emptyCases = 0;
@@ -46,7 +55,7 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
   process.on('exit', () => {
     writeFileSync(
       join(dir, `${randomUUID()}.json`),
-      JSON.stringify({ file, count, emptyCases }),
+      JSON.stringify({ file, count, emptyCases, loaded: [...loaded] }),
     );
   });
 }
