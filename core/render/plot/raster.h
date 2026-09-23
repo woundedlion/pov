@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <concepts>
+#include <span>
 #include <limits>
 #include "math/geometry.h"
 #include "render/shading.h"
@@ -159,6 +160,82 @@ struct RasterConfig {
   RasterSamplingPolicy sampling_policy = RasterSamplingPolicy::DEFAULT;
 };
 
+/** @brief Open or closed polyline, with seam registers only on a closed loop. */
+class RasterLoop {
+public:
+  constexpr RasterLoop() = default;
+  static constexpr RasterLoop closed(const Fragment *seam = nullptr) {
+    return RasterLoop(seam);
+  }
+  constexpr bool is_closed() const { return closed_loop; }
+  constexpr const Fragment *seam() const { return closing_fragment; }
+
+private:
+  const Fragment *closing_fragment = nullptr;
+  bool closed_loop = false;
+  constexpr explicit RasterLoop(const Fragment *seam)
+      : closing_fragment(seam), closed_loop(true) {}
+};
+
+/** @brief Geodesic edges with optional visibility flags, or a planar chart. */
+class RasterProjection {
+public:
+  constexpr RasterProjection() = default;
+  /** @brief Supplies one visibility byte per rasterized edge, or none.
+   * @details Flags combine EDGE_VISIBLE, EDGE_CLASSIFIED and EDGE_ONE_DOT.
+   */
+  static constexpr RasterProjection
+  geodesic(std::span<const uint8_t> flags = {}) {
+    return RasterProjection(nullptr, flags);
+  }
+  /** @brief Selects azimuthal-equidistant interpolation in the supplied chart. */
+  static constexpr RasterProjection planar(const math::Basis &basis) {
+    return RasterProjection(&basis, {});
+  }
+  static RasterProjection planar(math::Basis &&) = delete;
+  static RasterProjection planar(const math::Basis &&) = delete;
+  constexpr const math::Basis *basis() const { return planar_basis; }
+  constexpr std::span<const uint8_t> flags() const { return edge_flags; }
+
+private:
+  const math::Basis *planar_basis = nullptr;
+  std::span<const uint8_t> edge_flags;
+  constexpr RasterProjection(const math::Basis *basis,
+                             std::span<const uint8_t> flags)
+      : planar_basis(basis), edge_flags(flags) {}
+};
+
+/**
+ * @brief Paired screen rows and columns for the same polyline points.
+ * @details Rows use y_to_screen_row; columns use vector_to_theta. Consumed
+ * only by pipelines without a world-space stage.
+ */
+class PointProjections {
+public:
+  constexpr PointProjections() = default;
+  template <size_t N>
+  constexpr PointProjections(const float (&rows)[N], const float (&cols)[N])
+      : screen_rows(rows), screen_cols(cols), count(N) {}
+  static PointProjections paired(std::span<const float> rows,
+                                 std::span<const float> cols) {
+    HS_CHECK(rows.size() == cols.size(),
+             "hoisted point projection rows and columns differ in length");
+    return PointProjections(rows, cols);
+  }
+  constexpr const float *rows() const { return screen_rows; }
+  constexpr const float *cols() const { return screen_cols; }
+  constexpr size_t size() const { return count; }
+
+private:
+  const float *screen_rows = nullptr;
+  const float *screen_cols = nullptr;
+  size_t count = 0;
+  constexpr PointProjections(std::span<const float> rows,
+                             std::span<const float> cols)
+      : screen_rows(rows.empty() ? nullptr : rows.data()),
+        screen_cols(cols.empty() ? nullptr : cols.data()), count(rows.size()) {}
+};
+
 /**
  * @brief Optional rasterize() behaviors beyond the plain open geodesic
  * polyline; every field defaults to that common case.
@@ -175,29 +252,10 @@ struct RasterOptions {
   /** edge_flags bit: EDGE_ONE_DOT carries a verdict; else it is unclassified. */
   static constexpr uint8_t EDGE_CLASSIFIED = 1u << 2;
 
-  /** Also draw the last→first edge. */
-  bool close_loop = false;
-  /**
-   * Non-null selects azimuthal-equidistant interpolation (straight in the
-   * projection); null uses geodesic edges.
-   */
-  const math::Basis *planar_basis = nullptr;
-  /**
-   * Open lines only: skip the final endpoint plot (each vertex is otherwise
-   * plotted once by its outgoing segment), so abutting arcs tile a longer
-   * curve without double-plotting the shared vertex.
-   */
+  RasterLoop loop{};
+  RasterProjection projection{};
+  /** Skip the final endpoint of an open line so adjoining arcs tile once. */
   bool omit_end = false;
-  /**
-   * Optional precomputed Tier-3 edge flags, one byte per rasterized edge:
-   * points.size() - 1, or points.size() under close_loop. Each byte is
-   * EDGE_VISIBLE, optionally OR'd with EDGE_CLASSIFIED | EDGE_ONE_DOT.
-   * Geodesic polylines only: a planar polyline's per-edge basis depends on
-   * rasterize()'s seam pre-pass.
-   */
-  const uint8_t *edge_flags = nullptr;
-  /** Entries in edge_flags; asserted against the rasterized edge count. */
-  size_t edge_flags_len = 0;
   /**
    * Arc-fraction window outside which samples are not shaded or plotted.
    * Lets a clipped caller keep the whole segment's step schedule -- so sample
@@ -210,25 +268,8 @@ struct RasterOptions {
   float plot_t_start = 0.0f;
   /** Upper bound of the plot_t_start window. */
   float plot_t_end = 1.0f;
-  /**
-   * Optional per-point screen rows, y_to_screen_row of each points[k].pos.
-   * With point_cols, lets the single-dot shortcut skip the projection. Only
-   * consumed when the pipeline has no world-space stage; both arrays or
-   * neither.
-   */
-  const float *point_rows = nullptr;
-  /**
-   * Optional per-point screen columns, vector_to_theta of each
-   * points[k].pos.
-   */
-  const float *point_cols = nullptr;
-  /** Entries in point_rows and point_cols; asserted against points.size(). */
-  size_t point_projections_len = 0;
-  /**
-   * Optional last-to-first target fragment carrying seam registers for a
-   * closed loop without an overlapping point.
-   */
-  const Fragment *loop_seam = nullptr;
+  /** Hoisted projections used by the single-dot shortcut. */
+  PointProjections point_projections{};
   /** Enables balanced sampling for a SELECTABLE rasterizer. */
   bool balanced_sampling = false;
 #if HS_ENABLE_TEST_ORACLES
@@ -342,8 +383,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   constexpr bool INTERPOLATE_REGISTERS = Cfg.interpolate_registers;
   constexpr RasterSamplingPolicy SAMPLING_POLICY = Cfg.sampling_policy;
   if constexpr (OPEN_GEODESIC)
-    HS_CHECK(!opts.close_loop && opts.planar_basis == nullptr &&
-                 !opts.omit_end && opts.loop_seam == nullptr,
+    HS_CHECK(!opts.loop.is_closed() && opts.projection.basis() == nullptr &&
+                 !opts.omit_end && opts.loop.seam() == nullptr,
              "open_geodesic rasterize takes no loop, planar or omit-end "
              "options");
   // A canvas that is not W x H plots through a pipeline whose wrap period and
@@ -367,13 +408,14 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     return;
   }
   HS_PLOT_COUNT(rings);
-  const bool close_loop = OPEN_GEODESIC ? false : opts.close_loop;
-  const math::Basis *planar_basis = OPEN_GEODESIC ? nullptr : opts.planar_basis;
+  const bool close_loop = OPEN_GEODESIC ? false : opts.loop.is_closed();
+  const math::Basis *planar_basis =
+      OPEN_GEODESIC ? nullptr : opts.projection.basis();
   const bool omit_end = OPEN_GEODESIC ? false : opts.omit_end;
-  const uint8_t *edge_flags = opts.edge_flags;
-  const float *point_rows = opts.point_rows;
-  const float *point_cols = opts.point_cols;
-  const Fragment *loop_seam = OPEN_GEODESIC ? nullptr : opts.loop_seam;
+  const uint8_t *edge_flags = opts.projection.flags().data();
+  const float *point_rows = opts.point_projections.rows();
+  const float *point_cols = opts.point_projections.cols();
+  const Fragment *loop_seam = OPEN_GEODESIC ? nullptr : opts.loop.seam();
   const bool balanced_sampling =
       SAMPLING_POLICY == RasterSamplingPolicy::BALANCED ||
       (SAMPLING_POLICY == RasterSamplingPolicy::SELECTABLE &&
@@ -388,17 +430,11 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // calls below can't invoke a null thunk.
   if constexpr (std::same_as<std::decay_t<FragmentShaderT>, FragmentShaderFn>)
     HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
-  HS_CHECK(edge_flags == nullptr || planar_basis == nullptr,
-           "precomputed edge visibility is geodesic-only");
-  HS_CHECK(loop_seam == nullptr || close_loop,
-           "a raster seam fragment requires a closed loop");
-  HS_CHECK((point_rows == nullptr) == (point_cols == nullptr),
-           "hoisted point projections take both rows and columns");
-  HS_CHECK(point_rows == nullptr || opts.point_projections_len == len,
+  HS_CHECK(point_rows == nullptr || opts.point_projections.size() == len,
            "hoisted point projections need one entry per polyline point");
 
   size_t count = close_loop ? len : len - 1;
-  HS_CHECK(edge_flags == nullptr || opts.edge_flags_len == count,
+  HS_CHECK(edge_flags == nullptr || opts.projection.flags().size() == count,
            "edge_flags length must match the rasterized edge count");
   const float plot_t_start = opts.plot_t_start;
   const float plot_t_end = opts.plot_t_end;

@@ -187,9 +187,8 @@ struct ParticleSystem {
       // position-shaded points. No visible edge means the trail renders
       // nothing, so the optional deferred pass and the rasterize call are
       // skipped whole; the bits feed rasterize so the cull is evaluated once.
-      const uint8_t *vis = nullptr;
-      const float *dot_rows = nullptr;
-      const float *dot_cols = nullptr;
+      std::span<const uint8_t> vis;
+      PointProjections projections;
       if (clip_active && trail.size() >= 2) {
         HS_PROFILE(plot_ps_gate);
         const size_t edges = trail.size() - 1;
@@ -219,8 +218,8 @@ struct ParticleSystem {
           const float *cols = pro.cols;
           // rasterize's single-dot shortcut takes both projections or neither.
           if (cols != nullptr) {
-            dot_rows = rows;
-            dot_cols = cols;
+            projections = PointProjections::paired({rows, trail.size()},
+                                                   {cols, trail.size()});
           }
 
           for (size_t e = 0; e < edges; ++e) {
@@ -276,7 +275,7 @@ struct ParticleSystem {
         if (!any)
           continue;
         HS_MSP_COUNT(visible_trails);
-        vis = bits;
+        vis = {bits, edges};
       }
       if (!clip_active)
         HS_MSP_COUNT(visible_trails);
@@ -293,11 +292,8 @@ struct ParticleSystem {
                                    SinglePassRaster && sample_stride == 1,
                                .open_geodesic = true}>(
             pipeline, canvas, trail, fragment_shader,
-            {.edge_flags = vis,
-             .edge_flags_len = trail.size() - 1,
-             .point_rows = dot_rows,
-             .point_cols = dot_cols,
-             .point_projections_len = trail.size()});
+            {.projection = RasterProjection::geodesic(vis),
+             .point_projections = projections});
       }
     }
   }

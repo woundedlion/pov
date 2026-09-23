@@ -169,15 +169,14 @@ struct Mesh {
           points.push_back(tail);
           bits[0] = RasterOptions::EDGE_VISIBLE;
           rasterize<W, H>(pipeline, canvas, points, fragment_shader,
-                          {.edge_flags = bits,
-                           .edge_flags_len = 1,
+                          {.projection = RasterProjection::geodesic({bits, 1}),
                            .plot_t_start = window_start,
                            .plot_t_end = window_end});
           return;
         }
-        rasterize<W, H>(
-            pipeline, canvas, points, fragment_shader,
-            {.edge_flags = bits, .edge_flags_len = points.size() - 1});
+        rasterize<W, H>(pipeline, canvas, points, fragment_shader,
+                        {.projection = RasterProjection::geodesic(
+                             {bits, points.size() - 1})});
         return;
       }
     }
