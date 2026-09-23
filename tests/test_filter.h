@@ -1583,6 +1583,37 @@ inline void test_world_mobius_identity_and_transform() {
   HS_EXPECT_NEAR(out2.length(), 1.0f, 1e-3f);
   HS_EXPECT_GT(math::distance_between(out2, v), 0.05f);
 
+  constexpr int W = 32, H = 16;
+  std::array<Pixel, W * H> expected;
+  {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipe;
+    {
+      Canvas canvas(fx);
+      pipe.plot(canvas, out2, Pixel(40000, 20000, 10000), 0.0f, 0.7f);
+    }
+    fx.advance_display();
+    HS_EXPECT_GT(count_lit_canvas(fx), size_t{0});
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        expected[y * W + x] = fx.get_pixel(x, y);
+  }
+  {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H, Filter::World::Mobius, Filter::Screen::AntiAlias<W, H>> pipe(
+        mob2);
+    {
+      Canvas canvas(fx);
+      pipe.plot(canvas, v, Pixel(40000, 20000, 10000), 0.0f, 0.7f);
+    }
+    fx.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const Pixel &pixel = expected[y * W + x];
+        HS_EXPECT_PIXEL(fx.get_pixel(x, y), pixel.r, pixel.g, pixel.b);
+      }
+  }
+
   // The map moves latitude non-rigidly and offers no cull_edge bound, so it
   // must force a full-canvas render through the pipeline fold.
   static_assert(!Filter::has_cull_edge<Filter::World::Mobius>);
