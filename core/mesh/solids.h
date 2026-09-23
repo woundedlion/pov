@@ -755,14 +755,12 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
  * setup-only, keeps the build loops out of ITCM.
  */
 [[maybe_unused]] HS_COLD static int
-build_vertex_directions(Arena &scratch, Arena &temp, std::string_view name,
+build_vertex_directions(Arena &scratch, Arena &temp, const Entry &entry,
                         int max_points, math::Vector *points,
                         math::Quaternion *quats, float *nn_angle) {
-  const Entry *entry = find_entry(name);
-  HS_CHECK(entry, "build_vertex_directions: unknown solid name");
   // Read straight out of the generator's arena pair; nothing outlives the call,
   // so finalize_solid's long-lived copy would buy nothing.
-  PolyMesh mesh = entry->generate(scratch, temp);
+  PolyMesh mesh = entry.generate(scratch, temp);
   int count = static_cast<int>(mesh.vertices.size());
   HS_CHECK(count <= max_points,
            "build_vertex_directions: vertex count exceeds capacity");

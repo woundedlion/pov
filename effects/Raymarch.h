@@ -340,7 +340,7 @@ private:
     const Solids::Entry &entry = Solids::get_entry(
         static_cast<size_t>(PLACEMENT_SOLIDS[placement_index]));
     active_count = Solids::build_vertex_directions(
-        scratch_arena_a, scratch_arena_b, entry.name, MAX_POINTS, points.data(),
+        scratch_arena_a, scratch_arena_b, entry, MAX_POINTS, points.data(),
         raw_quats.data(), nn_angle.data());
     active_base_solid = params.base_solid;
   }
