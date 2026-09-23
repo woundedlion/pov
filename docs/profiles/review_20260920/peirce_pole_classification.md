@@ -37,6 +37,8 @@ FLASH code grows **16 bytes** in each config; ITCM code and RAM allocations are 
 
 ## Validation and artifacts
 
+The logs, JSON summaries, assembly dumps and patches named below are local, gitignored capture artifacts. They are not distributed with this repository; the tables above and linked profiles are the retained results.
+
 All accepted captures pass `parse_profile.py validate` and have exact per-frame render telemetry, clean source provenance, correct effect/config headers, fresh initial frame numbering, and no epoch crossing. Each profile invocation also builds production Phantasm with profiling disabled. Raw logs, build/env logs, source state, ELF, map, and provenance are preserved under `C:/work/Holosphere/build/prof/review_20260920/115/`; immutable copies of full build artifacts are in its `artifacts/<capture>/` subdirectories.
 
 The first unsupported Shader build and invalid-parameter probe boot are excluded. They produced no accepted measurements. Candidate native validation passes: 87 tests passed, one pre-existing replay-form test skipped, zero failures of 88. See candidate-native-build.log and candidate-ctest-final.log. Standard report drafts are [shipping](shipping/profile_peirceprobe_teensy_2026-09-20.md) and [global-O3](O3/profile_peirceprobe_teensy_2026-09-20.md). `metrics.json`, `summary.json`, and `comparison.json` provide machine-readable results.
