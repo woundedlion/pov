@@ -15,8 +15,6 @@ even though both .ino files define them.
 """
 
 import os
-import subprocess
-import sys
 
 Import("env")  # noqa: F821  (SCons global injected by PlatformIO)
 
@@ -41,12 +39,3 @@ def _find_ino(env):
 
 
 env.AddMethod(_find_ino, "FindInoNodes")
-
-
-def sync_docs(source, target, env):
-    root = env["PROJECT_DIR"]
-    subprocess.run([sys.executable, os.path.join(root, "tools", "docs_check.py"),
-                    "--root", root, "--sync", "--auto-checkout"], check=True)
-
-
-env.AddPreAction("buildprog", sync_docs)

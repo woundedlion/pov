@@ -21,7 +21,6 @@ import sys
 import types
 import unittest
 from pathlib import Path
-from unittest import mock
 
 REPO = Path(__file__).resolve().parents[2]
 TOOLS = REPO / "tools"
@@ -245,14 +244,11 @@ class TestSketchSelection(unittest.TestCase):
         env = FakeEnv(PIOENV=pioenv, PROJECT_DIR=str(REPO))
         return load_hook("teensy_pre.py", env=env), env
 
-    def test_firmware_build_synchronizes_and_validates_docs(self):
-        mod, env = self._run("phantasm")
-        self.assertEqual([target for target, _ in env.pre_actions], ["buildprog"])
-        with mock.patch.object(mod.subprocess, "run") as run:
-            env.pre_actions[0][1]([], [], env)
-        run.assert_called_once_with([
-            sys.executable, str(REPO / "tools" / "docs_check.py"),
-            "--root", str(REPO), "--sync", "--auto-checkout"], check=True)
+    def test_firmware_builds_do_not_register_documentation_actions(self):
+        for name in _pio_envs():
+            with self.subTest(env=name):
+                _, env = self._run(name)
+                self.assertEqual(env.pre_actions, [])
 
     def test_every_platformio_env_is_mapped(self):
         mod, _ = self._run("phantasm")
