@@ -85,8 +85,7 @@ public:
     noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Rings", &params.num_rings, 1.0f,
-                   static_cast<float>(RING_SLOTS));
+    register_int_param("Rings", &params.num_rings, 1, RING_SLOTS);
     register_param("Thickness", &params.thickness, 0.4f * THICKNESS_PX,
                    6.0f * THICKNESS_PX);
     register_param("Ball Amp", &params.ball_amp, 0.0f, 0.8f);
@@ -781,9 +780,8 @@ private:
    * @details Defaults are pre-registration starting values.
    */
   struct Params {
-    float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
-    float num_rings =
-        48.0f; /**< Number of evenly spaced rings (truncated to int when drawn). */
+    float alpha = 0.3f;      /**< Overall ring opacity multiplier in [0, 1]. */
+    int num_rings = 48;      /**< Number of evenly spaced rings. */
     float thickness = 0.03f; /**< Stroke half-width (radians). */
     float ball_amp =
         0.1f; /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
