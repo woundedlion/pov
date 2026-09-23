@@ -353,15 +353,15 @@ public:
    *          and its length compared against getBufferLength().
    */
   ResolutionSetResult setResolution(double w, double h) {
-    if (w == pixel_width && h == pixel_height)
-      return ResolutionSetResult::ALREADY_ACTIVE;
-
     // Reject unsupported sizes and keep the prior valid state alive rather than
     // switching to a null effect that renders blank with no signal to JS.
     if (!hs_wasm::wasm_resolution_supported(w, h)) {
       hs::log("WASM: Unsupported resolution %gx%g — ignored", w, h);
       return ResolutionSetResult::UNSUPPORTED;
     }
+
+    if (w == pixel_width && h == pixel_height)
+      return ResolutionSetResult::ALREADY_ACTIVE;
 
     pixel_width = static_cast<int>(w);
     pixel_height = static_cast<int>(h);
