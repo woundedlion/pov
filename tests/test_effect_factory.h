@@ -280,8 +280,11 @@ inline void test_factory_lifecycle() {
   constexpr int SMALL_PIXELS = effects_tests::SMALL_W * effects_tests::SMALL_H;
   const bool full = effects_tests::effects_full_suite();
   for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS) {
-    if (row.w * row.h > SMALL_PIXELS && !full)
+    if (row.w * row.h > SMALL_PIXELS && !full) {
+      std::printf("  [TIER] factory %dx%d omitted; set HS_EFFECTS_FULL=1\n",
+                  row.w, row.h);
       continue;
+    }
     HS_EXPECT_TRUE(hs_wasm::dispatch_resolution(
         row.w, row.h, []<int W, int H>() { drive_factory_lifecycle<W, H>(); }));
   }
