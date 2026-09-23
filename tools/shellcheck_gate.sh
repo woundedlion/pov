@@ -27,9 +27,22 @@ xargs -d '\n' shellcheck -x < "$tmp"
 
 while IFS= read -r action; do
   awk '
-    /^[[:space:]]+run: \|$/ { active = 1; next }
-    active && /^        / { sub(/^        /, ""); print; next }
+    /^[[:space:]]+run: \|$/ {
+      match($0, /[^ ]/); indent = RSTART - 1; body_indent = 0; active = 1; next
+    }
     active && /^[[:space:]]*$/ { print; next }
+    active {
+      match($0, /[^ ]/)
+      if (RSTART - 1 > indent) {
+        if (!body_indent) body_indent = RSTART
+        print substr($0, body_indent); next
+      }
+    }
     { active = 0 }
-  ' "$action" | shellcheck -s bash -
+  ' "$action" > "$tmp"
+  if ! grep -q '[^[:space:]]' "$tmp"; then
+    echo "no shell body extracted from $action" >&2
+    exit 1
+  fi
+  shellcheck -s bash - < "$tmp"
 done < <(git ls-files -- '.github/actions/*/action.yml' '.github/actions/*/action.yaml')
