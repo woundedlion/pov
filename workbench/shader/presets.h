@@ -89,7 +89,7 @@ wave_shear_generated_preset(float pattern_freq = 4.439f,
   Params params =
       authored_params({pattern_freq, 0.245f, complexity, 0.0f, 0.0f, 0.0f},
                       {1.0f, warp_strength, warp_speed}, {1.0f, 0.0f, 0.0f}, {},
-                      {0.292f, 0.6304219f, 0.0f}, {0.8f});
+                      {{0.292f, 0.6304219f, 0.0f}}, {0.8f});
   params.projection.wander = 0.0f;
   params.color.palette_chroma = 0.788f;
   params.color.mapping_phase = -0.0f;
@@ -106,9 +106,9 @@ inline constexpr Config kaleidoscope_mirror_preset() {
                     ValueTransfer::NONE,
                     CoveragePolicy::PROJECTION_WEIGHT_SQUARED,
                     PaletteMode::TRIADIC};
-  Params params = authored_params({4.9755f, 0.125f, 0.513f, 0.0f, 0.8f, 0.05f},
-                                  {0.1f, 0.0f, 0.5f}, {4.971f, 0.0f, 1.0f}, {},
-                                  {0.27f, 2.2033439f, -0.00040800002f}, {1.0f});
+  Params params = authored_params(
+      {4.9755f, 0.125f, 0.513f, 0.0f, 0.8f, 0.05f}, {0.1f, 0.0f, 0.5f},
+      {4.971f, 0.0f, 1.0f}, {}, {{0.27f, 2.2033439f, -0.00040800002f}}, {1.0f});
   params.color.palette_chroma = 0.361f;
   return {slots, params};
 }
@@ -158,7 +158,7 @@ inline constexpr Config peirce_dodecahedral_generated_preset() {
   slots.peirce_layout = PeirceLayout::SQUARE;
   Params params = authored_params(
       {5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f, 1.0f}, {},
-      {0.319f, 1.0f, 0.05f / math::TWO_PI_F}, {1.0f});
+      {{0.319f, 1.0f, 0.05f / math::TWO_PI_F}}, {1.0f});
   params.projection.central_meridian = 0.0f;
   params.projection.coordinate_scale = 1.0f;
   params.value.edge_width = 0.1f;
@@ -189,7 +189,7 @@ inline constexpr Config gnomonic_wave_shear_grid_preset() {
   inner_warp.offset_y = 0.0f;
   Params params =
       authored_params({6.3287f, 0.04f, 1.704f, 0.0f, 0.8f, 0.027f}, outer_warp,
-                      {2.311f, 0.0f, 1.0f}, {}, {0.721f, 1.0f, 0.0f}, {1.0f});
+                      {2.311f, 0.0f, 1.0f}, {}, {{0.721f, 1.0f, 0.0f}}, {1.0f});
   params.warp.inner = inner_warp;
   return {slots, params};
 }
@@ -438,7 +438,7 @@ stereographic_hexagonal_prism_twin_wave_mirror_preset() {
   slots.palette_mapping = PaletteMapping::BELL;
   Params params = authored_params(
       {3.881f, 0.128598228f, 0.513f, 0.0f, 0.8f, 0.027f}, {0.1f, 0.0f, 0.5f},
-      {4.971f, 0.0f, 1.0f}, {}, {0.226f, 1.47215629f, 0.000138f}, {1.0f});
+      {4.971f, 0.0f, 1.0f}, {}, {{0.226f, 1.47215629f, 0.000138f}}, {1.0f});
   params.color.palette_chroma = 1.0f;
   params.color.mapping_frequency = 1.341f;
   params.color.mapping_phase = -1.0f;
@@ -463,7 +463,7 @@ inline constexpr Config stereographic_alien_core_mirror_preset() {
   outer_warp.offset_y = -1.456f;
   Params params =
       authored_params({2.5477f, 0.235f, 1.854f, 0.0f, 1.0f, 0.0f}, outer_warp,
-                      {1.4f, 0.0f, 1.0f}, {}, {2.048f, 1.0f, 0.0f}, {1.0f});
+                      {1.4f, 0.0f, 1.0f}, {}, {{2.048f, 1.0f, 0.0f}}, {1.0f});
   params.value.edge_width = 0.5f;
   params.color.palette_chroma = 0.292f;
   return {slots, params};
@@ -483,7 +483,7 @@ inline constexpr Config stereographic_mobius_twin_wave_inner_mirror_preset() {
   slots.hue_shift = HueShiftMode::WARP_DISPLACEMENT;
   Params params = authored_params({10.158f, 0.245f, 0.513f, 0.0f, 0.8f, 0.027f},
                                   {0.1f, 0.0f, 0.5f}, {2.102f, 0.0f, 1.0f}, {},
-                                  {0.312f, 1.0f, 0.0f}, {1.0f});
+                                  {{0.312f, 1.0f, 0.0f}}, {1.0f});
   params.surface_lens.mobius = {-1.072f, 0.304f, 0.416f,      0.0f,
                                 0.0f,    0.0f,   0.70710677f, 0.0f};
   params.color.palette_chroma = 0.398f;
