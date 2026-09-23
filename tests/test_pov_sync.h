@@ -1196,6 +1196,22 @@ inline void test_suspect_timeout_acquire_uncounted() {
   HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate, rejected);
 }
 
+inline void test_isolated_noise_preserves_recent_boundary_lock() {
+  const Config cfg = test_config();
+  const uint32_t col = cfg.cycles_per_column();
+  SyncBoard board(cfg);
+  board.seed(1000u, false);
+  flywheel_mut(board).force_lock();
+  for (uint32_t column : {30u, 60u, 90u, 120u}) {
+    const uint32_t head = 1000u + column * col;
+    const BurstSnapshot noise{1, head, head};
+    board.tick(head + 5u * col, &noise);
+    board.tick(head + 26u * col, nullptr);
+    HS_EXPECT_EQ(lock(board), LockState::LOCKED);
+  }
+  HS_EXPECT_EQ(board.telemetry_snapshot().symbols_rejected_gate, 4u);
+}
+
 /**
  * @brief Verifies the §5.3 quiet-before guard: an ACQUIRE board hard-snaps only
  *        on a burst preceded by t_QB of wire silence, so a beacon digit train
@@ -3550,6 +3566,7 @@ inline int run_pov_sync_tests() {
   test_flywheel_position();
   test_snap_gate();
   test_suspect_timeout_acquire_uncounted();
+  test_isolated_noise_preserves_recent_boundary_lock();
   test_acquire_quiet_before_guard();
   test_acquire_beacon_train_joins();
   test_emitter();
