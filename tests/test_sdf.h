@@ -3231,6 +3231,42 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
  * @details Drives check_face_distance_oracle across a spread of polygons
  *   (triangle, pentagon, hexagon) and tilts.
  */
+inline void test_face_sector_backtrack_sign() {
+  int checked = 0;
+  for (float bend : {-0.08f, -0.04f, 0.0f, 0.04f, 0.08f}) {
+    math::Vector vertices[12];
+    uint16_t indices[12];
+    for (int i = 0; i < 12; ++i) {
+      const float angle = (i == 1 ? bend : i * math::TWO_PI_F / 12.0f);
+      const float radius = (i & 1) ? 0.24f : 0.5f;
+      vertices[i] =
+          math::Vector(radius * cosf(angle), radius * sinf(angle), 1.0f)
+              .normalized();
+      indices[i] = static_cast<uint16_t>(i);
+    }
+    SDF::FaceScratchBuffer scratch;
+    SDF::Face face(std::span<const math::Vector>(vertices, 12),
+                   std::span<const uint16_t>(indices, 12), scratch,
+                   144 + hs::H_OFFSET, 144);
+    if (!face.sector_ok || face.sector_kmax != 2)
+      continue;
+    for (int x = -100; x <= 100; ++x)
+      for (int y = -100; y <= 100; ++y) {
+        const float px = x * 0.005f;
+        const float py = y * 0.005f;
+        bool exact_inside, sector_inside;
+        const float exact = face.plane_dsq_exact(px, py, exact_inside);
+        const float sector = face.plane_dsq_sector(px, py, sector_inside);
+        if (exact < 0.0004f)
+          HS_EXPECT_NEAR(sector, exact, 1e-6f);
+        if (exact > 1e-10f)
+          HS_EXPECT_EQ(sector_inside, exact_inside);
+      }
+    ++checked;
+  }
+  HS_EXPECT_GT(checked, 0);
+}
+
 inline void test_face_distance_matches_exact_oracle() {
   int samples = 0;
   check_face_distance_oracle(samples, /*sides=*/3, 0.45f,
@@ -3559,6 +3595,7 @@ inline int run_sdf_tests() {
   test_face_latitude_pad_reduces_fringe_drops();
   test_star_polygon_cull_covers_aa_fringe();
   test_face_pole_vertex_matches_full_scan();
+  test_face_sector_backtrack_sign();
   test_face_distance_matches_exact_oracle();
   test_face_class_lut_matches_oracle();
 
