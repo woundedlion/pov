@@ -856,7 +856,7 @@ One deliberate exception: `SolidBuilder`'s fluent Conway chain (`solid_generator
 
 ## 7.9 The Preset System (`control/choreography.h`)
 
-`ChoreographedEffect<Derived, Params>` is the engine's one preset system: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) and/or `PRESET_IDS` naming them — plus a `Segue` preset policy, a dwell, a parameter schema version, and a validity predicate:
+`ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) and/or `PRESET_IDS` naming them — plus a `Segue` preset policy, a dwell, a parameter schema version, and a validity predicate:
 
 ```cpp
 static constexpr Segue::Preset::Snap PRESET_SEGUE{};
@@ -871,6 +871,8 @@ The effect calls `begin_choreography()` once from `init()` — it configures the
 Automatic transitions follow the policy — `Segue::Preset::Lerp` crossfades the live parameters into the target, `Segue::Preset::Snap` adopts immediately, `Segue::Preset::Fade` snaps inside the envelope's dark frame — while manual and synchronized selections always snap. Hooks specialize the mechanics: `preset_params(index)` (static, or a member when the effect patches entries at runtime, e.g. re-binding a noise pointer) overrides the `PRESETS[index]` lookup, and in its static form supplies the startup default too; `initial_params()` overrides whichever of `preset_params(0)` and `PRESETS[0]` would otherwise start the effect; shadowing `adopt_params(target)` re-derives dependent state after a snap; `transition_armed(target)` fires once as a crossfade arms, capturing the endpoint state the blend interpolates alongside the parameters; `blend_params(progress)` writes an in-flight Lerp; `set_preset_opacity(value)` receives a Fade envelope. The base also carries schema-versioned parameter snapshots: `serialize_parameters()` tags the live set with `PARAMETER_SCHEMA_VERSION`, and `restore_parameters()` rejects a snapshot taken under a different schema or failing `valid_params()`.
 
 `control/preset_host.h` holds the controller the choreography drives: the committed index, the vetoable `apply_preset()` hook, and the manual `selectPreset`/`nextPreset`/`previousPreset` surface the WASM bridge calls. `control/presets.h` holds the table vocabulary: `PresetEntry<Params>` (the row type) and the free `constexpr` helper `all_presets_in_ranges(entries, in_ranges)`, which folds a slider-range predicate over an entry table so an effect can `static_assert` its whole preset table against its registered parameter ranges — a loop rather than an unrolled conjunction, so appended entries are covered automatically.
+
+Promoted composed effects also have authored shader documents under `patterns/`. Their descriptor and preset-bank digests are checked against their effect headers by `scripts/promoted_digests.test.mjs`; the runtime uses `ChoreographedEffect` to play the resulting presets.
 
 ## 7.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 
