@@ -566,7 +566,9 @@ private:
                         .sampling_policy =
                             Plot::RasterSamplingPolicy::SELECTABLE}>(
         plot_filters, canvas, points, fragment_shader,
-        {.planar_basis = planar_basis,
+        {.projection = planar_basis
+                           ? Plot::RasterProjection::planar(*planar_basis)
+                           : Plot::RasterProjection{},
          .omit_end = true,
          .balanced_sampling = balanced_sampling});
   }
