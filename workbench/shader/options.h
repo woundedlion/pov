@@ -151,7 +151,9 @@ inline constexpr const char *WARP_EXPORT_OPTIONS[] = {
 inline constexpr int NUM_WARPS = std::size(WARP_OPTIONS);
 inline constexpr const char *warp_option(WarpStageKind kind) {
   const uint8_t index = static_cast<uint8_t>(kind);
-  return index < NUM_WARPS ? WARP_OPTIONS[index] : "Legacy Stereo Noise";
+  if (kind == WarpStageKind::LEGACY_STEREO_NOISE)
+    return "Legacy Stereo Noise";
+  return index < NUM_WARPS ? WARP_OPTIONS[index] : "Invalid Warp";
 }
 inline constexpr const char *NOISE_BASIS_OPTIONS[] = {"Simplex", "FBM 3",
                                                       "Ridged 3"};
