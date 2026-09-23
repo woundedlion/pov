@@ -275,6 +275,11 @@ Landed as `core/mesh/mesh_classes.h` (clustering + bake), with runtime records
 and per-slot bakes in IslamicStars (rebaked unconditionally after every
 `compact_keep_front`). Deviations from the design above:
 
+- **§§5 and 9 use design-only binding members.** `SDF::Face` stores `lut_data`,
+  `lut_n`, `lut_q_safe`, the affine coefficients `lut_ax`/`lut_bx`/`lut_cx` and
+  `lut_ay`/`lut_by`/`lut_cy`, `lut_clamp` and `lut_dequant`. The affine map folds
+  centroid shift, canonical alignment and grid scaling into each probe;
+  `lut_q_safe` guards raw int16 magnitudes before dequantization.
 - **§6 is wrong about WASM**: nothing that ships gets the 8 MiB arena the
   "f32 n=96, no policy" host row assumes — that is the native suite's
   `HS_GLOBAL_ARENA_BYTES` override. The device builds against
