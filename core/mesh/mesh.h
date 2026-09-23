@@ -267,6 +267,14 @@ class HalfEdgeMesh;
  * flat face lengths, a 16-bit index overflow, a zero-side face or a pair of
  * faces wound the same way around a shared edge.
  */
+namespace MeshLimits {
+inline constexpr size_t MAX_VERTEX_INDEX = INT16_MAX;
+inline constexpr size_t MAX_VERTICES = MAX_VERTEX_INDEX + 1;
+inline constexpr size_t MAX_HALF_EDGES = UINT16_MAX;
+inline constexpr size_t MAX_FACES = UINT16_MAX;
+inline constexpr int MAX_FACE_DEGREE = UINT8_MAX;
+} // namespace MeshLimits
+
 [[maybe_unused]] HS_COLD static void
 build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
                      const uint8_t *counts, size_t num_faces,
@@ -325,8 +333,8 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
   // Vertices carry narrow_index's ceiling so an oversized mesh trips here
   // rather than inside a downstream operator's emitter; total_indices counts
   // half-edges, which are only ever stored as uint16_t.
-  HS_CHECK(num_verts <= static_cast<size_t>(INT16_MAX) + 1 &&
-               total_indices <= UINT16_MAX,
+  HS_CHECK(num_verts <= MeshLimits::MAX_VERTICES &&
+               total_indices <= MeshLimits::MAX_HALF_EDGES,
            "half-edge mesh exceeds 16-bit index range");
   // The pairing-record allocation below rejects a zero-size request.
   HS_CHECK(total_indices > 0,
@@ -414,7 +422,7 @@ namespace MeshOps {
  * an oversized mesh into a crash.
  */
 inline uint16_t narrow_index(size_t i) {
-  HS_CHECK(i <= static_cast<size_t>(INT16_MAX),
+  HS_CHECK(i <= MeshLimits::MAX_VERTEX_INDEX,
            "mesh index exceeds int16_t topology range (oversized mesh?)");
   return static_cast<uint16_t>(i);
 }
@@ -428,7 +436,7 @@ inline uint16_t narrow_index(size_t i) {
  * face_counts array; bounds to [0, UINT8_MAX] and traps instead.
  */
 inline uint8_t narrow_face_count(int count) {
-  HS_CHECK(count >= 0 && count <= UINT8_MAX,
+  HS_CHECK(count >= 0 && count <= MeshLimits::MAX_FACE_DEGREE,
            "mesh face side count exceeds uint8_t range");
   return static_cast<uint8_t>(count);
 }
@@ -444,7 +452,8 @@ inline uint8_t narrow_face_count(int count) {
  */
 inline void push_face_offset(ArenaVector<uint16_t> &face_offsets,
                              int current_offset, int count) {
-  HS_CHECK(current_offset + count <= UINT16_MAX,
+  HS_CHECK(static_cast<size_t>(current_offset) + count <=
+               MeshLimits::MAX_HALF_EDGES,
            "mesh face_offsets exceeds 16-bit index range");
   face_offsets.push_back(static_cast<uint16_t>(current_offset));
 }
@@ -933,7 +942,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   {
     ScratchScope temp_topo(scratch_a);
 
-    HS_CHECK(I <= UINT16_MAX && F <= UINT16_MAX,
+    HS_CHECK(I <= MeshLimits::MAX_HALF_EDGES && F <= MeshLimits::MAX_FACES,
              "classify_faces_by_topology exceeds 16-bit index range");
 
     uint16_t *he_to_face = scratch_a.allocate_n<uint16_t>(I);

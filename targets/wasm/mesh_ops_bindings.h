@@ -47,7 +47,8 @@ static Arena tooling_scratch_b(nullptr, 0);
 // always-on HS_CHECK, so a mesh past this must be rejected at the JS boundary
 // rather than allowed to reach one. The scratch arenas hold exactly this many
 // elements, so the same ceiling also keeps Arena::allocate's trap out of reach.
-inline constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS = UINT16_MAX;
+inline constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS =
+    MeshLimits::MAX_HALF_EDGES;
 static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
                   TOOLING_SCRATCH_BYTES /
                       hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT,
@@ -60,7 +61,7 @@ static_assert(sizeof(math::Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
 // Widest face a mesh can hold: PolyMesh stores per-face side counts as uint8_t
 // and narrow_face_count traps past this, so an operator that would emit a wider
 // face must be rejected at the JS boundary.
-inline constexpr size_t MAX_MESH_FACE_DEGREE = UINT8_MAX;
+inline constexpr size_t MAX_MESH_FACE_DEGREE = MeshLimits::MAX_FACE_DEGREE;
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and rejects via wrapper_live() if a wipe reclaimed its storage.
@@ -247,7 +248,8 @@ private:
       last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
       return true;
     }
-    if (hs_wasm::mesh_op_expansion_over_ceiling(
+    if ((expansion != 0 && verts > MeshLimits::MAX_VERTICES / expansion) ||
+        hs_wasm::mesh_op_expansion_over_ceiling(
             verts, faces, indices, expansion, MAX_MESH_CONNECTIVITY_ELEMENTS)) {
       hs::log("WASM: %s: mesh of %zu verts / %zu faces / %zu indices expands "
               "%zux, past the %zu-element 16-bit connectivity range — ignored",
