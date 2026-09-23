@@ -659,7 +659,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── mobius-probe.mjs        Headless pointer-level probe of the Möbius page's complex-plane pads
 │   ├── lissajous-probe.mjs     Headless pointer-level probe of the Lissajous page's rational frequency lock and the domain it drives
 │   ├── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
-│   └── install-engine-bundle.mjs
+│   └── install-engine-bundle.mjs  Validates and installs the verified engine artifact
 │
 ├── tests/                      Node unit tests (`npm test`)
 ├── requirements/               Hash-locked ShellCheck and actionlint toolchains used by CI
