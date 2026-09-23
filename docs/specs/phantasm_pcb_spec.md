@@ -370,7 +370,7 @@ relief, and swept envelope are mechanically qualified.
 | Ref | Function | Pins | Type / rating | Pinout |
 |---|---|---|---|---|
 | **J1** | Logic power in (light feed) | 2 | 0.1″ TH header or small JST, **~1 A** | `+5 V`, `GND` |
-| **J2** | Strip **signal** out | 3 | 0.1″ TH header | `DI` (DATA, post-33 Ω), `CI` (CLK, post-33 Ω), `SIG_GND` |
+| **J2** | Strip **signal** out | 3 | 0.1″ TH header | `DI` (DATA, post-33 Ω), `SIG_GND`, `CI` (CLK, post-33 Ω) |
 | **J3A** | SYNC daisy — **in** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
 | **J3B** | SYNC daisy — **out** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
 | **JP_SHLD** | shield ground point | — | solder jumper / 0 Ω | drain net → GND; **stuff master only** |
@@ -494,7 +494,7 @@ hand-soldered by you.
 | D_BUS | Bus transient clamp | Bourns CDSOD323-T08L, JLCPCB C1973344 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** |
 | F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** |
 | J1 | Logic power in | 2-pin ~1 A (0.1″ / JST) | TH | TH |
-| J2 | Strip signal out | 3-pin 0.1″ (DI/CI/SIG_GND) | TH | TH |
+| J2 | Strip signal out | 3-pin 0.1″ (DI/SIG_GND/CI) | TH | TH |
 | J3A, J3B | SYNC daisy in / out | 2× 3-pin 0.1″ | TH (one Belden 8451 each) | TH |
 | JP_SHLD | Shield ground jumper | 0 Ω / solder jumper | 0603 or SJ pad | hand, **master only** |
 | J4 (opt) | Debug | 3–4-pin 0.1″ | TH | TH |
@@ -519,13 +519,13 @@ The net names are the ones the schematic, the routed board and the
 | **+5V_LOGIC** (post-bead) | FB, R_LF, C_IN pin 1 (+), C_DEC1/2, U1 pin 14 (Vcc), Teensy VIN |
 | **LF_DAMP** | R_LF → C_LF (the damping node of R-PWR-5; C_LF never sits on +5V_LOGIC directly) |
 | **+3V3** | Teensy 3V3 pin, R_MEN, J4 pin 1 |
-| **GND** | single quiet logic plane: J1 pin 2, Teensy GND, U1 pins 1/4 (chA/chB `/OE`), 7 (Vss) and 12 (chD input), C_IN pin 2 (−), C_LF, C_DEC1/2, C_SYNC, D_BUS pin 2 (anode), Q_REV pin 1 (gate), R2, J2 pin 3 (the SIG_GND pin), J3A/J3B pin 2, J4 pin 2, JP_ID0/1/2, JP_SHLD |
+| **GND** | single quiet logic plane: J1 pin 2, Teensy GND, U1 pins 1/4 (chA/chB `/OE`), 7 (Vss) and 12 (chD input), C_IN pin 2 (−), C_LF, C_DEC1/2, C_SYNC, D_BUS pin 2 (anode), Q_REV pin 1 (gate), R2, J2 pin 2 (the SIG_GND pin), J3A/J3B pin 2, J4 pin 2, JP_ID0/1/2, JP_SHLD |
 | **DATA_IN** | Teensy 11 → U1 pin 2 (chA in) |
 | **DATA_SRC** | U1 pin 3 (chA out) → R_D1 (33 Ω) |
 | **DATA** | R_D1 → J2 pin 1 (DI) |
 | **CLK_IN** | Teensy 13 → U1 pin 5 (chB in) |
 | **CLK_SRC** | U1 pin 6 (chB out) → R_D2 (33 Ω) |
-| **CLK** | R_D2 → J2 pin 2 (CI) |
+| **CLK** | R_D2 → J2 pin 3 (CI) |
 | **FRAME_SYNC** | Teensy 3, U1 pin 9 (chC in), and the divider node R1/R2 + C_SYNC (≈3.0 V when receiving) |
 | **SYNC_SRC** | U1 pin 8 (chC out) → R_S (100 Ω) |
 | **SYNC_BUS** | R_S, R1, R_PD, D_BUS pin 1 (cathode), J3A/J3B pin 1 (bridged) |
@@ -543,7 +543,7 @@ The net names are the ones the schematic, the routed board and the
 > per board** ([pov_segmented.h — run_show()](../../hardware/pov_segmented.h)); on the master the
 > divider is bypassed because pin 3 is a driven output.
 
-> **SIG_GND is a J2 pin function, not a net.** J2 pin 3 sits on the single `GND` net; the load-end
+> **SIG_GND is a J2 pin function, not a net.** J2 pin 2 sits on the single `GND` net; the load-end
 > star (R-CON-1) is where that pin meets the strip ground off-board.
 
 > **Strip +5 V / GND are _not_ on the card.** They come from the off-board power harness
