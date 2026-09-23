@@ -113,15 +113,9 @@ enum class CoveragePolicy : uint8_t {
   PROJECTION_WEIGHT
 };
 enum class PaletteMode : uint8_t { TRIADIC, COMPLEMENTARY, ANALOGOUS };
-enum class PaletteMapping : uint8_t { CUP, BELL, LINEAR, REVERSE };
+using PaletteMapping = Pullback::Color::PaletteMapping;
 using PaletteMappingWeights = Pullback::Color::PaletteMappingWeights;
-enum class BrightnessEnvelope : uint8_t {
-  NONE,
-  CUP,
-  BELL,
-  ASCENDING,
-  DESCENDING
-};
+using BrightnessEnvelope = Pullback::Color::BrightnessEnvelope;
 using HueShiftMode = Pullback::Color::HueMode;
 
 struct Slots {

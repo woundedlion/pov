@@ -231,32 +231,10 @@ struct ValueStateProvider {
   }
 };
 
-static_assert(
-    static_cast<uint8_t>(PaletteMapping::CUP) ==
-        static_cast<uint8_t>(Pullback::Color::PaletteMapping::CUP) &&
-    static_cast<uint8_t>(PaletteMapping::BELL) ==
-        static_cast<uint8_t>(Pullback::Color::PaletteMapping::BELL) &&
-    static_cast<uint8_t>(PaletteMapping::LINEAR) ==
-        static_cast<uint8_t>(Pullback::Color::PaletteMapping::LINEAR) &&
-    static_cast<uint8_t>(PaletteMapping::REVERSE) ==
-        static_cast<uint8_t>(Pullback::Color::PaletteMapping::REVERSE));
-
 inline constexpr PaletteMappingWeights
 palette_mapping_weights(PaletteMapping mapping) {
-  return PaletteMappingWeights::single(
-      static_cast<Pullback::Color::PaletteMapping>(mapping));
+  return PaletteMappingWeights::single(mapping);
 }
-static_assert(
-    static_cast<uint8_t>(BrightnessEnvelope::NONE) ==
-        static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::NONE) &&
-    static_cast<uint8_t>(BrightnessEnvelope::CUP) ==
-        static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::CUP) &&
-    static_cast<uint8_t>(BrightnessEnvelope::BELL) ==
-        static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::BELL) &&
-    static_cast<uint8_t>(BrightnessEnvelope::ASCENDING) ==
-        static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::ASCENDING) &&
-    static_cast<uint8_t>(BrightnessEnvelope::DESCENDING) ==
-        static_cast<uint8_t>(Pullback::Color::BrightnessEnvelope::DESCENDING));
 
 } // namespace Workbench
 

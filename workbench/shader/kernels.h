@@ -632,8 +632,7 @@ struct ColorStateProvider {
   }
   static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const FrameState &frame) {
-    return static_cast<Pullback::Color::BrightnessEnvelope>(
-        frame.slots.brightness_envelope);
+    return frame.slots.brightness_envelope;
   }
   static float brightness_bottom(const FrameState &frame) {
     return frame.params.color.brightness_bottom;
@@ -661,21 +660,8 @@ HS_FLASH_MEMBER inline Color4 colorize_generated(const FieldSample &sample,
   return Policy::apply(sample, frame, Policy::prepare(frame));
 }
 
-__attribute__((always_inline)) inline float
-palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
-                           float offset) {
-  return Pullback::Color::palette_mapping_coordinate(
-      value, static_cast<Pullback::Color::PaletteMapping>(mapping), frequency,
-      offset);
-}
-
-__attribute__((always_inline)) inline float
-brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
-                         float top) {
-  return Pullback::Color::brightness_envelope_gain(
-      value, static_cast<Pullback::Color::BrightnessEnvelope>(envelope), bottom,
-      top);
-}
+using Pullback::Color::palette_mapping_coordinate;
+using Pullback::Color::brightness_envelope_gain;
 
 #if HS_ENABLE_SHADER_WORKBENCH_DYNAMIC_BACKEND ||                              \
     (HS_ENABLE_TEST_HOOKS && HS_ENABLE_TEST_ORACLES)
