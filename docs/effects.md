@@ -189,6 +189,8 @@ A single head traces spherical Lissajous curves, cycling through a dozen configu
 
 **Parameters**: Alpha, Thickness, Cycle Dur, Debug BB
 
+Thickness 0 hides the comet.
+
 </td></tr></table>
 
 <table border="0"><tr>
