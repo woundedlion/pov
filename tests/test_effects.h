@@ -1769,10 +1769,12 @@ inline void test_gs_reaction_edit_starts_dissolve() {
   gs.advance_display();
   HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
 
-  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 1.0f); // Speed only
-  gs.draw_frame();
-  gs.advance_display();
-  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+  for (float speed : {0.1f, 1.0f}) {
+    GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, speed);
+    gs.draw_frame();
+    gs.advance_display();
+    HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+  }
 
   GSWhiteBox::set_params(gs, 0.03f, 0.06f, 0.02f, 0.01f, 1.0f); // Feed moved
   gs.draw_frame();
