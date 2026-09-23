@@ -352,6 +352,10 @@ if(NOT HS_SANITIZE AND NOT HS_TSAN)
     set_tests_properties(unit_effects_smoke PROPERTIES TIMEOUT 1200)
 endif()
 
+add_test(NAME unit_death_child_dispatch COMMAND ${CMAKE_COMMAND}
+    -DTEST_BIN=$<TARGET_FILE:run_tests>
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_death_child_dispatch.cmake)
+
 # Pin _hs_test_modules against run_tests' HS_TEST_MODULE_LIST: run_tests
 # --check-modules exits non-zero if the CMake list and the roster diverge in
 # either direction, so a module added to one but not the other can never run

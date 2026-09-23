@@ -241,8 +241,7 @@ static bool skips_are_errors() {
 
 /**
  * @brief Verifies the environment carries the depth levers a CI run must set.
- * @param argc Argument count as passed to main.
- * @param argv Argument vector as passed to main.
+ * @param effects_invocation Whether this invocation runs an effects module.
  * @return 0 when every lever this invocation needs is set, else 1.
  * @details Every lever defaults to the shallow local tier when unset, so a
  * workflow step that stops exporting one drops the deep smoke window or the
@@ -259,7 +258,7 @@ static bool skips_are_errors() {
  * counter a green run shows, so whether this leg tolerates one has to be
  * declared rather than defaulted.
  */
-static int check_ci_levers(int argc, char **argv) {
+static int check_ci_levers(bool effects_invocation) {
   if (!runs_in_ci())
     return 0;
 
@@ -291,7 +290,7 @@ static int check_ci_levers(int argc, char **argv) {
                  CI_MIN_BUFFER_FREE_WATCHDOG_US);
     ++missing;
   }
-  if (runs_effects(argc, argv)) {
+  if (effects_invocation) {
     const bool tier_declared = effects_full && effects_full[0] != '\0';
     const bool policy_declared =
         require_effects_full && require_effects_full[0] != '\0';
@@ -409,7 +408,7 @@ int main(int argc, char **argv) {
       return check_modules(argc - 2, argv + 2);
   }
 
-  if (check_ci_levers(argc, argv))
+  if (check_ci_levers(!IS_DEATH_CHILD && runs_effects(argc, argv)))
     return 1;
 
   if (IS_DEATH_CHILD) {
