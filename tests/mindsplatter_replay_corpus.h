@@ -21,10 +21,7 @@ struct GoldenPixel {
 
 enum CorpusTraits : uint32_t {
   CORPUS_SATURATED = 1u << 0,
-  CORPUS_POLE = 1u << 1,
-  CORPUS_SEAM = 1u << 2,
   CORPUS_LONG_EDGE = 1u << 3,
-  CORPUS_ONE_DOT_HEAVY = 1u << 4,
   CORPUS_MEASURED_WORST = 1u << 5,
 };
 
