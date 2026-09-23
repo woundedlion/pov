@@ -19,7 +19,7 @@ inline constexpr int VEC4_DIMENSIONS = 4;
  * @brief A point or direction in four dimensions.
  */
 struct Vec4 {
-  float v[VEC4_DIMENSIONS];
+  float v[VEC4_DIMENSIONS]{};
 
   constexpr float &operator[](int index) { return v[index]; }
   constexpr float operator[](int index) const { return v[index]; }
