@@ -408,8 +408,9 @@ valid_mobius(const math::MobiusParams &params) {
 
 HS_COLD_MEMBER inline constexpr bool
 coefficient_in_range(const math::Complex &coefficient) {
-  return coefficient.re >= -8.0f && coefficient.re <= 8.0f &&
-         coefficient.im >= -8.0f && coefficient.im <= 8.0f;
+  constexpr float LIMIT = Pullback::Lens::MobiusLensParams::COEFFICIENT_LIMIT;
+  return coefficient.re >= -LIMIT && coefficient.re <= LIMIT &&
+         coefficient.im >= -LIMIT && coefficient.im <= LIMIT;
 }
 
 HS_COLD_MEMBER inline constexpr bool

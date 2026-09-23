@@ -1181,22 +1181,24 @@ private:
     if (lens == Workbench::SurfaceLens::NONE)
       return;
     if (lens == Workbench::SurfaceLens::MOBIUS) {
-      register_animated_param("Mobius A Real", &params.mobius.a.re, -8.0f,
-                              8.0f);
-      register_animated_param("Mobius A Imag", &params.mobius.a.im, -8.0f,
-                              8.0f);
-      register_animated_param("Mobius B Real", &params.mobius.b.re, -8.0f,
-                              8.0f);
-      register_animated_param("Mobius B Imag", &params.mobius.b.im, -8.0f,
-                              8.0f);
-      register_animated_param("Mobius C Real", &params.mobius.c.re, -8.0f,
-                              8.0f);
-      register_animated_param("Mobius C Imag", &params.mobius.c.im, -8.0f,
-                              8.0f);
-      register_animated_param("Mobius D Real", &params.mobius.d.re, -8.0f,
-                              8.0f);
-      register_animated_param("Mobius D Imag", &params.mobius.d.im, -8.0f,
-                              8.0f);
+      constexpr float LIMIT =
+          Pullback::Lens::MobiusLensParams::COEFFICIENT_LIMIT;
+      register_animated_param("Mobius A Real", &params.mobius.a.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius A Imag", &params.mobius.a.im, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius B Real", &params.mobius.b.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius B Imag", &params.mobius.b.im, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius C Real", &params.mobius.c.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius C Imag", &params.mobius.c.im, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius D Real", &params.mobius.d.re, -LIMIT,
+                              LIMIT);
+      register_animated_param("Mobius D Imag", &params.mobius.d.im, -LIMIT,
+                              LIMIT);
     }
   }
 
