@@ -64,8 +64,7 @@ using ProjectionBoundary = projections::ProjectionBoundary;
 
 /**
  * @brief Rank-0 carrier: a unit view direction plus the accumulated path.
- * @details Must stay all-float: as a 4-float homogeneous aggregate it is
- * returned in s0-s3 across out-of-line boundaries.
+ * @details Carries four floating-point components.
  */
 struct SphereSample {
   math::Vector dir;
