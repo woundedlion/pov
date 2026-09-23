@@ -551,7 +551,7 @@ FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far en
 QUILTER_FIXED = {
     # J1's body runs along the length; it sits in the hub pocket between the USB
     # approach corridor and J4, clear of the Teensy courtyard. Measured for the
-    # 0.1in 1x02 header the committed boards carry, not board.py's JST XA.
+    # 0.1in 1x02 header the routed board carries, not board.py's Molex KK-254.
     "J1": (8.5, 18.8, 0),
     "J4": (8.5, 28.5, 90),
     "J2": (49.8, 2.77, 0),
