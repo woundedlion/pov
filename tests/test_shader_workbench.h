@@ -687,11 +687,11 @@ struct ShaderWorkbenchWhiteBox {
     return Workbench::project_point(v, projection);
   }
   static Pullback::ProjectionResult
-  finalize_projection(const math::Vector &v, const math::Complex &coords,
-                      Projection projection, float singularity_fade,
+  finalize_projection(const math::Vector &v, Projection projection,
+                      float singularity_fade,
                       GnomonicHemispherePolicy hemisphere) {
-    return Workbench::finalize_projection(v, coords, projection,
-                                          singularity_fade, hemisphere);
+    return Workbench::finalize_projection(v, projection, singularity_fade,
+                                          hemisphere);
   }
   static math::Complex curl_vector(const math::Complex &p,
                                    const FastNoiseLite &noise, NoiseBasis basis,
@@ -5199,23 +5199,18 @@ inline void test_shader_workbench_projection_and_admission_contracts() {
   const math::Vector front_neighbor(1.0f, 1e-5f, 0.0f);
   const math::Vector back_neighbor(1.0f, -1e-5f, 0.0f);
   const math::Vector axis(1.0f, 0.0f, 0.0f);
-  const auto front = WB::finalize_projection(
-      front_neighbor,
-      WB::project_point(front_neighbor, WB::Projection::GNOMONIC),
-      WB::Projection::GNOMONIC, 1.0f,
-      WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
-  const auto back_clipped = WB::finalize_projection(
-      back_neighbor, WB::project_point(back_neighbor, WB::Projection::GNOMONIC),
-      WB::Projection::GNOMONIC, 1.0f,
-      WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
-  const auto axis_front = WB::finalize_projection(
-      axis, WB::project_point(axis, WB::Projection::GNOMONIC),
-      WB::Projection::GNOMONIC, 1.0f,
-      WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
-  const auto axis_back = WB::finalize_projection(
-      axis, WB::project_point(axis, WB::Projection::GNOMONIC),
-      WB::Projection::GNOMONIC, 1.0f,
-      WB::GnomonicHemispherePolicy::BACK_HEMISPHERE);
+  const auto front =
+      WB::finalize_projection(front_neighbor, WB::Projection::GNOMONIC, 1.0f,
+                              WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
+  const auto back_clipped =
+      WB::finalize_projection(back_neighbor, WB::Projection::GNOMONIC, 1.0f,
+                              WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
+  const auto axis_front =
+      WB::finalize_projection(axis, WB::Projection::GNOMONIC, 1.0f,
+                              WB::GnomonicHemispherePolicy::FRONT_HEMISPHERE);
+  const auto axis_back =
+      WB::finalize_projection(axis, WB::Projection::GNOMONIC, 1.0f,
+                              WB::GnomonicHemispherePolicy::BACK_HEMISPHERE);
   HS_EXPECT_EQ(front.provenance.domain_coverage, 1.0f);
   HS_EXPECT_EQ(back_clipped.provenance.domain_coverage, 0.0f);
   HS_EXPECT_EQ(axis_front.provenance.domain_coverage, 1.0f);
