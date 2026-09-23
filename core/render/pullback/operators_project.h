@@ -28,6 +28,8 @@ enum class ProjectionFrame : uint8_t { IDENTITY, SPIN_WANDER };
 
 inline constexpr const char *PROJECTION_FRAME_IDS[] = {"identity",
                                                        "spin-wander"};
+static_assert(std::size(PROJECTION_FRAME_IDS) ==
+              static_cast<size_t>(ProjectionFrame::SPIN_WANDER) + 1);
 
 /** @brief Activation relation of the spin and wander rates, which the
     identity frame neither advances nor reads. */
@@ -179,6 +181,8 @@ struct ProjectEquirectangular
 
 inline constexpr const char *GNOMONIC_HEMISPHERE_IDS[] = {"folded", "front",
                                                           "back"};
+static_assert(std::size(GNOMONIC_HEMISPHERE_IDS) ==
+              static_cast<size_t>(Projection::GnomonicHemisphere::BACK) + 1);
 
 /** @brief Parameter family of project.gnomonic.v2. */
 struct GnomonicChainParams : ProjectChainParams {
@@ -263,6 +267,7 @@ struct ProjectPeirceSquareFast
 };
 
 inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
+static_assert(std::size(BONNE_HEMISPHERE_IDS) == 2);
 
 /** @brief Standard parallel magnitude of the chain's Bonne projection. */
 inline constexpr float BONNE_STANDARD_PARALLEL = math::PI_F * 0.25f;

@@ -27,6 +27,8 @@ namespace Op {
 
 inline constexpr const char *SURFACE_INTEGRATOR_IDS[] = {"euler", "midpoint",
                                                          "midpoint-2x"};
+static_assert(std::size(SURFACE_INTEGRATOR_IDS) ==
+              static_cast<size_t>(Surface::Integrator::MIDPOINT_2X) + 1);
 
 /** @brief Parameter family of sphere.displace.curl.v2. */
 struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
@@ -301,6 +303,8 @@ inline constexpr const char *KALEIDOSCOPE_SYMMETRY_IDS[] = {
     "azimuthal",        "tetrahedral",      "octahedral",
     "dodecahedral",     "triangular-prism", "square-prism",
     "pentagonal-prism", "hexagonal-prism",  "octagonal-prism"};
+static_assert(std::size(KALEIDOSCOPE_SYMMETRY_IDS) ==
+              static_cast<size_t>(KaleidoscopeSymmetry::OCTAGONAL_PRISM) + 1);
 
 /** @brief Parameter family of sphere.lens.kaleidoscope.v2: the symmetry
     topology alone. */

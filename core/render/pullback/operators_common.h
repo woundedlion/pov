@@ -91,6 +91,8 @@ struct SourceClockState {
 
 /** @brief Noise-basis topology values, in math::NoiseBasis order. */
 inline constexpr const char *NOISE_BASIS_IDS[] = {"simplex", "fbm3", "ridged3"};
+static_assert(std::size(NOISE_BASIS_IDS) ==
+              static_cast<size_t>(math::NoiseBasis::RIDGED3) + 1);
 
 /**
  * @brief Bounds a noise-driven operator's basis enum8.
@@ -106,8 +108,12 @@ enum class WeightMode : uint8_t { NONE = 0, PROJECTION = 1 };
 using ProjectionCoverageMode = Pullback::ProjectionCoverageMode;
 
 inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
+static_assert(std::size(WEIGHT_MODE_IDS) ==
+              static_cast<size_t>(WeightMode::PROJECTION) + 1);
 inline constexpr const char *COVERAGE_MODE_IDS[] = {
     "none", "weight", "weight-squared", "edge-fade"};
+static_assert(std::size(COVERAGE_MODE_IDS) ==
+              static_cast<size_t>(ProjectionCoverageMode::EDGE_FADE) + 1);
 
 /**
  * @brief Bounds the Sample crossing's topology enum8s.

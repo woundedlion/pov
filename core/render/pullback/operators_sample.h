@@ -293,6 +293,8 @@ struct SampleFractal : SourceClockModel {
 
 inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
                                                         "hexagonal"};
+static_assert(std::size(TESSELLATION_KIND_IDS) ==
+              static_cast<size_t>(Source::TessellationKind::HEXAGONAL) + 1);
 
 /** @brief Parameter family of sample.tessellation.v2. */
 struct TessellationSampleParams : Source::TessellationSourceParams {

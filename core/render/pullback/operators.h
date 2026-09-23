@@ -87,12 +87,20 @@ using EnvelopeMode = Color::BrightnessEnvelope;
 
 inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
                                                    "analogous"};
+static_assert(std::size(PALETTE_MODE_IDS) ==
+              static_cast<size_t>(PaletteMode::ANALOGOUS) + 1);
 inline constexpr const char *PALETTE_MAPPING_IDS[] = {"cup", "bell", "linear",
                                                       "reverse"};
+static_assert(std::size(PALETTE_MAPPING_IDS) ==
+              static_cast<size_t>(Color::PaletteMapping::REVERSE) + 1);
 inline constexpr const char *HUE_SHIFT_MODE_IDS[] = {"none", "noise",
                                                      "path-length"};
+static_assert(std::size(HUE_SHIFT_MODE_IDS) ==
+              static_cast<size_t>(HueShiftMode::PATH_LENGTH) + 1);
 inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
     "none", "cup", "bell", "ascending", "descending"};
+static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
+              static_cast<size_t>(EnvelopeMode::DESCENDING) + 1);
 
 /** @brief Legacy parameter family of colorize.generated-palette.v2. */
 struct LegacyGeneratedPaletteParams {
