@@ -51,8 +51,8 @@ inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
     live_values(BrightnessEnvelope::CUP, BrightnessEnvelope::BELL,
                 BrightnessEnvelope::ASCENDING, BrightnessEnvelope::DESCENDING)};
 
-/** @brief Palette and hue parameters, shared by every composed effect. */
-struct ColorParams {
+/** @brief Continuous palette and hue controls shared by composed and chain effects. */
+struct ColorControls {
   float hue_shift_amount = 0.0f; /**< Hue rotation magnitude; 0 disables the
                                       rotation entirely. */
   float hue_noise_scale = 1.0f;  /**< Spatial scale of the hue-noise LUT. */
@@ -71,43 +71,60 @@ struct ColorParams {
   float brightness_top = 1.0f;    /**< Gain at the envelope's high point. */
   float opacity_low = 1.0f;       /**< Alpha gain at source value 0. */
   float opacity_high = 1.0f;      /**< Alpha gain at source value 1. */
-  /** Palette mapping curve; snapped, not blended, by interpolate(). */
-  PaletteMapping palette_mapping = PaletteMapping::LINEAR;
 
   static constexpr auto FIELDS = std::array{
-      Field<ColorParams>{"hue-shift-amount", &ColorParams::hue_shift_amount,
-                         nullptr, -4.0f, 4.0f, FieldCurve::LERP,
-                         FieldGate::ALWAYS, HUE_ROTATION_GATE},
-      Field<ColorParams>{"hue-noise-scale", &ColorParams::hue_noise_scale,
-                         nullptr, 1.0f / 64.0f, 8.0f, FieldCurve::LOG_POSITIVE,
-                         FieldGate::ALWAYS, HUE_NOISE_GATE},
-      Field<ColorParams>{"hue-noise-speed", &ColorParams::hue_noise_speed,
-                         nullptr, -0.001f, 0.001f, FieldCurve::LERP,
-                         FieldGate::ALWAYS, HUE_NOISE_GATE},
-      Field<ColorParams>{"palette-chroma", &ColorParams::palette_chroma,
-                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
-      Field<ColorParams>{"mapping-frequency", &ColorParams::mapping_frequency,
-                         nullptr, 1.0f, 32.0f, FieldCurve::LOG_POSITIVE},
-      Field<ColorParams>{"mapping-phase", &ColorParams::mapping_phase, nullptr,
-                         -1.0f, 1.0f, FieldCurve::LERP},
-      Field<ColorParams>{"phase-oscillation-depth",
-                         &ColorParams::phase_oscillation_depth, nullptr, 0.0f,
-                         1.0f, FieldCurve::LERP},
-      Field<ColorParams>{"phase-oscillation-speed",
-                         &ColorParams::phase_oscillation_speed, nullptr, -0.01f,
-                         0.01f, FieldCurve::LERP},
-      Field<ColorParams>{"brightness-bottom", &ColorParams::brightness_bottom,
-                         nullptr, 0.0f, 1.0f, FieldCurve::LERP,
-                         FieldGate::ALWAYS, BRIGHTNESS_ENVELOPE_GATE},
-      Field<ColorParams>{"brightness-top", &ColorParams::brightness_top,
-                         nullptr, 0.0f, 1.0f, FieldCurve::LERP,
-                         FieldGate::ALWAYS, BRIGHTNESS_ENVELOPE_GATE},
-      Field<ColorParams>{"value-opacity-low", &ColorParams::opacity_low,
-                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
-      Field<ColorParams>{"value-opacity-high", &ColorParams::opacity_high,
-                         nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorControls>{"hue-shift-amount", &ColorControls::hue_shift_amount,
+                           nullptr, -4.0f, 4.0f, FieldCurve::LERP,
+                           FieldGate::ALWAYS, HUE_ROTATION_GATE},
+      Field<ColorControls>{"hue-noise-scale", &ColorControls::hue_noise_scale,
+                           nullptr, 1.0f / 64.0f, 8.0f,
+                           FieldCurve::LOG_POSITIVE, FieldGate::ALWAYS,
+                           HUE_NOISE_GATE},
+      Field<ColorControls>{"hue-noise-speed", &ColorControls::hue_noise_speed,
+                           nullptr, -0.001f, 0.001f, FieldCurve::LERP,
+                           FieldGate::ALWAYS, HUE_NOISE_GATE},
+      Field<ColorControls>{"palette-chroma", &ColorControls::palette_chroma,
+                           nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorControls>{"mapping-frequency",
+                           &ColorControls::mapping_frequency, nullptr, 1.0f,
+                           32.0f, FieldCurve::LOG_POSITIVE},
+      Field<ColorControls>{"mapping-phase", &ColorControls::mapping_phase,
+                           nullptr, -1.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorControls>{"phase-oscillation-depth",
+                           &ColorControls::phase_oscillation_depth, nullptr,
+                           0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorControls>{"phase-oscillation-speed",
+                           &ColorControls::phase_oscillation_speed, nullptr,
+                           -0.01f, 0.01f, FieldCurve::LERP},
+      Field<ColorControls>{
+          "brightness-bottom", &ColorControls::brightness_bottom, nullptr, 0.0f,
+          1.0f, FieldCurve::LERP, FieldGate::ALWAYS, BRIGHTNESS_ENVELOPE_GATE},
+      Field<ColorControls>{"brightness-top", &ColorControls::brightness_top,
+                           nullptr, 0.0f, 1.0f, FieldCurve::LERP,
+                           FieldGate::ALWAYS, BRIGHTNESS_ENVELOPE_GATE},
+      Field<ColorControls>{"value-opacity-low", &ColorControls::opacity_low,
+                           nullptr, 0.0f, 1.0f, FieldCurve::LERP},
+      Field<ColorControls>{"value-opacity-high", &ColorControls::opacity_high,
+                           nullptr, 0.0f, 1.0f, FieldCurve::LERP},
   };
 
+  constexpr bool operator==(const ColorControls &) const = default;
+};
+static_assert(field_ids_unique<ColorControls>());
+static_assert(field_defaults_in_range<ColorControls>());
+
+/** @brief Composed-effect controls with a snapped palette mapping curve. */
+struct ColorParams : ColorControls {
+  PaletteMapping palette_mapping = PaletteMapping::LINEAR;
+  static constexpr auto FIELDS = [] {
+    std::array<Field<ColorParams>, ColorControls::FIELDS.size()> out{};
+    for (size_t index = 0; index < out.size(); ++index) {
+      const auto &field = ColorControls::FIELDS[index];
+      out[index] = {field.id,  field.member, field.name, field.min,
+                    field.max, field.curve,  field.gate, field.topology_gate};
+    }
+    return out;
+  }();
   constexpr bool operator==(const ColorParams &) const = default;
 };
 static_assert(field_ids_unique<ColorParams>());
