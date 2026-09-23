@@ -19,7 +19,11 @@ contract (§8)**, a runtime mirror of it. Each later part depends only on
 the parts before it. The authoring tool is separate:
 [shader_workbench_chain_spec.md](shader_workbench_chain_spec.md).
 
-## 1. The problem
+## 1. Historical problem
+
+This section records the fixed-slot implementation replaced by the landed
+ranked pipeline. Its `ARITY`, `ORDER` and stage-kind names are historical;
+§§2–6 describe the shipped model.
 
 `Pullback::Pipeline` validates a hard-wired shape: exactly six stages, one
 each of `OUTER_CAMERA, SURFACE_PROJECT, PLANAR_WARP, SOURCE, MATERIAL,
