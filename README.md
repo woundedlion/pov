@@ -646,6 +646,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── probe_harness.mjs       Manifest server, browser, console/network collector and pointer helpers every probe runs on
 │   ├── browser.mjs             Browser resolution (CHROME_PATH, else the standard Chrome locations) and the launch flags the headless scripts share
 │   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
+│   ├── vendor-imports.mjs      Parses module imports for the vendor integrity inventory
+│   ├── extract-engine-bundle.py  Validates archive paths before extracting the engine bundle
 │   ├── generate-shader-v2-documents.mjs  Regenerates the v2 pattern documents and digest-migration table from the v1 fixtures
 │   ├── record-module-loads.mjs NODE_OPTIONS shim recording loaded test modules
 │   ├── require-tests.mjs       `pretest` guard against empty globs, unreachable tests, and shadow installs
@@ -674,6 +676,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── node_modules/lil-gui/       Optional local lil-gui (npm install)
 ├── package.json
 ├── package-lock.json           Committed dependency pin (the optional trees above are gitignored)
+├── .nvmrc                      Exact Node runtime used by simulator CI
 ├── .gitattributes              Text and generated-binary attribute rules
 └── .gitignore                  Local dependency, build, and installed-engine exclusions
 ```
