@@ -20,6 +20,9 @@ using MobiusGridSpec =
 
 /**
  * @brief A continuously animated Mobius lens over a mirrored twin wave.
+ * @details Presets store an authored lens snapshot. Once the timeline steps,
+ * the circular animation drives b on the unit circle; authored b is not a
+ * rendered-frame promise.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
