@@ -27,9 +27,7 @@ permissions:
 # Cancel superseded PR runs on the same ref to save CI minutes. Master pushes
 # queue instead: back-to-back landings share refs/heads/master, and cancelling
 # leaves the earlier commit with a cancelled — neither green nor visibly red —
-# verdict. master is also the only ref that runs windows-tests and the FULL
-# effects tier (optimized-tests shard 3 under IEEE, and its fastmath entry under
-# the shipping float pair), so a cancelled landing takes their sole run with it.
+# verdict. Windows and FULL effects coverage run on pull requests as well.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -743,7 +741,7 @@ jobs:
         # Deep smoke pass (see the Linux job): cover effect-lifecycle
         # transitions the default 8-frame local run never reaches.
         # Windows keeps the QUICK effects tier; this job targets toolchain
-        # portability rather than duplicating the master-only FULL leg.
+        # portability rather than duplicating the FULL leg.
         # --no-tests=error: bare ctest exits 0 on an empty test list, and a
         # configure-time regression in the toolchain file's Windows branch —
         # what this job exists to cover — is exactly what would empty it.
