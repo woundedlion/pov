@@ -476,7 +476,7 @@ inline bool valid(const MobiusLensParams &p) {
     if (!std::isfinite(value) ||
         fabsf(value) > MobiusLensParams::COEFFICIENT_LIMIT)
       return false;
-  return true;
+  return MobiusLensParams::nondegenerate(p.mobius);
 }
 
 inline bool valid(const ColorParams &p) {
@@ -982,6 +982,9 @@ public:
   static bool valid_params(const Params &params) {
     return Pullback::valid(params);
   }
+#if HS_ENABLE_TEST_HOOKS
+  FrameState frame_for_test() { return prepare_frame(); }
+#endif
 
 protected:
   /** Descriptors the arena-backed parameter array holds; every slider an effect
@@ -1352,25 +1355,29 @@ private:
     const FastNoiseLite *surface_noise = nullptr;
     if constexpr (HAS_SURFACE_NOISE)
       surface_noise = &state->surface.noise;
-    return {.projection_conjugate = this->frame_conjugate(),
-            .outer_conjugate = outer_conjugate,
-            .outer_noise = outer_noise,
-            .source_noise = source_noise,
-            .surface_noise = surface_noise,
-            .palette = &palette_cycler.palette(),
-            .hue_rotation_lut = hue_rotation_lut_data(),
-            .hue_noise_lut = hue_noise_lut_data(),
-            .params = params,
-            .palette_mapping = palette_mapping,
-            .source_primary = source_primary,
-            .source_secondary = source_secondary,
-            .source_angle = source_angle,
-            .outer_phase = outer_phase,
-            .inner_phase = inner_phase,
-            .outer_rotation = outer_rotation,
-            .source_noise_time = source_noise_time,
-            .surface_phase = surface_phase,
-            .palette_oscillation_phase = palette_oscillation_phase};
+    FrameState frame{.projection_conjugate = this->frame_conjugate(),
+                     .outer_conjugate = outer_conjugate,
+                     .outer_noise = outer_noise,
+                     .source_noise = source_noise,
+                     .surface_noise = surface_noise,
+                     .palette = &palette_cycler.palette(),
+                     .hue_rotation_lut = hue_rotation_lut_data(),
+                     .hue_noise_lut = hue_noise_lut_data(),
+                     .params = params,
+                     .palette_mapping = palette_mapping,
+                     .source_primary = source_primary,
+                     .source_secondary = source_secondary,
+                     .source_angle = source_angle,
+                     .outer_phase = outer_phase,
+                     .inner_phase = inner_phase,
+                     .outer_rotation = outer_rotation,
+                     .source_noise_time = source_noise_time,
+                     .surface_phase = surface_phase,
+                     .palette_oscillation_phase = palette_oscillation_phase};
+    if constexpr (requires { frame.params.lens.mobius; })
+      if (!Pullback::valid(frame.params.lens))
+        frame.params.lens.mobius = {};
+    return frame;
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {

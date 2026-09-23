@@ -6,6 +6,7 @@
 #pragma once
 
 #include "math/mobius.h"
+#include "render/pullback/lens.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
@@ -399,14 +400,8 @@ HS_COLD_MEMBER inline constexpr bool safe_program_bounds(const Config &config) {
 
 HS_COLD_MEMBER inline constexpr bool
 valid_mobius(const math::MobiusParams &params) {
-  const float ad_re = params.a.re * params.d.re - params.a.im * params.d.im;
-  const float ad_im = params.a.re * params.d.im + params.a.im * params.d.re;
-  const float bc_re = params.b.re * params.c.re - params.b.im * params.c.im;
-  const float bc_im = params.b.re * params.c.im + params.b.im * params.c.re;
-  const float det_re = ad_re - bc_re;
-  const float det_im = ad_im - bc_im;
   return mobius_coefficients_in_range(params) &&
-         det_re * det_re + det_im * det_im >= 1e-6f;
+         Pullback::Lens::MobiusLensParams::nondegenerate(params);
 }
 
 HS_COLD_MEMBER inline constexpr bool
