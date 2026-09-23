@@ -89,6 +89,9 @@ inline int run_effects_smoke_tests() {
 #define HS_DET_ONE(name) determinism_one<name>(#name);
     HS_EFFECT_LIST(HS_DET_ONE)
 #undef HS_DET_ONE
+  } else {
+    std::printf("  [TIER] production-resolution smoke and determinism omitted; "
+                "set HS_EFFECTS_FULL=1\n");
   }
 
   // Small-aspect <96,20> roster passes — always run; this is the QUICK tier's
