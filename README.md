@@ -662,7 +662,7 @@ files define line-ending policy and working-artifact exclusions.
 │   └── install-engine-bundle.mjs
 │
 ├── tests/                      Node unit tests (`npm test`)
-├── requirements/               Hash-locked ShellCheck toolchain used by CI
+├── requirements/               Hash-locked ShellCheck and actionlint toolchains used by CI
 ├── tsconfig.json               checkJs settings for the worker-protocol module set
 ├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step
 ├── .githooks/                  staged pre-commit checks, a pre-push mirror of the JS/browser suites, and the master fast-forward guard
