@@ -22,17 +22,12 @@ namespace Workbench {
 inline constexpr int POLAR_HARMONIC_MAX = Pullback::Warp::MAX_POLAR_HARMONIC;
 inline constexpr int BAND_COUNT_MAX = 32;
 inline constexpr float WARP_SCALE_MIN = 1.0f / 64.0f;
-inline constexpr float WARP_SCALE_MAX = 100.0f;
-inline constexpr float WARP_STRENGTH_MIN = -4.0f;
-inline constexpr float WARP_STRENGTH_MAX = 30.0f;
 inline constexpr float VECTOR_WARP_SCALE_MAX = 4.0f;
 inline constexpr float VECTOR_WARP_STRENGTH_MAX = 1.0f;
 inline constexpr float CURL_WARP_SCALE_MAX = 2.0f;
 inline constexpr float CURL_WARP_STRENGTH_MAX = 1.0f;
 inline constexpr float CURL_VECTOR_COMPONENT_MAX =
     Pullback::Warp::CURL_VECTOR_COMPONENT_MAX;
-inline constexpr float WARP_SPEED_MIN = -1.0f / 64.0f;
-inline constexpr float WARP_SPEED_MAX = 1.0f;
 inline constexpr float AFFINE_TRANSLATION_MAX = 4.0f;
 inline constexpr float AFFINE_SCALE_MIN = 0.25f;
 inline constexpr float AFFINE_SCALE_MAX = 4.0f;
@@ -146,56 +141,83 @@ HS_COLD_MEMBER inline constexpr bool enum_at_most(Enum value, Enum last) {
 }
 
 HS_COLD_MEMBER inline constexpr bool
-warp_stage_params_in_ranges(const WarpStageParams &params) {
-  static_assert(sizeof(WarpStageParams) == 100,
-                "WarpStageParams field set changed - update the range check");
-  return params.scale >= WARP_SCALE_MIN && params.scale <= WARP_SCALE_MAX &&
-         params.strength >= WARP_STRENGTH_MIN &&
-         params.strength <= WARP_STRENGTH_MAX &&
-         params.speed >= WARP_SPEED_MIN && params.speed <= WARP_SPEED_MAX &&
-         params.translation_x >= -AFFINE_TRANSLATION_MAX &&
-         params.translation_x <= AFFINE_TRANSLATION_MAX &&
-         params.translation_y >= -AFFINE_TRANSLATION_MAX &&
-         params.translation_y <= AFFINE_TRANSLATION_MAX &&
-         params.rotation >= -math::TWO_PI_F &&
-         params.rotation <= math::TWO_PI_F &&
-         params.scale_x >= AFFINE_SCALE_MIN &&
-         params.scale_x <= AFFINE_SCALE_MAX &&
-         params.scale_y >= AFFINE_SCALE_MIN &&
-         params.scale_y <= AFFINE_SCALE_MAX &&
-         params.shear >= -AFFINE_SHEAR_MAX &&
-         params.shear <= AFFINE_SHEAR_MAX && params.frequency >= 0.0f &&
-         params.frequency <= 64.0f && params.field_angle >= 0.0f &&
-         params.field_angle <= math::TWO_PI_F &&
-         params.center_x >= -VORTEX_CENTER_MAX &&
-         params.center_x <= VORTEX_CENTER_MAX &&
-         params.center_y >= -VORTEX_CENTER_MAX &&
-         params.center_y <= VORTEX_CENTER_MAX &&
-         params.radius >= VORTEX_RADIUS_MIN &&
-         params.radius <= VORTEX_RADIUS_MAX &&
-         params.turns >= -VORTEX_TURNS_MAX &&
-         params.turns <= VORTEX_TURNS_MAX &&
-         params.center_orbit_radius >= 0.0f &&
-         params.center_orbit_radius <= VORTEX_ORBIT_MAX &&
-         params.vector_angle >= 0.0f && params.vector_angle <= math::TWO_PI_F &&
-         params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
-         params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
-         params.offset_x >= -MIRROR_OFFSET_MAX &&
-         params.offset_x <= MIRROR_OFFSET_MAX &&
-         params.offset_y >= -MIRROR_OFFSET_MAX &&
-         params.offset_y <= MIRROR_OFFSET_MAX &&
-         params.radial_scale >= POLAR_RADIAL_SCALE_MIN &&
-         params.radial_scale <= POLAR_RADIAL_SCALE_MAX &&
-         params.radial_phase >= 0.0f && params.radial_phase <= math::TWO_PI_F &&
-         params.angular_phase >= 0.0f &&
-         params.angular_phase <= math::TWO_PI_F &&
-         params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
+warp_stage_params_in_ranges(WarpStageKind kind, const WarpStageParams &params) {
+  if (kind == WarpStageKind::NONE)
+    return true;
+  if (params.speed < NOISE_SPEED_MIN || params.speed > NOISE_SPEED_MAX)
+    return false;
+  switch (kind) {
+  case WarpStageKind::AFFINE_FRAME:
+    return params.translation_x >= -AFFINE_TRANSLATION_MAX &&
+           params.translation_x <= AFFINE_TRANSLATION_MAX &&
+           params.translation_y >= -AFFINE_TRANSLATION_MAX &&
+           params.translation_y <= AFFINE_TRANSLATION_MAX &&
+           params.rotation >= -math::TWO_PI_F &&
+           params.rotation <= math::TWO_PI_F &&
+           params.scale_x >= AFFINE_SCALE_MIN &&
+           params.scale_x <= AFFINE_SCALE_MAX &&
+           params.scale_y >= AFFINE_SCALE_MIN &&
+           params.scale_y <= AFFINE_SCALE_MAX &&
+           params.shear >= -AFFINE_SHEAR_MAX &&
+           params.shear <= AFFINE_SHEAR_MAX;
+  case WarpStageKind::WAVE_SHEAR:
+    return params.strength >= -4.0f && params.strength <= 4.0f &&
+           params.frequency >= WAVE_FREQUENCY_MIN &&
+           params.frequency <= WAVE_FREQUENCY_MAX &&
+           params.field_angle >= 0.0f && params.field_angle <= math::TWO_PI_F &&
+           params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
+  case WarpStageKind::VECTOR_NOISE:
+    return params.scale >= WARP_SCALE_MIN &&
+           params.scale <= VECTOR_WARP_SCALE_MAX && params.strength >= 0.0f &&
+           params.strength <= VECTOR_WARP_STRENGTH_MAX &&
+           params.vector_angle >= 0.0f &&
+           params.vector_angle <= math::TWO_PI_F &&
+           params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
+  case WarpStageKind::CURL_FLOW:
+    return params.scale >= WARP_SCALE_MIN &&
+           params.scale <= CURL_WARP_SCALE_MAX &&
+           params.strength >= -CURL_WARP_STRENGTH_MAX &&
+           params.strength <= CURL_WARP_STRENGTH_MAX;
+  case WarpStageKind::VORTEX:
+    return params.center_x >= -VORTEX_CENTER_MAX &&
+           params.center_x <= VORTEX_CENTER_MAX &&
+           params.center_y >= -VORTEX_CENTER_MAX &&
+           params.center_y <= VORTEX_CENTER_MAX &&
+           params.radius >= VORTEX_RADIUS_MIN &&
+           params.radius <= VORTEX_RADIUS_MAX &&
+           params.turns >= -VORTEX_TURNS_MAX &&
+           params.turns <= VORTEX_TURNS_MAX &&
+           params.center_orbit_radius >= 0.0f &&
+           params.center_orbit_radius <= VORTEX_ORBIT_MAX;
+  case WarpStageKind::MIRROR_TILE:
+    return params.rotation >= 0.0f && params.rotation <= math::TWO_PI_F &&
+           params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
+           params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
+           params.offset_x >= -MIRROR_OFFSET_MAX &&
+           params.offset_x <= MIRROR_OFFSET_MAX &&
+           params.offset_y >= -MIRROR_OFFSET_MAX &&
+           params.offset_y <= MIRROR_OFFSET_MAX;
+  case WarpStageKind::POLAR_CHART:
+    return params.radial_scale >= POLAR_RADIAL_SCALE_MIN &&
+           params.radial_scale <= POLAR_RADIAL_SCALE_MAX &&
+           params.radial_phase >= 0.0f &&
+           params.radial_phase <= math::TWO_PI_F &&
+           params.angular_phase >= 0.0f &&
+           params.angular_phase <= math::TWO_PI_F;
+  case WarpStageKind::NONE:
+  case WarpStageKind::COUNT:
+  case WarpStageKind::LEGACY_STEREO_NOISE:
+    return false;
+  }
+  return false;
 }
 
 HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
   const Params &p = config.params;
-  return warp_stage_params_in_ranges(p.warp.outer) &&
-         warp_stage_params_in_ranges(p.warp.inner) &&
+  return warp_stage_params_in_ranges(config.slots.warp_program.outer.kind,
+                                     p.warp.outer) &&
+         warp_stage_params_in_ranges(config.slots.warp_program.inner.kind,
+                                     p.warp.inner) &&
          (!consumes_pattern_freq(config.slots.function) ||
           (p.source.pattern_freq >= pattern_freq_min(config.slots.function) &&
            p.source.pattern_freq <= pattern_freq_max(config.slots.function))) &&
