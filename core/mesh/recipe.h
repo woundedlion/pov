@@ -222,6 +222,8 @@ HS_COLD_MEMBER inline size_t expand_to_primitives(const Recipe &recipe,
  */
 FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
                                 bool allow_composite) {
+  HS_CHECK(!step.bake || step.op == Op::RELAX,
+           "apply_step: only RELAX accepts a bake");
   switch (step.op) {
   case Op::TRUNCATE:
     HS_CHECK(step.param > 0.0f, "apply_step: TRUNCATE step has no depth");
