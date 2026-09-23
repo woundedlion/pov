@@ -134,6 +134,10 @@ jobs:
       - name: Install numpy
         run: pip install --require-hashes -r requirements/numpy.txt
 
+      - name: Install the LUT generator formatter
+        if: matrix.shard == 2
+        run: pip install --require-hashes -r requirements/clang-format.txt
+
       # Each shard gets its own ccache slot so parallel saves don't collide.
       # The shard-agnostic restore-key means any prior shard's warm cache is
       # accepted on a cache miss (all shards compile the same TUs).
