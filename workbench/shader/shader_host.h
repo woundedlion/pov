@@ -258,8 +258,8 @@ public:
     active_slots = initial.config.slots;
     active_pipeline = initial.pipeline;
     blend.params = initial.config.params;
-    blend.palette_mapping =
-        palette_mapping_weights(initial.config.slots.palette_mapping);
+    blend.palette_mapping = Workbench::palette_mapping_weights(
+        initial.config.slots.palette_mapping);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = initial.config;
 #endif
@@ -363,8 +363,8 @@ private:
     active_slots = selected.config.slots;
     active_pipeline = selected.pipeline;
     blend.params = selected.config.params;
-    blend.palette_mapping =
-        palette_mapping_weights(selected.config.slots.palette_mapping);
+    blend.palette_mapping = Workbench::palette_mapping_weights(
+        selected.config.slots.palette_mapping);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = selected.config;
 #endif
@@ -1610,7 +1610,7 @@ public:
     active_pipeline = resolve_pipeline_id(next_accepted);
     blend.params = next_accepted.params;
     blend.palette_mapping =
-        palette_mapping_weights(next_accepted.slots.palette_mapping);
+        Workbench::palette_mapping_weights(next_accepted.slots.palette_mapping);
     pending_edit_count = 0;
     for (size_t index = 0; index < CONFIG_FIELD_COUNT; ++index) {
       if (migrated_accepted[index] == migrated_requested[index])
@@ -1844,7 +1844,7 @@ private:
     frame.palette_mapping =
         state->param_morph.active
             ? blend.palette_mapping
-            : palette_mapping_weights(config.slots.palette_mapping);
+            : Workbench::palette_mapping_weights(config.slots.palette_mapping);
     frame.clocks = endpoint.clocks;
     frame.transforms = {animated_projection
                             ? endpoint.transforms.projection_conj
@@ -2204,7 +2204,7 @@ private:
     active_pipeline = resolve_pipeline_id(next_config);
     blend.params = next_config.params;
     blend.palette_mapping =
-        palette_mapping_weights(next_config.slots.palette_mapping);
+        Workbench::palette_mapping_weights(next_config.slots.palette_mapping);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     display_config = next_config;
 #endif
@@ -2243,7 +2243,7 @@ private:
     if (target == current) {
       state->param_morph.active = false;
       blend.palette_mapping =
-          palette_mapping_weights(current.slots.palette_mapping);
+          Workbench::palette_mapping_weights(current.slots.palette_mapping);
       return true;
     }
     if (stable_topology(current, target)) {
@@ -2253,7 +2253,7 @@ private:
           current.params,
           target.params,
           blend.palette_mapping,
-          palette_mapping_weights(target.slots.palette_mapping),
+          Workbench::palette_mapping_weights(target.slots.palette_mapping),
           target.slots.palette_mapping,
           0,
           duration,
@@ -2296,7 +2296,7 @@ private:
       active_pipeline = state->transition.to_pipeline;
       blend.params = state->transition.to_config.params;
       blend.palette_mapping =
-          palette_mapping_weights(active_slots.palette_mapping);
+          Workbench::palette_mapping_weights(active_slots.palette_mapping);
       state->transition.active = false;
       if (continue_choreo)
         enter_preset();
@@ -2844,7 +2844,7 @@ private:
   bool preset_dwell_armed = false;
   Workbench::Blend blend{
       Workbench::PRESETS[0].config.params,
-      palette_mapping_weights(
+      Workbench::palette_mapping_weights(
           Workbench::PRESETS[0].config.slots.palette_mapping)};
   Workbench::EndpointRuntime runtime;
 #if HS_ENABLE_TEST_HOOKS
