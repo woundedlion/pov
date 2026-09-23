@@ -7,7 +7,7 @@ longer sampled at runtime — core/color/srgb_decode.h encodes linear -> sRGB ou
 of ~1.5 KB of DTCM tables — and survives as the exact reference that
 scripts/generate_srgb_decode.cpp derives those tables from and that unit_color
 checks them against. This script is the generator of record for both; it mirrors
-the reference implementations in core/color/color.h:
+the reference implementations in core/color/color_space.h:
 
   srgb_to_linear(s) = s/12.92                       if s <= 0.04045
                       ((s+0.055)/1.055) ** 2.4       otherwise
