@@ -49,7 +49,7 @@ inline constexpr float PATTERN_FREQ_MIN = 0.1f;
 inline constexpr float PATTERN_FREQ_MAX = 20.0f;
 inline constexpr float GRID_PATTERN_FREQ_MIN = 0.01f;
 inline constexpr float GRID_PATTERN_FREQ_MAX = 64.0f;
-inline constexpr float SPEED_MIN = -0.5f, SPEED_MAX = 5.0f;
+inline constexpr float SPEED_MIN = -0.5f, SPEED_MAX = 0.5f;
 inline constexpr float COMPLEXITY_MIN = 0.0f, COMPLEXITY_MAX = 3.0f;
 inline constexpr float PATTERN_MIX_MIN = 0.0f, PATTERN_MIX_MAX = 1.0f;
 inline constexpr float PHASE2_RATE_MIN = 0.0f, PHASE2_RATE_MAX = 2.0f;
