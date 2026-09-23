@@ -23,5 +23,38 @@ if [ "${#files[@]}" -eq 0 ]; then
   exit 1
 fi
 
+# Scan conventional test names independently of the runner's extension/glob.
+root=$(dirname "$pattern")
+case "$pattern" in
+  *.js|*.mjs|*.cjs|*.ts)
+    family=javascript
+    if git rev-parse --show-toplevel >/dev/null 2>&1; then
+      root=.
+    fi
+    ;;
+  *.py) family=python ;;
+  *) family=other ;;
+esac
+unreachable=0
+while IFS= read -r -d '' candidate; do
+  candidate=${candidate#./}
+  case "$family:$candidate" in
+    javascript:*.test.js|javascript:*.test.mjs|javascript:*.test.cjs|javascript:*.test.ts|javascript:*.spec.js|javascript:*.spec.mjs|javascript:*.spec.cjs|javascript:*.spec.ts|python:*/test*.py) ;;
+    *) continue ;;
+  esac
+  reached=0
+  for file in "${files[@]}"; do
+    if [ "$candidate" = "${file#./}" ]; then
+      reached=1
+      break
+    fi
+  done
+  if [ "$reached" -eq 0 ]; then
+    echo "::error::test file '$candidate' is unreachable from '$pattern'"
+    unreachable=1
+  fi
+done < <(find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0)
+[ "$unreachable" -eq 0 ] || exit 1
+
 printf '%s: %d test file(s) discovered\n' "$pattern" "${#files[@]}"
 printf '  %s\n' "${files[@]}"

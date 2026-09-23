@@ -43,6 +43,24 @@ class RequireTestFiles(unittest.TestCase):
         # Discovery is the glob, not the directory: non-test files stay out.
         self.assertNotIn("helper.py", done.stdout)
 
+    def test_nested_test_outside_the_glob_fails(self):
+        nested = self.tree / "tools" / "sample_tests" / "nested"
+        nested.mkdir()
+        (nested / "test_hidden.py").write_text("", encoding="utf-8")
+        done = self.run_check("tools/sample_tests/test*.py")
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("test_hidden.py", done.stdout)
+        self.assertIn("unreachable", done.stdout)
+
+    def test_javascript_spec_with_unmatched_extension_fails(self):
+        scripts = self.tree / "scripts"
+        scripts.mkdir()
+        (scripts / "active.test.mjs").write_text("", encoding="utf-8")
+        (scripts / "hidden.spec.js").write_text("", encoding="utf-8")
+        done = self.run_check("scripts/*.test.mjs")
+        self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+        self.assertIn("hidden.spec.js", done.stdout)
+
     def test_an_empty_glob_fails(self):
         done = self.run_check("tools/empty_tests/test*.py")
         self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
