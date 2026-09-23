@@ -23,6 +23,23 @@ Building the WASM target in Holosphere installs the `.js`/`.wasm` module and its
 
 ---
 
+## Quickstart
+
+To explore effects, open the [live simulator](https://woundedlion.github.io/daydream/).
+
+For local development, clone Holosphere and daydream as sibling directories. Install CMake, Ninja and Emscripten, then activate `emsdk_env` and run from Holosphere:
+
+```bash
+cmake --preset wasm-release
+cmake --build --preset wasm-release-install
+```
+
+In daydream, run `npm ci`, then `python -m http.server 8000` and open <http://localhost:8000>. See [Building](#11-building) for native tests, toolchain requirements and firmware uploads.
+
+If configuration cannot find Emscripten, activate its environment in the same shell and check `EMSDK`. If the simulator reports a bundle mismatch, rebuild the install preset to refresh the engine and provenance together. A missing pinned sibling revision during documentation checks requires the daydream checkout and its pinned commit; see `tools/build_pins.py`.
+
+Design decisions are indexed under [Engineering Philosophies](#2-engineering-philosophies), with detailed constraints in [Core Subsystems](docs/subsystems.md) and the [pullback design record](docs/specs/pullback_pipeline_spec.md).
+
 ## Table of Contents
 
 1. [Hardware](#1-hardware)
