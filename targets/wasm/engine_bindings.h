@@ -1144,6 +1144,8 @@ public:
       }
       result =
           map_restore_result<SB>(shader.restore_full_config_snapshot(snapshot));
+      if (result == FullConfigRestoreResult::APPLIED)
+        check_param_capacity();
     });
     return result;
   }
