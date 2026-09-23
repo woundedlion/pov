@@ -217,8 +217,8 @@ jobs:
         # (tests/test_fixture.h smoke_frames()), so they score the high-water mark
         # over the frames the correctness sweep covers, not an 8-frame prefix.
         #
-        # These Debug shards use the QUICK effects tier. The optimized master
-        # shard is the authoritative production-resolution correctness leg.
+        # These Debug shards use QUICK. The optimized production-resolution
+        # correctness leg runs on both pull requests and master pushes.
         #
         # --no-tests=error: a shard regex that matches nothing is a shard-matrix
         # bug; without it an empty shard runs zero tests and reports green.
@@ -331,7 +331,7 @@ jobs:
         # Deep smoke pass (see the plain tests job) so the sanitized run reaches
         # the same effect-lifecycle transitions and exercises arena lifetimes.
         # The sanitizer leg keeps the QUICK effects tier; full-resolution
-        # correctness runs once on master instead of multiplying its cost.
+        # correctness runs in its own optimized job on both events.
         #
         # -E drops the generated-artifact gates: they instrument no sanitized
         # code, and the Python gates cannot run because this job provisions
@@ -619,7 +619,7 @@ jobs:
       - name: Run the instrumented suite
         # No argv = every module in one process, so a single profile covers the
         # whole roster. The stable QUICK tier keeps reports comparable across
-        # pull requests and master while the separate master leg covers FULL.
+        # pull requests and master while the separate optimized leg covers FULL.
         # %p keeps the death harness's re-spawned children off the parent's file.
         # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job, with
         # the whole roster instrumented on a 2-vCPU runner.
