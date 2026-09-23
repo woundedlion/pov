@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file pov_sync_flywheel.h
  * @brief Layer 1 of the Phantasm sync design (spec §4): the per-board
  *        position-from-time flywheel and its snap discipline.

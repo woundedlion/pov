@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file effect_factory.h
  * @brief Per-(W,H) effect factory and resolution dispatch behind the WASM
  *        engine, free of emscripten types.

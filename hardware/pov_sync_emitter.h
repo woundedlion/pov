@@ -1,7 +1,9 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
+ */
+
+/**
  * @file pov_sync_emitter.h
  * @brief Master-side symbol generation (spec §5.2, §6.4): pulse scheduling
  *        in cycle time with self-censoring of late bursts.
