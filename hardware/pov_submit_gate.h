@@ -256,10 +256,12 @@ run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
   }
 
   auto *effect = wake.live;
-  if (wake.advance)
-    effect->advance_display();
-  if (effect != nullptr && actions.render_column >= 0)
-    set_envelope(effect, actions.render_column);
+  if (effect != nullptr) {
+    if (wake.advance)
+      effect->advance_display();
+    if (actions.render_column >= 0)
+      set_envelope(effect, actions.render_column);
+  }
 
   const SubmitAction action =
       submit_gate.choose(wake.dark, actions.render_column);
