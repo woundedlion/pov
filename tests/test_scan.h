@@ -2983,6 +2983,31 @@ inline void test_pole_centred_cap_takes_the_full_row_scan() {
   HS_EXPECT_GT(interval_rows, 0);
 }
 
+inline void test_circle_and_point_keep_exact_pixel_centers() {
+  constexpr int W = 96, H = 64;
+  math::TrigLUT<W, H>::init();
+  for (int y : {1, 17, 31, 48, 62})
+    for (int x : {1, 7, 13, 23, 47, 71, 95})
+      for (bool circle : {false, true}) {
+        const auto center = math::pixel_to_vector<W, H>(x, y);
+        const auto basis = math::make_basis(math::Quaternion(), center);
+        hs_test::StubEffect fx(W, H);
+        Pipeline<W, H> pipe;
+        {
+          Canvas canvas(fx);
+          auto shader = [](const math::Vector &, Fragment &f) {
+            f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+          };
+          if (circle)
+            Scan::Circle::draw<W, H>(pipe, canvas, basis, 0.2f, shader);
+          else
+            Scan::Point::draw<W, H>(pipe, canvas, center, 0.3f, shader);
+        }
+        fx.advance_display();
+        HS_EXPECT_GT(fx.get_pixel(x, y).r, 59900);
+      }
+}
+
 /**
  * @brief Verifies the Circle and Point wrappers are their documented rings.
  * @details Circle is a radius-0 ring whose stroke half-width is radius * pi/2;
@@ -3159,6 +3184,7 @@ inline int run_scan_tests() {
 
   test_point_draws_the_analytic_cap();
   test_pole_centred_cap_takes_the_full_row_scan();
+  test_circle_and_point_keep_exact_pixel_centers();
   test_circle_and_point_match_their_rings();
   test_circle_extent_follows_its_radius();
 
