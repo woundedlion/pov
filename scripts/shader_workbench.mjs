@@ -525,7 +525,10 @@ const validateParameterBinding = (parameter, path, chainOperators, report) => {
         Math.fround(domain.maximum) !== Math.fround(field.max))
       report('SCALAR_DOMAIN_MISMATCH', `${path}.domain`,
         `Field "${parameter.id}" must carry the catalog's numeric domain.`);
-    if (parameter.interpolation.kind !== 'SNAP' && scalarCurve(parameter) !== field.curve)
+    if (parameter.interpolation.kind === 'NORMALIZED_LINEAR')
+      report('UNSUPPORTED_NORMALIZED_GROUP', `${path}.interpolation`,
+        'The operator catalog does not expose normalized interpolation groups.');
+    else if (parameter.interpolation.kind !== 'SNAP' && scalarCurve(parameter) !== field.curve)
       report('SCALAR_DOMAIN_MISMATCH', `${path}.interpolation`,
         `Field "${parameter.id}" must use the catalog's "${field.curve}" curve.`);
   }
@@ -1619,6 +1622,10 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation) {
   };
   const values = {};
   for (const [group, parameters] of parameterGroups) {
+    if (parameters.some(parameter => parameter.interpolation.kind === 'NORMALIZED_LINEAR') &&
+        parameters.some(parameter => parameter.interpolation.kind !== 'NORMALIZED_LINEAR'))
+      fail('transition', 'MIXED_INTERPOLATION_GROUP', '$.descriptor.parameters',
+        `Group "${group}" mixes normalized and scalar interpolation.`);
     const progress = progressFor(group);
     if (parameters[0].interpolation.kind === 'NORMALIZED_LINEAR')
       Object.assign(values, interpolateNormalizedGroup(parameters, from, to, progress));
