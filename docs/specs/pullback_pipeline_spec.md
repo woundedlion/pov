@@ -1207,9 +1207,10 @@ always returns true. Consequently every assembled program satisfies the
 conditional `Pipeline::implements(key)` contract and the unchanged manifest
 `static_assert`; core stages themselves remain topology-agnostic.
 
-The manifest still binds `&Program::shade` or a placement-specific wrapper to
-the existing `Color4 (*)(const Vector&, const FrameState&)` ABI. It keeps the
-same 15 rows, IDs, keys, and topology/precondition/resource checks.
+The shipped manifest binds `&Pipeline::shade_prepared` to the
+`Color4 (*)(const math::Vector&, const FrameState&, const void*)` ABI.
+The third argument points to the pipeline's prepared state. The manifest
+retains its 15 rows, IDs, keys, and topology/precondition/resource checks.
 
 ### 9.4 Dynamic/reference backend
 
