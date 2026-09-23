@@ -1278,8 +1278,6 @@ jobs:
         # job (which provisions numpy and sets -DHS_REQUIRE_GENERATORS=ON, so it
         # cannot skip); this job runs it standalone, independent of that build.
         run: |
-          bash tools/require_test_files.sh 'tools/gamut_lut_tests/test*.py'
-          python3 -m unittest discover -s tools/gamut_lut_tests
           python3 tools/gen_gamut_lut.py --check
 
   srgb-decode-provenance:
@@ -1509,20 +1507,12 @@ jobs:
       # drifted README would pass. `just docs-check` is the repairer.
       - name: Validate tracked Markdown
         run: |
-          bash tools/require_test_files.sh 'tools/docs_check_tests/test*.py'
-          bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
-          python -m unittest discover -s tools/docs_check_tests
-          python -m unittest discover -s tools/docs_images_tests
           python tools/docs_check.py --checkout daydream=daydream
           python tools/build_pins.py --check
 
       # --check above prints PASS whether or not its three checks still parse the
       # shapes they read (workflow YAML, package.json's `>=X` range); these drive
       # each against a fixture that must fail.
-      - name: Run build-pin gate self-tests
-        run: |
-          bash tools/require_test_files.sh 'tools/build_pins_tests/test*.py'
-          python -m unittest discover -s tools/build_pins_tests -v
 
       # An ignore rule is inert against an already-tracked path, so .gitignore
       # alone cannot keep a session artifact out of the repo.
@@ -1554,8 +1544,6 @@ jobs:
       # no suite and stays green; require_test_files.sh fails on an empty match.
       - name: Check tracked license headers
         run: |
-          bash tools/require_test_files.sh 'tools/license_check_tests/test*.py'
-          python -m unittest discover -s tools/license_check_tests
           python tools/license_check.py
 
   lint:
@@ -1803,13 +1791,7 @@ jobs:
           bash tools/clang_format_gate.sh
 
   teensy-gate-tests:
-    name: Teensy gate parser + layout self-tests
-    # The Teensy size/layout gate must gate itself: a check that can never fail
-    # is worse than none. These host-Python tests prove every layout invariant
-    # and region ceiling FAILS on a deliberately-broken fixture and PASSES on the
-    # good one. No ARM toolchain, no
-    # PlatformIO — fast, and independent of the heavy build job below, so it runs
-    # on every run regardless of whether the firmware build is enabled yet.
+    name: Python unit tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -1819,44 +1801,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      # A suite directory named nowhere has no discovery step and runs nowhere;
-      # this cross-check ensures every tracked suite directory is wired here and
-      # in the justfile, so the local and cloud runs cover one set.
-      - name: Every test-suite directory is discovered
-        run: bash tools/check_test_dir_pins.sh
-      # Discover finds test files by pattern, so a pattern matching nothing runs
-      # no suite and stays green; require_test_files.sh fails on an empty match.
-      - name: Run gate parser/layout/warning self-tests
-        run: |
-          bash tools/require_test_files.sh 'tools/teensy_gate_tests/test*.py'
-          python -m unittest discover -s tools/teensy_gate_tests -v
-      - name: Run coverage-gate self-tests
-        run: |
-          bash tools/require_test_files.sh 'tools/coverage_tests/test*.py'
-          python -m unittest discover -s tools/coverage_tests -v
-      - name: Run PlatformIO build-hook self-tests
-        run: |
-          bash tools/require_test_files.sh 'tools/teensy_hook_tests/test*.py'
-          python -m unittest discover -s tools/teensy_hook_tests -v
-      # The reference-transaction hook protects the local master ref, so it is
-      # driven against a scratch repository here.
-      - name: Run git hook self-tests
-        run: |
-          bash tools/require_test_files.sh 'tools/githook_tests/test*.py'
-          python -m unittest discover -s tools/githook_tests -v
-      - name: Run profiling tool self-tests
-        run: |
-          bash tools/require_test_files.sh 'tools/profile_tests/test*.py'
-          python -m unittest discover -s tools/profile_tests -v
-      - name: Run relax-bake generator self-tests
-        run: |
-          bash tools/require_test_files.sh 'tools/relax_bake_tests/test*.py'
-          python -m unittest discover -s tools/relax_bake_tests -v
-      - name: Run PCB generator self-tests + routed metadata check
-        run: |
-          bash tools/require_test_files.sh 'hardware/phantasm/gen/tests/test*.py'
-          python -m unittest discover -s hardware/phantasm/gen/tests -v
-          python hardware/phantasm/gen/board_metadata.py --check
+      - name: Install Python test dependencies
+        run: pip install --require-hashes -r requirements/numpy.txt
+      - name: Run all Python suites
+        run: python tools/run_python_tests.py
+      - name: Check routed PCB metadata
+        run: python hardware/phantasm/gen/board_metadata.py --check
 
   teensy-size:
     name: Teensy 4 firmware (build + size + layout)

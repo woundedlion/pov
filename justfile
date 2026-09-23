@@ -88,8 +88,6 @@ clang-format:
 # Every tracked C/C++ source carries the header LICENSE grants it, plus the
 # checker's own unit tests -- the ci.yml license-headers job.
 license-headers:
-    bash tools/require_test_files.sh "tools/license_check_tests/test*.py"
-    {{py}} -m unittest discover -s tools/license_check_tests
     {{py}} tools/license_check.py
 
 # The committed gamut LUT matches what the generator emits, plus the generator's
@@ -98,8 +96,6 @@ license-headers:
 # is held to the pin that job installs, the way ruff is above.
 gamut-lut:
     {{py}} tools/build_pins.py --check-tool numpy
-    bash tools/require_test_files.sh "tools/gamut_lut_tests/test*.py"
-    {{py}} -m unittest discover -s tools/gamut_lut_tests
     {{py}} tools/gen_gamut_lut.py --check
 
 # First-party warning gate over every platformio.ini environment -- the
@@ -115,15 +111,9 @@ teensy-warnings:
 # job, plus the docs-images job's checker: this recipe runs that checker's unit
 # tests, which say nothing about the tracked tree on their own.
 docs-check:
-    bash tools/require_test_files.sh 'tools/docs_check_tests/test*.py'
-    bash tools/require_test_files.sh 'tools/docs_images_tests/test*.py'
-    {{py}} -m unittest discover -s tools/docs_check_tests
-    {{py}} -m unittest discover -s tools/docs_images_tests
     {{py}} tools/docs_check.py --sync --auto-checkout
     {{py}} tools/docs_images.py
     {{py}} tools/build_pins.py --check
-    bash tools/require_test_files.sh 'tools/build_pins_tests/test*.py'
-    {{py}} -m unittest discover -s tools/build_pins_tests
 
 # Build Doxygen API reference locally into build/docs/html/.
 # Clones doxygen-awesome theme into .doxygen-awesome/ on first run and
@@ -198,29 +188,12 @@ teensy-size:
     {{py}} tools/teensy_size_table.py
     -{{py}} tools/teensy_size_trail.py record
 
-# Host self-tests behind the Teensy toolchain: size/layout gate parser + layout
-# invariants + warning ratchet, the PlatformIO build hook, the
-# git-hook contract tests, the profile log parser, the
-# relax-bake generator and the routed PCB metadata — pure Python, no ARM
-# toolchain. Mirrors the ci.yml teensy-gate-tests job, including its
-# non-empty discovery guards and the cross-check that every test-suite
-# directory is named by the workflow.
-teensy-gate-test:
-    bash tools/check_test_dir_pins.sh
-    bash tools/require_test_files.sh "tools/teensy_gate_tests/test*.py"
-    {{py}} -m unittest discover -s tools/teensy_gate_tests -v
-    bash tools/require_test_files.sh "tools/coverage_tests/test*.py"
-    {{py}} -m unittest discover -s tools/coverage_tests -v
-    bash tools/require_test_files.sh "tools/teensy_hook_tests/test*.py"
-    {{py}} -m unittest discover -s tools/teensy_hook_tests -v
-    bash tools/require_test_files.sh "tools/githook_tests/test*.py"
-    {{py}} -m unittest discover -s tools/githook_tests -v
-    bash tools/require_test_files.sh "tools/profile_tests/test*.py"
-    {{py}} -m unittest discover -s tools/profile_tests -v
-    bash tools/require_test_files.sh "tools/relax_bake_tests/test*.py"
-    {{py}} -m unittest discover -s tools/relax_bake_tests -v
-    bash tools/require_test_files.sh "hardware/phantasm/gen/tests/test*.py"
-    {{py}} -m unittest discover -s hardware/phantasm/gen/tests -v
+# All tracked Python unit suites.
+python-test:
+    {{py}} tools/run_python_tests.py
+
+# Python tests and routed PCB metadata.
+teensy-gate-test: python-test
     {{py}} hardware/phantasm/gen/board_metadata.py --check
 
 # Profile one effect on an attached Teensy: build the single-effect profiling

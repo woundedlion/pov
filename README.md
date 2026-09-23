@@ -443,7 +443,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
 │   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate, repo-wide and per core/ subtree
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
-│   ├── check_test_dir_pins.sh  Asserts every Python test-suite directory is discovered by CI and the justfile
+│   ├── run_python_tests.py    Discovers and runs every tracked Python suite; rejects empty suites
 │   ├── ruff_selection_guard.sh / eslint_selection_guard.sh  Shared CI and `just lint` anti-vacuity probes
 │   ├── shellcheck_gate.sh      Tracked shell-file selection + shellcheck run behind `just lint`
 │   ├── clang_format_gate.sh    Tracked first-party C++ selection + clang-format run behind `just clang-format`
