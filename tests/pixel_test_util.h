@@ -109,7 +109,10 @@ struct ChannelError {
    * @brief Mean gap per channel, truncated toward zero.
    * @return total / channels.
    */
-  uint64_t mean() const { return total / channels; }
+  uint64_t mean() const {
+    HS_CHECK(channels > 0, "channel error mean requires samples");
+    return total / channels;
+  }
 };
 
 /**
