@@ -63,6 +63,10 @@ test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1":
 # is preceded by that job's anti-vacuity probe. The line-ending check runs first
 # for the reason it does in that job: a working copy that diverged from its
 # eol=lf blob is what the linters below would otherwise read.
+# Normalize CRLF working copies without changing the index or discarding edits.
+normalize-eol:
+    bash tools/eol_gate.sh --fix-worktree
+
 lint:
     bash tools/eol_gate.sh
     {{py}} tools/build_pins.py --check-tool ruff
