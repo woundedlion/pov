@@ -186,6 +186,7 @@ public:
 
   /**
    * @brief Device-side accessor for the IRQ-off mailbox handoff.
+   * @pre Interrupts must be disabled while accessing the returned mailbox.
    * @return Reference to the edge mailbox.
    */
   EdgeMailbox &mailbox() { return edge_mailbox; }
