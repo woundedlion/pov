@@ -159,7 +159,7 @@ private:
     bool active; /**< Whether this slot holds a live ring. */
   };
 
-  Ring rings[MAX_RINGS]; /**< Fixed pool of ring slots, active or free. */
+  Ring rings[MAX_RINGS]{}; /**< Fixed pool of ring slots, active or free. */
 
   /**
    * @brief Per-sample exp(radial wobble), cached once in init().
