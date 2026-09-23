@@ -61,19 +61,16 @@ using effects_tests::SMALL_W;
  * base-class list, and those two decide which color sliders the base registers,
  * so they are deduced from the base rather than restated per effect.
  */
-template <typename ParamsT, typename SpecT, PaletteHarmony HarmonyV,
-          Pullback::HueMode HueV,
-          Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV,
-          Pullback::SurfacePlacement SurfacePlacementV>
+template <
+    typename ParamsT, typename SpecT, PaletteHarmony HarmonyV,
+    Pullback::HueMode HueV, Pullback::Color::BrightnessEnvelope BrightnessV,
+    bool AnimatedProjectionV, Pullback::SurfacePlacement SurfacePlacementV>
 struct ComposedTraits {
   using Params = ParamsT;
   using Spec = SpecT;
   static constexpr PaletteHarmony HARMONY = HarmonyV;
   static constexpr Pullback::HueMode HUE = HueV;
   static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS = BrightnessV;
-  static constexpr bool OUTER_NOISE = OuterNoiseV;
-  static constexpr bool SOURCE_NOISE = SourceNoiseV;
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       SurfacePlacementV;
 };
@@ -81,14 +78,13 @@ struct ComposedTraits {
 template <int W, int H, typename Derived, typename ParamsT, typename SpecT,
           PaletteHarmony HarmonyV, Pullback::HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV,
-          bool AnimatedProjectionV, bool OuterNoiseV, bool SourceNoiseV,
+          bool AnimatedProjectionV,
           Pullback::SurfacePlacement SurfacePlacementV>
 ComposedTraits<ParamsT, SpecT, HarmonyV, HueV, BrightnessV, AnimatedProjectionV,
-               OuterNoiseV, SourceNoiseV, SurfacePlacementV>
-composed_traits(
-    const Pullback::ComposedEffect<
-        W, H, Derived, ParamsT, SpecT, HarmonyV, HueV, BrightnessV,
-        AnimatedProjectionV, OuterNoiseV, SourceNoiseV, SurfacePlacementV> &);
+               SurfacePlacementV>
+composed_traits(const Pullback::ComposedEffect<
+                W, H, Derived, ParamsT, SpecT, HarmonyV, HueV, BrightnessV,
+                AnimatedProjectionV, SurfacePlacementV> &);
 
 /** @brief ComposedTraits of the base @p FX derives from. */
 template <typename FX>
@@ -1714,8 +1710,8 @@ public:
 
 /**
  * @brief Both noise source families reach the derivation path.
- * @details Each owns a source-noise field without the effect naming
- * HasSourceNoise; the plane-domain and sphere-domain contours light the
+ * @details Each source family implies its noise field; the plane-domain
+ * and sphere-domain contours light the
  * frame and differ from each other on the same seed and parameters.
  */
 inline void test_composed_noise_sources() {

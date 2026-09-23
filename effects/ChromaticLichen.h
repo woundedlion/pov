@@ -30,8 +30,7 @@ class ChromaticLichen
           W, H, ChromaticLichen<W, H>, ChromaticLichenParams,
           ChromaticLichenSpec, PaletteHarmony::ANALOGOUS,
           Pullback::HueMode::NOISE, Pullback::Color::BrightnessEnvelope::NONE,
-          /*AnimatedProjection=*/true, /*HasOuterNoise=*/false,
-          /*HasSourceNoise=*/false, Pullback::SurfacePlacement::AFTER_LENS> {
+          /*AnimatedProjection=*/true, Pullback::SurfacePlacement::AFTER_LENS> {
 
 public:
   using Params = ChromaticLichenParams;
