@@ -179,6 +179,20 @@ inline void test_centered_sector_angle_matches_wrap() {
 // Ring
 // ============================================================================
 
+inline void test_ring_roundoff_at_exact_center() {
+  auto basis = equator_basis();
+  basis.v = math::Vector(0.0f, std::nextafter(1.0f, 2.0f), 0.0f);
+  for (float radius : {0.0f, 2.0f}) {
+    const float direction = radius == 0.0f ? 1.0f : -1.0f;
+    SDF::Ring dot(basis, radius, 0.1f);
+    const auto p = math::Vector(0.0f, direction, 0.0f);
+    const auto result = SDF::distance_of(dot, p);
+    HS_EXPECT_NEAR(result.dist, -0.1f, 1e-6f);
+    HS_EXPECT_NEAR(result.raw_dist, 0.0f, 1e-6f);
+    HS_EXPECT_NEAR(dot.stroke_alpha(math::dot(p, basis.v)), 1.0f, 1e-6f);
+  }
+}
+
 /** @brief Verifies a point on the ring centerline reads raw_dist 0 and dist = -thickness. */
 inline void test_ring_on_centerline() {
   math::Basis b = equator_basis();
@@ -3485,6 +3499,7 @@ inline int run_sdf_tests() {
   test_clamp_phi_band_pole_crossing_poses();
   test_centered_sector_angle_matches_wrap();
 
+  test_ring_roundoff_at_exact_center();
   test_ring_on_centerline();
   test_ring_inside_band();
   test_ring_outside_band_returns_sentinel();
