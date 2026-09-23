@@ -1383,13 +1383,14 @@ private:
     return invoked;
   }
 
-  /** @brief {code, entryIndex} result object; OK spells "APPLIED". */
+  /** @brief Result with enum status, legacy string code, and entry index. */
   static val chain_result(Pullback::Interp::ChainStatus code, int entry_index) {
     val result = val::object();
     result.set("code", val(std::string(
                            code == Pullback::Interp::ChainStatus::OK
                                ? "APPLIED"
                                : Pullback::Interp::chain_status_name(code))));
+    result.set("status", val(code));
     result.set("entryIndex", entry_index);
     return result;
   }
@@ -1554,6 +1555,30 @@ static void bind_engine() {
       .value("INVALID_ACCEPTED", FullConfigRestoreResult::INVALID_ACCEPTED)
       .value("INVALID_PENDING", FullConfigRestoreResult::INVALID_PENDING);
 #endif // HS_ENABLE_SHADER_WORKBENCH
+
+#if HS_ENABLE_CHAIN_INTERPRETER
+  enum_<Pullback::Interp::ChainStatus>("ChainStatus")
+      .value("OK", Pullback::Interp::ChainStatus::OK)
+      .value("NOT_CHAIN_EFFECT",
+             Pullback::Interp::ChainStatus::NOT_CHAIN_EFFECT)
+      .value("MALFORMED_PAYLOAD",
+             Pullback::Interp::ChainStatus::MALFORMED_PAYLOAD)
+      .value("EMPTY", Pullback::Interp::ChainStatus::EMPTY)
+      .value("TOO_LONG", Pullback::Interp::ChainStatus::TOO_LONG)
+      .value("UNKNOWN_OPERATOR",
+             Pullback::Interp::ChainStatus::UNKNOWN_OPERATOR)
+      .value("DUPLICATE_INSTANCE",
+             Pullback::Interp::ChainStatus::DUPLICATE_INSTANCE)
+      .value("MALFORMED_INSTANCE",
+             Pullback::Interp::ChainStatus::MALFORMED_INSTANCE)
+      .value("ENTRY_FAMILY", Pullback::Interp::ChainStatus::ENTRY_FAMILY)
+      .value("EXIT_FAMILY", Pullback::Interp::ChainStatus::EXIT_FAMILY)
+      .value("CARRIER_MISMATCH",
+             Pullback::Interp::ChainStatus::CARRIER_MISMATCH)
+      .value("ARENA_OVERFLOW", Pullback::Interp::ChainStatus::ARENA_OVERFLOW)
+      .value("PARAM_OVERFLOW", Pullback::Interp::ChainStatus::PARAM_OVERFLOW)
+      .value("MIGRATE_FAILED", Pullback::Interp::ChainStatus::MIGRATE_FAILED);
+#endif
 
   class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
