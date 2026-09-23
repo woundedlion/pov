@@ -5,14 +5,12 @@ import { fileURLToPath } from 'node:url';
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-// Strips /* */ block comments, then // line comments. Block comments go first so
-// a `/* ... // ... */` row cannot leave a dangling `*/` that resurrects a
-// commented-out row. A line comment's trailing backslash survives: it continues
-// the macro definition the comment sits in.
+// C++ splices physical lines before removing comments.
 function stripComments(src) {
   return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*?(\\\r?)?$/gm, '$1');
+    .replace(/\\\r?\n/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\/\/[^\n]*/g, '');
 }
 
 // Extracts the X() rows from targets/effects.h source text.
