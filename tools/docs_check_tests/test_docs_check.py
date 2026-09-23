@@ -15,6 +15,19 @@ import docs_check as dc  # noqa: E402
 
 
 class TestDocumentationChecker(unittest.TestCase):
+    def test_explicit_checkout_uses_its_pinned_revision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            revisions = {"daydream": "pinned-revision"}
+            with mock.patch("docs_sync.checkout_revisions", return_value=revisions) as pins, \
+                    mock.patch.object(dc, "check_repository",
+                                      return_value=([root / "README.md"], [], [])) as check, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(dc.main(["--root", str(root), "--checkout",
+                                          f"daydream={root}"]), 0)
+            pins.assert_called_once_with({"daydream": root})
+            self.assertEqual(check.call_args.args[3], revisions)
+
     def test_valid_links_images_references_and_fences(self):
         text = (FIXTURES / "valid.txt").read_text(encoding="utf-8")
         entries = {
