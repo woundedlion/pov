@@ -311,14 +311,13 @@ public:
     // ticks, which run at the clock the core actually booted to.
     pov::sync::Config cfg =
         pov::sync::phantasm_config(F_CPU_ACTUAL, RPM, CANVAS_W, R);
-    cfg.effect_revolutions =
-        effect_revolutions ? &(*effect_revolutions)[0] : nullptr;
-    cfg.effect_revolutions_count = effect_revolutions ? R : 0;
+    if (effect_revolutions)
+      cfg.set_effect_revolutions(*effect_revolutions);
 #ifdef HS_PROFILE_EPOCH_REVS
     // Profiling knob: stretch the epoch so one effect instance covers a full
     // preset cycle in a single capture.
     cfg.revs_per_effect = HS_PROFILE_EPOCH_REVS;
-    cfg.effect_revolutions = nullptr;
+    cfg.clear_effect_revolutions();
 #endif
     const char *const bad_invariant = cfg.valid();
     HS_CHECK(bad_invariant == nullptr, "pov::sync::Config invariant: %s",
