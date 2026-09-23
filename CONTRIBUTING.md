@@ -99,7 +99,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
 - **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`
   without `--sync`: fences, links, anchors, every backticked repo path, the
   README's file map against the tracked tree and its effect counts against
-  `HS_EFFECT_LIST`. `just docs-check` regenerates the maps and counts first,
+  `HS_EFFECT_LIST`. `just docs-sync` regenerates the maps and counts first,
   then runs the same checker, so the repaired diff lands with the change.
   `python tools/docs_images.py` resolves every documented `<img>` against the
   tracked tree. It only reports; `--stage` copies the images into a built
