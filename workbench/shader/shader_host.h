@@ -1306,8 +1306,10 @@ private:
       break;
     }
     case Workbench::WarpStageKind::WAVE_SHEAR:
-      register_current(names[Workbench::WARP_NAME_FREQUENCY], &params.frequency,
-                       0.0f, domain_scaled_max(64.0f, 8.0f, domain_scale));
+      register_current(
+          names[Workbench::WARP_NAME_FREQUENCY], &params.frequency,
+          Workbench::WAVE_FREQUENCY_MIN,
+          domain_scaled_max(Workbench::WAVE_FREQUENCY_MAX, 8.0f, domain_scale));
       register_current(names[Workbench::WARP_NAME_FIELD_ANGLE],
                        &params.field_angle, 0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
@@ -2432,7 +2434,9 @@ private:
       break;
     case Workbench::WarpStageKind::WAVE_SHEAR:
       append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
-      append_range_warning("Frequency", params.frequency, 0.0f, 64.0f);
+      append_range_warning("Frequency", params.frequency,
+                           Workbench::WAVE_FREQUENCY_MIN,
+                           Workbench::WAVE_FREQUENCY_MAX);
       break;
     case Workbench::WarpStageKind::VORTEX:
       append_range_warning("Radius", params.radius,
