@@ -479,10 +479,10 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── docs_images.py          Resolves every documented `<img>`; `--stage` copies them into the Doxygen output (CI)
 │   ├── license_check.py        Checks every tracked C/C++ source against the terms LICENSE grants it (CI)
 │   ├── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, build pins, docs and license checks
-│   ├── docs_sync.py
-│   ├── engine_source_state.py
-│   ├── teensy_flash.sh
-│   └── upload_one.sh
+│   ├── docs_sync.py          Refreshes repository maps and source-derived documentation counts
+│   ├── engine_source_state.py Hashes tracked and working engine source for build provenance
+│   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
+│   └── upload_one.sh         Builds and flashes one image under the per-board lock
 ├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus design specs (docs/specs/), the ITCM and device/host divergence ledgers (docs/ledgers/), on-device profiles (docs/profiles/), and the docs/screenshots/ gallery
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
