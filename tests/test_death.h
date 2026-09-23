@@ -4308,6 +4308,14 @@ inline void case_feedback_storage_twice() {
   stage.init_storage(arena);
 }
 
+inline void case_timeline_add_into_live_slot() {
+  Timeline timeline;
+  float value = 0;
+  timeline.add(0, Animation::Transition(value, 1.0f, 10, math::ease_linear));
+  global_timeline_num_events = 0;
+  timeline.add(0, Animation::Transition(value, 1.0f, 10, math::ease_linear));
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4317,6 +4325,9 @@ inline void case_feedback_storage_twice() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"timeline_add_into_live_slot", case_timeline_add_into_live_slot,
+       "core/animation/timeline.h",
+       "(!e.manager) add_get would overwrite a live animation"},
       {"feedback_storage_twice", case_feedback_storage_twice,
        "core/render/filter/pixel_feedback.h",
        "(!cached_warp_x || !stamp.block_alive(cached_warp_x, CACHE_CELLS * sizeof(int16_t))) feedback filter: storage already initialized"},

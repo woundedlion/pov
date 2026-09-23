@@ -304,6 +304,7 @@ public:
       }
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
+    HS_CHECK(!e.manager, "add_get would overwrite a live animation");
     e.start = global_timeline_t + delay;
     e.handled = (pin == Pin::PINNED);
     e.paused = paused;
