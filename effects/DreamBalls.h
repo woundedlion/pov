@@ -202,8 +202,8 @@ private:
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
 
-  /** Per-vertex phase increment (radians) for the orbit stagger, so the surface
-       ripples instead of pulsing in unison. */
+  /** Per-vertex phase increment (radians), keyed by vertex emission order to
+      decorrelate the orbits. */
   static constexpr float VERTEX_PHASE_STAGGER = 0.1f;
 
   /** @brief Precomputed solid geometry baked into the persistent arena. */
@@ -591,7 +591,7 @@ private:
    * @param p Render params; p.offset_radius is the orbit radius.
    * @param angle_offset Per-copy phase offset in radians.
    * @details The per-vertex phase (i * VERTEX_PHASE_STAGGER) staggers the
-   *          orbits so the surface ripples.
+   *          orbits by emission order; it does not encode spatial proximity.
    */
   HS_COLD_MEMBER void
   update_displaced_mesh(const MeshState &base, MeshState &target,
