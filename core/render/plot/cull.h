@@ -1640,16 +1640,16 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
                             math::phi_to_y<H>(phi_hi)))
     return false;
 
-  if (cr.x_start == 0 && cr.x_end == cr.w)
+  const ClipRegion::XClip columns = cr.x_clip();
+  if (!columns.active)
     return true;
   if (beta <= t2 || math::PI_F - beta <= t2)
     return true;
   float dlam = asinf(hs::clamp(sinf(t2) / sinf(beta), 0.0f, 1.0f));
   float lam_v = atan2f(dir.z, dir.x);
-  float width_px = static_cast<float>(cr.x_end - cr.x_start);
-  float half_w =
-      (width_px * 0.5f + cr.margin + 1.0f) * (2.0f * math::PI_F) / cr.w;
-  float lam_c = (cr.x_start + width_px * 0.5f) * (2.0f * math::PI_F) / cr.w;
+  float width_px = static_cast<float>(columns.length(cr.w));
+  float half_w = (width_px * 0.5f + 1.0f) * (2.0f * math::PI_F) / cr.w;
+  float lam_c = (columns.rs + width_px * 0.5f) * (2.0f * math::PI_F) / cr.w;
   float d =
       std::fabs(math::wrap_t((lam_v - lam_c) / (2.0f * math::PI_F) + 0.5f) -
                 0.5f) *
