@@ -106,6 +106,12 @@ public:
    * Without storage every flush renders uncached.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
+#ifndef NDEBUG
+    HS_CHECK(
+        !cached_warp_x ||
+            !stamp.block_alive(cached_warp_x, CACHE_CELLS * sizeof(int16_t)),
+        "feedback filter: storage already initialized");
+#endif
     cached_warp_x = arena.allocate_n<int16_t>(CACHE_CELLS);
     cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
     warp_cache_valid = false;

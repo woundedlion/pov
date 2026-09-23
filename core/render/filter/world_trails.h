@@ -76,6 +76,10 @@ public:
    * aren't ready yet).
    */
   void init_storage(Arena &arena) {
+#ifndef NDEBUG
+    HS_CHECK(!items || !stamp.block_alive(items, STORAGE_BYTES),
+             "world filter: storage already initialized");
+#endif
     items = arena.allocate_n<Item>(Capacity);
     head = tail = count = 0;
 #ifndef NDEBUG

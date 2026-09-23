@@ -2875,6 +2875,7 @@ inline void test_feedback_warp_cache_matches_uncached() {
 
     Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
         Filter::Pixel::Feedback<W, H>(s)};
+    const size_t CACHE_OFFSET = persistent_arena.get_offset();
     if (cached)
       pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
           persistent_arena);
@@ -2895,10 +2896,12 @@ inline void test_feedback_warp_cache_matches_uncached() {
       if (frame == 4)
         np.set_seed(4242); // seed-only change: repopulate
       if (frame == 5)
-        s.speed = 1.0f;         // time-varying: miss every frame
-      if (frame == 6 && cached) // post-compaction re-allocation
+        s.speed = 1.0f; // time-varying: miss every frame
+      if (frame == 6 && cached) {
+        persistent_arena.set_offset(CACHE_OFFSET);
         pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
             persistent_arena);
+      }
       s.sync_noise();
 
       {
