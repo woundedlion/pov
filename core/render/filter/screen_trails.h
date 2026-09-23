@@ -67,6 +67,10 @@ public:
    * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
    */
   void init_storage(Arena &arena) {
+#ifndef NDEBUG
+    HS_CHECK(!points || !stamp.block_alive(points, STORAGE_BYTES),
+             "screen filter: storage already initialized");
+#endif
     points = arena.allocate_n<DecayPixel>(MAX_PIXELS);
     num_pixels = 0;
 #ifndef NDEBUG
