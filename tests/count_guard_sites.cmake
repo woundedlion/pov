@@ -8,8 +8,7 @@
 # HS_GUARD_SITE_ROWS (the initializer body of the generated table) and
 # HS_GUARD_SITE_TOTAL, which death_guard_sites.h.in expands.
 #
-# Counting is per file BASENAME, because that is the granularity check_fail()
-# logs and the death table pins. Comment spans are stripped first — the tree
+# Counting is per repository-relative source path. Comment spans are stripped first — the tree
 # discusses HS_CHECK in prose — and so is the head of every #define line, which
 # is where the macro and its test-build alias are written rather than used.
 #
@@ -39,13 +38,13 @@ foreach(_file IN LISTS _guard_files)
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
   string(REGEX REPLACE "#[ \t]*define[^\n]*" "" _text "${_text}")
-  get_filename_component(_name "${_file}" NAME)
+  file(RELATIVE_PATH _name "${HS_ROOT}" "${_file}")
   string(REGEX MATCHALL "HS_(AUDIT_)?CHECK\\(" _hits "${_text}")
   list(LENGTH _hits _n)
   # A few traps call the reporter directly, where the macro's expression form
   # would not satisfy a [[noreturn]] tail. platform.h is where the macro and the
   # reporter are written rather than used, so its own mentions are not sites.
-  if(NOT _name STREQUAL "platform.h")
+  if(NOT _name STREQUAL "core/platform/platform.h")
     string(REGEX MATCHALL "(hs::)?check_fail\\(" _direct "${_text}")
     list(LENGTH _direct _n_direct)
     math(EXPR _n "${_n} + ${_n_direct}")

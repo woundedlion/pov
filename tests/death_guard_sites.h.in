@@ -5,7 +5,7 @@
  * GENERATED into the build tree by tests/count_guard_sites.cmake from
  * tests/death_guard_sites.h.in — re-derived at every configure, never edited.
  *
- * Per-basename census of the engine's HS_CHECK fail-fast sites, consumed by
+ * Per-source-path census of the engine's HS_CHECK fail-fast sites, consumed by
  * the death harness's coverage report (tests/test_death.h).
  */
 #pragma once
@@ -15,7 +15,7 @@ namespace death_tests {
 
 /** @brief One source file's fail-fast guard count. */
 struct GuardSiteCount {
-  const char *file; /**< Source-file basename, as check_fail() logs it. */
+  const char *file; /**< Repo-relative source path. */
   int sites;        /**< HS_CHECK sites in it. */
 };
 
