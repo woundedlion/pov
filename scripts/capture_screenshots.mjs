@@ -264,18 +264,13 @@ try {
       new URLSearchParams(location.search).get('effect'));
   }
 
-  // Loads one effect at one resolution and reports what the app selected.
-  // descendToHonoredResolution() owns which resolution wins. The 500 ms is only
-  // enough to steer the descent — the URL still carries the requested effect
-  // until hydration rewrites it, so this read cannot distinguish "honored" from
-  // "not yet rewritten". The capture loop re-reads after the settle wait, which
-  // is the read the save is gated on.
   async function loadEffect(effect, resolution) {
     const params = new URLSearchParams({ effect, resolution });
     await page.goto(`${BASE_URL}?${params.toString()}`,
       { waitUntil: 'load', timeout: 60000 });
     await page.waitForSelector('#canvas', { timeout: 30000 });
-    await page.waitForTimeout(500);
+    await page.waitForFunction(() => !document.getElementById('loading-overlay'),
+      { timeout: 60000 });
     return await selectedEffect();
   }
 
