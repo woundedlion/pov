@@ -22,7 +22,7 @@
 # only ever shortens it. profile_one.sh accepts a capture that attaches up to
 # ~30 s after boot, so an epoch shorter than the capture plus that window puts
 # a late attach across the boundary.
-set -u
+set -uo pipefail
 P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
 FAILED=()
@@ -47,14 +47,19 @@ swept_roster() {
 
 check_roster() {
   local playlist swept missing extra
-  playlist="$(playlist_roster | sort)"
-  swept="$(swept_roster | sort -u)"
+  if ! playlist="$(playlist_roster | sort)" || ! swept="$(swept_roster | sort -u)"; then
+    echo "profile_sweep: cannot read and sort the effect rosters" >&2
+    return 1
+  fi
   if [ -z "$playlist" ]; then
     echo "profile_sweep: parsed no effects from $PLAYLIST_H — the roster scan broke" >&2
     return 1
   fi
-  missing="$(comm -23 <(printf '%s\n' "$playlist") <(printf '%s\n' "$swept"))"
-  extra="$(comm -13 <(printf '%s\n' "$playlist") <(printf '%s\n' "$swept"))"
+  if ! missing="$(comm -23 <(printf '%s\n' "$playlist") <(printf '%s\n' "$swept"))" ||
+      ! extra="$(comm -13 <(printf '%s\n' "$playlist") <(printf '%s\n' "$swept"))"; then
+    echo "profile_sweep: cannot compare the effect rosters" >&2
+    return 1
+  fi
   if [ -n "$missing" ] || [ -n "$extra" ]; then
     [ -n "$missing" ] && echo "profile_sweep: in HS_PHANTASM_EFFECT_LIST but in no group: $missing" >&2
     [ -n "$extra" ] && echo "profile_sweep: swept but not in HS_PHANTASM_EFFECT_LIST: $extra" >&2
