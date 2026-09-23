@@ -5920,7 +5920,7 @@ inline int allowed_guard_gap(const char *file) {
  *          the case table itself, so neither can drift from what it measures.
  *          Cases pinning a file the census does not know — the harness's own
  *          trap stand-ins, and any mistyped source path — count in neither and are
- *          reported separately rather than silently dropped. The pinned count is
+ *          reported separately and checked against the harness stand-in. The pinned count is
  *          gated against GUARD_GAP_ALLOW; the ratio itself is reported but not
  *          gated, since new engine guards move the denominator without
  *          weakening any case.
@@ -5971,7 +5971,13 @@ inline void report_guard_coverage(const Case *cs, int n) {
         in_census = true;
         break;
       }
-    off_census += in_census ? 0 : 1;
+    if (!in_census) {
+      ++off_census;
+      HS_EXPECT_TRUE(
+          std::strcmp(cs[i].name, "dma_controller_wedged_overrun") == 0 &&
+          std::strcmp(cs[i].guard_file, "tests/test_death.h") == 0 &&
+          std::strcmp(cs[i].guard_text, "(false) DMA channel wedged") == 0);
+    }
   }
   std::printf("  guard coverage: %d/%d HS_CHECK sites pinned by a case (%d%%), "
               "%d case(s) outside the census\n",
