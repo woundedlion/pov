@@ -125,15 +125,15 @@ enum class BrightnessEnvelope : uint8_t {
 using HueShiftMode = Pullback::Color::HueMode;
 
 struct Slots {
-  Function function;
-  Projection projection;
-  ProjectionFramePolicy projection_frame;
-  SurfaceLens surface_lens;
-  WarpProgram warp_program;
-  SignalWeight signal_weight;
-  ValueTransfer value_transfer;
-  CoveragePolicy coverage;
-  PaletteMode palette;
+  Function function{};
+  Projection projection{};
+  ProjectionFramePolicy projection_frame{};
+  SurfaceLens surface_lens{};
+  WarpProgram warp_program{};
+  SignalWeight signal_weight{};
+  ValueTransfer value_transfer{};
+  CoveragePolicy coverage{};
+  PaletteMode palette{};
   PeirceLayout peirce_layout = PeirceLayout::SQUARE;
   AiroceanLayout airocean_layout = AiroceanLayout::VERTICAL;
   BonneHemisphere bonne_hemisphere = BonneHemisphere::NORTH;
