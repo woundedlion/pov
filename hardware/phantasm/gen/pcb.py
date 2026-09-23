@@ -902,6 +902,10 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
         front_silk = [
+            ("D", 52.0, 2.77, 0),
+            ("G", 52.0, 5.31, 0),
+            ("C", 52.0, 7.85, 0),
+            ("LED OUT", 54.0, 0.8, 0),
             ("S", 52.0, 11.7, 0),
             ("G", 52.0, 14.24, 0),
             ("H", 52.0, 16.78, 0),

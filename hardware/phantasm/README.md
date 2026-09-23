@@ -1,9 +1,12 @@
 # PHANTASM Segment Board — KiCad project
 
-**Generator target: rev 1.2. Committed routed artifacts: rev 1.1.** Rev 1.2
+**Generator target: rev 1.2. Routed review candidate: rev 1.1 sync circuit.** Rev 1.2
 separates sync transmit from the filtered receive node; see
-[Revision 1.2](#revision-12). The existing fabrication ZIP and routed board
-remain the rev 1.1 manufacturing record.
+[Revision 1.2](#revision-12). The routed candidate includes corrected drill
+spacing, thermal reliefs, an 8 V TVS, and J2 pin order **DATA / GND / CLK**.
+Its cable pinout differs from the earlier DATA / CLK / GND board; repin the
+harness before using this candidate. These edited files are not a record of
+the previously ordered package; retain that package and its original digests.
 
 KiCad 10 schematic for the per-segment carrier board specified in
 [../../docs/specs/phantasm_pcb_spec.md](../../docs/specs/phantasm_pcb_spec.md). One identical
@@ -231,7 +234,7 @@ the netlist is what's verified.
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
 | `D_BUS` | `Device:D_Zener` (Bourns CDSOD323-T08L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated unidirectional 8 V, 1 pF sync-bus TVS; pin 1/cathode on SYNC_BUS, pin 2/anode on GND; exact Bourns land pattern; silkscreen bar marks the cathode end; JLCPCB C1973344 |
 | `J1` | `Connector_Generic:Conn_01x02` | `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical` | +5 V/GND light logic feed, ~1 A; **unkeyed** 0.1″ header — R-PWR-7's keying is unmet on the shipped board (see the deviations note below) |
-| `J2` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | strip **signal only**: DI / CI / SIG_GND (no power) |
+| `J2` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | strip **signal only**: DI / SIG_GND / CI (no power) |
 | `J3A/J3B` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | Belden 8451 daisy |
 | `J4` | `Connector_Generic:Conn_01x04` | `PinHeader_1x04_P2.54mm` | debug/serial |
 | `H1`–`H4` | — | `MountingHole:MountingHole_2.7mm_M2.5` | four NPTH rotor mounting holes |
@@ -282,7 +285,7 @@ in before ordering.
 | `U_MCU` | 1 | Teensy 4.0 (i.MX RT1062) development board | `phantasm:Teensy4.0` — 2×14 0.1″ THT, mounted component-side up, USB end at −X | PJRC **Teensy 4.0**; no distributor SKU pinned |
 | `C_IN` | 1 | ≥100 µF radial aluminium electrolytic on `+5V_LOGIC` (spec §9); the card's only electrolytic, RTV-bonded | `Capacitor_THT:CP_Radial_D8.0mm_P3.50mm` — 8.0 mm body, 3.50 mm lead pitch | **unsourced** |
 | `J1` | 1 | 2-pin 0.1″ vertical pin header — `+5V_IN` / `GND`, ~1 A | `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical`; ships **unkeyed** (see the deviations note) | **unsourced** |
-| `J2` | 1 | 3-pin 0.1″ vertical pin header — strip signal `DI` / `CI` / SIG_GND, no power | `PinHeader_1x03_P2.54mm_Vertical` | **unsourced** |
+| `J2` | 1 | 3-pin 0.1″ vertical pin header — strip signal `DI` / SIG_GND / `CI`, no power | `PinHeader_1x03_P2.54mm_Vertical` | **unsourced** |
 | `J3A`, `J3B` | 2 | 3-pin 0.1″ vertical pin headers — SYNC daisy in / out | `PinHeader_1x03_P2.54mm_Vertical`; one Belden 8451 run per link | **unsourced** |
 | `J4` | 1 | 4-pin 0.1″ vertical pin header — debug (`+3V3`, `GND`, `MASTER_EN`, `SERIAL1_TX`) | `PinHeader_1x04_P2.54mm_Vertical` | **unsourced** |
 | `JP_ID0/1/2`, `JP_SHLD` | 4 | **No part to order** — open solder-bridge pads, closed with solder per board role | `Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm` | — |
@@ -349,7 +352,7 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   `JP_ID2` is unread at N = 4 and carries the high segment-ID bit at N = 8.
 - **LED power is off-board (§2.3).** There is **no `C_BULK` and no `+5V_MAIN` heavy
   rail on the card** — the 1000 µF bulk lives at the strip injection point off-board
-  (R-PWR-11), and `J2` carries **signal only** (DI/CI/SIG_GND, no +5 V). `C_IN`
+  (R-PWR-11), and `J2` carries **signal only** (DI/SIG_GND/CI, no +5 V). `C_IN`
   (≥100 µF) is the card's only electrolytic and sits on the post-bead `+5V_LOGIC` rail
   (R-PWR-3/6, §10).
 - **Net naming.** The power chain is `+5V_IN` (J1↔F1), `+5V_RAW` (F1↔Q_REV),

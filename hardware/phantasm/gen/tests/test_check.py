@@ -151,9 +151,9 @@ class GateTests(unittest.TestCase):
         self.assertEqual(out, "")
 
     def test_rejects_swapped_strip_data_and_clock(self):
-        ok, out = run(swap_pins(expected_nodes(), "J2", "1", "2"))
+        ok, out = run(swap_pins(expected_nodes(), "J2", "1", "3"))
         self.assertFalse(ok)
-        self.assertIn("FAIL CLK\n   missing ['J2.2']", out)
+        self.assertIn("FAIL CLK\n   missing ['J2.3']", out)
         self.assertIn("FAIL DATA\n   missing ['J2.1']", out)
 
     def test_rejects_swapped_sync_and_ground(self):

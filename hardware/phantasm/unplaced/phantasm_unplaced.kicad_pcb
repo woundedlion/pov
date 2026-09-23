@@ -6497,7 +6497,7 @@
 				)
 			)
 		)
-		(property "Value" "LED sig DI/CI/SIG_GND"
+		(property "Value" "LED sig DI/SIG_GND/CI"
 			(at 0 7.46 0)
 			(layer "F.Fab")
 			(uuid "24d6488b-7cf1-413f-a7e1-b03d3733c22c")
@@ -6692,7 +6692,7 @@
 			(drill 1)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "/CLK")
+			(net "GND")
 			(uuid "70ff132f-c2b6-41a9-b09e-a9a6e7f2c2f8")
 		)
 		(pad "3" thru_hole circle
@@ -6701,7 +6701,7 @@
 			(drill 1)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "GND")
+			(net "/CLK")
 			(uuid "71098edd-05ff-4339-ad63-4d026da895bd")
 		)
 		(embedded_fonts no)
