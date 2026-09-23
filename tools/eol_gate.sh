@@ -7,12 +7,35 @@
 # `git status`, so the shell, clang-format and mirror gates then read different
 # bytes locally than they do on a fresh checkout.
 #
-# usage: eol_gate.sh
+# usage: eol_gate.sh [--fix-worktree]
 set -eu
 
-if [ "$#" -ne 0 ]; then
-  echo "usage: $0" >&2
+if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != --fix-worktree ]; }; then
+  echo "usage: $0 [--fix-worktree]" >&2
   exit 2
+fi
+
+if [ "${1:-}" = --fix-worktree ]; then
+  python=${HS_PYTHON:-python3}
+  if [ -z "${HS_PYTHON:-}" ] && ! "$python" --version >/dev/null 2>&1; then
+    python=python
+  fi
+  "$python" - <<'PY'
+from pathlib import Path
+import subprocess
+
+records = subprocess.check_output(["git", "ls-files", "--eol", "-z"])
+for record in records.split(b"\0"):
+    if not record:
+        continue
+    info, raw_path = record.split(b"\t", 1)
+    if b"eol=lf" not in info or not any(eol in info for eol in (b"w/crlf", b"w/mixed")):
+        continue
+    path = Path(raw_path.decode("utf-8"))
+    data = path.read_bytes()
+    path.write_bytes(data.replace(b"\r\n", b"\n"))
+    print(f"normalized: {path}")
+PY
 fi
 
 tmp=$(mktemp)
@@ -61,7 +84,7 @@ fi
 if [ "$diverged" -ne 0 ]; then
   cat >&2 <<'REMEDY'
 
-To restore a diverged working copy:   rm -f -- <path> && git checkout -- <path>
+To normalize CRLF working copies, preserving edits: just normalize-eol
 To restore a diverged index blob:     git add --renormalize -- <path>
 REMEDY
   exit 1
