@@ -1479,6 +1479,43 @@ inline void test_mesh_edge_gate_pixel_parity() {
   HS_EXPECT_EQ(coverage_total, 0);
 }
 
+/** @brief Endpoint shortcuts obey the same arc window as the adaptive walk. */
+inline void test_rasterize_short_edge_windows() {
+  constexpr int W = 96, H = 48;
+  const math::Basis BASIS =
+      math::make_basis(math::Quaternion(), math::Vector(1, 0, 0));
+  for (bool planar : {false, true}) {
+    for (float distance : {0.0f, 0.0001f}) {
+      ScratchScope scope(plot_arena());
+      Fragments points;
+      points.bind(plot_arena(), 2);
+      Fragment start, end;
+      start.pos = math::Vector(1, 0, 0);
+      end.pos = math::Vector(cosf(distance), 0, sinf(distance));
+      points.push_back(start);
+      points.push_back(end);
+      hs_test::StubEffect fx(W, H);
+      Canvas canvas(fx);
+      CapturePipeline sink;
+      int shaded = 0;
+      auto shader = [&](const math::Vector &, Fragment &) { ++shaded; };
+      Plot::RasterOptions options;
+      if (planar)
+        options.projection = Plot::RasterProjection::planar(BASIS);
+      options.plot_t_start = 0.25f;
+      options.plot_t_end = 0.75f;
+      Plot::rasterize<W, H>(sink, canvas, points, shader, options);
+      HS_EXPECT_EQ(shaded, 0);
+      HS_EXPECT_TRUE(sink.plotted.empty());
+      options.plot_t_start = 0;
+      options.plot_t_end = 1;
+      Plot::rasterize<W, H>(sink, canvas, points, shader, options);
+      HS_EXPECT_GT(shaded, 0);
+      HS_EXPECT_FALSE(sink.plotted.empty());
+    }
+  }
+}
+
 /** @brief An open upper window retains the whole edge's terminal sample. */
 inline void test_rasterize_window_preserves_terminal_sample() {
   constexpr int W = 96, H = 48;
@@ -6181,6 +6218,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_column_cull_pixel_parity();
   test_mesh_edge_gate_pixel_parity();
   test_rasterize_window_preserves_terminal_sample();
+  test_rasterize_short_edge_windows();
   test_mesh_dissolve_masks_partition_edges();
   test_gate_trail_column_cull_honors_unbounded_edge();
   test_raw_geodesic_edge_gate_parity();
