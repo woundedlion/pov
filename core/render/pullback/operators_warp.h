@@ -68,6 +68,7 @@ struct AffineWarpParams : Warp::AffineParams {
     return out;
   }();
 };
+static_assert(field_ids_unique<AffineWarpParams>());
 static_assert(field_defaults_in_range<AffineWarpParams>());
 
 /** @brief Phase clock plus the accumulated frame rotation of warp.affine.v2. */

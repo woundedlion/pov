@@ -109,6 +109,9 @@ struct RegularProjectChainParams : MeridianProjectChainParams {
   }();
 };
 
+static_assert(field_ids_unique<RegularProjectChainParams>());
+static_assert(field_defaults_in_range<RegularProjectChainParams>());
+
 /** @brief Shared shape of the projection operators: the walk state, the
     frame-composed conjugate, and the per-family projection call. */
 template <typename Derived, typename ParamsT>
