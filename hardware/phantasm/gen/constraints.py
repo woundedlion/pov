@@ -4,6 +4,7 @@ RULE_MINIMUMS = {
     "min_clearance": 0.1016,
     "min_copper_edge_clearance": 0.3,
     "min_hole_clearance": 0.1016,
+    "min_hole_to_hole": 0.5,
     "min_through_hole_diameter": 0.2,
     "min_track_width": 0.13,
     "min_via_annular_width": 0.125,
@@ -26,6 +27,7 @@ DEFAULT_CLASS_MINIMUMS = {
 UNPLACED_RULES = {
     "min_clearance": 0.2,
     "min_hole_clearance": 0.25,
+    "min_hole_to_hole": 0.5,
     "min_through_hole_diameter": 0.3,
     "min_via_annular_width": 0.125,
     "min_via_diameter": 0.5,

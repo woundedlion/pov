@@ -57,7 +57,9 @@ writes or updates its own project with the wider unplaced constraints. Reading
 or exporting the accepted board does not change its project. The shared rule
 checks and `heal_clearance.py`
 preserve its **0.1016 mm hole clearance** floor; the unplaced project's floor
-is **0.25 mm**.
+is **0.25 mm**. Both projects require **0.5 mm hole-to-hole clearance**.
+The routed board's six affected ground vias are re-spaced, with their connected
+trace and zone fills updated; DRC reports no hole-spacing violations.
 
 The corrected placement and routing remain in `phantasm.kicad_pcb`; use
 `gen/make_quilter_incremental.py` to carry them into a routing job. A fresh
