@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+# Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+# Licensed under the PolyForm Noncommercial License 1.0.0
+"""Require each OpLeg death pin to identify exactly one guard site."""
+
+import ast
+from pathlib import Path
+import re
+import sys
+
+STRING = r'"(?:[^"\\]|\\.)*"'
+TOKEN = re.compile(STRING + r"|//[^\n]*|/\*.*?\*/|[(),]|[^(),\"/]+|/", re.S)
+
+
+def literals(text):
+    """Decode adjacent C++ string literals."""
+    return "".join(ast.literal_eval(s) for s in re.findall(STRING, text))
+
+
+def pins(text):
+    """Read the literal fields of the death-case table."""
+    pattern = (r'\{\s*"([^"\n]+)"\s*,\s*case_\w+\s*,\s*'
+               r'"([^"\n]+)"\s*,\s*((?:' + STRING + r'\s*)+)\}')
+    return [(m[1], m[2], literals(m[3])) for m in re.finditer(pattern, text)]
+
+
+def guard_texts(text):
+    """Read macro condition/message pairs with balanced parentheses."""
+    text = re.sub(STRING + r"|//[^\n]*|/\*.*?\*/",
+                  lambda m: m[0] if m[0].startswith('"') else " ", text,
+                  flags=re.S)
+    for match in re.finditer(r"HS_(?:AUDIT_)?CHECK\s*\(", text):
+        depth = 1
+        condition = []
+        message = []
+        field = condition
+        for token in TOKEN.finditer(text, match.end()):
+            value = token[0]
+            if value == "(":
+                depth += 1
+            elif value == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            elif value == "," and depth == 1:
+                if field is message:
+                    break
+                field = message
+                continue
+            field.append(value)
+        yield "(" + "".join(condition).strip() + ") " + literals("".join(message))
+
+
+def compact(text):
+    return re.sub(r"\s+", "", text)
+
+
+def main():
+    root = Path(sys.argv[1])
+    guards = list(guard_texts((root / "core/animation/opleg.h").read_text(encoding="utf-8")))
+    checked = 0
+    for name, _file, text in pins((root / "tests/test_death.h").read_text(encoding="utf-8")):
+        if not name.startswith("opleg_"):
+            continue
+        matches = sum(compact(guard).startswith(compact(text)) for guard in guards)
+        if matches != 1:
+            raise SystemExit(f"{name}: pin identifies {matches} OpLeg guard sites, expected 1")
+        checked += 1
+    if checked == 0:
+        raise SystemExit("no OpLeg death pins found")
+    print(f"death pins: {checked} OpLeg cases each identify one guard site")
+
+
+if __name__ == "__main__":
+    main()

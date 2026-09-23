@@ -388,7 +388,8 @@ public:
         EasingFn easing_fn = math::ease_in_out_sin)
       : AnimationBase(spec.sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
-    HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(spec.sweep_frames >= 1,
+             "OpLeg: parameter sweep needs a positive sweep length");
     Transients &tr = init_transients(LegKind::CONWAY_SWEEP, spec.sweep_frames,
                                      arena, handoff, blend_fn);
 

@@ -4319,7 +4319,7 @@ inline const Case *all_cases(int &n) {
        "memory.h",
        "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
       {"normalize_zero", case_normalize_zero, "3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
       {"rotate_plane_degenerate", case_rotate_plane_degenerate, "4dmath.h",
        "(a >= 0 && a < VEC4_DIMENSIONS && b >= 0 && b < VEC4_DIMENSIONS && a "
        "!= b) rotate_plane: "},
@@ -4327,7 +4327,7 @@ inline const Case *all_cases(int &n) {
        "(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ) "
        "angle_between: degenerate vector"},
       {"normalize_nan", case_normalize_nan, "3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
       {"solids_index_oob", case_solids_index_oob, "solids.h",
        "(index < static_cast<size_t>(NUM_ENTRIES)) Solids::get_entry: index "
        "out of range"},
@@ -4653,21 +4653,21 @@ inline const Case *all_cases(int &n) {
       {"apply_step_bevel_no_depth", case_apply_step_bevel_no_depth, "recipe.h",
        "(step.param > 0.0f) apply_step: BEVEL step has no depth"},
       {"slerp_nan", case_slerp_nan, "3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan, "3dmath.h",
        "(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ && "
        "std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ) "
        "make_rotation(from, to): inputs must be unit vectors"},
       {"make_rotation_angle_nan", case_make_rotation_angle_nan, "3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Quaternion: zero magnitude"},
       {"make_rotation_nonunit", case_make_rotation_nonunit, "3dmath.h",
        "(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ && "
        "std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ) "
        "make_rotation(from, to): inputs must be unit vectors"},
       {"make_basis_nan", case_make_basis_nan, "3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
       {"noise_transform_nan", case_noise_transform_nan, "3dmath.h",
-       "(m2 >= math::EPS_NORMALIZE_SQ) "},
+       "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
       {"param_def_unknown_get_target_type",
        case_param_def_unknown_get_target_type, "params.h",
        "(false) ParamDef::get_from: unknown target type "},
@@ -5017,7 +5017,7 @@ inline const Case *all_cases(int &n) {
       {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge, "opleg.h",
        "(spec.edge) OpLeg: edge sweep carries no graph edge"},
       {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames, "opleg.h",
-       "(spec.sweep_frames >= 1) OpLeg needs a positive sweep length"},
+       "(spec.sweep_frames >= 1) OpLeg: parameter sweep needs a positive sweep length"},
       {"opleg_incomplete_palette_handoff",
        case_opleg_incomplete_palette_handoff, "opleg.h",
        "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
@@ -5539,7 +5539,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"reaction_graph.h", 1},
     {"static_circular_buffer.h", 3},
     {"transformer.h", 4},
-    {"3dmath.h", 4},
+    {"3dmath.h", 3},
     {"geometry.h", 15},
     {"lenses.h", 1},
     {"spherical_field.h", 2},
