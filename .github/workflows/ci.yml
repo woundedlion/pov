@@ -1871,7 +1871,7 @@ jobs:
         # No -e, like the warning ratchet's capture: every environment
         # platformio.ini declares is built here (it has no default_envs), so a new
         # budgeted image is size-gated without a second list to edit.
-        run: pio run
+        run: python tools/teensy_size_table.py
       - name: Upload firmware artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
