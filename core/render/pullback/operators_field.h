@@ -24,8 +24,7 @@ namespace Interp {
 namespace Op {
 
 /** @brief Shared shape of the stateless FIELD endomorphisms. */
-template <typename Derived, typename ParamsT>
-struct FieldEndoModel : StatelessModel {
+template <typename ParamsT> struct FieldEndoModel : StatelessModel {
   using Input = FieldSample;
   using Output = FieldSample;
   using Params = ParamsT;
@@ -38,7 +37,7 @@ struct FieldEndoModel : StatelessModel {
 };
 
 /** @brief FIELD endomorphism: the unit-bell ridge transfer. */
-struct TransferRidge : FieldEndoModel<TransferRidge, Transfer::NoValueParams> {
+struct TransferRidge : FieldEndoModel<Transfer::NoValueParams> {
   static constexpr const char *ID = "field.transfer.ridge.v2";
   static constexpr const char *NAME = "Ridge Transfer";
 
@@ -52,8 +51,7 @@ struct TransferRidge : FieldEndoModel<TransferRidge, Transfer::NoValueParams> {
 using IsoContourChainParams = Transfer::IsoValueParams;
 
 /** @brief FIELD endomorphism: the iso-band transfer. */
-struct TransferIsoContour
-    : FieldEndoModel<TransferIsoContour, IsoContourChainParams> {
+struct TransferIsoContour : FieldEndoModel<IsoContourChainParams> {
   static constexpr const char *ID = "field.transfer.iso-contour.v2";
   static constexpr const char *NAME = "Iso Contour";
 
@@ -83,8 +81,7 @@ static_assert(field_ids_unique<SmoothBandsChainParams>());
 static_assert(field_defaults_in_range<SmoothBandsChainParams>());
 
 /** @brief FIELD endomorphism: the cosine banding transfer. */
-struct TransferSmoothBands
-    : FieldEndoModel<TransferSmoothBands, SmoothBandsChainParams> {
+struct TransferSmoothBands : FieldEndoModel<SmoothBandsChainParams> {
   static constexpr const char *ID = "field.transfer.smooth-bands.v2";
   static constexpr const char *NAME = "Smooth Bands";
 
@@ -100,8 +97,7 @@ struct TransferSmoothBands
 using ValueCutoutChainParams = ValueCoverage::CutoutValueParams;
 
 /** @brief FIELD endomorphism: the value-dependent coverage cut. */
-struct CoverageValueCutout
-    : FieldEndoModel<CoverageValueCutout, ValueCutoutChainParams> {
+struct CoverageValueCutout : FieldEndoModel<ValueCutoutChainParams> {
   static constexpr const char *ID = "field.coverage.value-cutout.v2";
   static constexpr const char *NAME = "Value Cutout";
 
