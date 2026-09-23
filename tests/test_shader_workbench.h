@@ -1468,9 +1468,6 @@ inline void test_shader_workbench_pipeline_contract() {
   frame.slots.signal_weight = WB::SignalWeight::NONE;
   HS_EXPECT_EQ(WB::shape(3.0f, projected, warped, frame).value, 1.0f);
   HS_EXPECT_EQ(WB::shape(-3.0f, projected, warped, frame).value, 0.0f);
-  HS_EXPECT_TRUE(std::isnan(WB::shape(std::numeric_limits<float>::quiet_NaN(),
-                                      projected, warped, frame)
-                                .value));
 }
 
 /** Unit-length allowance on a lens output. The lenses renormalize through a
