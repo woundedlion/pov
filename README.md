@@ -260,6 +260,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── hankin.h                Hankin pattern compilation and update system
 │   │   ├── solid_generators.h     Platonic vertex/face tables, SolidBuilder, and the named solid generators
 │   │   ├── solids.h                Solid registries, Recipe mirrors, and the name/index lookups
+│   │   ├── relax_bake.h             Relax payload and source identity checks
 │   │   └── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
 │   ├── spatial/                Spatial indexing and spherical graph structures
 │   │   ├── kd_tree.h               KDTree k-nearest-neighbor search
