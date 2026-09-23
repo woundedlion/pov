@@ -617,9 +617,13 @@ hook symbol or instruction.
 
 ## 8. Concrete core operator and stage catalog
 
+The shipped spellings for the camera, planar warp, and color stages are
+`Stage::Rotate`, `Stage::Warp`, and `Stage::Colorize`, respectively.
+
 Superseded, and retained as the design record the shipped operators were
-derived from: the six-role `Stage::*` catalog below -- `SurfaceProject`,
-`Stage::Source`, `Stage::Material` and the `ProjectionSample` / `SourceInput`
+derived from: the six-role `Stage::*` catalog below -- `Stage::OuterCamera`,
+`SurfaceProject`, `Stage::PlanarWarp`, `Stage::Source`, `Stage::Material`,
+`Stage::Color` and the `ProjectionSample` / `SourceInput`
 / `MaterialInput` / `MaterialSample` carriers -- has no occurrence anywhere in
 the tree. The shipped stage vocabulary is the ranked family chain in
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md) §4.
