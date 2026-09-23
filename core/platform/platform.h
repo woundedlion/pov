@@ -181,6 +181,9 @@ inline unsigned long millis(); // defined below
  */
 #define HS_CONCAT(a, b) HS_CONCAT_INNER(a, b)
 
+#define EVERY_N_MILLIS_I(NAME, N)                                              \
+  static hs::EveryNMillis NAME((N));                                           \
+  if (NAME)
 /**
  * @brief Executes the guarded block at most once every N milliseconds.
  * @param N Interval in milliseconds.
@@ -192,11 +195,11 @@ inline unsigned long millis(); // defined below
  * is named from `__COUNTER__` so two uses on one source line do not collide. See
  * hs::EveryNMillis for the timing semantics.
  */
-#define EVERY_N_MILLIS_I(NAME, N)                                              \
-  static hs::EveryNMillis NAME((N));                                           \
-  if (NAME)
 #define EVERY_N_MILLIS(N) EVERY_N_MILLIS_I(HS_CONCAT(hs_every_, __COUNTER__), N)
 
+#define EVERY_N_SECONDS_I(NAME, N)                                             \
+  static hs::EveryNSeconds NAME((N));                                          \
+  if (NAME)
 /**
  * @brief Executes the guarded block at most once every N seconds.
  * @param N Interval in seconds.
@@ -204,9 +207,6 @@ inline unsigned long millis(); // defined below
  * hs::EveryNSeconds for the timing semantics, which are whole-second quantized
  * rather than a millisecond throttle.
  */
-#define EVERY_N_SECONDS_I(NAME, N)                                             \
-  static hs::EveryNSeconds NAME((N));                                          \
-  if (NAME)
 #define EVERY_N_SECONDS(N)                                                     \
   EVERY_N_SECONDS_I(HS_CONCAT(hs_every_, __COUNTER__), N)
 /**
