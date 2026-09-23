@@ -800,6 +800,7 @@ inline void test_class_bake_registry_capacity() {
     HS_EXPECT_GT(bake.classes.size(), (size_t)0);
     HS_EXPECT_LE(bake.classes.size(), (size_t)MeshOps::MAX_CONGRUENCE_CLASSES);
     HS_EXPECT_EQ(bake.overflow_faces, (uint16_t)0);
+    HS_EXPECT_LT(bake.worst_residual_px, 0.25f);
 
     if (bake.classes.size() > worst_classes) {
       worst_classes = bake.classes.size();
