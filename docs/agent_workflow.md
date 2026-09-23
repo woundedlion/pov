@@ -50,10 +50,8 @@ directories. Set `HS_PROFILE_TREE=<path>` to select a different checkout.
 
 Invoke the `code-style` skill first and obey it. Terse factual comments only —
 no narration, no justifying correct code, no history, no finding/ticket
-references. `core/render/sdf.h`, `core/color/color.h`, and generated tables
-carry whole-file clang-format drift against local clang-format v22: hand-format
-your own lines and wrap generated tables in `// clang-format off/on`; **never**
-run `clang-format -i` on an existing file. The pre-commit format gate is live
+references. Use the pinned clang-format on edited files, respecting generated
+source exclusions in the hook and CI. The pre-commit format gate is live
 and blocks unconditionally — a missing binary, or one whose major is not 22,
 fails the commit rather than waving it through. Fix hook failures before
 committing; `--no-verify` is only an explicit emergency escape, and CI still
