@@ -6141,63 +6141,67 @@ inline void test_manual_preset_navigation() {
  */
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
+  const auto run_case = [](auto test) {
+    hs::random().seed(1337u);
+    test();
+  };
 
-  test_meshfeedback_base_mesh_selector();
-  test_meshfeedback_preset_export_arity();
-  test_meshfeedback_mesh_rebuild_reuses_storage();
-  test_gs_opaque_quarter_accumulation_is_exact();
-  test_gs_reseed_generates_palette();
-  test_gs_render_certificates_bound_lattice();
-  test_gs_shared_stencil_error_is_bounded();
-  test_gs_dissolve_frontier_fades_before_clear();
-  test_gs_substep_matches_scalar_reference();
-  test_fishbowl_preset_and_fire_duty_cycle();
-  test_sh_preset_mode_mapping();
-  test_sh_manual_preset_replaces_inflight_morph();
-  test_shapeshifter_preset_defaults();
-  test_shapeshifter_slider_selections_render();
-  test_manual_preset_navigation();
-  test_hankinsolids_manual_pause_holds_morph();
+  run_case(test_meshfeedback_base_mesh_selector);
+  run_case(test_meshfeedback_preset_export_arity);
+  run_case(test_meshfeedback_mesh_rebuild_reuses_storage);
+  run_case(test_gs_opaque_quarter_accumulation_is_exact);
+  run_case(test_gs_reseed_generates_palette);
+  run_case(test_gs_render_certificates_bound_lattice);
+  run_case(test_gs_shared_stencil_error_is_bounded);
+  run_case(test_gs_dissolve_frontier_fades_before_clear);
+  run_case(test_gs_substep_matches_scalar_reference);
+  run_case(test_fishbowl_preset_and_fire_duty_cycle);
+  run_case(test_sh_preset_mode_mapping);
+  run_case(test_sh_manual_preset_replaces_inflight_morph);
+  run_case(test_shapeshifter_preset_defaults);
+  run_case(test_shapeshifter_slider_selections_render);
+  run_case(test_manual_preset_navigation);
+  run_case(test_hankinsolids_manual_pause_holds_morph);
   // Arena budgets both tiers run: a mesh or fragment-count change reds these,
   // and they cost under a second between them.
-  test_fishbowl_scratch_estimate_covers_peak();
-  test_hankinsolids_arena_budget_covers_every_solid();
-  test_dreamballs_max_edge_solid_render();
-  test_raymarch_volume_random_walks_are_independent();
-  test_raymarch_preset_and_placement_solids();
-  test_raymarch_surface_frame_uv();
+  run_case(test_fishbowl_scratch_estimate_covers_peak);
+  run_case(test_hankinsolids_arena_budget_covers_every_solid);
+  run_case(test_dreamballs_max_edge_solid_render);
+  run_case(test_raymarch_volume_random_walks_are_independent);
+  run_case(test_raymarch_preset_and_placement_solids);
+  run_case(test_raymarch_surface_frame_uv);
   // Resolution-independent white-box math.
-  test_sh_decode_lm_valid_order();
-  test_sh_cartesian_matches_spherical();
-  test_sh_reduced_legendre_matches_closed_form();
-  test_gs_q16_roundtrip();
-  test_gs_rest_state_is_fixed_point();
-  test_gs_substep_signs_and_clamp();
-  test_bz_q16_roundtrip();
-  test_bz_advance_species_signs_and_clamp();
-  test_bz_perturb_state_draw_count_pinned();
-  test_hopf_projection_math();
-  test_raymarch_constexpr_sqrt_converges();
+  run_case(test_sh_decode_lm_valid_order);
+  run_case(test_sh_cartesian_matches_spherical);
+  run_case(test_sh_reduced_legendre_matches_closed_form);
+  run_case(test_gs_q16_roundtrip);
+  run_case(test_gs_rest_state_is_fixed_point);
+  run_case(test_gs_substep_signs_and_clamp);
+  run_case(test_bz_q16_roundtrip);
+  run_case(test_bz_advance_species_signs_and_clamp);
+  run_case(test_bz_perturb_state_draw_count_pinned);
+  run_case(test_hopf_projection_math);
+  run_case(test_raymarch_constexpr_sqrt_converges);
   // Both tiers: white-box cases costing under 50 ms each. Some build an effect
   // at the production resolution; none renders enough of a frame for deferring
   // it to buy PR runtime.
-  test_needs_full_frame_gate();
-  test_voronoi_axes_use_uniform_sampler();
-  test_voronoi_segment_render_matches_full_frame();
-  test_sh_field_write_through_and_endpoints();
-  test_sh_field_stays_inside_unit_range();
-  test_sh_polarity_split_and_ao_shaping();
-  test_gs_reaction_edit_starts_dissolve();
-  test_bz_legacy_palette();
-  test_bz_min_diffusion_step_survives_quantization();
-  test_bz_perturb_state_saturates_and_nudges();
-  test_bz_perturb_scales_with_timestep();
-  test_bz_substep_diffuses();
-  test_bz_raster_matches_reference();
-  test_bz_render_center_matches_reference();
-  test_dreamballs_preset_cycle_bookkeeping();
+  run_case(test_needs_full_frame_gate);
+  run_case(test_voronoi_axes_use_uniform_sampler);
+  run_case(test_voronoi_segment_render_matches_full_frame);
+  run_case(test_sh_field_write_through_and_endpoints);
+  run_case(test_sh_field_stays_inside_unit_range);
+  run_case(test_sh_polarity_split_and_ao_shaping);
+  run_case(test_gs_reaction_edit_starts_dissolve);
+  run_case(test_bz_legacy_palette);
+  run_case(test_bz_min_diffusion_step_survives_quantization);
+  run_case(test_bz_perturb_state_saturates_and_nudges);
+  run_case(test_bz_perturb_scales_with_timestep);
+  run_case(test_bz_substep_diffuses);
+  run_case(test_bz_raster_matches_reference);
+  run_case(test_bz_render_center_matches_reference);
+  run_case(test_dreamballs_preset_cycle_bookkeeping);
   CometsWhiteBox::check_paths_close();
-  test_comets_rollover_skipped_mid_wipe();
+  run_case(test_comets_rollover_skipped_mid_wipe);
   ThrustersWhiteBox::check_warp_endpoints();
   ThrustersWhiteBox::check_fire_spawns_opposed_pair();
   ThrustersWhiteBox::check_collapsed_ring_falls_back_to_a_spin_axis();
@@ -6205,45 +6209,45 @@ inline int run_effects_tests() {
   ThrustersWhiteBox::check_expired_slots_retire_by_pair();
   RingShowerWhiteBox::check_radius_endpoints();
   DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
-  test_dynamo_emitted_points_counts_ring_seeds();
-  test_ringspin_trail_hugs_its_great_circles();
-  test_hopf_trail_trim_keeps_a_segment();
-  test_gnomonicstars_radius_px_spans_one_column();
-  test_gnomonicstars_spiral_cache_invalidation();
-  test_displacement_field_lazy_hue_table_matches_eager();
-  test_displacement_field_zero_hue_scale_is_exact();
-  test_shader_workbench_glitch_lens_unit_norm();
-  test_mobius_rings_conformal_and_counter_rotation();
-  test_islamicstars_seed_sprite_fade_in();
-  test_islamicstars_burst_size_is_snapshotted_per_spawn();
+  run_case(test_dynamo_emitted_points_counts_ring_seeds);
+  run_case(test_ringspin_trail_hugs_its_great_circles);
+  run_case(test_hopf_trail_trim_keeps_a_segment);
+  run_case(test_gnomonicstars_radius_px_spans_one_column);
+  run_case(test_gnomonicstars_spiral_cache_invalidation);
+  run_case(test_displacement_field_lazy_hue_table_matches_eager);
+  run_case(test_displacement_field_zero_hue_scale_is_exact);
+  run_case(test_shader_workbench_glitch_lens_unit_norm);
+  run_case(test_mobius_rings_conformal_and_counter_rotation);
+  run_case(test_islamicstars_seed_sprite_fade_in);
+  run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The partition
   // is by measured cost, not by resolution: every case below runs for a tenth
   // of a second or more, and the block totals about four minutes, over three of
   // which are the two IslamicStars budget sweeps.
   if (effects_full_suite()) {
-    test_voronoi_union_candidates_cover_nearest();
-    test_sh_pullback_matches_legacy_shader();
-    test_sh_morph_chain_rearms();
-    test_gs_evolution_stays_bounded();
-    test_gs_reaction_corner_stays_bounded();
-    test_gs_dissolve_clears_and_reseeds();
-    test_dreamballs_base_mesh_selector();
-    test_dreamballs_weave_topology();
-    test_dreamballs_respawn_fires_and_honors_pause();
-    test_meshfeedback_flush_precedes_mesh_draw();
-    test_meshfeedback_preset_rotation_syncs_noise();
-    test_comets_manual_preset_restarts_path();
-    test_ash_cloud_value_cutout_gates_the_frame();
-    test_dynamo_trail_ceiling_bounds_the_ring();
-    test_raymarch_unit_bounds_contains_twisted_tube();
-    test_petalflow_spawn_gap_bounded();
-    test_displacement_field_hue_table_fidelity();
-    test_displacement_field_hue_table_frame_fidelity();
-    test_displacement_field_clip_tiles_full();
-    test_islamicstars_recipe_build_smoke();
-    test_islamicstars_roster_cycle_fits_budget();
-    test_islamicstars_dual_bridge_fits_budget();
+    run_case(test_voronoi_union_candidates_cover_nearest);
+    run_case(test_sh_pullback_matches_legacy_shader);
+    run_case(test_sh_morph_chain_rearms);
+    run_case(test_gs_evolution_stays_bounded);
+    run_case(test_gs_reaction_corner_stays_bounded);
+    run_case(test_gs_dissolve_clears_and_reseeds);
+    run_case(test_dreamballs_base_mesh_selector);
+    run_case(test_dreamballs_weave_topology);
+    run_case(test_dreamballs_respawn_fires_and_honors_pause);
+    run_case(test_meshfeedback_flush_precedes_mesh_draw);
+    run_case(test_meshfeedback_preset_rotation_syncs_noise);
+    run_case(test_comets_manual_preset_restarts_path);
+    run_case(test_ash_cloud_value_cutout_gates_the_frame);
+    run_case(test_dynamo_trail_ceiling_bounds_the_ring);
+    run_case(test_raymarch_unit_bounds_contains_twisted_tube);
+    run_case(test_petalflow_spawn_gap_bounded);
+    run_case(test_displacement_field_hue_table_fidelity);
+    run_case(test_displacement_field_hue_table_frame_fidelity);
+    run_case(test_displacement_field_clip_tiles_full);
+    run_case(test_islamicstars_recipe_build_smoke);
+    run_case(test_islamicstars_roster_cycle_fits_budget);
+    run_case(test_islamicstars_dual_bridge_fits_budget);
   } else {
     std::printf("  [TIER] full effects cases omitted; set HS_EFFECTS_FULL=1\n");
   }
