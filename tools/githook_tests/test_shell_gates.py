@@ -63,18 +63,34 @@ class ShellGateTests(unittest.TestCase):
         self.assertEqual(self.git("show", ":payload.txt").stdout, b"staged\n")
 
     def test_ruff_selection_includes_failed_lints_but_not_empty_reports(self):
+        (self.root / "source.py").touch()
+        self.git("add", "--", "source.py")
         self.stub("ruff", "exit 1")
         self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
         self.stub("ruff", "echo source.py; exit 1")
         selected = self.gate("ruff_selection_guard.sh")
         self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
+        self.stub("ruff", "echo unrelated.py; exit 1")
+        self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
+        self.stub("ruff", "echo source.py; exit 1")
+        (self.root / "omitted.py").touch()
+        self.git("add", "--", "omitted.py")
+        self.assertNotEqual(self.gate("ruff_selection_guard.sh").returncode, 0)
 
     def test_eslint_selection_requires_a_file_path(self):
+        (self.root / "source.js").touch()
+        self.git("add", "--", "source.js")
         self.stub("npx", "echo '[]'")
         self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
         self.stub("npx", "echo '[{\"filePath\":\"source.js\"}]'; exit 1")
         selected = self.gate("eslint_selection_guard.sh")
         self.assertEqual(selected.returncode, 0, selected.stdout + selected.stderr)
+        self.stub("npx", "echo '[{\"filePath\":\"unrelated.js\"}]'; exit 1")
+        self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
+        self.stub("npx", "echo '[{\"filePath\":\"source.js\"}]'; exit 1")
+        (self.root / "omitted.js").touch()
+        self.git("add", "--", "omitted.js")
+        self.assertNotEqual(self.gate("eslint_selection_guard.sh").returncode, 0)
 
     def test_shellcheck_refuses_empty_selection_and_propagates_lint_failure(self):
         empty = self.gate("shellcheck_gate.sh")
