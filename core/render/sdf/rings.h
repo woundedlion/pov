@@ -68,6 +68,10 @@ struct Ring {
     float ang_max = std::min(math::PI_F, target_angle + thickness);
     cos_max = cosf(ang_min);
     cos_min = cosf(ang_max);
+    if (cos_max == 1.0f)
+      cos_max = 2.0f;
+    if (cos_min == -1.0f)
+      cos_min = -2.0f;
     cos_target = cosf(target_angle);
 
     bool safe_approx =
