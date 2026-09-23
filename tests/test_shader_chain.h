@@ -3816,7 +3816,7 @@ inline void test_shader_chain_composed_frame_parity() {
   source.coverage_mode =
       static_cast<uint8_t>(PB::ProjectionCoverageMode::EDGE_FADE);
   auto &color = ShaderChainWhiteBox::color_params(chain);
-  static_cast<PB::ColorParams &>(color) = params.color;
+  static_cast<PB::Color::ColorControls &>(color) = params.color;
   color.mapping_mode = static_cast<uint8_t>(params.color.palette_mapping);
 
   size_t visible = 0;

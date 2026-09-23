@@ -202,7 +202,7 @@ struct ShaderWorkbenchWhiteBox {
              {2.0f, 0.0f, 0.0f},
              {},
              {},
-             {0.0f, 1.0f, 0.0f},
+             {{0.0f, 1.0f, 0.0f}},
              {0.25f},
              {}}};
   }
@@ -6152,7 +6152,7 @@ inline void test_shader_workbench_hue_shift_modes() {
   base.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   base.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
   base.slots.hue_shift = WB::HueShiftMode::NONE;
-  base.params.color = {1.0f, 2.0f, 0.0f};
+  base.params.color = {{1.0f, 2.0f, 0.0f}};
   HS_EXPECT_TRUE(WB::valid_config(base));
 
   const WB::FieldSample sample{

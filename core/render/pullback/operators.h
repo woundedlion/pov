@@ -182,10 +182,8 @@ struct LegacyGeneratedPaletteParams {
 static_assert(field_ids_unique<LegacyGeneratedPaletteParams>());
 static_assert(field_defaults_in_range<LegacyGeneratedPaletteParams>());
 
-/** @brief Parameter family of colorize.generated-palette.v3.
-    @details The mapping topology enum8 supersedes the base family's
-    `palette_mapping` member, which the chain never reads. */
-struct GeneratedPaletteParams : Color::ColorParams {
+/** @brief Parameter family of colorize.generated-palette.v3. */
+struct GeneratedPaletteParams : Color::ColorControls {
   uint8_t palette_mode = static_cast<uint8_t>(PaletteMode::TRIADIC);
   uint8_t mapping_mode = static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
   uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
@@ -209,7 +207,8 @@ struct GeneratedPaletteParams : Color::ColorParams {
 };
 static_assert(field_ids_unique<GeneratedPaletteParams>());
 static_assert(field_defaults_in_range<GeneratedPaletteParams>());
-static_assert(sizeof(GeneratedPaletteParams) == sizeof(Color::ColorParams) + 4,
+static_assert(sizeof(GeneratedPaletteParams) ==
+                  sizeof(Color::ColorControls) + 4,
               "generated palette params must have the expected rounded size");
 
 /** @brief Per-frame color phase clocks. */
