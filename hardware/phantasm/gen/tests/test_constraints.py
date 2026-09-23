@@ -47,6 +47,13 @@ class UnplacedProjectConstraintTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertEqual(rules[field], expected)
 
+    def test_unplaced_project_satisfies_new_layout_floors(self):
+        settings = self.project["board"]["design_settings"]
+        for field, minimum in NEW_LAYOUT_RULES.items():
+            with self.subTest(field=field):
+                self.assertGreaterEqual(settings["rules"][field], minimum)
+        self.assertEqual(settings["rule_severities"]["silk_over_copper"], "error")
+
     def test_default_net_class_matches_the_captured_values(self):
         default = default_class(self.project)
         for field, expected in UNPLACED_DEFAULT_CLASS.items():
