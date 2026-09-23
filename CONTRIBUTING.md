@@ -81,6 +81,22 @@ protected branch's `CI green` status is the authoritative correctness gate.
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
   engine bindings contract, the profile roster and the PNG probe. CI runs it as
   its own `scripts-unit-tests` job.
+- **Native variants and coverage:** `sanitizers`, `thread-sanitizer`,
+  `optimized-tests` and `windows-tests` exercise distinct runtime and platform
+  configurations. `code-coverage` enforces aggregate and directory coverage;
+  `shard-coverage` checks test-module selection across CI legs.
+- **Generated-source provenance:** `lut-provenance`, `reaction-graph-provenance`,
+  `gamut-lut-provenance`, `srgb-decode-provenance` and `patterns-provenance`
+  regenerate their artifacts and compare them with committed bytes. Change the
+  generator or authored input and regenerate; hand-editing its output fails.
+- **Firmware:** `teensy-gate-tests` tests the gate tooling, `teensy-size` enforces
+  firmware memory budgets, and `teensy-warnings` checks every PlatformIO
+  environment with the pinned toolchain. The local entry points are
+  `just python-test`, `just teensy-size` and `just teensy-warnings`.
+- **Published artifacts:** `wasm` builds and verifies the engine bundle;
+  `screenshot-gallery` checks capture membership and images. `docs-doxygen`
+  builds the API reference with warnings treated as errors. These complement
+  the Markdown and image-reference checks below.
 - **Host-Python tool suites:** `just python-test` and CI run
   `python tools/run_python_tests.py`. It discovers every tracked suite, rejects
   empty suites, and propagates failures. Install `requirements/numpy.txt` first;
