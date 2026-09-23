@@ -399,7 +399,7 @@ def main(force=False):
     # SYNC_PULLDOWN low on the master and is high-impedance on every slave.
     RPD = place("Device:R", "R_PD", "10k", 292.1, 205.74, fp=SMD06_HAND)
     to_label(RPD, "1", "SYNC_BUS"); to_label(RPD, "2", "SYNC_PULLDOWN")
-    DBUS = place("Device:D_Zener", "D_BUS", "CDSOD323-T05L", 292.1, 231.14,
+    DBUS = place("Device:D_Zener", "D_BUS", "CDSOD323-T08L", 292.1, 231.14,
                  fp="Diode_SMD:D_SOD-323")
     to_label(DBUS, "1", "SYNC_BUS"); to_power(DBUS, "2", GND)
     # daisy connectors
