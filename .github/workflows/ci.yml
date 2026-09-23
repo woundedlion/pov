@@ -1371,8 +1371,10 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      # The suite has no runtime deps, so no `npm ci` is needed; the Node
-      # running it is pinned like every other tool.
+      - name: Install CMake for cache-key integration tests
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y cmake
+
+      # The suite uses no npm dependencies.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
