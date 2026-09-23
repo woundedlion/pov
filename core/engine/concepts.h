@@ -211,7 +211,7 @@ public:
  * @brief A FunctionRef meant to be STORED past the call that builds it (e.g. a
  * class member invoked across many frames), not just borrowed for one call.
  * @tparam Signature The callable signature `Ret(Args...)`.
- * @details Identical to FunctionRef except it refuses to bind an rvalue temporary:
+ * @details Identical to FunctionRef except it refuses to bind a borrowed rvalue temporary:
  * binding a temporary into something kept alive past the full expression dangles.
  * Storing sites use this type so the lifetime contract is enforced by the type
  * instead of a hand-rolled `= delete` at each site; plain FunctionRef stays right
@@ -225,11 +225,21 @@ class StoredFunctionRef<Ret(Args...)> : public FunctionRef<Ret(Args...)> {
 public:
   using FunctionRef<Ret(Args...)>::FunctionRef;
 
+  StoredFunctionRef() = default;
+  StoredFunctionRef(std::nullptr_t) noexcept {}
+
+  /** @brief Stores a non-throwing function pointer by value. */
+  StoredFunctionRef(Ret (*func)(Args...) noexcept) noexcept
+      : FunctionRef<Ret(Args...)>(static_cast<Ret (*)(Args...)>(func)) {}
+
   // Reject rvalue temporaries the base would accept; the guards keep lvalue
   // callables and copy/move on the inherited ctors.
   template <typename Callable,
             typename = std::enable_if_t<
                 !std::is_lvalue_reference_v<Callable> &&
+                !std::is_same_v<std::decay_t<Callable>, std::nullptr_t> &&
+                !(std::is_pointer_v<std::decay_t<Callable>> &&
+                  std::is_convertible_v<Callable, Ret (*)(Args...)>) &&
                 !std::is_same_v<std::decay_t<Callable>, StoredFunctionRef>>>
   StoredFunctionRef(Callable &&) = delete;
 };
