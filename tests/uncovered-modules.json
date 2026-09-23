@@ -3,7 +3,6 @@
   "scripts/capture_screenshots.mjs": "Browser capture entry point requiring the installed WASM and live rendering; screenshot-gallery validates its artifacts and the capture helpers have unit tests.",
   "scripts/check_effect_roster.mjs": "Command-line roster gate executed by npm run check-roster in CI; effect_roster.mjs holds the unit-tested roster parser.",
   "scripts/count_assertions.mjs": "Preloaded before its own loader hook exists; runner negative tests verify assertion counting and the module roster rejects absent records.",
-  "scripts/export_engine_catalog.mjs": "Command-line WASM catalog exporter requiring a built engine; patterns-provenance regenerates and compares its catalog.",
   "scripts/generate_promoted_shader_documents.mjs": "Generator entry point requiring the compiled engine catalog; patterns-provenance runs its check mode and promoted_digests.test.mjs validates document identities.",
   "scripts/report_cases.mjs": "Runs in the node:test reporter process outside test-loader instrumentation; run_tests.test.mjs exercises its case tallies through subprocesses.",
   "scripts/run_tests.mjs": "Outer command-line runner executes outside test context; run_tests.test.mjs exercises accepted and rejected subprocess runs.",
