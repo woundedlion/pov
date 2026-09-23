@@ -113,6 +113,7 @@ struct PlaneSample {
 struct FieldSample {
   float value;
   float coverage;
+  /** Projection-frame direction from PLANE; camera-frame direction from SPHERE. */
   math::Vector sphere;
   float path_length;
 };
