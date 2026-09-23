@@ -62,9 +62,9 @@ struct ShaderWorkbenchBinding {
   using FrameState = Workbench::FrameState;
   using Instrumentation = ShaderWorkbenchInstrumentation;
 
-  template <typename Stage> static constexpr bool edge_unconditional() {
-    if constexpr (requires { Stage::EDGE_DISTANCE_UNCONDITIONAL; })
-      return Stage::EDGE_DISTANCE_UNCONDITIONAL;
+  template <typename Stage> static constexpr bool edge_available() {
+    if constexpr (requires { Stage::EDGE_DISTANCE_AVAILABLE; })
+      return Stage::EDGE_DISTANCE_AVAILABLE;
     else
       return false;
   }
@@ -76,11 +76,10 @@ struct ShaderWorkbenchBinding {
       return false;
   }
 
-  /** EDGE_DISTANCE_UNCONDITIONAL on the projection requires an edge-fade
-      coverage somewhere in the chain. */
+  /** Edge-fade coverage requires a projection that supplies edge distance. */
   template <typename... Stages> struct ExtraValidation {
-    static constexpr bool value = !(edge_unconditional<Stages>() || ...) ||
-                                  (edge_fade_coverage<Stages>() || ...);
+    static constexpr bool value = !(edge_fade_coverage<Stages>() || ...) ||
+                                  (edge_available<Stages>() || ...);
   };
 };
 

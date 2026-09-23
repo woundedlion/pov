@@ -256,6 +256,7 @@ airocean(const math::Vector &input, bool horizontal,
 /** @brief Bonne pseudoconical equal-area projection; `North` picks the sign of
     the standard parallel, and so the hemisphere the cone opens toward. */
 template <typename State, bool North> struct Bonne : ApproximationDefaults {
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -285,6 +286,7 @@ template <typename State, bool North> struct Bonne : ApproximationDefaults {
 /** @brief Stereographic projection: conformal, with one singular pole the
     singularity fade attenuates. */
 template <typename State> struct Stereographic : ApproximationDefaults {
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -334,6 +336,7 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
 /** @brief Equirectangular projection: cut at the antimeridian, with both
     poles attenuated by the singularity fade. */
 template <typename State> struct Equirectangular : ApproximationDefaults {
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -361,6 +364,7 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
     circle; `Hemisphere` folds the two halves together or keeps one. */
 template <typename State, GnomonicHemisphere Hemisphere>
 struct Gnomonic : ApproximationDefaults {
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
@@ -390,7 +394,7 @@ struct Peirce : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
-  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = EdgeDistanceRequired;
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
@@ -433,7 +437,7 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
-  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = true;
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::PEIRCE_FAST_SQUARE;
@@ -500,7 +504,7 @@ struct Airocean : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
 
-  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = EdgeDistanceRequired;
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =

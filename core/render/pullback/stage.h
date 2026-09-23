@@ -340,9 +340,9 @@ struct Project
   using Policies = std::tuple<ProjectionPolicyT>;
   using ProjectionPolicy = ProjectionPolicyT;
 
-  static constexpr bool EDGE_DISTANCE_UNCONDITIONAL = [] {
-    if constexpr (requires { ProjectionPolicyT::EDGE_DISTANCE_UNCONDITIONAL; })
-      return ProjectionPolicyT::EDGE_DISTANCE_UNCONDITIONAL;
+  static constexpr bool EDGE_DISTANCE_AVAILABLE = [] {
+    if constexpr (requires { ProjectionPolicyT::EDGE_DISTANCE_AVAILABLE; })
+      return ProjectionPolicyT::EDGE_DISTANCE_AVAILABLE;
     else
       return false;
   }();
