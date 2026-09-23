@@ -99,7 +99,7 @@ inline math::Complex stereo(const math::Vector &v) {
 inline math::Vector inv_stereo(const math::Complex &z) {
   // |z| >= STEREO_INF_RECOGNIZE → North Pole (catches the sentinel and any point
   // within ~0.02° of the pole; squared compare avoids a sqrt).
-  float r2 = z.re * z.re + z.im * z.im;
+  float r2 = z.squared_magnitude();
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return math::Vector(0.0f, 1.0f, 0.0f);
   return math::Vector(2 * z.re / (r2 + 1), (r2 - 1) / (r2 + 1),
@@ -156,8 +156,7 @@ inline math::Vector inv_gnomonic(const math::Complex &z,
   // forward clamp: a per-component test would make the snap-back radius
   // azimuth-dependent. Squared compare avoids a sqrt, and a magnitude past the
   // float range overflows to infinity, which still clears the bound.
-  if (z.re * z.re + z.im * z.im >=
-      STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE) {
+  if (z.squared_magnitude() >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE) {
     // Normalize by the larger component first: squaring a magnitude well past
     // the sentinel would overflow to infinity and yield a zero vector.
     const float scale = 1.0f / std::max(std::abs(z.re), std::abs(z.im));
@@ -168,7 +167,7 @@ inline math::Vector inv_gnomonic(const math::Complex &z,
     return math::Vector(equator.re, 0.0f, equator.im);
   }
   // Project (re, 1, im) back onto unit sphere
-  float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
+  float len = sqrtf(z.squared_magnitude() + 1.0f);
   float inv_len = 1.0f / len;
 
   // Restore hemisphere sign (Upper or Lower)

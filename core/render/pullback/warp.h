@@ -404,7 +404,7 @@ __attribute__((always_inline)) inline float
 displacement(const math::Complex &delta, bool required) {
   if (!required)
     return 0.0f;
-  const float SQUARED = delta.re * delta.re + delta.im * delta.im;
+  const float SQUARED = delta.squared_magnitude();
   if (SQUARED > std::numeric_limits<float>::max())
     return std::hypot(delta.re, delta.im);
   return sqrtf(SQUARED);
@@ -578,7 +578,7 @@ template <typename Params>
 __attribute__((always_inline)) inline WarpStepResult
 polar_chart(const math::Complex &input, const Params &params, float phase,
             bool logarithmic, uint8_t harmonic) {
-  const float radius = sqrtf(input.re * input.re + input.im * input.im);
+  const float radius = input.magnitude();
   const float radial =
       logarithmic ? logf(std::max(radius, 1.0f / 4096.0f)) : radius;
   const math::Complex output(params.radial_scale * radial + params.radial_phase,
