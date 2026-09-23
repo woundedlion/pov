@@ -563,8 +563,8 @@ curl_pair_stable(const WarpStageSpec &spec, const WarpStageParams &a,
 }
 
 /** @brief Reports whether both transition endpoints are admissible holds. */
-HS_COLD_MEMBER inline constexpr bool transition_admitted(const Config &from,
-                                                         const Config &to) {
+HS_COLD_MEMBER inline constexpr bool
+transition_endpoints_admitted(const Config &from, const Config &to) {
   return valid_config(from) && valid_config(to);
 }
 
