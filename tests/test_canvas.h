@@ -147,6 +147,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   std::vector<float> envelopes;
   bool fenced = false;
   bool destroyed = false;
+  bool outgoing_published = false;
   bool incoming_published = false;
   bool restored_published = false;
   bool committed = false;
@@ -165,7 +166,14 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   }
   void set_output_envelope(float value) override { envelopes.push_back(value); }
   bool presentation_complete() const override { return fenced; }
-  void destroy_outgoing() override { destroyed = true; }
+  void publish_outgoing_frame() override {
+    HS_EXPECT_EQ(envelopes.back(), 0.0f);
+    outgoing_published = true;
+  }
+  void destroy_outgoing() override {
+    HS_EXPECT_TRUE(outgoing_published);
+    destroyed = true;
+  }
   hs::EffectTransitionStatus
   construct_incoming(const hs::EffectTransitionRequest &) override {
     return construct_status;
@@ -262,6 +270,7 @@ inline void test_effect_transition_fenced_commit() {
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::CLEAR_PRESENTED);
   controller.tick();
+  HS_EXPECT_TRUE(adapter.outgoing_published);
   HS_EXPECT_FALSE(adapter.destroyed);
   adapter.fenced = true;
   controller.tick();
