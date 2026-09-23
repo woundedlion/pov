@@ -4251,6 +4251,12 @@ inline void case_bump_offset_outside_cap_distance() {
   (void)bump_field_with_y(math::Y_AXIS, params, opaque(0.25f));
 }
 
+inline void case_peirce_invalid_layout() {
+  (void)projections::peirce_projection(
+      math::Vector(0, 1, 0), 0,
+      static_cast<projections::PeirceLayout>(opaque<uint8_t>(255)), 0);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4260,6 +4266,9 @@ inline void case_bump_offset_outside_cap_distance() {
  */
 inline const Case *all_cases(int &n) {
   static const Case cases[] = {
+      {"peirce_invalid_layout", case_peirce_invalid_layout,
+       "core/math/projections.h",
+       "(FOLDED_LAYOUT || STRIP_LAYOUT) Peirce projection: invalid layout"},
       {"bump_offset_outside_cap_distance",
        case_bump_offset_outside_cap_distance, "core/animation/transformer.h",
        "(std::abs(y) <= d + 1e-5f) bump offset exceeds the angular distance to its center"},
