@@ -78,3 +78,9 @@ list(LENGTH _guard_names _guard_file_count)
 message(STATUS
   "death-harness guard census: ${HS_GUARD_SITE_TOTAL} HS_CHECK sites across "
   "${_guard_file_count} files")
+
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${HS_ROOT}/tests/test_death.h" "${HS_ROOT}/tests/check_death_pins.py")
+execute_process(COMMAND "${Python3_EXECUTABLE}"
+                "${HS_ROOT}/tests/check_death_pins.py" "${HS_ROOT}"
+                COMMAND_ERROR_IS_FATAL ANY)
