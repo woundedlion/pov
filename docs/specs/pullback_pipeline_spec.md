@@ -11,10 +11,13 @@ each to its document). The interpreter host `workbench/shader/chain_host.h`
 uses the runtime operator library; `effects/HyperLattice.h` uses the typed
 policies, and `effects/Raymarch.h` uses the shared runtime seeds. The
 verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
-`tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Section 17
-is the exception: everything listed there is a design record only, with no
-implementation in the tree. This revision supersedes revision 5's deferred
-framework plan.
+`tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Sections 2,
+5.1, 8, 9.1, 9.3, 11, 14 and 16 retain superseded design material; their local
+banners identify the shipped replacements. Sections 3, 5.2 and 6 also qualify
+the original stage model. The ranked-stage contract is specified in
+[pullback_stage_families_spec.md](pullback_stage_families_spec.md). Section 17
+is deferred design only, with no implementation in the tree. This revision
+supersedes revision 5's deferred framework plan.
 The architecture review correctly rejected shared pixel/block drivers and the
 GS/BZ/Voronoi migrations, but it coupled that rejection to the unrelated
 question of whether pullback composition and concrete pullback operators belong
