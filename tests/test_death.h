@@ -44,6 +44,7 @@
 
 #include "death_guard_sites.h" // generated HS_CHECK census; see tests/CMakeLists.txt
 #include "tests/test_fixture.h"
+#include "tests/test_pullback.h"
 #include "tests/test_effects.h"
 #include "tests/test_harness.h"
 #include "tests/test_shader_workbench.h" // ShaderWorkbenchWhiteBox, for the effect-side traps
@@ -4017,6 +4018,18 @@ inline void case_chain_table_rank_decreases() {
       std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
 }
 
+inline void case_pullback_project_nonunit_direction() {
+  using namespace hs_test::pullback_tests;
+  using Project =
+      Pullback::Stage::Project<CountingProjectionPolicy>::Bind<TestBinding>;
+  const TestFrame frame;
+  const Pullback::SphereSample input{math::Vector(opaque(2.0f), 0.0f, 0.0f),
+                                     0.0f};
+  const auto result = Project::run(input, frame, Project::prepare(frame));
+  if (result.coords.re != 0.0f)
+    std::printf("x");
+}
+
 /** @brief Death case: a Sample operator rejects an unknown coverage mode. */
 inline void case_pullback_operator_invalid_coverage_mode() {
   Pullback::Interp::Op::GridSampleParams params;
@@ -4489,7 +4502,7 @@ inline const Case *all_cases(int &n) {
        "(!correction_guard_live()) at most one correction guard may be "
        "live at a time (see contract above)"},
       {"mesh_narrow_index", case_mesh_narrow_index, "mesh.h",
-       "(i <= static_cast<size_t>(INT16_MAX)) mesh index exceeds int16_t "
+       "(i <= MeshLimits::MAX_VERTEX_INDEX) mesh index exceeds int16_t "
        "topology range (oversized mesh?)"},
       {"medial_aliases_input", case_medial_aliases_input, "conway.h",
        "(&mesh != &out_a) medial input mesh must not alias output mesh"},
@@ -4560,7 +4573,7 @@ inline const Case *all_cases(int &n) {
        "flat index length"},
       {"mesh_compile_face_span_over_16bit",
        case_mesh_compile_face_span_over_16bit, "mesh.h",
-       "(current_offset + count <= UINT16_MAX) mesh face_offsets exceeds "
+       "(static_cast<size_t>(current_offset) + count <= MeshLimits::MAX_HALF_EDGES) mesh face_offsets exceeds "
        "16-bit index range"},
       {"update_hankin_stale_topology", case_update_hankin_stale_topology,
        "hankin.h",
@@ -4609,7 +4622,7 @@ inline const Case *all_cases(int &n) {
        "(out.half_edges[a].vertex != out.half_edges[b].vertex) half-edge "
        "mesh faces are inconsistently wound"},
       {"mesh_narrow_face_count", case_mesh_narrow_face_count, "mesh.h",
-       "(count >= 0 && count <= UINT8_MAX) mesh face side count exceeds "
+       "(count >= 0 && count <= MeshLimits::MAX_FACE_DEGREE) mesh face side count exceeds "
        "uint8_t range"},
       {"mesh_require_closed_manifold", case_mesh_require_closed_manifold,
        "mesh.h",
@@ -5050,6 +5063,11 @@ inline const Case *all_cases(int &n) {
        "OpLeg: incomplete palette handoff"},
       {"opleg_shading_face_out_of_range", case_opleg_shading_face_out_of_range,
        "opleg.h", "(face < faces) OpLeg::Shading: ramp face out of range"},
+      {"pullback_project_nonunit_direction",
+       case_pullback_project_nonunit_direction, "stage.h",
+       "(fabsf(input.dir.x * input.dir.x + input.dir.y * input.dir.y + "
+       "input.dir.z * input.dir.z - 1.0f) <= 0.004f) "
+       "Project requires a unit direction within lens approximation error"},
       {"pullback_operator_invalid_coverage_mode",
        case_pullback_operator_invalid_coverage_mode, "operators_common.h",
        "(coverage_mode <= static_cast<uint8_t>("
@@ -5501,7 +5519,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"motion.h", 6},
     {"opleg.h", 42},
     {"params.h", 10},
-    {"param_host.h", 24},
+    {"param_host.h", 15},
     {"preset_host.h", 2},
     {"segue.h", 1},
     {"sprites.h", 10},
@@ -5530,7 +5548,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"mesh_state.h", 2},
     {"recipe.h", 13},
     {"solid_generators.h", 5},
-    {"solids.h", 2},
+    {"solids.h", 1},
     {"kd_tree.h", 2},
     {"canvas.h", 2},
     {"common.h", 4},
@@ -5569,7 +5587,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"ShapeShifter.h", 2},
     {"dma_led.h", 4},
     {"pov_segmented.h", 9},
-    {"pov_single.h", 9},
+    // Arduino-only driver: both DMA and FastLED guard sites are counted.
+    {"pov_single.h", 10},
     {"Holosphere.ino", 1},
     {"Profile.ino", 4},
     {"phantasm_target.h", 2},
