@@ -8187,7 +8187,7 @@
 		)
 	)
 	(gr_text "D"
-		(at 48 2.77 0)
+		(at 52 2.77 0)
 		(layer "F.SilkS")
 		(uuid "a3776b07-afcc-489d-9c79-5dc2aac83ccd")
 		(effects
@@ -8198,7 +8198,7 @@
 		)
 	)
 	(gr_text "C"
-		(at 48 5.31 0)
+		(at 52 5.31 0)
 		(layer "F.SilkS")
 		(uuid "92a69469-c18c-4656-9757-65052598239b")
 		(effects
@@ -8209,7 +8209,7 @@
 		)
 	)
 	(gr_text "G"
-		(at 48 7.85 0)
+		(at 52 7.85 0)
 		(layer "F.SilkS")
 		(uuid "ef9567a0-88b4-42e9-8adc-bc246c90d03b")
 		(effects
@@ -8220,7 +8220,7 @@
 		)
 	)
 	(gr_text "S"
-		(at 48 11.7 0)
+		(at 52 11.7 0)
 		(layer "F.SilkS")
 		(uuid "8c0dbe33-3bc3-4017-83d5-400594780292")
 		(effects
@@ -8231,7 +8231,7 @@
 		)
 	)
 	(gr_text "G"
-		(at 48 14.24 0)
+		(at 52 14.24 0)
 		(layer "F.SilkS")
 		(uuid "450915d8-3b86-44a9-af1d-8b253ff300b9")
 		(effects
@@ -8242,7 +8242,7 @@
 		)
 	)
 	(gr_text "H"
-		(at 48 16.78 0)
+		(at 52 16.78 0)
 		(layer "F.SilkS")
 		(uuid "98c296f9-01f9-4a2e-9ddb-bc13485964d5")
 		(effects
@@ -8253,7 +8253,7 @@
 		)
 	)
 	(gr_text "S"
-		(at 48 20.6 0)
+		(at 52 20.6 0)
 		(layer "F.SilkS")
 		(uuid "1a239679-b078-4178-b5a8-7a53e89d2284")
 		(effects
@@ -8264,7 +8264,7 @@
 		)
 	)
 	(gr_text "G"
-		(at 48 23.14 0)
+		(at 52 23.14 0)
 		(layer "F.SilkS")
 		(uuid "0876f23a-2c3c-4b44-b88c-2ac117cf28f8")
 		(effects
@@ -8275,7 +8275,7 @@
 		)
 	)
 	(gr_text "H"
-		(at 48 25.68 0)
+		(at 52 25.68 0)
 		(layer "F.SilkS")
 		(uuid "e98da865-f857-48c4-b080-343ca746014e")
 		(effects
@@ -8286,7 +8286,7 @@
 		)
 	)
 	(gr_text "LED OUT"
-		(at 52 5.31 90)
+		(at 54 0.8 0)
 		(layer "F.SilkS")
 		(uuid "62e3d77b-f24f-461c-8880-bde21a0c9ef6")
 		(effects
@@ -8297,7 +8297,7 @@
 		)
 	)
 	(gr_text "SYNC IN"
-		(at 52 14.24 90)
+		(at 53.2 14.24 90)
 		(layer "F.SilkS")
 		(uuid "ef62b6c6-0605-4d75-b500-9161f9988458")
 		(effects
@@ -8308,7 +8308,7 @@
 		)
 	)
 	(gr_text "SYNC OUT"
-		(at 52 23.14 90)
+		(at 53.2 23.14 90)
 		(layer "F.SilkS")
 		(uuid "34234323-d526-414e-81a4-4ab3fb62385e")
 		(effects
@@ -8330,7 +8330,7 @@
 		)
 	)
 	(gr_text "ID2"
-		(at 54.1 15.3 90)
+		(at 54.3 15.3 90)
 		(layer "F.SilkS")
 		(uuid "263e210b-689d-4f8c-9b6a-0828cbc90e12")
 		(effects
