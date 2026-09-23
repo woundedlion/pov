@@ -58,6 +58,8 @@ inline void init_walk(SpatialWalkState &state, int32_t seed) {
   state.direction = math::perpendicular_axis(state.position);
 }
 
+// Chain walks accumulate once per frame using instance seeds; composed walks
+// use eased Rotation samples and effect seeds, so nonzero wander is not equivalent.
 inline void advance_walk(SpatialWalkState &state, float wander,
                          float spin_rate) {
   ++state.walk_time;
