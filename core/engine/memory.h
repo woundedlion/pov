@@ -138,7 +138,7 @@ public:
    * @param buf Pointer to the backing buffer.
    * @param size Capacity of the buffer in bytes.
    */
-  Arena(uint8_t *buf, size_t size)
+  constexpr Arena(uint8_t *buf, size_t size)
       : buffer(buf), capacity(size), offset(0), high_water_mark(0),
         lifetime_high_water_mark(0) {}
 

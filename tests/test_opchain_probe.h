@@ -817,7 +817,6 @@ inline void test_build_chain_provenance_ambiguity() {
   size_t prefix_legs = 0, full_legs = 0, misidentified = 0;
 
   for_each_shipping_chain([&](const ChainSite &site) {
-    Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
     for (size_t k = 0; k < site.count; ++k) {
