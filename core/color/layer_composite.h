@@ -44,7 +44,7 @@ struct LayerComposite {
   /**
    * @brief Whether the accumulated coverage leaves anything for a later layer.
    * @return True once the remaining transmittance is below the smallest
-   *   encodable alpha, where no further add() can change finish().
+   *   encodable alpha. Further layers can still change a rounded output code.
    */
   bool saturated() const { return remaining < MIN_ENCODABLE_ALPHA; }
 
