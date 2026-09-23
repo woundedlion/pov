@@ -41,7 +41,7 @@ test('optional engine APIs stay inside their feature guards', () => {
   const registration = source.slice(source.indexOf('static void bind_engine()'));
   const guarded = new Map([...expected.keys()].map(flag => [flag, []]));
   let guard = null;
-  for (const line of registration.split('\n')) {
+  for (const line of registration.split(/\r?\n/u)) {
     const directive = line.match(/^#if (HS_ENABLE_\w+)$/u);
     if (directive) guard = directive[1];
     if (/^#endif\b/u.test(line)) guard = null;
