@@ -81,6 +81,12 @@ static void bind_math_exports() {
              return v;
            }));
 
+  emscripten::function(
+      "gamut_max_chroma",
+      emscripten::optional_override([](float L, float a, float b) -> float {
+        return gamut_max_chroma(L, a, b);
+      }));
+
   // HSV -> sRGB integer sextant path via the engine's CRGB(CHSV) constructor.
   // Returns sRGB bytes; there is no JS mirror, so color_parity_wasm.test.js pins
   // them to golden values. The uint8_t casts wrap h/s/v mod 256 (device CHSV
