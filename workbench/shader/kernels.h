@@ -248,7 +248,8 @@ finalize_projection(const math::Vector &local, Projection projection,
   case Projection::AIROCEAN:
     break;
   }
-  __builtin_unreachable();
+  HS_CHECK(false, "finalize_projection: unsupported projection");
+  return {};
 }
 
 /**
