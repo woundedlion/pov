@@ -821,6 +821,22 @@ class ComposedEffect : public ChoreographedEffect<Derived, ParamsT>,
 public:
   using Params = ParamsT;
   using Spec = SpecT;
+  static_assert(
+      Spec::TRANSFER != TransferKind::ISO_CONTOUR || requires(Params p) {
+        p.value.iso_level;
+        p.value.iso_width;
+      }, "iso-contour transfer requires iso-level and iso-width");
+  static_assert(
+      Spec::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
+          requires(Params p) { p.value.edge_width; },
+      "edge-fade coverage requires edge-width");
+  static_assert(
+      Spec::FIELD_COVERAGE != FieldCoverageKind::VALUE_CUTOUT ||
+          requires(Params p) {
+            p.value.cutout_threshold;
+            p.value.cutout_softness;
+          },
+      "value-cutout coverage requires threshold and softness");
   using FrameState = Pullback::FrameState<ParamsT>;
   using Binding = Pullback::Binding<FrameState>;
   /** Preset policy: an automatic change crossfades the parameters; pause
