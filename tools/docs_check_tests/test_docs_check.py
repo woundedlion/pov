@@ -589,6 +589,12 @@ class TestDocumentationChecker(unittest.TestCase):
                              "--checkout", f"daydream={absent}"])
         self.assertEqual(raised.exception.code, 2)
 
+    def test_effect_roster_reads_definition_line_and_stops_without_continuation(self):
+        source = "#define HS_EFFECT_LIST(X) X(Comets)\nX(NotInMacro)\n"
+        self.assertEqual(dc.effect_roster(source), {"Comets"})
+        source = "#define HS_EFFECT_LIST(X) X(Comets) " + "\\\n" + "X(Voronoi)\n"
+        self.assertEqual(dc.effect_roster(source), {"Comets", "Voronoi"})
+
     def test_effect_roster_reads_the_macro_continuation(self):
         source = ("#define HS_EFFECT_COUNT_ADD(name) +1\n"
                   "#define HS_EFFECT_LIST(X)         \\\n"
