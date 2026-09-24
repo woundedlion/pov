@@ -45,14 +45,11 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(!Segue::PerFace<SegueT> ||
                     !Segue::SHADOWS_FRAGMENT_HOOKS<SegueT>,
                 "a per-face segue's draw path never calls fill/grade");
-  static_assert(Segue::Schedulable<SegueT>,
-                "a segue's schedule() must take (timeline, draw_fn, duration, "
-                "window, paused)");
-  static_assert(Segue::HasPhaseHooks<SegueT>,
-                "a segue's visible(), opacity(), face_fade_frac(), fill() and "
-                "grade() must keep Base's signatures");
   static_assert(
-      Segue::detail::Mergeable<SegueT>,
+      Segue::PolicyList<SegueT>::CONFORMING,
+      "a segue's schedule and phase hooks must keep Base's signatures");
+  static_assert(
+      Segue::PolicyList<SegueT>::MERGEABLE,
       "a segue must be a non-final class: the Declares* probes below "
       "merge a name carrier into it, and a final policy answers false "
       "to every one of them, passing them vacuously");
@@ -75,18 +72,16 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
   static_assert(!Segue::DeclaresMaskPair<SegueT> || Segue::Masked<SegueT>,
                 "a segue's mask_pair() must be MaskPair mask_pair(float, "
                 "uint32_t) const");
-  static_assert(!Segue::DeclaresLocalSweep<SegueT> ||
-                    Segue::LocalSweeps<SegueT>,
+  static_assert(Segue::PolicyList<SegueT>::LOCAL_SWEEPS_TYPED,
                 "a segue's LOCAL_SWEEP must be static constexpr bool: the "
                 "per-face draw path reads it through a bare requires, which "
                 "reads a non-constant one as absent");
-  static_assert(!Segue::PerFace<SegueT> || !SegueT::OVERLAPS,
+  static_assert(Segue::PolicyList<SegueT>::SEQUENTIAL_PER_FACE,
                 "a per-face segue must schedule sequentially: schedule() and "
                 "retarget() rewrite the single policy instance's "
                 "per-transition state, which an overlapping predecessor's "
                 "sprite is still reading");
-  static_assert(!Segue::DeclaresRetarget<SegueT> || !SegueT::OVERLAPS ||
-                    SegueT::RETARGET_SAFE_UNDER_OVERLAP,
+  static_assert(Segue::PolicyList<SegueT>::RETARGET_SURVIVES_OVERLAP,
                 "an overlapping segue's retarget() rewrites the single policy "
                 "instance's per-transition state, which the outgoing sprite is "
                 "still reading: schedule sequentially, or set "
