@@ -228,7 +228,7 @@ _hs_try_claim() {
 # Blocks per HS_DEVICE_WAIT, else fails fast (rc 1) naming every board's holder.
 hs_device_acquire() {
   local effect=$1 env=$2 eta=$3
-  local waited=0 wait_for=${HS_DEVICE_WAIT:-0} p port d
+  local waited=0 wait_for=${HS_DEVICE_WAIT:-0} forced=0 p port d
   _hs_resolve_python || return 2
   # No claim can be recorded under a path that does not exist, and a claim
   # that cannot be recorded is indistinguishable from a busy board: the
@@ -273,15 +273,22 @@ hs_device_acquire() {
         fi
       fi
     done
-    if [ "${HS_DEVICE_FORCE:-0}" = "1" ]; then
+    if [ "${HS_DEVICE_FORCE:-0}" = "1" ] && [ "$forced" -eq 0 ]; then
+      forced=1
       # ports is one board per line; force takes the first.
       p=${ports%%$'\n'*}
       port=$([ "$p" = "-" ] && echo "" || echo "$p")
       d=$(_hs_lock_dir "$port")
+      if _hs_try_claim "$d" "$port" "$effect" "$env" "$eta"; then
+        return 0
+      fi
       echo "HS_DEVICE_FORCE=1 — breaking a LIVE device lock" >&2
       _hs_holder_desc "$d" >&2
       # A changed token belongs to a peer; report busy.
-      _hs_break_lock "$d" "$(_hs_lock_field "$d" token)" && continue
+      if _hs_break_lock "$d" "$(_hs_lock_field "$d" token)" &&
+          _hs_try_claim "$d" "$port" "$effect" "$env" "$eta"; then
+        return 0
+      fi
     fi
     # hs_device_status returns 1 when no board is claimable, which is exactly
     # the case reached here. Left as the statement's own status under a
