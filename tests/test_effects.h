@@ -124,39 +124,6 @@ inline void lint_dead_sliders(Effect &effect, const char *name);
  */
 inline void lint_animated_pause(Effect &effect, const char *name);
 
-// Per-effect non-black exemption. An effect whose ramp-up exceeds the frame
-// window legitimately ends on an all-black frame; exempt it only below the frame
-// count at which it first lights, so the assertion still fires at the longer
-// windows (e.g. CI's HS_SMOKE_FRAMES=120) where output is mandatory.
-//   RingShower: rings expand from zero radius; nothing is lit until ~frame 30,
-//   so the default 8-frame local window is black by design (it lights by 120).
-// Compile-time streq, so the exemption name below is pinned to the roster.
-constexpr bool roster_name_eq(const char *a, const char *b) {
-  while (*a && *a == *b) {
-    ++a;
-    ++b;
-  }
-  return *a == *b;
-}
-
-// True when `name` is one of the HS_EFFECT_LIST roster class names.
-constexpr bool is_roster_effect(const char *name) {
-#define HS_ROSTER_NAME_MATCH(cls) || roster_name_eq(name, #cls)
-  return false HS_EFFECT_LIST(HS_ROSTER_NAME_MATCH);
-#undef HS_ROSTER_NAME_MATCH
-}
-
-inline bool effect_may_be_dark(const char *name, int frames) {
-  // Renaming the effect class turns the exemption into a build error here
-  // rather than a silently stale strcmp that drops the smoke assertion.
-  static constexpr const char *EXEMPT_DARK = "RingShower";
-  static_assert(is_roster_effect(EXEMPT_DARK),
-                "all-black smoke exemption names a non-roster effect");
-  if (std::strcmp(name, EXEMPT_DARK) == 0)
-    return frames < 30;
-  return false;
-}
-
 /**
  * @brief Resets the process-global effect state to a clean per-effect baseline.
  * @details Forwards to hs_test::reset_globals(). Every effect aliases the same
@@ -238,7 +205,7 @@ inline void smoke_one(const char *name) {
       motion = true;
     previous_hash = hash;
   }
-  if (frames >= 4 && !effect_may_be_dark(name, frames)) {
+  if (frames >= 4) {
     if (!motion)
       std::printf("  STATIC %-20s had no motion in the final %d frames\n", name,
                   frames - frames / 2 - 1);
@@ -250,7 +217,7 @@ inline void smoke_one(const char *name) {
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, W, H, static_cast<unsigned long long>(acc));
 
-  if (!effect_may_be_dark(name, frames)) {
+  {
     if (acc == 0)
       std::printf("  ALL-BLACK %-20s produced no lit pixel over %d frames "
                   "@ %dx%d\n",
@@ -501,22 +468,13 @@ inline void perturb_determinism_globals() {
 
 /** @brief Frames per segment in the clip-clear parity sweep. */
 constexpr int PARITY_FRAMES = 16;
-/**
- * @brief Frames per segment for an effect that is still allowed to be dark at
- *        PARITY_FRAMES.
- * @details Comparing two all-black renders always agrees, so a slow-starting
- *          effect gets a sweep long enough to leave effect_may_be_dark()'s
- *          window instead of a pass that means nothing.
- */
-constexpr int PARITY_FRAMES_SLOW = 64;
 /** @brief Arm segments walked by the clip-clear parity sweep. */
 constexpr int PARITY_SEGMENTS = 4;
 
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
   const int window = smoke_frames();
-  const int frames =
-      effect_may_be_dark(name, window) ? PARITY_FRAMES_SLOW : window;
+  const int frames = window;
   std::vector<Pixel> a, b;
   uint64_t fold_a = 0, fold_b = 0;
   bool lit_a = false, lit_b = false;
@@ -576,9 +534,7 @@ inline void determinism_one(const char *name) {
 template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void clip_clear_parity_one(const char *name) {
   constexpr int S = H * 2;
-  const int frames = effect_may_be_dark(name, PARITY_FRAMES)
-                         ? PARITY_FRAMES_SLOW
-                         : PARITY_FRAMES;
+  const int frames = PARITY_FRAMES;
 
   auto render = [&](int segment_id, bool full_clear) {
     reset_effect_globals();

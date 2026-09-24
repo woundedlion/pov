@@ -24,15 +24,12 @@ namespace effects_smoke_tests {
 using namespace hs_test::effects_tests;
 
 constexpr int PAUSED_FRAMES = 4;
-constexpr int PAUSED_FRAMES_SLOW = 64;
 
 template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void paused_render_one(const char *name) {
   reset_effect_globals();
 
-  const int frames = effect_may_be_dark(name, PAUSED_FRAMES)
-                         ? PAUSED_FRAMES_SLOW
-                         : PAUSED_FRAMES;
+  const int frames = PAUSED_FRAMES;
   E<W, H> effect;
   effect.setAnimationsPaused(true);
   effect.init();
@@ -52,8 +49,7 @@ inline void paused_render_one(const char *name) {
 }
 
 inline void test_every_effect_renders_while_paused() {
-  std::printf("  -- paused render, %d frames (%d for a slow starter) --\n",
-              PAUSED_FRAMES, PAUSED_FRAMES_SLOW);
+  std::printf("  -- paused render, %d frames --\n", PAUSED_FRAMES);
 #define HS_PAUSED_ONE(name) paused_render_one<name>(#name);
   HS_EFFECT_LIST(HS_PAUSED_ONE)
 #undef HS_PAUSED_ONE

@@ -53,6 +53,11 @@ public:
     for (size_t i = 0; i < MAX_RINGS; ++i)
       rings[i].palette.bake(persistent_arena, dot_keyed(make_palette()));
 
+    for (size_t i = 0; i < 3; ++i) {
+      spawn_ring();
+      rings[i].age = rings[i].life / 2;
+    }
+
     timeline.add(
         0, Animation::RandomTimer({.min = Ring::SPAWN_MIN_FRAMES,
                                    .max = Ring::SPAWN_MAX_FRAMES,
