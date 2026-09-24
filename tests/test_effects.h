@@ -1967,7 +1967,7 @@ struct BZWhiteBox {
                                   float laplacian) {
     return bz.advance_species(conc, predator, laplacian);
   }
-  static void perturb(const BZ &bz, uint16_t *nA, uint16_t *nB, uint16_t *nC) {
+  static void perturb(BZ &bz, uint16_t *nA, uint16_t *nB, uint16_t *nC) {
     bz.perturb_state(nA, nB, nC);
   }
   static int num_perturbations() { return BZ::NUM_PERTURBATIONS; }
