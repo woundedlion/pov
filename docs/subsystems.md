@@ -590,8 +590,8 @@ Both directions are `static_assert`ed: an unbounded modifier rejects
 `Wrap=false`, and a bounded final modifier rejects `Wrap=true` (wrapping would
 fold its 1.0 output to 0.0 and destroy the top endpoint). Only a modifier that
 re-bounds *arbitrary* input (`WrapModifier`'s fold, `FoldModifier`'s triangle
-wave, `InsetModifier`'s clamp) clears an unbounded predecessor; `ReverseModifier`
-and `MirrorModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
+wave, `InsetModifier`'s clamp) clears an unbounded predecessor; `ReverseModifier`,
+`MirrorModifier`, `QuantizeModifier`, and `PinchModifier` are bounded on `[0,1]` but pass an out-of-range coordinate
 straight through — chaining one after a cycling modifier needs a `WrapModifier`
 between them and `Wrap=false`.
 
@@ -710,6 +710,7 @@ persist rather than the raw input.
 
 The `PaletteRecipes` namespace collects the stock builders — `hue_turns()`,
 `harmony()`, `balanced_analogous()`, `profile()`, `random_profile()`,
+`random_base_turns()`,
 `from_oklch_keys()`, `from_colors()`, `isolight_spectral_loop()` and
 `tonal_monochrome()` — and `core/color/effect_palette_recipes.h` holds the
 per-effect recipes the roster renders.
