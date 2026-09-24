@@ -62,7 +62,7 @@ public:
    * @param order  Bit order (default: MSBFIRST).
    * @param mode   SPI mode (default: SPI_MODE0).
    */
-  TeensySPIDMA(uint32_t clock = 12000000, uint8_t order = MSBFIRST,
+  TeensySPIDMA(uint32_t clock = dma::DEFAULT_CLOCK_HZ, uint8_t order = MSBFIRST,
                uint8_t mode = SPI_MODE0)
       : transfer_complete(true), spi_settings(clock, order, mode) {}
 
