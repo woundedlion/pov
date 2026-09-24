@@ -123,9 +123,9 @@ inline void test_fresh_frame_skeleton() {
     HS_EXPECT_EQ(d[4 + N * 4 + i], 0);
 
   const uint8_t *bg = d + Frame::BUFFER_SIZE;
-  for (int i = 0; i < N; ++i) {
-    HS_EXPECT_EQ(bg[4 + i * 4], 0xFF);
-    HS_EXPECT_EQ(bg[4 + i * 4 + 1], 0);
+  for (int i = 0; i < Frame::BUFFER_SIZE; ++i) {
+    const bool brightness = i >= 4 && i < 4 + N * 4 && (i - 4) % 4 == 0;
+    HS_EXPECT_EQ(bg[i], brightness ? 0xFF : 0);
   }
 }
 
