@@ -221,6 +221,8 @@ protected:
         hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
                 static_cast<unsigned>(getPresetCount()));
 #endif
+      } else {
+        preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
       }
     }
   }
