@@ -15,6 +15,7 @@
 #include "engine/memory.h"
 #include "platform/platform.h"
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -271,7 +272,7 @@ protected:
    */
   void mark_readonly(const char *name) {
     auto *def = parameters.find(name);
-    HS_CHECK(def, "mark_readonly: unknown parameter name");
+    HS_CHECK(def, "mark_readonly: unknown parameter name name=%s", name);
     def->readonly = true;
     parameters.bump_schema_generation();
   }
@@ -279,7 +280,7 @@ protected:
   /** @brief Excludes a global parameter from preset exports. */
   void mark_global(const char *name) {
     auto *def = parameters.find(name);
-    HS_CHECK(def, "mark_global: unknown parameter name");
+    HS_CHECK(def, "mark_global: unknown parameter name name=%s", name);
     def->preset = false;
     parameters.bump_schema_generation();
   }
@@ -303,11 +304,19 @@ protected:
     // no-realloc memory-view invariant).
     // A duplicate name shadows: find() returns the FIRST match, so a second
     // registration's slot is unreachable by name.
-    HS_CHECK(min <= max, "register_param: min must be <= max");
+    HS_CHECK(
+        min <= max,
+        "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
+        name, static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
+        static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
     // A starting *ptr outside [min,max] would snap on the first GUI edit (every
     // updateParameter clamps).
-    HS_CHECK(*ptr >= min && *ptr <= max,
-             "register_param: default *ptr outside [min,max]");
+    HS_CHECK(
+        *ptr >= min && *ptr <= max,
+        "register_param: default *ptr outside [min,max] name=%s value_bits=%08lx min_bits=%08lx max_bits=%08lx",
+        name, static_cast<unsigned long>(std::bit_cast<uint32_t>(*ptr)),
+        static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
+        static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
     auto &def = append_parameter(name);
     def.target = ptr;
     def.min = min;
@@ -328,7 +337,11 @@ protected:
                                                                float *ptr,
                                                                float min,
                                                                float max) {
-    HS_CHECK(min <= max, "register_param: min must be <= max");
+    HS_CHECK(
+        min <= max,
+        "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
+        name, static_cast<unsigned long>(std::bit_cast<uint32_t>(min)),
+        static_cast<unsigned long>(std::bit_cast<uint32_t>(max)));
     auto &def = append_parameter(name);
     def.target = ptr;
     def.min = min;
@@ -353,7 +366,8 @@ protected:
                                      const char *const *options,
                                      int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
-             "register_param: enum needs at least one option");
+             "register_param: enum needs at least one option name=%s count=%d",
+             name, option_count);
     register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1), false,
                    false, options, option_count);
   }
@@ -374,19 +388,23 @@ protected:
                                      const char *const *export_options,
                                      int option_count, bool animated = false) {
     HS_CHECK(options != nullptr && option_count > 0,
-             "register_param: enum needs at least one option");
+             "register_param: enum needs at least one option name=%s count=%d",
+             name, option_count);
     using Integer = std::underlying_type_t<Enum>;
-    HS_CHECK(static_cast<int64_t>(option_count - 1) <=
-                 static_cast<int64_t>(std::numeric_limits<Integer>::max()),
-             "register_param: options must fit the target enum type");
+    HS_CHECK(
+        static_cast<int64_t>(option_count - 1) <=
+            static_cast<int64_t>(std::numeric_limits<Integer>::max()),
+        "register_param: options must fit the target enum type name=%s count=%d",
+        name, option_count);
     HS_CHECK(
         static_cast<int64_t>(static_cast<float>(option_count - 1)) ==
             option_count - 1,
-        "register_param: enum bound must be exactly representable as float");
+        "register_param: enum bound must be exactly representable as float name=%s count=%d",
+        name, option_count);
     const float value =
         static_cast<float>(static_cast<std::underlying_type_t<Enum>>(*ptr));
     HS_CHECK(value >= 0.0f && value < static_cast<float>(option_count),
-             "register_param: default enum outside option range");
+             "register_param: default enum outside option range name=%s", name);
     constexpr auto TARGET_TYPE =
         integer_target_type<std::underlying_type_t<Enum>>();
     auto &def = append_parameter(name);
@@ -420,7 +438,9 @@ protected:
   HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
                                          int min, int max,
                                          bool animated = false) {
-    HS_CHECK(min <= max, "register_int_param: min must be <= max");
+    HS_CHECK(min <= max,
+             "register_int_param: min must be <= max name=%s min=%d max=%d",
+             name, min, max);
     // set() narrows through static_cast<Integer>(float), which is UB outside
     // the target's range.
     const bool range_fits =
@@ -428,17 +448,22 @@ protected:
             static_cast<int64_t>(std::numeric_limits<Integer>::min()) &&
         static_cast<int64_t>(max) <=
             static_cast<int64_t>(std::numeric_limits<Integer>::max());
-    HS_CHECK(range_fits,
-             "register_int_param: [min,max] must fit the target integer type");
+    HS_CHECK(
+        range_fits,
+        "register_int_param: [min,max] must fit the target integer type name=%s min=%d max=%d",
+        name, min, max);
     const bool bounds_exact =
         static_cast<int64_t>(static_cast<float>(min)) == min &&
         static_cast<int64_t>(static_cast<float>(max)) == max;
     HS_CHECK(
         bounds_exact,
-        "register_int_param: bounds must be exactly representable as float");
+        "register_int_param: bounds must be exactly representable as float name=%s min=%d max=%d",
+        name, min, max);
     const int value = static_cast<int>(*ptr);
-    HS_CHECK(value >= min && value <= max,
-             "register_int_param: default *ptr outside [min,max]");
+    HS_CHECK(
+        value >= min && value <= max,
+        "register_int_param: default *ptr outside [min,max] name=%s value=%d min=%d max=%d",
+        name, value, min, max);
     auto &def = append_parameter(name);
     def.target = ptr;
     def.min = static_cast<float>(min);
@@ -521,11 +546,12 @@ protected:
                                                     const char *const *options,
                                                     int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
-             "register_param: enum needs at least one option");
+             "register_param: enum needs at least one option name=%s count=%d",
+             name, option_count);
     HS_CHECK(option_count - 1 <= std::numeric_limits<uint8_t>::max(),
-             "register_param: enum options exceed uint8_t range");
+             "register_param: enum options exceed uint8_t range name=%s", name);
     HS_CHECK(*ptr < option_count,
-             "register_param: default enum outside option range");
+             "register_param: default enum outside option range name=%s", name);
     auto &def = append_parameter(name);
     def.target = ptr;
     def.min = 0.0f;
@@ -550,9 +576,9 @@ protected:
 private:
   HS_COLD_MEMBER ParamDef &append_parameter(const char *name) {
     HS_CHECK(parameters.count < parameters.capacity(),
-             "register_param: exceeded ParamList capacity");
+             "register_param: exceeded ParamList capacity name=%s", name);
     HS_CHECK(parameters.find(name) == nullptr,
-             "register_param: duplicate parameter name");
+             "register_param: duplicate parameter name name=%s", name);
     auto &def = parameters.data()[parameters.count++];
     def = {};
     def.name = name;

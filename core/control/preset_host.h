@@ -63,8 +63,12 @@ protected:
 
   /** @brief Enables the shared preset controller for this effect. */
   HS_FLASH_MEMBER void configure_presets(size_t count) {
-    HS_CHECK(count > 0, "preset count must be positive");
-    HS_CHECK(preset_count == 0, "presets already configured");
+    HS_CHECK(count > 0, "preset count must be positive: count=%lu",
+             static_cast<unsigned long>(count));
+    HS_CHECK(preset_count == 0,
+             "presets already configured: count=%lu previous=%lu",
+             static_cast<unsigned long>(count),
+             static_cast<unsigned long>(preset_count));
     preset_count = count;
   }
 
