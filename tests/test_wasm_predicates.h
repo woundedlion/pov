@@ -418,16 +418,14 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
   if (row == nullptr)
     return;
 
-  uint32_t incidence[64] = {};
-  HS_EXPECT_LE(in.vertices.size(), std::size(incidence));
-  if (in.vertices.size() > std::size(incidence))
-    return;
+  std::vector<uint32_t> incidence(in.vertices.size());
   const size_t in_elements = hs_wasm::mesh_largest_element_count(
       in.vertices.size(), in.get_face_counts_size(), in.get_faces_size());
   const size_t in_degree = hs_wasm::mesh_max_face_degree(
       in.get_face_counts_data(), in.get_face_counts_size());
-  const size_t in_valence = hs_wasm::mesh_max_vertex_valence(
-      in.get_faces_data(), in.get_faces_size(), incidence, in.vertices.size());
+  const size_t in_valence =
+      hs_wasm::mesh_max_vertex_valence(in.get_faces_data(), in.get_faces_size(),
+                                       incidence.data(), in.vertices.size());
 
   target.reset();
   temp.reset();
@@ -504,6 +502,45 @@ inline void test_mesh_op_growth_factors() {
   probe_solid_growth<Solids::Dodecahedron>(input, target, temp, finalized);
 }
 
+inline void test_mesh_op_growth_near_capacity() {
+  constexpr size_t MAX_ELEMENTS = 65532;
+  constexpr size_t SCRATCH_BYTES =
+      hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT * MAX_ELEMENTS;
+  std::vector<uint8_t> input_bytes(SCRATCH_BYTES), target_bytes(SCRATCH_BYTES),
+      temp_bytes(SCRATCH_BYTES), finalized_bytes(SCRATCH_BYTES);
+  Arena input(input_bytes.data(), input_bytes.size());
+  Arena target(target_bytes.data(), target_bytes.size());
+  Arena temp(temp_bytes.data(), temp_bytes.size());
+  Arena finalized(finalized_bytes.data(), finalized_bytes.size());
+  using Seed = Solids::Icosahedron;
+  for (const MeshOpProbe &probe : MESH_OP_PROBES) {
+    HS_CONTEXT(probe.name);
+    const auto *bounds = hs_wasm::find_mesh_op_bounds(probe.name);
+    HS_EXPECT_TRUE(bounds != nullptr);
+    if (!bounds)
+      continue;
+    const size_t copies =
+        MAX_ELEMENTS / (Seed::faces.size() * bounds->bounds.elements);
+    input.reset();
+    PolyMesh mesh;
+    mesh.vertices.bind(input, copies * Seed::NUM_VERTS);
+    mesh.face_counts.bind(input, copies * Seed::NUM_FACES);
+    mesh.faces.bind(input, copies * Seed::faces.size());
+    for (size_t copy = 0; copy < copies; ++copy) {
+      for (const auto &vertex : Seed::vertices)
+        mesh.vertices.push_back(vertex);
+      for (auto count : Seed::face_counts)
+        mesh.face_counts.push_back(count);
+      for (auto index : Seed::faces)
+        mesh.faces.push_back(
+            static_cast<uint16_t>(copy * Seed::NUM_VERTS + index));
+    }
+    HS_EXPECT_GT(mesh.get_faces_size() * bounds->bounds.elements,
+                 size_t{65000});
+    check_mesh_op_growth(probe, mesh, target, temp, finalized);
+  }
+}
+
 /**
  * @brief Exercises the Hankin contact-angle domain check.
  */
@@ -540,6 +577,7 @@ inline int run_wasm_predicates_tests() {
   test_mesh_degree_measurements();
   test_mesh_op_face_degree();
   test_mesh_op_growth_factors();
+  test_mesh_op_growth_near_capacity();
   test_hankin_angle_domain();
   return fixture.result();
 }
