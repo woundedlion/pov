@@ -560,10 +560,7 @@ template <> struct OptionalHueRotationLut<true> {
 template <bool Enabled> struct OptionalHueNoiseLut {};
 template <> struct OptionalHueNoiseLut<true> {
   std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
-  /** Inputs the resident table was built from; the negative seeds match no
-      admissible parameter, forcing the first bake. */
-  float hue_noise_lut_scale = -1.0f;
-  float hue_noise_lut_phase = -1.0f;
+  Pullback::Color::HueNoiseBakeCache hue_noise_bake;
 };
 
 /** @brief Projection-walk noise storage; empty when disabled. */
@@ -1380,15 +1377,10 @@ private:
   HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
     if constexpr (HueV == HueMode::NOISE) {
-      if (hue_rotation_active<HueV>(params.color) &&
-          (state->hue_noise_lut_scale != params.color.hue_noise_scale ||
-           state->hue_noise_lut_phase != hue_noise_phase)) {
-        Pullback::Color::prepare_hue_noise_lut(
-            std::span<int8_t, Pullback::Color::HueNoiseLutView::SIZE>(
-                state->hue_noise_lut),
-            state->color_noise, params.color.hue_noise_scale, hue_noise_phase);
-        state->hue_noise_lut_scale = params.color.hue_noise_scale;
-        state->hue_noise_lut_phase = hue_noise_phase;
+      if (hue_rotation_active<HueV>(params.color)) {
+        state->hue_noise_bake.refresh(state->hue_noise_lut, state->color_noise,
+                                      params.color.hue_noise_scale,
+                                      hue_noise_phase);
       }
     }
     if constexpr (HueV != HueMode::NONE)
