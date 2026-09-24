@@ -174,7 +174,8 @@ inline float rand_f(float min, float max) {
  * @brief Generates a pseudo-random integer within a specified range.
  * @param min The minimum value (inclusive).
  * @param max The maximum value (exclusive).
- * @return A random integer in the range [min, max).
+ * @return A random integer in [min, max), or min without consuming a random
+ * draw when max <= min.
  * @note Uses `% span`, so the result is modulo-biased for ranges that do not
  * divide 2^32 evenly. Acceptable here: callers pass small setup-time ranges and
  * rely on `Pcg32` for determinism, not uniformity. The span is computed
