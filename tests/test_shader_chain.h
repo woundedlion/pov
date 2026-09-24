@@ -3958,6 +3958,8 @@ inline void test_shader_chain_parameter_admission() {
       {"lens.mobius-b-re", 0.0f}, {"lens.mobius-c-re", 0.0f}};
   HS_EXPECT_EQ(effect.update_parameters(invalid_batch),
                ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-b-re") != nullptr);
+  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-a-re") == nullptr);
   const ShaderChainParameterWrite unknown_batch[] = {{"lens.mobius-a-re", 1.0f},
                                                      {"missing", 0.0f}};
   HS_EXPECT_EQ(effect.update_parameters(unknown_batch),
