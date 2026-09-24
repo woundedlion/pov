@@ -749,12 +749,12 @@ struct Face {
    * @brief Detects a convex 2D projection and builds its edge half-planes.
    * @param scratch Scratch storage receiving half_planes.
    * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
-   * @details For a convex polygon the signed distance is max over edges of the
-   * half-plane distance: exact everywhere inside and in the edge slabs outside;
-   * outside a vertex's normal cone it underestimates (line distance, not vertex
-   * distance), which only softens the AA corner within its ~1-pixel band. A
-   * concave, degenerate-edged, or wrongly-oriented polygon leaves convex false
-   * and distance() on the exact walk.
+   * @details The maximum edge half-plane distance is exact inside a convex
+   * polygon and in exterior edge slabs. In a vertex's exterior normal cone it
+   * underestimates Euclidean distance; an offset w reaches w / sin(alpha / 2)
+   * along the bisector of a corner with interior angle alpha. Concave,
+   * degenerate-edged, or wrongly-oriented polygons leave convex false and
+   * distance() on the exact walk.
    */
   __attribute__((always_inline)) void
   build_half_planes(FaceScratchBuffer &scratch, float area2) {
