@@ -5,11 +5,12 @@
  */
 #pragma once
 
-#include "math/mobius.h"
-#include "render/pullback/lens.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_SHADER_WORKBENCH
+
+#include "math/mobius.h"
+#include "render/pullback/lens.h"
 
 /**
  * @file admission.h
