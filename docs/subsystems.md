@@ -113,7 +113,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 | `v3` | `DistanceResult.aux` | Auxiliary — shape-dependent secondary parameter (0 when unused, including faces) |
 | `size` | `DistanceResult.size` | Stroke half-width for stroke shapes, or radius or apothem for filled shapes (mesh `Face` floors it at 0.25× the face circumradius, so on a sliver face — whose true inradius approaches zero — the reported size overstates it without bound) |
 
-Given a per-face setup callback (`Scan::Mesh::draw`'s optional `face_shader_setup`, and `Scan::Mesh::draw_specialized`), the mesh path runs its minimal-fragment loop: only `v1` is refreshed per pixel, so `v2` stays 0 (`mesh_face_index()` reports face 0) and `size` stays 1 (`fragment_edge_dist()` returns an unnormalized distance). The face index and face size reach the shader through the setup callback instead.
+With a per-face setup callback, `Scan::Mesh::draw_specialized` runs its minimal-fragment loop: only `v1` is refreshed per pixel. Other fragment inputs are unavailable and are poisoned with NaN in debug builds; shaders must not read `v2` or `size` through `mesh_face_index()` or `fragment_edge_dist()`. The face index and face size reach the shader through the setup callback instead. `Scan::Mesh::draw` does not accept this callback.
 
 The `DistanceResult` struct is returned by each SDF shape's `distance<ComputeUVs>()` method. Distances and `size` use radians except for small `SDF::Face` shapes (inradius < 0.2), which use gnomonic tangent-plane units. The per-producer register table in `core/render/sdf/common.h` defines `t` and `raw_dist`:
 
