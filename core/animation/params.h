@@ -953,6 +953,7 @@ public:
       : AnimationBase<BallDrop<CAP>>(duration, false), params(params),
         orientation(&orientation), normal(normal), azimuth(azimuth) {
     HS_CHECK(duration >= 2, "BallDrop duration must be >= 2");
+    HS_CHECK(std::isfinite(azimuth), "BallDrop azimuth must be finite");
     HS_CHECK(params.radius > 0.0f, "BallDrop needs a positive bump radius");
     params.envelope = 0.0f;
     params.sync();
