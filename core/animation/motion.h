@@ -660,6 +660,11 @@ public:
       : AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>(-1, false),
         orientation(orientation), v(math::Vector(v_start).normalized()),
         options(options), noise_generator(noise) {
+    HS_CHECK(
+        std::isfinite(options.speed) && std::isfinite(options.pivot_strength) &&
+            std::isfinite(options.noise_scale) &&
+            std::isfinite(options.smoothing) && std::isfinite(options.drift),
+        "RandomWalk: options must be finite");
     direction = math::perpendicular_axis(v);
     noise_generator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.get().SetFrequency(options.noise_scale);
