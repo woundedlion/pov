@@ -6251,7 +6251,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/mesh/recipe.h", 13},
     {"core/mesh/solid_generators.h", 5},
     {"core/mesh/solids.h", 1},
-    {"core/platform/led.h", 3},
     {"core/render/canvas.h", 2},
     {"core/render/filter/pixel_feedback.h", 7},
     {"core/render/filter/screen_trails.h", 2},
