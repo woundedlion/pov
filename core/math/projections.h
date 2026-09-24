@@ -287,12 +287,11 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  * @brief Peirce quincuncial projection, conformal except at four singularities.
  * @param v Unit direction on the sphere.
  * @param central_meridian Longitude placed at the image's axis, in radians.
- * @param layout 0 diamond, 1 square (the diamond turned 45 degrees), 2
- *        horizontal strip, 3 vertical strip. Layouts 0 and 1 fold the southern
- *        hemisphere into four triangles around the northern square; 2 and 3
- *        instead lay the hemispheres side by side and tile.
+ * @param layout DIAMOND or SQUARE (the diamond turned 45 degrees) folds the
+ *        southern hemisphere into four triangles around the northern square.
+ *        HORIZONTAL and VERTICAL lay the hemispheres side by side and tile.
  * @param scroll Fraction of a full period to translate a strip layout by;
- *        ignored for layouts 0 and 1.
+ *        ignored for DIAMOND and SQUARE.
  * @param calculate_edge_distance When false, `fade_edge_distance` is left at
  *        NO_EDGE_DISTANCE and the inverse-trig calls that compute it are
  *        skipped.
