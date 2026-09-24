@@ -193,6 +193,23 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
 // Runner
 // ============================================================================
 
+/** @brief Pins upper-byte color samples across the procedural roster. */
+inline void test_named_procedural_palette_roster() {
+  const Palette *palettes[] = {
+#define HS_PALETTE_ENTRY(name, A, B, C, D) &Palettes::name,
+      HS_PROCEDURAL_PALETTE_LIST(HS_PALETTE_ENTRY)
+#undef HS_PALETTE_ENTRY
+  };
+  uint64_t hash = FNV1A64_BASIS;
+  for (const Palette *palette : palettes)
+    for (int sample = 0; sample <= 16; ++sample) {
+      const Pixel pixel = palette->get(sample / 16.0f).color;
+      for (uint16_t channel : {pixel.r, pixel.g, pixel.b})
+        hash = fnv1a64_byte(hash, static_cast<uint8_t>(channel >> 8));
+    }
+  HS_EXPECT_EQ(hash, uint64_t{4744059892132791348});
+}
+
 /**
  * @brief Runs every palettes-module test and reports the aggregate result.
  * @return 0 on success, non-zero on any failure.
@@ -200,6 +217,7 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
 inline int run_palettes_tests() {
   hs_test::ModuleFixture fixture("palettes");
 
+  test_named_procedural_palette_roster();
   test_named_procedural_palette_endpoints();
   test_named_palette_hue_short_arc();
   test_mesh_palette_bank_lookup();
