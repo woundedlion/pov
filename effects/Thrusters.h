@@ -11,6 +11,7 @@
  *        expanding rings.
  */
 
+#include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that

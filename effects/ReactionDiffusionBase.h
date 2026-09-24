@@ -11,6 +11,7 @@
  *        effects share.
  */
 
+#include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
 /**

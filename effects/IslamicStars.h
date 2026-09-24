@@ -11,6 +11,7 @@
  *        one into the next.
  */
 
+#include "core/animation/orientation.h"
 #include "core/animation/animation.h"
 #include "core/engine/engine.h"
 #include "core/mesh/recipe.h"
