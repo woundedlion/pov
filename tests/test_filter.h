@@ -597,6 +597,22 @@ inline void test_blur_factor_zero_is_identity() {
   HS_EXPECT_NEAR(kept_alpha, 1.0f, 1e-5f);
   HS_EXPECT_NEAR(kept_x, 8.0f, 1e-5f);
   HS_EXPECT_NEAR(kept_y, 16.0f, 1e-5f);
+
+  for (float factor : {0.0f, 1e-6f, 1.0f}) {
+    blur.update(factor);
+    float total = 0.0f;
+    blur.plot(8.0f, H - 0.25f, Pixel(4, 5, 6), 2.0f, 0.75f,
+              [&](float, float y, const Pixel &, float, float alpha) {
+                HS_EXPECT_EQ(y, static_cast<float>(H - 1));
+                total += alpha;
+              });
+    HS_EXPECT_NEAR(total, 0.75f, 1e-5f);
+  }
+  int outside_taps = 0;
+  blur.update(0.0f);
+  blur.plot(8.0f, -3.0f, Pixel(4, 5, 6), 2.0f, 1.0f,
+            [&](float, float, const Pixel &, float, float) { ++outside_taps; });
+  HS_EXPECT_EQ(outside_taps, 0);
 }
 
 /**
