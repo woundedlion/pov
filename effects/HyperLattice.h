@@ -37,6 +37,7 @@ constexpr float DIRECTION_EPSILON = 1.0e-4f;
 
 enum class ColorMode : uint8_t { DEPTH, AXIS };
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
+static_assert(MAX_SHELLS == static_cast<int>(ShellCount::THREE) + 1);
 enum class LatticeMode : uint8_t { THREE_D, DIMENSIONAL_RIFT, FOUR_D_SLICE };
 
 constexpr float DIMENSIONAL_RIFT_MIX = 0.55f;
