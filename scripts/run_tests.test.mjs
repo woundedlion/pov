@@ -40,6 +40,7 @@ test('asserts once', () => { assert.ok(1); });
       encoding: 'utf8',
       env: {
         ...process.env,
+        // Nested runners install their own assertion/module preload.
         NODE_OPTIONS: '',
         NODE_TEST_CONTEXT: undefined,
         HS_ASSERTION_COUNTS: undefined,
@@ -76,6 +77,7 @@ test('empty three', () => {});
       encoding: 'utf8',
       env: {
         ...process.env,
+        // Nested runners install their own assertion/module preload.
         NODE_OPTIONS: '',
         NODE_TEST_CONTEXT: undefined,
         HS_ASSERTION_COUNTS: undefined,
