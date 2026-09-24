@@ -75,6 +75,8 @@ struct HueControls {
   float base_turns = 0.0f;
   float spread_turns = 0.07f;
   float sweep_turns = 1.0f;
+  /** CUSTOM uses exactly the first three keys; the fourth is canonicalized
+   * to zero. Four-key runs are available through HARMONY. */
   std::array<float, PALETTE_MAX_KEYS> custom_turns{};
 };
 
