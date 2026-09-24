@@ -31,12 +31,14 @@ class ParamHost;
  *          never returns it.
  */
 enum class ParamSetResult {
-  APPLIED,       /**< Value written (floats clamped to [min,max] first). */
-  NO_EFFECT,     /**< No effect is installed to receive the write. */
-  UNKNOWN_PARAM, /**< No registered parameter has this name. */
-  READONLY,      /**< Parameter is engine-written telemetry. */
-  NON_FINITE,    /**< Value is NaN or infinite. */
-  INADMISSIBLE,  /**< Value violates a cross-parameter constraint. */
+  APPLIED,           /**< Value written (floats clamped to [min,max] first). */
+  NO_EFFECT,         /**< No effect is installed to receive the write. */
+  UNKNOWN_PARAM,     /**< No registered parameter has this name. */
+  READONLY,          /**< Parameter is engine-written telemetry. */
+  NON_FINITE,        /**< Value is NaN or infinite. */
+  INADMISSIBLE,      /**< Value violates a cross-parameter constraint. */
+  MALFORMED_PAYLOAD, /**< Batch is not an array of named numeric writes. */
+  TOO_LONG,          /**< Batch exceeds the chain parameter capacity. */
 };
 
 /**
