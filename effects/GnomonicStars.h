@@ -181,7 +181,7 @@ private:
   struct Params {
     int points = 600; /**< Number of stars scattered on the spiral. */
     float star_radius =
-        1.4f * RADIUS_PX;    /**< Per-star circumradius, ~1.4 px at any W. */
+        1.4f * RADIUS_PX; /**< Per-star circumradius, ~1.4 px at any W. */
     int star_sides = 4;   /**< Polygon side count per star. */
     float warp_speed =
         0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
