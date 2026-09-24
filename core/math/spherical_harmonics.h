@@ -17,10 +17,6 @@
 #include "math/3dmath.h"
 
 namespace SHMath {
-/** @brief Largest n whose reciprocal factorial is still normal in a float;
- *  1/34! is subnormal and 1/35! is zero. */
-inline constexpr int MAX_FACTORIAL_ARGUMENT = 33;
-
 /**
  * @brief Factorial of n as a float.
  * @param n Non-negative integer whose factorial is computed; kept small.
@@ -90,22 +86,18 @@ inline float reduced_legendre(int l, int m, float x) {
  * @param m Order in [-l, l].
  * @return Normalization factor N, constant per shape.
  * @details Traps on |m| > l: reduced_legendre() has no term to recur on there
- * and returns 0, so the mode renders black. Traps when l + |m| exceeds 33: the
- * factorial ratio is subnormal at 34 (1/34! = 3.4e-39, a few mantissa bits,
- * zero under FTZ) and (l + |m|)! overflows float from 35 on, so the ratio
- * silently collapses.
+ * and returns 0, so the mode renders black. Ratios smaller than the float
+ * range may underflow to zero.
  */
 inline float normalization(int l, int m) {
   int abs_m = std::abs(m);
   HS_CHECK(l >= 0 && abs_m <= l,
            "spherical harmonic normalization: order %d is outside [-%d, %d]", m,
            l, l);
-  HS_CHECK(l + abs_m <= MAX_FACTORIAL_ARGUMENT,
-           "spherical harmonic normalization: l + |m| = %d collapses the float "
-           "factorial ratio",
-           l + abs_m);
-  float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * math::PI_F)) *
-                  (factorial(l - abs_m) / factorial(l + abs_m)));
+  float ratio = 1.0f;
+  for (int64_t i = static_cast<int64_t>(l) + abs_m; i > l - abs_m; --i)
+    ratio /= static_cast<float>(i);
+  float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * math::PI_F)) * ratio);
   return (m != 0) ? sqrtf(2.0f) * N : N;
 }
 

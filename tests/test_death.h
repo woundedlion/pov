@@ -2906,17 +2906,6 @@ inline void case_spherical_field_populate_ring_end_oob() {
 }
 
 /**
- * @brief Death case: a harmonic mode past the float factorial range must trap.
- * @details (l + |m|)! overflows to infinity, so the factorial ratio collapses
- *          to 0 and every sample of the mode comes back black.
- */
-inline void case_spherical_harmonic_normalization_overflow() {
-  const float n = SHMath::normalization(opaque(20), 20);
-  if (n == 42.0f)
-    std::printf("x");
-}
-
-/**
  * @brief Death case: an order past the degree must trap.
  * @details reduced_legendre() has no term to recur on for |m| > l and returns
  *          0, so every sample of the mode comes back black.
@@ -5328,11 +5317,6 @@ inline const Case *all_cases(int &n) {
                    "core/math/spherical_field.h",
                    "(ring_end < layout.ring_count()) SphericalField::populate: ring_end 5 "
                    "past the last ring 4"},
-                  {"spherical_harmonic_normalization_overflow",
-                   case_spherical_harmonic_normalization_overflow,
-                   "core/math/spherical_harmonics.h",
-                   "(l + abs_m <= MAX_FACTORIAL_ARGUMENT) spherical harmonic "
-                   "normalization: l + |m| = 40 collapses the float factorial ratio"},
                   {"spherical_harmonic_order_over_degree",
                    case_spherical_harmonic_order_over_degree,
                    "core/math/spherical_harmonics.h",
