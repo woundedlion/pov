@@ -139,12 +139,13 @@ private:
   static constexpr int MAX_POINTS = 2000;
 
   /**
-   * @brief One pixel of azimuth expressed in Scan::Star radius units.
-   * @details A star radius of 1 spans a hemisphere (pi/2 rad), so one pixel
-   *          (2*pi/W rad) is 4/W units. Star sizes are authored as multiples of
-   *          this so they hold their pixel size at every build resolution.
+   * @brief The coarser pixel pitch expressed in Scan::Star radius units.
+   * @details A radius of 1 spans pi/2 radians. Multiples of this pitch cover
+   *          at least that many rows and columns at the equator.
    */
-  static constexpr float RADIUS_PX = 4.0f / W;
+  static constexpr float RADIUS_PX =
+      std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>) * 2.0f /
+      math::PI_F;
 
   // Persistent allocations: the warp pool, the MAX_POINTS spiral lattice, and
   // the palette LUT. Effect keeps the default arena split, so the footprint must

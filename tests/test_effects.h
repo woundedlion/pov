@@ -4254,28 +4254,24 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
   HS_EXPECT_EQ(WB::cached_points(fx), WB::max_points(fx));
 }
 
-/**
- * @brief Verifies RADIUS_PX is one pixel of azimuth at every build resolution.
- * @details Star sizes are authored as multiples of RADIUS_PX so they hold their
- *          pixel size across resolutions. Scan::Star turns its radius argument
- *          into SDF::Star's circumradius of radius*pi/2 radians, and one column
- *          spans 2*pi/W radians, so k*RADIUS_PX must come out as exactly k
- *          columns. The rendered pass then measures the lit set of a real star
- *          drawn on the equator, where a column is a full 2*pi/W of arc.
- */
-inline void test_gnomonicstars_radius_px_spans_one_column() {
+/** @brief Star radius covers the coarser row or column pitch. */
+inline void test_gnomonicstars_radius_px_covers_both_axes() {
   using WB = GnomonicStarsWhiteBox;
   constexpr int W = DEFAULT_W, H = DEFAULT_H;
-  const double column = 2.0 * static_cast<double>(math::PI_F) / W;
-  const double small_column = 2.0 * static_cast<double>(math::PI_F) / SMALL_W;
+  const double column = std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>);
+  const double small_column =
+      std::max(math::TWO_PI_F / SMALL_W, math::RADIANS_PER_ROW<SMALL_H>);
   const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
 
-  for (int k : {1, 2, 12}) {
+  for (int k : {1, 2, 7}) {
     const SDF::Star shape(basis, k * WB::radius_px<W, H>(), 5, 0.0f);
     HS_EXPECT_NEAR(shape.circumradius, k * column, 1e-6);
     const SDF::Star small(basis, k * WB::radius_px<SMALL_W, SMALL_H>(), 5,
                           0.0f);
     HS_EXPECT_NEAR(small.circumradius, k * small_column, 1e-6);
+    HS_EXPECT_GE(small.circumradius / math::RADIANS_PER_ROW<SMALL_H>,
+                 k - 1e-5f);
+    HS_EXPECT_GE(small.circumradius / (math::TWO_PI_F / SMALL_W), k - 1e-5f);
   }
 
   constexpr int SPAN_PX = 12;
@@ -6243,7 +6239,7 @@ inline int run_effects_tests() {
   run_case(test_dynamo_emitted_points_counts_ring_seeds);
   run_case(test_ringspin_trail_hugs_its_great_circles);
   run_case(test_hopf_trail_trim_keeps_a_segment);
-  run_case(test_gnomonicstars_radius_px_spans_one_column);
+  run_case(test_gnomonicstars_radius_px_covers_both_axes);
   run_case(test_gnomonicstars_spiral_cache_invalidation);
   run_case(test_displacement_field_lazy_hue_table_matches_eager);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
