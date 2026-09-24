@@ -341,6 +341,8 @@ public:
     // The arena has no per-allocation free, so re-binding would orphan the first
     // pool/attractor/emitter allocations.
     HS_CHECK(!pool.is_bound(), "ParticleSystem::init called twice");
+    HS_CHECK(std::isfinite(friction) && std::isfinite(gravity),
+             "ParticleSystem friction and gravity must be finite");
     HS_CHECK(std::isfinite(max_life) && max_life >= 1.0f &&
                  max_life <= 65535.0f,
              "ParticleSystem max_life must be finite and in [1, 65535]");
