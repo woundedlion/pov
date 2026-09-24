@@ -81,9 +81,9 @@ struct GateReport {
  * restore blob, so the two together pin every byte the corpus carries.
  */
 uint64_t rehash_corpus(const mindsplatter_replay::Corpus &corpus) {
-  uint64_t hash = 1469598103934665603ull;
+  uint64_t hash = mindsplatter_replay::HASH_SEED;
   for (size_t i = 0; i < corpus.state_size; ++i)
-    hash = (hash ^ corpus.state[i]) * 1099511628211ull;
+    hash = mindsplatter_replay::hash_byte(hash, corpus.state[i]);
   size_t entry = 0;
   for (size_t index = 0; index < static_cast<size_t>(WIDTH) * HEIGHT; ++index) {
     while (entry < corpus.framebuffer_entries &&
