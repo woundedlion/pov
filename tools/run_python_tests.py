@@ -15,10 +15,20 @@ def main():
     args = parser.parse_args()
     root = args.root.resolve()
     if args.suite is not None:
-        suite = unittest.defaultTestLoader.discover(str(root / args.suite))
-        if suite.countTestCases() == 0:
-            parser.error(f"no test cases discovered in {args.suite}")
-        return 0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1
+        paths = sorted((root / args.suite).glob("test*.py"))
+        if not paths:
+            parser.error(f"no test files discovered in {args.suite}")
+        failed = False
+        for path in paths:
+            suite = unittest.defaultTestLoader.discover(str(path.parent), pattern=path.name)
+            if suite.countTestCases() == 0:
+                parser.error(f"no test cases discovered in {path}")
+            result = unittest.TextTestRunner(verbosity=2).run(suite)
+            if result.testsRun == len(result.skipped):
+                print(f"no unskipped test cases in {path}", file=sys.stderr)
+                failed = True
+            failed |= not result.wasSuccessful()
+        return int(failed)
 
     paths = subprocess.check_output(
         ["git", "-C", str(root), "ls-files", "-z", "--", "*/test*.py"]
