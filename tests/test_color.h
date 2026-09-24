@@ -2770,8 +2770,8 @@ inline void test_lms_transform_pair_matches_scalar() {
 }
 
 inline int run_color_tests() {
-  test_lms_transform_pair_matches_scalar();
   hs_test::ModuleFixture fixture("color");
+  test_lms_transform_pair_matches_scalar();
   test_baked_palette_storage_and_views();
   test_lerp16_endpoints();
   test_lerp16_midpoint();
