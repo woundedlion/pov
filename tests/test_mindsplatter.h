@@ -78,9 +78,9 @@ std::array<FrameRun, 2> render_toggled(Toggle toggle) {
 }
 
 inline FrameDiff diff_frames(std::span<const Pixel> reference,
-                             std::span<const Pixel> candidate) {
+                             std::span<const Pixel> candidate,
+                             FrameDiff diff = {}) {
   HS_EXPECT_EQ(reference.size(), candidate.size());
-  FrameDiff diff;
   for (size_t i = 0; i < reference.size(); ++i) {
     const Pixel a = reference[i];
     const Pixel b = candidate[i];
@@ -304,44 +304,24 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
     effect.advance_display();
     const Pixel *const direct = effect.display_buffer();
 
-    size_t lit_pixels = 0;
-    size_t coverage_differences = 0;
-    size_t changed_pixels = 0;
-    int max_channel_error = 0;
-    uint64_t total_channel_error = 0;
+    FrameDiff diff;
     for (int y = quadrant.y0; y < quadrant.y1; ++y) {
-      for (int x = quadrant.x0; x < quadrant.x1; ++x) {
-        const size_t i = static_cast<size_t>(y) * W + x;
-        const bool lit =
-            (reference[i].r | reference[i].g | reference[i].b) != 0;
-        const bool direct_lit = (direct[i].r | direct[i].g | direct[i].b) != 0;
-        coverage_differences += direct_lit != lit ? 1 : 0;
-        bool changed = false;
-        for (int delta : {std::abs(static_cast<int>(direct[i].r) -
-                                   static_cast<int>(reference[i].r)),
-                          std::abs(static_cast<int>(direct[i].g) -
-                                   static_cast<int>(reference[i].g)),
-                          std::abs(static_cast<int>(direct[i].b) -
-                                   static_cast<int>(reference[i].b))}) {
-          max_channel_error = std::max(max_channel_error, delta);
-          total_channel_error += static_cast<uint64_t>(delta);
-          changed = changed || delta != 0;
-        }
-        changed_pixels += changed ? 1 : 0;
-        if (lit)
-          ++lit_pixels;
-      }
+      const size_t offset = static_cast<size_t>(y) * W + quadrant.x0;
+      const size_t count = static_cast<size_t>(quadrant.x1 - quadrant.x0);
+      diff =
+          diff_frames(std::span<const Pixel>(reference.data() + offset, count),
+                      std::span<const Pixel>(direct + offset, count), diff);
     }
     std::printf("sink parity quadrant x[%d,%d) y[%d,%d) lit=%zu changed=%zu "
                 "coverage=%zu max_channel=%d total=%llu\n",
-                quadrant.x0, quadrant.x1, quadrant.y0, quadrant.y1, lit_pixels,
-                changed_pixels, coverage_differences, max_channel_error,
-                static_cast<unsigned long long>(total_channel_error));
-    HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
-    HS_EXPECT_LE(coverage_differences, static_cast<size_t>(1));
-    HS_EXPECT_LE(changed_pixels, static_cast<size_t>(4));
-    HS_EXPECT_LE(max_channel_error, 64);
-    HS_EXPECT_LE(total_channel_error, static_cast<uint64_t>(128));
+                quadrant.x0, quadrant.x1, quadrant.y0, quadrant.y1, diff.lit,
+                diff.different, diff.coverage, diff.max_channel,
+                static_cast<unsigned long long>(diff.total_channel));
+    HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
+    HS_EXPECT_LE(diff.coverage, static_cast<size_t>(1));
+    HS_EXPECT_LE(diff.different, static_cast<size_t>(4));
+    HS_EXPECT_LE(diff.max_channel, 64);
+    HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(128));
   }
   hs::clear_mock_time();
 }
