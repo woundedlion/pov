@@ -188,8 +188,10 @@ public:
    * `T` so a call site cannot mis-pair them. Does not construct the elements.
    */
   template <typename T> T *allocate_n(size_t n) {
-    HS_CHECK(n <= SIZE_MAX / sizeof(T),
-             "Arena::allocate_n element count overflows size_t");
+    HS_CHECK(
+        n <= SIZE_MAX / sizeof(T),
+        "Arena::allocate_n element count overflows size_t: n=%zu sizeof(T)=%zu",
+        n, sizeof(T));
     return static_cast<T *>(allocate(n * sizeof(T), alignof(T)));
   }
 
@@ -827,8 +829,10 @@ public:
   void push_back(const T &value) {
     check_alive();
     check_bound();
-    HS_CHECK(element_count < element_capacity,
-             "ArenaVector push_back exact capacity exceeded!");
+    HS_CHECK(
+        element_count < element_capacity,
+        "ArenaVector push_back exact capacity exceeded! count=%zu capacity=%zu",
+        element_count, element_capacity);
     new (&elements[element_count]) T(value);
     element_count++;
   }
@@ -848,8 +852,10 @@ public:
     check_bound();
     // Subtractive, wrap-proof form: `element_count + count` could wrap for a
     // colossal count.
-    HS_CHECK(count <= element_capacity - element_count,
-             "ArenaVector bulk append exceeds capacity!");
+    HS_CHECK(
+        count <= element_capacity - element_count,
+        "ArenaVector bulk append exceeds capacity! count=%zu append=%zu capacity=%zu",
+        element_count, count, element_capacity);
     // Skip memcpy on an empty append: a null src with count 0 is formal UB.
     if (count == 0)
       return;
@@ -867,8 +873,10 @@ public:
   template <typename... Args> T &emplace_back(Args &&...args) {
     check_alive();
     check_bound();
-    HS_CHECK(element_count < element_capacity,
-             "ArenaVector emplace_back exact capacity exceeded!");
+    HS_CHECK(
+        element_count < element_capacity,
+        "ArenaVector emplace_back exact capacity exceeded! count=%zu capacity=%zu",
+        element_count, element_capacity);
     T *ptr = new (&elements[element_count]) T(std::forward<Args>(args)...);
     element_count++;
     return *ptr;
