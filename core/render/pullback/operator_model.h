@@ -354,6 +354,20 @@ consteval bool defaults_in_range(const std::array<ParamFieldInfo, N> &schema) {
 template <typename Model>
 inline constexpr auto SCHEMA = Detail::make_schema<Model>();
 
+/** @brief Constrained families snap their fields or state a convexity contract. */
+template <typename Model> consteval bool admissibility_curves_valid() {
+  if constexpr (requires(const typename Model::Params &params) {
+                  Model::validate(params);
+                }) {
+    if constexpr (requires { Model::ADMISSIBILITY_CONVEXITY; })
+      return std::string_view(Model::ADMISSIBILITY_CONVEXITY).size() > 0;
+    for (const auto &field : Model::Params::FIELDS)
+      if (field.curve != FieldCurve::SNAP)
+        return false;
+  }
+  return true;
+}
+
 namespace Detail {
 
 /** Typed-to-erased trampolines over one operator model. */
@@ -502,6 +516,9 @@ constexpr OperatorDescriptor make_operator_descriptor() {
   using Params = typename Model::Params;
   using State = typename Model::State;
   using Prepared = typename Model::Prepared;
+  static_assert(admissibility_curves_valid<Model>(),
+                "validated operator fields must SNAP or declare "
+                "ADMISSIBILITY_CONVEXITY");
   static_assert(CanonicalCarrier<typename Model::Input> &&
                     CanonicalCarrier<typename Model::Output>,
                 "operator model: carriers must be canonical");
