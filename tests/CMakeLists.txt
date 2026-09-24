@@ -123,7 +123,9 @@ target_link_libraries(run_tests PRIVATE hs_test_support)
 
 set(_color_header_sources)
 foreach(_header pixel palette_recipe color_space palette palette_sources
-                generative_palette composition baked_palette palette_wipe)
+                generative_palette composition baked_palette palette_wipe
+                palettes palette_cycler noise_hue_palette effect_palette_recipes
+                layer_composite)
   set(_source "${CMAKE_CURRENT_BINARY_DIR}/color_header_${_header}.cpp")
   file(WRITE "${_source}" "#include \"color/${_header}.h\"\n")
   list(APPEND _color_header_sources "${_source}")
