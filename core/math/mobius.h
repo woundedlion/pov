@@ -43,14 +43,10 @@ inline math::Complex project_div(const math::Complex &num,
   float num_im = num.im;
   float denom = den_re * den_re + den_im * den_im;
   if (denom == 0.0f && (den_re != 0.0f || den_im != 0.0f)) {
-    // Squaring flushes a divisor below 2^-75 to zero, which would read as an
-    // exact pole and send a finite quotient to the sentinel. 2^96 is exact and
-    // lifts any such pair back into the normal range.
-    constexpr float UNDERFLOW_LIFT = 79228162514264337593543950336.0f;
-    den_re *= UNDERFLOW_LIFT;
-    den_im *= UNDERFLOW_LIFT;
-    num_re *= UNDERFLOW_LIFT;
-    num_im *= UNDERFLOW_LIFT;
+    den_re *= COMPLEX_UNDERFLOW_LIFT;
+    den_im *= COMPLEX_UNDERFLOW_LIFT;
+    num_re *= COMPLEX_UNDERFLOW_LIFT;
+    num_im *= COMPLEX_UNDERFLOW_LIFT;
     denom = den_re * den_re + den_im * den_im;
   }
   float num_mag = num_re * num_re + num_im * num_im;
