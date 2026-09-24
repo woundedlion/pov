@@ -39,7 +39,9 @@ void setup() {
   HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
 }
 
-FLASHMEM static void run_show_sequence() { g_pov->show<RingSpin<96, 20>>(120); }
+FLASHMEM static void run_show_sequence() {
+  g_pov->show<RingSpin<96, 20>>(120, false);
+}
 
 void loop() {
   Serial.println("Oh hi again");
