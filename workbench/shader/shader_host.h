@@ -10,7 +10,7 @@
 
 #if HS_ENABLE_SHADER_WORKBENCH
 
-#include "math/mobius.h"
+#include "core/math/mobius.h"
 
 #include <cstdarg>
 #include <cstdio>
