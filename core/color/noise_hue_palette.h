@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <cassert>
+#include <cmath>
 #include <span>
 
 #include "color/color_space.h"
