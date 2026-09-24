@@ -14,7 +14,7 @@
 
 /**
  * @file world_trails.h
- * @brief Filter::World::Trails: an arena-backed ring of quantized world-space
+ * @brief Filter::World::Trails: an arena-backed array of quantized world-space
  * trail samples, re-emitted and aged once per frame.
  */
 
@@ -63,8 +63,8 @@ public:
     if (new_lifetime < lifetime && items) {
       check_storage_alive();
       for (size_t i = 0; i < count; ++i)
-        at(i).ttl =
-            static_cast<uint8_t>(std::min<int>(at(i).ttl, new_lifetime));
+        items[i].ttl =
+            static_cast<uint8_t>(std::min<int>(items[i].ttl, new_lifetime));
     }
     lifetime = new_lifetime;
   }
@@ -81,7 +81,7 @@ public:
              "world filter: storage already initialized");
 #endif
     items = arena.allocate_n<Item>(Capacity);
-    head = tail = count = 0;
+    count = 0;
 #ifndef NDEBUG
     stamp.record(arena);
 #endif
@@ -135,7 +135,7 @@ public:
     HS_CHECK(items, "World::Trails needs init_storage() from effect init()");
     check_storage_alive();
     for (size_t i = 0; i < count; ++i) {
-      const auto &item = at(i);
+      const auto &item = items[i];
       math::Vector v = decode(item);
       float t = hs::clamp(
           1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime)),
@@ -151,14 +151,11 @@ public:
     }
 
     for (size_t i = 0; i < count;) {
-      Item &item = at(i);
+      Item &item = items[i];
       if (item.ttl > 0)
         item.ttl--;
       if (item.ttl == 0) {
-        // swap-remove the logical-last live item (index count-1) into the dead
-        // slot; only tail retreats, head stays put.
-        item = at(count - 1);
-        tail = (tail + Capacity - 1) % Capacity;
+        item = items[count - 1];
         count--;
       } else {
         ++i;
@@ -180,16 +177,15 @@ private:
    */
   static constexpr float MIN_TRAIL_ALPHA = 0.001f;
 
-  Item *items = nullptr; /**< Ring-buffer storage (arena-owned). */
-  size_t head = 0, tail = 0,
-         count = 0; /**< Ring-buffer head, tail, and live count. */
-  int lifetime;     /**< Per-frame fade divisor in frames. */
+  Item *items = nullptr; /**< Flat storage (arena-owned). */
+  size_t count = 0;      /**< Live item count. */
+  int lifetime;          /**< Per-frame fade divisor in frames. */
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when items was allocated. */
 #endif
 
   /**
-   * @brief Debug-only use-after-free check on the arena-owned ring buffer.
+   * @brief Debug-only use-after-free check on the arena-owned buffer.
    * @details A compaction that resets or rewinds the persistent arena without a
    * fresh init_storage() leaves items dangling; every plot()/flush() then reads
    * and writes Capacity Items through it.
@@ -225,41 +221,13 @@ private:
   }
 
   /**
-   * @brief Returns the i-th logical live item.
-   * @param i Index into the live range [0, count).
-   * @return Mutable reference to the buffered Item.
-   */
-  Item &at(size_t i) { return items[physical_index(i)]; }
-  /**
-   * @brief Returns the i-th logical live item.
-   * @param i Index into the live range [0, count).
-   * @return Const reference to the buffered Item.
-   */
-  const Item &at(size_t i) const { return items[physical_index(i)]; }
-
-  /** @brief Maps a live logical index onto its physical ring slot. */
-  size_t physical_index(size_t i) const {
-    const size_t index = head + i;
-    return index >= Capacity ? index - Capacity : index;
-  }
-
-  /**
    * @brief Appends an item, evicting a live item of arbitrary age at capacity.
    * @param item Encoded trail sample to push.
    */
   void push_back(const Item &item) {
-    if (count == Capacity) {
-      pop_front();
-    }
-    items[tail] = item;
-    tail = (tail + 1) % Capacity;
-    count++;
-  }
-
-  /** @brief Drops the logical head, whose age is arbitrary after compaction. */
-  void pop_front() {
-    head = (head + 1) % Capacity;
-    count--;
+    if (count == Capacity)
+      --count;
+    items[count++] = item;
   }
 };
 
