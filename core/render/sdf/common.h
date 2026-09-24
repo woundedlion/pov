@@ -273,8 +273,12 @@ template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
  * band. A combinator blends only if every child does; an unrecognized shape
  * is rejected. */
 template <typename T>
-inline constexpr bool blends_smoothly =
-    requires { T::BLENDS_SMOOTHLY; } && T::BLENDS_SMOOTHLY;
+inline constexpr bool blends_smoothly = [] {
+  if constexpr (requires { T::BLENDS_SMOOTHLY; })
+    return T::BLENDS_SMOOTHLY;
+  else
+    return false;
+}();
 template <> inline constexpr bool blends_smoothly<PlanarPolygon> = true;
 template <> inline constexpr bool blends_smoothly<SphericalPolygon> = true;
 template <> inline constexpr bool blends_smoothly<Star> = true;
