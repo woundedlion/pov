@@ -322,9 +322,22 @@ struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
   }
 };
 
+enum class CurlIntegrator : uint8_t { EULER1, MIDPOINT2, MIDPOINT4 };
+
+inline constexpr uint8_t curl_intervals(CurlIntegrator integrator) {
+  static_assert(Warp::Euler1::INTERVALS ==
+                (1U << static_cast<uint8_t>(CurlIntegrator::EULER1)));
+  static_assert(Warp::Midpoint2::INTERVALS ==
+                (1U << static_cast<uint8_t>(CurlIntegrator::MIDPOINT2)));
+  static_assert(Warp::Midpoint4::INTERVALS ==
+                (1U << static_cast<uint8_t>(CurlIntegrator::MIDPOINT4)));
+  return static_cast<uint8_t>(1U << static_cast<uint8_t>(integrator));
+}
+
 inline constexpr const char *CURL_INTEGRATOR_IDS[] = {"euler-1", "midpoint-2",
                                                       "midpoint-4"};
-static_assert(std::size(CURL_INTEGRATOR_IDS) == 3);
+static_assert(std::size(CURL_INTEGRATOR_IDS) ==
+              static_cast<size_t>(CurlIntegrator::MIDPOINT4) + 1);
 
 /** @brief Parameter family of warp.curl-flow.v2. */
 struct CurlFlowParams {
@@ -332,7 +345,7 @@ struct CurlFlowParams {
   float strength = 0.0f; /**< Flow distance; 0 skips the stage. */
   float scale = 1.0f;    /**< Spatial scale of the sampled field. */
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
-  uint8_t integrator = 0;
+  uint8_t integrator = static_cast<uint8_t>(CurlIntegrator::EULER1);
 
   static constexpr auto FIELDS = std::array{
       Field<CurlFlowParams>{"speed", &CurlFlowParams::speed, nullptr, -0.02f,
@@ -375,9 +388,10 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   using Prepared = PreparedCurlFlow;
 
   static const char *validate(const Params &params) {
-    if (params.integrator >= 3)
+    if (params.integrator > static_cast<uint8_t>(CurlIntegrator::MIDPOINT4))
       return "Curl Flow requires a valid integrator.";
-    const uint8_t intervals = static_cast<uint8_t>(1U << params.integrator);
+    const uint8_t intervals =
+        curl_intervals(static_cast<CurlIntegrator>(params.integrator));
     return params.scale * fabsf(params.strength) *
                        Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
                    0.5f
@@ -389,8 +403,11 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_noise_basis(params.basis);
-    HS_CHECK(params.integrator < 3, "warp.curl-flow: invalid integrator");
-    const uint8_t intervals = static_cast<uint8_t>(1U << params.integrator);
+    HS_CHECK(params.integrator <=
+                 static_cast<uint8_t>(CurlIntegrator::MIDPOINT4),
+             "warp.curl-flow: invalid integrator");
+    const uint8_t intervals =
+        curl_intervals(static_cast<CurlIntegrator>(params.integrator));
     HS_CHECK(params.scale * fabsf(params.strength) *
                      Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
                  0.5f,
