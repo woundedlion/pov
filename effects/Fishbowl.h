@@ -114,7 +114,7 @@ public:
         cycle_phase(0.0f), noise_xform(timeline) {}
 
   // Scratch A holds the per-frame vertices buffer and, during the draw call, the
-  // Multiline fragment buffer it binds (capacity vertices.size()+2) plus
+  // Multiline fragment buffer it binds (capacity vertices.size()+1) plus
   // rasterize's own sub-step cache, so the worst case is all three live at once.
   static constexpr size_t SCRATCH_A_BYTES = 234 * 1024;
   static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(TrailVertex) +
