@@ -266,6 +266,9 @@ SHARED_LITERAL_USES = (
 # probes, no recipe spelling them -- the native build reaches clang through the
 # CMake toolchain, which may be emsdk's.
 CHECK_TOOLS = {
+    "actionlint": (["actionlint", "-version"],
+                   "pip install actionlint-py=={pin}",
+                   lambda v: v.rsplit(".", 1)[0]),
     "clang": (["clang-{pin}", "--version"], "apt install clang-{pin}",
               lambda v: v),
     "clang-format": (["clang-format", "--version"],
