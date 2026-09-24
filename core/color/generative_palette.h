@@ -504,21 +504,6 @@ private:
     return key;
   }
 
-  /** @brief The chroma controls as the axis controls they share with
-   *  lightness: curve, center, range and the CUSTOM keys. */
-  static AxisControls as_axis(const ChromaControls &controls) {
-    AxisControls axis;
-    axis.curve = controls.curve;
-    axis.center = controls.center;
-    axis.range = controls.range;
-    axis.custom = controls.custom;
-    return axis;
-  }
-
-  static AxisState axis_state(const ChromaControls &controls) {
-    return axis_state(as_axis(controls));
-  }
-
   HS_COLD_MEMBER GenerativePalette(Unchecked, const PaletteRecipe &recipe) {
     initialize(recipe);
   }
@@ -583,7 +568,7 @@ private:
     if (!enum_in_range(recipe.lightness.curve, AxisCurve::CUSTOM))
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::LIGHTNESS_CURVE);
-    if (!enum_in_range(recipe.chroma.curve, AxisCurve::CUSTOM))
+    if (!enum_in_range(recipe.chroma.axis.curve, AxisCurve::CUSTOM))
       return fail(status, PaletteCompileCode::INVALID_ENUM,
                   PaletteRecipeField::CHROMA_CURVE);
     // PATH_MINIMUM is a reserved ordinal with no implementation.
@@ -653,16 +638,16 @@ private:
               status))
         return false;
     }
-    if (recipe.chroma.curve != AxisCurve::CUSTOM &&
-        (!finite(recipe.chroma.center, PaletteRecipeField::CHROMA_CENTER,
+    if (recipe.chroma.axis.curve != AxisCurve::CUSTOM &&
+        (!finite(recipe.chroma.axis.center, PaletteRecipeField::CHROMA_CENTER,
                  status) ||
-         !finite(recipe.chroma.range, PaletteRecipeField::CHROMA_RANGE,
+         !finite(recipe.chroma.axis.range, PaletteRecipeField::CHROMA_RANGE,
                  status)))
       return false;
-    for (int i = 0; recipe.chroma.curve == AxisCurve::CUSTOM && i < key_count;
-         ++i) {
+    for (int i = 0;
+         recipe.chroma.axis.curve == AxisCurve::CUSTOM && i < key_count; ++i) {
       if (!finite(
-              recipe.chroma.custom[i],
+              recipe.chroma.axis.custom[i],
               static_cast<PaletteRecipeField>(
                   static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) +
                   i),
@@ -733,16 +718,16 @@ private:
           static_cast<PaletteRecipeField>(
               static_cast<uint8_t>(PaletteRecipeField::LIGHTNESS_CUSTOM_0) +
               i));
-    if (recipe.chroma.curve == AxisCurve::CUSTOM) {
-      canonicalize_field(recipe.chroma.center, defaults.chroma.center,
+    if (recipe.chroma.axis.curve == AxisCurve::CUSTOM) {
+      canonicalize_field(recipe.chroma.axis.center, defaults.chroma.axis.center,
                          PaletteRecipeField::CHROMA_CENTER);
-      canonicalize_field(recipe.chroma.range, defaults.chroma.range,
+      canonicalize_field(recipe.chroma.axis.range, defaults.chroma.axis.range,
                          PaletteRecipeField::CHROMA_RANGE);
     }
-    for (int i = recipe.chroma.curve == AxisCurve::CUSTOM ? key_count : 0;
+    for (int i = recipe.chroma.axis.curve == AxisCurve::CUSTOM ? key_count : 0;
          i < PALETTE_MAX_KEYS; ++i)
       canonicalize_field(
-          recipe.chroma.custom[i], defaults.chroma.custom[i],
+          recipe.chroma.axis.custom[i], defaults.chroma.axis.custom[i],
           static_cast<PaletteRecipeField>(
               static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) + i));
     if (recipe.domain != PaletteDomain::FALLOFF)
@@ -807,13 +792,13 @@ private:
           status);
     }
 
-    clamp_field(recipe.chroma.center, 0.0f, MAX_CHROMA_CONTROL,
+    clamp_field(recipe.chroma.axis.center, 0.0f, MAX_CHROMA_CONTROL,
                 PaletteRecipeField::CHROMA_CENTER, status);
-    clamp_field(recipe.chroma.range, 0.0f, MAX_CHROMA_CONTROL,
+    clamp_field(recipe.chroma.axis.range, 0.0f, MAX_CHROMA_CONTROL,
                 PaletteRecipeField::CHROMA_RANGE, status);
     for (int i = 0; i < PALETTE_MAX_KEYS; ++i) {
       clamp_field(
-          recipe.chroma.custom[i], 0.0f, MAX_CHROMA_CONTROL,
+          recipe.chroma.axis.custom[i], 0.0f, MAX_CHROMA_CONTROL,
           static_cast<PaletteRecipeField>(
               static_cast<uint8_t>(PaletteRecipeField::CHROMA_CUSTOM_0) + i),
           status);
@@ -882,12 +867,6 @@ private:
                    ? controls.custom[i]
                    : evaluate_axis(axis.low, axis.high, axis.curve, position);
     }
-  }
-
-  HS_COLD_MEMBER static void resolve_axis(const ChromaControls &controls,
-                                          uint8_t count,
-                                          float out[PALETTE_MAX_KEYS]) {
-    resolve_axis(as_axis(controls), count, out);
   }
 
   HS_COLD_MEMBER static void resolve_harmony(const PaletteRecipe &recipe,
@@ -1007,9 +986,9 @@ private:
     float hues[PALETTE_MAX_KEYS];
     key_count = control_key_count(recipe);
     lightness_axis = axis_state(recipe.lightness);
-    chroma_axis = axis_state(recipe.chroma);
+    chroma_axis = axis_state(recipe.chroma.axis);
     resolve_axis(recipe.lightness, key_count, lightness);
-    resolve_axis(recipe.chroma, key_count, chroma);
+    resolve_axis(recipe.chroma.axis, key_count, chroma);
     resolve_hues(recipe, key_count, hues, closing_hue);
 
     for (int i = 0; i < key_count; ++i)
@@ -1381,7 +1360,7 @@ inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
     recipe.lightness.center = 0.52f;
     recipe.lightness.range = 0.72f;
   }
-  recipe.chroma.center = chroma;
+  recipe.chroma.axis.center = chroma;
   return recipe;
 }
 
@@ -1409,10 +1388,10 @@ inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
   recipe.lightness.custom[1] = b.L;
   recipe.lightness.custom[2] = c.L;
   recipe.chroma.basis = ChromaBasis::ABSOLUTE;
-  recipe.chroma.curve = AxisCurve::CUSTOM;
-  recipe.chroma.custom[0] = a.C;
-  recipe.chroma.custom[1] = b.C;
-  recipe.chroma.custom[2] = c.C;
+  recipe.chroma.axis.curve = AxisCurve::CUSTOM;
+  recipe.chroma.axis.custom[0] = a.C;
+  recipe.chroma.axis.custom[1] = b.C;
+  recipe.chroma.axis.custom[2] = c.C;
   return recipe;
 }
 
@@ -1431,7 +1410,7 @@ inline PaletteRecipe isolight_spectral_loop(float base_turns = 0.0f) {
   recipe.hue.base_turns = base_turns;
   recipe.hue.sweep_turns = 1.0f;
   recipe.lightness.center = 0.62f;
-  recipe.chroma.center = 0.72f;
+  recipe.chroma.axis.center = 0.72f;
   return recipe;
 }
 
@@ -1442,9 +1421,9 @@ inline PaletteRecipe tonal_monochrome(float base_turns = 0.0f) {
   recipe.lightness.curve = AxisCurve::ASCENDING;
   recipe.lightness.center = 0.52f;
   recipe.lightness.range = 0.72f;
-  recipe.chroma.curve = AxisCurve::BELL;
-  recipe.chroma.center = 0.52f;
-  recipe.chroma.range = 0.42f;
+  recipe.chroma.axis.curve = AxisCurve::BELL;
+  recipe.chroma.axis.center = 0.52f;
+  recipe.chroma.axis.range = 0.42f;
   return recipe;
 }
 
