@@ -311,6 +311,35 @@ capture() {
 
 RETRY_CACHE=""
 TREE_LOCK=""
+TREE_TOKEN=""
+acquire_tree_lock() {
+  local now info old_token attempt
+  _hs_resolve_python || return 2
+  TREE_LOCK="$TREE/.profile-lock"
+  now=$(_hs_now)
+  TREE_TOKEN="$$-$now-$RANDOM"
+  info=$(printf 'token=%s\npid=%s\nstarted=%s\ndeadline=%s\n' \
+    "$TREE_TOKEN" "$$" "$now" "$((now + SECONDS_ARG * 2 + 900))")
+  for attempt in 1 2; do
+    if printf '%s\n' "$info" | "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" claim "$TREE_LOCK"; then
+      return 0
+    fi
+    old_token=$(_hs_lock_field "$TREE_LOCK" token)
+    if [ "$attempt" -eq 1 ] && _hs_lock_is_stale "$TREE_LOCK"; then
+      if [ -n "$old_token" ]; then
+        _hs_break_lock "$TREE_LOCK" "$old_token" || :
+      else
+        "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" break-empty "$TREE_LOCK" \
+          "$((now - HS_DEVICE_STALE_GRACE))" || :
+      fi
+    else
+      break
+    fi
+  done
+  echo "profile checkout is already claimed: $TREE_LOCK" >&2
+  return 1
+}
+
 prepare_retry() {
   rm -rf ".pio/build/$ENV"
   RETRY_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/hs-profile-cache.XXXXXX")
@@ -319,7 +348,7 @@ prepare_retry() {
 
 cleanup() {
   hs_device_release
-  [ -z "$TREE_LOCK" ] || rmdir -- "$TREE_LOCK"
+  [ -z "$TREE_TOKEN" ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN" || :
   [ -z "$RETRY_CACHE" ] || rm -rf "$RETRY_CACHE"
 }
 
@@ -383,11 +412,7 @@ trap 'exit 143' TERM
 # ETA covers a clean rebuild + the capture + one retry: overshooting only
 # delays a stale-break (safe), undershooting invites a peer to evict a live
 # capture (not), and a crashed holder is reaped by the PID check regardless.
-if ! mkdir -- "$TREE/.profile-lock"; then
-  echo "profile checkout is already claimed: $TREE/.profile-lock" >&2
-  exit 1
-fi
-TREE_LOCK="$TREE/.profile-lock"
+acquire_tree_lock || exit $?
 
 hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
 
