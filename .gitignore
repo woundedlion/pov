@@ -41,7 +41,6 @@ __vm/
 *.vcxproj.filters
 *.vcxproj.user
 *.sln
-.clangd
 
 # PlatformIO build tree (Teensy CI gate). Lives at the repo root because the
 # gate uses src_dir = . to reach sources in core/ and targets/. VMicro never
