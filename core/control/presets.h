@@ -17,8 +17,6 @@
 /**
  * @brief Standalone entry wrapping a single Params preset.
  * @tparam Params The preset parameter type stored in each entry.
- * @details A dedicated entry type lets the CTAD deduction guides avoid
- * dependent-name issues when deducing the preset count.
  */
 template <typename Params> struct PresetEntry {
   Params params; /**< The stored preset parameters. */
