@@ -827,6 +827,10 @@ add_custom_target(regenerate_shader_chain_catalog
   DEPENDS shader_chain_catalog_gen
   VERBATIM)
 
+add_executable(noise_golden_gen ${HS_ROOT}/tools/noise_golden_export.cpp)
+target_include_directories(noise_golden_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+_hs_warnings(noise_golden_gen)
+
 # Compile coverage for this directory's non-UTILITY EXCLUDE_FROM_ALL targets.
 # They are out of the default build (their run rewrites a committed artifact,
 # or is too noisy to gate), so an API rename breaks their sources while every
@@ -867,6 +871,3 @@ foreach(_hs_test IN LISTS _hs_registered_tests)
     set_tests_properties(${_hs_test} PROPERTIES TIMEOUT ${_hs_test_timeout})
   endif()
 endforeach()
-
-add_executable(noise_golden_gen ${HS_ROOT}/tools/noise_golden_export.cpp)
-target_include_directories(noise_golden_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
