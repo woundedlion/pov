@@ -489,6 +489,7 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
               diff.max_channel,
               static_cast<unsigned long long>(diff.total_channel));
   HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
+  HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
   HS_EXPECT_LE(diff.different, static_cast<size_t>(96));
   HS_EXPECT_LE(diff.max_channel, 8);
   HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(128));
@@ -743,6 +744,7 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
         frame, reference.active[frame - 1], diff.different, diff.coverage,
         diff.max_channel, static_cast<unsigned long long>(diff.total_channel));
     HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
+    HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
     HS_EXPECT_LE(diff.different, MAX_DIFFERENT[checkpoint]);
     HS_EXPECT_LE(diff.max_channel, MAX_CHANNEL[checkpoint]);
     HS_EXPECT_LE(diff.total_channel, MAX_TOTAL[checkpoint]);
