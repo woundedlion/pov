@@ -51,6 +51,8 @@ public:
   }
 
 protected:
+  ~PresetHost() = default;
+
   /** @brief Whether a preset move came from choreography or a user control. */
   enum class PresetChangeOrigin : uint8_t { AUTOMATIC, MANUAL, SYNCHRONIZED };
 
