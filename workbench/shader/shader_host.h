@@ -1342,8 +1342,9 @@ private:
                                 ? Workbench::CURL_WARP_SCALE_MAX
                                 : Workbench::VECTOR_WARP_SCALE_MAX,
                             1.0f, domain_scale));
-      register_current(names[Workbench::WARP_NAME_VECTOR_ANGLE],
-                       &params.vector_angle, 0.0f, math::TWO_PI_F);
+      if (spec.kind == Workbench::WarpStageKind::VECTOR_NOISE)
+        register_current(names[Workbench::WARP_NAME_VECTOR_ANGLE],
+                         &params.vector_angle, 0.0f, math::TWO_PI_F);
       register_current(names[Workbench::WARP_NAME_EDGE_WIDTH],
                        &params.edge_width, Workbench::SOFTNESS_MIN, 0.5f);
       break;
