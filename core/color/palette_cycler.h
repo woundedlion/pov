@@ -21,7 +21,9 @@
  * count. Adjacent morph-compatible GenerativePalettes fade by key-space morph
  * (perceptually coherent hue travel); every other pair fades by baked-LUT
  * crossfade, so any mix of generative, composed, and prebaked palettes cycles
- * correctly. Entries are caller-owned and must outlive the cycler. Effects
+ * correctly. Entries are caller-owned and must outlive the cycler. Entries
+ * and their palettes must remain unchanged between init() calls; morph
+ * compatibility and dwell display tables are cached. Effects
  * call step() once per frame and shade from palette(); outside a fade the
  * display LUT is a bit-exact bake of the current entry.
  */
@@ -243,6 +245,10 @@ public:
       morph->morph_palettes(*from_slot, *to_slot, w);
       rebake_display(*morph);
     } else if ((key_morph_mask & (1u << current)) != 0) {
+      HS_AUDIT_CHECK(
+          entries[current].generative->morph_compatible(
+              *entries[next_of(current)].generative),
+          "PaletteCycler borrowed palette policy changed after init");
       morph->morph_palettes(*entries[current].generative,
                             *entries[next_of(current)].generative, w);
       rebake_display(*morph);

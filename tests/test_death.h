@@ -3017,6 +3017,20 @@ inline void case_alpha_falloff_null() {
   (void)shade;
 }
 
+inline void case_palette_cycler_mutated_policy() {
+  static uint8_t storage[8192];
+  Arena arena(storage, sizeof(storage));
+  GenerativePalette first, second;
+  const PaletteCycler::Entry entries[] = {first, second};
+  PaletteCycler cycler;
+  cycler.init(arena, entries, 2, 0, 4);
+  PaletteRecipe changed;
+  changed.chroma.headroom = 0.5f;
+  second = GenerativePalette(changed);
+  cycler.step();
+  cycler.step();
+}
+
 /**
  * @brief Death case: GeneratedPaletteBank::palette rejects a mode outside the
  *        harmony enum.
@@ -5136,6 +5150,12 @@ inline const Case *all_cases(int &n) {
                    "core/color/noise_hue_palette.h",
                    "(hue_noise_lut != nullptr) NoiseHuePalette bound to null hue-noise "
                    "LUT"},
+                  {"palette_cycler_mutated_policy",
+                   case_palette_cycler_mutated_policy,
+                   "core/color/palette_cycler.h",
+                   "(entries[current].generative->morph_compatible( "
+                   "*entries[next_of(current)].generative)) "
+                   "PaletteCycler borrowed palette policy changed after init"},
                   {"generated_palette_bank_unknown_mode",
                    case_generated_palette_bank_unknown_mode,
                    "core/color/palette_cycler.h",
