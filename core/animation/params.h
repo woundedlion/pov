@@ -69,6 +69,11 @@ protected:
   const bool *paused; /**< Optional pause gate; null = always runs. */
 };
 
+/** @brief Step-only pause gate; pending timeline delays continue to elapse. */
+struct ParamPauseOptions {
+  const bool *paused = nullptr;
+};
+
 /** @brief Optional behaviour of a Transition. */
 struct TransitionOptions {
   /** @brief Floors every stepped value, making the ramp an integer staircase
@@ -138,6 +143,7 @@ private:
  */
 class Mutation : public PausableParamAnimationBase<Mutation> {
 public:
+  using Options = ParamPauseOptions;
   /**
    * @brief Constructs a Mutation animation.
    * @param mutant The float variable to modify.
@@ -145,12 +151,12 @@ public:
    * @param duration The duration in frames.
    * @param easing_fn The easing function to apply to the time factor.
    * @param repeat If true, the mutation repeats indefinitely.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options Step-only pause gate; pending start delays still elapse.
    */
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
-           bool repeat = false, const bool *paused = nullptr)
-      : PausableParamAnimationBase(duration, repeat, paused), mutant(mutant),
-        f(std::move(f)), easing_fn(std::move(easing_fn)) {}
+           bool repeat = false, const Options &options = {})
+      : PausableParamAnimationBase(duration, repeat, options.paused),
+        mutant(mutant), f(std::move(f)), easing_fn(std::move(easing_fn)) {}
 
   /**
    * @brief Applies one unpaused frame of the mutation.
@@ -179,6 +185,7 @@ private:
  */
 class Progress : public PausableParamAnimationBase<Progress> {
 public:
+  using Options = ParamPauseOptions;
   /** @brief Per-frame callback signature: `void f(float eased_progress)`. */
   using StepFn = Fn<void(float), 16>;
 
@@ -187,12 +194,12 @@ public:
    * @param f Callback invoked once per unpaused frame with eased progress.
    * @param duration The duration in frames.
    * @param easing_fn The easing function applied to progress.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options Step-only pause gate; pending start delays still elapse.
    */
   Progress(StepFn f, int duration, EasingFn easing_fn,
-           const bool *paused = nullptr)
-      : PausableParamAnimationBase(duration, false, paused), f(std::move(f)),
-        easing_fn(std::move(easing_fn)) {}
+           const Options &options = {})
+      : PausableParamAnimationBase(duration, false, options.paused),
+        f(std::move(f)), easing_fn(std::move(easing_fn)) {}
 
   /**
    * @brief Invokes the callback once with this frame's eased progress.
@@ -317,6 +324,7 @@ private:
  */
 class Lerp : public PausableParamAnimationBase<Lerp> {
 public:
+  using Options = ParamPauseOptions;
   /**
    * @brief Constructs a Lerp animation.
    * @tparam T Interpolated type implementing lerp(start, target, t).
@@ -325,12 +333,12 @@ public:
    * @param target The caller-owned target state.
    * @param duration The duration in frames.
    * @param easing_fn The easing function applied to progress.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options Step-only pause gate; pending start delays still elapse.
    */
   template <typename T>
   Lerp(T &subject, const T &start, const T &target, int duration,
-       EasingFn easing_fn, const bool *paused = nullptr)
-      : PausableParamAnimationBase(duration, false, paused),
+       EasingFn easing_fn, const Options &options = {})
+      : PausableParamAnimationBase(duration, false, options.paused),
         subject_ptr(&subject), start_ptr(&start), target_ptr(&target),
         easing(easing_fn) {
     do_lerp = [](void *subj, const void *s, const void *tgt, float t) {
@@ -343,13 +351,13 @@ public:
   // must outlive the Timeline; these deleted overloads reject a temporary.
   template <typename T>
   Lerp(T &subject, const T &&start, const T &target, int duration,
-       EasingFn easing_fn, const bool *paused = nullptr) = delete;
+       EasingFn easing_fn, const Options &options = {}) = delete;
   template <typename T>
   Lerp(T &subject, const T &start, const T &&target, int duration,
-       EasingFn easing_fn, const bool *paused = nullptr) = delete;
+       EasingFn easing_fn, const Options &options = {}) = delete;
   template <typename T>
   Lerp(T &subject, const T &&start, const T &&target, int duration,
-       EasingFn easing_fn, const bool *paused = nullptr) = delete;
+       EasingFn easing_fn, const Options &options = {}) = delete;
 
   /**
    * @brief Applies one unpaused frame of the interpolation.
@@ -373,6 +381,7 @@ private:
  */
 class ColorWipe : public PausableParamAnimationBase<ColorWipe> {
 public:
+  using Options = ParamPauseOptions;
   /**
    * @brief Constructs a ColorWipe animation.
    * @param palette The GenerativePalette to animate.
@@ -380,26 +389,27 @@ public:
    * @param target Caller-owned target snapshot.
    * @param duration The duration in frames.
    * @param easing_fn The easing function.
-   * @param paused Optional pause gate; null = always runs.
+   * @param options Step-only pause gate; pending start delays still elapse.
    * @details start and target must outlive the animation and remain unchanged
    *          until it completes.
    */
   ColorWipe(GenerativePalette &palette,
             const GenerativePalette::Snapshot &start,
             const GenerativePalette::Snapshot &target, int duration,
-            EasingFn easing_fn, const bool *paused = nullptr)
-      : PausableParamAnimationBase(duration, false, paused), palette(palette),
-        start(start), target(target), easing_fn(std::move(easing_fn)) {}
+            EasingFn easing_fn, const Options &options = {})
+      : PausableParamAnimationBase(duration, false, options.paused),
+        palette(palette), start(start), target(target),
+        easing_fn(std::move(easing_fn)) {}
 
   ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &&,
             const GenerativePalette::Snapshot &, int, EasingFn,
-            const bool * = nullptr) = delete;
+            const Options & = {}) = delete;
   ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &,
             const GenerativePalette::Snapshot &&, int, EasingFn,
-            const bool * = nullptr) = delete;
+            const Options & = {}) = delete;
   ColorWipe(GenerativePalette &, const GenerativePalette::Snapshot &&,
             const GenerativePalette::Snapshot &&, int, EasingFn,
-            const bool * = nullptr) = delete;
+            const Options & = {}) = delete;
 
   /**
    * @brief Blends the palette one unpaused frame toward the target snapshot.

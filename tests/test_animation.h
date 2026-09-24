@@ -3238,7 +3238,7 @@ inline void test_colorwipe_paused_holds_keys() {
 
   const int duration = 4;
   Animation::ColorWipe wipe(from, start, target, duration, math::ease_linear,
-                            &paused);
+                            {.paused = &paused});
   for (int i = 0; i < duration; ++i)
     wipe.step(fake_canvas());
   HS_EXPECT_NEAR(GenerativePalette::snapshot_key(from.snapshot(), 0).L, start_l,
@@ -3860,7 +3860,8 @@ inline void test_progress_pause_and_eased_bounds() {
   bool paused = true;
   std::vector<float> values;
   Animation::Progress progress([&](float t) { values.push_back(t); }, 4,
-                               [](float t) { return 2.0f * t; }, &paused);
+                               [](float t) { return 2.0f * t; },
+                               {.paused = &paused});
   progress.step(fake_canvas());
   HS_EXPECT_TRUE(values.empty());
   paused = false;
