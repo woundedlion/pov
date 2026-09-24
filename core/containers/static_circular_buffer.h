@@ -97,7 +97,7 @@ public:
   explicit StaticCircularBuffer(Args &&...args) : head(0), tail(0), count(0) {
     static_assert(sizeof...(Args) <= N,
                   "StaticCircularBuffer initializer list exceeds capacity N");
-    (push_back(T{std::forward<Args>(args)}), ...);
+    (emplace_back(T{std::forward<Args>(args)}), ...);
   }
 
   /**
