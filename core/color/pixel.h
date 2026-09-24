@@ -174,13 +174,6 @@ struct Pixel {
   }
 
   /**
-   * @brief Tests two pixels for channel inequality.
-   * @param rhs Pixel to compare against.
-   * @return True if any channel differs.
-   */
-  bool operator!=(const Pixel &rhs) const { return !(*this == rhs); }
-
-  /**
    * @brief Tests equality against an HSV color (converted to Pixel).
    * @param rhs Color in HSV space.
    * @return True if this pixel equals the converted color.
@@ -188,25 +181,11 @@ struct Pixel {
   bool operator==(const CHSV &rhs) const { return *this == Pixel(rhs); }
 
   /**
-   * @brief Tests inequality against an HSV color (converted to Pixel).
-   * @param rhs Color in HSV space.
-   * @return True if this pixel differs from the converted color.
-   */
-  bool operator!=(const CHSV &rhs) const { return !(*this == rhs); }
-
-  /**
    * @brief Tests equality against a CRGB color (converted to Pixel).
    * @param rhs Color in 8-bit sRGB space.
    * @return True if this pixel equals the converted color.
    */
   bool operator==(const CRGB &rhs) const { return *this == Pixel(rhs); }
-
-  /**
-   * @brief Tests inequality against a CRGB color (converted to Pixel).
-   * @param rhs Color in 8-bit sRGB space.
-   * @return True if this pixel differs from the converted color.
-   */
-  bool operator!=(const CRGB &rhs) const { return !(*this == rhs); }
 };
 
 /**
