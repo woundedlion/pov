@@ -43,24 +43,6 @@ foreach(_stale IN ITEMS
   endif()
 endforeach()
 
-set(_not_daydream "${TEST_ROOT}/not-daydream")
-file(MAKE_DIRECTORY "${_not_daydream}/docs/screenshots")
-file(WRITE "${_not_daydream}/docs/screenshots/stale.png" "must survive")
-execute_process(
-  COMMAND "${CMAKE_COMMAND}"
-    "-DHS_MIRROR_SOURCE=${_source}"
-    "-DHS_DAYDREAM_DIR=${_not_daydream}"
-    -P "${PRUNE_SCRIPT}"
-  RESULT_VARIABLE _invalid_result
-  OUTPUT_QUIET
-  ERROR_QUIET)
-if(_invalid_result EQUAL 0)
-  message(FATAL_ERROR "Prune accepted a destination without daydream.js")
-endif()
-if(NOT EXISTS "${_not_daydream}/docs/screenshots/stale.png")
-  message(FATAL_ERROR "Prune modified an invalid destination")
-endif()
-
 set(_source "${TEST_ROOT}/engine/patterns")
 file(MAKE_DIRECTORY "${_source}")
 set(_patterns "${_daydream}/shader/patterns")
@@ -91,6 +73,22 @@ foreach(_kind IN ITEMS screenshots patterns)
   else()
     set(_empty "${TEST_ROOT}/engine/empty")
     set(_retained "${_patterns}/keep.shader.json")
+  endif()
+  set(_not_daydream "${TEST_ROOT}/not-daydream-${_kind}")
+  if(_kind STREQUAL "screenshots")
+    set(_valid_source "${TEST_ROOT}/engine/docs/screenshots")
+    set(_invalid_file "${_not_daydream}/docs/screenshots/stale.png")
+  else()
+    set(_valid_source "${TEST_ROOT}/engine/patterns")
+    set(_invalid_file "${_not_daydream}/shader/patterns/stale.shader.json")
+  endif()
+  file(WRITE "${_invalid_file}" "must survive")
+  execute_process(COMMAND "${CMAKE_COMMAND}"
+    "-DHS_MIRROR_SOURCE=${_valid_source}" "-DHS_DAYDREAM_DIR=${_not_daydream}"
+    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_${_kind}.cmake"
+    RESULT_VARIABLE _invalid_result OUTPUT_QUIET ERROR_QUIET)
+  if(_invalid_result EQUAL 0 OR NOT EXISTS "${_invalid_file}")
+    message(FATAL_ERROR "${_kind} prune did not safely reject an invalid destination")
   endif()
   file(MAKE_DIRECTORY "${_empty}")
   execute_process(COMMAND "${CMAKE_COMMAND}"
