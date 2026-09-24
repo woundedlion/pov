@@ -34,7 +34,7 @@ struct SplatTaps {
  * @details Looser in Blur: these are raw bilinear coverage products, Blur's are
  * normalized 3x3 kernel taps.
  */
-static constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
+inline constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
 
 /**
  * @brief Resolves a sub-pixel sample into its four nearest-neighbor taps.
