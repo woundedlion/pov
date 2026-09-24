@@ -13,6 +13,7 @@
 
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
+#include "core/control/choreography.h"
 #include <array>
 #include <string_view>
 
@@ -23,6 +24,18 @@ namespace effects_tests {
 struct FishbowlWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
+
+/** @brief Live-tunable parameters exposed as sliders. */
+struct FishbowlParams {
+  float alpha;             /**< Overall trail opacity in [0, 1]. */
+  float cycle_duration;    /**< Motion cycle duration in frames. */
+  float speed;             /**< Noise field evolution speed. */
+  float jitter_amp;        /**< Noise displacement amplitude. */
+  float noise_freq;        /**< Noise spatial frequency. */
+  float scale_factor;      /**< Palette coordinate scale factor. */
+  float cycle_speed;       /**< Palette cycle phase advance per step. */
+  float duty_cycle = 0.5f; /**< Lit fraction of each palette cycle. */
+};
 
 /**
  * @brief Undulating string of orientation trails drawn as an anti-aliased
@@ -37,8 +50,30 @@ struct FishbowlWhiteBox;
  *       count. Draw primitive, transform chain and colour/fade are
  *       hand-propagated.
  */
-template <int W, int H> class Fishbowl : public Effect {
+template <int W, int H>
+class Fishbowl : public ChoreographedEffect<Fishbowl<W, H>, FishbowlParams> {
+  using Choreography = ChoreographedEffect<Fishbowl<W, H>, FishbowlParams>;
+  friend Choreography;
+  using Choreography::params;
+  using Choreography::timeline;
+  using Choreography::register_param;
+  using Choreography::begin_choreography;
+  using Choreography::step_choreography;
+
 public:
+  using Params = FishbowlParams;
+  static constexpr Segue::Preset::Snap PRESET_SEGUE{};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 1;
+  static constexpr bool valid_params(const Params &p) {
+    return p.alpha >= 0.0f && p.alpha <= 1.0f && p.cycle_duration >= 10.0f &&
+           p.cycle_duration <= 200.0f && p.speed >= 0.0f && p.speed <= 5.0f &&
+           p.jitter_amp >= 0.0f && p.jitter_amp <= 10.0f &&
+           p.noise_freq >= 0.01f && p.noise_freq <= 10.0f &&
+           p.scale_factor >= 1.0f && p.scale_factor <= 500.0f &&
+           p.cycle_speed >= 0.0f && p.cycle_speed <= 1.0f &&
+           p.duty_cycle >= 0.0f && p.duty_cycle <= 1.0f;
+  }
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"fire-trail"};
   static constexpr int TRAIL_LENGTH = 115;
   static constexpr int ORIENTATION_SUBSTEPS = 16;
@@ -65,8 +100,9 @@ public:
    * @details The path seeds to +Y until init() installs the Lissajous curve.
    */
   HS_COLD_MEMBER Fishbowl()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
-        timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
+      : Choreography(W, H,
+                     pipeline_config<decltype(filters)>({.strobe = true})),
+        filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return math::Vector(0, 1, 0); }), orientation(),
         fire_palette({{0.00f, CPixel{0x000000}},
                       {0.18f, CPixel{0x260000}},
@@ -108,7 +144,7 @@ public:
    * @details Sets up the random walk, path motion, and cycle driver animations.
    */
   HS_COLD_MEMBER void init() override {
-    configure_presets(PRESET_IDS.size());
+    begin_choreography();
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     noise_xform.init_storage(persistent_arena);
@@ -168,6 +204,7 @@ public:
                                         node->trail.length());
     {
       HS_PROFILE(fish_timeline_step);
+      step_choreography();
       timeline.step(canvas);
     }
 
@@ -234,14 +271,6 @@ public:
   }
 
 private:
-  HS_COLD_MEMBER bool apply_preset(const PresetChange &) override {
-    static_assert(PRESET_IDS.size() == 1,
-                  "Fishbowl applies its single PRESET whatever index is "
-                  "requested; a second entry needs a table lookup here");
-    params = PRESET;
-    return true;
-  }
-
   friend struct ::hs_test::effects_tests::FishbowlWhiteBox;
 
   /**
@@ -339,26 +368,11 @@ private:
   }
 
   FastNoiseLite noise; /**< Noise source for the random walk. */
-  Timeline timeline;   /**< Drives all per-frame animations. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
       filters;         /**< Anti-aliasing render pipeline. */
   ProceduralPath path; /**< Lissajous path the node follows. */
   math::Orientation<>
       orientation; /**< Random-walk orientation reference frame. */
-
-  /**
-   * @brief Live-tunable parameters exposed as sliders.
-   */
-  struct Params {
-    float alpha;             /**< Overall trail opacity in [0, 1]. */
-    float cycle_duration;    /**< Motion cycle duration in frames. */
-    float speed;             /**< Noise field evolution speed. */
-    float jitter_amp;        /**< Noise displacement amplitude. */
-    float noise_freq;        /**< Noise spatial frequency. */
-    float scale_factor;      /**< Palette coordinate scale factor. */
-    float cycle_speed;       /**< Palette cycle phase advance per step. */
-    float duty_cycle = 0.5f; /**< Lit fraction of each palette cycle. */
-  };
 
   static constexpr Params PRESET{.alpha = 1.0f,
                                  .cycle_duration = 80.0f,
@@ -368,11 +382,10 @@ private:
                                  .scale_factor = 84.832001f,
                                  .cycle_speed = 0.672f,
                                  .duty_cycle = 0.5f};
-  // Designators bind each value to its field; the width pin catches an added or
-  // removed field, which a designated list alone would leave value-initialized.
-  static_assert(sizeof(Params) == 8 * sizeof(float),
-                "Fishbowl::Params field set changed — update PRESET to match");
-  Params params = PRESET;
+  static constexpr std::array<PresetEntry<Params>, 1> PRESETS{{{PRESET}}};
+  static_assert(all_presets_in_ranges(PRESETS, [](const Params &p) {
+    return valid_params(p);
+  }));
 
   // Precedes scale_mod, which binds &params.scale_factor at construction.
   ScaleModifier scale_mod{
