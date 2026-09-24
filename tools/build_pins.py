@@ -211,6 +211,7 @@ FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 # recipe list and the gate scripts are bash, so none can source a value from
 # another; --check asserts every occurrence matches this one.
 SHARED_LITERALS = {
+    "shell-selection": r"\.sh$|^\.githooks/",
     # Paths the clang-format gate skips: the vendored FastNoiseLite body and
     # the generated tables. core/vendor/FastNoiseLite_config.h is first-party
     # and is gated like any other header.
@@ -238,6 +239,7 @@ SHARED_LITERALS = {
 
 # Patterns for literals shared across build tools.
 SHARED_LITERAL_USES = (
+    (r"grep -E '(\\\.sh[^']*)'", "shell-selection"),
     (r"grep -vE '([^']*)'", "format-exclude"),
     (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs"),
     # Anchored on the extension alternation's own opening, so an unrelated

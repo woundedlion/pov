@@ -17,7 +17,8 @@ scratch=$(mktemp -d)
 tmp=$scratch/files
 trap 'rm -rf -- "$scratch"' EXIT
 
-git ls-files -- '*.sh' '.githooks/*' > "$tmp"
+git ls-files > "$scratch/tracked"
+grep -E '\.sh$|^\.githooks/' "$scratch/tracked" > "$tmp" || [[ $? == 1 ]]
 
 if [ ! -s "$tmp" ]; then
   echo "no shell files selected -- the shell path list is broken"
