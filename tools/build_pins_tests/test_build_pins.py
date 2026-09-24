@@ -400,6 +400,18 @@ class CheckTool(unittest.TestCase):
                          set())
         self.assertEqual(bp.check_consumers(), 0)
 
+    def test_justfile_tool_checks_are_supported(self):
+        source = (bp.ROOT / "justfile").read_text(encoding="utf-8")
+        names = set(re.findall(r"--check-tool ([a-z-]+)", source))
+        self.assertTrue(names)
+        self.assertEqual(names - bp.CHECK_TOOLS.keys(), set())
+
+    def test_actionlint_checks_the_binary_release_and_command(self):
+        pin = bp.PINS["actionlint"]
+        self.assertEqual(bp.CHECK_TOOLS["actionlint"][0], ["actionlint", "-version"])
+        self.assertEqual(self._check("actionlint", pin.rsplit(".", 1)[0] + "\nbuilt with go")[0], 0)
+        self.assertEqual(self._check("actionlint", "0.0.0")[0], 1)
+
     def test_pins_with_no_version_to_report_are_not_targets(self):
         for name in ("daydream", "doxygen-awesome", "doxygen-sha256",
                      "llvm-key-sha256", "emsdk", "kicad"):
