@@ -19,6 +19,7 @@ import argparse
 import glob
 import json
 import os
+from pathlib import Path
 from kicad_common import atomic_write_text
 import sys
 
@@ -107,10 +108,18 @@ def heal_project(p, dry_run=False):
             for field, (old, new) in changes.items()
         )
         action = "would heal" if dry_run else "healed"
-        print(f"{action} {os.path.relpath(p, OUT)}: {summary}")
+        print(f"{action} {display_path(p)}: {summary}")
     else:
-        print(f"ok     {os.path.relpath(p, OUT)}")
+        print(f"ok     {display_path(p)}")
     return bool(changes)
+
+
+def display_path(path):
+    resolved = Path(path).resolve()
+    try:
+        return str(resolved.relative_to(Path(OUT).resolve()))
+    except ValueError:
+        return str(resolved)
 
 
 def parse_args(argv=None):
@@ -127,7 +136,7 @@ def main(argv=None):
     protected = [os.path.abspath(path) for path in args.projects
                  if is_manifested(path)]
     for path in protected:
-        print(f"skip   {os.path.relpath(path, OUT)}: hash-manifested by "
+        print(f"skip   {display_path(path)}: hash-manifested by "
               f"SHA256SUMS.txt; healing it would break the manifest",
               file=sys.stderr)
     if not pros:
@@ -144,7 +153,7 @@ def main(argv=None):
         try:
             healed += heal_project(p, args.dry_run)
         except (OSError, ValueError) as error:
-            print(f"error: cannot process {os.path.relpath(p, OUT)}: {error}",
+            print(f"error: cannot process {display_path(p)}: {error}",
                   file=sys.stderr)
             return 1
 
