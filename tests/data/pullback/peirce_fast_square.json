@@ -39,11 +39,11 @@
     {
       "domain": "PROJECTED_COORDINATE",
       "aggregation": "MAXIMUM",
-      "measured_baseline": 0.00110423565,
+      "measured_baseline": 0.00113964080810546875,
       "accepted_limit": 0.0012,
       "unit": "plane units",
-      "limit_provenance": "existing ShaderWorkbench fast-square oracle with 8.7 percent headroom",
-      "measurement_provenance": "unit_shader_workbench exact-versus-fast latitude-longitude corpus at base_sha"
+      "limit_provenance": "existing ShaderWorkbench fast-square release budget",
+      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus; reproduced in the pre-review main-tree binary and review worktree on 2026-09-24"
     },
     {
       "domain": "PROJECTED_EDGE_DISTANCE",
@@ -52,7 +52,7 @@
       "accepted_limit": 0.0002,
       "unit": "plane units",
       "limit_provenance": "existing ShaderWorkbench fast-square edge oracle",
-      "measurement_provenance": "unit_shader_workbench exact-versus-fast latitude-longitude corpus at base_sha"
+      "measurement_provenance": "native Debug clang 23 exact-versus-fast latitude-longitude corpus; reproduced in the pre-review main-tree binary and review worktree on 2026-09-24"
     },
     {
       "domain": "FRAMEBUFFER",
