@@ -5010,7 +5010,9 @@ inline void test_shader_workbench_prepared_hue_noise_color() {
   const auto &mean = pullback_oracle_metric("HUE_ROTATION_AND_NOISE_LUTS",
                                             "COLOR_CHANNEL", "MEAN");
   HS_EXPECT_LE(error.max, static_cast<uint16_t>(maximum.accepted_limit));
+  HS_EXPECT_LE(error.max, maximum.measured_baseline);
   HS_EXPECT_LE(error.mean(), static_cast<uint64_t>(mean.accepted_limit));
+  HS_EXPECT_LE(error.mean(), mean.measured_baseline);
   HS_EXPECT_EQ(WB::color_metric_limit(0), maximum.accepted_limit);
   HS_EXPECT_EQ(WB::color_metric_limit(1), mean.accepted_limit);
 #else
@@ -5058,7 +5060,9 @@ inline void test_shader_workbench_fast_peirce_square() {
   const auto &edge = pullback_oracle_metric(
       "PEIRCE_FAST_SQUARE", "PROJECTED_EDGE_DISTANCE", "MAXIMUM");
   HS_EXPECT_LE(max_coordinate_error, coordinate.accepted_limit);
+  HS_EXPECT_LE(max_coordinate_error, coordinate.measured_baseline);
   HS_EXPECT_LE(max_edge_error, edge.accepted_limit);
+  HS_EXPECT_LE(max_edge_error, edge.measured_baseline);
   HS_EXPECT_EQ(ShaderWorkbenchWhiteBox::peirce_metric_limit(0),
                coordinate.accepted_limit);
   HS_EXPECT_EQ(ShaderWorkbenchWhiteBox::peirce_metric_limit(1),
