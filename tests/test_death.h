@@ -2174,6 +2174,20 @@ inline void case_particle_lifetime_zero() {
   init_particle_system_with_lifetime(opaque(0.0f));
 }
 
+inline void case_particle_friction_nan() {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 1> ps;
+  ps.init(arena, opaque(std::numeric_limits<float>::quiet_NaN()));
+}
+
+inline void case_particle_gravity_nan() {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 1> ps;
+  ps.init(arena, 0.85f, opaque(std::numeric_limits<float>::quiet_NaN()));
+}
+
 /** @brief Death case: a NaN particle lifetime must trap. */
 inline void case_particle_lifetime_nan() {
   init_particle_system_with_lifetime(
@@ -4778,6 +4792,14 @@ inline const Case *all_cases(int &n) {
        "core/animation/sprites.h",
        "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
        "65535.0f) ParticleSystem max_life must be finite and in [1, 65535]"},
+      {"particle_friction_nan", case_particle_friction_nan,
+       "core/animation/sprites.h",
+       "(std::isfinite(friction) && std::isfinite(gravity)) ParticleSystem "
+       "friction and gravity must be finite"},
+      {"particle_gravity_nan", case_particle_gravity_nan,
+       "core/animation/sprites.h",
+       "(std::isfinite(friction) && std::isfinite(gravity)) ParticleSystem "
+       "friction and gravity must be finite"},
       {"particle_lifetime_nan", case_particle_lifetime_nan,
        "core/animation/sprites.h",
        "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
