@@ -430,7 +430,7 @@ struct ValueParams {
   }
 };
 
-using ColorParams = Pullback::Color::ColorParams;
+using ColorParams = Pullback::Color::ColorControls;
 
 struct OuterCameraParams {
   float wander = 0.0f;
@@ -477,8 +477,6 @@ struct Params {
     surface_noise.lerp(a.surface_noise, b.surface_noise, t);
     value.lerp(a.value, b.value, t);
     color = Pullback::Fields::interpolate(a.color, b.color, t);
-    color.palette_mapping =
-        t < 1.0f ? a.color.palette_mapping : b.color.palette_mapping;
     outer_camera.lerp(a.outer_camera, b.outer_camera, t);
   }
 
@@ -522,8 +520,6 @@ struct Params {
     if (color_changed) {
       const float color_t = phase_t(t, phase++, phase_count);
       color = Pullback::Fields::interpolate(a.color, b.color, color_t);
-      color.palette_mapping =
-          color_t < 1.0f ? a.color.palette_mapping : b.color.palette_mapping;
     }
     if (a.outer_camera != b.outer_camera)
       outer_camera.lerp(a.outer_camera, b.outer_camera,

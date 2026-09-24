@@ -160,9 +160,7 @@ strict_seam_compatible(const Config &config) {
 HS_COLD_MEMBER inline constexpr bool
 valid_config(const RequestedConfig &candidate) {
   const Slots &slots = candidate.slots;
-  if (!valid_slot_enums(slots) ||
-      !enum_at_most(candidate.params.color.palette_mapping,
-                    Pullback::Color::PaletteMapping::REVERSE))
+  if (!valid_slot_enums(slots))
     return false;
   if (is_sphere_source(slots.function) &&
       (slots.warp_program.outer.kind != WarpStageKind::NONE ||
@@ -602,10 +600,8 @@ inline constexpr bool valid_slot_enums(const Slots &slots) {
 }
 
 inline constexpr bool valid_snapshot_config(const Config &config) {
-  return valid_slot_enums(config.slots) &&
-         enum_at_most(config.params.color.palette_mapping,
-                      Pullback::Color::PaletteMapping::REVERSE) &&
-         preset_in_ranges(config) && hue_shift_amount_in_range(config) &&
+  return valid_slot_enums(config.slots) && preset_in_ranges(config) &&
+         hue_shift_amount_in_range(config) &&
          mobius_coefficients_in_range(config.params.surface_lens.mobius);
 }
 
