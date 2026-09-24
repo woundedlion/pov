@@ -716,8 +716,8 @@ private:
 
   float color_spin =
       0.0f; /**< Palette offset across the stack (turns, [0,1)). */
-  static constexpr int RING_SLOTS =
-      72; /**< Baked-ring pool capacity, and the Rings slider maximum. */
+  static constexpr int RING_SLOTS = std::min(
+      72, H); /**< Baked-ring pool capacity and Rings slider maximum. */
   static_assert(RING_SLOTS <= INT8_MAX,
                 "slot_by_ring is int8_t with -1 as the culled sentinel; a "
                 "larger pool wraps slot indices negative");
@@ -780,9 +780,10 @@ private:
    * @details Defaults are pre-registration starting values.
    */
   struct Params {
-    float alpha = 0.3f;      /**< Overall ring opacity multiplier in [0, 1]. */
-    int num_rings = 48;      /**< Number of evenly spaced rings. */
-    float thickness = 0.03f; /**< Stroke half-width (radians). */
+    float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
+    int num_rings =
+        std::min(48, RING_SLOTS); /**< Number of evenly spaced rings. */
+    float thickness = 0.03f;      /**< Stroke half-width (radians). */
     float ball_amp =
         0.1f; /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
     float noise_amp =
