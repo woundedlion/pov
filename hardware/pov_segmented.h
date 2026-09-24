@@ -627,14 +627,8 @@ private:
         [&] {
           pov::sync::BurstSnapshot burst;
           const pov::sync::BurstSnapshot *bp = nullptr;
-          if (segment_id != 0) {
-            const uint32_t primask = hs::save_disable_interrupts();
-            if (sync.mailbox().try_claim(now, sync.gap_timeout_cycles(),
-                                         sync.max_burst_cycles(), &burst))
-              bp = &burst;
-            sync.mailbox().age_prior(now, sync.glitch_filter_cycles());
-            hs::restore_interrupts(primask);
-          }
+          if (segment_id != 0 && sync.claim_sync_burst(now, &burst))
+            bp = &burst;
           return sync.tick(now, bp);
         },
         [] { return pov::sync::SyncBoard::build_gen_of(sync.build_word()); },

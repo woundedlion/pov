@@ -186,27 +186,15 @@ public:
     edge_mailbox.on_edge(now, protocol_config.glitch_filter_cycles);
   }
 
-  /**
-   * @brief Device-side accessor for the IRQ-off mailbox handoff.
-   * @pre Interrupts must be disabled while accessing the returned mailbox.
-   * @return Reference to the edge mailbox.
-   */
-  EdgeMailbox &mailbox() { return edge_mailbox; }
-  /**
-   * @brief Burst-terminating gap.
-   * @return Quiet time that terminates a burst, in cycles.
-   */
-  uint32_t gap_timeout_cycles() const { return cached_gap_timeout_cycles; }
-  /**
-   * @brief Burst-duration ceiling.
-   * @return Duration past which an unterminated burst is claimed, in cycles.
-   */
-  uint32_t max_burst_cycles() const { return cached_max_burst_cycles; }
-  /**
-   * @brief Glitch-filter window.
-   * @return Minimum accepted edge spacing, in cycles.
-   */
-  uint32_t glitch_filter_cycles() const { return cached_glitch_filter_cycles; }
+  /** @brief Claims a completed burst and ages prior edges under one IRQ mask. */
+  bool claim_sync_burst(uint32_t now, BurstSnapshot *out) {
+    const uint32_t primask = hs::save_disable_interrupts();
+    const bool claimed = edge_mailbox.try_claim(now, cached_gap_timeout_cycles,
+                                                cached_max_burst_cycles, out);
+    edge_mailbox.age_prior(now, cached_glitch_filter_cycles);
+    hs::restore_interrupts(primask);
+    return claimed;
+  }
 
   /**
    * @brief One flywheel wake-up.
@@ -374,6 +362,28 @@ private:
   // Test-only access, kept private behind the test friend so production code
   // cannot race the ISR-owned single-writer state.
   friend struct ::hs_test::pov_sync_tests::SyncBoardTestAccess;
+
+  /**
+   * @brief Device-side accessor for the IRQ-off mailbox handoff.
+   * @pre Interrupts must be disabled while accessing the returned mailbox.
+   * @return Reference to the edge mailbox.
+   */
+  EdgeMailbox &mailbox() { return edge_mailbox; }
+  /**
+   * @brief Burst-terminating gap.
+   * @return Quiet time that terminates a burst, in cycles.
+   */
+  uint32_t gap_timeout_cycles() const { return cached_gap_timeout_cycles; }
+  /**
+   * @brief Burst-duration ceiling.
+   * @return Duration past which an unterminated burst is claimed, in cycles.
+   */
+  uint32_t max_burst_cycles() const { return cached_max_burst_cycles; }
+  /**
+   * @brief Glitch-filter window.
+   * @return Minimum accepted edge spacing, in cycles.
+   */
+  uint32_t glitch_filter_cycles() const { return cached_glitch_filter_cycles; }
 
   /**
    * @brief Mutable flywheel access (test-only).
