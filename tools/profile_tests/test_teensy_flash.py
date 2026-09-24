@@ -15,7 +15,7 @@ class TeensyFlashTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, body in {
-                "teensy_ports.exe": "printf '%s\\n' 'usb-a Serial COM3 Teensy' 'usb-b Serial COM4 Teensy'",
+                "teensy_ports.exe": "printf '%s\\n' 'usb-a COM3 (Teensy 4.0)' 'usb-b COM4 (Teensy 4.0)'",
                 "teensy_post_compile.exe": "printf '%s\\n' \"$@\"",
             }.items():
                 script = root / name
@@ -34,6 +34,7 @@ class TeensyFlashTests(unittest.TestCase):
         result = self.flash()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("-port=usb-b\n", result.stdout)
+        self.assertIn("-portlabel=COM4 (Teensy 4.0)\n", result.stdout)
         self.assertNotIn("-port=usb-a", result.stdout)
         self.assertIn(".pio/build/bench", result.stdout)
 
