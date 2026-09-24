@@ -1270,6 +1270,49 @@ public:
     return chain_result(refusal.code, refusal.entry_index);
   }
 
+  /** @brief Atomically applies named writes after validating the final state. */
+  ParamSetResult setShaderChainParameters(const emscripten::val &entries) {
+    const SnapshotDecodeGuard decode_guard;
+    if (!with_shader_chain([]<typename SC>(SC &) {}))
+      return ParamSetResult::NO_EFFECT;
+    const uint64_t owner_generation = effect_generation;
+    const Effect *const owner = current_effect.get();
+    const auto schema_generation =
+        current_effect->getParameterSchemaGeneration();
+    if (!is_array(entries))
+      return ParamSetResult::UNKNOWN_PARAM;
+    const size_t count = entries["length"].as<size_t>();
+    if (count > Pullback::Interp::MAX_CHAIN_PARAMS)
+      return ParamSetResult::UNKNOWN_PARAM;
+    std::vector<std::string> names(count);
+    std::vector<float> values(count);
+    for (size_t index = 0; index < count; ++index) {
+      const emscripten::val entry = entries[index];
+      if (entry.isNull() || entry.isUndefined())
+        return ParamSetResult::UNKNOWN_PARAM;
+      const emscripten::val name = entry["name"];
+      const emscripten::val value = entry["value"];
+      if (!name.isString())
+        return ParamSetResult::UNKNOWN_PARAM;
+      if (!value.isNumber())
+        return ParamSetResult::NON_FINITE;
+      names[index] = name.as<std::string>();
+      values[index] = value.as<float>();
+    }
+    if (effect_generation != owner_generation ||
+        current_effect.get() != owner ||
+        current_effect->getParameterSchemaGeneration() != schema_generation)
+      return ParamSetResult::NO_EFFECT;
+    std::vector<ShaderChainParameterWrite> writes(count);
+    for (size_t index = 0; index < count; ++index)
+      writes[index] = {names[index].c_str(), values[index]};
+    ParamSetResult result = ParamSetResult::NO_EFFECT;
+    with_shader_chain([&]<typename SC>(SC &chain) {
+      result = chain.update_parameters(writes);
+    });
+    return result;
+  }
+
   /**
    * @brief Exports the chain-interpreter operator catalog.
    * @return The catalog JSON — budgets, carriers, and every operator-table
@@ -1530,7 +1573,8 @@ static void bind_engine() {
       .value("NO_EFFECT", ParamSetResult::NO_EFFECT)
       .value("UNKNOWN_PARAM", ParamSetResult::UNKNOWN_PARAM)
       .value("READONLY", ParamSetResult::READONLY)
-      .value("NON_FINITE", ParamSetResult::NON_FINITE);
+      .value("NON_FINITE", ParamSetResult::NON_FINITE)
+      .value("INADMISSIBLE", ParamSetResult::INADMISSIBLE);
 
   emscripten::enum_<ClipSetResult>("ClipSetResult")
       .value("APPLIED", ClipSetResult::APPLIED)
@@ -1627,6 +1671,8 @@ static void bind_engine() {
 #endif
 #if HS_ENABLE_CHAIN_INTERPRETER
       .function("setShaderChain", &HolosphereEngine::setShaderChain)
+      .function("setShaderChainParameters",
+                &HolosphereEngine::setShaderChainParameters)
       .class_function("getShaderChainCatalog",
                       &HolosphereEngine::getShaderChainCatalog)
 #endif

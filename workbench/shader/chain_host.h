@@ -30,6 +30,12 @@ struct ShaderChainWhiteBox;
 } // namespace shader_chain_tests
 } // namespace hs_test
 
+/** @brief One named value in an atomic chain parameter update. */
+struct ShaderChainParameterWrite {
+  const char *name;
+  float value;
+};
+
 /**
  * @brief Stage-program interpreter effect over the pullback operator table.
  * @tparam W Canvas width in pixels.
@@ -56,9 +62,6 @@ public:
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     resources = persistent_arena.make<Resources>();
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-    set_parameter_updated_hook(&parameter_updated);
-#endif
     resources->hue_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     resources->hue_noise.SetSeed(Pullback::HUE_NOISE_SEED);
     resources->hue_noise.SetFrequency(1.0f);
@@ -95,6 +98,10 @@ public:
   set_chain(std::span<const ChainEntryRequest> request) {
     const ChainRefusal refusal = program.compile(request);
     if (refusal.code == ChainStatus::OK) {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+      refused_name = nullptr;
+      refusal_warning = nullptr;
+#endif
       colorize = find_colorize_tap();
       rebind_chain_parameters();
     }
@@ -120,27 +127,68 @@ public:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  const char *parameter_warning(const char *name) const override {
+  /** @brief Validates the final parameter state, then commits every write. */
+  ParamSetResult
+  update_parameters(std::span<const ShaderChainParameterWrite> writes) {
+    if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
+      return ParamSetResult::UNKNOWN_PARAM;
+    alignas(std::max_align_t)
+        uint8_t candidates[Pullback::Interp::MAX_CHAIN_OPS][PARAM_BYTES];
     const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index) {
+      const auto &runtime = ops[index].op->runtime;
+      runtime.construct_params(candidates[index]);
+      std::memcpy(candidates[index], program.param_block(index),
+                  runtime.param.size);
+    }
+    bool animated = false;
+    for (const auto &write : writes) {
+      if (write.name == nullptr)
+        return ParamSetResult::UNKNOWN_PARAM;
+      const ParamDef *parameter = getParameters().find(write.name);
+      if (parameter == nullptr)
+        return ParamSetResult::UNKNOWN_PARAM;
+      if (parameter->readonly)
+        return ParamSetResult::READONLY;
+      if (!std::isfinite(write.value))
+        return ParamSetResult::NON_FINITE;
+      float value = write.value;
+      if (parameter->is_enum() || parameter->is_integer())
+        value = roundf(value);
+      if (!parameter->is_bool())
+        value = hs::clamp(value, parameter->min, parameter->max);
+      for (size_t index = 0; index < ops.size(); ++index)
+        for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+          if (std::strcmp(write.name, program.param_name(index, field)) == 0) {
+            ParamDef proposed = *parameter;
+            proposed.target =
+                ops[index].op->runtime.param_address(candidates[index], field);
+            write_parameter_unchecked(proposed, value);
+          }
+      animated |= parameter->animated;
+    }
     for (size_t index = 0; index < ops.size(); ++index)
-      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-        if (std::strcmp(name, program.param_name(index, field)) == 0)
-          return ops[index].op->runtime.validate(resources->requested[index]);
-    return nullptr;
+      if (const char *warning =
+              ops[index].op->runtime.validate(candidates[index])) {
+        refused_name = program.param_name(index, 0);
+        refusal_warning = warning;
+        return ParamSetResult::INADMISSIBLE;
+      }
+    for (size_t index = 0; index < ops.size(); ++index)
+      std::memcpy(program.param_block(index), candidates[index],
+                  ops[index].op->runtime.param.size);
+    refused_name = nullptr;
+    refusal_warning = nullptr;
+    if (animated)
+      setAnimationsPaused(true);
+    parameter_written();
+    return ParamSetResult::APPLIED;
   }
 
-  float accepted_parameter_value(const ParamDef &parameter) const override {
-    const auto ops = program.ops();
-    for (size_t index = 0; index < ops.size(); ++index)
-      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-        if (std::strcmp(parameter.name, program.param_name(index, field)) ==
-            0) {
-          ParamDef accepted = parameter;
-          accepted.target = ops[index].op->runtime.param_address(
-              const_cast<uint8_t *>(program.param_block(index)), field);
-          return accepted.get_requested();
-        }
-    return parameter.get_requested();
+  const char *parameter_warning(const char *name) const override {
+    return refused_name != nullptr && std::strcmp(name, refused_name) == 0
+               ? refusal_warning
+               : nullptr;
   }
 #endif
 
@@ -159,17 +207,6 @@ private:
 
   /** @brief Engine-owned shared resources the FrameContext borrows. */
   struct Resources {
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-    static constexpr size_t PARAM_BYTES = [] {
-      size_t largest = 0;
-      for (const auto &op : Pullback::Interp::OPERATOR_TABLE)
-        largest = std::max(largest, static_cast<size_t>(op.runtime.param.size));
-      return (largest + alignof(std::max_align_t) - 1) /
-             alignof(std::max_align_t) * alignof(std::max_align_t);
-    }();
-    alignas(std::max_align_t)
-        uint8_t requested[Pullback::Interp::MAX_CHAIN_OPS][PARAM_BYTES];
-#endif
     std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
         hue_rotation_lut{};
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut{};
@@ -231,11 +268,6 @@ private:
     for (size_t index = 0; index < ops.size(); ++index) {
       const Pullback::Interp::OperatorDescriptor &op = *ops[index].op;
       uint8_t *block = program.param_block(index);
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-      op.runtime.construct_params(resources->requested[index]);
-      std::memcpy(resources->requested[index], block, op.runtime.param.size);
-      block = resources->requested[index];
-#endif
       for (uint16_t field = 0; field < op.schema_count; ++field) {
         const Pullback::Interp::ParamFieldInfo &info = op.schema[field];
         const char *name = program.param_name(index, field);
@@ -251,20 +283,38 @@ private:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  static void parameter_updated(ParamHost *host, const char *name, bool) {
-    auto &effect = *static_cast<ShaderChain *>(host);
-    const auto ops = effect.program.ops();
+  static constexpr size_t PARAM_BYTES = [] {
+    size_t largest = 0;
+    for (const auto &op : Pullback::Interp::OPERATOR_TABLE)
+      largest = std::max(largest, static_cast<size_t>(op.runtime.param.size));
+    return (largest + alignof(std::max_align_t) - 1) /
+           alignof(std::max_align_t) * alignof(std::max_align_t);
+  }();
+
+  bool parameter_write_admitted(const ParamDef &parameter,
+                                float value) override {
+    const auto ops = program.ops();
     for (size_t index = 0; index < ops.size(); ++index)
       for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-        if (std::strcmp(name, effect.program.param_name(index, field)) == 0) {
+        if (std::strcmp(parameter.name, program.param_name(index, field)) ==
+            0) {
           const auto &runtime = ops[index].op->runtime;
-          const auto *requested = effect.resources->requested[index];
-          if (runtime.validate(requested) == nullptr)
-            std::memcpy(effect.program.param_block(index), requested,
-                        runtime.param.size);
-          return;
+          alignas(std::max_align_t) uint8_t candidate[PARAM_BYTES];
+          runtime.construct_params(candidate);
+          std::memcpy(candidate, program.param_block(index),
+                      runtime.param.size);
+          ParamDef proposed = parameter;
+          proposed.target = runtime.param_address(candidate, field);
+          write_parameter_unchecked(proposed, value);
+          refusal_warning = runtime.validate(candidate);
+          refused_name = refusal_warning != nullptr ? parameter.name : nullptr;
+          return refusal_warning == nullptr;
         }
+    return true;
   }
+
+  const char *refused_name = nullptr;
+  const char *refusal_warning = nullptr;
 #endif
 
   /** @brief Builds the per-frame snapshot, baking hue LUTs when active. */
