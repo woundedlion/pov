@@ -20,6 +20,8 @@
 #include "mesh/relax_bakes_generated.h"
 #include <cmath>
 
+namespace Solids {
+
 // --- Constants for Procedural Generation ---
 /** Square root of 2. */
 inline constexpr float SQRT2 = 1.414213562373095f;
@@ -36,8 +38,6 @@ inline constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + math::PHI);
 inline constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
 /** Truncated tetra/octa/icosahedron truncation parameter. */
 inline constexpr float T_TRUNC_THIRD = 1.0f / 3.0f;
-
-namespace Solids {
 
 HS_O3_BEGIN
 
