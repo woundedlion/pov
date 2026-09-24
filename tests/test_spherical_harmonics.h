@@ -97,7 +97,7 @@ inline void test_factorial_matches_the_product() {
   HS_EXPECT_EQ(SHMath::factorial(0), 1.0f);
   HS_EXPECT_EQ(SHMath::factorial(1), 1.0f);
   HS_EXPECT_EQ(SHMath::factorial(-3), 1.0f);
-  for (int n = 2; n <= SHMath::MAX_FACTORIAL_ARGUMENT; ++n) {
+  for (int n = 2; n <= 34; ++n) {
     const double reference = factorial_reference(n);
     HS_EXPECT_NEAR_REL(static_cast<double>(SHMath::factorial(n)), reference,
                        1e-5);
@@ -157,6 +157,12 @@ inline void test_reduced_legendre_matches_closed_forms() {
 /** @brief harmonic_scale is the per-mode normalization times the omitted seed.
  */
 inline void test_harmonic_scale_folds_in_the_seed() {
+  long double ratio = 1.0L;
+  for (int i = 34; i > 6; --i)
+    ratio /= i;
+  const float reference =
+      static_cast<float>(sqrtl(82.0L * ratio / (4.0L * acosl(-1.0L))));
+  HS_EXPECT_NEAR(SHMath::normalization(20, 14) / reference, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(SHMath::harmonic_scale(0, 0), 0.2820947918f, 1e-7f);
   HS_EXPECT_NEAR(SHMath::harmonic_scale(1, 0), 0.4886025119f, 1e-7f);
   HS_EXPECT_NEAR(SHMath::harmonic_scale(1, 1), -0.4886025119f, 1e-7f);
