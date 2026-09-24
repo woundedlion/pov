@@ -632,9 +632,14 @@ inline void test_build_request_reset() {
   board.seed(2000u, false);
   HS_EXPECT_EQ(board.build_word(), 0u);
 
-  const Config replacement = test_config(3);
+  Config replacement = test_config(3);
+  replacement.cycles_per_half_rev /= 2;
+  replacement.glitch_filter_cycles /= 2;
   board.configure(replacement);
   HS_EXPECT_EQ(config(board).effect_count, 3);
+  HS_EXPECT_EQ(board.gap_timeout_cycles(), replacement.gap_timeout_cycles());
+  HS_EXPECT_EQ(board.max_burst_cycles(), replacement.max_burst_cycles());
+  HS_EXPECT_EQ(board.glitch_filter_cycles(), replacement.glitch_filter_cycles);
   HS_EXPECT_EQ(board.build_word(), 0u);
 
   board.seed(3000u, true);
