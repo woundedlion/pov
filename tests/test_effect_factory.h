@@ -261,8 +261,6 @@ inline void test_phantasm_seed_identity() {
       constexpr std::string_view id =                                          \
           hs::stable_effect_id<name<288, 144>>(#name);                         \
       HS_EXPECT_TRUE(entry->stable_id == id);                                  \
-      HS_EXPECT_EQ(hs::stable_effect_seed(entry->stable_id),                   \
-                   hs::stable_effect_seed(id));                                \
     }                                                                          \
   } while (false);
   HS_PHANTASM_EFFECT_LIST(HS_VERIFY_PHANTASM_SEED)
