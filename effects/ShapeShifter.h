@@ -553,6 +553,12 @@ private:
    * @param fragment_shader Per-fragment shader.
    * @param fill Callable that samples the primitive into the bound fragments.
    */
+  static constexpr Plot::RasterConfig SAMPLED_RASTER_CONFIG{
+      .single_pass = true,
+      .derive_planar_arc_registers = false,
+      .interpolate_registers = false,
+      .sampling_policy = Plot::RasterSamplingPolicy::SELECTABLE};
+
   template <typename F>
   HS_NOINLINE_NOCLONE void
   draw_sampled(Canvas &canvas, size_t capacity, const math::Basis *planar_basis,
@@ -561,13 +567,7 @@ private:
     Fragments points;
     points.bind(scratch_arena_a, capacity);
     fill(points);
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{
-                        .single_pass = true,
-                        .derive_planar_arc_registers = false,
-                        .interpolate_registers = false,
-                        .sampling_policy =
-                            Plot::RasterSamplingPolicy::SELECTABLE}>(
+    Plot::rasterize<W, H, SAMPLED_RASTER_CONFIG>(
         plot_filters, canvas, points, fragment_shader,
         {.projection = planar_basis
                            ? Plot::RasterProjection::planar(*planar_basis)
@@ -858,6 +858,8 @@ private:
 
   // init() allocates the six MAX_SHAPES-sized contour tables and prepare_count()
   // bakes both alpha-falloff palette LUTs, from the persistent arena.
+  static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
+                !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
       (2 * static_cast<size_t>(SIDES_MAX) + 4) * sizeof(Fragment) +
       2 * alignof(Fragment);
