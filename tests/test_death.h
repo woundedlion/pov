@@ -4432,6 +4432,19 @@ inline void case_star_mismatched_step_cache() {
                          Star::step_trig(6));
 }
 
+struct UninitializedReactionLattice
+    : ReactionDiffusionBase<UninitializedReactionLattice, 32, 16> {
+  void init() override {}
+  void render(Canvas &) {}
+  using ReactionDiffusionBase::orient_lattice;
+};
+
+inline void case_reaction_lattice_uninitialized() {
+  UninitializedReactionLattice effect;
+  auto lattice = effect.orient_lattice();
+  (void)lattice;
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4455,6 +4468,9 @@ inline const Case *all_cases(int &n) {
       {"star_mismatched_step_cache", case_star_mismatched_step_cache,
        "core/render/plot/shapes.h",
        "(cache_matches) Star: cached trigonometry does not match inputs"},
+      {"reaction_lattice_uninitialized", case_reaction_lattice_uninitialized,
+       "effects/ReactionDiffusionBase.h",
+       "(nodes != nullptr) ReactionDiffusion: lattice is not initialized"},
       {"recipe_bake_live_iterations", case_recipe_bake_live_iterations,
        "core/mesh/recipe.h",
        "(!step.bake || step.param == 0.0f) apply_step: a baked RELAX step must not specify live iterations"},
