@@ -180,6 +180,7 @@ struct OperatorRuntime {
               const uint8_t *params, const uint8_t *prepared);
   /** Address of one schema field inside a param block, by schema index. */
   void *(*param_address)(void *params, uint16_t schema_index);
+  const char *(*validate)(const void *params);
 };
 
 /**
@@ -365,6 +366,12 @@ template <typename Model> struct ErasedAdapter {
 
   static void construct_params(void *params) { ::new (params) Params{}; }
 
+  static const char *validate(const void *params) {
+    if constexpr (requires(const Params &p) { Model::validate(p); })
+      return Model::validate(*static_cast<const Params *>(params));
+    return nullptr;
+  }
+
   static void init(void *state, InstanceId id) {
     Model::init(*::new (state) State{}, id);
   }
@@ -549,6 +556,7 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           &Adapter::prepare,
           &Adapter::run,
           &Adapter::param_address,
+          &Adapter::validate,
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),
