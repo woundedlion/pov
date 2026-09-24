@@ -65,6 +65,8 @@ public:
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
+    if (y >= H)
+      return;
     int cx = round_wrap_column<W>(x);
     int cy = round_row<H>(y);
 
