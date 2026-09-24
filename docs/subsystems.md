@@ -928,7 +928,7 @@ The shipping `holosphere` sketch runs `RingSpin<96, 20>` with column strobing di
 | S (total pixels) | 40 |
 | RPM | 480 |
 | Column interval | ~1302 µs (= 125 ms / 96 columns) |
-| ISR duration | ~20 µs on the DMA path (`holosphere_dma`, which packs the column and hands it to an async transfer). The shipping `holosphere` image takes the FastLED branch instead, where a blocking `FastLED.show()` clocks 40×24 bits at the configured 6 MHz — ~160 µs, and ~320 µs when `strobe_columns()` blanks straight after it |
+| ISR duration | ~20 µs on the DMA path (`holosphere_dma`), which packs the column and starts an asynchronous transfer. The FastLED path clocks 40×24 bits at 6 MHz (~160 µs per show). A nonstrobed column normally takes ~160 µs after sufficient idle time; `CMinWait<1000>` can add up to 1000 µs. A strobed column adds an immediate blank show and its 1000 µs wait: ~1320 µs even when the first show does not wait, exceeding the ~1302 µs period. The current transfer guard conservatively budgets 1160 µs per show (2320 µs for strobing) and refuses a column period at or below that bound. |
 
 
 ### Multi-Teensy Segmented POV Driver (`pov_segmented.h`)
