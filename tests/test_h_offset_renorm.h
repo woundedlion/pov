@@ -76,6 +76,35 @@ inline void test_face_bounds_use_virtual_height() {
   HS_EXPECT_GT(static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b, 0U);
 }
 
+inline void test_face_rejects_only_the_virtual_south_rows() {
+  const auto point = [](float row, float theta) {
+    const float phi = row * math::PI_F / (H + hs::H_OFFSET - 1);
+    return math::Vector(sinf(phi) * cosf(theta), cosf(phi),
+                        sinf(phi) * sinf(theta));
+  };
+  const uint16_t indices[] = {0, 1, 2};
+  for (bool virtual_only : {false, true}) {
+    const float row = virtual_only ? H + 0.75f : H - 1.5f;
+    const math::Vector vertices[] = {point(row + 0.5f, -0.2f), point(row, 0.0f),
+                                     point(row + 0.5f, 0.2f)};
+    SDF::FaceScratchBuffer scratch;
+    SDF::Face face(std::span<const math::Vector>(vertices, 3),
+                   std::span<const uint16_t>(indices, 3), scratch,
+                   H + hs::H_OFFSET, H);
+    const SDF::Bounds bounds = face.get_vertical_bounds<H>();
+    if (virtual_only) {
+      HS_EXPECT_EQ(face.count, 0);
+      HS_EXPECT_GT(bounds.y_min, bounds.y_max);
+      HS_EXPECT_TRUE(face.scratch_owner == nullptr);
+    } else {
+      HS_EXPECT_EQ(face.count, 3);
+      HS_EXPECT_LE(bounds.y_min, H - 1);
+      HS_EXPECT_EQ(bounds.y_max, H - 1);
+      HS_EXPECT_TRUE(face.scratch_owner == &scratch);
+    }
+  }
+}
+
 /**
  * @brief Sums the tap alphas emitted by one AntiAlias::plot call.
  * @param aa The filter under test.
@@ -395,6 +424,7 @@ inline int run_h_offset_renorm_tests() {
   test_plot_below_last_row_is_clipped();
   test_feedback_bottom_row_rotates_in_longitude();
   test_face_bounds_use_virtual_height();
+  test_face_rejects_only_the_virtual_south_rows();
   pole_wrap_tests::run_pole_wrap_cases();
   return fixture.result();
 }
