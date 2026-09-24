@@ -328,10 +328,10 @@ hs_device_release() {
 }
 
 # Reports every attached board. rc 0 if at least one is claimable, 2 if the
-# boards could not be enumerated at all.
+# boards could not be enumerated or the configured pin is unattached.
 hs_device_status() {
   local ports p port d free=1
-  ports=$(hs_device_ports) || return $?
+  ports=$(hs_device_ports) || return 2
   [ -n "$ports" ] || ports="-"
   for p in $ports; do
     port=$([ "$p" = "-" ] && echo "" || echo "$p")
