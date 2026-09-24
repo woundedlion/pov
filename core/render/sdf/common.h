@@ -359,7 +359,9 @@ inline constexpr float ARC_STRETCH_PLANE = 1.25f;
 /** Most a shape's distance() can change per unit of great-circle arc, over the
  * band within a pixel or two of its surface -- the only band a walk that
  * vouches for a run of columns from one probe has to cross. Such a walk scales
- * the run's arc by this; against ARC_STRETCH_UNBOUNDED no slack suffices and
+ * the run's arc by this and report_stretch(shape). Face supplies an additional
+ * instance factor of 1 + max_dist_sq; other leaves use 1. Against
+ * ARC_STRETCH_UNBOUNDED no slack suffices and
  * the run must be walked per column. A combinator takes the loosest child. A
  * shape states its own factor; an unstated one is unbounded. */
 template <typename T>
