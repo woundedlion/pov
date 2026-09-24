@@ -13,8 +13,9 @@ if [ "$#" -ne 0 ]; then
   exit 2
 fi
 
-tmp=$(mktemp)
-trap 'rm -f -- "$tmp"' EXIT
+scratch=$(mktemp -d)
+tmp=$scratch/files
+trap 'rm -rf -- "$scratch"' EXIT
 
 git ls-files -- '*.sh' '.githooks/*' > "$tmp"
 
@@ -26,23 +27,43 @@ fi
 xargs -d '\n' shellcheck -x < "$tmp"
 
 while IFS= read -r action; do
-  awk '
-    /^[[:space:]]+run: \|$/ {
-      match($0, /[^ ]/); indent = RSTART - 1; body_indent = 0; active = 1; next
+  awk -v directory="$scratch" '
+    function finish() {
+      if (!has_run) return
+      if (shell !~ /^(bash|sh|dash|ksh)$/ || body !~ /[^[:space:]]/) {
+        print "unsupported shell or empty run body" > "/dev/stderr"; failed=1; exit 1
+      }
+      count++
+      path=directory "/step-" count
+      print body > path; close(path)
+      print shell " " path
     }
-    active && /^[[:space:]]*$/ { print; next }
+    /^[[:space:]]*-[[:space:]]/ {
+      finish(); shell=""; body=""; has_run=0; active=0
+    }
     active {
+      if ($0 ~ /^[[:space:]]*$/) { body=body "\n"; next }
       match($0, /[^ ]/)
       if (RSTART - 1 > indent) {
-        if (!body_indent) body_indent = RSTART
-        print substr($0, body_indent); next
+        if (!body_indent) body_indent=RSTART
+        body=body substr($0, body_indent) "\n"; next
       }
+      active=0
     }
-    { active = 0 }
+    /^[[:space:]]+(-[[:space:]]+)?shell:/ {
+      shell=$0; sub(/^[[:space:]]+(-[[:space:]]+)?shell:[[:space:]]*/, "", shell)
+      next
+    }
+    /^[[:space:]]+(-[[:space:]]+)?run:/ {
+      if ($0 !~ /run: \|[-+]?[[:space:]]*$/) {
+        print "unsupported run scalar; use a literal | block" > "/dev/stderr"
+        failed=1; exit 1
+      }
+      match($0, /run:/); indent=RSTART - 1; body_indent=0; active=1; has_run=1
+    }
+    END { if (!failed) { finish(); if (!count) exit 1 } }
   ' "$action" > "$tmp"
-  if ! grep -q '[^[:space:]]' "$tmp"; then
-    echo "no shell body extracted from $action" >&2
-    exit 1
-  fi
-  shellcheck -s bash - < "$tmp"
+  while read -r shell body; do
+    shellcheck -s "$shell" - < "$body"
+  done < "$tmp"
 done < <(git ls-files -- '.github/actions/*/action.yml' '.github/actions/*/action.yaml')
