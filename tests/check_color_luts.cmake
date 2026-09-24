@@ -3,8 +3,7 @@
 # flash-section marker, the include and value signs gate alongside the numbers.
 # Counterpart of the lut-provenance job in .github/workflows/ci.yml.
 # The generator pipes its header through clang-format (CLANG_FORMAT or the one
-# on PATH) and refuses to emit without it. Skips with SKIP_CODE when Python or
-# clang-format is unavailable, or fails outright under REQUIRE_PYTHON (CI, which
+# on PATH) and refuses to emit without it. Skips with SKIP_CODE when clang-format is unavailable, or fails outright under REQUIRE_PYTHON (CI, which
 # provisions both).
 # -D args: PYTHON_EXE, GENERATOR, COMMITTED, GENERATED, SKIP_CODE, REQUIRE_PYTHON.
 
@@ -12,14 +11,6 @@
 # otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
 # feature. Matches the top-level CMakeLists.
 cmake_minimum_required(VERSION 3.29)
-
-if(NOT PYTHON_EXE OR NOT EXISTS "${PYTHON_EXE}")
-  if(REQUIRE_PYTHON)
-    message(FATAL_ERROR "color_luts pin: no Python interpreter, and HS_REQUIRE_GENERATORS is ON")
-  endif()
-  message(STATUS "color_luts pin: no Python interpreter; skipping")
-  cmake_language(EXIT ${SKIP_CODE})
-endif()
 
 if("$ENV{CLANG_FORMAT}" STREQUAL "")
   find_program(_clang_format clang-format)
