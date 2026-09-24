@@ -293,6 +293,17 @@ private:
            Filter::Pixel::Feedback<W, H>>
       filters;
 
+  static constexpr size_t SCRATCH_A_PEAK_BYTES =
+      Plot::Mesh::EDGE_MAX_POINTS * sizeof(Fragment) +
+      Plot::rasterize_scratch_a_bytes<W>();
+  static_assert(
+      SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
+      "MeshFeedback wireframe draw exceeds the default scratch_a budget");
+  static_assert(
+      sizeof(TriangularBitset<Plot::Mesh::DEDUP_CAPACITY>) <=
+          DEFAULT_SCRATCH_B_SIZE,
+      "MeshFeedback edge extraction exceeds the default scratch_b budget");
+
   static constexpr size_t MESH_STORAGE_BYTES =
       Solids::MAX_SOLID_VERTICES * sizeof(math::Vector) +
       Solids::MAX_SOLID_FACES * (sizeof(uint8_t) + sizeof(uint16_t)) +
