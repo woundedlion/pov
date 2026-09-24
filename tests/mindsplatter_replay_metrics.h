@@ -11,6 +11,12 @@
 
 namespace mindsplatter_replay {
 
+inline constexpr uint64_t HASH_SEED = 1469598103934665603ull;
+
+inline uint64_t hash_byte(uint64_t hash, uint8_t byte) {
+  return (hash ^ byte) * 1099511628211ull;
+}
+
 inline constexpr const char *SOURCE_REVISION = "msp-heavy-search-v3";
 
 /** @brief Quadrant clips each searched frame is scored under. */
@@ -35,8 +41,8 @@ template <int W, int H> constexpr ClipRegion search_clip(int index) {
 
 /** @brief Per-channel difference metrics, written by every comparator. */
 struct ReferenceStats {
-  uint64_t framebuffer_hash = 1469598103934665603ull;
-  uint64_t expected_hash = 1469598103934665603ull;
+  uint64_t framebuffer_hash = HASH_SEED;
+  uint64_t expected_hash = HASH_SEED;
   uint64_t total_absolute_error = 0;
   uint32_t changed_pixels = 0;
   uint32_t changed_channels = 0;
@@ -59,8 +65,8 @@ struct FrameStats : ReferenceStats {
 };
 
 inline uint64_t hash_channel(uint64_t hash, uint16_t channel) {
-  hash = (hash ^ static_cast<uint8_t>(channel)) * 1099511628211ull;
-  return (hash ^ static_cast<uint8_t>(channel >> 8)) * 1099511628211ull;
+  hash = hash_byte(hash, static_cast<uint8_t>(channel));
+  return hash_byte(hash, static_cast<uint8_t>(channel >> 8));
 }
 
 inline uint16_t linear_luminance(uint16_t r, uint16_t g, uint16_t b) {
