@@ -468,6 +468,14 @@ inline void report_near_rel(double a, double b, double rel_tol,
 inline void skip_case(const char *case_name, const char *reason) {
   ++stats().skipped;
   std::printf("  SKIP [%s] %s\n", case_name, reason);
+#if defined(HS_TEST_FAST_MATH)
+  const std::string_view CASE(case_name);
+  if (CASE != "test_specialized_render_signature" &&
+      CASE != "test_blend_outputs_denormal_alpha") {
+    ++stats().failed;
+    std::printf("  FAIL: unapproved fast-math skip [%s]\n", case_name);
+  }
+#endif
 }
 
 /**
