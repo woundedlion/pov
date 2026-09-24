@@ -41,6 +41,8 @@ public:
    */
   template <typename VertexArray>
   void set_vertices(const VertexArray &vertices) {
+    HS_CHECK(std::size(vertices) >= static_cast<size_t>(N),
+             "VertexReplicate: vertex array is smaller than replica count");
     for (int i = 0; i < N; ++i)
       rotations[i] = math::make_rotation(vertices[0], vertices[i]);
   }

@@ -4483,6 +4483,11 @@ inline void case_reaction_lattice_uninitialized() {
   (void)lattice;
 }
 
+inline void case_vertex_replicate_short_input() {
+  std::array<math::Vector, 2> vertices{};
+  Filter::World::VertexReplicate<3> replicate(vertices);
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4500,6 +4505,10 @@ inline const Case *all_cases(int &n) {
        "(cv.width() == W && cv.height() == H) DirectAntiAliasSink: framebuffer dimensions do not match"},
       {"recipe_bake_wrong_op", case_recipe_bake_wrong_op, "core/mesh/recipe.h",
        "(!step.bake || step.op == Op::RELAX) apply_step: only RELAX accepts a bake"},
+      {"vertex_replicate_short_input", case_vertex_replicate_short_input,
+       "core/render/filter/world_vertex_replicate.h",
+       "(std::size(vertices) >= static_cast<size_t>(N)) VertexReplicate: "
+       "vertex array is smaller than replica count"},
       {"recipe_twist_wrong_op", case_recipe_twist_wrong_op,
        "core/mesh/recipe.h",
        "(step.twist == 0.0f || step.op == Op::SNUB) apply_step: only SNUB accepts a twist"},
