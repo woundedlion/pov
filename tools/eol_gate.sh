@@ -68,10 +68,12 @@ while IFS= read -r -d '' record; do
   for probe in "index:$index" "worktree:$work"; do
     where=${probe%%:*}
     have=${probe#*:}
+    expected=$want
+    [ "$where" != index ] || expected=lf
     case $have in
-      "$want" | none | -text) continue ;;
+      "$expected" | none | -text) continue ;;
     esac
-    echo "::error file=$path::$where line endings are $have, .gitattributes declares eol=$want"
+    echo "::error file=$path::$where line endings are $have, expected $expected (.gitattributes eol=$want)"
     diverged=$((diverged + 1))
   done
 done < "$tmp"
