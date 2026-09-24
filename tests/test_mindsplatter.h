@@ -896,6 +896,9 @@ inline int run_mindsplatter_tests() {
   // FULL tier only (HS_EFFECTS_FULL=1), matching the effects module's split.
   if (effects_full_suite())
     test_mindsplatter_emit_phase_wrapped();
+  else
+    std::printf(
+        "  [TIER] wrapped emission sweep omitted; set HS_EFFECTS_FULL=1\n");
 
   return fixture.result();
 }
