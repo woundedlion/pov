@@ -173,8 +173,8 @@ static_assert(field_defaults_in_range<VectorNoiseParams>());
  */
 struct AffineParams {
   float speed = 0.0f;         /**< Per-frame advance of the slot's phase. */
-  float rotation_rate = 0.0f; /**< Frame rotation rate; read only in the outer
-                                   slot. */
+  float rotation_rate = 0.0f; /**< Frame rotation rate; composed paths read it
+                                   in the outer slot, chains in every slot. */
   float translation_x = 0.0f; /**< Translation along x per phase turn. */
   float translation_y = 0.0f; /**< Translation along y per phase turn. */
   float scale_x = 1.0f; /**< Scale along x, oscillated over the phase cycle. */
