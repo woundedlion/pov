@@ -223,7 +223,7 @@ private:
    *       call) whatever the timestep, so retuning the draw count is a
    *       global-determinism change.
    */
-  void perturb_state(uint16_t *n_a, uint16_t *n_b, uint16_t *n_c) const {
+  void perturb_state(uint16_t *n_a, uint16_t *n_b, uint16_t *n_c) {
     const int amount = static_cast<int>(PERTURB_AMOUNT * params.dt);
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N);
