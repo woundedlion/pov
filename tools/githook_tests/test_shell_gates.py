@@ -51,6 +51,20 @@ class ShellGateTests(unittest.TestCase):
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("worktree line endings are crlf", bad.stdout)
 
+    def test_crlf_attribute_requires_lf_index_and_crlf_checkout(self):
+        (self.root / ".gitattributes").write_text("*.txt text eol=crlf\n", encoding="utf-8")
+        payload = self.root / "payload.txt"
+        payload.write_bytes(b"line\r\n")
+        self.git("add", "--", ".gitattributes", "payload.txt")
+        self.assertEqual(self.git("show", ":payload.txt").stdout, b"line\n")
+        good = self.gate("eol_gate.sh")
+        self.assertEqual(good.returncode, 0, good.stdout + good.stderr)
+        blob = self.git("hash-object", "-w", "--no-filters", "payload.txt").stdout.decode().strip()
+        self.git("update-index", "--cacheinfo", f"100644,{blob},payload.txt")
+        bad = self.gate("eol_gate.sh")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("index line endings are crlf, expected lf", bad.stdout)
+
     def test_eol_repair_preserves_unstaged_edits_and_index(self):
         (self.root / ".gitattributes").write_text("*.txt text eol=lf\n", encoding="utf-8")
         payload = self.root / "payload.txt"
