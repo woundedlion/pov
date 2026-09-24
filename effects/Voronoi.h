@@ -139,6 +139,22 @@ public:
                           sqrtf(static_cast<float>(sites_buffer.size()));
     const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
                             COHERENCE_BLOCK);
+    if (B == 1) {
+      for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+          const math::Vector p = math::pixel_to_vector<W, H>(x, y);
+          const auto nearest = tree.nearest(p, 2);
+          const uint16_t i0 = nearest[0].original_index;
+          const uint16_t i1 =
+              nearest.size() > 1 ? nearest[1].original_index : i0;
+          const Color4 sample = shade(
+              i0, math::dot(p, sites_buffer[i0].pos), i1,
+              nearest.size() > 1 ? math::dot(p, sites_buffer[i1].pos) : NO_DOT);
+          canvas(x, y) = sample.color * sample.alpha;
+        }
+      }
+      return;
+    }
     // Canvas-anchored grid origin (the block boundary at or before the clip):
     // a clip-anchored one shifts block phase per segment band, so a pixel's
     // candidate union would depend on which band renders it.
