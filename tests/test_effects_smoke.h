@@ -114,6 +114,15 @@ inline int run_effects_smoke_tests() {
 #undef HS_CLIP_PARITY_ONE
 
   test_every_effect_renders_while_paused();
+  if (effects_full_suite()) {
+#define HS_PAUSED_FULL(name)                                                   \
+  paused_render_one<name, DEFAULT_W, DEFAULT_H>(#name);
+    HS_EFFECT_LIST(HS_PAUSED_FULL)
+#undef HS_PAUSED_FULL
+  } else {
+    std::printf(
+        "  [TIER] production-resolution paused renders omitted; set HS_EFFECTS_FULL=1\n");
+  }
 
   return fixture.result();
 }
