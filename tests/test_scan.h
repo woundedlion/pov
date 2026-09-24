@@ -281,6 +281,24 @@ inline void test_shader_respects_clip_band() {
   HS_EXPECT_TRUE(is_black(fx.get_pixel(0, 12)));
 }
 
+inline void test_ssaa_grid_sample_positions() {
+  constexpr int W = 32, H = 16;
+  math::TrigLUT<W, H>::init();
+  Scan::Shader::SsaaGrid<W, H> grid;
+  for (int y = 1; y < H - 1; ++y) {
+    grid.set_row(y);
+    for (int x = 0; x < W; ++x)
+      for (int i = 0; i < 4; ++i) {
+        const math::Vector expected = math::pixel_to_vector<W, H>(
+            x + ((i & 1) ? -0.25f : 0.25f), y + ((i & 2) ? -0.25f : 0.25f));
+        const math::Vector actual = grid.at(x, i);
+        HS_EXPECT_NEAR(actual.x, expected.x, 1e-6f);
+        HS_EXPECT_NEAR(actual.y, expected.y, 1e-6f);
+        HS_EXPECT_NEAR(actual.z, expected.z, 1e-6f);
+      }
+  }
+}
+
 /**
  * @brief Verifies every Shader entry point paints exactly the columns the clip
  *        arc admits, with the values an unclipped draw produced.
@@ -3345,6 +3363,7 @@ inline int run_scan_tests() {
   test_shader_split_ssaa_averages_subsamples();
   test_shader_positional_maps_latitude();
   test_shader_respects_clip_band();
+  test_ssaa_grid_sample_positions();
   test_shader_clip_arc_matches_predicate();
   test_ring_rasterize_produces_bounded_output();
   test_ring_long_radius_azimuth_unflipped();
