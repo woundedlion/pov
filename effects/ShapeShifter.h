@@ -625,9 +625,9 @@ private:
         points, basis, radius, sides, phase,
         planar_star_radius_trig[contour_index], planar_star_step_trig);
 
-    math::Basis planar_basis = basis;
-    if (radius > 1.0f)
-      planar_basis = Plot::planar_chart_basis(-basis.v);
+    math::Basis projection_basis;
+    const math::Basis &planar_basis =
+        *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
     const ClipRegion &clip = canvas.clip();
     const ClipRegion::XClip x_clip = clip.x_clip();
     constexpr float TARGET_STEP = 1.2f;
@@ -735,8 +735,9 @@ private:
     HS_PROFILE(ss_plot_dispatch);
     switch (shape) {
     case ShapeType::PLANAR_POLYGON: {
-      math::Basis planar_basis =
-          radius > 1.0f ? Plot::planar_chart_basis(-basis.v) : basis;
+      math::Basis projection_basis;
+      const math::Basis &planar_basis =
+          *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
       draw_sampled(canvas, static_cast<size_t>(sides + 2), &planar_basis, false,
                    fragment_shader, [&](Fragments &points) {
                      Plot::Polygon<Plot::PlanarProjection>::sample(
@@ -767,9 +768,9 @@ private:
                                shape_color, shape_phase, contour_index);
         break;
       }
-      math::Basis planar_basis = basis;
-      if (radius > 1.0f)
-        planar_basis = Plot::planar_chart_basis(-basis.v);
+      math::Basis projection_basis;
+      const math::Basis &planar_basis =
+          *Plot::PlanarProjection::edge_basis(basis, radius, projection_basis);
       draw_sampled(canvas, static_cast<size_t>(sides * 2 + 2), &planar_basis,
                    false, fragment_shader, [&](Fragments &points) {
                      Plot::Star<Plot::PlanarProjection>::sample_positions(
