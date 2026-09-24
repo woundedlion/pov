@@ -877,7 +877,9 @@ def _macro_body(source: str, define: str) -> str:
     for line in source.splitlines():
         if not inside:
             inside = line.startswith(define)
-            continue
+            if not inside:
+                continue
+            line = line[len(define):]
         body.append(line)
         if not line.rstrip().endswith("\\"):
             break
