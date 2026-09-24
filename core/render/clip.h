@@ -174,7 +174,9 @@ struct ClipRegion {
    * @brief Conservative AABB test for whether a screen-space segment touches the render region.
    * @param y1 First endpoint's row coordinate, in pixels.
    * @param y2 Second endpoint's row coordinate, in pixels.
-   * @return True if a segment between the two points could produce pixels inside the render region.
+   * @return True if the segment's row range overlaps the render region.
+   * @details Does not include splat reach; callers must pad the range for
+   * downstream filters before testing overlap.
    */
   bool could_intersect_y(float y1, float y2) const {
     float lo = y1 < y2 ? y1 : y2;
