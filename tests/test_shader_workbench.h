@@ -202,7 +202,7 @@ struct ShaderWorkbenchWhiteBox {
              {2.0f, 0.0f, 0.0f},
              {},
              {},
-             {{0.0f, 1.0f, 0.0f}},
+             {0.0f, 1.0f, 0.0f},
              {0.25f},
              {}}};
   }
@@ -834,8 +834,6 @@ inline void test_shader_workbench_full_config_snapshot() {
       static_cast<size_t>(WB::ConfigFieldId::SLOTS_PALETTE_MAPPING);
   const size_t mapping_frequency =
       static_cast<size_t>(WB::ConfigFieldId::COLOR_MAPPING_FREQUENCY);
-  const size_t color_palette_mapping =
-      static_cast<size_t>(WB::ConfigFieldId::COLOR_PALETTE_MAPPING);
 
   snapshot.accepted[source_seed] = 0x80000000u;
   snapshot.requested[source_seed] = 0x80000000u;
@@ -847,10 +845,6 @@ inline void test_shader_workbench_full_config_snapshot() {
       static_cast<uint32_t>(WB::PaletteMapping::CUP);
   snapshot.accepted[mapping_frequency] = shader_workbench_float_payload(2.5f);
   snapshot.requested[mapping_frequency] = shader_workbench_float_payload(2.5f);
-  snapshot.accepted[color_palette_mapping] =
-      static_cast<uint32_t>(Pullback::Color::PaletteMapping::BELL);
-  snapshot.requested[color_palette_mapping] =
-      static_cast<uint32_t>(Pullback::Color::PaletteMapping::BELL);
   snapshot.runtime = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f,
                       1.75f, 2.0f, 2.25f, 2.5f, 2.75f, 3.0f};
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
@@ -1022,6 +1016,80 @@ inline void test_shader_workbench_surface_noise_range_rebind() {
                  nullptr);
 }
 
+/** @brief Legacy snapshots preserve the rendered mapping and remaining pending edits. */
+inline void test_shader_workbench_legacy_config_snapshot() {
+  using WB = ShaderWorkbenchWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  WB::FullConfigSnapshot expected = sb.capture_full_config_snapshot();
+  constexpr size_t MAPPING =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_PALETTE_MAPPING);
+  constexpr size_t PALETTE =
+      static_cast<size_t>(WB::ConfigFieldId::SLOTS_PALETTE);
+  expected.accepted[MAPPING] =
+      static_cast<uint32_t>(WB::PaletteMapping::REVERSE);
+  expected.requested[MAPPING] = static_cast<uint32_t>(WB::PaletteMapping::CUP);
+  expected.pending[MAPPING] = 1;
+  expected.requested[PALETTE] =
+      static_cast<uint32_t>(WB::PaletteMode::COMPLEMENTARY);
+  expected.pending[PALETTE] =
+      expected.accepted[PALETTE] != expected.requested[PALETTE];
+  WB::SB::LegacyFullConfigSnapshot legacy;
+  std::copy(expected.accepted.begin(), expected.accepted.end(),
+            legacy.accepted.begin());
+  std::copy(expected.requested.begin(), expected.requested.end(),
+            legacy.requested.begin());
+  std::copy(expected.pending.begin(), expected.pending.end(),
+            legacy.pending.begin());
+  legacy.has_runtime = expected.has_runtime;
+  legacy.runtime = expected.runtime;
+  legacy.accepted.back() = static_cast<uint32_t>(WB::PaletteMapping::LINEAR);
+  legacy.requested.back() = static_cast<uint32_t>(WB::PaletteMapping::BELL);
+  legacy.pending.back() = 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(legacy),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), expected));
+  HS_EXPECT_EQ(WB::live_palette_mapping(sb)
+                   .values[static_cast<size_t>(WB::PaletteMapping::REVERSE)],
+               1.0f);
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(expected),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), expected));
+  for (bool accepted : {false, true}) {
+    auto invalid = legacy;
+    (accepted ? invalid.accepted : invalid.requested).back() = 4;
+    HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+                 WB::ConfigRestoreResult::INVALID_VALUE);
+    HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+        sb.capture_full_config_snapshot(), expected));
+  }
+  for (uint8_t pending : {uint8_t{0}, uint8_t{2}}) {
+    auto invalid = legacy;
+    invalid.pending.back() = pending;
+    HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+                 WB::ConfigRestoreResult::INVALID_PENDING);
+    HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+        sb.capture_full_config_snapshot(), expected));
+  }
+  auto invalid = legacy;
+  invalid.requested.back() = invalid.accepted.back();
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_PENDING);
+  invalid = legacy;
+  invalid.pending[MAPPING] = 0;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_PENDING);
+  invalid = legacy;
+  invalid.schema_version = 9;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::UNSUPPORTED_VERSION);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), expected));
+}
+
 /** @brief Incompatible snapshot layouts are rejected atomically. */
 inline void test_shader_workbench_incompatible_config_snapshot() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -1044,7 +1112,7 @@ inline void test_shader_workbench_affine_snapshot_restore() {
   using WB = ShaderWorkbenchWhiteBox;
   // A snapshot layout change without a version bump silently accepts a stale
   // persisted session, so the accepted version is pinned to a literal.
-  HS_EXPECT_EQ(WB::SB::CONFIG_SCHEMA_VERSION, uint32_t{10});
+  HS_EXPECT_EQ(WB::SB::CONFIG_SCHEMA_VERSION, uint32_t{11});
 
   reset_effect_globals();
   WB::SB sb;
@@ -2520,7 +2588,7 @@ inline void test_shader_workbench_preset_bank() {
        0,          1337,       1065353216, 0,          0,          0,
        6,          1034147594, 1017370378, 0,          1056964608, 8,
        0,          3209481421, 1042267767, 1082130432, 1065353216, 1025758986,
-       1017370378, 0,          2});
+       1017370378, 0});
   static_assert(MOBIUS_GRID_EXPECTED.size() == WB::SB::CONFIG_FIELD_COUNT);
   const auto mobius_grid_encoded = WB::encode_config(mobius_grid);
   for (size_t index = 0; index < mobius_grid_encoded.size(); ++index) {
@@ -2584,14 +2652,6 @@ inline void test_shader_workbench_staggered_param_morph() {
   parallel.lerp(from, to, 0.5f);
   HS_EXPECT_LT(parallel.source.speed, half.source.speed);
   HS_EXPECT_GT(parallel.color.palette_chroma, half.color.palette_chroma);
-  to.color = from.color;
-  WB::Params same_mapping;
-  same_mapping.lerp_staggered(from, to, 0.25f);
-  to.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
-  WB::Params dormant_mapping;
-  dormant_mapping.lerp_staggered(from, to, 0.25f);
-  HS_EXPECT_EQ(dormant_mapping.source.speed, same_mapping.source.speed);
-  HS_EXPECT_EQ(dormant_mapping.color.palette_chroma, from.color.palette_chroma);
 }
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
 inline void test_shader_workbench_config_admission() {
@@ -6187,7 +6247,7 @@ inline void test_shader_workbench_hue_shift_modes() {
   base.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   base.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
   base.slots.hue_shift = WB::HueShiftMode::NONE;
-  base.params.color = {{1.0f, 2.0f, 0.0f}};
+  base.params.color = {1.0f, 2.0f, 0.0f};
   HS_EXPECT_TRUE(WB::valid_config(base));
 
   const WB::FieldSample sample{
@@ -6554,6 +6614,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_full_config_snapshot();
   test_shader_workbench_surface_noise_range_rebind();
   test_shader_workbench_incompatible_config_snapshot();
+  test_shader_workbench_legacy_config_snapshot();
   test_shader_workbench_affine_snapshot_restore();
   test_shader_workbench_selector_storage();
   test_shader_workbench_clocks_wrapped();
