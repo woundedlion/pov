@@ -1631,6 +1631,9 @@ jobs:
       # invisible to `git status`, so every other gate below silently reads
       # different bytes than the committed ones. It runs first because it
       # decides what they see.
+      - name: Check tracked whitespace
+        run: git -c core.whitespace=blank-at-eol,blank-at-eof diff --check "$(git hash-object -t tree /dev/null)" HEAD
+
       - name: Assert line endings match .gitattributes
         run: bash tools/eol_gate.sh
 
