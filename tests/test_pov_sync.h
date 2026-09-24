@@ -1395,16 +1395,35 @@ inline void test_emitter() {
     HS_EXPECT_FALSE(aborted);
   }
 
-  // Masked mid-burst past the budget: remaining pulses are aborted, the
-  // truncated count degrades to a missed/invalid symbol downstream.
+  for (const Symbol symbol : {Symbol::ZERO, Symbol::ZERO_EPOCH}) {
+    for (uint32_t sent = 1; sent < symbol_pulse_count(symbol); ++sent) {
+      SymbolEmitter e;
+      EdgeMailbox mailbox;
+      const uint32_t START = 1000000u;
+      HS_EXPECT_TRUE(e.schedule_boundary(symbol, START, START, cfg));
+      for (uint32_t i = 0; i < sent; ++i) {
+        const uint32_t NOW = START + i * cfg.pulse_pitch_cycles();
+        HS_EXPECT_TRUE(e.tick(NOW, cfg, &aborted));
+        mailbox.on_edge(NOW, cfg.glitch_filter_cycles);
+      }
+      const uint32_t LATE = START + sent * cfg.pulse_pitch_cycles() +
+                            cfg.late_censor_cycles() + 1;
+      if (e.tick(LATE, cfg, &aborted))
+        mailbox.on_edge(LATE, cfg.glitch_filter_cycles);
+      HS_EXPECT_TRUE(aborted);
+      HS_EXPECT_TRUE(e.idle());
+      const auto burst = claim(mailbox);
+      HS_EXPECT_EQ(classify_count(burst.count), Symbol::INVALID);
+    }
+  }
+
   {
     SymbolEmitter e;
-    const uint32_t b = 1000000u;
-    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO_EPOCH, b, b, cfg));
-    HS_EXPECT_TRUE(e.tick(b, cfg, &aborted)); // pulse 1 on time
-    // Next due at b+2col; first wake after the mask is way late.
+    const uint32_t START = 1000000u;
+    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, START, START, cfg));
+    HS_EXPECT_TRUE(e.tick(START, cfg, &aborted));
     HS_EXPECT_FALSE(
-        e.tick(b + 2 * COL + cfg.late_censor_cycles() + 1, cfg, &aborted));
+        e.tick(START + cfg.gap_timeout_cycles() + 1, cfg, &aborted));
     HS_EXPECT_TRUE(aborted);
     HS_EXPECT_TRUE(e.idle());
   }

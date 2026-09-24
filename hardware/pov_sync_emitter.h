@@ -25,9 +25,9 @@ namespace sync {
  *
  * Self-censoring: a boundary symbol whose first pulse would start more than
  * ~½ column late is skipped entirely; lateness detected mid-burst stops the
- * remaining pulses ("never emit a lie" — the §5.3 gate and refractory window
- * absorb the truncated count downstream). Beacon digit bursts get the same
- * treatment; a truncated frame fails its checksum and is dropped whole.
+ * remaining pulses. An odd partial boundary count gets one invalidating edge
+ * while its burst gap remains open. After the gap has closed, already-observed
+ * edges cannot be retracted. Truncated beacon frames fail their checksum.
  */
 class SymbolEmitter {
 public:
@@ -111,12 +111,13 @@ public:
     if (static_cast<int32_t>(now - next_due) < 0)
       return false; // next pulse not due yet
     if ((now - next_due) > cfg.late_censor_cycles()) {
-      // Masked past the lateness budget mid-emission: stop, and drop any
-      // queued beacon digits too (a partial frame must fail, not mislead).
+      const bool invalidate =
+          queue_len == 0 && (pulses_left & 1u) == 0 &&
+          now - (next_due - pitch) <= cfg.gap_timeout_cycles();
       pulses_left = 0;
       queue_len = queue_pos = 0;
       *aborted = true;
-      return false;
+      return invalidate;
     }
     --pulses_left;
     next_due += pitch;
