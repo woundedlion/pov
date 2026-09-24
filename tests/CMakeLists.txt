@@ -27,6 +27,7 @@ cmake_minimum_required(VERSION 3.29)
 # a native root build.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(holosphere_tests CXX)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -416,33 +417,11 @@ add_test(NAME unit_mirrored_screenshot_prune COMMAND ${CMAKE_COMMAND}
     -DPRUNE_SCRIPT=${HS_ROOT}/cmake/prune_mirrored_screenshots.cmake
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mirrored_screenshot_prune.cmake)
 
-# The three generated-artifact gates below re-run a Python generator and diff it
-# against the committed header. Default OFF keeps a bare local checkout green:
-# a missing python3/numpy exits 77 and CTest reports the gate as skipped. That
-# skip is invisible in a green run, so the CI job that provisions the
-# interpreter passes -DHS_REQUIRE_GENERATORS=ON, which turns the same missing
-# python3/numpy into a hard failure — a broken provisioning step can no longer
-# silently retire all three gates.
+# Python is required; optional generator dependencies may skip locally.
 option(HS_REQUIRE_GENERATORS
-    "Fail (rather than skip) the generated-artifact gates when python3/numpy is missing" OFF)
+    "Fail rather than skip when optional generator dependencies are missing" OFF)
 
 set(HS_PYTHON "${Python3_EXECUTABLE}")
-
-if(NOT HS_PYTHON AND HS_REQUIRE_GENERATORS)
-  message(FATAL_ERROR "Python is required to validate pullback manifests")
-endif()
-
-# The pullback manifest is the one generated artifact the suite COMPILES
-# against (tests/test_shader_workbench.h): without the header nothing builds, so the
-# manifest-derived assertions compile out under HS_HAVE_PULLBACK_MANIFEST=0 and
-# the two manifest CTests lose the targets they run, leaving the rest of the
-# suite runnable in a bare checkout. They still register, as 77-skips over the
-# stand-in script, so a Python-less configure shrinks the pass count rather than
-# the test count -- `100% tests passed out of 76` reads exactly as green as `out
-# of 78`. The retirement warns at configure time, and the CI job that provisions
-# the interpreter passes -DHS_REQUIRE_GENERATORS=ON, so it cannot happen there.
-if(HS_PYTHON)
-target_compile_definitions(run_tests PRIVATE HS_HAVE_PULLBACK_MANIFEST=1)
 
 set(PULLBACK_MANIFEST_DIR ${HS_ROOT}/tests/data/pullback)
 set(PULLBACK_MANIFEST_HEADER
@@ -501,22 +480,6 @@ add_test(NAME unit_pullback_capture_determinism
     -DCAPTURE_SCRIPT=${HS_ROOT}/tools/pullback_capture.py
     -DMANIFEST_DIR=${PULLBACK_MANIFEST_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pullback_capture.cmake)
-else()
-target_compile_definitions(run_tests PRIVATE HS_HAVE_PULLBACK_MANIFEST=0)
-foreach(_pullback_test IN ITEMS unit_pullback_manifest unit_pullback_capture_determinism)
-  add_test(NAME ${_pullback_test} COMMAND ${CMAKE_COMMAND}
-      -DTEST_NAME=${_pullback_test} -DSKIP_CODE=77
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/skip_without_python.cmake)
-  set_tests_properties(${_pullback_test} PROPERTIES SKIP_RETURN_CODE 77)
-endforeach()
-message(WARNING
-  "No python3/python found: the pullback manifest header cannot be generated, "
-  "so unit_pullback_manifest and unit_pullback_capture_determinism skip and "
-  "the manifest assertions in unit_shader_workbench compile out. "
-  "Install an interpreter, or configure with -DHS_REQUIRE_GENERATORS=ON to "
-  "make this a hard error.")
-endif()
-
 # Pin core/color/color_luts.h against its generator.
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
