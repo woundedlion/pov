@@ -13,6 +13,8 @@
 #include "platform/build_features.h"
 #include "platform/platform.h"
 #include <array>
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -178,6 +180,19 @@ public:
    * @return True if option labels are attached.
    */
   bool is_enum() const { return option_count > 0; }
+
+  /** @brief Validates and normalizes a proposed write without storing it. */
+  ParamSetResult normalize(float &value) const {
+    if (readonly)
+      return ParamSetResult::READONLY;
+    if (!std::isfinite(value))
+      return ParamSetResult::NON_FINITE;
+    if (is_enum() || is_integer())
+      value = roundf(value);
+    if (!is_bool())
+      value = std::clamp(value, min, max);
+    return ParamSetResult::APPLIED;
+  }
 };
 static_assert(sizeof(void *) != 4 ||
                   sizeof(ParamDef) == (HS_ENABLE_PARAM_GUI_BRIDGE ? 36 : 32),

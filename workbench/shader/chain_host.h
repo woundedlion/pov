@@ -148,15 +148,10 @@ public:
       const ParamDef *parameter = getParameters().find(write.name);
       if (parameter == nullptr)
         return ParamSetResult::UNKNOWN_PARAM;
-      if (parameter->readonly)
-        return ParamSetResult::READONLY;
-      if (!std::isfinite(write.value))
-        return ParamSetResult::NON_FINITE;
       float value = write.value;
-      if (parameter->is_enum() || parameter->is_integer())
-        value = roundf(value);
-      if (!parameter->is_bool())
-        value = hs::clamp(value, parameter->min, parameter->max);
+      const ParamSetResult result = parameter->normalize(value);
+      if (result != ParamSetResult::APPLIED)
+        return result;
       for (size_t index = 0; index < ops.size(); ++index)
         for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
           if (std::strcmp(write.name, program.param_name(index, field)) == 0) {
