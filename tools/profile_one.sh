@@ -136,6 +136,7 @@ PROFILE_ENVDUMP=${STEM}_envdump.txt
 PHANTASM_ENVDUMP=${STEM}_phantasm_envdump.txt
 PROFILE_ELF=.pio/build/$ENV/firmware.elf
 PROFILE_MAP=.pio/build/$ENV/firmware.map
+ARTIFACT_BASE=$(dirname "$STEM")/artifacts/$(basename "$STEM")
 ATTEST_DIR=$(dirname "$STEM")/attest/$(basename "$STEM")
 PHANTASM_ELF=$ATTEST_DIR/phantasm.elf
 PHANTASM_MAP=$ATTEST_DIR/phantasm.map
@@ -261,7 +262,7 @@ build_and_attest() {
   phantasm_sha=$(file_sha256 "$PHANTASM_ELF")
   profile_flags_sha=$(file_sha256 "$PROFILE_ENVDUMP")
   phantasm_flags_sha=$(file_sha256 "$PHANTASM_ENVDUMP")
-  artifact_dir=build/prof/artifacts/${LOWER}_${TAG}_${source_sha:0:12}_${profile_sha:0:12}
+  artifact_dir=${ARTIFACT_BASE}_${source_sha:0:12}_${profile_sha:0:12}
   mkdir -p "$artifact_dir"
   cp "$PROFILE_ELF" "$artifact_dir/profile.elf"
   cp "$PROFILE_MAP" "$artifact_dir/profile.map"
