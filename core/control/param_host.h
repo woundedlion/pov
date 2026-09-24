@@ -51,19 +51,9 @@ public:
     auto *def = parameters.find(name);
     if (def == nullptr)
       return ParamSetResult::UNKNOWN_PARAM;
-    // Untrusted JS boundary: reject readonly-param writes and non-finite input,
-    // and clamp floats to [min,max]. Bools are thresholded at 0.5 by write_unchecked().
-    if (def->readonly)
-      return ParamSetResult::READONLY;
-    if (!std::isfinite(value))
-      return ParamSetResult::NON_FINITE;
-    // Enum and integer targets hold whole numbers: snap a fractional write
-    // (e.g. a stale deep link) to the nearest before the range clamp. An enum
-    // may be float-backed, so neither predicate implies the other.
-    if (def->is_enum() || def->is_integer())
-      value = roundf(value);
-    if (!def->is_bool())
-      value = hs::clamp(value, def->min, def->max);
+    const ParamSetResult result = def->normalize(value);
+    if (result != ParamSetResult::APPLIED)
+      return result;
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     if (!parameter_write_admitted(*def, value))
       return ParamSetResult::INADMISSIBLE;
