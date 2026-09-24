@@ -165,6 +165,8 @@ public:
    * process-global and effects derive a phase from frame(), so a mid-run rewind
    * desynchronises them. Only construction/destruction, which no retained handle
    * spans, resets the cursor.
+   * TransformerPool::spawn_pinned() creates such a pinned event: clear() is
+   * unavailable while it remains live, regardless of the pool's clear hook.
    */
   void clear() {
     HS_CHECK(!stepping, "clear() from inside step() would destroy the "
