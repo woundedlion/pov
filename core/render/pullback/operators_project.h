@@ -94,6 +94,29 @@ static_assert(sizeof(MeridianProjectChainParams) ==
                       alignof(MeridianProjectChainParams),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<MeridianProjectChainParams>());
+static_assert(
+    [] {
+      constexpr MeridianProjectChainParams CHAIN_DEFAULTS{};
+      constexpr Projection::ProjectionParams COMPOSED_DEFAULTS{};
+      for (const auto &chain : MeridianProjectChainParams::FIELDS) {
+        bool matched = false;
+        for (const auto &composed : Projection::ProjectionParams::FIELDS) {
+          if (std::string_view(chain.id) != composed.id)
+            continue;
+          matched = true;
+          if (chain.min != composed.min || chain.max != composed.max ||
+              chain.curve != composed.curve ||
+              std::string_view(chain.name) != composed.name ||
+              CHAIN_DEFAULTS.*chain.member !=
+                  COMPOSED_DEFAULTS.*composed.member)
+            return false;
+        }
+        if (!matched)
+          return false;
+      }
+      return true;
+    }(),
+    "chain and composed projection parameter domains must agree");
 
 /** @brief Projection parameters without a singularity-fade control. */
 struct RegularProjectChainParams : MeridianProjectChainParams {
