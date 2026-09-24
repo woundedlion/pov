@@ -98,12 +98,12 @@ HS_FLASH_MEMBER inline PaletteRecipe mind_splatter(float base_turns) {
   recipe.lightness.center = 0.37f;
   recipe.lightness.range = 0.5f;
   recipe.lightness.custom = {0.0f, 0.0f, 0.0f, 0.0f};
-  recipe.chroma.curve = AxisCurve::CONSTANT;
+  recipe.chroma.axis.curve = AxisCurve::CONSTANT;
   recipe.chroma.basis = ChromaBasis::LOCAL_GAMUT;
-  recipe.chroma.center = 0.95f;
-  recipe.chroma.range = 0.0f;
+  recipe.chroma.axis.center = 0.95f;
+  recipe.chroma.axis.range = 0.0f;
   recipe.chroma.headroom = 0.94f;
-  recipe.chroma.custom = {0.0f, 0.0f, 0.0f, 0.0f};
+  recipe.chroma.axis.custom = {0.0f, 0.0f, 0.0f, 0.0f};
   recipe.hue_torsion = 0.0f;
   recipe.falloff_start = 0.9f;
   return recipe;
@@ -168,7 +168,7 @@ shader_ball_liquid_at(float rotation_turns) {
   recipe.lightness.custom[0] = 0.8798438f;
   recipe.lightness.custom[1] = 0.1623438f;
   recipe.lightness.custom[2] = 0.8798438f;
-  recipe.chroma.center = 0.8871875f;
+  recipe.chroma.axis.center = 0.8871875f;
   return recipe;
 }
 

@@ -86,14 +86,10 @@ struct AxisControls {
 };
 
 struct ChromaControls {
-  AxisCurve curve = AxisCurve::CONSTANT;
+  AxisControls axis;
   ChromaBasis basis = ChromaBasis::LOCAL_GAMUT;
-  float center = 0.62f;
-  float range = 0.0f;
   float headroom = 0.94f;
-  std::array<float, PALETTE_MAX_KEYS> custom{};
 };
-
 struct PaletteInputWindow {
   float offset = 0.0f;
   float span = 1.0f;
