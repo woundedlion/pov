@@ -64,8 +64,7 @@ struct Mat4 {
  * @param b Second plane axis, in [0, VEC4_DIMENSIONS), distinct from `a`.
  * @param angle Rotation angle in radians.
  */
-HS_COLD static inline void rotate_plane(Mat4 &matrix, int a, int b,
-                                        float angle) {
+HS_COLD inline void rotate_plane(Mat4 &matrix, int a, int b, float angle) {
   HS_CHECK(a >= 0 && a < VEC4_DIMENSIONS && b >= 0 && b < VEC4_DIMENSIONS &&
                a != b,
            "rotate_plane: (%d, %d) is not a coordinate plane", a, b);
