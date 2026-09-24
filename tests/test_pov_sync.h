@@ -16,6 +16,11 @@
  * — the i.MX RT pin-flag behavior the count coding is designed around),
  * symbol drop windows, EMI injection, a foreground model with effect
  * construction delays, and mid-show reboot.
+ *
+ * Shared run_wake_sequence/run_single_column code covers per-wake ordering.
+ * Host mocks do not cover eDMA/SPI registers or ISR internals, Cortex-M7
+ * interrupt preemption and memory barriers, real DWT timing and flywheel
+ * jitter, or four-board timing at 480 RPM.
  */
 #pragma once
 
