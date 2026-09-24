@@ -680,16 +680,7 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
            "face_topo_record: face sides overrun angles[]");
   if (count >= 3) {
     for (int k = 0; k < count; ++k) {
-      const math::Vector &prev = mesh.vertices[idx[(k - 1 + count) % count]];
-      const math::Vector &curr = mesh.vertices[idx[k]];
-      const math::Vector &next = mesh.vertices[idx[(k + 1) % count]];
-      const math::Vector e1 = prev - curr;
-      const math::Vector e2 = next - curr;
-      const float m1 = math::dot(e1, e1), m2 = math::dot(e2, e2);
-      float ang = 0.0f;
-      if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ)
-        ang = acosf(hs::clamp(math::dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f));
-      const float degrees = ang * 180.0f / math::PI_F;
+      const float degrees = classifier_angle_deg(mesh, idx, count, k);
       rec.angles[k] = static_cast<int>(std::round(degrees));
     }
     std::sort(rec.angles, rec.angles + count);
