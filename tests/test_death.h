@@ -5625,13 +5625,13 @@ inline const Case *all_cases(int &n) {
                    "Project requires a unit direction within lens approximation error"},
                   {"pullback_operator_invalid_coverage_mode",
                    case_pullback_operator_invalid_coverage_mode,
-                   "core/render/pullback/operators_common.h",
+                   "core/render/pullback/operators_sample.h",
                    "(coverage_mode <= static_cast<uint8_t>("
                    "ProjectionCoverageMode::EDGE_FADE)) "
                    "sample operator: invalid projection coverage mode"},
                   {"pullback_operator_invalid_weight_mode",
                    case_pullback_operator_invalid_weight_mode,
-                   "core/render/pullback/operators_common.h",
+                   "core/render/pullback/operators_sample.h",
                    "(weight_mode <= static_cast<uint8_t>(WeightMode::PROJECTION)) "
                    "sample operator: invalid weight mode"},
                   {"pullback_operator_invalid_warp_envelope",
