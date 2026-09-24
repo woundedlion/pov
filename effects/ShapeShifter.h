@@ -93,6 +93,7 @@ public:
       static_cast<int>(RadiusSpacing::SCREEN_BALANCED) + 1;
   /** @brief Count slider ceiling. */
   static constexpr int MAX_SHAPES = 288;
+  static constexpr int DRAW_LIMIT = std::min(MAX_SHAPES, 2 * H);
   /** @brief Contour count from which star edges switch to screen-step-balanced
    *  sampling: the dense planar-star path, and the balanced policy for
    *  spherical stars. */
@@ -162,7 +163,7 @@ public:
              "ShapeShifter profile preset selection failed");
 #ifdef HS_PROFILE_SHAPESHIFTER_COUNT
     static_assert(HS_PROFILE_SHAPESHIFTER_COUNT >= 1 &&
-                  HS_PROFILE_SHAPESHIFTER_COUNT <= MAX_SHAPES);
+                  HS_PROFILE_SHAPESHIFTER_COUNT <= DRAW_LIMIT);
     params.count = static_cast<float>(HS_PROFILE_SHAPESHIFTER_COUNT);
 #endif
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
@@ -410,7 +411,6 @@ private:
    */
   void draw_all(Canvas &canvas) {
     HS_PROFILE(ss_draw_all);
-    constexpr int DRAW_LIMIT = std::min(MAX_SHAPES, 2 * H);
     const int count = hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT);
     if (count != baked_palette_count || params.spacing != prepared_spacing)
       prepare_count(count);
