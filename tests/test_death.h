@@ -4440,6 +4440,13 @@ inline void case_timeline_add_into_live_slot() {
   timeline.add(0, Animation::Transition(value, 1.0f, 10, math::ease_linear));
 }
 
+inline void case_direct_sink_wrong_dimensions() {
+  hs_test::StubEffect effect(16, 8);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<32, 8> sink;
+  sink.prepare(canvas);
+}
+
 inline void case_direct_sink_unprepared_plot() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
@@ -4488,6 +4495,9 @@ inline const Case *all_cases(int &n) {
       {"noise_hue_bake_invalid_scale", case_noise_hue_bake_invalid_scale,
        "core/color/noise_hue_palette.h",
        "(std::isfinite(bake_scale) && bake_scale > 0.0f) HueNoiseBakeCache: scale must be finite and positive"},
+      {"direct_sink_wrong_dimensions", case_direct_sink_wrong_dimensions,
+       "core/render/filter/screen_direct_aa_sink.h",
+       "(cv.width() == W && cv.height() == H) DirectAntiAliasSink: framebuffer dimensions do not match"},
       {"recipe_bake_wrong_op", case_recipe_bake_wrong_op, "core/mesh/recipe.h",
        "(!step.bake || step.op == Op::RELAX) apply_step: only RELAX accepts a bake"},
       {"recipe_twist_wrong_op", case_recipe_twist_wrong_op,
