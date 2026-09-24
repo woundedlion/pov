@@ -284,16 +284,7 @@ if(EMSCRIPTEN)
     # green gate. All are captured at install time (immediately after the build) from
     # the same build event, and committed together with the artifacts they describe.
     install(CODE "
-      # Git stores the generated glue as LF on every host, and emcc emits CRLF
-      # glue on Windows. file(CONFIGURE ... NEWLINE_STYLE LF) is the only writer
-      # that lands LF on every host — file(WRITE)/file(APPEND) open in text mode
-      # and re-expand LF to CRLF there — but it also expands @VAR@ tokens, and
-      # the glue hash below is taken over its output. Escaping every literal @
-      # through a variable that expands back to @ makes that expansion an
-      # identity, so glue bytes reach the hash exactly as emitted.
-      # A property of the installed artifact, not of its provenance: it runs
-      # whether or not git can answer below, so the glue ships the same bytes
-      # either way.
+      # Normalize Windows glue to LF; escape literal @ tokens before CONFIGURE.
       set(HS_AT \"@\")
       file(READ \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_CONTENT)
       string(REPLACE \"@\" \"@HS_AT@\" HS_GLUE_CONTENT \"\${HS_GLUE_CONTENT}\")
