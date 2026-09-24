@@ -33,6 +33,15 @@ static_assert(!dma::transfer_stale(0, 99, 100)); // just below
 static_assert(dma::transfer_stale(0, 100, 100)); // at bound
 static_assert(dma::transfer_stale(0, 101, 100)); // above
 
+static_assert(dma::TRANSFER_WATCHDOG_US >
+              20 * dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE,
+                                    dma::DEFAULT_CLOCK_HZ));
+static_assert(dma::TRANSFER_WATCHDOG_US >
+              20 * dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE,
+                                    dma::SEGMENTED_CLOCK_HZ));
+static_assert(dma::TRANSFER_WATCHDOG_US < 12 * (60000000UL / (480 * 96)));
+static_assert(dma::TRANSFER_WATCHDOG_US < 12 * (60000000UL / (480 * 288)));
+
 /**
  * @brief Pin the double-buffer index toggle (0<->1).
  */
@@ -88,7 +97,7 @@ inline void test_transfer_us_bound() {
  * @brief Pin the stale-transfer predicate at its watchdog boundaries.
  */
 inline void test_transfer_stale_bounds() {
-  const unsigned long wd = 100000UL;
+  const unsigned long wd = dma::TRANSFER_WATCHDOG_US;
   HS_EXPECT_FALSE(dma::transfer_stale(0, 0, wd)); // now == start
   HS_EXPECT_FALSE(dma::transfer_stale(5000, 5000, wd));
   HS_EXPECT_FALSE(dma::transfer_stale(0, wd - 1, wd)); // just below
@@ -102,7 +111,7 @@ inline void test_transfer_stale_bounds() {
  * still yields the true elapsed delta.
  */
 inline void test_transfer_stale_wraparound() {
-  const unsigned long wd = 100000UL;
+  const unsigned long wd = dma::TRANSFER_WATCHDOG_US;
   const unsigned long max = std::numeric_limits<unsigned long>::max();
   // start just before rollover, now just after: elapsed = 1 + (now+1), below wd.
   HS_EXPECT_FALSE(dma::transfer_stale(max - 10, 9, wd)); // elapsed 20
