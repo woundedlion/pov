@@ -106,7 +106,7 @@ public:
    *        animations.
    * @details Sets up the random walk, path motion, and cycle driver animations.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     configure_presets(PRESET_IDS.size());
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
