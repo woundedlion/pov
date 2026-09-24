@@ -177,7 +177,8 @@ warp_stage_params_in_ranges(WarpStageKind kind, const WarpStageParams &params) {
     return params.scale >= WARP_SCALE_MIN &&
            params.scale <= CURL_WARP_SCALE_MAX &&
            params.strength >= -CURL_WARP_STRENGTH_MAX &&
-           params.strength <= CURL_WARP_STRENGTH_MAX;
+           params.strength <= CURL_WARP_STRENGTH_MAX &&
+           params.edge_width >= SOFTNESS_MIN && params.edge_width <= 0.5f;
   case WarpStageKind::VORTEX:
     return params.center_x >= -VORTEX_CENTER_MAX &&
            params.center_x <= VORTEX_CENTER_MAX &&
