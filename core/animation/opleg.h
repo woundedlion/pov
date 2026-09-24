@@ -885,8 +885,9 @@ private:
                        tp, tw);
         if (settle_alpha > 0.0f) {
           HS_CHECK(swept.vertices.size() == tr.relaxed.size(),
-                   "OpLeg relax: swept vertices %zu != relaxed vertices %zu",
-                   swept.vertices.size(), tr.relaxed.size());
+                   "OpLeg relax: swept vertices %lu != relaxed vertices %lu",
+                   static_cast<unsigned long>(swept.vertices.size()),
+                   static_cast<unsigned long>(tr.relaxed.size()));
           // Alpha 1 copies the relaxed endpoint verbatim, so the settled
           // bookend is bitwise it (mirrors slerp_vertices' k >= 1 shortcut).
           if (settle_alpha >= 1.0f)
@@ -1471,8 +1472,9 @@ private:
                                         scratch_arena_b, arena);
     topology = std::move(arrival.topology);
     HS_CHECK(topology.size() == faces,
-             "OpLeg bookend: topology size %zu != face count %zu",
-             topology.size(), faces);
+             "OpLeg bookend: topology size %lu != face count %lu",
+             static_cast<unsigned long>(topology.size()),
+             static_cast<unsigned long>(faces));
     return false;
   }
 
