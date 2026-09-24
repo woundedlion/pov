@@ -14,6 +14,13 @@ import fab   # noqa: E402
 
 
 class BoardMetadataTests(unittest.TestCase):
+    def test_knockout_silkscreen_does_not_change_outline(self):
+        source = (GEN_DIR.parent / "phantasm.kicad_pcb").read_text(encoding="utf-8")
+        baseline = board_metadata.parse_board(source)
+        source = source.replace('(kicad_pcb', '(kicad_pcb (gr_text "X" '
+                                '(at 0 0) (layer "F.SilkS" knockout))', 1)
+        self.assertEqual(board_metadata.parse_board(source), baseline)
+
     def test_cross_arm_width_is_capped_independently_of_arm_length(self):
         metadata = board_metadata.load_board(
             GEN_DIR.parent / "phantasm.kicad_pcb")
