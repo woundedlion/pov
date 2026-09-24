@@ -75,7 +75,7 @@ class GSReactionDiffusion
   using Base::refine_render_center;
   using Base::register_param;
   using Base::seed_blobs;
-  using Base::seed_face_lut;
+  using Base::rasterize_lattice;
   using Base::to_q16;
 
 public:
@@ -548,7 +548,6 @@ private:
     // Seed the cubemap lookup once per pixel center; a seed whose two-ring
     // sits below the render floor is culled for the whole pixel (v0 = -1).
     auto vertex_shader = [&](Fragment &frag) {
-      seed_face_lut(frag);
       if (!hot2[static_cast<int>(frag.v0)])
         frag.v0 = -1.0f;
     };
@@ -560,7 +559,7 @@ private:
 
     {
       HS_PROFILE(grd_shader_draw);
-      Scan::Shader::draw_grid<W, H>(canvas, vertex_shader, pixel_shader);
+      rasterize_lattice(canvas, vertex_shader, pixel_shader);
     }
   }
 
