@@ -14,13 +14,13 @@
  */
 #pragma once
 
-#include "math/mobius.h"
 #include <emscripten/bind.h>
 #include "core/color/color.h"
 #include "core/color/palettes.h" // HS_PROCEDURAL_PALETTE_LIST — named-palette export
 #include "core/platform/platform.h"
 #include "core/math/3dmath.h"
 #include "core/math/geometry.h"
+#include "core/math/mobius.h"
 #include "core/math/stereographic.h"
 #include <array>
 #include <cmath>
