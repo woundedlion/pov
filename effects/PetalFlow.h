@@ -11,6 +11,7 @@
  *        flowing petals.
  */
 
+#include "core/animation/orientation.h"
 #include <cmath>
 #include <algorithm>
 #include "core/engine/engine.h"

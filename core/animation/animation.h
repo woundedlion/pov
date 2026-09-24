@@ -21,6 +21,7 @@
  * because it is the path for a Driver with no live source bound.
  */
 
+#include "animation/orientation.h"
 #include "color/generative_palette.h"
 #include "color/baked_palette.h"
 #include "math/mobius.h"

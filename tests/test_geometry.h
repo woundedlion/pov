@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include "core/animation/orientation.h"
 #include "core/math/geometry.h"
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"

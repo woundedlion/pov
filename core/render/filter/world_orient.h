@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "animation/orientation.h"
 #include "render/filter/pipeline.h"
 #include "animation/animation.h"
 #include "math/geometry.h"

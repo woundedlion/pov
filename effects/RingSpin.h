@@ -11,6 +11,7 @@
  *        trails.
  */
 
+#include "core/animation/orientation.h"
 #include <array>
 #include <new> // std::launder
 #include "core/engine/engine.h"

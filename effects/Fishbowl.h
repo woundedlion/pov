@@ -11,6 +11,7 @@
  *        multiline.
  */
 
+#include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include <array>
 #include <string_view>

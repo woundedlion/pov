@@ -11,6 +11,7 @@
  *        presets.
  */
 
+#include "core/animation/orientation.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 

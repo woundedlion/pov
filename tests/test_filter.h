@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include "core/animation/orientation.h"
 #include "math/mobius.h"
 #include <algorithm>
 #include <array>

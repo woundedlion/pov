@@ -13,6 +13,8 @@
  *        caller that has already clamped its progress pays nothing for it.
  */
 
+#include "math/periodic.h"
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -90,10 +92,7 @@ inline float shortest_periodic(float a, float b, float progress, float period) {
     delta += period;
   if (delta >= half)
     delta -= period;
-  float value = std::fmod(a + delta * progress, period);
-  if (value < 0.0f)
-    value += period;
-  return value >= period ? 0.0f : value;
+  return math::wrap_positive(a + delta * progress, period);
 }
 
 /**

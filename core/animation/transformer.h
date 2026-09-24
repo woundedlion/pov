@@ -14,6 +14,7 @@
  *          compose live in math/stereographic.h alongside their coefficients.
  */
 
+#include "animation/orientation.h"
 #include "math/3dmath.h"
 #include "math/mobius.h"
 #include "engine/concepts.h"

@@ -11,6 +11,7 @@
  *        a Mobius transform.
  */
 
+#include "core/animation/orientation.h"
 #include "core/color/effect_palette_recipes.h"
 #include "core/engine/engine.h"
 

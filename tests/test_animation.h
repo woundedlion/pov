@@ -19,6 +19,7 @@
  */
 #pragma once
 
+#include "core/animation/orientation.h"
 #include "math/mobius.h"
 #include <cmath>
 #include <cstddef>

@@ -10,6 +10,7 @@
  * @brief Feedback filter over a selectable polyhedral wireframe.
  */
 
+#include "core/animation/orientation.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/render/filter/pixel_feedback.h"

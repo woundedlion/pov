@@ -10,6 +10,7 @@
  * @brief Phase-modulated concentric shapes drawn across the sphere.
  */
 
+#include "core/animation/orientation.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 

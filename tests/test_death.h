@@ -34,6 +34,7 @@
  */
 #pragma once
 
+#include "core/animation/orientation.h"
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -5397,17 +5398,18 @@ inline const Case *all_cases(int &n) {
                    "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
                    "elapsed window holds for MIN_SAFE_HALF_REVS of coast"},
                   {"y_to_phi_degenerate_height",
-                   case_y_to_phi_degenerate_height, "core/math/geometry.h",
+                   case_y_to_phi_degenerate_height, "core/math/pixel_mapping.h",
                    "(h_virt > 1) y_to_phi_virtual: h_virt must be > 1"},
                   {"orientation_frame_index_oob",
-                   case_orientation_frame_index_oob, "core/math/geometry.h",
+                   case_orientation_frame_index_oob,
+                   "core/animation/orientation.h",
                    "(i >= 0 && i < num_frames) "},
                   {"make_basis_nonunit_quaternion",
-                   case_make_basis_nonunit_quaternion, "core/math/geometry.h",
+                   case_make_basis_nonunit_quaternion, "core/math/spherical.h",
                    "(std::abs(orientation_norm_sq - 1.0f) < "
                    "math::EPS_UNIT_QUAT_SQ) "},
                   {"parallel_transport_antipodal",
-                   case_parallel_transport_antipodal, "core/math/geometry.h",
+                   case_parallel_transport_antipodal, "core/math/spherical.h",
                    "(denominator > 1.0f || dot(cross(from, to), cross(from, to)) > "
                    "MIN_TRANSPORT_CROSS_SQ) parallel_transport: antipodal endpoints"},
                   {"polyhedral_kaleidoscope_no_converge",
@@ -6210,7 +6212,9 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/control/preset_host.h", 2},
     {"core/engine/memory.h", 1},
     {"core/math/3dmath.h", 3},
-    {"core/math/geometry.h", 15},
+    {"core/animation/orientation.h", 12},
+    {"core/math/pixel_mapping.h", 2},
+    {"core/math/spherical.h", 1},
     {"core/math/lenses.h", 1},
     {"core/math/spherical_field.h", 2},
     {"core/math/waves.h", 1},

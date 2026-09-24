@@ -11,6 +11,7 @@
  *        morphing between modes.
  */
 
+#include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include "core/math/spherical_harmonics.h"
 #include "core/render/pullback.h"

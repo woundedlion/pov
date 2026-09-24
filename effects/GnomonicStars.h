@@ -11,6 +11,7 @@
  *        evolving Mobius transform.
  */
 
+#include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
 // Unit-test accessor reaching the private pixel-pitch constant the star sizes

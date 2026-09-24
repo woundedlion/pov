@@ -44,6 +44,7 @@
  */
 #pragma once
 
+#include "core/animation/orientation.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/animation/animation.h" // Segue::Dissolve

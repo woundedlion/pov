@@ -2,6 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+#include "core/animation/orientation.h"
 #include <cstdio>
 #include <cstring>
 #if defined(_WIN32)
