@@ -3892,6 +3892,44 @@ inline void test_shader_chain_effect_registers_params() {
   HS_EXPECT_GT(lit, 0u);
 }
 
+inline void test_shader_chain_parameter_admission() {
+  reset_globals();
+  ShaderChain<96, 20> effect;
+  effect.init();
+  const In::ChainEntryRequest chain[] = {
+      {"lens", "sphere.lens.mobius.v2"},
+      {"project", "project.stereographic.v2"},
+      {"warp", "warp.curl-flow.v2"},
+      {"sample", "sample.grid.v2"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  HS_EXPECT_EQ(static_cast<int>(effect.set_chain(chain).code),
+               static_cast<int>(In::ChainStatus::OK));
+  const ParamDef &strength = *effect.getParameters().find("warp.strength");
+  const float accepted_strength = effect.accepted_parameter_value(strength);
+  effect.updateParameter("warp.strength", 30.0f);
+  HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") != nullptr);
+  HS_EXPECT_EQ(strength.get_requested(), 30.0f);
+  HS_EXPECT_EQ(effect.accepted_parameter_value(strength), accepted_strength);
+  effect.draw_frame();
+  effect.advance_display();
+  effect.updateParameter("warp.strength", 0.0f);
+  HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") == nullptr);
+  HS_EXPECT_EQ(effect.accepted_parameter_value(strength), 0.0f);
+  const ParamDef &d_re = *effect.getParameters().find("lens.mobius-d-re");
+  const float accepted_d_re = effect.accepted_parameter_value(d_re);
+  effect.updateParameter("lens.mobius-d-re", 0.0f);
+  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-d-re") != nullptr);
+  HS_EXPECT_EQ(d_re.get_requested(), 0.0f);
+  HS_EXPECT_EQ(effect.accepted_parameter_value(d_re), accepted_d_re);
+  effect.draw_frame();
+  effect.advance_display();
+  effect.updateParameter("lens.mobius-d-re", 1.0f);
+  HS_EXPECT_TRUE(effect.parameter_warning("lens.mobius-d-re") == nullptr);
+  effect.draw_frame();
+  effect.advance_display();
+}
+
 inline void test_shader_chain_effect_rebind_generation() {
   reset_globals();
   ShaderChain<96, 20> effect;
@@ -4202,6 +4240,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_param_names_and_budget();
   test_shader_chain_composed_frame_parity();
   test_shader_chain_effect_registers_params();
+  test_shader_chain_parameter_admission();
   test_shader_chain_effect_rebind_generation();
   test_shader_chain_legacy_colorize_tap();
   test_shader_chain_effect_refusal_keeps_schema();

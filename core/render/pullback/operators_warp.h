@@ -385,6 +385,17 @@ struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
   using Params = CurlFlowParams;
   using Prepared = PreparedCurlFlow;
 
+  static const char *validate(const Params &params) {
+    if (params.integrator >= 3)
+      return "Curl Flow requires a valid integrator.";
+    const uint8_t intervals = static_cast<uint8_t>(1U << params.integrator);
+    return params.scale * fabsf(params.strength) *
+                       Warp::CURL_VECTOR_COMPONENT_MAX / intervals <=
+                   0.5f
+               ? nullptr
+               : "Reduce Curl Flow scale or strength, or increase integrator steps.";
+  }
+
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static void advance(State &state, const Params &params) {
     state.phase = math::wrap_t(state.phase + params.speed);

@@ -275,6 +275,15 @@ struct LensMobius : StatelessModel {
     math::MobiusParams mobius;
   };
 
+  static const char *validate(const Params &params) {
+    const math::MobiusParams mobius{params.a_re, params.a_im, params.b_re,
+                                    params.b_im, params.c_re, params.c_im,
+                                    params.d_re, params.d_im};
+    return Lens::MobiusLensParams::nondegenerate(mobius)
+               ? nullptr
+               : "Mobius coefficients must have a nonzero determinant.";
+  }
+
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &) {
     const math::MobiusParams mobius{params.a_re, params.a_im, params.b_re,

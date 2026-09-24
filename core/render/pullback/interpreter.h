@@ -406,6 +406,10 @@ public:
         block_ptr(active, sides[active].ops[index].param_offset));
   }
 
+  const uint8_t *param_block(size_t index) const {
+    return const_cast<ChainProgram *>(this)->param_block(index);
+  }
+
   /** @brief Registered parameter name "{instance}.{field-id}" of schema entry
       @p schema_index of entry @p index.
       @details Storage lives in the winning arena, so the pointer dies at the
