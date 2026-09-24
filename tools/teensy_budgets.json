@@ -25,7 +25,7 @@
 
   "holosphere": {
     "regions": {
-      // Holosphere runs RingSpin at 96x20 and sizes its framebuffers to that
+      // Holosphere runs nonstrobed RingSpin at 96x20 and sizes its framebuffers to that
       // canvas, so every region retains wide headroom.
       // FLASH max_bytes is the T4.0 2 MB device wall, held below 100% so there
       // is room to flash — a "won't fit" cap, not a ratchet. Image growth is
