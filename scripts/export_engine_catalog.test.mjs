@@ -17,7 +17,10 @@ test('catalog export validates the result before replacing the output', (t) => {
     writeFileSync(modulePath, `export default async () => ({ HolosphereEngine: {
       getShaderChainCatalog: () => ${JSON.stringify(catalog)} } });`);
     writeFileSync(outputPath, 'previous');
-    const result = spawnSync(process.execPath, [script, modulePath, outputPath], { encoding: 'utf8' });
+    // NODE_OPTIONS carries the module-roster preload into this CLI-only module.
+    const result = spawnSync(process.execPath, [script, modulePath, outputPath], {
+      encoding: 'utf8', env: process.env,
+    });
     if (catalog === valid) {
       assert.equal(result.status, 0, result.stderr);
       assert.equal(readFileSync(outputPath, 'utf8'), `${valid}\n`);
