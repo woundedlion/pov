@@ -379,6 +379,9 @@ struct PreparedCurlFlow {
 
 /** @brief PLANE endomorphism: the divergence-free curl flow. */
 struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
+  static constexpr const char *ADMISSIBILITY_CONVEXITY =
+      "The whole declared box satisfies scale * abs(strength) * 4 <= 0.5; "
+      "each field curve remains inside its interval.";
   static constexpr const char *ID = "warp.curl-flow.v2";
   static constexpr const char *NAME = "Curl Flow";
   using Input = PlaneSample;
