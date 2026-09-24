@@ -240,7 +240,7 @@ inline void smoke_one(const char *name) {
   if (frames >= 4 && !effect_may_be_dark(name, frames)) {
     if (!motion)
       std::printf("  STATIC %-20s had no motion in the final %d frames\n", name,
-                  frames / 2);
+                  frames - frames / 2 - 1);
     HS_EXPECT(motion, "effect must change output after warmup");
   }
 
