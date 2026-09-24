@@ -1197,6 +1197,25 @@ private:
     return count;
   }
 
+  static consteval size_t color_parameter_count() {
+    size_t count = 1;
+    for (const auto &field : ColorParams::FIELDS) {
+      if (field.member == &ColorParams::hue_shift_amount &&
+          HueV == HueMode::NONE)
+        continue;
+      if ((field.member == &ColorParams::hue_noise_scale ||
+           field.member == &ColorParams::hue_noise_speed) &&
+          HueV != HueMode::NOISE)
+        continue;
+      if ((field.member == &ColorParams::brightness_bottom ||
+           field.member == &ColorParams::brightness_top) &&
+          BrightnessV == Pullback::Color::BrightnessEnvelope::NONE)
+        continue;
+      ++count;
+    }
+    return count;
+  }
+
   HS_COLD_MEMBER void register_parameters() {
     constexpr size_t count =
         named_field_count<decltype(params.source)>() +
@@ -1210,8 +1229,7 @@ private:
                             NoWarpParams>)+(requires {
           params.lens.mobius;
         } ? 8 : 0) +
-        9 + (BrightnessV != Pullback::Color::BrightnessEnvelope::NONE ? 2 : 0) +
-        (HueV == HueMode::NOISE ? 2 : 0);
+        color_parameter_count();
     static_assert(count <= PARAM_CAPACITY,
                   "ComposedEffect parameter descriptors exceed PARAM_CAPACITY");
     register_fields(params.source);
