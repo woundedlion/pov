@@ -23,6 +23,7 @@
 #include "core/math/geometry.h"
 #include "core/math/stereographic.h"
 #include <array>
+#include <cmath>
 #include <string>
 
 /**
@@ -42,8 +43,8 @@ static emscripten::val vector_to_xyz(const math::Vector &r) {
 static void bind_math_exports() {
   // ── Color / palette / geometry exports ─────────────────────────────────────
   // The real engine math, exported so the JS tool ports can cross-check it.
-  // Arguments pass unfiltered, non-finite ones included: a parity oracle must
-  // answer what the engine answers.
+  // Non-finite values pass through except where the engine requires a finite
+  // input before an integer conversion.
 
   // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
   emscripten::function("srgb_to_linear_float",
@@ -87,6 +88,10 @@ static void bind_math_exports() {
   emscripten::function(
       "gamut_max_chroma",
       emscripten::optional_override([](float L, float a, float b) -> float {
+        if (!std::isfinite(L) || !std::isfinite(a) || !std::isfinite(b))
+          emscripten::val::global("RangeError")
+              .new_("gamut_max_chroma requires finite arguments")
+              .throw_();
         return gamut_max_chroma(L, a, b);
       }));
 
