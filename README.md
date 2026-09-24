@@ -743,7 +743,7 @@ The `platform.h` header abstracts all target-specific differences:
 
 The host-side mock implementations — the `CRGB`/`CHSV` structs plus the rest of the emulated Arduino/FastLED surface (`random8`, `beatsin8`, `SerialMock`, …) — live in `platform/arduino_mocks.h`, included from `platform.h`'s non-Arduino branch.
 
-The few places the engine's behaviour forks on a device-only constant (the `H_OFFSET` sub-pole rows among them) are inventoried in [`docs/ledgers/device_host_divergence_ledger.md`](docs/ledgers/device_host_divergence_ledger.md), which records which device-value test build reaches each fork.
+The few places the engine's behaviour forks on a device-only constant (the `H_OFFSET` sub-pole rows among them) are inventoried in [`docs/ledgers/device_host_divergence_ledger.md`](https://github.com/woundedlion/pov/blob/master/docs/ledgers/device_host_divergence_ledger.md), which records which device-value test build reaches each fork.
 
 ---
 
