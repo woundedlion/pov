@@ -28,6 +28,11 @@ namespace Op {
 /** @brief Base of the Sample crossings driven by the shared phase clocks:
     the crossing's topology check plus the clock block they all prepare. */
 struct SourceClockModel : ValueStateModel<SourceClockState> {
+  template <typename Params>
+  static void advance(State &state, const Params &params) {
+    Source::advance_clocks(params, state.primary, state.secondary, state.angle);
+  }
+
   using Prepared = Source::PreparedSource;
 
   template <typename Params>
@@ -58,12 +63,6 @@ struct SampleGrid : SourceClockModel {
   using Output = FieldSample;
   using Params = GridSampleParams;
 
-  static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
-    state.secondary = fmodf(
-        state.secondary + params.speed * params.secondary_rate, math::TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
-  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::grid(
@@ -93,12 +92,6 @@ struct SampleTwinWave : SourceClockModel {
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
 
-  static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
-    state.secondary = fmodf(
-        state.secondary + params.speed * params.secondary_rate, math::TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
-  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::twin_wave(
@@ -143,9 +136,6 @@ struct SampleRings : SourceClockModel {
   using Output = FieldSample;
   using Params = RingsSampleParams;
 
-  static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
-  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::rings(
@@ -216,10 +206,6 @@ struct SampleSpiral : SourceClockModel {
   using Output = FieldSample;
   using Params = SpiralSampleParams;
 
-  static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
-  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::spiral(
@@ -281,10 +267,6 @@ struct SampleFractal : SourceClockModel {
   using Output = FieldSample;
   using Params = FractalSampleParams;
 
-  static void advance(State &state, const Params &params) {
-    state.primary = fmodf(state.primary + params.speed, math::TWO_PI_F);
-    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
-  }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::escape_fractal(
@@ -327,9 +309,6 @@ struct SampleTessellation : SourceClockModel {
   using Output = FieldSample;
   using Params = TessellationSampleParams;
 
-  static void advance(State &state, const Params &params) {
-    state.angle = fmodf(state.angle + params.angle_rate, math::TWO_PI_F);
-  }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
     const Prepared prepared = SourceClockModel::prepare(ctx, params, state);
@@ -381,7 +360,7 @@ struct PreparedNoiseSource {
 };
 
 /** @brief PLANE→FIELD crossing: the projected-plane noise contour source. */
-struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
+struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sample.projected-noise.v2";
   static constexpr const char *NAME = "Projected Noise";
   using Input = PlaneSample;
@@ -390,9 +369,6 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
   using Prepared = PreparedNoiseSource;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.noise_time_rate);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_sample_topology(params.weight_mode, params.coverage_mode);
@@ -411,7 +387,7 @@ struct SampleProjectedNoise : ValueStateModel<NoisePhaseState> {
 };
 
 /** @brief SPHERE→FIELD crossing: the sphere-space noise contour source. */
-struct SampleSphericalNoise : ValueStateModel<NoisePhaseState> {
+struct SampleSphericalNoise : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sample.spherical-noise.v3";
   static constexpr const char *NAME = "Spherical Noise";
   using Input = SphereSample;
@@ -420,9 +396,6 @@ struct SampleSphericalNoise : ValueStateModel<NoisePhaseState> {
   using Prepared = PreparedNoiseSource;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.noise_time_rate);
-  }
   static Prepared prepare(const FrameContext &, const Params &,
                           const State &state) {
     return {&state.noise, math::noise_sphere_loop_offset(state.phase)};

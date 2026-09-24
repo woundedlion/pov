@@ -78,6 +78,17 @@ struct NoisePhaseState {
   float phase = 0.0f;
 };
 
+/** @brief Value-state operator with one normalized loop clock. */
+template <typename StateT> struct PhaseClockModel : ValueStateModel<StateT> {
+  template <typename Params>
+  static void advance(StateT &state, const Params &params) {
+    if constexpr (requires { params.noise_time_rate; })
+      state.phase = math::wrap_t(state.phase + params.noise_time_rate);
+    else
+      state.phase = math::wrap_t(state.phase + params.speed);
+  }
+};
+
 inline void init_noise_phase(NoisePhaseState &state, InstanceId id) {
   init_effect_noise(state.noise, static_cast<int32_t>(id.stable_hash));
 }
