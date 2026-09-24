@@ -9,8 +9,8 @@
 
 #if HS_ENABLE_SHADER_WORKBENCH
 
-#include "math/mobius.h"
-#include "render/pullback/lens.h"
+#include "core/math/mobius.h"
+#include "core/render/pullback/lens.h"
 
 /**
  * @file admission.h

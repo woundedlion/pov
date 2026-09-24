@@ -12,7 +12,7 @@
  */
 
 #include "core/animation/orientation.h"
-#include "math/mobius.h"
+#include "core/math/mobius.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 // 256 x 256 Pixels = 393,216 B of flash, about a fifth of the Teensy budget;

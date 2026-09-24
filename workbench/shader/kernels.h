@@ -9,8 +9,8 @@
 
 #if HS_ENABLE_SHADER_WORKBENCH
 
-#include "math/projection_patterns.h"
-#include "math/mobius.h"
+#include "core/math/projection_patterns.h"
+#include "core/math/mobius.h"
 
 /**
  * @file kernels.h
