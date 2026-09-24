@@ -218,7 +218,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── rng.h                   Deterministic random number generation
 │   │   ├── arduino_mocks.h         Host-side FastLED / Arduino mock surface
 │   │   ├── build_features.h        Canvas size, build-time feature and instrumentation switches
-│   │   ├── constants.h             MAX_W, MAX_H, star ratio, pole-LOD tuning
+│   │   ├── constants.h             MAX_W, MAX_H canvas bounds
 │   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   ├── control/                An effect's control surface (registry, params +
 │   │                            apply_if_changed, ParamHost/PresetHost, presets,
