@@ -133,7 +133,7 @@ class ProfileTreeResolution(unittest.TestCase):
 
 ARTIFACT_VARS = ("OUT", "PROVENANCE_OUT", "PROFILE_BUILD_LOG",
                  "PHANTASM_BUILD_LOG", "PROFILE_ENVDUMP", "PHANTASM_ENVDUMP",
-                 "ATTEST_DIR")
+                 "ATTEST_DIR", "ARTIFACT_BASE")
 
 
 def derived_paths(profile_out=None):
