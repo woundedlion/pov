@@ -67,10 +67,6 @@ struct GoldenPixel {
 static_assert(static_cast<size_t>(WIDTH) * HEIGHT <= 65536,
               "GoldenPixel::index is uint16_t");
 
-uint64_t fnv1a(uint64_t hash, uint8_t byte) {
-  return (hash ^ byte) * 1099511628211ull;
-}
-
 Workload read_workload() {
   const hs::MindSplatterCounts &counts = hs::g_mindsplatter_counts;
   Workload workload;
@@ -213,24 +209,22 @@ int main(int argc, char **argv) {
   std::vector<uint16_t> framebuffer;
   framebuffer.reserve(static_cast<size_t>(WIDTH) * HEIGHT * 3);
   std::vector<GoldenPixel> golden;
-  uint64_t framebuffer_hash = 1469598103934665603ull;
+  uint64_t framebuffer_hash = mindsplatter_replay::HASH_SEED;
   for (int i = 0; i < WIDTH * HEIGHT; ++i) {
     if (pixels[i].r | pixels[i].g | pixels[i].b)
       golden.push_back(
           {static_cast<uint16_t>(i), pixels[i].r, pixels[i].g, pixels[i].b});
     for (uint16_t channel : {pixels[i].r, pixels[i].g, pixels[i].b}) {
       framebuffer.push_back(channel);
-      framebuffer_hash = fnv1a(framebuffer_hash, channel & 0xffu);
-      framebuffer_hash = fnv1a(framebuffer_hash, channel >> 8);
+      framebuffer_hash =
+          mindsplatter_replay::hash_channel(framebuffer_hash, channel);
     }
   }
-  uint64_t corpus_hash = 1469598103934665603ull;
+  uint64_t corpus_hash = mindsplatter_replay::HASH_SEED;
   for (unsigned char byte : state)
-    corpus_hash = fnv1a(corpus_hash, byte);
-  for (uint16_t channel : framebuffer) {
-    corpus_hash = fnv1a(corpus_hash, channel & 0xffu);
-    corpus_hash = fnv1a(corpus_hash, channel >> 8);
-  }
+    corpus_hash = mindsplatter_replay::hash_byte(corpus_hash, byte);
+  for (uint16_t channel : framebuffer)
+    corpus_hash = mindsplatter_replay::hash_channel(corpus_hash, channel);
 
   const ClipRegion peak_clip =
       mindsplatter_replay::search_clip<WIDTH, HEIGHT>(selected->peak_clip);
