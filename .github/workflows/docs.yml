@@ -12,7 +12,7 @@ on:
     # rename outside these paths reaches no run here; ci.yml runs the same
     # Markdown and image checkers unfiltered, so a documented link or image
     # reference cannot break unnoticed.
-    paths:
+    paths: &docs_paths
       - '**.h'
       - '**.cpp'
       - '**.ino'
@@ -32,23 +32,7 @@ on:
   # Build-only presubmit on PRs touching the same inputs. The deploy job is
   # push-gated, so PRs build without deploying.
   pull_request:
-    paths:
-      - '**.h'
-      - '**.cpp'
-      - '**.ino'
-      - '*.md'
-      - '**/*.md'
-      - 'Doxyfile'
-      - 'docs/doxygen-custom.css'
-      - 'docs/doxygen-theme.cfg'
-      - 'docs/screenshots/**'
-      - 'tools/build_pins.py'
-      - 'tools/docs_check.py'
-      - 'tools/docs_sync.py'
-      - 'tools/docs_images.py'
-      - 'justfile'
-      - '.github/actions/pinned-doxygen/action.yml'
-      - '.github/workflows/docs.yml'
+    paths: *docs_paths
 
 # Default every job to source read-only. Deploy grants its publish capabilities.
 # The build job's checkout passes persist-credentials: false, as ci.yml's do;
