@@ -153,12 +153,7 @@ def _rectangle(centre, width, height, degrees):
 
 
 def pad_copper(pad, origin, rotation, stack):
-    """Pad copper: a rectangular land as its rotated rectangle, anything else as
-    a disc around its centre, sized to circumscribe the land.
-
-    Custom pads carry primitives outside the base size, so their reach is the
-    furthest primitive vertex or circle rim.
-    """
+    """Rectangular and custom lands use rotated bounding boxes; others use discs."""
     placement = sexp.val(pad, "at")
     offset = _rotate(_xy(placement), rotation)
     centre = (origin[0] + offset[0], origin[1] + offset[1])
@@ -179,18 +174,34 @@ def pad_copper(pad, origin, rotation, stack):
     radius = (max(width, height) / 2 if shape in {"circle", "oval"}
               else math.hypot(width, height) / 2)
     if shape == "custom":
-        # KiCad nests the primitives one level down, under (primitives ...).
         blocks = F(pad, "primitives")
+        points = []
         for primitive in (blocks[0][1:] if blocks else []):
             if not isinstance(primitive, list) or not primitive:
                 continue
+            stroke = sexp.val(primitive, "width")
+            half_stroke = float(stroke[0]) / 2 if stroke else 0.0
             if str(primitive[0]) == "gr_circle":
                 rim = _xy(sexp.val(primitive, "center"))
                 edge = _xy(sexp.val(primitive, "end"))
-                radius = max(radius, math.hypot(*rim) + math.dist(rim, edge))
+                reach = math.dist(rim, edge) + half_stroke
+                points.extend(((rim[0] - reach, rim[1] - reach),
+                               (rim[0] + reach, rim[1] + reach)))
             elif str(primitive[0]) == "gr_poly":
                 for vertex in F(F(primitive, "pts")[0], "xy"):
-                    radius = max(radius, math.hypot(*_xy(vertex[1:])))
+                    x, y = _xy(vertex[1:])
+                    points.extend(((x - half_stroke, y - half_stroke),
+                                   (x + half_stroke, y + half_stroke)))
+        if points:
+            xs, ys = zip(*points)
+            left, right = min(-width / 2, *xs), max(width / 2, *xs)
+            bottom, top = min(-height / 2, *ys), max(height / 2, *ys)
+            angle = float(placement[2]) if len(placement) > 2 else 0.0
+            corners = ((left, bottom), (right, bottom),
+                       (right, top), (left, top))
+            return Polygon([(centre[0] + x, centre[1] + y)
+                            for x, y in (_rotate(p, angle) for p in corners)],
+                           layers)
     return Capsule(centre, centre, radius, layers)
 
 
