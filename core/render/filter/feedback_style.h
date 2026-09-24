@@ -269,7 +269,7 @@ struct Style {
   }
 
   /**
-   * @brief Static high-amplitude twist at spatial frequency 11.25; a loose swirling
+   * @brief Static high-amplitude twist at amplitude 11.25; a loose swirling
    * tunnel with no temporal drift.
    * @return The LooseWormhole preset Style.
    */
@@ -279,7 +279,7 @@ struct Style {
   }
 
   /**
-   * @brief Static high-amplitude twist at spatial frequency 6.42; a tight swirling
+   * @brief Static high-amplitude twist at amplitude 6.42; a tight swirling
    * tunnel with no temporal drift.
    * @return The TightWormhole preset Style.
    */
@@ -289,7 +289,7 @@ struct Style {
   }
 
   /**
-   * @brief Static twist at spatial frequency 7.11; a wide wormhole with wandering
+   * @brief Static twist at amplitude 7.11; a wide wormhole with wandering
    * arms and no temporal drift.
    * @return The WigglingWormhole preset Style.
    */
