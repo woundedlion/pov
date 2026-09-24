@@ -70,8 +70,7 @@ struct Pixel {
    * @param _g Green channel in [0, 65535].
    * @param _b Blue channel in [0, 65535].
    */
-  constexpr Pixel(uint16_t _r, uint16_t _g, uint16_t _b)
-      : r(_r), g(_g), b(_b) {}
+  constexpr Pixel(uint16_t r, uint16_t g, uint16_t b) : r(r), g(g), b(b) {}
 
   /**
    * @brief Constructs a pixel from HSV (converts to sRGB then Linear).
