@@ -22,15 +22,8 @@
  */
 /**
  * @brief The Scan namespace contains area-filling scanline drawing primitives.
- * @details Pipeline typing follows the per-pixel body. A body that already
- * calls a type-erased FragmentShaderFn pays one indirect call per pixel
- * whatever the sink is, so those entry points take the sink as PipelineRef —
- * either by value or as a PipelineT defaulted to it — and keep the single
- * instantiation per <W,H> that erasure buys (see the PipelineRef note in
- * concepts.h). The bodies with no erased call — the constant-color
- * rasterize_solid and draw_solid family, the fused RingGroup and
- * DistortedRingStack walks, rasterize_face and Mesh::draw_specialized — name
- * PipelineT with no default, so the caller's sink types the whole body.
+ * @details Template entry points deduce the concrete sink type. Explicit
+ * PipelineRef parameters erase the sink; template defaults do not erase it.
  */
 namespace Scan {
 
@@ -315,13 +308,10 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
  * @return Columns consumed: max_run when the probe at x decided the whole
  *         offer (all clear, or a solid interior shaded once and splatted),
  *         else 1.
- * @details The shader is type-erased (FragmentShaderFn) and the pipeline
- * defaults to the erased PipelineRef, so the scanline instantiates once per
- * <W,H> rather than per shader/pipeline; a caller holding a typed sink names it
- * as PipelineT. See the PipelineRef note in concepts.h.
+ * @details The shader is type-erased (FragmentShaderFn); the pipeline type
+ * is deduced from the caller and specializes the pixel body.
  */
-template <int W, int H, bool ComputeUVs = true,
-          typename PipelineT = PipelineRef>
+template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline int process_pixel(int x, int y, const math::Vector &p,
                          PipelineT &pipeline, Canvas &canvas, const auto &shape,
                          FragmentShaderFn fragment_shader, bool debug_bb,
@@ -784,8 +774,7 @@ clamp_rows_to_clip(const BoundsT &bounds, const ClipRegion &cr, int &y_lo,
  * @details Scans the bounding box, computes intervals, and executes the shader
  * for valid pixels.
  */
-template <int W, int H, bool ComputeUVs = true,
-          typename PipelineT = PipelineRef>
+template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       FragmentShaderFn fragment_shader, bool debug_bb = false) {
   static_assert(SDF::ScanShape<std::remove_cvref_t<decltype(shape)>, W, H>,
