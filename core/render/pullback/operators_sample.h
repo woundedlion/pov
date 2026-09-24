@@ -4,10 +4,11 @@
  */
 #pragma once
 
-#include "math/projection_patterns.h"
 #include "platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
+
+#include "math/projection_patterns.h"
 
 #include "render/pullback/operators_common.h"
 #include "render/pullback/source.h"

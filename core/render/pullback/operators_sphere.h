@@ -4,10 +4,11 @@
  */
 #pragma once
 
-#include "math/mobius.h"
 #include "platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
+
+#include "math/mobius.h"
 
 #include "render/pullback/lens.h"
 #include "render/pullback/operators_common.h"
