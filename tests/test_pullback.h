@@ -993,6 +993,8 @@ inline void test_pullback_concrete_catalog() {
   const math::Complex origin;
   const math::Complex off(0.6f, 0.25f); // radius 0.65, azimuth atan2(0.25, 0.6)
   HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, prepared), 0.0f);
+  HS_EXPECT_EQ(Pullback::Source::twin_wave(origin, shifted),
+               0.5f * (math::fast_sinf(0.7f) + math::fast_sinf(0.3f)));
   HS_EXPECT_NEAR(Pullback::Source::twin_wave(off, turned),
                  0.5f * (math::fast_sinf(0.6f) + math::fast_sinf(0.25f)),
                  2e-3f);
