@@ -81,6 +81,11 @@ lint:
     {{py}} tools/build_pins.py --check-tool shellcheck
     bash tools/shellcheck_gate.sh
     bash tools/profile_sweep.sh check
+    {{py}} tools/build_pins.py --check-tool actionlint
+    actionlint -shellcheck shellcheck
+    {{py}} tools/build_pins.py --check-tool just
+    just --evaluate
+    just --summary
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
 # clang-format job's invocation. Majors reflow differently, so the
