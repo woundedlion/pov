@@ -248,19 +248,19 @@ private:
     const emscripten::val chroma = input["chroma"];
     if (!block_present(chroma, PaletteRecipeField::CHROMA_CURVE, status))
       return false;
-    if (!decode_enum(chroma, "curve", recipe.chroma.curve,
+    if (!decode_enum(chroma, "curve", recipe.chroma.axis.curve,
                      PaletteRecipeField::CHROMA_CURVE, status) ||
         !decode_enum(chroma, "basis", recipe.chroma.basis,
                      PaletteRecipeField::CHROMA_BASIS, status))
       return false;
-    recipe.chroma.center = leaf_float(chroma, "center");
-    recipe.chroma.range = leaf_float(chroma, "range");
+    recipe.chroma.axis.center = leaf_float(chroma, "center");
+    recipe.chroma.axis.range = leaf_float(chroma, "range");
     recipe.chroma.headroom = leaf_float(chroma, "headroom");
     const emscripten::val chroma_custom = chroma["custom"];
     if (!block_present(chroma_custom, PaletteRecipeField::CHROMA_CUSTOM_0,
                        status))
       return false;
-    decode_key_values(chroma_custom, recipe.chroma.custom);
+    decode_key_values(chroma_custom, recipe.chroma.axis.custom);
 
     recipe.hue_torsion = leaf_float(input, "hueTorsion");
     recipe.falloff_start = leaf_float(input, "falloffStart");
@@ -306,12 +306,12 @@ private:
     lightness.set("custom", encode_key_values(recipe.lightness.custom));
 
     emscripten::val chroma = emscripten::val::object();
-    chroma.set("curve", static_cast<int>(recipe.chroma.curve));
+    chroma.set("curve", static_cast<int>(recipe.chroma.axis.curve));
     chroma.set("basis", static_cast<int>(recipe.chroma.basis));
-    chroma.set("center", recipe.chroma.center);
-    chroma.set("range", recipe.chroma.range);
+    chroma.set("center", recipe.chroma.axis.center);
+    chroma.set("range", recipe.chroma.axis.range);
     chroma.set("headroom", recipe.chroma.headroom);
-    chroma.set("custom", encode_key_values(recipe.chroma.custom));
+    chroma.set("custom", encode_key_values(recipe.chroma.axis.custom));
 
     emscripten::val output = emscripten::val::object();
     output.set("schemaVersion", recipe.schema_version);
