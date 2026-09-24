@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "core/animation/orientation.h"
 #include "targets/effects.h"
 #include "core/render/canvas.h"
 #include "core/render/sdf/volume.h"

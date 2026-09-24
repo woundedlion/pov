@@ -55,6 +55,7 @@
  */
 #pragma once
 
+#include "core/animation/orientation.h"
 #include "math/mobius.h"
 #include "core/animation/transformer.h"
 #include "core/render/canvas.h"

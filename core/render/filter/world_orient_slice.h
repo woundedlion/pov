@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "animation/orientation.h"
 #include <span>
 #include <algorithm>
 #include "render/filter/world_orient.h"

@@ -11,6 +11,7 @@
  *        attractors through a Mobius warp.
  */
 
+#include "core/animation/orientation.h"
 #include "math/mobius.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"

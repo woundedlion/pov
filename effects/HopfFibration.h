@@ -11,6 +11,7 @@
  *        in 4D and stereographically projected.
  */
 
+#include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include <array>
 
