@@ -10,7 +10,7 @@ RUNNER = Path(__file__).resolve().parents[1] / "run_python_tests.py"
 
 
 class PythonRunner(unittest.TestCase):
-    def run_fixture(self, source=None):
+    def run_fixture(self, source=None, extra=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             subprocess.run(["git", "-C", str(root), "init", "--quiet"], check=True)
@@ -20,6 +20,11 @@ class PythonRunner(unittest.TestCase):
                 path.write_text(source, encoding="utf-8")
                 subprocess.run(["git", "-C", str(root), "add", "--",
                                 "new_suite/test_sample.py"], check=True)
+            if extra is not None:
+                empty = root / "new_suite/test_extra.py"
+                empty.write_text(extra, encoding="utf-8")
+                subprocess.run(["git", "-C", str(root), "add", "--",
+                                "new_suite/test_extra.py"], check=True)
             return subprocess.run([sys.executable, str(RUNNER), "--root", str(root)],
                                   capture_output=True, text=True, check=False)
 
@@ -28,6 +33,15 @@ class PythonRunner(unittest.TestCase):
 
     def test_empty_suite_fails(self):
         self.assertNotEqual(self.run_fixture("# no cases\n").returncode, 0)
+
+    def test_empty_file_and_all_skipped_file_fail_beside_live_tests(self):
+        live = ("import unittest\nclass Live(unittest.TestCase):\n"
+                "    def test_live(self): self.assertTrue(True)\n")
+        skipped = ("import unittest\n@unittest.skip('fixture')\n"
+                   "class Skipped(unittest.TestCase):\n"
+                   "    def test_skipped(self): pass\n")
+        for extra in ("# empty\n", skipped):
+            self.assertNotEqual(self.run_fixture(live, extra=extra).returncode, 0)
 
     def test_new_suite_is_discovered_and_failure_propagates(self):
         source = ("import unittest\nclass Sample(unittest.TestCase):\n"
