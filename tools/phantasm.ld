@@ -18,7 +18,7 @@
  * Everything else (heap, stack, csf) is byte-identical to the stock script; the
  * derived _etext / _itcm_block_count drop its SIZEOF(.ARM.exidx) term, which is
  * an ITCM contribution only in the stock layout. Selected per-env via
- * board_build.ldscript by phantasm, phantasm8, profile and profile_o3, so it
+ * board_build.ldscript by phantasm, phantasm8, profile, profile_o3 and bench, so it
  * serves the -Os and -O3 images alike.
  *
  * FORKED FROM: framework-arduinoteensy 1.162.0
