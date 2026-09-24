@@ -483,8 +483,8 @@ jobs:
             # the Debug and optimized IEEE jobs cover that configuration.
             test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|shader_workbench|pullback_capture_determinism|pov_sync|color_luts|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
-            # The one leg that legitimately skips: the specialized HyperLattice
-            # signature has no band sized for a reassociated Newton reciprocal.
+            # The harness permits only the HyperLattice specialized signature
+            # and denormal-alpha rescale skips under this flag pair.
             skips_are_errors: 0
     # The `tests` preset pins Debug, and the jobs above all reuse it, so every
     # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
