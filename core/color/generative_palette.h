@@ -398,9 +398,7 @@ private:
       const bool to_chromatic = is_chromatic(to_keys[i]);
       float hue = 0.0f;
       if (from_chromatic && to_chromatic) {
-        const float delta = anchor < 0
-                                ? wrap_angle_pi(to_keys[i].h - from_keys[i].h)
-                                : anchor_delta + relative[i];
+        const float delta = anchor_delta + relative[i];
         hue = from_keys[i].h + delta * amount;
       } else if (from_chromatic) {
         hue = from_keys[i].h;
