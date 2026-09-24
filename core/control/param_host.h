@@ -63,6 +63,10 @@ public:
       value = roundf(value);
     if (!def->is_bool())
       value = hs::clamp(value, def->min, def->max);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    if (!parameter_write_admitted(*def, value))
+      return ParamSetResult::INADMISSIBLE;
+#endif
     const bool animated = def->animated;
     if (animated)
       setAnimationsPaused(true);
@@ -145,6 +149,11 @@ protected:
   virtual void parameter_written() {}
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  /** @brief Validates a candidate value before any parameter state changes. */
+  virtual bool parameter_write_admitted(const ParamDef &, float) {
+    return true;
+  }
+
   using ParameterUpdatedHook = void (*)(ParamHost *, const char *, bool);
 
   /** @brief Installs an opt-in reaction to accepted GUI parameter writes. */
