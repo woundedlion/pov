@@ -519,6 +519,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
 ├── requirements/               Dependabot-visible Python toolchain pins used by CI (`*.in` sources, `*.txt` hash locks from `pip-compile --generate-hashes`)
+├── .clangd                     Checkout-local native compilation database for editor diagnostics
 ├── .clang-format               LLVM-derived C++ style; CI enforces it with clang-format 22
 ├── ruff.toml                   Python lint rules (defect classes only, no formatter) — the ci.yml lint job
 ├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
