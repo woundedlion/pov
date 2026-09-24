@@ -4240,7 +4240,7 @@ inline RelaxSourceIdentity dodecahedron_bevel_source_identity(float depth) {
 /** @brief Source identity separates the bakes whose topology hashes collide. */
 inline void test_relax_source_hash_separates_bevel_inputs() {
   const RelaxSourceIdentity truncated =
-      dodecahedron_bevel_source_identity(T_TRUNC_ICOS);
+      dodecahedron_bevel_source_identity(Solids::T_TRUNC_ICOS);
   const RelaxSourceIdentity bevel20 = dodecahedron_bevel_source_identity(0.2f);
 
   HS_EXPECT_EQ(
