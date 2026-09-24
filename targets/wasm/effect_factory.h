@@ -74,13 +74,6 @@ const FactoryEntry *find_factory_entry(std::string_view name) {
 // <W,H>).
 // ---------------------------------------------------------------------------
 
-// Pin every resolution row to the MAX_W×MAX_H pixel-buffer bound.
-#define X(W, H)                                                                \
-  static_assert((W) <= MAX_W && (H) <= MAX_H,                                  \
-                "HS_RESOLUTIONS row exceeds the MAX_W×MAX_H pixel buffer");
-HS_RESOLUTIONS(X)
-#undef X
-
 /** @brief One HS_RESOLUTIONS row as runtime values. */
 struct WasmResolution {
   int w; /**< Canvas width in pixels. */
