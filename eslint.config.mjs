@@ -13,7 +13,7 @@ export default [
   // emscripten .js glue. Without this, `npm run lint` lints generated code
   // locally while CI (a fresh checkout, no build tree) does not. .worktrees/ is
   // a second full checkout, whose .mjs would otherwise be linted twice.
-  { ignores: ['build*/**', '.worktrees/**'] },
+  { ignores: ['build*/**', '.worktrees/**', '.doxygen-awesome/**'] },
   js.configs.recommended,
   {
     files: ['**/*.mjs'],
