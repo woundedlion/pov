@@ -147,25 +147,13 @@ public:
   void check_stale_transfer() {
     if (transfer_complete.load(std::memory_order_relaxed))
       return;
-    HS_CHECK(
-        !dma::transfer_stale(transfer_start_us, micros(), TRANSFER_WATCHDOG_US),
-        "DMA channel wedged — in-flight transfer outlived the watchdog on "
-        "the overrun-drop path; completion ISR never fired");
+    HS_CHECK(!dma::transfer_stale(transfer_start_us, micros(),
+                                  dma::TRANSFER_WATCHDOG_US),
+             "DMA channel wedged — in-flight transfer outlived the watchdog on "
+             "the overrun-drop path; completion ISR never fired");
   }
 
 private:
-  /**
-   * @brief Watchdog bound for check_stale_transfer(), in µs.
-   * @details Covers both shipping configurations. Holosphere: 40 px → 336-byte
-   *          composite at the 12 MHz default clock = 224 µs, column period
-   *          1302 µs. Phantasm: 72 px → 600-byte composite at 24 MHz = 200 µs,
-   *          column period 434 µs. 5 ms is over 20× either transfer, so only a
-   *          wedged channel trips it, and under 12 column periods on either, so
-   *          a wedge does not blank the strip for hundreds of columns before
-   *          trapping.
-   */
-  static constexpr unsigned long TRANSFER_WATCHDOG_US = 5000UL;
-
   /**
    * @brief DMA completion ISR: clears the interrupt and marks the transfer done.
    * @details Dispatched via the singleton instance; runs in interrupt context.

@@ -180,7 +180,7 @@ template <int S, int N, int RPM> class POVSegmented {
    * 24 MHz (vs the 12 MHz default) halves the per-column transfer time. The
    * column ISR, not the strip, is the binding budget.
    */
-  static constexpr uint32_t SPI_CLOCK_HZ = 24000000;
+  static constexpr uint32_t SPI_CLOCK_HZ = dma::SEGMENTED_CLOCK_HZ;
 
   /**
    * @brief Worst-case duration of one column's LED transfer, in µs.

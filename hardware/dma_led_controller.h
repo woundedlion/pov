@@ -77,7 +77,7 @@ template <int N, LedTransport Transport
 class DMALEDController {
 public:
   /** @brief SPI clock a default-constructed controller runs at, in Hz. */
-  static constexpr uint32_t DEFAULT_CLOCK_HZ = 12000000;
+  static constexpr uint32_t DEFAULT_CLOCK_HZ = dma::DEFAULT_CLOCK_HZ;
 
   /**
    * @brief Constructs the controller, optionally overriding the SPI clock.
