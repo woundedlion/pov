@@ -14,6 +14,21 @@
 #include "engine/memory.h"
 #include "math/3dmath.h"
 
+/** @brief Samples a palette domain and copies its exact mirror or loop seam. */
+template <int Size, typename Sample, typename Copy>
+inline void bake_palette_schedule(bool mirrors, bool loops, Sample sample,
+                                  Copy copy) {
+  const int count = mirrors ? Size / 2 : (loops ? Size - 1 : Size);
+  for (int i = 0; i < count; ++i)
+    sample(i, static_cast<float>(i) / (Size - 1));
+  if (mirrors) {
+    for (int i = 0; i < count; ++i)
+      copy(Size - 1 - i, i);
+  } else if (loops) {
+    copy(Size - 1, 0);
+  }
+}
+
 /**
  * @brief Read-only view of a 256-entry arena-backed color/alpha table.
  * @details Copies share table storage and never grant mutation rights.
@@ -206,26 +221,17 @@ public:
     bool loops = false;
     if constexpr (requires { source.loops_domain(); })
       loops = source.loops_domain();
-    int sample_count = BakedPalette::LUT_SIZE;
-    if (mirrors)
-      sample_count = BakedPalette::LUT_SIZE / 2;
-    else if (loops)
-      sample_count = BakedPalette::LUT_SIZE - 1;
-    for (int i = 0; i < sample_count; ++i) {
-      float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
-      const Color4 sample = source.get(t);
-      table.colors[i] = sample.color;
-      table.alpha_q16[i] = frac_to_q16(sample.alpha);
-    }
-    if (mirrors) {
-      for (int i = 0; i < sample_count; ++i) {
-        table.colors[BakedPalette::LUT_SIZE - 1 - i] = table.colors[i];
-        table.alpha_q16[BakedPalette::LUT_SIZE - 1 - i] = table.alpha_q16[i];
-      }
-    } else if (loops) {
-      table.colors[BakedPalette::LUT_SIZE - 1] = table.colors[0];
-      table.alpha_q16[BakedPalette::LUT_SIZE - 1] = table.alpha_q16[0];
-    }
+    bake_palette_schedule<BakedPalette::LUT_SIZE>(
+        mirrors, loops,
+        [&](int i, float t) {
+          const Color4 sample = source.get(t);
+          table.colors[i] = sample.color;
+          table.alpha_q16[i] = frac_to_q16(sample.alpha);
+        },
+        [&](int destination, int source_index) {
+          table.colors[destination] = table.colors[source_index];
+          table.alpha_q16[destination] = table.alpha_q16[source_index];
+        });
   }
 
   /**

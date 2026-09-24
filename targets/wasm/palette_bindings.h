@@ -409,20 +409,12 @@ private:
    *          are exact rather than left to sampling round-off.
    */
   static void bake(const GenerativePalette &palette, bool inspect) {
-    int sample_count = 256;
-    if (palette.mirrors_domain())
-      sample_count = 128;
-    else if (palette.loops_domain())
-      sample_count = 255;
-
-    for (int i = 0; i < sample_count; ++i)
-      store_sample(i, palette, i / 255.0f, inspect);
-    if (palette.mirrors_domain()) {
-      for (int i = 0; i < sample_count; ++i)
-        copy_sample(255 - i, i, inspect);
-    } else if (palette.loops_domain()) {
-      copy_sample(255, 0, inspect);
-    }
+    bake_palette_schedule<256>(
+        palette.mirrors_domain(), palette.loops_domain(),
+        [&](int i, float t) { store_sample(i, palette, t, inspect); },
+        [&](int destination, int source) {
+          copy_sample(destination, source, inspect);
+        });
   }
 
   /**
