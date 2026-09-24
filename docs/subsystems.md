@@ -115,14 +115,14 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 
 Given a per-face setup callback (`Scan::Mesh::draw`'s optional `face_shader_setup`, and `Scan::Mesh::draw_specialized`), the mesh path runs its minimal-fragment loop: only `v1` is refreshed per pixel, so `v2` stays 0 (`mesh_face_index()` reports face 0) and `size` stays 1 (`fragment_edge_dist()` returns an unnormalized distance). The face index and face size reach the shader through the setup callback instead.
 
-The `DistanceResult` struct is returned by each SDF shape's `distance<ComputeUVs>()` method:
+The `DistanceResult` struct is returned by each SDF shape's `distance<ComputeUVs>()` method. Distances and `size` use radians except for small `SDF::Face` shapes (inradius < 0.2), which use gnomonic tangent-plane units. The per-producer register table in `core/render/sdf/common.h` defines `t` and `raw_dist`:
 
 ```cpp
 struct DistanceResult {
   float dist;        // Signed distance (negative = inside)
-  float t;           // Normalized parameter (0–1)
+  float t;           // Shape-dependent parameter or angle
   float raw_dist;    // Unsigned / supplementary distance
-  float aux;         // Auxiliary (barycentric, etc.)
+  float aux;         // Auxiliary (0 for every current producer)
   float size = 1.0f; // Size metric
 };
 ```
