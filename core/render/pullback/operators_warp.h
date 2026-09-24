@@ -353,9 +353,10 @@ struct CurlFlowParams {
       Field<CurlFlowParams>{"speed", &CurlFlowParams::speed, nullptr, -0.02f,
                             0.02f, FieldCurve::LERP},
       Field<CurlFlowParams>{"strength", &CurlFlowParams::strength,
-                            "Warp Strength", -30.0f, 30.0f, FieldCurve::LERP},
+                            "Warp Strength", -1.0f / 32.0f, 1.0f / 32.0f,
+                            FieldCurve::LERP},
       Field<CurlFlowParams>{"scale", &CurlFlowParams::scale, "Warp Scale",
-                            1.0f / 64.0f, 64.0f, FieldCurve::LOG_POSITIVE},
+                            1.0f / 64.0f, 4.0f, FieldCurve::LOG_POSITIVE},
   };
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlFlowParams>{

@@ -3906,13 +3906,12 @@ inline void test_shader_chain_parameter_admission() {
   HS_EXPECT_EQ(static_cast<int>(effect.set_chain(chain).code),
                static_cast<int>(In::ChainStatus::OK));
   const ParamDef &strength = *effect.getParameters().find("warp.strength");
-  const float accepted_strength = effect.accepted_parameter_value(strength);
   HS_EXPECT_EQ(effect.updateParameter("warp.strength", 30.0f),
-               ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") != nullptr);
-  HS_EXPECT_EQ(strength.get_requested(), accepted_strength);
-  HS_EXPECT_FALSE(effect.animations_paused());
-  HS_EXPECT_EQ(effect.accepted_parameter_value(strength), accepted_strength);
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(effect.parameter_warning("warp.strength") == nullptr);
+  HS_EXPECT_EQ(strength.get_requested(), strength.max);
+  HS_EXPECT_TRUE(effect.animations_paused());
+  HS_EXPECT_EQ(effect.accepted_parameter_value(strength), strength.max);
   effect.draw_frame();
   effect.advance_display();
   effect.updateParameter("warp.strength", 0.0f);
