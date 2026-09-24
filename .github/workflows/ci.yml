@@ -861,6 +861,10 @@ jobs:
           mkdir -p "${{ runner.temp }}/daydream-install/docs/screenshots"
           touch "${{ runner.temp }}/daydream-install/docs/screenshots/stale.png"
           touch "${{ runner.temp }}/daydream-install/docs/screenshots/unrelated.txt"
+          mkdir -p "${{ runner.temp }}/daydream-install/shader/patterns/v1"
+          touch "${{ runner.temp }}/daydream-install/shader/patterns/stale.shader.json"
+          touch "${{ runner.temp }}/daydream-install/shader/patterns/digest_migration.v1v2.json"
+          touch "${{ runner.temp }}/daydream-install/shader/patterns/v1/example.shader.json"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 
@@ -1072,7 +1076,10 @@ jobs:
           dd="${{ runner.temp }}/daydream-install"
           out="${{ runner.temp }}"
           ( cd patterns && find . -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-source.txt"
-          ( cd "$dd/shader/patterns" && find . -type f ) | sort > "$out/mirror-installed.txt"
+          test ! -e "$dd/shader/patterns/stale.shader.json"
+          test -f "$dd/shader/patterns/digest_migration.v1v2.json"
+          test -f "$dd/shader/patterns/v1/example.shader.json"
+          ( cd "$dd/shader/patterns" && find . -maxdepth 1 -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-installed.txt"
           test -s "$out/mirror-source.txt"
           test -s "$out/mirror-installed.txt"
           diff -u "$out/mirror-source.txt" "$out/mirror-installed.txt"
