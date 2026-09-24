@@ -19,6 +19,7 @@
 #include "hardware/hd107s_frame.h"
 #include "hardware/pov_single_map.h"
 #include "tests/test_fixture.h"
+#include "tests/pov_tiling_test_util.h"
 #include "tests/test_harness.h"
 
 #include <cstdlib>
@@ -110,28 +111,7 @@ inline void check_strip_tiling(int S, int w, int x) {
   for (int p = 0; p < S; ++p)
     HS_EXPECT_EQ(led_hits[static_cast<size_t>(p)], 1);
 
-  int covered = 0;
-  bool double_paint = false;
-  bool stray_column = false;
-  for (int c = 0; c < w; ++c) {
-    for (int y = 0; y < ROWS; ++y) {
-      const int hits = cover[static_cast<size_t>(c) * ROWS + y];
-      if (hits > 1)
-        double_paint = true;
-      if (hits == 1)
-        ++covered;
-      if (hits != 0 && c != col_top && c != col_bot)
-        stray_column = true;
-    }
-  }
-  HS_EXPECT_FALSE(double_paint);
-  HS_EXPECT_FALSE(stray_column);
-  HS_EXPECT_EQ(covered, 2 * ROWS);
-
-  for (int y = 0; y < ROWS; ++y) {
-    HS_EXPECT_EQ(cover[static_cast<size_t>(col_top) * ROWS + y], 1);
-    HS_EXPECT_EQ(cover[static_cast<size_t>(col_bot) * ROWS + y], 1);
-  }
+  check_arm_column_coverage(cover, w, ROWS, col_top, col_bot);
 }
 
 /**
