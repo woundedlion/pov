@@ -2669,6 +2669,35 @@ inline void test_shader_workbench_config_admission() {
         static_cast<WB::BrightnessEnvelope>(invalid_tag);
     HS_EXPECT_FALSE(WB::valid_config(candidate));
     candidate = WB::legacy_config();
+    candidate.slots.peirce_layout =
+        static_cast<decltype(candidate.slots.peirce_layout)>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.airocean_layout =
+        static_cast<decltype(candidate.slots.airocean_layout)>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.bonne_hemisphere =
+        static_cast<decltype(candidate.slots.bonne_hemisphere)>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.gnomonic_hemisphere =
+        static_cast<decltype(candidate.slots.gnomonic_hemisphere)>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.surface_noise =
+        static_cast<decltype(candidate.slots.surface_noise)>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.surface_noise_placement =
+        static_cast<decltype(candidate.slots.surface_noise_placement)>(
+            invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
+    candidate.slots.hue_shift =
+        static_cast<decltype(candidate.slots.hue_shift)>(invalid_tag);
+    HS_EXPECT_FALSE(WB::valid_config(candidate));
+    candidate = WB::legacy_config();
     candidate.params.color.mapping_frequency = 0.99f;
     HS_EXPECT_FALSE(WB::valid_config(candidate));
     candidate.params.color.mapping_frequency = 32.01f;
