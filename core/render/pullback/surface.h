@@ -38,7 +38,7 @@ struct SurfaceNoiseParams {
   static constexpr auto FIELDS = std::array{
       Field<SurfaceNoiseParams>{"scale", &SurfaceNoiseParams::scale,
                                 "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
-                                FieldCurve::LERP},
+                                FieldCurve::LOG_POSITIVE},
       Field<SurfaceNoiseParams>{"strength", &SurfaceNoiseParams::strength,
                                 "Surface Noise Strength", -0.5f, 0.5f,
                                 FieldCurve::LERP},
@@ -63,7 +63,7 @@ struct DirectSurfaceParams {
   static constexpr auto FIELDS = std::array{
       Field<DirectSurfaceParams>{"scale", &DirectSurfaceParams::scale,
                                  "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
-                                 FieldCurve::LERP},
+                                 FieldCurve::LOG_POSITIVE},
       Field<DirectSurfaceParams>{"strength", &DirectSurfaceParams::strength,
                                  "Surface Noise Strength", 0.0f, 0.5f,
                                  FieldCurve::LERP},
