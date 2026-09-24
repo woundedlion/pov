@@ -489,7 +489,7 @@ Particles spray from emitters at the vertices of a selectable Platonic solid —
 
 ### Dynamo
 
-A vertical strand of points — one per latitude row — drifts horizontally around the sphere, each row dragging the next under a gap constraint so the chain wavers like a wind-blown curtain. The strand leaves motion trails, is replicated three times around the sphere, periodically reverses direction, and tumbles under random-axis rotations, while periodic color wipes sweep freshly generated analogous palettes across it.
+A vertical strand of points — one per latitude row plus H_OFFSET virtual sub-pole nodes — drifts horizontally around the sphere, each row dragging the next under a gap constraint so the chain wavers like a wind-blown curtain. The strand leaves motion trails, is replicated three times around the sphere, periodically reverses direction, and tumbles under random-axis rotations, while periodic color wipes sweep freshly generated analogous palettes across it.
 
 **Parameters**: Speed, Gap, Trail Len, Trail Cap, Wipe Dur
 
