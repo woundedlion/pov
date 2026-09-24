@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("report", type=Path)
     parser.add_argument("--min-lines", type=float, required=True)
     parser.add_argument("--min-directory", type=directory_floor, action="append",
-                        default=[], metavar="DIR=PERCENT",
+                        required=True, metavar="DIR=PERCENT",
                         help="line floor for one directory; repeatable")
     args = parser.parse_args(argv)
     if not 0.0 <= args.min_lines <= 100.0:
