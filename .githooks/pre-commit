@@ -123,6 +123,7 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
       echo "[pre-commit] shellcheck not found; pip install -r requirements/shellcheck.txt"
       exit 1
     fi
+    "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool shellcheck
     while IFS= read -r file; do
       (cd "$SNAPSHOT" && shellcheck -x "$file")
     done <<EOF
