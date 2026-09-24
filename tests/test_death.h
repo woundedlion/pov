@@ -4045,6 +4045,14 @@ inline void case_reconcile_vertices_size_mismatch() {
 }
 
 /** @brief Death case: reconciling a vertex-less endpoint pair must trap. */
+inline void case_reconcile_vertices_aliased_output() {
+  static uint8_t target_bytes[128], scratch_bytes[128];
+  Arena target(target_bytes, sizeof(target_bytes));
+  Arena scratch(scratch_bytes, sizeof(scratch_bytes));
+  PolyMesh identity, authored;
+  MeshOps::reconcile_vertices(identity, authored, identity, target, scratch);
+}
+
 inline void case_reconcile_vertices_empty() {
   static uint8_t target_buf[64];
   static uint8_t scratch_buf[64];
@@ -5355,6 +5363,9 @@ inline const Case *all_cases(int &n) {
       {"reconcile_vertices_empty", case_reconcile_vertices_empty,
        "core/mesh/conway.h",
        "(V > 0) reconcile_vertices: endpoint pair has no vertices"},
+      {"reconcile_vertices_aliased_output",
+       case_reconcile_vertices_aliased_output, "core/mesh/conway.h",
+       "(&out != &identity && &out != &authored) reconcile_vertices: output must not alias either input"},
       {"sdf_angular_repeat_nonunit_axis", case_sdf_angular_repeat_nonunit_axis,
        "core/render/sdf/csg.h",
        "(fabsf(ax.length() - 1.0f) < 1e-3f) SDF CSG: repetition axis must be unit length"},
