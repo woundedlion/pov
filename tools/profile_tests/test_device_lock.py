@@ -522,6 +522,10 @@ class PinnedPortEnumeration(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("not attached", r.stderr)
 
+    def test_status_distinguishes_an_unattached_pin_from_busy(self):
+        result = self.run_pinned("hs_device_status", "COM3")
+        self.assertEqual(result.returncode, 2)
+
     def test_acquire_refuses_an_unattached_pin_without_locking(self):
         r = self.run_pinned("hs_device_acquire E profile 60", "COM3")
         self.assertEqual(r.returncode, 1)
