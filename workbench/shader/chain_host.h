@@ -56,6 +56,9 @@ public:
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     resources = persistent_arena.make<Resources>();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    set_parameter_updated_hook(&parameter_updated);
+#endif
     resources->hue_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     resources->hue_noise.SetSeed(Pullback::HUE_NOISE_SEED);
     resources->hue_noise.SetFrequency(1.0f);
@@ -116,6 +119,31 @@ public:
     Scan::Shader::draw<W, H, 1>(canvas, shader);
   }
 
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  const char *parameter_warning(const char *name) const override {
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index)
+      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+        if (std::strcmp(name, program.param_name(index, field)) == 0)
+          return ops[index].op->runtime.validate(resources->requested[index]);
+    return nullptr;
+  }
+
+  float accepted_parameter_value(const ParamDef &parameter) const override {
+    const auto ops = program.ops();
+    for (size_t index = 0; index < ops.size(); ++index)
+      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+        if (std::strcmp(parameter.name, program.param_name(index, field)) ==
+            0) {
+          ParamDef accepted = parameter;
+          accepted.target = ops[index].op->runtime.param_address(
+              const_cast<uint8_t *>(program.param_block(index)), field);
+          return accepted.get_requested();
+        }
+    return parameter.get_requested();
+  }
+#endif
+
 private:
   friend struct ::hs_test::shader_chain_tests::ShaderChainWhiteBox;
 
@@ -131,6 +159,17 @@ private:
 
   /** @brief Engine-owned shared resources the FrameContext borrows. */
   struct Resources {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    static constexpr size_t PARAM_BYTES = [] {
+      size_t largest = 0;
+      for (const auto &op : Pullback::Interp::OPERATOR_TABLE)
+        largest = std::max(largest, static_cast<size_t>(op.runtime.param.size));
+      return (largest + alignof(std::max_align_t) - 1) /
+             alignof(std::max_align_t) * alignof(std::max_align_t);
+    }();
+    alignas(std::max_align_t)
+        uint8_t requested[Pullback::Interp::MAX_CHAIN_OPS][PARAM_BYTES];
+#endif
     std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
         hue_rotation_lut{};
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut{};
@@ -192,6 +231,11 @@ private:
     for (size_t index = 0; index < ops.size(); ++index) {
       const Pullback::Interp::OperatorDescriptor &op = *ops[index].op;
       uint8_t *block = program.param_block(index);
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+      op.runtime.construct_params(resources->requested[index]);
+      std::memcpy(resources->requested[index], block, op.runtime.param.size);
+      block = resources->requested[index];
+#endif
       for (uint16_t field = 0; field < op.schema_count; ++field) {
         const Pullback::Interp::ParamFieldInfo &info = op.schema[field];
         const char *name = program.param_name(index, field);
@@ -205,6 +249,23 @@ private:
       }
     }
   }
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  static void parameter_updated(ParamHost *host, const char *name, bool) {
+    auto &effect = *static_cast<ShaderChain *>(host);
+    const auto ops = effect.program.ops();
+    for (size_t index = 0; index < ops.size(); ++index)
+      for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+        if (std::strcmp(name, effect.program.param_name(index, field)) == 0) {
+          const auto &runtime = ops[index].op->runtime;
+          const auto *requested = effect.resources->requested[index];
+          if (runtime.validate(requested) == nullptr)
+            std::memcpy(effect.program.param_block(index), requested,
+                        runtime.param.size);
+          return;
+        }
+  }
+#endif
 
   /** @brief Builds the per-frame snapshot, baking hue LUTs when active. */
   HS_FLASH_MEMBER Pullback::Interp::FrameContext
