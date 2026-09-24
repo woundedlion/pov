@@ -921,12 +921,15 @@ The top arm's physical LED ordering is reversed (LED 0 at the junction end, desc
 
 `show_col()` discards `submit_frame()`'s overrun verdict: this driver carries no retry latch and no dark fallback, so a dropped column leaves the previous column lit for one extra period — the drop returns before the buffer flip. `run()` fail-fast-checks that one composite transfer fits inside a column period, which rules out the systematic overrun that would hold the strip on one frame and is what makes discarding the verdict sound.
 
+The shipping `holosphere` sketch runs `RingSpin<96, 20>` with column strobing disabled. Its 1302 µs column period clears the 1160 µs FastLED transfer bound; the roster’s default RingSpin configuration keeps strobing enabled for the DMA targets.
+
 | Parameter | Value (Holosphere) |
 |---|---|
 | S (total pixels) | 40 |
 | RPM | 480 |
 | Column interval | ~1302 µs (= 125 ms / 96 columns) |
 | ISR duration | ~20 µs on the DMA path (`holosphere_dma`, which packs the column and hands it to an async transfer). The shipping `holosphere` image takes the FastLED branch instead, where a blocking `FastLED.show()` clocks 40×24 bits at the configured 6 MHz — ~160 µs, and ~320 µs when `strobe_columns()` blanks straight after it |
+
 
 ### Multi-Teensy Segmented POV Driver (`pov_segmented.h`)
 

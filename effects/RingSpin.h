@@ -41,9 +41,10 @@ template <int W, int H> class RingSpin : public Effect {
 public:
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
+   * @param strobe Whether the POV driver blanks after each column.
    */
-  HS_COLD_MEMBER RingSpin()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
+  HS_COLD_MEMBER explicit RingSpin(bool strobe = true)
+      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = strobe})) {}
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
