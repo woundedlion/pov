@@ -10,6 +10,7 @@
  *        and the chain of steps a registry generator mirrors.
  */
 
+#include <cstddef>
 #include <cstdint>
 
 namespace MeshOps {
@@ -77,5 +78,12 @@ struct Recipe {
   const OpStep *steps; /**< Authored op chain, applied left to right. */
   uint8_t count;       /**< Number of steps. */
 };
+
+/** @brief Builds a recipe whose count is deduced from its step array. */
+template <size_t N>
+constexpr Recipe make_recipe(uint8_t seed, const OpStep (&steps)[N]) {
+  static_assert(N <= UINT8_MAX);
+  return {seed, steps, static_cast<uint8_t>(N)};
+}
 
 } // namespace Solids
