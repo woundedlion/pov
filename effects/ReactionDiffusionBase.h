@@ -59,6 +59,16 @@ public:
   }
 
 protected:
+  template <typename VertexFn, typename PixelFn>
+  __attribute__((always_inline)) void
+  rasterize_lattice(Canvas &canvas, VertexFn &&vertex, PixelFn &&pixel) {
+    auto vertex_shader = [&](Fragment &frag) {
+      seed_face_lut(frag);
+      vertex(frag);
+    };
+    Scan::Shader::draw_grid<W, H>(canvas, vertex_shader, pixel);
+  }
+
   /**
    * @brief Q16 full-scale factor: maps the [0, 65535] state to [0.0, 1.0].
    */
