@@ -32,13 +32,19 @@ export default [
   {
     // scripts/count_assertions.mjs cannot wrap node:assert's callable default
     // export, so `assert(x)` is invisible to the nonempty-file check.
-    files: ['scripts/*.test.mjs'],
+    files: ['**/*.test.mjs'],
     rules: {
       'no-restricted-syntax': ['error', {
         selector: 'CallExpression[callee.type="Identifier"][callee.name="assert"]',
         message:
           'Call node:assert through a property (assert.ok(x)): a bare assert(x) ' +
           'is not counted by scripts/count_assertions.mjs.',
+      }, {
+        selector: 'ImportDeclaration[source.value=/^(node:)?assert(\\/strict)?$/] > ImportSpecifier',
+        message: 'Use the node:assert default or namespace import so assertions are counted.',
+      }, {
+        selector: 'MemberExpression[property.name="assert"], MemberExpression[property.value="assert"]',
+        message: 'Use node:assert methods; test-context assertions are not counted.',
       }],
     },
   },
