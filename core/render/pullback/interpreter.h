@@ -4,10 +4,11 @@
  */
 #pragma once
 
-#include <limits>
 #include "platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
+
+#include <limits>
 
 #include <cstring>
 #include <new>
