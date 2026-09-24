@@ -135,7 +135,7 @@ public:
         persistent_arena
             .allocate_n<Plot::Star<Plot::PlanarProjection>::RadiusTrig>(
                 MAX_SHAPES);
-    prepare_count(hs::clamp(static_cast<int>(params.count), 1, MAX_SHAPES));
+    prepare_count(hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT));
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::X_AXIS, noise,
                                              {}, hs::rand_int(0, 65536)));
     begin_choreography();
