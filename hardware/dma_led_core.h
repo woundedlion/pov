@@ -20,6 +20,10 @@
 
 namespace dma {
 
+inline constexpr unsigned long TRANSFER_WATCHDOG_US = 5000UL;
+inline constexpr uint32_t DEFAULT_CLOCK_HZ = 12000000;
+inline constexpr uint32_t SEGMENTED_CLOCK_HZ = 24000000;
+
 /**
  * @brief Toggles the double-buffer index between 0 and 1.
  * @param active Current front-buffer index, 0 or 1.
