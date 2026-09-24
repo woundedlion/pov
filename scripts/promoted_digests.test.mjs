@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { loadEffectHeaders } from './effect_roster.mjs';
+import { loadEffectHeaders, parseRegisteredEffects } from './effect_roster.mjs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -32,7 +32,7 @@ const promotedHeaders = async () => {
     const dwell = INTEGER_CONSTANT('PRESET_DWELL_FRAMES').exec(source);
     assert.ok(dwell, `${name} carries digests but no PRESET_DWELL_FRAMES`);
     headers.set(id[1],
-      { name, descriptor: descriptor[1], presetBank: presetBank[1], dwell: Number(dwell[1]) });
+      { name, types: parseRegisteredEffects(source), descriptor: descriptor[1], presetBank: presetBank[1], dwell: Number(dwell[1]) });
   }
   return headers;
 };
@@ -52,6 +52,16 @@ const compiledDocuments = async () => {
 test('every promoted header digest matches its pattern document', async () => {
   const headers = await promotedHeaders();
   const documents = await compiledDocuments();
+  const roster = (await readFile(resolve(ROOT, 'targets/effects.h'), 'utf8'))
+    .replace(/\\\r?\n/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\/\/[^\n]*/g, '');
+  const group = /^#define HS_SHADER_PRODUCT_GROUP\(X\)(.*)$/m.exec(roster);
+  assert.ok(group, 'missing shader product group');
+  const names = [...group[1].matchAll(/X\(\s*(\w+)\s*,/g)].map(match => match[1]);
+  const promoted = [...headers.values()].flatMap(header => header.types);
+  assert.equal(names.length, new Set(names).size, 'duplicate product group effect');
+  assert.deepEqual(names.sort(), promoted.sort(), 'product group differs from digest-carrying effects');
   const composedEffect = await readFile(
     resolve(ROOT, 'core/render/pullback/composed_effect.h'), 'utf8');
   const segue = /PRESET_SEGUE\s*\{\s*(\d+)/.exec(composedEffect);
