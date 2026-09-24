@@ -20,8 +20,8 @@ round_linear_channel(float value) {
 
 #if defined(__ARM_FEATURE_DSP)
 // Inline assembly avoids a CMSIS header dependency for the saturating add.
-__attribute__((always_inline)) static inline uint32_t
-inline_uqadd16(uint32_t a, uint32_t b) {
+__attribute__((always_inline)) inline uint32_t inline_uqadd16(uint32_t a,
+                                                              uint32_t b) {
   uint32_t res;
   __asm__ volatile("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
   return res;
