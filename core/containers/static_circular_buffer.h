@@ -603,35 +603,34 @@ private:
      * @brief Constructs a singular iterator, satisfying std::semiregular so the
      *        type models std::random_access_iterator.
      */
-    CircularIterBase() : m_buffer(nullptr), m_index(0) {}
+    CircularIterBase() : buffer(nullptr), index(0) {}
 
     /**
      * @brief Constructs an iterator over a buffer at a logical position.
      * @param buffer Buffer to traverse.
      * @param idx Logical index, measured from the front.
      */
-    CircularIterBase(BufPtr buffer, size_t idx)
-        : m_buffer(buffer), m_index(idx) {}
+    CircularIterBase(BufPtr buffer, size_t idx) : buffer(buffer), index(idx) {}
 
     /**
      * @brief Dereferences the iterator.
      * @return Reference to the element at the current position.
      */
-    reference operator*() const { return (*m_buffer)[m_index]; }
+    reference operator*() const { return (*buffer)[index]; }
 
     /**
      * @brief Member access through the iterator.
      * @return Pointer to the element at the current position.
      */
-    pointer operator->() const { return &(*m_buffer)[m_index]; }
+    pointer operator->() const { return &(*buffer)[index]; }
 
     /**
      * @brief Accesses the element offset n positions from the current one.
      * @param n Offset from the current position.
-     * @return Reference to the element at m_index + n.
+     * @return Reference to the element at index + n.
      */
     reference operator[](difference_type n) const {
-      return (*m_buffer)[m_index + n];
+      return (*buffer)[index + n];
     }
 
     /**
@@ -639,7 +638,7 @@ private:
      * @return Reference to this iterator after advancing.
      */
     Derived &operator++() {
-      ++m_index;
+      ++index;
       return self();
     }
 
@@ -650,7 +649,7 @@ private:
      */
     Derived operator++(int) {
       Derived t = self();
-      ++m_index;
+      ++index;
       return t;
     }
 
@@ -659,7 +658,7 @@ private:
      * @return Reference to this iterator after moving.
      */
     Derived &operator--() {
-      --m_index;
+      --index;
       return self();
     }
 
@@ -670,7 +669,7 @@ private:
      */
     Derived operator--(int) {
       Derived t = self();
-      --m_index;
+      --index;
       return t;
     }
 
@@ -680,7 +679,7 @@ private:
      * @return Reference to this iterator after advancing.
      */
     Derived &operator+=(difference_type n) {
-      m_index += n;
+      index += n;
       return self();
     }
 
@@ -690,7 +689,7 @@ private:
      * @return Reference to this iterator after rewinding.
      */
     Derived &operator-=(difference_type n) {
-      m_index -= n;
+      index -= n;
       return self();
     }
 
@@ -698,30 +697,30 @@ private:
      * @brief Returns an iterator advanced n positions from a.
      * @param a Base iterator.
      * @param n Number of positions to advance.
-     * @return Iterator at a.m_index + n.
+     * @return Iterator at a.index + n.
      */
     friend Derived operator+(const Derived &a, difference_type n) {
-      return Derived(a.m_buffer, a.m_index + n);
+      return Derived(a.buffer, a.index + n);
     }
 
     /**
      * @brief Returns an iterator advanced n positions from a.
      * @param n Number of positions to advance.
      * @param a Base iterator.
-     * @return Iterator at a.m_index + n.
+     * @return Iterator at a.index + n.
      */
     friend Derived operator+(difference_type n, const Derived &a) {
-      return Derived(a.m_buffer, a.m_index + n);
+      return Derived(a.buffer, a.index + n);
     }
 
     /**
      * @brief Returns an iterator rewound n positions from a.
      * @param a Base iterator.
      * @param n Number of positions to rewind.
-     * @return Iterator at a.m_index - n.
+     * @return Iterator at a.index - n.
      */
     friend Derived operator-(const Derived &a, difference_type n) {
-      return Derived(a.m_buffer, a.m_index - n);
+      return Derived(a.buffer, a.index - n);
     }
 
     /**
@@ -731,7 +730,7 @@ private:
      * @return Signed number of positions from b to a.
      */
     friend difference_type operator-(const Derived &a, const Derived &b) {
-      return (difference_type)a.m_index - (difference_type)b.m_index;
+      return (difference_type)a.index - (difference_type)b.index;
     }
 
     /**
@@ -741,7 +740,7 @@ private:
      * @return True if both reference the same buffer and position.
      */
     friend bool operator==(const Derived &a, const Derived &b) {
-      return a.m_buffer == b.m_buffer && a.m_index == b.m_index;
+      return a.buffer == b.buffer && a.index == b.index;
     }
 
     /**
@@ -761,7 +760,7 @@ private:
      * @return True if a precedes b.
      */
     friend bool operator<(const Derived &a, const Derived &b) {
-      return a.m_index < b.m_index;
+      return a.index < b.index;
     }
 
     /**
@@ -771,7 +770,7 @@ private:
      * @return True if a follows b.
      */
     friend bool operator>(const Derived &a, const Derived &b) {
-      return a.m_index > b.m_index;
+      return a.index > b.index;
     }
 
     /**
@@ -781,7 +780,7 @@ private:
      * @return True if a does not follow b.
      */
     friend bool operator<=(const Derived &a, const Derived &b) {
-      return a.m_index <= b.m_index;
+      return a.index <= b.index;
     }
 
     /**
@@ -791,12 +790,12 @@ private:
      * @return True if a does not precede b.
      */
     friend bool operator>=(const Derived &a, const Derived &b) {
-      return a.m_index >= b.m_index;
+      return a.index >= b.index;
     }
 
   protected:
-    BufPtr m_buffer; /**< Buffer this iterator traverses. */
-    size_t m_index;  /**< Logical position, front-to-back. */
+    BufPtr buffer; /**< Buffer this iterator traverses. */
+    size_t index;  /**< Logical position, front-to-back. */
 
     friend class ConstIterator;
 
@@ -834,7 +833,6 @@ private:
      * @brief Converts a mutable iterator into a const iterator.
      * @param other Mutable iterator to copy position and buffer from.
      */
-    ConstIterator(const iterator &other)
-        : Base(other.m_buffer, other.m_index) {}
+    ConstIterator(const iterator &other) : Base(other.buffer, other.index) {}
   };
 };
