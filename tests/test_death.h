@@ -4368,6 +4368,15 @@ inline void case_opleg_no_event_slot() {
 }
 
 /** @brief A cached bump offset must agree with the sample's cap distance. */
+inline void case_ball_drop_nonfinite_azimuth() {
+  Animation::BumpParams params;
+  params.radius = 0.5f;
+  math::Orientation<> orientation;
+  Animation::BallDrop<> drop(params, orientation, math::Y_AXIS,
+                             opaque(std::numeric_limits<float>::quiet_NaN()),
+                             10);
+}
+
 inline void case_bump_offset_outside_cap_distance() {
   Animation::BumpParams params;
   params.center = math::Y_AXIS;
@@ -4587,6 +4596,9 @@ inline const Case *all_cases(int &n) {
                   {"peirce_invalid_layout", case_peirce_invalid_layout,
                    "core/math/projections.h",
                    "(FOLDED_LAYOUT || STRIP_LAYOUT) Peirce projection: invalid layout"},
+      {"ball_drop_nonfinite_azimuth", case_ball_drop_nonfinite_azimuth,
+       "core/animation/params.h",
+       "(std::isfinite(azimuth)) BallDrop azimuth must be finite"},
                   {"bump_offset_outside_cap_distance",
                    case_bump_offset_outside_cap_distance,
                    "core/animation/transformer.h",
