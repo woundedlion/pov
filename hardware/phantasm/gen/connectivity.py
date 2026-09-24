@@ -223,9 +223,9 @@ def segment_capsule(segment):
 def arc_capsules(arc):
     """A curved track as its two chords, start->mid and mid->end.
 
-    The chords cut inside the arc by the sagitta, so a third item landing
-    mid-span reads as further away than it is. Both endpoints are exact, which
-    is where KiCad joins an arc to the rest of the net.
+    Chords lie inside the arc by the sagitta: convex-side gaps are overstated,
+    concave-side gaps understated. This approximation can report false opens
+    or false connections between endpoints; endpoint positions are exact.
     """
     radius = float(sexp.val(arc, "width")[0]) / 2
     layers = {str(sexp.val(arc, "layer")[0])}
