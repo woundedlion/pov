@@ -427,12 +427,12 @@ envelope(const ProjectionProvenance &provenance, float edge_width,
   return 1.0f;
 }
 
-template <typename Envelope, typename Params>
+template <typename EnvelopePolicy, typename Params>
 __attribute__((always_inline)) inline float
 fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
-  if constexpr (std::is_same_v<Envelope, ProjectionWeightEnvelope>)
+  if constexpr (std::is_same_v<EnvelopePolicy, ProjectionWeightEnvelope>)
     return provenance.value_weight;
-  else if constexpr (std::is_same_v<Envelope, EdgeFadeEnvelope>)
+  else if constexpr (std::is_same_v<EnvelopePolicy, EdgeFadeEnvelope>)
     return ProjectionCoverage::edge_fade(provenance, params.edge_width);
   else
     return 1.0f;
@@ -669,7 +669,7 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
   }
 };
 
-template <typename State, typename Envelope = FlatEnvelope>
+template <typename State, typename EnvelopePolicy = FlatEnvelope>
 struct WaveShear : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -685,7 +685,7 @@ struct WaveShear : ApproximationDefaults {
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } &&
-      (!std::is_same_v<Envelope, EdgeFadeEnvelope> ||
+      (!std::is_same_v<EnvelopePolicy, EdgeFadeEnvelope> ||
        requires(const typename CandidateBinding::FrameState &frame) {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
@@ -702,7 +702,7 @@ struct WaveShear : ApproximationDefaults {
         const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     const float amplitude =
-        params.strength * fixed_envelope<Envelope>(provenance, params);
+        params.strength * fixed_envelope<EnvelopePolicy>(provenance, params);
     return wave_shear(input, params, State::phase(frame), amplitude, prepared,
                       State::path_length_required(frame));
   }
@@ -794,7 +794,7 @@ struct PolarChart : ApproximationDefaults {
   }
 };
 
-template <typename State, math::NoiseBasis BasisV, typename Envelope>
+template <typename State, math::NoiseBasis BasisV, typename EnvelopePolicy>
 struct VectorNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -811,7 +811,7 @@ struct VectorNoise : ApproximationDefaults {
         State::prepare(frame).transform.noise_loop;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } &&
-      (!std::is_same_v<Envelope, EdgeFadeEnvelope> ||
+      (!std::is_same_v<EnvelopePolicy, EdgeFadeEnvelope> ||
        requires(const typename CandidateBinding::FrameState &frame) {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
@@ -829,13 +829,13 @@ struct VectorNoise : ApproximationDefaults {
     const auto &params = State::params(frame);
     return vector_noise_fixed<BasisV>(
         input, params,
-        params.strength * fixed_envelope<Envelope>(provenance, params),
+        params.strength * fixed_envelope<EnvelopePolicy>(provenance, params),
         State::noise(frame), prepared, State::path_length_required(frame));
   }
 };
 
 template <typename State, math::NoiseBasis BasisV, typename IntegratorPolicy,
-          typename Envelope = FlatEnvelope>
+          typename EnvelopePolicy = FlatEnvelope>
 struct CurlFlow : ApproximationDefaults {
   static_assert(IntegratorPolicy::INTERVALS == 1 ||
                 IntegratorPolicy::INTERVALS == 2 ||
@@ -853,7 +853,7 @@ struct CurlFlow : ApproximationDefaults {
         { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } &&
-      (!std::is_same_v<Envelope, EdgeFadeEnvelope> ||
+      (!std::is_same_v<EnvelopePolicy, EdgeFadeEnvelope> ||
        requires(const typename CandidateBinding::FrameState &frame) {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
@@ -870,7 +870,7 @@ struct CurlFlow : ApproximationDefaults {
         const FrameState &frame, const Prepared &prepared) {
     const auto &params = State::params(frame);
     const float amplitude =
-        params.strength * fixed_envelope<Envelope>(provenance, params);
+        params.strength * fixed_envelope<EnvelopePolicy>(provenance, params);
     return curl_flow(input, State::noise(frame), BasisV,
                      IntegratorPolicy::INTERVALS, params.scale, amplitude,
                      prepared, State::path_length_required(frame));
