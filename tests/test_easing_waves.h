@@ -71,29 +71,29 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
  *          special-cased: the formulas only approach 1 asymptotically.
  */
 inline void test_easing_endpoints() {
-  HS_EXPECT_NEAR(math::ease_in_out_cubic(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_in_out_cubic(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_in_out_sin(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_in_out_sin(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_EQ(math::ease_in_out_cubic(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_in_out_cubic(1.0f), 1.0f);
+  HS_EXPECT_EQ(math::ease_in_out_sin(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_in_out_sin(1.0f), 1.0f);
 
-  HS_EXPECT_NEAR(math::ease_in_sin(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_out_sin(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_in_cubic(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_out_cubic(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_in_circ(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_out_circ(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_EQ(math::ease_in_sin(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_sin(1.0f), 1.0f);
+  HS_EXPECT_EQ(math::ease_in_cubic(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_cubic(1.0f), 1.0f);
+  HS_EXPECT_EQ(math::ease_in_circ(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_circ(1.0f), 1.0f);
   HS_EXPECT_EQ(math::ease_in_circ(std::nextafter(1.0f, 2.0f)), 1.0f);
   HS_EXPECT_EQ(math::ease_out_circ(std::nextafter(0.0f, -1.0f)), 0.0f);
   HS_EXPECT_EQ(math::ease_out_circ(-1e-6f), 0.0f);
 
-  HS_EXPECT_NEAR(math::ease_out_expo(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_out_expo(1.0f), 1.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_out_elastic(0.0f), 0.0f, 1e-5f);
-  HS_EXPECT_NEAR(math::ease_out_elastic(1.0f), 1.0f, 1e-5f);
+  HS_EXPECT_EQ(math::ease_out_expo(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_expo(1.0f), 1.0f);
+  HS_EXPECT_EQ(math::ease_out_elastic(0.0f), 0.0f);
+  HS_EXPECT_EQ(math::ease_out_elastic(1.0f), 1.0f);
 
-  HS_EXPECT_NEAR(math::ease_linear(0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_EQ(math::ease_linear(0.0f), 0.0f);
   HS_EXPECT_NEAR(math::ease_linear(0.5f), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(math::ease_linear(1.0f), 1.0f, 1e-6f);
+  HS_EXPECT_EQ(math::ease_linear(1.0f), 1.0f);
 }
 
 /**
