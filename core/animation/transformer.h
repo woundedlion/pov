@@ -408,13 +408,9 @@ private:
 
   /**
    * @brief Traps if the pool's arena was reclaimed under the live slots.
-   * @details Always on, so a device build detects it too. A rebind
-   * (configure_arenas), a reset and a rewind below the blocks all drop the
-   * arena offset under the watermark, so an init_storage() that ran before
-   * configure_arenas() is caught at the first spawn. Only the debug stamp below
-   * separates the three cases. Per-frame callers at most: the compositions
-   * read the slots per pixel and must not pay for it. Requires entities, which
-   * every caller checks first.
+   * @details Detects reclamation only while the arena offset remains below
+   * the storage watermark; intervening allocations can mask it. Debug stamps
+   * also detect arena generation changes. Requires initialized entities.
    */
   HS_COLD_MEMBER void check_storage_watermark() const {
     HS_CHECK(storage_arena->get_offset() >= storage_end,
