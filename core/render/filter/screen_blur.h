@@ -80,8 +80,14 @@ public:
           wsum += kernel[r] + kernel[r + 1] + kernel[r + 2];
         }
       }
-      if (wsum > TAP_CUTOFF)
-        inv = 1.0f / wsum;
+      if (wsum <= TAP_CUTOFF) {
+        if (cy < -1 || cy > H)
+          return;
+        pass(static_cast<float>(cx),
+             static_cast<float>(hs::clamp(cy, 0, H - 1)), color, age, alpha);
+        return;
+      }
+      inv = 1.0f / wsum;
     }
 
     int k = 0;
