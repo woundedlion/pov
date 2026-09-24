@@ -693,7 +693,8 @@ private:
    * @return True if a burst exists and the wire has been quiet past the timeout.
    */
   bool burst_complete(uint32_t now, uint32_t gap_timeout_cycles) const {
-    return count > 0 && (now - last_cycles) >= gap_timeout_cycles;
+    return count > 0 && (now - last_cycles) >= gap_timeout_cycles &&
+           static_cast<int32_t>(now - last_cycles) > 0;
   }
 
   /**
