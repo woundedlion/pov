@@ -53,11 +53,10 @@ public:
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
     spiral_cache = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);
 
-    register_param("Points", &params.points, 100.0f,
-                   static_cast<float>(MAX_POINTS));
+    register_int_param("Points", &params.points, 100, MAX_POINTS);
     register_param("Radius", &params.star_radius, 0.7f * RADIUS_PX,
                    7.0f * RADIUS_PX);
-    register_param("Sides", &params.star_sides, 3.0f, 8.0f);
+    register_int_param("Sides", &params.star_sides, 3, 8);
 
     // Args are (scale, speed): fixed 0.5 magnitude; speed is a don't-care here
     // since draw_frame mirrors params.warp_speed into the warp every frame.
@@ -95,11 +94,9 @@ public:
       frag.color = c;
     };
 
-    // Clamp to [1, MAX_POINTS]: a sub-1 value would no-op or desync the cache,
-    // and MAX_POINTS is the spiral-cache capacity.
-    const int points = hs::clamp((int)params.points, 1, MAX_POINTS);
+    const int points = params.points;
     const float radius = params.star_radius;
-    const int sides = (int)params.star_sides;
+    const int sides = params.star_sides;
 
     // The base spiral depends only on (points, i) — the warp and orientation
     // animate downstream — so rebuild the trig-heavy fib_spiral only when
@@ -182,10 +179,10 @@ private:
    *          draws each star's bounding box for debugging.
    */
   struct Params {
-    float points = 600.0f; /**< Number of stars scattered on the spiral. */
+    int points = 600; /**< Number of stars scattered on the spiral. */
     float star_radius =
         1.4f * RADIUS_PX;    /**< Per-star circumradius, ~1.4 px at any W. */
-    float star_sides = 4.0f; /**< Polygon side count per star. */
+    int star_sides = 4;   /**< Polygon side count per star. */
     float warp_speed =
         0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
     bool debug_bb = false; /**< When true, draws each star's bounding box. */
