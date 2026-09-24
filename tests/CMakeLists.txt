@@ -56,6 +56,11 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
 endif()
 
 set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+set(HS_ENGINE_SOURCES
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/static_storage.cpp
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+set(HS_ENGINE_INCLUDES ${HS_ROOT} ${HS_ROOT}/core)
 
 add_library(hs_host_abi INTERFACE)
 target_compile_definitions(hs_host_abi INTERFACE
@@ -105,9 +110,7 @@ endfunction()
 
 add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 
 # The host configuration widens inline/arena budgets because 64-bit pointers
 # inflate several objects past their 32-bit device footprints.
@@ -146,7 +149,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/death_guard_sites.h.in
 
 # Headers are included as "tests/..." and "core/..." from the repo root; the
 # binary dir carries the generated guard census.
-target_include_directories(run_tests PRIVATE ${HS_ROOT} ${HS_ROOT}/core
+target_include_directories(run_tests PRIVATE ${HS_ENGINE_INCLUDES}
                            ${CMAKE_CURRENT_BINARY_DIR})
 
 _hs_warnings(run_tests)
@@ -229,13 +232,11 @@ _hs_sanitize(run_tests)
 
 add_executable(mindsplatter_replay_gen
   ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_compile_definitions(mindsplatter_replay_gen PRIVATE
   HS_PROFILE_MINDSPLATTER_COUNTS)
 target_link_libraries(mindsplatter_replay_gen PRIVATE hs_test_whitebox)
-target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(mindsplatter_replay_gen PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(mindsplatter_replay_gen)
@@ -259,10 +260,8 @@ add_test(NAME unit_mindsplatter_replay_revision_drift COMMAND ${CMAKE_COMMAND}
 
 add_executable(mindsplatter_palette_gen
   ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
-target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+  ${HS_ENGINE_SOURCES})
+target_include_directories(mindsplatter_palette_gen PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(mindsplatter_palette_gen PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_gen)
 _hs_sanitize(mindsplatter_palette_gen)
@@ -284,10 +283,8 @@ add_test(NAME unit_mindsplatter_palette_form COMMAND ${CMAKE_COMMAND}
 # other test reads.
 add_executable(mindsplatter_palette_check
   ${CMAKE_CURRENT_SOURCE_DIR}/mindsplatter_palette_check.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
-target_include_directories(mindsplatter_palette_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+  ${HS_ENGINE_SOURCES})
+target_include_directories(mindsplatter_palette_check PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(mindsplatter_palette_check PRIVATE hs_host_abi)
 _hs_warnings(mindsplatter_palette_check)
 _hs_sanitize(mindsplatter_palette_check)
@@ -295,11 +292,9 @@ add_test(NAME unit_mindsplatter_palette COMMAND mindsplatter_palette_check)
 
 add_executable(mindsplatter_replay
   ${HS_ROOT}/tools/mindsplatter_replay_main.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_link_libraries(mindsplatter_replay PRIVATE hs_test_whitebox)
-target_include_directories(mindsplatter_replay PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(mindsplatter_replay PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(mindsplatter_replay PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(mindsplatter_replay)
@@ -454,11 +449,12 @@ add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 
 set(HS_PULLBACK_CAPTURE_SOURCE_ROOT "${HS_ROOT}" CACHE PATH
     "Checkout whose ShaderWorkbench sources the pullback capture producer builds")
+set(HS_CAPTURE_ENGINE_SOURCES ${HS_ENGINE_SOURCES})
+list(TRANSFORM HS_CAPTURE_ENGINE_SOURCES REPLACE
+  "^${HS_ROOT}/" "${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/")
 add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/memory.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_CAPTURE_ENGINE_SOURCES})
 target_include_directories(pullback_capture_native PRIVATE
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
@@ -542,10 +538,8 @@ add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
 # core/platform/platform.h that fails any build where -fno-finite-math-only is lost.
 add_executable(fastmath_clamp_check
   ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
-target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+  ${HS_ENGINE_SOURCES})
+target_include_directories(fastmath_clamp_check PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(fastmath_clamp_check PRIVATE hs_host_abi)
 target_compile_definitions(fastmath_clamp_check PRIVATE HS_ENABLE_TEST_ORACLES=1)
 # The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
@@ -568,16 +562,14 @@ add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 # rewires SolidBuilder::relax_baked() globally, which the normal run_tests build
 # needs in its load-the-bits form.
 add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_compile_definitions(relax_bake_verify PRIVATE HS_RELAX_BAKE_VERIFY)
 target_link_libraries(relax_bake_verify PRIVATE hs_host_abi)
 # IEEE float semantics whatever the build's global flags are: the committed
 # payload is a host-IEEE-captured constant, and live fast-math arithmetic does
 # not reproduce its bits. The device loads the payload, it never re-derives it.
 target_compile_options(relax_bake_verify PRIVATE -fno-fast-math)
-target_include_directories(relax_bake_verify PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(relax_bake_verify PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(relax_bake_verify)
 _hs_sanitize(relax_bake_verify)
 add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
@@ -587,15 +579,13 @@ add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
 # change that breaks generation is caught in CI; run it to regenerate:
 #   relax_bake_gen | python tools/relax_bakes.py emit --stdin
 add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_compile_definitions(relax_bake_gen PRIVATE HS_RELAX_BAKE_EXTRACT)
 target_link_libraries(relax_bake_gen PRIVATE hs_host_abi)
 # Same IEEE pin as the verifier above: the two halves must share float semantics
 # or generation emits payloads the gate rejects.
 target_compile_options(relax_bake_gen PRIVATE -fno-fast-math)
-target_include_directories(relax_bake_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(relax_bake_gen PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(relax_bake_gen)
 _hs_sanitize(relax_bake_gen)
 
@@ -624,27 +614,23 @@ set_tests_properties(unit_relax_bake_form PROPERTIES SKIP_RETURN_CODE 77)
 # and tests/test_h_offset_renorm.h).
 add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_H_OFFSET=3)
 # hs_host_storage, not hs_host_abi: the Scan and Plot cases draw through the
 # global scratch arena.
 target_link_libraries(h_offset_renorm_check PRIVATE hs_host_storage)
-target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(h_offset_renorm_check PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(h_offset_renorm_check)
 _hs_sanitize(h_offset_renorm_check)
 add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 
 add_executable(h_offset_device_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_compile_definitions(h_offset_device_check PRIVATE
   HS_TEST_H_OFFSET=3 HS_OFFSET_DEVICE_RESOLUTION=1)
 target_link_libraries(h_offset_device_check PRIVATE hs_host_storage)
-target_include_directories(h_offset_device_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(h_offset_device_check PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(h_offset_device_check)
 _hs_sanitize(h_offset_device_check)
 add_test(NAME unit_h_offset_device COMMAND h_offset_device_check)
@@ -677,13 +663,11 @@ endif()
 
 add_executable(stack_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/stack_measure.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_compile_definitions(stack_measure PRIVATE
   HS_DEVICE_STACK_FLOOR_BYTES=${HS_DEVICE_STACK_FLOOR_BYTES})
 target_link_libraries(stack_measure PRIVATE hs_host_effect_runtime)
-target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(stack_measure PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 _hs_warnings(stack_measure)
 add_test(NAME unit_stack_budget COMMAND stack_measure)
@@ -695,11 +679,9 @@ add_test(NAME unit_stack_budget COMMAND stack_measure)
 # conservative upper bound vs the 32-bit device, so a host pass implies device.
 add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ENGINE_SOURCES})
 target_link_libraries(arena_measure PRIVATE hs_host_effect_runtime)
-target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(arena_measure PRIVATE ${HS_ENGINE_INCLUDES})
 target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 _hs_warnings(arena_measure)
 add_test(NAME unit_arena_budget COMMAND arena_measure)
@@ -715,11 +697,9 @@ foreach(_opt Os O3)
   endif()
   add_executable(perf_bench_${_opt} ${_perf_exclude}
     ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
-    ${HS_ROOT}/core/engine/memory.cpp
-    ${HS_ROOT}/core/engine/static_storage.cpp
-    ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+    ${HS_ENGINE_SOURCES})
   target_link_libraries(perf_bench_${_opt} PRIVATE hs_host_effect_runtime)
-  target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+  target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ENGINE_INCLUDES})
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
   _hs_warnings(perf_bench_${_opt})
 endforeach()
@@ -731,7 +711,7 @@ add_executable(feedback_divergence
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp)
-target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(feedback_divergence PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(feedback_divergence PRIVATE hs_host_abi)
 target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)
 _hs_warnings(feedback_divergence)
@@ -752,7 +732,7 @@ add_executable(feedback_divergence_io
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence_io.cpp
   ${HS_ROOT}/core/engine/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp)
-target_include_directories(feedback_divergence_io PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(feedback_divergence_io PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(feedback_divergence_io PRIVATE hs_host_abi)
 target_compile_options(feedback_divergence_io PRIVATE -O2 -ffast-math -fno-finite-math-only)
 _hs_warnings(feedback_divergence_io)
@@ -766,7 +746,7 @@ add_test(NAME unit_feedback_io COMMAND feedback_divergence_io
 # and diffs. unit_color pins the table itself.
 add_executable(srgb_decode_gen EXCLUDE_FROM_ALL
   ${HS_ROOT}/scripts/generate_srgb_decode.cpp)
-target_include_directories(srgb_decode_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(srgb_decode_gen PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(srgb_decode_gen)
 
 
@@ -776,10 +756,8 @@ _hs_warnings(srgb_decode_gen)
 # build only compiles it and regenerate_shader_chain_catalog below runs it.
 add_executable(shader_chain_catalog_gen EXCLUDE_FROM_ALL
   ${CMAKE_CURRENT_SOURCE_DIR}/shader_chain_catalog_gen.cpp
-  ${HS_ROOT}/core/engine/memory.cpp
-  ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
-target_include_directories(shader_chain_catalog_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+  ${HS_ENGINE_SOURCES})
+target_include_directories(shader_chain_catalog_gen PRIVATE ${HS_ENGINE_INCLUDES})
 target_link_libraries(shader_chain_catalog_gen PRIVATE hs_test_support)
 _hs_warnings(shader_chain_catalog_gen)
 
@@ -790,7 +768,7 @@ add_custom_target(regenerate_shader_chain_catalog
   VERBATIM)
 
 add_executable(noise_golden_gen ${HS_ROOT}/tools/noise_golden_export.cpp)
-target_include_directories(noise_golden_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_include_directories(noise_golden_gen PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(noise_golden_gen)
 
 # Compile coverage for this directory's non-UTILITY EXCLUDE_FROM_ALL targets.
