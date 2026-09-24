@@ -18,6 +18,19 @@ namespace Pullback {
 
 namespace Source {
 
+/** @brief Advances the phase clocks declared by one scalar source family. */
+template <typename Params>
+inline void advance_clocks(const Params &params, float &primary,
+                           float &secondary, float &angle) {
+  if constexpr (requires { params.speed; })
+    primary = fmodf(primary + params.speed, math::TWO_PI_F);
+  if constexpr (requires { params.secondary_rate; })
+    secondary =
+        fmodf(secondary + params.speed * params.secondary_rate, math::TWO_PI_F);
+  if constexpr (requires { params.angle_rate; })
+    angle = fmodf(angle + params.angle_rate, math::TWO_PI_F);
+}
+
 /**
  * @brief Source parameters for the coupled sine grid
  *        (Pullback::Source::Grid).
