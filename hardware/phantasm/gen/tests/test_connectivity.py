@@ -1,6 +1,5 @@
 import contextlib
 import io
-import math
 import sys
 import tempfile
 import unittest
@@ -191,13 +190,18 @@ class SyntheticBoardTests(unittest.TestCase):
         self.assertEqual((xs[0], xs[-1]), (-1.325, -0.325))
         self.assertEqual((ys[0], ys[-1]), (-1.2, 1.2))
 
-    def test_a_custom_pad_reaches_its_furthest_primitive(self):
-        root = parse(CUSTOM_PAD_BOARD)
+    def test_a_custom_pad_uses_rotated_primitive_extents(self):
         pad = connectivity.F(
-            connectivity.F(root, "footprint")[0], "pad")[0]
-        capsule = connectivity.pad_copper(pad, (0, 0), 0, ["F.Cu"])
-        # (size 1 0.5) circumscribes to 0.559; the poly corner is 0.901 out.
-        self.assertAlmostEqual(capsule.radius, math.hypot(0.5, 0.75))
+            connectivity.F(parse(CUSTOM_PAD_BOARD), "footprint")[0], "pad")[0]
+        land = connectivity.pad_copper(pad, (0, 0), 0, ["F.Cu"])
+        xs = [round(x, 3) for x, _ in land.polygon]
+        ys = [round(y, 3) for _, y in land.polygon]
+        self.assertEqual((min(xs), max(xs)), (-0.75, 0.75))
+        self.assertEqual((min(ys), max(ys)), (-0.5, 0.5))
+        short_track = connectivity.Capsule((0, 2), (0, 0.775), 0.1, {"F.Cu"})
+        touching_track = connectivity.Capsule((0, 2), (0, 0.6), 0.1, {"F.Cu"})
+        self.assertFalse(land.touches(short_track))
+        self.assertTrue(land.touches(touching_track))
 
     def test_fill_overlap_is_symmetric(self):
         big = connectivity.Polygon(
