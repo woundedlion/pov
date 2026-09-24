@@ -744,7 +744,10 @@ at the current phase.
 
 ## 7.7 The Mesh System (`core/mesh/`)
 
-The mesh system is split across twelve files:
+The mesh system is split across fourteen files:
+
+- **`base_mesh.h`** â€” Base solid tables and `MAX_SOLID_*` arena-sizing ceilings
+- **`relax_bake.h`** â€” Baked relaxation descriptors and application helpers
 
 - **`core/mesh/mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
