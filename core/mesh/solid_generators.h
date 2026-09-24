@@ -420,7 +420,7 @@ public:
   }
   /**
    * @brief Applies the expand operator (cantellation: push faces outward).
-   * @param t Expansion amount; default places square faces at the canonical
+   * @param t Expansion amount in [0, 1); default places square faces at the canonical
    * gap.
    * @return Reference to this builder for chaining.
    */
@@ -600,7 +600,7 @@ public:
   }
   /**
    * @brief Applies the Hankin star-pattern operator to each face.
-   * @param angle Contact angle of the star pattern, in radians.
+   * @param angle Contact angle of the star pattern, in radians in [0, pi/2].
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &hankin(float angle) {
