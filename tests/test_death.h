@@ -2180,6 +2180,15 @@ inline void case_particle_lifetime_nan() {
       opaque(std::numeric_limits<float>::quiet_NaN()));
 }
 
+inline void case_random_walk_nonfinite_options() {
+  math::Orientation<> orientation;
+  FastNoiseLite noise;
+  Animation::RandomWalkOptions options;
+  options.drift = opaque(std::numeric_limits<float>::quiet_NaN());
+  Animation::RandomWalk<32> walk(orientation, math::Vector(0, 0, 1), noise,
+                                 options);
+}
+
 /** @brief Death case: a particle lifetime above uint16_t must trap. */
 inline void case_particle_lifetime_over_max() {
   init_particle_system_with_lifetime(opaque(65536.0f));
@@ -4773,6 +4782,12 @@ inline const Case *all_cases(int &n) {
        "core/animation/sprites.h",
        "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
        "65535.0f) ParticleSystem max_life must be finite and in [1, 65535]"},
+      {"random_walk_nonfinite_options", case_random_walk_nonfinite_options,
+       "core/animation/motion.h",
+       "(std::isfinite(options.speed) && std::isfinite(options.pivot_strength) "
+       "&& std::isfinite(options.noise_scale) && "
+       "std::isfinite(options.smoothing) && std::isfinite(options.drift)) "
+       "RandomWalk: options must be finite"},
       {"particle_lifetime_over_max", case_particle_lifetime_over_max,
        "core/animation/sprites.h",
        "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
