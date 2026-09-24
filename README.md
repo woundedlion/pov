@@ -236,7 +236,10 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex primitives, fast-math approximations, value noise, Snorm3
 │   │   ├── 4dmath.h                Vec4 / Mat4 four-dimensional primitives + coordinate-plane rotation
 │   │   ├── rotate.h                Quaternion projection helpers
-│   │   ├── geometry.h              wrap()/fast_wrap()/shortest_distance, PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap, Orientation, Basis
+│   │   ├── geometry.h              Umbrella for periodic math, pixel mapping, and spherical helpers
+│   │   ├── periodic.h              Scalar wrapping and circular distances
+│   │   ├── pixel_mapping.h         PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap
+│   │   ├── spherical.h             Sphere generators, axes, Basis, and parallel transport
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
@@ -325,6 +328,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
 │   │   ├── timers.h                RandomTimer / PeriodicTimer callback timers
 │   │   ├── params.h                Parameter-writing animations (Transition, Mutation, Progress, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise, BallDrop, NoiseProduct)
+│   │   ├── orientation.h           Quaternion history for animation and motion blur
 │   │   ├── motion.h                Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
 │   │   ├── trails.h                OrientationTrail/VectorTrail/QuantizedVectorTrail history + tween/deep_tween traversal
 │   │   ├── sprites.h               Sprite draw envelope, Particle/ParticleSystem

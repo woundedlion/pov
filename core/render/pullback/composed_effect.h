@@ -12,6 +12,7 @@
  *        that assembles the pipeline over the engine's preset choreography.
  */
 
+#include "animation/orientation.h"
 #include "math/mobius.h"
 #include <array>
 #include <cmath>

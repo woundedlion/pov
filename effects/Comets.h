@@ -11,6 +11,7 @@
  *        trails.
  */
 
+#include "core/animation/orientation.h"
 #include <array>
 #include "core/color/effect_palette_recipes.h"
 #include "core/control/choreography.h"

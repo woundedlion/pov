@@ -12,7 +12,7 @@
 
 #include "math/3dmath.h"
 #include <cmath>
-#include "math/geometry.h"
+#include "math/periodic.h"
 
 namespace math {
 
