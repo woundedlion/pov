@@ -1026,23 +1026,16 @@ HS_FLASH_INLINE inline Color4 blend_outputs(const Color4 &from,
     to_weight = to.alpha * mix;
   }
   const float inv_alpha = 1.0f / denominator;
-  return Color4(
-      Pixel(static_cast<uint16_t>(hs::clamp(
-                (from.color.r * from_weight + to.color.r * to_weight) *
-                        inv_alpha +
-                    0.5f,
-                0.0f, 65535.0f)),
-            static_cast<uint16_t>(hs::clamp(
-                (from.color.g * from_weight + to.color.g * to_weight) *
-                        inv_alpha +
-                    0.5f,
-                0.0f, 65535.0f)),
-            static_cast<uint16_t>(hs::clamp(
-                (from.color.b * from_weight + to.color.b * to_weight) *
-                        inv_alpha +
-                    0.5f,
-                0.0f, 65535.0f))),
-      alpha);
+  return Color4(Pixel(round_linear_channel((from.color.r * from_weight +
+                                            to.color.r * to_weight) *
+                                           inv_alpha),
+                      round_linear_channel((from.color.g * from_weight +
+                                            to.color.g * to_weight) *
+                                           inv_alpha),
+                      round_linear_channel((from.color.b * from_weight +
+                                            to.color.b * to_weight) *
+                                           inv_alpha)),
+                alpha);
 }
 
 /**

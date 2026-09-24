@@ -12,6 +12,12 @@
 #include "platform/platform.h"
 #include "color/srgb_decode.h"
 
+/** @brief Rounds and saturates a linear-light channel to [0, 65535]. */
+__attribute__((always_inline)) inline uint16_t
+round_linear_channel(float value) {
+  return static_cast<uint16_t>(hs::clamp(value + 0.5f, 0.0f, 65535.0f));
+}
+
 #if defined(__ARM_FEATURE_DSP)
 // Inline assembly avoids a CMSIS header dependency for the saturating add.
 __attribute__((always_inline)) static inline uint32_t
@@ -133,9 +139,8 @@ struct Pixel {
    * bound before it can reach the cast.
    */
   Pixel operator*(float s) const {
-    return Pixel((uint16_t)hs::clamp(r * s + 0.5f, 0.0f, 65535.0f),
-                 (uint16_t)hs::clamp(g * s + 0.5f, 0.0f, 65535.0f),
-                 (uint16_t)hs::clamp(b * s + 0.5f, 0.0f, 65535.0f));
+    return Pixel(round_linear_channel(r * s), round_linear_channel(g * s),
+                 round_linear_channel(b * s));
   }
 
   /**
