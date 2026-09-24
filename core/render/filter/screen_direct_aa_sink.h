@@ -220,6 +220,7 @@ HS_O3_END
 
 static_assert(PipelineFoldSurface<::Pipeline<8, 8>>);
 static_assert(PipelineFoldSurface<::Pipeline<8, 8, AntiAlias<8, 8>>>);
+static_assert(PipelineFoldSurface<PreparedTerminalFrame<::Pipeline<8, 8>>>);
 static_assert(PipelineFoldSurface<DirectAntiAliasSink<8, 8>>,
               "DirectAntiAliasSink stands in for a Pipeline<>, so it must "
               "declare every pipeline fold member itself");
