@@ -330,6 +330,13 @@ struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
   static constexpr const char *ID = "project.bonne.v2";
   static constexpr const char *NAME = "Bonne";
 
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    HS_AUDIT_CHECK(params.hemisphere < std::size(BONNE_HEMISPHERE_IDS),
+                   "project.bonne: invalid hemisphere");
+    return ProjectOpModel::prepare(ctx, params, state);
+  }
+
   static ProjectionResult project(const math::Vector &local,
                                   const Params &params) {
     const float hemisphere = params.hemisphere == 0 ? 1.0f : -1.0f;
