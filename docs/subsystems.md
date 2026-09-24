@@ -313,7 +313,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `Transition` | Smoothly interpolates a float variable from its current value to a target over a duration with easing |
 | `Mutation` | Applies a custom scalar function to a float variable over time with easing |
 | `Progress` | Invokes a caller-supplied `void(float)` callback once per frame with eased progress, leaving the caller to write whatever state it drives |
-| `Driver` | Continuously increments a float variable each frame (wraps at 0..1) |
+| `Driver` | Continuously increments a float variable each frame (optionally wraps at 0..1) |
 | `Lerp` | Type-erased interpolation between any `T` that implements `lerp(start, target, t)`. The caller owns start, subject, and target data; Lerp holds pointers and a type-erased lerp function. |
 | `ColorWipe` | Smoothly interpolates a `GenerativePalette` toward a target palette |
 | `ParticleSystem<W, CAPACITY>` | Physics simulation with emitters, attractors, friction, gravity. Particles have `QuantizedVectorTrail` history for trail rendering. |
@@ -370,7 +370,7 @@ Animations do not render directly — they mutate external state that the render
 | `Transition` | `float*` | Smoothly interpolates any float parameter (e.g. `speed`, `alpha`, `twist`) from current value to target with easing |
 | `Mutation` | `float*` | Applies an arbitrary scalar function `f(t)` to a float over time (more general than `Transition`) |
 | `Progress` | `void(float)` callback | Hands the caller eased progress each frame and writes nothing itself; every composed preset transition uses it to blend the authored parameter states |
-| `Driver` | `float*` | Continuously increments a float each frame, wrapping at 0..1 — used for phase accumulators |
+| `Driver` | `float*` | Continuously increments a float each frame, optionally wrapping at 0..1 — used for phase accumulators |
 | `Lerp` | `T*` (type-erased) | Interpolates any type with a `lerp()` function — `MeshState`, params structs, etc. The caller owns start, subject, and target; Lerp holds pointers |
 | `ColorWipe` | `GenerativePalette*` | Interpolates palette keys toward a target palette in OKLCH along coherent hue arcs |
 | `Ripple`, `MobiusWarp`, `Noise` | `RippleParams`, `MobiusParams`, `NoiseParams` | Animate transformer parameters (expansion radius, warp strength, noise scale) which the transformer pool reads during `MeshOps::transform()` |
