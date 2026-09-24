@@ -3124,14 +3124,8 @@ inline void test_world_trails_clamps_out_of_range() {
   HS_EXPECT_NEAR(decoded.z, -1.0f, 1e-3f); // saturated
 }
 
-/**
- * @brief Verifies the ring is a hard-bounded buffer: pushing past Cap evicts the
- *        oldest entries so size() saturates at Cap.
- * @details The flush() probe decodes which entries survived, so a ring that
- * evicted the newest, or refused the overflowing plots outright, is separated
- * from one that evicted the oldest; size() alone cannot tell them apart.
- */
-inline void test_world_trails_ring_evicts_oldest() {
+/** @brief Capacity eviction retains a bounded live set and accepts new points. */
+inline void test_world_trails_capacity_evicts_one_slot() {
   constexpr int Cap = 4;
   constexpr int Overflow = 3;
   static uint8_t buf[Cap * 16];
@@ -3148,7 +3142,6 @@ inline void test_world_trails_ring_evicts_oldest() {
   }
   HS_EXPECT_EQ(trails.size(), (size_t)Cap);
 
-  // Survivors are the last Cap pushed, still in push order.
   auto trail = [](const math::Vector &, float) {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
@@ -3159,17 +3152,19 @@ inline void test_world_trails_ring_evicts_oldest() {
                });
   HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
   for (int i = 0; i < Cap; ++i) {
-    HS_EXPECT_NEAR(decoded[i].x, pushed[Overflow + i].x, 1e-4f);
-    HS_EXPECT_NEAR(decoded[i].y, pushed[Overflow + i].y, 1e-4f);
-    HS_EXPECT_NEAR(decoded[i].z, pushed[Overflow + i].z, 1e-4f);
+    HS_EXPECT_NEAR(decoded[i].x,
+                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].x, 1e-4f);
+    HS_EXPECT_NEAR(decoded[i].y,
+                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].y, 1e-4f);
+    HS_EXPECT_NEAR(decoded[i].z,
+                   pushed[i == Cap - 1 ? Cap + Overflow - 1 : i].z, 1e-4f);
   }
 }
 
 /**
- * @brief Exercises the maximum reachable wrapped index with the head in the
- *        ring's final slot and every slot live.
+ * @brief Repeated overflow replaces the final occupied slot.
  */
-inline void test_world_trails_wraps_from_last_slot() {
+inline void test_world_trails_repeated_capacity_eviction() {
   constexpr int Cap = 3;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
@@ -3195,7 +3190,7 @@ inline void test_world_trails_wraps_from_last_slot() {
 
   HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
   for (int i = 0; i < Cap; ++i)
-    HS_EXPECT_GT(math::dot(decoded[i], points[i + 2]), 0.999f);
+    HS_EXPECT_GT(math::dot(decoded[i], points[i == Cap - 1 ? 4 : i]), 0.999f);
 }
 
 /**
@@ -3883,8 +3878,8 @@ inline int run_filter_tests() {
 
   test_world_trails_int16_quantization_roundtrip();
   test_world_trails_clamps_out_of_range();
-  test_world_trails_ring_evicts_oldest();
-  test_world_trails_wraps_from_last_slot();
+  test_world_trails_capacity_evicts_one_slot();
+  test_world_trails_repeated_capacity_eviction();
   test_world_trails_ttl_expiry();
   test_world_trails_set_lifetime_shrink_clamps_t();
   test_world_trails_midbuffer_expiry_reclaims_slot();
