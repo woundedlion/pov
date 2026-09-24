@@ -596,6 +596,7 @@ inline void test_mailbox_rejects_backward_clock() {
   EdgeMailbox m;
   BurstSnapshot out{};
   m.on_edge(now + skew, GLITCH);
+  HS_EXPECT_FALSE(burst_complete(m, now, 4 * COL));
   HS_EXPECT_FALSE(
       m.try_claim(now, 4 * COL, test_config().max_burst_cycles(), &out));
 
