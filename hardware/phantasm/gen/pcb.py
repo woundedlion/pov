@@ -933,10 +933,8 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("BOARD ID: ____", 23.5, 2.0),
         (SILK_REVISION, 29.5, 1.0),
     ]
-    legend_x, legend_y, _ = PLACE["U_MCU"]
-    for index, (text, _, size) in enumerate(back_silk):
-        y = legend_y - 5.25 + index * 1.5
-        size = min(size, 0.8)
+    legend_x = PLACE["U_MCU"][0]
+    for text, y, size in back_silk:
         lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(legend_x)} {fmt(y)} 0)'
                      f' (layer "B.SilkS") (uuid "{uid()}") '
                      f'(effects (font (size {fmt(size)} {fmt(size)})'
