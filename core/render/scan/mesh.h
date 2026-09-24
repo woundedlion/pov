@@ -465,7 +465,7 @@ struct Mesh {
   }
 
   /** @brief Rasterizes a mesh through the type-erased fragment shader path. */
-  template <int W, int H, typename PipelineT = PipelineRef>
+  template <int W, int H, typename PipelineT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    const MeshOps::MeshClassBake *bake = nullptr) {
