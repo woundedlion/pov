@@ -50,7 +50,8 @@ public:
 
   /** @brief Caches the current frame's framebuffer and clip bounds. */
   void prepare(Canvas &cv) {
-    assert(cv.width() == W && cv.height() == H);
+    HS_CHECK(cv.width() == W && cv.height() == H,
+             "DirectAntiAliasSink: framebuffer dimensions do not match");
     base = cv.data();
     const ClipRegion &cr = cv.clip();
     clip_stamp = cr;
