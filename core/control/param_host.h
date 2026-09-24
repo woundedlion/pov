@@ -128,6 +128,8 @@ public:
   bool animations_paused() const { return anims_paused; }
 
 protected:
+  ~ParamHost() = default;
+
   /** @brief Stores a trusted internal value without edit policy or callbacks. */
   static void write_parameter_unchecked(ParamDef &parameter, float value) {
     parameter.write_unchecked(value);
