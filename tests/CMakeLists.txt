@@ -239,6 +239,7 @@ target_include_directories(mindsplatter_replay_gen PRIVATE ${HS_ROOT} ${HS_ROOT}
 target_compile_options(mindsplatter_replay_gen PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 _hs_warnings(mindsplatter_replay_gen)
+_hs_sanitize(mindsplatter_replay_gen)
 
 add_test(NAME unit_mindsplatter_replay_form COMMAND ${CMAKE_COMMAND}
   -DPYTHON=${Python3_EXECUTABLE}
