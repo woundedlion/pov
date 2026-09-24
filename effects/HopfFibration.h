@@ -52,7 +52,7 @@ public:
    * fiber, phase, and trail arrays from the persistent arena, seeds fibers, and
    * wires the ambient spin plus the phase-driver animations onto the timeline.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     register_param("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
     register_param("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
     register_param("Folding", &params.folding, 0.0f, 2.0f);
@@ -197,7 +197,7 @@ private:
    * spaced in polar bands and azimuth around each band. Stored as Spherical;
    * hopf_project derives each fiber's S3 phase inline.
    */
-  void init_fibers() {
+  HS_COLD_MEMBER void init_fibers() {
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
       float polar = math::PI_F * (i + 0.5f) / RINGS;
