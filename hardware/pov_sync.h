@@ -196,23 +196,17 @@ public:
    * @brief Burst-terminating gap.
    * @return Quiet time that terminates a burst, in cycles.
    */
-  uint32_t gap_timeout_cycles() const {
-    return protocol_config.gap_timeout_cycles();
-  }
+  uint32_t gap_timeout_cycles() const { return cached_gap_timeout_cycles; }
   /**
    * @brief Burst-duration ceiling.
    * @return Duration past which an unterminated burst is claimed, in cycles.
    */
-  uint32_t max_burst_cycles() const {
-    return protocol_config.max_burst_cycles();
-  }
+  uint32_t max_burst_cycles() const { return cached_max_burst_cycles; }
   /**
    * @brief Glitch-filter window.
    * @return Minimum accepted edge spacing, in cycles.
    */
-  uint32_t glitch_filter_cycles() const {
-    return protocol_config.glitch_filter_cycles;
-  }
+  uint32_t glitch_filter_cycles() const { return cached_glitch_filter_cycles; }
 
   /**
    * @brief One flywheel wake-up.
@@ -422,14 +416,16 @@ private:
    * wasted there: the config only moves in the constructor and configure().
    */
   HS_COLD_MEMBER void cache_config_bounds() {
+    cached_gap_timeout_cycles = protocol_config.gap_timeout_cycles();
+    cached_max_burst_cycles = protocol_config.max_burst_cycles();
+    cached_glitch_filter_cycles = protocol_config.glitch_filter_cycles;
     prev_burst_stale_cycles = protocol_config.col_cycles(
         protocol_config.acquire_quiet_cols + protocol_config.gap_timeout_cols);
   }
 
   /**
-   * @brief Restores every member to its post-construction value except the four
-   * the callers own: protocol_config, prev_burst_stale_cycles (cached by
-   * cache_config_bounds()), fly and is_master_board.
+   * @brief Restores every member to its post-construction value except caller-owned
+   * protocol_config, cached bounds, fly and is_master_board.
    * @details The single reset both configure() and seed() run, so the two
    * cannot drift apart.
    */
@@ -780,6 +776,9 @@ private:
 
   // ── State ─────────────────────────────────────────────────────────────────
 
+  uint32_t cached_gap_timeout_cycles = 0;
+  uint32_t cached_max_burst_cycles = 0;
+  uint32_t cached_glitch_filter_cycles = 0;
   Config protocol_config;
   Flywheel fly;
   FlipGate gate;
