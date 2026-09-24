@@ -330,8 +330,7 @@ jobs:
       - name: Test
         # Deep smoke pass (see the plain tests job) so the sanitized run reaches
         # the same effect-lifecycle transitions and exercises arena lifetimes.
-        # The sanitizer leg keeps the QUICK effects tier; full-resolution
-        # correctness runs in its own optimized job on both events.
+        # The shard pass uses QUICK; the effects shard also runs FULL below.
         #
         # -E drops the generated-artifact gates: they instrument no sanitized
         # code, and the Python gates cannot run because this job provisions
@@ -359,6 +358,18 @@ jobs:
           ctest --preset tests --output-on-failure --no-tests=error
           -R "${{ matrix.test_regex }}"
           -E "${{ matrix.test_exclude }}"
+
+      - name: Test full-resolution effects under ASan and UBSan
+        if: matrix.shard == 1
+        env:
+          HS_SMOKE_FRAMES: *deep_smoke_frames
+          HS_EFFECTS_FULL: 1
+          HS_REQUIRE_EFFECTS_FULL: 1
+          HS_SKIPS_ARE_ERRORS: 1
+          HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
+        run: >
+          ctest --preset tests --output-on-failure --no-tests=error
+          -R "^unit_effects_smoke$"
 
   thread-sanitizer:
     name: Native unit tests (Clang, TSan) / concurrency modules
