@@ -11,8 +11,8 @@
 
 /**
  * @file resources.h
- * @brief Noise-resource keys for each stage and whether two configurations'
- *        union fits the resident bank.
+ * @brief Noise-resource keys and union-fit checks for a bank sized to one
+ * topology. Two-config transitions require matching parameter topology.
  */
 
 #include "core/render/pullback/runtime_seeds.h"
