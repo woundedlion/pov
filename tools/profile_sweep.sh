@@ -40,14 +40,17 @@ playlist_roster() {
     | sed -nE 's/^[[:space:]]*X\([[:space:]]*([A-Za-z0-9_]+)[[:space:]]*,.*/\1/p'
 }
 
-# Every effect this script profiles, read off its own `run` lines.
+# Enumerate the reachable groups without flashing a board.
 swept_roster() {
-  tr -d '\r' < "$0" | sed -nE 's/^[[:space:]]+run[[:space:]]+([A-Za-z0-9_]+).*/\1/p'
+  local group
+  for group in g{1..6}_ship; do
+    HS_PROFILE_ROSTER_DUMP=1 bash "$0" "$group" || return 1
+  done
 }
 
 check_roster() {
   local playlist swept missing extra
-  if ! playlist="$(playlist_roster | sort)" || ! swept="$(swept_roster | sort -u)"; then
+  if ! playlist="$(playlist_roster | sort)" || ! swept="$(swept_roster | sort)"; then
     echo "profile_sweep: cannot read and sort the effect rosters" >&2
     return 1
   fi
@@ -72,6 +75,10 @@ check_roster() {
 
 # run <Effect> <env> <seconds> <window> [extra flags]
 run() {
+  if [ "${HS_PROFILE_ROSTER_DUMP:-0}" = 1 ]; then
+    printf '%s\n' "$1"
+    return 0
+  fi
   if ! bash "$P" "$@"; then
     echo ">>> FAILED: $1 [$2] — continuing with the rest of the group" >&2
     FAILED+=("$1/$2")
@@ -80,7 +87,9 @@ run() {
 
 # Ahead of the dispatch: a divergence must surface before a 20-minute capture,
 # not after it.
-check_roster || exit 1
+if [ "${HS_PROFILE_ROSTER_DUMP:-0}" != 1 ]; then
+  check_roster || exit 1
+fi
 
 case "$GROUP" in
 check)
@@ -142,4 +151,4 @@ if [ ${#FAILED[@]} -gt 0 ]; then
   echo "GROUP $GROUP INCOMPLETE — ${#FAILED[@]} failed: ${FAILED[*]}"
   exit 1
 fi
-echo "GROUP $GROUP DONE"
+[ "${HS_PROFILE_ROSTER_DUMP:-0}" = 1 ] || echo "GROUP $GROUP DONE"
