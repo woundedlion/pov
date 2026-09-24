@@ -237,7 +237,9 @@ int main(int argc, char **argv) {
       "seed=1337 presets=0..3 frames=136..384/8 clips=quadrants "
       "renderer=generic-reference "
       "score=64*adaptive+512*long+8*shader+taps";
-  uint32_t traits = TRAIT_LONG_EDGE | TRAIT_MEASURED_WORST;
+  uint32_t traits = TRAIT_MEASURED_WORST;
+  if (selected->aggregate.long_edges > 0)
+    traits |= TRAIT_LONG_EDGE;
   if (selected->snapshot.particles.size() ==
       WhiteBox::particle_capacity(effect))
     traits |= TRAIT_SATURATED;
