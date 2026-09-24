@@ -944,7 +944,7 @@ public:
    * @brief Mid-leg crossfade weight (spec 2.6), the swept ctors' default:
    * exactly 0 through the first 20% of the leg, smoothstep to exactly 1 by
    * 80%.
-   * @param frame 1-based leg frame (1..duration).
+   * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
    * @param duration Whole leg length in frames (sweep plus settle).
    */
   static float classic_blend(int frame, int duration) {
@@ -956,7 +956,7 @@ public:
    * @brief Trailing-window crossfade weight: exactly 0 until the final @p
    * window frames of the leg, then smoothstep to exactly 1 at the arrival
    * frame.
-   * @param frame 1-based leg frame (1..duration).
+   * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
    * @param duration Whole leg length in frames (sweep plus settle).
    * @param window Trailing window in frames, clamped to duration - 1 so a leg
    * shorter than the window still opens on the zero plateau.
@@ -973,7 +973,7 @@ public:
   /**
    * @brief Trailing blend over the default TRAILING_BLEND_FRAMES window (the
    * build legs); the BlendWeightFn form.
-   * @param frame 1-based leg frame (1..duration).
+   * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
    * @param duration Whole leg length in frames (sweep plus settle).
    * @details Holds the inherited source palette through most of the leg, then
    * diverges to the target only over the last few frames. Reaching exactly 1 on
