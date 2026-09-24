@@ -950,7 +950,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   {
     ScratchScope temp_topo(scratch_a);
 
-    HS_CHECK(I <= MeshLimits::MAX_HALF_EDGES && F <= MeshLimits::MAX_FACES,
+    HS_CHECK(mesh.vertices.size() <= MeshLimits::MAX_VERTICES &&
+                 I <= MeshLimits::MAX_HALF_EDGES && F <= MeshLimits::MAX_FACES,
              "classify_faces_by_topology exceeds 16-bit index range");
 
     uint16_t *he_to_face = scratch_a.allocate_n<uint16_t>(I);
