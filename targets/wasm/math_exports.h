@@ -90,7 +90,7 @@ static void bind_math_exports() {
       emscripten::optional_override([](float L, float a, float b) -> float {
         if (!std::isfinite(L) || !std::isfinite(a) || !std::isfinite(b))
           emscripten::val::global("RangeError")
-              .new_("gamut_max_chroma requires finite arguments")
+              .new_(std::string("gamut_max_chroma requires finite arguments"))
               .throw_();
         return gamut_max_chroma(L, a, b);
       }));
