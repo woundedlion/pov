@@ -281,9 +281,15 @@ protected:
    * @param ptr Pointer to the float variable.
    * @param min Minimum value.
    * @param max Maximum value.
+   * @param animated Whether writes pause parameter animation.
+   * @param readonly Whether external writes are refused.
+   * @param options Optional enumeration labels.
+   * @param option_count Number of enumeration labels.
    */
-  HS_COLD_MEMBER void register_param(const char *name, float *ptr,
-                                     float min = 0.0f, float max = 1.0f) {
+  HS_COLD_MEMBER void
+  register_param(const char *name, float *ptr, float min = 0.0f,
+                 float max = 1.0f, bool animated = false, bool readonly = false,
+                 const char *const *options = nullptr, int option_count = 0) {
     // Overflowing the fixed ParamList is an authoring bug (also upholds the WASM
     // no-realloc memory-view invariant).
     // A duplicate name shadows: find() returns the FIRST match, so a second
@@ -297,6 +303,10 @@ protected:
     def.target = ptr;
     def.min = min;
     def.max = max;
+    def.animated = animated;
+    def.readonly = readonly;
+    def.options = options;
+    def.option_count = option_count;
     parameters.bump_schema_generation();
   }
 
@@ -335,9 +345,8 @@ protected:
                                      int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
-    register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1));
-    parameters.data()[parameters.count - 1].options = options;
-    parameters.data()[parameters.count - 1].option_count = option_count;
+    register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1), false,
+                   false, options, option_count);
   }
 
   /**
@@ -351,9 +360,10 @@ protected:
    */
   template <typename Enum>
     requires std::is_enum_v<Enum>
-  HS_COLD_MEMBER void
-  register_param(const char *name, Enum *ptr, const char *const *options,
-                 const char *const *export_options, int option_count) {
+  HS_COLD_MEMBER void register_param(const char *name, Enum *ptr,
+                                     const char *const *options,
+                                     const char *const *export_options,
+                                     int option_count, bool animated = false) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
     using Integer = std::underlying_type_t<Enum>;
@@ -378,6 +388,7 @@ protected:
     def.option_count = option_count;
     def.export_options = export_options;
     def.target_type = TARGET_TYPE;
+    def.animated = animated;
     parameters.bump_schema_generation();
   }
 
@@ -398,7 +409,8 @@ protected:
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
   HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
-                                         int min, int max) {
+                                         int min, int max,
+                                         bool animated = false) {
     HS_CHECK(min <= max, "register_int_param: min must be <= max");
     // set() narrows through static_cast<Integer>(float), which is UB outside
     // the target's range.
@@ -423,6 +435,7 @@ protected:
     def.min = static_cast<float>(min);
     def.max = static_cast<float>(max);
     def.target_type = integer_target_type<Integer>();
+    def.animated = animated;
     parameters.bump_schema_generation();
   }
 
@@ -432,8 +445,7 @@ protected:
   HS_COLD_MEMBER void register_animated_int_param(const char *name,
                                                   Integer *ptr, int min,
                                                   int max) {
-    register_int_param(name, ptr, min, max);
-    parameters.data()[parameters.count - 1].animated = true;
+    register_int_param(name, ptr, min, max, true);
   }
 
   /**
@@ -442,11 +454,13 @@ protected:
    * @param ptr Pointer to the bool variable; registration never mutates the
    *   target, symmetric with the float overload.
    */
-  HS_COLD_MEMBER void register_param(const char *name, bool *ptr) {
+  HS_COLD_MEMBER void register_param(const char *name, bool *ptr,
+                                     bool animated = false) {
     auto &def = append_parameter(name);
     def.target = ptr;
     def.max = 1.0f;
     def.target_type = ParamDef::TargetType::BOOL;
+    def.animated = animated;
     parameters.bump_schema_generation();
   }
 
@@ -458,8 +472,7 @@ protected:
   HS_COLD_MEMBER void register_animated_param(const char *name, float *ptr,
                                               float min = 0.0f,
                                               float max = 1.0f) {
-    register_param(name, ptr, min, max);
-    parameters.data()[parameters.count - 1].animated = true;
+    register_param(name, ptr, min, max, true);
   }
 
   /**
@@ -468,8 +481,7 @@ protected:
    * @param ptr Pointer to the bool variable.
    */
   HS_COLD_MEMBER void register_animated_param(const char *name, bool *ptr) {
-    register_param(name, ptr);
-    parameters.data()[parameters.count - 1].animated = true;
+    register_param(name, ptr, true);
   }
 
   /** @brief Registers a typed enum param and flags it animation-driven. */
@@ -479,8 +491,7 @@ protected:
                                               const char *const *options,
                                               const char *const *export_options,
                                               int option_count) {
-    register_param(name, ptr, options, export_options, option_count);
-    parameters.data()[parameters.count - 1].animated = true;
+    register_param(name, ptr, options, export_options, option_count, true);
   }
 
   /**
@@ -524,8 +535,7 @@ protected:
   HS_COLD_MEMBER void register_readonly_param(const char *name, float *ptr,
                                               float min = 0.0f,
                                               float max = 1.0f) {
-    register_param(name, ptr, min, max);
-    parameters.data()[parameters.count - 1].readonly = true;
+    register_param(name, ptr, min, max, false, true);
   }
 
 private:
