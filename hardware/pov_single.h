@@ -32,6 +32,7 @@
 #include "core/render/canvas.h"
 #include "core/math/geometry.h"
 #include "core/engine/memory.h"
+#include <utility>
 #include <new> // std::nothrow — fail-fast OOM check on the effect allocation
 
 /**
@@ -86,15 +87,18 @@ public:
   /**
    * @brief Runs a specific Effect for a given duration.
    * @tparam E The Effect class to run.
+   * @tparam Args Effect constructor argument types.
    * @param duration The time in seconds to run the effect.
+   * @param args Arguments forwarded to the effect constructor.
    * @details Eagerly fills the scanline LUTs for E's resolution before the
    * first frame so the ISR never observes a half-filled table, then configures
    * the arenas, constructs, runs, and deletes the effect.
    */
-  template <typename E> void show(unsigned long duration) {
+  template <typename E, typename... Args>
+  void show(unsigned long duration, Args &&...args) {
     math::GeometryResolution<E>::init();
     configure_arenas_default(); // Reset before init so effects can override
-    E *e = new (std::nothrow) E();
+    E *e = new (std::nothrow) E(std::forward<Args>(args)...);
     HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
     e->init();
     run(e, duration);

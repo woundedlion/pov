@@ -4481,6 +4481,36 @@ struct RingSpinWhiteBox {
   }
 };
 
+inline void test_ringspin_strobe_configuration_preserves_rendering() {
+  std::vector<Pixel> expected;
+  render_capture<RingSpin, 96, 20>(expected, 2);
+  reset_effect_globals();
+  pin_frame_clock(0);
+  {
+    RingSpin<96, 20> roster_effect;
+    HS_EXPECT_TRUE(roster_effect.strobe_columns());
+  }
+  reset_effect_globals();
+  pin_frame_clock(0);
+  RingSpin<96, 20> firmware_effect(false);
+  HS_EXPECT_FALSE(firmware_effect.strobe_columns());
+  firmware_effect.init();
+  for (int frame = 0; frame < 2; ++frame) {
+    pin_frame_clock(frame);
+    firmware_effect.draw_frame();
+    firmware_effect.advance_display();
+  }
+  HS_EXPECT_EQ(expected.size(), size_t{96 * 20});
+  for (int y = 0; y < 20; ++y)
+    for (int x = 0; x < 96; ++x) {
+      const Pixel &actual = firmware_effect.get_pixel(x, y);
+      const Pixel &reference = expected[y * 96 + x];
+      HS_EXPECT_EQ(actual.r, reference.r);
+      HS_EXPECT_EQ(actual.g, reference.g);
+      HS_EXPECT_EQ(actual.b, reference.b);
+    }
+}
+
 /**
  * @brief Verifies every lit RingSpin pixel sits on one of its great circles.
  * @details RingSpin draws SDF::Ring at radius 1 (a great circle) about each
@@ -6145,6 +6175,7 @@ inline int run_effects_tests() {
     test();
   };
 
+  run_case(test_ringspin_strobe_configuration_preserves_rendering);
   run_case(test_meshfeedback_base_mesh_selector);
   run_case(test_meshfeedback_preset_export_arity);
   run_case(test_meshfeedback_mesh_rebuild_reuses_storage);
