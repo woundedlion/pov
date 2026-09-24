@@ -109,10 +109,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `.github/workflows/*.yml` (which pipes every `run:` body through
   `shellcheck`, since no workflow is a `*.sh` file), a `just --evaluate` /
   `just --summary` parse of the `justfile`, and the profiling-roster
-  cross-check in `tools/profile_sweep.sh`. `just lint` runs five of them
-  locally (line endings, `ruff`, `eslint`, `shellcheck` and the roster
-  check); the hook lints only staged Python and JavaScript, so CI remains
-  authoritative.
+  cross-check in `tools/profile_sweep.sh`. `just lint` runs all seven
+  locally; the hook lints staged Python, JavaScript, and shell files, so CI
+  remains authoritative.
 - **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`
   without `--sync`: fences, links, anchors, every backticked repo path, the
   README's file map against the tracked tree and its effect counts against
