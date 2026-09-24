@@ -8,7 +8,7 @@
 # dropped cases that still call each other satisfies a plain "referenced
 # somewhere" count.
 #
-# It sees definitions of the form `void test_*(` / `void check_*(` /
+# It sees void/bool/int/size_t definitions named `test_*(` / `check_*(` /
 # `void case_*(` / `void verify_*(` / `void expect_*(`, plus the named
 # roster-wide sweep drivers and the `int run_*_tests(` entry points, at the
 # start of a line (optionally `inline`/`static` in either order, behind an
@@ -58,7 +58,7 @@ set(_case_names "(test|check|case|verify|expect)_[A-Za-z0-9_]+")
 set(_case_names "${_case_names}|(smoke|determinism|clip_clear_parity)_one")
 set(_entry_name "run_[A-Za-z0-9_]*_tests")
 set(_def_head "\n(template[ \t]*<[^\n]*>[ \t]*)?((inline|static)[ \t]+)*")
-set(_def_head "${_def_head}(void[ \t\r\n]+(${_case_names})")
+set(_def_head "${_def_head}((void|bool|int|size_t)[ \t\r\n]+(${_case_names})")
 set(_def_head "${_def_head}|int[ \t\r\n]+(${_entry_name}))\\(")
 # Closes the loop over a header's definition heads on the file's own tail.
 set(_end_marker "\nvoid test_hs_end_of_header(")
@@ -155,7 +155,7 @@ foreach(_hdr IN LISTS _headers)
   set(_seen "")
   set(_entries "")
   foreach(_def IN LISTS _defs)
-    string(REGEX REPLACE ".*(void|int)[ \t\r\n]+([A-Za-z0-9_]+)\\(" "\\2" _case
+    string(REGEX REPLACE ".*(void|bool|int|size_t)[ \t\r\n]+([A-Za-z0-9_]+)\\(" "\\2" _case
       "${_def}")
     if(_case IN_LIST _seen)
       continue()
@@ -212,7 +212,7 @@ foreach(_hdr IN LISTS _headers)
         list(APPEND _roots "${_t}")
       endif()
     endforeach()
-    string(REGEX REPLACE ".*(void|int)[ \t\r\n]+([A-Za-z0-9_]+)\\(" "\\2" _owner
+    string(REGEX REPLACE ".*(void|bool|int|size_t)[ \t\r\n]+([A-Za-z0-9_]+)\\(" "\\2" _owner
       "${_def}")
   endforeach()
 
