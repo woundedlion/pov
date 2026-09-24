@@ -41,7 +41,7 @@ public:
    * @param name The name of the parameter.
    * @param value The new value (mapped to bool if necessary).
    * @return APPLIED if the value was written; otherwise the rejection reason
-   *         (UNKNOWN_PARAM, READONLY, or NON_FINITE). The WASM bridge forwards
+   *         (UNKNOWN_PARAM, READONLY, NON_FINITE, or INADMISSIBLE). The WASM bridge forwards
    *         this so the frontend can report why a write was dropped.
    * @details An accepted write to an animated parameter engages the effect's
    *          animation pause before storing the manual value.
