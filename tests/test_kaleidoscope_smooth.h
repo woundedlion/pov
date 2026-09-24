@@ -186,6 +186,8 @@ inline void test_kaleidoscope_smooth_shader_workbench_equivalence() {
       KaleidoscopeSmoothWhiteBox::FX>(13, 1);
   shader_workbench_tests::verify_fixed_shader_export<
       KaleidoscopeSmoothWhiteBox::FX>(14, 2);
+  shader_workbench_tests::verify_fixed_shader_export<
+      KaleidoscopeSmoothWhiteBox::FX>(14, 3);
 }
 
 inline int run_kaleidoscope_smooth_tests() {
