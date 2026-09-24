@@ -4305,6 +4305,18 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
   WB::EffectType fx;
   fx.init();
 
+  const auto snapshot = fx.serialize_parameters();
+  auto edited = snapshot;
+  edited.params.speed = 1.0f;
+  HS_EXPECT_TRUE(fx.restore_parameters(edited));
+  HS_EXPECT_EQ(fx.serialize_parameters().params.speed, 1.0f);
+  edited.params.speed = std::numeric_limits<float>::quiet_NaN();
+  HS_EXPECT_FALSE(fx.restore_parameters(edited));
+  edited = snapshot;
+  ++edited.schema_version;
+  HS_EXPECT_FALSE(fx.restore_parameters(edited));
+  HS_EXPECT_TRUE(fx.restore_parameters(snapshot));
+
   auto value = [&](const char *name) {
     const auto *def = fx.getParameters().find(name);
     HS_EXPECT(def != nullptr, "Fishbowl parameter is missing");
