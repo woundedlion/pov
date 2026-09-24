@@ -1634,6 +1634,9 @@ HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
                                               Arena &scratch) {
   HS_CHECK(&target != &scratch,
            "reconcile_vertices: target and scratch must differ");
+  HS_CHECK(&out != &identity && &out != &authored,
+           "reconcile_vertices: output must not alias either input");
+  out = PolyMesh();
   const size_t V = identity.vertices.size();
   HS_CHECK(authored.vertices.size() == V,
            "reconcile_vertices: endpoints differ in vertex count");
