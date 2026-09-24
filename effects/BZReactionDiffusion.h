@@ -74,7 +74,7 @@ class BZReactionDiffusion
   using Base::refine_render_center;
   using Base::register_param;
   using Base::seed_blobs;
-  using Base::seed_face_lut;
+  using Base::rasterize_lattice;
   using Base::to_q16;
 
 public:
@@ -389,7 +389,7 @@ private:
     const FloatRgb &cb = color_b;
     const FloatRgb &cc = color_c;
 
-    auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
+    auto vertex_shader = [](Fragment &) {};
 
     auto pixel_shader = [&](Fragment &frag, const auto &grid, int x) -> Pixel {
       return shade_pixel(static_cast<int>(frag.v0), frag.pos, world_nodes, grid,
@@ -398,7 +398,7 @@ private:
 
     {
       HS_PROFILE(bz_raster);
-      Scan::Shader::draw_grid<W, H>(canvas, vertex_shader, pixel_shader);
+      rasterize_lattice(canvas, vertex_shader, pixel_shader);
     }
   }
 
