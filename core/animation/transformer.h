@@ -198,13 +198,11 @@ public:
 #ifndef NDEBUG
     stamp.record(arena);
 #endif
-    if (!clear_hook_registered) {
       timeline.add_clear_hook(this, [](void *self) {
         static_cast<TransformerPool *>(self)->release_all();
       });
       clear_hook_registered = true;
     }
-  }
 
   /**
    * @brief Re-claims the pool's storage after its arena was reset, preserving
