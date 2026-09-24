@@ -49,8 +49,8 @@ public:
   HS_COLD_MEMBER DisplacementField()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         balls(timeline), noise_field(timeline), palette(make_palette()) {
-    // Burn one palette draw: the downstream stream is authored at this offset.
-    static_cast<void>(make_palette());
+    // The authored downstream RNG stream starts one draw past the palette.
+    static_cast<void>(hs::rand_int(0, 256));
   }
 
   /**
