@@ -2016,7 +2016,7 @@ inline void test_shader_workbench_legacy_sources() {
       HS_EXPECT_EQ(
           Workbench::sample_function(WB::Function::TWIN_WAVE, p, source),
           0.5f * (math::fast_sinf(re + source.primary) +
-                  math::fast_sinf(rotated + source.primary)));
+                  math::fast_sinf(rotated + source.secondary)));
       HS_EXPECT_EQ(Workbench::sample_function(WB::Function::RINGS, p, source),
                    math::fast_sinf(sqrtf(re * re + im * im) - source.primary));
       const float radius = sqrtf(re * re + im * im);
