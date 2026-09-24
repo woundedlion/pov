@@ -270,6 +270,16 @@ inline void test_helpers() {
  * test_helpers().
  */
 inline void test_config_validation() {
+  Config zero_width = test_config();
+  zero_width.W = 0;
+  HS_EXPECT_EQ(std::strcmp(zero_width.valid(), "W > 0"), 0);
+  Config zero_period = test_config();
+  zero_period.cycles_per_half_rev = 0;
+  HS_EXPECT_EQ(std::strcmp(zero_period.valid(), "cycles_per_half_rev > 0"), 0);
+  Config zero_pitch = test_config();
+  zero_pitch.beacon_pitch_cols = 0;
+  HS_EXPECT_EQ(std::strcmp(zero_pitch.valid(), "beacon_pitch_cols > 0"), 0);
+
   HS_EXPECT_TRUE(test_config().valid() == nullptr);
 
   // Odd W: boundary_column(HALF) and every arm-B half-image offset truncate
