@@ -131,7 +131,7 @@ public:
   ParamSetResult
   update_parameters(std::span<const ShaderChainParameterWrite> writes) {
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
-      return ParamSetResult::UNKNOWN_PARAM;
+      return ParamSetResult::TOO_LONG;
     alignas(std::max_align_t)
         uint8_t candidates[Pullback::Interp::MAX_CHAIN_OPS][PARAM_BYTES];
     const auto ops = program.ops();
@@ -144,7 +144,7 @@ public:
     bool animated = false;
     for (const auto &write : writes) {
       if (write.name == nullptr)
-        return ParamSetResult::UNKNOWN_PARAM;
+        return ParamSetResult::MALFORMED_PAYLOAD;
       const ParamDef *parameter = getParameters().find(write.name);
       if (parameter == nullptr)
         return ParamSetResult::UNKNOWN_PARAM;

@@ -1280,7 +1280,13 @@ public:
     return chain_result(refusal.code, refusal.entry_index);
   }
 
-  /** @brief Atomically applies named writes after validating the final state. */
+  /**
+   * @brief Atomically applies named writes after validating the final state.
+   * @return APPLIED, or MALFORMED_PAYLOAD for invalid entry shapes, TOO_LONG
+   * for capacity overflow, NO_EFFECT for a missing or replaced chain,
+   * UNKNOWN_PARAM for an unknown name, READONLY for a protected parameter,
+   * NON_FINITE for NaN/infinite values, or INADMISSIBLE for cross-field conflicts.
+   */
   ParamSetResult setShaderChainParameters(const emscripten::val &entries) {
     const SnapshotDecodeGuard decode_guard;
     if (!with_shader_chain([]<typename SC>(SC &) {}))
@@ -1290,22 +1296,22 @@ public:
     const auto schema_generation =
         current_effect->getParameterSchemaGeneration();
     if (!is_array(entries))
-      return ParamSetResult::UNKNOWN_PARAM;
+      return ParamSetResult::MALFORMED_PAYLOAD;
     const size_t count = entries["length"].as<size_t>();
     if (count > Pullback::Interp::MAX_CHAIN_PARAMS)
-      return ParamSetResult::UNKNOWN_PARAM;
+      return ParamSetResult::TOO_LONG;
     std::vector<std::string> names(count);
     std::vector<float> values(count);
     for (size_t index = 0; index < count; ++index) {
       const emscripten::val entry = entries[index];
       if (entry.isNull() || entry.isUndefined())
-        return ParamSetResult::UNKNOWN_PARAM;
+        return ParamSetResult::MALFORMED_PAYLOAD;
       const emscripten::val name = entry["name"];
       const emscripten::val value = entry["value"];
       if (!name.isString())
-        return ParamSetResult::UNKNOWN_PARAM;
+        return ParamSetResult::MALFORMED_PAYLOAD;
       if (!value.isNumber())
-        return ParamSetResult::NON_FINITE;
+        return ParamSetResult::MALFORMED_PAYLOAD;
       names[index] = name.as<std::string>();
       values[index] = value.as<float>();
     }
@@ -1584,7 +1590,9 @@ static void bind_engine() {
       .value("UNKNOWN_PARAM", ParamSetResult::UNKNOWN_PARAM)
       .value("READONLY", ParamSetResult::READONLY)
       .value("NON_FINITE", ParamSetResult::NON_FINITE)
-      .value("INADMISSIBLE", ParamSetResult::INADMISSIBLE);
+      .value("INADMISSIBLE", ParamSetResult::INADMISSIBLE)
+      .value("MALFORMED_PAYLOAD", ParamSetResult::MALFORMED_PAYLOAD)
+      .value("TOO_LONG", ParamSetResult::TOO_LONG);
 
   emscripten::enum_<ClipSetResult>("ClipSetResult")
       .value("APPLIED", ClipSetResult::APPLIED)
