@@ -52,21 +52,11 @@ struct WarpPhaseState {
 /** @brief Parameter family of warp.affine.v2; translations are lattice cells. */
 struct AffineWarpParams : Warp::AffineParams {
   float lattice_period = 1.0f;
-  static constexpr auto FIELDS = [] {
-    std::array<Field<AffineWarpParams>, Warp::AffineParams::FIELDS.size() + 1>
-        out{};
-    size_t index = 0;
-    for (const auto &field : Warp::AffineParams::FIELDS)
-      out[index++] = {field.id,  field.member, field.name, field.min,
-                      field.max, field.curve,  field.gate, field.topology_gate};
-    out[index] = {"lattice-period",
-                  &AffineWarpParams::lattice_period,
-                  "Lattice Period",
-                  1.0f / 8.0f,
-                  64.0f,
-                  FieldCurve::LOG_POSITIVE};
-    return out;
-  }();
+  static constexpr auto FIELDS = concat_fields<AffineWarpParams>(
+      Warp::AffineParams::FIELDS,
+      std::array{Field<AffineWarpParams>{
+          "lattice-period", &AffineWarpParams::lattice_period, "Lattice Period",
+          1.0f / 8.0f, 64.0f, FieldCurve::LOG_POSITIVE}});
 };
 static_assert(field_ids_unique<AffineWarpParams>());
 static_assert(field_defaults_in_range<AffineWarpParams>());
