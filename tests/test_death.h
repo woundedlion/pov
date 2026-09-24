@@ -4416,6 +4416,22 @@ inline void case_direct_sink_unprepared_plot() {
   sink.plot(canvas, 2, 2, Pixel(65535, 0, 0), 0, 1);
 }
 
+inline void case_star_mismatched_radius_cache() {
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  Fragments points;
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  Star::sample_positions(points, basis, 0.5f, 5, 0.0f, Star::radius_trig(0.75f),
+                         Star::step_trig(5));
+}
+
+inline void case_star_mismatched_step_cache() {
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  Fragments points;
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  Star::sample_positions(points, basis, 0.5f, 5, 0.0f, Star::radius_trig(0.5f),
+                         Star::step_trig(6));
+}
+
 /**
  * @brief Returns the full death-case table.
  * @param n Out-param set to the number of cases in the table.
@@ -4433,6 +4449,12 @@ inline const Case *all_cases(int &n) {
       {"recipe_twist_wrong_op", case_recipe_twist_wrong_op,
        "core/mesh/recipe.h",
        "(step.twist == 0.0f || step.op == Op::SNUB) apply_step: only SNUB accepts a twist"},
+      {"star_mismatched_radius_cache", case_star_mismatched_radius_cache,
+       "core/render/plot/shapes.h",
+       "(cache_matches) Star: cached trigonometry does not match inputs"},
+      {"star_mismatched_step_cache", case_star_mismatched_step_cache,
+       "core/render/plot/shapes.h",
+       "(cache_matches) Star: cached trigonometry does not match inputs"},
       {"recipe_bake_live_iterations", case_recipe_bake_live_iterations,
        "core/mesh/recipe.h",
        "(!step.bake || step.param == 0.0f) apply_step: a baked RELAX step must not specify live iterations"},
