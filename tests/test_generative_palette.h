@@ -152,7 +152,7 @@ inline void test_generative_palette_canonical_ignores_inactive_fields() {
   second.hue.spread_turns = std::numeric_limits<float>::quiet_NaN();
   second.hue.custom_turns.fill(std::numeric_limits<float>::quiet_NaN());
   second.lightness.custom.fill(std::numeric_limits<float>::quiet_NaN());
-  second.chroma.custom.fill(std::numeric_limits<float>::quiet_NaN());
+  second.chroma.axis.custom.fill(std::numeric_limits<float>::quiet_NaN());
   second.falloff_start = std::numeric_limits<float>::quiet_NaN();
 
   GenerativePalette first_palette;
@@ -394,7 +394,7 @@ inline void test_generative_palette_blue_cusp_is_continuous() {
   recipe.hue.mode = HueMode::SWEEP;
   recipe.hue.base_turns = 98.0f / 256.0f;
   recipe.hue.sweep_turns = 1.0f;
-  recipe.chroma.center = 1.0f;
+  recipe.chroma.axis.center = 1.0f;
   recipe.chroma.headroom = 1.0f;
   recipe.lightness.curve = AxisCurve::ASCENDING;
   recipe.lightness.center = 0.495f;
@@ -529,10 +529,10 @@ inline void test_generative_palette_lerp_accumulates_segment_deltas() {
  */
 inline void test_generative_palette_snapshot_keeps_faint_chroma_chromatic() {
   PaletteRecipe recipe;
-  recipe.chroma.curve = AxisCurve::CUSTOM;
+  recipe.chroma.axis.curve = AxisCurve::CUSTOM;
   for (int i = 0; i < PALETTE_MAX_KEYS; ++i)
-    recipe.chroma.custom[i] = 0.5f;
-  recipe.chroma.custom[1] = 1e-5f;
+    recipe.chroma.axis.custom[i] = 0.5f;
+  recipe.chroma.axis.custom[1] = 1e-5f;
   const GenerativePalette palette(recipe);
   const GenerativePalette::Snapshot snapshot = palette.snapshot();
   const float chroma = GenerativePalette::snapshot_key(snapshot, 1).chroma;
@@ -746,8 +746,8 @@ inline void test_generative_palette_morph_compatible() {
   HS_EXPECT_FALSE(a.morph_compatible(GenerativePalette(mixed_lightness)));
 
   PaletteRecipe mixed_chroma = PaletteRecipes::balanced_analogous(0.75f);
-  mixed_chroma.chroma.curve = AxisCurve::DESCENDING;
-  mixed_chroma.chroma.range = 0.4f;
+  mixed_chroma.chroma.axis.curve = AxisCurve::DESCENDING;
+  mixed_chroma.chroma.axis.range = 0.4f;
   HS_EXPECT_FALSE(a.morph_compatible(GenerativePalette(mixed_chroma)));
 
   const GenerativePalette loop_one(
