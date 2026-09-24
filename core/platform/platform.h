@@ -191,7 +191,7 @@ inline unsigned long millis(); // defined below
  * shape as the device's class-based FastLED macro (`static CEveryNMillis o(N);
  * if (o)`), so the body lines up statement-for-statement with the device's. Like
  * FastLED's, it cannot serve as the *unbraced* body of an outer control statement
- * (a leading `static` decl is not a valid lone substatement). The throttle object
+ * (the trailing `if` would fall outside the throttle object's scope). The throttle object
  * is named from `__COUNTER__` so two uses on one source line do not collide. See
  * hs::EveryNMillis for the timing semantics.
  */
