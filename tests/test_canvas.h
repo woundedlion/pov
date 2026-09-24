@@ -396,7 +396,7 @@ inline void test_effect_transition_failsafe_retry() {
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
   HS_EXPECT_EQ(controller.failure(),
-               hs::EffectTransitionStatus::RESOURCE_REJECTED);
+               hs::EffectTransitionStatus::RESTORE_REJECTED);
   HS_EXPECT_EQ(adapter.restores, 0);
   HS_EXPECT_EQ(adapter.discards, 1);
 
@@ -503,7 +503,7 @@ inline void test_effect_transition_refusal_branches() {
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
   HS_EXPECT_EQ(controller.failure(),
-               hs::EffectTransitionStatus::FIRST_FRAME_REJECTED);
+               hs::EffectTransitionStatus::INVALID_RESTORE);
   HS_EXPECT_EQ(adapter.envelopes.back(), 0.0f);
 
   TransitionAdapter frame;
@@ -521,8 +521,7 @@ inline void test_effect_transition_refusal_branches() {
   HS_EXPECT_EQ(frame.failsafe_reason, second.failure());
   HS_EXPECT_EQ(second.current_state(),
                hs::EffectTransitionState::CLEAR_FAILSAFE);
-  HS_EXPECT_EQ(second.failure(),
-               hs::EffectTransitionStatus::FIRST_FRAME_REJECTED);
+  HS_EXPECT_EQ(second.failure(), hs::EffectTransitionStatus::RESTORE_REJECTED);
   HS_EXPECT_EQ(frame.envelopes.back(), 0.0f);
 }
 
