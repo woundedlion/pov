@@ -207,8 +207,7 @@ struct ShaderWorkbenchWhiteBox;
     params.source.tessellation_line_thickness)                                 \
   X(SOURCE_TESSELLATION_LINE_SOFTNESS,                                         \
     params.source.tessellation_line_softness)                                  \
-  X(SOURCE_TESSELLATION_KIND, params.source.tessellation_kind)                 \
-  X(COLOR_PALETTE_MAPPING, params.color.palette_mapping)
+  X(SOURCE_TESSELLATION_KIND, params.source.tessellation_kind)
 
 /**
  * @brief Slot-based sphere shader with an immutable per-frame pullback state.
@@ -388,19 +387,21 @@ private:
   }
 
 public:
-  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 10;
+  static constexpr uint32_t CONFIG_SCHEMA_VERSION = 11;
+  static constexpr uint32_t LEGACY_CONFIG_SCHEMA_VERSION = 10;
 
   /**
    * @brief Reports whether a persisted snapshot's schema version can be
    *        restored.
    * @param version Snapshot schema version to test.
-   * @return true for the current version.
+   * @return true for the current version or the migratable preceding version.
    * @details Single source of truth for the accepted set, so callers that
    *          pre-screen a version (the WASM bridge) cannot drift from what the
    *          effect actually accepts.
    */
   static constexpr bool config_version_supported(uint32_t version) {
-    return version == CONFIG_SCHEMA_VERSION;
+    return version == CONFIG_SCHEMA_VERSION ||
+           version == LEGACY_CONFIG_SCHEMA_VERSION;
   }
 
   enum class ConfigFieldId : uint16_t {
@@ -412,6 +413,10 @@ public:
 
   static constexpr size_t CONFIG_FIELD_COUNT =
       static_cast<size_t>(ConfigFieldId::COUNT);
+  static constexpr size_t LEGACY_CONFIG_FIELD_COUNT = 153;
+  static_assert(
+      CONFIG_FIELD_COUNT + 1 == LEGACY_CONFIG_FIELD_COUNT,
+      "Update the schema 10 snapshot migration for the new field layout");
 
   static constexpr size_t CONFIG_FIELD_BYTES =
 #define HS_SHADER_WORKBENCH_FIELD_BYTES(name, path)                            \
@@ -425,7 +430,7 @@ public:
   // entry the second. Their difference is alignment padding, so the list
   // covers every Config byte that carries a value.
   static_assert(
-      sizeof(Workbench::Config) == 528 && CONFIG_FIELD_BYTES == 501,
+      sizeof(Workbench::Config) == 524 && CONFIG_FIELD_BYTES == 500,
       "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
 
   struct ConfigFieldLayout {
@@ -467,6 +472,16 @@ public:
     ConfigValues accepted{};
     ConfigValues requested{};
     std::array<uint8_t, CONFIG_FIELD_COUNT> pending{};
+    bool has_runtime = false;
+    RuntimeValues runtime{};
+  };
+
+  /** @brief Schema 10 appends the unused color mapping to the current fields. */
+  struct LegacyFullConfigSnapshot {
+    uint32_t schema_version = LEGACY_CONFIG_SCHEMA_VERSION;
+    std::array<uint32_t, LEGACY_CONFIG_FIELD_COUNT> accepted{};
+    std::array<uint32_t, LEGACY_CONFIG_FIELD_COUNT> requested{};
+    std::array<uint8_t, LEGACY_CONFIG_FIELD_COUNT> pending{};
     bool has_runtime = false;
     RuntimeValues runtime{};
   };
@@ -1564,8 +1579,35 @@ public:
    * @return APPLIED on success; failures leave the effect unchanged.
    */
   HS_COLD_MEMBER ConfigRestoreResult
+  restore_full_config_snapshot(const LegacyFullConfigSnapshot &snapshot) {
+    if (snapshot.schema_version != LEGACY_CONFIG_SCHEMA_VERSION)
+      return ConfigRestoreResult::UNSUPPORTED_VERSION;
+    const uint32_t accepted_mapping = snapshot.accepted.back();
+    const uint32_t requested_mapping = snapshot.requested.back();
+    if (accepted_mapping >
+            static_cast<uint32_t>(Workbench::PaletteMapping::REVERSE) ||
+        requested_mapping >
+            static_cast<uint32_t>(Workbench::PaletteMapping::REVERSE))
+      return ConfigRestoreResult::INVALID_VALUE;
+    if (snapshot.pending.back() > 1 ||
+        (snapshot.pending.back() != 0) !=
+            (accepted_mapping != requested_mapping))
+      return ConfigRestoreResult::INVALID_PENDING;
+    FullConfigSnapshot migrated;
+    std::copy_n(snapshot.accepted.begin(), CONFIG_FIELD_COUNT,
+                migrated.accepted.begin());
+    std::copy_n(snapshot.requested.begin(), CONFIG_FIELD_COUNT,
+                migrated.requested.begin());
+    std::copy_n(snapshot.pending.begin(), CONFIG_FIELD_COUNT,
+                migrated.pending.begin());
+    migrated.has_runtime = snapshot.has_runtime;
+    migrated.runtime = snapshot.runtime;
+    return restore_full_config_snapshot(migrated);
+  }
+
+  HS_COLD_MEMBER ConfigRestoreResult
   restore_full_config_snapshot(const FullConfigSnapshot &snapshot) {
-    if (!config_version_supported(snapshot.schema_version))
+    if (snapshot.schema_version != CONFIG_SCHEMA_VERSION)
       return ConfigRestoreResult::UNSUPPORTED_VERSION;
 
     Workbench::Config next_accepted{};
