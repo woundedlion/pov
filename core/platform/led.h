@@ -50,6 +50,13 @@ inline bool &correction_guard_live() {
   return live;
 }
 
+inline void acquire_correction_guard() {
+  HS_CHECK(!correction_guard_live(),
+           "at most one correction guard may be live at a time (see contract "
+           "above)");
+  correction_guard_live() = true;
+}
+
 // When using DMA LEDs, correction is done in the DMA pipeline — the guards carry
 // only the liveness flag.
 #ifdef USE_DMA_LEDS
@@ -57,12 +64,7 @@ inline bool &correction_guard_live() {
  * @brief Scope guard with no effect on the DMA driver's configured correction.
  */
 struct NoColorCorrection {
-  NoColorCorrection() {
-    HS_CHECK(!correction_guard_live(),
-             "at most one correction guard may be live at a time (see contract "
-             "above)");
-    correction_guard_live() = true;
-  }
+  NoColorCorrection() { acquire_correction_guard(); }
   ~NoColorCorrection() { correction_guard_live() = false; }
   NoColorCorrection(const NoColorCorrection &) = delete;
   NoColorCorrection &operator=(const NoColorCorrection &) = delete;
@@ -74,12 +76,7 @@ struct NoColorCorrection {
  * way on both.
  */
 struct NoTempCorrection {
-  NoTempCorrection() {
-    HS_CHECK(!correction_guard_live(),
-             "at most one correction guard may be live at a time (see contract "
-             "above)");
-    correction_guard_live() = true;
-  }
+  NoTempCorrection() { acquire_correction_guard(); }
   ~NoTempCorrection() { correction_guard_live() = false; }
   NoTempCorrection(const NoTempCorrection &) = delete;
   NoTempCorrection &operator=(const NoTempCorrection &) = delete;
@@ -111,10 +108,7 @@ struct NoColorCorrection {
    * @brief Disables both color and temperature correction for the guard's scope.
    */
   NoColorCorrection() {
-    HS_CHECK(!correction_guard_live(),
-             "at most one correction guard may be live at a time (see contract "
-             "above)");
-    correction_guard_live() = true;
+    acquire_correction_guard();
     FastLED.setCorrection(UncorrectedColor);
     FastLED.setTemperature(UncorrectedTemperature);
   }
@@ -138,10 +132,7 @@ struct NoTempCorrection {
    * correction for the guard's scope.
    */
   NoTempCorrection() {
-    HS_CHECK(!correction_guard_live(),
-             "at most one correction guard may be live at a time (see contract "
-             "above)");
-    correction_guard_live() = true;
+    acquire_correction_guard();
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(UncorrectedTemperature);
   }
