@@ -4234,6 +4234,14 @@ inline void case_pullback_operator_invalid_surface_integrator() {
 }
 
 /** @brief Death case: the gnomonic projection rejects an unknown hemisphere. */
+inline void case_pullback_operator_invalid_bonne_hemisphere() {
+  Pullback::Interp::Op::BonneChainParams params;
+  params.hemisphere = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::ProjectBonne::State state;
+  Pullback::Interp::FrameContext context{};
+  Pullback::Interp::Op::ProjectBonne::prepare(context, params, state);
+}
+
 inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
   Pullback::Interp::Op::GnomonicChainParams params;
   params.hemisphere = opaque<uint8_t>(0xff);
@@ -5665,6 +5673,10 @@ inline const Case *all_cases(int &n) {
                    case_pullback_operator_invalid_surface_integrator,
                    "core/render/pullback/operators_sphere.h",
                    "(params.integrator <= static_cast<uint8_t>(Surface::Integrator::MIDPOINT_2X)) sphere.displace.curl: invalid integrator"},
+              {"pullback_operator_invalid_bonne_hemisphere",
+               case_pullback_operator_invalid_bonne_hemisphere,
+               "core/render/pullback/operators_project.h",
+               "(params.hemisphere < std::size(BONNE_HEMISPHERE_IDS)) project.bonne: invalid hemisphere"},
                   {"pullback_operator_invalid_gnomonic_hemisphere",
                    case_pullback_operator_invalid_gnomonic_hemisphere,
                    "core/render/pullback/operators_project.h",
