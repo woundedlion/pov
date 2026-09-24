@@ -39,6 +39,15 @@ public:
   static constexpr bool has_world_stage = false;
   static constexpr bool direct_raster_path = true;
 
+  /** @brief This sink owns no arena storage. */
+  void init_storage(Arena &) {}
+
+  /** @brief Direct sinks contain no independently accessible filter stages. */
+  template <typename T> T &get() {
+    static_assert(!sizeof(T *),
+                  "DirectAntiAliasSink contains no filter stages");
+  }
+
   // Pipeline<> derives its stage-level view from the fold; a sink writes both
   // by hand, so pin them to the same identities.
   static_assert(crosses_segments == any_crosses_segments &&
@@ -221,6 +230,9 @@ HS_O3_END
 static_assert(PipelineFoldSurface<::Pipeline<8, 8>>);
 static_assert(PipelineFoldSurface<::Pipeline<8, 8, AntiAlias<8, 8>>>);
 static_assert(PipelineFoldSurface<PreparedTerminalFrame<::Pipeline<8, 8>>>);
+static_assert(PipelineLifecycleSurface<::Pipeline<8, 8>>);
+static_assert(PipelineLifecycleSurface<::Pipeline<8, 8, AntiAlias<8, 8>>>);
+static_assert(PipelineLifecycleSurface<DirectAntiAliasSink<8, 8>>);
 static_assert(PipelineFoldSurface<DirectAntiAliasSink<8, 8>>,
               "DirectAntiAliasSink stands in for a Pipeline<>, so it must "
               "declare every pipeline fold member itself");
