@@ -116,7 +116,7 @@ public:
 
   /**
    * @brief Finds the k nearest neighbors of target, sorted closest-first.
-   * @param target Query point, in world units.
+   * @param target Finite query point, in world units; all components must be finite.
    * @param k Number of neighbors to return; MUST be <= MAX_K (traps via HS_CHECK
    *        otherwise). Soft-capped at the point count.
    * @return Buffer of neighbors (point + source index + squared distance), closest first.
