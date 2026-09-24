@@ -352,8 +352,8 @@ inline constexpr float reject_margin<Subtract<A, B>> =
 /** Stands for a distance() with no finite change-per-arc factor. */
 inline constexpr float ARC_STRETCH_UNBOUNDED = FLT_MAX;
 
-/** Change-per-arc factor for reporting in plane units, which runs slightly
- *  wider than angular. */
+/** Conservative shared arc factor for plane and angular distance reporters;
+ *  Ring requires at least 1.1 within its reject band. */
 inline constexpr float ARC_STRETCH_PLANE = 1.25f;
 
 /** Most a shape's distance() can change per unit of great-circle arc, over the
