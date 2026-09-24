@@ -73,6 +73,11 @@ def update_claim(directory, operation, value):
                 if not value or not directory.is_dir() or read_token(directory) != value:
                     return False
                 shutil.rmtree(directory)
+            elif operation == "break-empty":
+                if (not directory.is_dir() or read_token(directory)
+                        or directory.stat().st_mtime >= float(value)):
+                    return False
+                shutil.rmtree(directory)
             else:
                 raise ValueError(operation)
     except OSError as error:
@@ -83,9 +88,9 @@ def update_claim(directory, operation, value):
 
 
 if __name__ == "__main__":
-    if (len(sys.argv) < 3 or sys.argv[1] not in ("claim", "break")
+    if (len(sys.argv) < 3 or sys.argv[1] not in ("claim", "break", "break-empty")
             or len(sys.argv) != (3 if sys.argv[1] == "claim" else 4)):
-        print("usage: device_lock_guard.py claim <directory> | break <directory> <token>",
+        print("usage: device_lock_guard.py claim <directory> | break <directory> <token> | break-empty <directory> <cutoff>",
               file=sys.stderr)
         sys.exit(2)
     operation, directory = sys.argv[1:3]
