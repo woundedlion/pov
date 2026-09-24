@@ -430,6 +430,7 @@ protected:
    * @return Handle owning both the scratch scope and the world-space nodes.
    */
   [[nodiscard]] OrientedLattice orient_lattice() {
+    HS_CHECK(nodes != nullptr, "ReactionDiffusion: lattice is not initialized");
     const math::Quaternion &current = orientation.get();
     inverse_orientation = math::RotationMatrix(current.conjugate());
     return OrientedLattice(scratch_arena_a, nodes, current);
