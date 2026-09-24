@@ -19,8 +19,9 @@ template <template <int, int> class E> void render_offset_effect() {
   hs_test::reset_globals();
   auto effect = std::make_unique<E<96, 20>>();
   effect->init();
-  uint64_t energy = 0;
   for (int frame = 0; frame < hs_test::smoke_frames(); ++frame) {
+    HS_CONTEXT("frame", frame);
+    uint64_t energy = 0;
     hs_test::pin_frame_clock(frame);
     effect->draw_frame();
     effect->advance_display();
@@ -29,8 +30,9 @@ template <template <int, int> class E> void render_offset_effect() {
         const Pixel &pixel = effect->get_pixel(x, y);
         energy += pixel.r + pixel.g + pixel.b;
       }
+    if (frame > 0)
+      HS_EXPECT_GT(energy, uint64_t{0});
   }
-  HS_EXPECT_GT(energy, uint64_t{0});
 }
 #endif
 
