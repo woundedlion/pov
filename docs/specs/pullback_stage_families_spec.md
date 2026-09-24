@@ -199,7 +199,7 @@ policy touches. Exactly one upstream fact outlives the crossing:
 carrier (a sphere-domain crossing writes `dir` directly, its true
 sample point, not a fabrication), Colorize's hue-noise and palette
 input. FIELD carries no sentinels and no fabricated provenance.
-The one genuinely deferred coverage policy is `ValueCutout`, whose
+The shipped value-dependent coverage policy is `ValueCutout`, whose
 contract is that it reads the **current FIELD `value`** and nothing
 else — it remains a FIELD stage consuming only carrier state, and a
 chain may legally place it before, between, or after transfers (each
@@ -398,9 +398,8 @@ the semantics cannot fork between the two execution paths.
   `CoveragePolicy`: `OPAQUE` → `None`, `PROJECTION_WEIGHT` → `Weight`,
   `PROJECTION_WEIGHT_SQUARED` → `WeightSquared`, `EDGE_FADE` →
   `EdgeFade`, `VALUE_CUTOUT` → `None` at the crossing plus a
-  `Stage::ApplyCoverage<ValueCutout>` FIELD stage. That deferred stage's
+  `Stage::ApplyCoverage<ValueCutout>` FIELD stage. Its policy's
   signature is `apply(float value, const FrameState &) → float`
-  (dropping the `ProjectionSample` parameter today's version ignores),
   and it multiplies into the accumulated `coverage`. Because the boundary is crossed
   exactly once (§2), a double ramp or an unramped value reaching Colorize
   is unrepresentable in the shipped vocabulary: no stage emits a signed
