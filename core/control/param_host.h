@@ -290,10 +290,6 @@ protected:
   register_param(const char *name, float *ptr, float min = 0.0f,
                  float max = 1.0f, bool animated = false, bool readonly = false,
                  const char *const *options = nullptr, int option_count = 0) {
-    // Overflowing the fixed ParamList is an authoring bug (also upholds the WASM
-    // no-realloc memory-view invariant).
-    // A duplicate name shadows: find() returns the FIRST match, so a second
-    // registration's slot is unreachable by name.
     HS_CHECK(
         min <= max,
         "register_param: min must be <= max name=%s min_bits=%08lx max_bits=%08lx",
