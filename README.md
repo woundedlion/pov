@@ -172,7 +172,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 - **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
 - **Pixel mapping**: `x ∈ [0, W)` → `theta ∈ [0, 2π)`, `y ∈ [0, H)` → `phi = y·π / (H + H_OFFSET − 1)`
 - **`hs::H_OFFSET`** (`platform.h`): virtual rows below the physical LED ring. It is 3 on device, so the bottom physical row lands short of π without stretching the geometric mapping, and 0 on the host/sim build, which maps the full `[0, π]`. Antialias samples at `y >= H` are discarded; samples at `H-1 <= y < H` fold the off-edge neighbor's weight onto the last physical row, conserving their full input alpha. Callers pass the logical `H`; `y_to_phi<H>()` / `phi_to_y<H>()` add the offset internally. `tests/h_offset_renorm_check.cpp` recompiles the engine with the hardware value so the device path is exercised on host
-- **SDF distances**: in radians on the unit sphere (matching `angle_between()`)
+- **SDF distances**: in radians on the unit sphere (matching `angle_between()`), except small `SDF::Face` shapes (inradius < 0.2), whose distances and `size` use gnomonic tangent-plane units
 - All geometry LUTs (`PhiLUT<H>`, `TrigLUT<W,H>`) are pre-computed eagerly via `init_geometry_luts()` at engine setup
 
 ```
