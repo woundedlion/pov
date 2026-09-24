@@ -1050,7 +1050,7 @@ public:
    * @return APPLIED, or the reason the snapshot was refused.
    * @details Rejections leave the effect exactly as it was, so a failed restore
    *          needs no rollback. NOT_SHADER_WORKBENCH covers the loaded effect;
-   *          UNSUPPORTED_VERSION a schemaVersion other than the current one;
+   *          UNSUPPORTED_VERSION a schemaVersion without a supported migration;
    *          INVALID_LENGTH a missing snapshot or an array whose length is not
    *          the field count; INVALID_VALUE a field or runtime value outside
    *          what its slot admits; INVALID_ACCEPTED fields each in range but a
@@ -1073,7 +1073,6 @@ public:
       const uint64_t owner_generation = effect_generation;
       const Effect *const owner = current_effect.get();
       const void *const owner_type_key = current_effect_type_key;
-      typename SB::FullConfigSnapshot snapshot;
       if (input.isUndefined() || input.isNull()) {
         result = FullConfigRestoreResult::INVALID_LENGTH;
         return;
@@ -1088,68 +1087,79 @@ public:
         result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
         return;
       }
-      snapshot.schema_version = static_cast<uint32_t>(schema_number);
-      if (!SB::config_version_supported(snapshot.schema_version)) {
+      const auto version = static_cast<uint32_t>(schema_number);
+      if (!SB::config_version_supported(version)) {
         result = FullConfigRestoreResult::UNSUPPORTED_VERSION;
         return;
       }
-      const emscripten::val has_runtime = input["hasRuntime"];
-      if (!has_runtime.isTrue() && !has_runtime.isFalse()) {
-        result = FullConfigRestoreResult::INVALID_VALUE;
-        return;
-      }
-      snapshot.has_runtime = has_runtime.as<bool>();
-      ArrayDecode decoded =
-          decode_uint32_array(input["accepted"], snapshot.accepted);
-      if (decoded == ArrayDecode::OK)
-        decoded = decode_uint32_array(input["requested"], snapshot.requested);
-      if (decoded == ArrayDecode::OK && snapshot.has_runtime)
-        decoded = decode_runtime(input["runtime"], snapshot.runtime);
-      if (decoded != ArrayDecode::OK) {
-        result = decoded == ArrayDecode::BAD_LENGTH
-                     ? FullConfigRestoreResult::INVALID_LENGTH
-                     : FullConfigRestoreResult::INVALID_VALUE;
-        return;
-      }
-      const emscripten::val pending_ids = input["pendingFieldIds"];
-      if (!is_array(pending_ids)) {
-        result = FullConfigRestoreResult::INVALID_PENDING;
-        return;
-      }
-      const size_t pending_count = pending_ids["length"].as<size_t>();
-      if (pending_count > snapshot.pending.size()) {
-        result = FullConfigRestoreResult::INVALID_PENDING;
-        return;
-      }
-      for (size_t index = 0; index < pending_count; ++index) {
-        const emscripten::val field_id = pending_ids[index];
-        if (!field_id.isNumber()) {
+      auto decode_and_restore = [&](auto &snapshot) {
+        snapshot.schema_version = version;
+        const emscripten::val has_runtime = input["hasRuntime"];
+        if (!has_runtime.isTrue() && !has_runtime.isFalse()) {
+          result = FullConfigRestoreResult::INVALID_VALUE;
+          return;
+        }
+        snapshot.has_runtime = has_runtime.as<bool>();
+        ArrayDecode decoded =
+            decode_uint32_array(input["accepted"], snapshot.accepted);
+        if (decoded == ArrayDecode::OK)
+          decoded = decode_uint32_array(input["requested"], snapshot.requested);
+        if (decoded == ArrayDecode::OK && snapshot.has_runtime)
+          decoded = decode_runtime(input["runtime"], snapshot.runtime);
+        if (decoded != ArrayDecode::OK) {
+          result = decoded == ArrayDecode::BAD_LENGTH
+                       ? FullConfigRestoreResult::INVALID_LENGTH
+                       : FullConfigRestoreResult::INVALID_VALUE;
+          return;
+        }
+        const emscripten::val pending_ids = input["pendingFieldIds"];
+        if (!is_array(pending_ids)) {
           result = FullConfigRestoreResult::INVALID_PENDING;
           return;
         }
-        const double field_number = field_id.as<double>();
-        if (!whole_uint32(field_number) ||
-            field_number >= snapshot.pending.size()) {
+        const size_t pending_count = pending_ids["length"].as<size_t>();
+        if (pending_count > snapshot.pending.size()) {
           result = FullConfigRestoreResult::INVALID_PENDING;
           return;
         }
-        uint8_t &pending = snapshot.pending[static_cast<size_t>(field_number)];
-        if (pending != 0) {
-          result = FullConfigRestoreResult::INVALID_PENDING;
+        for (size_t index = 0; index < pending_count; ++index) {
+          const emscripten::val field_id = pending_ids[index];
+          if (!field_id.isNumber()) {
+            result = FullConfigRestoreResult::INVALID_PENDING;
+            return;
+          }
+          const double field_number = field_id.as<double>();
+          if (!whole_uint32(field_number) ||
+              field_number >= snapshot.pending.size()) {
+            result = FullConfigRestoreResult::INVALID_PENDING;
+            return;
+          }
+          uint8_t &pending =
+              snapshot.pending[static_cast<size_t>(field_number)];
+          if (pending != 0) {
+            result = FullConfigRestoreResult::INVALID_PENDING;
+            return;
+          }
+          pending = 1;
+        }
+        if (effect_generation != owner_generation ||
+            current_effect.get() != owner ||
+            current_effect_type_key != owner_type_key) {
+          result = FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
           return;
         }
-        pending = 1;
+        result = map_restore_result<SB>(
+            shader.restore_full_config_snapshot(snapshot));
+        if (result == FullConfigRestoreResult::APPLIED)
+          check_param_capacity();
+      };
+      if (version == SB::LEGACY_CONFIG_SCHEMA_VERSION) {
+        typename SB::LegacyFullConfigSnapshot snapshot;
+        decode_and_restore(snapshot);
+      } else {
+        typename SB::FullConfigSnapshot snapshot;
+        decode_and_restore(snapshot);
       }
-      if (effect_generation != owner_generation ||
-          current_effect.get() != owner ||
-          current_effect_type_key != owner_type_key) {
-        result = FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
-        return;
-      }
-      result =
-          map_restore_result<SB>(shader.restore_full_config_snapshot(snapshot));
-      if (result == FullConfigRestoreResult::APPLIED)
-        check_param_capacity();
     });
     return result;
   }
