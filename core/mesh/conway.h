@@ -445,14 +445,14 @@ inline void transform_in_place(MeshState &mesh,
 // SCRATCH ARENA CONTRACT (load-bearing): the HalfEdgeMesh always builds in
 // `temp` (kis builds none); the per-orbit index/flag buffers are split to
 // balance the asymmetric arena pair:
-//   - dual / ambo / truncate / medial -> index buffers in `target`
-//   - expand / chamfer / snub         -> index buffers in `temp`
+//   - dual / ambo / truncate / medial / expand -> index buffers in `target`
+//   - chamfer / snub -> index buffers in `temp`
 //   - kis                                      -> no extra buffers
 //   - relax -> movements and orbit_start, both per-vertex, in `temp`
 //   - relax_baked -> takes no `temp` arena at all
 // medial additionally holds a per-face dual-position buffer in `temp`.
 // ambo/truncate/expand/chamfer/snub also take a prebuilt HalfEdgeMesh, which
-// may sit in either arena: ambo and truncate scope both arenas, while expand,
+// may sit in either arena: ambo, truncate and expand scope both arenas, while
 // chamfer and snub scope only `temp`. Target-side scopes begin above the output
 // bindings, so no scope rewinds past a caller-owned he_mesh or live output.
 //
