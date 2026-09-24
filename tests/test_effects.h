@@ -1657,6 +1657,7 @@ inline void test_gs_shared_stencil_error_is_bounded() {
                 error.stencil_changes, error.stencil_samples,
                 error.center_mismatches, error.max_channel,
                 static_cast<unsigned long long>(error.total_channel));
+    HS_EXPECT_GT(error.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_EQ(error.center_mismatches, 0);
     HS_EXPECT(error.different * 2 <= error.lit,
               "shared stencil changed over half of lit pixels");
