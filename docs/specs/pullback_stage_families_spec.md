@@ -125,6 +125,12 @@ crossing it terminates already exists.
 
 ## 3. One canonical carrier per family
 
+> **Historical migration terminology:** References below to `SurfaceResult`,
+> `ProjectionSample`, `WarpResult`, `SourceInput`, `MaterialInput`,
+> `MaterialSample`, and `SurfaceProject` describe the pre-cut-over API.
+> The migration is complete; the shipped carriers and combinators are in
+> `core/render/pullback/contract.h` and `core/render/pullback/stage.h`.
+
 Free chaining within a family requires every stage in that family to
 speak one type. The slot-specific carriers collapse to four, each
 following the same grammar — working state, provenance record, trace
@@ -274,6 +280,12 @@ already licenses reassociation, so the capture-manifest and golden re-bake
 at §6 step 2 is required.
 
 ## 4. Stage vocabulary
+
+> **Historical migration terminology:** References below to `SurfaceResult`,
+> `ProjectionSample`, `WarpResult`, `SourceInput`, `MaterialInput`,
+> `MaterialSample`, and `SurfaceProject` describe the pre-cut-over API.
+> The migration is complete; the shipped carriers and combinators are in
+> `core/render/pullback/contract.h` and `core/render/pullback/stage.h`.
 
 The policy layer — `Surface::*`, `Lens::*`, `Projection::*`, `Warp::*`,
 `Source::*`, `Weight::*`, `Transfer::*`, `ProjectionCoverage::*`,
