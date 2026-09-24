@@ -586,7 +586,7 @@ inline constexpr bool fits_top_span_cap =
  * get_intervals, wraps x coordinates, and offers pixel_fn column runs.
  *
  * Near-pole rows offer whole blocks of `Render::pole_lod_aggressiveness / sin(phi)`
- * columns (constants.h) so the sink can settle physically-overlapping columns
+ * columns (render_policy.h) so the sink can settle physically-overlapping columns
  * with one probe; the sink keeps per-column resolution wherever its probe
  * cannot vouch for the block. Only full canvas-aligned blocks are offered, so an
  * offer never straddles two blocks and a settled column always takes its shade
