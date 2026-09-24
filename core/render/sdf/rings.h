@@ -321,6 +321,10 @@ protected:
     float ang_max = std::min(math::PI_F, target_angle + max_thickness);
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
+    if (cos_max_limit == 1.0f)
+      cos_max_limit = 2.0f;
+    if (cos_min_limit == -1.0f)
+      cos_min_limit = -2.0f;
   }
 
 public:
@@ -381,6 +385,10 @@ public:
         hs::clamp(target_angle + max_shift + thickness, 0.0f, math::PI_F);
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
+    if (cos_max_limit == 1.0f)
+      cos_max_limit = 2.0f;
+    if (cos_min_limit == -1.0f)
+      cos_min_limit = -2.0f;
   }
 
   /**
