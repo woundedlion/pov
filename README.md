@@ -970,9 +970,9 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 | `Style::MeltingHi()` | Higher-amplitude downward melt with slow drift and pronounced hue rotation. |
 | `Style::MeltingLo()` | Lower-amplitude downward melt with slow drift and pronounced hue rotation. |
 | `Style::Miasma()` | Drifting toxic haze — medium turbulence with slow drift and strong per-frame hue cycling. |
-| `Style::LooseWormhole()` | Static high-amplitude twist at spatial frequency 11.25 — a loose swirling tunnel, no drift. |
-| `Style::TightWormhole()` | Static high-amplitude twist at spatial frequency 6.42 — a tight swirling tunnel, no drift. |
-| `Style::WigglingWormhole()` | Static twist at spatial frequency 7.11 — a wide wormhole with wandering arms, no drift. |
+| `Style::LooseWormhole()` | Static high-amplitude twist at amplitude 11.25 — a loose swirling tunnel, no drift. |
+| `Style::TightWormhole()` | Static high-amplitude twist at amplitude 6.42 — a tight swirling tunnel, no drift. |
+| `Style::WigglingWormhole()` | Static twist at amplitude 7.11 — a wide wormhole with wandering arms, no drift. |
 
 Available transform functions:
 
