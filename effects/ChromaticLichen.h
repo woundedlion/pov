@@ -36,7 +36,7 @@ public:
   using Params = ChromaticLichenParams;
   static constexpr std::string_view EFFECT_ID = "chromatic-lichen";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "2e2163f4477d1c0e5f0dbff19ccb5f361469a3c7da8106327e4ba8adb578c773";
+      "c6d7eb734f0e5d0b157c6a2d171657d7a2c6fb6daabaca6918a4dd8c6e700568";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "8a6c7cda1ac938cd2f39211a251841a586ce134ee750683b3c1a9d2d2d524f63";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{

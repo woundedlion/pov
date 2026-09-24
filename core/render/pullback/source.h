@@ -131,7 +131,7 @@ struct NoiseSourceParams {
   static constexpr auto FIELDS = std::array{
       Field<NoiseSourceParams>{"noise-scale", &NoiseSourceParams::noise_scale,
                                "Source Noise Scale", 1.0f / 64.0f, 64.0f,
-                               FieldCurve::LERP},
+                               FieldCurve::LOG_POSITIVE},
       Field<NoiseSourceParams>{
           "noise-contrast", &NoiseSourceParams::noise_contrast,
           "Source Noise Contrast", 0.0f, 8.0f, FieldCurve::LERP},

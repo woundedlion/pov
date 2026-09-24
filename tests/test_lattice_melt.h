@@ -162,14 +162,16 @@ inline void test_lattice_melt_transition_contract() {
 
   WB::drive_transition(effect, 0.25f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 interp::linear(FX::preset_params(0).surface.scale,
-                                FX::preset_params(1).surface.scale, 0.25f),
+                 FX::preset_params(0).surface.scale *
+                     powf(FX::preset_params(1).surface.scale /
+                              FX::preset_params(0).surface.scale,
+                          0.25f),
                  1e-6f);
 
   WB::drive_transition(effect, 0.5f);
   HS_EXPECT_NEAR(WB::params(effect).surface.scale,
-                 interp::linear(FX::preset_params(0).surface.scale,
-                                FX::preset_params(1).surface.scale, 0.5f),
+                 sqrtf(FX::preset_params(0).surface.scale *
+                       FX::preset_params(1).surface.scale),
                  1e-6f);
 
   WB::drive_transition(effect, 1.0f);
