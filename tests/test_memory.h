@@ -113,16 +113,24 @@ inline void test_arena_basic_allocation() {
  *        pointer.
  */
 inline void test_arena_alignment() {
-  Arena a(test_buf_a, sizeof(test_buf_a));
-  // Eat one byte to force a non-aligned offset.
-  a.allocate(1, 1);
-  void *p16 = a.allocate(32, 16);
-  HS_EXPECT_TRUE(p16 != nullptr);
-  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(p16) % 16, (uintptr_t)0);
-
-  void *p32 = a.allocate(32, 32);
-  HS_EXPECT_TRUE(p32 != nullptr);
-  HS_EXPECT_EQ(reinterpret_cast<uintptr_t>(p32) % 32, (uintptr_t)0);
+  for (size_t alignment = 1; alignment <= sizeof(test_buf_a) / 2;
+       alignment *= 2) {
+    HS_CONTEXT("alignment", alignment);
+    for (size_t offset : {size_t{0}, size_t{1}, alignment - 1}) {
+      Arena a(test_buf_a, sizeof(test_buf_a));
+      if (offset)
+        a.allocate(offset, 1);
+      const uintptr_t current =
+          reinterpret_cast<uintptr_t>(test_buf_a) + offset;
+      void *p = a.allocate(1, alignment);
+      const uintptr_t address = reinterpret_cast<uintptr_t>(p);
+      HS_EXPECT_EQ(address % alignment, uintptr_t{0});
+      HS_EXPECT_GE(address, current);
+      HS_EXPECT_LT(address - current, alignment);
+      HS_EXPECT_EQ(a.get_offset(),
+                   address - reinterpret_cast<uintptr_t>(test_buf_a) + 1);
+    }
+  }
 }
 
 /** @brief Verifies make() aligns storage and perfectly forwards arguments. */
