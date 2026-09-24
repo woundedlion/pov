@@ -110,6 +110,7 @@ if(EMSCRIPTEN)
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
       "-sSTACK_SIZE=65536")
   elseif(CMAKE_BUILD_TYPE STREQUAL "PullbackStrictFP")
+    target_compile_definitions(${TARGET_NAME} PRIVATE NDEBUG)
     message(STATUS "WASM pullback strict-FP diagnostic build (-O3 -fno-fast-math -ffp-contract=off, no LTO)")
     target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-fno-fast-math"
       "-ffp-contract=off" "-msimd128")
