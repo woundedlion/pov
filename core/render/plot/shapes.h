@@ -1027,6 +1027,20 @@ public:
                                const StepTrig &step_trig) {
     HS_CHECK(num_sides >= 1, "Star::sample_positions: num_sides %d < 1",
              num_sides);
+#if HS_ENABLE_STRUCTURAL_AUDITS
+    const RadiusTrig expected_radius = Star::radius_trig(radius);
+    const StepTrig expected_step = Star::step_trig(num_sides);
+    bool cache_matches = true;
+    for (int i = 0; i < 2; ++i) {
+      cache_matches &=
+          fabsf(radius_trig.sine[i] - expected_radius.sine[i]) < 1e-6f;
+      cache_matches &=
+          fabsf(radius_trig.cosine[i] - expected_radius.cosine[i]) < 1e-6f;
+    }
+    cache_matches &= fabsf(step_trig.sine - expected_step.sine) < 1e-6f;
+    cache_matches &= fabsf(step_trig.cosine - expected_step.cosine) < 1e-6f;
+    HS_CHECK(cache_matches, "Star: cached trigonometry does not match inputs");
+#endif
     const math::Basis work_basis = math::get_antipode(basis, radius).first;
     sample_positions_impl(points, work_basis, num_sides, phase, radius_trig,
                           step_trig);
