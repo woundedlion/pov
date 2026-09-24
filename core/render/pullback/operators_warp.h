@@ -132,7 +132,7 @@ struct PreparedWaveShear {
 };
 
 /** @brief PLANE endomorphism: the travelling sine shear. */
-struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
+struct WarpWaveShear : PhaseClockModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.wave-shear.v2";
   static constexpr const char *NAME = "Wave Shear";
   using Input = PlaneSample;
@@ -140,9 +140,6 @@ struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
   using Params = WaveShearWarpParams;
   using Prepared = PreparedWaveShear;
 
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_warp_envelope(params.envelope);
@@ -163,7 +160,7 @@ struct WarpWaveShear : ValueStateModel<WarpPhaseState> {
 using VortexWarpParams = Warp::VortexParams;
 
 /** @brief PLANE endomorphism: the orbiting radial vortex. */
-struct WarpVortex : ValueStateModel<WarpPhaseState> {
+struct WarpVortex : PhaseClockModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.vortex.v2";
   static constexpr const char *NAME = "Vortex";
   using Input = PlaneSample;
@@ -171,9 +168,6 @@ struct WarpVortex : ValueStateModel<WarpPhaseState> {
   using Params = VortexWarpParams;
   using Prepared = Warp::PreparedVortexSlot;
 
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     return Warp::prepare(params, state.phase);
@@ -215,7 +209,7 @@ struct PreparedVectorNoiseWarp {
 };
 
 /** @brief PLANE endomorphism: the noise-vector displacement. */
-struct WarpVectorNoise : ValueStateModel<NoisePhaseState> {
+struct WarpVectorNoise : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "warp.vector-noise.v2";
   static constexpr const char *NAME = "Vector Noise";
   using Input = PlaneSample;
@@ -224,9 +218,6 @@ struct WarpVectorNoise : ValueStateModel<NoisePhaseState> {
   using Prepared = PreparedVectorNoiseWarp;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_warp_envelope(params.envelope);
@@ -250,7 +241,7 @@ struct WarpVectorNoise : ValueStateModel<NoisePhaseState> {
 using MirrorWarpParams = Warp::MirrorParams;
 
 /** @brief PLANE endomorphism: the mirrored tiling fold. */
-struct WarpMirrorTile : ValueStateModel<WarpPhaseState> {
+struct WarpMirrorTile : PhaseClockModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.mirror-tile.v2";
   static constexpr const char *NAME = "Mirror Tile";
   using Input = PlaneSample;
@@ -258,9 +249,6 @@ struct WarpMirrorTile : ValueStateModel<WarpPhaseState> {
   using Params = MirrorWarpParams;
   using Prepared = Warp::PreparedMirrorSlot;
 
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     return Warp::prepare(params, state.phase);
@@ -306,7 +294,7 @@ static_assert(sizeof(PolarChartParams) == ((sizeof(Warp::PolarParams) + 2 +
 static_assert(field_defaults_in_range<PolarChartParams>());
 
 /** @brief PLANE endomorphism: the polar chart change. */
-struct WarpPolarChart : ValueStateModel<WarpPhaseState> {
+struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
   static constexpr const char *ID = "warp.polar-chart.v2";
   static constexpr const char *NAME = "Polar Chart";
   using Input = PlaneSample;
@@ -316,9 +304,6 @@ struct WarpPolarChart : ValueStateModel<WarpPhaseState> {
     float phase;
   };
 
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     HS_CHECK(params.mode <= static_cast<uint8_t>(PolarMode::LOGARITHMIC),
@@ -378,7 +363,7 @@ struct PreparedCurlFlow {
 };
 
 /** @brief PLANE endomorphism: the divergence-free curl flow. */
-struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
+struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ADMISSIBILITY_CONVEXITY =
       "The whole declared box satisfies scale * abs(strength) * 4 <= 0.5; "
       "each field curve remains inside its interval.";
@@ -401,9 +386,6 @@ struct WarpCurlFlow : ValueStateModel<NoisePhaseState> {
   }
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_noise_basis(params.basis);

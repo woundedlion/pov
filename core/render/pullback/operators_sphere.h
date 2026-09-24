@@ -62,7 +62,7 @@ struct PreparedDisplace {
 };
 
 /** @brief SPHERE endomorphism: the divergence-free curl-noise displacement. */
-struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
+struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.curl.v2";
   static constexpr const char *NAME = "Curl Displace";
   using Input = SphereSample;
@@ -71,9 +71,6 @@ struct DisplaceCurl : ValueStateModel<NoisePhaseState> {
   using Prepared = PreparedDisplace;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_noise_basis(params.basis);
@@ -121,7 +118,7 @@ struct PreparedDirectDisplace {
 };
 
 /** @brief SPHERE endomorphism: the direction-steered noise displacement. */
-struct DisplaceDirect : ValueStateModel<NoisePhaseState> {
+struct DisplaceDirect : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.direct.v2";
   static constexpr const char *NAME = "Direct Displace";
   using Input = SphereSample;
@@ -130,9 +127,6 @@ struct DisplaceDirect : ValueStateModel<NoisePhaseState> {
   using Prepared = PreparedDirectDisplace;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static void advance(State &state, const Params &params) {
-    state.phase = math::wrap_t(state.phase + params.speed);
-  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_noise_basis(params.basis);
