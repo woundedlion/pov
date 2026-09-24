@@ -18,6 +18,7 @@
 #include "hardware/pov_segment_frame.h"
 #include "hardware/pov_submit_gate.h"
 #include "tests/test_fixture.h"
+#include "tests/pov_tiling_test_util.h"
 #include "tests/test_harness.h"
 
 #include <atomic>
@@ -114,28 +115,7 @@ inline void check_tiling(int S, int N, int w, int x) {
 
   HS_EXPECT_EQ(writes, S);
 
-  int covered = 0;
-  bool double_paint = false;
-  bool stray_column = false;
-  for (int c = 0; c < w; ++c) {
-    for (int y = 0; y < ROWS; ++y) {
-      const int hits = cover[static_cast<size_t>(c) * ROWS + y];
-      if (hits > 1)
-        double_paint = true;
-      if (hits == 1)
-        ++covered;
-      if (hits != 0 && c != col_a && c != col_b)
-        stray_column = true;
-    }
-  }
-  HS_EXPECT_FALSE(double_paint);
-  HS_EXPECT_FALSE(stray_column);
-  HS_EXPECT_EQ(covered, 2 * ROWS);
-
-  for (int y = 0; y < ROWS; ++y) {
-    HS_EXPECT_EQ(cover[static_cast<size_t>(col_a) * ROWS + y], 1);
-    HS_EXPECT_EQ(cover[static_cast<size_t>(col_b) * ROWS + y], 1);
-  }
+  check_arm_column_coverage(cover, w, ROWS, col_a, col_b);
 }
 
 /**
