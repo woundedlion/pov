@@ -1149,11 +1149,9 @@ jobs:
             echo "::warning::the daydream pin in tools/build_pins.py trails master by $behind commit(s) / $days day(s); bump it"
           fi
 
-      # The engine's node pin, not daydream's: it is the newer of the two and
-      # satisfies the floor daydream's package.json declares.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ steps.pins.outputs.node }}
+          node-version-file: daydream/.nvmrc
           cache: npm
           cache-dependency-path: daydream/package-lock.json
 
