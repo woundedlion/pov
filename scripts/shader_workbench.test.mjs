@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
@@ -106,6 +107,15 @@ test('browser-compatible SHA-256 matches the published vectors', () => {
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
   assert.equal(sha256Hex('abc'),
     'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+});
+
+test('SHA-256 matches Node across padding boundaries and multiblock inputs', () => {
+  for (const length of [55, 56, 63, 64, 65, 119, 120, 127, 128, 129, 4096]) {
+    const text = 'a'.repeat(length);
+    assert.equal(sha256Hex(text), createHash('sha256').update(text).digest('hex'), `${length} bytes`);
+  }
+  const text = '🌐 shader λ'.repeat(256);
+  assert.equal(sha256Hex(text), createHash('sha256').update(text).digest('hex'));
 });
 
 // The native suite golden-pins tests/data/shader_chain_catalog.json from an
