@@ -35,7 +35,7 @@ public:
   using Params = MermaidSkinParams;
   static constexpr std::string_view EFFECT_ID = "mermaid-skin";
   static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "a6ced8928ed3f35ba178dd5d6a538309af93bd86d9abc967380cf21b42ac7d5a";
+      "804160646a2557fc6148dcfecf482a3ddb2c5f121b7c6fe1d5370957b4d70799";
   static constexpr std::string_view PRESET_BANK_DIGEST =
       "1275305c316679c959524e79ba42218d81a7b88b9ee3950b5ee38b327a31030f";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"mermaid-skin"};
