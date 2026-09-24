@@ -2812,8 +2812,11 @@ private:
   }
 
   static constexpr uint32_t HUE_STEP = GeneratedPaletteBank::HUE_STEP;
+
+public:
   static constexpr size_t PARAM_CAPACITY = 80;
 
+private:
   static constexpr Workbench::Choreo CHOREO{0, 0, 480, false};
 
   math::Orientation<> projection_walk;

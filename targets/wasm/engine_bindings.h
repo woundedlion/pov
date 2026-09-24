@@ -121,6 +121,10 @@ static_assert(MAX_PARAMS >= Pullback::Interp::MAX_CHAIN_PARAMS,
 
 static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
               "MAX_PARAMS must cover ParamList's default array size");
+#if HS_ENABLE_SHADER_WORKBENCH
+static_assert(MAX_PARAMS >= ShaderWorkbench::PARAM_CAPACITY,
+              "MAX_PARAMS must cover the workbench parameter schema");
+#endif
 
 /**
  * @brief Outcome of a HolosphereEngine::setClip() call.
