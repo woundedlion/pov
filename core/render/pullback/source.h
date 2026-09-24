@@ -311,7 +311,7 @@ HS_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
   const float rotated =
       input.re * prepared.angle_cos + input.im * prepared.angle_sin;
   return 0.5f * (math::fast_sinf(input.re + prepared.primary) +
-                 math::fast_sinf(rotated + prepared.primary));
+                 math::fast_sinf(rotated + prepared.secondary));
 }
 
 template <typename Prepared>
