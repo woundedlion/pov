@@ -75,11 +75,13 @@ class Main(unittest.TestCase):
         self.report.write_text(json.dumps(document), encoding="utf-8")
 
     def stage_percentage(self, percent):
-        self.stage({"data": [{"totals": {"lines": {"percent": percent}}}]})
+        self.stage(document_with([("/w/pov/core/test.h", 100, 100)], percent=percent))
 
-    def main_with(self, minimum, *directories):
+    def main_with(self, minimum, *directories, require_directory=True):
         """Invoke main() against the staged report, capturing its streams."""
         argv = ["check_coverage.py", str(self.report), "--min-lines", minimum]
+        if not directories and require_directory:
+            directories = ("core=0",)
         for floor in directories:
             argv += ["--min-directory", floor]
         self.stdout, self.stderr = io.StringIO(), io.StringIO()
@@ -88,11 +90,19 @@ class Main(unittest.TestCase):
                 contextlib.redirect_stderr(self.stderr):
             return check_coverage.main()
 
+    def test_requires_a_directory_floor(self):
+        self.stage_percentage(100)
+        with self.assertRaises(SystemExit) as raised:
+            self.main_with("70", require_directory=False)
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--min-directory", self.stderr.getvalue())
+
     def test_passes_above_the_floor(self):
         self.stage_percentage(78.25)
         self.assertEqual(self.main_with("70"), 0)
         self.assertEqual(self.stdout.getvalue(),
-                         "line coverage: 78.25% (minimum 70.00%)\n")
+                         "line coverage: 78.25% (minimum 70.00%)\n"
+                         "  core: 100.00% (minimum 0.00%)\n")
 
     def test_passes_exactly_on_the_floor(self):
         self.stage_percentage(70.0)
