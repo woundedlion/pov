@@ -165,7 +165,17 @@ public:
     for (size_t index = 0; index < ops.size(); ++index)
       if (const char *warning =
               ops[index].op->runtime.validate(candidates[index])) {
-        refused_name = program.param_name(index, 0);
+        refused_name = nullptr;
+        for (const auto &write : writes) {
+          for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+            if (std::strcmp(write.name, program.param_name(index, field)) ==
+                0) {
+              refused_name = program.param_name(index, field);
+              break;
+            }
+          if (refused_name != nullptr)
+            break;
+        }
         refusal_warning = warning;
         return ParamSetResult::INADMISSIBLE;
       }
