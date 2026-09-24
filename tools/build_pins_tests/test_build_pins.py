@@ -32,6 +32,24 @@ sys.path.insert(0, str(TOOLS))
 import build_pins as bp  # noqa: E402
 
 
+class AuthorityPresence(unittest.TestCase):
+    def test_missing_spelling_in_one_authority_is_rejected(self):
+        for check, relative, original, replacement in (
+                (bp.check_shared_literals, '.githooks/pre-commit',
+                 "grep -vE '", "grep -v -E '"),
+                (bp.check_inline_pins, 'requirements/ruff.in',
+                 'ruff==', 'ruff >= ')):
+            path = bp.ROOT / relative
+            read = bp.read_scanned
+            def changed(candidate, errors):
+                text = read(candidate, errors)
+                return text.replace(original, replacement) if candidate == path else text
+            with self.subTest(path=relative), unittest.mock.patch.object(
+                    bp, 'read_scanned', side_effect=changed):
+                self.assertTrue(any('missing' in error and relative in error
+                                    for error in check()))
+
+
 class RequirementPins(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
