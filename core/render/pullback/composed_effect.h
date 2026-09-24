@@ -882,6 +882,9 @@ private:
                                        Pullback::Stage::Lens<LensPolicy>>;
   using ProjectStage = Pullback::Stage::Project<
       typename ProjectionPolicyFor<SpecT::PROJECTION, Binding>::Type>;
+  static_assert(SpecT::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
+                    ProjectStage::EDGE_DISTANCE_AVAILABLE,
+                "edge-fade coverage requires projection edge distance");
   using OuterWarpPolicy =
       typename WarpPolicyFor<typename ParamsT::outer_warp_type, Binding, true,
                              TRACK_PATH>::Type;
