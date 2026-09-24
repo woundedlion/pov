@@ -34,6 +34,7 @@ enum class ParamSetResult {
   UNKNOWN_PARAM, /**< No registered parameter has this name. */
   READONLY,      /**< Parameter is engine-written telemetry. */
   NON_FINITE,    /**< Value is NaN or infinite. */
+  INADMISSIBLE,  /**< Value violates a cross-parameter constraint. */
 };
 
 /**
