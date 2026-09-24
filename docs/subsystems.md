@@ -334,7 +334,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_linear, true));
-// orientation.orientations[] now grows by 1 per sub-step
+// orientation.length() grows by 1 per sub-step
 // World::Orient distributes all steps → motion blur
 ```
 
