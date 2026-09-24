@@ -127,7 +127,9 @@ def _outline_bounds(root):
         key = str(node[0])
         if not key.startswith("gr_") or not _children(node, "layer"):
             continue
-        if _one_value(node, "layer") != "Edge.Cuts":
+        if not any(str(value) == "Edge.Cuts"
+                   for layer in _children(node, "layer")
+                   for value in layer[1:]):
             continue
         if key not in supported:
             raise MetadataError(f"unsupported Edge.Cuts primitive: {key}")
