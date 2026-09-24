@@ -147,6 +147,21 @@ class ShellGateTests(unittest.TestCase):
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("selected.sh", bad.stdout)
 
+    def test_composite_steps_are_isolated_and_unsupported_scalars_fail(self):
+        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        action = self.root / ".github/actions/fixture/action.yml"
+        action.parent.mkdir(parents=True)
+        self.git("add", "--", "selected.sh")
+        for run in ('|\n        echo "$value"', 'echo ok', '>\n        echo ok'):
+            action.write_text('runs:\n  using: composite\n  steps:\n'
+                              '    - shell: bash\n      run: |\n'
+                              '        value=ok; echo "$value"\n'
+                              '    - shell: sh\n      run: ' + run + '\n',
+                              encoding="utf-8", newline="\n")
+            self.git("add", "--", ".github/actions/fixture/action.yml")
+            result = self.gate("shellcheck_gate.sh")
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
         for name in ("build", "build_cache"):
             directory = self.root / ".pio" / name
