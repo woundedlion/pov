@@ -28,6 +28,8 @@ namespace {
 #undef HS_PULLBACK_OPERATION
 #undef HS_PULLBACK_PRESET_COUNT
 
+static_assert(PRESET_COUNT == Workbench::PRESETS.size());
+
 enum class Operation : uint16_t {
 #define HS_PULLBACK_PRESET_COUNT(value)
 #define HS_PULLBACK_OPERATION(name) name,
