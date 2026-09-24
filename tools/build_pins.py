@@ -339,6 +339,95 @@ def read_scanned(path: Path, errors: list[str]) -> str | None:
         return None
 
 
+INLINE_AUTHORITIES = {
+    'actionlint': (
+        'requirements/actionlint.in',
+        'requirements/actionlint.txt',
+    ),
+    'clang': (
+        '.github/workflows/ci.yml',
+        'README.md',
+    ),
+    'clang-format': (
+        '.githooks/pre-commit',
+        'CONTRIBUTING.md',
+        'README.md',
+        'requirements/clang-format.in',
+        'requirements/clang-format.txt',
+        'scripts/generate_luts.py',
+        'tools/clang_format_gate.sh',
+    ),
+    'doxygen': (
+        '.github/actions/pinned-doxygen/action.yml',
+    ),
+    'doxygen-sha256': (
+        '.github/actions/pinned-doxygen/action.yml',
+    ),
+    'just': (
+        'requirements/just.in',
+        'requirements/just.txt',
+    ),
+    'kicad': (
+        'README.md',
+        'hardware/phantasm/README.md',
+        'hardware/phantasm/gen/sexp.py',
+    ),
+    'llvm-key-sha256': (
+        '.github/workflows/ci.yml',
+    ),
+    'numpy': (
+        'requirements/numpy.in',
+        'requirements/numpy.txt',
+    ),
+    'platformio': (
+        'requirements/platformio.in',
+        'requirements/platformio.txt',
+    ),
+    'python': (
+        '.github/workflows/ci.yml',
+        '.github/workflows/docs.yml',
+    ),
+    'ruff': (
+        'requirements/ruff.in',
+        'requirements/ruff.txt',
+    ),
+    'shellcheck': (
+        'requirements/shellcheck.in',
+        'requirements/shellcheck.txt',
+    ),
+}
+
+
+LITERAL_AUTHORITIES = {
+    'float-flags-cmake': (
+        'CMakeLists.txt',
+    ),
+    'format-exclude': (
+        '.githooks/pre-commit',
+        'tools/clang_format_gate.sh',
+    ),
+    'format-extensions': (
+        '.githooks/pre-commit',
+    ),
+    'format-globs': (
+        'tools/clang_format_gate.sh',
+    ),
+    'smoke-frames': (
+        '.github/workflows/ci.yml',
+        'CONTRIBUTING.md',
+        'justfile',
+    ),
+}
+
+
+def check_authorities(path, text, uses, authorities, errors):
+    relative = path.relative_to(ROOT).as_posix()
+    for name in {row[1] for row in uses}:
+        if relative in authorities.get(name, ()) and not any(
+                re.search(row[0], text) for row in uses if row[1] == name):
+            errors.append(f"{relative}: missing {name} authority")
+
+
 def check_inline_pins() -> list[str]:
     """Validate discovered pin spellings and report patterns with no matches."""
     errors: list[str] = []
@@ -348,6 +437,7 @@ def check_inline_pins() -> list[str]:
         text = read_scanned(path, errors)
         if text is None:
             continue
+        check_authorities(path, text, INLINE_USES, INLINE_AUTHORITIES, errors)
         for index, line in enumerate(text.splitlines(), 1):
             for pattern, name, form in INLINE_USES:
                 want = form(pin_values[name])
@@ -376,6 +466,8 @@ def check_shared_literals() -> list[str]:
             text = read_scanned(path, errors)
             if text is None:
                 continue
+            check_authorities(path, text, ((pattern, name),),
+                              LITERAL_AUTHORITIES, errors)
             for index, line in enumerate(text.splitlines(), 1):
                 for found in re.findall(pattern, line):
                     occurrences += 1
