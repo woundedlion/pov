@@ -1,5 +1,5 @@
 # Run tools/gen_gamut_lut.py --check: pins the OKLab matrices and gamut slack
-# mirrored in the generator against core/color/color.h and its diamond angle
+# mirrored in the generator against core/color/color_space.h and its diamond angle
 # against core/math/3dmath.h, then regenerates the table and diffs it against
 # the committed core/color/gamut_lut.h in full.
 # Skips with SKIP_CODE when Python or numpy is unavailable, or fails outright
