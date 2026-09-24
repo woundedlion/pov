@@ -426,9 +426,7 @@ add_test(NAME unit_mirrored_screenshot_prune COMMAND ${CMAKE_COMMAND}
 option(HS_REQUIRE_GENERATORS
     "Fail (rather than skip) the generated-artifact gates when python3/numpy is missing" OFF)
 
-# NO_CACHE: a cached NOTFOUND would outlive installing an interpreter and leave
-# the four gates below permanently skipped, which a green run does not show.
-find_program(HS_PYTHON NAMES python3 python NO_CACHE)
+set(HS_PYTHON "${Python3_EXECUTABLE}")
 
 if(NOT HS_PYTHON AND HS_REQUIRE_GENERATORS)
   message(FATAL_ERROR "Python is required to validate pullback manifests")
