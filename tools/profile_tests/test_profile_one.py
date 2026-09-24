@@ -100,6 +100,54 @@ def attest_toolchains(profile_compiler, phantasm_compiler):
     )
 
 
+class ProfileTreeLock(unittest.TestCase):
+    def test_abandoned_empty_lock_is_recovered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lock = root / '.profile-lock'
+            lock.mkdir()
+            os.utime(lock, (1, 1))
+            script = ('. "$1"\n' + shell_function('acquire_tree_lock')
+                      + 'TREE=$2; SECONDS_ARG=1; acquire_tree_lock\n'
+                      + 'rc=$?; [ "$rc" != 0 ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN"; exit "$rc"\n')
+            result = subprocess.run(['bash', '-c', script, 'tree-lock-test',
+                                     (REPO / 'tools/device_lock.sh').as_posix(), root.as_posix()],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(lock.exists())
+
+    def test_cleanup_continues_after_a_replaced_tree_claim(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cache = root / 'cache'
+            cache.mkdir()
+            (cache / 'large-build').write_text('artifact')
+            script = ('set -e\n' + shell_function('cleanup')
+                      + 'hs_device_release() { :; }; _hs_break_lock() { return 1; }\n'
+                      + 'TREE_LOCK=unused; TREE_TOKEN=old; RETRY_CACHE=$1; cleanup\n')
+            result = subprocess.run(['bash', '-c', script, 'cleanup-test', cache.as_posix()],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(cache.exists())
+
+    def test_stale_owner_is_reaped_and_live_owner_is_retained(self):
+        for stale in (True, False):
+            with self.subTest(stale=stale), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                lock = root / '.profile-lock'
+                lock.mkdir()
+                deadline = 1 if stale else 9999999999
+                (lock / 'info').write_text(f'token=peer\nstarted=1\ndeadline={deadline}\n')
+                script = ('. "$1"\n' + shell_function('acquire_tree_lock')
+                          + 'TREE=$2; SECONDS_ARG=1; acquire_tree_lock\n'
+                          + 'rc=$?; [ "$rc" != 0 ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN"; exit "$rc"\n')
+                result = subprocess.run(['bash', '-c', script, 'tree-lock-test',
+                                         (REPO / 'tools/device_lock.sh').as_posix(), root.as_posix()],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0 if stale else 1, result.stderr)
+                self.assertEqual(lock.exists(), not stale)
+
+
 class ProfileTreeResolution(unittest.TestCase):
     """The build tree follows the checkout containing the invoked script."""
 
