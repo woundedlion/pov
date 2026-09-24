@@ -54,12 +54,9 @@ struct LayerComposite {
     if (alpha <= 0.0f)
       return {};
     const float inverse_alpha = 1.0f / alpha;
-    const Pixel color{static_cast<uint16_t>(hs::clamp(
-                          red * inverse_alpha + 0.5f, 0.0f, 65535.0f)),
-                      static_cast<uint16_t>(hs::clamp(
-                          green * inverse_alpha + 0.5f, 0.0f, 65535.0f)),
-                      static_cast<uint16_t>(hs::clamp(
-                          blue * inverse_alpha + 0.5f, 0.0f, 65535.0f))};
+    const Pixel color{round_linear_channel(red * inverse_alpha),
+                      round_linear_channel(green * inverse_alpha),
+                      round_linear_channel(blue * inverse_alpha)};
     return {color, alpha};
   }
 };
