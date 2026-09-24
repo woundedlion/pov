@@ -1033,6 +1033,11 @@ public:
   struct Frame {
     FrameState ctx;
     PreparedTuple prepared;
+
+    explicit Frame(const FrameState &source)
+        : ctx(source), prepared(Core::prepare_stages(ctx)) {}
+    Frame(const Frame &) = delete;
+    Frame(Frame &&) = delete;
   };
 
   /** @brief Resolves every stage's prepared state from @p ctx. */
@@ -1042,7 +1047,7 @@ public:
 
   /** @brief Bundles @p ctx with the stages' prepared state. */
   HS_FLASH_MEMBER static Frame prepare(const FrameState &ctx) {
-    return {ctx, prepare_stages(ctx)};
+    return Frame(ctx);
   }
 
   /**
