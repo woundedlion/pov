@@ -4139,7 +4139,7 @@ struct GnomonicStarsWhiteBox {
   }
   template <int W, int H>
   static void set_points(GnomonicStars<W, H> &fx, float n) {
-    fx.params.points = n;
+    HS_EXPECT_TRUE(fx.updateParameter("Points", n) == ParamSetResult::APPLIED);
   }
   template <int W, int H>
   static int cached_points(const GnomonicStars<W, H> &fx) {
@@ -4159,12 +4159,7 @@ struct GnomonicStarsWhiteBox {
 /**
  * @brief Pins GnomonicStars' spiral-cache invalidation: the trig-heavy base
  *        lattice is rebuilt exactly when the clamped point count changes.
- * @details draw_frame() clamps "Points" into [1, MAX_POINTS] and rebuilds
- *          spiral_cache only on a change, so a cached_points left in step with
- *          the raw slider would draw the previous count's lattice, and one left
- *          behind would rebuild the trig every frame. The poisoned slot
- *          separates "not rebuilt" from "rebuilt to the same values", which
- *          re-reading the lattice alone cannot.
+ * @details Parameter writes round and clamp the count before the cache sees it.
  */
 inline void test_gnomonicstars_spiral_cache_invalidation() {
   using WB = GnomonicStarsWhiteBox;
@@ -4187,26 +4182,26 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
     }
   };
 
-  step(64.0f);
-  HS_EXPECT_EQ(WB::cached_points(fx), 64);
-  expect_lattice(64);
+  step(164.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), 164);
+  expect_lattice(164);
 
   // An unchanged count leaves the cache alone, so the poison survives.
   const math::Vector poison(0.0f, 0.0f, 1.0f);
   WB::poison_cache(fx, 7, poison);
-  step(64.0f);
-  HS_EXPECT_EQ(WB::cached_points(fx), 64);
+  step(164.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), 164);
   HS_EXPECT_EQ(WB::cache_at(fx, 7).z, poison.z);
 
   // A changed count rebuilds every slot, the poisoned one included.
-  step(40.0f);
-  HS_EXPECT_EQ(WB::cached_points(fx), 40);
-  expect_lattice(40);
+  step(140.0f);
+  HS_EXPECT_EQ(WB::cached_points(fx), 140);
+  expect_lattice(140);
 
-  // Sub-1 and over-capacity slider values clamp before they reach the cache.
+  // Out-of-range slider values clamp before they reach the cache.
   step(0.0f);
-  HS_EXPECT_EQ(WB::cached_points(fx), 1);
-  expect_lattice(1);
+  HS_EXPECT_EQ(WB::cached_points(fx), 100);
+  expect_lattice(100);
   step(static_cast<float>(WB::max_points(fx)) + 500.0f);
   HS_EXPECT_EQ(WB::cached_points(fx), WB::max_points(fx));
 }
