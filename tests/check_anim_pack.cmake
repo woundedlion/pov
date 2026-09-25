@@ -33,7 +33,7 @@ foreach(_hdr IN LISTS _headers)
   # clang-format wraps a long base-clause onto its own line, so allow newlines
   # around the colon and after `public`.
   string(REGEX MATCHALL
-    "class[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*<[^;{]*>"
+    "(class|struct)[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*<[^;{]*>"
     _matches "${_text}")
   list(APPEND _decls ${_matches})
 endforeach()
@@ -45,12 +45,14 @@ if(NOT _decls)
 endif()
 
 # Fixpoint: an intermediate base discovered on one pass admits its own
-# subclasses on the next. Four passes cover any hierarchy depth in the tree.
-foreach(_pass RANGE 3)
+# subclasses on the next.
+set(_changed TRUE)
+while(_changed)
+  set(_changed FALSE)
   foreach(_decl IN LISTS _decls)
-    string(REGEX REPLACE "^class[ \t\r\n]+([A-Za-z0-9_]+).*" "\\1" _name "${_decl}")
-    string(REGEX REPLACE "^class[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+([A-Za-z0-9_]+).*"
-      "\\1" _base "${_decl}")
+    string(REGEX REPLACE "^(class|struct)[ \t\r\n]+([A-Za-z0-9_]+).*" "\\2" _name "${_decl}")
+    string(REGEX REPLACE "^(class|struct)[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+([A-Za-z0-9_]+).*"
+      "\\2" _base "${_decl}")
     if(NOT _base IN_LIST _roots)
       continue()
     endif()
@@ -67,9 +69,10 @@ foreach(_pass RANGE 3)
       endif()
     elseif(NOT _name IN_LIST _roots)
       list(APPEND _roots "${_name}")
+      set(_changed TRUE)
     endif()
   endforeach()
-endforeach()
+endwhile()
 
 # The pack: the argument list of largest_sizeof<...>() feeding
 # LARGEST_CONCRETE_ANIM_SIZE.
