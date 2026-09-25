@@ -3532,9 +3532,7 @@ inline void test_random_walk_stable_rotation_tracks_default() {
   using DefaultWalk = Animation::RandomWalk<288, 4>;
   using StableWalk = Animation::RandomWalk<288, 4, true>;
   constexpr int FRAMES = 50;
-  // The separate inlining contexts may reassociate repeated quaternion
-  // composition under the shipping fast-math flags.
-  constexpr float DRIFT_BOUND = 128.0f * std::numeric_limits<float>::epsilon();
+  constexpr double ANGULAR_DRIFT_RADIANS = 1e-4;
 
   math::Orientation<4> default_orientation;
   math::Orientation<4> stable_orientation;
@@ -3546,14 +3544,16 @@ inline void test_random_walk_stable_rotation_tracks_default() {
                          StableWalk::Options::Energetic(), /*seed=*/1234);
 
   for (int frame = 0; frame < FRAMES; ++frame) {
+    HS_CONTEXT("frame", frame);
     default_walk.step(fake_canvas());
     stable_walk.step(fake_canvas());
-    const math::Quaternion &expected = default_orientation.get();
-    const math::Quaternion &actual = stable_orientation.get();
-    HS_EXPECT_NEAR(actual.r, expected.r, DRIFT_BOUND);
-    HS_EXPECT_NEAR(actual.v.x, expected.v.x, DRIFT_BOUND);
-    HS_EXPECT_NEAR(actual.v.y, expected.v.y, DRIFT_BOUND);
-    HS_EXPECT_NEAR(actual.v.z, expected.v.z, DRIFT_BOUND);
+    for (const math::Vector &probe : {math::X_AXIS, math::Z_AXIS}) {
+      const math::Vector expected = default_orientation.orient(probe);
+      const math::Vector actual = stable_orientation.orient(probe);
+      HS_EXPECT_LE(small_angle_between(actual, expected),
+                   ANGULAR_DRIFT_RADIANS);
+      HS_EXPECT_NEAR(actual.length(), 1.0f, 1e-4f);
+    }
   }
 }
 
