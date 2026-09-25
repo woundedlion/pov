@@ -86,16 +86,25 @@ foreach(_kind IN ITEMS screenshots patterns)
   execute_process(COMMAND "${CMAKE_COMMAND}"
     "-DHS_MIRROR_SOURCE=${_valid_source}" "-DHS_DAYDREAM_DIR=${_not_daydream}"
     -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_${_kind}.cmake"
-    RESULT_VARIABLE _invalid_result OUTPUT_QUIET ERROR_QUIET)
-  if(_invalid_result EQUAL 0 OR NOT EXISTS "${_invalid_file}")
+    RESULT_VARIABLE _invalid_result OUTPUT_QUIET ERROR_VARIABLE _invalid_error)
+  if(_invalid_result EQUAL 0 OR NOT _invalid_error MATCHES "destination is not a daydream checkout" OR NOT EXISTS "${_invalid_file}")
     message(FATAL_ERROR "${_kind} prune did not safely reject an invalid destination")
+  endif()
+  set(_not_engine "${TEST_ROOT}/not-engine-${_kind}/docs/${_kind}")
+  file(MAKE_DIRECTORY "${_not_engine}")
+  execute_process(COMMAND "${CMAKE_COMMAND}"
+    "-DHS_MIRROR_SOURCE=${_not_engine}" "-DHS_DAYDREAM_DIR=${_daydream}"
+    -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_${_kind}.cmake"
+    RESULT_VARIABLE _source_result OUTPUT_QUIET ERROR_VARIABLE _source_error)
+  if(_source_result EQUAL 0 OR NOT _source_error MATCHES "Mirror source is not an engine checkout" OR NOT EXISTS "${_retained}")
+    message(FATAL_ERROR "${_kind} prune did not safely reject a non-engine source")
   endif()
   file(MAKE_DIRECTORY "${_empty}")
   execute_process(COMMAND "${CMAKE_COMMAND}"
     "-DHS_MIRROR_SOURCE=${_empty}" "-DHS_DAYDREAM_DIR=${_daydream}"
     -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored_${_kind}.cmake"
-    RESULT_VARIABLE _empty_result OUTPUT_QUIET ERROR_QUIET)
-  if(_empty_result EQUAL 0 OR NOT EXISTS "${_retained}")
+    RESULT_VARIABLE _empty_result OUTPUT_QUIET ERROR_VARIABLE _empty_error)
+  if(_empty_result EQUAL 0 OR NOT _empty_error MATCHES "Mirror source contains no ${_kind}" OR NOT EXISTS "${_retained}")
     message(FATAL_ERROR "Empty ${_kind} source was not safely rejected")
   endif()
 endforeach()
