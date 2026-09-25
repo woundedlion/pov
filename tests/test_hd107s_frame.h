@@ -174,24 +174,32 @@ inline void test_correct_pipeline() {
  * no-overflow invariant at maximum gain.
  * @details test_correct_pipeline only varies brightness with every other factor
  * at unity, so the non-unity correction + temperature gains the production config
- * sets (pov_single.h: correction 255,176,240; temperature 255,147,41) are never
+ * sets (hd107s_frame.h: correction 255,176,240; temperature 255,147,41) are never
  * asserted together. This case applies those shipped gains and checks both that
  * the two factors compound (temperature attenuates on top of correction, not
  * instead of it) and the exact per-channel result, then that the largest public
  * factor combination leaves a full-scale input unchanged.
  */
 inline void test_correct_multifactor() {
+  static_assert(
+      hd107s::LINEAR_STRIP_GAIN.r == 255 &&
+      hd107s::LINEAR_STRIP_GAIN.g == 176 &&
+      hd107s::LINEAR_STRIP_GAIN.b == 240 && hd107s::LINEAR_WARM_GAIN.r == 255 &&
+      hd107s::LINEAR_WARM_GAIN.g == 147 && hd107s::LINEAR_WARM_GAIN.b == 41);
   Frame f;
 
   // Temperature compounds on top of correction, not instead of it.
-  Frame::set_correction(255, 176, 240);
+  Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
+                        hd107s::LINEAR_STRIP_GAIN.g,
+                        hd107s::LINEAR_STRIP_GAIN.b);
   Frame::set_temperature(255, 255, 255);
   Frame::set_brightness(255);
   uint32_t gr = 0, gg = 65535, gb = 0;
   f.correct(gr, gg, gb);
   const uint32_t g_corr_only = gg;
 
-  Frame::set_temperature(255, 147, 41);
+  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
+                         hd107s::LINEAR_WARM_GAIN.b);
   uint32_t r = 65535, g = 65535, b = 65535;
   f.correct(r, g, b);
   HS_EXPECT_LT(g, g_corr_only); // factors compound
@@ -274,8 +282,11 @@ inline void test_packpixel_wire_order() {
  * linear_to_srgb8 encodes as R=188, G=124, B=79.
  */
 inline void test_packpixel_shipped_brightness() {
-  Frame::set_correction(255, 176, 240);
-  Frame::set_temperature(255, 147, 41);
+  Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
+                        hd107s::LINEAR_STRIP_GAIN.g,
+                        hd107s::LINEAR_STRIP_GAIN.b);
+  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
+                         hd107s::LINEAR_WARM_GAIN.b);
   Frame::set_brightness(128);
   Frame f;
 
