@@ -35,7 +35,7 @@ HS_O3_BEGIN
  * Major radius R = ring centerline distance from origin.
  * Minor radius r = tube cross-section radius.
  *
- * Unlike the 2D spherical SDF shapes above (which use DistanceResult),
+ * Unlike the spherical SDF shapes in the sibling headers (which use DistanceResult),
  * 3D volumetric shapes return plain float distances and operate in
  * Cartesian ray-space.
  */
@@ -96,7 +96,7 @@ struct Torus {
 HS_O3_END
 
 /**
- * @brief Domain warp functions for composing with WarpedSDF.
+ * @brief Domain warp functions for composing with WarpedVolume.
  */
 namespace Warp {
 
