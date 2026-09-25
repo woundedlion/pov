@@ -42,7 +42,8 @@ inline math::Complex project_div(const math::Complex &num,
   float num_re = num.re;
   float num_im = num.im;
   float denom = den_re * den_re + den_im * den_im;
-  if (denom == 0.0f && (den_re != 0.0f || den_im != 0.0f)) {
+  if (denom < std::numeric_limits<float>::min() &&
+      (den_re != 0.0f || den_im != 0.0f)) {
     den_re *= COMPLEX_UNDERFLOW_LIFT;
     den_im *= COMPLEX_UNDERFLOW_LIFT;
     num_re *= COMPLEX_UNDERFLOW_LIFT;
