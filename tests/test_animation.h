@@ -1656,8 +1656,10 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
                                   max_component_delta(a.velocity, b.velocity));
     max_angle_error =
         std::max(max_angle_error, small_angle_between(a.position, b.position));
-    max_norm_drift = std::max(
+    max_norm_drift = fold_worst(
         max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
+    max_norm_drift = fold_worst(
+        max_norm_drift, std::abs(math::dot(b.position, b.position) - 1.0f));
   }
   std::printf("axis one-step particles=%u pos=%.9g vel=%.9g angle=%.9g "
               "norm=%.9g\n",
@@ -1674,6 +1676,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
   HS_EXPECT_LE(max_velocity_error, COMPONENT_BOUND);
   HS_EXPECT_LE(max_angle_error, angle_bound);
+  HS_EXPECT_LE(max_norm_drift, 1e-6f);
 }
 
 /** @brief Pins signed-axis kill, horizon, and cross-axis fallback boundaries. */
@@ -1802,7 +1805,7 @@ inline void test_particle_system_signed_axis_trajectory() {
 
   float max_position_error = 0.0f;
   float max_velocity_error = 0.0f;
-  float max_angle_error = 0.0f;
+  double max_angle_error = 0.0;
   float max_norm_drift = 0.0f;
   int active_mismatches = 0;
   int color_seed_mismatches = 0;
@@ -1818,10 +1821,12 @@ inline void test_particle_system_signed_axis_trajectory() {
           max_position_error, max_component_delta(a.position, b.position));
       max_velocity_error = std::max(
           max_velocity_error, max_component_delta(a.velocity, b.velocity));
-      max_angle_error = std::max(max_angle_error,
-                                 math::angle_between(a.position, b.position));
-      max_norm_drift = std::max(
+      max_angle_error = fold_worst(max_angle_error,
+                                   small_angle_between(a.position, b.position));
+      max_norm_drift = fold_worst(
           max_norm_drift, std::abs(math::dot(a.position, a.position) - 1.0f));
+      max_norm_drift = fold_worst(
+          max_norm_drift, std::abs(math::dot(b.position, b.position) - 1.0f));
     }
   }
   std::printf("axis trajectory steps=%d particles=%u pos=%.9g vel=%.9g "
@@ -1830,9 +1835,12 @@ inline void test_particle_system_signed_axis_trajectory() {
               max_angle_error, max_norm_drift);
   HS_EXPECT_EQ(active_mismatches, 0);
   HS_EXPECT_EQ(color_seed_mismatches, 0);
-  HS_EXPECT_LE(max_position_error, 1e-5f);
-  HS_EXPECT_LE(max_velocity_error, 1e-5f);
-  HS_EXPECT_LE(max_angle_error, 1e-3f);
+  constexpr float COMPONENT_BOUND = 1e-5f;
+  const double ANGLE_BOUND = 2.0 * std::sqrt(3.0) * COMPONENT_BOUND;
+  HS_EXPECT_LE(max_position_error, COMPONENT_BOUND);
+  HS_EXPECT_LE(max_velocity_error, COMPONENT_BOUND);
+  HS_EXPECT_LE(max_angle_error, ANGLE_BOUND);
+  HS_EXPECT_LE(max_norm_drift, 8e-6f);
 }
 
 // ============================================================================
