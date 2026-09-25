@@ -731,6 +731,35 @@ inline void check_class_bake_census(size_t islamic_idx) {
   HS_EXPECT_GT(bake.luts_built, (uint16_t)0);
 }
 
+/** @brief Similar faces exceeding the runtime bind cap form separate classes. */
+inline void test_class_bake_rejects_unbindable_faces() {
+  Arena scratch(mr_seed_a, sizeof(mr_seed_a));
+  Arena geometry(mr_geom, sizeof(mr_geom));
+  MeshState mesh;
+  mesh.vertices.bind(geometry, 8);
+  mesh.face_counts.bind(geometry, 2);
+  mesh.face_offsets.bind(geometry, 2);
+  mesh.faces.bind(geometry, 8);
+  mesh.topology.bind(geometry, 2);
+  for (int face = 0; face < 2; ++face) {
+    mesh.face_counts.push_back(4);
+    mesh.face_offsets.push_back(4 * face);
+    mesh.topology.push_back(0);
+    for (int i = 0; i < 4; ++i) {
+      float y = (i == 0 || i == 3) ? -0.2f : 0.2f;
+      const float z = i < 2 ? -0.2f : 0.2f;
+      if (face == 1 && i == 0)
+        y += 0.02f;
+      mesh.vertices.push_back(math::Vector(1.0f, y, z).normalized());
+      mesh.faces.push_back(static_cast<uint16_t>(4 * face + i));
+    }
+  }
+  MeshOps::MeshClassBake bake;
+  MeshOps::build_mesh_class_bake(mesh, scratch, geometry, 0.1f, bake, 0);
+  HS_EXPECT_EQ(bake.classes.size(), size_t{2});
+  HS_EXPECT_NE(bake.face_recs[0].class_id, bake.face_recs[1].class_id);
+}
+
 /**
  * @brief Census invariants on two registry meshes.
  */
@@ -1298,6 +1327,7 @@ inline int run_mesh_raster_tests() {
   test_truncated_icosahedron_wireframe_and_fill();
   test_clip_band_matches_full();
   test_class_bake_census_invariants();
+  test_class_bake_rejects_unbindable_faces();
   test_class_bake_registry_capacity();
   test_class_bake_borrowed_mode();
   test_class_bake_budget_accounting();
