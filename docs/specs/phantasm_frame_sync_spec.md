@@ -14,7 +14,7 @@ acceptance gate; effect commit and submit gating live in
 `targets/Phantasm/Phantasm.ino`
 supplies the roster factory table; the §12 test plan is
 `tests/test_pov_sync.h` (pure units plus a variable-count simulator with clean
-4- and 8-board runs and 4-board fault scenarios covering crystal offsets,
+4- and 8-board runs and 2–4-board fault scenarios covering crystal offsets,
 single-latch mask windows, EMI, symbol drops, missed epochs, and mid-show
 reboots). Refinements that emerged during implementation are folded
 into their sections: oversampled wake-ups (§4.1), the suspect-burst
@@ -110,7 +110,7 @@ sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
 deterministic RNG. For (c) the driver reseeds `hs::random()` at every effect
 construction from the roster's per-entry seed identity:
 `targets/Phantasm/phantasm_playlist.h` fills that table with
-`hs::stable_effect_seed(hs::stable_effect_id<E>())`, so the stream an effect
+`hs::stable_effect_seed(hs::stable_effect_id<E>(#name))`, so the stream an effect
 draws follows its identity rather than its roster position. The
 beacon-synchronized index selects the entry, so all boards render identical
 streams regardless of boot/join history, and a board wrong about that index
@@ -726,7 +726,7 @@ together."
   (Layer 1) minimizes dropped frames; the **epoch re-init bounds any stateful
   divergence to ≤ one effect**. This is inherent, not a flaw.
 
-### 6.3 Epoch reliability (resolved — three stacked mechanisms)
+### 6.3 Epoch reliability (resolved — four stacked mechanisms)
 
 Epoch is rare (once per roster entry, 38–240 s) but a *missed* epoch is very
 visible (one segment
@@ -1132,7 +1132,7 @@ strictly cleaner, not weaker.
 
 Implemented as `tests/test_pov_sync.h`: pure units for every protocol piece
 plus a variable-count event-driven simulator. Clean acquisition, join, phase,
-and content coherence run with both 4 and 8 boards; the fault matrix uses 4
+and content coherence run with both 4 and 8 boards; the fault matrix uses 2–4
 boards with per-board crystal ppm offsets, a single-latch masked-IRQ model (edges during a mask merge and arrive late,
 the i.MX RT pin-flag behavior the count coding is designed around), EMI
 injection, symbol-drop windows, foreground build delays, mid-show reboots,
