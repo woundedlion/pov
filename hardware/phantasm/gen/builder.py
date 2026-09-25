@@ -101,8 +101,7 @@ class Builder:
             node = base
         return node
 
-    def ensure_lib(self, lib, name, lib_id=None, value=None, footprint=None,
-                   reference=None):
+    def ensure_lib(self, lib, name, lib_id=None):
         lib_id = lib_id or f"{lib}:{name}"
         if lib_id not in self.lib_defs:
             node = self._resolve(lib, name)
