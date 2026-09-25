@@ -64,7 +64,7 @@ is deleted outright.
 
 ## 2. System model
 
-Hardware constants (`targets/Phantasm/phantasm_target.h`, `core/platform/platform.h`):
+Hardware constants (`targets/Phantasm/phantasm_target.h`, `hardware/pov_segmented.h`):
 
 | Quantity            | Value    | Derivation                         |
 |---------------------|----------|------------------------------------|
@@ -75,7 +75,7 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `core/platform/platfor
 | Revolution          | 125 ms   | `60 / 480`                         |
 | Half-revolution     | 62.5 ms  | one full image (two arms, 180°)    |
 | Frame rate          | 16 fps   | 2 flips/rev                        |
-| Boards (N)          | 4        | seg 0 = clock master / conductor   |
+| Boards (N)          | 4        | seg 0 = phase reference / conductor   |
 | Effect duration     | 38–240 s | per-effect; 304–1,920 revolutions  |
 
 **Effect duration is per-entry, not uniform.** `HS_PHANTASM_EFFECT_LIST`
@@ -121,7 +121,10 @@ back to `hs::epoch_seed(effect index)`, whose epoch 0 is the identity seed
 (`show<E>(120)`'s `while (millis()-start<…)`), so boards changed effects at
 different real moments; §6 replaces it with epoch-counted sequencing.
 
-**The single wire (role in the new design):**
+**The single wire (rev 1.1 firmware):**
+
+PCB rev 1.2 separates receive D3 from transmit D4; see the
+[PCB revision scope](phantasm_pcb_spec.md#phantasm-segment-board--pcb-design-specification).
 
 - **Sync wire (the only inter-board connection).** Master drives the shared
   `PIN_FRAME_SYNC` 3 OUTPUT; downstream boards read the same pin INPUT and decode
@@ -490,7 +493,7 @@ bit-bang configuration is rejected at compile time by `pov_segmented.h`.
 
 | Parameter | Value | Rule |
 |-----------|-------|------|
-| Pulse high time | pin driven HIGH by the flywheel tick that schedules the pulse, not at ISR entry; a wake that renders a frame drops it at the end of its **~8–13 µs** body — the path every scheduled pulse lands on, since pulses fall on column boundaries; a wake that renders nothing (~1 µs body) holds it across the ISR boundary and drops it at the head of the next wake, ~54 µs later | width carries no information — only the rising edge registers; the glitch filter constrains edge *spacing*, not width |
+| Pulse high time | pin driven HIGH by the flywheel tick that schedules the pulse, not at ISR entry; a wake that renders a frame drops it at the end of its **~8–13 µs** body — the usual lit-column path; dark wakes can defer the drop; a wake that renders nothing (~1 µs body) holds it across the ISR boundary and drops it at the head of the next wake, ~54 µs later | width carries no information — only the rising edge registers; the glitch filter constrains edge *spacing*, not width |
 | Pulse pitch | 2 columns (~868 µs) | **pitch > M** ⇒ no edge ever lost to the single latch |
 | Burst gap timeout | 4 columns (~1.7 ms) | **timeout > pitch + M** ⇒ a mask-stretched gap cannot split one burst into two |
 | Glitch filter | reject rising edges <100 µs apart | an EMI spike adds an isolated count → invalid → discard |
@@ -630,7 +633,7 @@ than silently skewing the show — and because the budget is K for every
 hearer, the trap can only mean a firmware bug, never a missed symbol. K is
 chosen comfortably above the slowest measured effect init. Construction
 itself is deterministic across boards: the driver reseeds `hs::random()`
-with the roster-position-independent stable effect seed for every build, so the new
+with the roster-position-independent stable effect seed supplied by the show roster for every build (or `epoch_seed(index)` when no identity table is supplied), so the new
 instance is bit-identical across boards no matter what a board rendered —
 or whether it even existed — before the epoch. The index is the
 beacon-synchronized absolute index (§6.4).
@@ -727,7 +730,7 @@ together."
 
 Epoch is rare (once per roster entry, 38–240 s) but a *missed* epoch is very
 visible (one segment
-stuck on the previous effect). Three mechanisms stack, each catching what the
+stuck on the previous effect). Four mechanisms stack, each catching what the
 previous one cannot:
 
 1. **Redundancy:** the EPOCH symbol is repeated on the next R ZERO-boundaries
@@ -933,7 +936,7 @@ Invariants:
    (`HS_CHECK` that the pending instance exists — the deadline trap) or a
    §6.5 join-grid crossing. During the dark window the ISR **keeps flipping
    the live effect** until released — the foreground may be blocked in the
-   Canvas `buffer_free()` gate on its final frame of the outgoing effect, and
+   Canvas constructor waiting on `Effect::buffer_free()` on its final frame of the outgoing effect, and
    `advance_display()` is what releases it to go tear the effect down. Boot
    seeding: ACQUIRE state (§5.3), display black, `last_flipped=NONE` (the
    first accepted boundary flips, `HALF≠NONE`), `epoch_cycles=now`, period
@@ -983,7 +986,7 @@ index correction — two consecutive beacons naming the master's index, so up to
 two beacon gaps (~4 s) plus one rebuild-dark window — the same path as a
 corrupted beacon frame; the §9.1 budget carries it as its own row. Symbol-loss
 artifacts require either two coincident losses in one half-rev (self-heals) or
-a missed epoch (R repeats, then beacon-corrected within ~2 s). A dropped render can also leave a frame-time seam until the
+a missed epoch (R repeats, then beacon-corrected within ~4 s). A dropped render can also leave a frame-time seam until the
 next epoch, as specified in §6.2. Losing the one wire is a single point of failure for all three
 layers at once — the accepted cost of collapsing to one wire. It is **out of
 scope by construction** (a hard, soldered line, not a connector); the rows
@@ -1016,7 +1019,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (`reject_fallback` rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | possible during ordinary mid-show acquisition: beacon digit 0 is a clean one-pulse burst and can satisfy the quiet-before gate without an edge error. Frequency depends on reboot phase and beacon contents; the rejection fallback bounds recovery |
 | Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | next epoch reset (remainder of effect, up to 240 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
-| Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤2 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
+| Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel stall) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
 | Sync wire / master dead | uniform slow smear ~1 col per 10–20 s; playlist freezes; arithmetic stays valid (§4.1 rebase) | physical repair | out of scope — hard line by construction |
@@ -1025,7 +1028,7 @@ Reading by tier: everything the wire can plausibly throw at the design recovers
 sub-column within ≤2 revolutions; the only in-principle-visible stochastic
 artifact is the accepted-EMI case (~5° one-board seam for one half-rev,
 ~1.7/hr at the pessimistic λ — halve G to 2 to halve both rate and magnitude
-if it ever shows); content-layer slips are beacon-bounded — 2 s for a missed
+if it ever shows); content-layer slips are beacon-bounded — up to 4 s for a missed
 epoch, ~4 s for the spurious-EPOCH residual; firmware defects trap rather than
 recover.
 
@@ -1054,7 +1057,7 @@ outright** — a masked window or a long ISR just means the next ISR reads the
 clock and resumes at the time-correct column (§4.1). And deleting the column
 clock wire **removes cause (2) entirely from the column path**: there is no
 per-column input left to pick up EMI. The only remaining EMI surface is spurious
-*symbols* on the sync wire — 2/rev instead of 2304/rev — guarded by the
+*symbols* on the sync wire — 2/rev instead of 288/rev — guarded by the
 count-coded symbol alphabet (§5.2) and epoch redundancy.
 Collapsing to one disciplined flywheel is the core
 robustness win of the redesign, and dropping the clock wire makes the hot path
