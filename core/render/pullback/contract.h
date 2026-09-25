@@ -73,8 +73,8 @@ struct ProjectionProvenance {
   uint8_t component_id;
   /** projections::ProjectionBoundary mask for the measured edge. */
   uint8_t boundary_flags;
-  /** Nonnegative distance to a fade-eligible boundary: plane units for cut
-   * charts; sphere-space measures for stereographic and gnomonic singularities. */
+  /** Nonnegative distance to a fade-eligible boundary in kernel-dependent units;
+   * Peirce uses spherical radians times the absolute coordinate scale. */
   float fade_edge_distance;
   /** Projection weight applied by the selected signal or coverage policy. */
   float value_weight;

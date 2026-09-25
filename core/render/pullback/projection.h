@@ -451,7 +451,8 @@ inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
     {ApproximationDomain::PROJECTED_COORDINATE,
      ApproximationAggregation::MAXIMUM, 1.2e-3f, "plane units"},
     {ApproximationDomain::PROJECTED_EDGE_DISTANCE,
-     ApproximationAggregation::MAXIMUM, 2e-4f, "plane units"},
+     ApproximationAggregation::MAXIMUM, 2e-4f,
+     "radians * abs(coordinate_scale)"},
     {ApproximationDomain::FRAMEBUFFER, ApproximationAggregation::MAXIMUM,
      256.0f, "channel code"},
 }};
