@@ -25,6 +25,7 @@
 #include <array>
 #include <cmath>
 #include <string>
+#include <limits>
 
 /**
  * @brief Packs a Vector into a JS {x,y,z} object for the free-function exports.
@@ -89,9 +90,7 @@ static void bind_math_exports() {
       "gamut_max_chroma",
       emscripten::optional_override([](float L, float a, float b) -> float {
         if (!std::isfinite(L) || !std::isfinite(a) || !std::isfinite(b))
-          emscripten::val::global("RangeError")
-              .new_(std::string("gamut_max_chroma requires finite arguments"))
-              .throw_();
+          return std::numeric_limits<float>::quiet_NaN();
         return gamut_max_chroma(L, a, b);
       }));
 
