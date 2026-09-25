@@ -616,11 +616,6 @@ class SchematicParityTests(unittest.TestCase):
         {"type": "extra_footprint", "description": "Extra footprint",
          "items": [{"description": f"Footprint H{index}"}]}
         for index in range(1, 5)
-    ] + [
-        {"type": "footprint_symbol_mismatch",
-         "description": "Exclude from bill of materials",
-         "items": [{"description": f"Footprint {ref}"}]}
-        for ref in ("JP_ID0", "JP_ID1", "JP_ID2", "JP_SHLD")
     ]
     KNOWN_WARNINGS = [
         {"type": kind, "description": "Known warning",

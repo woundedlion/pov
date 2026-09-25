@@ -408,7 +408,7 @@ def main(force=False):
     for J in (J3A, J3B):
         to_label(J, "1", "SYNC_BUS"); to_power(J, "2", GND); to_label(J, "3", "SHIELD")
     JPS = place("Jumper:SolderJumper_2_Open", "JP_SHLD", "shield gnd (master only)", 363.22, 248.92,
-                fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
+                fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JPS, "1", "SHIELD"); to_power(JPS, "2", GND)
 
     # ============================================================ BLOCK 4: STRAPS/DBG
@@ -416,14 +416,14 @@ def main(force=False):
     RMEN = place("Device:R", "R_MEN", "10k", 76.2, 261.62, fp=SMD06)
     to_power(RMEN, "1", V3); to_label(RMEN, "2", "MASTER_EN")
     JID0 = place("Jumper:SolderJumper_2_Open", "JP_ID0", "ID0->GND", 127.0, 274.32,
-                 fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
+                 fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JID0, "1", "ID0"); to_power(JID0, "2", GND)
     JID1 = place("Jumper:SolderJumper_2_Open", "JP_ID1", "ID1->GND", 152.4, 274.32,
-                 fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
+                 fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JID1, "1", "ID1"); to_power(JID1, "2", GND)
     # ID2 strap (pin 23) — read only by the N=8 firmware profile (R-ID-1)
     JID2 = place("Jumper:SolderJumper_2_Open", "JP_ID2", "ID2->GND (N=8)", 177.8, 274.32,
-                 fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
+                 fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm", in_bom=False)
     to_label(JID2, "1", "ID2"); to_power(JID2, "2", GND)
     J4 = place("Connector_Generic:Conn_01x04", "J4", "debug", 38.1, 266.7, in_bom=False,
                fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
