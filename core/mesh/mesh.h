@@ -754,15 +754,15 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
   HS_CHECK(&src != &dst, "MeshOps::clone src must not alias dst");
   if constexpr (requires { dst.face_offsets; }) {
     MeshState::clone(src, dst, arena);
-    return;
-  }
-  copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
-  copy_vector(dst.face_counts, src.get_face_counts_data(),
-              src.get_face_counts_size(), arena);
-  copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
+  } else {
+    copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
+    copy_vector(dst.face_counts, src.get_face_counts_data(),
+                src.get_face_counts_size(), arena);
+    copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
 
-  copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
-  dst.topology_key = src.topology_key;
+    copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
+    dst.topology_key = src.topology_key;
+  }
 }
 
 /**
