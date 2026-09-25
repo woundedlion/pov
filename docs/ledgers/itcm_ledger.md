@@ -1,8 +1,8 @@
 # Phantasm ITCM spend ledger: `aeba37b5` → `d4816de0` (2026-07-16 … 07-19)
 
-**Status: CLOSED LEDGER.** Per-commit `.text.itcm` accounting on the phantasm
-image across the window the arena cut opened. The window ends at `d4816de0`;
-later commits are not accounted here.
+**Status: dated accounting windows.** The initial per-commit `.text.itcm`
+accounting window on the phantasm image ends at `d4816de0`. Later dated
+sections record separate measurements; this is not a live tip budget.
 
 Complete per-commit accounting of `.text.itcm` on the phantasm image across the
 window that opened when the arena cut (`aeba37b5`) freed a 32 KiB FlexRAM bank
@@ -23,7 +23,7 @@ MeshFeedback are from the on-device profile capture.
 | | ITCM | headroom to 196,608 B ceiling |
 |---|---|---|
 | `aeba37b5` (baseline, post arena cut) | 149,168 B | 47,440 B |
-| `d4816de0` (HEAD) | 194,528 B | **2,080 B** |
+| `d4816de0` (initial window end) | 194,528 B | **2,080 B** |
 | **net spend** | **+45,360 B** | |
 
 Gross spend +53,952, gross reclaim −8,592. The "47k headroom before selective-O3"
