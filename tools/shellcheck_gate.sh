@@ -25,7 +25,7 @@ if [ ! -s "$tmp" ]; then
   exit 1
 fi
 
-xargs -d '\n' shellcheck -x < "$tmp"
+tr '\n' '\0' < "$tmp" | xargs -0 shellcheck -x
 
 while IFS= read -r action; do
   awk -v directory="$scratch" '
