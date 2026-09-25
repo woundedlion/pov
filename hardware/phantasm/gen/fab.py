@@ -488,18 +488,13 @@ MIN_BOARD_VIAS = 99
 MIN_COPPER_POURS = 2
 
 # Parity items KiCad reports on a board that IS in sync with the schematic:
-# the mounting holes have no symbol, the ID/shield jumpers are excluded from
-# the BOM on the board only.
+# the mounting holes have no symbol.
 # Anything else means the routed copper predates the current schematic.
 KNOWN_PARITY_ITEMS = {
     ("extra_footprint", "H1"): "Extra footprint",
     ("extra_footprint", "H2"): "Extra footprint",
     ("extra_footprint", "H3"): "Extra footprint",
     ("extra_footprint", "H4"): "Extra footprint",
-    ("footprint_symbol_mismatch", "JP_ID0"): "Exclude from bill of materials",
-    ("footprint_symbol_mismatch", "JP_ID1"): "Exclude from bill of materials",
-    ("footprint_symbol_mismatch", "JP_ID2"): "Exclude from bill of materials",
-    ("footprint_symbol_mismatch", "JP_SHLD"): "Exclude from bill of materials",
 }
 KNOWN_PARITY_WARNING_COUNTS = {
     ("lib_footprint_mismatch", ref): 1
