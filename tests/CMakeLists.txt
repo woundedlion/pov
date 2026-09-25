@@ -268,14 +268,14 @@ _hs_sanitize(mindsplatter_palette_gen)
 
 add_custom_target(regenerate_mindsplatter_palette
   COMMAND $<TARGET_FILE:mindsplatter_palette_gen>
-          ${HS_ROOT}/core/color/triadic_palette_luts.h
+          ${HS_ROOT}/core/color/mindsplatter_palette_luts.h
   DEPENDS mindsplatter_palette_gen
   VERBATIM)
 
 add_test(NAME unit_mindsplatter_palette_form COMMAND ${CMAKE_COMMAND}
   -DGENERATOR=$<TARGET_FILE:mindsplatter_palette_gen>
-  -DCOMMITTED=${HS_ROOT}/core/color/triadic_palette_luts.h
-  -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/triadic_palette_luts.generated.h
+  -DCOMMITTED=${HS_ROOT}/core/color/mindsplatter_palette_luts.h
+  -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_palette_luts.generated.h
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_palette_form.cmake)
 
 # Tolerance pin for the bank mindsplatter_palette_gen emits. Its own TU rather

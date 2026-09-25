@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
          " * base hue, compiled from EffectPaletteRecipes::mind_splatter.\n"
          " */\n"
          "#pragma once\n\n"
-         "#include \"color/color.h\"\n\n"
+         "#include \"color/pixel.h\"\n\n"
       << "inline constexpr int MINDSPLATTER_PALETTE_COUNT = " << PALETTE_COUNT
       << ";\n"
          "inline constexpr int MINDSPLATTER_PALETTE_LUT_SIZE = "
