@@ -28,97 +28,78 @@
   "product_group": {
     "id": "shader-collection",
     "display_name": "Shader Collection",
-    "total_device_seconds": 120,
     "children": [
       {
         "effect_id": "alien-brain",
-        "display_name": "Alien Brain",
-        "seconds": 7
+        "display_name": "Alien Brain"
       },
       {
         "effect_id": "kaleidoscope-hex-soft",
-        "display_name": "Kaleidoscope Hex Soft",
-        "seconds": 7
+        "display_name": "Kaleidoscope Hex Soft"
       },
       {
         "effect_id": "alien-ocean",
-        "display_name": "Alien Ocean",
-        "seconds": 6
+        "display_name": "Alien Ocean"
       },
       {
         "effect_id": "alien-core",
-        "display_name": "Alien Core",
-        "seconds": 5
+        "display_name": "Alien Core"
       },
       {
         "effect_id": "kaleidoscope-mandala",
-        "display_name": "Kaleidoscope Mandala",
-        "seconds": 6
+        "display_name": "Kaleidoscope Mandala"
       },
       {
         "effect_id": "grid-space",
-        "display_name": "Grid Space",
-        "seconds": 5
+        "display_name": "Grid Space"
       },
       {
         "effect_id": "lattice-melt",
-        "display_name": "Lattice Melt",
-        "seconds": 7
+        "display_name": "Lattice Melt"
       },
       {
         "effect_id": "chromatic-lichen",
-        "display_name": "Chromatic Lichen",
-        "seconds": 6
+        "display_name": "Chromatic Lichen"
       },
       {
         "effect_id": "mermaid-skin",
-        "display_name": "Mermaid Skin",
-        "seconds": 6
+        "display_name": "Mermaid Skin"
       },
       {
         "effect_id": "ash-cloud",
-        "display_name": "Ash Cloud",
-        "seconds": 6
+        "display_name": "Ash Cloud"
       },
       {
         "effect_id": "kaleidoscope-pent-bright",
-        "display_name": "Kaleidoscope Pent Bright",
-        "seconds": 5
+        "display_name": "Kaleidoscope Pent Bright"
       },
       {
         "effect_id": "kaleidoscope-hex-oil",
-        "display_name": "Kaleidoscope Hex Oil",
-        "seconds": 6
+        "display_name": "Kaleidoscope Hex Oil"
       },
       {
         "effect_id": "kaleidoscope-stained-glass",
-        "display_name": "Kaleidoscope Stained Glass",
-        "seconds": 5
+        "display_name": "Kaleidoscope Stained Glass"
       },
       {
         "effect_id": "kaleidoscope-smooth",
-        "display_name": "Kaleidoscope Smooth",
-        "seconds": 13
+        "display_name": "Kaleidoscope Smooth"
       },
       {
         "effect_id": "kaleidoscope-hex-bright",
-        "display_name": "Kaleidoscope Hex Bright",
-        "seconds": 6
+        "display_name": "Kaleidoscope Hex Bright"
       },
       {
         "effect_id": "kaleidoscope-flowers",
-        "display_name": "Kaleidoscope Flowers",
-        "seconds": 13
+        "display_name": "Kaleidoscope Flowers"
       },
       {
         "effect_id": "cosmic-eyeball",
-        "display_name": "Cosmic Eyeball",
-        "seconds": 5
+        "display_name": "Cosmic Eyeball"
       },
       {
         "effect_id": "mobius-grid",
-        "display_name": "Mobius Grid",
-        "seconds": 6
+        "display_name": "Mobius Grid"
       }
     ]
   },
