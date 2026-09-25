@@ -3,7 +3,7 @@
 # unit_relax_bake_verify pins the payload VALUES bit-exact; this pins the file's
 # FORM (banner, chunking, declaration layout), so a legitimate regeneration can
 # never arrive buried in an emitter reformat.
-# -D args: PYTHON_EXE, SCRIPT, HARNESS, DUMP, SKIP_CODE, REQUIRE_PYTHON.
+# -D args: PYTHON_EXE, SCRIPT, HARNESS, DUMP.
 
 # Script mode inherits no policies from the project, so every policy would
 # otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
