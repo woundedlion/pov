@@ -194,7 +194,7 @@ public:
     update_render_clip();
   }
   /**
-   * @brief Effect sets render margin for stateful filters.
+   * @brief Effect sets the render margin for filters that spread taps.
    * @param m Render margin width in pixels.
    * @details ClipRegion's cylindrical wrap only corrects a single period of
    *          underflow, so its [0, w) contract holds only while margin < w. Trap
