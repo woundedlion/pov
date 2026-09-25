@@ -13,7 +13,9 @@
 
 #include "platform/build_features.h"
 
-#if defined(__FILE_NAME__)
+#if HS_ENABLE_TEST_HOOKS
+#define HS_SOURCE_FILE __FILE__
+#elif defined(__FILE_NAME__)
 #define HS_SOURCE_FILE __FILE_NAME__
 #else
 #define HS_SOURCE_FILE __FILE__
@@ -388,12 +390,14 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   vsnprintf(msg, sizeof(msg), fmt, args);
 #endif
   va_end(args);
-  // Strip the directory so the basename does not crowd out the message in the bounded log buffer.
   const char *base = file;
+#if !HS_ENABLE_TEST_HOOKS
+  // Keep device breadcrumbs within the bounded log buffer.
   for (const char *p = file; *p; ++p) {
     if (*p == '/' || *p == '\\')
       base = p + 1;
   }
+#endif
 #ifdef __EMSCRIPTEN__
   // stderr rather than hs::log's stdout: fd 2 is what Emscripten routes to an
   // installed Module.printErr, and the buffer only drains on the newline.
@@ -411,6 +415,9 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   Serial.print(cond);
   Serial.print(") ");
   hs::log("%s", msg);
+#elif HS_ENABLE_TEST_HOOKS
+  fprintf(stderr, "HS_CHECK failed: %s:%d: (%s) %s\n", base, line, cond, msg);
+  fflush(stderr);
 #else
   hs::log("HS_CHECK failed: %s:%d: (%s) %s", base, line, cond, msg);
 #endif
