@@ -71,8 +71,9 @@ _hs_now() { date +%s; }
 # read; piping it straight into awk reads awk's, and awk is happy with nothing.
 hs_device_ports() {
   local tools=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
-  local attached="" listing rc=0
+  local attached="" listing rc=0 enumerated=0
   if [ -x "$tools/teensy_ports.exe" ]; then
+    enumerated=1
     listing=$("$tools/teensy_ports.exe" -L 2>/dev/null) || rc=$?
     if [ "$rc" -ne 0 ]; then
       echo "device: $tools/teensy_ports.exe -L failed (rc $rc)." >&2
@@ -84,7 +85,7 @@ hs_device_ports() {
     attached=$(printf '%s\n' "$listing" | awk '$2 ~ /^COM[0-9]+$/ {print $2}')
   fi
   if [ -n "${HS_TEENSY_PORT:-}" ]; then
-    if [ -n "$attached" ] &&
+    if [ "$enumerated" -eq 1 ] &&
        ! printf '%s\n' "$attached" | grep -qxF "$HS_TEENSY_PORT"; then
       echo "device: HS_TEENSY_PORT=$HS_TEENSY_PORT is not attached." >&2
       echo "The loader enumerates: $(printf '%s' "$attached" | tr '\n' ' ')" >&2
