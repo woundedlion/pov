@@ -337,7 +337,7 @@ struct Mesh {
    * @brief Rasterizes every face of a mesh.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
-   * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+   * @tparam PipelineT Plotting pipeline type (deduced; pass PipelineRef to erase the sink).
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param mesh Mesh providing vertices, face counts, indices, and offsets.
