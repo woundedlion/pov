@@ -276,7 +276,7 @@ struct LensMobius : StatelessModel {
                                     params.d_re, params.d_im};
     return Lens::MobiusLensParams::nondegenerate(mobius)
                ? nullptr
-               : "Mobius coefficients must have a nonzero determinant.";
+               : Lens::MobiusLensParams::DEGENERATE_WARNING;
   }
 
   static Prepared prepare(const FrameContext &, const Params &params,
