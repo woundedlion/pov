@@ -199,6 +199,10 @@ protected:
       static_assert(Derived::PRESET_DWELL_FRAMES ==
                         Derived::PRESET_SEGUE.frames,
                     "fade preset dwell must match its envelope cadence");
+      HS_CHECK(
+          Timeline::remaining() >= 4,
+          "preset choreography: the steady-state peak needs four timeline slots, %d free",
+          Timeline::remaining());
       begin_preset_choreography();
     }
   }
@@ -291,9 +295,8 @@ private:
    * outright. The sprite feeds
    * `Derived::set_preset_opacity` each frame; both the sprite and the advance
    * timer freeze with anims_paused. begin_choreography() arms this once.
-   * The loop re-arms itself from the advance timer, where a dropped add would
-   * end the choreography for good, so it budgets both slots up front and traps
-   * instead.
+   * Re-arming overlaps the retiring sprite and timer, so the initial arm
+   * requires four slots; each re-arm adds two.
    */
   HS_COLD_MEMBER void begin_preset_choreography() {
     HS_CHECK(Timeline::remaining() >= 2,
