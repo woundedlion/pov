@@ -16,8 +16,8 @@
 /**
  * @brief Clip region for segment-based rendering.
  * @details Display bounds define the ISR's pixel range (exact segment).
- *          Render bounds expand by `margin` to accommodate stateful filters
- *          (e.g. AntiAlias ±1); a Pipeline's `total_segment_margin` sums the
+ *          Render bounds expand by `margin` to accommodate filters that spread taps
+ *          (AntiAlias, Blur and ChromaticShift); a Pipeline's `total_segment_margin` sums the
  *          demand of its stages.
  *          `w`/`h` are the active canvas size, set from W/H by the Effect
  *          constructor (core/render/canvas.h); the `MAX_W`/`MAX_H` defaults
@@ -62,8 +62,7 @@ struct ClipRegion {
    *      Effect::set_margin enforce. That puts `x_start - margin` in
    *      [-(w-1), w], one period either side, so the wrap is a conditional add
    *      plus a conditional subtract instead of a `%` (the high branch fires
-   *      only at x_start == w with margin == 0). contains_x() runs per plotted
-   *      pixel, where a runtime modulo costs a hardware divide.
+   *      only at x_start == w with margin == 0).
    */
   int render_x_start() const {
     const int v = x_start - margin;
