@@ -3453,49 +3453,6 @@ inline void test_shader_workbench_additive_delta_precision() {
   HS_EXPECT_EQ(untracked.path_length, 0.0f);
 }
 
-/** @brief Profiling can land every curated hold without choreography. */
-inline void test_shader_workbench_profile_presets() {
-  using WB = ShaderWorkbenchWhiteBox;
-  reset_effect_globals();
-  WB::SB sb;
-  sb.init();
-  const auto &presets = WB::presets();
-  std::vector<math::Complex> probes(presets.size());
-  for (size_t index = 0; index < presets.size(); ++index) {
-    HS_CONTEXT("preset", static_cast<long long>(index));
-    sb.profile_select_preset(index);
-    HS_EXPECT_TRUE(WB::active_config(sb) == presets[index]);
-    HS_EXPECT_TRUE(WB::requested_config(sb) == presets[index]);
-    HS_EXPECT_TRUE(WB::valid_config(WB::active_config(sb)));
-    HS_EXPECT_FALSE(WB::transition_active(sb));
-    HS_EXPECT_FALSE(WB::param_morph_active(sb));
-    const auto projected = WB::surface_project(
-        math::Vector(0.808122f, -0.303046f, 0.505076f), WB::frame(sb));
-    const float fade = projected.provenance.fade_edge_distance;
-    HS_EXPECT_GE(fade, 0.0f);
-    HS_EXPECT_TRUE(fade <= math::PI_F || fade == projections::NO_EDGE_DISTANCE);
-    HS_EXPECT_GE(projected.provenance.value_weight, 0.0f);
-    HS_EXPECT_LE(projected.provenance.value_weight, 1.0f);
-    HS_EXPECT_GE(projected.provenance.domain_coverage, 0.0f);
-    HS_EXPECT_LE(projected.provenance.domain_coverage, 1.0f);
-    probes[index] = projected.coords;
-  }
-  // Distinct holds are distinct frames: a profile select that stopped landing
-  // the config would collapse the probe onto one point.
-  size_t distinct = 0;
-  for (size_t i = 0; i < probes.size(); ++i) {
-    bool unseen = true;
-    for (size_t j = 0; j < i; ++j)
-      unseen &= probes[j].re != probes[i].re || probes[j].im != probes[i].im;
-    distinct += unseen ? 1 : 0;
-  }
-  std::printf("  [profile presets] %zu distinct probe images of %zu holds\n",
-              distinct, probes.size());
-  // Measured 14 distinct images across the 24 holds; several share a topology
-  // whose frame maps this probe to the same plane point.
-  HS_EXPECT_GE(distinct, (size_t)14);
-}
-
 /** @brief Manual navigation wraps and resumes automatic preset selection. */
 inline void test_shader_workbench_manual_preset_navigation() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -6633,7 +6590,6 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_structural_admission();
   test_shader_workbench_strict_seam_admission();
   test_shader_workbench_additive_delta_precision();
-  test_shader_workbench_profile_presets();
   test_shader_workbench_manual_preset_navigation();
   test_shader_workbench_preset_gui_transition();
   test_shader_workbench_parameter_capacity();

@@ -62,13 +62,9 @@ struct TopologyKey {
 template <typename... Stages>
 using InversePipeline = Pullback::Pipeline<ShaderWorkbenchBinding, Stages...>;
 
-#if defined(__IMXRT1062__)
-HS_FLASH_MEMBER
-#else
-__attribute__((always_inline))
-#endif
-inline math::Vector pullback_outer_camera_lookup(const math::Vector &input,
-                                                 const FrameState &frame) {
+__attribute__((always_inline)) inline math::Vector
+pullback_outer_camera_lookup(const math::Vector &input,
+                             const FrameState &frame) {
   return math::rotate(input, frame.transforms.outer_conj);
 }
 
