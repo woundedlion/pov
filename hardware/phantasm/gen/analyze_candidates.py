@@ -62,7 +62,7 @@ DRC_FAILED = "failed"
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
 
-# Fast / critical nets for the 24 MHz SPI + sync (post-relabel source-side names
+# Fast / critical nets for the 24 MHz SPI + sync (source-side names
 # DATA_SRC/CLK_SRC/SYNC_SRC are pre-terminator stubs -- included as fast too).
 SPI = ["DATA", "CLK", "DATA_IN", "CLK_IN", "DATA_SRC", "CLK_SRC"]
 SYNC = ["SYNC_BUS", "FRAME_SYNC", "SYNC_TX", "SYNC_SRC"]
