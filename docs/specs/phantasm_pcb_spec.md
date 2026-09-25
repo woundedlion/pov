@@ -115,7 +115,7 @@ clean to **≥30 MHz** so headroom exists.
 - **R-PWR-4** **0.1 µF (C_DEC)** decoupling at the Teensy VIN pin and the U1 Vcc pin, within 3 mm,
   short via to the ground plane; plus **C_LF** on the logic rail (R-PWR-5).
 - **R-PWR-5 — Logic rail filter.** Two nodes now (no strip rail on the card): **+5V_RAW** (J1 → F1 →
-  Q_REV) → ferrite bead (≈600 Ω @ 100 MHz) → **+5V_LOGIC** (Teensy VIN + U1 Vcc + C_DEC + C_LF). The
+  Q_REV) → ferrite bead (≈600 Ω @ 100 MHz) → **+5V_LOGIC** (Teensy VIN + U1 Vcc + C_DEC + R_LF; C_LF is on LF_DAMP after R_LF). The
   bead carries only the **~0.15 A logic branch**, isolating it from conducted noise on the shared rotor
   rail. **Damp the bead-LC** — a bead into a low-ESR ceramic is a high-Q tank that *peaks* noise at f₀:
   a **small series R (default 1–2 Ω, R_LF) ahead of C_LF**, or a few µF of **tantalum/ESR cap** in
@@ -272,8 +272,8 @@ The 74AHCT125 sources **±8 mA** (datasheet, AHCT class). Eight ~25 kΩ receive 
 10 kΩ idle pull-down draw **≈2.1 mA**, leaving ≈3.8× DC margin. The longer N=8 daisy still requires
 scope validation for edge quality in the assembled rotor.
 A star would (a) require a **second
-'125 on the master** — its quad already spends 3
-channels on DATA/CLK/SYNC-OUT — and (b) break the identical-board design, all to clean up edges on
+'125 on the master** — its quad already spends all 4
+channels on DATA/CLK/SYNC-OUT/SYNC_PULLDOWN — and (b) break the identical-board design, all to clean up edges on
 a signal that is 100 µs-paced and software-deglitched. Inter-board skew on a ~1–2 m bus is a few ns
 versus a 434 µs column — negligible. **Keep the single bus.** Revisit only if sync rate is ever
 raised by orders of magnitude or false triggers are observed on a scope.
@@ -369,7 +369,7 @@ relief, and swept envelope are mechanically qualified.
 
 | Ref | Function | Pins | Type / rating | Pinout |
 |---|---|---|---|---|
-| **J1** | Logic power in (light feed) | 2 | 0.1″ TH header or small JST, **~1 A** | `+5 V`, `GND` |
+| **J1** | Logic power in (light feed) | 2 | keyed, polarized TH connector, **~1 A** | `+5 V`, `GND` |
 | **J2** | Strip **signal** out | 3 | 0.1″ TH header | `DI` (DATA, post-33 Ω), `SIG_GND`, `CI` (CLK, post-33 Ω) |
 | **J3A** | SYNC daisy — **in** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
 | **J3B** | SYNC daisy — **out** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
@@ -492,7 +492,7 @@ hand-soldered by you.
 | Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** |
 | D_BUS | Bus transient clamp | Bourns CDSOD323-T08L, JLCPCB C1973344 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** |
 | F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** |
-| J1 | Logic power in | 2-pin ~1 A (0.1″ / JST) | TH | TH |
+| J1 | Logic power in | 2-pin keyed, polarized connector, ~1 A | TH | TH |
 | J2 | Strip signal out | 3-pin 0.1″ (DI/SIG_GND/CI) | TH | TH |
 | J3A, J3B | SYNC daisy in / out | 2× 3-pin 0.1″ | TH (one Belden 8451 each) | TH |
 | JP_SHLD | Shield ground jumper | 0 Ω / solder jumper | 0603 or SJ pad | hand, **master only** |
