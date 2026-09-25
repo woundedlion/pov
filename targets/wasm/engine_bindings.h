@@ -818,7 +818,7 @@ public:
 
   /**
    * @brief Builds the GUI's parameter descriptor list.
-   * @return JS array with one {name, value, requestedValue, animated, readonly, preset} object
+   * @return JS array with one {name, value, requestedValue, acceptedValue, warning, animated, readonly, preset} object
    *         per param in the effect's declaration order, plus {min, max} on
    *         every non-boolean param, {step} on every whole-number param, and
    *         {options} — with {exportOptions} alongside it when the param
@@ -826,7 +826,8 @@ public:
    *         no effect is set.
    * @details `value` is the current rendered state for GUI display, while
    *          `requestedValue` is the writable target used to seed another
-   *          renderer. A boolean param's values are JS booleans and it carries
+   *          renderer. `acceptedValue` is the accepted target and `warning`
+   *          describes any adjustment or rejection. A boolean param's values are JS booleans and it carries
    *          no range; every other value is a number. step is 1 on an enum or
    *          integer target and absent on a float one, so the GUI knows which
    *          controls admit only whole values. An enum's value indexes its
