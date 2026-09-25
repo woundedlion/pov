@@ -495,7 +495,7 @@ jobs:
       - name: Test the UBSan-trap build
         run: >
           ctest --test-dir build/tests-ubsan --output-on-failure
-          --no-tests=error -R unit_mindsplatter_replay
+          --no-tests=error -R "^unit_mindsplatter_replay$"
 
   wasm:
     name: WASM build (Emscripten)
