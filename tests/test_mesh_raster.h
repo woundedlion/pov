@@ -996,6 +996,7 @@ inline void test_class_bake_budget_accounting() {
       bake_with_budget(1, 0.25f, MeshOps::CLASS_LUT_BUDGET);
   BakeAccounting fine_tight = bake_with_budget(1, 0.25f, min_lut);
   BakeAccounting fine_none = bake_with_budget(1, 0.25f, 0);
+  BakeAccounting coarse = bake_with_budget(1, 16.0f, MeshOps::CLASS_LUT_BUDGET);
 
   auto show = [](const char *tag, const BakeAccounting &a) {
     std::printf("  [budget %s] n_elig=%zu built=%u degraded=%u dropped=%u/%uf "
@@ -1008,8 +1009,9 @@ inline void test_class_bake_budget_accounting() {
   show("fine_full", fine_full);
   show("fine_tight", fine_tight);
   show("fine_none", fine_none);
+  show("coarse", coarse);
 
-  for (const auto &a : {full, none, fine_full, fine_tight, fine_none})
+  for (const auto &a : {full, none, fine_full, fine_tight, fine_none, coarse})
     expect_bake_partition(a);
 
   // Natural budget builds LUTs; the mesh has eligible classes to bind.
@@ -1031,6 +1033,35 @@ inline void test_class_bake_budget_accounting() {
   // rest once the budget is spent.
   HS_EXPECT_GT(fine_full.n_elig, (size_t)0);
   HS_EXPECT_GT(fine_tight.degraded, (uint16_t)0);
+  HS_EXPECT_GT(fine_tight.dropped_cls, (uint16_t)0);
+  Arena geometry(mr_geom, sizeof(mr_geom));
+  Arena scratch(mr_seed_a, sizeof(mr_seed_a));
+  MeshState star;
+  constexpr int POINTS = 40;
+  star.vertices.bind(geometry, POINTS);
+  star.face_counts.bind(geometry, 2);
+  star.face_offsets.bind(geometry, 2);
+  star.faces.bind(geometry, 2 * POINTS);
+  star.topology.bind(geometry, 2);
+  for (int i = 0; i < POINTS; ++i) {
+    const float ANGLE = math::TWO_PI_F * i / POINTS;
+    const float RADIUS = (i % 2 == 0) ? 0.5f : 0.1f;
+    star.vertices.push_back(
+        math::Vector(1.0f, RADIUS * cosf(ANGLE), RADIUS * sinf(ANGLE))
+            .normalized());
+  }
+  for (int face = 0; face < 2; ++face) {
+    star.face_counts.push_back(POINTS);
+    star.face_offsets.push_back(face * POINTS);
+    star.topology.push_back(0);
+    for (int i = 0; i < POINTS; ++i)
+      star.faces.push_back(i);
+  }
+  MeshOps::MeshClassBake low_quality;
+  MeshOps::build_mesh_class_bake(star, scratch, geometry, 0.5f, low_quality);
+  HS_EXPECT_GT(low_quality.lowq_classes, uint16_t{0});
+  HS_EXPECT_EQ(low_quality.luts_built, uint16_t{0});
+  HS_EXPECT_EQ(low_quality.lut_bytes, size_t{0});
   HS_EXPECT_LE(fine_tight.lut_bytes, min_lut);
 }
 
