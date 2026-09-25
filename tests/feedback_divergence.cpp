@@ -18,6 +18,9 @@
  *   (with the change)       feedback_divergence --dump alt.bin
  *                           feedback_divergence --compare base.bin alt.bin
  *
+ * --check-comparator <base> <alt> verifies equal dumps, mutates one byte in
+ * alt, and requires the comparator to reject it; alt must be disposable.
+ *
  * Emission and noise advance are pure functions of the frame index, so both
  * runs see identical input and the only variable is the code under test.
  */
@@ -299,8 +302,10 @@ int compare(const char *pa, const char *pb) {
 }
 
 void usage() {
-  printf("usage: feedback_divergence --dump <file> [frames]\n"
-         "       feedback_divergence --compare <base> <alt>\n");
+  printf(
+      "usage: feedback_divergence --dump <file> [frames]\n"
+      "       feedback_divergence --compare <base> <alt>\n"
+      "       feedback_divergence --check-comparator <base> <alt> (mutates alt)\n");
 }
 
 } // namespace
