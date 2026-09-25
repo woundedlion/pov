@@ -6140,10 +6140,6 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
   HS_EXPECT_GT(margin_lit, 10);
 }
 
-// ============================================================================
-// Runner
-// ============================================================================
-
 /** @brief Four-regular extraction covers every edge once and medial indices name original edges. */
 inline void test_four_regular_and_medial_edge_extraction() {
   configure_arenas_default();
@@ -6174,6 +6170,10 @@ inline void test_four_regular_and_medial_edge_extraction() {
     HS_EXPECT_NE(edge.u, edge.v);
   }
 }
+
+// ============================================================================
+// Runner
+// ============================================================================
 
 /**
  * @brief Runs every plot/scan sampling test in this module.

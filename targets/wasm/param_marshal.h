@@ -73,6 +73,18 @@ struct ParamView {
   const char *const *export_options; /**< C++ enum literals, or null. */
 };
 
+/** @brief Reserved backing stores for the engine parameter streams. */
+struct ParamStreams {
+  static constexpr size_t CAPACITY = 256;
+  std::vector<float> values;
+  std::vector<ParamView> views;
+
+  ParamStreams() {
+    values.reserve(CAPACITY);
+    views.reserve(CAPACITY);
+  }
+};
+
 /**
  * @brief Snapshot an effect's parameters into `out`, in definition order.
  * @param effect Effect whose getParameters() sequence defines the order.

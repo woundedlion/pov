@@ -116,7 +116,7 @@ static size_t init_stack_peak = 0;
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 // Sized for ShaderChain's MAX_CHAIN_PARAMS (224) schema; the next-largest
 // effect (Shader, 80) sits far below it.
-inline constexpr size_t MAX_PARAMS = 256;
+inline constexpr size_t MAX_PARAMS = hs_wasm::ParamStreams::CAPACITY;
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 static_assert(MAX_PARAMS >= Pullback::Interp::MAX_CHAIN_PARAMS,
@@ -271,9 +271,6 @@ public:
     // a reallocation detaches the ArrayBuffer behind a typed_memory_view, so the
     // buffers returned as views (getPixels/getParamValues) must never move.
     pixel_buffer.assign(MAX_W * MAX_H * CHANNELS, 0);
-    param_values.reserve(MAX_PARAMS);
-    param_views.reserve(
-        MAX_PARAMS); // not view-backed; reserve is amortization only
 
     // Bootstrap on the first row of each roster; daydream overrides both almost
     // immediately.
@@ -364,7 +361,7 @@ public:
 
     if (current_effect) {
       ++effect_generation;
-      param_views.clear();
+      param_streams.views.clear();
       current_effect = nullptr;
       current_effect_type_key = nullptr;
       current_factory_entry = nullptr;
@@ -423,7 +420,7 @@ public:
     }
 
     ++effect_generation;
-    param_views.clear();
+    param_streams.views.clear();
     current_effect.reset();
     current_effect_type_key = nullptr;
     current_factory_entry = nullptr;
@@ -847,10 +844,10 @@ public:
     emscripten::val result = emscripten::val::array();
     // Both streams walk the effect's registered ParamList in order. The
     // generation token covers effect replacement and dynamic schema rebinds.
-    hs_wasm::collect_param_views(*current_effect, param_views);
+    hs_wasm::collect_param_views(*current_effect, param_streams.views);
 
     int i = 0;
-    for (const auto &v : param_views) {
+    for (const auto &v : param_streams.views) {
       emscripten::val entry = emscripten::val::object();
       entry.set("name", emscripten::val(v.name));
 
@@ -898,7 +895,7 @@ public:
    *         same order as getParameterDefinitions(); empty array if no effect is
    *         set.
    * @details Same memory-view contract as getPixels(): the view aliases WASM
-   *          memory and must be consumed before the next allocation. param_values
+   *          memory and must be consumed before the next allocation. param_streams.values
    *          never reallocates here (size <= MAX_PARAMS), so emitting it triggers
    *          no heap growth that could detach other outstanding views.
    */
@@ -907,17 +904,17 @@ public:
       // Empty Float32Array (not a JS Array) so callers get a consistent typed
       // view whether or not an effect is set. clear() retains the ctor's
       // reserve, which keeps the zero-length view's backing pointer valid.
-      param_values.clear();
+      param_streams.values.clear();
       return emscripten::val(emscripten::typed_memory_view(
-          param_values.size(), param_values.data()));
+          param_streams.values.size(), param_streams.values.data()));
     }
 
     current_effect->refresh_parameter_display();
 
     // Same order as getParameterDefinitions().
-    hs_wasm::fill_param_values(*current_effect, param_values);
-    return emscripten::val(emscripten::typed_memory_view(param_values.size(),
-                                                         param_values.data()));
+    hs_wasm::fill_param_values(*current_effect, param_streams.values);
+    return emscripten::val(emscripten::typed_memory_view(
+        param_streams.values.size(), param_streams.values.data()));
   }
 
   /**
@@ -1542,10 +1539,7 @@ private:
   const FactoryEntry *current_factory_entry =
       nullptr; /**< Registry metadata for current_effect; WASM lifetime-static. */
   std::vector<uint16_t> pixel_buffer; /**< 16-bit linear RGB readback buffer. */
-  std::vector<float> param_values;    /**< Backing store for getParamValues. */
-  std::vector<hs_wasm::ParamView>
-      param_views; /**< Scratch for getParameterDefinitions; cleared at teardown
-                        so no name outlives the effect that owns it. */
+  hs_wasm::ParamStreams param_streams;
   int pixel_width = 0;  /**< Active canvas width in pixels. */
   int pixel_height = 0; /**< Active canvas height in pixels. */
   hs_wasm::ParamGenerationTracker

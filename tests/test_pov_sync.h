@@ -2962,7 +2962,8 @@ inline void test_sim_rev_wrap_within_effect() {
   // mid-half instants (master ~x=72). A broken &63 cross-check corrupts
   // rev_in_effect at rev 64 and would break phase / frame-counter lockstep here.
   bool crossed_seam = false;
-  for (;;) {
+  bool reached_end = false;
+  for (int sample = 0; sample < 40; ++sample) {
     HS_EXPECT_TRUE(
         sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
     const uint32_t rev = content(sim.boards[0].board).rev_in_effect;
@@ -2984,12 +2985,15 @@ inline void test_sim_rev_wrap_within_effect() {
     }
     if (rev >= 64)
       crossed_seam = true;
-    if (rev >= 80)
+    if (rev >= 80) {
+      reached_end = true;
       break;
+    }
     sim.run_revs(3.0);
   }
   HS_EXPECT_TRUE(crossed_seam); // the run actually exercised rev_in_effect ≥ 64
 
+  HS_EXPECT_TRUE(reached_end);
   // The epoch still commits in lockstep at the post-seam effect boundary:
   // on_epoch_symbol infers j from a rev whose 6-bit residue has wrapped.
   HS_EXPECT_TRUE(sim.run_until(

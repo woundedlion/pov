@@ -17,7 +17,7 @@
  *
  * Layout (one Teensy owns the whole S-LED strip; ROWS = S/2 = canvas height):
  *   The strip spans both sides of the ring. Its first half [0, S/2) is the top
- *   arm, physically reversed (LED 0 at the junction end), and samples canvas
+ *   arm, physically reversed (LED 0 at the pole end), and samples canvas
  *   column x; its second half [S/2, S) is the bottom arm, straight, and samples
  *   the opposite half of the image (column (x + W/2) % W). At rotation column x
  *   the two halves together paint exactly the two canvas columns x and
@@ -25,7 +25,7 @@
  *
  * NOTE: the top-arm wiring convention deliberately differs from the segmented
  * rig (pov_segment_map.h). Here the top arm is reversed with LED 0 at the
- * junction (strip_top_led = S/2-1-y); the segmented rig wires its top segment
+ * pole (strip_top_led = S/2-1-y); the segmented rig wires its top segment
  * with LED 0 at the N pole, NOT reversed (y_step = +1). The two are separate
  * physical builds — do not assume one map's top-arm direction carries over.
  */
