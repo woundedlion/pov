@@ -6,7 +6,7 @@ since moved on. The current design of record is `docs/specs/opchain_morph_spec.m
 the source of truth for behaviour is `core/animation/opleg.h` and
 `core/mesh/hankin.h`.
 
-Status: LANDED 2026-07-16 (`06c95e93..190a91d8`). Replaces the
+Historical implementation: 2026-07-16 (`06c95e93..190a91d8`). Replaces the
 nearest-vertex-slerp `Animation::MeshMorph` + stochastic dissolve between
 HankinSolids solids with true geometric morphs: each transition sweeps the
 continuous parameter of the destination solid's own Conway chain, so faces
@@ -25,13 +25,11 @@ per-frame Conway op + `compile` costs **173 µs** — 0.3% of a frame, so §6's
 headroom claim held and §4.1's "amortize construction across the preceding
 hankin cycle" contingency is moot.
 
-**Where the implementation overruled this design** (this document otherwise
-describes the landed state):
+**Historical differences from the original proposal** (not current contracts):
 
-1. **ADOPT on the two ambo-chain edges is non-destructive** (§2.1): the leg
-   derives `ambo(seed)` at construction and `seed_base_` stays Platonic. A
-   destructive ADOPT strands the walk on the return leg — no operator recovers
-   cube/octahedron from a held cuboctahedron.
+1. **Reseeding follows the edge table.** The current `Reseed::ADOPT` policy
+   replaces the family seed with the arrived solid; consult
+   `core/mesh/conway_graph.h` for current edges and `adopts_seed` behavior.
 2. **Palette provenance is geometric, not emission-order** (§2.5): legs map
    provenance by departed-face centroids with a checked bijection. Emission
    order diverges from the held mesh's face order after dual-swap wandering,
@@ -148,11 +146,11 @@ tune against framebuffer dumps.
 
 ### 2.3 Settle phase (relax-terminated chains)
 
-Five Archimedean chains end in `.relax(50)` (truncatedCuboctahedron,
+Five Archimedean chains end in `.relax_baked()` (truncatedCuboctahedron,
 snubCube, rhombicosidodecahedron, truncatedIcosidodecahedron,
 snubDodecahedron), and both family bridges rely on relax for canonical form.
 Relax is not sweepable, but by fact 5 it is slerpable: compute
-`relaxed = relax(op(seed, t_end), 50)` **once** at leg construction, then over
+`relaxed = relax_baked(op(seed, t_end))` **once** at leg construction, then over
 the final `SETTLE_FRAMES` of the leg slerp each vertex from the unrelaxed
 sweep position to its relaxed counterpart. Reverse legs un-settle first
 (slerp relaxed → unrelaxed over the opening window), then sweep down.
@@ -373,7 +371,7 @@ the graph edge, direction, and sweep and settle frame counts:
   leg stops while its collapsing edge is still a positive chord (§3).
   Classified near arrival, not at T_EPS, so the 1°-angle-bucketed grouping
   matches what the viewer sees at leg end;
-- if the edge settles: runs `relax(50)` once, stores the relaxed vertex
+- if the edge settles: runs `relax_baked()` once, stores the relaxed vertex
   array, and classifies the **relaxed** mesh instead — arrival geometry is
   the relaxed form, and for snubDodecahedron the unrelaxed (zero-twist) and
   relaxed (chiral) forms can bucket differently;
@@ -400,7 +398,7 @@ construction, never baked: baked vertex data is frame-specific and ADOPT
 deliberately leaves seeds in walk-dependent orientations; baking creates a
 second source of truth against the §7.1 same-code-path guarantee; and the
 construction cost equals today's `load_shape` spike (which runs the same
-`relax(50)` chains) — already inside the 16 fps hold. If the §6 device
+`relax_baked()` chains) — already inside the 16 fps hold. If the §6 device
 profile flags the spike anyway, the remedy is amortizing construction across
 the preceding hankin cycle's frames, not flash baking.
 
@@ -436,8 +434,7 @@ array — all small and reclaimed by the existing compaction.
 ## 5. Operator-layer changes
 
 Superseded. The operator legs that ship — `MorphOp::CHAMFER` for
-recipe-step legs, the kis-partition `GATED_SWAP` legs and the `MEDIAL_SLERP`
-reconcile legs — are specified in `opchain_morph_spec.md`;
+recipe-step legs and the `MEDIAL_SLERP` reconcile legs — are specified in `opchain_morph_spec.md`;
 `core/animation/opleg.h` and `core/mesh/conway_graph.h` are the source of
 truth.
 
@@ -460,7 +457,7 @@ claim is gated, not assumed:
 ## 7. Testing (all wired into tests/CMakeLists.txt + run_tests.cpp)
 
 1. **Endpoint exactness.** For every non-bridge edge:
-   `op(seed, t_end)` [+ `relax(50)`] equals the registry generator's output
+   `op(seed, t_end)` [+ `relax_baked()`] equals the registry generator's output
    exactly (same code path, same seed frame) — vertex arrays, face_counts,
    faces.
 2. **Topology-constancy sweep** (doubles as the degenerate-trap stress test).
