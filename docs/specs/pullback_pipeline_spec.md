@@ -787,6 +787,13 @@ admitted.
 Policies that are already pure functions in `core/math/lenses.h` are thin
 empty wrappers. Parameterized policies use a narrow provider.
 
+The chain interpreter exposes Twist Lens's signed `twist-rate` in radians per
+unit height (default 3, range -12 to 12). Glitch Lens and Ridge Transfer retain
+their fixed mathematical definitions. Projection controls include Bonne's
+`standard-parallel` magnitude (default pi/4, range 0 to pi/2) and Airocean's
+`layout` (`vertical` or `horizontal`, default `vertical`). Spherical Noise
+exposes the same `basis` choices as Projected Noise, defaulting to `simplex`.
+
 Required projection policies:
 
 - stereographic;

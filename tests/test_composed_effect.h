@@ -1505,6 +1505,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
     {"sample.projected-noise.v2", "basis", {{"simplex"}}},
+    {"sample.spherical-noise.v3", "basis", {{"simplex"}}},
     {"sample.lattice.v2", "weight-mode", {{"projection"}}},
     {"sample.lattice.v2",
      "coverage-mode",
@@ -1610,8 +1611,8 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
   HS_EXPECT_EQ(unreachable_operators, 13u);
-  HS_EXPECT_EQ(catalog_values, 156u);
-  HS_EXPECT_EQ(unreachable_values, 97u);
+  HS_EXPECT_EQ(catalog_values, 161u);
+  HS_EXPECT_EQ(unreachable_values, 101u);
 }
 
 using RippleProbeParams =
