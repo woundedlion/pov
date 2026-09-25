@@ -3187,6 +3187,34 @@ inline void test_multiline_draw_closed_adds_the_seam_edge() {
   HS_EXPECT_GT(open_path.second, 4.0f * row);
 }
 
+/** @brief Replay parameters stay within the interpolation domain at antipodes. */
+inline void test_plot_line_antipodal_replay_parameter() {
+  constexpr int W = 288, H = 144;
+  for (const auto &start : {math::Y_AXIS, math::X_AXIS,
+                            math::Vector(1.0f, 1.0f, 1.0f).normalized()}) {
+    hs_test::StubEffect fx(W, H);
+    CapturePipeline pipe;
+    Fragment from, to;
+    from.pos = start;
+    to.pos = start * -1.0f;
+    from.v0 = 0.0f;
+    to.v0 = 1.0f;
+    int samples = 0;
+    {
+      Canvas canvas(fx);
+      Plot::Line::draw<W, H>(pipe, canvas, from, to,
+                             [&](const math::Vector &, Fragment &f) {
+                               HS_EXPECT_GE(f.v0, 0.0f);
+                               HS_EXPECT_LE(f.v0, 1.0f);
+                               ++samples;
+                               f.color = Color4(Pixel(65535, 0, 0), 1.0f);
+                             });
+    }
+    fx.advance_display();
+    HS_EXPECT_GT(samples, 100);
+  }
+}
+
 /**
  * @brief Verifies a geodesic line through the north pole plots the pole row.
  * @details map_geodesic/map_planar build interpolated points with
@@ -6272,6 +6300,7 @@ inline int run_plot_scan_tests() {
   test_arc_angular_distance_clamps_to_minor_arc();
   test_multiline_draw_closed_adds_the_seam_edge();
   test_plot_line_over_pole_reaches_row0();
+  test_plot_line_antipodal_replay_parameter();
 
   test_planar_one_pass_matches_forward_difference();
   test_planar_one_pass_tangent_is_forward_and_orthogonal();
