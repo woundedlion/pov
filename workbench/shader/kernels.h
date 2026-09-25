@@ -902,10 +902,8 @@ HS_O3_FN inline float grid(const math::Complex &p, const SourceParams &params,
  * @param frame Immutable snapshot of slots, parameters, clocks, transforms,
  *        and palette resources for this frame.
  * @return Straight-alpha colour for the sample.
- * @details Walks outer camera, surface lens, and projection backward. A
- * strict projection whose two lens branches land in different regions cannot
- * be joined in the plane, so the branches are shaded separately and their
- * outputs blended instead.
+ * @details Walks outer camera, surface noise and lens, then projection,
+ * backward and hands the projected sample to shade_projected.
  */
 inline Color4 shade_dynamic(const math::Vector &view, const FrameState &frame,
                             const void *) {
