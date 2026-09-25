@@ -269,9 +269,8 @@ private:
    *          equatorial query's true node can sit dozens of hops around the
    *          longitude circle. A refactor that scanned all RD_K neighbors of a fixed
    *          `cur` before moving would advance one hop per iter, exceed 64 near the
-   *          equator, and silently return a wrong node (the round-trip test cannot
-   *          catch it — it seeds at the answer). Do not convert to best-of-neighbors
-   *          without also raising the cap.
+   *          equator, and trigger the convergence trap. Off-lattice and equatorial
+   *          tests exercise this search beyond queries seeded at the answer.
    */
   HS_COLD_MEMBER static int find_nearest_node(const math::Vector &p,
                                               const math::Vector *lattice) {
