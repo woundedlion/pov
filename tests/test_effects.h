@@ -3282,8 +3282,6 @@ struct CometsWhiteBox {
  * @param a First snapshot.
  * @param b Second snapshot.
  * @return true when every authored key and axis range matches.
- * @details Compared field-wise rather than by memcmp: Snapshot has padding
- *          between its trailing bytes that carries no meaning.
  */
 inline bool palette_snapshots_equal(const GenerativePalette::Snapshot &a,
                                     const GenerativePalette::Snapshot &b) {
