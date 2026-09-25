@@ -1239,3 +1239,73 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
 
 } // namespace color_tests
 } // namespace hs_test
+
+/** @brief Hidden generated harmonies catch up with visible morph and chroma state. */
+inline void test_generated_palette_bank_routes_and_rechromas() {
+  enum class Mode { TRIADIC, COMPLEMENTARY, ANALOGOUS };
+  alignas(std::max_align_t) static uint8_t
+      storage[GeneratedPaletteBank::required_arena_bytes() +
+              BakedPalette::required_arena_bytes()];
+  Arena arena(storage, sizeof(storage));
+  GeneratedPaletteBank bank;
+  bank.init(arena, 0.62f, nullptr);
+  BakedPaletteStorage expected;
+  expected.bake(arena,
+                GenerativePalette(PaletteRecipes::balanced_analogous(0.0f)));
+  auto compare = [&](Mode mode, PaletteHarmony harmony, int from_index,
+                     float progress, float chroma, bool rechromed) {
+    GenerativePalette from(PaletteRecipes::profile(
+        PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
+        math::wrap_t(from_index * 159.0f / 256.0f), chroma));
+    GenerativePalette to(PaletteRecipes::profile(
+        PaletteDomain::STRAIGHT, harmony, AxisCurve::ASCENDING,
+        math::wrap_t((from_index + 1) * 159.0f / 256.0f), chroma));
+    if (rechromed) {
+      from.set_constant_chroma(chroma);
+      to.set_constant_chroma(chroma);
+    }
+    HS_EXPECT_TRUE(from.morph_compatible(to));
+    GenerativePalette morph;
+    morph.morph_palettes(from, to, progress);
+    expected.rebake(morph);
+    hs_test::color_tests::expect_baked_equal(bank.palette(mode), expected);
+  };
+  for (int i = 0; i < 151; ++i)
+    bank.step(Mode::TRIADIC);
+  compare(Mode::TRIADIC, PaletteHarmony::TRIADIC, 0, 0.25f, 0.62f, false);
+  bank.step(Mode::ANALOGOUS);
+  compare(Mode::ANALOGOUS, PaletteHarmony::ANALOGOUS, 0, 151.0f / 600.0f, 0.62f,
+          false);
+  bank.set_chroma(0.4f);
+  constexpr Mode modes[] = {Mode::TRIADIC, Mode::COMPLEMENTARY,
+                            Mode::ANALOGOUS};
+  constexpr PaletteHarmony harmonies[] = {PaletteHarmony::TRIADIC,
+                                          PaletteHarmony::COMPLEMENTARY,
+                                          PaletteHarmony::ANALOGOUS};
+  for (int i = 0; i < 3; ++i) {
+    bank.step(modes[i]);
+    compare(modes[i], harmonies[i], 0, (152.0f + i) / 600.0f, 0.4f, true);
+  }
+  for (int i = 155; i < 602; ++i)
+    bank.step(Mode::TRIADIC);
+  bank.step(Mode::COMPLEMENTARY);
+  compare(Mode::COMPLEMENTARY, PaletteHarmony::COMPLEMENTARY, 1, 1.0f / 600.0f,
+          0.4f, true);
+  uint32_t hue = 0;
+  GenerativePalette previous;
+  for (uint32_t sequence = 0; sequence < 3; ++sequence) {
+    GenerativePalette generated;
+    GeneratedPaletteBank::next_palette(hue, sequence, PaletteHarmony::ANALOGOUS,
+                                       0.4f, generated);
+    HS_EXPECT_EQ(hue, sequence * 159u);
+    const GenerativePalette reference(PaletteRecipes::profile(
+        PaletteDomain::STRAIGHT, PaletteHarmony::ANALOGOUS,
+        AxisCurve::ASCENDING, math::wrap_t(sequence * 159.0f / 256.0f), 0.4f));
+    for (int i = 0; i <= 8; ++i)
+      HS_EXPECT_EQ(generated.get(i / 8.0f).color,
+                   reference.get(i / 8.0f).color);
+    if (sequence > 0)
+      HS_EXPECT_TRUE(previous.morph_compatible(generated));
+    previous = generated;
+  }
+}
