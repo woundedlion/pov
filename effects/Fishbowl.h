@@ -65,14 +65,27 @@ public:
   static constexpr Segue::Preset::Snap PRESET_SEGUE{};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 1;
+  static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
+  static constexpr float CYCLE_DURATION_MIN = 10.0f,
+                         CYCLE_DURATION_MAX = 200.0f;
+  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
+  static constexpr float JITTER_AMP_MIN = 0.0f, JITTER_AMP_MAX = 10.0f;
+  static constexpr float NOISE_FREQ_MIN = 0.01f, NOISE_FREQ_MAX = 10.0f;
+  static constexpr float SCALE_FACTOR_MIN = 1.0f, SCALE_FACTOR_MAX = 500.0f;
+  static constexpr float CYCLE_SPEED_MIN = 0.0f, CYCLE_SPEED_MAX = 1.0f;
+  static constexpr float DUTY_CYCLE_MIN = 0.0f, DUTY_CYCLE_MAX = 1.0f;
   static constexpr bool valid_params(const Params &p) {
-    return p.alpha >= 0.0f && p.alpha <= 1.0f && p.cycle_duration >= 10.0f &&
-           p.cycle_duration <= 200.0f && p.speed >= 0.0f && p.speed <= 5.0f &&
-           p.jitter_amp >= 0.0f && p.jitter_amp <= 10.0f &&
-           p.noise_freq >= 0.01f && p.noise_freq <= 10.0f &&
-           p.scale_factor >= 1.0f && p.scale_factor <= 500.0f &&
-           p.cycle_speed >= 0.0f && p.cycle_speed <= 1.0f &&
-           p.duty_cycle >= 0.0f && p.duty_cycle <= 1.0f;
+    return p.alpha >= ALPHA_MIN && p.alpha <= ALPHA_MAX &&
+           p.cycle_duration >= CYCLE_DURATION_MIN &&
+           p.cycle_duration <= CYCLE_DURATION_MAX && p.speed >= SPEED_MIN &&
+           p.speed <= SPEED_MAX && p.jitter_amp >= JITTER_AMP_MIN &&
+           p.jitter_amp <= JITTER_AMP_MAX && p.noise_freq >= NOISE_FREQ_MIN &&
+           p.noise_freq <= NOISE_FREQ_MAX &&
+           p.scale_factor >= SCALE_FACTOR_MIN &&
+           p.scale_factor <= SCALE_FACTOR_MAX &&
+           p.cycle_speed >= CYCLE_SPEED_MIN &&
+           p.cycle_speed <= CYCLE_SPEED_MAX && p.duty_cycle >= DUTY_CYCLE_MIN &&
+           p.duty_cycle <= DUTY_CYCLE_MAX;
   }
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"fire-trail"};
   static constexpr int TRAIL_LENGTH = 115;
@@ -152,14 +165,20 @@ public:
 
     static_palette.bind(&fire_palette, &scale_mod, &cycle_mod, &duty_mod);
 
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
-    register_param("Speed", &params.speed, 0.0f, 5.0f);
-    register_param("Jitter Amp", &params.jitter_amp, 0.0f, 10.0f);
-    register_param("Noise Scale", &params.noise_freq, 0.01f, 10.0f);
-    register_param("Scale Factor", &params.scale_factor, 1.0f, 500.0f);
-    register_param("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
-    register_param("Duty Cycle", &params.duty_cycle, 0.0f, 1.0f);
+    register_param("Alpha", &params.alpha, ALPHA_MIN, ALPHA_MAX);
+    register_param("Cycle Dur", &params.cycle_duration, CYCLE_DURATION_MIN,
+                   CYCLE_DURATION_MAX);
+    register_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
+    register_param("Jitter Amp", &params.jitter_amp, JITTER_AMP_MIN,
+                   JITTER_AMP_MAX);
+    register_param("Noise Scale", &params.noise_freq, NOISE_FREQ_MIN,
+                   NOISE_FREQ_MAX);
+    register_param("Scale Factor", &params.scale_factor, SCALE_FACTOR_MIN,
+                   SCALE_FACTOR_MAX);
+    register_param("Cycle Speed", &params.cycle_speed, CYCLE_SPEED_MIN,
+                   CYCLE_SPEED_MAX);
+    register_param("Duty Cycle", &params.duty_cycle, DUTY_CYCLE_MIN,
+                   DUTY_CYCLE_MAX);
 
     noise_xform.template_params.amplitude = params.jitter_amp;
     noise_xform.template_params.frequency = params.noise_freq;
