@@ -37,7 +37,7 @@ static inline float frac(int i) { return static_cast<float>(i) / N; }
  * @tparam Fn Callable taking a float t and returning a float.
  * @param f Curve to sample at frac(0)..frac(N).
  * @param monotone If true, require each sample to be non-decreasing relative to
- *        the previous one (strict: these are exact-arithmetic curves) and pin
+ *        the previous one (non-decreasing: these are exact-arithmetic curves) and pin
  *        both endpoints to f(0)=0, f(1)=1.
  * @param name Label forwarded to HS_EXPECT for failure reporting.
  */
