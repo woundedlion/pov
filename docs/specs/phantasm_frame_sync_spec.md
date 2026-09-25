@@ -503,11 +503,9 @@ the ⅛-column wake quantization (§4.1) plus ISR-entry jitter. If the master is
 late at a boundary (the first pulse would start > ~½ column after the
 boundary instant), it **self-censors**: it skips that boundary's symbol
 entirely rather than emit a late one (downstream coasts one half-rev, ~0.01
-col, §4.5); lateness detected *mid-burst* stops the remaining pulses. A
-truncated count is usually invalid (discarded downstream); the two valid
-truncations are harmless — 5→3 keeps the right boundary and only drops the
-epoch flag (the §6.3 repeats cover it), and 3→1 names the wrong boundary,
-which the §5.3 gate rejects on identity. Never emit a lie.
+col, §4.5); lateness detected *mid-burst* stops the remaining pulses. An odd partial boundary burst is invalidated with an extra pulse while the
+burst's gap window remains open, making its count even. This covers all odd
+partial counts (5 to 3, 5 to 1, and 3 to 1); they are not valid wire symbols.
 
 Decode (split across the two ISRs — the §8 single-writer model): the sync-wire
 **RISING** ISR is a pure *publisher* — it applies the glitch filter, increments
@@ -616,12 +614,11 @@ boards starting the new effect on different revolutions, a whole-sphere
 mismatch at every effect boundary. Instead, EPOCH at boundary B means **commit at the
 absolute boundary B+R+K** (R = redundancy repeats, K = construction window,
 both fixed): the countdown runs in two phases. Through the **announce phase**
-(B to B+R — the revolutions carrying the repeats) every board keeps playing
-the outgoing effect. At B+R the **construction window** opens on every board
+(B to B+R, the revolutions carrying the repeats), accepted epoch transitions
+already display black. At B+R the **construction window** opens on every board
 at once: each foreground tears down the old effect and constructs the next
-one in the deterministic roster, displaying **black** for exactly K
-revolutions (deterministic and identical on all boards — never a stale frame
-on some and black on others); at B+R+K every board flips to the new effect's
+one in the deterministic roster. Blackout spans B through B+R+K (five
+revolutions with the current R and K); at B+R+K every board flips to the new effect's
 frame 0 and resets `t=0` simultaneously. A board that accepted a *repeat*
 rather than the primary copy counts down to the **same** boundary — see
 §6.3.1 — which is why construction cannot start before B+R: only then is the
@@ -1178,8 +1175,7 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   never consumed as boundary symbols and vice versa (§6.4 demarcation).
 - **Epoch commit:** simulate per-board init-time spread inside the K-rev
   window; assert every board flips to the new effect's frame 0 at exactly
-  B+R+K with black during the construction window (and NOT during the
-  announce phase), and that an init exceeding K traps (`HS_CHECK`), never
+  B+R+K with black throughout the announce and construction phases, and that an init exceeding K traps (`HS_CHECK`), never
   silently skews. Assert repeat-lockstep (§6.3.1): a board deafened for just
   the primary copy, and the whole downstream side when the master
   self-censors its primary emission, commit at the same boundary as their
