@@ -323,10 +323,8 @@ private:
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     const size_t index = change.to;
     if (change.origin == PresetChangeOrigin::AUTOMATIC) {
-      const Workbench::Choreo choreo = preset_choreo();
       const Workbench::Preset &to = preset_for_view(index);
-      if (!try_apply_config(to.config, choreo.blend_frames, choreo.staggered,
-                            true))
+      if (!try_apply_config(to.config, PRESET_BLEND_FRAMES, true))
         return false;
       requested_config = to.config;
       published_config = to.config;
@@ -1667,7 +1665,6 @@ private:
         Workbench::PaletteMapping::LINEAR;
     uint16_t elapsed = 0;
     uint16_t duration = 0;
-    bool staggered = false;
     bool continue_choreo = false;
     bool active = false;
   };
@@ -2099,9 +2096,6 @@ private:
       blend.params = state->param_morph.from;
     else if (mix == 1.0f)
       blend.params = state->param_morph.to;
-    else if (state->param_morph.staggered)
-      blend.params.lerp_staggered(state->param_morph.from,
-                                  state->param_morph.to, mix, active_slots);
     else
       blend.params.lerp(state->param_morph.from, state->param_morph.to, mix,
                         active_slots);
@@ -2180,7 +2174,7 @@ private:
   }
 
   HS_COLD_MEMBER bool try_apply_config(const Workbench::Config &candidate,
-                                       uint16_t duration, bool staggered,
+                                       uint16_t duration,
                                        bool continue_choreo) {
     if (!admissible_config(candidate) || duration == 0)
       return false;
@@ -2210,7 +2204,6 @@ private:
           target.slots.palette_mapping,
           0,
           duration,
-          staggered,
           continue_choreo,
           true};
       return true;
@@ -2670,19 +2663,13 @@ private:
   }
 #endif
 
-  HS_COLD_MEMBER static constexpr Workbench::Choreo preset_choreo() {
-    return CHOREO;
-  }
-
   HS_COLD_MEMBER void enter_preset() {
     if (preset_count_for_view() < 2) {
       preset_dwell_remaining = 0;
       preset_dwell_armed = false;
       return;
     }
-    const Workbench::Choreo choreo = preset_choreo();
-    preset_dwell_remaining = static_cast<uint16_t>(
-        hs::rand_int(choreo.dwell_min, choreo.dwell_max + 1));
+    preset_dwell_remaining = 0;
     preset_dwell_armed = true;
   }
 
@@ -2706,7 +2693,7 @@ public:
   static constexpr size_t PARAM_CAPACITY = 80;
 
 private:
-  static constexpr Workbench::Choreo CHOREO{0, 0, 480, false};
+  static constexpr uint16_t PRESET_BLEND_FRAMES = 480;
 
   math::Orientation<> projection_walk;
   math::Orientation<> outer_walk;
