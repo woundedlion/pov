@@ -3586,10 +3586,12 @@ struct DynamoWhiteBox {
     Dynamo<DEFAULT_W, DEFAULT_H> effect;
     effect.init();
 
-    // Two overlapping wipes -> two live boundaries (each pushed at the front at
-    // angle 0; their Transitions are never stepped here, so they stay put until
-    // we overwrite them below).
+    const Color4 opening = effect.color(math::Z_AXIS, 0.5f);
     effect.color_wipe();
+    HS_EXPECT_EQ(effect.color(math::Z_AXIS, 0.5f).color, opening.color);
+    effect.palette_boundaries.front() = math::PI_F + effect.WIPE_BLEND_WIDTH;
+    HS_EXPECT_EQ(effect.color(math::Z_AXIS * -1.0f, 0.5f).color,
+                 effect.baked_palettes[0].get(0.5f).color);
     effect.color_wipe();
     HS_EXPECT_EQ(effect.palette_boundaries.size(), static_cast<size_t>(2));
 
