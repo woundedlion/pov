@@ -185,12 +185,9 @@ SHA = "d" * 40
 
 
 class Backfill(unittest.TestCase):
-    """`backfill` attributes sizes to the commit that produced them. `pio run`'s
-    status cannot: it is non-zero for an over-budget commit that linked fine. The
-    ELF mtime is the discriminator — a link restamps it, a failed compile leaves
-    the previous commit's ELF untouched."""
+    """Successful builds may reuse ELFs; failed builds require a fresh ELF."""
 
-    def _backfill(self, *, relink):
+    def _backfill(self, *, relink, status=0):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             worktree = root / "wt"
@@ -207,7 +204,7 @@ class Backfill(unittest.TestCase):
                     # A link rewrites the ELF byte-identically when every object
                     # came from the cache; only its mtime moves.
                     elf.write_bytes(make_elf(FIRMWARE))
-                return subprocess.CompletedProcess(cmd, 0)
+                return subprocess.CompletedProcess(cmd, status)
 
             args = types.SimpleNamespace(
                 worktree=str(worktree), trail=str(trail), env=["holosphere"],
@@ -221,12 +218,18 @@ class Backfill(unittest.TestCase):
             return rc, tst.read_trail(trail)
 
     def test_unrelinked_env_is_not_recorded_with_the_previous_elf(self):
-        rc, rows = self._backfill(relink=False)
+        rc, rows = self._backfill(relink=False, status=1)
         self.assertEqual(rc, 0)
         self.assertEqual(rows, [])
 
+    def test_successful_up_to_date_build_is_recorded(self):
+        rc, rows = self._backfill(relink=False)
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].sha, SHA)
+
     def test_identical_relink_is_still_recorded(self):
-        rc, rows = self._backfill(relink=True)
+        rc, rows = self._backfill(relink=True, status=1)
         self.assertEqual(rc, 0)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].sha, SHA)
