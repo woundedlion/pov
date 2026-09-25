@@ -190,7 +190,7 @@ inline void smoke_one(const char *name) {
   for (int f = 0; f < frames; ++f) {
     pin_frame_clock(f);
     effect.draw_frame();
-    // Consume the queued frame, else the next Canvas ctor spin-waits forever.
+    // Consume the queued frame before the next Canvas constructor watchdog expires.
     effect.advance_display();
     uint64_t hash = hs_test::FNV1A64_BASIS;
     for (int y = 0; y < H; ++y)
