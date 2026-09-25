@@ -161,6 +161,11 @@ def run_drc(pcb_path):
     cli = resolve_kicad_cli()
     if not cli:
         return no_drc(DRC_MISSING)
+    try:
+        fab.validate_project_rules(os.path.splitext(pcb_path)[0] + ".kicad_pro")
+    except fab.ProjectRulesError as error:
+        print(f"{pcb_path}: {error}", file=sys.stderr)
+        return no_drc(DRC_FAILED)
     # Unique report per call + returncode check: a shared fixed path lets a
     # kicad-cli early-exit leave a stale neighbor's report to be misattributed.
     fd, rpt = tempfile.mkstemp(suffix=".json", prefix="cand_drc_")
