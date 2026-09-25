@@ -417,17 +417,13 @@ public:
    *        out.
    * @param p First byte of the region.
    * @param bytes Region length in bytes.
-   * @param birth_floor get_rewind_floor() sampled when the region was handed
-   *        out.
    * @param birth_seq get_rewind_seq() sampled when the region was handed out.
    * @return True iff a rewind since those samples dropped the offset below the
    *         region's end.
    * @details The debug history retains suffix-minimum rewind targets. It traps
    * on more than 256 increasing targets without an intervening deeper rewind.
    */
-  bool reclaimed_since(const void *p, size_t bytes, size_t birth_floor,
-                       uint64_t birth_seq) const {
-    (void)birth_floor;
+  bool reclaimed_since(const void *p, size_t bytes, uint64_t birth_seq) const {
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
     uintptr_t q = reinterpret_cast<uintptr_t>(p);
     if (q < base)
@@ -489,18 +485,15 @@ private:
 struct ArenaBlockStamp {
   Arena *source_arena = nullptr; /**< Arena the block was allocated from. */
   uint32_t birth_generation = 0; /**< Arena generation when stamped. */
-  size_t birth_rewind_floor = 0; /**< Arena rewind floor when stamped. */
   uint64_t birth_rewind_seq = 0; /**< Arena rewind counter when stamped. */
 
   /**
-   * @brief Stamps against @p arena's current generation, rewind floor and
-   *        rewind counter.
+   * @brief Stamps against @p arena's current generation and rewind counter.
    * @param arena Arena the block was just allocated from.
    */
   void record(Arena &arena) {
     source_arena = &arena;
     birth_generation = arena.get_generation();
-    birth_rewind_floor = arena.get_rewind_floor();
     birth_rewind_seq = arena.get_rewind_seq();
   }
 
@@ -510,7 +503,6 @@ struct ArenaBlockStamp {
   void clear() {
     source_arena = nullptr;
     birth_generation = 0;
-    birth_rewind_floor = 0;
     birth_rewind_seq = 0;
   }
 
@@ -543,8 +535,7 @@ struct ArenaBlockStamp {
    */
   bool block_reissued(const void *p, size_t bytes) const {
     return source_arena && bytes > 0 &&
-           source_arena->reclaimed_since(p, bytes, birth_rewind_floor,
-                                         birth_rewind_seq);
+           source_arena->reclaimed_since(p, bytes, birth_rewind_seq);
   }
 
   /** @brief Whether the stamped block remains owned and live. */
