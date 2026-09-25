@@ -970,7 +970,7 @@ Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>,
     ..., Filter::Pixel::Feedback<W, H>(style));
 ```
 
-The Filter auto-syncs from the Style every frame — when the Style lerps between presets, the function pointers snap at the midpoint while scalars interpolate smoothly.
+The filter reads the Style each frame. After changing its noise scalars, call `Style::sync_noise()` before rendering. When the Style lerps between presets, the function pointers snap at the midpoint while scalars interpolate smoothly.
 
 | Preset | Description |
 |---|---|
