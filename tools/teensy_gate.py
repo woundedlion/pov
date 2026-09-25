@@ -16,8 +16,8 @@ What it does:
     their LOAD ADDRESS against the Teensy 4 memory map (NOT an `nm` type letter:
     DTCM .bss and OCRAM .dmabuffers are both NOBITS and `nm` cannot tell them
     apart), and assert each lands in the region it must, with the arena's
-    MAGNITUDE pinned near 305,152 B (298 KiB) so a leaked host arena (8 MiB)
-    arena fails.
+    size bounded to [288 KiB, 320 KiB] (currently 298 KiB), so a leaked
+    8 MiB host arena or a collapsed arena fails.
   * fail-loud       — a configured layout symbol that is NOT FOUND in the ELF is a
     violation, never a silent skip: a name that never matches would make the
     invariant never fire (false-green).
