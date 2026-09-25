@@ -17,6 +17,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <type_traits>
 
@@ -1032,6 +1033,13 @@ public:
   static bool valid_params(const Params &params) {
     return Pullback::valid(params);
   }
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  const char *parameter_warning(const char *name) const override {
+    return refused_name != nullptr && std::strcmp(name, refused_name) == 0
+               ? "Mobius coefficients must have a nonzero determinant."
+               : nullptr;
+  }
+#endif
 #if HS_ENABLE_TEST_HOOKS
   FrameState frame_for_test() { return prepare_frame(); }
 #endif
@@ -1043,6 +1051,32 @@ protected:
 
   using Choreography::anims_paused;
   using Choreography::params;
+
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  bool parameter_write_admitted(const ParamDef &parameter,
+                                float value) override {
+    if constexpr (requires { params.lens.mobius; }) {
+      const uintptr_t begin = reinterpret_cast<uintptr_t>(&params.lens);
+      const uintptr_t target = reinterpret_cast<uintptr_t>(parameter.target);
+      if (target >= begin && target - begin < sizeof(params.lens)) {
+        auto candidate = params.lens;
+        ParamDef proposed = parameter;
+        proposed.target =
+            reinterpret_cast<unsigned char *>(&candidate) + (target - begin);
+        this->write_parameter_unchecked(proposed, value);
+        if (!Pullback::valid(candidate)) {
+          refused_name = parameter.name;
+          return false;
+        }
+      }
+    }
+    refused_name = nullptr;
+    return true;
+  }
+
+  const char *refused_name = nullptr;
+#endif
+
   using Choreography::step_choreography;
   using Choreography::register_animated_param;
   using Choreography::timeline;
