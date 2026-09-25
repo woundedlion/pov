@@ -48,10 +48,10 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 Raymarch and IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
-Each row links to the report generated from that log and its provenance sidecar.
+Each row links to the report generated from its capture log.
 
-For cyclers, each `<br>`-joined line is one colour bucket, worst first.
-(N) counts parser-owned preset, shape, or mode entries in that colour bucket.
+For cyclers, each row summarizes the parser-owned preset, shape, or mode entries.
+(N) gives the entry count; the linked report contains the individual buckets.
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
 - **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
