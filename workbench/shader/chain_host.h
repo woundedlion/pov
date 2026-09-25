@@ -112,7 +112,6 @@ public:
       one frame. */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
-    ++frame_index;
     program.advance();
     const ColorizeTap &tap = colorize;
     update_palette_chroma(tap.palette_chroma != nullptr ? *tap.palette_chroma
@@ -326,8 +325,6 @@ private:
   HS_FLASH_MEMBER Pullback::Interp::FrameContext
   make_frame_context(const ColorizeTap &tap) {
     Pullback::Interp::FrameContext ctx;
-    ctx.frame = frame_index;
-    ctx.time = static_cast<float>(frame_index) * FRAME_SECONDS;
     ctx.projection_base =
         math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
     using PaletteMode = Pullback::Interp::Op::PaletteMode;
@@ -374,10 +371,6 @@ private:
       Pullback::Color::ColorParams{}.palette_chroma;
   /** Chain schema capacity; the effect registers no globals of its own. */
   static constexpr size_t PARAM_CAPACITY = Pullback::Interp::MAX_CHAIN_PARAMS;
-  /** Nominal frame period behind FrameContext::time. The engine has no wall
-      clock — every operator rate is per frame — so this only gives the context
-      a monotonic seconds axis. */
-  static constexpr float FRAME_SECONDS = 1.0f / 30.0f;
 
   Pullback::Interp::ChainProgram program;
   /** Refreshed on every commit; the param block it points at stays put until
@@ -385,7 +378,6 @@ private:
   ColorizeTap colorize;
   Resources *resources = nullptr;
   GeneratedPaletteBank generated_palettes;
-  uint32_t frame_index = 0;
 
   // Against the browser module's arena, not the build's: this effect never
   // reaches the device, and the host suite's arena is far too loose to catch a
