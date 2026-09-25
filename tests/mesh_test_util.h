@@ -273,3 +273,22 @@ inline math::Vector face_centroid_unit(const PolyMesh &m,
 }
 
 } // namespace hs_test
+
+/** @brief Copies a fixed solid into mutable renderer storage, optionally omitting its last face. */
+template <typename Solid>
+inline void build_meshstate_solid(MeshState &mesh, Arena &arena,
+                                  bool open = false) {
+  mesh.vertices.bind(arena, Solid::vertices.size());
+  for (const auto &vertex : Solid::vertices)
+    mesh.vertices.push_back(vertex);
+  const size_t face_count = Solid::face_counts.size() - (open ? 1 : 0);
+  mesh.face_counts.bind(arena, face_count);
+  size_t index_count = 0;
+  for (size_t face = 0; face < face_count; ++face) {
+    mesh.face_counts.push_back(Solid::face_counts[face]);
+    index_count += Solid::face_counts[face];
+  }
+  mesh.faces.bind(arena, index_count);
+  for (size_t i = 0; i < index_count; ++i)
+    mesh.faces.push_back(static_cast<uint16_t>(Solid::faces[i]));
+}

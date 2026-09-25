@@ -2689,6 +2689,36 @@ inline void case_plot_mesh_vertex_over_capacity() {
   }); // index 130 -> trap
 }
 
+/** @brief An open face dual cannot supply a complete wireframe. */
+inline void case_plot_four_regular_open_mesh() {
+  configure_arenas_default();
+  MeshState mesh;
+  build_meshstate_solid<Solids::Octahedron>(mesh, persistent_arena,
+                                            opaque(true));
+  ArenaVector<Plot::Mesh::Edge> edges(persistent_arena, mesh.faces.size());
+  Plot::Mesh::extract_four_regular_edges(mesh, edges, scratch_arena_a);
+}
+
+/** @brief A tetrahedron's dual has odd cycles and cannot be two-colored. */
+inline void case_plot_four_regular_non_bipartite() {
+  configure_arenas_default();
+  MeshState mesh;
+  build_meshstate_solid<Solids::Tetrahedron>(mesh, persistent_arena);
+  ArenaVector<Plot::Mesh::Edge> edges(persistent_arena, mesh.faces.size());
+  Plot::Mesh::extract_four_regular_edges(mesh, edges, scratch_arena_a);
+}
+
+/** @brief Face-edge lookup rejects an absent pair. */
+inline void case_plot_find_missing_edge() {
+  configure_arenas_default();
+  ArenaVector<Plot::Mesh::Edge> edges(persistent_arena, 1);
+  edges.push_back({opaque<uint16_t>(0), opaque<uint16_t>(1)});
+  const auto index = Plot::Mesh::find_edge_index(edges, opaque<uint16_t>(1),
+                                                 opaque<uint16_t>(2));
+  if (index == opaque<uint16_t>(42))
+    std::printf("x");
+}
+
 /**
  * @brief Death case: extract_edges with an over-capacity vertex index must trap.
  * @details Plot surface — the precomputed-edge path traps on the same cold setup
@@ -5269,6 +5299,15 @@ inline const Case *all_cases(int &n) {
           {"plot_mesh_vertex_over_capacity",
            case_plot_mesh_vertex_over_capacity, "core/render/plot/mesh.h",
            "(large < DEDUP_CAPACITY) "},
+          {"plot_four_regular_open_mesh", case_plot_four_regular_open_mesh,
+           "core/render/plot/mesh.h",
+           "(he.pair != HE_NONE) extract_four_regular_edges: mesh is not closed"},
+          {"plot_four_regular_non_bipartite",
+           case_plot_four_regular_non_bipartite, "core/render/plot/mesh.h",
+           "(colors[adjacent] == adjacent_color) four-regular mesh dual is not bipartite"},
+          {"plot_find_missing_edge", case_plot_find_missing_edge,
+           "core/render/plot/mesh.h",
+           "(false) find_edge_index: face edge missing from the edge list"},
           {"plot_extract_edges_vertex_over_capacity",
            case_plot_extract_edges_vertex_over_capacity,
            "core/render/plot/mesh.h", "(large < DEDUP_CAPACITY) "},
@@ -5462,7 +5501,8 @@ inline const Case *all_cases(int &n) {
           {"chain_non_power_alignment", case_chain_non_power_alignment,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-          {"chain_overaligned_block", case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+          {"chain_overaligned_block",
+           case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
           {"chain_zero_size", case_chain_zero_size,
            "core/render/pullback/interpreter.h",
            "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},
@@ -6208,7 +6248,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/filter/screen_trails.h", 2},
     {"core/render/filter/world_trails.h", 2},
     {"core/render/plot/cull.h", 1},
-    {"core/render/plot/mesh.h", 7},
+    {"core/render/plot/mesh.h", 4},
     {"core/render/plot/raster.h", 5},
     {"core/render/plot/shapes.h", 13},
     {"core/render/pullback/interpreter.h", 13},
