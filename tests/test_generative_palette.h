@@ -597,6 +597,13 @@ inline void test_generative_palette_rejects_unavailable_path_minimum() {
 }
 
 inline void test_generative_palette_absolute_basis_canonicalizes_headroom() {
+  const PaletteRecipe GRAY_BLUE =
+      PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, CPixel(0, 0, 0),
+                                  CPixel(0, 0, 255), CPixel(255, 255, 255));
+  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[0], GRAY_BLUE.hue.custom_turns[1],
+                 1e-6f);
+  HS_EXPECT_NEAR(GRAY_BLUE.hue.custom_turns[2], GRAY_BLUE.hue.custom_turns[1],
+                 1e-6f);
   PaletteRecipe input = PaletteRecipes::from_oklch_keys(
       PaletteDomain::STRAIGHT, OKLCH{0.5f, 0.10f, 0.0f},
       OKLCH{0.6f, 0.12f, 1.0f}, OKLCH{0.7f, 0.08f, 2.0f});

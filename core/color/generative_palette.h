@@ -1376,6 +1376,17 @@ HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
 /** @brief Builds a custom three-key recipe from OKLCH control colors. */
 inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
                                      OKLCH c) {
+  OKLCH *keys[] = {&a, &b, &c};
+  for (int i = 0; i < 3; ++i) {
+    if (keys[i]->C >= OKLCH_ACHROMATIC_C)
+      continue;
+    int nearest = -1;
+    for (int j = 0; j < 3; ++j)
+      if (keys[j]->C >= OKLCH_ACHROMATIC_C &&
+          (nearest < 0 || std::abs(j - i) < std::abs(nearest - i)))
+        nearest = j;
+    keys[i]->h = nearest < 0 ? 0.0f : keys[nearest]->h;
+  }
   b.h = a.h + wrap_angle_pi(b.h - a.h);
   c.h = b.h + wrap_angle_pi(c.h - b.h);
   PaletteRecipe recipe;
