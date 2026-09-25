@@ -46,7 +46,7 @@ HS_O3_BEGIN
  * @param temp Mesh built in the scratch arena pair.
  * @param geom Long-lived arena that backs the returned mesh.
  * @return A PolyMesh owning copies of temp's vertex/face data in geom.
- * @details Frees the scratch arenas for reuse by the next solid without
+ * @details Copies into geom so the caller can rewind the scratch pair without
  * clobbering the result.
  */
 FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
@@ -334,9 +334,8 @@ inline int relax_bakes_verified = 0;
  * The seed may sit in either arena: a base solid builds into `a`, while a
  * nested chain leaves its result in whichever arena its last step wrote. So the
  * first operator may read its input from the arena it writes its output into.
- * That costs peak arena, not correctness: every operator binds its output before
- * opening a ScratchScope, and a bump arena never rewinds below a live
- * allocation.
+ * No operator rewinds its output arena below its entry offset, and a bump arena
+ * never rewinds below a live allocation.
  *
  * Each step then rewinds the arena the NEXT step writes into back to the offset
  * it held when the chain started, reclaiming that step's spent intermediates
