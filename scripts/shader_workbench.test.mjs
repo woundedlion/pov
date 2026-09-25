@@ -302,6 +302,32 @@ test('the example chain document validates against the catalog', () => {
   assert.deepEqual(validate(example()), []);
 });
 
+test('chain endpoints and enum domains retain exact diagnostics', () => {
+  const cases = [
+    ['ENTRY_FAMILY', '$.descriptor.chain[0]', (document) => {
+      document.descriptor.chain.splice(0, 2);
+    }],
+    ['EXIT_FAMILY', '$.descriptor.chain[2]', (document) => {
+      document.descriptor.chain.pop();
+    }],
+    ['EMPTY_CHAIN', '$.descriptor.chain', (document) => {
+      document.descriptor.chain = [];
+    }],
+    ['ENUM_DOMAIN_MISMATCH', null, (document) => {
+      const index = document.descriptor.parameters.findIndex((parameter) => parameter.storage === 'enum8');
+      document.descriptor.parameters[index].domain.values.reverse();
+      return `$.descriptor.parameters[${index}].domain.values`;
+    }],
+  ];
+  for (const [code, path, mutate] of cases) {
+    const document = example();
+    const expectedPath = mutate(document) ?? path;
+    const diagnostics = validate(document).filter((diagnostic) => diagnostic.code === code);
+    assert.deepEqual(diagnostics.map(({ code: actualCode, path: actualPath }) =>
+      [actualCode, actualPath]), [[code, expectedPath]]);
+  }
+});
+
 test('a malformed catalog reports CATALOG_REQUIRED', () => {
   const cases = [];
   for (const key of [
