@@ -879,7 +879,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       current_dist += step;
 
       // total_dist > 0 here (HS_CHECK(sim_dist > 0) implies >=1 sim step).
-      float t = current_dist / total_dist;
+      float t = std::min(current_dist / total_dist, 1.0f);
 
       if (plot_window && (t < plot_t_start || t > plot_t_hi))
         continue;
