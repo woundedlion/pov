@@ -5010,12 +5010,12 @@ inline const Case *all_cases(int &n) {
            "65535]"},
           {"correction_guard_double_construct",
            case_correction_guard_double_construct, "core/platform/led.h",
-           "(!correction_guard_live()) at most one correction guard may be "
-           "live at a time (see contract above)"},
+           "(!correction_guard_live()) NoColorCorrection and NoTempCorrection "
+           "guards cannot overlap"},
           {"correction_guard_cross_type", case_correction_guard_cross_type,
            "core/platform/led.h",
-           "(!correction_guard_live()) at most one correction guard may be "
-           "live at a time (see contract above)"},
+           "(!correction_guard_live()) NoColorCorrection and NoTempCorrection "
+           "guards cannot overlap"},
           {"mesh_narrow_index", case_mesh_narrow_index, "core/mesh/mesh.h",
            "(i <= MeshLimits::MAX_VERTEX_INDEX) mesh index exceeds int16_t "
            "topology range (oversized mesh?)"},
