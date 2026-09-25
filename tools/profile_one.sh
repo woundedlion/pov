@@ -8,8 +8,8 @@
 #
 # Host: Windows + Git Bash. The flash and the ELF attestation shell out to the
 # PlatformIO loader's .exe tools through cygpath, and device_lock.sh enumerates
-# boards by COM name; on any other host the run fails at the flash step and the
-# per-board lock degrades to one bench-wide lock.
+# boards by COM name. A run without an enumerated board fails at acquisition
+# before building the images.
 #
 # Takes a per-board device lock (tools/device_lock.sh) around the whole
 # build+flash+capture, so concurrent agents run on different boards, and queue
