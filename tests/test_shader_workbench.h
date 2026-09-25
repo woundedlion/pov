@@ -5062,7 +5062,7 @@ inline void test_shader_workbench_operator_catalog_census() {
   using SurfaceCurl =
       Pullback::Surface::CurlNoise<WB::SurfaceStateProvider,
                                    math::NoiseBasis::FBM3,
-                                   Pullback::Surface::Midpoint2x>;
+                                   Pullback::Surface::Midpoint2>;
   using Mobius = Pullback::Lens::Mobius<WB::LensStateProvider>;
   using Equirectangular =
       Pullback::Projection::Equirectangular<WB::ProjectionStateProvider>;

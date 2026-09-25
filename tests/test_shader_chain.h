@@ -1448,7 +1448,7 @@ inline void run_curl_displace_basis(In::ChainProgram &program,
   run_curl_displace_variant<Basis, PB::Surface::Midpoint>(program, ctx);
   params.integrator =
       static_cast<uint8_t>(PB::Surface::Integrator::MIDPOINT_2X);
-  run_curl_displace_variant<Basis, PB::Surface::Midpoint2x>(program, ctx);
+  run_curl_displace_variant<Basis, PB::Surface::Midpoint2>(program, ctx);
 }
 
 inline void test_shader_chain_parity_displace_curl() {
