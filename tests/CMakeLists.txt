@@ -512,7 +512,7 @@ add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_teensy_size_trail.cmake)
 
 # Pin core/color/gamut_lut.h against its generator, the generator's copies of the
-# OKLab matrices and the gamut slack against core/color/color.h, and its diamond
+# OKLab matrices and the gamut slack against core/color/color_space.h, and its diamond
 # angle against core/math/3dmath.h — drift there invalidates the brackets the
 # per-pixel bisection is confined to, or mis-indexes them. A full regeneration is
 # ~1 min of numpy.

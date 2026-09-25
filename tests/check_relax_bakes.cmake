@@ -5,9 +5,7 @@
 # never arrive buried in an emitter reformat.
 # -D args: PYTHON_EXE, SCRIPT, HARNESS, DUMP.
 
-# Script mode inherits no policies from the project, so every policy would
-# otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29
-# feature. Matches the top-level CMakeLists.
+# Match the top-level CMake policy version in script mode.
 cmake_minimum_required(VERSION 3.29)
 
 # Through a file rather than a pipe: execute_process cannot chain into a second
