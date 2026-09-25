@@ -255,7 +255,7 @@ def run_lock(script, lock_base, ports=("COM3", "COM4"), env=None):
     """
     stub = ""
     if ports is not None:
-        body = "; ".join(f"echo {p}" for p in ports)
+        body = "; ".join(f"echo {p}" for p in ports) or ":"
         stub = "hs_device_ports() { %s; };" % body
     full = f'. "{LOCK_SH}"; {stub} {script}'
     e = dict(os.environ, HS_DEVICE_LOCK=str(lock_base))
@@ -271,6 +271,23 @@ class BoardSelection(unittest.TestCase):
     def setUp(self):
         self.base = Path(tempfile.mkdtemp()) / "lock"
         self.addCleanup(shutil.rmtree, self.base.parent, ignore_errors=True)
+
+    def test_no_enumerated_board_fails_without_a_claim(self):
+        result = run_lock("hs_device_acquire E profile 60", self.base, ports=())
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("no Teensy is enumerated", result.stderr)
+        self.assertEqual(list(self.base.parent.glob("lock*.d")), [])
+
+    def test_wait_reenumerates_a_board_after_it_appears(self):
+        ready = self.base.parent / "ready"
+        script = (f'hs_device_ports() {{ test ! -f "{ready}" || echo COM3; }}; '
+                  f'sleep() {{ touch "{ready}"; }}; '
+                  'hs_device_acquire E profile 60; rc=$?; '
+                  'echo "port=$HS_DEVICE_PORT"; hs_device_release; exit "$rc"')
+        result = run_lock(script, self.base, ports=(), env={"HS_DEVICE_WAIT": "5"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("port=COM3", result.stdout)
+        self.assertEqual(list(self.base.parent.glob("lock*.d")), [])
 
     def lock_dir(self, port):
         return Path(f"{self.base}-{port}.d")
