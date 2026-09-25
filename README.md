@@ -263,7 +263,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── solid_generators.h     Platonic vertex/face tables, SolidBuilder, and the named solid generators
 │   │   ├── solids.h                Solid registries, Recipe mirrors, and the name/index lookups
 │   │   ├── relax_bake.h             Relax payload and source identity checks
-│   │   └── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
+│   │   ├── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
+│   │   └── relax_bake_specs.h     Authored relax-bake names and iteration budgets
 │   ├── spatial/                Spatial indexing and spherical graph structures
 │   │   ├── kd_tree.h               KDTree k-nearest-neighbor search
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)

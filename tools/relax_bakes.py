@@ -32,12 +32,6 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 ASSET = ROOT / "core/mesh/relax_bakes_generated.h"
 
-# Exhaustive source scan: this phase keeps every committed bake at least 1e-5
-# from a grid boundary while preserving distinct peer identities.
-SOURCE_SCALE = 2013
-SOURCE_BIAS_BITS = 0x3F3C7774
-SOURCE_MIN_MARGIN_BITS = 0x3727C5AC
-
 
 def float_from_bits(bits: int) -> float:
     return struct.unpack("!f", struct.pack("!I", bits))[0]
@@ -67,6 +61,7 @@ def parse_dump(text: str) -> list[dict]:
     order: list[str] = []
     meta: dict | None = None
     words: list[int] = []
+    grid: tuple[int, int, int] | None = None
     for lineno, line in enumerate(text.splitlines(), 1):
         parts = line.split()
         if not parts:
@@ -81,17 +76,19 @@ def parse_dump(text: str) -> list[dict]:
                 )
             (name, iterations, v, f, i, topo, source, out, scale, bias,
              required_margin, actual_margin) = parts[1:13]
-            if (int(scale) != SOURCE_SCALE or int(bias, 16) != SOURCE_BIAS_BITS
-                    or int(required_margin, 16) != SOURCE_MIN_MARGIN_BITS):
+            current_grid = (int(scale), int(bias, 16), int(required_margin, 16))
+            if grid is not None and current_grid != grid:
                 raise ValueError(f"{name}: source identity grid mismatch")
+            grid = current_grid
             margin = float_from_bits(int(actual_margin, 16))
-            if not margin >= float_from_bits(SOURCE_MIN_MARGIN_BITS):
+            if not margin >= float_from_bits(int(required_margin, 16)):
                 raise ValueError(
                     f"{name}: source quantization margin {margin:.9g} is below "
-                    f"{float_from_bits(SOURCE_MIN_MARGIN_BITS):.9g}"
+                    f"{float_from_bits(int(required_margin, 16)):.9g}"
                 )
             meta = {
                 "name": name,
+                "source_grid": grid,
                 "iterations": int(iterations),
                 "vertices": int(v),
                 "faces": int(f),
@@ -149,17 +146,18 @@ def vertex_hash(words: list[int]) -> int:
 
 
 def emit_header(bakes: list[dict]) -> str:
+    source_scale, source_bias_bits, source_min_margin_bits = bakes[0]["source_grid"]
     lines = [
         "/*",
         " * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.",
         " * Licensed under the PolyForm Noncommercial License 1.0.0",
-        " * Payload fields generated; names and iterations are authored here.",
+        " * Generated payloads; authored inputs: core/mesh/relax_bake_specs.h.",
         " * See tools/relax_bake_harness.cpp for authoring. Regenerate payloads with:",
         " *   <build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin",
-        f" * Source identity grid: scale {SOURCE_SCALE}, "
-        f"bias bits 0x{SOURCE_BIAS_BITS:08x},",
-        f" * minimum boundary margin 0x{SOURCE_MIN_MARGIN_BITS:08x} "
-        f"({c_float_literal(float_from_bits(SOURCE_MIN_MARGIN_BITS))}).",
+        f" * Source identity grid: scale {source_scale}, "
+        f"bias bits 0x{source_bias_bits:08x},",
+        f" * minimum boundary margin 0x{source_min_margin_bits:08x} "
+        f"({c_float_literal(float_from_bits(source_min_margin_bits))}).",
         " */",
         "#pragma once",
         "",
@@ -167,14 +165,20 @@ def emit_header(bakes: list[dict]) -> str:
         "#include <bit>",
         "#include <iterator>",
         '#include "mesh/relax_bake.h"',
+        '#include "mesh/relax_bake_specs.h"',
         "",
+        "#if defined(HS_RELAX_BAKE_EXTRACT)",
+        "namespace Solids { namespace RelaxBakes = RelaxBakeSpecs; }",
+        "#else",
         "// clang-format off",
         "namespace Solids {",
         "namespace RelaxBakes {",
         "",
-        f'static_assert(MeshOps::RELAX_SOURCE_SCALE == {SOURCE_SCALE}.0f, "Regenerate relax bakes after changing RELAX_SOURCE_SCALE");',
-        f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_BIAS) == 0x{SOURCE_BIAS_BITS:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_BIAS");',
-        f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN) == 0x{SOURCE_MIN_MARGIN_BITS:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_MIN_MARGIN");',
+        "#if !defined(HS_RELAX_BAKE_EXTRACT)",
+        f'static_assert(MeshOps::RELAX_SOURCE_SCALE == {source_scale}.0f, "Regenerate relax bakes after changing RELAX_SOURCE_SCALE");',
+        f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_BIAS) == 0x{source_bias_bits:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_BIAS");',
+        f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN) == 0x{source_min_margin_bits:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_MIN_MARGIN");',
+        "#endif",
         "",
     ]
     for bake in bakes:
@@ -187,11 +191,11 @@ def emit_header(bakes: list[dict]) -> str:
         lines.extend([
             "};",
             f"inline constexpr MeshOps::RelaxBake {name} = {{",
-            f'    .name = "{name}", .vertex_bits = {name}_bits,',
+            f'    .name = RelaxBakeSpecs::{name}.name, .vertex_bits = {name}_bits,',
             f'    .vertex_count = {bake["vertices"]}, '
             f'.face_count = {bake["faces"]}, '
             f'.index_count = {bake["indices"]}, '
-            f'.iterations = {bake["iterations"]},',
+            f'.iterations = RelaxBakeSpecs::{name}.iterations,',
             f'    .source_hash = 0x{bake["source_hash"]:08x}u,',
             f'    .topology_hash = 0x{bake["topology_hash"]:08x}u,',
             f'    .output_hash = 0x{bake["output_hash"]:08x}u}};',
@@ -202,6 +206,7 @@ def emit_header(bakes: list[dict]) -> str:
         "} // namespace RelaxBakes",
         "} // namespace Solids",
         "// clang-format on",
+        "#endif",
         "",
     ])
     return "\n".join(lines)
