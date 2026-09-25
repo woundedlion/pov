@@ -2,6 +2,9 @@
 
 Section 7 of the [Holosphere README](https://github.com/woundedlion/pov/blob/master/README.md).
 
+The [pullback stage-families specification](specs/pullback_stage_families_spec.md)
+describes the shipped stage model.
+
 ## Contents
 
 - [7.0 The Shader Interface](#70-the-shader-interface)
