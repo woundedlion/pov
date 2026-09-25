@@ -880,6 +880,20 @@ class TestDerivedComponentCeiling(unittest.TestCase):
 
 
 class TestWarningRatchet(unittest.TestCase):
+    def test_toolchain_warning_uses_innermost_first_party_inline_frame(self):
+        context = (
+            "In file included from ./core/spatial/kd_tree.h:6:\n"
+            "    inlined from 'nearest' at ./core/spatial/kd_tree.h:182:14,\n"
+            "    inlined from 'classify' at ./effects/Voronoi.h:295:28:\n")
+        toolchain = "/x/.platformio/packages/toolchain-gccarmnoneeabi-teensy/include/bits/stl_algo.h"
+        diagnostic = ":1818:32: warning: array subscript 16 is outside array bounds [-Warray-bounds=]"
+        self.assertEqual(tw.extract_warnings(context + toolchain + diagnostic), {
+            "core/spatial/kd_tree.h: warning: array subscript 16 is outside array bounds [-Warray-bounds=]"})
+        framework = "/x/.platformio/packages/framework-arduinoteensy/cores/teensy4/usb.c"
+        self.assertEqual(tw.extract_warnings(context + framework + diagnostic), set())
+        self.assertEqual(tw.extract_warnings(context + framework + diagnostic + "\n"
+                                            + toolchain + diagnostic), set())
+
     def test_normalize_strips_line_and_col_keeps_identity(self):
         a = tw.normalize("core/effects/Foo.h:120:7: warning: unused variable 'x' [-Wunused-variable]")
         b = tw.normalize("core/effects/Foo.h:998:3: warning: unused variable 'x' [-Wunused-variable]")
