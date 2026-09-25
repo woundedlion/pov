@@ -921,11 +921,7 @@ static_assert(AllPolicies::MERGEABLE,
  * origins (MANUAL, SYNCHRONIZED) always snap in ChoreographedEffect itself,
  * regardless of policy. Roster: Lerp (param-space crossfade), Snap (immediate
  * adoption), Fade (fade through zero opacity: out, adopt in the dark, in — the
- * two parameter sets never render on the same frame). Dissolve — each element
- * flipping from the old parameter set to the new at its own seeded random
- * time, so every element still renders once per frame — is reserved for this
- * roster but unimplemented until an effect adopts it; the nested namespace
- * keeps that spelling clear of the sprite policy Segue::Dissolve above.
+ * two parameter sets never render on the same frame).
  *
  * Unlike the sprite segues above, which MeshCarousel keeps one mutable instance
  * of, a preset policy carries no per-transition state: ChoreographedEffect
