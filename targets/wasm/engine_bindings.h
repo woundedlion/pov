@@ -16,7 +16,7 @@
 
 #include <emscripten/bind.h>
 #include <emscripten/stack.h>
-#include "targets/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
+#include "targets/effects.h"
 #if HS_ENABLE_CHAIN_INTERPRETER
 #include "core/render/pullback/catalog_export.h"
 #endif
