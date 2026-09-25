@@ -393,7 +393,18 @@ inline const MeshOpProbe MESH_OP_PROBES[] = {
 // Widest face an operator emits at a side count fixed by its construction
 // rather than by the input (kis triangles, gyro pentagons, chamfer hexagons).
 // Those cannot scale into the 8-bit side count, so no growth factor covers them.
-inline constexpr size_t FIXED_EMITTER_DEGREE = 6;
+inline size_t fixed_emitter_degree(const char *name) {
+  if (std::strcmp(name, "chamfer") == 0)
+    return 6;
+  if (std::strcmp(name, "expand") == 0)
+    return 4;
+  if (std::strcmp(name, "gyro") == 0)
+    return 5;
+  if (std::strcmp(name, "kis") == 0 || std::strcmp(name, "needle") == 0 ||
+      std::strcmp(name, "meta") == 0)
+    return 3;
+  return 0;
+}
 
 /**
  * @brief Runs one operator and checks its real growth against its declared
@@ -412,6 +423,7 @@ inline constexpr size_t FIXED_EMITTER_DEGREE = 6;
  */
 inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
                                  Arena &target, Arena &temp, Arena &finalized) {
+  HS_CONTEXT(probe.name);
   const hs_wasm::MeshOpBoundsEntry *row =
       hs_wasm::find_mesh_op_bounds(probe.name);
   HS_EXPECT_TRUE(row != nullptr);
@@ -440,7 +452,7 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
 
   HS_EXPECT_GT(out_elements, 0u);
   HS_EXPECT_LE(out_elements, row->bounds.elements * in_elements);
-  HS_EXPECT_LE(out_degree, std::max({FIXED_EMITTER_DEGREE,
+  HS_EXPECT_LE(out_degree, std::max({fixed_emitter_degree(probe.name),
                                      row->bounds.face_degree * in_degree,
                                      row->bounds.valence * in_valence}));
 
@@ -500,6 +512,63 @@ inline void test_mesh_op_growth_factors() {
   probe_solid_growth<Solids::Octahedron>(input, target, temp, finalized);
   probe_solid_growth<Solids::Icosahedron>(input, target, temp, finalized);
   probe_solid_growth<Solids::Dodecahedron>(input, target, temp, finalized);
+
+  input.reset();
+  PolyMesh bipyramid;
+  constexpr uint16_t N = 16;
+  bipyramid.vertices.bind(input, N + 2);
+  bipyramid.face_counts.bind(input, 2 * N);
+  bipyramid.faces.bind(input, 6 * N);
+  bipyramid.vertices.push_back(math::Vector(0, 1, 0));
+  bipyramid.vertices.push_back(math::Vector(0, -1, 0));
+  for (uint16_t i = 0; i < N; ++i) {
+    const float ANGLE = math::TWO_PI_F * i / N;
+    bipyramid.vertices.push_back(math::Vector(cosf(ANGLE), 0, sinf(ANGLE)));
+  }
+  for (uint16_t i = 0; i < N; ++i) {
+    const uint16_t HERE = i + 2, NEXT = (i + 1) % N + 2;
+    for (uint16_t vertex : {uint16_t{0}, NEXT, HERE, uint16_t{1}, HERE, NEXT})
+      bipyramid.faces.push_back(vertex);
+    bipyramid.face_counts.push_back(3);
+    bipyramid.face_counts.push_back(3);
+  }
+  for (const MeshOpProbe &probe : MESH_OP_PROBES)
+    check_mesh_op_growth(probe, bipyramid, target, temp, finalized);
+  target.reset();
+  temp.reset();
+  PolyMesh prism = MeshOps::dual(bipyramid, target, temp);
+  input.reset();
+  PolyMesh wide_faces = Solids::finalize_solid(prism, input);
+  for (const MeshOpProbe &probe : MESH_OP_PROBES)
+    check_mesh_op_growth(probe, wide_faces, target, temp, finalized);
+
+  struct Boundary {
+    const char *name;
+    size_t degree, valence;
+  };
+  constexpr Boundary BOUNDARIES[] = {
+      {"dual", 0, 1},  {"ambo", 1, 1},     {"needle", 0, 1}, {"meta", 1, 1},
+      {"gyro", 1, 1},  {"chamfer", 1, 0},  {"expand", 1, 1}, {"snub", 1, 1},
+      {"relax", 1, 0}, {"truncate", 2, 1}, {"bevel", 2, 2},  {"zip", 1, 2},
+      {"hankin", 2, 2}};
+  for (const auto &expected : BOUNDARIES) {
+    const auto *row = hs_wasm::find_mesh_op_bounds(expected.name);
+    HS_EXPECT_TRUE(row != nullptr);
+    if (!row)
+      continue;
+    for (bool degree : {true, false}) {
+      const size_t FACTOR = degree ? expected.degree : expected.valence;
+      if (!FACTOR)
+        continue;
+      const size_t LIMIT = 255 / FACTOR;
+      HS_EXPECT_FALSE(hs_wasm::mesh_op_face_degree_overflows(
+          degree ? LIMIT : 0, degree ? 0 : LIMIT, row->bounds.face_degree,
+          row->bounds.valence, 255));
+      HS_EXPECT_TRUE(hs_wasm::mesh_op_face_degree_overflows(
+          degree ? LIMIT + 1 : 0, degree ? 0 : LIMIT + 1,
+          row->bounds.face_degree, row->bounds.valence, 255));
+    }
+  }
 }
 
 inline void test_mesh_op_growth_near_capacity() {
