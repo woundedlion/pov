@@ -860,16 +860,13 @@ inline void test_shader_workbench_full_config_snapshot() {
       sb.capture_full_config_snapshot(), snapshot));
 
   snapshot = sb.capture_full_config_snapshot();
+  const auto before_invalid_speed = snapshot;
   snapshot.accepted[hue_noise_speed] = shader_workbench_float_payload(0.01f);
   snapshot.requested[hue_noise_speed] = shader_workbench_float_payload(0.01f);
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
-               WB::ConfigRestoreResult::APPLIED);
-  const WB::FullConfigSnapshot speed_clamped =
-      sb.capture_full_config_snapshot();
-  HS_EXPECT_EQ(speed_clamped.accepted[hue_noise_speed],
-               shader_workbench_float_payload(0.001f));
-  HS_EXPECT_EQ(speed_clamped.requested[hue_noise_speed],
-               shader_workbench_float_payload(0.001f));
+               WB::ConfigRestoreResult::INVALID_VALUE);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), before_invalid_speed));
 
   const WB::FullConfigSnapshot before_failure =
       sb.capture_full_config_snapshot();
