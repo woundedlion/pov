@@ -243,9 +243,9 @@ prepare_generated_palette(const FrameContext &ctx, const Params &params,
   return {Color::PaletteMappingWeights::single(
               static_cast<Color::PaletteMapping>(params.mapping_mode)),
           params.mapping_frequency,
-          params.mapping_phase,
-          params.phase_oscillation_depth,
-          state.oscillation_phase,
+          params.mapping_phase +
+              params.phase_oscillation_depth *
+                  math::fast_sinf(math::TWO_PI_F * state.oscillation_phase),
           palette,
           mode,
           params.hue_shift_amount,

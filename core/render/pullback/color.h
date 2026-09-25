@@ -230,9 +230,7 @@ brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
 struct GeneratedPaletteState {
   PaletteMappingWeights mapping;
   float mapping_frequency;
-  float mapping_phase;
-  float oscillation_depth;
-  float oscillation_phase;
+  float mapping_offset;
   const BakedPalette *palette;
   /** HueMode::NONE is carried as an inactive `hue_rotation` view. */
   HueMode hue_mode;
@@ -249,18 +247,18 @@ struct GeneratedPaletteState {
 HS_HOT_FLASH_MEMBER inline Color4
 apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
-  const float oscillation =
-      state.oscillation_depth *
-      math::fast_sinf(math::TWO_PI_F * state.oscillation_phase);
-  const float palette_value = palette_mapping_coordinate(
-      sample.value, state.mapping, state.mapping_frequency,
-      state.mapping_phase + oscillation);
+  const float palette_value =
+      palette_mapping_coordinate(sample.value, state.mapping,
+                                 state.mapping_frequency, state.mapping_offset);
   Color4 color;
   if (state.hue_rotation.active && state.hue_noise.active &&
       state.hue_mode == HueMode::NOISE) {
-    const NoiseHuePalette<BakedPalette> palette(
-        state.palette, state.hue_rotation.data, state.hue_noise.data);
-    color = palette.get(palette_value, sample.sphere, state.hue_shift_amount);
+    color =
+        Color4(sample_hue_rotation_lut(
+                   state.hue_rotation, palette_value,
+                   state.hue_shift_amount *
+                       sample_hue_noise_lut(state.hue_noise, sample.sphere)),
+               state.palette->get_alpha(palette_value));
   } else {
     color = state.palette->get(palette_value);
     if (state.hue_rotation.active && state.hue_mode == HueMode::PATH_LENGTH) {
@@ -328,9 +326,10 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return {State::mapping_weights(frame),
             State::mapping_frequency(frame),
-            State::mapping_phase(frame),
-            State::oscillation_depth(frame),
-            State::oscillation_phase(frame),
+            State::mapping_phase(frame) +
+                State::oscillation_depth(frame) *
+                    math::fast_sinf(math::TWO_PI_F *
+                                    State::oscillation_phase(frame)),
             &State::palette(frame),
             State::hue_mode(frame),
             State::hue_shift_amount(frame),
