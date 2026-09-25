@@ -965,7 +965,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       cumul += seg_arc_cache[i];
     }
 
-    // Tier 3: Segment culling — skip if the edge's rendered row/column reach
+    // Segment culling — skip if the edge's rendered row/column reach
     // (arc bulge included) lies outside the clip band; precomputed bits replace
     // the evaluation when the producer already ran the same predicate.
     if (clip_active) {

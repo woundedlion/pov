@@ -1542,7 +1542,7 @@ edge_visible_in_clip_dispatch(PipelineT &pipeline, const math::Vector &a,
 }
 
 /**
- * @brief Tier-3 clip visibility of one polyline edge, routed through the
+ * @brief Clip visibility of one polyline edge, routed through the
  *        pipeline's world stages.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam PipelineT Pipeline type.
@@ -1581,7 +1581,7 @@ edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
 }
 
 /**
- * @brief Tier-3 clip visibility from a precomputed geodesic edge span.
+ * @brief Clip visibility from a precomputed geodesic edge span.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam PipelineT Pipeline type with no world cull stage.
  * @param pipeline Render pipeline.

@@ -402,7 +402,7 @@ struct Volume {
 
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
 
-    // Tier 2: Clamp volume bounds to clip region
+    // Clamp volume bounds to clip region
     const auto &cr = canvas.clip();
     const auto vol_xc = cr.x_clip();
     int vol_y_lo, vol_y_hi;
