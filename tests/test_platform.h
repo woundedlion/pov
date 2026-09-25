@@ -111,23 +111,13 @@ inline void test_scale_golden() {
   HS_EXPECT_EQ(scale8(200, 100), 78);  // 200*101>>8
   HS_EXPECT_EQ(scale8(1, 255), 1);     // 1*256>>8
   HS_EXPECT_EQ(scale8(0, 255), 0);
+  HS_EXPECT_EQ(scale8(128, 128), 64);
 
   HS_EXPECT_EQ(scale16(65535, 65535), 65535); // full scale is identity
   HS_EXPECT_EQ(scale16(65535, 32768), 32768); // 65535*32769>>16
   HS_EXPECT_EQ(scale16(32768, 65535), 32768); // 32768*65536>>16
   HS_EXPECT_EQ(scale16(1000, 5000), 76);      // 1000*5001>>16
   HS_EXPECT_EQ(scale16(0, 65535), 0);
-}
-
-/**
- * @brief Verifies scale8 at fractional scales.
- * @details Confirms zero in -> zero, full scale is identity, and the
- *          SCALE8_FIXED rounding (i*(1+sc))>>8 holds at the half point.
- */
-inline void test_scale8_fractional() {
-  HS_EXPECT_EQ(scale8(0, 200), 0);
-  HS_EXPECT_EQ(scale8(255, 255), 255); // 255*256>>8 — full scale is identity
-  HS_EXPECT_EQ(scale8(128, 128), 64);  // 128*129>>8
 }
 
 /**
@@ -610,7 +600,6 @@ inline int run_platform_tests() {
 
   test_sin8_golden();
   test_sin16_golden();
-  test_scale8_fractional();
   test_scale_golden();
   test_map8_fastled_semantics();
   test_map_degenerate_range();
