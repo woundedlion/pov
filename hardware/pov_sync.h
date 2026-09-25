@@ -723,7 +723,7 @@ private:
     if (content_tracker.commit_pending)
       return;
     // Schedule test first: it reads only the revolution counter, while the
-    // position below costs two 64-bit divides on every wake.
+    // position below costs one 64-bit divmod on every wake.
     const uint32_t rev = content_tracker.rev_in_effect;
     const bool due = (rev % protocol_config.beacon_period_revs) == 1u ||
                      (rev >= 1u && rev <= static_cast<uint32_t>(
