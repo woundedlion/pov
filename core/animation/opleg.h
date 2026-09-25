@@ -1510,16 +1510,15 @@ private:
     for (int r = 0; r < num_ramps; ++r) {
       if (seed_side) {
         ramps[r] = tr.bank->entries[tr.seed_ramp_pal[r]];
-
         continue;
       }
       const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
       const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
       if (tr.ramp_from[r] == tr.ramp_to[r]) {
         ramps[r] = to;
-
-      } else
+      } else {
         ramps[r] = bake_palette_blend(scratch_arena_b, from, to, w);
+      }
     }
 
     Shading sh{ramps, face_ramp.data(), face_ramp.size()};
