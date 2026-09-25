@@ -939,6 +939,18 @@ inline void test_shader_workbench_full_config_snapshot() {
 /** @brief Refused selectors preserve accepted subordinate values and snapshots. */
 inline void test_shader_workbench_refused_selector_range() {
   using WB = ShaderWorkbenchWhiteBox;
+  Workbench::Config defaults;
+  for (uint8_t function = 0; function < WB::NUM_FUNCTIONS; ++function)
+    for (uint8_t warp = 0; warp < WB::NUM_WARPS; ++warp)
+      for (uint8_t hue = 0; hue < WB::NUM_HUE_SHIFT_MODES; ++hue) {
+        defaults.slots.function = static_cast<WB::Function>(function);
+        defaults.slots.warp_program.outer.kind =
+            static_cast<WB::WarpStageKind>(warp);
+        defaults.slots.warp_program.inner.kind =
+            static_cast<WB::WarpStageKind>(warp);
+        defaults.slots.hue_shift = static_cast<Workbench::HueShiftMode>(hue);
+        HS_EXPECT_TRUE(Workbench::valid_snapshot_config(defaults));
+      }
   reset_effect_globals();
   WB::SB sb;
   sb.init();
@@ -947,6 +959,8 @@ inline void test_shader_workbench_refused_selector_range() {
   config.slots.function = WB::Function::GRID;
   config.slots.warp_program.outer.kind = WB::WarpStageKind::POLAR_CHART;
   config.params.source.pattern_freq = 25.0f;
+  config.params.warp.outer.speed = 0.0f;
+  HS_EXPECT_TRUE(WB::admissible_config(config));
   WB::request_config(sb, config);
   WB::settle_transition(sb);
   HS_EXPECT_EQ(sb.updateParameter("Function",
@@ -959,6 +973,13 @@ inline void test_shader_workbench_refused_selector_range() {
   HS_EXPECT_EQ(WB::requested_config(sb).params.source.pattern_freq, 25.0f);
   HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") != nullptr);
   const auto snapshot = sb.capture_full_config_snapshot();
+  auto invalid = snapshot;
+  const size_t frequency =
+      static_cast<size_t>(WB::ConfigFieldId::SOURCE_PATTERN_FREQ);
+  invalid.requested[frequency] = shader_workbench_float_payload(24.0f);
+  invalid.pending[frequency] = 1;
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+               WB::ConfigRestoreResult::INVALID_VALUE);
   HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
                WB::ConfigRestoreResult::APPLIED);
   HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
