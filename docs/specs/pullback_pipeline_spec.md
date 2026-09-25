@@ -1147,7 +1147,7 @@ The following remain private effect code:
   continuous preconditions, and resource-readiness predicates;
 - preset choreography, topology transitions, `PreparedEndpoint`, `FrameShader`,
   and draw orchestration;
-- profiling-hook mapping and test-only ownership generation checks.
+- profiling-hook mapping.
 
 This boundary is normative. Moving a listed effect-policy type to core requires
 a separate specification explaining its independent semantics.
@@ -1243,8 +1243,6 @@ selection differences, while operator unit tests check formulas.
   by const reference; prepared records and LUT views by value.
 - The coordinator and policies contain no objects, so a pipeline has no
   lifetime independent of the frame.
-- Debug/test owner-generation stamping remains in ShaderWorkbench's frame accessors;
-  extraction shall not bypass it.
 - Transition rendering remains sequential: prepare and consume one endpoint
   before shared backing storage is overwritten.
 
