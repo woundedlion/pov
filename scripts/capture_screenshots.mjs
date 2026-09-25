@@ -160,8 +160,7 @@ try {
   // control's options are built from the app's supported resolutions; return them
   // sorted by pixel area (largest/highest-detail first). Each effect is then
   // captured at the FIRST resolution that actually offers it — not blindly at the
-  // global largest, because the effect set is resolution-specific (e.g. RingShower
-  // and Dynamo are only registered at the low-res Holosphere preset). Requesting
+  // global largest, because the effect set is resolution-specific. Requesting
   // an effect at a resolution that doesn't offer it makes the app silently fall
   // back to its default effect, which would save that default under the wrong
   // filename. On any failure, return [] — the caller aborts the run rather than
