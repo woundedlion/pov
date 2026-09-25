@@ -149,10 +149,6 @@ private:
   static constexpr int SHAPE_FRAMES = 6;
   /** star_rim_palette sentinel: no rosette resolved for this star face yet. */
   static constexpr uint8_t NO_RIM = 0xFF;
-  /** Sprite-fade envelope below which a mesh is not drawn. A cut on the fade
-   * envelope, before the per-face palette alphas scale it, so it is not
-   * comparable to the per-sample MIN_ENCODABLE_ALPHA floor. */
-  static constexpr float MIN_FADE_OPACITY = 0.01f;
   /** Strap-crossfade window: frames of the hankin sweep over which a reborn
    * strap slot glides from its previous color to the fresh target. The sweep
    * opens quadratically — straps reach visibility around frame 3-7 and about
@@ -398,7 +394,6 @@ private:
    * @param star_by_slot Resolved palette LUT per class slot for star faces
    * (emission index < node_faces); see resolve_hankin_slot_luts.
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
-   * @param opacity Output alpha in [0, 1].
    * @param strap_open_fade Alpha multiplier for strap (emission index >=
    * node_faces) faces over the opening window, in [0, 1]. Newborn straps split
    * former star interiors in one frame; fading their coverage in turns that
@@ -425,11 +420,10 @@ private:
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
-                 float opacity, float strap_open_fade = 1.0f,
-                 float strap_close_blend = 1.0f,
+                 float strap_open_fade = 1.0f, float strap_close_blend = 1.0f,
                  float strap_terminal_fade = 1.0f,
                  float star_close_blend = 1.0f) {
-    if (mesh.vertices.is_empty() || opacity < MIN_FADE_OPACITY)
+    if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
 
@@ -462,7 +456,7 @@ private:
       const bool is_strap = fi >= star_faces;
       const SlotLutView &view = is_strap ? strap_view : star_view;
       f.color = shade_mesh_topology(f, topology, topology_faces, view,
-                                    SLOT_IDENTITY, params.intensity, opacity);
+                                    SLOT_IDENTITY, params.intensity, 1.0f);
       // Cross-fade this face's ramp onto the ramp of the face taking its
       // place, sampled at the same edge distance.
       const float counterpart_blend =
@@ -495,7 +489,7 @@ private:
         // scale resolve once per face, leaving a multiply, a clamp and one LUT
         // fetch per fragment.
         FacePaletteShader fragment_shader;
-        fragment_shader.alpha = opacity;
+        fragment_shader.alpha = 1.0f;
         auto select_face = [&](size_t fi, float size) {
           const int cls = fi < static_cast<size_t>(topology_faces)
                               ? static_cast<int>(topology[fi])
@@ -630,7 +624,7 @@ private:
     timeline.add_pausable(
         0,
         Animation::Sprite(
-            [this](Canvas &c, float opacity) {
+            [this](Canvas &c, float) {
               // update_hankin re-binds the mesh's vectors against
               // persistent_arena every frame; the angle never changes the
               // vertex/face counts, so bind reuses the blocks in place.
@@ -661,7 +655,7 @@ private:
               // closing one, and the star closes at the midpoint. Every weight
               // is exactly 0 at its collapse and 1 beyond the window.
               const ShapeWeights weights = shape_weights(cycle_frame);
-              draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot, opacity,
+              draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot,
                         weights.strap_open, weights.strap_close,
                         weights.strap_terminal, weights.star_close);
             },
