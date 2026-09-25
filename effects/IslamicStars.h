@@ -367,7 +367,7 @@ private:
    *        the per-face topology classes.
    * @param face_palette Per-face palette ids.
    * @note Draws on the exact SDF path, not the congruence-class LUT
-   * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
+   * (face_class_bake.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
    */
   HS_O3_FN HS_NOINLINE_NOCLONE void draw_shape(Canvas &canvas, float phase,

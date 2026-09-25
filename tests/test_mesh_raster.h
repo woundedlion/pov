@@ -23,7 +23,7 @@
 #include "core/render/canvas.h"
 #include "core/math/geometry.h"
 #include "core/mesh/mesh.h"
-#include "core/mesh/mesh_classes.h"
+#include "core/render/sdf/face_class_bake.h"
 #include "core/engine/memory.h"
 #include "core/render/plot.h"
 #include "core/render/scan.h"
@@ -920,7 +920,7 @@ inline void test_class_lut_render_matches_exact() {
  * @brief Rendered A/B on a deformed mesh against its spawn-time bake — the
  *        facility's deformation safety net.
  * @details The class-LUT facility is for meshes that hold still (see
- * mesh_classes.h); this pins what happens when a consumer's mesh deforms
+ * face_class_bake.h); this pins what happens when a consumer's mesh deforms
  * anyway: the per-frame alignment must drop bent faces to the exact path (or
  * widen its guard) so the output stays inside the static interpolation
  * envelope. A fixed one-cell guard flips signs near the true edges and opens

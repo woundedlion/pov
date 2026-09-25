@@ -20,7 +20,7 @@ The rasterizer and driver specs:
 | Document | Status and scope |
 |---|---|
 | [segmented_stateful_effects_spec.md](segmented_stateful_effects_spec.md) | IMPLEMENTED. Cross-segment reach for history-reading effects: the compile-time filter traits, the `Effect::needs_full_frame()` query, and the two driver boundaries (`targets/wasm/engine_bindings.h` `setClip`, `hardware/pov_segmented.h` `clip_to_segment`) that honour it. |
-| [congruence_class_lut_spec.md](congruence_class_lut_spec.md) | FACILITY ONLY. Congruence-class clustering and canonical distance LUTs (`core/mesh/mesh_classes.h`); landed and gate-green but wired to no effect. §11–§12 carry the measurements behind the deformation restriction and why IslamicStars was unwired. |
+| [congruence_class_lut_spec.md](congruence_class_lut_spec.md) | FACILITY ONLY. Congruence-class clustering and canonical distance LUTs (`core/render/sdf/face_class_bake.h`); landed and gate-green but wired to no effect. §11–§12 carry the measurements behind the deformation restriction and why IslamicStars was unwired. |
 
 ## Mesh morphing
 
