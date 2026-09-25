@@ -516,7 +516,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── license_check.py        Checks every tracked C/C++ source against the terms LICENSE grants it (CI)
 │   ├── *_tests/                Host unit tests for the gate, build + git hooks, profile parser, bakes, build pins, docs and license checks
 │   ├── docs_sync.py          Refreshes repository maps and source-derived documentation counts
-│   ├── engine_source_state.py Reports tracked source edits, excluding reproducible generated documentation
+│   ├── engine_source_state.py Reports tracked edits and untracked non-ignored files
 │   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
 ├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus phantasm_circuit.svg, design specs (docs/specs/), the ITCM and device/host divergence ledgers (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)

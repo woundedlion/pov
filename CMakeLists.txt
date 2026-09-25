@@ -300,7 +300,7 @@ if(EMSCRIPTEN)
         RESULT_VARIABLE HS_GIT_RC
         ERROR_QUIET)
       if(HS_GIT_RC EQUAL 0)
-        # Source provenance includes all tracked changes against HEAD.
+        # Source provenance includes tracked changes against HEAD and untracked files.
         execute_process(
           COMMAND \"${Python3_EXECUTABLE}\"
             \"${CMAKE_CURRENT_SOURCE_DIR}/tools/engine_source_state.py\"
@@ -310,7 +310,7 @@ if(EMSCRIPTEN)
           RESULT_VARIABLE HS_GIT_DIRTY_RC)
         if(NOT HS_GIT_DIRTY_RC EQUAL 0 OR NOT \"\${HS_GIT_DIRTY}\" STREQUAL \"\")
           set(HS_ENGINE_SHA \"\${HS_ENGINE_SHA}-dirty\")
-          message(WARNING \"Engine tree has uncommitted changes (or git could not report on it); recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
+          message(WARNING \"Engine tree has uncommitted or untracked changes (or git could not report on it); recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
         endif()
         file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.sha\"
              CONTENT \"\${HS_ENGINE_SHA}\\n\" @ONLY NEWLINE_STYLE LF)
