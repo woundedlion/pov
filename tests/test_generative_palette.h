@@ -647,8 +647,6 @@ inline void test_generative_palette_get_nan_saturates_to_endpoint() {
   HS_EXPECT_EQ(singular.color.b, endpoint.color.b);
 }
 
-namespace {
-
 /** @brief Asserts two baked LUTs agree at every sample point. */
 inline void expect_baked_equal(const BakedPalette &a, const BakedPalette &b) {
   for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
@@ -686,8 +684,6 @@ inline int expect_baked_near(const BakedPalette &a, const BakedPalette &b,
   }
   return worst;
 }
-
-} // namespace
 
 inline void test_baked_palette_rebake_crossfade() {
   Gradient ramp{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
@@ -1010,8 +1006,6 @@ inline void test_shader_ball_palette_rotations_morph_compatible() {
   }
 }
 
-namespace {
-
 /** @brief Deterministic PaletteCycler provider walking analogous base hues. */
 inline void scripted_next_palette(void *context, uint32_t sequence,
                                   GenerativePalette &out) {
@@ -1027,8 +1021,6 @@ inline void scripted_tonal_palette(void *context, uint32_t sequence,
   out = GenerativePalette(
       PaletteRecipes::tonal_monochrome(0.1f + 0.2f * sequence));
 }
-
-} // namespace
 
 inline void test_palette_cycler_generated_cycle() {
   alignas(std::max_align_t) static uint8_t
@@ -1233,9 +1225,6 @@ inline void test_palette_cycler_zero_dwell_chains_fades() {
   HS_EXPECT_TRUE(cycler.fading());
 }
 
-} // namespace color_tests
-} // namespace hs_test
-
 /** @brief Hidden generated harmonies catch up with visible morph and chroma state. */
 inline void test_generated_palette_bank_routes_and_rechromas() {
   enum class Mode { TRIADIC, COMPLEMENTARY, ANALOGOUS };
@@ -1305,3 +1294,6 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
     previous = generated;
   }
 }
+
+} // namespace color_tests
+} // namespace hs_test
