@@ -133,7 +133,6 @@ private:
     /**
      * @brief Constructs a free slot with a random orientation.
      */
-    Ring() : normal(math::random_vector()) {}
 
     /**
      * @brief Linear radius for the frame currently being drawn.
