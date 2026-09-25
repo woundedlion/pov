@@ -301,9 +301,6 @@ struct PreparedEndpoint {
   const void *prepared;
   InversePipelineId pipeline;
   float alpha;
-#if defined(HS_PROFILE_ENABLE)
-  size_t preset;
-#endif
 };
 
 } // namespace Workbench
