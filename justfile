@@ -6,8 +6,7 @@
 # emsdk_env once) before invoking them. The `test` recipe is native-only and
 # does not need EMSDK.
 
-# The [windows] recipes use cmd.exe syntax (copy /y, if not exist, parenthesized
-# echo); pin the interpreter so they run under cmd regardless of just's default
+# The [windows] recipes use cmd.exe syntax (copy /y, if not exist); pin the interpreter so they run under cmd regardless of just's default
 # shell (a developer defaulting just to sh/pwsh would otherwise hit a syntax error).
 set windows-shell := ["cmd", "/c"]
 
