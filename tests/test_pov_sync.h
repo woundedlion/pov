@@ -1880,6 +1880,7 @@ struct SimBoard {
   uint64_t drop_from = 0, drop_to = 0;              /**< Symbol drop window. */
   // Foreground model.
   uint32_t seen_gen = 0;
+  uint32_t pending_pickup = 0;
   int32_t pending_index = -1;
   uint64_t build_seed = 0; /**< hs::epoch_seed the foreground applied at the
                                 last build pickup (device reseed mirror). */
@@ -2112,7 +2113,7 @@ private:
    * @param tg Global time of this wake, cycles.
    * @details Advances the poll grid, delivers any latched edge, drives
    *          board.tick(), fans master pulses to downstream boards, then steps
-   *          the foreground build/commit/pacing model and updates probes.
+   *          the foreground build/commit model and updates probes.
    */
   void run_tick(SimBoard &b, uint64_t tg) {
     // This wake is consumed: the grid resumes at the next slot strictly
@@ -2136,10 +2137,12 @@ private:
         b.sync_pulse, b.submit_gate, b.handoff,
         [&] { return a = b.board.tick(now, sp); },
         [&] {
-          // Foreground model (build requests, commit/join swaps, frame pacing).
+          // Foreground model (build pickup at a flip, commit/join swaps).
           const uint32_t bw = b.board.build_word();
           const uint32_t gen = SyncBoard::build_gen_of(bw);
-          if (gen != b.seen_gen) {
+          const bool pickup = gen == b.pending_pickup && a.flip;
+          b.pending_pickup = gen;
+          if (gen != b.seen_gen && pickup) {
             b.seen_gen = gen;
             // Release + delete the outgoing instance.
             b.handoff.request_release();
@@ -2169,7 +2172,6 @@ private:
     const auto &w = b.handoff.last;
     if (w.adopted) {
       b.live_index = b.pending_index;
-      b.t = 0;
       b.swap_g = tg;
     }
     b.live = w.live != nullptr;
@@ -2484,6 +2486,21 @@ inline void test_sim_commit_deadline_trap() {
 
 // ── Scenario: masked-IRQ windows (§4.1, §5.2) ───────────────────────────────
 
+inline void test_sim_commit_pickup_budget() {
+  const Config cfg = test_config();
+  const int32_t ppm[4] = {0, 0, 0, 0};
+  for (bool over_budget : {false, true}) {
+    Sim sim(cfg, 4, ppm);
+    HS_EXPECT_TRUE(boot_join(sim, cfg));
+    sim.boards[2].init_delay = static_cast<uint64_t>(
+        (2.0 * cfg.commit_revs - (over_budget ? 0.4 : 1.5)) * PERIOD);
+    sim.run_revs(double(cfg.revs_per_effect) + 6);
+    HS_EXPECT_EQ(sim.boards[2].trapped, over_budget);
+    if (!over_budget)
+      HS_EXPECT_EQ(sim.boards[2].live_index, sim.boards[0].live_index);
+  }
+}
+
 /**
  * @brief Verifies masked-IRQ windows (§4.1, §5.2): boundary masks truncate
  *        burst counts (symbol degrades to missed, never misclassified), mid-rev
@@ -2677,6 +2694,7 @@ inline void test_sim_reboot(const Config &cfg) {
   b2.handoff.adopt(nullptr, 0);
   b2.handoff.clear_pending();
   b2.seen_gen = 0;
+  b2.pending_pickup = 0;
   b2.have_pending = false;
   b2.live = false;
   b2.live_index = -1;
@@ -3361,6 +3379,7 @@ inline void test_budget_acquire_mis_snap() {
   b2.handoff.adopt(nullptr, 0);
   b2.handoff.clear_pending();
   b2.seen_gen = 0;
+  b2.pending_pickup = 0;
   b2.have_pending = false;
   b2.live = false;
   b2.dark_now = true;
@@ -3662,6 +3681,7 @@ inline int run_pov_sync_tests() {
   test_sim_variable_effect_durations();
   test_sim_epoch_seed_lockstep();
   test_sim_commit_deadline_trap();
+  test_sim_commit_pickup_budget();
   test_sim_masked_windows();
   test_sim_emi();
   test_sim_drops_and_missed_epoch();
