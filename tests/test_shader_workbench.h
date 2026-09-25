@@ -75,7 +75,7 @@ struct ShaderWorkbenchWhiteBox {
   using TopologyKey = Workbench::TopologyKey;
   using InversePipelineId = Workbench::InversePipelineId;
   using CodeEmission = Workbench::CodeEmission;
-  using ApproximationOracleId = Workbench::ApproximationOracleId;
+  using ApproximationOracleId = Pullback::ApproximationOracleId;
   using ProjectionStateProvider = Workbench::ProjectionStateProvider;
   using SurfaceStateProvider = Workbench::SurfaceStateProvider;
   using LensStateProvider = Workbench::LensStateProvider;
@@ -86,7 +86,7 @@ struct ShaderWorkbenchWhiteBox {
   using WarpStateProvider = Workbench::WarpStateProvider<Outer>;
 
   static constexpr float AXIS_EPS = Workbench::GNOMONIC_AXIS_EPS;
-  static constexpr uint32_t HUE_STEP = SB::HUE_STEP;
+  static constexpr uint32_t HUE_STEP = GeneratedPaletteBank::HUE_STEP;
 
   static constexpr int NUM_FUNCTIONS = Workbench::NUM_FUNCTIONS;
   static constexpr int NUM_PROJECTIONS = Workbench::NUM_PROJECTIONS;
@@ -744,18 +744,18 @@ struct ShaderWorkbenchWhiteBox {
   static const auto &choreo() { return SB::CHOREO; }
   static void make_triadic(uint32_t &hue, uint32_t sequence,
                            GenerativePalette &out) {
-    SB::next_generated_palette(hue, sequence, PaletteHarmony::TRIADIC, 0.62f,
-                               out);
+    GeneratedPaletteBank::next_palette(hue, sequence, PaletteHarmony::TRIADIC,
+                                       0.62f, out);
   }
   static void make_complementary(uint32_t &hue, uint32_t sequence,
                                  GenerativePalette &out) {
-    SB::next_generated_palette(hue, sequence, PaletteHarmony::COMPLEMENTARY,
-                               0.62f, out);
+    GeneratedPaletteBank::next_palette(
+        hue, sequence, PaletteHarmony::COMPLEMENTARY, 0.62f, out);
   }
   static void make_analogous(uint32_t &hue, uint32_t sequence,
                              GenerativePalette &out) {
-    SB::next_generated_palette(hue, sequence, PaletteHarmony::ANALOGOUS, 0.62f,
-                               out);
+    GeneratedPaletteBank::next_palette(hue, sequence, PaletteHarmony::ANALOGOUS,
+                                       0.62f, out);
   }
   static Pixel palette_color(const SB &sb, PaletteMode mode, float value) {
     return sb.palette_for(mode).get(value).color;

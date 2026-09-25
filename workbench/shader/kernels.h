@@ -40,10 +40,10 @@ HS_FLASH_MEMBER inline math::Vector
 mobius_lens(const math::Vector &v, const math::MobiusParams &params);
 HS_FLASH_MEMBER inline float primitive_lattice(const math::Complex &p,
                                                const SourceParams &params);
-__attribute__((always_inline)) inline math::Vector
-profiled_apply_lens(const math::Vector &v, const FrameState &frame);
-__attribute__((always_inline)) inline ProjectedLookup
-profiled_project_branch(const math::Vector &v, const FrameState &frame);
+HS_FLASH_MEMBER inline math::Vector apply_lens(const math::Vector &v,
+                                               const FrameState &frame);
+HS_FLASH_MEMBER inline ProjectedLookup project_branch(const math::Vector &v,
+                                                      const FrameState &frame);
 HS_FLASH_MEMBER inline float rings(const math::Complex &p,
                                    const SourceState &source);
 HS_FLASH_MEMBER inline float sample_function(Function function,
@@ -108,7 +108,7 @@ inline ProjectedLookup surface_lens_project_lookup(const math::Vector &v,
   }
   const math::Vector lensed = slots.surface_lens == SurfaceLens::NONE
                                   ? pre_lens
-                                  : profiled_apply_lens(pre_lens, frame);
+                                  : apply_lens(pre_lens, frame);
   math::Vector post_lens = lensed;
   if (slots.surface_noise != SurfaceNoise::NONE &&
       slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS) {
@@ -117,7 +117,7 @@ inline ProjectedLookup surface_lens_project_lookup(const math::Vector &v,
     post_lens = displaced.sphere;
     surface_path_length = displaced.path_length;
   }
-  ProjectedLookup projected = profiled_project_branch(post_lens, frame);
+  ProjectedLookup projected = project_branch(post_lens, frame);
   projected.path_length = surface_path_length;
   return projected;
 }
@@ -215,12 +215,6 @@ HS_FLASH_MEMBER inline ProjectedLookup project_branch(const math::Vector &v,
           ? project_nonstereographic(local, frame)
           : stereographic_lookup(local, frame);
   return {result.coords, result.provenance, local, 0.0f};
-}
-
-__attribute__((always_inline)) inline ProjectedLookup
-profiled_project_branch(const math::Vector &v, const FrameState &frame) {
-  const ProjectedLookup projected = project_branch(v, frame);
-  return projected;
 }
 
 HS_FLASH_MEMBER inline Pullback::ProjectionResult
@@ -710,12 +704,6 @@ HS_FLASH_MEMBER inline math::Vector apply_lens(const math::Vector &v,
     break;
   }
   __builtin_unreachable();
-}
-
-__attribute__((always_inline)) inline math::Vector
-profiled_apply_lens(const math::Vector &v, const FrameState &frame) {
-  const math::Vector lensed = apply_lens(v, frame);
-  return lensed;
 }
 
 HS_FLASH_MEMBER inline math::Vector
