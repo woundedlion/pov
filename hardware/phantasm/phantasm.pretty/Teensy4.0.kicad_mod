@@ -77,7 +77,7 @@
 		)
 		(fill
 			(thermal_gap 0.3)
-			(thermal_bridge_width 0.3)
+			(thermal_bridge_width 0.4)
 		)
 		(polygon
 			(pts
