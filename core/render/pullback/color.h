@@ -291,6 +291,16 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
      5400.0f, "channel code"},
 }};
 
+/**
+ * @brief GeneratedPalette color policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * mapping_weights(frame), mapping_frequency(frame), mapping_phase(frame),
+ * oscillation_depth(frame), oscillation_phase(frame), palette(frame),
+ * hue_mode(frame), hue_shift_amount(frame), hue_rotation(frame),
+ * hue_noise(frame), brightness_envelope(frame), brightness_bottom(frame),
+ * brightness_top(frame), opacity_low(frame), opacity_high(frame)
+ * accessors.
+ */
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
   static constexpr bool APPROXIMATE = true;
   static constexpr ApproximationOracleId ORACLE =

@@ -96,6 +96,11 @@ smooth_bands(float value, float band_count, float band_phase) {
                                        band_phase);
 }
 
+/**
+ * @brief IsoContour material policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * iso_level(frame), iso_width(frame) accessors.
+ */
 template <typename State>
 struct IsoContour : ApproximationDefaults, TransferRole {
   template <typename Binding>
@@ -113,6 +118,11 @@ struct IsoContour : ApproximationDefaults, TransferRole {
   }
 };
 
+/**
+ * @brief SmoothBands material policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * band_count(frame), band_phase(frame) accessors.
+ */
 template <typename State>
 struct SmoothBands : ApproximationDefaults, TransferRole {
   template <typename Binding>
@@ -165,6 +175,11 @@ struct WeightSquared : ApproximationDefaults {
 
 using Detail::edge_fade;
 
+/**
+ * @brief EdgeFade material policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * edge_width(frame) accessors.
+ */
 template <typename State> struct EdgeFade : ApproximationDefaults {
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
@@ -226,6 +241,11 @@ value_cutout(float value, float threshold, float width) {
  * @brief Value-dependent coverage cut for Stage::ApplyCoverage.
  * @details Reads the current FIELD value and nothing else, so a chain may
  * legally place it before, between, or after transfers.
+ */
+/**
+ * @brief ValueCutout material policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * cutout_threshold(frame), cutout_softness(frame) accessors.
  */
 template <typename State>
 struct ValueCutout : ApproximationDefaults, CoverageRole {

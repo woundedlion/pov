@@ -265,6 +265,12 @@ curl_noise(const math::Vector &input, const FastNoiseLite &noise,
   return second;
 }
 
+/**
+ * @brief DirectNoise surface policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * noise(frame), scale(frame), strength(frame), prepare(frame),
+ * path_length_required(frame) accessors.
+ */
 template <typename State, math::NoiseBasis Basis>
 struct DirectNoise : ApproximationDefaults {
   using FrameState = typename State::FrameState;
@@ -301,6 +307,12 @@ struct DirectNoise : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief CurlNoise surface policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * noise(frame), scale(frame), strength(frame), prepare(frame),
+ * path_length_required(frame) accessors.
+ */
 template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy>
 struct CurlNoise : ApproximationDefaults {
   using FrameState = typename State::FrameState;
@@ -337,6 +349,11 @@ struct CurlNoise : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief PeriodicRipple surface policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), phase(frame), path_length_required(frame) accessors.
+ */
 template <typename State> struct PeriodicRipple : ApproximationDefaults {
   using FrameState = typename State::FrameState;
 
