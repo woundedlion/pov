@@ -985,7 +985,7 @@ inline void test_double_buffer_handoff_no_aliasing() {
  * exactly once — distinct_displayed must reach the full frame count, proving the
  * hand-off really happened rather than frames coalescing. The harness counters
  * are single-threaded, so both threads record into atomics and the main thread
- * runs all HS_EXPECT_* after join(). The Canvas ctor's 2 s watchdog (live under
+ * runs all HS_EXPECT_* after join(). The Canvas ctor's configured watchdog (at least 30 s in CI) (live under
  * the real wall clock) bounds the producer, and the consumer terminates once it
  * has promoted every frame, so a logic break traps loudly instead of hanging.
  */
@@ -993,7 +993,7 @@ inline void test_double_buffer_handoff_concurrent() {
   hs::clear_mock_time(); // real wall clock keeps the ctor's spin watchdog live
   TestEffect fx(8, 4);
   const int N = 8 * 4;
-  // Kept short: every ctor spin is bounded by a live 2 s watchdog that traps the
+  // Kept short: every ctor spin is bounded by a configured watchdog that traps the
   // whole shard, so a long run just multiplies the odds of a loaded CI runner
   // descheduling the consumer past it. The hand-off invariants show up in tens
   // of frames.
@@ -1066,7 +1066,7 @@ inline void test_double_buffer_handoff_concurrent() {
  * writer of prev is advance_display() — which only the helper runs. So the
  * helper's "ctor has not returned yet" assertion holds by construction (it
  * checks before advancing), and an inverted gate (spin while buffer_free())
- * would let the ctor return early and fail it. The ctor's 2 s watchdog bounds
+ * would let the ctor return early and fail it. The ctor's configured watchdog (at least 30 s in CI) bounds
  * the spin, so a logic break traps loudly here rather than hanging the suite.
  */
 inline void test_ctor_spin_waits_for_buffer_free() {
