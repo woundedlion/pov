@@ -147,6 +147,7 @@ INLINE_SCAN = (
     # The justfile's clang-format recipe body, where the gate's pathspec and
     # exclusion regex live.
     ROOT / "tools/clang_format_gate.sh",
+    ROOT / "tools/shellcheck_gate.sh",
     ROOT / "platformio.ini",
     ROOT / "CMakeLists.txt",
     ROOT / "scripts/generate_luts.py",
@@ -410,6 +411,10 @@ INLINE_AUTHORITIES = {
 
 
 LITERAL_AUTHORITIES = {
+    'shell-selection': (
+        '.githooks/pre-commit',
+        'tools/shellcheck_gate.sh',
+    ),
     'float-flags-cmake': (
         'CMakeLists.txt',
     ),
