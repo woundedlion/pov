@@ -821,31 +821,33 @@ protected:
     // topology it swept, into the scratch the evacuation below reads; the other
     // kinds carry the endpoint start_build_leg built eagerly. The palette the
     // leg landed on is snapshotted too, since the landing does not survive.
-    ScratchScope a_guard(scratch_arena_a);
-    HS_CHECK(build_step < build_step_count,
-             "RecipeBuild: build cursor ran past the lowered chain");
-    if (build_step_chain[build_step].op == Solids::Op::HANKIN) {
-      HS_CHECK(build_landing, "RecipeBuild: finished leg has no landing");
-      Animation::OpLeg::arrival_mesh(*build_landing, build_next_seed,
-                                     scratch_arena_a);
-    }
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      HS_CHECK(build_step < build_step_count,
+               "RecipeBuild: build cursor ran past the lowered chain");
+      if (build_step_chain[build_step].op == Solids::Op::HANKIN) {
+        HS_CHECK(build_landing, "RecipeBuild: finished leg has no landing");
+        Animation::OpLeg::arrival_mesh(*build_landing, build_next_seed,
+                                       scratch_arena_a);
+      }
 
-    if (build_step + 1 >= build_step_count) {
-      // finish_build consumes the last leg's landing, so that one is reclaimed
-      // by the closing compaction instead.
-      build_seed = std::move(build_next_seed);
+      if (build_step + 1 >= build_step_count) {
+        // finish_build consumes the last leg's landing, so that one is reclaimed
+        // by the closing compaction instead.
+        build_seed = std::move(build_next_seed);
+        ++build_step;
+        finish_build();
+        return;
+      }
+
+      // Carry the emission-order prefix the next leg departs from (the whole
+      // landing for a face-count-preserving leg, the survivor prefix where a leg's
+      // arrival has more faces than its clean endpoint -- the DUAL bridge's
+      // closing truncate lands V+F faces but hands off the V dual faces), then
+      // advance to the next lowered step.
+      carry_landing_to_seed();
       ++build_step;
-      finish_build();
-      return;
     }
-
-    // Carry the emission-order prefix the next leg departs from (the whole
-    // landing for a face-count-preserving leg, the survivor prefix where a leg's
-    // arrival has more faces than its clean endpoint -- the DUAL bridge's
-    // closing truncate lands V+F faces but hands off the V dual faces), then
-    // advance to the next lowered step.
-    carry_landing_to_seed();
-    ++build_step;
     start_build_leg();
   }
 
