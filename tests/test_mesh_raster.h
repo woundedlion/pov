@@ -15,6 +15,7 @@
  * and never clips a row the face actually covers.
  */
 #pragma once
+#include "core/animation/transformer.h"
 
 #include <cmath>
 #include <vector>
