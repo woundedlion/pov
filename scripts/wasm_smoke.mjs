@@ -1635,9 +1635,9 @@ async function main(probe) {
         hueTorsion: 0, falloffStart: 0.9,
       };
       for (const [path, value, field] of [
-        ['domain', 0.99, 1], ['easing', 1.9, 2], ['colorPath', 0.5, 3],
-        ['hue.mode', 2.7, 4], ['hue.harmony', 1.5, 5], ['hue.direction', 0.5, 6],
-        ['lightness.curve', 0.5, 14], ['chroma.curve', 0.5, 21], ['chroma.basis', 0.5, 22],
+        ['domain', 0.99, Module.PaletteRecipeField.PALETTE_DOMAIN], ['easing', 1.9, Module.PaletteRecipeField.EASING], ['colorPath', 0.5, Module.PaletteRecipeField.COLOR_PATH],
+        ['hue.mode', 2.7, Module.PaletteRecipeField.HUE_MODE], ['hue.harmony', 1.5, Module.PaletteRecipeField.HARMONY], ['hue.direction', 0.5, Module.PaletteRecipeField.HUE_DIRECTION],
+        ['lightness.curve', 0.5, Module.PaletteRecipeField.LIGHTNESS_CURVE], ['chroma.curve', 0.5, Module.PaletteRecipeField.CHROMA_CURVE], ['chroma.basis', 0.5, Module.PaletteRecipeField.CHROMA_BASIS],
       ]) {
         const invalid = structuredClone(recipe);
         const keys = path.split('.');
@@ -1645,12 +1645,12 @@ async function main(probe) {
         const owner = keys.reduce((object, key) => object[key], invalid);
         owner[leaf] = value;
         const rejected = po.compileAndBakeV4(invalid);
-        if (rejected.status.code !== 3 || rejected.status.field !== field)
+        if (rejected.status.code !== Module.PaletteCompileCode.INVALID_ENUM || rejected.status.field !== field)
           fail(`fractional palette ${path} was not rejected as INVALID_ENUM at field ${field}`);
       }
       const result = po.inspectV4(recipe);
       const lut = Uint8Array.from(result.lut ?? []);
-      if (result.status.code !== 0) {
+      if (result.status.code !== Module.PaletteCompileCode.OK) {
         fail(`compileAndBakeV4 returned status ${result.status.code}`);
       }
       if (lut.length !== 256 * 3) {
