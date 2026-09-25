@@ -701,9 +701,8 @@ private:
       8.0f; /**< Bake columns per feature-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES =
       16; /**< Bake-column floor for tiny/low-scale rings. */
-  static constexpr float THICKNESS_PX =
-      2.0f * math::PI_F /
-      W; /**< One pixel of azimuth in ring-space; the Thickness
+  static constexpr float THICKNESS_PX = math::RADIANS_PER_COLUMN<
+      W>; /**< One pixel of azimuth in ring-space; the Thickness
                             slider range is authored in multiples of it. */
   static constexpr int HUE_TABLE_SIZE =
       64; /**< Hue-turn interpolation cells per ring. */
