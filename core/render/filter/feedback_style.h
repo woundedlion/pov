@@ -110,6 +110,8 @@ struct Style {
    * scratch (288x144: DS=4 ≈ 22 KiB, DS=2 ≈ 71 KiB). With init_storage() at
    * the default DS, the grid lives in the persistent warp cache; scratch holds
    * only the controls and a row on frames that repopulate the cache.
+   * Uncached full-resolution flushes exceed the default 16 KiB scratch split;
+   * reserve Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample) explicitly.
    */
   int downsample = 4;
 

@@ -97,13 +97,23 @@ public:
   /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
   static constexpr size_t STORAGE_BYTES = 2 * CACHE_CELLS * sizeof(int16_t);
 
+  /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
+  static constexpr size_t UNCACHED_SCRATCH_BYTES(int ds) {
+    const int COLUMNS = W / ds;
+    const SphereField FIELD(ds, ds, std::max(ds - hs::H_OFFSET, 0), COLUMNS);
+    return (2 * FIELD.ring_count() * COLUMNS + 2 * FIELD.sample_count()) *
+               sizeof(int16_t) +
+           (ds > 1 ? W * sizeof(::Pixel) : 0);
+  }
+
   /**
    * @brief Allocates the warp-field cache from the persistent arena.
    * @param arena Persistent arena supplying 2 * CACHE_CELLS int16 slots.
    * @details Must be called from effect init(), not the constructor (arenas
    * aren't ready yet), and again after any compaction that resets the arena —
    * the cache is derived data, so it just re-populates on the next flush.
-   * Without storage every flush renders uncached.
+   * Without storage every flush needs UNCACHED_SCRATCH_BYTES(downsample)
+   * scratch bytes; the default 16 KiB partition is insufficient at 288x144.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
 #ifndef NDEBUG
@@ -312,6 +322,10 @@ private:
       check_storage_alive();
 
     if (!cacheable) {
+      HS_CHECK(UNCACHED_SCRATCH_BYTES(grid.downsample) <=
+                   scratch.get_capacity() - scratch.get_offset(),
+               "uncached feedback needs more scratch: missing cache, custom "
+               "SpaceFn, nondefault downsample, or x clip");
       const int cells = grid.field_rows * grid.columns;
       return {scratch.allocate_n<int16_t>(cells),
               scratch.allocate_n<int16_t>(cells),
