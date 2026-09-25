@@ -29,14 +29,17 @@ constexpr int FRAMES = 60, WARM = 10;
 
 template <typename Effect> double bench(const char *name) {
   hs_test::reset_globals();
+  hs_test::pin_frame_clock(0);
   Effect effect;
   effect.init();
   for (int i = 0; i < WARM; ++i) {
+    hs_test::pin_frame_clock(i);
     effect.draw_frame();
     effect.advance_display();
   }
   auto t0 = std::chrono::steady_clock::now();
   for (int i = 0; i < FRAMES; ++i) {
+    hs_test::pin_frame_clock(WARM + i);
     effect.draw_frame();
     effect.advance_display();
   }
