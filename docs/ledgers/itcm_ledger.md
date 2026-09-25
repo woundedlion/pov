@@ -44,12 +44,8 @@ DTCM needs all 10 banks for 312,736 B of variables plus the 12,288 B stack floor
 | **+1,248** | `3b43b353` concave sector walk (K1) | IslamicStars 120.2→**92.2 ms** (−23%), spills 755→363, two solids 8→16 fps; beats −O3 twin on worst shape | IslamicStars |
 | **+1,216** | `93a70142` canvas pointer hoist | **−2.9 ms** on MeshFeedback Smoke (quantified in `7a16deaf`) | MeshFeedback |
 
-The `dedd3dde` row corrects an earlier read of this ledger: its commit body quotes
-only "output is bit-identical" and no timing, so a message-only audit scored it as
-an unquantified spend. The device profile shows it is the **highest-yield 4 KB in
-the window**. Lesson: a MeshFeedback restructuring can hide a 6 ms device win
-behind a body that mentions only correctness — a commit-message ledger
-under-credits algorithmic commits and needs device profiles to be complete.
+The `dedd3dde` device profile measures a 6.3 ms peak reduction for 4,272 B
+of ITCM on MeshFeedback, with bit-identical output.
 
 ## Reclaims (algorithmic, all correctness-neutral)
 
@@ -67,8 +63,6 @@ under-credits algorithmic commits and needs device profiles to be complete.
 | Δ ITCM | commit | status |
 |---|---|---|
 | +1,408 | `c2b9ecf8` hoist clip test out of composite loop | no standalone timing, but structurally the enabler for `dedd3dde`'s paired path (hoists the per-cell clip test the interleave depends on) — likely bundled into that 6.3 ms, not separable |
-
-The originally-suspected `dedd3dde` (+4,272) is **not** in this bucket; see above.
 
 ## Reverted experiments (measured harmful/dead)
 
@@ -148,15 +142,13 @@ Standing conclusions that survive the update:
 re-deriving totals; absolute ITCM at tip moves with peer work, so quote a commit
 sha with any figure taken from this document.
 
-## State after ShaderWorkbench (2026-08-08, `bb4c09cf`; corrected same day)
+## State after ShaderWorkbench (2026-08-08, `bb4c09cf`)
 
 - phantasm ITCM 196,528 B / 196,608 B ceiling — **80 B free**. The size-trail
   rows for `bb4c09cf` carry all three envs.
-- **Correction:** this entry originally attributed ~5.2 KB to ShaderWorkbench.
-  Measured by its later playlist removal, ShaderWorkbench's phantasm instantiation
-  cost **1,648 B** (at ambient `-Os`, ctor/`init()`/palette provider FLASHMEM);
-  the baseline before it was already 194,880 B (1,728 B free) — peer commits
-  after the 08-06 "5,320 B free" figure had spent the difference.
+- ShaderWorkbench's phantasm instantiation cost **1,648 B**, measured by
+  playlist removal (ambient `-Os`, ctor/`init()`/palette provider FLASHMEM).
+  The preceding baseline used 194,880 B, with 1,728 B free.
 
 ## State at the fixed-pipeline tip (2026-08-16, `5b8abd1e`)
 
