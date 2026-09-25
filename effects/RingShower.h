@@ -131,10 +131,6 @@ private:
         0; /**< Total visible frames; the slot is free once age >= life. */
 
     /**
-     * @brief Constructs a free slot with a random orientation.
-     */
-
-    /**
      * @brief Linear radius for the frame currently being drawn.
      * @return Radius in world units, in [0, RADIUS_MAX].
      * @details Uses age + 1 (not age) so the first draw renders one linear step
