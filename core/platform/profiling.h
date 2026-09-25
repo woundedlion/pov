@@ -435,8 +435,11 @@ inline const char *u64_dec(uint64_t v, char (&buf)[21]) {
  *        ISR would race the list/active pointer and corrupt the call tree.
  */
 struct CycleCounter {
-  static constexpr uint32_t CYCLES_PER_US =
-      600; /**< Core clock: Teensy 4 @ 600 MHz. */
+#ifdef CORE_TEENSY
+  static constexpr uint32_t CYCLES_PER_US = F_CPU / 1000000;
+#else
+  static constexpr uint32_t CYCLES_PER_US = 600;
+#endif
 
   const char *name;               /**< Counter label used in log output. */
   uint64_t cycles = 0;            /**< Accumulated cycle count. 64-bit because a
