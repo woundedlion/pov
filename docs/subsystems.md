@@ -52,6 +52,7 @@ Section 7 of the [Holosphere README](https://github.com/woundedlion/pov/blob/mas
   - [Multi-Teensy Segmented POV Driver](#multi-teensy-segmented-pov-driver-pov_segmentedh)
   - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
 - [7.11 Mathematical Kernels](#711-mathematical-kernels-coremath)
+- [7.12 Spatial Queries](#712-spatial-queries-corespatial)
 
 ---
 
@@ -1025,7 +1026,7 @@ x = ( x_boundary + (now − epoch) · (W/2) / cycles_per_half_rev )  mod W
 | `MASTER_EN` | pin 5 (drive LOW) | pin 5 (drive HIGH) | 3.3 V CMOS, gates the external sync-out buffer | per-board strap out |
 | `ID` straps | pins 21–23 (ID0–ID2 as required) | pins 21–23 (ID0–ID2 as required) | active-low, internal pull-ups; `ID_STRAPS = log2(N)` read | strap (board identity) |
 
-The ID straps select the board: the build reads `ID_STRAPS = log2(N)` active-low bits and decodes `(~raw) & (N-1)`. N=4 reads ID0/pin 21 and ID1/pin 22; N=8 also reads ID2/pin 23. All-floating selects segment 0/master. `SYNC` is one shared pin 3 — the master drives it and downstream boards receive on its rising edge; `MASTER_EN` (pin 5) gates an external level shifter so only the master drives the shared bus. The former column-clock wire is **deleted** and pin 4 is freed — `SYNC` is the only inter-board connection. It is assumed physically reliable (a hard, soldered line); a severed wire is out of scope (boards free-run and precess apart at crystal rate, a slow smear, never an instant break).
+The ID straps select the board: the build reads `ID_STRAPS = log2(N)` active-low bits and decodes `(~raw) & (N-1)`. N=4 reads ID0/pin 21 and ID1/pin 22; N=8 also reads ID2/pin 23. All-floating selects segment 0/master. `SYNC` is one shared pin 3 — the master drives it and downstream boards receive on its rising edge; `MASTER_EN` (pin 5) gates an external level shifter so only the master drives the shared bus. `SYNC` is the only inter-board connection; pin 4 is unused. It is assumed physically reliable (a hard, soldered line); a severed wire is out of scope (boards free-run and precess apart at crystal rate, a slow smear, never an instant break).
 
 **Signal levels & symbol waveforms.** The wire idles LOW.  A **symbol** is a burst of short active-high pulses at a fixed pitch; **the meaning is the count of rising edges — pulse width carries no information.**  The pin is driven HIGH by the flywheel tick that schedules the pulse, not at ISR entry, and the rising edge is the only timed event.  A wake that also renders drops the pin before it returns, for a ~8–13 µs pulse — the path every scheduled pulse takes, since pulses fall on column boundaries.  A wake that renders nothing holds the pin across the ISR boundary and drops it at the head of the next wake, ~54 µs later.  Pulses are drawn narrow, to scale against the ~868 µs pitch:
 
