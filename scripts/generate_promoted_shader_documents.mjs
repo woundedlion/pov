@@ -157,8 +157,7 @@ const stageGraph = (spec) => {
   const resources = [`${spec.palette}-palette`];
   if (spec.hue === 'noise') resources.push('hue-noise');
   const nodes = [
-    { label: 'camera', role: 'outer_camera', operator: 'pullback.outer_camera.v1',
-      policy: { base_orientation: 'negative-z-to-negative-y' } },
+    { label: 'camera', role: 'outer_camera', operator: 'pullback.outer_camera.v1' },
     { label: 'surface', role: 'surface_project', operator: 'pullback.surface_project.v1',
       policy: { pre_lens_surface: 'identity', lens: spec.lens,
         post_lens_surface: 'identity', projection: spec.projection,
@@ -257,14 +256,6 @@ const documentFor = (spec) => {
   const values = baseValues(spec);
   const parameters = Object.entries(values)
     .map(([id, value]) => parameterSpec(id, value, spec.source));
-  const resources = [{ id: `${spec.palette}-palette`, kind: `generated-${spec.palette}-palette`,
-    settings: { hue_step: 159 } }];
-  if (spec.hue === 'noise') resources.push({
-    id: 'hue-noise', kind: 'simplex-sphere-scalar', settings: { seed: 6047 },
-  });
-  if (spec.outerKey === 'vector') resources.push({
-    id: 'outer-warp-noise', kind: 'simplex-planar-vector', settings: { seed: 1337 },
-  });
   return {
     schema_version: 1,
     catalog_version: 1,
@@ -274,19 +265,12 @@ const documentFor = (spec) => {
       graph: stageGraph(spec),
       parameters,
       path_policies: [{ id: 'parallel', kind: 'PARALLEL' }],
-      clocks: [
-        { id: 'palette-cycle', kind: 'generated-palette-cycle', settings: { fade: 600 } },
-        { id: 'transition-progress', kind: 'completed-frame', settings: { pause: 'parameter-animation' } },
-      ],
-      preparation: [
-        { id: 'spatial-frames', kind: 'prepare-orientation-conjugates' },
-        { id: 'hue-luts', kind: 'prepare-hue-luts' },
-        { id: 'warp-carriers', kind: 'prepare-fixed-warps' },
-      ],
-      resources,
+      clocks: [],
+      preparation: [],
+      resources: [],
       serialization: { schema_version: 1, fields: parameters.map((parameter) => parameter.id) },
-      approximation: [{ id: 'hue-luts', kind: 'registered-oracle', settings: { oracle: 'hue-luts-v1' } }],
-      handoff: { policy: 'reset' },
+      approximation: [],
+      handoff: {},
     },
     preset_bank: bank(spec, values),
     effect_metadata: { display_name: spec.display, description: spec.description },
