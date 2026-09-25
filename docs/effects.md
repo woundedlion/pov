@@ -434,7 +434,7 @@ Four great-circle rings tumble continuously under energetic random-walk rotation
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=RingShower&resolution=Phantasm%20(288x144)" target="_blank"><img src="screenshots/RingShower.png" alt="RingShower" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=RingShower&resolution=Holosphere%20(96x20)" target="_blank"><img src="screenshots/RingShower.png" alt="RingShower" width="280"></a></td>
 <td valign="top">
 
 ### RingShower
