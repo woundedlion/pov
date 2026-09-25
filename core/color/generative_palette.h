@@ -198,7 +198,8 @@ public:
    * @param t Palette coordinate; clamped to [0, 1].
    * @return The realized OKLCh values, the gamut envelope there and whether the
    * color needed clipping.
-   * @details Costs a gamut-envelope lookup get() does not pay.
+   * @details Adds an OKLCh re-derivation and gamut test, plus an envelope lookup
+   * on absolute-basis and Cartesian paths where get() skips it.
    */
   Diagnostic diagnose(float t) const {
     const Evaluated value = finish_evaluation(evaluate_path(t, true));
