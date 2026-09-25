@@ -16,6 +16,10 @@
 
 namespace Animation {
 
+/** @brief Shared motion sampling for Comets and Fishbowl. */
+inline constexpr int TRAIL_HISTORY_LENGTH = 115;
+inline constexpr int TRAIL_ORIENTATION_SUBSTEPS = 16;
+
 /**
  * @brief Fixed-capacity history of snapshots over a StaticCircularBuffer.
  * @tparam T The snapshot type stored in the trail.
