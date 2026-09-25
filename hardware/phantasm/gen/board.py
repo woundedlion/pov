@@ -176,9 +176,9 @@ def main(force=False):
 
 
     # ---------------------------------------------------------------- helpers
-    def place(lib, ref, val, x, y, rot=0, unit=1, fp="", dnp=False):
+    def place(lib, ref, val, x, y, rot=0, unit=1, fp="", dnp=False, in_bom=True):
         return b.place(B.Symbol(lib, ref, val, x, y, rot=rot, unit=unit,
-                                footprint=fp, dnp=dnp))
+                                footprint=fp, dnp=dnp, in_bom=in_bom))
 
 
     def hw(x1, x2, y):
@@ -270,7 +270,7 @@ def main(force=False):
     # --- light logic feed only; LED 4.3 A power is delivered off-board (spec 2.3) ---
     # Series chain on the rail line: J1 -> F1 -> Q_REV -> FB -> +5V_LOGIC.
     # Polarized 2.54 mm power header; hand-soldered with its matching housing.
-    J1 = place("Connector_Generic:Conn_01x02", "J1", "+5V IN keyed ~1A", 25.4, 60.96,
+    J1 = place("Connector_Generic:Conn_01x02", "J1", "+5V IN keyed ~1A", 25.4, 60.96, in_bom=False,
                rot=180,
                fp="Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical")
     # Small logic-only fuse/PTC (R-PWR-8) — the 4.3 A strip current never flows here.
@@ -304,7 +304,7 @@ def main(force=False):
     hw(LOG_L, LOG_R, Y_LOG)
     pwr_sym("+5V_LOGIC", LOG_R, Y_LOG - 5.08); vw(LOG_R, Y_LOG - 5.08, Y_LOG)
     # C_IN: the card's only electrolytic, now on the logic feed (R-PWR-3/6, spec 10).
-    CIN = place("Device:C_Polarized", "C_IN", "100uF", 88.9, 78.74,
+    CIN = place("Device:C_Polarized", "C_IN", "100uF", 88.9, 78.74, in_bom=False,
                 fp="Capacitor_THT:CP_Radial_D8.0mm_P3.50mm")
     to_rail_up(CIN, "1", Y_LOG, LOG_SPAN)
     to_gnd_down(CIN, "2", Y_GND, GND_SPAN)
@@ -329,7 +329,8 @@ def main(force=False):
     # ============================================================ BLOCK 2: LOGIC
     b.text((25, 116), "TEENSY 4.0  +  74AHCT125 LEVEL SHIFTER  ->  LED STRIP", 2.2)
     # --- Teensy (compact symbol, only used pins) ---
-    U = place(TEENSY, "U_MCU", "Teensy4.0", 60.96, 165.1)
+    U = place(TEENSY, "U_MCU", "Teensy4.0", 60.96, 165.1,
+              fp="phantasm:Teensy4.0", in_bom=False)
     tn = lambda d: TPN[d]
     to_power(U, tn("VIN"), "+5V_LOGIC")
     to_power(U, tn("3V3"), V3)
@@ -378,7 +379,7 @@ def main(force=False):
     # --- J2 strip SIGNAL out (3-pin, no power): DI / SIG_GND / CI (R-CON-1) ---
     # Strip 5 V/GND are injected off-board (spec 2.3); SIG_GND is the card's logic GND,
     # landed on the strip GND pin at the load end (the off-board ground star).
-    J2 = place("Connector_Generic:Conn_01x03", "J2", "LED sig DI/SIG_GND/CI", 281.94, 165.1,
+    J2 = place("Connector_Generic:Conn_01x03", "J2", "LED sig DI/SIG_GND/CI", 281.94, 165.1, in_bom=False,
                fp="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
     to_label(J2, "1", "DATA"); to_power(J2, "2", GND); to_label(J2, "3", "CLK")
 
@@ -403,9 +404,9 @@ def main(force=False):
                  fp="Diode_SMD:D_SOD-323")
     to_label(DBUS, "1", "SYNC_BUS"); to_power(DBUS, "2", GND)
     # daisy connectors
-    J3A = place("Connector_Generic:Conn_01x03", "J3A", "SYNC in", 330.2, 205.74,
+    J3A = place("Connector_Generic:Conn_01x03", "J3A", "SYNC in", 330.2, 205.74, in_bom=False,
                 fp="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
-    J3B = place("Connector_Generic:Conn_01x03", "J3B", "SYNC out", 330.2, 233.68,
+    J3B = place("Connector_Generic:Conn_01x03", "J3B", "SYNC out", 330.2, 233.68, in_bom=False,
                 fp="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
     for J in (J3A, J3B):
         to_label(J, "1", "SYNC_BUS"); to_power(J, "2", GND); to_label(J, "3", "SHIELD")
@@ -427,7 +428,7 @@ def main(force=False):
     JID2 = place("Jumper:SolderJumper_2_Open", "JP_ID2", "ID2->GND (N=8)", 177.8, 274.32,
                  fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
     to_label(JID2, "1", "ID2"); to_power(JID2, "2", GND)
-    J4 = place("Connector_Generic:Conn_01x04", "J4", "debug", 38.1, 266.7,
+    J4 = place("Connector_Generic:Conn_01x04", "J4", "debug", 38.1, 266.7, in_bom=False,
                fp="Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical")
     to_power(J4, "1", V3); to_power(J4, "2", GND)
     to_label(J4, "3", "MASTER_EN"); to_label(J4, "4", "SERIAL1_TX")

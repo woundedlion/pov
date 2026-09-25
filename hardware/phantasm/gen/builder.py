@@ -33,7 +33,7 @@ def transform(sx, sy, rot, mirror, lx, ly):
 
 class Symbol:
     def __init__(self, lib_id, ref, value, x, y, rot=0, mirror=None,
-                 unit=1, footprint="", dnp=False):
+                 unit=1, footprint="", dnp=False, in_bom=True):
         self.lib_id = lib_id
         self.ref = ref
         self.value = value
@@ -45,6 +45,7 @@ class Symbol:
         self.unit = unit
         self.footprint = footprint
         self.dnp = dnp
+        self.in_bom = in_bom
         self.uuid = uid()
         self._pins = None       # filled by builder
         self.pin_uuids = []     # filled by builder
@@ -240,7 +241,7 @@ class Builder:
             L.append(f'\t\t(mirror {s.mirror})')
         L.append(f'\t\t(unit {s.unit})')
         L.append('\t\t(exclude_from_sim no)')
-        L.append('\t\t(in_bom yes)')
+        L.append(f'\t\t(in_bom {"yes" if s.in_bom else "no"})')
         L.append('\t\t(on_board yes)')
         L.append(f'\t\t(dnp {"yes" if s.dnp else "no"})')
         L.append(f'\t\t(uuid "{s.uuid}")')
