@@ -8,7 +8,7 @@ endif()
 if(NOT EXISTS "${HS_MIRROR_SOURCE}/../../CMakeLists.txt")
   message(FATAL_ERROR "Mirror source is not an engine checkout: ${HS_MIRROR_SOURCE}")
 endif()
-if(NOT EXISTS "${HS_DAYDREAM_DIR}/daydream.js")
+if(NOT EXISTS "${HS_DAYDREAM_DIR}/src/app/daydream.js")
   message(FATAL_ERROR
     "Screenshot mirror destination is not a daydream checkout: "
     "${HS_DAYDREAM_DIR}")

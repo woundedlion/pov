@@ -563,17 +563,18 @@ jobs:
           # Create a throwaway daydream checkout so the install() rules are active
           # (DAYDREAM_DIR is resolved at configure time and must already exist).
           # This lets the job exercise the provenance/install path below. The
-          # install refuses a destination without daydream.js, the marker that
+          # install refuses a destination without src/app/daydream.js, the marker that
           # tells a daydream checkout from a mistyped path, so plant one.
-          mkdir -p "${{ runner.temp }}/daydream-install"
-          touch "${{ runner.temp }}/daydream-install/daydream.js"
+          mkdir -p "${{ runner.temp }}/daydream-install/src/app"
+          touch "${{ runner.temp }}/daydream-install/src/app/daydream.js"
           mkdir -p "${{ runner.temp }}/daydream-install/docs/screenshots"
           touch "${{ runner.temp }}/daydream-install/docs/screenshots/stale.png"
           touch "${{ runner.temp }}/daydream-install/docs/screenshots/unrelated.txt"
-          mkdir -p "${{ runner.temp }}/daydream-install/shader/patterns/v1"
-          touch "${{ runner.temp }}/daydream-install/shader/patterns/stale.shader.json"
-          touch "${{ runner.temp }}/daydream-install/shader/patterns/digest_migration.v1v2.json"
-          touch "${{ runner.temp }}/daydream-install/shader/patterns/v1/example.shader.json"
+          mkdir -p "${{ runner.temp }}/daydream-install/src/workbench/shader/patterns/v1"
+          mkdir -p "${{ runner.temp }}/daydream-install/generated/shader/patterns"
+          touch "${{ runner.temp }}/daydream-install/generated/shader/patterns/stale.shader.json"
+          touch "${{ runner.temp }}/daydream-install/src/workbench/shader/patterns/digest_migration.v1v2.json"
+          touch "${{ runner.temp }}/daydream-install/src/workbench/shader/patterns/v1/example.shader.json"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
 
@@ -676,7 +677,7 @@ jobs:
           cmake --build --preset wasm-release-install
           dd="${{ runner.temp }}/daydream-install"
           for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain pov_segment_map.json shader/shader_workbench.mjs shader/sha256.mjs shader/engine_catalog.json; do
-            if [ ! -f "$dd/$f" ]; then
+            if [ ! -f "$dd/generated/$f" ]; then
               echo "::error::install did not produce $f — a consumer in the daydream checkout depends on it"
               exit 1
             fi
@@ -705,15 +706,15 @@ jobs:
           # output, so a botched rewrite ships glue whose recorded hash agrees
           # with it. Instantiate the installed pair — the bytes the deploy gate
           # verifies and the browser loads.
-          node scripts/wasm_smoke.mjs "$dd/holosphere_wasm.js"
+          node scripts/wasm_smoke.mjs "$dd/generated/holosphere_wasm.js"
           # A clean CI checkout must record a bare 40-hex SHA (no -dirty marker).
-          if grep -q -- '-dirty' "$dd/holosphere_wasm.sha"; then
+          if grep -q -- '-dirty' "$dd/generated/holosphere_wasm.sha"; then
             echo "::error::engine .sha recorded as -dirty on a clean CI checkout"
-            cat "$dd/holosphere_wasm.sha"
+            cat "$dd/generated/holosphere_wasm.sha"
             exit 1
           fi
-          ( cd "$dd" && sha256sum -c holosphere_wasm.wasm.sha256 )
-          strings "$dd/holosphere_wasm.wasm" > "$RUNNER_TEMP/wasm-strings.txt"
+          ( cd "$dd/generated" && sha256sum -c holosphere_wasm.wasm.sha256 )
+          strings "$dd/generated/holosphere_wasm.wasm" > "$RUNNER_TEMP/wasm-strings.txt"
           if grep -F "$GITHUB_WORKSPACE" "$RUNNER_TEMP/wasm-strings.txt"; then
             echo "::error::release WASM embeds its checkout path and cannot be reproduced in another workspace"
             exit 1
@@ -722,35 +723,35 @@ jobs:
           # artifacts, otherwise it records nothing the source-pin doesn't already
           # cover. Compared against the provisioned emcc rather than the pinned
           # version literal above, so bumping the pin needs no second edit here.
-          recorded="$(awk '$1 == "emsdk" { print $2 }' "$dd/holosphere_wasm.toolchain")"
+          recorded="$(awk '$1 == "emsdk" { print $2 }' "$dd/generated/holosphere_wasm.toolchain")"
           built_with="$("$EMSDK/upstream/emscripten/emcc" -dumpversion)"
           if [ "$recorded" != "$built_with" ]; then
             echo "::error::holosphere_wasm.toolchain records emsdk '$recorded', but this job built with $built_with"
-            cat "$dd/holosphere_wasm.toolchain"
+            cat "$dd/generated/holosphere_wasm.toolchain"
             exit 1
           fi
           # The marker also records the configuration, which the emsdk line does
           # not distinguish: this install is the wasm-release preset with the dev
           # bindings off — the shape the deploy gate requires of a shipped module.
-          field() { awk -v k="$1" '$1 == k { print $2 }' "$dd/holosphere_wasm.toolchain"; }
+          field() { awk -v k="$1" '$1 == k { print $2 }' "$dd/generated/holosphere_wasm.toolchain"; }
           if [ "$(field build_type)" != "Release" ] || [ "$(field dev_bindings)" != "OFF" ]; then
             echo "::error::holosphere_wasm.toolchain records build_type '$(field build_type)' / dev_bindings '$(field dev_bindings)'; the release install must record Release / OFF"
-            cat "$dd/holosphere_wasm.toolchain"
+            cat "$dd/generated/holosphere_wasm.toolchain"
             exit 1
           fi
           echo "Provenance set produced, artifact hashes verified, toolchain recorded:"
-          cat "$dd/holosphere_wasm.toolchain"
+          cat "$dd/generated/holosphere_wasm.toolchain"
           bundle="${{ runner.temp }}/holosphere-engine"
-          mkdir "$bundle"
-          cp "$dd"/holosphere_wasm.{js,wasm,sha,wasm.sha256,toolchain} \
-            "$dd/pov_segment_map.json" "$bundle/"
-          mkdir -p "$bundle/shader/patterns"
-          cp "$dd/shader/"{shader_workbench.mjs,sha256.mjs,engine_catalog.json} "$bundle/shader/"
-          find "$dd/shader/patterns" -maxdepth 1 -type f \
+          mkdir -p "$bundle/generated"
+          cp "$dd/generated"/holosphere_wasm.{js,wasm,sha,wasm.sha256,toolchain} \
+            "$dd/generated/pov_segment_map.json" "$bundle/generated/"
+          mkdir -p "$bundle/generated/shader/patterns"
+          cp "$dd/generated/shader/"{shader_workbench.mjs,sha256.mjs,engine_catalog.json} "$bundle/generated/shader/"
+          find "$dd/generated/shader/patterns" -maxdepth 1 -type f \
             \( -name '*.shader.json' -o -name shaderball_migration.json \) \
-            -exec cp '{}' "$bundle/shader/patterns/" \;
-          test ! -e "$bundle/shader/patterns/digest_migration.v1v2.json"
-          test ! -e "$bundle/shader/patterns/v1"
+            -exec cp '{}' "$bundle/generated/shader/patterns/" \;
+          test ! -e "$bundle/generated/shader/patterns/digest_migration.v1v2.json"
+          test ! -e "$bundle/generated/shader/patterns/v1"
           cp "$dd/README.md" "$bundle/"
           mkdir -p "$bundle/docs/screenshots"
           (
@@ -778,10 +779,10 @@ jobs:
           dd="${{ runner.temp }}/daydream-install"
           out="${{ runner.temp }}"
           ( cd patterns && find . -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-source.txt"
-          test ! -e "$dd/shader/patterns/stale.shader.json"
-          test -f "$dd/shader/patterns/digest_migration.v1v2.json"
-          test -f "$dd/shader/patterns/v1/example.shader.json"
-          ( cd "$dd/shader/patterns" && find . -maxdepth 1 -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-installed.txt"
+          test ! -e "$dd/generated/shader/patterns/stale.shader.json"
+          test -f "$dd/src/workbench/shader/patterns/digest_migration.v1v2.json"
+          test -f "$dd/src/workbench/shader/patterns/v1/example.shader.json"
+          ( cd "$dd/generated/shader/patterns" && find . -maxdepth 1 -type f \( -name '*.shader.json' -o -name shaderball_migration.json \) ) | sort > "$out/mirror-installed.txt"
           test -s "$out/mirror-source.txt"
           test -s "$out/mirror-installed.txt"
           diff -u "$out/mirror-source.txt" "$out/mirror-installed.txt"

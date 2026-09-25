@@ -235,19 +235,19 @@ if(EMSCRIPTEN)
       CACHE PATH "Destination daydream checkout for the installed WASM module")
 
   # A typo'd or stale cache value must not receive runtime files. Require a
-  # marker only a daydream checkout carries. daydream.js is tracked there and is
+  # marker only a daydream checkout carries. src/app/daydream.js is tracked there and is
   # written by no install rule here, so a previous run cannot have planted it.
-  set(HS_DAYDREAM_MARKER "${DAYDREAM_DIR}/daydream.js")
+  set(HS_DAYDREAM_MARKER "${DAYDREAM_DIR}/src/app/daydream.js")
 
   if(EXISTS "${HS_DAYDREAM_MARKER}")
     message(STATUS "Simulator module installs to DAYDREAM_DIR: ${DAYDREAM_DIR}")
     install(CODE "
-      file(REMOVE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\"
-                  \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
-                  \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\")")
-    install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}")
+      file(REMOVE \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.sha\"
+                  \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm.sha256\"
+                  \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.toolchain\")")
+    install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
-            DESTINATION "${DAYDREAM_DIR}")
+            DESTINATION "${DAYDREAM_DIR}/generated")
     # The segment-map golden, emitted from hardware/pov_segment_map.h and pinned
     # against it by the unit_pov_segment_map_golden CTest. The simulator's
     # tests/segment_crosscheck.test.js reads it as the firmware reference, so it
@@ -255,17 +255,17 @@ if(EMSCRIPTEN)
     # into JS. Daydream requires byte identity with the CI-published bundle for
     # the recorded engine SHA, including this golden.
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
-            DESTINATION "${DAYDREAM_DIR}")
+            DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/shader_workbench.mjs"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sha256.mjs"
-            DESTINATION "${DAYDREAM_DIR}/shader")
+            DESTINATION "${DAYDREAM_DIR}/generated/shader")
     install(CODE "
       set(HS_MIRROR_SOURCE \"${CMAKE_CURRENT_SOURCE_DIR}/patterns\")
       set(HS_DAYDREAM_DIR \"${DAYDREAM_DIR}\")
       include(\"${CMAKE_CURRENT_SOURCE_DIR}/cmake/prune_mirrored_patterns.cmake\")")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/patterns/"
-            DESTINATION "${DAYDREAM_DIR}/shader/patterns"
+            DESTINATION "${DAYDREAM_DIR}/generated/shader/patterns"
             FILES_MATCHING
             PATTERN "*.shader.json"
             PATTERN "shaderball_migration.json")
@@ -288,9 +288,9 @@ if(EMSCRIPTEN)
     install(CODE "
       # Normalize Windows glue to LF; escape literal @ tokens before CONFIGURE.
       set(HS_AT \"@\")
-      file(READ \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_CONTENT)
+      file(READ \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\" HS_GLUE_CONTENT)
       string(REPLACE \"@\" \"@HS_AT@\" HS_GLUE_CONTENT \"\${HS_GLUE_CONTENT}\")
-      file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.js\"
+      file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\"
            CONTENT \"\${HS_GLUE_CONTENT}\" @ONLY NEWLINE_STYLE LF)
 
       execute_process(
@@ -312,12 +312,12 @@ if(EMSCRIPTEN)
           set(HS_ENGINE_SHA \"\${HS_ENGINE_SHA}-dirty\")
           message(WARNING \"Engine tree has uncommitted changes (or git could not report on it); recording ${TARGET_NAME}.sha as \${HS_ENGINE_SHA}. The deploy gate will reject this ref — rebuild from a clean (committed) tree before deploying.\")
         endif()
-        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\"
+        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.sha\"
              CONTENT \"\${HS_ENGINE_SHA}\\n\" @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote engine provenance ${TARGET_NAME}.sha: \${HS_ENGINE_SHA}\")
 
         # sha256sum -c manifest, one '<hash>  <filename>' line per artifact, checked
-        # from the daydream root. Covers both halves of the module: the binary and the
+        # from the generated directory. Covers both halves of the module: the binary and the
         # Emscripten glue that instantiates it — stale or hand-edited glue (embind
         # signature drift, wrong memory config) white-screens the live page against an
         # otherwise byte-verified binary. Kept under the .wasm.sha256 name the deploy
@@ -325,9 +325,9 @@ if(EMSCRIPTEN)
         # Written only alongside the .sha so the provenance set is never half-written
         # (a .wasm.sha256 without a .sha is a partial set the deploy gate rejects).
         # The glue hash is taken over the LF-normalized copy written above.
-        file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
-        file(SHA256 \"${DAYDREAM_DIR}/${TARGET_NAME}.js\" HS_GLUE_SHA256)
-        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
+        file(SHA256 \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
+        file(SHA256 \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\" HS_GLUE_SHA256)
+        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm.sha256\"
              CONTENT \"\${HS_WASM_SHA256}  ${TARGET_NAME}.wasm\\n\${HS_GLUE_SHA256}  ${TARGET_NAME}.js\\n\"
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote artifact hashes ${TARGET_NAME}.wasm.sha256: .wasm=\${HS_WASM_SHA256} .js=\${HS_GLUE_SHA256}\")
@@ -343,7 +343,7 @@ if(EMSCRIPTEN)
         # under wasm-debug (-O0, 64 KB stack, assertions) or with
         # -DHS_WASM_DEV_BINDINGS=ON (extra exports). Without them a module built
         # from either rides a gate that only re-verifies source and emsdk.
-        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\"
+        file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.toolchain\"
              CONTENT \"emsdk ${EMSCRIPTEN_VERSION}\\nclang ${CMAKE_CXX_COMPILER_VERSION}\\nbuild_type ${CMAKE_BUILD_TYPE}\\ndev_bindings ${HS_WASM_DEV_BINDINGS_STATE}\\n\"
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote toolchain provenance ${TARGET_NAME}.toolchain: emsdk ${EMSCRIPTEN_VERSION}, clang ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_BUILD_TYPE}, dev bindings ${HS_WASM_DEV_BINDINGS_STATE}\")
@@ -357,9 +357,9 @@ if(EMSCRIPTEN)
         # With the set gone the gate finds nothing to verify and refuses to deploy
         # an unverifiable artifact — which is correct; deploy only from a git
         # checkout.
-        file(REMOVE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\"
-                    \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
-                    \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\")
+        file(REMOVE \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.sha\"
+                    \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm.sha256\"
+                    \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.toolchain\")
         message(WARNING \"git unavailable or not a working tree (rc=\${HS_GIT_RC}); removed ${TARGET_NAME} provenance markers (.sha / .wasm.sha256 / .toolchain). Install completes, but the deploy gate has nothing to verify — deploy only from a git checkout.\")
       endif()
     ")
@@ -367,8 +367,8 @@ if(EMSCRIPTEN)
       execute_process(
         COMMAND node
           \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/export_engine_catalog.mjs\"
-          \"${DAYDREAM_DIR}/${TARGET_NAME}.js\"
-          \"${DAYDREAM_DIR}/shader/engine_catalog.json\"
+          \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.js\"
+          \"${DAYDREAM_DIR}/generated/shader/engine_catalog.json\"
         RESULT_VARIABLE HS_CATALOG_RC)
       if(NOT HS_CATALOG_RC EQUAL 0)
         message(FATAL_ERROR \"Failed to export the installed WASM operator catalog\")

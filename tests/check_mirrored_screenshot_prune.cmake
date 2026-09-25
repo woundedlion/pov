@@ -13,7 +13,7 @@ file(MAKE_DIRECTORY "${_source}/nested")
 file(MAKE_DIRECTORY "${_daydream}/docs/screenshots/nested")
 file(WRITE "${_source}/keep.png" "source keep")
 file(WRITE "${_source}/nested/keep.png" "source nested keep")
-file(WRITE "${_daydream}/daydream.js" "marker")
+file(WRITE "${_daydream}/src/app/daydream.js" "marker")
 file(WRITE "${_daydream}/index.html" "unrelated")
 file(WRITE "${_daydream}/docs/screenshots/keep.png" "installed keep")
 file(WRITE "${_daydream}/docs/screenshots/stale.png" "installed stale")
@@ -26,7 +26,7 @@ set(HS_DAYDREAM_DIR "${_daydream}")
 include("${PRUNE_SCRIPT}")
 
 foreach(_kept IN ITEMS
-    "${_daydream}/daydream.js"
+    "${_daydream}/src/app/daydream.js"
     "${_daydream}/index.html"
     "${_daydream}/docs/screenshots/keep.png"
     "${_daydream}/docs/screenshots/nested/keep.png"
@@ -45,7 +45,7 @@ endforeach()
 
 set(_source "${TEST_ROOT}/engine/patterns")
 file(MAKE_DIRECTORY "${_source}")
-set(_patterns "${_daydream}/shader/patterns")
+set(_patterns "${_daydream}/generated/shader/patterns")
 file(MAKE_DIRECTORY "${_patterns}/v1")
 file(WRITE "${_patterns}/v1/example.shader.json" "daydream migration fixture")
 file(WRITE "${_source}/keep.shader.json" "source")
@@ -80,7 +80,7 @@ foreach(_kind IN ITEMS screenshots patterns)
     set(_invalid_file "${_not_daydream}/docs/screenshots/stale.png")
   else()
     set(_valid_source "${TEST_ROOT}/engine/patterns")
-    set(_invalid_file "${_not_daydream}/shader/patterns/stale.shader.json")
+    set(_invalid_file "${_not_daydream}/generated/shader/patterns/stale.shader.json")
   endif()
   file(WRITE "${_invalid_file}" "must survive")
   execute_process(COMMAND "${CMAKE_COMMAND}"
