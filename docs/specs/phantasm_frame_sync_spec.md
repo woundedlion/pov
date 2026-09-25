@@ -1045,9 +1045,8 @@ now generates its own columns and keeps flipping locally — master is only the
 symbol source, not the column source. The watchdog's role narrows to catching a
 board's *own* flywheel stalling (detached `IntervalTimer`, priority inversion),
 which is the only thing that now stops `advance_display`. This is why the table
-row above is graceful precession, not a trap — a correction from the current
-design, where columns come from master's PWM and its death *does* starve the
-column ISR into the watchdog.
+row above is graceful precession, not a trap: each board retains its own
+column clock after the master dies.
 
 ---
 
