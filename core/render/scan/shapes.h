@@ -462,9 +462,9 @@ struct RingGroup {
    *        bounding-box tint keeps per-shape scan bounds; canvas.debug() takes
    *        the same fallback. Each ring is then scanned against its own row
    *        intervals rather than the covering ring's, so even a conforming
-   *        shader renders the AA-tail difference described above, and the
+   *        shader renders the AA-tail difference described below, and the
    *        fallback fills v0/v1/v3 per pixel on top of that.
-   * @details Row intervals come from one covering ring — member 0 inflated by
+   * @details Row intervals come from one covering ring — the middle member (n/2) inflated by
    * the group's maximum plane/radius deviation plus thickness — which contains
    * every member's band, so the per-row interval math runs once, not per
    * member. Per pixel the members evaluate in ascending slot order via the
