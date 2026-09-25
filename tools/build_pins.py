@@ -83,6 +83,9 @@ PINS = {
 # They are single-sourced by CONSISTENCY instead of substitution -- --check
 # asserts every occurrence equals the value here, so a partial bump fails.
 INLINE_PINS = {
+    "actionlint-release": PINS["actionlint"].rsplit(".", 1)[0],
+    "actionlint-sha256":
+        "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
     "python": "3.12",
     "numpy": requirement_pin("numpy"),
     "clang": "22",
@@ -164,6 +167,9 @@ INLINE_SCAN = (
 
 # Patterns and value transforms for each supported pin spelling.
 INLINE_USES = (
+    (r"/actionlint/releases/download/v([\d.]+)/", "actionlint-release", lambda v: v),
+    (r"actionlint_([\d.]+)_linux_amd64", "actionlint-release", lambda v: v),
+    (r"([0-9a-f]{64})  actionlint\.tar\.gz", "actionlint-sha256", lambda v: v),
     (r"\bactionlint-py==([\w.]+)", "actionlint", lambda v: v),
     # Quote-agnostic: setup-python's own README writes the input with double
     # quotes, which a single-quoted pattern reads as absent.
