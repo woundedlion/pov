@@ -21,7 +21,7 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
     },
   });
   let count = 0;
-  let countBeforeCase = 0;
+  const caseBaselines = [];
   let emptyCases = 0;
   // `node:assert/strict`'s default export is assert.strict, so wrapping both
   // objects covers either specifier. Capitalized keys are the AssertionError
@@ -46,10 +46,10 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
   }
   syncBuiltinESMExports();
   beforeEach(() => {
-    countBeforeCase = count;
+    caseBaselines.push(count);
   });
   afterEach(() => {
-    if (count === countBeforeCase) emptyCases += 1;
+    if (count === caseBaselines.pop()) emptyCases += 1;
   });
   // A random name rather than the pid: pids are recycled within one run, and a
   // reused name would drop the earlier file's count.
