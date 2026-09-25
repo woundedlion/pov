@@ -19,10 +19,6 @@
  */
 namespace MeshOps {
 
-// `narrow_index` (the trapping size_t -> uint16_t topology-index cast) and
-// `vertex_orbit` live in mesh.h so the Conway and Hankin operators share one
-// guarded narrowing and one orbit walk.
-
 HS_O3_BEGIN
 
 /**

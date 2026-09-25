@@ -130,10 +130,7 @@ struct MeshState {
   /**
    * @brief Returns the face-counts pointer for the active mode.
    * @return Owned data in owned mode, otherwise the borrowed view pointer.
-   * @details Discriminates on is_bound() (which mode this is), NOT on empty():
-   * an owned-but-legitimately-empty mesh is bound with size 0, and gating on
-   * empty() would wrongly fall through to a stale/unset borrowed view (same for
-   * the sibling accessors below).
+   * @details Owned storage may be bound with size zero.
    */
   const uint8_t *get_face_counts_data() const {
     return face_counts.is_bound() ? face_counts.data()
