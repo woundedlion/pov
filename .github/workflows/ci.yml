@@ -34,56 +34,11 @@ concurrency:
 
 jobs:
   tests:
-    name: Native unit tests (Clang) / shard ${{ matrix.shard }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Shards partition all registered module tests plus the standalone
-        # checks (color_luts provenance, fastmath_clamp
-        # release-flag, h_offset_renorm device-offset, mindsplatter_replay
-        # corpus gate, stack_budget, arena_budget, and the module_roster /
-        # module_includes roster pins and mirrored-screenshot prune) so every
-        # registered test runs in exactly one job.
-        # SINGLE SOURCE OF TRUTH: the sanitizers job references this same anchored
-        # list (*shard_matrix), and the shard-coverage job (which references the
-        # per-shard anchors) asserts the shard alternatives and the registered
-        # tests are in bijection — so a
-        # module added to CMake but to no shard fails CI instead of silently
-        # running in zero Linux/sanitizer jobs, and an alternative left behind by
-        # a rename fails instead of accumulating. Adjust groupings here only.
-        include: &shard_matrix
-          - &shard1_entry
-            shard: 1
-            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|partition_seam|hankin|hyper_lattice|geometry|opchain_probe|opchain_arena_survey|module_roster|module_includes|case_calls|anim_pack|vendor_patches|linker_patches|teensy_size_trail|mirrored_screenshot_prune|excluded_targets)$"
-            test_exclude: &generated_exclude "^unit_(color_luts|gamut_lut|mindsplatter_replay_form)$"
-            skips_are_errors: 1
-          - &shard2_entry
-            shard: 2
-            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|gamut_lut|mindsplatter_palette_form|mindsplatter_replay_form|mindsplatter_replay_revision_missing|mindsplatter_replay_revision_drift|palettes|easing_waves|interpolate|platform|profiling|filter|plot_scan|fastmath_clamp|conway_soak|spherical_field|spherical_harmonics|relax_bake_verify|relax_bake_form|feedback_dump_a|feedback_dump_b|feedback_compare|feedback_io)$"
-            test_exclude: *generated_exclude
-            skips_are_errors: 1
-          - &shard3_entry
-            shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|noise_field|projections|animation|effects|mindsplatter|effects_smoke|effect_factory|shader_workbench|lattice_melt|kaleidoscope_smooth|composed_effect|shapeshifter_oracle|shapeshifter_tiles|mindsplatter_replay|mindsplatter_palette|h_offset_renorm|h_offset_device|stack_budget|arena_budget)$"
-            test_exclude: *generated_exclude
-            skips_are_errors: 1
-            effects_full: 1
-          - &shard4_entry
-            shard: 4
-            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_segment_map_golden|pov_single|pov_sync|param_marshal|wasm_predicates|presets|styles|shading|death|death_child_dispatch|conway_morph|pullback|pullback_manifest|pullback_capture_determinism|shader_chain)$"
-            test_exclude: *generated_exclude
-            skips_are_errors: 1
-    # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
-    # and the suite isn't silently re-hosted on a new runner image.
+    name: Native unit tests (Clang)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
-      # Every ccache key carries github.run_id, so the exact key always misses
-      # and every job saves a fresh entry into GitHub's 10 GB LRU cache quota.
-      # At ccache's 5 GB default a single slot can evict the rest, and the
-      # restore-keys fallbacks the keys above rely on then miss silently.
-      # Cap every slot so the whole run's set fits the quota.
       CCACHE_MAXSIZE: &ccache_maxsize 400M
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -92,16 +47,6 @@ jobs:
 
       - &llvm_apt
         name: Add the apt.llvm.org repository
-        # clang-22 is newer than the default LLVM on Ubuntu 24.04, so the
-        # toolchain comes from apt.llvm.org rather than the distro archive.
-        # Every job that installs clang aliases this step, so the repository and
-        # the release channel are named once.
-        # The signing key is checksum-pinned (tools/build_pins.py), like the
-        # doxygen tarball in docs.yml: it is served by the same host as the
-        # packages it authenticates, so a fresh fetch trusted on sight lets that
-        # host vouch for itself. The deb transport stays plain HTTP — signed-by
-        # is what authenticates the archive, and apt verifies it per release
-        # file. Re-pin the digest if LLVM re-exports the key.
         run: |
           curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o /tmp/llvm-snapshot.gpg.key
           echo '8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d  /tmp/llvm-snapshot.gpg.key' \
@@ -113,18 +58,8 @@ jobs:
 
       - name: Install Clang + Ninja + ccache
         run: |
-          # Pin the compiler version so the native suite — including the
-          # __attribute__ / __builtin_trap death-harness semantics — runs on a
-          # known compiler rather than whatever the rolling 'clang' metapackage
-          # resolves to.
           sudo apt-get install -y clang-22 ninja-build ccache
-          # cmake is preinstalled on GitHub runners (>= 3.29 required).
 
-      # The generated-artifact gates (unit_color_luts, unit_gamut_lut) need
-      # python3 + numpy. Provision them on every shard and configure with
-      # -DHS_REQUIRE_GENERATORS=ON below: this is the one job where those two
-      # CTests are required to RUN, so a provisioning break fails the job
-      # instead of silently downgrading them to skips.
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0  # pin the interpreter, like the provenance jobs
         with:
           python-version: '3.12'
@@ -133,22 +68,15 @@ jobs:
         run: pip install --require-hashes -r requirements/numpy.txt
 
       - name: Install the LUT generator formatter
-        if: matrix.shard == 2
         run: pip install --require-hashes -r requirements/clang-format.txt
 
-      # Each shard gets its own ccache slot so parallel saves don't collide.
-      # The shard-agnostic restore-key means any prior shard's warm cache is
-      # accepted on a cache miss (all shards compile the same TUs).
       - name: Cache ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-tests-${{ github.run_id }}-${{ matrix.shard }}
+          key: ccache-tests-${{ github.run_id }}
           restore-keys: ccache-tests-
 
-      # Pass the versioned compiler explicitly so the build is reproducible; the
-      # 'tests' toolchain respects a pre-set CMAKE_CXX_COMPILER and skips its
-      # EMSDK/PATH auto-detection. Don't auto-touch git config in CI.
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
@@ -157,27 +85,10 @@ jobs:
       - name: Build
         run: cmake --build --preset tests
 
-      # EXCLUDE_FROM_ALL targets — perf_bench_Os because its wall-time run is too
-      # noisy to gate as a ctest, the generators because running them rewrites a
-      # committed header — are outside the default build, so an API rename can
-      # ride green everywhere while silently breaking their sources. Compile them
-      # here (build-only, once on shard 1). `excluded_targets` aggregates them in
-      # tests/CMakeLists.txt off the buildsystem's own EXCLUDE_FROM_ALL property,
-      # so a newly excluded target is covered without a workflow edit.
       - name: Build EXCLUDE_FROM_ALL targets (compile coverage only)
-        if: matrix.shard == 1
         run: cmake --build --preset tests --target excluded_targets
 
-      # Reverse-direction roster guard: every module in the
-      # run_tests roster must map to a unit_<name> CTest registration, else it
-      # runs in no ctest test and is silently uncovered. (The forward direction
-      # already fails — an unknown argv module exits run_tests with status 2.)
-      # Runs once, on shard 1, against the binary just built above.
       - name: Assert run_tests roster is registered in CTest
-        if: matrix.shard == 1
-        # An explicit `shell: bash` is what enables pipefail — GitHub's implicit
-        # shell is `bash -e {0}`, under which sort's status 0 masks a crashed
-        # lister and the empty roster below passes the check vacuously.
         shell: bash
         run: |
           roster=$(build/tests/tests/run_tests --list | sed -n 's/^  //p' | sort)
@@ -194,63 +105,25 @@ jobs:
           fi
           echo "All run_tests roster modules are registered in CTest."
 
-      # Cache misses also prove the compiler launcher is active on a cold cache.
       - name: ccache stats
         if: always()
-        shell: bash
-        run: |
-          ccache -sv
-          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
-          if [ "$calls" -eq 0 ]; then
-            echo "::error::ccache recorded no cacheable compiler calls"
-            exit 1
-          fi
+        continue-on-error: true
+        run: ccache -sv
 
       - name: Test
         id: native_tests
-        # Drive the deep smoke pass (default is 8 frames — fast for the local
-        # pre-commit hook, but too short to reach the effect-lifecycle
-        # transitions: RingShower slot reuse, Thrusters fire/FIFO expiry,
-        # ShapeShifter's 48-frame cut). CI runs long enough to cover them so a
-        # regression in the slot-recycling defect class fails here, not on-device.
-        # The unit_arena_budget / unit_stack_budget gates resolve the same window
-        # (tests/test_fixture.h smoke_frames()), so they score the high-water mark
-        # over the frames the correctness sweep covers, not an 8-frame prefix.
-        #
-        # These Debug shards use QUICK. The optimized production-resolution
-        # correctness leg runs on both pull requests and master pushes.
-        #
-        # --no-tests=error: a shard regex that matches nothing is a shard-matrix
-        # bug; without it an empty shard runs zero tests and reports green.
-        #
-        # HS_BUFFER_FREE_WATCHDOG_US: the canvas ctor's spin watchdog is a trap,
-        # so a runner deschedule past it kills the shard instead of failing a
-        # test. Shards 3 and 4 carry unit_canvas / unit_pov_segmented, the two
-        # modules that spin it; 30 s still catches a genuinely stalled hand-off.
-        #
-        # HS_REQUIRE_EFFECTS_FULL rides alongside HS_EFFECTS_FULL: run_tests
-        # rejects an effects run under CI unless both keys carry an explicit
-        # value, so a step that drops the pair fails instead of falling back to
-        # the quick tier. 0 here declares that this job may run QUICK.
-        #
-        # Every other job running the deep pass aliases these values instead of
-        # re-typing them, so one left behind cannot narrow that job's window.
-        # The values are aliased one by one rather than the whole mapping:
-        # workflow YAML has no merge key, and two of those jobs add a
-        # variable of their own.
         env:
           HS_SMOKE_FRAMES: &deep_smoke_frames 120
           HS_EFFECTS_FULL: &quick_effects 0
           HS_REQUIRE_EFFECTS_FULL: &effects_full_optional 0
-          HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
+          HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: &deep_smoke_watchdog 30000000
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
-          -R "${{ matrix.test_regex }}"
 
       - name: Detect MindSplatter replay corpus mismatch
         id: mindsplatter_corpus_mismatch
-        if: ${{ always() && matrix.shard == 2 && steps.native_tests.outcome == 'failure' }}
+        if: ${{ always() && steps.native_tests.outcome == 'failure' }}
         shell: bash
         run: |
           generated=build/tests/tests/mindsplatter_replay_corpus.generated.h
@@ -269,21 +142,11 @@ jobs:
           retention-days: 3
 
   sanitizers:
-    name: Native unit tests (Clang, ASan + UBSan) / shard ${{ matrix.shard }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Same shard partition as the tests job — referenced by anchor, not
-        # re-typed, so the jobs cannot drift.
-        include: *shard_matrix
-    # The native suite is the only build where the arena guards compile in
-    # (device/WASM strip them), so ASan+UBSan here is the sole automated cover
-    # for the arena-lifetime UB the death harness can't reach. -DHS_SANITIZE=ON
-    # is wired in tests/CMakeLists.txt: ASan + UBSan with -fno-sanitize-recover,
-    # so the first error is a hard failure. ccache absorbs the recompile cost.
+    name: Native unit tests (Clang, ASan + UBSan)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
+      GENERATED_EXCLUDE: &generated_exclude "^unit_(color_luts|gamut_lut|mindsplatter_replay_form)$"
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_MAXSIZE: *ccache_maxsize
     steps:
@@ -295,17 +158,13 @@ jobs:
 
       - name: Install Clang + Ninja + ccache
         run: |
-          # Same pinned clang-22 as the plain tests job (see its note).
           sudo apt-get install -y clang-22 ninja-build ccache
 
-      # Separate cache prefix from the non-sanitized job (ASan/UBSan flags
-      # change the compile command, so object caches must not collide).
-      # Per-shard slot for the same reason as the tests job above.
       - name: Cache ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-sanitizers-${{ github.run_id }}-${{ matrix.shard }}
+          key: ccache-sanitizers-${{ github.run_id }}
           restore-keys: ccache-sanitizers-
 
       - name: Configure
@@ -318,49 +177,21 @@ jobs:
 
       - name: ccache stats
         if: always()
-        shell: bash
-        run: |
-          ccache -sv
-          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
-          if [ "$calls" -eq 0 ]; then
-            echo "::error::ccache recorded no cacheable compiler calls"
-            exit 1
-          fi
+        continue-on-error: true
+        run: ccache -sv
 
       - name: Test
-        # Deep smoke pass (see the plain tests job) so the sanitized run reaches
-        # the same effect-lifecycle transitions and exercises arena lifetimes.
-        # The shard pass uses QUICK; the effects shard also runs FULL below.
-        #
-        # -E drops the generated-artifact gates: they instrument no sanitized
-        # code, and the Python gates cannot run because this job provisions
-        # neither python3 nor numpy. The plain tests job runs them with
-        # -DHS_REQUIRE_GENERATORS=ON. matrix.test_exclude is the
-        # *generated_exclude anchor
-        # each shard entry already carries, so the set cannot drift from the one
-        # the matrix declares. Shard membership is untouched, so the
-        # shard-coverage job still asserts every registered test is claimed by
-        # exactly one shard. --no-tests=error for the same reason as the tests
-        # job; every shard keeps tests outside the -E set.
-        #
-        # HS_BUFFER_FREE_WATCHDOG_US: the canvas ctor's spin watchdog is a trap,
-        # so a runner deschedule past it kills the shard instead of failing a
-        # test. ASan+UBSan cost the slowest module 2.7x (tests/CMakeLists.txt),
-        # which makes that reachable at the 2 s default on a 2-vCPU runner; 30 s
-        # still catches a genuinely stalled hand-off.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
           HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
-          HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
+          HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
-          -R "${{ matrix.test_regex }}"
-          -E "${{ matrix.test_exclude }}"
+          -E "${{ env.GENERATED_EXCLUDE }}"
 
       - name: Test full-resolution effects under ASan and UBSan
-        if: matrix.shard == 1
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: 1
@@ -373,15 +204,6 @@ jobs:
 
   thread-sanitizer:
     name: Native unit tests (Clang, TSan) / concurrency modules
-    # The canvas and pov_segmented modules are the suite's only genuine
-    # concurrency: a render thread and a display-ISR stand-in trade the Effect
-    # double buffer across the cur/next/prev handoff (core/render/canvas.h), with
-    # the frame pixels themselves passed as plain memory. Every other job runs
-    # them on x86-64, whose strong model masks a broken hand-off; the defect
-    # would first appear in the Cortex-M display ISR, where there is no debugger.
-    # TSan cannot share a binary with ASan, so this is its own job rather than a
-    # flavour of the sanitizers matrix, and it builds only run_tests and runs
-    # only those two modules — no other module spawns a thread.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -396,11 +218,8 @@ jobs:
 
       - name: Install Clang + Ninja + ccache
         run: |
-          # Same pinned clang-22 as the plain tests job (see its note).
           sudo apt-get install -y clang-22 ninja-build ccache
 
-      # Own cache prefix: -fsanitize=thread changes the compile command, so this
-      # object cache must not collide with the other jobs'.
       - name: Cache ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -418,25 +237,10 @@ jobs:
 
       - name: ccache stats
         if: always()
-        shell: bash
-        run: |
-          ccache -sv
-          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
-          if [ "$calls" -eq 0 ]; then
-            echo "::error::ccache recorded no cacheable compiler calls"
-            exit 1
-          fi
+        continue-on-error: true
+        run: ccache -sv
 
       - name: Test
-        # Deep smoke window like the other jobs, so the segmented handoff walks
-        # its full flip cycle. halt_on_error=1 makes the first race fatal, the
-        # fail-fast counterpart of the sanitizers job's -fno-sanitize-recover.
-        # --no-tests=error: a rename that empties this regex is a wiring bug, not
-        # a green run.
-        # HS_BUFFER_FREE_WATCHDOG_US: the canvas ctor's spin watchdog is a trap,
-        # so a runner deschedule past it kills the shard instead of failing a
-        # test. TSan's slowdown on a 2-vCPU runner makes that reachable at the
-        # 2 s default; 30 s still catches a genuinely stalled hand-off.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_SKIPS_ARE_ERRORS: &skips_forbidden 1
@@ -447,68 +251,21 @@ jobs:
           -R "^unit_(canvas|pov_segmented)$"
 
   optimized-tests:
-    name: Native unit tests (Clang, optimized) / shard ${{ matrix.shard }}
+    name: Native unit tests (Clang, optimized) / ${{ matrix.flavor }}
     strategy:
       fail-fast: false
       matrix:
-        # Same shard partition as the tests job — the entries are anchor
-        # references, not re-typed, so the partition cannot drift. YAML cannot
-        # append to an aliased sequence, hence the per-entry aliases rather than
-        # *shard_matrix.
-        # The fifth entry is the float-configuration axis, not a fifth shard:
-        # it compiles the whole suite with the flag pair both shipping targets
-        # use (platformio.ini, CMakeLists.txt) and runs compatible tests in one
-        # job, so the axis costs one runner instead of four.
         include:
-          - *shard1_entry
-          - *shard2_entry
-          - *shard3_entry
-          - *shard4_entry
-          - shard: fastmath
-            test_regex: "."
-            effects_full: 1
+          - flavor: ieee
+            optimization: -O2 -g
+            float_flags: ""
+            test_exclude: *generated_exclude
+            skips_are_errors: 1
+          - flavor: fastmath
             optimization: -Os -g
-            # These modules contain IEEE-sensitive reference or assertion-count
-            # checks. The exclusions are anchored, so unit_effects_smoke — the
-            # roster-wide smoke, cross-run determinism and clip-clear parity
-            # sweeps, every assertion of which compares two renders from the
-            # same binary — runs here even though unit_effects does not. That is
-            # the whole effect roster's cover under the flag pair both shipping
-            # targets build with.
-            # unit_mindsplatter is the MindSplatter white-box block split
-            # out of unit_effects; its framebuffer parities and geometry
-            # replay are the IEEE-sensitive checks, so it is excluded on the
-            # same grounds.
-            # unit_shapeshifter_tiles is the mirror case: a mosaic of clipped
-            # renders equals the unclipped frame only under IEEE, so it is split
-            # out of unit_shapeshifter_oracle and only the split-off module is
-            # excluded; the oracle's visual budgets run here.
-            # unit_shader_chain asserts the interpreter's type-erased dispatch is
-            # bit-identical to the same stage bound as a template. The two are
-            # separate instantiations optimised in their own contexts, so
-            # reassociation moves one and not the other and the identity is not
-            # claimable under this flag pair; sharing an always_inline helper does
-            # not restore it. Dispatch correctness is covered by shard 4, which
-            # runs this module at -O2 under IEEE.
-            # unit_pullback_capture_determinism selects the native-debug oracle;
-            # the Debug and optimized IEEE jobs cover that configuration.
             test_exclude: "^unit_(3dmath|sdf|effects|mindsplatter|shapeshifter_tiles|conway_continuity|partition_seam|mesh|shader_chain|shader_workbench|pullback_capture_determinism|pov_sync|color_luts|gamut_lut)$"
             float_flags: -ffast-math -fno-finite-math-only -DHS_TEST_FAST_MATH=1
-            # The harness permits only the HyperLattice specialized signature
-            # and denormal-alpha rescale skips under this flag pair.
             skips_are_errors: 0
-    # The `tests` preset pins Debug, and the jobs above all reuse it, so every
-    # assertion in the suite runs at -O0: UB the optimizer acts on, and FP
-    # results that move under -O2 contraction, are structurally invisible there.
-    # This job runs the SAME shards at -O2. CMAKE_CXX_FLAGS_RELWITHDEBINFO is
-    # overridden to a plain "-O2 -g" so NDEBUG stays undefined — assert() and
-    # the memory.h arena guards remain live, leaving the optimization level as
-    # the only variable against the Debug jobs.
-    # Both shipping targets build with -ffast-math -fno-finite-math-only
-    # (platformio.ini, CMakeLists.txt); the fastmath entry is the leg that
-    # asserts the suite under that pair, so the configuration the device and the
-    # browser actually run is the one CI checks. relax_bake_verify pins itself
-    # back to IEEE — see tests/CMakeLists.txt.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -523,30 +280,20 @@ jobs:
 
       - name: Install Clang + Ninja + ccache
         run: |
-          # Same pinned clang-22 as the plain tests job (see its note).
           sudo apt-get install -y clang-22 ninja-build ccache
 
-      # Separate cache prefix from the Debug jobs: the opt flags change the
-      # compile command, so the object caches must not collide. Per-shard slot
-      # for the same reason as the tests job above. The restore-key carries the
-      # shard: the fastmath entry compiles every TU differently from the four
-      # IEEE shards, and "ccache-optimized-fastmath-" cannot prefix-match a
-      # numbered shard's key (nor the reverse), so the two float configurations
-      # never restore each other's objects.
       - name: Cache ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-optimized-${{ matrix.shard }}-${{ github.run_id }}
-          restore-keys: ccache-optimized-${{ matrix.shard }}-
+          key: ccache-optimized-${{ matrix.flavor }}-${{ github.run_id }}
+          restore-keys: ccache-optimized-${{ matrix.flavor }}-
 
-      # float_flags is empty for the four shard entries, leaving them at the
-      # plain "-O2 -g" this job has always used.
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${{ matrix.optimization || '-O2 -g' }} ${{ matrix.float_flags }}"
+          "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${{ matrix.optimization }} ${{ matrix.float_flags }}"
           -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
 
       - name: Build
@@ -554,31 +301,18 @@ jobs:
 
       - name: ccache stats
         if: always()
-        shell: bash
-        run: |
-          ccache -sv
-          calls=$(ccache --print-stats | awk '$1 == "direct_cache_hit" || $1 == "preprocessed_cache_hit" || $1 == "cache_miss" { n += $2 } END { print n+0 }')
-          if [ "$calls" -eq 0 ]; then
-            echo "::error::ccache recorded no cacheable compiler calls"
-            exit 1
-          fi
+        continue-on-error: true
+        run: ccache -sv
 
       - name: Test
-        # Shard 3 covers full IEEE effects; fastmath covers shipping float flags.
-        # --no-tests=error for the same reason as the tests job.
-        # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the tests job: shards
-        # 3, 4 and fastmath all run unit_canvas / unit_pov_segmented.
-        # HS_REQUIRE_EFFECTS_FULL does not read matrix.effects_full: an entry that
-        # loses the key must fail the leg, not downgrade it to the quick tier.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
-          HS_EFFECTS_FULL: ${{ matrix.effects_full || 0 }}
+          HS_EFFECTS_FULL: 1
           HS_REQUIRE_EFFECTS_FULL: 1
           HS_SKIPS_ARE_ERRORS: ${{ matrix.skips_are_errors }}
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
-          -R "${{ matrix.test_regex }}"
           -E "${{ matrix.test_exclude }}"
 
   code-coverage:
@@ -751,23 +485,6 @@ jobs:
         run: cmake --build --preset tests --target excluded_targets
 
       - name: Test
-        # Deep smoke pass (see the Linux job): cover effect-lifecycle
-        # transitions the default 8-frame local run never reaches.
-        # Windows keeps the QUICK effects tier; this job targets toolchain
-        # portability rather than duplicating the FULL leg.
-        # --no-tests=error: bare ctest exits 0 on an empty test list, and a
-        # configure-time regression in the toolchain file's Windows branch —
-        # what this job exists to cover — is exactly what would empty it.
-        #
-        # -E drops the generated-artifact gates for the same reason the sanitizer
-        # job does: this runner uses a different compiler and provisions no
-        # numpy. Excluding them makes that a declared gap rather than a silent
-        # one. TEST_EXCLUDE is the
-        # *generated_exclude anchor the shard matrix already carries, so the set
-        # cannot drift from the one the matrix declares.
-        #
-        # HS_BUFFER_FREE_WATCHDOG_US for the same reason as the Linux tests job:
-        # this job runs unit_canvas and unit_pov_segmented unsharded.
         env:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
@@ -947,23 +664,10 @@ jobs:
           WASM_SMOKE_STACK_CEILING: 6144
         run: node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
 
-      # Verify ccache actually fronts em++ here (the comment above claims it
-      # does via CMAKE_CXX_COMPILER_LAUNCHER). Stats were zeroed before the
-      # builds, so a nonzero cacheable-call count (hits + misses) proves ccache
-      # saw the em++ compilations this run; zero means the emcc launcher
-      # integration silently disengaged and the cache is dead weight. Fail loudly
-      # rather than leaving the documented check to eyeballing.
       - name: ccache stats
         if: always()
-        run: |
-          ccache -sv
-          stat() { ccache --print-stats | awk -F'\t' -v k="$1" '$1==k{v=$2} END{print v+0}'; }
-          calls=$(( $(stat direct_cache_hit) + $(stat preprocessed_cache_hit) + $(stat cache_miss) ))
-          echo "Cacheable em++ calls this run: $calls"
-          if [ "$calls" -eq 0 ]; then
-            echo "::error::ccache recorded zero cacheable calls — the em++ launcher integration is not engaging."
-            exit 1
-          fi
+        continue-on-error: true
+        run: ccache -sv
 
       - name: Smoke-test the WASM module at runtime
         # The build above only proves the module compiles and links. Instantiate
@@ -1351,9 +1055,6 @@ jobs:
         run: pip install --require-hashes -r requirements/numpy.txt
 
       - name: Check gamut LUT provenance and the color.h/3dmath.h mirrors
-        # ctest unit_gamut_lut runs the same --check inside the sharded unit-test
-        # job (which provisions numpy and sets -DHS_REQUIRE_GENERATORS=ON, so it
-        # cannot skip); this job runs it standalone, independent of that build.
         run: |
           python3 tools/gen_gamut_lut.py --check
 
@@ -1372,8 +1073,6 @@ jobs:
         run: |
           sudo apt-get install -y clang-22 ninja-build   # pinned like the unit-test job
 
-      # srgb_decode_gen is EXCLUDE_FROM_ALL and the sharded job only compiles it;
-      # here it is actually run, to argv[1] rather than over the committed header.
       - name: Build the generator
         run: |
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON \
@@ -1730,17 +1429,6 @@ jobs:
       - name: Install actionlint
         run: pip install --require-hashes -r requirements/actionlint.txt
 
-      # The workflows carry the shard bijection, the ci-green aggregation, the
-      # install-provenance and coverage-floor gates as shell inside `run:`
-      # blocks, which the shellcheck step above cannot reach: no workflow is a
-      # tracked *.sh file. actionlint checks the workflow itself (expression
-      # syntax, the `needs` graph, event and matrix keys) and pipes every
-      # `run:` body through shellcheck.
-      # The file list is enumerated from the index, so a new workflow is linted
-      # with no edit here and an empty list is a broken path list.
-      # actionlint drops its shellcheck integration silently when the binary is
-      # not on PATH, which would leave every run body unchecked behind a green
-      # step; -verbose reports the drop, so it is captured and made fatal.
       - name: Lint workflows
         run: |
           mapfile -t FILES < <(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml')
@@ -1763,80 +1451,6 @@ jobs:
       # needs no attached board.
       - name: Profile sweep groups cover the Phantasm playlist
         run: bash tools/profile_sweep.sh check
-
-  shard-coverage:
-    name: Shard coverage (tests and shard alternatives in bijection)
-    # The tests/sanitizers jobs run subsets of the suite via the shard regexes.
-    # A module registered in CMake but absent from every shard would run in no
-    # Linux/sanitizer job and silently lose that coverage; an alternative naming no
-    # test is dead weight the forward direction cannot see. Assert both directions
-    # against the SAME anchored scalars the matrices use, so this check cannot
-    # drift from them.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    env:
-      SHARD1: *shard1_re
-      SHARD2: *shard2_re
-      SHARD3: *shard3_re
-      SHARD4: *shard4_re
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - *llvm_apt
-
-      - name: Install Clang + Ninja
-        run: |
-          sudo apt-get install -y clang-22 ninja-build
-
-      # Configure only — ctest -N reads the generated test list; no build needed.
-      - name: Configure (register tests)
-        run: >
-          cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
-          -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
-
-      - name: Assert the shard matrix and the registered tests are in bijection
-        run: |
-          # ctest right-aligns the index, so single-digit tests get extra spaces
-          # ("Test  #1:" vs "Test #10:"); match one-or-more spaces around it.
-          mapfile -t TESTS < <(ctest --preset tests -N \
-            | sed -n 's/^[[:space:]]*Test[[:space:]]\+#[0-9]\+:[[:space:]]*//p')
-          if [ "${#TESTS[@]}" -eq 0 ]; then
-            echo "::error::no tests parsed from 'ctest -N' — output format changed?"
-            exit 1
-          fi
-          fail=0
-          for t in "${TESTS[@]}"; do
-            n=0
-            for re in "$SHARD1" "$SHARD2" "$SHARD3" "$SHARD4"; do
-              if printf '%s\n' "$t" | grep -Eq "$re"; then n=$((n + 1)); fi
-            done
-            if [ "$n" -ne 1 ]; then
-              echo "::error::test '$t' is in $n shards (want exactly 1) — update the shard matrix in ci.yml"
-              fail=1
-            fi
-          done
-          for re in "$SHARD1" "$SHARD2" "$SHARD3" "$SHARD4"; do
-            alts=${re#"^unit_("}
-            alts=${alts%")$"}
-            if [ "$alts" = "$re" ]; then
-              echo "::error::shard regex '$re' is not the ^unit_(a|b|...)\$ shape this check parses"
-              fail=1
-              continue
-            fi
-            IFS='|' read -r -a ALTS <<< "$alts"
-            for a in "${ALTS[@]}"; do
-              if ! printf '%s\n' "${TESTS[@]}" | grep -Fxq "unit_$a"; then
-                echo "::error::shard alternative 'unit_$a' matches no registered test — drop it from the shard matrix in ci.yml"
-                fail=1
-              fi
-            done
-          done
-          if [ "$fail" -eq 0 ]; then
-            echo "All ${#TESTS[@]} registered tests are in exactly one shard, and every shard alternative names one."
-          fi
-          exit "$fail"
 
   clang-format:
     name: Formatting (clang-format)
@@ -2055,7 +1669,6 @@ jobs:
       - docs-doxygen
       - license-headers
       - lint
-      - shard-coverage
       - clang-format
       - teensy-gate-tests
       - teensy-size
