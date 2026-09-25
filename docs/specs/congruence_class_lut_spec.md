@@ -89,7 +89,8 @@ the effect's persistent slot. `MeshState` itself is untouched.
 ### Canonical shape and rep selection
 
 Cluster greedily within each topology class (census algorithm): assign a face
-to the first sub-class rep within `CONGRUENCE_EPS_PX = 0.25` px residual, else
+to the best sub-class rep within `CONGRUENCE_EPS_PX = 0.25` px RMS residual
+and the runtime maximum-deviation cap at the finest allowed LUT grid, else
 it founds a new sub-class. Rep = the founding face's centered 2D polygon;
 optionally refine to the aligned class mean (halves worst deviation — do this
 if the visual gate is marginal, not before). A face whose sub-class stays
