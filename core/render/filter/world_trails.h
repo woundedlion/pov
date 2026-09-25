@@ -70,7 +70,7 @@ public:
   }
 
   /**
-   * @brief Allocates ring-buffer storage from the persistent arena.
+   * @brief Allocates flat trail storage from the persistent arena.
    * @param arena Persistent arena supplying Capacity Item slots.
    * @details Must be called from effect init(), not the constructor (arenas
    * aren't ready yet).

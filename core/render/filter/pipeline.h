@@ -840,12 +840,12 @@ public:
         any_2d_history,
         "Wrong flush() domain: this Pipeline has no 2D history stage, so the "
         "ScreenTrailFn overload emits nothing. Aging happens inside flush() — "
-        "a 3D history stage (World::Trails) left unflushed fills its ring "
+        "a 3D history stage (World::Trails) left unflushed fills its flat "
         "buffer to capacity and never decays. Pass a WorldTrailFn instead.");
     static_assert(
         !any_3d_history,
         "Incomplete flush(): this Pipeline also carries a 3D history stage "
-        "(World::Trails) that this overload leaves unflushed, so its ring "
+        "(World::Trails) that this overload leaves unflushed, so its flat "
         "buffer fills to capacity and never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     static_assert(
@@ -932,7 +932,7 @@ public:
     static_assert(
         !any_3d_history,
         "Incomplete flush(): this Pipeline also carries a 3D history stage "
-        "(World::Trails) that this overload leaves unflushed, so its ring "
+        "(World::Trails) that this overload leaves unflushed, so its flat "
         "buffer fills to capacity and never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, alpha);
