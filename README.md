@@ -150,7 +150,7 @@ Most LED art codebases use gamma-corrected 8-bit values throughout and blend in 
 
 ### Why Compile-Time Resolution?
 
-Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. The hardware target `<96, 20>` runs with no runtime overhead from generality. The simulator builds separate specializations for `<288, 144>`. Each supported resolution is a separate instantiation, so binary size increases in exchange.
+Templating on `<W, H>` means every pixel coordinate transform, bounding box computation, and LUT index is resolved at compile time. Each hardware image runs its own specialization — `<96, 20>` for Holosphere, `<288, 144>` for Phantasm — with no runtime overhead from generality; the simulator and test suite instantiate both. Each supported resolution is a separate instantiation, so binary size increases in exchange.
 
 ### Why Arena Allocation?
 
