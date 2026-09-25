@@ -372,27 +372,25 @@ inline void test_arena_reclaimed_since() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(32);
   size_t mark = a.get_offset();
-  size_t floor_at_birth = a.get_rewind_floor();
   uint64_t seq_at_birth = a.get_rewind_seq();
   void *p = a.allocate(64);
-  HS_EXPECT_FALSE(a.reclaimed_since(p, 64, floor_at_birth, seq_at_birth));
+  HS_EXPECT_FALSE(a.reclaimed_since(p, 64, seq_at_birth));
 
   a.set_offset(mark);
-  HS_EXPECT_TRUE(a.reclaimed_since(p, 64, floor_at_birth, seq_at_birth));
+  HS_EXPECT_TRUE(a.reclaimed_since(p, 64, seq_at_birth));
 
   // A new owner takes the same bytes: covers() calls the region live again.
   a.allocate(128);
   HS_EXPECT_TRUE(a.covers(p, 64));
-  HS_EXPECT_TRUE(a.reclaimed_since(p, 64, floor_at_birth, seq_at_birth));
+  HS_EXPECT_TRUE(a.reclaimed_since(p, 64, seq_at_birth));
 
   // A block handed out after that rewind, then a rewind that stops above it.
-  size_t floor_after = a.get_rewind_floor();
   uint64_t seq_after = a.get_rewind_seq();
   void *q = a.allocate(64);
   size_t above_q = a.get_offset();
   a.allocate(64);
   a.set_offset(above_q);
-  HS_EXPECT_FALSE(a.reclaimed_since(q, 64, floor_after, seq_after));
+  HS_EXPECT_FALSE(a.reclaimed_since(q, 64, seq_after));
 
   // A rewind that frees a block without dropping below the floor an earlier,
   // deeper rewind already set: the floor alone cannot see it.
@@ -403,7 +401,7 @@ inline void test_arena_reclaimed_since() {
   a.allocate(64);
   a.set_offset(below_r_end);
   HS_EXPECT_EQ(a.get_rewind_floor(), floor_deep);
-  HS_EXPECT_TRUE(a.reclaimed_since(r, 64, floor_deep, seq_deep));
+  HS_EXPECT_TRUE(a.reclaimed_since(r, 64, seq_deep));
 
   a.set_offset(0);
   const uint64_t BIRTH = a.get_rewind_seq();
@@ -411,7 +409,7 @@ inline void test_arena_reclaimed_since() {
   a.set_offset(0);
   a.allocate(80);
   a.set_offset(60);
-  HS_EXPECT_TRUE(a.reclaimed_since(b, 32, a.get_rewind_floor(), BIRTH));
+  HS_EXPECT_TRUE(a.reclaimed_since(b, 32, BIRTH));
 }
 #endif
 
