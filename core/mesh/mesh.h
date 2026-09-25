@@ -254,8 +254,8 @@ HS_COLD static inline void require_flat_face_length(const uint8_t *counts,
 class HalfEdgeMesh;
 /**
  * @brief Inclusive representable bounds enforced by mesh builders and operators.
- * @details Vertex indices use signed 16-bit storage; half-edge and face counts
- * use unsigned 16-bit storage, and face degree uses unsigned 8-bit storage.
+ * @details Indices use uint16_t with HE_NONE/REFERENCED/UNREFERENCED
+ * sentinels; the vertex cap also bounds Hankin output. Face degree uses uint8_t.
  * Exceeding a bound traps before conversion. Arena byte capacity is independent.
  */
 namespace MeshLimits {
@@ -422,14 +422,12 @@ namespace MeshOps {
  * type, trapping on a budget bump that pushes it past the representable range.
  * @param i Container index to narrow.
  * @return The index as a uint16_t.
- * @details Mesh vertex indices must fit int16_t: some operators' scratch uses
- * int16_t with a -1 sentinel, so INT16_MAX is the narrowest type these indices
- * reach. This trap enforces that invariant, converting a silent capture-wrap on
- * an oversized mesh into a crash.
+ * @details The vertex cap reserves the HE_NONE/REFERENCED/UNREFERENCED
+ * sentinel range and bounds Hankin output indices before conversion.
  */
 inline uint16_t narrow_index(size_t i) {
   HS_CHECK(i <= MeshLimits::MAX_VERTEX_INDEX,
-           "mesh index exceeds int16_t topology range (oversized mesh?)");
+           "mesh index exceeds topology vertex range (oversized mesh?)");
   return static_cast<uint16_t>(i);
 }
 
