@@ -326,6 +326,18 @@ class BoardSelection(unittest.TestCase):
         self.assertIn("PORT=COM3", r.stdout)
         self.assertIn("stale", r.stderr)
 
+    def test_aged_unwritten_claim_is_recovered(self):
+        directory = self.lock_dir("COM3")
+        directory.mkdir()
+        old = time.time() - GRACE - 60
+        os.utime(directory, (old, old))
+        self.hold("COM4")
+        result = run_lock('hs_device_acquire E profile 60 && echo "PORT=$HS_TEENSY_PORT"',
+                          self.base)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PORT=COM3", result.stdout)
+        self.assertTrue((directory / "info").is_file())
+
     def test_a_claim_retaken_mid_break_is_not_evicted(self):
         # Two peers judge one claim stale at once: the first evicts it and takes
         # the board, and the second must not then delete that fresh lock. The
