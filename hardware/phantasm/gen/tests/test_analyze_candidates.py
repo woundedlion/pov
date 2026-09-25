@@ -178,6 +178,19 @@ class ScoreTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
+    def test_ineligible_candidates_are_not_recommended(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board = Path(directory) / "Candidate 1.kicad_pcb"
+            board.write_text(SYNTHETIC_BOARD, encoding="utf-8")
+            with mock.patch("builtins.print") as emit, mock.patch.object(
+                    analyze_candidates, "run_drc",
+                    return_value=analyze_candidates.no_drc(analyze_candidates.DRC_FAILED)):
+                result = analyze_candidates.main([str(board)])
+        output = "\n".join(" ".join(map(str, call.args)) for call in emit.call_args_list)
+        self.assertEqual(result, 1)
+        self.assertIn("No eligible candidate", output)
+        self.assertNotIn("best by composite", output)
+
     def test_unrouted_candidate_stops_before_skew_or_score_reports(self):
         source = SYNTHETIC_BOARD.replace("(end 10 0)", "(end 0 0)")
         with tempfile.TemporaryDirectory() as directory:
