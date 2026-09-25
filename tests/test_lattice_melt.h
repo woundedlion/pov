@@ -263,9 +263,14 @@ inline void test_lattice_melt_manual_write_restarts_dwell() {
                ParamSetResult::APPLIED);
   HS_EXPECT_FALSE(WB::transition_active(effect));
 
-  for (int f = 0; f <= FX::PRESET_SEGUE.frames; ++f)
+  effect.setAnimationsPaused(false);
+  for (int f = 0; f < FX::PRESET_DWELL_FRAMES - 1; ++f)
     WB::tick_choreography(effect);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_FALSE(WB::transition_active(effect));
+  WB::tick_choreography(effect);
+  HS_EXPECT_TRUE(WB::transition_active(effect));
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
 }
 
 inline void test_lattice_melt_shader_workbench_equivalence() {
