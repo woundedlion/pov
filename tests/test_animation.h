@@ -889,11 +889,32 @@ inline void test_timeline_cancel_fires_post_callback() {
 }
 
 /**
- * @brief Verifies cancel() on a paused event removes it and fires .then().
- * @details step_paused() never advances the animation, so cancellation is a
- * paused event's only route to done(); the paused branch must still complete
- * it, or the slot survives every paused frame and the callback never runs.
+ * @brief Cancellation before the start frame removes paused and unpaused events.
  */
+inline void test_timeline_cancel_before_start() {
+  for (bool paused : {false, true}) {
+    Timeline tl;
+    float value = -1.0f;
+    int callbacks = 0;
+    auto *event = tl.add_get(
+        100,
+        Animation::Mutation(
+            value, [](float e) { return e; }, 4, math::ease_linear, true)
+            .then([&] { ++callbacks; }),
+        Timeline::Pin::PINNED, &paused);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(tl.event_count(), 1);
+    event->cancel();
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(tl.event_count(), 0);
+    HS_EXPECT_EQ(value, -1.0f);
+    HS_EXPECT_EQ(callbacks, 1);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(callbacks, 1);
+  }
+}
+
+/** @brief Cancellation of a started, paused event fires its callback once. */
 inline void test_timeline_cancel_while_paused_removes_event() {
   Timeline tl;
   bool paused = false;
@@ -3978,6 +3999,7 @@ inline int run_animation_tests() {
   test_timeline_repeating_canceled_in_callback_fires_then_once();
   test_timeline_cancel_fires_post_callback();
   test_timeline_cancel_while_paused_removes_event();
+  test_timeline_cancel_before_start();
   test_timeline_compaction_preserves_later_events();
   test_timeline_then_chains_follow_up_event();
   test_repeating_timer_fires_then_each_cycle();
