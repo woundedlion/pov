@@ -675,7 +675,6 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 39u);
   for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
     HS_EXPECT_TRUE(op.operator_id != nullptr && op.display_name != nullptr);
-    // Monotonicity pin: proven at table construction, never re-walked.
     HS_EXPECT_LE(static_cast<int>(op.input), static_cast<int>(op.output));
     HS_EXPECT_TRUE(op.runtime.construct_params != nullptr);
     HS_EXPECT_TRUE(op.runtime.init != nullptr);
@@ -4074,7 +4073,6 @@ inline void test_shader_chain_pause_semantics() {
                static_cast<int>(ParamSetResult::APPLIED));
   HS_EXPECT_EQ(static_cast<int>(effect.updateParameter("camera.wander", 1.0f)),
                static_cast<int>(ParamSetResult::APPLIED));
-  // An animated-param write engages the pause by itself.
   effect.setAnimationsPaused(true);
   const In::Op::SourceClockState source_before =
       state_as<In::Op::SourceClockState>(WB::program(effect), 2);
