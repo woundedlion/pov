@@ -574,7 +574,7 @@ public:
   using TransformerPool<ParamsT, AnimT, CAPACITY>::TransformerPool;
 
   /**
-   * @brief Applies all active transformations to a vector, in slot order.
+   * @brief Applies all active transformations to a vector, in spawn order.
    * @param v Vector to transform.
    * @return The vector after every active transform has been composed onto it.
    * @note Reads each active entity's prepared state; see prepare_frame() for the
