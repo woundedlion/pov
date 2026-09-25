@@ -262,8 +262,6 @@ stage_stability_admitted(const WarpStageSpec &spec,
 
 HS_COLD_MEMBER inline constexpr float
 projection_coordinate_bound(const Config &config) {
-  if (config.slots.surface_lens == SurfaceLens::MOBIUS)
-    return projections::STEREO_INF;
   if (config.slots.projection == Projection::STEREOGRAPHIC)
     return projections::STEREO_INF;
   if (config.slots.projection == Projection::GNOMONIC)
