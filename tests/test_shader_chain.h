@@ -108,8 +108,6 @@ struct ColorResources {
 
   In::FrameContext context() const {
     In::FrameContext ctx;
-    ctx.frame = 7;
-    ctx.time = 7.0f / 30.0f;
     ctx.projection_base =
         math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
     ctx.palettes = {&palettes[0].view(), &palettes[1].view(),
