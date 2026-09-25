@@ -270,7 +270,7 @@ private:
     // curve to a stray point each cycle.
     float closed_domain = closing_domain(config);
     // Capture only the three scalars + closed_domain (16 B): the whole
-    // LissajousParams (20 B) overflows PlotFn's Fn<Vector(float), 16> inline
+    // LissajousParams (16 B) plus closed_domain overflows PlotFn's 16 B inline
     // capacity (no heap fallback on Arduino).
     const float m1 = config.m1, m2 = config.m2, a = config.a;
     path.f = [m1, m2, a, closed_domain](float t) {
