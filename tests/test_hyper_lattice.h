@@ -659,20 +659,20 @@ inline void test_presets_and_pipeline() {
   static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
   static_assert(Effect::PRESET_IDS[2] == "deep-grid");
 
-  constexpr HL::Params preset1 = Effect::preset_params(0);
-  static_assert(preset1.mode == HL::LatticeMode::THREE_D);
-  static_assert(preset1.color == HL::ColorMode::DEPTH);
-  static_assert(preset1.shells == HL::ShellCount::TWO);
+  constexpr HL::Params CUBIC_PRESET = Effect::preset_params(0);
+  static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);
+  static_assert(CUBIC_PRESET.color == HL::ColorMode::DEPTH);
+  static_assert(CUBIC_PRESET.shells == HL::ShellCount::TWO);
 
-  constexpr HL::Params preset2 = Effect::preset_params(1);
-  static_assert(preset2.mode == HL::LatticeMode::FOUR_D_SLICE);
-  static_assert(preset2.color == HL::ColorMode::DEPTH);
-  static_assert(preset2.shells == HL::ShellCount::TWO);
+  constexpr HL::Params SLICE_PRESET = Effect::preset_params(1);
+  static_assert(SLICE_PRESET.mode == HL::LatticeMode::FOUR_D_SLICE);
+  static_assert(SLICE_PRESET.color == HL::ColorMode::DEPTH);
+  static_assert(SLICE_PRESET.shells == HL::ShellCount::TWO);
 
-  constexpr HL::Params preset3 = Effect::preset_params(2);
-  static_assert(preset3.mode == HL::LatticeMode::THREE_D);
-  static_assert(preset3.color == HL::ColorMode::DEPTH);
-  static_assert(preset3.shells == HL::ShellCount::TWO);
+  constexpr HL::Params DEEP_PRESET = Effect::preset_params(2);
+  static_assert(DEEP_PRESET.mode == HL::LatticeMode::THREE_D);
+  static_assert(DEEP_PRESET.color == HL::ColorMode::DEPTH);
+  static_assert(DEEP_PRESET.shells == HL::ShellCount::TWO);
   reset_globals();
   Effect effect;
   effect.init();
