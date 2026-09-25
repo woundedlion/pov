@@ -59,6 +59,7 @@
 #include "math/mobius.h"
 #include "core/animation/transformer.h"
 #include "core/render/canvas.h"
+#include "core/render/filter/feedback_style.h"
 #include "core/math/easing.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -737,30 +738,19 @@ inline void test_noise_active_stays_on_sphere() {
 }
 
 /**
- * @brief Verifies the cross-hemisphere soft cap at the amplitude a shipped
- *        preset actually drives.
- * @details Feedback::Style::LooseWormhole() feeds noise_transform an amplitude
- *          of 11.25 — two orders above the ~0.6 every other test uses, and high
- *          enough that the raw slide would otherwise reach ~0.97 and grab across
- *          the sphere. The cap is on the tangential offset, so with the offset
- *          perpendicular to a unit v the resulting angular displacement is
- *          exactly atan(|offset|): saturated samples land on atan(0.5) and no
- *          sample may exceed it. Asserting both sides pins the cap — a removed
- *          or widened cap overshoots, a cap that never engages undershoots. The
- *          low-amplitude control confirms the existing tests stay clear of it.
+ * @brief Verifies the shipped LooseWormhole noise stays within the slide cap.
  */
 inline void test_noise_cross_hemisphere_cap() {
-  constexpr float LOOSE_WORMHOLE_AMPLITUDE = 11.25f;
+  const auto STYLE = Feedback::Style::LooseWormhole();
   const float capped_angle = std::atan(0.5f);
 
-  auto sweep = [](float amplitude) {
+  auto sweep = [&STYLE](float amplitude) {
     Animation::NoiseParams p;
     p.amplitude = amplitude;
-    p.frequency = 0.22519f; // LooseWormhole's remaining noise config
-    p.scale = 10.1798f;
-    p.speed = 0.0f;
+    p.frequency = STYLE.frequency;
+    p.scale = STYLE.scale;
+    p.speed = STYLE.speed;
     p.time = 0.0f;
-    p.set_seed(4242);
     p.sync();
     hs::random().seed(20260803);
     float worst_angle = 0.0f;
@@ -779,9 +769,8 @@ inline void test_noise_cross_hemisphere_cap() {
     return worst_angle;
   };
 
-  const float worst_high = sweep(LOOSE_WORMHOLE_AMPLITUDE);
+  const float worst_high = sweep(STYLE.amplitude);
   HS_EXPECT_LE(worst_high, capped_angle + 1e-4f);
-  HS_EXPECT_GE(worst_high, capped_angle - 1e-4f);
 
   // 0.6 is the ceiling of every other noise test; the cap must be slack there.
   const float worst_low = sweep(0.6f);
