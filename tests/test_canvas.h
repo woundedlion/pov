@@ -714,22 +714,22 @@ inline void test_consecutive_frames_alternate_buffers() {
   HS_EXPECT_PIXEL(fx.get_pixel(1, 1), 0, 0, 0);
 }
 
+inline void prime_buffers(TestEffect &fx, Pixel a, Pixel b) {
+  for (Pixel color : {a, b}) {
+    {
+      Canvas canvas(fx);
+      for (int i = 0; i < fx.width() * fx.height(); ++i)
+        canvas(i) = color;
+    }
+    fx.advance_display();
+  }
+}
+
 /** @brief Clip clearing touches the display rectangle but not its margin. */
 inline void test_clip_clear_exact_rectangle() {
   TestEffect fx(8, 4);
 
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(11, 22, 33);
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(44, 55, 66);
-  }
-  fx.advance_display();
+  prime_buffers(fx, Pixel(11, 22, 33), Pixel(44, 55, 66));
 
   fx.set_clip(1, 3, 2, 6);
   fx.set_margin(2);
@@ -752,18 +752,7 @@ inline void test_clip_clear_exact_rectangle() {
 inline void test_clip_clear_alternates_clips_and_buffers() {
   TestEffect fx(8, 4);
 
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(10, 0, 0);
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(0, 20, 0);
-  }
-  fx.advance_display();
+  prime_buffers(fx, Pixel(10, 0, 0), Pixel(0, 20, 0));
 
   fx.set_clip(0, 4, 0, 4);
   {
@@ -801,18 +790,7 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
 /** @brief A full display clip is equivalent to the generic full clear. */
 inline void test_clip_clear_full_clip_matches_full_clear() {
   TestEffect fx(8, 4);
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(10, 20, 30);
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(40, 50, 60);
-  }
-  fx.advance_display();
+  prime_buffers(fx, Pixel(10, 20, 30), Pixel(40, 50, 60));
 
   Canvas c(fx);
   for (int i = 0; i < 32; ++i)
@@ -822,18 +800,7 @@ inline void test_clip_clear_full_clip_matches_full_clear() {
 /** @brief A full-width band clears contiguously at the correct row offset. */
 inline void test_clip_clear_full_width_band() {
   TestEffect fx(8, 4);
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(10, 20, 30);
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(40, 50, 60);
-  }
-  fx.advance_display();
+  prime_buffers(fx, Pixel(10, 20, 30), Pixel(40, 50, 60));
 
   fx.set_clip(1, 3, 0, 8);
   Canvas c(fx);
@@ -847,18 +814,7 @@ inline void test_clip_clear_full_width_band() {
 inline void test_clip_clear_constructor_zeroes_both_buffers() {
   {
     TestEffect dirty(8, 4);
-    {
-      Canvas c(dirty);
-      for (int i = 0; i < 32; ++i)
-        c(i) = Pixel(1, 2, 3);
-    }
-    dirty.advance_display();
-    {
-      Canvas c(dirty);
-      for (int i = 0; i < 32; ++i)
-        c(i) = Pixel(4, 5, 6);
-    }
-    dirty.advance_display();
+    prime_buffers(dirty, Pixel(1, 2, 3), Pixel(4, 5, 6));
   }
 
   TestEffect fx(8, 4);
@@ -898,18 +854,7 @@ inline void test_clip_clear_does_not_change_persistence() {
  */
 inline void test_clip_clear_full_frame_without_reads_keeps_margin() {
   TestEffect fx(8, 4, {.full_frame = true});
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(1, 2, 3);
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(4, 5, 6);
-  }
-  fx.advance_display();
+  prime_buffers(fx, Pixel(1, 2, 3), Pixel(4, 5, 6));
 
   fx.set_clip(1, 3, 2, 6);
   Canvas c(fx);
@@ -924,18 +869,7 @@ inline void test_clip_clear_full_frame_without_reads_keeps_margin() {
 /** @brief A filter that reads outside the display band clears the whole buffer. */
 inline void test_clip_clear_outside_band_reader_clears_full_buffer() {
   TestEffect fx(8, 4, {.reads_outside_band = true});
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(1, 2, 3);
-  }
-  fx.advance_display();
-  {
-    Canvas c(fx);
-    for (int i = 0; i < 32; ++i)
-      c(i) = Pixel(4, 5, 6);
-  }
-  fx.advance_display();
+  prime_buffers(fx, Pixel(1, 2, 3), Pixel(4, 5, 6));
 
   fx.set_clip(1, 3, 2, 6);
   Canvas c(fx);
