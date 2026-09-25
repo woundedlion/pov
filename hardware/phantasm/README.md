@@ -105,7 +105,8 @@ committed board directly need no KiCad and run in CI
   The required connections are realized with the correct members
   (logic feed `J1 → F1 → Q_REV → FB → +5V_LOGIC`;
   series terminations `U1 out → R → J2`/bus; the pin-3 divider node ties Teensy D3,
-  `U1` ch-C input, `R1`/`R2`/`C_SYNC`; ID0/ID1/ID2 straps; `MASTER_EN`; shield).
+  `R1`/`R2`/`C_SYNC`, plus `U1` ch-C input on rev 1.1; rev 1.2 drives ch-C from
+  D4/`SYNC_TX` with `R_TX`; ID0/ID1/ID2 straps; `MASTER_EN`; shield).
 - **Copper-connectivity gate:** `gen/connectivity.py` unions the routed board's
   tracks, vias, pads and pour fills per net and rejects any net whose pads land
   in more than one island. Every other net gate in this list reads pad net
@@ -117,7 +118,7 @@ committed board directly need no KiCad and run in CI
   violations and zero unconnected pads.
 - **Standard-cost via gate:** `gen/fab.py` rejects a routed board containing a
   via smaller than 0.45 mm or a drill smaller than 0.20 mm, and rejects any
-  via pair with less than 0.15 mm of copper spacing (pad edge to pad edge).
+  different-net via pair with less than 0.15 mm of copper spacing (pad edge to pad edge).
 - **Schematic parity gate:** `gen/fab.py` runs `kicad-cli pcb drc
   --schematic-parity` and rejects any board/schematic difference outside
   `KNOWN_PARITY_ITEMS` (the four mounting holes, which carry no symbol, and
@@ -210,7 +211,7 @@ level shifter → LED strip, sync RX divider + daisy, ID straps / debug, power f
 - **Series/divider paths are wired** — `U1` outputs through the 33 Ω/100 Ω source
   terminators, and the pin-3 RC divider (`R1`/`R2`/`C_SYNC`).
 - **Cross-block signals use net labels as ports** — `DATA(_IN)`, `CLK(_IN)`,
-  `FRAME_SYNC`, `MASTER_EN`, `SYNC_BUS`, `ID0/1`, `SHIELD` — the conventional way to
+  `FRAME_SYNC`, `SYNC_TX` (rev 1.2), `MASTER_EN`, `SYNC_BUS`, `ID0/1`, `SHIELD` — the conventional way to
   avoid dragging wires around the large Teensy symbol.
 
 It's still a generated **functional layout**; rearrange/beautify freely in Eeschema —
@@ -233,6 +234,7 @@ the netlist is what's verified.
 | `R1/R2` | `Device:R` (10k/15k) | `Resistor_SMD:R_0603_1608Metric`, pads widened to 1.20 mm | sync divider; widened land (see the lands note below) |
 | `C_SYNC` | `Device:C` (220pF) | `C_0603` | populated (noise filter) |
 | `R_PD` | `Device:R` (10k) | `Resistor_SMD:R_0603_1608Metric`, pads widened to 1.20 mm | master-only bus idle pull-down, widened land; ground-side switched automatically by U1 channel D |
+| `R_TX` | `Device:R` (10k) | `Resistor_SMD:R_0603_1608Metric` | rev 1.2 SYNC_TX pull-down |
 | `R_MEN` | `Device:R` (10k) | `R_0603` | MASTER_EN boot pull-up → 3V3 |
 | `D_BUS` | `Device:D_Zener` (Bourns CDSOD323-T08L) | `Diode_SMD:D_SOD-323` with Bourns pad geometry | populated unidirectional 8 V, 1 pF sync-bus TVS; pin 1/cathode on SYNC_BUS, pin 2/anode on GND; exact Bourns land pattern; silkscreen bar marks the cathode end; JLCPCB C1973344 |
 | `J1` | `Connector_Generic:Conn_01x02` | `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical` | +5 V/GND light logic feed, ~1 A; **unkeyed** 0.1″ header — R-PWR-7's keying is unmet on the shipped board (see the deviations note below) |
@@ -365,7 +367,7 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   logic-GND star (§R-SI-2) is a single `GND` net in the schematic — the
   load-end star tie is a **layout/harness** concern (SIG_GND meets the heavy
   LED return at the strip GND pin, off-board), not a separate schematic net.
-- **Teensy symbol** shows only the **pins this board uses** (VIN, 3V3, GND, D1, D3,
+- **Teensy symbol** shows only the **pins this board uses** (VIN, 3V3, GND, D1, D3, D4 (rev 1.2),
   D5, D11, D13, D21, D22, **D23**); the other ~16 pads are unconnected on this design
   and omitted for readability. Pin **number = the Teensy pad label** (e.g. `11`, `VIN`),
   which matches the generated `phantasm:Teensy4.0` footprint pad names. The footprint
