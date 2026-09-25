@@ -687,6 +687,12 @@ inline void test_compiled_hankin_clone_deep_copies() {
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
   HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
   HS_EXPECT_EQ(dst.static_offset, src.static_offset);
+  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
+  HS_EXPECT_TRUE(dst.corner_src.data() == dst.base_vertices.data());
+  HS_EXPECT_TRUE(dst.dynamic_instructions.data() !=
+                 src.dynamic_instructions.data());
+  HS_EXPECT_TRUE(dst.face_counts.data() != src.face_counts.data());
+  HS_EXPECT_TRUE(dst.faces.data() != src.faces.data());
 
   HS_EXPECT_TRUE(dst.base_vertices.data() != src.base_vertices.data());
   HS_EXPECT_TRUE(dst.static_vertices.data() != src.static_vertices.data());
@@ -698,6 +704,18 @@ inline void test_compiled_hankin_clone_deep_copies() {
   }
   for (size_t i = 0; i < src.faces.size(); ++i) {
     HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
+  }
+  PolyMesh expected;
+  MeshOps::update_hankin(src, expected, temp, 0.4f);
+  src_arena.reset();
+  std::fill_n(hankin_target_buf, sizeof(hankin_target_buf) / 2, uint8_t{0xA5});
+  PolyMesh actual;
+  MeshOps::update_hankin(dst, actual, temp, 0.4f);
+  HS_EXPECT_EQ(actual.vertices.size(), expected.vertices.size());
+  for (size_t i = 0; i < expected.vertices.size(); ++i) {
+    HS_EXPECT_NEAR(actual.vertices[i].x, expected.vertices[i].x, 1e-6f);
+    HS_EXPECT_NEAR(actual.vertices[i].y, expected.vertices[i].y, 1e-6f);
+    HS_EXPECT_NEAR(actual.vertices[i].z, expected.vertices[i].z, 1e-6f);
   }
 }
 
