@@ -417,10 +417,7 @@ inline void test_arena_reclaimed_since() {
  * @brief Verifies configure_arenas() repartitions the global block into three
  *        arenas of exactly the requested sizes, packed contiguously and
  *        non-overlapping within the block.
- * @details The death harness covers only the OVER-SUBSCRIPTION trap
- *          (case_arena_oversubscribed); a SUCCESSFUL repartition — the mechanism
- *          the README markets for an effect to claim its own memory split — was
- *          otherwise unexercised. Sizes are multiples of max_align_t so the
+ * @details Sizes are multiples of max_align_t so the
  *          inter-arena align_up() boundaries are no-ops and the three arenas tile
  *          the block exactly, which lets the bases be checked by exact arithmetic.
  *          Each base is recovered via a 1-byte, align-1 allocation (padding 0, so
