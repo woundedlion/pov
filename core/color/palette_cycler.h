@@ -100,8 +100,8 @@ public:
    * @param entry_list Caller-owned entry array; must outlive the cycler.
    * @param count Number of entries in [1, MAX_ENTRIES]; 1 shows a static
    * palette.
-   * @param dwell_frames Frames to hold each entry before fading; 0 chains
-   * fades back to back for a continuously shifting palette.
+   * @param dwell_frames Hold steps before fading, with a minimum of one step;
+   * values 0 and 1 both begin the next fade on the next step.
    * @param fade_frames Frames each fade spans, >= 1.
    * @param easing_fn Optional easing over fade progress; null is linear.
    * @param paused_flag Optional pause gate; freezes step() while set and true.
@@ -166,8 +166,8 @@ public:
    * @param next_fn Fills palette number `sequence`; called with 0 and 1 here,
    * then once per completed fade. Successors must be morph-compatible.
    * @param context Opaque state forwarded to @p next_fn; caller-owned.
-   * @param dwell_frames Frames to hold each palette before fading; 0 chains
-   * fades back to back.
+   * @param dwell_frames Hold steps before fading, with a minimum of one step;
+   * values 0 and 1 both begin the next fade on the next step.
    * @param fade_frames Frames each fade spans, >= 1.
    * @param easing_fn Optional easing over fade progress; null is linear.
    * @param paused_flag Optional pause gate; freezes step() while set and true.
@@ -406,10 +406,10 @@ private:
   float (*easing)(float) = nullptr; /**< Fade easing; null = linear. */
   const bool *paused = nullptr; /**< Optional pause gate; null = always runs. */
   int entry_count = 0;
-  int dwell = 0;              /**< Frames held on each entry between fades. */
-  int fade = 0;               /**< Frames each fade spans. */
-  int frame = 0;              /**< Frame counter within the current phase. */
-  int current = 0;            /**< Entry dwelt on or faded away from. */
+  int dwell = 0;   /**< Hold steps between fades; effective minimum 1. */
+  int fade = 0;    /**< Frames each fade spans. */
+  int frame = 0;   /**< Frame counter within the current phase. */
+  int current = 0; /**< Entry dwelt on or faded away from. */
   uint8_t key_morph_mask = 0; /**< Bit i: entry i fades to its successor by
                                  key morph rather than LUT crossfade. */
   static_assert(MAX_ENTRIES <= 8 * static_cast<int>(sizeof(key_morph_mask)),
