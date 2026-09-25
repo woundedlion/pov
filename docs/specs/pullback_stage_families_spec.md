@@ -108,9 +108,9 @@ directly by a Pixel filter: a 3D-noise source sampled on the sphere is a
 `SPHERE→FIELD` crossing that never projects; a `SPHERE→COLOR` sky shader
 is expressible the day someone writes that combinator.
 
-Family *names* survive as the rank's vocabulary — in diagnostics ("a
-Plane stage may not follow a Field stage — families are ordered Sphere,
-Plane, Field, Color", keeping the filter pipeline's prose-assert style)
+Family *names* survive as the rank's vocabulary — in diagnostics ("pullback
+pipeline: a stage may not decrease its family rank — families are ordered
+Sphere, Plane, Field, Color", keeping the filter pipeline's prose-assert style)
 and in the workbench's band rendering. The mechanism is the rank function.
 
 COLOR carries **straight alpha**: `GeneratedPalette` scales `alpha` by
@@ -503,7 +503,7 @@ stages with concrete `FrameState`, `Instrumentation`, and `Prepared`;
 The execution tree is the one authoritative representation; the leaf
 list is a view of it, so placement grouping is never flattened away and
 then reconstructed. Binding agreement is checked by a **non-asserting
-predicate** — `Bindable<Descriptor, Binding>` — evaluated *before* the
+predicate** — `descriptor_bindable<Descriptor, Binding>()` — evaluated *before* the
 bind step instantiates anything, so the pipeline's named `BINDINGS`
 assertion (§5) is what reports a foreign binding, with today's
 message, rather than a template-formation abort inside `Bind`
@@ -622,6 +622,7 @@ under eager instantiation. The rows become §2's rules:
 | `TERMINALS`    | retired — subsumed by `EXIT` + monotonicity; a mid-chain `Color4` producer followed by COLOR endomorphisms is now a feature |
 | `EMPTY_DESCRIPTORS`, `RUN_RETURNS`, `EXTRA_VALIDATION` | unchanged, evaluated over the flattened leaf stages |
 | `CONTRACTS`, `BINDINGS`, `PREPARES` | reformulated over the descriptor contract (§4): every leaf is bound by the pipeline's bind step; a descriptor whose policy names a foreign binding fails there |
+| — | `DESCRIPTOR_IDENTITY`: bound stages preserve their descriptor identity |
 | `APPROXIMATIONS` | unchanged per leaf stage (`CombinedApproximation`'s ≤1 oracle within one stage's policy list) |
 | —              | `CANONICAL`: every leaf's Input and Output satisfies `CanonicalCarrier<T>` (§2) — membership in the closed `CarrierList`, the same list `family_of` ranks over |
 
