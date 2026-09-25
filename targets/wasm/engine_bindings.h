@@ -281,7 +281,7 @@ public:
     HS_CHECK(bootstrap_resolution_set,
              "the first HS_RESOLUTIONS row must be dispatchable here");
     const bool bootstrap_effect_set =
-        setEffect(hs_wasm::EFFECT_REGISTRATIONS[0].name) ==
+        setEffect(hs_wasm::EFFECT_REGISTRATIONS[0].name.data()) ==
         EffectSetResult::INSTALLED;
     HS_CHECK(bootstrap_effect_set,
              "the first HS_EFFECT_LIST entry must be registered and buildable "
