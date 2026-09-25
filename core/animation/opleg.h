@@ -20,9 +20,8 @@
 namespace Animation {
 
 /**
- * @brief Animates one operator-sweep leg: a Conway-operator parameter sweep
- * along a graph edge or a recipe step, or a hankin contact-angle sweep on a
- * fixed seed (docs/specs/opchain_morph_spec.md, "Leg kinds").
+ * @brief Animates a Conway sweep, hankin sweep, relax slerp, medial slerp, or
+ * gated partition swap (docs/specs/opchain_morph_spec.md, "Leg kinds").
  * @details Per frame: produce the swept mesh (the edge's single op at
  * t(frame) settle-slerped toward the relaxed endpoint inside the settle
  * window, or the hankin_at slerp from each corner) in scratch, compile, attach the
