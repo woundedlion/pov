@@ -214,7 +214,7 @@ class TeensyLibraryTests(unittest.TestCase):
 
 
 class SchematicFootprintTests(unittest.TestCase):
-    """Only the legacy Teensy fallback may resolve a blank Footprint field."""
+    """Every component must name its footprint."""
 
     def components(self, text):
         path = Path(self.enterContext(tempfile.TemporaryDirectory())) / "s.kicad_sch"
@@ -222,9 +222,9 @@ class SchematicFootprintTests(unittest.TestCase):
         self.enterContext(unittest.mock.patch.object(pcb, "SCH", str(path)))
         return pcb.schematic_components()
 
-    def test_blank_footprint_resolves_to_the_teensy(self):
-        self.assertEqual(self.components(SCH_TEENSY),
-                         [("U_MCU", pcb.TEENSY_LIBID, "Teensy4.0", False)])
+    def test_blank_teensy_footprint_is_rejected(self):
+        with self.assertRaisesRegex(SystemExit, "U_MCU.*empty Footprint"):
+            self.components(SCH_TEENSY)
 
     def test_blank_footprint_on_another_symbol_is_rejected(self):
         with self.assertRaises(SystemExit) as caught:
