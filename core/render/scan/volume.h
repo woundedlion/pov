@@ -109,11 +109,9 @@ volume_edge_coverage(float dist, float hit_threshold, float aa_width) {
  * shading).
  *
  * Coordinate-space contract:
- *   - `view_dir` is the normalized direction all rays travel (camera → scene).
- *   - Ray origins are computed via orthographic projection: each pixel's
- *     position is projected onto the plane perpendicular to `view_dir`,
- *     then offset backward along `view_dir`.
- *   - `bounds_center` and `view_dir` must both be in physical LED space.
+ *   - Rays travel radially along `-bounds_center`, a unit vector in LED space.
+ *   - Pixel positions project onto the plane perpendicular to that direction,
+ *     then move backward along it to form the ray origins.
  *   - Filter::World::Orient rotates the *output* position passed to the
  *     canvas, not the ray.
  */
@@ -378,12 +376,6 @@ struct Volume {
     // Ray must start behind the farthest extent of the shape.
     float start_offset = 1.0f + bounds_radius;
 
-    // bounds_center projected onto the view plane (⊥ vd).
-    float bc_dot_vd = bounds_center.x * vd.x + bounds_center.y * vd.y +
-                      bounds_center.z * vd.z;
-    math::Vector bc_proj(bounds_center.x - bc_dot_vd * vd.x,
-                         bounds_center.y - bc_dot_vd * vd.y,
-                         bounds_center.z - bc_dot_vd * vd.z);
     float bounds_r2 = bounds_radius * bounds_radius;
 
     // Scalar ray progress requires a unit local direction and origin-centered
@@ -430,10 +422,7 @@ struct Volume {
           float pp_x = p.x - facing * vd.x;
           float pp_y = p.y - facing * vd.y;
           float pp_z = p.z - facing * vd.z;
-          float dx = pp_x - bc_proj.x;
-          float dy = pp_y - bc_proj.y;
-          float dz = pp_z - bc_proj.z;
-          if (dx * dx + dy * dy + dz * dz > bounds_r2)
+          if (pp_x * pp_x + pp_y * pp_y + pp_z * pp_z > bounds_r2)
             return 1;
 
           // Orthographic ray origin: outside the unit sphere
