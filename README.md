@@ -454,8 +454,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
 │   ├── engine_bindings_contract.test.mjs Node contract tests for WASM engine binding invariants
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
-│   ├── wasm_smoke_predicates.mjs Module-free smoke decisions: dark band, stack creep budget, param zip
-│   ├── wasm_smoke_predicates.test.mjs Node unit test for those four decisions
+│   ├── wasm_smoke_predicates.mjs Module-free WASM smoke predicates
+│   ├── wasm_smoke_predicates.test.mjs Node unit tests for the WASM smoke predicates
 │   ├── wasm_cache_key.test.mjs Node regression tests for generated WASM URL versioning
 │   ├── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
 │   ├── screenshot_capture_config.mjs Per-effect capture offsets shared by capture and the CI gate
