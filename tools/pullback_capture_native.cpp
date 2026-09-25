@@ -351,19 +351,23 @@ FILE *open_file(const char *path, const char *mode) {
 
 OperationSet read_instructions(const char *path) {
   FILE *input = open_file(path, "rb");
-  if (input == nullptr)
+  if (input == nullptr) {
+    std::fprintf(stderr, "pullback read: cannot open %s\n", path);
     return {};
+  }
   char magic[4];
   uint16_t version;
   if (std::fread(magic, sizeof(magic), 1, input) != 1 ||
       std::memcmp(magic, "HSPO", sizeof(magic)) != 0 ||
       !read_u16(input, version) || version != 2) {
+    std::fprintf(stderr, "pullback read: invalid header in %s\n", path);
     std::fclose(input);
     return {};
   }
   uint16_t count;
   uint16_t oracle_count;
   if (!read_u16(input, count) || !read_u16(input, oracle_count)) {
+    std::fprintf(stderr, "pullback read: missing counts in %s\n", path);
     std::fclose(input);
     return {};
   }
@@ -376,6 +380,8 @@ OperationSet read_instructions(const char *path) {
     uint16_t length;
     if (!read_u16(input, preset) || !read_u16(input, operation_value) ||
         !read_u16(input, length)) {
+      std::fprintf(stderr, "pullback read: truncated frame %u in %s\n", index,
+                   path);
       std::fclose(input);
       return {};
     }
@@ -383,6 +389,10 @@ OperationSet read_instructions(const char *path) {
     std::string name(length, '\0');
     if (length == 0 || std::fread(name.data(), length, 1, input) != 1 ||
         preset >= PRESET_COUNT || operation >= Operation::COUNT) {
+      std::fprintf(
+          stderr,
+          "pullback read: invalid frame %u preset=%u operation=%u name=%s in %s\n",
+          index, preset, operation_value, name.c_str(), path);
       std::fclose(input);
       return {};
     }
@@ -391,11 +401,16 @@ OperationSet read_instructions(const char *path) {
   for (uint16_t index = 0; index < oracle_count; ++index) {
     uint16_t length;
     if (!read_u16(input, length)) {
+      std::fprintf(stderr,
+                   "pullback read: missing oracle %u name length in %s\n",
+                   index, path);
       std::fclose(input);
       return {};
     }
     std::string oracle(length, '\0');
     if (length == 0 || std::fread(oracle.data(), length, 1, input) != 1) {
+      std::fprintf(stderr, "pullback read: invalid oracle %u name in %s\n",
+                   index, path);
       std::fclose(input);
       return {};
     }
@@ -404,12 +419,18 @@ OperationSet read_instructions(const char *path) {
     uint32_t phase_bits;
     if (!read_u16(input, preset) || !read_u16(input, operation_value) ||
         !read_u32(input, phase_bits)) {
+      std::fprintf(stderr, "pullback read: truncated oracle %s in %s\n",
+                   oracle.c_str(), path);
       std::fclose(input);
       return {};
     }
     const auto operation = static_cast<Operation>(operation_value);
     const float phase = std::bit_cast<float>(phase_bits);
     if (preset >= PRESET_COUNT || operation >= Operation::COUNT) {
+      std::fprintf(
+          stderr,
+          "pullback read: invalid oracle %s preset=%u operation=%u in %s\n",
+          oracle.c_str(), preset, operation_value, path);
       std::fclose(input);
       return {};
     }
@@ -417,6 +438,8 @@ OperationSet read_instructions(const char *path) {
   }
   const bool complete = std::fgetc(input) == EOF;
   std::fclose(input);
+  if (!complete)
+    std::fprintf(stderr, "pullback read: trailing data in %s\n", path);
   return complete ? operations : OperationSet{};
 }
 
@@ -454,12 +477,24 @@ bool render_instruction(const Instruction &instruction,
                                      : instruction.preset;
     const uint16_t elapsed = transition_from ? 0 : DURATION;
     if (!hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
-            force_transition(effect, source, destination, elapsed, DURATION))
+            force_transition(effect, source, destination, elapsed, DURATION)) {
+      std::fprintf(
+          stderr,
+          "pullback render: transition failed for %s preset=%u operation=%u\n",
+          instruction.name.c_str(), instruction.preset,
+          static_cast<unsigned>(instruction.operation));
       return false;
+    }
     metadata = {source, destination, elapsed, DURATION};
   } else {
-    if (!effect.selectPreset(instruction.preset))
+    if (!effect.selectPreset(instruction.preset)) {
+      std::fprintf(
+          stderr,
+          "pullback render: preset selection failed for %s preset=%u operation=%u\n",
+          instruction.name.c_str(), instruction.preset,
+          static_cast<unsigned>(instruction.operation));
       return false;
+    }
     effect.setAnimationsPaused(true);
     if (instruction.operation != Operation::CASE_DEFAULT &&
         instruction.operation <= Operation::CASE_INTERIOR) {
@@ -474,16 +509,28 @@ bool render_instruction(const Instruction &instruction,
             effect.updateParameter(
                 parameters[index].c_str(),
                 case_value(*parameter, index, instruction.operation)) !=
-                ParamSetResult::APPLIED)
+                ParamSetResult::APPLIED) {
+          std::fprintf(
+              stderr,
+              "pullback render: parameter %s rejected for %s preset=%u operation=%u\n",
+              parameters[index].c_str(), instruction.name.c_str(),
+              instruction.preset, static_cast<unsigned>(instruction.operation));
           return false;
+        }
       }
     }
   }
   effect.draw_frame();
   if (!transition_from && !transition_to &&
       !hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox::
-          selected_pipeline_active(effect, instruction.preset))
+          selected_pipeline_active(effect, instruction.preset)) {
+    std::fprintf(
+        stderr,
+        "pullback render: inactive pipeline for %s preset=%u operation=%u\n",
+        instruction.name.c_str(), instruction.preset,
+        static_cast<unsigned>(instruction.operation));
     return false;
+  }
   effect.advance_display();
   const Pixel *display = effect.display_buffer();
   pixels.assign(display, display + static_cast<size_t>(W) * H);
@@ -525,8 +572,12 @@ bool write_record(FILE *output, const Instruction &instruction,
 template <int W, int H>
 int capture(const char *operations_path, const char *output_path) {
   const OperationSet operations = read_instructions(operations_path);
-  if (operations.frames.empty() || operations.oracles.empty())
+  if (operations.frames.empty() || operations.oracles.empty()) {
+    std::fprintf(stderr,
+                 "pullback capture: no frames or oracles loaded from %s\n",
+                 operations_path);
     return 2;
+  }
   std::vector<OracleMetric> metrics;
   for (const OracleInstruction &instruction : operations.oracles) {
     auto metric = std::find_if(metrics.begin(), metrics.end(),
@@ -544,15 +595,26 @@ int capture(const char *operations_path, const char *output_path) {
             measure_oracle<W, H>(effect, instruction.oracle, instruction.preset,
                                  instruction.hue_noise_phase,
                                  instruction.operation, metric->maximum,
-                                 metric->samples))
+                                 metric->samples)) {
+      std::fprintf(
+          stderr,
+          "pullback oracle: measurement failed for %s preset=%u operation=%u\n",
+          instruction.oracle.c_str(), instruction.preset,
+          static_cast<unsigned>(instruction.operation));
       return 3;
+    }
   }
   std::unique_ptr<FILE, decltype(&std::fclose)> output(
       open_file(output_path, "wb"), &std::fclose);
-  if (output == nullptr)
+  if (output == nullptr) {
+    std::fprintf(stderr, "pullback output: cannot open %s\n", output_path);
     return 2;
-  if (std::fwrite("HSPB", 4, 1, output.get()) != 1)
+  }
+  if (std::fwrite("HSPB", 4, 1, output.get()) != 1) {
+    std::fprintf(stderr, "pullback output: cannot write header to %s\n",
+                 output_path);
     return 2;
+  }
   write_u16(output.get(), 3);
   write_u16(output.get(), W);
   write_u16(output.get(), H);
@@ -561,20 +623,33 @@ int capture(const char *operations_path, const char *output_path) {
   for (const Instruction &instruction : operations.frames) {
     std::vector<Pixel> pixels;
     RecordMetadata metadata;
-    if (!render_instruction<W, H>(instruction, pixels, metadata) ||
-        !write_record<W, H>(output.get(), instruction, pixels, metadata)) {
+    if (!render_instruction<W, H>(instruction, pixels, metadata))
+      return 3;
+    if (!write_record<W, H>(output.get(), instruction, pixels, metadata)) {
+      std::fprintf(
+          stderr,
+          "pullback output: cannot write %s preset=%u operation=%u to %s\n",
+          instruction.name.c_str(), instruction.preset,
+          static_cast<unsigned>(instruction.operation), output_path);
       return 3;
     }
   }
   for (const OracleMetric &metric : metrics) {
     write_u16(output.get(), static_cast<uint16_t>(metric.oracle.size()));
     if (std::fwrite(metric.oracle.data(), metric.oracle.size(), 1,
-                    output.get()) != 1)
+                    output.get()) != 1) {
+      std::fprintf(stderr, "pullback output: cannot write oracle %s to %s\n",
+                   metric.oracle.c_str(), output_path);
       return 2;
+    }
     write_u16(output.get(), metric.maximum);
     write_u32(output.get(), metric.samples);
   }
-  return std::fclose(output.release()) == 0 ? 0 : 2;
+  if (std::fclose(output.release()) != 0) {
+    std::fprintf(stderr, "pullback output: cannot close %s\n", output_path);
+    return 2;
+  }
+  return 0;
 }
 
 } // namespace
