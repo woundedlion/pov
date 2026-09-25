@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from array import array
 from pathlib import Path
 
 from generate_pullback_manifest_header import (
@@ -29,9 +30,102 @@ class StrictFpRequired(CrosscheckError):
     """Release captures differ and require strict-FP attribution."""
 
 
+class PackedPixels:
+    def __init__(self, raw: bytes):
+        self.channels = array("H")
+        self.channels.frombytes(raw)
+        if sys.byteorder != "little":
+            self.channels.byteswap()
+
+    def __len__(self):
+        return len(self.channels) // 4
+
+    def __iter__(self):
+        for offset in range(0, len(self.channels), 4):
+            yield self.channels[offset:offset + 4]
+
+
+class CaptureReader:
+    def __init__(self, stream):
+        self.stream = stream
+        self.buffer = ""
+        self.decoder = json.JSONDecoder()
+
+    def peek(self):
+        self.buffer = self.buffer.lstrip()
+        while not self.buffer:
+            chunk = self.stream.read(65536)
+            if not chunk:
+                return ""
+            self.buffer = chunk.lstrip()
+        return self.buffer[0]
+
+    def consume(self, expected):
+        if self.peek() != expected:
+            raise CrosscheckError(f"expected {expected!r} in capture")
+        self.buffer = self.buffer[1:]
+
+    def value(self):
+        self.peek()
+        while True:
+            try:
+                value, end = self.decoder.raw_decode(self.buffer)
+                if isinstance(value, (int, float)) and (
+                    end == len(self.buffer) or self.buffer[end] not in " \t\r\n,]}"
+                ):
+                    chunk = self.stream.read(65536)
+                    if chunk:
+                        self.buffer += chunk
+                        continue
+                self.buffer = self.buffer[end:]
+                return value
+            except json.JSONDecodeError:
+                chunk = self.stream.read(65536)
+                if not chunk:
+                    raise
+                self.buffer += chunk
+
+    def capture(self):
+        self.consume("{")
+        result = {}
+        while self.peek() != "}":
+            key = self.value()
+            if not isinstance(key, str):
+                raise CrosscheckError("capture keys must be strings")
+            self.consume(":")
+            if key == "frames":
+                self.consume("[")
+                frames = []
+                while self.peek() != "]":
+                    frame = self.value()
+                    if not isinstance(frame, dict):
+                        raise CrosscheckError("capture frame must be an object")
+                    frame["pixels"] = PackedPixels(_canonical_frame_bytes(frame))
+                    frames.append(frame)
+                    if self.peek() == "]":
+                        break
+                    self.consume(",")
+                    if self.peek() == "]":
+                        raise CrosscheckError("trailing comma in frames")
+                self.consume("]")
+                result[key] = frames
+            else:
+                result[key] = self.value()
+            if self.peek() == "}":
+                break
+            self.consume(",")
+            if self.peek() == "}":
+                raise CrosscheckError("trailing comma in capture")
+        self.consume("}")
+        if self.peek():
+            raise CrosscheckError("trailing content in capture")
+        return result
+
+
 def _load_capture(path: Path) -> dict:
     try:
-        capture = json.loads(path.read_text(encoding="utf-8"))
+        with path.open(encoding="utf-8") as stream:
+            capture = CaptureReader(stream).capture()
     except (OSError, json.JSONDecodeError) as error:
         raise CrosscheckError(f"{path}: {error}") from error
     if not isinstance(capture, dict):
@@ -54,14 +148,19 @@ def _canonical_frame_bytes(frame: dict) -> bytes:
         raise CrosscheckError("frame resolution must contain two positive integers")
     pixels = frame.get("pixels")
     expected_count = resolution[0] * resolution[1]
-    if not isinstance(pixels, list) or len(pixels) != expected_count:
+    if not isinstance(pixels, (list, PackedPixels)) or len(pixels) != expected_count:
         raise CrosscheckError(
             f"frame has {len(pixels) if isinstance(pixels, list) else 'invalid'} "
             f"pixels; expected {expected_count}"
         )
+    if isinstance(pixels, PackedPixels):
+        channels = array("H", pixels.channels)
+        if sys.byteorder != "little":
+            channels.byteswap()
+        return channels.tobytes()
     raw = bytearray()
     for pixel in pixels:
-        if not isinstance(pixel, list) or len(pixel) != 4:
+        if not isinstance(pixel, (list, array)) or len(pixel) != 4:
             raise CrosscheckError("pixels must contain four 16-bit channels")
         for channel in pixel:
             if (
