@@ -146,7 +146,7 @@ private:
    * the uniform A=1/B=0 field never moves.
    */
   static constexpr int NUM_SEED_CLUSTERS = 30;
-  /** @brief Physics work performed per frame at the original 8 fps cadence. */
+  /** @brief Substep budget used to calibrate the stabilization threshold. */
   static constexpr int BASELINE_STEPS_PER_FRAME = 16;
   /** @brief Rendered frames the dissolve takes to convert every node back to
    * rest; 6.4 s at the 16 fps cadence. */
@@ -174,12 +174,12 @@ private:
   static constexpr float MEAN_DB_STABLE = 2.0e-4f;
   /** @brief Speed the stabilization floor is calibrated at. */
   static constexpr float DEFAULT_DT = 2.5f;
-  /** @brief Original-size substep equivalents advanced per rendered frame. */
+  /** @brief Base-dt substep equivalents advanced per rendered frame. */
   static constexpr int EVOLUTION_STEPS_PER_FRAME = 10;
   /**
    * @brief Euler integrations performed per rendered frame.
    * @details Six 5/3-sized integrations cover the same simulated interval as
-   * ten original-size integrations.
+   * ten base-dt integrations.
    */
   static constexpr int STEPS_PER_FRAME = 6;
   static constexpr float STEP_DT_SCALE =
