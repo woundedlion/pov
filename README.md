@@ -1026,7 +1026,7 @@ Pipeline<W, H,
 
 ## 7. Core Subsystems
 
-The shader interface, the SDF/scan and curve rasterizers, the animation system, geometry transformers, the arena allocator, the color system, the mesh system, generators, the preset system and the hardware drivers — including the 1-wire frame-sync datasheet — are documented in [`docs/subsystems.md`](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md).
+The shader interface, the SDF/scan and curve rasterizers, the animation system, geometry transformers, the arena allocator, the color system, the mesh system, generators, the preset system, mathematical kernels, spatial queries and the hardware drivers — including the 1-wire frame-sync datasheet — are documented in [`docs/subsystems.md`](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md).
 
 ---
 
