@@ -530,8 +530,8 @@ hand-enter dielectric/mil values in its UI. Net class is 0.3 mm track / 0.2 mm c
 `unplaced/` together: `phantasm_unplaced.kicad_pcb` and
 `phantasm_unplaced.kicad_pro`. The board embeds every footprint, so an
 `fp-lib-table` pointing outside the upload set is intentionally absent.
-`gen/pcb.py --unplaced --force` regenerates the first; the `.kicad_pro` is a captured
-artifact (see the file table). There is no unplaced
+`gen/pcb.py --unplaced --force` regenerates the board and updates the project
+from `gen/constraints.py`. There is no unplaced
 schematic, and the `.kicad_prl` that the KiCad GUI writes is local only. Run
 `python gen/heal_clearance.py` as the final preparation step. Quilter prep:
 - **`min_clearance` must be > 0** in the uploaded `.kicad_pro` — Quilter rejects the KiCad
