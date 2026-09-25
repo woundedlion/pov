@@ -96,8 +96,6 @@ _TREE_STEM_RE = re.compile(r"[a-z0-9_]+")
 # optionally a glob. Bare ellipsis rows elide a subtree and name nothing.
 _TREE_NAME_RE = re.compile(r"^(?![.…]+/?$)[A-Za-z0-9_.*?][\w.\-*?]*(?:/[\w.\-*?]+)*/?$")
 
-# Path prefixes the docs cite that this repository will never track: the files
-# that live in the sibling daydream repository, where the same paths are real.
 _SELF_REPO_HOSTS = frozenset({"github.com", "www.github.com"})
 # The README is installed into the sibling daydream checkout, where relative
 # paths break, so it cites this repository through absolute GitHub URLs. They
@@ -191,6 +189,8 @@ _PREDEFINED_NAME_RE = re.compile(r"^[A-Za-z_]\w*")
 # DOXYGEN enables doc-only branches and need not appear in source.
 _PREDEFINED_UNREFERENCED_ALLOWED = frozenset({"DOXYGEN"})
 
+# Path prefixes the docs cite that this repository will never track: the files
+# that live in the sibling daydream repository, where the same paths are real.
 UNTRACKED_ALLOWED = (
     ".github/workflows/deploy.yml",
 )
