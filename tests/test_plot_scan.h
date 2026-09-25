@@ -1587,6 +1587,8 @@ inline void test_mesh_dissolve_masks_partition_edges() {
     auto shade = [&](const math::Vector &, Fragment &f) {
       const int ei = static_cast<int>(f.v2);
       HS_EXPECT_TRUE(ei >= 0 && static_cast<size_t>(ei) < num_edges);
+      if (ei < 0 || static_cast<size_t>(ei) >= num_edges)
+        return;
       seen[static_cast<size_t>(ei)] = true;
       f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
     };
@@ -4530,7 +4532,11 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
       }
     if (!matched)
       orig_mismatches++;
-    deferred_calls[static_cast<size_t>(f.v2 + 0.5f)]++;
+    const float index = f.v2 + 0.5f;
+    HS_EXPECT_TRUE(index >= 0.0f && index < 2.0f);
+    if (!(index >= 0.0f && index < 2.0f))
+      return;
+    deferred_calls[static_cast<size_t>(index)]++;
     f.v3 *= 0.5f;
   };
   auto combined = [](Fragment &f) {
