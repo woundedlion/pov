@@ -3736,6 +3736,23 @@ inline void case_opleg_reconcile_no_endpoints() {
     std::printf("x");
 }
 
+/** @brief Death case: reconcile endpoint and seed counts must agree. */
+inline void case_opleg_reconcile_endpoint_count() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh seed;
+  const math::Vector endpoint{};
+  Animation::OpLeg::PaletteHandoff handoff;
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::ReconcileSpec{.to_positions = &endpoint,
+                                      .to_count = opaque<size_t>(1),
+                                      .sweep_frames = opaque(1)},
+      arena, death_opleg_draw, handoff);
+  if (leg.landing().faces == opaque<size_t>(42))
+    std::printf("x");
+}
+
 /**
  * @brief Death case: a reconcile leg without a palette handoff must trap.
  * @details OpLeg surface — the reconcile constructor carries its own handoff
@@ -5597,6 +5614,10 @@ inline const Case *all_cases(int &n) {
            case_opleg_medial_incomplete_handoff, "core/animation/opleg.h",
            "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
            "OpLeg: incomplete palette handoff"},
+          {"opleg_reconcile_endpoint_count",
+           case_opleg_reconcile_endpoint_count, "core/animation/opleg.h",
+           "(spec.to_count == from_mesh.vertices.size()) "
+           "OpLeg: reconcile endpoint count must match seed vertices"},
           {"opleg_reconcile_no_endpoints", case_opleg_reconcile_no_endpoints,
            "core/animation/opleg.h",
            "(spec.to_positions) OpLeg: reconcile leg carries no "
