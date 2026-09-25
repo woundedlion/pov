@@ -189,8 +189,7 @@ struct SourceParams {
 
   HS_COLD_MEMBER void lerp(const SourceParams &a, const SourceParams &b,
                            float t) {
-    // Trips if the field set changes, so a new field cannot silently go
-    // uninterpolated and unsnapped.
+    // Layout size pin; check_config_field_arity also covers padding slots.
     static_assert(sizeof(SourceParams) == 116,
                   "SourceParams field set changed - update lerp");
     pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
@@ -372,8 +371,7 @@ struct SurfaceLensParams {
 
   HS_COLD_MEMBER void lerp(const SurfaceLensParams &a,
                            const SurfaceLensParams &b, float t) {
-    // Trips if the field set changes, so a new field cannot silently go
-    // uninterpolated and unsnapped.
+    // Layout size pin; check_config_field_arity also covers padding slots.
     static_assert(sizeof(SurfaceLensParams) == 32,
                   "SurfaceLensParams field set changed - update lerp");
     mobius = t < 1.0f ? a.mobius : b.mobius;
@@ -546,6 +544,66 @@ struct Config {
   HS_COLD_MEMBER bool operator==(const Config &) const = default;
 };
 using RequestedConfig = Config;
+
+/** @brief Compile-time arity pins for every snapshot-bearing config record. */
+inline void check_config_field_arity(const Config &config) {
+  {
+    [[maybe_unused]] const auto &[f0, f1] = config;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10,
+                                  f11, f12, f13, f14, f15, f16, f17] =
+        config.slots;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1] = config.slots.warp_program;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6] =
+        config.slots.warp_program.outer;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6, f7] =
+        config.params;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10,
+                                  f11, f12, f13, f14, f15, f16, f17, f18, f19,
+                                  f20, f21, f22, f23, f24, f25, f26, f27, f28] =
+        config.params.source;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1] = config.params.warp;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10,
+                                  f11, f12, f13, f14, f15, f16, f17, f18, f19,
+                                  f20, f21, f22, f23, f24] =
+        config.params.warp.outer;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6] =
+        config.params.projection;
+  }
+  {
+    [[maybe_unused]] const auto &[f0] = config.params.surface_lens;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6] =
+        config.params.surface_noise;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6] =
+        config.params.value;
+  }
+  {
+    [[maybe_unused]] const auto &[f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10,
+                                  f11] = config.params.color;
+  }
+  {
+    [[maybe_unused]] const auto &[f0] = config.params.outer_camera;
+  }
+}
 
 /** @brief Whether the stage scales its amplitude by the warp envelope. */
 inline constexpr bool warp_uses_envelope(WarpStageKind kind) {
