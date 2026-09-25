@@ -380,7 +380,9 @@ inline void test_clone_meshstate_deep_copies() {
     src.topology.push_back(static_cast<uint16_t>(100 + i));
 
   MeshState dst;
+  src.topology_key = 0x13579bdfu;
   MeshOps::clone(src, dst, dst_arena);
+  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
 
   HS_EXPECT_EQ(dst.vertices.size(), src.vertices.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
@@ -423,7 +425,9 @@ inline void test_clone_polymesh_deep_copies() {
     src.topology.push_back(static_cast<int>(100 + i));
 
   PolyMesh dst;
+  src.topology_key = 0x13579bdfu;
   MeshOps::clone(src, dst, dst_arena);
+  HS_EXPECT_EQ(dst.topology_key, src.topology_key);
 
   HS_EXPECT_EQ(dst.vertices.size(), src.vertices.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
@@ -431,6 +435,13 @@ inline void test_clone_polymesh_deep_copies() {
   HS_EXPECT_EQ(dst.topology.size(), src.topology.size());
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
   HS_EXPECT_TRUE(dst.topology.data() != src.topology.data());
+  for (size_t i = 0; i < src.vertices.size(); ++i) {
+    HS_EXPECT_VEC(dst.vertices[i], src.vertices[i], 0.0f);
+  }
+  for (size_t i = 0; i < src.face_counts.size(); ++i)
+    HS_EXPECT_EQ(dst.face_counts[i], src.face_counts[i]);
+  for (size_t i = 0; i < src.faces.size(); ++i)
+    HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
   for (size_t i = 0; i < src.topology.size(); ++i)
     HS_EXPECT_EQ(dst.topology[i], src.topology[i]);
 }
