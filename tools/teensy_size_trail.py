@@ -533,13 +533,9 @@ def cmd_backfill(args) -> int:
     are discarded while untracked files (the .pio build tree above all) survive.
     Its original HEAD is restored when the range finishes or aborts.
 
-    `pio run` exits non-zero when a commit fails the size gate, but the ELF is
-    LINKED BEFORE the gate runs, so pio's status cannot separate an over-budget
-    commit (worth trailing) from one that never compiled. The ELF mtime can: a
-    relink always restamps it — a full object-cache hit still links — while a
-    failed compile never reaches the linker and leaves the previous commit's
-    ELF in place. An environment whose ELF did not change is skipped, never
-    recorded under this commit's sha.
+    A successful build records every requested environment, including cached
+    or up-to-date ELFs. On failure, only restamped ELFs are recorded: the size
+    gate may fail after linking, while a compile failure leaves the old ELF.
     """
     worktree = Path(args.worktree)
     if not worktree.is_dir():
@@ -580,12 +576,12 @@ def cmd_backfill(args) -> int:
                 pio += ["-e", env]
             before = {env: _elf_stamp(build_dir, env) for env in todo}
             try:
-                subprocess.run(pio, check=False)
+                rc = subprocess.run(pio, check=False).returncode
             except OSError as exc:
                 print(f"[size-trail] pio not runnable ({exc})", file=sys.stderr)
                 return 2
             linked = [env for env in todo
-                      if _elf_stamp(build_dir, env) != before[env]]
+                      if rc == 0 or _elf_stamp(build_dir, env) != before[env]]
             for env in todo:
                 if env not in linked:
                     print(f"[size-trail] {sha[:8]}: '{env}' ELF not relinked - "
