@@ -358,7 +358,8 @@ def position_reference(node, ref):
         prop[2] = ref
         for child in prop:
             if isinstance(child, list) and child and child[0] == "at":
-                child[1:] = [(bounds[0] + bounds[2]) / 2, bounds[1] - 0.8, 0]
+                child[1:] = [sexp.Sym(fmt((bounds[0] + bounds[2]) / 2)),
+                             sexp.Sym(fmt(bounds[1] - 0.8)), 0]
             elif isinstance(child, list) and child and child[0] == "effects":
                 child[1:] = sexp.parse_one(
                     "(effects (font (size 0.8 0.8) (thickness 0.15)))")[1:]
