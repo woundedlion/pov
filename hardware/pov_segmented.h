@@ -185,7 +185,7 @@ template <int S, int N, int RPM> class POVSegmented {
   /**
    * @brief Worst-case duration of one column's LED transfer, in µs.
    * @details Image frame plus the trailing black frame strobe_columns() appends,
-   * eight clocks per byte at SPI_CLOCK_HZ, rounded up so the overrun check
+   * SPI data and per-byte framing clocks, rounded up so the overrun check
    * below never under-counts.
    */
   static constexpr unsigned long COLUMN_TRANSFER_US =
