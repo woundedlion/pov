@@ -238,7 +238,7 @@ alongside the `any_*` OR-folds. `pipeline_config<>` carries it into
 default of 1, so a pipeline folding to 0 keeps the coverage every effect
 already has.
 
-`Pixel::ChromaticShift<Spread>` declares `segment_margin = 3 * Spread` (its
+`Pixel::ChromaticShift<W, Spread>` declares `segment_margin = 3 * Spread` (its
 three taps scale with the authored spread) and stays `crosses_segments = false`.
 That finite padding avoids a full-canvas render. `MeshFeedback` is unbounded and skips this
 tier. The only margin-declaring filters a roster effect uses today are the
