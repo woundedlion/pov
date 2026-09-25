@@ -529,7 +529,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── ruff.toml                   Python lint rules (defect classes only, no formatter) — the ci.yml lint job
 ├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
 ├── .githooks/                  Fast staged-file pre-commit checks and a reference-transaction guard keeping master fast-forward-only
-├── .github/dependabot.yml      Monthly grouped bump pull request for the SHA-pinned actions in those workflows
+├── .github/dependabot.yml      Grouped dependency updates for GitHub Actions, npm, and pip
 ├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages), notify-daydream.yml (engine-ready event)
 ├── .github/actions/            Composite steps ci.yml and docs.yml run: pinned-doxygen (Doxygen install + theme)
 ├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/, workbench/ and core/engine/effects_legacy.h reserved
