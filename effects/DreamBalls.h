@@ -240,6 +240,7 @@ private:
   static constexpr int CROSSFADE_OVERLAP = 0;
   /** Frames between sprite hand-offs, which also paces the preset advance. */
   static constexpr int SPRITE_PERIOD = SPRITE_LIFE - CROSSFADE_OVERLAP;
+  static_assert(PRESET_DWELL_FRAMES == SPRITE_PERIOD);
   // The two-slot ping-pong is safe only while at most two sprites overlap, i.e.
   // a sprite finishes before the spawn two periods later reuses its slot.
   static_assert(SPRITE_LIFE < 2 * (SPRITE_LIFE - CROSSFADE_OVERLAP),
