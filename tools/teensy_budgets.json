@@ -2,7 +2,7 @@
   // ==========================================================================
   // Teensy 4 firmware size + layout budgets — consumed by tools/teensy_gate.py.
   // This file and that module state the gate's ceilings and layout invariants;
-  // nothing else is normative. JSONC: // and /* */ comments are stripped.
+  // nothing else is normative. // line comments only (tests/CMakeLists.txt also reads this file).
   //
   // CALIBRATED FROM REAL BUILDS: teensy@5.2.0 (Teensyduino 1.62.0 / arm-gcc
   // 15.2.1), PlatformIO 6.1.19, FastLED 3.4.0. Both shipping images pass.
