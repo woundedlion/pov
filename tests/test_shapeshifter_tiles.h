@@ -22,6 +22,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -40,33 +41,36 @@ inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
           source.at(x, y);
 }
 
+inline constexpr OracleClip QUADRANTS[] = {
+    {0, ORACLE_H / 2, 0, ORACLE_W / 2},
+    {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
+    {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
+    {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
+
+template <typename Render>
+inline void expect_mosaic_matches(OracleState state, Render render,
+                                  std::span<const OracleClip> clips) {
+  const OracleFrame full = capture_frame(state, render);
+  OracleFrame tiled;
+  tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
+  for (const OracleClip &clip : clips) {
+    state.clip = clip;
+    copy_clip(tiled, capture_frame(state, render), clip);
+  }
+  const FrameErrorStats error = compare_buffers(full, tiled);
+  HS_EXPECT_GT(frame_energy(full), uint64_t{0});
+  HS_EXPECT_TRUE(error.exact());
+  HS_EXPECT_EQ(error.different_pixels, size_t{0});
+  HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
+}
+
 template <typename Render>
 inline void expect_segment_tiles_reconstruct_full_frame(Render render) {
-  const OracleClip clips[] = {{0, ORACLE_H / 2, 0, ORACLE_W / 2},
-                              {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
-                              {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
-                              {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
   const auto matrix = shape_function_matrix();
-
   for (int shape = 0; shape < 5; ++shape) {
-    OracleState full_state = matrix[shape * 4 + shape % 4];
-    full_state.orientation = math::Quaternion();
-    OracleFrame full = capture_frame(full_state, render);
-    OracleFrame tiled;
-    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-
-    for (const OracleClip &clip : clips) {
-      OracleState segment_state = full_state;
-      segment_state.clip = clip;
-      OracleFrame segment = capture_frame(segment_state, render);
-      copy_clip(tiled, segment, clip);
-    }
-
-    FrameErrorStats error = compare_buffers(full, tiled);
-    HS_EXPECT_GT(frame_energy(full), static_cast<uint64_t>(0));
-    HS_EXPECT_TRUE(error.exact());
-    HS_EXPECT_EQ(error.different_pixels, static_cast<size_t>(0));
-    HS_EXPECT_EQ(error.total_absolute_error, static_cast<uint64_t>(0));
+    OracleState state = matrix[shape * 4 + shape % 4];
+    state.orientation = math::Quaternion();
+    expect_mosaic_matches(state, render, QUADRANTS);
   }
 }
 
@@ -74,23 +78,6 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   expect_segment_tiles_reconstruct_full_frame(reference_renderer());
   expect_segment_tiles_reconstruct_full_frame(candidate_renderer());
 
-  const OracleClip clips[] = {{0, ORACLE_H / 2, 0, ORACLE_W / 2},
-                              {0, ORACLE_H / 2, ORACLE_W / 2, ORACLE_W},
-                              {ORACLE_H / 2, ORACLE_H, 0, ORACLE_W / 2},
-                              {ORACLE_H / 2, ORACLE_H, ORACLE_W / 2, ORACLE_W}};
-  auto expect_tiled = [&](OracleState state) {
-    const OracleFrame full = capture_frame(state, candidate_renderer());
-    OracleFrame tiled;
-    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-    for (const OracleClip &clip : clips) {
-      state.clip = clip;
-      copy_clip(tiled, capture_frame(state, candidate_renderer()), clip);
-    }
-    const FrameErrorStats error = compare_buffers(full, tiled);
-    HS_EXPECT_GT(frame_energy(full), uint64_t{0});
-    HS_EXPECT_TRUE(error.exact());
-    HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
-  };
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.function = OracleEffect::PhaseFunction::SINE;
@@ -100,10 +87,10 @@ inline void test_segment_tiles_reconstruct_full_frame() {
   state.alpha = 0.274f;
   state.orientation =
       math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized();
-  expect_tiled(state);
+  expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
   state.phase = 0.125f;
   state.orientation = math::make_rotation(math::X_AXIS, math::Y_AXIS);
-  expect_tiled(state);
+  expect_mosaic_matches(state, candidate_renderer(), QUADRANTS);
 }
 
 /**
@@ -137,19 +124,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
     state.alpha = 0.274f;
     state.orientation = orientations[i];
 
-    const OracleFrame full = capture_frame(state, candidate_renderer());
-    OracleFrame tiled;
-    tiled.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
-    for (const OracleClip &column : columns) {
-      state.clip = column;
-      copy_clip(tiled, capture_frame(state, candidate_renderer()), column);
-    }
-
-    const FrameErrorStats error = compare_buffers(full, tiled);
-    HS_EXPECT_GT(frame_energy(full), uint64_t{0});
-    HS_EXPECT_TRUE(error.exact());
-    HS_EXPECT_EQ(error.different_pixels, size_t{0});
-    HS_EXPECT_EQ(error.total_absolute_error, uint64_t{0});
+    expect_mosaic_matches(state, candidate_renderer(), columns);
   }
 }
 
