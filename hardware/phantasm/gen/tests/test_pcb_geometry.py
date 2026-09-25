@@ -89,17 +89,19 @@ class RoutedTraceTests(unittest.TestCase):
     def test_master_enable_bottom_route_uses_an_obtuse_corner(self):
         board_path = REPO_ROOT / "hardware" / "phantasm" / "phantasm.kicad_pcb"
         board = sexp.parse(board_path.read_text(encoding="utf-8"))[0]
-        route_uuids = {
-            "3dca6b57-636f-4af4-a67b-e4e8047ab42c",
-            "8660a7d1-70bc-4768-a0fb-1074dad66d08",
-        }
+        expected_corner = (23.544, 23.506)
         segments = [
             node
             for node in board
             if isinstance(node, list)
             and node
             and node[0] == "segment"
-            and str(_child(node, "uuid")[0]) in route_uuids
+            and _child(node, "net") == ["/MASTER_EN"]
+            and _child(node, "layer") == ["B.Cu"]
+            and expected_corner in {
+                tuple(map(float, _child(node, "start")[:2])),
+                tuple(map(float, _child(node, "end")[:2])),
+            }
         ]
         self.assertEqual(len(segments), 2)
 

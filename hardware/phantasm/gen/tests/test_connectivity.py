@@ -107,7 +107,7 @@ CUSTOM_PAD_BOARD = """(kicad_pcb
 )"""
 
 # A through-hole pad on GND whose only copper is the In1 pour it sits in, with
-# the pour voided around the drill the way KiCad thermally relieves it.
+# a solid pour spanning the through-hole pads.
 POUR_BOARD = """(kicad_pcb
 \t(layers
 \t\t(0 "F.Cu" signal)
@@ -278,7 +278,7 @@ class SyntheticBoardTests(unittest.TestCase):
         text = SOIC_BOARD.replace("(end 0 -2.065)", "(end 0 -2.7)")
         self.assertEqual(connectivity.opens(parse(text)), {})
 
-    def test_a_pour_carries_through_hole_pads_it_voids_around(self):
+    def test_a_solid_pour_connects_through_hole_pads(self):
         self.assertEqual(connectivity.opens(parse(POUR_BOARD)), {})
 
     def test_emptying_the_pour_splits_its_pads(self):
