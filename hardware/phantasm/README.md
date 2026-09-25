@@ -64,8 +64,9 @@ is **0.25 mm**. Both projects require **0.5 mm hole-to-hole clearance**.
 The routed board's six affected ground vias are re-spaced, with their connected
 trace and zone fills updated; DRC reports no hole-spacing violations.
 
-The corrected placement and routing remain in `phantasm.kicad_pcb`; use
-`gen/make_quilter_incremental.py` to carry them into a routing job. A fresh
+The corrected placement and routing remain in `phantasm.kicad_pcb`. The historical
+`gen/make_quilter_incremental.py` refuses this routed board; start a new routing
+job with `gen/pcb.py --unplaced` as described under Regenerating. A fresh
 `gen/pcb.py` run creates a placement draft: it reserves space for reference
 labels, keeps the back legend between the Teensy's pad rows, and separates
 the connector labels from their outlines. Footprints that differ from the
