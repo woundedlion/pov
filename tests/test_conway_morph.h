@@ -1566,10 +1566,9 @@ inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
 
 // ---------------------------------------------------------------------------
 // Hankin-sweep stability probe: per-step branch, displacement and face-normal
-// diagnostics for the four Phase-1 hankin legs. Compares the shipping
-// parameterization (update_hankin re-solved per frame) against a
-// slerp-from-corner parameterization (solve once at theta_star, then slerp
-// each dynamic vertex out of its collapsed corner).
+// diagnostics for the four Phase-1 hankin legs. The shipping path slerps
+// each dynamic vertex from its collapsed corner to the theta_star solve;
+// re-solve modes are print-only comparisons.
 // ---------------------------------------------------------------------------
 
 /** @brief Branch update_hankin took for one dynamic vertex. */
@@ -1862,12 +1861,10 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
 
 /**
  * @brief Measures per-frame sweep stability of the four Phase-1 hankin legs
- *        under the shipping re-solve (uniform and eased theta) and under a
- *        slerp-from-corner parameterization.
- * @details Gates branch flips, per-step vertex chords and face-normal
- * reversals for the shipping re-solves; also asserts the slerp path is
- * normal-flip free and that its endpoints reproduce the collapsed form and
- * the theta_star solve.
+ *        under the shipping slerp-from-corner parameterization.
+ * @details Re-solve modes are diagnostic comparisons. The slerp gates bound
+ * displacement and face-normal reversals, excluding the collapsed first frame
+ * from flat-face measurements.
  */
 inline void test_hankin_sweep_vertex_stability() {
   constexpr int SAMPLES = 32;
@@ -1970,6 +1967,8 @@ inline void test_hankin_sweep_vertex_stability() {
         hankin_face_normals(compiled, curr, curr_normals);
         hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals,
                           row);
+        if (mode == 2 && s == 0)
+          row.flat_faces = 0;
         tables[mode].push_back(row);
         prev = curr;
         prev_normals = curr_normals;
@@ -1986,16 +1985,13 @@ inline void test_hankin_sweep_vertex_stability() {
                   sum.worst_max_disp, sum.worst_step, sum.spike_ratio,
                   sum.worst_mean_disp, sum.worst_flat_faces,
                   sum.worst_far_ratio, sum.worst_corner_chord);
-      if (mode < 2) {
+      if (mode == 2) {
         HS_CONTEXT(site.name, mode);
-        HS_EXPECT_LE(sum.total_branch_flips, 600);
-        HS_EXPECT_LE(sum.total_normal_flips, 24);
-        HS_EXPECT_LE(sum.steps_with_normal_flips, 2);
-        HS_EXPECT_LE(sum.worst_max_disp, 0.60f);
-        HS_EXPECT_LE(sum.worst_mean_disp, 0.25f);
-        HS_EXPECT_LE(sum.spike_ratio, 3.0f);
+        HS_EXPECT_EQ(sum.total_normal_flips, 0);
+        HS_EXPECT_LE(sum.worst_max_disp, 0.05f);
+        HS_EXPECT_LE(sum.worst_mean_disp, 0.03f);
+        HS_EXPECT_LE(sum.spike_ratio, 1.5f);
         HS_EXPECT_EQ(sum.worst_flat_faces, 0);
-        HS_EXPECT_LE(sum.worst_far_ratio, 21.0f);
         HS_EXPECT_LE(sum.worst_corner_chord, 0.50f);
       }
     }
