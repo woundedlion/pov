@@ -601,7 +601,7 @@ edge-fade/projection compatibility check; it does not use these trait folds.
 The staged structure (earlier levels gating later ones) and the
 named-boolean surface stay, with one more level than today. The order
 is explicit: descriptor contract shape, then `CANONICAL`, then the
-rank rows (`MONOTONE`, adjacency, `ENTRY`, `EXIT`), then the bound
+rank rows (`MONOTONE`, `CARRIERS`, `ENTRY`, `EXIT`), then the bound
 callable checks. Ordering is load-bearing at the second step: the rank
 rows evaluate only after `CANONICAL` passes, and `family_of<T>` is
 total (§2's sentinel rank), so a malformed descriptor cannot detonate
@@ -613,7 +613,7 @@ under eager instantiation. The rows become §2's rules:
 |----------------|----------------------------------------------------------------|
 | `ARITY` (== 6) | `NONEMPTY` (gates the other rows, as `ARITY` does today)       |
 | `ORDER` (fixed kind table) | `MONOTONE`: per stage, `family_of<Input> <= family_of<Output>` |
-| `CARRIERS` (slot-typed)    | adjacency fold, plus `ENTRY` (first Input is `SphereSample`) and `EXIT` (last Output is `Color4`) |
+| `CARRIERS` (slot-typed)    | `CARRIERS` (adjacent Output/Input equality), plus `ENTRY` (first Input is `SphereSample`) and `EXIT` (last Output is `Color4`) |
 | `TERMINALS`    | retired — subsumed by `EXIT` + monotonicity; a mid-chain `Color4` producer followed by COLOR endomorphisms is now a feature |
 | `EMPTY_DESCRIPTORS`, `RUN_RETURNS`, `EXTRA_VALIDATION` | unchanged, evaluated over the flattened leaf stages |
 | `CONTRACTS`, `BINDINGS`, `PREPARES` | reformulated over the descriptor contract (§4): every leaf is bound by the pipeline's bind step; a descriptor whose policy names a foreign binding fails there |
