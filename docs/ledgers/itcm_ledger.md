@@ -77,10 +77,8 @@ The originally-suspected `dedd3dde` (+4,272) is **not** in this bucket; see abov
 | `af49fdb6`+`21744baa`+`823fcb0a`, reverted `f7524d19` | per-row spans: probes −10-30% on host, but device span construction cost 31.7 ms/frame vs 7.2 ms saved → worst shape 89.4→108.4 ms, turned a green shape red. **Sized on host probe counts that could not see device construction cost.** | added +3,344, revert −2,928 |
 | `54f613ef`, reverted `9761a432` | cubic-form gamut bisection: **measured dead on device** 1,953→1,962 cyc/px (latency-bound on a 16-link serial chain, not flop-bound; 1.13-1.32× on x86, 1.00× on device) | +320, revert −1,312 |
 
-Both experiments died on device after being sized on host. This is the same trap
-recorded for host `-O2` CSE in the raymarch-perf memory; it has now cost two
-landings in four days. **Standing rule: no device-path lever lands on host timing
-alone.**
+Both experiments died on device after being sized on host.
+**Standing rule: no device-path lever lands on host timing alone.**
 
 ### Is the per-row-span residual recoverable? No.
 
@@ -117,8 +115,7 @@ measurement.
 The remaining ~90 commits are docs/tests/tools/CI (0 B delta) or small
 algorithmic/correctness/quality commits in the ±32…+512 B noise band (Conway
 morph machinery, hankin strap crossfades, RNG-seed plumbing, gamut/OKLab
-micro-opts). None individually moves the headroom needle. Full per-commit ITCM
-values: see the sweep TSV referenced in the audit session.
+micro-opts). None individually moves the headroom needle.
 
 ## State at the window close (`d4816de0`)
 
