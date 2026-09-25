@@ -316,7 +316,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `Progress` | Invokes a caller-supplied `void(float)` callback once per frame with eased progress, leaving the caller to write whatever state it drives |
 | `Driver` | Continuously increments a float variable each frame (optionally wraps at 0..1) |
 | `Lerp` | Type-erased interpolation between any `T` that implements `lerp(start, target, t)`. The caller owns start, subject, and target data; Lerp holds pointers and a type-erased lerp function. |
-| `ColorWipe` | Smoothly interpolates a `GenerativePalette` toward a target palette |
+| `ColorWipe` | Smoothly interpolates a `GenerativePalette` between caller-owned start and target snapshots that must remain unchanged and outlive the animation |
 | `ParticleSystem<W, CAPACITY>` | Physics simulation with emitters, attractors, friction, gravity. Particles have `QuantizedVectorTrail` history for trail rendering. |
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
@@ -331,7 +331,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 
 ### Orientation and Motion Blur
 
-`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — effects use a small value like `Orientation<16>`, never `Orientation<288>`. The `World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
+`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `World::Orient` and `World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. The `World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_linear, true));
@@ -373,7 +373,7 @@ Animations do not render directly — they mutate external state that the render
 | `Progress` | `void(float)` callback | Hands the caller eased progress each frame and writes nothing itself; every composed preset transition uses it to blend the authored parameter states |
 | `Driver` | `float*` | Continuously increments a float each frame, optionally wrapping at 0..1 — used for phase accumulators |
 | `Lerp` | `T*` (type-erased) | Interpolates any type with a `lerp()` function — `MeshState`, params structs, etc. The caller owns start, subject, and target; Lerp holds pointers |
-| `ColorWipe` | `GenerativePalette*` | Interpolates palette keys toward a target palette in OKLCH along coherent hue arcs |
+| `ColorWipe` | `GenerativePalette*` | Interpolates palette keys between caller-owned start and target snapshots in OKLCH; both snapshots must remain unchanged and outlive the animation |
 | `Ripple`, `MobiusWarp`, `Noise` | `RippleParams`, `MobiusParams`, `NoiseParams` | Animate transformer parameters (expansion radius, warp strength, noise scale) which the transformer pool reads during `MeshOps::transform()` |
 | `BallDrop` | `BumpParams` | Walks the bump center down a meridian and re-derives the push axis from the stack's orientation, ramping the footprint envelope; the field pool sums the caps during `field()` |
 | `NoiseProduct` | `NoiseProductParams` | Advances the field time axis so the two-octave product noise keeps flowing under live speed edits; the field pool reads it during `field()` |
@@ -383,14 +383,17 @@ This separation means effects declare *what state exists* (orientations, floats,
 
 ```cpp
 // Effect declares mutable state:
-Orientation<16> orientation;   // CAP is the sub-frame capacity, not the display width
+Orientation<> orientation;   // CAP is the sub-frame capacity, not the display width
 float twist = 0.0f;
 GenerativePalette palette;
+GenerativePalette target_palette;
+const auto palette_start = palette.snapshot();
+const auto palette_target = target_palette.snapshot();
 
 // Timeline drives state via animations:
 timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600, ease_linear, true));
 timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_cubic));
-timeline.add(0, Animation::ColorWipe(palette, target_palette, 2000, ease_linear));
+timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target, 2000, ease_linear));
 
 // Rendering reads state — no manual updates needed:
 void draw_frame() {
