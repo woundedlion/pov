@@ -170,9 +170,9 @@ SECTIONS
 	} > FLASH
 
 	.data : {
-    		*(.endpoint_queue)
+		*(.endpoint_queue)
 		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.data*)))
-   		 KEEP(*(.vectorsram))
+		KEEP(*(.vectorsram))
 	} > DTCM  AT> FLASH
 
 	.bss ALIGN(4) : {
