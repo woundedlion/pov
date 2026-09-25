@@ -26,17 +26,17 @@ static_assert(dma::next_buffer(0) == 1);
 static_assert(dma::next_buffer(1) == 0);
 static_assert(dma::transfer_len(100, 200, false) == 100);
 static_assert(dma::transfer_len(100, 200, true) == 200);
-static_assert(dma::transfer_us(336, 12000000) == 224);
+static_assert(dma::transfer_us(336, 12000000) == 255);
 static_assert(!dma::transfer_stale(0, 0, 100));  // now == start
 static_assert(!dma::transfer_stale(0, 99, 100)); // just below
 static_assert(dma::transfer_stale(0, 100, 100)); // at bound
 static_assert(dma::transfer_stale(0, 101, 100)); // above
 
 static_assert(dma::TRANSFER_WATCHDOG_US >
-              20 * dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE,
+              19 * dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE,
                                     dma::DEFAULT_CLOCK_HZ));
 static_assert(dma::TRANSFER_WATCHDOG_US >
-              20 * dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE,
+              19 * dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE,
                                     dma::SEGMENTED_CLOCK_HZ));
 static_assert(dma::TRANSFER_WATCHDOG_US < 12 * (60000000UL / (480 * 96)));
 static_assert(dma::TRANSFER_WATCHDOG_US < 12 * (60000000UL / (480 * 288)));
@@ -60,23 +60,26 @@ inline void test_transfer_len() {
  * freezes the strip on its last accepted frame.
  */
 inline void test_transfer_us_bound() {
-  // Phantasm segment: 72 px -> 600-byte composite at 24 MHz = 200 µs exactly.
+  // Phantasm segment: 72 px -> 600-byte composite at 24 MHz = 230 µs exactly.
   HS_EXPECT_EQ(dma::transfer_us(HD107SFrame<72>::COMPOSITE_SIZE, 24000000ul),
-               200ul);
+               230ul);
 
-  // Inexact divisions round up, never down: 0.67 -> 1, 10.67 -> 11.
+  // Inexact divisions round up, never down: 0.67 -> 1, 12.04 -> 13.
   HS_EXPECT_EQ(dma::transfer_us(1ul, 12000000ul), 1ul);
-  HS_EXPECT_EQ(dma::transfer_us(4ul, 3000000ul), 11ul);
+  HS_EXPECT_EQ(dma::transfer_us(4ul, 3000000ul), 13ul);
 
   // Swept: the bound never under-counts, and never overshoots by a whole µs.
   for (unsigned long bytes : {1ul, 80ul, 336ul, 600ul, 4096ul}) {
     for (unsigned long clock : {1000000ul, 6000000ul, 12000000ul, 24000000ul}) {
       const unsigned long us = dma::transfer_us(bytes, clock);
-      const unsigned long long bits_us = bytes * 8ull * 1000000ull;
-      HS_EXPECT_TRUE(static_cast<unsigned long long>(us) * clock >= bits_us);
+      const unsigned long long divider = 240000000ull / clock;
+      const unsigned long long clocks_us =
+          bytes * (8 * divider + 2 * ((divider - 2) / 2) + 4) * 1000000ull;
+      HS_EXPECT_TRUE(static_cast<unsigned long long>(us) * 240000000ull >=
+                     clocks_us);
       HS_EXPECT_TRUE(us == 0 ||
-                     (static_cast<unsigned long long>(us) - 1) * clock <
-                         bits_us);
+                     (static_cast<unsigned long long>(us) - 1) * 240000000ull <
+                         clocks_us);
     }
   }
 }
