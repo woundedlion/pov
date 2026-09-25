@@ -455,5 +455,5 @@ int main(int argc, char **argv) {
   }
   // Collapse to 0/1: a process exit status is only 8 bits on POSIX, so
   // returning a raw count would wrap (e.g. 256 failures -> 0 -> green CI).
-  return failures ? 1 : 0;
+  return (failures || hs_test::stats().failed > 0) ? 1 : 0;
 }
