@@ -11,9 +11,13 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import kicad_common  # noqa: E402
+import sexp  # noqa: E402
 
 
 class FindKicadCliTests(unittest.TestCase):
+    def test_version_agrees_with_pinned_major(self):
+        self.assertEqual(int(kicad_common.KICAD_VERSION.split(".")[0]), sexp.KICAD_MAJOR)
+
     def resolve(self, reported, installs=None):
         with mock.patch.dict(os.environ, {}, clear=True), \
                 mock.patch.object(kicad_common.glob, "glob",
