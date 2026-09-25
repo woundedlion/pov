@@ -97,7 +97,7 @@ struct DistortedRing {
    * @param thickness Ring stroke half-width (radians).
    * @param knots lut_n centerline shifts; closure wraps to entry 0.
    *        Storage must outlive the call.
-   * @param lut_n Number of knot cells.
+   * @param lut_n Number of knot cells; at least 3.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
