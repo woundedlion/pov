@@ -409,10 +409,7 @@ public:
 #undef HS_SHADER_WORKBENCH_FIELD_BYTES
           size_t{0};
 
-  // Config's size and the listed fields' total size pin the snapshot field set
-  // from both ends: an unlisted new member trips the first, a dropped list
-  // entry the second. Their difference is alignment padding, so the list
-  // covers every Config byte that carries a value.
+  // Layout bytes and config.h arity pins guard the snapshot field set.
   static_assert(
       sizeof(Workbench::Config) == 524 && CONFIG_FIELD_BYTES == 500,
       "Config field set changed - update HS_SHADER_WORKBENCH_CONFIG_FIELDS");
