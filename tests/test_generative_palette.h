@@ -117,8 +117,7 @@ inline void test_generative_palette_recipe_validation() {
   HS_EXPECT_EQ(status.field, PaletteRecipeField::LIGHTNESS_CENTER);
   const GenerativePalette::Snapshot after = output.snapshot();
   HS_EXPECT_EQ(std::memcmp(&before, &after, sizeof(before)), 0);
-  HS_EXPECT_EQ(
-      std::memcmp(&canonical_before, &canonical, sizeof(canonical_before)), 0);
+  HS_EXPECT_TRUE(canonical_before == canonical);
 
   struct RelationshipCount {
     PaletteHarmony harmony;
@@ -164,9 +163,7 @@ inline void test_generative_palette_canonical_ignores_inactive_fields() {
                                                 first_canonical, status));
   HS_EXPECT_TRUE(GenerativePalette::try_compile(second, second_palette,
                                                 second_canonical, status));
-  HS_EXPECT_EQ(
-      std::memcmp(&first_canonical, &second_canonical, sizeof(first_canonical)),
-      0);
+  HS_EXPECT_TRUE(first_canonical == second_canonical);
   const auto first_snapshot = first_palette.snapshot();
   const auto second_snapshot = second_palette.snapshot();
   HS_EXPECT_EQ(
