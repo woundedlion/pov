@@ -291,9 +291,13 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
  * registry intersections peak at 2.16. */
 inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
 inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
+/** Plane-cross squared floor below which fallback is always mixed in. */
 inline constexpr float HANKIN_PARALLEL_REGULARIZATION_SQ = 3.0e-4f;
+/** Plane-cross squared threshold below which far points are anchored. */
 inline constexpr float HANKIN_CONDITIONED_CLEAR_SQ = 2.0e-2f;
+/** Raw chord ratio squared at the start of the conditioning ramp. */
 inline constexpr float HANKIN_CONDITIONED_NEAR_RATIO_SQ = 1.44f;
+/** Raw chord ratio squared at full conditioning. */
 inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
 /** plane_cross_sq (= |cross(n_hankin1, n_hankin2)|^2) window gating the
  * far-star fallback. A far chord ratio alone is not instability: a large face
