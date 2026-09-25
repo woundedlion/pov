@@ -1217,7 +1217,7 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
  * @return +X unless @p v is near-parallel to it, in which case +Y.
  * @details Seed for building a cross-product frame around @p v: crossing @p v
  *          with a near-parallel axis collapses to ~zero, so pick the axis that
- *          is safely off-axis. (Lives here, not in geometry.h with X_AXIS/Y_AXIS,
+ *          is safely off-axis. (Lives here, not in spherical.h with X_AXIS/Y_AXIS,
  *          so make_rotation below can use it without an include cycle.)
  */
 inline Vector least_parallel_axis(const Vector &v) {
@@ -1235,7 +1235,7 @@ inline Vector least_parallel_axis(const Vector &v) {
  * @return cross(v, least_parallel_axis(v)), normalized.
  * @details The canonical "some tangent at @p v": which one is unspecified, only
  *          that it is unit and well-conditioned for every @p v. Distinct from
- *          geometry.h's tangent_axis(), which seeds from +Y and so returns a
+ *          spherical.h's tangent_axis(), which seeds from +Y and so returns a
  *          different frame.
  */
 inline Vector perpendicular_axis(const Vector &v) {

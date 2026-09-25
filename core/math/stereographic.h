@@ -28,7 +28,7 @@ inline constexpr float STEREO_INF = 1e4f;
  * sentinel.
  * @details Half of STEREO_INF: an intervening Mobius map can scale the emitted
  * sentinel toward (not past) zero, so the inverse needs margin below the emitted
- * magnitude to still snap it back to the pole. (Squared to avoid a sqrt.)
+ * magnitude to snap it back to the pole.
  */
 inline constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 

@@ -37,7 +37,7 @@ namespace transformer_detail {
  */
 template <typename T> struct ExternalParamsHooks {};
 
-/** @brief MobiusParams (math/stereographic.h) carries neither hook. */
+/** @brief MobiusParams (math/mobius.h) carries neither hook. */
 template <> struct ExternalParamsHooks<math::MobiusParams> {
   static constexpr bool NEEDS_REFRESH_FROM = false;
   static constexpr bool NEEDS_SYNC = false;
