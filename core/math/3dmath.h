@@ -576,8 +576,8 @@ HS_O3_FN inline float fast_rsqrt(float x) {
 }
 
 /**
- * @brief Fast cube root for x >= 0.
- * @param x Input value; the domain is x >= 0 (cbrt(0)=0); negative inputs
+ * @brief Fast cube root for x in [0, ~3e28].
+ * @param x Input value; the domain is [0, ~3e28] (cbrt(0)=0); negative inputs
  * return 0.
  * @return An approximation of the cube root of `x`.
  * @details Bit-hack initial guess (divide the float exponent by three) refined
@@ -653,9 +653,10 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
  * one reciprocal instead of six divides, so the six seed chains schedule
  * against each other on an in-order FPU. Accuracy matches fast_cbrt (peak
  * relative error ~2.3e-5 against cbrtf for x >= 1e-6). Each denominator is
- * ~3x, so the six-denominator product overflows once all six inputs exceed
- * ~4.2e5 and underflows below ~1.2e-7, the latter already inside fast_cbrt's
- * degraded tail. The feedback path feeds u16-magnitude channels (<= 65535).
+ * ~3x. The numerator times five foreign denominators overflows once all six
+ * inputs exceed ~4.2e5; the six-denominator product itself overflows at ~8.5e5
+ * and underflows below ~1.2e-7, already inside fast_cbrt's degraded tail.
+ * The feedback path feeds u16-magnitude channels (<= 65535).
  */
 HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
   float n[6], d[6];
