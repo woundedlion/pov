@@ -540,6 +540,11 @@ HS_FLASH_INLINE inline float noise_contour(const FastNoiseLite &noise,
   return sample * (1.0f + contrast) / (1.0f + contrast * fabsf(sample));
 }
 
+/**
+ * @brief TwinWave source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame) accessors.
+ */
 template <typename State> struct TwinWave : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -572,6 +577,11 @@ template <typename State> struct TwinWave : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief Rings source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame) accessors.
+ */
 template <typename State> struct Rings : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -601,6 +611,11 @@ template <typename State> struct Rings : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief SphericalRings source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame) accessors.
+ */
 template <typename State> struct SphericalRings : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -630,6 +645,11 @@ template <typename State> struct SphericalRings : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief Spiral source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame) accessors.
+ */
 template <typename State> struct Spiral : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -660,6 +680,11 @@ template <typename State> struct Spiral : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief Grid source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame) accessors.
+ */
 template <typename State> struct Grid : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -694,6 +719,11 @@ template <typename State> struct Grid : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief PrimitiveLattice source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame) accessors.
+ */
 template <typename State> struct PrimitiveLattice : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -718,6 +748,11 @@ template <typename State> struct PrimitiveLattice : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief EscapeFractal source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame) accessors.
+ */
 template <typename State> struct EscapeFractal : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -752,6 +787,11 @@ template <typename State> struct EscapeFractal : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief Tessellation source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame) accessors.
+ */
 template <typename State, TessellationKind KindV>
 struct Tessellation : ApproximationDefaults {
   using Binding = typename State::Binding;
@@ -782,6 +822,12 @@ struct Tessellation : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief ProjectedNoise source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * noise(frame), noise_scale(frame), noise_time(frame),
+ * noise_contrast(frame) accessors.
+ */
 template <typename State, math::NoiseBasis BasisV>
 struct ProjectedNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
@@ -813,6 +859,12 @@ struct ProjectedNoise : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief SphericalNoise source policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * noise_time(frame), noise(frame), noise_scale(frame),
+ * noise_contrast(frame) accessors.
+ */
 template <typename State, math::NoiseBasis BasisV>
 struct SphericalNoise : ApproximationDefaults {
   using Binding = typename State::Binding;

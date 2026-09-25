@@ -67,6 +67,11 @@ struct Twist : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief Mobius lens policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame) accessors.
+ */
 template <typename State> struct Mobius : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
