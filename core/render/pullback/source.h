@@ -535,6 +535,7 @@ template <typename State> struct TwinWave : ApproximationDefaults {
         { State::prepare(frame).angle_cos } -> std::convertible_to<float>;
         { State::prepare(frame).angle_sin } -> std::convertible_to<float>;
         { State::prepare(frame).primary } -> std::convertible_to<float>;
+        { State::prepare(frame).secondary } -> std::convertible_to<float>;
       };
 
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
@@ -717,6 +718,8 @@ template <typename State> struct EscapeFractal : ApproximationDefaults {
         { State::prepare(frame).angle_cos } -> std::convertible_to<float>;
         { State::prepare(frame).angle_sin } -> std::convertible_to<float>;
         { State::prepare(frame).primary } -> std::convertible_to<float>;
+        { State::prepare(frame).secondary } -> std::convertible_to<float>;
+        { State::prepare(frame).angle } -> std::convertible_to<float>;
       };
 
   using Prepared = PreparedFractal;

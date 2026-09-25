@@ -651,7 +651,21 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
-        State::prepare(frame).transform.affine;
+        {
+          State::prepare(frame).transform.affine.scale_x
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.affine.scale_y
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.affine.shear
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.affine.translation_x
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.affine.translation_y
+        } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
@@ -716,7 +730,18 @@ template <typename State> struct Vortex : ApproximationDefaults {
   static constexpr bool PROVIDER_VALID =
       PreparedProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        State::prepare(frame).transform.vortex;
+        {
+          State::prepare(frame).transform.vortex.center_x
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.vortex.center_y
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.vortex.angle_numerator
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.vortex.radius_sq
+        } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
@@ -746,7 +771,12 @@ template <typename State> struct MirrorTile : ApproximationDefaults {
         { State::params(frame).cell_y } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
-        State::prepare(frame).transform.mirror;
+        {
+          State::prepare(frame).transform.mirror.offset_x
+        } -> std::convertible_to<float>;
+        {
+          State::prepare(frame).transform.mirror.offset_y
+        } -> std::convertible_to<float>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
@@ -808,7 +838,9 @@ struct VectorNoise : ApproximationDefaults {
         { State::noise(frame) } -> std::same_as<const FastNoiseLite &>;
         { State::prepare(frame).rotation_cos } -> std::convertible_to<float>;
         { State::prepare(frame).rotation_sin } -> std::convertible_to<float>;
-        State::prepare(frame).transform.noise_loop;
+        {
+          State::prepare(frame).transform.noise_loop.offset
+        } -> std::convertible_to<math::Vector>;
         { State::path_length_required(frame) } -> std::same_as<bool>;
       } &&
       (!std::is_same_v<EnvelopePolicy, EdgeFadeEnvelope> ||
