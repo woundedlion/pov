@@ -732,14 +732,14 @@
 <text x="704" y="1680" font-size="9" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">1000µF (at injection)</text>
 <line x1="130" y1="1768" x2="712" y2="1768" stroke="#556" stroke-width="1.6" stroke-dasharray="4 3"/>
 <line x1="712" y1="1768" x2="712" y2="1712" stroke="#556" stroke-width="1.6" stroke-dasharray="4 3"/>
-<text x="150" y="1762" font-size="9" text-anchor="start" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SIG_GND — low-current, from CARD (J2.3)</text>
+<text x="150" y="1762" font-size="9" text-anchor="start" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SIG_GND — low-current, from CARD (J2.2)</text>
 <circle cx="712" cy="1712" r="5" fill="#0a8a3a"/>
 <text x="724" y="1700" font-size="9" text-anchor="start" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">★ ground star (strip / load end)</text>
 <text x="960" y="1600" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• LED power is OFF-CARD: heavy 5 V/GND from the slip-ring busbar straight to each strip.</text>
 <text x="960" y="1622" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• Conductor: 16–18 AWG wire or busbar — NOT the 22 AWG Belden 8451 sync pair.</text>
 <text x="960" y="1644" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• Current splits: 4.3 A/strip · ~8.6 A/arm · 17 A only at the hub / slip ring.</text>
 <text x="960" y="1666" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• 1000µF bulk sits AT the injection point (where the 4.3 A transient is sourced).</text>
-<text x="960" y="1688" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• SIG_GND (card J2.3) ties strip GND at the strip = ground star; the 4.3 A IR-drop</text>
+<text x="960" y="1688" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• SIG_GND (card J2.2) ties strip GND at the strip = ground star; the 4.3 A IR-drop</text>
 <text x="960" y="1710" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">   then stays upstream of the data reference (R-SI-2). Card→strip = DI/CI + SIG_GND only.</text>
 <text x="960" y="1732" font-size="11" text-anchor="start" fill="#a33" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• Never bond logic GND to the heavy power-GND at the card end. Slip ring rated ≥17 A.</text>
 </svg>
