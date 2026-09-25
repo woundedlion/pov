@@ -7,8 +7,8 @@ dropping pixels, while non-stateful effects keep the full clipping win. The
 seam is the WASM driver boundary (`targets/wasm/engine_bindings.h` `setClip`)
 and the
 device driver (`hardware/pov_segmented.h` `clip_to_segment`), plus three
-compile-time filter traits. Both drivers gate on `Effect::needs_full_frame()`;
-the device additionally excludes `persists_pixels()` effects (§2).*
+compile-time filter traits. Both drivers gate on
+`pov::segment_clip_applies(needs_full_frame(), persists_pixels())` (§2).*
 
 ---
 
@@ -41,13 +41,13 @@ Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
 - **Simulator (`segment_worker.js` → `targets/wasm/wasm.cpp`).** Daydream
   reproduces the *partitioning* in software: one isolated WASM module instance
   per segment, each calling `setClip(x0, x1, y0, y1)` (gated on
-  `needs_full_frame()`) so the rasterizer's scanline culling skips out-of-clip
+  `pov::segment_clip_applies(needs_full_frame(), persists_pixels())`) so the rasterizer's scanline culling skips out-of-clip
   rows/columns. Each worker owns a **fixed** quadrant for the whole effect; the
   readback copies the full canvas and `segment_layout.js` `blitSegmentRect`
   extracts just the quadrant rectangle before transfer (README §10.7).
 
 Both clip non-stateful effects to a quadrant and leave `needs_full_frame()`
-effects at full canvas; the device's quadrant alternates per frame because it
+or `persists_pixels()` effects at full canvas; the device's quadrant alternates per frame because it
 is true POV (two arms 180° apart), whereas the simulator composites fixed
 quadrants. The clipping is *wrong* for unbounded-reach feedback, which is why
 the gate exists.
@@ -193,9 +193,9 @@ is not caught by it.
 ### 4.3 Honor it at the driver boundary (the only behavioral change)
 
 In `targets/wasm/engine_bindings.h` `setClip`: if
-`currentEffect->needs_full_frame()`, leave the clip at the full canvas
-(optionally record the requested band for telemetry) and return; otherwise
-apply the band as today.
+`!pov::segment_clip_applies(current_effect->needs_full_frame(),
+current_effect->persists_pixels())`, leave the clip at the full canvas and
+return `ClipSetResult::FULL_FRAME_KEPT`; otherwise apply the requested band.
 
 "Leave at full" is safe because the clip is already full when this fires: the
 `Effect` constructor resets `clip` to the whole canvas (`Effect::Effect`), and the
@@ -265,7 +265,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 | `core/render/filter/pipeline.h` traits | add `crosses_segments` and `reads_outside_band` to `FilterTraits`, both defaulting to `has_history`; override `reads_outside_band = false` on `Screen::Trails` and `World::Trails`, `crosses_segments = true` on `World::Mobius`; the recursive `any_crosses_segments` / `any_reads_outside_band` OR-folds and the `total_segment_margin` sum on `Pipeline`, with `false` / `0` base cases in the terminal `Pipeline<W,H>` and hand-written equivalents on `Screen::DirectAntiAliasSink` |
 | `core/render/canvas.h` `EffectConfig` / `Effect` | `full_frame` config field (default `false`), stored by the constructor and published by the non-virtual `needs_full_frame()` accessor; `margin` config field applied to `ClipRegion::margin` through `set_margin`, widen-only |
 | each filtered effect's constructor | wrap its `EffectConfig` in `pipeline_config<decltype(filters)>(...)` in the `Effect` base initializer, which folds in all three pipeline traits |
-| `targets/wasm/engine_bindings.h` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
+| `targets/wasm/engine_bindings.h` `setClip` | gate on `pov::segment_clip_applies(needs_full_frame(), persists_pixels())`; otherwise return `FULL_FRAME_KEPT` |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
 | `segment_worker.js` slicing | **none** |
