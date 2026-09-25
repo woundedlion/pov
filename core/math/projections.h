@@ -123,8 +123,8 @@ struct ProjectionKernelResult {
   uint8_t component_id = 0;
   /** ProjectionBoundary mask for the edge `fade_edge_distance` measures to. */
   uint8_t boundary_flags = 0;
-  /** Nearest-cut metric: spherical radians for Bonne and Peirce, plane units
-   *  for Airocean. NO_EDGE_DISTANCE when skipped or no cut exists. Applying
+  /** Nearest-cut metric: along-parallel arc radians for Bonne, spherical
+   *  distance radians for Peirce, and plane units for Airocean. NO_EDGE_DISTANCE when skipped or no cut exists. Applying
    *  a plane scale preserves this kernel-dependent fade-width convention. */
   float fade_edge_distance = NO_EDGE_DISTANCE;
   /** Kernel-specific per-point flags. */
@@ -192,7 +192,7 @@ equirectangular(const math::Vector &v, float central_meridian = 0.0f) {
  *        degenerates to the sinusoidal limit and +/-pi/2 to the polar (Werner)
  *        limit.
  * @return Plane coordinates in radians, with `fade_edge_distance` set to the
- *         angular distance to the antimeridian cut.
+ *         along-parallel arc distance to the antimeridian cut.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
 bonne_projection(const math::Vector &v, float central_meridian,
