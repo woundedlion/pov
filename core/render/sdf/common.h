@@ -173,9 +173,7 @@ template <typename Buf> inline Buf &scratch_spans(ScratchScope &scratch) {
   return *arena.make<Buf>();
 }
 
-// Forward-declared so the span-count trait below can pattern-match the binary
-// CSG ops and the leaves (all defined later in this header) before their full
-// definitions.
+// Shape declarations for the span-count traits; definitions live in the SDF headers.
 template <typename A, typename B> struct Union;
 template <typename A, typename B> struct SmoothUnion;
 template <typename A, typename B> struct Subtract;
