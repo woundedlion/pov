@@ -111,7 +111,7 @@ def main(force=False):
 
     def make_teensy():
         """Compact Teensy 4.0 symbol showing only the pins this board uses (the other
-        ~17 pads are unconnected on this design and omitted for readability). Pin
+        ~16 pads are unconnected on this design and omitted for readability). Pin
         NUMBER = the Teensy pad label; assign a Teensy footprint and verify the pad
         map before PCB layout."""
         # (display-name, number, electrical-type) — left side then right side
