@@ -242,7 +242,7 @@ private:
 
   /**
    * @brief Accumulates this frame's travel and spawns rings as gap opens up.
-   * @details Emits a ring each time a full SPACING of gap opens up at the start
+   * @details Emits a ring each time a full live spacing() of gap opens up at the start
    * of the path, keeping ring density constant.
    */
   void check_spawn() {
