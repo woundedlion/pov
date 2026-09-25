@@ -58,10 +58,10 @@ class Comets : public ChoreographedEffect<Comets<W, H>, CometsParams> {
 public:
   using Params = CometsParams;
 
-  static constexpr int TRAIL_LENGTH =
-      115; /**< Number of past orientations retained in the comet trail. */
-  static constexpr int ORIENTATION_SUBSTEPS =
-      16; /**< Interpolation slots per Orientation, shared by the recorded trail
+  static constexpr int TRAIL_LENGTH = Animation::
+      TRAIL_HISTORY_LENGTH; /**< Number of past orientations retained in the comet trail. */
+  static constexpr int ORIENTATION_SUBSTEPS = Animation::
+      TRAIL_ORIENTATION_SUBSTEPS; /**< Interpolation slots per Orientation, shared by the recorded trail
                and Motion. */
 
   /** Preset policy: a path function swap has no meaningful interpolation, so

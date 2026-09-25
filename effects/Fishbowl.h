@@ -88,8 +88,9 @@ public:
            p.duty_cycle <= DUTY_CYCLE_MAX;
   }
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"fire-trail"};
-  static constexpr int TRAIL_LENGTH = 115;
-  static constexpr int ORIENTATION_SUBSTEPS = 16;
+  static constexpr int TRAIL_LENGTH = Animation::TRAIL_HISTORY_LENGTH;
+  static constexpr int ORIENTATION_SUBSTEPS =
+      Animation::TRAIL_ORIENTATION_SUBSTEPS;
   static constexpr int MAX_FRAGMENTS = 2 * TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
   /** @brief Compact multiline control point carrying its palette coordinate. */
