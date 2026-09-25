@@ -3124,7 +3124,7 @@ inline void test_shader_workbench_wave_shear_envelope_controls() {
 /** @brief Rejected Polar Chart selectors expose controls needed for admission. */
 inline void test_shader_workbench_polar_gui_repair() {
   using WB = ShaderWorkbenchWhiteBox;
-  auto repair = [](bool first, bool lattice) {
+  auto repair = [](bool first, bool lattice, float winding, float scale) {
     reset_effect_globals();
     WB::SB sb;
     sb.init();
@@ -3134,7 +3134,7 @@ inline void test_shader_workbench_polar_gui_repair() {
     base.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
     base.slots.warp_program.inner.kind = WB::WarpStageKind::NONE;
     base.params.source.pattern_freq = 1.3f;
-    base.params.source.lattice_cell_scale = 1.0f;
+    base.params.source.lattice_cell_scale = scale;
     WB::request_config(sb, base);
     const WB::RequestedConfig rendered = WB::active_config(sb);
     const char *root = first ? "Planar Warp 1" : "Planar Warp 2";
@@ -3145,7 +3145,6 @@ inline void test_shader_workbench_polar_gui_repair() {
     const char *radial_scale =
         first ? "Planar Warp 1 Radial Scale" : "Planar Warp 2 Radial Scale";
     const char *density = lattice ? "Lattice Cell Scale" : "Pattern Freq";
-    const float repaired = lattice ? 8.0f / (math::TWO_PI_F * 2.0f) : 1.5f;
 
     HS_EXPECT_EQ(sb.updateParameter(
                      root, static_cast<float>(WB::WarpStageKind::POLAR_CHART)),
@@ -3162,9 +3161,15 @@ inline void test_shader_workbench_polar_gui_repair() {
                      *sb.getParameters().find(root)),
                  static_cast<float>(WB::WarpStageKind::NONE));
 
-    HS_EXPECT_EQ(sb.updateParameter(harmonic, 2.0f), ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(sb.updateParameter(harmonic, winding),
+                 ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::active_config(sb) == rendered);
     HS_EXPECT_TRUE(WB::parameter_warning(sb, root) != nullptr);
+    const char *suggestion =
+        strstr(WB::parameter_warning(sb, root),
+               lattice ? "Cell Scale to " : "Pattern Freq to ");
+    HS_EXPECT_TRUE(suggestion != nullptr);
+    const float repaired = strtof(suggestion + (lattice ? 14 : 16), nullptr);
     HS_EXPECT_EQ(sb.updateParameter(density, repaired),
                  ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(WB::parameter_warning(sb, root) == nullptr);
@@ -3180,8 +3185,9 @@ inline void test_shader_workbench_polar_gui_repair() {
                  repaired);
   };
 
-  repair(true, false);
-  repair(false, true);
+  repair(true, false, 3.0f, 1.0f);
+  repair(false, true, 1.0f, 2.1f);
+  repair(false, true, 16.0f, 1.0f);
 
   reset_effect_globals();
   WB::SB shear;
