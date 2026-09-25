@@ -79,7 +79,8 @@ struct ProjectionProvenance {
   uint8_t component_id;
   /** projections::ProjectionBoundary mask for the measured edge. */
   uint8_t boundary_flags;
-  /** Nearest boundary distance in the scaled projection coordinate units. */
+  /** Nonnegative distance to a fade-eligible boundary: plane units for cut
+   * charts; sphere-space measures for stereographic and gnomonic singularities. */
   float fade_edge_distance;
   /** Projection weight applied by the selected signal or coverage policy. */
   float value_weight;
