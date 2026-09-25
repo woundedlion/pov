@@ -346,7 +346,7 @@ template <typename A, typename B> struct Subtract {
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Subtract children must be SDF shapes (is_solid)");
   // The minuend is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
-  // before the seam split, so a minuend that could emit more spans must be
+  // before replay, so a minuend that could emit more spans must be
   // rejected at compile time rather than trapping in push_interval at runtime.
   static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP,
                 "nested CSG Subtract minuend exceeds IntervalBuffer capacity; "
@@ -378,7 +378,7 @@ template <typename A, typename B> struct Subtract {
   }
 
   /**
-   * @brief Emits the minuend's intervals, seam-split into [0, W).
+   * @brief Emits the minuend's intervals unchanged.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
