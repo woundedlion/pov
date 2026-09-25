@@ -44,8 +44,6 @@ authored_params(SourceParams source, WarpStageParams outer_warp,
                 ProjectionParams projection, SurfaceLensParams surface_lens,
                 ColorParams color, OuterCameraParams outer_camera) {
   const WarpStageParams inner_warp{0.1f, 0.0f, 0.0f};
-  color.hue_noise_speed = hs::clamp(color.hue_noise_speed, -HUE_NOISE_SPEED_MAX,
-                                    HUE_NOISE_SPEED_MAX);
   return {source,       {outer_warp, inner_warp},
           projection,   surface_lens,
           {},           color,
@@ -156,9 +154,9 @@ inline constexpr Config peirce_dodecahedral_generated_preset() {
               CoveragePolicy::EDGE_FADE,
               PaletteMode::TRIADIC};
   slots.peirce_layout = PeirceLayout::SQUARE;
-  Params params = authored_params(
-      {5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {}, {1.0f, 0.0f, 1.0f}, {},
-      {0.319f, 1.0f, 0.05f / math::TWO_PI_F}, {1.0f});
+  Params params = authored_params({5.0f, 0.1f, 0.5f, 0.0f, 0.8f, 0.0f}, {},
+                                  {1.0f, 0.0f, 1.0f}, {},
+                                  {0.319f, 1.0f, HUE_NOISE_SPEED_MAX}, {1.0f});
   params.projection.central_meridian = 0.0f;
   params.projection.coordinate_scale = 1.0f;
   params.value.edge_width = 0.1f;
