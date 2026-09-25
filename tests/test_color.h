@@ -774,11 +774,10 @@ inline void expect_clip_lands_on_first_exit(const char *path) {
 /**
  * @brief Verifies the chroma-reduction map lands on the gamut's first exit off
  *        the flash master, the grid every effect that arms nothing runs on.
- * @details Runs the shared sweep with no LUT armed, so the cubic solve answers
- *          every query.
+ * @details Runs the shared sweep with no arena LUT armed.
  */
 inline void test_gamut_master_clip_lands_on_first_exit() {
-  expect_clip_lands_on_first_exit("cubic solve");
+  expect_clip_lands_on_first_exit("flash master");
 }
 
 inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
@@ -803,20 +802,13 @@ inline void test_gamut_continuous_chroma_is_smooth_and_in_gamut() {
   }
 }
 
-// Grid MeshFeedback arms, and the one the bounds below are measured at.
-inline constexpr int TEST_GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
-inline constexpr int TEST_GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
+// Coarsest supported grid.
+inline constexpr int TEST_GAMUT_ANGLE_STEPS = GAMUT_LUT_MIN_ANGLE_STEPS;
+inline constexpr int TEST_GAMUT_L_STEPS = GAMUT_LUT_MIN_L_STEPS;
 
 /**
- * @brief Verifies the bracket table plus in-bracket refinement lands on the
- *        gamut's first exit.
- * @details Same two properties as the cubic-solve sweep, at the grid and step
- *          count the device runs: every returned color passes
- *          linear_rgb_in_gamut, and the returned chroma sits inside the
- *          double-precision first exit but not far inside. The cell minimum is
- *          probed before it is trusted and the refinement only ever accepts a
- *          scale it has evaluated in gamut, so the in-gamut property does not
- *          depend on the table being right — only the deficit does.
+ * @brief Bounds the coarsest bracket grid's first-exit deficit and walk residue.
+ * @details Uses the same in-gamut and chroma bounds as the flash-master sweep.
  */
 inline void test_gamut_lut_clip_lands_on_first_exit() {
   alignas(uint16_t) static uint8_t
@@ -887,9 +879,9 @@ inline void test_gamut_lut_downsample_preserves_bracket() {
  */
 inline void test_gamut_lut_release_and_passthrough() {
   alignas(uint16_t) static uint8_t
-      lut_buf[gamut_lut_bytes(TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+      lut_buf[gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
-  init_gamut_lut(lut_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
+  init_gamut_lut(lut_arena, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
 
   // Deep inside the cell minimum: returned unchanged, bit for bit.
   OKLab deep = oklch_to_oklab({0.5f, 0.02f, 1.0f});
