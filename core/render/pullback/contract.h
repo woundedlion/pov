@@ -380,7 +380,7 @@ __attribute__((always_inline)) inline float clamp_unit(float value) {
 
 /**
  * @brief Smoothstep that degenerates to a hard step at low == high, where the
- *        global ::smooth_ramp yields NaN.
+ *        math::smooth_ramp yields NaN.
  * @param low Value mapped to 0.
  * @param high Value mapped to 1; may equal @p low.
  * @param value Argument to ramp.
