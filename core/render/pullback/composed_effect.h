@@ -166,7 +166,7 @@ template <typename BindingT> struct OuterCameraProvider {
 /**
  * @brief Supplies the projection frame and its parameters to the
  *        Pullback::Projection policies.
- * @details Exposes every accessor the projection policies name; an effect pays
+ * @details Exposes the composed projection policies' accessors; an effect pays
  * only for the ones its chosen policy instantiates, so a projection that takes
  * no central meridian never reads that field.
  */
@@ -301,7 +301,7 @@ template <typename BindingT, bool TrackPath = false> struct SurfaceProvider {
 
 /**
  * @brief Supplies the pattern and noise state to the Pullback::Source policies.
- * @details Covers every source family at once: the pattern accessors read the
+ * @details The pattern accessors read the
  * prepared phases, the noise accessors the NoiseSourceParams fields. Only the
  * accessors an effect's chosen source policy names are instantiated.
  */
@@ -338,7 +338,7 @@ template <typename BindingT> struct SourceProvider {
 /**
  * @brief Supplies the value-family fields to the Pullback::Transfer and
  *        Pullback::ValueCoverage policies.
- * @details Names all three fields the value families define; an effect's material
+ * @details Names the five shared value-family fields; an effect's material
  * stage instantiates only the accessors its transfer and coverage policies
  * call, so an IsoValueParams effect never touches `edge_width` and vice versa.
  */
@@ -771,8 +771,8 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  *        derived from the parameter families and a Spec.
  * @details The effect states its families, its Spec and its identity
  * constants; every stage typedef, the render pipeline, shade() and the shared
- * lifecycle — parameter registration, preset choreography, palette cycling,
- * camera walks and noise clocks — are assembled here. Required `Derived`
+ * lifecycle â€” parameter registration, preset choreography, palette cycling,
+ * camera walks and noise clocks â€” are assembled here. Required `Derived`
  * members are the identity constants and `initial_params`. Optional members,
  * detected by `requires` and defaulted when absent, are `preset_params`
  * (absent, every preset takes `initial_params`), `ANIMATED_MOBIUS`,
