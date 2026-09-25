@@ -215,14 +215,11 @@ struct ShaderWorkbenchWhiteBox;
  * @details Canvas-resolution independent; Shader binds it to a fixed W and H.
  */
 class ShaderWorkbench : public Effect {
-public:
 private:
   struct WalkDeltas;
 
 public:
   static constexpr std::string_view EFFECT_ID = "shader";
-  static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
-  static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
 
   static constexpr size_t authored_preset_count() {
     return Workbench::PRESETS.size();
@@ -2697,20 +2694,11 @@ private:
   }
 
   HS_COLD_MEMBER void begin_blend() {
-    if (advance_preset()) {
-    } else {
+    if (!advance_preset()) {
       preset_dwell_remaining = 1;
       preset_dwell_armed = true;
     }
   }
-
-  static void next_generated_palette(uint32_t &hue, uint32_t sequence,
-                                     PaletteHarmony harmony, float chroma,
-                                     GenerativePalette &out) {
-    GeneratedPaletteBank::next_palette(hue, sequence, harmony, chroma, out);
-  }
-
-  static constexpr uint32_t HUE_STEP = GeneratedPaletteBank::HUE_STEP;
 
 public:
   static constexpr size_t PARAM_CAPACITY = 80;
