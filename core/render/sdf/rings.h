@@ -331,8 +331,8 @@ public:
    *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
-   * @param kn n + 1 centerline shifts (radians), one per equal azimuth cell,
-   *           entry n repeating entry 0; must outlive the shape. distance()
+   * @param kn n centerline shifts (radians), one per equal azimuth cell;
+   *           closure wraps to entry 0. Must outlive the shape. distance()
    *           returns the exact distance to this polyline (within the local
    *           tangent chart), so steep or sharply curved segments render at
    *           full stroke width with no slope approximation.
@@ -361,8 +361,9 @@ public:
       pf.hi[c] = -1e9f;
     }
     for (int k = 0; k < n; ++k) {
-      float lo = std::min(kn[k], kn[k + 1]);
-      float hi = std::max(kn[k], kn[k + 1]);
+      const float next = kn[k + 1 == n ? 0 : k + 1];
+      float lo = std::min(kn[k], next);
+      float hi = std::max(kn[k], next);
       min_shift = std::min(min_shift, lo);
       max_shift = std::max(max_shift, hi);
       int c1 = k * KnotPrefilter::CHUNKS / n;

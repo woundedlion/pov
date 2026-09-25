@@ -433,11 +433,22 @@ template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
   }
 }
 
-/**
- * @brief Runs the brute-force comparison at a chunk-aligned and a
- *        chunk-straddling knot count (97 is coprime to the prefilter chunks,
- *        so segments cross chunk boundaries).
- */
+/** @brief Closing-segment bounds depend on the first knot, not a sentinel. */
+inline void test_distorted_ring_closes_without_a_sentinel() {
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  const float knots[] = {0.1f, -0.2f, 0.3f, 0.05f};
+  const float stale_sentinel[] = {0.1f, -0.2f, 0.3f, 0.05f, 10.0f};
+  SDF::KnotPrefilter exact, extra;
+  SDF::DistortedRing a(basis, 0.5f, 0.02f, knots, 4, 0.0f, exact);
+  SDF::DistortedRing b(basis, 0.5f, 0.02f, stale_sentinel, 4, 0.0f, extra);
+  for (int c = 0; c < SDF::KnotPrefilter::CHUNKS; ++c) {
+    HS_EXPECT_EQ(exact.lo[c], extra.lo[c]);
+    HS_EXPECT_EQ(exact.hi[c], extra.hi[c]);
+  }
+  HS_EXPECT_EQ(a.max_distortion, b.max_distortion);
+}
+
+/** @brief Compares distance at aligned and chunk-straddling knot counts. */
 inline void test_distorted_ring_polyline_distance_matches_bruteforce() {
   expect_polyline_distance_matches_bruteforce<96>();
   expect_polyline_distance_matches_bruteforce<97>();
@@ -3537,6 +3548,7 @@ inline int run_sdf_tests() {
   test_distorted_ring_sin_shift_varies_by_azimuth();
   test_distorted_ring_flat_matches_zero_knots();
   test_distorted_ring_polyline_distance_matches_bruteforce();
+  test_distorted_ring_closes_without_a_sentinel();
   test_distorted_ring_knot_extrema_tighten_band();
   test_distorted_ring_past_reach_reports_far_sentinel();
 

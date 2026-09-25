@@ -95,8 +95,8 @@ struct DistortedRing {
    * @param basis Orientation basis of the ring plane.
    * @param radius Ring radius as a fraction of the hemisphere.
    * @param thickness Ring stroke half-width (radians).
-   * @param knots lut_n + 1 centerline shifts, entry lut_n repeating entry 0;
-   *        must outlive the call.
+   * @param knots lut_n centerline shifts; closure wraps to entry 0.
+   *        Storage must outlive the call.
    * @param lut_n Number of knot cells.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
