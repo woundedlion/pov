@@ -690,23 +690,12 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
 }
 
 /**
- * @brief 64-bit FNV-1a over a byte span.
- * @param data Bytes to hash.
- * @param n Byte count.
- * @param h Seed, letting a key be built from several spans.
- * @return The accumulated hash.
- */
-inline uint64_t fnv1a64(const void *data, size_t n,
-                        uint64_t h = hs_test::FNV1A64_BASIS) {
-  return hs_test::fnv1a64_bytes(data, n, h);
-}
-
-/**
  * @brief Reference identity of a face's canonical key (count + sorted angles).
  */
 inline uint64_t topo_key_id(const FaceTopoRecord &rec) {
-  const uint64_t h = fnv1a64(&rec.count, sizeof(rec.count));
-  return fnv1a64(rec.angles, sizeof(rec.angles[0]) * rec.count, h);
+  const uint64_t h = hs_test::fnv1a64_bytes(&rec.count, sizeof(rec.count));
+  return hs_test::fnv1a64_bytes(rec.angles, sizeof(rec.angles[0]) * rec.count,
+                                h);
 }
 
 /** Upper bound on the dense topology ids one roster solid can carry. */
@@ -827,9 +816,9 @@ inline void test_classify_faces_roster_hash_collision_free() {
           neighbor_keys[n_neighbors++] = face_keys[neighbor];
         }
         std::sort(neighbor_keys, neighbor_keys + n_neighbors);
-        folded_keys[f] =
-            fnv1a64(neighbor_keys, sizeof(neighbor_keys[0]) * n_neighbors,
-                    face_keys[f]);
+        folded_keys[f] = hs_test::fnv1a64_bytes(
+            neighbor_keys, sizeof(neighbor_keys[0]) * n_neighbors,
+            face_keys[f]);
         folded.insert(
             MeshOps::fold_face_topology_hash(face_hashes[f], neighbor_acc),
             folded_keys[f]);
