@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach } from 'node:test';
-import { registerHooks } from 'node:module';
+import { registerHooks, syncBuiltinESMExports } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const dir = process.env.HS_ASSERTION_COUNTS;
@@ -44,6 +44,7 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
       };
     }
   }
+  syncBuiltinESMExports();
   beforeEach(() => {
     countBeforeCase = count;
   });
