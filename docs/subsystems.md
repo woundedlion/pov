@@ -568,7 +568,7 @@ Pixel (linear 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, 
 | `oklab_to_oklch()` | Convert OKLab (rectangular) to OKLCH (polar: Lightness, Chroma, Hue) |
 | `lerp_oklch()` | Interpolate two OKLCH values with shortest-arc hue (avoids the red→green→blue detour) |
 | `gamut_clip_preserve_chroma()` | Maps an out-of-gamut OKLab color back into the sRGB cube by reducing chroma while holding hue and lightness (walk-then-bisect on the chroma scale). The hue-preserving alternative to a per-channel RGB clip. Gated behind an in-gamut test (`oklab_to_linear_rgb_gamut`), so in-gamut colors — the vast majority — pay only the test and skip the search. |
-| `hue_rotate()` | Perceptual hue rotation — rotates the (a,b) chroma plane in OKLab, preserving lightness and chroma. Forward nonlinearity uses `fast_cbrt` (hot per-pixel path); inverse is exact. Out-of-gamut results are chroma-reduced rather than per-channel clipped, which holds hue and stabilizes the feedback loop against saturated-color drift. Used by the feedback `hue_fade` transform and the pullback color stage's sphere-space hue noise. |
+| `hue_rotate()` | Perceptual hue rotation — rotates the (a,b) chroma plane in OKLab, preserving lightness and chroma. Forward nonlinearity uses `fast_cbrt` (hot per-pixel path); inverse is exact. Out-of-gamut results are chroma-reduced rather than per-channel clipped, which holds hue and stabilizes the feedback loop against saturated-color drift. The feedback `hue_fade` transform uses `hue_rotate_lms_matrix`; sphere-space hue noise uses `hue_rotate_lut_gamut`. |
 
 ### The Gamut Boundary Grid
 
@@ -652,7 +652,7 @@ hash lattice (`3dmath.h`) with a per-instance seed, so two modifiers on the same
 driver decorrelate by seed. Frame-constant work memoizes against the driver
 value (`HueSpinShade`'s rotation matrix, `ChromaPulseShade`'s pulse factor,
 `DriftModifier`'s walk offset). The OKLab shades still pay a per-sample
-conversion, so they pair well with `BakedPalette::rebake`, which re-samples a
+conversion, so they pair well with `BakedPaletteStorage::rebake`, which re-samples a
 256-entry LUT once per frame; the noise and cosine shades are cheap enough for
 live per-pixel paths.
 
@@ -677,7 +677,8 @@ StaticPalette<ProceduralPalette, Coords<NoiseWarpModifier>,
 | `MutatingPalette` | Extends `ProceduralPalette` with continuous coefficient mutation between two procedural palettes |
 | `SolidColorPalette` | Returns a single fixed color for every coordinate |
 | `PaletteFacade<SP>` | Exposes a compile-time `StaticPalette` composition through the polymorphic `Palette` API, for preset tables and baking |
-| `BakedPalette` | Precomputes any palette source (a `Palette` or a `StaticPalette`) into a fast 16-bit LUT for O(1) lookup. Arena-allocated. |
+| `BakedPalette` | Read-only view of an arena-backed 256-entry color/alpha LUT. |
+| `BakedPaletteStorage` | Owns mutation rights to a palette LUT and rebakes a `Palette` or `StaticPalette` source into it. |
 | `NoiseHuePalette<Source>` | Applies a sphere-domain noise field as a spatial OKLab hue rotation over any palette source. Its shared hue-rotation and cube-map noise LUT preparation is used by ordinary effects, composed shader effects, and the Shader workbench. Call `hue_shift(direction, amount)` once when a whole primitive shares a noise coordinate, `noise_uv(cos_u, sin_u, cos_v, sin_v)` for a seamless two-axis surface field, or `get(t, direction, amount)` directly per sample. |
 
 ### Recipe-Compiled Palettes
