@@ -1,7 +1,7 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- * Payload fields generated; names and iterations are authored here.
+ * Generated payloads; authored inputs: core/mesh/relax_bake_specs.h.
  * See tools/relax_bake_harness.cpp for authoring. Regenerate payloads with:
  *   <build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin
  * Source identity grid: scale 2013, bias bits 0x3f3c7774,
@@ -13,14 +13,20 @@
 #include <bit>
 #include <iterator>
 #include "mesh/relax_bake.h"
+#include "mesh/relax_bake_specs.h"
 
+#if defined(HS_RELAX_BAKE_EXTRACT)
+namespace Solids { namespace RelaxBakes = RelaxBakeSpecs; }
+#else
 // clang-format off
 namespace Solids {
 namespace RelaxBakes {
 
+#if !defined(HS_RELAX_BAKE_EXTRACT)
 static_assert(MeshOps::RELAX_SOURCE_SCALE == 2013.0f, "Regenerate relax bakes after changing RELAX_SOURCE_SCALE");
 static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_BIAS) == 0x3f3c7774u, "Regenerate relax bakes after changing RELAX_SOURCE_BIAS");
 static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN) == 0x3727c5acu, "Regenerate relax bakes after changing RELAX_SOURCE_MIN_MARGIN");
+#endif
 
 inline const uint32_t truncated_cuboctahedron_converged_bits[] HS_PROGMEM_UNIQUE(truncated_cuboctahedron_converged_bits) = {
     0xbf0589e6u, 0x3e5da403u, 0xbf5343fcu, 0xbe5da403u, 0x3f0589e6u, 0xbf5343fcu, 0x3e5da403u, 0x3f0589e6u,
@@ -43,8 +49,8 @@ inline const uint32_t truncated_cuboctahedron_converged_bits[] HS_PROGMEM_UNIQUE
     0xbe5da403u, 0x3f5343fcu, 0x3f0589e6u, 0x3e5da403u, 0x3f5343fcu, 0x3e5da403u, 0x3f0589e6u, 0x3f5343fcu,
 };
 inline constexpr MeshOps::RelaxBake truncated_cuboctahedron_converged = {
-    .name = "truncated_cuboctahedron_converged", .vertex_bits = truncated_cuboctahedron_converged_bits,
-    .vertex_count = 48, .face_count = 26, .index_count = 144, .iterations = 4096,
+    .name = RelaxBakeSpecs::truncated_cuboctahedron_converged.name, .vertex_bits = truncated_cuboctahedron_converged_bits,
+    .vertex_count = 48, .face_count = 26, .index_count = 144, .iterations = RelaxBakeSpecs::truncated_cuboctahedron_converged.iterations,
     .source_hash = 0x549ffc51u,
     .topology_hash = 0xddf29291u,
     .output_hash = 0x4e4dfe65u};
@@ -62,8 +68,8 @@ inline const uint32_t snub_cube_converged_bits[] HS_PROGMEM_UNIQUE(snub_cube_con
     0xbe8119beu, 0x3f59bba5u, 0x3e8119beu, 0xbeec518cu, 0x3f59bba5u, 0x3eec518cu, 0x3e8119beu, 0x3f59bba5u,
 };
 inline constexpr MeshOps::RelaxBake snub_cube_converged = {
-    .name = "snub_cube_converged", .vertex_bits = snub_cube_converged_bits,
-    .vertex_count = 24, .face_count = 38, .index_count = 120, .iterations = 4096,
+    .name = RelaxBakeSpecs::snub_cube_converged.name, .vertex_bits = snub_cube_converged_bits,
+    .vertex_count = 24, .face_count = 38, .index_count = 120, .iterations = RelaxBakeSpecs::snub_cube_converged.iterations,
     .source_hash = 0x3a62444du,
     .topology_hash = 0x25e7d7f5u,
     .output_hash = 0x13a204edu};
@@ -95,8 +101,8 @@ inline const uint32_t rhombicosidodecahedron_converged_bits[] HS_PROGMEM_UNIQUE(
     0xbe65a9fdu, 0xbeb94e93u, 0xbf398df6u, 0xbf1611cau,
 };
 inline constexpr MeshOps::RelaxBake rhombicosidodecahedron_converged = {
-    .name = "rhombicosidodecahedron_converged", .vertex_bits = rhombicosidodecahedron_converged_bits,
-    .vertex_count = 60, .face_count = 62, .index_count = 240, .iterations = 4096,
+    .name = RelaxBakeSpecs::rhombicosidodecahedron_converged.name, .vertex_bits = rhombicosidodecahedron_converged_bits,
+    .vertex_count = 60, .face_count = 62, .index_count = 240, .iterations = RelaxBakeSpecs::rhombicosidodecahedron_converged.iterations,
     .source_hash = 0x3f2a23d9u,
     .topology_hash = 0x7769a2b1u,
     .output_hash = 0x48a7eeeau};
@@ -150,8 +156,8 @@ inline const uint32_t truncated_icosidodecahedron_converged_bits[] HS_PROGMEM_UN
     0xbf66bc2fu, 0xbe862dc1u, 0xbeb0c0b2u, 0xbf23407du, 0xbf304789u, 0xbeda6153u, 0xbf44ede0u, 0xbef393abu,
 };
 inline constexpr MeshOps::RelaxBake truncated_icosidodecahedron_converged = {
-    .name = "truncated_icosidodecahedron_converged", .vertex_bits = truncated_icosidodecahedron_converged_bits,
-    .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = 4096,
+    .name = RelaxBakeSpecs::truncated_icosidodecahedron_converged.name, .vertex_bits = truncated_icosidodecahedron_converged_bits,
+    .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = RelaxBakeSpecs::truncated_icosidodecahedron_converged.iterations,
     .source_hash = 0x7465304bu,
     .topology_hash = 0x3b53f3c9u,
     .output_hash = 0x3ec6896fu};
@@ -183,8 +189,8 @@ inline const uint32_t snub_dodecahedron_converged_bits[] HS_PROGMEM_UNIQUE(snub_
     0xbe32acc6u, 0xbec91807u, 0xbf4377b4u, 0xbf03385eu,
 };
 inline constexpr MeshOps::RelaxBake snub_dodecahedron_converged = {
-    .name = "snub_dodecahedron_converged", .vertex_bits = snub_dodecahedron_converged_bits,
-    .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = 4096,
+    .name = RelaxBakeSpecs::snub_dodecahedron_converged.name, .vertex_bits = snub_dodecahedron_converged_bits,
+    .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = RelaxBakeSpecs::snub_dodecahedron_converged.iterations,
     .source_hash = 0xea64b785u,
     .topology_hash = 0x004bc741u,
     .output_hash = 0xc8fba28bu};
@@ -283,8 +289,8 @@ inline const uint32_t dodecahedron_ambo_bevel33_converged_bits[] HS_PROGMEM_UNIQ
     0xbf37b12eu, 0xbf02833au, 0xbf29062fu, 0xbed58ef8u, 0xbf1fe406u, 0xbf37b12eu, 0xbf028339u, 0xbef2fa93u,
 };
 inline constexpr MeshOps::RelaxBake dodecahedron_ambo_bevel33_converged = {
-    .name = "dodecahedron_ambo_bevel33_converged", .vertex_bits = dodecahedron_ambo_bevel33_converged_bits,
-    .vertex_count = 240, .face_count = 122, .index_count = 720, .iterations = 4096,
+    .name = RelaxBakeSpecs::dodecahedron_ambo_bevel33_converged.name, .vertex_bits = dodecahedron_ambo_bevel33_converged_bits,
+    .vertex_count = 240, .face_count = 122, .index_count = 720, .iterations = RelaxBakeSpecs::dodecahedron_ambo_bevel33_converged.iterations,
     .source_hash = 0xb14f7409u,
     .topology_hash = 0x0e6068e9u,
     .output_hash = 0x9bf3bc8bu};
@@ -327,8 +333,8 @@ inline const uint32_t truncated_icosahedron_ambo_converged_bits[] HS_PROGMEM_UNI
     0xbf147c5eu, 0xbe905782u, 0xbf43a6abu, 0xbe905782u, 0xbf43a6abu, 0xbf147c5eu,
 };
 inline constexpr MeshOps::RelaxBake truncated_icosahedron_ambo_converged = {
-    .name = "truncated_icosahedron_ambo_converged", .vertex_bits = truncated_icosahedron_ambo_converged_bits,
-    .vertex_count = 90, .face_count = 92, .index_count = 360, .iterations = 4096,
+    .name = RelaxBakeSpecs::truncated_icosahedron_ambo_converged.name, .vertex_bits = truncated_icosahedron_ambo_converged_bits,
+    .vertex_count = 90, .face_count = 92, .index_count = 360, .iterations = RelaxBakeSpecs::truncated_icosahedron_ambo_converged.iterations,
     .source_hash = 0x53e975d1u,
     .topology_hash = 0x0a20bce1u,
     .output_hash = 0x18af899fu};
@@ -382,8 +388,8 @@ inline const uint32_t dodecahedron_bevel20_converged_bits[] HS_PROGMEM_UNIQUE(do
     0xbf66bbdcu, 0xbe8628fcu, 0xbeb0c5d9u, 0xbf233e2bu, 0xbf304864u, 0xbeda67c5u, 0xbf44ec9du, 0xbef391f8u,
 };
 inline constexpr MeshOps::RelaxBake dodecahedron_bevel20_converged = {
-    .name = "dodecahedron_bevel20_converged", .vertex_bits = dodecahedron_bevel20_converged_bits,
-    .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = 4096,
+    .name = RelaxBakeSpecs::dodecahedron_bevel20_converged.name, .vertex_bits = dodecahedron_bevel20_converged_bits,
+    .vertex_count = 120, .face_count = 62, .index_count = 360, .iterations = RelaxBakeSpecs::dodecahedron_bevel20_converged.iterations,
     .source_hash = 0x9306fd25u,
     .topology_hash = 0x3b53f3c9u,
     .output_hash = 0x74207089u};
@@ -527,8 +533,8 @@ inline const uint32_t truncated_icosidodecahedron_bevel50_relax100_bits[] HS_PRO
     0xbf4b0177u, 0xbed076bcu, 0xbed0f492u, 0xbf5dae18u, 0xbe940839u, 0xbf0a6f5fu, 0xbf50b59fu, 0xbe541dffu,
 };
 inline constexpr MeshOps::RelaxBake truncated_icosidodecahedron_bevel50_relax100 = {
-    .name = "truncated_icosidodecahedron_bevel50_relax100", .vertex_bits = truncated_icosidodecahedron_bevel50_relax100_bits,
-    .vertex_count = 360, .face_count = 362, .index_count = 1440, .iterations = 100,
+    .name = RelaxBakeSpecs::truncated_icosidodecahedron_bevel50_relax100.name, .vertex_bits = truncated_icosidodecahedron_bevel50_relax100_bits,
+    .vertex_count = 360, .face_count = 362, .index_count = 1440, .iterations = RelaxBakeSpecs::truncated_icosidodecahedron_bevel50_relax100.iterations,
     .source_hash = 0x4cab0dddu,
     .topology_hash = 0x1f875855u,
     .output_hash = 0x07c1b935u};
@@ -807,8 +813,8 @@ inline const uint32_t dodecahedron_hankin_ambo_hankin_ambo_converged_bits[] HS_P
     0xbf508844u, 0xbece589bu, 0xbec681fbu, 0xbf5cbcb4u, 0xbea6d9d0u, 0xbed86095u, 0xbf5fd0f1u, 0xbe748aaeu,
 };
 inline constexpr MeshOps::RelaxBake dodecahedron_hankin_ambo_hankin_ambo_converged = {
-    .name = "dodecahedron_hankin_ambo_hankin_ambo_converged", .vertex_bits = dodecahedron_hankin_ambo_hankin_ambo_converged_bits,
-    .vertex_count = 720, .face_count = 362, .index_count = 2160, .iterations = 4096,
+    .name = RelaxBakeSpecs::dodecahedron_hankin_ambo_hankin_ambo_converged.name, .vertex_bits = dodecahedron_hankin_ambo_hankin_ambo_converged_bits,
+    .vertex_count = 720, .face_count = 362, .index_count = 2160, .iterations = RelaxBakeSpecs::dodecahedron_hankin_ambo_hankin_ambo_converged.iterations,
     .source_hash = 0xa78fd1e5u,
     .topology_hash = 0x236de54du,
     .output_hash = 0x10477c35u};
@@ -840,8 +846,8 @@ inline const uint32_t icosahedron_snub_converged_bits[] HS_PROGMEM_UNIQUE(icosah
     0xbf2cd21fu, 0xbead197du, 0xbf2cd220u, 0xbf27dd06u,
 };
 inline constexpr MeshOps::RelaxBake icosahedron_snub_converged = {
-    .name = "icosahedron_snub_converged", .vertex_bits = icosahedron_snub_converged_bits,
-    .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = 4096,
+    .name = RelaxBakeSpecs::icosahedron_snub_converged.name, .vertex_bits = icosahedron_snub_converged_bits,
+    .vertex_count = 60, .face_count = 92, .index_count = 300, .iterations = RelaxBakeSpecs::icosahedron_snub_converged.iterations,
     .source_hash = 0x06c5cc73u,
     .topology_hash = 0x75b29ecdu,
     .output_hash = 0x4d995cf9u};
@@ -850,3 +856,4 @@ static_assert(std::size(icosahedron_snub_converged_bits) == 3u * icosahedron_snu
 } // namespace RelaxBakes
 } // namespace Solids
 // clang-format on
+#endif

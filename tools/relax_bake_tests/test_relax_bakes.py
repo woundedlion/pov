@@ -25,8 +25,7 @@ def make_dump(name, iterations, verts, topology_hash, source_hash=0x1234ABCD,
     lines = [
         f"RELAX_BAKE_BEGIN {name} {iterations} {len(verts)} 2 6 "
         f"{topology_hash:08x} {source_hash:08x} {out:08x} "
-        f"{relax_bakes.SOURCE_SCALE} {relax_bakes.SOURCE_BIAS_BITS:08x} "
-        f"{relax_bakes.SOURCE_MIN_MARGIN_BITS:08x} "
+        "2013 3f3c7774 3727c5ac "
         f"{relax_bakes.float_bits(source_margin):08x}"
     ]
     for x, y, z in verts:
@@ -78,9 +77,18 @@ class ParseDump(unittest.TestCase):
 
     def test_rejects_source_identity_grid_drift(self):
         dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
-        dump = dump.replace(f" {relax_bakes.SOURCE_SCALE} ", " 2014 ")
+        other, _ = make_dump("bar", 8, [(2, 2, 2)], 0x2)
+        other = other.replace(" 2013 ", " 2014 ")
         with self.assertRaises(ValueError):
-            relax_bakes.parse_dump(dump)
+            relax_bakes.parse_dump(dump + "\n" + other)
+
+    def test_emits_grid_from_dump(self):
+        dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        dump = dump.replace("2013 3f3c7774 3727c5ac", "2014 3f000000 00000000")
+        header = relax_bakes.emit_header(relax_bakes.parse_dump(dump))
+        self.assertIn("RELAX_SOURCE_SCALE == 2014.0f", header)
+        self.assertIn("RELAX_SOURCE_BIAS) == 0x3f000000u", header)
+        self.assertIn("RELAX_SOURCE_MIN_MARGIN) == 0x00000000u", header)
 
     def test_rejects_insufficient_source_margin(self):
         dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1,
@@ -144,10 +152,10 @@ class EmitHeader(unittest.TestCase):
             header,
         )
         self.assertIn("Source identity grid: scale 2013", header)
-        self.assertIn('.name = "foo_bar", .vertex_bits = foo_bar_bits,', header)
+        self.assertIn('.name = RelaxBakeSpecs::foo_bar.name, .vertex_bits = foo_bar_bits,', header)
         self.assertIn(
             ".vertex_count = 1, .face_count = 2, .index_count = 6, "
-            ".iterations = 100,",
+            ".iterations = RelaxBakeSpecs::foo_bar.iterations,",
             header,
         )
         self.assertIn(f".topology_hash = 0x{0xC0FFEE:08x}u,", header)
