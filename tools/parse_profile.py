@@ -27,13 +27,15 @@ teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
             never torn down mid-capture (frame numbers stay monotonic), and the
             root counter matches the wall clock
 
+The frames mode prints individual frame records.
+
 Counter lines are WINDOW TOTALS since the previous dump; per-frame = total /
 window frames, us -> ms / 1000. A display window is 62.5 ms at 480 RPM, so a
 draw_frame's wall time quantizes to whole 62.5 ms windows.
 
-Preset markers the effects emit (one per advance), matched here:
-  Preset: <i>/<N>            ChoreographedEffect + Comets/DreamBalls
-  Shape: <i>/<N>             MeshFeedback solids
+Preset markers matched here use 1-based indices (one per advance):
+  Preset: <i>/<N>            ChoreographedEffect + DreamBalls
+  Shape: <i>/<N>             Archived shape markers
   Mode: <i>/<N>              SphericalHarmonics
   Spawning Shape: <name> ... IslamicStars (carries V/E/F/I)
   Loading shape: '<name>'    HankinSolids
