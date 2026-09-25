@@ -287,7 +287,7 @@ the ADOPT-then-truncate legs below are the registry code path, decomposed.
 | truncatedCube ↔ cuboctahedron | truncate 1/(2+√2) → 0.5 | partial sweep, no degenerate end |
 | cube ↔ rhombicuboctahedron | expand 0 → 2−√2 | |
 | cube ↔ snubCube | snub (0,0) → (T_SNUB_CUBE, 0.28) | + settle |
-| cuboctahedron ↔ truncatedCuboctahedron | truncate 0 → 1/(2+√2) | ADOPT cuboctahedron as seed; + settle |
+| cuboctahedron ↔ truncatedCuboctahedron | truncate 0 → 1/(2+√2) | cuboctahedron seed; + settle; no reseed |
 | octahedron ↔ truncatedOctahedron | truncate 0 → 1/3 | |
 | truncatedOctahedron ↔ cuboctahedron | truncate 1/3 → 0.5 | partial sweep, octahedron seed |
 | octahedron ↔ cuboctahedron | truncate 0 → 0.5 | DUAL_SWAP cube ↔ octahedron at crossover |
@@ -304,7 +304,7 @@ the ADOPT-then-truncate legs below are the registry code path, decomposed.
 | icosahedron ↔ icosidodecahedron | truncate 0 → 0.5 | DUAL_SWAP dodecahedron ↔ icosahedron |
 | dodecahedron ↔ rhombicosidodecahedron | expand 0 → 2−√2 | + settle |
 | dodecahedron ↔ snubDodecahedron | snub (0,0) → (0.5, twist_c) | + settle; twist_c cosmetic, see §2.3 |
-| icosidodecahedron ↔ truncatedIcosidodecahedron | truncate 0 → 1/(2+φ) | ADOPT icosidodecahedron; + settle |
+| icosidodecahedron ↔ truncatedIcosidodecahedron | truncate 0 → 1/(2+φ) | icosidodecahedron seed; + settle; no reseed |
 
 ### Tetrahedral family and bridges
 
@@ -312,11 +312,11 @@ the ADOPT-then-truncate legs below are the registry code path, decomposed.
 |---|---|---|
 | tetrahedron ↔ truncatedTetrahedron | truncate 0 → 1/3 | |
 | tetrahedron ↔ octahedron | truncate 0 → 0.5 | **BRIDGE** tetra → octa; ADOPT octahedron |
-| truncatedTetrahedron ↔ octahedron | partial truncate sweep | |
+| truncatedTetrahedron ↔ octahedron | partial truncate sweep | **BRIDGE** tetra → octa; ADOPT octahedron |
 | tetrahedron ↔ icosahedron | snub (0,0) → (0.5, twist_b) | **BRIDGE** tetra → icosa; + settle (relax canonicalizes); ADOPT icosahedron |
 | icosahedron ↔ octahedron | snub (t_jb, w_jb) → (0.5, −π/3) | **BRIDGE** (jitterbug) — see below; ADOPT at both arrivals |
 
-**Jitterbug bridge (landed 2026-07-16)** — the third family bridge and the
+**Jitterbug bridge** — the fourth family bridge and the
 first *direct* icosahedral ↔ octahedral crossing. The `snub(tetrahedron, t,
 twist)` family is icosahedron-topology (V12/F20/E30) on the whole sweep and
 contains both endpoints:
