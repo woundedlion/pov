@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { loadEffectHeaders, parseRegisteredEffects } from './effect_roster.mjs';
+import { loadEffectHeaders, parseRegisteredEffects, stripComments } from './effect_roster.mjs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -52,10 +52,7 @@ const compiledDocuments = async () => {
 test('every promoted header digest matches its pattern document', async () => {
   const headers = await promotedHeaders();
   const documents = await compiledDocuments();
-  const roster = (await readFile(resolve(ROOT, 'targets/effects.h'), 'utf8'))
-    .replace(/\\\r?\n/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\/\/[^\n]*/g, '');
+  const roster = stripComments(await readFile(resolve(ROOT, 'targets/effects.h'), 'utf8'));
   const group = /^#define HS_SHADER_PRODUCT_GROUP\(X\)(.*)$/m.exec(roster);
   assert.ok(group, 'missing shader product group');
   const names = [...group[1].matchAll(/X\(\s*(\w+)\s*,/g)].map(match => match[1]);
