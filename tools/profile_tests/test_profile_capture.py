@@ -279,6 +279,17 @@ class TestMain(unittest.TestCase):
         with open(self.out, encoding="utf-8") as handle:
             self.assertIn("ok", handle.read())
 
+    def test_a_serial_drop_removes_the_partial_capture(self):
+        opened = FakeSerial("COM3")
+        with mock.patch.object(opened, "readline", side_effect=[
+                b"phase 1\n", _SerialException("USB disconnected")]):
+            with self.assertRaises(SystemExit) as caught:
+                self._run(opened)
+        self.assertIn("COM3 dropped after 1 lines: USB disconnected",
+                      str(caught.exception))
+        self.assertFalse(os.path.exists(self.out))
+        self.assertTrue(opened.closed)
+
     def test_a_silent_board_leaves_no_log_behind(self):
         # A wrong or hung image enumerates and streams nothing; an empty log
         # reads downstream as a real capture.
