@@ -1239,7 +1239,6 @@ inline void test_composed_slider_registration() {
 #undef HS_COMPOSED_SLIDERS
 }
 
-/** @brief Sweeps the parameter snapshot contract over every specialization. */
 struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::params;
 };
@@ -1282,6 +1281,7 @@ inline void test_mobius_frame_admission() {
   }
 }
 
+/** @brief Sweeps the parameter snapshot contract over every specialization. */
 inline void test_composed_snapshot_contract() {
   test_mobius_frame_admission();
 #define HS_COMPOSED_SNAPSHOT(name, seconds)                                    \
@@ -1300,7 +1300,6 @@ inline void test_composed_preset_choreography() {
 #undef HS_COMPOSED_PRESETS
 }
 
-/** @brief Sweeps the crossfade interpolation over every specialization. */
 inline void test_composed_log_positive_curve() {
   using Pullback::FieldCurve;
   using Pullback::Fields::apply_curve;
@@ -1314,6 +1313,7 @@ inline void test_composed_log_positive_curve() {
                  3.0f, 1e-5f);
 }
 
+/** @brief Sweeps the crossfade interpolation over every specialization. */
 inline void test_composed_preset_interpolation() {
   test_composed_log_positive_curve();
 #define HS_COMPOSED_INTERP(name, seconds)                                      \

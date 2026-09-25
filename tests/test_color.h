@@ -1225,8 +1225,7 @@ inline void test_gradient_endpoints() {
   HS_EXPECT_EQ(c0.color.g, 0);
   HS_EXPECT_EQ(c0.color.b, 0);
 
-  // t near 1.0 lands on the last (white) entry.
-  Color4 c1 = grad.get(0.999f);
+  Color4 c1 = grad.get(1.0f);
   HS_EXPECT_GT(c1.color.r, 60000);
   HS_EXPECT_EQ(c1.alpha, 1.0f);
 }
@@ -1242,8 +1241,6 @@ inline void test_gradient_in_range_valid_and_monotone() {
   uint16_t prev = 0;
   for (int i = 0; i <= 100; ++i) {
     float t = i / 100.0f;
-    if (t > 0.999f)
-      t = 0.999f; // index = uint8_t(t*255); keep within [0,255]
     Color4 c = grad.get(t);
     if (i > 0)
       HS_EXPECT_GE(c.color.r, prev);
@@ -2009,10 +2006,7 @@ inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
  * on the way out through the LMS cube. Measured over the 17^3 channel grid at
  * 64 rotation amounts spanning [-1, 1] turns, IEEE and
  * -ffast-math alike: mean 0.083 LSB, worst single channel 171 LSB on the
- * cbrt-steep saturated corner (40959, 65535, 8191) at 0.206 turns. The mean is
- * the sharp detector, since a refolded matrix moves every sample, so it takes
- * the tight factor; the worst channel is a discrete extremum that hops between
- * neighbouring grid corners when the rounding shifts, so it takes the loose one.
+ * cbrt-steep saturated corner (40959, 65535, 8191) at 0.206 turns.
  */
 inline constexpr float HUE_SPIN_MEAN_HEADROOM = 1.5f;
 inline constexpr float HUE_SPIN_WORST_HEADROOM = 1.5f;
@@ -2509,7 +2503,7 @@ inline float identity_falloff(float t) { return t; }
  * @brief Verifies ShadeCoord picks the color chain's coordinate independently
  *        of Wrap.
  * @details AlphaFalloffShade reports the coordinate it was handed through
- *          alpha. MATCH_WRAP reproduces the historical coupling — the source
+ *          alpha. MATCH_WRAP selects — the source
  *          lookup coordinate under Wrap=true, the raw input under Wrap=false —
  *          while LOOKUP and INPUT pin their own coordinate either way.
  */
@@ -2736,15 +2730,6 @@ inline void test_clamp_finite_bounds_backend_parity() {
   X(test_hue_rotation_lut_clamps_out_of_range_value)                           \
   X(test_generative_palette_get_nan_saturates_to_endpoint)
 
-// ============================================================================
-// Runner
-// ============================================================================
-
-/**
- * @brief Runs every color-module test and reports the aggregate result.
- * @return Process exit code from hs_test::end_module: 0 on success, non-zero on
- *         any failure.
- */
 inline void test_lms_transform_pair_matches_scalar() {
   const float matrices[][9] = {
       {1, 0, 0, 0, 1, 0, 0, 0, 1},
@@ -2771,6 +2756,15 @@ inline void test_lms_transform_pair_matches_scalar() {
   }
 }
 
+// ============================================================================
+// Runner
+// ============================================================================
+
+/**
+ * @brief Runs every color-module test and reports the aggregate result.
+ * @return Process exit code from hs_test::end_module: 0 on success, non-zero on
+ *         any failure.
+ */
 inline int run_color_tests() {
   hs_test::ModuleFixture fixture("color");
   test_lms_transform_pair_matches_scalar();

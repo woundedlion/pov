@@ -1379,7 +1379,7 @@ inline void test_mobius_transform() {
 
 /**
  * @brief Verifies gnomonic/inv_gnomonic roundtrips (hemisphere sign passed
- *        explicitly), the pole pre-image, saturated-input pole return, and
+ *        explicitly), the pole pre-image, saturated-input equator return, and
  *        near-equator clamping.
  */
 inline void test_gnomonic_roundtrip() {

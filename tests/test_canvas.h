@@ -4,7 +4,8 @@
  *
  * Unit tests for core/render/canvas.h — the Effect double-buffer state machine, the
  * parameter system (register_param / updateParameter / ParamList), the clip
- * setters, and the Canvas scoped drawing context.
+ * setters, Canvas scoped drawing, output envelopes, EffectTransitionController,
+ * preset state machines and PipelineRef.
  *
  * Frame protocol note: a Canvas spins in its ctor while !buffer_free(), so every
  * test that draws a frame MUST advance_display() before constructing the next
@@ -966,12 +967,12 @@ inline void test_persist_pixels_copies_previous_frame() {
 }
 
 /**
- * @brief Verifies the relaxed-atomic double-buffer hand-off via its
+ * @brief Verifies the acquire/release double-buffer hand-off via its
  * single-threaded state machine.
  * @details The writer (main loop, cur) must never claim the buffer the display
  * side (ISR, prev) is reading, and a queued-but-not-displayed frame must not
  * disturb the live frame. True ISR concurrency isn't deterministically
- * unit-testable, but the single-threaded state machine that the relaxed atomics
+ * unit-testable, but the single-threaded state machine that the acquire/release atomics
  * implement is — drive many cycles and assert the non-aliasing / no-torn-read
  * guarantee observably.
  */
@@ -1037,7 +1038,7 @@ inline void test_double_buffer_handoff_no_aliasing() {
  * @brief Hammers the double-buffer hand-off under real producer/consumer
  * contention, asserting no torn read and no out-of-order frame.
  * @details test_double_buffer_handoff_no_aliasing drives the same state machine
- * single-threaded; this runs the two roles on separate threads so the relaxed
+ * single-threaded; this runs the two roles on separate threads so the acquire/release
  * atomics are exercised under genuine concurrency. A PRODUCER thread plays the
  * main loop: it constructs a Canvas (whose ctor blocks on buffer_free(), so the
  * consumer rate-limits it), fills every pixel with a sentinel encoding the frame

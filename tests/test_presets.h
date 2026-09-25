@@ -213,10 +213,6 @@ inline void test_hold_initial_preset_overrides_first_dwell() {
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 }
 
-/**
- * @brief Runs all preset-container test cases.
- * @return The module's failure count, as reported by end_module().
- */
 struct SaturatedPresetEffect
     : ChoreographedEffect<SaturatedPresetEffect, HoldParams> {
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
@@ -274,6 +270,10 @@ inline void test_preset_crossfade_rejects_rearming() {
   HS_EXPECT_TRUE(effect.blending());
 }
 
+/**
+ * @brief Runs all preset-container test cases.
+ * @return The module's failure count, as reported by end_module().
+ */
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 

@@ -3293,11 +3293,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
   sample_total += samples;
 }
 
-/**
- * @brief Verifies Face::distance reproduces the exact point-to-polygon oracle.
- * @details Drives check_face_distance_oracle across a spread of polygons
- *   (triangle, pentagon, hexagon) and tilts.
- */
+/** @brief Checks inside/outside signs across a backtracking sector. */
 inline void test_face_sector_backtrack_sign() {
   int checked = 0;
   for (float bend : {-0.08f, -0.04f, 0.0f, 0.04f, 0.08f}) {
@@ -3334,6 +3330,11 @@ inline void test_face_sector_backtrack_sign() {
   HS_EXPECT_GT(checked, 0);
 }
 
+/**
+ * @brief Verifies Face::distance reproduces the exact point-to-polygon oracle.
+ * @details Drives check_face_distance_oracle across a spread of polygons
+ *   (triangle, pentagon, hexagon and concave stars) and tilts.
+ */
 inline void test_face_distance_matches_exact_oracle() {
   int samples = 0;
   check_face_distance_oracle(samples, /*sides=*/3, 0.45f,

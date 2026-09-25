@@ -1149,17 +1149,6 @@ inline void test_col_span_covers_arc() {
   HS_EXPECT_GT(planar_fallbacks, 20);
 }
 
-/**
- * @brief Pins edge_visible_in_clip's decision to the composed row-span /
- *        col-span cull: y-reject first, then the column arc, with either span's
- *        no-bound fallback reading as visible.
- * @details Clip bands cover the device quadrant shapes: seam-wrapping
- *          (margin pushes rs past the seam), interior non-wrapping, full-width
- *          x (XClip inactive), and the full canvas. The geodesic corpus
- *          includes antipodal, near-collapsed, and near-meridian edges; the
- *          planar corpus draws chart-line edges on random disks, including
- *          near-pole charts that force the col-span fallback.
- */
 // has_world_cull gates ParticleSystem::draw's hoisted per-point gate path: it
 // must be false for screen-only pipelines and true whenever any stage re-emits
 // clip-cull edges (cull_edge).
@@ -1182,6 +1171,17 @@ static_assert(Pipeline<96, 48, Filter::World::Hole,
                        Filter::Screen::AntiAlias<96, 48>>::has_world_stage);
 static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_stage);
 
+/**
+ * @brief Pins edge_visible_in_clip's decision to the composed row-span /
+ *        col-span cull: y-reject first, then the column arc, with either span's
+ *        no-bound fallback reading as visible.
+ * @details Clip bands cover the device quadrant shapes: seam-wrapping
+ *          (margin pushes rs past the seam), interior non-wrapping, full-width
+ *          x (XClip inactive), and the full canvas. The geodesic corpus
+ *          includes antipodal, near-collapsed, and near-meridian edges; the
+ *          planar corpus draws chart-line edges on random disks, including
+ *          near-pole charts that force the col-span fallback.
+ */
 inline void test_edge_visible_in_clip_matches_span_composition() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH> sink;
@@ -4828,17 +4828,17 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
   HS_EXPECT_GT(mid, 1000);
 }
 
-/**
- * @brief azimuthal_project and azimuthal_unproject invert each other.
- * @details plane->sphere->plane and sphere->plane->sphere both return the
- *          input, away from the antipodal band where the azimuth is unstable.
- */
 /** Relative allowance on a plane->sphere->plane roundtrip, scaled by (R + 1)
  * so it holds at the chart centre and at the R -> pi rim alike. The chart runs
  * through a float acos and an atan2, whose error grows with R; the sampled
  * radii stop 0.05 short of both degenerate spots. */
 constexpr float AZ_ROUNDTRIP_REL_TOL = 2e-2f;
 
+/**
+ * @brief azimuthal_project and azimuthal_unproject invert each other.
+ * @details plane->sphere->plane and sphere->plane->sphere both return the
+ *          input, away from the antipodal band where the azimuth is unstable.
+ */
 inline void test_azimuthal_roundtrip_identity() {
   hs::random().seed(0xB33F);
   int fwd = 0, inv = 0;
