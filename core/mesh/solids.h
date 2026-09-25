@@ -694,9 +694,8 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
 /**
  * @brief Builds a registry solid's unit vertex directions plus per-vertex
  *        orientation quaternions and nearest-neighbour gaps.
- * @param scratch Arena backing the intermediate mesh; nothing is retained
- *        after return.
- * @param temp Alternate scratch arena for odd pipeline stages.
+ * @param scratch Arena backing the intermediate mesh; caller reclaims storage.
+ * @param temp Alternate arena for odd pipeline stages; caller reclaims storage.
  * @param entry Resolved registry entry for the solid.
  * @param max_points Capacity of the output arrays; traps if exceeded.
  * @param points Out: vertex directions projected onto the unit sphere.
@@ -711,8 +710,6 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
 build_vertex_directions(Arena &scratch, Arena &temp, const Entry &entry,
                         int max_points, math::Vector *points,
                         math::Quaternion *quats, float *nn_angle) {
-  // Read straight out of the generator's arena pair; nothing outlives the call,
-  // so finalize_solid's long-lived copy would buy nothing.
   PolyMesh mesh = entry.generate(scratch, temp);
   int count = static_cast<int>(mesh.vertices.size());
   HS_CHECK(count <= max_points,
