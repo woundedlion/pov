@@ -1739,6 +1739,15 @@ class TestToolingFailureExits(unittest.TestCase):
         self.assertIn("tooling/format error", text)
         self.assertNotIn("PASS", text)
 
+    def test_capture_with_no_regions_is_cannot_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "size.txt"
+            path.write_text("unrelated build output\n", encoding="utf-8")
+            rc, text = self._run(**{"--teensy-size": str(path)})
+        self.assertEqual(rc, 2, msg=text)
+        self.assertIn("parsed no FLASH/RAM1/RAM2 regions", text)
+        self.assertNotIn("region-missing", text)
+
     def test_missing_capture_file_is_cannot_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             gone = str(Path(tmp) / "gone.txt")
@@ -1887,6 +1896,20 @@ class TestGateExtra(unittest.TestCase):
         rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, 2)
         self.assertIn("toolchain step failed", out)
+
+    def test_malformed_budgets_are_cannot_run(self):
+        self.ge._find_teensy_size = lambda env: "teensy_size"
+        self.ge._run = lambda *args, **kwargs: ""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "budgets.json"
+            self.ge.BUDGETS = str(path)
+            for text in ("{,}", "{/* unterminated"):
+                with self.subTest(text=text):
+                    path.write_text(text, encoding="utf-8")
+                    rc, output = self._run_gate("holosphere")
+                    self.assertEqual(rc, 2, msg=output)
+                    self.assertIn("cannot load budgets", output)
+                    self.assertNotIn("Traceback", output)
 
     def test_empty_regions_exits_2(self):
         # Tool output the parser no longer recognizes (no FLASH/RAM1/RAM2) is a

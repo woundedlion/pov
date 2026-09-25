@@ -852,6 +852,53 @@ def verdict(env: str, budget: dict, sizes: dict[str, RegionSizes],
     return render_report(result, github=github), code
 
 
+def run(env: str, budgets_path: str, size_text: str, *,
+        from_teensy_size: bool, syms_text: str, secs_text: str,
+        github: bool) -> tuple[list[str], int]:
+    """Evaluate captured tool output; return report lines and gate exit status."""
+    try:
+        budgets = load_budgets(budgets_path)
+    except BudgetSchemaError as exc:
+        return [f"::error::teensy-gate: invalid budgets schema in {budgets_path} "
+                f"({exc}). This is a budgets-file error, not a size-budget "
+                "violation."], 2
+    except (OSError, ValueError) as exc:
+        return [f"::error::teensy-gate: cannot load budgets from {budgets_path} "
+                f"({exc}). This is a budgets-file error, not a size-budget "
+                "violation."], 2
+    if env not in budgets:
+        return [f"::error::no budget for env '{env}' in {budgets_path}"], 2
+
+    try:
+        sizes = (parse_teensy_size(size_text) if from_teensy_size
+                 else fallback_sizes_from_size_a(size_text))
+    except (TeensySizeFormatError, SizeAFormatError) as exc:
+        return [size_format_annotation(exc)], 2
+    if not any(region in sizes for region in ("flash", "ram1", "ram2")):
+        return ["::error::teensy-gate: parsed no FLASH/RAM1/RAM2 regions from "
+                "the size output. This is a toolchain/format break, not a "
+                "size-budget violation."], 2
+    if not from_teensy_size and declares_components(budgets[env]):
+        return [f"::error::teensy-gate: env '{env}' declares per-component "
+                "ceilings, which the `size -A` fallback cannot measure. "
+                "No component figure was read: this is a tooling break, "
+                "not a size-budget violation; re-run with teensy_size."], 2
+
+    symbols = parse_readelf_symbols(syms_text)
+    sections = parse_readelf_sections(secs_text) if secs_text else {}
+    report, code = verdict(env, budgets[env], sizes, symbols, sections,
+                           uncalibrated=not from_teensy_size, github=github)
+    lines = []
+    if not from_teensy_size:
+        lines.append("::warning::teensy_size not found; using `size -A` fallback "
+                     "(section alignment padding may differ; calibrate against teensy_size).")
+    lines.append(report)
+    if code == EXIT_UNCALIBRATED_PASS:
+        lines.append("::error::teensy-gate: PASS is UNCALIBRATED; install the "
+                     "Teensy platform tools and re-run with teensy_size.")
+    return lines, code
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the gate. Exit: 0 PASS, 1 violation, 2 cannot-run, 3 advisory PASS."""
     p = argparse.ArgumentParser(description="Teensy 4 size/layout gate (parser).")
@@ -870,60 +917,24 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     try:
-        budgets = load_budgets(args.budgets)
-    except BudgetSchemaError as exc:
-        print(f"::error::teensy-gate: invalid budgets schema in {args.budgets} "
-              f"({exc}). This is a budgets-file error, not a size-budget "
-              f"violation.", file=sys.stderr)
-        return 2
-    except (OSError, ValueError) as exc:
-        # Unreadable file, malformed JSON, unterminated JSONC comment: the gate
-        # never evaluated a budget, so its verdict is cannot-run, not FAIL.
-        print(f"::error::teensy-gate: cannot load budgets from {args.budgets} "
-              f"({exc}). This is a budgets-file error, not a size-budget "
-              f"violation.", file=sys.stderr)
-        return 2
-    if args.env not in budgets:
-        print(f"::error::no budget for env '{args.env}' in {args.budgets}",
-              file=sys.stderr)
-        return 2
-
-    used_size_a_fallback = not args.teensy_size
-    try:
-        if args.teensy_size:
-            sizes = parse_teensy_size(read_capture(args.teensy_size))
-        else:
-            sizes = fallback_sizes_from_size_a(read_capture(args.size_a))
-    except (TeensySizeFormatError, SizeAFormatError) as exc:
-        print(size_format_annotation(exc), file=sys.stderr)
-        return 2
+        size_text = read_capture(args.teensy_size or args.size_a)
     except OSError as exc:
         print(f"::error::teensy-gate: cannot read the captured size output "
               f"({exc}). This is a tooling error, not a size-budget violation.",
               file=sys.stderr)
         return 2
-
-    if used_size_a_fallback and declares_components(budgets[args.env]):
-        print(f"::error::teensy-gate: env '{args.env}' declares per-component "
-              f"ceilings, which the `size -A` fallback cannot measure. No "
-              f"component figure was read: this is a tooling break, not a "
-              f"size-budget violation — re-run with --teensy-size.",
-              file=sys.stderr)
-        return 2
-
     try:
-        symbols = parse_readelf_symbols(read_capture(args.readelf_syms))
-        sections = (parse_readelf_sections(read_capture(args.readelf_secs))
-                    if args.readelf_secs else {})
+        syms_text = read_capture(args.readelf_syms)
+        secs_text = read_capture(args.readelf_secs) if args.readelf_secs else ""
     except OSError as exc:
         print(f"::error::teensy-gate: cannot read the captured readelf output "
               f"({exc}). This is a tooling error, not a size-budget violation.",
               file=sys.stderr)
         return 2
-
-    report, code = verdict(args.env, budgets[args.env], sizes, symbols, sections,
-                           uncalibrated=used_size_a_fallback, github=args.github)
-    print(report)
+    lines, code = run(args.env, args.budgets, size_text,
+                      from_teensy_size=bool(args.teensy_size),
+                      syms_text=syms_text, secs_text=secs_text, github=args.github)
+    print("\n".join(lines), file=sys.stderr if code == 2 else sys.stdout)
     return code
 
 
