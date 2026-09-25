@@ -1197,8 +1197,7 @@ inline void test_edge_morph_frames_fit_scratch_budget() {
 // ---------------------------------------------------------------------------
 // Walk policy: the recency-weighted random walk visits every node within a
 // bounded leg count and keeps long-run visitation balanced (no node above 3x
-// the mean share, none below a quarter of it) — the hub-heavy degree-
-// proportional bias this replaced gave cuboctahedron ~13x the pendant rate.
+// the mean share, none below a quarter of it).
 // ---------------------------------------------------------------------------
 
 /** Legs within which every node must have been visited (measured worst over

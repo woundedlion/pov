@@ -270,11 +270,8 @@ inline void smoke_one(const char *name) {
  * bound to the same member, or output-only telemetry), the slider is dead: the
  * author must drive a private member and register_animated_param() it, or
  * mark_readonly()
- * pure telemetry. This is the build-time gate for the theme-4 dead-slider class
- * (it catches the per-frame overwrite mechanism behind MobiusGrid and the
- * preset-lerp group; a value that merely has no
- * rendered effect can't be detected without flaky golden-image diffing and is
- * out of scope).
+ * pure telemetry. The check detects per-frame overwrites; it does not measure
+ * a parameter's visual influence.
  */
 inline void lint_dead_sliders(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
