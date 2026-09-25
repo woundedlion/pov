@@ -109,7 +109,7 @@ incremented once per `step()` (`animation.h`), *not* `millis()`. So content
 sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
 deterministic RNG. For (c) the driver reseeds `hs::random()` at every effect
 construction from the roster's per-entry seed identity:
-`targets/Phantasm/Phantasm.ino` fills that table with
+`targets/Phantasm/phantasm_playlist.h` fills that table with
 `hs::stable_effect_seed(hs::stable_effect_id<E>())`, so the stream an effect
 draws follows its identity rather than its roster position. The
 beacon-synchronized index selects the entry, so all boards render identical
