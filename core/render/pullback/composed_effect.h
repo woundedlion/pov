@@ -966,13 +966,16 @@ public:
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    configure_noise(state->color_noise, HUE_NOISE_SEED);
+    Pullback::init_effect_noise(state->color_noise, HUE_NOISE_SEED);
     if constexpr (HAS_OUTER_NOISE)
-      configure_noise(state->outer.noise, Derived::OUTER_NOISE_SEED);
+      Pullback::init_effect_noise(state->outer.noise,
+                                  Derived::OUTER_NOISE_SEED);
     if constexpr (HAS_SOURCE_NOISE)
-      configure_noise(state->source.noise, Derived::SOURCE_NOISE_SEED);
+      Pullback::init_effect_noise(state->source.noise,
+                                  Derived::SOURCE_NOISE_SEED);
     if constexpr (HAS_SURFACE_NOISE)
-      configure_noise(state->surface.noise, Derived::SURFACE_NOISE_SEED);
+      Pullback::init_effect_noise(state->surface.noise,
+                                  Derived::SURFACE_NOISE_SEED);
     palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
                                   math::ease_in_out_sin);
     if constexpr (AnimatedProjection)
@@ -1169,12 +1172,6 @@ private:
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "Pullback::ComposedEffect persistent footprint exceeds the default "
       "partition");
-
-  static void configure_noise(FastNoiseLite &noise, int32_t seed) {
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    noise.SetSeed(seed);
-    noise.SetFrequency(1.0f);
-  }
 
   /** @brief Whether a gated field's slider exists for this effect. */
   static constexpr bool field_gate_open(Pullback::FieldGate gate) {

@@ -12,6 +12,7 @@
 #include "render/pullback/material.h"
 #include "render/pullback/operator_model.h"
 #include "render/pullback/stage.h"
+#include "render/pullback/runtime_seeds.h"
 
 /**
  * @file operators_common.h
@@ -28,12 +29,6 @@ namespace Op {
 /** @brief Walk tuning shared with Animation::RandomWalk, which owns the
     recurrence the spin-and-wander operators step. */
 inline constexpr Animation::RandomWalkOptions WALK_OPTIONS{};
-
-inline void init_effect_noise(FastNoiseLite &noise, int32_t seed) {
-  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  noise.SetSeed(seed);
-  noise.SetFrequency(1.0f);
-}
 
 /**
  * @brief Instance state of the spin-and-wander operators: an accumulated
