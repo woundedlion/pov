@@ -77,7 +77,7 @@ HS_FLASH_MEMBER inline PaletteRecipe gs_reaction_diffusion(float base_turns) {
  * @param base_turns Base hue in turns.
  * @return The recipe.
  * @details The recipe of record for the baked bank in
- *          core/color/triadic_palette_luts.h.
+ *          core/color/mindsplatter_palette_luts.h.
  */
 HS_FLASH_MEMBER inline PaletteRecipe mind_splatter(float base_turns) {
   PaletteRecipe recipe;
