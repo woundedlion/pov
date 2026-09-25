@@ -665,8 +665,10 @@ class SchematicParityTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
                 fab.SchematicParityError,
-                r"via_dangling: .* reported 1 times .* expected 0"):
+                r"via_dangling: .* reported 1 times .* expected 0") as caught:
             self.require(self.KNOWN, violations)
+        self.assertIn("resolve in Pcbnew", str(caught.exception))
+        self.assertNotIn("re-route", str(caught.exception))
 
     def test_rejects_known_warning_count_drift(self):
         with self.assertRaisesRegex(

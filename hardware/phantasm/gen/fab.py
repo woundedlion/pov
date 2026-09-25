@@ -785,6 +785,7 @@ def require_schematic_parity(report_path):
     violations = report["violations"]
 
     diagnostics = []
+    drc_diagnostics = []
     warning_counts = {}
     for violation in violations:
         kind = str(violation.get("type", ""))
@@ -797,7 +798,9 @@ def require_schematic_parity(report_path):
         actual = warning_counts.get((kind, ref), 0)
         expected = KNOWN_PARITY_WARNING_COUNTS.get((kind, ref), 0)
         if actual != expected:
-            diagnostics.append(
+            target = (diagnostics if kind in {k for k, _ in KNOWN_PARITY_WARNING_COUNTS}
+                      else drc_diagnostics)
+            target.append(
                 f"{kind}: {ref} reported {actual} times in {report_path}, "
                 f"expected {expected}")
 
@@ -822,12 +825,19 @@ def require_schematic_parity(report_path):
                 f"{kind}: {ref} reported {times} times in {report_path}, "
                 "expected exactly once")
 
-    if diagnostics:
+    if diagnostics or drc_diagnostics:
+        messages = []
+        if diagnostics:
+            messages.append(
+                f"{PCB} no longer matches {SCH}; regenerate the board with "
+                "gen/pcb.py --unplaced, re-route it in Quilter and promote the "
+                "result before shipping these gerbers:\n  " +
+                "\n  ".join(diagnostics))
+        if drc_diagnostics:
+            messages.append("DRC warnings: resolve in Pcbnew before shipping "
+                            "these gerbers:\n  " + "\n  ".join(drc_diagnostics))
         raise SchematicParityError(
-            f"{PCB} no longer matches {SCH}; regenerate the board with "
-            "gen/pcb.py --unplaced, re-route it in Quilter and promote the "
-            "result before shipping these gerbers:\n  " +
-            "\n  ".join(diagnostics))
+            "\n".join(messages))
     return len(entries)
 
 
