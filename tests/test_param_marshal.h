@@ -222,11 +222,6 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
 }
 
 /**
- * @brief Module entry point: runs the per-effect stream-consistency check
- *        across the whole roster, then the cross-effect memory-stability check.
- * @return The module's failure count.
- */
-/**
  * @brief Freezes the effect roster ORDER, not just its count.
  * @details HS_EFFECT_LIST is the single source of truth for the effect ordinal
  *   the WASM factory enumerates and the JS app surfaces (effect-list order, plus
@@ -361,6 +356,11 @@ inline void check_integer_float_endpoints() {
   HS_EXPECT_EQ(value, 0);
 }
 
+/**
+ * @brief Module entry point: runs the per-effect stream-consistency check
+ *        across the whole roster, then the cross-effect memory-stability check.
+ * @return The module's failure count.
+ */
 inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
   check_roster_order_pinned();

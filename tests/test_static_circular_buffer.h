@@ -955,14 +955,7 @@ inline void test_is_linear_tracks_head() {
   HS_EXPECT_FALSE(buf.is_linear());
 }
 
-// ============================================================================
-// Runner
-// ============================================================================
-
-/**
- * @brief Runs every StaticCircularBuffer test case.
- * @return The module's failure count (number of failed assertions).
- */
+/** @brief Verifies a refused push preserves the full buffer. */
 inline void test_try_push_back_preserves_full_buffer() {
   StaticCircularBuffer<int, 2> buffer;
   const int first = 7;
@@ -977,6 +970,14 @@ inline void test_try_push_back_preserves_full_buffer() {
   HS_EXPECT_EQ(buffer.back(), 13);
 }
 
+// ============================================================================
+// Runner
+// ============================================================================
+
+/**
+ * @brief Runs every StaticCircularBuffer test case.
+ * @return The module's failure count (number of failed assertions).
+ */
 inline int run_static_circular_buffer_tests() {
   hs_test::ModuleFixture fixture("scb");
 

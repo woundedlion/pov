@@ -4,18 +4,11 @@
  *
  * Unit tests for core/animation/animation.h.
  *
- * Scope: the PURE, non-render parts of the animation system. The animations
- * exercised here (Transition, Mutation, Lerp, Driver, Rotation) take a `Canvas&`
- * in step() but never dereference it — AnimationBase::step only increments the
- * frame counter and the derived steps tested here only touch their bound
- * float/subject/orientation. A single genuine Canvas over a tiny static Effect
- * is shared (see fake_canvas()), so the reference is always valid yet untouched.
- *
- * Timeline IS exercised here. Its step() only drives the canvas-agnostic
- * animations above, so the shared fake_canvas() suffices — no render stack is
- * pulled. Every Timeline shares one global event array (plus the
- * live-guard and frame/count cursors), so each test scopes its Timeline locally
- * (balancing the guard) and resets the global cursors when it pokes them.
+ * Covers transitions, mutation, interpolation, drivers, rotation, timelines,
+ * motion, segues, sprites, particle systems, ColorWipe, Mobius warps and mesh
+ * carousels. Tests use a genuine Canvas over a tiny Effect where required.
+ * Timelines share global event storage; tests scope their lifetimes and reset
+ * the global cursors when inspecting them.
  */
 #pragma once
 
@@ -531,15 +524,9 @@ static_assert(
     "MobiusFlow must REJECT a temporary num_lines (would dangle)");
 } // namespace borrow_guard
 
-// ============================================================================
-// Runner
-// ============================================================================
-
 /**
- * @brief Verifies Motion and Rotation size their orientation trail through the
- * shared Animation::rotation_substeps() helper, with a tight ceil.
- * @details Both animations route through the same helper so an identical sweep
- * yields an identical subdivision; each sub-interval must stay within MAX.
+ * @brief Verifies rotation_substeps returns a tight ceil with each sub-interval
+ * within MAX.
  */
 inline void test_rotation_substeps_shared_and_tight() {
   constexpr float MAX = 0.1f;
@@ -1252,6 +1239,11 @@ inline void test_orientation_upsample_then_collapse() {
   HS_EXPECT_NEAR(c.y, 1.0f, 1e-3f);
 }
 
+/** Internal-angle allowance after 600 cycles, radians. The path is sampled at
+ * 40 frames per cycle, so a phase carries a fixed discretization residual; a
+ * warping delta chain would instead grow the residual across cycles. */
+constexpr float MOTION_WARP_TOL = 0.1f;
+
 /**
  * @brief Verifies a repeating Motion does not drift across many cycles.
  * @details A repeating Motion advances its Orientation by relative deltas taken
@@ -1265,12 +1257,6 @@ inline void test_orientation_upsample_then_collapse() {
  * ideal Lissajous internal angles; they must stay at the first cycle's tiny
  * discretization residual.
  */
-/** Internal-angle allowance after 600 cycles, radians. The path is sampled at
- * 40 frames per cycle, so a phase carries a fixed discretization residual; a
- * warping delta chain would instead grow this without bound, decades below the
- * bound long before it. */
-constexpr float MOTION_WARP_TOL = 0.1f;
-
 inline void test_motion_repeating_does_not_drift() {
   using Ori = math::Orientation<16>;
   constexpr int duration = 40;
@@ -1367,8 +1353,7 @@ inline void test_motion_codriven_survives_repeat_seam() {
 // ============================================================================
 // ParticleSystem
 // ----------------------------------------------------------------------------
-// Covers the pool-state transitions: spawn (+ capacity guard), life-expiry with
-// life expiry and attractor kill-radius removal.
+// Covers spawn (+ capacity guard), life expiry and attractor kill-radius removal.
 // ============================================================================
 
 /**
@@ -3892,10 +3877,7 @@ inline void test_motion_set_duration_below_position_rescales() {
   HS_EXPECT_LT(math::angle_between(before, o.orient(probe)), 0.5f);
 }
 
-/**
- * @brief Runs every animation/easing test case in this module.
- * @return The module's failure count.
- */
+/** @brief Verifies Progress pause behavior and eased output bounds. */
 inline void test_progress_pause_and_eased_bounds() {
   bool paused = true;
   std::vector<float> values;
@@ -3936,6 +3918,14 @@ inline void test_trail_body_records_independent_orientation_history() {
   HS_EXPECT_VEC(body.trail.get(1).orient(body.v), math::Y_AXIS, 1e-6f);
 }
 
+// ============================================================================
+// Runner
+// ============================================================================
+
+/**
+ * @brief Runs every animation/easing test case in this module.
+ * @return The module's failure count.
+ */
 inline int run_animation_tests() {
   hs_test::ModuleFixture fixture("animation");
 

@@ -161,8 +161,7 @@ inline void check_face_counts_consistent(const PolyMesh &m) {
  * @param m Mesh whose face indices are checked against the vertex count.
  * @details Each entry of m.faces must be strictly less than m.vertices.size().
  *          The index array must be non-empty. Reports the largest index found
- *          rather than asserting per entry, for the same floor reason as
- *          check_all_unit_vertices.
+ *          rather than asserting per entry.
  */
 inline void check_indices_in_range(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.faces.size() > 0);
