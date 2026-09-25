@@ -5,7 +5,6 @@
 #pragma once
 
 #include "color/generative_palette.h"
-#include "color/composition.h"
 #include "color/baked_palette.h"
 
 /**
