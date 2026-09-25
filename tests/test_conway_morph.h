@@ -281,6 +281,8 @@ inline void check_primary_faces_match_seed(const PolyMesh &seed,
                                            int corners_per_source, float tol) {
   const size_t F = seed.face_counts.size();
   HS_EXPECT_GE(out.face_counts.size(), F);
+  if (out.face_counts.size() < F)
+    return;
   size_t seed_off = 0;
   size_t out_off = 0;
   for (size_t fi = 0; fi < F; ++fi) {
@@ -3553,6 +3555,8 @@ inline void test_opleg_edge_leg_crossfade() {
       return -1;
     }();
     HS_EXPECT_GE(edge, 0);
+    if (edge < 0)
+      return;
     OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                   .prev_face_palette = pal,
                                   .prev_faces = cube.face_counts.size()};
