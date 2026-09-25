@@ -80,7 +80,7 @@ zero JLCDFM findings. Run KiCad DRC and JLCDFM on every new routed package.
 
 ## Validation
 
-Every bullet but the ERC one maps to executed code. The gates that read the
+Every bullet maps to executed code. The gates that read the
 committed board directly need no KiCad and run in CI
 (`python -m unittest discover -s hardware/phantasm/gen/tests`,
 `python gen/board_metadata.py --check`); the rest need a local KiCad 10
@@ -434,8 +434,7 @@ strip/sync `J2`/`J3A`/`J3B` at the far end, R-CON-4). `MASTER_EN` and
 ## Status
 
 - [x] Schematic — complete, netlist verified against spec §10. ERC reported zero
-  errors when run by hand; no runner re-checks it, so any schematic edit
-  invalidates that result (see Validation)
+  errors; `gen/fab.py` re-checks ERC on every fabrication export (see Validation)
 - [x] Teensy footprint pad map verified for component-side-up mounting
 - [x] Corrected Candidate 1 placement and validated routing preserved
 - [x] Automatic master-only R_PD circuit added to the schematic and PCB netlist
