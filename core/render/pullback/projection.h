@@ -118,6 +118,7 @@ peirce_weight(const math::Vector &input, float central_meridian,
 
 __attribute__((always_inline)) inline ProjectionResult
 stereographic(const math::Vector &input, float singularity_fade) {
+  // Fade distance is the sphere-space measure 1 - y.
   const math::Complex coords = projections::stereo(input);
   return {coords,
           {0, 0, static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
@@ -171,7 +172,7 @@ gnomonic(const math::Vector &input, float singularity_fade,
        static_cast<uint8_t>(input.y < 0.0f),
        static_cast<uint8_t>(static_cast<uint8_t>(ProjectionBoundary::CUT) |
                             static_cast<uint8_t>(ProjectionBoundary::SINGULAR)),
-       fabsf(input.y),
+       fabsf(input.y), // Sphere-space distance to the equatorial singularity.
        singularity_attenuation(input.y * input.y,
                                input.x * input.x + input.z * input.z,
                                singularity_fade),
