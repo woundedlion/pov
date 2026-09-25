@@ -1003,6 +1003,8 @@ using NoiseProductTransformer =
 /**
  * @brief Performs Mobius warps that return to the identity.
  * @tparam CAPACITY Maximum number of concurrent Mobius warp transformations.
+ * @note Repeats by default: use spawn_pinned(), or pass repeat=false to
+ * spawn()/spawn_pausable().
  */
 template <int CAPACITY>
 using MobiusWarpTransformer =
