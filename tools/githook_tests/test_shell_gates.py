@@ -140,7 +140,7 @@ class ShellGateTests(unittest.TestCase):
         empty = self.gate("shellcheck_gate.sh")
         self.assertNotEqual(empty.returncode, 0)
         self.assertIn("no shell files selected", empty.stdout)
-        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
         self.git("add", "--", "selected.sh")
         self.stub("shellcheck", "printf '%s\\n' \"$*\"; exit 9")
         bad = self.gate("shellcheck_gate.sh")
@@ -148,7 +148,9 @@ class ShellGateTests(unittest.TestCase):
         self.assertIn("selected.sh", bad.stdout)
 
     def test_composite_steps_are_isolated_and_unsupported_scalars_fail(self):
-        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        if shutil.which("shellcheck") is None:
+            self.skipTest("shellcheck is not installed")
+        (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
         action = self.root / ".github/actions/fixture/action.yml"
         action.parent.mkdir(parents=True)
         self.git("add", "--", "selected.sh")
@@ -161,6 +163,8 @@ class ShellGateTests(unittest.TestCase):
             self.git("add", "--", ".github/actions/fixture/action.yml")
             result = self.gate("shellcheck_gate.sh")
             self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            if run.startswith("|"):
+                self.assertIn("SC2154", result.stdout + result.stderr)
 
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
         for name in ("build", "build_cache"):
