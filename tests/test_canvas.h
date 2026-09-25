@@ -1363,6 +1363,8 @@ inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
   const size_t cap = fx.getParameters().capacity();
   HS_EXPECT_EQ(cap, FIXED_CAP);
+  if (cap != FIXED_CAP)
+    return;
 
   static float vals[FIXED_CAP];
   // Unique names "pNN": register_param traps on duplicates, and ParamDef stores
