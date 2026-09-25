@@ -46,6 +46,7 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
     std::vector<FactoryEntry> t(regs.size());
     for (size_t i = 0; i < regs.size(); ++i) {
       t[i].name = regs[i].name;
+      t[i].stable_id = regs[i].stable_id;
       get_fill_fn<W, H>(regs[i])(t[i]);
     }
     return t;

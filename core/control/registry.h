@@ -160,10 +160,9 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
   }
 }
 
-/** @brief Populates one concrete factory entry from its roster name. */
+/** @brief Populates resolution-specific fields of one factory entry. */
 template <template <int, int> class ClassName, int W, int H>
 void fill_registration(FactoryEntry &entry) {
-  entry.stable_id = hs::stable_effect_id<ClassName<W, H>>(entry.name);
   entry.creator = []() -> std::unique_ptr<Effect> {
     return std::make_unique<ClassName<W, H>>();
   };
