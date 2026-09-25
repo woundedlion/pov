@@ -102,11 +102,9 @@ inline ProjectedLookup surface_lens_project_lookup(const math::Vector &v,
   float surface_path_length = 0.0f;
   if (slots.surface_noise != SurfaceNoise::NONE &&
       slots.surface_noise_placement == SurfaceNoisePlacement::BEFORE_LENS) {
-    HS_SB_STAGE_MARK(surface_start);
     const SurfaceNoiseResult displaced = apply_surface_noise_result(v, frame);
     pre_lens = displaced.sphere;
     surface_path_length = displaced.path_length;
-    HS_SB_STAGE_SPAN(surface_noise, surface_start);
   }
   const math::Vector lensed = slots.surface_lens == SurfaceLens::NONE
                                   ? pre_lens
@@ -114,12 +112,10 @@ inline ProjectedLookup surface_lens_project_lookup(const math::Vector &v,
   math::Vector post_lens = lensed;
   if (slots.surface_noise != SurfaceNoise::NONE &&
       slots.surface_noise_placement == SurfaceNoisePlacement::AFTER_LENS) {
-    HS_SB_STAGE_MARK(surface_start);
     const SurfaceNoiseResult displaced =
         apply_surface_noise_result(lensed, frame);
     post_lens = displaced.sphere;
     surface_path_length = displaced.path_length;
-    HS_SB_STAGE_SPAN(surface_noise, surface_start);
   }
   ProjectedLookup projected = profiled_project_branch(post_lens, frame);
   projected.path_length = surface_path_length;
@@ -223,9 +219,7 @@ HS_FLASH_MEMBER inline ProjectedLookup project_branch(const math::Vector &v,
 
 __attribute__((always_inline)) inline ProjectedLookup
 profiled_project_branch(const math::Vector &v, const FrameState &frame) {
-  HS_SB_STAGE_MARK(stage_start);
   const ProjectedLookup projected = project_branch(v, frame);
-  HS_SB_STAGE_SPAN(projection, stage_start);
   return projected;
 }
 
@@ -397,10 +391,8 @@ warp_stage_lookup(const math::Complex &input,
     return warp_curl_flow(input, spec, params, amplitude, *stage_noise,
                           prepared, path_length_required);
   case WarpStageKind::MIRROR_TILE: {
-    HS_SB_STAGE_MARK(mirror_start);
     const PlanarWarpStageResult result = finish_closed_form_warp(
         input, mirror_tile(input, params, prepared), path_length_required);
-    HS_SB_STAGE_SPAN(mirror_tile, mirror_start);
     return result;
   }
   case WarpStageKind::POLAR_CHART:
@@ -722,9 +714,7 @@ HS_FLASH_MEMBER inline math::Vector apply_lens(const math::Vector &v,
 
 __attribute__((always_inline)) inline math::Vector
 profiled_apply_lens(const math::Vector &v, const FrameState &frame) {
-  HS_SB_STAGE_MARK(stage_start);
   const math::Vector lensed = apply_lens(v, frame);
-  HS_SB_STAGE_SPAN(lens, stage_start);
   return lensed;
 }
 
@@ -922,17 +912,12 @@ inline Color4 shade_dynamic(const math::Vector &view, const FrameState &frame,
  */
 HS_FLASH_MEMBER inline Color4 shade_projected(const ProjectedLookup &projected,
                                               const FrameState &frame) {
-  HS_SB_STAGE_MARK(stage_start);
   const PlanarWarpResult warped = planar_warp_lookup(projected, frame);
-  HS_SB_STAGE_SPAN(planar_warp, stage_start);
   const math::Complex source_coords =
       condition_source_coords(warped.coords, frame);
   const float field = sample_source(source_coords, projected, frame);
-  HS_SB_STAGE_SPAN(source, stage_start);
   const FieldSample material = shape_material(field, projected, warped, frame);
-  HS_SB_STAGE_SPAN(material, stage_start);
   const Color4 color = colorize(material, frame);
-  HS_SB_STAGE_SPAN(color, stage_start);
   return color;
 }
 #endif

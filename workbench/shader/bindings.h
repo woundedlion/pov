@@ -22,32 +22,6 @@
 namespace Workbench {
 
 struct ShaderWorkbenchInstrumentation {
-#ifdef HS_PROFILE_SHADER_WORKBENCH_STAGES
-  using Token = uint32_t;
-
-  __attribute__((always_inline)) static Token mark() { return HS_OS_CYCLES(); }
-
-  template <Pullback::ProfileEvent Event>
-  __attribute__((always_inline)) static void span(Token start) {
-    const uint32_t elapsed = HS_OS_CYCLES() - start;
-    if constexpr (Event == Pullback::ProfileEvent::LENS)
-      hs::g_shader_workbench_stage_cycles.lens += elapsed;
-    else if constexpr (Event == Pullback::ProfileEvent::SURFACE_NOISE)
-      hs::g_shader_workbench_stage_cycles.surface_noise += elapsed;
-    else if constexpr (Event == Pullback::ProfileEvent::PROJECTION)
-      hs::g_shader_workbench_stage_cycles.projection += elapsed;
-    else if constexpr (Event == Pullback::ProfileEvent::PLANAR_WARP)
-      hs::g_shader_workbench_stage_cycles.planar_warp += elapsed;
-    else if constexpr (Event == Pullback::ProfileEvent::MIRROR_TILE)
-      hs::g_shader_workbench_stage_cycles.mirror_tile += elapsed;
-    else if constexpr (Event == Pullback::ProfileEvent::SOURCE)
-      hs::g_shader_workbench_stage_cycles.source += elapsed;
-    else if constexpr (Event == Pullback::ProfileEvent::MATERIAL)
-      hs::g_shader_workbench_stage_cycles.material += elapsed;
-    else
-      hs::g_shader_workbench_stage_cycles.color += elapsed;
-  }
-#else
   using Token = Pullback::NoInstrumentation::Token;
 
   __attribute__((always_inline)) static Token mark() { return {}; }
@@ -56,7 +30,6 @@ struct ShaderWorkbenchInstrumentation {
   __attribute__((always_inline)) static void span(Token) {
     static_cast<void>(Event);
   }
-#endif
 };
 
 struct ShaderWorkbenchBinding {

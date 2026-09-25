@@ -6292,7 +6292,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"targets/wasm/mesh_ops_bindings.h", 2},
     {"workbench/shader/chain_host.h", 1},
     {"workbench/shader/kernels.h", 1},
-    {"workbench/shader/shader_host.h", 10},
+    {"workbench/shader/shader_host.h", 8},
 };
 
 /**

@@ -287,7 +287,6 @@ public:
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     {
-      HS_PROFILE(sb_timeline_step);
       timeline.step(canvas);
     }
     advance_preset_choreography();
@@ -324,17 +323,6 @@ public:
     finish_transitions();
     publish_live_config();
   }
-
-#if HS_ENABLE_EFFECT_CONTROL_API
-  void profile_select_preset(size_t index) {
-    HS_CHECK(index < preset_count_for_view(),
-             "ShaderWorkbench profile preset index out of range");
-    HS_CHECK(selectPreset(index),
-             "ShaderWorkbench profile preset selection failed");
-    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
-            static_cast<unsigned>(preset_count_for_view()));
-  }
-#endif
 
 private:
   friend struct ::hs_test::shader_workbench_tests::ShaderWorkbenchWhiteBox;
@@ -1422,8 +1410,6 @@ private:
     return Workbench::PRESETS[index];
   }
 
-  enum class ProfileEndpoint : uint8_t { STEADY, FROM, TO };
-
   template <typename T> static uint32_t encode_field_value(const T &value) {
     static_assert(sizeof(T) <= sizeof(uint32_t));
     uint32_t payload = 0;
@@ -1951,9 +1937,7 @@ private:
     HS_CHECK(
         prepare_endpoint(config, endpoint, phase.alpha, pipeline, prepared),
         "ShaderWorkbench transition endpoint has no renderer");
-    draw_endpoint(canvas, prepared,
-                  phase.from_endpoint ? ProfileEndpoint::FROM
-                                      : ProfileEndpoint::TO);
+    draw_endpoint(canvas, prepared);
   }
 
   HS_COLD_MEMBER bool
@@ -1993,23 +1977,13 @@ private:
     prepared.shade = shade;
     prepared.pipeline = selected;
     prepared.alpha = alpha;
-#if defined(HS_PROFILE_ENABLE)
-    prepared.preset = selected_preset_index(config, selected);
-#endif
     return true;
   }
 
-  HS_FLASH_MEMBER void
-  draw_endpoint(Canvas &canvas, Workbench::PreparedEndpoint &prepared,
-                ProfileEndpoint endpoint = ProfileEndpoint::STEADY) {
-#if defined(HS_PROFILE_ENABLE)
-    emit_pullback_program(prepared, endpoint);
-#else
-    (void)endpoint;
-#endif
+  HS_FLASH_MEMBER void draw_endpoint(Canvas &canvas,
+                                     Workbench::PreparedEndpoint &prepared) {
     Workbench::FrameShader shader{prepared.frame, prepared.alpha,
                                   prepared.shade, prepared.prepared};
-    HS_PROFILE(sb_shader_draw);
     scan_frame_shader(canvas, shader);
   }
 
@@ -2057,45 +2031,6 @@ private:
     }
     return "NONE";
   }
-
-#if defined(HS_PROFILE_ENABLE)
-  static constexpr const char *profile_endpoint_name(ProfileEndpoint endpoint) {
-    switch (endpoint) {
-    case ProfileEndpoint::STEADY:
-      return "steady";
-    case ProfileEndpoint::FROM:
-      return "from";
-    case ProfileEndpoint::TO:
-      return "to";
-    }
-    return "steady";
-  }
-
-  size_t selected_preset_index(const Workbench::Config &config,
-                               Workbench::InversePipelineId pipeline) const {
-    for (size_t index = 0; index < preset_count_for_view(); ++index)
-      if (preset_for_view(index).pipeline == pipeline &&
-          preset_for_view(index).config == config)
-        return index;
-    return getPresetIndex();
-  }
-
-  void emit_pullback_program(const Workbench::PreparedEndpoint &prepared,
-                             ProfileEndpoint endpoint) {
-    if (profile_program_valid && profile_program_preset == prepared.preset &&
-        profile_program_pipeline == prepared.pipeline &&
-        profile_program_endpoint == endpoint)
-      return;
-    hs::log("Pullback program: preset=%u/%u pipeline=%s endpoint=%s",
-            static_cast<unsigned>(prepared.preset),
-            static_cast<unsigned>(preset_count_for_view()),
-            pipeline_name(prepared.pipeline), profile_endpoint_name(endpoint));
-    profile_program_valid = true;
-    profile_program_preset = prepared.preset;
-    profile_program_pipeline = prepared.pipeline;
-    profile_program_endpoint = endpoint;
-  }
-#endif
 
   HS_COLD_MEMBER WalkDeltas sample_walk_deltas() {
 #if HS_ENABLE_TEST_HOOKS
@@ -2764,11 +2699,7 @@ private:
 #endif
 
   HS_COLD_MEMBER static constexpr Workbench::Choreo preset_choreo() {
-#ifdef HS_PROFILE_SHADER_WORKBENCH_FAST_CYCLE
-    return {32, 32, 2, false};
-#else
     return CHOREO;
-#endif
   }
 
   HS_COLD_MEMBER void enter_preset() {
@@ -2794,10 +2725,6 @@ private:
 
   HS_COLD_MEMBER void begin_blend() {
     if (advancePreset()) {
-#if defined(HS_PROFILE_ENABLE)
-      hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex()),
-              static_cast<unsigned>(preset_count_for_view()));
-#endif
     } else {
       preset_dwell_remaining = 1;
       preset_dwell_armed = true;
@@ -2861,13 +2788,6 @@ private:
 #if HS_ENABLE_TEST_HOOKS
   uint32_t walk_step_count = 0;
   uint32_t generated_palette_step_count = 0;
-#endif
-#if defined(HS_PROFILE_ENABLE)
-  bool profile_program_valid = false;
-  size_t profile_program_preset = 0;
-  Workbench::InversePipelineId profile_program_pipeline =
-      Workbench::InversePipelineId::NONE;
-  ProfileEndpoint profile_program_endpoint = ProfileEndpoint::STEADY;
 #endif
 
   static constexpr size_t FOOTPRINT_BYTES =
