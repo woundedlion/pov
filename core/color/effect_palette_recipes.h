@@ -221,7 +221,7 @@ HS_FLASH_MEMBER inline float random_base_turns() {
 }
 
 /** @brief The preset roster, every recipe at a fixed preview hue. */
-HS_FLASH_MEMBER inline std::array<Preset, 10> presets() {
+HS_FLASH_MEMBER inline std::array<Preset, 11> presets() {
   const float preview_hue = PaletteRecipes::hue_turns(42);
   return {{{"BZReactionDiffusion", false, bz_reaction_diffusion()},
            {"Comets", true, comets(preview_hue)},
@@ -233,7 +233,8 @@ HS_FLASH_MEMBER inline std::array<Preset, 10> presets() {
            {"Raymarch", false, raymarch()},
            {"ShaderWorkbench Liquid", false, shader_ball_liquid()},
            {"ShaderWorkbench Flyby", false, shader_ball_flyby()},
-           {"HyperLattice", false, hyper_lattice()}}};
+           {"HyperLattice", false, hyper_lattice()},
+           {"MindSplatter", true, mind_splatter(preview_hue)}}};
 }
 
 } // namespace EffectPaletteRecipes

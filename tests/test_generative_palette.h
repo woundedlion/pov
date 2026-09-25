@@ -65,11 +65,12 @@ inline void test_generative_palette_deterministic() {
 
 inline void test_effect_palette_recipe_roster() {
   const auto presets = EffectPaletteRecipes::presets();
-  HS_EXPECT_EQ(presets.size(), size_t{10});
+  HS_EXPECT_EQ(presets.size(), size_t{11});
   HS_EXPECT_EQ(std::strcmp(presets[0].name, "BZReactionDiffusion"), 0);
   HS_EXPECT_EQ(std::strcmp(presets[2].name, "DisplacementField / RingShower"),
                0);
   HS_EXPECT_EQ(std::strcmp(presets[8].name, "ShaderWorkbench Flyby"), 0);
+  HS_EXPECT_EQ(std::strcmp(presets[10].name, "MindSplatter"), 0);
   HS_EXPECT_FALSE(presets[0].random_hue);
   HS_EXPECT_TRUE(presets[1].random_hue);
   HS_EXPECT_TRUE(presets[4].random_hue);
