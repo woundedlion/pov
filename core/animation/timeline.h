@@ -589,6 +589,13 @@ private:
    */
   void reset_storage() {
     destroy_events();
+    for (auto &event : global_timeline_events) {
+      event.start = 0;
+      event.handled = false;
+      event.paused = nullptr;
+      event.manager = nullptr;
+      event.iface = nullptr;
+    }
     global_timeline_t = 0;
   }
 };
