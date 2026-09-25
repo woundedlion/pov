@@ -43,8 +43,8 @@ inline constexpr size_t HS_PHANTASM_EFFECT_HEAP_BYTES = 3584;
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
 // Out-of-line definition for this target's controller, emitted as the required
-// DMAMEM explicit specialization (see pov_segmented.h for why a generic template
-// definition would silently land in DTCM and break DMA cache coherency).
+// DMAMEM explicit specialization, keeping the TX buffers out of the RAM1/DTCM
+// budget. Cached OCRAM requires a cache flush before each DMA transfer.
 HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
 namespace {
