@@ -3238,8 +3238,7 @@ inline void test_shader_workbench_parameter_capacity() {
   sb.init();
   WB::RequestedConfig densest = WB::legacy_config();
 
-  // Registration is per slot, so sweeping each slot in turn and keeping its
-  // densest option converges on the densest reachable configuration.
+  // Jointly enumerate selectors that control one another's registered fields.
   auto maximize = [&](auto apply, int option_count) {
     size_t best_count = WB::registered_parameter_count(sb, densest);
     int best_option = -1;
@@ -3261,26 +3260,23 @@ inline void test_shader_workbench_parameter_capacity() {
     maximize([](Slots &s, int o) { s.function = static_cast<WB::Function>(o); },
              WB::NUM_FUNCTIONS);
     maximize(
-        [](Slots &s, int o) { s.projection = static_cast<WB::Projection>(o); },
-        WB::NUM_PROJECTIONS);
-    maximize([](Slots &s,
-                int o) { s.peirce_layout = static_cast<WB::PeirceLayout>(o); },
-             WB::NUM_PEIRCE_LAYOUTS);
-    maximize(
         [](Slots &s, int o) {
-          s.airocean_layout = static_cast<WB::AiroceanLayout>(o);
-        },
-        WB::NUM_AIROCEAN_LAYOUTS);
-    maximize(
-        [](Slots &s, int o) {
-          s.bonne_hemisphere = static_cast<WB::BonneHemisphere>(o);
-        },
-        WB::NUM_BONNE_HEMISPHERES);
-    maximize(
-        [](Slots &s, int o) {
+          s.projection = static_cast<WB::Projection>(o % WB::NUM_PROJECTIONS);
+          o /= WB::NUM_PROJECTIONS;
+          s.peirce_layout =
+              static_cast<WB::PeirceLayout>(o % WB::NUM_PEIRCE_LAYOUTS);
+          o /= WB::NUM_PEIRCE_LAYOUTS;
+          s.airocean_layout =
+              static_cast<WB::AiroceanLayout>(o % WB::NUM_AIROCEAN_LAYOUTS);
+          o /= WB::NUM_AIROCEAN_LAYOUTS;
+          s.bonne_hemisphere =
+              static_cast<WB::BonneHemisphere>(o % WB::NUM_BONNE_HEMISPHERES);
+          o /= WB::NUM_BONNE_HEMISPHERES;
           s.gnomonic_hemisphere = static_cast<WB::GnomonicHemispherePolicy>(o);
         },
-        WB::NUM_GNOMONIC_HEMISPHERES);
+        WB::NUM_PROJECTIONS * WB::NUM_PEIRCE_LAYOUTS *
+            WB::NUM_AIROCEAN_LAYOUTS * WB::NUM_BONNE_HEMISPHERES *
+            WB::NUM_GNOMONIC_HEMISPHERES);
     maximize(
         [](Slots &s, int o) {
           s.projection_frame = static_cast<WB::ProjectionFramePolicy>(o);
@@ -3303,29 +3299,20 @@ inline void test_shader_workbench_parameter_capacity() {
       };
       maximize(
           [stage](Slots &s, int o) {
-            stage(s).kind = static_cast<WB::WarpStageKind>(o);
+            auto &w = stage(s);
+            w.kind = static_cast<WB::WarpStageKind>(o % WB::NUM_WARPS);
+            o /= WB::NUM_WARPS;
+            w.basis = static_cast<WB::NoiseBasis>(o % WB::NUM_NOISE_BASES);
+            o /= WB::NUM_NOISE_BASES;
+            w.envelope =
+                static_cast<WB::WarpEnvelope>(o % WB::NUM_WARP_ENVELOPES);
+            o /= WB::NUM_WARP_ENVELOPES;
+            w.polar_mode = static_cast<WB::PolarMode>(o % WB::NUM_POLAR_MODES);
+            o /= WB::NUM_POLAR_MODES;
+            w.curl_integrator = static_cast<WB::CurlIntegrator>(o);
           },
-          WB::NUM_WARPS);
-      maximize(
-          [stage](Slots &s, int o) {
-            stage(s).basis = static_cast<WB::NoiseBasis>(o);
-          },
-          WB::NUM_NOISE_BASES);
-      maximize(
-          [stage](Slots &s, int o) {
-            stage(s).envelope = static_cast<WB::WarpEnvelope>(o);
-          },
-          WB::NUM_WARP_ENVELOPES);
-      maximize(
-          [stage](Slots &s, int o) {
-            stage(s).polar_mode = static_cast<WB::PolarMode>(o);
-          },
-          WB::NUM_POLAR_MODES);
-      maximize(
-          [stage](Slots &s, int o) {
-            stage(s).curl_integrator = static_cast<WB::CurlIntegrator>(o);
-          },
-          WB::NUM_CURL_INTEGRATORS);
+          WB::NUM_WARPS * WB::NUM_NOISE_BASES * WB::NUM_WARP_ENVELOPES *
+              WB::NUM_POLAR_MODES * WB::NUM_CURL_INTEGRATORS);
     }
     maximize([](Slots &s,
                 int o) { s.signal_weight = static_cast<WB::SignalWeight>(o); },
