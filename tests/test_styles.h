@@ -392,8 +392,7 @@ inline void test_sync_hue_matches_hue_at_equal_brightness() {
  *        pixel's hue via the sync_hue cache.
  * @details Unlike the gray-pixel zero-shift case, a saturated pixel has chroma to
  *          rotate: the rotated result must diverge from the plain (hue-preserving)
- *          fade, and must match an independent per-call rotation by the same
- *          amount — pinning that hue_fade consumes the sync_hue cache correctly.
+ *          fade. test_hue_fade_matches_rotate_reference covers rotation parity.
  */
 inline void test_hue_fade_nonzero_shift_rotates_saturated() {
   Pixel red(50000, 2000, 2000);
