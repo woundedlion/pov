@@ -296,7 +296,7 @@ if(EMSCRIPTEN)
         RESULT_VARIABLE HS_GIT_RC
         ERROR_QUIET)
       if(HS_GIT_RC EQUAL 0)
-        # Generated documentation is checked against a fresh render of HEAD.
+        # Source provenance includes all tracked changes against HEAD.
         execute_process(
           COMMAND \"${Python3_EXECUTABLE}\"
             \"${CMAKE_CURRENT_SOURCE_DIR}/tools/engine_source_state.py\"

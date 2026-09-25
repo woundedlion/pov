@@ -45,12 +45,12 @@ class EngineSourceState(unittest.TestCase):
         self.write("README.md", generated)
         return generated
 
-    def test_clean_checkout_and_generated_documentation_are_clean(self):
+    def test_generated_documentation_edits_are_dirty(self):
         self.assertEqual(engine_source_state.changed_sources(self.root), [])
         self.generate()
-        self.assertEqual(engine_source_state.changed_sources(self.root), [])
+        self.assertEqual(engine_source_state.changed_sources(self.root), ["README.md"])
         self.git("add", "README.md")
-        self.assertEqual(engine_source_state.changed_sources(self.root), [])
+        self.assertEqual(engine_source_state.changed_sources(self.root), ["README.md"])
 
     def test_authored_prose_change_remains_dirty(self):
         generated = self.generate()
