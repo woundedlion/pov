@@ -82,7 +82,7 @@ struct MindSplatterParams {
  *        dual-solid attractors through a Mobius warp.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Presets cyclically lerp friction/well-strength/speed params, and
+ * @details Presets cyclically lerp friction/well-strength/speed/warp params, and
  *          the whole field is randomly re-warped on a timer.
  */
 template <int W, int H>
