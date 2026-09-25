@@ -1249,8 +1249,10 @@ private:
     case Workbench::WarpStageKind::COUNT:
       break;
     case Workbench::WarpStageKind::AFFINE_FRAME: {
-      const float snapped_x = roundf(params.translation_x);
-      const float snapped_y = roundf(params.translation_y);
+      const float snapped_x =
+          Workbench::snap_affine_winding(params.translation_x);
+      const float snapped_y =
+          Workbench::snap_affine_winding(params.translation_y);
       registered_range_clamped |= snapped_x != params.translation_x ||
                                   snapped_y != params.translation_y;
       params.translation_x = snapped_x;
@@ -1567,12 +1569,12 @@ public:
     if (!decode_config_values(snapshot.accepted, next_accepted) ||
         !decode_config_values(snapshot.requested, next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
-    normalize_config_ranges(next_accepted);
-    normalize_config_ranges(next_requested);
     RuntimeValues next_runtime = snapshot.runtime;
     if (!valid_snapshot_config(next_accepted) ||
         !valid_snapshot_config(next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
+    snap_config_affine_windings(next_accepted);
+    snap_config_affine_windings(next_requested);
     if (!admissible_config(next_accepted))
       return ConfigRestoreResult::INVALID_ACCEPTED;
     const ConfigValues migrated_accepted = encode_config_values(next_accepted);

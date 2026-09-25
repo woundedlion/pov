@@ -1096,8 +1096,8 @@ inline void test_shader_workbench_incompatible_config_snapshot() {
       sb.capture_full_config_snapshot(), current));
 }
 
-/** @brief A restored affine snapshot snaps its winding translations, clamps
- *         them to the authored span, and rejects one that is not finite. */
+/** @brief A restored affine snapshot snaps in-range winding translations and
+ *         rejects out-of-range and nonfinite values without mutation. */
 inline void test_shader_workbench_affine_snapshot_restore() {
   using WB = ShaderWorkbenchWhiteBox;
   // A snapshot layout change without a version bump silently accepts a stale
@@ -1155,8 +1155,17 @@ inline void test_shader_workbench_affine_snapshot_restore() {
   expect_translations(1.0f, -3.0f);
 
   HS_EXPECT_EQ(restore_translations(9.0f, -9.0f),
-               WB::ConfigRestoreResult::APPLIED);
-  expect_translations(4.0f, -4.0f);
+               WB::ConfigRestoreResult::INVALID_VALUE);
+  expect_translations(1.0f, -3.0f);
+
+  restore_translations(1.0f, -3.0f);
+  const size_t hue_speed =
+      static_cast<size_t>(WB::ConfigFieldId::COLOR_HUE_NOISE_SPEED);
+  snapshot.accepted[hue_speed] = shader_workbench_float_payload(0.01f);
+  snapshot.requested[hue_speed] = snapshot.accepted[hue_speed];
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
+               WB::ConfigRestoreResult::INVALID_VALUE);
+  snapshot = sb.capture_full_config_snapshot();
 
   const WB::FullConfigSnapshot before_failure =
       sb.capture_full_config_snapshot();
