@@ -912,6 +912,13 @@ test('a malformed registry reports a phase, code and path', () => {
     (error) => error instanceof ShaderDocumentError && error.phase === 'schema' &&
       error.code === code && error.path === path,
   );
+  for (const descriptor of [
+    { parameters: [] },
+    { ...compiled.descriptor, parameters: [{ id: 'missing-domain' }] },
+  ]) {
+    assert.equal(classifyExport(compiled, { effects: [{ ...entry(), descriptor }] },
+      'wasm-authoring').kind, 'CREATE_EFFECT_CANDIDATE');
+  }
   refuses(null, 'EXPECTED_OBJECT', 'registry');
   refuses({}, 'EXPECTED_ARRAY', 'registry.effects');
   refuses({ effects: [null] }, 'EXPECTED_OBJECT', 'registry.effects[0]');
