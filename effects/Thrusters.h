@@ -14,9 +14,7 @@
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
-// Forward declaration of the unit-test accessor (tests/test_effects.h) that
-// pins warp_decay's endpoint invariants and drives on_fire_thruster(); the
-// smoke harness only proves the effect renders, and never reaches a fire.
+// Unit-test accessor for warp_decay endpoints and on_fire_thruster().
 namespace hs_test {
 namespace effects_tests {
 struct ThrustersWhiteBox;
