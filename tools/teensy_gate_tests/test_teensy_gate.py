@@ -909,14 +909,17 @@ class TestWarningRatchet(unittest.TestCase):
     def test_fileless_diagnostics_are_normalized(self):
         lines = [
             '<command-line>: warning: "HS_PROFILE" redefined',
-            "cc1plus: warning: command-line option '-Wmissing-prototypes' is valid for C",
-            "ld: warning: firmware.elf has a LOAD segment with RWX permissions",
+            "cc1plus.exe: warning: command-line option '-Wmissing-prototypes' is valid for C",
+            "/opt/toolchain/bin/ld: warning: firmware.elf has a LOAD segment with RWX permissions",
+            r"C:\toolchain\bin\ld.exe: warning: firmware.elf has a LOAD segment with RWX permissions",
         ]
         self.assertEqual(tw.extract_warnings("\n".join(lines)), {
             '<command-line>: warning: "HS_PROFILE" redefined',
             "cc1plus: warning: command-line option '-Wmissing-prototypes' is valid for C",
             "ld: warning: firmware.elf has a LOAD segment with RWX permissions",
         })
+
+        self.assertIsNone(tw.normalize("cc1.exe: warning: C++ option ignored"))
 
     def test_library_warning_excluded(self):
         self.assertIsNone(tw.normalize(
