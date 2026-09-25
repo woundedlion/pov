@@ -139,22 +139,26 @@ private:
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
     check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
     const auto xc = cr.x_clip();
 
     if constexpr (SAMPLES == 1) {
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        const float sp = math::TrigLUT<W, H>::sin_phi[y];
+        const float cp = math::TrigLUT<W, H>::cos_phi[y];
         walk_clip_columns<W>(xc, [&](int x) {
-          math::Vector v = math::pixel_to_vector<W, H>(x, y);
+          math::Vector v =
+              math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
+                           sp * math::TrigLUT<W, H>::sin_theta[x]);
           Color4 sample = shader(v);
           canvas(x, y) = sample.color * sample.alpha;
         });
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      if (!math::TrigLUT<W, H>::initialized)
-        math::TrigLUT<W, H>::init();
       SsaaGrid<W, H> grid;
 
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
@@ -237,6 +241,8 @@ public:
     HS_CHECK(fragment_shader,
              "Scan::Shader::draw requires a non-null fragment_shader");
     check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     // frag_base is per pixel, not per draw: each pixel starts from a default
     // Fragment, so a vertex shader writing only some registers (v0-v3/size/age/
     // color) can't inherit the previous pixel's values.
@@ -245,8 +251,12 @@ public:
       check_lut_domain<W, H>(cr);
       const auto xc = cr.x_clip();
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        const float sp = math::TrigLUT<W, H>::sin_phi[y];
+        const float cp = math::TrigLUT<W, H>::cos_phi[y];
         walk_clip_columns<W>(xc, [&](int x) {
-          math::Vector center_v = math::pixel_to_vector<W, H>(x, y);
+          math::Vector center_v =
+              math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
+                           sp * math::TrigLUT<W, H>::sin_theta[x]);
           Fragment frag_base;
           frag_base.pos = center_v;
           vertex_shader(frag_base);
@@ -258,17 +268,19 @@ public:
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      if (!math::TrigLUT<W, H>::initialized)
-        math::TrigLUT<W, H>::init();
       SsaaGrid<W, H> grid;
 
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
       const auto xc = cr.x_clip();
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        const float sp = math::TrigLUT<W, H>::sin_phi[y];
+        const float cp = math::TrigLUT<W, H>::cos_phi[y];
         grid.set_row(y);
         walk_clip_columns<W>(xc, [&](int x) {
-          math::Vector center_v = math::pixel_to_vector<W, H>(x, y);
+          math::Vector center_v =
+              math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
+                           sp * math::TrigLUT<W, H>::sin_theta[x]);
 
           Fragment frag_base;
           frag_base.pos = center_v;
@@ -318,17 +330,20 @@ public:
   HS_O3_FN static void draw_grid(Canvas &canvas, VertexFn &&vertex_shader,
                                  PixelFn &&pixel_shader) {
     check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
     const auto xc = cr.x_clip();
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
     SsaaGrid<W, H> grid;
     for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+      const float sp = math::TrigLUT<W, H>::sin_phi[y];
+      const float cp = math::TrigLUT<W, H>::cos_phi[y];
       grid.set_row(y);
       walk_clip_columns<W>(xc, [&](int x) {
         Fragment frag_base;
-        frag_base.pos = math::pixel_to_vector<W, H>(x, y);
+        frag_base.pos = math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
+                                     sp * math::TrigLUT<W, H>::sin_theta[x]);
         vertex_shader(frag_base);
         canvas(x, y) = pixel_shader(frag_base, grid, x);
       });
