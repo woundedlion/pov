@@ -2893,6 +2893,14 @@ inline void test_shader_workbench_structural_admission() {
   for (const auto &preset : presets)
     HS_EXPECT_TRUE(WB::valid_config(preset));
 
+  WB::RequestedConfig mobius_affine = WB::legacy_config();
+  mobius_affine.slots.surface_lens = WB::SurfaceLens::MOBIUS;
+  mobius_affine.slots.projection = WB::Projection::SINUSOIDAL;
+  mobius_affine.slots.warp_program.outer.kind = WB::WarpStageKind::AFFINE_FRAME;
+  mobius_affine.params.warp.outer.scale_x = 4.0f;
+  mobius_affine.params.warp.outer.speed = 0.0f;
+  HS_EXPECT_TRUE(WB::admissible_config(mobius_affine));
+
   WB::RequestedConfig integrated_ridged = WB::legacy_config();
   integrated_ridged.slots.warp_program.outer.kind =
       WB::WarpStageKind::CURL_FLOW;
