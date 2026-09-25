@@ -23,6 +23,24 @@ namespace Pullback {
 
 namespace Warp {
 
+/** @brief Continuous parameters of the planar curl flow. */
+struct CurlFlowParams {
+  float speed = 0.0f;
+  float strength = 0.0f;
+  float scale = 1.0f;
+  static constexpr auto FIELDS = std::array{
+      Field<CurlFlowParams>{"speed", &CurlFlowParams::speed, nullptr, -0.02f,
+                            0.02f, FieldCurve::LERP},
+      Field<CurlFlowParams>{"strength", &CurlFlowParams::strength,
+                            "Warp Strength", -1.0f / 32.0f, 1.0f / 32.0f,
+                            FieldCurve::LERP},
+      Field<CurlFlowParams>{"scale", &CurlFlowParams::scale, "Warp Scale",
+                            1.0f / 64.0f, 4.0f, FieldCurve::LOG_POSITIVE},
+  };
+};
+static_assert(field_ids_unique<CurlFlowParams>());
+static_assert(field_defaults_in_range<CurlFlowParams>());
+
 inline constexpr uint8_t MAX_POLAR_HARMONIC = 16;
 
 struct FlatEnvelope {};
