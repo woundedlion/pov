@@ -3710,6 +3710,8 @@ inline ChainPeaks replay_build_chain(const char *name,
     Solids::OpStep steps[MAX_STEPS];
     const size_t count = Solids::expand_to_primitives(recipe, steps, MAX_STEPS);
     HS_EXPECT_GT(count, (size_t)0);
+    if (count == 0)
+      return peaks;
     bool supported = true;
     int leg_frames[MAX_STEPS] = {};
     bool gated[MAX_STEPS] = {};
