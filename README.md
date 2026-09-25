@@ -1341,10 +1341,9 @@ Key properties:
 
 The local-vs-CDN choice is **baked at build time**, not probed at runtime — there is no main-thread-blocking synchronous XHR and nothing 404s on the CDN-only Pages deploy. The committed default is all-CDN, which is what the deploy and a fresh checkout serve. For offline / local dev with a populated `three.js/` and `node_modules/`, run `npm run importmap:local` (detects vendored dirs and rewrites the `VENDOR` block); `npm run importmap` reverts to all-CDN. The generated `local` block must not be committed — it would break the live deploy.
 
-The generated integrity map covers the top-level libraries and the two addons
-the app imports directly. Relative sub-imports inside those modules bypass the
-import map, so the exact package-version pin is the primary defense; the
-available SRI entries are additional partial coverage. Import-map `integrity`
+The generated integrity map covers the top-level libraries, the addons the app
+imports, and their relative static dependencies, including three.core.js.
+Integrity checks use each module's resolved URL. Import-map `integrity`
 is Chromium-only — Firefox and Safari ignore the key entirely, so SRI is no
 coverage at all there. A `Content-Security-Policy` meta tag, carried by
 `index.html` and each of the five tool pages, bounds this on every browser
