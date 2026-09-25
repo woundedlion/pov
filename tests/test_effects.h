@@ -2250,13 +2250,8 @@ inline void test_bz_perturb_state_draw_count_pinned() {
 /**
  * @brief Verifies the stochastic nudge scales with the Speed slider and reaches
  *        zero where the integrator freezes.
- * @details The nudge is the only integrator term that was not multiplied by dt,
- *          so at dt = 0 — where advance_species round-trips its Q16 sample
- *          exactly — it was the one term still moving the state, walking every
- *          drawn node monotonically to the 65535 rail. Runs many perturbation
- *          passes over a zero field: at dt = 0 nothing may move, and at a
- *          mid-slider dt the touched entries must be multiples of the scaled
- *          step, strictly between zero and the full-rate step.
+ * @details At dt = 0 nothing may move; at a mid-slider dt the touched entries
+ * must be multiples of the scaled step, between zero and the full-rate step.
  */
 inline void test_bz_perturb_scales_with_timestep() {
   constexpr int PASSES = 64;
