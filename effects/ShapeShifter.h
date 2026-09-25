@@ -308,7 +308,8 @@ private:
   }
 
   HS_COLD_MEMBER void prepare_count(int count) {
-    assert(count >= 1 && count <= MAX_SHAPES);
+    HS_CHECK(count >= 1 && count <= MAX_SHAPES,
+             "ShapeShifter: contour count %d outside table capacity", count);
     const bool screen_balanced =
         params.spacing == RadiusSpacing::SCREEN_BALANCED;
     for (int i = 0; i < count; ++i) {

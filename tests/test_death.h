@@ -50,6 +50,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_pullback.h"
 #include "tests/test_effects.h"
+#include "tests/test_shapeshifter_oracle.h"
 #include "tests/test_harness.h"
 #include "tests/test_shader_workbench.h" // ShaderWorkbenchWhiteBox, for the effect-side traps
 
@@ -4047,6 +4048,14 @@ inline void case_shader_workbench_preset_for_view_out_of_range() {
     std::printf("x");
 }
 
+/** @brief Death case: contour preparation past its table capacity traps. */
+inline void case_shapeshifter_count_over_capacity() {
+  using namespace shapeshifter_oracle_tests;
+  OracleEffect effect;
+  ShapeShifterWhiteBox::prepare_count(effect,
+                                      opaque(OracleEffect::MAX_SHAPES + 1));
+}
+
 /** @brief Death case: a woven edge whose start vertex is absent must trap. */
 inline void case_dreamballs_woven_owner_vertex_oob() {
   using WB = effects_tests::DreamBallsWhiteBox;
@@ -4619,6 +4628,9 @@ inline const Case *all_cases(int &n) {
           {"pullback_curl_unstable", case_pullback_curl_unstable,
            "core/render/pullback/operators_warp.h",
            "(params.scale * fabsf(params.strength) * Warp::CURL_VECTOR_COMPONENT_MAX / intervals <= 0.5f) warp.curl-flow: unstable scale and strength for integrator"},
+          {"shapeshifter_count_over_capacity",
+           case_shapeshifter_count_over_capacity, "effects/ShapeShifter.h",
+           "(count >= 1 && count <= MAX_SHAPES) ShapeShifter: contour count"},
           {"mindsplatter_profile_preset_oob",
            case_mindsplatter_profile_preset_oob, "effects/MindSplatter.h",
            "(index < PRESETS.size()) MindSplatter profile preset index out of range"},
