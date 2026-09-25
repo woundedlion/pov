@@ -68,6 +68,7 @@ while IFS= read -r -d '' record; do
   for probe in "index:$index" "worktree:$work"; do
     where=${probe%%:*}
     have=${probe#*:}
+    [ "$where" != worktree ] || [ -n "$have" ] || continue
     expected=$want
     [ "$where" != index ] || expected=lf
     case $have in
