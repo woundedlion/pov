@@ -11,7 +11,8 @@
  *
  * The neighbors[] table (reaction_graph.cpp) is emitted by
  * scripts/generate_reaction_graph.py; node() below MUST stay in lockstep with
- * that generator's lattice math (CI: reaction-graph-provenance).
+ * that generator's lattice math. CI reaction-graph-provenance checks the table;
+ * tests/test_reaction_graph.h checks node() goldens and brute-force K-NN parity.
  */
 
 #include "platform/platform.h"
