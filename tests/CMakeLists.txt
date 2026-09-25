@@ -131,7 +131,7 @@ foreach(_header pixel palette_recipe color_space palette palette_sources
                 palettes palette_cycler noise_hue_palette effect_palette_recipes
                 layer_composite)
   set(_source "${CMAKE_CURRENT_BINARY_DIR}/color_header_${_header}.cpp")
-  file(WRITE "${_source}" "#include \"color/${_header}.h\"\n")
+  file(CONFIGURE OUTPUT "${_source}" CONTENT "#include \"color/${_header}.h\"\n")
   list(APPEND _color_header_sources "${_source}")
 endforeach()
 add_library(color_header_checks OBJECT ${_color_header_sources})
@@ -143,9 +143,24 @@ add_dependencies(run_tests color_header_checks)
 # Census of the engine's HS_CHECK sites, so the death harness can print how
 # much of the fail-fast surface its cases actually pin. Generated, never
 # committed: a written-down guard list drifts away from the guards.
-include(${CMAKE_CURRENT_SOURCE_DIR}/count_guard_sites.cmake)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/death_guard_sites.h.in
-               ${CMAKE_CURRENT_BINARY_DIR}/death_guard_sites.h @ONLY)
+set(_guard_sources)
+foreach(_dir core effects workbench hardware targets tools)
+  file(GLOB_RECURSE _found CONFIGURE_DEPENDS
+       "${HS_ROOT}/${_dir}/*.h" "${HS_ROOT}/${_dir}/*.cpp"
+       "${HS_ROOT}/${_dir}/*.ino")
+  list(APPEND _guard_sources ${_found})
+endforeach()
+set(_guard_output "${CMAKE_CURRENT_BINARY_DIR}/death_guard_sites.h")
+add_custom_command(OUTPUT "${_guard_output}"
+  COMMAND "${CMAKE_COMMAND}" "-DHS_ROOT=${HS_ROOT}"
+          "-DHS_GUARD_OUTPUT=${_guard_output}"
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/count_guard_sites.cmake"
+  DEPENDS ${_guard_sources} count_guard_sites.cmake death_guard_sites.h.in
+  VERBATIM)
+add_custom_target(death_guard_census DEPENDS "${_guard_output}")
+add_dependencies(run_tests death_guard_census)
+add_test(NAME unit_death_pins COMMAND "${Python3_EXECUTABLE}"
+         "${CMAKE_CURRENT_SOURCE_DIR}/check_death_pins.py" "${HS_ROOT}")
 
 # Headers are included as "tests/..." and "core/..." from the repo root; the
 # binary dir carries the generated guard census.
