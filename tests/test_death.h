@@ -268,10 +268,7 @@ inline void case_scratch_scope_reset() {
   arena.reset();
 }
 
-/**
- * @brief Death case: ArenaVector fixed-capacity push_back overflow must trap.
- * @details Arena-container surface — a push_back past capacity fires HS_CHECK.
- */
+/** @brief Death case: exhausted arena rewind history must trap. */
 inline void case_arena_rewind_history_overflow() {
   static uint8_t storage[1024];
   Arena arena(storage, sizeof(storage));
@@ -281,6 +278,10 @@ inline void case_arena_rewind_history_overflow() {
   }
 }
 
+/**
+ * @brief Death case: ArenaVector fixed-capacity push_back overflow must trap.
+ * @details Arena-container surface — a push_back past capacity fires HS_CHECK.
+ */
 inline void case_arena_vector_overflow() {
   static uint8_t buf[256];
   Arena a(buf, sizeof(buf));
