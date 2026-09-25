@@ -24,13 +24,6 @@ struct Blend {
   PaletteMappingWeights palette_mapping;
 };
 
-struct Choreo {
-  uint16_t dwell_min;
-  uint16_t dwell_max;
-  uint16_t blend_frames;
-  bool staggered;
-};
-
 struct SourceState {
   float primary;
   float secondary;

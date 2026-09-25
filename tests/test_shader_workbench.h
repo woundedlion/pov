@@ -268,7 +268,7 @@ struct ShaderWorkbenchWhiteBox {
   }
   static bool try_apply_config(SB &sb, const RequestedConfig &config,
                                uint16_t duration) {
-    return sb.try_apply_config(config, duration, false, false);
+    return sb.try_apply_config(config, duration, false);
   }
   static uint16_t param_morph_elapsed(const SB &sb) {
     return sb.state->param_morph.elapsed;
@@ -741,7 +741,9 @@ struct ShaderWorkbenchWhiteBox {
   warp_channel_layout(const WarpStageSpec &spec) {
     return Workbench::warp_resource_key(spec).channel_layout;
   }
-  static const auto &choreo() { return SB::CHOREO; }
+  static constexpr uint16_t preset_blend_frames() {
+    return SB::PRESET_BLEND_FRAMES;
+  }
   static void make_triadic(uint32_t &hue, uint32_t sequence,
                            GenerativePalette &out) {
     GeneratedPaletteBank::next_palette(hue, sequence, PaletteHarmony::TRIADIC,
@@ -2165,12 +2167,8 @@ inline void expect_pinned_params(const char *name,
 inline void test_shader_workbench_preset_bank() {
   using WB = ShaderWorkbenchWhiteBox;
   const auto &presets = WB::presets();
-  const auto &choreo = WB::choreo();
   HS_EXPECT_EQ(presets.size(), size_t(24));
-  HS_EXPECT_FALSE(choreo.staggered);
-  HS_EXPECT_EQ(choreo.dwell_min, uint16_t(0));
-  HS_EXPECT_EQ(choreo.dwell_max, uint16_t(0));
-  HS_EXPECT_EQ(choreo.blend_frames, uint16_t(480));
+  HS_EXPECT_EQ(WB::preset_blend_frames(), uint16_t(480));
 
   bool has_hue_shift = false;
   for (size_t index = 0; index < presets.size(); ++index) {
@@ -2609,47 +2607,6 @@ inline void test_shader_workbench_preset_bank() {
   WB::SB sb;
   sb.init();
   HS_EXPECT_TRUE(WB::slots_equal(WB::active_slots(sb), presets[0].slots));
-}
-/** @brief A staggered morph walks each changed parameter group in its own
- *         time slice. */
-inline void test_shader_workbench_staggered_param_morph() {
-  using WB = ShaderWorkbenchWhiteBox;
-  WB::Params from;
-  from.color.palette_chroma = 0.5f;
-  WB::Params to = from;
-  to.source.speed = 0.5f;
-  to.color.palette_chroma = 0.75f;
-
-  auto staggered = [&](float t) {
-    WB::Params result;
-    result.lerp_staggered(from, to, t);
-    return result;
-  };
-
-  const WB::Params quarter = staggered(0.25f);
-  HS_EXPECT_GT(quarter.source.speed, from.source.speed);
-  HS_EXPECT_LT(quarter.source.speed, to.source.speed);
-  HS_EXPECT_EQ(quarter.color.palette_chroma, from.color.palette_chroma);
-
-  const WB::Params half = staggered(0.5f);
-  HS_EXPECT_EQ(half.source.speed, to.source.speed);
-  HS_EXPECT_EQ(half.color.palette_chroma, from.color.palette_chroma);
-  HS_EXPECT_EQ(half.projection.singularity_fade,
-               from.projection.singularity_fade);
-
-  const WB::Params three_quarters = staggered(0.75f);
-  HS_EXPECT_EQ(three_quarters.source.speed, to.source.speed);
-  HS_EXPECT_GT(three_quarters.color.palette_chroma, from.color.palette_chroma);
-  HS_EXPECT_LT(three_quarters.color.palette_chroma, to.color.palette_chroma);
-
-  const WB::Params end = staggered(1.0f);
-  HS_EXPECT_EQ(end.source.speed, to.source.speed);
-  HS_EXPECT_EQ(end.color.palette_chroma, to.color.palette_chroma);
-
-  WB::Params parallel;
-  parallel.lerp(from, to, 0.5f);
-  HS_EXPECT_LT(parallel.source.speed, half.source.speed);
-  HS_EXPECT_GT(parallel.color.palette_chroma, half.color.palette_chroma);
 }
 /** @brief Whole-schema validation applies valid configs and rejects invalid. */
 inline void test_shader_workbench_config_admission() {
@@ -6587,7 +6544,6 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_prepared_hue_noise();
   test_shader_workbench_prepared_hue_noise_color();
   test_shader_workbench_preset_bank();
-  test_shader_workbench_staggered_param_morph();
   test_shader_workbench_config_admission();
   test_shader_workbench_deterministic_gui_edits();
   test_shader_workbench_mode_specific_parameter_warnings();
