@@ -1202,8 +1202,9 @@ struct Face {
   }
 
   /**
-   * @brief Full-path vertical bounds (arc extrema + pole containment) for large
-   * faces.
+   * @brief Vertical bounds (arc extrema + pole-plane snap) for every face.
+   * @details Fills the per-edge 2D vectors, squared lengths and reciprocals
+   * consumed by later passes.
    * @param scratch Scratch storage holding poly_2d/verts_3d, receiving edge
    * data and planes.
    * @param count Vertex/edge count.
