@@ -511,10 +511,14 @@ private:
                                                       float *target,
                                                       float minimum,
                                                       float maximum) {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    register_animated_param_preserving_value(name, target, minimum, maximum);
+#else
     const float clamped = hs::clamp(*target, minimum, maximum);
     registered_range_clamped |= clamped != *target;
     *target = clamped;
     register_animated_param(name, target, minimum, maximum);
+#endif
   }
 
   HS_COLD_MEMBER void rebind_parameters() {
@@ -841,6 +845,8 @@ private:
   }
 
   bool clamp_registered_parameter_ranges() {
+    if (!admissible_config(requested_config) && !range_repairs_admission())
+      return false;
     const uintptr_t requested = reinterpret_cast<uintptr_t>(&requested_config);
     bool clamped = false;
     for (const ParamDef &parameter : getParameters()) {
@@ -852,6 +858,11 @@ private:
       if (target < requested ||
           target + size > requested + sizeof(requested_config))
         continue;
+      const size_t offset = target - requested;
+      const ConfigFieldId id = config_field_id(offset, size);
+      HS_CHECK(id != ConfigFieldId::COUNT,
+               "ShaderWorkbench clamp lacks a stable field ID");
+      remember_pending_edit(parameter.name, id, offset, size);
       ParamDef writable = parameter;
       write_parameter_unchecked(
           writable,
