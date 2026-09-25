@@ -1247,6 +1247,15 @@ inline void test_complex_arithmetic() {
       math::Complex(1, 0) / math::Complex(1e-23f, 1e-23f);
   HS_EXPECT_NEAR(diagonal.re * 1e-23f, 0.5f, 2e-6f);
   HS_EXPECT_NEAR(diagonal.im * 1e-23f, -0.5f, 2e-6f);
+  for (const float divisor : {3e-23f, 1e-21f}) {
+    const math::Complex quotient =
+        math::Complex(1, 0) / math::Complex(divisor, 0);
+    HS_EXPECT_NEAR(quotient.re * divisor, 1.0f, 2e-6f);
+    HS_EXPECT_EQ(quotient.im, 0.0f);
+    HS_EXPECT_COMPLEX(math::project_div(math::Complex(divisor, divisor),
+                                        math::Complex(divisor, 0)),
+                      math::Complex(1, 1), 2e-6f);
+  }
   math::Complex a(1, 2), b(3, 4);
 
   HS_EXPECT_COMPLEX(a + b, math::Complex(4, 6), 1e-6f);

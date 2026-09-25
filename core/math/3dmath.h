@@ -927,7 +927,8 @@ struct Complex {
    */
   Complex operator/(const Complex &b) const {
     float denom = b.squared_magnitude();
-    if (denom == 0.0f && (b.re != 0.0f || b.im != 0.0f)) [[unlikely]] {
+    if (denom < std::numeric_limits<float>::min() &&
+        (b.re != 0.0f || b.im != 0.0f)) [[unlikely]] {
       const float den_re = b.re * COMPLEX_UNDERFLOW_LIFT;
       const float den_im = b.im * COMPLEX_UNDERFLOW_LIFT;
       denom = den_re * den_re + den_im * den_im;
