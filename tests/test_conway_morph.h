@@ -3619,10 +3619,9 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 
 // ---------------------------------------------------------------------------
 // Recipe chain build replay (docs/specs/opchain_morph_spec.md, "Validation
-// contract"): every registry entry with a non-null recipe is lowered and
-// replayed leg by leg exactly as IslamicStars builds it — same crossfading
-// handoff and
-// bookend — stepping every leg frame by frame with a recording draw callback.
+// contract"): test-local partition chains are lowered and replayed leg by leg
+// as IslamicStars builds them. test_opchain_arena_survey.h covers the registry.
+// Each leg is stepped frame by frame with a recording draw callback.
 // Gates per-leg compiled-face-count constancy, the crossfade colour model
 // (every frame of every leg draws every face's (from, to) ramp bit-exact at
 // the leg's blend weight; each leg departs from the palette the previous leg
@@ -3742,7 +3741,6 @@ inline ChainPeaks replay_build_chain(const char *name,
     uint8_t prev_pal_buf[MAX_FACES];
     math::Vector prev_centroid[MAX_FACES];
     uint8_t carried_to[MAX_FACES] = {};
-    const bool pin_final = supported;
     std::vector<int> full_topo;
     const OpLeg::Landing *prev_landing = nullptr;
     PolyMesh next;
@@ -3975,11 +3973,7 @@ inline ChainPeaks replay_build_chain(const char *name,
       HS_EXPECT_LE(landing.faces, MAX_FACES);
       if (landing.faces > MAX_FACES)
         return peaks;
-      if (!supported) {
-        // A clamped leg lands somewhere other than its clean endpoint, so
-        // neither the palette correspondence nor the closing handoff below is
-        // meaningful for it.
-      } else if (k > 0 && !gated[k]) {
+      if (k > 0 && !gated[k]) {
         // Report the first offending face across the replay's full face sweep.
         int first_broken_carry = -1;
         for (size_t f = 0; f < prev_faces; ++f)
@@ -3988,7 +3982,7 @@ inline ChainPeaks replay_build_chain(const char *name,
             first_broken_carry = (int)f;
         HS_EXPECT_EQ(first_broken_carry, -1);
       }
-      if (supported) {
+      {
         // The leg's fresh target set is a permutation of the bank.
         bool seen_to[OpLeg::PALETTES] = {};
         for (int i = 0; i < OpLeg::PALETTES; ++i) {
@@ -4037,7 +4031,7 @@ inline ChainPeaks replay_build_chain(const char *name,
       // Test-local arenas keep the replay's gated peaks untouched; a
       // non-hankin final leg lands on the clean endpoint, whose full-precision
       // classification the closing compile below provides.
-      if (pin_final && k + 1 == count && hankin_step) {
+      if (k + 1 == count && hankin_step) {
         Arena pa(morph_target_buf, sizeof(morph_target_buf));
         Arena pb(morph_temp_buf, sizeof(morph_temp_buf));
         Arena pc(morph_aux_buf, sizeof(morph_aux_buf));
@@ -4098,7 +4092,7 @@ inline ChainPeaks replay_build_chain(const char *name,
       MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
-    if (supported) {
+    {
       HS_EXPECT_EQ(landed_faces, final_slot.topology.size());
       int first_broken_carry = -1;
       for (size_t f = 0; f < landed_faces; ++f)
@@ -4106,7 +4100,7 @@ inline ChainPeaks replay_build_chain(const char *name,
           first_broken_carry = (int)f;
       HS_EXPECT_EQ(first_broken_carry, -1);
     }
-    if (pin_final && full_topo.empty())
+    if (full_topo.empty())
       full_topo.assign(final_slot.topology.begin(), final_slot.topology.end());
 
     // Variety: distinct palettes on the finished shape.
@@ -4124,7 +4118,7 @@ inline ChainPeaks replay_build_chain(const char *name,
     // full-precision final class wear the same palette — the landed palette
     // is a function of the final classification alone. A
     // quantized-classification regression shatters classes and breaks this.
-    if (pin_final) {
+    {
       HS_EXPECT_EQ(full_topo.size(), landed_faces);
       int asymmetric = 0;
       if (full_topo.size() == landed_faces) {
@@ -4222,15 +4216,6 @@ inline void test_relax_source_hash_separates_bevel_inputs() {
 }
 
 inline void test_recipe_chain_build_replay() {
-  int chains = 0;
-  for (const Solids::Entry &entry : Solids::Collections::get_islamic_solids())
-    if (entry.recipe)
-      ++chains;
-  // Every registry entry carries a recipe, so a dropped pointer is a miscount,
-  // not a smaller sweep.
-  HS_EXPECT_EQ(static_cast<size_t>(chains),
-               Solids::Collections::get_islamic_solids().size());
-
   replay_build_chain("dodecahedron_kis", DODECAHEDRON_KIS_RECIPE);
   replay_build_chain("cube_kis_dual", CUBE_KIS_DUAL_RECIPE);
   replay_build_chain("icosahedron_ambo_dual", ICOSAHEDRON_AMBO_DUAL_RECIPE);
