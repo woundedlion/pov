@@ -402,7 +402,9 @@ def cmd_record(args) -> int:
         return 1
     out = Path(args.out) if args.out else default_pending()
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"envs": found}, indent=1, sort_keys=True) + "\n",
+    out.write_text(json.dumps({"envs": found, "head": _git(["rev-parse", "HEAD"]),
+                               "tree": _git(["write-tree"])},
+                              indent=1, sort_keys=True) + "\n",
                    encoding="utf-8", newline="\n")
     print(f"[size-trail] recorded {', '.join(sorted(found))} -> {out}")
     return 0
@@ -427,6 +429,10 @@ def cmd_commit(args) -> int:
     # it in place to be retried rather than throwing it away.
     try:
         sha, date, subject = head_stamp(args.repo, args.rev)
+        if payload.get("tree") != _git(["rev-parse", f"{sha}^{{tree}}"], args.repo):
+            _warn(f"{pending} does not match the committed tree; discarding it.")
+            pending.unlink(missing_ok=True)
+            return 1
         rows = [TrailRow(sha=sha, date=date, env=env, sizes=sizes,
                          subject=subject)
                 for env, sizes in measured]
