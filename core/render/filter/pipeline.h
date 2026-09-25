@@ -800,8 +800,8 @@ public:
       !Head::has_history || !(... || Tail::terminal_replaces),
       "Filter ordering: a history-bearing stage's flush emissions would be "
       "overwritten by a frame-replacing terminal filter (Pixel::Feedback's "
-      "opaque store owns the whole frame). Drop the history stage, or run the "
-      "terminal in a compositing mode.");
+      "opaque store owns the whole frame). Remove the history stage or the "
+      "replacing terminal.");
 
   static_assert(
       Head::domain_rank <= Next::domain_rank,
