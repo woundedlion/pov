@@ -193,8 +193,12 @@ inline void test_column_interval() {
  * last accepted frame. The bound's own rounding is pinned in test_dma_core.h.
  */
 inline void test_transfer_bound() {
-  HS_EXPECT_TRUE(column_interval_us(480ul * 96ul) >
-                 dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, 12000000ul));
+  HS_EXPECT_TRUE(
+      column_interval_us(480ul * 96ul) >
+      dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, dma::DEFAULT_CLOCK_HZ));
+  HS_EXPECT_GT(column_interval_us(480ul * 96ul), pov::fastled_show_us(40, 6));
+  HS_EXPECT_LE(column_interval_us(480ul * 96ul),
+               2 * pov::fastled_show_us(40, 6));
 }
 
 /**
