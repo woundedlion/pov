@@ -827,6 +827,9 @@ private:
       if (fabsf(recipe.hue.sweep_turns - turns) > SWEEP_INTEGER_EPS)
         return fail(status, PaletteCompileCode::NON_INTEGER_LOOP_SWEEP,
                     PaletteRecipeField::SWEEP_TURNS);
+      if (recipe.hue.sweep_turns != turns)
+        status.adjustments.canonicalized_fields |=
+            field_bit(PaletteRecipeField::SWEEP_TURNS);
       recipe.hue.sweep_turns = turns;
     }
 
