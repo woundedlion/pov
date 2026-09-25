@@ -420,7 +420,7 @@ inline void push_interval(StaticCircularBuffer<Interval, N> &buf, float start,
  * @brief Insertion-sort an interval buffer in place by start coordinate.
  * @param buf Per-row interval buffer to sort in place.
  * @details Raw-pointer indexing (buffer freshly built, head == 0, contiguous)
- * avoids the per-access modulo. Shared by merge_intervals and Subtract.
+ * avoids the per-access modulo. Used by merge_intervals.
  */
 template <size_t N>
 inline void sort_intervals_by_start(StaticCircularBuffer<Interval, N> &buf) {
