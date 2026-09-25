@@ -352,8 +352,8 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   Until promotion the harness carries the polarity marking. The assembly gate
   excludes both `PinHeader` and `Molex_KK-254` as
   hand-soldered, so `gen/tests/test_pcb_lands.py` pins J1's shipped footprint instead.
-- **ID straps** use the Teensy's internal pull-ups; the former optional `R_ID0`
-  footprint is not required. `D_BUS` is populated on every board. `JP_SHLD` is
+- **ID straps** use the Teensy's internal pull-ups.
+  `D_BUS` is populated on every board. `JP_SHLD` is
   populated **on the master board only**;
   `JP_ID2` is unread at N = 4 and carries the high segment-ID bit at N = 8.
 - **LED power is off-board (§2.3).** There is **no `C_BULK` and no `+5V_MAIN` heavy
@@ -386,9 +386,8 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
 
 ## PCB (`phantasm.kicad_pcb`)
 
-The PCB uses the corrected component-side-up Teensy footprint verified against
-PJRC's top-view pinout. The earlier mirrored-footprint warning was obsolete and
-has been removed. The completed control-net routing is included in this file.
+The PCB uses a component-side-up Teensy footprint verified against
+PJRC's top-view pinout and includes the completed control-net routing.
 
 The committed routed PCB is the source of truth for these facts. Refresh this block with
 `python gen/board_metadata.py --write-readme` after an intentional board change.

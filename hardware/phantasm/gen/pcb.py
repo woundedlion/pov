@@ -534,8 +534,7 @@ def _rotatable(ref):
 # mating cables are accessible at the edge, per the spec's signal flow: power/debug
 # at the hub end, strip + sync daisy at the far end (R-CON-4). Each 0.1in header is
 # stood with its pin-row across the width (rot 0 for these 1xN vertical headers), so it
-# hugs the end edge and adds almost no length. (v1 opposite-edge split — best SI; the
-# one-edge variant crowds the narrow edge and lengthens the fast nets.)
+# hugs the end edge and adds almost no length.
 HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 

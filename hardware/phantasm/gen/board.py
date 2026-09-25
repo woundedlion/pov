@@ -300,7 +300,7 @@ def main(force=False):
     b.wire(FB.pin("2"), (LOG_L, Y_LOG))
     hw(LOG_L, LOG_R, Y_LOG)
     pwr_sym("+5V_LOGIC", LOG_R, Y_LOG - 5.08); vw(LOG_R, Y_LOG - 5.08, Y_LOG)
-    # C_IN: the card's only electrolytic, now on the logic feed (R-PWR-3/6, spec 10).
+    # C_IN: the card's only electrolytic, on the logic feed (R-PWR-3/6, spec 10).
     CIN = place("Device:C_Polarized", "C_IN", "100uF", 88.9, 78.74, in_bom=False,
                 fp="Capacitor_THT:CP_Radial_D8.0mm_P3.50mm")
     to_rail_up(CIN, "1", Y_LOG, LOG_SPAN)
