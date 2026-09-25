@@ -394,7 +394,8 @@ private:
   };
 
   void drain_shader_workbench_stages() {
-    const hs::ShaderWorkbenchStageCycles &frame = hs::g_shader_workbench_stage_cycles;
+    const hs::ShaderWorkbenchStageCycles &frame =
+        hs::g_shader_workbench_stage_cycles;
     shader_workbench_stage_totals.lens += frame.lens;
     shader_workbench_stage_totals.surface_noise += frame.surface_noise;
     shader_workbench_stage_totals.projection += frame.projection;
@@ -424,12 +425,14 @@ private:
             hs::u64_dec(shader_workbench_stage_totals.material, c5),
             hs::u64_dec(shader_workbench_stage_totals.color, c6));
     char c7[21], c8[21], c9[21];
-    hs::log("sb detail: mirror=%s poly_pixels=%s poly_reflections=%s "
-            "poly_max=%lu",
-            hs::u64_dec(shader_workbench_stage_totals.mirror_tile, c7),
-            hs::u64_dec(shader_workbench_stage_totals.polyhedral_pixels, c8),
-            hs::u64_dec(shader_workbench_stage_totals.polyhedral_reflections, c9),
-            (unsigned long)shader_workbench_stage_totals.polyhedral_max_reflections);
+    hs::log(
+        "sb detail: mirror=%s poly_pixels=%s poly_reflections=%s "
+        "poly_max=%lu",
+        hs::u64_dec(shader_workbench_stage_totals.mirror_tile, c7),
+        hs::u64_dec(shader_workbench_stage_totals.polyhedral_pixels, c8),
+        hs::u64_dec(shader_workbench_stage_totals.polyhedral_reflections, c9),
+        (unsigned long)
+            shader_workbench_stage_totals.polyhedral_max_reflections);
     shader_workbench_stage_totals.reset();
   }
 

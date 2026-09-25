@@ -30,8 +30,7 @@ using Pattern = BenchPattern<CANVAS_W, CANVAS_H>;
 // revolutions and the pattern's frames are related by this factor alone.
 constexpr uint32_t WINDOWS_PER_REVOLUTION = 2;
 
-static_assert(Pattern::FRAMES_PER_SECOND ==
-                  RPM / 60 * WINDOWS_PER_REVOLUTION,
+static_assert(Pattern::FRAMES_PER_SECOND == RPM / 60 * WINDOWS_PER_REVOLUTION,
               "BenchPattern's hold and ramp lengths are in frames; this rotor "
               "delivers a different number of them per second");
 
