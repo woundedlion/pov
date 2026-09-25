@@ -518,9 +518,6 @@ def _strip_jsonc_comments(text: str) -> str:
     """Remove // line and /* */ block comments from JSONC text, leaving any such
     sequences that occur INSIDE a JSON string value untouched.
 
-    A character scanner is used rather than a regex on purpose: the naive
-    ``re.sub`` this replaced would corrupt a ``//`` or ``/*`` that appears inside
-    a string (a path, URL, or note), silently mangling a future budgets entry.
     """
     out = []
     i, n = 0, len(text)

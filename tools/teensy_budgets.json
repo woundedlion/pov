@@ -10,8 +10,8 @@
   // newlib-nano, a flash-routing linker script, and the measured 298 KiB arena;
   // it uses 510,368 B of RAM1 (variables 313,760 + code 193,496 rounded up to a
   // whole 32 KiB FlexRAM bank, 196,608) with 13,920 B free for locals — the
-  // 32 KiB bank the arena cut freed was spent on ITCM -O3
-  // promotions (see docs/ledgers/itcm_ledger.md). These figures move with every code
+  // measured ITCM promotions are listed in docs/ledgers/itcm_ledger.md.
+  // These figures move with every code
   // landing AND with the pinned toolchain; re-measure rather than trusting them
   // verbatim. Holosphere RAM2 is 44,160 B (its framebuffers are sized to the
   // 96x20 canvas via -DCANVAS_W/-DCANVAS_H); Phantasm RAM2 is 520,064 B.
@@ -48,11 +48,7 @@
 
   "phantasm": {
     "regions": {
-      // -Os + nano + flash routing (custom ld script), with the ITCM bank
-      // reclaimed (FLASHMEM repatriation), the RNG/cos_theta DTCM trims, and the
-      // arena sized down to 298 KiB from its measured worst-effect high-water
-      // (GSReactionDiffusion, post snorm16-trail MindSplatter). The 32 KiB bank
-      // that cut freed has since been spent on ITCM promotions. The shipping
+      // -Os + nano + flash routing and a 298 KiB arena. The shipping
       // image may use all padding within its six ITCM banks; allocating a
       // seventh bank fails the stack-floor-derived ceiling.
       // FLASH max_bytes is the same device wall as Holosphere's, not a ratchet.
