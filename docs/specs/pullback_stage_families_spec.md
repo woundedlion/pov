@@ -1069,7 +1069,7 @@ concern.
   of `setShaderChain` is an ordered list of `{instance, operator}`
   and nothing else — no offsets, no family tags, nothing layout-shaped,
   and **no parameter values**: values flow through the existing
-  per-parameter channel (`setParameter`, keyed `instance.field`,
+  bulk document channel (`setShaderChainParameters`, keyed `instance.field`,
   validated against the operator's schema) *after* compilation, per the
   apply order below, so the transaction boundary is the chain compile
   alone and values always apply to a committed program. `instance`
@@ -1257,13 +1257,13 @@ concern.
   payload at all: topology values arrive only later, through the same
   value channel as everything else, and flipping one switches which
   fields the variant *reads*, never which fields *exist*. Apply order
-  is fixed: `setShaderChain` → apply preset values by id →
+  is fixed: `setShaderChain` → `setShaderChainParameters` →
   `syncEffectGui` → `invalidate`.
 - Device exclusion is named: the interpreter lives behind the workbench
   build-flag pattern (`HS_ENABLE_*` defaulting to 0 outside
   Emscripten/test-oracle builds, `#error` under `ARDUINO`), its effect is
-  excluded from `HS_PHANTASM_EFFECT_LIST`, and the release-ELF symbol
-  inspection extends to the new entry points.
+  excluded from `HS_PHANTASM_EFFECT_LIST`. No release-ELF symbol inspection
+  gate currently verifies interpreter exclusion.
 - Promotion of a document into a composed effect follows §7: the
   capacity assignment must succeed and topology parameters must be
   bank-invariant. The interpreter is never shipped to the device.
