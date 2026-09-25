@@ -1,5 +1,6 @@
 import contextlib
 import io
+import re
 import subprocess
 import sys
 import tempfile
@@ -73,3 +74,25 @@ class EngineSourceState(unittest.TestCase):
         self.write("new.md", "New prose\n")
         self.git("add", "new.md")
         self.assertIn("new.md", engine_source_state.changed_sources(self.root))
+
+    def test_wasm_ci_caches_do_not_dirty_source_provenance(self):
+        project = Path(__file__).resolve().parents[2]
+        workflow = (project / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        job = re.split(r"^  [a-z][a-z-]*:", workflow.split("  wasm:\n", 1)[1],
+                       maxsplit=1, flags=re.MULTILINE)[0]
+        cache_paths = [
+            re.search(r"CCACHE_DIR: (.+)", job).group(1),
+            re.search(r"actions-cache-folder: (.+)", job).group(1),
+        ]
+        self.write(".gitignore", (project / ".gitignore").read_text(encoding="utf-8"))
+        self.git("add", ".gitignore")
+        self.git("commit", "-qm", "build output exclusions")
+        for value in cache_paths:
+            relative = value.replace("${{ github.workspace }}/", "").replace(
+                "${{ steps.pins.outputs.emsdk }}", "5.0.0")
+            cache = self.root / relative
+            cache.mkdir(parents=True)
+            (cache / "toolchain-cache.bin").write_bytes(b"cached compiler output")
+        self.assertEqual(engine_source_state.changed_sources(self.root), [])
+        self.write("untracked.cpp", "int source;\n")
+        self.assertEqual(engine_source_state.changed_sources(self.root), ["untracked.cpp"])
