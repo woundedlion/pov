@@ -192,6 +192,7 @@ class Backfill(unittest.TestCase):
             root = Path(d)
             worktree = root / "wt"
             worktree.mkdir()
+            (worktree / "platformio.ini").write_text("[env:holosphere]\n")
             elf = root / "build" / "holosphere" / tst.ELF_NAME
             elf.parent.mkdir(parents=True)
             elf.write_bytes(make_elf(FIRMWARE))
