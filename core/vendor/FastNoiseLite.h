@@ -167,9 +167,7 @@ public:
   void SetRotationType3D(RotationType3D rotationType3D) {
     mRotationType3D = rotationType3D;
     UpdateTransformType3D();
-#ifndef FASTNOISELITE_ONLY_OPENSIMPLEX2
     UpdateWarpTransformType3D();
-#endif
   }
 
   /// <summary>

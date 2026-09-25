@@ -210,6 +210,23 @@ inline void test_noise_field_analytic_gradient() {
   }
 }
 
+inline void test_vector_noise_rotation_setter_order() {
+  for (const auto rotation : {FastNoiseLite::RotationType3D_ImproveXYPlanes,
+                              FastNoiseLite::RotationType3D_ImproveXZPlanes}) {
+    FastNoiseLite first = make_noise(31), second = make_noise(31);
+    first.SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2);
+    first.SetRotationType3D(rotation);
+    second.SetRotationType3D(rotation);
+    second.SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2);
+    math::Vector a(1.25f, -2.75f, 0.5f), b = a;
+    first.GetVectorNoiseSingle(a.x, a.y, a.z);
+    second.GetVectorNoiseSingle(b.x, b.y, b.z);
+    HS_EXPECT_EQ(a.x, b.x);
+    HS_EXPECT_EQ(a.y, b.y);
+    HS_EXPECT_EQ(a.z, b.z);
+  }
+}
+
 inline void test_noise_field_simplex_curl_approximation() {
   const FastNoiseLite noise = make_noise(7127);
   float max_error = 0.0f;
@@ -322,6 +339,7 @@ inline int run_noise_field_tests() {
   test_noise_field_direct_tangent();
   test_noise_field_tetrahedral_gradient();
   test_noise_field_analytic_gradient();
+  test_vector_noise_rotation_setter_order();
   test_noise_field_simplex_curl_approximation();
   test_noise_field_curl_tangent();
   test_sphere_exp_map_and_transport();

@@ -19,7 +19,7 @@ set(VENDORED_VERSION "1.1.1")
 #   cmake -E sha256sum core/vendor/FastNoiseLite.h
 # on a checkout whose line endings are LF.
 set(VENDORED_SHA256
-    "8d3d31369a9582f94765e86c206aaf490f536d3e79b7e05fe9de4867379eb261")
+    "11276071067d992e810069e29bcb781b1cb9dccfc71c1f5554dece13f0dce94a")
 
 file(READ "${HEADER}" _header)
 file(READ "${CONFIG}" _config)
@@ -46,9 +46,9 @@ endif()
 string(REGEX MATCHALL "#ifn?def FASTNOISELITE_ONLY_OPENSIMPLEX2"
   _guards "${_header}")
 list(LENGTH _guards _guard_count)
-if(NOT _guard_count EQUAL 4)
+if(NOT _guard_count EQUAL 3)
   list(APPEND _missing
-    "FastNoiseLite.h has ${_guard_count} FASTNOISELITE_ONLY_OPENSIMPLEX2 guards, expected 4")
+    "FastNoiseLite.h has ${_guard_count} FASTNOISELITE_ONLY_OPENSIMPLEX2 guards, expected 3")
 endif()
 
 if(NOT _header MATCHES "HS_O3_FN float SingleOpenSimplex2\\(")
