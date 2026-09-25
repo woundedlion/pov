@@ -17,6 +17,7 @@
 #include "core/platform/constants.h"
 #include "core/control/registry.h"
 #include "targets/effects.h"
+#include <array>
 #include <iterator> // std::size — X-macro roster tables
 #include <string_view>
 #include <vector>

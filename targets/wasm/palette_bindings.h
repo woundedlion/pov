@@ -14,10 +14,13 @@
  */
 #pragma once
 
+#include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <emscripten/bind.h>
 #include <limits>
+#include <string>
 #include <type_traits>
 
 #include "core/color/color.h"
