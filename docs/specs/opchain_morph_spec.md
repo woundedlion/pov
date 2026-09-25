@@ -27,7 +27,7 @@ partially animating an invalid chain.
 | `HANKIN_SWEEP` | Repositions compiled Hankin star points across the contact-angle sweep |
 | `RELAX_SLERP` | Interpolates between identical-connectivity meshes around a relax step |
 | `MEDIAL_SLERP` | Slerps vertex positions over fixed connectivity: the dual-bridge medial leg (ambo(P) connectivity, ambo(P) to ambo(dual(P)) positions) and the reconcile leg onto exact authored endpoint positions |
-| `GATED_SWAP` | Partition fallback for `kis` and `dual` |
+| `GATED_SWAP` | Retained engine fallback; no shipped effect constructs it |
 
 Exactly one mesh is drawn per leg frame. Arrival topology, topology classes,
 palette handoff state, and endpoint data are hoisted into arena-backed leg
@@ -50,10 +50,10 @@ truncate branch when it lands exactly on the ambo short-circuit.
 An authored `bevel(0.5)` lowers through the exact ambo case rather than
 emitting a topology-breaking truncate sample.
 
-## Smooth kis/needle
+## Smooth dual/kis/needle
 
-The shipped smooth path replaces the visible partition swap for the supported
-macro cases. A trailing `dual,kis` pair uses the dt bridge and a standalone
+A lone `dual` uses three legs: truncate to ambo(P), medial slerp to
+ambo(dual(P)), then untruncate to dual(P). The shipped macro paths are smooth too. A trailing `dual,kis` pair uses the dt bridge and a standalone
 `kis` uses the dtd bridge. Each constructs identity connectivity, follows a
 medial path (a `MEDIAL_SLERP` medial leg), then runs a second `MEDIAL_SLERP`
 leg, the reconcile, onto the exact authored
@@ -73,8 +73,8 @@ arrival handoff used by ordinary legs.
 - Pure radial motion does not provide a useful face-silhouette sweep under the
   gnomonic face representation; it changes shading inputs more readily than the
   projected boundary.
-- `kis` and `dual` therefore need either the smooth bridge above or the explicit
-  gated-swap fallback. A shading-only trick is not an exact replacement.
+- Shipped `kis` and `dual` transitions use the smooth bridges above. The engine
+  retains a gated-swap fallback, but no shipped effect uses it.
 - Palette continuity is geometric. Departed-face centroids and arrival topology
   classes drive the checked mapping; emission order is not a stable identity.
 
