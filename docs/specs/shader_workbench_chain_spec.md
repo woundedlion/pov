@@ -89,7 +89,7 @@ transition scheduling), and `serialization.fields`. Requirements:
 - A v1-digest → v2-digest migration table maps each v1 fixture digest
   onto the digest of the committed document of the same name. It is
   recomputed by
-  [scripts/generate-shader-v2-documents.mjs](https://github.com/woundedlion/daydream/blob/master/scripts/generate-shader-v2-documents.mjs),
+  [scripts/generate-digest-migration.mjs](https://github.com/woundedlion/daydream/blob/master/scripts/generate-digest-migration.mjs),
   which writes only the table, and a completeness test fails when the
   committed table drifts from what a rerun writes. Preview routing reads
   the migration table to resolve imported v1 identities before matching
