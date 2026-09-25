@@ -175,7 +175,7 @@ private:
    * @details Gates emission only; plot() seeds every sample whatever its
    * alpha.
    */
-  static constexpr float MIN_TRAIL_ALPHA = 0.001f;
+  static constexpr float MIN_TRAIL_ALPHA = TRAIL_EMIT_ALPHA_FLOOR;
 
   Item *items = nullptr; /**< Flat storage (arena-owned). */
   size_t count = 0;      /**< Live item count. */

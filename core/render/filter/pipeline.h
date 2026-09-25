@@ -25,6 +25,9 @@
 
 namespace Filter {
 
+/** @brief Trail samples at or below this alpha emit no pixels. */
+inline constexpr float TRAIL_EMIT_ALPHA_FLOOR = 0.001f;
+
 /** @brief Callback that forwards a 2D plot (x, y, pixel, age, alpha) downstream. */
 using PassFn2D = FunctionRef<void(float, float, const ::Pixel &, float, float)>;
 /** @brief Callback that forwards a 3D plot (vector, pixel, age, alpha) downstream. */

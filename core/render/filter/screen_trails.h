@@ -163,10 +163,9 @@ private:
   /**
    * @brief Trail alpha below which a sample seeds nothing and a buffered point
    * emits nothing.
-   * @details Same value as World::Trails::MIN_TRAIL_ALPHA, but gates seeding as
-   * well as emission.
+   * @details Gates seeding as well as emission.
    */
-  static constexpr float MIN_TRAIL_ALPHA = 0.001f;
+  static constexpr float MIN_TRAIL_ALPHA = TRAIL_EMIT_ALPHA_FLOOR;
 
   int lifetime;                 /**< Per-frame fade divisor in frames. */
   DecayPixel *points = nullptr; /**< Arena-owned array of live trail points. */
