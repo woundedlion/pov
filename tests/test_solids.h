@@ -401,19 +401,9 @@ inline void test_euler_archimedean_catalan_solids() {
 /**
  * @brief Verifies every Islamic-pattern entry is a closed 2-manifold
  * (V-E+F==2).
- * @details Stronger than test_islamic_registry_solids_are_valid's check_basic
- *          (finite / consistent / in-range), which a wrong-but-self-consistent
- *          generator still passes. Despite the cautious "may yield open meshes"
- *          note on the structural test above, every entry currently in the
- *          registry closes (verified across all of them), so the Euler oracle
- * is enforceable and catches a generator regression that opens a seam, drops a
- * face, or duplicates geometry — the topological equivalent of the exact V/E/F
- * oracle the Platonic solids get. Exact per-entry counts are deliberately NOT
- * pinned: the pattern generators are actively tuned, so a golden count would
- * invert the signal (every intentional retune reds the test) the way
- * test_effects.h rejects golden-frame hashing; the Euler invariant is the
- * stable altitude. If a future entry is intentionally open, exclude it here
- * with a comment rather than weakening the check for all.
+ * @details Every registered Islamic pattern is a closed manifold with Euler
+ * characteristic 2. Exact per-entry counts may vary; opening a seam, dropping
+ * a face or duplicating geometry violates this contract.
  */
 inline void test_islamic_registry_solids_are_closed() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
