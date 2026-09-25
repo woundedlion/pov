@@ -21,6 +21,7 @@
 
 #include "core/animation/orientation.h"
 #include "math/mobius.h"
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -1678,7 +1679,8 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
 /** @brief Pins signed-axis kill, horizon, and cross-axis fallback boundaries. */
 inline void test_particle_system_signed_axis_boundaries() {
   auto compare = [](const math::Vector &position, const math::Vector &velocity,
-                    float kill_radius, float event_horizon) {
+                    float kill_radius, float event_horizon,
+                    int expected_active) {
     uint8_t reference_buf[4096];
     uint8_t specialized_buf[4096];
     Arena reference_arena(reference_buf, sizeof(reference_buf));
@@ -1693,6 +1695,7 @@ inline void test_particle_system_signed_axis_boundaries() {
     specialized.spawn(position, velocity, 1);
     reference.step(fake_canvas());
     specialized.step(fake_canvas());
+    HS_EXPECT_EQ(reference.active(), expected_active);
     HS_EXPECT_EQ(reference.active(), specialized.active());
     if (reference.active()) {
       HS_EXPECT_EQ(reference.pool[0].life, specialized.pool[0].life);
@@ -1706,7 +1709,26 @@ inline void test_particle_system_signed_axis_boundaries() {
   };
   auto at_chord_distance = [](float distance) {
     const float x = 1.0f - 0.5f * distance * distance;
-    return math::Vector(x, sqrtf(std::max(0.0f, 1.0f - x * x)), 0.0f);
+    const float DX = x - 1.0f;
+    return math::Vector(x, sqrtf(distance * distance - DX * DX), 0.0f);
+  };
+  auto boundary_positions = [&](float radius) {
+    math::Vector outside = at_chord_distance(radius);
+    const float DX = outside.x - 1.0f;
+    const float RADIUS_SQ = radius * radius;
+    auto distance_sq = [&](float y) { return DX * DX + y * y; };
+    while (distance_sq(outside.y) < RADIUS_SQ)
+      outside.y =
+          std::nextafter(outside.y, std::numeric_limits<float>::infinity());
+    math::Vector inside = outside;
+    do {
+      inside.y = std::nextafter(inside.y, 0.0f);
+    } while (distance_sq(inside.y) >= RADIUS_SQ);
+    outside.y =
+        std::nextafter(inside.y, std::numeric_limits<float>::infinity());
+    HS_EXPECT_LT(distance_sq(inside.y), RADIUS_SQ);
+    HS_EXPECT_GE(distance_sq(outside.y), RADIUS_SQ);
+    return std::array<math::Vector, 2>{inside, outside};
   };
 
   constexpr float KILL = 0.003f;
@@ -1718,14 +1740,18 @@ inline void test_particle_system_signed_axis_boundaries() {
     if (math::dot(tangent, tangent) < 0.5f)
       tangent = math::cross(axis, math::Y_AXIS);
     tangent.normalize();
-    for (float distance :
-         {std::nextafter(KILL, 0.0f), KILL,
-          std::nextafter(KILL, std::numeric_limits<float>::infinity()),
-          std::nextafter(HORIZON, 0.0f), HORIZON,
-          std::nextafter(HORIZON, std::numeric_limits<float>::infinity())}) {
-      const math::Vector local = at_chord_distance(distance);
-      compare(axis * local.x + tangent * local.y, math::Vector(), KILL,
-              HORIZON);
+    for (float radius : {KILL, HORIZON}) {
+      const auto boundary = boundary_positions(radius);
+      for (int side = 0; side < 2; ++side) {
+        const auto &local = boundary[side];
+        compare(axis * local.x + tangent * local.y, math::Vector(), KILL,
+                HORIZON, radius == KILL && side == 0 ? 0 : 1);
+      }
+      for (float factor : {0.5f, 2.0f}) {
+        const auto local = at_chord_distance(radius * factor);
+        compare(axis * local.x + tangent * local.y, math::Vector(), KILL,
+                HORIZON, radius == KILL && factor < 1.0f ? 0 : 1);
+      }
     }
   }
 
@@ -1737,7 +1763,7 @@ inline void test_particle_system_signed_axis_boundaries() {
            math::Vector(-1.0f, 1e-7f, 0.0f).normalized(),
            math::Vector(-1.0f, 1e-5f, 0.0f).normalized(),
        })
-    compare(position, math::Vector(), 0.0f, 0.0f);
+    compare(position, math::Vector(), 0.0f, 0.0f, 1);
 }
 
 /** @brief Bounds deterministic multi-step signed-axis trajectory divergence. */
