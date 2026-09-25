@@ -4385,7 +4385,7 @@ inline void test_shader_workbench_projection_catalog() {
   HS_EXPECT_NEAR(peirce.coords.im, 0.0f, 2e-5f);
 
   const auto &center = projections::AIROCEAN_CENTERS[0];
-  const auto airocean = projections::airocean_projection(
+  const auto airocean = projections::airocean_projection_meridian(
       math::Vector(center.x, center.z, center.y), 0.0f, false);
   const auto &triangle = projections::AIROCEAN_PLANAR_FACES[0];
   HS_EXPECT_NEAR(airocean.coords.re,
@@ -4524,9 +4524,9 @@ inline void test_shader_workbench_projection_catalog() {
     HS_EXPECT_EQ(shifted.region_id, reference.region_id);
   }
   const auto airocean_shifted =
-      projections::airocean_projection(on_meridian, MERIDIAN, false);
+      projections::airocean_projection_meridian(on_meridian, MERIDIAN, false);
   const auto airocean_reference =
-      projections::airocean_projection(zero_meridian, 0.0f, false);
+      projections::airocean_projection_meridian(zero_meridian, 0.0f, false);
   HS_EXPECT_NEAR(airocean_shifted.coords.re, airocean_reference.coords.re,
                  2e-5f);
   HS_EXPECT_NEAR(airocean_shifted.coords.im, airocean_reference.coords.im,
@@ -4539,11 +4539,11 @@ inline void test_shader_workbench_projection_catalog() {
       cosf(oracle_latitude) * cosf(oracle_longitude), sinf(oracle_latitude),
       cosf(oracle_latitude) * sinf(oracle_longitude));
   const auto airocean_oracle =
-      projections::airocean_projection(oracle_point, 0.0f, false);
+      projections::airocean_projection_meridian(oracle_point, 0.0f, false);
   HS_EXPECT_NEAR(airocean_oracle.coords.re, 2.1265288136f, 4e-5f);
   HS_EXPECT_NEAR(airocean_oracle.coords.im, 3.6817439808f, 4e-5f);
   const auto airocean_horizontal =
-      projections::airocean_projection(oracle_point, 0.0f, true);
+      projections::airocean_projection_meridian(oracle_point, 0.0f, true);
   HS_EXPECT_NEAR(airocean_horizontal.coords.re,
                  5.7830422333f - airocean_oracle.coords.im, 4e-5f);
   HS_EXPECT_NEAR(airocean_horizontal.coords.im, airocean_oracle.coords.re,
@@ -4573,7 +4573,7 @@ inline void test_shader_workbench_projection_catalog() {
   };
   for (const auto &oracle : face_oracles) {
     const auto mapped =
-        projections::airocean_projection(oracle.point, 0.0f, false);
+        projections::airocean_projection_meridian(oracle.point, 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, oracle.face);
     HS_EXPECT_NEAR(mapped.coords.re, oracle.coords.re, 2e-5f);
     HS_EXPECT_NEAR(mapped.coords.im, oracle.coords.im, 2e-5f);
@@ -4593,8 +4593,8 @@ inline void test_shader_workbench_projection_catalog() {
   };
   const float glued_cut_distances[] = {65536.0f, 65536.0f, 65536.0f};
   for (size_t index = 0; index < std::size(glued_points); ++index) {
-    const auto mapped =
-        projections::airocean_projection(glued_points[index], 0.0f, false);
+    const auto mapped = projections::airocean_projection_meridian(
+        glued_points[index], 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, glued_faces[index]);
     HS_EXPECT_EQ(mapped.edge_class,
                  projections::airocean_edge_identity(glued_faces[index],
@@ -4622,8 +4622,8 @@ inline void test_shader_workbench_projection_catalog() {
   };
   const float cut_distances[] = {0.0f, 6.498376211e-6f, 6.498376211e-6f};
   for (size_t index = 0; index < std::size(cut_points); ++index) {
-    const auto mapped =
-        projections::airocean_projection(cut_points[index], 0.0f, false);
+    const auto mapped = projections::airocean_projection_meridian(
+        cut_points[index], 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, cut_faces[index]);
     HS_EXPECT_EQ(mapped.edge_class, projections::airocean_edge_identity(
                                         cut_faces[index], cut_edges[index]));
@@ -4636,7 +4636,7 @@ inline void test_shader_workbench_projection_catalog() {
   }
   for (uint8_t face = 0; face < 23; ++face) {
     const auto &face_center = projections::AIROCEAN_CENTERS[face];
-    const auto mapped = projections::airocean_projection(
+    const auto mapped = projections::airocean_projection_meridian(
         math::Vector(face_center.x, face_center.z, face_center.y), 0.0f, false);
     HS_EXPECT_EQ(mapped.region_id, face);
   }
@@ -4654,10 +4654,10 @@ inline void test_shader_workbench_projection_catalog() {
                         from_weight * a.y + to_weight * b.y + 1e-4f * center.y)
         .normalized();
   };
-  const auto japan_cut =
-      projections::airocean_projection(japan_edge_point(0.75f), 0.0f, false);
-  const auto japan_glued =
-      projections::airocean_projection(japan_edge_point(0.25f), 0.0f, false);
+  const auto japan_cut = projections::airocean_projection_meridian(
+      japan_edge_point(0.75f), 0.0f, false);
+  const auto japan_glued = projections::airocean_projection_meridian(
+      japan_edge_point(0.25f), 0.0f, false);
   HS_EXPECT_EQ(japan_cut.region_id, uint8_t(14));
   HS_EXPECT_EQ(japan_cut.edge_class, uint8_t(42));
   HS_EXPECT_TRUE(
@@ -4755,9 +4755,10 @@ inline void test_shader_workbench_projection_catalog() {
         HS_EXPECT_EQ(without_edge.fade_edge_distance, 65536.0f);
       }
       for (bool horizontal : {false, true}) {
-        const auto a = projections::airocean_projection(v, 0.19f, horizontal);
-        const auto without_edge =
-            projections::airocean_projection(v, 0.19f, horizontal, false);
+        const auto a =
+            projections::airocean_projection_meridian(v, 0.19f, horizontal);
+        const auto without_edge = projections::airocean_projection_meridian(
+            v, 0.19f, horizontal, false);
         HS_EXPECT_TRUE(std::isfinite(a.coords.re));
         HS_EXPECT_TRUE(std::isfinite(a.coords.im));
         HS_EXPECT_TRUE(std::isfinite(a.fade_edge_distance));
