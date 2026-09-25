@@ -128,9 +128,9 @@ class Arena {
 #ifndef NDEBUG
   uint32_t generation = 0;
   size_t rewind_floor = SIZE_MAX;
-  uint32_t rewind_seq = 0;
+  uint64_t rewind_seq = 0;
   struct Rewind {
-    uint32_t seq;
+    uint64_t seq;
     size_t target;
   };
   static constexpr size_t REWIND_HISTORY_CAPACITY = 256;
@@ -410,7 +410,7 @@ public:
    *         offset. Never reset, so a stamp taken before a reset/rebind stays
    *         distinguishable.
    */
-  uint32_t get_rewind_seq() const { return rewind_seq; }
+  uint64_t get_rewind_seq() const { return rewind_seq; }
 
   /**
    * @brief Tests whether a rewind reclaimed a byte region after it was handed
@@ -426,7 +426,7 @@ public:
    * on more than 256 increasing targets without an intervening deeper rewind.
    */
   bool reclaimed_since(const void *p, size_t bytes, size_t birth_floor,
-                       uint32_t birth_seq) const {
+                       uint64_t birth_seq) const {
     (void)birth_floor;
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
     uintptr_t q = reinterpret_cast<uintptr_t>(p);
@@ -490,7 +490,7 @@ struct ArenaBlockStamp {
   Arena *source_arena = nullptr; /**< Arena the block was allocated from. */
   uint32_t birth_generation = 0; /**< Arena generation when stamped. */
   size_t birth_rewind_floor = 0; /**< Arena rewind floor when stamped. */
-  uint32_t birth_rewind_seq = 0; /**< Arena rewind counter when stamped. */
+  uint64_t birth_rewind_seq = 0; /**< Arena rewind counter when stamped. */
 
   /**
    * @brief Stamps against @p arena's current generation, rewind floor and
