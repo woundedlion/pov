@@ -19,9 +19,8 @@
 //   - an analytic raw OpenSimplex2 gradient path used by spherical curl
 //   - the `#include "platform/platform.h"` below, which supplies HS_O3_FN
 //
-// HS_O3_FN comes from platform/platform.h below, so the vendored header is no
-// longer a standalone drop-in: a version bump has to re-apply the patches
-// against this file rather than swap FastNoiseLite.h in isolation.
+// HS_O3_FN comes from platform/platform.h below. Version bumps must preserve
+// the configured patches.
 #pragma once
 
 // This macro hard-routes GenNoiseSingle straight to OpenSimplex2 (bypassing the
