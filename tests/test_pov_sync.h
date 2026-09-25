@@ -3363,20 +3363,33 @@ inline void test_budget_acquire_mis_snap() {
   b2.seen_gen = 0;
   b2.have_pending = false;
   b2.live = false;
+  b2.dark_now = true;
   b2.live_index = -1;
   b2.t = 0;
   b2.trapped = false;
   HS_EXPECT_EQ(lock(b2.board), LockState::ACQUIRE);
 
+  bool violated = false;
+  const auto check_dark = [&](Sim &s) {
+    const auto &board = s.boards[2];
+    violated |= (board.live && board.live_index != s.boards[0].live_index) ||
+                (!board.dark_now &&
+                 circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) > 1);
+  };
+
   // The head digit captures it: locked on a beacon digit, a quarter turn out.
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return lock(s.boards[2].board) == LockState::LOCKED; },
+      [&](Sim &s) {
+        check_dark(s);
+        return lock(s.boards[2].board) == LockState::LOCKED;
+      },
       0.5));
   const uint64_t snap_g = sim.g;
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
+      [&](Sim &s) {
+        check_dark(s);
         return lock(s.boards[2].board) == LockState::LOCKED &&
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
@@ -3389,8 +3402,7 @@ inline void test_budget_acquire_mis_snap() {
   HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate,
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_FALSE(b2.trapped);
-  // Fail-dark throughout: never live on an effect the master is not showing.
-  HS_EXPECT_TRUE(!b2.live || b2.live_index == sim.boards[0].live_index);
+  HS_EXPECT_FALSE(violated);
 }
 
 /**
