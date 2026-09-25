@@ -215,6 +215,29 @@ inline void test_depth_palette_mutates_slowly_while_paused() {
   HS_EXPECT_EQ(HyperLatticeWhiteBox::axis_color(effect, 0.5f), axis);
 }
 
+inline void test_depth_palette_keeps_cool_character() {
+  reset_globals();
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  const Pixel initial = HyperLatticeWhiteBox::depth_color(effect, 0.5f);
+  for (int frame = 0; frame <= 2880; ++frame) {
+    if (frame % 120 == 0) {
+      float previous_lightness = 0.0f;
+      for (int sample = 0; sample <= 16; ++sample) {
+        const OKLCH color = pixel_to_oklch(
+            HyperLatticeWhiteBox::depth_color(effect, sample / 16.0f));
+        const float hue = math::wrap_t(color.h / math::TWO_PI_F) * 360.0f;
+        HS_EXPECT_TRUE(hue >= 195.0f && hue <= 290.0f);
+        HS_EXPECT_GT(color.L, previous_lightness);
+        previous_lightness = color.L;
+      }
+    }
+    if (frame < 2880)
+      HyperLatticeWhiteBox::step_depth_palette(effect);
+  }
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
+}
+
 inline void test_next_plane_is_strict() {
   HS_EXPECT_EQ(HL::next_plane_offset(0.0f, true), 1.0f);
   HS_EXPECT_EQ(HL::next_plane_offset(0.0f, false), 1.0f);
@@ -426,26 +449,26 @@ inline void test_render_signature() {
       {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
   };
   static constexpr ShadeSample GOLDEN[] = {
-      {7946, 6985, 868, 21052},
-      {16865, 10986, 1314, 7906},
-      {14701, 10108, 1323, 89},
-      {12534, 9152, 1269, 44437},
-      {1709, 173, 3184, 73},
-      {4283, 4836, 543, 23209},
-      {1334, 2053, 246, 52135},
-      {14008, 7678, 1023, 13992},
-      {10725, 731, 10170, 3619},
-      {42838, 23241, 20329, 18},
-      {3187, 294, 5100, 27},
-      {2031, 2461, 285, 720},
+      {11755, 29236, 38374, 21052},
+      {6289, 20810, 33584, 7906},
+      {7018, 22013, 34137, 89},
+      {8005, 23674, 35054, 44437},
+      {443, 411, 3629, 73},
+      {16091, 34459, 41337, 23209},
+      {25323, 42646, 46187, 52135},
+      {13974, 29680, 38765, 13992},
+      {578, 1541, 12313, 3619},
+      {2037, 10615, 27205, 18},
+      {522, 569, 5266, 27},
+      {24216, 41698, 45666, 720},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
-      {13072, 8990, 1816, 3214},
-      {3511, 314, 5461, 593},
-      {14214, 10049, 1185, 361},
-      {42285, 21141, 18869, 40},
+      {6971, 21237, 32816, 3214},
+      {534, 605, 5610, 593},
+      {7245, 22485, 34485, 361},
+      {2024, 10399, 26729, 40},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
@@ -474,7 +497,7 @@ inline void test_render_signature() {
     }
   }
   expect_shade_samples("render_signature", rendered, GOLDEN, std::size(GOLDEN),
-                       std::size(DIRECTIONS), 17315552385176136808ull);
+                       std::size(DIRECTIONS), 9115850422160364994ull);
 }
 
 inline void test_specialized_slice_transition() {
@@ -563,30 +586,30 @@ inline void test_specialized_render_signature() {
       {1.1f, 2.3f, 0.4f, 0.53f, 0.19f, 0.87f},
   };
   static constexpr ShadeSample GOLDEN[] = {
-      {9621, 8029, 920, 9757},
+      {9816, 26581, 36812, 9757},
       {0, 0, 0, 0},
-      {31156, 14307, 2139, 1837},
+      {3644, 15194, 30453, 1837},
       {0, 0, 0, 0},
-      {4505, 4622, 913, 5667},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {34092, 2757, 12130, 48},
-      {6615, 513, 8099, 592},
-      {41070, 15412, 13460, 182},
-      {18071, 1088, 12267, 107},
-      {13881, 9575, 1494, 4104},
-      {9181, 653, 9580, 355},
-      {36881, 4187, 12547, 4073},
-      {44044, 24756, 19592, 1675},
-      {32875, 14709, 2085, 9197},
-      {23632, 13049, 1654, 0},
-      {0, 0, 0, 0},
-      {42141, 20478, 18428, 116},
+      {15610, 33375, 40320, 5667},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
+      {1301, 5768, 18384, 48},
+      {595, 969, 8822, 592},
+      {1996, 10112, 26026, 182},
+      {726, 2921, 14849, 107},
+      {6757, 21039, 32748, 4104},
+      {608, 1338, 10913, 355},
+      {1417, 6578, 20172, 4073},
+      {2069, 10950, 28047, 1675},
+      {3522, 15066, 30626, 9197},
+      {4923, 18222, 32574, 0},
       {0, 0, 0, 0},
-      {18970, 1124, 12380, 992},
-      {38716, 15502, 2360, 830},
+      {2011, 10321, 26590, 116},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {758, 3076, 15069, 992},
+      {3106, 14001, 30108, 830},
   };
 
   HyperLatticeWhiteBox::Effect effect;
@@ -619,7 +642,7 @@ inline void test_specialized_render_signature() {
 #else
   expect_shade_samples("specialized_render_signature", rendered, GOLDEN,
                        std::size(GOLDEN), std::size(DIRECTIONS),
-                       14125510257158986461ull);
+                       17325614847026740988ull);
 #endif
 }
 
@@ -842,6 +865,7 @@ inline int run_hyper_lattice_tests() {
   test_far_shell_fade();
   test_pause_does_not_stop_motion();
   test_depth_palette_mutates_slowly_while_paused();
+  test_depth_palette_keeps_cool_character();
   test_next_plane_is_strict();
   test_trace_layers_are_front_to_back();
   test_layer_composite_reveals_background();

@@ -71,6 +71,20 @@ HS_FLASH_MEMBER inline PaletteRecipe gs_reaction_diffusion(float base_turns) {
                                  AxisCurve::ASCENDING, base_turns, 0.50f);
 }
 
+/** @brief HyperLattice's indigo-to-cyan depth ramp, with a hue offset in turns. */
+HS_FLASH_MEMBER inline PaletteRecipe hyper_lattice(float hue_offset = 0.0f) {
+  PaletteRecipe recipe;
+  recipe.hue.mode = HueMode::CUSTOM;
+  recipe.hue.custom_turns = {280.0f / 360.0f + hue_offset,
+                             250.0f / 360.0f + hue_offset,
+                             205.0f / 360.0f + hue_offset, 0.0f};
+  recipe.lightness.curve = AxisCurve::CUSTOM;
+  recipe.lightness.custom = {0.25f, 0.60f, 0.88f, 0.0f};
+  recipe.chroma.axis.curve = AxisCurve::CUSTOM;
+  recipe.chroma.axis.custom = {0.65f, 0.80f, 0.35f, 0.0f};
+  return recipe;
+}
+
 /**
  * @brief The MindSplatter trail ramp: a triadic harmony darkening along the
  *        domain at full local-gamut chroma.
@@ -207,7 +221,7 @@ HS_FLASH_MEMBER inline float random_base_turns() {
 }
 
 /** @brief The preset roster, every recipe at a fixed preview hue. */
-HS_FLASH_MEMBER inline std::array<Preset, 9> presets() {
+HS_FLASH_MEMBER inline std::array<Preset, 10> presets() {
   const float preview_hue = PaletteRecipes::hue_turns(42);
   return {{{"BZReactionDiffusion", false, bz_reaction_diffusion()},
            {"Comets", true, comets(preview_hue)},
@@ -218,7 +232,8 @@ HS_FLASH_MEMBER inline std::array<Preset, 9> presets() {
            {"MobiusRings", true, mobius_rings(preview_hue)},
            {"Raymarch", false, raymarch()},
            {"ShaderWorkbench Liquid", false, shader_ball_liquid()},
-           {"ShaderWorkbench Flyby", false, shader_ball_flyby()}}};
+           {"ShaderWorkbench Flyby", false, shader_ball_flyby()},
+           {"HyperLattice", false, hyper_lattice()}}};
 }
 
 } // namespace EffectPaletteRecipes
