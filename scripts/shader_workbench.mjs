@@ -295,10 +295,8 @@ const label = (value, path) => {
   return value;
 };
 
-// The operator catalog: the engine-exported (for now hand-pinned) table of
-// operators, carriers and budgets that chain validation reads. Only existence,
-// carriers, parameter schemas, enum values and budgets are consumed here, so
-// the engine-emitted replacement slots in transparently.
+// scripts/engine_catalog.json is exported from the WASM engine. Validation reads
+// operator existence, carriers, parameter schemas, enum values and budgets.
 const requireCatalog = (catalog) => {
   const invalid = () => fail('semantic', 'CATALOG_REQUIRED', 'catalog',
     'Chain validation needs a complete operator catalog (options.catalog).');
