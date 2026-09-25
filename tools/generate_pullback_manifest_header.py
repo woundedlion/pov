@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 TOPOLOGY_FIELDS = (
-    "function", "projection", "projection_frame", "surface_lens",
+    "function", "projection", "surface_lens",
     "signal_weight", "value_transfer", "coverage", "peirce_layout",
     "airocean_layout", "bonne_hemisphere", "gnomonic_hemisphere",
     "surface_noise", "surface_noise_placement", "surface_noise_basis",
