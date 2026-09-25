@@ -553,7 +553,9 @@ files define line-ending policy and working-artifact exclusions.
 ├── file_system_access.d.ts     Save-picker declarations lib.dom omits, for recorder.js's streaming sink
 ├── pov_segment_map.json        Firmware segment→canvas golden, installed from Holosphere — read by the segment cross-check
 ├── README.md                   Installed from Holosphere (this file)
-├── docs/screenshots/           Installed from Holosphere
+├── docs/
+│   ├── deployment.md          Immutable engine/simulator deployment pairing and validation
+│   └── screenshots/           Installed from Holosphere
 ├── shader/                     Engine-installed documents/validator plus daydream-owned patterns/v1 and digest migration
 │
 ├── main.js                     index.html's entry module: starts the simulator, once
@@ -649,6 +651,8 @@ files define line-ending policy and working-artifact exclusions.
 │   └── tools.css               Shared design tokens and control styling for the tool pages
 │
 ├── scripts/
+│   ├── deployment-pair.mjs     Resolves and validates the immutable deployment pair
+│   ├── stage-site.mjs          Stages the publication manifest for deployment
 │   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
 │   ├── check-cdn-integrity.mjs Verifies the committed import map's jsDelivr subresource-integrity hashes
 │   ├── probe_harness.mjs       Manifest server, browser, console/network collector and pointer helpers every probe runs on
