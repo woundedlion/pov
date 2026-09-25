@@ -61,11 +61,11 @@ hand edit to those files is lost on the next run — change the spec instead. Th
 specs are written in the v1 six-role shape and the committed file is their
 canonical v2 expansion.
 
-Three documents are authored directly in this directory: `ash_cloud`,
-`chromatic_lichen` and `mermaid_skin`. The installed copies of `example`,
-`kaleidoscope_hex_oil`, `kaleidoscope_smooth` and `lattice_melt` are compiled
-from the version 1 fixtures in `daydream/shader/patterns/v1/`; edit those
-fixtures instead of the version 2 files.
+Seven documents are authored directly in this directory: `ash_cloud`,
+`chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
+`kaleidoscope_smooth` and `lattice_melt`. Edit these version 2 documents here.
+The version 1 fixtures in `daydream/shader/patterns/v1/` are frozen legacy
+inputs used only to derive `digest_migration.v1v2.json`.
 
 The engine installs its top-level pattern documents and
 `shaderball_migration.json` into `daydream/shader/patterns/`.
