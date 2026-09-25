@@ -52,8 +52,7 @@ inline bool &correction_guard_live() {
 
 inline void acquire_correction_guard() {
   HS_CHECK(!correction_guard_live(),
-           "at most one correction guard may be live at a time (see contract "
-           "above)");
+           "NoColorCorrection and NoTempCorrection guards cannot overlap");
   correction_guard_live() = true;
 }
 
