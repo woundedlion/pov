@@ -238,10 +238,10 @@ concept FrameProvider = Detail::ProviderFor<State, Binding> &&
 __attribute__((always_inline)) inline ProjectionResult
 airocean(const math::Vector &input, float central_meridian, bool horizontal,
          bool edge_distance_required, float coordinate_scale) {
-  return from_kernel(projections::airocean_projection(input, central_meridian,
-                                                      horizontal,
-                                                      edge_distance_required),
-                     coordinate_scale);
+  return from_kernel(
+      projections::airocean_projection_meridian(
+          input, central_meridian, horizontal, edge_distance_required),
+      coordinate_scale);
 }
 
 __attribute__((always_inline)) inline ProjectionResult
