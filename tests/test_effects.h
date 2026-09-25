@@ -5830,6 +5830,62 @@ inline void test_islamicstars_burst_size_is_snapshotted_per_spawn() {
   HS_EXPECT_EQ(IslamicBuildProbe::fire_ripple(effect), 4);
 }
 
+/** @brief Small recipe builds finish every bridge and retain landed palettes. */
+inline void test_islamicstars_smooth_recipe_completion() {
+  struct Case {
+    Solids::Op op;
+    size_t faces;
+    int bridges;
+  };
+  for (const Case &c :
+       {Case{Solids::Op::DUAL, 8, 1}, Case{Solids::Op::NEEDLE, 24, 1},
+        Case{Solids::Op::KIS, 24, 2}}) {
+    reset_effect_globals();
+    const Solids::OpStep steps[] = {{c.op}};
+    const Solids::Recipe recipe = Solids::make_recipe(1, steps);
+    HS_EXPECT_TRUE(
+        std::string_view(Solids::simple_registry[recipe.seed].name) == "cube");
+    const Solids::Entry entry = {"cube_bridge", Solids::Platonic::cube,
+                                 Solids::Category::Complex, &recipe};
+    IslamicBuildProbe::IS effect;
+    IslamicBuildProbe::set_trans_speed(effect, 2.0f);
+    effect.init();
+    IslamicBuildProbe::spawn_entry(effect, entry);
+    bool started = false;
+    bool finished = false;
+    for (int frame = 0; frame < 256; ++frame) {
+      effect.draw_frame();
+      effect.advance_display();
+      HS_EXPECT_LE(persistent_arena.get_offset(),
+                   IslamicBuildProbe::persistent_budget(effect));
+      if (IslamicBuildProbe::build_active(effect))
+        started = true;
+      else if (started) {
+        finished = true;
+        break;
+      }
+    }
+    HS_EXPECT_TRUE(started);
+    HS_EXPECT_TRUE(finished);
+    HS_EXPECT_EQ(IslamicBuildProbe::dual_bridges(effect), c.bridges);
+    const int slot = IslamicBuildProbe::front_slot(effect);
+    HS_EXPECT_EQ(IslamicBuildProbe::slot_faces(effect, slot), c.faces);
+    const uint8_t *palette = IslamicBuildProbe::slot_palette(effect, slot);
+    std::vector<uint8_t> landed(palette, palette + c.faces);
+    for (uint8_t value : landed)
+      HS_EXPECT_LT(value, MeshPaletteBank::N);
+    for (int frame = 0; frame < 4; ++frame) {
+      effect.draw_frame();
+      effect.advance_display();
+      HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
+      HS_EXPECT_EQ(IslamicBuildProbe::front_slot(effect), slot);
+      HS_EXPECT_TRUE(std::equal(landed.begin(), landed.end(),
+                                IslamicBuildProbe::slot_palette(effect, slot)));
+    }
+    HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
+  }
+}
+
 /**
  * @brief Drives IslamicStars across the second registry entry's complete
  *        op-by-op build at max trans speed: the build must activate and
@@ -6203,6 +6259,7 @@ inline int run_effects_tests() {
   run_case(test_mobius_rings_conformal_and_counter_rotation);
   run_case(test_islamicstars_seed_sprite_fade_in);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
+  run_case(test_islamicstars_smooth_recipe_completion);
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push and PR). The partition
   // is by measured cost, not by resolution: every case below runs for a tenth
