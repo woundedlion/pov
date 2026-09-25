@@ -6,9 +6,10 @@
 // core/vendor/ that is not upstream.
 //
 // PATCH RECORD — FastNoiseLite.h is upstream 1.1.1 plus six in-tree edits, and
-// this file carries a seventh; none of the seven fails to compile if a version
-// bump drops it. They are pinned by tests/check_vendor_patches.cmake (CTest:
-// unit_vendor_patches):
+// this file carries a seventh. Dropping the config include, guards, HS_O3_FN
+// placement, or platform include can fail silently; dropping the raw-path
+// additions fails to compile at their callers. All seven are pinned by
+// tests/check_vendor_patches.cmake (CTest: unit_vendor_patches):
 //   - the `#include "FastNoiseLite_config.h"` that pulls in this file
 //   - three FASTNOISELITE_ONLY_OPENSIMPLEX2 guards (both
 //     GenNoiseSingle overloads, vector-noise dispatch)
