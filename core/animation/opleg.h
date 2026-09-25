@@ -498,7 +498,7 @@ public:
       // corner, reachable through the same instruction hankin_at walks.
       const size_t statics = tr.hankin.static_vertices.size();
       HS_CHECK(arrival.vertices.size() >= statics,
-               "OpLeg truncate: arrival has fewer vertices than statics");
+               "OpLeg hankin: arrival has fewer vertices than statics");
       const size_t dyn = arrival.vertices.size() - statics;
       tr.hk_final.bind(arena, dyn);
       for (size_t i = 0; i < dyn; ++i)
