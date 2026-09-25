@@ -416,6 +416,7 @@ inline void test_hue_fade_matches_rotate_reference() {
     for (float fade : fades)
       for (float shift : shifts) {
         Feedback::Style s{};
+        s.fade = fade;
         s.hue_shift = shift;
         s.sync_hue();
         Pixel got = Feedback::hue_fade(c, fade, s);
@@ -458,6 +459,7 @@ inline void test_hue_fade_apply2_tracks_scalar() {
       const float shift = shifts[si];
       const float fade = fades[fi];
       Feedback::Style s{};
+      s.fade = fade;
       s.hue_shift = shift;
       s.sync_hue();
       // The composite folds the fade and the u16 normalization into k.
