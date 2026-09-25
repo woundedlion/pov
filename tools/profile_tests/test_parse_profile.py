@@ -115,6 +115,23 @@ class ShortFrameRows(unittest.TestCase):
             path.write_text(text, encoding="utf-8")
             return pp.parse(path)
 
+    def test_epoch_reset_clears_streamed_frame_owners(self):
+        import tempfile
+        lines = []
+        for start in (1, 5, 1):
+            if start == 5:
+                lines.append("Preset: 1/2")
+            lines.extend(f"f {frame} w=60000 r=55000"
+                         for frame in range(start, start + 4))
+            lines.append(f"=== profile Fx [288x144] frames {start}-{start + 3} "
+                         "window=250000 us ===")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.log"
+            path.write_text("\n".join(lines), encoding="utf-8")
+            windows, _ = pp.parse(path)
+        self.assertTrue(all(row[3] is not None for row in windows[1].frame_rows))
+        self.assertEqual([row[3] for row in windows[2].frame_rows], [None] * 4)
+
     def test_complete_rows_count_the_spill(self):
         self.assertEqual(pp.spilled_frames(self._parse()[0][0]), 1)
 
