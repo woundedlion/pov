@@ -785,6 +785,10 @@ inline void test_sh_cartesian_matches_spherical() {
             "Cartesian harmonic must match the spherical form on unit vectors");
 }
 
+inline constexpr std::array<int, 24> SH_PRESET_MODES{
+    6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
+    13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
+
 /**
  * @brief White-box accessor for SphericalHarmonics' morph chain and shader inputs.
  * @details Befriended in effects/SphericalHarmonics.h. The morph legs are 64
@@ -1166,8 +1170,9 @@ inline void test_sh_morph_chain_rearms() {
     if (now != held) {
       ++commits;
       held = now;
-      const size_t expected_preset =
-          now == 6 ? 0u : static_cast<size_t>(now - (now > 6));
+      const size_t expected_preset = static_cast<size_t>(
+          std::find(SH_PRESET_MODES.begin(), SH_PRESET_MODES.end(), now) -
+          SH_PRESET_MODES.begin());
       HS_EXPECT_EQ(fx.getPresetIndex(), expected_preset);
       // A committed leg rewinds the blend and schedules the next one.
       if (alpha == 0.0f)
@@ -1202,16 +1207,13 @@ inline void test_sh_preset_mode_mapping() {
   HS_EXPECT_EQ(fx.updateParameter("Debug BB", 1.0f),
                ParamSetResult::UNKNOWN_PARAM);
 
-  static constexpr std::array<int, 24> EXPECTED_MODES{
-      6,  1,  2,  3,  4,  5,  7,  8,  9,  10, 11, 12,
-      13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
-  HS_EXPECT_EQ(WB::current_idx(fx), EXPECTED_MODES[0]);
-  for (size_t preset = 0; preset < EXPECTED_MODES.size(); ++preset) {
+  HS_EXPECT_EQ(WB::current_idx(fx), SH_PRESET_MODES[0]);
+  for (size_t preset = 0; preset < SH_PRESET_MODES.size(); ++preset) {
     HS_EXPECT_TRUE(fx.selectPreset(preset));
     HS_EXPECT_EQ(fx.getPresetIndex(), preset);
-    HS_EXPECT_EQ(WB::current_idx(fx), EXPECTED_MODES[preset]);
-    HS_EXPECT_EQ(WB::next_idx(fx), EXPECTED_MODES[preset]);
+    HS_EXPECT_EQ(WB::current_idx(fx), SH_PRESET_MODES[preset]);
+    HS_EXPECT_EQ(WB::next_idx(fx), SH_PRESET_MODES[preset]);
     HS_EXPECT_EQ(WB::morph_alpha(fx), 0.0f);
   }
 }
