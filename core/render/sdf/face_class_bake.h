@@ -109,7 +109,7 @@ inline bool polygon_is_concave(const float *xy, int count) {
  * any mesh orientation and is baked once per spawn.
  *
  * LUTs are built for concave classes with >= 2 members, largest first, until
- * CLASS_LUT_BUDGET is spent. Logs the census telemetry (classes, coverage,
+ * budget_bytes (default CLASS_LUT_BUDGET) is spent. Logs census telemetry (classes, coverage,
  * worst residual, predicted hit share) at the end.
  */
 [[maybe_unused]] HS_COLD static void
