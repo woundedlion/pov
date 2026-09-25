@@ -542,77 +542,72 @@ private:
     registered_range_clamped = false;
     reset_parameters();
     Workbench::Slots &slots = requested_config.slots;
-    register_animated_param(
-        "Function", &slots.function, Workbench::FUNCTION_OPTIONS,
-        Workbench::FUNCTION_EXPORT_OPTIONS, Workbench::NUM_FUNCTIONS);
+    register_animated_param("Function", &slots.function,
+                            Workbench::FUNCTION_OPTIONS, nullptr,
+                            Workbench::NUM_FUNCTIONS);
     const float domain_scale = lens_domain_linear_scale(slots.surface_lens);
     register_source_controls(slots.function, requested_config.params.source,
                              domain_scale);
-    register_animated_param(
-        "Projection", &slots.projection, Workbench::PROJECTION_OPTIONS,
-        Workbench::PROJECTION_EXPORT_OPTIONS, Workbench::NUM_PROJECTIONS);
+    register_animated_param("Projection", &slots.projection,
+                            Workbench::PROJECTION_OPTIONS, nullptr,
+                            Workbench::NUM_PROJECTIONS);
     register_projection_controls(slots, requested_config.params);
     register_animated_param("Projection Frame", &slots.projection_frame,
-                            Workbench::PROJECTION_FRAME_OPTIONS,
-                            Workbench::PROJECTION_FRAME_EXPORT_OPTIONS,
+                            Workbench::PROJECTION_FRAME_OPTIONS, nullptr,
                             Workbench::NUM_PROJECTION_FRAMES);
     register_projection_frame_controls(slots.projection_frame,
                                        requested_config.params, domain_scale);
     register_animated_param("Camera Wander",
                             &requested_config.params.outer_camera.wander,
                             Workbench::WANDER_MIN, Workbench::WANDER_MAX);
-    register_animated_param(
-        "Surface Noise", &slots.surface_noise, Workbench::SURFACE_NOISE_OPTIONS,
-        Workbench::SURFACE_NOISE_EXPORT_OPTIONS, Workbench::NUM_SURFACE_NOISE);
+    register_animated_param("Surface Noise", &slots.surface_noise,
+                            Workbench::SURFACE_NOISE_OPTIONS, nullptr,
+                            Workbench::NUM_SURFACE_NOISE);
     register_surface_noise_controls(
         slots, requested_config.params.surface_noise,
         slots.surface_noise_placement ==
                 Workbench::SurfaceNoisePlacement::AFTER_LENS
             ? domain_scale
             : 1.0f);
-    register_animated_param(
-        "Lens", &slots.surface_lens, Workbench::LENS_OPTIONS,
-        Workbench::LENS_EXPORT_OPTIONS, Workbench::NUM_LENSES);
+    register_animated_param("Lens", &slots.surface_lens,
+                            Workbench::LENS_OPTIONS, nullptr,
+                            Workbench::NUM_LENSES);
     register_lens_controls(slots.surface_lens,
                            requested_config.params.surface_lens);
     register_animated_param("Planar Warp 1", &slots.warp_program.outer.kind,
-                            Workbench::WARP_OPTIONS,
-                            Workbench::WARP_EXPORT_OPTIONS,
+                            Workbench::WARP_OPTIONS, nullptr,
                             Workbench::NUM_WARPS);
     register_stage_slot_controls(true, slots.warp_program.outer);
     register_active_warp_controls(true, slots.warp_program.outer,
                                   requested_config.params.warp.outer,
                                   domain_scale);
     register_animated_param("Planar Warp 2", &slots.warp_program.inner.kind,
-                            Workbench::WARP_OPTIONS,
-                            Workbench::WARP_EXPORT_OPTIONS,
+                            Workbench::WARP_OPTIONS, nullptr,
                             Workbench::NUM_WARPS);
     register_stage_slot_controls(false, slots.warp_program.inner);
     register_active_warp_controls(false, slots.warp_program.inner,
                                   requested_config.params.warp.inner,
                                   domain_scale);
-    register_animated_param(
-        "Signal Weight", &slots.signal_weight, Workbench::SIGNAL_OPTIONS,
-        Workbench::SIGNAL_EXPORT_OPTIONS, Workbench::NUM_SIGNALS);
+    register_animated_param("Signal Weight", &slots.signal_weight,
+                            Workbench::SIGNAL_OPTIONS, nullptr,
+                            Workbench::NUM_SIGNALS);
     register_animated_param("Value Transfer", &slots.value_transfer,
-                            Workbench::VALUE_TRANSFER_OPTIONS,
-                            Workbench::VALUE_TRANSFER_EXPORT_OPTIONS,
+                            Workbench::VALUE_TRANSFER_OPTIONS, nullptr,
                             Workbench::NUM_VALUE_TRANSFERS);
     register_value_transfer_controls(slots.value_transfer,
                                      requested_config.params.value);
-    register_animated_param(
-        "Coverage", &slots.coverage, Workbench::COVERAGE_OPTIONS,
-        Workbench::COVERAGE_EXPORT_OPTIONS, Workbench::NUM_COVERAGE_POLICIES);
+    register_animated_param("Coverage", &slots.coverage,
+                            Workbench::COVERAGE_OPTIONS, nullptr,
+                            Workbench::NUM_COVERAGE_POLICIES);
     register_coverage_controls(slots.coverage, requested_config.params.value);
-    register_animated_param(
-        "Palette", &slots.palette, Workbench::PALETTE_OPTIONS,
-        Workbench::PALETTE_EXPORT_OPTIONS, Workbench::NUM_PALETTES);
+    register_animated_param("Palette", &slots.palette,
+                            Workbench::PALETTE_OPTIONS, nullptr,
+                            Workbench::NUM_PALETTES);
     register_animated_param(
         "Palette Chroma", &requested_config.params.color.palette_chroma,
         Workbench::PALETTE_CHROMA_MIN, Workbench::PALETTE_CHROMA_MAX);
     register_animated_param("Palette Mapping", &slots.palette_mapping,
-                            Workbench::PALETTE_MAPPING_OPTIONS,
-                            Workbench::PALETTE_MAPPING_EXPORT_OPTIONS,
+                            Workbench::PALETTE_MAPPING_OPTIONS, nullptr,
                             Workbench::NUM_PALETTE_MAPPINGS);
     register_animated_param(
         "Mapping Frequency", &requested_config.params.color.mapping_frequency,
@@ -631,8 +626,7 @@ private:
         -Workbench::PHASE_OSCILLATION_SPEED_MAX,
         Workbench::PHASE_OSCILLATION_SPEED_MAX);
     register_animated_param("Brightness Envelope", &slots.brightness_envelope,
-                            Workbench::BRIGHTNESS_ENVELOPE_OPTIONS,
-                            Workbench::BRIGHTNESS_ENVELOPE_EXPORT_OPTIONS,
+                            Workbench::BRIGHTNESS_ENVELOPE_OPTIONS, nullptr,
                             Workbench::NUM_BRIGHTNESS_ENVELOPES);
     if (slots.brightness_envelope != Workbench::BrightnessEnvelope::NONE) {
       register_animated_param(
@@ -648,9 +642,9 @@ private:
     register_animated_param(
         "Opacity at Value 1", &requested_config.params.color.opacity_high,
         Workbench::VALUE_OPACITY_MIN, Workbench::VALUE_OPACITY_MAX);
-    register_animated_param(
-        "Hue Shift Mode", &slots.hue_shift, Workbench::HUE_SHIFT_OPTIONS,
-        Workbench::HUE_SHIFT_EXPORT_OPTIONS, Workbench::NUM_HUE_SHIFT_MODES);
+    register_animated_param("Hue Shift Mode", &slots.hue_shift,
+                            Workbench::HUE_SHIFT_OPTIONS, nullptr,
+                            Workbench::NUM_HUE_SHIFT_MODES);
     register_color_controls(slots.hue_shift, requested_config.params.color,
                             domain_scale);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -979,30 +973,28 @@ private:
   register_stage_slot_controls(bool outer, Workbench::WarpStageSpec &spec) {
     if (spec.kind == Workbench::WarpStageKind::VECTOR_NOISE ||
         spec.kind == Workbench::WarpStageKind::CURL_FLOW) {
-      register_animated_param(
-          outer ? "Planar Warp 1 Noise Basis" : "Planar Warp 2 Noise Basis",
-          &spec.basis, Workbench::NOISE_BASIS_OPTIONS,
-          Workbench::NOISE_BASIS_EXPORT_OPTIONS, Workbench::NUM_NOISE_BASES);
+      register_animated_param(outer ? "Planar Warp 1 Noise Basis"
+                                    : "Planar Warp 2 Noise Basis",
+                              &spec.basis, Workbench::NOISE_BASIS_OPTIONS,
+                              nullptr, Workbench::NUM_NOISE_BASES);
     }
     if (warp_uses_envelope(spec.kind)) {
       register_animated_param(outer ? "Planar Warp 1 Envelope"
                                     : "Planar Warp 2 Envelope",
                               &spec.envelope, Workbench::WARP_ENVELOPE_OPTIONS,
-                              Workbench::WARP_ENVELOPE_EXPORT_OPTIONS,
-                              Workbench::NUM_WARP_ENVELOPES);
+                              nullptr, Workbench::NUM_WARP_ENVELOPES);
     }
     if (spec.kind == Workbench::WarpStageKind::CURL_FLOW)
       register_animated_param(outer ? "Planar Warp 1 Curl Integrator"
                                     : "Planar Warp 2 Curl Integrator",
                               &spec.curl_integrator,
-                              Workbench::CURL_INTEGRATOR_OPTIONS,
-                              Workbench::CURL_INTEGRATOR_EXPORT_OPTIONS,
+                              Workbench::CURL_INTEGRATOR_OPTIONS, nullptr,
                               Workbench::NUM_CURL_INTEGRATORS);
     if (spec.kind == Workbench::WarpStageKind::POLAR_CHART) {
-      register_animated_param(
-          outer ? "Planar Warp 1 Polar Mode" : "Planar Warp 2 Polar Mode",
-          &spec.polar_mode, Workbench::POLAR_MODE_OPTIONS,
-          Workbench::POLAR_MODE_EXPORT_OPTIONS, Workbench::NUM_POLAR_MODES);
+      register_animated_param(outer ? "Planar Warp 1 Polar Mode"
+                                    : "Planar Warp 2 Polar Mode",
+                              &spec.polar_mode, Workbench::POLAR_MODE_OPTIONS,
+                              nullptr, Workbench::NUM_POLAR_MODES);
       register_animated_int_param(outer ? "Planar Warp 1 Polar Harmonic"
                                         : "Planar Warp 2 Polar Harmonic",
                                   &spec.polar_harmonic, 1,
@@ -1057,8 +1049,7 @@ private:
       register_clamped_animated_param("Tessellation Spin Speed",
                                       &params.angle_rate, -0.05f, 0.05f);
       register_animated_param("Tessellation Kind", &params.tessellation_kind,
-                              Workbench::TESSELLATION_KIND_OPTIONS,
-                              Workbench::TESSELLATION_KIND_EXPORT_OPTIONS,
+                              Workbench::TESSELLATION_KIND_OPTIONS, nullptr,
                               Workbench::NUM_TESSELLATION_KINDS);
       return;
     }
@@ -1077,8 +1068,7 @@ private:
           domain_scaled_max(Workbench::SOURCE_NOISE_RATE_MAX, 1.0f / 4096.0f,
                             domain_scale));
       register_animated_param("Source Noise Basis", &params.noise_basis,
-                              Workbench::NOISE_BASIS_OPTIONS,
-                              Workbench::NOISE_BASIS_EXPORT_OPTIONS,
+                              Workbench::NOISE_BASIS_OPTIONS, nullptr,
                               Workbench::NUM_NOISE_BASES);
       return;
     }
@@ -1120,13 +1110,11 @@ private:
                                                    Workbench::Params &params) {
     if (slots.projection == Workbench::Projection::PEIRCE_QUINCUNCIAL)
       register_animated_param("Peirce Layout", &slots.peirce_layout,
-                              Workbench::PEIRCE_LAYOUT_OPTIONS,
-                              Workbench::PEIRCE_LAYOUT_EXPORT_OPTIONS,
+                              Workbench::PEIRCE_LAYOUT_OPTIONS, nullptr,
                               Workbench::NUM_PEIRCE_LAYOUTS);
     if (slots.projection == Workbench::Projection::AIROCEAN)
       register_animated_param("Airocean Layout", &slots.airocean_layout,
-                              Workbench::AIROCEAN_LAYOUT_OPTIONS,
-                              Workbench::AIROCEAN_LAYOUT_EXPORT_OPTIONS,
+                              Workbench::AIROCEAN_LAYOUT_OPTIONS, nullptr,
                               Workbench::NUM_AIROCEAN_LAYOUTS);
     if (slots.projection == Workbench::Projection::EQUIRECTANGULAR ||
         slots.projection == Workbench::Projection::STEREOGRAPHIC ||
@@ -1148,13 +1136,11 @@ private:
     }
     if (slots.projection == Workbench::Projection::BONNE)
       register_animated_param("Bonne Hemisphere", &slots.bonne_hemisphere,
-                              Workbench::BONNE_HEMISPHERE_OPTIONS,
-                              Workbench::BONNE_HEMISPHERE_EXPORT_OPTIONS,
+                              Workbench::BONNE_HEMISPHERE_OPTIONS, nullptr,
                               Workbench::NUM_BONNE_HEMISPHERES);
     if (slots.projection == Workbench::Projection::GNOMONIC)
       register_animated_param("Gnomonic Hemisphere", &slots.gnomonic_hemisphere,
-                              Workbench::GNOMONIC_HEMISPHERE_OPTIONS,
-                              Workbench::GNOMONIC_HEMISPHERE_EXPORT_OPTIONS,
+                              Workbench::GNOMONIC_HEMISPHERE_OPTIONS, nullptr,
                               Workbench::NUM_GNOMONIC_HEMISPHERES);
     if (slots.projection == Workbench::Projection::BONNE)
       register_animated_param("Bonne Standard Parallel",
@@ -1216,12 +1202,11 @@ private:
       return;
     register_animated_param("Surface Noise Placement",
                             &slots.surface_noise_placement,
-                            Workbench::SURFACE_NOISE_PLACEMENT_OPTIONS,
-                            Workbench::SURFACE_NOISE_PLACEMENT_EXPORT_OPTIONS,
+                            Workbench::SURFACE_NOISE_PLACEMENT_OPTIONS, nullptr,
                             Workbench::NUM_SURFACE_NOISE_PLACEMENTS);
-    register_animated_param(
-        "Surface Noise Basis", &params.basis, Workbench::NOISE_BASIS_OPTIONS,
-        Workbench::NOISE_BASIS_EXPORT_OPTIONS, Workbench::NUM_NOISE_BASES);
+    register_animated_param("Surface Noise Basis", &params.basis,
+                            Workbench::NOISE_BASIS_OPTIONS, nullptr,
+                            Workbench::NUM_NOISE_BASES);
     register_clamped_animated_param("Surface Noise Scale", &params.scale,
                                     Workbench::LENS_NOISE_SCALE_MIN,
                                     Workbench::LENS_NOISE_SCALE_MAX);
@@ -1244,8 +1229,7 @@ private:
     else
       register_animated_param("Surface Noise Integrator", &params.integrator,
                               Workbench::SURFACE_CURL_INTEGRATOR_OPTIONS,
-                              Workbench::SURFACE_CURL_INTEGRATOR_EXPORT_OPTIONS,
-                              Workbench::NUM_SURFACE_CURL_INTEGRATORS);
+                              nullptr, Workbench::NUM_SURFACE_CURL_INTEGRATORS);
   }
 
   HS_COLD_MEMBER void register_active_warp_controls(
