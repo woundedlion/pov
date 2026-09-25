@@ -86,8 +86,8 @@ transition scheduling), and `serialization.fields`. Requirements:
   expansion output: each is pinned as its own canonical re-export, and
   the five identity-frame replacements deliberately differ from what
   expanding their v1 fixture yields.
-- A v1-digest → v2-digest migration table maps each v1 fixture digest
-  onto the digest of the committed document of the same name. It is
+- A v1-digest → document-filename migration table maps each v1 fixture digest
+  onto the filename of its committed replacement document. It is
   recomputed by
   [scripts/generate-digest-migration.mjs](https://github.com/woundedlion/daydream/blob/master/scripts/generate-digest-migration.mjs),
   which writes only the table, and a completeness test fails when the
@@ -102,7 +102,7 @@ transition scheduling), and `serialization.fields`. Requirements:
   rather than reporting ambiguity.
 
 **Engine control names.** The hand-written alias table
-(`engineParameterNames`) cannot be deleted outright: fixed-preview
+(`engineControlNames`) cannot be deleted outright: fixed-preview
 routing writes into compiled composed effects whose slider names come
 from `Params` registration. Convergence rule: newly promoted effects
 register label-derived control names, so document ids and engine names
