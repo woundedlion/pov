@@ -206,14 +206,15 @@ private:
     logged_palettes_full = false;
 
     palettes.push_front(make_palette());
-    palette_boundaries.push_front(0);
+    palette_boundaries.push_front(-WIPE_BLEND_WIDTH);
     rotate_and_rebake_front();
 
     // Stamp WIPE_COMPLETE on completion (not pop_back): overlapping wipes can
     // finish out of order, so pop_back would evict a still-animating boundary.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(
-        0, Animation::Transition(palette_boundaries.front(), math::PI_F,
+        0, Animation::Transition(palette_boundaries.front(),
+                                 math::PI_F + WIPE_BLEND_WIDTH,
                                  (int)params.wipe_duration, math::ease_linear)
                .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
   }
@@ -258,7 +259,7 @@ private:
    * @param v Unit sample direction; the angle between it and PALETTE_NORMAL
    *          selects a palette band.
    * @param t Palette parameter in [0, 1] indexing into the baked LUT.
-   * @return The blended Color4 for the sampled band, with a blend_width-wide
+   * @return The blended Color4 for the sampled band, with a WIPE_BLEND_WIDTH-wide
    *         crossfade across each boundary.
    * @details Walks the active palette boundaries from the newest (front) to the
    *          oldest to find the band containing the angle.
@@ -267,8 +268,6 @@ private:
     if (palette_boundaries.size() == 0)
       return baked_palettes[0].get(t);
 
-    // Cross-fade half-width per boundary side, in radians.
-    constexpr float blend_width = math::PI_F / 4;
     // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
     // makes the `a < next_boundary_lower_edge` test pass.
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
@@ -280,15 +279,15 @@ private:
     // frames. Stays in bounds and self-heals as wipes drain.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
-      auto lower_edge = boundary - blend_width;
-      auto upper_edge = boundary + blend_width;
+      auto lower_edge = boundary - WIPE_BLEND_WIDTH;
+      auto upper_edge = boundary + WIPE_BLEND_WIDTH;
 
       if (a < lower_edge) {
         return baked_palettes[i].get(t);
       }
 
       if (a >= lower_edge && a <= upper_edge) {
-        auto blend_factor = (a - lower_edge) / (2 * blend_width);
+        auto blend_factor = (a - lower_edge) / (2 * WIPE_BLEND_WIDTH);
         auto clamped_blend_factor = hs::clamp(blend_factor, 0.0f, 1.0f);
 
         Color4 c1 = baked_palettes[i].get(t);
@@ -301,7 +300,7 @@ private:
 
       auto next_boundary_lower_edge =
           (i + 1 < palette_boundaries.size()
-               ? palette_boundaries[i + 1] - blend_width
+               ? palette_boundaries[i + 1] - WIPE_BLEND_WIDTH
                : NO_NEXT_BOUNDARY);
 
       if (a > upper_edge && a < next_boundary_lower_edge) {
@@ -453,6 +452,7 @@ private:
    * @details Set well above the live boundary range [0, PI] so it can never
    *          collide with an in-flight value.
    */
+  static constexpr float WIPE_BLEND_WIDTH = math::PI_F / 4;
   static constexpr float WIPE_COMPLETE = 100.0f;
   static constexpr int H_VIRT = H + hs::H_OFFSET; /**< Virtual row count. */
   static constexpr size_t NUM_NODES = H_VIRT;     /**< Strand node count. */
