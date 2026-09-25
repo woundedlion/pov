@@ -326,12 +326,7 @@ acquire_tree_lock() {
     fi
     old_token=$(_hs_lock_field "$TREE_LOCK" token)
     if [ "$attempt" -eq 1 ] && _hs_lock_is_stale "$TREE_LOCK"; then
-      if [ -n "$old_token" ]; then
-        _hs_break_lock "$TREE_LOCK" "$old_token" || :
-      else
-        "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" break-empty "$TREE_LOCK" \
-          "$((now - HS_DEVICE_STALE_GRACE))" || :
-      fi
+      _hs_break_stale "$TREE_LOCK" "$old_token" || :
     else
       break
     fi
