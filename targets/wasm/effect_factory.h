@@ -102,14 +102,6 @@ inline constexpr WasmResolution WASM_RESOLUTIONS[] = {
 static_assert(std::size(WASM_RESOLUTIONS) > 0,
               "HS_RESOLUTIONS must carry a row to bootstrap on");
 
-// The registered effect names, in HS_EFFECT_LIST order. Only the first is used
-// (the constructor's bootstrap), for the same reason as WASM_RESOLUTIONS.
-inline constexpr const char *WASM_EFFECT_NAMES[] = {
-#define X(name) #name,
-    HS_EFFECT_LIST(X)
-#undef X
-};
-
 /**
  * @brief Invokes f.operator()<W,H>() for the single HS_RESOLUTIONS row
  *        matching the runtime (w,h).

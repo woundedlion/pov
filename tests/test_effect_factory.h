@@ -71,7 +71,8 @@ template <int W, int H> inline void verify_factory_lookup() {
   const auto lookup = [](std::string_view name) {
     return hs_wasm::find_factory_entry<W, H>(name);
   };
-  for (const char *name : hs_wasm::WASM_EFFECT_NAMES) {
+  for (const auto &registration : hs_wasm::EFFECT_REGISTRATIONS) {
+    const char *name = registration.name.data();
     const FactoryEntry *entry = lookup(name);
     HS_EXPECT_TRUE(entry != nullptr);
     if (entry)
@@ -84,7 +85,7 @@ template <int W, int H> inline void verify_factory_lookup() {
   HS_EXPECT_TRUE(lookup("") == nullptr);
   HS_EXPECT_TRUE(lookup("NoSuchEffect") == nullptr);
   // A prefix of a registered name must miss: the scan compares whole names.
-  const std::string_view first = hs_wasm::WASM_EFFECT_NAMES[0];
+  const std::string_view first = hs_wasm::EFFECT_REGISTRATIONS[0].name;
   HS_EXPECT_TRUE(lookup(first.substr(0, first.size() - 1)) == nullptr);
 }
 
@@ -175,14 +176,14 @@ inline void test_resolution_dispatch() {
 
 /**
  * @brief Checks the roster tables the engine bootstraps from.
- * @details The constructor starts on WASM_RESOLUTIONS[0] / WASM_EFFECT_NAMES[0]
+ * @details The constructor starts on WASM_RESOLUTIONS[0] / EFFECT_REGISTRATIONS[0].name
  *          rather than a named preset, so both must be non-empty and the first
  *          row buildable.
  */
 inline void test_bootstrap_rows() {
   HS_EXPECT_TRUE(hs_wasm::wasm_resolution_supported(
       hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h));
-  HS_EXPECT_TRUE(std::strlen(hs_wasm::WASM_EFFECT_NAMES[0]) > 0);
+  HS_EXPECT_TRUE(!hs_wasm::EFFECT_REGISTRATIONS[0].name.empty());
 }
 
 /** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
