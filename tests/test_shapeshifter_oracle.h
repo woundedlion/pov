@@ -158,6 +158,10 @@ struct ShapeShifterWhiteBox {
                 "shipping preset roster changed; update the oracle's "
                 "per-preset expectations");
 
+  static void prepare_count(OracleEffect &effect, int count) {
+    effect.prepare_count(count);
+  }
+
   static void configure(OracleEffect &effect, const OracleState &state) {
     effect.alpha = state.alpha;
     effect.params.shape = state.shape;
