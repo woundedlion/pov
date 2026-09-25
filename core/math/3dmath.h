@@ -577,28 +577,6 @@ HS_O3_FN inline float fast_rsqrt(float x) {
   return y;
 }
 
-/**
- * @brief Fast cube root for x in [0, ~3e28].
- * @param x Input value; the domain is [0, ~3e28] (cbrt(0)=0); negative inputs
- * return 0.
- * @return An approximation of the cube root of `x`.
- * @details Bit-hack initial guess (divide the float exponent by three) refined
- * by ONE Halley step. Peak relative error is ~2.3e-5 against cbrtf over
- * [1e-20, 1].
- */
-HS_O3_FN inline float fast_cbrt(float x) {
-  if (x <= 0.0f)
-    return 0.0f;
-  uint32_t i;
-  std::memcpy(&i, &x, sizeof(i));
-  i = i / 3u + 0x2a514067u;
-  float y;
-  std::memcpy(&y, &i, sizeof(y));
-  // Halley: y *= (y^3 + 2x) / (2y^3 + x)
-  float c = y * y * y;
-  return y * (c + 2.0f * x) / (2.0f * c + x);
-}
-
 // Halley numerator/denominator for one cube root. A non-positive input gets a
 // zero numerator and a unit denominator so it cannot poison the shared product
 // in fast_cbrt3.
@@ -616,6 +594,21 @@ HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
   float c = y * y * y;
   num = y * (c + 2.0f * x);
   den = 2.0f * c + x;
+}
+
+/**
+ * @brief Fast cube root for x in [0, ~3e28].
+ * @param x Input value; the domain is [0, ~3e28] (cbrt(0)=0); negative inputs
+ * return 0.
+ * @return An approximation of the cube root of `x`.
+ * @details Bit-hack initial guess (divide the float exponent by three) refined
+ * by ONE Halley step. Peak relative error is ~2.3e-5 against cbrtf over
+ * [1e-20, 1].
+ */
+HS_O3_FN inline float fast_cbrt(float x) {
+  float numerator, denominator;
+  cbrt_halley_terms(x, numerator, denominator);
+  return numerator / denominator;
 }
 
 /**
