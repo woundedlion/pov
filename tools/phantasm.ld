@@ -1,31 +1,18 @@
 /* ============================================================================
- * Custom Teensy 4.0 linker script for the Phantasm envs — a verbatim copy
- * of framework-arduinoteensy/cores/teensy4/imxrt1062.ld with TWO routing changes
- * that move RAM1 (FlexRAM) content to FLASH. Both rely on -ffunction-sections /
- * -fdata-sections (on by default), so each function/const is its own input
- * section and can be matched individually:
- *
- *   #5  library .text and per-effect factories -> FLASH, before the ITCM
- *       catch-all. The hot flywheel libgcc divmod also uses cached flash;
- *       this routing retains ITCM capacity at the cost of cache-dependent latency.
- *
- *   #3  const rodata -> FLASH: the stock script sends *(.rodata*) to .data (DTCM,
- *       RAM1). Teensy 4 flash is memory-mapped + cached, so const tables/strings/
- *       vtables read fine in place (and skip the boot-time copy to RAM). Routed in
- *       .text.progmem; the .data rodata line is removed so nothing double-claims.
- *
- * Everything else (heap, stack, csf) is byte-identical to the stock script; the
- * derived _etext / _itcm_block_count drop its SIZEOF(.ARM.exidx) term, which is
- * an ITCM contribution only in the stock layout. Selected per-env via
- * board_build.ldscript by phantasm, phantasm8, profile, profile_o3 and bench, so it
- * serves the -Os and -O3 images alike.
- *
+ * Custom Teensy 4.0 linker script for the Phantasm environments.
  * FORKED FROM: framework-arduinoteensy 1.162.0
  *
- * Nothing in the build re-derives this file from the stock script, so the fork
- * base and both routing changes are pinned by tests/check_linker_patches.cmake
- * (CTest: unit_linker_patches). Bumping the framework package in platformio.ini
- * means re-deriving this script and updating the line above.
+ * FLASH routing covers cold libraries and effect factories, const rodata,
+ * spawn-time init/setup_presets, cold-attribute and hot-leaf sections, cold
+ * constructors/destructors and mesh builders, and framework one-time setup.
+ * The hot flywheel libgcc divmod also uses cached flash, retaining ITCM capacity
+ * at the cost of cache-dependent latency.
+ * .fini is placed explicitly. Function/data sections allow individual matches
+ * before the ITCM catch-all; _etext and _itcm_block_count exclude .ARM.exidx.
+ *
+ * tests/check_linker_patches.cmake pins the fork version and selected library,
+ * factory and rodata routes. A framework update requires comparing the full
+ * script against the new stock imxrt1062.ld and preserving all routing rules.
  * ============================================================================ */
 MEMORY
 {
