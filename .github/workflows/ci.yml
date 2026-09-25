@@ -652,7 +652,7 @@ jobs:
             echo "::error::first-party warning(s) in the WASM build — fix them (this target has no baseline)"
             exit 1
           fi
-          echo "No first-party warnings in the release or debug WASM build."
+          echo "No first-party warnings in the release, debug or strict-FP WASM build."
 
       - name: Runtime-smoke WASM debug
         # The debug build carries -sASSERTIONS=1 and a distinct 64 KB stack;
