@@ -307,7 +307,7 @@ and per-slot bakes in IslamicStars (rebaked unconditionally after every
   displaced vertices, |d_true − d_canon| is bounded by the worst aligned
   vertex deviation — so bind_class_lut measures that deviation per face per
   frame (one extra pass over the vertices) and widens the sign-purity guard
-  by it; a face bent beyond ONE cell diagonal keeps the exact path. The tight
+  by it; a face bent beyond `ALIGN_MAX_DEV_DIAGS` (0.25) of a cell diagonal keeps the exact path. The tight
   cap is a value-accuracy bound, not just a sign bound: a sign-safe but bent
   face still shades a visibly misplaced interior gradient (stars swim under
   ripple), so a rippling face goes exact until the wavefront passes. Pinned
