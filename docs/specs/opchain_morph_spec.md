@@ -2,8 +2,8 @@
 
 **Status: LANDED.** IslamicStars builds authored solid recipes one operator at a
 time. This document summarizes the shipped contracts; the source of truth is
-`effects/IslamicStars.h`, `core/animation/opleg.h`, `core/mesh/recipe_types.h`, and
-`core/mesh/solids.h`.
+`effects/IslamicStars.h`, `core/animation/opleg.h`, `core/mesh/recipe_types.h`,
+`core/mesh/recipe.h`, `core/animation/recipe_build.h`, and `core/mesh/solids.h`.
 
 ## Recipe model
 
