@@ -35,9 +35,8 @@ if(NOT _rc EQUAL 0)
   message(FATAL_ERROR "generate_luts.py failed (${_rc}):\n${_err}")
 endif()
 
-# Whole file with whitespace runs collapsed. CI normalizes both sides through
-# clang-format instead; collapsing whitespace absorbs the same reflow (and a CRLF
-# checkout) without requiring clang-format, and changes no other character.
+# Collapse whitespace to normalize CRLF and residual clang-format reflow.
+# The generator itself still requires clang-format.
 function(_normalized_text path out_var)
   file(READ "${path}" _text)
   string(REGEX REPLACE "[ \t\r\n]+" " " _text "${_text}")
