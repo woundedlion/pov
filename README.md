@@ -449,6 +449,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── promoted_digests.test.mjs Pins each promoted header's descriptor/preset-bank digest to its document
 │   ├── engine_catalog.json     wasm32 operator ABI catalog the browser workbench budgets against
 │   ├── export_engine_catalog.mjs / export_engine_catalog.test.mjs  Exports and validates the WASM operator catalog; CLI failure fixtures
+│   ├── exit.mjs                  Shared command exit after pending stderr writes drain
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
 │   ├── engine_bindings_contract.test.mjs Node contract tests for WASM engine binding invariants
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
