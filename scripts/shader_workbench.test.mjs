@@ -264,6 +264,16 @@ test('strict parsing enforces byte, depth, BOM, and finite-number bounds', () =>
   assert.throws(() => parseShaderDocument('{"long":"abcd"}', { bytes: 4 }), /byte limit/u);
 });
 
+test('decoded documents reject NFC-colliding metadata keys', () => {
+  const document = example();
+  document.study_metadata = { 'café': 'composed', 'cafe\u0301': 'decomposed' };
+  for (const source of [document, JSON.stringify(document)]) {
+    const compiled = compile(source);
+    assert.equal(compiled.status, 'INVALID');
+    assert.equal(compiled.diagnostics[0].code, 'DUPLICATE_KEY');
+  }
+});
+
 test('decoded documents enforce the parser depth limit', () => {
   const document = example();
   document.effect_metadata = {};
