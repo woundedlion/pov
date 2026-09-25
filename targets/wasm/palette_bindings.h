@@ -23,6 +23,7 @@
 #include "core/color/color.h"
 #include "core/color/effect_palette_recipes.h"
 #include "core/platform/platform.h"
+#include "targets/wasm/payload_clone.h"
 
 inline constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
 inline constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
@@ -433,7 +434,9 @@ private:
    *          (buffer.byteLength === 0). A caller must therefore read or copy a
    *          view before its next call into the module.
    */
-  static emscripten::val compile(const emscripten::val &input, bool inspect) {
+  static emscripten::val compile(const emscripten::val &caller_input,
+                                 bool inspect) {
+    const emscripten::val input = clone_payload(caller_input);
     PaletteRecipe recipe;
     PaletteCompileStatus status;
     emscripten::val output = emscripten::val::object();

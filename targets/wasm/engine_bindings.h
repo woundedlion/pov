@@ -24,6 +24,7 @@
 #include "core/platform/platform.h"
 #include "hardware/pov_segment_map.h"
 #include "targets/wasm/arena_metrics.h"
+#include "targets/wasm/payload_clone.h"
 #include "targets/wasm/effect_factory.h" // pure, host-tested factory + dispatch
 #include "targets/wasm/param_marshal.h"  // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
@@ -1047,7 +1048,7 @@ public:
 
   /**
    * @brief Atomically restores a current Shader workbench snapshot.
-   * @param input Object in getFullConfigSnapshot()'s shape.
+   * @param caller_input Object in getFullConfigSnapshot()'s shape.
    * @return APPLIED, or the reason the snapshot was refused.
    * @details Rejections leave the effect exactly as it was, so a failed restore
    *          needs no rollback. NOT_SHADER_WORKBENCH covers the loaded effect;
@@ -1062,7 +1063,7 @@ public:
    *          the loaded effect out while the snapshot is being decoded.
    */
   FullConfigRestoreResult
-  restoreFullConfigSnapshot(const emscripten::val &input) {
+  restoreFullConfigSnapshot(const emscripten::val &caller_input) {
     FullConfigRestoreResult result =
         FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
     with_shader_workbench([&]<typename SB>(SB &shader) {
@@ -1074,6 +1075,7 @@ public:
       const uint64_t owner_generation = effect_generation;
       const Effect *const owner = current_effect.get();
       const void *const owner_type_key = current_effect_type_key;
+      const emscripten::val input = clone_payload(caller_input);
       if (input.isUndefined() || input.isNull()) {
         result = FullConfigRestoreResult::INVALID_LENGTH;
         return;
@@ -1214,7 +1216,7 @@ public:
 #if HS_ENABLE_CHAIN_INTERPRETER
   /**
    * @brief Compiles a chain program shape on the loaded ShaderChain effect.
-   * @param entries JS array of {instance, operator} string pairs — the ordered
+   * @param caller_entries JS array of {instance, operator} string pairs — the ordered
    *        program shape and nothing else. No values, no offsets, no family
    *        tags.
    * @return JS object {code, entryIndex}: code "APPLIED" on commit, else the
@@ -1231,7 +1233,7 @@ public:
    * leaves the previous program, its parameter definitions, the generation,
    * and all instance state untouched.
    */
-  emscripten::val setShaderChain(const emscripten::val &entries) {
+  emscripten::val setShaderChain(const emscripten::val &caller_entries) {
     const SnapshotDecodeGuard decode_guard;
     using Pullback::Interp::ChainStatus;
     if (!with_shader_chain([]<typename SC>(SC &) {}))
@@ -1242,6 +1244,7 @@ public:
     const uint64_t owner_generation = effect_generation;
     const Effect *const owner = current_effect.get();
     const void *const owner_type_key = current_effect_type_key;
+    const emscripten::val entries = clone_payload(caller_entries);
     if (!is_array(entries))
       return chain_result(ChainStatus::MALFORMED_PAYLOAD, -1);
     const size_t count = entries["length"].as<size_t>();
@@ -1288,7 +1291,8 @@ public:
    * UNKNOWN_PARAM for an unknown name, READONLY for a protected parameter,
    * NON_FINITE for NaN/infinite values, or INADMISSIBLE for cross-field conflicts.
    */
-  ParamSetResult setShaderChainParameters(const emscripten::val &entries) {
+  ParamSetResult
+  setShaderChainParameters(const emscripten::val &caller_entries) {
     const SnapshotDecodeGuard decode_guard;
     if (!with_shader_chain([]<typename SC>(SC &) {}))
       return ParamSetResult::NO_EFFECT;
@@ -1296,6 +1300,7 @@ public:
     const Effect *const owner = current_effect.get();
     const auto schema_generation =
         current_effect->getParameterSchemaGeneration();
+    const emscripten::val entries = clone_payload(caller_entries);
     if (!is_array(entries))
       return ParamSetResult::MALFORMED_PAYLOAD;
     const size_t count = entries["length"].as<size_t>();
