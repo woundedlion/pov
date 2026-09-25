@@ -191,9 +191,10 @@ Carrier declarations live in `core/render/pullback/contract.h`; `Color4` is
 defined in `core/color/pixel.h`. See §5.2.
 
 `pullback.h` may include headers from `core/math`, `core/color`,
-`core/animation` (`surface.h` takes `Animation::RippleParams` from
-`animation/transformer.h`), and the minimal engine concept/profiling headers
-it needs (`contract.h` includes `engine/memory.h`). It shall not include an
+`core/animation` (`Animation::RippleParams` is defined in
+`core/animation/params.h`), and the minimal engine concept/profiling headers
+it needs. `contract.h` includes color and math headers; the engine dependency
+arrives through color headers and `core/animation/transformer.h`. It shall not include an
 `effects/` or `workbench/` header, refer to `ShaderWorkbench`, or require the
 effect registry.
 
