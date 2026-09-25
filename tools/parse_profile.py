@@ -472,18 +472,29 @@ def cmd_windows(windows, scope):
           f"{'' if exact_run else ' (wall-derived, +-1)'}")
 
 
+def initial_preset_key(windows):
+    """Infer the preset preceding the capture's first indexed advance."""
+    markers = [m for w in windows for m in w.marker_events if "idx" in m]
+    if not markers:
+        markers = [w.marker for w in windows if w.marker and "idx" in w.marker]
+    if not markers:
+        return ("start", "0")
+    first = markers[0]
+    total = first.get("total")
+    if not total:
+        return (first["key"], str(first["idx"] - 1))
+    base = 1 if any(m["idx"] == total for m in markers) else 0
+    return (first["key"], str((first["idx"] - base - 1) % total + base))
+
+
 def clean_hold_rows(windows, scope, gate):
     """Per-preset clean-hold rows: (name, holds, clean, ms, calls/f, meta)."""
     gate = gate or scope
-    # Windows before the first marker belong to the initial preset: index-style
-    # cyclers construct on entry 0 and only log on advance, so fold the
-    # unmarked prefix into index 0's group.
-    idx_key = next((w.marker["key"] for w in windows
-                    if w.marker and "idx" in w.marker), None)
+    initial_key = initial_preset_key(windows)
     groups = {}
     for w in windows:
         if w.marker is None:
-            key = (idx_key, "0") if idx_key else ("start", "0")
+            key = initial_key
         else:
             key = (w.marker["key"], w.marker.get("name"))
         groups.setdefault(key, []).append(w)
@@ -546,12 +557,11 @@ def cmd_buckets(windows, scope, gate):
         print(f"no window carries the counter '{scope}': nothing for the "
               f"ordering guard to read", file=sys.stderr)
         return 2
-    idx_key = next((w.marker["key"] for w in windows
-                    if w.marker and "idx" in w.marker), None)
+    initial_key = initial_preset_key(windows)
 
     def group_key(mk):
         if mk is None:
-            return (idx_key, "0") if idx_key else ("start", "0")
+            return initial_key
         return (mk["key"], mk.get("name"))
 
     exact_run = all(w.render and not w.render_is_wall() for w in windows)

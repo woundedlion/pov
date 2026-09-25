@@ -38,6 +38,18 @@ def _window(renders=(), wall_sum=None, frames=None):
 
 
 class SpilledFrames(unittest.TestCase):
+    def test_initial_indexed_preset_joins_its_cycle(self):
+        for indices, expected in [([2, 1], "1"), ([1, 0], "0")]:
+            windows = [_window([1000]) for _ in range(3)]
+            for window, index in zip(windows[1:], indices):
+                window.marker = {"key": "preset", "idx": index,
+                                 "name": str(index), "total": 2}
+                window.marker_events = [window.marker]
+            self.assertEqual(pp.initial_preset_key(windows), ("preset", expected))
+            rows = pp.clean_hold_rows(windows, "fx_buffer_wait", None)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(next(row[1] for row in rows if row[0] == expected), 2)
+
     def test_frame_under_one_window_does_not_spill(self):
         self.assertEqual(pp.spilled_frames(_window([W - 1, 1, W // 2])), 0)
 
@@ -595,10 +607,10 @@ class ValidateRequiresData(unittest.TestCase):
     def test_indexed_cycles_and_fixed_presets_keep_their_validation(self):
         windows = self._measurable(600_000, 1000).splitlines()
         text = "\n".join([
-            "Preset: 0/2", *windows[:3],
-            "Preset: 1/2", "Preset: 0/2", *windows[3:]])
+            "Preset: 1/2", *windows[:3],
+            "Preset: 2/2", "Preset: 1/2", *windows[3:]])
         self.assertTrue(self._validate(text)[0])
-        held = "Preset: 0/2\n" + "\n".join(windows)
+        held = "Preset: 1/2\n" + "\n".join(windows)
         self.assertFalse(self._validate(held)[0])
         fixed = "Profile preset: 1/2\n" + "\n".join(windows)
         self.assertTrue(self._validate(fixed)[0])
