@@ -121,8 +121,7 @@ committed board directly need no KiCad and run in CI
   different-net via pair with less than 0.15 mm of copper spacing (pad edge to pad edge).
 - **Schematic parity gate:** `gen/fab.py` runs `kicad-cli pcb drc
   --schematic-parity` and rejects any board/schematic difference outside
-  `KNOWN_PARITY_ITEMS` (the four mounting holes, which carry no symbol, and
-  the four ID/shield jumpers, excluded from the BOM on the board only), so
+  `KNOWN_PARITY_ITEMS` (the four mounting holes, which carry no symbol), so
   gerbers for stale copper cannot ship with a BOM exported from a newer
   schematic. `KNOWN_PARITY_WARNING_COUNTS` allows exactly eleven
   `lib_footprint_mismatch` warnings and rejects any other count. Parity items
