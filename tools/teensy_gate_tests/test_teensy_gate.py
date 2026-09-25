@@ -289,6 +289,17 @@ class TestLayoutInvariantsFail(unittest.TestCase):
 
 
 class TestRegionCeilingsFail(unittest.TestCase):
+    def test_ram2_floor_identifies_heap(self):
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        sizes["ram2"]["free"] = 0
+        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+                             tg.parse_readelf_symbols(_read("good_readelf_syms.txt")),
+                             tg.parse_readelf_sections(_read("good_readelf_secs.txt")))
+        message = next(v.message for v in result.violations
+                       if v.code == "headroom-below-floor")
+        self.assertIn("RAM2 free for malloc/new (heap)", message)
+        self.assertNotIn("stack", message)
+
     def test_negative_free_reports_headroom_violation(self):
         sizes = tg.parse_teensy_size(_read("broken_negative_free_teensy_size.txt"))
         self.assertEqual(sizes["ram1"]["free"], -1024)
@@ -301,7 +312,7 @@ class TestRegionCeilingsFail(unittest.TestCase):
                              symbols, sections)
         self.assertIn("headroom-below-floor", _codes(result))
         self.assertNotIn("region-missing", _codes(result))
-        self.assertTrue(any("RAM1 free-for-local-variables -1,024 B" in v.message
+        self.assertTrue(any("RAM1 free for local variables (stack) -1,024 B" in v.message
                             for v in result.violations))
 
     def test_over_cap_trips_every_region(self):
