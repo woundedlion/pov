@@ -233,7 +233,7 @@ congruence would need re-validation — out of scope).
    polygon at fixed n; add the
    hybrid branch + members (`const ClassLut *`, `rot`, `mean`, `reflected`)
    to `Face`; `lut_hits` metric back into `profiling.h`.
-2. `core/mesh/mesh.h` (or a new `core/mesh/mesh_classes.h`): the Procrustes clustering
+2. `core/mesh/mesh.h` (or a new `core/render/sdf/face_class_bake.h`): the Procrustes clustering
    (port of the census code, arena-based, no std::vector), `MeshClassBake`
    build, per-face record table.
 3. `core/render/scan.h`: `Scan::Mesh::draw` takes an optional
@@ -268,9 +268,9 @@ congruence would need re-validation — out of scope).
 
 ## 11. Implementation results (2026-07-01)
 
-Landed as `core/mesh/mesh_classes.h` (clustering + bake), with runtime records
+Landed as `core/render/sdf/face_class_bake.h` (clustering + bake), with runtime records
 `FaceClassRec`, `CongruenceClass`, `MeshClassBake` and the `NO_CLASS` sentinel in
-`core/mesh/mesh_class_types.h`. The hybrid branch is in
+`core/render/sdf/face_classes.h`. The hybrid branch is in
 `SDF::Face::distance`, the per-frame alignment bound by `Scan::Mesh::draw`,
 and per-slot bakes in IslamicStars (rebaked unconditionally after every
 `compact_keep_front`). Deviations from the design above:

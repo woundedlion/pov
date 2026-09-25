@@ -745,7 +745,7 @@ at the current phase.
 
 ## 7.7 The Mesh System (`core/mesh/`)
 
-The mesh system is split across fourteen files:
+The mesh system is split across twelve files:
 
 - **`base_mesh.h`** — Base mesh identities, bounds, and authoring labels
 - **`relax_bake.h`** — Relax payload and source identity checks
@@ -755,8 +755,8 @@ The mesh system is split across fourteen files:
 - **`recipe_types.h`** — The authored op-chain model: the `Op` operator set, one `OpStep`, and the `Recipe` chain a registry generator mirrors, split out so the model is not read out of the registry tables written in it
 - **`recipe.h`** — Lowers an authored recipe to primitive steps (`expand_to_primitives`), sizes that lowering at compile time (`lowered_step_count`, `max_lowered_step_count`), replays either form through `SolidBuilder` (`build_recipe`, `build_steps`), and decides which lowered steps a morph leg can sweep (`is_morphable_step`)
 - **`hankin.h`** — Hankin pattern compilation and dynamic update
-- **`mesh_classes.h`** — Congruence-class clustering plus one canonical distance-LUT bake per class, allocated by descending face count under an 18 KB per-mesh budget
-- **`mesh_class_types.h`** — The class id space and the three record types the rasterizer binds per frame, split out so the clustering and bake machinery stays out of every rasterizer translation unit
+- **`face_class_bake.h`** — Congruence-class clustering plus one canonical distance-LUT bake per class, allocated by descending face count under an 18 KB per-mesh budget
+- **`face_classes.h`** — The class id space and the three record types the rasterizer binds per frame, split out so the clustering and bake machinery stays out of every rasterizer translation unit
 - **`mesh_state.h`** — `MeshState`, the flat-array renderer format, split out so mesh, Conway, Hankin and solids code can share the renderer-facing representation without the construction machinery
 - **`solid_generators.h`** — Hardcoded Platonic vertex/face tables, the `SolidBuilder` operator chain, and the named Archimedean / Catalan / Islamic Star Pattern generators
 - **`solids.h`** — The three solid registries, the authored `Recipe` mirrors of the generators, and the name/index lookups over them
