@@ -168,8 +168,7 @@ private:
     }
   }
 
-  DMAChannel
-      dma_channel; /**< eDMA channel wired to LPSPI4 TX for async transmission. */
+  DMAChannel dma_channel{false}; /**< eDMA channel wired to LPSPI4 TX. */
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
    *        main/column thread.
