@@ -72,7 +72,7 @@ if(EMSCRIPTEN)
   # Warning hygiene for the JS bridge: targets/wasm/ is built by no other target,
   # so without this it is the one first-party TU with zero warning coverage. Not
   # -Werror: unlike the native suite, third-party emscripten system headers ride
-  # this compile line. The gate is in CI instead — the wasm job greps both build
+  # this compile line. The gate is in CI instead — the wasm job greps release, debug and strict-FP build
   # logs for warnings under first-party paths and fails on any
   # (.github/workflows/ci.yml), the same first-party/third-party split the device
   # firmware ratchet uses (tools/teensy_warnings.py).
