@@ -14,7 +14,8 @@
 // sRGB gamut boundary chroma C_max, indexed by the diamond angle of (b, a) and
 // by L. Each cell holds the minimum and the maximum C_max over the region it
 // covers, so the true C_max of any ray in the cell lies inside the stored
-// bracket; the per-pixel path bisects the bracket against the channel cubics.
+// bracket; the per-pixel path scans four subintervals for the first exit, then
+// bisects that subinterval three times against the channel cubics.
 // C_max is the first exit from the gamut, not the largest in-gamut chroma; the
 // generator explains why the two differ.
 //

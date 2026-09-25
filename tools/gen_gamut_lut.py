@@ -9,9 +9,9 @@ of the sRGB gamut, so it is bracketed here instead of solved per pixel.
 The table is indexed by the diamond angle of (b, a) -- the trig-free angle from
 diamond_angle() in core/math/3dmath.h -- and by L. A cell stores the MINIMUM and
 the MAXIMUM C_max over the region it covers, so the true C_max of any ray in the
-cell lies inside the stored bracket. The per-pixel path bisects that bracket
-against the channel cubics, so residual error is the bracket width halved once
-per step rather than the whole width.
+cell lies inside the stored bracket. The per-pixel path scans four subintervals
+for the first exit, then bisects the selected subinterval three times against
+the channel cubics.
 
 A cell minimum alone is not enough: the gamut cusp jumps to a different RGB-cube
 edge as hue crosses a cube vertex, a feature narrower than any affordable cell,
@@ -268,7 +268,8 @@ def render(table):
 // sRGB gamut boundary chroma C_max, indexed by the diamond angle of (b, a) and
 // by L. Each cell holds the minimum and the maximum C_max over the region it
 // covers, so the true C_max of any ray in the cell lies inside the stored
-// bracket; the per-pixel path bisects the bracket against the channel cubics.
+// bracket; the per-pixel path scans four subintervals for the first exit, then
+// bisects that subinterval three times against the channel cubics.
 // C_max is the first exit from the gamut, not the largest in-gamut chroma; the
 // generator explains why the two differ.
 //
