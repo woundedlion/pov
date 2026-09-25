@@ -1987,6 +1987,18 @@ inline void case_transformer_pool_init_storage_twice() {
   rt.init_storage(persistent_arena); // entities already set -> HS_CHECK
 }
 
+/** @brief Unpinned perpetual spawns trap even when the timeline is full. */
+inline void case_transformer_unpinned_full() {
+  configure_arenas_default();
+  Timeline timeline;
+  NoiseTransformer<1> transformer(timeline);
+  transformer.init_storage(persistent_arena);
+  float sink = 0.0f;
+  for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
+    timeline.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
+  transformer.spawn(0);
+}
+
 /**
  * @brief Death case: spawning before init_storage() must trap.
  * @details Transformer surface — the slot scan indexes the entity block, so a
@@ -4815,6 +4827,10 @@ inline const Case *all_cases(int &n) {
            case_transformer_pool_init_storage_twice,
            "core/animation/transformer.h",
            "(!entities) TransformerPool: init_storage() called twice"},
+          {"transformer_unpinned_full", case_transformer_unpinned_full,
+           "core/animation/transformer.h",
+           "(pin == Timeline::Pin::PINNED || (anim.is_finite() && !anim.repeats())) "
+           "Transformer::spawn needs a finite, non-repeating animation"},
           {"transformer_pool_spawn_before_init",
            case_transformer_pool_spawn_before_init,
            "core/animation/transformer.h",
@@ -6160,7 +6176,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/sprites.h", 10},
     {"core/animation/timeline.h", 9},
     {"core/animation/timers.h", 1},
-    {"core/animation/transformer.h", 4},
+    {"core/animation/transformer.h", 3},
     {"core/color/baked_palette.h", 9},
     {"core/color/color_space.h", 1},
     {"core/color/composition.h", 22},
