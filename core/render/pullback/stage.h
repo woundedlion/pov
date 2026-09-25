@@ -46,6 +46,10 @@ lens(const SphereSample &input, const math::Vector &lensed) {
 __attribute__((always_inline)) inline PlaneSample
 project(const SphereSample &input, const math::Vector &local,
         const ProjectionResult &result) {
+  HS_AUDIT_CHECK(
+      fabsf(input.dir.x * input.dir.x + input.dir.y * input.dir.y +
+            input.dir.z * input.dir.z - 1.0f) <= 0.004f,
+      "Project requires a unit direction within lens approximation error");
   return {result.coords, result.provenance, local, input.path_length};
 }
 
@@ -367,10 +371,7 @@ struct Project
                                    typename Binding::FrameState> &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto start = Instrumentation::mark();
-    HS_AUDIT_CHECK(
-        fabsf(input.dir.x * input.dir.x + input.dir.y * input.dir.y +
-              input.dir.z * input.dir.z - 1.0f) <= 0.004f,
-        "Project requires a unit direction within lens approximation error");
+
     math::Vector local;
     ProjectionResult result;
     if constexpr (Detail::PolicyPrepares<ProjectionPolicyT,
