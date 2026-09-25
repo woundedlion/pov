@@ -57,10 +57,10 @@ FLASHMEM void setup() {
   POV::park_sync_out();
   boot_serial();
   log_reset_cause();
-  create_pov();
+  POV::begin();
 }
 
 void loop() {
   // Never returns: runs the single-entry playlist forever.
-  g_pov->run_show(EFFECT_FACTORIES, &BENCH_REVOLUTIONS);
+  POV::run_show(EFFECT_FACTORIES, &BENCH_REVOLUTIONS);
 }

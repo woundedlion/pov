@@ -768,7 +768,7 @@ FLASHMEM void setup() {
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS
   hs::enable_mindsplatter_stall_counters();
 #endif
-  create_pov();
+  POV::begin();
   // A strapped-nonzero board comes up downstream: dark in ACQUIRE, waiting on a
   // sync wire nothing drives, so the whole capture runs black and counter-empty.
   HS_CHECK(POV::segment_index() == 0,
@@ -778,5 +778,5 @@ FLASHMEM void setup() {
 
 void loop() {
   // Never returns: runs the single-entry playlist forever.
-  g_pov->run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS, &PROFILE_SEEDS);
+  POV::run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS, &PROFILE_SEEDS);
 }
