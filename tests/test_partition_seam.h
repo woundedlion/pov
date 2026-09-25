@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Partition-op rasterizer seam calibration
- * (docs/specs/opchain_morph_spec.md, "Validation contract"). Measures, at the
+ * Measures, at the
  * shipping canvas size, the framebuffer delta a `kis` or `dual` swap produces
  * under a single flat fill colour, which isolates the
  * coverage discontinuity from the shading gradient.
@@ -292,8 +292,7 @@ inline SeamStats compare(const std::vector<Pixel> &a,
   return st;
 }
 
-/** Gated-swap envelope. The spec's "<= 2 % of pixels" (section 9.5) is
- * unreachable at this canvas size: the swap's irreducible coverage delta is a
+/** Gated-swap envelope. The swap's measured coverage delta is a
  * 2-4 px band along the child edges, 6.6-15.3 % of the canvas, so the bound is
  * on the changed fraction, the changed pixels' absolute energy and the deepest
  * pixel instead. Every bound is two-sided around its measured value: a widened
@@ -501,7 +500,7 @@ inline void dump_png(const char *name, const std::vector<Pixel> &px) {
 }
 
 // ---------------------------------------------------------------------------
-// Gate 6 — kis fan seam, per seed face degree.
+// Kis fan seam, per seed face degree.
 // ---------------------------------------------------------------------------
 
 /**
@@ -629,7 +628,7 @@ inline void measure_dual(const char *name, double measured_changed_frac,
 
 /**
  * @brief Measures the gradient's contribution on top of the coverage seam, at
- *        the gains the §3.3 gate would open and close between.
+ *        the measured opening and closing gains.
  * @details Reporting only, no assertions; run under HS_SEAM_DUMP.
  * @tparam Solid Seed solid descriptor.
  */
@@ -672,7 +671,7 @@ template <typename Solid> inline void measure_gradient(const char *name) {
 }
 
 /**
- * @brief Gate 6: flat-shaded kis and dual seam calibration over three seeds
+ * @brief Flat-shaded kis and dual seam calibration over three seeds
  *        spanning face degree (3, 4, 5).
  */
 inline void test_partition_seam_calibration() {
