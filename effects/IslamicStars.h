@@ -1326,6 +1326,7 @@ private:
     Animation::OpLeg leg(build_seed,
                          Animation::OpLeg::ReconcileSpec{
                              .to_positions = build_next_seed.vertices.data(),
+                             .to_count = build_next_seed.vertices.size(),
                              .sweep_frames = frames},
                          persistent_arena, draw_build_fn, handoff, bookend);
     schedule_build_leg(std::move(leg));

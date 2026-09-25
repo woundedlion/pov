@@ -154,6 +154,7 @@ public:
         nullptr;          /**< Authored vertex positions, one per seed vertex
                     (index-corresponded through the caller's bijection); slerp
                     endpoints. */
+    size_t to_count = 0;  /**< Number of authored endpoint positions. */
     int sweep_frames = 0; /**< Slerp frames (N). */
   };
 
@@ -719,6 +720,8 @@ public:
         draw_fn(draw) {
     HS_CHECK(spec.sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(spec.to_positions, "OpLeg: reconcile leg carries no endpoints");
+    HS_CHECK(spec.to_count == from_mesh.vertices.size(),
+             "OpLeg: reconcile endpoint count must match seed vertices");
     Transients &tr = init_transients(LegKind::MEDIAL_SLERP, spec.sweep_frames,
                                      arena, handoff, blend_fn);
 
