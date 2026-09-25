@@ -149,6 +149,7 @@ inline constexpr float SNUB_DODECAHEDRON_TWIST = 0.0f;
 /** Tetra -> icosa bridge snub twist; relax canonicalizes any value (tuned from
  * renders: -0.40 cuts the settle rotation from 23.4 to 17.3 degrees). */
 inline constexpr float SNUB_BRIDGE_TWIST = -0.40f;
+inline constexpr int ICOSAHEDRON_RELAX_ITERATIONS = 50;
 
 /** Jitterbug icosa point: snub(tetrahedron, t, twist) at these values is the
  * exact regular icosahedron — all 30 edges equal with no relax (double-refined
@@ -666,6 +667,33 @@ constexpr SeedFix seed_fix_at_start(int edge, int held_identity) {
       (held_identity == OCTAHEDRON || held_identity == ICOSAHEDRON))
     return SeedFix::REGEN_TETRA;
   return SeedFix::INVALID;
+}
+
+/** @brief Whether a completed graph leg adopts its arrival as the seed. */
+constexpr bool adopts_seed(const EdgeSpec &edge, int arrived,
+                           bool arrived_at_to) {
+  return edge.reseed == Reseed::ADOPT && is_platonic(arrived) &&
+         (arrived_at_to || arrived == ICOSAHEDRON);
+}
+
+/** @brief Resolves a departing leg's held identity; INVALID marks corrupt state. */
+constexpr int reconciled_seed_identity(int edge, int node, int held,
+                                       SeedFix &fix) {
+  fix = seed_fix_at_start(edge, held);
+  if (fix == SeedFix::DUAL_SWAP) {
+    if (node != CUBOCTAHEDRON && node != ICOSIDODECAHEDRON)
+      fix = SeedFix::INVALID;
+    else
+      held = dual_platonic(held);
+  } else if (fix == SeedFix::REGEN_TETRA) {
+    if (node != OCTAHEDRON && node != ICOSAHEDRON)
+      fix = SeedFix::INVALID;
+    else
+      held = TETRAHEDRON;
+  }
+  if (fix != SeedFix::DERIVE_AMBO && held != EDGES[edge].seed_solid)
+    fix = SeedFix::INVALID;
+  return held;
 }
 
 } // namespace ConwayGraph

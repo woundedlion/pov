@@ -384,7 +384,7 @@ private:
         break;
       }
       if (e.settle && to_end)
-        builder.relax(50);
+        builder.relax(ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS);
     }
     return builder.build();
   }
@@ -686,7 +686,9 @@ private:
              "HankinSolids: picked graph edge does not touch the current node");
     reverse = (e.to_node == node);
 
-    SeedFix fix = seed_fix_at_start(cur_edge, seed_identity);
+    SeedFix fix;
+    const int RECONCILED =
+        reconciled_seed_identity(cur_edge, node, seed_identity, fix);
     HS_CHECK(fix != SeedFix::INVALID,
              "HankinSolids: no seed reconciliation for the picked edge");
     if (fix == SeedFix::DUAL_SWAP) {
@@ -699,7 +701,7 @@ private:
         seed_base =
             Solids::finalize_solid(MeshOps::dual(seed_base, a, b), target);
       });
-      seed_identity = static_cast<uint8_t>(dual_platonic(seed_identity));
+      seed_identity = static_cast<uint8_t>(RECONCILED);
     } else if (fix == SeedFix::REGEN_TETRA) {
       // Reverse family bridge: the held octa/icosa was derived from the
       // registry tetrahedron, so regenerating that tetrahedron is frame-exact.
@@ -710,7 +712,7 @@ private:
         seed_base =
             Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
       });
-      seed_identity = TETRAHEDRON;
+      seed_identity = static_cast<uint8_t>(RECONCILED);
     }
     HS_CHECK(fix == SeedFix::DERIVE_AMBO || seed_identity == e.seed_solid,
              "HankinSolids: leg seed identity mismatch");
@@ -806,7 +808,7 @@ private:
     // arrivals keep the orientation the walk produced.
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh base = node_mesh_at(e, arrived_at_to, a, b);
-      if (e.reseed == Reseed::ADOPT && is_platonic(arrived)) {
+      if (adopts_seed(e, arrived, arrived_at_to)) {
         if (arrived_at_to) {
           // Family bridge: the arrived solid becomes the new family seed.
           seed_base = Solids::finalize_solid(base, target);
@@ -817,12 +819,12 @@ private:
           // unrelaxed jitterbug form the bookend displays.
           PolyMesh s;
           MeshOps::clone(seed_base, s, a);
-          seed_base =
-              Solids::finalize_solid(Solids::SolidBuilder(std::move(s), a, b)
-                                         .snub(0.5f, SNUB_BRIDGE_TWIST)
-                                         .relax(50)
-                                         .build(),
-                                     target);
+          seed_base = Solids::finalize_solid(
+              Solids::SolidBuilder(std::move(s), a, b)
+                  .snub(0.5f, SNUB_BRIDGE_TWIST)
+                  .relax(ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS)
+                  .build(),
+              target);
           seed_identity = node;
         }
       }
