@@ -77,6 +77,14 @@ constexpr int HS_PHANTASM_EFFECT_COUNT =
     0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_EFFECT_COUNT_ADD);
 #undef HS_PHANTASM_EFFECT_COUNT_ADD
 
+#define HS_PHANTASM_SEED_ONE(name, duration_seconds)                           \
+  hs::stable_effect_seed(hs::stable_effect_id<name<W, H>>(#name)),
+/** @brief Device playlist seeds in roster order. */
+template <int W, int H>
+inline constexpr uint64_t HS_PHANTASM_EFFECT_SEEDS[] = {
+    HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_SEED_ONE)};
+#undef HS_PHANTASM_SEED_ONE
+
 /**
  * @brief True when `name` is one of the HS_PHANTASM_EFFECT_LIST class names.
  * @param name Effect class name to look up.
