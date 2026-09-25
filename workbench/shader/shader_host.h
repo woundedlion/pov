@@ -2649,30 +2649,57 @@ private:
                 candidate.slots.function)],
             position);
       const float periods = polar_seam_periods(candidate, *polar);
-      const float nearest_periods = floorf(periods + 0.5f);
+      const bool lattice =
+          candidate.slots.function == Workbench::Function::PRIMITIVE_LATTICE;
+      const float factor = static_cast<float>(polar->polar_harmonic) *
+                           (lattice ? math::TWO_PI_F : 1.0f);
+      const float minimum = lattice
+                                ? Workbench::CELL_MIN
+                                : pattern_freq_min(candidate.slots.function);
+      const float maximum = lattice
+                                ? Workbench::CELL_MAX
+                                : pattern_freq_max(candidate.slots.function);
+      float suggested = minimum;
+      float distance = maximum;
+      bool found = false;
+      for (int whole = 1; whole <= static_cast<int>(factor * maximum);
+           ++whole) {
+        const float value = static_cast<float>(whole) / factor;
+        const float neighbors[] = {value, nextafterf(value, 0.0f),
+                                   nextafterf(value, maximum + 1.0f)};
+        for (float repair : neighbors) {
+          const float delta = fabsf(repair - periods / factor);
+          if (repair >= minimum && repair <= maximum &&
+              factor * repair == static_cast<float>(whole) &&
+              (!found || delta < distance)) {
+            suggested = repair;
+            distance = delta;
+            found = true;
+          }
+        }
+      }
+      if (!found)
+        return begin_warning("%s Polar Chart has no whole-period source value "
+                             "in range. Change %s Polar Harmonic.",
+                             position, position);
       if (candidate.slots.function == Workbench::Function::PRIMITIVE_LATTICE)
         return begin_warning(
             "%s Polar Chart requires 2*pi x Lattice Cell Scale x Polar "
             "Harmonic to be a whole number. %.7g x %u gives %.7g. Set Lattice "
-            "Cell Scale to %.7g or change %s Polar Harmonic.",
+            "Cell Scale to %.9g or change %s Polar Harmonic.",
             position,
             static_cast<double>(candidate.params.source.lattice_cell_scale),
             static_cast<unsigned>(polar->polar_harmonic),
-            static_cast<double>(periods),
-            static_cast<double>(
-                nearest_periods /
-                (math::TWO_PI_F * static_cast<float>(polar->polar_harmonic))),
+            static_cast<double>(periods), static_cast<double>(suggested),
             position);
-      const float suggested_frequency =
-          nearest_periods / static_cast<float>(polar->polar_harmonic);
       return begin_warning(
           "%s Polar Chart requires Pattern Freq x Polar Harmonic to be a "
-          "whole number. %.7g x %u = %.7g. Set Pattern Freq to %.7g or change "
+          "whole number. %.7g x %u = %.7g. Set Pattern Freq to %.9g or change "
           "%s Polar Harmonic.",
           position, static_cast<double>(candidate.params.source.pattern_freq),
           static_cast<unsigned>(polar->polar_harmonic),
-          static_cast<double>(periods),
-          static_cast<double>(suggested_frequency), position);
+          static_cast<double>(periods), static_cast<double>(suggested),
+          position);
     }
     if (!affine_translation_compatible(candidate)) {
       const bool outer_scroll =
