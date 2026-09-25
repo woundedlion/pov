@@ -47,18 +47,12 @@ displayed content (animation frame + effect) — without adding time-measurement
 or branching to the per-column hot path, and **over a single wire** between
 boards.
 
-The insight driving the redesign: aligning the *display* (column + flip) is
-necessary but **not sufficient** for a coherent image. Each board renders its
-own copy of the effect in a free-running loop, so two boards can flip in perfect
-time yet show different animation frames or even different effects. Coherence
-requires a third, content layer that the previous design did not synchronize.
-
-The second insight (this revision): once each board runs a disciplined local
-flywheel, the continuous per-column clock wire is **redundant**. A flywheel that
-derives column position from time and snaps to a boundary mark twice per
-revolution holds sub-column alignment on its own (§4.5). So the two-wire design
-collapses to one — the low-rate **sync-symbol wire** — and the column clock wire
-is deleted outright.
+Aligning the display (column + flip) is necessary but not sufficient for a
+coherent image. Each board renders its own copy of the effect in a free-running
+loop, so coherent content also requires synchronized animation frames and effects.
+A disciplined local flywheel derives column position from time and snaps to a
+boundary mark twice per revolution, holding sub-column alignment on its own
+(section 4.5). Boards communicate over one low-rate sync-symbol wire.
 
 ---
 
@@ -187,10 +181,7 @@ into phase twice per revolution. The drift budget (§4.5) proves a Teensy crysta
 holds sub-column alignment across the 62.5 ms between snaps, so a continuous
 per-column reference buys nothing the snap doesn't already deliver.
 
-This replaces the previous design, where every column was an interrupt
-*slaved* to a shared wire (one missed edge = one dropped column, permanent ±1
-until the next boundary snap). The flywheel inverts the dependency: **columns
-come from a local timebase; the wire only snaps phase.**
+Columns come from a local timebase; the wire only snaps phase.
 
 ### 4.1 The flywheel timebase — position from time, not from interrupt count (load-bearing)
 
@@ -876,9 +867,8 @@ the edge mailbox, runs gap-timeout classification, the §5.3 gate, the snap,
 `try_flip`, and epoch scheduling; **(b)** sync-wire **RISING** (downstream
 boards only — the master does not listen to its own emissions) — a pure
 *publisher*: glitch filter, edge count, first-edge timestamp, written into a
-small mailbox and nothing else. **The former column-wire edge ISR is gone** —
-there is no per-column input to service, which is both one fewer ISR and the
-removal of the design's only per-column EMI surface (§10).
+small mailbox and nothing else. There is no per-column input or ISR to service; the wire exposes only the
+low-rate sync-symbol boundaries to EMI (section 10).
 
 Invariants:
 
