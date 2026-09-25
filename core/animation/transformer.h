@@ -813,6 +813,8 @@ inline math::Vector noise_transform(const math::Vector &v,
                                     const Animation::NoiseParams &params) {
   if (params.amplitude <= 0.001f)
     return v;
+  HS_AUDIT_CHECK(std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z),
+                 "noise_transform: non-finite direction");
 
   float scale = params.scale;
   float time_val = params.time;

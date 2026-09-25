@@ -84,8 +84,7 @@ inline void test_clamp_phi_above_pi_reflects() {
 
 /**
  * @brief Verifies inputs outside [-π, 2π] still fold into [0, π] (full-range
- *        acosf(cosf(x)) equivalence), not the out-of-range values the old
- *        single-reflection body returned.
+ *        acosf(cosf(x)) equivalence).
  */
 inline void test_clamp_phi_full_range() {
   // 2π + 0.2 folds to 0.2.
@@ -292,9 +291,9 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
       /*max_distortion=*/shift, /*phase=*/0.0f);
   auto rs = SDF::distance_of(shifted, p);
   HS_EXPECT_TRUE(rs.dist < 50.0f);
-  HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 1e-2f);
-  HS_EXPECT_NEAR(rs.dist, -thickness, 1e-2f);
-  HS_EXPECT_NEAR(rs.t, 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 5e-4f);
+  HS_EXPECT_NEAR(rs.dist, -thickness, 5e-4f);
+  HS_EXPECT_NEAR(rs.t, 0.0f, 5e-4f);
 
   // Same point, no shift: the centerline stays at π/2, so it now sits `shift`
   // radians off (raw_dist ≈ shift) — the shift moved the centerline.
@@ -302,7 +301,7 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
       b, 1.0f, thickness, [](float) { return 0.0f; },
       /*max_distortion=*/shift, /*phase=*/0.0f);
   auto rp = SDF::distance_of(plain, p);
-  HS_EXPECT_NEAR(rp.raw_dist, shift, 1e-2f);
+  HS_EXPECT_NEAR(rp.raw_dist, shift, 5e-4f);
 }
 
 /**
@@ -321,13 +320,13 @@ inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
   math::Vector on(0.0f, std::cos(math::PI_F / 2 + amp),
                   std::sin(math::PI_F / 2 + amp));
   auto r_on = SDF::distance_of(ring, on);
-  HS_EXPECT_NEAR(r_on.t, 0.25f, 1e-2f);
-  HS_EXPECT_NEAR(r_on.raw_dist, 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(r_on.t, 0.25f, 5e-4f);
+  HS_EXPECT_NEAR(r_on.raw_dist, 0.0f, 5e-4f);
 
   // Same azimuth on the unshifted equator (+Z): centerline moved by amp here.
   auto r_off = SDF::distance_of(ring, math::Vector(0, 0, 1));
-  HS_EXPECT_NEAR(r_off.t, 0.25f, 1e-2f);
-  HS_EXPECT_NEAR(r_off.raw_dist, amp, 1e-2f);
+  HS_EXPECT_NEAR(r_off.t, 0.25f, 5e-4f);
+  HS_EXPECT_NEAR(r_off.raw_dist, amp, 5e-4f);
 }
 
 /**
@@ -588,14 +587,14 @@ inline void test_spherical_polygon_center_and_edge_magnitude() {
   const float inradius = std::atan(std::tan(R) * std::cos(math::PI_F / sides));
 
   auto center = SDF::distance_of(sp, math::Vector(0, 1, 0));
-  HS_EXPECT_NEAR(center.dist, -inradius, 1e-2f);
+  HS_EXPECT_NEAR(center.dist, -inradius, 5e-4f);
   HS_EXPECT_NEAR(center.raw_dist, 0.0f, 1e-3f);
 
   // Edge midpoint: polar angle = inradius along +u (the sector bisector).
   math::Vector edge_mid(std::sin(inradius), std::cos(inradius), 0.0f);
   auto em = SDF::distance_of(sp, edge_mid);
-  HS_EXPECT_NEAR(em.dist, 0.0f, 1e-2f);
-  HS_EXPECT_NEAR(em.raw_dist, inradius, 1e-2f);
+  HS_EXPECT_NEAR(em.dist, 0.0f, 5e-4f);
+  HS_EXPECT_NEAR(em.raw_dist, inradius, 5e-4f);
 }
 
 /**
@@ -765,8 +764,8 @@ inline void test_star_tip_on_boundary() {
   const float outer = radius * (math::PI_F / 2.0f);
   math::Vector tip(std::sin(outer), std::cos(outer), 0.0f);
   auto r = SDF::distance_of(star, tip);
-  HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
-  HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
+  HS_EXPECT_NEAR(r.dist, 0.0f, 5e-4f);
+  HS_EXPECT_NEAR(r.raw_dist, outer, 5e-4f);
 }
 
 // ============================================================================
@@ -791,7 +790,7 @@ inline void test_flower_interior_along_petal() {
   // From the antipode (-Y), step s toward +u (+X): interior of a petal.
   math::Vector p(std::sin(s), -std::cos(s), 0.0f);
   auto r = SDF::distance_of(flower, p);
-  HS_EXPECT_NEAR(r.dist, s - outer, 1e-2f);
+  HS_EXPECT_NEAR(r.dist, s - outer, 5e-4f);
   HS_EXPECT_NEAR(r.raw_dist, s, 1e-3f);
 }
 
@@ -811,8 +810,8 @@ inline void test_flower_petal_tip_on_boundary() {
   // From the antipode (-Y), step `outer` toward +u (+X).
   math::Vector tip(std::sin(outer), -std::cos(outer), 0.0f);
   auto r = SDF::distance_of(flower, tip);
-  HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
-  HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
+  HS_EXPECT_NEAR(r.dist, 0.0f, 5e-4f);
+  HS_EXPECT_NEAR(r.raw_dist, outer, 5e-4f);
 }
 
 /** @brief Verifies the solid-shape unit-vector and no-UV distance paths. */
@@ -915,8 +914,8 @@ inline void test_line_on_arc_is_inside() {
 
   math::Vector mid = ((a + bv) * 0.5f).normalized();
   auto r = SDF::distance_of(ln, mid);
-  HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
-  HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(r.dist, -0.1f, 5e-4f);
+  HS_EXPECT_NEAR(r.raw_dist, 0.0f, 5e-4f);
 }
 
 /** @brief Verifies an endpoint counts as on the line (raw_dist 0, dist = -thickness). */
@@ -969,7 +968,7 @@ inline void test_line_degenerate_zero_length() {
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
 
   auto r2 = SDF::distance_of(ln, math::Vector(0, 1, 0));
-  HS_EXPECT_NEAR(r2.raw_dist, math::PI_F * 0.5f, 1e-2f);
+  HS_EXPECT_NEAR(r2.raw_dist, math::PI_F * 0.5f, 5e-4f);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
 }
 
@@ -1056,7 +1055,7 @@ inline void test_twist_apply_displaces_y() {
   // θ = π/2 → sin(twist·π/2) = 1 → Y drops by amplitude.
   math::Vector b(0.0f, 0.5f, 1.0f);
   math::Vector rb = tw.apply(b, tw.make_ctx(b));
-  HS_EXPECT_VEC(rb, math::Vector(0.0f, 0.5f - 0.3f, 1.0f), 1e-2f);
+  HS_EXPECT_VEC(rb, math::Vector(0.0f, 0.5f - 0.3f, 1.0f), 5e-4f);
 }
 
 /** @brief Verifies Twist::lipschitz is 1 for twist 0 and matches the closed form otherwise. */
@@ -1396,12 +1395,12 @@ inline void test_union_picks_closest_shape() {
   math::Vector mid_a =
       ((math::Vector(1, 0, 0) + math::Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = SDF::distance_of(u, mid_a);
-  HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
+  HS_EXPECT_NEAR(r.dist, -0.1f, 5e-4f);
 
   math::Vector mid_b =
       ((math::Vector(-1, 0, 0) + math::Vector(0, 0, -1)) * 0.5f).normalized();
   auto r2 = SDF::distance_of(u, mid_b);
-  HS_EXPECT_NEAR(r2.dist, -0.1f, 1e-2f);
+  HS_EXPECT_NEAR(r2.dist, -0.1f, 5e-4f);
 }
 
 // ============================================================================
@@ -1674,6 +1673,10 @@ inline void test_subtract_many_arc_preserves_minuend() {
                           {80.0f, 90.0f},   {100.0f, 110.0f}, {120.0f, 130.0f},
                           {140.0f, 150.0f}, {160.0f, 170.0f}, {180.0f, 190.0f},
                           {200.0f, 210.0f}};
+  while (a_ivs.size() < SDF::INTERVAL_SPAN_CAP) {
+    const float start = static_cast<float>(a_ivs.size()) * 0.25f;
+    a_ivs.push_back({start, start + 0.125f});
+  }
   std::vector<P> b_ivs = {{45.0f, 55.0f}, {125.0f, 135.0f}};
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
@@ -1838,8 +1841,11 @@ inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  // Both normalize to {[246,256],[0,10]}; the intersection is the same band.
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+  HS_EXPECT_SIZE_OR_RETURN(out, 2);
+  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(out[0].second, 10.0f, 1e-5f);
+  HS_EXPECT_NEAR(out[1].first, 246.0f, 1e-5f);
+  HS_EXPECT_NEAR(out[1].second, 256.0f, 1e-5f);
 }
 
 // ============================================================================
@@ -2723,17 +2729,10 @@ inline void test_line_thick_cap_past_pi_cull_covers_interior() {
 /**
  * @brief Verifies the Ring interval cull covers interior pixels for thin rings
  *        whose band wraps a pole while the centerline still takes the fast path.
- * @details Regression for the centerline fast path emitting two *unmerged* arcs
- *   on a pole-wrap row, leaving a one-band seam gap. The axis is tilted just off
- *   the canvas pole so r_val clears MIN_HORIZONTAL_PROJ (the fast path is
- *   eligible) yet the thin band encircles the pole, where emit_annular_band
- *   merges its two arcs into one span. Sweeps a small near-pole tilt/radius/
- *   thickness grid (both poles); expect_cull_covers_interior asserts no interior
- *   pixel is dropped.
+ * @details Sweeps near-pole ring bands at both poles; emitted spans must
+ * include every interior pixel.
  */
 inline void test_ring_pole_wrap_cull_covers_interior() {
-  // 256x128 — coarser resolutions can hide the sub-pixel gap. The triples below
-  // were search-found to drop 1-4 interior pixels at the pole seam pre-fix.
   constexpr int W = 256, H = 128;
   struct Cfg {
     float tilt, radius, thickness;
@@ -2830,9 +2829,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
  *        (including the outer AA fringe column at a silhouette edge).
  * @return The paintable-pixel count, so the caller confirms the case is non-trivial.
  * @details A pixel is paintable when its exact distance < pixel_width — the AA
- *   reach the polygon family's one-pixel cap pad is sized for. The pre-fix Face
- *   cull floor/ceil'd its azimuth intervals with no pad, so an edge falling near
- *   an integer column lost its outer AA column. Brute-forces the full canvas and
+ *   reach the polygon family's one-pixel cap pad is sized for. Brute-forces the full canvas and
  *   asserts each paintable pixel is among those scan_region visits.
  */
 template <int W, int H>
@@ -2872,10 +2869,8 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   return paintable;
 }
 
-/** @brief Regresses the Face AA-fringe pad over configs whose edges fall near a column. */
+/** @brief Verifies Face culling includes the AA fringe near column boundaries. */
 inline void test_face_cull_covers_aa_fringe() {
-  // 256x128 — coarser resolutions can hide the dropped fringe. The triples below
-  // were search-found to drop 3-6 AA-fringe pixels with the un-padded floor/ceil.
   constexpr int W = 256, H = 128;
   struct Cfg {
     int sides;
@@ -3276,6 +3271,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
     }
   }
   sample_total += samples;
+  HS_EXPECT_GT(samples, 100);
 }
 
 /** @brief Checks inside/outside signs across a backtracking sector. */
@@ -3494,6 +3490,7 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
       }
     }
   }
+  HS_EXPECT_GT(lut_samples, 100);
   HS_EXPECT_EQ(sign_mismatches, 0);
   // The sign-purity guard keeps every served magnitude a cell diagonal from
   // zero — outside the AA ramp.
