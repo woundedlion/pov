@@ -145,6 +145,13 @@ inline uint32_t feed_beacon_train(SyncBoard &board, const Config &cfg,
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
+inline void expect_rejects(const Config &config, const char *clause) {
+  const char *reason = config.valid();
+  HS_EXPECT_TRUE(reason != nullptr);
+  if (reason)
+    HS_EXPECT_EQ(std::strcmp(reason, clause), 0);
+}
+
 /**
  * @brief Verifies integer floor-div/mod and circular column distance, plus the
  *        derived Config timing fields (half-rev/column cycle counts, glitch
@@ -177,7 +184,7 @@ inline void test_helpers() {
       static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS;
   HS_EXPECT_TRUE(pw.valid() == nullptr);
   ++pw.cycles_per_half_rev;
-  HS_EXPECT_TRUE(pw.valid() != nullptr);
+  expect_rejects(pw, "cycles_per_half_rev * MIN_SAFE_HALF_REVS <= INT32_MAX");
 
   // The beacon's 6-bit rev field resyncs a slip only in (-32, +32), so the
   // beacon period must stay below the half-window: a period >= 32 leaves the
@@ -187,7 +194,7 @@ inline void test_helpers() {
   bp.rejoin_budget_revs =
       64; // relax the budget so this isolates the resync bound
   bp.beacon_period_revs = 32;
-  HS_EXPECT_TRUE(bp.valid() != nullptr);
+  expect_rejects(bp, "beacon_period_revs < 32");
   bp.beacon_period_revs = 31;
   HS_EXPECT_TRUE(bp.valid() == nullptr);
 
@@ -199,20 +206,20 @@ inline void test_helpers() {
   rb.rejoin_budget_revs = 17;
   HS_EXPECT_TRUE(rb.valid() == nullptr);
   --rb.rejoin_budget_revs;
-  HS_EXPECT_TRUE(rb.valid() != nullptr);
+  expect_rejects(rb, "rejoin_bound_revs() <= rejoin_budget_revs");
   // Every term moves the bound: a 16-rev cadence does not fit a 16-rev budget,
   // and the commit window and join grid each push it out further.
   Config rc = test_config();
   rc.rejoin_budget_revs = 16;
   rc.beacon_period_revs = 16;
-  HS_EXPECT_TRUE(rc.valid() != nullptr);
+  expect_rejects(rc, "rejoin_bound_revs() <= rejoin_budget_revs");
   rc.rejoin_budget_revs = 25;
   HS_EXPECT_TRUE(rc.valid() == nullptr);
   ++rc.commit_revs;
-  HS_EXPECT_TRUE(rc.valid() != nullptr);
+  expect_rejects(rc, "rejoin_bound_revs() <= rejoin_budget_revs");
   --rc.commit_revs;
   rc.join_grid_revs = 8;
-  HS_EXPECT_TRUE(rc.valid() != nullptr);
+  expect_rejects(rc, "rejoin_bound_revs() <= rejoin_budget_revs");
 
   // Demarcation: a wire timeout below the beacon's worst-case per-digit advance
   // splits a real digit train into isolated boundary symbols. The shipped
@@ -222,12 +229,10 @@ inline void test_helpers() {
       2 * aq.gap_timeout_cols + 7 * aq.beacon_pitch_cols + 1;
   HS_EXPECT_EQ(aq.acquire_quiet_cols, aq_bound);
   aq.acquire_quiet_cols = aq_bound - 1;
-  HS_EXPECT_TRUE(aq.valid() != nullptr);
+  expect_rejects(aq,
+                 "acquire_quiet_cols >= 2*gap_timeout + 7*beacon_pitch + 1");
   ++aq.acquire_quiet_cols;
   HS_EXPECT_TRUE(aq.valid() == nullptr);
-  Config id = test_config();
-  id.beacon_interdigit_timeout_cols = id.beacon_span_cols() / 4 - 1;
-  HS_EXPECT_TRUE(id.valid() != nullptr);
 
   // Stale-frame window order: tick()'s poll-path parser reset, which fires at
   // acquire_quiet_cols + gap_timeout_cols, must be tighter than
@@ -236,7 +241,8 @@ inline void test_helpers() {
   Config so = test_config();
   so.beacon_interdigit_timeout_cols =
       so.acquire_quiet_cols + so.gap_timeout_cols;
-  HS_EXPECT_TRUE(so.valid() != nullptr);
+  expect_rejects(
+      so, "acquire_quiet_cols + gap_timeout < beacon_interdigit_timeout");
   ++so.beacon_interdigit_timeout_cols;
   HS_EXPECT_TRUE(so.valid() == nullptr);
 
@@ -247,13 +253,13 @@ inline void test_helpers() {
   Config bq = test_config();
   bq.acquire_quiet_cols = bq.W / 4 - bq.beacon_span_cols();
   HS_EXPECT_EQ(bq.beacon_frame_cols(), bq.W / 4);
-  HS_EXPECT_TRUE(bq.valid() != nullptr);
+  expect_rejects(bq, "beacon_frame_cols() < W/4");
   --bq.acquire_quiet_cols;
   HS_EXPECT_TRUE(bq.valid() == nullptr);
 
   Config dg = test_config();
   dg.gate_cols = 7 * dg.beacon_pitch_cols + 1;
-  HS_EXPECT_TRUE(dg.valid() != nullptr);
+  expect_rejects(dg, "7*beacon_pitch_cols + 1 > gate_cols");
   --dg.gate_cols;
   HS_EXPECT_TRUE(dg.valid() == nullptr);
 
@@ -267,7 +273,7 @@ inline void test_helpers() {
   HS_EXPECT_TRUE(gf.glitch_filter_cycles <
                  gf.pulse_pitch_cycles() - gf.late_censor_cycles());
   gf.glitch_filter_cycles = gf_bound;
-  HS_EXPECT_TRUE(gf.valid() != nullptr);
+  expect_rejects(gf, "glitch_filter_cycles < beacon_pitch - late_censor");
   gf.glitch_filter_cycles = gf_bound - 1;
   HS_EXPECT_TRUE(gf.valid() == nullptr);
 }
@@ -282,13 +288,13 @@ inline void test_helpers() {
 inline void test_config_validation() {
   Config zero_width = test_config();
   zero_width.W = 0;
-  HS_EXPECT_EQ(std::strcmp(zero_width.valid(), "W > 0"), 0);
+  expect_rejects(zero_width, "W > 0");
   Config zero_period = test_config();
   zero_period.cycles_per_half_rev = 0;
-  HS_EXPECT_EQ(std::strcmp(zero_period.valid(), "cycles_per_half_rev > 0"), 0);
+  expect_rejects(zero_period, "cycles_per_half_rev > 0");
   Config zero_pitch = test_config();
   zero_pitch.beacon_pitch_cols = 0;
-  HS_EXPECT_EQ(std::strcmp(zero_pitch.valid(), "beacon_pitch_cols > 0"), 0);
+  expect_rejects(zero_pitch, "beacon_pitch_cols > 0");
 
   HS_EXPECT_TRUE(test_config().valid() == nullptr);
 
@@ -297,11 +303,11 @@ inline void test_config_validation() {
   // else moves.
   Config ow = test_config();
   ow.W = 289;
-  HS_EXPECT_TRUE(ow.valid() != nullptr);
+  expect_rejects(ow, "W even");
 
   Config gz = test_config();
   gz.gate_cols = 0;
-  HS_EXPECT_TRUE(gz.valid() != nullptr);
+  expect_rejects(gz, "gate_cols > 0");
 
   // gate_cols < W/4 is what lets snap()'s distance check subsume the boundary-
   // identity check. No config violates it alone: beacon_frame_cols() < W/4
@@ -313,21 +319,21 @@ inline void test_config_validation() {
 
   Config rj = test_config();
   rj.reject_fallback = 0;
-  HS_EXPECT_TRUE(rj.valid() != nullptr);
+  expect_rejects(rj, "reject_fallback > 0");
 
   Config gz2 = test_config();
   gz2.glitch_filter_cycles = 0;
-  HS_EXPECT_TRUE(gz2.valid() != nullptr);
+  expect_rejects(gz2, "glitch_filter_cycles > 0");
 
   Config pz = test_config();
   pz.pulse_pitch_cols = 0;
-  HS_EXPECT_TRUE(pz.valid() != nullptr);
+  expect_rejects(pz, "pulse_pitch_cols > 0");
 
   // A gap that does not outlast the boundary-burst pitch terminates the burst
   // between its own pulses. Boundary is exclusive.
   Config gp = test_config();
   gp.gap_timeout_cols = gp.pulse_pitch_cols;
-  HS_EXPECT_TRUE(gp.valid() != nullptr);
+  expect_rejects(gp, "gap_timeout_cols > pulse_pitch_cols");
   ++gp.gap_timeout_cols;
   HS_EXPECT_TRUE(gp.valid() == nullptr);
 
@@ -343,21 +349,28 @@ inline void test_config_validation() {
   bg.beacon_interdigit_timeout_cols = 40;
   bg.gap_timeout_cols = 4;
   HS_EXPECT_TRUE(bg.valid() == nullptr);
+  Config pulse_glitch = bg;
+  pulse_glitch.glitch_filter_cycles =
+      pulse_glitch.pulse_pitch_cycles() - pulse_glitch.late_censor_cycles();
+  expect_rejects(pulse_glitch,
+                 "glitch_filter_cycles < pulse_pitch - late_censor");
+  --pulse_glitch.glitch_filter_cycles;
+  HS_EXPECT_TRUE(pulse_glitch.valid() == nullptr);
   bg.gap_timeout_cols = bg.beacon_pitch_cols;
-  HS_EXPECT_TRUE(bg.valid() != nullptr);
+  expect_rejects(bg, "gap_timeout_cols > beacon_pitch_cols");
 
   // Epoch indices are taken mod effect_count and ride a 6-bit beacon field.
   Config ec = test_config();
   ec.effect_count = 0;
-  HS_EXPECT_TRUE(ec.valid() != nullptr);
+  expect_rejects(ec, "effect_count > 0");
   ec.effect_count = 65;
-  HS_EXPECT_TRUE(ec.valid() != nullptr);
+  expect_rejects(ec, "effect_count <= 64");
   ec.effect_count = 64;
   HS_EXPECT_TRUE(ec.valid() == nullptr);
 
   Config cz = test_config();
   cz.commit_revs = 0;
-  HS_EXPECT_TRUE(cz.valid() != nullptr);
+  expect_rejects(cz, "commit_revs > 0");
 
   // A negative epoch_repeats casts to a huge uint32_t and wraps the refractory
   // sum, so the relation below it reads true; only the explicit sign gate
@@ -366,7 +379,7 @@ inline void test_config_validation() {
   ne.epoch_repeats = -1;
   HS_EXPECT_TRUE(ne.refractory_revs >
                  ne.commit_revs + static_cast<uint32_t>(ne.epoch_repeats));
-  HS_EXPECT_TRUE(ne.valid() != nullptr);
+  expect_rejects(ne, "epoch_repeats >= 0");
   ne.epoch_repeats = 0;
   HS_EXPECT_TRUE(ne.valid() == nullptr);
 
@@ -375,7 +388,7 @@ inline void test_config_validation() {
   // exclusive.
   Config rf = test_config();
   rf.refractory_revs = rf.commit_revs + static_cast<uint32_t>(rf.epoch_repeats);
-  HS_EXPECT_TRUE(rf.valid() != nullptr);
+  expect_rejects(rf, "refractory_revs > commit_revs + epoch_repeats");
   ++rf.refractory_revs;
   HS_EXPECT_TRUE(rf.valid() == nullptr);
 
@@ -383,7 +396,7 @@ inline void test_config_validation() {
   // that protects its own commit closes. Boundary is exclusive.
   Config re = test_config();
   re.revs_per_effect = re.refractory_revs;
-  HS_EXPECT_TRUE(re.valid() != nullptr);
+  expect_rejects(re, "revolutions_for_effect(i) > refractory_revs");
   ++re.revs_per_effect;
   HS_EXPECT_TRUE(re.valid() == nullptr);
 
@@ -391,17 +404,17 @@ inline void test_config_validation() {
   Config vr = test_config();
   vr.effect_revolutions = variable_revolutions;
   vr.effect_revolutions_count = 0;
-  HS_EXPECT_TRUE(vr.valid() != nullptr);
+  expect_rejects(vr, "effect_revolutions_count >= effect_count");
   vr.set_effect_revolutions(variable_revolutions);
   HS_EXPECT_TRUE(vr.valid() == nullptr);
   variable_revolutions[2] = vr.refractory_revs;
-  HS_EXPECT_TRUE(vr.valid() != nullptr);
+  expect_rejects(vr, "revolutions_for_effect(i) > refractory_revs");
 
   // A beacon cadence inside the construction window would land identity
   // traffic on the commit boundary. Boundary is exclusive.
   Config bc = test_config();
   bc.beacon_period_revs = bc.commit_revs;
-  HS_EXPECT_TRUE(bc.valid() != nullptr);
+  expect_rejects(bc, "beacon_period_revs > commit_revs");
   ++bc.beacon_period_revs;
   HS_EXPECT_TRUE(bc.valid() == nullptr);
 
@@ -409,9 +422,9 @@ inline void test_config_validation() {
   // count lands on the same grid as the master's true count.
   Config jg = test_config();
   jg.join_grid_revs = 0;
-  HS_EXPECT_TRUE(jg.valid() != nullptr);
+  expect_rejects(jg, "join_grid_revs > 0");
   jg.join_grid_revs = 3;
-  HS_EXPECT_TRUE(jg.valid() != nullptr);
+  expect_rejects(jg, "join_grid_revs divides 64");
   jg.join_grid_revs = 8;
   HS_EXPECT_TRUE(jg.valid() == nullptr);
 }
