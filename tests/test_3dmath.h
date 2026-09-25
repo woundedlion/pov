@@ -565,11 +565,11 @@ inline void test_snorm3_roundtrip_bound() {
 
   hs::Pcg32 rng(20260803u);
   for (int i = 0; i < 256; ++i) {
+    const float x = rand_uniform(rng, -1.0f, 1.0f);
+    const float y = rand_uniform(rng, -1.0f, 1.0f);
+    const float z = rand_uniform(rng, -1.0f, 1.0f);
     const math::Vector v =
-        math::normalized_or(math::Vector(rand_uniform(rng, -1.0f, 1.0f),
-                                         rand_uniform(rng, -1.0f, 1.0f),
-                                         rand_uniform(rng, -1.0f, 1.0f)),
-                            math::Vector(1, 0, 0));
+        math::normalized_or(math::Vector(x, y, z), math::Vector(1, 0, 0));
     const math::Vector decoded = math::Snorm3::encode(v).decode();
     HS_EXPECT_LE(std::abs(decoded.x - v.x), COMPONENT_BOUND);
     HS_EXPECT_LE(std::abs(decoded.y - v.y), COMPONENT_BOUND);

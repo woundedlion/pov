@@ -761,8 +761,10 @@ inline void test_noise_cross_hemisphere_cap() {
     float worst_angle = 0.0f;
     int off_sphere = 0;
     for (int i = 0; i < 4000; ++i) {
-      const math::Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                           hs::rand_f(-1.0f, 1.0f));
+      const float r_x = hs::rand_f(-1.0f, 1.0f);
+      const float r_y = hs::rand_f(-1.0f, 1.0f);
+      const float r_z = hs::rand_f(-1.0f, 1.0f);
+      const math::Vector r(r_x, r_y, r_z);
       if (r.length() < 0.1f)
         continue;
       const math::Vector v = r.normalized();
@@ -1512,8 +1514,10 @@ inline void test_bump_field_bound_is_conservative() {
   hs::random().seed(20260803);
   auto random_unit = []() {
     for (;;) {
-      const math::Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                           hs::rand_f(-1.0f, 1.0f));
+      const float r_x = hs::rand_f(-1.0f, 1.0f);
+      const float r_y = hs::rand_f(-1.0f, 1.0f);
+      const float r_z = hs::rand_f(-1.0f, 1.0f);
+      const math::Vector r(r_x, r_y, r_z);
       if (r.length() > 0.1f)
         return r.normalized();
     }
