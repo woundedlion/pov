@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url';
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // C++ splices physical lines before removing comments.
-function stripComments(src) {
+export function stripComments(src) {
   return src
     .replace(/\\\r?\n/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\/\/[^\n]*/g, '');
+    .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,
+      (match) => match.startsWith('/*') ? ' ' : '');
 }
 
 // Extracts the X() rows from targets/effects.h source text.

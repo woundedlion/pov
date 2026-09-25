@@ -40,9 +40,7 @@ test('parseEffectRoster drops block-commented rows, including multi-line ones', 
     ['Alpha', 'Last']);
 });
 
-// Block comments are stripped first so a `/* ... // ... */` row cannot leave a
-// dangling `*/` that resurrects a commented-out X() row.
-test('parseEffectRoster strips block comments before line comments', () => {
+test('parseEffectRoster respects line-comment openers inside block comments', () => {
   assert.deepEqual(parseEffectRoster(rosterOf('/* // X(Dropped)', 'X(AlsoDropped) */ X(Alpha)')),
     ['Alpha', 'Last']);
 });
@@ -128,4 +126,10 @@ test('the loaders agree on the checked-in roster', async () => {
   assert.ok(phantasm.length > 0);
   assert.ok(phantasm.every(name => roster.includes(name)));
   assert.deepEqual([...roster].sort(), [...registered].sort());
+});
+
+test('roster parsers ignore block-comment openers inside line comments', () => {
+  const prefix = '// helpers live in effects/*.h\n';
+  assert.deepEqual(parseRegisteredEffects(prefix + 'REGISTER_EFFECT(Foo)\n/** doc */'), ['Foo']);
+  assert.deepEqual(parseEffectRoster(prefix + rosterOf('X(Alpha)') + '\n/** doc */'), ['Alpha', 'Last']);
 });
