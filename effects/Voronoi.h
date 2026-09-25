@@ -450,4 +450,3 @@ private:
 };
 
 #include "core/control/registry.h"
-REGISTER_EFFECT(Voronoi)

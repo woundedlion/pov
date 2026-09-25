@@ -6,9 +6,7 @@
 
 /**
  * @file registry.h
- * @brief Self-registering effect factory. Each effect header calls
- *        REGISTER_EFFECT(ClassName) which appends to a global registry at
- *        static-init time.
+ * @brief Effect factory records generated from the target effect roster.
  * @details Enabled for the WASM build and registry tests. On firmware it is a
  *          no-op, so effect registration pulls in no std::vector/std::function
  *          overhead.
@@ -20,7 +18,7 @@
 
 #include "platform/constants.h"
 #include "platform/platform.h"
-#include <vector>
+#include <array>
 #include <string_view>
 #include <functional>
 #include <memory>
@@ -70,7 +68,7 @@ struct FactoryEntry {
 
 // Single source of truth for the supported render resolutions. Adding a resolution
 // is ONE edit here: the EffectRegistration fields, the get_fill_fn dispatch, and
-// the REGISTER_EFFECT fill-pointer list below all expand from this X-macro, so they
+// the factory fill-pointer list below all expand from this X-macro, so they
 // cannot drift out of sync.
 #define HS_RESOLUTIONS(X)                                                      \
   X(96, 20)                                                                    \
@@ -100,73 +98,36 @@ struct EffectRegistration {
   std::string_view name; /**< Effect class/header stem. */
   using FillFn = void (*)(
       FactoryEntry &); /**< Populates a FactoryEntry for a given resolution. */
-  using StableIdFn =
-      std::string_view (*)(); /**< Names the persisted identity. */
 #define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
   HS_RESOLUTIONS(HS_REG_FILL_FIELD)
 #undef HS_REG_FILL_FIELD
-  StableIdFn stable_id_fn = nullptr; /**< Reads the persisted identity without
-                                        building a FactoryEntry. */
-  std::string_view stable_id{};      /**< Persisted identity shared by every
+  std::string_view stable_id{}; /**< Persisted identity shared by every
                                         resolution's FactoryEntry. */
 };
 
-/**
- * @brief Global table of registered effects, populated at static-init time.
- * @details Entries are appended by REGISTER_EFFECT. The Meyers-singleton vector
- *          avoids static-init-order issues across translation units.
- */
-class EffectRegistry {
-public:
-  /**
-   * @brief Accesses the global registration table.
-   * @return Reference to the singleton vector of registrations.
-   */
-  static std::vector<EffectRegistration> &entries() {
-    static std::vector<EffectRegistration> s;
-    return s;
+/** @brief Validates the shared class-name and stable-ID lookup namespace. */
+template <size_t N>
+constexpr bool
+registration_names_unique(const std::array<EffectRegistration, N> &entries) {
+  for (size_t i = 0; i < N; ++i) {
+    if (entries[i].name.empty() || entries[i].stable_id.empty())
+      return false;
+    for (size_t j = 0; j < i; ++j)
+      if (entries[i].name == entries[j].name ||
+          entries[i].stable_id == entries[j].stable_id ||
+          entries[i].name == entries[j].stable_id ||
+          entries[i].stable_id == entries[j].name)
+        return false;
   }
-  /**
-   * @brief Appends a registration to the global table.
-   * @param reg Registration record to append.
-   * @return Dummy 0, so this can be used as a static-init expression.
-   * @details Class names and stable IDs share the factory lookup namespace and
-   *          must be pairwise unique across registrations.
-   * @warning The append order is the static-init order of the REGISTER_EFFECT
-   *          objects, which is link/translation-unit-order dependent and therefore
-   *          NOT stable across builds. The index of an entry in `entries()` carries
-   *          no meaning: do NOT introduce a positional, persisted, or transmitted
-   *          index over this table — drive any stable ordering from `HS_EFFECT_LIST`
-   *          instead, or sort `entries()` by name at use.
-   */
-  static int add(EffectRegistration reg) {
-    if (reg.stable_id.empty()) {
-      HS_CHECK(reg.stable_id_fn != nullptr,
-               "effect registration needs a stable id or provider");
-      reg.stable_id = reg.stable_id_fn();
-    }
+  return true;
+}
 
-    for (const auto &existing : entries()) {
-      HS_CHECK(existing.name != reg.name,
-               "effect header included by more than one translation unit: "
-               "effects/%.*s.h",
-               static_cast<int>(reg.name.size()), reg.name.data());
-      HS_CHECK(existing.stable_id != reg.stable_id,
-               "duplicate effect stable id \"%.*s\": effects/%.*s.h and "
-               "effects/%.*s.h",
-               static_cast<int>(reg.stable_id.size()), reg.stable_id.data(),
-               static_cast<int>(existing.name.size()), existing.name.data(),
-               static_cast<int>(reg.name.size()), reg.name.data());
-      HS_CHECK(existing.name != reg.stable_id && existing.stable_id != reg.name,
-               "effect stable id collides with a class name: effects/%.*s.h "
-               "and effects/%.*s.h",
-               static_cast<int>(existing.name.size()), existing.name.data(),
-               static_cast<int>(reg.name.size()), reg.name.data());
-    }
-    entries().push_back(reg);
-    return 0;
-  }
-};
+template <size_t N>
+void validate_effect_registrations(
+    const std::array<EffectRegistration, N> &entries) {
+  HS_CHECK(registration_names_unique(entries),
+           "duplicate effect registration identity");
+}
 
 // Dependent-false constant so a static_assert in a discarded `if constexpr`
 // branch only fires when that branch is actually instantiated. A bare
@@ -199,76 +160,34 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
   }
 }
 
-// Anchor attribute for the self-registration object. `used` keeps the compiler
-// from eliding the unreferenced static and roots it for wasm-ld via llvm.used;
-// `retain` additionally survives an ELF linker's --gc-sections but is newer
-// (Clang 13+ / GCC 11+), so guard it behind __has_attribute and fall back to
-// `used` alone.
-#if defined(__has_attribute) && __has_attribute(retain)
-#define HS_REGISTRAR_ANCHOR __attribute__((used, retain))
-#else
-#define HS_REGISTRAR_ANCHOR __attribute__((used))
-#endif
-
-/**
- * @brief Self-registers an effect class with the global EffectRegistry.
- * @param ClassName Effect class template (instantiated per supported <W,H>).
- * @details Defines an anonymous-namespace registrar whose static initializer
- *          appends fill functions for every supported resolution. The
- *          used+retain attributes keep the dynamic initializer from being
- *          discarded under LTO / --gc-sections. On targets without the
- *          registry this macro expands to nothing.
- * @note Each effect header must be included by exactly one TU per binary; a
- *       second includer registers that effect twice and trips the registry's
- *       duplicate-name check.
- */
-#define REGISTER_EFFECT(ClassName)                                               \
-  namespace {                                                                    \
-  struct ClassName##_Registrar {                                                 \
-    template <int W, int H> static void fill(FactoryEntry &e) {                  \
-      e.name = #ClassName;                                                       \
-      e.stable_id = hs::stable_effect_id<ClassName<W, H>>(#ClassName);           \
-      e.creator = []() -> std::unique_ptr<Effect> {                              \
-        return std::make_unique<ClassName<W, H>>();                              \
-      };                                                                         \
-      e.type_key = effect_type_key<ClassName<W, H>>();                           \
-      e.size = sizeof(ClassName<W, H>);                                          \
-      if constexpr (requires { ClassName<W, H>::PRESET_IDS; }) {                 \
-        e.preset_count = ClassName<W, H>::PRESET_IDS.size();                     \
-        e.preset_id = [](size_t index) -> std::string_view {                     \
-          const auto &ids = ClassName<W, H>::PRESET_IDS;                         \
-          return index < ids.size() ? ids[index] : std::string_view{};           \
-        };                                                                       \
-      } else if constexpr (requires {                                            \
-                             ClassName<W, H>::authored_preset_count();           \
-                           }) {                                                  \
-        e.preset_count = ClassName<W, H>::authored_preset_count();               \
-      }                                                                          \
-    }                                                                            \
-    static constexpr std::string_view stable_id() {                              \
-      return hs::stable_effect_id<ClassName<HS_REG_IDENTITY_RESOLUTION>>(        \
-          #ClassName);                                                           \
-    }                                                                            \
-    /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references reg, so   \
-     * under LTO / --gc-sections the dynamic initializer could be discarded,   \
-     * silently dropping the effect from the registry. */ \
-    HS_REGISTRAR_ANCHOR                                                          \
-    static inline int reg = EffectRegistry::add(                                 \
-        {#ClassName,                                                             \
-         HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR) HS_DETAIL_REG_ID});              \
-  };                                                                             \
+/** @brief Populates one concrete factory entry from its roster name. */
+template <template <int, int> class ClassName, int W, int H>
+void fill_registration(FactoryEntry &entry) {
+  entry.stable_id = hs::stable_effect_id<ClassName<W, H>>(entry.name);
+  entry.creator = []() -> std::unique_ptr<Effect> {
+    return std::make_unique<ClassName<W, H>>();
+  };
+  entry.type_key = effect_type_key<ClassName<W, H>>();
+  entry.size = sizeof(ClassName<W, H>);
+  if constexpr (requires { ClassName<W, H>::PRESET_IDS; }) {
+    entry.preset_count = ClassName<W, H>::PRESET_IDS.size();
+    entry.preset_id = [](size_t index) -> std::string_view {
+      const auto &ids = ClassName<W, H>::PRESET_IDS;
+      return index < ids.size() ? ids[index] : std::string_view{};
+    };
+  } else if constexpr (requires { ClassName<W, H>::authored_preset_count(); }) {
+    entry.preset_count = ClassName<W, H>::authored_preset_count();
   }
+}
 
-// Emits one `&fill<W, H>,` per resolution for the REGISTER_EFFECT initializer
-// above. Defined outside the macro (preprocessor directives can't live inside a
-// macro body). The trailing comma is harmless in a braced-init list.
-#define HS_DETAIL_REG_FILL_PTR(W, H) &fill<W, H>,
+/** @brief Builds resolution fill pointers for one HS_EFFECT_LIST entry. */
+template <template <int, int> class ClassName>
+constexpr EffectRegistration make_registration(std::string_view name) {
+#define HS_REG_FILL_POINTER(W, H) &fill_registration<ClassName, W, H>,
+  return {name, HS_RESOLUTIONS(HS_REG_FILL_POINTER)
+                    hs::stable_effect_id<ClassName<HS_REG_IDENTITY_RESOLUTION>>(
+                        name)};
+#undef HS_REG_FILL_POINTER
+}
 
-// The registrar's stable-id accessor, following the fill pointers above (whose
-// trailing comma separates them) as EffectRegistration::stable_id_fn.
-#define HS_DETAIL_REG_ID &stable_id
-
-#else
-// Static effect selection does not need registration machinery.
-#define REGISTER_EFFECT(ClassName)
 #endif
