@@ -161,6 +161,69 @@ public:
                        Solids::BaseMesh::TRIAKIS_ICOSAHEDRON,
                        Solids::BaseMesh::PENTAKIS_DODECAHEDRON};
 
+  static_assert(
+      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::TETRAHEDRON)] ==
+      Solids::BaseMesh::TETRAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::CUBE)] ==
+                Solids::BaseMesh::CUBE);
+  static_assert(
+      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::OCTAHEDRON)] ==
+      Solids::BaseMesh::OCTAHEDRON);
+  static_assert(
+      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::DODECAHEDRON)] ==
+      Solids::BaseMesh::DODECAHEDRON);
+  static_assert(
+      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::ICOSAHEDRON)] ==
+      Solids::BaseMesh::ICOSAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::TRUNCATED_TETRAHEDRON)] ==
+                Solids::BaseMesh::TRUNCATED_TETRAHEDRON);
+  static_assert(
+      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::CUBOCTAHEDRON)] ==
+      Solids::BaseMesh::CUBOCTAHEDRON);
+  static_assert(
+      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::TRUNCATED_CUBE)] ==
+      Solids::BaseMesh::TRUNCATED_CUBE);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::TRUNCATED_OCTAHEDRON)] ==
+                Solids::BaseMesh::TRUNCATED_OCTAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::RHOMBICUBOCTAHEDRON)] ==
+                Solids::BaseMesh::RHOMBICUBOCTAHEDRON);
+  static_assert(
+      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::SNUB_CUBE)] ==
+      Solids::BaseMesh::SNUB_CUBE);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::ICOSIDODECAHEDRON)] ==
+                Solids::BaseMesh::ICOSIDODECAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::TRIAKIS_TETRAHEDRON)] ==
+                Solids::BaseMesh::TRIAKIS_TETRAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::RHOMBIC_DODECAHEDRON)] ==
+                Solids::BaseMesh::RHOMBIC_DODECAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::TRIAKIS_OCTAHEDRON)] ==
+                Solids::BaseMesh::TRIAKIS_OCTAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::TETRAKIS_HEXAHEDRON)] ==
+                Solids::BaseMesh::TETRAKIS_HEXAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::DELTOIDAL_ICOSITETRAHEDRON)] ==
+                Solids::BaseMesh::DELTOIDAL_ICOSITETRAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::DISDYAKIS_DODECAHEDRON)] ==
+                Solids::BaseMesh::DISDYAKIS_DODECAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::RHOMBIC_TRIACONTAHEDRON)] ==
+                Solids::BaseMesh::RHOMBIC_TRIACONTAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::TRIAKIS_ICOSAHEDRON)] ==
+                Solids::BaseMesh::TRIAKIS_ICOSAHEDRON);
+  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
+                    PlacementSolid::PENTAKIS_DODECAHEDRON)] ==
+                Solids::BaseMesh::PENTAKIS_DODECAHEDRON);
+
   /** @brief Picker labels, read out of the canonical BaseMesh table. */
   static constexpr std::array<const char *, PLACEMENT_SOLID_COUNT>
       PLACEMENT_SOLID_OPTIONS = raymarch_placement_labels(PLACEMENT_SOLIDS);
