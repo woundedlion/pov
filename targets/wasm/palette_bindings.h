@@ -345,8 +345,8 @@ private:
                   "masks cross as; hand the masks to JS as BigInt or as a pair "
                   "of 32-bit halves");
     emscripten::val output = emscripten::val::object();
-    output.set("code", static_cast<int>(status.code));
-    output.set("field", static_cast<int>(status.field));
+    output.set("code", status.code);
+    output.set("field", status.field);
     output.set("wrappedFields",
                static_cast<double>(status.adjustments.wrapped_fields));
     output.set("clampedFields",
@@ -474,6 +474,54 @@ private:
  *          parity tests call through a constructed PaletteOps.
  */
 static void bind_palette_ops() {
+  emscripten::enum_<PaletteCompileCode>("PaletteCompileCode")
+      .value("OK", PaletteCompileCode::OK)
+      .value("INVALID_SCHEMA", PaletteCompileCode::INVALID_SCHEMA)
+      .value("NON_FINITE", PaletteCompileCode::NON_FINITE)
+      .value("INVALID_ENUM", PaletteCompileCode::INVALID_ENUM)
+      .value("HUE_LIMIT", PaletteCompileCode::HUE_LIMIT)
+      .value("NON_INTEGER_LOOP_SWEEP",
+             PaletteCompileCode::NON_INTEGER_LOOP_SWEEP)
+      .value("INVALID_FALLOFF_START", PaletteCompileCode::INVALID_FALLOFF_START)
+      .value("INCOMPATIBLE_OPTIONS", PaletteCompileCode::INCOMPATIBLE_OPTIONS);
+  emscripten::enum_<PaletteRecipeField>("PaletteRecipeField")
+      .value("NONE", PaletteRecipeField::NONE)
+      .value("PALETTE_DOMAIN", PaletteRecipeField::PALETTE_DOMAIN)
+      .value("EASING", PaletteRecipeField::EASING)
+      .value("COLOR_PATH", PaletteRecipeField::COLOR_PATH)
+      .value("HUE_MODE", PaletteRecipeField::HUE_MODE)
+      .value("HARMONY", PaletteRecipeField::HARMONY)
+      .value("HUE_DIRECTION", PaletteRecipeField::HUE_DIRECTION)
+      .value("BASE_TURNS", PaletteRecipeField::BASE_TURNS)
+      .value("SPREAD_TURNS", PaletteRecipeField::SPREAD_TURNS)
+      .value("SWEEP_TURNS", PaletteRecipeField::SWEEP_TURNS)
+      .value("CUSTOM_TURNS_0", PaletteRecipeField::CUSTOM_TURNS_0)
+      .value("CUSTOM_TURNS_1", PaletteRecipeField::CUSTOM_TURNS_1)
+      .value("CUSTOM_TURNS_2", PaletteRecipeField::CUSTOM_TURNS_2)
+      .value("CUSTOM_TURNS_3", PaletteRecipeField::CUSTOM_TURNS_3)
+      .value("LIGHTNESS_CURVE", PaletteRecipeField::LIGHTNESS_CURVE)
+      .value("LIGHTNESS_CENTER", PaletteRecipeField::LIGHTNESS_CENTER)
+      .value("LIGHTNESS_RANGE", PaletteRecipeField::LIGHTNESS_RANGE)
+      .value("LIGHTNESS_CUSTOM_0", PaletteRecipeField::LIGHTNESS_CUSTOM_0)
+      .value("LIGHTNESS_CUSTOM_1", PaletteRecipeField::LIGHTNESS_CUSTOM_1)
+      .value("LIGHTNESS_CUSTOM_2", PaletteRecipeField::LIGHTNESS_CUSTOM_2)
+      .value("LIGHTNESS_CUSTOM_3", PaletteRecipeField::LIGHTNESS_CUSTOM_3)
+      .value("CHROMA_CURVE", PaletteRecipeField::CHROMA_CURVE)
+      .value("CHROMA_BASIS", PaletteRecipeField::CHROMA_BASIS)
+      .value("CHROMA_CENTER", PaletteRecipeField::CHROMA_CENTER)
+      .value("CHROMA_RANGE", PaletteRecipeField::CHROMA_RANGE)
+      .value("CHROMA_CUSTOM_0", PaletteRecipeField::CHROMA_CUSTOM_0)
+      .value("CHROMA_CUSTOM_1", PaletteRecipeField::CHROMA_CUSTOM_1)
+      .value("CHROMA_CUSTOM_2", PaletteRecipeField::CHROMA_CUSTOM_2)
+      .value("CHROMA_CUSTOM_3", PaletteRecipeField::CHROMA_CUSTOM_3)
+      .value("CHROMA_HEADROOM", PaletteRecipeField::CHROMA_HEADROOM)
+      .value("HUE_TORSION", PaletteRecipeField::HUE_TORSION)
+      .value("FALLOFF_START", PaletteRecipeField::FALLOFF_START)
+      .value("SCHEMA_VERSION", PaletteRecipeField::SCHEMA_VERSION)
+      .value("INPUT_OFFSET", PaletteRecipeField::INPUT_OFFSET)
+      .value("INPUT_SPAN", PaletteRecipeField::INPUT_SPAN)
+      .value("COUNT", PaletteRecipeField::COUNT);
+
   emscripten::class_<PaletteOps>("PaletteOps")
       .constructor<>()
       .function("compileAndBakeV4", &PaletteOps::compileAndBakeV4)
