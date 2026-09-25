@@ -890,9 +890,15 @@ inline void test_gamut_lut_release_and_passthrough() {
   HS_EXPECT_TRUE(kept.a == deep.a && kept.b == deep.b);
 
   // Just inside the boundary but past the cell minimum: refined, not reduced.
-  OKLab near_edge = oklch_to_oklab({0.6f, 0.12f, 1.0f});
-  OKLCH refined = oklab_to_oklch(gamut_clip_preserve_chroma(near_edge));
-  HS_EXPECT_NEAR(refined.C, 0.12f, 1e-5f);
+  OKLab near_edge = oklch_to_oklab({0.6f, 0.144f, 1.0f});
+  const auto cell =
+      gamut_cell(g_gamut_lut, near_edge.L, near_edge.a, near_edge.b);
+  const size_t cell_offset =
+      (cell.lightness_index * g_gamut_lut.angle_steps + cell.angle_index) * 2;
+  const float c_lo = g_gamut_lut.table[cell_offset] * GAMUT_LUT_INV_SCALE;
+  HS_EXPECT_GT(0.144f, c_lo);
+  kept = gamut_clip_preserve_chroma(near_edge);
+  HS_EXPECT_TRUE(kept.a == near_edge.a && kept.b == near_edge.b);
 
   // An achromatic input must not divide by zero on the way through.
   OKLab gray = gamut_clip_preserve_chroma({0.5f, 0.0f, 0.0f});
