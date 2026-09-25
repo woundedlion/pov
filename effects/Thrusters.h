@@ -83,7 +83,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Wrap at 32, ring_fn's modulation period.
+    // ring_fn completes three temporal cycles per 32 frames.
     t_global = (t_global + 1) % 32;
 
     {
@@ -250,10 +250,10 @@ private:
    * @param t Ring parameter in [0, 1) around the circumference.
    * @param phase Spatial warp phase in radians.
    * @param amp Warp amplitude (unit-sphere units).
-   * @param frame Frame counter driving the slow temporal wave.
+   * @param frame Frame counter driving the temporal wave.
    * @return Signed radial offset, in unit-sphere units.
-   * @details Product of a spatial warp wave (from `phase`) and a slow temporal
-   *          wave (period 32 frames, from `frame`), scaled by `amp`. Pure in its
+   * @details Product of a spatial warp wave (from `phase`) and a temporal wave
+   *          (three cycles per 32 frames, from `frame`), scaled by `amp`. Pure in its
    *          arguments: callers pass an explicit snapshot of the warp state so
    *          the result can never depend on the order in which warp_phase /
    *          amplitude / t_global are mutated relative to the call.
