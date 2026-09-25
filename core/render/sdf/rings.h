@@ -227,9 +227,9 @@ struct DistortedRing {
   ScalarFn shift_fn; /**< Per-azimuth centerline shift, t in [0,1) -> radians;
                          empty in knot mode. */
   const float *knots =
-      nullptr;   /**< Optional lut_n + 1 shift knots (entry lut_n repeats entry
-                    0); selects exact polyline distance. */
-  int lut_n = 0; /**< Knot cell count when knots is set. */
+      nullptr; /**< Optional lut_n shift knots; entry lut_n is ignored if present.
+                    Selects exact polyline distance. */
+  int lut_n = 0;                /**< Knot cell count when knots is set. */
   float knot_count = 0.0f;      /**< Knot cell count as a float. */
   float knot_cell_angle = 0.0f; /**< Angular width of one knot cell. */
   const KnotPrefilter *prefilter =
@@ -333,19 +333,20 @@ public:
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param kn n centerline shifts (radians), one per equal azimuth cell;
-   *           closure wraps to entry 0. Must outlive the shape. distance()
+   *           closure wraps to entry 0; entry n is ignored if present.
+   *           Must outlive the shape. distance()
    *           returns the exact distance to this polyline (within the local
    *           tangent chart), so steep or sharply curved segments render at
    *           full stroke width with no slope approximation.
-   * @param n Number of knot cells; at least 1.
+   * @param n Number of knot cells; at least 3.
    * @param ph Azimuth phase offset (radians).
    * @param pf Prefilter storage filled here; must outlive the shape.
    */
   DistortedRing(const math::Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter &pf)
       : DistortedRing(b, r, th, 0.0f, ph) {
-    HS_CHECK(kn != nullptr && n >= 1,
-             "DistortedRing: knot storage must be nonempty");
+    HS_CHECK(kn != nullptr && n >= 3,
+             "DistortedRing: knot storage requires at least three knots");
     knots = kn;
     lut_n = n;
     knot_count = static_cast<float>(n);

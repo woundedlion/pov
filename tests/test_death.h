@@ -3494,6 +3494,28 @@ inline void case_sdf_distorted_ring_zero_knots() {
     std::printf("x");
 }
 
+inline void case_sdf_distorted_ring_one_knots() {
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
+  const float knots[1] = {0.0f};
+  SDF::KnotPrefilter pf;
+  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(1),
+                          opaque(0.0f), pf);
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
+inline void case_sdf_distorted_ring_two_knots() {
+  const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                      math::Vector(0, 0, 1)};
+  const float knots[2] = {0.0f};
+  SDF::KnotPrefilter pf;
+  SDF::DistortedRing ring(b, opaque(0.5f), opaque(0.05f), knots, opaque(2),
+                          opaque(0.0f), pf);
+  if (ring.thickness == opaque(42.0f))
+    std::printf("x");
+}
+
 /**
  * @brief Death case: a twist warp around a zero-radius torus must trap.
  * @details SDF warp surface — the Lipschitz bound scales by 2/R, so a zero
@@ -5651,7 +5673,13 @@ inline const Case *all_cases(int &n) {
            "(fabsf(ax.length() - 1.0f) < 1e-3f) SDF CSG: repetition axis must be unit length"},
           {"sdf_distorted_ring_zero_knots", case_sdf_distorted_ring_zero_knots,
            "core/render/sdf/rings.h",
-           "(kn != nullptr && n >= 1) DistortedRing: knot storage must be nonempty"},
+           "(kn != nullptr && n >= 3) DistortedRing: knot storage requires at least three knots"},
+          {"sdf_distorted_ring_one_knots", case_sdf_distorted_ring_one_knots,
+           "core/render/sdf/rings.h",
+           "(kn != nullptr && n >= 3) DistortedRing: knot storage requires at least three knots"},
+          {"sdf_distorted_ring_two_knots", case_sdf_distorted_ring_two_knots,
+           "core/render/sdf/rings.h",
+           "(kn != nullptr && n >= 3) DistortedRing: knot storage requires at least three knots"},
           {"sdf_twist_zero_major_radius", case_sdf_twist_zero_major_radius,
            "core/render/sdf/volume.h",
            "(R > 0.0f) SDF Volume: radius must be positive"},
