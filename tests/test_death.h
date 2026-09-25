@@ -261,6 +261,13 @@ inline void case_scratch_scope_non_lifo() {
   inner.reset();    // offset 0 < saved 8 -> HS_CHECK
 }
 
+inline void case_scratch_scope_reset() {
+  static uint8_t storage[64];
+  Arena arena(storage, sizeof(storage));
+  ScratchScope scope(arena);
+  arena.reset();
+}
+
 /**
  * @brief Death case: ArenaVector fixed-capacity push_back overflow must trap.
  * @details Arena-container surface — a push_back past capacity fires HS_CHECK.
@@ -4775,6 +4782,9 @@ inline const Case *all_cases(int &n) {
           {"arena_rewind_history_overflow", case_arena_rewind_history_overflow,
            "core/engine/memory.h",
            "(rewind_history_size < REWIND_HISTORY_CAPACITY) Arena: debug rewind history capacity exceeded"},
+          {"scratch_scope_reset", case_scratch_scope_reset,
+           "core/engine/memory.h",
+           "(arena.get_generation() == saved_generation) ScratchScope: arena reset during scope lifetime"},
           {"arena_vector_overflow", case_arena_vector_overflow,
            "core/engine/memory.h",
            "(element_count < element_capacity) ArenaVector push_back exact "
@@ -5572,7 +5582,8 @@ inline const Case *all_cases(int &n) {
           {"chain_zero_alignment", case_chain_zero_alignment,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-          {"chain_non_power_alignment", case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+          {"chain_non_power_alignment",
+           case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
           {"chain_overaligned_block", case_chain_overaligned_block,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
