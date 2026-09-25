@@ -335,6 +335,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── sprites.h               Sprite draw envelope, Particle/ParticleSystem
 │   │   ├── timeline.h              TimelineEvent inline storage + the Timeline scheduler
 │   │   ├── opleg.h                 Conway-chain morph legs: OpLeg
+│   │   ├── recipe_build.h          Recipe-leg scheduling and palette handoffs
 │   │   ├── segue.h                 Mesh-to-mesh transition policies: the Segue library
 │   │   ├── carousel.h              Double-buffered mesh slot pair: MeshCarousel
 │   │   └── transformer.h           Ripple, Noise, Möbius warp and displacement-field transformer pools

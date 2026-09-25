@@ -5573,19 +5573,21 @@ inline const Case *all_cases(int &n) {
            "effects/SphericalHarmonics.h",
            "(synchronized) SphericalHarmonics preset synchronization failed"},
           {"islamicstars_build_budget", case_islamicstars_build_budget,
-           "effects/IslamicStars.h",
+           "core/animation/recipe_build.h",
            "(persistent_arena.get_offset() <= device_persistent_budget) "
-           "IslamicStars: build leg exceeds the device persistent budget"},
+           "RecipeBuild: build leg exceeds the device persistent budget"},
           {"islamicstars_bridge_continuation",
-           case_islamicstars_bridge_continuation, "effects/IslamicStars.h",
+           case_islamicstars_bridge_continuation,
+           "core/animation/recipe_build.h",
            "(done == BuildContinuation::FINISH || "
            "done == BuildContinuation::DT_AFTER_BRIDGE || "
            "done == BuildContinuation::DTD_AFTER_BRIDGE1 || "
            "done == BuildContinuation::DTD_AFTER_BRIDGE2) "
-           "IslamicStars: invalid dual bridge continuation"},
+           "RecipeBuild: invalid dual bridge continuation"},
           {"islamicstars_hankin_eager_endpoint",
-           case_islamicstars_hankin_eager_endpoint, "effects/IslamicStars.h",
-           "(false) IslamicStars: step builds no eager endpoint"},
+           case_islamicstars_hankin_eager_endpoint,
+           "core/animation/recipe_build.h",
+           "(false) RecipeBuild: step builds no eager endpoint"},
           {"reconcile_vertices_size_mismatch",
            case_reconcile_vertices_size_mismatch, "core/mesh/conway.h",
            "(authored.vertices.size() == V) reconcile_vertices: endpoints differ "
@@ -6318,7 +6320,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"effects/GnomonicStars.h", 1},
     {"effects/HankinSolids.h", 13},
     {"effects/HyperLattice.h", 2},
-    {"effects/IslamicStars.h", 25},
+    {"core/animation/recipe_build.h", 21},
+    {"effects/IslamicStars.h", 4},
     {"effects/MeshFeedback.h", 1},
     {"effects/MindSplatter.h", 5},
     {"effects/MobiusRings.h", 1},
