@@ -287,16 +287,11 @@ inline void test_update_hankin_flat_collapses_to_corners() {
 }
 
 /**
- * @brief Verifies update_hankin's degenerate-edge fallback (hankin.h:316-320):
- *        a zero-length corner edge at a NON-zero angle still collapses the
- *        dynamic vertex onto the normalised corner and stays
- * finite/unit-length.
- * @details The clean platonic solids never produce a degenerate edge, so the
- *          `dot(cross,cross) < EPS_CROSS_SQ` branch is otherwise uncovered.
- * Here we compile a normal cube, then force one instruction's previous corner
- *          to coincide with its corner so cross(p_prev, p_corner) == 0,
- * emulating a malformed mesh. Without the guard this path would feed a zero
- * vector into normalized() and emit NaN.
+ * @brief Verifies update_hankin's EPS_CROSS_SQ degenerate-edge guard.
+ * @details A zero-length corner edge at a nonzero angle collapses the dynamic
+ * vertex onto the normalized corner, remaining finite and unit-length. A cube
+ * instruction's previous corner is made coincident with its corner to exercise
+ * the zero-cross-product path.
  */
 inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
