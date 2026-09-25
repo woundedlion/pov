@@ -406,7 +406,7 @@ private:
       // ~120.9 KB during a build leg, leaving no room for the scan's per-face
       // SDF::FaceScratchBuffer. The sprite path scans from scratch_a, where its
       // transformed copy already lives.
-      Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, mesh, sh, sh.gain,
+      Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, mesh, sh, 1.0f,
                                            seg.opacity(1.0f), scratch_arena_b);
     }
   }

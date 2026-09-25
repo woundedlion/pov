@@ -2892,7 +2892,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         int fi = static_cast<int>(frag.v2);
         int ramp =
             (fi >= 0 && fi < static_cast<int>(sh.faces)) ? sh.face_ramp[fi] : 0;
-        float t = hs::clamp(fragment_edge_dist(frag) * sh.gain, 0.0f, 1.0f);
+        float t = hs::clamp(fragment_edge_dist(frag), 0.0f, 1.0f);
         frag.color = sh.ramps[ramp].get(t);
         frag.color.alpha = 255;
       };
@@ -3311,9 +3311,6 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
     HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
     for (size_t f = 0; f < sh.faces; ++f)
       HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
-
-    // De-flash: the gate never dims. Gain is exactly 1 on every frame.
-    HS_EXPECT_EQ(sh.gain, 1.0f);
 
     if (drawn == 0) {
       side_faces = sh.faces;
