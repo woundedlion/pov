@@ -80,7 +80,7 @@ struct Fragment {
 };
 ```
 
-The registers are *inputs* — populated by the rasterizer before the shader runs. The shader reads them and writes `color`. The rasterizer then forwards the color through the filter pipeline to the canvas.
+The registers are *inputs* — populated by the rasterizer before the shader runs. The shader reads them and writes `color`. Plot rasterizers forward the color through the filter pipeline to the canvas. `Scan::Shader` instead overwrites the canvas directly with premultiplied color, bypassing filters and destination blending.
 
 ### Shader Signatures
 
@@ -143,6 +143,8 @@ struct DistanceResult {
 Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp_registers()`. The vertex shader, if provided, runs once per control point before rasterization. For `Plot::Polygon<Plot::PlanarProjection>`, `Plot::Star<Plot::PlanarProjection>`, and `Plot::Flower`, the rasterizer re-derives `v0`/`v1` from the rendered azimuthal-equidistant arc — which bows longer than the great-circle chord between vertices — so both stay consistent with the drawn position.
 
 **Full-Screen Shader Path** (`Scan::Shader`):
+
+The finished premultiplied color replaces each canvas pixel directly. No filter pipeline or destination blending is applied; alpha below one darkens the output.
 
 Registers are not pre-populated — the shader receives only `pos` (reconstructed from pixel coordinates). The single-callback overload provides a `Color4(const Vector &)` interface. The two-callback overload separates per-pixel vertex setup from per-subsample fragment evaluation.
 
