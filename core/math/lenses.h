@@ -95,12 +95,13 @@ inline math::Vector glitch_lens(const math::Vector &v) {
 /**
  * @brief Rotates a direction about the Y axis in proportion to its height.
  * @param v Unit direction on the sphere.
- * @return The direction rotated by TWIST_RATE * v.y radians.
+ * @param rate Rotation in radians per unit height.
+ * @return The direction rotated by rate * v.y radians.
  * @note The fast trigonometric approximation can move a unit input up to
  *       1.7e-3 away from unit length; the result is not renormalized.
  */
-inline math::Vector twist_lens(const math::Vector &v) {
-  const float angle = TWIST_RATE * v.y;
+inline math::Vector twist_lens(const math::Vector &v, float rate = TWIST_RATE) {
+  const float angle = rate * v.y;
   const float c = math::fast_cosf(angle);
   const float s = math::fast_sinf(angle);
   return math::Vector(v.x * c - v.z * s, v.y, v.x * s + v.z * c);

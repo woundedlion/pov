@@ -468,9 +468,18 @@ static_assert(field_ids_unique<ProjectedNoiseSampleParams>());
 static_assert(field_defaults_in_range<ProjectedNoiseSampleParams>());
 static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 
-/** @brief Parameter family of sample.spherical-noise.v3.
-    @details The spherical contour uses the simplex basis. */
-using SphericalNoiseSampleParams = Source::NoiseSourceParams;
+/** @brief Parameter family of sample.spherical-noise.v3. */
+struct SphericalNoiseSampleParams : Source::NoiseSourceParams {
+  uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
+
+  static constexpr auto TOPOLOGY = std::array{
+      TopologyField<SphericalNoiseSampleParams>{
+          "basis", &SphericalNoiseSampleParams::basis, NOISE_BASIS_IDS,
+          static_cast<uint8_t>(math::NoiseBasis::SIMPLEX)},
+  };
+};
+static_assert(field_ids_unique<SphericalNoiseSampleParams>());
+static_assert(field_defaults_in_range<SphericalNoiseSampleParams>());
 
 /** @brief The noise sources' prepared block: the owned noise field plus this
     frame's loop offset. */
@@ -516,14 +525,15 @@ struct SampleSphericalNoise : PhaseClockModel<NoisePhaseState> {
   using Prepared = PreparedNoiseSource;
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
-  static Prepared prepare(const FrameContext &, const Params &,
+  static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
+    check_noise_basis(params.basis);
     return {&state.noise, math::noise_sphere_loop_offset(state.phase)};
   }
   static FieldSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     const float raw = Source::noise_contour(
-        *prepared.noise, math::NoiseBasis::SIMPLEX,
+        *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
         math::noise_sphere_coordinate(input.dir, params.noise_scale,
                                       prepared.loop_offset),
         params.noise_contrast);

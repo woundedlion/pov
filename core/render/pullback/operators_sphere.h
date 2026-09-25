@@ -199,12 +199,34 @@ struct LensGlitch : FixedLensModel<LensGlitch> {
   }
 };
 
-/** @brief SPHERE endomorphism: the longitude-dependent twist lens. */
-struct LensTwist : FixedLensModel<LensTwist> {
+/** @brief Parameter family of sphere.lens.twist.v2. */
+struct TwistChainParams {
+  float twist_rate = lenses::TWIST_RATE;
+
+  static constexpr auto FIELDS = std::array{
+      Field<TwistChainParams>{"twist-rate", &TwistChainParams::twist_rate,
+                              "Twist Rate", -12.0f, 12.0f, FieldCurve::LERP},
+  };
+};
+static_assert(field_ids_unique<TwistChainParams>());
+static_assert(field_defaults_in_range<TwistChainParams>());
+
+/** @brief SPHERE endomorphism: the height-dependent twist lens. */
+struct LensTwist : StatelessModel {
   static constexpr const char *ID = "sphere.lens.twist.v2";
   static constexpr const char *NAME = "Twist Lens";
-  static math::Vector lens(const math::Vector &input) {
-    return lenses::twist_lens(input);
+  using Input = SphereSample;
+  using Output = SphereSample;
+  using Params = TwistChainParams;
+  struct Prepared {};
+
+  static Prepared prepare(const FrameContext &, const Params &, const State &) {
+    return {};
+  }
+  static SphereSample run(const SphereSample &input, const FrameContext &,
+                          const Params &params, const Prepared &) {
+    return Kernel::lens(input,
+                        lenses::twist_lens(input.dir, params.twist_rate));
   }
 };
 

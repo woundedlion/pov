@@ -280,16 +280,20 @@ on screen: adding a stage and immediately hearing its sliders is the core
 authoring loop, and the chain never has to be read in one place and tuned
 in another.
 
-- Controls are built from the **document**, not the engine: the
-  declaration's storage and domain give the control its shape, the active
+- Controls use the document's declarations, supplemented by catalog fields
+  the document omits. A declaration's storage and domain give the control its shape, the active
   preset's value gives its position. Binary32 fields render as sliders
   over the declared domain; topology enum8s render as dropdowns (live
   structural switches on the chain path). A row is labeled by its field
   segment alone — the chip already names the instance.
 - The declaration discipline (§3) applies: a declared field the current
   topology values deactivate renders dimmed, never dropped.
-- An instance that declares no parameters gets no control group, and a
-  chip carrying one is wide. Every parameter remains visible within the chip;
+- Catalog-only fields display their defaults without changing the loaded
+  document or its digest. The first edit declares the field, backfills every
+  preset and serialization field, and updates staggered path groups. Undo
+  restores the original declarations as well as values.
+- Fixed operators with no catalog parameters disclose their instance name
+  and "No adjustable parameters". Every parameter remains visible within the chip;
   parameter groups never get their own scrollbar. The pipeline viewport
   scrolls horizontally rather than crushing its neighbours.
 - **A stage edit is a document edit**: it writes the active preset's

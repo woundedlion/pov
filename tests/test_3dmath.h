@@ -1566,6 +1566,15 @@ inline void test_twist_lens() {
   HS_EXPECT_NEAR(output.y, input.y, 1e-6f);
   HS_EXPECT_NEAR(output.z, input.x * sinf(angle) + input.z * cosf(angle),
                  2e-3f);
+  for (const float rate : {-12.0f, 0.0f, 12.0f}) {
+    const math::Vector twisted = lenses::twist_lens(input, rate);
+    const float radians = rate * input.y;
+    HS_EXPECT_NEAR(twisted.x, input.x * cosf(radians) - input.z * sinf(radians),
+                   2e-3f);
+    HS_EXPECT_EQ(twisted.y, input.y);
+    HS_EXPECT_NEAR(twisted.z, input.x * sinf(radians) + input.z * cosf(radians),
+                   2e-3f);
+  }
 }
 
 inline void test_kaleidoscope_lens() {
