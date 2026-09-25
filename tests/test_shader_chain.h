@@ -2183,8 +2183,13 @@ template <typename Model> inline void expect_project_frame_policy() {
                    program.prepared_block(1));
     const auto &actual =
         *std::launder(reinterpret_cast<PB::PlaneSample *>(out));
-    const auto expected =
-        PB::Kernel::project(seed, view, Model::project(view, params));
+    const auto projected = [&] {
+      if constexpr (requires { Model::project(view, params, prepared); })
+        return Model::project(view, params, prepared);
+      else
+        return Model::project(view, params);
+    }();
+    const auto expected = PB::Kernel::project(seed, view, projected);
     HS_EXPECT_TRUE(plane_identical(actual, expected));
   }
   params.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER);

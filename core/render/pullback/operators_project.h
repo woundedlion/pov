@@ -137,14 +137,21 @@ static_assert(field_defaults_in_range<RegularProjectChainParams>());
 
 /** @brief Shared shape of the projection operators: the walk state, the
     frame-composed conjugate, and the per-family projection call. */
-template <typename Derived, typename ParamsT>
+struct ProjectOrientation {
+  math::Quaternion conjugate;
+};
+struct MeridianProjectOrientation : ProjectOrientation {
+  float meridian_cos;
+  float meridian_sin;
+};
+
+template <typename Derived, typename ParamsT, bool CacheMeridian = false>
 struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   using Input = SphereSample;
   using Output = PlaneSample;
   using Params = ParamsT;
-  struct Prepared {
-    math::Quaternion conjugate;
-  };
+  using Prepared = std::conditional_t<CacheMeridian, MeridianProjectOrientation,
+                                      ProjectOrientation>;
 
   static void init(State &state, InstanceId id) {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
@@ -163,16 +170,28 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
     validate_frame(params);
+    Prepared prepared{};
     if (params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY))
-      return {math::Quaternion()};
-    return {(math::make_rotation(math::Y_AXIS, state.spin_phase) *
-             ctx.projection_base * state.wander)
-                .conjugate()};
+      prepared.conjugate = math::Quaternion();
+    else
+      prepared.conjugate =
+          (math::make_rotation(math::Y_AXIS, state.spin_phase) *
+           ctx.projection_base * state.wander)
+              .conjugate();
+    if constexpr (CacheMeridian) {
+      prepared.meridian_cos = cosf(params.central_meridian);
+      prepared.meridian_sin = sinf(params.central_meridian);
+    }
+    return prepared;
   }
   static PlaneSample run(const SphereSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
     const math::Vector local = math::rotate(input.dir, prepared.conjugate);
-    return Kernel::project(input, local, Derived::project(local, params));
+    if constexpr (CacheMeridian)
+      return Kernel::project(input, local,
+                             Derived::project(local, params, prepared));
+    else
+      return Kernel::project(input, local, Derived::project(local, params));
   }
 };
 
@@ -270,15 +289,17 @@ inline constexpr float PROJECT_COORDINATE_SCALE = 1.0f;
 /** @brief SPHERE→PLANE crossing: the exact Peirce quincuncial projection on
     the square layout. */
 struct ProjectPeirce
-    : ProjectOpModel<ProjectPeirce, MeridianProjectChainParams> {
+    : ProjectOpModel<ProjectPeirce, MeridianProjectChainParams, true> {
   static constexpr const char *ID = "project.peirce.v2";
   static constexpr const char *NAME = "Peirce";
 
   static ProjectionResult project(const math::Vector &local,
-                                  const Params &params) {
-    return Projection::peirce(
-        local, params.central_meridian, PEIRCE_SQUARE_LAYOUT, 0.0f, true,
-        PROJECT_COORDINATE_SCALE, params.singularity_fade);
+                                  const Params &params,
+                                  const Prepared &prepared) {
+    return Projection::peirce(local, params.central_meridian,
+                              PEIRCE_SQUARE_LAYOUT, 0.0f, true,
+                              PROJECT_COORDINATE_SCALE, params.singularity_fade,
+                              prepared.meridian_cos, prepared.meridian_sin);
   }
 };
 
@@ -349,14 +370,14 @@ struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
 /** @brief SPHERE→PLANE crossing: the airocean projection on the vertical
     layout. */
 struct ProjectAirocean
-    : ProjectOpModel<ProjectAirocean, RegularProjectChainParams> {
+    : ProjectOpModel<ProjectAirocean, RegularProjectChainParams, true> {
   static constexpr const char *ID = "project.airocean.v2";
   static constexpr const char *NAME = "Airocean";
 
-  static ProjectionResult project(const math::Vector &local,
-                                  const Params &params) {
-    return Projection::airocean(local, params.central_meridian, false, true,
-                                PROJECT_COORDINATE_SCALE);
+  static ProjectionResult project(const math::Vector &local, const Params &,
+                                  const Prepared &prepared) {
+    return Projection::airocean(local, false, true, PROJECT_COORDINATE_SCALE,
+                                prepared.meridian_cos, prepared.meridian_sin);
   }
 };
 
