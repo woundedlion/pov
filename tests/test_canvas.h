@@ -1160,10 +1160,12 @@ inline void test_register_float_and_bool_params() {
   fx.add_bool("Flag", &fx.flag, true);
 
   const auto &params = fx.getParameters();
-  HS_EXPECT_EQ(params.size(), (size_t)2);
+  HS_EXPECT_SIZE_OR_RETURN(params, 2);
 
   const auto *sp = params.find("Speed");
   HS_EXPECT_TRUE(sp != nullptr);
+  if (!sp)
+    return;
   HS_EXPECT_FALSE(sp->is_bool());
   HS_EXPECT_NEAR(sp->get(), 1.5f, 1e-6f); // captured current value as default
   HS_EXPECT_NEAR(sp->min, 0.0f, 1e-6f);
@@ -1171,6 +1173,8 @@ inline void test_register_float_and_bool_params() {
 
   const auto *fl = params.find("Flag");
   HS_EXPECT_TRUE(fl != nullptr);
+  if (!fl)
+    return;
   HS_EXPECT_TRUE(fl->is_bool());
   HS_EXPECT_NEAR(fl->get(), 1.0f,
                  1e-6f);   // captured *ptr (true) → reads as 1.0
@@ -1226,6 +1230,11 @@ inline void test_parameter_display_mirror() {
   fx.add_typed_enum("Mode", &requested.mode, MODES, EXPORT_MODES, 3);
   fx.add_float("Global", &fx.speed, 0.0f, 10.0f);
   fx.mirror_display(requested, displayed);
+  for (const char *name : {"Speed", "Mode", "Global"}) {
+    HS_EXPECT_TRUE(fx.getParameters().find(name) != nullptr);
+    if (!fx.getParameters().find(name))
+      return;
+  }
 
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get(), 4.0f);
   HS_EXPECT_EQ(fx.getParameters().find("Speed")->get_requested(), 1.0f);
@@ -1274,6 +1283,8 @@ inline void test_register_and_update_enum_param() {
 
   const auto *def = fx.getParameters().find("Mode");
   HS_EXPECT_TRUE(def != nullptr);
+  if (!def)
+    return;
   HS_EXPECT_TRUE(def->is_enum());
   HS_EXPECT_FALSE(def->is_bool());
   HS_EXPECT_EQ(def->option_count, 3);
@@ -1294,7 +1305,11 @@ inline void test_register_and_update_enum_param() {
 
   // Plain params stay non-enum.
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
-  HS_EXPECT_FALSE(fx.getParameters().find("Speed")->is_enum());
+  const auto *speed = fx.getParameters().find("Speed");
+  HS_EXPECT_TRUE(speed != nullptr);
+  if (!speed)
+    return;
+  HS_EXPECT_FALSE(speed->is_enum());
 }
 
 /** @brief Verifies typed enums and preset-export metadata round-trip. */
@@ -1311,7 +1326,11 @@ inline void test_typed_enum_and_global_param_metadata() {
   const auto *mode_def = fx.getParameters().find("Mode");
   const auto *speed_def = fx.getParameters().find("Speed");
   HS_EXPECT_TRUE(mode_def != nullptr);
+  if (!mode_def)
+    return;
   HS_EXPECT_TRUE(speed_def != nullptr);
+  if (!speed_def)
+    return;
   HS_EXPECT_EQ(mode_def->get(), 1.0f);
   HS_EXPECT_TRUE(mode_def->export_options == EXPORT_MODES);
   HS_EXPECT_TRUE(mode_def->preset);
