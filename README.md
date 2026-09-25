@@ -921,8 +921,9 @@ Pipeline<W, H,
 filters.plot(canvas, world_position, color, age, alpha)
     → World::Trails: store for later decay, pass through
     → World::Orient: rotate by current quaternion, adjust age
+    → first screen stage: vector_to_pixel
     → Screen::AntiAlias: distribute to 4 nearest pixels
-    → Pipeline<W,H> (base): vector_to_pixel → canvas(x,y) = blend(color, alpha)
+    → Pipeline<W,H> (base): canvas(x,y) = blend(color, alpha)
 ```
 
 The pipeline handles the 3D/2D coordinate mismatch automatically at compile time: if a 3D filter receives a 2D coordinate it lifts it via `pixel_to_vector`; if a 2D filter receives a 3D vector it projects via `vector_to_pixel`.
