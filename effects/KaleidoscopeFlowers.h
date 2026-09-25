@@ -37,7 +37,7 @@ public:
   static constexpr std::string_view DESCRIPTOR_DIGEST =
       "ea710e1c3a212e24d0f0dc2f5166d9c1cc1b57443e727bbc92a41a449e48a229";
   static constexpr std::string_view PRESET_BANK_DIGEST =
-      "20e32077f73ef64ae31770360ecd5a956c4a03ce2efd501306ab5b5f154224f0";
+      "d1bc04d4ed1aec4b7720a5d90429388da1933b83cd85b387ac56da440dc51970";
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map", "open-grid", "fine-grid"};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
@@ -55,6 +55,7 @@ public:
     value.projection.wander = 0.165f;
     value.projection.camera_wander = 1.0f;
     value.inner_warp.speed = 0.00013f;
+    value.inner_warp.cell_x = math::TWO_PI_F / 6.0f;
     value.inner_warp.cell_y = 0.997703135f;
     value.color.hue_shift_amount = 0.366f;
     value.color.hue_noise_scale = 1.47215629f;
