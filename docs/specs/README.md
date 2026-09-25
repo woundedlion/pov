@@ -26,7 +26,7 @@ The rasterizer and driver specs:
 
 | Document | Status and scope |
 |---|---|
-| [opchain_morph_spec.md](opchain_morph_spec.md) | LANDED. The shipped op-by-op build contracts: recipe model, `Animation::OpLeg` leg kinds, truncate edge cases, the smooth kis/needle bridge, the renderer constraints the design turns on, and the measured dead ends. Field-level source of truth is `effects/IslamicStars.h`, `core/animation/opleg.h`, `core/mesh/recipe.h` and `core/mesh/solids.h`. |
+| [opchain_morph_spec.md](opchain_morph_spec.md) | LANDED. The shipped op-by-op build contracts: recipe model, `Animation::OpLeg` leg kinds, truncate edge cases, the smooth kis/needle bridge, the renderer constraints the design turns on, and the measured dead ends. Field-level source of truth is `effects/IslamicStars.h`, `core/animation/opleg.h`, `core/mesh/recipe_types.h` and `core/mesh/solids.h`. |
 | [conway_morph_spec.md](conway_morph_spec.md) | SUPERSEDED by opchain_morph_spec.md for the design of record; retained for the §3 edge table and the §7 test plan the Conway-morph suites are numbered against. Symbol names and tuning constants in it no longer track the tree. |
 
 ## Phantasm hardware

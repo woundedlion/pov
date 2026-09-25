@@ -91,9 +91,9 @@ transition scheduling), and `serialization.fields`. Requirements:
   recomputed by
   [scripts/generate-shader-v2-documents.mjs](https://github.com/woundedlion/daydream/blob/master/scripts/generate-shader-v2-documents.mjs),
   which writes only the table, and a completeness test fails when the
-  committed table drifts from what a rerun writes. Preview routing does
-  not read it: a loaded document matches a promoted fixed effect on its
-  v2 digest directly.
+  committed table drifts from what a rerun writes. Preview routing reads
+  the migration table to resolve imported v1 identities before matching
+  the promoted fixed effect by its v2 digest.
 - Deterministic label assignment for expanded instances (v1 slot order:
   `warp1`, `warp2`, …) and a complete parameter-id rewrite map.
 - v1 documents that expand to the same chain (distinct only by
@@ -189,7 +189,8 @@ palettes.
 Three stacked regions:
 
 - **Toolbar** (top edge, one slim row): document source picker, preset
-  picker, Open…/Save/Save As, the descriptor digest (abbreviated,
+  picker, Open…/Save/Save As, Compiled build, Pause animation,
+  the descriptor digest (abbreviated,
   click-to-copy), and the document status output. The engine memory/
   compute stats stay in this row.
 - **Pipeline strip** (below the toolbar): the loaded chain, left to

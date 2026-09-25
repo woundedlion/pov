@@ -42,7 +42,9 @@ Two supporting facts:
   in-plane rotation (+ reflection), for any mesh orientation. Congruence is
   therefore frame-invariant and can be baked once per spawn.
 
-## 2. Why this resurrects the deleted LUT
+## 2. Historical motivation
+
+The mesh examples and performance figures below describe the original design study.
 
 `6241a24b` removed the per-face distance LUT because its **build** ran per
 face per frame (~8 ms of IslamicStars' 21 ms WASM frame) while serving only
@@ -226,7 +228,9 @@ congruence would need re-validation — out of scope).
 6. Teensy: compile + size gates via pre-commit as usual; runtime remains
    manual (flag in the commit message, as for the previous three).
 
-## 9. Implementation plan
+## 9. Historical implementation plan
+
+This pre-split plan is retained as a design record, not the current file map.
 
 1. `core/render/sdf.h`: resurrect `build_distance_lut` (from `6241a24b^`) as
    `build_canonical_distance_lut`, a free function over a centered canonical
@@ -266,7 +270,9 @@ congruence would need re-validation — out of scope).
 - Whether HankinSolids ever joins (per-morph rebake) — deferred until the
   IslamicStars numbers are in.
 
-## 11. Implementation results (2026-07-01)
+## 11. Historical implementation results (2026-07-01)
+
+These dated measurements and module names are not current budget contracts.
 
 Landed as `core/render/sdf/face_class_bake.h` (clustering + bake), with runtime records
 `FaceClassRec`, `CongruenceClass`, `MeshClassBake` and the `NO_CLASS` sentinel in
