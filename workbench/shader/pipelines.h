@@ -57,12 +57,6 @@ struct TopologyKey {
 template <typename... Stages>
 using InversePipeline = Pullback::Pipeline<ShaderWorkbenchBinding, Stages...>;
 
-__attribute__((always_inline)) inline math::Vector
-pullback_outer_camera_lookup(const math::Vector &input,
-                             const FrameState &frame) {
-  return math::rotate(input, frame.transforms.outer_conj);
-}
-
 struct OuterCameraStage
     : Pullback::Stage::Contract<OuterCameraStage, Pullback::SphereSample,
                                 Pullback::SphereSample> {
@@ -74,7 +68,7 @@ struct OuterCameraStage
   __attribute__((always_inline)) static Pullback::SphereSample
   run(const Pullback::SphereSample &input,
       const typename Binding::FrameState &frame, const Pullback::NoPrepared &) {
-    return {pullback_outer_camera_lookup(input.dir, frame), input.path_length};
+    return {outer_camera_lookup(input.dir, frame), input.path_length};
   }
 };
 
