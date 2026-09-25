@@ -1092,7 +1092,11 @@ public:
                          });
   }
 
-  /** @brief Draws a Star level that continues across the equator. */
+  /**
+   * @brief Draws a Star level across the equator.
+   * @note GeodesicProjection stays continuous across radius 1;
+   * PlanarProjection switches charts there and may jump.
+   */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw_continuous(PipelineT &pipeline, Canvas &canvas,
                               const math::Basis &basis, float radius,
