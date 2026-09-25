@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <vector>
 
 namespace hs_test {
@@ -2088,15 +2089,18 @@ public:
   /**
    * @brief Computes the largest circular column distance of any locked board
    *        from the master.
-   * @return The worst-case phase error in columns; 0 if no downstream board is
-   *         locked.
+   * @param allow_unlocked Ignore unlocked boards during recovery probes.
+   * @return Worst phase error, or infinity if a required board is unlocked.
    */
-  double max_phase_err() const {
+  double max_phase_err(bool allow_unlocked = false) const {
     const double master_phase = board_phase(0);
     double worst = 0.0;
     for (size_t i = 1; i < boards.size(); ++i) {
-      if (lock(boards[i].board) != LockState::LOCKED)
+      if (lock(boards[i].board) != LockState::LOCKED) {
+        if (!allow_unlocked)
+          return std::numeric_limits<double>::infinity();
         continue;
+      }
       const double direct =
           std::abs(board_phase(static_cast<int>(i)) - master_phase);
       const double d = std::min(direct, cfg.W - direct);
