@@ -23,6 +23,7 @@ namespace dma {
 inline constexpr unsigned long TRANSFER_WATCHDOG_US = 5000UL;
 inline constexpr uint32_t DEFAULT_CLOCK_HZ = 12000000;
 inline constexpr uint32_t SEGMENTED_CLOCK_HZ = 24000000;
+inline constexpr uint32_t LPSPI_FUNCTIONAL_CLOCK_HZ = 240000000;
 
 /**
  * @brief Toggles the double-buffer index between 0 and 1.
@@ -49,7 +50,7 @@ constexpr std::size_t transfer_len(std::size_t base_size,
  * @brief Worst-case duration of one column's LED transfer, in µs.
  * @param bytes Bytes clocked out for the column (image plus any black strobe).
  * @param clock_hz Bit clock the transport runs at, in Hz.
- * @return Ceiling of bytes·8 / clock_hz converted to µs.
+ * @return Transfer duration including LPSPI byte framing, rounded up to µs.
  * @pre clock_hz > 0.
  * @details Rounded up so the driver's `column_interval_us > transfer_us` check
  *          never under-counts the transfer and admits a configuration that
@@ -57,8 +58,16 @@ constexpr std::size_t transfer_len(std::size_t base_size,
  */
 constexpr unsigned long transfer_us(unsigned long bytes,
                                     unsigned long clock_hz) {
+  const uint64_t REQUESTED_DIVIDER =
+      (LPSPI_FUNCTIONAL_CLOCK_HZ + static_cast<uint64_t>(clock_hz) - 1) /
+      clock_hz;
+  const uint64_t DIVIDER = REQUESTED_DIVIDER < 2 ? 2 : REQUESTED_DIVIDER;
+  // Teensy SPI sets DBT and PCSSCK to (SCKDIV / 2), with SCKDIV = divider - 2.
+  const uint64_t BYTE_CLOCKS = 8 * DIVIDER + 2 * ((DIVIDER - 2) / 2) + 4;
   return static_cast<unsigned long>(
-      (static_cast<uint64_t>(bytes) * 8u * 1000000u + clock_hz - 1) / clock_hz);
+      (static_cast<uint64_t>(bytes) * BYTE_CLOCKS * 1000000u +
+       LPSPI_FUNCTIONAL_CLOCK_HZ - 1) /
+      LPSPI_FUNCTIONAL_CLOCK_HZ);
 }
 
 /**
