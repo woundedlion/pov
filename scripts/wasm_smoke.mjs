@@ -183,8 +183,8 @@ async function main(probe) {
     try {
       for (let attempt = 0; attempt < 4096; ++attempt) {
         for (const input of [throwing, revoked.proxy]) {
-          if (palette.compileAndBakeV4(input).status.code === 0
-              || palette.inspectV4(input).status.code === 0) {
+          if (palette.compileAndBakeV4(input).status.code === Module.PaletteCompileCode.OK
+              || palette.inspectV4(input).status.code === Module.PaletteCompileCode.OK) {
             fail('payload clone: malformed palette accepted');
           }
         }
