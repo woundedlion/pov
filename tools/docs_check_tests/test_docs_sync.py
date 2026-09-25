@@ -26,6 +26,11 @@ class TreeSync(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             return ds.sync_trees(text, paths, checkouts or {})
 
+    def test_rejects_tree_preamble_without_dropping_it(self):
+        text = "<!-- docs-check: tree exhaustive -->\n```\npov/\n```\n"
+        with self.assertRaisesRegex(ValueError, "unexpected tree preamble"):
+            self.sync(text, set())
+
     def test_new_paths_require_authored_descriptions(self):
         text = "<!-- docs-check: tree exhaustive -->\n```\n```\n"
         with self.assertRaisesRegex(ValueError, "role description for new.h"):
