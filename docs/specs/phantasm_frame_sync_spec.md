@@ -903,16 +903,14 @@ Invariants:
    piece of sync state — `x`, `epoch_cycles`, `cycles_per_half_rev`,
    `last_flipped`, lock state, epoch schedule, telemetry counters — has exactly
    **one writer: the flywheel ISR**. The sync-wire ISR writes only the mailbox
-   (`count`, `first_cycles`, `last_cycles`); the foreground only
+   (`count`, `first_cycles`, `last_cycles`, `prior_cycles`, `have_prior`); the foreground only
    reads published flags. The mailbox handoff is a brief
-   IRQ-off copy in the consumer — nanoseconds, not a masked window. With
-   single-writer ownership the NVIC priority relationship between the two ISRs
-   is **free**: the previous draft's cross-peripheral equal-priority invariant —
-   itself a fragile downgrade of the old design's same-vector guarantee —
-   is *deleted*, not restated. The sync ISR may
-   preempt the flywheel ISR mid-column with no correctness consequence; worst
-   case, a completed burst is consumed one column (434 µs) later, against a
-   62.5 ms cadence.
+   IRQ-off `try_claim` in the consumer. The sync-edge IRQ runs at priority 16,
+   above the IntervalTimer default of 128, so it preempts the flywheel ISR
+   and records first-edge timestamps without waiting for a column ISR body.
+   Timestamp-compensated phase snaps depend on this priority ordering. The
+   consumer's IRQ-off claim bracket makes mailbox transfer safe under that
+   preemption.
 3. **Flip exactly-once** via `try_flip`'s identity check + idempotent
    `advance_display` backstop.
 4. **Failure asymmetry honored — but only at Layer 2.** A *missed* flip (stale
