@@ -271,8 +271,6 @@ inline math::Vector face_centroid_unit(const PolyMesh &m,
   return c.normalized();
 }
 
-} // namespace hs_test
-
 /** @brief Copies a fixed solid into mutable renderer storage, optionally omitting its last face. */
 template <typename Solid>
 inline void build_meshstate_solid(MeshState &mesh, Arena &arena,
@@ -291,3 +289,5 @@ inline void build_meshstate_solid(MeshState &mesh, Arena &arena,
   for (size_t i = 0; i < index_count; ++i)
     mesh.faces.push_back(static_cast<uint16_t>(Solid::faces[i]));
 }
+
+} // namespace hs_test
