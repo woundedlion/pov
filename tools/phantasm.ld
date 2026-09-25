@@ -47,7 +47,7 @@ SECTIONS
 		*(.text._ZN8TimelineC*Ev*)
 		*(.text._ZN8TimelineD*Ev*)
 		*(.text._ZN8Timeline14destroy_eventsEv*)
-		/* #5: libraries (including hot libgcc divmod) and factories use flash. */
+		/* Libraries (including hot libgcc divmod) and factories use flash. */
 		*libm.a:*(.text .text.*)
 		*libc_nano.a:*(.text .text.*)
 		*libstdc++_nano.a:*(.text .text.*)
@@ -133,7 +133,7 @@ SECTIONS
 
 	.text.progmem : {
 		*(.progmem*)
-		/* #3: route all const rodata to flash instead of DTCM (RAM1). */
+		/* Route all const rodata to flash instead of DTCM (RAM1). */
 		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*)))
 		. = ALIGN(4);
 	} > FLASH
