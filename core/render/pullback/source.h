@@ -293,9 +293,9 @@ static_assert(field_defaults_in_range<TessellationSourceParams>());
 
 /** @brief The source stage's phases, resolved once per frame. */
 struct PreparedSource {
-  float primary;   /**< Primary phase, wrapped into [0,2pi). */
-  float secondary; /**< Secondary phase, wrapped into [0,2pi). */
-  float angle;     /**< Source rotation, in radians. */
+  float primary;   /**< Primary phase, wrapped into (-2pi,2pi). */
+  float secondary; /**< Secondary phase, wrapped into (-2pi,2pi). */
+  float angle;     /**< Source rotation, wrapped into (-2pi,2pi) radians. */
   float angle_cos; /**< Cosine of `angle`. */
   float angle_sin; /**< Sine of `angle`. */
 };
