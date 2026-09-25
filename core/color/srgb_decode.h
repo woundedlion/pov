@@ -81,9 +81,8 @@ extern std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high;
  * @brief Bit-exact linear-16 -> sRGB-8 encode via a two-region split-decode.
  * @param v Linear 16-bit channel value.
  * @return sRGB 8-bit output, identical to linear_to_srgb_lut[v] for all v.
- * @details Replaces the 64 KB linear_to_srgb_lut (which exceeds the 32 KB L1
- * D-cache and thrashes against the framebuffer read on the pack hot path) with
- * ~1.5 KB of DTCM tables. A fine 16-wide low region and a coarse 128-wide high
+ * @details Uses ~1.5 KB of DTCM tables. A fine 16-wide low region and a coarse
+ * 128-wide high
  * region each hold at most one output step, so each side is a single branchless
  * compare: base + (frac >= step). Equivalence over all 65536 inputs is checked
  * by unit_color's test_linear_to_srgb8_decode_matches_lut.
