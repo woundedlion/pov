@@ -137,10 +137,11 @@ __attribute__((always_inline))
 #endif
 inline ProjectionResult folded_sinusoidal(const math::Vector &input,
                                           float central_meridian) {
+  float longitude;
   const math::Complex coords =
-      projections::folded_sinusoidal(input, central_meridian);
+      projections::folded_sinusoidal(input, central_meridian, &longitude);
   return {coords,
-          {static_cast<uint8_t>(input.z < 0.0f), 0, 0,
+          {static_cast<uint8_t>(longitude < 0.0f), 0, 0,
            projections::NO_EDGE_DISTANCE, 1.0f, FOLDED_FLAG}};
 }
 
