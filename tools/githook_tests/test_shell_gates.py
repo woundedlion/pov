@@ -11,6 +11,14 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 class ShellGateTests(unittest.TestCase):
+    def test_whitespace_gate_checks_unstaged_contents(self):
+        payload = self.root / "payload.txt"
+        payload.write_text("clean\n", encoding="utf-8", newline="\n")
+        self.git("add", "--", "payload.txt")
+        self.assertEqual(self.gate("whitespace_gate.sh").returncode, 0)
+        payload.write_text("dirty \n", encoding="utf-8", newline="\n")
+        self.assertNotEqual(self.gate("whitespace_gate.sh").returncode, 0)
+
     def setUp(self):
         temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(temp.cleanup)

@@ -47,6 +47,12 @@ EXCEPTIONS = {
     "core/vendor/FastNoiseLite.h": MIT_TITLE,
 }
 
+UPSTREAM_HOLDERS = {
+    "core/math/projections.h": ("Frank Warmerdam", "PROJ contributors", "Gerald I. Evenden",
+                                 "Kristian Evers", "Toby C Wilkinson"),
+    "core/vendor/FastNoiseLite.h": ("Jordan Peck", "Contributors"),
+}
+
 # Markers that cannot stand beside each other: a header granting PolyForm while
 # reserving all rights tells a licensee two incompatible things, and so does a
 # third-party header carrying either. The two MIT markers spell one grant, so
@@ -142,9 +148,7 @@ def header_issue(path: str, head: str) -> str | None:
             return (f"header carries {contradiction!r} alongside {marker!r}; "
                     f"LICENSE gives this path only the latter")
     if marker in THIRD_PARTY:
-        holders = ("Frank Warmerdam", "PROJ contributors", "Gerald I. Evenden",
-                   "Kristian Evers", "Toby C Wilkinson") if path == "core/math/projections.h" else (
-                       "Jordan Peck", "Contributors")
+        holders = UPSTREAM_HOLDERS[path]
         for holder in holders:
             if not any("copyright" in line.lower() and holder.lower() in line.lower()
                        for line in head.splitlines()):
