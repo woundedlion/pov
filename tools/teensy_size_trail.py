@@ -44,6 +44,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from teensy_warnings import declared_environments
+
 # ---------------------------------------------------------------------------
 # ELF32 section-header parsing
 # ---------------------------------------------------------------------------
@@ -134,8 +136,10 @@ _RAM1_PARTS = ("itcm", "data", "bss")
 REGIONS: tuple[str, ...] = tuple(r for _, r in _SECTION_REGION) + ("ram1",)
 
 #: Firmware environments recorded together by default.
+_PLATFORMIO_INI = Path(__file__).resolve().parent.parent / "platformio.ini"
 DEFAULT_ENVIRONMENTS: tuple[str, ...] = (
-    "holosphere", "phantasm", "holosphere_dma")
+    declared_environments(_PLATFORMIO_INI) if _PLATFORMIO_INI.exists()
+    else ("holosphere", "phantasm", "holosphere_dma"))
 
 ELF_NAME = "firmware.elf"
 
