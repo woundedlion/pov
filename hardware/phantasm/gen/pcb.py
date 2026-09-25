@@ -194,11 +194,7 @@ def build_paths(nlroot):
 
 # ---------------------------------------------------------------- components
 def schematic_components():
-    """Return ordered unique component records, skipping power and flag symbols.
-
-    The Teensy carries no Footprint field; every other symbol must, or its part
-    would be embedded as the generated Teensy land.
-    """
+    """Return ordered unique component records, skipping power and flag symbols."""
     with open(SCH, encoding="utf-8") as f:
         root = sexp.parse(f.read())[0]
     seen = {}
@@ -221,10 +217,8 @@ def schematic_components():
             dnp = sexp.val(c, "dnp", [sexp.Sym("no")])[0] == "yes"
             if not fp:
                 libid = str(sexp.val(c, "lib_id", [""])[0])
-                if libid != TEENSY_LIBID:
-                    sys.exit(f"ERROR {ref} ({libid or 'no lib_id'}) has an empty "
-                             "Footprint property; set one in Eeschema")
-                fp = TEENSY_LIBID
+                sys.exit(f"ERROR {ref} ({libid or 'no lib_id'}) has an empty "
+                         "Footprint property; set one in Eeschema")
             seen[ref] = (ref, fp, val or "", dnp)
             order.append(ref)
     return [seen[r] for r in order]
