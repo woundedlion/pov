@@ -368,6 +368,7 @@ protected:
    * @param options GUI labels indexed by the enum's underlying value.
    * @param export_options C++ enum literals indexed like @p options.
    * @param option_count Number of labels and literals.
+   * @param animated Whether writes engage the effect pause.
    */
   template <typename Enum>
     requires std::is_enum_v<Enum>
@@ -415,6 +416,7 @@ protected:
    * @param ptr Pointer to the integer variable.
    * @param min Minimum value, inclusive.
    * @param max Maximum value, inclusive.
+   * @param animated Whether writes engage the effect pause.
    * @pre Both bounds must be exactly representable as float.
    * @details For a quantity whose target is a count rather than a choice: the
    * range carries the bound, so no label array is needed and preset exports
@@ -475,6 +477,7 @@ protected:
    * @param name The name to expose.
    * @param ptr Pointer to the bool variable; registration never mutates the
    *   target, symmetric with the float overload.
+   * @param animated Whether writes engage the effect pause.
    */
   HS_COLD_MEMBER void register_param(const char *name, bool *ptr,
                                      bool animated = false) {
