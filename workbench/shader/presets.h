@@ -212,13 +212,10 @@ inline constexpr Config gnomonic_affine_lattice_contour_preset() {
   params.source.lattice_shape_blend = 1.0f;
   params.source.lattice_softness = 0.1608203f;
   params.source.lattice_radius = 0.332981884f;
-  params.warp.outer.scale = 50.7493f;
-  params.warp.outer.strength = 30.0f;
   params.warp.outer.speed = 0.015625f;
   params.warp.outer.translation_x = 4.0f;
   params.warp.outer.translation_y = 4.0f;
   params.warp.outer.shear = -0.0f;
-  params.warp.inner.scale = 0.1f;
   params.projection.spin_rate = 0.0208791979f;
   params.projection.wander = 0.00309175253f;
   params.value.iso_level = 0.138f;
@@ -232,9 +229,6 @@ inline constexpr Config gnomonic_affine_lattice_contour_preset() {
   params.color.hue_noise_scale = 0.8300313f;
   params.color.hue_noise_speed = 0.000212000014f;
   params.outer_camera.wander = 1.0f;
-  params.surface_noise.scale = 0.507492959f;
-  params.surface_noise.strength = 0.5f;
-  params.surface_noise.rate = 5.377579e-7f;
   return {slots, params};
 }
 
@@ -298,12 +292,9 @@ inline constexpr Config stereographic_prism_polar_wave_lattice_preset() {
   params.source.lattice_shape_blend = 1.0f;
   params.source.lattice_softness = 0.377608389f;
   params.source.lattice_radius = 0.290762514f;
-  params.warp.outer.strength = 1.0f;
   params.warp.outer.speed = 0.000343749998f;
-  params.warp.outer.translation_x = 4.0f;
   params.warp.inner.speed = 0.000999999931f;
   params.warp.inner.translation_x = -0.0f;
-  params.warp.inner.shear = 0.75f;
   params.projection.singularity_fade = 2.27300000f;
   params.projection.wander = 1.0f;
   params.color.hue_shift_amount = 0.268000007f;
@@ -365,7 +356,6 @@ inline constexpr Config stereographic_dodecahedral_grid_inner_mirror_preset() {
   params.source.secondary_rate = 0.8f;
   params.source.angle_rate = 0.0269999988f;
   params.warp.outer.scale = 0.1f;
-  params.warp.outer.speed = 0.5f;
   params.warp.inner.scale = 0.1f;
   params.warp.inner.speed = 0.00013f;
   params.warp.inner.cell_y = 0.997703135f;
