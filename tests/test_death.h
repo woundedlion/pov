@@ -6373,7 +6373,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/sdf/csg.h", 2},
     {"core/render/sdf/face.h", 3},
     {"core/render/sdf/shapes.h", 8},
-    {"core/render/sdf/volume.h", 3},
+    {"core/render/sdf/volume.h", 2},
     {"core/render/shading.h", 1},
     {"core/spatial/kd_tree.h", 2},
     {"core/spatial/reaction_graph.h", 1},
