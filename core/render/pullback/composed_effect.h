@@ -775,11 +775,11 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * (absent, every preset takes `initial_params`), `ANIMATED_MOBIUS`,
  * `CAMERA_SPIN_RATE` and an `after_composed_init()` hook; `OUTER_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` are inherited members an effect
- * shadows to decorrelate one noise field. An effect wanting a different shade emission
- * shadows shade() with the same body under its own attribute:
- * `HS_HOT_FLASH_MEMBER` and `HS_FLASH_MEMBER` both take the pipeline body out
- * of line into a flash section, and the cold one also compiles it for size. A
- * surface-noise family places its surface stage out of line in flash.
+ * shadows to decorrelate one noise field. A shade() shadow that forwards to
+ * RenderPipeline::shade changes only the entry trampoline's placement; the
+ * pipeline body remains cold. Different body emission requires calling
+ * RenderPipeline::evaluate(view, frame.ctx, frame.prepared) from the shadow.
+ * A surface-noise family places its surface stage out of line in flash.
  *
  * The identity constants are six: `EFFECT_ID`, the registry identity;
  * `DESCRIPTOR_DIGEST`, the SHA-256 of the canonicalized descriptor of

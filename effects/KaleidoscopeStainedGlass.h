@@ -43,7 +43,7 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
 
-  // Cold section: the out-of-line pipeline body compiles for size.
+  // Cold entry trampoline and pipeline body.
   static HS_FLASH_MEMBER Color4
   shade(const math::Vector &view,
         const typename KaleidoscopeStainedGlass::Frame &frame) {
