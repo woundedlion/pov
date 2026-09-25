@@ -1,7 +1,7 @@
 # RingSpin on-device profile — Teensy 4.0, segmented mode (2026-09-24, **selective -O3**)
 
 Point-in-time snapshot (regenerate with `just profile RingSpin`).
-Raw capture: [raw capture](../capture20260924ringspin/data/ringspin_ship.log.txt), captured 2026-09-24 20:15 local on COM4.
+Raw capture: `ringspin_ship.log.txt` (archive removed), captured 2026-09-24 20:15 local on COM4.
 Replaces `profile_ringspin_teensy_2026-08-26.md`. That older capture used a different source revision and included setup in its aggregates; this is not a controlled before/after comparison.
 
 ## Setup
@@ -98,4 +98,4 @@ No matched current WASM/native timing capture was used. Nested scope costs overl
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=RingSpin`, `HS_PROFILE_WINDOW=32`; `just profile RingSpin` routes through the locked wrapper. The capture and provenance are published in [the evidence archive](../capture20260924ringspin/evidence.md); local build logs and ELF files are not included.
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=RingSpin`, `HS_PROFILE_WINDOW=32`; `just profile RingSpin` routes through the locked wrapper. The separate capture and provenance archive is no longer retained; local build logs and ELF files are not included.

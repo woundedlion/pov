@@ -6,9 +6,6 @@ bench-attached Teensy 4.0 boards with the real segmented POV driver
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-The [Raymarch investigation](raymarch_investigation_2026-09-20.md) records
-the focused rasterizer experiments and their measured results.
-
 ## Capture configurations
 
 ### Shipping selective-O3
@@ -77,16 +74,6 @@ minus shipping bytes from each pair's own image-size reports.
 Bucket frames include the following transition, so they are stricter than clean holds.
 IslamicStars refreshed on 2026-09-24 (unlanded finding 2 candidate); Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
-
-The [raster measurement comparison](review_2026-09-20.md) measures vertical coverage, Peirce classification and
-horizon interiors. Its individual-change profiles are
-separate from this table's earlier baseline captures.
-
-## Retired captures
-
-The last device captures for retired effects remain archived as
-[Flyby](retired/profile_flyby_teensy_2026-07-27.md) and
-[Liquid2D](retired/profile_liquid2d_teensy_2026-07-25.md).
 
 ## Memory captures
 

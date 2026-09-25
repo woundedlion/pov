@@ -136,12 +136,10 @@ _EFFECT_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*\)")
 # The device playlist repeats the full roster's cardinality in README prose.
 PHANTASM_PLAYLIST_SOURCE = PurePosixPath("targets/Phantasm/phantasm_playlist.h")
 _PHANTASM_ROSTER_DEFINE = "#define HS_PHANTASM_EFFECT_LIST(X)"
-# The shader promotion product group lives beside HS_EFFECT_LIST, and the ITCM
-# ledger restates its cardinality in prose.
+# The shader promotion product group lives beside HS_EFFECT_LIST.
 _PRODUCT_GROUP_DEFINE = "#define HS_SHADER_PRODUCT_GROUP(X)"
 # Both macros spell a row `X(Name, seconds)`.
 _NAMED_ROSTER_ENTRY_RE = re.compile(r"X\(\s*(\w+)\s*,")
-_ITCM_LEDGER = "docs/ledgers/itcm_ledger.md"
 # The effects reference spells the product group's cardinality in words and
 # tables every composed effect with its preset count.
 _EFFECTS_REFERENCE = "docs/effects.md"
@@ -167,10 +165,6 @@ CARDINALITY_CLAIMS = (
     ("docs/specs/phantasm_frame_sync_spec.md",
      re.compile(r"\b(\d+)-entry roster\b"),
      "HS_PHANTASM_EFFECT_LIST", "the frame-sync playlist size"),
-    (_ITCM_LEDGER, re.compile(r"\b(\d+) fixed-pipeline products\b"),
-     "HS_SHADER_PRODUCT_GROUP", "the shader product-group size"),
-    (_ITCM_LEDGER, re.compile(r"\b(\d+)-effect phantasm roster\b"),
-     "HS_PHANTASM_EFFECT_LIST", "the ledger's phantasm roster size"),
     (_EFFECTS_REFERENCE,
      re.compile(r"\bThese ([\w-]+) effects form the product-only\b"),
      "HS_SHADER_PRODUCT_GROUP", "the composed roster size"),
