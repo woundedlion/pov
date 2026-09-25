@@ -41,7 +41,7 @@ Consequences:
 - Unused capability is expressed as `Identity` policies filling mandatory
   slots, which is why `SurfaceProject::run` carries an Emscripten-only
   flattened path for the identity-lens, identity-post-surface case.
-- The carrier zoo (`SurfaceResult`, `WarpResult`, `SourceInput`,
+- The carrier zoo (`WarpResult`, `SourceInput`,
   `MaterialInput`, `MaterialSample`) exists to serve slot boundaries, not
   domains, so a new stage shape means a new carrier and new validation rows.
 - The shader workbench mirrors the rigidity: thirteen fixed option banks,
@@ -125,8 +125,7 @@ crossing it terminates already exists.
 
 ## 3. One canonical carrier per family
 
-> **Historical migration terminology:** References below to `SurfaceResult`,
-> `ProjectionSample`, `WarpResult`, `SourceInput`, `MaterialInput`,
+> **Historical migration terminology:** References below to `ProjectionSample`, `WarpResult`, `SourceInput`, `MaterialInput`,
 > `MaterialSample`, and `SurfaceProject` describe the pre-cut-over API.
 > The migration is complete; the shipped carriers and combinators are in
 > `core/render/pullback/contract.h` and `core/render/pullback/stage.h`.
@@ -178,7 +177,8 @@ struct FieldSample {          // rank 2 (~24 B)
 // rank 3: Color4, straight alpha (endomorphisms are Color4 -> Color4)
 ```
 
-Mapping from today: `Vector`+`SurfaceResult` → `SphereSample`;
+`SphereSample` carries the working `Vector` and accumulated path length;
+`SurfaceResult` remains the surface policy protocol. Historical carrier mapping:
 `ProjectionSample`+`WarpResult`+`SourceInput` → `PlaneSample`;
 `MaterialInput`+`MaterialSample` → `FieldSample`. `ProjectionSample`
 is **replaced** by `ProjectionResult` — a protocol with no ignored
@@ -191,8 +191,8 @@ carrier: the result's `coords` become the working coordinate, its
 from the pre-projection point. The carrier holds one planar coordinate,
 not two: the only consumer of the embedded copy today is the warp
 chain's seed (`Stage::Warp::run`), which is precisely the split the crossing
-now performs. `WarpStepResult` survives as the warp policy protocol
-type.
+now performs. `SurfaceResult` and `WarpStepResult` remain the surface and warp
+policy protocols, respectively.
 
 The `PLANE→FIELD` crossing **consumes** projection provenance rather
 than carrying it: the weight policy eats `value_weight` into the value,
@@ -281,8 +281,7 @@ at §6 step 2 is required.
 
 ## 4. Stage vocabulary
 
-> **Historical migration terminology:** References below to `SurfaceResult`,
-> `ProjectionSample`, `WarpResult`, `SourceInput`, `MaterialInput`,
+> **Historical migration terminology:** References below to `ProjectionSample`, `WarpResult`, `SourceInput`, `MaterialInput`,
 > `MaterialSample`, and `SurfaceProject` describe the pre-cut-over API.
 > The migration is complete; the shipped carriers and combinators are in
 > `core/render/pullback/contract.h` and `core/render/pullback/stage.h`.
