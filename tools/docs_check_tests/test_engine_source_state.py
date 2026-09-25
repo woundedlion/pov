@@ -57,6 +57,10 @@ class EngineSourceState(unittest.TestCase):
         self.write("README.md", generated.replace("Authored explanation", "Edited explanation"))
         self.assertEqual(engine_source_state.changed_sources(self.root), ["README.md"])
 
+    def test_untracked_sources_remain_dirty(self):
+        self.write("new.shader.json", "{}")
+        self.assertEqual(engine_source_state.changed_sources(self.root), ["new.shader.json"])
+
     def test_source_edits_remain_dirty_with_generated_docs(self):
         self.generate()
         self.write("old.txt", "changed source")
