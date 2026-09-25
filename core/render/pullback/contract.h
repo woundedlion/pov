@@ -110,7 +110,7 @@ struct PlaneSample {
 /**
  * @brief Rank-2 carrier: unit field value plus accumulated coverage.
  * @details `value` in [0, 1] is established by the Sample crossing and is
- * each transfer kernel's own obligation thereafter — Kernel::transfer does not
+ * each transfer kernel's own obligation thereafter â€” Kernel::transfer does not
  * re-clamp; `coverage` is in [0, 1] and non-increasing.
  */
 struct FieldSample {
@@ -163,7 +163,7 @@ template <size_t Index, typename... Ts> struct TypeAt<Index, TypeList<Ts...>> {
 
 /**
  * @brief The closed, ordered carrier set: the single authority every family
- *        fact derives from — membership, rank, and the runtime slot ABI.
+ *        fact derives from â€” membership, rank, and the runtime slot ABI.
  */
 using CarrierList =
     Detail::TypeList<SphereSample, PlaneSample, FieldSample, Color4>;
@@ -188,7 +188,7 @@ struct FamilyRank<T, TypeList<Carriers...>> {
 } // namespace Detail
 
 /**
- * @brief Family rank of @p T: its CarrierList index — Sphere 0, Plane 1,
+ * @brief Family rank of @p T: its CarrierList index â€” Sphere 0, Plane 1,
  *        Field 2, Color 3. Total: a nonmember yields the sentinel rank.
  */
 template <typename T>
@@ -394,6 +394,12 @@ smooth_ramp_or_step(float low, float high, float value) {
   return t * t * (3.0f - 2.0f * t);
 }
 
+/** @brief Shared edge-fade kernel; width 0 makes the edge a hard cut. */
+__attribute__((always_inline)) inline float
+edge_fade(const ProjectionProvenance &provenance, float width) {
+  return smooth_ramp_or_step(0.0f, width, provenance.fade_edge_distance);
+}
+
 /** Probe binding for naming a descriptor's Bind without instantiating it. */
 struct ProbeBinding {
   struct FrameState {};
@@ -457,7 +463,7 @@ namespace Stage {
 /**
  * @brief Helper base every stage descriptor derives from.
  * @details Derives the carrier pair and forwards Bind into the descriptor's
- * binding-templated `run` (and optional `prepare`) statics — which is how an
+ * binding-templated `run` (and optional `prepare`) statics â€” which is how an
  * unbound descriptor defines execution that needs the binding-dependent
  * FrameState and Instrumentation.
  * @tparam Derived The descriptor deriving from this base.
@@ -499,7 +505,7 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
 /**
  * @brief Placement node: a contiguous run of stages emitted as one call unit
  *        under the given emission.
- * @details Invisible to the semantic leaf view — adding or removing a
+ * @details Invisible to the semantic leaf view â€” adding or removing a
  * placement wrapper never changes whether a chain validates or what a
  * predicate matches; placement affects exactly prepared-state layout and code
  * emission. Placements are deliberate, ITCM-ledger-scored decisions, always
@@ -817,7 +823,7 @@ struct LeafCallableRows<true, Binding, TypeList<Ls...>> {
  * @brief The staged, named-boolean validation surface over a chain's
  *        flattened semantic leaf list.
  * @details Earlier levels gate later ones: descriptor contract shape, then
- * CANONICAL, then the rank rows, then the bound callable checks — so a
+ * CANONICAL, then the rank rows, then the bound callable checks â€” so a
  * malformed descriptor reports through its own named row instead of
  * detonating a later fold. Placement wrappers are invisible to every row.
  */
@@ -936,7 +942,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
 /**
  * @brief The ranked pullback pipeline: one binding, then a chain of stage
  *        descriptors and placement nodes.
- * @details Binding appears exactly once — the first parameter binds the whole
+ * @details Binding appears exactly once â€” the first parameter binds the whole
  * list. `void` entries and empty placement groups vanish, which is the entire
  * hook a derivation layer needs; concrete pipelines never contain a
  * conditional. The chain must be non-decreasing in family rank, adjacent
@@ -963,7 +969,7 @@ template <typename BindingT, typename... Entries> struct Pipeline {
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     !Validation::CANONICAL || Validation::MONOTONE,
                 "pullback pipeline: a stage may not decrease its family "
-                "rank — families are ordered Sphere, Plane, Field, Color");
+                "rank â€” families are ordered Sphere, Plane, Field, Color");
   static_assert(!Validation::NONEMPTY || !Validation::CONTRACTS ||
                     !Validation::CANONICAL || Validation::CARRIERS,
                 "pullback pipeline: carrier mismatch");
