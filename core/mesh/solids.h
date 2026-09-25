@@ -718,8 +718,6 @@ build_vertex_directions(Arena &scratch, Arena &temp, const Entry &entry,
     points[i] = mesh.vertices[i].normalized();
     quats[i] = math::make_rotation(math::Y_AXIS, points[i]);
   }
-  // O(n^2) nearest-neighbor scan is intentional: cold setup path, vertex counts
-  // are small, so the KD-tree's build overhead is not worth it here.
   for (int i = 0; i < count; ++i) {
     float max_dot = -1.0f;
     for (int j = 0; j < count; ++j)
