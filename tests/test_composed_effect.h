@@ -2081,6 +2081,25 @@ inline void test_composed_parameter_schema_pins() {
   HS_EXPECT_EQ(std::size(PARAMETER_SCHEMA_PINS), roster);
 }
 
+inline void test_flowers_longitude_seam() {
+  using FX = KaleidoscopeFlowers<SMALL_W, SMALL_H>;
+  for (size_t preset = 0; preset < FX::PRESET_IDS.size(); ++preset) {
+    const auto params = FX::preset_params(preset);
+    for (int step = 0; step <= 128; ++step) {
+      const auto prepared =
+          Pullback::Warp::prepare(params.inner_warp, step / 128.0f);
+      for (float latitude : {-1.4f, -0.7f, 0.0f, 0.7f, 1.4f}) {
+        const auto left = Pullback::Warp::mirror_tile_coords(
+            math::Complex(-math::PI_F, latitude), params.inner_warp, prepared);
+        const auto right = Pullback::Warp::mirror_tile_coords(
+            math::Complex(math::PI_F, latitude), params.inner_warp, prepared);
+        HS_EXPECT_NEAR(left.re, right.re, 1e-5f);
+        HS_EXPECT_NEAR(left.im, right.im, 1e-5f);
+      }
+    }
+  }
+}
+
 /**
  * @brief Module entry point for the composed-effect base contract.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -2096,6 +2115,7 @@ inline int run_composed_effect_tests() {
   test_composed_preset_choreography();
   test_composed_preset_interpolation();
   test_composed_document_values();
+  test_flowers_longitude_seam();
   test_composed_derivation_reach();
   test_composed_projection_walk_storage();
   test_composed_periodic_ripple_surface();
