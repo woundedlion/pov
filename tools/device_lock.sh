@@ -362,6 +362,31 @@ hs_device_status() {
   return $free
 }
 
+TREE_LOCK=""
+TREE_TOKEN=""
+acquire_tree_lock() {
+  local now info old_token attempt
+  _hs_resolve_python || return 2
+  TREE_LOCK="$TREE/.profile-lock"
+  now=$(_hs_now)
+  TREE_TOKEN="$$-$now-$RANDOM"
+  info=$(printf 'token=%s\npid=%s\nstarted=%s\ndeadline=%s\n' \
+    "$TREE_TOKEN" "$$" "$now" "$((now + ${1:-900}))")
+  for attempt in 1 2; do
+    if printf '%s\n' "$info" | "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" claim "$TREE_LOCK"; then
+      return 0
+    fi
+    old_token=$(_hs_lock_field "$TREE_LOCK" token)
+    if [ "$attempt" -eq 1 ] && _hs_lock_is_stale "$TREE_LOCK"; then
+      _hs_break_stale "$TREE_LOCK" "$old_token" || :
+    else
+      break
+    fi
+  done
+  echo "build checkout is already claimed: $TREE_LOCK" >&2
+  return 1
+}
+
 # `bash tools/device_lock.sh status` / `ports` for a quick check from any shell.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-status}" in
