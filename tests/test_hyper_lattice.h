@@ -526,23 +526,23 @@ inline void test_specialized_slice_transition() {
           const Color4 exact = HL::shade({direction, 0.0f}, frame, prepared);
           const Color4 specialized = HL::shade_mode<true, SHELL_COUNT>(
               {direction, 0.0f}, frame, prepared);
-          max_visible_error =
-              std::max(max_visible_error,
-                       fabsf(static_cast<float>(specialized.color.r) *
-                                 specialized.alpha -
-                             static_cast<float>(exact.color.r) * exact.alpha));
-          max_visible_error =
-              std::max(max_visible_error,
-                       fabsf(static_cast<float>(specialized.color.g) *
-                                 specialized.alpha -
-                             static_cast<float>(exact.color.g) * exact.alpha));
-          max_visible_error =
-              std::max(max_visible_error,
-                       fabsf(static_cast<float>(specialized.color.b) *
-                                 specialized.alpha -
-                             static_cast<float>(exact.color.b) * exact.alpha));
-          max_alpha_error =
-              std::max(max_alpha_error, fabsf(specialized.alpha - exact.alpha));
+          max_visible_error = hs_test::fold_worst(
+              max_visible_error,
+              fabsf(static_cast<float>(specialized.color.r) *
+                        specialized.alpha -
+                    static_cast<float>(exact.color.r) * exact.alpha));
+          max_visible_error = hs_test::fold_worst(
+              max_visible_error,
+              fabsf(static_cast<float>(specialized.color.g) *
+                        specialized.alpha -
+                    static_cast<float>(exact.color.g) * exact.alpha));
+          max_visible_error = hs_test::fold_worst(
+              max_visible_error,
+              fabsf(static_cast<float>(specialized.color.b) *
+                        specialized.alpha -
+                    static_cast<float>(exact.color.b) * exact.alpha));
+          max_alpha_error = hs_test::fold_worst(
+              max_alpha_error, fabsf(specialized.alpha - exact.alpha));
         }
     }
     HS_EXPECT_NEAR(max_visible_error, 0.0f, 1.0f);

@@ -419,7 +419,7 @@ inline void test_generative_palette_blue_cusp_is_continuous() {
   for (int i = 1; i < 256; ++i) {
     const auto current = palette.diagnose(i / 255.0f);
     largest_chroma_step =
-        std::max(largest_chroma_step, fabsf(current.C - previous.C));
+        hs_test::fold_worst(largest_chroma_step, fabsf(current.C - previous.C));
     HS_EXPECT_FALSE(current.fallback_mapped);
     previous = current;
   }

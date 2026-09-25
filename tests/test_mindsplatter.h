@@ -376,13 +376,14 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     const math::Vector reference =
         WB::reference_vertex(v, transform, orientation);
     const math::Vector matrix = WB::matrix_vertex(v, transform, orientation);
-    max_component_error =
-        std::max(max_component_error,
-                 std::max(std::abs(reference.x - matrix.x),
-                          std::max(std::abs(reference.y - matrix.y),
-                                   std::abs(reference.z - matrix.z))));
+    max_component_error = hs_test::fold_worst(
+        max_component_error,
+        hs_test::fold_worst(
+            std::abs(reference.x - matrix.x),
+            hs_test::fold_worst(std::abs(reference.y - matrix.y),
+                                std::abs(reference.z - matrix.z))));
     const float chord = (reference - matrix).length();
-    max_angular_error = std::max(
+    max_angular_error = hs_test::fold_worst(
         max_angular_error, 2.0f * asinf(hs::clamp(chord * 0.5f, 0.0f, 1.0f)));
 
     const math::PixelCoords reference_pixel =
@@ -390,9 +391,9 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     const math::PixelCoords matrix_pixel = math::vector_to_pixel<W, H>(matrix);
     float dx = std::abs(reference_pixel.x - matrix_pixel.x);
     dx = std::min(dx, static_cast<float>(W) - dx);
-    max_column_error = std::max(max_column_error, dx);
-    max_row_error =
-        std::max(max_row_error, std::abs(reference_pixel.y - matrix_pixel.y));
+    max_column_error = hs_test::fold_worst(max_column_error, dx);
+    max_row_error = hs_test::fold_worst(
+        max_row_error, std::abs(reference_pixel.y - matrix_pixel.y));
     const auto reference_taps = taps(reference_pixel);
     const auto matrix_taps = taps(matrix_pixel);
     bool same_coverage = reference_taps.second == matrix_taps.second;
