@@ -51,7 +51,7 @@ template <int MAX_V> struct TriangularBitset {
     // The triangular layout is only valid for an ordered, in-range pair: a
     // swapped pair aliases the wrong bit (dedup corruption) and an out-of-range
     // one writes adjacent memory. HS_CHECK (survives NDEBUG) fails fast; this runs
-    // on the per-edge mesh-dedup setup path (plot.h draw()), not a per-pixel loop.
+    // on the per-edge mesh-dedup setup path (Plot::Mesh::draw in render/plot/mesh.h), not a per-pixel loop.
     HS_CHECK(small >= 0 && small < large && large < MAX_V,
              "TriangularBitset::index: pair (%d, %d) violates "
              "0 <= small < large < %d",
