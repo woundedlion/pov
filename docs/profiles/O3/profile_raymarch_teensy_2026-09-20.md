@@ -2,8 +2,8 @@
 
 Point-in-time snapshot (regenerate with `just profile Raymarch`).
 Raw capture: `build/prof/raymarch_implementation_20260920/raymarch_final_o3.log`.
-Replaces the earlier September 20 baseline report. See the
-[implementation measurements](../raymarch_implementation_2026-09-20.md).
+Replaces the earlier September 20 baseline report. The separate implementation
+measurement archive is no longer retained.
 
 ## Setup
 
