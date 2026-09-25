@@ -544,6 +544,12 @@ private:
     return 0.0f;
   }
 
+  static constexpr Plot::RasterConfig SAMPLED_RASTER_CONFIG{
+      .single_pass = true,
+      .derive_planar_arc_registers = false,
+      .interpolate_registers = false,
+      .sampling_policy = Plot::RasterSamplingPolicy::SELECTABLE};
+
   /**
    * @brief Plot-rasterizes an open polyline sampled into scratch storage.
    * @tparam F Fragment-shader callable type.
@@ -551,15 +557,10 @@ private:
    * @param capacity Fragment slots to bind for the sampler.
    * @param planar_basis Azimuthal-equidistant chart for the edges, or nullptr
    * for geodesic edges.
+   * @param balanced_sampling Selects the balanced raster sampling policy.
    * @param fragment_shader Per-fragment shader.
    * @param fill Callable that samples the primitive into the bound fragments.
    */
-  static constexpr Plot::RasterConfig SAMPLED_RASTER_CONFIG{
-      .single_pass = true,
-      .derive_planar_arc_registers = false,
-      .interpolate_registers = false,
-      .sampling_policy = Plot::RasterSamplingPolicy::SELECTABLE};
-
   template <typename F>
   HS_NOINLINE_NOCLONE void
   draw_sampled(Canvas &canvas, size_t capacity, const math::Basis *planar_basis,
