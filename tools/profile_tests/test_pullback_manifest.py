@@ -430,6 +430,28 @@ class ManifestValidation(unittest.TestCase):
 
 
 class CaptureComparison(unittest.TestCase):
+    def test_streams_and_packs_frame_pixels(self):
+        class TinyChunks(io.StringIO):
+            def read(self, size=-1):
+                return super().read(min(size, 7))
+
+        frame = {"resolution": [2, 1], "pixels": [[0, 1, 2, 65535], [4, 5, 6, 7]]}
+        document = {"configuration": "native-debug", "frames": [frame, frame]}
+        loaded = crosscheck.CaptureReader(TinyChunks(json.dumps(document))).capture()
+        self.assertEqual(loaded["configuration"], "native-debug")
+        self.assertEqual(len(loaded["frames"]), 2)
+        for actual in loaded["frames"]:
+            self.assertIsInstance(actual["pixels"], crosscheck.PackedPixels)
+            self.assertEqual(crosscheck._canonical_frame_bytes(actual),
+                             crosscheck._canonical_frame_bytes(frame))
+            self.assertEqual(crosscheck._compare_pixels(actual["pixels"], frame["pixels"]),
+                             (0, 0, 2))
+
+    def test_stream_rejects_trailing_data_and_commas(self):
+        for text in ('{"frames":[],}', '{"frames":[]} garbage'):
+            with self.subTest(text=text), self.assertRaises(crosscheck.CrosscheckError):
+                crosscheck.CaptureReader(io.StringIO(text)).capture()
+
     def test_capture_path_comparison_releases_and_reloads_documents(self):
         class TrackedCapture(dict):
             pass
