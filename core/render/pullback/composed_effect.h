@@ -590,7 +590,7 @@ template <> struct ProjectionWalkState<true> {
   math::Quaternion frame_conjugate() const { return projection_conjugate; }
 };
 
-/** @brief Projection a composed effect's surface stage composes. */
+/** @brief Sphere-to-plane projection of a composed effect's Stage::Project. */
 enum class ProjectionKind : uint8_t {
   STEREOGRAPHIC,
   GNOMONIC_FOLDED,
