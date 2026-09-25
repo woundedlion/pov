@@ -332,7 +332,7 @@ struct ParticleSystem {
    *        trail materialization.
    * @details Fuses point materialization and transformation into one traversal.
    * @tparam SinglePassRaster Emit adaptive geodesic samples without a replay
-   *         cache. Applies only to a direct raster pipeline.
+   *         cache. Applies only to a direct raster pipeline with sample stride 1.
    * @tparam DeferredShaderT Deferred vertex shader type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
