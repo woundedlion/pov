@@ -206,6 +206,23 @@ def derived_paths(profile_out=None):
     return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
 
+class ReplayFlags(unittest.TestCase):
+    def test_spaced_compact_and_assigned_defines(self):
+        source = PROFILE_ONE.read_text(encoding="utf-8")
+        block = source[source.index("REPLAY_SUFFIX="):source.index('MSP_FLAGS=""')]
+        for suffix in ("", "_AB"):
+            for spacing in ("", " "):
+                for value in ("", "=1"):
+                    flag = f"-D{spacing}HS_MINDSPLATTER_REPLAY{suffix}{value}"
+                    with self.subTest(flag=flag):
+                        result = subprocess.run(
+                            ["bash", "-c", 'EXTRA=$1\n' + block
+                             + 'printf "%s" "$REPLAY_SUFFIX"', "test", flag],
+                            capture_output=True, text=True, encoding="utf-8")
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(result.stdout, "_replay" + suffix.lower())
+
+
 class ArtifactPaths(unittest.TestCase):
     """HS_PROFILE_OUT must move the whole artifact set, not just the log.
 
