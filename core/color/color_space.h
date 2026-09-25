@@ -119,6 +119,16 @@ linear_rgb_to_oklab_fast(float r, float g, float b) {
                       math::fast_cbrt(lms.s));
 }
 
+inline constexpr float OKLAB_TO_LMS_CBRT[3][3] = {
+    {1.0f, 0.3963377774f, 0.2158037573f},
+    {1.0f, -0.1055613458f, -0.0638541728f},
+    {1.0f, -0.0894841775f, -1.2914855480f}};
+
+inline constexpr float LMS_CBRT_TO_RGB[3][3] = {
+    {4.0767416621f, -3.3077115913f, 0.2309699292f},
+    {-1.2684380046f, 2.6097574011f, -0.3413193965f},
+    {-0.0041960863f, -0.7034186147f, 1.7076147010f}};
+
 /**
  * @brief Converts OKLab to cube-rooted LMS (the inverse OKLab matrix).
  * @param lab Source color in OKLab space.
@@ -128,9 +138,12 @@ linear_rgb_to_oklab_fast(float r, float g, float b) {
  */
 HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_cbrt, float &m_cbrt,
                                        float &s_cbrt) {
-  l_cbrt = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
-  m_cbrt = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
-  s_cbrt = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
+  l_cbrt =
+      lab.L + OKLAB_TO_LMS_CBRT[0][1] * lab.a + OKLAB_TO_LMS_CBRT[0][2] * lab.b;
+  m_cbrt =
+      lab.L + OKLAB_TO_LMS_CBRT[1][1] * lab.a + OKLAB_TO_LMS_CBRT[1][2] * lab.b;
+  s_cbrt =
+      lab.L + OKLAB_TO_LMS_CBRT[2][1] * lab.a + OKLAB_TO_LMS_CBRT[2][2] * lab.b;
 }
 
 /**
@@ -148,9 +161,12 @@ inline void lms_cbrt_to_linear_rgb(float l_cbrt, float m_cbrt, float s_cbrt,
   float l = l_cbrt * l_cbrt * l_cbrt, m = m_cbrt * m_cbrt * m_cbrt,
         s = s_cbrt * s_cbrt * s_cbrt;
 
-  r = +4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s;
-  g = -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s;
-  b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
+  r = +LMS_CBRT_TO_RGB[0][0] * l + LMS_CBRT_TO_RGB[0][1] * m +
+      LMS_CBRT_TO_RGB[0][2] * s;
+  g = +LMS_CBRT_TO_RGB[1][0] * l + LMS_CBRT_TO_RGB[1][1] * m +
+      LMS_CBRT_TO_RGB[1][2] * s;
+  b = +LMS_CBRT_TO_RGB[2][0] * l + LMS_CBRT_TO_RGB[2][1] * m +
+      LMS_CBRT_TO_RGB[2][2] * s;
 }
 
 /**
@@ -386,41 +402,44 @@ inline constexpr int GAMUT_FALLBACK_BRACKET_STEPS = 5;
  * use linear_rgb_in_gamut's own tolerance, so a solved crossing is the crossing
  * the gate reports. `lo` is probed before it is trusted: a cell minimum that
  * over-reads its region drops the search back to zero chroma rather than
- * returning a color outside the cube. The matrix constants below restate
- * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb(); those two are the source of
- * truth tools/gen_gamut_lut.py pins its mirror against, and
- * test_gamut_refine_matrices_match_the_conversions() pins these literals
- * against column by column.
+ * returning a color outside the cube. The matrices are shared with
+ * oklab_to_lms_cbrt() and lms_cbrt_to_linear_rgb().
  */
 HS_O3_FN __attribute__((noinline)) inline float
 gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
-  const float ka = 0.3963377774f * a + 0.2158037573f * b;
-  const float km = -0.1055613458f * a - 0.0638541728f * b;
-  const float ks = -0.0894841775f * a - 1.2914855480f * b;
+  const float ka = OKLAB_TO_LMS_CBRT[0][1] * a + OKLAB_TO_LMS_CBRT[0][2] * b;
+  const float km = +OKLAB_TO_LMS_CBRT[1][1] * a + OKLAB_TO_LMS_CBRT[1][2] * b;
+  const float ks = +OKLAB_TO_LMS_CBRT[2][1] * a + OKLAB_TO_LMS_CBRT[2][2] * b;
 
   const float ka2 = ka * ka, ka3 = ka2 * ka;
   const float km2 = km * km, km3 = km2 * km;
   const float ks2 = ks * ks, ks3 = ks2 * ks;
   const float l3 = L * L * L, q = 3.0f * L * L, c = 3.0f * L;
 
-  const float r3 =
-      4.0767416621f * ka3 - 3.3077115913f * km3 + 0.2309699292f * ks3;
+  const float r3 = LMS_CBRT_TO_RGB[0][0] * ka3 + LMS_CBRT_TO_RGB[0][1] * km3 +
+                   LMS_CBRT_TO_RGB[0][2] * ks3;
   const float r2 =
-      c * (4.0767416621f * ka2 - 3.3077115913f * km2 + 0.2309699292f * ks2);
+      c * (LMS_CBRT_TO_RGB[0][0] * ka2 + LMS_CBRT_TO_RGB[0][1] * km2 +
+           LMS_CBRT_TO_RGB[0][2] * ks2);
   const float r1 =
-      q * (4.0767416621f * ka - 3.3077115913f * km + 0.2309699292f * ks);
-  const float g3 =
-      -1.2684380046f * ka3 + 2.6097574011f * km3 - 0.3413193965f * ks3;
+      q * (LMS_CBRT_TO_RGB[0][0] * ka + LMS_CBRT_TO_RGB[0][1] * km +
+           LMS_CBRT_TO_RGB[0][2] * ks);
+  const float g3 = +LMS_CBRT_TO_RGB[1][0] * ka3 + LMS_CBRT_TO_RGB[1][1] * km3 +
+                   LMS_CBRT_TO_RGB[1][2] * ks3;
   const float g2 =
-      c * (-1.2684380046f * ka2 + 2.6097574011f * km2 - 0.3413193965f * ks2);
+      c * (+LMS_CBRT_TO_RGB[1][0] * ka2 + LMS_CBRT_TO_RGB[1][1] * km2 +
+           LMS_CBRT_TO_RGB[1][2] * ks2);
   const float g1 =
-      q * (-1.2684380046f * ka + 2.6097574011f * km - 0.3413193965f * ks);
-  const float b3 =
-      -0.0041960863f * ka3 - 0.7034186147f * km3 + 1.7076147010f * ks3;
+      q * (+LMS_CBRT_TO_RGB[1][0] * ka + LMS_CBRT_TO_RGB[1][1] * km +
+           LMS_CBRT_TO_RGB[1][2] * ks);
+  const float b3 = +LMS_CBRT_TO_RGB[2][0] * ka3 + LMS_CBRT_TO_RGB[2][1] * km3 +
+                   LMS_CBRT_TO_RGB[2][2] * ks3;
   const float b2 =
-      c * (-0.0041960863f * ka2 - 0.7034186147f * km2 + 1.7076147010f * ks2);
+      c * (+LMS_CBRT_TO_RGB[2][0] * ka2 + LMS_CBRT_TO_RGB[2][1] * km2 +
+           LMS_CBRT_TO_RGB[2][2] * ks2);
   const float b1 =
-      q * (-0.0041960863f * ka - 0.7034186147f * km + 1.7076147010f * ks);
+      q * (+LMS_CBRT_TO_RGB[2][0] * ka + LMS_CBRT_TO_RGB[2][1] * km +
+           LMS_CBRT_TO_RGB[2][2] * ks);
 
   const auto inside = [&](float u) {
     const float rv = ((r3 * u + r2) * u + r1) * u + l3;

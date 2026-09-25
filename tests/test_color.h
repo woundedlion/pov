@@ -581,17 +581,10 @@ inline void test_gamut_clip_preserves_hue() {
 }
 
 /**
- * @brief Pins the OKLab matrices gamut_bracket_refine() restates as literals
- *        against the two conversions that own them.
- * @details color.h's gamut_bracket_refine() expands a constant-lightness ray
- *          into one cubic per linear-RGB channel, restating both matrices and
- *          relying on the RGB rows summing to one for its constant term.
- *          Nothing in the header ties that copy to oklab_to_lms_cbrt() and
- *          lms_cbrt_to_linear_rgb(), so this reads both column by column and
- *          fails on any drift, naming the copy to update.
+ * @brief Pins the shared OKLab matrices and their conversion column order.
  */
 inline void test_gamut_refine_matrices_match_the_conversions() {
-  HS_CONTEXT("gamut_bracket_refine restates these; mirror any change there");
+  HS_CONTEXT("shared OKLab conversion matrices");
   float l, m, s;
 
   oklab_to_lms_cbrt({1.0f, 0.0f, 0.0f}, l, m, s);
