@@ -247,6 +247,23 @@ private:
                               static_cast<float>(SHAPE_FRAMES));
   }
 
+  struct ShapeWeights {
+    float strap_open, strap_close, strap_terminal, star_close;
+  };
+
+  static ShapeWeights shape_weights(int cycle_frame) {
+    const int to_close = HANKIN_SWEEP_FRAMES - cycle_frame;
+    const int from_mid = cycle_frame - HANKIN_SWEEP_FRAMES / 2;
+    return {shape_weight(cycle_frame), shape_weight(to_close),
+            hs::clamp(static_cast<float>(to_close) / STRAP_TERMINAL_FRAMES,
+                      0.0f, 1.0f),
+            shape_weight(from_mid < 0 ? -from_mid : from_mid)};
+  }
+
+  static auto sweep_wave() {
+    return math::sin_wave(0.0f, math::PI_F / 2.0f, 1.0f, 0.0f);
+  }
+
   /**
    * @brief Resolves the per-slot palette LUTs one hankin-cycle frame shades
    * with, split by face role.
@@ -593,19 +610,18 @@ private:
    */
   HS_COLD_MEMBER void start_hankin_cycle() {
     hankin_cycle_frame = 0;
-    timeline.add_pausable(
-        2,
-        Animation::Mutation(params.hankin_angle,
-                            math::sin_wave(0.0f, math::PI_F / 2.0f, 1.0f, 0.0f),
-                            HANKIN_SWEEP_FRAMES, math::ease_linear, false)
-            .then([this]() {
-              // Bookend-in: the sweep's final sample lands ~0.002
-              // rad off the flat p_corner branch; force exact 0 so
-              // the sprite's last draw is the base solid.
-              params.hankin_angle = 0.0f;
-              this->start_morph_cycle();
-            }),
-        &anims_paused);
+    timeline.add_pausable(2,
+                          Animation::Mutation(params.hankin_angle, sweep_wave(),
+                                              HANKIN_SWEEP_FRAMES,
+                                              math::ease_linear, false)
+                              .then([this]() {
+                                // Bookend-in: the sweep's final sample lands ~0.002
+                                // rad off the flat p_corner branch; force exact 0 so
+                                // the sprite's last draw is the base solid.
+                                params.hankin_angle = 0.0f;
+                                this->start_morph_cycle();
+                              }),
+                          &anims_paused);
 
     // Snapshot the angle-independent counts for the per-frame HS_CHECK below.
     hankin_vertex_count = compiled_hankin.static_vertices.size() +
@@ -644,14 +660,10 @@ private:
               // itself: the strap births at the opening bookend, closes at the
               // closing one, and the star closes at the midpoint. Every weight
               // is exactly 0 at its collapse and 1 beyond the window.
-              const int to_close = HANKIN_SWEEP_FRAMES - cycle_frame;
-              const int from_mid = cycle_frame - HANKIN_SWEEP_FRAMES / 2;
+              const ShapeWeights weights = shape_weights(cycle_frame);
               draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot, opacity,
-                        shape_weight(cycle_frame), shape_weight(to_close),
-                        hs::clamp(static_cast<float>(to_close) /
-                                      STRAP_TERMINAL_FRAMES,
-                                  0.0f, 1.0f),
-                        shape_weight(from_mid < 0 ? -from_mid : from_mid));
+                        weights.strap_open, weights.strap_close,
+                        weights.strap_terminal, weights.star_close);
             },
             HANKIN_SWEEP_FRAMES + 1),
         &anims_paused);
