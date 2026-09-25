@@ -241,6 +241,10 @@ if(EMSCRIPTEN)
 
   if(EXISTS "${HS_DAYDREAM_MARKER}")
     message(STATUS "Simulator module installs to DAYDREAM_DIR: ${DAYDREAM_DIR}")
+    install(CODE "
+      file(REMOVE \"${DAYDREAM_DIR}/${TARGET_NAME}.sha\"
+                  \"${DAYDREAM_DIR}/${TARGET_NAME}.wasm.sha256\"
+                  \"${DAYDREAM_DIR}/${TARGET_NAME}.toolchain\")")
     install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
             DESTINATION "${DAYDREAM_DIR}")
