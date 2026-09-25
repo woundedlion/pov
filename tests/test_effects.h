@@ -2422,7 +2422,7 @@ inline void test_bz_render_center_matches_reference() {
 }
 
 // ---------------------------------------------------------------------------
-// DreamBalls: preset-cycle / re-spawn white-box coverage
+// HankinSolids: morph-budget coverage
 // ---------------------------------------------------------------------------
 
 /** @brief Test access to HankinSolids' morph-chain state. */
