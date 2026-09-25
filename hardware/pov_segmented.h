@@ -274,7 +274,7 @@ public:
    * the index beacon — they never assume the playlist position.
    *
    * @tparam R            Roster length, deduced from `factories`.
-   * @param factories     One constructor per roster entry (HS_EFFECT_LIST
+   * @param factories     One constructor per roster entry (HS_PHANTASM_EFFECT_LIST
    *                      order — identical on every board). Its length is the
    *                      roster length.
    * @param effect_revolutions Optional duration for each roster entry, in
@@ -708,7 +708,7 @@ private:
    */
   static pov::sync::SyncBoard sync;
   static IntervalTimer timer; /**< Flywheel wake-up timer (PIT channel).   */
-  /** @brief Roster of effect constructors (HS_EFFECT_LIST order). */
+  /** @brief Roster of effect constructors (HS_PHANTASM_EFFECT_LIST order). */
   static const EffectFactory *effect_factories;
   static const uint64_t *effect_seed_identities;
 
