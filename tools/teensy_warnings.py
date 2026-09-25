@@ -19,8 +19,7 @@ Two load-bearing properties:
 
 First-party only: warnings outside core/ effects/ workbench/ hardware/ targets/
 (i.e. FastLED and the Teensy core) are dropped — the independent backstop to the
-`-isystem` plan, so the ratchet is robust even if the -isystem demotion proves
-awkward under PlatformIO.
+`-isystem` demotion in tools/teensy_isystem.py.
 
 This ratchet must run on a COLD build: a cached TU emits no warnings, so a warm
 build hides header-introduced warnings. `PLATFORMIO_BUILD_CACHE_DIR=`
