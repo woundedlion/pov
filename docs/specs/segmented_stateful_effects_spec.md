@@ -43,8 +43,8 @@ Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
   per segment, each calling `setClip(x0, x1, y0, y1)` (gated on
   `pov::segment_clip_applies(needs_full_frame(), persists_pixels())`) so the rasterizer's scanline culling skips out-of-clip
   rows/columns. Each worker owns a **fixed** quadrant for the whole effect; the
-  readback copies the full canvas and `segment_layout.js` `blitSegmentRect`
-  extracts just the quadrant rectangle before transfer (README §10.7).
+  readback copies the active clip and `segment_layout.js` extracts just the
+  quadrant rectangle before transfer (README §10.7).
 
 Both clip non-stateful effects to a quadrant and leave `needs_full_frame()`
 or `persists_pixels()` effects at full canvas; the device's quadrant alternates per frame because it
@@ -220,7 +220,8 @@ deterministic: animations are *frame-stepped*, not wall-clock-stepped
 (`AnimationBase::step` counts frames, `core/animation/animation.h`;
 `drawFrame()` advances exactly one, `targets/wasm/engine_bindings.h` — the
 `elapsed` timing is telemetry and never feeds
-animation), the RNG is fixed-seed (`hs::Pcg32(1337)`), and params are
+animation), setEffect reseeds the RNG from each effect's identity
+(`stable_effect_seed(stable_id)`), and params are
 broadcast to every worker. The same invariant non-stateful segmented effects
 already depend on; the design adds nothing new to it but is wholly dependent
 on it.
