@@ -562,7 +562,7 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
   hs_test::StubEffect fx(W, H);
   Pipeline<W, H> pipe;
 
-  // Degenerate clip (y_start > y_end) → rasterize must early-out, plot nothing.
+  // Degenerate clip (y_start == y_end) → rasterize must early-out, plot nothing.
   fx.set_clip(30, 30, 0, W);
   fx.set_margin(0);
 
