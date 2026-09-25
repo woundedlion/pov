@@ -32,4 +32,4 @@ if [ ! -s "$tmp" ]; then
   exit 1
 fi
 
-xargs -d '\n' "$CF" --dry-run --Werror --style=file < "$tmp"
+tr '\n' '\0' < "$tmp" | xargs -0 "$CF" --dry-run --Werror --style=file
