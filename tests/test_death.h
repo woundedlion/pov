@@ -3287,16 +3287,13 @@ inline void case_empty_function_ref_call() {
 /**
  * @brief Death case: registering two effects under one name must trap.
  * @details Registry surface — the name keys the factory lookup and the
- *          HS_EFFECT_LIST anti-drift oracle, so a duplicate (an effect header
- *          pulled into two translation units) would leave a shadowed entry that
- *          can never be selected. The append-time guard traps at static-init.
+ *          lookup namespace, so duplicate names must be rejected.
  */
 inline void case_effect_registry_duplicate_name() {
   EffectRegistration reg{};
   reg.name = "DeathDuplicate";
   reg.stable_id = "death-duplicate";
-  EffectRegistry::add(reg);
-  EffectRegistry::add(reg); // name already present -> HS_CHECK
+  validate_effect_registrations(std::array{reg, reg});
 }
 
 /** @brief Death case: two effects declaring the same stable ID must trap. */
@@ -3304,12 +3301,11 @@ inline void case_effect_registry_duplicate_stable_id() {
   EffectRegistration first{};
   first.name = "DeathStableA";
   first.stable_id = "death-stable";
-  EffectRegistry::add(first);
 
   EffectRegistration second{};
   second.name = "DeathStableB";
   second.stable_id = "death-stable";
-  EffectRegistry::add(second);
+  validate_effect_registrations(std::array{first, second});
 }
 
 /** @brief Death case: a stable ID equal to another effect's name must trap. */
@@ -3317,12 +3313,11 @@ inline void case_effect_registry_stable_id_matches_name() {
   EffectRegistration first{};
   first.name = "DeathClassAlias";
   first.stable_id = "death-first";
-  EffectRegistry::add(first);
 
   EffectRegistration second{};
   second.name = "DeathOther";
   second.stable_id = "DeathClassAlias";
-  EffectRegistry::add(second);
+  validate_effect_registrations(std::array{first, second});
 }
 
 /**
@@ -3333,12 +3328,11 @@ inline void case_effect_registry_name_matches_stable_id() {
   EffectRegistration first{};
   first.name = "DeathFirst";
   first.stable_id = "DeathPersistedAlias";
-  EffectRegistry::add(first);
 
   EffectRegistration second{};
   second.name = "DeathPersistedAlias";
   second.stable_id = "death-second";
-  EffectRegistry::add(second);
+  validate_effect_registrations(std::array{first, second});
 }
 
 /**
@@ -5408,25 +5402,18 @@ inline const Case *all_cases(int &n) {
            "(thunk != empty_thunk) empty FunctionRef called"},
           {"effect_registry_duplicate_name",
            case_effect_registry_duplicate_name, "core/control/registry.h",
-           "(existing.name != reg.name) effect header included by more than one "
-           "translation unit: effects/DeathDuplicate.h"},
+           "(registration_names_unique(entries)) duplicate effect registration identity"},
           {"effect_registry_duplicate_stable_id",
            case_effect_registry_duplicate_stable_id, "core/control/registry.h",
-           "(existing.stable_id != reg.stable_id) duplicate effect stable id "
-           "\"death-stable\": effects/DeathStableA.h and "
-           "effects/DeathStableB.h"},
+           "(registration_names_unique(entries)) duplicate effect registration identity"},
           {"effect_registry_stable_id_matches_name",
            case_effect_registry_stable_id_matches_name,
            "core/control/registry.h",
-           "(existing.name != reg.stable_id && existing.stable_id != reg.name) "
-           "effect stable id collides with a class name: effects/DeathClassAlias.h "
-           "and effects/DeathOther.h"},
+           "(registration_names_unique(entries)) duplicate effect registration identity"},
           {"effect_registry_name_matches_stable_id",
            case_effect_registry_name_matches_stable_id,
            "core/control/registry.h",
-           "(existing.name != reg.stable_id && existing.stable_id != reg.name) "
-           "effect stable id collides with a class name: effects/DeathFirst.h and "
-           "effects/DeathPersistedAlias.h"},
+           "(registration_names_unique(entries)) duplicate effect registration identity"},
           {"flywheel_period_zero", case_flywheel_period_zero,
            "hardware/pov_sync_flywheel.h",
            "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
@@ -5501,8 +5488,7 @@ inline const Case *all_cases(int &n) {
           {"chain_non_power_alignment", case_chain_non_power_alignment,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-          {"chain_overaligned_block",
-           case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+          {"chain_overaligned_block", case_chain_overaligned_block, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
           {"chain_zero_size", case_chain_zero_size,
            "core/render/pullback/interpreter.h",
            "(layout.size > 0 && layout.size % layout.align == 0) ChainProgram::bind_storage: invalid block size"},
@@ -6288,7 +6274,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"targets/Holosphere/Holosphere.ino", 1},
     {"targets/Phantasm/phantasm_target.h", 2},
     {"targets/Profile/Profile.ino", 4},
-    {"targets/wasm/engine_bindings.h", 7},
+    {"targets/wasm/engine_bindings.h", 6},
     {"targets/wasm/mesh_ops_bindings.h", 2},
     {"workbench/shader/chain_host.h", 1},
     {"workbench/shader/kernels.h", 1},

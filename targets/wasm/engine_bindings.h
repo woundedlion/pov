@@ -265,13 +265,6 @@ public:
     Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
     stack_paint_canary();
 
-    // SSOT guard: the self-registering effect count must match the static roster
-    // (HS_EFFECT_LIST / HS_EFFECT_COUNT) or the live set and the native smoke
-    // suite silently diverge.
-    HS_CHECK(EffectRegistry::entries().size() ==
-                 static_cast<size_t>(HS_EFFECT_COUNT),
-             "registered effect count differs from HS_EFFECT_LIST");
-
     // Pre-size the view-backed readback buffers ONCE: under ALLOW_MEMORY_GROWTH
     // a reallocation detaches the ArrayBuffer behind a typed_memory_view, so the
     // buffers returned as views (getPixels/getParamValues) must never move.

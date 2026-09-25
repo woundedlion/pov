@@ -2823,6 +2823,4 @@ private:
 };
 
 #include "core/control/registry.h"
-REGISTER_EFFECT(Shader)
-
 #endif // HS_ENABLE_SHADER_WORKBENCH

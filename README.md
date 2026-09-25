@@ -77,7 +77,7 @@ Design decisions are indexed under [Engineering Philosophies](#2-engineering-phi
      - [Combining Filters](#combining-filters)
 7. [Core Subsystems](#7-core-subsystems)
 8. [The Effect System](#8-the-effect-system)
-   - [Self-Registering Factory](#self-registering-factory-controlregistryh)
+   - [Roster-Based Factory](#roster-based-factory-controlregistryh)
    - [Parameter Registration](#parameter-registration)
    - [The `EffectConfig` Flags](#the-effectconfig-flags)
    - [Fenced Effect-to-Effect Transition](#fenced-effect-to-effect-transition-controltransitionh)
@@ -437,9 +437,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color/color_luts.h)
 │   ├── generate_reaction_graph.py K-NN lattice generator of record (emits core/spatial/reaction_graph.cpp)
 │   ├── generate_srgb_decode.cpp Split-decode generator of record (emits core/color/srgb_decode_lut.h)
-│   ├── effect_roster.mjs       Shared HS_EFFECT_LIST / REGISTER_EFFECT parser for the roster tools
+│   ├── effect_roster.mjs       Shared HS_EFFECT_LIST parser for the roster tools
 │   ├── effect_roster.test.mjs  Node unit test for both roster parsers
-│   ├── check_effect_roster.mjs Cross-checks HS_EFFECT_LIST against the REGISTER_EFFECT calls (CI)
 │   ├── shader_workbench.mjs    Chain-document validation and canonical identity
 │   ├── shader_workbench_cli.mjs Command-line validator for shader workbench documents
 │   ├── shader_workbench.test.mjs Node contract tests for the shader workbench
@@ -1052,12 +1051,11 @@ private:
     float speed = 1.0f;
 };
 
-REGISTER_EFFECT(MyEffect)
 ```
 
-### Self-Registering Factory (`control/registry.h`)
+### Roster-Based Factory (`control/registry.h`)
 
-Effects register themselves into a global registry using the `REGISTER_EFFECT(ClassName)` macro placed at the bottom of each effect header. This uses a static initializer pattern — each effect creates a small registrar struct whose static member calls `EffectRegistry::add()` during program initialization, eliminating the need for a hand-maintained factory array. The registry stores resolution-specific fill functions for each supported `<W,H>` pair (96×20 and 288×144).
+`HS_EFFECT_LIST` generates the constexpr registration array used by the WASM factory. Each entry carries resolution-specific fill functions and its stable identity; compile-time checks reject duplicate names, IDs, and collisions between them. Effect headers require no registration initializer.
 
 ### Parameter Registration
 

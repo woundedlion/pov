@@ -1,14 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseEffectRoster, parsePhantasmEffectRoster, parseRegisteredEffects,
-  loadEffectRoster, loadPhantasmEffectRoster, loadRegisteredEffects,
+  parseEffectRoster, parsePhantasmEffectRoster,
+  loadEffectRoster, loadPhantasmEffectRoster,
 } from './effect_roster.mjs';
-
-// Both parsers gate CI (check_effect_roster.mjs) and both carry deliberate
-// logic — backslash continuation, block comments stripped before line comments,
-// and matched whitespace tolerance so a reformat cannot make them agree on a
-// truncated roster. Fixtures below cover each of those, plus the failure modes.
 
 const rosterOf = (...rows) =>
   `#define HS_EFFECT_LIST(X) \\\n${rows.map(r => `  ${r} \\`).join('\n')}\n  X(Last)\n\nint after;\n`;
@@ -85,51 +80,17 @@ test('parsePhantasmEffectRoster throws when the macro is missing or empty', () =
     '#define HS_PHANTASM_EFFECT_LIST(X)\n'), /parsed to zero effects/);
 });
 
-test('parseRegisteredEffects returns every call site in a header', () => {
-  assert.deepEqual(
-    parseRegisteredEffects('REGISTER_EFFECT(Alpha)\nstruct S {};\nREGISTER_EFFECT(Beta)\n'),
-    ['Alpha', 'Beta']);
-});
-
-test('parseRegisteredEffects drops commented-out registrations', () => {
-  assert.deepEqual(
-    parseRegisteredEffects(
-      '// REGISTER_EFFECT(Line)\n/* REGISTER_EFFECT(Block) */\nREGISTER_EFFECT(Live)\n'),
-    ['Live']);
-});
-
-test('parseRegisteredEffects drops multi-line block-commented registrations', () => {
-  assert.deepEqual(
-    parseRegisteredEffects('/*\nREGISTER_EFFECT(Dropped)\n*/\nREGISTER_EFFECT(Live)\n'),
-    ['Live']);
-});
-
-// The whitespace tolerance must match parseEffectRoster's: if one parser dropped
-// `X( Foo )`-style rows and the other did not, the cross-check would still agree
-// on a truncated roster and report nothing.
-test('parseRegisteredEffects tolerates the same whitespace parseEffectRoster does', () => {
-  assert.deepEqual(parseRegisteredEffects('REGISTER_EFFECT( Alpha )\nREGISTER_EFFECT(\tBeta\t)\n'),
-    ['Alpha', 'Beta']);
-});
-
-test('parseRegisteredEffects reports none for a header with no registration', () => {
-  assert.deepEqual(parseRegisteredEffects('struct NotAnEffect {};\n'), []);
-});
-
 // The pure parsers above are only meaningful while they still describe the real
 // files the loaders read.
 test('the loaders agree on the checked-in roster', async () => {
   const roster = await loadEffectRoster();
   const phantasm = await loadPhantasmEffectRoster();
-  const registered = await loadRegisteredEffects();
   assert.ok(roster.length > 0);
   assert.ok(phantasm.length > 0);
   assert.ok(phantasm.every(name => roster.includes(name)));
-  assert.deepEqual([...roster].sort(), [...registered].sort());
 });
 
 test('roster parsers ignore block-comment openers inside line comments', () => {
   const prefix = '// helpers live in effects/*.h\n';
-  assert.deepEqual(parseRegisteredEffects(prefix + 'REGISTER_EFFECT(Foo)\n/** doc */'), ['Foo']);
   assert.deepEqual(parseEffectRoster(prefix + rosterOf('X(Alpha)') + '\n/** doc */'), ['Alpha', 'Last']);
 });
