@@ -307,7 +307,7 @@ template <typename A, typename B> struct SmoothUnion {
    * by the cubic smin blend term.
    * @note Only `dist` is blended across the weld; the auxiliary registers
    *       (`t`/`raw_dist`/`size`/UVs) snap to the nearer child, so a shader
-   * keying off them sees a hard edge through the weld. Intentional, not a bug.
+   * keying off them sees a hard edge through the weld.
    * @warning The cubic smin pulls `dist` below the true distance near the weld,
    *          so this SDF is not sphere-tracing-safe (unlike WarpedVolume's
    *          Lipschitz-corrected distance) — scanline rasterization only.
