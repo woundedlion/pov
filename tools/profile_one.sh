@@ -88,13 +88,9 @@ if [ -n "${HS_PROFILE_DEEP:-}" ] && [ "${HS_PROFILE_DEEP:-}" != "0" ]; then
   DEEP="-D HS_PROFILE_DEEP_ENABLE"
   DEEP_SUFFIX="_deep"
 fi
-REPLAY_SUFFIX=""
-case " $EXTRA " in
-  *" HS_MINDSPLATTER_REPLAY_AB "*|*"HS_MINDSPLATTER_REPLAY_AB="*)
-    REPLAY_SUFFIX="_replay_ab";;
-  *" HS_MINDSPLATTER_REPLAY "*|*"HS_MINDSPLATTER_REPLAY="*)
-    REPLAY_SUFFIX="_replay";;
-esac
+REPLAY_SUFFIX=$(printf '%s\n' "$EXTRA" |
+  sed -nE 's/.*-D[[:space:]]*HS_MINDSPLATTER_REPLAY(_AB)?([=[:space:]]|$).*/_replay\1/p' |
+  tr '[:upper:]' '[:lower:]')
 MSP_FLAGS=""
 MSP_SUFFIX=""
 MSP_MARKER=""
