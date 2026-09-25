@@ -758,8 +758,9 @@ private:
    * @brief The bound generator's own configuration, as a cache-key scalar.
    * @details Frequency, amplitude, speed, scale and time are already WarpKey
    * fields, and `FASTNOISELITE_ONLY_OPENSIMPLEX2` routes generation past the
-   * noise-type switch, so the seed is the only generator input left that can
-   * move the warp field. `NoiseParams::set_seed` keeps the mirror in step.
+   * noise-type switch. Fractal and rotation settings on NoiseParams::noise
+   * must remain at defaults, or init_storage() must be re-run after changes.
+   * `NoiseParams::set_seed` keeps the seed mirror in step.
    *
    * Hashing FastNoiseLite's object representation instead is not portable: ARM
    * EABI packs its eight enum members to one byte each, so the struct carries
