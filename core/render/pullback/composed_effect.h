@@ -773,9 +773,9 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  * constants; every stage typedef, the render pipeline, shade() and the shared
  * lifecycle — parameter registration, preset choreography, palette cycling,
  * camera walks and noise clocks — are assembled here. Required `Derived`
- * members are the identity constants and `initial_params`. Optional members,
- * detected by `requires` and defaulted when absent, are `preset_params`
- * (absent, every preset takes `initial_params`), `ANIMATED_MOBIUS`,
+ * members are the identity constants. Presets resolve through `preset_params`,
+ * then `PRESETS`; only single-preset effects may fall back to startup params.
+ * `initial_params` is optional. Other optional members are `ANIMATED_MOBIUS`,
  * `CAMERA_SPIN_RATE` and an `after_composed_init()` hook; `OUTER_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` are inherited members an effect
  * shadows to decorrelate one noise field. A shade() shadow that forwards to
