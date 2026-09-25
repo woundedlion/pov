@@ -1,11 +1,11 @@
+import { exitAfterStderr } from './exit.mjs';
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 const [modulePath, outputPath] = process.argv.slice(2);
 if (!modulePath || !outputPath) {
   console.error('usage: export_engine_catalog.mjs <module.js> <catalog.json>');
-  await new Promise((resolve) => process.stderr.write('', resolve));
-  process.exit(2);
+  await exitAfterStderr(2);
 }
 
 try {

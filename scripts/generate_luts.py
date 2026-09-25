@@ -24,7 +24,7 @@ is correct; computing in float32 flips one srgb_to_linear entry at an LSB
 rounding boundary.
 
 Usage:
-  python scripts/generate_luts.py > core/color/color_luts.h
+  python scripts/generate_luts.py -o core/color/color_luts.h
 
 The generator self-formats: it pipes its output through clang-format (using the
 repo .clang-format) so the result is already in committed style — no separate
@@ -201,6 +201,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true",
                         help="run the table self-test only; emit no header")
+    parser.add_argument("-o", "--output", help="write the header as UTF-8 with LF newlines")
     args = parser.parse_args()
     fwd = srgb_to_linear_lut()
     rev = linear_to_srgb_lut()
@@ -222,7 +223,11 @@ def main():
             "Set CLANG_FORMAT to the binary path.\n")
         sys.exit(1)
     else:
-        sys.stdout.write(formatted)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8", newline="\n") as output:
+                output.write(formatted)
+        else:
+            sys.stdout.write(formatted)
 
 
 if __name__ == "__main__":

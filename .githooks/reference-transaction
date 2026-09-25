@@ -6,8 +6,7 @@
 # reports a zero old-OID to this hook, so the stdin old field cannot be trusted).
 #
 # An intentional rewind needs a deliberate, one-shot, target-scoped token; a
-# leaked or global env var can no longer bless routine landings. Authorize the
-# exact new commit, then perform the rewind:
+# token authorizes the exact new commit:
 #   git rev-parse <target> > "$(git rev-parse --git-common-dir)/hs-allow-nonff"
 # The token authorizes only that one new value and is consumed on use. Write the
 # literal ANY instead of a SHA for a blind rewind. Every refusal and every

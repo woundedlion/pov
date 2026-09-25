@@ -753,6 +753,14 @@ test('malformed v1 containers report diagnostics instead of raw TypeErrors', () 
   }
 });
 
+test('v1 expansion reports missing catalog operators before reading fields', () => {
+  const catalog = structuredClone(CATALOG);
+  catalog.operators = catalog.operators.filter((operator) => operator.id !== 'sample.grid.v2');
+  const result = compile(structuredClone(V1_EXAMPLE), { catalog });
+  assert.equal(result.status, 'INVALID');
+  assert.equal(result.diagnostics[0].code, 'V1_POLICY_UNSUPPORTED');
+});
+
 test('a v1 warp sequence longer than two entries has no expansion', () => {
   const document = structuredClone(V1_EXAMPLE);
   document.descriptor.graph.nodes.find((node) => node.role === 'planar_warp')
