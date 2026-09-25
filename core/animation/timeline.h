@@ -411,6 +411,12 @@ public:
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
 
+      if (global_timeline_t < e.start && e.animation()->is_canceled()) {
+        e.animation()->post_callback();
+        e.destroy();
+        continue;
+      }
+
       if (event_paused(e)) {
         const bool started = global_timeline_t >= e.start;
         HS_CHECK(e.start < UINT32_MAX, "paused timeline start frame overflow");
