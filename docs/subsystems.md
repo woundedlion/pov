@@ -747,9 +747,8 @@ at the current phase.
 
 The mesh system is split across fourteen files:
 
-- **`base_mesh.h`** â€” Base solid tables and `MAX_SOLID_*` arena-sizing ceilings
-- **`relax_bake.h`** â€” Baked relaxation descriptors and application helpers
-
+- **`base_mesh.h`** — Base mesh identities, bounds, and authoring labels
+- **`relax_bake.h`** — Relax payload and source identity checks
 - **`core/mesh/mesh.h`** — Core data structures (`PolyMesh`, `HalfEdgeMesh`) and fundamental `MeshOps` (compile, clone, classify)
 - **`conway.h`** — Conway mesh operators and vertex transformations
 - **`conway_graph.h`** — Constexpr 23-edge morph graph over the 18 simple-registry solids: per-edge operator/seed/reseed specs, bridge-aware walk weighting, and the closed `ORDERED_TOUR`
