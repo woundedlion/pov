@@ -25,7 +25,7 @@ import { sha256Hex } from './sha256.mjs';
 // scripts/shader_workbench.mjs and scripts/sha256.mjs are the sources of
 // daydream's shader/ mirrors: the engine install ships them there (see
 // CMakeLists.txt), and daydream's tests/wasm_provenance.test.js diffs its
-// committed copies against the engine checkout it pins.
+// installed copies against the engine checkout it pins.
 // engine_catalog.json states the wasm32 operator ABI, the one the browser
 // workbench's budget math models. tests/data/shader_chain_catalog.json is a
 // separate catalog stating the native ABI the C++ suite pins. Their
@@ -48,11 +48,11 @@ const DUPLICATE_OPERATOR = lf(await readFile(
 /** @returns {Object} A fresh parse of the duplicate-operator document. */
 const duplicateOperator = () => JSON.parse(DUPLICATE_OPERATOR);
 
-/** Compiles with the mirrored catalog. @param {*} source @param {Object} [options] */
+/** Compiles with the source catalog. @param {*} source @param {Object} [options] */
 const compile = (source, options = {}) =>
   compileShaderDocument(source, { catalog: CATALOG, ...options });
 
-/** Validates with the mirrored catalog. @param {Object} document */
+/** Validates with the source catalog. @param {Object} document */
 const validate = (document) =>
   validateShaderDocument(document, { catalog: CATALOG });
 
@@ -119,14 +119,14 @@ test('SHA-256 matches Node across padding boundaries and multiblock inputs', () 
 });
 
 // The native suite golden-pins tests/data/shader_chain_catalog.json from an
-// LP64 host build; the mirror above is the same emitter's output from the
+// LP64 host build; the source catalog above is the same emitter's output from the
 // wasm32 module, and is what an editor budgets arena bytes against. A
 // pointer-bearing `prepared` block is wider under LP64, so the two disagree
 // there by construction. This holds them to disagreeing about nothing else, so
 // a golden regenerated on an unrelated host cannot re-pin quietly.
 const POINTER_WIDENED_OPERATORS = 8;
 
-test('the native golden and the wasm mirror differ only in pointer-block width', async () => {
+test('the native golden and the wasm source catalog differ only in pointer-block width', async () => {
   const golden = JSON.parse(await readFile(
     new URL('../tests/data/shader_chain_catalog.json', import.meta.url), 'utf8'));
   assert.equal(golden.catalog_version, CATALOG.catalog_version);
