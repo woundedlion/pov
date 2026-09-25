@@ -661,6 +661,11 @@ vector_noise(const math::Complex &input, const Params &params, float amplitude,
   return {input, 0.0f};
 }
 
+/**
+ * @brief AffineFrame warp policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * prepare(frame), path_length_required(frame) accessors.
+ */
 template <typename State> struct AffineFrame : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -703,6 +708,12 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief WaveShear warp policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), phase(frame), prepare(frame),
+ * path_length_required(frame) accessors.
+ */
 template <typename State, typename EnvelopePolicy = FlatEnvelope>
 struct WaveShear : ApproximationDefaults {
   using Binding = typename State::Binding;
@@ -742,6 +753,11 @@ struct WaveShear : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief Vortex warp policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * prepare(frame), path_length_required(frame) accessors.
+ */
 template <typename State> struct Vortex : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -779,6 +795,11 @@ template <typename State> struct Vortex : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief MirrorTile warp policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), prepare(frame), path_length_required(frame) accessors.
+ */
 template <typename State> struct MirrorTile : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
@@ -820,6 +841,11 @@ template <typename State> struct MirrorTile : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief PolarChart warp policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), phase(frame) accessors.
+ */
 template <typename State, typename PolarMode, uint8_t Harmonic>
 struct PolarChart : ApproximationDefaults {
   static_assert(Harmonic >= 1 && Harmonic <= MAX_POLAR_HARMONIC);
@@ -844,6 +870,12 @@ struct PolarChart : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief VectorNoise warp policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), noise(frame), prepare(frame),
+ * path_length_required(frame) accessors.
+ */
 template <typename State, math::NoiseBasis BasisV, typename EnvelopePolicy>
 struct VectorNoise : ApproximationDefaults {
   using Binding = typename State::Binding;
@@ -886,6 +918,12 @@ struct VectorNoise : ApproximationDefaults {
   }
 };
 
+/**
+ * @brief CurlFlow warp policy.
+ * @tparam State Provider with Binding and FrameState types and
+ * params(frame), phase(frame), noise(frame), path_length_required(frame)
+ * accessors.
+ */
 template <typename State, math::NoiseBasis BasisV, typename IntegratorPolicy,
           typename EnvelopePolicy = FlatEnvelope>
 struct CurlFlow : ApproximationDefaults {
