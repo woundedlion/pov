@@ -109,6 +109,21 @@ inline void test_generative_palette_recipe_validation() {
   HS_EXPECT_TRUE(status.adjustments.clamped_fields != 0);
   HS_EXPECT_TRUE(status.adjustments.canonicalized_fields != 0);
 
+  {
+    PaletteRecipe loop;
+    loop.domain = PaletteDomain::LOOP;
+    loop.hue.mode = HueMode::SWEEP;
+    loop.hue.sweep_turns = 1.0f + 5e-7f;
+    GenerativePalette compiled;
+    PaletteRecipe snapped;
+    PaletteCompileStatus adjusted;
+    HS_EXPECT_TRUE(
+        GenerativePalette::try_compile(loop, compiled, snapped, adjusted));
+    HS_EXPECT_EQ(snapped.hue.sweep_turns, 1.0f);
+    HS_EXPECT_TRUE((adjusted.adjustments.canonicalized_fields &
+                    (uint64_t{1} << static_cast<uint8_t>(
+                         PaletteRecipeField::SWEEP_TURNS))) != 0);
+  }
   const GenerativePalette::Snapshot before = output.snapshot();
   const PaletteRecipe canonical_before = canonical;
   input.lightness.center = std::numeric_limits<float>::quiet_NaN();
