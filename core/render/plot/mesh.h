@@ -39,8 +39,9 @@ struct Mesh {
   /**
    * @brief Max distinct vertices the edge-dedup bitset can track.
    * @details A mesh exceeding this traps while its faces are walked: at render
-   * time for draw() (per frame for MeshFeedback), or at setup for
-   * extract_edges(). Sized for a TriangularBitset of 128*127/2 bits = 1016
+   * time for the mesh draw() overload, or at setup for extract_edges()
+   * (used by MeshFeedback). Drawing extracted edges does not walk faces.
+   * Sized for a TriangularBitset of 128*127/2 bits = 1016
    * bytes.
    */
   static constexpr int DEDUP_CAPACITY = 128;
