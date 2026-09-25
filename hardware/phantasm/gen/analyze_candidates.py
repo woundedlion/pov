@@ -7,7 +7,7 @@ strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair) plus placement quality
 Usage:
     python analyze_candidates.py [DIR ...]
 
-With no args it globs `../candidates/Candidate[ _-]*`. Pass explicit candidate
+With no args it globs `../candidates/*Candidate[ _-]*`. Pass explicit candidate
 folders (or .kicad_pcb files) to override.
 
 A DRC gate runs kicad-cli on each candidate (env KICAD_CLI overrides discovery, and
@@ -26,8 +26,8 @@ What matters here, and why:
   two *same-net* GND planes (benign), but it is still a stub + impedance bump --
   so fewer fast-net vias and shorter fast nets win. DATA/CLK staying on ONE layer
   (zero vias) is ideal: one continuous reference, no return-path transition.
-- Connectors J1-J4 are locked, so connector accessibility is equal; ergonomics is
-  decided by how the loose parts group (decoupling near U1, terminators near the
+- Connectors J2-J4 are locked; the Molex J1 and other loose parts can move.
+  Ergonomics depends on their accessibility and grouping (decoupling near U1, terminators near the
   strip connector, the high-Z sync divider kept tight).
 """
 import argparse
