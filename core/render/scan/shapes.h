@@ -382,11 +382,11 @@ struct Line {
 };
 
 /**
- * @brief Draws a solid ring using SDF rasterization.
+ * @brief Draws a ring stroke using SDF rasterization.
  */
 struct Ring {
   /**
-   * @brief Draws a solid ring from an orientation basis.
+   * @brief Draws a ring stroke from an orientation basis.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
@@ -413,7 +413,7 @@ struct Ring {
   }
 
   /**
-   * @brief Draws a solid ring from a plane-normal vector.
+   * @brief Draws a ring stroke from a plane-normal vector.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.

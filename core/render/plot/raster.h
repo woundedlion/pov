@@ -88,8 +88,8 @@ inline uint32_t g_planar_position_samples = 0;
  * @brief Antipode cutoff for the planar projection's stable-azimuth region.
  * @details The planar (azimuthal-equidistant) projection is singular at the
  * basis antipode (R→π: azimuth undefined). A control point whose dot with the
- * basis center is below this (≈ within 2.6° of the antipode) projects to an
- * unstable azimuth, so its segment falls back to a geodesic edge. cos(π − 0.045).
+ * basis center is below -COS_PLANAR_ANTIPODE (within about 2.6° of the
+ * antipode) uses a geodesic edge. The stored positive threshold is cos(0.045).
  */
 inline constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 
