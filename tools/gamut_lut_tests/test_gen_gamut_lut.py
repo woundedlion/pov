@@ -1,5 +1,6 @@
 import contextlib
 import io
+import re
 import sys
 import tempfile
 import unittest
@@ -69,15 +70,17 @@ class TestGamutLutMirrors(unittest.TestCase):
         color_h = (ROOT / "core" / "color" / "color_space.h").read_text(
             encoding="utf-8")
         mutations = (
-            ("0.3963377774f * lab.a + 0.2158037573f * lab.b",
-             "0.3963377774f * lab.b + 0.2158037573f * lab.a"),
-            ("4.0767416621f * l - 3.3077115913f * m",
-             "4.0767416621f * m - 3.3077115913f * l"),
+            ("0.3963377774f, 0.2158037573f",
+             "0.2158037573f, 0.3963377774f"),
+            ("4.0767416621f, -3.3077115913f",
+             "-3.3077115913f, 4.0767416621f"),
         )
         math_h = ROOT / "core" / "math" / "3dmath.h"
         for original, replacement in mutations:
             with self.subTest(original=original):
-                mutated = color_h.replace(original, replacement)
+                pattern = r"\s+".join(re.escape(token) for token in original.split())
+                mutated, count = re.subn(pattern, replacement, color_h, count=1)
+                self.assertEqual(count, 1)
                 self.assertNotEqual(mutated, color_h)
                 with tempfile.TemporaryDirectory() as directory:
                     path = Path(directory) / "color_space.h"
