@@ -112,7 +112,10 @@ int main(int argc, char **argv) {
       if (i % 12 == 0)
         std::fprintf(f, "    ");
       std::fprintf(f, "0x%04x,", t[i]);
-      std::fprintf(f, (i % 12 == 11) ? "\n" : " ");
+      if (i % 12 == 11)
+        std::fprintf(f, "\n");
+      else if (i + 1 < n)
+        std::fprintf(f, " ");
     }
     std::fprintf(f, "\n};\n// clang-format on\n");
   };
