@@ -442,10 +442,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
 
 
 # ---------------------------------------------------------------- layout
-# 2-D shelf strip-packer: minimise board LENGTH within the fixed WIDTH cap by
-# stacking parts across the width in shelves (first-fit-decreasing). The Teensy
-# (~37x19) sets the floor; small SMD parts pack into the leftover width beside it.
-# Draft placement — refine orientation / push connectors to the edges in Pcbnew.
+# Skyline strip-packer: minimise board length within the fixed width cap.
 def _arc_points(start, mid, end):
     return [start, mid, end, *arc_extrema(start, mid, end)]
 
@@ -700,9 +697,7 @@ def pack(bxs, width, edge=1.0, gap=1.2):
         place[ref] = (round(edge + x - rb[0], 3), round(edge + yb - rb[1], 3), rot)
         sky = reserve(yb, wg, hg, x)
 
-    # 3) far connectors: single column on the far edge. All I/O (power + strip +
-    #    sync) is grouped here, so the column can be tall — fit the inter-connector
-    #    gap to the usable width so the last pad keeps board-edge clearance.
+    # Strip and sync connectors occupy the far edge; power/debug occupy the hub.
     right = max(s[2] for s in sky)
     if far:
         sumh = _column_height(far, bxs, 0.0)
@@ -752,7 +747,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     pad_net, netid = build_nets(nlroot)
     paths = build_paths(nlroot)                   # ref -> schematic-symbol path
     comps = {r: (r, fp, v, dnp) for r, fp, v, dnp in schematic_components()}
-    # footprint bounding boxes -> 2-D shelf-pack to minimise length
+    # footprint bounding boxes -> skyline-pack to minimise length
     bxs = {}
     pad_bxs = {}
     crt_bxs = {}
@@ -778,7 +773,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         OUTFILE = PCB_FILE
         NOTE = (f'PHANTASM segment board  -  {fmt(L)}x{fmt(PCB_W)}mm '
                 f'(width <={fmt(PCB_W_MAX)}mm, R-MECH-6); '
-                'shelf-packed draft, route in Pcbnew')
+                'skyline-packed draft, route in Pcbnew')
 
     outside = outline_overflows(PLACE, pad_bxs, L, bounded)
     if outside:
