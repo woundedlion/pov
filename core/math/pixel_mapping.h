@@ -81,6 +81,16 @@ template <int H>
 inline constexpr float RADIANS_PER_ROW =
     PI_F / static_cast<float>(H + hs::H_OFFSET - 1);
 
+/** @brief Radians of azimuth spanned by one canvas column. */
+template <int W>
+inline constexpr float RADIANS_PER_COLUMN = TWO_PI_F / static_cast<float>(W);
+
+/** @brief Larger angular pitch of a logical canvas's rows and columns. */
+template <int W, int H> constexpr float coarse_pixel_pitch() {
+  return RADIANS_PER_COLUMN<W> > RADIANS_PER_ROW<H> ? RADIANS_PER_COLUMN<W>
+                                                    : RADIANS_PER_ROW<H>;
+}
+
 /**
  * @brief Precomputed lookup table for scanline phi angles.
  * @tparam H Logical height; the table has H_VIRT = H + hs::H_OFFSET entries.
