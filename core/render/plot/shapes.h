@@ -749,7 +749,6 @@ struct DistortedRing {
     return ((v * cosf(polar)) + (u_temp * sinf(polar))).normalized();
   }
 
-  template <int W, int H>
   /**
    * @brief Samples a distorted ring.
    * @tparam W,H Rasterization resolution (drives the W-sample count and LUT).
@@ -759,6 +758,7 @@ struct DistortedRing {
    * @param shift_fn Radial distortion sampled per vertex.
    * @param phase Rotation phase (radians).
    */
+  template <int W, int H>
   static void sample(Fragments &points, const math::Basis &basis, float radius,
                      ScalarFn shift_fn, float phase = 0) {
     const RingFrame frame = ring_frame(basis, radius);

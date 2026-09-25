@@ -31,6 +31,7 @@ namespace Plot {
  *  v3: Normalized TTL
  */
 struct ParticleSystem {
+  /** @brief Sampling stride declared by the particle system, or 1. */
   template <typename SystemT> static consteval int trail_sample_stride() {
     if constexpr (requires { SystemT::TRAIL_SAMPLE_STRIDE; })
       return SystemT::TRAIL_SAMPLE_STRIDE;
@@ -43,6 +44,8 @@ struct ParticleSystem {
    * @tparam HoistableCull True when raw point projections are valid for clip
    *         gating because the source pipeline has no world cull stage.
    * @tparam FuseVertex Apply the typed vertex shader as each point is emitted.
+   * @tparam SinglePassRaster Use the analytic single-pass rasterizer.
+   * @tparam PipelineT Render pipeline type.
    * @tparam FragmentShaderT Fragment shader type.
    * @tparam VertexShaderFn Vertex shader type.
    * @tparam DeferredShaderT Deferred vertex shader type.
