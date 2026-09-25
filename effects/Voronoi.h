@@ -74,8 +74,6 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Re-seed when the GUI changes the site count (integer change only, so
-    // dragging within a bucket doesn't thrash).
     {
       HS_PROFILE(vo_animate);
       if (active_site_count() != current_num_sites)
@@ -408,7 +406,7 @@ private:
 
   /**
    * @brief Returns the active site count from the "Num Sites" slider.
-   * @return Slider value rounded to an integer and clamped to [1, MAX_SITES].
+   * @return Integer slider value clamped to [1, MAX_SITES].
    */
   int active_site_count() const {
     return hs::clamp(static_cast<int>(params.num_sites), 1, MAX_SITES);
