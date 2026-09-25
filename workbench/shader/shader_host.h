@@ -1885,6 +1885,11 @@ private:
     frame.set_central_meridian(config.params.projection.central_meridian);
     frame.dynamic = {
         prepare_source_state(endpoint.clocks),
+        config.slots.function == Workbench::Function::FRACTAL
+            ? Pullback::Source::prepare_fractal(
+                  fractal_params(config.params.source),
+                  prepare_source_state(endpoint.clocks))
+            : Pullback::Source::PreparedFractal{},
         prepare_spherical_rings(endpoint),
         {prepare_warp_stage(
              config.slots.warp_program.outer, config.params.warp.outer,

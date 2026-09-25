@@ -1026,11 +1026,14 @@ inline void test_pullback_concrete_catalog() {
       -1.0f);
 
   const Pullback::Source::FractalSourceParams fractal_params;
+  const auto fractal_frame =
+      Pullback::Source::prepare_fractal(fractal_params, prepared);
   HS_EXPECT_EQ(
-      Pullback::Source::escape_fractal(origin, fractal_params, prepared), 1.0f);
+      Pullback::Source::escape_fractal(origin, fractal_params, fractal_frame),
+      1.0f);
   // c = 0.6 escapes on iteration 3 of 8, landing on contour cycle 0.4219.
-  HS_EXPECT_NEAR(Pullback::Source::escape_fractal(math::Complex(1.2f, 0.0f),
-                                                  fractal_params, prepared),
+  HS_EXPECT_NEAR(Pullback::Source::escape_fractal(
+                     math::Complex(1.2f, 0.0f), fractal_params, fractal_frame),
                  -0.38298f, 5e-3f);
 
   const Pullback::Source::TessellationSourceParams tessellation_params;

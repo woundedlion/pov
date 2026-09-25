@@ -300,6 +300,27 @@ struct PreparedSource {
   float angle_sin; /**< Sine of `angle`. */
 };
 
+/** @brief Frame-constant quadratic-fractal seed and iteration controls. */
+struct PreparedFractal : PreparedSource {
+  float seed_re;
+  float seed_im;
+  float mix;
+  int iterations;
+};
+
+template <typename Params, typename Prepared>
+HS_FLASH_INLINE inline PreparedFractal prepare_fractal(const Params &params,
+                                                       const Prepared &source) {
+  const float seed_cos = math::fast_cosf(source.primary);
+  const float seed_sin = math::fast_sinf(source.primary);
+  return {{source.primary, source.secondary, source.angle, source.angle_cos,
+           source.angle_sin},
+          params.julia_re * seed_cos - params.julia_im * seed_sin,
+          params.julia_re * seed_sin + params.julia_im * seed_cos,
+          hs::clamp(params.julia_mix, 0.0f, 1.0f),
+          static_cast<int>(hs::clamp(params.iterations, 2.0f, 16.0f))};
+}
+
 /** @brief Per-frame axis and phase of the spherical ring source. */
 struct PreparedSphericalRings {
   math::Vector axis; /**< Unit normal of the rings' equatorial plane. */
@@ -411,17 +432,11 @@ HS_FLASH_MEMBER inline float escape_fractal(const math::Complex &input,
                                   input.im * prepared.angle_sin);
   const float y = params.scale * (-input.re * prepared.angle_sin +
                                   input.im * prepared.angle_cos);
-  const float seed_cos = math::fast_cosf(prepared.primary);
-  const float seed_sin = math::fast_sinf(prepared.primary);
-  const float seed_re = params.julia_re * seed_cos - params.julia_im * seed_sin;
-  const float seed_im = params.julia_re * seed_sin + params.julia_im * seed_cos;
-  const float mix = hs::clamp(params.julia_mix, 0.0f, 1.0f);
-  float z_re = x * mix;
-  float z_im = y * mix;
-  const float c_re = hs::lerp(x, seed_re, mix);
-  const float c_im = hs::lerp(y, seed_im, mix);
-  const int iterations =
-      static_cast<int>(hs::clamp(params.iterations, 2.0f, 16.0f));
+  float z_re = x * prepared.mix;
+  float z_im = y * prepared.mix;
+  const float c_re = hs::lerp(x, prepared.seed_re, prepared.mix);
+  const float c_im = hs::lerp(y, prepared.seed_im, prepared.mix);
+  const int iterations = prepared.iterations;
   for (int iteration = 0; iteration < iterations; ++iteration) {
     const float next_re = z_re * z_re - z_im * z_im + c_re;
     z_im = 2.0f * z_re * z_im + c_im;
@@ -704,11 +719,10 @@ template <typename State> struct EscapeFractal : ApproximationDefaults {
         { State::prepare(frame).primary } -> std::convertible_to<float>;
       };
 
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
+  using Prepared = PreparedFractal;
 
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
+    return prepare_fractal(State::params(frame), State::prepare(frame));
   }
 
   __attribute__((always_inline)) static float sample(const PlaneSample &input,

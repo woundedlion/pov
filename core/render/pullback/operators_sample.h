@@ -389,6 +389,13 @@ struct SampleFractal : SourceClockModel {
   using Input = PlaneSample;
   using Output = FieldSample;
   using Params = FractalSampleParams;
+  using Prepared = Source::PreparedFractal;
+
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    return Source::prepare_fractal(
+        params, SourceClockModel::prepare(ctx, params, state));
+  }
 
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {

@@ -168,6 +168,7 @@ inline constexpr size_t MAX_NOISE_RESOURCES = NOISE_RESOURCES_PER_CONFIG + 1;
     blob instead. */
 struct DynamicPrepared {
   SourceState source;
+  Pullback::Source::PreparedFractal fractal;
   Pullback::Source::PreparedSphericalRings spherical_rings;
   PreparedWarpProgram warp;
   PreparedSurfaceNoise surface_noise;
