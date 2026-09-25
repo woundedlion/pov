@@ -1800,7 +1800,7 @@ inline void test_gs_substep_matches_scalar_reference() {
  * @brief Verifies one substep has the right reaction/diffusion signs and that
  *        the Q16 clamp is actually applied.
  * @details Seed a single saturated-B nucleus on the otherwise-rest field. After
- *          one default-parameter step: A at the seed is fully consumed (the
+ *          one step at effective dt = 2.5 * (10 / 6) = 4.17: A at the seed is consumed (the
  *          1 - dt update underflows and must clamp to 0, not wrap), and B
  *          diffuses into at least one neighbor that started empty.
  */
@@ -1813,7 +1813,7 @@ inline void test_gs_substep_signs_and_clamp() {
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f);
   GSWhiteBox::step(gs, cA.data(), cB.data(), nA.data(), nB.data());
 
-  // a + (dA·0 - 1 + feed·0)·dt = 1 - 2.5 < 0 → clamps to 0 (not an unclamped
+  // a + (dA·0 - 1 + feed·0)·dt = 1 - 4.17 < 0 → clamps to 0 (not an unclamped
   // negative-float-to-uint16 wrap).
   HS_EXPECT_EQ((int)nA[seed], 0);
   // B diffuses outward: at least one initially-empty neighbor is now lit.
