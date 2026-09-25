@@ -3,6 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
+#include <cmath>
+
+#include "math/noise_field.h"
 
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"

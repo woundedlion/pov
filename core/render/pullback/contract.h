@@ -9,20 +9,14 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <cmath>
 #include <new>
-#include <span>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
 #include "color/color.h"
-#include "engine/memory.h"
 #include "math/geometry.h"
-#include "math/lenses.h"
-#include "math/noise_field.h"
 #include "math/projections.h"
-#include "math/stereographic.h"
 
 /**
  * @file contract.h
