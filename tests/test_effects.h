@@ -1914,7 +1914,11 @@ struct BZWhiteBox {
   static constexpr int N = BZ::RD_N;
 
   static Pixel palette_color(const BZ &bz, float t) {
-    return bz.palette.get(t).color;
+    const auto &color = t == 0.0f   ? bz.color_a
+                        : t == 0.5f ? bz.color_b
+                                    : bz.color_c;
+    return Pixel(static_cast<uint16_t>(color.r), static_cast<uint16_t>(color.g),
+                 static_cast<uint16_t>(color.b));
   }
   static uint16_t to_q16(float v) { return BZ::to_q16(v); }
   static float from_q16(uint16_t v) { return BZ::from_q16(v); }
@@ -2055,7 +2059,9 @@ struct BZWhiteBox {
 
 /** @brief Pins the three legacy BZ species colors. */
 inline void test_bz_legacy_palette() {
+  reset_effect_globals();
   BZWhiteBox::BZ bz;
+  bz.init();
   const auto expect_color = [&](float position, const Pixel &expected) {
     const Pixel actual = BZWhiteBox::palette_color(bz, position);
     HS_EXPECT_NEAR(static_cast<float>(actual.r), static_cast<float>(expected.r),
