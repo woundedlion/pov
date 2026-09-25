@@ -1337,8 +1337,10 @@ __attribute__((always_inline)) inline float fast_acos(float x) {
  * @param x Argument; the domain is x <= 0.
  * @return An approximation of e^x.
  * @details exp(x) = 2^(x*log2e), split into an integer power from the float
- * exponent bits and a fractional 2^f via a quartic minimax on [0,1]. Peak rel
- * error ~7.4e-4 over [-30, 0]; large-magnitude x saturates to 0.
+ * exponent bits and an endpoint-constrained quartic for fractional 2^f.
+ * The polynomial has ~3.4e-6 peak relative error and meets both exponent
+ * boundaries continuously; float range reduction raises the full error to
+ * ~5.1e-6 over [-30, 0]. Large-magnitude x saturates to 0.
  * @warning The domain is guarded only by a debug assert, but every argument
  * still yields a defined result: a positive x stays accurate to x ~ 88.0 and
  * saturates to +Inf above it, and a NaN returns 0.
@@ -1348,8 +1350,9 @@ inline float fast_expf(float x) {
   float y = x * 1.442695041f; // log2(e)
   float fi = floorf(y);
   float f = y - fi; // [0, 1)
-  float p = 1.0f + f * (0.6931472f +
-                        f * (0.2402212f + f * (0.0554676f + f * 0.0096784f)));
+  float p =
+      1.0f + f * (0.69303227f +
+                  f * (0.24137937f + f * (0.05203249f + f * 0.01355588f)));
   // Bounds the packed exponent on both sides so (int)fi cannot overflow; the
   // negated compare also takes the NaN branch.
   if (!(std::fabs(fi) <= 126.0f))
