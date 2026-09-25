@@ -11,12 +11,12 @@
 #include "render/sdf/face.h"
 
 /**
- * @file mesh_class_types.h
+ * @file face_classes.h
  * @brief Records a congruence-class bake produces and the rasterizer reads.
  *
  * The runtime half of the congruence-class LUT feature: the class id space and
  * the three record types Scan::Mesh binds per frame. The clustering and LUT
- * bake that fill them live in mesh_classes.h, which the rasterizer does not
+ * bake that fill them live in face_class_bake.h, which the rasterizer does not
  * need — this header keeps the mesh-building machinery out of every rasterizer
  * translation unit.
  */

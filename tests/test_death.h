@@ -6224,7 +6224,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/mesh/conway_graph.h", 1},
     {"core/mesh/hankin.h", 8},
     {"core/mesh/mesh.h", 8},
-    {"core/mesh/mesh_classes.h", 6},
+    {"core/render/sdf/face_class_bake.h", 6},
     {"core/mesh/mesh_state.h", 2},
     {"core/mesh/recipe.h", 13},
     {"core/mesh/solid_generators.h", 5},

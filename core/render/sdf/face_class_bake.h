@@ -12,11 +12,11 @@
 #include "engine/memory.h"
 #include "platform/platform.h"
 #include "render/sdf.h"
-#include "mesh/mesh_class_types.h"
+#include "render/sdf/face_classes.h"
 #include "mesh/mesh_state.h"
 
 /**
- * @file mesh_classes.h
+ * @file face_class_bake.h
  * @brief Congruence-class clustering + canonical distance-LUT bake.
  *
  * Clusters a mesh's faces into congruence classes (geometric clustering seeded

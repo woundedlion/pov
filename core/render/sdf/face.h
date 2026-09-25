@@ -29,7 +29,7 @@ namespace SDF {
 // Every islamic mesh's faces are near-exact copies of a handful of canonical 2D
 // shapes (gnomonic projection about each face's centroid is
 // position-covariant). MeshOps bakes one signed-distance LUT per congruence
-// class at spawn (core/mesh/mesh_classes.h); Scan::Mesh binds it per frame via
+// class at spawn (core/render/sdf/face_class_bake.h); Scan::Mesh binds it per frame via
 // bind_class_lut, and Face::distance serves sign-pure probes from a bilinear
 // lookup instead of the exact per-edge walk.
 
@@ -38,7 +38,7 @@ namespace SDF {
 inline constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
 /** Maximum per-vertex deviation from the aligned canonical shape (as a multiple
  *  of the LUT cell diagonal) before a face keeps the exact path. The facility
- *  fits only meshes that hold still per spawn (mesh_classes.h). */
+ *  fits only meshes that hold still per spawn (face_class_bake.h). */
 inline constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
 
 /**
@@ -167,7 +167,7 @@ struct AlignCorr {
  * @param get_z Centered-projection vertex accessor.
  * @param visit Per-correspondence sink.
  * @details Single source for the correspondence convention — the correlation
- * below, bake-time clustering (mesh_classes.h) and the per-frame
+ * below, bake-time clustering (face_class_bake.h) and the per-frame
  * Face::bind_class_lut all route through it, so the (offset, reflected)
  * encoding cannot drift.
  */

@@ -30,7 +30,7 @@
 
 #include "core/render/sdf.h"
 #include "core/render/sdf/volume.h"
-#include "core/mesh/mesh_classes.h"
+#include "core/render/sdf/face_class_bake.h"
 #include "core/render/scan.h"
 #include "core/math/geometry.h"
 #include "tests/vec_test_util.h"

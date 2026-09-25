@@ -231,7 +231,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spiral, etc.)
 │   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
 │   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>, generate()
-│   │   ├── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
+│   │   └── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex primitives, fast-math approximations, value noise, Snorm3
 │   │   ├── 4dmath.h                Vec4 / Mat4 four-dimensional primitives + coordinate-plane rotation
@@ -253,8 +253,6 @@ files define line-ending policy and working-artifact exclusions.
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
 │   ├── mesh/                   Polyhedral meshes and their operators
 │   │   ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
-│   │   ├── mesh_class_types.h      Congruence-class id space + the record structs the rasterizer reads
-│   │   ├── mesh_classes.h          Congruence-class clustering + canonical distance-LUT bake
 │   │   ├── mesh_state.h            Arena-backed MeshState, the flat mesh format the renderer reads
 │   │   ├── conway.h                Conway operators (dual, kis, ambo, truncate, etc.)
 │   │   ├── conway_graph.h          Constexpr solid-to-solid operator edge graph + walk helpers
@@ -322,6 +320,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
 │   │   │                            csg, face, volume)
+│   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
+│   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families

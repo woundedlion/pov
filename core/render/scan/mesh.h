@@ -11,7 +11,7 @@
 #include <utility>
 #include "render/sdf.h"
 #include "render/shading.h"
-#include "mesh/mesh_class_types.h"
+#include "render/sdf/face_classes.h"
 #include "mesh/mesh_state.h"
 #include "color/color.h"
 #include "render/filter/pipeline.h"
