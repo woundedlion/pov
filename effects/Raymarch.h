@@ -195,21 +195,51 @@ public:
                 "a Raymarch export literal names a different solid than its "
                 "PLACEMENT_SOLIDS entry");
 
+  static constexpr float PULSE_SPEED_MIN = 0.0f;
+  static constexpr float PULSE_SPEED_MAX = 10.0f;
+  static constexpr float FILL_MIN = 0.3f;
+  static constexpr float FILL_MAX = 1.3f;
+  static constexpr int MAX_STEPS_MIN = 4;
+  static constexpr int MAX_STEPS_MAX = 30;
+  static constexpr float DIFFUSE_MIN = 0.0f;
+  static constexpr float DIFFUSE_MAX = 1.0f;
+  static constexpr float SPECULAR_MIN = 0.0f;
+  static constexpr float SPECULAR_MAX = 1.5f;
+  static constexpr float FRESNEL_MIN = 0.0f;
+  static constexpr float FRESNEL_MAX = 1.0f;
+  static constexpr float TWIST_MIN = 0.0f;
+  static constexpr float TWIST_MAX = 8.0f;
+  static constexpr float AA_MULT_MIN = 0.1f;
+  static constexpr float AA_MULT_MAX = 1.5f;
+  static constexpr float HUE_SHIFT_MIN = -4.0f;
+  static constexpr float HUE_SHIFT_MAX = 4.0f;
+  static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
+  static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
+  static constexpr float HUE_NOISE_SPEED_MIN = -0.001f;
+  static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
+
   static constexpr Params initial_params() { return {}; }
 
-  static constexpr bool valid_params(const Params &value) {
+  static constexpr bool preset_in_ranges(const Params &value) {
     return static_cast<size_t>(value.base_solid) < PLACEMENT_SOLID_COUNT &&
-           value.pulse_speed >= 0.0f && value.pulse_speed <= 10.0f &&
-           value.fill >= 0.3f && value.fill <= 1.3f && value.max_steps >= 4 &&
-           value.max_steps <= 30 && value.diffuse >= 0.0f &&
-           value.diffuse <= 1.0f && value.specular >= 0.0f &&
-           value.specular <= 1.5f && value.fresnel >= 0.0f &&
-           value.fresnel <= 1.0f && value.twist >= 0.0f &&
-           value.twist <= 8.0f && value.aa_mult >= 0.1f &&
-           value.aa_mult <= 1.5f && value.hue_shift >= -4.0f &&
-           value.hue_shift <= 4.0f && value.hue_noise_scale >= 1.0f / 64.0f &&
-           value.hue_noise_scale <= 8.0f && value.hue_noise_speed >= -0.001f &&
-           value.hue_noise_speed <= 0.001f;
+           value.pulse_speed >= PULSE_SPEED_MIN &&
+           value.pulse_speed <= PULSE_SPEED_MAX && value.fill >= FILL_MIN &&
+           value.fill <= FILL_MAX && value.max_steps >= MAX_STEPS_MIN &&
+           value.max_steps <= MAX_STEPS_MAX && value.diffuse >= DIFFUSE_MIN &&
+           value.diffuse <= DIFFUSE_MAX && value.specular >= SPECULAR_MIN &&
+           value.specular <= SPECULAR_MAX && value.fresnel >= FRESNEL_MIN &&
+           value.fresnel <= FRESNEL_MAX && value.twist >= TWIST_MIN &&
+           value.twist <= TWIST_MAX && value.aa_mult >= AA_MULT_MIN &&
+           value.aa_mult <= AA_MULT_MAX && value.hue_shift >= HUE_SHIFT_MIN &&
+           value.hue_shift <= HUE_SHIFT_MAX &&
+           value.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
+           value.hue_noise_scale <= HUE_NOISE_SCALE_MAX &&
+           value.hue_noise_speed >= HUE_NOISE_SPEED_MIN &&
+           value.hue_noise_speed <= HUE_NOISE_SPEED_MAX;
+  }
+  static_assert(preset_in_ranges(initial_params()));
+  static constexpr bool valid_params(const Params &value) {
+    return preset_in_ranges(value);
   }
 
   /**
@@ -229,20 +259,24 @@ public:
     register_animated_param(
         "Base Solid", &params.base_solid, PLACEMENT_SOLID_OPTIONS.data(),
         PLACEMENT_SOLID_EXPORT_OPTIONS, PLACEMENT_SOLID_COUNT);
-    register_param("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
+    register_param("Pulse Speed", &params.pulse_speed, PULSE_SPEED_MIN,
+                   PULSE_SPEED_MAX);
     // Fraction of the half nearest-neighbour gap the ring's outer edge reaches:
     // < 1 leaves a gap, 1 makes neighbours touch, > 1 overlaps them deliberately.
-    register_param("Fill", &params.fill, 0.3f, 1.3f);
-    register_int_param("Max Steps", &params.max_steps, 4, 30);
-    register_param("Diffuse", &params.diffuse, 0.0f, 1.0f);
-    register_param("Specular", &params.specular, 0.0f, 1.5f);
-    register_param("Fresnel", &params.fresnel, 0.0f, 1.0f);
+    register_param("Fill", &params.fill, FILL_MIN, FILL_MAX);
+    register_int_param("Max Steps", &params.max_steps, MAX_STEPS_MIN,
+                       MAX_STEPS_MAX);
+    register_param("Diffuse", &params.diffuse, DIFFUSE_MIN, DIFFUSE_MAX);
+    register_param("Specular", &params.specular, SPECULAR_MIN, SPECULAR_MAX);
+    register_param("Fresnel", &params.fresnel, FRESNEL_MIN, FRESNEL_MAX);
     register_param("Twist", &params.twist, TWIST_OPTIONS, NUM_TWISTS);
-    register_param("AA Width", &params.aa_mult, 0.1f, 1.5f);
-    register_param("Hue Shift", &params.hue_shift, -4.0f, 4.0f);
-    register_param("Hue Noise Scale", &params.hue_noise_scale, 1.0f / 64.0f,
-                   8.0f);
-    register_param("Hue Noise Speed", &params.hue_noise_speed, -0.001f, 0.001f);
+    register_param("AA Width", &params.aa_mult, AA_MULT_MIN, AA_MULT_MAX);
+    register_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN,
+                   HUE_SHIFT_MAX);
+    register_param("Hue Noise Scale", &params.hue_noise_scale,
+                   HUE_NOISE_SCALE_MIN, HUE_NOISE_SCALE_MAX);
+    register_param("Hue Noise Speed", &params.hue_noise_speed,
+                   HUE_NOISE_SPEED_MIN, HUE_NOISE_SPEED_MAX);
 
     build_points();
 
@@ -314,6 +348,7 @@ private:
   static constexpr const char *TWIST_OPTIONS[] = {"0", "1", "2", "3", "4",
                                                   "5", "6", "7", "8"};
   static constexpr int NUM_TWISTS = static_cast<int>(std::size(TWIST_OPTIONS));
+  static_assert(TWIST_MIN == 0 && TWIST_MAX == NUM_TWISTS - 1);
 
   // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
   // UNIT_BOUNDS the bounding-sphere radius (bigger, may overlap a neighbour —
