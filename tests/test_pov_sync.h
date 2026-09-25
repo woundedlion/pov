@@ -20,7 +20,7 @@
  * Shared run_wake_sequence/run_single_column code covers per-wake ordering.
  * Host mocks do not cover eDMA/SPI registers or ISR internals, Cortex-M7
  * interrupt preemption and memory barriers, real DWT timing and flywheel
- * jitter, or four-board timing at 480 RPM.
+ * jitter, or real sync-edge timestamp latency.
  */
 #pragma once
 
@@ -1927,7 +1927,7 @@ public:
       b.phase0 = phase0;
       b.birth_cols = i * c.W / n;
       b.tick_step = step0 * 1e6 / (1e6 + ppm[i]);
-      b.next_tick = double(7 * (i + 1)); // small boot stagger
+      b.next_tick = double(7 * (i + 1)) + (0.5 + 0.1 * (i % 5)) * b.tick_step;
       b.board.seed(local_now(b, 0) - static_cast<uint32_t>(b.birth_cols) *
                                          c.cycles_per_column(),
                    b.master);
@@ -2266,7 +2266,7 @@ inline void test_sim_boot_and_phase() {
     // board's ZERO flip for this rev has long settled.
     HS_EXPECT_TRUE(
         sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-    HS_EXPECT_LE(sim.max_phase_err(), 0.006);
+    HS_EXPECT_LE(sim.max_phase_err(), 0.13);
     for (int i = 0; i < 4; ++i) {
       const uint64_t df = sim.boards[i].flips - flips_before[i];
       HS_EXPECT_GE(df, 8u); // ~2 flips/rev over the ≥4-rev slice
@@ -2304,7 +2304,7 @@ inline void test_sim_eight_board_boot_and_phase() {
   sim.run_revs(8.0);
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
-  HS_EXPECT_LE(sim.max_phase_err(), 0.006);
+  HS_EXPECT_LE(sim.max_phase_err(), 0.13);
   for (size_t i = 1; i < sim.boards.size(); ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
