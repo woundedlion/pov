@@ -1168,26 +1168,6 @@ inline void test_twist_axis_threshold_siblings_agree() {
 }
 
 /**
- * @brief Verifies WarpedVolume::distance never over-estimates the warped
- *        distance (sphere-trace safety): on every sampled point the returned
- *        march distance is <= the raw warped distance, on both the bounding
- *        fast-path and the Lipschitz-corrected path.
- */
-inline void test_warped_volume_distance_is_sphere_trace_safe() {
-  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
-      SDF::Torus{1.0f, 0.3f}, SDF::Warp::Twist{3, 0.2f, 1.0f}};
-
-  for (float x = -2.0f; x <= 2.0f; x += 0.5f)
-    for (float y = -1.0f; y <= 1.0f; y += 0.5f)
-      for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
-        math::Vector p(x, y, z);
-        float d = wv.distance(p);
-        float raw = wv.raw_distance(p);
-        HS_EXPECT_TRUE(d <= raw + 1e-4f);
-      }
-}
-
-/**
  * @brief Exact distance from a point to a twisted torus surface, by brute force.
  * @param p Query point.
  * @param R Major radius.
@@ -1215,6 +1195,42 @@ inline double twisted_torus_distance(const math::Vector &p, double R, double r,
     best = std::min(best, std::sqrt(rad * rad + w * w));
   }
   return best;
+}
+
+/** @brief Pins march distances against an independently sampled surface. */
+inline void test_warped_volume_distance_is_sphere_trace_safe() {
+  struct Case {
+    double R, r, A;
+    int n;
+  };
+  const Case cases[] = {{1.0, 0.3, 0.2, 3},    {1.0, 0.3, 0.0, 3},
+                        {1.0, 0.3, 0.2, 0},    {1.0, 0.31, 2.5, 5},
+                        {0.45, 0.14, 0.35, 2}, {0.45, 0.14, 0.35, 8},
+                        {2.0, 0.05, 0.9, 7}};
+  hs::Pcg32 rng(0x51afeu);
+  int correction_needed = 0;
+  for (const Case &c : cases) {
+    SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> volume{
+        SDF::Torus{static_cast<float>(c.R), static_cast<float>(c.r)},
+        SDF::Warp::Twist{c.n, static_cast<float>(c.A),
+                         static_cast<float>(c.R)}};
+    for (int i = 0; i < 96; ++i) {
+      const double theta = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
+      const double phi = rand_uniform(rng, 0.0f, 2.0f * math::PI_F);
+      const double radius = c.r * rand_uniform(rng, 1.01f, 1.8f);
+      const double radial = c.R + radius * std::cos(phi);
+      const math::Vector p(static_cast<float>(radial * std::cos(theta)),
+                           static_cast<float>(radius * std::sin(phi) +
+                                              c.A * std::sin(c.n * theta)),
+                           static_cast<float>(radial * std::sin(theta)));
+      const double truth = twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
+      const float distance = volume.distance(p);
+      if (distance > 0)
+        HS_EXPECT_LE(distance, truth + 1e-4);
+      correction_needed += volume.raw_distance(p) > truth + 1e-4;
+    }
+  }
+  HS_EXPECT_GT(correction_needed, 0);
 }
 
 /**
