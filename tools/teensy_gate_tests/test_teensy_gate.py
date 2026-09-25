@@ -757,13 +757,15 @@ class TestDerivedComponentCeiling(unittest.TestCase):
     BANK = 32768
 
     @staticmethod
-    def _ts(variables, code, free):
+    def _ts(variables, code):
+        padding = ((code + 32767) // 32768) * 32768 - code
+        free = 524288 - variables - code - padding
         return (
             "teensy_size: Memory Usage on Teensy 4.0:\n"
             "teensy_size:   FLASH: code:158788, data:13684, headers:8460"
             "   free for files: 1883136\n"
             f"teensy_size:   RAM1: variables:{variables}, code:{code}, "
-            f"padding:1000   free for local variables: {free}\n"
+            f"padding:{padding}   free for local variables: {free}\n"
             "teensy_size:   RAM2: variables:497920   free for malloc/new: 26368\n")
 
     @staticmethod
@@ -783,17 +785,18 @@ class TestDerivedComponentCeiling(unittest.TestCase):
     def test_ceiling_derivation(self):
         # variables 312,704 + floor 12,288 = 324,992 -> 10 DTCM banks ->
         # 6 ITCM banks -> 196,608 B ceiling; code well under -> pass.
-        result = self._eval_ts(self._ts(312704, 150200, 14976))
+        result = self._eval_ts(self._ts(312704, 150200))
         self.assertTrue(result.passed, msg=_codes(result))
         self.assertTrue(any("196,608" in n for n in result.notes))
 
     def test_code_over_derived_ceiling_fails_naming_the_floor(self):
         # variables 300,000 + floor -> still 10 DTCM banks (ceiling 196,608);
-        # region total stays under its cap so only the derived check fires.
-        result = self._eval_ts(self._ts(300000, 200000, 27680))
+        # the next ITCM bank also violates the total and free-floor limits.
+        result = self._eval_ts(self._ts(300000, 200000))
         self.assertFalse(result.passed)
         self.assertIn("component-over-derived-ceiling", _codes(result))
-        self.assertNotIn("region-over-budget", _codes(result))
+        self.assertIn("region-over-budget", _codes(result))
+        self.assertIn("headroom-below-floor", _codes(result))
         msg = next(v.message for v in result.violations
                    if v.code == "component-over-derived-ceiling")
         self.assertIn("196,608", msg)                      # the derived ceiling
@@ -802,9 +805,9 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         self.assertIn("12,288", msg)
 
     def test_code_exactly_at_ceiling_passes_one_over_fails(self):
-        at = self._eval_ts(self._ts(312704, 196608, 14976))
+        at = self._eval_ts(self._ts(312704, 196608))
         self.assertTrue(at.passed, msg=_codes(at))
-        over = self._eval_ts(self._ts(312704, 196609, 14976))
+        over = self._eval_ts(self._ts(312704, 196609))
         self.assertIn("component-over-derived-ceiling", _codes(over))
 
     def test_shipping_budget_allows_full_bank_without_crossing(self):
@@ -813,9 +816,9 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         derived = (budget["regions"]["ram1"]["components"]["code"]
                    ["max_banks_from_stack_floor"])
         self.assertEqual(derived["min_headroom_bytes"], 0)
-        at = self._eval_ts(self._ts(312704, 196608, 14976), budget)
+        at = self._eval_ts(self._ts(312704, 196608), budget)
         self.assertTrue(at.passed, msg=_codes(at))
-        over = self._eval_ts(self._ts(312704, 196609, 14976), budget)
+        over = self._eval_ts(self._ts(312704, 196609), budget)
         self.assertFalse(over.passed)
         self.assertIn("component-over-derived-ceiling", _codes(over))
 
@@ -823,9 +826,9 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         budget = self._budget()
         (budget["regions"]["ram1"]["components"]["code"]
          ["max_banks_from_stack_floor"]["min_headroom_bytes"]) = 3072
-        at = self._eval_ts(self._ts(312704, 193536, 14976), budget)
+        at = self._eval_ts(self._ts(312704, 193536), budget)
         self.assertTrue(at.passed, msg=_codes(at))
-        short = self._eval_ts(self._ts(312704, 193537, 14976), budget)
+        short = self._eval_ts(self._ts(312704, 193537), budget)
         self.assertIn("component-over-derived-ceiling", _codes(short))
         message = next(v.message for v in short.violations
                        if v.code == "component-over-derived-ceiling")
@@ -835,9 +838,9 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         # variables 315,392 + 12,288 = 327,680 = exactly 10 banks -> ceiling
         # stays 196,608; one more variable byte forces an 11th DTCM bank and the
         # same code now violates the 163,840 B ceiling.
-        ok = self._eval_ts(self._ts(315392, 180000, 12288))
+        ok = self._eval_ts(self._ts(315392, 180000))
         self.assertTrue(ok.passed, msg=_codes(ok))
-        squeezed = self._eval_ts(self._ts(315393, 180000, 12287 + self.BANK))
+        squeezed = self._eval_ts(self._ts(315393, 180000))
         codes = _codes(squeezed)
         self.assertIn("component-over-derived-ceiling", codes)
         msg = next(v.message for v in squeezed.violations
@@ -860,13 +863,13 @@ class TestDerivedComponentCeiling(unittest.TestCase):
     def test_missing_free_min_bytes_fails_loud_not_silent(self):
         budget = self._budget()
         del budget["regions"]["ram1"]["free_min_bytes"]
-        result = self._eval_ts(self._ts(312704, 150200, 14976), budget)
+        result = self._eval_ts(self._ts(312704, 150200), budget)
         self.assertIn("component-floor-missing", _codes(result))
 
     def test_informational_note_reports_growth_headroom(self):
         # Measured, ceiling, remaining, and next-bank-boundary distance must all
         # appear in the report so intra-bank growth is visible without failing.
-        result = self._eval_ts(self._ts(312704, 150200, 14976))
+        result = self._eval_ts(self._ts(312704, 150200))
         note = next(n for n in result.notes if "derived ceiling" in n)
         self.assertIn("150,200", note)                     # measured
         self.assertIn("196,608", note)                     # ceiling
@@ -875,7 +878,7 @@ class TestDerivedComponentCeiling(unittest.TestCase):
         self.assertIn(note, tg.render_report(result))
 
     def test_note_present_even_when_over(self):
-        result = self._eval_ts(self._ts(300000, 200000, 27680))
+        result = self._eval_ts(self._ts(300000, 200000))
         self.assertTrue(any("derived ceiling" in n for n in result.notes))
 
 

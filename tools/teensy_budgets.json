@@ -62,6 +62,9 @@
       // (HankinSolids); 12 KiB covers that (host figure already over-estimates
       // the 4-byte-pointer device) plus the ISR allowance. max_bytes = 524288 -
       // 12288, so the 12 KiB stack floor is the binding RAM1 constraint.
+      // The RAM1 total, free floor, and zero-reserve derived code ceiling
+      // enforce one constraint. The derived check supplies the bank-boundary
+      // note and can additionally reserve min_headroom_bytes before it.
       // The ITCM code ceiling is DERIVED from that same stack floor: FlexRAM
       // is 16 x 32 KiB banks split between ITCM (code) and DTCM (variables +
       // stack), so DTCM must keep ceil((variables + free_min_bytes) / 32768)
