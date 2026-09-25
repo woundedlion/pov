@@ -19,7 +19,7 @@
  *
  * Included from platform.h's non-ARDUINO branch; the device build uses the
  * vendored teensy::inplace_function instead. Nothing here needs platform.h:
- * the empty-call trap is only declared below and defined in memory.cpp.
+ * the empty-call trap is only declared below and defined in engine/static_storage.cpp.
  */
 
 #include <cstddef>
