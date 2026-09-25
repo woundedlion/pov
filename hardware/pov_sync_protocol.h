@@ -602,7 +602,7 @@ struct BurstSnapshot {
  * bound and claims the burst with try_claim(), which tests completion and takes
  * the burst in one
  * step so the two cannot be split around an edge. On the device that call runs
- * under a brief IRQ-off window (a two-instruction copy, spec §8.2); on the host
+ * under a brief IRQ-off window (a mailbox snapshot, spec §8.2); on the host
  * it is plain.
  */
 class EdgeMailbox {
