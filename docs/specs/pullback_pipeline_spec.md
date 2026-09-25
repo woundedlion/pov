@@ -756,7 +756,7 @@ shapes are `Surface::DirectNoise<State, NoiseBasisV>` and
 `Surface::CurlNoise<State, NoiseBasisV, SurfaceIntegrator>`, where
 `NoiseBasisV` is the core `::NoiseBasis` non-type value and
 `SurfaceIntegrator` is one of `Surface::Euler`, `Surface::Midpoint`, or
-`Surface::Midpoint2x`. Direct kernels accept basis/integrator as explicit
+`Surface::Midpoint2`. Direct kernels accept basis/integrator as explicit
 runtime values for the dynamic dispatcher. A compiled policy shall not read
 either selector from its provider.
 

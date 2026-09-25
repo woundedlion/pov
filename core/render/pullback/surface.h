@@ -184,7 +184,7 @@ struct Midpoint {
   static constexpr Integrator VALUE = Integrator::MIDPOINT;
 };
 
-struct Midpoint2x {
+struct Midpoint2 {
   static constexpr Integrator VALUE = Integrator::MIDPOINT_2X;
 };
 
