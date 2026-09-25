@@ -300,7 +300,7 @@ CHECK_TOOLS = {
 }
 
 # (manifest, JSON path to a `>=X` range, pin name). The range is the floor the
-# tree's own tooling needs -- `node --test`'s glob expansion needs >= 22 -- and
+# tree's own tooling needs -- registerHooks requires Node >= 22.15 -- and
 # the pin is what every CI job installs, so a pin below the floor would run the
 # suite on an interpreter the manifest already rejects.
 ENGINE_RANGES = (

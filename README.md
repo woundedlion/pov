@@ -521,7 +521,7 @@ files define line-ending policy and working-artifact exclusions.
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
 ├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus phantasm_circuit.svg, design specs (docs/specs/), the ITCM and device/host divergence ledgers (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
 ├── Doxyfile                    Doxygen config for the published API reference
-├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22, CI pinned via tools/build_pins.py)
+├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
 ├── requirements/               Dependabot-visible Python toolchain pins used by CI (`*.in` sources, `*.txt` hash locks from `pip-compile --generate-hashes`)
 ├── .clangd                     Checkout-local native compilation database for editor diagnostics
