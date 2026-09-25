@@ -2014,42 +2014,127 @@ inline void test_choreography_lerp_pause_policy() {
   check.template operator()<false>();
 }
 
-/**
- * @brief The schema version one composed effect stamps its snapshots with and
- *        the `Params` size that version covers.
- * @details The version is a bare constant in the effect while the layout it
- * versions is assembled from shared families, so one family edit moves every
- * effect built on it. Tying each version to its layout's size reds every moved
- * effect here until it bumps the version and its row follows.
- */
+struct ParameterLayoutHash {
+  uint64_t value = 14695981039346656037ULL;
+
+  void number(uint64_t number) {
+    for (unsigned i = 0; i < 8; ++i) {
+      value = (value ^ (number & 0xff)) * 1099511628211ULL;
+      number >>= 8;
+    }
+  }
+
+  void text(std::string_view text) {
+    number(text.size());
+    for (const unsigned char ch : text)
+      value = (value ^ ch) * 1099511628211ULL;
+  }
+
+  template <typename Root, typename Member>
+  void member(const Root &root, const Member &member, std::string_view name) {
+    text(name);
+    number(reinterpret_cast<uintptr_t>(&member) -
+           reinterpret_cast<uintptr_t>(&root));
+    number(sizeof(Member));
+    number(alignof(Member));
+    if constexpr (std::is_same_v<Member, float>) {
+      text("float32");
+    } else if constexpr (std::is_same_v<Member,
+                                        Pullback::Color::PaletteMapping>) {
+      text("palette-mapping-enum8");
+    } else if constexpr (Pullback::HasFields<Member>) {
+      text("fields");
+      number(Member::FIELDS.size());
+      for (const auto &field : Member::FIELDS)
+        this->member(root, member.*field.member, field.id);
+      if constexpr (std::is_same_v<Member, Pullback::ColorParams>)
+        this->member(root, member.palette_mapping, "palette-mapping");
+    } else if constexpr (std::is_same_v<Member, Pullback::MobiusLensParams>) {
+      this->member(root, member.mobius, "mobius");
+    } else if constexpr (std::is_same_v<Member, math::MobiusParams>) {
+      this->member(root, member.a, "a");
+      this->member(root, member.b, "b");
+      this->member(root, member.c, "c");
+      this->member(root, member.d, "d");
+    } else if constexpr (std::is_same_v<Member, math::Complex>) {
+      this->member(root, member.re, "re");
+      this->member(root, member.im, "im");
+    } else {
+      static_assert(std::is_same_v<Member, void>, "unhashed parameter type");
+    }
+  }
+};
+
+struct SchemaFieldsAB {
+  float a, b;
+  static constexpr auto FIELDS = std::array{
+      Pullback::Field<SchemaFieldsAB>{"a", &SchemaFieldsAB::a, nullptr, 0, 1},
+      Pullback::Field<SchemaFieldsAB>{"b", &SchemaFieldsAB::b, nullptr, 0, 1}};
+};
+struct SchemaFieldsBA {
+  float b, a;
+  static constexpr auto FIELDS = std::array{
+      Pullback::Field<SchemaFieldsBA>{"a", &SchemaFieldsBA::a, nullptr, 0, 1},
+      Pullback::Field<SchemaFieldsBA>{"b", &SchemaFieldsBA::b, nullptr, 0, 1}};
+};
+
+inline void test_parameter_layout_reorder() {
+  const SchemaFieldsAB original{};
+  const SchemaFieldsBA reordered{};
+  static_assert(sizeof(original) == sizeof(reordered));
+  ParameterLayoutHash before, after;
+  before.member(original, original, "family");
+  after.member(reordered, reordered, "family");
+  HS_EXPECT_NE(before.value, after.value);
+}
+
+/** @brief Hashes named parameter fields and their offsets in the snapshot. */
+template <typename Params> uint64_t parameter_layout_hash() {
+  const Params params{};
+  ParameterLayoutHash hash;
+  hash.number(sizeof(Params));
+  hash.number(alignof(Params));
+  hash.member(params, params.source, "source");
+  hash.member(params, params.projection, "projection");
+  hash.member(params, params.outer_warp, "outer-warp");
+  hash.member(params, params.inner_warp, "inner-warp");
+  hash.member(params, params.surface, "surface");
+  hash.member(params, params.lens, "lens");
+  hash.member(params, params.value, "value");
+  hash.member(params, params.color, "color");
+  return hash.value;
+}
+
+/** @brief Schema version, byte size and field layout of a persisted snapshot. */
 struct ParameterSchemaPin {
   const char *effect;
   uint32_t schema_version;
   size_t params_bytes;
+  uint64_t layout_hash;
 };
 
 constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
-    {"AlienBrain", 1, 124},
-    {"KaleidoscopeHexSoft", 1, 120},
-    {"AlienOcean", 1, 132},
-    {"AlienCore", 1, 132},
-    {"KaleidoscopeMandala", 1, 144},
-    {"GridSpace", 1, 132},
-    {"LatticeMelt", 5, 112},
-    {"ChromaticLichen", 1, 120},
-    {"MermaidSkin", 1, 120},
-    {"AshCloud", 1, 120},
-    {"KaleidoscopePentBright", 1, 128},
-    {"KaleidoscopeHexOil", 1, 112},
-    {"KaleidoscopeStainedGlass", 1, 144},
-    {"KaleidoscopeSmooth", 3, 128},
-    {"KaleidoscopeHexBright", 1, 120},
-    {"KaleidoscopeFlowers", 1, 128},
-    {"CosmicEyeball", 1, 132},
-    {"MobiusGrid", 1, 156},
+    {"AlienBrain", 1, 124, 13211564249954473680ULL},
+    {"KaleidoscopeHexSoft", 1, 120, 14739990588689198094ULL},
+    {"AlienOcean", 1, 132, 11127609128084578929ULL},
+    {"AlienCore", 1, 132, 11127609128084578929ULL},
+    {"KaleidoscopeMandala", 1, 144, 10790799260504476359ULL},
+    {"GridSpace", 1, 132, 12866172893703879652ULL},
+    {"LatticeMelt", 5, 112, 4875184365142965039ULL},
+    {"ChromaticLichen", 1, 120, 1638883893586672436ULL},
+    {"MermaidSkin", 1, 120, 1638883893586672436ULL},
+    {"AshCloud", 1, 120, 4448818947685542191ULL},
+    {"KaleidoscopePentBright", 1, 128, 585731665701543490ULL},
+    {"KaleidoscopeHexOil", 1, 112, 8557969739065036322ULL},
+    {"KaleidoscopeStainedGlass", 1, 144, 8243180243475284283ULL},
+    {"KaleidoscopeSmooth", 3, 128, 7554040197270829006ULL},
+    {"KaleidoscopeHexBright", 1, 120, 14739990588689198094ULL},
+    {"KaleidoscopeFlowers", 1, 128, 7554040197270829006ULL},
+    {"CosmicEyeball", 1, 132, 11127609128084578929ULL},
+    {"MobiusGrid", 1, 156, 17757354992037972817ULL},
 };
 
-/** @brief Pins one specialization's schema version to its layout size. */
+/** @brief Pins one specialization's schema version to its field layout. */
 template <template <int, int> class E>
 inline void check_parameter_schema_pin(const char *name) {
   using FX = E<SMALL_W, SMALL_H>;
@@ -2063,6 +2148,8 @@ inline void check_parameter_schema_pin(const char *name) {
     return;
   HS_EXPECT_EQ(FX::PARAMETER_SCHEMA_VERSION, pin->schema_version);
   HS_EXPECT_EQ(sizeof(typename FX::Params), pin->params_bytes);
+  const uint64_t layout = parameter_layout_hash<typename FX::Params>();
+  HS_EXPECT_EQ(layout, pin->layout_hash);
 }
 
 /**
@@ -2111,6 +2198,7 @@ inline int run_composed_effect_tests() {
   test_composed_direct_surface_placement();
   test_composed_slider_registration();
   test_composed_snapshot_contract();
+  test_parameter_layout_reorder();
   test_composed_parameter_schema_pins();
   test_composed_preset_choreography();
   test_composed_preset_interpolation();
