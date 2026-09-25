@@ -143,6 +143,7 @@ DEFAULT_ENVIRONMENTS: tuple[str, ...] = (
     else ("holosphere", "phantasm", "holosphere_dma"))
 
 ELF_NAME = "firmware.elf"
+BUILD_INPUTS = ("core", "effects", "hardware", "targets", "tools", "platformio.ini")
 
 
 def regions_from_sections(sizes: dict[str, int]) -> dict[str, int]:
@@ -405,7 +406,11 @@ def working_tree(cwd: str | Path | None = None) -> str:
     with tempfile.TemporaryDirectory() as directory:
         env = dict(os.environ, GIT_INDEX_FILE=str(Path(directory) / "index"))
         _git(["read-tree", "HEAD"], root, env=env)
-        _git(["add", "-A"], root, env=env)
+        paths = _git(["ls-files", "-z", "--cached", "--others", "--exclude-standard",
+                      "--", *BUILD_INPUTS], root).split("\0")
+        paths = sorted(set(filter(None, paths)))
+        if paths:
+            _git(["add", "-A", "--", *paths], root, env=env)
         return _git(["write-tree"], root, env=env)
 
 
@@ -444,7 +449,9 @@ def cmd_commit(args) -> int:
     # it in place to be retried rather than throwing it away.
     try:
         sha, date, subject = head_stamp(args.repo, args.rev)
-        if payload.get("tree") != _git(["rev-parse", f"{sha}^{{tree}}"], args.repo):
+        if not payload.get("tree") or _git(
+                ["diff-tree", "--no-commit-id", "--name-only", "-r", payload["tree"],
+                 f"{sha}^{{tree}}", "--", *BUILD_INPUTS], args.repo):
             _warn(f"{pending} does not match the committed tree; discarding it.")
             pending.unlink(missing_ok=True)
             return 1
