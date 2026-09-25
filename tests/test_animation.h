@@ -25,6 +25,7 @@
 #include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (mesh test fixtures)
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/vec_test_util.h"
 
 namespace hs_test {
 namespace animation_tests {
