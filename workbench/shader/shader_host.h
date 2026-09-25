@@ -2779,8 +2779,8 @@ private:
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(StateBundle) +
       alignof(StateBundle);
   static_assert(
-      FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
-      "ShaderWorkbench persistent footprint exceeds the default partition");
+      FOOTPRINT_BYTES <= WASM_PERSISTENT_BUDGET,
+      "ShaderWorkbench persistent footprint exceeds the WASM partition");
 };
 
 /**
