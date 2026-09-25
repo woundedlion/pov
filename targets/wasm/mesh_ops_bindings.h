@@ -633,7 +633,7 @@ public:
    * @param iterations Number of smoothing passes, truncated toward zero;
    *        floored at 0 and clamped to MAX_RELAX_ITERATIONS.
    * @return Owning pointer to a new wrapper holding the relaxed mesh, or null if
-   *         the count is non-finite; getLastResult() names which.
+   *         the input, arena, or allocation is invalid; getLastResult() names why.
    * @details Explicit (not a MESHOP_* macro) because its iteration count crosses
    *          the JS boundary unbounded: relax(1e9) would freeze the main thread
    *          for billions of passes, so the count is clamped rather than
@@ -700,7 +700,7 @@ public:
    *          (its documented domain) at the JS boundary.
    * @param twist Per-face rotation about the face normal, in radians (0 = none);
    *          unbounded, so only finiteness is checked.
-   * @return Owning pointer to a new wrapper, or null if either arg is non-finite.
+   * @return Owning pointer to a new wrapper, or null on invalid input, stale wrapper, or allocation failure.
    * @details Explicit (not a MESHOP_* macro) because MeshOps::snub takes TWO
    *          float controls, which neither the zero-arg nor the one-float
    *          generator can express. Binding it via MESHOP_0 hardcodes the
@@ -949,7 +949,7 @@ static void bind_mesh_ops() {
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
   // Bound from the same MESHOP_LIST that generates the wrapper methods, plus
   // MESHOP_IRREGULAR_LIST for the hand-written ops.
-// Variadic so it can take both MESHOP_LIST's (name, expansion) entries and
+// Variadic for MESHOP_LIST's operator metadata and
 // MESHOP_IRREGULAR_LIST's bare names.
 #define MESHOP_BIND(name, ...) .function(#name, &MeshOpsWrapper::name)
           MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
