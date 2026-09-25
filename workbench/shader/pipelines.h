@@ -21,10 +21,6 @@
 namespace Workbench {
 
 using CodeEmission = Pullback::CodeEmission;
-using ApproximationOracleId = Pullback::ApproximationOracleId;
-using ApproximationDomain = Pullback::ApproximationDomain;
-using ApproximationAggregation = Pullback::ApproximationAggregation;
-using ApproximationMetric = Pullback::ApproximationMetric;
 
 struct TopologyKey {
   Function function{};
