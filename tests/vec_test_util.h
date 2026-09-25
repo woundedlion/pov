@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Shared tolerant-equality predicates and assertion macros for Vector,
+ * Geodesic arc-distance oracle, tolerant-equality predicates, and assertions for Vector,
  * Quaternion and Complex — the 3dmath, geometry, sdf, spatial, effects and
  * reaction_graph suites all assert on these types.
  */

@@ -205,11 +205,8 @@ if(HS_TSAN)
 endif()
 
 # Applies the sanitizer flavour to one target; a no-op when both HS_SANITIZE and
-# HS_TSAN are OFF. Every CTest-registered executable the sanitizers or
-# thread-sanitizer job runs must call this, or it rides that job uninstrumented.
-# The stack_measure/arena_measure budget gates are the deliberate exception:
-# ASan redzones and instrumentation inflate the frame sizes and codegen they
-# measure against the device build.
+# HS_TSAN are OFF. Participating test targets opt in by calling this helper.
+# Stack and arena budget measurements exclude sanitizer instrumentation.
 function(_hs_sanitize target)
   if(HS_TSAN)
     target_compile_options(${target} PRIVATE
