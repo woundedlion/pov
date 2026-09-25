@@ -1010,7 +1010,7 @@ Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
 
 // Particle trails in world space with orientation
 Pipeline<W, H,
-    Filter::World::Trails<50000>,
+    Filter::World::Trails<8192>,
     Filter::World::Orient,
     Filter::Screen::AntiAlias<W, H>>
 
