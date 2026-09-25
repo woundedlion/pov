@@ -189,10 +189,6 @@ inline void test_mesh_palette_bank_shuffle_is_permutation() {
     HS_EXPECT_EQ(count, 1);
 }
 
-// ============================================================================
-// Runner
-// ============================================================================
-
 /** @brief Pins upper-byte color samples across the procedural roster. */
 inline void test_named_procedural_palette_roster() {
   const Palette *palettes[] = {
