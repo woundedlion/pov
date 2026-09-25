@@ -1659,3 +1659,47 @@ export function evaluateTransition(descriptor, bank, fromId, toId, evaluation) {
   }
   return { evaluation, duration: edge.duration, raw_progress: raw, eased_progress: eased, values };
 }
+
+/** @param {string} value */
+const titleWords = (value) => value.split('-')
+  .map((part) => (part.length === 0 ? part : part[0].toUpperCase() + part.slice(1)))
+  .join(' ');
+
+/**
+ * The control names a `<label>.<field>` document parameter id may resolve to
+ * on a compiled effect, most specific first.
+ *
+ * Composed effects register display names off their parameter families, not
+ * off document labels, so the two spellings only meet through this table; the
+ * simulator's fixed apply path imports this table.
+ *
+ * @param {string} parameterId
+ * @returns {string[]} The candidate control names.
+ */
+export function engineControlNames(parameterId) {
+  const dot = parameterId.indexOf('.');
+  if (dot < 0) return [titleWords(parameterId)];
+  const label = parameterId.slice(0, dot);
+  const field = parameterId.slice(dot + 1);
+  const words = titleWords(field);
+  if (label === 'warp1' || label === 'warp2') {
+    const slot = `Planar Warp ${label === 'warp1' ? 1 : 2} ${words}`;
+    if (['Rotation Rate', 'Translation X', 'Translation Y', 'Scale X', 'Scale Y', 'Shear']
+      .includes(words)) return [slot, `Affine ${words}`];
+    if (['Radial Scale', 'Radial Phase', 'Angular Phase'].includes(words))
+      return [slot, `Polar ${words}`];
+    if (['Rotation', 'Cell X', 'Cell Y', 'Offset X', 'Offset Y'].includes(words))
+      return [slot, `Mirror ${words}`];
+    if (['Strength', 'Frequency', 'Field Angle', 'Scale', 'Vector Angle'].includes(words))
+      return [slot, `Warp ${words}`];
+    return [slot, words];
+  }
+  if (label === 'surface') return [`Surface Noise ${words}`];
+  if (label === 'camera') return [`Camera ${words}`];
+  if (label === 'sample' && field === 'angle-speed') return ['Source Angle Speed'];
+  if (label === 'colorize' && field === 'value-opacity-low')
+    return ['Opacity at Value 0'];
+  if (label === 'colorize' && field === 'value-opacity-high')
+    return ['Opacity at Value 1'];
+  return [words];
+}
