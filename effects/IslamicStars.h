@@ -1472,7 +1472,7 @@ private:
     float ripple_duration =
         80.0f; /**< Frames each ripple takes to expand across the sphere. */
     float trans_speed =
-        1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span): 1 = shipping cadence, higher cycles shapes faster. */
+        1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span) and every build-leg budget: 1 = shipping cadence, higher cycles shapes faster. */
   } params;
 };
 
