@@ -54,7 +54,7 @@ include("${TESTS_DIR}/off_roster_headers.cmake")
 set(HS_CROSS_FILE_CASES smoke_one determinism_one clip_clear_parity_one)
 
 # Case names the definition scan accepts.
-set(_case_names "(test|check|case|verify|expect)_[A-Za-z0-9_]+")
+set(_case_names "(test|check|case|verify|expect)_[A-Za-z0-9_]+|run_[A-Za-z0-9_]*_cases")
 set(_case_names "${_case_names}|(smoke|determinism|clip_clear_parity)_one")
 set(_entry_name "run_[A-Za-z0-9_]*_tests")
 set(_def_head "\n(template[ \t]*<[^\n]*>[ \t]*)?((inline|static)[ \t]+)*")
