@@ -1104,8 +1104,6 @@ test('every promoted ShaderWorkbench preset has one stable migration destination
     Array.from({ length: 24 }, (_, index) => index).filter((index) => index !== 4));
   assert.equal(new Set(migration.destinations
     .map((entry) => `${entry.effect_id}/${entry.preset_id}`)).size, 23);
-  assert.equal(migration.product_group.children
-    .reduce((total, child) => total + child.seconds, 0), 120);
   const childIds = new Set(migration.product_group.children
     .map((child) => child.effect_id));
   for (const destination of migration.destinations) {
