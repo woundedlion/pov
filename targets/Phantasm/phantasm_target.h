@@ -50,7 +50,6 @@ using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
 namespace {
-POV *g_pov; // g_ prefix: a bare `pov` collides with hardware `namespace pov`
 
 /**
  * @brief Brings up USB serial, first step of setup().
@@ -85,16 +84,6 @@ FLASHMEM void log_reset_cause() {
           (srsr & SRC_SRSR_JTAG_SW_RST) ? " jtag-sw" : "",
           (srsr & SRC_SRSR_WDOG3_RST_B) ? " wdog3" : "",
           (srsr & SRC_SRSR_TEMPSENSE_RST_B) ? " tempsense" : "");
-}
-
-/**
- * @brief Allocates the segmented POV driver into g_pov.
- * @details nothrow new + HS_CHECK: a thrown bad_alloc has no handler on Teensy,
- * so fail-fast at the allocation site rather than null-deref in run_show().
- */
-FLASHMEM void create_pov() {
-  g_pov = new (std::nothrow) POV();
-  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
 }
 
 /**
