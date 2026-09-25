@@ -16,15 +16,24 @@
 
 #include "core/platform/constants.h"
 #include "core/control/registry.h"
-#include "targets/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
-#include <iterator>          // std::size — X-macro roster tables
+#include "targets/effects.h"
+#include <iterator> // std::size — X-macro roster tables
 #include <string_view>
 #include <vector>
 
 namespace hs_wasm {
 
+inline constexpr std::array<EffectRegistration, HS_EFFECT_COUNT>
+    EFFECT_REGISTRATIONS = {{
+#define HS_REGISTER_ENTRY(name) make_registration<name>(#name),
+        HS_EFFECT_LIST(HS_REGISTER_ENTRY)
+#undef HS_REGISTER_ENTRY
+    }};
+static_assert(registration_names_unique(EFFECT_REGISTRATIONS),
+              "effect names and stable IDs must be unique");
+
 /**
- * @brief Builds a concrete factory table from the self-registering entries.
+ * @brief Builds a concrete factory table from the HS_EFFECT_LIST registrations.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @return Reference to the lazily-built, static per-(W,H) factory table.
@@ -33,10 +42,12 @@ namespace hs_wasm {
  */
 template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
   static std::vector<FactoryEntry> table = []() {
-    const auto &regs = EffectRegistry::entries();
+    const auto &regs = EFFECT_REGISTRATIONS;
     std::vector<FactoryEntry> t(regs.size());
-    for (size_t i = 0; i < regs.size(); ++i)
+    for (size_t i = 0; i < regs.size(); ++i) {
+      t[i].name = regs[i].name;
       get_fill_fn<W, H>(regs[i])(t[i]);
+    }
     return t;
   }();
   return table;

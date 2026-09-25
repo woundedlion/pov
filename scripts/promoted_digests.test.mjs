@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { loadEffectHeaders, parseRegisteredEffects, stripComments } from './effect_roster.mjs';
-import { dirname, relative, resolve } from 'node:path';
+import { loadEffectHeaders, stripComments } from './effect_roster.mjs';
+import { basename, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   compilePatternDocuments,
@@ -32,7 +32,7 @@ const promotedHeaders = async () => {
     const dwell = INTEGER_CONSTANT('PRESET_DWELL_FRAMES').exec(source);
     assert.ok(dwell, `${name} carries digests but no PRESET_DWELL_FRAMES`);
     headers.set(id[1],
-      { name, types: parseRegisteredEffects(source), descriptor: descriptor[1], presetBank: presetBank[1], dwell: Number(dwell[1]) });
+      { name, types: [basename(path, '.h')], descriptor: descriptor[1], presetBank: presetBank[1], dwell: Number(dwell[1]) });
   }
   return headers;
 };

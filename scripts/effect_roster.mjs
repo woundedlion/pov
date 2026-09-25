@@ -25,7 +25,7 @@ export function parseEffectRoster(src) {
     /^#define HS_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/m);
   if (!block) throw new Error('Could not locate HS_EFFECT_LIST in targets/effects.h');
   // Tolerate whitespace inside the parens: a reformat to `X( Foo )` must not drop
-  // rows here, because the same spelling drops them from parseRegisteredEffects too
+  // rows here, before parsing the macro body
   // and the cross-check would agree on the truncated roster.
   const names = [...block[1].matchAll(/X\(\s*(\w+)\s*\)/g)].map(m => m[1]);
   if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
@@ -54,16 +54,6 @@ export async function loadPhantasmEffectRoster() {
     join(REPO_ROOT, 'targets', 'Phantasm', 'phantasm_playlist.h'), 'utf8'));
 }
 
-// The standard self-registering effect set, read recursively from effects/.
-// The WASM-only workbench surfaces live under workbench/, outside this scan.
-// Extracts the REGISTER_EFFECT call sites from one header's source text.
-export function parseRegisteredEffects(src) {
-  // Comments stripped first so a commented-out REGISTER_EFFECT row is not counted
-  // (mirrors parseEffectRoster's handling of the X-macro list).
-  return [...stripComments(src).matchAll(/REGISTER_EFFECT\(\s*(\w+)\s*\)/g)]
-    .map(m => m[1]);
-}
-
 export async function loadEffectHeaders() {
   const dir = join(REPO_ROOT, 'effects');
   const headers = [];
@@ -76,15 +66,4 @@ export async function loadEffectHeaders() {
   };
   await visit(dir);
   return headers;
-}
-
-export async function loadRegisteredEffects() {
-  const headers = await loadEffectHeaders();
-  const names = new Set();
-  for (const path of headers) {
-    for (const name of parseRegisteredEffects(await readFile(path, 'utf8'))) {
-      names.add(name);
-    }
-  }
-  return [...names];
 }

@@ -43,7 +43,7 @@ constexpr int FACTORY_OUTPUT_WINDOW = 64;
 template <int W, int H> inline void verify_factory_table() {
   const std::vector<FactoryEntry> &table = hs_wasm::get_factory<W, H>();
   const std::vector<FactoryEntry> &again = hs_wasm::get_factory<W, H>();
-  HS_EXPECT_EQ(table.size(), EffectRegistry::entries().size());
+  HS_EXPECT_EQ(table.size(), hs_wasm::EFFECT_REGISTRATIONS.size());
   HS_EXPECT_EQ(table.size(), static_cast<size_t>(HS_EFFECT_COUNT));
   HS_EXPECT_TRUE(&table == &again);
 
@@ -52,7 +52,7 @@ template <int W, int H> inline void verify_factory_table() {
     HS_EXPECT_TRUE(!entry.name.empty());
     HS_EXPECT_TRUE(!entry.stable_id.empty());
     HS_EXPECT_TRUE(entry.stable_id ==
-                   EffectRegistry::entries()[index].stable_id);
+                   hs_wasm::EFFECT_REGISTRATIONS[index].stable_id);
     HS_EXPECT_TRUE(static_cast<bool>(entry.creator));
     HS_EXPECT_TRUE(entry.size > 0);
   }

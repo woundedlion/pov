@@ -67,15 +67,6 @@ inline void test_every_effect_renders_while_paused() {
 inline int run_effects_smoke_tests() {
   hs_test::ModuleFixture fixture("effects_smoke");
 
-  // SSOT anti-drift guard, mirroring the WASM startup check
-  // (targets/wasm/engine_bindings.h): the self-registering effect count (each
-  // header's
-  // REGISTER_EFFECT) must equal the static HS_EFFECT_LIST roster, or an effect
-  // present in one and missing from the other silently drops smoke coverage
-  // below. Active because run_tests enables the effect registry.
-  HS_EXPECT_EQ(EffectRegistry::entries().size(),
-               static_cast<size_t>(HS_EFFECT_COUNT));
-
   if (effects_full_suite()) {
     // Full production-resolution roster passes (288x144): smoke, then cross-run
     // determinism under the injected clock.

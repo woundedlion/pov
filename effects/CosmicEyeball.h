@@ -64,4 +64,3 @@ public:
 };
 
 #include "core/control/registry.h"
-REGISTER_EFFECT(CosmicEyeball)
