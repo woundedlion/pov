@@ -1391,7 +1391,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
   hs::random().seed(0x5EED);
   const int clips[4][4] = {
       {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
-  int lit_total = 0, margin_lit_total = 0, coverage_total = 0;
+  int lit_total = 0, margin_lit_total = 0;
 
   MeshState posed;
   posed.vertices.bind(ga, mesh.vertices.size());
@@ -1434,7 +1434,6 @@ inline void test_mesh_edge_gate_pixel_parity() {
       fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
       render(fx);
       fx.advance_display();
-      int worst_run = 0;
       const ClipRegion &clip = fx.clip();
       for (const auto &edge : edges) {
         const math::PixelCoords endpoint =
@@ -1450,35 +1449,14 @@ inline void test_mesh_edge_gate_pixel_parity() {
         HS_CONTEXT("mesh endpoint", edge.u, edge.v);
         HS_EXPECT_TRUE((actual.r | actual.g | actual.b) != 0);
       }
-      for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-        int run = 0;
-        for (int x = 0; x < W; ++x) {
-          if (!clip.contains_x(x)) {
-            run = 0;
-            continue;
-          }
-          Pixel p = fx.get_pixel(x, y);
-          const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-          const bool ref_lit = (r.r | r.g | r.b) != 0;
-          const bool got_lit = (p.r | p.g | p.b) != 0;
-          if (ref_lit) {
-            ++lit_total;
-            const bool in_display = y >= clip.y_start && y < clip.y_end &&
-                                    x >= clip.x_start && x < clip.x_end;
-            margin_lit_total += !in_display;
-          }
-          if (ref_lit != got_lit)
-            ++coverage_total;
-          run = (ref_lit && !got_lit) ? run + 1 : 0;
-          worst_run = std::max(worst_run, run);
-        }
-      }
-      HS_EXPECT_LE(worst_run, 3);
+      const RenderBandDiff diff = render_band_diff<W>(fx, ref);
+      expect_render_band_parity("mesh edge gate", diff);
+      lit_total += diff.lit;
+      margin_lit_total += diff.margin_lit;
     }
   }
   HS_EXPECT_GT(lit_total, 200);
   HS_EXPECT_GT(margin_lit_total, 20);
-  HS_EXPECT_EQ(coverage_total, 0);
 }
 
 /** @brief Endpoint shortcuts obey the same arc window as the adaptive walk. */
