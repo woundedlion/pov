@@ -29,7 +29,6 @@ using ApproximationMetric = Pullback::ApproximationMetric;
 struct TopologyKey {
   Function function{};
   Projection projection{};
-  ProjectionFramePolicy projection_frame{};
   SurfaceLens surface_lens{};
   SignalWeight signal_weight{};
   ValueTransfer value_transfer{};
@@ -519,7 +518,6 @@ inline constexpr TopologyKey make_topology_key(const Config &config) {
   TopologyKey key{
       slots.function,
       slots.projection,
-      ProjectionFramePolicy{},
       slots.surface_lens,
       slots.signal_weight,
       slots.value_transfer,

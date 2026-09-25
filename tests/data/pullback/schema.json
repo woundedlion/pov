@@ -50,7 +50,7 @@
     "topologyKey": {
       "type": "object", "additionalProperties": false,
       "required": [
-        "function", "projection", "projection_frame", "surface_lens",
+        "function", "projection", "surface_lens",
         "signal_weight", "value_transfer", "coverage", "peirce_layout",
         "airocean_layout", "bonne_hemisphere", "gnomonic_hemisphere",
         "surface_noise", "surface_noise_placement", "surface_noise_basis",
@@ -63,7 +63,6 @@
       "properties": {
         "function": { "type": "integer", "minimum": 0, "maximum": 255 },
         "projection": { "type": "integer", "minimum": 0, "maximum": 255 },
-        "projection_frame": { "type": "integer", "minimum": 0, "maximum": 255 },
         "surface_lens": { "type": "integer", "minimum": 0, "maximum": 255 },
         "signal_weight": { "type": "integer", "minimum": 0, "maximum": 255 },
         "value_transfer": { "type": "integer", "minimum": 0, "maximum": 255 },

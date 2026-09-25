@@ -549,11 +549,11 @@ struct ShaderWorkbenchWhiteBox {
   static size_t inverse_program_count() {
     return Workbench::inverse_programs().size();
   }
-  static std::array<uint8_t, 28> topology_values(const TopologyKey &key) {
-    const auto &[function, projection, projection_frame, surface_lens,
-                 signal_weight, value_transfer, coverage, peirce_layout,
-                 airocean_layout, bonne_hemisphere, gnomonic_hemisphere,
-                 surface_noise, surface_noise_placement, surface_noise_basis,
+  static std::array<uint8_t, 27> topology_values(const TopologyKey &key) {
+    const auto &[function, projection, surface_lens, signal_weight,
+                 value_transfer, coverage, peirce_layout, airocean_layout,
+                 bonne_hemisphere, gnomonic_hemisphere, surface_noise,
+                 surface_noise_placement, surface_noise_basis,
                  surface_curl_integrator, source_noise_basis, outer_warp,
                  outer_warp_basis, outer_warp_envelope, outer_polar_mode,
                  outer_curl_integrator, outer_polar_harmonic, inner_warp,
@@ -562,7 +562,6 @@ struct ShaderWorkbenchWhiteBox {
     return {{
         static_cast<uint8_t>(function),
         static_cast<uint8_t>(projection),
-        static_cast<uint8_t>(projection_frame),
         static_cast<uint8_t>(surface_lens),
         static_cast<uint8_t>(signal_weight),
         static_cast<uint8_t>(value_transfer),
