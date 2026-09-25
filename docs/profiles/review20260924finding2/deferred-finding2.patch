@@ -1,0 +1,135 @@
+From a880d506f3aefe672788b7638efc007d517e3f89 Mon Sep 17 00:00:00 2001
+From: Gabriel Levy <gabelevy@gmail.com>
+Date: Thu, 24 Sep 2026 09:36:06 -0700
+Subject: [PATCH] sdf: cover convex face miter fringes in azimuth bounds
+ (finding 2)
+
+---
+ core/render/sdf/face.h | 31 +++++++++++++++++++++++++------
+ tests/test_sdf.h       | 16 ++++++++++++++++
+ 2 files changed, 41 insertions(+), 6 deletions(-)
+
+diff --git a/core/render/sdf/face.h b/core/render/sdf/face.h
+index 4268f5e23..da542fa26 100644
+--- a/core/render/sdf/face.h
++++ b/core/render/sdf/face.h
+@@ -350,6 +350,7 @@ struct Face {
+       half_planes;          /**< Outward unit edge normals (convex faces). */
+   bool convex = false;      /**< 2D projection is convex; distance() takes the
+                                half-plane path. */
++  float pad_scale = 1.0f;   /**< Convex offset's maximum vertex miter ratio. */
+   bool linear_dist = false; /**< Face is small enough to report plane distance
+                                without the atan. */
+ 
+@@ -516,7 +517,8 @@ struct Face {
+     // Whole-face clip cull: y_min/y_max and the azimuth coverage now match what
+     // the scan would draw, so a face disjoint from the clip band yields no
+     // in-band pixel.
+-    if (clip && clip_rejects(*clip)) {
++    if (clip &&
++        (y_max < clip->render_y_start() || y_min > clip->render_y_end() - 1)) {
+       ++scratch.claim_seq;
+       mark_culled();
+       return;
+@@ -527,6 +529,11 @@ struct Face {
+       pack_edges(scratch);
+       build_half_planes(scratch, area2);
+     }
++    if (clip && clip_rejects(*clip)) {
++      ++scratch.claim_seq;
++      mark_culled();
++      return;
++    }
+     {
+       HS_PROFILE_DEEP(face_sectors);
+       build_sectors(scratch);
+@@ -571,7 +578,7 @@ struct Face {
+       return false;
+     const int Wd = cr.w;
+     float pw;
+-    if (build_azimuth_pads) {
++    if (build_azimuth_pads && !convex) {
+       pw = std::max(build_azimuth_pads[band_y_min],
+                     build_azimuth_pads[band_y_max]);
+     } else {
+@@ -579,7 +586,8 @@ struct Face {
+       const float phi_scale = math::PI_F / static_cast<float>(h_virt - 1);
+       const float sin_phi =
+           std::min(sinf(band_y_min * phi_scale), sinf(band_y_max * phi_scale));
+-      pw = face_azimuth_pad(Wd, sin_phi);
++      const float pad = face_azimuth_pad(Wd) * pad_scale;
++      pw = sin_phi <= pad ? math::PI_F : asinf(pad / sin_phi);
+     }
+     const int band_len = xc.length(Wd);
+     for (const auto &iv : intervals) {
+@@ -752,7 +760,7 @@ struct Face {
+    * @details For a convex polygon the signed distance is max over edges of the
+    * half-plane distance: exact everywhere inside and in the edge slabs outside;
+    * outside a vertex's normal cone it underestimates (line distance, not vertex
+-   * distance), which only softens the AA corner within its ~1-pixel band. A
++   * distance). The offset reaches pad_scale times the AA width at a vertex. A
+    * concave, degenerate-edged, or wrongly-oriented polygon leaves convex false
+    * and distance() on the exact walk.
+    */
+@@ -799,6 +807,15 @@ struct Face {
+     }
+     if (d0 >= 0.0f)
+       return;
++    float min_half_angle_sq = 1.0f;
++    for (int i = 0, previous = count - 1; i < count; previous = i++) {
++      const auto &a = scratch.half_planes[previous];
++      const auto &b = scratch.half_planes[i];
++      min_half_angle_sq = std::min(min_half_angle_sq,
++                                   0.5f * (1.0f + a.nx * b.nx + a.ny * b.ny));
++    }
++    pad_scale =
++        min_half_angle_sq > 0.0f ? 1.0f / sqrtf(min_half_angle_sq) : FLT_MAX;
+     half_planes = std::span<const HalfPlane>(scratch.half_planes.data(), count);
+     convex = true;
+   }
+@@ -1360,11 +1377,13 @@ struct Face {
+ 
+   /** @brief Returns the latitude-adjusted AA padding for one raster row. */
+   template <int W, int H> float azimuth_pad_at_row(int y) const {
+-    if (build_azimuth_pads)
++    if (build_azimuth_pads && !convex)
+       return build_azimuth_pads[y];
+     if (!math::TrigLUT<W, H>::initialized)
+       math::TrigLUT<W, H>::init();
+-    return face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
++    const float pad = face_azimuth_pad(W) * pad_scale;
++    const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
++    return sin_phi <= pad ? math::PI_F : asinf(pad / sin_phi);
+   }
+ 
+   /**
+diff --git a/tests/test_sdf.h b/tests/test_sdf.h
+index 0b9d81f8c..e92115db5 100644
+--- a/tests/test_sdf.h
++++ b/tests/test_sdf.h
+@@ -2873,6 +2873,22 @@ inline void test_face_cull_covers_aa_fringe() {
+     total_paintable += paintable;
+   }
+   HS_EXPECT_GT(total_paintable, 1000);
++
++  uint32_t seed = 0x73b61a09;
++  auto random_unit = [&seed]() {
++    seed = seed * 1664525u + 1013904223u;
++    return static_cast<float>(seed >> 8) / 16777216.0f;
++  };
++  for (int i = 0; i < 4000; ++i) {
++    const int sides = 3 + static_cast<int>(random_unit() * 6.0f);
++    const float rho = 0.02f + 0.5f * random_unit();
++    const float tilt = 0.01f + 0.65f * random_unit();
++    const float theta = math::TWO_PI_F * random_unit();
++    const float pole = (i & 1) ? -1.0f : 1.0f;
++    const math::Vector axis(sinf(tilt) * cosf(theta), pole * cosf(tilt),
++                            sinf(tilt) * sinf(theta));
++    expect_face_cull_covers_fringe<W, H>(sides, rho, axis);
++  }
+ }
+ 
+ /** @brief Vertical bounds cover wide AA bands on tall, low-width grids. */
+-- 
+2.53.0.windows.1
+

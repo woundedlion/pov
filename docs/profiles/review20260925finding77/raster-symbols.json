@@ -1,0 +1,90 @@
+{
+  "ship": [
+    {
+      "symbol": "void Plot::rasterize<288, 144, Plot::RasterConfig{true, false, false, false, (Plot::RasterSamplingPolicy)2}, Filter::Screen::DirectAntiAliasSink<288, 144>, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}>(Filter::Screen::DirectAntiAliasSink<288, 144>&, Canvas&, ArenaVector<Fragment> const&, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}, Plot::RasterOptions) [clone .constprop.0] [clone .isra.0]",
+      "before": {
+        "address": 27900,
+        "bytes": 8692,
+        "sha256": "97394d1752cc202689ffed50389916d4da9fb28695ab9d504738cad23bed254c"
+      },
+      "after": {
+        "address": 27904,
+        "bytes": 8692,
+        "sha256": "b529e13c88023856d62b9ab68c9d9bf4d05360cfa77c7b1e28ef1930765f0f49"
+      },
+      "identical": false
+    },
+    {
+      "symbol": "auto Plot::rasterize<288, 144, Plot::RasterConfig{true, false, false, false, (Plot::RasterSamplingPolicy)2}, Filter::Screen::DirectAntiAliasSink<288, 144>, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}>(Filter::Screen::DirectAntiAliasSink<288, 144>&, Canvas&, ArenaVector<Fragment> const&, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}, Plot::RasterOptions)::{lambda(auto:1&&, Fragment const&, Fragment const&, float, bool)#1}::operator()<Plot::PlanarEdgeSampler&>(Plot::PlanarEdgeSampler&, Fragment const&, Fragment const&, float, bool) const",
+      "before": {
+        "address": 23612,
+        "bytes": 4288,
+        "sha256": "369a5fb8a4812a06e34ad9ac650c22106bdc3f9d116c74200f78d5daf2ea64e2"
+      },
+      "after": {
+        "address": 23612,
+        "bytes": 4292,
+        "sha256": "bded49b4f40cdc8091c1855dc342746b3d6285ac1cb8a9d33b18b931ea0f6eb2"
+      },
+      "identical": false
+    }
+  ],
+  "o3": [
+    {
+      "symbol": "void Plot::rasterize<288, 144, Plot::RasterConfig{true, false, false, false, (Plot::RasterSamplingPolicy)2}, Filter::Screen::DirectAntiAliasSink<288, 144>, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}>(Filter::Screen::DirectAntiAliasSink<288, 144>&, Canvas&, ArenaVector<Fragment> const&, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}, Plot::RasterOptions) [clone .constprop.0] [clone .isra.0]",
+      "before": {
+        "address": 39432,
+        "bytes": 10296,
+        "sha256": "1c9ebf6d3737f10fe744efd74695b751f2567a08680d905c435572cf662df8f3"
+      },
+      "after": {
+        "address": 39432,
+        "bytes": 10296,
+        "sha256": "1c9ebf6d3737f10fe744efd74695b751f2567a08680d905c435572cf662df8f3"
+      },
+      "identical": true
+    },
+    {
+      "symbol": "auto Plot::rasterize<288, 144, Plot::RasterConfig{true, false, false, false, (Plot::RasterSamplingPolicy)2}, Filter::Screen::DirectAntiAliasSink<288, 144>, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}>(Filter::Screen::DirectAntiAliasSink<288, 144>&, Canvas&, ArenaVector<Fragment> const&, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}, Plot::RasterOptions)::{lambda(auto:1&&, Fragment const&, Fragment const&, float, bool)#1}::operator()<Plot::DegenerateEdgeSampler>(Plot::DegenerateEdgeSampler&&, Fragment const&, Fragment const&, float, bool) const",
+      "before": {
+        "address": 33472,
+        "bytes": 2792,
+        "sha256": "90a53ab195400ff6caaf31f6c33bd6da51f77ea94a38d61c17575fdfb0f0caa9"
+      },
+      "after": {
+        "address": 33472,
+        "bytes": 2792,
+        "sha256": "087adfa25d805afb308c379acad2ea7c8f8d422c6909c932aa5ff4bc68db86fd"
+      },
+      "identical": false
+    },
+    {
+      "symbol": "auto Plot::rasterize<288, 144, Plot::RasterConfig{true, false, false, false, (Plot::RasterSamplingPolicy)2}, Filter::Screen::DirectAntiAliasSink<288, 144>, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}>(Filter::Screen::DirectAntiAliasSink<288, 144>&, Canvas&, ArenaVector<Fragment> const&, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}, Plot::RasterOptions)::{lambda(auto:1&&, Fragment const&, Fragment const&, float, bool)#1}::operator()<Plot::GeodesicEdgeSampler const&>(Plot::GeodesicEdgeSampler const&, Fragment const&, Fragment const&, float, bool) const",
+      "before": {
+        "address": 36264,
+        "bytes": 3168,
+        "sha256": "07280a49b018e0cdbd1974aeaae4e6f3aa7a5a9e236eebeb674bf7ecaf608cd2"
+      },
+      "after": {
+        "address": 36264,
+        "bytes": 3168,
+        "sha256": "07280a49b018e0cdbd1974aeaae4e6f3aa7a5a9e236eebeb674bf7ecaf608cd2"
+      },
+      "identical": true
+    },
+    {
+      "symbol": "auto Plot::rasterize<288, 144, Plot::RasterConfig{true, false, false, false, (Plot::RasterSamplingPolicy)2}, Filter::Screen::DirectAntiAliasSink<288, 144>, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}>(Filter::Screen::DirectAntiAliasSink<288, 144>&, Canvas&, ArenaVector<Fragment> const&, ShapeShifter<288, 144>::draw_all(Canvas&)::{lambda(math::Vector const&, Fragment&)#1}, Plot::RasterOptions)::{lambda(auto:1&&, Fragment const&, Fragment const&, float, bool)#1}::operator()<Plot::PlanarEdgeSampler&>(Plot::PlanarEdgeSampler&, Fragment const&, Fragment const&, float, bool) const",
+      "before": {
+        "address": 28204,
+        "bytes": 5268,
+        "sha256": "d90717397e0bbcf297a3c7c9917840c6fd3c8d6c17cb41b767acd1186b73420a"
+      },
+      "after": {
+        "address": 28204,
+        "bytes": 5268,
+        "sha256": "d90717397e0bbcf297a3c7c9917840c6fd3c8d6c17cb41b767acd1186b73420a"
+      },
+      "identical": true
+    }
+  ]
+}
