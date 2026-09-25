@@ -19,9 +19,9 @@
 # mid-run, and an init that overruns the K-revolution commit window traps the
 # board. The profile image's epoch is one hour (targets/Profile/Profile.ino);
 # HS_PROFILE_EPOCH_REVS replaces it (hardware/pov_segmented.h), so an override
-# only ever shortens it. profile_one.sh accepts a capture that attaches up to
-# ~30 s after boot, so an epoch shorter than the capture plus that window puts
-# a late attach across the boundary.
+# only ever shortens it. Attach latency must fit between the capture duration
+# and the epoch boundary (at least 20 s of slack for the entries below).
+# parse_profile validate rejects captures that cross an epoch reset.
 set -uo pipefail
 P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
