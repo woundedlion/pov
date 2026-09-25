@@ -470,10 +470,7 @@ jobs:
           HS_SMOKE_FRAMES: *deep_smoke_frames
           HS_EFFECTS_FULL: *quick_effects
           HS_REQUIRE_EFFECTS_FULL: *effects_full_optional
-          # Declared gap: whether the emsdk image puts an interpreter on PATH
-          # decides HS_HAVE_PULLBACK_MANIFEST, and with it three ShaderWorkbench
-          # skips. The Linux jobs hold that line.
-          HS_SKIPS_ARE_ERRORS: 0
+          HS_SKIPS_ARE_ERRORS: 1
           HS_BUFFER_FREE_WATCHDOG_US: *deep_smoke_watchdog
           TEST_EXCLUDE: *generated_exclude
         run: >
