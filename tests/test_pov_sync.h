@@ -2938,9 +2938,7 @@ inline void test_sim_rev_resync() {
  *          f.rev_count against `content_tracker.rev_in_effect & 63`, and the
  *          beacon_period_revs < 32 rule (Config::valid) exists precisely so the
  *          resulting signed-mod-64 resync is unambiguous as the residue wraps.
- *          The 40-rev sim configs (and the 5-rev slip in test_sim_rev_resync)
- *          never reach rev 64, so this dynamic wrap shipped unverified; here a
- *          90-rev effect crosses rev 64 mid-show. A dropped `& 63` would, via
+ *          A 90-rev effect crosses rev 64 mid-show. A dropped `& 63` would, via
  *          handle_beacon_burst's fold, "resync" a rev-64 board's counter
  *          backwards (64→32) against a beacon rev_count of 0 — corrupting both
  *          phase lockstep and the j = rev_in_effect − revs_per_effect inference

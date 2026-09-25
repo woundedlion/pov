@@ -1321,11 +1321,8 @@ inline void test_motion_repeating_does_not_drift() {
 /**
  * @brief A co-driver sharing a repeating Motion's Orientation survives the
  * repeat seam.
- * @details The old drift fix snapped the entire Orientation back to Motion's
- * captured anchor at every cycle boundary, which clobbered any other animation
- * driving the same Orientation. Motion now re-seats via a *relative* delta, so a
- * co-driver's accumulated rotation rides across the seam instead of being
- * discarded. With a CLOSED path Motion's per-cycle contribution telescopes to
+ * @details Motion re-seats via a relative delta; the co-driver's accumulated
+ * rotation persists across the seam. With a CLOSED path Motion's per-cycle contribution telescopes to
  * identity, so the only thing that should move the shared orientation at a seam
  * is the co-driver's own small step — never a large snap-back. Assert the
  * probe's per-frame angular step stays bounded across many seams while its
