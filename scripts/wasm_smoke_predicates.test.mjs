@@ -7,11 +7,8 @@ import assert from 'node:assert/strict';
 
 import {
   BAKED_CONSTANT_IDS,
-  DARK_BAND,
-  DARK_EXEMPT,
   STACK_MAX_FILL,
   bakedTopologyFields,
-  darknessExpectation,
   darknessProblems,
   engineControlNames,
   paramStreamProblems,
@@ -19,72 +16,22 @@ import {
   stackCreepBudget,
 } from './wasm_smoke_predicates.mjs';
 
-const RES = [[288, 144], [96, 20]];
-const KEYS = RES.map(([w, h]) => `${DARK_EXEMPT}@${w}x${h}`);
-
-const sweep = (extra = {}) => ({
-  frames: 3,
-  resolutions: RES,
-  sweptEffects: new Set([DARK_EXEMPT, 'Voronoi']),
-  darkKeys: new Set(KEYS),
-  ...extra,
-});
-
-test('a short window expects the exempt effect dark', () => {
-  assert.equal(darknessExpectation(1), 'exempt-dark');
-  assert.equal(darknessExpectation(DARK_BAND[0] - 1), 'exempt-dark');
-});
-
-test('the ambiguous band accepts either verdict', () => {
-  assert.equal(darknessExpectation(DARK_BAND[0]), 'either');
-  assert.equal(darknessExpectation(DARK_BAND[1] - 1), 'either');
-});
-
-test('a long window expects every effect lit', () => {
-  assert.equal(darknessExpectation(DARK_BAND[1]), 'lit');
-  assert.equal(darknessExpectation(1000), 'lit');
-});
-
-test('a short window accepts exactly the exempt effect being dark', () => {
-  assert.deepEqual(darknessProblems(sweep()), []);
-});
-
-test('a short window fails when the exempt effect lit anyway', () => {
-  const problems = darknessProblems(sweep({ darkKeys: new Set([KEYS[0]]) }));
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /lit after 3 frame\(s\)/);
-});
-
-test('any other dark effect fails at every window length', () => {
-  for (const frames of [3, DARK_BAND[0], DARK_BAND[1]]) {
-    const problems = darknessProblems(sweep({
-      frames,
-      darkKeys: new Set([`Voronoi@288x144`]),
-    }));
-    assert.ok(problems.some((p) => p.startsWith('Voronoi@288x144:')), `frames=${frames}`);
+test('every dark pass fails at every window length', () => {
+  const keys = ['RingShower@288x144', 'RingShower@96x20', 'Voronoi@288x144'];
+  for (const frames of [1, 8, 24, 48, 120]) {
+    const problems = darknessProblems({ frames, darkKeys: new Set(keys) });
+    assert.equal(problems.length, keys.length);
+    for (const [index, key] of keys.entries()) {
+      assert.ok(problems[index].startsWith(`${key}:`));
+      assert.ok(problems[index].includes(`every pixel is zero after ${frames} frame(s)`));
+    }
   }
 });
 
-test('the ambiguous band accepts the exempt effect dark or lit', () => {
-  const frames = DARK_BAND[0];
-  assert.deepEqual(darknessProblems(sweep({ frames })), []);
-  assert.deepEqual(darknessProblems(sweep({ frames, darkKeys: new Set() })), []);
-});
-
-test('a long window rejects the exempt effect staying dark', () => {
-  const problems = darknessProblems(sweep({ frames: DARK_BAND[1] }));
-  assert.equal(problems.length, RES.length);
-  assert.ok(problems.every((p) => /every pixel is zero/.test(p)));
-});
-
-test('an exemption naming no rendered effect is stale', () => {
-  const problems = darknessProblems(sweep({
-    frames: DARK_BAND[1],
-    sweptEffects: new Set(['Voronoi']),
-    darkKeys: new Set(),
-  }));
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /the exemption is stale/);
+test('a fully lit sweep passes at every window length', () => {
+  for (const frames of [1, 8, 24, 48, 120]) {
+    assert.deepEqual(darknessProblems({ frames, darkKeys: new Set() }), []);
+  }
 });
 
 test('the stack budget is the lower of the ceiling and the capacity fraction', () => {

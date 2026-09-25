@@ -335,13 +335,8 @@ async function main(probe) {
 
     if (parameterDefinitionsSeen === 0) fail('No effect exposed parameter definitions');
 
-    // RingShower expands its rings from zero radius and lights around frame 24,
-    // so a short window is black by design; tests/test_effects.h carries the
-    // same exemption, as a static_assert on the roster entry.
     for (const problem of darknessProblems({
       frames: FRAMES_PER_EFFECT,
-      resolutions: RESOLUTIONS,
-      sweptEffects,
       darkKeys: darkEffects,
     })) {
       fail(problem);
