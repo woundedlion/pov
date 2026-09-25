@@ -248,8 +248,8 @@ if(EMSCRIPTEN)
     # against it by the unit_pov_segment_map_golden CTest. The simulator's
     # tests/segment_crosscheck.test.js reads it as the firmware reference, so it
     # travels the same install path as the module rather than being hand-ported
-    # into JS. daydream's deploy gate diffs its committed copy against this file in
-    # the engine checkout it pins, so a stale copy there fails too.
+    # into JS. Daydream requires byte identity with the CI-published bundle for
+    # the recorded engine SHA, including this golden.
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
             DESTINATION "${DAYDREAM_DIR}")
     install(FILES
@@ -278,12 +278,9 @@ if(EMSCRIPTEN)
             FILES_MATCHING PATTERN "*.png")
     # Record the engine commit this WASM module was built from, the content hashes
     # of the module's two shipped halves (.wasm binary, .js glue), and the toolchain
-    # that produced them, alongside it. The daydream deploy gate reads the SHA to pin
-    # its engine checkout to the exact source the committed module corresponds to
-    # (instead of a decoupled engine HEAD), and asserts the committed files match the
-    # recorded hashes so a stale or swapped binary — or stale glue — can't ride a
-    # green gate. All are captured at install time (immediately after the build) from
-    # the same build event, and committed together with the artifacts they describe.
+    # that produced them. Daydream downloads the CI-published bundle for this SHA
+    # and requires byte identity with the committed artifacts. The provenance and
+    # artifacts are captured together at install time.
     install(CODE "
       # Normalize Windows glue to LF; escape literal @ tokens before CONFIGURE.
       set(HS_AT \"@\")
@@ -331,10 +328,8 @@ if(EMSCRIPTEN)
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote artifact hashes ${TARGET_NAME}.wasm.sha256: .wasm=\${HS_WASM_SHA256} .js=\${HS_GLUE_SHA256}\")
 
-        # Toolchain identity of the build event. The .sha pins the SOURCE, but the
-        # deploy gate re-verifies that source with its own compiler, so a module
-        # built by an unpinned local emsdk otherwise records provenance the gate
-        # cannot distinguish from CI's pinned one (ci.yml wasm job: emsdk 5.0.0).
+        # Toolchain identity of the build event. The deploy gate requires byte
+        # identity with the pinned CI bundle; it does not rebuild the engine.
         # A separate additive file, not extra lines in the two above: the gate feeds
         # .wasm.sha256 to `sha256sum -c` and requires .sha to be a bare 40-hex ref.
         # Written with the pair above, keeping the provenance set all-or-nothing.
