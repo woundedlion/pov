@@ -537,15 +537,9 @@ add_test(NAME unit_pov_segment_map_golden COMMAND ${CMAKE_COMMAND}
     -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/pov_segment_map.generated.json
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pov_segment_map.cmake)
 
-# The run_tests build sets NO math flags, so its NaN-clamp
-# assertions run under default IEEE semantics where the hs::clamp NaN->hi
-# contract holds trivially — the at-risk codegen the WASM release build actually
-# ships (-ffast-math, which implies the contract-breaking -ffinite-math-only,
-# rescued only by re-applying -fno-finite-math-only) is never exercised. This
-# separate executable recompiles the same clamp-before-cast assertions under
-# those exact release math flags so the contract is verified against the shipping
-# codegen. It complements (does not replace) the compile-time #error guard in
-# core/platform/platform.h that fails any build where -fno-finite-math-only is lost.
+# Exercise the release math contract at -O3 on every local run. The CI fastmath
+# run_tests leg also covers it at -Os. The explicit -fno-finite-math-only keeps
+# NaN-aware clamps valid under -ffast-math; platform.h pins that requirement.
 add_executable(fastmath_clamp_check
   ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
   ${HS_ENGINE_SOURCES})
