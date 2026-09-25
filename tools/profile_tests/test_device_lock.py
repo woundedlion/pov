@@ -541,6 +541,12 @@ class PinnedPortEnumeration(unittest.TestCase):
                         env={"HS_TEENSY_TOOLS": str(self.tools),
                              "HS_TEENSY_PORT": pin})
 
+    def test_empty_enumeration_rejects_a_pinned_port(self):
+        (self.tools / "teensy_ports.exe").write_text("#!/bin/bash\nexit 0\n")
+        result = self.run_pinned("hs_device_ports", "COM3")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("not attached", result.stderr)
+
     def test_attached_pin_is_returned(self):
         r = self.run_pinned("hs_device_ports", "COM9")
         self.assertEqual(r.returncode, 0)
