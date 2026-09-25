@@ -527,6 +527,18 @@ def check_mirrors(color_h_path, math_h_path):
     with open(color_h_path, "r", encoding="utf-8") as f:
         text = f.read()
 
+    for name in ("OKLAB_TO_LMS_CBRT", "LMS_CBRT_TO_RGB"):
+        matrix = re.search(r"inline constexpr float " + name + r"\[3\]\[3\]\s*=\s*\{(.*?)\};",
+                           text, re.DOTALL)
+        if matrix is None:
+            sys.stderr.write(f"missing shared matrix {name}\n")
+            return False
+        values = re.findall(r"[-+]?\d+\.\d+f", matrix.group(1))
+        if len(values) != 9:
+            return False
+        for index, value in enumerate(values):
+            text = text.replace(f"{name}[{index // 3}][{index % 3}]", f"({value})")
+
     ok = True
     pairs = (
         ("inline void oklab_to_lms_cbrt(", ("L", "a", "b"),
