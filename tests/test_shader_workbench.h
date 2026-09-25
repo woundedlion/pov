@@ -5728,12 +5728,13 @@ inline void test_shader_workbench_kernel_catalog() {
     HS_EXPECT_LE(color.alpha, 1.0f);
   };
 
-  for (uint8_t value = 0; value <= 5; ++value) {
+  for (uint8_t value = 0; value < WB::NUM_FUNCTIONS; ++value) {
     config.slots.function = static_cast<WB::Function>(value);
+    config.slots.projection = WB::Projection::SINUSOIDAL;
     config.params.source.noise_basis = WB::NoiseBasis::FBM3;
     check(config);
   }
-  for (uint8_t value = 0; value <= 7; ++value) {
+  for (uint8_t value = 0; value < WB::NUM_WARPS; ++value) {
     config.slots.function =
         value == static_cast<uint8_t>(WB::WarpStageKind::AFFINE_FRAME)
             ? WB::Function::PRIMITIVE_LATTICE
@@ -5756,22 +5757,24 @@ inline void test_shader_workbench_kernel_catalog() {
   config.slots.warp_program.outer.kind = WB::WarpStageKind::NONE;
   config.params.warp.outer.strength = 0.0f;
   config.slots.projection = WB::Projection::SINUSOIDAL;
-  for (uint8_t value = 0; value <= 12; ++value) {
+  for (uint8_t value = 0; value < WB::NUM_LENSES; ++value) {
     config.slots.surface_lens = static_cast<WB::SurfaceLens>(value);
     check(config);
   }
   config.slots.surface_lens = WB::SurfaceLens::NONE;
-  for (uint8_t transfer = 0; transfer <= 3; ++transfer) {
+  for (uint8_t transfer = 0; transfer < WB::NUM_VALUE_TRANSFERS; ++transfer) {
     config.slots.value_transfer = static_cast<WB::ValueTransfer>(transfer);
-    for (uint8_t coverage = 0; coverage <= 4; ++coverage) {
+    for (uint8_t coverage = 0; coverage < WB::NUM_COVERAGE_POLICIES;
+         ++coverage) {
       config.slots.coverage = static_cast<WB::CoveragePolicy>(coverage);
-      for (uint8_t palette = 0; palette <= 2; ++palette) {
+      for (uint8_t palette = 0; palette < WB::NUM_PALETTES; ++palette) {
         config.slots.palette = static_cast<WB::PaletteMode>(palette);
         check(config);
       }
     }
   }
-  for (uint8_t envelope = 0; envelope <= 3; ++envelope) {
+  for (uint8_t envelope = 0; envelope < WB::NUM_BRIGHTNESS_ENVELOPES;
+       ++envelope) {
     config.slots.brightness_envelope =
         static_cast<WB::BrightnessEnvelope>(envelope);
     check(config);
