@@ -936,6 +936,39 @@ inline void test_shader_workbench_full_config_snapshot() {
       sb.capture_full_config_snapshot(), before_failure));
 }
 
+/** @brief Refused selectors preserve accepted subordinate values and snapshots. */
+inline void test_shader_workbench_refused_selector_range() {
+  using WB = ShaderWorkbenchWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  sb.setAnimationsPaused(true);
+  auto config = WB::legacy_config();
+  config.slots.function = WB::Function::GRID;
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::POLAR_CHART;
+  config.params.source.pattern_freq = 25.0f;
+  WB::request_config(sb, config);
+  WB::settle_transition(sb);
+  HS_EXPECT_EQ(sb.updateParameter("Function",
+                                  static_cast<float>(WB::Function::TWIN_WAVE)),
+               ParamSetResult::APPLIED);
+  sb.draw_frame();
+  sb.advance_display();
+  HS_EXPECT_EQ(WB::active_config(sb).slots.function, WB::Function::GRID);
+  HS_EXPECT_EQ(WB::active_config(sb).params.source.pattern_freq, 25.0f);
+  HS_EXPECT_EQ(WB::requested_config(sb).params.source.pattern_freq, 25.0f);
+  HS_EXPECT_TRUE(WB::parameter_warning(sb, "Function") != nullptr);
+  const auto snapshot = sb.capture_full_config_snapshot();
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
+               WB::ConfigRestoreResult::APPLIED);
+  HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+      sb.capture_full_config_snapshot(), snapshot));
+  HS_EXPECT_EQ(
+      sb.updateParameter("Function", static_cast<float>(WB::Function::GRID)),
+      ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(WB::requested_config(sb).params.source.pattern_freq, 25.0f);
+}
+
 /** @brief A mode edit clamps stale subordinate values to its new range. */
 inline void test_shader_workbench_surface_noise_range_rebind() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -6205,6 +6238,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_inverse_program_equivalence();
   test_shader_workbench_full_config_snapshot();
   test_shader_workbench_surface_noise_range_rebind();
+  test_shader_workbench_refused_selector_range();
   test_shader_workbench_incompatible_config_snapshot();
   test_shader_workbench_legacy_config_snapshot();
   test_shader_workbench_affine_snapshot_restore();
