@@ -188,5 +188,3 @@ private:
     bool debug_bb = false; /**< When true, draws each star's bounding box. */
   } params;
 };
-
-#include "core/control/registry.h"

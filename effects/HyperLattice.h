@@ -903,5 +903,3 @@ static_assert(
       return true;
     }(),
     "HyperLattice preset is outside a registered slider range");
-
-#include "core/control/registry.h"

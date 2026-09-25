@@ -602,5 +602,3 @@ private:
   static_assert(Params{}.dt == DEFAULT_DT,
                 "the stabilization floor is calibrated at the Speed default");
 };
-
-#include "core/control/registry.h"

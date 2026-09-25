@@ -427,5 +427,3 @@ private:
     float dt = 0.35f;   /**< Integration timestep per substep. */
   } params;
 };
-
-#include "core/control/registry.h"

@@ -534,5 +534,3 @@ private:
            Filter::Screen::AntiAlias<W, H>>
       filters;
 };
-
-#include "core/control/registry.h"

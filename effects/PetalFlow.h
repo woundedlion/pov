@@ -389,5 +389,3 @@ private:
         1.0f; /**< Ring packing; live spacing is SPACING / density. */
   } params;
 };
-
-#include "core/control/registry.h"

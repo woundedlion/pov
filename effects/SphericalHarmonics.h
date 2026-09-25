@@ -349,5 +349,3 @@ private:
     float amplitude = 3.2f; /**< Field-value gain applied before coloring. */
   } params;
 };
-
-#include "core/control/registry.h"

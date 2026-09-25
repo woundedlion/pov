@@ -874,5 +874,3 @@ private:
                 "ShapeShifter persistent footprint exceeds the default "
                 "partition; retune MAX_SHAPES or carve arenas");
 };
-
-#include "core/control/registry.h"

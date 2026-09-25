@@ -353,5 +353,3 @@ private:
     float alpha = 0.2f;  /**< Global opacity multiplier in [0, 1]. */
   } params;
 };
-
-#include "core/control/registry.h"

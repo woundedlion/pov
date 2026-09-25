@@ -448,5 +448,3 @@ private:
     float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;
 };
-
-#include "core/control/registry.h"
