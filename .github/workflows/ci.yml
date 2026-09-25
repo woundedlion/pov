@@ -1059,7 +1059,13 @@ jobs:
           mkdir "$bundle"
           cp "$dd"/holosphere_wasm.{js,wasm,sha,wasm.sha256,toolchain} \
             "$dd/pov_segment_map.json" "$bundle/"
-          cp -r "$dd/shader" "$bundle/"
+          mkdir -p "$bundle/shader/patterns"
+          cp "$dd/shader/"{shader_workbench.mjs,sha256.mjs,engine_catalog.json} "$bundle/shader/"
+          find "$dd/shader/patterns" -maxdepth 1 -type f \
+            \( -name '*.shader.json' -o -name shaderball_migration.json \) \
+            -exec cp '{}' "$bundle/shader/patterns/" \;
+          test ! -e "$bundle/shader/patterns/digest_migration.v1v2.json"
+          test ! -e "$bundle/shader/patterns/v1"
           cp "$dd/README.md" "$bundle/"
           mkdir -p "$bundle/docs/screenshots"
           (
