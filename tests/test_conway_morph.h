@@ -3591,9 +3591,7 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   // (docs/specs/opchain_morph_spec.md, "Truncate edge cases").
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.001f}));
-  // 0.873 is a far-side arrival past the ambo pinch: now a real sweeping leg
-  // (docs/specs/opchain_morph_spec.md, "Truncate edge cases"), not a clamped
-  // clean-swap. A fully-crossed t == 1 stays blocked (cut faces collapse).
+  // At t == 1 the cut faces collapse.
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE_T_FAR}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 1.0f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
