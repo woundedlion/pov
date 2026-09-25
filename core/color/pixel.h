@@ -66,9 +66,9 @@ struct Pixel {
   constexpr Pixel() : r(0), g(0), b(0) {}
   /**
    * @brief Constructs a pixel from explicit 16-bit linear channels.
-   * @param _r Red channel in [0, 65535].
-   * @param _g Green channel in [0, 65535].
-   * @param _b Blue channel in [0, 65535].
+   * @param r Red channel in [0, 65535].
+   * @param g Green channel in [0, 65535].
+   * @param b Blue channel in [0, 65535].
    */
   constexpr Pixel(uint16_t r, uint16_t g, uint16_t b) : r(r), g(g), b(b) {}
 
