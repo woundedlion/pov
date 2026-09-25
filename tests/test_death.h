@@ -13,7 +13,7 @@
  * SIGILL (POSIX) / STATUS_ILLEGAL_INSTRUCTION (Windows).
  *
  * The child is selected through an inherited env var and spawned shell-free —
- * fork()+execv() on POSIX, _spawnv() on Windows — so no shell can mangle the
+ * fork()+execv() on POSIX, CreateProcessA() with a debug loop on Windows — so no shell can mangle the
  * re-exec path. A control "spawn check" runs first; if the harness cannot
  * re-exec itself, the death tier fails on every host rather than reporting an
  * unexercised tier as green.
@@ -91,7 +91,7 @@
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
-#include <fcntl.h>    // open / O_WRONLY for the /dev/null redirect
+#include <fcntl.h>    // open / O_WRONLY for the capture file
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
 #include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
 #else
@@ -102,11 +102,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-#include <fcntl.h>   // _O_WRONLY / _O_CREAT / _O_TRUNC for the capture redirect
-#include <io.h>      // _dup / _dup2 / _sopen_s / _close
-#include <process.h> // _spawnv / _P_WAIT / _getpid — shell-free child spawn
-#include <share.h>   // _SH_DENYNO
-#include <sys/stat.h> // _S_IREAD / _S_IWRITE for the created capture file
+#include <process.h> // _getpid
 #endif
 
 namespace hs_test {
@@ -801,8 +797,7 @@ struct FadeChoreoDeathParams {
  *        case.
  * @details begin_preset_choreography() is private to the base and reached only
  *          through begin_choreography(), so the fixture exposes arm(); fill()
- *          leaves the shared timeline short of the two slots the envelope
- *          sprite and its advance timer need.
+ *          sets the shared timeline capacity for initial-arm and re-arm traps.
  */
 struct FadeChoreoDeathEffect
     : public ChoreographedEffect<FadeChoreoDeathEffect, FadeChoreoDeathParams> {
@@ -6270,7 +6265,7 @@ inline TrapShape classify_trap(int rc) {
  * @return True iff the child died by exactly that illegal-instruction relay.
  * @details Requiring the single probed shape — not "either signal OR 128+sig" —
  *          keeps the guarantee tight: a child that exit(128+SIGILL)s under a
- *          direct-relay environment no longer counts as a trap.
+ *          direct-relay environment does not count as a trap.
  */
 inline bool child_trapped(int rc, TrapShape expected) {
   return expected != TrapShape::None && classify_trap(rc) == expected;
