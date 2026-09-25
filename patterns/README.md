@@ -92,7 +92,7 @@ compile-time constant.
 
 `lattice_melt.shader.json` is the editable source for the `LatticeMelt`
 comparison effect. Its two presets share one descriptor and vary only the
-linearly interpolated sphere-noise scale.
+logarithmically interpolated sphere-noise scale (`LOG_POSITIVE`).
 
 `chromatic_lichen.shader.json` is the editable source for the
 `ChromaticLichen` effect. It combines a glitch lens, post-lens curl

@@ -2318,8 +2318,8 @@ private:
 
   /**
    * @brief Admission test for a requested configuration.
-   * @details The simulator accepts every structurally valid configuration;
-   * device builds additionally require a compiled inverse pipeline.
+   * @details The dynamic backend accepts every structurally valid
+   * configuration; the compiled backend requires a matching inverse pipeline.
    */
   HS_COLD_MEMBER static bool
   admissible_config(const Workbench::RequestedConfig &candidate) {
