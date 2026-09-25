@@ -5,10 +5,9 @@
  * -fdata-sections (on by default), so each function/const is its own input
  * section and can be matched individually:
  *
- *   #5  cold code -> FLASH: library .text (libm/libc_nano/libstdc++_nano/libgcc)
- *       and the per-effect construct_effect<> factories run once at spawn / are
- *       cold, so they leave ITCM. Routed in .text.code BEFORE .text.itcm's
- *       catch-all *(.text*), so the linker assigns them to flash first.
+ *   #5  library .text and per-effect factories -> FLASH, before the ITCM
+ *       catch-all. The hot flywheel libgcc divmod also uses cached flash;
+ *       this routing retains ITCM capacity at the cost of cache-dependent latency.
  *
  *   #3  const rodata -> FLASH: the stock script sends *(.rodata*) to .data (DTCM,
  *       RAM1). Teensy 4 flash is memory-mapped + cached, so const tables/strings/
@@ -61,7 +60,7 @@ SECTIONS
 		*(.text._ZN8TimelineC*Ev*)
 		*(.text._ZN8TimelineD*Ev*)
 		*(.text._ZN8Timeline14destroy_eventsEv*)
-		/* #5: cold library code + per-effect factories run from flash, not ITCM. */
+		/* #5: libraries (including hot libgcc divmod) and factories use flash. */
 		*libm.a:*(.text .text.*)
 		*libc_nano.a:*(.text .text.*)
 		*libstdc++_nano.a:*(.text .text.*)
