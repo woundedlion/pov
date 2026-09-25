@@ -28,7 +28,7 @@
  *     deterministic; the crossfade is exact at its endpoints — the first sweep
  *     frame (w = 0) shades every surviving face from its inherited palette,
  *     the last (w = 1) from the leg's landed target assignment.
- *   - Strap-slot crossfade across cycle starts (boot seed plus an eight-seed
+ *   - Strap-slot crossfade across cycle starts (boot seed plus a seven-seed
  *     epoch sweep): a strap-bearing slot opens on the color it displayed in
  *     the previous cycle (or an on-screen star palette when newborn) and
  *     glides to its target in bounded steps via the strap-face LUT; star
