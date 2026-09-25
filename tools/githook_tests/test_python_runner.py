@@ -34,14 +34,27 @@ class PythonRunner(unittest.TestCase):
     def test_empty_suite_fails(self):
         self.assertNotEqual(self.run_fixture("# no cases\n").returncode, 0)
 
-    def test_empty_file_and_all_skipped_file_fail_beside_live_tests(self):
+    def test_empty_file_fails_beside_live_tests(self):
+        live = ("import unittest\nclass Live(unittest.TestCase):\n"
+                "    def test_live(self): self.assertTrue(True)\n")
+        self.assertNotEqual(self.run_fixture(live, extra="# empty\n").returncode, 0)
+
+    def test_optional_skipped_file_passes_beside_live_tests(self):
         live = ("import unittest\nclass Live(unittest.TestCase):\n"
                 "    def test_live(self): self.assertTrue(True)\n")
         skipped = ("import unittest\n@unittest.skip('fixture')\n"
                    "class Skipped(unittest.TestCase):\n"
                    "    def test_skipped(self): pass\n")
-        for extra in ("# empty\n", skipped):
-            self.assertNotEqual(self.run_fixture(live, extra=extra).returncode, 0)
+        result = self.run_fixture(live, extra=skipped)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_entirely_skipped_suite_fails(self):
+        skipped = ("import unittest\n@unittest.skip('fixture')\n"
+                   "class Skipped(unittest.TestCase):\n"
+                   "    def test_skipped(self): pass\n")
+        result = self.run_fixture(skipped, extra=skipped)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no unskipped test cases in new_suite", result.stderr)
 
     def test_new_suite_is_discovered_and_failure_propagates(self):
         source = ("import unittest\nclass Sample(unittest.TestCase):\n"
