@@ -665,5 +665,3 @@ private:
     timeline.add(0, warp);
   }
 };
-
-#include "core/control/registry.h"

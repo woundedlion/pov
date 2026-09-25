@@ -495,5 +495,3 @@ private:
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Raymarch persistent footprint exceeds the default partition");
 };
-
-#include "core/control/registry.h"

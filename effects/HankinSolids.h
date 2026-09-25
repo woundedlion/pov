@@ -957,5 +957,3 @@ private:
   Timeline timeline;      /**< Schedules sweeps, sprites, and morphs. */
   Pipeline<W, H> filters; /**< Per-pixel filter pipeline applied on draw. */
 };
-
-#include "core/control/registry.h"

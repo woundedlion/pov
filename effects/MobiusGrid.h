@@ -77,5 +77,3 @@ public:
     this->start_mobius_animation(1.0f, 160);
   }
 };
-
-#include "core/control/registry.h"

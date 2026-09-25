@@ -426,5 +426,3 @@ private:
   NoiseTransformer<1>
       noise_xform; /**< Warps the trail with noise each frame. */
 };
-
-#include "core/control/registry.h"

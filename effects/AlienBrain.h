@@ -79,5 +79,3 @@ private:
     return value;
   }
 };
-
-#include "core/control/registry.h"

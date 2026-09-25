@@ -354,5 +354,3 @@ private:
   int last_cycle_dur =
       -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
 };
-
-#include "core/control/registry.h"
