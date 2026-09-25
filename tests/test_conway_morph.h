@@ -212,7 +212,7 @@ inline float max_edge_length_deviation(const PolyMesh &m) {
           math::distance_between(m.vertices[m.faces[off + k]],
                                  m.vertices[m.faces[off + (k + 1) % c]]) -
           mean;
-      worst = std::max(worst, std::abs(d));
+      worst = fold_worst(worst, std::abs(d));
     }
     off += c;
   }
@@ -931,8 +931,8 @@ struct LegDrawProbe {
     if (!prev_v.empty()) {
       HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
       for (size_t i = 0; i < m.vertices.size(); ++i)
-        worst_step = std::max(worst_step,
-                              math::distance_between(m.vertices[i], prev_v[i]));
+        worst_step = fold_worst(
+            worst_step, math::distance_between(m.vertices[i], prev_v[i]));
     }
     prev_v.assign(m.vertices.begin(), m.vertices.end());
     ++drawn;
@@ -2520,7 +2520,7 @@ inline float medial_vertex_set_dist(const PolyMesh &x, const PolyMesh &y) {
     float best = 1e9f;
     for (const auto &vy : y.vertices)
       best = std::min(best, math::distance_between(vx, vy));
-    worst = std::max(worst, best);
+    worst = fold_worst(worst, best);
   }
   return worst;
 }
@@ -2531,7 +2531,7 @@ inline float medial_vertex_set_dist(const ArenaVector<math::Vector> &x,
     float best = 1e9f;
     for (const auto &vy : y.vertices)
       best = std::min(best, math::distance_between(vx, vy));
-    worst = std::max(worst, best);
+    worst = fold_worst(worst, best);
   }
   return worst;
 }
@@ -2665,7 +2665,7 @@ inline void test_medial_dual_bridge_wellformed() {
       const math::Vector &av = ambo_p.vertices[v];
       if (mv.x != av.x || mv.y != av.y || mv.z != av.z) {
         ++bit_diff;
-        worst_bit = std::max(worst_bit, math::distance_between(mv, av));
+        worst_bit = fold_worst(worst_bit, math::distance_between(mv, av));
       }
     }
     HS_EXPECT_EQ(bit_diff, size_t(0));
@@ -2725,8 +2725,9 @@ inline void test_medial_dual_bridge_wellformed() {
           expect_same_fingerprint(fp, first); // fixed emission order/count
       }
       total_inv += medial_inverted_faces(frame);
-      worst_4pi = std::max(worst_4pi, std::abs(medial_total_solid_angle(frame) -
-                                               4.0 * 3.14159265358979323846));
+      worst_4pi =
+          fold_worst(worst_4pi, std::abs(medial_total_solid_angle(frame) -
+                                         4.0 * 3.14159265358979323846));
       min_area = std::min(min_area, medial_min_face_area(frame));
       if (s > 0)
         for (size_t v = 0; v < frame.vertices.size(); ++v)
@@ -3494,9 +3495,9 @@ inline void test_opleg_step_leg_overshooting_easing() {
     float worst_peak = 0.0f, worst_opening = 0.0f;
     for (size_t i = 0; i < arrival.size(); ++i) {
       worst_peak =
-          std::max(worst_peak, math::distance_between(peak[i], arrival[i]));
-      worst_opening = std::max(worst_opening,
-                               math::distance_between(opening[i], arrival[i]));
+          fold_worst(worst_peak, math::distance_between(peak[i], arrival[i]));
+      worst_opening = fold_worst(
+          worst_opening, math::distance_between(opening[i], arrival[i]));
     }
     HS_EXPECT_LT(worst_peak, 1e-5f);
     HS_EXPECT_GT(worst_opening, 1e-3f);
@@ -4375,9 +4376,9 @@ inline void test_reconcile_bijection_wellposed() {
         used[best] = true;
       match[i] = best;
       if (best >= 0)
-        worst_chord = std::max(worst_chord,
-                               math::distance_between(identity.vertices[i],
-                                                      authored.vertices[best]));
+        worst_chord = fold_worst(
+            worst_chord, math::distance_between(identity.vertices[i],
+                                                authored.vertices[best]));
     }
     HS_EXPECT_TRUE(injective);
     HS_EXPECT_LT(worst_chord, MAX_RESIDUAL_CHORD);
