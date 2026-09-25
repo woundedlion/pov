@@ -1,15 +1,15 @@
 #!/bin/sh
-# Refuse any non-fast-forward move of refs/heads/master so concurrent
-# code-review-fix sessions cannot clobber each other's landed work.
+# Refuse any non-fast-forward move or deletion of refs/heads/master so
+# concurrent code-review-fix sessions cannot clobber each other's landed work.
 #
 # The fast-forward check derives the ref's current value itself (git update-ref
 # reports a zero old-OID to this hook, so the stdin old field cannot be trusted).
 #
-# An intentional rewind needs a deliberate, one-shot, target-scoped token; a
-# token authorizes the exact new commit:
+# A rewind or deletion needs a deliberate, one-shot, target-scoped token:
 #   git rev-parse <target> > "$(git rev-parse --git-common-dir)/hs-allow-nonff"
-# The token authorizes only that one new value and is consumed on use. Write the
-# literal ANY instead of a SHA for a blind rewind. Every refusal and every
+# The target is the new commit for a rewind and the current commit for a
+# deletion. The token authorizes only that value and is consumed on use. Write
+# the literal ANY instead of a SHA for a blind override. Every refusal and
 # override is appended to <git-common-dir>/hs-nonff.log.
 [ "$1" = "prepared" ] || exit 0
 
@@ -35,7 +35,12 @@ while read -r old new ref; do
 	fi
 	cur=$(git rev-parse --verify -q "$ref" 2>/dev/null) || cur=''
 	[ -z "$cur" ] && continue                                # creation
-	git merge-base --is-ancestor "$cur" "$new" 2>/dev/null && continue  # fast-forward
+	case "$new" in
+		"$z") target=$cur ;;
+		*)
+			git merge-base --is-ancestor "$cur" "$new" 2>/dev/null && continue
+			target=$new ;;
+	esac
 
 	ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
 	tok=''
@@ -43,8 +48,7 @@ while read -r old new ref; do
 	granted=0
 	case "$tok" in
 		ANY) granted=1 ;;
-		"$z") [ "$new" = "$z" ] && granted=1 ;;
-		???????*) [ "$new" != "$z" ] && case "$new" in "$tok"*) granted=1 ;; esac ;;
+		???????*) case "$target" in "$tok"*) granted=1 ;; esac ;;
 	esac
 
 	if [ "$granted" = 1 ]; then
@@ -54,10 +58,14 @@ while read -r old new ref; do
 	fi
 
 	echo "$ts REFUSED master $cur -> $new" >> "$logfile"
-	echo "reference-transaction: REFUSED non-fast-forward update of master ($cur -> $new)." >&2
-	echo "  Authorize this exact rewind, then retry (one-shot):" >&2
-	echo "    git rev-parse $new > \"$tokfile\"" >&2
-	echo "  Write ANY into that file for a blind rewind. Routine landings cannot override." >&2
+	if [ "$new" = "$z" ]; then
+		echo "reference-transaction: REFUSED deletion of master (at $cur)." >&2
+	else
+		echo "reference-transaction: REFUSED non-fast-forward update of master ($cur -> $new)." >&2
+	fi
+	echo "  Authorize this exact change, then retry (one-shot):" >&2
+	echo "    git rev-parse $target > \"$tokfile\"" >&2
+	echo "  Write ANY into that file for a blind override. Routine landings cannot override." >&2
 	exit 1
 done
 exit 0
