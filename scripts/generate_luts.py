@@ -34,8 +34,9 @@ manual format step to forget. clang-format is required, not optional: the CI
 provenance gate diffs the full formatted text against the committed header. If
 clang-format is not on PATH (set CLANG_FORMAT to override), the generator exits
 without emitting so shell redirection cannot leave a plausible unformatted
-header. A clang-format whose major version differs from the one CI pins also
-warns: the reflow differences would land as a whole-header diff.
+header. A clang-format whose major version differs from
+EXPECTED_CLANG_FORMAT_MAJOR, or whose version cannot be read, is refused:
+the generator exits without emitting.
 """
 
 import argparse
