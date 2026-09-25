@@ -14,7 +14,7 @@
 // lands. The arena block is the one exception -- it is file-local to memory.cpp,
 // which partitions it.
 
-/** @brief Shared event array backing every Timeline instance. */
+/** @brief NOLOAD DMAMEM storage; Timeline clears every slot at runtime. */
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 /**
  * @brief Single live-Timeline guard.
