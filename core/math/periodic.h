@@ -71,7 +71,7 @@ __attribute__((always_inline)) inline float wrap_t(float t) {
  * @param m The modulo base.
  * @return The wrapped value in the range [0, m), or x when m <= 0.
  * @details A zero modulus SIGFPEs on the host while the device returns x;
- *          return x to match the device, mirroring the m == 0 guard in map().
+ *          return x to match the device, mirroring the zero-modulus guard in addmod8().
  *          A negative modulus takes the same exit: `x % m` cannot land in
  *          [0, m), and `INT_MIN % -1` is signed-overflow UB.
  */
