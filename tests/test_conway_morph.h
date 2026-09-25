@@ -3574,8 +3574,7 @@ inline void test_opleg_edge_leg_crossfade() {
 }
 
 /**
- * @brief Gates the recipe steps no leg kind covers and reports the clamp
- *        consequence the gate exists to avoid.
+ * @brief Pins recipe-step acceptance at the supported sweep boundaries.
  */
 inline void test_unsweepable_recipe_steps_are_gated() {
   using Solids::Op;
