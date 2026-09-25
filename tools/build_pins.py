@@ -201,7 +201,7 @@ INLINE_USES = (
 
 # The shared clang-format gate selects these extensions through a git pathspec;
 # the pre-commit hook matches the same set over staged paths.
-FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl")
+FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl", "ino")
 
 # The float flags both shipping targets build with: the device firmware
 # (platformio.ini) and the WASM modules (CMakeLists.txt). The CI leg runs the
