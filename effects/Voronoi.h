@@ -374,7 +374,7 @@ private:
   static constexpr size_t KD_BUILD_SCRATCH_BYTES =
       size_t(MAX_SITES) * sizeof(int);
   // Corner grid spans the full canvas in block-px steps, +2 for the inclusive
-  // [0,W)/[0,H) end corners (mirrors render()'s nbx/nby at full clip). Sized at
+  // [0,W)/[0,H) end corners (mirrors draw_frame()'s nbx/nby at full clip). Sized at
   // COHERENCE_BLOCK_MIN — the worst case (most corners) the adaptive block hits.
   static constexpr size_t CORNER_COLS =
       size_t((W - 1) / COHERENCE_BLOCK_MIN + 2);
