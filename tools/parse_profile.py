@@ -229,6 +229,7 @@ def parse_capture(path):
     frame_owner = None      # preset owning the frames streaming right now
     effect = None
     pending_frames = []
+    last_frame = None
     pending_markers = []
     pullback = {"arms": [], "programs": []}
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -247,6 +248,10 @@ def parse_capture(path):
                 continue
             m = FRAME_RE.match(line)
             if m:
+                frame = int(m.group(1))
+                if last_frame is not None and frame <= last_frame:
+                    frame_owner = deferred_marker = active_marker = None
+                last_frame = frame
                 # A marker logged since the last frame line names the preset the
                 # advance switched TO; this frame is its first (on an effect that
                 # rebuilds on advance, the one that pays the rebuild).
