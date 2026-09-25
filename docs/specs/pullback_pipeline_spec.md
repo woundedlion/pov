@@ -11,7 +11,7 @@ each to its document). The interpreter host `workbench/shader/chain_host.h`
 uses the runtime operator library; `effects/HyperLattice.h` supplies a custom `Stage::Contract` stage, and `effects/Raymarch.h` uses the shared runtime seeds. The
 verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
 `tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Sections 2,
-5.1, 8, 9.1, 9.3, 11, 14 and 16 retain superseded design material; their local
+5.1, 8, 9.1, 9.3, 11, 12, 13, 14 and 16 retain superseded design material; their local
 banners identify the shipped replacements. Sections 3, 5.2 and 6 also qualify
 the original stage model. The ranked-stage contract is specified in
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md). Section 17
@@ -43,7 +43,9 @@ This document records the pullback pipeline migration, alongside
 `docs/specs/shader_workbench_chain_spec.md`. The earlier inverse-sampling,
 ShaderWorkbench and workbench specs it amended have been retired,
 and their location and abstraction-boundary decisions are superseded by
-Section 15.
+Section 15. References below to the "v1 spec" mean the retired
+`inverse_sampling_pipeline_spec.md`, available with
+`git show b732b5687^:docs/specs/inverse_sampling_pipeline_spec.md`.
 
 ## 1. Decision and motivation
 
@@ -328,7 +330,8 @@ struct ExampleBinding {
 
 Concrete operators take narrower **state-provider** types. Each provider names
 the same `FrameState` and exposes only the data required by that operation.
-Providers are empty compile-time adapters with `always_inline` static accessors.
+Providers are empty compile-time adapters with inline static accessors
+(`always_inline` in ComposedEffect).
 They neither own nor copy state.
 
 This is the principal decoupling boundary: core owns algorithms and carriers;
@@ -554,7 +557,7 @@ Every provider:
 - names its owning pipeline `Binding` and derives `FrameState` from that
   binding;
 - names `FrameState` exactly;
-- exposes only static, `always_inline`, const-frame accessors;
+- exposes only inline static const-frame accessors (`always_inline` in ComposedEffect);
 - returns const references/pointers or scalar values with lifetimes valid for
   the draw;
 - performs no validation, allocation, mutation, or runtime dispatch;
@@ -641,7 +644,8 @@ its runtime switches. There shall be one implementation of each formula after
 migration.
 
 Every sub-policy also exposes the approximation metadata block from Section
-6.2, minus `KIND` and `TERMINAL`. A top-level combinator forwards the metadata
+6.2: `APPROXIMATE`, `NON_FLOATING_FIELDS_EXACT`, `ORACLE`, and `METRICS`.
+A top-level combinator forwards the metadata
 of its one approximate child, or declares itself exact when all children are
 exact. The initial catalog permits at most one approximate child in a
 top-level stage; composing two distinct approximation oracles fails under the
@@ -1235,8 +1239,8 @@ selection differences, while operator unit tests check formulas.
 - Frame resource pointers are const bindings whose owners outlive the draw.
 - No core stage calls a resource setter, advances a clock, steps an animation,
   prepares a transform, or allocates.
-- No provider returns a reference to a temporary. Scalar returns are permitted;
-  aggregate parameter/prepared records are returned by const reference.
+- No provider returns a reference to a temporary. Parameter records are returned
+  by const reference; prepared records and LUT views by value.
 - The coordinator and policies contain no objects, so a pipeline has no
   lifetime independent of the frame.
 - Debug/test owner-generation stamping remains in ShaderWorkbench's frame accessors;
