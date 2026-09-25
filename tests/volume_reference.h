@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cfloat>
 #include "core/math/3dmath.h"
+#include "core/render/scan/volume.h"
 
 namespace hs_test::scan_tests {
 
@@ -73,11 +74,11 @@ struct VolumeReference {
 
 // Vector-accumulating baseline for scalar ray-state regression tests.
 struct VolumeScalarRegression {
-  static constexpr float OVERRELAX_OMEGA = 1.3f;
-  static constexpr int PROBE_STEPS = 24;
-  static constexpr int PROBE_NEAR_STEPS = 6;
-  static constexpr float PROBE_FLOOR_NEAR = 0.04f;
-  static constexpr float PROBE_FLOOR_FAR = 0.12f;
+  static constexpr float OVERRELAX_OMEGA = Scan::Volume::OVERRELAX_OMEGA;
+  static constexpr int PROBE_STEPS = Scan::Volume::PROBE_STEPS;
+  static constexpr int PROBE_NEAR_STEPS = Scan::Volume::PROBE_NEAR_STEPS;
+  static constexpr float PROBE_FLOOR_NEAR = Scan::Volume::PROBE_FLOOR_NEAR;
+  static constexpr float PROBE_FLOOR_FAR = Scan::Volume::PROBE_FLOOR_FAR;
   template <typename Shape>
   static __attribute__((always_inline)) float
   trace_closest(const Shape &shape, const math::Vector &local_ro,

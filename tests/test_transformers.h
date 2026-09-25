@@ -2,8 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/animation/transformer.h — the pure geometry transform functions
- * and the adapter/manager wrappers:
+ * Unit tests for core/animation/transformer.h pools and geometry kernels,
+ * including the Mobius transforms in core/math/mobius.h.
  *   - OrientTransformer       : identity orientation is a no-op; a known 90°
  *                               rotation maps to its hand-computed image.
  *   - mobius_transform        : identity Mobius round-trips through stereo; the
@@ -158,9 +158,9 @@ inline void test_mobius_identity_roundtrip() {
   math::Vector v = math::Vector(0.5f, 0.1f, 0.3f).normalized();
   math::Vector r = math::mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
-  HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
-  HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
-  HS_EXPECT_NEAR(r.z, v.z, 2e-3f);
+  HS_EXPECT_NEAR(r.x, v.x, 1e-5f);
+  HS_EXPECT_NEAR(r.y, v.y, 1e-5f);
+  HS_EXPECT_NEAR(r.z, v.z, 1e-5f);
   HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
 }
 
@@ -266,7 +266,7 @@ inline void test_mobius_matches_double_precision_oracle() {
   }
   HS_EXPECT_EQ(nonfinite, 0);
   HS_EXPECT_LE(worst_unit_err, 1e-5f);
-  HS_EXPECT_LE(worst_oracle_err, 2e-3f);
+  HS_EXPECT_LE(worst_oracle_err, 1e-5f);
   HS_EXPECT_GT(compared, 1000);
 }
 
@@ -302,21 +302,26 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
   math::Vector v = math::Vector(0.3f, 0.7f, 0.2f).normalized();
   math::Vector r = math::gnomonic_mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
-  HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
-  HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
-  HS_EXPECT_NEAR(r.z, v.z, 2e-3f);
+  HS_EXPECT_NEAR(r.x, v.x, 1e-5f);
+  HS_EXPECT_NEAR(r.y, v.y, 1e-5f);
+  HS_EXPECT_NEAR(r.z, v.z, 1e-5f);
 
-  for (float y :
-       {1e-3f, 2e-4f, 1e-5f, 1e-9f, 0.0f, -1e-9f, -1e-5f, -2e-4f, -1e-3f}) {
+  for (float y : {1e-3f, 2.1e-4f, 1.9e-4f, 1e-5f, 1e-9f, 0.0f, -1e-9f, -1e-5f,
+                  -1.9e-4f, -2.1e-4f, -1e-3f}) {
     for (float theta = 0.0f; theta < 2.0f * math::PI_F; theta += 0.31f) {
       const math::Vector near_equator =
           math::Vector(cosf(theta), y, sinf(theta)).normalized();
       const math::Vector back =
           math::gnomonic_mobius_transform(near_equator, id);
       HS_EXPECT_TRUE(finite_vec(back));
-      HS_EXPECT_NEAR(back.x, near_equator.x, 2e-3f);
-      HS_EXPECT_NEAR(back.y, near_equator.y, 2e-3f);
-      HS_EXPECT_NEAR(back.z, near_equator.z, 2e-3f);
+      HS_EXPECT_NEAR(back.x, near_equator.x, 1e-5f);
+      const float snap_y =
+          1.0f / sqrtf(1.0f + projections::STEREO_INF_RECOGNIZE *
+                                  projections::STEREO_INF_RECOGNIZE);
+      const float expected_y =
+          std::abs(near_equator.y) <= snap_y ? 0.0f : near_equator.y;
+      HS_EXPECT_NEAR(back.y, expected_y, 1e-5f);
+      HS_EXPECT_NEAR(back.z, near_equator.z, 1e-5f);
     }
   }
 }

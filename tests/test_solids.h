@@ -8,15 +8,9 @@
  *   - Registry integrity: every registered solid (simple + catalan + islamic)
  *     builds into a non-empty mesh with finite vertices, in-range face indices,
  *     and consistent face_counts/faces totals.
- *   - Unit-sphere intent: Platonic/Archimedean/Catalan generators are designed
- *     to live on the unit sphere (seeds are unit vectors and the Conway ops
- *     used here re-normalize), so their vertices are asserted unit-magnitude.
- *     Islamic-pattern seeds may be open / non-spherical (hankin/expand on a
- *     pattern can move points off the sphere), so magnitude is NOT asserted for
- *     those — only finiteness + structural invariants.
- *   - Euler characteristic V - E + F == 2 for the hardcoded closed Platonic
- *     solids, using the half-edge edge count (E = half_edges/2) as in
- *     test_mesh.h, plus outward-consistent winding on every registry entry.
+ *   - Unit-sphere checks on the Platonic/Archimedean/Catalan generators.
+ *   - Closed Euler-2 topology and outward winding on registry meshes,
+ *     including Islamic patterns.
  *   - Bounds: get_entry() out-of-range and get_by_name() unknown name TRAP
  *     (fail-fast), so only the valid boundary (last index) is exercised here.
  *   - Determinism: building the same registry entry twice yields identical
@@ -152,16 +146,13 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
 }
 
 // ---------------------------------------------------------------------------
-// Registry integrity — Islamic patterns. Structural invariants only:
-// hankin/expand on a pattern can legitimately move points off the unit sphere
-// and may yield open meshes, so magnitude/closure are NOT asserted here.
+// Registry integrity: Islamic patterns, structural checks.
 // ---------------------------------------------------------------------------
 
 /**
  * @brief Verifies every Islamic-pattern entry builds to a structurally valid
  * mesh.
- * @details No sphere assertion (hankin/expand may move points off the sphere).
- *          Islamic indices follow the simple + Catalan blocks in the registry.
+ * @details Islamic indices follow the simple + Catalan blocks in the registry.
  */
 inline void test_islamic_registry_solids_are_valid() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
@@ -438,9 +429,7 @@ inline void test_islamic_registry_solids_are_closed() {
 /**
  * @brief Verifies the last valid registry index builds correctly (range
  * boundary).
- * @details Out-of-range get_entry() and unknown get_by_name() TRAP (fail-fast),
- *          so those error paths can't be exercised without death-test
- *          infrastructure; only the valid boundary is checked here.
+ * @details Invalid lookups are covered by test_death.h.
  */
 inline void test_get_entry_last_valid_index_builds() {
   const Solids::Entry &e = Solids::get_entry(Solids::NUM_ENTRIES - 1);

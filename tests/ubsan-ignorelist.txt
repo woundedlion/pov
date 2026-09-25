@@ -1,22 +1,5 @@
 # UBSan special-case list for the native test build (-DHS_SANITIZE=ON).
-#
-# FastNoiseLite is vendored third-party code whose integer hashing deliberately
-# relies on wrapping signed-int multiplication (e.g. `hash *= 0x27d4eb2d` and
-# `i *= PrimeX` with PrimeX = 501125321). That is technically
-# signed-integer-overflow UB, but it is defined two's-complement wrap on every
-# target we ship and is the library's documented design — not an engine bug.
-# Suppress ONLY that one check in ONLY that file; every other UBSan check stays
-# active there, and all first-party code keeps full signed-overflow coverage.
+# FastNoiseLite hashing uses signed overflow, which is undefined in C++.
+# Suppress that check only in the vendored header.
 [signed-integer-overflow]
-src:*FastNoiseLite.h
-
-# A non-finite noise coordinate reaches FastFloor/FastRound's `(int)f` casts as
-# a float-cast-overflow (NaN/Inf -> int). That only happens on out-of-contract
-# input — every engine caller feeds finite coordinates, and noise_transform
-# traps on the resulting non-finite vector at its `.normalized()` guard. The
-# death-test that drives that guard (case_noise_transform_nan) deliberately feeds
-# a NaN; the in-report-mode sanitizer would otherwise _exit(1) at this cast
-# before the intended trap fires. Suppress the cast check in ONLY the vendored
-# noise header; first-party code keeps full float-cast-overflow coverage.
-[float-cast-overflow]
 src:*FastNoiseLite.h

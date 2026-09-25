@@ -1943,12 +1943,7 @@ inline void case_make_basis_nan() {
 /**
  * @brief Death case: an active noise_transform fed a non-finite direction must
  *        trap, not propagate NaN/Inf into the rendered geometry.
- * @details Transformer surface — noise_transform's active path ends in
- *          (v + distortion).normalized(), whose zero/non-finite-length guard
- *          traps. A non-finite input direction is a logic bug (every caller feeds
- *          unit sphere directions), so it must fail fast here rather than emit a
- *          NaN dot somewhere downstream. The zero-amplitude short-circuit is the
- *          legitimate no-op and is covered in-process by test_transformers.h.
+ * @details The structural audit rejects non-finite directions before noise sampling.
  */
 inline void case_noise_transform_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
@@ -1957,7 +1952,7 @@ inline void case_noise_transform_nan() {
   p.scale = opaque(4.0f);
   p.time = opaque(1.0f);
   math::Vector v{nan, opaque(0.0f), opaque(0.0f)};
-  math::Vector r = noise_transform(v, p); // NaN -> normalized() -> HS_CHECK
+  math::Vector r = noise_transform(v, p);
   if (r.x == 42.0f)
     std::printf("x");
 }
@@ -5228,8 +5223,9 @@ inline const Case *all_cases(int &n) {
           {"make_basis_nan", case_make_basis_nan, "core/math/3dmath.h",
            "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
           {"noise_transform_nan", case_noise_transform_nan,
-           "core/math/3dmath.h",
-           "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
+           "core/animation/transformer.h",
+           "(std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z)) "
+           "noise_transform: non-finite direction"},
           {"param_def_unknown_get_target_type",
            case_param_def_unknown_get_target_type, "core/control/params.h",
            "(false) ParamDef::get_from: unknown target type "},

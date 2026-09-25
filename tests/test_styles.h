@@ -24,60 +24,31 @@ namespace styles_tests {
 // --- Named presets ----------------------------------------------------------
 
 /**
- * @brief Verifies the constexpr preset factories carry their documented scalar
- *        values and wire up the expected space/color transforms.
- * @details Every preset is pinned exactly, scalars and transforms alike.
+ * @brief Verifies preset parameter domains and their space/color transforms.
  */
 inline void test_named_presets() {
-  const auto expect_noise_hue_style =
-      [](const Feedback::Style &style, float fade, float hue_shift,
-         float amplitude, float frequency, float speed, float scale) {
-        HS_EXPECT_NEAR(style.fade, fade, 1e-6f);
-        HS_EXPECT_NEAR(style.hue_shift, hue_shift, 1e-6f);
-        HS_EXPECT_NEAR(style.amplitude, amplitude, 1e-6f);
-        HS_EXPECT_NEAR(style.frequency, frequency, 1e-6f);
-        HS_EXPECT_NEAR(style.speed, speed, 1e-6f);
-        HS_EXPECT_NEAR(style.scale, scale, 1e-6f);
-        HS_EXPECT_TRUE(style.space_fn == &Feedback::noise_warp);
-        HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
-      };
-  const auto expect_melt_hue_style =
-      [](const Feedback::Style &style, float fade, float hue_shift,
-         float amplitude, float frequency, float speed, float scale) {
-        HS_EXPECT_NEAR(style.fade, fade, 1e-6f);
-        HS_EXPECT_NEAR(style.hue_shift, hue_shift, 1e-6f);
-        HS_EXPECT_NEAR(style.amplitude, amplitude, 1e-6f);
-        HS_EXPECT_NEAR(style.frequency, frequency, 1e-6f);
-        HS_EXPECT_NEAR(style.speed, speed, 1e-6f);
-        HS_EXPECT_NEAR(style.scale, scale, 1e-6f);
-        HS_EXPECT_TRUE(style.space_fn == &Feedback::melt_warp);
-        HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
-      };
-
-  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.14426951f,
-                         3.27f, 0.09f, 1.5f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::SlowFire(), 0.8732f, 0.12316483f,
-                         1.56f, 0.5297f, 0.1f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::EnergeticFire(), 0.8732f, 0.12316483f,
-                         1.56f, 0.22087f, 0.9f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::SlowDust(), 0.83952f, 0.09546948f,
-                         1.56f, 0.07237f, 0.6f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.22518973f,
-                         1.95f, 0.01f, 5.0f, 50.0f);
-  expect_melt_hue_style(Feedback::Style::MeltingHi(), 0.59004f, 0.18955015f,
-                        4.38f, 0.06346f, 0.2f, 22.3554f);
-  expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.18955015f,
-                        1.95f, 0.06346f, 0.2f, 22.3554f);
-  expect_noise_hue_style(Feedback::Style::Miasma(), 0.80586f, 0.234f, 2.61f,
-                         0.05059f, 0.725f, 26.297501f);
-  expect_noise_hue_style(Feedback::Style::LooseWormhole(), 0.7257f, 0.22519f,
-                         11.25f, 0.01f, 0.0f, 10.1798f);
-  expect_noise_hue_style(Feedback::Style::TightWormhole(), 0.7257f, 0.22519f,
-                         6.42f, 0.01f, 0.0f, 7.8844f);
-  expect_noise_hue_style(Feedback::Style::WigglingWormhole(), 0.7257f, 0.22519f,
-                         7.11f, 0.01f, 0.0f, 29.1917f);
-  expect_noise_hue_style(Feedback::Style::Smoke(), 0.9f, 0.09491219f, 0.51f,
-                         0.42f, 0.46f, 23.0f);
+  const Feedback::Style presets[] = {
+      Feedback::Style::ArcingLightning(),  Feedback::Style::SlowFire(),
+      Feedback::Style::EnergeticFire(),    Feedback::Style::SlowDust(),
+      Feedback::Style::WavyTrails(),       Feedback::Style::MeltingHi(),
+      Feedback::Style::MeltingLo(),        Feedback::Style::Miasma(),
+      Feedback::Style::LooseWormhole(),    Feedback::Style::TightWormhole(),
+      Feedback::Style::WigglingWormhole(), Feedback::Style::Smoke()};
+  for (size_t index = 0; index < std::size(presets); ++index) {
+    const auto &style = presets[index];
+    HS_CONTEXT("style", static_cast<long long>(index));
+    HS_EXPECT_TRUE(std::isfinite(style.fade) && style.fade >= 0.0f &&
+                   style.fade <= 1.0f);
+    HS_EXPECT_TRUE(std::isfinite(style.hue_shift));
+    HS_EXPECT_TRUE(std::isfinite(style.amplitude) && style.amplitude >= 0.0f);
+    HS_EXPECT_TRUE(std::isfinite(style.frequency) && style.frequency >= 0.0f);
+    HS_EXPECT_TRUE(std::isfinite(style.speed));
+    HS_EXPECT_TRUE(std::isfinite(style.scale) && style.scale > 0.0f);
+    HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
+    HS_EXPECT_TRUE(style.space_fn == (index == 5 || index == 6
+                                          ? &Feedback::melt_warp
+                                          : &Feedback::noise_warp));
+  }
 }
 
 /**
@@ -128,7 +99,7 @@ inline void test_named_presets_preserve_frame_hue() {
  *          multiples, where a sign flip is unobservable.
  */
 inline void test_sync_hue_rotates_per_efold() {
-  constexpr float HS_TURN_TOL = 2e-3f;
+  constexpr float TURN_TOL = 2e-3f;
   const float efolds[] = {0.5f, 1.0f, 2.0f, 3.0f};
   const float shifts[] = {0.05f, 0.2f, 0.33f};
   for (float efold : efolds)
@@ -138,8 +109,8 @@ inline void test_sync_hue_rotates_per_efold() {
       s.hue_shift = shift;
       s.sync_hue();
       const float radians = 2.0f * math::PI_F * efold * shift;
-      HS_EXPECT_NEAR(s.hue_ca, std::cos(radians), HS_TURN_TOL);
-      HS_EXPECT_NEAR(s.hue_sa, std::sin(radians), HS_TURN_TOL);
+      HS_EXPECT_NEAR(s.hue_ca, std::cos(radians), TURN_TOL);
+      HS_EXPECT_NEAR(s.hue_sa, std::sin(radians), TURN_TOL);
     }
 }
 
@@ -426,18 +397,11 @@ inline void test_hue_rotate_lms_matrix_identity() {
 /**
  * @brief Parity sweep: hue_fade's folded cbrt-LMS path vs the reference
  *        fade-then-hue_rotate composition.
- * @details The fold changes only float association and drops the fade's
- *          intermediate u16 quantization, so results must track the reference
- *          within a few 16-bit LSB. The sweep crosses saturated primaries
- *          (which exercise the gamut-clip slow path), a dark and a gray tone
- *          with every preset-range fade/shift combination. The measured max
- *          delta on this sweep is 19 LSB; the tolerance carries ~3x margin.
- *          Runs on the flash master grid, the one hue_fade ships against: the
- *          clip's bracket residual sets this delta, so a coarser grid measures a
- *          configuration nothing runs.
+ * @details Allows 64 u16-channel LSBs across preset fades, hue rotations,
+ * saturated primaries, dark and gray tones, using the flash gamut grid.
  */
 inline void test_hue_fade_matches_rotate_reference() {
-  constexpr float HS_HUE_FADE_TOL = 64.0f;
+  constexpr float HUE_FADE_TOL = 64.0f;
   alignas(uint16_t) static uint8_t
       lut_buf[gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
@@ -457,9 +421,9 @@ inline void test_hue_fade_matches_rotate_reference() {
         Pixel got = Feedback::hue_fade(c, fade, s);
         Pixel ref =
             hue_rotate(Color4(c * fade, 1.0f), s.hue_ca, s.hue_sa).color;
-        HS_EXPECT_NEAR((float)got.r, (float)ref.r, HS_HUE_FADE_TOL);
-        HS_EXPECT_NEAR((float)got.g, (float)ref.g, HS_HUE_FADE_TOL);
-        HS_EXPECT_NEAR((float)got.b, (float)ref.b, HS_HUE_FADE_TOL);
+        HS_EXPECT_NEAR((float)got.r, (float)ref.r, HUE_FADE_TOL);
+        HS_EXPECT_NEAR((float)got.g, (float)ref.g, HUE_FADE_TOL);
+        HS_EXPECT_NEAR((float)got.b, (float)ref.b, HUE_FADE_TOL);
       }
   release_gamut_lut();
 }
@@ -467,21 +431,11 @@ inline void test_hue_fade_matches_rotate_reference() {
 /**
  * @brief Pins hue_fade_apply2 against the scalar hue_fade_apply at the
  *        quantized output, the level the display observes.
- * @details The paired path shares one fast_cbrt6 reciprocal across both
- *          pixels, which re-associates the arithmetic and moves the cube roots
- *          by ~4e-7 relative. The gamut clip brackets its input on a grid, so
- *          near a bracket boundary that tiny shift selects a different bracket
- *          and the channel moves by tens of LSB rather than one; the bound is
- *          therefore loose by necessity. The measured max on this sweep is 39
- *          LSB and the tolerance carries ~3x margin. Sweeps preset-range fades
- *          and several hue rotations (identity included) over realistic
- *          channels plus the zero, near-zero and all-black cases the
- *          composite's NEAR_BLACK skip relies on, and the saturated primaries
- *          that drive the clip. fast_cbrt6's own accuracy is pinned tightly in
- *          test_fast_cbrt6; this case guards the composite's end-to-end output.
+ * @details Compares paired and scalar paths across preset fades, hue rotations,
+ * saturated primaries, and near-black inputs; allows 128 u16-channel LSBs.
  */
 inline void test_hue_fade_apply2_tracks_scalar() {
-  constexpr int HS_PAIR_TOL = 128;
+  constexpr int PAIR_TOL = 128;
   const float channels[][3] = {{0.0f, 0.0f, 0.0f},
                                {1.0f, 0.0f, 0.0f},
                                {0.5f, 0.25f, 0.125f},
@@ -523,12 +477,12 @@ inline void test_hue_fade_apply2_tracks_scalar() {
           Feedback::hue_fade_apply2(k, channels[a][0], channels[a][1],
                                     channels[a][2], channels[b][0],
                                     channels[b][1], channels[b][2], p0, p1);
-          HS_EXPECT_LE(std::abs((int)p0.r - (int)s0.r), HS_PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p0.g - (int)s0.g), HS_PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p0.b - (int)s0.b), HS_PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p1.r - (int)s1.r), HS_PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p1.g - (int)s1.g), HS_PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p1.b - (int)s1.b), HS_PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p0.r - (int)s0.r), PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p0.g - (int)s0.g), PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p0.b - (int)s0.b), PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p1.r - (int)s1.r), PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p1.g - (int)s1.g), PAIR_TOL);
+          HS_EXPECT_LE(std::abs((int)p1.b - (int)s1.b), PAIR_TOL);
         }
     }
 

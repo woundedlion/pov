@@ -380,9 +380,8 @@ HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
  * @param p1 Out: the rotated, faded second pixel.
  * @details Both pixels' cube roots go through one fast_cbrt6 call, so the six
  * seed/Halley chains schedule against each other and the pair costs one divide.
- * The shared reciprocal re-associates the arithmetic, moving results off the
- * scalar hue_fade_apply path by ~4e-7 relative — ~50x below the cube root's own
- * ~2.3e-5 error, and 0.002% of u16 channels by one LSB.
+ * The shared reciprocal changes rounding; gamut clipping can amplify it.
+ * test_hue_fade_apply2_tracks_scalar bounds final u16-channel differences.
  */
 HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
                                      float b0, float r1, float g1, float b1,

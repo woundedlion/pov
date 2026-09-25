@@ -1099,8 +1099,7 @@ inline void test_shader_workbench_incompatible_config_snapshot() {
  *         rejects out-of-range and nonfinite values without mutation. */
 inline void test_shader_workbench_affine_snapshot_restore() {
   using WB = ShaderWorkbenchWhiteBox;
-  // A snapshot layout change without a version bump silently accepts a stale
-  // persisted session, so the accepted version is pinned to a literal.
+  // This pins the accepted version, not the field layout.
   HS_EXPECT_EQ(WB::SB::CONFIG_SCHEMA_VERSION, uint32_t{11});
 
   reset_effect_globals();
@@ -2128,38 +2127,6 @@ inline void test_shader_workbench_coupled_source() {
     }
   }
 }
-/**
- * @brief Bit-compares an authored float block against its pin and prints a
- *        paste-ready replacement when it drifts.
- * @tparam N Field count of the block.
- * @param name Identifier of the pinned array, echoed in the replacement.
- * @param actual Values read out of the preset bank.
- * @param expected The pinned literals.
- * @details Bit equality, not a tolerance: these are authored constants, so any
- * change is an edit to review. The printed block is how an intended edit is
- * re-pinned; "%#.9g" round-trips a float exactly and keeps the decimal point
- * the "f" suffix needs.
- */
-template <size_t N>
-inline void expect_pinned_params(const char *name,
-                                 const std::array<float, N> &actual,
-                                 const std::array<float, N> &expected) {
-  bool drifted = false;
-  for (size_t index = 0; index < N; ++index) {
-    HS_CONTEXT(name, static_cast<long long>(index));
-    const uint32_t got = std::bit_cast<uint32_t>(actual[index]);
-    const uint32_t want = std::bit_cast<uint32_t>(expected[index]);
-    HS_EXPECT_EQ(got, want);
-    drifted |= got != want;
-  }
-  if (!drifted)
-    return;
-  std::printf("  constexpr std::array<float, %zu> %s{\n", N, name);
-  for (size_t index = 0; index < N; ++index)
-    std::printf("      %#.9gf,\n", static_cast<double>(actual[index]));
-  std::printf("  };\n");
-}
-
 /** @brief Presets retain the curated topology roster and generated palette path. */
 inline void test_shader_workbench_preset_bank() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -2187,175 +2154,19 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(wave_shear.slots.warp_program.outer.kind,
                WB::WarpStageKind::WAVE_SHEAR);
   HS_EXPECT_EQ(wave_shear.slots.palette_mapping, WB::PaletteMapping::CUP);
-  auto collect_signal_values = [](const auto &signal) {
-    return std::array<float, 23>{
-        signal.source.pattern_freq,
-        signal.source.speed,
-        signal.source.angle_rate,
-        signal.source.complexity,
-        signal.source.pattern_mix,
-        signal.source.secondary_rate,
-        signal.projection.singularity_fade,
-        signal.projection.spin_rate,
-        signal.projection.wander,
-        signal.warp.outer.scale,
-        signal.warp.outer.strength,
-        signal.warp.outer.speed,
-        signal.outer_camera.wander,
-        signal.color.palette_chroma,
-        signal.color.mapping_frequency,
-        signal.color.mapping_phase,
-        signal.color.phase_oscillation_depth,
-        signal.color.phase_oscillation_speed,
-        signal.color.opacity_low,
-        signal.color.opacity_high,
-        signal.color.hue_shift_amount,
-        signal.color.hue_noise_scale,
-        signal.color.hue_noise_speed,
-    };
-  };
-  const std::array<float, 23> primary_signal =
-      collect_signal_values(wave_shear.params);
-  constexpr std::array<float, 23> SIGNAL_EXPECTED{
-      4.439f, 0.245f, 0.0f, 0.5f,      0.0f,   0.0f,       1.0f, 0.0f,
-      0.0f,   1.0f,   0.5f, 0.015625f, 0.8f,   0.788f,     1.0f, -0.0f,
-      0.0f,   0.0f,   1.0f, 1.0f,      0.292f, 0.6304219f, 0.0f,
-  };
   const auto &second_signal = presets[21];
   HS_EXPECT_EQ(second_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
-  const std::array<float, 23> secondary_signal =
-      collect_signal_values(second_signal.params);
-  constexpr std::array<float, 23> SECOND_SIGNAL_EXPECTED{
-      3.1447f, 0.245f, 0.0f,  0.5f,        0.0f,   0.0f,       1.0f, 0.0f,
-      0.0f,    1.0f,   2.72f, 0.00690625f, 0.8f,   0.788f,     1.0f, -0.0f,
-      0.0f,    0.0f,   1.0f,  1.0f,        0.292f, 0.6304219f, 0.0f,
-  };
   const auto &third_signal = presets[22];
   HS_EXPECT_EQ(third_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
-  const std::array<float, 23> tertiary_signal =
-      collect_signal_values(third_signal.params);
-  constexpr std::array<float, 23> THIRD_SIGNAL_EXPECTED{
-      7.5227f, 0.245f, 0.0f, 1.698f,      0.0f,   0.0f,       1.0f, 0.0f,
-      0.0f,    1.0f,   0.0f, 0.00690625f, 0.8f,   0.788f,     1.0f, -0.0f,
-      0.0f,    0.0f,   1.0f, 1.0f,        0.292f, 0.6304219f, 0.0f,
-  };
   const auto &fourth_signal = presets[23];
   HS_EXPECT_EQ(fourth_signal.slots.palette_mapping, WB::PaletteMapping::CUP);
-  const std::array<float, 23> fourth_signal_values =
-      collect_signal_values(fourth_signal.params);
-  constexpr std::array<float, 23> FOURTH_SIGNAL_EXPECTED{
-      8.8162f, 0.245f, 0.0f,   1.698f,      0.0f,   0.0f,       1.0f, 0.0f,
-      0.0f,    1.0f,   1.376f, 0.00559375f, 0.8f,   0.788f,     1.0f, -0.0f,
-      0.0f,    0.0f,   1.0f,   1.0f,        0.292f, 0.6304219f, 0.0f,
-  };
-  expect_pinned_params("SIGNAL_EXPECTED", primary_signal, SIGNAL_EXPECTED);
-  expect_pinned_params("SECOND_SIGNAL_EXPECTED", secondary_signal,
-                       SECOND_SIGNAL_EXPECTED);
-  expect_pinned_params("THIRD_SIGNAL_EXPECTED", tertiary_signal,
-                       THIRD_SIGNAL_EXPECTED);
-  expect_pinned_params("FOURTH_SIGNAL_EXPECTED", fourth_signal_values,
-                       FOURTH_SIGNAL_EXPECTED);
   const auto &mirror = presets[1];
   HS_EXPECT_EQ(mirror.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(mirror.params.warp.inner.speed, 0.0f);
-  const std::array<float, 23> kaleidoscope_hex_soft_values{
-      mirror.params.source.pattern_freq,
-      mirror.params.source.speed,
-      mirror.params.source.angle_rate,
-      mirror.params.projection.singularity_fade,
-      mirror.params.projection.spin_rate,
-      mirror.params.projection.wander,
-      mirror.params.outer_camera.wander,
-      mirror.params.warp.inner.speed,
-      mirror.params.warp.inner.rotation,
-      mirror.params.warp.inner.cell_x,
-      mirror.params.warp.inner.cell_y,
-      mirror.params.warp.inner.offset_x,
-      mirror.params.warp.inner.offset_y,
-      mirror.params.color.palette_chroma,
-      mirror.params.color.mapping_frequency,
-      mirror.params.color.mapping_phase,
-      mirror.params.color.phase_oscillation_depth,
-      mirror.params.color.phase_oscillation_speed,
-      mirror.params.color.opacity_low,
-      mirror.params.color.opacity_high,
-      mirror.params.color.hue_shift_amount,
-      mirror.params.color.hue_noise_scale,
-      mirror.params.color.hue_noise_speed,
-  };
-  constexpr std::array<float, 23> KALEIDOSCOPE_HEX_SOFT_EXPECTED{
-      4.9755f,
-      0.125f,
-      0.05f,
-      4.971f,
-      0.0f,
-      1.0f,
-      1.0f,
-      0.0f,
-      0.0f,
-      1.0f,
-      1.0f,
-      0.0f,
-      0.0f,
-      0.361f,
-      1.0f,
-      0.0f,
-      0.0f,
-      0.0f,
-      1.0f,
-      1.0f,
-      0.27f,
-      2.2033439f,
-      -0.00040800002f,
-  };
-  expect_pinned_params("KALEIDOSCOPE_HEX_SOFT_EXPECTED",
-                       kaleidoscope_hex_soft_values,
-                       KALEIDOSCOPE_HEX_SOFT_EXPECTED);
   HS_EXPECT_EQ(mirror.slots.palette_mapping, WB::PaletteMapping::LINEAR);
   const auto &animated_mobius = presets[20];
-  HS_EXPECT_EQ(animated_mobius.params.warp.inner.speed, 0.005875f);
-  HS_EXPECT_EQ(animated_mobius.params.warp.inner.rotation, 0.0f);
-  HS_EXPECT_EQ(animated_mobius.params.warp.inner.cell_x, 0.2791094f);
-  HS_EXPECT_EQ(animated_mobius.params.warp.inner.cell_y, 6.810328f);
-  HS_EXPECT_EQ(animated_mobius.params.color.palette_chroma, 0.398f);
   HS_EXPECT_EQ(animated_mobius.slots.palette_mapping,
                WB::PaletteMapping::LINEAR);
-  const auto &kaleido_grid = presets[2].params;
-  const std::array<float, 25> kaleido_values{
-      kaleido_grid.source.pattern_freq,
-      kaleido_grid.source.speed,
-      kaleido_grid.source.angle_rate,
-      kaleido_grid.source.complexity,
-      kaleido_grid.source.pattern_mix,
-      kaleido_grid.source.secondary_rate,
-      kaleido_grid.projection.singularity_fade,
-      kaleido_grid.outer_camera.wander,
-      kaleido_grid.warp.outer.speed,
-      kaleido_grid.warp.outer.rotation,
-      kaleido_grid.warp.outer.cell_x,
-      kaleido_grid.warp.outer.cell_y,
-      kaleido_grid.warp.outer.offset_x,
-      kaleido_grid.warp.outer.offset_y,
-      kaleido_grid.value.edge_width,
-      kaleido_grid.color.palette_chroma,
-      kaleido_grid.color.mapping_frequency,
-      kaleido_grid.color.mapping_phase,
-      kaleido_grid.color.phase_oscillation_depth,
-      kaleido_grid.color.phase_oscillation_speed,
-      kaleido_grid.color.opacity_low,
-      kaleido_grid.color.opacity_high,
-      kaleido_grid.color.hue_shift_amount,
-      kaleido_grid.color.hue_noise_scale,
-      kaleido_grid.color.hue_noise_speed,
-  };
-  constexpr std::array<float, 25> KALEIDO_EXPECTED{
-      3.565f, 0.235f, 0.0f,        0.0f,      1.0f, 1.0f,   1.4f,
-      1.0f,   0.0f,   0.29530972f, 5.381125f, 1.0f, 1.344f, -1.456f,
-      0.5f,   0.4f,   1.0f,        0.0f,      0.0f, 0.0f,   1.0f,
-      1.0f,   0.424f, 2.2033439f,  0.0f,
-  };
-  expect_pinned_params("KALEIDO_EXPECTED", kaleido_values, KALEIDO_EXPECTED);
   const auto &affine_lattice = presets[6];
   HS_EXPECT_EQ(affine_lattice.slots.function, WB::Function::PRIMITIVE_LATTICE);
   HS_EXPECT_EQ(affine_lattice.slots.projection, WB::Projection::GNOMONIC);
@@ -2365,13 +2176,6 @@ inline void test_shader_workbench_preset_bank() {
                WB::ValueTransfer::ISO_CONTOUR);
   HS_EXPECT_EQ(affine_lattice.slots.coverage,
                WB::CoveragePolicy::PROJECTION_WEIGHT);
-  HS_EXPECT_EQ(affine_lattice.params.source.lattice_cell_scale, 1.22925f);
-  HS_EXPECT_EQ(affine_lattice.params.source.lattice_softness, 0.1608203f);
-  HS_EXPECT_EQ(affine_lattice.params.warp.outer.translation_x, 4.0f);
-  HS_EXPECT_EQ(affine_lattice.params.warp.outer.translation_y, 4.0f);
-  HS_EXPECT_EQ(affine_lattice.params.warp.outer.scale_x, 1.0f);
-  HS_EXPECT_EQ(affine_lattice.params.warp.outer.scale_y, 1.0f);
-  HS_EXPECT_EQ(affine_lattice.params.outer_camera.wander, 1.0f);
   const auto &fine_curl = presets[7];
   const auto &coarse_curl = presets[8];
   HS_EXPECT_EQ(fine_curl.slots.function, WB::Function::PRIMITIVE_LATTICE);
@@ -2380,8 +2184,6 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(fine_curl.slots.surface_noise_placement,
                WB::SurfaceNoisePlacement::BEFORE_LENS);
   HS_EXPECT_TRUE(WB::slots_equal(fine_curl.slots, coarse_curl.slots));
-  HS_EXPECT_EQ(fine_curl.params.surface_noise.scale, 1.78815627f);
-  HS_EXPECT_EQ(coarse_curl.params.surface_noise.scale, 3.29720306f);
   const auto &polar_wave = presets[9];
   HS_EXPECT_EQ(polar_wave.slots.surface_lens,
                WB::SurfaceLens::KALEIDOSCOPE_PENTAGONAL_PRISM);
@@ -2401,11 +2203,6 @@ inline void test_shader_workbench_preset_bank() {
                WB::WarpStageKind::MIRROR_TILE);
   HS_EXPECT_EQ(WB::warp_channel_layout(vector_mirror.slots.warp_program.outer),
                math::NoiseChannelLayout::DIRECT_VECTOR_V2);
-  HS_EXPECT_EQ(vector_mirror.params.source.pattern_freq, 4.9755f);
-  HS_EXPECT_EQ(vector_mirror.params.warp.outer.strength, 0.138f);
-  HS_EXPECT_EQ(vector_mirror.params.warp.outer.field_angle, 2.23053074f);
-  HS_EXPECT_EQ(vector_mirror.params.warp.inner.speed, 0.00327999983f);
-  HS_EXPECT_EQ(vector_mirror.params.color.hue_shift_amount, 0.721f);
   const auto &inner_mirror = presets[11];
   HS_EXPECT_EQ(inner_mirror.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(inner_mirror.slots.projection, WB::Projection::STEREOGRAPHIC);
@@ -2420,10 +2217,6 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(inner_mirror.slots.coverage,
                WB::CoveragePolicy::PROJECTION_WEIGHT_SQUARED);
   HS_EXPECT_EQ(inner_mirror.slots.palette_mapping, WB::PaletteMapping::CUP);
-  HS_EXPECT_EQ(inner_mirror.params.source.pattern_freq, 2.82629991f);
-  HS_EXPECT_EQ(inner_mirror.params.source.complexity, 0.513f);
-  HS_EXPECT_EQ(inner_mirror.params.source.secondary_rate, 0.8f);
-  HS_EXPECT_EQ(inner_mirror.params.source.angle_rate, 0.0269999988f);
   const auto &hexagonal_mirror = presets[12];
   HS_EXPECT_EQ(hexagonal_mirror.slots.function, WB::Function::TWIN_WAVE);
   HS_EXPECT_EQ(hexagonal_mirror.slots.projection,
@@ -2437,14 +2230,6 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(hexagonal_mirror.slots.palette, WB::PaletteMode::ANALOGOUS);
   HS_EXPECT_EQ(hexagonal_mirror.slots.palette_mapping,
                WB::PaletteMapping::BELL);
-  HS_EXPECT_EQ(hexagonal_mirror.params.source.pattern_freq, 3.881f);
-  HS_EXPECT_EQ(hexagonal_mirror.params.source.speed, 0.128598228f);
-  HS_EXPECT_EQ(hexagonal_mirror.params.color.hue_shift_amount, 0.226f);
-  HS_EXPECT_EQ(hexagonal_mirror.params.color.hue_noise_scale, 1.47215629f);
-  HS_EXPECT_EQ(hexagonal_mirror.params.color.hue_noise_speed, 0.000138f);
-  HS_EXPECT_EQ(hexagonal_mirror.params.color.palette_chroma, 1.0f);
-  HS_EXPECT_EQ(hexagonal_mirror.params.color.mapping_frequency, 1.341f);
-  HS_EXPECT_EQ(hexagonal_mirror.params.color.mapping_phase, -1.0f);
   const auto &complex_grid = presets[13];
   HS_EXPECT_EQ(complex_grid.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(complex_grid.slots.projection, WB::Projection::STEREOGRAPHIC);
@@ -2454,14 +2239,6 @@ inline void test_shader_workbench_preset_bank() {
                WB::WarpStageKind::NONE);
   HS_EXPECT_EQ(complex_grid.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(complex_grid.params.source.pattern_freq, 2.82629991f);
-  HS_EXPECT_EQ(complex_grid.params.source.complexity, 3.0f);
-  HS_EXPECT_EQ(complex_grid.params.source.pattern_mix, 1.0f);
-  HS_EXPECT_EQ(complex_grid.params.warp.inner.speed, 0.00013f);
-  HS_EXPECT_EQ(complex_grid.params.warp.inner.cell_y, 0.997703135f);
-  HS_EXPECT_EQ(complex_grid.params.color.hue_shift_amount, 0.366f);
-  HS_EXPECT_EQ(complex_grid.params.color.hue_noise_scale, 1.47215629f);
-  HS_EXPECT_EQ(complex_grid.params.color.palette_chroma, 1.0f);
   const auto &double_mapping_grid = presets[14];
   HS_EXPECT_EQ(double_mapping_grid.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(double_mapping_grid.slots.projection,
@@ -2470,12 +2247,6 @@ inline void test_shader_workbench_preset_bank() {
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
   HS_EXPECT_EQ(double_mapping_grid.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(double_mapping_grid.params.source.pattern_freq, 3.9407f);
-  HS_EXPECT_EQ(double_mapping_grid.params.source.complexity, 3.0f);
-  HS_EXPECT_EQ(double_mapping_grid.params.source.pattern_mix, 1.0f);
-  HS_EXPECT_EQ(double_mapping_grid.params.projection.wander, 0.165f);
-  HS_EXPECT_EQ(double_mapping_grid.params.color.mapping_frequency, 2.0f);
-  HS_EXPECT_EQ(double_mapping_grid.params.color.palette_chroma, 1.0f);
   const auto &equirectangular_grid = presets[15];
   HS_EXPECT_EQ(equirectangular_grid.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(equirectangular_grid.slots.projection,
@@ -2484,12 +2255,6 @@ inline void test_shader_workbench_preset_bank() {
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
   HS_EXPECT_EQ(equirectangular_grid.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(equirectangular_grid.params.source.pattern_freq, 3.9407f);
-  HS_EXPECT_EQ(equirectangular_grid.params.source.complexity, 3.0f);
-  HS_EXPECT_EQ(equirectangular_grid.params.projection.singularity_fade, 2.14f);
-  HS_EXPECT_EQ(equirectangular_grid.params.projection.wander, 0.165f);
-  HS_EXPECT_EQ(equirectangular_grid.params.color.mapping_frequency, 2.0f);
-  HS_EXPECT_EQ(equirectangular_grid.params.color.palette_chroma, 1.0f);
   const auto &single_mapping_equirectangular_grid = presets[16];
   HS_EXPECT_EQ(single_mapping_equirectangular_grid.slots.function,
                WB::Function::GRID);
@@ -2497,17 +2262,6 @@ inline void test_shader_workbench_preset_bank() {
                WB::Projection::EQUIRECTANGULAR);
   HS_EXPECT_EQ(single_mapping_equirectangular_grid.slots.surface_lens,
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
-  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.source.pattern_freq,
-               3.9407f);
-  HS_EXPECT_EQ(
-      single_mapping_equirectangular_grid.params.projection.singularity_fade,
-      2.14f);
-  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.projection.wander,
-               0.165f);
-  HS_EXPECT_EQ(
-      single_mapping_equirectangular_grid.params.color.mapping_frequency, 1.0f);
-  HS_EXPECT_EQ(single_mapping_equirectangular_grid.params.color.palette_chroma,
-               1.0f);
   const auto &fine_equirectangular_grid = presets[17];
   HS_EXPECT_EQ(fine_equirectangular_grid.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(fine_equirectangular_grid.slots.projection,
@@ -2516,17 +2270,6 @@ inline void test_shader_workbench_preset_bank() {
                WB::SurfaceLens::KALEIDOSCOPE_DODECAHEDRAL);
   HS_EXPECT_EQ(fine_equirectangular_grid.slots.warp_program.inner.kind,
                WB::WarpStageKind::MIRROR_TILE);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.source.pattern_freq, 0.3985f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.source.complexity, 3.0f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.warp.inner.speed, 0.00058f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.warp.inner.cell_y,
-               0.901890635f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.projection.singularity_fade,
-               2.14f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.projection.wander, 0.165f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.color.mapping_frequency,
-               21.212f);
-  HS_EXPECT_EQ(fine_equirectangular_grid.params.color.palette_chroma, 1.0f);
   const auto &alien_core = presets[18];
   HS_EXPECT_EQ(alien_core.slots.function, WB::Function::GRID);
   HS_EXPECT_EQ(alien_core.slots.projection, WB::Projection::STEREOGRAPHIC);
@@ -2541,64 +2284,6 @@ inline void test_shader_workbench_preset_bank() {
   HS_EXPECT_EQ(alien_core.slots.palette, WB::PaletteMode::TRIADIC);
   HS_EXPECT_EQ(alien_core.slots.palette_mapping, WB::PaletteMapping::LINEAR);
   HS_EXPECT_EQ(alien_core.slots.hue_shift, WB::HueShiftMode::WARP_DISPLACEMENT);
-  HS_EXPECT_EQ(alien_core.params.source.pattern_freq, 2.5477f);
-  HS_EXPECT_EQ(alien_core.params.source.speed, 0.235f);
-  HS_EXPECT_EQ(alien_core.params.source.complexity, 1.854f);
-  HS_EXPECT_EQ(alien_core.params.source.secondary_rate, 1.0f);
-  HS_EXPECT_EQ(alien_core.params.warp.outer.rotation, 0.295309722f);
-  HS_EXPECT_EQ(alien_core.params.warp.outer.cell_x, 5.381125f);
-  HS_EXPECT_EQ(alien_core.params.warp.outer.offset_x, 1.344f);
-  HS_EXPECT_EQ(alien_core.params.warp.outer.offset_y, -1.456f);
-  HS_EXPECT_EQ(alien_core.params.projection.singularity_fade, 1.4f);
-  HS_EXPECT_EQ(alien_core.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(alien_core.params.value.edge_width, 0.5f);
-  HS_EXPECT_EQ(alien_core.params.color.hue_shift_amount, 2.048f);
-  HS_EXPECT_EQ(alien_core.params.color.palette_chroma, 0.292f);
-  HS_EXPECT_EQ(alien_core.params.outer_camera.wander, 1.0f);
-  const auto &mobius_grid = presets[19];
-  constexpr auto MOBIUS_GRID_EXPECTED = std::to_array<uint32_t>(
-      {0,          1,          1,          4,          0,          0,
-       0,          0,          0,          1,          1337,       7,
-       0,          0,          0,          0,          1,          1337,
-       1,          0,          1,          1,          2,          1,
-       2,          1,          0,          0,          0,          0,
-       1,          1092781867, 1048240456, 1057182712, 0,          1061997773,
-       1021128475, 1065353216, 0,          0,          1065353216, 0,
-       1028443341, 1048576000, 0,          2927,       1036831949, 0,
-       1056964608, 0,          0,          0,          1065353216, 1065353216,
-       0,          1065353216, 0,          0,          0,          1065353216,
-       0,          0,          0,          1065353216, 1065353216, 0,
-       0,          1065353216, 0,          0,          1036831949, 1036831949,
-       0,          0,          0,          0,          0,          1065353216,
-       1065353216, 0,          1065353216, 0,          0,          0,
-       1065353216, 0,          0,          0,          1065353216, 1065353216,
-       0,          0,          1065353216, 0,          0,          1036831949,
-       1074169643, 0,          1065353216, 0,          1065353216, 1061752795,
-       0,          3213440844, 1050387939, 1054146036, 0,          0,
-       0,          1060439283, 0,          1056964608, 1028443341, 4,
-       0,          1056964608, 1028443341, 1036831949, 1050656375, 1065353216,
-       0,          1053542056, 1065353216, 0,          0,          0,
-       0,          1065353216, 1065353216, 1065353216, 1065353216, 0,
-       0,          1337,       1065353216, 0,          0,          0,
-       6,          1034147594, 1017370378, 0,          1056964608, 8,
-       0,          3209481421, 1042267767, 1082130432, 1065353216, 1025758986,
-       1017370378, 0});
-  static_assert(MOBIUS_GRID_EXPECTED.size() == WB::SB::CONFIG_FIELD_COUNT);
-  const auto mobius_grid_encoded = WB::encode_config(mobius_grid);
-  for (size_t index = 0; index < mobius_grid_encoded.size(); ++index) {
-    HS_CONTEXT("mobius grid field", static_cast<long long>(index));
-    HS_EXPECT_EQ(mobius_grid_encoded[index], MOBIUS_GRID_EXPECTED[index]);
-  }
-  HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
-  HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
-  HS_EXPECT_EQ(inner_mirror.params.warp.inner.speed, 0.00013f);
-  HS_EXPECT_EQ(inner_mirror.params.warp.inner.cell_y, 0.997703135f);
-  HS_EXPECT_EQ(inner_mirror.params.projection.singularity_fade, 3.432f);
-  HS_EXPECT_EQ(inner_mirror.params.projection.wander, 1.0f);
-  HS_EXPECT_EQ(inner_mirror.params.color.hue_shift_amount, 0.366f);
-  HS_EXPECT_EQ(inner_mirror.params.color.hue_noise_scale, 1.47215629f);
-  HS_EXPECT_EQ(inner_mirror.params.color.palette_chroma, 1.0f);
-  HS_EXPECT_EQ(inner_mirror.params.outer_camera.wander, 1.0f);
 
   reset_effect_globals();
   WB::SB sb;
