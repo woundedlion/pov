@@ -777,8 +777,6 @@ public:
    * @param handoff Palette provenance of the departed mesh.
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
-   * @param easing_fn Unused by the gate (no sweep); kept for the shared
-   * constructor signature.
    * @note Radial and apex motion are invisible to SDF::Face
    * (docs/specs/opchain_morph_spec.md, "Renderer constraints retained from
    * the design investigation"), so there is no sweep segment; the leg's
@@ -790,10 +788,9 @@ public:
   OpLeg(const PolyMesh &seed, const GatedSwapSpec &spec, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff,
         const BookendClasses &bookend = BookendClasses{.topology = nullptr,
-                                                       .faces = 0},
-        EasingFn easing_fn = math::ease_in_out_sin)
-      : AnimationBase(2 * spec.gate_frames + 1, false), easing_fn(easing_fn),
-        draw_fn(draw) {
+                                                       .faces = 0})
+      : AnimationBase(2 * spec.gate_frames + 1, false),
+        easing_fn(math::ease_in_out_sin), draw_fn(draw) {
     HS_CHECK(spec.gate_frames >= 1, "OpLeg needs a positive gate length");
     Transients &tr = init_transients(LegKind::GATED_SWAP, spec.gate_frames,
                                      arena, handoff, classic_blend);
