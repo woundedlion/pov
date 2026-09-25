@@ -58,12 +58,7 @@ PINS = {
     # PyPI's actionlint-py, whose version is the actionlint release plus a
     # packaging suffix.
     "actionlint": requirement_pin("actionlint", "actionlint-py"),
-    # The daydream commit the tree-fence and cross-repo jobs check out. Those
-    # jobs validate an exhaustive fence against that tree, so the checkout
-    # tracks a committed pin: daydream's tip moves independently and would both
-    # red unrelated engine changes and make a re-run of an unchanged commit flip
-    # its verdict. daydream pins this repository the same way, in
-    # holosphere_wasm.sha -- so the pair is circular and daydream lands first.
+    # The daydream revision used to validate the exhaustive documentation tree.
     "daydream": "dc2b037786a0c516e0c753676052f1e92a0b0b63",
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
     "emsdk": "5.0.0",

@@ -2,9 +2,9 @@
 
 This repository holds the Holosphere engine and firmware; the browser simulator
 lives in the sibling [daydream](https://github.com/woundedlion/daydream)
-repository and is built and installed from here. Read `README.md` §1–2 first —
-it is the architecture reference, and its file map is gated against the tracked
-tree. [§11 Building](README.md#11-building) has the commands for all three
+repository and is built and installed from here. Read `README.md` §3–4 first —
+its file map is gated against the tracked tree, and §4 describes the architecture.
+[§11 Building](README.md#11-building) has the commands for all three
 targets: the Teensy firmware, the WASM module, and the native test suite.
 
 ## Licensing
@@ -39,7 +39,8 @@ component (`scan: clamp the row index before the cast`). Commit messages carry
 
 `docs/specs/` holds the design specifications — the pullback pipeline, its
 stage families and preview interpreter, the shader workbench's chain schema and
-editor, Phantasm's frame-sync protocol, and the Phantasm segment board. Each
+editor, Conway and opchain morphs, congruence-class LUTs, segmented stateful
+effects, Phantasm's frame-sync protocol, and the Phantasm segment board. Each
 is the source of truth for one contract that spans several files, so a change
 that moves such a contract carries the spec update with it.
 
@@ -72,7 +73,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
 - **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
   `ctest --preset tests --output-on-failure --no-tests=error`. Every CI leg
   drives `HS_SMOKE_FRAMES=120`; at the 8-frame default no preset transition
-  arms. Set `HS_EFFECTS_FULL=1` to reproduce the full-resolution master leg
+  arms. Set `HS_EFFECTS_FULL=1` to reproduce the full-resolution leg (also run on pull requests)
   locally.
 - **Node script suite:** `npm test` runs every `scripts/*.test.mjs` — the
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
@@ -80,8 +81,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   its own `scripts-unit-tests` job.
 - **Native variants and coverage:** `sanitizers`, `thread-sanitizer`,
   `optimized-tests` and `windows-tests` exercise distinct runtime and platform
-  configurations. `code-coverage` enforces aggregate and directory coverage;
-  `shard-coverage` checks test-module selection across CI legs.
+  configurations. `code-coverage` enforces aggregate and directory coverage.
 - **Generated-source provenance:** `lut-provenance`, `reaction-graph-provenance`,
   `gamut-lut-provenance`, `srgb-decode-provenance` and `patterns-provenance`
   regenerate their artifacts and compare them with committed bytes. Change the
@@ -98,16 +98,10 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `python tools/run_python_tests.py`. It discovers every tracked suite, rejects
   empty suites, and propagates failures. Install `requirements/numpy.txt` first;
   no ARM toolchain or KiCad is required.
-- **Lint:** the CI `lint` job has seven legs — `tools/eol_gate.sh` first, so
-  every later leg reads the line endings `.gitattributes` declares, then
-  `ruff` over the Python tooling, `eslint` over the JavaScript, `shellcheck`
-  over every tracked `*.sh` and `.githooks/*`, `actionlint` over
-  `.github/workflows/*.yml` (which pipes every `run:` body through
-  `shellcheck`, since no workflow is a `*.sh` file), a `just --evaluate` /
-  `just --summary` parse of the `justfile`, and the profiling-roster
-  cross-check in `tools/profile_sweep.sh`. `just lint` runs all seven
-  locally; the hook lints staged Python, JavaScript, and shell files, so CI
-  remains authoritative.
+- **Lint:** `just lint` checks working-tree whitespace, then declared line endings,
+  Python selection and ruff, JavaScript selection and eslint, actionlint,
+  tracked shell files with shellcheck, and the profiling roster. CI applies the
+  corresponding checks; the hook lints staged Python, JavaScript, and shell files.
 - **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`
   without `--sync`: fences, links, anchors, every backticked repo path, the
   README's file map against the tracked tree and its effect counts against
@@ -120,13 +114,10 @@ protected branch's `CI green` status is the authoritative correctness gate.
   pre-commit check and `just license-headers` run it; `just python-test` runs
   the checker's unit tests.
 - **Simulator:** in the daydream checkout, `npm ci` then `npm test`; its
-  `pre-push` hook runs lint, typecheck, the import-map check and the JS suite,
-  and refuses a push from a tree that cannot run them. The `daydream-consumer`
-  job runs the same suite here: it installs the verified bundle the `wasm` job
-  built over a daydream checkout pinned in `tools/build_pins.py`, so a change to
-  anything this repository installs there fails before it is mirrored. daydream
-  pins this repository the other way round in `holosphere_wasm.sha`, which makes
-  the pair circular — land the daydream side first, then move the pin here.
+  `pre-push` hook runs lint, typecheck, the import-map check and three workflow
+  helper tests. The full JavaScript suite is separate. daydream's deployment gate
+  tests an immutable Holosphere/daydream pair before publishing; Holosphere CI
+  does not run a daydream consumer job. See daydream's deployment documentation.
 
 `--no-verify` is the explicit emergency escape from the local prefilter. It
 does not bypass protected-branch CI.
