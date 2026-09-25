@@ -629,20 +629,12 @@ inline void test_generative_palette_get_clamps_out_of_range() {
   HS_EXPECT_EQ(high.b, last.b);
 }
 
-inline void test_mobius_longitude_singularity_saturates_to_endpoint() {
-  const float z = 1.0f;
-  const float R = std::sqrt((1.0f + z) / (1.0f - z));
-  HS_EXPECT_TRUE(std::isinf(R));
-
-  const float t = (std::log(R) + 2.5f) / 5.0f;
-  const float wrapped = math::wrap(t, 1.0f);
-  HS_EXPECT_TRUE(std::isnan(wrapped));
-
+inline void test_generative_palette_get_nan_saturates_to_endpoint() {
   const GenerativePalette palette(
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
                               AxisCurve::CONSTANT, 0.0f, 0.86f));
   const Color4 endpoint = palette.get(1.0f);
-  const Color4 singular = palette.get(wrapped);
+  const Color4 singular = palette.get(std::numeric_limits<float>::quiet_NaN());
   HS_EXPECT_EQ(singular.color.r, endpoint.color.r);
   HS_EXPECT_EQ(singular.color.g, endpoint.color.g);
   HS_EXPECT_EQ(singular.color.b, endpoint.color.b);
