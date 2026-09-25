@@ -4,6 +4,7 @@
  */
 
 #include "engine/memory.h"
+#include "engine/concepts.h"
 
 #ifdef ARDUINO
 #include <exception>
@@ -216,3 +217,16 @@ FLASHMEM void resplit_arenas(size_t persistent, size_t scratch_a,
   scratch_arena_a.rebind(global_arena_block + bases.a, scratch_a);
   scratch_arena_b.rebind(global_arena_block + bases.b, scratch_b);
 }
+
+namespace hs {
+[[noreturn]] HS_COLD void function_ref_empty_call() {
+  check_fail(HS_SOURCE_FILE, __LINE__, "thunk != empty_thunk",
+             "empty FunctionRef called");
+}
+#ifndef ARDUINO
+[[noreturn]] HS_COLD void inplace_function_empty_call() {
+  check_fail(HS_SOURCE_FILE, __LINE__, "vtable != empty",
+             "empty hs::inplace_function called");
+}
+#endif
+} // namespace hs

@@ -4,22 +4,8 @@
  */
 
 #include "platform/platform.h"
-#include "engine/concepts.h"
 #include "animation/animation.h"
 #include "render/canvas.h"
-
-namespace hs {
-[[noreturn]] HS_COLD void function_ref_empty_call() {
-  check_fail(HS_SOURCE_FILE, __LINE__, "thunk != empty_thunk",
-             "empty FunctionRef called");
-}
-#ifndef ARDUINO
-[[noreturn]] HS_COLD void inplace_function_empty_call() {
-  check_fail(HS_SOURCE_FILE, __LINE__, "vtable != empty",
-             "empty hs::inplace_function called");
-}
-#endif
-} // namespace hs
 
 // The large static buffers below are defined here, not next to their
 // declarations: this TU is linked into every target, so gathering them keeps
