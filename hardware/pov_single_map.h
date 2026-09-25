@@ -31,7 +31,14 @@
  */
 #pragma once
 
+#include <cstdint>
+
 namespace pov {
+
+/** @brief WS2801 transfer and latch duration for a positive MHz clock. */
+constexpr unsigned long fastled_show_us(int leds, uint32_t clock_mhz) {
+  return 1000UL + (24UL * leds + clock_mhz - 1) / clock_mhz;
+}
 
 /**
  * @brief Physical LED index of the top-half strip pixel sampling canvas row y.

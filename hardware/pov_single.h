@@ -127,7 +127,7 @@ private:
   static constexpr uint32_t FASTLED_CLOCK_MHZ = 6;
   // FastLED's WS2801Controller waits up to 1000 us before each transmission.
   static constexpr unsigned long FASTLED_SHOW_US =
-      1000UL + (24UL * S + FASTLED_CLOCK_MHZ - 1) / FASTLED_CLOCK_MHZ;
+      pov::fastled_show_us(S, FASTLED_CLOCK_MHZ);
 #endif
 
   /**
