@@ -452,7 +452,7 @@ inline void perturb_determinism_globals() {
   Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT + 0.5f;
   configure_arenas(DEFAULT_PERSISTENT_SIZE - 32, DEFAULT_SCRATCH_A_SIZE + 16,
                    DEFAULT_SCRATCH_B_SIZE + 16);
-  for (Arena *arena : {&scratch_arena_a, &scratch_arena_b}) {
+  for (Arena *arena : {&persistent_arena, &scratch_arena_a, &scratch_arena_b}) {
     const size_t bytes = arena->get_capacity();
     std::memset(arena->allocate(bytes), 0xA5, bytes);
   }
