@@ -662,6 +662,40 @@ def require_clean_drc(report_path):
     return num_violations, num_unconnected
 
 
+class ElectricalRuleError(ValueError):
+    pass
+
+
+def require_clean_erc(report_path):
+    """Read every sheet's violations and require a clean error-severity report."""
+    try:
+        with open(report_path, encoding="utf-8") as fh:
+            report = json.load(fh)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ElectricalRuleError(f"cannot read ERC report: {report_path}") from exc
+    sheets = report.get("sheets") if isinstance(report, dict) else None
+    if not isinstance(sheets, list) or not sheets or any(
+            not isinstance(sheet, dict) or not isinstance(sheet.get("violations"), list)
+            for sheet in sheets):
+        raise ElectricalRuleError(f"ERC report has no sheets/violations sections: {report_path}")
+    count = sum(len(sheet["violations"]) for sheet in sheets)
+    if count:
+        raise ElectricalRuleError(f"ERC failed: {count} error-severity violations -> {report_path}")
+    return count
+
+
+def run_erc(report_path):
+    """Generate and require a clean schematic electrical-rule report."""
+    if os.path.exists(report_path):
+        os.remove(report_path)
+    result = run([kicad_cli(), "sch", "erc", "--severity-error", "--format", "json",
+                  "--exit-code-violations", "-o", report_path, SCH], check=False)
+    count = require_clean_erc(report_path)
+    if result.returncode:
+        raise ElectricalRuleError(f"kicad-cli erc exited {result.returncode} on a clean report: {report_path}")
+    return count
+
+
 class ProjectRulesError(ValueError):
     pass
 
@@ -1340,7 +1374,7 @@ def main():
         f"meet the {MIN_ZONE_GAP_MM:g} mm gap and "
         f"{MIN_THERMAL_SPOKE_MM:g} mm spoke / {MIN_ZONE_WIDTH_MM:g} mm fill minimums")
     os.makedirs(OUT, exist_ok=True)
-    print("[4/9] DRC report + schematic parity")
+    print("[4/9] DRC + ERC reports and schematic parity")
     try:
         num_floors = validate_project_rules()
     except ProjectRulesError as exc:
@@ -1354,6 +1388,12 @@ def main():
         sys.exit(str(exc))
     print(f"  DRC: {num_violations} error-severity violations, "
           f"{num_unconnected} unconnected items -> {rpt}")
+    erc_rpt = os.path.join(OUT, "phantasm-erc.json")
+    try:
+        num_erc = run_erc(erc_rpt)
+    except ElectricalRuleError as exc:
+        sys.exit(str(exc))
+    print(f"  ERC: {num_erc} error-severity violations -> {erc_rpt}")
     parity_rpt = os.path.join(OUT, "phantasm-parity.json")
     try:
         num_parity = run_parity(parity_rpt)

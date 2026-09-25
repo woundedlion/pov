@@ -87,12 +87,11 @@ committed board directly need no KiCad and run in CI
 
 - **N=8 firmware:** `pio run -e phantasm8` compiles and links the optional
   eight-board profile; this is firmware validation, not rotor qualification.
-- **ERC: 0 errors — verified once by hand.** No runner exists: `gen/` has no
-  ERC step, `erc*.rpt` is gitignored, and neither CI nor the `just` recipes
-  re-run it, so re-check it in KiCad (`kicad-cli sch erc`) after any schematic
-  change. The current warning-inclusive KiCad 10.0.4 check reports no violations.
+- **ERC: no error-severity violations** — `gen/fab.py` runs the pinned
+  `kicad-cli sch erc` before producing fabrication outputs, then validates every
+  sheet's JSON violation list in `out/phantasm-erc.json`. A missing or malformed
+  report, nonzero tool exit, or any reported violation stops fabrication.
   Power symbols have empty footprints; only `U_MCU` carries the Teensy land.
-  The exported connectivity is verified separately below.
 - **Netlist matches the electrical specification** — `gen/fab.py` holds the
   netlist it exports to the named-net table in `gen/check.py`, which also runs
   standalone against the committed schematic: every net in the table must match
