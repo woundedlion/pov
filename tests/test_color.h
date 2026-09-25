@@ -2728,7 +2728,7 @@ inline void test_clamp_finite_bounds_backend_parity() {
   X(test_gradient_get_clamps_out_of_range)                                     \
   X(test_generative_palette_get_clamps_out_of_range)                           \
   X(test_hue_rotation_lut_clamps_out_of_range_value)                           \
-  X(test_mobius_longitude_singularity_saturates_to_endpoint)
+  X(test_generative_palette_get_nan_saturates_to_endpoint)
 
 // ============================================================================
 // Runner
