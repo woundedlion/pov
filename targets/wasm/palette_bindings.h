@@ -113,7 +113,7 @@ private:
     // as<int>() range-asserts under -sASSERTIONS=1 and throws out through the
     // binding; checking as a double keeps NaN on INVALID_ENUM.
     const double value = field_value.as<double>();
-    if (!(value >= 0.0 && value <= LAST)) {
+    if (!(value >= 0.0 && value <= LAST) || value != std::floor(value)) {
       status.code = PaletteCompileCode::INVALID_ENUM;
       status.field = field;
       return false;
