@@ -63,14 +63,10 @@ test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1":
 normalize-eol:
     bash tools/eol_gate.sh --fix-worktree
 
-# Python, JavaScript and shell lint checks used by CI. ruff's and shellcheck's
-# rule sets move between releases, so both binaries on PATH are held to the pins
-# the ci.yml lint job installs; the npm linters are locked by package-lock.json.
-# The shell set is the same one that job enumerates from the index. Each linter
-# is preceded by that job's anti-vacuity probe. The line-ending check runs first
-# for the reason it does in that job: a working copy that diverged from its
-# eol=lf blob is what the linters below would otherwise read.
+# Run the shared local and CI lint checks.
 lint:
+    {{py}} tools/build_pins.py --check-tool just
+    bash tools/whitespace_gate.sh
     bash tools/eol_gate.sh
     {{py}} tools/build_pins.py --check-tool ruff
     bash tools/ruff_selection_guard.sh
@@ -82,9 +78,6 @@ lint:
     bash tools/profile_sweep.sh check
     {{py}} tools/build_pins.py --check-tool actionlint
     actionlint -shellcheck shellcheck
-    {{py}} tools/build_pins.py --check-tool just
-    just --evaluate
-    just --summary
 
 # Formatting gate over the whole tracked first-party C++ set: the ci.yml
 # clang-format job's invocation. Majors reflow differently, so the
