@@ -101,8 +101,8 @@ inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
 }
 
 /**
- * @brief Emit one output face per source-vertex orbit (the shared dual/ambo/
- *   expand/snub scaffold).
+ * @brief Emit one output face per source-vertex orbit for dual, ambo, expand,
+ * snub, truncate, and medial.
  * @tparam DIR Orbit direction passed through to vertex_orbit.
  * @tparam ValueFn Callable mapping a half-edge index to an output vertex index.
  * @param he_mesh Half-edge connectivity to walk.
