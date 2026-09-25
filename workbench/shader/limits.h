@@ -21,6 +21,7 @@ namespace Workbench {
 
 inline constexpr int POLAR_HARMONIC_MAX = Pullback::Warp::MAX_POLAR_HARMONIC;
 inline constexpr int BAND_COUNT_MAX = 32;
+inline constexpr float WAVE_SHEAR_STRENGTH_MAX = 4.0f;
 inline constexpr float WARP_SCALE_MIN = 1.0f / 64.0f;
 inline constexpr float VECTOR_WARP_SCALE_MAX = 4.0f;
 inline constexpr float VECTOR_WARP_STRENGTH_MAX = 1.0f;
@@ -161,7 +162,8 @@ warp_stage_params_in_ranges(WarpStageKind kind, const WarpStageParams &params) {
            params.shear >= -AFFINE_SHEAR_MAX &&
            params.shear <= AFFINE_SHEAR_MAX;
   case WarpStageKind::WAVE_SHEAR:
-    return params.strength >= -4.0f && params.strength <= 4.0f &&
+    return params.strength >= -WAVE_SHEAR_STRENGTH_MAX &&
+           params.strength <= WAVE_SHEAR_STRENGTH_MAX &&
            params.frequency >= WAVE_FREQUENCY_MIN &&
            params.frequency <= WAVE_FREQUENCY_MAX &&
            params.field_angle >= 0.0f && params.field_angle <= math::TWO_PI_F &&

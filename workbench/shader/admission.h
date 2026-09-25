@@ -39,7 +39,8 @@ HS_COLD_MEMBER inline constexpr bool
 valid_mobius(const math::MobiusParams &params);
 inline constexpr bool valid_slot_enums(const Slots &slots);
 HS_COLD_MEMBER inline constexpr bool
-valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params);
+stage_stability_admitted(const WarpStageSpec &spec,
+                         const WarpStageParams &params);
 
 HS_COLD_MEMBER inline constexpr SourceTraits source_traits(Function function) {
   switch (function) {
@@ -184,10 +185,10 @@ valid_config(const RequestedConfig &candidate) {
       !strict_seam_compatible(candidate) || !preset_in_ranges(candidate) ||
       !hue_shift_amount_in_range(candidate))
     return false;
-  if (!valid_stage_tuple(slots.warp_program.outer,
-                         candidate.params.warp.outer) ||
-      !valid_stage_tuple(slots.warp_program.inner,
-                         candidate.params.warp.inner) ||
+  if (!stage_stability_admitted(slots.warp_program.outer,
+                                candidate.params.warp.outer) ||
+      !stage_stability_admitted(slots.warp_program.inner,
+                                candidate.params.warp.inner) ||
       !safe_program_bounds(candidate))
     return false;
   if (slots.surface_lens == SurfaceLens::MOBIUS &&
@@ -232,7 +233,7 @@ curl_vector_component_bound(math::NoiseBasis) {
  * @brief Largest curl-flow strength the stage stability inequality admits at
  *        a stage's live scale, basis, and integrator.
  * @details Solves `scale * |strength| * G / n <= 1/2` — the same inequality
- * `valid_stage_tuple` enforces — for `|strength|`, so the registered slider
+ * `stage_stability_admitted` enforces — for `|strength|`, so the registered slider
  * spans exactly the admissible set instead of a range whose bulk is rejected.
  */
 HS_COLD_MEMBER inline constexpr float
@@ -247,68 +248,16 @@ curl_strength_limit(const WarpStageSpec &spec, const WarpStageParams &params) {
 }
 
 HS_COLD_MEMBER inline constexpr bool
-valid_stage_tuple(const WarpStageSpec &spec, const WarpStageParams &params) {
-  switch (spec.kind) {
-  case WarpStageKind::COUNT:
-    break;
-  case WarpStageKind::NONE:
-    return true;
-  case WarpStageKind::LEGACY_STEREO_NOISE:
+stage_stability_admitted(const WarpStageSpec &spec,
+                         const WarpStageParams &params) {
+  if (spec.kind == WarpStageKind::LEGACY_STEREO_NOISE ||
+      spec.kind >= WarpStageKind::COUNT)
     return false;
-  case WarpStageKind::AFFINE_FRAME:
-    return params.translation_x >= -AFFINE_TRANSLATION_MAX &&
-           params.translation_x <= AFFINE_TRANSLATION_MAX &&
-           params.translation_y >= -AFFINE_TRANSLATION_MAX &&
-           params.translation_y <= AFFINE_TRANSLATION_MAX &&
-           params.rotation >= -math::TWO_PI_F &&
-           params.rotation <= math::TWO_PI_F &&
-           params.scale_x >= AFFINE_SCALE_MIN &&
-           params.scale_x <= AFFINE_SCALE_MAX &&
-           params.scale_y >= AFFINE_SCALE_MIN &&
-           params.scale_y <= AFFINE_SCALE_MAX &&
-           params.shear >= -AFFINE_SHEAR_MAX &&
-           params.shear <= AFFINE_SHEAR_MAX &&
-           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-  case WarpStageKind::WAVE_SHEAR:
-    return params.strength >= -4.0f && params.strength <= 4.0f &&
-           params.frequency >= WAVE_FREQUENCY_MIN &&
-           params.frequency <= WAVE_FREQUENCY_MAX &&
-           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-  case WarpStageKind::VORTEX:
-    return params.radius >= VORTEX_RADIUS_MIN &&
-           params.radius <= VORTEX_RADIUS_MAX &&
-           params.turns >= -VORTEX_TURNS_MAX &&
-           params.turns <= VORTEX_TURNS_MAX &&
-           params.center_orbit_radius >= 0.0f &&
-           params.center_orbit_radius <= VORTEX_ORBIT_MAX &&
-           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-  case WarpStageKind::VECTOR_NOISE:
-    return params.strength >= 0.0f &&
-           params.strength <= VECTOR_WARP_STRENGTH_MAX &&
-           params.scale >= 1.0f / 64.0f &&
-           params.scale <= VECTOR_WARP_SCALE_MAX &&
-           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-  case WarpStageKind::CURL_FLOW:
-    return params.strength >= -CURL_WARP_STRENGTH_MAX &&
-           params.strength <= CURL_WARP_STRENGTH_MAX &&
-           params.scale >= 1.0f / 64.0f &&
-           params.scale <= CURL_WARP_SCALE_MAX &&
-           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX &&
-           params.scale * abs_value(params.strength) *
-                   curl_vector_component_bound(spec.basis) /
-                   curl_intervals(spec.curl_integrator) <=
-               0.5f;
-  case WarpStageKind::MIRROR_TILE:
-    return params.rotation >= 0.0f && params.rotation <= math::TWO_PI_F &&
-           params.cell_x >= CELL_MIN && params.cell_x <= CELL_MAX &&
-           params.cell_y >= CELL_MIN && params.cell_y <= CELL_MAX &&
-           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-  case WarpStageKind::POLAR_CHART:
-    return params.radial_scale >= POLAR_RADIAL_SCALE_MIN &&
-           params.radial_scale <= POLAR_RADIAL_SCALE_MAX &&
-           params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX;
-  }
-  return false;
+  return spec.kind != WarpStageKind::CURL_FLOW ||
+         params.scale * abs_value(params.strength) *
+                 curl_vector_component_bound(spec.basis) /
+                 curl_intervals(spec.curl_integrator) <=
+             0.5f;
 }
 
 HS_COLD_MEMBER inline constexpr float
