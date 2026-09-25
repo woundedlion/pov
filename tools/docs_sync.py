@@ -29,6 +29,8 @@ def parse_rows(body: list[str]) -> list[Row]:
     for line in body:
         match = dc.TREE_ROW_RE.match(line)
         if match is None:
+            if not stack and line.strip():
+                raise ValueError(f"unexpected tree preamble: {line}")
             if stack and line.strip("│ "):
                 stack[-1].continuation.append(line[len(stack) * 4:])
             elif stack:
