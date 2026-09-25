@@ -870,7 +870,7 @@ export function canonicalDescriptor(document) {
  * without `unit`. A unit is a display label for the editor; the engine reads a
  * parameter through its storage and domain and never sees it, so two chains
  * differing only in a label are the same program and must digest alike. The
- * label stays in the canonical document â€” this view exists only to be hashed.
+ * label stays in the canonical document — this view exists only to be hashed.
  * @param {*} descriptor - A canonicalDescriptor() result.
  * @returns {*} The same descriptor with every parameter's unit removed.
  */
@@ -1245,6 +1245,7 @@ export function expandV1Document(document, catalog) {
   nodes.forEach((node, index) => {
     const path = `$.descriptor.graph.nodes[${index}]`;
     object(node, path);
+    if ('resources' in node) array(node.resources, `stage.${node.role}.resources`);
     if (!V1_STAGE_ROLES.includes(node.role))
       failV1('INVALID_STAGE_ROLE', `${path}.role`, `Unknown stage role "${node.role}".`);
     if (roleNodes.has(node.role))
@@ -1477,8 +1478,10 @@ export function compileShaderDocument(source, options = {}) {
       : checkDecodedDocumentLimits(source, options.limits);
     object(document, '$');
     let parameterIds = null;
+    let v1Digest = null;
     if (document.schema_version === 1) {
       const expansion = expandV1Document(document, options.catalog);
+      v1Digest = v1DescriptorDigest(document);
       document = expansion.document;
       parameterIds = expansion.parameter_ids;
     }
@@ -1500,7 +1503,7 @@ export function compileShaderDocument(source, options = {}) {
       preset_bank_json,
       preset_bank_digest,
       diagnostics: [],
-      ...(parameterIds === null ? {} : { parameter_ids: parameterIds }),
+      ...(parameterIds === null ? {} : { parameter_ids: parameterIds, v1_descriptor_digest: v1Digest }),
     };
   } catch (error) {
     if (!(error instanceof ShaderDocumentError)) throw error;
