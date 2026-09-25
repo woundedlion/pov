@@ -2812,6 +2812,20 @@ inline void case_feedback_downsample_indivisible() {
   pipe.begin_frame(c, 1.0f);
 }
 
+inline void case_feedback_uncached_scratch_budget() {
+  DeathEffect fx;
+  Canvas first(fx);
+  first(0, 0) = Pixel(65535, 65535, 65535);
+  fx.advance_display();
+  Canvas canvas(fx);
+  static uint8_t storage[16];
+  scratch_arena_a.rebind(storage, sizeof(storage));
+  ::Feedback::Style style{};
+  Pipeline<32, 16, Filter::Pixel::Feedback<32, 16>> pipe{
+      Filter::Pixel::Feedback<32, 16>(style)};
+  pipe.begin_frame(canvas, 1.0f);
+}
+
 /**
  * @brief Death case: retuning a screen trail to a non-positive lifetime must trap.
  * @details Filter surface — Screen::Trails::set_lifetime carries the
@@ -5379,6 +5393,10 @@ inline const Case *all_cases(int &n) {
            "core/render/filter/pixel_feedback.h",
            "(downsample > 0 && W % downsample == 0) feedback downsample 5 must "
            "be > 0 and divide width 32"},
+          {"feedback_uncached_scratch_budget",
+           case_feedback_uncached_scratch_budget,
+           "core/render/filter/pixel_feedback.h",
+           "(UNCACHED_SCRATCH_BYTES(grid.downsample) <= scratch.get_capacity() - scratch.get_offset()) uncached feedback needs more scratch:"},
           {"screen_trails_set_lifetime_nonpositive",
            case_screen_trails_set_lifetime_nonpositive,
            "core/render/filter/screen_trails.h",
