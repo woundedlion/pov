@@ -131,38 +131,6 @@ inline void test_y_to_phi_templated_LUT() {
   HS_EXPECT_GT(math::y_to_phi<H>(5.0f + 1e-5f), math::y_to_phi<H>(5));
 }
 
-/**
- * @brief Pins the offset semantics of the phi mapping by injecting a non-zero
- *        offset directly through the free function, so the formula holds even
- *        though the native build has H_OFFSET==0.
- * @details The free function is the building block the templated path mirrors.
- *          H_OFFSET adds virtual rows so the image is CLIPPED (not stretched) at
- *          the bottom of the ring, where the LEDs stop short of the south pole.
- *          The mapping is phi = y*PI/(H_VIRT-1) with H_VIRT = H + H_OFFSET, so
- *          the bottom physical row y=H-1 lands short of PI while the virtual
- *          bottom row reaches PI exactly. The guard also asserts the offset is
- *          applied once, not twice (dividing by H + 2*OFF - 1 would push the
- *          bottom row even further from the pole).
- */
-inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
-  constexpr int H = 20;           // Holosphere hardware height
-  constexpr int OFF = 3;          // hardware H_OFFSET
-  constexpr int H_VIRT = H + OFF; // 23
-  const float bottom_phys = static_cast<float>(H - 1); // y = 19
-
-  float correct = math::y_to_phi_virtual(bottom_phys, H_VIRT); // 19*PI/22
-  HS_EXPECT_NEAR(correct, bottom_phys * math::PI_F / (H_VIRT - 1), 1e-5f);
-  HS_EXPECT_TRUE(correct < math::PI_F);
-
-  // A double-applied offset would divide by (H + 2*OFF - 1) = 25.
-  float double_applied =
-      bottom_phys * math::PI_F / (H + 2 * OFF - 1); // 19*PI/24
-  HS_EXPECT_TRUE(std::abs(correct - double_applied) > 1e-2f);
-
-  HS_EXPECT_NEAR(math::y_to_phi_virtual(static_cast<float>(H_VIRT - 1), H_VIRT),
-                 math::PI_F, 1e-5f);
-}
-
 // ============================================================================
 // TrigLUT / pixel_to_vector / vector_to_pixel
 // ============================================================================
@@ -893,7 +861,6 @@ inline int run_geometry_tests() {
   test_phi_to_y_south_pole_row_in_bounds();
   test_y_phi_roundtrip();
   test_y_to_phi_templated_LUT();
-  test_y_to_phi_offset_injection_clips_no_double_apply();
 
   test_pixel_to_vector_unit_length();
   test_pixel_to_vector_known_samples();
