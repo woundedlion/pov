@@ -615,10 +615,8 @@ struct NoInstrumentation {
 `MATERIAL`, and `COLOR`. `MIRROR_TILE` is nested inside `PLANAR_WARP`;
 its cycles are a subset and must not be added again when totaling stage time.
 `NoInstrumentation` compiles to no statements.
-ShaderWorkbench supplies a hook policy that maps these events to the existing
-`HS_SB_STAGE_MARK`/`HS_SB_STAGE_SPAN` counters. Instrumented builds shall
-preserve the current boundary and nesting order. Shipping builds shall show no
-hook symbol or instruction.
+ShaderWorkbench currently supplies a no-op hook policy. The event-to-counter
+mapping described by this design was not implemented.
 
 ## 8. Concrete core operator and stage catalog
 
@@ -781,7 +779,7 @@ Required lens policies:
 
 `SurfaceLens::TANGENT_NOISE` is a serialization tombstone, not a rendering
 policy. Valid configurations reject it and the current lens dispatcher has no
-formula. The Section 8.7 census classifies it as `SENTINEL`/import-only,
+formula. It is import-only,
 parallel to `WarpStageKind::LEGACY_STEREO_NOISE`. It may enter the catalog only
 after a formula and finite-domain contract are separately specified and
 admitted.
@@ -852,8 +850,7 @@ Required policies:
 
 `WarpStageKind::LEGACY_STEREO_NOISE` is not a policy. It is a serialization
 tombstone rejected by `valid_config`; its current switch arm is unreachable and
-has no admitted rendering formula. The Section 8.7 census classifies it as
-`SENTINEL`/import-only. A future implementation would require a separately
+has no admitted rendering formula. It is import-only. A future implementation would require a separately
 specified formula and admission before it could enter the core catalog.
 
 Compile-time choices use core tag types, not consumer authoring enums. The
@@ -1014,13 +1011,8 @@ enum class HueMode : uint8_t {
 }
 ```
 
-The values and semantics are stable core API, not aliases of ShaderWorkbench's
-serialized enum types. ShaderWorkbench keeps its authoring enums and provides
-constexpr conversions guarded by a `static_assert` for every enumerator/value
-pair. Its color provider returns the core enum types, never a raw integer.
-Because the admitted values are intentionally identical, the conversion is a
-zero-cost underlying-value conversion; disassembly must show no per-pixel
-conversion switch.
+The values and semantics are core API. ShaderWorkbench aliases the core colour
+enums directly; it does not maintain separate authoring enums or conversions.
 
 The shipping `GeneratedPalette` color policy may retain deliberately runtime
 mapping, brightness, and hue selectors because ShaderWorkbench does not compile
@@ -1345,7 +1337,6 @@ suite becomes mandatory from Phase B onward.
 
 The existing `tests/test_shader_workbench.h` suite is updated, not weakened. It adds:
 
-- the Section 8.7 operator-enum census;
 - every manifest row assembled solely from core top-level stages plus empty
   ShaderWorkbench matching wrappers;
 - all state providers empty and bound to the exact `FrameState`;
@@ -1465,6 +1456,9 @@ emits exactly one boot record:
 ```text
 Pullback arm: LEGACY|CORE|LANDED sha=<short-sha>[-dirty]
 ```
+
+> Historical proposal: the following program-change event was not implemented.
+> Current profiling does not emit `Pullback program` events.
 
 The branch build supplies `LEGACY` or `CORE`; a normal build defaults to
 `LANDED`. The build hook appends `-dirty` when the image came from a modified
