@@ -477,60 +477,6 @@ struct Params {
     color = Pullback::Fields::interpolate(a.color, b.color, t);
     outer_camera.lerp(a.outer_camera, b.outer_camera, t);
   }
-
-  HS_COLD_MEMBER void lerp_staggered(const Params &a, const Params &b, float t,
-                                     const Slots &slots = Slots{}) {
-    const bool color_changed = []<size_t... I>(const ColorParams &lhs,
-                                               const ColorParams &rhs,
-                                               std::index_sequence<I...>) {
-      return ((lhs.*ColorParams::FIELDS[I].member !=
-               rhs.*ColorParams::FIELDS[I].member) ||
-              ...);
-    }(a.color, b.color, std::make_index_sequence<ColorParams::FIELDS.size()>{});
-    const int phase_count = (a.source != b.source) + (a.warp != b.warp) +
-                            (a.projection != b.projection) +
-                            (a.surface_lens != b.surface_lens) +
-                            (a.value != b.value) + color_changed +
-                            (a.outer_camera != b.outer_camera) +
-                            (a.surface_noise != b.surface_noise);
-    int phase = 0;
-    source = a.source;
-    warp = a.warp;
-    projection = a.projection;
-    surface_lens = a.surface_lens;
-    value = a.value;
-    color = a.color;
-    outer_camera = a.outer_camera;
-    surface_noise = a.surface_noise;
-    if (a.source != b.source)
-      source.lerp(a.source, b.source, phase_t(t, phase++, phase_count));
-    if (a.warp != b.warp)
-      warp.lerp(a.warp, b.warp, phase_t(t, phase++, phase_count),
-                slots.warp_program);
-    if (a.projection != b.projection)
-      projection.lerp(a.projection, b.projection,
-                      phase_t(t, phase++, phase_count));
-    if (a.surface_lens != b.surface_lens)
-      surface_lens.lerp(a.surface_lens, b.surface_lens,
-                        phase_t(t, phase++, phase_count));
-    if (a.value != b.value)
-      value.lerp(a.value, b.value, phase_t(t, phase++, phase_count));
-    if (color_changed) {
-      const float color_t = phase_t(t, phase++, phase_count);
-      color = Pullback::Fields::interpolate(a.color, b.color, color_t);
-    }
-    if (a.outer_camera != b.outer_camera)
-      outer_camera.lerp(a.outer_camera, b.outer_camera,
-                        phase_t(t, phase++, phase_count));
-    if (a.surface_noise != b.surface_noise)
-      surface_noise.lerp(a.surface_noise, b.surface_noise,
-                         phase_t(t, phase, phase_count));
-  }
-
-  HS_COLD_MEMBER static float phase_t(float t, int phase, int phase_count) {
-    return math::ease_in_out_sin(
-        hs::clamp(t * phase_count - phase, 0.0f, 1.0f));
-  }
 };
 
 struct Config {
