@@ -19,9 +19,11 @@
  * @details Style is trivially copyable — safe to store in a PRESETS table
  * and lerp.
  * Typical usage:
+ * @code
  *   Feedback::Style style = Feedback::Style::Smoke();
- *   style.noise = &amp;my_noise_params;   // bind effect-owned state at init
+ *   style.noise = &my_noise_params;   // bind effect-owned state at init
  *   style.sync_noise();               // push scalars → NoiseParams each frame
+ * @endcode
  */
 namespace Feedback {
 
@@ -103,12 +105,11 @@ struct Style {
   // --- Filter tuning (snap during lerp) ---
   /**
    * Coarse-grid downsample factor for the warp field. Higher = cheaper
-   * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. One
-   * flush holds the coarse x/y offset grid, the spherical control samples it
-   * expands from, and one W-pixel row in the scratch arena at once; pole infill
-   * puts the ring count above a flat (W/DS) x (H/DS) grid while the sin(phi)
-   * thinning holds the sample count below it at 288x144. At 288x144, DS=4 ≈
-   * 21KB, DS=2 ≈ 71KB.
+   * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. Uncached
+   * flushes hold the offset grid, spherical controls and one W-pixel row in
+   * scratch (288x144: DS=4 ≈ 22 KiB, DS=2 ≈ 71 KiB). With init_storage() at
+   * the default DS, the grid lives in the persistent warp cache; scratch holds
+   * only the controls and a row on frames that repopulate the cache.
    */
   int downsample = 4;
 
