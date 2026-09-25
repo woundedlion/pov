@@ -1,73 +1,20 @@
-// The decisions the WASM smoke test fails CI on, separated from the module it
-// drives.
-//
-// wasm_smoke.mjs cannot run without a built WASM module, so nothing gated the
-// judgements it makes with one: the all-black expectation for a short frame
-// window, the stack creep budget it compares every high-water mark against, the
-// zip between the two embind parameter streams, and the resolution of every
-// promoted document parameter id against its effect's controls. Each decides
-// whether a real defect reds CI, and each is a pure function of numbers,
-// strings and arrays -- kept here, free of the module, so
-// wasm_smoke_predicates.test.mjs can gate them with no build.
+// Pure validation predicates for the headless WASM smoke test.
 
 import { fixedDerivedBinding } from './shader_workbench.mjs';
-
-/** Effect whose rings expand from zero radius, so a short window is black. */
-export const DARK_EXEMPT = 'RingShower';
-
-/**
- * Frame counts bracketing the exemption. Below the first, the exempt effect is
- * certainly dark; at or above the second, certainly lit. The per-load RNG
- * reseed moves the crossing by a few frames, so in between either is accepted.
- */
-export const DARK_BAND = [24, 48];
 
 /** Fraction of a sub-ceiling stack capacity treated as the creep budget. */
 export const STACK_MAX_FILL = 0.75;
 
 /**
- * @param {number} frames Frames rendered per effect.
- * @returns {'exempt-dark'|'either'|'lit'} What the exempt effect must be.
- */
-export function darknessExpectation(frames) {
-  if (frames < DARK_BAND[0]) return 'exempt-dark';
-  return frames >= DARK_BAND[1] ? 'lit' : 'either';
-}
-
-/**
- * Every all-black verdict that does not match the expectation.
- *
  * @param {object} run
  * @param {number} run.frames Frames rendered per effect.
- * @param {[number, number][]} run.resolutions Every swept resolution.
- * @param {Set<string>} run.sweptEffects Effect names actually rendered.
  * @param {Set<string>} run.darkKeys "Name@WxH" passes that lit no pixel.
- * @returns {string[]} One message per problem; empty means the sweep agrees.
+ * @returns {string[]} One message per all-black pass.
  */
-export function darknessProblems({ frames, resolutions, sweptEffects, darkKeys }) {
-  const problems = [];
-  // The exemption is only meaningful while it names a live roster entry; a
-  // rename would otherwise silently drop the pin.
-  if (!sweptEffects.has(DARK_EXEMPT)) {
-    problems.push(`the all-black exemption names "${DARK_EXEMPT}", which is not in the ` +
-      `rendered roster — the exemption is stale`);
-  }
-  const expectation = darknessExpectation(frames);
-  const wantDark = new Set(expectation === 'exempt-dark'
-    ? resolutions.map(([w, h]) => `${DARK_EXEMPT}@${w}x${h}`) : []);
-  for (const key of darkKeys) {
-    if (wantDark.has(key)) continue;
-    if (expectation === 'either' && key.startsWith(`${DARK_EXEMPT}@`)) continue;
-    problems.push(`${key}: every pixel is zero after ${frames} frame(s) — ` +
-      `its draw path or the framebuffer view is dead`);
-  }
-  for (const key of wantDark) {
-    if (!darkKeys.has(key)) {
-      problems.push(`${key}: lit after ${frames} frame(s), but the all-black ` +
-        `exemption still claims it is dark`);
-    }
-  }
-  return problems;
+export function darknessProblems({ frames, darkKeys }) {
+  return [...darkKeys].map((key) =>
+    `${key}: every pixel is zero after ${frames} frame(s): ` +
+    `its draw path or the framebuffer view is dead`);
 }
 
 /**
