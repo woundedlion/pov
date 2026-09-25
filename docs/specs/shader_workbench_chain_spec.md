@@ -362,9 +362,10 @@ Full parity with the pointer gestures, rotated to the horizontal:
 
 `chain_strip.js` is the view over the store-facing contract of
 `chain_document_store.js`, whose `setPresetValue` is the preset-value write
-§4.4 needs; its `deactivatedParameterIds` predicate reads document
-declarations rather than engine definitions. `chain_apply.js` holds the
-engine boundary and `shader_workbench.mjs` the schema. `shader.html` lays
+§4.4 needs. `chain_presentation.js` supplies `deactivatedParameterIds`,
+which reads document declarations, and shared presentation rules.
+`shader_documents.js` owns the document toolbar, Save and parity toggle.
+`chain_apply.js` holds the engine boundary and `shader_workbench.mjs` the schema. `shader.html` lays
 out the §4.1 regions with `shader.css`. The strip suite
 (`chain_strip.test.js`) covers band and socket layout, socket replacement,
 × legality (absent on crossings), button and Alt+Arrow reorder, undo and
