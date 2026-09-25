@@ -28,23 +28,17 @@ constexpr uint32_t BRIGHT_ENERGY = 12288;
 constexpr uint32_t COVERAGE_ENERGY = 512;
 constexpr uint32_t HIGH_CHANNEL_ERROR = 4096;
 
-/** Candidate-vs-reference visual budget. Every bound is the maximum measured
- * over the oracle matrix and the high-count star presets times a headroom
- * factor, and every case prints achieved-vs-budget. Whole-frame statistics
- * average over the entire canvas and take the tight factor; the worst single
- * pixel is a discrete extremum that hops to a neighbouring edge pixel when the
- * rounding shifts, so it takes the loose one. Mean, RMS and the star high-error
- * count peak on the square-wave planar star at count=75; the worst pixel and
- * the non-star high-error count on the square-wave flower at count=75. */
+/** High-count star budgets use the seven preset/orientation measurements.
+ * Whole-frame metrics allow 20% headroom; the worst channel allows 50%.
+ * The oracle matrix has separate per-case error budgets. */
 constexpr double WHOLE_FRAME_HEADROOM = 1.2;
 constexpr double WORST_PIXEL_HEADROOM = 1.5;
-constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 279.1;
-constexpr double MEASURED_ROOT_MEAN_SQUARED_ERROR = 947.7;
-constexpr uint32_t MEASURED_CHANNEL_ERROR = 15768;
+constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 173.2;
+constexpr double MEASURED_ROOT_MEAN_SQUARED_ERROR = 509.4;
+constexpr uint32_t MEASURED_CHANNEL_ERROR = 10482;
 constexpr double MEASURED_ENERGY_DRIFT = 0.00397;
-constexpr double MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.0120;
-constexpr size_t MEASURED_HIGH_ERROR_PIXELS = 452;
-constexpr size_t MEASURED_STAR_HIGH_ERROR_PIXELS = 1456;
+constexpr double MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.0119;
+constexpr size_t MEASURED_STAR_HIGH_ERROR_PIXELS = 225;
 
 constexpr double MAX_MEAN_ABSOLUTE_ERROR =
     MEASURED_MEAN_ABSOLUTE_ERROR * WHOLE_FRAME_HEADROOM;
@@ -56,8 +50,6 @@ constexpr double MAX_ENERGY_DRIFT =
     MEASURED_ENERGY_DRIFT * WHOLE_FRAME_HEADROOM;
 constexpr double MAX_HIGH_COUNT_STAR_ENERGY_DRIFT =
     MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT * WHOLE_FRAME_HEADROOM;
-constexpr size_t MAX_HIGH_ERROR_PIXELS =
-    static_cast<size_t>(MEASURED_HIGH_ERROR_PIXELS * WHOLE_FRAME_HEADROOM);
 constexpr size_t MAX_STAR_HIGH_ERROR_PIXELS =
     static_cast<size_t>(MEASURED_STAR_HIGH_ERROR_PIXELS * WHOLE_FRAME_HEADROOM);
 using OracleEffect = ShapeShifter<ORACLE_W, ORACLE_H>;
@@ -575,12 +567,12 @@ inline void report_visual_budget(const OracleState &state,
       high_error_pixels, max_high_error_pixels);
 }
 
-inline void expect_candidate_within_visual_budget(
-    const OracleState &state, double max_energy_drift = MAX_ENERGY_DRIFT,
-    size_t max_high_error_pixels = MAX_HIGH_ERROR_PIXELS,
-    double max_mae = MAX_MEAN_ABSOLUTE_ERROR,
-    double max_rmse = MAX_ROOT_MEAN_SQUARED_ERROR,
-    uint32_t max_channel = MAX_CHANNEL_ERROR) {
+inline void expect_candidate_within_visual_budget(const OracleState &state,
+                                                  double max_energy_drift,
+                                                  size_t max_high_error_pixels,
+                                                  double max_mae,
+                                                  double max_rmse,
+                                                  uint32_t max_channel) {
   RenderComparison comparison =
       compare_renders(state, reference_renderer(), candidate_renderer());
   const uint64_t reference_energy = frame_energy(comparison.reference);
@@ -742,7 +734,9 @@ inline void test_high_count_star_preset_stays_within_visual_budget() {
     state.alpha = 0.274f;
     state.orientation = orientations[i];
     expect_candidate_within_visual_budget(
-        state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT, MAX_STAR_HIGH_ERROR_PIXELS);
+        state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT, MAX_STAR_HIGH_ERROR_PIXELS,
+        MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR,
+        MAX_CHANNEL_ERROR);
   }
 }
 
@@ -758,8 +752,9 @@ inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
   state.alpha = 0.274f;
   state.orientation =
       math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
-  expect_candidate_within_visual_budget(state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT,
-                                        MAX_STAR_HIGH_ERROR_PIXELS);
+  expect_candidate_within_visual_budget(
+      state, MAX_HIGH_COUNT_STAR_ENERGY_DRIFT, MAX_STAR_HIGH_ERROR_PIXELS,
+      MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR, MAX_CHANNEL_ERROR);
 }
 
 inline void test_high_count_star_preset_covers_north_pole() {
