@@ -35,8 +35,7 @@ class CommittedProjectConstraintTests(unittest.TestCase):
 
 
 class UnplacedProjectConstraintTests(unittest.TestCase):
-    """The unplaced Quilter project has no generator, so nothing but this pin
-    would notice its constraints drifting to the routed board's floors."""
+    """Captured unplaced values that the generator's constraint floors must not undercut."""
 
     def setUp(self):
         self.project = json.loads(UNPLACED_PROJECT.read_text(encoding="utf-8"))
