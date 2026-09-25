@@ -1248,6 +1248,22 @@ inline void test_mobius_frame_admission() {
   reset_effect_globals();
   auto effect = std::make_unique<MobiusFrameProbe>();
   effect->init();
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  effect->params.lens.mobius = math::MobiusParams{};
+  const auto captured = effect->serialize_parameters();
+  HS_EXPECT_FALSE(effect->animations_paused());
+  HS_EXPECT_EQ(effect->updateParameter("Mobius A Re", 0.0f),
+               ParamSetResult::INADMISSIBLE);
+  verify_params_equal(effect->serialize_parameters().params, captured.params);
+  HS_EXPECT_FALSE(effect->animations_paused());
+  HS_EXPECT_TRUE(effect->parameter_warning("Mobius A Re") != nullptr);
+  HS_EXPECT_TRUE(effect->parameter_warning("Mobius B Re") == nullptr);
+  HS_EXPECT_EQ(effect->updateParameter("Mobius A Re", 0.5f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(effect->animations_paused());
+  HS_EXPECT_TRUE(effect->parameter_warning("Mobius A Re") == nullptr);
+  HS_EXPECT_TRUE(effect->restore_parameters(effect->serialize_parameters()));
+#endif
   for (const math::MobiusParams bad :
        {math::MobiusParams{1, 0, 1, 0, 1, 0, 1, 0},
         math::MobiusParams{std::numeric_limits<float>::quiet_NaN(), 0, 0, 0, 0,
