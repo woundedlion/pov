@@ -120,8 +120,7 @@ template <typename R, typename... Args> struct ipf_empty_ops {
  *          than a heap allocation. The stored callable must be trivially
  *          destructible, which makes inplace_function trivially destructible in
  *          turn, so an ArenaVector may hold one. operator() is const-qualified
- *          (the buffer is mutable) to match std::function, the fallback this
- *          replaces.
+ *          (the buffer is mutable).
  */
 template <typename R, typename... Args, size_t Capacity, size_t Alignment>
 class inplace_function<R(Args...), Capacity, Alignment> {
