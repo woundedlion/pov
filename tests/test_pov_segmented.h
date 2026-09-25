@@ -1135,10 +1135,7 @@ inline void test_submit_dark_discards_pending_column() {
 }
 
 /**
- * @brief Replays the flywheel ISR's sync-pin writes for a run of wakes.
- * @details Mirrors the order in POVSegmented::flywheel_isr(): the deferred drop
- *          at the head of the wake, the pulse's rising edge, then the same-wake
- *          drop after the LED work.
+ * @brief Records the production wake sequence's sync-pin writes.
  */
 struct SyncPinTrace {
   SyncPulseGate gate;
@@ -1146,12 +1143,14 @@ struct SyncPinTrace {
   bool high = false;        /**< Pin level after the last write. */
 
   void wake(bool pulse, bool did_render) {
-    if (gate.take_deferred_low())
-      drive(false);
-    if (pulse)
-      drive(true);
-    if (gate.settle(pulse, did_render))
-      drive(false);
+    SubmitGate submit_gate;
+    EffectHandoff<WakeEffect> handoff;
+    pov::run_wake_sequence(
+        gate, submit_gate, handoff,
+        [=] { return WakeActions{.pulse = pulse, .render_column = 0}; },
+        [] { return 0u; }, [this](bool level) { drive(level); }, [] {},
+        [](WakeEffect *, int32_t) {},
+        [=](SubmitAction, WakeEffect *, int32_t) { return did_render; });
   }
 
   void drive(bool level) {
