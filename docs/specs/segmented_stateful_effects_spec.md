@@ -80,8 +80,8 @@ feedback effect** — both the flush and its source draw are inherently
 full-frame. The clipping win survives only for (a) non-stateful effects
 (clip everything) and (b) the per-segment output slice, which is already done
 JS-side and shades nothing. This is not a limitation of the design; it is the
-same cost the device pays for distributed memory, and segmented WASM currently
-*violates* the sim-mirrors-device invariant by pretending otherwise.
+same cost the device pays for distributed memory. Segmented WASM preserves
+that invariant by rendering the full frame for cross-segment effects.
 
 A finer reach distinction still matters for *other* history filters
 (§5): `Screen::Trails` decays pixels in place (reach 0 — band clipping is
@@ -273,7 +273,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 
 ---
 
-## 7. Open decision: redundant workers vs single-instance
+## 7. Shipped decision: redundant workers
 
 The design above runs **N redundant, identical full-frame workers** for a
 stateful effect. It is the simplest path, mirrors the device's independent
@@ -286,7 +286,7 @@ simulator but diverges the sim's topology from the device (hardware genuinely
 has N independent computes) and complicates worker orchestration (a mixed
 segmented / single-instance mode keyed on `needs_full_frame()`).
 
-**Recommendation:** take the redundant-workers path, consistent with the
+**Implemented:** the redundant-workers path, consistent with the
 project's sim-mirrors-device doctrine. The single-instance variant is the
 lever to pull only if browser cost during stateful effects outweighs
 topological fidelity.
