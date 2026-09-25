@@ -33,7 +33,7 @@ struct TimelineEvent {
    * @details Compaction must never relocate such an event — doing so dangles the
    * caller's cached pointer.
    */
-  bool handled = false;
+  bool pinned = false;
   const bool *paused = nullptr; /**< Optional event-level pause gate. */
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
                                   type-erased animation storage. */
@@ -66,16 +66,16 @@ struct TimelineEvent {
    * @param dst The destination slot to move into.
    */
   void move_into(TimelineEvent &dst) {
-    // Relocating a handled event would dangle the caller's cached animation
-    // pointer (handled animations are never meant to move); trap instead.
-    HS_CHECK(!handled, "move_into would dangle a pinned animation's retained "
-                       "pointer");
+    // Relocating a pinned event would dangle the caller's cached animation
+    // pointer (pinned animations are never meant to move); trap instead.
+    HS_CHECK(!pinned, "move_into would dangle a pinned animation's retained "
+                      "pointer");
     HS_CHECK(!dst.manager,
              "move_into would leak the destination's live animation");
     dst.start = start;
-    // Clears a stale flag: destroy() leaves handled set on a canceled pinned
+    // Clears a stale flag: destroy() leaves pinned set on a canceled pinned
     // event, and this slot may be recycling one.
-    dst.handled = false;
+    dst.pinned = false;
     dst.paused = paused;
     dst.manager = manager;
     if (manager) {
@@ -172,7 +172,7 @@ public:
     HS_CHECK(!stepping, "clear() from inside step() would destroy the "
                         "animation whose callback is running");
     for (int i = 0; i < global_timeline_num_events; ++i) {
-      HS_CHECK(!global_timeline_events[i].handled,
+      HS_CHECK(!global_timeline_events[i].pinned,
                "clear() would destroy a pinned animation");
     }
     const int event_count = global_timeline_num_events;
@@ -253,7 +253,7 @@ public:
    * start on the next step(), and every existing schedule is tuned to that.
    * @param animation The animation object.
    * @param pin Pin::PINNED: the caller intends to RETAIN this pointer
-   * across frames, so the event is marked handled and step()'s compaction traps
+   * across frames, so the event is marked pinned and step()'s compaction traps
    * (move_into) rather than relocating it out from under the cached pointer.
    * Such a retained handle is only safe when the animation is infinite and added
    * before any finite one (so no earlier event is ever removed to shift it) —
@@ -308,7 +308,7 @@ public:
     auto &e = global_timeline_events[global_timeline_num_events++];
     HS_CHECK(!e.manager, "add_get would overwrite a live animation");
     e.start = global_timeline_t + delay;
-    e.handled = (pin == Pin::PINNED);
+    e.pinned = (pin == Pin::PINNED);
     e.paused = paused;
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
@@ -432,7 +432,7 @@ public:
           // for every paused frame.
           if (anim->done() && !anim->repeats()) {
             anim->post_callback();
-            HS_CHECK(!e.handled || anim->is_canceled(),
+            HS_CHECK(!e.pinned || anim->is_canceled(),
                      "pinned animation completed while paused; only cancel() "
                      "may destroy a pinned event");
             e.destroy();
@@ -489,7 +489,7 @@ public:
         // A pinned event should never reach natural completion (pinned ⇒
         // infinite); destroying one dangles the caller's pointer. cancel() is the
         // one sanctioned teardown, so it is exempt.
-        HS_CHECK(!e.handled || anim->is_canceled(),
+        HS_CHECK(!e.pinned || anim->is_canceled(),
                  "pinned animation completed; only cancel() may destroy a "
                  "pinned event");
         e.destroy();
@@ -597,7 +597,7 @@ private:
     destroy_events();
     for (auto &event : global_timeline_events) {
       event.start = 0;
-      event.handled = false;
+      event.pinned = false;
       event.paused = nullptr;
       event.manager = nullptr;
       event.iface = nullptr;
