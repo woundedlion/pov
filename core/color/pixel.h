@@ -54,8 +54,8 @@ inline uint16_t srgb_to_linear(uint8_t srgb);
 
 /**
  * @brief Represents a 16-bit per channel RGB color (Linear space).
- * @details Used for high-precision mixing and HDR rendering before
- * downsampling/tone-mapping to 8-bit output.
+ * @details Supports high-precision linear-light mixing before sRGB encoding
+ * to 8-bit output.
  */
 struct Pixel {
   uint16_t r, g, b;
