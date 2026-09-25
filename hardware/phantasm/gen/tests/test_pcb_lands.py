@@ -203,8 +203,17 @@ class TeensyLibraryTests(unittest.TestCase):
             sexp.parse(TEENSY_LIBRARY.read_text(encoding="utf-8"))[0])
 
     def test_generator_matches_the_committed_library(self):
-        self.assertEqual(pad_lands(pcb.teensy_footprint()),
-                         self.library_lands())
+        committed = sexp.parse(TEENSY_LIBRARY.read_text(encoding="utf-8"))[0]
+        zone_uuid = str(F(F(committed, "zone")[0], "uuid")[0][1])
+        with unittest.mock.patch.object(pcb, "uid", return_value=zone_uuid):
+            generated = pcb.teensy_footprint()
+        self.assertEqual(pad_lands(generated), self.library_lands())
+        generated[1] = "Teensy4.0"
+        generated.insert(2, [sexp.Sym("version"), sexp.Sym(sexp.FOOTPRINT_FORMAT)])
+        generated.insert(3, [sexp.Sym("generator"), "phantasm-gen"])
+        generated.insert(4, [sexp.Sym("generator_version"), sexp.GENERATOR_VERSION])
+        self.assertEqual(sexp.dumps(generated) + "\n",
+                         TEENSY_LIBRARY.read_text(encoding="utf-8"))
 
     def test_committed_boards_embed_the_library_land(self):
         expected = self.library_lands()
