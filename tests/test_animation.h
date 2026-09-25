@@ -793,9 +793,11 @@ inline void test_timeline_cancel_removes_repeating_animation() {
   tl.step(fake_canvas()); // completes a cycle, rewinds, and stays (repeating)
   HS_EXPECT_EQ(tl.event_count(), 1);
 
+  const float before_cancel = v;
   h->cancel();
   tl.step(fake_canvas()); // canceled: done() && !repeats() -> removed
   HS_EXPECT_EQ(tl.event_count(), 0);
+  HS_EXPECT_EQ(v, before_cancel);
 
   // A removed event stops stepping: v stays frozen instead of oscillating.
   const float v_frozen = v;
@@ -832,6 +834,42 @@ inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
     tl.step(fake_canvas()); // cycles complete at t=2, 4, 6 without the cancel
   HS_EXPECT_EQ(st.thens, 1);
   HS_EXPECT_EQ(tl.event_count(), 0);
+}
+
+/** @brief Cancellation suppresses due timer callbacks and paused drawing. */
+inline void test_timeline_cancel_suppresses_step_side_effects() {
+  {
+    Timeline tl;
+    int fires = 0;
+    auto *timer = tl.add_get(0,
+                             Animation::PeriodicTimer(
+                                 3, [&](Canvas &) { ++fires; }, true),
+                             Timeline::Pin::UNPINNED);
+    tl.step(fake_canvas());
+    tl.step(fake_canvas());
+    timer->cancel();
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(fires, 0);
+    HS_EXPECT_EQ(tl.event_count(), 0);
+  }
+  {
+    struct PausedProbe : Animation::AnimationBase<PausedProbe> {
+      int *draws;
+      explicit PausedProbe(int &count) : draws(&count) {}
+      void step_paused(Canvas &) override { ++*draws; }
+    };
+    Timeline tl;
+    int draws = 0;
+    bool paused = true;
+    auto *probe =
+        tl.add_get(0, PausedProbe(draws), Timeline::Pin::UNPINNED, &paused);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(draws, 1);
+    probe->cancel();
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(draws, 1);
+    HS_EXPECT_EQ(tl.event_count(), 0);
+  }
 }
 
 /**
@@ -3944,6 +3982,7 @@ inline int run_animation_tests() {
   test_timeline_accepts_maximum_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
+  test_timeline_cancel_suppresses_step_side_effects();
   test_timeline_repeating_canceled_in_callback_fires_then_once();
   test_timeline_cancel_fires_post_callback();
   test_timeline_cancel_while_paused_removes_event();

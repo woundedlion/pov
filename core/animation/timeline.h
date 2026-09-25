@@ -418,7 +418,8 @@ public:
         if (started) {
           IAnimation *anim = e.animation();
           HS_CHECK(anim, "paused timeline event holds no animation");
-          anim->step_paused(canvas);
+          if (!anim->is_canceled())
+            anim->step_paused(canvas);
           // step_paused() never advances the animation, so done() here means
           // cancel() (or finish()). Complete the event as the unpaused path
           // would — fire .then() and free the slot — instead of holding it
@@ -450,7 +451,8 @@ public:
       // Step (Orientation already collapsed once-per-frame above)
       IAnimation *anim = e.animation();
       HS_CHECK(anim, "timeline event holds no animation");
-      anim->step(canvas);
+      if (!anim->is_canceled())
+        anim->step(canvas);
 
       // Completion & Cleanup
       bool is_done = anim->done();
