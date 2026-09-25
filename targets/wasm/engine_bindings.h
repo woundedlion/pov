@@ -1184,26 +1184,6 @@ public:
     return output;
   }
 
-  /**
-   * @brief Reads the live Shader workbench's config-import notice.
-   * @return The notice text, empty when there is none or the loaded effect is
-   *         not the Shader workbench.
-   */
-  std::string getConfigImportNotice() {
-    std::string notice;
-    with_shader_workbench([&]<typename SB>(SB &shader) {
-      notice = shader.config_import_notice();
-    });
-    return notice;
-  }
-
-  /**
-   * @brief Clears the live Shader workbench's config-import notice.
-   */
-  void clearConfigImportNotice() {
-    with_shader_workbench(
-        [&]<typename SB>(SB &shader) { shader.clear_config_import_notice(); });
-  }
 #endif // HS_ENABLE_SHADER_WORKBENCH
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -1681,10 +1661,6 @@ static void bind_engine() {
                 &HolosphereEngine::restoreFullConfigSnapshot)
       .function("getFullConfigFieldDefinitions",
                 &HolosphereEngine::getFullConfigFieldDefinitions)
-      .function("getConfigImportNotice",
-                &HolosphereEngine::getConfigImportNotice)
-      .function("clearConfigImportNotice",
-                &HolosphereEngine::clearConfigImportNotice)
 #endif
 #if HS_ENABLE_CHAIN_INTERPRETER
       .function("setShaderChain", &HolosphereEngine::setShaderChain)

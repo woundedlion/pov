@@ -504,14 +504,6 @@ public:
     return {sizeof(Workbench::Config), 0};
   }
 
-#if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Reserved compatibility accessor. */
-  const char *config_import_notice() const { return ""; }
-
-  /** @brief Reserved compatibility no-op. */
-  void clear_config_import_notice() {}
-#endif
-
 private:
   static constexpr float domain_scaled_max(float full_domain_max,
                                            float minimum_max,

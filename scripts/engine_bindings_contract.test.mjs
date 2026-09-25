@@ -14,8 +14,7 @@ test('the embind engine API preserves instance and static binding names', () => 
     'setPoleLod', 'getPoleLod', 'getParameterDefinitions', 'getParamValues',
     'getParamGeneration', 'getArenaMetrics', 'getEffectSizes',
     'getEffectPresetCounts', 'getFullConfigSnapshot', 'restoreFullConfigSnapshot',
-    'getFullConfigFieldDefinitions', 'getConfigImportNotice',
-    'clearConfigImportNotice', 'setShaderChain', 'setShaderChainParameters', 'setClip', 'strobeColumns',
+    'getFullConfigFieldDefinitions', 'setShaderChain', 'setShaderChainParameters', 'setClip', 'strobeColumns',
   ];
   const statics = ['getShaderChainCatalog', 'getSupportedResolutions', 'isLive'];
   const bindings = [...source.matchAll(
@@ -33,8 +32,7 @@ test('optional engine APIs stay inside their feature guards', () => {
   const expected = new Map([
     ['HS_ENABLE_SHADER_WORKBENCH', [
       'getFullConfigSnapshot', 'restoreFullConfigSnapshot',
-      'getFullConfigFieldDefinitions', 'getConfigImportNotice',
-      'clearConfigImportNotice',
+      'getFullConfigFieldDefinitions',
     ]],
     ['HS_ENABLE_CHAIN_INTERPRETER', ['setShaderChain', 'setShaderChainParameters', 'getShaderChainCatalog']],
   ]);
