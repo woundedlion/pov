@@ -327,6 +327,8 @@ inline void check_hyper_lattice_dimension_dropdown() {
     if (std::string_view(view.name) == "Dimension")
       dimension = &view;
   HS_EXPECT_TRUE(dimension != nullptr);
+  if (dimension == nullptr)
+    return;
   HS_EXPECT_FALSE(dimension->is_bool);
   HS_EXPECT_TRUE(dimension->is_integer);
   HS_EXPECT_EQ(dimension->option_count, 3);
@@ -346,6 +348,9 @@ inline void check_integer_float_endpoints() {
   constexpr int32_t MAX = 2147483520;
   host.register_int_param("Count", &value, MIN, MAX);
   const auto *def = host.getParameters().find("Count");
+  HS_EXPECT_TRUE(def != nullptr);
+  if (def == nullptr)
+    return;
   HS_EXPECT_EQ(def->min, static_cast<float>(MIN));
   HS_EXPECT_EQ(def->max, static_cast<float>(MAX));
   HS_EXPECT_EQ(host.updateParameter("Count", -3.0e9f), ParamSetResult::APPLIED);
