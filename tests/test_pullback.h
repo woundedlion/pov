@@ -1070,17 +1070,14 @@ inline void test_pullback_concrete_catalog() {
 }
 
 inline void test_pullback_warp_phase_loop() {
-  Pullback::Warp::WaveShearParams wave;
-  wave.field_angle = 0.9f;
-  const auto wave_0 = Pullback::Warp::prepare(wave, 0.0f);
-  const auto wave_1 = Pullback::Warp::prepare(wave, 1.0f);
-  HS_EXPECT_NEAR(wave_0.rotation_cos, wave_1.rotation_cos, 1e-6f);
-  HS_EXPECT_NEAR(wave_0.rotation_sin, wave_1.rotation_sin, 1e-6f);
-
   const Pullback::Warp::MirrorParams mirror{0.0f, 0.7f, 1.3f,
                                             0.9f, 0.4f, -0.2f};
   const auto mirror_0 = Pullback::Warp::prepare(mirror, 0.0f);
   const auto mirror_1 = Pullback::Warp::prepare(mirror, 1.0f);
+  const auto mirror_mid = Pullback::Warp::prepare(mirror, 0.25f);
+  HS_EXPECT_GT(std::abs(mirror_mid.transform.mirror.offset_x -
+                        mirror_0.transform.mirror.offset_x),
+               0.1f);
   HS_EXPECT_NEAR(mirror_0.transform.mirror.offset_x,
                  mirror_1.transform.mirror.offset_x, 1e-6f);
   HS_EXPECT_NEAR(mirror_0.transform.mirror.offset_y,
@@ -1090,6 +1087,11 @@ inline void test_pullback_warp_phase_loop() {
   vector.vector_angle = 0.4f;
   const auto vector_0 = Pullback::Warp::prepare(vector, 0.0f);
   const auto vector_1 = Pullback::Warp::prepare(vector, 1.0f);
+  const auto vector_mid = Pullback::Warp::prepare(vector, 0.25f);
+  HS_EXPECT_GT((vector_mid.transform.noise_loop.offset -
+                vector_0.transform.noise_loop.offset)
+                   .length(),
+               0.1f);
   HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.x,
                  vector_1.transform.noise_loop.offset.x, 1e-6f);
   HS_EXPECT_NEAR(vector_0.transform.noise_loop.offset.y,
@@ -1098,6 +1100,8 @@ inline void test_pullback_warp_phase_loop() {
                  vector_1.transform.noise_loop.offset.z, 1e-6f);
   const math::Vector curl_0 = math::noise_projected_loop_offset(0.0f);
   const math::Vector curl_1 = math::noise_projected_loop_offset(1.0f);
+  HS_EXPECT_GT((math::noise_projected_loop_offset(0.25f) - curl_0).length(),
+               0.1f);
   HS_EXPECT_NEAR(curl_0.x, curl_1.x, 1e-6f);
   HS_EXPECT_NEAR(curl_0.y, curl_1.y, 1e-6f);
   HS_EXPECT_NEAR(curl_0.z, curl_1.z, 1e-6f);
@@ -1108,6 +1112,10 @@ inline void test_pullback_warp_phase_loop() {
   vortex.center_orbit_radius = 0.8f;
   const auto vortex_0 = Pullback::Warp::prepare(vortex, 0.0f);
   const auto vortex_1 = Pullback::Warp::prepare(vortex, 1.0f);
+  const auto vortex_mid = Pullback::Warp::prepare(vortex, 0.25f);
+  HS_EXPECT_GT(std::abs(vortex_mid.transform.vortex.center_x -
+                        vortex_0.transform.vortex.center_x),
+               0.1f);
   HS_EXPECT_NEAR(vortex_0.transform.vortex.center_x,
                  vortex_1.transform.vortex.center_x, 1e-6f);
   HS_EXPECT_NEAR(vortex_0.transform.vortex.center_y,
@@ -1121,6 +1129,10 @@ inline void test_pullback_warp_phase_loop() {
   affine.shear = 0.2f;
   const auto affine_0 = Pullback::Warp::prepare(affine, 0.0f, 0.6f, 2.0f);
   const auto affine_1 = Pullback::Warp::prepare(affine, 1.0f, 0.6f, 2.0f);
+  const auto affine_mid = Pullback::Warp::prepare(affine, 0.25f, 0.6f, 2.0f);
+  HS_EXPECT_GT(std::abs(affine_mid.transform.affine.translation_x -
+                        affine_0.transform.affine.translation_x),
+               0.1f);
   HS_EXPECT_NEAR(affine_0.transform.affine.translation_x,
                  affine_1.transform.affine.translation_x, 1e-6f);
   HS_EXPECT_NEAR(affine_0.transform.affine.translation_y,

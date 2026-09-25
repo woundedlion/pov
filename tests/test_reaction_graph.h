@@ -204,7 +204,7 @@ inline void test_no_self_loops() {
 }
 
 /**
- * @brief Verifies each non-sentinel neighbor index appears at most once per row.
+ * @brief Verifies each neighbor index appears at most once per row.
  * @details A duplicate would shrink the effective fan-out and hint at a corrupt
  *          table.
  */
@@ -213,50 +213,14 @@ inline void test_no_duplicate_neighbors_in_row() {
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
       int16_t a = neighbors[i][k];
-      if (a < 0)
-        continue;
+      HS_EXPECT_TRUE(a >= 0 && a < RD_N);
+      if (a < 0 || a >= RD_N)
+        return;
       for (int j = k + 1; j < RD_K; ++j)
         if (neighbors[i][j] == a && first_duplicate_slot < 0)
           first_duplicate_slot = i * RD_K + j;
     }
   HS_EXPECT_EQ(first_duplicate_slot, -1);
-}
-
-/**
- * @brief Verifies every node realizes the full RD_K degree the consumers and
- *        the graph-Laplacian spectral bound both assume.
- * @details Two contracts ride on the realized degree. GSReactionDiffusion's
- *          explicit-Euler stability margin (dt·D·|λ|max ≤ 2) rests on the
- *          combinatorial Laplacian's spectral radius |λ|max ≤ 2·deg_max, so a
- *          denser table would lift |λ|max; and both systems compute the
- *          Laplacian as `sum − RD_K·center` over an unguarded RD_K-slot walk, so
- *          a *sparser* table would fold sentinel slots into the sum and mistune
- *          every node it touched. The upper half is structural (a row holds at
- *          most RD_K entries), which is why the deficient count is what this
- *          measures: a regenerated table that emitted fewer valid neighbors is
- *          the failure no other test in this file sees.
- */
-inline void test_degree_is_exactly_rd_k() {
-  static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
-  int min_deg = RD_K, max_deg = 0, deficient = 0;
-  for (int i = 0; i < RD_N; ++i) {
-    int deg = 0;
-    for (int k = 0; k < RD_K; ++k)
-      if (neighbors[i][k] >= 0)
-        ++deg;
-    if (deg < min_deg)
-      min_deg = deg;
-    if (deg > max_deg)
-      max_deg = deg;
-    if (deg < RD_K)
-      ++deficient;
-  }
-  std::printf("  [info] reaction_graph degree: min %d, max %d, deficient rows "
-              "%d (|lambda|max <= %d)\n",
-              min_deg, max_deg, deficient, 2 * max_deg);
-  HS_EXPECT_EQ(deficient, 0);
-  HS_EXPECT_EQ(min_deg, RD_K);
-  HS_EXPECT_EQ(max_deg, RD_K); // hence |λ|max ≤ 12, the GS stability bound
 }
 
 // ---------------------------------------------------------------------------
@@ -274,8 +238,9 @@ inline void test_neighbors_are_local() {
     math::Vector p = node(i);
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
-      if (ni < 0)
-        continue;
+      HS_EXPECT_TRUE(ni >= 0 && ni < RD_N);
+      if (ni < 0 || ni >= RD_N)
+        return;
       if (chord2(p, node(ni)) > MAX_NEIGHBOR_CHORD2 && first_far_slot < 0)
         first_far_slot = i * RD_K + k;
     }
@@ -341,8 +306,9 @@ inline void test_edge_reciprocity_high() {
   for (int i = 0; i < RD_N; ++i) {
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
-      if (ni < 0)
-        continue;
+      HS_EXPECT_TRUE(ni >= 0 && ni < RD_N);
+      if (ni < 0 || ni >= RD_N)
+        return;
       HS_EXPECT_LT(ni, RD_N);
       if (ni >= RD_N)
         return;
@@ -563,7 +529,7 @@ inline int run_reaction_graph_tests() {
   test_indices_in_range();
   test_no_self_loops();
   test_no_duplicate_neighbors_in_row();
-  test_degree_is_exactly_rd_k();
+  static_assert(RD_K == 6, "GS stability bound assumes a 6-NN lattice");
 
   test_neighbors_are_local();
   test_neighbors_match_brute_force_knn();

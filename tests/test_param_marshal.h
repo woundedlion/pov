@@ -189,15 +189,7 @@ inline void count_one(size_t &max_count) {
  * @param value_data Expected backing pointer of @p values (its .data() before
  *        refill).
  * @param value_cap Expected capacity of @p values.
- * @details wasm.cpp exposes the value stream to JS as a raw pointer into WASM
- *          linear memory (`paramValues.data()`), read every frame, reusing a
- *          single vector across frames and effect switches. collect_param_views
- *          / fill_param_values promise that — given a caller that reserves
- *          capacity once up front — clear()+push_back never reallocates, so the
- *          exported address stays valid. Dropping the reserve or pushing past it
- *          would silently hand JS a dangling pointer with no crash on the C++
- *          side. This refills the SAME reserved vectors and asserts backing
- *          storage (.data()) and capacity never move.
+ * @details Uses the engine's ParamStreams storage across effect switches.
  */
 template <template <int, int> class E>
 inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
@@ -403,10 +395,12 @@ inline int run_param_marshal_tests() {
   HS_EFFECT_LIST(HS_PARAM_COUNT)
 #undef HS_PARAM_COUNT
 
-  std::vector<hs_wasm::ParamView> views;
-  std::vector<float> values;
-  views.reserve(max_count);
-  values.reserve(max_count);
+  hs_wasm::ParamStreams streams;
+  auto &views = streams.views;
+  auto &values = streams.values;
+  HS_EXPECT_LE(max_count, hs_wasm::ParamStreams::CAPACITY);
+  HS_EXPECT_GE(values.capacity(), hs_wasm::ParamStreams::CAPACITY);
+  HS_EXPECT_GE(views.capacity(), hs_wasm::ParamStreams::CAPACITY);
   const hs_wasm::ParamView *view_data = views.data();
   const float *value_data = values.data();
   const size_t view_cap = views.capacity();
