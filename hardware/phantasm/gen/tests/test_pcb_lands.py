@@ -117,8 +117,8 @@ def routed_chip_lands():
 
 
 class EmbedLandTests(unittest.TestCase):
-    """A per-reference pad override makes two boards carry the same part on
-    different lands, so the footprint library is the only land source."""
+    """Embedded lands come from the footprint library, with the D_BUS Bourns
+    land override applied per reference."""
 
     def setUp(self):
         pcb._MOD_CACHE[CHIP_LIBID] = sexp.parse(CHIP_MOD)[0]
