@@ -499,7 +499,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_DIR: ${{ github.workspace }}/build/ccache
       CCACHE_MAXSIZE: *ccache_maxsize
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -533,7 +533,7 @@ jobs:
         uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           version: ${{ steps.pins.outputs.emsdk }}
-          actions-cache-folder: emsdk-cache-${{ steps.pins.outputs.emsdk }}
+          actions-cache-folder: build/emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
       # ccache also fronts emcc (CMAKE_CXX_COMPILER_LAUNCHER applies to both
       # modes), so cache it here too.
