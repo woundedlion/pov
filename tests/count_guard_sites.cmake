@@ -4,28 +4,22 @@
 #
 # The count is derived here rather than written down anywhere: a hand-kept
 # second list of guards is exactly the thing that drifts away from the guards.
-# Included from tests/CMakeLists.txt with HS_ROOT set; sets
-# HS_GUARD_SITE_ROWS (the initializer body of the generated table) and
-# HS_GUARD_SITE_TOTAL, which death_guard_sites.h.in expands.
+# Run at build time with HS_ROOT and HS_GUARD_OUTPUT set.
+# HS_GUARD_SITE_ROWS and HS_GUARD_SITE_TOTAL expand death_guard_sites.h.in.
 #
 # Counting is per repository-relative source path. Comment spans are stripped first — the tree
 # discusses HS_CHECK in prose — and so is the head of every #define line, which
 # is where the macro and its test-build alias are written rather than used.
 #
-# CONFIGURE_DEPENDS on both the glob (a new guard-bearing file) and every file
-# it found (a guard added to an existing one) so the count cannot go stale
-# behind an incremental build.
-
 set(_guard_dirs core effects workbench hardware targets tools)
 set(_guard_files "")
 foreach(_dir IN LISTS _guard_dirs)
-  file(GLOB_RECURSE _found CONFIGURE_DEPENDS
+  file(GLOB_RECURSE _found
        "${HS_ROOT}/${_dir}/*.h" "${HS_ROOT}/${_dir}/*.cpp"
        "${HS_ROOT}/${_dir}/*.ino")
   list(APPEND _guard_files ${_found})
 endforeach()
 list(SORT _guard_files)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_guard_files})
 
 set(_guard_names "")
 set(_guard_counts "")
@@ -78,8 +72,5 @@ message(STATUS
   "death-harness guard census: ${HS_GUARD_SITE_TOTAL} HS_CHECK sites across "
   "${_guard_file_count} files")
 
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-             "${HS_ROOT}/tests/test_death.h" "${HS_ROOT}/tests/check_death_pins.py")
-execute_process(COMMAND "${Python3_EXECUTABLE}"
-                "${HS_ROOT}/tests/check_death_pins.py" "${HS_ROOT}"
-                COMMAND_ERROR_IS_FATAL ANY)
+configure_file("${HS_ROOT}/tests/death_guard_sites.h.in"
+               "${HS_GUARD_OUTPUT}" @ONLY)
