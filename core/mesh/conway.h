@@ -435,8 +435,8 @@ inline void transform_in_place(MeshState &mesh,
 // ---------------------------------------------------------------------------
 // Conway operators
 //
-// All operators take a const PolyMesh& input and checkpoint both arenas via
-// ScratchScope; only the output mesh persists.
+// Primitive operators checkpoint scratch storage; composed operators also
+// retain their intermediate mesh in temp until the caller rewinds it.
 //
 // SCRATCH ARENA CONTRACT (load-bearing): the HalfEdgeMesh always builds in
 // `temp` (kis builds none); the per-orbit index/flag buffers are split to
@@ -1529,8 +1529,8 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
 // Compositional operators (Hart's notation)
 //
 // Compositions of primitive operators (equivalences from Hart's reference
-// implementation); each reuses the standard (target, temp) ping-pong with no
-// extra allocation (see COMPOSITION POLARITY at the top of the operator block).
+// implementation); each uses (target, temp) ping-pong storage and leaves its
+// intermediate mesh in temp (see COMPOSITION POLARITY above).
 //   meta   m = kj = kda = kis of dual of ambo (j = da)
 //   needle n = kd = kis of dual
 //   zip    z = dk = dual of kis (truncated dual)
