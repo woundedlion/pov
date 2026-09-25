@@ -1851,11 +1851,6 @@ render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
   return frame;
 }
 
-/**
- * @brief Proves the opt-in direct AA sink is framebuffer-identical to the
- * generic AntiAlias pipeline across poles, seams, clips and random splats, and
- * that every clip case deposits samples into the frame it compares.
- */
 inline void test_direct_antialias_sink_stale_clip() {
   constexpr int W = 17, H = 9;
   hs_test::StubEffect fx(W, H);
@@ -1885,6 +1880,11 @@ inline void test_direct_antialias_sink_stale_clip() {
   fx.advance_display();
 }
 
+/**
+ * @brief Proves the opt-in direct AA sink is framebuffer-identical to the
+ * generic AntiAlias pipeline across poles, seams, clips and random splats, and
+ * that every clip case deposits samples into the frame it compares.
+ */
 inline void test_direct_antialias_sink_framebuffer_parity() {
   constexpr int W = 17;
   constexpr int H = 9;
