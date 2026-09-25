@@ -711,13 +711,25 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
   const compiled = compile(structuredClone(V1_EXAMPLE));
   assert.equal(compiled.status, 'VALID');
   assert.equal(compiled.parameter_ids['pattern-freq'], 'sample.pattern-freq');
+  assert.equal(compiled.v1_descriptor_digest, v1DescriptorDigest(V1_EXAMPLE));
   assert.equal(compiled.parameter_ids['central-meridian'], 'project.central-meridian');
   assert.equal(exportShaderDocumentJson(compiled.document), EXAMPLE);
   assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
 });
 
+test('v1 digest rejects defaults outside their original domain', () => {
+  const document = structuredClone(V1_EXAMPLE);
+  document.descriptor.parameters[0].domain = { minimum: 0.1, maximum: 20 };
+  document.descriptor.parameters[0].default = 30;
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'INVALID');
+  assert.equal(compiled.diagnostics[0].code, 'VALUE_OUT_OF_RANGE');
+});
+
 test('malformed v1 containers report diagnostics instead of raw TypeErrors', () => {
   for (const [mutate, path] of [
+    [(document) => { document.descriptor.graph.nodes[0].resources = 7; },
+      'stage.outer_camera.resources'],
     [(document) => { document.preset_bank.presets[0] = null; }, '$.preset_bank.presets[0]'],
     [(document) => { document.preset_bank.presets[0] = 7; }, '$.preset_bank.presets[0]'],
     [(document) => { document.preset_bank.presets[0].values = null; },
