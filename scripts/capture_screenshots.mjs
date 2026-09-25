@@ -5,7 +5,7 @@ import { exitAfterStderr } from './exit.mjs';
 //
 // Usage (from the Holosphere repo root):
 //   1. Serve the sibling daydream checkout (see README §"Running the Simulator"):
-//          cd ../daydream && python3 -m http.server 8080
+//          cd ../daydream && python3 -m http.server 8000
 //   2. Install the Playwright browser once:  npx playwright install chromium
 //   3. Capture the gallery:                  npm run screenshots
 //      (equivalently:  node scripts/capture_screenshots.mjs [Effect ...])
@@ -46,7 +46,7 @@ async function numEnv(name, def, max = Infinity) {
   await exitAfterStderr();
 }
 
-const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
+const BASE_URL = process.env.SIM_URL || 'http://localhost:8000/';
 const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
