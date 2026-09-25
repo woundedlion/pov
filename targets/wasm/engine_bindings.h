@@ -30,6 +30,9 @@
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <algorithm> // std::fill_n — blank-frame clear in drawFrame
 #include <cmath>
+#include <array>
+#include <span>
+#include <vector>
 #include <string_view>
 #include <cstring>
 #include <climits> // INT_MAX — drawFrame pixel-index accumulator bound
