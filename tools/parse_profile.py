@@ -376,12 +376,6 @@ def parse_capture(path):
     return windows, effect, pullback
 
 
-def parse(path):
-    """Return the legacy two-tuple used by profile analysis commands."""
-    windows, effect, _pullback = parse_capture(path)
-    return windows, effect
-
-
 def _marker(key, mm):
     if key in ("profile_preset", "preset", "shape", "mode"):
         return dict(key=key, idx=int(mm.group(1)), total=int(mm.group(2)),
@@ -1068,7 +1062,6 @@ def main():
     ap.add_argument("--expected-pullback-arm",
                     choices=["LEGACY", "CORE", "LANDED"])
     ap.add_argument("--shader-workbench-program-manifest",
-                    "--shaderball-program-manifest",
                     dest="shader_workbench_program_manifest")
     args = ap.parse_args()
 

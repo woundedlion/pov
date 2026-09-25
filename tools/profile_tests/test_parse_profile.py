@@ -113,7 +113,7 @@ class ShortFrameRows(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text(text, encoding="utf-8")
-            return pp.parse(path)
+            return pp.parse_capture(path)[:2]
 
     def test_epoch_reset_clears_streamed_frame_owners(self):
         import tempfile
@@ -128,7 +128,7 @@ class ShortFrameRows(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text("\n".join(lines), encoding="utf-8")
-            windows, _ = pp.parse(path)
+            windows, _ = pp.parse_capture(path)[:2]
         self.assertTrue(all(row[3] is not None for row in windows[1].frame_rows))
         self.assertEqual([row[3] for row in windows[2].frame_rows], [None] * 4)
 
@@ -268,7 +268,7 @@ class StraddleWindowAttribution(unittest.TestCase):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
             p = _synth_log(Path(d) / "cap.log", shapes)
-            windows, _ = pp.parse(p)
+            windows, _ = pp.parse_capture(p)[:2]
         out = {}
         for w in windows:
             for f in w.frame_rows:
@@ -324,7 +324,7 @@ class ScanMetricsLines(unittest.TestCase):
     def _parse(self, **kw):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
-            windows, _ = pp.parse(self._log(Path(d) / "cap.log", **kw))
+            windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
         return windows
 
     def test_totals_are_parsed(self):
@@ -393,7 +393,7 @@ class ProbeBreakdownLines(unittest.TestCase):
     def _parse(self, **kw):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
-            windows, _ = pp.parse(self._log(Path(d) / "cap.log", **kw))
+            windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
         return windows
 
     def test_both_lines_merge_into_one_dict(self):
@@ -467,7 +467,7 @@ class PlotCountLines(unittest.TestCase):
     def _parse(self, **kw):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
-            windows, _ = pp.parse(self._log(Path(d) / "cap.log", **kw))
+            windows, _ = pp.parse_capture(self._log(Path(d) / "cap.log", **kw))[:2]
         return windows
 
     def test_counts_are_parsed(self):
@@ -527,7 +527,7 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text(self.LOG, encoding="utf-8")
-            return pp.parse(path)[0]
+            return pp.parse_capture(path)[:2][0]
 
     def test_count_sections_merge_and_do_not_become_cycle_counters(self):
         window = self._parse()[0]
@@ -578,7 +578,7 @@ class ValidateRequiresData(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             log = Path(d) / "prof.log"
             log.write_text(text, encoding="utf-8")
-            windows, effect = pp.parse(str(log))
+            windows, effect = pp.parse_capture(str(log))[:2]
         with contextlib.redirect_stdout(io.StringIO()) as out:
             ok = pp.cmd_validate(windows, effect, scope)
         return ok, out.getvalue()
@@ -687,7 +687,7 @@ class ValidateCaptureIdentity(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text(text, encoding="utf-8")
-            windows, effect = pp.parse(path)
+            windows, effect = pp.parse_capture(path)[:2]
         with contextlib.redirect_stdout(io.StringIO()) as out:
             ok = pp.cmd_validate(windows, effect, "frame")
         return ok, out.getvalue()
@@ -944,7 +944,7 @@ class TruncatedTrailingWindow(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = self._log(Path(d) / "cap.log", **kw)
             with contextlib.redirect_stderr(io.StringIO()) as err:
-                windows, _ = pp.parse(path)
+                windows, _ = pp.parse_capture(path)[:2]
         return windows, err.getvalue()
 
     def _windows_view(self, **kw):
@@ -984,7 +984,7 @@ class TruncatedTrailingWindow(unittest.TestCase):
                 f"window=250000 us ===" for i in range(3)) + "\n",
                 encoding="utf-8")
             with contextlib.redirect_stderr(io.StringIO()) as err:
-                parsed, _ = pp.parse(path)
+                parsed, _ = pp.parse_capture(path)[:2]
         self.assertEqual(len(parsed), 3)
         self.assertEqual(err.getvalue(), "")
 
@@ -1003,7 +1003,7 @@ class HeaderFrameRange(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text(text, encoding="utf-8")
-            return pp.parse(path)
+            return pp.parse_capture(path)[:2]
 
     def test_a_forward_range_parses(self):
         self.assertEqual(self._parse(1, 10)[0][0].frames, 10)
@@ -1066,7 +1066,7 @@ class BucketOrdering(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "cap.log"
             path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            windows, _ = pp.parse(path)
+            windows, _ = pp.parse_capture(path)[:2]
         with contextlib.redirect_stderr(io.StringIO()) as err:
             with contextlib.redirect_stdout(io.StringIO()) as out:
                 status = pp.cmd_buckets(windows, scope, None)
@@ -1119,7 +1119,7 @@ class TaggedCounterRows(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.log"
             path.write_text(text or self.LOG, encoding="utf-8")
-            return pp.parse(path)
+            return pp.parse_capture(path)[:2]
 
     def _validate(self, scope, text=None):
         import contextlib

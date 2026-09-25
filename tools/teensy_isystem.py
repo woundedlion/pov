@@ -1,6 +1,6 @@
 """PlatformIO post-build hook: silence vendored-dependency warnings.
 
-The firmware build runs -Wall -Wextra (the warning-hygiene ratchet, spec §7.2).
+The firmware build runs -Wall -Wextra.
 First-party code (core/ effects/ hardware/ targets/) must keep its warnings
 visible. The vendored dependencies are a different matter: FastLED (under
 .pio/libdeps/<env>/) and the Teensy core + its bundled libraries (under the

@@ -346,6 +346,11 @@ verify() {
   if [ -n "$MARKER" ]; then
     grep -q "$MARKER" "$OUT" || { echo "NO '$MARKER' MARKER — stale build?"; return 1; }
   fi
+  if [ -n "${HS_PROFILE_EXPECT_SHAPE:-}" ]; then
+    grep -Fq "Spawning Shape: $HS_PROFILE_EXPECT_SHAPE" "$OUT" || {
+      echo "PROFILE SHAPE MISMATCH (expected $HS_PROFILE_EXPECT_SHAPE)"; return 1;
+    }
+  fi
   if [ -n "$MSP_MARKER" ]; then
     grep -q "$MSP_MARKER" "$OUT" || {
       echo "NO '$MSP_MARKER' INSTRUMENTATION; stale build?"; return 1;

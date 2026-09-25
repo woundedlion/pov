@@ -53,13 +53,8 @@ def read_token(directory):
 
 def update_claim(directory, operation, value):
     directory = Path(directory)
-    # Opening the guard file under a missing parent raises ENOENT, which the
-    # handler below swallows as a lost race; the caller then reads a
-    # misconfigured lock path as a device somebody else is holding.
     if not directory.parent.is_dir():
-        print(f"device: lock root {directory.parent} does not exist",
-              file=sys.stderr)
-        return False
+        raise OSError(errno.ENOENT, f"lock root {directory.parent} does not exist")
     try:
         with guard(directory):
             if operation == "claim":
@@ -81,9 +76,11 @@ def update_claim(directory, operation, value):
             else:
                 raise ValueError(operation)
     except OSError as error:
-        if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EEXIST, errno.ENOENT):
-            print(f"device: cannot update {directory}: {error}", file=sys.stderr)
-        return False
+        if error.errno == errno.EEXIST and operation == "claim":
+            return False
+        if error.errno == errno.ENOENT and operation != "claim":
+            return False
+        raise
     return True
 
 
