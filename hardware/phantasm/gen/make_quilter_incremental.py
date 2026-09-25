@@ -175,7 +175,10 @@ def main() -> None:
             verify_snapshot()
             print(f"verified protected incremental Quilter project: {OUTPUT}")
         else:
-            make_snapshot()
+            raise RuntimeError(
+                "The incremental routing snapshot is frozen. The committed board "
+                "is fully routed; use --verify to check the archived snapshot."
+            )
     except (OSError, RuntimeError) as exc:
         raise SystemExit(str(exc)) from None
 
