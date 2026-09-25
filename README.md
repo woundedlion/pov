@@ -1415,9 +1415,11 @@ Each hardware target has its own `.ino` entry point in `targets/`:
 1. Install [Arduino IDE](https://www.arduino.cc/en/software) with Teensyduino (or use [Visual Micro](https://www.visualmicro.com/) for Visual Studio).
 2. Install the `FastLED` library.
 3. Open `targets/Holosphere/Holosphere.ino` (or `targets/Phantasm/Phantasm.ino`).
-4. Set **Additional Include Directories** to: `../../core;../../effects;../../hardware`
+4. In Visual Micro, set **Additional Include Directories** to: `../..;../../core;../../hardware`.
 5. Select **Board: Teensy 4.0**, **CPU Speed: 600 MHz**.
 6. Upload.
+
+For a headless Phantasm build, run `pio run -e phantasm` from the repository root.
 
 > **Headless size/layout gate — an active CI job, optional locally.** A
 > PlatformIO build (`just teensy-size`) builds
