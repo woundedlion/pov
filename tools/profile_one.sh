@@ -269,7 +269,7 @@ build_and_attest() {
   cp "$PROFILE_ENVDUMP" "$artifact_dir/profile_envdump.txt"
   cp "$PHANTASM_ENVDUMP" "$artifact_dir/phantasm_envdump.txt"
   git status --porcelain >"$artifact_dir/source_status.txt"
-  git diff --binary >"$artifact_dir/source.diff"
+  git diff --binary HEAD >"$artifact_dir/source.diff"
 
   {
     echo "profile provenance: version=1"
