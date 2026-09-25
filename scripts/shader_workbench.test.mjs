@@ -708,6 +708,10 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
 
 test('malformed v1 containers report diagnostics instead of raw TypeErrors', () => {
   for (const [mutate, path] of [
+    [(document) => { document.preset_bank.presets[0] = null; }, '$.preset_bank.presets[0]'],
+    [(document) => { document.preset_bank.presets[0] = 7; }, '$.preset_bank.presets[0]'],
+    [(document) => { document.preset_bank.presets[0].values = null; },
+      '$.preset_bank.presets[0].values'],
     [(document) => { document.descriptor.path_policies[0] = null; },
       '$.descriptor.path_policies[0]'],
     [(document) => {
