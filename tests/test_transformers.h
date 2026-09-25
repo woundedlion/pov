@@ -44,7 +44,7 @@
  *                               shift; the strongest of a mixed overlap
  *                               dominates without summing; an opposite-signed
  *                               crossing is continuous and lands on 0.
- *   - noise_product_field     : matches the hand-computed two-octave product;
+ *   - noise_product_field     : amplitude linearity and rank-1 separability;
  *                               ~0 amplitude short-circuits to exactly 0; a
  *                               parameter sweep keeps |field| within
  *                               field_bound() (both octaves stay in [-1, 1]).
@@ -1580,13 +1580,13 @@ inline void test_noise_params_seed_mirrors_generator() {
 }
 
 // ============================================================================
-// noise_product_field — two-octave product parity; amplitude short-circuit;
+// noise_product_field — amplitude linearity and separability; short-circuit;
 // field_bound stays conservative across the parameter space
 // ============================================================================
 
 /**
- * @brief Verifies the field matches the hand-computed two-octave product and
- *        that ~0 amplitude short-circuits to exactly 0.
+ * @brief Verifies amplitude linearity, rank-1 separability and the near-zero
+ *        amplitude short-circuit.
  */
 inline void test_noise_product_field_parity() {
   Animation::NoiseProductParams p;
