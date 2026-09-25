@@ -1003,7 +1003,7 @@ def read_board(pcb_path, error=BoardReadError, what="board"):
     """Parse a KiCad board; raise `error` naming `what` when it cannot be read.
 
     The board is 400 KB of s-expressions and the geometry gates each need the
-    whole tree, so main() reads it once and hands the result to all three.
+    whole tree, so main() reads it once and hands the result to all six geometry gates.
     """
     try:
         with open(pcb_path, encoding="utf-8") as fh:
