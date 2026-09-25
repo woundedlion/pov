@@ -61,10 +61,7 @@ inline constexpr float snap_affine_winding(float value) {
                       : static_cast<float>(static_cast<int>(value + 0.5f));
 }
 
-inline constexpr void normalize_config_ranges(Config &config) {
-  config.params.color.hue_noise_speed =
-      hs::clamp(config.params.color.hue_noise_speed, -HUE_NOISE_SPEED_MAX,
-                HUE_NOISE_SPEED_MAX);
+inline constexpr void snap_config_affine_windings(Config &config) {
   auto snap_affine = [](const WarpStageSpec &spec, WarpStageParams &params) {
     if (spec.kind != WarpStageKind::AFFINE_FRAME)
       return;
