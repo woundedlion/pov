@@ -126,8 +126,7 @@ public:
     StaticCircularBuffer<Neighbor, MAX_K> result;
     HS_CHECK(k <= static_cast<size_t>(MAX_K),
              "KDTree::nearest k exceeds MAX_K");
-    if (root_index == -1 ||
-        k == 0) // k is size_t; only k == 0 is the empty case
+    if (root_index == -1 || k == 0)
       return result;
     // A k above the point count can never fill the set, so worst_d_sq would
     // stay FLT_MAX and neither the candidate test nor the subtree prune would
