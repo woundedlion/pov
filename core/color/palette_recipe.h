@@ -69,6 +69,8 @@ enum class SegmentEase : uint8_t { LINEAR, COSINE, SMOOTHSTEP };
 inline constexpr uint8_t PALETTE_MAX_KEYS = 4;
 
 struct HueControls {
+  bool operator==(const HueControls &) const = default;
+
   HueMode mode = HueMode::HARMONY;
   PaletteHarmony harmony = PaletteHarmony::ANALOGOUS;
   HueDirection direction = HueDirection::SHORTEST;
@@ -81,6 +83,8 @@ struct HueControls {
 };
 
 struct AxisControls {
+  bool operator==(const AxisControls &) const = default;
+
   AxisCurve curve = AxisCurve::CONSTANT;
   float center = 0.62f;
   float range = 0.0f;
@@ -88,16 +92,22 @@ struct AxisControls {
 };
 
 struct ChromaControls {
+  bool operator==(const ChromaControls &) const = default;
+
   AxisControls axis;
   ChromaBasis basis = ChromaBasis::LOCAL_GAMUT;
   float headroom = 0.94f;
 };
 struct PaletteInputWindow {
+  bool operator==(const PaletteInputWindow &) const = default;
+
   float offset = 0.0f;
   float span = 1.0f;
 };
 
 struct PaletteRecipe {
+  bool operator==(const PaletteRecipe &) const = default;
+
   static constexpr uint8_t SCHEMA_VERSION = 4;
 
   uint8_t schema_version = SCHEMA_VERSION;
