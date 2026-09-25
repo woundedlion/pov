@@ -404,6 +404,14 @@ inline void test_arena_reclaimed_since() {
   a.set_offset(below_r_end);
   HS_EXPECT_EQ(a.get_rewind_floor(), floor_deep);
   HS_EXPECT_TRUE(a.reclaimed_since(r, 64, floor_deep, seq_deep));
+
+  a.set_offset(0);
+  const uint32_t BIRTH = a.get_rewind_seq();
+  void *b = a.allocate(32);
+  a.set_offset(0);
+  a.allocate(80);
+  a.set_offset(60);
+  HS_EXPECT_TRUE(a.reclaimed_since(b, 32, a.get_rewind_floor(), BIRTH));
 }
 #endif
 
