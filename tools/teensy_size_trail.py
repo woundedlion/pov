@@ -40,6 +40,7 @@ import os
 import struct
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -317,11 +318,11 @@ class GitError(RuntimeError):
     pass
 
 
-def _git(args: list[str], cwd: str | Path | None = None) -> str:
+def _git(args: list[str], cwd: str | Path | None = None, *, env=None) -> str:
     try:
         proc = subprocess.run(["git", *args], cwd=cwd, check=False,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              text=True)
+                              text=True, env=env)
     except OSError as exc:
         raise GitError(f"cannot run git: {exc}") from exc
     if proc.returncode != 0:
@@ -398,6 +399,16 @@ def _warn(message: str) -> None:
     print(f"[size-trail] {message}", file=sys.stderr)
 
 
+def working_tree(cwd: str | Path | None = None) -> str:
+    """Write a tree of build inputs without changing the user's index."""
+    root = _git(["rev-parse", "--show-toplevel"], cwd)
+    with tempfile.TemporaryDirectory() as directory:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(directory) / "index"))
+        _git(["read-tree", "HEAD"], root, env=env)
+        _git(["add", "-A"], root, env=env)
+        return _git(["write-tree"], root, env=env)
+
+
 def cmd_record(args) -> int:
     envs = tuple(args.env) if args.env else DEFAULT_ENVIRONMENTS
     found = collect(args.build_dir, envs, warn=_warn)
@@ -407,7 +418,7 @@ def cmd_record(args) -> int:
     out = Path(args.out) if args.out else default_pending()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"envs": found, "head": _git(["rev-parse", "HEAD"]),
-                               "tree": _git(["write-tree"])},
+                               "tree": working_tree()},
                               indent=1, sort_keys=True) + "\n",
                    encoding="utf-8", newline="\n")
     print(f"[size-trail] recorded {', '.join(sorted(found))} -> {out}")
