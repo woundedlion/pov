@@ -117,7 +117,8 @@ public:
     init_lattice();
     seed_spiral_nuclei();
 
-    // Fixed-seed palette: the three species colors never change after init.
+    const GenerativePalette palette{
+        EffectPaletteRecipes::bz_reaction_diffusion()};
     color_a = FloatRgb(palette.get(0.0f).color);
     color_b = FloatRgb(palette.get(0.5f).color);
     color_c = FloatRgb(palette.get(1.0f).color);
@@ -415,7 +416,6 @@ private:
   } state;
 
   /** @brief Generative recipe for the three species colors. */
-  GenerativePalette palette{EffectPaletteRecipes::bz_reaction_diffusion()};
 
   /** @brief Per-species palette channels converted once in init(). */
   FloatRgb color_a, color_b, color_c;
