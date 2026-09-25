@@ -3,7 +3,8 @@
 
 Structure only. A green run means every fence closes, every anchor resolves,
 every link into this repository or a supplied sibling checkout resolves, every
-backticked repo path exists, every tree fence matches the tracked tree it
+recognized backticked path under a tracked repository root exists (bare
+basenames and unknown first segments are not checked), every tree fence matches the tracked tree it
 draws, the cardinalities CARDINALITY_CLAIMS names match their source
 macros, and the composed-effect roster in docs/effects.md matches each
 effect's PRESET_IDS and the product group -- not that the prose is true. A
