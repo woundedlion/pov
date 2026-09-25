@@ -11,7 +11,7 @@ each to its document). The interpreter host `workbench/shader/chain_host.h`
 uses the runtime operator library; `effects/HyperLattice.h` supplies a custom `Stage::Contract` stage, and `effects/Raymarch.h` uses the shared runtime seeds. The
 verification artifacts (`tests/test_pullback.h`, `tests/pullback_manifest_check.cpp`,
 `tests/data/pullback/`, `tools/pullback_capture.py`) ship with it. Sections 2,
-5.1, 8, 9.1, 9.3, 11, 12, 13, 14 and 16 retain superseded design material; their local
+5.1, 8, 9.1, 9.3, 11, 12, 13, 14, 15 and 16 retain superseded design material; their local
 banners identify the shipped replacements. Sections 3, 5.2 and 6 also qualify
 the original stage model. The ranked-stage contract is specified in
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md). Section 17
@@ -1302,6 +1302,11 @@ may change; byte and placement changes require attribution.
 
 ## 12. Correctness and test requirements
 
+> **Superseded design material.** The phase-based plan below is historical.
+> Shipped ranked-stage contracts are in
+> [pullback_stage_families_spec.md](pullback_stage_families_spec.md);
+> current validation commands are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+
 ### 12.1 Core unit tests
 
 `tests/test_pullback.h` is created in Phase A and wired into the ordinary
@@ -1417,6 +1422,11 @@ bring, in the same phase, an exact callable, deterministic corpus, limits with
 provenance, non-floating exactness assertion, and final-framebuffer metric.
 
 ## 13. Device and performance acceptance
+
+> **Superseded design material.** The phase-based plan below is historical.
+> Shipped ranked-stage contracts are in
+> [pullback_stage_families_spec.md](pullback_stage_families_spec.md);
+> current validation commands are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 This migration promises no visual or performance change. It is accepted only
 if the final core-backed ShaderWorkbench is non-regressing under the shipped v1
@@ -1646,6 +1656,11 @@ Phase D, rollback is the ordinary commit revert; there is no permanent runtime
 or build option retaining the old private implementation.
 
 ## 15. Amendments to existing specifications
+
+> **Superseded design material.** The phase-based plan below is historical.
+> Shipped ranked-stage contracts are in
+> [pullback_stage_families_spec.md](pullback_stage_families_spec.md);
+> current validation commands are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 When Phase A lands, the v1 spec is provisionally amended:
 
