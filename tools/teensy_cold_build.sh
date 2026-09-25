@@ -14,6 +14,11 @@ if [ "$#" -gt 1 ]; then
   exit 2
 fi
 log=${1:-teensy_build.log}
+case "$log" in
+  /*) ;;
+  *) log="$PWD/$log" ;;
+esac
+cd "$(dirname "$0")/.."
 
 export LC_ALL=C
 rm -rf .pio/build_cache .pio/build

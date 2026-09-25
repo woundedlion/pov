@@ -167,6 +167,9 @@ class ShellGateTests(unittest.TestCase):
                 self.assertIn("SC2154", result.stdout + result.stderr)
 
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
+        script = self.root / "tools" / "teensy_cold_build.sh"
+        script.parent.mkdir()
+        shutil.copyfile(REPO / "tools" / script.name, script)
         for name in ("build", "build_cache"):
             directory = self.root / ".pio" / name
             directory.mkdir(parents=True)
@@ -174,7 +177,7 @@ class ShellGateTests(unittest.TestCase):
         sentinel = self.root / ".pio" / "keep"
         sentinel.write_text("keep", encoding="utf-8")
         self.stub("pio", "echo fixture-build-failure; exit 7")
-        failed = self.gate("teensy_cold_build.sh", "capture.log")
+        failed = self.gate(script.name, "capture.log", script=script)
         self.assertEqual(failed.returncode, 7, failed.stdout + failed.stderr)
         self.assertFalse((self.root / ".pio" / "build").exists())
         self.assertFalse((self.root / ".pio" / "build_cache").exists())
