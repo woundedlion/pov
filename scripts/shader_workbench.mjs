@@ -1362,16 +1362,20 @@ export function expandV1Document(document, catalog) {
     .map((field, index) => rewriteId(field, `$.descriptor.serialization.fields[${index}]`));
 
   const bank = object(document.preset_bank, '$.preset_bank');
-  const presets = array(bank.presets, '$.preset_bank.presets').map((preset) => ({
-    ...preset,
-    values: {
-      ...Object.fromEntries(Object.entries(object(preset.values, '$.preset_bank.presets'))
-        .map(([parameterId, value]) =>
-          [rewriteId(parameterId, `preset.${preset.preset_id}.${parameterId}`),
-            rewriteValue(parameterId, value)])),
-      ...synthesizedDefaults,
-    },
-  }));
+  const presets = array(bank.presets, '$.preset_bank.presets').map((preset, index) => {
+    const path = `$.preset_bank.presets[${index}]`;
+    object(preset, path);
+    return {
+      ...preset,
+      values: {
+        ...Object.fromEntries(Object.entries(object(preset.values, `${path}.values`))
+          .map(([parameterId, value]) =>
+            [rewriteId(parameterId, `preset.${preset.preset_id}.${parameterId}`),
+              rewriteValue(parameterId, value)])),
+        ...synthesizedDefaults,
+      },
+    };
+  });
 
   const expanded = {
     ...document,
