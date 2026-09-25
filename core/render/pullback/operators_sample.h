@@ -227,18 +227,9 @@ struct SampleTwinWave : SourceClockModel {
 };
 
 /** @brief Parameter family of sample.rings.v2. */
-struct RingsSampleParams : SampleCrossingParams {
-  float pattern_freq = 1.0f; /**< Plane-coordinate scale before sampling. */
-  float speed = 0.0f;        /**< Per-frame advance of the ring phase. */
-
+struct RingsSampleParams : Source::RingsSourceParams, SampleCrossingParams {
   static constexpr auto FIELDS = concat_fields<RingsSampleParams>(
-      std::array{
-          Field<RingsSampleParams>{
-              "pattern-freq", &RingsSampleParams::pattern_freq, "Pattern Freq",
-              0.1f, 20.0f, FieldCurve::LERP},
-          Field<RingsSampleParams>{"speed", &RingsSampleParams::speed, "Speed",
-                                   0.0f, 0.5f, FieldCurve::LERP},
-      },
+      Source::RingsSourceParams::FIELDS,
       sample_crossing_fields<RingsSampleParams>());
   static constexpr auto TOPOLOGY =
       sample_crossing_topology<RingsSampleParams>();

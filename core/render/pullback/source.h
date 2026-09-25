@@ -21,6 +21,20 @@ namespace Pullback {
 
 namespace Source {
 
+/** @brief Parameters of the concentric ring source. */
+struct RingsSourceParams {
+  float pattern_freq = 1.0f;
+  float speed = 0.0f;
+  static constexpr auto FIELDS = std::array{
+      Field<RingsSourceParams>{"pattern-freq", &RingsSourceParams::pattern_freq,
+                               "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
+      Field<RingsSourceParams>{"speed", &RingsSourceParams::speed, "Speed",
+                               0.0f, 0.5f, FieldCurve::LERP},
+  };
+};
+static_assert(field_ids_unique<RingsSourceParams>());
+static_assert(field_defaults_in_range<RingsSourceParams>());
+
 /** @brief Advances the phase clocks declared by one scalar source family. */
 template <typename Params>
 inline void advance_clocks(const Params &params, float &primary,
