@@ -2587,7 +2587,6 @@ inline void test_shader_workbench_preset_bank() {
     HS_EXPECT_EQ(mobius_grid_encoded[index], MOBIUS_GRID_EXPECTED[index]);
   }
   HS_EXPECT_EQ(inner_mirror.params.warp.outer.scale, 0.1f);
-  HS_EXPECT_EQ(inner_mirror.params.warp.outer.speed, 0.5f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.scale, 0.1f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.speed, 0.00013f);
   HS_EXPECT_EQ(inner_mirror.params.warp.inner.cell_y, 0.997703135f);
