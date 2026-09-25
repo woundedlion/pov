@@ -17,11 +17,9 @@ namespace kaleidoscope_smooth_tests {
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
-using ShaderWorkbenchWB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
 
 struct KaleidoscopeSmoothWhiteBox {
   using FX = KaleidoscopeSmooth<SMALL_W, SMALL_H>;
-  using Frame = FX::Frame;
   using Params = FX::Params;
 
   static constexpr size_t PARAM_CAPACITY = FX::PARAM_CAPACITY;
@@ -33,65 +31,6 @@ struct KaleidoscopeSmoothWhiteBox {
   static bool advance_preset(FX &effect) { return effect.advancePreset(); }
   static void drive_transition(FX &effect, float progress) {
     effect.run_blend(progress);
-  }
-
-  using Ctx = Pullback::FrameState<Params>;
-
-  template <typename ReferenceFrame>
-  static Ctx from_reference(const ReferenceFrame &frame) {
-    Params params;
-    params.source = {
-        frame.params.source.pattern_freq,   frame.params.source.speed,
-        frame.params.source.complexity,     frame.params.source.pattern_mix,
-        frame.params.source.secondary_rate, frame.params.source.angle_rate};
-    params.projection = {frame.params.projection.singularity_fade,
-                         frame.params.projection.spin_rate,
-                         frame.params.projection.wander,
-                         frame.params.outer_camera.wander,
-                         frame.params.projection.central_meridian};
-    params.inner_warp = {
-        frame.params.warp.inner.speed,    frame.params.warp.inner.rotation,
-        frame.params.warp.inner.cell_x,   frame.params.warp.inner.cell_y,
-        frame.params.warp.inner.offset_x, frame.params.warp.inner.offset_y};
-    params.color = {frame.params.color.hue_shift_amount,
-                    frame.params.color.hue_noise_scale,
-                    frame.params.color.hue_noise_speed,
-                    frame.params.color.palette_chroma,
-                    frame.params.color.mapping_frequency,
-                    frame.params.color.mapping_phase,
-                    frame.params.color.phase_oscillation_depth,
-                    frame.params.color.phase_oscillation_speed,
-                    frame.params.color.brightness_bottom,
-                    frame.params.color.brightness_top,
-                    frame.params.color.opacity_low,
-                    frame.params.color.opacity_high,
-                    static_cast<Pullback::Color::PaletteMapping>(
-                        frame.slots.palette_mapping)};
-    return {frame.transforms.projection_conj,
-            frame.transforms.outer_conj,
-            nullptr,
-            nullptr,
-            nullptr,
-            frame.resources.generated_palette,
-            frame.prepared_hue_rotation.lut,
-            frame.prepared_hue_noise.lut,
-            params,
-            Pullback::Color::PaletteMappingWeights::single(
-                static_cast<Pullback::Color::PaletteMapping>(
-                    frame.slots.palette_mapping)),
-            frame.clocks.source_primary,
-            frame.clocks.source_secondary,
-            frame.clocks.source_angle,
-            0.0f,
-            frame.clocks.warp_inner_phase,
-            0.0f,
-            0.0f,
-            0.0f,
-            frame.clocks.palette_oscillation_phase};
-  }
-
-  static Color4 shade(const math::Vector &view, const Ctx &frame) {
-    return FX::RenderPipeline::shade(view, FX::RenderPipeline::prepare(frame));
   }
 };
 

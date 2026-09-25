@@ -17,11 +17,9 @@ namespace lattice_melt_tests {
 using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
-using ShaderWorkbenchWB = shader_workbench_tests::ShaderWorkbenchWhiteBox;
 
 struct LatticeMeltWhiteBox {
   using FX = LatticeMelt<SMALL_W, SMALL_H>;
-  using Frame = FX::Frame;
   using Params = FX::Params;
 
   static constexpr size_t PARAM_CAPACITY = FX::PARAM_CAPACITY;
@@ -40,64 +38,6 @@ struct LatticeMeltWhiteBox {
   static void clear_timeline(FX &effect) { effect.timeline.clear(); }
   static void drive_transition(FX &effect, float progress) {
     effect.run_blend(progress);
-  }
-
-  using Ctx = Pullback::FrameState<Params>;
-
-  template <typename ReferenceFrame>
-  static Ctx from_reference(const ReferenceFrame &frame) {
-    Params params;
-    params.source = {frame.params.source.lattice_cell_scale,
-                     frame.params.source.lattice_shape_blend,
-                     frame.params.source.lattice_softness,
-                     frame.params.source.lattice_radius};
-    params.projection = {frame.params.projection.singularity_fade,
-                         frame.params.projection.spin_rate,
-                         frame.params.projection.wander,
-                         frame.params.outer_camera.wander,
-                         frame.params.projection.central_meridian};
-    params.surface = {frame.params.surface_noise.scale,
-                      frame.params.surface_noise.strength,
-                      frame.params.surface_noise.rate};
-    params.color = {frame.params.color.hue_shift_amount,
-                    frame.params.color.hue_noise_scale,
-                    frame.params.color.hue_noise_speed,
-                    frame.params.color.palette_chroma,
-                    frame.params.color.mapping_frequency,
-                    frame.params.color.mapping_phase,
-                    frame.params.color.phase_oscillation_depth,
-                    frame.params.color.phase_oscillation_speed,
-                    frame.params.color.brightness_bottom,
-                    frame.params.color.brightness_top,
-                    frame.params.color.opacity_low,
-                    frame.params.color.opacity_high,
-                    static_cast<Pullback::Color::PaletteMapping>(
-                        frame.slots.palette_mapping)};
-    return {frame.transforms.projection_conj,
-            frame.transforms.outer_conj,
-            nullptr,
-            nullptr,
-            frame.resources.surface_noise,
-            frame.resources.generated_palette,
-            frame.prepared_hue_rotation.lut,
-            frame.prepared_hue_noise.lut,
-            params,
-            Pullback::Color::PaletteMappingWeights::single(
-                static_cast<Pullback::Color::PaletteMapping>(
-                    frame.slots.palette_mapping)),
-            0.0f,
-            0.0f,
-            0.0f,
-            0.0f,
-            0.0f,
-            0.0f,
-            0.0f,
-            frame.clocks.surface_noise_time,
-            frame.clocks.palette_oscillation_phase};
-  }
-
-  static Color4 shade(const math::Vector &view, const Ctx &frame) {
-    return FX::RenderPipeline::shade(view, FX::RenderPipeline::prepare(frame));
   }
 };
 
