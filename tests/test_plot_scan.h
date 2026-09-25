@@ -3130,8 +3130,7 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
     HS_EXPECT_LT(nearest, row);
   }
 
-  // The open path's seam edge is not drawn: the arc closing last->first is
-  // empty apart from where it passes near a real edge.
+  // Consecutive samples in the open walk stay within a row.
   HS_EXPECT_LT(max_consecutive_gap(pipe.plotted, /*wrap=*/false), row);
 }
 
