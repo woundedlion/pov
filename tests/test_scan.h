@@ -144,7 +144,7 @@ inline void test_shader_constant_fills_canvas() {
  * @brief Verifies SAMPLES==4 SSAA premultiplies each sub-sample before averaging.
  * @details On a partial-coverage pixel whose sub-samples vary in BOTH color and
  * alpha (here: two opaque red, two transparent black per pixel), correct
- * premultiplied SSAA writes (sum of color*alpha) / N. The old straight-alpha
+ * premultiplied SSAA writes (sum of color*alpha) / N. The straight-alpha
  * model — average color and alpha separately, then re-multiply — would apply
  * coverage twice and darken the result (red/4 instead of red/2). This pins the
  * premultiplied result.
@@ -599,21 +599,21 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
     };
     std::vector<Pixel> expected(W * H);
     {
-      hs_test::StubEffect legacy(W, H);
+      hs_test::StubEffect reference(W, H);
       if (partial_clip) {
-        legacy.set_clip(9, 53, 17, 81);
-        legacy.set_margin(0);
+        reference.set_clip(9, 53, 17, 81);
+        reference.set_margin(0);
       }
       Pipeline<W, H> pipeline;
       {
-        Canvas canvas(legacy);
+        Canvas canvas(reference);
         Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis, 1.7f, 0.12f,
                                         knots, LUT_N, shader);
       }
-      legacy.advance_display();
+      reference.advance_display();
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x)
-          expected[y * W + x] = legacy.get_pixel(x, y);
+          expected[y * W + x] = reference.get_pixel(x, y);
     }
 
     hs_test::StubEffect flat(W, H);

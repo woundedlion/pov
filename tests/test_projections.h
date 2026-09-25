@@ -534,7 +534,7 @@ inline void test_airocean_projection_stays_inside_its_face() {
           net.edge_class == airocean_edge_identity(uint8_t(face), 0) ||
           net.edge_class == airocean_edge_identity(uint8_t(face), 1) ||
           net.edge_class == airocean_edge_identity(uint8_t(face), 2) ||
-          net.edge_class == airocean_edge_identity(18, 0));
+          (face == 14 && net.edge_class == airocean_edge_identity(18, 0)));
       // The mask names the edge the distance ran to, so it is set exactly when
       // a cut distance was measured, and only on a face that carries a cut.
       HS_EXPECT_EQ(net.boundary_flags != 0,

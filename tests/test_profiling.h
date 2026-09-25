@@ -200,11 +200,9 @@ inline void test_u64_dec_powers_of_ten() {
  *        contain.
  */
 inline void test_find_suffix() {
-  // Registry entries are never unlinked, so every counter here must outlive the
-  // process.
-  static hs::CycleCounter alpha("prof_suffix_alpha_tail");
-  static hs::CycleCounter beta("prof_suffix_beta_tail");
-  static hs::CycleCounter gamma("prof_suffix_gamma");
+  hs::CycleCounter alpha("prof_suffix_alpha_tail");
+  hs::CycleCounter beta("prof_suffix_beta_tail");
+  hs::CycleCounter gamma("prof_suffix_gamma");
 
   // Registration pushes onto the list head, so the newest match wins.
   HS_EXPECT_EQ(hs::CycleCounter::find_suffix("_tail"), &beta);

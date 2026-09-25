@@ -165,7 +165,9 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
 
   for (size_t i = 0; i < he.half_edges.size(); ++i) {
     uint16_t pair = he.half_edges[i].pair;
-    HS_EXPECT_TRUE(pair != HE_NONE);
+    HS_EXPECT_TRUE(pair != HE_NONE && pair < he.half_edges.size());
+    if (pair == HE_NONE || pair >= he.half_edges.size())
+      return;
     HS_EXPECT_EQ(he.half_edges[pair].pair, (uint16_t)i);
 
     // Same undirected edge, reversed endpoints: twin of u->v must be v->u.
