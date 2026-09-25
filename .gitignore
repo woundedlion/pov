@@ -58,4 +58,5 @@ __pycache__/
 # Code-review working documents are session artifacts, not repo content.
 docs/CODE_REVIEW.md
 docs/PROJECT_ASSESSMENT.md
+/.profile-lock/
 /.profile-lock.guard
