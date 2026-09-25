@@ -1,4 +1,4 @@
-"""Build-time synchronization preserves authored documentation and validates its output."""
+"""Explicit documentation synchronization preserves authored documentation and validates its output."""
 
 import contextlib
 import io
