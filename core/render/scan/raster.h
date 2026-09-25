@@ -293,7 +293,7 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
- * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+ * @tparam PipelineT Plotting pipeline type (deduced; pass PipelineRef to erase the sink).
  * @param x Column index in [0, W).
  * @param y Row index in [0, H).
  * @param p World-space unit vector for the pixel center.
@@ -764,7 +764,7 @@ clamp_rows_to_clip(const BoundsT &bounds, const ClipRegion &cr, int &y_lo,
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
- * @tparam PipelineT Plotting pipeline type (defaults to type-erased PipelineRef).
+ * @tparam PipelineT Plotting pipeline type (deduced; pass PipelineRef to erase the sink).
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape SDF shape providing vertical bounds, horizontal intervals, and
