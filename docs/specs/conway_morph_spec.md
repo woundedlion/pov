@@ -481,10 +481,10 @@ claim is gated, not assumed:
    (`compile_hankin` emits star faces first, one per base face, in
    base-face order) and that the bookend frame's angle is exactly 0 (the
    flat `p_corner` branch — a final sweep sample at ~0.002 rad would break
-   swap exactness); then framebuffer-diff hankin-at-0 vs base mesh —
-   positive-area pixels match in color, not just coverage; (b) per **edge**:
+   swap exactness); (b) per **node**: framebuffer-diff hankin-at-0 vs base mesh —
+   positive-area pixels match in color, not just coverage; (c) per **edge**:
    base vs op(seed, T_EPS) and the reseed swaps, same diff (exercises
-   emission-order / class-signature mapping only); (c) unit: every mapping
+   emission-order / class-signature mapping only), plus unit checks: every mapping
    is total and deterministic, and the crossfade is exact at its endpoints —
    w = 0 reproduces the mapped from-state, w = 1 the target assignment.
 7. **Visual keyframes.** Framebuffer-dump harness renders each edge at
