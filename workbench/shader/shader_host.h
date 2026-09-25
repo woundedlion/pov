@@ -1283,7 +1283,7 @@ private:
           spec.kind == Workbench::WarpStageKind::CURL_FLOW;
       float strength_max = spec.kind == Workbench::WarpStageKind::VECTOR_NOISE
                                ? Workbench::VECTOR_WARP_STRENGTH_MAX
-                               : 4.0f;
+                               : Workbench::WAVE_SHEAR_STRENGTH_MAX;
       if (spec.kind == Workbench::WarpStageKind::CURL_FLOW)
         strength_max = curl_strength_limit(spec, params);
       register_current(strength_name, &params.strength,
@@ -1354,7 +1354,7 @@ private:
     case Workbench::WarpStageKind::CURL_FLOW:
       register_current(
           outer ? "Planar Warp 1 Scale" : "Planar Warp 2 Scale", &params.scale,
-          1.0f / 64.0f,
+          Workbench::WARP_SCALE_MIN,
           domain_scaled_max(spec.kind == Workbench::WarpStageKind::CURL_FLOW
                                 ? Workbench::CURL_WARP_SCALE_MAX
                                 : Workbench::VECTOR_WARP_SCALE_MAX,
@@ -2453,91 +2453,20 @@ private:
   }
 
   const char *
-  stage_tuple_warning(const char *position,
-                      const Workbench::WarpStageSpec &spec,
-                      const Workbench::WarpStageParams &params) const {
+  stage_stability_warning(const char *position,
+                          const Workbench::WarpStageSpec &spec,
+                          const Workbench::WarpStageParams &params) const {
     begin_warning("%s %s rejected.", position, warp_option(spec.kind));
-    append_range_warning("Warp Speed", params.speed, Workbench::NOISE_SPEED_MIN,
-                         Workbench::NOISE_SPEED_MAX);
-    switch (spec.kind) {
-    case Workbench::WarpStageKind::COUNT:
-      break;
-    case Workbench::WarpStageKind::NONE:
-    case Workbench::WarpStageKind::LEGACY_STEREO_NOISE:
-      break;
-    case Workbench::WarpStageKind::AFFINE_FRAME:
-      append_range_warning("Translate X", params.translation_x,
-                           -Workbench::AFFINE_TRANSLATION_MAX,
-                           Workbench::AFFINE_TRANSLATION_MAX);
-      append_range_warning("Translate Y", params.translation_y,
-                           -Workbench::AFFINE_TRANSLATION_MAX,
-                           Workbench::AFFINE_TRANSLATION_MAX);
-      append_range_warning("Rotation", params.rotation, -math::TWO_PI_F,
-                           math::TWO_PI_F);
-      append_range_warning("Scale X", params.scale_x,
-                           Workbench::AFFINE_SCALE_MIN,
-                           Workbench::AFFINE_SCALE_MAX);
-      append_range_warning("Scale Y", params.scale_y,
-                           Workbench::AFFINE_SCALE_MIN,
-                           Workbench::AFFINE_SCALE_MAX);
-      append_range_warning("Shear", params.shear, -Workbench::AFFINE_SHEAR_MAX,
-                           Workbench::AFFINE_SHEAR_MAX);
-      break;
-    case Workbench::WarpStageKind::WAVE_SHEAR:
-      append_range_warning("Warp Strength", params.strength, -4.0f, 4.0f);
-      append_range_warning("Frequency", params.frequency,
-                           Workbench::WAVE_FREQUENCY_MIN,
-                           Workbench::WAVE_FREQUENCY_MAX);
-      break;
-    case Workbench::WarpStageKind::VORTEX:
-      append_range_warning("Radius", params.radius,
-                           Workbench::VORTEX_RADIUS_MIN,
-                           Workbench::VORTEX_RADIUS_MAX);
-      append_range_warning("Turns", params.turns, -Workbench::VORTEX_TURNS_MAX,
-                           Workbench::VORTEX_TURNS_MAX);
-      append_range_warning("Orbit Radius", params.center_orbit_radius, 0.0f,
-                           Workbench::VORTEX_ORBIT_MAX);
-      break;
-    case Workbench::WarpStageKind::VECTOR_NOISE:
-      append_range_warning("Warp Strength", params.strength, 0.0f,
-                           Workbench::VECTOR_WARP_STRENGTH_MAX);
-      append_range_warning("Warp Scale", params.scale,
-                           Workbench::WARP_SCALE_MIN,
-                           Workbench::VECTOR_WARP_SCALE_MAX);
-      break;
-    case Workbench::WarpStageKind::CURL_FLOW: {
-      append_range_warning("Warp Strength", params.strength,
-                           -Workbench::CURL_WARP_STRENGTH_MAX,
-                           Workbench::CURL_WARP_STRENGTH_MAX);
-      append_range_warning("Warp Scale", params.scale,
-                           Workbench::WARP_SCALE_MIN,
-                           Workbench::CURL_WARP_SCALE_MAX);
+    if (spec.kind == Workbench::WarpStageKind::CURL_FLOW) {
       const float strength_limit = curl_strength_limit(spec, params);
-      if (Workbench::abs_value(params.strength) > strength_limit)
-        append_warning(
-            " %s at Warp Scale %.7g requires |Warp Strength| <= %.9f; "
-            "current value is %.7g.",
-            Workbench::CURL_INTEGRATOR_OPTIONS[static_cast<uint8_t>(
-                spec.curl_integrator)],
-            static_cast<double>(params.scale),
-            static_cast<double>(strength_limit),
-            static_cast<double>(params.strength));
-      break;
+      append_warning(" %s at Warp Scale %.7g requires |Warp Strength| <= %.9f; "
+                     "current value is %.7g.",
+                     Workbench::CURL_INTEGRATOR_OPTIONS[static_cast<uint8_t>(
+                         spec.curl_integrator)],
+                     static_cast<double>(params.scale),
+                     static_cast<double>(strength_limit),
+                     static_cast<double>(params.strength));
     }
-    case Workbench::WarpStageKind::MIRROR_TILE:
-      append_range_warning("Rotation", params.rotation, 0.0f, math::TWO_PI_F);
-      append_range_warning("Cell X", params.cell_x, Workbench::CELL_MIN,
-                           Workbench::CELL_MAX);
-      append_range_warning("Cell Y", params.cell_y, Workbench::CELL_MIN,
-                           Workbench::CELL_MAX);
-      break;
-    case Workbench::WarpStageKind::POLAR_CHART:
-      append_range_warning("Radial Scale", params.radial_scale,
-                           Workbench::POLAR_RADIAL_SCALE_MIN,
-                           Workbench::POLAR_RADIAL_SCALE_MAX);
-      break;
-    }
-    append_warning(" Set every listed control within its stated limit.");
     return warning_text.data();
   }
 
@@ -2787,12 +2716,12 @@ private:
             static_cast<double>(parameter->min),
             static_cast<double>(parameter->max), edited_name);
     }
-    if (!valid_stage_tuple(outer, candidate.params.warp.outer))
-      return stage_tuple_warning("Planar Warp 1", outer,
-                                 candidate.params.warp.outer);
-    if (!valid_stage_tuple(inner, candidate.params.warp.inner))
-      return stage_tuple_warning("Planar Warp 2", inner,
-                                 candidate.params.warp.inner);
+    if (!stage_stability_admitted(outer, candidate.params.warp.outer))
+      return stage_stability_warning("Planar Warp 1", outer,
+                                     candidate.params.warp.outer);
+    if (!stage_stability_admitted(inner, candidate.params.warp.inner))
+      return stage_stability_warning("Planar Warp 2", inner,
+                                     candidate.params.warp.inner);
     if (!safe_program_bounds(candidate))
       return program_bounds_warning(candidate);
     if (candidate.slots.surface_lens == Workbench::SurfaceLens::MOBIUS &&
