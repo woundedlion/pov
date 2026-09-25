@@ -478,9 +478,7 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int x, int y) {
-    // assert, NOT HS_CHECK — the one hot-loop exception: a debug-only bounds
-    // guard (stripped on device), since an always-on branch on every pixel access
-    // is the single place HS_CHECK's contract forbids it.
+    // Bounds assertions are stripped on device.
     assert(x >= 0 && x < effect.frame_width && y >= 0 &&
            y < effect.frame_height);
     return effect.bufs[effect.cur.load(std::memory_order_relaxed)]
