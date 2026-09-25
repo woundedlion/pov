@@ -8,13 +8,13 @@ endif()
 if(NOT EXISTS "${HS_MIRROR_SOURCE}/../CMakeLists.txt")
   message(FATAL_ERROR "Mirror source is not an engine checkout: ${HS_MIRROR_SOURCE}")
 endif()
-if(NOT EXISTS "${HS_DAYDREAM_DIR}/daydream.js")
+if(NOT EXISTS "${HS_DAYDREAM_DIR}/src/app/daydream.js")
   message(FATAL_ERROR
     "Pattern mirror destination is not a daydream checkout: "
     "${HS_DAYDREAM_DIR}")
 endif()
 
-set(_hs_mirror_destination "${HS_DAYDREAM_DIR}/shader/patterns")
+set(_hs_mirror_destination "${HS_DAYDREAM_DIR}/generated/shader/patterns")
 if(NOT IS_DIRECTORY "${_hs_mirror_destination}")
   return()
 endif()
