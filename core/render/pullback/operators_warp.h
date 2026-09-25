@@ -330,22 +330,9 @@ static_assert(std::size(CURL_INTEGRATOR_IDS) ==
               static_cast<size_t>(CurlIntegrator::MIDPOINT4) + 1);
 
 /** @brief Parameter family of warp.curl-flow.v2. */
-struct CurlFlowParams {
-  float speed = 0.0f;    /**< Per-frame advance of the flow's loop phase. */
-  float strength = 0.0f; /**< Flow distance; 0 skips the stage. */
-  float scale = 1.0f;    /**< Spatial scale of the sampled field. */
+struct CurlFlowParams : Warp::CurlFlowParams {
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
   uint8_t integrator = static_cast<uint8_t>(CurlIntegrator::EULER1);
-
-  static constexpr auto FIELDS = std::array{
-      Field<CurlFlowParams>{"speed", &CurlFlowParams::speed, nullptr, -0.02f,
-                            0.02f, FieldCurve::LERP},
-      Field<CurlFlowParams>{"strength", &CurlFlowParams::strength,
-                            "Warp Strength", -1.0f / 32.0f, 1.0f / 32.0f,
-                            FieldCurve::LERP},
-      Field<CurlFlowParams>{"scale", &CurlFlowParams::scale, "Warp Scale",
-                            1.0f / 64.0f, 4.0f, FieldCurve::LOG_POSITIVE},
-  };
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlFlowParams>{
           "basis", &CurlFlowParams::basis, NOISE_BASIS_IDS,
