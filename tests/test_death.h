@@ -5069,8 +5069,8 @@ inline const Case *all_cases(int &n) {
            "(!correction_guard_live()) NoColorCorrection and NoTempCorrection "
            "guards cannot overlap"},
           {"mesh_narrow_index", case_mesh_narrow_index, "core/mesh/mesh.h",
-           "(i <= MeshLimits::MAX_VERTEX_INDEX) mesh index exceeds int16_t "
-           "topology range (oversized mesh?)"},
+           "(i <= MeshLimits::MAX_VERTEX_INDEX) mesh index exceeds topology "
+           "vertex range (oversized mesh?)"},
           {"medial_aliases_input", case_medial_aliases_input,
            "core/mesh/conway.h",
            "(&mesh != &out_a) medial input mesh must not alias output mesh"},
