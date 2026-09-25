@@ -1305,13 +1305,20 @@ struct ScratchScope {
 private:
   Arena &arena;        /**< Arena whose offset is saved and restored. */
   size_t saved_offset; /**< Offset captured at construction. */
+#ifndef NDEBUG
+  uint32_t saved_generation;
+#endif
 
 public:
   /**
    * @brief Constructs the scope, saving the arena's current offset.
    * @param a Arena to guard.
    */
-  explicit ScratchScope(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
+  explicit ScratchScope(Arena &a) : arena(a), saved_offset(a.get_offset()) {
+#ifndef NDEBUG
+    saved_generation = a.get_generation();
+#endif
+  }
   /**
    * @brief Destroys the scope, rewinding the arena to the saved offset.
    * @details Enforces LIFO scope discipline before rewinding. Stack-nested scopes
@@ -1322,6 +1329,10 @@ public:
    * of letting set_offset() resurrect freed bytes.
    */
   ~ScratchScope() {
+#ifndef NDEBUG
+    HS_CHECK(arena.get_generation() == saved_generation,
+             "ScratchScope: arena reset during scope lifetime");
+#endif
     HS_CHECK(arena.get_offset() >= saved_offset,
              "ScratchScope: non-LIFO teardown — arena at %lu, saved %lu",
              static_cast<unsigned long>(arena.get_offset()),
@@ -1480,6 +1491,8 @@ constexpr int MAX_GENERATE_DEPTH = 16;
  * @param fn     The generation function or callable.
  * @param args   Extra arguments forwarded to fn.
  * @return Whatever fn returns.
+ * @pre An outermost call must not overlap any live scope or allocation in
+ *   either engine scratch arena.
  * @details Resets and scopes both scratch arenas, then invokes
  *   fn(target, scratch_a, scratch_b, args...). All procedural geometry creation
  *   goes through this wrapper for a deterministic arena lifecycle. The fn signature
