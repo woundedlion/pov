@@ -1,6 +1,6 @@
 """PlatformIO pre-build hook: point sketch discovery at THIS env's .ino.
 
-Phase-0 finding (corrects spec §5/§6): PlatformIO discovers the Arduino sketch
+PlatformIO discovers the Arduino sketch
 ONLY by globbing `$PROJECT_SRC_DIR/*.ino` at the top level (pioino.FindInoNodes)
 and IGNORES build_src_filter. With src_dir = repo root and the two sketches under
 targets/<X>/, that glob finds nothing, so setup()/loop() never link.
