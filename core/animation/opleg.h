@@ -1188,14 +1188,16 @@ private:
     if (settle) {
       if (!tr.reverse) {
         relaxed_mesh =
-            MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a, 50);
+            MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a,
+                           ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS);
         classified = &relaxed_mesh;
       } else {
         // Reverse legs un-settle at the start parameter.
         PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
                                 tr.t_start, tr.twist_start);
         relaxed_mesh =
-            MeshOps::relax(start, scratch_arena_b, scratch_arena_a, 50);
+            MeshOps::relax(start, scratch_arena_b, scratch_arena_a,
+                           ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS);
       }
       tr.relaxed.bind(arena, relaxed_mesh.vertices.size());
       tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
