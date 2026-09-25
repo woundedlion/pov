@@ -387,6 +387,12 @@ struct Gnomonic : ApproximationDefaults {
   }
 };
 
+/** @brief Central-meridian rotation prepared once per frame. */
+struct PreparedMeridian {
+  float cosine;
+  float sine;
+};
+
 /** @brief Peirce quincuncial projection, conformal but for four singularities;
     `Layout` picks diamond, square or strip tiling and `EdgeDistanceRequired`
     makes the kernel compute edge distance unconditionally. */
@@ -394,6 +400,17 @@ template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
 struct Peirce : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
+  using Prepared = PreparedMeridian;
+
+  static Prepared prepare(const FrameState &frame) {
+    const float MERIDIAN = State::central_meridian(frame);
+    return {cosf(MERIDIAN), sinf(MERIDIAN)};
+  }
+
+  static const math::Quaternion &frame_conjugate(const FrameState &frame,
+                                                 const Prepared &) {
+    return State::conjugate(frame);
+  }
 
   static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
 
@@ -413,11 +430,17 @@ struct Peirce : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const math::Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame,
+          const Prepared &prepared) {
     return peirce(input, State::central_meridian(frame), Layout,
                   State::layout_scroll(frame), EdgeDistanceRequired,
                   State::coordinate_scale(frame),
-                  State::singularity_fade(frame));
+                  State::singularity_fade(frame), prepared.cosine,
+                  prepared.sine);
+  }
+  static ProjectionResult project(const math::Vector &input,
+                                  const FrameState &frame) {
+    return project(input, frame, prepare(frame));
   }
 };
 
@@ -475,6 +498,17 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
  */
 template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
   using FrameState = typename State::FrameState;
+  using Prepared = PreparedMeridian;
+
+  static Prepared prepare(const FrameState &frame) {
+    const float MERIDIAN = State::central_meridian(frame);
+    return {cosf(MERIDIAN), sinf(MERIDIAN)};
+  }
+
+  static const math::Quaternion &frame_conjugate(const FrameState &frame,
+                                                 const Prepared &) {
+    return State::conjugate(frame);
+  }
 
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
@@ -487,15 +521,20 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
       };
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const math::Vector &input, const FrameState &frame) {
+  project(const math::Vector &input, const FrameState &frame,
+          const Prepared &prepared) {
     if (State::central_meridian(frame) == 0.0f)
       return peirce_fast_square(input, State::coordinate_scale(frame),
                                 State::singularity_fade(frame));
-    return peirce(input, State::central_meridian(frame),
-                  static_cast<uint8_t>(projections::PeirceLayout::SQUARE),
-                  State::layout_scroll(frame), true,
-                  State::coordinate_scale(frame),
-                  State::singularity_fade(frame));
+    return peirce(
+        input, State::central_meridian(frame),
+        static_cast<uint8_t>(projections::PeirceLayout::SQUARE),
+        State::layout_scroll(frame), true, State::coordinate_scale(frame),
+        State::singularity_fade(frame), prepared.cosine, prepared.sine);
+  }
+  static ProjectionResult project(const math::Vector &input,
+                                  const FrameState &frame) {
+    return project(input, frame, prepare(frame));
   }
 };
 
@@ -506,6 +545,17 @@ template <typename State, bool Horizontal, bool EdgeDistanceRequired>
 struct Airocean : ApproximationDefaults {
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState;
+  using Prepared = PreparedMeridian;
+
+  static Prepared prepare(const FrameState &frame) {
+    const float MERIDIAN = State::central_meridian(frame);
+    return {cosf(MERIDIAN), sinf(MERIDIAN)};
+  }
+
+  static const math::Quaternion &frame_conjugate(const FrameState &frame,
+                                                 const Prepared &) {
+    return State::conjugate(frame);
+  }
 
   static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
 
@@ -523,9 +573,15 @@ struct Airocean : ApproximationDefaults {
   }
 
   __attribute__((always_inline)) static ProjectionResult
-  project(const math::Vector &input, const FrameState &frame) {
-    return airocean(input, State::central_meridian(frame), Horizontal,
-                    EdgeDistanceRequired, State::coordinate_scale(frame));
+  project(const math::Vector &input, const FrameState &frame,
+          const Prepared &prepared) {
+    return airocean(input, Horizontal, EdgeDistanceRequired,
+                    State::coordinate_scale(frame), prepared.cosine,
+                    prepared.sine);
+  }
+  static ProjectionResult project(const math::Vector &input,
+                                  const FrameState &frame) {
+    return project(input, frame, prepare(frame));
   }
 };
 
