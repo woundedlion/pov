@@ -318,5 +318,3 @@ private:
                 "default persistent partition; retune the feedback downsample, "
                 "coarsen the gamut grid, or carve arenas");
 };
-
-#include "core/control/registry.h"

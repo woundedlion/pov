@@ -203,5 +203,3 @@ private:
                 "RingSpin persistent footprint exceeds the default partition; "
                 "retune TRAIL_LENGTH/NUM_RINGS or carve arenas");
 };
-
-#include "core/control/registry.h"

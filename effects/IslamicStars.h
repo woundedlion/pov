@@ -600,5 +600,3 @@ private:
         1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span) and every build-leg budget: 1 = shipping cadence, higher cycles shapes faster. */
   } params;
 };
-
-#include "core/control/registry.h"

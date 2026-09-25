@@ -361,5 +361,3 @@ private:
     }
   }
 };
-
-#include "core/control/registry.h"

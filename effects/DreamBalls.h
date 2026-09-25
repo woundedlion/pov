@@ -768,5 +768,3 @@ private:
                                            math::ease_in_out_sin, false));
   }
 };
-
-#include "core/control/registry.h"

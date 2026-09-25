@@ -827,5 +827,3 @@ private:
                 "DisplacementField persistent footprint exceeds the default "
                 "partition; retune RING_SLOTS/MAX_BALLS or carve arenas");
 };
-
-#include "core/control/registry.h"
