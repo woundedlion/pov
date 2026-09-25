@@ -542,7 +542,7 @@ def _elf_stamp(build_dir: Path, env: str) -> int | None:
 def cmd_backfill(args) -> int:
     """Build each commit of a rev-range in a worktree and record its sizes.
 
-    SLOW: one full three-image firmware link per commit (minutes each).
+    SLOW: one full firmware build per commit (minutes each).
 
     The worktree is force-detached at each commit, so tracked-file edits in it
     are discarded while untracked files (the .pio build tree above all) survive.
@@ -585,6 +585,11 @@ def cmd_backfill(args) -> int:
             except GitError as exc:
                 print(f"[size-trail] {sha[:8]}: checkout failed ({exc})",
                       file=sys.stderr)
+                continue
+            available = declared_environments(worktree / "platformio.ini")
+            todo = [env for env in todo if env in available]
+            if not todo:
+                print(f"[size-trail] {sha[:8]} has no requested environments - skipping.")
                 continue
             pio = ["pio", "run", "-d", str(worktree)]
             for env in todo:
