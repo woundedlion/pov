@@ -699,8 +699,7 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
  * @param temp Alternate scratch arena for odd pipeline stages.
  * @param entry Resolved registry entry for the solid.
  * @param max_points Capacity of the output arrays; traps if exceeded.
- * @param points Out: vertex directions projected onto the unit sphere (Catalan
- *        vertices sit at multiple radii).
+ * @param points Out: vertex directions projected onto the unit sphere.
  * @param quats Out: per-vertex Y-axis-to-direction rotations.
  * @param nn_angle Out: per-vertex nearest-neighbour angle (radians), for
  *        sizing per-vertex geometry to its local gap.
