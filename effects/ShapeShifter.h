@@ -723,11 +723,13 @@ private:
    * @param sides Polygon side, flower petal, or star point count.
    * @param fragment_shader Per-fragment shader.
    * @param shape_phase Primitive rotation in radians.
+   * @param shape_color Color applied to this shape.
+   * @param contour_index Index of this contour in the stack.
    * @param dense_contours Whether the stack is at or above DENSE_CONTOUR_COUNT
    * contours, selecting the screen-step-balanced star paths.
    * @details Cold (flash): the five-way switch instantiates a sampler lambda
    * per shape, so its body stays out of ITCM even though it runs once per
-   * shape (up to MAX_SHAPES per frame); the hot work is inside Plot::rasterize.
+   * shape (up to DRAW_LIMIT per frame); the hot work is inside Plot::rasterize.
    */
   template <typename F>
   HS_FLASH_MEMBER void
