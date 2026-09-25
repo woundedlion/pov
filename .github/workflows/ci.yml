@@ -774,12 +774,12 @@ jobs:
           cp "$dd/README.md" "$bundle/"
           mkdir -p "$bundle/docs/screenshots"
           (
-            cd "$dd/docs/screenshots"
+            cd "$dd/docs/screenshots" || exit
             find . -type f -name '*.png' -exec \
               cp --parents '{}' "$bundle/docs/screenshots"/ \;
           )
           (
-            cd "$bundle"
+            cd "$bundle" || exit
             # The manifest is excluded from the walk, so it is written but never
             # read by the same pipeline.
             # shellcheck disable=SC2094
