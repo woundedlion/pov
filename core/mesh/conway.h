@@ -1196,7 +1196,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
  */
 inline constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
 
-/** Default relax iteration cap; the springs usually converge sooner. */
+/** Default relax iteration cap for light smoothing; convergence may need more. */
 inline constexpr int RELAX_DEFAULT_ITERATIONS = 8;
 
 /**

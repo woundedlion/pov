@@ -467,7 +467,7 @@ public:
   /**
    * @brief Relaxes vertex positions toward a regular configuration.
    * @param iterations Upper bound on the smoothing passes; relax stops early
-   *   once the springs converge, so fewer usually run. Must be non-negative;
+   *   on convergence. The default is a light smoothing cap. Must be non-negative;
    *   0 is a normalize-only pass-through. See MeshOps::relax.
    * @return Reference to this builder for chaining.
    */
