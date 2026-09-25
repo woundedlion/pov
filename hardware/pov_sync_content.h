@@ -183,8 +183,8 @@ struct ContentTracker {
    * @brief ZERO crossings since effect start.
    * @details For a beacon-joined board this starts from the beacon's mod-64
    * value: congruent, not absolute. On an effect longer than 64 revolutions
-   * such a board's end-of-effect tests therefore read early, which is why
-   * output_envelope() gates the dark window on commit_pending rather than on
+   * such a board's end-of-effect tests read late: the count trails the master's
+   * by a multiple of 64. output_envelope() gates the dark window on commit_pending rather than on
    * this counter alone.
    */
   uint32_t rev_in_effect = 0;
