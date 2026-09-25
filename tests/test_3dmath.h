@@ -6,11 +6,10 @@
  *
  * Usage:
  *   #include "tests/test_3dmath.h"
- *   int main() { return hs_test::math3d_tests::run_3dmath_tests(); }
+ *   int main() { return hs_test::math3d_tests::run_3dmath_tests() != 0; }
  *
  * Self-contained header — no external test framework. All test functions
- * are inline; the runner returns the failure count for use as a process
- * exit code.
+ * are inline; the runner returns the failure count.
  */
 #pragma once
 
@@ -1877,8 +1876,7 @@ inline void test_rotate_plane_composition_stays_isometric() {
 
 /**
  * @brief Runs every 3dmath test case.
- * @return Accumulated failure count (0 on success), suitable for use as a
- *         process exit code.
+ * @return Accumulated failure count (0 on success).
  */
 inline int run_3dmath_tests() {
   hs_test::ModuleFixture fixture("3dmath");

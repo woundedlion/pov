@@ -883,18 +883,6 @@ constexpr const char *palette_mode_id(PaletteHarmony harmony) {
   }
 }
 
-/**
- * @brief Applies one document preset entry onto @p built, or verifies it
- *        against the effect's compile-time constants.
- * @return False when the key addresses nothing this effect owns.
- * @details Numeric entries write through the owning family's field table (the
- * same descriptors the sliders and the interpolator use), so a document key the
- * engine does not table fails loudly instead of being skipped. String entries
- * are chain topology: the ones with a composed-effect equivalent are checked
- * against the effect's Spec and base-template arguments; the rest (lens
- * symmetry, noise basis/integrator, polar mode) have no per-effect constant to
- * compare and are accepted as covered by the descriptor digest.
- */
 template <typename Lens> constexpr std::string_view lens_symmetry_id() {
   if constexpr (std::is_same_v<Lens, Pullback::Lens::Kaleidoscope>)
     return "azimuthal";
@@ -921,6 +909,18 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
   return {};
 }
 
+/**
+ * @brief Applies one document preset entry onto @p built, or verifies it
+ *        against the effect's compile-time constants.
+ * @return False when the key addresses nothing this effect owns.
+ * @details Numeric entries write through the owning family's field table (the
+ * same descriptors the sliders and the interpolator use), so a document key the
+ * engine does not table fails loudly instead of being skipped. String entries
+ * are chain topology: the ones with a composed-effect equivalent are checked
+ * against the effect's Spec and base-template arguments; the rest (lens
+ * symmetry, noise basis/integrator, polar mode) have no per-effect constant to
+ * compare and are accepted as covered by the descriptor digest.
+ */
 template <typename FX>
 inline bool
 apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
