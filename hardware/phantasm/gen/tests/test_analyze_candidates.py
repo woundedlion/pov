@@ -306,11 +306,22 @@ class RunDrcReportTests(unittest.TestCase):
 
         with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
                                return_value="kicad-cli"), \
+                mock.patch.object(analyze_candidates.fab, "validate_project_rules"), \
                 mock.patch.object(analyze_candidates.subprocess, "run",
                                   side_effect=write_report) as run:
             result = analyze_candidates.run_drc("board.kicad_pcb")
         self.assertIn("json", run.call_args.args[0])
         return result
+
+    def test_relaxed_project_floors_prevent_drc(self):
+        with mock.patch.object(analyze_candidates, "resolve_kicad_cli",
+                               return_value="kicad-cli"), mock.patch.object(
+                analyze_candidates.fab, "validate_project_rules",
+                side_effect=analyze_candidates.fab.ProjectRulesError("relaxed floors")), \
+                mock.patch.object(analyze_candidates.subprocess, "run") as run:
+            result = analyze_candidates.run_drc("candidate.kicad_pcb")
+        self.assertEqual(result["status"], analyze_candidates.DRC_FAILED)
+        run.assert_not_called()
 
     def test_counts_violations_and_unconnected_items(self):
         report = self.run_drc(json.dumps({
