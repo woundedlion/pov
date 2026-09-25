@@ -67,7 +67,7 @@ protected:
 
 /** @brief Delay range and repeat behaviour of a RandomTimer. */
 struct RandomTimerOptions {
-  /** @brief Minimum delay in frames. */
+  /** @brief Minimum sampled delay in frames; zero fires on the next step, like one. */
   int min = 0;
   /** @brief Maximum delay in frames, inclusive. */
   int max = 0;
@@ -101,7 +101,7 @@ public:
    */
   HS_COLD_MEMBER void reset() {
     // +1 because hs::rand_int is half-open [min, max); the documented maximum
-    // delay is inclusive, and RandomTimer(n, n) must yield exactly n.
+    // delay is inclusive. A sampled zero fires on the next step, like one.
     next = t + hs::rand_int(min, max + 1);
   }
 
