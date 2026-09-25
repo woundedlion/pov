@@ -2828,14 +2828,10 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
-  // A continuous seam leaves a core of pixels the palette swap never touches;
-  // a mis-keyed one repaints nearly the whole frame. Both that core and the
-  // in-leg control's scale together with the shading and the camera, so gate
-  // their ratio rather than an absolute share of the frame: measured minimum
-  // across sites 0.213 (needle), against 0.133 for a mis-keyed seam.
-  constexpr float SEAM_QUIET_RATIO = 0.15f;
-  // Measured maximum across sites 6.14M; a mis-keyed needle reaches 8.4M.
-  constexpr long long SEAM_SUMABS_MAX = 7300000ll;
+  // Measured minimum quiet-pixel ratio across sites: 0.781.
+  constexpr float SEAM_QUIET_RATIO = 0.70f;
+  // Measured maximum absolute channel delta across sites: 917321.
+  constexpr long long SEAM_SUMABS_MAX = 1100000ll;
 
   static Pipeline<RW, RH> filters;
 
@@ -2894,7 +2890,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
             (fi >= 0 && fi < static_cast<int>(sh.faces)) ? sh.face_ramp[fi] : 0;
         float t = hs::clamp(fragment_edge_dist(frag), 0.0f, 1.0f);
         frag.color = sh.ramps[ramp].get(t);
-        frag.color.alpha = 255;
+        frag.color.alpha = 1.0f;
       };
       Scan::Mesh::draw<RW, RH>(filters, c, m, shader, scratch_arena_b);
     };
