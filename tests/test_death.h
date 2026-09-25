@@ -5911,7 +5911,7 @@ inline void load_child_output() {
 /**
  * @brief Tests whether captured child output carries one guard's breadcrumb.
  * @param out Text captured from the child.
- * @param file Repo-relative path or basename of the guard source.
+ * @param file Repo-relative path of the guard source.
  * @param text Expected "(condition) message" tail of the breadcrumb line.
  * @return True iff some captured line reads
  *         "HS_CHECK failed: <file>:<line>: <text>...".
@@ -5921,21 +5921,34 @@ inline void load_child_output() {
  */
 inline bool breadcrumb_names_guard(const char *out, const char *file,
                                    const char *text) {
-  const char *basename = std::strrchr(file, '/');
-  file = basename ? basename + 1 : file;
-  char prefix[128];
-  std::snprintf(prefix, sizeof(prefix), "HS_CHECK failed: %s:", file);
-  const size_t prefix_len = std::strlen(prefix);
+  std::string normalized(out);
+  std::replace(normalized.begin(), normalized.end(), '\\', '/');
+  const char *prefix = "HS_CHECK failed: ";
+  const size_t file_len = std::strlen(file);
   const size_t text_len = std::strlen(text);
-  for (const char *p = std::strstr(out, prefix); p;
+  for (const char *p = std::strstr(normalized.c_str(), prefix); p;
        p = std::strstr(p + 1, prefix)) {
-    const char *q = p + prefix_len;
-    while (*q >= '0' && *q <= '9')
+    const char *path = p + std::strlen(prefix);
+    const char *q = std::strchr(path, '\n');
+    const char *end = q ? q : path + std::strlen(path);
+    for (q = path; q < end; ++q) {
+      if (*q != ':' || q + 1 == end || q[1] < '0' || q[1] > '9')
+        continue;
+      const size_t path_len = static_cast<size_t>(q - path);
+      if (path_len < file_len ||
+          std::strncmp(q - file_len, file, file_len) != 0 ||
+          (path_len > file_len &&
+           q[-static_cast<ptrdiff_t>(file_len) - 1] != '/'))
+        break;
       ++q;
-    if (q[0] != ':' || q[1] != ' ')
-      continue;
-    if (std::strncmp(q + 2, text, text_len) == 0)
-      return true;
+      while (q < end && *q >= '0' && *q <= '9')
+        ++q;
+      if (end - q >= 2 && q[0] == ':' && q[1] == ' ' &&
+          static_cast<size_t>(end - q - 2) >= text_len &&
+          std::strncmp(q + 2, text, text_len) == 0)
+        return true;
+      break;
+    }
   }
   return false;
 }
@@ -6510,10 +6523,20 @@ inline int run_death_tests() {
     return fixture.result();
   }
 
+  HS_EXPECT_TRUE(breadcrumb_names_guard(
+      "HS_CHECK failed: C:\\tree\\core\\render\\sdf\\shapes.h:12: (false) probe\n",
+      "core/render/sdf/shapes.h", "(false) probe"));
+  HS_EXPECT_FALSE(breadcrumb_names_guard(
+      "HS_CHECK failed: core/other/shapes.h:12: (false) probe\n",
+      "core/render/sdf/shapes.h", "(false) probe"));
+  HS_EXPECT_FALSE(breadcrumb_names_guard(
+      "HS_CHECK failed: notcore/render/sdf/shapes.h:12: (false) probe\n",
+      "core/render/sdf/shapes.h", "(false) probe"));
+
   // The same sentinel proves the capture channel: without the child's
   // breadcrumb every per-case guard check below would fail identically and
   // point at the cases instead of at the broken redirect.
-  if (!breadcrumb_names_guard(child_output(), "test_death.h",
+  if (!breadcrumb_names_guard(child_output(), "tests/test_death.h",
                               "(false) death-harness trap-shape probe")) {
     report_unrunnable("cannot capture child output; which guard fired is "
                       "unverifiable",
