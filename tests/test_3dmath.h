@@ -4,10 +4,6 @@
  *
  * Unit tests for core/math/3dmath.h and core/math/4dmath.h.
  *
- * Usage:
- *   #include "tests/test_3dmath.h"
- *   int main() { return hs_test::math3d_tests::run_3dmath_tests() != 0; }
- *
  * Self-contained header — no external test framework. All test functions
  * are inline; the runner returns the failure count.
  */
