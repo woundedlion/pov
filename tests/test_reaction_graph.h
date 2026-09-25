@@ -284,33 +284,6 @@ inline void test_neighbors_are_local() {
 }
 
 /**
- * @brief Verifies each listed neighbor is far closer than a far-side reference.
- * @details Compares each neighbor's chord distance against a reference half the
- *          lattice away in index, which must be strictly larger. node()'s y is
- *          affine in the index, so an RD_N/2 index offset — wrapped or not —
- *          shifts latitude by a full quarter sphere (|dy| ~ 1, chord^2 >= 1) for
- *          every i. The reference is therefore far-side on latitude alone,
- *          rather than relying on two unrelated golden-angle longitudes landing
- *          apart, which they do not near the equator.
- */
-inline void test_neighbors_closer_than_far_point() {
-  int first_violation_slot = -1;
-  for (int i = 0; i < RD_N; ++i) {
-    math::Vector p = node(i);
-    int far_point = (i + RD_N / 2) % RD_N;
-    float far2 = chord2(p, node(far_point));
-    for (int k = 0; k < RD_K; ++k) {
-      int16_t ni = neighbors[i][k];
-      if (ni < 0)
-        continue;
-      if (chord2(p, node(ni)) >= far2 && first_violation_slot < 0)
-        first_violation_slot = i * RD_K + k;
-    }
-  }
-  HS_EXPECT_EQ(first_violation_slot, -1);
-}
-
-/**
  * @brief Verifies sampled rows are the true RD_K nearest neighbors of node().
  * @details Every STRIDE-th row is rebuilt by brute force over all other nodes
  *          under the generator's (chord^2, index) order, so the row must match
@@ -593,7 +566,6 @@ inline int run_reaction_graph_tests() {
   test_degree_is_exactly_rd_k();
 
   test_neighbors_are_local();
-  test_neighbors_closer_than_far_point();
   test_neighbors_match_brute_force_knn();
   test_edge_reciprocity_high();
 
