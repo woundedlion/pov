@@ -1490,9 +1490,13 @@ struct Face {
     return d;
   }
 
+  /** @brief Face has a bound polar lookup table. */
   static constexpr uint32_t PROBE_HAS_LUT = 1u << 0;
+  /** @brief Use convex half-plane distance. */
   static constexpr uint32_t PROBE_CONVEX = 1u << 1;
+  /** @brief Use the sector-indexed edge walk. */
   static constexpr uint32_t PROBE_SECTOR = 1u << 2;
+  /** @brief Return distances in the gnomonic plane. */
   static constexpr uint32_t PROBE_LINEAR = 1u << 3;
 
   /** @return Packed distance-path flags for repeated probes of this face. */
@@ -1525,6 +1529,16 @@ struct Face {
     distance_with_flags<ComputeUVs>(p, res, reject_dsq, probe_flags());
   }
 
+  /**
+   * @brief Evaluates distance with cached flags, recomputing the radial cull cosine.
+   * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
+   * @param p Unit query direction.
+   * @param res Output distance result.
+   * @param reject_dsq Conservative squared plane-distance rejection threshold.
+   * @param probe_flags Flags captured by probe_flags() after geometry/LUT updates.
+   * @details Takes a square root and reciprocal per call; the five-argument
+   * overload accepts a cached cosine for repeated probes.
+   */
   template <bool ComputeUVs = true>
   HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
                                     float reject_dsq,
