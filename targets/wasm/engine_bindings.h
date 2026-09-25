@@ -154,7 +154,7 @@ enum class ClipSetResult {
   NO_EFFECT,       /**< No effect is installed to receive the clip. */
   INVALID_BOUNDS,  /**< Bounds malformed or out of range for the resolution. */
   FULL_FRAME_KEPT, /**< Bounds accepted but ignored: the effect reports
-                        Effect::needs_full_frame(), so the clip stays at the
+                        needs_full_frame() or persists_pixels(), so the clip stays at the
                         full canvas. */
 };
 
@@ -473,7 +473,7 @@ public:
    *           All four must be integral; a fractional or NaN number is
    *           INVALID_BOUNDS.
    * @return APPLIED if the band was installed, FULL_FRAME_KEPT if the bounds
-   *         were accepted but the effect reports Effect::needs_full_frame() and
+   *         were accepted but the effect reports needs_full_frame() or persists_pixels() and
    *         so keeps the full-canvas clip, otherwise the rejection reason:
    *         NO_EFFECT (no effect is set to receive the clip) or INVALID_BOUNDS
    *         (malformed/out of range, then ignored). Exposed to JS as the
@@ -491,7 +491,7 @@ public:
    *          with no range check in a release build, installing an empty band
    *          under an APPLIED result. Segment workers always pass
    *          valid, ordered, in-range bounds. A cross-segment stateful effect
-   *          (Effect::needs_full_frame()) keeps the full-canvas clip instead
+   *          (needs_full_frame() or persists_pixels()) keeps the full-canvas clip instead
    *          of narrowing to the band — see
    *          docs/specs/segmented_stateful_effects_spec.md.
    */
