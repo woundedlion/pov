@@ -127,7 +127,7 @@ CONSUMERS = {
         "build_pins.py --check-tool platformio",
         "build_pins.py --check-tool ruff",
         "build_pins.py --check-tool shellcheck",
-        '"{{py}}" tools/build_pins.py --check',
+        '{{python_command}} tools/build_pins.py --check',
     ),
     ROOT / ".githooks/pre-commit": (
         '"$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check',
