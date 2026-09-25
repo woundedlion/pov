@@ -353,8 +353,8 @@ struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
 
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    HS_AUDIT_CHECK(params.hemisphere < std::size(BONNE_HEMISPHERE_IDS),
-                   "project.bonne: invalid hemisphere");
+    HS_CHECK(params.hemisphere < std::size(BONNE_HEMISPHERE_IDS),
+             "project.bonne: invalid hemisphere");
     return ProjectOpModel::prepare(ctx, params, state);
   }
 
