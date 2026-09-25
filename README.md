@@ -28,7 +28,7 @@ Building the WASM target in Holosphere installs the `.js`/`.wasm` module and its
 To explore effects, open the [live simulator](https://woundedlion.github.io/daydream/).
 
 For local development, clone Holosphere and daydream as sibling directories.
-Install Python with pip, Node.js with npm, CMake, Ninja and Emscripten.
+Install Python with pip, Node.js with npm (24.13.0 for Holosphere; 22.23.2 for daydream), CMake, Ninja and Emscripten.
 `tools/build_pins.py` records the CI tool versions; each repository's
 `package.json` declares its Node requirement. Install the pinned `just` command
 with `python -m pip install --require-hashes -r requirements/just.txt`.
@@ -529,7 +529,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── eslint.config.mjs           JavaScript lint rules for scripts/*.mjs (recommended set) — the same job
 ├── .githooks/                  Fast staged-file pre-commit checks and a reference-transaction guard keeping master fast-forward-only
 ├── .github/dependabot.yml      Monthly grouped bump pull request for the SHA-pinned actions in those workflows
-├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages)
+├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages), notify-daydream.yml (engine-ready event)
 ├── .github/actions/            Composite steps ci.yml and docs.yml run: pinned-doxygen (Doxygen install + theme)
 ├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/, workbench/ and core/engine/effects_legacy.h reserved
 ├── CONTRIBUTING.md             Landing model, gates, and the tool pins a contributor has to match
@@ -700,36 +700,19 @@ files define line-ending policy and working-artifact exclusions.
 
 ## 4. Architecture Overview
 
-Three build targets share a common engine:
+Firmware, WebAssembly, and native test targets share a common engine:
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                            C++ Codebase                                 │
-│                                                                         │
-│  ┌──────────────┐   ┌──────────────────────────────────────────────┐    │
-│  │   targets/   │   │          core/  (Rendering Engine)           │    │
-│  │              │   │                                              │    │
-│  │ Holosphere/  │   │  Effects → Canvas → Filter Pipeline          │    │
-│  │  .ino        │   │      → SDF/Plot → Pixel Buffer               │    │
-│  │              │   │                                              │    │
-│  │ Phantasm/    │   │  effects/  (41 visual algorithms)            │    │
-│  │  .ino        │   │                                              │    │
-│  │              │   ├──────────────────────────────────────────────┤    │
-│  │ wasm/        │   │          hardware/  (Drivers)                │    │
-│  │  wasm.cpp   │   │  pov_single.h — single-Teensy POV            │    │
-│  │              │   │  pov_segmented.h — multi-Teensy segmented POV │    │
-│  │              │   │  dma_led.h — HD107S DMA SPI pipeline          │    │
-│  └──────┬───────┘   └──────────────────────────────────────────────┘    │
-│         │                              ↑                                │
-└─────────┼──────────────────────────────┼────────────────────────────────┘
-          │                              │
-   ┌──────┴──────┐              ┌────────┴────────┐
-   │  Teensy 4.x │              │   Emscripten    │
-   │  ISR + DMA  │              │   WASM build    │
-   │  480 RPM    │              │                 │
-   └──────┬──────┘              └────────┬────────┘
-    Physical LED strip            daydream/
-    (Holosphere/Phantasm)         Three.js + WASM
+```text
+C++ codebase
+  effects/ (41 visual algorithms) + workbench/
+              |
+  core/                       Rendering engine
+    SDF scan / curve plot -> filter pipeline -> Canvas pixel buffer
+              |
+  targets/                    Build entry points
+    Holosphere/ + Phantasm/ -> hardware/ POV and DMA drivers -> Teensy LEDs
+    wasm/                  -> Emscripten -> daydream Three.js simulator
+  tests/                   -> native host tests
 ```
 
 ### Compile-Time Resolution Parameterization
@@ -1148,7 +1131,7 @@ index.html → vendor-importmap.js           segment_worker.js × N
 
 `index.html` loads exactly one module, `main.js`, whose whole body is a call to `bootstrap.js`'s exported `bootstrap()`. Keeping the side effect in the entry module rather than in `bootstrap.js` itself is what lets `daydream.js` import the failure overlay without standing up a second simulator. `bootstrap()` dynamically imports `daydream.js` inside a `try`/`catch` — the only handler for a module-graph load failure. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which re-fetches every same-origin `.js` and `.wasm` the page has already loaded with `cache: 'reload'`. That is the remedy for the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
 
-A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.7), `daydream.js` spawns N Web Workers, each holding its own WASM instance — its own linear memory, arenas and effect state — so the four-Teensy Phantasm layout can be exercised in software. The *compilation* behind those instances is shared: the pool spawn hands every worker one `WebAssembly.Module` compiled once on the main thread (§10.7), and a `WebAssembly.Module` carries no state, so instances stay isolated. Only a worker that is handed no module fetches and compiles the binary itself.
+A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.7), `segment_controller.js` spawns N Web Workers, each holding its own WASM instance — its own linear memory, arenas and effect state — so the four-Teensy Phantasm layout can be exercised in software. The *compilation* behind those instances is shared: the pool spawn hands every worker one `WebAssembly.Module` compiled once on the main thread (§10.7), and a `WebAssembly.Module` carries no state, so instances stay isolated. Only a worker that is handed no module fetches and compiles the binary itself.
 
 ### 10.2 The WASM Bridge
 
@@ -1548,12 +1531,12 @@ URL parameters control the initial state (mirrored back by `URLSync`, §10.4):
 ?effect=IslamicStars&resolution=Phantasm%20(288x144)
 ```
 
-**Optional local vendor checkout.** The simulator runs against jsdelivr CDN by default. To work offline (and to get the WebGPU renderer file, which isn't in npm), populate the local vendor dirs:
+**Optional local vendor checkout.** The simulator runs against jsdelivr CDN by default. To work offline with the pinned Three.js r183 sources, populate the local vendor dirs:
 
 ```bash
 cd daydream
-npm install              # populates node_modules/lil-gui/
-git clone --depth 1 https://github.com/mrdoob/three.js.git
+npm ci                   # populates node_modules/lil-gui/
+git clone --depth 1 --branch r183 https://github.com/mrdoob/three.js.git
 ```
 
 After populating them, run `npm run importmap:local` to point [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) at the local copies (don't commit the result); `npm run importmap` reverts to all-CDN (§10.8).
