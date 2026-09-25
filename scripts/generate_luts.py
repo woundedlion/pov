@@ -139,7 +139,8 @@ def require_format_version(cf):
     if major != EXPECTED_CLANG_FORMAT_MAJOR:
         sys.stderr.write(
             f"generate_luts: clang-format-{EXPECTED_CLANG_FORMAT_MAJOR} required; "
-            f"found {major if major is not None else 'unknown'} at {cf}\n")
+            f"found {major if major is not None else 'unknown'} at {cf}\n"
+            "Check the CLANG_FORMAT override.\n")
         sys.exit(1)
 
 
@@ -156,15 +157,9 @@ def clang_format(text):
         return None
     require_format_version(cf)
     header = Path(__file__).resolve().parent.parent / "core" / "color" / "color_luts.h"
-    try:
-        result = subprocess.run(
-            [cf, "--assume-filename=" + str(header)],
-            input=text, capture_output=True, text=True)
-    except FileNotFoundError:
-        sys.stderr.write(
-            "generate_luts: clang-format not found at '" + cf + "'"
-            " (check the CLANG_FORMAT override)\n")
-        sys.exit(1)
+    result = subprocess.run(
+        [cf, "--assume-filename=" + str(header)],
+        input=text, capture_output=True, text=True)
     if result.returncode != 0:
         sys.stderr.write("generate_luts: clang-format failed:\n" + result.stderr)
         sys.exit(1)
