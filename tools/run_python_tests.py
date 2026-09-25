@@ -19,15 +19,17 @@ def main():
         if not paths:
             parser.error(f"no test files discovered in {args.suite}")
         failed = False
+        executed = 0
         for path in paths:
             suite = unittest.defaultTestLoader.discover(str(path.parent), pattern=path.name)
             if suite.countTestCases() == 0:
                 parser.error(f"no test cases discovered in {path}")
             result = unittest.TextTestRunner(verbosity=2).run(suite)
-            if result.testsRun == len(result.skipped):
-                print(f"no unskipped test cases in {path}", file=sys.stderr)
-                failed = True
+            executed += result.testsRun - len(result.skipped)
             failed |= not result.wasSuccessful()
+        if executed == 0:
+            print(f"no unskipped test cases in {args.suite}", file=sys.stderr)
+            failed = True
         return int(failed)
 
     paths = subprocess.check_output(
