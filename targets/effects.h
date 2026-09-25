@@ -74,17 +74,10 @@
 /**
  * @brief Single source of truth for the registered effect roster, as an X-macro.
  * @param X Function-like macro applied to each effect type name in the roster.
- * @details The `#include` list above and this X-macro list must stay in lock-step.
- *     * WASM:   the self-registering EffectRegistry size is checked against
- *               HS_EFFECT_COUNT at engine startup
- *               (targets/wasm/engine_bindings.h), so a registered-but-unlisted
- *               (or listed-but-unregistered) effect traps.
- *     * Native: the effect smoke suite iterates this X-macro list, so its coverage
- *               is derived from the list rather than hand-maintained, and it runs
- *               the same registry-count oracle unconditionally
- *               (tests/test_effects_smoke.h), so the same drift fails the suite.
- *   Adding an effect therefore means: add the `#include` above, the
- *   REGISTER_EFFECT in its header, and one X() row here.
+ * @details The include list and X-macro list must stay in lock-step. The WASM
+ * factory and native smoke suite expand this roster directly; factory names
+ * are checked for uniqueness at compile time. Add an effect header above and
+ * one X() row below.
  */
 #define HS_EFFECT_LIST(X)                                                      \
   X(BZReactionDiffusion)                                                       \
