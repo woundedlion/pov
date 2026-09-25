@@ -1067,6 +1067,19 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(projected.provenance.edge_class, 8);
   HS_EXPECT_EQ(projected.provenance.value_weight, 1.0f);
   HS_EXPECT_EQ(projected.provenance.domain_coverage, 1.0f);
+  for (float longitude : {-2.5f, -0.25f, 0.25f, 2.5f}) {
+    const math::Vector direction(cosf(longitude), 0.0f, sinf(longitude));
+    for (float meridian : {-2.0f, 1.0f, 3.0f}) {
+      const auto folded =
+          Pullback::Projection::folded_sinusoidal(direction, meridian);
+      const float relative = projections::wrap_longitude(longitude - meridian);
+      HS_EXPECT_EQ(folded.provenance.region_id,
+                   static_cast<uint8_t>(relative < 0.0f));
+      const auto expected = projections::folded_sinusoidal(direction, meridian);
+      HS_EXPECT_EQ(folded.coords.re, expected.re);
+      HS_EXPECT_EQ(folded.coords.im, expected.im);
+    }
+  }
 }
 
 inline void test_pullback_warp_phase_loop() {

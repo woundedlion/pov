@@ -153,6 +153,7 @@ inline float wrap_longitude(float longitude) {
  * @brief Folded sinusoidal (Sanson-Flamsteed) pseudocylindrical projection.
  * @param v Unit direction on the sphere.
  * @param central_meridian Longitude placed at the image's axis, in radians.
+ * @param signed_longitude Optional output of the wrapped meridian-relative longitude.
  * @return Plane coordinates in radians with approximate angular terms:
  *         absolute azimuth tapered by cos(latitude), against latitude.
  * @details Folding the azimuth about the central meridian maps both
@@ -160,12 +161,15 @@ inline float wrap_longitude(float longitude) {
  * cos(latitude) taper collapses each pole to a point.
  */
 HS_FLASH_INLINE inline math::Complex
-folded_sinusoidal(const math::Vector &v, float central_meridian = 0.0f) {
+folded_sinusoidal(const math::Vector &v, float central_meridian = 0.0f,
+                  float *signed_longitude = nullptr) {
+  const float longitude =
+      wrap_longitude(math::fast_atan2(v.z, v.x) - central_meridian);
+  if (signed_longitude != nullptr)
+    *signed_longitude = longitude;
   const float radius = sqrtf(v.x * v.x + v.z * v.z);
-  return {
-      std::fabs(wrap_longitude(math::fast_atan2(v.z, v.x) - central_meridian)) *
-          radius,
-      0.5f * math::PI_F - math::fast_acos(v.y)};
+  return {std::fabs(longitude) * radius,
+          0.5f * math::PI_F - math::fast_acos(v.y)};
 }
 
 /**
