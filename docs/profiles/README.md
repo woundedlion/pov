@@ -76,8 +76,8 @@ frames include the following transition, so they are stricter than clean holds.
 ● Raymarch and IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 
-The [review-fix comparison](review_2026-09-20.md) measures vertical coverage, Peirce classification and
-horizon interiors, subsequently landed after approval. Its individual-fix profiles are
+The [raster measurement comparison](review_2026-09-20.md) measures vertical coverage, Peirce classification and
+horizon interiors. Its individual-change profiles are
 separate from this table's earlier baseline captures.
 
 ## Retired captures
