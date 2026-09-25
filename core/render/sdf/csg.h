@@ -613,6 +613,8 @@ template <typename A, typename B> struct Intersection {
  * @tparam Shape The child shape type being repeated.
  * @details Folds the azimuthal angle to create N copies of a shape around an
  * arbitrary axis for constant cost (a single distance evaluation).
+ * Place the child within the canonical wedge centered on the derived u axis,
+ * with azimuth in [-sector/2, sector/2]. Geometry outside that wedge is clipped.
  *
  * UV semantics: distance() evaluates the child at the *folded* point, so the
  * child's UV registers (DistanceResult.t / Fragment::v0) are sector-local — t
