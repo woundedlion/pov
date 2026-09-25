@@ -118,7 +118,7 @@ def run_gate(source, target, env):
             sizes = teensy_gate.fallback_sizes_from_size_a(
                 _run([size_tool, "-A", "-x", elf]))
             print("::warning::teensy_size not found; using `size -A` fallback "
-                  "(flash total undercounts; calibrate the flash ceiling against "
+                  "(section alignment padding may differ; calibrate against "
                   "teensy_size, not this).")
 
         symbols = teensy_gate.parse_readelf_symbols(_run([readelf, "-sW", elf]))

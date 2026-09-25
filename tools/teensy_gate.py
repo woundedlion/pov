@@ -235,8 +235,11 @@ def fallback_sizes_from_size_a(text: str) -> dict[str, RegionSizes]:
     # section total under-counts RAM1 by up to one bank short of 32 KiB.
     itcm = -(-totals["ITCM"] // FLEXRAM_BANK_BYTES) * FLEXRAM_BANK_BYTES
     ram1 = itcm + totals["DTCM"]
+    initialized_data = sum(size for name, size, addr in allocated
+                           if name == ".data" and region_for_address(addr) == "DTCM")
+    flash = totals["FLASH"] + totals["ITCM"] + initialized_data
     return {
-        "flash": {"used": totals["FLASH"], "free": 0},
+        "flash": {"used": flash, "free": 0},
         "ram1": {"used": ram1, "free": 0x80000 - ram1},
         "ram2": {"used": totals["OCRAM"],
                  "free": 0x80000 - totals["OCRAM"]},
@@ -810,13 +813,11 @@ def render_report(result: GateResult, *, github: bool = False) -> str:
 #: verdict from a real one by exit status alone.
 EXIT_UNCALIBRATED_PASS = 3
 
-#: Note prefixed to any verdict computed from the `size -A` fallback. Region
-#: totals are bucketed by start VMA, so a section straddling a region boundary
-#: is mis-measured; teensy_size does the correct LMA accounting.
+#: Note prefixed to any verdict computed from the `size -A` fallback.
 UNCALIBRATED_NOTE = (
-    "ADVISORY: `size -A` fallback in use (teensy_size unavailable). Region "
-    "ceilings/floors are bucketed by start VMA and can mis-measure a "
-    "boundary-straddling section, so this region verdict is NOT calibrated "
+    "ADVISORY: `size -A` fallback in use (teensy_size unavailable). Flash "
+    "includes ITCM and initialized data load images, but section alignment "
+    "padding may differ, so this region verdict is NOT calibrated "
     "- run with teensy_size for an authoritative ceiling decision.")
 
 
