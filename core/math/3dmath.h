@@ -236,6 +236,8 @@ struct Spherical {
    * @brief Constructs a Spherical coordinate from a 3D Vector.
    * @param v The Cartesian vector (must be non-degenerate; normalize() traps
    *          on a zero/near-zero-length input below normalized()'s epsilon).
+   * @note Uses fast_atan2/fast_acos (peak errors ~3.8e-3 rad azimuth and
+   *       ~5e-5 rad polar). The round trip through Vector(Spherical) is not exact.
    */
   explicit Spherical(const Vector &v);
 
