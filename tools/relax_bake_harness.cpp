@@ -5,7 +5,7 @@
  * Host relax-bake generator. Compiled with HS_RELAX_BAKE_EXTRACT, every
  * SolidBuilder::relax_baked() call reproduces its payload by running exactly
  * `bake.iterations` smoothing steps and logs a RELAX_BAKE block (see
- * core/mesh/solids.h). Running every bake-bearing generator once therefore
+ * core/mesh/solid_generators.h). Running every bake-bearing generator once therefore
  * emits the full asset stream on stdout; tools/relax_bakes.py parses it into
  * core/mesh/relax_bakes_generated.h. Because host relax is deterministic, the
  * emitted bits load unchanged on both host and device.
