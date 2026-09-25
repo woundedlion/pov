@@ -34,15 +34,13 @@ fi
 # `command -v python3` is not enough on Windows: the App Execution Alias stub
 # resolves and then refuses to run. Probe with --version.
 PY=
-for c in ${HS_PYTHON:-} python3 python; do
+for c in "${HS_PYTHON:-}" python3 python; do
   if "$c" --version >/dev/null 2>&1; then PY="$c"; break; fi
 done
 if [ -z "$PY" ]; then
-  rm -f "$PENDING"
   exit 0
 fi
 
 "$PY" "$TRAIL" commit --pending "$PENDING" --trail "$COMMON/teensy-size-trail.tsv" \
   || echo "[post-commit] size trail not updated — continuing."
-rm -f "$PENDING"
 exit 0
