@@ -33,7 +33,8 @@ Counter lines are WINDOW TOTALS since the previous dump; per-frame = total /
 window frames, us -> ms / 1000. A display window is 62.5 ms at 480 RPM, so a
 draw_frame's wall time quantizes to whole 62.5 ms windows.
 
-Preset markers matched here use 1-based indices (one per advance):
+Preset markers are 1-based except the zero-based Profile marker:
+  Profile preset: <i>/<N>    Profile target
   Preset: <i>/<N>            ChoreographedEffect + DreamBalls
   Shape: <i>/<N>             Archived shape markers
   Mode: <i>/<N>              SphericalHarmonics
@@ -966,7 +967,7 @@ def cmd_validate(windows, effect, scope, pullback=None, expected_arm=None,
     elif idxs:
         peak = max(idxs)
         wrapped = any(idxs[i] < idxs[i - 1] for i in range(1, len(idxs)))
-        check(wrapped, f"cycle wraps to 0 (peak idx {peak}, "
+        check(wrapped, f"cycle returns to its first index (peak idx {peak}, "
                        f"{len(set(idxs))} distinct)")
         total = marks[0].get("total")
         if total:
