@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0
-"""Check death-pin uniqueness and cross-directory breadcrumb aliases."""
+"""Check OpLeg death-pin uniqueness and cross-directory breadcrumb aliases."""
 
 import ast
 from pathlib import Path
