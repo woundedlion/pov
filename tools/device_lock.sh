@@ -177,6 +177,16 @@ _hs_break_lock() {
   "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" break "$1" "$2"
 }
 
+_hs_break_stale() {
+  if [ -n "$2" ]; then
+    _hs_break_lock "$1" "$2"
+  else
+    _hs_resolve_python || return 2
+    "$_HS_LOCK_PYTHON" "$_HS_LOCK_HELPER" break-empty "$1" \
+      "$(($(_hs_now) - HS_DEVICE_STALE_GRACE))"
+  fi
+}
+
 # _hs_try_claim <dir> <port> <effect> <env> <eta> — mkdir-or-fail, then record
 # the claim. Success also pins this shell's HS_TEENSY_PORT to the board won, so
 # the flash and the capture can never drift onto a peer's device.
@@ -265,7 +275,7 @@ hs_device_acquire() {
       if _hs_lock_is_stale "$d"; then
         # Read while the claim still exists; the break destroys its info.
         local desc; desc=$(_hs_holder_desc "$d")
-        if _hs_break_lock "$d" "$token"; then
+        if _hs_break_stale "$d" "$token"; then
           echo "device lock is stale (holder gone or past its ETA) — breaking it" >&2
           echo "$desc" >&2
           _hs_try_claim "$d" "$port" "$effect" "$env" "$eta" && {
@@ -285,7 +295,7 @@ hs_device_acquire() {
       echo "HS_DEVICE_FORCE=1 — breaking a LIVE device lock" >&2
       _hs_holder_desc "$d" >&2
       # A changed token belongs to a peer; report busy.
-      if _hs_break_lock "$d" "$(_hs_lock_field "$d" token)" &&
+      if _hs_break_stale "$d" "$(_hs_lock_field "$d" token)" &&
           _hs_try_claim "$d" "$port" "$effect" "$env" "$eta"; then
         return 0
       fi
