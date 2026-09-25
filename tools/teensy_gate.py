@@ -468,7 +468,7 @@ def evaluate(
                 "symbol-not-found",
                 f"{env}: layout symbol '{key}' ({name}) not found in the ELF - "
                 f"renamed/removed? A missing symbol is a hard failure, never a "
-                f"silent pass (spec 7.4)."))
+                f"silent pass."))
             continue
         # Vague-linkage copies across TUs share a VMA and size; collapse them so a
         # benign duplicate reads as one definition. Genuinely distinct definitions
@@ -502,7 +502,7 @@ def evaluate(
                 v.append(Violation(
                     "symbol-too-large",
                     f"{env}: '{key}' ({name}) is {sym.size:,} B, above its "
-                    f"{hi:,} B cap (e.g. an 8 MiB host arena leak, spec 7.4 #1)."))
+                    f"{hi:,} B cap (e.g. an 8 MiB host arena leak)."))
 
     return result
 
