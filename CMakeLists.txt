@@ -20,7 +20,7 @@ set(HS_PULLBACK_CAPTURE_PRESET "" CACHE STRING
 # resolved executable PATH (or <var>-NOTFOUND), so use CMake's CCACHE_PROGRAM
 # convention rather than a _FOUND name that reads as a boolean but holds a path.
 find_program(CCACHE_PROGRAM ccache)
-if(CCACHE_PROGRAM)
+if(CCACHE_PROGRAM AND NOT DEFINED CMAKE_CXX_COMPILER_LAUNCHER)
   set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
   message(STATUS "ccache enabled: ${CCACHE_PROGRAM}")
 endif()
