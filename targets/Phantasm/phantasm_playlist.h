@@ -37,7 +37,7 @@
   X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
   X(DisplacementField, 120)                                                    \
-  X(DreamBalls, 120)                                                           \
+  X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
   X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
