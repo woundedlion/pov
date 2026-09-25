@@ -129,10 +129,24 @@ def normalize(line: str) -> str | None:
 def extract_warnings(build_log: str) -> set[str]:
     """The deduplicated, normalized, first-party warning set from a build log."""
     out: set[str] = set()
+    origin = None
     for line in build_log.splitlines():
+        if line.startswith("In file included from") or _PIO_STEP_RE.match(line):
+            origin = None
+        if "inlined from" in line:
+            location = re.search(r" at (.*?):\d+(?::\d+)?[, :]?$", line)
+            if location and origin is None:
+                origin = _relativize(location.group(1))
         key = normalize(line)
+        warning = _WARNING_RE.match(line.strip())
+        if key is None and warning and origin:
+            path = warning.group(1).replace("\\", "/")
+            if re.search(r"(?:^|/)packages/toolchain-[^/]+/", path):
+                key = f"{origin}: warning: {warning.group(3)}".rstrip()
         if key is not None:
             out.add(key)
+        if warning:
+            origin = None
     return out
 
 
