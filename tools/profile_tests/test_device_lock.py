@@ -504,7 +504,7 @@ class MissingLockRoot(unittest.TestCase):
             [sys.executable, str(LOCK_GUARD), "claim", f"{self.base}-COM3.d"],
             input="token=t\n", capture_output=True, text=True,
             encoding="utf-8")
-        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.returncode, 2)
         self.assertIn("lock root", r.stderr)
 
     def test_acquire_reports_the_path_not_a_busy_bench(self):

@@ -139,7 +139,7 @@ install: smoke
     cmake --build --preset wasm-release-install
     node scripts/wasm_smoke.mjs ../daydream/holosphere_wasm.js
 
-# Build and flash the stationary bench image under the per-board device lock.
+# Windows only: build and flash the bench image under the per-board device lock.
 bench:
     bash tools/upload_one.sh bench
 
@@ -157,15 +157,15 @@ python-test:
 teensy-gate-test: python-test
     {{py}} hardware/phantasm/gen/board_metadata.py --check
 
-# Build, flash, and capture one effect under the device lock.
+# Windows only: build, flash, and capture one effect under the device lock.
 profile effect="DisplacementField" seconds="150" $HS_PROFILE_DEEP="0":
     bash tools/profile_one.sh "{{effect}}" profile "{{seconds}}" 32
 
-# Repeated physics-free render of the frozen production-resolution corpus.
+# Windows only: repeated render of the frozen production-resolution corpus.
 profile-mindsplatter-replay env="profile" seconds="150":
     bash tools/profile_one.sh MindSplatter "{{env}}" "{{seconds}}" 32 -D HS_MINDSPLATTER_REPLAY
 
-# Same-device candidate/reference visual comparison; timing includes both.
+# Windows only: same-device candidate/reference visual comparison.
 profile-mindsplatter-replay-ab env="profile" seconds="150":
     bash tools/profile_one.sh MindSplatter "{{env}}" "{{seconds}}" 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
 

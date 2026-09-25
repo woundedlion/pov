@@ -1428,7 +1428,7 @@ For a headless Phantasm build, run `pio run -e phantasm` from the repository roo
 > **Headless size/layout gate — an active CI job, optional locally.** A
 > PlatformIO build (`just teensy-size`) builds
 > the two budgeted shipping images plus the `holosphere_dma`, `phantasm8`,
-> `profile`, and `profile_o3` compile/link profiles
+> `bench`, `profile`, and `profile_o3` compile/link profiles
 > on a stock machine. It checks shipping-image size and memory-region layout
 > against committed budgets while closing the device-only `#ifdef ARDUINO`
 > compile/size blind spot VMicro alone leaves uncovered. CI runs the same build
