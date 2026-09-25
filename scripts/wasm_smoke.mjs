@@ -150,7 +150,7 @@ async function main(probe) {
     printErr: (s) => console.error(`[wasm:err] ${s}`),
   });
 
-  if (typeof Module.HolosphereEngine.prototype.setShaderChain === 'function') {
+  {
     const isolated = await createHolosphereModule({ print: () => {}, printErr: () => {} });
     const victim = new isolated.HolosphereEngine();
     if (victim.setEffect('ShaderChain') !== isolated.EffectSetResult.INSTALLED) {
@@ -189,7 +189,7 @@ async function main(probe) {
           }
         }
       }
-      if (typeof engine.setShaderChain === 'function') {
+      {
         engine.setEffect('ShaderChain');
         for (const input of [throwing, revoked.proxy]) {
           if (engine.setShaderChain(input).code !== 'MALFORMED_PAYLOAD'
@@ -199,7 +199,7 @@ async function main(probe) {
         }
         engine.setShaderChain([]);
       }
-      if (typeof engine.restoreFullConfigSnapshot === 'function') {
+      {
         engine.setEffect('Shader');
         for (const input of [throwing, revoked.proxy]) {
           if (engine.restoreFullConfigSnapshot(input) !== Module.FullConfigRestoreResult.INVALID_LENGTH) {

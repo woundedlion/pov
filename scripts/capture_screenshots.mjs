@@ -1,3 +1,4 @@
+import { exitAfterStderr } from './exit.mjs';
 // Headless Playwright script that loads the WebGL simulator for each effect,
 // lets it animate, and saves a PNG screenshot to docs/screenshots/.
 // Effects can be overridden via CLI args; otherwise the full EFFECTS list runs.
@@ -42,8 +43,7 @@ async function numEnv(name, def, max = Infinity) {
   console.error('========================================================');
   process.exitCode = 2;
   // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
-  await new Promise((resolve) => process.stderr.write('', resolve));
-  process.exit();
+  await exitAfterStderr();
 }
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
@@ -70,8 +70,7 @@ if (OFF_ROSTER.length) {
   console.error('========================================================');
   process.exitCode = 2;
   // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
-  await new Promise((resolve) => process.stderr.write('', resolve));
-  process.exit();
+  await exitAfterStderr();
 }
 
 // Imported after the roster check so an off-roster name still gets the roster
@@ -86,8 +85,7 @@ try {
   console.error('========================================================');
   process.exitCode = 1;
   // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
-  await new Promise((resolve) => process.stderr.write('', resolve));
-  process.exit();
+  await exitAfterStderr();
 }
 
 await mkdir(OUT_DIR, { recursive: true });
@@ -114,8 +112,7 @@ try {
   console.warn('========================================================');
   process.exitCode = 1;
   // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
-  await new Promise((resolve) => process.stderr.write('', resolve));
-  process.exit();
+  await exitAfterStderr();
 }
 // Thrown when the page yields no resolution list, to abort the capture run from
 // inside the browser block without leaking a raw stack past the summaries.

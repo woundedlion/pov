@@ -1,5 +1,4 @@
-// Lint config for the repo's Node tooling scripts (scripts/*.mjs), enforced by
-// the `lint` job in .github/workflows/ci.yml.
+// JavaScript lint rules for first-party tooling, enforced by the CI lint job.
 //
 // The recommended set only -- the rules that catch defects (undeclared names,
 // unreachable code, duplicate keys, unused bindings). No stylistic rules and no

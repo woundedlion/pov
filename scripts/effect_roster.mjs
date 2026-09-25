@@ -24,9 +24,6 @@ export function parseEffectRoster(src) {
   const block = stripComments(src).match(
     /^#define HS_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/m);
   if (!block) throw new Error('Could not locate HS_EFFECT_LIST in targets/effects.h');
-  // Tolerate whitespace inside the parens: a reformat to `X( Foo )` must not drop
-  // rows here, before parsing the macro body
-  // and the cross-check would agree on the truncated roster.
   const names = [...block[1].matchAll(/X\(\s*(\w+)\s*\)/g)].map(m => m[1]);
   if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
   return names;

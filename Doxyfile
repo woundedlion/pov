@@ -1,7 +1,6 @@
 # Doxygen configuration for Holosphere. Only non-default keys are set here;
 # Doxygen supplies defaults for everything omitted. HTML output lands in
-# build/docs/html (gitignored). CI (.github/workflows/docs.yml) appends the
-# doxygen-awesome theme stylesheet before generating.
+# build/docs/html (gitignored). The CI docs-doxygen job uses the pinned theme.
 
 PROJECT_NAME           = "Holosphere"
 PROJECT_BRIEF          = "Persistence-of-vision LED sphere engine and WebAssembly simulator"

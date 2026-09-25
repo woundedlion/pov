@@ -1263,6 +1263,11 @@ export function expandV1Document(document, catalog) {
     });
 
   const slots = v1Slots(roleNodes);
+  for (const slot of slots) {
+    if (!operators.has(slot.operator))
+      failV1('V1_POLICY_UNSUPPORTED', `chain.${slot.label}`,
+        `The catalog carries no operator "${slot.operator}".`);
+  }
   const slotsByLabel = new Map(slots.map((slot) => [slot.label, slot]));
   const chain = slots.map((slot) => ({ label: slot.label, operator: slot.operator }));
 

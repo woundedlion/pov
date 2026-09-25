@@ -1,3 +1,4 @@
+import { exitAfterStderr } from './exit.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,8 +21,7 @@ const unknown = argv.filter((arg) => arg !== '--check');
 if (unknown.length) {
   console.error(`unknown argument: ${unknown[0]}`);
   console.error('usage: generate_promoted_shader_documents.mjs [--check]');
-  await new Promise((resolve) => process.stderr.write('', resolve));
-  process.exit(2);
+  await exitAfterStderr(2);
 }
 const TAU = Math.fround(Math.PI * 2);
 
@@ -201,7 +201,7 @@ const baseValues = (spec) => {
     'value-opacity-high': defaults.color['value-opacity-high'],
     'hue-shift-amount': defaults.color['hue-shift-amount'],
   };
-  if (['folded-sinusoidal', 'bonne', 'airocean'].includes(spec.projection))
+  if (spec.projection === 'folded-sinusoidal')
     delete values['pole-fade'];
   if (spec.animatedProjection) {
     values['projection-spin-speed'] = 0;
@@ -554,8 +554,7 @@ for (const spec of effects) {
   const compiled = compileShaderDocument(documentFor(spec), { catalog });
   if (compiled.status !== 'VALID') {
     console.error(`${spec.id}:`, JSON.stringify(compiled.diagnostics, null, 2));
-    await new Promise((resolve) => process.stderr.write('', resolve));
-    process.exit(1);
+    await exitAfterStderr(1);
   }
   const name = `${spec.id.replaceAll('-', '_')}.shader.json`;
   const output = resolve(ROOT, 'patterns', name);
@@ -580,8 +579,7 @@ if (CHECK) {
     }
     console.error(
       'Regenerate with: node scripts/generate_promoted_shader_documents.mjs');
-    await new Promise((resolve) => process.stderr.write('', resolve));
-    process.exit(1);
+    await exitAfterStderr(1);
   }
   const noncanonical = [];
   const patterns = await compilePatternDocuments(catalog);
@@ -593,8 +591,7 @@ if (CHECK) {
     console.error('::error::patterns/ contains noncanonical shader documents');
     for (const name of noncanonical)
       console.error(`  patterns/${name}`);
-    await new Promise((resolve) => process.stderr.write('', resolve));
-    process.exit(1);
+    await exitAfterStderr(1);
   }
   console.log(
     `patterns/ generated subset matches its specs (${effects.length} documents) `
