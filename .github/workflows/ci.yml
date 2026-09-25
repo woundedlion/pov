@@ -1408,8 +1408,7 @@ jobs:
     # fails when one is missing.
     # `if: always()` is load-bearing: a failed dependency SKIPS a plain job, and
     # a skipped required check does not block a merge.
-    # Only `success` counts below except for the explicitly allowlisted jobs
-    # whose own conditions skip them outside their supported event or platform.
+    # Every dependency must report success.
     needs:
       - tests
       - sanitizers
@@ -1445,9 +1444,6 @@ jobs:
       - name: Assert every job is a dependency and succeeded
         env:
           RESULTS: ${{ toJSON(needs) }}
-          EVENT: ${{ github.event_name }}
-          # Space-separated jobs allowed to report `skipped` on pull requests.
-          ALLOW_SKIPPED: ''
         run: |
           WF=.github/workflows/ci.yml
 
@@ -1485,19 +1481,11 @@ jobs:
             exit 1
           fi
 
-          awk -v allow="$ALLOW_SKIPPED" -v event="$EVENT" '
-            BEGIN {
-              n = split(allow, entries, " ")
-              for (i = 1; i <= n; i++) allowed[entries[i]] = 1
-            }
-            $2 == "success" { next }
-            $2 == "skipped" && event == "pull_request" && allowed[$1] { next }
-            { print }
-          ' /tmp/ci-results.txt > /tmp/ci-bad.txt
+          awk '$2 != "success" { print }' /tmp/ci-results.txt > /tmp/ci-bad.txt
           if [ -s /tmp/ci-bad.txt ]; then
             while read -r job result; do
               if [ "$result" = skipped ]; then
-                echo "::error file=$WF::job '$job' was skipped, so its checks did not run; list it in ALLOW_SKIPPED if that is intended"
+                echo "::error file=$WF::job '$job' was skipped, so its checks did not run"
               else
                 echo "::error::job '$job' did not pass: $result"
               fi
