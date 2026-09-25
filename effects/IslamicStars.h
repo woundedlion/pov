@@ -168,9 +168,8 @@ private:
                 MAX_BUILD_STEPS);
   friend struct ::hs_test::effects_tests::IslamicBuildProbe;
 
-  // Ripple-pool sizing: a slot is held from spawn() until the staggered ripple
-  // completes. Only one burst is normally live; the pool holds two so a Ripp
-  // Dur/Burst slider change mid-burst cannot drop a spawn.
+  // One burst is live at a time; the pool reserves twice BURST_MAX slots.
+  // Duration and burst size are cached before scheduling.
   static constexpr int RIPPLE_POOL_SIZE = 8;
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
   /** Ripp Dur slider ceiling. Nothing downstream bounds it: the per-shape
