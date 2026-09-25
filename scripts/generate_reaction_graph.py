@@ -98,8 +98,8 @@ def build_neighbors():
 
     # The lattice is ordered north-to-south, so a node's index tracks its y
     # coordinate monotonically (dy per index step = 2/(RD_N-1)). Every one of the
-    # RD_K nearest neighbors sits within ~11 deg (chord <~ 0.193), hence within
-    # |dy| <~ 0.193, so a fixed index window around i must contain them all. W is
+    # RD_K nearest neighbors sits within 3.54 deg at RD_N = 7680 (chord <~ 0.0617), hence within
+    # |dy| <~ 0.0617, so a fixed index window around i must contain them all. W is
     # sized so the window's y half-width (W * dy_step) comfortably exceeds that,
     # and the assertion below proves sufficiency per row — if a future RD_N change
     # outgrows the window the generator aborts instead of emitting a wrong table.
