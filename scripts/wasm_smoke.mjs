@@ -1630,6 +1630,20 @@ async function main(probe) {
         },
         hueTorsion: 0, falloffStart: 0.9,
       };
+      for (const [path, value, field] of [
+        ['domain', 0.99, 1], ['easing', 1.9, 2], ['colorPath', 0.5, 3],
+        ['hue.mode', 2.7, 4], ['hue.harmony', 1.5, 5], ['hue.direction', 0.5, 6],
+        ['lightness.curve', 0.5, 14], ['chroma.curve', 0.5, 21], ['chroma.basis', 0.5, 22],
+      ]) {
+        const invalid = structuredClone(recipe);
+        const keys = path.split('.');
+        const leaf = keys.pop();
+        const owner = keys.reduce((object, key) => object[key], invalid);
+        owner[leaf] = value;
+        const rejected = po.compileAndBakeV4(invalid);
+        if (rejected.status.code !== 3 || rejected.status.field !== field)
+          fail(`fractional palette ${path} was not rejected as INVALID_ENUM at field ${field}`);
+      }
       const result = po.inspectV4(recipe);
       const lut = Uint8Array.from(result.lut ?? []);
       if (result.status.code !== 0) {
