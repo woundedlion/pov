@@ -6078,6 +6078,11 @@ inline void test_shader_workbench_brightness_envelopes() {
   HS_EXPECT_EQ(WB::palette_mapping(0.25f, Mapping::REVERSE, 1.0f), 0.75f);
   HS_EXPECT_NEAR(WB::palette_mapping(0.25f, Mapping::CUP, 2.0f, 0.1f), 0.2f,
                  1e-6f);
+  const auto SAME_MAPPING =
+      WB::PaletteMappingWeights::single(Pullback::Color::PaletteMapping::CUP);
+  HS_EXPECT_EQ(
+      WB::PaletteMappingWeights::lerp(SAME_MAPPING, SAME_MAPPING, 0.5f).exact,
+      SAME_MAPPING.exact);
   const WB::PaletteMappingWeights mapping_mix = WB::PaletteMappingWeights::lerp(
       WB::PaletteMappingWeights::single(Pullback::Color::PaletteMapping::CUP),
       WB::PaletteMappingWeights::single(
