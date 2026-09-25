@@ -595,8 +595,7 @@ Every other chip passive uses the stock IPC-nominal land; D_BUS uses the Bourns 
 
 ### 11.2 Order/layout action items (do before fab)
 
-- **R-ASM-1 — SMD footprints + part numbers.** Swap every pre-assembled symbol from the TH packages
-  named in §3/§9 to its SMD footprint. **Supplier data is not schematic-borne:**
+- **R-ASM-1 — Supplier part numbers.** **Supplier data is not schematic-borne:**
   `hardware/phantasm/gen/fab.py` is the location of record — `LCSC_BY_REF` assigns each assembled
   reference its LCSC number and `PART_BY_LCSC` carries the manufacturer / MPN / description — and
   the assembly BOM the PCBA house places from is emitted from those two tables. The schematic's
