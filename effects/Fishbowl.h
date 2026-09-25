@@ -406,7 +406,6 @@ private:
     return valid_params(p);
   }));
 
-  // Precedes scale_mod, which binds &params.scale_factor at construction.
   ScaleModifier scale_mod{
       &params.scale_factor}; /**< Palette scale coordinate modifier. */
   CycleModifier cycle_mod{

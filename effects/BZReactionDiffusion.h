@@ -415,8 +415,6 @@ private:
     uint16_t *A = nullptr, *B = nullptr, *C = nullptr;
   } state;
 
-  /** @brief Generative recipe for the three species colors. */
-
   /** @brief Per-species palette channels converted once in init(). */
   FloatRgb color_a, color_b, color_c;
 

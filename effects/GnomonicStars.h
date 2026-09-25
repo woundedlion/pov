@@ -175,8 +175,8 @@ private:
 
   /**
    * @brief Live-tunable controls for the star field.
-   * @details Star count, per-star radius, polygon side count, and a toggle that
-   *          draws each star's bounding box for debugging.
+   * @details Star count, per-star radius, polygon sides, warp speed, and a
+   * bounding-box debug toggle.
    */
   struct Params {
     int points = 600; /**< Number of stars scattered on the spiral. */
