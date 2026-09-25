@@ -25,7 +25,8 @@ def chip(width, pitch, height=0.95):
     return (("1", -pitch, 0.0, width, height), ("2", pitch, 0.0, width, height))
 
 
-# Pad geometry the routed board ships, per reference. A footprint id does not
+# Rev 1.1 as-built lands; re-baseline to HandSolder ids and geometry when a
+# regenerated rev 1.2 board is promoted. A footprint id does not
 # preserve in-place pad edits, so every fitted two-pad SMD land is pinned as-built.
 SHIPPED_CHIP_LANDS = {
     "R1": ("Resistor_SMD:R_0603_1608Metric", chip(1.2, 0.825)),
