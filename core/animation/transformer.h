@@ -513,19 +513,12 @@ private:
         if constexpr (HAS_SYNC) {
           e.params.sync();
         }
+        HS_CHECK(pin == Timeline::Pin::PINNED ||
+                     (anim.is_finite() && !anim.repeats()),
+                 "Transformer::spawn needs a finite, non-repeating animation; "
+                 "use spawn_pinned for infinite or repeating animations");
         AnimT *p = timeline.add_get(in_frames, std::move(anim), pin, paused);
         if (p) {
-          // A non-pinned spawn keeps no retained handle, so the slot is reclaimed
-          // only by the one-shot then() below, which fires when the animation
-          // reaches done() once. A finite, non-repeating animation is required: an
-          // infinite one never reaches done() and a repeating one rewinds instead
-          // of being removed, so either would hold its slot for the effect's life
-          // (nullptr after CAPACITY spawns) — use spawn_pinned.
-          if (pin == Timeline::Pin::UNPINNED)
-            HS_CHECK(p->is_finite() && !p->repeats(),
-                     "Transformer::spawn needs a finite, non-repeating "
-                     "animation; infinite or repeating spawns leak their pool "
-                     "slot — use spawn_pinned");
           // Recycle the pool slot at final removal. The paths differ by handle
           // stability:
           //   - Pinned: the event never relocates and may be cancel()ed through
