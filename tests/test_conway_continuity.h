@@ -323,6 +323,8 @@ inline void check_flat_star_faces_match_base(const PolyMesh &base,
                                              const PolyMesh &flat) {
   const size_t F = base.face_counts.size();
   HS_EXPECT_GE(flat.face_counts.size(), F);
+  if (flat.face_counts.size() < F)
+    return;
   constexpr float TOL = 1e-4f;
 
   size_t base_off = 0;
@@ -978,6 +980,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
     return -1;
   }();
   HS_EXPECT_GE(edge, 0);
+  if (edge < 0)
+    return;
 
   Animation::OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                            .prev_face_palette = pal,
@@ -1143,6 +1147,8 @@ inline void test_palette_mapping_deterministic() {
     return -1;
   }();
   HS_EXPECT_GE(edge, 0);
+  if (edge < 0)
+    return;
 
   hs_test::StubEffect fx(FB_W, FB_H);
   std::array<uint8_t, Animation::OpLeg::PALETTES> to_palette[2];
