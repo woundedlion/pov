@@ -158,8 +158,8 @@ teensy-gate-test: python-test
     {{py}} hardware/phantasm/gen/board_metadata.py --check
 
 # Build, flash, and capture one effect under the device lock.
-profile effect="DisplacementField" seconds="150" deep="0":
-    HS_PROFILE_DEEP="{{deep}}" bash tools/profile_one.sh "{{effect}}" profile "{{seconds}}" 32
+profile effect="DisplacementField" seconds="150" $HS_PROFILE_DEEP="0":
+    bash tools/profile_one.sh "{{effect}}" profile "{{seconds}}" 32
 
 # Repeated physics-free render of the frozen production-resolution corpus.
 profile-mindsplatter-replay env="profile" seconds="150":
