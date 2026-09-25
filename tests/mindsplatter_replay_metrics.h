@@ -5,17 +5,14 @@
 #pragma once
 
 #include "core/render/canvas.h"
+#include "tests/test_harness.h"
 
 #include <algorithm>
 #include <cstdint>
 
 namespace mindsplatter_replay {
 
-inline constexpr uint64_t HASH_SEED = 1469598103934665603ull;
-
-inline uint64_t hash_byte(uint64_t hash, uint8_t byte) {
-  return (hash ^ byte) * 1099511628211ull;
-}
+inline constexpr uint64_t HASH_SEED = hs_test::FNV1A64_BASIS;
 
 inline constexpr const char *SOURCE_REVISION = "msp-heavy-search-v3";
 
@@ -64,10 +61,8 @@ struct FrameStats : ReferenceStats {
   uint16_t max_coverage_luminance = 0;
 };
 
-inline uint64_t hash_channel(uint64_t hash, uint16_t channel) {
-  hash = hash_byte(hash, static_cast<uint8_t>(channel));
-  return hash_byte(hash, static_cast<uint8_t>(channel >> 8));
-}
+inline constexpr auto hash_byte = hs_test::fnv1a64_byte;
+inline constexpr auto hash_channel = hs_test::fnv1a64_channel;
 
 inline uint16_t linear_luminance(uint16_t r, uint16_t g, uint16_t b) {
   return static_cast<uint16_t>((13933u * r + 46871u * g + 4732u * b + 32768u) >>
