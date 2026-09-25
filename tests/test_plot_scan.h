@@ -43,6 +43,7 @@
  *                                 arcs and quadrant clips.
  */
 #pragma once
+#include "tests/pixel_test_util.h"
 
 #include "core/animation/orientation.h"
 #include "core/render/plot.h"
