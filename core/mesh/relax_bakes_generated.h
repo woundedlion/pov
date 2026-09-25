@@ -22,11 +22,9 @@ namespace Solids { namespace RelaxBakes = RelaxBakeSpecs; }
 namespace Solids {
 namespace RelaxBakes {
 
-#if !defined(HS_RELAX_BAKE_EXTRACT)
 static_assert(MeshOps::RELAX_SOURCE_SCALE == 2013.0f, "Regenerate relax bakes after changing RELAX_SOURCE_SCALE");
 static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_BIAS) == 0x3f3c7774u, "Regenerate relax bakes after changing RELAX_SOURCE_BIAS");
 static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN) == 0x3727c5acu, "Regenerate relax bakes after changing RELAX_SOURCE_MIN_MARGIN");
-#endif
 
 inline const uint32_t truncated_cuboctahedron_converged_bits[] HS_PROGMEM_UNIQUE(truncated_cuboctahedron_converged_bits) = {
     0xbf0589e6u, 0x3e5da403u, 0xbf5343fcu, 0xbe5da403u, 0x3f0589e6u, 0xbf5343fcu, 0x3e5da403u, 0x3f0589e6u,
