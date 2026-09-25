@@ -90,6 +90,9 @@ inline void test_transfer_us_bound() {
 inline void test_transfer_stale_bounds() {
   const unsigned long wd = dma::TRANSFER_WATCHDOG_US;
   HS_EXPECT_FALSE(dma::transfer_stale(5000, 5000, wd));
+  HS_EXPECT_FALSE(dma::transfer_stale(5000, 5000 + wd - 1, wd));
+  HS_EXPECT_TRUE(dma::transfer_stale(5000, 5000 + wd, wd));
+  HS_EXPECT_TRUE(dma::transfer_stale(5000, 5000 + wd + 1, wd));
 }
 
 /**

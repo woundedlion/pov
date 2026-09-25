@@ -152,6 +152,13 @@ inline void test_easing_expo_elastic_interior_reference() {
  * @details Each in-out curve passes through 0.5 at t=0.5.
  */
 inline void test_easing_in_out_symmetry_midpoint() {
+  for (float t : {0.1f, 0.25f, 0.4f}) {
+    HS_EXPECT_NEAR(math::ease_in_out_sin(t) + math::ease_in_out_sin(1.0f - t),
+                   1.0f, 1e-4f);
+    HS_EXPECT_NEAR(math::ease_in_out_cubic(t) +
+                       math::ease_in_out_cubic(1.0f - t),
+                   1.0f, 1e-4f);
+  }
   HS_EXPECT_NEAR(math::ease_in_out_sin(0.5f), 0.5f, 1e-4f);
   HS_EXPECT_NEAR(math::ease_in_out_cubic(0.5f), 0.5f, 1e-4f);
 }

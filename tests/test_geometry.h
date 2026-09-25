@@ -587,6 +587,11 @@ inline void test_orientation_upsample_preserves_endpoints() {
   // slerp may flip sign — same orientation.
   HS_EXPECT_NEAR(std::abs(math::dot(o.get(0), start)), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(std::abs(math::dot(o.get(7), end)), 1.0f, 1e-3f);
+  for (int i = 1; i < 7; ++i) {
+    const auto expected = math::make_rotation(math::Vector(0, 1, 0),
+                                              math::PI_F * 0.5f * i / 7.0f);
+    HS_EXPECT_NEAR(std::abs(math::dot(o.get(i), expected)), 1.0f, 1e-5f);
+  }
 }
 
 /**
