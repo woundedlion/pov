@@ -140,7 +140,7 @@ template <typename A, typename B> struct Union {
 
     // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
     // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
-    // authority (Subtract/Intersection normalize first because their pairwise
+    // authority (Intersection normalizes first because its pairwise
     // span comparison is frame-sensitive).
     merge_intervals(merged, out);
     return true;
@@ -293,7 +293,7 @@ template <typename A, typename B> struct SmoothUnion {
 
     // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
     // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
-    // authority (Subtract/Intersection normalize first because their pairwise
+    // authority (Intersection normalizes first because its pairwise
     // span comparison is frame-sensitive).
     merge_intervals(merged, out);
     return true;
@@ -403,22 +403,9 @@ template <typename A, typename B> struct Subtract {
     if (intervals_a.is_empty())
       return true;
 
-    // A child's spans bound its coverage rather than matching it: a polygon or
-    // star emits its circumscribed cap, and every cap row is padded a pixel
-    // wide for AA. Differencing those bounds would cull columns B does not
-    // cover — a star's notches, the carve-edge AA fringe — and a stroke B's
-    // edge-bands can coalesce into one chord spanning its hollow interior. So
-    // emit A's spans (seam-split into [0, W)) and let per-pixel max(A, -B)
-    // carve exactly B, with no horizontal culling: Subtract pays full
-    // A-coverage shading.
-    constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
-    static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
-                  "post-seam-split span count exceeds norm buffer capacity");
-    using NormBuffer = StaticCircularBuffer<Interval, SEAM_SPLIT_CAP>;
-    NormBuffer &norm_a = scratch_spans<NormBuffer>(scratch);
-    normalize_intervals_to_range<W>(intervals_a, norm_a);
-    for (size_t i = 0; i < norm_a.size(); ++i)
-      out(norm_a[i].start, norm_a[i].end);
+    // Bounds include uncovered pixels; subtraction is evaluated per pixel.
+    for (size_t i = 0; i < intervals_a.size(); ++i)
+      out(intervals_a[i].start, intervals_a[i].end);
     return true;
   }
 
