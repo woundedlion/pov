@@ -9,7 +9,7 @@
 # somewhere" count.
 #
 # It sees void/bool/int/size_t definitions named `test_*(` / `check_*(` /
-# `void case_*(` / `void verify_*(` / `void expect_*(`, plus the named
+# `case_*(` / `verify_*(` / `expect_*(`, plus the named
 # roster-wide sweep drivers and the `int run_*_tests(` entry points, at the
 # start of a line (optionally `inline`/`static` in either order, behind an
 # optional single-line `template <...>` head), which is how every case in the
@@ -254,7 +254,7 @@ foreach(_hdr IN LISTS _headers)
     # the case is dropped first, so a forward declaration cannot stand in for
     # the call.
     if(_cross_file OR _case IN_LIST HS_CROSS_FILE_CASES)
-      string(REGEX REPLACE "void[ \t\r\n]+${_case}[ \t\r\n]*\\(" "" _scan
+      string(REGEX REPLACE "(void|bool|int|size_t)[ \t\r\n]+${_case}[ \t\r\n]*\\(" "" _scan
         "${_corpus}")
       string(REGEX MATCHALL "[^A-Za-z0-9_]${_case}[^A-Za-z0-9_]" _refs "${_scan}")
       list(LENGTH _refs _nref)
