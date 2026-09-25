@@ -829,7 +829,7 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 │ memory.h    │     │              │     │              │     │              │
 └─────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
 
-  Solids::get()      MeshOps::transform    Scan::Mesh::draw     Pipeline<W,H,
+  Solids::get_by_name()      MeshOps::transform    Scan::Mesh::draw     Pipeline<W,H,
   MeshOps::hankin    RippleTransformer      Scan::Ring::draw       Orient,
   generate(arena,fn) NoiseTransformer       Plot::Multiline        AntiAlias,
   ParticleSystem     OrientTransformer      Scan::Shader::draw     Feedback>
