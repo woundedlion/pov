@@ -9,7 +9,6 @@
 
 #include "render/pullback/contract.h"
 #include "render/pullback/fields.h"
-#include "render/pullback/material.h"
 #include "math/3dmath.h"
 #include "math/projection_patterns.h"
 #include <iterator>
@@ -426,7 +425,7 @@ envelope(const ProjectionProvenance &provenance, float edge_width,
   if (mode == Envelope::PROJECTION_WEIGHT)
     return provenance.value_weight;
   if (mode == Envelope::EDGE_FADE)
-    return ProjectionCoverage::edge_fade(provenance, edge_width);
+    return Detail::edge_fade(provenance, edge_width);
   return 1.0f;
 }
 
@@ -436,7 +435,7 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
   if constexpr (std::is_same_v<EnvelopePolicy, ProjectionWeightEnvelope>)
     return provenance.value_weight;
   else if constexpr (std::is_same_v<EnvelopePolicy, EdgeFadeEnvelope>)
-    return ProjectionCoverage::edge_fade(provenance, params.edge_width);
+    return Detail::edge_fade(provenance, params.edge_width);
   else
     return 1.0f;
 }

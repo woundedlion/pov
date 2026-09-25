@@ -163,12 +163,7 @@ struct WeightSquared : ApproximationDefaults {
   }
 };
 
-/** @brief Shared edge-fade kernel; width 0 makes the edge a hard cut. */
-__attribute__((always_inline)) inline float
-edge_fade(const ProjectionProvenance &provenance, float width) {
-  return Detail::smooth_ramp_or_step(0.0f, width,
-                                     provenance.fade_edge_distance);
-}
+using Detail::edge_fade;
 
 template <typename State> struct EdgeFade : ApproximationDefaults {
   template <typename Binding>
