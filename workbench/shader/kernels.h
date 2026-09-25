@@ -557,7 +557,7 @@ HS_FLASH_MEMBER inline float sample_source(const math::Complex &p,
         frame.dynamic.spherical_rings);
   if (frame.slots.function == Function::FRACTAL)
     return Pullback::Source::escape_fractal(
-        p, fractal_params(frame.params.source), frame.dynamic.source);
+        p, fractal_params(frame.params.source), frame.dynamic.fractal);
   if (frame.slots.function == Function::TESSELLATION)
     return Pullback::Source::tessellation(
         p, tessellation_params(frame.params.source),
