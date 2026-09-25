@@ -336,7 +336,7 @@ warp_polar_chart(const math::Complex &input, const WarpStageSpec &spec,
  * @param input Coordinates entering the stage.
  * @param provenance Projection seam and coverage metadata.
  * @param spec Stage kind and its discrete options.
- * @param params Stage parameters, already canonicalized.
+ * @param params Stage parameters.
  * @param stage_phase Wrapped noise phase for this stage's clock.
  * @param stage_noise Noise resource bound to this stage; null for kinds that
  *        sample no noise. `pipeline_resources_ready` refuses the frame before
