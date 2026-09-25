@@ -3363,8 +3363,7 @@ inline void test_face_distance_matches_exact_oracle() {
 // Face::distance with a bound ClassLut serves sign-pure probes >= one cell
 // diagonal from the boundary via a bilinear lookup in the canonical class
 // frame; everything else falls back to the exact walk on the true edges. This
-// pins the invariants of the deleted per-face check_face_lut, now across the
-// canonical alignment (cyclic vertex offset, 3D rotation, mirror family):
+// pins the invariants across canonical alignment (cyclic vertex offset, 3D rotation, mirror family):
 //   1. SIGN is always correct on the LUT path (sign-purity guard).
 //   2. The LUT never serves a near-boundary magnitude (>= safe_dist floor).
 //   3. LUT-served values stay within the interpolation bound of the oracle.
