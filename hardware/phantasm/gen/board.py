@@ -15,7 +15,7 @@ import os
 import builder as B
 import sexp
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,
-                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
+                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, apply_project_floors)
 from kicad_common import atomic_write_text
 from kicad_common import require_writable, reset_uid_sequence
 
@@ -71,20 +71,8 @@ def write_project(path, root_uuid="", unplaced=False):
     if root_uuid:
         sheets = [entry for entry in project.get("sheets", []) if entry[1] != "Root"]
         project["sheets"] = [[root_uuid, "Root"], *sheets]
-    settings = project.setdefault("board", {}).setdefault("design_settings", {})
-    rules = settings.setdefault("rules", {})
-    floors = UNPLACED_RULES if unplaced else RULE_MINIMUMS
-    for name, minimum in {**floors, **NEW_LAYOUT_RULES}.items():
-        rules[name] = max(rules.get(name, 0) or 0, minimum)
-    settings.setdefault("rule_severities", {})["silk_over_copper"] = "error"
-    classes = project.setdefault("net_settings", {}).setdefault("classes", [])
-    default = next((entry for entry in classes if entry.get("name") == "Default"), None)
-    if default is None:
-        default = {"name": "Default"}
-        classes.append(default)
-    for name, minimum in (UNPLACED_DEFAULT_CLASS if unplaced else
-                          DEFAULT_CLASS_MINIMUMS).items():
-        default[name] = max(default.get(name, 0) or 0, minimum)
+    apply_project_floors(project, UNPLACED_RULES if unplaced else RULE_MINIMUMS,
+                         UNPLACED_DEFAULT_CLASS if unplaced else DEFAULT_CLASS_MINIMUMS)
     atomic_write_text(path, json.dumps(project, indent=2) + "\n")
 
 
