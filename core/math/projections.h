@@ -299,7 +299,7 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  *         K = 1.8540746773013719; the southern fold reflects about 2K and the
  *         strip layouts repeat every 4K.
  * @details A strip layout glues only the pair of equator quarters its
- * reflection holds fixed; the other pair tears, so layouts 2 and 3 carry CUT
+ * reflection holds fixed; the other pair tears, so HORIZONTAL and VERTICAL carry CUT
  * alongside GLUED and measure the torn side's distance to the equator.
  */
 HS_FLASH_INLINE inline ProjectionKernelResult
@@ -397,8 +397,8 @@ peirce_projection(const math::Vector &v, float central_meridian,
       const float fold_sine = cp * fabsf(fabsf(sl) - fabsf(cl)) * INV_SQRT_TWO;
       edge = std::min(edge, asinf(hs::clamp(fold_sine, 0.0f, 1.0f)));
     }
-    // Layout 2 reflects in x, so the |sin| >= |cos| quarters of the equator
-    // stay glued and the rest tears; layout 3 reflects in y and tears the
+    // HORIZONTAL reflects in x: the |sin| >= |cos| equator quarters stay glued.
+    // VERTICAL reflects in y and tears the
     // complementary pair.
     const bool torn = layout == PeirceLayout::HORIZONTAL ? fabsf(cl) > fabsf(sl)
                       : layout == PeirceLayout::VERTICAL ? fabsf(sl) > fabsf(cl)
