@@ -62,15 +62,15 @@ Companion documents:
 - **Assembly:** **partial PCBA** — low-mass SMD parts reflow-placed by the house; heavy/mechanical
   through-hole parts hand-soldered. See §11.
 
-### 1.1 Teensy 4.0 pin map (fixed by firmware — do not reassign)
+### 1.1 Teensy 4.0 pin map (rev 1.1 firmware)
 
 | Teensy pin | Net | Direction | Notes |
 |---|---|---|---|
 | 1 (TX1) | **SERIAL1_TX** → J4 pin 4 | reserved | Routed for a future UART debug output; current firmware does not initialize or drive `Serial1`. Firmware diagnostics use USB `Serial`. |
 | 11 (MOSI) | LED **DATA** → DI | out | → '125 ch A → 33 Ω → strip DI |
 | 13 (SCK)  | LED **CLK** → CI  | out | → '125 ch B → 33 Ω → strip CI |
-| 3  | **FRAME_SYNC** | in/out | OUTPUT on master, INPUT on slaves (mutually exclusive); drive via '125 ch C, receive via divider |
-| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (disabled after 3V3 rises; see R-LS-5) ([pov_segmented.h — PIN_MASTER_EN, run_show()](../../hardware/pov_segmented.h)) |
+| 3 (rev 1.1; rev 1.2 receive only) | **FRAME_SYNC** | in/out | OUTPUT on master, INPUT on slaves (mutually exclusive); drive via '125 ch C, receive via divider |
+| 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C and D `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (disabled after 3V3 rises; see R-LS-5) ([pov_segmented.h — PIN_MASTER_EN, run_show()](../../hardware/pov_segmented.h)) |
 | 21 | **ID0** | in (PULLUP) | strap bit 0; ground = bit set |
 | 22 | **ID1** | in (PULLUP) | strap bit 1; ground = bit set |
 | 23 | **ID2** | in (PULLUP) | strap bit 2 — read at N=8; unread at N≤4 |
@@ -185,7 +185,7 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
 |---|---|---|---|---|---|
 | A | Teensy 11 DATA | DI | tied LOW (always on) | **33 Ω** | strip DI (J2) |
 | B | Teensy 13 CLK | CI | tied LOW (always on) | **33 Ω** | strip CI (J2) |
-| C | Teensy 3 SYNC-OUT | SYNC bus | **Teensy 5 (MASTER_EN)** | **100 Ω** | SYNC bus (J3) |
+| C | Teensy 3 SYNC-OUT (rev 1.1; D4 in rev 1.2) | SYNC bus | **Teensy 5 (MASTER_EN)** | **100 Ω** | SYNC bus (J3) |
 | D | **tie input → GND** | `SYNC_PULLDOWN` | **Teensy 5 (MASTER_EN)** | **10 kΩ (R_PD)** | master-only bus idle pull-down |
 
 - **R-LS-1** Series terminations sit **at the '125 output pin** (source termination): 33 Ω on
@@ -228,7 +228,7 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
 ## 4. SYNC bus (the only shared signal)
 
 Sync is a **low-rate symbol stream**, not a clock: 2 boundary marks/revolution + rare epoch/beacon
-([pov_sync.h architecture notes](../../hardware/pov_sync.h)). Pulse pitch ≈ 868 µs; edges are ≥100 µs apart and pass a
+([pov_sync.h architecture notes](../../hardware/pov_sync.h)). Boundary pulse pitch ≈ 868 µs; beacon pitch ≈ 434 µs; edges are ≥100 µs apart and pass a
 ~100 µs firmware glitch filter ([pov_sync_protocol.h glitch_filter_cycles](../../hardware/pov_sync_protocol.h)).
 
 **Topology: single source-terminated multidrop bus.** The master's one '125 channel drives the
@@ -256,7 +256,7 @@ buffer** — see §4.3.
   still pull an otherwise-undriven bus LOW.
 - **R-SYNC-3 — Node RC filter (populate by default).** Fit **C_SYNC ≈ 220 pF** at the pin-3 divider
   node. With R_th = R1‖R2 ≈ 6.0 kΩ this gives **RC ≈ 1.3 µs** — negligible against the 434 µs column
-  and 868 µs pulse pitch, but it attenuates sub-µs BLDC/LED spikes *before* they cross the GPIO
+  and pulse pitches of 868 µs (boundary) or 434 µs (beacon), but it attenuates sub-µs BLDC/LED spikes *before* they cross the GPIO
   threshold. The firmware glitch filter ([pov_sync_protocol.h glitch_filter_cycles](../../hardware/pov_sync_protocol.h)) gates edge *spacing*
   (≥100 µs), not *amplitude* — a single fast spike that crosses threshold still registers as a real
   edge and can corrupt a burst count. In this known-noisy environment, **default-populate**; keep the
@@ -374,7 +374,7 @@ relief, and swept envelope are mechanically qualified.
 | **J3A** | SYNC daisy — **in** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
 | **J3B** | SYNC daisy — **out** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
 | **JP_SHLD** | shield ground point | — | solder jumper / 0 Ω | drain net → GND; **stuff master only** |
-| **J4** (opt) | Debug/serial breakout | 3–4 | 0.1″ TH header | `3V3`, `GND`, `pin 5`, TX/RX |
+| **J4** (opt) | Debug/serial breakout | 4 | 0.1″ TH header | `3V3`, `GND`, `MASTER_EN` (pin 5), `SERIAL1_TX` (pin 1) |
 
 - **R-CON-1 — J2 is signal-only; tie SIG_GND at the strip (load) end.** J2 carries **DI/CI + a
   dedicated SIG_GND** at logic current — a plain 0.1″ header is fine (no power pins). **SIG_GND is the
@@ -496,7 +496,7 @@ hand-soldered by you.
 | J2 | Strip signal out | 3-pin 0.1″ (DI/SIG_GND/CI) | TH | TH |
 | J3A, J3B | SYNC daisy in / out | 2× 3-pin 0.1″ | TH (one Belden 8451 each) | TH |
 | JP_SHLD | Shield ground jumper | 0 Ω / solder jumper | 0603 or SJ pad | hand, **master only** |
-| J4 (opt) | Debug | 3–4-pin 0.1″ | TH | TH |
+| J4 (opt) | Debug | 4-pin 0.1″ | TH | TH |
 | H1–H4 | Rotor mounting | 2.7 mm NPTH for M2.5 hardware | four corner holes | — |
 | — | ID strap links | wire / 0 Ω | — | hand, per §5 |
 | — | Inter-board cable | Belden 8451 (STP 2×22 AWG + drain) | per arm/hub run | hand |
@@ -525,7 +525,7 @@ The net names are the ones the schematic, the routed board and the
 | **CLK_IN** | Teensy 13 → U1 pin 5 (chB in) |
 | **CLK_SRC** | U1 pin 6 (chB out) → R_D2 (33 Ω) |
 | **CLK** | R_D2 → J2 pin 3 (CI) |
-| **FRAME_SYNC** | Teensy 3, U1 pin 9 (chC in), and the divider node R1/R2 + C_SYNC (≈3.0 V when receiving) |
+| **FRAME_SYNC** (rev 1.1; rev 1.2 moves U1 pin 9 to D4 / SYNC_TX) | Teensy 3, U1 pin 9 (chC in), and the divider node R1/R2 + C_SYNC (≈3.0 V when receiving) |
 | **SYNC_SRC** | U1 pin 8 (chC out) → R_S (100 Ω) |
 | **SYNC_BUS** | R_S, R1, R_PD, D_BUS pin 1 (cathode), J3A/J3B pin 1 (bridged) |
 | **SYNC_PULLDOWN** | U1 pin 11 (chD out) → R_PD; LOW only on the master, high-impedance on slaves |

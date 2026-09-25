@@ -105,7 +105,7 @@ for whether it *samples* pixels outside its band:
   bounded). Add it to `FilterTraits` — the base `Is2D`/`Is3D`/
   `Is2DWithHistory`/`Is3DWithHistory` all alias — as `= has_history`.
 - `true` on `Pixel::Feedback` — the load-bearing history case. It reads
-  `cv.prev` (other segments' pixels).
+  `cv.prev_data()` (previous-frame pixels, including other segments).
 - `true` on `World::Mobius` — the other filter that must override it, and
   not a history filter: the map is non-rigid, so no rotation-mirroring
   `cull_edge` can bound an edge's image and the effect must render the full
@@ -218,9 +218,9 @@ device exactly.
 frame across workers" holds only because per-worker frame inputs are already
 deterministic: animations are *frame-stepped*, not wall-clock-stepped
 (`AnimationBase::step` counts frames, `core/animation/animation.h`;
-`drawFrame()` advances exactly one, `targets/wasm/engine_bindings.h` — the
+`HolosphereEngine::drawFrame()` advances exactly one, `targets/wasm/engine_bindings.h` — the
 `elapsed` timing is telemetry and never feeds
-animation), setEffect reseeds the RNG from each effect's identity
+animation), `HolosphereEngine::setEffect()` reseeds the RNG from each effect's identity
 (`stable_effect_seed(stable_id)`), and params are
 broadcast to every worker. The same invariant non-stateful segmented effects
 already depend on; the design adds nothing new to it but is wholly dependent
