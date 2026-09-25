@@ -153,8 +153,8 @@ inline math::Vector mobius_transform(const math::Vector &v,
   const float n2 = n_re * n_re + n_im * n_im;
   const float m2 = m_re * m_re + m_im * m_im;
   const float den = n2 + m2;
-  // Only a singular transform (ad = bc) can null both, and it collapses the
-  // sphere to a point; the split form reached the pole here via its sentinel.
+  // The absolute floor also catches nonsingular maps with small coefficients
+  // near the pole; exact simultaneous zeros require a singular map.
   if (den < STEREO_DIV_NUM_EPS_SQ)
     return math::Vector(0.0f, 1.0f, 0.0f);
 
