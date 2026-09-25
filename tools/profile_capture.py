@@ -82,16 +82,21 @@ def main():
     captured = 0
     # An interrupted capture must still release the port: profile_one.sh
     # retries immediately, and a held port fails that retry too.
-    with contextlib.closing(ser), \
-            open(args.out, "w", encoding="utf-8", newline="\n") as f:
-        while time.monotonic() < end:
-            line = ser.readline()  # 1 s timeout keeps the deadline responsive
-            if not line:
-                continue
-            text = line.decode("utf-8", errors="replace").rstrip("\r\n")
-            print(text, flush=True)
-            f.write(text + "\n")
-            captured += 1
+    try:
+        with contextlib.closing(ser), \
+                open(args.out, "w", encoding="utf-8", newline="\n") as f:
+            while time.monotonic() < end:
+                line = ser.readline()  # 1 s timeout keeps the deadline responsive
+                if not line:
+                    continue
+                text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+                print(text, flush=True)
+                f.write(text + "\n")
+                captured += 1
+    except serial.SerialException as exc:
+        os.remove(args.out)
+        raise SystemExit(
+            f"profile_capture: {port} dropped after {captured} lines: {exc}") from None
     # A board that enumerates but never streams is a wrong or hung image, not
     # a capture: an empty log left behind reads downstream as a real one.
     if not captured:
