@@ -10,7 +10,9 @@
  *        tables.
  */
 
+#ifndef HS_SRGB_DECODE_GENERATOR
 #include "color/srgb_decode_lut.h"
+#endif
 #include "platform/platform.h"
 #include <array>
 #include <cstdint>
@@ -38,6 +40,7 @@ static_assert(
     (65536 - SRGB_DECODE_VSPLIT) % (1 << SRGB_DECODE_HIGH_SHIFT) == 0,
     "the high region must span a whole number of high-region buckets");
 
+#ifndef HS_SRGB_DECODE_GENERATOR
 // A committed table generated under different shifts would otherwise be copied
 // out of bounds below.
 static_assert(std::size(srgb_decode_low_src) == SRGB_DECODE_LOW_N,
@@ -68,6 +71,11 @@ inline constinit std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high =
         t[i] = srgb_decode_high_src[i];
       return t;
     }();
+
+#else
+extern std::array<uint16_t, SRGB_DECODE_LOW_N> srgb_decode_low;
+extern std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high;
+#endif
 
 /**
  * @brief Bit-exact linear-16 -> sRGB-8 encode via a two-region split-decode.

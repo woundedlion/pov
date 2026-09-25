@@ -8,18 +8,21 @@
 // 65536, each bucket holding <=1 output step, so the decode is a single
 // branchless compare per region. Asserts the <=1-step property and self-
 // verifies bit-exactness over all 65536 inputs. Total ~1.5 KB (fits the DTCM
-// slack). Widening a region invalidates the committed table, so the length
-// static_asserts in srgb_decode.h must be relaxed to rebuild this.
+// slack). Bucket geometry can be retuned without loading the committed tables.
 // Build: clang++ -std=c++20 -I. -Icore scripts/generate_srgb_decode.cpp
 // Run from the repo root; argv[1] overrides the output path (CI writes to a
 // temp file and diffs it against the committed header).
 // (unit_color's test_linear_to_srgb8_decode_matches_lut re-checks the
 // equivalence in CI).
 #define HS_ENABLE_TEST_ORACLES 1
+#define HS_SRGB_DECODE_GENERATOR 1
 #include "core/color/color_luts.h"
 #include "core/color/srgb_decode.h"
 #include <cstdint>
 #include <cstdio>
+
+std::array<uint16_t, SRGB_DECODE_LOW_N> srgb_decode_low{};
+std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high{};
 
 // Bucket geometry (SRGB_DECODE_*) and the decode itself come from
 // core/color/srgb_decode.h: the verification below runs the shipping
