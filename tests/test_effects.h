@@ -2502,7 +2502,7 @@ struct DreamBallsWhiteBox {
   // Not-paused step: advance the choreography, then re-spawn (the scheduler's
   // path).
   static void advance(DB &db) {
-    HS_EXPECT_TRUE(db.advancePreset());
+    HS_EXPECT_TRUE(db.advance_preset());
     db.spawn_sprite();
   }
   // Re-spawn of the current preset (no advance).
@@ -2579,7 +2579,7 @@ struct DreamBallsWhiteBox {
  *        ping-pong, the modulo preset advance, and the reseed-on-change guard.
  * @details Drives the advance without the 320-frame wait, following the same
  *          progression the periodic callback uses: each step calls
- *          advancePreset() then re-spawns, so the active preset walks modulo
+ *          advance_preset() then re-spawns, so the active preset walks modulo
  *          the preset count.
  *          Each spawn must flip the bake slot (so a fading-out sprite keeps its
  *          own LUT) and, when the preset actually changes, reseed params to the

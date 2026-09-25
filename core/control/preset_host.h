@@ -19,7 +19,7 @@
  * @brief Preset index controller for effects that expose selectable presets.
  * @details configure_presets() enables it; apply_preset() vetoes or accepts a
  * candidate before its index is committed. Manual navigation pauses the
- * parameter animations, choreography (advancePreset) leaves them running.
+ * parameter animations, choreography (advance_preset) leaves them running.
  */
 class PresetHost : public ParamHost {
 public:
@@ -75,7 +75,7 @@ protected:
   }
 
   /** @brief Advances choreography through the shared preset controller. */
-  HS_FLASH_MEMBER bool advancePreset() {
+  HS_FLASH_MEMBER bool advance_preset() {
     return preset_count > 0 && change_preset((preset_index + 1) % preset_count,
                                              PresetChangeOrigin::AUTOMATIC);
   }

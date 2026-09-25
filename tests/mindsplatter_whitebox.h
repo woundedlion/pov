@@ -395,7 +395,7 @@ struct MindSplatterWhiteBox {
   }
   template <int W, int H>
   static bool try_advance_preset(MindSplatter<W, H> &ms) {
-    return ms.advancePreset();
+    return ms.advance_preset();
   }
   template <int W, int H>
   static bool transition_active(const MindSplatter<W, H> &ms) {

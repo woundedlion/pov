@@ -28,7 +28,7 @@ struct LatticeMeltWhiteBox {
   static bool transition_active(const FX &effect) {
     return effect.transition.active;
   }
-  static bool advance_preset(FX &effect) { return effect.advancePreset(); }
+  static bool advance_preset(FX &effect) { return effect.advance_preset(); }
   static void tick_choreography(FX &effect) { effect.step_choreography(); }
   static void saturate_timeline(FX &effect, float &sink) {
     while (Timeline::remaining() > 0)

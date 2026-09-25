@@ -559,7 +559,7 @@ private:
                           Animation::PeriodicTimer(
                               0,
                               [this](Canvas &) {
-                                const bool advanced = this->advancePreset();
+                                const bool advanced = this->advance_preset();
                                 HS_CHECK(advanced,
                                          "DreamBalls: automatic preset "
                                          "advance must succeed");

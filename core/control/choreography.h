@@ -220,7 +220,7 @@ protected:
         return;
       if (preset_dwell_remaining > 0 && --preset_dwell_remaining > 0)
         return;
-      if (advancePreset()) {
+      if (advance_preset()) {
 #ifdef HS_PROFILE_ENABLE
         hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
                 static_cast<unsigned>(getPresetCount()));
@@ -314,7 +314,7 @@ private:
         Animation::PeriodicTimer(
             0,
             [this](Canvas &) {
-              const bool advanced = advancePreset();
+              const bool advanced = advance_preset();
               HS_CHECK(advanced,
                        "preset choreography: advance "
                        "rejected at preset %u of %u",

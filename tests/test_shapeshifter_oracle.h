@@ -333,7 +333,7 @@ struct ShapeShifterWhiteBox {
   }
 
   static void next_preset(OracleEffect &effect) {
-    HS_CHECK(effect.advancePreset(), "ShapeShifter preset advance refused");
+    HS_CHECK(effect.advance_preset(), "ShapeShifter preset advance refused");
   }
 
   static void step_timeline(OracleEffect &effect, Canvas &canvas) {
