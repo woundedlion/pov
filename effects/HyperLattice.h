@@ -88,6 +88,11 @@ inline EdgeMetric edge_metric_3d_at(const math::Vec4 &ray_origin,
   }
 }
 
+/**
+ * @brief Finds the nearest 4D edge within the supplied coverage radius.
+ * @details An edge fixes two of the three remaining coordinates. Two outside
+ * the radius reject the hit before evaluating its squared distance.
+ */
 template <int AXIS0, int AXIS1, int AXIS2, bool NEED_AXIS = true>
 __attribute__((always_inline)) bool
 edge_metric_4d_axes_bounded(const math::Vec4 &ray_origin,
@@ -447,6 +452,11 @@ struct TraceCursor {
   bool active;
 };
 
+/**
+ * @brief Walks grid-plane intersections front to back, consuming visible layers.
+ * @details Coincident crossings form one layer using their maximum coverage.
+ * The consumer returns false to stop after its accumulated opacity is enough.
+ */
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0,
           typename ConsumeFn>
 __attribute__((always_inline)) inline void
@@ -484,6 +494,7 @@ trace_layers_mode(const math::Vector &normal, const PreparedTrace &prepared,
     cursor.active = cursor.distance < prepared.far_distance;
   }
 
+  // Each event advances at least one cursor, each bounded by its shell count.
   constexpr int EVENT_LIMIT =
       DIMENSIONS * (SPECIALIZED_SLICE ? FIXED_SHELL_COUNT : MAX_SHELLS);
   for (int event = 0; event < EVENT_LIMIT; ++event) {
@@ -510,6 +521,7 @@ trace_layers_mode(const math::Vector &normal, const PreparedTrace &prepared,
     if (nearest >= prepared.far_distance)
       break;
 
+    // Group near-coincident planes so lattice junctions contribute one layer.
     const float tolerance = GROUP_EPSILON * std::max(1.0f, nearest);
     uint8_t pending = static_cast<uint8_t>(1u << nearest_axis);
     if (second_nearest - nearest <= tolerance) {
@@ -620,6 +632,11 @@ using SpecializedRenderPipeline =
 
 } // namespace HyperLatticeDetail
 
+/**
+ * @brief Flights through cubic lattices, dimensional rifts, and 4D slices.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ */
 template <int W, int H>
 class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
                                                 HyperLatticeDetail::Params> {
