@@ -4,9 +4,8 @@
 # (profile_one.sh does).
 #
 # Host: Windows + Git Bash. Board enumeration shells out to the PlatformIO
-# loader's teensy_ports.exe and matches COMn names; anywhere else it comes back
-# empty and every session falls back to the single portless, bench-wide lock —
-# still correct, but serialised across all attached boards.
+# loader's teensy_ports.exe and matches COMn names. Acquisition requires an
+# enumerated board so both flash and capture can pin the same device.
 #
 # The lock is host-global, NOT repo-local: a device is one physical board on
 # one COM port, while concurrent sessions each work from their own worktree
@@ -45,8 +44,7 @@ HS_DEVICE_STALE_GRACE=${HS_DEVICE_STALE_GRACE:-120}
 _hs_lock_base() {
   echo "${HS_DEVICE_LOCK:-${TMPDIR:-${TMP:-/tmp}}/holosphere-teensy-device}"
 }
-# <port> — the lock dir for one board. Portless (single-board host with no
-# loader to enumerate with) keeps the historical bench-wide path.
+# <port> — the lock dir for one board; empty selects the bench status path.
 _hs_lock_dir() {
   local base; base=$(_hs_lock_base)
   base=${base%.d}
@@ -57,8 +55,8 @@ _hs_now() { date +%s; }
 # Attached Teensys, one COM name per line, in the loader's own enumeration
 # order. teensy_ports.exe is the authority, not pyserial: the loader has been
 # seen listing a board pyserial no longer enumerated, and it is what the flash
-# resolves its USB location against. Empty output = enumerate-less host; the
-# caller falls back to the portless lock and the loader's auto-search.
+# resolves its USB location against. Empty output means no board is available;
+# acquisition waits for enumeration or fails before any build starts.
 #
 # A caller-set HS_TEENSY_PORT is checked against that enumeration before it is
 # handed back: a board replugged onto a new COM name leaves the old pin naming
@@ -255,7 +253,14 @@ hs_device_acquire() {
     # rc propagated, not flattened: 2 (enumeration broke) must stay tellable
     # apart from 1 (a pin naming no attached board).
     local ports; ports=$(hs_device_ports) || return $?
-    [ -n "$ports" ] || ports="-"       # "-" = portless: no loader to ask
+    if [ -z "$ports" ]; then
+      if [ "$wait_for" -gt 0 ] && [ "$waited" -lt "$wait_for" ]; then
+        [ "$waited" -ne 0 ] || echo "device: waiting for a Teensy to enumerate" >&2
+        sleep 5; waited=$((waited + 5)); continue
+      fi
+      echo "device: no Teensy is enumerated; attach/replug the board" >&2
+      return 1
+    fi
     for p in $ports; do
       port=$([ "$p" = "-" ] && echo "" || echo "$p")
       d=$(_hs_lock_dir "$port")
