@@ -31,7 +31,7 @@ def references(html_root: Path) -> list[tuple[Path, str]]:
 
 def markdown_references(
         repo_root: Path
-) -> tuple[list[tuple[PurePosixPath, str]], list[str]]:
+) -> tuple[list[tuple[PurePosixPath, str]], list[str], set[str]]:
     """Return every (tracked Markdown file, <img> src) pair, and read errors."""
     command = ["git", "-c", f"safe.directory={repo_root.as_posix()}",
                "-C", str(repo_root), "ls-files", "-z"]
@@ -43,7 +43,7 @@ def markdown_references(
             timeout=_GIT_TIMEOUT_SECONDS)
         names = sorted(result.stdout.decode("utf-8").split("\0"))
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
-        return found, [f"git ls-files failed: {error}"]
+        return found, [f"git ls-files failed: {error}"], set()
     for name in names:
         if not name or not name.casefold().endswith(_MARKDOWN_SUFFIXES):
             continue
@@ -58,12 +58,12 @@ def markdown_references(
                 f"{relative.as_posix()}: tracked Markdown is unreadable: {error}")
             continue
         found.extend((relative, src) for src in _IMG_SRC_RE.findall(text))
-    return found, errors
+    return found, errors, set(names)
 
 
 def verify(repo_root: Path) -> tuple[list[str], int]:
     """Resolve tracked Markdown references; return (errors, references checked)."""
-    found, errors = markdown_references(repo_root)
+    found, errors, tracked = markdown_references(repo_root)
     checked = 0
     for source, src in found:
         where = f"{source.as_posix()}: {src!r}"
@@ -81,7 +81,7 @@ def verify(repo_root: Path) -> tuple[list[str], int]:
             target = (repo_root.joinpath(*source.parent.parts) / decoded).resolve()
         if not target.is_relative_to(repo_root):
             errors.append(f"{where} resolves outside the repository")
-        elif not target.is_file():
+        elif target.relative_to(repo_root).as_posix() not in tracked or not target.is_file():
             errors.append(f"{where} names no file in the repository")
     return errors, checked
 

@@ -36,6 +36,9 @@ case "$pattern" in
   *) family=other ;;
 esac
 unreachable=0
+scan=$(mktemp)
+trap 'rm -f "$scan"' EXIT
+find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0 >"$scan"
 while IFS= read -r -d '' candidate; do
   candidate=${candidate#./}
   case "$family:$candidate" in
@@ -53,7 +56,7 @@ while IFS= read -r -d '' candidate; do
     echo "::error::test file '$candidate' is unreachable from '$pattern'"
     unreachable=1
   fi
-done < <(find "$root" -type d \( -name node_modules -o -name .git -o -name build \) -prune -o -type f -print0)
+done <"$scan"
 [ "$unreachable" -eq 0 ] || exit 1
 
 printf '%s: %d test file(s) discovered\n' "$pattern" "${#files[@]}"

@@ -143,5 +143,9 @@ int main() {
     emit_x_cols(WIDTHS[i], i == WIDTH_COUNT - 1 ? "" : ",");
   std::printf("  ]\n");
   std::printf("}\n");
+  if (std::fflush(stdout) != 0 || std::ferror(stdout)) {
+    std::perror("pov_segment_map_gen: stdout");
+    return 1;
+  }
   return 0;
 }

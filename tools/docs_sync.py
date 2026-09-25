@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import fnmatch
 import os
 import re
@@ -197,8 +198,15 @@ def sync_repository(root: Path, checkout_roots: dict[str, Path],
 
 
 def checkout_revisions(checkout_roots: dict[str, Path]) -> dict[str, str]:
-    from build_pins import PINS
-    return {name: PINS[name] for name in checkout_roots if name == "daydream"}
+    source = Path(__file__).with_name("build_pins.py").read_text(encoding="utf-8")
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "PINS" for target in node.targets):
+            for key, value in zip(node.value.keys, node.value.values, strict=True):
+                if isinstance(key, ast.Constant) and key.value == "daydream":
+                    revision = ast.literal_eval(value)
+                    return {"daydream": revision} if "daydream" in checkout_roots else {}
+    raise ValueError("build_pins.py has no literal daydream pin")
 
 
 def discover_daydream(root: Path) -> Path | None:

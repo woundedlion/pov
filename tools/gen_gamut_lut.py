@@ -535,6 +535,7 @@ def check_mirrors(color_h_path, math_h_path):
             return False
         values = re.findall(r"[-+]?\d+\.\d+f", matrix.group(1))
         if len(values) != 9:
+            sys.stderr.write(f"shared matrix {name} has {len(values)} coefficients; expected 9\n")
             return False
         for index, value in enumerate(values):
             text = text.replace(f"{name}[{index // 3}][{index % 3}]", f"({value})")
@@ -568,7 +569,11 @@ def check_mirrors(color_h_path, math_h_path):
                              % (signature, err))
             ok = False
 
-    gamut = _function_body(text, "inline bool linear_rgb_in_gamut(")
+    try:
+        gamut = _function_body(text, "inline bool linear_rgb_in_gamut(")
+    except ValueError as error:
+        sys.stderr.write(f"could not parse linear_rgb_in_gamut: {error}\n")
+        return False
     m = re.search(r"lo\s*=\s*(%s)f\s*,\s*hi\s*=\s*(%s)f\s*\+\s*(%s)f"
                   % (NUM, NUM, NUM), gamut)
     if not m:
@@ -652,4 +657,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, ValueError) as error:
+        sys.stderr.write(f"gamut LUT generation failed: {error}\n")
+        sys.exit(1)
