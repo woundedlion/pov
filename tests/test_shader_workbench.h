@@ -1685,11 +1685,12 @@ inline void test_shader_workbench_kaleidoscope_reflection_fold() {
       const math::Vector expected = reference(input);
       const math::Vector actual =
           WB::apply_lens(input, WB::SurfaceLens::KALEIDOSCOPE);
-      max_coordinate_error = std::max(
+      max_coordinate_error = hs_test::fold_worst(
           max_coordinate_error,
-          std::max(fabsf(actual.x - expected.x), fabsf(actual.z - expected.z)));
-      max_length_error =
-          std::max(max_length_error, fabsf(actual.length() - input.length()));
+          hs_test::fold_worst(fabsf(actual.x - expected.x),
+                              fabsf(actual.z - expected.z)));
+      max_length_error = hs_test::fold_worst(
+          max_length_error, fabsf(actual.length() - input.length()));
     }
   }
   HS_EXPECT_LT(max_coordinate_error, 6e-3f);
@@ -4571,7 +4572,7 @@ inline void test_shader_workbench_prepared_hue_noise() {
                                      radius * sinf(longitude));
         const float error = fabsf(WB::prepared_hue_noise(frame, direction) -
                                   WB::direct_hue_noise(frame, direction));
-        max_error = std::max(max_error, error);
+        max_error = hs_test::fold_worst(max_error, error);
         total_error += error;
         ++samples;
       }
@@ -4656,13 +4657,13 @@ inline void test_shader_workbench_fast_peirce_square() {
       const auto exact = projections::peirce_projection(
           input, 0.0f, static_cast<projections::PeirceLayout>(1), 0.0f, true);
       const auto fast = projections::peirce_projection_fast_square(input);
-      max_coordinate_error =
-          std::max(max_coordinate_error,
-                   std::max(fabsf(fast.coords.re - exact.coords.re),
-                            fabsf(fast.coords.im - exact.coords.im)));
+      max_coordinate_error = hs_test::fold_worst(
+          max_coordinate_error,
+          hs_test::fold_worst(fabsf(fast.coords.re - exact.coords.re),
+                              fabsf(fast.coords.im - exact.coords.im)));
       max_edge_error =
-          std::max(max_edge_error,
-                   fabsf(fast.fade_edge_distance - exact.fade_edge_distance));
+          hs_test::fold_worst(max_edge_error, fabsf(fast.fade_edge_distance -
+                                                    exact.fade_edge_distance));
       metadata_matches &= fast.region_id == exact.region_id &&
                           fast.component_id == exact.component_id &&
                           fast.boundary_flags == exact.boundary_flags &&

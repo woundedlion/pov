@@ -717,8 +717,8 @@ inline void test_sh_reduced_legendre_matches_closed_form() {
       // Relative above unit magnitude; rows reach 945, so a plain absolute
       // bound would be either meaningless there or unreachable near zero.
       const double err = std::fabs(got - want) / std::max(1.0, std::fabs(want));
-      if (err > worst) {
-        worst = err;
+      if (std::isnan(err) || err > worst) {
+        worst = hs_test::fold_worst(worst, err);
         worst_l = row.l;
         worst_m = row.m;
       }
@@ -765,8 +765,8 @@ inline void test_sh_cartesian_matches_spherical() {
               N * sh_reference_legendre(l, abs_m, cos_phi) * azimuthal;
           const double err =
               std::fabs(SHMath::spherical_harmonic(l, m, p, scale) - want);
-          if (err > worst) {
-            worst = err;
+          if (std::isnan(err) || err > worst) {
+            worst = hs_test::fold_worst(worst, err);
             worst_l = l;
             worst_m = m;
           }
@@ -881,9 +881,11 @@ inline void test_sh_field_write_through_and_endpoints() {
         ++positives;
       if (a < -0.02f)
         ++negatives;
-      worst_start = std::max<double>(worst_start, std::fabs(start - a));
-      worst_end = std::max<double>(worst_end, std::fabs(end - b));
-      worst_frame = std::max<double>(worst_frame, std::fabs(spun - unspun));
+      worst_start =
+          hs_test::fold_worst<double>(worst_start, std::fabs(start - a));
+      worst_end = hs_test::fold_worst<double>(worst_end, std::fabs(end - b));
+      worst_frame =
+          hs_test::fold_worst<double>(worst_frame, std::fabs(spun - unspun));
     }
   }
 
@@ -922,7 +924,7 @@ inline void test_sh_field_stays_inside_unit_range() {
           const float theta = math::TWO_PI_F * j / THETA_STEPS;
           const math::Vector point(sinf(phi) * cosf(theta), cosf(phi),
                                    sinf(phi) * sinf(theta));
-          peak = std::max(peak, std::fabs(field.sample(point)));
+          peak = hs_test::fold_worst(peak, std::fabs(field.sample(point)));
         }
       }
     }
@@ -4029,9 +4031,9 @@ inline void test_raymarch_constexpr_sqrt_converges() {
   double worst = 0.0;
   for (int i = 1; i <= 80; ++i) {
     const float x = 0.05f * static_cast<float>(i); // 0.05 .. 4.0
-    worst =
-        std::max(worst, std::fabs(static_cast<double>(math::constexpr_sqrt(x)) -
-                                  std::sqrt(static_cast<double>(x))));
+    worst = hs_test::fold_worst(
+        worst, std::fabs(static_cast<double>(math::constexpr_sqrt(x)) -
+                         std::sqrt(static_cast<double>(x))));
   }
   HS_EXPECT_LT(worst, 1e-6);
 
@@ -4091,10 +4093,10 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
         const double y = y_mid + r * std::sin(a);
         const math::Vector p(static_cast<float>(s * ct), static_cast<float>(y),
                              static_cast<float>(s * st));
-        max_off_surface =
-            std::max(max_off_surface,
-                     std::fabs(static_cast<double>(wv.raw_distance(p))));
-        max_radius = std::max(max_radius, std::sqrt(s * s + y * y));
+        max_off_surface = hs_test::fold_worst(
+            max_off_surface,
+            std::fabs(static_cast<double>(wv.raw_distance(p))));
+        max_radius = hs_test::fold_worst(max_radius, std::sqrt(s * s + y * y));
       }
     }
 
@@ -4107,8 +4109,9 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
         const math::Vector q(static_cast<float>(bound * sp * std::cos(th)),
                              static_cast<float>(bound * std::cos(ph)),
                              static_cast<float>(bound * sp * std::sin(th)));
-        min_on_shell =
-            std::min(min_on_shell, static_cast<double>(wv.raw_distance(q)));
+        const double shell_distance = static_cast<double>(wv.raw_distance(q));
+        if (std::isnan(shell_distance) || shell_distance < min_on_shell)
+          min_on_shell = shell_distance;
       }
     }
   }
@@ -4505,7 +4508,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
         for (int s = 0; s < WB::substeps(fx, i); ++s)
           nearest =
               std::min(nearest, std::abs(math::dot(v, WB::axis(fx, i, s))));
-      worst = std::max(worst, nearest);
+      worst = hs_test::fold_worst(worst, nearest);
       if (nearest > band)
         ++off_circle;
     }

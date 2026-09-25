@@ -640,9 +640,10 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
       for (size_t i = 0; i < n_stars; ++i) {
         const float movement =
             std::sqrt(math::distance_squared(previous[i], stars[i]));
-        max_step = std::max(max_step, movement);
+        max_step = hs_test::fold_worst(max_step, movement);
         if (step >= 4400 && step <= 5000)
-          resonance_max_step = std::max(resonance_max_step, movement);
+          resonance_max_step =
+              hs_test::fold_worst(resonance_max_step, movement);
       }
     }
     std::copy(stars, stars + n_stars, previous.begin());
