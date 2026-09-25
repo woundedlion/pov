@@ -101,80 +101,22 @@ def run_gate(source, target, env):
     size_tool = _tool(cc, "size")
     readelf = _tool(cc, "readelf")
 
-    # Capturing the ARM-tool output is the one part of the gate that can fail for
-    # reasons unrelated to firmware size: a missing/renamed tool (OSError), a
-    # non-zero tool exit (CalledProcessError), or output the parser no longer
-    # recognizes (empty regions). Attribute those to a DISTINCT ::error:: so a
-    # toolchain/parser break never masquerades as a size-budget "region-missing"
-    # violation or an opaque SCons traceback.
     try:
-        # Region totals: prefer teensy_size (correct flash-LMA accounting),
-        # fall back to `size -A` VMA bucketing (undercounts flash — see teensy_gate).
         teensy_size = _find_teensy_size(env)
-        used_size_a_fallback = teensy_size is None
-        if teensy_size:
-            sizes = teensy_gate.parse_teensy_size(_run([teensy_size, elf], check=False))
-        else:
-            sizes = teensy_gate.fallback_sizes_from_size_a(
-                _run([size_tool, "-A", "-x", elf]))
-            print("::warning::teensy_size not found; using `size -A` fallback "
-                  "(section alignment padding may differ; calibrate against "
-                  "teensy_size, not this).")
-
-        symbols = teensy_gate.parse_readelf_symbols(_run([readelf, "-sW", elf]))
-        sections = teensy_gate.parse_readelf_sections(_run([readelf, "-SW", elf]))
-    except (teensy_gate.TeensySizeFormatError,
-            teensy_gate.SizeAFormatError) as exc:
-        print(teensy_gate.size_format_annotation(exc))
-        sys.exit(2)
+        size_text = (_run([teensy_size, elf], check=False) if teensy_size
+                     else _run([size_tool, "-A", "-x", elf]))
+        syms_text = _run([readelf, "-sW", elf])
+        secs_text = _run([readelf, "-SW", elf])
     except (OSError, subprocess.SubprocessError) as exc:
         print(f"::error::teensy-gate: a toolchain step failed before evaluation "
-              f"({type(exc).__name__}: {exc}). This is a build/tooling break "
-              f"(missing/renamed ARM tool or a non-zero tool exit), NOT a "
-              f"size-budget violation — fix the toolchain, do not adjust budgets.")
+              f"({type(exc).__name__}: {exc}). This is a build/tooling break, "
+              "not a size-budget violation.")
         sys.exit(2)
 
-    if not any(r in sizes for r in ("flash", "ram1", "ram2")):
-        print("::error::teensy-gate: parsed no FLASH/RAM1/RAM2 regions from the "
-              "size output. This is a toolchain/format break (the size tool's "
-              "output shape changed), NOT a size-budget violation.")
-        sys.exit(2)
-
-    try:
-        budgets = teensy_gate.load_budgets(BUDGETS)
-    except teensy_gate.BudgetSchemaError as exc:
-        print(f"::error::teensy-gate: invalid budgets schema in {BUDGETS} "
-              f"({exc}). This is a budgets-file error (a key the gate never "
-              f"reads disables its ceiling), NOT a size-budget violation.")
-        sys.exit(2)
-    if pioenv not in budgets:
-        print(f"::error::teensy-gate: no budget for env '{pioenv}' in {BUDGETS}. "
-              f"This is a budgets-file error (the env is unlisted or renamed), "
-              f"NOT a size-budget violation.")
-        sys.exit(2)
-
-    # The fallback synthesizes region totals with no component breakdown, so a
-    # per-component ceiling would evaluate to `component-missing` — a message
-    # about a renamed field or a code-size regression, for a missing tool.
-    if used_size_a_fallback and teensy_gate.declares_components(budgets[pioenv]):
-        print(f"::error::teensy-gate: env '{pioenv}' declares per-component "
-              f"ceilings, which the `size -A` fallback cannot measure. teensy_size "
-              f"is unavailable, so no component figure was read: this is a "
-              f"build/tooling break (install the Teensy platform tools), NOT a "
-              f"size-budget violation — do not adjust budgets.")
-        sys.exit(2)
-
-    report, code = teensy_gate.verdict(
-        pioenv, budgets[pioenv], sizes, symbols, sections,
-        uncalibrated=used_size_a_fallback, github=True)
-    print(report)
-    if code == teensy_gate.EXIT_UNCALIBRATED_PASS:
-        # A bucketed guess must never read as a shipped verdict: CI accepts this
-        # build on the gate's exit status, so an uncalibrated PASS exits non-zero.
-        print("::error::teensy-gate: PASS is UNCALIBRATED - teensy_size was not "
-              "found, so region totals come from `size -A` VMA bucketing. Install "
-              "the Teensy platform tools (tool-teensy package) and re-run; do not "
-              "record this as a gate PASS.")
+    lines, code = teensy_gate.run(
+        pioenv, BUDGETS, size_text, from_teensy_size=teensy_size is not None,
+        syms_text=syms_text, secs_text=secs_text, github=True)
+    print("\n".join(lines))
     if code:
         sys.exit(code)
 
