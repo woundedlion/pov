@@ -116,9 +116,6 @@ struct ShaderWorkbenchWhiteBox {
       Workbench::NUM_BRIGHTNESS_ENVELOPES;
   static constexpr int NUM_HUE_SHIFT_MODES = Workbench::NUM_HUE_SHIFT_MODES;
 
-  static void hold_initial_preset(SB &sb, uint16_t frames) {
-    sb.hold_initial_preset(frames);
-  }
   static const Workbench::Preset &preset_for_view(const SB &sb, size_t index) {
     return sb.preset_for_view(index);
   }
