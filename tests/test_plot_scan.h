@@ -5418,14 +5418,17 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
   HS_EXPECT_GT(single.plotted.size(), BUDGET);
 }
 
-/**
- * @brief The explicit default sampling policy matches the API default.
- * @details Naming DEFAULT explicitly instantiates the same rasterize, so that
- * pair stays a bit comparison. SELECTABLE with balanced_sampling off is a
- * distinct instantiation of the same expressions, which -ffast-math
- * reassociates in its own inlining context, so it is held to POLICY_TOL.
- */
+/** @brief SELECTABLE with balanced sampling off matches DEFAULT within floating-point tolerance. */
 inline void test_rasterize_default_sampling_policy_parity() {
+  static_assert(
+      std::is_same_v<
+          std::integral_constant<Plot::RasterConfig,
+                                 Plot::RasterConfig{.single_pass = true}>,
+          std::integral_constant<
+              Plot::RasterConfig,
+              Plot::RasterConfig{.single_pass = true,
+                                 .sampling_policy =
+                                     Plot::RasterSamplingPolicy::DEFAULT}>>);
   constexpr int W = 128, H = 64;
   constexpr float POLICY_TOL = 1e-4f;
   ScratchScope sc(plot_arena());
@@ -5439,35 +5442,21 @@ inline void test_rasterize_default_sampling_policy_parity() {
   const math::Basis planar_basis =
       Plot::planar_chart_basis(math::get_antipode(shape_basis, RADIUS).first.v);
 
-  auto capture = [&]<bool ExplicitDefault>() {
+  auto capture = [&]() {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
     auto shader = [](const math::Vector &, Fragment &f) {
       f.color = Color4(Pixel(10000, 20000, 30000), 0.37f);
     };
-    if constexpr (ExplicitDefault) {
-      Plot::rasterize<W, H,
-                      Plot::RasterConfig{
-                          .single_pass = true,
-                          .sampling_policy =
-                              Plot::RasterSamplingPolicy::DEFAULT}>(
-          pipeline, canvas, points, shader,
-          {.projection = Plot::RasterProjection::planar(planar_basis),
-           .omit_end = true});
-    } else {
-      Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
-          pipeline, canvas, points, shader,
-          {.projection = Plot::RasterProjection::planar(planar_basis),
-           .omit_end = true});
-    }
+    Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = true}>(
+        pipeline, canvas, points, shader,
+        {.projection = Plot::RasterProjection::planar(planar_basis),
+         .omit_end = true});
     return pipeline;
   };
 
-  const AlphaCapturePipeline implicit_default =
-      capture.template operator()<false>();
-  const AlphaCapturePipeline explicit_default =
-      capture.template operator()<true>();
+  const AlphaCapturePipeline implicit_default = capture();
   hs_test::StubEffect selectable_fx(W, H);
   AlphaCapturePipeline selectable_default;
   {
@@ -5486,26 +5475,12 @@ inline void test_rasterize_default_sampling_policy_parity() {
          .balanced_sampling = false});
   }
   HS_EXPECT_SIZE_OR_RETURN(implicit_default.plotted,
-                           explicit_default.plotted.size());
-  HS_EXPECT_SIZE_OR_RETURN(implicit_default.alphas,
-                           explicit_default.alphas.size());
-  HS_EXPECT_SIZE_OR_RETURN(implicit_default.plotted,
                            selectable_default.plotted.size());
   HS_EXPECT_SIZE_OR_RETURN(implicit_default.alphas,
                            selectable_default.alphas.size());
   HS_EXPECT_GT(implicit_default.plotted.size(), size_t{0});
-  const size_t compared = std::min({implicit_default.plotted.size(),
-                                    explicit_default.plotted.size(),
-                                    selectable_default.plotted.size()});
+  const size_t compared = implicit_default.plotted.size();
   for (size_t i = 0; i < compared; ++i) {
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].x),
-                 std::bit_cast<uint32_t>(explicit_default.plotted[i].x));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].y),
-                 std::bit_cast<uint32_t>(explicit_default.plotted[i].y));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.plotted[i].z),
-                 std::bit_cast<uint32_t>(explicit_default.plotted[i].z));
-    HS_EXPECT_EQ(std::bit_cast<uint32_t>(implicit_default.alphas[i]),
-                 std::bit_cast<uint32_t>(explicit_default.alphas[i]));
     HS_EXPECT_NEAR(implicit_default.plotted[i].x,
                    selectable_default.plotted[i].x, POLICY_TOL);
     HS_EXPECT_NEAR(implicit_default.plotted[i].y,
