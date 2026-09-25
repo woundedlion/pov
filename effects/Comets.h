@@ -72,7 +72,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
 
   /** @brief Angular width of one canvas column, the comet thickness unit. */
-  static constexpr float THICKNESS_PX = 2.0f * math::PI_F / W;
+  static constexpr float THICKNESS_PX = math::RADIANS_PER_COLUMN<W>;
 
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
   static constexpr float THICKNESS_MIN = 0.0f,

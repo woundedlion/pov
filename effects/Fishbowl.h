@@ -366,7 +366,7 @@ private:
   static bool needs_adaptive_midpoint(const math::Vector &a,
                                       const math::Vector &mid,
                                       const math::Vector &b) {
-    constexpr float MAX_ERROR = 0.25f * 2.0f * math::PI_F / W;
+    constexpr float MAX_ERROR = 0.25f * math::RADIANS_PER_COLUMN<W>;
     const math::Vector geodesic_mid = math::slerp(a, b, 0.5f);
     return math::angle_between(mid, geodesic_mid) > MAX_ERROR;
   }

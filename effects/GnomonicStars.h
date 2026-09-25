@@ -142,8 +142,7 @@ private:
    *          at least that many rows and columns at the equator.
    */
   static constexpr float RADIUS_PX =
-      std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>) * 2.0f /
-      math::PI_F;
+      math::coarse_pixel_pitch<W, H>() * 2.0f / math::PI_F;
 
   // Persistent allocations: the warp pool, the MAX_POINTS spiral lattice, and
   // the palette LUT. Effect keeps the default arena split, so the footprint must

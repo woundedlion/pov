@@ -280,9 +280,7 @@ struct PreparedTrace {
 };
 
 template <int W, int H> constexpr float pixel_half_angle() {
-  constexpr float HORIZONTAL = math::TWO_PI_F / static_cast<float>(W);
-  constexpr float VERTICAL = math::RADIANS_PER_ROW<H>;
-  return 0.5f * (HORIZONTAL > VERTICAL ? HORIZONTAL : VERTICAL);
+  return 0.5f * math::coarse_pixel_pitch<W, H>();
 }
 
 // Unlike flash-resident smooth_ramp, this stays inline on the hot crossing
