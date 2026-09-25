@@ -626,11 +626,11 @@ inline void case_triangular_bitset_unordered_pair() {
  *          handed out via add_get(Pin::PINNED), converting the dangling-handle
  *          hazard into a fail-fast crash instead of silent corruption.
  */
-inline void case_timeline_handled_relocation() {
+inline void case_timeline_pinned_relocation() {
   TimelineEvent src;
-  src.handled = opaque(true); // as if handed out by add_get(Pin::PINNED)
+  src.pinned = opaque(true); // as if handed out by add_get(Pin::PINNED)
   TimelineEvent dst;
-  src.move_into(dst); // HS_CHECK(!handled) -> trap
+  src.move_into(dst); // HS_CHECK(!pinned) -> trap
 }
 
 /**
@@ -669,9 +669,9 @@ inline void case_timeline_start_overflow() {
 }
 
 /**
- * @brief Death case: a pinned (handled) animation that COMPLETES must trap.
+ * @brief Death case: a pinned animation that COMPLETES must trap.
  * @details Animation surface — the symmetric companion to
- *          case_timeline_handled_relocation, which guards the relocation path
+ *          case_timeline_pinned_relocation, which guards the relocation path
  *          (move_into). A pinned-but-finite animation that finishes as the
  *          *last* event needs no relocation, so move_into never runs; step()'s
  *          completion branch would otherwise e.destroy() it and dangle the
@@ -681,17 +681,17 @@ inline void case_timeline_start_overflow() {
  *          cancel() is exempt — see is_canceled() — so this case completes
  *          naturally rather than canceling.)
  */
-inline void case_timeline_handled_completion() {
+inline void case_timeline_pinned_completion() {
   static hs_test::StubEffect fx(8, 8);
   static Canvas canvas(fx);
   Timeline tl;
   float v = 0.0f;
   // add_get(Pin::PINNED) rejects a finite non-repeating animation up front (see
-  // case_timeline_pinned_finite_animation), so the event is marked handled
+  // case_timeline_pinned_finite_animation), so the event is marked pinned
   // directly to reach step()'s completion branch. A 1-frame Transition is finite
   // and the sole event, so step() routes it through completion/destroy.
   tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
-  global_timeline_events[0].handled = opaque(true);
+  global_timeline_events[0].pinned = opaque(true);
   tl.step(canvas); // t=1: done() && !repeats() && !canceled, keep=false -> trap
 }
 
@@ -742,15 +742,15 @@ inline void case_timeline_pinned_one_shot_timer() {
   static Canvas canvas(fx);
   Timeline tl;
   tl.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/false));
-  global_timeline_events[0].handled = opaque(true);
+  global_timeline_events[0].pinned = opaque(true);
   tl.step(canvas); // t=1: fires, finish() -> done() && !canceled -> trap
 }
 
 /**
- * @brief Death case: clear()ing a pinned (handled) event must trap.
+ * @brief Death case: clear()ing a pinned event must trap.
  * @details Animation surface — the third teardown path, alongside
- *          case_timeline_handled_relocation (move_into) and
- *          case_timeline_handled_completion (step's destroy branch). The public
+ *          case_timeline_pinned_relocation (move_into) and
+ *          case_timeline_pinned_completion (step's destroy branch). The public
  *          clear() would otherwise free an event whose animation pointer the
  *          caller still holds. ~Timeline reaches the same events through the
  *          unguarded reset_storage(), which is safe because no retained handle
@@ -760,8 +760,8 @@ inline void case_timeline_clear_pinned() {
   Timeline tl;
   float v = 0.0f;
   tl.add(0, Animation::Transition(v, 1.0f, 1, math::ease_linear));
-  global_timeline_events[0].handled = opaque(true);
-  tl.clear(); // HS_CHECK(!handled) -> trap
+  global_timeline_events[0].pinned = opaque(true);
+  tl.clear(); // HS_CHECK(!pinned) -> trap
 }
 
 /**
@@ -4846,9 +4846,9 @@ inline const Case *all_cases(int &n) {
            "core/containers/triangular_bitset.h",
            "(small >= 0 && small < large && large < MAX_V) "
            "TriangularBitset::index: pair "},
-          {"timeline_handled_relocation", case_timeline_handled_relocation,
+          {"timeline_pinned_relocation", case_timeline_pinned_relocation,
            "core/animation/timeline.h",
-           "(!handled) move_into would dangle a pinned animation's retained "
+           "(!pinned) move_into would dangle a pinned animation's retained "
            "pointer"},
           {"timeline_move_into_live_destination",
            case_timeline_move_into_live_destination,
@@ -4867,9 +4867,9 @@ inline const Case *all_cases(int &n) {
            "core/animation/timeline.h",
            "(delay <= UINT32_MAX - global_timeline_t) Timeline start frame "
            "overflow"},
-          {"timeline_handled_completion", case_timeline_handled_completion,
+          {"timeline_pinned_completion", case_timeline_pinned_completion,
            "core/animation/timeline.h",
-           "(!e.handled || anim->is_canceled()) pinned animation completed; only "
+           "(!e.pinned || anim->is_canceled()) pinned animation completed; only "
            "cancel() may destroy a pinned event"},
           {"timeline_pinned_finite_animation",
            case_timeline_pinned_finite_animation, "core/animation/timeline.h",
@@ -4881,11 +4881,11 @@ inline const Case *all_cases(int &n) {
            "(pin == Pin::UNPINNED) Timeline full, dropped a pinned animation"},
           {"timeline_pinned_one_shot_timer",
            case_timeline_pinned_one_shot_timer, "core/animation/timeline.h",
-           "(!e.handled || anim->is_canceled()) pinned animation completed; only "
+           "(!e.pinned || anim->is_canceled()) pinned animation completed; only "
            "cancel() may destroy a pinned event"},
           {"timeline_clear_pinned", case_timeline_clear_pinned,
            "core/animation/timeline.h",
-           "(!global_timeline_events[i].handled) clear() would destroy a pinned "
+           "(!global_timeline_events[i].pinned) clear() would destroy a pinned "
            "animation"},
           {"timeline_clear_during_step", case_timeline_clear_during_step,
            "core/animation/timeline.h",
