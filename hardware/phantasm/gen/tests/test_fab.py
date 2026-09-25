@@ -1110,7 +1110,7 @@ class PackagePromotionTests(unittest.TestCase):
                     "validate_plot_origin": None, "validate_via_geometry": 0,
                     "validate_solder_mask": None,
                     "validate_zone_geometry": 0, "validate_project_rules": 0,
-                    "run_drc": (0, 0), "run_parity": 0,
+                    "run_drc": (0, 0), "run_erc": 0, "run_parity": 0,
                     "validate_netlist_spec": 0, "parse_components": {},
                     "validate_assembled_refs": None, "validate_rotation_refs": None,
                     "validate_assembly_metadata": {}, "validate_part_catalog": None,
@@ -1451,3 +1451,46 @@ class NetlistSpecTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ElectricalRuleTests(unittest.TestCase):
+    def require_report(self, document):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "erc.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            return fab.require_clean_erc(path)
+
+    def test_accepts_clean_sheets(self):
+        self.assertEqual(self.require_report({"sheets": [{"violations": []}]}), 0)
+
+    def test_rejects_violation_on_later_sheet(self):
+        with self.assertRaisesRegex(fab.ElectricalRuleError, "1 error-severity"):
+            self.require_report({"sheets": [{"violations": []},
+                                           {"violations": [{"type": "pin_not_connected"}]}]})
+
+    def test_rejects_malformed_sections(self):
+        for document in [[], {}, {"sheets": []}, {"sheets": [{}]},
+                         {"sheets": [{"violations": None}]}, {"sheets": [None]}]:
+            with self.subTest(document=document), self.assertRaises(fab.ElectricalRuleError):
+                self.require_report(document)
+
+    def test_missing_report_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(fab.ElectricalRuleError, "cannot read ERC"):
+                fab.require_clean_erc(Path(directory) / "missing.json")
+
+    def test_runner_rejects_stale_reports_and_nonzero_clean_exit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "erc.json"
+            path.write_text('{"sheets": [{"violations": []}]}', encoding="utf-8")
+            def fake_run(args, check=True):
+                self.assertFalse(path.exists())
+                self.assertFalse(check)
+                self.assertEqual(args[1:8], ["sch", "erc", "--severity-error", "--format",
+                                             "json", "--exit-code-violations", "-o"])
+                path.write_text('{"sheets": [{"violations": []}]}', encoding="utf-8")
+                return subprocess.CompletedProcess(args, 5)
+            with mock.patch.object(fab, "kicad_cli", return_value="kicad-cli"), \
+                    mock.patch.object(fab, "run", side_effect=fake_run):
+                with self.assertRaisesRegex(fab.ElectricalRuleError, "erc exited 5"):
+                    fab.run_erc(path)
