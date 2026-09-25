@@ -19,17 +19,16 @@
 
 /**
  * @file shading.h
- * @brief The Fragment register block handed to every shader, and
- * FacePaletteShader.
+ * @brief Fragment registers, mesh palette shading, edge distance and lighting helpers.
  */
 
 /**
  * @brief Represents a "Fragment" or a potential pixel/vertex with associated
- * data registers. Mirrors the JS Fragment structure for shader compatibility.
+ * data registers.
  * @details A rasterizer refreshes only the fields its own documentation names;
  * unrefreshed input registers are NaN in debug builds and stale in release.
- * A shader must write
- * color unconditionally and must never read a field it did not set itself.
+ * A shader must write color unconditionally and may read only registers
+ * refreshed by its rasterizer or written by the shader itself.
  * Scan::process_pixel and Scan::DistortedRingStack refresh every field;
  * Scan::RingGroup refreshes pos, v2, size, age and color; Scan::rasterize_face
  * with MinimalFragment refreshes v1 alone.
@@ -317,7 +316,6 @@ inline float shade_blinn_phong(const math::Vector &normal_w,
 HS_O3_END
 
 /**
- * @brief A list of fragments, equivalent to 'Points' in the JS context but with
- * full register support.
+ * @brief Arena-backed fragment list with full shading registers.
  */
 using Fragments = ArenaVector<Fragment>;
