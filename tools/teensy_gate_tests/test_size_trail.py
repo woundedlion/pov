@@ -263,6 +263,20 @@ class PendingCapture(unittest.TestCase):
             self.assertEqual(self.commit(), 1)
         self.assertTrue(self.pending.is_file())
 
+    def test_capture_is_consumed_only_by_its_recorded_tree(self):
+        for matches in (False, True):
+            with self.subTest(matches=matches):
+                self.pending.write_text(json.dumps({
+                    "head": "before", "tree": "built",
+                    "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")
+                with mock.patch.object(tst, "head_stamp",
+                                       return_value=(SHA, "2026-08-03", "s")), \
+                     mock.patch.object(tst, "_git",
+                                       return_value="built" if matches else "other"):
+                    self.assertEqual(self.commit(), 0 if matches else 1)
+                self.assertFalse(self.pending.exists())
+                self.assertEqual(self.trail.exists(), matches)
+
     def test_an_unusable_capture_is_discarded(self):
         self.pending.write_text("{not json", encoding="utf-8")
         self.assertEqual(self.commit(), 1)
