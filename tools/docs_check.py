@@ -1308,7 +1308,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sync", action="store_true",
                         help="refresh repository maps and derived counts before checking")
     parser.add_argument("--auto-checkout", action="store_true",
-                        help="use locally available pinned Daydream, or report its checks skipped")
+                        help="use locally available pinned Daydream; fail if unavailable (pass --checkout or --skip-checkout daydream)")
     parser.add_argument(
         "--checkout", action="append", default=[], metavar="NAME=PATH",
         help="root of a sibling checkout a `tree <NAME>` fence draws")
