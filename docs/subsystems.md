@@ -293,7 +293,7 @@ Animation pause is opt-in per timeline event, not a global stop. Effects schedul
 | Header | Subject | Contents |
 |---|---|---|
 | `timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
-| `core/animation/params.h` | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Progress`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise`, `BallDrop`, `NoiseProduct` |
+| [params.h](../core/animation/params.h) | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Progress`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise`, `BallDrop`, `NoiseProduct` |
 | `motion.h` | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
 | `trails.h` | Recorded history | `Trail` and its `OrientationTrail`/`VectorTrail` aliases — index 0 is the oldest snapshot and `length()-1` the newest, the ordering the JS simulator mirrors — plus `QuantizedVectorTrail`, the `TrailBody` per-body aggregate, and the `tween`/`deep_tween` traversals |
 | `sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
