@@ -771,8 +771,8 @@ struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B> {
  *        derived from the parameter families and a Spec.
  * @details The effect states its families, its Spec and its identity
  * constants; every stage typedef, the render pipeline, shade() and the shared
- * lifecycle â€” parameter registration, preset choreography, palette cycling,
- * camera walks and noise clocks â€” are assembled here. Required `Derived`
+ * lifecycle — parameter registration, preset choreography, palette cycling,
+ * camera walks and noise clocks — are assembled here. Required `Derived`
  * members are the identity constants and `initial_params`. Optional members,
  * detected by `requires` and defaulted when absent, are `preset_params`
  * (absent, every preset takes `initial_params`), `ANIMATED_MOBIUS`,
@@ -1039,7 +1039,7 @@ public:
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   const char *parameter_warning(const char *name) const override {
     return refused_name != nullptr && std::strcmp(name, refused_name) == 0
-               ? "Mobius coefficients must have a nonzero determinant."
+               ? Lens::MobiusLensParams::DEGENERATE_WARNING
                : nullptr;
   }
 #endif
