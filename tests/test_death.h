@@ -2821,8 +2821,10 @@ inline void case_feedback_downsample_indivisible() {
 
 inline void case_feedback_uncached_scratch_budget() {
   DeathEffect fx;
-  Canvas first(fx);
-  first(0, 0) = Pixel(65535, 65535, 65535);
+  {
+    Canvas first(fx);
+    first(0, 0) = Pixel(65535, 65535, 65535);
+  }
   fx.advance_display();
   Canvas canvas(fx);
   static uint8_t storage[16];
