@@ -144,6 +144,8 @@ struct PaletteMappingWeights {
   static constexpr PaletteMappingWeights lerp(const PaletteMappingWeights &a,
                                               const PaletteMappingWeights &b,
                                               float progress) {
+    if (a.exact == b.exact && a.exact < a.values.size())
+      return a;
     if (progress <= 0.0f)
       return a;
     if (progress >= 1.0f)
