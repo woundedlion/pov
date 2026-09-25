@@ -276,10 +276,26 @@ class PendingCapture(unittest.TestCase):
                 with mock.patch.object(tst, "head_stamp",
                                        return_value=(SHA, "2026-08-03", "s")), \
                      mock.patch.object(tst, "_git",
-                                       return_value="built" if matches else "other"):
+                                       return_value="" if matches else "core/changed.h"):
                     self.assertEqual(self.commit(), 0 if matches else 1)
                 self.assertFalse(self.pending.exists())
                 self.assertEqual(self.trail.exists(), matches)
+
+    def test_untracked_scratch_does_not_invalidate_build_inputs(self):
+        tst._git(["init"], self.dir)
+        tst._git(["config", "user.name", "Test"], self.dir)
+        tst._git(["config", "user.email", "test@example.com"], self.dir)
+        (self.dir / "platformio.ini").write_text("[platformio]\n", encoding="utf-8")
+        tst._git(["add", "platformio.ini"], self.dir)
+        tst._git(["commit", "-m", "initial"], self.dir)
+        (self.dir / "scratch.txt").write_text("scratch", encoding="utf-8")
+        tree = tst.working_tree(self.dir)
+        self.assertEqual(tree, tst._git(["rev-parse", "HEAD^{tree}"], self.dir))
+        self.pending.write_text(json.dumps({"tree": tree,
+            "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")
+        self.assertEqual(self.commit(), 0)
+        (self.dir / "platformio.ini").write_text("[env:changed]\n", encoding="utf-8")
+        self.assertNotEqual(tst.working_tree(self.dir), tree)
 
     def test_an_unusable_capture_is_discarded(self):
         self.pending.write_text("{not json", encoding="utf-8")
