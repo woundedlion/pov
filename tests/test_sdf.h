@@ -1636,13 +1636,8 @@ inline void test_subtract_full_width_b_still_emits_the_minuend() {
   HS_EXPECT_NEAR(out[0].second, 100.0f, 1e-4f);
 }
 
-/**
- * @brief Verifies a minuend band straddling θ=0 is emitted seam-split into [0, W).
- * @details A emits the seam band in a negative wrap frame as [-10, 10]. The
- *   emission is normalized into [0, W), so the band reaches the sink as its two
- *   in-frame pieces rather than as a span the consumer must wrap itself.
- */
-inline void test_subtract_seam_straddle_splits_the_minuend_into_frame() {
+/** @brief Verifies Subtract forwards an unwrapped minuend band. */
+inline void test_subtract_seam_straddle_forwards_minuend() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
@@ -1654,29 +1649,15 @@ inline void test_subtract_seam_straddle_splits_the_minuend_into_frame() {
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
-  HS_EXPECT_SIZE_OR_RETURN(out, 2);
-  HS_EXPECT_NEAR(out[0].first, 246.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[0].second, 256.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].first, 0.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[1].second, 10.0f, 1e-4f);
+  HS_EXPECT_SIZE_OR_RETURN(out, 1);
+  HS_EXPECT_NEAR(out[0].first, -10.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 10.0f, 1e-4f);
 }
 
-/**
- * @brief Verifies a many-arc seam-straddling Subtract stays within the span-count bound.
- * @details normalize_intervals_to_range seam-splits the minuend into [0, W); a span
- *   crossing θ=0 becomes two, so the norm buffer is sized 2x. push_interval traps
- *   (fail-fast) if the post-split count exceeds that cap. Drive A with many disjoint
- *   arcs — two straddling the seam in a wrapped frame so they split — and B with arcs
- *   overlapping two of them, then assert every arc survives in [0, W) and that no
- *   trap fired (reaching this line at all).
- */
-inline void test_subtract_many_arc_seam_split_within_bound() {
+/** @brief Verifies Subtract preserves all minuend spans. */
+inline void test_subtract_many_arc_preserves_minuend() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
-  constexpr float W = 256.0f;
-
-  // Twelve disjoint A arcs; the first two straddle the seam (negative / over-W
-  // frame) so each splits into two on normalization (14 norm spans, well under 64).
   std::vector<P> a_ivs = {{-6.0f, 4.0f},    {250.0f, 262.0f}, // seam straddlers
                           {20.0f, 30.0f},   {40.0f, 50.0f},   {60.0f, 70.0f},
                           {80.0f, 90.0f},   {100.0f, 110.0f}, {120.0f, 130.0f},
@@ -1691,18 +1672,11 @@ inline void test_subtract_many_arc_seam_split_within_bound() {
       0, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
 
-  // Twelve arcs, two of them split at the seam. Reaching here means
-  // push_interval never trapped.
-  HS_EXPECT_SIZE_OR_RETURN(out, 14);
+  HS_EXPECT_SIZE_OR_RETURN(out, a_ivs.size());
   for (size_t i = 0; i < out.size(); ++i) {
-    HS_EXPECT_TRUE(out[i].first >= 0.0f && out[i].second <= W);
-    HS_EXPECT_TRUE(out[i].first < out[i].second);
+    HS_EXPECT_NEAR(out[i].first, a_ivs[i].first, 1e-4f);
+    HS_EXPECT_NEAR(out[i].second, a_ivs[i].second, 1e-4f);
   }
-  // The arcs B overlaps come through whole.
-  HS_EXPECT_NEAR(out[5].first, 40.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[5].second, 50.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[9].first, 120.0f, 1e-4f);
-  HS_EXPECT_NEAR(out[9].second, 130.0f, 1e-4f);
 }
 
 // ============================================================================
@@ -3618,8 +3592,8 @@ inline int run_sdf_tests() {
   test_subtract_star_notch_columns_survive_the_carve();
   test_subtract_empty_b_passes_a_through_verbatim();
   test_subtract_full_width_b_still_emits_the_minuend();
-  test_subtract_seam_straddle_splits_the_minuend_into_frame();
-  test_subtract_many_arc_seam_split_within_bound();
+  test_subtract_seam_straddle_forwards_minuend();
+  test_subtract_many_arc_preserves_minuend();
 
   test_intersection_requires_both_inside();
   test_intersection_unsorted_child_yields_sorted_result();
