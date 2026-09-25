@@ -189,10 +189,10 @@ def check(fwd, rev):
                 fails += 1
     for s in range(SRGB_LEVELS):
         rt = rev[fwd[s]]
-        if abs(rt - s) > 1:
+        if rt != s:
             sys.stderr.write(
                 f"generate_luts: round trip {s} -> {fwd[s]} -> {rt} "
-                f"exceeds +/-1 code\n")
+                f"is not exact\n")
             fails += 1
     return fails
 
