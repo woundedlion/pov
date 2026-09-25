@@ -1354,10 +1354,6 @@ private:
       if (step.bake)
         return MeshOps::relax_baked(build_seed, a, *step.bake);
       return MeshOps::relax(build_seed, a, b, static_cast<int>(step.param));
-    // Unreachable while every KIS step is consumed by the dt or dtd macro in
-    // start_build_leg().
-    case Solids::Op::KIS:
-      return MeshOps::kis(build_seed, a, b);
     default:
       HS_CHECK(false, "IslamicStars: step builds no eager endpoint");
       return PolyMesh{};
