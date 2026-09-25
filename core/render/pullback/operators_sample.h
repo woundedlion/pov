@@ -469,8 +469,7 @@ static_assert(field_defaults_in_range<ProjectedNoiseSampleParams>());
 static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 
 /** @brief Parameter family of sample.spherical-noise.v3.
-    @details No basis topology: the plan pins the spherical contour to the
-    simplex basis. */
+    @details The spherical contour uses the simplex basis. */
 using SphericalNoiseSampleParams = Source::NoiseSourceParams;
 
 /** @brief The noise sources' prepared block: the owned noise field plus this

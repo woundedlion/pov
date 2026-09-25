@@ -183,8 +183,9 @@ public:
     uint32_t param_offset;
     uint32_t prepared_offset;
     uint32_t state_offset;
-    uint32_t name_offset; /**< "{instance}.{field-id}" slots, PER_PARAM_NAME_
-                               BYTES apart, one per schema field. */
+    uint32_t
+        name_offset; /**< "{instance}.{field-id}" slots, PER_PARAM_NAME_BYTES
+                               apart, one per schema field. */
   };
 
   /**
