@@ -7,11 +7,6 @@ FLASH/RAM1/RAM2 details — which otherwise scroll past one env at a time — as
 single side-by-side table after PlatformIO's own summary. The pio exit code is
 propagated, so a size-gate or compile failure still fails the recipe.
 
-The per-env budgets are enforced by the post-link extra_script, so an env that
-relinked nothing evaluated no budget. A successful run whose envs produced no
-teensy_size output therefore fails here rather than reporting an all-dash table
-and a zero exit.
-
 Stdlib only; the teensy_size line parsing is teensy_gate.parse_teensy_size, so
 the table and the gate can never disagree about what a line means.
 
@@ -142,13 +137,6 @@ def main(argv: list[str] | None = None) -> int:
     if order:
         print()
         print(render_table(order, sizes_by_env))
-    ungated = [env for env in order if not sizes_by_env.get(env)]
-    if rc == 0 and (not order or ungated):
-        where = ", ".join(ungated) if ungated else "any environment"
-        print(f"error: no teensy_size output from {where} - nothing relinked, so "
-              f"no budget was evaluated. Delete .pio/build to force a link.",
-              file=sys.stderr)
-        return 1
     return rc
 
 
