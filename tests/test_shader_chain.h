@@ -1222,12 +1222,13 @@ inline void test_shader_chain_param_address_channel() {
   // The write is visible to the render: identical view, different coverage.
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
-  const math::Vector view = math::Vector(1, 1, 1).normalized();
+  const math::Vector view = math::Vector(0, 0, -1);
   const Color4 faded = program.evaluate(view, ctx);
   *coverage_mode = static_cast<uint8_t>(In::Op::ProjectionCoverageMode::NONE);
   program.prepare(ctx);
   const Color4 full = program.evaluate(view, ctx);
-  HS_EXPECT_GE(full.alpha, faded.alpha);
+  HS_EXPECT_LT(faded.alpha, full.alpha);
+  HS_EXPECT_LT(faded.alpha, 0.5f);
   program.clear();
 }
 
