@@ -1,7 +1,8 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- * GENERATED FILE - DO NOT EDIT. Regenerate from host relax bakes with:
+ * Payload fields generated; names and iterations are authored here.
+ * See tools/relax_bake_harness.cpp for authoring. Regenerate payloads with:
  *   <build>/relax_bake_gen | python tools/relax_bakes.py emit --stdin
  * Source identity grid: scale 2013, bias bits 0x3f3c7774,
  * minimum boundary margin 0x3727c5ac (1e-5f).

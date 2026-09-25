@@ -10,6 +10,19 @@
  * core/mesh/relax_bakes_generated.h. Because host relax is deterministic, the
  * emitted bits load unchanged on both host and device.
  *
+ * Authoring: names and iteration counts in relax_bakes_generated.h are inputs.
+ * To retune an existing bake, change its RelaxBake::iterations, rebuild
+ * relax_bake_gen, and run the regeneration command above the payloads.
+ * For a new bake, add a temporary RelaxBakes entry before calling it from a
+ * generator: `inline const uint32_t new_shape_bits[3] = {};` and
+ * `inline const MeshOps::RelaxBake new_shape{
+ *     "new_shape", new_shape_bits, 1, 0, 0, 150, 0, 0, 0};`.
+ * Use the desired name and iteration count (150 in this example). EXTRACT reads
+ * only those two fields; the other fields are placeholders until regeneration.
+ * Ensure main() reaches the new generator, rebuild relax_bake_gen, regenerate,
+ * then rebuild and run relax_bake_verify. Commit the regenerated payload, never
+ * the placeholder, and raise MIN_RELAX_BAKES_VERIFIED for the added baked step.
+ *
  * Compiled with HS_RELAX_BAKE_VERIFY instead, the same sweep asserts each
  * re-derivation against the committed payload (the unit_relax_bake_verify gate).
  */
