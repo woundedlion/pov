@@ -53,3 +53,4 @@ docs/screenshots/** binary
 
 # KiCad text artifacts are byte-round-tripped by the parser gates.
 *.kicad_* text eol=lf
+tools/teensy_gate_tests/fixtures/real/** -whitespace
