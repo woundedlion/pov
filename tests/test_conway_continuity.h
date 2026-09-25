@@ -1791,10 +1791,7 @@ constexpr int STRAP_OPEN_HARD = 8000;
  * (see start_hankin_cycle). */
 template <int W, int H>
 inline float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
-  const float progress = static_cast<float>(cycle_frame) /
-                         conway_soak_tests::HankinWalkProbe::sweep_frames(fx);
-  return math::sin_wave(0.0f, math::PI_F / 2.0f, 1.0f,
-                        0.0f)(math::ease_linear(progress));
+  return conway_soak_tests::HankinWalkProbe::sweep_angle(fx, cycle_frame);
 }
 
 /** Hard-recolor pixel count between two captured frames. */
@@ -1929,10 +1926,9 @@ inline void test_strap_close_dissolve() {
   // Frame adjacent to the closing bookend: the sweep is a full sine period, so
   // it samples the same angle as the opening's first strap frame.
   const int duration = Probe::sweep_frames(fx), cf = duration - 1;
-  const float close_blend = Probe::strap_open_fade(fx, duration - cf);
-  const float term = hs::clamp(static_cast<float>(duration - cf) /
-                                   Probe::strap_terminal_frames(fx),
-                               0.0f, 1.0f);
+  const auto weights = Probe::shape_weights(fx, cf);
+  const float close_blend = weights.strap_close;
+  const float term = weights.strap_terminal;
   HS_EXPECT_LT(close_blend, 0.2f);
   HS_EXPECT_LT(term, 1.0f);
 
@@ -2001,7 +1997,7 @@ inline void test_star_midpoint_dissolve() {
 
   const int duration = Probe::sweep_frames(fx), mid = duration / 2,
             cf = mid - 1;
-  const float star_blend = Probe::strap_open_fade(fx, mid - cf);
+  const float star_blend = Probe::shape_weights(fx, cf).star_close;
   HS_EXPECT_GT(star_blend, 0.0f);
   HS_EXPECT_LT(star_blend, 1.0f);
 
@@ -2048,7 +2044,7 @@ inline void test_star_midpoint_dissolve() {
   const int reopen_cf = mid + 1;
   std::vector<Pixel> reopen_shaped;
   capture_opening(fx, star_angle, 1.0f, reopen_shaped, 1.0f, 1.0f, reopen_cf,
-                  star_blend);
+                  Probe::shape_weights(fx, reopen_cf).star_close);
   size_t reopen_px = 0;
   for (size_t i = 0; i < reopen_shaped.size(); ++i)
     if (reopen_shaped[i].r != sliver_plain[i].r ||
