@@ -94,7 +94,7 @@ a 304-revolution effect than of a 960-revolution one.
 **Rotor model — open-loop (load-bearing).** There is no hall/index/encoder
 input anywhere; both drivers synthesize column timing at a *fixed* frequency
 from nominal RPM (`pov_single.h`'s IntervalTimer period; the nominal
-`cycles_per_half_rev` timebase constant in `pov_sync.h`). Therefore:
+`cycles_per_half_rev` timebase constant in `pov_sync_protocol.h`). Therefore:
 
 - "Sync" means *boards agreeing with master*, never *locking to the physical
   rotor*. Master's flywheel **is** the reference by definition.
@@ -278,7 +278,7 @@ x_target = (x_boundary + ((now_cycles - epoch_cycles) · (W/2))
 ```
 
 with a 64-bit intermediate (the product peaks ≈ 5.4 × 10⁹). One long multiply
-and divide per column ISR at 2304 Hz — negligible on the M7.
+and divide per 8× column wake at 18432 Hz for W=288 and 480 RPM.
 
 ### 4.2 Boundary-snap discipline (baseline)
 
@@ -810,7 +810,7 @@ separated *in time* on the same wire.
 - **Integrity model:** unlike boundary symbols (exactness via pitch > M, §5.2),
   the beacon tolerates corruption by *rejection*: any checksum mismatch, wrong
   digit count, or out-of-range digit drops the whole frame — the next beacon
-  arrives ≤2 s later. This is why it may use the tighter 1-column pitch. A
+  arrives within 21 revolutions (about 2.6 s) across a commit. This is why it may use the tighter 1-column pitch. A
   partial frame staler than the 24-column interdigit timeout is likewise
   dropped before the next burst starts a fresh frame.
 - **Demarcation from boundary symbols:** a burst whose first edge lands far
@@ -976,7 +976,7 @@ Invariants:
 | Late-emitted symbol (master masked) | master self-censors (§5.2); residual rejected by gate (§5.3) | crossing flips on time regardless | unaffected |
 | 1 board renders slow (drops a frame) | — | shows prior frame 1 period | stateless and stateful: rendered-frame time offset remains until next epoch (§6.2); same-index beacons only correct revolution bookkeeping |
 | 1 dropped epoch symbol | — | — | R repeats; missed-all-R corrected by the second agreeing beacon (§6.3.4) — the rev-1/rev-2 post-commit pair, ~250 ms |
-| Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until index from beacon (≤2 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
+| Board reboots mid-show | ACQUIRE: hard-snaps to first valid symbol | flips resume on first accepted boundary | black until rejoin from beacon (≤25 revs, about 3.1 s), then rejoins at the correct effect (frame 0, §6.5 grid; `t` offset until the next epoch) |
 | Sync wire dead *(out of scope — hard line)* | free-runs at T0, precesses on own crystal (≥1 col in ~10–20 s); rebase rule keeps arithmetic valid (§4.1) | crossing still flips 2/rev | playlist freezes on current effect (epoch never arrives); ACQUIRE boards stay dark |
 | Master dead | downstream flywheels free-run at T0, precess on own crystal (same as "sync wire dead" — master is just the symbol source) | crossing still flips 2/rev (no re-snap) | playlist freezes on current effect |
 | Master fold stall (its flywheel coasts past 2³¹ cycles, §4.1) | master re-anchors its epoch on the current instant, force-locked, and counts `master_stalls`; downstream boards free-ran meanwhile, as under "master dead" | flip dedup reset with the re-anchor, so the first crossing after recovery flips; downstream crossings kept flipping 2/rev | as "master dead" while it lasts — playlist frozen on the current effect; resumes with the master's next boundary symbol |
@@ -1059,10 +1059,10 @@ Foreground interrupt masking from the former FastLED/WS2801 path is excluded by
 the shipping DMA requirement. At ~1.1 M column edges/min for the default 4 boards
 (~2.2 M for 8), even a 1e-6 per-edge rate is visible on operational timescales.
 
-The time-derived flywheel **removes causes (1)/(2) as column-drop sources
+The time-derived flywheel **removes cause (1) as a column-drop source
 outright** — a masked window or a long ISR just means the next ISR reads the
 clock and resumes at the time-correct column (§4.1). And deleting the column
-clock wire **removes cause (3) entirely from the column path**: there is no
+clock wire **removes cause (2) entirely from the column path**: there is no
 per-column input left to pick up EMI. The only remaining EMI surface is spurious
 *symbols* on the sync wire — 2/rev instead of 2304/rev — guarded by the
 count-coded symbol alphabet (§5.2) and epoch redundancy.
@@ -1102,8 +1102,8 @@ strictly cleaner, not weaker.
    under count decoding, and it removes the visible seam under chronic drift.
 5. **Epoch robustness — SHIPPED: four stacked mechanisms (§6.3/§6.4).**
    R repeats made idempotent by the §6.1 refractory window; absolute effect
-   index + revolution count on the mid-rev beacon (≤2 s correction for any
-   missed epoch or late-booting board); fail-dark in ACQUIRE rather than
+   index + revolution count on the mid-rev beacon (≤21 revs across a commit,
+   ≤25 revs for rejoin; about 2.6 s and 3.1 s at 480 RPM); fail-dark in ACQUIRE rather than
    assume index 0; two agreeing beacons before a mid-show index change, so a
    frame-shifted beacon cannot fail *wrong*. Repeats are lockstep-safe: every
    heard copy counts down
@@ -1180,7 +1180,7 @@ Following the `pov_segment_map.h` precedent (pure, host-tested index math):
   downstream snap correction ever exceeds the §5.3 gate as a result.
 - **Acceptance gate:** assert a forged burst implying a ~W/2 correction (the
   two-coincident-edge-error residual) is rejected in LOCKED; assert a board
-  seeded with a corrupted timebase re-acquires within R symbols via the
+  seeded with a corrupted timebase re-acquires after `reject_fallback` (4) rejected symbols via the
   ACQUIRE fallback (no rejection deadlock); assert mid-rev beacon bursts are
   never consumed as boundary symbols and vice versa (§6.4 demarcation).
 - **Epoch commit:** simulate per-board init-time spread inside the K-rev

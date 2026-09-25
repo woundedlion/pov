@@ -229,7 +229,7 @@ drives a clean 5 V output — the correct in-spec 3.3 → 5 V up-shifter.
 
 Sync is a **low-rate symbol stream**, not a clock: 2 boundary marks/revolution + rare epoch/beacon
 ([pov_sync.h architecture notes](../../hardware/pov_sync.h)). Pulse pitch ≈ 868 µs; edges are ≥100 µs apart and pass a
-~100 µs firmware glitch filter ([pov_sync.h glitch_filter_cycles](../../hardware/pov_sync.h)).
+~100 µs firmware glitch filter ([pov_sync_protocol.h glitch_filter_cycles](../../hardware/pov_sync_protocol.h)).
 
 **Topology: single source-terminated multidrop bus.** The master's one '125 channel drives the
 shared wire; every board taps it through a high-impedance divider (~25 kΩ). With one 10 kΩ idle
@@ -257,7 +257,7 @@ buffer** — see §4.3.
 - **R-SYNC-3 — Node RC filter (populate by default).** Fit **C_SYNC ≈ 220 pF** at the pin-3 divider
   node. With R_th = R1‖R2 ≈ 6.0 kΩ this gives **RC ≈ 1.3 µs** — negligible against the 434 µs column
   and 868 µs pulse pitch, but it attenuates sub-µs BLDC/LED spikes *before* they cross the GPIO
-  threshold. The firmware glitch filter ([pov_sync.h glitch_filter_cycles](../../hardware/pov_sync.h)) gates edge *spacing*
+  threshold. The firmware glitch filter ([pov_sync_protocol.h glitch_filter_cycles](../../hardware/pov_sync_protocol.h)) gates edge *spacing*
   (≥100 µs), not *amplitude* — a single fast spike that crosses threshold still registers as a real
   edge and can corrupt a burst count. In this known-noisy environment, **default-populate**; keep the
   value (100 pF–1 nF) tunable. Pair with receiver hysteresis (R-SYNC-7).
