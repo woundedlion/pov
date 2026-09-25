@@ -348,7 +348,6 @@ public:
     Effect *cur = nullptr;
     uint32_t built_gen = 0;
     uint32_t last_overrun = ledController.get_overrun_count();
-    pov::sync::Telemetry last_tm{};
     unsigned long last_report = millis();
     // The K-revolution construction budget, in the flywheel's own timebase.
     const uint32_t commit_budget_cycles =
@@ -432,44 +431,35 @@ public:
         }
       }
 
-      // Health telemetry (spec §8.6): foreground-polled, emitted only on change.
+      // Health telemetry (spec §8.6): foreground-polled 1 Hz heartbeat.
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
         const pov::sync::Telemetry tm = sync.telemetry_snapshot();
-        // Change detection is a byte compare, so Telemetry must have no
-        // padding: a member of another width would make stale padding read as
-        // a change and spam the log every poll.
-        static_assert(
-            std::has_unique_object_representations_v<pov::sync::Telemetry>,
-            "Telemetry must be padding-free");
-        if (std::memcmp(&tm, &last_tm, sizeof tm) != 0) {
-          // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
-          // formatter (~5 KB ITCM); these counters are all %lu.
-          // Two lines, not one: 18 saturating uint32 counters run to 10 digits
-          // each, which overruns hs::log's fixed 256-byte buffer and truncates
-          // the tail. Each line below fits its own worst case.
-          hs::log("sync coast=%lu stall=%lu epi=%lu lock=%lu flip=%lu acc=%lu "
-                  "rej=%lu inv=%lu",
-                  (unsigned long)tm.max_coast_halves,
-                  (unsigned long)tm.master_stalls,
-                  (unsigned long)tm.epochs_refractory_ignored,
-                  (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
-                  (unsigned long)tm.symbols_accepted,
-                  (unsigned long)tm.symbols_rejected_gate,
-                  (unsigned long)tm.symbols_discarded_invalid);
-          hs::log(
-              "sync emit cens=%lu abrt=%lu bdrop=%lu bbusy=%lu blate=%lu "
-              "sdrop=%lu bok=%lu brej=%lu fix=%lu rmis=%lu",
-              (unsigned long)tm.emit_censored, (unsigned long)tm.emit_aborted,
-              (unsigned long)tm.beacons_overrun_dropped,
-              (unsigned long)tm.beacons_busy_dropped,
-              (unsigned long)tm.beacons_late_dropped,
-              (unsigned long)tm.boundary_bursts_dropped,
-              (unsigned long)tm.beacons_ok, (unsigned long)tm.beacons_rejected,
-              (unsigned long)tm.beacon_index_corrections,
-              (unsigned long)tm.beacon_rev_mismatches);
-          last_tm = tm;
-        }
+        // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
+        // formatter (~5 KB ITCM); these counters are all %lu.
+        // Two lines, not one: 18 saturating uint32 counters run to 10 digits
+        // each, which overruns hs::log's fixed 256-byte buffer and truncates
+        // the tail. Each line below fits its own worst case.
+        hs::log("sync coast=%lu stall=%lu epi=%lu lock=%lu flip=%lu acc=%lu "
+                "rej=%lu inv=%lu",
+                (unsigned long)tm.max_coast_halves,
+                (unsigned long)tm.master_stalls,
+                (unsigned long)tm.epochs_refractory_ignored,
+                (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
+                (unsigned long)tm.symbols_accepted,
+                (unsigned long)tm.symbols_rejected_gate,
+                (unsigned long)tm.symbols_discarded_invalid);
+        hs::log("sync emit cens=%lu abrt=%lu bdrop=%lu bbusy=%lu blate=%lu "
+                "sdrop=%lu bok=%lu brej=%lu fix=%lu rmis=%lu",
+                (unsigned long)tm.emit_censored, (unsigned long)tm.emit_aborted,
+                (unsigned long)tm.beacons_overrun_dropped,
+                (unsigned long)tm.beacons_busy_dropped,
+                (unsigned long)tm.beacons_late_dropped,
+                (unsigned long)tm.boundary_bursts_dropped,
+                (unsigned long)tm.beacons_ok,
+                (unsigned long)tm.beacons_rejected,
+                (unsigned long)tm.beacon_index_corrections,
+                (unsigned long)tm.beacon_rev_mismatches);
         const uint32_t overruns = ledController.get_overrun_count();
         if (overruns != last_overrun) {
           Serial.print("overrun ");
