@@ -188,15 +188,15 @@ inline void test_bootstrap_rows() {
 
 /** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
 inline void test_fixed_preset_ids() {
-  const FactoryEntry *curl =
+  const FactoryEntry *lattice =
       hs_wasm::find_factory_entry<96, 20>("lattice-melt");
-  HS_EXPECT_TRUE(curl != nullptr);
-  HS_EXPECT_TRUE(curl && curl->preset_id != nullptr);
-  if (curl && curl->preset_id) {
-    HS_EXPECT_EQ(curl->preset_count, 2u);
-    HS_EXPECT_TRUE(curl->preset_id(0) == "open-curl");
-    HS_EXPECT_TRUE(curl->preset_id(1) == "dense-curl");
-    HS_EXPECT_TRUE(curl->preset_id(2).empty());
+  HS_EXPECT_TRUE(lattice != nullptr);
+  HS_EXPECT_TRUE(lattice && lattice->preset_id != nullptr);
+  if (lattice && lattice->preset_id) {
+    HS_EXPECT_EQ(lattice->preset_count, 2u);
+    HS_EXPECT_TRUE(lattice->preset_id(0) == "open-curl");
+    HS_EXPECT_TRUE(lattice->preset_id(1) == "dense-curl");
+    HS_EXPECT_TRUE(lattice->preset_id(2).empty());
   }
 
   const FactoryEntry *mobius =
