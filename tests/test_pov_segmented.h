@@ -9,6 +9,9 @@
  * derivation (arm side and north/south band direction), active-low ID decode,
  * the arm-B half-image x offset,
  * and that each segment's (i -> x_col, y) writes tile the canvas exactly once.
+ * Also covers pov_handoff.h's release/commit/join protocol and two-thread
+ * acquire/release handoff, pov_submit_gate.h's SubmitGate and SyncPulseGate,
+ * and pov_segment_frame.h's wake ordering and preserve_segment_half behavior.
  */
 #pragma once
 
