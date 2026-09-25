@@ -423,15 +423,12 @@ the semantics cannot fork between the two execution paths.
   the default and `Weight::None` the alternative, matching the dynamic
   backend's existing signal-weight slot. A sphere-domain source crossing
   does the same with neutral weight. The minimal legal chain over the
-  shipped crossings is `Project → Sample → Colorize` — `Rotate` is the
-  camera, present in every real effect but not required by ENTRY, which
-  `Project`'s `SphereSample` input already satisfies. (A future
-  `SPHERE→COLOR` combinator would make a one-stage chain legal; the
-  rules, not this list, define the minimum.)
+  shipped crossings is `SampleSphere -> Colorize`; the plane path requires
+  `Project -> Sample -> Colorize`. `Rotate` is optional in either path.
 - `PlanarWarp`'s variadic policy list becomes N consecutive `Warp` stages.
 - `Identity` policies stop appearing in pipelines — absence of a stage
   *is* the identity.
-- Today's three crossings are not a closed set: any combinator whose
+- The four shipped crossings are not a closed set: any combinator whose
   Output rank exceeds its Input rank is admitted by the same rules, which
   is how a `SPHERE→FIELD` noise source or a `SPHERE→COLOR` sky stage
   arrives — as a new combinator, not a schema change.
@@ -577,6 +574,7 @@ is normative, chosen to keep today's report buckets meaningful:
 | `Lens` | `LENS` |
 | `Project` | `PROJECTION` |
 | `Warp` | `PLANAR_WARP` (MirrorTile keeps its policy-internal `MIRROR_TILE`) |
+| `SampleSphere` | `SOURCE` |
 | `Sample` | `SOURCE` around the source-policy call; `MATERIAL` around weight + ramp + projected coverage |
 | `Transfer`, `ApplyCoverage` | `MATERIAL` |
 | `Colorize` | `COLOR` |
@@ -596,10 +594,8 @@ aggregation, and predicates — plus descriptive aliases for each), and
 the pipeline exposes trait folds over its flattened leaf list —
 `any_stage<Predicate>`, `stage_matching<Predicate>` — with predicates
 matching over `Policies`; `Placed` is invisible to them by the
-transparency rule above. That is the mechanism by which ShaderWorkbench's
-`ExtraValidation` ("edge-fade coverage requires
-`EDGE_DISTANCE_AVAILABLE` on the projection") is re-expressed once positional slot
-typedefs are gone.
+transparency rule above. ShaderWorkbench's `ExtraValidation` uses its own hand-written fold for the
+edge-fade/projection compatibility check; it does not use these trait folds.
 
 ## 5. Validation
 
@@ -746,7 +742,7 @@ branches. Enumerating those readers is what makes the landing plannable.
    - `composed_effect.h` → the relaxed `Pipeline` with the prescribed
      placement;
    - ShaderWorkbench template pipelines → chains (dropping `Identity` slots);
-     `ExtraValidation` → the §4 trait folds;
+     `ExtraValidation` retains its hand-written compatibility fold;
    - ShaderWorkbench's dynamic backend → the canonical carriers. The
      projection-join facility (`join_projected` /
      `projection_join_compatible`) is gone: the lens-blend transition it
@@ -966,10 +962,8 @@ of §7.1's conformance test: promotion bindings and the interpreter's
 registered parameter schema must describe the same field set. Requirements declare their **compatible slot sets**, because slots are
 not interchangeable: only the outer warp slot carries `outer_rotation`,
 so a rotation-consuming warp (`AffineFrame`) is outer-only while a
-plain clocked warp accepts either — today an affine warp bound to the
-inner provider silently receives zero rotation, which is exactly the
-mis-assignment chain-order first-fit would produce for
-`WaveShear → Affine`. Allocation computes a **deterministic matching**
+plain clocked warp accepts either — an affine warp bound to the inner provider is rejected by a
+`static_assert` in ComposedEffect. Allocation computes a **deterministic matching**
 over compatible slots, and determinism is by canonical construction,
 not a tie-break phrase: slots are ordered as this section declares
 their capacities (outer warp before inner, and so on), instances in
@@ -1132,10 +1126,13 @@ concern.
   destroys those blocks, so their layout is table data exactly like
   the other two — declared as the worst case across topology variants,
   matching the eager per-variant construction below), the callbacks
-  below, and the shared frame
-  resources (noise fields, palette, LUTs) the operator reads:
+  below. Resource dependencies are implemented by the callbacks rather than
+  declared as descriptor metadata:
 
   ```cpp
+  construct_params(void *params);
+  param_address(void *params, uint16_t schema_index) -> void *;
+  validate(const void *params) -> const char *;
   // InstanceId carries the (instance_id, operator_id) pair identity.
   init(void *dst, InstanceId);                   // infallible; construct owned resources
   migrate(void *dst, const void *src, InstanceId) -> Status;  // src untouched
@@ -1212,12 +1209,10 @@ concern.
   resource needs, so a preset change never demands an allocation
   mid-run.
 
-  **`FrameContext`** is the interpreter's per-frame snapshot: the
-  interpolated parameter view, the spatial transforms, and borrowed
-  shared resources (the palette bake, LUTs, noise fields). Its pointers
-  alias engine-owned storage and are valid only within the
-  `draw_frame()` that built it — the same lifetime contract as
-  ComposedEffect's `FrameState`.
+  **`FrameContext`** carries the base projection orientation, three borrowed
+  baked-palette pointers, and the hue-rotation and hue-noise LUT pointers.
+  Parameters and instance state reach callbacks separately. Borrowed pointers
+  remain valid within the frame that owns them.
 
   The callbacks are thin adapters over the **shared carrier kernels of
   §4** — the same free functions the template combinators call — with

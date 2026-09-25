@@ -118,8 +118,8 @@ boundary. §4 owns the layout and the gestures and does not restate these.
 The chain is edited by direct manipulation over the three editable carrier
 domains, with Color represented only by the terminal output crossing. The
 default scratch chain is `Rotate → Project → Sample → Colorize` (the minimal
-legal chain over the shipped crossings is `Project → Sample → Colorize`; the
-default adds the camera). Every instance the editor creates — a scratch
+legal chain is `SampleSphere -> Colorize`; the default uses the plane path
+and adds the camera). Every instance the editor creates — a scratch
 chain's, and each one an edit inserts — declares its operator's full union
 schema (main spec §7.1); a loaded document's instances keep the
 declarations it carries, which may be narrower. Fields the current

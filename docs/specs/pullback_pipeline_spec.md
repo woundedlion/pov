@@ -754,7 +754,7 @@ Identity is not a policy in any family: an absent stage is the identity.
 Noise basis and surface integrator are compiled topology facts. Public policy
 shapes are `Surface::DirectNoise<State, NoiseBasisV>` and
 `Surface::CurlNoise<State, NoiseBasisV, SurfaceIntegrator>`, where
-`NoiseBasisV` is the core `::NoiseBasis` non-type value and
+`NoiseBasisV` is the core `math::NoiseBasis` non-type value and
 `SurfaceIntegrator` is one of `Surface::Euler`, `Surface::Midpoint`, or
 `Surface::Midpoint2`. Direct kernels accept basis/integrator as explicit
 runtime values for the dynamic dispatcher. A compiled policy shall not read
@@ -914,7 +914,7 @@ Required source policies:
 Noise source shapes are
 `Source::ProjectedNoise<State, NoiseBasisV>` and
 `Source::SphericalNoise<State, NoiseBasisV>`, again using core
-`::NoiseBasis` as a non-type topology value. Their shared direct kernels accept
+`math::NoiseBasis` as a non-type topology value. Their shared direct kernels accept
 an explicit runtime basis for dynamic dispatch. The operator census asserts
 that every surface/source noise basis and integrator represented in
 `TopologyKey` is either encoded in the compiled type or is being exercised by
