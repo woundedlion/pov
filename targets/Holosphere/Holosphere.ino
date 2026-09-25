@@ -25,22 +25,18 @@ static constexpr unsigned int RPM = 480;
 HS_DEFINE_POV_SINGLE_LED_CONTROLLER(NUM_PIXELS, RPM);
 #endif
 
-namespace {
-POVDisplay<NUM_PIXELS, RPM> *
-    g_pov; // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
-}
+using POV = POVDisplay<NUM_PIXELS, RPM>;
 
 void setup() {
   Serial.begin(9600);
   delay(1000);
   hs::configure_debug_telemetry();
   Serial.println("Hello");
-  g_pov = new (std::nothrow) POVDisplay<NUM_PIXELS, RPM>();
-  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
+  POV::begin();
 }
 
 FLASHMEM static void run_show_sequence() {
-  g_pov->show<RingSpin<96, 20>>(120, false);
+  POV::show<RingSpin<96, 20>>(120, false);
 }
 
 void loop() {

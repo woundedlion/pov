@@ -47,23 +47,9 @@ template <int S, int RPM> class POVDisplay {
                 "POVDisplay requires an even, positive LED count S");
 
 public:
-  /**
-   * @brief Constructs the driver, initializing the LED strip and hardware-
-   * specific optimizations (correction, temperature, brightness).
-   * @details CONTRACT — construct only from setup(), never as a file-scope
-   *          global. This constructor performs hardware I/O directly: it seeds
-   *          the Arduino RNG and brings up the LED transport (DMA SPI or
-   *          FastLED), all valid only once the Arduino core is initialized.
-   *          dma_led.h deliberately keeps hardware bring-up out of its
-   *          constructor (an explicit begin()) and warns against
-   *          constructor-time I/O; this class diverges on purpose because its
-   *          sole instantiation site is the Holosphere setup(). Do not promote
-   *          this object to a global or construct it before setup().
-   *
-   *          Seeds Arduino random() to 1337; modern effects draw from the
-   *          separate hs::random() Pcg32(1337) reproduced by the simulator.
-   */
-  POVDisplay() {
+  POVDisplay() = delete;
+  /** Initializes the transport after Arduino core startup; call once. */
+  static void begin() {
     randomSeed(1337);
 #ifdef USE_DMA_LEDS
     ledController.begin();
@@ -94,7 +80,7 @@ public:
    * the arenas, constructs, runs, and deletes the effect.
    */
   template <typename E, typename... Args>
-  void show(unsigned long duration, Args &&...args) {
+  static void show(unsigned long duration, Args &&...args) {
     math::GeometryResolution<E>::init();
     configure_arenas_default(); // Reset before init so effects can override
     E *e = new (std::nothrow) E(std::forward<Args>(args)...);
@@ -140,7 +126,7 @@ private:
    * resolution mismatch and a failed timer start before either becomes a dark
    * strip or an unguarded OOB read in the column ISR.
    */
-  void run(Effect *e, unsigned long duration) {
+  static void run(Effect *e, unsigned long duration) {
     // Unsigned start + (millis() - start) stays correct across the millis()
     // wraparound; a signed start would mis-compare on overflow.
     const unsigned long start = millis();

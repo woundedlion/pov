@@ -229,22 +229,9 @@ public:
    */
   static int segment_index() { return segment_id; }
 
-  /**
-   * @brief Initializes hardware: reads segment ID and configures the LED
-   *        driver.
-   * @details CONTRACT — construct only from setup(), never as a file-scope
-   *          global. This constructor performs hardware I/O directly: read_id()
-   *          does pinMode/delay, and the body then brings up the DMA LED
-   *          driver, enables the DWT cycle counter, and prints to Serial — all
-   *          valid only once the Arduino core is initialized. dma_led.h
-   *          deliberately keeps hardware bring-up out of its constructor (an
-   *          explicit begin()) and warns against constructor-time I/O; this
-   *          class diverges on purpose because its sole instantiation site is
-   *          the Phantasm setup() (a heap-allocated handle), so the "after
-   *          core init" precondition always holds. Do not promote this object
-   *          to a global or construct it before setup().
-   */
-  HS_COLD_MEMBER POVSegmented() {
+  POVSegmented() = delete;
+  /** Initializes the transport after Arduino core startup; call once. */
+  HS_COLD_MEMBER static void begin() {
     read_id();
     configure_segment();
 
@@ -302,7 +289,7 @@ public:
    * stable_effect_seeds at the published index.
    */
   template <int R>
-  [[noreturn]] void
+  [[noreturn]] static void
   run_show(const EffectFactory (&factories)[R],
            const uint32_t (*effect_revolutions)[R] = nullptr,
            const uint64_t (*stable_effect_seeds)[R] = nullptr) {
