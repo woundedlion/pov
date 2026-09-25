@@ -197,7 +197,7 @@ struct HankinWalkProbe {
     const BakedPalette *strap_by_slot[HankinSolids<W, H>::NUM_PALETTES];
     fx.resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                 strap_by_slot, scratch);
-    fx.draw_mesh(canvas, fx.hankin_mesh, star_by_slot, strap_by_slot, 1.0f,
+    fx.draw_mesh(canvas, fx.hankin_mesh, star_by_slot, strap_by_slot,
                  strap_fade, close_blend, terminal_fade, star_close);
   }
 };
