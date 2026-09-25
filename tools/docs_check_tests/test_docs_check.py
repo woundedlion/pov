@@ -316,6 +316,14 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertIn("missing daydream link target", issues[0].message)
         self.assertIn("tools/ghost.js", issues[0].message)
 
+    def test_checkout_link_unescapes_underscores(self):
+        text = (r"[live](https://github.com/woundedlion/daydream/blob/master"
+                r"/tools/chain\_strip.js)")
+        issues = dc.check_text(PurePosixPath("README.md"), text, set(),
+                               checkouts={"daydream": {
+                                   PurePosixPath("tools/chain_strip.js")}})
+        self.assertEqual(issues, [])
+
     def test_checkout_link_without_a_root_is_recorded_as_skipped(self):
         text = ("[gone](https://github.com/woundedlion/daydream/blob/master"
                 "/tools/ghost.js)\n")

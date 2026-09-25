@@ -516,7 +516,7 @@ def _resolved_target(source: PurePosixPath, target: str) -> PurePosixPath | None
 
 def _checkout_link(target: str) -> tuple[str, PurePosixPath] | None:
     """Splits a sibling-repository GitHub URL into its checkout name and path."""
-    parsed = urlsplit(_MARKDOWN_ESCAPE_RE.sub(r"", target.strip()))
+    parsed = urlsplit(_MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip()))
     if parsed.scheme.casefold() not in ("http", "https"):
         return None
     if parsed.netloc.casefold() not in _SELF_REPO_HOSTS:
