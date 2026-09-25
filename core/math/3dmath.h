@@ -1276,11 +1276,9 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
  * @param cy Image of the body +Y axis (must be unit, orthogonal to cx).
  * @param cz Image of the body +Z axis (must be unit, = cross(cx, cy)).
  * @return The unit quaternion q with rotate(X_AXIS, q) == cx, etc.
- * @details Shepperd's method: pick the largest of the four (1 ± trace terms) so
- * the divisor is never near zero; singular-free for every orientation. Inputs
- * are assumed orthonormal — a mildly skewed basis silently yields a non-rotation
- * (callers must hand it a true frame), while a near-singular basis drives the
- * divisor and `q` toward zero magnitude and the final `normalized()` traps.
+ * @details Uses Shepperd's method with the largest quaternion component.
+ * Orthonormality is an unchecked caller precondition; degenerate inputs need
+ * not trap.
  */
 inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
                                         const Vector &cz) {
