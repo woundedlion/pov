@@ -186,8 +186,9 @@ public:
    * @brief Sets a callback fired at the end of each completion cycle.
    *
    * Fires when the animation reaches done(): once for a one-shot, per cycle for
-   * a repeating one, once per frame for a Driver. RandomTimer/PeriodicTimer
-   * never reach done() (duration=-1), so they fire it from their own step().
+   * a repeating one, once per frame for a Driver. Repeating RandomTimer and
+   * PeriodicTimer fire it from step() each trigger; one-shot timers reach done()
+   * and fire it once on removal.
    * Do not attach a one-shot callback to a repeating target.
    *
    * Single post slot: then() traps (HS_CHECK) rather than overwrite an existing
