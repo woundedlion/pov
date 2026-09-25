@@ -42,7 +42,6 @@ import tempfile
 
 import fab
 import sexp
-from constraints import DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS
 from kicad_common import F, kicad_cli, net_name
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -59,8 +58,8 @@ ZONE_ITEM = re.compile(r"\bzone\b", re.I)
 DRC_OK = "ok"
 DRC_MISSING = "tool-missing"
 DRC_FAILED = "failed"
-MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
-MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
+MIN_STANDARD_VIA_DIAMETER_MM = fab.MIN_STANDARD_VIA_DIAMETER_MM
+MIN_STANDARD_VIA_DRILL_MM = fab.MIN_STANDARD_VIA_DRILL_MM
 
 # Fast / critical nets for the 24 MHz SPI + sync (source-side names
 # DATA_SRC/CLK_SRC/SYNC_SRC are pre-terminator stubs -- included as fast too).

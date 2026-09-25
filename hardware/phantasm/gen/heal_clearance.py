@@ -23,8 +23,9 @@ from pathlib import Path
 from kicad_common import atomic_write_text
 import sys
 
-from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,
-                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES)
+from constraints import (DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS,
+                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES,
+                         apply_project_floors, rule_shortfalls)
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -49,35 +50,6 @@ def minimums_for(p):
     return RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS
 
 
-def rule_shortfalls(d, rule_minimums, class_minimums):
-    """Fields of project document d sitting below their fabrication floor.
-
-    Maps the field name -- Default net class fields prefixed "Default." -- to
-    (current, minimum). A field KiCad has dropped reads as 0, the same as one
-    it re-zeroed.
-    """
-    rules = d.get("board", {}).get("design_settings", {}).get("rules", {})
-    shortfalls = {}
-    for field, minimum in {**rule_minimums, **NEW_LAYOUT_RULES}.items():
-        current = rules.get(field, 0) or 0
-        if current < minimum:
-            shortfalls[field] = (current, minimum)
-
-    severity = d.get("board", {}).get("design_settings", {}).get(
-        "rule_severities", {}).get("silk_over_copper")
-    if severity != "error":
-        shortfalls["rule_severities.silk_over_copper"] = (severity, "error")
-
-    classes = d.get("net_settings", {}).get("classes", [])
-    default = next((item for item in classes if item.get("name") == "Default"), None)
-    if default is None:
-        raise ValueError("missing Default net class")
-    for field, minimum in class_minimums.items():
-        current = default.get(field, 0) or 0
-        if current < minimum:
-            shortfalls[f"Default.{field}"] = (current, minimum)
-    return shortfalls
-
 
 def heal_project(p, dry_run=False):
     rule_minimums, class_minimums = minimums_for(p)
@@ -89,18 +61,7 @@ def heal_project(p, dry_run=False):
     changes = rule_shortfalls(d, rule_minimums, class_minimums)
 
     if changes:
-        rules = d.setdefault("board", {}).setdefault(
-            "design_settings", {}).setdefault("rules", {})
-        default = next(item for item in d["net_settings"]["classes"]
-                       if item.get("name") == "Default")
-        for field, (_, minimum) in changes.items():
-            if field.startswith("Default."):
-                default[field[len("Default."):]] = minimum
-            elif field.startswith("rule_severities."):
-                d["board"]["design_settings"].setdefault("rule_severities", {})[
-                    field[len("rule_severities."):]] = minimum
-            else:
-                rules[field] = minimum
+        apply_project_floors(d, rule_minimums, class_minimums)
         if not dry_run:
             atomic_write_text(p, json.dumps(d, indent=2) + "\n", newline=newline)
         summary = ", ".join(

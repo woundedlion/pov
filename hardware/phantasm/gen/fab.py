@@ -38,6 +38,7 @@ from connectivity import footprint_reference
 from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
                          EXCLUDE_VAL_SUBSTR, MIN_SOLDER_MASK_WEB_MM,
                          MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
+                         MIN_VIA_TO_VIA_COPPER_SPACING_MM,
                          NEW_LAYOUT_RULES, RULE_MINIMUMS)
 from heal_clearance import rule_shortfalls
 from kicad_common import F, is_copper_pour, kicad_cli, require_annotated_export
@@ -473,7 +474,6 @@ BOARD_EXCLUSION_FLAGS = frozenset(
     {"exclude_from_bom", "exclude_from_pos_files", "dnp"})
 MIN_STANDARD_VIA_DIAMETER_MM = RULE_MINIMUMS["min_via_diameter"]
 MIN_STANDARD_VIA_DRILL_MM = DEFAULT_CLASS_MINIMUMS["via_drill"]
-MIN_VIA_TO_VIA_COPPER_SPACING_MM = 0.15
 MIN_ZONE_GAP_MM = MIN_THERMAL_GAP_MM
 MIN_ZONE_WIDTH_MM = RULE_MINIMUMS["min_track_width"]
 ZONE_FILL_FEATURES = ("thermal_gap", "thermal_bridge_width")
