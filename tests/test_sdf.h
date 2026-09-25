@@ -2417,6 +2417,28 @@ inline void test_pole_axis_ring_bounds_skip_pole_rows() {
   expect_cull_covers_interior<W, H>(ring, "pole-axis ring");
 }
 
+/** @brief Linearized ring bounds retain every row with visible stroke alpha. */
+inline void test_linearized_ring_bounds_cover_visible_rows() {
+  constexpr int W = 288, H = 144;
+  const math::Basis basis = equator_basis();
+  int linearized = 0;
+  for (int radius_index = 1; radius_index < 100; ++radius_index) {
+    for (float thickness : {0.445f, 0.7f, 1.1f, 1.5f}) {
+      const SDF::Ring ring(basis, radius_index * 0.02f, thickness);
+      if (ring.inv_sin_target == 0.0f)
+        continue;
+      ++linearized;
+      const auto bounds = ring.get_vertical_bounds<H>();
+      for (int y = 0; y < H; ++y) {
+        const auto point = math::pixel_to_vector<W, H>(0, y);
+        if (ring.stroke_alpha(math::dot(point, basis.v)) > Scan::MIN_ALPHA)
+          HS_EXPECT_TRUE(y >= bounds.y_min && y <= bounds.y_max);
+      }
+    }
+  }
+  HS_EXPECT_GT(linearized, 0);
+}
+
 /**
  * @brief Verifies the Intersection interval cull covers every interior pixel of
  *        a real leaf pair.
@@ -3609,6 +3631,7 @@ inline int run_sdf_tests() {
 
   test_cull_covers_interior_over_orientation_grid();
   test_pole_axis_ring_bounds_skip_pole_rows();
+  test_linearized_ring_bounds_cover_visible_rows();
   test_intersection_cull_covers_interior_over_polygon_pairs();
   test_subtract_cull_covers_interior_over_leaf_pairs();
   test_smooth_union_cull_covers_interior_over_leaf_pairs();
