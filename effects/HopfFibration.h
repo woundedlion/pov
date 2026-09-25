@@ -230,9 +230,9 @@ private:
   }
 
   /**
-   * @brief Projects a base fiber into oriented world space.
+   * @brief Projects a base fiber to an un-oriented direction.
    * @param i Fiber index in [0, ACTUAL_FIBERS).
-   * @return World-space point after folding, twist, S3 lift, tumble, and
+   * @return Direction before render_trails orientation, after folding, twist, S3 lift, tumble, and
    * stereographic projection; falls back to (1, 0, 0) at a degenerate pole.
    * @details Pipeline: folding -> twist -> S3 -> tumble -> stereographic R3.
    */
