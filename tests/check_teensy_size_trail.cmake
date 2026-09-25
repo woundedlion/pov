@@ -1,5 +1,5 @@
 # Run the size-trail host self-tests (tools/teensy_gate_tests/test_size_trail.py).
-# -D args: PYTHON_EXE, HS_ROOT, SKIP_CODE, REQUIRE_PYTHON.
+# -D args: PYTHON_EXE, HS_ROOT.
 
 # Script mode inherits no policies from the project, so every policy would
 # otherwise default to OLD, and the cmake_language(EXIT) below is a 3.29

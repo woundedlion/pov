@@ -494,9 +494,7 @@ set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DHS_ROOT=${HS_ROOT}
-    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_teensy_size_trail.cmake)
-set_tests_properties(unit_teensy_size_trail PROPERTIES SKIP_RETURN_CODE 77)
 
 # Pin core/color/gamut_lut.h against its generator, the generator's copies of the
 # OKLab matrices and the gamut slack against core/color/color.h, and its diamond
@@ -598,9 +596,7 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
     -DSCRIPT=${HS_ROOT}/tools/relax_bakes.py
     -DHARNESS=$<TARGET_FILE:relax_bake_gen>
     -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
-    -DSKIP_CODE=77 -DREQUIRE_PYTHON=${HS_REQUIRE_GENERATORS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_relax_bakes.cmake)
-set_tests_properties(unit_relax_bake_form PROPERTIES SKIP_RETURN_CODE 77)
 
 # The south-pole Y-clip renormalization in the rasterizer (Screen::AntiAlias's
 # bilinear-tap fold, and the H_VIRT handling threaded through geometry/scan/plot/
