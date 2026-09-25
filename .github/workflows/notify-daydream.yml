@@ -1,0 +1,41 @@
+name: Notify Daydream
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      (github.event.workflow_run.event == 'push' ||
+       github.event.workflow_run.event == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Request Daydream reconciliation
+        env:
+          GH_TOKEN: ${{ secrets.DAYDREAM_DISPATCH_TOKEN }}
+          ENGINE_SHA: ${{ github.event.workflow_run.head_sha }}
+          ENGINE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Daydream's scheduled reconciliation will discover this engine."
+            exit 0
+          fi
+          if ! [[ "$ENGINE_SHA" =~ ^[0-9a-f]{40}$ && "$ENGINE_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Invalid completed engine run identity."
+            exit 1
+          fi
+          payload="$RUNNER_TEMP/daydream-dispatch.json"
+          printf '{"event_type":"holosphere-engine-ready","client_payload":{"engine_sha":"%s","engine_run_id":%s}}\n' \
+            "$ENGINE_SHA" "$ENGINE_RUN_ID" > "$payload"
+          if ! gh api --method POST repos/woundedlion/daydream/dispatches --input "$payload"; then
+            echo "::warning::Daydream notification failed; scheduled reconciliation remains active."
+          fi
