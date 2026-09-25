@@ -3477,6 +3477,13 @@ inline void case_sdf_twist_zero_major_radius() {
     std::printf("x");
 }
 
+inline void case_transformed_torus_invalid_minor_radius() {
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+      {opaque(1.0f), opaque(0.6f)}, {2, 0.1f, 1.0f}};
+  Scan::TransformedVolume volume(torus, math::Vector(), math::Quaternion());
+  volume.check_trace_preconditions();
+}
+
 /** @brief Draw callback for the OpLeg construction death cases; never runs. */
 inline void death_opleg_draw(Canvas &, MeshState &,
                              const Animation::OpLeg::Shading &) {}
@@ -5586,6 +5593,10 @@ inline const Case *all_cases(int &n) {
           {"sdf_twist_zero_major_radius", case_sdf_twist_zero_major_radius,
            "core/render/sdf/volume.h",
            "(R > 0.0f) SDF Volume: radius must be positive"},
+          {"transformed_torus_invalid_minor_radius",
+           case_transformed_torus_invalid_minor_radius,
+           "core/render/sdf/volume.h",
+           "(base.r <= base.R * 0.5f) WarpedVolume Torus minor radius must not exceed half its major radius"},
           {"pick_next_edge_unknown_node", case_pick_next_edge_unknown_node,
            "core/mesh/conway_graph.h",
            "(n > 0) pick_next_edge: node outside the graph"},

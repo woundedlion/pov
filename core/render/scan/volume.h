@@ -48,6 +48,11 @@ template <typename SDF> struct TransformedVolume {
                     const math::Quaternion &q)
       : sdf(sdf), center(center), q_inv(q.inverse()) {}
 
+  void check_trace_preconditions() const {
+    if constexpr (requires { sdf.check_trace_preconditions(); })
+      sdf.check_trace_preconditions();
+  }
+
   /**
    * @brief Transforms a ray origin and direction from world to local space.
    * @param ro Ray origin in world space.
