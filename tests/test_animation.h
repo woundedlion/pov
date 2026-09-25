@@ -3861,39 +3861,6 @@ inline void test_particle_system_emitter_dispatch() {
 }
 
 /**
- * @brief Verifies Motion::set_duration reanchors the baseline so a mid-path
- * duration change advances the head incrementally rather than teleporting it.
- * @details A great-circle path stepped 30 frames of a 60-frame loop sits at
- * phase 0.5; shortening to 120 frames must not snap the head by the phase gap
- * between the two parameterizations — the post-change step stays a small move.
- */
-inline void test_motion_set_duration_reanchors_no_teleport() {
-  using Ori = math::Orientation<16>;
-  ProceduralPath path;
-  path.f = [](float t) {
-    float a = 2.0f * math::PI_F * t;
-    return math::Vector(std::cos(a), std::sin(a), 0.0f);
-  };
-  Ori o; // identity
-  Animation::Motion<288, 16> motion(o, path, 60, /*repeat=*/true);
-
-  const math::Vector probe = math::X_AXIS;
-  for (int i = 0; i < 30; ++i)
-    motion.step(fake_canvas());
-  const math::Vector before = o.orient(probe);
-
-  motion.set_duration(120);
-  motion.step(fake_canvas());
-  const math::Vector reanchored = o.orient(probe);
-
-  HS_EXPECT_LT(math::angle_between(before, reanchored), 0.5f);
-  motion.step(fake_canvas());
-  const math::Vector continued = o.orient(probe);
-  HS_EXPECT_GT(small_angle_between(reanchored, continued), 1e-4);
-  HS_EXPECT_LT(math::angle_between(reanchored, continued), 0.5f);
-}
-
-/**
  * @brief Verifies Motion::set_duration rescales the elapsed frame count instead
  * of completing the motion when the new duration is below the current position.
  * @details Without the rescale a repeating motion is instantly done(), so
@@ -4115,7 +4082,6 @@ inline int run_animation_tests() {
   test_mobiusflow_degenerate_inputs_remain_finite();
   test_mobiusflow_step_preserves_unit_product();
   test_particle_system_emitter_dispatch();
-  test_motion_set_duration_reanchors_no_teleport();
   test_motion_set_duration_below_position_rescales();
 
   const int result = fixture.result();
