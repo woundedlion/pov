@@ -812,7 +812,8 @@ mobius_lens(const math::Vector &v, const math::MobiusParams &params) {
  * @brief Projects a sphere direction with the projections that take no
  *        `ProjectionParams`.
  * @param v Direction in the projection frame.
- * @param projection Must be equirectangular, stereographic, or gnomonic; the
+ * @param projection Must be sinusoidal, equirectangular, stereographic, or
+ *        gnomonic; the
  *        cartographic kernels read live parameters and are reached through
  *        `project_branch` instead.
  * @return Plane coordinates in the projection's native units.
