@@ -1110,7 +1110,7 @@ private:
     build_landing = nullptr;
 
     // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
-    // is dead once the handoff centroids above are snapshotted.
+    // is dead once the landing palette and topology above are copied.
     dual_bridge_ambo_faces = medial_faces;
     dual_bridge_ambo = PolyMesh();
 
@@ -1135,8 +1135,7 @@ private:
   /**
    * @brief Schedules the dual bridge's closing leg: truncate dual(P) from the
    * ambo point down to dual(P), landing on the macro's clean endpoint. The
-   * departed centroids come from the medial leg's cached arrival, whose face
-   * order matches leg 2's landing palettes.
+   * departed palettes come from leg 2's landing in its face order.
    */
   HS_COLD_MEMBER void schedule_dual_untruncate() {
     ScratchScope a_guard(scratch_arena_a);
@@ -1158,7 +1157,7 @@ private:
     }
 
     // Build the deferred leg-3 seed dual(P) into the compacted arena. Not
-    // generate(): its depth-0 scratch_a reset would drop the cen/pal snapshot
+    // generate(): its depth-0 scratch_a reset would drop the palette snapshot
     // above, so scope the pipeline off the live frame instead.
     {
       ScratchScope da(scratch_arena_a);
