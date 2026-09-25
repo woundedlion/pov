@@ -134,6 +134,13 @@ class SnapshotTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
+    def test_snapshot_creation_is_explicitly_refused(self):
+        with unittest.mock.patch.object(sys, "argv", ["make_quilter_incremental.py"]), \
+                unittest.mock.patch.object(make_quilter_incremental, "make_snapshot") as write:
+            with self.assertRaisesRegex(SystemExit, "snapshot is frozen"):
+                make_quilter_incremental.main()
+        write.assert_not_called()
+
     def test_a_snapshot_fault_exits_with_its_message(self):
         with unittest.mock.patch.object(
                 make_quilter_incremental, "verify_snapshot",
