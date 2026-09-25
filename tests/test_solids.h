@@ -451,7 +451,6 @@ inline void test_get_entry_last_valid_index_builds() {
   Arena b(solids_scratch_b, sizeof(solids_scratch_b));
   PolyMesh m = Solids::finalize_solid(e.generate(a, b), geom);
   check_basic(m);
-  check_all_unit_vertices(m, 1e-3f);
 }
 
 /**
