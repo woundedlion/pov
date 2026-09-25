@@ -61,8 +61,8 @@ inline int count_inward_winding(const PolyMesh &m) {
     if (count >= 3) {
       math::Vector n = face_newell_normal(m, offset, count);
       math::Vector c = face_centroid_pos(m, offset, count);
-      // Skip degenerate normals (colinear vertices).
-      if (n.length() > 1e-6f && math::dot(n, c) <= 0.0f)
+      const float LENGTH = n.length();
+      if (!std::isfinite(LENGTH) || (LENGTH > 1e-6f && math::dot(n, c) <= 0.0f))
         ++bad;
     }
     offset += count;
@@ -947,8 +947,23 @@ inline float max_vertex_delta(const std::vector<math::Vector> &a,
     return std::numeric_limits<float>::infinity();
   float worst = 0.0f;
   for (size_t i = 0; i < a.size(); ++i)
-    worst = std::max(worst, (a[i] - b[i]).length());
+    worst = fold_worst(worst, (a[i] - b[i]).length());
   return worst;
+}
+
+/** @brief Non-finite geometry cannot disappear from aggregate checks. */
+inline void test_geometry_error_helpers_retain_nan() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  const std::vector<math::Vector> reference{{1, 0, 0}, {0, 1, 0}};
+  auto invalid = reference;
+  invalid[0].x = NAN_VALUE;
+  HS_EXPECT_TRUE(std::isnan(max_vertex_delta(reference, invalid)));
+  HS_EXPECT_TRUE(std::isnan(fold_worst(fold_worst(0.0f, NAN_VALUE), 1.0f)));
+  Arena arena(conway_target_buf, sizeof(conway_target_buf));
+  PolyMesh mesh;
+  build_solid<Solids::Tetrahedron>(mesh, arena);
+  mesh.vertices[0].x = NAN_VALUE;
+  HS_EXPECT_GT(count_inward_winding(mesh), 0);
 }
 
 /**
@@ -1373,6 +1388,7 @@ inline int run_conway_tests() {
   hs_test::ModuleFixture fixture("conway");
 
   test_input_cube_is_well_formed();
+  test_geometry_error_helpers_retain_nan();
   test_input_tetrahedron_winding();
   test_normalize_pushes_to_unit_sphere();
   test_dual_cube_has_octahedral_topology();
