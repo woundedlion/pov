@@ -253,15 +253,15 @@ inline void test_factory_tables() {
 
 /** @brief Verifies Phantasm and the registry derive the same per-effect seed. */
 inline void test_phantasm_seed_identity() {
+  size_t index = 0;
 #define HS_VERIFY_PHANTASM_SEED(name, duration_seconds)                        \
   do {                                                                         \
     const FactoryEntry *entry = hs_wasm::find_factory_entry<288, 144>(#name);  \
     HS_EXPECT_TRUE(entry != nullptr);                                          \
-    if (entry) {                                                               \
-      constexpr std::string_view id =                                          \
-          hs::stable_effect_id<name<288, 144>>(#name);                         \
-      HS_EXPECT_TRUE(entry->stable_id == id);                                  \
-    }                                                                          \
+    if (entry)                                                                 \
+      HS_EXPECT_EQ((HS_PHANTASM_EFFECT_SEEDS<288, 144>[index]),                \
+                   hs::stable_effect_seed(entry->stable_id));                  \
+    ++index;                                                                   \
   } while (false);
   HS_PHANTASM_EFFECT_LIST(HS_VERIFY_PHANTASM_SEED)
 #undef HS_VERIFY_PHANTASM_SEED
