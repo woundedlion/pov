@@ -36,6 +36,8 @@
 inline constexpr int TOTAL_PIXELS = 288;
 inline constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
 inline constexpr unsigned int RPM = 480;
+static_assert(HS_SHOW_FRAMES_PER_SECOND == RPM / 60 * 2,
+              "one frame per half-revolution");
 
 /** Per-effect heap-object budget for the Phantasm playlist, in bytes. */
 inline constexpr size_t HS_PHANTASM_EFFECT_HEAP_BYTES = 3584;
