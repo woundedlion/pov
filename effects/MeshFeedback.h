@@ -67,7 +67,7 @@ public:
   static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
   static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.5f;
 
-  /** @brief True iff every preset-driven field of @p s lies within its
+  /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Params &p) {
     const Style &s = p.style;
