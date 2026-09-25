@@ -3514,6 +3514,27 @@ inline Animation::OpLeg::PaletteHandoff death_opleg_handoff() {
           .correspondence = Animation::OpLeg::FaceCorrespondence::GEOMETRIC};
 }
 
+inline void case_opleg_rewind_refill() {
+  static uint8_t seed_storage[64 * 1024], leg_storage[128 * 1024];
+  Arena seed_arena(seed_storage, sizeof(seed_storage));
+  Arena leg_arena(leg_storage, sizeof(leg_storage));
+  PolyMesh seed;
+  build_solid<Solids::Cube>(seed, seed_arena);
+  static const BakedPaletteBank bank;
+  static const uint8_t palettes[6]{};
+  const Animation::OpLeg::PaletteHandoff HANDOFF{
+      .bank = &bank, .prev_face_palette = palettes, .prev_faces = 6};
+  Animation::OpLeg leg(
+      seed,
+      Animation::OpLeg::GatedSwapSpec{.op = Animation::OpLeg::SwapOp::KIS,
+                                      .gate_frames = 1},
+      leg_arena, death_opleg_draw, HANDOFF);
+  const size_t BYTES = leg_arena.get_offset();
+  leg_arena.set_offset(0);
+  leg_arena.allocate(BYTES);
+  (void)leg.landing();
+}
+
 /**
  * @brief Death case: choosing an edge from a node outside the graph must trap.
  * @details ConwayGraph surface — no EDGES row touches such a node, so the
@@ -5617,6 +5638,9 @@ inline const Case *all_cases(int &n) {
           {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge,
            "core/animation/opleg.h",
            "(spec.edge) OpLeg: edge sweep carries no graph edge"},
+          {"opleg_rewind_refill", case_opleg_rewind_refill,
+           "core/animation/opleg.h",
+           "(stamp.block_alive(buf, live_bytes)) OpLeg: leg arena storage reclaimed under a live leg"},
           {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames,
            "core/animation/opleg.h",
            "(spec.sweep_frames >= 1) OpLeg: parameter sweep needs a positive sweep length"},
@@ -6255,7 +6279,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/animation.h", 3},
     {"core/animation/carousel.h", 4},
     {"core/animation/motion.h", 6},
-    {"core/animation/opleg.h", 42},
+    {"core/animation/opleg.h", 41},
     {"core/animation/params.h", 10},
     {"core/animation/segue.h", 1},
     {"core/animation/sprites.h", 10},

@@ -1936,7 +1936,8 @@ private:
     leg_arena = &arena;
     live_end = arena.get_offset();
 #ifndef NDEBUG
-    birth_generation = arena.get_generation();
+    stamp.record(arena);
+    live_bytes = sizeof(Transients);
 #endif
     return *buf;
   }
@@ -1945,20 +1946,23 @@ private:
    * @brief Stamps the watermark check_alive() tests past the leg's last
    * allocation; called at the end of every constructor.
    */
-  void seal_transients() { live_end = leg_arena->get_offset(); }
+  void seal_transients() {
+#ifndef NDEBUG
+    live_bytes += leg_arena->get_offset() - live_end;
+#endif
+    live_end = leg_arena->get_offset();
+  }
 
   /**
    * @brief Traps if the leg arena was reclaimed while the leg is still live.
-   * @details A rewind is caught in every build by the watermark; a reset()
-   * refills the arena to any offset, so only the debug generation stamp
-   * (which a rewind does not bump) detects it exactly.
+   * @details The debug block stamp also detects a rewind followed by refill.
    */
   void check_alive() const {
     HS_CHECK(leg_arena->get_offset() >= live_end,
              "OpLeg: leg arena rewound under a live leg");
 #ifndef NDEBUG
-    HS_CHECK(leg_arena->get_generation() == birth_generation,
-             "OpLeg: leg arena reset under a live leg");
+    HS_CHECK(stamp.block_alive(buf, live_bytes),
+             "OpLeg: leg arena storage reclaimed under a live leg");
 #endif
   }
 
@@ -1967,7 +1971,8 @@ private:
                                  vectors. */
   size_t live_end = 0; /**< Arena offset just past the Transients block. */
 #ifndef NDEBUG
-  uint32_t birth_generation = 0; /**< Leg-arena generation at construction. */
+  ArenaBlockStamp stamp;
+  size_t live_bytes = 0;
 #endif
   EasingFn easing_fn;  /**< Easing applied to the sweep parameter. */
   MorphDrawFn draw_fn; /**< Per-frame draw callback. */
