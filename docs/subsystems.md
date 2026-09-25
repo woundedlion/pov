@@ -112,7 +112,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 | Register | Source | Meaning |
 |---|---|---|
 | `v0` | `DistanceResult.t` | Normalized azimuth (0–1) for `Scan::Ring` and `Scan::Star`; normalized radial position for `Scan::PlanarPolygon`, `Scan::SphericalPolygon` and `Scan::Flower` (polar angle over the shape radius, so it passes 1 outside the body); unused (0) for `Scan::Line` and `Scan::Mesh` faces |
-| `v1` | `DistanceResult.raw_dist` | Unsigned distance to shape centerline (for distance-based effects); `Scan::Mesh` faces carry the signed edge distance instead — negative inside the face, in gnomonic plane units on a small (`linear_dist`) face and in radians on a large one — which `fragment_edge_dist()` turns into normalized inward depth as `-v1 / size` |
+| `v1` | `DistanceResult.raw_dist` | Producer-specific: unsigned centerline/arc distance for rings and lines, polar angle for polygons and stars, or antipode scan distance for flowers; `Scan::Mesh` faces carry the signed edge distance instead — negative inside the face, in gnomonic plane units on a small (`linear_dist`) face and in radians on a large one — which `fragment_edge_dist()` turns into normalized inward depth as `-v1 / size` |
 | `v2` | Set by rasterizer | Stroke AA coverage (0–1, also applied by Scan at plot time), 0 for solid shapes, or face index for `Scan::Mesh` (but see the per-face setup note below) |
 | `v3` | `DistanceResult.aux` | Auxiliary — shape-dependent secondary parameter (0 when unused, including faces) |
 | `size` | `DistanceResult.size` | Stroke half-width for stroke shapes, or radius or apothem for filled shapes (mesh `Face` floors it at 0.25× the face circumradius, so on a sliver face — whose true inradius approaches zero — the reported size overstates it without bound) |
@@ -361,7 +361,7 @@ Two traversal helpers linearize multi-level orientation history into a single ca
 | Function | Input | Description |
 |---|---|---|
 | `tween(orientation, callback)` | `Orientation<CAP>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ (0, 1]`. Sub-frame 0 is the pose carried over from the previous frame's end and is skipped unless it is the only snapshot (which reads `t = 1`, age-neutral). Used by `World::Orient` to distribute motion blur. |
-| `deep_tween(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets, Fishbowl, RingSpin) for rendering trails with full sub-frame accuracy. A bare `Orientation` has no per-frame structure to flatten and is rejected by the `Tweenable` concept — use `tween` for that. |
+| `deep_tween(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets, Fishbowl) for rendering trails with full sub-frame accuracy. A bare `Orientation` has no per-frame structure to flatten and is rejected by the `Tweenable` concept — use `tween` for that. |
 | `deep_tween_frames(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Public frame-aware traversal that supplies the frame value, sub-frame index, global age, and normalized time; RingSpin uses it to preserve frame boundaries while rendering its trail. |
 
 ### Animations and Mutable State
@@ -421,13 +421,13 @@ Available transformers:
 
 | Transformer | Effect |
 |---|---|
-| `RippleTransformer` | Expands Ricker wavelets from a point, bending the sphere surface radially. Uses fast-reject dot-product heuristic — ~90-95% of vertices skip the slow `acosf` path. |
+| `RippleTransformer` | Expands Ricker wavelets from a point, bending the sphere surface radially. Uses fast-reject dot-product heuristic — ~90-95% of vertices skip the `fast_acos` path. |
 | `MobiusWarpTransformer` | Applies and releases a Möbius transformation |
 | `MobiusWarpCircularTransformer` | Loops a Möbius warp continuously |
 | `MobiusWarpGnomonicTransformer` | Möbius via gnomonic projection (preserves straight lines in hemisphere) |
 | `NoiseTransformer` | Distorts surface positions with 3D simplex noise |
 
-Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`. `transform()` takes any callable with a `transform(Vector)`, so a pool specialization and a plain adapter compose in the same call.
+Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`. `transform()` takes any callable with `operator()(Vector)`, so a pool specialization and a plain adapter compose in the same call.
 
 ### Displacement Fields
 
@@ -804,7 +804,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | `MeshOps::bevel` | Bevel operator = truncate ∘ ambo |
 | `MeshOps::medial` | Both endpoint vertex sets of the dual morph on one shared medial (rectified) connectivity: `out_a` is `ambo(mesh)`, `out_b` the matching `ambo(dual(mesh))` positions |
 | `MeshOps::relax` | Edge-length relaxation by spring forces on the unit sphere. |
-| `MeshOps::relax_baked` | Substitute a flash-baked relax result for the pass. Its runtime checks catch a source/bake mismatch (dimensions, topology hash) and payload corruption (output hash, re-derived from the bake's own vertex bits) — they say nothing about freshness, since a positional retune that leaves connectivity intact passes every one of them. Freshness is the `relax_bake_verify` ctest's job: it re-runs the live `relax` and asserts bit-exact equality with the committed payload |
+| `MeshOps::relax_baked` | Substitute a flash-baked relax result for the pass. Its runtime checks catch a source/bake mismatch (dimensions, topology hash) and payload corruption (output hash, re-derived from the bake's own vertex bits) — they say nothing about freshness, since a positional retune that leaves connectivity intact passes every one of them. Freshness is the `unit_relax_bake_verify` ctest's job: it re-runs the live `relax` and asserts bit-exact equality with the committed payload |
 | `MeshOps::normalize` | Project all vertices onto the unit sphere |
 
 ### Hankin Pattern System (`hankin.h`)
@@ -896,12 +896,13 @@ Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 
 
 | Class | Header | Role |
 |---|---|---|
-| `HD107SFrame<N>` | `hd107s_frame.h` | Pre-formatted DMA buffer for the HD107S protocol. `pack_pixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
+| `HD107SFrame<N>` | `hd107s_frame.h` | Pre-formatted DMA buffer for the HD107S protocol. `pack_pixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness, then `linear_to_srgb8` to 8-bit sRGB), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
 | `TeensySPIDMA` | `dma_led.h` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
 | `DMALEDController<N>` | `dma_led_controller.h` | Double-buffered high-level controller. The ISR packs pixels into `back_frame()`, then `submit_frame()` flushes it and triggers async DMA, returning immediately. If the previous transfer is still in flight, `submit_frame()` **drops** the new frame (bumping `get_overrun_count()`) and returns false rather than spinning; a transfer that never completes is surfaced as a wedged-channel fault. The drop returns before the buffers swap, so `back_frame()` still holds the dropped pixels and a caller can re-submit them without repacking. |
 | `next_buffer()`, `transfer_len()`, `transfer_us()`, `transfer_stale()` | `dma_led_core.h` | Free `constexpr` framing and watchdog math the controller's decisions derive from, host-tested without the peripherals. |
 
-The 16-bit linear pipeline reaches from the canvas all the way to the SPI wire with no 8-bit intermediate:
+The canvas and color-correction pipeline use 16-bit linear values. `pack_pixel()`
+converts them with `linear_to_srgb8` to the 8-bit sRGB channels sent on the SPI wire:
 
 ```cpp
 // ISR path (per column): fetch the display buffer once, index it directly
@@ -998,7 +999,7 @@ else
 | `EffectHandoff<T>` | `pov_handoff.h` | Foreground↔ISR effect ownership: the teardown counter handshake, the acquire/release publish and adopt of a pending effect, the consumed-generation gate that keeps the ISR off a deleted instance, and the display-window (clip) alternation. The foreground constructs and deletes instances; the ISR only ever dereferences what `live()` handed it. |
 | `SubmitGate`, `SyncPulseGate` | `pov_submit_gate.h` | The LED transport's accept/drop verdict and the sync pin's pulse width. Both submit paths — the fail-dark black frame and the image column — clear their pending state only on an accepted submit, and a dropped column latches a retry that the next wake re-submits without repacking, so a drop costs one flywheel wake (~54 µs) rather than a dark column. A wake that renders nothing has too short a body to carry a scheduled sync pulse, so the pin is held HIGH across the ISR boundary and dropped at the head of the next wake. |
 
-**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `EFFECT_SEEDS[]`, which `Phantasm.ino` builds as `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` (`core/platform/rng.h`) so an entry's stream follows its persisted effect ID (or class name when no ID is declared) rather than its roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Either way a board's canvas depends only on the beacon-synchronized index — a mid-show joiner renders bit-identically to boards that have been up for hours.
+**Effect transparency**: Effects are written against the full 288×144 canvas with no per-segment code. Each board clips rendering to its half-width segment band for the current display window (`clip_to_segment`), except stateful effects (`needs_full_frame()` / `persists_pixels()`), which render the full canvas; the ISR then packs this board's LEDs. Every board reseeds the shared `Pcg32` at every effect build from `HS_PHANTASM_EFFECT_SEEDS[]`, which `targets/Phantasm/phantasm_playlist.h` builds as `hs::stable_effect_seed(hs::stable_effect_id<name<CANVAS_W, CANVAS_H>>(#name))` (`core/platform/rng.h`) so an entry's stream follows its persisted effect ID (or class name when no ID is declared) rather than its roster position; `hs::epoch_seed(effect index)` (epoch 0 is the identity seed `1337`) is the fallback for a board that supplies no seed table. Either way a board's canvas depends only on the beacon-synchronized index — a mid-show joiner renders bit-identically to boards that have been up for hours.
 
 | Parameter | Value (qualified N=4 default unless noted) |
 |---|---|
