@@ -795,24 +795,90 @@ inline void test_build_chain_centroid_spacing() {
   HS_EXPECT_LT(worst_ratio, MAX_TOL_RATIO);
 }
 
-/**
- * @brief Pins, per real build leg, the mapping path build_palette_mapping
- *        takes, its departed face count, and the ambiguity of every
- *        nearest-centroid lookup the leg performs.
- * @details Legs open at the sweep's start parameter, which is what
- * build_palette_mapping's start_centroid array holds. d1/d2 near 1 is an
- * ambiguous newborn lookup, so the sweep's minimum is capped at the measured
- * value plus margin: it rising means every newborn lookup went ambiguous.
- */
+/** @brief Pins per-leg face counts and maximum nearest-centroid ambiguity. */
 inline void test_build_chain_provenance_ambiguity() {
   constexpr float TOL_SQ = 0.15f * 0.15f;
-  constexpr float MAX_MEASURED_NEWBORN_RATIO = 0.461f;
-  constexpr float NEWBORN_RATIO_MARGIN = 0.04f;
-  constexpr float MAX_NEWBORN_RATIO =
-      MAX_MEASURED_NEWBORN_RATIO + NEWBORN_RATIO_MARGIN;
+  struct ExpectedLeg {
+    const char *name;
+    size_t leg, previous, total;
+    float ratio;
+  };
+  constexpr ExpectedLeg EXPECTED[] = {
+      {"dodecahedron_hk62_ambo_hk62", 0, 12, 32, 1.000f},
+      {"dodecahedron_hk62_ambo_hk62", 1, 32, 62, 1.000f},
+      {"dodecahedron_hk62_ambo_hk62", 2, 62, 182, 0.563f},
+      {"truncatedIcosahedron_hk58_chamfer63", 0, 32, 92, 0.831f},
+      {"truncatedIcosahedron_hk58_chamfer63", 1, 92, 452, 0.784f},
+      {"dodecahedron_ambo_bevel33_relax_hk66", 0, 12, 32, 1.000f},
+      {"dodecahedron_ambo_bevel33_relax_hk66", 1, 32, 62, 1.000f},
+      {"dodecahedron_ambo_bevel33_relax_hk66", 2, 62, 122, 0.602f},
+      {"dodecahedron_ambo_bevel33_relax_hk66", 4, 122, 362, 0.678f},
+      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 0, 32, 92, 0.844f},
+      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 2, 92, 182, 1.000f},
+      {"truncatedIcosahedron_ambo_relax_truncate33_hk64", 3, 182, 542, 0.883f},
+      {"dodecahedron_bevel2_relax_gyro", 0, 12, 32, 1.000f},
+      {"dodecahedron_bevel2_relax_gyro", 1, 32, 62, 1.000f},
+      {"dodecahedron_bevel2_relax_gyro", 3, 62, 542, 0.868f},
+      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 0, 62, 182, 0.703f},
+      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 1, 182, 362, 1.000f},
+      {"truncatedIcosidodecahedron_bevel5_relax_hk77", 3, 362, 722, 0.796f},
+      {"truncatedOctahedron_gyro_kis_hk17", 0, 14, 110, 0.990f},
+      {"truncatedOctahedron_gyro_kis_hk17", 3, 360, 542, 1.000f},
+      {"truncatedIcosahedron_ambo_relax_truncate001_hankin59", 0, 32, 92,
+       0.844f},
+      {"truncatedIcosahedron_ambo_relax_truncate001_hankin59", 2, 92, 182,
+       1.000f},
+      {"truncatedIcosahedron_ambo_relax_truncate001_hankin59", 3, 182, 542,
+       0.170f},
+      {"truncatedIcosahedron_ambo_relax_truncate001_hankin73", 0, 32, 92,
+       0.844f},
+      {"truncatedIcosahedron_ambo_relax_truncate001_hankin73", 2, 92, 182,
+       1.000f},
+      {"truncatedIcosahedron_ambo_relax_truncate001_hankin73", 3, 182, 542,
+       0.170f},
+      {"icosahedron_ambo_truncate033_hankin59", 0, 20, 32, 1.000f},
+      {"icosahedron_ambo_truncate033_hankin59", 1, 32, 62, 1.000f},
+      {"icosahedron_ambo_truncate033_hankin59", 2, 62, 182, 0.837f},
+      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 0, 12, 32, 1.000f},
+      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 1, 32, 62, 1.000f},
+      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 2, 62, 182, 0.626f},
+      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 3, 182, 362, 1.000f},
+      {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42", 5, 362, 1082, 0.754f},
+      {"octahedron_hk17_ambo_hk73", 0, 8, 14, 1.000f},
+      {"octahedron_hk17_ambo_hk73", 1, 14, 26, 1.000f},
+      {"octahedron_hk17_ambo_hk73", 2, 26, 74, 0.588f},
+      {"icosahedron_kis_gyro", 1, 60, 272, 1.000f},
+      {"truncatedIcosidodecahedron_truncate50d_ambo_dual", 0, 62, 182, 0.703f},
+      {"truncatedIcosidodecahedron_truncate50d_ambo_dual", 1, 182, 542, 0.320f},
+      {"icosidodecahedron_truncate5d_ambo_dual", 0, 32, 62, 1.000f},
+      {"icosidodecahedron_truncate5d_ambo_dual", 1, 62, 182, 0.172f},
+      {"snubDodecahedron_truncate5d_ambo_dual", 0, 92, 152, 0.997f},
+      {"snubDodecahedron_truncate5d_ambo_dual", 1, 152, 452, 0.195f},
+      {"octahedron_hk34_ambo_hk72", 0, 8, 14, 1.000f},
+      {"octahedron_hk34_ambo_hk72", 1, 14, 26, 1.000f},
+      {"octahedron_hk34_ambo_hk72", 2, 26, 74, 0.554f},
+      {"rhombicuboctahedron_hk63_ambo_hk63", 0, 26, 50, 0.775f},
+      {"rhombicuboctahedron_hk63_ambo_hk63", 1, 50, 98, 1.000f},
+      {"rhombicuboctahedron_hk63_ambo_hk63", 2, 98, 290, 0.766f},
+      {"truncatedIcosahedron_hk54_ambo_hk72", 0, 32, 92, 0.831f},
+      {"truncatedIcosahedron_hk54_ambo_hk72", 1, 92, 182, 1.000f},
+      {"truncatedIcosahedron_hk54_ambo_hk72", 2, 182, 542, 0.587f},
+      {"dodecahedron_hk54_ambo_hk72", 0, 12, 32, 1.000f},
+      {"dodecahedron_hk54_ambo_hk72", 1, 32, 62, 1.000f},
+      {"dodecahedron_hk54_ambo_hk72", 2, 62, 182, 0.573f},
+      {"dodecahedron_hk72_ambo_dual_hk20", 0, 12, 32, 1.000f},
+      {"dodecahedron_hk72_ambo_dual_hk20", 1, 32, 62, 1.000f},
+      {"dodecahedron_hk72_ambo_dual_hk20", 3, 120, 182, 1.000f},
+      {"truncatedIcosahedron_truncate50d_ambo_dual", 0, 32, 92, 0.844f},
+      {"truncatedIcosahedron_truncate50d_ambo_dual", 1, 92, 272, 0.209f},
+      {"icosahedron_snub_relax_truncate033_hankin62", 0, 20, 92, 1.000f},
+      {"icosahedron_snub_relax_truncate033_hankin62", 2, 92, 152, 0.997f},
+      {"icosahedron_snub_relax_truncate033_hankin62", 3, 152, 452, 0.957f},
+  };
+  size_t checked = 0;
   size_t max_prev_faces = 0;
   const char *max_prev_name = "";
-  float worst_newborn_ratio = 1e9f;
+  float worst_newborn_ratio = 0.0f;
   float worst_prefix_offset = 0.0f;
   size_t prefix_legs = 0, full_legs = 0, misidentified = 0;
 
@@ -878,7 +944,7 @@ inline void test_build_chain_provenance_ambiguity() {
       worst_prefix_offset = std::max(worst_prefix_offset, max_prefix_offset);
 
       // Newborn path: one nearest-centroid lookup per newborn face.
-      float min_ratio = 1e9f;
+      float max_ratio = 0.0f;
       float max_newborn_d1 = 0.0f;
       for (size_t f = prev_faces; f < total; ++f) {
         size_t best;
@@ -886,10 +952,10 @@ inline void test_build_chain_provenance_ambiguity() {
         two_nearest(start_c[f], prev_c, best, d1, d2);
         max_newborn_d1 = std::max(max_newborn_d1, d1);
         if (d2 > 0.0f)
-          min_ratio = std::min(min_ratio, d1 / d2);
+          max_ratio = std::max(max_ratio, d1 / d2);
       }
       if (total > prev_faces)
-        worst_newborn_ratio = std::min(worst_newborn_ratio, min_ratio);
+        worst_newborn_ratio = std::max(worst_newborn_ratio, max_ratio);
 
       std::printf("  [prov] %-46s leg %zu %-8s: prev=%-4zu total=%-4zu %s "
                   "prefix_d=%.4f (%zu misidentified) newborn_d=%.4f "
@@ -903,7 +969,19 @@ inline void test_build_chain_provenance_ambiguity() {
                   prev_faces, total, full ? "FULL " : "PREFIX",
                   static_cast<double>(max_prefix_offset), leg_misidentified,
                   static_cast<double>(max_newborn_d1),
-                  static_cast<double>(total > prev_faces ? min_ratio : 1.0f));
+                  static_cast<double>(total > prev_faces ? max_ratio : 1.0f));
+      const auto expected = std::find_if(
+          std::begin(EXPECTED), std::end(EXPECTED),
+          [&](const ExpectedLeg &entry) {
+            return std::strcmp(entry.name, site.name) == 0 && entry.leg == k;
+          });
+      HS_EXPECT_TRUE(expected != std::end(EXPECTED));
+      if (expected != std::end(EXPECTED)) {
+        ++checked;
+        HS_EXPECT_EQ(prev_faces, expected->previous);
+        HS_EXPECT_EQ(total, expected->total);
+        HS_EXPECT_LE(max_ratio, expected->ratio + 0.01f);
+      }
       // The prefix identity must also be the geometric nearest, or the
       // newborn-class inheritance is reading the wrong departed face.
       HS_EXPECT_EQ(leg_misidentified, static_cast<size_t>(0));
@@ -920,8 +998,8 @@ inline void test_build_chain_provenance_ambiguity() {
   // None of the swept ops scanned here takes the tolerance-checked
   // full-correspondence path, so PROVENANCE_TOL_SQ never applies to them.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
+  HS_EXPECT_EQ(checked, std::size(EXPECTED));
   HS_EXPECT_TRUE(max_prev_faces > 128);
-  HS_EXPECT_LT(worst_newborn_ratio, MAX_NEWBORN_RATIO);
 }
 
 // ---------------------------------------------------------------------------
