@@ -41,7 +41,7 @@ struct ShaderChainParameterWrite {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Owns the two chain arenas, the shared color resources the
- * FrameContext borrows (three generated-palette cyclers, hue LUTs, gamut LUT),
+ * FrameContext borrows (three generated-palette cyclers and hue LUTs),
  * and the dynamic parameter schema. Presets are the document layer's concern;
  * the effect registers chain parameters only.
  */
