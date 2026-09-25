@@ -1076,8 +1076,9 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
 }
 
 HS_FLASH_INLINE inline ProjectionKernelResult
-airocean_projection(const math::Vector &v, float central_meridian,
-                    bool horizontal, bool calculate_edge_distance = true) {
+airocean_projection_meridian(const math::Vector &v, float central_meridian,
+                             bool horizontal,
+                             bool calculate_edge_distance = true) {
   return airocean_projection(v, cosf(central_meridian), sinf(central_meridian),
                              horizontal, calculate_edge_distance);
 }

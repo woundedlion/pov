@@ -517,7 +517,8 @@ inline void test_airocean_projection_stays_inside_its_face() {
       const float angle =
           math::TWO_PI_F * (longitude_step + 0.31f) / 64.0f - math::PI_F;
       const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
-      const ProjectionKernelResult net = airocean_projection(v, 0.0f, false);
+      const ProjectionKernelResult net =
+          airocean_projection_meridian(v, 0.0f, false);
       const size_t face = net.region_id;
       HS_EXPECT_LT(face, AIROCEAN_FACE_COUNT);
       if (face >= AIROCEAN_FACE_COUNT)
@@ -563,8 +564,9 @@ inline void test_airocean_projection_face_index_stays_in_range() {
               sqrtf(seam.x * seam.x + seam.y * seam.y + seam.z * seam.z);
           // Inverse of airocean_axes: the kernel reads y-up, the faces z-up.
           const math::Vector v(seam.x * scale, seam.z * scale, seam.y * scale);
-          HS_EXPECT_LT(size_t(airocean_projection(v, 0.0f, false).region_id),
-                       AIROCEAN_FACE_COUNT);
+          HS_EXPECT_LT(
+              size_t(airocean_projection_meridian(v, 0.0f, false).region_id),
+              AIROCEAN_FACE_COUNT);
         }
 
   const float infinity = std::numeric_limits<float>::infinity();
@@ -573,10 +575,10 @@ inline void test_airocean_projection_face_index_stays_in_range() {
   for (float x : exotic)
     for (float y : exotic)
       for (float z : exotic)
-        HS_EXPECT_LT(
-            size_t(airocean_projection(math::Vector(x, y, z), 0.4f, false)
-                       .region_id),
-            AIROCEAN_FACE_COUNT);
+        HS_EXPECT_LT(size_t(airocean_projection_meridian(math::Vector(x, y, z),
+                                                         0.4f, false)
+                                .region_id),
+                     AIROCEAN_FACE_COUNT);
 }
 
 inline void test_point_segment_distance() {
