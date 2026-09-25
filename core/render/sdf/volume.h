@@ -82,8 +82,8 @@ struct Torus {
    * @param p Query point in Cartesian ray-space.
    * @param frag Output fragment; v0 = ring angle (0-1, for palette lookup),
    *        v1/v2/v3 = surface normal (x, y, z).
-   * @note Volumetric register convention (README "Volumetric Path"), distinct
-   *        from Scan's v2 stroke-coverage and mesh face-index conventions.
+   * @note Optional register view. Scan::Volume does not call populate(); it
+   *        supplies only pos/size (docs/subsystems.md, Volumetric Path).
    */
   void populate(const math::Vector &p, Fragment &frag) const {
     math::Vector n = normal(p);
@@ -556,8 +556,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @param p Query point in Cartesian ray-space.
    * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface
    * normal.
-   * @note Volumetric register convention (README "Volumetric Path"), distinct
-   *        from Scan's v2 stroke-coverage and mesh face-index conventions.
+   * @note Optional register view. Scan::Volume does not call populate(); it
+   *        supplies only pos/size (docs/subsystems.md, Volumetric Path).
    */
   void populate(const math::Vector &p, Fragment &frag) const {
     math::Vector n = normal(p);
