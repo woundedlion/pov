@@ -140,6 +140,16 @@ class ParseDump(unittest.TestCase):
 
 
 class EmitHeader(unittest.TestCase):
+    def test_closes_extraction_guard(self):
+        dump, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        header = relax_bakes.emit_header(relax_bakes.parse_dump(dump))
+        directives = [line for line in header.splitlines()
+                      if line.startswith(("#if", "#else", "#endif"))]
+        self.assertEqual(directives, [
+            "#if defined(HS_RELAX_BAKE_EXTRACT)", "#else", "#endif",
+        ])
+        self.assertEqual(header.splitlines()[-1], "#endif")
+
     def test_emits_named_struct_and_bits(self):
         dump, out = make_dump("foo_bar", 100, [(0x11, 0x22, 0x33)], 0xC0FFEE)
         bakes = relax_bakes.parse_dump(dump)

@@ -174,11 +174,9 @@ def emit_header(bakes: list[dict]) -> str:
         "namespace Solids {",
         "namespace RelaxBakes {",
         "",
-        "#if !defined(HS_RELAX_BAKE_EXTRACT)",
         f'static_assert(MeshOps::RELAX_SOURCE_SCALE == {source_scale}.0f, "Regenerate relax bakes after changing RELAX_SOURCE_SCALE");',
         f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_BIAS) == 0x{source_bias_bits:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_BIAS");',
         f'static_assert(std::bit_cast<uint32_t>(MeshOps::RELAX_SOURCE_MIN_MARGIN) == 0x{source_min_margin_bits:08x}u, "Regenerate relax bakes after changing RELAX_SOURCE_MIN_MARGIN");',
-        "#endif",
         "",
     ]
     for bake in bakes:
