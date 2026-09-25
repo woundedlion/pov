@@ -91,3 +91,36 @@ test('empty three', () => {});
     rmSync(fixtureDir, { recursive: true, force: true });
   }
 });
+
+test('runner counts named node:assert imports', () => {
+  mkdirSync(FIXTURE_ROOT, { recursive: true });
+  const fixtureDir = mkdtempSync(join(FIXTURE_ROOT, 'run-tests-fixture-'));
+  try {
+    const fixture = join(fixtureDir, 'green.test.mjs');
+    writeFileSync(
+      fixture,
+      `import { strictEqual } from 'node:assert';
+import { test } from 'node:test';
+
+test('asserts once', () => { strictEqual(1, 1); });
+`,
+      'utf8',
+    );
+    const run = spawnSync(process.execPath, ['scripts/run_tests.mjs', fixture], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        // Nested runners install their own assertion/module preload.
+        NODE_OPTIONS: '',
+        NODE_TEST_CONTEXT: undefined,
+        HS_ASSERTION_COUNTS: undefined,
+      },
+    });
+
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(run.stdout, /1 tests passed, 1 assertions/);
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
