@@ -1,5 +1,5 @@
 # Regenerate core/color/color_luts.h via scripts/generate_luts.py and compare the
-# FULL text against the committed file, so array names, element types, the
+# whitespace-normalized text against the committed file, so array names, element types, the
 # flash-section marker, the include and value signs gate alongside the numbers.
 # Counterpart of the lut-provenance job in .github/workflows/ci.yml.
 # The generator pipes its header through clang-format (CLANG_FORMAT or the one
