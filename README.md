@@ -478,6 +478,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── shellcheck_gate.sh      Tracked shell-file selection + shellcheck run behind `just lint`
 │   ├── clang_format_gate.sh    Tracked first-party C++ selection + clang-format run behind `just clang-format`
 │   ├── eol_gate.sh             Tracked line endings against the `eol` attribute `.gitattributes` declares, in index and working copy (CI, `just lint`)
+│   ├── whitespace_gate.sh      Tracked whitespace check shared by CI and `just lint`
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
