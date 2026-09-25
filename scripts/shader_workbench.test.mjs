@@ -717,6 +717,18 @@ test('a v1 document expands to the committed v2 example byte for byte', () => {
   assert.equal(compiled.descriptor_digest, compile(example()).descriptor_digest);
 });
 
+test('unknown v1 mobius fields report an unbound parameter', () => {
+  const document = structuredClone(V1_EXAMPLE);
+  const parameter = structuredClone(document.descriptor.parameters[0]);
+  parameter.id = 'mobius-unknown';
+  document.descriptor.graph.nodes[1].policy.lens = 'mobius';
+  document.descriptor.parameters.push(parameter);
+  document.descriptor.serialization.fields.push(parameter.id);
+  const compiled = compile(document);
+  assert.equal(compiled.status, 'INVALID');
+  assert.equal(compiled.diagnostics[0].code, 'UNBOUND_PARAMETER');
+});
+
 test('v1 digest rejects defaults outside their original domain', () => {
   const document = structuredClone(V1_EXAMPLE);
   document.descriptor.parameters[0].domain = { minimum: 0.1, maximum: 20 };
