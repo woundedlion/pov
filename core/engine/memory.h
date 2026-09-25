@@ -128,8 +128,14 @@ class Arena {
 #ifndef NDEBUG
   uint32_t generation = 0;
   size_t rewind_floor = SIZE_MAX;
-  size_t last_rewind_target = SIZE_MAX;
   uint32_t rewind_seq = 0;
+  struct Rewind {
+    uint32_t seq;
+    size_t target;
+  };
+  static constexpr size_t REWIND_HISTORY_CAPACITY = 256;
+  Rewind rewind_history[REWIND_HISTORY_CAPACITY]{};
+  size_t rewind_history_size = 0;
 #endif
 
 public:
@@ -301,8 +307,13 @@ public:
              static_cast<unsigned long>(offset));
 #ifndef NDEBUG
     if (new_offset < offset) {
-      last_rewind_target = new_offset;
       rewind_seq++;
+      while (rewind_history_size &&
+             rewind_history[rewind_history_size - 1].target >= new_offset)
+        --rewind_history_size;
+      HS_CHECK(rewind_history_size < REWIND_HISTORY_CAPACITY,
+               "Arena: debug rewind history capacity exceeded");
+      rewind_history[rewind_history_size++] = {rewind_seq, new_offset};
     }
     if (new_offset < rewind_floor)
       rewind_floor = new_offset;
@@ -320,7 +331,7 @@ public:
 #ifndef NDEBUG
     generation++;
     rewind_floor = SIZE_MAX;
-    last_rewind_target = SIZE_MAX;
+    rewind_history_size = 0;
 #endif
   }
 
@@ -340,7 +351,7 @@ public:
 #ifndef NDEBUG
     generation++;
     rewind_floor = SIZE_MAX;
-    last_rewind_target = SIZE_MAX;
+    rewind_history_size = 0;
 #endif
   }
 
@@ -411,28 +422,21 @@ public:
    * @param birth_seq get_rewind_seq() sampled when the region was handed out.
    * @return True iff a rewind since those samples dropped the offset below the
    *         region's end.
-   * @details covers() goes blind the moment fresh allocations re-cover the
-   * reclaimed bytes, which is exactly when a second owner starts writing them.
-   * Two independent signals, since neither alone spans every rewind: the floor
-   * only ever falls within a generation, so a floor below @p birth_floor is
-   * proof a rewind after the sample set it; and a bumped sequence proves the
-   * most recent rewind is itself post-sample, which catches the rewind that
-   * frees the region without reaching a floor set by an earlier, deeper one.
+   * @details The debug history retains suffix-minimum rewind targets. It traps
+   * on more than 256 increasing targets without an intervening deeper rewind.
    */
   bool reclaimed_since(const void *p, size_t bytes, size_t birth_floor,
                        uint32_t birth_seq) const {
-    const bool floor_fell = rewind_floor < birth_floor;
-    const bool rewound_since = rewind_seq != birth_seq;
-    if (!floor_fell && !rewound_since)
-      return false;
+    (void)birth_floor;
     uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
     uintptr_t q = reinterpret_cast<uintptr_t>(p);
     if (q < base)
       return false;
     size_t start = static_cast<size_t>(q - base);
-    if (floor_fell && cuts_region(rewind_floor, start, bytes))
-      return true;
-    return rewound_since && cuts_region(last_rewind_target, start, bytes);
+    for (size_t i = 0; i < rewind_history_size; ++i)
+      if (rewind_history[i].seq > birth_seq)
+        return cuts_region(rewind_history[i].target, start, bytes);
+    return false;
   }
 #endif
 
