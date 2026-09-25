@@ -10,7 +10,7 @@
 // bump drops it. They are pinned by tests/check_vendor_patches.cmake (CTest:
 // unit_vendor_patches):
 //   - the `#include "FastNoiseLite_config.h"` that pulls in this file
-//   - four FASTNOISELITE_ONLY_OPENSIMPLEX2 guards (SetRotationType3D, both
+//   - three FASTNOISELITE_ONLY_OPENSIMPLEX2 guards (both
 //     GenNoiseSingle overloads, vector-noise dispatch)
 //   - selective-O3 placement on the scalar and vector OpenSimplex2 leaves
 //   - raw-octave paths used by first-party basis and derivative policies
@@ -24,7 +24,7 @@
 #pragma once
 
 // This macro hard-routes GenNoiseSingle straight to OpenSimplex2 (bypassing the
-// per-noise-type switch) and skips the 3D warp-transform setup. It does not
+// per-noise-type switch). It does not
 // itself remove the Cellular/Perlin/Value/OpenSimplex2S, fractal, or domain-warp
 // code — those definitions stay in the header and are dropped by the compiler as
 // dead code once nothing references them, which is what yields the lean binary.
