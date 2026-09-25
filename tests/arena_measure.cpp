@@ -18,11 +18,9 @@
  * under the injected fixed-cadence clock (hs_test::pin_frame_clock), so a
  * time-driven effect allocates the same way whatever the runner's speed.
  *
- * CI gate: fails (non-zero exit) if the worst single-effect total (persistent +
- * both scratch arenas, the three partitions of the one device pool) exceeds
- * DEVICE_GLOBAL_ARENA_SIZE. The host is 64-bit, so pointer-bearing pooled
- * headers inflate this figure above the 32-bit device (memory.h) — the gate is
- * therefore a conservative upper bound: a host pass guarantees the device fits.
+ * CI gate: charges fixed partitions at capacity and the host-inflated
+ * remainder at its high-water mark. Capacities are sampled after init and
+ * each frame to account for effects that repartition the pool.
  */
 #include <cstdint>
 #include <cstdio>
@@ -49,10 +47,35 @@ template <typename Effect> void measure(const char *name) {
 
   Effect effect;
   effect.init();
+  size_t charged_peak = 0;
+  const char *worst_partition = "";
+  auto sample = [&] {
+    const Arena *arenas[] = {&persistent_arena, &scratch_arena_a,
+                             &scratch_arena_b};
+    const char *names[] = {"persistent", "scratchA", "scratchB"};
+    constexpr size_t INFLATION = GLOBAL_ARENA_SIZE - DEVICE_GLOBAL_ARENA_SIZE;
+    size_t charged = 0;
+    const char *remainder = "";
+    for (int i = 0; i < 3; ++i) {
+      const size_t CAPACITY = arenas[i]->get_capacity();
+      if (CAPACITY >= INFLATION) {
+        charged += arenas[i]->get_high_water_mark();
+        remainder = names[i];
+      } else {
+        charged += CAPACITY;
+      }
+    }
+    if (charged > charged_peak) {
+      charged_peak = charged;
+      worst_partition = remainder;
+    }
+  };
+  sample();
   for (int f = 0; f < FRAMES; ++f) {
     hs_test::pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
+    sample();
   }
   volatile auto px = effect.get_pixel(0, 0); // keep the render live
   (void)px;
@@ -60,10 +83,11 @@ template <typename Effect> void measure(const char *name) {
   size_t p = persistent_arena.get_lifetime_high_water_mark();
   size_t a = scratch_arena_a.get_lifetime_high_water_mark();
   size_t b = scratch_arena_b.get_lifetime_high_water_mark();
-  size_t tot = p + a + b;
+  size_t tot = charged_peak;
   std::printf(
-      "  %-22s persist=%7zu  scratchA=%6zu  scratchB=%6zu  total=%7zu\n", name,
-      p, a, b, tot);
+      "  %-22s persist=%7zu  scratchA=%6zu  scratchB=%6zu  charged=%7zu "
+      "remainder=%s\n",
+      name, p, a, b, tot, worst_partition);
   if (p > g_max_p)
     g_max_p = p;
   if (a > g_max_a)

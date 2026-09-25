@@ -670,9 +670,8 @@ add_test(NAME unit_stack_budget COMMAND stack_measure)
 
 # Arena high-water gate across every effect. Reports per-effect global-arena
 # usage to size GLOBAL_ARENA_SIZE, and exits non-zero if the worst single-effect
-# total exceeds the device budget — catching an arena regression before it can
-# OOM-trap on hardware (see arena_measure.cpp header). Host figures are a
-# conservative upper bound vs the 32-bit device, so a host pass implies device.
+# partition charge exceeds the device budget. Fixed partitions are charged at
+# capacity and the host-inflated remainder at its measured peak.
 add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
   ${HS_ENGINE_SOURCES})
