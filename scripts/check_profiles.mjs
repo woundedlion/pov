@@ -143,8 +143,7 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
         errors.push(`O3 profile names a non-Phantasm effect: ${key}`);
     }
   }
-  if (!retired) errors.push('retired profile directory is missing');
-  else {
+  if (retired) {
     for (const { key } of retired) {
       if (effectKeys.has(key))
         errors.push(`retired profile still names a registered effect: ${key}`);

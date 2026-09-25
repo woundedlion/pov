@@ -43,7 +43,6 @@ test('validateReport accepts the checked-in timing report contract', async () =>
     }
   }
   assert.ok(directories.includes('O3'));
-  assert.ok(directories.includes('retired'));
   assert.ok(directories.includes('shipping'));
   assert.ok(reportCount > 0);
   assert.deepEqual(errors, []);
@@ -148,11 +147,27 @@ test('profileDirectories reports an unindexed set of reports', async t => {
     ['orphan has profile reports but no README.md index']);
 });
 
+test('checkProfiles accepts current reports without retired archives', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'holosphere-profile-gate-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await cp(PROFILES_DIR, root, { recursive: true });
+  await rm(join(root, 'retired'), { recursive: true, force: true });
+  const result = await checkProfiles(root);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.retiredCount, 0);
+});
+
 test('checkProfiles validates cross-roster and index contracts', async t => {
   assert.deepEqual((await checkProfiles()).errors, []);
   const reports = await reportsIn(PROFILES_DIR, 'shipping', []);
   const first = reports[0];
   const cases = [
+    ['missing shipping directory', async root => {
+      await rm(join(root, 'shipping'), { recursive: true });
+    }, 'shipping profile directory is missing'],
+    ['missing O3 directory', async root => {
+      await rm(join(root, 'O3'), { recursive: true });
+    }, 'O3 profile directory is missing'],
     ['missing shipping report', async root => {
       await rm(join(root, 'shipping', first.file));
     }, 'shipping profiles is missing: ' + first.key],
@@ -165,6 +180,8 @@ test('checkProfiles validates cross-roster and index contracts', async t => {
         'profile_example_teensy_2026-08-24.md'), validReport);
     }, 'O3 profile names a non-Phantasm effect: example'],
     ['registered retired effect', async root => {
+      await mkdir(join(root, 'retired'), { recursive: true });
+      await writeFile(join(root, 'retired', 'README.md'), '# Retired profiles\n');
       await cp(join(root, 'shipping', first.file), join(root, 'retired', first.file));
     }, 'retired profile still names a registered effect: ' + first.key],
     ['missing main index link', async root => {
