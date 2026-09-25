@@ -4402,6 +4402,14 @@ inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
   Pullback::Interp::Op::ProjectGnomonic::prepare(context, params, state);
 }
 
+inline void case_pullback_operator_invalid_airocean_layout() {
+  Pullback::Interp::Op::AiroceanChainParams params;
+  params.layout = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::ProjectAirocean::State state;
+  Pullback::Interp::FrameContext context{};
+  Pullback::Interp::Op::ProjectAirocean::prepare(context, params, state);
+}
+
 /** @brief Death case: a noise-driven operator rejects an unknown basis. */
 inline void case_pullback_operator_invalid_noise_basis() {
   Pullback::Interp::Op::CurlDisplaceParams params;
@@ -5793,6 +5801,10 @@ inline const Case *all_cases(int &n) {
            case_pullback_operator_invalid_bonne_hemisphere,
            "core/render/pullback/operators_project.h",
            "(params.hemisphere < std::size(BONNE_HEMISPHERE_IDS)) project.bonne: invalid hemisphere"},
+          {"pullback_operator_invalid_airocean_layout",
+           case_pullback_operator_invalid_airocean_layout,
+           "core/render/pullback/operators_project.h",
+           "(params.layout < std::size(AIROCEAN_LAYOUT_IDS)) project.airocean: invalid layout"},
           {"pullback_operator_invalid_gnomonic_hemisphere",
            case_pullback_operator_invalid_gnomonic_hemisphere,
            "core/render/pullback/operators_project.h",

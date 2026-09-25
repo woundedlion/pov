@@ -822,10 +822,12 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(rotate.schema[1].id) == "spin-speed");
   HS_EXPECT_EQ(rotate.schema[1].max, 0.05f);
 
-  // Sphere batch: the parameterless lenses register empty schemas; the
-  // kaleidoscope is topology-only; the mobius family carries the v1 ids.
   HS_EXPECT_EQ(In::find_operator("sphere.lens.glitch.v2")->schema_count, 0);
-  HS_EXPECT_EQ(In::find_operator("sphere.lens.twist.v2")->schema_count, 0);
+  const In::OperatorDescriptor &twist =
+      *In::find_operator("sphere.lens.twist.v2");
+  HS_EXPECT_EQ(twist.schema_count, 1);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[0].id) == "twist-rate");
+  HS_EXPECT_EQ(twist.schema[0].def, lenses::TWIST_RATE);
   const In::OperatorDescriptor &kaleidoscope =
       *In::find_operator("sphere.lens.kaleidoscope.v2");
   HS_EXPECT_EQ(kaleidoscope.schema_count, 1);
@@ -1542,10 +1544,26 @@ inline void test_shader_chain_parity_lens_ops() {
     HS_CONTEXT(value_set_name(set));
     run_lens_parity<PB::Lens::Glitch, PB::Lens::NoLensParams>(
         In::Op::LensGlitch::ID, set);
-    run_lens_parity<PB::Lens::Twist, PB::Lens::NoLensParams>(
-        In::Op::LensTwist::ID, set);
     run_lens_parity<PB::Lens::Mobius<MobiusMirrorProvider>,
                     In::Op::MobiusChainParams>(In::Op::LensMobius::ID, set);
+  }
+
+  run_lens_parity<PB::Lens::Twist, In::Op::TwistChainParams>(
+      In::Op::LensTwist::ID, ValueSet::DEFAULTS);
+  for (const float rate : {-12.0f, 0.0f, 12.0f}) {
+    const PB::SphereSample input{math::Vector(0.6f, 0.5f, 0.6244998f), 0.0f};
+    In::Op::TwistChainParams params;
+    params.twist_rate = rate;
+    const auto result =
+        In::Op::LensTwist::run(input, shared_resources().context(), params, {});
+    const float angle = rate * input.dir.y;
+    HS_EXPECT_NEAR(result.dir.x,
+                   input.dir.x * cosf(angle) - input.dir.z * sinf(angle),
+                   2e-3f);
+    HS_EXPECT_EQ(result.dir.y, input.dir.y);
+    HS_EXPECT_NEAR(result.dir.z,
+                   input.dir.x * sinf(angle) + input.dir.z * cosf(angle),
+                   2e-3f);
   }
 
   auto fixture = std::make_unique<ProgramFixture>();
@@ -2081,8 +2099,8 @@ struct BonneProjMirror : ProjMirrorBase<BonneProjMirror> {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.bonne.central_meridian;
   }
-  static float standard_parallel(const ProjMirrorFrame &) {
-    return In::Op::BONNE_STANDARD_PARALLEL;
+  static float standard_parallel(const ProjMirrorFrame &frame) {
+    return frame.bonne.standard_parallel;
   }
   static float coordinate_scale(const ProjMirrorFrame &) {
     return In::Op::PROJECT_COORDINATE_SCALE;
@@ -2264,7 +2282,16 @@ inline void test_shader_chain_parity_project_ops() {
         In::Op::ProjectPeirceSquareFast::ID, set);
     run_project_parity<
         PB::Projection::Airocean<AiroceanProjMirror, false, true>,
-        In::Op::MeridianProjectChainParams>(In::Op::ProjectAirocean::ID, set);
+        In::Op::AiroceanChainParams>(In::Op::ProjectAirocean::ID, set);
+    auto fixture = std::make_unique<ProgramFixture>();
+    In::ChainProgram &program = fixture->program;
+    arm_project_op_chain<In::Op::AiroceanChainParams>(
+        program, In::Op::ProjectAirocean::ID, 4, set);
+    param_as<In::Op::AiroceanChainParams>(program, 1).layout = 1;
+    using Horizontal = typename PB::Stage::Project<PB::Projection::Airocean<
+        AiroceanProjMirror, true, true>>::template Bind<ProjMirrorBinding>;
+    expect_project_op_parity<Horizontal>(program, shared_resources().context());
+    program.clear();
   }
 }
 
@@ -3032,6 +3059,13 @@ inline void test_shader_chain_parity_sample_spherical_noise() {
     const In::FrameContext ctx = shared_resources().context();
     expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
         SphericalNoiseSampleMirror, math::NoiseBasis::SIMPLEX>>(program, ctx);
+    auto &params = param_as<In::Op::SphericalNoiseSampleParams>(program, 1);
+    params.basis = static_cast<uint8_t>(math::NoiseBasis::FBM3);
+    expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
+        SphericalNoiseSampleMirror, math::NoiseBasis::FBM3>>(program, ctx);
+    params.basis = static_cast<uint8_t>(math::NoiseBasis::RIDGED3);
+    expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
+        SphericalNoiseSampleMirror, math::NoiseBasis::RIDGED3>>(program, ctx);
     program.clear();
   }
 }

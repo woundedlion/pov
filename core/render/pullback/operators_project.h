@@ -330,8 +330,14 @@ inline constexpr float BONNE_STANDARD_PARALLEL = math::PI_F * 0.25f;
 
 /** @brief Parameter family of project.bonne.v2. */
 struct BonneChainParams : RegularProjectChainParams {
+  float standard_parallel = BONNE_STANDARD_PARALLEL;
   uint8_t hemisphere = 0; /**< 0 north, 1 south. */
 
+  static constexpr auto FIELDS = concat_fields<BonneChainParams>(
+      RegularProjectChainParams::FIELDS,
+      std::array{Field<BonneChainParams>{
+          "standard-parallel", &BonneChainParams::standard_parallel,
+          "Standard Parallel", 0.0f, math::PI_F * 0.5f, FieldCurve::LERP}});
   static constexpr auto TOPOLOGY = projection_frame_topology<BonneChainParams>(
       TopologyField<BonneChainParams>{"hemisphere",
                                       &BonneChainParams::hemisphere,
@@ -339,7 +345,7 @@ struct BonneChainParams : RegularProjectChainParams {
 };
 static_assert(field_ids_unique<BonneChainParams>());
 static_assert(sizeof(BonneChainParams) == ((sizeof(MeridianProjectChainParams) +
-                                            1 + alignof(BonneChainParams) - 1) /
+                                            5 + alignof(BonneChainParams) - 1) /
                                            alignof(BonneChainParams)) *
                                               alignof(BonneChainParams),
               "appended parameter block must have the expected rounded size");
@@ -362,22 +368,43 @@ struct ProjectBonne : ProjectOpModel<ProjectBonne, BonneChainParams> {
                                   const Params &params) {
     const float hemisphere = params.hemisphere == 0 ? 1.0f : -1.0f;
     return Projection::bonne(local, params.central_meridian,
-                             hemisphere * BONNE_STANDARD_PARALLEL,
+                             hemisphere * params.standard_parallel,
                              PROJECT_COORDINATE_SCALE);
   }
 };
 
-/** @brief SPHERE→PLANE crossing: the airocean projection on the vertical
-    layout. */
+inline constexpr const char *AIROCEAN_LAYOUT_IDS[] = {"vertical", "horizontal"};
+
+struct AiroceanChainParams : RegularProjectChainParams {
+  uint8_t layout = 0;
+
+  static constexpr auto TOPOLOGY =
+      projection_frame_topology<AiroceanChainParams>(
+          TopologyField<AiroceanChainParams>{
+              "layout", &AiroceanChainParams::layout, AIROCEAN_LAYOUT_IDS, 0});
+};
+static_assert(field_ids_unique<AiroceanChainParams>());
+static_assert(field_defaults_in_range<AiroceanChainParams>());
+
+/** @brief SPHERE→PLANE crossing: the airocean projection. */
 struct ProjectAirocean
-    : ProjectOpModel<ProjectAirocean, RegularProjectChainParams, true> {
+    : ProjectOpModel<ProjectAirocean, AiroceanChainParams, true> {
   static constexpr const char *ID = "project.airocean.v2";
   static constexpr const char *NAME = "Airocean";
 
-  static ProjectionResult project(const math::Vector &local, const Params &,
+  static Prepared prepare(const FrameContext &ctx, const Params &params,
+                          const State &state) {
+    HS_CHECK(params.layout < std::size(AIROCEAN_LAYOUT_IDS),
+             "project.airocean: invalid layout");
+    return ProjectOpModel::prepare(ctx, params, state);
+  }
+
+  static ProjectionResult project(const math::Vector &local,
+                                  const Params &params,
                                   const Prepared &prepared) {
-    return Projection::airocean(local, false, true, PROJECT_COORDINATE_SCALE,
-                                prepared.meridian_cos, prepared.meridian_sin);
+    return Projection::airocean(local, params.layout == 1, true,
+                                PROJECT_COORDINATE_SCALE, prepared.meridian_cos,
+                                prepared.meridian_sin);
   }
 };
 
