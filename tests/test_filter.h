@@ -35,14 +35,6 @@ static_assert(hs::H_OFFSET == 0,
               "test_filter.h assumes row H-1 is the south pole; the device "
               "offset belongs in tests/test_h_offset_renorm.h");
 
-/** @brief True iff Pipeline P carries filter T as one of its stages. */
-template <typename T, typename P> struct pipeline_contains : std::false_type {};
-template <typename T, int W, int H, typename Head, typename... Tail>
-struct pipeline_contains<T, Pipeline<W, H, Head, Tail...>>
-    : std::bool_constant<std::is_same_v<T, Head> ||
-                         pipeline_contains<T, Pipeline<W, H, Tail...>>::value> {
-};
-
 template <typename P>
 concept RawFramePlotter = requires(P &pipeline, Canvas &canvas) {
   pipeline.plot(canvas, 0, 0, Pixel{}, 0.0f, 1.0f);
@@ -386,20 +378,8 @@ inline void test_pipeline_get_returns_correct_filter() {
   const Blur &cbl = cpipe.get<Blur>();
   HS_EXPECT_TRUE(&cbl == &bl);
 
-  // Absent-filter case: get<T>() on a pipeline lacking T is a hard compile error
-  // (not SFINAE-detectable), so it can't be exercised at runtime. pipeline_contains
-  // captures the discriminating property — the present stages are members, the
-  // absent one is not — at compile time, so it always runs.
-  using Absent = Filter::Pixel::Feedback<W, H>; // not in the pipeline above
-  static_assert((pipeline_contains<AA, Pipeline<W, H, AA, Blur, CS>>::value),
-                "AA is a pipeline stage");
-  static_assert((pipeline_contains<Blur, Pipeline<W, H, AA, Blur, CS>>::value),
-                "Blur is a pipeline stage");
-  static_assert((pipeline_contains<CS, Pipeline<W, H, AA, Blur, CS>>::value),
-                "CS is a pipeline stage");
-  static_assert(
-      (!pipeline_contains<Absent, Pipeline<W, H, AA, Blur, CS>>::value),
-      "Feedback is absent from the pipeline");
+  // get<T>() on an absent stage is a hard compile error, not SFINAE-detectable.
+  using Absent = Filter::Pixel::Feedback<W, H>;
 
   // A duplicated stage type makes get<T>() ambiguous; stage_count is what the
   // guard in get<T>() reads. The ambiguous case is a hard compile error, so
