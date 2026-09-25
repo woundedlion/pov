@@ -60,12 +60,11 @@ public:
    *          sole instantiation site is the Holosphere setup(). Do not promote
    *          this object to a global or construct it before setup().
    *
-   *          Seeds FastLED's legacy LCG to 1337; modern effects draw from the
+   *          Seeds Arduino random() to 1337; modern effects draw from the
    *          separate hs::random() Pcg32(1337) reproduced by the simulator.
    */
   POVDisplay() {
-    randomSeed(
-        1337); // FastLED LCG only; modern effects use hs::random() (platform.h)
+    randomSeed(1337);
 #ifdef USE_DMA_LEDS
     ledController.begin();
     ledController.set_correction(hd107s::LINEAR_STRIP_GAIN.r,

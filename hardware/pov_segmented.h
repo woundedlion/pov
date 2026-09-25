@@ -36,9 +36,8 @@
  *   (host-tested); this file is the device shell: it reads the cycle
  *   counter, services two ISRs, packs pixels, and toggles one pin.
  *
- * Effects render the full CANVAS_W × CANVAS_H canvas.  Segmentation is
- * handled entirely in the ISR, which packs only this segment's pixels
- * into a local DMALEDController frame.
+ * Effects use full-canvas coordinates with rendering clipped per board.
+ * The ISR packs this segment's pixels into its local DMA frame.
  *
  * Include directly from target .ino files:
  * @code{.cpp}
@@ -241,7 +240,7 @@ public:
    *          deliberately keeps hardware bring-up out of its constructor (an
    *          explicit begin()) and warns against constructor-time I/O; this
    *          class diverges on purpose because its sole instantiation site is
-   *          the Phantasm setup() (a function-local singleton), so the "after
+   *          the Phantasm setup() (a heap-allocated handle), so the "after
    *          core init" precondition always holds. Do not promote this object
    *          to a global or construct it before setup().
    */
