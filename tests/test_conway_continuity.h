@@ -1244,7 +1244,7 @@ inline PolyMesh seedframe_node_mesh_at(const ConwayGraph::EdgeSpec &e,
       break;
     }
     if (e.settle && to_end)
-      builder.relax(50);
+      builder.relax(ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS);
   }
   return builder.build();
 }
@@ -1445,7 +1445,7 @@ inline void test_leg_start_seed_frame_continuity() {
         seedframe_node_mesh_at(e, arrived_at_to, seed_base, work, temp);
     node_arena.reset();
     node_mesh = Solids::finalize_solid(base, node_arena);
-    if (conway_morph_tests::leg_adopts_seed(e, arrived, arrived_at_to)) {
+    if (ConwayGraph::adopts_seed(e, arrived, arrived_at_to)) {
       if (arrived_at_to) {
         seed_arena.reset();
         seed_base = Solids::finalize_solid(node_mesh, seed_arena);
@@ -1455,10 +1455,11 @@ inline void test_leg_start_seed_frame_continuity() {
         // is rewound.
         PolyMesh s;
         MeshOps::clone(seed_base, s, work);
-        PolyMesh canonical = Solids::SolidBuilder(std::move(s), work, temp)
-                                 .snub(0.5f, SNUB_BRIDGE_TWIST)
-                                 .relax(50)
-                                 .build();
+        PolyMesh canonical =
+            Solids::SolidBuilder(std::move(s), work, temp)
+                .snub(0.5f, SNUB_BRIDGE_TWIST)
+                .relax(ConwayGraph::ICOSAHEDRON_RELAX_ITERATIONS)
+                .build();
         seed_arena.reset();
         seed_base = Solids::finalize_solid(canonical, seed_arena);
       }

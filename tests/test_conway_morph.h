@@ -1203,43 +1203,10 @@ inline void test_edge_morph_frames_fit_scratch_budget() {
  * 200 seeds: 200; the tested seeds reach it by 166). */
 constexpr int WALK_COVERAGE_BOUND = 250;
 
-/**
- * @brief Whether a completed leg reseeds the held seed from its arrival.
- * @param e Edge spec the leg ran on.
- * @param arrived Registry index of the node the leg landed on.
- * @param arrived_at_to True when the leg ran forward (landed on to_node).
- * @return True iff HankinSolids::finish_morph_cycle adopts here.
- * @details Mirror of the production gate; the reverse jitterbug arrival adopts
- * the icosahedron too, holding its canonical relax form rather than the
- * unrelaxed jitterbug mesh.
- */
-inline bool leg_adopts_seed(const ConwayGraph::EdgeSpec &e, int arrived,
-                            bool arrived_at_to) {
-  return e.reseed == ConwayGraph::Reseed::ADOPT &&
-         ConwayGraph::is_platonic(arrived) &&
-         (arrived_at_to || arrived == ConwayGraph::ICOSAHEDRON);
-}
-
-/**
- * @brief Applies one leg's seed reconciliation to a held seed identity.
- * @param edge Index into ConwayGraph::EDGES of the leg about to start.
- * @param node Node the leg departs from.
- * @param held Held seed identity, updated in place by a non-KEEP fix.
- * @details Mirror of HankinSolids::start_morph_cycle's reconciliation, minus
- * the mesh rebuilds; the HS_CHECKs it pins there become expectations here.
- */
 inline void reconcile_seed(int edge, int node, int &held) {
-  using namespace ConwayGraph;
-  const SeedFix fix = seed_fix_at_start(edge, held);
-  HS_EXPECT_TRUE(fix != SeedFix::INVALID);
-  if (fix == SeedFix::DUAL_SWAP) {
-    HS_EXPECT_TRUE(node == CUBOCTAHEDRON || node == ICOSIDODECAHEDRON);
-    held = dual_platonic(held);
-  } else if (fix == SeedFix::REGEN_TETRA) {
-    HS_EXPECT_TRUE(node == OCTAHEDRON || node == ICOSAHEDRON);
-    held = TETRAHEDRON;
-  }
-  HS_EXPECT_TRUE(fix == SeedFix::DERIVE_AMBO || held == EDGES[edge].seed_solid);
+  ConwayGraph::SeedFix fix;
+  held = ConwayGraph::reconciled_seed_identity(edge, node, held, fix);
+  HS_EXPECT_TRUE(fix != ConwayGraph::SeedFix::INVALID);
 }
 
 /**
@@ -1274,7 +1241,7 @@ inline void test_walk_policy_coverage_and_balance() {
       reconcile_seed(e, node, held);
       const int next = edge_other_end(e, node);
       in_family = family(next) != family(node) ? 0 : in_family + 1;
-      if (leg_adopts_seed(EDGES[e], next, EDGES[e].to_node == next))
+      if (ConwayGraph::adopts_seed(EDGES[e], next, EDGES[e].to_node == next))
         held = next;
       node = next;
       prev = e;
@@ -1333,7 +1300,7 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
 
     const bool reverse = EDGES[e].to_node == node;
     const int arrived = reverse ? EDGES[e].from_node : EDGES[e].to_node;
-    if (leg_adopts_seed(EDGES[e], arrived, !reverse))
+    if (ConwayGraph::adopts_seed(EDGES[e], arrived, !reverse))
       held = arrived;
     node = arrived;
     prev = e;
