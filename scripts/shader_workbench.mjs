@@ -870,7 +870,7 @@ export function canonicalDescriptor(document) {
  * without `unit`. A unit is a display label for the editor; the engine reads a
  * parameter through its storage and domain and never sees it, so two chains
  * differing only in a label are the same program and must digest alike. The
- * label stays in the canonical document — this view exists only to be hashed.
+ * label stays in the canonical document â€” this view exists only to be hashed.
  * @param {*} descriptor - A canonicalDescriptor() result.
  * @returns {*} The same descriptor with every parameter's unit removed.
  */
