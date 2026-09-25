@@ -564,8 +564,6 @@ for (const spec of effects) {
     await writeFile(output, json, 'utf8');
     continue;
   }
-  // The committed blobs are LF, while core.autocrlf hands a Windows checkout a
-  // CRLF working copy; compare the LF content, not the bytes on disk.
   const committed = await readFile(output, 'utf8').then(
     (text) => text.replaceAll('\r\n', '\n'), () => null);
   if (committed !== json) {

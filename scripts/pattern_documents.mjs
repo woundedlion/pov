@@ -30,7 +30,6 @@ export async function compilePatternDocuments(catalog) {
     .filter((name) => name.endsWith('.shader.json'));
   const documents = [];
   for (const name of names) {
-    // The committed blobs are LF; core.autocrlf hands a Windows checkout CRLF.
     const source = (await readFile(new URL(name, PATTERNS_DIR), 'utf8'))
       .replaceAll('\r\n', '\n');
     documents.push({

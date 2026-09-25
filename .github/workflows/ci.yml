@@ -985,7 +985,7 @@ jobs:
       # patterns/*.shader.json is compiled from the v1 specs in the generator and
       # installed into daydream, so a hand edit here is reverted by the next
       # regeneration. --check recompiles every spec and compares the committed
-      # document, comparing LF content so a CRLF checkout does not red.
+      # document after line-ending normalization.
       # Documents in patterns/ that this generator does not emit are untouched.
       - name: Check promoted shader document provenance
         run: node scripts/generate_promoted_shader_documents.mjs --check
