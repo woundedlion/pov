@@ -8,9 +8,14 @@ set -euo pipefail
 ENV=$1
 TREE=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 cd "$TREE"
-trap hs_device_release EXIT
+cleanup() {
+  hs_device_release
+  [ -z "$TREE_TOKEN" ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN" || :
+}
+trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 hs_device_acquire upload "$ENV" 900
+acquire_tree_lock
 pio run -e "$ENV"
 hs_teensy_flash "$ENV"
