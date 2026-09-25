@@ -687,7 +687,8 @@ private:
                              requested_config.slots.warp_program.inner.kind ==
                                  Workbench::WarpStageKind::CURL_FLOW);
     if (before_count != pending_edit_count || was_pending != is_pending ||
-        (is_enum && schema_selector(name)) || curl_scale)
+        (is_enum && schema_selector(name)) || curl_scale ||
+        (pending_edit_count != 0 && range_repairs_admission()))
       rebind_parameters();
   }
 
@@ -860,8 +861,7 @@ private:
         continue;
       const size_t offset = target - requested;
       const ConfigFieldId id = config_field_id(offset, size);
-      HS_CHECK(id != ConfigFieldId::COUNT,
-               "ShaderWorkbench clamp lacks a stable field ID");
+      assert(id != ConfigFieldId::COUNT);
       remember_pending_edit(parameter.name, id, offset, size);
       ParamDef writable = parameter;
       write_parameter_unchecked(
@@ -1579,8 +1579,17 @@ public:
         !decode_config_values(snapshot.requested, next_requested))
       return ConfigRestoreResult::INVALID_VALUE;
     RuntimeValues next_runtime = snapshot.runtime;
+    // Unchanged parameters retain their accepted schema's ranges.
+    Workbench::Config edited_values;
+    edited_values.slots = next_requested.slots;
+#define HS_SHADER_WORKBENCH_VALIDATE_EDIT(name, path)                          \
+  if (snapshot.requested[static_cast<size_t>(ConfigFieldId::name)] !=          \
+      snapshot.accepted[static_cast<size_t>(ConfigFieldId::name)])             \
+    edited_values.path = next_requested.path;
+    HS_SHADER_WORKBENCH_CONFIG_FIELDS(HS_SHADER_WORKBENCH_VALIDATE_EDIT)
+#undef HS_SHADER_WORKBENCH_VALIDATE_EDIT
     if (!valid_snapshot_config(next_accepted) ||
-        !valid_snapshot_config(next_requested))
+        !valid_snapshot_config(edited_values))
       return ConfigRestoreResult::INVALID_VALUE;
     snap_config_affine_windings(next_accepted);
     snap_config_affine_windings(next_requested);
