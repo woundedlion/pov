@@ -135,6 +135,20 @@ def courtyard_box(footprint):
     return (min(xs), min(ys), max(xs), max(ys)) if xs else None
 
 
+class OverwriteProtectionTests(unittest.TestCase):
+    def test_existing_board_is_preserved_without_kicad(self):
+        for unplaced in (False, True):
+            with self.subTest(unplaced=unplaced), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / (pcb.UNPLACED_FILE if unplaced else pcb.PCB_FILE)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"existing routed board\n")
+                with mock.patch.object(pcb, "OUT", directory), \
+                        mock.patch.object(pcb, "kicad_cli", side_effect=AssertionError("KiCad called")):
+                    with self.assertRaisesRegex(SystemExit, "refusing to overwrite"):
+                        pcb.main(unplaced=unplaced)
+                self.assertEqual(target.read_bytes(), b"existing routed board\n")
+
+
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
 class GeneratedBoardTests(unittest.TestCase):
     """The placed draft `pcb.py --force` emits, read back without KiCad."""
