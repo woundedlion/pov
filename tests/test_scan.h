@@ -2526,10 +2526,12 @@ inline void test_volume_scalar_state_differential() {
     ++rays;
     float old_alpha = Scan::volume_edge_coverage(old_d, aa * 0.1f, aa);
     float new_alpha = Scan::volume_edge_coverage(new_d, aa * 0.1f, aa);
-    max_distance = std::max(max_distance, fabsf(old_d - new_d));
+    max_distance = hs_test::fold_worst(max_distance, fabsf(old_d - new_d));
     if (old_alpha > 0.0f || new_alpha > 0.0f)
-      max_position = std::max(max_position, (old_p - new_p).length());
-    max_coverage = std::max(max_coverage, fabsf(old_alpha - new_alpha));
+      max_position =
+          hs_test::fold_worst(max_position, (old_p - new_p).length());
+    max_coverage =
+        hs_test::fold_worst(max_coverage, fabsf(old_alpha - new_alpha));
     if (old_d > aa * 0.1f && old_d < aa && new_d > aa * 0.1f && new_d < aa) {
       ++halos;
       auto old_occ = VolumeScalarRegression::probe_occluder(
@@ -2538,10 +2540,10 @@ inline void test_volume_scalar_state_differential() {
                                                   aa * 0.1f, aa, new_d);
       solid_changes += old_occ.solid != new_occ.solid;
       if (old_occ.solid || old_occ.soft > 0.0f)
-        max_probe_position = std::max(
+        max_probe_position = hs_test::fold_worst(
             max_probe_position, (old_occ.behind - new_occ.behind).length());
-      max_probe_coverage =
-          std::max(max_probe_coverage, fabsf(old_occ.soft - new_occ.soft));
+      max_probe_coverage = hs_test::fold_worst(
+          max_probe_coverage, fabsf(old_occ.soft - new_occ.soft));
       background_grazes += !old_occ.solid && old_occ.soft > 0.0f;
     }
   };
