@@ -42,8 +42,8 @@ struct SpriteOptions {
  * @brief An animation that draws a sprite while managing its fade-in/out
  * effects.
  * @details Computes opacity inline rather than embedding Transition objects.
- * An indefinite sprite (duration -1) never completes, so a `.then()` callback
- * attached to it never fires.
+ * An indefinite sprite (duration -1) completes only when canceled; cancel()
+ * fires its `.then()` callback.
  */
 class Sprite : public AnimationBase<Sprite> {
 public:
