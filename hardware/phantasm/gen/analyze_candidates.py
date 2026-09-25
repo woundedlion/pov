@@ -479,8 +479,9 @@ def main(argv=None):
             note = "" if max(eligible) == max(ranked) else \
                 "  (top geometric scorer failed the DRC gate -- skipped)"
         else:
-            best = max(ranked)[1]
-            note = "  (UNGATED: no candidate has a passing DRC result -- verify by hand)"
+            print("\nNo eligible candidate: " + ", ".join(
+                f"Candidate {k}: {drc_tag(k)}" for _, k, _, _ in ranked))
+            return 1
         print(f"\n>> best by composite: Candidate {best}{note}")
         print("   verify by eye -- these are auto-routed; refill zones + DRC, then"
               " hand-polish the winner. 'refill'-tagged DRC clears on a KiCad zone refill.")
