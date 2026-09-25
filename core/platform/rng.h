@@ -161,10 +161,10 @@ inline float rand_f() {
 }
 
 /**
- * @brief Generates a pseudo-random float in [min, max).
+ * @brief Generates a pseudo-random float in [min, max].
  * @param min Lower bound (inclusive).
- * @param max Upper bound (exclusive).
- * @return A random float in the half-open range [min, max).
+ * @param max Upper bound (inclusive through rounding).
+ * @return A random float in [min, max]; the top draws can round to max.
  */
 inline float rand_f(float min, float max) {
   return min + rand_f() * (max - min);
