@@ -1299,9 +1299,19 @@ inline void test_leg_start_seed_frame_continuity() {
   Arena node_arena(cc_scan_buf, sizeof(cc_scan_buf));
   PolyMesh node_mesh = Solids::finalize_solid(seed_base, node_arena);
 
+  bool kept = false;
+  bool swapped_cube = false, swapped_icosa = false;
+  bool derived[2] = {};
+  bool regenerated[NUM_EDGES] = {};
   hs_test::StubEffect fx(FB_W, FB_H);
   for (size_t leg = 0; leg < std::size(SEEDFRAME_SCRIPT); ++leg) {
     const int ei = SEEDFRAME_SCRIPT[leg];
+    HS_EXPECT_TRUE(ei >= 0 && ei < NUM_EDGES);
+    if (ei < 0 || ei >= NUM_EDGES)
+      return;
+    HS_EXPECT_TRUE(edge_touches(ei, node));
+    if (!edge_touches(ei, node))
+      return;
     const EdgeSpec &e = EDGES[ei];
     const bool reverse = (e.to_node == node);
     const int failed_before = hs_test::stats().failed;
@@ -1309,6 +1319,18 @@ inline void test_leg_start_seed_frame_continuity() {
     // Seed reconciliation, exactly as start_morph_cycle applies it.
     const SeedFix fix = seed_fix_at_start(ei, seed_identity);
     HS_EXPECT_TRUE(fix != SeedFix::INVALID);
+    kept |= fix == SeedFix::KEEP;
+    if (fix == SeedFix::DUAL_SWAP) {
+      swapped_cube |= seed_identity == CUBE || seed_identity == OCTAHEDRON;
+      swapped_icosa |=
+          seed_identity == ICOSAHEDRON || seed_identity == DODECAHEDRON;
+    }
+    if (fix == SeedFix::DERIVE_AMBO)
+      derived[reverse] = true;
+    if (fix == SeedFix::REGEN_TETRA) {
+      HS_EXPECT_TRUE(reverse);
+      regenerated[ei] = true;
+    }
     Arena work(cc_temp_buf, sizeof(cc_temp_buf));
     Arena temp(cc_aux_buf, sizeof(cc_aux_buf));
     if (fix == SeedFix::DUAL_SWAP) {
@@ -1480,6 +1502,12 @@ inline void test_leg_start_seed_frame_continuity() {
   // The script must end where cycle-accounting expects it: back at the cube
   // pendant chain (guards against a silently mis-scripted walk).
   HS_EXPECT_EQ(node, (int)CUBE);
+  HS_EXPECT_TRUE(kept);
+  HS_EXPECT_TRUE(swapped_cube);
+  HS_EXPECT_TRUE(swapped_icosa);
+  HS_EXPECT_TRUE(derived[0] && derived[1]);
+  for (int edge : {19, 20, 21})
+    HS_EXPECT_TRUE(regenerated[edge]);
 }
 
 // ---------------------------------------------------------------------------
