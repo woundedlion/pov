@@ -28,7 +28,7 @@ struct KaleidoscopeSmoothWhiteBox {
   static bool transition_active(const FX &effect) {
     return effect.transition.active;
   }
-  static bool advance_preset(FX &effect) { return effect.advancePreset(); }
+  static bool advance_preset(FX &effect) { return effect.advance_preset(); }
   static void drive_transition(FX &effect, float progress) {
     effect.run_blend(progress);
   }

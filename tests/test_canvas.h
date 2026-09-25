@@ -110,7 +110,7 @@ struct PresetTestEffect : public Effect {
 
   void draw_frame() override {}
 
-  bool advance() { return advancePreset(); }
+  bool advance() { return advance_preset(); }
 
   bool accept = true;
   size_t applied_from = 0;
