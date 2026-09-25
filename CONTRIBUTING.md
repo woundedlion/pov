@@ -35,10 +35,6 @@ One logical change is one commit, with an imperative subject naming the
 component (`scan: clamp the row index before the cast`). Commit messages carry
 **no `Co-Authored-By` line**.
 
-Agent sessions that commit here work under the additional ground rules in
-`docs/agent_workflow.md`, which bind worktree discipline, the host-global lock
-on the single shared Teensy, comment style, and the per-commit gates.
-
 ## Design specs
 
 `docs/specs/` holds the design specifications — the pullback pipeline, its
