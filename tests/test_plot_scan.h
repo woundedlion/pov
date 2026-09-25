@@ -3824,8 +3824,10 @@ inline void test_planar_sampler_from_cull_parity() {
   constexpr float PARITY_TOL = 1e-4f;
   hs::random().seed(0xC0115A9u);
   for (int trial = 0; trial < 400; ++trial) {
-    math::Vector normal(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                        hs::rand_f(-1.0f, 1.0f));
+    const float normal_x = hs::rand_f(-1.0f, 1.0f);
+    const float normal_y = hs::rand_f(-1.0f, 1.0f);
+    const float normal_z = hs::rand_f(-1.0f, 1.0f);
+    math::Vector normal(normal_x, normal_y, normal_z);
     if (normal.length() < 0.01f)
       normal = math::Y_AXIS;
     const math::Basis basis = basis_from_normal(normal.normalized());
@@ -3833,10 +3835,12 @@ inline void test_planar_sampler_from_cull_parity() {
       const math::Vector radial = basis.u * cosf(angle) + basis.w * sinf(angle);
       return (basis.v * cosf(radius) + radial * sinf(radius)).normalized();
     };
-    const math::Vector a =
-        point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-math::PI_F, math::PI_F));
-    const math::Vector b =
-        point(hs::rand_f(0.01f, 2.8f), hs::rand_f(-math::PI_F, math::PI_F));
+    const float a_radius = hs::rand_f(0.01f, 2.8f);
+    const float a_angle = hs::rand_f(-math::PI_F, math::PI_F);
+    const math::Vector a = point(a_radius, a_angle);
+    const float b_radius = hs::rand_f(0.01f, 2.8f);
+    const float b_angle = hs::rand_f(-math::PI_F, math::PI_F);
+    const math::Vector b = point(b_radius, b_angle);
     const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
     int col_s, col_len;
     math::Vector end;
