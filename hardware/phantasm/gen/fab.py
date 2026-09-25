@@ -781,6 +781,7 @@ def require_schematic_parity(report_path):
 
     diagnostics = []
     drc_diagnostics = []
+    land_diagnostics = []
     warning_counts = {}
     for violation in violations:
         kind = str(violation.get("type", ""))
@@ -793,7 +794,7 @@ def require_schematic_parity(report_path):
         actual = warning_counts.get((kind, ref), 0)
         expected = KNOWN_PARITY_WARNING_COUNTS.get((kind, ref), 0)
         if actual != expected:
-            target = (diagnostics if kind in {k for k, _ in KNOWN_PARITY_WARNING_COUNTS}
+            target = (land_diagnostics if kind == "lib_footprint_mismatch"
                       else drc_diagnostics)
             target.append(
                 f"{kind}: {ref} reported {actual} times in {report_path}, "
@@ -820,7 +821,7 @@ def require_schematic_parity(report_path):
                 f"{kind}: {ref} reported {times} times in {report_path}, "
                 "expected exactly once")
 
-    if diagnostics or drc_diagnostics:
+    if diagnostics or drc_diagnostics or land_diagnostics:
         messages = []
         if diagnostics:
             messages.append(
@@ -828,6 +829,10 @@ def require_schematic_parity(report_path):
                 "gen/pcb.py --unplaced, re-route it in Quilter and promote the "
                 "result before shipping these gerbers:\n  " +
                 "\n  ".join(diagnostics))
+        if land_diagnostics:
+            messages.append("Land edits: inspect footprint pads against the shipped-land "
+                            "baseline before shipping these gerbers:\n  " +
+                            "\n  ".join(land_diagnostics))
         if drc_diagnostics:
             messages.append("DRC warnings: resolve in Pcbnew before shipping "
                             "these gerbers:\n  " + "\n  ".join(drc_diagnostics))

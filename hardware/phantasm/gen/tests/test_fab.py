@@ -668,8 +668,10 @@ class SchematicParityTests(unittest.TestCase):
     def test_rejects_known_warning_count_drift(self):
         with self.assertRaisesRegex(
                 fab.SchematicParityError,
-                r"lib_footprint_mismatch: .* reported 0 times .* expected 1"):
+                r"lib_footprint_mismatch: .* reported 0 times .* expected 1") as caught:
             self.require(self.KNOWN, self.KNOWN_WARNINGS[:-1])
+        self.assertIn("Land edits", str(caught.exception))
+        self.assertNotIn("re-route", str(caught.exception))
 
     def test_rejects_replacement_warning_with_same_total(self):
         violations = self.KNOWN_WARNINGS[:-1] + [{

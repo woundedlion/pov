@@ -142,7 +142,7 @@ committed board directly need no KiCad and run in CI
 - **Shipped-land gate:** `gen/tests/test_pcb_lands.py` pins the pad geometry the
   routed board ships for every chip passive, so restoring a stock land over the
   widened sync-resistor pads fails in CI. It pins as-built geometry, not spec
-  §11.1 geometry — see the lands note below. KiCad reports no parity difference for
+  §11.1 geometry — see the lands note below. KiCad's `lib_footprint_mismatch` warning count also detects
   that edit — the widened pads keep the stock footprint id. The same file pins
   J1's footprint on both artifacts, which the assembly gate cannot see because
   `EXCLUDE_FP_SUBSTR` excludes every hand-soldered connector spelling.
@@ -329,9 +329,9 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   for those four references and **no committed artifact carries one** — `grep -c HandSolder` is 0 in `phantasm.kicad_sch`,
   `phantasm.kicad_pcb` and `unplaced/phantasm_unplaced.kicad_pcb`. Regenerating the
   schematic would put those ids into it and fail the schematic-parity gate against the
-  routed copper. The widening is invisible to that gate in the other direction, because
-  the routed board keeps the stock footprint id: KiCad's **Update Footprints from
-  Library** would restore the 0.80/1.025 mm pads with no parity difference reported.
+  routed copper. The routed board keeps the stock footprint id, but restoring stock pads with
+  KiCad's **Update Footprints from Library** changes the `lib_footprint_mismatch`
+  warning count and fails the land-edit gate.
 - **J1 ships unkeyed — R-PWR-7 is not met on this board.** Both committed artifacts
   carry `Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical`, a plain 0.1″
   header with no key, no shroud and no locking ramp, so nothing mechanically stops the
@@ -567,8 +567,8 @@ keep the stock footprint id and the stock pad centres, grow only the pad `size`:
 | `R_S` | `Resistor_SMD:R_0805_2012Metric` | ±0.9125 mm | 1.025 × 1.4 → **1.4 × 1.4 mm** |
 
 `gen/tests/test_pcb_lands.py` (`SHIPPED_CHIP_LANDS`) holds these numbers and fails until
-the promoted board carries them; KiCad's DRC and schematic-parity gates cannot see the
-difference, because the widened pads keep the stock footprint id.
+the promoted board carries them. KiCad's `lib_footprint_mismatch` warning count
+also detects land changes despite an unchanged footprint id.
 
 > `python pcb.py --force` regenerates the placed board and **discards routing**;
 > `--unplaced --force` discards the committed KiCad GUI re-save that is the Quilter
