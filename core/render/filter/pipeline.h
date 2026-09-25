@@ -547,9 +547,9 @@ struct Pipeline<W, H, Head, Tail...>
       Head::world_transform_is_identity && Next::world_transform_is_identity;
 
   /**
-   * @brief True when any stage overrides cull_edge (re-emits clip-cull edges
-   *        under plot-time rotations), so a caller may not precompute per-point
-   *        screen coordinates from the raw geometry.
+   * @brief True when any stage overrides cull_edge, so clip culling must run
+   *        through the pipeline rather than on raw geometry. Projection
+   *        precomputation is governed by has_world_stage.
    */
   static constexpr bool has_world_cull =
       Filter::has_cull_edge<Head> || Next::has_world_cull;
