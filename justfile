@@ -139,7 +139,7 @@ _doxyfile-local:
 # Build, smoke-test, and install WASM into ../daydream.
 install: smoke
     cmake --build --preset wasm-release-install
-    node scripts/wasm_smoke.mjs ../daydream/holosphere_wasm.js
+    node scripts/wasm_smoke.mjs ../daydream/generated/holosphere_wasm.js
 
 # Windows only: build and flash the bench image under the per-board device lock.
 bench:

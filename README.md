@@ -17,7 +17,7 @@ The project spans **two repositories** that ship as one product:
 | Repo | Role | What lives here |
 |---|---|---|
 | [**Holosphere**](https://github.com/woundedlion/pov) | C++ engine + firmware | All rendering code, effects, hardware drivers (`pov_single.h`, `pov_segmented.h`), the Emscripten/WASM target, unit tests, and this README. |
-| [**daydream**](https://github.com/woundedlion/daydream) | Web simulator | Three.js renderer, the compiled `holosphere_wasm.{js,wasm}` artifacts (output of Holosphere's WASM build), GUI/sidebar, recorder, segmented-POV Web Workers, and standalone design tools. |
+| [**daydream**](https://github.com/woundedlion/daydream) | Web simulator | Three.js renderer, the compiled `generated/holosphere_wasm.{js,wasm}` artifacts (output of Holosphere's WASM build), GUI/sidebar, recorder, segmented-POV Web Workers, and standalone design tools. |
 
 Building the WASM target in Holosphere installs the `.js`/`.wasm` module and its SHA/hash/toolchain provenance triple, `hardware/pov_segment_map.json`, the shader workbench helpers, generated operator catalog, shader documents, this README, and `docs/screenshots/` into the sibling `daydream/` checkout. The live demo is daydream served from GitHub Pages.
 
@@ -539,166 +539,56 @@ files define line-ending policy and working-artifact exclusions.
 
 ### daydream (web simulator)
 
-The tracked tree below retains the authored JavaScript, shader sources, and
-`holosphere_wasm.d.ts` declarations. Local installs also produce ignored outputs:
-`holosphere_wasm.js`, `holosphere_wasm.wasm`, `holosphere_wasm.sha`,
-`holosphere_wasm.wasm.sha256`, `holosphere_wasm.toolchain`, and
-`shader/engine_catalog.json`, `pov_segment_map.json`, the helpers
-`shader/shader_workbench.mjs` and `shader/sha256.mjs`, top-level
-`shader/patterns/*.shader.json`, and `shader/patterns/shaderball_migration.json`.
-Their canonical sources live in Holosphere. Daydream tracks its `shader/patterns/v1/`
-fixtures, `digest_migration.v1v2.json`, and the hand-written type declarations.
+Handwritten browser modules live under `src/`, grouped by responsibility.
+The public simulator and design-tool pages retain their existing URLs.
+Holosphere installs runtime assets and their provenance under `generated/`;
+these outputs are ignored, while the adjacent hand-written type declarations
+are tracked. Authored legacy shader fixtures and the digest migration table
+live under `src/workbench/shader/patterns/`.
 Build and install the runtime assets with the Quickstart commands;
 CI installs the verified engine bundle before testing and deploying the simulator.
+This README and the screenshots remain mirrored from Holosphere.
+See the [frontend development guide](https://github.com/woundedlion/daydream/blob/master/docs/development.md)
+for module ownership and local validation commands.
 
 <!-- docs-check: tree daydream exhaustive -->
 ```
 ├── index.html                  Main simulator page
-├── favicon.svg                 Sphere-mark favicon for the simulator pages
-├── site_manifest.txt           Repo-relative path list deploy.yml publishes to Pages
-├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects reserved
-├── vendor-importmap.js         CDN-by-default importmap helper, local opt-in
-├── holosphere_wasm.d.ts        Hand-written declarations for the installed glue — what the typecheck sees
-├── file_system_access.d.ts     Save-picker declarations lib.dom omits, for recorder.js's streaming sink
-├── README.md                   Installed from Holosphere (this file)
-├── docs/
-│   ├── deployment.md          Immutable engine/simulator deployment pairing and validation
-│   └── screenshots/           Installed from Holosphere
-├── shader/                     Daydream-owned declarations, patterns/v1 fixtures, and digest migration
-│
-├── main.js                     index.html's entry module: starts the simulator, once
-├── bootstrap.js                Dynamic-import boot of daydream.js + failure overlay
-├── daydream.js                 App entry: WASM loader, state wiring, GUI/sidebar
-├── effect_roster.js            Effect/resolution roster data: shader-document and workbench lists, per-resolution favourites
-├── segmented_pov_controls.js   Segmented-POV panel: pool spawner and its controls
-├── recording_controls.js       Recording panel builder
-├── app_lifecycle.js            Composition-root frame adapter, Test All ticker,
-│                                  module-load deadline, and teardown
-├── engine_host.js              Owns the main-thread WASM engine + its reassignable display state
-├── apply_notice.js             Shared notice element, owner-keyed so a clear lands only for its holder
-├── display_aliases.js          The display-buffer aliases every renderer writes through, healed together
-├── segment_policy.js           Segmented spawn epoch plus the single-engine fallback a failed spawn runs
-├── effect_gui.js               Effect panel lifecycle: build, mount, value sync, Export, teardown
-├── effect_panel_edits.js      Slider edit lifetime and deferred persistence
-├── effect_panel_view.js       Panel mounting and focus restoration
-├── effect_persistence.js      Effect URL state, presets, and replay
-├── shader_stages.js            DOM-free shader stage taxonomy: schema detection, stage assignment, control labels
-├── legacy_shader_import.js     ShaderWorkbench URL/save-state migration importer
-├── effect_sequencing.js        DOM-free effect/resolution apply-order and resolution-preset rules
-├── param_sync.js               DOM-free param-stream rules: slider adopt/coerce and skew guards
-├── pixel_view.js               DOM-free zero-copy pixel-view detach/re-fetch contract
-├── frame_constants.js          Simulation FPS and the slow-frame threshold derived from it
-├── driver.js                   Three.js scene: sphere mesh, dots, OrbitControls,
-│                                  axes overlay, picture-in-picture camera, resize
-├── geometry.js                 Sphere-pixel position conversion (pixelToSpherical)
-├── state.js                    AppState (pub/sub) + URLSync (query-string mirror)
-├── gui.js                      lil-gui wrapper used by the main page and tools
-├── sidebar.js                  Effect list + sort + keyboard navigation
-├── sidebar_logic.js            DOM-free sidebar sort, keyboard-index and scroll-arrow math
-├── recorder.js                 MediaRecorder pipeline (mp4 / webm), sim-synced
-├── recording_settings.js       Recording settings the GUI binds before the recorder exists
-├── pole_lod.js                 Pole LOD binding, held until the engine the module load builds exists
-├── global_stats_view.js        Single-engine stats bar: frame draw duration and per-arena usage
-├── module_warmer.js            Epoch-fenced shared-WASM compilation and warm-cache state
-├── segment_controller.js       Worker lifecycle, protocol dispatch, and generation fence
-├── segment_compositor.js      Frame compositing, band caches, and boundary overlays
-├── segment_worker.js           Web Worker that hosts one WASM instance per
-│                                  Phantasm hardware segment (parallel render)
-├── segment_layout.js           Pure segment-layout math (Node-unit-testable, no WASM/Worker)
-├── segment_stats_view.js       Per-segment timing/arena stats overlay + spawn and fault states
-├── worker_protocol.js          JSDoc @typedef contract plus the runtime protocol version
-├── styles/                     CSS for the main page and tools
-│
-├── tools/                      Standalone design tools (own HTML pages)
-│   ├── lissajous.html          Spherical Lissajous curve designer
-│   ├── mobius.html             Möbius transformation visualizer
-│   ├── mobius.css              Möbius page layout and control styling
-│   ├── palettes.html           Procedural palette tuner
-│   ├── palettes.css            Palette page layout and control styling
-│   ├── shader.html             Pullback Shader authoring workbench
-│   ├── shader.css              Shader workbench layout and control styling
-│   ├── shader_documents.js     Document loading, validation, matching, and engine application
-│   ├── shader_deeplink.js      Encodes the document, preset, bypass set and pause flag in the page URL hash and restores them
-│   ├── chain_apply.js          Applies a compiled chain document: setShaderChain, then the preset values
-│   ├── chain_document_store.js v2 chain document store: span replacement, legality, reconciliation, undo
-│   ├── chain_strip.js          Pipeline strip: the chain as stage chips banded by carrier
-│   ├── chain_presentation.js  Catalog-backed chain labels and carrier presentation
-│   ├── solids.html             Conway operator playground (uses MeshOps bridge)
-│   ├── solids.css              Solids page layout and control styling
-│   ├── shared.js               Three.js scene boilerplate for the 3D tool pages
-│   ├── banner.js               Dependency-free page + fatal-error banners (no Three.js)
-│   ├── clipboard.js            Dependency-free copy-to-clipboard helpers
-│   ├── copy_text.js            Clipboard API write with a textarea fallback, wrapped by clipboard.js
-│   ├── slider.js               Labelled range-slider factory with a live readout
-│   ├── color.js                sRGB ↔ linear math mirroring the engine's transfer function
-│   ├── cpp_format.js           C++ float-literal formatter shared by the code generators
-│   ├── download_file.js        Blob download through a transient anchor click, shared by the tools' export actions
-│   ├── engine_halt.js          Shared halted-engine predicate: the HS_MODULE_DEAD flag or a WebAssembly trap
-│   ├── export_params.js        Formatter behind the GUI's Export action
-│   ├── flyout.js               Button-controlled flyout with outside-click and Escape dismissal
-│   ├── kb_format.js            Dependency-free kilobyte formatter shared by the stat readouts
-│   ├── labels.js              Shared display-label formatting
-│   ├── lissajous_math.js       Lissajous curves, rational constraints, and C++ export
-│   ├── lissajous_page.js       Lissajous scene and control wiring
-│   ├── mobius_page.js          Controller for the Möbius tool page
-│   ├── mobius_transforms.js    Möbius presets, projections, complex division, and GLSL
-│   ├── page_lifecycle.js       Animation-frame recompute coalescer + bfcache-aware teardown hook
-│   ├── pointer_drag.js         Pointer-drag lifecycle shared by standalone tools
-│   ├── palette_canvas.js       Gradient-strip and RGB-wave canvas painters for palettes.html
-│   ├── palette_controls.js     Palette recipes, hue controls, viewports, and constraints
-│   ├── palette_math.js         ProceduralPalette / GenerativePalette mirror + the PaletteOps bridge
-│   ├── palette_wheel.js        Hue-key wheel raster, markers and pointer arithmetic for palettes.html
-│   ├── palettes_page.js        Controller for the palette tuner page
-│   ├── solid_build.js          Mesh construction and validation for solids.html
-│   ├── solid_codegen.js        Op dispatch, codegen, and op-chain sequencing for solids.html
-│   ├── solid_op_rows.js        DOM construction for one op-chain row of solids.html
-│   ├── solid_registry_codegen.js  Registry-paste emitter: the solids.h Entry, OpStep table, Recipe, and (when solids.h declares none) the seed's SEED_* constant
-│   ├── solid_render.js         Scene construction for solids.html: faces, vertices, edges, normals, index labels
-│   ├── solids_page.js          Controller for the Conway operator tool page
-│   ├── tailwind.css            Prebuilt utility classes the five tool pages use, served same-origin
-│   └── tools.css               Shared design tokens and control styling for the tool pages
-│
-├── scripts/
-│   ├── deployment-pair.mjs     Resolves and validates the immutable deployment pair
-│   ├── stage-site.mjs          Stages the publication manifest for deployment
-│   ├── browser-smoke.mjs       Headless-Chrome smoke for every manifest-served page
-│   ├── check-cdn-integrity.mjs Verifies the committed import map's jsDelivr subresource-integrity hashes
-│   ├── probe_harness.mjs       Manifest server, browser, console/network collector and pointer helpers every probe runs on
-│   ├── browser.mjs             Browser resolution (CHROME_PATH, else the standard Chrome locations) and the launch flags the headless scripts share
-│   ├── generate-importmap.mjs  Bakes the local-vs-CDN decision into vendor-importmap.js
-│   ├── vendor-imports.mjs      Parses module imports for the vendor integrity inventory
-│   ├── extract-engine-bundle.py  Validates archive paths before extracting the engine bundle
-│   ├── generate-digest-migration.mjs  Regenerates the frozen v1→v2 digest-migration table from the v1 fixtures
-│   ├── record-module-loads.mjs NODE_OPTIONS shim recording loaded test modules
-│   ├── require-tests.mjs       `pretest` guard against empty globs, unreachable tests, and shadow installs
-│   ├── serve-manifest.mjs      Local static server constrained to the published site manifest
-│   ├── vendor-stage.mjs        Hard-links the manifest set into a scratch tree served with a node_modules import map, for the headless gate
-│   ├── verify-ci-green.mjs     Verifies every CI job is covered by the required aggregate check
-│   ├── workbench-probe.mjs     Headless pointer-level probe of the shader workbench's pipeline strip; run it for any tools/ UI change
-│   ├── panel-probe.mjs         Headless probe of the effect panel's real scroll clamping and scroll restore across a rebuild
-│   ├── solids-probe.mjs        Headless pointer-level probe of the solids page's op-chain row reordering
-│   ├── palettes-probe.mjs      Headless pointer-level probe of the palette page's strip zoom and hue-key wheel
-│   ├── mobius-probe.mjs        Headless pointer-level probe of the Möbius page's complex-plane pads
-│   ├── lissajous-probe.mjs     Headless pointer-level probe of the Lissajous page's rational frequency lock and the domain it drives
-│   ├── run-tests.mjs           `test` script: runs the suite and checks first-party module reachability
-│   └── install-engine-bundle.mjs  Validates and installs the verified engine artifact
-│
-├── tests/                      Node unit tests (`npm test`)
-├── requirements/               Hash-locked ShellCheck toolchain used by CI
-├── tsconfig.json               checkJs settings for the worker-protocol module set
-├── eslint.config.mjs           JavaScript lint rules (recommended set) — the js-unit-suite.yml lint step
-├── .githooks/                  staged pre-commit checks, pre-push lint/typecheck/importmap and three workflow-helper tests, and the master fast-forward guard
-├── .github/workflows/          ci.yml (PR aggregate), engine-bundle.yml (verified engine gate), deploy.yml (engine gate → Pages), js-unit-suite.yml + browser-smoke.yml (reusable suites)
-├── .github/dependabot.yml      Monthly grouped bump pull requests for the SHA-pinned actions and the locked Node dependencies
-│
-├── three.js/                   Optional vendored Three.js checkout
-├── vendor/                     Optional self-hosted fonts (CDN fallback)
-├── node_modules/lil-gui/       Optional local lil-gui (npm install)
-├── package.json
-├── package-lock.json           Committed dependency pin (the optional trees above are gitignored)
-├── .nvmrc                      Exact Node runtime used by simulator CI
-├── .gitattributes              Text and generated-binary attribute rules
-└── .gitignore                  Local dependency, build, and installed-engine exclusions
+├── favicon.svg                 Sphere-mark favicon
+├── vendor-importmap.js         CDN-by-default import map, with local opt-in
+├── src/                        Handwritten browser modules
+│   ├── app/                    Startup, lifecycle, and application state
+│   ├── engine/                 WASM engine ownership and display-buffer aliases
+│   ├── renderer/               Three.js rendering, geometry, and pixel views
+│   ├── effects/                Effect roster, sequencing, persistence, and parameters
+│   ├── segments/               Worker pool, protocol, layout, and compositing
+│   ├── recording/              Recording pipeline, settings, and controls
+│   ├── ui/                     Simulator panels, sidebar, notices, and statistics
+│   ├── shared/                 Browser utilities shared by simulator and tools
+│   ├── types/                  Browser API declarations
+│   └── workbench/              Shader, palettes, solids, Möbius, and Lissajous tools
+├── generated/                  Installed engine outputs; tracked type declarations
+├── tools/                      Stable public HTML entry points and tool stylesheets
+├── styles/                     Simulator CSS and Tailwind source
+├── scripts/                    Development, validation, browser probes, and deployment
+├── tests/                      Node test suites, reusable helpers, and fixtures
+├── docs/                       Deployment guide and mirrored screenshots
+├── requirements/               Hash-locked ShellCheck dependency
+├── site_manifest.txt           Repository-relative publication allowlist
+├── README.md                   Mirrored from Holosphere (this file)
+├── LICENSE                     Engine and effect licensing
+├── package.json                npm commands and dependency versions
+├── package-lock.json           Locked dependency graph
+├── tsconfig.json               JavaScript typechecking and declaration roster
+├── eslint.config.mjs           JavaScript lint configuration
+├── .github/                    CI, deployment workflows, and dependency updates
+├── .githooks/                  Staged checks, pre-push gates, and fast-forward guard
+├── .nvmrc                      Simulator CI Node version
+├── .gitattributes              Text and binary attribute rules
+├── .gitignore                  Local dependency and installed-output exclusions
+├── node_modules/               Ignored npm dependencies
+├── three.js/                   Optional ignored Three.js checkout
+└── vendor/                     Optional ignored fonts and vendor assets
 ```
 
 [`vendor-importmap.js`](https://github.com/woundedlion/daydream/blob/master/vendor-importmap.js) resolves libraries from jsdelivr, which is the committed default the Pages deploy and a fresh checkout serve; `npm run importmap:local` switches it to the vendored copies for offline dev. See [§10.8](#108-vendor-importmap-cdn-by-default--local-opt-in).
@@ -1136,9 +1026,9 @@ index.html → vendor-importmap.js           segment_worker.js × N
                    └─ VideoRecorder (MediaRecorder)
 ```
 
-`index.html` loads exactly one module, `main.js`, whose whole body is a call to `bootstrap.js`'s exported `bootstrap()`. Keeping the side effect in the entry module rather than in `bootstrap.js` itself is what lets `daydream.js` import the failure overlay without standing up a second simulator. `bootstrap()` dynamically imports `daydream.js` inside a `try`/`catch` — the only handler for a module-graph load failure. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which re-fetches every same-origin `.js` and `.wasm` the page has already loaded with `cache: 'reload'`. That is the remedy for the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
+`index.html` loads exactly one module, `src/app/main.js`, whose whole body is a call to `src/app/bootstrap.js`'s exported `bootstrap()`. Keeping the side effect in the entry module rather than in `src/app/bootstrap.js` itself is what lets `src/app/daydream.js` import the failure overlay without standing up a second simulator. `bootstrap()` dynamically imports `src/app/daydream.js` inside a `try`/`catch` — the only handler for a module-graph load failure. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which re-fetches every same-origin `.js` and `.wasm` the page has already loaded with `cache: 'reload'`. That is the remedy for the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
 
-A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.7), `segment_controller.js` spawns N Web Workers, each holding its own WASM instance — its own linear memory, arenas and effect state — so the four-Teensy Phantasm layout can be exercised in software. The *compilation* behind those instances is shared: the pool spawn hands every worker one `WebAssembly.Module` compiled once on the main thread (§10.7), and a `WebAssembly.Module` carries no state, so instances stay isolated. Only a worker that is handed no module fetches and compiles the binary itself.
+A normal page load creates one WASM instance on the main thread. The dot mesh has one instance per LED pixel; the per-frame work is `instanceColor.needsUpdate = true` after the WASM buffer view is refreshed. When the user enables Segmented POV (§10.7), `src/segments/segment_controller.js` spawns N Web Workers, each holding its own WASM instance — its own linear memory, arenas and effect state — so the four-Teensy Phantasm layout can be exercised in software. The *compilation* behind those instances is shared: the pool spawn hands every worker one `WebAssembly.Module` compiled once on the main thread (§10.7), and a `WebAssembly.Module` carries no state, so instances stay isolated. Only a worker that is handed no module fetches and compiles the binary itself.
 
 ### 10.2 The WASM Bridge
 
@@ -1271,9 +1161,9 @@ appState.subscribe((key, value, old) => {
 
 - **`AppState`** — flat key→value store with a `subscribe(callback)` API. Setting a key fires the callback only if the value actually changed. The sidebar and lil-gui both write through `appState.set(...)`, so they stay in sync without explicit coupling. `update(patch)` batches: every key in the patch is written first and only then are subscribers notified, one event per changed key, so a callback that reads a sibling batched key sees its post-batch value instead of a half-applied state.
 - **`URLSync`** — reads tracked keys from `window.location.search` on construction (URL beats default), coercing each raw string to the seeded default's type. The third constructor argument is a per-key validator map applied to that raw string; a key whose predicate rejects keeps the validated default, so a hand-edited link cannot poison state and no consumer has to re-validate afterwards. A predicate that gates on a lookup table tests own keys (`Object.hasOwn`) and the table carries a `null` prototype, or `?resolution=constructor` passes on the prototype chain. Writes back to the query string are debounced 200 ms through `history.replaceState`. Shareable links like `?effect=Raymarch&resolution=Phantasm%20(288x144)` work out of the box.
-- **URL write ownership** — `URLSync` is the app-wide single owner of URL writes, reachable as `getActiveURLSync()`; constructing a new one disposes the previous. `gui.js` routes each parameter change through `setParam(key, value)`, which buffers an ad-hoc entry (numbers rounded to 5 *significant digits* through the shared `roundUrlNumber`, `null` marking a deletion) rather than writing directly. Significant digits, not decimal places: a lil-gui slider's implicit step is a thousandth of its range, so the rule resolves every step at any magnitude, including a param whose whole range is a small fraction of 1. The debounced flush is a read-modify-write at fire time: it re-reads the live query string, overlays the tracked state keys, then overlays the ad-hoc buffer — so concurrent state and GUI updates merge into one `replaceState` instead of clobbering each other. `reset(excludedKeys)` drops every param outside the exclusion set through that same debounced flush, which re-asserts tracked state and surviving ad-hoc entries so a change still inside the window is not lost — an effect switch resets on every change, so a burst costs one write rather than one per switch. Every writer — both `URLSync` paths and the two standalone-page fallbacks in `gui.js` — emits through the exported `writeUrl(params)`, which assembles `pathname + ?query + location.hash` and calls `replaceState`, so no path can drop the fragment. Both it and the exported `replaceUrl(url)` under it swallow a refused write (browsers rate-limit `replaceState` and throw past the limit): the URL is cosmetic, and a throw escaping into a switch rollback would be reported as unrecoverable state.
+- **URL write ownership** — `URLSync` is the app-wide single owner of URL writes, reachable as `getActiveURLSync()`; constructing a new one disposes the previous. `src/ui/gui.js` routes each parameter change through `setParam(key, value)`, which buffers an ad-hoc entry (numbers rounded to 5 *significant digits* through the shared `roundUrlNumber`, `null` marking a deletion) rather than writing directly. Significant digits, not decimal places: a lil-gui slider's implicit step is a thousandth of its range, so the rule resolves every step at any magnitude, including a param whose whole range is a small fraction of 1. The debounced flush is a read-modify-write at fire time: it re-reads the live query string, overlays the tracked state keys, then overlays the ad-hoc buffer — so concurrent state and GUI updates merge into one `replaceState` instead of clobbering each other. `reset(excludedKeys)` drops every param outside the exclusion set through that same debounced flush, which re-asserts tracked state and surviving ad-hoc entries so a change still inside the window is not lost — an effect switch resets on every change, so a burst costs one write rather than one per switch. Every writer — both `URLSync` paths and the two standalone-page fallbacks in `src/ui/gui.js` — emits through the exported `writeUrl(params)`, which assembles `pathname + ?query + location.hash` and calls `replaceState`, so no path can drop the fragment. Both it and the exported `replaceUrl(url)` under it swallow a refused write (browsers rate-limit `replaceState` and throw past the limit): the URL is cosmetic, and a throw escaping into a switch rollback would be reported as unrecoverable state.
 - **Refused writes retry, bounded** — a refused flush leaves the URL as it was, so the ad-hoc buffer and any pending reset are held and the flush re-arms at `URL_FLUSH_RETRY_MS` (2 s, deliberately longer than the debounce so the ladder does not spend the write budget faster than the rate limit it is waiting out). Tracked keys need no such hold — every flush re-reads them from state. A shorter debounce never displaces an armed longer delay, or a concurrent GUI edit would pull the ladder forward into the window it is pacing. The ladder stops at `URL_FLUSH_MAX_RETRIES` (20): the product outlasts WebKit's 30 s rate-limit window, and a refusal that survives it is a standing one — a sandboxed iframe or a `file://` document refuses every write for the page's lifetime — so the buffer is dropped with a warning rather than held by a timer that re-arms forever.
-- **`suspend()` / `resume()`** — bracket a multi-step state transaction so no URL is written from inside it; `daydream.js` uses this to hold the write while a legacy shader deep link is migrated to its replacement effect, releasing it once the migrated effect has been applied. `suspend()` disarms an already-armed flush (the constructor's canonicalization arms one before any caller can suspend) and carries its delay, so a suspension crossing a retry cannot let `resume()` pull the ladder's wait forward. Nesting is counted; the outermost `resume()` schedules the accumulated write.
+- **`suspend()` / `resume()`** — bracket a multi-step state transaction so no URL is written from inside it; `src/app/daydream.js` uses this to hold the write while a legacy shader deep link is migrated to its replacement effect, releasing it once the migrated effect has been applied. `suspend()` disarms an already-armed flush (the constructor's canonicalization arms one before any caller can suspend) and carries its delay, so a suspension crossing a retry cannot let `resume()` pull the ladder's wait forward. Nesting is counted; the outermost `resume()` schedules the accumulated write.
 
 ### 10.5 The Effect Sidebar (`sidebar.js`)
 
@@ -1281,7 +1171,7 @@ The left-edge effect list is a small custom widget:
 
 - **Preset count in the label**: each button reads `Name (N)`, where N is the effect's authored preset count from the engine's `getEffectPresetCounts()` — the registry's `preset_count`, which is `PRESET_IDS.size()` when the effect names its presets and `authored_preset_count()` (the `PRESETS` table's length) otherwise. The displayed value is floored at 1, so an effect with no preset table still shows `(1)`; if the call fails the counts are dropped and every button falls back to that floor.
 - **Persistent button references**: re-sorting by name or size (live `sizeof` from `getEffectSizes()`) re-appends the existing button nodes in the new order without recreating them; `setEffects()` itself rebuilds the list from scratch.
-- **Keyboard navigation**: Up/Down move the focused button one entry, wrapping at the ends; Left/Right move one column — the row count of the mobile column-flow grid, so they wrap within the row, or 1 in the desktop single-column list, where every arrow steps one entry (`navTargetIndex`, `sidebar_logic.js`). Home and End jump to the first and last; Enter or Space selects.
+- **Keyboard navigation**: Up/Down move the focused button one entry, wrapping at the ends; Left/Right move one column — the row count of the mobile column-flow grid, so they wrap within the row, or 1 in the desktop single-column list, where every arrow steps one entry (`navTargetIndex`, `src/ui/sidebar_logic.js`). Home and End jump to the first and last; Enter or Space selects.
 - **Mobile horizontal scroll**: when laid out as a horizontal strip, scroll arrows fade in/out based on scroll position via a `ResizeObserver` + scroll listener.
 - **Per-resolution filtering**: each resolution has its own curated effect list, shown in the sidebar. An effect that is not in the active resolution's list — including one hydrated from a `?effect=…` link — is replaced with that list's first effect, so only curated effects load at a given resolution.
 
@@ -1302,7 +1192,7 @@ Three behaviours the definitions loop above does not show. **Stage folders**: pu
 
 ### 10.7 Segmented POV Workers (`segment_worker.js`)
 
-Phantasm hardware uses N Teensys, each rendering one segment rectangle: an arm's half-width crossed with a Y-band computed by the engine's `segment_map()`/`segment_x_col()` (`pov_segment_map.h`). N=4 is the qualified default; N=8 is the compile-tested firmware profile. Daydream reproduces the *partitioning* in software — its `computeSegmentRange()` (`segment_layout.js`) mirrors the engine's arm/Y-band split (a general even-N tiler that also drives the 2–8-way preview), though it does not model southern segments' reversed strip direction (`y_step = -1`) or the hardware's power-of-two segment-count constraint — so the band partition, not the full strip wiring, is exercised before fabrication. A `SegmentController` (`segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `segment_worker.js` hosts one WASM instance:
+Phantasm hardware uses N Teensys, each rendering one segment rectangle: an arm's half-width crossed with a Y-band computed by the engine's `segment_map()`/`segment_x_col()` (`pov_segment_map.h`). N=4 is the qualified default; N=8 is the compile-tested firmware profile. Daydream reproduces the *partitioning* in software — its `computeSegmentRange()` (`src/segments/segment_layout.js`) mirrors the engine's arm/Y-band split (a general even-N tiler that also drives the 2–8-way preview), though it does not model southern segments' reversed strip direction (`y_step = -1`) or the hardware's power-of-two segment-count constraint — so the band partition, not the full strip wiring, is exercised before fabrication. A `SegmentController` (`src/segments/segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `src/segments/segment_worker.js` hosts one WASM instance:
 
 ```
 Main thread                  Workers (one WASM each)
@@ -1318,13 +1208,13 @@ drawFrame() {                postMessage({type:'render'})
 Key properties:
 - **Isolated WASM instances per worker** — each segment has its own arena, its own RNG stream, and its own effect state. The stream is *per effect load*: every `setEffect()` reseeds the shared `Pcg32` from `hs::stable_effect_seed(stable_id)`, mirroring the device's per-effect reseed. The seed is a pure function of the effect's stable id, so every instance loading the same effect derives the same stream locally — a pool rebuilt mid-session matches a main-thread engine that has already switched effects N times.
 - **Effect-switch recovery is bounded** — a worker that rejects an effect switch latches the pool fault. Each later effect switch rebuilds the latched pool, up to two consecutive rebuilds that fail to reach ready; after that only a resolution change or a segmented-mode toggle restarts it.
-- **One shared compilation, warmed before the spawn** — `pageWarmer.warm()` (`module_warmer.js`) re-fetches the worker's whole module graph — `segment_worker.js`, the WASM glue, `segment_layout.js`, `worker_protocol.js`, [tools/engine_halt.js](https://github.com/woundedlion/daydream/blob/master/tools/engine_halt.js) and the binary — with `cache: 'no-cache'`, so a worker cannot load a module cached from an earlier deploy against freshly fetched peers. It also compiles the drained binary into the page-wide `ModuleWarmer`, and the spawn passes that `WebAssembly.Module` in each worker's `init`: an N-worker pool costs one compilation of the 2.7 MiB module instead of N. Warms are deduped per module graph over `WARM_INTERVAL_MS` (10 s), because lil-gui fires `onChange` per drag step and the segment-count slider would otherwise revalidate the graph several times a second. A binary the engine refuses drops the held module — reported by the worker as `engineRejected` with `sharedModule` — and triggers a bounded automatic boot retry that compiles per worker. A warm past the dedupe window re-fetches the shared module.
-- **`setClip(x0, x1, y0, y1)`** — for a non-stateful effect the WASM engine restricts *rendering* to the worker's segment rectangle: the rasterizer's scanline culling skips out-of-clip rows and columns, so out-of-band pixels are never shaded. The pixel readback in `drawFrame()` copies only that same rectangle out of the canvas buffer, leaving the rest of the readback buffer holding whatever it last did; `segment_worker.js` then extracts that rectangle with one `extractSegment()` call before transferring the result back, so only the segment crosses the worker boundary. That call lives in `segment_layout.js`, the module both ends share: the worker extracts with it and the main thread composites with its `compositeSegment()` counterpart, so one blit routine defines the segment rectangle for both directions.
+- **One shared compilation, warmed before the spawn** — `pageWarmer.warm()` (`src/segments/module_warmer.js`) re-fetches the worker's whole module graph — `src/segments/segment_worker.js`, the WASM glue, `src/segments/segment_layout.js`, `src/segments/worker_protocol.js`, [src/shared/engine_halt.js](https://github.com/woundedlion/daydream/blob/master/src/shared/engine_halt.js) and the binary — with `cache: 'no-cache'`, so a worker cannot load a module cached from an earlier deploy against freshly fetched peers. It also compiles the drained binary into the page-wide `ModuleWarmer`, and the spawn passes that `WebAssembly.Module` in each worker's `init`: an N-worker pool costs one compilation of the 2.7 MiB module instead of N. Warms are deduped per module graph over `WARM_INTERVAL_MS` (10 s), because lil-gui fires `onChange` per drag step and the segment-count slider would otherwise revalidate the graph several times a second. A binary the engine refuses drops the held module — reported by the worker as `engineRejected` with `sharedModule` — and triggers a bounded automatic boot retry that compiles per worker. A warm past the dedupe window re-fetches the shared module.
+- **`setClip(x0, x1, y0, y1)`** — for a non-stateful effect the WASM engine restricts *rendering* to the worker's segment rectangle: the rasterizer's scanline culling skips out-of-clip rows and columns, so out-of-band pixels are never shaded. The pixel readback in `drawFrame()` copies only that same rectangle out of the canvas buffer, leaving the rest of the readback buffer holding whatever it last did; `src/segments/segment_worker.js` then extracts that rectangle with one `extractSegment()` call before transferring the result back, so only the segment crosses the worker boundary. That call lives in `src/segments/segment_layout.js`, the module both ends share: the worker extracts with it and the main thread composites with its `compositeSegment()` counterpart, so one blit routine defines the segment rectangle for both directions.
 - **Per-instance render settings must be re-sent** — `setPoleLod` writes `pole_lod_aggressiveness`, a module-global of the WASM instance it is called on. A worker's instance carries its own copy, so a value set on the main-thread engine does not reach the pool: the controller must forward the setting to every worker (a protocol message of its own, applied like `setAnimationsPaused`) or the composited preview renders undecimated while the slider reads non-zero.
-- **Cross-segment stateful effects render full-frame** — an effect whose per-frame state reads pixels *outside* the worker's band (`MeshFeedback`'s feedback warp samples the previous frame at unbounded offsets; `Dynamo` reprojects `World::Trails` under rotation) cannot be band-clipped: a clipped worker would have stale/zero history outside its band, so cross-band trails read as black and seams appear. Those effects report `Effect::needs_full_frame()` (derived from a compile-time `any_crosses_segments` filter-pipeline trait), and `setClip` leaves their clip at the full canvas and reports `FULL_FRAME_KEPT` — every worker computes the bit-identical full frame and `segment_worker.js` slices its segment rectangle from the full readback. Both the device driver and simulator keep the full canvas when an effect reports `needs_full_frame()` or `persists_pixels()`.
+- **Cross-segment stateful effects render full-frame** — an effect whose per-frame state reads pixels *outside* the worker's band (`MeshFeedback`'s feedback warp samples the previous frame at unbounded offsets; `Dynamo` reprojects `World::Trails` under rotation) cannot be band-clipped: a clipped worker would have stale/zero history outside its band, so cross-band trails read as black and seams appear. Those effects report `Effect::needs_full_frame()` (derived from a compile-time `any_crosses_segments` filter-pipeline trait), and `setClip` leaves their clip at the full canvas and reports `FULL_FRAME_KEPT` — every worker computes the bit-identical full frame and `src/segments/segment_worker.js` slices its segment rectangle from the full readback. Both the device driver and simulator keep the full canvas when an effect reports `needs_full_frame()` or `persists_pixels()`.
 - **One-frame pipeline** — frame N's render is dispatched fire-and-forget; frame N-1's results are composited synchronously when they arrive. The stats overlay's `max` row — the slowest worker's own `drawFrame()` — is the comparable number, and is the closest stand-in for what the multi-Teensy hardware sees. It is not a bound on it: `computeSegmentRange()` pins each arm to a fixed column half, while the firmware's `segment_clip()` trades the two halves between the arms every half-revolution, so a segment's `Compute` — and the `max` over them — covers one of the two halves that board actually sweeps rather than the costlier one. The `round-trip` row below it spans dispatch to last worker response, so it also carries structured-clone, `ArrayBuffer` transfer and main-thread event-loop latency that the hardware has no analogue for.
 - **Boundary overlay** — a "Show Boundaries" toggle paints cyan markers on the segment edges in the composite buffer to make the partition visible.
-- **Protocol version handshake** — `worker_protocol.js` exports a `PROTOCOL_VERSION` that both ends stamp and check. Each worker posts a `booted` ping carrying it *before* instantiating WASM, and the controller's `init` message carries it back; either side faults on a mismatch — a stale cached worker or glue file against a newer peer — instead of drifting on reshaped message fields.
+- **Protocol version handshake** — `src/segments/worker_protocol.js` exports a `PROTOCOL_VERSION` that both ends stamp and check. Each worker posts a `booted` ping carrying it *before* instantiating WASM, and the controller's `init` message carries it back; either side faults on a mismatch — a stale cached worker or glue file against a newer peer — instead of drifting on reshaped message fields.
 - **Watchdogs, bounded boot retry, and a latched fault** — a worker that hangs or fails to load without throwing fires no `onerror`, so three deadlines bound the pipeline: the `booted` ping (module fetch + evaluate), pool readiness (WASM instantiate), and render liveness. The render deadline is re-armed on every distinct segment frame, so a slow effect keeps extending it while a true stall still faults. A message-less `error` event or a rejected shared module before the pool is ready rebuilds the pool a bounded number of times with a short backoff; other failures and exhausted retries latch. Latching terminates every worker and halts the pool with no auto-restart, replacing the per-segment stats table with a fault banner naming the segment and the reason — it stays down until a user-driven resolution or segmented-mode change rebuilds the pool.
 
 ### 10.8 Vendor Importmap (CDN by Default / Local Opt-In)
@@ -1564,11 +1454,11 @@ This project is split-licensed: the rendering engine and the visual effects carr
 
 **Third-party.** The engine vendors [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) 1.1.1 as `core/vendor/FastNoiseLite.h` under the MIT License (Auburn / Jordan Peck), patched in tree as recorded in `core/vendor/FastNoiseLite_config.h` (first-party). `core/math/projections.h` carries map projections derived from [PROJ](https://proj.org) under the MIT License (Frank Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ contributors); it sits outside `core/vendor/` because the engine's own projections are developed alongside them in the same header, and `LICENSE` names it as an exception. The simulator vendors one file: `daydream/tools/tailwind.css`, a prebuilt [Tailwind CSS](https://tailwindcss.com) 3.4.17 utility sheet (MIT, Tailwind Labs) served same-origin to the five tool pages, carrying its upstream MIT banner; its preflight reset derives from [modern-normalize](https://github.com/sindresorhus/modern-normalize) (MIT, Sindre Sorhus), itself derived from normalize.css (MIT, Nicolas Gallagher and Jonathan Neal). Everything else the simulator uses loads at runtime: [three.js](https://github.com/mrdoob/three.js) (MIT, three.js authors) and [lil-gui](https://github.com/georgealways/lil-gui) (MIT, George Michael Brower) come from the jsdelivr CDN at the versions pinned in `daydream/package.json` (currently three 0.183.1, lil-gui 0.21.0). The optional self-hosted fonts under `daydream/vendor/fonts/` (Inter and JetBrains Mono, both SIL OFL 1.1) are gitignored and distributed by neither repo.
 
-The simulator's `daydream/tools/` directory also holds browser utilities shared
-with the root simulator, including banners, clipboard, parameter labels, and
-pointer handling. These modules have no dependency on a design-tool page.
+The simulator's `daydream/src/shared/` directory holds browser utilities shared
+by the simulator and design tools, including banners, clipboard, parameter labels,
+and pointer handling. These modules have no dependency on a design-tool page.
 
 In the daydream checkout, regenerate the tool utility stylesheet with
-`npm run generate:tailwind`; the pinned Tailwind dependency scans tool HTML and
+`npm run generate:tailwind`; the pinned Tailwind dependency scans tool HTML and browser source
 JavaScript. Commit `daydream/tools/tailwind.css` with changes that introduce
 utility classes.

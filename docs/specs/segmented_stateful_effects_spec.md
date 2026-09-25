@@ -38,12 +38,12 @@ Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
   full-canvas and remain correct — each board computes the whole frame and
   samples its slice.
 
-- **Simulator (`segment_worker.js` → `targets/wasm/wasm.cpp`).** Daydream
+- **Simulator (`src/segments/segment_worker.js` → `targets/wasm/wasm.cpp`).** Daydream
   reproduces the *partitioning* in software: one isolated WASM module instance
   per segment, each calling `setClip(x0, x1, y0, y1)` (gated on
   `pov::segment_clip_applies(needs_full_frame(), persists_pixels())`) so the rasterizer's scanline culling skips out-of-clip
   rows/columns. Each worker owns a **fixed** quadrant for the whole effect; the
-  readback copies the active clip and `segment_layout.js` extracts just the
+  readback copies the active clip and `src/segments/segment_layout.js` extracts just the
   quadrant rectangle before transfer (README §10.7).
 
 Both clip non-stateful effects to a quadrant and leave `needs_full_frame()`
@@ -200,7 +200,7 @@ return `ClipSetResult::FULL_FRAME_KEPT`; otherwise apply the requested band.
 "Leave at full" is safe because the clip is already full when this fires: the
 `Effect` constructor resets `clip` to the whole canvas (`Effect::Effect`), and the
 worker re-applies the band *only* after `setEffect` rebuilds the effect
-(`segment_worker.js` `applyClip`). So a full-frame effect's clip is never
+(`src/segments/segment_worker.js` `applyClip`). So a full-frame effect's clip is never
 narrowed in the first place — the early return preserves the constructor's
 full clip rather than relying on resetting a stale band. (If that lifecycle
 ever changes, harden this to an explicit `set_clip(0, H, 0, W)` instead.)
@@ -269,7 +269,7 @@ ClipRegion default already covers, so every effect's clip margin is 1.
 | `targets/wasm/engine_bindings.h` `setClip` | gate on `pov::segment_clip_applies(needs_full_frame(), persists_pixels())`; otherwise return `FULL_FRAME_KEPT` |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
 | `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
-| `segment_worker.js` slicing | **none** |
+| `src/segments/segment_worker.js` slicing | **none** |
 
 ---
 

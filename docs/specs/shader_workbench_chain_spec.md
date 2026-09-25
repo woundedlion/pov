@@ -4,11 +4,11 @@
 [pullback_stage_families_spec.md](pullback_stage_families_spec.md): the
 document schema, migration, and editor for authoring the chains that spec
 defines. The schema, validation, canonical identity, and v1 expansion ship
-here as `scripts/shader_workbench.mjs` (daydream's `shader/shader_workbench.mjs`
+here as `scripts/shader_workbench.mjs` (daydream's `generated/shader/shader_workbench.mjs`
 is the copy its engine-bundle installer writes); the document store and the
 editor ship in the daydream repo
-([tools/chain_document_store.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_document_store.js),
-[tools/chain_strip.js](https://github.com/woundedlion/daydream/blob/master/tools/chain_strip.js)).
+([src/workbench/shader/chain_document_store.js](https://github.com/woundedlion/daydream/blob/master/src/workbench/shader/chain_document_store.js),
+[src/workbench/shader/chain_strip.js](https://github.com/woundedlion/daydream/blob/master/src/workbench/shader/chain_strip.js)).
 §4's pipeline-strip workbench is the editor's *surface*; every editing
 semantic in §3 carries forward beneath it.
 

@@ -377,9 +377,9 @@ if(EMSCRIPTEN)
     # An existing destination without the marker is a wrong path, not a missing
     # checkout: fail the install rather than write into it.
     message(WARNING
-      "DAYDREAM_DIR '${DAYDREAM_DIR}' exists but holds no daydream.js — "
+      "DAYDREAM_DIR '${DAYDREAM_DIR}' exists but holds no src/app/daydream.js — "
       "refusing to install into it.")
-    install(CODE "message(FATAL_ERROR \"DAYDREAM_DIR '${DAYDREAM_DIR}' exists but is not a daydream checkout (no daydream.js); refusing to install runtime files. Point -DDAYDREAM_DIR at the daydream checkout and re-run cmake.\")")
+    install(CODE "message(FATAL_ERROR \"DAYDREAM_DIR '${DAYDREAM_DIR}' exists but is not a daydream checkout (no src/app/daydream.js); refusing to install runtime files. Point -DDAYDREAM_DIR at the daydream checkout and re-run cmake.\")")
   else()
     message(WARNING
       "DAYDREAM_DIR '${DAYDREAM_DIR}' not found — skipping simulator-module "
