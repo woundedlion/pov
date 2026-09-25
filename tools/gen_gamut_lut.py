@@ -55,10 +55,9 @@ import numpy as np
 # suite's sweep, against that suite's 5e-3 bound:
 #   512x256 0.00132 | 256x128 0.00139 | 128x64 0.00235
 #   128x32  0.00291 | 64x64 0.00347 | 64x32 0.00360 | 32x16 0.00530
-# The deficit is not what binds. From 128x32 down the bracket is wide enough
-# that the four-step walk strides over a disconnected in-gamut interval and
-# lands past the first exit, oversaturating by up to 0.03 chroma. This grid
-# keeps two steps of margin on that, at a quarter of 512x256's flash.
+# This grid avoids stride-over in the color suite's sweep, at a quarter of
+# 512x256's flash. On a few other rays, every resolution can stride over a
+# disconnected in-gamut interval; see GAMUT_LUT_MIN_ANGLE_STEPS in color_space.h.
 ANGLE_STEPS = 256
 L_STEPS = 128
 # 65535 / 0.5: OKLab chroma inside sRGB stays below 0.5, so this spends the full
