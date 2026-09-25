@@ -454,16 +454,19 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
  */
 /**
  * @brief Scrambles every output-affecting global that render_capture() resets.
- * @details Run between the two determinism captures so the second one must
- * RECOVER canonical output from a dirtied process state rather than merely
- * re-run from an identical pristine one. This pins the RNG and timeline resets.
- * Arena splits, the pole-LOD override, and scan metrics are not perturbed here,
- * so their reset paths need separate coverage. A static seeded once and never
- * reset also persists across both runs and stays out of reach.
+ * @details Runs between captures to exercise recovery from dirty process state.
  */
 inline void perturb_determinism_globals() {
-  hs::random().seed(0xC0FFEEu); // off the canonical seed(1337)
-  global_timeline_t = 0x5EED;   // off zero
+  hs::random().seed(0xC0FFEEu);
+  global_timeline_t = 0x5EED;
+  Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT + 0.5f;
+  configure_arenas(DEFAULT_PERSISTENT_SIZE - 32, DEFAULT_SCRATCH_A_SIZE + 16,
+                   DEFAULT_SCRATCH_B_SIZE + 16);
+  for (Arena *arena : {&scratch_arena_a, &scratch_arena_b}) {
+    const size_t bytes = arena->get_capacity();
+    std::memset(arena->allocate(bytes), 0xA5, bytes);
+  }
+  HS_SCAN_METRIC(++hs::g_scan_metrics.pixels_tested);
 }
 
 /** @brief Frames per segment in the clip-clear parity sweep. */
