@@ -158,17 +158,56 @@ async function main(probe) {
       victim.delete();
     } else {
       const entry = { operator: 'sphere.rotate.v2' };
-      Object.defineProperty(entry, 'instance', { get() {
+      Object.defineProperty(entry, 'instance', { enumerable: true, get() {
         victim.delete();
         return 'camera';
       } });
-      let trapped = false;
-      try {
-        victim.setShaderChain([entry]);
-      } catch (error) {
-        trapped = error instanceof WebAssembly.RuntimeError;
+      if (victim.setShaderChain([entry]).code !== 'MALFORMED_PAYLOAD') {
+        fail('shader-chain: deletion from an accessor was not refused');
       }
-      if (!trapped) fail('shader-chain: deletion from an accessor did not trap');
+      victim.setShaderChain([]);
+      victim.delete();
+    }
+  }
+
+  {
+    const engine = new Module.HolosphereEngine();
+    const palette = new Module.PaletteOps();
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    const throwing = { get schemaVersion() { throw new Error('payload accessor'); } };
+    try {
+      for (let attempt = 0; attempt < 4096; ++attempt) {
+        for (const input of [throwing, revoked.proxy]) {
+          if (palette.compileAndBakeV4(input).status.code === 0
+              || palette.inspectV4(input).status.code === 0) {
+            fail('payload clone: malformed palette accepted');
+          }
+        }
+      }
+      if (typeof engine.setShaderChain === 'function') {
+        engine.setEffect('ShaderChain');
+        for (const input of [throwing, revoked.proxy]) {
+          if (engine.setShaderChain(input).code !== 'MALFORMED_PAYLOAD'
+              || engine.setShaderChainParameters(input) !== Module.ParamSetResult.MALFORMED_PAYLOAD) {
+            fail('payload clone: malformed chain accepted');
+          }
+        }
+        engine.setShaderChain([]);
+      }
+      if (typeof engine.restoreFullConfigSnapshot === 'function') {
+        engine.setEffect('Shader');
+        for (const input of [throwing, revoked.proxy]) {
+          if (engine.restoreFullConfigSnapshot(input) !== Module.FullConfigRestoreResult.INVALID_LENGTH) {
+            fail('payload clone: malformed snapshot accepted');
+          }
+        }
+        engine.restoreFullConfigSnapshot(engine.getFullConfigSnapshot());
+      }
+      if (!palette.effectPresetsV4().length) fail('payload clone: palette became unusable');
+    } finally {
+      palette.delete();
+      engine.delete();
     }
   }
 

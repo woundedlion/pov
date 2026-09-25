@@ -417,6 +417,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── arena_metrics.h     Arena metrics report shared by the render and mesh editor bridges
 │       ├── effect_factory.h    Pure per-resolution effect factory + HS_RESOLUTIONS dispatch (host-testable)
 │       ├── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
+│       ├── payload_clone.h     Exception-contained snapshots of caller-owned JS payloads
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
