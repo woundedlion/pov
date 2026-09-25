@@ -758,7 +758,7 @@ public:
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
     const GenerativePalette fixed_axis_palette{
-        EffectPaletteRecipes::raymarch()};
+        EffectPaletteRecipes::hyper_lattice()};
     axis_palette.bake(persistent_arena, fixed_axis_palette);
   }
 
@@ -849,10 +849,10 @@ private:
 
   static void next_depth_palette(void *, uint32_t sequence,
                                  GenerativePalette &out) {
-    static constexpr uint32_t BASE_HUE = 219;
-    static constexpr uint32_t HUE_STEP = 159;
-    out = GenerativePalette{EffectPaletteRecipes::raymarch_at(
-        PaletteRecipes::hue_turns(BASE_HUE + sequence * HUE_STEP))};
+    static constexpr std::array<float, 3> HUE_OFFSETS{0.0f, -8.0f / 360.0f,
+                                                      8.0f / 360.0f};
+    out = GenerativePalette{EffectPaletteRecipes::hyper_lattice(
+        HUE_OFFSETS[sequence % HUE_OFFSETS.size()])};
   }
 
   static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 2.0f;
