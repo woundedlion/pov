@@ -420,11 +420,15 @@ def evaluate(
                 f"over the {cap:,} B ceiling (by {measured['used'] - cap:,} B)."))
         floor = spec.get("free_min_bytes")
         if floor is not None and measured.get("free", 0) < floor:
+            free_label = {
+                "ram1": "free for local variables (stack)",
+                "ram2": "free for malloc/new (heap)",
+                "flash": "free for files",
+            }[region]
             v.append(Violation(
                 "headroom-below-floor",
-                f"{env}: {region.upper()} free-for-local-variables "
-                f"{measured.get('free', 0):,} B is below the {floor:,} B floor "
-                f"(stack headroom squeezed)."))
+                f"{env}: {region.upper()} {free_label} "
+                f"{measured.get('free', 0):,} B is below the {floor:,} B floor."))
         # Per-component ceilings: a component may carry a static max_bytes
         # cap, a stack-floor-derived cap (max_banks_from_stack_floor), or both.
         # A configured component absent from the parsed output is a hard failure
