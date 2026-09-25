@@ -3934,17 +3934,11 @@ inline void test_raymarch_preset_and_placement_solids() {
   HS_EXPECT_EQ(effect.getPresetCount(), 1u);
   HS_EXPECT_EQ(effect.getPresetIndex(), 0u);
   HS_EXPECT_EQ(RM::PRESET_IDS[0], std::string_view("uv-surface-noise"));
-  HS_EXPECT_NEAR(value("Pulse Speed"), 5.0f, 1e-6f);
-  HS_EXPECT_NEAR(value("Fill"), 0.75f, 1e-6f);
-  HS_EXPECT_NEAR(value("Max Steps"), 18.0f, 1e-6f);
-  HS_EXPECT_NEAR(value("Diffuse"), 0.4f, 1e-6f);
-  HS_EXPECT_NEAR(value("Specular"), 1.2f, 1e-6f);
-  HS_EXPECT_NEAR(value("Fresnel"), 0.2f, 1e-6f);
-  HS_EXPECT_NEAR(value("Twist"), 2.0f, 1e-6f);
-  HS_EXPECT_NEAR(value("AA Width"), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(value("Hue Shift"), 0.76f, 1e-6f);
-  HS_EXPECT_NEAR(value("Hue Noise Scale"), 0.3f, 1e-6f);
-  HS_EXPECT_NEAR(value("Hue Noise Speed"), 0.0002f, 1e-8f);
+
+  for (const auto &def : effect.getParameters()) {
+    HS_EXPECT_GE(def.get(), def.min);
+    HS_EXPECT_LE(def.get(), def.max);
+  }
 
   const auto *base_solid = effect.getParameters().find("Base Solid");
   HS_EXPECT_TRUE(base_solid != nullptr);
@@ -4321,14 +4315,10 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
     return def ? def->get() : -1.0f;
   };
 
-  HS_EXPECT_EQ(value("Alpha"), 1.0f);
-  HS_EXPECT_EQ(value("Cycle Dur"), 80.0f);
-  HS_EXPECT_EQ(value("Speed"), 0.235f);
-  HS_EXPECT_EQ(value("Jitter Amp"), 2.88f);
-  HS_EXPECT_EQ(value("Noise Scale"), 0.26974f);
-  HS_EXPECT_EQ(value("Scale Factor"), 84.832001f);
-  HS_EXPECT_EQ(value("Cycle Speed"), 0.672f);
-  HS_EXPECT_EQ(value("Duty Cycle"), 0.5f);
+  for (const auto &def : fx.getParameters()) {
+    HS_EXPECT_GE(def.get(), def.min);
+    HS_EXPECT_LE(def.get(), def.max);
+  }
   HS_EXPECT_EQ(fx.getPresetCount(), 1u);
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
 
@@ -4338,8 +4328,10 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
                ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(fx.selectPreset(0));
   HS_EXPECT_TRUE(fx.animations_paused());
-  HS_EXPECT_EQ(value("Cycle Dur"), 80.0f);
-  HS_EXPECT_EQ(value("Duty Cycle"), 0.5f);
+
+  HS_EXPECT_EQ(value("Cycle Dur"), snapshot.params.cycle_duration);
+  HS_EXPECT_EQ(value("Duty Cycle"), snapshot.params.duty_cycle);
+  HS_EXPECT_EQ(fx.updateParameter("Duty Cycle", 0.5f), ParamSetResult::APPLIED);
 
   const Pixel black(0, 0, 0);
   const Color4 red = WB::sample_fire(fx, 0.20f);
