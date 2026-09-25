@@ -346,7 +346,7 @@ struct Mesh {
    *                        exact only up to 2^24 faces.
    * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
    * @param bake Optional congruence-class bake for this mesh (null = exact
-   *        path everywhere, today's behavior). When present, each face is
+   *        distance path for every face). When present, each face is
    *        aligned to its canonical class shape after construction and the
    *        class distance LUT is bound for the probe loop.
    * @param face_shader_setup Optional callback receiving the face index and
