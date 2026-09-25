@@ -58,8 +58,8 @@ constexpr int DEFAULT_H = 144;
 
 /**
  * @brief Small-aspect render width in pixels.
- * @details <96,20> is a simulator/test resolution, not a hardware target: every
- * PlatformIO env builds 288x144. The native suite is the only place the <96,20>
+ * @details <96,20> is built by the holosphere and holosphere_dma hardware
+ * environments. The native suite is the only place the <96,20>
  * specialization runs under asserts (the device forces NDEBUG; the CI WASM
  * smoke runs assert-free), so a second roster pass at this resolution exercises
  * height-20-specific paths (PhiLUT<20> indexing, small-aspect arena sizing,
