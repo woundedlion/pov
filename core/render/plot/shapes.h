@@ -213,10 +213,7 @@ struct Line {
  *  v1: Cumulative Arc Length (radians) — geodesic chord-polygon length
  *  v2: Vertex Index
  * @note v0/v1 accumulate the GEODESIC distance between consecutive control
- *       points (the rendered arc under Multiline's geodesic edges). With a
- *       `planar_basis` the rasterizer re-derives v0/v1 from the longer
- *       azimuthal-equidistant arc, so the registers track the rendered position
- *       either way.
+ *       points (the rendered arc under Multiline's geodesic edges).
  */
 struct Multiline {
   /**
