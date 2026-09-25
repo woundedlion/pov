@@ -124,3 +124,41 @@ test('asserts once', () => { strictEqual(1, 1); });
     rmSync(fixtureDir, { recursive: true, force: true });
   }
 });
+
+test('runner counts nested empty cases independently', () => {
+  mkdirSync(FIXTURE_ROOT, { recursive: true });
+  const fixtureDir = mkdtempSync(join(FIXTURE_ROOT, 'run-tests-fixture-'));
+  try {
+    const fixture = join(fixtureDir, 'nested.test.mjs');
+    writeFileSync(
+      fixture,
+      `import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+test('parent', async (t) => {
+  await t.test('asserts', () => assert.ok(1));
+  await t.test('empty', () => {});
+});
+`,
+      'utf8',
+    );
+    const path = relative(ROOT, fixture).replaceAll('\\', '/');
+    const run = spawnSync(process.execPath, ['scripts/run_tests.mjs', path], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        // Nested runners install their own assertion/module preload.
+        NODE_OPTIONS: '',
+        NODE_TEST_CONTEXT: undefined,
+        HS_ASSERTION_COUNTS: undefined,
+      },
+    });
+
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    assert.match(run.stderr, /test cases with no assertions ran in/);
+    assert.match(run.stderr, /nested\.test\.mjs \(1 cases\)/);
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
