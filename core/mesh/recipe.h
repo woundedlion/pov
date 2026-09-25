@@ -325,8 +325,10 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
  *   (a one-step BEVEL lowers to two steps). A zero `count` returns the seed,
  *   in whichever arena its generator left it.
  */
-FLASHMEM static PolyMesh build_steps(uint8_t seed, const OpStep *steps,
-                                     size_t count, Arena &a, Arena &b) {
+[[maybe_unused]] FLASHMEM static PolyMesh build_steps(uint8_t seed,
+                                                      const OpStep *steps,
+                                                      size_t count, Arena &a,
+                                                      Arena &b) {
   HS_CHECK(seed < std::size(simple_registry),
            "build_steps: seed outside simple_registry");
   SolidBuilder builder(simple_registry[seed].generate(a, b), a, b);
