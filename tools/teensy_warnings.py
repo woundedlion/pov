@@ -53,7 +53,7 @@ THIRD_PARTY = ("lib/", "libdeps/", ".platformio/", "packages/")
 # gcc: "<path>:<line>[:<col>]: warning: <message> [-Wflag]"
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 _FILELESS_WARNING_RE = re.compile(
-    r"^(<command-line>|cc1plus|ld):\s*warning:\s*(.*)$")
+    r"^(<command-line>|(?:\S*[/\\])?(?:cc1plus|ld)(?:\.exe)?):\s*warning:\s*(.*)$")
 
 # PlatformIO's non-verbose step line: "Compiling <object>". `pio run -v` prints
 # the raw compiler command instead, and never these.
@@ -118,7 +118,8 @@ def normalize(line: str) -> str | None:
     if not m:
         m = _FILELESS_WARNING_RE.match(stripped)
         if m:
-            return f"{m.group(1)}: warning: {m.group(2)}".rstrip()
+            tool = m.group(1).replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".exe")
+            return f"{tool}: warning: {m.group(2)}".rstrip()
         return None
     rel = _relativize(m.group(1))
     if rel is None:
