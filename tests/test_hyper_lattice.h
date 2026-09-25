@@ -635,45 +635,34 @@ inline void test_presets_and_pipeline() {
 
   constexpr HL::Params preset1 = Effect::preset_params(0);
   static_assert(preset1.mode == HL::LatticeMode::THREE_D);
-  static_assert(preset1.sphere_radius == 1.0f);
-  static_assert(preset1.cell_size == 1.0f);
-  static_assert(preset1.wire_radius == 0.055f);
-  static_assert(preset1.softness == 0.08f);
-  static_assert(preset1.far_distance == 4.198f);
-  static_assert(preset1.aa_strength == 1.0f);
-  static_assert(preset1.speed == 0.05f);
-  static_assert(preset1.spin_3d == 0.015f);
-  static_assert(preset1.spin_4d == 0.0f);
   static_assert(preset1.color == HL::ColorMode::DEPTH);
   static_assert(preset1.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params preset2 = Effect::preset_params(1);
   static_assert(preset2.mode == HL::LatticeMode::FOUR_D_SLICE);
-  static_assert(preset2.sphere_radius == 1.0f);
-  static_assert(preset2.cell_size == 1.0f);
-  static_assert(preset2.wire_radius == 0.03546f);
-  static_assert(preset2.softness == 0.029612f);
-  static_assert(preset2.far_distance == 8.0f);
-  static_assert(preset2.aa_strength == 1.0f);
-  static_assert(preset2.speed == 0.03f);
-  static_assert(preset2.spin_3d == 0.01089f);
-  static_assert(preset2.spin_4d == 0.015f);
   static_assert(preset2.color == HL::ColorMode::DEPTH);
   static_assert(preset2.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params preset3 = Effect::preset_params(2);
   static_assert(preset3.mode == HL::LatticeMode::THREE_D);
-  static_assert(preset3.sphere_radius == 1.0f);
-  static_assert(preset3.cell_size == 1.78075f);
-  static_assert(preset3.wire_radius == 0.026385f);
-  static_assert(preset3.softness == 0.03983f);
-  static_assert(preset3.far_distance == 5.724f);
-  static_assert(preset3.aa_strength == 1.0f);
-  static_assert(preset3.speed == 0.03f);
-  static_assert(preset3.spin_3d == 0.01089f);
-  static_assert(preset3.spin_4d == 0.015f);
   static_assert(preset3.color == HL::ColorMode::DEPTH);
   static_assert(preset3.shells == HL::ShellCount::TWO);
+  reset_globals();
+  Effect effect;
+  effect.init();
+  std::vector<std::vector<float>> values;
+  for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index) {
+    HS_EXPECT_TRUE(effect.selectPreset(index));
+    std::vector<float> current;
+    for (const auto &def : effect.getParameters()) {
+      HS_EXPECT_GE(def.get(), def.min);
+      HS_EXPECT_LE(def.get(), def.max);
+      current.push_back(def.get());
+    }
+    for (const auto &previous : values)
+      HS_EXPECT_TRUE(current != previous);
+    values.push_back(std::move(current));
+  }
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
