@@ -515,8 +515,8 @@ stage, but it shall add no data and no alternate rendering code. Core may
 provide a generic decorator for this pattern only if it remains independent of
 the key type; it is not required by this revision.
 
-ShaderWorkbench's cross-stage rule that unconditional Peirce edge distance requires
-edge-fade coverage moves to `Binding::ExtraValidation`. Coverage enums and
+ShaderWorkbench's cross-stage rule that edge-fade coverage requires a projection
+exporting edge distance is expressed in `Binding::ExtraValidation`. Coverage enums and
 topology rules do not enter the pipeline coordinator.
 
 ## 7. State providers and instrumentation
