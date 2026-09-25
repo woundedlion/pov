@@ -329,20 +329,24 @@ inline void test_fast_cbrt6() {
 
 /**
  * @brief Verifies fast_expf anchors, the large-magnitude saturation to 0, and
- *        the documented ~7.4e-4 peak relative error over the x<=0 domain.
+ *        the documented full-function relative error over the x<=0 domain.
  */
 inline void test_fast_expf() {
   HS_EXPECT_NEAR(math::fast_expf(0.0f), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(math::fast_expf(-1.0f), std::exp(-1.0f), 7.5e-4f);
+  HS_EXPECT_NEAR(math::fast_expf(-1.0f), std::exp(-1.0f), 6e-6f);
   HS_EXPECT_NEAR(math::fast_expf(-10.0f), std::exp(-10.0f),
-                 7.5e-4f * std::exp(-10.0f));
+                 6e-6f * std::exp(-10.0f));
 
   for (int i = 0; i <= 512; ++i) {
     float x = -30.0f + (30.0f * i) / 512.0f;
     float ref = std::exp(x);
     float rel = std::abs(math::fast_expf(x) - ref) / ref;
-    HS_EXPECT_TRUE(rel <= 7.5e-4f);
+    HS_EXPECT_TRUE(rel <= 6e-6f);
   }
+
+  const float BOUNDARY = -std::log(2.0f);
+  HS_EXPECT_NEAR(math::fast_expf(std::nextafter(BOUNDARY, -INFINITY)),
+                 math::fast_expf(std::nextafter(BOUNDARY, INFINITY)), 2e-7f);
 
   HS_EXPECT_GT(math::fast_expf(-87.0f), 0.0f);
   HS_EXPECT_EQ(math::fast_expf(-88.0f), 0.0f);
