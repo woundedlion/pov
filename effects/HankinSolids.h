@@ -411,8 +411,8 @@ private:
    * mirror of the strap close: at mid-sweep the star closes to nothing and the
    * rosettes fill its place, so it dissolves into their rim and comes back out
    * of it as it reopens, rather than winking out in its own color.
-   * @details All three are 1.0 (no-op) through mid-cycle and the opening and
-   * closing windows are disjoint. At either angle-0 bookend the straps are
+   * @details Strap opening and closing windows are disjoint. Star closing
+   * blends act around mid-cycle. At either angle-0 bookend the straps are
    * zero-area, so a 0 changes no pixels and the star-face bookend stays
    * bitwise exact. When the LUT sets match and no shaping is active, the
    * shader skips the per-fragment role select.
