@@ -15,9 +15,7 @@
  * cover them; instead the bookkeeping they key on is exercised in-process here:
  * the bound flag through the construct/bind/move lifecycle
  * (test_arenavec_default_unbound / _bind / _move_construct / _move_assign), and
- * the use-after-free generation snapshot via test_arenavec_stale_binding_after_reset
- * (an arena reset marks a live binding stale; rebinding it is then a debug
- * contract trap). A re-bind that grows is a supported pattern (it abandons the
+ * the reset and rewind stamps via test_arenavec_stale_binding_after_reset. A re-bind that grows is a supported pattern (it abandons the
  * old block until the next arena reset — see ArenaVector::bind), covered by
  * test_arenavec_rebind_grows. Move-assignment onto a bound handle abandons a
  * block the same way and accounts the bytes for the arena's OOM report, covered
@@ -852,30 +850,21 @@ inline void test_arenavec_rebind_grows() {
   HS_EXPECT_EQ(arena_vector_abandon_count(), count_before + 1);
 }
 
-/**
- * @brief Verifies the use-after-free precondition: an arena reset bumps the
- *        generation the vector snapshotted at bind(), marking its block dead.
- * @details Rebinding a still-bound vector to a reset (or different) arena is a
- *          contract violation that bind() asserts on in debug; release trusts
- *          the contract since generation tracking is debug-only. Callers must
- *          clear/reconstruct the handle before resetting the arena (the Persist
- *          tests below do exactly this). This test only pins the generation-bump
- *          that the bind() assert and check_alive() key on — it does not trip
- *          the assert itself (which lowers to abort, not a death-case trap).
- *          Gated `#ifndef NDEBUG` like the contract it covers; the canonical
- *          Debug `tests` preset runs it, a Release/NDEBUG test build skips it.
- */
+/** @brief Pins the block stamp's reset and rewind lifetime checks. */
 #ifndef NDEBUG
 inline void test_arenavec_stale_binding_after_reset() {
   Arena a(test_buf_a, sizeof(test_buf_a));
-  ArenaVector<int> v(a, 16);
-  v.push_back(123);
-  uint32_t gen_before = a.get_generation();
-
-  a.reset(); // generation bumps -> v's binding is now stale
-  HS_EXPECT_TRUE(a.get_generation() != gen_before);
-  // Calling v.bind(a, ...) here would now (correctly) trip the stale-binding
-  // contract assert in bind(), so it is not exercised in-process.
+  ArenaBlockStamp stamp;
+  stamp.record(a);
+  HS_EXPECT_FALSE(stamp.arena_reset());
+  a.reset();
+  HS_EXPECT_TRUE(stamp.arena_reset());
+  stamp.record(a);
+  HS_EXPECT_FALSE(stamp.arena_reset());
+  void *block = a.allocate(64);
+  HS_EXPECT_FALSE(stamp.block_uncovered(block, 64));
+  a.set_offset(0);
+  HS_EXPECT_TRUE(stamp.block_uncovered(block, 64));
 }
 #endif
 
