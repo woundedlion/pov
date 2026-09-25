@@ -192,7 +192,7 @@ srgb-decode-check:
     cmake --preset tests
     cmake --build --preset tests --target srgb_decode_gen
     cmake -E make_directory build/provenance
-    build/tests/tests/srgb_decode_gen build/provenance/srgb_decode_lut.h
+    cmake -E chdir build/tests/tests ./srgb_decode_gen ../../provenance/srgb_decode_lut.h
     cmake -E compare_files core/color/srgb_decode_lut.h build/provenance/srgb_decode_lut.h
 
 # Validate promoted shader document provenance.
