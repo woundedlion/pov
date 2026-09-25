@@ -48,7 +48,7 @@ projection_frame_topology(const Extra &...extra) {
 
 /** @brief Parameter family of the projection operators.
     @details `singularity-fade` is read by projections with a singular locus; it is
-    inert for folded sinusoidal, Bonne, and Airocean. */
+    omitted for folded sinusoidal, Bonne, and Airocean. */
 struct ProjectChainParams {
   uint8_t frame = static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER);
   float singularity_fade = 1.0f;
