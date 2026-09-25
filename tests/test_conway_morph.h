@@ -255,6 +255,15 @@ inline void check_pairwise_vertex_cover(const PolyMesh &got,
   }
 }
 
+/** Corner-match radius at a truncate's T_EPS end, where each seed corner has
+ * split into two cut vertices. Above the widest T_EPS cut on the registry
+ * seeds and far below their closest corner spacing, so a match cannot alias
+ * onto a neighbouring corner. */
+constexpr float PRIMARY_CORNER_TOL_TRUNCATE = 0.08f;
+/** Same radius for the expand/snub/chamfer eps ends, whose single corner per
+ * source moves less. */
+constexpr float PRIMARY_CORNER_TOL_SINGLE = 0.06f;
+
 /**
  * @brief Verifies the output's primary faces (emitted first, in source-face
  *        order) geometrically match the seed's faces.
@@ -267,15 +276,6 @@ inline void check_pairwise_vertex_cover(const PolyMesh &got,
  *          with exactly corners_per_source of them within tol of each seed
  *          corner — pinning emission order, side counts, and geometry at once.
  */
-/** Corner-match radius at a truncate's T_EPS end, where each seed corner has
- * split into two cut vertices. Above the widest T_EPS cut on the registry
- * seeds and far below their closest corner spacing, so a match cannot alias
- * onto a neighbouring corner. */
-constexpr float PRIMARY_CORNER_TOL_TRUNCATE = 0.08f;
-/** Same radius for the expand/snub/chamfer eps ends, whose single corner per
- * source moves less. */
-constexpr float PRIMARY_CORNER_TOL_SINGLE = 0.06f;
-
 inline void check_primary_faces_match_seed(const PolyMesh &seed,
                                            const PolyMesh &out,
                                            int corners_per_source, float tol) {
@@ -2525,7 +2525,7 @@ inline double medial_total_solid_angle(const PolyMesh &m) {
   return total;
 }
 
-/** @brief Smallest spherical-triangle-fan area over all faces. */
+/** @brief Smallest planar triangle-fan area over all faces. */
 inline double medial_min_face_area(const PolyMesh &m) {
   double mn = 1e9;
   size_t off = 0;
@@ -2576,8 +2576,8 @@ inline int medial_inverted_faces(const PolyMesh &m) {
  */
 inline void test_medial_dual_bridge_wellformed() {
   constexpr int SAMPLES = 33;
-  // Below any real medial face; snub-derived seeds bottom out ~4e-2, all such
-  // minima at the endpoints (never manufactured mid-slerp).
+  // Registry minima: icosahedron_kis_gyro 3.83e-3;
+  // icosidodecahedron_truncate5d_ambo_dual 1.22e-3.
   constexpr double MIN_FACE_AREA = 1e-3;
   // Well clear of an antipodal/coincident slerp singularity.
   constexpr float MIN_ENDPOINT_DOT = 0.9f;

@@ -443,16 +443,6 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
 }
 
 /**
- * @brief Cross-run determinism test: renders an effect twice and requires byte-identical frames.
- * @tparam E Effect class template, instantiated as E<W, H>.
- * @tparam W Render width in pixels (defaults to DEFAULT_W).
- * @tparam H Render height in pixels (defaults to DEFAULT_H).
- * @param name Effect name used in the NONDETERMINISTIC diagnostic output.
- * @details The clock seam neutralizes wall-time, so a divergence here is real
- * nondeterminism (uninitialized read, stale global, address-dependent path) —
- * the defect class smoke coverage cannot see.
- */
-/**
  * @brief Scrambles every output-affecting global that render_capture() resets.
  * @details Runs between captures to exercise recovery from dirty process state.
  */
@@ -474,6 +464,16 @@ constexpr int PARITY_FRAMES = 16;
 /** @brief Arm segments walked by the clip-clear parity sweep. */
 constexpr int PARITY_SEGMENTS = 4;
 
+/**
+ * @brief Cross-run determinism test: renders an effect twice and requires byte-identical frames.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels (defaults to DEFAULT_W).
+ * @tparam H Render height in pixels (defaults to DEFAULT_H).
+ * @param name Effect name used in the NONDETERMINISTIC diagnostic output.
+ * @details The clock seam neutralizes wall-time, so a divergence here is real
+ * nondeterminism (uninitialized read, stale global, address-dependent path) —
+ * the defect class smoke coverage cannot see.
+ */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
   const int window = smoke_frames();
