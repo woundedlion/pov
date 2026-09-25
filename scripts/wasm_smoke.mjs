@@ -162,11 +162,15 @@ async function main(probe) {
         victim.delete();
         return 'camera';
       } });
-      if (victim.setShaderChain([entry]).code !== 'MALFORMED_PAYLOAD') {
-        fail('shader-chain: deletion from an accessor was not refused');
+      let trapped = false;
+      try {
+        victim.setShaderChain([entry]);
+      } catch (error) {
+        trapped = error instanceof WebAssembly.RuntimeError;
       }
-      victim.setShaderChain([]);
-      victim.delete();
+      if (!trapped || !isolated.HS_MODULE_DEAD) {
+        fail('shader-chain: accessor deletion did not propagate the module trap');
+      }
     }
   }
 

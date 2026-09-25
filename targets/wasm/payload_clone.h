@@ -12,7 +12,7 @@ EM_JS(emscripten::EM_VAL, clone_payload_handle, (emscripten::EM_VAL input), {
   try {
     return Emval.toHandle(structuredClone(Emval.toValue(input)));
   } catch (error) {
-    if (ABORT) throw error;
+    if (ABORT || Module['HS_MODULE_DEAD'] || error instanceof WebAssembly.RuntimeError) throw error;
     return Emval.toHandle(null);
   }
 });
