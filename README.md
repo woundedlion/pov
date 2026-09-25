@@ -199,7 +199,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 Run `just docs-sync` to refresh repository maps and source-derived counts. Existing descriptions are preserved; new paths need an author-written description. `just docs-check` validates without editing files. Documentation changes are separate from CMake and PlatformIO builds. Sibling checks use the pinned Daydream revision and fail when it is unavailable.
 
-The same step runs with `just docs-check` and before `just docs` publishes the API reference. Generated changes remain reviewable in `git diff`; prose outside the maps is preserved, apart from source-derived roster counts. Fence balance, links, anchors, path references, and the complete generated maps are still validated.
+Validation also runs with `just docs-check` and before `just docs` publishes the API reference; only `just docs-sync` refreshes the maps and counts. Generated changes remain reviewable in `git diff`; prose outside the maps is preserved, apart from source-derived roster counts. Fence balance, links, anchors, path references, and the complete generated maps are still validated.
 
 ### Holosphere (engine + firmware)
 
