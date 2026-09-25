@@ -164,7 +164,7 @@ private:
 public:
   /**
    * @brief Check if this parameter targets a bool.
-   * @return True if the target is a bool pointer, false if a float pointer.
+   * @return True for a bool target; false for float and integer targets.
    */
   bool is_bool() const { return target_type == TargetType::BOOL; }
 

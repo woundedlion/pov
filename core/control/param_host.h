@@ -431,7 +431,7 @@ protected:
     HS_CHECK(min <= max,
              "register_int_param: min must be <= max name=%s min=%d max=%d",
              name, min, max);
-    // set() narrows through static_cast<Integer>(float), which is UB outside
+    // write_unchecked() narrows through static_cast<Integer>(float), UB outside
     // the target's range.
     const bool range_fits =
         static_cast<int64_t>(min) >=
