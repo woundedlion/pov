@@ -196,7 +196,7 @@ test('a palette image reports its dimensions once PLTE is present', () => {
   assert.deepEqual(inspectPng(png), { width: 4, height: 2 });
 });
 
-test('every committed gallery PNG decodes at the stored size', async () => {
+test('sample committed gallery PNGs decode at the stored size', async () => {
   for (const effect of ['IslamicStars', 'Thrusters', 'Voronoi']) {
     const file = join(REPO_ROOT, 'docs', 'screenshots', `${effect}.png`);
     assert.deepEqual(inspectPng(await readFile(file)),
