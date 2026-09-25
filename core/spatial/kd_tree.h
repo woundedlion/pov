@@ -177,12 +177,23 @@ public:
 
     search_k(root_index, target, offer_candidate, get_worst_dist);
 
-    // Total order (distance, then source index): std::sort is unstable, so
-    // equidistant neighbors would otherwise come back in an unspecified order.
-    std::sort(best, best + count, [](const Neighbor &a, const Neighbor &b) {
+    const auto before = [](const Neighbor &a, const Neighbor &b) {
       return a.d_sq != b.d_sq ? a.d_sq < b.d_sq
                               : a.original_index < b.original_index;
-    });
+    };
+    if constexpr (MAX_K <= 16) {
+      for (size_t i = 1; i < count; ++i) {
+        const Neighbor value = best[i];
+        size_t j = i;
+        while (j > 0 && before(value, best[j - 1])) {
+          best[j] = best[j - 1];
+          --j;
+        }
+        best[j] = value;
+      }
+    } else {
+      std::sort(best, best + count, before);
+    }
     for (size_t i = 0; i < count; ++i)
       result.push_back(best[i]);
     return result;
