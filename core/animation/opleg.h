@@ -174,7 +174,7 @@ public:
   /** Slerp-fraction floor for a hankin leg's opening frame: at fraction 0 every
    * rosette face has exactly zero area, so the floor lifts them past
    * MeshOps::compile's degenerate-face drop (which would move the compiled face
-   * count mid-leg). Measured sufficient for every Phase-1 leg. */
+   * count mid-leg). */
   static constexpr float K_EPS = 0.005f;
 
   /** Default trailing blend window: frames over which a trailing-blend leg's
@@ -232,7 +232,7 @@ public:
   };
 
   /**
-   * @brief Palette provenance of the departed node (spec sections 2.5/2.6).
+   * @brief Palette provenance of the departed node (docs/specs/conway_morph_spec.md, sections 2.5/2.6).
    * @details prev_face_palette describes the node base mesh the leg departs
    * from, in emission order; consumed by the constructor only. When
    * prev_face_centroid is supplied, the mapping is geometric (see
@@ -252,7 +252,7 @@ public:
   };
 
   /**
-   * @brief Bookend grouping of the arrival node (spec sections 2.5/2.6).
+   * @brief Bookend grouping of the arrival node (docs/specs/conway_morph_spec.md, sections 2.5/2.6).
    * @details topology[f] is the class the effect displays arrival face f
    * with at the closing bookend (the hankin star-face classification of the
    * arrival base mesh, which can be coarser than both the swept and the
@@ -601,7 +601,7 @@ public:
   /**
    * @brief Constructs the Conway-dual bridge's medial leg: builds the shared
    * rectified connectivity of P and slerps every vertex from ambo(P) to
-   * ambo(dual(P)) at a fixed emission order (docs conway dual morph, leg 2).
+   * ambo(dual(P)) at a fixed emission order (docs/specs/opchain_morph_spec.md, dual bridge leg 2).
    * @param seed Mesh whose dual bridge this leg spans; its medial is built here.
    * @param spec Slerp frame count.
    * @param arena Leg arena backing the medial connectivity and both
@@ -942,7 +942,7 @@ public:
   }
 
   /**
-   * @brief Mid-leg crossfade weight (spec 2.6), the swept ctors' default:
+   * @brief Mid-leg crossfade weight (conway_morph_spec.md, section 2.6), the swept ctors' default:
    * exactly 0 through the first 20% of the leg, smoothstep to exactly 1 by
    * 80%.
    * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
@@ -1792,8 +1792,8 @@ private:
   }
 
   /**
-   * @brief Builds the per-face from-palettes (leg-swap mapping, spec 2.5), the
-   * shuffled target assignment (spec 2.6), and the distinct ramp-pair table.
+   * @brief Builds the per-face from-palettes (conway_morph_spec.md, section 2.5), the
+   * shuffled target assignment (conway_morph_spec.md, section 2.6), and the distinct ramp-pair table.
    * @param tr Leg transients being populated.
    * @param arrival Classified arrival mesh (for face counts).
    * @param handoff Departed-node provenance.
@@ -1813,7 +1813,7 @@ private:
    * full-correspondence departure (prev_faces == total: 0.5-end swaps, dual
    * swaps, regenerated seeds) every face maps by nearest departed centroid —
    * a checked bijection that assumes nothing about emission order and keeps
-   * per-side-count class splits, both of which the legacy mappings break. On
+   * per-side-count class splits. On
    * a node-prefix departure (prev_faces == survivors) the prefix keeps the
    * exact emission identity, and each newborn class inherits its first face's
    * nearest departed palette, so T_EPS-wide births open in the underlying
@@ -1862,8 +1862,7 @@ private:
       prev_used = scratch_arena_a.allocate_n<bool>(handoff.prev_faces);
       std::fill_n(prev_used, handoff.prev_faces, false);
     }
-    // Newborn classes inherit one representative from-palette (first face of
-    // the class), keeping the distinct-pair count at the legacy bound.
+    // Newborn classes share the from-palette of their first face.
     int newborn_from[PALETTES];
     for (int i = 0; i < PALETTES; ++i)
       newborn_from[i] = -1;
