@@ -2,11 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Roster-wide effect sweeps: smoke, cross-run determinism, clip-clear parity.
+ * Roster-wide effect sweeps: smoke, cross-run determinism, clip-clear parity
+ * and paused rendering.
  *
- * Separate from the effects module because these three passes carry no IEEE
- * reference value — every assertion compares two renders produced by the SAME
- * binary, so the float configuration cancels. That makes this the one effects
+ * These passes use no fixed IEEE reference values. Assertions are same-binary
+ * comparisons or coarse properties (lit, moving, aliased). This is the effects
  * coverage the -ffast-math -fno-finite-math-only axis can run, which is the flag
  * pair both shipping targets build with (platformio.ini, CMakeLists.txt). The
  * white-box block in tests/test_effects.h checks against fixed references and
