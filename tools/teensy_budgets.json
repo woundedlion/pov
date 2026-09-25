@@ -9,8 +9,7 @@
   // Holosphere keeps the bench-parity -O3 configuration. Phantasm uses -Os,
   // newlib-nano, a flash-routing linker script, and the measured 298 KiB arena;
   // it uses 510,368 B of RAM1 (variables 313,760 + code 193,496 rounded up to a
-  // whole 32 KiB FlexRAM bank, 196,608) with 13,920 B free for locals — the
-  // measured ITCM promotions are listed in docs/ledgers/itcm_ledger.md.
+  // whole 32 KiB FlexRAM bank, 196,608) with 13,920 B free for locals.
   // These figures move with every code
   // landing AND with the pinned toolchain; re-measure rather than trusting them
   // verbatim. Holosphere RAM2 is 44,160 B (its framebuffers are sized to the

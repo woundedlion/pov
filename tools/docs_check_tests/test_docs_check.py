@@ -752,27 +752,18 @@ class TestDocumentationChecker(unittest.TestCase):
                 f"effects across the {sync}-entry roster.\n")
 
     @staticmethod
-    def _ledger_prose(products, phantasm):
-        return (f"Its {products} fixed-pipeline products are all in the "
-                f"playlist. The budget covers the {phantasm}-effect "
-                f"phantasm roster.")
-
-    @staticmethod
     def _effects_prose(products, descriptors):
         return (f"These {products} effects form the product-only group. "
                 f"Firmware exposes the {descriptors} promoted fixed "
                 "descriptors.")
 
     _SPEC = PurePosixPath("docs/specs/phantasm_frame_sync_spec.md")
-    _LEDGER = PurePosixPath("docs/ledgers/itcm_ledger.md")
     _EFFECTS = PurePosixPath("docs/effects.md")
 
-    def _roster_issues(self, prose, ledger=None, effects=None):
+    def _roster_issues(self, prose, effects=None):
         header = self._PLAYLIST_HEADER
         return dc.roster_claim_issues(
             {PurePosixPath("README.md"): prose, self._SPEC: prose,
-             self._LEDGER: self._ledger_prose(2, 2) if ledger is None
-             else ledger,
              self._EFFECTS: self._effects_prose(2, 2) if effects is None
              else effects},
             dc.effect_roster(header), dc.phantasm_roster(header),
@@ -801,22 +792,10 @@ class TestDocumentationChecker(unittest.TestCase):
 
     def test_deleted_roster_prose_is_reported(self):
         messages = [issue.message
-                    for issue in self._roster_issues("none", "none", "none")]
-        self.assertEqual(len(messages), 8)
+                    for issue in self._roster_issues("none", "none")]
+        self.assertEqual(len(messages), 6)
         self.assertTrue(all("goes unchecked" in message
                             for message in messages))
-
-    def test_ledger_cardinalities_are_checked_against_the_macros(self):
-        issues = self._roster_issues(self._roster_prose(2, 2, 2),
-                                     self._ledger_prose(5, 7))
-        messages = [issue.message for issue in issues]
-        self.assertEqual(len(messages), 2)
-        self.assertTrue(all(issue.path == self._LEDGER.as_posix()
-                            for issue in issues))
-        self.assertIn("stated as 5, HS_SHADER_PRODUCT_GROUP names 2",
-                      messages[0])
-        self.assertIn("stated as 7, HS_PHANTASM_EFFECT_LIST names 2",
-                      messages[1])
 
     def test_spelled_out_cardinalities_are_read(self):
         self.assertEqual(self._roster_issues(

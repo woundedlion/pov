@@ -57,7 +57,7 @@ For cyclers, each row summarizes the parser-owned preset, shape, or mode entries
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
 - **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
-- **IslamicStars**: 23 shape ownership buckets including transitions; setup frame 1 excluded. The unlanded finding 2 candidate completes the full cycle. See its linked report for the controlled baseline comparison.
+- **IslamicStars**: 23 shape ownership buckets including transitions; setup frame 1 excluded. The unlanded finding 2 candidate completes the full cycle. The controlled baseline comparison is no longer retained.
 - **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
 - **ShapeShifter**: 10 parser ownership buckets spanning 9.86–58.13 ms; the sequence closes back to its first entry.
 - **HyperLattice**: 4 parser ownership buckets spanning 41.77–51.19 ms; the sequence closes back to its first entry.
@@ -74,5 +74,5 @@ Spill fractions include the transition following an entry and are stricter than 
 - **MobiusGrid**: 3 parser ownership buckets spanning 21.73–22.37 ms; the sequence closes back to its first entry.
 - **SphericalHarmonics**: 24 parser ownership buckets spanning 8.05–12.64 ms; the sequence closes back to its first entry.
 
-Retired-effect captures live in [`../retired/`](../retired/). Shipping reports
-in this directory correspond exactly to `HS_PHANTASM_EFFECT_LIST`.
+Shipping reports in this directory correspond exactly to
+`HS_PHANTASM_EFFECT_LIST`.

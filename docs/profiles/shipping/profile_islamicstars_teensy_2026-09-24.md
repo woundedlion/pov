@@ -2,7 +2,7 @@
 
 Point-in-time snapshot (regenerate with the Harness command below). Unlanded finding 2 candidate. Runtime excludes setup frame 1.
 
-[Finding 2 baseline/candidate comparison](../review20260924finding2/comparison.md).
+The finding 2 baseline/candidate comparison and raw capture archive are no longer retained.
 
 ## Setup
 
@@ -17,7 +17,7 @@ Point-in-time snapshot (regenerate with the Harness command below). Unlanded fin
 | Ranges | Runtime frames 2–3328; scopes/ISR windows 17–3328 |
 | Captured | 2026-09-24 11:01 PDT |
 
-Raw capture: [raw capture](../review20260924finding2/data/review125_after_ship.log.txt). Replaces the 2026-09-20 snapshot in the standard candidate report locations; the matched baseline is retained with this experiment.
+Raw capture: `review125_after_ship.log.txt` (archive removed). Replaces the 2026-09-20 snapshot in the standard candidate report locations; the matched baseline archive has been removed.
 
 Image size:
 
@@ -47,7 +47,7 @@ Both profile and Phantasm ELF SHA256 values were verified against preserved arti
 
 frames 2577–2592: 600,769,606 cycles ÷ 600 = 1001282.677 µs vs wall sum 1,001,283 µs, 0.323 ppm. All closed-window frame rows are contiguous and complete.
 
-Source: `fa92838f9`; log: [raw capture](../review20260924finding2/data/review125_after_ship.log.txt).
+Source: `fa92838f9`; log: `review125_after_ship.log.txt` (archive removed).
 Capture SHA256: `54a178e36fe3c9999b4f0b8070a58b5124acb7df6e1eef237438a6fd654854a3`.
 
 Teensy 4.0, 600 MHz, segmented 288×144, four segments, 480 RPM, TS=4.
