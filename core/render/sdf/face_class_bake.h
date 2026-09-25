@@ -36,7 +36,7 @@
  */
 namespace MeshOps {
 
-/** Procrustes RMS residual (pixels) under which two faces are congruent. */
+/** Coarse Procrustes RMS prefilter; runtime-bind deviation also gates admission. */
 inline constexpr float CONGRUENCE_EPS_PX = 0.25f;
 /** Target LUT cell diagonal in pixels: the sign-unsafe fallback band is one
  *  cell diagonal, so this pins it to a small fraction of a pixel. */
@@ -103,7 +103,8 @@ inline bool polygon_is_concave(const float *xy, int count) {
  *        persistent arena must provision lut_bytes + aux_bytes.
  * @details Greedy clustering seeded per topology class: a face joins the
  * best-matching class when its canonical polygon aligns (over cyclic offset x
- * reflection x optimal rotation) within CONGRUENCE_EPS_PX RMS, else founds a
+ * reflection x optimal rotation) within CONGRUENCE_EPS_PX RMS and the runtime
+ * bind deviation cap at the finest allowed LUT grid, else founds a
  * new class from its own centered projection. Gnomonic projection about each
  * face's own centroid is position-covariant, so the clustering is valid for
  * any mesh orientation and is baked once per spawn.
@@ -199,6 +200,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     int best_class = -1, best_off = 0;
     bool best_refl = false;
     float best_res_sq = FLT_MAX;
+    SDF::AlignCorr best_alignment{};
     for (size_t c = 0; c < out.classes.size(); ++c) {
       const CongruenceClass &cls = out.classes[c];
       if (cls.topo_id != topo || cls.n_verts != count)
@@ -219,12 +221,52 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
             best_class = static_cast<int>(c);
             best_off = off;
             best_refl = refl != 0;
+            best_alignment = a;
           }
         }
       }
     }
 
+    bool bindable = false;
     if (best_class >= 0 && best_res_sq <= eps_plane * eps_plane * count) {
+      const float *canon = out.classes[best_class].canon_xy;
+      const float r2 = best_alignment.rr * best_alignment.rr +
+                       best_alignment.ri * best_alignment.ri;
+      if (r2 > SDF::ALIGN_MIN_CORR_SQ * best_alignment.cc * best_alignment.zz) {
+        const float inv_r = 1.0f / sqrtf(r2);
+        const float c = best_alignment.rr * inv_r,
+                    s = best_alignment.ri * inv_r;
+        float max_dev_sq = 0.0f;
+        float min_x = FLT_MAX, max_x = -FLT_MAX, min_y = FLT_MAX,
+              max_y = -FLT_MAX;
+        SDF::align_walk(
+            count, best_off, best_refl,
+            [&](int j, float &x, float &y) {
+              x = zx[j];
+              y = zy[j];
+            },
+            [&](int k, float x, float y) {
+              const float cx = canon[2 * k], cy = canon[2 * k + 1];
+              const float dx = cx - (c * x - s * y), dy = cy - (s * x + c * y);
+              max_dev_sq = std::max(max_dev_sq, dx * dx + dy * dy);
+              min_x = std::min(min_x, cx);
+              max_x = std::max(max_x, cx);
+              min_y = std::min(min_y, cy);
+              max_y = std::max(max_y, cy);
+            });
+        const float rx =
+            std::max((max_x - min_x) * 0.5f + SDF::BOUNDS_MARGIN_WIDE, 0.01f);
+        const float ry =
+            std::max((max_y - min_y) * 0.5f + SDF::BOUNDS_MARGIN_WIDE, 0.01f);
+        // The finest allowed grid has the smallest runtime deviation cap.
+        const float step = 2.0f / (CLASS_LUT_MAX_N - 1);
+        const float cap_sq = SDF::ALIGN_MAX_DEV_DIAGS *
+                             SDF::ALIGN_MAX_DEV_DIAGS * step * step *
+                             (rx * rx + ry * ry);
+        bindable = max_dev_sq <= cap_sq;
+      }
+    }
+    if (bindable) {
       rec = {static_cast<uint8_t>(best_class), static_cast<uint8_t>(best_off),
              static_cast<uint8_t>(best_refl ? 1 : 0)};
       out.classes[best_class].members++;
