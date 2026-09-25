@@ -202,12 +202,15 @@ inline void test_depth_palette_mutates_slowly_while_paused() {
   effect.setAnimationsPaused(true);
   const Pixel initial = HyperLatticeWhiteBox::depth_color(effect, 0.5f);
   const Pixel axis = HyperLatticeWhiteBox::axis_color(effect, 0.5f);
-  HyperLatticeWhiteBox::step_depth_palette(effect);
+  effect.draw_frame();
+  effect.advance_display();
   HS_EXPECT_TRUE(HyperLatticeWhiteBox::depth_palette_fading(effect));
   HS_EXPECT_EQ(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
 
-  for (int frame = 0; frame < 480; ++frame)
-    HyperLatticeWhiteBox::step_depth_palette(effect);
+  for (int frame = 0; frame < 480; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
   HS_EXPECT_NE(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::axis_color(effect, 0.5f), axis);
 }
