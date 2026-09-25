@@ -23,7 +23,10 @@
 
 #include "color/effect_palette_recipes.h"
 #include "control/choreography.h"
-#include "engine/engine.h"
+#include "color/palette_cycler.h"
+#include "control/registry.h"
+#include "engine/memory.h"
+#include "render/scan.h"
 #include "math/noise_field.h"
 #include "render/pullback.h"
 #include "render/pullback/runtime_seeds.h"
