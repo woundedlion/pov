@@ -11,6 +11,7 @@
 #pragma once
 
 #include "core/engine/engine.h"
+#include "targets/effects.h"
 
 /**
  * @brief Whole-canvas colour cycle that holds on red, green, blue and white.
@@ -30,7 +31,7 @@ public:
    * @brief Display windows per second at the rotor speed this pattern's
    *        timings assume; the sketch checks it against its own RPM.
    */
-  static constexpr int FRAMES_PER_SECOND = 16;
+  static constexpr int FRAMES_PER_SECOND = HS_SHOW_FRAMES_PER_SECOND;
   /** @brief Frames each key colour is held. */
   static constexpr int HOLD_FRAMES = 2 * FRAMES_PER_SECOND;
   /** @brief Frames spent ramping from one key colour to the next. */
