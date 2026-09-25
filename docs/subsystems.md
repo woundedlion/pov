@@ -492,13 +492,11 @@ inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 }                                        // restore offset — all allocations freed
 ```
 
-All functions that require scratch memory take explicit `Arena&` parameters — there are no hidden arena references or implicit state, outside the exceptions listed under [Why Arena Allocation?](https://github.com/woundedlion/pov/blob/master/README.md#2-engineering-philosophies):
+Geometry operators take explicit `Arena&` parameters. Global scratch consumers include `MeshCarousel::compact_*`, `OpLeg`, `Filter::Pixel::Feedback::flush()`, `Plot::rasterize`, `gate_trail_edges`, `Plot::Mesh`, `Plot::ParticleSystem`, the cull projection helpers, and `RecipeBuild`; see [Why Arena Allocation?](../README.md#why-arena-allocation). Scratch lifetimes are LIFO: callbacks allocate only under their own `ScratchScope` and never call `reset()`, which would invalidate their caller's live buffers.
 
 ```cpp
-scratch_arena_a.reset();
-scratch_arena_b.reset();
-ScratchScope _a(scratch_arena_a);
-ScratchScope _b(scratch_arena_b);
+ScratchScope scope_a(scratch_arena_a);
+ScratchScope scope_b(scratch_arena_b);
 PolyMesh result = MeshOps::kis(mesh, scratch_arena_a, scratch_arena_b);
 ```
 
