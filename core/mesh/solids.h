@@ -106,40 +106,25 @@ inline constexpr Entry catalan_registry[] = {
     {"pentagonalHexecontahedron", Catalan::pentagonalHexecontahedron,
      Category::Simple}};
 
-// Recipe seed indices into simple_registry, pinned to the registry order so a
-// reorder fails to compile.
-inline constexpr uint8_t SEED_OCTAHEDRON = 2;
-inline constexpr uint8_t SEED_DODECAHEDRON = 3;
-inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
-inline constexpr uint8_t SEED_TRUNCATED_OCTAHEDRON = 8;
-inline constexpr uint8_t SEED_RHOMBICUBOCTAHEDRON = 9;
-inline constexpr uint8_t SEED_ICOSIDODECAHEDRON = 12;
-inline constexpr uint8_t SEED_TRUNCATED_ICOSAHEDRON = 14;
-inline constexpr uint8_t SEED_TRUNCATED_ICOSIDODECAHEDRON = 16;
-inline constexpr uint8_t SEED_SNUB_DODECAHEDRON = 17;
-
-static_assert(std::string_view(simple_registry[SEED_OCTAHEDRON].name) ==
-              "octahedron");
-static_assert(std::string_view(simple_registry[SEED_DODECAHEDRON].name) ==
-              "dodecahedron");
-static_assert(
-    std::string_view(simple_registry[SEED_RHOMBICUBOCTAHEDRON].name) ==
-    "rhombicuboctahedron");
-static_assert(std::string_view(simple_registry[SEED_ICOSIDODECAHEDRON].name) ==
-              "icosidodecahedron");
-static_assert(std::string_view(simple_registry[SEED_SNUB_DODECAHEDRON].name) ==
-              "snubDodecahedron");
-static_assert(std::string_view(simple_registry[SEED_ICOSAHEDRON].name) ==
-              "icosahedron");
-static_assert(
-    std::string_view(simple_registry[SEED_TRUNCATED_OCTAHEDRON].name) ==
-    "truncatedOctahedron");
-static_assert(
-    std::string_view(simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
-    "truncatedIcosahedron");
-static_assert(
-    std::string_view(simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON].name) ==
-    "truncatedIcosidodecahedron");
+// Recipe seed identities in simple_registry order.
+inline constexpr uint8_t SEED_OCTAHEDRON =
+    static_cast<uint8_t>(BaseMesh::OCTAHEDRON);
+inline constexpr uint8_t SEED_DODECAHEDRON =
+    static_cast<uint8_t>(BaseMesh::DODECAHEDRON);
+inline constexpr uint8_t SEED_ICOSAHEDRON =
+    static_cast<uint8_t>(BaseMesh::ICOSAHEDRON);
+inline constexpr uint8_t SEED_TRUNCATED_OCTAHEDRON =
+    static_cast<uint8_t>(BaseMesh::TRUNCATED_OCTAHEDRON);
+inline constexpr uint8_t SEED_RHOMBICUBOCTAHEDRON =
+    static_cast<uint8_t>(BaseMesh::RHOMBICUBOCTAHEDRON);
+inline constexpr uint8_t SEED_ICOSIDODECAHEDRON =
+    static_cast<uint8_t>(BaseMesh::ICOSIDODECAHEDRON);
+inline constexpr uint8_t SEED_TRUNCATED_ICOSAHEDRON =
+    static_cast<uint8_t>(BaseMesh::TRUNCATED_ICOSAHEDRON);
+inline constexpr uint8_t SEED_TRUNCATED_ICOSIDODECAHEDRON =
+    static_cast<uint8_t>(BaseMesh::TRUNCATED_ICOSIDODECAHEDRON);
+inline constexpr uint8_t SEED_SNUB_DODECAHEDRON =
+    static_cast<uint8_t>(BaseMesh::SNUB_DODECAHEDRON);
 
 /** Step table for dodecahedron_hk62_ambo_hk62. */
 inline constexpr OpStep DODECAHEDRON_HK62_AMBO_HK62_STEPS[] = {

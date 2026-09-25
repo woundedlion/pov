@@ -27,73 +27,44 @@
 namespace ConwayGraph {
 
 // Node ids are simple-registry indices (Solids::simple_registry order).
-inline constexpr uint8_t TETRAHEDRON = 0;
-inline constexpr uint8_t CUBE = 1;
-inline constexpr uint8_t OCTAHEDRON = 2;
-inline constexpr uint8_t DODECAHEDRON = 3;
-inline constexpr uint8_t ICOSAHEDRON = 4;
-inline constexpr uint8_t TRUNCATED_TETRAHEDRON = 5;
-inline constexpr uint8_t CUBOCTAHEDRON = 6;
-inline constexpr uint8_t TRUNCATED_CUBE = 7;
-inline constexpr uint8_t TRUNCATED_OCTAHEDRON = 8;
-inline constexpr uint8_t RHOMBICUBOCTAHEDRON = 9;
-inline constexpr uint8_t TRUNCATED_CUBOCTAHEDRON = 10;
-inline constexpr uint8_t SNUB_CUBE = 11;
-inline constexpr uint8_t ICOSIDODECAHEDRON = 12;
-inline constexpr uint8_t TRUNCATED_DODECAHEDRON = 13;
-inline constexpr uint8_t TRUNCATED_ICOSAHEDRON = 14;
-inline constexpr uint8_t RHOMBICOSIDODECAHEDRON = 15;
-inline constexpr uint8_t TRUNCATED_ICOSIDODECAHEDRON = 16;
-inline constexpr uint8_t SNUB_DODECAHEDRON = 17;
+inline constexpr uint8_t TETRAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::TETRAHEDRON);
+inline constexpr uint8_t CUBE = static_cast<uint8_t>(Solids::BaseMesh::CUBE);
+inline constexpr uint8_t OCTAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::OCTAHEDRON);
+inline constexpr uint8_t DODECAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::DODECAHEDRON);
+inline constexpr uint8_t ICOSAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::ICOSAHEDRON);
+inline constexpr uint8_t TRUNCATED_TETRAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_TETRAHEDRON);
+inline constexpr uint8_t CUBOCTAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::CUBOCTAHEDRON);
+inline constexpr uint8_t TRUNCATED_CUBE =
+    static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_CUBE);
+inline constexpr uint8_t TRUNCATED_OCTAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_OCTAHEDRON);
+inline constexpr uint8_t RHOMBICUBOCTAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::RHOMBICUBOCTAHEDRON);
+inline constexpr uint8_t TRUNCATED_CUBOCTAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_CUBOCTAHEDRON);
+inline constexpr uint8_t SNUB_CUBE =
+    static_cast<uint8_t>(Solids::BaseMesh::SNUB_CUBE);
+inline constexpr uint8_t ICOSIDODECAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::ICOSIDODECAHEDRON);
+inline constexpr uint8_t TRUNCATED_DODECAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_DODECAHEDRON);
+inline constexpr uint8_t TRUNCATED_ICOSAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_ICOSAHEDRON);
+inline constexpr uint8_t RHOMBICOSIDODECAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::RHOMBICOSIDODECAHEDRON);
+inline constexpr uint8_t TRUNCATED_ICOSIDODECAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_ICOSIDODECAHEDRON);
+inline constexpr uint8_t SNUB_DODECAHEDRON =
+    static_cast<uint8_t>(Solids::BaseMesh::SNUB_DODECAHEDRON);
 
 inline constexpr int NUM_NODES = 18;
 
-// Pin the node ids to the registry so a registry reorder fails to compile.
-static_assert(std::string_view(Solids::simple_registry[TETRAHEDRON].name) ==
-              "tetrahedron");
-static_assert(std::string_view(Solids::simple_registry[CUBE].name) == "cube");
-static_assert(std::string_view(Solids::simple_registry[OCTAHEDRON].name) ==
-              "octahedron");
-static_assert(std::string_view(Solids::simple_registry[DODECAHEDRON].name) ==
-              "dodecahedron");
-static_assert(std::string_view(Solids::simple_registry[ICOSAHEDRON].name) ==
-              "icosahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[TRUNCATED_TETRAHEDRON].name) ==
-    "truncatedTetrahedron");
-static_assert(std::string_view(Solids::simple_registry[CUBOCTAHEDRON].name) ==
-              "cuboctahedron");
-static_assert(std::string_view(Solids::simple_registry[TRUNCATED_CUBE].name) ==
-              "truncatedCube");
-static_assert(
-    std::string_view(Solids::simple_registry[TRUNCATED_OCTAHEDRON].name) ==
-    "truncatedOctahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[RHOMBICUBOCTAHEDRON].name) ==
-    "rhombicuboctahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[TRUNCATED_CUBOCTAHEDRON].name) ==
-    "truncatedCuboctahedron");
-static_assert(std::string_view(Solids::simple_registry[SNUB_CUBE].name) ==
-              "snubCube");
-static_assert(
-    std::string_view(Solids::simple_registry[ICOSIDODECAHEDRON].name) ==
-    "icosidodecahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[TRUNCATED_DODECAHEDRON].name) ==
-    "truncatedDodecahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[TRUNCATED_ICOSAHEDRON].name) ==
-    "truncatedIcosahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[RHOMBICOSIDODECAHEDRON].name) ==
-    "rhombicosidodecahedron");
-static_assert(std::string_view(
-                  Solids::simple_registry[TRUNCATED_ICOSIDODECAHEDRON].name) ==
-              "truncatedIcosidodecahedron");
-static_assert(
-    std::string_view(Solids::simple_registry[SNUB_DODECAHEDRON].name) ==
-    "snubDodecahedron");
 static_assert(NUM_NODES == static_cast<int>(std::size(Solids::simple_registry)),
               "NUM_NODES must equal the simple_registry size; every walk, "
               "validator and family() lookup scans only [0, NUM_NODES)");
