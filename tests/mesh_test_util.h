@@ -138,7 +138,7 @@ inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
   HS_EXPECT_TRUE(m.vertices.size() > 0);
   float worst = 0.0f;
   for (size_t i = 0; i < m.vertices.size(); ++i)
-    worst = std::max(worst, std::fabs(m.vertices[i].length() - 1.0f));
+    worst = fold_worst(worst, std::fabs(m.vertices[i].length() - 1.0f));
   HS_EXPECT_LE(worst, tol);
 }
 

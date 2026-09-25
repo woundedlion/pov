@@ -132,6 +132,11 @@ inline bool approx(float a, float b, float tol) {
   return std::isfinite(a) && std::isfinite(b) && std::abs(a - b) <= tol;
 }
 
+/** @brief Accumulates the largest error without discarding NaN samples. */
+template <typename T> inline T fold_worst(T worst, T error) {
+  return std::isnan(error) || error > worst ? error : worst;
+}
+
 /**
  * @brief Tests whether two doubles are finite and close enough to be equal.
  * @param a First value.

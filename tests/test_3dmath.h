@@ -1102,6 +1102,8 @@ inline void test_quaternion_slerp() {
 
   math::Quaternion mid_short = math::slerp(id, q, 0.5f, false);
   math::Quaternion mid_long = math::slerp(id, q, 0.5f, true);
+  HS_EXPECT_TRUE(std::isfinite(mid_short.magnitude()));
+  HS_EXPECT_TRUE(std::isfinite(mid_long.magnitude()));
   HS_EXPECT_FALSE(approx_quat(mid_short, mid_long, 1e-2f));
 
   // Identical endpoints on the long arc drive d to -1 via the sign fixup; the
