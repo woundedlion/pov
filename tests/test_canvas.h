@@ -156,6 +156,7 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
   int preflights = 0;
   int restores = 0;
   int discards = 0;
+  hs::EffectHandoffState imported_handoff;
 
   hs::EffectTransitionStatus
   preflight(const hs::EffectTransitionRequest &,
@@ -180,7 +181,8 @@ struct TransitionAdapter : hs::EffectTransitionAdapter {
     return construct_status;
   }
   hs::EffectTransitionStatus
-  import_handoff(const hs::EffectHandoffState &) override {
+  import_handoff(const hs::EffectHandoffState &state) override {
+    imported_handoff = state;
     return handoff_status;
   }
   hs::EffectTransitionStatus prepare_incoming_frame() override {
@@ -295,6 +297,60 @@ inline void test_effect_transition_fenced_commit() {
   HS_EXPECT_EQ(adapter.envelopes.back(), 1.0f);
   HS_EXPECT_EQ(controller.current_state(),
                hs::EffectTransitionState::STEADY_IN);
+}
+
+/** @brief Hidden and restored frames remain fenced and receive the latest handoff. */
+inline void test_effect_transition_fences_hold() {
+  for (bool restoring : {false, true}) {
+    for (bool replacement : {false, true}) {
+      TransitionAdapter adapter;
+      adapter.fenced = true;
+      if (restoring)
+        adapter.prepare_status =
+            hs::EffectTransitionStatus::FIRST_FRAME_REJECTED;
+      hs::EffectTransitionController controller(adapter);
+      const hs::EffectTransitionRequest REQUEST{
+          "alien-brain", "alien-brain", hs::EffectTransitionOrigin::MANUAL, 1};
+      const hs::EffectHandoffState FIRST{2, 1.25f, 2.5f, 17};
+      const hs::EffectHandoffState SECOND{3, 3.25f, 4.5f, 29};
+      HS_EXPECT_EQ(controller.request(REQUEST, FIRST),
+                   hs::EffectTransitionStatus::OK);
+      if (replacement) {
+        controller.tick();
+        HS_EXPECT_EQ(controller.request(REQUEST, SECOND),
+                     hs::EffectTransitionStatus::OK);
+      }
+      const auto TARGET =
+          restoring ? hs::EffectTransitionState::RESTORE_FRAME_READY
+                    : hs::EffectTransitionState::HIDDEN_FRAME_PRESENTED;
+      for (int step = 0; step < 20 && controller.current_state() != TARGET;
+           ++step)
+        controller.tick();
+      HS_EXPECT_EQ(controller.current_state(), TARGET);
+      const auto &expected = replacement ? SECOND : FIRST;
+      HS_EXPECT_EQ(adapter.imported_handoff.schema_version,
+                   expected.schema_version);
+      HS_EXPECT_EQ(adapter.imported_handoff.projection_clock,
+                   expected.projection_clock);
+      HS_EXPECT_EQ(adapter.imported_handoff.palette_clock,
+                   expected.palette_clock);
+      HS_EXPECT_EQ(adapter.imported_handoff.choreography_position,
+                   expected.choreography_position);
+      adapter.fenced = false;
+      const size_t ENVELOPES = adapter.envelopes.size();
+      for (int step = 0; step < 4; ++step) {
+        controller.tick();
+        HS_EXPECT_EQ(controller.current_state(), TARGET);
+        HS_EXPECT_FALSE(adapter.committed);
+        HS_EXPECT_EQ(adapter.envelopes.size(), ENVELOPES);
+      }
+      adapter.fenced = true;
+      controller.tick();
+      HS_EXPECT_EQ(controller.current_state(),
+                   restoring ? hs::EffectTransitionState::FADING_BACK
+                             : hs::EffectTransitionState::COMMIT_READY);
+    }
+  }
 }
 
 inline void test_effect_transition_replacement_pause_and_restore() {
@@ -1531,6 +1587,7 @@ inline int run_canvas_tests() {
   test_construction_dimension_boundaries();
   test_output_envelope_endpoints();
   test_effect_transition_fenced_commit();
+  test_effect_transition_fences_hold();
   test_effect_transition_replacement_pause_and_restore();
   test_effect_transition_shorter_replacement_preserves_progress();
   test_effect_transition_failsafe_retry();
