@@ -64,12 +64,12 @@ canonical v2 expansion.
 Seven documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
 `kaleidoscope_smooth` and `lattice_melt`. Edit these version 2 documents here.
-The version 1 fixtures in `daydream/shader/patterns/v1/` are frozen legacy
+The version 1 fixtures in `daydream/src/workbench/shader/patterns/v1/` are frozen legacy
 inputs used only to derive `digest_migration.v1v2.json`.
 
 The engine installs its top-level pattern documents and
-`shaderball_migration.json` into `daydream/shader/patterns/`.
-`daydream/shader/patterns/v1/` and `digest_migration.v1v2.json` are owned by
+`shaderball_migration.json` into `daydream/generated/shader/patterns/`.
+`daydream/src/workbench/shader/patterns/v1/` and `digest_migration.v1v2.json` are owned by
 daydream and are not engine-installed artifacts.
 
 `shaderball_migration.json` is a manifest, not a shader document, and the CLI
