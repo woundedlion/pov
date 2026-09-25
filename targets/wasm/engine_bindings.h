@@ -242,8 +242,7 @@ struct SnapshotDecodeGuard {
  * @details Owns the current effect and the stable readback buffers. Every public
  *          method is exported to JavaScript via EMSCRIPTEN_BINDINGS below.
  *          At most one instance may be live: delete() the current engine before
- *          constructing another, or the constructor traps. Test isLive() first
- *          — it is the only precondition here a caller cannot recover from.
+ *          constructing another, or the constructor traps. Test isLive() before construction.
  */
 class HolosphereEngine {
 public:
@@ -313,14 +312,9 @@ public:
    * @return True from the end of a successful construction until that
    *         instance's delete().
    * @details Exposed to JS as the static Module.HolosphereEngine.isLive().
-   *          Three JS-reachable preconditions trap rather than return a
-   *          rejection: constructing over a live instance, and — while
-   *          setShaderChain() or restoreFullConfigSnapshot() decodes its
-   *          payload — a caller accessor that re-enters the decode
-   *          (SnapshotDecodeGuard) or delete()s the engine (the destructor),
-   *          which is why those payloads must be plain data. This reports only
-   *          the first, so a bootstrap that may run twice tests it and
-   *          delete()s the live instance instead of constructing into the trap.
+   *          Construction over a live instance, decoder re-entry, and deletion
+   *          during decoding trap. Payload cloning may invoke getters; proxies
+   *          are rejected by structuredClone. This query reports singleton state.
    */
   static bool isLive() { return engine_alive; }
 
@@ -801,7 +795,7 @@ public:
   /**
    * @brief Sets near-pole azimuthal shading decimation.
    * @param aggressiveness Columns per shade are this over sin(colatitude);
-   *        0 disables. Non-finite and negative inputs clamp to 0.
+   *        0 disables. NaN and negative inputs clamp to 0; positive infinity to 8.
    * @details The physically-neutral setting is 1.0: at that value one shade
    *          covers the columns sharing a physical LED footprint. Exposed so
    *          the value can be tuned against real hardware. The setting is
@@ -823,7 +817,7 @@ public:
 
   /**
    * @brief Builds the GUI's parameter descriptor list.
-   * @return JS array with one {name, value, animated, readonly, preset} object
+   * @return JS array with one {name, value, requestedValue, animated, readonly, preset} object
    *         per param in the effect's declaration order, plus {min, max} on
    *         every non-boolean param, {step} on every whole-number param, and
    *         {options} — with {exportOptions} alongside it when the param
@@ -1060,10 +1054,7 @@ public:
     FullConfigRestoreResult result =
         FullConfigRestoreResult::NOT_SHADER_WORKBENCH;
     with_shader_workbench([&]<typename SB>(SB &shader) {
-      // Every property read below can run caller JS through an accessor or a
-      // Proxy, and that JS reaches setEffect()/setResolution(), which frees
-      // what `shader` names. Latch the owner and re-check before applying; the
-      // guard covers the delete() that frees the engine itself.
+      // Payload cloning can invoke getters that replace or delete the owner.
       const SnapshotDecodeGuard decode_guard;
       const uint64_t owner_generation = effect_generation;
       const Effect *const owner = current_effect.get();
@@ -1192,9 +1183,9 @@ public:
    * @param caller_entries JS array of {instance, operator} string pairs — the ordered
    *        program shape and nothing else. No values, no offsets, no family
    *        tags.
-   * @return JS object {code, entryIndex}: code "APPLIED" on commit, else the
-   *         refusal's ChainStatus name; entryIndex the offending entry, -1 for
-   *         a whole-chain refusal.
+   * @return JS object {code, status, entryIndex}: code is "APPLIED" on commit,
+   *         otherwise the refusal name; status is the ChainStatus enum.
+   *         entryIndex names the offending entry, -1 for a whole-chain refusal.
    * @details Synchronous: on APPLIED the parameter definitions are already
    * rebuilt and the schema generation bumped before this returns, so the
    * caller applies preset values by "{instance}.{field-id}" name immediately
@@ -1211,9 +1202,7 @@ public:
     using Pullback::Interp::ChainStatus;
     if (!with_shader_chain([]<typename SC>(SC &) {}))
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
-    // Every property read below can run caller JS through an accessor or a
-    // Proxy, and that JS reaches setEffect()/setResolution(), which frees the
-    // chain this call addressed. Latch the owner and re-check before compiling.
+    // Payload cloning can invoke getters that replace the addressed chain.
     const uint64_t owner_generation = effect_generation;
     const Effect *const owner = current_effect.get();
     const void *const owner_type_key = current_effect_type_key;
