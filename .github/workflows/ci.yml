@@ -1006,9 +1006,8 @@ jobs:
     # orphans) — catching roster drift like an added/renamed effect whose
     # screenshot was never captured — and (3) validates each PNG datastream and
     # its stored dimensions, so a zero-byte or bit-rotted asset cannot ship.
-    # It carries two further roster checks that need the same Node and no build:
-    # the profile archive covers every Phantasm effect; profile commands use
-    # the shared effect roster.
+    # It also checks that the profile archive covers every Phantasm effect.
+    # Profile-command roster validation runs in the lint job.
     # KNOWN GAP: nothing here compares PNG pixels to what the effect renders, so
     # a visually-stale image still relies on a manual `npm run screenshots`
     # re-capture. Driving the real capture would need a Playwright browser and a
