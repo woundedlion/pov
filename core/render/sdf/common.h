@@ -260,11 +260,9 @@ template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
   static constexpr size_t value =
       2 * sdf_max_spans<A>::value + 2 * sdf_max_spans<B>::value;
 };
-// Subtract emits the minuend seam-split into a [0, W) frame. A child's spans
-// carry no common wrap frame -- a Union can merge two that both cover θ=0 --
-// so every span may split: bound 2·|A|.
+// Subtract forwards the minuend's coverage bounds.
 template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
-  static constexpr size_t value = 2 * sdf_max_spans<A>::value;
+  static constexpr size_t value = sdf_max_spans<A>::value;
 };
 
 /** True when a shape's distance() reports a usable signed distance outside its
