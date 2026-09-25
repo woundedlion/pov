@@ -137,62 +137,6 @@ inline void test_wireframe_draws_every_edge() {
   HS_EXPECT_LT(lit, (size_t)(W * H) / 2);
 }
 
-/**
- * @brief Geometric oracle: every lit wireframe pixel lies ON an edge arc.
- * @details The midpoint test above proves each edge IS drawn; this proves
- *          nothing is drawn OFF the edges. Each lit pixel is mapped back to its
- *          world direction and must fall within ~a few pixels (angular) of the
- *          nearest edge's analytic great-circle arc. A misprojected sample, a
- *          stray seam-wrap plot, or an edge routed to the wrong vertices would
- *          leave lit pixels off every arc and fail here — exactly the
- * off-by-one / projection class the "nonempty subset" check (above) passes
- * through.
- */
-inline void test_wireframe_pixels_lie_on_edges() {
-  constexpr int W = 288, H = 144;
-  configure_arenas_default();
-
-  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
-  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
-  Arena geom(mr_geom, sizeof(mr_geom));
-
-  PolyMesh mesh = Solids::Platonic::octahedron(seed_a, seed_b);
-  ArenaVector<Plot::Mesh::Edge> edges;
-  edges.bind(geom, 64);
-  Plot::Mesh::extract_edges(mesh, edges);
-
-  hs_test::StubEffect fx(W, H);
-  {
-    Canvas c(fx);
-    Pipeline<W, H> pipe; // bare sink, no AA spread
-    Plot::Mesh::draw<W, H>(pipe, c, mesh, white);
-  }
-  fx.advance_display();
-
-  // Tolerance: a few rows of latitude to absorb single-pixel line width,
-  // sampling granularity, and vector_to_pixel rounding.
-  const float tol = 4.0f * (math::PI_F / H);
-  size_t lit = 0, off_arc = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      if (is_black(fx.get_pixel(x, y)))
-        continue;
-      ++lit;
-      math::Vector v = math::pixel_to_vector<W, H>(x, y);
-      float best = math::PI_F;
-      for (size_t e = 0; e < edges.size(); ++e) {
-        float d = arc_angular_distance(v, mesh.vertices[edges[e].u],
-                                       mesh.vertices[edges[e].v]);
-        if (d < best)
-          best = d;
-      }
-      if (best > tol)
-        ++off_arc;
-    }
-  HS_EXPECT_GT(lit, (size_t)0);
-  HS_EXPECT_EQ(off_arc, (size_t)0);
-}
-
 /** @brief Reused and rebuilt mesh cull spans produce identical pixels. */
 inline void test_wireframe_reuses_geodesic_cull_span() {
   constexpr int W = 288, H = 144;
@@ -431,7 +375,7 @@ inline void test_face_shader_setup_matches_face_index() {
  * @tparam H Canvas height in pixels.
  * @param mesh Closed mesh whose edges are extracted and drawn.
  * @param geom Arena backing the extracted edge list.
- * @details Mirrors test_wireframe_pixels_lie_on_edges' oracle: each lit pixel's
+ * @details Each lit pixel's
  *          world direction must fall within a few rows of latitude of the
  *          nearest analytic great-circle edge arc.
  */
@@ -471,6 +415,29 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
     }
   HS_EXPECT_GT(lit, (size_t)0);
   HS_EXPECT_EQ(off_arc, (size_t)0);
+}
+
+/**
+ * @brief Geometric oracle: every lit wireframe pixel lies ON an edge arc.
+ * @details The midpoint test above proves each edge IS drawn; this proves
+ *          nothing is drawn OFF the edges. Each lit pixel is mapped back to its
+ *          world direction and must fall within ~a few pixels (angular) of the
+ *          nearest edge's analytic great-circle arc. A misprojected sample, a
+ *          stray seam-wrap plot, or an edge routed to the wrong vertices would
+ *          leave lit pixels off every arc and fail here — exactly the
+ * off-by-one / projection class the "nonempty subset" check (above) passes
+ * through.
+ */
+inline void test_wireframe_pixels_lie_on_edges() {
+  constexpr int W = 288, H = 144;
+  configure_arenas_default();
+
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+
+  PolyMesh mesh = Solids::Platonic::octahedron(seed_a, seed_b);
+  check_wireframe_pixels_on_edges<W, H>(mesh, geom, 64);
 }
 
 /**
