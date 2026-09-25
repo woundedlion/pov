@@ -103,9 +103,7 @@ inline float median_of(std::vector<float> &v) {
 }
 
 // ---------------------------------------------------------------------------
-// Chamfer probe (spec section 2, risk 5): chamfer has never been swept and has
-// no T_EPS characterization, yet truncatedIcosahedron_hk58_chamfer63 needs one
-// -- on a hankin mesh, which compounds the risk (section 2.4).
+// Chamfer sweep over Hankin meshes to characterize the T_EPS boundary.
 // ---------------------------------------------------------------------------
 
 /** @brief One chamfer-leg seed. */
@@ -482,8 +480,8 @@ inline void test_truncate001_birth_sweep_holds_topology() {
 // intentionally self-intersecting truncate branch.
 //
 // Past 0.5 the cut faces self-intersect BY DESIGN, so signed area, winding, and
-// closed-manifold checks fail legitimately (MEMORY: structural checks only for
-// crossed-face ops). This test asserts only what stays true across the pinch:
+// closed-manifold checks do not apply. This test asserts only what stays
+// true across the pinch:
 // constant raw and compiled face count, constant V/F/I, finite unit vertices,
 // and no exact-0.5 evaluation. Positive area is asserted only on the near side.
 // ---------------------------------------------------------------------------
