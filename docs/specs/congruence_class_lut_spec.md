@@ -293,9 +293,9 @@ and per-slot bakes in IslamicStars (rebaked unconditionally after every
   overflowed the device persistent partition once the per-face records and both
   slots' bakes were counted. That partition is what IslamicStars' split leaves:
   `DEVICE_GLOBAL_ARENA_SIZE` minus its 116 KiB / 74 KiB scratch pair, 108 KiB.
-  `test_islamic_solids_fit_islamicstars_persistent_budget`
-  (`tests/test_solids.h`) prints and pins the peak — the palette bank plus the
-  worst registry-adjacent carousel pair — under that figure.
+  `tests/test_conway_morph.h` derives `ISLAMIC_PERSISTENT_BUDGET` from the
+  device split and gates replay high-water; `tests/test_effects.h` checks the
+  consumer's generated and bridge paths against their configured budgets.
 - A class whose bake-predicted hit share is under 40% is not kept
   (small faces are mostly fallback band; the LUT would cost its guard on
   every probe and then walk anyway). No registry mesh currently trips this.

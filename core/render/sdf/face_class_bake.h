@@ -50,7 +50,7 @@ inline constexpr int CLASS_LUT_MAX_N = 64;
  *  double-buffered pair of bakes plus a palette bank fits the 108 KiB device
  *  persistent partition IslamicStars' split leaves (DEVICE_GLOBAL_ARENA_SIZE
  *  minus its 116 KiB / 74 KiB scratch pair); a consumer effect must add its
- *  bakes to its test_solids-style persistent-budget sweep. */
+ *  bakes to its consumer persistent-budget sweep (tests/test_effects.h). */
 inline constexpr size_t CLASS_LUT_BUDGET = 18 * 1024;
 /** Minimum bake-predicted hit share for a class LUT to be kept: below this
  *  the probes mostly land in the fallback band and pay the guard for
