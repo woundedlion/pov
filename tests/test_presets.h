@@ -228,7 +228,7 @@ struct SaturatedPresetEffect
   void draw_frame() override {}
   void arm() { begin_choreography(); }
   void tick() { step_choreography(); }
-  bool attempt() { return advancePreset(); }
+  bool attempt() { return advance_preset(); }
   float value() const { return params.value; }
   bool blending() const { return transition.active; }
   void blend_params(float t) {

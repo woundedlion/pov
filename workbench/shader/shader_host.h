@@ -2705,7 +2705,7 @@ private:
   }
 
   HS_COLD_MEMBER void begin_blend() {
-    if (advancePreset()) {
+    if (advance_preset()) {
     } else {
       preset_dwell_remaining = 1;
       preset_dwell_armed = true;
