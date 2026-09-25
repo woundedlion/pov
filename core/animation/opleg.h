@@ -25,7 +25,7 @@ namespace Animation {
  * fixed seed (docs/specs/opchain_morph_spec.md, "Leg kinds").
  * @details Per frame: produce the swept mesh (the edge's single op at
  * t(frame) settle-slerped toward the relaxed endpoint inside the settle
- * window, or update_hankin at theta(frame)) in scratch, compile, attach the
+ * window, or the hankin_at slerp from each corner) in scratch, compile, attach the
  * leg's hoisted classification, pre-blend the (from, to) palette ramps at
  * w(frame), and hand the mesh to the draw callback. Exactly one mesh is
  * drawn per frame. Bulk state lives in an arena-allocated Transients that no
@@ -805,7 +805,7 @@ public:
 
   /**
    * @brief Steps the sweep: the kind's swept mesh (op at t(frame) plus settle
-   * slerp, update_hankin at theta(frame), or the relax slerp), then compile,
+   * slerp, the hankin_at slerp from each corner, or the relax slerp), then compile,
    * palette pre-blend, draw.
    * @param canvas The canvas passed through to the draw callback.
    * @details HS_COLD: once-per-frame orchestration; the hot loops live in the
