@@ -5595,20 +5595,14 @@ inline void test_voronoi_segment_render_matches_full_frame() {
 }
 
 /**
- * @brief Gates HankinSolids' hand-tuned scratch budgets against the real
- *        generate+classify+render+compaction peak of every simple solid at the
- *        device height (H=144).
- * @details HankinSolids::init sizes scratch_a=24 KB / scratch_b=32 KB for "the
- *          heaviest hankin mesh", but the effect's random morph never
- *          deterministically reaches every solid within a smoke window, so an
- *          under-sized budget would trap only on hardware. This reproduces the
- *          effect's per-solid arena discipline (load_shape → classify → draw_mesh
- *          → morph compaction) for all Platonic+Archimedean solids in
- *          headroomed arenas and asserts each scratch high-water fits its budget.
+ * @brief Bounds whole-solid generation, classification and rendering scratch
+ * against HankinSolids' exported budgets at the device height.
+ * @details The graph-walk soak separately exercises the shipping OpLeg path.
  */
 inline void test_hankinsolids_arena_budget_covers_every_solid() {
   constexpr int W = 288, H = 144;
-  constexpr size_t SCRATCH_A = 24 * 1024, SCRATCH_B = 32 * 1024;
+  constexpr size_t SCRATCH_A = HankinSolids<W, H>::SCRATCH_A_BYTES;
+  constexpr size_t SCRATCH_B = HankinSolids<W, H>::SCRATCH_B_BYTES;
   constexpr size_t MEASURE = 1024 * 1024; // headroom so a peak never traps here
   constexpr float ANGLE = math::PI_F / 4.0f;
 
