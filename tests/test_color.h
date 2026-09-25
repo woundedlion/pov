@@ -19,6 +19,7 @@
 #include "core/color/noise_hue_palette.h"
 #include "core/color/srgb_decode.h"
 #include "tests/color_test_util.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_generative_palette.h"
 #include "tests/test_harness.h"
@@ -1709,13 +1710,15 @@ inline void test_bake_palette_blend_nan_weight_stays_finite() {
  *          exhausted.
  */
 inline void test_step_wipe_rebake_skips_arming_then_decrements() {
-  SolidColorPalette src(Color4(Pixel(1000, 2000, 3000), 1.0f));
+  SolidColorPalette initial(Color4(Pixel(1000, 2000, 3000), 1.0f));
+  SolidColorPalette src(Color4(Pixel(4000, 5000, 6000), 1.0f));
+  SolidColorPalette after(Color4(Pixel(7000, 8000, 9000), 1.0f));
 
   alignas(std::max_align_t) static uint8_t
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
   BakedPaletteStorage baked;
-  baked.bake(arena, src);
+  baked.bake(arena, initial);
 
   bool wipe_pending = true;
   int frames = 2;
@@ -1723,14 +1726,17 @@ inline void test_step_wipe_rebake_skips_arming_then_decrements() {
   step_wipe_rebake(wipe_pending, frames, baked, src);
   HS_EXPECT_FALSE(wipe_pending);
   HS_EXPECT_EQ(frames, 2);
+  HS_EXPECT_PIXEL(baked.get_color(0.5f), 1000, 2000, 3000);
 
   step_wipe_rebake(wipe_pending, frames, baked, src);
   HS_EXPECT_EQ(frames, 1);
+  HS_EXPECT_PIXEL(baked.get_color(0.5f), 4000, 5000, 6000);
   step_wipe_rebake(wipe_pending, frames, baked, src);
   HS_EXPECT_EQ(frames, 0);
 
-  step_wipe_rebake(wipe_pending, frames, baked, src);
+  step_wipe_rebake(wipe_pending, frames, baked, after);
   HS_EXPECT_EQ(frames, 0);
+  HS_EXPECT_PIXEL(baked.get_color(0.5f), 4000, 5000, 6000);
 }
 
 /**
@@ -1743,13 +1749,15 @@ inline void test_step_wipe_rebake_skips_arming_then_decrements() {
  */
 inline void test_palette_wipe_arm_step_cadence() {
   const GenerativePalette palette;
-  SolidColorPalette source(Color4(Pixel(1000, 2000, 3000), 1.0f));
+  SolidColorPalette initial(Color4(Pixel(1000, 2000, 3000), 1.0f));
+  SolidColorPalette source(Color4(Pixel(4000, 5000, 6000), 1.0f));
+  SolidColorPalette after(Color4(Pixel(7000, 8000, 9000), 1.0f));
 
   alignas(std::max_align_t) static uint8_t
       buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
   BakedPaletteStorage baked;
-  baked.bake(arena, source);
+  baked.bake(arena, initial);
 
   PaletteWipe wipe;
   HS_EXPECT_FALSE(wipe.in_flight());
@@ -1764,26 +1772,30 @@ inline void test_palette_wipe_arm_step_cadence() {
   wipe.step(baked, source);
   HS_EXPECT_FALSE(wipe.pending);
   HS_EXPECT_EQ(wipe.frames_remaining, FRAMES);
+  HS_EXPECT_PIXEL(baked.get_color(0.5f), 1000, 2000, 3000);
 
   for (int left = FRAMES; left > 0; --left) {
     HS_EXPECT_TRUE(wipe.in_flight());
     wipe.step(baked, source);
     HS_EXPECT_EQ(wipe.frames_remaining, left - 1);
+    HS_EXPECT_PIXEL(baked.get_color(0.5f), 4000, 5000, 6000);
   }
   HS_EXPECT_FALSE(wipe.in_flight());
 
   // Steps past the window neither underflow the counter nor re-arm.
-  wipe.step(baked, source);
+  wipe.step(baked, after);
   HS_EXPECT_EQ(wipe.frames_remaining, 0);
   HS_EXPECT_FALSE(wipe.pending);
+  HS_EXPECT_PIXEL(baked.get_color(0.5f), 4000, 5000, 6000);
 
   wipe.arm(palette, palette.snapshot(), 0);
   HS_EXPECT_FALSE(wipe.in_flight());
   HS_EXPECT_TRUE(wipe.pending);
-  wipe.step(baked, source);
+  wipe.step(baked, after);
   HS_EXPECT_FALSE(wipe.pending);
   HS_EXPECT_EQ(wipe.frames_remaining, 0);
   HS_EXPECT_FALSE(wipe.in_flight());
+  HS_EXPECT_PIXEL(baked.get_color(0.5f), 4000, 5000, 6000);
 }
 
 // ============================================================================
