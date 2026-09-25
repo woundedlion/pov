@@ -34,7 +34,7 @@ struct MindSplatterWhiteBox;
 struct MindSplatterParams {
   Solids::BaseMesh base_mesh = Solids::BaseMesh::CUBE;
   float friction = 0.85f;       /**< Velocity retention per step in [0.5, 1]. */
-  float well_strength = 1.0f;   /**< Attractor pull strength in [0, 20]. */
+  float well_strength = 0.85f;  /**< Attractor pull strength in [0, 20]. */
   float initial_speed = 0.025f; /**< Spawn speed in [0, 0.5] (units/step). */
   float angular_speed = 0.2f; /**< Emission phase rate in [0, 1] (rad/emit). */
   float warp_scale = 0.6f;    /**< Mobius warp magnitude in [0, 5]. */
@@ -104,8 +104,8 @@ public:
   /** Dwell + blend = the 160-frame preset cadence. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;
 
-  /** @brief Initial live parameters: the defaults, not a preset entry. */
-  static Params initial_params() { return Params{}; }
+  /** @brief Initial live parameters from preset zero. */
+  static Params initial_params() { return PRESETS[0].params; }
 
   /**
    * @brief Constructs the effect, seeding the filters.
