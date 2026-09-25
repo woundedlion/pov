@@ -153,6 +153,16 @@ class OverwriteProtectionTests(unittest.TestCase):
 class GeneratedBoardTests(unittest.TestCase):
     """The placed draft `pcb.py --force` emits, read back without KiCad."""
 
+    def test_generated_pair_passes_schematic_parity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = generate(directory)
+            warnings = {("lib_footprint_mismatch", ref): 1 for ref in ("D_BUS", "U_MCU")}
+            with mock.patch.object(fab, "PCB", board_path), \
+                    mock.patch.object(fab, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
+                    mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS", warnings):
+                self.assertEqual(fab.run_parity(str(Path(directory) / "parity.json")),
+                                 len(fab.KNOWN_PARITY_ITEMS))
+
     def test_refused_library_overwrite_preserves_existing_board(self):
         with tempfile.TemporaryDirectory() as directory:
             board = Path(generate(directory))
