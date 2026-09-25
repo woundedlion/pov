@@ -130,10 +130,8 @@ different real moments; §6 replaces it with epoch-counted sequencing.
   Carries the **boundary** marks (Layer 2, 2/rev) and the **epoch** mark
   (Layer 3, 1/effect). These same boundary marks also discipline each board's
   Layer-1 flywheel (phase snap, optional frequency trim).
-- **Deleted: the column clock wire.** The former `PIN_CLOCK_OUT` 5 →
-  `PIN_COLUMN_SYNC` 2 link and master's fixed-frequency PWM are removed. Master
-  no longer streams a per-column clock; it runs the same flywheel as every other
-  board and only emits the low-rate sync symbols. Pins 2 and 4 are free; pin 5
+- **No per-column clock wire.** Master runs the same flywheel as every other
+  board and emits only the low-rate sync symbols. Pins 2 and 4 are free; pin 5
   carries `PIN_MASTER_EN`. The shared `PIN_FRAME_SYNC` 3 serves both the master's
   drive and downstream receive.
 
@@ -317,11 +315,8 @@ snap, not a replacement for it and not a prerequisite. Shipped snap-only
 (`Flywheel::set_cycles_per_half_rev`, exercised at ±40 ppm by the tests) but
 no estimator.
 
-> This is the disciplined descendant of the full DPLL that earlier drafts
-> proposed. With only one wire it collapses from a fast PI phase-loop (locking
-> per-column edges) to a slow scalar frequency estimate (one update per
-> half-rev), because phase is already handled by the snap. Simpler, and provably
-> sufficient.
+> Frequency trim uses one scalar estimate per half-revolution; the boundary
+> snap handles phase.
 
 ### 4.4 Layer-1 behavior summary
 
@@ -454,9 +449,7 @@ still wakes on schedule and folds one boundary per wake.
 ### 5.2 Self-describing boundary symbols (C) — pulse-count encoding (FINAL)
 
 Master codes the boundary into the sync symbol so each one names its boundary
-*absolutely* — this deleted the previous design's parity counter
-(`sync_seeded_`/`sync_at_zero_`), which inverted permanently on one dropped
-pulse.
+*absolutely*, so a dropped symbol cannot permanently invert boundary identity.
 
 **Encoding (decision §11.3, RESOLVED): every symbol is a burst of short pulses
 at fixed pitch; the meaning is the count of rising edges. Pulse widths carry no

@@ -161,7 +161,7 @@ quiet (R-SI-2).
 
 - **R-PWR-10 — Heavy feed sizing & cable.** Size the busbar/harness 5 V/GND for the configured
   segment current (**4.3 A at N=4, 2.2 A at N=8**) at
-  < 250 mV drop and acceptable rise (the old on-board 2 oz pour requirement, relocated). Use **16–18 AWG
+  < 250 mV drop and acceptable rise. Use **16–18 AWG
   or a busbar** — **not** the 22 AWG Belden 8451 sync pair (≈0.28 V drop over ~2 ft at 4.3 A, and it's a
   signal cable). The heavy feed **may run alongside the shielded sync 8451** (the sync's shield + twist +
   RC + deglitch tolerate it), but it stays a **separate conductor** — never share the sync pair's
@@ -301,9 +301,8 @@ conductors carry the signal pair; the drain handles the screen:
   against inductive/ESD transients. Populate it on every board; its 1 pF capacitance does not
   materially load the bus.
   The bus idles LOW; its HIGH pulses can exceed 5 V. The selected T08L has
-  8 V working standoff and at most 2 µA leakage at that voltage (25 °C),
-  versus the former T05L's 5 V rating. Both use the same land and polarity.
-  The tradeoff is a higher maximum clamp at 1 A: 13.4 V instead of 9.8 V;
+  8 V working standoff and at most 2 µA leakage at that voltage (25 °C).
+  Its maximum clamp voltage at 1 A is 13.4 V;
   verify transient waveforms at the bus and buffer on the assembled rotor.
   See the [Bourns electrical table](https://www.bourns.com/data/global/pdfs/CDSOD323-TxxLC.pdf)
   and [supplier part C1973344](https://item.szlcsc.com/2064882.html).
@@ -455,16 +454,15 @@ strain relief, swept envelope, and dynamic-balance acceptance test.
   each center. Place heavy parts (electrolytics, connectors, Teensy) **symmetrically
   and as near the hub as routing allows** for balance.
 - **R-MECH-3** Provide pad area / clearance to **bond C_IN and any tall part** with RTV (the 1000 µF
-  bulk is off-board now, §2.3).
+  bulk is off-board, §2.3).
 - **R-MECH-4** Keep board outline and component height within the arm's swept envelope; chamfer/relieve
   the leading edge if it sees airflow.
 - **R-MECH-5** **1 oz copper suffices** — the card carries only ~0.15 A (the 4.3 A LED current is
   off-board, §2.3).
 - **R-MECH-6 — Board width ≤ 35 mm.** The card co-mounts along the rotor arm; the outline is a narrow
-  strip with **width hard-capped at 35 mm** (raised from 30 mm so the small SMD parts pack *beside* the
-  Teensy and the board stays short), and length is the free dimension to be minimised. The floor part is
+  strip with **width hard-capped at 35 mm**, and length is the free dimension to be minimised. The floor part is
   the **Teensy 4.0 (17.8 mm wide)**; at 35 mm there is ~17 mm of width left alongside it for the SMD
-  parts (the D16 mm bulk that used to set the width is off-board, §2.3). 2-D-pack the parts to the
+  parts. The D16 mm bulk is off-board (§2.3). 2-D-pack the parts to the
   shortest length within the width cap (current Quilter board = **58.28 × 32 mm**); keep heavy parts (C_IN,
   connectors, Teensy) toward the **hub end** for balance (R-MECH-2).
 
@@ -559,8 +557,7 @@ The net names are the ones the schematic, the routed board and the
 The board is built as a **partial PCBA**: the assembly house reflow-places the low-mass SMD parts;
 you hand-solder the heavy / mechanical through-hole parts. This keeps the rotor-balance intent of
 §6/§8 (heavy parts TH + RTV-bonded) while removing the tedium and cold-joint risk of hand-soldering
-a dozen tiny passives across the default four boards. The earlier all-through-hole framing was about enabling *hand*
-assembly, not a hard electrical or mechanical constraint — partial PCBA supersedes it.
+a dozen tiny passives across the default four boards.
 
 ### 11.1 Package split
 
