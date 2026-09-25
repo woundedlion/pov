@@ -1,0 +1,36 @@
+{
+  "parser": "tools/parse_profile.py",
+  "expected_shapes": 23,
+  "board": "COM4",
+  "date": "2026-09-24",
+  "trans_speed": 4,
+  "window": 16,
+  "seconds": 210,
+  "epoch_revs": 1920,
+  "runs": {
+    "before_ship": {
+      "log": "docs/profiles/review20260924finding2/data/review125_before_ship.log.txt",
+      "source_sha": "b4a9848ff",
+      "tree": ".",
+      "env": "profile"
+    },
+    "before_o3": {
+      "log": "docs/profiles/review20260924finding2/data/review125_before_o3.log.txt",
+      "source_sha": "b4a9848ff",
+      "tree": ".",
+      "env": "profile_o3"
+    },
+    "after_ship": {
+      "log": "docs/profiles/review20260924finding2/data/review125_after_ship.log.txt",
+      "source_sha": "fa92838f9",
+      "tree": ".",
+      "env": "profile"
+    },
+    "after_o3": {
+      "log": "docs/profiles/review20260924finding2/data/review125_after_o3.log.txt",
+      "source_sha": "fa92838f9",
+      "tree": ".",
+      "env": "profile_o3"
+    }
+  }
+}

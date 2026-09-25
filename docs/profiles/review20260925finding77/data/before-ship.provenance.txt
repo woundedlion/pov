@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=ee19e9dac8c20b803cca9c9bec04929edc6af0d5
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=06f55542a6959aaafaa2044ef7fd23c6b8574d4b2593ce2ae7054174e4276671
+profile provenance: phantasm_elf_sha256=c458b6ed1ff17133e4e968e8cee7c34ae36a827e93ed9af412a6980f7baf4c1a
+profile provenance: profile_envdump_sha256=dd2a354f357157f3bf36e1037640d48e088f7a6870f329745f4d188a873498b3
+profile provenance: phantasm_envdump_sha256=0a2979736df6e40eba2fe402baa3739593cfebe8d8dee18a2739b2fd328dab29
+profile provenance: artifact_profile_elf=build/prof/artifacts/shapeshifter_ship_ee19e9dac8c2_06f55542a695/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/shapeshifter_ship_ee19e9dac8c2_06f55542a695/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/shapeshifter_ship_ee19e9dac8c2_06f55542a695

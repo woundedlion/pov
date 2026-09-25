@@ -31,16 +31,16 @@ minus shipping bytes from each pair's own image-size reports.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
+| [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-24.md) / [O3](O3/profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 60.695 (23) | 🟢 55.674 (23) | 🟢 0/3327 (0.0%) | 🟢 0/3327 (0.0%) | +23,472 B | +12,240 B | ship 2026-09-24 11:01<br>O3 2026-09-24 11:12 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-25.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 58.40 (9) | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-09-25 07:33<br>O3 2026-09-25 07:29 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-26.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 58.32 (13) | 🟢 0/6688 (0.0%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-08-26 03:31<br>O3 2026-08-26 02:10 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-19.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 57.45 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-19 22:17<br>O3 2026-09-19 22:19 |
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-08-26.md) / [O3](O3/profile_shapeshifter_teensy_2026-08-26.md) § | `ss_draw_all` | 🟢 58.13 (10) | 🟢 59.80 (10) | 🟢 0/2448 (0.0%) | 🟢 0/2448 (0%) | +27,272 B | +23,440 B | ship 2026-08-26 03:28<br>O3 2026-08-26 03:11 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-20.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 56.04 | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-20 22:51<br>O3 2026-09-20 23:07 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-26.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 56.16 | 🟢 0/2048 (0.0%) | 🟢 0/2048 (0%) | +13,224 B | +11,280 B | ship 2026-08-26 01:28<br>O3 2026-08-26 01:25 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-26.md) / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 52.79 (9) | 🟢 0/1728 (0.0%) | 🟢 0/1728 (0%) | +22,800 B | +20,400 B | ship 2026-08-26 07:40<br>O3 2026-08-26 07:45 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-08-26.md) / [O3](O3/profile_hyperlattice_teensy_2026-08-26.md) § | `hl_shader_draw` | 🟢 51.19 (4) | 🟢 49.92 (4) | 🟢 0/2688 (0.0%) | 🟢 0/2688 (0%) | +10,152 B | +7,728 B | ship 2026-08-26 03:32<br>O3 2026-08-26 02:37 |
-| [IslamicStars](shipping/profile_islamicstars_teensy_2026-09-20.md) / [O3](O3/profile_islamicstars_teensy_2026-09-20.md) § | `is_timeline_step` | 🟢 50.83 (23) | 🟢 50.41 (23) | 🟢 0/3328 (0.0%) | 🟢 0/3328 (0.0%) | +24,616 B | +13,152 B | ship 2026-09-20 00:16<br>O3 2026-09-20 00:21 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-08-26.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🔴 79.81 | 🟢 0/1088 (0.0%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-08-26 02:47<br>O3 2026-08-26 02:45 |
-| [RingSpin](shipping/profile_ringspin_teensy_2026-08-26.md) / [O3](O3/profile_ringspin_teensy_2026-08-26.md) | `rs_draw_rings` | 🟢 49.42 | 🟢 50.81 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +15,080 B | +13,088 B | ship 2026-08-26 01:41<br>O3 2026-08-26 01:38 |
+| [RingSpin](shipping/profile_ringspin_teensy_2026-09-24.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 49.920 | 🟢 50.750 | 🟢 0/1087 (0.0%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-09-24 20:15<br>O3 2026-09-24 20:18 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-26.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.91 | 🟢 48.65 | 🟢 0/2048 (0.0%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-08-26 01:20<br>O3 2026-08-26 01:16 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-08-26.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 48.50 | 🟢 46.52 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-08-26 01:30<br>O3 2026-08-26 01:27 |
 | [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) / [O3](O3/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 47.91 | 🟢 46.99 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +13,784 B | +11,632 B | ship 2026-08-26 03:23<br>O3 2026-08-26 02:51 |
@@ -70,10 +70,12 @@ minus shipping bytes from each pair's own image-size reports.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-08-26.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.96 | 🟢 7.71 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-08-26 01:43<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-08-26.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.98 | 🟢 3.86 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-08-26 01:39<br>O3 2026-08-26 01:36 |
 
+● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
+
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
 Bucket frames include the following transition, so they are stricter than clean holds.
-Raymarch and IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
+IslamicStars refreshed on 2026-09-24 (unlanded finding 2 candidate); Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 
 The [raster measurement comparison](review_2026-09-20.md) measures vertical coverage, Peirce classification and

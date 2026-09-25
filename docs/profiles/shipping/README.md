@@ -7,16 +7,16 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
+| [IslamicStars](profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 60.695 (23) | 🟢 0/3327 (0.0%) | 2026-09-24 11:01 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 58.40 (9) | 🟢 0/2457 (0.00%) | 2026-09-25 07:33 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 0/6688 (0.0%) | 2026-08-26 03:31 |
 | [DisplacementField](profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 0/1088 (0.0%) | 2026-09-19 22:17 |
-| [ShapeShifter](profile_shapeshifter_teensy_2026-08-26.md) § | `ss_draw_all` | 🟢 58.13 (10) | 🟢 0/2448 (0.0%) | 2026-08-26 03:28 |
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 0/1736 (0.00%) | 2026-09-20 22:51 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 0/2048 (0.0%) | 2026-08-26 01:28 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 0/1728 (0.0%) | 2026-08-26 07:40 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-08-26.md) § | `hl_shader_draw` | 🟢 51.19 (4) | 🟢 0/2688 (0.0%) | 2026-08-26 03:32 |
-| [IslamicStars](profile_islamicstars_teensy_2026-09-20.md) § | `is_timeline_step` | 🟢 50.83 (23) | 🟢 0/3328 (0.0%) | 2026-09-20 00:16 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🟢 0/1088 (0.0%) | 2026-08-26 02:47 |
-| [RingSpin](profile_ringspin_teensy_2026-08-26.md) | `rs_draw_rings` | 🟢 49.42 | 🟢 0/1088 (0.0%) | 2026-08-26 01:41 |
+| [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 49.920 | 🟢 0/1087 (0.0%) | 2026-09-24 20:15 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.91 | 🟢 0/2048 (0.0%) | 2026-08-26 01:20 |
 | [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 48.50 | 🟢 0/1088 (0.0%) | 2026-08-26 01:30 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 47.91 | 🟢 0/1088 (0.0%) | 2026-08-26 03:23 |
@@ -46,7 +46,9 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.96 | 🟢 0/1088 (0.0%) | 2026-08-26 01:43 |
 | [RingShower](profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.98 | 🟢 0/1088 (0.0%) | 2026-08-26 01:39 |
 
-Raymarch and IslamicStars refreshed on 2026-09-20; DisplacementField on 2026-09-19; other rows on 2026-08-26.
+● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
+
+IslamicStars refreshed on 2026-09-24 (unlanded finding 2 candidate); Raymarch on 2026-09-20; DisplacementField on 2026-09-19; RingSpin on 2026-09-24; other rows on 2026-08-26.
 Captured timestamps are local raw-log mtimes.
 Each row links to the report generated from its capture log.
 
@@ -55,7 +57,7 @@ For cyclers, each row summarizes the parser-owned preset, shape, or mode entries
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
 - **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
-- **IslamicStars**: 23 parser ownership buckets spanning 18.48–50.83 ms; the sequence closes back to its first entry.
+- **IslamicStars**: 23 shape ownership buckets including transitions; setup frame 1 excluded. The unlanded finding 2 candidate completes the full cycle. See its linked report for the controlled baseline comparison.
 - **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
 - **ShapeShifter**: 10 parser ownership buckets spanning 9.86–58.13 ms; the sequence closes back to its first entry.
 - **HyperLattice**: 4 parser ownership buckets spanning 41.77–51.19 ms; the sequence closes back to its first entry.

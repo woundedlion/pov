@@ -1,0 +1,1620 @@
+profile harness: effect=RingSpin config=ship segments=4 rpm=480 f_cpu=600000000
+reset cause: 0x001 por
+[Phantasm] Segment 0 arm-A (+y) MASTER | y_base=0 y_step=1 pixels=72
+f 1 w=1028 r=1028
+f 2 w=505 r=505
+f 3 w=65681 r=3736
+f 4 w=59487 r=766
+f 5 w=68414 r=6724
+f 6 w=56839 r=1107
+f 7 w=71638 r=10291
+f 8 w=53752 r=1589
+f 9 w=74467 r=13600
+f 10 w=51065 r=2211
+f 11 w=77350 r=17050
+f 12 w=48371 r=2968
+f 13 w=80093 r=20607
+f 14 w=45804 r=3955
+f 15 w=83202 r=24702
+f 16 w=42824 r=5081
+f 17 w=85790 r=28416
+f 18 w=40452 r=6414
+f 19 w=88233 r=32192
+f 20 w=38135 r=7872
+f 21 w=88221 r=33637
+f 22 w=38215 r=9397
+f 23 w=87737 r=34681
+f 24 w=38872 r=11108
+f 25 w=87058 r=35658
+f 26 w=39731 r=12933
+f 27 w=86197 r=36675
+f 28 w=40661 r=14880
+f 29 w=85372 r=37800
+f 30 w=41544 r=16890
+f 31 w=84702 r=39157
+f 32 w=42336 r=19039
+=== profile RingSpin [288x144] frames 1-32 window=2392967 us ===
+frame wall us: min=505 avg=59180 max=88233 sum=1893776 (32 frames)
+frame render us: avg=15395 max=39157
+--- Cycle Counters ---
+frame                  1893770 us (100%)  32 calls  1136262391 cyc
+  pov_preserve_half    4501 us (0%)  31 calls  2700975 cyc
+  rs_draw_rings        482908 us (25%)  32 calls  289745213 cyc
+    rs_ring_scan       469382 us (97%)  1748 calls  281629288 cyc
+      filter_blend     66588 us (14%)  656981 calls  39953087 cyc
+  rs_timeline_step     2382 us (0%)  32 calls  1429401 cyc
+  canvas_clear         2821 us (0%)  32 calls  1693083 cyc
+  canvas_buffer_wait   1401123 us (73%)  32 calls  840674361 cyc
+isr_wake       n=44133 cyc min/avg/max=261/843/11813 ns min/avg/max=435/1405/19688 total=62053 us cpu=2.59%
+isr_pack       n=4366 cyc min/avg/max=3738/4013/5721 ns min/avg/max=6230/6688/9535 total=29202 us cpu=1.22%
+isr_dma_submit n=4366 cyc min/avg/max=461/561/726 ns min/avg/max=768/935/1210 total=4088 us cpu=0.17%
+f 33 w=84287 r=41071
+f 34 w=43977 r=22593
+f 35 w=81374 r=41512
+f 36 w=47555 r=26611
+f 37 w=77717 r=41873
+f 38 w=51128 r=30490
+f 39 w=73914 r=41949
+f 40 w=54248 r=33743
+f 41 w=70820 r=42109
+f 42 w=56930 r=36584
+f 43 w=67257 r=41387
+f 44 w=59627 r=38558
+f 45 w=64196 r=40300
+f 46 w=62229 r=40073
+f 47 w=61172 r=38791
+f 48 w=64814 r=41150
+f 49 w=58144 r=36842
+f 50 w=67442 r=41841
+f 51 w=54907 r=34294
+f 52 w=70042 r=41837
+f 53 w=52246 r=31628
+f 54 w=70838 r=40010
+f 55 w=52451 r=30008
+f 56 w=70480 r=38032
+f 57 w=52426 r=28003
+f 58 w=70668 r=36215
+f 59 w=52327 r=26089
+f 60 w=70619 r=34253
+f 61 w=52374 r=24184
+f 62 w=71156 r=32884
+f 63 w=52310 r=22738
+f 64 w=71456 r=31738
+=== profile RingSpin [288x144] frames 33-64 window=2012480 us ===
+frame wall us: min=43977 avg=62847 max=84287 sum=2011131 (32 frames)
+frame render us: avg=35293 max=42109
+--- Cycle Counters ---
+frame                  2011130 us (100%)  32 calls  1206678199 cyc
+  pov_preserve_half    4515 us (0%)  32 calls  2709364 cyc
+  rs_draw_rings        1119799 us (55%)  32 calls  671879505 cyc
+    rs_ring_scan       1101210 us (98%)  2432 calls  660726561 cyc
+      filter_blend     147471 us (13%)  1439501 calls  88482964 cyc
+  rs_timeline_step     2329 us (0%)  32 calls  1397977 cyc
+  canvas_clear         2698 us (0%)  32 calls  1619317 cyc
+  canvas_buffer_wait   881756 us (43%)  32 calls  529053631 cyc
+isr_wake       n=37100 cyc min/avg/max=293/999/7335 ns min/avg/max=488/1665/12225 total=61784 us cpu=3.07%
+isr_pack       n=4637 cyc min/avg/max=3738/4094/5785 ns min/avg/max=6230/6823/9641 total=31644 us cpu=1.57%
+isr_dma_submit n=4637 cyc min/avg/max=470/564/612 ns min/avg/max=783/940/1020 total=4360 us cpu=0.21%
+f 65 w=52159 r=21577
+f 66 w=71557 r=30677
+f 67 w=52511 r=20733
+f 68 w=71288 r=29568
+f 69 w=53002 r=20115
+f 70 w=70813 r=28473
+f 71 w=53615 r=19633
+f 72 w=70417 r=27595
+f 73 w=53917 r=19059
+f 74 w=70554 r=27170
+f 75 w=53834 r=18549
+f 76 w=70736 r=26829
+f 77 w=54093 r=18467
+f 78 w=70510 r=26523
+f 79 w=54691 r=18704
+f 80 w=70014 r=26264
+f 81 w=55381 r=19189
+f 82 w=69374 r=26106
+f 83 w=56163 r=19815
+f 84 w=68872 r=26232
+f 85 w=56719 r=20499
+f 86 w=68665 r=26708
+f 87 w=56941 r=21194
+f 88 w=68632 r=27372
+f 89 w=57021 r=21938
+f 90 w=68766 r=28250
+f 91 w=57100 r=22894
+f 92 w=68584 r=29021
+f 93 w=57741 r=24253
+f 94 w=67928 r=29725
+f 95 w=58440 r=25709
+f 96 w=67436 r=30689
+=== profile RingSpin [288x144] frames 65-96 window=1998797 us ===
+frame wall us: min=52159 avg=62421 max=71557 sum=1997474 (32 frames)
+frame render us: avg=24360 max=30689
+--- Cycle Counters ---
+frame                  1997471 us (100%)  32 calls  1198482679 cyc
+  pov_preserve_half    4517 us (0%)  32 calls  2710742 cyc
+  rs_draw_rings        769835 us (38%)  32 calls  461901195 cyc
+    rs_ring_scan       751286 us (97%)  2432 calls  450771693 cyc
+      filter_blend     106138 us (14%)  1042482 calls  63683220 cyc
+  rs_timeline_step     2430 us (0%)  32 calls  1458128 cyc
+  canvas_clear         2693 us (0%)  32 calls  1616186 cyc
+  canvas_buffer_wait   1217963 us (60%)  32 calls  730778067 cyc
+isr_wake       n=36848 cyc min/avg/max=293/990/7150 ns min/avg/max=488/1650/11916 total=60818 us cpu=3.04%
+isr_pack       n=4606 cyc min/avg/max=3738/4056/5597 ns min/avg/max=6230/6760/9328 total=31141 us cpu=1.55%
+isr_dma_submit n=4606 cyc min/avg/max=435/562/630 ns min/avg/max=725/936/1050 total=4320 us cpu=0.21%
+f 97 w=58747 r=27179
+f 98 w=67297 r=32020
+f 99 w=59266 r=28832
+f 100 w=67680 r=34057
+f 101 w=58946 r=30547
+f 102 w=68804 r=36896
+f 103 w=57184 r=31626
+f 104 w=70349 r=39519
+f 105 w=56059 r=33123
+f 106 w=70528 r=41141
+f 107 w=55518 r=34205
+f 108 w=70979 r=42729
+f 109 w=55931 r=36204
+f 110 w=69010 r=42760
+f 111 w=57124 r=37429
+f 112 w=67311 r=42284
+f 113 w=58401 r=38231
+f 114 w=65647 r=41423
+f 115 w=59672 r=38639
+f 116 w=63891 r=40076
+f 117 w=61069 r=38688
+f 118 w=61962 r=38195
+f 119 w=62430 r=38169
+f 120 w=59276 r=34947
+f 121 w=65656 r=38148
+f 122 w=55765 r=31468
+f 123 w=68509 r=37521
+f 124 w=53331 r=28391
+f 125 w=71195 r=37132
+f 126 w=50805 r=25483
+f 127 w=73190 r=36216
+f 128 w=49546 r=23306
+=== profile RingSpin [288x144] frames 97-128 window=1992401 us ===
+frame wall us: min=49546 avg=62221 max=73190 sum=1991078 (32 frames)
+frame render us: avg=35518 max=42760
+--- Cycle Counters ---
+frame                  1991070 us (100%)  32 calls  1194642059 cyc
+  pov_preserve_half    4493 us (0%)  32 calls  2696232 cyc
+  rs_draw_rings        1127002 us (56%)  32 calls  676201416 cyc
+    rs_ring_scan       1108058 us (98%)  2432 calls  664834806 cyc
+      filter_blend     147802 us (13%)  1440463 calls  88681523 cyc
+  rs_timeline_step     2327 us (0%)  32 calls  1396600 cyc
+  canvas_clear         2703 us (0%)  32 calls  1622246 cyc
+  canvas_buffer_wait   854511 us (42%)  32 calls  512707181 cyc
+isr_wake       n=36730 cyc min/avg/max=293/1000/9162 ns min/avg/max=488/1666/15270 total=61220 us cpu=3.07%
+isr_pack       n=4591 cyc min/avg/max=3738/4097/5710 ns min/avg/max=6230/6828/9516 total=31349 us cpu=1.57%
+isr_dma_submit n=4591 cyc min/avg/max=444/564/621 ns min/avg/max=740/940/1035 total=4317 us cpu=0.21%
+f 129 w=74280 r=35330
+f 130 w=49146 r=22020
+f 131 w=75443 r=35007
+f 132 w=48878 r=21429
+f 133 w=76015 r=34934
+f 134 w=49192 r=21670
+f 135 w=74676 r=33905
+f 136 w=50291 r=21740
+f 137 w=73612 r=32896
+f 138 w=51624 r=22065
+f 139 w=72157 r=31766
+f 140 w=53319 r=22629
+f 141 w=70425 r=30601
+f 142 w=55173 r=23319
+f 143 w=68717 r=29581
+f 144 w=56907 r=24035
+f 145 w=67036 r=28617
+f 146 w=58660 r=24833
+f 147 w=65385 r=27709
+f 148 w=60401 r=25654
+f 149 w=63484 r=26684
+f 150 w=62233 r=26461
+f 151 w=61487 r=25505
+f 152 w=63610 r=26661
+f 153 w=61038 r=25247
+f 154 w=64195 r=26988
+f 155 w=61063 r=25596
+f 156 w=64314 r=27464
+f 157 w=61369 r=26380
+f 158 w=64051 r=27969
+f 159 w=61951 r=27467
+f 160 w=63555 r=28504
+=== profile RingSpin [288x144] frames 129-160 window=2005035 us ===
+frame wall us: min=48878 avg=62615 max=76015 sum=2003687 (32 frames)
+frame render us: avg=27208 max=35330
+--- Cycle Counters ---
+frame                  2003682 us (100%)  32 calls  1202209384 cyc
+  pov_preserve_half    4570 us (0%)  32 calls  2742541 cyc
+  rs_draw_rings        861024 us (42%)  32 calls  516614419 cyc
+    rs_ring_scan       842083 us (97%)  2432 calls  505250150 cyc
+      filter_blend     116309 us (13%)  1137002 calls  69785604 cyc
+  rs_timeline_step     2331 us (0%)  32 calls  1398756 cyc
+  canvas_clear         2689 us (0%)  32 calls  1613838 cyc
+  canvas_buffer_wait   1133034 us (56%)  32 calls  679820839 cyc
+isr_wake       n=36962 cyc min/avg/max=293/994/7290 ns min/avg/max=488/1656/12150 total=61268 us cpu=3.05%
+isr_pack       n=4620 cyc min/avg/max=3738/4077/5647 ns min/avg/max=6230/6795/9411 total=31397 us cpu=1.56%
+isr_dma_submit n=4620 cyc min/avg/max=492/563/613 ns min/avg/max=820/938/1021 total=4337 us cpu=0.21%
+f 161 w=62473 r=28722
+f 162 w=63032 r=29300
+f 163 w=63191 r=30036
+f 164 w=62785 r=30367
+f 165 w=63624 r=31547
+f 166 w=62789 r=31880
+f 167 w=64119 r=33537
+f 168 w=63079 r=34159
+f 169 w=65083 r=36789
+f 170 w=61219 r=35555
+f 171 w=66072 r=39183
+f 172 w=60089 r=36816
+f 173 w=66279 r=40641
+f 174 w=59162 r=37293
+f 175 w=66534 r=41384
+f 176 w=58407 r=37335
+f 177 w=66890 r=41772
+f 178 w=57580 r=36896
+f 179 w=67462 r=41903
+f 180 w=56484 r=35932
+f 181 w=68307 r=41786
+f 182 w=55199 r=34532
+f 183 w=69208 r=41287
+f 184 w=53769 r=32599
+f 185 w=70247 r=40391
+f 186 w=51936 r=29874
+f 187 w=70929 r=38349
+f 188 w=50922 r=26761
+f 189 w=71561 r=35866
+f 190 w=50698 r=24110
+f 191 w=72248 r=33905
+f 192 w=50264 r=21713
+=== profile RingSpin [288x144] frames 161-192 window=1992990 us ===
+frame wall us: min=50264 avg=62238 max=72248 sum=1991641 (32 frames)
+frame render us: avg=34756 max=41903
+--- Cycle Counters ---
+frame                  1991635 us (100%)  32 calls  1194981380 cyc
+  pov_preserve_half    4580 us (0%)  32 calls  2748292 cyc
+  rs_draw_rings        1102473 us (55%)  32 calls  661484397 cyc
+    rs_ring_scan       1083410 us (98%)  2432 calls  650046337 cyc
+      filter_blend     145805 us (13%)  1424038 calls  87483419 cyc
+  rs_timeline_step     2420 us (0%)  32 calls  1452439 cyc
+  canvas_clear         2693 us (0%)  32 calls  1616139 cyc
+  canvas_buffer_wait   879436 us (44%)  32 calls  527661718 cyc
+isr_wake       n=36741 cyc min/avg/max=293/999/7174 ns min/avg/max=488/1665/11956 total=61227 us cpu=3.07%
+isr_pack       n=4592 cyc min/avg/max=3738/4096/5629 ns min/avg/max=6230/6826/9381 total=31349 us cpu=1.57%
+isr_dma_submit n=4592 cyc min/avg/max=490/563/613 ns min/avg/max=816/938/1021 total=4314 us cpu=0.21%
+f 193 w=73292 r=32738
+f 194 w=49573 r=19858
+f 195 w=74407 r=31809
+f 196 w=49015 r=18369
+f 197 w=75206 r=31122
+f 198 w=48502 r=17170
+f 199 w=75855 r=30572
+f 200 w=48283 r=16402
+f 201 w=76267 r=30161
+f 202 w=48315 r=16021
+f 203 w=76304 r=29881
+f 204 w=48640 r=16067
+f 205 w=76168 r=29779
+f 206 w=49071 r=16394
+f 207 w=75973 r=29912
+f 208 w=49632 r=17102
+f 209 w=75538 r=30184
+f 210 w=50447 r=18178
+f 211 w=74971 r=30710
+f 212 w=51220 r=19475
+f 213 w=74390 r=31409
+f 214 w=52098 r=21051
+f 215 w=73765 r=32306
+f 216 w=53073 r=22925
+f 217 w=72934 r=33404
+f 218 w=54117 r=25079
+f 219 w=72330 r=34953
+f 220 w=55439 r=27936
+f 221 w=71463 r=36944
+f 222 w=56899 r=31388
+f 223 w=69130 r=38063
+f 224 w=58029 r=33636
+=== profile RingSpin [288x144] frames 193-224 window=2011715 us ===
+frame wall us: min=48283 avg=62823 max=76304 sum=2010346 (32 frames)
+frame render us: avg=26593 max=38063
+--- Cycle Counters ---
+frame                  2010343 us (100%)  32 calls  1206206132 cyc
+  pov_preserve_half    4484 us (0%)  32 calls  2690830 cyc
+  rs_draw_rings        841251 us (41%)  32 calls  504751086 cyc
+    rs_ring_scan       822678 us (97%)  2432 calls  493606933 cyc
+      filter_blend     111751 us (13%)  1090784 calls  67050911 cyc
+  rs_timeline_step     2515 us (0%)  32 calls  1509428 cyc
+  canvas_clear         2696 us (0%)  32 calls  1617654 cyc
+  canvas_buffer_wait   1159364 us (57%)  32 calls  695618738 cyc
+isr_wake       n=37086 cyc min/avg/max=293/990/7290 ns min/avg/max=488/1650/12150 total=61253 us cpu=3.04%
+isr_pack       n=4635 cyc min/avg/max=3738/4052/5695 ns min/avg/max=6230/6753/9491 total=31302 us cpu=1.55%
+isr_dma_submit n=4635 cyc min/avg/max=469/563/612 ns min/avg/max=781/938/1020 total=4350 us cpu=0.21%
+f 225 w=67258 r=38639
+f 226 w=59392 r=35577
+f 227 w=65904 r=39036
+f 228 w=61075 r=37620
+f 229 w=64100 r=39266
+f 230 w=62203 r=39015
+f 231 w=62020 r=38592
+f 232 w=63640 r=39788
+f 233 w=60157 r=37488
+f 234 w=65009 r=40042
+f 235 w=58449 r=36037
+f 236 w=66189 r=39771
+f 237 w=56784 r=34100
+f 238 w=67243 r=38890
+f 239 w=55015 r=31450
+f 240 w=67697 r=36691
+f 241 w=54795 r=29033
+f 242 w=68261 r=34783
+f 243 w=54868 r=27195
+f 244 w=68494 r=33226
+f 245 w=54865 r=25637
+f 246 w=68539 r=31720
+f 247 w=54782 r=24048
+f 248 w=68420 r=30012
+f 249 w=55601 r=23160
+f 250 w=68162 r=28866
+f 251 w=56451 r=22862
+f 252 w=67682 r=28089
+f 253 w=57492 r=23127
+f 254 w=67128 r=27800
+f 255 w=58686 r=23978
+f 256 w=66879 r=28401
+=== profile RingSpin [288x144] frames 225-256 window=1994602 us ===
+frame wall us: min=54782 avg=62288 max=68539 sum=1993240 (32 frames)
+frame render us: avg=32623 max=40042
+--- Cycle Counters ---
+frame                  1993236 us (100%)  32 calls  1195942083 cyc
+  pov_preserve_half    4543 us (0%)  32 calls  2726080 cyc
+  rs_draw_rings        1034354 us (51%)  32 calls  620612629 cyc
+    rs_ring_scan       1015887 us (98%)  2432 calls  609532542 cyc
+      filter_blend     137139 us (13%)  1336231 calls  82283498 cyc
+  rs_timeline_step     2293 us (0%)  32 calls  1375950 cyc
+  canvas_clear         2698 us (0%)  32 calls  1618812 cyc
+  canvas_buffer_wait   949317 us (47%)  32 calls  569590338 cyc
+isr_wake       n=36770 cyc min/avg/max=303/997/9650 ns min/avg/max=505/1661/16083 total=61138 us cpu=3.06%
+isr_pack       n=4596 cyc min/avg/max=3738/4084/5803 ns min/avg/max=6230/6806/9671 total=31286 us cpu=1.56%
+isr_dma_submit n=4596 cyc min/avg/max=470/563/613 ns min/avg/max=783/938/1021 total=4319 us cpu=0.21%
+f 257 w=58043 r=24179
+f 258 w=66885 r=28610
+f 259 w=58353 r=24519
+f 260 w=66789 r=28852
+f 261 w=58506 r=24903
+f 262 w=66562 r=29009
+f 263 w=58844 r=25399
+f 264 w=66312 r=29255
+f 265 w=59183 r=25982
+f 266 w=66037 r=29564
+f 267 w=59415 r=26525
+f 268 w=65969 r=30037
+f 269 w=59563 r=27091
+f 270 w=65991 r=30626
+f 271 w=59488 r=27661
+f 272 w=66272 r=31477
+f 273 w=59764 r=28787
+f 274 w=64599 r=30932
+f 275 w=61063 r=29539
+f 276 w=63279 r=30365
+f 277 w=62681 r=30600
+f 278 w=61916 r=30062
+f 279 w=64061 r=31668
+f 280 w=60676 r=29897
+f 281 w=65383 r=32837
+f 282 w=59701 r=30031
+f 283 w=66839 r=34416
+f 284 w=58765 r=30728
+f 285 w=67339 r=35610
+f 286 w=57792 r=30948
+f 287 w=68348 r=36840
+f 288 w=56927 r=31328
+=== profile RingSpin [288x144] frames 257-288 window=2002718 us ===
+frame wall us: min=56927 avg=62542 max=68348 sum=2001345 (32 frames)
+frame render us: avg=29633 max=36840
+--- Cycle Counters ---
+frame                  2001342 us (100%)  32 calls  1200805235 cyc
+  pov_preserve_half    4587 us (0%)  32 calls  2752392 cyc
+  rs_draw_rings        938448 us (46%)  32 calls  563069384 cyc
+    rs_ring_scan       919516 us (97%)  2432 calls  551709711 cyc
+      filter_blend     126114 us (13%)  1227696 calls  75668942 cyc
+  rs_timeline_step     2501 us (0%)  32 calls  1500641 cyc
+  canvas_clear         2688 us (0%)  32 calls  1612804 cyc
+  canvas_buffer_wait   1053084 us (52%)  32 calls  631850944 cyc
+isr_wake       n=36920 cyc min/avg/max=293/996/12118 ns min/avg/max=488/1660/20196 total=61345 us cpu=3.06%
+isr_pack       n=4615 cyc min/avg/max=3738/4085/5662 ns min/avg/max=6230/6808/9436 total=31424 us cpu=1.56%
+isr_dma_submit n=4615 cyc min/avg/max=446/563/622 ns min/avg/max=743/938/1036 total=4334 us cpu=0.21%
+f 289 w=68032 r=37094
+f 290 w=56117 r=30758
+f 291 w=68074 r=36375
+f 292 w=56182 r=30104
+f 293 w=67737 r=35384
+f 294 w=56961 r=29892
+f 295 w=67042 r=34479
+f 296 w=57665 r=29637
+f 297 w=66377 r=33558
+f 298 w=58190 r=29294
+f 299 w=65542 r=32380
+f 300 w=58906 r=28830
+f 301 w=64503 r=30879
+f 302 w=59402 r=27828
+f 303 w=63631 r=29004
+f 304 w=60409 r=26956
+f 305 w=62865 r=27366
+f 306 w=60883 r=25795
+f 307 w=62651 r=25992
+f 308 w=61638 r=25185
+f 309 w=62511 r=25242
+f 310 w=62150 r=24882
+f 311 w=62479 r=24906
+f 312 w=62314 r=24765
+f 313 w=62683 r=24992
+f 314 w=62272 r=24810
+f 315 w=63117 r=25473
+f 316 w=62179 r=25196
+f 317 w=63524 r=26266
+f 318 w=62998 r=26810
+f 319 w=61775 r=26129
+f 320 w=64176 r=27852
+=== profile RingSpin [288x144] frames 289-320 window=1996315 us ===
+frame wall us: min=56117 avg=62343 max=68074 sum=1994985 (32 frames)
+frame render us: avg=28566 max=37094
+--- Cycle Counters ---
+frame                  1994977 us (100%)  32 calls  1196986731 cyc
+  pov_preserve_half    4607 us (0%)  32 calls  2764243 cyc
+  rs_draw_rings        904294 us (45%)  32 calls  542576687 cyc
+    rs_ring_scan       885495 us (97%)  2432 calls  531297479 cyc
+      filter_blend     121993 us (13%)  1190210 calls  73196004 cyc
+  rs_timeline_step     2458 us (0%)  32 calls  1475054 cyc
+  canvas_clear         2698 us (0%)  32 calls  1618916 cyc
+  canvas_buffer_wait   1080889 us (54%)  32 calls  648533515 cyc
+isr_wake       n=36802 cyc min/avg/max=293/992/7106 ns min/avg/max=488/1653/11843 total=60906 us cpu=3.05%
+isr_pack       n=4600 cyc min/avg/max=3738/4060/5578 ns min/avg/max=6230/6766/9296 total=31130 us cpu=1.55%
+isr_dma_submit n=4600 cyc min/avg/max=490/563/613 ns min/avg/max=816/938/1021 total=4319 us cpu=0.21%
+f 321 w=60636 r=26221
+f 322 w=64925 r=28692
+f 323 w=60399 r=26580
+f 324 w=65303 r=29428
+f 325 w=60306 r=27281
+f 326 w=65540 r=30365
+f 327 w=60686 r=28605
+f 328 w=64579 r=30738
+f 329 w=60998 r=29283
+f 330 w=63988 r=30818
+f 331 w=61361 r=29725
+f 332 w=63555 r=30824
+f 333 w=61550 r=29920
+f 334 w=63219 r=30696
+f 335 w=61556 r=29797
+f 336 w=62400 r=29742
+f 337 w=62887 r=30120
+f 338 w=60803 r=28467
+f 339 w=64909 r=30922
+f 340 w=59180 r=27647
+f 341 w=66469 r=31661
+f 342 w=57806 r=27022
+f 343 w=67749 r=32316
+f 344 w=56630 r=26492
+f 345 w=68597 r=32634
+f 346 w=55993 r=26172
+f 347 w=69660 r=33379
+f 348 w=56809 r=27736
+f 349 w=68388 r=33680
+f 350 w=58297 r=29467
+f 351 w=66440 r=33464
+f 352 w=59491 r=30499
+=== profile RingSpin [288x144] frames 321-352 window=2002494 us ===
+frame wall us: min=55993 avg=62534 max=69660 sum=2001109 (32 frames)
+frame render us: avg=29699 max=33680
+--- Cycle Counters ---
+frame                  2001108 us (100%)  32 calls  1200665277 cyc
+  pov_preserve_half    4589 us (0%)  32 calls  2753495 cyc
+  rs_draw_rings        940559 us (47%)  32 calls  564335829 cyc
+    rs_ring_scan       921756 us (98%)  2432 calls  553053612 cyc
+      filter_blend     126707 us (13%)  1236638 calls  76024563 cyc
+  rs_timeline_step     2502 us (0%)  32 calls  1501502 cyc
+  canvas_clear         2693 us (0%)  32 calls  1615970 cyc
+  canvas_buffer_wait   1050731 us (52%)  32 calls  630439045 cyc
+isr_wake       n=36916 cyc min/avg/max=303/996/11682 ns min/avg/max=505/1660/19470 total=61333 us cpu=3.06%
+isr_pack       n=4614 cyc min/avg/max=3738/4086/5607 ns min/avg/max=6230/6810/9345 total=31426 us cpu=1.56%
+isr_dma_submit n=4614 cyc min/avg/max=464/563/2176 ns min/avg/max=773/938/3626 total=4336 us cpu=0.21%
+f 353 w=64690 r=32923
+f 354 w=60865 r=31332
+f 355 w=63320 r=32198
+f 356 w=62257 r=32001
+f 357 w=61863 r=31409
+f 358 w=63614 r=32567
+f 359 w=60360 r=30472
+f 360 w=64938 r=32956
+f 361 w=58874 r=29386
+f 362 w=66381 r=33311
+f 363 w=57322 r=28178
+f 364 w=67760 r=33429
+f 365 w=55679 r=26656
+f 366 w=68603 r=32812
+f 367 w=55036 r=25394
+f 368 w=68472 r=31411
+f 369 w=55829 r=24784
+f 370 w=68120 r=30448
+f 371 w=57078 r=25071
+f 372 w=67466 r=30082
+f 373 w=58244 r=25872
+f 374 w=66934 r=30350
+f 375 w=59714 r=27619
+f 376 w=65538 r=30701
+f 377 w=60989 r=29180
+f 378 w=64824 r=31548
+f 379 w=60868 r=29963
+f 380 w=65377 r=32886
+f 381 w=59441 r=29871
+f 382 w=66313 r=33729
+f 383 w=58540 r=29812
+f 384 w=67062 r=34420
+=== profile RingSpin [288x144] frames 353-384 window=2003714 us ===
+frame wall us: min=55036 avg=62574 max=68603 sum=2002371 (32 frames)
+frame render us: avg=30399 max=34420
+--- Cycle Counters ---
+frame                  2002367 us (100%)  32 calls  1201420757 cyc
+  pov_preserve_half    4552 us (0%)  32 calls  2731592 cyc
+  rs_draw_rings        963184 us (48%)  32 calls  577910600 cyc
+    rs_ring_scan       944313 us (98%)  2432 calls  566587929 cyc
+      filter_blend     128754 us (13%)  1256269 calls  77252409 cyc
+  rs_timeline_step     2288 us (0%)  32 calls  1372828 cyc
+  canvas_clear         2697 us (0%)  32 calls  1618514 cyc
+  canvas_buffer_wait   1029615 us (51%)  32 calls  617769034 cyc
+isr_wake       n=36938 cyc min/avg/max=293/994/7222 ns min/avg/max=488/1656/12036 total=61207 us cpu=3.05%
+isr_pack       n=4617 cyc min/avg/max=3738/4065/5660 ns min/avg/max=6230/6775/9433 total=31282 us cpu=1.56%
+isr_dma_submit n=4617 cyc min/avg/max=469/563/613 ns min/avg/max=781/938/1021 total=4336 us cpu=0.21%
+f 385 w=57524 r=29678
+f 386 w=67823 r=35045
+f 387 w=56728 r=29318
+f 388 w=68705 r=35569
+f 389 w=55669 r=28795
+f 390 w=69636 r=35977
+f 391 w=54525 r=27992
+f 392 w=70758 r=36294
+f 393 w=52886 r=26724
+f 394 w=71957 r=36227
+f 395 w=51905 r=25676
+f 396 w=73176 r=36399
+f 397 w=51513 r=25456
+f 398 w=71458 r=34460
+f 399 w=54134 r=26141
+f 400 w=68961 r=32647
+f 401 w=57061 r=27255
+f 402 w=66145 r=30944
+f 403 w=59746 r=28236
+f 404 w=63487 r=29269
+f 405 w=62598 r=29358
+f 406 w=60587 r=27489
+f 407 w=65571 r=30604
+f 408 w=57546 r=25696
+f 409 w=68663 r=31906
+f 410 w=54377 r=23826
+f 411 w=71961 r=33343
+f 412 w=51084 r=21973
+f 413 w=75429 r=34947
+f 414 w=47727 r=20219
+f 415 w=78333 r=36097
+f 416 w=46120 r=19763
+=== profile RingSpin [288x144] frames 385-416 window=1985134 us ===
+frame wall us: min=46120 avg=61993 max=78333 sum=1983793 (32 frames)
+frame render us: avg=29791 max=36399
+--- Cycle Counters ---
+frame                  1983786 us (100%)  32 calls  1190271940 cyc
+  pov_preserve_half    4543 us (0%)  32 calls  2726234 cyc
+  rs_draw_rings        943643 us (47%)  32 calls  566186036 cyc
+    rs_ring_scan       924777 us (98%)  2432 calls  554866323 cyc
+      filter_blend     127023 us (13%)  1237943 calls  76214277 cyc
+  rs_timeline_step     2388 us (0%)  32 calls  1432852 cyc
+  canvas_clear         2694 us (0%)  32 calls  1616771 cyc
+  canvas_buffer_wait   1030486 us (51%)  32 calls  618291799 cyc
+isr_wake       n=36596 cyc min/avg/max=293/996/9578 ns min/avg/max=488/1660/15963 total=60794 us cpu=3.06%
+isr_pack       n=4574 cyc min/avg/max=3738/4086/5628 ns min/avg/max=6230/6810/9380 total=31153 us cpu=1.56%
+isr_dma_submit n=4574 cyc min/avg/max=469/563/622 ns min/avg/max=781/938/1036 total=4295 us cpu=0.21%
+f 417 w=78845 r=36350
+f 418 w=45578 r=19418
+f 419 w=79674 r=36638
+f 420 w=45166 r=19349
+f 421 w=79893 r=36788
+f 422 w=45246 r=19578
+f 423 w=79691 r=36815
+f 424 w=45686 r=20047
+f 425 w=79233 r=36827
+f 426 w=46634 r=21005
+f 427 w=78315 r=36865
+f 428 w=48257 r=22679
+f 429 w=75421 r=35644
+f 430 w=50688 r=23877
+f 431 w=72577 r=33998
+f 432 w=53632 r=25123
+f 433 w=68859 r=31538
+f 434 w=56700 r=25784
+f 435 w=66251 r=29579
+f 436 w=59378 r=26503
+f 437 w=63863 r=27911
+f 438 w=61778 r=27236
+f 439 w=61701 r=26481
+f 440 w=63946 r=27971
+f 441 w=59642 r=25160
+f 442 w=66004 r=28721
+f 443 w=57675 r=23942
+f 444 w=67972 r=29461
+f 445 w=55705 r=22656
+f 446 w=69704 r=29899
+f 447 w=54785 r=22242
+f 448 w=70811 r=30596
+=== profile RingSpin [288x144] frames 417-448 window=2010671 us ===
+frame wall us: min=45166 avg=62790 max=79893 sum=2009310 (32 frames)
+frame render us: avg=28021 max=36865
+--- Cycle Counters ---
+frame                  2009305 us (100%)  32 calls  1205583278 cyc
+  pov_preserve_half    4633 us (0%)  32 calls  2780010 cyc
+  rs_draw_rings        886873 us (44%)  32 calls  532124041 cyc
+    rs_ring_scan       867696 us (97%)  2432 calls  520618152 cyc
+      filter_blend     121521 us (14%)  1185530 calls  72912652 cyc
+  rs_timeline_step     2424 us (0%)  32 calls  1454677 cyc
+  canvas_clear         2698 us (0%)  32 calls  1619111 cyc
+  canvas_buffer_wait   1112645 us (55%)  32 calls  667587273 cyc
+isr_wake       n=37067 cyc min/avg/max=293/991/9202 ns min/avg/max=488/1651/15336 total=61283 us cpu=3.04%
+isr_pack       n=4633 cyc min/avg/max=3738/4051/5667 ns min/avg/max=6230/6751/9445 total=31288 us cpu=1.55%
+isr_dma_submit n=4633 cyc min/avg/max=410/563/611 ns min/avg/max=683/938/1018 total=4349 us cpu=0.21%
+f 449 w=53274 r=21612
+f 450 w=71835 r=30992
+f 451 w=52923 r=21459
+f 452 w=72149 r=31154
+f 453 w=52628 r=21327
+f 454 w=72565 r=31437
+f 455 w=52240 r=21222
+f 456 w=72928 r=31706
+f 457 w=51795 r=21048
+f 458 w=73382 r=31975
+f 459 w=51389 r=20857
+f 460 w=73722 r=32124
+f 461 w=51269 r=20939
+f 462 w=73697 r=32180
+f 463 w=51325 r=21051
+f 464 w=73462 r=32057
+f 465 w=51194 r=20796
+f 466 w=73107 r=31458
+f 467 w=52085 r=21087
+f 468 w=72653 r=31286
+f 469 w=52814 r=21645
+f 470 w=72111 r=31299
+f 471 w=53562 r=22405
+f 472 w=71552 r=31447
+f 473 w=54343 r=23336
+f 474 w=70857 r=31739
+f 475 w=55370 r=24655
+f 476 w=70183 r=32385
+f 477 w=56410 r=26339
+f 478 w=68384 r=32267
+f 479 w=57715 r=27528
+f 480 w=66767 r=31841
+=== profile RingSpin [288x144] frames 449-480 window=2001028 us ===
+frame wall us: min=51194 avg=62490 max=73722 sum=1999690 (32 frames)
+frame render us: avg=27020 max=32385
+--- Cycle Counters ---
+frame                  1999683 us (100%)  32 calls  1199810209 cyc
+  pov_preserve_half    4535 us (0%)  32 calls  2721169 cyc
+  rs_draw_rings        854984 us (42%)  32 calls  512990475 cyc
+    rs_ring_scan       836401 us (97%)  2432 calls  501840601 cyc
+      filter_blend     116124 us (13%)  1133298 calls  69674837 cyc
+  rs_timeline_step     2384 us (0%)  32 calls  1430811 cyc
+  canvas_clear         2696 us (0%)  32 calls  1617761 cyc
+  canvas_buffer_wait   1135053 us (56%)  32 calls  681031870 cyc
+isr_wake       n=36889 cyc min/avg/max=293/993/7134 ns min/avg/max=488/1655/11890 total=61098 us cpu=3.05%
+isr_pack       n=4611 cyc min/avg/max=3738/4074/5667 ns min/avg/max=6230/6790/9445 total=31309 us cpu=1.56%
+isr_dma_submit n=4611 cyc min/avg/max=470/563/642 ns min/avg/max=783/938/1070 total=4330 us cpu=0.21%
+f 481 w=59009 r=28582
+f 482 w=64934 r=31060
+f 483 w=61119 r=29724
+f 484 w=62695 r=29963
+f 485 w=63389 r=30897
+f 486 w=60397 r=28786
+f 487 w=65610 r=31941
+f 488 w=58181 r=27666
+f 489 w=67777 r=32989
+f 490 w=55957 r=26495
+f 491 w=69986 r=34028
+f 492 w=54160 r=25734
+f 493 w=71830 r=35109
+f 494 w=51954 r=24619
+f 495 w=72675 r=34838
+f 496 w=50998 r=23381
+f 497 w=73926 r=34852
+f 498 w=50144 r=22542
+f 499 w=74769 r=34814
+f 500 w=49607 r=21964
+f 501 w=75249 r=34757
+f 502 w=49319 r=21623
+f 503 w=75396 r=34565
+f 504 w=49414 r=21523
+f 505 w=75176 r=34244
+f 506 w=49822 r=21621
+f 507 w=74709 r=33875
+f 508 w=50412 r=21834
+f 509 w=73999 r=33378
+f 510 w=51169 r=22103
+f 511 w=72950 r=32608
+f 512 w=51899 r=22051
+=== profile RingSpin [288x144] frames 481-512 window=1990005 us ===
+frame wall us: min=49319 avg=62144 max=75396 sum=1988631 (32 frames)
+frame render us: avg=28880 max=35109
+--- Cycle Counters ---
+frame                  1988624 us (100%)  32 calls  1193174746 cyc
+  pov_preserve_half    4581 us (0%)  32 calls  2748635 cyc
+  rs_draw_rings        914504 us (45%)  32 calls  548702636 cyc
+    rs_ring_scan       895529 us (97%)  2432 calls  537317455 cyc
+      filter_blend     122352 us (13%)  1192431 calls  73411681 cyc
+  rs_timeline_step     2332 us (0%)  32 calls  1399440 cyc
+  canvas_clear         2694 us (0%)  32 calls  1616429 cyc
+  canvas_buffer_wait   1064482 us (53%)  32 calls  638689491 cyc
+isr_wake       n=36685 cyc min/avg/max=303/993/11890 ns min/avg/max=505/1655/19816 total=60738 us cpu=3.05%
+isr_pack       n=4586 cyc min/avg/max=3738/4058/5637 ns min/avg/max=6230/6763/9395 total=31016 us cpu=1.55%
+isr_dma_submit n=4586 cyc min/avg/max=373/563/613 ns min/avg/max=621/938/1021 total=4306 us cpu=0.21%
+f 513 w=72762 r=32502
+f 514 w=52787 r=22845
+f 515 w=72533 r=32923
+f 516 w=54216 r=24683
+f 517 w=70498 r=32725
+f 518 w=55968 r=26240
+f 519 w=68669 r=32453
+f 520 w=57956 r=27953
+f 521 w=66687 r=32185
+f 522 w=60044 r=29767
+f 523 w=64864 r=32177
+f 524 w=61931 r=31654
+f 525 w=63287 r=32499
+f 526 w=64022 r=34065
+f 527 w=61388 r=32943
+f 528 w=66267 r=36764
+f 529 w=58307 r=32618
+f 530 w=69044 r=39207
+f 531 w=55392 r=32146
+f 532 w=72006 r=41699
+f 533 w=52354 r=31597
+f 534 w=74664 r=43807
+f 535 w=50370 r=31736
+f 536 w=76109 r=45389
+f 537 w=48988 r=31922
+f 538 w=77265 r=46732
+f 539 w=48209 r=32487
+f 540 w=77622 r=47599
+f 541 w=48113 r=33259
+f 542 w=76524 r=47326
+f 543 w=48278 r=33149
+f 544 w=75810 r=46504
+=== profile RingSpin [288x144] frames 513-544 window=2024290 us ===
+frame wall us: min=48113 avg=63216 max=77622 sum=2022934 (32 frames)
+frame render us: avg=34736 max=47599
+--- Cycle Counters ---
+frame                  2022927 us (100%)  32 calls  1213756601 cyc
+  pov_preserve_half    4536 us (0%)  32 calls  2722078 cyc
+  rs_draw_rings        1101812 us (54%)  32 calls  661087344 cyc
+    rs_ring_scan       1082766 us (98%)  2432 calls  649659864 cyc
+      filter_blend     147070 us (13%)  1430596 calls  88242185 cyc
+  rs_timeline_step     2458 us (0%)  32 calls  1474815 cyc
+  canvas_clear         2695 us (0%)  32 calls  1617478 cyc
+  canvas_buffer_wait   911394 us (45%)  32 calls  546836623 cyc
+isr_wake       n=37318 cyc min/avg/max=372/999/10382 ns min/avg/max=620/1665/17303 total=62150 us cpu=3.07%
+isr_pack       n=4664 cyc min/avg/max=3738/4087/5687 ns min/avg/max=6230/6811/9478 total=31772 us cpu=1.56%
+isr_dma_submit n=4664 cyc min/avg/max=486/564/613 ns min/avg/max=810/940/1021 total=4385 us cpu=0.21%
+f 545 w=48190 r=32427
+f 546 w=74574 r=44544
+f 547 w=50098 r=32188
+f 548 w=72685 r=42419
+f 549 w=52078 r=32042
+f 550 w=70281 r=39869
+f 551 w=54400 r=31813
+f 552 w=67554 r=36914
+f 553 w=56443 r=30904
+f 554 w=65198 r=33594
+f 555 w=58925 r=30064
+f 556 w=63032 r=30642
+f 557 w=60734 r=28921
+f 558 w=61368 r=27834
+f 559 w=61857 r=27236
+f 560 w=61050 r=25831
+f 561 w=62711 r=26087
+f 562 w=60584 r=24215
+f 563 w=63574 r=25335
+f 564 w=59624 r=22504
+f 565 w=65143 r=25192
+f 566 w=58159 r=20897
+f 567 w=67044 r=25431
+f 568 w=56663 r=19640
+f 569 w=68650 r=25835
+f 570 w=55290 r=18669
+f 571 w=70282 r=26495
+f 572 w=54097 r=18138
+f 573 w=71659 r=27342
+f 574 w=53101 r=17988
+f 575 w=73024 r=28557
+f 576 w=52215 r=18316
+=== profile RingSpin [288x144] frames 545-576 window=1971605 us ===
+frame wall us: min=48190 avg=61571 max=74574 sum=1970287 (32 frames)
+frame render us: avg=28058 max=44544
+--- Cycle Counters ---
+frame                  1970285 us (100%)  32 calls  1182171454 cyc
+  pov_preserve_half    4599 us (0%)  32 calls  2759759 cyc
+  rs_draw_rings        888116 us (45%)  32 calls  532869810 cyc
+    rs_ring_scan       869608 us (97%)  2432 calls  521765107 cyc
+      filter_blend     118619 us (13%)  1159404 calls  71171589 cyc
+  rs_timeline_step     2420 us (0%)  32 calls  1452241 cyc
+  canvas_clear         2699 us (0%)  32 calls  1619739 cyc
+  canvas_buffer_wait   1072419 us (54%)  32 calls  643451794 cyc
+isr_wake       n=36346 cyc min/avg/max=293/994/7206 ns min/avg/max=488/1656/12010 total=60258 us cpu=3.05%
+isr_pack       n=4543 cyc min/avg/max=3738/4074/5700 ns min/avg/max=6230/6790/9500 total=30851 us cpu=1.56%
+isr_dma_submit n=4543 cyc min/avg/max=495/563/658 ns min/avg/max=825/938/1096 total=4265 us cpu=0.21%
+f 577 w=74347 r=30395
+f 578 w=52116 r=20056
+f 579 w=73530 r=31132
+f 580 w=54400 r=23076
+f 581 w=70582 r=31150
+f 582 w=57284 r=25978
+f 583 w=67983 r=31505
+f 584 w=60106 r=29155
+f 585 w=65806 r=32506
+f 586 w=60979 r=31042
+f 587 w=64709 r=33295
+f 588 w=61663 r=32505
+f 589 w=63639 r=33700
+f 590 w=62632 r=33876
+f 591 w=62403 r=33827
+f 592 w=63639 r=35021
+f 593 w=61132 r=33699
+f 594 w=64810 r=35999
+f 595 w=59724 r=33279
+f 596 w=66219 r=37045
+f 597 w=58207 r=32796
+f 598 w=65821 r=36163
+f 599 w=59352 r=33059
+f 600 w=64401 r=35007
+f 601 w=60476 r=33030
+f 602 w=62991 r=33565
+f 603 w=60715 r=31825
+f 604 w=63546 r=32918
+f 605 w=59687 r=30151
+f 606 w=65228 r=32925
+f 607 w=58125 r=28595
+f 608 w=66792 r=32888
+=== profile RingSpin [288x144] frames 577-608 window=2014420 us ===
+frame wall us: min=52116 avg=62907 max=74347 sum=2013044 (32 frames)
+frame render us: avg=31911 max=37045
+--- Cycle Counters ---
+frame                  2013040 us (100%)  32 calls  1207824060 cyc
+  pov_preserve_half    4541 us (0%)  32 calls  2724750 cyc
+  rs_draw_rings        1011469 us (50%)  32 calls  606881733 cyc
+    rs_ring_scan       992409 us (98%)  2432 calls  595445899 cyc
+      filter_blend     137030 us (13%)  1338318 calls  82218300 cyc
+  rs_timeline_step     2397 us (0%)  32 calls  1438481 cyc
+  canvas_clear         2700 us (0%)  32 calls  1620215 cyc
+  canvas_buffer_wait   991898 us (49%)  32 calls  595138837 cyc
+isr_wake       n=37136 cyc min/avg/max=303/997/8834 ns min/avg/max=505/1661/14723 total=61708 us cpu=3.06%
+isr_pack       n=4642 cyc min/avg/max=3738/4078/5642 ns min/avg/max=6230/6796/9403 total=31551 us cpu=1.56%
+isr_dma_submit n=4642 cyc min/avg/max=463/563/619 ns min/avg/max=771/938/1031 total=4363 us cpu=0.21%
+f 609 w=56737 r=27365
+f 610 w=67771 r=32683
+f 611 w=56167 r=26395
+f 612 w=68366 r=32307
+f 613 w=55726 r=25578
+f 614 w=68560 r=31693
+f 615 w=55418 r=24656
+f 616 w=68266 r=30469
+f 617 w=56513 r=24529
+f 618 w=67687 r=29760
+f 619 w=58071 r=25378
+f 620 w=66513 r=29436
+f 621 w=60118 r=27099
+f 622 w=63728 r=28317
+f 623 w=62303 r=28165
+f 624 w=61896 r=27615
+f 625 w=64043 r=29203
+f 626 w=60481 r=27230
+f 627 w=65457 r=30231
+f 628 w=59222 r=26999
+f 629 w=66758 r=31304
+f 630 w=58178 r=27027
+f 631 w=67703 r=32275
+f 632 w=57389 r=27209
+f 633 w=68507 r=33262
+f 634 w=56915 r=27721
+f 635 w=69256 r=34468
+f 636 w=56840 r=28861
+f 637 w=69514 r=35921
+f 638 w=57423 r=30890
+f 639 w=66815 r=35250
+f 640 w=59818 r=32615
+=== profile RingSpin [288x144] frames 609-640 window=1999511 us ===
+frame wall us: min=55418 avg=62442 max=69514 sum=1998159 (32 frames)
+frame render us: avg=29434 max=35921
+--- Cycle Counters ---
+frame                  1998155 us (100%)  32 calls  1198893500 cyc
+  pov_preserve_half    4568 us (0%)  32 calls  2741002 cyc
+  rs_draw_rings        932220 us (46%)  32 calls  559332174 cyc
+    rs_ring_scan       913277 us (97%)  2432 calls  547966783 cyc
+      filter_blend     124707 us (13%)  1216119 calls  74824443 cyc
+  rs_timeline_step     2368 us (0%)  32 calls  1421057 cyc
+  canvas_clear         2704 us (0%)  32 calls  1622402 cyc
+  canvas_buffer_wait   1056263 us (52%)  32 calls  633758370 cyc
+isr_wake       n=36861 cyc min/avg/max=303/995/8250 ns min/avg/max=505/1658/13750 total=61186 us cpu=3.06%
+isr_pack       n=4607 cyc min/avg/max=3738/4078/5565 ns min/avg/max=6230/6796/9275 total=31317 us cpu=1.56%
+isr_dma_submit n=4607 cyc min/avg/max=470/563/612 ns min/avg/max=783/938/1020 total=4324 us cpu=0.21%
+f 641 w=63822 r=34169
+f 642 w=62681 r=34394
+f 643 w=61351 r=33289
+f 644 w=64965 r=35800
+f 645 w=58881 r=32225
+f 646 w=67412 r=37182
+f 647 w=56218 r=30946
+f 648 w=70014 r=38506
+f 649 w=53528 r=29526
+f 650 w=72761 r=39825
+f 651 w=50559 r=27931
+f 652 w=75714 r=41189
+f 653 w=47403 r=26147
+f 654 w=78870 r=42561
+f 655 w=44746 r=24854
+f 656 w=79140 r=41539
+f 657 w=45529 r=24615
+f 658 w=77696 r=39856
+f 659 w=47645 r=25046
+f 660 w=75973 r=38565
+f 661 w=49671 r=25781
+f 662 w=74392 r=37663
+f 663 w=51973 r=27192
+f 664 w=71739 r=36477
+f 665 w=54076 r=28100
+f 666 w=69029 r=34674
+f 667 w=56724 r=28952
+f 668 w=66162 r=32660
+f 669 w=59461 r=29666
+f 670 w=63008 r=30218
+f 671 w=62384 r=30147
+f 672 w=59932 r=27625
+=== profile RingSpin [288x144] frames 641-672 window=1994803 us ===
+frame wall us: min=44746 avg=62295 max=79140 sum=1993459 (32 frames)
+frame render us: avg=32728 max=42561
+--- Cycle Counters ---
+frame                  1993455 us (100%)  32 calls  1196073013 cyc
+  pov_preserve_half    4564 us (0%)  32 calls  2738869 cyc
+  rs_draw_rings        1037707 us (52%)  32 calls  622624336 cyc
+    rs_ring_scan       1018620 us (98%)  2432 calls  611172170 cyc
+      filter_blend     139086 us (13%)  1352497 calls  83451830 cyc
+  rs_timeline_step     2296 us (0%)  32 calls  1378092 cyc
+  canvas_clear         2698 us (0%)  32 calls  1619225 cyc
+  canvas_buffer_wait   946154 us (47%)  32 calls  567692707 cyc
+isr_wake       n=36774 cyc min/avg/max=293/998/10910 ns min/avg/max=488/1663/18183 total=61181 us cpu=3.06%
+isr_pack       n=4597 cyc min/avg/max=3738/4084/5576 ns min/avg/max=6230/6806/9293 total=31291 us cpu=1.56%
+isr_dma_submit n=4597 cyc min/avg/max=494/564/625 ns min/avg/max=823/940/1041 total=4322 us cpu=0.21%
+f 673 w=65242 r=30612
+f 674 w=56543 r=24702
+f 675 w=67150 r=29406
+f 676 w=56331 r=23227
+f 677 w=67716 r=28489
+f 678 w=55887 r=21922
+f 679 w=68316 r=27780
+f 680 w=55228 r=20557
+f 681 w=68724 r=26827
+f 682 w=54639 r=19012
+f 683 w=69493 r=26052
+f 684 w=54640 r=18238
+f 685 w=69938 r=25721
+f 686 w=54591 r=17859
+f 687 w=70275 r=25680
+f 688 w=54628 r=17853
+f 689 w=70717 r=26062
+f 690 w=54372 r=17980
+f 691 w=71159 r=26685
+f 692 w=54085 r=18313
+f 693 w=71633 r=27491
+f 694 w=53973 r=19007
+f 695 w=71830 r=28384
+f 696 w=54082 r=20011
+f 697 w=71931 r=29488
+f 698 w=54338 r=21380
+f 699 w=72005 r=30930
+f 700 w=55081 r=23556
+f 701 w=71524 r=32625
+f 702 w=56158 r=26329
+f 703 w=70324 r=34144
+f 704 w=56787 r=28476
+=== profile RingSpin [288x144] frames 673-704 window=2000685 us ===
+frame wall us: min=53973 avg=62479 max=72005 sum=1999340 (32 frames)
+frame render us: avg=24837 max=34144
+--- Cycle Counters ---
+frame                  1999336 us (100%)  32 calls  1199601984 cyc
+  pov_preserve_half    4630 us (0%)  32 calls  2778260 cyc
+  rs_draw_rings        784988 us (39%)  32 calls  470992982 cyc
+    rs_ring_scan       766400 us (97%)  2432 calls  459840324 cyc
+      filter_blend     107286 us (13%)  1049881 calls  64371729 cyc
+  rs_timeline_step     2439 us (0%)  32 calls  1463807 cyc
+  canvas_clear         2690 us (0%)  32 calls  1614511 cyc
+  canvas_buffer_wait   1204555 us (60%)  32 calls  722733548 cyc
+isr_wake       n=36883 cyc min/avg/max=293/993/9906 ns min/avg/max=488/1655/16510 total=61068 us cpu=3.05%
+isr_pack       n=4610 cyc min/avg/max=3738/4067/5564 ns min/avg/max=6230/6778/9273 total=31250 us cpu=1.56%
+isr_dma_submit n=4610 cyc min/avg/max=468/563/5530 ns min/avg/max=780/938/9216 total=4333 us cpu=0.21%
+f 705 w=68738 r=34956
+f 706 w=57560 r=30061
+f 707 w=67883 r=35491
+f 708 w=58443 r=31478
+f 709 w=66688 r=35711
+f 710 w=59451 r=32707
+f 711 w=65487 r=35739
+f 712 w=60546 r=33831
+f 713 w=64277 r=35664
+f 714 w=61762 r=34972
+f 715 w=63597 r=36116
+f 716 w=61880 r=35485
+f 717 w=62793 r=35823
+f 718 w=61622 r=34990
+f 719 w=62342 r=34877
+f 720 w=60938 r=33360
+f 721 w=63121 r=34026
+f 722 w=59873 r=31443
+f 723 w=64402 r=33392
+f 724 w=59140 r=30089
+f 725 w=65622 r=33258
+f 726 w=58023 r=28826
+f 727 w=66986 r=33359
+f 728 w=56598 r=27502
+f 729 w=68611 r=33658
+f 730 w=55007 r=26157
+f 731 w=70240 r=33941
+f 732 w=53329 r=24809
+f 733 w=71587 r=33941
+f 734 w=51698 r=23185
+f 735 w=73048 r=33777
+f 736 w=51110 r=22433
+=== profile RingSpin [288x144] frames 705-736 window=1993739 us ===
+frame wall us: min=51110 avg=62262 max=73048 sum=1992402 (32 frames)
+frame render us: avg=32345 max=36116
+--- Cycle Counters ---
+frame                  1992402 us (100%)  32 calls  1195441333 cyc
+  pov_preserve_half    4534 us (0%)  32 calls  2720486 cyc
+  rs_draw_rings        1025441 us (51%)  32 calls  615264896 cyc
+    rs_ring_scan       1006570 us (98%)  2432 calls  603942217 cyc
+      filter_blend     134616 us (13%)  1313298 calls  80769976 cyc
+  rs_timeline_step     2345 us (0%)  32 calls  1407157 cyc
+  canvas_clear         2691 us (0%)  32 calls  1614830 cyc
+  canvas_buffer_wait   957359 us (48%)  32 calls  574415444 cyc
+isr_wake       n=36755 cyc min/avg/max=293/997/11514 ns min/avg/max=488/1661/19190 total=61135 us cpu=3.06%
+isr_pack       n=4594 cyc min/avg/max=3765/4083/5588 ns min/avg/max=6275/6805/9313 total=31266 us cpu=1.56%
+isr_dma_submit n=4594 cyc min/avg/max=494/563/642 ns min/avg/max=823/938/1070 total=4316 us cpu=0.21%
+f 737 w=74025 r=34205
+f 738 w=50309 r=22059
+f 739 w=75387 r=34990
+f 740 w=49487 r=22021
+f 741 w=76446 r=36011
+f 742 w=48925 r=22492
+f 743 w=77381 r=37420
+f 744 w=48791 r=23701
+f 745 w=78748 r=39993
+f 746 w=47038 r=24578
+f 747 w=80103 r=42225
+f 748 w=46336 r=26106
+f 749 w=80422 r=44072
+f 750 w=45686 r=27305
+f 751 w=80519 r=45380
+f 752 w=45358 r=28284
+f 753 w=80681 r=46511
+f 754 w=45028 r=29093
+f 755 w=80827 r=47458
+f 756 w=44877 r=29880
+f 757 w=80900 r=48271
+f 758 w=44849 r=30665
+f 759 w=80940 r=49152
+f 760 w=44834 r=31529
+f 761 w=80846 r=49920
+f 762 w=44608 r=32074
+f 763 w=79891 r=49522
+f 764 w=45138 r=32205
+f 765 w=78676 r=48425
+f 766 w=46706 r=32670
+f 767 w=77221 r=47436
+f 768 w=48245 r=33227
+=== profile RingSpin [288x144] frames 737-768 window=2010574 us ===
+frame wall us: min=44608 avg=62788 max=80940 sum=2009228 (32 frames)
+frame render us: avg=35902 max=49920
+--- Cycle Counters ---
+frame                  2009222 us (100%)  32 calls  1205533233 cyc
+  pov_preserve_half    4596 us (0%)  32 calls  2757972 cyc
+  rs_draw_rings        1139212 us (56%)  32 calls  683527565 cyc
+    rs_ring_scan       1120295 us (98%)  2432 calls  672177184 cyc
+      filter_blend     152421 us (13%)  1488644 calls  91452705 cyc
+  rs_timeline_step     2319 us (0%)  32 calls  1391744 cyc
+  canvas_clear         2699 us (0%)  32 calls  1619580 cyc
+  canvas_buffer_wait   860363 us (42%)  32 calls  516217851 cyc
+isr_wake       n=37064 cyc min/avg/max=297/1000/11142 ns min/avg/max=495/1666/18570 total=61797 us cpu=3.07%
+isr_pack       n=4632 cyc min/avg/max=3738/4090/5696 ns min/avg/max=6230/6816/9493 total=31578 us cpu=1.57%
+isr_dma_submit n=4632 cyc min/avg/max=472/563/1275 ns min/avg/max=786/938/2125 total=4352 us cpu=0.21%
+f 769 w=75160 r=46131
+f 770 w=49971 r=33655
+f 771 w=73788 r=44934
+f 772 w=51577 r=34049
+f 773 w=72003 r=43597
+f 774 w=53273 r=34414
+f 775 w=70191 r=42152
+f 776 w=54906 r=34602
+f 777 w=68252 r=40399
+f 778 w=56555 r=34500
+f 779 w=66164 r=38209
+f 780 w=58271 r=34027
+f 781 w=64542 r=36115
+f 782 w=60171 r=33832
+f 783 w=62961 r=34340
+f 784 w=61725 r=33556
+f 785 w=61322 r=32424
+f 786 w=62788 r=32756
+f 787 w=61016 r=31318
+f 788 w=63611 r=32476
+f 789 w=60658 r=30673
+f 790 w=64475 r=32693
+f 791 w=60303 r=30540
+f 792 w=65515 r=33600
+f 793 w=59720 r=30874
+f 794 w=66601 r=35021
+f 795 w=58197 r=30762
+f 796 w=68387 r=36694
+f 797 w=56829 r=31070
+f 798 w=69667 r=38227
+f 799 w=55126 r=30900
+f 800 w=70872 r=39318
+=== profile RingSpin [288x144] frames 769-800 window=2005926 us ===
+frame wall us: min=49971 avg=62643 max=75160 sum=2004597 (32 frames)
+frame render us: avg=35245 max=46131
+--- Cycle Counters ---
+frame                  2004594 us (100%)  32 calls  1202756418 cyc
+  pov_preserve_half    4528 us (0%)  32 calls  2717173 cyc
+  rs_draw_rings        1118313 us (55%)  32 calls  670987963 cyc
+    rs_ring_scan       1099958 us (98%)  2432 calls  659975345 cyc
+      filter_blend     148265 us (13%)  1445984 calls  88959380 cyc
+  rs_timeline_step     2267 us (0%)  32 calls  1360611 cyc
+  canvas_clear         2699 us (0%)  32 calls  1619525 cyc
+  canvas_buffer_wait   876754 us (43%)  32 calls  526052749 cyc
+isr_wake       n=36980 cyc min/avg/max=297/999/7302 ns min/avg/max=495/1665/12170 total=61615 us cpu=3.07%
+isr_pack       n=4623 cyc min/avg/max=3738/4088/5821 ns min/avg/max=6230/6813/9701 total=31504 us cpu=1.57%
+isr_dma_submit n=4623 cyc min/avg/max=492/563/613 ns min/avg/max=820/938/1021 total=4343 us cpu=0.21%
+f 801 w=53499 r=30558
+f 802 w=72317 r=40421
+f 803 w=52116 r=30086
+f 804 w=73979 r=41612
+f 805 w=50528 r=29685
+f 806 w=75623 r=42852
+f 807 w=50217 r=30613
+f 808 w=73925 r=42085
+f 809 w=51415 r=31056
+f 810 w=72280 r=40882
+f 811 w=52348 r=30722
+f 812 w=70598 r=38865
+f 813 w=54047 r=30458
+f 814 w=68781 r=36785
+f 815 w=55733 r=30063
+f 816 w=66631 r=34238
+f 817 w=58037 r=29830
+f 818 w=65053 r=32427
+f 819 w=59872 r=29843
+f 820 w=63473 r=30862
+f 821 w=61677 r=30084
+f 822 w=61725 r=29354
+f 823 w=63439 r=30340
+f 824 w=59953 r=27842
+f 825 w=64668 r=30002
+f 826 w=59761 r=27307
+f 827 w=64004 r=28866
+f 828 w=61732 r=28144
+f 829 w=62914 r=28603
+f 830 w=63534 r=29692
+f 831 w=61641 r=28879
+f 832 w=64512 r=30936
+=== profile RingSpin [288x144] frames 801-832 window=1991403 us ===
+frame wall us: min=50217 avg=62188 max=75623 sum=1990032 (32 frames)
+frame render us: avg=32312 max=42852
+--- Cycle Counters ---
+frame                  1990028 us (100%)  32 calls  1194016918 cyc
+  pov_preserve_half    4575 us (0%)  32 calls  2745493 cyc
+  rs_draw_rings        1024316 us (51%)  32 calls  614590070 cyc
+    rs_ring_scan       1005376 us (98%)  2432 calls  603225898 cyc
+      filter_blend     137123 us (13%)  1336307 calls  82273993 cyc
+  rs_timeline_step     2353 us (0%)  32 calls  1411852 cyc
+  canvas_clear         2695 us (0%)  32 calls  1617281 cyc
+  canvas_buffer_wait   956054 us (48%)  32 calls  573632955 cyc
+isr_wake       n=36711 cyc min/avg/max=293/998/11006 ns min/avg/max=488/1663/18343 total=61077 us cpu=3.06%
+isr_pack       n=4588 cyc min/avg/max=3738/4087/5826 ns min/avg/max=6230/6811/9710 total=31258 us cpu=1.56%
+isr_dma_submit n=4588 cyc min/avg/max=469/563/626 ns min/avg/max=781/938/1043 total=4310 us cpu=0.21%
+f 833 w=60564 r=29233
+f 834 w=65290 r=32066
+f 835 w=60254 r=29877
+f 836 w=64844 r=32267
+f 837 w=60192 r=30004
+f 838 w=64689 r=32237
+f 839 w=60200 r=29928
+f 840 w=64613 r=32098
+f 841 w=60047 r=29703
+f 842 w=64623 r=31871
+f 843 w=59805 r=29221
+f 844 w=64769 r=31534
+f 845 w=59372 r=28452
+f 846 w=65059 r=31056
+f 847 w=58891 r=27493
+f 848 w=65091 r=30130
+f 849 w=58233 r=25909
+f 850 w=65635 r=29088
+f 851 w=58002 r=24634
+f 852 w=66191 r=28316
+f 853 w=56964 r=22824
+f 854 w=68095 r=28465
+f 855 w=55597 r=21609
+f 856 w=69984 r=29139
+f 857 w=54162 r=20846
+f 858 w=71693 r=30085
+f 859 w=53035 r=20666
+f 860 w=73170 r=31381
+f 861 w=52909 r=21835
+f 862 w=72373 r=31754
+f 863 w=53461 r=22762
+f 864 w=71653 r=31959
+=== profile RingSpin [288x144] frames 833-864 window=2000817 us ===
+frame wall us: min=52909 avg=62483 max=73170 sum=1999460 (32 frames)
+frame render us: avg=28388 max=32267
+--- Cycle Counters ---
+frame                  1999451 us (100%)  32 calls  1199671069 cyc
+  pov_preserve_half    4566 us (0%)  32 calls  2739834 cyc
+  rs_draw_rings        898663 us (44%)  32 calls  539198239 cyc
+    rs_ring_scan       879767 us (97%)  2432 calls  527860569 cyc
+      filter_blend     122446 us (13%)  1193039 calls  73468097 cyc
+  rs_timeline_step     2463 us (0%)  32 calls  1478383 cyc
+  canvas_clear         2692 us (0%)  32 calls  1615335 cyc
+  canvas_buffer_wait   1091035 us (54%)  32 calls  654621019 cyc
+isr_wake       n=36885 cyc min/avg/max=293/995/7354 ns min/avg/max=488/1658/12256 total=61219 us cpu=3.05%
+isr_pack       n=4611 cyc min/avg/max=3738/4080/5801 ns min/avg/max=6230/6800/9668 total=31362 us cpu=1.56%
+isr_dma_submit n=4611 cyc min/avg/max=437/563/685 ns min/avg/max=728/938/1141 total=4330 us cpu=0.21%
+f 865 w=54131 r=23837
+f 866 w=70904 r=32231
+f 867 w=55217 r=24995
+f 868 w=70012 r=32551
+f 869 w=56221 r=26317
+f 870 w=69047 r=32909
+f 871 w=57342 r=27797
+f 872 w=67940 r=33284
+f 873 w=58658 r=29486
+f 874 w=66842 r=33883
+f 875 w=60085 r=31514
+f 876 w=66127 r=35186
+f 877 w=61883 r=34613
+f 878 w=63398 r=35556
+f 879 w=62599 r=35668
+f 880 w=62406 r=35621
+f 881 w=63108 r=36276
+f 882 w=62239 r=36060
+f 883 w=63445 r=37049
+f 884 w=62127 r=36721
+f 885 w=64050 r=38316
+f 886 w=61178 r=37039
+f 887 w=64305 r=38891
+f 888 w=60338 r=36773
+f 889 w=64880 r=39198
+f 890 w=59462 r=36205
+f 891 w=65377 r=39128
+f 892 w=58567 r=35242
+f 893 w=65969 r=38702
+f 894 w=57438 r=33685
+f 895 w=66006 r=37235
+f 896 w=56655 r=31443
+=== profile RingSpin [288x144] frames 865-896 window=1999319 us ===
+frame wall us: min=54131 avg=62436 max=70904 sum=1997956 (32 frames)
+frame render us: avg=34169 max=39198
+--- Cycle Counters ---
+frame                  1997954 us (100%)  32 calls  1198772527 cyc
+  pov_preserve_half    4583 us (0%)  32 calls  2749801 cyc
+  rs_draw_rings        1083781 us (54%)  32 calls  650268917 cyc
+    rs_ring_scan       1065132 us (98%)  2432 calls  639079742 cyc
+      filter_blend     143941 us (13%)  1401180 calls  86365143 cyc
+  rs_timeline_step     2293 us (0%)  32 calls  1375867 cyc
+  canvas_clear         2704 us (0%)  32 calls  1622425 cyc
+  canvas_buffer_wait   904562 us (45%)  32 calls  542737277 cyc
+isr_wake       n=36857 cyc min/avg/max=293/1001/7351 ns min/avg/max=488/1668/12251 total=61493 us cpu=3.07%
+isr_pack       n=4606 cyc min/avg/max=3738/4102/5853 ns min/avg/max=6230/6836/9755 total=31490 us cpu=1.57%
+isr_dma_submit n=4606 cyc min/avg/max=491/563/613 ns min/avg/max=818/938/1021 total=4326 us cpu=0.21%
+f 897 w=66678 r=35853
+f 898 w=56751 r=30148
+f 899 w=67386 r=35080
+f 900 w=56404 r=29029
+f 901 w=67930 r=34515
+f 902 w=55755 r=27815
+f 903 w=68387 r=33747
+f 904 w=54839 r=26131
+f 905 w=69255 r=32934
+f 906 w=54420 r=24859
+f 907 w=70167 r=32573
+f 908 w=53594 r=23712
+f 909 w=71001 r=32258
+f 910 w=53027 r=22830
+f 911 w=71500 r=31875
+f 912 w=52743 r=22164
+f 913 w=71750 r=31458
+f 914 w=52701 r=21704
+f 915 w=71857 r=31106
+f 916 w=52712 r=21363
+f 917 w=71801 r=30710
+f 918 w=52849 r=21104
+f 919 w=71811 r=30460
+f 920 w=52986 r=20939
+f 921 w=71830 r=30313
+f 922 w=53108 r=20966
+f 923 w=71800 r=30313
+f 924 w=53524 r=21381
+f 925 w=71612 r=30538
+f 926 w=54033 r=22116
+f 927 w=71457 r=31129
+f 928 w=55139 r=23814
+=== profile RingSpin [288x144] frames 897-928 window=1992163 us ===
+frame wall us: min=52701 avg=62212 max=71857 sum=1990807 (32 frames)
+frame render us: avg=27966 max=35853
+--- Cycle Counters ---
+frame                  1990802 us (100%)  32 calls  1194481761 cyc
+  pov_preserve_half    4551 us (0%)  32 calls  2730781 cyc
+  rs_draw_rings        885340 us (44%)  32 calls  531204121 cyc
+    rs_ring_scan       866782 us (97%)  2432 calls  520069215 cyc
+      filter_blend     118184 us (13%)  1154098 calls  70910571 cyc
+  rs_timeline_step     2298 us (0%)  32 calls  1379327 cyc
+  canvas_clear         2696 us (0%)  32 calls  1617885 cyc
+  canvas_buffer_wait   1095885 us (55%)  32 calls  657531434 cyc
+isr_wake       n=36726 cyc min/avg/max=293/995/7178 ns min/avg/max=488/1658/11963 total=60953 us cpu=3.05%
+isr_pack       n=4591 cyc min/avg/max=3738/4080/5712 ns min/avg/max=6230/6800/9520 total=31225 us cpu=1.56%
+isr_dma_submit n=4591 cyc min/avg/max=420/563/613 ns min/avg/max=700/938/1021 total=4311 us cpu=0.21%
+f 929 w=69692 r=31250
+f 930 w=57305 r=26100
+f 931 w=67286 r=30931
+f 932 w=59332 r=27810
+f 933 w=65547 r=30850
+f 934 w=60969 r=29364
+f 935 w=64113 r=31022
+f 936 w=62443 r=31009
+f 937 w=63204 r=31760
+f 938 w=63437 r=32743
+f 939 w=61767 r=32056
+f 940 w=64123 r=33723
+f 941 w=60979 r=32249
+f 942 w=64616 r=34411
+f 943 w=60498 r=32455
+f 944 w=64788 r=34786
+f 945 w=60450 r=32781
+f 946 w=65265 r=35592
+f 947 w=58989 r=32084
+f 948 w=66384 r=36025
+f 949 w=57867 r=31438
+f 950 w=66758 r=35742
+f 951 w=57800 r=31086
+f 952 w=66680 r=35310
+f 953 w=57771 r=30625
+f 954 w=66606 r=34776
+f 955 w=57492 r=29813
+f 956 w=66219 r=33577
+f 957 w=57769 r=28891
+f 958 w=66432 r=32868
+f 959 w=57878 r=28290
+f 960 w=66545 r=32381
+=== profile RingSpin [288x144] frames 929-960 window=2008348 us ===
+frame wall us: min=57305 avg=62718 max=69692 sum=2007004 (32 frames)
+frame render us: avg=31993 max=36025
+--- Cycle Counters ---
+frame                  2007001 us (100%)  32 calls  1204200639 cyc
+  pov_preserve_half    4586 us (0%)  32 calls  2752055 cyc
+  rs_draw_rings        1014115 us (50%)  32 calls  608469096 cyc
+    rs_ring_scan       995187 us (98%)  2432 calls  597112331 cyc
+      filter_blend     136401 us (13%)  1331288 calls  81840963 cyc
+  rs_timeline_step     2348 us (0%)  32 calls  1409039 cyc
+  canvas_clear         2698 us (0%)  32 calls  1619281 cyc
+  canvas_buffer_wait   983219 us (48%)  32 calls  589931996 cyc
+isr_wake       n=37024 cyc min/avg/max=293/997/7378 ns min/avg/max=488/1661/12296 total=61530 us cpu=3.06%
+isr_pack       n=4627 cyc min/avg/max=3738/4081/5893 ns min/avg/max=6230/6801/9821 total=31474 us cpu=1.56%
+isr_dma_submit n=4627 cyc min/avg/max=493/563/613 ns min/avg/max=821/938/1021 total=4348 us cpu=0.21%
+f 961 w=57619 r=27687
+f 962 w=66828 r=32059
+f 963 w=57386 r=26990
+f 964 w=67193 r=31730
+f 965 w=57219 r=26493
+f 966 w=65933 r=29971
+f 967 w=60188 r=27706
+f 968 w=63528 r=28778
+f 969 w=62974 r=29299
+f 970 w=61327 r=28171
+f 971 w=65609 r=31335
+f 972 w=59730 r=28609
+f 973 w=66725 r=32892
+f 974 w=59028 r=29409
+f 975 w=66957 r=33911
+f 976 w=58692 r=30148
+f 977 w=67215 r=34908
+f 978 w=58644 r=31098
+f 979 w=67193 r=35835
+f 980 w=59023 r=32403
+f 981 w=67028 r=36976
+f 982 w=59381 r=33903
+f 983 w=65817 r=37265
+f 984 w=60043 r=34853
+f 985 w=64589 r=36989
+f 986 w=61124 r=35658
+f 987 w=63225 r=36427
+f 988 w=62408 r=36337
+f 989 w=61607 r=35489
+f 990 w=63642 r=36675
+f 991 w=59963 r=34182
+f 992 w=64471 r=36199
+=== profile RingSpin [288x144] frames 961-992 window=2003667 us ===
+frame wall us: min=57219 avg=62572 max=67215 sum=2002309 (32 frames)
+frame render us: avg=32512 max=37265
+--- Cycle Counters ---
+frame                  2002303 us (100%)  32 calls  1201382291 cyc
+  pov_preserve_half    4596 us (0%)  32 calls  2758069 cyc
+  rs_draw_rings        1030674 us (51%)  32 calls  618404798 cyc
+    rs_ring_scan       1011953 us (98%)  2432 calls  607172339 cyc
+      filter_blend     137765 us (13%)  1346851 calls  82659529 cyc
+  rs_timeline_step     2367 us (0%)  32 calls  1420744 cyc
+  canvas_clear         2695 us (0%)  32 calls  1617055 cyc
+  canvas_buffer_wait   961938 us (48%)  32 calls  577163127 cyc
+isr_wake       n=36937 cyc min/avg/max=303/998/11886 ns min/avg/max=505/1663/19810 total=61452 us cpu=3.06%
+isr_pack       n=4617 cyc min/avg/max=3738/4084/5734 ns min/avg/max=6230/6806/9556 total=31432 us cpu=1.56%
+isr_dma_submit n=4617 cyc min/avg/max=460/563/611 ns min/avg/max=766/938/1018 total=4337 us cpu=0.21%
+f 993 w=59742 r=33674
+f 994 w=64866 r=36084
+f 995 w=59709 r=33340
+f 996 w=65224 r=36111
+f 997 w=59369 r=33025
+f 998 w=65660 r=36231
+f 999 w=59105 r=32881
+f 1000 w=66214 r=36642
+f 1001 w=58030 r=32163
+f 1002 w=67232 r=36940
+f 1003 w=57283 r=31768
+f 1004 w=68262 r=37576
+f 1005 w=56672 r=31795
+f 1006 w=69382 r=38722
+f 1007 w=55581 r=31849
+f 1008 w=69823 r=39217
+f 1009 w=55032 r=31793
+f 1010 w=70415 r=39752
+f 1011 w=55158 r=32457
+f 1012 w=69376 r=39377
+f 1013 w=56194 r=33117
+f 1014 w=67733 r=38396
+f 1015 w=57444 r=33331
+f 1016 w=66290 r=37165
+f 1017 w=58398 r=33108
+f 1018 w=64570 r=35225
+f 1019 w=59848 r=32617
+f 1020 w=63138 r=33300
+f 1021 w=61649 r=32494
+f 1022 w=61435 r=31474
+f 1023 w=63234 r=32254
+f 1024 w=59574 r=29372
+=== profile RingSpin [288x144] frames 993-1024 window=1992967 us ===
+frame wall us: min=55032 avg=62238 max=70415 sum=1991642 (32 frames)
+frame render us: avg=34476 max=39752
+--- Cycle Counters ---
+frame                  1991638 us (100%)  32 calls  1194982990 cyc
+  pov_preserve_half    4603 us (0%)  32 calls  2762192 cyc
+  rs_draw_rings        1093490 us (54%)  32 calls  656094054 cyc
+    rs_ring_scan       1074430 us (98%)  2432 calls  644658117 cyc
+      filter_blend     146427 us (13%)  1428939 calls  87856717 cyc
+  rs_timeline_step     2405 us (0%)  32 calls  1443158 cyc
+  canvas_clear         2699 us (0%)  32 calls  1619755 cyc
+  canvas_buffer_wait   888409 us (44%)  32 calls  533045528 cyc
+isr_wake       n=36740 cyc min/avg/max=293/999/9430 ns min/avg/max=488/1665/15716 total=61206 us cpu=3.07%
+isr_pack       n=4593 cyc min/avg/max=3738/4090/5784 ns min/avg/max=6230/6816/9640 total=31312 us cpu=1.57%
+isr_dma_submit n=4593 cyc min/avg/max=492/564/1728 ns min/avg/max=820/940/2880 total=4319 us cpu=0.21%
+f 1025 w=64461 r=31579
+f 1026 w=58179 r=27303
+f 1027 w=66377 r=31236
+f 1028 w=56952 r=25688
+f 1029 w=67374 r=30609
+f 1030 w=55812 r=23968
+f 1031 w=67745 r=29257
+f 1032 w=56547 r=23350
+f 1033 w=67514 r=28410
+f 1034 w=57028 r=22983
+f 1035 w=67283 r=27824
+f 1036 w=57418 r=22787
+f 1037 w=67177 r=27509
+f 1038 w=57524 r=22578
+f 1039 w=67278 r=27399
+f 1040 w=57579 r=22523
+f 1041 w=67283 r=27361
+f 1042 w=57827 r=22687
+f 1043 w=67230 r=27463
+f 1044 w=58312 r=23320
+f 1045 w=67224 r=28089
+f 1046 w=58479 r=24114
+f 1047 w=66653 r=28313
+f 1048 w=58682 r=24540
+f 1049 w=66056 r=28141
+f 1050 w=59196 r=24880
+f 1051 w=65449 r=27874
+f 1052 w=59801 r=25220
+f 1053 w=64797 r=27561
+f 1054 w=60414 r=25520
+f 1055 w=64073 r=27140
+f 1056 w=61228 r=25860
+=== profile RingSpin [288x144] frames 1025-1056 window=1996326 us ===
+frame wall us: min=55812 avg=62342 max=67745 sum=1994952 (32 frames)
+frame render us: avg=26346 max=31579
+--- Cycle Counters ---
+frame                  1994950 us (100%)  32 calls  1196970334 cyc
+  pov_preserve_half    4561 us (0%)  32 calls  2737126 cyc
+  rs_draw_rings        833347 us (41%)  32 calls  500008232 cyc
+    rs_ring_scan       814678 us (97%)  2432 calls  488806838 cyc
+      filter_blend     111660 us (13%)  1090742 calls  66996211 cyc
+  rs_timeline_step     2430 us (0%)  32 calls  1458121 cyc
+  canvas_clear         2701 us (0%)  32 calls  1621199 cyc
+  canvas_buffer_wait   1151878 us (57%)  32 calls  691127020 cyc
+isr_wake       n=36802 cyc min/avg/max=293/992/8054 ns min/avg/max=488/1653/13423 total=60894 us cpu=3.05%
+isr_pack       n=4599 cyc min/avg/max=3738/4062/5576 ns min/avg/max=6230/6770/9293 total=31137 us cpu=1.55%
+isr_dma_submit n=4599 cyc min/avg/max=493/563/612 ns min/avg/max=821/938/1020 total=4316 us cpu=0.21%
+f 1057 w=63074 r=26676
+f 1058 w=61919 r=26141
+f 1059 w=62653 r=26338
+f 1060 w=62385 r=26268
+f 1061 w=62247 r=26062
+f 1062 w=62599 r=26206
+f 1063 w=61864 r=25616
+f 1064 w=62691 r=25852
+f 1065 w=61527 r=24924
+f 1066 w=63765 r=26234
+f 1067 w=61066 r=24848
+f 1068 w=64957 r=27350
+f 1069 w=60588 r=25428
+f 1070 w=65094 r=28066
+f 1071 w=59805 r=25417
+f 1072 w=65922 r=28885
+f 1073 w=58937 r=25368
+f 1074 w=66947 r=29861
+f 1075 w=57816 r=25224
+f 1076 w=68289 r=31057
+f 1077 w=56450 r=25053
+f 1078 w=69709 r=32307
+f 1079 w=55175 r=25029
+f 1080 w=71031 r=33612
+f 1081 w=54050 r=25210
+f 1082 w=72060 r=34814
+f 1083 w=53283 r=25590
+f 1084 w=72667 r=35820
+f 1085 w=53009 r=26373
+f 1086 w=72648 r=36566
+f 1087 w=53283 r=27395
+f 1088 w=72595 r=37534
+=== profile RingSpin [288x144] frames 1057-1088 window=2011458 us ===
+frame wall us: min=53009 avg=62815 max=72667 sum=2010105 (32 frames)
+frame render us: avg=28035 max=37534
+--- Cycle Counters ---
+frame                  2010105 us (100%)  32 calls  1206063444 cyc
+  pov_preserve_half    4545 us (0%)  32 calls  2727420 cyc
+  rs_draw_rings        887455 us (44%)  32 calls  532473327 cyc
+    rs_ring_scan       868725 us (97%)  2432 calls  521235102 cyc
+      filter_blend     119467 us (13%)  1167788 calls  71680333 cyc
+  rs_timeline_step     2373 us (0%)  32 calls  1424015 cyc
+  canvas_clear         2700 us (0%)  32 calls  1620485 cyc
+  canvas_buffer_wait   1112999 us (55%)  32 calls  667799763 cyc
+isr_wake       n=37082 cyc min/avg/max=298/994/12390 ns min/avg/max=496/1656/20650 total=61441 us cpu=3.05%
+isr_pack       n=4635 cyc min/avg/max=3738/4066/5615 ns min/avg/max=6230/6776/9358 total=31414 us cpu=1.56%
+isr_dma_submit n=4635 cyc min/avg/max=471/563/611 ns min/avg/max=785/938/1018 total=4350 us cpu=0.21%
+f 1089 w=54627 r=29902
+f 1090 w=70302 r=37760
+f 1091 w=56417 r=31722
+f 1092 w=68087 r=37351
+f 1093 w=58499 r=33397
+f 1094 w=65691 r=36644
+f 1095 w=60734 r=34924
+f 1096 w=63416 r=35828
+f 1097 w=62886 r=36261
+profile provenance: version=1
+profile provenance: source_sha=9442dbc204d556612f50980a5e41b082ca1d7961
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=5727cdb59729a5c25298608c8231d08ef311229830ed5be2a0736f9e9625b400
+profile provenance: phantasm_elf_sha256=921fb9e6a3d7e01b8bddef4f964d1a4357dfe81f8c9532126da47ea20f1d92d2
+profile provenance: profile_envdump_sha256=e251d3d1d22299853f65ab20874d8bf2669c72f3d98012d5e3f6543f22867de4
+profile provenance: phantasm_envdump_sha256=a6fd85f21597baa5935de14121a5765a56fa4bdad00bfaafdde7b77e8406b2ff
+profile provenance: artifact_profile_elf=build/prof/artifacts/ringspin_ship_9442dbc204d5_5727cdb59729/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/ringspin_ship_9442dbc204d5_5727cdb59729/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/ringspin_ship_9442dbc204d5_5727cdb59729
