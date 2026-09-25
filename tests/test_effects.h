@@ -95,7 +95,7 @@ using hs_test::smoke_frames;
  * smoke + determinism passes, ~1,920-pixel frames that cover every effect's
  * construct/init/render/read-back and cross-run determinism, plus every
  * white-box case under 50 ms. CI opts into the full suite on
- * every master push by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
+ * every master push and PR by setting HS_EFFECTS_FULL=1 (.github/workflows/ci.yml), so the
  * full-resolution passes and the slow white-box cases are the
  * authoritative gate there, not locally. Set HS_EFFECTS_FULL=1 to reproduce the
  * CI depth in a local commit. Read by the effects, effects_smoke,
@@ -6209,7 +6209,7 @@ inline int run_effects_tests() {
   run_case(test_islamicstars_seed_sprite_fade_in);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
 
-  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push). The partition
+  // FULL tier only (HS_EFFECTS_FULL=1; CI on every master push and PR). The partition
   // is by measured cost, not by resolution: every case below runs for a tenth
   // of a second or more, and the block totals about four minutes, over three of
   // which are the two IslamicStars budget sweeps.
