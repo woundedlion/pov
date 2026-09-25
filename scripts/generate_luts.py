@@ -176,7 +176,7 @@ def check(fwd, rev):
 
     Both transfer functions are monotonic non-decreasing, so each table must be
     too; a libm change that shifted a single entry would break this. The sRGB
-    round trip (byte -> linear -> byte) must return within +/-1 code. Returns the
+    round trip (byte -> linear -> byte) must return the exact input code. Returns the
     number of failures (0 == pass).
     """
     fails = 0
