@@ -648,6 +648,17 @@ _hs_warnings(display_geometry_check)
 _hs_sanitize(display_geometry_check)
 add_test(NAME unit_display_geometry COMMAND display_geometry_check)
 
+add_executable(runtime_display_geometry_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/runtime_display_geometry_check.cpp
+  ${HS_ENGINE_SOURCES})
+target_compile_definitions(runtime_display_geometry_check PRIVATE
+  HS_RUNTIME_DISPLAY_GEOMETRY=1)
+target_link_libraries(runtime_display_geometry_check PRIVATE hs_host_storage)
+target_include_directories(runtime_display_geometry_check PRIVATE ${HS_ENGINE_INCLUDES})
+_hs_warnings(runtime_display_geometry_check)
+_hs_sanitize(runtime_display_geometry_check)
+add_test(NAME unit_runtime_display_geometry COMMAND runtime_display_geometry_check)
+
 # Host stack high-water-mark gate across every effect. Built -Os + the device
 # math flags so codegen frame sizes track the Phantasm size build as closely as a
 # host compiler can. stack_measure.cpp heap-constructs effects like the firmware

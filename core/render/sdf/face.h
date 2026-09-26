@@ -1303,7 +1303,7 @@ struct Face {
     const float pad_hi = azimuth_pad_at_row<W, H>(y_hi);
     float narrow_pad = std::min(pad_lo, pad_hi);
     const float wide_pad = std::max(pad_lo, pad_hi);
-    constexpr float EQUATOR_ROW =
+    const float EQUATOR_ROW =
         math::DisplayGeometry<H>::phi_to_row(math::PI_F * 0.5f);
     const int EQUATOR_LO = static_cast<int>(floorf(EQUATOR_ROW));
     const int EQUATOR_HI = static_cast<int>(ceilf(EQUATOR_ROW));

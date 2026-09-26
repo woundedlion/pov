@@ -54,8 +54,8 @@ public:
     spiral_cache = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);
 
     register_int_param("Points", &params.points, 100, MAX_POINTS);
-    register_param("Radius", &params.star_radius, 0.7f * RADIUS_PX,
-                   7.0f * RADIUS_PX);
+    register_param("Radius", &params.star_radius, 0.7f * radius_px(),
+                   7.0f * radius_px());
     register_int_param("Sides", &params.star_sides, 3, 8);
 
     // Args are (scale, speed): fixed 0.5 magnitude; speed is a don't-care here
@@ -141,8 +141,9 @@ private:
    * @details A radius of 1 spans pi/2 radians. Multiples of this pitch cover
    *          at least that many rows and columns at the equator.
    */
-  static constexpr float RADIUS_PX =
-      math::coarse_pixel_pitch<W, H>() * 2.0f / math::PI_F;
+  static constexpr float radius_px() {
+    return math::coarse_pixel_pitch<W, H>() * 2.0f / math::PI_F;
+  }
 
   // Persistent allocations: the warp pool, the MAX_POINTS spiral lattice, and
   // the palette LUT. Effect keeps the default arena split, so the footprint must
@@ -180,8 +181,8 @@ private:
   struct Params {
     int points = 600; /**< Number of stars scattered on the spiral. */
     float star_radius =
-        1.4f * RADIUS_PX; /**< Per-star circumradius, ~1.4 px at any W. */
-    int star_sides = 4;   /**< Polygon side count per star. */
+        1.4f * radius_px(); /**< Per-star circumradius, ~1.4 px at any W. */
+    int star_sides = 4;     /**< Polygon side count per star. */
     float warp_speed =
         0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
     bool debug_bb = false; /**< When true, draws each star's bounding box. */

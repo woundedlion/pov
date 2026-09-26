@@ -6,6 +6,10 @@
 
 #include "math/3dmath.h"
 
+#ifndef HS_RUNTIME_DISPLAY_GEOMETRY
+#define HS_RUNTIME_DISPLAY_GEOMETRY 0
+#endif
+
 #ifndef HS_DISPLAY_PROFILE
 #define HS_DISPLAY_PROFILE 1
 #endif
@@ -19,10 +23,25 @@
 namespace math {
 static_assert(HS_DISPLAY_PROFILE == 0 || HS_DISPLAY_PROFILE == 1,
               "HS_DISPLAY_PROFILE must be 0 (ideal) or 1 (physical)");
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+inline float DISPLAY_NORTH_PHI = 0.0f;
+inline float DISPLAY_SOUTH_PHI = PI_F;
+
+/** @brief Changes host latitude endpoints; refresh geometry LUTs before rendering. */
+inline bool set_display_geometry(float north, float south) {
+  if (!(north >= 0.0f && north <= PI_F * 0.25f && south >= PI_F * 0.75f &&
+        south <= PI_F))
+    return false;
+  DISPLAY_NORTH_PHI = north;
+  DISPLAY_SOUTH_PHI = south;
+  return true;
+}
+#else
 inline constexpr float DISPLAY_NORTH_PHI =
     HS_DISPLAY_PROFILE == 0 ? 0.0f : (HS_DISPLAY_NORTH_FRACTION * PI_F);
 inline constexpr float DISPLAY_SOUTH_PHI =
     HS_DISPLAY_PROFILE == 0 ? PI_F : (HS_DISPLAY_SOUTH_FRACTION * PI_F);
+#endif
 
 /** @brief Uniform latitude mapping between the first and last LED centers. */
 class LatitudeGeometry {
@@ -32,6 +51,9 @@ public:
       : LatitudeGeometry(height, 0.0f,
                          PI_F * (height - 1) /
                              (height + HS_TEST_H_OFFSET - 1)) {}
+#elif HS_RUNTIME_DISPLAY_GEOMETRY
+  explicit LatitudeGeometry(int height)
+      : LatitudeGeometry(height, DISPLAY_NORTH_PHI, DISPLAY_SOUTH_PHI) {}
 #else
   constexpr explicit LatitudeGeometry(int height)
       : LatitudeGeometry(height, DISPLAY_NORTH_PHI, DISPLAY_SOUTH_PHI) {}
@@ -63,7 +85,7 @@ private:
   float south;
 };
 
-/** @brief Compile-time display geometry; an explicit offset selects legacy mapping. */
+/** @brief Display geometry; an explicit offset selects legacy mapping. */
 template <int H, int LegacyOffset = -1> struct DisplayGeometry {
   static_assert(H > 1);
 #if defined(HS_TEST_H_OFFSET)
@@ -93,4 +115,38 @@ template <int H, int LegacyOffset = -1> struct DisplayGeometry {
     return row >= 0.0f && row <= H - 1;
   }
 };
+#if HS_RUNTIME_DISPLAY_GEOMETRY && !defined(HS_TEST_H_OFFSET)
+template <int H> struct DisplayGeometry<H, -1> {
+  static_assert(H > 1);
+  static constexpr int OFFSET = -1;
+  inline static float NORTH_PHI = 0.0f;
+  inline static float SOUTH_PHI = PI_F;
+  inline static float RADIANS_PER_ROW = PI_F / (H - 1);
+  inline static float ROWS_PER_RADIAN = (H - 1) / PI_F;
+  inline static float NORTH_POLE_ROW = 0.0f;
+  inline static float SOUTH_POLE_ROW = H - 1;
+  inline static bool HAS_NORTH_POLE = true;
+  inline static bool HAS_SOUTH_POLE = true;
+
+  static void refresh() {
+    NORTH_PHI = DISPLAY_NORTH_PHI;
+    SOUTH_PHI = DISPLAY_SOUTH_PHI;
+    RADIANS_PER_ROW = (SOUTH_PHI - NORTH_PHI) / (H - 1);
+    ROWS_PER_RADIAN = 1.0f / RADIANS_PER_ROW;
+    NORTH_POLE_ROW = -NORTH_PHI * ROWS_PER_RADIAN;
+    SOUTH_POLE_ROW = (PI_F - NORTH_PHI) * ROWS_PER_RADIAN;
+    HAS_NORTH_POLE = NORTH_PHI == 0.0f;
+    HAS_SOUTH_POLE = SOUTH_PHI == PI_F;
+  }
+  static float row_to_phi(float row) {
+    return NORTH_PHI + row * RADIANS_PER_ROW;
+  }
+  static float phi_to_row(float phi) {
+    return (phi - NORTH_PHI) * ROWS_PER_RADIAN;
+  }
+  static constexpr bool contains_row(float row) {
+    return row >= 0.0f && row <= H - 1;
+  }
+};
+#endif
 } // namespace math

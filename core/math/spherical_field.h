@@ -31,8 +31,13 @@ namespace hs {
 template <int W, int H, int HOffset = -1> class SphericalFieldLayout {
 public:
   using Geometry = math::DisplayGeometry<H, HOffset>;
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+  inline static const bool &HAS_NORTH_POLE = Geometry::HAS_NORTH_POLE;
+  inline static const bool &HAS_SOUTH_POLE = Geometry::HAS_SOUTH_POLE;
+#else
   static constexpr bool HAS_NORTH_POLE = Geometry::HAS_NORTH_POLE;
   static constexpr bool HAS_SOUTH_POLE = Geometry::HAS_SOUTH_POLE;
+#endif
 
   /**
    * @brief One latitude ring.
@@ -100,8 +105,12 @@ public:
   }
 
   /** @brief Number of endpoint rings that coincide with true poles. */
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+  static constexpr int POLE_STORAGE_COUNT = 2;
+#else
   static constexpr int POLE_COUNT = int(HAS_NORTH_POLE) + int(HAS_SOUTH_POLE);
   static constexpr int POLE_STORAGE_COUNT = POLE_COUNT > 0 ? POLE_COUNT : 1;
+#endif
 
   /** @brief Bound a sampler's fractional row must stay under in absolute
    *  value: NaN, an infinity, or a row this far out makes the truncation to
@@ -435,12 +444,11 @@ private:
    * @brief Last row whose bilinear footprint loads directly.
    * @details A true south pole requires shared-pole substitution.
    */
-  static constexpr int LAST_DIRECT_ROW = HAS_SOUTH_POLE ? H - 3 : H - 2;
-
   /** @brief True when row y0's bilinear footprint needs no seam or pole
    *  substitution. */
   static constexpr bool in_direct_band(int y0) {
-    return y0 >= (HAS_NORTH_POLE ? 1 : 0) && y0 <= LAST_DIRECT_ROW;
+    return y0 >= (HAS_NORTH_POLE ? 1 : 0) &&
+           y0 <= (HAS_SOUTH_POLE ? H - 3 : H - 2);
   }
 
   /**
@@ -467,7 +475,7 @@ private:
                                                                      float y) {
     assert(x >= -static_cast<float>(W) && x < 2.0f * static_cast<float>(W));
     assert(std::fabs(y) < ROW_LIMIT);
-    if constexpr (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
+    if (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
       if (y < Geometry::NORTH_POLE_ROW || y > Geometry::SOUTH_POLE_ROW)
         math::pole_wrap<W, H, HOffset>(x, y);
     }
@@ -491,17 +499,17 @@ private:
   __attribute__((always_inline)) Value
   pole_tap(int sample_x, int sample_y, const Value (&poles)[POLE_STORAGE_COUNT],
            const Value &outside, Load &&load) const {
-    if constexpr (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
+    if (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
       if (sample_y < 0 || sample_y >= H)
         return outside;
     } else if (!wrap_sample(sample_x, sample_y)) {
       return outside;
     }
-    if constexpr (HAS_NORTH_POLE) {
+    if (HAS_NORTH_POLE) {
       if (sample_y == 0)
         return poles[0];
     }
-    if constexpr (HAS_SOUTH_POLE) {
+    if (HAS_SOUTH_POLE) {
       if (sample_y == H - 1)
         return poles[HAS_NORTH_POLE ? 1 : 0];
     }

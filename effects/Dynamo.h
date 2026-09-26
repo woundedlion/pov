@@ -458,8 +458,15 @@ private:
    */
   static constexpr float WIPE_BLEND_WIDTH = math::PI_F / 4;
   static constexpr float WIPE_COMPLETE = 100.0f;
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+  static constexpr size_t NODE_CAPACITY = 2 * (H - 1) + 1;
+  const size_t NUM_NODES =
+      static_cast<size_t>(math::PI_F * math::ROWS_PER_RADIAN<H> + 0.999f) + 1;
+#else
   static constexpr size_t NUM_NODES =
       static_cast<size_t>(math::PI_F * math::ROWS_PER_RADIAN<H> + 0.999f) + 1;
+  static constexpr size_t NODE_CAPACITY = NUM_NODES;
+#endif
   /** @brief Evenly spaced Y-axis copies of the strand the pipeline emits. */
   static constexpr int STRAND_COPIES = 3;
   /** @brief Reference axis for band angle selection. */
@@ -487,7 +494,7 @@ private:
   // init() allocates the nodes, Trails ring buffer, and baked palette LUTs from
   // the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
-      NUM_NODES * sizeof(Node) +
+      NODE_CAPACITY * sizeof(Node) +
       TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
       MAX_PALETTES * BakedPalette::required_arena_bytes();

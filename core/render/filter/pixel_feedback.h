@@ -436,9 +436,9 @@ private:
     const ::Pixel *previous = cv.prev_data();
     ::Pixel *current = cv.data();
     ::Pixel poles[SphereField::POLE_STORAGE_COUNT];
-    if constexpr (SphereField::HAS_NORTH_POLE)
+    if (SphereField::HAS_NORTH_POLE)
       poles[0] = select_pole_sample(previous);
-    if constexpr (SphereField::HAS_SOUTH_POLE)
+    if (SphereField::HAS_SOUTH_POLE)
       poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
           select_pole_sample(previous + (H - 1) * W);
     const ColumnRuns runs = make_column_runs(band.x_clip);
@@ -674,7 +674,11 @@ private:
                 "Feedback<W,H>: canonical warp offset must fit int16_t");
   // The row offset spans the latitude range and is only runtime-clamped, so an
   // over-range displacement would saturate instead of trapping.
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+  static_assert(1.5f * (H - 1) * WARP_SCALE <= 32767.0f,
+#else
   static_assert(math::PI_F * math::ROWS_PER_RADIAN<H> * WARP_SCALE <= 32767.0f,
+#endif
                 "Feedback<W,H>: warp row offset must fit int16_t");
 
   /**
