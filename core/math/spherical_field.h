@@ -23,13 +23,17 @@ namespace hs {
  * @brief Allocation-free layout for a latitude-ring field on a sphere.
  * @tparam W Longitude-domain width.
  * @tparam H Number of rendered latitude rows.
- * @tparam HOffset Virtual rows below the rendered domain.
+ * @tparam HOffset Legacy south offset; -1 selects the active display profile.
  * @details Rings are uniformly spaced in latitude. Each ring's periodic
  * longitude count follows sin(phi), producing approximately uniform physical
  * sample spacing and compact contiguous storage.
  */
-template <int W, int H, int HOffset = H_OFFSET> class SphericalFieldLayout {
+template <int W, int H, int HOffset = -1> class SphericalFieldLayout {
 public:
+  using Geometry = math::DisplayGeometry<H, HOffset>;
+  static constexpr bool HAS_NORTH_POLE = Geometry::HAS_NORTH_POLE;
+  static constexpr bool HAS_SOUTH_POLE = Geometry::HAS_SOUTH_POLE;
+
   /**
    * @brief One latitude ring.
    * @details y is its row, samples its periodic longitude count, and offset the
@@ -95,10 +99,9 @@ public:
              equator_samples);
   }
 
-  /** @brief Rows that alias a whole longitude range onto one physical point:
-   *  row 0 always, plus row H-1 when no virtual rows separate it from the
-   *  south pole. */
-  static constexpr int POLE_COUNT = HOffset == 0 ? 2 : 1;
+  /** @brief Number of endpoint rings that coincide with true poles. */
+  static constexpr int POLE_COUNT = int(HAS_NORTH_POLE) + int(HAS_SOUTH_POLE);
+  static constexpr int POLE_STORAGE_COUNT = POLE_COUNT > 0 ? POLE_COUNT : 1;
 
   /** @brief Bound a sampler's fractional row must stay under in absolute
    *  value: NaN, an infinity, or a row this far out makes the truncation to
@@ -176,7 +179,7 @@ public:
   math::Vector sample_vector(const Ring &ring, int sample_index) const {
     const Coordinates point = sample_coordinates(ring, sample_index);
     const float theta = point.x * (2.0f * math::PI_F) / W;
-    const float phi = math::y_to_phi_virtual(point.y, H + HOffset);
+    const float phi = Geometry::row_to_phi(point.y);
     return math::Vector(math::Spherical(theta, phi));
   }
 
@@ -186,14 +189,14 @@ public:
    *   so the coordinates are sub-sample inexact and vector → coordinates →
    *   vector does not bit-exactly invert the exact-trig `sample_vector()`.
    * @param value Unit vector on the sphere.
-   * @return Coordinates with x in [-W/2, W/2] and y in [0, H + HOffset - 1].
+   * @return Coordinates with x in [-W/2, W/2]; missing caps project outside [0,H-1].
    *   x is signed because Spherical::theta is atan2's [-pi, pi], unlike
    *   sample_coordinates()' [0, W); longitude() accepts either convention.
    */
   Coordinates project(const math::Vector &value) const {
     const math::Spherical spherical(value);
     return {(spherical.theta * W) / (2.0f * math::PI_F),
-            math::phi_to_y_virtual(spherical.phi, H + HOffset)};
+            Geometry::phi_to_row(spherical.phi)};
   }
 
   /**
@@ -276,7 +279,7 @@ public:
    */
   template <typename Value, typename Load, typename Combine>
   __attribute__((always_inline)) decltype(auto)
-  sample_bilinear(float x, float y, const Value (&poles)[POLE_COUNT],
+  sample_bilinear(float x, float y, const Value (&poles)[POLE_STORAGE_COUNT],
                   const Value &outside, Load &&load, Combine &&combine) const {
     const Footprint tap = bilinear_footprint(x, y);
     const int x0 = tap.x0;
@@ -310,8 +313,9 @@ public:
    */
   template <typename Pixel>
   __attribute__((always_inline)) void
-  sample_bilinear_rgb(const Pixel *source, const Pixel (&poles)[POLE_COUNT],
-                      float x, float y, float &r, float &g, float &b) const {
+  sample_bilinear_rgb(const Pixel *source,
+                      const Pixel (&poles)[POLE_STORAGE_COUNT], float x,
+                      float y, float &r, float &g, float &b) const {
     const Footprint tap = bilinear_footprint(x, y);
 
     if (!in_direct_band(tap.y0)) {
@@ -400,7 +404,7 @@ public:
   }
 
 private:
-  static_assert(W > 0 && H > 1 && H + HOffset > 1);
+  static_assert(W > 0 && H > 1);
 
   /** @brief A ring paired with its position in the chain. */
   struct IndexedRing {
@@ -429,15 +433,14 @@ private:
 
   /**
    * @brief Last row whose bilinear footprint loads directly.
-   * @details Row H-1 is the south pole only when HOffset is 0; it then leaves
-   * the direct-load band so the pole substitution reaches it.
+   * @details A true south pole requires shared-pole substitution.
    */
-  static constexpr int LAST_DIRECT_ROW = POLE_COUNT == 2 ? H - 3 : H - 2;
+  static constexpr int LAST_DIRECT_ROW = HAS_SOUTH_POLE ? H - 3 : H - 2;
 
   /** @brief True when row y0's bilinear footprint needs no seam or pole
    *  substitution. */
   static constexpr bool in_direct_band(int y0) {
-    return y0 > 0 && y0 <= LAST_DIRECT_ROW;
+    return y0 >= (HAS_NORTH_POLE ? 1 : 0) && y0 <= LAST_DIRECT_ROW;
   }
 
   /**
@@ -464,6 +467,8 @@ private:
                                                                      float y) {
     assert(x >= -static_cast<float>(W) && x < 2.0f * static_cast<float>(W));
     assert(std::fabs(y) < ROW_LIMIT);
+    if constexpr (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE))
+      math::pole_wrap<W, H, HOffset>(x, y);
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     const int x0 = ::math::fast_wrap(static_cast<int>(floor_x), W);
@@ -482,15 +487,21 @@ private:
    */
   template <typename Value, typename Load>
   __attribute__((always_inline)) Value
-  pole_tap(int sample_x, int sample_y, const Value (&poles)[POLE_COUNT],
+  pole_tap(int sample_x, int sample_y, const Value (&poles)[POLE_STORAGE_COUNT],
            const Value &outside, Load &&load) const {
-    if (!wrap_sample(sample_x, sample_y))
+    if constexpr (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
+      if (sample_y < 0 || sample_y >= H)
+        return outside;
+    } else if (!wrap_sample(sample_x, sample_y)) {
       return outside;
-    if (sample_y == 0)
-      return poles[0];
-    if constexpr (POLE_COUNT == 2) {
+    }
+    if constexpr (HAS_NORTH_POLE) {
+      if (sample_y == 0)
+        return poles[0];
+    }
+    if constexpr (HAS_SOUTH_POLE) {
       if (sample_y == H - 1)
-        return poles[1];
+        return poles[HAS_NORTH_POLE ? 1 : 0];
     }
     return load(sample_x, sample_y);
   }
@@ -517,8 +528,8 @@ private:
    */
   template <typename Pixel>
   HS_NOINLINE_NOCLONE void sample_bilinear_rgb_poles(
-      const Pixel *source, const Pixel (&poles)[POLE_COUNT], int x0, int x1,
-      int y0, float fx, float fy, float &r, float &g, float &b) const {
+      const Pixel *source, const Pixel (&poles)[POLE_STORAGE_COUNT], int x0,
+      int x1, int y0, float fx, float fy, float &r, float &g, float &b) const {
     static constexpr Pixel OUTSIDE{};
     auto load = [source](int sample_x, int sample_y) {
       return source[sample_y * W + sample_x];
@@ -530,17 +541,20 @@ private:
   }
 
   constexpr int maximum_longitude_samples() const {
-    // A spacing past 4*(H+HOffset-1) rounds the derived count to zero, which
-    // longitude() would turn into a read one sample before the ring.
+    // Each ring requires at least one sample.
     return equator_samples > 0
                ? equator_samples
-               : std::max((2 * (H + HOffset - 1) + spacing / 2) / spacing, 1);
+               : std::max(static_cast<int>(2.0f * math::PI_F *
+                                               Geometry::ROWS_PER_RADIAN /
+                                               spacing +
+                                           0.5f),
+                          1);
   }
 
   /** @brief sin(phi) at row y, as a Taylor series because sinf is not
    *  constexpr. */
   static constexpr float latitude_sine(int y) {
-    float phi = (static_cast<float>(y) * math::PI_F) / (H + HOffset - 1);
+    float phi = Geometry::row_to_phi(static_cast<float>(y));
     if (phi > math::PI_F * 0.5f)
       phi = math::PI_F - phi;
     const float phi2 = phi * phi;
@@ -580,8 +594,7 @@ private:
  * @brief Non-owning value field stored on a SphericalFieldLayout.
  * @tparam Value Stored sample type.
  */
-template <typename Value, int W, int H, int HOffset = H_OFFSET>
-class SphericalField {
+template <typename Value, int W, int H, int HOffset = -1> class SphericalField {
 public:
   using Layout = SphericalFieldLayout<W, H, HOffset>;
   using Ring = typename Layout::Ring;
