@@ -3018,6 +3018,18 @@ inline void case_spherical_field_infill_over_domain() {
     std::printf("x");
 }
 
+inline void case_latitude_geometry_degenerate_height() {
+  math::LatitudeGeometry geometry(opaque(1), 0.1f, 3.0f);
+  if (geometry.row_to_phi(0) == 42.0f)
+    std::printf("x");
+}
+
+inline void case_latitude_geometry_reversed_span() {
+  math::LatitudeGeometry geometry(16, opaque(2.0f), 1.0f);
+  if (geometry.row_to_phi(0) == 42.0f)
+    std::printf("x");
+}
+
 /**
  * @brief Death case: a negative feedback fade must trap in sync_hue.
  * @details Style is a public aggregate, so nothing but a slider bound keeps fade
@@ -5540,6 +5552,15 @@ inline const Case *all_cases(int &n) {
            "(p > 0 && p <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS) "
            "Flywheel: cycles_per_half_rev outside the range position()'s int32 "
            "elapsed window holds for MIN_SAFE_HALF_REVS of coast"},
+          {"latitude_geometry_degenerate_height",
+           case_latitude_geometry_degenerate_height,
+           "core/math/display_geometry.h",
+           "(height > 1 && north >= 0.0f && south <= PI_F && north < south) "
+           "Invalid latitude geometry"},
+          {"latitude_geometry_reversed_span",
+           case_latitude_geometry_reversed_span, "core/math/display_geometry.h",
+           "(height > 1 && north >= 0.0f && south <= PI_F && north < south) "
+           "Invalid latitude geometry"},
           {"y_to_phi_degenerate_height", case_y_to_phi_degenerate_height,
            "core/math/pixel_mapping.h",
            "(h_virt > 1) y_to_phi_virtual: h_virt must be > 1"},
