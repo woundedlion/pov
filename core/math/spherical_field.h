@@ -440,10 +440,6 @@ private:
     return {{y, samples_on_ring(y), offset}, index};
   }
 
-  /**
-   * @brief Last row whose bilinear footprint loads directly.
-   * @details A true south pole requires shared-pole substitution.
-   */
   /** @brief True when row y0's bilinear footprint needs no seam or pole
    *  substitution. */
   static constexpr bool in_direct_band(int y0) {
@@ -510,8 +506,12 @@ private:
         return poles[0];
     }
     if (HAS_SOUTH_POLE) {
-      if (sample_y == H - 1)
-        return poles[HAS_NORTH_POLE ? 1 : 0];
+      if (sample_y == H - 1) {
+        if constexpr (POLE_STORAGE_COUNT > 1)
+          return poles[HAS_NORTH_POLE ? 1 : 0];
+        else
+          return poles[0];
+      }
     }
     return load(sample_x, sample_y);
   }

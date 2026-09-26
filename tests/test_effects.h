@@ -4132,7 +4132,7 @@ inline void test_raymarch_unit_bounds_contains_twisted_tube() {
  */
 struct GnomonicStarsWhiteBox {
   template <int W, int H> static constexpr float radius_px() {
-    return GnomonicStars<W, H>::RADIUS_PX;
+    return GnomonicStars<W, H>::radius_px();
   }
   template <int W, int H> static int max_points(const GnomonicStars<W, H> &) {
     return GnomonicStars<W, H>::MAX_POINTS;

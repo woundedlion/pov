@@ -7,7 +7,7 @@ poles.
 
 ## Profiles and calibration
 
-`HS_DISPLAY_PROFILE=1` selects the physical profile on firmware and WASM.
+Firmware defaults to the physical profile (`HS_DISPLAY_PROFILE=1`).
 `HS_DISPLAY_PROFILE=0` selects an ideal pole-to-pole grid. The native regression
 suite selects the ideal profile explicitly; its physical geometry executable
 exercises the cropped profile separately.
@@ -17,8 +17,10 @@ end: first LED center 3.6 degrees, last LED center 176.4 degrees. These are
 assumptions pending measurement. Set `HS_DISPLAY_NORTH_FRACTION` and
 `HS_DISPLAY_SOUTH_FRACTION` to the measured LED-center polar angles divided by
 180 degrees. The defaults are `0.02f` and `0.98f`; unequal caps are supported.
-The WASM CMake configuration exposes these three settings as cache variables.
-Firmware accepts the same names as compiler definitions.
+Firmware accepts these settings as compiler definitions. Daydream defaults to
+full coverage and exposes separate Top cap (%) and Bottom cap (%) global
+controls, from 0 to 25 percent each. Setting both to 2 previews the provisional
+physical calibration. A zero cap places that endpoint at the mathematical pole.
 
 For H rows, north angle N and south angle S, the pitch is `(S-N)/(H-1)`.
 Forward mapping is `phi = N + row*pitch`; inverse mapping is
@@ -26,8 +28,9 @@ Forward mapping is `phi = N + row*pitch`; inverse mapping is
 changes. Neither conversion clamps. A direction inside a cap maps outside the
 physical row range.
 
-`math::DisplayGeometry` is the compile-time mapping and
-`math::LatitudeGeometry` is its runtime counterpart. Pixel conversion, lookup
+`math::DisplayGeometry` supplies the resolution-specific mapping and
+`math::LatitudeGeometry` carries runtime row bounds. Firmware uses compile-time
+constants; WASM enables `HS_RUNTIME_DISPLAY_GEOMETRY` for live calibration. Pixel conversion, lookup
 tables, angular bounds, rasterizer sampling and field geometry use this mapping.
 The old explicit virtual-grid overloads and `HS_TEST_H_OFFSET` remain solely
 for legacy callers and regression coverage.
@@ -53,11 +56,18 @@ display coordinates, including hidden cap nodes.
 
 ## Simulator contract
 
-The WASM module exports `DISPLAY_PROFILE`, `DISPLAY_NORTH_PHI` and
-`DISPLAY_SOUTH_PHI`. Daydream reads them before constructing LED geometry and
-uses both angles in its matrix-cache identity. It does not select a different
-geometry independently of the engine. Rebuild the module to switch between
-ideal and physical profiles or change calibration.
+The WASM module exports initial `DISPLAY_PROFILE`, `DISPLAY_NORTH_PHI` and
+`DISPLAY_SOUTH_PHI` values. Daydream applies its global cap settings through
+`setDisplayCaps(topPercent, bottomPercent)` and reads back the accepted angles
+through `getDisplayNorthPhi()` and `getDisplaySouthPhi()`. Both controls default
+to zero. Changes made while the module loads are applied before the first frame.
+
+A geometry change refreshes the engine lookup tables and recreates the active
+effect to invalidate geometry-dependent caches. Effect configuration, preset,
+parameters, pause state and clipping are retained; animation and trail history
+restart. Invalid requests and unchanged values leave the running effect intact.
+The controls persist across effect and resolution changes, propagate to segment
+workers, and refresh the displayed LED mesh even while playback is paused.
 
 ## Validation
 
