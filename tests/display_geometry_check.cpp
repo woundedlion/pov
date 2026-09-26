@@ -79,6 +79,29 @@ void test_splat_coverage() {
   }
 }
 
+void test_blur_coverage() {
+  for (float factor : {0.0f, 0.5f, 1.0f}) {
+    Filter::Screen::Blur<W, H> blur(factor);
+    for (float y : {-2.0f, -1.25f, -1.0f, -0.75f, -0.25f, 0.0f, 0.75f, 2.0f}) {
+      const int center = static_cast<int>(std::round(y));
+      const float expected = center < -1    ? 0.0f
+                             : center == -1 ? factor * 0.25f
+                             : center == 0  ? 1.0f - factor * 0.25f
+                                            : 1.0f;
+      for (float row : {y, H - 1.0f - y}) {
+        float energy = 0;
+        blur.plot(12.25f, row, Pixel(100, 100, 100), 0.0f, 1.0f,
+                  [&](float, float tap_row, const Pixel &, float, float alpha) {
+                    HS_EXPECT_GE(tap_row, 0.0f);
+                    HS_EXPECT_LT(tap_row, static_cast<float>(H));
+                    energy += alpha;
+                  });
+        HS_EXPECT_NEAR(energy, expected, 1e-6f);
+      }
+    }
+  }
+}
+
 int plot_stroke(float phi) {
   hs_test::StubEffect effect(W, H);
   Pipeline<W, H> pipeline;
@@ -178,6 +201,7 @@ int main() {
   test_coordinates();
   test_pole_crossing();
   test_splat_coverage();
+  test_blur_coverage();
   test_feedback_endpoint_rings();
   test_render_caps();
   return fixture.result() ? 1 : 0;
