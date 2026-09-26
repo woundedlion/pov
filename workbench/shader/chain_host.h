@@ -108,6 +108,11 @@ public:
     return refusal;
   }
 
+  /** @brief Borrows the compiled entries until the next program replacement. */
+  std::span<const Pullback::Interp::ChainProgram::ChainOp> chain_ops() const {
+    return program.ops();
+  }
+
   /** @brief Advances clocks and palettes, prepares the program, and renders
       one frame. */
   HS_FLASH_MEMBER void draw_frame() override {
