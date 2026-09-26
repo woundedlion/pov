@@ -362,7 +362,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
                       inv_cell_size * inv_cell_size;
   prepared.outer_radius_base = frame.params.wire_radius + frame.params.softness;
   const float near_scale =
-      frame.params.cell_size / (1.0f + frame.params.sphere_radius);
+      frame.params.cell_size * (1.0f + frame.params.sphere_radius);
   prepared.near_start = 1.5f * frame.params.wire_radius * near_scale;
   prepared.near_inv_span = 1.0f / (frame.params.near_fade * near_scale);
   prepared.sphere_radius_world =

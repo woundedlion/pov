@@ -172,9 +172,9 @@ inline void test_near_field_fade() {
         frame.params.sphere_radius = radius;
         frame.params.cell_size = cell_size;
         frame.params.far_distance = 16.0f;
-        frame.params.near_fade = 0.8f;
+        frame.params.near_fade = 0.2f;
         const auto prepared = HL::prepare_trace(frame);
-        const float span = frame.params.near_fade * cell_size / (1.0f + radius);
+        const float span = frame.params.near_fade * cell_size * (1.0f + radius);
         for (float fraction :
              {0.0f, 0.001f, 0.25f, 0.5f, 0.75f, 0.999f, 1.0f}) {
           const float distance = prepared.near_start + fraction * span;
@@ -199,10 +199,10 @@ inline void test_near_field_fade() {
   const auto centered = HL::prepare_trace(frame);
   frame.params.sphere_radius = 1.0f;
   const auto surface = HL::prepare_trace(frame);
-  HS_EXPECT_NEAR(surface.near_start, centered.near_start * 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(surface.near_inv_span, centered.near_inv_span * 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(surface.near_start, centered.near_start * 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(surface.near_inv_span, centered.near_inv_span * 0.5f, 1e-6f);
   const float distance = centered.near_start + 0.25f / centered.near_inv_span;
-  HS_EXPECT_GT(HL::near_field_coverage(distance, surface.near_start,
+  HS_EXPECT_LT(HL::near_field_coverage(distance, surface.near_start,
                                        surface.near_inv_span),
                HL::near_field_coverage(distance, centered.near_start,
                                        centered.near_inv_span));
@@ -495,18 +495,18 @@ inline void test_render_signature() {
       {1.1f, 2.3f, 0.4f, 0.0f, 0.0f, 0.0f},
   };
   static constexpr ShadeSample GOLDEN[] = {
-      {11755, 29236, 38374, 21052},
+      {11664, 29080, 38288, 17981},
       {6289, 20810, 33584, 7906},
       {7018, 22013, 34137, 89},
-      {8005, 23674, 35054, 44437},
+      {8004, 23671, 35052, 44366},
       {443, 411, 3629, 73},
-      {16091, 34459, 41337, 23209},
-      {25323, 42646, 46187, 52135},
-      {13974, 29680, 38765, 13992},
+      {15860, 34189, 41183, 14730},
+      {23945, 40773, 44710, 11477},
+      {9649, 23679, 35426, 9199},
       {578, 1541, 12313, 3619},
       {2037, 10615, 27205, 18},
       {522, 569, 5266, 27},
-      {24216, 41698, 45666, 720},
+      {22396, 39389, 44357, 142},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
@@ -543,7 +543,7 @@ inline void test_render_signature() {
     }
   }
   expect_shade_samples("render_signature", rendered, GOLDEN, std::size(GOLDEN),
-                       std::size(DIRECTIONS), 10909683314005311684ull);
+                       std::size(DIRECTIONS), 11335453316026893810ull);
 }
 
 inline void test_specialized_slice_transition() {
