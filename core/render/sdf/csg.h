@@ -231,9 +231,7 @@ template <typename A, typename B> struct SmoothUnion {
    * @return k (radians) converted to rows, at least 1.
    */
   template <int H> int pad_rows() const {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    // phi spans [0,π] over (H_VIRT-1) rows.
-    return std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / math::PI_F)));
+    return std::max(1, static_cast<int>(ceilf(k * math::ROWS_PER_RADIAN<H>)));
   }
 
   /**

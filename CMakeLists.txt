@@ -31,6 +31,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 if(EMSCRIPTEN)
+  set(HS_DISPLAY_PROFILE "1" CACHE STRING "Display geometry: 0 ideal, 1 physical")
+  set(HS_DISPLAY_NORTH_FRACTION "0.02f" CACHE STRING "First LED polar angle divided by pi")
+  set(HS_DISPLAY_SOUTH_FRACTION "0.98f" CACHE STRING "Last LED polar angle divided by pi")
+  add_compile_definitions(
+    HS_DISPLAY_PROFILE=${HS_DISPLAY_PROFILE}
+    HS_DISPLAY_NORTH_FRACTION=${HS_DISPLAY_NORTH_FRACTION}
+    HS_DISPLAY_SOUTH_FRACTION=${HS_DISPLAY_SOUTH_FRACTION})
   # ===========================================================================
   # WASM simulator build (daydream)
   # ===========================================================================

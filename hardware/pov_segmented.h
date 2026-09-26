@@ -15,12 +15,12 @@
  * Physical strip layout (N=4, S=288, H=144):
  *
  *   Arm A:
- *     Segment 0 (top):    LED 0 at N pole (y=0)   → LED 71 at junction (y=71)
- *     Segment 1 (bottom):  LED 0 at S pole (y=143) → LED 71 at junction (y=72)  ← reversed
+ *     Segment 0 (top):    LED 0 at N end (y=0)   → LED 71 at junction (y=71)
+ *     Segment 1 (bottom):  LED 0 at S end (y=143) → LED 71 at junction (y=72)  ← reversed
  *
  *   Arm B (x offset by W/2):
- *     Segment 2 (top):    LED 0 at N pole (y=0)   → LED 71 at junction (y=71)
- *     Segment 3 (bottom):  LED 0 at S pole (y=143) → LED 71 at junction (y=72)  ← reversed
+ *     Segment 2 (top):    LED 0 at N end (y=0)   → LED 71 at junction (y=71)
+ *     Segment 3 (bottom):  LED 0 at S end (y=143) → LED 71 at junction (y=72)  ← reversed
  *
  * Each Teensy reads a hardware ID from GPIO pins at boot to determine
  * which segment it owns.  One wire connects all boards

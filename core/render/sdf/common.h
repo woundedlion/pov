@@ -816,23 +816,29 @@ inline bool emit_padded_cap_row(float sign, float cos_cap, float sin_cap,
  * inclusive scanline row range it covers, clamped to [0, height-1].
  * @param phi_min Lower polar-angle edge of the band (radians).
  * @param phi_max Upper polar-angle edge of the band (radians).
- * @param h_virt Virtual row count (height plus pole offset).
+ * @param geometry Display latitude mapping.
  * @param height Canvas height in rows.
  * @return Inclusive row bounds covering the band.
- * @details phi spans [0,π] over (h_virt-1) virtual rows; the lower edge floors
- * and the upper edge ceils so a partially-covered row is never dropped, and the
- * row clamps fold out-of-range phi. Single source for the floor/ceil
- * conversion, routed through by `phi_bounds_to_rows<H>` and the Face's
- * construction bounds.
+ * @details Bounds round outward before clipping to physical rows.
  */
-inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
+inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
+                                 const math::LatitudeGeometry &geometry,
                                  int height) {
-  int y_min = std::max(
-      0, static_cast<int>(floorf((phi_min * (h_virt - 1)) / math::PI_F)));
-  int y_max =
-      std::min(height - 1,
-               static_cast<int>(ceilf((phi_max * (h_virt - 1)) / math::PI_F)));
+  int y_min =
+      std::max(0, static_cast<int>(floorf(geometry.phi_to_row(phi_min))));
+  int y_max = std::min(height - 1,
+                       static_cast<int>(ceilf(geometry.phi_to_row(phi_max))));
   return {y_min, y_max};
+}
+
+/** @brief Maps bounds using an explicit pole-to-pole virtual grid. */
+inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
+                                 int virtual_height, int height) {
+  return phi_bounds_to_rows(
+      phi_min, phi_max,
+      math::LatitudeGeometry(height, 0.0f,
+                             math::PI_F * (height - 1) / (virtual_height - 1)),
+      height);
 }
 
 /**
@@ -841,12 +847,10 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
  * @param phi_min Lower polar-angle edge of the band (radians).
  * @param phi_max Upper polar-angle edge of the band (radians).
  * @return Inclusive row bounds covering the band.
- * @details The leaf shapes' get_vertical_bounds all close with this; phi spans
- * [0,π] over (H+H_OFFSET-1) virtual rows.
  */
 template <int H>
 inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) {
-  return phi_bounds_to_rows(phi_min, phi_max, H + hs::H_OFFSET, H);
+  return phi_bounds_to_rows(phi_min, phi_max, math::LatitudeGeometry(H), H);
 }
 
 /**

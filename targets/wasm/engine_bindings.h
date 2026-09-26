@@ -1540,7 +1540,11 @@ private:
 
 /** @brief Registers the render bridge's enums and class with Embind. */
 static void bind_engine() {
-  emscripten::constant("H_OFFSET", hs::H_OFFSET);
+  emscripten::constant("DISPLAY_PROFILE", HS_DISPLAY_PROFILE);
+  emscripten::constant("DISPLAY_NORTH_PHI",
+                       math::DisplayGeometry<144>::NORTH_PHI);
+  emscripten::constant("DISPLAY_SOUTH_PHI",
+                       math::DisplayGeometry<144>::SOUTH_PHI);
   emscripten::enum_<ParamSetResult>("ParamSetResult")
       .value("APPLIED", ParamSetResult::APPLIED)
       .value("NO_EFFECT", ParamSetResult::NO_EFFECT)
