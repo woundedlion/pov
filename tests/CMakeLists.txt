@@ -638,6 +638,16 @@ _hs_sanitize(h_offset_device_check)
 add_test(NAME unit_h_offset_device COMMAND h_offset_device_check)
 
 
+add_executable(display_geometry_check
+  ${CMAKE_CURRENT_SOURCE_DIR}/display_geometry_check.cpp
+  ${HS_ENGINE_SOURCES})
+target_compile_definitions(display_geometry_check PRIVATE HS_DISPLAY_PROFILE=1)
+target_link_libraries(display_geometry_check PRIVATE hs_host_storage)
+target_include_directories(display_geometry_check PRIVATE ${HS_ENGINE_INCLUDES})
+_hs_warnings(display_geometry_check)
+_hs_sanitize(display_geometry_check)
+add_test(NAME unit_display_geometry COMMAND display_geometry_check)
+
 # Host stack high-water-mark gate across every effect. Built -Os + the device
 # math flags so codegen frame sizes track the Phantasm size build as closely as a
 # host compiler can. stack_measure.cpp heap-constructs effects like the firmware
@@ -780,6 +790,14 @@ _hs_warnings(noise_golden_gen)
 # anywhere above joins it with no workflow edit.
 get_property(_hs_dir_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 set(_hs_excluded)
+foreach(_hs_target IN LISTS _hs_dir_targets)
+  get_target_property(_hs_target_type ${_hs_target} TYPE)
+  if(NOT _hs_target_type STREQUAL "UTILITY"
+      AND NOT _hs_target_type STREQUAL "INTERFACE_LIBRARY"
+      AND NOT _hs_target STREQUAL "display_geometry_check")
+    target_compile_definitions(${_hs_target} PRIVATE HS_DISPLAY_PROFILE=0)
+  endif()
+endforeach()
 foreach(_hs_target IN LISTS _hs_dir_targets)
   get_target_property(_hs_is_excluded ${_hs_target} EXCLUDE_FROM_ALL)
   get_target_property(_hs_target_type ${_hs_target} TYPE)
