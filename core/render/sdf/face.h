@@ -334,6 +334,7 @@ struct Face {
 
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
+  math::LatitudeGeometry build_geometry;
   int build_width; /**< Clip width the azimuth cull ran against; 0 if unclipped. */
   const float *build_azimuth_pads; /**< Optional row padding table. */
   std::span<Interval> intervals;   /**< Azimuth coverage intervals (radians). */
@@ -408,13 +409,24 @@ struct Face {
     y_max = BOUNDS_CULLED.y_max;
   }
 
+  /** @brief Builds a face on an explicit pole-to-pole virtual grid. */
+  Face(std::span<const math::Vector> vertices,
+       std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
+       int virtual_height, int height, const ClipRegion *clip = nullptr,
+       const float *azimuth_pads = nullptr, float bounds_margin = BOUNDS_MARGIN)
+      : Face(vertices, indices, scratch,
+             math::LatitudeGeometry(height, 0.0f,
+                                    math::PI_F * (height - 1) /
+                                        (virtual_height - 1)),
+             height, clip, azimuth_pads, bounds_margin) {}
+
   /**
    * @brief Builds a face's projection, bounds, and edge data.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices from the pool.
    * @param scratch Scratch storage the spans alias; exclusive to this Face for
    *        its whole lifetime, and reusable only once the Face is dead.
-   * @param h_virt Virtual row count (height plus pole offset).
+   * @param geometry Display latitude mapping.
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
    * @param azimuth_pads Optional latitude-adjusted padding table.
@@ -424,11 +436,13 @@ struct Face {
    */
   HS_O3_FN Face(std::span<const math::Vector> vertices,
                 std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
-                int h_virt, int height, const ClipRegion *clip = nullptr,
+                const math::LatitudeGeometry &geometry, int height,
+                const ClipRegion *clip = nullptr,
                 const float *azimuth_pads = nullptr,
                 float bounds_margin = BOUNDS_MARGIN)
-      : build_height(height), build_width(clip ? clip->w : 0),
-        build_azimuth_pads(azimuth_pads), full_width(true) {
+      : build_height(height), build_geometry(geometry),
+        build_width(clip ? clip->w : 0), build_azimuth_pads(azimuth_pads),
+        full_width(true) {
 
     count = indices.size();
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
@@ -438,7 +452,7 @@ struct Face {
     // an empty row range can never be rasterized.
     const bool phi_culled = [&] {
       HS_PROFILE_DEEP(face_phi_extent);
-      return compute_phi_extent(vertices, indices, h_virt, height,
+      return compute_phi_extent(vertices, indices, geometry, height,
                                 bounds_margin);
     }();
     if (phi_culled) {
@@ -497,8 +511,8 @@ struct Face {
       // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
       // span misses the great-circle edge bulge toward a pole, leaving
       // near-pole faces with unscanned rows; the arc-extrema path covers them.
-      compute_full_bounds(scratch, count, center, h_virt, height, y_min, y_max,
-                          bounds_margin);
+      compute_full_bounds(scratch, count, center, geometry, height, y_min,
+                          y_max, bounds_margin);
       compute_inradius(scratch);
     }
 
@@ -575,10 +589,9 @@ struct Face {
       pw = std::max(build_azimuth_pads[band_y_min],
                     build_azimuth_pads[band_y_max]);
     } else {
-      const int h_virt = cr.h + hs::H_OFFSET;
-      const float phi_scale = math::PI_F / static_cast<float>(h_virt - 1);
       const float sin_phi =
-          std::min(sinf(band_y_min * phi_scale), sinf(band_y_max * phi_scale));
+          std::min(sinf(build_geometry.row_to_phi(band_y_min)),
+                   sinf(build_geometry.row_to_phi(band_y_max)));
       pw = face_azimuth_pad(Wd, sin_phi);
     }
     const int band_len = xc.length(Wd);
@@ -608,7 +621,7 @@ struct Face {
    * @brief Latitude-band reject for the face.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices.
-   * @param h_virt Virtual row count (height plus pole offset).
+   * @param geometry Display latitude mapping.
    * @param height Canvas height in rows.
    * @param bounds_margin Angular padding around the vertical bounds.
    * @return True when the phi extent plus AA margin maps to an empty
@@ -616,7 +629,8 @@ struct Face {
    */
   __attribute__((always_inline)) bool
   compute_phi_extent(std::span<const math::Vector> vertices,
-                     std::span<const uint16_t> indices, int h_virt, int height,
+                     std::span<const uint16_t> indices,
+                     const math::LatitudeGeometry &geometry, int height,
                      float bounds_margin) const {
     float min_y_val = 2.0f;
     float max_y_val = -2.0f;
@@ -631,7 +645,7 @@ struct Face {
     float max_phi_check = math::fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     Bounds rows =
         phi_bounds_to_rows(min_phi_check - bounds_margin,
-                           max_phi_check + bounds_margin, h_virt, height);
+                           max_phi_check + bounds_margin, geometry, height);
 
     return rows.y_min > rows.y_max;
   }
@@ -1209,7 +1223,7 @@ struct Face {
    * data and planes.
    * @param count Vertex/edge count.
    * @param center Normalized face centroid.
-   * @param h_virt Virtual row count (height plus pole offset).
+   * @param geometry Display latitude mapping.
    * @param height Canvas height in rows.
    * @param y_min_out Output: first covered row.
    * @param y_max_out Output: last covered row.
@@ -1217,7 +1231,8 @@ struct Face {
    */
   HS_O3_FN static void
   compute_full_bounds(FaceScratchBuffer &scratch, int count,
-                      const math::Vector &center, int h_virt, int height,
+                      const math::Vector &center,
+                      const math::LatitudeGeometry &geometry, int height,
                       int &y_min_out, int &y_max_out, float bounds_margin) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
@@ -1253,7 +1268,7 @@ struct Face {
     }
     snap_phi_for_pole_planes(scratch, planes_count, center, min_phi, max_phi);
     Bounds rows = phi_bounds_to_rows(min_phi - bounds_margin,
-                                     max_phi + bounds_margin, h_virt, height);
+                                     max_phi + bounds_margin, geometry, height);
     y_min_out = rows.y_min;
     y_max_out = rows.y_max;
   }
@@ -1288,9 +1303,10 @@ struct Face {
     const float pad_hi = azimuth_pad_at_row<W, H>(y_hi);
     float narrow_pad = std::min(pad_lo, pad_hi);
     const float wide_pad = std::max(pad_lo, pad_hi);
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    constexpr int EQUATOR_LO = (H_VIRT - 1) / 2;
-    constexpr int EQUATOR_HI = H_VIRT / 2;
+    constexpr float EQUATOR_ROW =
+        math::DisplayGeometry<H>::phi_to_row(math::PI_F * 0.5f);
+    const int EQUATOR_LO = static_cast<int>(floorf(EQUATOR_ROW));
+    const int EQUATOR_HI = static_cast<int>(ceilf(EQUATOR_ROW));
     if (y_lo <= EQUATOR_LO && EQUATOR_LO <= y_hi)
       narrow_pad = std::min(narrow_pad, azimuth_pad_at_row<W, H>(EQUATOR_LO));
     if (y_lo <= EQUATOR_HI && EQUATOR_HI <= y_hi)

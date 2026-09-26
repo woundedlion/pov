@@ -651,9 +651,7 @@ make_planar_edge_sampler(const PlanarEdgeSpan &span, const math::Vector &end,
  * @param y Unit-sphere y in [-1, 1] (clamped).
  */
 template <int H> static inline float y_to_screen_row(float y) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  return math::phi_to_y_virtual(math::fast_acos(hs::clamp(y, -1.0f, 1.0f)),
-                                H_VIRT);
+  return math::phi_to_y<H>(math::fast_acos(hs::clamp(y, -1.0f, 1.0f)));
 }
 
 /**
@@ -732,7 +730,6 @@ template <int H>
 static inline void planar_row_span(const math::Vector &a, const math::Vector &b,
                                    const PlanarEdgeSpan &es, float &row_lo,
                                    float &row_hi) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   float ra = y_to_screen_row<H>(a.y);
   float rb = y_to_screen_row<H>(b.y);
   row_lo = std::min(ra, rb);
@@ -742,8 +739,7 @@ static inline void planar_row_span(const math::Vector &a, const math::Vector &b,
     row_lo = std::min(row_lo, r);
     row_hi = std::max(row_hi, r);
   }
-  float margin =
-      es.gap_arc * (static_cast<float>(H_VIRT - 1) / math::PI_F) + 1.0f;
+  float margin = es.gap_arc * math::ROWS_PER_RADIAN<H> + 1.0f;
   row_lo -= margin;
   row_hi += margin;
 }
@@ -930,7 +926,6 @@ struct ClipCutBounds {
 template <int W, int H>
 static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
                                                  const ClipRegion::XClip &xc) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
 
@@ -951,8 +946,7 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
                              static_cast<int>(GEODESIC_ROW_AA_PAD),
                          cr.render_y_end() + CLIP_CUT_ROW_PAD};
     for (int i = 0; i < 2; ++i)
-      cb.row_y[i] =
-          math::TrigLUT<W, H>::cos_phi[hs::clamp(rows[i], 0, H_VIRT - 1)];
+      cb.row_y[i] = math::TrigLUT<W, H>::cos_phi[hs::clamp(rows[i], 0, H - 1)];
   }
   return cb;
 }
@@ -1367,9 +1361,8 @@ static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
 template <int W, int H>
 static inline float screen_step(const math::Vector &pos,
                                 const math::Vector &tan, float base_step) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  const float KX = W / (2.0f * math::PI_F);   // columns per radian of longitude
-  const float KY = (H_VIRT - 1) / math::PI_F; // rows per radian of colatitude
+  const float KX = W / (2.0f * math::PI_F);  // columns per radian of longitude
+  const float KY = math::ROWS_PER_RADIAN<H>; // rows per radian of colatitude
   // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
   // velocity (hence the min-clamped step) rather than a divide-by-zero.
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
@@ -1395,9 +1388,8 @@ template <int W, int H>
 static inline float screen_step_reference(const math::Vector &pos,
                                           const math::Vector &tan,
                                           float base_step) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   const float KX = W / (2.0f * math::PI_F);
-  const float KY = (H_VIRT - 1) / math::PI_F;
+  const float KY = math::ROWS_PER_RADIAN<H>;
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
   const float inv_sin = math::fast_rsqrt(sin2);
   const float dphi_ds = -tan.y * inv_sin;
@@ -1455,13 +1447,11 @@ HS_O3_BEGIN
 template <int W, int H>
 static inline bool edge_fits_one_dot(const math::Vector &a,
                                      const math::Vector &b) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   constexpr float BASE = (2.0f * math::PI_F) / W;
   constexpr float B2 = BASE * BASE;
   static_assert(B2 < 1.0f, "chord/angle bounds assume base_step < 1 rad");
   constexpr float KX2 = (W / (2.0f * math::PI_F)) * (W / (2.0f * math::PI_F));
-  constexpr float KY2 =
-      ((H_VIRT - 1) / math::PI_F) * ((H_VIRT - 1) / math::PI_F);
+  constexpr float KY2 = (math::ROWS_PER_RADIAN<H>)*(math::ROWS_PER_RADIAN<H>);
   constexpr float SPX2 = SCREEN_STEP_PX * SCREEN_STEP_PX;
   // Preserve the fast-path implication under screen_rsqrt's <0.1% undershoot.
   constexpr float SCREEN_RSQRT_MIN2 = 0.999f * 0.999f;
@@ -1688,16 +1678,14 @@ make_cartesian_quadrant_clip(const ClipRegion &cr) {
       (cr.y_start != 0 && cr.y_start != H / 2))
     return q;
 
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   if (cr.y_start == 0) {
-    const float boundary = static_cast<float>(cr.render_y_end()) * math::PI_F /
-                           static_cast<float>(H_VIRT - 1);
+    const float boundary = math::DisplayGeometry<H>::row_to_phi(
+        static_cast<float>(cr.render_y_end()));
     q.latitude_sign = 1.0f;
     q.latitude_threshold = cosf(boundary);
   } else {
-    const float boundary =
-        (static_cast<float>(cr.render_y_start()) - GEODESIC_ROW_AA_PAD) *
-        math::PI_F / static_cast<float>(H_VIRT - 1);
+    const float boundary = math::DisplayGeometry<H>::row_to_phi(
+        static_cast<float>(cr.render_y_start()) - GEODESIC_ROW_AA_PAD);
     q.latitude_sign = -1.0f;
     q.latitude_threshold = -cosf(boundary);
   }
@@ -1842,7 +1830,6 @@ template <int W, int H>
 static __attribute__((always_inline)) inline TrailGatePrologue
 trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
                     const Fragments &trail) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   const size_t n = trail.size();
   auto *rows = static_cast<float *>(
       scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
@@ -1870,8 +1857,7 @@ trail_gate_prologue(const ClipRegion &cr, const ClipRegion::XClip &xc,
   // within arc/2 of an endpoint and phi is 1-Lipschitz in arc length, so this
   // margin covers every per-edge bulge peak.
   const float max_arc = (math::PI_F * 0.5f) * sqrtf(max_chord2);
-  const float row_margin =
-      (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / math::PI_F);
+  const float row_margin = (max_arc * 0.5f) * math::ROWS_PER_RADIAN<H>;
   if (!cr.could_intersect_y(row_lo_t - row_margin,
                             row_hi_t + row_margin + GEODESIC_ROW_AA_PAD)) {
 #ifdef HS_PROFILE_MINDSPLATTER_STALLS

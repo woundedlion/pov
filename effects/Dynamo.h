@@ -64,7 +64,8 @@ public:
     register_param("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
-      nodes[i].y = i;
+      nodes[i].y = math::phi_to_y<H>(static_cast<float>(i) * math::PI_F /
+                                     (NUM_NODES - 1));
     }
 
     // Allocate the LUT pool once: bake() allocates, rebake() refills in place,
@@ -156,9 +157,9 @@ private:
      */
     Node() : x(0), y(0), v(0) {}
 
-    int x; /**< Grid column. */
-    int y; /**< Grid row. */
-    int v; /**< Per-step velocity along x. */
+    int x;   /**< Grid column. */
+    float y; /**< Fractional display row. */
+    int v;   /**< Per-step velocity along x. */
   };
 
   /**
@@ -324,14 +325,17 @@ private:
   void draw_nodes(Canvas &canvas, float age) {
     for (size_t i = 0; i < NUM_NODES; ++i) {
       if (i == 0) {
-        auto from = math::pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
+        auto from = math::pixel_to_vector<W, H>(static_cast<float>(nodes[i].x),
+                                                nodes[i].y);
         Color4 c = color(from, 0);
         c.alpha *= 0.5f;
         ++emitted_points;
         filters.plot(canvas, from, c.color, age, c.alpha);
       } else {
-        auto from = math::pixel_to_vector<W, H>(nodes[i - 1].x, nodes[i - 1].y);
-        auto to = math::pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
+        auto from = math::pixel_to_vector<W, H>(
+            static_cast<float>(nodes[i - 1].x), nodes[i - 1].y);
+        auto to = math::pixel_to_vector<W, H>(static_cast<float>(nodes[i].x),
+                                              nodes[i].y);
         auto fragment_shader = [this](const math::Vector &v, Fragment &f) {
           f.color = color(v, 0);
           f.color.alpha *= 0.5f;
@@ -454,8 +458,8 @@ private:
    */
   static constexpr float WIPE_BLEND_WIDTH = math::PI_F / 4;
   static constexpr float WIPE_COMPLETE = 100.0f;
-  static constexpr int H_VIRT = H + hs::H_OFFSET; /**< Virtual row count. */
-  static constexpr size_t NUM_NODES = H_VIRT;     /**< Strand node count. */
+  static constexpr size_t NUM_NODES =
+      static_cast<size_t>(math::PI_F * math::ROWS_PER_RADIAN<H> + 0.999f) + 1;
   /** @brief Evenly spaced Y-axis copies of the strand the pipeline emits. */
   static constexpr int STRAND_COPIES = 3;
   /** @brief Reference axis for band angle selection. */
