@@ -37,7 +37,6 @@
 #include <cstring>
 #include <climits> // INT_MAX — drawFrame pixel-index accumulator bound
 #include <memory>
-#include <optional>
 #include <string>
 
 // ---- Stack canary painting for high water mark tracking ----
@@ -1387,10 +1386,11 @@ private:
 
 #if HS_ENABLE_SHADER_WORKBENCH
     using Workbench = Shader<W, H>;
-    std::optional<typename Workbench::FullConfigSnapshot> workbench_snapshot;
+    std::unique_ptr<typename Workbench::FullConfigSnapshot> workbench_snapshot;
     if (current_effect_type_key == effect_type_key<Workbench>())
-      workbench_snapshot = static_cast<Workbench &>(*current_effect)
-                               .capture_full_config_snapshot();
+      workbench_snapshot.reset(new typename Workbench::FullConfigSnapshot(
+          static_cast<Workbench &>(*current_effect)
+              .capture_full_config_snapshot()));
 #endif
 #if HS_ENABLE_CHAIN_INTERPRETER
     using Chain = ShaderChain<W, H>;

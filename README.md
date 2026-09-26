@@ -172,7 +172,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 - **Y-up Cartesian**: `Vector(x, y, z)` — `y` is the vertical axis
 - **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
 - **Pixel mapping**: columns map to longitude; rows sample the calibrated LED-center span with `phi = north + y*(south-north)/(H-1)`.
-- **Display geometry**: firmware and WASM default to the physical profile, with provisional LED-center endpoints at 3.6 and 176.4 degrees (2% caps). Both endpoint rows are latitude rings. Missing-row antialias contributions are discarded. The ideal profile explicitly includes both poles. See [display geometry](docs/specs/display_geometry.md) for calibration and profile selection.
+- **Display geometry**: firmware defaults to provisional LED-center endpoints at 3.6 and 176.4 degrees (2% caps). Daydream defaults to full coverage and offers Top cap (%) and Bottom cap (%) in the global controls. Both endpoint rows are latitude rings. Missing-row antialias contributions are discarded. The ideal profile explicitly includes both poles. See [display geometry](docs/specs/display_geometry.md) for calibration and profile selection.
 - **SDF distances**: in radians on the unit sphere (matching `angle_between()`), except small `SDF::Face` shapes (inradius < 0.2), whose distances and `size` use gnomonic tangent-plane units
 - All geometry LUTs (`PhiLUT<H>`, `TrigLUT<W,H>`) are pre-computed eagerly via `init_geometry_luts()` at engine setup
 
