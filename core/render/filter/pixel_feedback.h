@@ -41,8 +41,7 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's; every preset keeps it). Other values render uncached. */
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
-  static constexpr int CACHE_SOUTH_INFILL =
-      CACHE_DOWNSAMPLE > hs::H_OFFSET ? CACHE_DOWNSAMPLE - hs::H_OFFSET : 0;
+  static constexpr int CACHE_SOUTH_INFILL = CACHE_DOWNSAMPLE;
   static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
   /** @brief Cell count of the cached spherical warp field. */
   static constexpr int CACHE_CELLS =
@@ -100,7 +99,7 @@ public:
   /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
   static constexpr size_t UNCACHED_SCRATCH_BYTES(int ds) {
     const int COLUMNS = W / ds;
-    const SphereField FIELD(ds, ds, std::max(ds - hs::H_OFFSET, 0), COLUMNS);
+    const SphereField FIELD(ds, ds, ds, COLUMNS);
     return (2 * FIELD.ring_count() * COLUMNS + 2 * FIELD.sample_count()) *
                sizeof(int16_t) +
            (ds > 1 ? W * sizeof(::Pixel) : 0);
@@ -263,7 +262,7 @@ private:
              "feedback canvas height %d must equal template H %d", cv.height(),
              H);
     const int columns = W / downsample;
-    const int south_infill = std::max(downsample - hs::H_OFFSET, 0);
+    const int south_infill = downsample;
     const SphereField field(downsample, downsample, south_infill, columns);
     return {downsample, field, columns, field.ring_count()};
   }
@@ -367,16 +366,9 @@ private:
             distorted = feedback_style->space_fn(position, *feedback_style);
           }
           HS_PROFILE_DEEP(fb_pop_project);
-          // Both ends go through project() so its fast-trig error cancels; a
-          // pole row's single backing vector has no azimuth to round-trip.
-          // Rings stop at y = H - 1, which is the south pole only when
-          // H_OFFSET == 0; the device's sub-pole rows carry no field samples.
-          // h_offset_renorm_check compiles this file with the device H_OFFSET.
-          bool pole_row = point.y == 0.0f;
-          if constexpr (hs::H_OFFSET == 0) {
-            constexpr float SOUTH_POLE_ROW = H + hs::H_OFFSET - 1;
-            pole_row = pole_row || point.y == SOUTH_POLE_ROW;
-          }
+          const bool pole_row =
+              (SphereField::HAS_NORTH_POLE && point.y == 0.0f) ||
+              (SphereField::HAS_SOUTH_POLE && point.y == H - 1);
           const auto projected = grid.field.project(distorted);
           const auto origin = pole_row ? point : grid.field.project(position);
           float x_offset = projected.x - origin.x;
@@ -443,10 +435,12 @@ private:
     const bool opaque = alpha >= 1.0f;
     const ::Pixel *previous = cv.prev_data();
     ::Pixel *current = cv.data();
-    ::Pixel poles[SphereField::POLE_COUNT];
-    poles[0] = select_pole_sample(previous);
-    if constexpr (SphereField::POLE_COUNT == 2)
-      poles[1] = select_pole_sample(previous + (H - 1) * W);
+    ::Pixel poles[SphereField::POLE_STORAGE_COUNT];
+    if constexpr (SphereField::HAS_NORTH_POLE)
+      poles[0] = select_pole_sample(previous);
+    if constexpr (SphereField::HAS_SOUTH_POLE)
+      poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
+          select_pole_sample(previous + (H - 1) * W);
     const ColumnRuns runs = make_column_runs(band.x_clip);
     int field_y0 = band.field_y_begin;
     int field_y1 = field_y0 + (field_y0 < band.field_y_end ? 1 : 0);
@@ -461,11 +455,10 @@ private:
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
       for (int y = row_begin; y < row_end; ++y) {
         const int row = y * W;
-        // The infill bands are dense on both sides, but the southern one backs
-        // a pole only when H_OFFSET is 0; the device's last row is mid-latitude.
-        bool infill_band = y > 0 && y < downsample;
-        if constexpr (hs::H_OFFSET == 0)
-          infill_band = infill_band || (y >= H - downsample && y < H - 1);
+        const bool infill_band =
+            (y < downsample && (!SphereField::HAS_NORTH_POLE || y > 0)) ||
+            (y >= H - downsample &&
+             (!SphereField::HAS_SOUTH_POLE || y < H - 1));
         const bool filter_output = !band.x_clip.active && infill_band &&
                                    grid.field.longitude_filter_width(y) > 1;
         const bool defer_filter = filter_output && !opaque;
@@ -681,7 +674,7 @@ private:
                 "Feedback<W,H>: canonical warp offset must fit int16_t");
   // The row offset spans the latitude range and is only runtime-clamped, so an
   // over-range displacement would saturate instead of trapping.
-  static_assert((H + hs::H_OFFSET - 1) * WARP_SCALE <= 32767.0f,
+  static_assert(math::PI_F * math::ROWS_PER_RADIAN<H> * WARP_SCALE <= 32767.0f,
                 "Feedback<W,H>: warp row offset must fit int16_t");
 
   /**
@@ -740,10 +733,10 @@ private:
    * @param b Out: interpolated blue.
    */
   HS_O3_FN
-  void sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
-                            const ::Pixel (&poles)[SphereField::POLE_COUNT],
-                            float bx, float by, float &r, float &g,
-                            float &b) const {
+  void
+  sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
+                       const ::Pixel (&poles)[SphereField::POLE_STORAGE_COUNT],
+                       float bx, float by, float &r, float &g, float &b) const {
     field.sample_bilinear_rgb(prev, poles, bx, by, r, g, b);
   }
 
