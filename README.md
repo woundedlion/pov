@@ -171,8 +171,8 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 
 - **Y-up Cartesian**: `Vector(x, y, z)` — `y` is the vertical axis
 - **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
-- **Pixel mapping**: `x ∈ [0, W)` → `theta ∈ [0, 2π)`, `y ∈ [0, H)` → `phi = y·π / (H + H_OFFSET − 1)`
-- **`hs::H_OFFSET`** (`platform.h`): virtual rows below the physical LED ring. It is 3 on device, so the bottom physical row lands short of π without stretching the geometric mapping, and 0 on the host/sim build, which maps the full `[0, π]`. Antialias samples at `y >= H` are discarded; samples at `H-1 <= y < H` fold the off-edge neighbor's weight onto the last physical row, conserving their full input alpha. Callers pass the logical `H`; `y_to_phi<H>()` / `phi_to_y<H>()` add the offset internally. `tests/h_offset_renorm_check.cpp` recompiles the engine with the hardware value so the device path is exercised on host
+- **Pixel mapping**: columns map to longitude; rows sample the calibrated LED-center span with `phi = north + y*(south-north)/(H-1)`.
+- **Display geometry**: firmware and WASM default to the physical profile, with provisional LED-center endpoints at 3.6 and 176.4 degrees (2% caps). Both endpoint rows are latitude rings. Missing-row antialias contributions are discarded. The ideal profile explicitly includes both poles. See [display geometry](docs/specs/display_geometry.md) for calibration and profile selection.
 - **SDF distances**: in radians on the unit sphere (matching `angle_between()`), except small `SDF::Face` shapes (inradius < 0.2), whose distances and `size` use gnomonic tangent-plane units
 - All geometry LUTs (`PhiLUT<H>`, `TrigLUT<W,H>`) are pre-computed eagerly via `init_geometry_luts()` at engine setup
 
@@ -637,7 +637,7 @@ The `platform.h` header abstracts all target-specific differences:
 
 The host-side mock implementations — the `CRGB`/`CHSV` structs plus the rest of the emulated Arduino/FastLED surface (`random8`, `beatsin8`, `SerialMock`, …) — live in `platform/arduino_mocks.h`, included from `platform.h`'s non-Arduino branch.
 
-The few places the engine's behaviour forks on a device-only constant (the `H_OFFSET` sub-pole rows among them) are inventoried in [`docs/ledgers/device_host_divergence_ledger.md`](https://github.com/woundedlion/pov/blob/master/docs/ledgers/device_host_divergence_ledger.md), which records which device-value test build reaches each fork.
+The few places the engine's behaviour forks on a device-only constant (including explicit legacy geometry test profiles) are inventoried in [`docs/ledgers/device_host_divergence_ledger.md`](https://github.com/woundedlion/pov/blob/master/docs/ledgers/device_host_divergence_ledger.md), which records which device-value test build reaches each fork.
 
 ---
 
@@ -754,7 +754,7 @@ The filter pipeline operates across three stage domains. Each filter declares it
     ◂── pixel_to_vector()
 ```
 
-**World → Screen**: `vector_to_pixel()` projects a 3D unit-sphere vector to fractional pixel coordinates near `(theta / 2π * W, phi / π * (H + H_OFFSET - 1))`, deriving `theta`/`phi` with the approximate `fast_atan2`/`fast_acos`. The approximation makes the projection sub-pixel inexact, so `vector → pixel → vector` does not exactly invert the exact-trig `pixel_to_vector()`.
+**World to screen**: `vector_to_pixel()` projects a unit-sphere vector to fractional display coordinates using the calibrated inverse latitude mapping and approximate `fast_atan2`/`fast_acos`. Directions in the missing caps map outside the physical rows; the exact-trig inverse is sub-pixel inexact because of the angle approximations.
 
 **Screen → Pixel**: no coordinate conversion — a `Pixel::` stage takes the same `float x, y` a `Screen::` stage does, and the stage's `domain_rank` only fixes its position in the chain. What lands the coordinate on pixel centers is `AntiAlias`, which distributes it to its 4 nearest integer pixels as a `quintic_kernel`-eased 2×2 splat.
 

@@ -48,15 +48,8 @@ struct Shader {
    *        the resident engine trig LUT.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
-   * @details Each sub-sample sits a constant ±0.25 px from an integer pixel,
-   * i.e. a constant angular offset from that pixel's theta/phi under the same
-   * parameterization as pixel_to_vector (theta = 2*pi*px/W,
-   * phi = py*pi/(H_VIRT-1)). So sin/cos at a sub-sample follow from the
-   * integer-pixel TrigLUT<W,H> tables by one angle-addition, keeping the
-   * samples LUT-consistent with the non-SSAA path and needing no per-column
-   * storage. The two rotation angles (d_theta, d_phi) are resolution constants;
-   * their sin/cos are built once per draw (libm is not constexpr) into a
-   * handful of floats.
+   * @details Samples sit at constant quarter-row and quarter-column angular
+   * offsets from the calibrated integer-pixel lookup tables.
    */
   template <int W, int H> struct SsaaGrid {
     /** @brief Sub-pixel samples per pixel supplied by the 2×2 grid. */
@@ -70,10 +63,8 @@ struct Shader {
     float sin_dphi;   /**< sin of the ±0.25 px row rotation. */
 
     SsaaGrid() {
-      // d_theta = 0.25 px * (2*pi/W); d_phi = 0.25 px * (pi/(H_VIRT-1)).
       constexpr float d_theta = 0.5f * math::PI_F / static_cast<float>(W);
-      constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
-      constexpr float d_phi = 0.25f * math::PI_F / h_virt_minus_1;
+      constexpr float d_phi = 0.25f * math::RADIANS_PER_ROW<H>;
       cos_dtheta = cosf(d_theta);
       sin_dtheta = sinf(d_theta);
       cos_dphi = cosf(d_phi);
@@ -116,10 +107,7 @@ struct Shader {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @param cr Clip region whose bounds are checked against the LUT extents.
-   * @details Checked once per draw, not per pixel: every (x,y) the loops feed to
-   * pixel_to_vector indexes the trig LUTs within bounds. The row bound is H, not
-   * the LUT's H_VIRT (H plus the pole offset): those rows also subscript the
-   * canvas, which holds H of them, so the tighter bound is the binding one.
+   * @details Clip bounds must fit both the canvas and row lookup tables.
    */
   template <int W, int H> static void check_lut_domain(const ClipRegion &cr) {
     HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
