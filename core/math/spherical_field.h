@@ -467,8 +467,10 @@ private:
                                                                      float y) {
     assert(x >= -static_cast<float>(W) && x < 2.0f * static_cast<float>(W));
     assert(std::fabs(y) < ROW_LIMIT);
-    if constexpr (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE))
-      math::pole_wrap<W, H, HOffset>(x, y);
+    if constexpr (Geometry::OFFSET < 0 && !(HAS_NORTH_POLE && HAS_SOUTH_POLE)) {
+      if (y < Geometry::NORTH_POLE_ROW || y > Geometry::SOUTH_POLE_ROW)
+        math::pole_wrap<W, H, HOffset>(x, y);
+    }
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     const int x0 = ::math::fast_wrap(static_cast<int>(floor_x), W);
