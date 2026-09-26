@@ -105,16 +105,7 @@ inline void restore_interrupts(uint32_t primask) {
   __asm__ volatile("msr primask, %0" ::"r"(primask) : "memory");
 }
 
-/**
- * @brief Virtual rows appended below the physical LED ring (device value 3).
- * @details The latitude mapping phi = y * PI / (H + H_OFFSET - 1) lands the
- *          bottom physical row short of PI, clipping (not stretching) the image
- *          where the LEDs stop short of the south pole. The host/sim build sets
- *          H_OFFSET = 0, an intentional device/host divergence; regression tests
- *          inject the hardware value explicitly (see tests/test_geometry.h).
- *          Callers pass H (not H + H_OFFSET) to y_to_phi<H>(), which adds the
- *          offset internally.
- */
+/** @brief Legacy offset retained for source compatibility; display geometry owns placement. */
 inline constexpr int H_OFFSET = 3;
 } // namespace hs
 
@@ -328,19 +319,7 @@ inline uint32_t save_disable_interrupts() { return 0; }
 /** @brief Restores a saved interrupt mask (no-op on host). */
 inline void restore_interrupts(uint32_t) {}
 
-/**
- * @brief Virtual rows appended below the physical LED ring; 0 on host/sim.
- * @details The simulator has no physical LED ring to clip against, so it maps
- *          the full sphere — an intentional divergence from the device's
- *          H_OFFSET = 3 (see the ARDUINO definition above).
- *
- *          HS_TEST_H_OFFSET override: a dedicated host test executable defines it
- *          to 3 so the whole pipeline compiles with the hardware offset and the
- *          south-pole renorm path runs against an energy-conservation oracle (see
- *          tests/test_h_offset_renorm.h). It MUST live in its own translation
- *          unit: offset-3 and offset-0 instantiations of PhiLUT<H>/TrigLUT<W,H>
- *          have different static-array sizes and would clash under ODR.
- */
+/** @brief Legacy test mapping override. */
 #if defined(HS_TEST_H_OFFSET)
 inline constexpr int H_OFFSET = HS_TEST_H_OFFSET;
 #else

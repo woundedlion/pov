@@ -10,6 +10,7 @@
 
 #include "math/3dmath.h"
 #include "math/periodic.h"
+#include "math/display_geometry.h"
 #include <array>
 
 namespace math {
@@ -24,9 +25,7 @@ struct PixelCoords {
 /**
  * @brief Converts a pixel y-coordinate to a spherical phi angle.
  * @param y The pixel y-coordinate [0, h_virt - 1].
- * @param h_virt The VIRTUAL height, already including hs::H_OFFSET. The
- *   `y_to_phi<H>` template takes the LOGICAL height instead and adds the offset
- *   itself; the `_virtual` suffix keeps the two conventions apart at a call.
+ * @param h_virt Height of a complete pole-to-pole latitude grid.
  * @return The spherical phi angle in radians.
  */
 inline float y_to_phi_virtual(float y, int h_virt) {
@@ -37,8 +36,7 @@ inline float y_to_phi_virtual(float y, int h_virt) {
 /**
  * @brief Converts a spherical phi angle to a pixel y-coordinate.
  * @param phi The spherical phi angle in radians.
- * @param h_virt The VIRTUAL height, already including hs::H_OFFSET (see
- *   y_to_phi_virtual).
+ * @param h_virt Height of a complete pole-to-pole latitude grid.
  * @return The pixel y-coordinate in [0, h_virt - 1] for phi in [0, pi], EXCEPT at
  *   the south pole (phi == PI_F) the float round-trip can land a hair *above*
  *   `h_virt - 1`; a caller indexing a row buffer with `(int)y` must clamp or
@@ -49,37 +47,15 @@ inline float phi_to_y_virtual(float phi, int h_virt) {
   return (phi * (h_virt - 1)) / PI_F;
 }
 
-/**
- * @brief phi -> pixel-y for a compile-time logical height H.
- * @tparam H Logical (not virtual) height; H_VIRT is derived as H + hs::H_OFFSET.
- * @param phi The spherical phi angle in radians.
- * @return The pixel y-coordinate.
- * @details Derives H_VIRT from H plus hs::H_OFFSET so callers pass the logical
- * height, not the virtual one.
- */
+/** @brief Polar angle to fractional display row. */
 template <int H> inline float phi_to_y(float phi) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
-  return (phi * (H_VIRT - 1)) / PI_F;
+  return DisplayGeometry<H>::phi_to_row(phi);
 }
 
-/**
- * @brief Pixel rows spanned by one radian of phi at logical height H.
- * @tparam H Logical (not virtual) height; H_OFFSET is added here.
- * @details Dropping H_OFFSET from an open-coded row pitch is invisible on the
- * host, whose H_OFFSET is 0, and skews every device row.
- */
 template <int H>
-inline constexpr float ROWS_PER_RADIAN =
-    static_cast<float>(H + hs::H_OFFSET - 1) / PI_F;
-
-/**
- * @brief Radians of phi spanned by one pixel row at logical height H.
- * @tparam H Logical (not virtual) height; H_OFFSET is added here.
- */
+inline constexpr float ROWS_PER_RADIAN = DisplayGeometry<H>::ROWS_PER_RADIAN;
 template <int H>
-inline constexpr float RADIANS_PER_ROW =
-    PI_F / static_cast<float>(H + hs::H_OFFSET - 1);
+inline constexpr float RADIANS_PER_ROW = DisplayGeometry<H>::RADIANS_PER_ROW;
 
 /** @brief Radians of azimuth spanned by one canvas column. */
 template <int W>
@@ -93,20 +69,21 @@ template <int W, int H> constexpr float coarse_pixel_pitch() {
 
 /**
  * @brief Precomputed lookup table for scanline phi angles.
- * @tparam H Logical height; the table has H_VIRT = H + hs::H_OFFSET entries.
+ * @tparam H Display height; legacy test profiles may append virtual rows.
  */
 template <int H> struct PhiLUT {
-  static constexpr int H_VIRT = H + hs::H_OFFSET;
-  static std::array<float, H_VIRT> data; /**< phi per virtual row, radians. */
+  static constexpr int H_VIRT =
+      H + (DisplayGeometry<H>::OFFSET > 0 ? DisplayGeometry<H>::OFFSET : 0);
+  static std::array<float, H_VIRT> data; /**< phi per display row, radians. */
   // Lazy-init check-then-set is non-atomic; safe only because rendering is
   // single-threaded, NOT a concurrency guard.
   static bool initialized; /**< Lazy-init guard; true once data is filled. */
   /**
-   * @brief Fills the phi table for every virtual row and marks it initialized.
+   * @brief Fills the phi table for every display row and marks it initialized.
    */
   static void init() {
     for (int y = 0; y < H_VIRT; y++) {
-      data[y] = y_to_phi_virtual(static_cast<float>(y), H_VIRT);
+      data[y] = DisplayGeometry<H>::row_to_phi(static_cast<float>(y));
     }
     initialized = true;
   }
@@ -132,27 +109,15 @@ template <int H> inline float y_to_phi(int y) {
   return PhiLUT<H>::data[y];
 }
 
-/**
- * @brief Pixel-y -> phi for fractional rows at compile-time height H.
- * @tparam H Logical height; H_VIRT is H + hs::H_OFFSET.
- * @param y Fractional pixel row.
- * @return The spherical phi angle in radians, from the same expression the
- *         PhiLUT rows are filled with.
- * @details The range is debug-asserted, so only NDEBUG builds extrapolate
- * linearly past [0, H_VIRT-1]; keeping y in range is the caller's
- * responsibility.
- */
+/** @brief Fractional display row to polar angle, including extrapolated cap rows. */
 template <int H> inline float y_to_phi(float y) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
-  assert(y >= 0.0f && y <= H_VIRT - 1);
-  return (y * PI_F) / (H_VIRT - 1);
+  return DisplayGeometry<H>::row_to_phi(y);
 }
 
 /**
  * @brief Split trig lookup tables for efficient vector reconstruction.
  * @tparam W Width (column count).
- * @tparam H Logical height; phi tables have H_VIRT = H + hs::H_OFFSET entries.
+ * @tparam H Display height; tables include legacy virtual rows only in tests.
  * @details Caches sin/cos for theta (per column) and phi (per row) separately,
  * reconstructing vectors with 3 multiplies. Memory: 1.25*W + 2*H_VIRT floats
  * (sin_theta carries the folded quarter turn) vs W*H_VIRT Vectors — a ~190x
@@ -162,7 +127,8 @@ template <int W, int H> struct TrigLUT {
   static_assert(W % 4 == 0,
                 "cos_theta is recovered as sin_theta[x + W/4]; W must be a "
                 "multiple of 4 for the quarter-turn offset to be exact");
-  static constexpr int H_VIRT = H + hs::H_OFFSET;
+  static constexpr int H_VIRT =
+      H + (DisplayGeometry<H>::OFFSET > 0 ? DisplayGeometry<H>::OFFSET : 0);
   // sin_theta carries W/4 extra trailing entries (one quarter turn) so cos(theta)
   // reads back as sin_theta[x + W/4], avoiding a separate cos table.
   static constexpr int W_EXT = W + W / 4;
@@ -273,11 +239,7 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  * @tparam W Width.
  * @tparam H Height.
  * @param x Fractional X coordinate (column).
- * @param y Fractional Y coordinate (row); the analytic branch passes it straight
- *   to `y_to_phi<H>`, which debug-asserts the range. Under NDEBUG a sub-pixel
- *   `y` outside [0, H_VIRT-1] extrapolates phi past [0, pi] by analytic
- *   continuity; callers must keep `y` in range (this is a per-pixel path, so no
- *   clamp).
+ * @param y Fractional display row; may extrapolate into either cap.
  * @return Unit vector on the sphere.
  * @details Snaps to the integer LUT path when both coordinates are near-integer
  * AND in LUT range; otherwise builds the vector analytically from spherical
@@ -292,7 +254,6 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
       return pixel_to_vector<W, H>(static_cast<int>(fx), static_cast<int>(fy));
     }
   }
-  // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT.
   return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H>(y)));
 }
 
@@ -326,47 +287,45 @@ __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
  * @param v The input vector; MUST be unit length (unenforced): `phi = acos(v.y)`
  *   is the true latitude only when |v| == 1, so a non-unit `v` returns a
  *   silently-wrong row. Unguarded per-pixel path; callers normalize first.
- * @return The 2D PixelCoords. The `y` field is a float in `[0, H_VIRT-1]` but at
- *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), while
- *   `x` is in `[0, W)` (strictly excludes W); a caller indexing a row/column
- *   buffer must floor (not round) first. Only `y` carries the clamp's NaN->hi
- *   guard: a NaN `v.y` clamps to +1, so `y` saturates to row 0 (the north
- *   pole); a -inf `v.y` clamps to -1 and lands on the south pole. `x` stays
- *   NaN either way.
+ * @return Pixel coordinates; rows in missing caps lie outside [0, H-1].
  */
 template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
   assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
-  // phi_to_y<H> derives H_VIRT internally, mirroring pixel_to_vector's y_to_phi<H>.
   PixelCoords p({vector_to_theta<W>(v), phi_to_y<H>(phi)});
   return p;
 }
 
-/**
- * @brief Reflects a sample tap that ran past a pole back onto the sphere.
- * @tparam W Width (column count).
- * @tparam H Logical height (rows the buffer actually holds).
- * @tparam HOffset Virtual rows below the rendered domain.
- * @param col In/out column, in [0, W) on entry; shifted half a turn when the
- *   tap crosses a pole.
- * @param row In/out row; mirrored about the crossed pole.
- * @return False when nothing lies behind the tap: past the north pole by more
- *   than the buffer, or inside the virtual sub-pole gap when HOffset > 0.
- *   `col` and `row` are then unspecified.
- * @details The north pole sits exactly at row 0, the south pole at virtual row
- * H + HOffset - 1.
- */
-template <int W, int H, int HOffset = hs::H_OFFSET>
+/** @brief Reflects fractional coordinates across the true poles, preserving missing caps. */
+template <int W, int H, int HOffset = -1>
+HS_O3_FN bool pole_wrap(float &col, float &row) {
+  using Geometry = DisplayGeometry<H, HOffset>;
+  if (row < Geometry::NORTH_POLE_ROW) {
+    row = 2.0f * Geometry::NORTH_POLE_ROW - row;
+    col += W * 0.5f;
+  } else if (row > Geometry::SOUTH_POLE_ROW) {
+    row = 2.0f * Geometry::SOUTH_POLE_ROW - row;
+    col += W * 0.5f;
+  }
+  col = wrap(col, static_cast<float>(W));
+  return Geometry::contains_row(row);
+}
+
+/** @brief Resolves a lattice tap only when reflection lands on the lattice. */
+template <int W, int H, int HOffset = -1>
 HS_O3_FN bool pole_wrap(int &col, int &row) {
   if (row >= 0 && row < H)
     return true;
-  constexpr int SOUTH = H + HOffset - 1;
-  row = (row < 0) ? -row : 2 * SOUTH - row;
-  if (row < 0 || row >= H)
+  float x = static_cast<float>(col), y = static_cast<float>(row);
+  if (!pole_wrap<W, H, HOffset>(x, y))
     return false;
-  col = fast_wrap(col + W / 2, W);
-  return true;
+  const float ix = std::round(x), iy = std::round(y);
+  if (std::fabs(x - ix) > 0.0001f || std::fabs(y - iy) > 0.0001f)
+    return false;
+  col = fast_wrap(static_cast<int>(ix), W);
+  row = static_cast<int>(iy);
+  return row >= 0 && row < H;
 }
 
 } // namespace math

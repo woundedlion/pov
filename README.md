@@ -239,6 +239,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── rotate.h                Quaternion projection helpers
 │   │   ├── geometry.h              Umbrella for periodic math, pixel mapping, and spherical helpers
 │   │   ├── periodic.h              Scalar wrapping and circular distances
+│   │   ├── display_geometry.h      Calibrated LED-center latitude profiles
 │   │   ├── pixel_mapping.h         PhiLUT/TrigLUT, pixel ↔ vector mapping, pole_wrap
 │   │   ├── spherical.h             Sphere generators, axes, Basis, and parallel transport
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
