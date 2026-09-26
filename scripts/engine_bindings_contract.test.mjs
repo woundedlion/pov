@@ -8,6 +8,7 @@ const source = readFileSync(
 test('the embind engine API preserves instance and static binding names', () => {
   const instance = [
     'setResolution', 'setEffect', 'drawFrame', 'getPixels', 'getBufferLength',
+    'setDisplayCaps', 'getDisplayNorthPhi', 'getDisplaySouthPhi',
     'setParameter', 'setAnimationsPaused', 'getAnimationsPaused',
     'getPresetCount', 'getPresetIndex', 'getPresetIds', 'selectPreset',
     'selectPresetById', 'synchronizePreset', 'nextPreset', 'previousPreset',
