@@ -44,14 +44,9 @@ inline constexpr float SPLAT_TAP_CUTOFF = 1e-8f;
  * @param y Sub-pixel row coordinate.
  * @return Wrapped columns, rows, row-in-frame flags, and the four tap weights.
  * @details Both axes are eased with a quintic kernel; the splat is uniform in
- * framebuffer space at every latitude (no sin(phi) density compensation). A row
- * off the top or bottom edge donates its whole weight to the surviving row.
- * @note That donation is the device's south-pole clip: H_OFFSET virtual rows
- * sit below the last physical row, so a sample between them folds its y1
- * weight onto that row instead of stretching the image to the pole. Host
- * builds set H_OFFSET = 0; tests/h_offset_renorm_check.cpp rebuilds the engine
- * with the device value and checks the fold against an energy-conservation
- * oracle.
+ * framebuffer space at every latitude (no sin(phi) density compensation).
+ * Physical profiles discard off-display taps without redistributing coverage.
+ * Ideal and legacy-offset profiles fold coverage onto the surviving edge row.
  */
 template <int W, int H>
 __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
@@ -79,6 +74,7 @@ __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
 
   float wy0 = 1.0f - ys;
   float wy1 = ys;
+#if HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
   if (t.y0_physical && !t.y1_physical) {
     wy0 = 1.0f;
     wy1 = 0.0f;
@@ -86,6 +82,13 @@ __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
     wy0 = 0.0f;
     wy1 = 1.0f;
   }
+
+#else
+  if (!t.y0_physical)
+    wy0 = 0.0f;
+  if (!t.y1_physical)
+    wy1 = 0.0f;
+#endif
 
   t.v00 = (1.0f - xs) * wy0;
   t.v10 = xs * wy0;
