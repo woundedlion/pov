@@ -65,12 +65,15 @@ public:
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
+#if HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
     if (y >= H)
       return;
+#endif
     int cx = round_wrap_column<W>(x);
     int cy = round_row<H>(y);
 
     float inv = 1.0f;
+#if HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
     if (cy - 1 < 0 || cy + 1 >= H) {
       float wsum = 0.0f;
       for (int dy = -1; dy <= 1; dy++) {
@@ -89,6 +92,8 @@ public:
       }
       inv = 1.0f / wsum;
     }
+
+#endif
 
     int k = 0;
     for (int dy = -1; dy <= 1; dy++) {
