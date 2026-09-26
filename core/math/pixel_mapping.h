@@ -52,10 +52,18 @@ template <int H> inline float phi_to_y(float phi) {
   return DisplayGeometry<H>::phi_to_row(phi);
 }
 
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+template <int H>
+inline const float &ROWS_PER_RADIAN = DisplayGeometry<H>::ROWS_PER_RADIAN;
+template <int H>
+inline const float &RADIANS_PER_ROW = DisplayGeometry<H>::RADIANS_PER_ROW;
+#else
 template <int H>
 inline constexpr float ROWS_PER_RADIAN = DisplayGeometry<H>::ROWS_PER_RADIAN;
 template <int H>
 inline constexpr float RADIANS_PER_ROW = DisplayGeometry<H>::RADIANS_PER_ROW;
+
+#endif
 
 /** @brief Radians of azimuth spanned by one canvas column. */
 template <int W>
@@ -82,6 +90,9 @@ template <int H> struct PhiLUT {
    * @brief Fills the phi table for every display row and marks it initialized.
    */
   static void init() {
+#if HS_RUNTIME_DISPLAY_GEOMETRY && !defined(HS_TEST_H_OFFSET)
+    DisplayGeometry<H>::refresh();
+#endif
     for (int y = 0; y < H_VIRT; y++) {
       data[y] = DisplayGeometry<H>::row_to_phi(static_cast<float>(y));
     }

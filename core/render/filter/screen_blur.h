@@ -65,7 +65,10 @@ public:
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
-#if HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+    if (math::DisplayGeometry<H>::HAS_SOUTH_POLE && y >= H)
+      return;
+#elif HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
     if (y >= H)
       return;
 #endif
@@ -73,8 +76,14 @@ public:
     int cy = round_row<H>(y);
 
     float inv = 1.0f;
-#if HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
+#if HS_RUNTIME_DISPLAY_GEOMETRY || HS_DISPLAY_PROFILE == 0 ||                  \
+    defined(HS_TEST_H_OFFSET)
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+    if ((cy - 1 < 0 && math::DisplayGeometry<H>::HAS_NORTH_POLE) ||
+        (cy + 1 >= H && math::DisplayGeometry<H>::HAS_SOUTH_POLE)) {
+#else
     if (cy - 1 < 0 || cy + 1 >= H) {
+#endif
       float wsum = 0.0f;
       for (int dy = -1; dy <= 1; dy++) {
         int ny = cy + dy;
