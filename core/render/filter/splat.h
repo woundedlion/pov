@@ -74,7 +74,22 @@ __attribute__((always_inline)) inline SplatTaps splat_taps(float x, float y) {
 
   float wy0 = 1.0f - ys;
   float wy1 = ys;
-#if HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
+#if HS_RUNTIME_DISPLAY_GEOMETRY
+  if (t.y0_physical && !t.y1_physical &&
+      math::DisplayGeometry<H>::HAS_SOUTH_POLE) {
+    wy0 = 1.0f;
+    wy1 = 0.0f;
+  } else if (!t.y0_physical && t.y1_physical &&
+             math::DisplayGeometry<H>::HAS_NORTH_POLE) {
+    wy0 = 0.0f;
+    wy1 = 1.0f;
+  } else {
+    if (!t.y0_physical)
+      wy0 = 0.0f;
+    if (!t.y1_physical)
+      wy1 = 0.0f;
+  }
+#elif HS_DISPLAY_PROFILE == 0 || defined(HS_TEST_H_OFFSET)
   if (t.y0_physical && !t.y1_physical) {
     wy0 = 1.0f;
     wy1 = 0.0f;

@@ -113,7 +113,7 @@ public:
         // storage over the bases[] entry they must outlive.
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
         int slots = 0;
-        constexpr float pixel_w =
+        const float pixel_w =
             std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>);
         // Trail-slot cut, deliberately above the MIN_ENCODABLE_ALPHA
         // per-sample encode floor.

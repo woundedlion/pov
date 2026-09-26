@@ -64,7 +64,7 @@ struct Shader {
 
     SsaaGrid() {
       constexpr float d_theta = 0.5f * math::PI_F / static_cast<float>(W);
-      constexpr float d_phi = 0.25f * math::RADIANS_PER_ROW<H>;
+      const float d_phi = 0.25f * math::RADIANS_PER_ROW<H>;
       cos_dtheta = cosf(d_theta);
       sin_dtheta = sinf(d_theta);
       cos_dphi = cosf(d_phi);
