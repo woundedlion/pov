@@ -162,6 +162,53 @@ inline void test_near_field_fade() {
   HS_EXPECT_LT(HL::near_field_coverage(0.275f, NEAR_START, NEAR_INV_SPAN),
                1.0f);
   HS_EXPECT_EQ(HL::near_field_coverage(0.4f, NEAR_START, NEAR_INV_SPAN), 1.0f);
+  for (HL::LatticeMode mode :
+       {HL::LatticeMode::THREE_D, HL::LatticeMode::DIMENSIONAL_RIFT,
+        HL::LatticeMode::FOUR_D_SLICE}) {
+    for (float radius : {0.0f, 1.0f, 2.0f}) {
+      for (float cell_size : {0.25f, 1.0f, 10.0f}) {
+        HL::FrameState frame{};
+        frame.params.mode = mode;
+        frame.params.sphere_radius = radius;
+        frame.params.cell_size = cell_size;
+        frame.params.far_distance = 16.0f;
+        frame.params.near_fade = 0.8f;
+        const auto prepared = HL::prepare_trace(frame);
+        const float span = frame.params.near_fade * cell_size / (1.0f + radius);
+        for (float fraction :
+             {0.0f, 0.001f, 0.25f, 0.5f, 0.75f, 0.999f, 1.0f}) {
+          const float distance = prepared.near_start + fraction * span;
+          const math::Vec4 origin{{-distance / cell_size, 0.0f, 0.0f, 0.0f}};
+          const math::Vec4 direction{{1.0f / cell_size, 0.0f, 0.0f, 0.0f}};
+          const auto hit = HL::trace_plane<false>(
+              origin, direction, 0, distance, cell_size, prepared);
+          const float fog = 1.0f - distance / frame.params.far_distance;
+          HS_EXPECT_NEAR(hit.coverage / (fog * fog),
+                         fraction * fraction * (3.0f - 2.0f * fraction), 1e-5f);
+          if (mode == HL::LatticeMode::FOUR_D_SLICE) {
+            const auto specialized = HL::trace_plane<true, 2>(
+                origin, direction, 0, distance, cell_size, prepared);
+            HS_EXPECT_NEAR(specialized.coverage, hit.coverage, 1e-5f);
+          }
+        }
+      }
+    }
+  }
+  HL::FrameState frame{};
+  frame.params.sphere_radius = 0.0f;
+  const auto centered = HL::prepare_trace(frame);
+  frame.params.sphere_radius = 1.0f;
+  const auto surface = HL::prepare_trace(frame);
+  HS_EXPECT_NEAR(surface.near_start, centered.near_start * 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(surface.near_inv_span, centered.near_inv_span * 2.0f, 1e-6f);
+  const float distance = centered.near_start + 0.25f / centered.near_inv_span;
+  HS_EXPECT_GT(HL::near_field_coverage(distance, surface.near_start,
+                                       surface.near_inv_span),
+               HL::near_field_coverage(distance, centered.near_start,
+                                       centered.near_inv_span));
+  HS_EXPECT_EQ(
+      HL::near_field_coverage(0.0f, surface.near_start, surface.near_inv_span),
+      0.0f);
 }
 
 inline void test_far_shell_fade() {
@@ -464,14 +511,14 @@ inline void test_render_signature() {
       {0, 0, 0, 0},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
-      {6971, 21237, 32816, 3214},
-      {534, 605, 5610, 593},
-      {7245, 22485, 34485, 361},
-      {2024, 10399, 26729, 40},
+      {2986, 13625, 29849, 4010},
+      {335, 272, 2239, 6},
+      {2856, 13378, 29840, 1664},
+      {1290, 5735, 18677, 7},
+      {958, 3979, 15940, 110},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
+      {1622, 7785, 22182, 95},
   };
 
   HyperLatticeWhiteBox::Effect effect;
@@ -496,7 +543,7 @@ inline void test_render_signature() {
     }
   }
   expect_shade_samples("render_signature", rendered, GOLDEN, std::size(GOLDEN),
-                       std::size(DIRECTIONS), 9115850422160364994ull);
+                       std::size(DIRECTIONS), 10909683314005311684ull);
 }
 
 inline void test_specialized_slice_transition() {
@@ -585,30 +632,30 @@ inline void test_specialized_render_signature() {
       {1.1f, 2.3f, 0.4f, 0.53f, 0.19f, 0.87f},
   };
   static constexpr ShadeSample GOLDEN[] = {
-      {9816, 26581, 36812, 9757},
+      {3792, 15608, 30852, 10910},
+      {22451, 40404, 44803, 4202},
+      {2061, 10983, 28120, 2087},
       {0, 0, 0, 0},
-      {3644, 15194, 30453, 1837},
-      {0, 0, 0, 0},
-      {15610, 33375, 40320, 5667},
-      {0, 0, 0, 0},
-      {0, 0, 0, 0},
-      {1301, 5768, 18384, 48},
-      {595, 969, 8822, 592},
-      {1996, 10112, 26026, 182},
-      {726, 2921, 14849, 107},
-      {6757, 21039, 32748, 4104},
-      {608, 1338, 10913, 355},
-      {1417, 6578, 20172, 4073},
-      {2069, 10950, 28047, 1675},
-      {3522, 15066, 30626, 9197},
-      {4923, 18222, 32574, 0},
-      {0, 0, 0, 0},
-      {2011, 10321, 26590, 116},
+      {6428, 20914, 33453, 7343},
       {0, 0, 0, 0},
       {0, 0, 0, 0},
+      {591, 1572, 12363, 73},
+      {383, 326, 2758, 67},
+      {1527, 7342, 21515, 646},
+      {544, 634, 5876, 10},
+      {2776, 13147, 29664, 4776},
+      {425, 385, 3330, 5},
+      {562, 1768, 13611, 1740},
+      {1660, 7986, 22501, 1517},
+      {2053, 10937, 28006, 7814},
+      {22640, 40562, 44900, 57472},
       {0, 0, 0, 0},
-      {758, 3076, 15069, 992},
-      {3106, 14001, 30108, 830},
+      {1277, 5601, 18398, 68},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+      {2383, 10967, 25673, 1072},
+      {2037, 10670, 27345, 1402},
   };
 
   HyperLatticeWhiteBox::Effect effect;
@@ -641,7 +688,7 @@ inline void test_specialized_render_signature() {
 #else
   expect_shade_samples("specialized_render_signature", rendered, GOLDEN,
                        std::size(GOLDEN), std::size(DIRECTIONS),
-                       17325614847026740988ull);
+                       7918891848623282711ull);
 #endif
 }
 
@@ -653,10 +700,9 @@ inline void test_presets_and_pipeline() {
   static_assert(HL::RenderPipeline::Validation::EXIT);
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
-  static_assert(Effect::PRESET_IDS.size() == 3);
+  static_assert(Effect::PRESET_IDS.size() == 2);
   static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
   static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
-  static_assert(Effect::PRESET_IDS[2] == "deep-grid");
 
   constexpr HL::Params CUBIC_PRESET = Effect::preset_params(0);
   static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);
@@ -668,10 +714,7 @@ inline void test_presets_and_pipeline() {
   static_assert(SLICE_PRESET.color == HL::ColorMode::DEPTH);
   static_assert(SLICE_PRESET.shells == HL::ShellCount::TWO);
 
-  constexpr HL::Params DEEP_PRESET = Effect::preset_params(2);
-  static_assert(DEEP_PRESET.mode == HL::LatticeMode::THREE_D);
-  static_assert(DEEP_PRESET.color == HL::ColorMode::DEPTH);
-  static_assert(DEEP_PRESET.shells == HL::ShellCount::TWO);
+  static_assert(SLICE_PRESET.sphere_radius == 0.0f);
   reset_globals();
   Effect effect;
   effect.init();
@@ -695,6 +738,22 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   using Effect = HyperLatticeWhiteBox::Effect;
   Effect effect;
   effect.init();
+  const ParamDef *near_fade = effect.getParameters().find("Near Fade");
+  HS_EXPECT_TRUE(near_fade != nullptr);
+  HS_EXPECT_EQ(near_fade->get(), 0.5f);
+  HS_EXPECT_EQ(effect.updateParameter("Near Fade", 1.2f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).near_fade, 1.2f);
+  HL::Params fade_start;
+  HL::Params fade_target;
+  fade_target.near_fade = 1.5f;
+  HL::Params fade_blended;
+  fade_blended.lerp(fade_start, fade_target, 0.5f);
+  HS_EXPECT_EQ(fade_blended.near_fade, 1.0f);
+  for (float invalid : {0.0f, 2.01f}) {
+    fade_blended.near_fade = invalid;
+    HS_EXPECT_FALSE(Effect::valid_params(fade_blended));
+  }
   const ParamDef *cell_size = effect.getParameters().find("Cell Size");
   HS_EXPECT_TRUE(cell_size != nullptr);
   HS_EXPECT_EQ(cell_size->max, 10.0f);
