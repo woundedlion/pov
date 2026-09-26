@@ -204,6 +204,7 @@ struct Params {
   float cell_size = 1.0f;
   float wire_radius = 0.055f;
   float softness = 0.012f;
+  float near_fade = 0.5f;
   float far_distance = 7.0f;
   float aa_strength = 1.0f;
   float speed = 0.018f;
@@ -218,6 +219,7 @@ struct Params {
     cell_size = hs::lerp(start.cell_size, target.cell_size, amount);
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
     softness = hs::lerp(start.softness, target.softness, amount);
+    near_fade = hs::lerp(start.near_fade, target.near_fade, amount);
     far_distance = hs::lerp(start.far_distance, target.far_distance, amount);
     aa_strength = hs::lerp(start.aa_strength, target.aa_strength, amount);
     speed = hs::lerp(start.speed, target.speed, amount);
@@ -238,17 +240,17 @@ struct Params {
    */
   static void pin_field_set(const Params &p) {
     const auto &[mode, sphere_radius, cell_size, wire_radius, softness,
-                 far_distance, aa_strength, speed, spin_3d, spin_4d, color,
-                 shells] = p;
+                 near_fade, far_distance, aa_strength, speed, spin_3d, spin_4d,
+                 color, shells] = p;
     (void)mode, (void)sphere_radius, (void)cell_size, (void)wire_radius,
-        (void)softness, (void)far_distance, (void)aa_strength, (void)speed,
-        (void)spin_3d, (void)spin_4d, (void)color, (void)shells;
+        (void)softness, (void)near_fade, (void)far_distance, (void)aa_strength,
+        (void)speed, (void)spin_3d, (void)spin_4d, (void)color, (void)shells;
   }
 };
 
 // Width pin; pin_field_set() is what catches an added or removed field. Every
 // enum has a fixed uint8_t base, so the size holds under ARM -fshort-enums.
-static_assert(sizeof(Params) == 44, "HyperLattice::Params width changed");
+static_assert(sizeof(Params) == 48, "HyperLattice::Params width changed");
 
 struct FrameState {
   Params params;
@@ -359,11 +361,10 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle *
                       inv_cell_size * inv_cell_size;
   prepared.outer_radius_base = frame.params.wire_radius + frame.params.softness;
-  prepared.near_start =
-      1.5f * frame.params.wire_radius * frame.params.cell_size;
-  const float near_end =
-      4.0f * frame.params.wire_radius * frame.params.cell_size;
-  prepared.near_inv_span = 1.0f / (near_end - prepared.near_start);
+  const float near_scale =
+      frame.params.cell_size / (1.0f + frame.params.sphere_radius);
+  prepared.near_start = 1.5f * frame.params.wire_radius * near_scale;
+  prepared.near_inv_span = 1.0f / (frame.params.near_fade * near_scale);
   prepared.sphere_radius_world =
       frame.params.sphere_radius * frame.params.cell_size;
   return prepared;
@@ -648,12 +649,12 @@ public:
   using ColorMode = HyperLatticeDetail::ColorMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
 
-  static constexpr std::array<std::string_view, 3> PRESET_IDS{
-      "cubic-flight", "hypercube-flight", "deep-grid"};
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{
+      "cubic-flight", "hypercube-flight"};
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 8;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 9;
 
   static constexpr Params preset_params(size_t index) {
     Params value;
@@ -674,25 +675,11 @@ public:
       break;
     case 1:
       value.mode = LatticeMode::FOUR_D_SLICE;
-      value.sphere_radius = 1.0f;
+      value.sphere_radius = 0.0f;
       value.cell_size = 1.0f;
       value.wire_radius = 0.03546f;
       value.softness = 0.029612f;
       value.far_distance = 8.0f;
-      value.aa_strength = 1.0f;
-      value.speed = 0.03f;
-      value.spin_3d = 0.01089f;
-      value.spin_4d = 0.015f;
-      value.color = ColorMode::DEPTH;
-      value.shells = ShellCount::TWO;
-      break;
-    case 2:
-      value.mode = LatticeMode::THREE_D;
-      value.sphere_radius = 1.0f;
-      value.cell_size = 1.78075f;
-      value.wire_radius = 0.026385f;
-      value.softness = 0.03983f;
-      value.far_distance = 5.724f;
       value.aa_strength = 1.0f;
       value.speed = 0.03f;
       value.spin_3d = 0.01089f;
@@ -716,6 +703,8 @@ public:
            value.wire_radius >= WIRE_RADIUS_MIN &&
            value.wire_radius <= WIRE_RADIUS_MAX &&
            value.softness >= SOFTNESS_MIN && value.softness <= SOFTNESS_MAX &&
+           value.near_fade >= NEAR_FADE_MIN &&
+           value.near_fade <= NEAR_FADE_MAX &&
            value.far_distance >= FAR_DISTANCE_MIN &&
            value.far_distance <= FAR_DISTANCE_MAX &&
            value.aa_strength >= AA_STRENGTH_MIN &&
@@ -757,6 +746,8 @@ public:
                             WIRE_RADIUS_MAX);
     register_animated_param("Softness", &params.softness, SOFTNESS_MIN,
                             SOFTNESS_MAX);
+    register_animated_param("Near Fade", &params.near_fade, NEAR_FADE_MIN,
+                            NEAR_FADE_MAX);
     register_animated_param("Far Distance", &params.far_distance,
                             FAR_DISTANCE_MIN, FAR_DISTANCE_MAX);
     register_animated_param("AA Strength", &params.aa_strength, AA_STRENGTH_MIN,
@@ -874,6 +865,7 @@ private:
   static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 10.0f;
   static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
   static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
+  static constexpr float NEAR_FADE_MIN = 0.01f, NEAR_FADE_MAX = 2.0f;
   static constexpr float FAR_DISTANCE_MIN = 2.0f, FAR_DISTANCE_MAX = 16.0f;
   static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.05f;
