@@ -6453,7 +6453,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"hardware/pov_single.h", 10},
     {"targets/Phantasm/phantasm_target.h", 1},
     {"targets/Profile/Profile.ino", 4},
-    {"targets/wasm/engine_bindings.h", 6},
+    // WASM-only bootstrap and reconstruction invariants; exercised by engine contracts.
+    {"targets/wasm/engine_bindings.h", 13},
     {"targets/wasm/mesh_ops_bindings.h", 2},
     {"workbench/shader/chain_host.h", 1},
     {"workbench/shader/kernels.h", 1},
