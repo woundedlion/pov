@@ -37,6 +37,7 @@
 #include <cstring>
 #include <climits> // INT_MAX — drawFrame pixel-index accumulator bound
 #include <memory>
+#include <optional>
 #include <string>
 
 // ---- Stack canary painting for high water mark tracking ----
@@ -255,6 +256,7 @@ public:
     // The scan reads Render::pole_lod_aggressiveness as a module global; claim it for
     // this instance so a fresh engine never inherits a predecessor's setting.
     Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+    apply_display_geometry(0.0f, math::PI_F);
     stack_paint_canary();
 
     // Pre-size the view-backed readback buffers ONCE: under ALLOW_MEMORY_GROWTH
@@ -308,6 +310,39 @@ public:
    *          are rejected by structuredClone. This query reports singleton state.
    */
   static bool isLive() { return engine_alive; }
+
+  /**
+   * @brief Sets the missing arc at each pole as a percentage in [0, 25].
+   * @return False for non-finite or out-of-range inputs; otherwise true.
+   * @details Changes rebuild the effect, preserving parameters, preset, pause,
+   *          clip, and workbench configuration. Animation and trail history reset.
+   *          Identical geometry leaves the effect and parameter generation intact.
+   */
+  bool setDisplayCaps(double top_percent, double bottom_percent) {
+    if (!std::isfinite(top_percent) || !std::isfinite(bottom_percent) ||
+        top_percent < 0.0 || top_percent > 25.0 || bottom_percent < 0.0 ||
+        bottom_percent > 25.0)
+      return false;
+    const float NORTH = static_cast<float>(top_percent / 100.0) * math::PI_F;
+    const float SOUTH =
+        (1.0f - static_cast<float>(bottom_percent / 100.0)) * math::PI_F;
+    if (NORTH == getDisplayNorthPhi() && SOUTH == getDisplaySouthPhi())
+      return true;
+    if (!current_effect) {
+      apply_display_geometry(NORTH, SOUTH);
+      return true;
+    }
+    hs_wasm::dispatch_resolution(
+        pixel_width, pixel_height,
+        [&]<int W, int H>() { rebuild_display_geometry<W, H>(NORTH, SOUTH); });
+    return true;
+  }
+
+  /** @brief Polar angle in radians of the first displayed LED row. */
+  float getDisplayNorthPhi() const { return math::DISPLAY_NORTH_PHI; }
+
+  /** @brief Polar angle in radians of the last displayed LED row. */
+  float getDisplaySouthPhi() const { return math::DISPLAY_SOUTH_PHI; }
 
   /**
    * @brief Switches the active canvas resolution.
@@ -1329,6 +1364,90 @@ public:
   }
 
 private:
+  static void apply_display_geometry(float north, float south) {
+    HS_CHECK(math::set_display_geometry(north, south),
+             "Validated display geometry must be accepted");
+#define HS_REFRESH_DISPLAY_GEOMETRY(W, H) math::init_geometry_luts<W, H>();
+    HS_RESOLUTIONS(HS_REFRESH_DISPLAY_GEOMETRY)
+#undef HS_REFRESH_DISPLAY_GEOMETRY
+  }
+
+  template <int W, int H>
+  void rebuild_display_geometry(float north, float south) {
+    const std::string NAME(current_factory_entry->name);
+    const size_t PRESET = current_effect->getPresetIndex();
+    const bool HAS_PRESET = current_effect->getPresetCount() != 0;
+    const bool PAUSED = animations_paused;
+    const ClipRegion CLIP = current_effect->clip();
+    std::vector<std::pair<std::string, float>> parameters;
+    current_effect->refresh_parameter_display();
+    for (const auto &parameter : current_effect->getParameters())
+      if (!parameter.readonly)
+        parameters.emplace_back(parameter.name, parameter.get_requested());
+
+#if HS_ENABLE_SHADER_WORKBENCH
+    using Workbench = Shader<W, H>;
+    std::optional<typename Workbench::FullConfigSnapshot> workbench_snapshot;
+    if (current_effect_type_key == effect_type_key<Workbench>())
+      workbench_snapshot = static_cast<Workbench &>(*current_effect)
+                               .capture_full_config_snapshot();
+#endif
+#if HS_ENABLE_CHAIN_INTERPRETER
+    using Chain = ShaderChain<W, H>;
+    const bool IS_CHAIN = current_effect_type_key == effect_type_key<Chain>();
+    std::vector<std::pair<std::string, std::string>> chain_entries;
+    if (IS_CHAIN)
+      for (const auto &entry :
+           static_cast<Chain &>(*current_effect).chain_ops())
+        chain_entries.emplace_back(entry.instance, entry.op->operator_id);
+#endif
+
+    current_effect.reset();
+    apply_display_geometry(north, south);
+    HS_CHECK(setEffect(NAME) == EffectSetResult::INSTALLED,
+             "Geometry rebuild must reinstall the current effect");
+    if (HAS_PRESET)
+      HS_CHECK(current_effect->synchronizePreset(PRESET),
+               "Geometry rebuild must restore the selected preset");
+
+    bool parameters_restored = false;
+#if HS_ENABLE_SHADER_WORKBENCH
+    if (workbench_snapshot) {
+      const auto RESULT =
+          static_cast<Workbench &>(*current_effect)
+              .restore_full_config_snapshot(*workbench_snapshot);
+      HS_CHECK(RESULT == Workbench::ConfigRestoreResult::APPLIED,
+               "Geometry rebuild must restore the workbench configuration");
+      parameters_restored = true;
+    }
+#endif
+#if HS_ENABLE_CHAIN_INTERPRETER
+    if (IS_CHAIN) {
+      auto &chain = static_cast<Chain &>(*current_effect);
+      std::vector<Pullback::Interp::ChainEntryRequest> requests;
+      for (const auto &[instance, operation] : chain_entries)
+        requests.push_back({instance, operation});
+      HS_CHECK(chain.set_chain(requests).code ==
+                   Pullback::Interp::ChainStatus::OK,
+               "Geometry rebuild must restore the chain program");
+      std::vector<ShaderChainParameterWrite> writes;
+      for (const auto &[name, value] : parameters)
+        writes.push_back({name.c_str(), value});
+      HS_CHECK(chain.update_parameters(writes) == ParamSetResult::APPLIED,
+               "Geometry rebuild must restore the chain parameters");
+      parameters_restored = true;
+    }
+#endif
+    if (!parameters_restored)
+      for (const auto &[name, value] : parameters)
+        HS_CHECK(current_effect->updateParameter(name.c_str(), value) ==
+                     ParamSetResult::APPLIED,
+                 "Geometry rebuild must restore the effect parameters");
+    setAnimationsPaused(PAUSED);
+    setClip(CLIP.x_start, CLIP.x_end, CLIP.y_start, CLIP.y_end);
+    param_generation.observe(current_effect->getParameterSchemaGeneration());
+  }
+
   /**
    * @brief Builds the {effect name -> hint size} map for the (W,H) factory.
    * @tparam W Canvas width in pixels.
@@ -1611,6 +1730,9 @@ static void bind_engine() {
   emscripten::class_<HolosphereEngine>("HolosphereEngine")
       .constructor<>()
       .function("setResolution", &HolosphereEngine::setResolution)
+      .function("setDisplayCaps", &HolosphereEngine::setDisplayCaps)
+      .function("getDisplayNorthPhi", &HolosphereEngine::getDisplayNorthPhi)
+      .function("getDisplaySouthPhi", &HolosphereEngine::getDisplaySouthPhi)
       .function("setEffect", &HolosphereEngine::setEffect)
       .function("drawFrame", &HolosphereEngine::drawFrame)
       .function("getPixels", &HolosphereEngine::getPixels)
