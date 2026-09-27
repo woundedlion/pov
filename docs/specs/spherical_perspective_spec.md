@@ -4,8 +4,9 @@
 legacy lattice migration, noncubic framework, volume/lattice query adapters,
 and periodic-surface experiments are implemented. Firmware admission is separate
 from architectural availability; experimental surface configurations are excluded
-from the HyperLattice selector. See the implementation validation and admission
-reports under docs/profiles for measured limits. Dimensional rift is removed.
+from the HyperLattice selector. See the
+[implementation validation and admission report](../profiles/spherical_perspective_implementation_2026-09-26.md)
+for measured limits. Dimensional rift is removed.
 
 ## 1. Decisions
 
@@ -608,8 +609,8 @@ against a high-budget native reference over camera translation, cell period,
 isovalue, grazing rays, and starts in both regions. Report image differences,
 unresolved fraction, mean/peak evaluations, render time, spills, and memory.
 
-The existing [HyperLattice profile](../profiles/shipping/profile_hyperlattice_teensy_2026-09-26.md)
-records 10,368 live samples and a 62.5 ms display window at 600 MHz. That is a
+The [historical HyperLattice capture](../profiles/evidence/hyperlattice_preset2_2026-09-26/ship.txt)
+uses a 10,368-pixel live quadrant and a 62.5 ms display window at 600 MHz. That is a
 gross budget of about 3,617 cycles per live sample before other work. Sixteen
 queries per sample would leave at most about 226 cycles per query if nothing
 else ran; the useful allowance is smaller. Its 50.095 ms observed peak is a

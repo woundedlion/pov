@@ -1,0 +1,59 @@
+Spherical perspective final ARM audit
+Source: 8441a47efd4570cc09914b1b43c03c758606f058 (clean validation tree)
+Toolchain: PlatformIO Teensy arm-gcc 15.2.1; exact phantasm -Os/nano production flags.
+ELF: C:/work/hs-spherical-core/.pio/build/phantasm/firmware.elf
+ELF SHA256: 94a2f23e9dffa63e0a7fa20904a0ffcf1ac88d22253aafbc9c9336dc9468c849
+
+Whole-image bytes: RAM1 code 195544; variables 314784; FLASH data 725448; FLASH code 502072.
+Original baseline: code 195304, variables 314784, FLASH data 725460, FLASH code 501392.
+Deltas: +240 code, 0 variables, -12 FLASH data, +680 FLASH code; code bank headroom 1064.
+
+ARM sizeof measurements (compile_memory_probe.py reuses the exact production compiler flags):
+  ray_appearance_bytes: 28 B
+  ray_contribution_bytes: 40 B
+  ray_cursor_bytes: 16 B
+  ray_effect_bytes: 964 B
+  ray_events_bytes: 104 B
+  ray_frame_bytes: 100 B
+  ray_generative_palette_bytes: 112 B
+  ray_group_bytes: 40 B
+  ray_palette_budget_bytes: 4452 B
+  ray_palette_payload_bytes: 4432 B
+  ray_params_bytes: 48 B
+  ray_prepared_bytes: 156 B
+  ray_result_bytes: 72 B
+
+Persistent arena payload is 4432 B from an aligned start: three 112 B GenerativePalette objects
+plus two 256-entry LUTs, each 1536 B RGB16 and 512 B alpha16. The declared bound is 4452 B
+(includes conservative alignment allowances). The 964 B effect object is separate from that arena.
+Both shipping configurations share these sizes. FrameState 100 B and PreparedTrace 156 B are frame-local.
+Each per-ray Events object is 104 B (four 16 B cursors); Contribution/group capacity 1 is 40 B.
+These source object sizes are not additive stack requirements: optimized code scalarizes/eliminates them.
+
+Final measured function frames:
+  Specialized 4D/depth shader: 3936 B flash code; 176 B local stack + 32 B GP saves + 40 B FP saves = 248 B own frame.
+  Generic shader: 4440 B flash code; 176 B local stack + 32 B GP saves + 24 B FP saves = 232 B own frame.
+  Each draw_cached wrapper: 600 B flash code; 92 B locals + 36 B GP saves + 24 B FP saves = 152 B own frame.
+  draw_frame: 200 B flash code; 372 B locals + 36 B GP saves = 408 B own frame.
+  Own-frame sizes exclude called functions and interrupt stack use; no claim of runtime stack high-water.
+
+specialized: 2 palette emission sites; 0 runtime mode loads; 0 feature-count loads; 0 memset/memcpy calls.
+generic: 2 palette emission sites; 2 runtime mode loads; 2 feature-count loads; 0 memset/memcpy calls.
+
+Effect function placement (0x600... is flash):
+  6003a844 000000c8 W HyperLattice<288, 144>::draw_frame()
+  60036c60 000000b8 W HyperLattice<288, 144>::advance_state()
+  600229bc 0000007c W HyperLattice<288, 144>::preset_params(unsigned int)
+  6001c568 00000028 W HyperLattice<288, 144>::refresh_configuration_schema()
+  6003a684 000001a6 W Pullback::Detail::PipelineCore<true, HyperLatticeDetail::Binding, Pullback::Detail::TypeList<Pullback::RayStage<HyperLatticeDetail::Renderer<false, (unsigned char)0> > > >::prepare_stages(HyperLatticeDetail::FrameState const&)
+
+Experimental inventory check: no shipping ELF symbols for CosineSurface, GyroidSurface,
+TriangularFramework, WireLattice volume queries, surface_search, verified_filter, DomainQuery or VolumeQuery.
+Existing orthographic Torus/WarpedVolume symbols remain valid Raymarch consumers and are not experiments.
+
+Validation artifacts:
+  memory_probe.cpp / memory_probe.o: ARM sizeof evidence; not linked into firmware.
+  compile_memory_probe.py: reconstructs compile command from the cold production log.
+  arm-functions-8441a47e.disasm.txt: complete disassembly for audited functions.
+  firmware-cold-8441a47e.log: 7 successful cold builds; both configured size/layout gates passed.
+  firmware-warnings-8441a47e.log: zero warnings, all 28 first-party TUs compiled.
