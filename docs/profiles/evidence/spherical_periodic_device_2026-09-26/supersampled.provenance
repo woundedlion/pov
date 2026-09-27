@@ -1,0 +1,10 @@
+profile provenance: version=1
+profile provenance: source_sha=79a93c6f8f39a0538794803b6e45ee7c7710cdab
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=d78a3ca3078921a7aff41b5e2ba8070ddf4279f00cdff169d6e87d6a932b20c0
+profile provenance: phantasm_elf_sha256=5cdc5a116e4da9d683cce6ac36474f9afa8c1faabe6fdfe63ced90b2043d0bba
+profile provenance: profile_envdump_sha256=ffc425b5af45d23c4e6eb71dfef267ee91fcc9f15f56392d8ed39f815a6a168f
+profile provenance: phantasm_envdump_sha256=4a8cd621b9727632bb16bfc0657b489034612891b7ff5f9e79acc66960adb2fa
+profile provenance: artifact_profile_elf=build/prof/artifacts/sphericalexperiment_ship_79a93c6f8f39_d78a3ca30789/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/sphericalexperiment_ship_79a93c6f8f39_d78a3ca30789/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/sphericalexperiment_ship_79a93c6f8f39_d78a3ca30789
