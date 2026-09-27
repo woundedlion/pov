@@ -187,7 +187,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 10;
 
-  static constexpr Params preset_params(size_t index) {
+  HS_COLD_MEMBER static constexpr Params preset_params(size_t index) {
     Params value;
     switch (index) {
     case 0:
@@ -389,13 +389,17 @@ private:
   }
   void adopt_params(const Params &target) {
     params = target;
-    active_configuration = params.mode;
-    refresh_configuration_schema();
+    if (params.mode != active_configuration) {
+      active_configuration = params.mode;
+      refresh_configuration_schema();
+    }
   }
   void blend_params(float progress) {
     params.lerp(transition.from, transition.to, progress);
-    active_configuration = params.mode;
-    refresh_configuration_schema();
+    if (params.mode != active_configuration) {
+      active_configuration = params.mode;
+      refresh_configuration_schema();
+    }
   }
 
   HS_COLD_MEMBER void refresh_configuration_schema() {
