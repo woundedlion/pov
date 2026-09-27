@@ -1,9 +1,11 @@
 # Spherical perspective and independent patterns
 
-**Status: PROPOSED, revision 3 (2026-09-26).** This document specifies a generalization of
-[HyperLattice](../../effects/HyperLattice.h); it does not describe shipped APIs.
-Implementation is a separate change. Dimensional rift is removed from the
-proposed design.
+**Status: IMPLEMENTED architecture, revision 4 (2026-09-26).** The ray core,
+legacy lattice migration, noncubic framework, volume/lattice query adapters,
+and periodic-surface experiments are implemented. Firmware admission is separate
+from architectural availability; experimental surface configurations are excluded
+from the HyperLattice selector. See the implementation validation and admission
+reports under docs/profiles for measured limits. Dimensional rift is removed.
 
 ## 1. Decisions
 
@@ -196,24 +198,22 @@ including concrete reusable patterns and their query adapters. A helper does
 not remain effect-private merely because HyperLattice is its first consumer.
 The effect owns the choice of geometry and settings, not their implementation.
 
-The following paths are the intended implementation layout. Rows marked
-**new** are proposed files, not existing files or work included in this
-spec-only change. Use the existing header-based template style; these files
+The following paths are the implementation layout. The header-based templates
 do not introduce a separate library build or runtime service.
 
 | Path | State | Responsibility |
 | --- | --- | --- |
-| core/render/ray.h | New | Public umbrella for reusable ray rendering; proposed namespace `Raycast` |
-| core/render/ray/contract.h | New | Ray interval, footprint, trace limits/status, geometric contribution, and query capability contracts; no effect types or framebuffer traversal |
-| core/render/ray/camera.h | New | Spherical ray construction, validated 3D/4D slice embedding, world-distance conventions, and prepared camera transforms |
-| core/render/ray/query.h | New | Generic volume-query adaptation, placement/domain composition, prepared per-ray evaluation, and projected normals; geometry-specific formulas stay with their pattern |
-| core/render/ray/march.h | New | Shared scalar stepping/refinement kernel, first-boundary policy, and extracted legacy closest-approach policy |
-| core/render/ray/events.h | New | Bounded merge of analytic candidate streams, event grouping, ordered emission, and traversal budgets |
-| core/render/ray/shade.h | New | Reusable depth/feature appearance policies, fog/near fade, verified subray filtering, and contribution consumption through `LayerComposite`; receives palettes and settings from callers |
-| core/render/pullback/ray.h | New | Reusable prepared `SphereSample -> Color4` stage binding camera, query, backend, and appearance; no new canonical carriers |
-| core/render/sdf/lattice.h | New | Cubic/hypercubic wire geometry, world-unit distance queries, analytic plane-event adapters, feature identities, and explicit legacy coverage/filter policy |
-| core/render/sdf/framework.h | New | Triangular-prism framework geometry and its analytic query adapter |
-| core/render/sdf/periodic_surface.h | New | Cosine and gyroid level-set definitions, period/isovalue parameters, bounds, gradients, and surface-query adapters |
+| core/render/ray.h | Implemented | Public umbrella for reusable ray rendering; proposed namespace `Raycast` |
+| core/render/ray/contract.h | Implemented | Ray interval, footprint, trace limits/status, geometric contribution, and query capability contracts; no effect types or framebuffer traversal |
+| core/render/ray/camera.h | Implemented | Spherical ray construction, validated 3D/4D slice embedding, world-distance conventions, and prepared camera transforms |
+| core/render/ray/query.h | Implemented | Generic volume-query adaptation, placement/domain composition, prepared per-ray evaluation, and projected normals; geometry-specific formulas stay with their pattern |
+| core/render/ray/march.h | Implemented | Shared scalar stepping/refinement kernel, first-boundary policy, and extracted legacy closest-approach policy |
+| core/render/ray/events.h | Implemented | Bounded merge of analytic candidate streams, event grouping, ordered emission, and traversal budgets |
+| core/render/ray/shade.h | Implemented | Reusable depth/feature appearance policies, fog/near fade, verified subray filtering, and contribution consumption through `LayerComposite`; receives palettes and settings from callers |
+| core/render/pullback/ray.h | Implemented | Reusable prepared `SphereSample -> Color4` stage binding camera, query, backend, and appearance; no new canonical carriers |
+| core/render/sdf/lattice.h | Implemented | Cubic/hypercubic wire geometry, world-unit distance queries, analytic plane-event adapters, feature identities, and explicit legacy coverage/filter policy |
+| core/render/sdf/framework.h | Implemented | Triangular-prism framework geometry and its analytic query adapter |
+| core/render/sdf/periodic_surface.h | Implemented | Cosine and gyroid level-set definitions, period/isovalue parameters, bounds, gradients, and surface-query adapters |
 | core/render/sdf/volume.h | Existing | Existing torus, warps, and warped-volume geometry; retain their public shape contracts |
 | core/render/scan/volume.h | Existing | Orthographic scan/cull/draw front end, `TransformedVolume` compatibility API, and legacy occluder-probe/plot behavior; delegates extracted stepping to the ray core |
 | core/render/scan/shader.h | Existing | Sphere-sample traversal and cached scan behavior; does not learn about pattern choices |
@@ -267,8 +267,8 @@ inventory must not emit executable code, lookup data, or static registration.
 
 | Path | State | Responsibility |
 | --- | --- | --- |
-| tests/test_ray.h | New | Camera/domain, query capabilities, shared marcher, analytic-stream merger, filtering, statuses, and synthetic-geometry tests without effect dependencies |
-| tests/test_sdf_patterns.h | New | Cubic/hypercubic fields, framework geometry, periodic surfaces, bounds, scale/translation invariance, and native reference comparisons |
+| tests/test_ray.h | Implemented | Camera/domain, query capabilities, shared marcher, analytic-stream merger, filtering, statuses, and synthetic-geometry tests without effect dependencies |
+| tests/test_sdf_patterns.h | Implemented | Cubic/hypercubic fields, framework geometry, periodic surfaces, bounds, scale/translation invariance, and native reference comparisons |
 | tests/test_hyper_lattice.h | Existing | Preset/configuration/schema behavior, choreography, frame preparation, and effect-level compatibility captures |
 | tests/test_scan.h | Existing | Orthographic volume regressions, including first-graze and background-graze ownership after extraction |
 | tests/test_pullback.h | Existing | New shared stage's prepared-state and `SphereSample -> Color4` contract integration |
@@ -632,7 +632,7 @@ are established.
    validation, tests, and documentation. There are already just two authored
    presets, `cubic-flight` and `hypercube-flight`; retain those string IDs.
    Use dense current selection indices and bump `PARAMETER_SCHEMA_VERSION`
-   from its present value 9 when the layout/semantics change. Existing
+   from version 9 when the layout/semantics change. Existing
    `restore_parameters` rejects older schema snapshots without mutation;
    preserve that behavior. Do not reserve a hole in the option array or
    silently reinterpret old raw numeric selections. There is no existing
@@ -704,5 +704,6 @@ is a separate compatibility decision, not necessary to establish the boundary.
   sweep in section 6.1; failure to meet the device budget is a reported result,
   not a reason to weaken surface guarantees silently.
 
-This spec-only change requires documentation validation; firmware validation
-and captures belong to the implementation changes above.
+Implementation validation covers native regression tests, firmware size/layout,
+and fixed-source device captures. Experimental exclusions remain part of the
+reported result rather than implicit surface approximations.

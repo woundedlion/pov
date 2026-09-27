@@ -271,9 +271,11 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 ### HyperLattice
 
-An analytic flight through cubic and four-dimensional lattices under genuine SO(4) rotation. Dimension picks the lattice the flight reads: 3D holds the three spatial axes, Dimensional Rift blends part of the fourth in, and 4D Slice takes a full cross-section of the hypercubic lattice. Transparent integer-coordinate planes are walked analytically per axis rather than raymarched; Shells sets how many of them each axis cursor crosses, so raising it deepens the visible layering.
+An analytic flight through cubic wire lattices in 3D or a three-dimensional slice of a hypercubic wire lattice under SO(4) rotation. **Configuration** selects one complete geometry/domain/backend setting: Cubic / 3D or Cubic / 4D slice. Changing it adopts that configuration's geometry defaults. Automatic transitions hold the source geometry until their midpoint, then switch the whole geometry block; near fading may interpolate.
 
-**Parameters**: Dimension (3D, Dimensional Rift, 4D Slice), Sphere Radius, Cell Size, Wire Radius, Softness, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Color, Shells
+The core analytic adapter walks approximate plane-crossing coverage events. **Lattice Planes** limits crossings per axis; it is not a spherical shell count. The two preset IDs remain `cubic-flight` and `hypercube-flight`. Parameter schema 10 rejects older snapshots without changing live state. The 4D Spin control is read-only in 3D.
+
+**Parameters**: Configuration (Cubic / 3D, Cubic / 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Color, Lattice Planes
 
 </td></tr></table>
 

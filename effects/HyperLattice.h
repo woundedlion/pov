@@ -17,7 +17,9 @@
 #include <tuple>
 
 #include "core/color/effect_palette_recipes.h"
-#include "core/color/layer_composite.h"
+#include "core/render/sdf/lattice.h"
+#include "core/render/ray/shade.h"
+#include "core/render/pullback/ray.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/math/4dmath.h"
@@ -30,174 +32,10 @@ struct HyperLatticeWhiteBox;
 } // namespace hs_test
 
 namespace HyperLatticeDetail {
-
 constexpr int DIMENSIONS = math::VEC4_DIMENSIONS;
-constexpr int MAX_SHELLS = 3;
-constexpr float DIRECTION_EPSILON = 1.0e-4f;
-
-enum class ColorMode : uint8_t { DEPTH, AXIS };
-enum class ShellCount : uint8_t { ONE, TWO, THREE };
-static_assert(MAX_SHELLS == static_cast<int>(ShellCount::THREE) + 1);
-enum class LatticeMode : uint8_t { THREE_D, DIMENSIONAL_RIFT, FOUR_D_SLICE };
-
-constexpr float DIMENSIONAL_RIFT_MIX = 0.55f;
-
-__attribute__((always_inline)) inline float periodic_distance(float value) {
-  return fabsf(value - nearbyintf(value));
-}
-
-struct EdgeMetric {
-  float distance_sq;
-  uint8_t free_axis;
-};
-
-struct TransitionalMetrics {
-  EdgeMetric cubic;
-  EdgeMetric hyper;
-};
-
-__attribute__((always_inline)) inline float
-periodic_distance_at(const math::Vec4 &ray_origin, const math::Vec4 &direction,
-                     int axis, float distance) {
-  return periodic_distance(ray_origin[axis] + distance * direction[axis]);
-}
-
-template <int AXIS0, int AXIS1>
-__attribute__((always_inline)) EdgeMetric edge_metric_3d_axes(
-    const math::Vec4 &ray_origin, const math::Vec4 &direction, float distance) {
-  const float component0 =
-      periodic_distance_at(ray_origin, direction, AXIS0, distance);
-  const float component1 =
-      periodic_distance_at(ray_origin, direction, AXIS1, distance);
-  const float component0_sq = component0 * component0;
-  const float component1_sq = component1 * component1;
-  return {std::min(component0_sq, component1_sq),
-          static_cast<uint8_t>(component1_sq > component0_sq ? AXIS1 : AXIS0)};
-}
-
-inline EdgeMetric edge_metric_3d_at(const math::Vec4 &ray_origin,
-                                    const math::Vec4 &direction, int plane_axis,
-                                    float distance) {
-  switch (plane_axis) {
-  case 0:
-    return edge_metric_3d_axes<1, 2>(ray_origin, direction, distance);
-  case 1:
-    return edge_metric_3d_axes<0, 2>(ray_origin, direction, distance);
-  default:
-    return edge_metric_3d_axes<0, 1>(ray_origin, direction, distance);
-  }
-}
-
-/**
- * @brief Finds the nearest 4D edge within the supplied coverage radius.
- * @details An edge fixes two of the three remaining coordinates. Two outside
- * the radius reject the hit before evaluating its squared distance.
- */
-template <int AXIS0, int AXIS1, int AXIS2, bool NEED_AXIS = true>
-__attribute__((always_inline)) bool
-edge_metric_4d_axes_bounded(const math::Vec4 &ray_origin,
-                            const math::Vec4 &direction, float distance,
-                            float limit, float limit_sq, EdgeMetric &result) {
-  const float component0 =
-      periodic_distance_at(ray_origin, direction, AXIS0, distance);
-  const float component1 =
-      periodic_distance_at(ray_origin, direction, AXIS1, distance);
-  const bool near0 = component0 < limit;
-  const bool near1 = component1 < limit;
-  if (!near0 && !near1)
-    return false;
-  const float component2 =
-      periodic_distance_at(ray_origin, direction, AXIS2, distance);
-  if (component2 >= limit && (!near0 || !near1))
-    return false;
-  const float component0_sq = component0 * component0;
-  const float component1_sq = component1 * component1;
-  const float component2_sq = component2 * component2;
-  const float sum = component0_sq + component1_sq + component2_sq;
-  if constexpr (!NEED_AXIS) {
-    result = {
-        sum - std::max(component0_sq, std::max(component1_sq, component2_sq)),
-        0};
-    return result.distance_sq < limit_sq;
-  }
-  float largest = component0_sq;
-  uint8_t free_axis = AXIS0;
-  if (component1_sq > largest) {
-    largest = component1_sq;
-    free_axis = AXIS1;
-  }
-  if (component2_sq > largest) {
-    largest = component2_sq;
-    free_axis = AXIS2;
-  }
-  result = {sum - largest, free_axis};
-  return result.distance_sq < limit_sq;
-}
-
-template <bool NEED_AXIS = true>
-inline bool edge_metric_4d_at_bounded(const math::Vec4 &ray_origin,
-                                      const math::Vec4 &direction,
-                                      int plane_axis, float distance,
-                                      float limit, float limit_sq,
-                                      EdgeMetric &result) {
-  switch (plane_axis) {
-  case 0:
-    return edge_metric_4d_axes_bounded<1, 2, 3, NEED_AXIS>(
-        ray_origin, direction, distance, limit, limit_sq, result);
-  case 1:
-    return edge_metric_4d_axes_bounded<0, 2, 3, NEED_AXIS>(
-        ray_origin, direction, distance, limit, limit_sq, result);
-  case 2:
-    return edge_metric_4d_axes_bounded<0, 1, 3, NEED_AXIS>(
-        ray_origin, direction, distance, limit, limit_sq, result);
-  default:
-    return edge_metric_4d_axes_bounded<0, 1, 2, NEED_AXIS>(
-        ray_origin, direction, distance, limit, limit_sq, result);
-  }
-}
-
-template <int AXIS0, int AXIS1>
-__attribute__((always_inline)) TransitionalMetrics transitional_metrics_axes(
-    const math::Vec4 &ray_origin, const math::Vec4 &direction, float distance) {
-  const float component0 =
-      periodic_distance_at(ray_origin, direction, AXIS0, distance);
-  const float component1 =
-      periodic_distance_at(ray_origin, direction, AXIS1, distance);
-  const float component2 =
-      periodic_distance_at(ray_origin, direction, 3, distance);
-  const float component0_sq = component0 * component0;
-  const float component1_sq = component1 * component1;
-  const float component2_sq = component2 * component2;
-  const float sum_4d = component0_sq + component1_sq + component2_sq;
-  float farthest_4d = component0_sq;
-  uint8_t free_axis_4d = AXIS0;
-  if (component1_sq > farthest_4d) {
-    farthest_4d = component1_sq;
-    free_axis_4d = AXIS1;
-  }
-  if (component2_sq > farthest_4d) {
-    farthest_4d = component2_sq;
-    free_axis_4d = 3;
-  }
-  return {{std::min(component0_sq, component1_sq),
-           static_cast<uint8_t>(component1_sq > component0_sq ? AXIS1 : AXIS0)},
-          {sum_4d - farthest_4d, free_axis_4d}};
-}
-
-inline TransitionalMetrics transitional_metrics_at(const math::Vec4 &ray_origin,
-                                                   const math::Vec4 &direction,
-                                                   int plane_axis,
-                                                   float distance) {
-  switch (plane_axis) {
-  case 0:
-    return transitional_metrics_axes<1, 2>(ray_origin, direction, distance);
-  case 1:
-    return transitional_metrics_axes<0, 2>(ray_origin, direction, distance);
-  default:
-    return transitional_metrics_axes<0, 1>(ray_origin, direction, distance);
-  }
-}
-
+using LatticeMode = SDF::Lattice::Domain;
+using ShellCount = SDF::Lattice::ShellCount;
+using ColorMode = Raycast::ColorMode;
 struct Params {
   LatticeMode mode = LatticeMode::THREE_D;
   float sphere_radius = 1.0f;
@@ -214,7 +52,12 @@ struct Params {
   ShellCount shells = ShellCount::TWO;
 
   void lerp(const Params &start, const Params &target, float amount) {
-    mode = amount < 0.5f ? start.mode : target.mode;
+    if (start.mode != target.mode) {
+      *this = amount < 0.5f ? start : target;
+      near_fade = hs::lerp(start.near_fade, target.near_fade, amount);
+      return;
+    }
+    mode = start.mode;
     sphere_radius = hs::lerp(start.sphere_radius, target.sphere_radius, amount);
     cell_size = hs::lerp(start.cell_size, target.cell_size, amount);
     wire_radius = hs::lerp(start.wire_radius, target.wire_radius, amount);
@@ -267,372 +110,60 @@ struct Binding {
 };
 
 struct PreparedTrace {
-  Params params;
-  math::Vec4 origin;
-  math::Mat4 world_to_lattice;
-  float far_distance;
-  float inv_far;
-  float aa_scale;
-  float outer_radius_base;
-  float near_start;
-  float near_inv_span;
-  float sphere_radius_world;
-  float dimension_mix;
-  LatticeMode mode;
+  SDF::Lattice::PreparedTrace lattice;
+  Raycast::Appearance appearance;
 };
-
 template <int W, int H> constexpr float pixel_half_angle() {
-  return 0.5f * math::coarse_pixel_pitch<W, H>();
+  return .5f * math::coarse_pixel_pitch<W, H>();
 }
-
-// Unlike flash-resident smooth_ramp, this stays inline on the hot crossing
-// path.
-__attribute__((always_inline)) inline float
-lattice_ramp(float edge0, float edge1, float value) {
-  return math::cubic_kernel((value - edge0) / (edge1 - edge0));
-}
-
-inline float wire_coverage(float metric_sq, float radius, float half_width) {
-  const float signed_distance = sqrtf(metric_sq) - radius;
-  return 1.0f - lattice_ramp(-half_width, half_width, signed_distance);
-}
-
-__attribute__((always_inline)) inline float
-fast_wire_coverage(float metric_sq, float radius, float half_width) {
-  const float signed_distance = sqrtf(metric_sq) - radius;
-  const float ramp_position =
-      0.5f + 0.5f * signed_distance * math::fast_reciprocal(half_width);
-  return 1.0f - math::cubic_kernel(ramp_position);
-}
-
-inline float near_field_coverage(float distance, float near_start,
-                                 float near_inv_span) {
-  return math::cubic_kernel((distance - near_start) * near_inv_span);
-}
-
-inline float shell_horizon_coverage(uint8_t shell, uint8_t shell_count,
-                                    float distance, float magnitude) {
-  if (shell + 1 < shell_count)
-    return 1.0f;
-  return 1.0f - lattice_ramp(static_cast<float>(shell_count - 1),
-                             static_cast<float>(shell_count),
-                             distance * magnitude);
-}
-
-inline float next_plane_offset(float origin, bool positive) {
-  const float fraction = math::wrap_t(origin);
-  if (fraction == 0.0f)
-    return 1.0f;
-  return positive ? 1.0f - fraction : fraction;
-}
-
-inline float dimension_mix(LatticeMode mode) {
-  if (mode == LatticeMode::THREE_D)
-    return 0.0f;
-  if (mode == LatticeMode::DIMENSIONAL_RIFT)
-    return DIMENSIONAL_RIFT_MIX;
-  return 1.0f;
-}
-
 inline PreparedTrace prepare_trace(const FrameState &frame) {
-  PreparedTrace prepared;
-  prepared.params = frame.params;
-  prepared.origin = frame.origin;
-  prepared.world_to_lattice = math::Mat4::identity();
-  math::rotate_plane(prepared.world_to_lattice, 0, 1, frame.rotation_phase[0]);
-  math::rotate_plane(prepared.world_to_lattice, 0, 2, frame.rotation_phase[1]);
-  math::rotate_plane(prepared.world_to_lattice, 1, 2, frame.rotation_phase[2]);
-  prepared.mode = frame.params.mode;
-  prepared.dimension_mix = dimension_mix(frame.params.mode);
-  if (prepared.mode != LatticeMode::THREE_D) {
-    math::rotate_plane(prepared.world_to_lattice, 0, 3,
-                       frame.rotation_phase[3]);
-    math::rotate_plane(prepared.world_to_lattice, 1, 3,
-                       frame.rotation_phase[4]);
-    math::rotate_plane(prepared.world_to_lattice, 2, 3,
-                       frame.rotation_phase[5]);
+  math::Mat4 embedding = math::Mat4::identity();
+  math::rotate_plane(embedding, 0, 1, frame.rotation_phase[0]);
+  math::rotate_plane(embedding, 0, 2, frame.rotation_phase[1]);
+  math::rotate_plane(embedding, 1, 2, frame.rotation_phase[2]);
+  if (frame.params.mode == LatticeMode::FOUR_D_SLICE) {
+    math::rotate_plane(embedding, 0, 3, frame.rotation_phase[3]);
+    math::rotate_plane(embedding, 1, 3, frame.rotation_phase[4]);
+    math::rotate_plane(embedding, 2, 3, frame.rotation_phase[5]);
   }
-  const float inv_cell_size = 1.0f / frame.params.cell_size;
-  for (int row = 0; row < DIMENSIONS; ++row)
-    for (int column = 0; column < DIMENSIONS; ++column)
-      prepared.world_to_lattice.m[row][column] *= inv_cell_size;
-  prepared.far_distance = frame.params.far_distance;
-  prepared.inv_far = 1.0f / prepared.far_distance;
-  prepared.aa_scale = frame.params.aa_strength * frame.pixel_half_angle *
-                      inv_cell_size * inv_cell_size;
-  prepared.outer_radius_base = frame.params.wire_radius + frame.params.softness;
-  const float near_scale =
-      frame.params.cell_size * (1.0f + frame.params.sphere_radius);
-  prepared.near_start = 1.5f * frame.params.wire_radius * near_scale;
-  prepared.near_inv_span = 1.0f / (frame.params.near_fade * near_scale);
-  prepared.sphere_radius_world =
-      frame.params.sphere_radius * frame.params.cell_size;
-  return prepared;
+  const auto &p = frame.params;
+  const SDF::Lattice::Settings settings{
+      p.mode,     p.sphere_radius, p.cell_size, p.wire_radius,
+      p.softness, p.aa_strength,   p.shells};
+  const float near_scale = p.cell_size * (1 + p.sphere_radius);
+  return {SDF::Lattice::prepare(settings, frame.origin, embedding,
+                                p.far_distance, frame.pixel_half_angle),
+          {1.0f / p.far_distance, 1.5f * p.wire_radius * near_scale,
+           1.0f / (p.near_fade * near_scale), p.color, frame.depth_palette,
+           frame.axis_palette}};
 }
-
-struct TraceHit {
-  float coverage = 0.0f;
-  float distance = 0.0f;
-  uint8_t free_axis = 0;
-};
-
-template <bool SLICE_4D, uint8_t FIXED_SHELL_COUNT = 0>
-__attribute__((always_inline)) inline TraceHit
-trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
-            int plane_axis, float distance, float plane_step,
-            const PreparedTrace &prepared) {
-  HS_PROFILE_DEEP(hl_plane_eval);
-  constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
-  if (distance <= prepared.near_start)
-    return {0.0f, distance, 0};
-
-  const float coverage_outer_radius =
-      prepared.outer_radius_base + prepared.aa_scale * distance * plane_step;
-  const float coverage_half_width =
-      coverage_outer_radius - prepared.params.wire_radius;
-  const float depth = distance * prepared.inv_far;
-  const float fog = std::max(0.0f, 1.0f - depth);
-  const float outer_radius = coverage_outer_radius;
-  const float outer_radius_sq = outer_radius * outer_radius;
-  float metric_sq;
-  uint8_t free_axis;
-  float dimensional_coverage = 1.0f;
-  if constexpr (SLICE_4D) {
-    EdgeMetric metric_4d;
-    if (!edge_metric_4d_at_bounded<!SPECIALIZED_SLICE>(
-            ray_origin, direction, plane_axis, distance, outer_radius,
-            outer_radius_sq, metric_4d))
-      return {0.0f, distance, 0};
-    metric_sq = metric_4d.distance_sq;
-    free_axis = metric_4d.free_axis;
-  } else if (prepared.mode == LatticeMode::THREE_D) {
-    const EdgeMetric metric_3d =
-        edge_metric_3d_at(ray_origin, direction, plane_axis, distance);
-    metric_sq = metric_3d.distance_sq;
-    free_axis = metric_3d.free_axis;
-    if (metric_sq >= outer_radius_sq)
-      return {0.0f, distance, free_axis};
-  } else if (plane_axis < 3 && prepared.mode == LatticeMode::DIMENSIONAL_RIFT) {
-    const TransitionalMetrics metrics =
-        transitional_metrics_at(ray_origin, direction, plane_axis, distance);
-    metric_sq = hs::lerp(metrics.cubic.distance_sq, metrics.hyper.distance_sq,
-                         prepared.dimension_mix);
-    free_axis = prepared.dimension_mix < 0.5f ? metrics.cubic.free_axis
-                                              : metrics.hyper.free_axis;
-    if (metric_sq >= outer_radius_sq)
-      return {0.0f, distance, free_axis};
-  } else {
-    EdgeMetric metric_4d;
-    if (!edge_metric_4d_at_bounded(ray_origin, direction, plane_axis, distance,
-                                   outer_radius, outer_radius_sq, metric_4d))
-      return {0.0f, distance, 0};
-    metric_sq = metric_4d.distance_sq;
-    free_axis = metric_4d.free_axis;
-    if (plane_axis == 3)
-      dimensional_coverage = prepared.dimension_mix;
-  }
-
-  const float edge =
-      SPECIALIZED_SLICE
-          ? fast_wire_coverage(metric_sq, prepared.params.wire_radius,
-                               coverage_half_width)
-          : wire_coverage(metric_sq, prepared.params.wire_radius,
-                          coverage_half_width);
-  const float near = near_field_coverage(distance, prepared.near_start,
-                                         prepared.near_inv_span);
-  return {edge * fog * fog * near * dimensional_coverage, distance, free_axis};
-}
-
-struct TraceCursor {
-  float distance;
-  float step;
-  float magnitude;
-  uint8_t shell;
-  bool active;
-};
-
-/**
- * @brief Walks grid-plane intersections front to back, consuming visible layers.
- * @details Coincident crossings form one layer using their maximum coverage.
- * The consumer returns false to stop after its accumulated opacity is enough.
- */
-template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0,
-          typename ConsumeFn>
-__attribute__((always_inline)) inline void
-trace_layers_mode(const math::Vector &normal, const PreparedTrace &prepared,
-                  ConsumeFn consume) {
-  HS_PROFILE_DEEP(hl_trace_layers);
-  constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
-  constexpr float GROUP_EPSILON = 1.0e-4f;
-  const math::Vec4 direction =
-      prepared.world_to_lattice.apply({{normal.x, normal.y, normal.z, 0.0f}});
-  math::Vec4 ray_origin = prepared.origin;
-  if (prepared.params.sphere_radius != 0.0f) {
-    for (int axis = 0; axis < DIMENSIONS; ++axis)
-      ray_origin[axis] += prepared.sphere_radius_world * direction[axis];
-  }
-  const uint8_t shell_count =
-      SPECIALIZED_SLICE ? FIXED_SHELL_COUNT
-                        : static_cast<uint8_t>(prepared.params.shells) + 1;
-  TraceCursor cursors[DIMENSIONS];
-  for (int axis = 0; axis < DIMENSIONS; ++axis) {
-    TraceCursor &cursor = cursors[axis];
-    cursor.active = false;
-    if constexpr (!SLICE_4D)
-      if (axis == 3 && prepared.mode == LatticeMode::THREE_D)
-        continue;
-    const float component = direction[axis];
-    const float magnitude = fabsf(component);
-    if (magnitude < DIRECTION_EPSILON)
-      continue;
-    cursor.step = 1.0f / magnitude;
-    cursor.magnitude = magnitude;
-    cursor.distance =
-        next_plane_offset(ray_origin[axis], component > 0.0f) * cursor.step;
-    cursor.shell = 0;
-    cursor.active = cursor.distance < prepared.far_distance;
-  }
-
-  // Each event advances at least one cursor, each bounded by its shell count.
-  constexpr int EVENT_LIMIT =
-      DIMENSIONS * (SPECIALIZED_SLICE ? FIXED_SHELL_COUNT : MAX_SHELLS);
-  for (int event = 0; event < EVENT_LIMIT; ++event) {
-    HS_PROFILE_DEEP(hl_event_step);
-    float nearest = prepared.far_distance;
-    float second_nearest = prepared.far_distance;
-    int nearest_axis = -1;
-    const auto consider_cursor = [&](int axis) __attribute__((always_inline)) {
-      const TraceCursor &cursor = cursors[axis];
-      if (!cursor.active)
-        return;
-      if (cursor.distance < nearest) {
-        second_nearest = nearest;
-        nearest = cursor.distance;
-        nearest_axis = axis;
-      } else if (cursor.distance < second_nearest) {
-        second_nearest = cursor.distance;
-      }
-    };
-    consider_cursor(0);
-    consider_cursor(1);
-    consider_cursor(2);
-    consider_cursor(3);
-    if (nearest >= prepared.far_distance)
-      break;
-
-    // Group near-coincident planes so lattice junctions contribute one layer.
-    const float tolerance = GROUP_EPSILON * std::max(1.0f, nearest);
-    uint8_t pending = static_cast<uint8_t>(1u << nearest_axis);
-    if (second_nearest - nearest <= tolerance) {
-      pending = 0;
-      for (int axis = 0; axis < DIMENSIONS; ++axis) {
-        const TraceCursor &cursor = cursors[axis];
-        if (cursor.active && cursor.distance - nearest <= tolerance)
-          pending |= static_cast<uint8_t>(1u << axis);
-      }
-    }
-
-    TraceHit layer;
-    do {
-      const int axis = __builtin_ctz(static_cast<unsigned>(pending));
-      pending &= static_cast<uint8_t>(pending - 1);
-      TraceCursor &cursor = cursors[axis];
-      TraceHit candidate = trace_plane<SLICE_4D, FIXED_SHELL_COUNT>(
-          ray_origin, direction, axis, cursor.distance, cursor.step, prepared);
-      if (candidate.coverage > 0.0f)
-        candidate.coverage *= shell_horizon_coverage(
-            cursor.shell, shell_count, cursor.distance, cursor.magnitude);
-      if (candidate.coverage > layer.coverage)
-        layer = candidate;
-      ++cursor.shell;
-      cursor.distance += cursor.step;
-      cursor.active =
-          cursor.shell < shell_count && cursor.distance < prepared.far_distance;
-    } while (pending != 0);
-    if (layer.coverage > 0.0f && !consume(layer))
-      return;
-  }
-}
-
-template <typename ConsumeFn>
-inline void trace_layers(const math::Vector &normal,
-                         const PreparedTrace &prepared, ConsumeFn consume) {
-  trace_layers_mode(normal, prepared, consume);
-}
-
-inline TraceHit trace(const math::Vector &normal,
-                      const PreparedTrace &prepared) {
-  TraceHit nearest;
-  trace_layers(normal, prepared, [&](const TraceHit &hit) {
-    nearest = hit;
-    return false;
-  });
-  return nearest;
-}
-
-template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0>
-__attribute__((always_inline)) inline Color4
-shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
-           const PreparedTrace &prepared) {
-  HS_PROFILE_DEEP(hl_shade);
-  constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
-  LayerComposite composite;
-  const BakedPalette &palette =
-      *(SPECIALIZED_SLICE || prepared.params.color == ColorMode::DEPTH
-            ? frame.depth_palette
-            : frame.axis_palette);
-  trace_layers_mode<SLICE_4D, FIXED_SHELL_COUNT>(
-      input.dir, prepared,
-      [&](const TraceHit &hit) __attribute__((always_inline)) {
-        HS_PROFILE_DEEP(hl_layer_composite);
-        const float depth = hit.distance * prepared.inv_far;
-        const float value =
-            SPECIALIZED_SLICE || prepared.params.color == ColorMode::DEPTH
-                ? 1.0f - depth
-                : (static_cast<float>(hit.free_axis) + 0.75f * depth) / 4.0f;
-        Pixel color = palette.get_color_unit(value);
-        color = color * (0.45f + 0.55f * (1.0f - depth));
-        composite.add(color, hit.coverage);
-        return !composite.saturated();
-      });
-  return composite.finish();
-}
-
-inline Color4 shade(const Pullback::SphereSample &input,
-                    const FrameState &frame, const PreparedTrace &prepared) {
-  return shade_mode(input, frame, prepared);
-}
-
-template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0>
-struct ModeShadeStage
-    : Pullback::Stage::Contract<ModeShadeStage<SLICE_4D, FIXED_SHELL_COUNT>,
-                                Pullback::SphereSample, Color4> {
-  using Policies = std::tuple<>;
-
-  template <typename PipelineBinding>
-  static PreparedTrace
-  prepare(const typename PipelineBinding::FrameState &frame) {
+template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
+  static PreparedTrace prepare(const FrameState &frame) {
     return prepare_trace(frame);
   }
-
-  template <typename PipelineBinding>
   __attribute__((always_inline)) static Color4
-  run(const Pullback::SphereSample &input,
-      const typename PipelineBinding::FrameState &frame,
-      const PreparedTrace &prepared) {
-    return shade_mode<SLICE_4D, FIXED_SHELL_COUNT>(input, frame, prepared);
+  shade(const math::Vector &normal, const FrameState &,
+        const PreparedTrace &prepared) {
+    HS_PROFILE_DEEP(hl_shade);
+    SDF::Lattice::Events<SLICE_4D, SHELLS> events(normal, prepared.lattice);
+    Raycast::TraceLimits limits;
+    limits.max_candidates =
+        DIMENSIONS * (SHELLS ? SHELLS : SDF::Lattice::MAX_SHELLS);
+    return Raycast::shade_events(events, {0, prepared.lattice.far_distance},
+                                 limits, prepared.appearance)
+        .color;
   }
 };
-
-using RenderPipeline = Pullback::Pipeline<Binding, ModeShadeStage<>>;
+using RenderPipeline =
+    Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<>>>;
 template <uint8_t SHELL_COUNT>
 using SpecializedRenderPipeline =
-    Pullback::Pipeline<Binding, ModeShadeStage<true, SHELL_COUNT>>;
-
+    Pullback::Pipeline<Binding,
+                       Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
 } // namespace HyperLatticeDetail
 
 /**
- * @brief Flights through cubic lattices, dimensional rifts, and 4D slices.
+ * @brief Flights through cubic lattices and four-dimensional slices.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
@@ -654,7 +185,7 @@ public:
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 9;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 10;
 
   static constexpr Params preset_params(size_t index) {
     Params value;
@@ -692,6 +223,24 @@ public:
     }
     return value;
   }
+
+  enum class Pattern : uint8_t { CUBIC_WIRE };
+  enum class Backend : uint8_t { ANALYTIC_EVENTS };
+  enum class Policy : uint8_t { LEGACY_COVERAGE };
+  struct Configuration {
+    Pattern pattern;
+    LatticeMode domain;
+    Backend backend;
+    Policy policy;
+    uint8_t default_preset;
+    uint8_t max_candidates;
+    uint8_t max_layers;
+  };
+  static constexpr std::array<Configuration, 2> CONFIGURATIONS{
+      {{Pattern::CUBIC_WIRE, LatticeMode::THREE_D, Backend::ANALYTIC_EVENTS,
+        Policy::LEGACY_COVERAGE, 0, 9, 9},
+       {Pattern::CUBIC_WIRE, LatticeMode::FOUR_D_SLICE,
+        Backend::ANALYTIC_EVENTS, Policy::LEGACY_COVERAGE, 1, 12, 12}}};
 
   static constexpr bool valid_params(const Params &value) {
     return static_cast<uint8_t>(value.mode) <=
@@ -736,7 +285,7 @@ public:
 
   void init() override {
     begin_choreography();
-    register_animated_param("Dimension", &params.mode, MODE_OPTIONS,
+    register_animated_param("Configuration", &params.mode, MODE_OPTIONS,
                             MODE_EXPORT_OPTIONS, std::size(MODE_OPTIONS));
     register_animated_param("Sphere Radius", &params.sphere_radius,
                             SPHERE_RADIUS_MIN, SPHERE_RADIUS_MAX);
@@ -759,8 +308,9 @@ public:
                             SPIN_4D_MAX);
     register_animated_param("Color", &params.color, COLOR_OPTIONS,
                             COLOR_EXPORT_OPTIONS, std::size(COLOR_OPTIONS));
-    register_animated_param("Shells", &params.shells, SHELL_OPTIONS,
+    register_animated_param("Lattice Planes", &params.shells, SHELL_OPTIONS,
                             SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
+    refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
     const GenerativePalette fixed_axis_palette{
@@ -832,8 +382,37 @@ private:
   using Choreography::timeline;
   using Choreography::transition;
 
+  void parameter_written() override {
+    Choreography::parameter_written();
+    if (params.mode != active_configuration) {
+      const auto color = params.color;
+      const float near_fade = params.near_fade;
+      params = preset_params(
+          CONFIGURATIONS[static_cast<size_t>(params.mode)].default_preset);
+      params.color = color;
+      params.near_fade = near_fade;
+      active_configuration = params.mode;
+      refresh_configuration_schema();
+    }
+  }
+  void adopt_params(const Params &target) {
+    params = target;
+    active_configuration = params.mode;
+    refresh_configuration_schema();
+  }
   void blend_params(float progress) {
     params.lerp(transition.from, transition.to, progress);
+    active_configuration = params.mode;
+    refresh_configuration_schema();
+  }
+
+  void refresh_configuration_schema() {
+    if (auto *parameter = this->getParameters().find("4D Spin")) {
+      const bool readonly = params.mode == LatticeMode::THREE_D;
+      if (parameter->readonly != readonly) {
+        this->mark_readonly("4D Spin", readonly);
+      }
+    }
   }
 
   void advance_state() {
@@ -847,7 +426,7 @@ private:
       rotation_phase[plane] = math::wrap(
           rotation_phase[plane] + params.spin_3d * RATE[plane], math::TWO_PI_F);
     const float SPIN_4D_STEP =
-        HyperLatticeDetail::dimension_mix(params.mode) * params.spin_4d;
+        (params.mode == LatticeMode::FOUR_D_SLICE ? params.spin_4d : 0.0f);
     for (int plane = 3; plane < 6; ++plane)
       rotation_phase[plane] = math::wrap(
           rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], math::TWO_PI_F);
@@ -874,11 +453,10 @@ private:
 
   static constexpr int PALETTE_FADE_FRAMES = 960;
 
-  static constexpr const char *MODE_OPTIONS[] = {"3D", "Dimensional Rift",
-                                                 "4D Slice"};
+  static constexpr const char *MODE_OPTIONS[] = {"Cubic / 3D",
+                                                 "Cubic / 4D slice"};
   static constexpr const char *MODE_EXPORT_OPTIONS[] = {
-      "LatticeMode::THREE_D", "LatticeMode::DIMENSIONAL_RIFT",
-      "LatticeMode::FOUR_D_SLICE"};
+      "LatticeMode::THREE_D", "LatticeMode::FOUR_D_SLICE"};
   static constexpr const char *COLOR_OPTIONS[] = {"Depth", "Axis"};
   static constexpr const char *COLOR_EXPORT_OPTIONS[] = {"ColorMode::DEPTH",
                                                          "ColorMode::AXIS"};
@@ -886,6 +464,7 @@ private:
   static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
 
+  LatticeMode active_configuration = LatticeMode::THREE_D;
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;

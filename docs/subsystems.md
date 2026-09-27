@@ -152,6 +152,37 @@ Registers are not pre-populated — the shader receives only `pos` (reconstructe
 
 The fragment shader receives `pos` set to the closest local-space hit point (in the SDF's coordinate frame) and `size` set to the closest signed distance. No register convention — the shader computes lighting from the local-space position directly.
 
+### Spherical ray rendering
+
+The reusable ray entry is [ray.h](../core/render/ray.h). `Raycast::PreparedCamera`
+embeds unit display directions in 3D or a 4D slice with world-distance near/far
+limits and a radial start. Pattern transforms are separate from the orthonormal
+camera embedding. `VolumeQuery`, `PlacedQuery`, and `DomainQuery3/4` adapt existing
+volume shapes and ambient fields without introducing another framebuffer traversal.
+
+`surface_search` finds the first verified boundary, with independent exterior
+and interior clearance guarantees and explicit unresolved/exhaustion outcomes.
+Its numerical driver also runs `legacy_closest`, the compatibility policy used
+by `Scan::Volume`; that caller keeps its original approximate silhouette and
+occluder handling. Surface proximity alone never contributes opacity.
+
+`trace_events` merges a compile-time bounded set of monotone analytic streams.
+It preserves distinct material/merge identities, coalesces duplicate coverage
+within a relative tolerance, and reports candidate/layer exhaustion. A group
+holds at most one distinct identity per declared stream; exceeding that bounded
+storage reports exhaustion after consuming the valid pending contributions.
+Geometry-specific candidates live in the lattice and triangular-framework SDF
+headers. `Appearance`, `shade_events`, `shade_surface`, and `verified_filter`
+reuse straight-alpha `LayerComposite` composition and shade verified subrays
+independently. Unresolved subrays retain diagnostic failure status.
+
+[RayStage](../core/render/pullback/ray.h) binds a frame-prepared renderer to the
+existing `SphereSample -> Color4` contract. HyperLattice owns presets, palettes,
+wrapped legacy flight animation, and its admitted tuple table; reusable geometry,
+event traversal, shading, and composition reside in core. Curved periodic fields
+and marched lattice/volume adapters remain explicit experiments pending resource
+admission; merely including their templates emits no registered firmware effect.
+
 ## 7.1 SDF Shapes (`sdf.h`) and the Scan Rasterizer (`scan.h`)
 
 The rendering pipeline splits shape definitions from rasterization. `sdf.h` defines the SDF shape primitives, each implementing three methods:

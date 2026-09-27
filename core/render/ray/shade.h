@@ -1,0 +1,117 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+#include "color/baked_palette.h"
+#include "color/layer_composite.h"
+#include "render/ray/events.h"
+#include "render/ray/march.h"
+
+namespace Raycast {
+
+enum class ColorMode : uint8_t { DEPTH, AXIS };
+
+struct Appearance {
+  float inv_far = .1f;
+  float near_start = 0;
+  float near_inv_span = 1;
+  ColorMode mode = ColorMode::DEPTH;
+  const BakedPalette *depth_palette = nullptr;
+  const BakedPalette *feature_palette = nullptr;
+  float feature_count = 4;
+
+  __attribute__((always_inline)) float opacity(float t) const {
+    const float fog = std::max(0.0f, 1.0f - t * inv_far);
+    return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
+  }
+  __attribute__((always_inline)) Pixel color(const Contribution &hit) const {
+    const float depth = hit.t * inv_far;
+    const float value =
+        mode == ColorMode::DEPTH
+            ? 1 - depth
+            : (static_cast<float>(hit.feature) + .75f * depth) / feature_count;
+    const auto &palette =
+        *(mode == ColorMode::DEPTH ? depth_palette : feature_palette);
+    return palette.get_color_unit(value) * (.45f + .55f * (1 - depth));
+  }
+};
+
+struct ShadedTrace {
+  Color4 color;
+  TraceResult trace;
+};
+
+template <typename Adapter>
+__attribute__((always_inline)) inline ShadedTrace
+shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
+             const Appearance &appearance) {
+  LayerComposite composite;
+  auto trace =
+      trace_events(adapter, interval, limits,
+                   [&](const Contribution &hit) __attribute__((always_inline)) {
+                     HS_PROFILE_DEEP(hl_layer_composite);
+                     composite.add(appearance.color(hit),
+                                   hit.coverage * appearance.opacity(hit.t));
+                     return !composite.saturated();
+                   });
+  return {composite.finish(), trace};
+}
+
+template <typename Query>
+ShadedTrace shade_surface(const Query &query, const Ray &ray,
+                          const Footprint &footprint, const TraceLimits &limits,
+                          const Appearance &appearance) {
+  auto trace = surface_search(query, ray, footprint, limits);
+  LayerComposite composite;
+  if (trace.has_surface)
+    composite.add(appearance.color(trace.contribution),
+                  trace.contribution.coverage *
+                      appearance.opacity(trace.contribution.t));
+  return {composite.finish(), trace};
+}
+
+/** @brief Averages independently verified subrays in premultiplied space. */
+template <size_t COUNT, typename Trace>
+ShadedTrace verified_filter(const std::array<math::Vector, COUNT> &directions,
+                            Trace trace) {
+  static_assert(COUNT > 0);
+  ShadedTrace result{};
+  float red = 0, green = 0, blue = 0, alpha = 0;
+  size_t hits = 0;
+  for (const auto &direction : directions) {
+    const auto sample = trace(direction);
+    result.trace.counters.queries += sample.trace.counters.queries;
+    result.trace.counters.steps += sample.trace.counters.steps;
+    result.trace.counters.refinements += sample.trace.counters.refinements;
+    if (sample.trace.status != TraceStatus::SURFACE &&
+        sample.trace.status != TraceStatus::RANGE_COMPLETE)
+      result.trace.status = sample.trace.status;
+    if (!sample.trace.has_surface || !sample.trace.contribution.verified)
+      continue;
+    if (!result.trace.has_surface)
+      result.trace.contribution = sample.trace.contribution;
+    result.trace.has_surface = true;
+    ++hits;
+    red += sample.color.color.r * sample.color.alpha;
+    green += sample.color.color.g * sample.color.alpha;
+    blue += sample.color.color.b * sample.color.alpha;
+    alpha += sample.color.alpha;
+  }
+  result.trace.contribution.coverage = static_cast<float>(hits) / COUNT;
+  if (result.trace.has_surface &&
+      result.trace.status == TraceStatus::RANGE_COMPLETE)
+    result.trace.status = TraceStatus::SURFACE;
+  if (alpha > 0) {
+    result.color = {{round_linear_channel(red / alpha),
+                     round_linear_channel(green / alpha),
+                     round_linear_channel(blue / alpha)},
+                    alpha / COUNT};
+    if (result.trace.status == TraceStatus::RANGE_COMPLETE)
+      result.trace.status = TraceStatus::SURFACE;
+  }
+  return result;
+}
+
+} // namespace Raycast
