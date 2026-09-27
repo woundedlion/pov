@@ -936,6 +936,49 @@ inline void test_shader_workbench_full_config_snapshot() {
       sb.capture_full_config_snapshot(), before_failure));
 }
 
+inline void test_shader_workbench_nonfinite_warp_snapshot() {
+  using WB = ShaderWorkbenchWhiteBox;
+  reset_effect_globals();
+  WB::SB sb;
+  sb.init();
+  sb.setAnimationsPaused(true);
+  auto config = WB::legacy_config();
+  config.slots.warp_program.outer.kind = WB::WarpStageKind::AFFINE_FRAME;
+  config.slots.warp_program.inner.kind = WB::WarpStageKind::AFFINE_FRAME;
+  config.params.warp.outer = WB::WarpStageParams{};
+  config.params.warp.inner = WB::WarpStageParams{};
+  auto snapshot = sb.capture_full_config_snapshot();
+  snapshot.accepted = WB::encode_config(config);
+  snapshot.requested = snapshot.accepted;
+  snapshot.pending = {};
+  HS_EXPECT_EQ(sb.restore_full_config_snapshot(snapshot),
+               WB::ConfigRestoreResult::APPLIED);
+
+  for (auto field : {WB::ConfigFieldId::WARP_OUTER_SPEED,
+                     WB::ConfigFieldId::WARP_INNER_SPEED}) {
+    const size_t INDEX = static_cast<size_t>(field);
+    for (uint32_t payload : {0x7fc00000u, 0x7f800000u, 0xff800000u}) {
+      for (bool requested_only : {false, true}) {
+        const auto BEFORE = sb.capture_full_config_snapshot();
+        auto invalid = BEFORE;
+        invalid.requested[INDEX] = payload;
+        if (requested_only)
+          invalid.pending[INDEX] = 1;
+        else
+          invalid.accepted[INDEX] = payload;
+        HS_EXPECT_EQ(sb.restore_full_config_snapshot(invalid),
+                     WB::ConfigRestoreResult::INVALID_VALUE);
+        HS_EXPECT_TRUE(shader_workbench_snapshots_equal(
+            sb.capture_full_config_snapshot(), BEFORE));
+        sb.draw_frame();
+        sb.advance_display();
+        for (float value : sb.capture_full_config_snapshot().runtime)
+          HS_EXPECT_TRUE(std::isfinite(value));
+      }
+    }
+  }
+}
+
 /** @brief Refused selectors preserve accepted subordinate values and snapshots. */
 inline void test_shader_workbench_refused_selector_range() {
   using WB = ShaderWorkbenchWhiteBox;
@@ -6254,6 +6297,7 @@ inline int run_shader_workbench_tests() {
   test_shader_workbench_inverse_pipeline_manifest();
   test_shader_workbench_inverse_program_equivalence();
   test_shader_workbench_full_config_snapshot();
+  test_shader_workbench_nonfinite_warp_snapshot();
   test_shader_workbench_surface_noise_range_rebind();
   test_shader_workbench_refused_selector_range();
   test_shader_workbench_incompatible_config_snapshot();

@@ -145,7 +145,7 @@ HS_COLD_MEMBER inline constexpr bool
 warp_stage_params_in_ranges(WarpStageKind kind, const WarpStageParams &params) {
   if (kind == WarpStageKind::NONE)
     return true;
-  if (params.speed < NOISE_SPEED_MIN || params.speed > NOISE_SPEED_MAX)
+  if (!(params.speed >= NOISE_SPEED_MIN && params.speed <= NOISE_SPEED_MAX))
     return false;
   switch (kind) {
   case WarpStageKind::AFFINE_FRAME:
