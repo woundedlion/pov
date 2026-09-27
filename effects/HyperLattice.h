@@ -142,6 +142,29 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
   }
   return embedding;
 }
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+HS_FLASH_INLINE inline HyperLatticeExperimental::Settings
+experimental_settings(const FrameState &frame, float phase) {
+  const auto &p = frame.params;
+  const math::Vector CENTER{.255f + .3f * sinf(phase),
+                            .465f + .225f * sinf(2 * phase),
+                            .645f + .27f * sinf(3 * phase)};
+  return {static_cast<HyperLatticeExperimental::Pattern>(
+              static_cast<uint8_t>(p.pattern) - 1),
+          p.cell_size,
+          p.wire_radius * p.cell_size,
+          p.sphere_radius,
+          p.far_distance,
+          p.near_fade,
+          p.aa_strength,
+          CENTER,
+          view_embedding(frame),
+          frame.pixel_half_angle,
+          frame.depth_palette,
+          frame.axis_palette,
+          p.color};
+}
+#endif
 inline PreparedTrace prepare_trace(const FrameState &frame) {
   const auto embedding = view_embedding(frame);
   const auto &p = frame.params;
@@ -527,25 +550,8 @@ private:
   draw_experimental(Canvas &canvas,
                     const HyperLatticeDetail::FrameState &context) {
     using namespace HyperLatticeExperimental;
-    const math::Vector CENTER =
-        math::Vector{.17f + .2f * sinf(experimental_phase),
-                     .31f + .15f * sinf(2 * experimental_phase),
-                     .43f + .18f * sinf(3 * experimental_phase)} *
-        params.cell_size;
-    const Settings SETTINGS{static_cast<HyperLatticeExperimental::Pattern>(
-                                static_cast<uint8_t>(params.pattern) - 1),
-                            params.cell_size,
-                            params.wire_radius * params.cell_size,
-                            params.sphere_radius * params.cell_size,
-                            params.far_distance,
-                            params.near_fade,
-                            params.aa_strength,
-                            CENTER,
-                            HyperLatticeDetail::view_embedding(context),
-                            context.pixel_half_angle,
-                            context.depth_palette,
-                            context.axis_palette,
-                            params.color};
+    const auto SETTINGS =
+        HyperLatticeDetail::experimental_settings(context, experimental_phase);
     const auto prepared = prepare(SETTINGS);
     using Shade =
         Raycast::ShadedTrace (*)(const math::Vector &, const Prepared &);
