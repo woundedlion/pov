@@ -215,6 +215,45 @@ async function main(probe) {
     }
   }
 
+  {
+    const engine = new Module.HolosphereEngine();
+    try {
+      if (engine.setEffect('ShaderChain') !== Module.EffectSetResult.INSTALLED) {
+        fail('batch-pause: could not install ShaderChain');
+      } else {
+        for (const paused of [false, true]) {
+          engine.setAnimationsPaused(paused);
+          const result = engine.setShaderChainParameters([
+            { name: 'missing-parameter', value: 2 },
+          ]);
+          if (result !== Module.ParamSetResult.UNKNOWN_PARAM
+              || engine.getAnimationsPaused() !== paused) {
+            fail('batch-pause: rejected write changed the pause state');
+          }
+        }
+        engine.setAnimationsPaused(false);
+        const result = engine.setShaderChainParameters([
+          { name: 'sample.pattern-freq', value: 2 },
+        ]);
+        if (result !== Module.ParamSetResult.APPLIED
+            || engine.getAnimationsPaused() !== true) {
+          fail('batch-pause: applied animated write did not publish pause state');
+        }
+        if (engine.setEffect('ShaderChain') !== Module.EffectSetResult.INSTALLED
+            || engine.getAnimationsPaused() !== true) {
+          fail('batch-pause: replacement lost the batch pause state');
+        }
+        const held = Array.from(engine.getParamValues());
+        for (let frame = 0; frame < 20; ++frame) engine.drawFrame();
+        if (Array.from(engine.getParamValues()).some((value, index) => value !== held[index])) {
+          fail('batch-pause: replacement resumed paused parameters');
+        }
+      }
+    } finally {
+      engine.delete();
+    }
+  }
+
   // Per-effect-per-resolution darkness: an effect whose draw path regresses to
   // an all-zero framebuffer is invisible to a run-wide "something lit" flag,
   // and the length checks below cannot see it either. Keys are "Name@WxH".
