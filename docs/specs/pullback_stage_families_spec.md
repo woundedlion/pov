@@ -28,7 +28,7 @@ ranked pipeline. Its `ARITY`, `ORDER` and stage-kind names are historical;
 `Pullback::Pipeline` validates a hard-wired shape: exactly six stages, one
 each of `OUTER_CAMERA, SURFACE_PROJECT, PLANAR_WARP, SOURCE, MATERIAL,
 COLOR`, in that order, with slot-specific carrier types between them
-(`contract.h` `ORDER`/`ARITY`/`CARRIERS`). All flexibility lives *inside* a
+(`core/render/pullback/contract.h` `ORDER`/`ARITY`/`CARRIERS`). All flexibility lives *inside* a
 slot as policy parameters: `SurfaceProject` owns four policy slots
 (pre-lens surface, lens, post-lens surface, projection), `PlanarWarp` a
 variadic policy list, `Material` a fixed weight/transfer/coverage triple.
