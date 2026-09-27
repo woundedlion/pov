@@ -984,6 +984,21 @@ inline void test_experimental_presets() {
   effect.setAnimationsPaused(true);
   const auto initial = effect.serialize_parameters();
   for (size_t i = 2; i < Effect::PRESET_IDS.size(); ++i) {
+    HL::FrameState frame{};
+    frame.params = Effect::preset_params(i);
+    frame.params.sphere_radius = .7f;
+    frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
+    frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
+    const auto before = HyperLatticeExperimental::prepare(
+        HyperLatticeDetail::experimental_settings(frame, .8f));
+    frame.params.cell_size *= 2;
+    const auto after = HyperLatticeExperimental::prepare(
+        HyperLatticeDetail::experimental_settings(frame, .8f));
+    HS_EXPECT_TRUE(before.valid && after.valid);
+    for (int axis = 0; axis < 4; ++axis)
+      HS_EXPECT_EQ(before.camera.center[axis], after.camera.center[axis]);
+    HS_EXPECT_EQ(before.camera.radial_start, .7f);
+    HS_EXPECT_EQ(before.camera.radial_start, after.camera.radial_start);
     HS_EXPECT_TRUE(Effect::PRESET_IDS[i].starts_with("experimental-"));
     HS_EXPECT_TRUE(effect.selectPreset(i));
     HS_EXPECT_EQ(effect.getParameters().find("Configuration")->get(), float(i));
