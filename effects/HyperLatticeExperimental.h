@@ -107,32 +107,30 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade(const math::Vector &direction,
     return result;
   }
   const auto RAY = prepared.camera.ray(direction);
+  const auto AMBIENT_DIRECTION = prepared.camera.embedding.apply(
+      {{direction.x, direction.y, direction.z, 0.0f}});
+  const Raycast::Ray WORLD_RAY{
+      prepared.camera.point3(RAY.origin),
+      {AMBIENT_DIRECTION[0], AMBIENT_DIRECTION[1], AMBIENT_DIRECTION[2]},
+      RAY.interval};
+  if (!WORLD_RAY.valid()) {
+    Raycast::ShadedTrace result;
+    result.trace.status = Raycast::TraceStatus::INVALID_QUERY;
+    return result;
+  }
   if constexpr (PATTERN == Pattern::TRIANGULAR) {
-    const auto AMBIENT_DIRECTION = prepared.camera.embedding.apply(
-        {{direction.x, direction.y, direction.z, 0.0f}});
-    const Raycast::Ray WORLD_RAY{
-        prepared.camera.point3(RAY.origin),
-        {AMBIENT_DIRECTION[0], AMBIENT_DIRECTION[1], AMBIENT_DIRECTION[2]},
-        RAY.interval};
-    if (!WORLD_RAY.valid()) {
-      Raycast::ShadedTrace result;
-      result.trace.status = Raycast::TraceStatus::INVALID_QUERY;
-      return result;
-    }
     SDF::FrameworkEvents events(prepared.framework, WORLD_RAY,
                                 prepared.footprint);
     return Raycast::shade_events(events, WORLD_RAY.interval, prepared.limits,
                                  prepared.appearance);
   } else if constexpr (PATTERN == Pattern::COSINE) {
-    const Raycast::DomainQuery3<SDF::CosineSurface> QUERY{prepared.cosine,
-                                                          prepared.camera};
-    return Raycast::shade_surface(QUERY, RAY, prepared.footprint,
-                                  prepared.limits, prepared.appearance);
+    return Raycast::shade_surface(prepared.cosine, WORLD_RAY,
+                                  prepared.footprint, prepared.limits,
+                                  prepared.appearance);
   } else {
-    const Raycast::DomainQuery3<SDF::GyroidSurface> QUERY{prepared.gyroid,
-                                                          prepared.camera};
-    return Raycast::shade_surface(QUERY, RAY, prepared.footprint,
-                                  prepared.limits, prepared.appearance);
+    return Raycast::shade_surface(prepared.gyroid, WORLD_RAY,
+                                  prepared.footprint, prepared.limits,
+                                  prepared.appearance);
   }
 }
 
