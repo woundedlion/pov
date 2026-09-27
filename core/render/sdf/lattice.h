@@ -251,6 +251,7 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
 /** @brief Approximate plane-crossing coverage for cubic and hypercubic edges. */
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
   static constexpr size_t STREAM_COUNT = DIMENSIONS;
+  static constexpr size_t GROUP_CAPACITY = 1;
   struct Cursor {
     float distance = 0, step = 0, magnitude = 0;
     uint8_t shell = 0;
