@@ -1,0 +1,1074 @@
+profile harness: effect=SphericalExperiment config=ship segments=4 rpm=480 f_cpu=600000000
+reset cause: 0x001 por
+[Phantasm] Segment 0 arm-A (+y) MASTER | y_base=0 y_step=1 pixels=72
+spherical experiment: samples=1 gradient=1 positions=36 cases=8
+Preset: 1/8
+spherical counts: frame=1 case=0 position=0 samples=21024 queries=167544 peak=8 surface=1828 unresolved=0 exhausted=19196 invalid=0
+f 1 w=234156 r=234156
+spherical counts: frame=2 case=0 position=1 samples=10658 queries=84147 peak=8 surface=1808 unresolved=0 exhausted=8850 invalid=0
+f 2 w=128522 r=128522
+spherical counts: frame=3 case=0 position=2 samples=10658 queries=85020 peak=8 surface=1513 unresolved=0 exhausted=9145 invalid=0
+f 3 w=188113 r=129198
+spherical counts: frame=4 case=0 position=3 samples=10658 queries=76752 peak=8 surface=5627 unresolved=0 exhausted=5031 invalid=0
+f 4 w=178432 r=120190
+spherical counts: frame=5 case=0 position=4 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 5 w=125435 r=120684
+spherical counts: frame=6 case=0 position=5 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 6 w=133723 r=129454
+spherical counts: frame=7 case=0 position=6 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 7 w=187151 r=129107
+spherical counts: frame=8 case=0 position=7 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 8 w=187471 r=129138
+spherical counts: frame=9 case=0 position=8 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 9 w=178291 r=119987
+spherical counts: frame=10 case=0 position=9 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 10 w=132515 r=127555
+spherical counts: frame=11 case=0 position=10 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 11 w=188554 r=128650
+spherical counts: frame=12 case=0 position=11 samples=10658 queries=85264 peak=8 surface=26 unresolved=0 exhausted=10632 invalid=0
+f 12 w=187917 r=129070
+spherical counts: frame=13 case=0 position=12 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 13 w=179488 r=121115
+spherical counts: frame=14 case=0 position=13 samples=10658 queries=84147 peak=8 surface=1808 unresolved=0 exhausted=8850 invalid=0
+f 14 w=132340 r=128502
+spherical counts: frame=15 case=0 position=14 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 15 w=188119 r=129175
+spherical counts: frame=16 case=0 position=15 samples=10658 queries=76749 peak=8 surface=5628 unresolved=0 exhausted=5030 invalid=0
+f 16 w=178484 r=120216
+spherical counts: frame=17 case=0 position=16 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 17 w=125480 r=120691
+spherical counts: frame=18 case=0 position=17 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 18 w=133707 r=129454
+spherical counts: frame=19 case=0 position=18 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 19 w=187116 r=129120
+spherical counts: frame=20 case=0 position=19 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 20 w=187465 r=129142
+spherical counts: frame=21 case=0 position=20 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 21 w=178297 r=119998
+spherical counts: frame=22 case=0 position=21 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 22 w=132584 r=127577
+spherical counts: frame=23 case=0 position=22 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 23 w=188491 r=128628
+spherical counts: frame=24 case=0 position=23 samples=10658 queries=85264 peak=8 surface=26 unresolved=0 exhausted=10632 invalid=0
+f 24 w=187895 r=129080
+spherical counts: frame=25 case=0 position=24 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 25 w=179476 r=121114
+spherical counts: frame=26 case=0 position=25 samples=10658 queries=84147 peak=8 surface=1808 unresolved=0 exhausted=8850 invalid=0
+f 26 w=132337 r=128503
+spherical counts: frame=27 case=0 position=26 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 27 w=188165 r=129173
+spherical counts: frame=28 case=0 position=27 samples=10658 queries=76749 peak=8 surface=5628 unresolved=0 exhausted=5030 invalid=0
+f 28 w=178472 r=120203
+spherical counts: frame=29 case=0 position=28 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 29 w=125409 r=120677
+spherical counts: frame=30 case=0 position=29 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 30 w=133711 r=129444
+spherical counts: frame=31 case=0 position=30 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 31 w=187139 r=129137
+spherical counts: frame=32 case=0 position=31 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 32 w=187498 r=129140
+spherical counts: frame=33 case=0 position=32 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 33 w=178329 r=120011
+spherical counts: frame=34 case=0 position=33 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 34 w=132506 r=127557
+spherical counts: frame=35 case=0 position=34 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 35 w=188504 r=128630
+spherical counts: frame=36 case=0 position=35 samples=10658 queries=85264 peak=8 surface=26 unresolved=0 exhausted=10632 invalid=0
+f 36 w=187883 r=129074
+=== profile SphericalExperiment [288x144] frames 1-36 window=6315465 us ===
+frame wall us: min=125409 avg=168032 max=234156 sum=6049175 (36 frames)
+frame render us: avg=129196 max=234156
+--- Cycle Counters ---
+frame                  6049173 us (100%)  36 calls  3629504382 cyc
+  pov_preserve_half    4847 us (0%)  35 calls  2908715 cyc
+  spherical_draw       4641198 us (76%)  36 calls  2784719096 cyc
+  canvas_clear         3261 us (0%)  36 calls  1956912 cyc
+  canvas_buffer_wait   1398119 us (23%)  36 calls  838871909 cyc
+isr_wake       n=116436 cyc min/avg/max=271/926/8164 ns min/avg/max=451/1543/13606 total=179789 us cpu=2.84%
+isr_pack       n=13403 cyc min/avg/max=3741/4018/6505 ns min/avg/max=6235/6696/10841 total=89759 us cpu=1.42%
+isr_dma_submit n=13403 cyc min/avg/max=395/547/637 ns min/avg/max=658/911/1061 total=12236 us cpu=0.19%
+Preset: 2/8
+spherical counts: frame=37 case=1 position=0 samples=10658 queries=121088 peak=12 surface=2586 unresolved=0 exhausted=8072 invalid=0
+f 37 w=224998 r=166718
+spherical counts: frame=38 case=1 position=1 samples=10658 queries=127648 peak=12 surface=297 unresolved=0 exhausted=10361 invalid=0
+f 38 w=202106 r=181378
+spherical counts: frame=39 case=1 position=2 samples=10658 queries=114180 peak=12 surface=5495 unresolved=0 exhausted=5163 invalid=0
+f 39 w=173678 r=167622
+spherical counts: frame=40 case=1 position=3 samples=10658 queries=124374 peak=12 surface=1952 unresolved=0 exhausted=8706 invalid=0
+f 40 w=198805 r=178987
+spherical counts: frame=41 case=1 position=4 samples=10658 queries=117486 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 41 w=170764 r=162310
+spherical counts: frame=42 case=1 position=5 samples=10658 queries=126147 peak=12 surface=1004 unresolved=0 exhausted=9654 invalid=0
+f 42 w=205819 r=180632
+spherical counts: frame=43 case=1 position=6 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 43 w=178356 r=171545
+spherical counts: frame=44 case=1 position=7 samples=10658 queries=126673 peak=12 surface=712 unresolved=0 exhausted=9946 invalid=0
+f 44 w=197960 r=182063
+spherical counts: frame=45 case=1 position=8 samples=10658 queries=114181 peak=12 surface=5496 unresolved=0 exhausted=5162 invalid=0
+f 45 w=162459 r=157079
+spherical counts: frame=46 case=1 position=9 samples=10658 queries=127868 peak=12 surface=106 unresolved=0 exhausted=10552 invalid=0
+f 46 w=211107 r=180689
+spherical counts: frame=47 case=1 position=10 samples=10658 queries=121088 peak=12 surface=2584 unresolved=0 exhausted=8074 invalid=0
+f 47 w=181737 r=174986
+spherical counts: frame=48 case=1 position=11 samples=10658 queries=127059 peak=12 surface=738 unresolved=0 exhausted=9920 invalid=0
+f 48 w=194844 r=182381
+spherical counts: frame=49 case=1 position=12 samples=10658 queries=121088 peak=12 surface=2586 unresolved=0 exhausted=8072 invalid=0
+f 49 w=171800 r=166739
+spherical counts: frame=50 case=1 position=13 samples=10658 queries=127648 peak=12 surface=297 unresolved=0 exhausted=10361 invalid=0
+f 50 w=202089 r=181388
+spherical counts: frame=51 case=1 position=14 samples=10658 queries=114179 peak=12 surface=5500 unresolved=0 exhausted=5158 invalid=0
+f 51 w=173727 r=167612
+spherical counts: frame=52 case=1 position=15 samples=10658 queries=124373 peak=12 surface=1950 unresolved=0 exhausted=8708 invalid=0
+f 52 w=198830 r=178995
+spherical counts: frame=53 case=1 position=16 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 53 w=170750 r=162305
+spherical counts: frame=54 case=1 position=17 samples=10658 queries=126148 peak=12 surface=1004 unresolved=0 exhausted=9654 invalid=0
+f 54 w=205762 r=180636
+spherical counts: frame=55 case=1 position=18 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 55 w=178408 r=171548
+spherical counts: frame=56 case=1 position=19 samples=10658 queries=126675 peak=12 surface=712 unresolved=0 exhausted=9946 invalid=0
+f 56 w=197967 r=182073
+spherical counts: frame=57 case=1 position=20 samples=10658 queries=114181 peak=12 surface=5498 unresolved=0 exhausted=5160 invalid=0
+f 57 w=162412 r=157042
+spherical counts: frame=58 case=1 position=21 samples=10658 queries=127868 peak=12 surface=106 unresolved=0 exhausted=10552 invalid=0
+f 58 w=211125 r=180716
+spherical counts: frame=59 case=1 position=22 samples=10658 queries=121088 peak=12 surface=2587 unresolved=0 exhausted=8071 invalid=0
+f 59 w=181705 r=174979
+spherical counts: frame=60 case=1 position=23 samples=10658 queries=127059 peak=12 surface=738 unresolved=0 exhausted=9920 invalid=0
+f 60 w=194907 r=182389
+spherical counts: frame=61 case=1 position=24 samples=10658 queries=121088 peak=12 surface=2586 unresolved=0 exhausted=8072 invalid=0
+f 61 w=171795 r=166741
+spherical counts: frame=62 case=1 position=25 samples=10658 queries=127648 peak=12 surface=297 unresolved=0 exhausted=10361 invalid=0
+f 62 w=202086 r=181379
+spherical counts: frame=63 case=1 position=26 samples=10658 queries=114179 peak=12 surface=5500 unresolved=0 exhausted=5158 invalid=0
+f 63 w=173630 r=167595
+spherical counts: frame=64 case=1 position=27 samples=10658 queries=124373 peak=12 surface=1950 unresolved=0 exhausted=8708 invalid=0
+f 64 w=198882 r=178982
+spherical counts: frame=65 case=1 position=28 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 65 w=170768 r=162307
+spherical counts: frame=66 case=1 position=29 samples=10658 queries=126148 peak=12 surface=1004 unresolved=0 exhausted=9654 invalid=0
+f 66 w=205754 r=180630
+spherical counts: frame=67 case=1 position=30 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 67 w=178360 r=171548
+spherical counts: frame=68 case=1 position=31 samples=10658 queries=126675 peak=12 surface=712 unresolved=0 exhausted=9946 invalid=0
+f 68 w=197942 r=182043
+spherical counts: frame=69 case=1 position=32 samples=10658 queries=114181 peak=12 surface=5498 unresolved=0 exhausted=5160 invalid=0
+f 69 w=162538 r=157084
+spherical counts: frame=70 case=1 position=33 samples=10658 queries=127868 peak=12 surface=106 unresolved=0 exhausted=10552 invalid=0
+f 70 w=211054 r=180707
+spherical counts: frame=71 case=1 position=34 samples=10658 queries=121088 peak=12 surface=2587 unresolved=0 exhausted=8071 invalid=0
+f 71 w=181711 r=174970
+spherical counts: frame=72 case=1 position=35 samples=10658 queries=127059 peak=12 surface=738 unresolved=0 exhausted=9920 invalid=0
+f 72 w=194846 r=182373
+=== profile SphericalExperiment [288x144] frames 37-72 window=6803163 us ===
+frame wall us: min=162412 avg=188930 max=224998 sum=6801481 (36 frames)
+frame render us: avg=173865 max=182389
+--- Cycle Counters ---
+frame                  6801475 us (100%)  36 calls  4080885114 cyc
+  pov_preserve_half    4724 us (0%)  36 calls  2834786 cyc
+  spherical_draw       6249659 us (91%)  36 calls  3749795704 cyc
+  canvas_clear         3057 us (0%)  36 calls  1834603 cyc
+  canvas_buffer_wait   542325 us (7%)  36 calls  325395326 cyc
+isr_wake       n=125407 cyc min/avg/max=313/996/7101 ns min/avg/max=521/1660/11835 total=208205 us cpu=3.06%
+isr_pack       n=15675 cyc min/avg/max=3741/4083/5635 ns min/avg/max=6235/6805/9391 total=106685 us cpu=1.56%
+isr_dma_submit n=15675 cyc min/avg/max=379/548/772 ns min/avg/max=631/913/1286 total=14318 us cpu=0.21%
+Preset: 3/8
+spherical counts: frame=73 case=2 position=0 samples=10658 queries=151360 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 73 w=209924 r=204945
+spherical counts: frame=74 case=2 position=1 samples=10658 queries=142569 peak=16 surface=4542 unresolved=0 exhausted=6116 invalid=0
+f 74 w=248351 r=203346
+spherical counts: frame=75 case=2 position=2 samples=10658 queries=132749 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 75 w=238246 r=191655
+spherical counts: frame=76 case=2 position=3 samples=10658 queries=102005 peak=16 surface=8620 unresolved=0 exhausted=2038 invalid=0
+f 76 w=211486 r=153192
+spherical counts: frame=77 case=2 position=4 samples=10658 queries=140998 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 77 w=226237 r=191933
+spherical counts: frame=78 case=2 position=5 samples=10658 queries=163526 peak=16 surface=1846 unresolved=0 exhausted=8812 invalid=0
+f 78 w=286048 r=228043
+spherical counts: frame=79 case=2 position=6 samples=10658 queries=141003 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 79 w=224422 r=202521
+spherical counts: frame=80 case=2 position=7 samples=10658 queries=164364 peak=16 surface=2517 unresolved=0 exhausted=8141 invalid=0
+f 80 w=278318 r=230845
+spherical counts: frame=81 case=2 position=8 samples=10658 queries=132744 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 81 w=199326 r=180243
+spherical counts: frame=82 case=2 position=9 samples=10658 queries=167993 peak=16 surface=1566 unresolved=0 exhausted=9092 invalid=0
+f 82 w=240974 r=233774
+spherical counts: frame=83 case=2 position=10 samples=10658 queries=151362 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 83 w=229968 r=213799
+spherical counts: frame=84 case=2 position=11 samples=10658 queries=165971 peak=16 surface=1848 unresolved=0 exhausted=8810 invalid=0
+f 84 w=267464 r=231270
+spherical counts: frame=85 case=2 position=12 samples=10658 queries=151360 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 85 w=223707 r=205052
+spherical counts: frame=86 case=2 position=13 samples=10658 queries=142568 peak=16 surface=4542 unresolved=0 exhausted=6116 invalid=0
+f 86 w=248334 r=203443
+spherical counts: frame=87 case=2 position=14 samples=10658 queries=132737 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 87 w=238292 r=191743
+spherical counts: frame=88 case=2 position=15 samples=10658 queries=102002 peak=16 surface=8619 unresolved=0 exhausted=2039 invalid=0
+f 88 w=211485 r=153287
+spherical counts: frame=89 case=2 position=16 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 89 w=226173 r=192010
+spherical counts: frame=90 case=2 position=17 samples=10658 queries=163528 peak=16 surface=1845 unresolved=0 exhausted=8813 invalid=0
+f 90 w=285984 r=228054
+spherical counts: frame=91 case=2 position=18 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 91 w=224503 r=202560
+spherical counts: frame=92 case=2 position=19 samples=10658 queries=164366 peak=16 surface=2517 unresolved=0 exhausted=8141 invalid=0
+f 92 w=278210 r=230832
+spherical counts: frame=93 case=2 position=20 samples=10658 queries=132740 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 93 w=199346 r=180239
+spherical counts: frame=94 case=2 position=21 samples=10658 queries=167993 peak=16 surface=1566 unresolved=0 exhausted=9092 invalid=0
+f 94 w=240974 r=233767
+spherical counts: frame=95 case=2 position=22 samples=10658 queries=151359 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 95 w=230035 r=213805
+spherical counts: frame=96 case=2 position=23 samples=10658 queries=165973 peak=16 surface=1848 unresolved=0 exhausted=8810 invalid=0
+f 96 w=267407 r=231268
+spherical counts: frame=97 case=2 position=24 samples=10658 queries=151360 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 97 w=223714 r=205039
+spherical counts: frame=98 case=2 position=25 samples=10658 queries=142568 peak=16 surface=4542 unresolved=0 exhausted=6116 invalid=0
+f 98 w=248391 r=203438
+spherical counts: frame=99 case=2 position=26 samples=10658 queries=132737 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 99 w=238220 r=191719
+spherical counts: frame=100 case=2 position=27 samples=10658 queries=102002 peak=16 surface=8619 unresolved=0 exhausted=2039 invalid=0
+f 100 w=211512 r=153292
+spherical counts: frame=101 case=2 position=28 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 101 w=226170 r=192013
+spherical counts: frame=102 case=2 position=29 samples=10658 queries=163528 peak=16 surface=1845 unresolved=0 exhausted=8813 invalid=0
+f 102 w=286023 r=228046
+spherical counts: frame=103 case=2 position=30 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 103 w=224463 r=202556
+spherical counts: frame=104 case=2 position=31 samples=10658 queries=164366 peak=16 surface=2517 unresolved=0 exhausted=8141 invalid=0
+f 104 w=278220 r=230836
+spherical counts: frame=105 case=2 position=32 samples=10658 queries=132740 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 105 w=199408 r=180251
+spherical counts: frame=106 case=2 position=33 samples=10658 queries=167993 peak=16 surface=1566 unresolved=0 exhausted=9092 invalid=0
+f 106 w=240960 r=233772
+spherical counts: frame=107 case=2 position=34 samples=10658 queries=151359 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 107 w=229960 r=213794
+spherical counts: frame=108 case=2 position=35 samples=10658 queries=165973 peak=16 surface=1848 unresolved=0 exhausted=8810 invalid=0
+f 108 w=267398 r=231253
+=== profile SphericalExperiment [288x144] frames 73-108 window=8611218 us ===
+frame wall us: min=199326 avg=239157 max=286048 sum=8609653 (36 frames)
+frame render us: avg=205489 max=233774
+--- Cycle Counters ---
+frame                  8609654 us (100%)  36 calls  5165792682 cyc
+  pov_preserve_half    4741 us (0%)  36 calls  2844973 cyc
+  spherical_draw       7388056 us (85%)  36 calls  4432833803 cyc
+  canvas_clear         3100 us (0%)  36 calls  1860546 cyc
+  canvas_buffer_wait   1212034 us (14%)  36 calls  727220937 cyc
+isr_wake       n=158735 cyc min/avg/max=312/1006/11445 ns min/avg/max=520/1676/19075 total=266323 us cpu=3.09%
+isr_pack       n=19841 cyc min/avg/max=3741/4202/6537 ns min/avg/max=6235/7003/10895 total=138954 us cpu=1.61%
+isr_dma_submit n=19841 cyc min/avg/max=340/547/655 ns min/avg/max=566/911/1091 total=18115 us cpu=0.21%
+Preset: 4/8
+spherical counts: frame=109 case=3 position=0 samples=10658 queries=195180 peak=24 surface=6496 unresolved=0 exhausted=4130 invalid=0
+f 109 w=279100 r=260512
+spherical counts: frame=110 case=3 position=1 samples=10658 queries=238052 peak=24 surface=3372 unresolved=0 exhausted=7286 invalid=0
+f 110 w=372593 r=320668
+spherical counts: frame=111 case=3 position=2 samples=10658 queries=161196 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 111 w=282790 r=228472
+spherical counts: frame=112 case=3 position=3 samples=10658 queries=212175 peak=24 surface=4824 unresolved=0 exhausted=5834 invalid=0
+f 112 w=312381 r=290916
+spherical counts: frame=113 case=3 position=4 samples=10658 queries=177048 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 113 w=258996 r=237476
+spherical counts: frame=114 case=3 position=5 samples=10658 queries=239320 peak=24 surface=4060 unresolved=0 exhausted=6598 invalid=0
+f 114 w=338148 r=325631
+spherical counts: frame=115 case=3 position=6 samples=10658 queries=177052 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 115 w=297680 r=248380
+spherical counts: frame=116 case=3 position=7 samples=10658 queries=222825 peak=24 surface=5318 unresolved=0 exhausted=5340 invalid=0
+f 116 w=306594 r=305038
+spherical counts: frame=117 case=3 position=8 samples=10658 queries=161196 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 117 w=222651 r=215194
+spherical counts: frame=118 case=3 position=9 samples=10658 queries=211591 peak=24 surface=6948 unresolved=0 exhausted=3710 invalid=0
+f 118 w=322262 r=287510
+spherical counts: frame=119 case=3 position=10 samples=10658 queries=195181 peak=24 surface=6497 unresolved=0 exhausted=4129 invalid=0
+f 119 w=295007 r=270084
+spherical counts: frame=120 case=3 position=11 samples=10658 queries=212397 peak=24 surface=5902 unresolved=0 exhausted=4756 invalid=0
+f 120 w=335075 r=292671
+spherical counts: frame=121 case=3 position=12 samples=10658 queries=195174 peak=24 surface=6496 unresolved=0 exhausted=4130 invalid=0
+f 121 w=280362 r=260600
+spherical counts: frame=122 case=3 position=13 samples=10658 queries=238056 peak=24 surface=3371 unresolved=0 exhausted=7287 invalid=0
+f 122 w=372551 r=320709
+spherical counts: frame=123 case=3 position=14 samples=10658 queries=161188 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 123 w=282743 r=228460
+spherical counts: frame=124 case=3 position=15 samples=10658 queries=212183 peak=24 surface=4824 unresolved=0 exhausted=5834 invalid=0
+f 124 w=312398 r=290918
+spherical counts: frame=125 case=3 position=16 samples=10658 queries=177051 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 125 w=259075 r=237506
+spherical counts: frame=126 case=3 position=17 samples=10658 queries=239322 peak=24 surface=4061 unresolved=0 exhausted=6597 invalid=0
+f 126 w=338073 r=325642
+spherical counts: frame=127 case=3 position=18 samples=10658 queries=177049 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 127 w=297683 r=248388
+spherical counts: frame=128 case=3 position=19 samples=10658 queries=222830 peak=24 surface=5318 unresolved=0 exhausted=5340 invalid=0
+f 128 w=306661 r=305056
+spherical counts: frame=129 case=3 position=20 samples=10658 queries=161192 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 129 w=222568 r=215200
+spherical counts: frame=130 case=3 position=21 samples=10658 queries=211596 peak=24 surface=6946 unresolved=0 exhausted=3712 invalid=0
+f 130 w=322242 r=287499
+spherical counts: frame=131 case=3 position=22 samples=10658 queries=195183 peak=24 surface=6497 unresolved=0 exhausted=4129 invalid=0
+f 131 w=295058 r=270066
+spherical counts: frame=132 case=3 position=23 samples=10658 queries=212393 peak=24 surface=5901 unresolved=0 exhausted=4757 invalid=0
+f 132 w=335032 r=292665
+spherical counts: frame=133 case=3 position=24 samples=10658 queries=195174 peak=24 surface=6496 unresolved=0 exhausted=4130 invalid=0
+f 133 w=280349 r=260579
+spherical counts: frame=134 case=3 position=25 samples=10658 queries=238056 peak=24 surface=3371 unresolved=0 exhausted=7287 invalid=0
+f 134 w=372611 r=320702
+spherical counts: frame=135 case=3 position=26 samples=10658 queries=161188 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 135 w=282659 r=228430
+spherical counts: frame=136 case=3 position=27 samples=10658 queries=212183 peak=24 surface=4824 unresolved=0 exhausted=5834 invalid=0
+f 136 w=312463 r=290948
+spherical counts: frame=137 case=3 position=28 samples=10658 queries=177051 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 137 w=259036 r=237495
+spherical counts: frame=138 case=3 position=29 samples=10658 queries=239322 peak=24 surface=4061 unresolved=0 exhausted=6597 invalid=0
+f 138 w=338082 r=325635
+spherical counts: frame=139 case=3 position=30 samples=10658 queries=177049 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 139 w=297743 r=248394
+spherical counts: frame=140 case=3 position=31 samples=10658 queries=222830 peak=24 surface=5318 unresolved=0 exhausted=5340 invalid=0
+f 140 w=306587 r=305042
+spherical counts: frame=141 case=3 position=32 samples=10658 queries=161192 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 141 w=222585 r=215192
+spherical counts: frame=142 case=3 position=33 samples=10658 queries=211596 peak=24 surface=6946 unresolved=0 exhausted=3712 invalid=0
+f 142 w=322233 r=287487
+spherical counts: frame=143 case=3 position=34 samples=10658 queries=195183 peak=24 surface=6497 unresolved=0 exhausted=4129 invalid=0
+f 143 w=295064 r=270063
+spherical counts: frame=144 case=3 position=35 samples=10658 queries=212393 peak=24 surface=5901 unresolved=0 exhausted=4757 invalid=0
+f 144 w=335056 r=292679
+=== profile SphericalExperiment [288x144] frames 109-144 window=10873791 us ===
+frame wall us: min=222568 avg=302005 max=372611 sum=10872191 (36 frames)
+frame render us: avg=273552 max=325642
+--- Cycle Counters ---
+frame                  10872185 us (100%)  36 calls  6523311124 cyc
+  pov_preserve_half    4734 us (0%)  36 calls  2840863 cyc
+  spherical_draw       9838268 us (90%)  36 calls  5902960866 cyc
+  canvas_clear         3097 us (0%)  36 calls  1858789 cyc
+  canvas_buffer_wait   1024302 us (9%)  36 calls  614581484 cyc
+isr_wake       n=200441 cyc min/avg/max=313/1012/9549 ns min/avg/max=521/1686/15915 total=338163 us cpu=3.10%
+isr_pack       n=25053 cyc min/avg/max=3741/4220/5902 ns min/avg/max=6235/7033/9836 total=176221 us cpu=1.62%
+isr_dma_submit n=25053 cyc min/avg/max=367/547/644 ns min/avg/max=611/911/1073 total=22878 us cpu=0.21%
+Preset: 5/8
+spherical counts: frame=145 case=4 position=0 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 145 w=166654 r=146995
+spherical counts: frame=146 case=4 position=1 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 146 w=225066 r=184610
+spherical counts: frame=147 case=4 position=2 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 147 w=187101 r=184268
+spherical counts: frame=148 case=4 position=3 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 148 w=186112 r=182931
+spherical counts: frame=149 case=4 position=4 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 149 w=35428 r=30916
+spherical counts: frame=150 case=4 position=5 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 150 w=212211 r=180622
+spherical counts: frame=151 case=4 position=6 samples=10658 queries=61120 peak=8 surface=4024 unresolved=0 exhausted=6634 invalid=0
+f 151 w=146820 r=140000
+spherical counts: frame=152 case=4 position=7 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 152 w=229933 r=182483
+spherical counts: frame=153 case=4 position=8 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 153 w=150159 r=145203
+spherical counts: frame=154 case=4 position=9 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 154 w=220445 r=178208
+spherical counts: frame=155 case=4 position=10 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 155 w=193333 r=184044
+spherical counts: frame=156 case=4 position=11 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 156 w=185107 r=181704
+spherical counts: frame=157 case=4 position=12 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 157 w=152538 r=146784
+spherical counts: frame=158 case=4 position=13 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 158 w=225208 r=184546
+spherical counts: frame=159 case=4 position=14 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 159 w=187237 r=184287
+spherical counts: frame=160 case=4 position=15 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 160 w=186092 r=182937
+spherical counts: frame=161 case=4 position=16 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 161 w=35426 r=30909
+spherical counts: frame=162 case=4 position=17 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 162 w=212160 r=180617
+spherical counts: frame=163 case=4 position=18 samples=10658 queries=61098 peak=8 surface=4029 unresolved=0 exhausted=6629 invalid=0
+f 163 w=146792 r=139965
+spherical counts: frame=164 case=4 position=19 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 164 w=229962 r=182484
+spherical counts: frame=165 case=4 position=20 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 165 w=150205 r=145194
+spherical counts: frame=166 case=4 position=21 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 166 w=220447 r=178201
+spherical counts: frame=167 case=4 position=22 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 167 w=193266 r=184023
+spherical counts: frame=168 case=4 position=23 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 168 w=185126 r=181698
+spherical counts: frame=169 case=4 position=24 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 169 w=152580 r=146782
+spherical counts: frame=170 case=4 position=25 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 170 w=225216 r=184549
+spherical counts: frame=171 case=4 position=26 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 171 w=187190 r=184298
+spherical counts: frame=172 case=4 position=27 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 172 w=186077 r=182932
+spherical counts: frame=173 case=4 position=28 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 173 w=35415 r=30904
+spherical counts: frame=174 case=4 position=29 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 174 w=212226 r=180618
+spherical counts: frame=175 case=4 position=30 samples=10658 queries=61098 peak=8 surface=4029 unresolved=0 exhausted=6629 invalid=0
+f 175 w=146786 r=139958
+spherical counts: frame=176 case=4 position=31 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 176 w=229969 r=182485
+spherical counts: frame=177 case=4 position=32 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 177 w=150136 r=145180
+spherical counts: frame=178 case=4 position=33 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 178 w=220449 r=178188
+spherical counts: frame=179 case=4 position=34 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 179 w=193305 r=183999
+spherical counts: frame=180 case=4 position=35 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 180 w=185134 r=181698
+=== profile SphericalExperiment [288x144] frames 145-180 window=6388897 us ===
+frame wall us: min=35415 avg=177425 max=229969 sum=6387311 (36 frames)
+frame render us: avg=160145 max=184610
+--- Cycle Counters ---
+frame                  6387308 us (100%)  36 calls  3832385025 cyc
+  pov_preserve_half    4731 us (0%)  36 calls  2838869 cyc
+  spherical_draw       5755710 us (90%)  36 calls  3453426150 cyc
+  canvas_clear         3059 us (0%)  36 calls  1835632 cyc
+  canvas_buffer_wait   622107 us (9%)  36 calls  373264675 cyc
+isr_wake       n=117770 cyc min/avg/max=286/989/6885 ns min/avg/max=476/1648/11475 total=194311 us cpu=3.04%
+isr_pack       n=14720 cyc min/avg/max=3741/4037/5597 ns min/avg/max=6235/6728/9328 total=99043 us cpu=1.55%
+isr_dma_submit n=14720 cyc min/avg/max=369/547/625 ns min/avg/max=615/911/1041 total=13440 us cpu=0.21%
+Preset: 6/8
+spherical counts: frame=181 case=5 position=0 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 181 w=223133 r=217544
+spherical counts: frame=182 case=5 position=1 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 182 w=298301 r=265903
+spherical counts: frame=183 case=5 position=2 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 183 w=312806 r=266221
+spherical counts: frame=184 case=5 position=3 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 184 w=310394 r=264181
+spherical counts: frame=185 case=5 position=4 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 185 w=79198 r=30884
+spherical counts: frame=186 case=5 position=5 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 186 w=294986 r=263417
+spherical counts: frame=187 case=5 position=6 samples=10658 queries=119516 peak=12 surface=838 unresolved=0 exhausted=9820 invalid=0
+f 187 w=295378 r=246365
+spherical counts: frame=188 case=5 position=7 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 188 w=267411 r=263838
+spherical counts: frame=189 case=5 position=8 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 189 w=262937 r=214288
+spherical counts: frame=190 case=5 position=9 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 190 w=298346 r=262696
+spherical counts: frame=191 case=5 position=10 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 191 w=315735 r=265997
+spherical counts: frame=192 case=5 position=11 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 192 w=309415 r=262923
+spherical counts: frame=193 case=5 position=12 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 193 w=274905 r=225393
+spherical counts: frame=194 case=5 position=13 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 194 w=289386 r=264843
+spherical counts: frame=195 case=5 position=14 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 195 w=314018 r=266362
+spherical counts: frame=196 case=5 position=15 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 196 w=310344 r=264271
+spherical counts: frame=197 case=5 position=16 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 197 w=79054 r=30902
+spherical counts: frame=198 case=5 position=17 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 198 w=288934 r=257379
+spherical counts: frame=199 case=5 position=18 samples=10658 queries=87614 peak=12 surface=4029 unresolved=0 exhausted=6629 invalid=0
+f 199 w=245032 r=189936
+spherical counts: frame=200 case=5 position=19 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 200 w=323521 r=263521
+spherical counts: frame=201 case=5 position=20 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 201 w=257852 r=208882
+spherical counts: frame=202 case=5 position=21 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 202 w=297109 r=256053
+spherical counts: frame=203 case=5 position=22 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 203 w=322206 r=265834
+spherical counts: frame=204 case=5 position=23 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 204 w=308983 r=262324
+spherical counts: frame=205 case=5 position=24 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 205 w=267662 r=217553
+spherical counts: frame=206 case=5 position=25 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 206 w=298255 r=265870
+spherical counts: frame=207 case=5 position=26 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 207 w=312861 r=266238
+spherical counts: frame=208 case=5 position=27 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 208 w=310373 r=264159
+spherical counts: frame=209 case=5 position=28 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 209 w=79163 r=30888
+spherical counts: frame=210 case=5 position=29 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 210 w=295003 r=263441
+spherical counts: frame=211 case=5 position=30 samples=10658 queries=119506 peak=12 surface=839 unresolved=0 exhausted=9819 invalid=0
+f 211 w=295413 r=246377
+spherical counts: frame=212 case=5 position=31 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 212 w=267392 r=263833
+spherical counts: frame=213 case=5 position=32 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 213 w=262896 r=214301
+spherical counts: frame=214 case=5 position=33 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 214 w=298362 r=262665
+spherical counts: frame=215 case=5 position=34 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 215 w=315762 r=265994
+spherical counts: frame=216 case=5 position=35 samples=10658 queries=127896 peak=12 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 216 w=309353 r=262924
+=== profile SphericalExperiment [288x144] frames 181-216 window=9893535 us ===
+frame wall us: min=79054 avg=274774 max=323521 sum=9891879 (36 frames)
+frame render us: avg=233450 max=266362
+--- Cycle Counters ---
+frame                  9891875 us (100%)  36 calls  5935125212 cyc
+  pov_preserve_half    4808 us (0%)  36 calls  2885209 cyc
+  spherical_draw       8394615 us (84%)  36 calls  5036769446 cyc
+  canvas_clear         3068 us (0%)  36 calls  1840990 cyc
+  canvas_buffer_wait   1487696 us (15%)  36 calls  892618065 cyc
+isr_wake       n=182372 cyc min/avg/max=286/983/8761 ns min/avg/max=476/1638/14601 total=298811 us cpu=3.02%
+isr_pack       n=22795 cyc min/avg/max=3741/4014/6049 ns min/avg/max=6235/6690/10081 total=152521 us cpu=1.54%
+isr_dma_submit n=22795 cyc min/avg/max=378/547/608 ns min/avg/max=630/911/1013 total=20811 us cpu=0.21%
+Preset: 7/8
+spherical counts: frame=217 case=6 position=0 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 217 w=351674 r=302255
+spherical counts: frame=218 case=6 position=1 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 218 w=356280 r=346096
+spherical counts: frame=219 case=6 position=2 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 219 w=376890 r=348001
+spherical counts: frame=220 case=6 position=3 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 220 w=372233 r=345296
+spherical counts: frame=221 case=6 position=4 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 221 w=60598 r=30907
+spherical counts: frame=222 case=6 position=5 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 222 w=366225 r=334683
+spherical counts: frame=223 case=6 position=6 samples=10658 queries=158796 peak=16 surface=838 unresolved=0 exhausted=9820 invalid=0
+f 223 w=360439 r=320191
+spherical counts: frame=224 case=6 position=7 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 224 w=400108 r=345363
+spherical counts: frame=225 case=6 position=8 samples=10658 queries=170044 peak=16 surface=1091 unresolved=0 exhausted=9567 invalid=0
+f 225 w=304120 r=274499
+spherical counts: frame=226 case=6 position=9 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 226 w=381300 r=343365
+spherical counts: frame=227 case=6 position=10 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 227 w=378244 r=346627
+spherical counts: frame=228 case=6 position=11 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 228 w=372012 r=343708
+spherical counts: frame=229 case=6 position=12 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 229 w=321606 r=290335
+spherical counts: frame=230 case=6 position=13 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 230 w=364972 r=342881
+spherical counts: frame=231 case=6 position=14 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 231 w=379774 r=347726
+spherical counts: frame=232 case=6 position=15 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 232 w=371936 r=344676
+spherical counts: frame=233 case=6 position=16 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 233 w=61160 r=30901
+spherical counts: frame=234 case=6 position=17 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 234 w=374978 r=343426
+spherical counts: frame=235 case=6 position=18 samples=10658 queries=114130 peak=16 surface=4029 unresolved=0 exhausted=6629 invalid=0
+f 235 w=271447 r=239875
+spherical counts: frame=236 case=6 position=19 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 236 w=354751 r=344678
+spherical counts: frame=237 case=6 position=20 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 237 w=315516 r=285207
+spherical counts: frame=238 case=6 position=21 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 238 w=361949 r=334723
+spherical counts: frame=239 case=6 position=22 samples=10658 queries=170044 peak=16 surface=1091 unresolved=0 exhausted=9567 invalid=0
+f 239 w=387273 r=347065
+spherical counts: frame=240 case=6 position=23 samples=10658 queries=170528 peak=16 surface=764 unresolved=0 exhausted=9894 invalid=0
+f 240 w=370898 r=342979
+spherical counts: frame=241 case=6 position=24 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 241 w=334214 r=302261
+spherical counts: frame=242 case=6 position=25 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 242 w=356288 r=346060
+spherical counts: frame=243 case=6 position=26 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 243 w=376856 r=347986
+spherical counts: frame=244 case=6 position=27 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 244 w=372291 r=345294
+spherical counts: frame=245 case=6 position=28 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 245 w=60550 r=30915
+spherical counts: frame=246 case=6 position=29 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 246 w=366218 r=334683
+spherical counts: frame=247 case=6 position=30 samples=10658 queries=158782 peak=16 surface=839 unresolved=0 exhausted=9819 invalid=0
+f 247 w=360510 r=320263
+spherical counts: frame=248 case=6 position=31 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 248 w=400094 r=345373
+spherical counts: frame=249 case=6 position=32 samples=10658 queries=170044 peak=16 surface=1090 unresolved=0 exhausted=9568 invalid=0
+f 249 w=304032 r=274477
+spherical counts: frame=250 case=6 position=33 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 250 w=381382 r=343373
+spherical counts: frame=251 case=6 position=34 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 251 w=378168 r=346595
+spherical counts: frame=252 case=6 position=35 samples=10658 queries=170528 peak=16 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 252 w=372101 r=343709
+=== profile SphericalExperiment [288x144] frames 217-252 window=12080692 us ===
+frame wall us: min=60550 avg=335530 max=400108 sum=12079087 (36 frames)
+frame render us: avg=304345 max=348001
+--- Cycle Counters ---
+frame                  12079083 us (100%)  36 calls  7247450082 cyc
+  pov_preserve_half    4829 us (0%)  36 calls  2897610 cyc
+  spherical_draw       10946811 us (90%)  36 calls  6568086628 cyc
+  canvas_clear         3091 us (0%)  36 calls  1854949 cyc
+  canvas_buffer_wait   1122651 us (9%)  36 calls  673590808 cyc
+isr_wake       n=222689 cyc min/avg/max=291/994/10785 ns min/avg/max=485/1656/17975 total=369077 us cpu=3.05%
+isr_pack       n=27835 cyc min/avg/max=3741/4072/6568 ns min/avg/max=6235/6786/10946 total=188920 us cpu=1.56%
+isr_dma_submit n=27835 cyc min/avg/max=417/547/977 ns min/avg/max=695/911/1628 total=25419 us cpu=0.21%
+Preset: 8/8
+spherical counts: frame=253 case=7 position=0 samples=10658 queries=255324 peak=24 surface=294 unresolved=0 exhausted=10364 invalid=0
+f 253 w=468306 r=437232
+spherical counts: frame=254 case=7 position=1 samples=10658 queries=255792 peak=24 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 254 w=497432 r=497183
+spherical counts: frame=255 case=7 position=2 samples=10658 queries=255679 peak=24 surface=195 unresolved=0 exhausted=10463 invalid=0
+f 255 w=512946 r=510201
+spherical counts: frame=256 case=7 position=3 samples=10658 queries=255064 peak=24 surface=435 unresolved=0 exhausted=10223 invalid=0
+f 256 w=558378 r=506105
+spherical counts: frame=257 case=7 position=4 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 257 w=87198 r=30887
+spherical counts: frame=258 case=7 position=5 samples=10658 queries=255550 peak=24 surface=401 unresolved=0 exhausted=10257 invalid=0
+f 258 w=534905 r=503286
+spherical counts: frame=259 case=7 position=6 samples=10658 queries=237356 peak=24 surface=838 unresolved=0 exhausted=9820 invalid=0
+f 259 w=527077 r=467947
+spherical counts: frame=260 case=7 position=7 samples=10658 queries=255792 peak=24 surface=45 unresolved=0 exhausted=10613 invalid=0
+f 260 w=539073 r=507045
+spherical counts: frame=261 case=7 position=8 samples=10658 queries=255221 peak=24 surface=388 unresolved=0 exhausted=10270 invalid=0
+f 261 w=482751 r=427378
+spherical counts: frame=262 case=7 position=9 samples=10658 queries=255792 peak=24 surface=1 unresolved=0 exhausted=10657 invalid=0
+f 262 w=501777 r=491673
+spherical counts: frame=263 case=7 position=10 samples=10658 queries=230209 peak=24 surface=5083 unresolved=0 exhausted=5575 invalid=0
+f 263 w=473476 r=465173
+spherical counts: frame=264 case=7 position=11 samples=10658 queries=235624 peak=24 surface=4203 unresolved=0 exhausted=6455 invalid=0
+f 264 w=502860 r=468107
+spherical counts: frame=265 case=7 position=12 samples=10658 queries=255679 peak=24 surface=195 unresolved=0 exhausted=10463 invalid=0
+f 265 w=488692 r=456821
+spherical counts: frame=266 case=7 position=13 samples=10658 queries=255792 peak=24 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 266 w=540216 r=497114
+spherical counts: frame=267 case=7 position=14 samples=10658 queries=255679 peak=24 surface=195 unresolved=0 exhausted=10463 invalid=0
+f 267 w=513061 r=510200
+spherical counts: frame=268 case=7 position=15 samples=10658 queries=255063 peak=24 surface=435 unresolved=0 exhausted=10223 invalid=0
+f 268 w=558396 r=506121
+spherical counts: frame=269 case=7 position=16 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 269 w=87191 r=30893
+spherical counts: frame=270 case=7 position=17 samples=10658 queries=255550 peak=24 surface=401 unresolved=0 exhausted=10257 invalid=0
+f 270 w=534829 r=503270
+spherical counts: frame=271 case=7 position=18 samples=10658 queries=237334 peak=24 surface=839 unresolved=0 exhausted=9819 invalid=0
+f 271 w=527271 r=468069
+spherical counts: frame=272 case=7 position=19 samples=10658 queries=255792 peak=24 surface=45 unresolved=0 exhausted=10613 invalid=0
+f 272 w=538919 r=507006
+spherical counts: frame=273 case=7 position=20 samples=10658 queries=255221 peak=24 surface=388 unresolved=0 exhausted=10270 invalid=0
+f 273 w=482752 r=427341
+spherical counts: frame=274 case=7 position=21 samples=10658 queries=255792 peak=24 surface=1 unresolved=0 exhausted=10657 invalid=0
+f 274 w=501804 r=491664
+spherical counts: frame=275 case=7 position=22 samples=10658 queries=230205 peak=24 surface=5083 unresolved=0 exhausted=5575 invalid=0
+f 275 w=473387 r=465128
+spherical counts: frame=276 case=7 position=23 samples=10658 queries=235624 peak=24 surface=4203 unresolved=0 exhausted=6455 invalid=0
+f 276 w=502916 r=468069
+spherical counts: frame=277 case=7 position=24 samples=10658 queries=255679 peak=24 surface=195 unresolved=0 exhausted=10463 invalid=0
+f 277 w=488744 r=456829
+spherical counts: frame=278 case=7 position=25 samples=10658 queries=255792 peak=24 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 278 w=540188 r=497094
+spherical counts: frame=279 case=7 position=26 samples=10658 queries=255679 peak=24 surface=195 unresolved=0 exhausted=10463 invalid=0
+f 279 w=513128 r=510227
+spherical counts: frame=280 case=7 position=27 samples=10658 queries=255063 peak=24 surface=435 unresolved=0 exhausted=10223 invalid=0
+f 280 w=558315 r=506123
+spherical counts: frame=281 case=7 position=28 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 281 w=87259 r=30905
+spherical counts: frame=282 case=7 position=29 samples=10658 queries=255550 peak=24 surface=401 unresolved=0 exhausted=10257 invalid=0
+f 282 w=534843 r=503289
+spherical counts: frame=283 case=7 position=30 samples=10658 queries=237334 peak=24 surface=839 unresolved=0 exhausted=9819 invalid=0
+f 283 w=527274 r=468087
+spherical counts: frame=284 case=7 position=31 samples=10658 queries=255792 peak=24 surface=45 unresolved=0 exhausted=10613 invalid=0
+f 284 w=538855 r=507019
+spherical counts: frame=285 case=7 position=32 samples=10658 queries=255221 peak=24 surface=388 unresolved=0 exhausted=10270 invalid=0
+f 285 w=482818 r=427364
+spherical counts: frame=286 case=7 position=33 samples=10658 queries=255792 peak=24 surface=1 unresolved=0 exhausted=10657 invalid=0
+f 286 w=501798 r=491675
+spherical counts: frame=287 case=7 position=34 samples=10658 queries=230205 peak=24 surface=5083 unresolved=0 exhausted=5575 invalid=0
+f 287 w=473399 r=465163
+spherical counts: frame=288 case=7 position=35 samples=10658 queries=235624 peak=24 surface=4203 unresolved=0 exhausted=6455 invalid=0
+f 288 w=502948 r=468134
+=== profile SphericalExperiment [288x144] frames 253-288 window=17186768 us ===
+frame wall us: min=87191 avg=477366 max=558396 sum=17185182 (36 frames)
+frame render us: avg=443772 max=510227
+--- Cycle Counters ---
+frame                  17185175 us (100%)  36 calls  10311105557 cyc
+  pov_preserve_half    4761 us (0%)  36 calls  2856718 cyc
+  spherical_draw       15966248 us (92%)  36 calls  9579749323 cyc
+  canvas_clear         3092 us (0%)  36 calls  1855217 cyc
+  canvas_buffer_wait   1209379 us (7%)  36 calls  725627571 cyc
+isr_wake       n=316809 cyc min/avg/max=286/991/8757 ns min/avg/max=476/1651/14595 total=523612 us cpu=3.04%
+isr_pack       n=39598 cyc min/avg/max=3741/4038/6327 ns min/avg/max=6235/6730/10545 total=266501 us cpu=1.55%
+isr_dma_submit n=39598 cyc min/avg/max=364/548/608 ns min/avg/max=606/913/1013 total=36167 us cpu=0.21%
+Preset: 1/8
+spherical counts: frame=289 case=0 position=0 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 289 w=152784 r=121147
+spherical counts: frame=290 case=0 position=1 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 290 w=132025 r=128213
+spherical counts: frame=291 case=0 position=2 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 291 w=188280 r=128997
+spherical counts: frame=292 case=0 position=3 samples=10658 queries=85171 peak=8 surface=267 unresolved=0 exhausted=10391 invalid=0
+f 292 w=187352 r=128908
+spherical counts: frame=293 case=0 position=4 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 293 w=179147 r=120610
+spherical counts: frame=294 case=0 position=5 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 294 w=133771 r=129440
+spherical counts: frame=295 case=0 position=6 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 295 w=187185 r=129118
+spherical counts: frame=296 case=0 position=7 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 296 w=187470 r=129144
+spherical counts: frame=297 case=0 position=8 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 297 w=178291 r=119992
+spherical counts: frame=298 case=0 position=9 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 298 w=132523 r=127570
+spherical counts: frame=299 case=0 position=10 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 299 w=188494 r=128632
+spherical counts: frame=300 case=0 position=11 samples=10658 queries=85264 peak=8 surface=26 unresolved=0 exhausted=10632 invalid=0
+f 300 w=187954 r=129089
+spherical counts: frame=301 case=0 position=12 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 301 w=179474 r=121119
+spherical counts: frame=302 case=0 position=13 samples=10658 queries=84147 peak=8 surface=1808 unresolved=0 exhausted=8850 invalid=0
+f 302 w=132343 r=128515
+spherical counts: frame=303 case=0 position=14 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 303 w=188104 r=129176
+spherical counts: frame=304 case=0 position=15 samples=10658 queries=76749 peak=8 surface=5628 unresolved=0 exhausted=5030 invalid=0
+f 304 w=178471 r=120204
+spherical counts: frame=305 case=0 position=16 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 305 w=125478 r=120688
+spherical counts: frame=306 case=0 position=17 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 306 w=133711 r=129452
+spherical counts: frame=307 case=0 position=18 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 307 w=187124 r=129134
+spherical counts: frame=308 case=0 position=19 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 308 w=187441 r=129133
+spherical counts: frame=309 case=0 position=20 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 309 w=178319 r=120012
+spherical counts: frame=310 case=0 position=21 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 310 w=132506 r=127574
+spherical counts: frame=311 case=0 position=22 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 311 w=188562 r=128639
+spherical counts: frame=312 case=0 position=23 samples=10658 queries=85264 peak=8 surface=26 unresolved=0 exhausted=10632 invalid=0
+f 312 w=187883 r=129079
+spherical counts: frame=313 case=0 position=24 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 313 w=179484 r=121119
+spherical counts: frame=314 case=0 position=25 samples=10658 queries=84147 peak=8 surface=1808 unresolved=0 exhausted=8850 invalid=0
+f 314 w=132346 r=128514
+spherical counts: frame=315 case=0 position=26 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 315 w=188100 r=129170
+spherical counts: frame=316 case=0 position=27 samples=10658 queries=76749 peak=8 surface=5628 unresolved=0 exhausted=5030 invalid=0
+f 316 w=178530 r=120202
+spherical counts: frame=317 case=0 position=28 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 317 w=125436 r=120695
+spherical counts: frame=318 case=0 position=29 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 318 w=133708 r=129452
+spherical counts: frame=319 case=0 position=30 samples=10658 queries=84804 peak=8 surface=1304 unresolved=0 exhausted=9354 invalid=0
+f 319 w=187112 r=129122
+spherical counts: frame=320 case=0 position=31 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 320 w=187459 r=129140
+spherical counts: frame=321 case=0 position=32 samples=10658 queries=85020 peak=8 surface=1514 unresolved=0 exhausted=9144 invalid=0
+f 321 w=178353 r=119995
+spherical counts: frame=322 case=0 position=33 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 322 w=132500 r=127549
+spherical counts: frame=323 case=0 position=34 samples=10658 queries=84940 peak=8 surface=914 unresolved=0 exhausted=9744 invalid=0
+f 323 w=188516 r=128633
+spherical counts: frame=324 case=0 position=35 samples=10658 queries=85264 peak=8 surface=26 unresolved=0 exhausted=10632 invalid=0
+f 324 w=187878 r=129067
+=== profile SphericalExperiment [288x144] frames 289-324 window=6035757 us ===
+frame wall us: min=125436 avg=167614 max=188562 sum=6034114 (36 frames)
+frame render us: avg=126284 max=129452
+--- Cycle Counters ---
+frame                  6034112 us (100%)  36 calls  3620467328 cyc
+  pov_preserve_half    4995 us (0%)  36 calls  2997519 cyc
+  spherical_draw       4536346 us (75%)  36 calls  2721808157 cyc
+  canvas_clear         3136 us (0%)  36 calls  1882155 cyc
+  canvas_buffer_wait   1487890 us (24%)  36 calls  892734114 cyc
+isr_wake       n=111261 cyc min/avg/max=286/976/11509 ns min/avg/max=476/1626/19181 total=181029 us cpu=2.99%
+isr_pack       n=13907 cyc min/avg/max=3741/4012/6498 ns min/avg/max=6235/6686/10830 total=93007 us cpu=1.54%
+isr_dma_submit n=13907 cyc min/avg/max=437/547/611 ns min/avg/max=728/911/1018 total=12698 us cpu=0.21%
+Preset: 2/8
+spherical counts: frame=325 case=1 position=0 samples=10658 queries=121088 peak=12 surface=2586 unresolved=0 exhausted=8072 invalid=0
+f 325 w=224935 r=166702
+spherical counts: frame=326 case=1 position=1 samples=10658 queries=127648 peak=12 surface=297 unresolved=0 exhausted=10361 invalid=0
+f 326 w=202159 r=181374
+spherical counts: frame=327 case=1 position=2 samples=10658 queries=114180 peak=12 surface=5495 unresolved=0 exhausted=5163 invalid=0
+f 327 w=173674 r=167620
+spherical counts: frame=328 case=1 position=3 samples=10658 queries=124374 peak=12 surface=1952 unresolved=0 exhausted=8706 invalid=0
+f 328 w=198818 r=178995
+spherical counts: frame=329 case=1 position=4 samples=10658 queries=117486 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 329 w=170746 r=162296
+spherical counts: frame=330 case=1 position=5 samples=10658 queries=126147 peak=12 surface=1004 unresolved=0 exhausted=9654 invalid=0
+f 330 w=205838 r=180641
+spherical counts: frame=331 case=1 position=6 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 331 w=178351 r=171549
+spherical counts: frame=332 case=1 position=7 samples=10658 queries=126673 peak=12 surface=712 unresolved=0 exhausted=9946 invalid=0
+f 332 w=197946 r=182052
+spherical counts: frame=333 case=1 position=8 samples=10658 queries=114181 peak=12 surface=5496 unresolved=0 exhausted=5162 invalid=0
+f 333 w=162461 r=157071
+spherical counts: frame=334 case=1 position=9 samples=10658 queries=127868 peak=12 surface=106 unresolved=0 exhausted=10552 invalid=0
+f 334 w=211066 r=180705
+spherical counts: frame=335 case=1 position=10 samples=10658 queries=121088 peak=12 surface=2584 unresolved=0 exhausted=8074 invalid=0
+f 335 w=181756 r=174966
+spherical counts: frame=336 case=1 position=11 samples=10658 queries=127059 peak=12 surface=738 unresolved=0 exhausted=9920 invalid=0
+f 336 w=194833 r=182355
+spherical counts: frame=337 case=1 position=12 samples=10658 queries=121088 peak=12 surface=2586 unresolved=0 exhausted=8072 invalid=0
+f 337 w=171837 r=166749
+spherical counts: frame=338 case=1 position=13 samples=10658 queries=127648 peak=12 surface=297 unresolved=0 exhausted=10361 invalid=0
+f 338 w=202086 r=181395
+spherical counts: frame=339 case=1 position=14 samples=10658 queries=114179 peak=12 surface=5500 unresolved=0 exhausted=5158 invalid=0
+f 339 w=173716 r=167614
+spherical counts: frame=340 case=1 position=15 samples=10658 queries=124373 peak=12 surface=1950 unresolved=0 exhausted=8708 invalid=0
+f 340 w=198803 r=178969
+spherical counts: frame=341 case=1 position=16 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 341 w=170776 r=162293
+spherical counts: frame=342 case=1 position=17 samples=10658 queries=126148 peak=12 surface=1004 unresolved=0 exhausted=9654 invalid=0
+f 342 w=205774 r=180632
+spherical counts: frame=343 case=1 position=18 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 343 w=178361 r=171544
+spherical counts: frame=344 case=1 position=19 samples=10658 queries=126675 peak=12 surface=712 unresolved=0 exhausted=9946 invalid=0
+f 344 w=198036 r=182074
+spherical counts: frame=345 case=1 position=20 samples=10658 queries=114181 peak=12 surface=5498 unresolved=0 exhausted=5160 invalid=0
+f 345 w=162482 r=157113
+spherical counts: frame=346 case=1 position=21 samples=10658 queries=127868 peak=12 surface=106 unresolved=0 exhausted=10552 invalid=0
+f 346 w=211017 r=180687
+spherical counts: frame=347 case=1 position=22 samples=10658 queries=121088 peak=12 surface=2587 unresolved=0 exhausted=8071 invalid=0
+f 347 w=181761 r=175000
+spherical counts: frame=348 case=1 position=23 samples=10658 queries=127059 peak=12 surface=738 unresolved=0 exhausted=9920 invalid=0
+f 348 w=194884 r=182376
+spherical counts: frame=349 case=1 position=24 samples=10658 queries=121088 peak=12 surface=2586 unresolved=0 exhausted=8072 invalid=0
+f 349 w=171807 r=166744
+spherical counts: frame=350 case=1 position=25 samples=10658 queries=127648 peak=12 surface=297 unresolved=0 exhausted=10361 invalid=0
+f 350 w=202083 r=181378
+spherical counts: frame=351 case=1 position=26 samples=10658 queries=114179 peak=12 surface=5500 unresolved=0 exhausted=5158 invalid=0
+f 351 w=173672 r=167607
+spherical counts: frame=352 case=1 position=27 samples=10658 queries=124373 peak=12 surface=1950 unresolved=0 exhausted=8708 invalid=0
+f 352 w=198824 r=178990
+spherical counts: frame=353 case=1 position=28 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 353 w=170813 r=162308
+spherical counts: frame=354 case=1 position=29 samples=10658 queries=126148 peak=12 surface=1004 unresolved=0 exhausted=9654 invalid=0
+f 354 w=205755 r=180632
+spherical counts: frame=355 case=1 position=30 samples=10658 queries=117488 peak=12 surface=4296 unresolved=0 exhausted=6362 invalid=0
+f 355 w=178353 r=171541
+spherical counts: frame=356 case=1 position=31 samples=10658 queries=126675 peak=12 surface=712 unresolved=0 exhausted=9946 invalid=0
+f 356 w=197944 r=182044
+spherical counts: frame=357 case=1 position=32 samples=10658 queries=114181 peak=12 surface=5498 unresolved=0 exhausted=5160 invalid=0
+f 357 w=162529 r=157070
+spherical counts: frame=358 case=1 position=33 samples=10658 queries=127868 peak=12 surface=106 unresolved=0 exhausted=10552 invalid=0
+f 358 w=211046 r=180688
+spherical counts: frame=359 case=1 position=34 samples=10658 queries=121088 peak=12 surface=2587 unresolved=0 exhausted=8071 invalid=0
+f 359 w=181741 r=174986
+spherical counts: frame=360 case=1 position=35 samples=10658 queries=127059 peak=12 surface=738 unresolved=0 exhausted=9920 invalid=0
+f 360 w=194825 r=182369
+=== profile SphericalExperiment [288x144] frames 325-360 window=6803164 us ===
+frame wall us: min=162461 avg=188930 max=224935 sum=6801508 (36 frames)
+frame render us: avg=173864 max=182376
+--- Cycle Counters ---
+frame                  6801504 us (100%)  36 calls  4080902470 cyc
+  pov_preserve_half    4730 us (0%)  36 calls  2838164 cyc
+  spherical_draw       6249602 us (91%)  36 calls  3749761758 cyc
+  canvas_clear         3060 us (0%)  36 calls  1836211 cyc
+  canvas_buffer_wait   542395 us (7%)  36 calls  325437404 cyc
+isr_wake       n=125407 cyc min/avg/max=289/996/10721 ns min/avg/max=481/1660/17868 total=208330 us cpu=3.06%
+isr_pack       n=15675 cyc min/avg/max=3741/4083/5639 ns min/avg/max=6235/6805/9398 total=106683 us cpu=1.56%
+isr_dma_submit n=15675 cyc min/avg/max=355/548/647 ns min/avg/max=591/913/1078 total=14318 us cpu=0.21%
+Preset: 3/8
+spherical counts: frame=361 case=2 position=0 samples=10658 queries=151360 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 361 w=209900 r=204965
+spherical counts: frame=362 case=2 position=1 samples=10658 queries=142569 peak=16 surface=4542 unresolved=0 exhausted=6116 invalid=0
+f 362 w=248384 r=203354
+spherical counts: frame=363 case=2 position=2 samples=10658 queries=132749 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 363 w=238209 r=191626
+spherical counts: frame=364 case=2 position=3 samples=10658 queries=102005 peak=16 surface=8620 unresolved=0 exhausted=2038 invalid=0
+f 364 w=211503 r=153190
+spherical counts: frame=365 case=2 position=4 samples=10658 queries=140998 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 365 w=226247 r=191954
+spherical counts: frame=366 case=2 position=5 samples=10658 queries=163526 peak=16 surface=1846 unresolved=0 exhausted=8812 invalid=0
+f 366 w=286040 r=228055
+spherical counts: frame=367 case=2 position=6 samples=10658 queries=141003 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 367 w=224426 r=202541
+spherical counts: frame=368 case=2 position=7 samples=10658 queries=164364 peak=16 surface=2517 unresolved=0 exhausted=8141 invalid=0
+f 368 w=278239 r=230844
+spherical counts: frame=369 case=2 position=8 samples=10658 queries=132744 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 369 w=199388 r=180239
+spherical counts: frame=370 case=2 position=9 samples=10658 queries=167993 peak=16 surface=1566 unresolved=0 exhausted=9092 invalid=0
+f 370 w=240978 r=233775
+spherical counts: frame=371 case=2 position=10 samples=10658 queries=151362 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 371 w=229955 r=213795
+spherical counts: frame=372 case=2 position=11 samples=10658 queries=165971 peak=16 surface=1848 unresolved=0 exhausted=8810 invalid=0
+f 372 w=267464 r=231266
+spherical counts: frame=373 case=2 position=12 samples=10658 queries=151360 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 373 w=223727 r=205054
+spherical counts: frame=374 case=2 position=13 samples=10658 queries=142568 peak=16 surface=4542 unresolved=0 exhausted=6116 invalid=0
+f 374 w=248341 r=203448
+spherical counts: frame=375 case=2 position=14 samples=10658 queries=132737 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 375 w=238235 r=191746
+spherical counts: frame=376 case=2 position=15 samples=10658 queries=102002 peak=16 surface=8619 unresolved=0 exhausted=2039 invalid=0
+f 376 w=211547 r=153301
+spherical counts: frame=377 case=2 position=16 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 377 w=226173 r=192032
+spherical counts: frame=378 case=2 position=17 samples=10658 queries=163528 peak=16 surface=1845 unresolved=0 exhausted=8813 invalid=0
+f 378 w=285959 r=228053
+spherical counts: frame=379 case=2 position=18 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 379 w=224468 r=202524
+spherical counts: frame=380 case=2 position=19 samples=10658 queries=164366 peak=16 surface=2517 unresolved=0 exhausted=8141 invalid=0
+f 380 w=278265 r=230845
+spherical counts: frame=381 case=2 position=20 samples=10658 queries=132740 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 381 w=199338 r=180248
+spherical counts: frame=382 case=2 position=21 samples=10658 queries=167993 peak=16 surface=1566 unresolved=0 exhausted=9092 invalid=0
+f 382 w=240953 r=233758
+spherical counts: frame=383 case=2 position=22 samples=10658 queries=151359 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 383 w=230051 r=213807
+spherical counts: frame=384 case=2 position=23 samples=10658 queries=165973 peak=16 surface=1848 unresolved=0 exhausted=8810 invalid=0
+f 384 w=267399 r=231267
+spherical counts: frame=385 case=2 position=24 samples=10658 queries=151360 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 385 w=223725 r=205066
+spherical counts: frame=386 case=2 position=25 samples=10658 queries=142568 peak=16 surface=4542 unresolved=0 exhausted=6116 invalid=0
+f 386 w=248398 r=203459
+spherical counts: frame=387 case=2 position=26 samples=10658 queries=132737 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 387 w=238222 r=191743
+spherical counts: frame=388 case=2 position=27 samples=10658 queries=102002 peak=16 surface=8619 unresolved=0 exhausted=2039 invalid=0
+f 388 w=211474 r=153275
+spherical counts: frame=389 case=2 position=28 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 389 w=226182 r=192016
+spherical counts: frame=390 case=2 position=29 samples=10658 queries=163528 peak=16 surface=1845 unresolved=0 exhausted=8813 invalid=0
+f 390 w=286044 r=228063
+spherical counts: frame=391 case=2 position=30 samples=10658 queries=141000 peak=16 surface=5440 unresolved=0 exhausted=5218 invalid=0
+f 391 w=224417 r=202541
+spherical counts: frame=392 case=2 position=31 samples=10658 queries=164366 peak=16 surface=2517 unresolved=0 exhausted=8141 invalid=0
+f 392 w=278240 r=230844
+spherical counts: frame=393 case=2 position=32 samples=10658 queries=132740 peak=16 surface=6724 unresolved=0 exhausted=3934 invalid=0
+f 393 w=199364 r=180226
+spherical counts: frame=394 case=2 position=33 samples=10658 queries=167993 peak=16 surface=1566 unresolved=0 exhausted=9092 invalid=0
+f 394 w=241014 r=233800
+spherical counts: frame=395 case=2 position=34 samples=10658 queries=151359 peak=16 surface=3958 unresolved=0 exhausted=6700 invalid=0
+f 395 w=229939 r=213795
+spherical counts: frame=396 case=2 position=35 samples=10658 queries=165973 peak=16 surface=1848 unresolved=0 exhausted=8810 invalid=0
+f 396 w=267395 r=231251
+=== profile SphericalExperiment [288x144] frames 361-396 window=8611239 us ===
+frame wall us: min=199338 avg=239155 max=286044 sum=8609603 (36 frames)
+frame render us: avg=205493 max=233800
+--- Cycle Counters ---
+frame                  8609595 us (100%)  36 calls  5165757406 cyc
+  pov_preserve_half    4752 us (0%)  36 calls  2851513 cyc
+  spherical_draw       7388178 us (85%)  36 calls  4432907002 cyc
+  canvas_clear         3093 us (0%)  36 calls  1856257 cyc
+  canvas_buffer_wait   1211854 us (14%)  36 calls  727112992 cyc
+isr_wake       n=158735 cyc min/avg/max=286/1007/11117 ns min/avg/max=476/1678/18528 total=266430 us cpu=3.09%
+isr_pack       n=19841 cyc min/avg/max=3741/4202/6573 ns min/avg/max=6235/7003/10955 total=138961 us cpu=1.61%
+isr_dma_submit n=19841 cyc min/avg/max=449/547/637 ns min/avg/max=748/911/1061 total=18114 us cpu=0.21%
+Preset: 4/8
+spherical counts: frame=397 case=3 position=0 samples=10658 queries=195180 peak=24 surface=6496 unresolved=0 exhausted=4130 invalid=0
+f 397 w=279115 r=260537
+spherical counts: frame=398 case=3 position=1 samples=10658 queries=238052 peak=24 surface=3372 unresolved=0 exhausted=7286 invalid=0
+f 398 w=372565 r=320655
+spherical counts: frame=399 case=3 position=2 samples=10658 queries=161196 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 399 w=282745 r=228466
+spherical counts: frame=400 case=3 position=3 samples=10658 queries=212175 peak=24 surface=4824 unresolved=0 exhausted=5834 invalid=0
+f 400 w=312435 r=290909
+spherical counts: frame=401 case=3 position=4 samples=10658 queries=177048 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 401 w=259035 r=237510
+spherical counts: frame=402 case=3 position=5 samples=10658 queries=239320 peak=24 surface=4060 unresolved=0 exhausted=6598 invalid=0
+f 402 w=338096 r=325664
+spherical counts: frame=403 case=3 position=6 samples=10658 queries=177052 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 403 w=297700 r=248379
+spherical counts: frame=404 case=3 position=7 samples=10658 queries=222825 peak=24 surface=5318 unresolved=0 exhausted=5340 invalid=0
+f 404 w=306599 r=305038
+spherical counts: frame=405 case=3 position=8 samples=10658 queries=161196 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 405 w=222600 r=215197
+spherical counts: frame=406 case=3 position=9 samples=10658 queries=211591 peak=24 surface=6948 unresolved=0 exhausted=3710 invalid=0
+f 406 w=322293 r=287500
+spherical counts: frame=407 case=3 position=10 samples=10658 queries=195181 peak=24 surface=6497 unresolved=0 exhausted=4129 invalid=0
+f 407 w=295006 r=270065
+spherical counts: frame=408 case=3 position=11 samples=10658 queries=212397 peak=24 surface=5902 unresolved=0 exhausted=4756 invalid=0
+f 408 w=335111 r=292688
+spherical counts: frame=409 case=3 position=12 samples=10658 queries=195174 peak=24 surface=6496 unresolved=0 exhausted=4130 invalid=0
+f 409 w=280345 r=260598
+spherical counts: frame=410 case=3 position=13 samples=10658 queries=238056 peak=24 surface=3371 unresolved=0 exhausted=7287 invalid=0
+f 410 w=372505 r=320668
+spherical counts: frame=411 case=3 position=14 samples=10658 queries=161188 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 411 w=282781 r=228464
+spherical counts: frame=412 case=3 position=15 samples=10658 queries=212183 peak=24 surface=4824 unresolved=0 exhausted=5834 invalid=0
+f 412 w=312383 r=290911
+spherical counts: frame=413 case=3 position=16 samples=10658 queries=177051 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 413 w=259041 r=237519
+spherical counts: frame=414 case=3 position=17 samples=10658 queries=239322 peak=24 surface=4061 unresolved=0 exhausted=6597 invalid=0
+f 414 w=338114 r=325641
+spherical counts: frame=415 case=3 position=18 samples=10658 queries=177049 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 415 w=297670 r=248375
+spherical counts: frame=416 case=3 position=19 samples=10658 queries=222830 peak=24 surface=5318 unresolved=0 exhausted=5340 invalid=0
+f 416 w=306595 r=305033
+spherical counts: frame=417 case=3 position=20 samples=10658 queries=161192 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 417 w=222672 r=215218
+spherical counts: frame=418 case=3 position=21 samples=10658 queries=211596 peak=24 surface=6946 unresolved=0 exhausted=3712 invalid=0
+f 418 w=322191 r=287476
+spherical counts: frame=419 case=3 position=22 samples=10658 queries=195183 peak=24 surface=6497 unresolved=0 exhausted=4129 invalid=0
+f 419 w=295033 r=270073
+spherical counts: frame=420 case=3 position=23 samples=10658 queries=212393 peak=24 surface=5901 unresolved=0 exhausted=4757 invalid=0
+f 420 w=335100 r=292677
+spherical counts: frame=421 case=3 position=24 samples=10658 queries=195174 peak=24 surface=6496 unresolved=0 exhausted=4130 invalid=0
+f 421 w=280350 r=260592
+spherical counts: frame=422 case=3 position=25 samples=10658 queries=238056 peak=24 surface=3371 unresolved=0 exhausted=7287 invalid=0
+f 422 w=372547 r=320652
+spherical counts: frame=423 case=3 position=26 samples=10658 queries=161188 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 423 w=282732 r=228448
+spherical counts: frame=424 case=3 position=27 samples=10658 queries=212183 peak=24 surface=4824 unresolved=0 exhausted=5834 invalid=0
+f 424 w=312412 r=290916
+spherical counts: frame=425 case=3 position=28 samples=10658 queries=177051 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 425 w=259082 r=237508
+spherical counts: frame=426 case=3 position=29 samples=10658 queries=239322 peak=24 surface=4061 unresolved=0 exhausted=6597 invalid=0
+f 426 w=338072 r=325637
+spherical counts: frame=427 case=3 position=30 samples=10658 queries=177049 peak=24 surface=7502 unresolved=0 exhausted=3156 invalid=0
+f 427 w=297683 r=248392
+spherical counts: frame=428 case=3 position=31 samples=10658 queries=222830 peak=24 surface=5318 unresolved=0 exhausted=5340 invalid=0
+f 428 w=306664 r=305059
+spherical counts: frame=429 case=3 position=32 samples=10658 queries=161192 peak=24 surface=7432 unresolved=0 exhausted=3226 invalid=0
+f 429 w=222559 r=215194
+spherical counts: frame=430 case=3 position=33 samples=10658 queries=211596 peak=24 surface=6946 unresolved=0 exhausted=3712 invalid=0
+f 430 w=322253 r=287498
+spherical counts: frame=431 case=3 position=34 samples=10658 queries=195183 peak=24 surface=6497 unresolved=0 exhausted=4129 invalid=0
+f 431 w=295088 r=270093
+spherical counts: frame=432 case=3 position=35 samples=10658 queries=212393 peak=24 surface=5901 unresolved=0 exhausted=4757 invalid=0
+f 432 w=335013 r=292664
+=== profile SphericalExperiment [288x144] frames 397-432 window=10873773 us ===
+frame wall us: min=222559 avg=302005 max=372565 sum=10872185 (36 frames)
+frame render us: avg=273553 max=325664
+--- Cycle Counters ---
+frame                  10872185 us (100%)  36 calls  6523311000 cyc
+  pov_preserve_half    4718 us (0%)  36 calls  2831311 cyc
+  spherical_draw       9838336 us (90%)  36 calls  5903002067 cyc
+  canvas_clear         3098 us (0%)  36 calls  1859163 cyc
+  canvas_buffer_wait   1024287 us (9%)  36 calls  614572584 cyc
+isr_wake       n=200441 cyc min/avg/max=286/1012/11389 ns min/avg/max=476/1686/18981 total=338295 us cpu=3.11%
+isr_pack       n=25053 cyc min/avg/max=3741/4220/5922 ns min/avg/max=6235/7033/9870 total=176211 us cpu=1.62%
+isr_dma_submit n=25053 cyc min/avg/max=424/547/651 ns min/avg/max=706/911/1085 total=22878 us cpu=0.21%
+Preset: 5/8
+spherical counts: frame=433 case=4 position=0 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 433 w=166559 r=146929
+spherical counts: frame=434 case=4 position=1 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 434 w=225193 r=184621
+spherical counts: frame=435 case=4 position=2 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 435 w=187123 r=184297
+spherical counts: frame=436 case=4 position=3 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 436 w=186072 r=182927
+spherical counts: frame=437 case=4 position=4 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 437 w=35430 r=30912
+spherical counts: frame=438 case=4 position=5 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 438 w=212165 r=180624
+spherical counts: frame=439 case=4 position=6 samples=10658 queries=61120 peak=8 surface=4024 unresolved=0 exhausted=6634 invalid=0
+f 439 w=146871 r=140001
+spherical counts: frame=440 case=4 position=7 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 440 w=229946 r=182497
+spherical counts: frame=441 case=4 position=8 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 441 w=150136 r=145190
+spherical counts: frame=442 case=4 position=9 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 442 w=220443 r=178193
+spherical counts: frame=443 case=4 position=10 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 443 w=193338 r=184034
+spherical counts: frame=444 case=4 position=11 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 444 w=185098 r=181691
+spherical counts: frame=445 case=4 position=12 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 445 w=152524 r=146773
+spherical counts: frame=446 case=4 position=13 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 446 w=225213 r=184546
+spherical counts: frame=447 case=4 position=14 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 447 w=187190 r=184295
+spherical counts: frame=448 case=4 position=15 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 448 w=186147 r=182943
+spherical counts: frame=449 case=4 position=16 samples=10658 queries=10658 peak=1 surface=10658 unresolved=0 exhausted=0 invalid=0
+f 449 w=35416 r=30917
+spherical counts: frame=450 case=4 position=17 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+f 450 w=212151 r=180617
+spherical counts: frame=451 case=4 position=18 samples=10658 queries=61098 peak=8 surface=4029 unresolved=0 exhausted=6629 invalid=0
+f 451 w=146804 r=139981
+spherical counts: frame=452 case=4 position=19 samples=10658 queries=85264 peak=8 surface=0 unresolved=0 exhausted=10658 invalid=0
+profile provenance: version=1
+profile provenance: source_sha=79a93c6f8f39a0538794803b6e45ee7c7710cdab
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=f5e70375bfceb6d293334d07deac2bddfbe8dd25f8a2521dc7063ccbadbe3ac5
+profile provenance: phantasm_elf_sha256=a7f537a3ffae34af2863076445b81284711c73e27856e01458c276fe16b7e233
+profile provenance: profile_envdump_sha256=6cb0eabf79f3df8ed11af6c28f1d589fe108b3712273241e3ffd5e543746bb61
+profile provenance: phantasm_envdump_sha256=3e067b65a2e196977af3e9f426d06fb34f7b220b1f4c3ed07061666150c75ded
+profile provenance: artifact_profile_elf=build/prof/artifacts/sphericalexperiment_ship_79a93c6f8f39_f5e70375bfce/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/sphericalexperiment_ship_79a93c6f8f39_f5e70375bfce/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/sphericalexperiment_ship_79a93c6f8f39_f5e70375bfce
