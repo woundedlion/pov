@@ -3,10 +3,15 @@
 **Status: IMPLEMENTED architecture, revision 4 (2026-09-26).** The ray core,
 legacy lattice migration, noncubic framework, volume/lattice query adapters,
 and periodic-surface experiments are implemented. Firmware admission is separate
-from architectural availability; experimental surface configurations are excluded
-from the HyperLattice selector. See the
+from architectural availability; experimental configurations are available in
+the simulator and explicitly opted-in device builds, while standard firmware
+keeps only the admitted analytic presets. See the
 [implementation validation and admission report](../profiles/spherical_perspective_implementation_2026-09-26.md)
 for measured limits. Dimensional rift is removed.
+
+The [experimental preset guide](../profiles/hyperlattice_experimental_presets_2026-09-27.md)
+records the preview presets, build switch, and bounded failure behavior. Their
+availability does not change their experimental admission status.
 
 ## 1. Decisions
 
