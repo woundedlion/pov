@@ -1,0 +1,79 @@
+﻿[
+    {
+        "Environment":  "holosphere",
+        "Ram1Code":  70032,
+        "Ram1Variables":  322400,
+        "FlashCode":  72428,
+        "FlashData":  147128,
+        "Ram2Variables":  44160,
+        "Gate":  "PASS",
+        "Build":  "SUCCESS",
+        "ElfSha256":  "40ded1de7b6f8c1afeb6c141d4d80089284b30e5503305ea5b0702f35cc388dc"
+    },
+    {
+        "Environment":  "holosphere_dma",
+        "Ram1Code":  69520,
+        "Ram1Variables":  322240,
+        "FlashCode":  71916,
+        "FlashData":  147128,
+        "Ram2Variables":  44928,
+        "Gate":  "not configured",
+        "Build":  "SUCCESS",
+        "ElfSha256":  "a2be76d9bb92af5141b32cb7a47f0741926760d6f74a57f9a813adc28f2ac081"
+    },
+    {
+        "Environment":  "phantasm",
+        "Ram1Code":  195544,
+        "Ram1Variables":  314784,
+        "FlashCode":  502072,
+        "FlashData":  725448,
+        "Ram2Variables":  520064,
+        "Gate":  "PASS",
+        "Build":  "SUCCESS",
+        "ElfSha256":  "94a2f23e9dffa63e0a7fa20904a0ffcf1ac88d22253aafbc9c9336dc9468c849"
+    },
+    {
+        "Environment":  "profile",
+        "Ram1Code":  43880,
+        "Ram1Variables":  315200,
+        "FlashCode":  79560,
+        "FlashData":  151768,
+        "Ram2Variables":  520064,
+        "Gate":  "not configured",
+        "Build":  "SUCCESS",
+        "ElfSha256":  "8c74a2cb2169999aa296e9849216fc559f192e65911bad36636654cb9c75baa3"
+    },
+    {
+        "Environment":  "profile_o3",
+        "Ram1Code":  67560,
+        "Ram1Variables":  315200,
+        "FlashCode":  106384,
+        "FlashData":  151228,
+        "Ram2Variables":  520064,
+        "Gate":  "not configured",
+        "Build":  "SUCCESS",
+        "ElfSha256":  "2a010bab462c03362165d458a5b887eb991db94be049973cd7140af4670d23eb"
+    },
+    {
+        "Environment":  "bench",
+        "Ram1Code":  13384,
+        "Ram1Variables":  314720,
+        "FlashCode":  28048,
+        "FlashData":  143152,
+        "Ram2Variables":  520064,
+        "Gate":  "not configured",
+        "Build":  "SUCCESS",
+        "ElfSha256":  "0019ac22177b0a119a740f4876b1a0bb485c65cad952b80b02a26882a1c5fad2"
+    },
+    {
+        "Environment":  "phantasm8",
+        "Ram1Code":  195544,
+        "Ram1Variables":  314784,
+        "FlashCode":  502104,
+        "FlashData":  725448,
+        "Ram2Variables":  519488,
+        "Gate":  "not configured",
+        "Build":  "SUCCESS",
+        "ElfSha256":  "5fa16a8a8aa4f70a5dff36ebf803e8f92f5ced48cb5e8b9c06e59b2822fa02a0"
+    }
+]
