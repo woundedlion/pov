@@ -18,7 +18,7 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 56.16 | 🟢 0/2048 (0%) | 2026-08-26 01:25 |
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.04 | 🟢 0/1736 (0.00%) | 2026-09-20 23:07 |
 | [IslamicStars](profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 55.674 (23) | 🟢 0/3327 (0.0%) | 2026-09-24 11:12 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-09-26.md) § ● | `hl_shader_draw` | 🟢 54.879 (2) | 🟢 0/1576 (0.00%) | 2026-09-26 23:52 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 2026-09-27 01:05 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 54.55 | 🟢 0/1088 (0%) | 2026-08-26 02:43 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md)§ | `msp_draw_particles` | 🟢 52.79 (9) | 🟢 0/1728 (0%) | 2026-08-26 07:45 |
 | [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 50.750 | 🟢 0/1087 (0.0%) | 2026-09-24 20:18 |
@@ -59,4 +59,4 @@ IslamicStars refreshed on 2026-09-24 (unlanded finding 2 candidate); Raymarch on
 Captured timestamps are local raw-log mtimes.
 
 
-● HyperLattice refreshed on 2026-09-26: both presets and transitions; setup frame 1 excluded.
+● HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 1 excluded.

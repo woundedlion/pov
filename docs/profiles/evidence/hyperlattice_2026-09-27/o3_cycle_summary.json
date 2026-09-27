@@ -1,0 +1,295 @@
+{
+  "source_sha": "6a7d7160e180e55da8cdd85f0d9d0bfee2cdb478",
+  "log_sha256": "51265fe0be1d2b804fabb1b56b3ef0cefe5f0e68f15a6c84b2e5ca34ebff77b9",
+  "captured": "2026-09-27 01:05",
+  "frames": 1576,
+  "first": 2,
+  "last": 1577,
+  "mean_ms": 44.88436421319797,
+  "peak_ms": 54.817,
+  "wall_mean_ms": 62.42914911167513,
+  "spills": 0,
+  "setup_ms": 76.883,
+  "scope_first": 17,
+  "scope_last": 1568,
+  "scope_frames": 1552,
+  "complete_last": 1568,
+  "complete_frames": 1567,
+  "markers": [
+    [
+      320,
+      2
+    ],
+    [
+      879,
+      1
+    ],
+    [
+      1438,
+      2
+    ]
+  ],
+  "totals": {
+    "frame": {
+      "us": 96908058,
+      "cyc": 58144863858,
+      "calls": 1552,
+      "depth": 0
+    },
+    "pov_preserve_half": {
+      "us": 214260,
+      "cyc": 128583649,
+      "calls": 1552,
+      "depth": 1
+    },
+    "hl_shader_draw": {
+      "us": 66564508,
+      "cyc": 39938733450,
+      "calls": 1552,
+      "depth": 1
+    },
+    "hl_timeline_step": {
+      "us": 27944,
+      "cyc": 16796329,
+      "calls": 1552,
+      "depth": 1
+    },
+    "canvas_clear": {
+      "us": 133622,
+      "cyc": 80201912,
+      "calls": 1552,
+      "depth": 1
+    },
+    "canvas_buffer_wait": {
+      "us": 27262326,
+      "cyc": 16357423058,
+      "calls": 1552,
+      "depth": 1
+    }
+  },
+  "isrs": {
+    "isr_wake": {
+      "count": 1788158,
+      "total_us": 2751007,
+      "min_ns": 326,
+      "max_ns": 22591,
+      "cpu_pct": 2.836291944653414,
+      "calls_per_frame": 1152.1636597938145,
+      "average_us": 1.538458570215831
+    },
+    "isr_pack": {
+      "count": 223506,
+      "total_us": 1475737,
+      "min_ns": 5988,
+      "max_ns": 9671,
+      "cpu_pct": 1.521486846644518,
+      "calls_per_frame": 144.01159793814432,
+      "average_us": 6.602672858894168
+    },
+    "isr_dma_submit": {
+      "count": 223506,
+      "total_us": 213179,
+      "min_ns": 610,
+      "max_ns": 10686,
+      "cpu_pct": 0.2197878378605617,
+      "calls_per_frame": 144.01159793814432,
+      "average_us": 0.9537954238364965
+    }
+  },
+  "exact": {
+    "start": 273,
+    "end": 288,
+    "cycles": 599188210,
+    "wall_sum": 998647,
+    "ppm": 0.01668924727255358
+  },
+  "hold_windows": {
+    "1": 37,
+    "2": 19
+  },
+  "hold_worst": {
+    "1": {
+      "start": 1361,
+      "end": 1376,
+      "wall": [
+        61649,
+        62390,
+        63153,
+        998246
+      ],
+      "render_ms": 44.3265,
+      "counters": {
+        "frame": {
+          "us": 998244,
+          "pct": 100,
+          "calls": 16,
+          "cyc": 598946684,
+          "depth": 0,
+          "tags": []
+        },
+        "pov_preserve_half": {
+          "us": 2180,
+          "pct": 0,
+          "calls": 16,
+          "cyc": 1308439,
+          "depth": 1,
+          "tags": []
+        },
+        "hl_shader_draw": {
+          "us": 677422,
+          "pct": 67,
+          "calls": 16,
+          "cyc": 406453230,
+          "depth": 1,
+          "tags": []
+        },
+        "hl_timeline_step": {
+          "us": 248,
+          "pct": 0,
+          "calls": 16,
+          "cyc": 149283,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_clear": {
+          "us": 1391,
+          "pct": 0,
+          "calls": 16,
+          "cyc": 835136,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_buffer_wait": {
+          "us": 289020,
+          "pct": 28,
+          "calls": 16,
+          "cyc": 173412012,
+          "depth": 1,
+          "tags": []
+        }
+      }
+    },
+    "2": {
+      "start": 593,
+      "end": 608,
+      "wall": [
+        59111,
+        62617,
+        66796,
+        1001884
+      ],
+      "render_ms": 51.222875,
+      "counters": {
+        "frame": {
+          "us": 1001882,
+          "pct": 100,
+          "calls": 16,
+          "cyc": 601129499,
+          "depth": 0,
+          "tags": []
+        },
+        "pov_preserve_half": {
+          "us": 2210,
+          "pct": 0,
+          "calls": 16,
+          "cyc": 1326203,
+          "depth": 1,
+          "tags": []
+        },
+        "hl_shader_draw": {
+          "us": 788234,
+          "pct": 78,
+          "calls": 16,
+          "cyc": 472940842,
+          "depth": 1,
+          "tags": []
+        },
+        "hl_timeline_step": {
+          "us": 201,
+          "pct": 0,
+          "calls": 16,
+          "cyc": 120798,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_clear": {
+          "us": 1356,
+          "pct": 0,
+          "calls": 16,
+          "cyc": 813834,
+          "depth": 1,
+          "tags": []
+        },
+        "canvas_buffer_wait": {
+          "us": 182316,
+          "pct": 18,
+          "calls": 16,
+          "cyc": 109389757,
+          "depth": 1,
+          "tags": []
+        }
+      }
+    }
+  },
+  "transition_worst": {
+    "start": 465,
+    "end": 480,
+    "wall": [
+      58031,
+      62408,
+      65724,
+      998536
+    ],
+    "render_ms": 51.31725,
+    "counters": {
+      "frame": {
+        "us": 998537,
+        "pct": 100,
+        "calls": 16,
+        "cyc": 599122210,
+        "depth": 0,
+        "tags": []
+      },
+      "pov_preserve_half": {
+        "us": 2191,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 1314653,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_shader_draw": {
+        "us": 789640,
+        "pct": 79,
+        "calls": 16,
+        "cyc": 473784185,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_timeline_step": {
+        "us": 337,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 202525,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_clear": {
+        "us": 1354,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 812617,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_buffer_wait": {
+        "us": 177461,
+        "pct": 17,
+        "calls": 16,
+        "cyc": 106476709,
+        "depth": 1,
+        "tags": []
+      }
+    }
+  }
+}
