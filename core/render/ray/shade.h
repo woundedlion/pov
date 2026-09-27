@@ -62,9 +62,11 @@ shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
 }
 
 template <typename Query>
-ShadedTrace shade_surface(const Query &query, const Ray &ray,
-                          const Footprint &footprint, const TraceLimits &limits,
-                          const Appearance &appearance) {
+HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,
+                                              const Ray &ray,
+                                              const Footprint &footprint,
+                                              const TraceLimits &limits,
+                                              const Appearance &appearance) {
   auto trace = surface_search(query, ray, footprint, limits);
   LayerComposite composite;
   if (trace.has_surface)
