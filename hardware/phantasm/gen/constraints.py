@@ -52,7 +52,7 @@ UNPLACED_DEFAULT_CLASS = {
 # through-hole (connectors, electrolytic, Teensy) and solder jumpers.
 # gen/pcb.py stamps the matching board attributes; gen/fab.py keeps the same
 # parts out of the assembly BOM and centroid.
-EXCLUDE_FP_SUBSTR = ("PinHeader", "JST_", "Molex_KK-254", "SolderJumper", "CP_Radial")
+EXCLUDE_FP_SUBSTR = ("TerminalBlock", "PinHeader", "JST_", "Molex_KK-254", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 
 
