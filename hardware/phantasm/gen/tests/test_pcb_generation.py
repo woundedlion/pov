@@ -10,8 +10,10 @@ on the pin for the netlist export; without them the whole class is skipped.
 """
 import contextlib
 import io
+import json
 import math
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -91,6 +93,64 @@ def zone_polygon(zone):
     return [(float(point[1]), float(point[2])) for point in points]
 
 
+class TerminalBodyChecks:
+    def test_terminal_bodies_have_component_reservations(self):
+        footprints = {reference(fp): fp for fp in F(self.root, "footprint")}
+        for ref, count in (("J1", 2), ("J2", 3), ("J3A", 3), ("J3B", 3)):
+            with self.subTest(ref=ref):
+                fp = footprints[ref]
+                name = f"TerminalBlock_GCT_TBC05-0{count}-1-G-G"
+                self.assertEqual(str(fp[1]), f"phantasm:{name}")
+                pads = F(fp, "pad")
+                self.assertEqual([str(p[1]) for p in pads],
+                                 [str(i + 1) for i in range(count)])
+                for i, pad in enumerate(pads):
+                    self.assertEqual([float(v) for v in sexp.val(pad, "at")[:2]],
+                                     [0.0, i * 2.54])
+                    self.assertEqual(float(sexp.val(pad, "drill")[0]), 1.3)
+                reservation = (-3.75, -1.97, 3.75, (count - 1) * 2.54 + 1.97)
+                self.assertEqual(pcb.fp_bbox(fp, graphic_layers=("F.CrtYd",)),
+                                 reservation)
+                zones = F(fp, "zone")
+                self.assertEqual(len(zones), 1)
+                zone = zones[0]
+                self.assertEqual(sexp.val(zone, "layer"), ["F.Cu"])
+                x0, y0, x1, y1 = reservation
+                local_points = {(x0, y0), (x1, y0), (x1, y1), (x0, y1)}
+                module = pcb.load_mod(f"phantasm:{name}")
+                self.assertEqual(set(zone_polygon(F(module, "zone")[0])), local_points)
+                x, y, angle = map(float, sexp.val(fp, "at"))
+                angle = math.radians(angle)
+                placed_points = {
+                    (round(x + px * math.cos(angle) + py * math.sin(angle), 6),
+                     round(y - px * math.sin(angle) + py * math.cos(angle), 6))
+                    for px, py in local_points}
+                self.assertEqual(set(zone_polygon(zone)), placed_points)
+                keepout = F(zone, "keepout")[0]
+                self.assertEqual(sexp.val(keepout, "footprints"), ["not_allowed"])
+                for item in ("tracks", "vias", "pads", "copperpour"):
+                    self.assertEqual(sexp.val(keepout, item), ["allowed"])
+                self.assertIn(ref, assembly_exclusions(self.root))
+
+    def test_terminal_keepout_rotates_and_moves_with_footprint(self):
+        local_points = [(-3.75, -1.97), (3.75, -1.97), (3.75, 4.51), (-3.75, 4.51)]
+        transforms = {0: lambda x, y: (x, y), 90: lambda x, y: (y, -x),
+                      180: lambda x, y: (-x, -y), 270: lambda x, y: (-y, x)}
+        for angle, transform in transforms.items():
+            with self.subTest(angle=angle):
+                fp = pcb.embed(pcb.TERMINAL_LIBIDS[0], "J1", "power", 20, 30,
+                               angle, {}, {"": 0})
+                expected = {(round(20 + x, 6), round(30 + y, 6))
+                            for x, y in map(lambda point: transform(*point), local_points)}
+                self.assertEqual(set(zone_polygon(F(fp, "zone")[0])), expected)
+
+    def test_terminal_libraries_are_available_in_generated_project(self):
+        for count in (2, 3):
+            name = f"TerminalBlock_GCT_TBC05-0{count}-1-G-G"
+            path = Path(self.out.name) / "phantasm.pretty" / f"{name}.kicad_mod"
+            self.assertEqual(str(read(path)[1]), name)
+
+
 def _graphic_points(node):
     """Local-frame corner points of one footprint graphic."""
     if str(node[0]) == "fp_circle":
@@ -150,13 +210,35 @@ class OverwriteProtectionTests(unittest.TestCase):
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
-class GeneratedBoardTests(unittest.TestCase):
+class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
     """The placed draft `pcb.py --force` emits, read back without KiCad."""
+
+    def test_drc_rejects_a_component_under_the_terminal_body(self):
+        root = read(self.path)
+        footprints = {reference(fp): fp for fp in F(root, "footprint")}
+        terminal = footprints["J1"]
+        resistor = footprints["R_MEN"]
+        x, y = map(float, sexp.val(terminal, "at")[:2])
+        at = F(resistor, "at")[0]
+        at[1:] = [x + 2.0, y + 1.27, 0]
+        board_path = Path(self.out.name) / "blocked.kicad_pcb"
+        report_path = Path(self.out.name) / "blocked-drc.json"
+        board_path.write_text(sexp.dumps(root), encoding="utf-8")
+        result = subprocess.run(
+            [kicad_cli(), "pcb", "drc", "--format", "json", "-o",
+             str(report_path), str(board_path)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        resistor_uuid = str(sexp.val(resistor, "uuid")[0])
+        self.assertTrue(any(
+            violation["type"] == "items_not_allowed" and
+            any(item["uuid"] == resistor_uuid for item in violation["items"])
+            for violation in report["violations"]), report["violations"])
 
     def test_generated_pair_passes_schematic_parity(self):
         with tempfile.TemporaryDirectory() as directory:
             board_path = generate(directory)
-            warnings = {("lib_footprint_mismatch", ref): 1 for ref in ("D_BUS", "U_MCU")}
+            warnings = {("lib_footprint_mismatch", ref): 1 for ref in ("D_BUS",)}
             with mock.patch.object(fab, "PCB", board_path), \
                     mock.patch.object(fab, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
                     mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS", warnings):
@@ -331,7 +413,7 @@ class GeneratedBoardTests(unittest.TestCase):
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)
-class UnplacedBoardTests(unittest.TestCase):
+class UnplacedBoardTests(TerminalBodyChecks, unittest.TestCase):
     """The autoplacer upload `pcb.py --unplaced` emits."""
 
     @classmethod
@@ -365,8 +447,9 @@ class UnplacedBoardTests(unittest.TestCase):
     def test_labels_the_id_straps_on_the_front_silkscreen(self):
         texts = [str(node[1]) for node in F(self.root, "gr_text")
                  if str(sexp.val(node, "layer")[0]) == "F.SilkS"]
-        self.assertTrue({"ID0", "ID1", "ID2", "SHLD", "SYNC IN", "SYNC OUT"}
+        self.assertTrue({"ID0", "ID1", "ID2", "SHLD"}
                         <= set(texts), sorted(texts))
+        self.assertTrue({"SYNC IN", "SYNC OUT", "LED OUT"}.isdisjoint(texts))
 
 
 @unittest.skipUnless(GENERATES, GENERATES_REASON)

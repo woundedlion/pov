@@ -254,10 +254,9 @@ def main(force=False):
 
     # --- light logic feed only; LED 4.3 A power is delivered off-board (spec 2.3) ---
     # Series chain on the rail line: J1 -> F1 -> Q_REV -> FB -> +5V_LOGIC.
-    # Polarized 2.54 mm power header; hand-soldered with its matching housing.
-    J1 = place("Connector_Generic:Conn_01x02", "J1", "+5V IN keyed ~1A", 25.4, 60.96, in_bom=False,
+    J1 = place("Connector_Generic:Conn_01x02", "J1", "TBC05-02-1-G-G +5V IN ~1A", 25.4, 60.96, in_bom=False,
                rot=180,
-               fp="Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical")
+               fp="phantasm:TerminalBlock_GCT_TBC05-02-1-G-G")
     # Small logic-only fuse/PTC (R-PWR-8) — the 4.3 A strip current never flows here.
     F1 = place("Device:Fuse", "F1", "0.5A hold", 40.64, 60.96, rot=90,
                fp="Fuse:Fuse_1206_3216Metric")
@@ -364,8 +363,8 @@ def main(force=False):
     # --- J2 strip SIGNAL out (3-pin, no power): DI / SIG_GND / CI (R-CON-1) ---
     # Strip 5 V/GND are injected off-board (spec 2.3); SIG_GND is the card's logic GND,
     # landed on the strip GND pin at the load end (the off-board ground star).
-    J2 = place("Connector_Generic:Conn_01x03", "J2", "LED sig DI/SIG_GND/CI", 281.94, 165.1, in_bom=False,
-               fp="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+    J2 = place("Connector_Generic:Conn_01x03", "J2", "TBC05-03-1-G-G LED DI/SIG_GND/CI", 281.94, 165.1, in_bom=False,
+               fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
     to_label(J2, "1", "DATA"); to_power(J2, "2", GND); to_label(J2, "3", "CLK")
 
     # ============================================================ BLOCK 3: SYNC
@@ -389,10 +388,10 @@ def main(force=False):
                  fp="Diode_SMD:D_SOD-323")
     to_label(DBUS, "1", "SYNC_BUS"); to_power(DBUS, "2", GND)
     # daisy connectors
-    J3A = place("Connector_Generic:Conn_01x03", "J3A", "SYNC in", 330.2, 205.74, in_bom=False,
-                fp="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
-    J3B = place("Connector_Generic:Conn_01x03", "J3B", "SYNC out", 330.2, 233.68, in_bom=False,
-                fp="Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+    J3A = place("Connector_Generic:Conn_01x03", "J3A", "TBC05-03-1-G-G SYNC in", 330.2, 205.74, in_bom=False,
+                fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
+    J3B = place("Connector_Generic:Conn_01x03", "J3B", "TBC05-03-1-G-G SYNC out", 330.2, 233.68, in_bom=False,
+                fp="phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
     for J in (J3A, J3B):
         to_label(J, "1", "SYNC_BUS"); to_power(J, "2", GND); to_label(J, "3", "SHIELD")
     JPS = place("Jumper:SolderJumper_2_Open", "JP_SHLD", "shield gnd (master only)", 363.22, 248.92,
