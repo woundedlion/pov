@@ -1,6 +1,6 @@
 # Spherical perspective and independent patterns
 
-**Status: PROPOSED, revision 2 (2026-09-26).** This document specifies a generalization of
+**Status: PROPOSED, revision 3 (2026-09-26).** This document specifies a generalization of
 [HyperLattice](../../effects/HyperLattice.h); it does not describe shipped APIs.
 Implementation is a separate change. Dimensional rift is removed from the
 proposed design.
@@ -188,6 +188,100 @@ restricted query are an optional alternative with separately measured cost.
 Here an SDF volume means solid geometry described throughout a spatial domain.
 It is already compatible with spherical perspective. It does not imply fog
 or participating-medium integration, which uses a different accumulation rule.
+
+### 3.2 File layout and ownership
+
+All reusable geometry and rendering machinery belongs in the core engine,
+including concrete reusable patterns and their query adapters. A helper does
+not remain effect-private merely because HyperLattice is its first consumer.
+The effect owns the choice of geometry and settings, not their implementation.
+
+The following paths are the intended implementation layout. Rows marked
+**new** are proposed files, not existing files or work included in this
+spec-only change. Use the existing header-based template style; these files
+do not introduce a separate library build or runtime service.
+
+| Path | State | Responsibility |
+| --- | --- | --- |
+| core/render/ray.h | New | Public umbrella for reusable ray rendering; proposed namespace `Raycast` |
+| core/render/ray/contract.h | New | Ray interval, footprint, trace limits/status, geometric contribution, and query capability contracts; no effect types or framebuffer traversal |
+| core/render/ray/camera.h | New | Spherical ray construction, validated 3D/4D slice embedding, world-distance conventions, and prepared camera transforms |
+| core/render/ray/query.h | New | Generic volume-query adaptation, placement/domain composition, prepared per-ray evaluation, and projected normals; geometry-specific formulas stay with their pattern |
+| core/render/ray/march.h | New | Shared scalar stepping/refinement kernel, first-boundary policy, and extracted legacy closest-approach policy |
+| core/render/ray/events.h | New | Bounded merge of analytic candidate streams, event grouping, ordered emission, and traversal budgets |
+| core/render/ray/shade.h | New | Reusable depth/feature appearance policies, fog/near fade, verified subray filtering, and contribution consumption through `LayerComposite`; receives palettes and settings from callers |
+| core/render/pullback/ray.h | New | Reusable prepared `SphereSample -> Color4` stage binding camera, query, backend, and appearance; no new canonical carriers |
+| core/render/sdf/lattice.h | New | Cubic/hypercubic wire geometry, world-unit distance queries, analytic plane-event adapters, feature identities, and explicit legacy coverage/filter policy |
+| core/render/sdf/framework.h | New | Triangular-prism framework geometry and its analytic query adapter |
+| core/render/sdf/periodic_surface.h | New | Cosine and gyroid level-set definitions, period/isovalue parameters, bounds, gradients, and surface-query adapters |
+| core/render/sdf/volume.h | Existing | Existing torus, warps, and warped-volume geometry; retain their public shape contracts |
+| core/render/scan/volume.h | Existing | Orthographic scan/cull/draw front end, `TransformedVolume` compatibility API, and legacy occluder-probe/plot behavior; delegates extracted stepping to the ray core |
+| core/render/scan/shader.h | Existing | Sphere-sample traversal and cached scan behavior; does not learn about pattern choices |
+| core/color/layer_composite.h | Existing | Existing straight-alpha front-to-back compositor; no duplicate accumulator in the new subsystem |
+| core/math/3dmath.h and core/math/4dmath.h | Existing | Vector, matrix, and rotation algebra reused by camera/query preparation; any generally useful algebra extension stays here |
+| effects/HyperLattice.h | Existing | Effect identity, registered parameters, admitted tuple table, presets, choreography, camera/object animation, palette selection, frame state, and call into the shared stage |
+| effects/Raymarch.h | Existing | Existing placement animation, effect-specific material choices, and orthographic draw invocation |
+
+Reusable appearance operations go in the ray core; authored palette recipes
+continue using the existing color facilities. Generic repetition/transformation
+code goes in the query layer or existing math helpers. A pattern-specific
+distance bound, intersection formula, or feature-color coordinate belongs
+with its core geometry adapter. Legacy visual compatibility alone is not a
+reason to keep reusable lattice geometry in the effect header. The effect's
+legacy wrapped flight animation remains effect-owned because it chooses a
+motion path rather than defining geometry.
+
+Keep the existing `Scan::TransformedVolume` API. Generic placement/domain
+composition is implemented in the ray query layer and may be delegated to by
+that wrapper; the new core must not include the scan renderer to obtain a
+transform. Likewise, the shared marcher cannot include the effect header to
+obtain a distance evaluator or a tracing constant.
+
+### 3.3 Dependency direction and extraction boundaries
+
+The lower-level contracts depend only on existing math/platform/value types.
+Camera and generic query preparation depend on those contracts. Core pattern
+headers implement query capabilities and may include the contracts, but not
+the tracing backends. March/event backends depend on capabilities, not a
+concrete pattern catalog. Appearance depends on contribution contracts and
+existing color/shading primitives. The prepared pullback stage composes these
+helpers using the existing pullback contract.
+
+Effects select concrete core patterns and backends and supply frame-owned
+state. Neither the ray core nor any pattern header includes files under
+effects, workbench, or targets, knows the HyperLattice configuration enum, or
+consults the effect registry. Low-level core geometry must compile and be
+testable without instantiating an effect or a canvas. New includes must not
+create a cycle through the existing SDF or scan umbrellas; leaf headers use
+leaf dependencies, and consumers include the narrowest public entry needed.
+
+Extract in dependency order: contracts and queries; camera and shared stepping;
+core pattern adapters and event traversal; shared appearance and pullback
+stage; effect wiring. Move reusable numerical logic out of
+`HyperLatticeDetail`, rather than retaining effect-private implementations
+behind core forwarding wrappers. The orthographic wrapper and spherical
+stage must instantiate the same march implementation. Unused template pattern
+inventory must not emit executable code, lookup data, or static registration.
+
+### 3.4 Test and documentation locations
+
+| Path | State | Responsibility |
+| --- | --- | --- |
+| tests/test_ray.h | New | Camera/domain, query capabilities, shared marcher, analytic-stream merger, filtering, statuses, and synthetic-geometry tests without effect dependencies |
+| tests/test_sdf_patterns.h | New | Cubic/hypercubic fields, framework geometry, periodic surfaces, bounds, scale/translation invariance, and native reference comparisons |
+| tests/test_hyper_lattice.h | Existing | Preset/configuration/schema behavior, choreography, frame preparation, and effect-level compatibility captures |
+| tests/test_scan.h | Existing | Orthographic volume regressions, including first-graze and background-graze ownership after extraction |
+| tests/test_pullback.h | Existing | New shared stage's prepared-state and `SphereSample -> Color4` contract integration |
+| docs/specs/spherical_perspective_spec.md | Existing | This subsystem's architecture and numerical contracts |
+| docs/subsystems.md | Existing | Shipped ray/query facilities and their public entry points, updated when implementation lands |
+| docs/effects.md | Existing | User-facing pattern/configuration behavior, updated when implementation lands |
+| docs/profiles/ | Existing | Device reports and source/build provenance through the current profiling workflow |
+
+Register new suites through the existing native test harness and its coverage
+gates. Core tests must directly instantiate core helpers; effect white-box
+access is reserved for effect-owned behavior. Update tracked file maps and
+documentation references when the proposed files are created, not by adding
+empty placeholders in this spec change.
 
 ## 4. Component boundaries
 
@@ -596,6 +690,10 @@ is a separate compatibility decision, not necessary to establish the boundary.
 - Adding the triangular framework and implicit surface requires no pattern
   branches in camera, appearance infrastructure, or compositor. Generic
   backend code depends only on its query capability contract.
+- The file ownership and dependency rules in sections 3.2-3.4 hold. Core
+  geometry/query/trace tests compile without including effects. HyperLattice
+  contains no duplicate generic distance, camera, tracing, or compositing
+  implementation; reusable patterns and their analytic adapters live in core.
 - Relevant native tests, firmware builds, and size/layout gates pass. Record
   RAM1 code, RAM1 variables, FLASH data, and changes from baseline. Profile
   admitted configurations on the Teensy with fixed provenance and report
