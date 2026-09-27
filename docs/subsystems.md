@@ -168,9 +168,9 @@ occluder handling. Surface proximity alone never contributes opacity.
 
 `trace_events` merges a compile-time bounded set of monotone analytic streams.
 It preserves distinct material/merge identities, coalesces duplicate coverage
-within a relative tolerance, and reports candidate/layer exhaustion. A group
-holds at most one distinct identity per declared stream; exceeding that bounded
-storage reports exhaustion after consuming the valid pending contributions.
+within a relative tolerance, and reports candidate/layer exhaustion. Adapters may declare a merge-group capacity; it defaults to their stream count.
+The lattice uses one slot for a junction. Exceeding that bounded storage reports
+exhaustion after consuming the valid pending contributions.
 Geometry-specific candidates live in the lattice and triangular-framework SDF
 headers. `Appearance`, `shade_events`, `shade_surface`, and `verified_filter`
 reuse straight-alpha `LayerComposite` composition and shade verified subrays
