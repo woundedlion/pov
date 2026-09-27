@@ -216,6 +216,8 @@ struct WarpVectorNoise : PhaseClockModel<NoisePhaseState> {
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
+    if (!noise_plane_in_domain(input.coords))
+      return input;
     const float amplitude =
         params.strength *
         warp_envelope(params.envelope, input.provenance, params.edge_width);
@@ -394,6 +396,8 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   }
   static PlaneSample run(const PlaneSample &input, const FrameContext &,
                          const Params &params, const Prepared &prepared) {
+    if (!noise_plane_in_domain(input.coords))
+      return input;
     return Kernel::warp(
         input, Warp::curl_flow(input.coords, *prepared.noise,
                                static_cast<math::NoiseBasis>(params.basis),

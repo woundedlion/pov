@@ -506,6 +506,8 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState> {
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
+    if (!noise_plane_in_domain(input.coords))
+      return finish_sample(input, 0.0f, params, ctx);
     const float raw = Source::noise_contour(
         *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
         math::noise_projected_coordinate(input.coords, params.noise_scale,
