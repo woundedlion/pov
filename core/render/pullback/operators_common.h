@@ -83,6 +83,11 @@ template <typename StateT> struct PhaseClockModel : ValueStateModel<StateT> {
   }
 };
 
+__attribute__((always_inline)) inline bool
+noise_plane_in_domain(const math::Complex &coords) {
+  return fabsf(coords.re) <= 0x1p20f && fabsf(coords.im) <= 0x1p20f;
+}
+
 inline void init_noise_phase(NoisePhaseState &state, InstanceId id) {
   init_effect_noise(state.noise, static_cast<int32_t>(id.stable_hash));
 }
