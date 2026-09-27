@@ -1036,6 +1036,28 @@ inline void test_vector_slerp() {
   HS_EXPECT_GT(a25, a50);
   HS_EXPECT_GT(a50, a75);
   HS_EXPECT_NEAR(a50, 0.0f, 5e-3f);
+
+  const math::Vector normalized = math::Vector(1, 1, 1).normalized();
+  HS_EXPECT_VEC(math::slerp(normalized, -normalized, 0.0f), normalized, 1e-5f);
+  HS_EXPECT_VEC(math::slerp(normalized, -normalized, 1.0f), -normalized, 1e-5f);
+  for (int step = 1; step < 16; ++step) {
+    const float T = static_cast<float>(step) / 16.0f;
+    const math::Vector interpolated = math::slerp(normalized, -normalized, T);
+    HS_EXPECT_NEAR(interpolated.length(), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(math::dot(interpolated, normalized),
+                   std::cos(math::PI_F * T), 1e-4f);
+  }
+  const math::Vector nearby = math::Vector(-1, -0.99f, -1).normalized();
+  HS_EXPECT_VEC(math::slerp(normalized, nearby, 0.0f), normalized, 1e-5f);
+  HS_EXPECT_VEC(math::slerp(normalized, nearby, 1.0f), nearby, 1e-5f);
+  HS_EXPECT_VEC(math::slerp(normalized, nearby, 0.5f),
+                (normalized + nearby).normalized(), 1e-4f);
+  const math::Vector rounded_antipode =
+      math::Vector(-1, 0.0002f, 0).normalized();
+  HS_EXPECT_NEAR(math::slerp(a, rounded_antipode, 0.5f).length(), 1.0f, 1e-5f);
+  HS_EXPECT_VEC(math::slerp(a, rounded_antipode, 0.0f), a, 1e-5f);
+  HS_EXPECT_VEC(math::slerp(a, rounded_antipode, 1.0f), rounded_antipode,
+                3e-4f);
 }
 
 /**
@@ -1109,6 +1131,33 @@ inline void test_quaternion_slerp() {
   // fallback must stay unit.
   math::Quaternion long_degenerate = math::slerp(q, q, 0.5f, true);
   HS_EXPECT_NEAR(long_degenerate.magnitude(), 1.0f, 1e-3f);
+
+  const math::Quaternion normalized = math::Quaternion(1, 1, 1, 0).normalized();
+  HS_EXPECT_QUAT(math::slerp(normalized, normalized, 0.0f, true), -normalized,
+                 1e-5f);
+  HS_EXPECT_QUAT(math::slerp(normalized, normalized, 1.0f, true), normalized,
+                 1e-5f);
+  for (int step = 1; step < 16; ++step) {
+    const float T = static_cast<float>(step) / 16.0f;
+    const math::Quaternion interpolated =
+        math::slerp(normalized, normalized, T, true);
+    HS_EXPECT_NEAR(interpolated.magnitude(), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(math::dot(interpolated, -normalized),
+                   std::cos(math::PI_F * T), 1e-5f);
+  }
+  const math::Quaternion nearby = math::Quaternion(1, 0.99f, 1, 0).normalized();
+  HS_EXPECT_QUAT(math::slerp(normalized, nearby, 0.0f, true), -normalized,
+                 1e-5f);
+  HS_EXPECT_QUAT(math::slerp(normalized, nearby, 1.0f, true), nearby, 1e-5f);
+  HS_EXPECT_QUAT(math::slerp(normalized, nearby, 0.5f, true),
+                 (nearby - normalized).normalized(), 1e-4f);
+  const math::Quaternion rounded_self =
+      math::Quaternion(1, 0.0002f, 0, 0).normalized();
+  HS_EXPECT_NEAR(math::slerp(id, rounded_self, 0.5f, true).magnitude(), 1.0f,
+                 1e-5f);
+  HS_EXPECT_QUAT(math::slerp(id, rounded_self, 0.0f, true), -id, 1e-5f);
+  HS_EXPECT_QUAT(math::slerp(id, rounded_self, 1.0f, true), rounded_self,
+                 3e-4f);
 }
 
 inline void test_scaled_rotation_delta() {
