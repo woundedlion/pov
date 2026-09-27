@@ -1,0 +1,1995 @@
+profile harness: effect=HyperLattice config=ship segments=4 rpm=480 f_cpu=600000000
+reset cause: 0x001 por
+[Phantasm] Segment 0 arm-A (+y) MASTER | y_base=0 y_step=1 pixels=72
+Profile preset: 1/2
+f 1 w=67786 r=67786
+f 2 w=37046 r=37046
+f 3 w=67129 r=41718
+f 4 w=61962 r=41218
+f 5 w=68077 r=46838
+f 6 w=59920 r=44308
+f 7 w=65805 r=47654
+f 8 w=60488 r=45682
+f 9 w=66276 r=49498
+f 10 w=60081 r=47129
+f 11 w=66395 r=51060
+f 12 w=59751 r=48295
+f 13 w=65351 r=51185
+f 14 w=59453 r=48192
+f 15 w=65504 r=51239
+f 16 w=59478 r=48257
+=== profile HyperLattice [288x144] frames 1-16 window=1422165 us ===
+frame wall us: min=37046 avg=61906 max=68077 sum=990502 (16 frames)
+frame render us: avg=47944 max=67786
+--- Cycle Counters ---
+frame                  990500 us (100%)  16 calls  594300584 cyc
+  pov_preserve_half    2107 us (0%)  15 calls  1264252 cyc
+  hl_shader_draw       736836 us (74%)  16 calls  442101808 cyc
+  hl_timeline_step     240 us (0%)  16 calls  144160 cyc
+  canvas_clear         1505 us (0%)  16 calls  903359 cyc
+  canvas_buffer_wait   223405 us (22%)  16 calls  134043260 cyc
+isr_wake       n=26238 cyc min/avg/max=252/757/11778 ns min/avg/max=420/1261/19630 total=33140 us cpu=2.33%
+isr_pack       n=2129 cyc min/avg/max=3738/4025/5650 ns min/avg/max=6230/6708/9416 total=14282 us cpu=1.00%
+isr_dma_submit n=2129 cyc min/avg/max=406/560/742 ns min/avg/max=676/933/1236 total=1990 us cpu=0.13%
+f 17 w=65006 r=50969
+f 18 w=59845 r=48354
+f 19 w=64221 r=50114
+f 20 w=60681 r=48336
+f 21 w=64925 r=50798
+f 22 w=60797 r=49139
+f 23 w=64411 r=51092
+f 24 w=60944 r=49575
+f 25 w=64227 r=51344
+f 26 w=61058 r=49881
+f 27 w=63922 r=51354
+f 28 w=61308 r=50205
+f 29 w=63733 r=51479
+f 30 w=61396 r=50414
+f 31 w=63539 r=51492
+f 32 w=61558 r=50583
+=== profile HyperLattice [288x144] frames 17-32 window=1002152 us ===
+frame wall us: min=59845 avg=62598 max=65006 sum=1001571 (16 frames)
+frame render us: avg=50320 max=51492
+--- Cycle Counters ---
+frame                  1001567 us (100%)  16 calls  600940485 cyc
+  pov_preserve_half    2205 us (0%)  16 calls  1323256 cyc
+  hl_shader_draw       773536 us (77%)  16 calls  464121881 cyc
+  hl_timeline_step     206 us (0%)  16 calls  123738 cyc
+  canvas_clear         1372 us (0%)  16 calls  823729 cyc
+  canvas_buffer_wait   196448 us (19%)  16 calls  117869264 cyc
+isr_wake       n=18476 cyc min/avg/max=376/993/7162 ns min/avg/max=626/1655/11936 total=30588 us cpu=3.05%
+isr_pack       n=2309 cyc min/avg/max=3738/4036/5661 ns min/avg/max=6230/6726/9435 total=15532 us cpu=1.54%
+isr_dma_submit n=2309 cyc min/avg/max=406/560/609 ns min/avg/max=676/933/1015 total=2158 us cpu=0.21%
+f 33 w=63191 r=51485
+f 34 w=61691 r=50714
+f 35 w=63108 r=51361
+f 36 w=61923 r=50827
+f 37 w=62997 r=51364
+f 38 w=61958 r=50861
+f 39 w=62881 r=51230
+f 40 w=62144 r=50908
+f 41 w=62772 r=51228
+f 42 w=62204 r=50970
+f 43 w=62597 r=51116
+f 44 w=62358 r=51014
+f 45 w=62414 r=50965
+f 46 w=62564 r=51078
+f 47 w=62184 r=50812
+f 48 w=63064 r=51416
+=== profile HyperLattice [288x144] frames 33-48 window=1000664 us ===
+frame wall us: min=61691 avg=62503 max=63191 sum=1000050 (16 frames)
+frame render us: avg=51084 max=51485
+--- Cycle Counters ---
+frame                  1000047 us (100%)  16 calls  600028584 cyc
+  pov_preserve_half    2215 us (0%)  16 calls  1329223 cyc
+  hl_shader_draw       785665 us (78%)  16 calls  471399172 cyc
+  hl_timeline_step     214 us (0%)  16 calls  128976 cyc
+  canvas_clear         1381 us (0%)  16 calls  828616 cyc
+  canvas_buffer_wait   182707 us (18%)  16 calls  109624727 cyc
+isr_wake       n=18448 cyc min/avg/max=376/994/10546 ns min/avg/max=626/1656/17576 total=30566 us cpu=3.05%
+isr_pack       n=2306 cyc min/avg/max=3738/4037/5708 ns min/avg/max=6230/6728/9513 total=15517 us cpu=1.55%
+isr_dma_submit n=2306 cyc min/avg/max=466/560/609 ns min/avg/max=776/933/1015 total=2155 us cpu=0.21%
+f 49 w=61675 r=50789
+f 50 w=63608 r=51935
+f 51 w=61285 r=50757
+f 52 w=64226 r=52539
+f 53 w=60651 r=50694
+f 54 w=64960 r=53198
+f 55 w=60149 r=50885
+f 56 w=65610 r=54035
+f 57 w=59714 r=51288
+f 58 w=65676 r=54515
+f 59 w=59315 r=51369
+f 60 w=67172 r=56079
+f 61 w=59989 r=53614
+f 62 w=65448 r=56604
+f 63 w=60640 r=54786
+f 64 w=62632 r=54957
+=== profile HyperLattice [288x144] frames 49-64 window=1003374 us ===
+frame wall us: min=59315 avg=62671 max=67172 sum=1002750 (16 frames)
+frame render us: avg=53002 max=56604
+--- Cycle Counters ---
+frame                  1002751 us (100%)  16 calls  601650602 cyc
+  pov_preserve_half    2204 us (0%)  16 calls  1322772 cyc
+  hl_shader_draw       816347 us (81%)  16 calls  489808677 cyc
+  hl_timeline_step     176 us (0%)  16 calls  106046 cyc
+  canvas_clear         1374 us (0%)  16 calls  824556 cyc
+  canvas_buffer_wait   154713 us (15%)  16 calls  92827884 cyc
+isr_wake       n=18498 cyc min/avg/max=376/997/7528 ns min/avg/max=626/1661/12546 total=30755 us cpu=3.06%
+isr_pack       n=2312 cyc min/avg/max=3738/4064/5759 ns min/avg/max=6230/6773/9598 total=15660 us cpu=1.56%
+isr_dma_submit n=2312 cyc min/avg/max=398/560/608 ns min/avg/max=663/933/1013 total=2160 us cpu=0.21%
+f 65 w=59620 r=52284
+f 66 w=62732 r=52502
+f 67 w=60850 r=50902
+f 68 w=63879 r=52323
+f 69 w=60536 r=50402
+f 70 w=64052 r=51992
+f 71 w=60691 r=50222
+f 72 w=64030 r=51793
+f 73 w=60834 r=50160
+f 74 w=64147 r=51844
+f 75 w=60995 r=50380
+f 76 w=63777 r=51697
+f 77 w=61582 r=50818
+f 78 w=63432 r=51790
+f 79 w=62357 r=51685
+f 80 w=61808 r=50992
+=== profile HyperLattice [288x144] frames 65-80 window=995912 us ===
+frame wall us: min=59620 avg=62207 max=64147 sum=995322 (16 frames)
+frame render us: avg=51361 max=52502
+--- Cycle Counters ---
+frame                  995319 us (100%)  16 calls  597191703 cyc
+  pov_preserve_half    2193 us (0%)  16 calls  1316358 cyc
+  hl_shader_draw       790184 us (79%)  16 calls  474110757 cyc
+  hl_timeline_step     197 us (0%)  16 calls  118339 cyc
+  canvas_clear         1374 us (0%)  16 calls  824560 cyc
+  canvas_buffer_wait   173544 us (17%)  16 calls  104126526 cyc
+isr_wake       n=18361 cyc min/avg/max=376/995/7580 ns min/avg/max=626/1658/12633 total=30470 us cpu=3.05%
+isr_pack       n=2295 cyc min/avg/max=3738/4045/5643 ns min/avg/max=6230/6741/9405 total=15474 us cpu=1.55%
+isr_dma_submit n=2295 cyc min/avg/max=427/560/608 ns min/avg/max=711/933/1013 total=2144 us cpu=0.21%
+f 81 w=64019 r=52707
+f 82 w=59757 r=50005
+f 83 w=65997 r=53542
+f 84 w=57761 r=48843
+f 85 w=67812 r=54194
+f 86 w=55838 r=47572
+f 87 w=68728 r=53840
+f 88 w=55285 r=46663
+f 89 w=68096 r=52300
+f 90 w=56510 r=46350
+f 91 w=66046 r=49935
+f 92 w=58006 r=45481
+f 93 w=65909 r=48928
+f 94 w=57391 r=43805
+f 95 w=67603 r=48953
+f 96 w=55056 r=41549
+=== profile HyperLattice [288x144] frames 81-96 window=990393 us ===
+frame wall us: min=55056 avg=61863 max=68728 sum=989814 (16 frames)
+frame render us: avg=49041 max=54194
+--- Cycle Counters ---
+frame                  989810 us (100%)  16 calls  593886359 cyc
+  pov_preserve_half    2198 us (0%)  16 calls  1319345 cyc
+  hl_shader_draw       752974 us (76%)  16 calls  451784889 cyc
+  hl_timeline_step     180 us (0%)  16 calls  108282 cyc
+  canvas_clear         1369 us (0%)  16 calls  821648 cyc
+  canvas_buffer_wait   205155 us (20%)  16 calls  123093516 cyc
+isr_wake       n=18259 cyc min/avg/max=340/991/7142 ns min/avg/max=566/1651/11903 total=30157 us cpu=3.04%
+isr_pack       n=2283 cyc min/avg/max=3738/4021/5627 ns min/avg/max=6230/6701/9378 total=15300 us cpu=1.54%
+isr_dma_submit n=2283 cyc min/avg/max=373/560/608 ns min/avg/max=621/933/1013 total=2134 us cpu=0.21%
+f 97 w=67705 r=46962
+f 98 w=54263 r=38764
+f 99 w=63989 r=40292
+f 100 w=59994 r=37827
+f 101 w=61675 r=37043
+f 102 w=62761 r=37344
+f 103 w=61974 r=36857
+f 104 w=63001 r=37408
+f 105 w=62318 r=37268
+f 106 w=62550 r=37357
+f 107 w=63756 r=38614
+f 108 w=61486 r=37651
+f 109 w=75184 r=50371
+f 110 w=53343 r=41255
+f 111 w=73901 r=52696
+f 112 w=53529 r=43775
+=== profile HyperLattice [288x144] frames 97-112 window=1002049 us ===
+frame wall us: min=53343 avg=62589 max=75184 sum=1001429 (16 frames)
+frame render us: avg=40717 max=52696
+--- Cycle Counters ---
+frame                  1001426 us (100%)  16 calls  600855790 cyc
+  pov_preserve_half    2236 us (0%)  16 calls  1341934 cyc
+  hl_shader_draw       619636 us (61%)  16 calls  371781958 cyc
+  hl_timeline_step     205 us (0%)  16 calls  123220 cyc
+  canvas_clear         1369 us (0%)  16 calls  821968 cyc
+  canvas_buffer_wait   349952 us (34%)  16 calls  209971308 cyc
+isr_wake       n=18474 cyc min/avg/max=376/988/7214 ns min/avg/max=626/1646/12023 total=30440 us cpu=3.03%
+isr_pack       n=2309 cyc min/avg/max=3738/4004/5641 ns min/avg/max=6230/6673/9401 total=15410 us cpu=1.53%
+isr_dma_submit n=2309 cyc min/avg/max=370/560/638 ns min/avg/max=616/933/1063 total=2157 us cpu=0.21%
+f 113 w=70961 r=52448
+f 114 w=56150 r=46137
+f 115 w=67066 r=50744
+f 116 w=59001 r=47315
+f 117 w=68188 r=53043
+f 118 w=57909 r=48494
+f 119 w=68839 r=54873
+f 120 w=56447 r=48859
+f 121 w=67730 r=54075
+f 122 w=56317 r=47932
+f 123 w=67361 r=52843
+f 124 w=57041 r=47422
+f 125 w=66954 r=51914
+f 126 w=57458 r=46909
+f 127 w=65772 r=50226
+f 128 w=59087 r=46854
+=== profile HyperLattice [288x144] frames 113-128 window=1002907 us ===
+frame wall us: min=56150 avg=62642 max=70961 sum=1002281 (16 frames)
+frame render us: avg=50005 max=54873
+--- Cycle Counters ---
+frame                  1002281 us (100%)  16 calls  601369165 cyc
+  pov_preserve_half    2209 us (0%)  16 calls  1325800 cyc
+  hl_shader_draw       768422 us (76%)  16 calls  461053727 cyc
+  hl_timeline_step     204 us (0%)  16 calls  122506 cyc
+  canvas_clear         1368 us (0%)  16 calls  820960 cyc
+  canvas_buffer_wait   202202 us (20%)  16 calls  121321299 cyc
+isr_wake       n=18490 cyc min/avg/max=377/995/7755 ns min/avg/max=628/1658/12925 total=30686 us cpu=3.05%
+isr_pack       n=2311 cyc min/avg/max=3738/4052/5677 ns min/avg/max=6230/6753/9461 total=15610 us cpu=1.55%
+isr_dma_submit n=2311 cyc min/avg/max=397/561/624 ns min/avg/max=661/935/1040 total=2161 us cpu=0.21%
+f 129 w=65826 r=50387
+f 130 w=59133 r=47061
+f 131 w=66084 r=50686
+f 132 w=58654 r=46881
+f 133 w=66507 r=50926
+f 134 w=58539 r=46957
+f 135 w=66453 r=50949
+f 136 w=58366 r=46853
+f 137 w=67635 r=52037
+f 138 w=57492 r=47082
+f 139 w=70527 r=55147
+f 140 w=55597 r=48283
+f 141 w=69153 r=54975
+f 142 w=56178 r=48702
+f 143 w=66195 r=52440
+f 144 w=58940 r=48920
+=== profile HyperLattice [288x144] frames 129-144 window=1001892 us ===
+frame wall us: min=55597 avg=62579 max=70527 sum=1001279 (16 frames)
+frame render us: avg=49892 max=55147
+--- Cycle Counters ---
+frame                  1001276 us (100%)  16 calls  600765946 cyc
+  pov_preserve_half    2224 us (0%)  16 calls  1334912 cyc
+  hl_shader_draw       766608 us (76%)  16 calls  459965174 cyc
+  hl_timeline_step     215 us (0%)  16 calls  129311 cyc
+  canvas_clear         1372 us (0%)  16 calls  823384 cyc
+  canvas_buffer_wait   203001 us (20%)  16 calls  121801016 cyc
+isr_wake       n=18471 cyc min/avg/max=381/992/10578 ns min/avg/max=635/1653/17630 total=30552 us cpu=3.04%
+isr_pack       n=2309 cyc min/avg/max=3738/4020/5565 ns min/avg/max=6230/6700/9275 total=15470 us cpu=1.54%
+isr_dma_submit n=2309 cyc min/avg/max=352/560/618 ns min/avg/max=586/933/1030 total=2156 us cpu=0.21%
+f 145 w=65341 r=51972
+f 146 w=59406 r=48917
+f 147 w=66705 r=53164
+f 148 w=58459 r=49110
+f 149 w=64487 r=51129
+f 150 w=60439 r=49110
+f 151 w=64005 r=50653
+f 152 w=61078 r=49270
+f 153 w=64451 r=51259
+f 154 w=60113 r=48910
+f 155 w=66168 r=52617
+f 156 w=58251 r=48409
+f 157 w=67877 r=53824
+f 158 w=56825 r=48187
+f 159 w=68849 r=54576
+f 160 w=56049 r=48165
+=== profile HyperLattice [288x144] frames 145-160 window=999075 us ===
+frame wall us: min=56049 avg=62406 max=68849 sum=998503 (16 frames)
+frame render us: avg=50579 max=54576
+--- Cycle Counters ---
+frame                  998501 us (100%)  16 calls  599100661 cyc
+  pov_preserve_half    2214 us (0%)  16 calls  1328750 cyc
+  hl_shader_draw       777697 us (77%)  16 calls  466618668 cyc
+  hl_timeline_step     228 us (0%)  16 calls  137182 cyc
+  canvas_clear         1371 us (0%)  16 calls  823020 cyc
+  canvas_buffer_wait   189240 us (18%)  16 calls  113544090 cyc
+isr_wake       n=18419 cyc min/avg/max=377/992/7198 ns min/avg/max=628/1653/11996 total=30473 us cpu=3.05%
+isr_pack       n=2302 cyc min/avg/max=3738/4022/5647 ns min/avg/max=6230/6703/9411 total=15431 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=380/560/608 ns min/avg/max=633/933/1013 total=2152 us cpu=0.21%
+f 161 w=68871 r=54693
+f 162 w=55777 r=48008
+f 163 w=69173 r=54723
+f 164 w=55437 r=47698
+f 165 w=69685 r=54939
+f 166 w=55197 r=47682
+f 167 w=69583 r=54802
+f 168 w=55451 r=47791
+f 169 w=69007 r=54337
+f 170 w=56301 r=48181
+f 171 w=67959 r=53679
+f 172 w=57391 r=48613
+f 173 w=66726 r=52879
+f 174 w=58683 r=49104
+f 175 w=65452 r=52040
+f 176 w=59817 r=49410
+=== profile HyperLattice [288x144] frames 161-176 window=1001119 us ===
+frame wall us: min=55197 avg=62531 max=69685 sum=1000510 (16 frames)
+frame render us: avg=51161 max=54939
+--- Cycle Counters ---
+frame                  1000508 us (100%)  16 calls  600305054 cyc
+  pov_preserve_half    2240 us (0%)  16 calls  1344054 cyc
+  hl_shader_draw       786926 us (78%)  16 calls  472155769 cyc
+  hl_timeline_step     200 us (0%)  16 calls  120046 cyc
+  canvas_clear         1368 us (0%)  16 calls  821112 cyc
+  canvas_buffer_wait   181939 us (18%)  16 calls  109163605 cyc
+isr_wake       n=18457 cyc min/avg/max=377/995/8962 ns min/avg/max=628/1658/14936 total=30630 us cpu=3.05%
+isr_pack       n=2307 cyc min/avg/max=3738/4042/5453 ns min/avg/max=6230/6736/9088 total=15544 us cpu=1.55%
+isr_dma_submit n=2307 cyc min/avg/max=433/560/620 ns min/avg/max=721/933/1033 total=2156 us cpu=0.21%
+f 177 w=64380 r=51498
+f 178 w=60647 r=49684
+f 179 w=64014 r=51239
+f 180 w=61052 r=49829
+f 181 w=63778 r=51148
+f 182 w=61245 r=49929
+f 183 w=63633 r=51103
+f 184 w=61425 r=50067
+f 185 w=63310 r=50915
+f 186 w=61722 r=50187
+f 187 w=62978 r=50705
+f 188 w=61895 r=50082
+f 189 w=63730 r=51352
+f 190 w=60854 r=49749
+f 191 w=64286 r=51572
+f 192 w=60914 r=50031
+=== profile HyperLattice [288x144] frames 177-192 window=1000442 us ===
+frame wall us: min=60647 avg=62491 max=64380 sum=999863 (16 frames)
+frame render us: avg=50568 max=51572
+--- Cycle Counters ---
+frame                  999861 us (100%)  16 calls  599916838 cyc
+  pov_preserve_half    2185 us (0%)  16 calls  1311093 cyc
+  hl_shader_draw       777451 us (77%)  16 calls  466470655 cyc
+  hl_timeline_step     181 us (0%)  16 calls  108840 cyc
+  canvas_clear         1363 us (0%)  16 calls  818272 cyc
+  canvas_buffer_wait   190779 us (19%)  16 calls  114467643 cyc
+isr_wake       n=18444 cyc min/avg/max=377/993/7094 ns min/avg/max=628/1655/11823 total=30525 us cpu=3.05%
+isr_pack       n=2305 cyc min/avg/max=3738/4032/5530 ns min/avg/max=6230/6720/9216 total=15490 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=460/561/636 ns min/avg/max=766/935/1060 total=2155 us cpu=0.21%
+f 193 w=63742 r=51475
+f 194 w=61110 r=50124
+f 195 w=63390 r=51054
+f 196 w=62049 r=50642
+f 197 w=61778 r=49972
+f 198 w=64453 r=51958
+f 199 w=60235 r=49732
+f 200 w=65514 r=52789
+f 201 w=59040 r=49367
+f 202 w=65676 r=52530
+f 203 w=59131 r=49201
+f 204 w=65001 r=51743
+f 205 w=59391 r=48668
+f 206 w=66062 r=52268
+f 207 w=58992 r=48802
+f 208 w=66186 r=52526
+=== profile HyperLattice [288x144] frames 193-208 window=1002327 us ===
+frame wall us: min=58992 avg=62609 max=66186 sum=1001750 (16 frames)
+frame render us: avg=50803 max=52789
+--- Cycle Counters ---
+frame                  1001746 us (100%)  16 calls  601047949 cyc
+  pov_preserve_half    2218 us (0%)  16 calls  1331088 cyc
+  hl_shader_draw       781136 us (77%)  16 calls  468682027 cyc
+  hl_timeline_step     213 us (0%)  16 calls  128353 cyc
+  canvas_clear         1374 us (0%)  16 calls  824604 cyc
+  canvas_buffer_wait   188905 us (18%)  16 calls  113343245 cyc
+isr_wake       n=18479 cyc min/avg/max=377/993/7186 ns min/avg/max=628/1655/11976 total=30600 us cpu=3.05%
+isr_pack       n=2310 cyc min/avg/max=3738/4030/5619 ns min/avg/max=6230/6716/9365 total=15517 us cpu=1.54%
+isr_dma_submit n=2310 cyc min/avg/max=422/560/634 ns min/avg/max=703/933/1056 total=2158 us cpu=0.21%
+f 209 w=58587 r=48816
+f 210 w=65699 r=52053
+f 211 w=59240 r=48853
+f 212 w=65450 r=51843
+f 213 w=59072 r=48457
+f 214 w=65423 r=51422
+f 215 w=59900 r=48862
+f 216 w=65198 r=51537
+f 217 w=60124 r=49199
+f 218 w=64850 r=51587
+f 219 w=60409 r=49531
+f 220 w=64664 r=51732
+f 221 w=60529 r=49803
+f 222 w=64491 r=51836
+f 223 w=60656 r=50032
+f 224 w=64197 r=51769
+=== profile HyperLattice [288x144] frames 209-224 window=999073 us ===
+frame wall us: min=58587 avg=62405 max=65699 sum=998489 (16 frames)
+frame render us: avg=50458 max=52053
+--- Cycle Counters ---
+frame                  998487 us (100%)  16 calls  599092631 cyc
+  pov_preserve_half    2193 us (0%)  16 calls  1316013 cyc
+  hl_shader_draw       775578 us (77%)  16 calls  465346928 cyc
+  hl_timeline_step     223 us (0%)  16 calls  133918 cyc
+  canvas_clear         1376 us (0%)  16 calls  825964 cyc
+  canvas_buffer_wait   191164 us (19%)  16 calls  114698522 cyc
+isr_wake       n=18419 cyc min/avg/max=377/992/7078 ns min/avg/max=628/1653/11796 total=30467 us cpu=3.04%
+isr_pack       n=2302 cyc min/avg/max=3738/4030/5510 ns min/avg/max=6230/6716/9183 total=15463 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=385/560/687 ns min/avg/max=641/933/1145 total=2150 us cpu=0.21%
+f 225 w=60812 r=50278
+f 226 w=64035 r=51857
+f 227 w=61072 r=50469
+f 228 w=63884 r=51893
+f 229 w=61242 r=50625
+f 230 w=63693 r=51856
+f 231 w=61343 r=50739
+f 232 w=63547 r=51836
+f 233 w=61404 r=50783
+f 234 w=63404 r=51726
+f 235 w=61582 r=50848
+f 236 w=63292 r=51685
+f 237 w=61747 r=50973
+f 238 w=63179 r=51693
+f 239 w=61882 r=51113
+f 240 w=62996 r=51651
+=== profile HyperLattice [288x144] frames 225-240 window=999714 us ===
+frame wall us: min=60812 avg=62444 max=64035 sum=999114 (16 frames)
+frame render us: avg=51251 max=51893
+--- Cycle Counters ---
+frame                  999114 us (100%)  16 calls  599468425 cyc
+  pov_preserve_half    2228 us (0%)  16 calls  1337032 cyc
+  hl_shader_draw       788342 us (78%)  16 calls  473005607 cyc
+  hl_timeline_step     219 us (0%)  16 calls  131713 cyc
+  canvas_clear         1377 us (0%)  16 calls  826712 cyc
+  canvas_buffer_wait   179096 us (17%)  16 calls  107457986 cyc
+isr_wake       n=18431 cyc min/avg/max=377/994/7671 ns min/avg/max=628/1656/12785 total=30534 us cpu=3.05%
+isr_pack       n=2304 cyc min/avg/max=3738/4028/5679 ns min/avg/max=6230/6713/9465 total=15469 us cpu=1.54%
+isr_dma_submit n=2304 cyc min/avg/max=412/561/714 ns min/avg/max=686/935/1190 total=2155 us cpu=0.21%
+f 241 w=61928 r=51278
+f 242 w=62703 r=51515
+f 243 w=62406 r=51407
+f 244 w=62467 r=51412
+f 245 w=62452 r=51403
+f 246 w=62341 r=51288
+f 247 w=62210 r=51036
+f 248 w=62471 r=51049
+f 249 w=62223 r=50811
+f 250 w=61828 r=50176
+f 251 w=61686 r=49400
+f 252 w=63351 r=50289
+f 253 w=61477 r=49306
+f 254 w=63588 r=50435
+f 255 w=61231 r=49216
+f 256 w=63791 r=50494
+=== profile HyperLattice [288x144] frames 241-256 window=998730 us ===
+frame wall us: min=61231 avg=62384 max=63791 sum=998153 (16 frames)
+frame render us: avg=50657 max=51515
+--- Cycle Counters ---
+frame                  998153 us (100%)  16 calls  598892284 cyc
+  pov_preserve_half    2205 us (0%)  16 calls  1323073 cyc
+  hl_shader_draw       778848 us (78%)  16 calls  467309070 cyc
+  hl_timeline_step     212 us (0%)  16 calls  127215 cyc
+  canvas_clear         1382 us (0%)  16 calls  829460 cyc
+  canvas_buffer_wait   187645 us (18%)  16 calls  112587158 cyc
+isr_wake       n=18413 cyc min/avg/max=377/993/7562 ns min/avg/max=628/1655/12603 total=30482 us cpu=3.05%
+isr_pack       n=2301 cyc min/avg/max=3738/4030/5734 ns min/avg/max=6230/6716/9556 total=15455 us cpu=1.54%
+isr_dma_submit n=2301 cyc min/avg/max=378/560/667 ns min/avg/max=630/933/1111 total=2149 us cpu=0.21%
+f 257 w=60931 r=49123
+f 258 w=63860 r=50520
+f 259 w=60864 r=48923
+f 260 w=63984 r=50450
+f 261 w=60737 r=48728
+f 262 w=64236 r=50504
+f 263 w=60410 r=48453
+f 264 w=64434 r=50424
+f 265 w=60002 r=47966
+f 266 w=64273 r=49780
+f 267 w=61504 r=48824
+f 268 w=63512 r=49877
+f 269 w=61433 r=48858
+f 270 w=63754 r=50101
+f 271 w=61222 r=48868
+f 272 w=63984 r=50389
+=== profile HyperLattice [288x144] frames 257-272 window=999728 us ===
+frame wall us: min=60002 avg=62446 max=64434 sum=999140 (16 frames)
+frame render us: avg=49486 max=50520
+--- Cycle Counters ---
+frame                  999138 us (100%)  16 calls  599482913 cyc
+  pov_preserve_half    2205 us (0%)  16 calls  1323253 cyc
+  hl_shader_draw       759913 us (76%)  16 calls  455947880 cyc
+  hl_timeline_step     229 us (0%)  16 calls  137548 cyc
+  canvas_clear         1367 us (0%)  16 calls  820544 cyc
+  canvas_buffer_wait   207359 us (20%)  16 calls  124415777 cyc
+isr_wake       n=18431 cyc min/avg/max=377/993/10250 ns min/avg/max=628/1655/17083 total=30524 us cpu=3.05%
+isr_pack       n=2304 cyc min/avg/max=3738/4029/5760 ns min/avg/max=6230/6715/9600 total=15472 us cpu=1.54%
+isr_dma_submit n=2304 cyc min/avg/max=437/560/618 ns min/avg/max=728/933/1030 total=2152 us cpu=0.21%
+f 273 w=60652 r=48740
+f 274 w=64123 r=50402
+f 275 w=60576 r=48518
+f 276 w=64239 r=50300
+f 277 w=60693 r=48547
+f 278 w=64239 r=50324
+f 279 w=60626 r=48497
+f 280 w=64126 r=50164
+f 281 w=60625 r=48336
+f 282 w=64019 r=49892
+f 283 w=60845 r=48234
+f 284 w=63797 r=49572
+f 285 w=61016 r=48126
+f 286 w=63563 r=49230
+f 287 w=61289 r=48062
+f 288 w=63319 r=48919
+=== profile HyperLattice [288x144] frames 273-288 window=998364 us ===
+frame wall us: min=60576 avg=62359 max=64239 sum=997747 (16 frames)
+frame render us: avg=49116 max=50402
+--- Cycle Counters ---
+frame                  997744 us (100%)  16 calls  598646698 cyc
+  pov_preserve_half    2198 us (0%)  16 calls  1318902 cyc
+  hl_shader_draw       754098 us (75%)  16 calls  452458903 cyc
+  hl_timeline_step     235 us (0%)  16 calls  141048 cyc
+  canvas_clear         1379 us (0%)  16 calls  827560 cyc
+  canvas_buffer_wait   211892 us (21%)  16 calls  127135605 cyc
+isr_wake       n=18406 cyc min/avg/max=377/991/7142 ns min/avg/max=628/1651/11903 total=30421 us cpu=3.04%
+isr_pack       n=2301 cyc min/avg/max=3738/4021/5590 ns min/avg/max=6230/6701/9316 total=15421 us cpu=1.54%
+isr_dma_submit n=2301 cyc min/avg/max=374/560/606 ns min/avg/max=623/933/1010 total=2150 us cpu=0.21%
+f 289 w=61270 r=47901
+f 290 w=63566 r=49004
+f 291 w=61092 r=47655
+f 292 w=63815 r=49019
+f 293 w=61035 r=47606
+f 294 w=64994 r=50150
+f 295 w=61067 r=48757
+f 296 w=71497 r=57797
+f 297 w=54813 r=50097
+f 298 w=67964 r=55605
+f 299 w=52774 r=45916
+f 300 w=63978 r=47437
+f 301 w=59752 r=44730
+f 302 w=62239 r=44521
+f 303 w=62014 r=44073
+f 304 w=61455 r=43079
+=== profile HyperLattice [288x144] frames 289-304 window=993978 us ===
+frame wall us: min=52774 avg=62082 max=71497 sum=993325 (16 frames)
+frame render us: avg=48334 max=57797
+--- Cycle Counters ---
+frame                  993322 us (100%)  16 calls  595993754 cyc
+  pov_preserve_half    2199 us (0%)  16 calls  1319962 cyc
+  hl_shader_draw       741518 us (74%)  16 calls  444911212 cyc
+  hl_timeline_step     199 us (0%)  16 calls  119520 cyc
+  canvas_clear         1368 us (0%)  16 calls  821056 cyc
+  canvas_buffer_wait   219987 us (22%)  16 calls  131992314 cyc
+isr_wake       n=18325 cyc min/avg/max=377/991/8162 ns min/avg/max=628/1651/13603 total=30280 us cpu=3.04%
+isr_pack       n=2290 cyc min/avg/max=3738/4017/5692 ns min/avg/max=6230/6695/9486 total=15333 us cpu=1.54%
+isr_dma_submit n=2290 cyc min/avg/max=420/560/645 ns min/avg/max=700/933/1075 total=2140 us cpu=0.21%
+f 305 w=63079 r=43856
+f 306 w=59864 r=41262
+f 307 w=64539 r=43341
+f 308 w=57949 r=38831
+f 309 w=65877 r=42250
+f 310 w=57389 r=37181
+f 311 w=64565 r=39232
+f 312 w=60271 r=37037
+f 313 w=62884 r=37464
+f 314 w=62179 r=37182
+f 315 w=62593 r=37312
+f 316 w=62749 r=37613
+f 317 w=62301 r=37453
+f 318 w=66018 r=41015
+f 319 w=59895 r=38451
+f 320 w=67209 r=43200
+=== profile HyperLattice [288x144] frames 305-320 window=999954 us ===
+frame wall us: min=57389 avg=62460 max=67209 sum=999361 (16 frames)
+frame render us: avg=39542 max=43856
+--- Cycle Counters ---
+frame                  999357 us (100%)  16 calls  599614448 cyc
+  pov_preserve_half    2202 us (0%)  16 calls  1321773 cyc
+  hl_shader_draw       600803 us (60%)  16 calls  360482397 cyc
+  hl_timeline_step     225 us (0%)  16 calls  135329 cyc
+  canvas_clear         1365 us (0%)  16 calls  819132 cyc
+  canvas_buffer_wait   366689 us (36%)  16 calls  220013780 cyc
+isr_wake       n=18436 cyc min/avg/max=340/987/7102 ns min/avg/max=566/1645/11836 total=30350 us cpu=3.03%
+isr_pack       n=2304 cyc min/avg/max=3738/4004/5627 ns min/avg/max=6230/6673/9378 total=15376 us cpu=1.53%
+isr_dma_submit n=2304 cyc min/avg/max=400/560/678 ns min/avg/max=666/933/1130 total=2151 us cpu=0.21%
+f 321 w=58618 r=39528
+f 322 w=66738 r=43804
+f 323 w=61574 r=42925
+f 324 w=64146 r=44559
+f 325 w=62381 r=44480
+f 326 w=64217 r=46237
+f 327 w=61479 r=45257
+f 328 w=64157 r=46955
+f 329 w=61381 r=45879
+f 330 w=63532 r=46953
+f 331 w=62299 r=46794
+f 332 w=62942 r=47277
+f 333 w=63711 r=48538
+f 334 w=61353 r=47432
+f 335 w=65507 r=50482
+f 336 w=61086 r=49118
+=== profile HyperLattice [288x144] frames 321-336 window=1005748 us ===
+frame wall us: min=58618 avg=62820 max=66738 sum=1005121 (16 frames)
+frame render us: avg=46013 max=50482
+--- Cycle Counters ---
+frame                  1005120 us (100%)  16 calls  603072579 cyc
+  pov_preserve_half    2209 us (0%)  16 calls  1325424 cyc
+  hl_shader_draw       704360 us (70%)  16 calls  422616078 cyc
+  hl_timeline_step     212 us (0%)  16 calls  127518 cyc
+  canvas_clear         1382 us (0%)  16 calls  829648 cyc
+  canvas_buffer_wait   268912 us (26%)  16 calls  161347719 cyc
+isr_wake       n=18542 cyc min/avg/max=377/992/7098 ns min/avg/max=628/1653/11830 total=30660 us cpu=3.04%
+isr_pack       n=2318 cyc min/avg/max=3738/4026/5675 ns min/avg/max=6230/6710/9458 total=15556 us cpu=1.54%
+isr_dma_submit n=2318 cyc min/avg/max=434/560/608 ns min/avg/max=723/933/1013 total=2166 us cpu=0.21%
+f 337 w=64648 r=51466
+f 338 w=60918 r=49871
+f 339 w=64362 r=51784
+f 340 w=61122 r=50458
+f 341 w=63809 r=51807
+f 342 w=60552 r=49898
+f 343 w=64987 r=52434
+f 344 w=60670 r=50646
+f 345 w=64793 r=52979
+f 346 w=60899 r=51417
+f 347 w=63357 r=52314
+f 348 w=61938 r=51791
+f 349 w=62142 r=51478
+f 350 w=62549 r=51567
+f 351 w=62306 r=51357
+f 352 w=62262 r=51159
+=== profile HyperLattice [288x144] frames 337-352 window=1001926 us ===
+frame wall us: min=60552 avg=62582 max=64987 sum=1001314 (16 frames)
+frame render us: avg=51401 max=52979
+--- Cycle Counters ---
+frame                  1001311 us (100%)  16 calls  600787118 cyc
+  pov_preserve_half    2175 us (0%)  16 calls  1305107 cyc
+  hl_shader_draw       790605 us (78%)  16 calls  474363164 cyc
+  hl_timeline_step     169 us (0%)  16 calls  101473 cyc
+  canvas_clear         1381 us (0%)  16 calls  828608 cyc
+  canvas_buffer_wait   178896 us (17%)  16 calls  107337688 cyc
+isr_wake       n=18471 cyc min/avg/max=377/995/8146 ns min/avg/max=628/1658/13576 total=30635 us cpu=3.05%
+isr_pack       n=2309 cyc min/avg/max=3738/4047/5730 ns min/avg/max=6230/6745/9550 total=15576 us cpu=1.55%
+isr_dma_submit n=2309 cyc min/avg/max=466/560/608 ns min/avg/max=776/933/1013 total=2158 us cpu=0.21%
+f 353 w=62446 r=51316
+f 354 w=62464 r=51320
+f 355 w=62554 r=51413
+f 356 w=62832 r=51785
+f 357 w=62147 r=51481
+f 358 w=63002 r=52026
+f 359 w=61851 r=51414
+f 360 w=63264 r=52219
+f 361 w=61604 r=51358
+f 362 w=63339 r=52234
+f 363 w=61302 r=51077
+f 364 w=63624 r=52241
+f 365 w=61159 r=50885
+f 366 w=63665 r=52088
+f 367 w=61171 r=50797
+f 368 w=63699 r=52035
+=== profile HyperLattice [288x144] frames 353-368 window=1000696 us ===
+frame wall us: min=61159 avg=62507 max=63699 sum=1000123 (16 frames)
+frame render us: avg=51605 max=52241
+--- Cycle Counters ---
+frame                  1000121 us (100%)  16 calls  600072683 cyc
+  pov_preserve_half    2213 us (0%)  16 calls  1328134 cyc
+  hl_shader_draw       793842 us (79%)  16 calls  476305357 cyc
+  hl_timeline_step     186 us (0%)  16 calls  111602 cyc
+  canvas_clear         1371 us (0%)  16 calls  822820 cyc
+  canvas_buffer_wait   174443 us (17%)  16 calls  104666075 cyc
+isr_wake       n=18450 cyc min/avg/max=377/994/7142 ns min/avg/max=628/1656/11903 total=30579 us cpu=3.05%
+isr_pack       n=2306 cyc min/avg/max=3738/4036/5667 ns min/avg/max=6230/6726/9445 total=15513 us cpu=1.55%
+isr_dma_submit n=2306 cyc min/avg/max=434/560/653 ns min/avg/max=723/933/1088 total=2155 us cpu=0.21%
+f 369 w=60872 r=50618
+f 370 w=63436 r=51592
+f 371 w=61106 r=50235
+f 372 w=63645 r=51421
+f 373 w=61193 r=50148
+f 374 w=63490 r=51181
+f 375 w=61621 r=50351
+f 376 w=63194 r=51089
+f 377 w=61813 r=50449
+f 378 w=63403 r=51329
+f 379 w=62417 r=51284
+f 380 w=62244 r=51065
+f 381 w=63017 r=51623
+f 382 w=61885 r=51051
+f 383 w=63099 r=51689
+f 384 w=61999 r=51227
+=== profile HyperLattice [288x144] frames 369-384 window=999011 us ===
+frame wall us: min=60872 avg=62402 max=63645 sum=998434 (16 frames)
+frame render us: avg=51022 max=51689
+--- Cycle Counters ---
+frame                  998431 us (100%)  16 calls  599058621 cyc
+  pov_preserve_half    2213 us (0%)  16 calls  1328081 cyc
+  hl_shader_draw       784470 us (78%)  16 calls  470682088 cyc
+  hl_timeline_step     219 us (0%)  16 calls  131793 cyc
+  canvas_clear         1376 us (0%)  16 calls  825884 cyc
+  canvas_buffer_wait   182090 us (18%)  16 calls  109254206 cyc
+isr_wake       n=18417 cyc min/avg/max=379/995/7686 ns min/avg/max=631/1658/12810 total=30543 us cpu=3.05%
+isr_pack       n=2302 cyc min/avg/max=3738/4034/5793 ns min/avg/max=6230/6723/9655 total=15478 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=384/560/608 ns min/avg/max=640/933/1013 total=2151 us cpu=0.21%
+f 385 w=62390 r=51313
+f 386 w=62799 r=51653
+f 387 w=61522 r=50711
+f 388 w=63311 r=51562
+f 389 w=61565 r=50663
+f 390 w=63341 r=51541
+f 391 w=61502 r=50581
+f 392 w=63101 r=51169
+f 393 w=62060 r=50783
+f 394 w=62280 r=50601
+f 395 w=62735 r=50878
+f 396 w=61906 r=50323
+f 397 w=63012 r=50884
+f 398 w=61905 r=50326
+f 399 w=62955 r=50834
+f 400 w=61918 r=50291
+=== profile HyperLattice [288x144] frames 385-400 window=998897 us ===
+frame wall us: min=61502 avg=62393 max=63341 sum=998302 (16 frames)
+frame render us: avg=50882 max=51653
+--- Cycle Counters ---
+frame                  998299 us (100%)  16 calls  598979530 cyc
+  pov_preserve_half    2221 us (0%)  16 calls  1333090 cyc
+  hl_shader_draw       782320 us (78%)  16 calls  469392292 cyc
+  hl_timeline_step     179 us (0%)  16 calls  107686 cyc
+  canvas_clear         1372 us (0%)  16 calls  823788 cyc
+  canvas_buffer_wait   184196 us (18%)  16 calls  110517999 cyc
+isr_wake       n=18416 cyc min/avg/max=377/994/7624 ns min/avg/max=628/1656/12706 total=30513 us cpu=3.05%
+isr_pack       n=2302 cyc min/avg/max=3738/4037/5878 ns min/avg/max=6230/6728/9796 total=15489 us cpu=1.55%
+isr_dma_submit n=2302 cyc min/avg/max=384/560/614 ns min/avg/max=640/933/1023 total=2152 us cpu=0.21%
+f 401 w=62798 r=50807
+f 402 w=61823 r=50171
+f 403 w=63153 r=50863
+f 404 w=61517 r=49923
+f 405 w=63101 r=50510
+f 406 w=61706 r=49754
+f 407 w=63454 r=50741
+f 408 w=61245 r=49541
+f 409 w=63502 r=50584
+f 410 w=60850 r=48974
+f 411 w=63956 r=50470
+f 412 w=59820 r=47830
+f 413 w=65812 r=51182
+f 414 w=59090 r=47823
+f 415 w=66598 r=51961
+f 416 w=58253 r=47754
+=== profile HyperLattice [288x144] frames 401-416 window=997280 us ===
+frame wall us: min=58253 avg=62292 max=66598 sum=996678 (16 frames)
+frame render us: avg=49930 max=51961
+--- Cycle Counters ---
+frame                  996676 us (100%)  16 calls  598006126 cyc
+  pov_preserve_half    2235 us (0%)  16 calls  1341196 cyc
+  hl_shader_draw       767160 us (76%)  16 calls  460296429 cyc
+  hl_timeline_step     209 us (0%)  16 calls  125489 cyc
+  canvas_clear         1375 us (0%)  16 calls  825360 cyc
+  canvas_buffer_wait   197798 us (19%)  16 calls  118679008 cyc
+isr_wake       n=18386 cyc min/avg/max=375/995/7839 ns min/avg/max=625/1658/13065 total=30501 us cpu=3.05%
+isr_pack       n=2298 cyc min/avg/max=3738/4041/5761 ns min/avg/max=6230/6735/9601 total=15480 us cpu=1.55%
+isr_dma_submit n=2298 cyc min/avg/max=420/561/620 ns min/avg/max=700/935/1033 total=2149 us cpu=0.21%
+f 417 w=67360 r=52810
+f 418 w=57308 r=47658
+f 419 w=68377 r=53522
+f 420 w=56779 r=47840
+f 421 w=68422 r=53801
+f 422 w=57093 r=48451
+f 423 w=67733 r=53723
+f 424 w=58034 r=49298
+f 425 w=66394 r=53235
+f 426 w=59229 r=50000
+f 427 w=64871 r=52405
+f 428 w=60507 r=50450
+f 429 w=64007 r=51998
+f 430 w=61311 r=50861
+f 431 w=63526 r=51927
+f 432 w=62026 r=51492
+=== profile HyperLattice [288x144] frames 417-432 window=1003574 us ===
+frame wall us: min=56779 avg=62686 max=68422 sum=1002977 (16 frames)
+frame render us: avg=51216 max=53801
+--- Cycle Counters ---
+frame                  1002974 us (100%)  16 calls  601784988 cyc
+  pov_preserve_half    2204 us (0%)  16 calls  1322817 cyc
+  hl_shader_draw       787675 us (78%)  16 calls  472605074 cyc
+  hl_timeline_step     205 us (0%)  16 calls  123399 cyc
+  canvas_clear         1381 us (0%)  16 calls  829160 cyc
+  canvas_buffer_wait   183513 us (18%)  16 calls  110108363 cyc
+isr_wake       n=18502 cyc min/avg/max=377/998/7207 ns min/avg/max=628/1663/12011 total=30791 us cpu=3.06%
+isr_pack       n=2312 cyc min/avg/max=3738/4065/5670 ns min/avg/max=6230/6775/9450 total=15665 us cpu=1.56%
+isr_dma_submit n=2312 cyc min/avg/max=466/560/637 ns min/avg/max=776/933/1061 total=2161 us cpu=0.21%
+f 433 w=62523 r=51655
+f 434 w=62514 r=51707
+f 435 w=63225 r=52471
+f 436 w=61901 r=51928
+f 437 w=62547 r=52021
+f 438 w=62389 r=51950
+f 439 w=62171 r=51661
+f 440 w=62670 r=51870
+f 441 w=62653 r=52067
+f 442 w=64045 r=53659
+f 443 w=60505 r=51705
+f 444 w=63994 r=53236
+f 445 w=60573 r=51347
+f 446 w=65090 r=53923
+f 447 w=60373 r=51837
+f 448 w=66522 r=55894
+=== profile HyperLattice [288x144] frames 433-448 window=1004287 us ===
+frame wall us: min=60373 avg=62730 max=66522 sum=1003695 (16 frames)
+frame render us: avg=52433 max=55894
+--- Cycle Counters ---
+frame                  1003692 us (100%)  16 calls  602215669 cyc
+  pov_preserve_half    2216 us (0%)  16 calls  1330001 cyc
+  hl_shader_draw       807217 us (80%)  16 calls  484330268 cyc
+  hl_timeline_step     222 us (0%)  16 calls  133659 cyc
+  canvas_clear         1374 us (0%)  16 calls  824920 cyc
+  canvas_buffer_wait   164772 us (16%)  16 calls  98863214 cyc
+isr_wake       n=18516 cyc min/avg/max=377/995/7580 ns min/avg/max=628/1658/12633 total=30725 us cpu=3.05%
+isr_pack       n=2315 cyc min/avg/max=3738/4041/5678 ns min/avg/max=6230/6735/9463 total=15592 us cpu=1.55%
+isr_dma_submit n=2315 cyc min/avg/max=463/561/642 ns min/avg/max=771/935/1070 total=2164 us cpu=0.21%
+f 449 w=59089 r=52703
+f 450 w=66027 r=56269
+f 451 w=59125 r=52935
+f 452 w=64119 r=54602
+f 453 w=60355 r=52497
+f 454 w=63512 r=53552
+f 455 w=61022 r=52123
+f 456 w=63311 r=52975
+f 457 w=61249 r=51766
+f 458 w=63248 r=52558
+f 459 w=61208 r=51301
+f 460 w=63396 r=52178
+f 461 w=61011 r=50732
+f 462 w=63872 r=52142
+f 463 w=61269 r=50949
+f 464 w=63558 r=52045
+=== profile HyperLattice [288x144] frames 449-464 window=995959 us ===
+frame wall us: min=59089 avg=62210 max=66027 sum=995371 (16 frames)
+frame render us: avg=52582 max=56269
+--- Cycle Counters ---
+frame                  995368 us (100%)  16 calls  597221381 cyc
+  pov_preserve_half    2219 us (0%)  16 calls  1331623 cyc
+  hl_shader_draw       809623 us (81%)  16 calls  485773856 cyc
+  hl_timeline_step     194 us (0%)  16 calls  116940 cyc
+  canvas_clear         1380 us (0%)  16 calls  828192 cyc
+  canvas_buffer_wait   154051 us (15%)  16 calls  92430799 cyc
+isr_wake       n=18362 cyc min/avg/max=377/997/7167 ns min/avg/max=628/1661/11945 total=30518 us cpu=3.06%
+isr_pack       n=2295 cyc min/avg/max=3738/4060/5700 ns min/avg/max=6230/6766/9500 total=15529 us cpu=1.55%
+isr_dma_submit n=2295 cyc min/avg/max=389/561/698 ns min/avg/max=648/935/1163 total=2146 us cpu=0.21%
+f 465 w=61275 r=51030
+f 466 w=62984 r=51554
+f 467 w=61895 r=50990
+f 468 w=63067 r=51589
+f 469 w=61736 r=50866
+f 470 w=63338 r=51747
+f 471 w=61571 r=50856
+f 472 w=63254 r=51649
+f 473 w=61355 r=50490
+f 474 w=62106 r=50137
+f 475 w=63708 r=51381
+f 476 w=61344 r=50265
+f 477 w=64631 r=52439
+f 478 w=60529 r=50508
+f 479 w=64647 r=52694
+f 480 w=61190 r=51427
+=== profile HyperLattice [288x144] frames 465-480 window=999199 us ===
+frame wall us: min=60529 avg=62414 max=64647 sum=998630 (16 frames)
+frame render us: avg=51226 max=52694
+--- Cycle Counters ---
+frame                  998628 us (100%)  16 calls  599176848 cyc
+  pov_preserve_half    2190 us (0%)  16 calls  1314065 cyc
+  hl_shader_draw       787868 us (78%)  16 calls  472721272 cyc
+  hl_timeline_step     212 us (0%)  16 calls  127564 cyc
+  canvas_clear         1367 us (0%)  16 calls  820356 cyc
+  canvas_buffer_wait   179015 us (17%)  16 calls  107409464 cyc
+isr_wake       n=18421 cyc min/avg/max=375/993/7242 ns min/avg/max=625/1655/12070 total=30490 us cpu=3.05%
+isr_pack       n=2302 cyc min/avg/max=3738/4030/5738 ns min/avg/max=6230/6716/9563 total=15464 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=438/560/608 ns min/avg/max=730/933/1013 total=2151 us cpu=0.21%
+f 481 w=62480 r=51601
+f 482 w=62672 r=51805
+f 483 w=61493 r=50839
+f 484 w=63403 r=51783
+f 485 w=61078 r=50401
+f 486 w=63734 r=51671
+f 487 w=61319 r=50483
+f 488 w=63535 r=51558
+f 489 w=61887 r=50994
+f 490 w=64148 r=52680
+f 491 w=61024 r=51245
+f 492 w=64463 r=53244
+f 493 w=60399 r=51184
+f 494 w=64497 r=53234
+f 495 w=59871 r=50647
+f 496 w=65059 r=53249
+=== profile HyperLattice [288x144] frames 481-496 window=1001659 us ===
+frame wall us: min=59871 avg=62566 max=65059 sum=1001062 (16 frames)
+frame render us: avg=51663 max=53249
+--- Cycle Counters ---
+frame                  1001058 us (100%)  16 calls  600635246 cyc
+  pov_preserve_half    2186 us (0%)  16 calls  1311841 cyc
+  hl_shader_draw       794932 us (79%)  16 calls  476959526 cyc
+  hl_timeline_step     175 us (0%)  16 calls  105041 cyc
+  canvas_clear         1378 us (0%)  16 calls  826896 cyc
+  canvas_buffer_wait   174454 us (17%)  16 calls  104672857 cyc
+isr_wake       n=18467 cyc min/avg/max=377/995/7170 ns min/avg/max=628/1658/11950 total=30653 us cpu=3.06%
+isr_pack       n=2309 cyc min/avg/max=3738/4043/5663 ns min/avg/max=6230/6738/9438 total=15560 us cpu=1.55%
+isr_dma_submit n=2309 cyc min/avg/max=466/560/609 ns min/avg/max=776/933/1015 total=2157 us cpu=0.21%
+f 497 w=59192 r=50150
+f 498 w=66173 r=53865
+f 499 w=57778 r=49182
+f 500 w=67363 r=54023
+f 501 w=57080 r=48644
+f 502 w=67694 r=53885
+f 503 w=56400 r=47827
+f 504 w=67887 r=53252
+f 505 w=56284 r=47075
+f 506 w=67971 r=52589
+f 507 w=56158 r=46286
+f 508 w=67304 r=51131
+f 509 w=56525 r=45195
+f 510 w=66423 r=49156
+f 511 w=57077 r=43773
+f 512 w=66470 r=47784
+=== profile HyperLattice [288x144] frames 497-512 window=994357 us ===
+frame wall us: min=56158 avg=62111 max=67971 sum=993779 (16 frames)
+frame render us: avg=49613 max=54023
+--- Cycle Counters ---
+frame                  993777 us (100%)  16 calls  596266357 cyc
+  pov_preserve_half    2233 us (0%)  16 calls  1340031 cyc
+  hl_shader_draw       762017 us (76%)  16 calls  457210294 cyc
+  hl_timeline_step     209 us (0%)  16 calls  125734 cyc
+  canvas_clear         1377 us (0%)  16 calls  826568 cyc
+  canvas_buffer_wait   199968 us (20%)  16 calls  119980960 cyc
+isr_wake       n=18332 cyc min/avg/max=377/992/7231 ns min/avg/max=628/1653/12051 total=30318 us cpu=3.04%
+isr_pack       n=2291 cyc min/avg/max=3738/4024/5675 ns min/avg/max=6230/6706/9458 total=15368 us cpu=1.54%
+isr_dma_submit n=2291 cyc min/avg/max=412/560/609 ns min/avg/max=686/933/1015 total=2140 us cpu=0.21%
+f 513 w=57185 r=42666
+f 514 w=65898 r=46052
+f 515 w=58202 r=41786
+f 516 w=63315 r=42640
+f 517 w=60967 r=41149
+f 518 w=59088 r=37777
+f 519 w=64660 r=39982
+f 520 w=59560 r=37082
+f 521 w=63179 r=37811
+f 522 w=61796 r=37146
+f 523 w=62739 r=37429
+f 524 w=62438 r=37408
+f 525 w=62524 r=37483
+f 526 w=66474 r=41497
+f 527 w=58657 r=37692
+f 528 w=74023 r=49202
+=== profile HyperLattice [288x144] frames 513-528 window=1001306 us ===
+frame wall us: min=57185 avg=62544 max=74023 sum=1000705 (16 frames)
+frame render us: avg=40300 max=49202
+--- Cycle Counters ---
+frame                  1000703 us (100%)  16 calls  600421825 cyc
+  pov_preserve_half    2263 us (0%)  16 calls  1357937 cyc
+  hl_shader_draw       613116 us (61%)  16 calls  367869690 cyc
+  hl_timeline_step     220 us (0%)  16 calls  132013 cyc
+  canvas_clear         1353 us (0%)  16 calls  811812 cyc
+  canvas_buffer_wait   355909 us (35%)  16 calls  213545430 cyc
+isr_wake       n=18460 cyc min/avg/max=381/988/7254 ns min/avg/max=635/1646/12090 total=30424 us cpu=3.03%
+isr_pack       n=2307 cyc min/avg/max=3738/4002/5621 ns min/avg/max=6230/6670/9368 total=15391 us cpu=1.53%
+isr_dma_submit n=2307 cyc min/avg/max=424/560/608 ns min/avg/max=706/933/1013 total=2156 us cpu=0.21%
+f 529 w=52025 r=38922
+f 530 w=75701 r=52170
+f 531 w=50999 r=40719
+f 532 w=73609 r=51874
+f 533 w=54281 r=43700
+f 534 w=70248 r=51481
+f 535 w=56809 r=45831
+f 536 w=68557 r=51928
+f 537 w=57531 r=47005
+f 538 w=68923 r=53464
+f 539 w=57357 r=48363
+f 540 w=68092 r=53994
+f 541 w=57902 r=49384
+f 542 w=64802 r=51727
+f 543 w=63016 r=52284
+f 544 w=59031 r=48856
+=== profile HyperLattice [288x144] frames 529-544 window=999482 us ===
+frame wall us: min=50999 avg=62430 max=75701 sum=998883 (16 frames)
+frame render us: avg=48856 max=53994
+--- Cycle Counters ---
+frame                  998879 us (100%)  16 calls  599327793 cyc
+  pov_preserve_half    2202 us (0%)  16 calls  1321275 cyc
+  hl_shader_draw       750020 us (75%)  16 calls  450012343 cyc
+  hl_timeline_step     201 us (0%)  16 calls  121136 cyc
+  canvas_clear         1377 us (0%)  16 calls  826392 cyc
+  canvas_buffer_wait   217187 us (21%)  16 calls  130312363 cyc
+isr_wake       n=18427 cyc min/avg/max=378/995/7202 ns min/avg/max=630/1658/12003 total=30581 us cpu=3.05%
+isr_pack       n=2303 cyc min/avg/max=3738/4050/5700 ns min/avg/max=6230/6750/9500 total=15547 us cpu=1.55%
+isr_dma_submit n=2303 cyc min/avg/max=458/561/608 ns min/avg/max=763/935/1013 total=2154 us cpu=0.21%
+f 545 w=66468 r=53030
+f 546 w=57289 r=47868
+f 547 w=66958 r=52368
+f 548 w=58256 r=48164
+f 549 w=66039 r=51754
+f 550 w=59400 r=48693
+f 551 w=65383 r=51623
+f 552 w=59563 r=48733
+f 553 w=65292 r=51567
+f 554 w=59669 r=48775
+f 555 w=65172 r=51431
+f 556 w=59858 r=48827
+f 557 w=64880 r=51243
+f 558 w=60239 r=49031
+f 559 w=64431 r=51014
+f 560 w=60425 r=48977
+=== profile HyperLattice [288x144] frames 545-560 window=999946 us ===
+frame wall us: min=57289 avg=62457 max=66958 sum=999322 (16 frames)
+frame render us: avg=50193 max=53030
+--- Cycle Counters ---
+frame                  999319 us (100%)  16 calls  599591898 cyc
+  pov_preserve_half    2218 us (0%)  16 calls  1331000 cyc
+  hl_shader_draw       771451 us (77%)  16 calls  462870904 cyc
+  hl_timeline_step     216 us (0%)  16 calls  129720 cyc
+  canvas_clear         1383 us (0%)  16 calls  830368 cyc
+  canvas_buffer_wait   196230 us (19%)  16 calls  117738347 cyc
+isr_wake       n=18435 cyc min/avg/max=381/997/9570 ns min/avg/max=635/1661/15950 total=30647 us cpu=3.06%
+isr_pack       n=2305 cyc min/avg/max=3738/4047/5634 ns min/avg/max=6230/6745/9390 total=15547 us cpu=1.55%
+isr_dma_submit n=2305 cyc min/avg/max=399/560/608 ns min/avg/max=665/933/1013 total=2154 us cpu=0.21%
+f 561 w=64208 r=50895
+f 562 w=60825 r=49263
+f 563 w=64092 r=50893
+f 564 w=60860 r=49293
+f 565 w=64053 r=50898
+f 566 w=60839 r=49274
+f 567 w=64128 r=50943
+f 568 w=60649 r=49079
+f 569 w=64171 r=50787
+f 570 w=60579 r=48908
+f 571 w=64152 r=50599
+f 572 w=60514 r=48652
+f 573 w=63259 r=49452
+f 574 w=62423 r=49428
+f 575 w=62685 r=49650
+f 576 w=62537 r=49729
+=== profile HyperLattice [288x144] frames 561-576 window=1000574 us ===
+frame wall us: min=60514 avg=62498 max=64208 sum=999974 (16 frames)
+frame render us: avg=49858 max=50943
+--- Cycle Counters ---
+frame                  999970 us (100%)  16 calls  599982474 cyc
+  pov_preserve_half    2227 us (0%)  16 calls  1336490 cyc
+  hl_shader_draw       766020 us (76%)  16 calls  459612347 cyc
+  hl_timeline_step     199 us (0%)  16 calls  119634 cyc
+  canvas_clear         1374 us (0%)  16 calls  824792 cyc
+  canvas_buffer_wait   202238 us (20%)  16 calls  121342810 cyc
+isr_wake       n=18447 cyc min/avg/max=378/993/8306 ns min/avg/max=630/1655/13843 total=30539 us cpu=3.05%
+isr_pack       n=2305 cyc min/avg/max=3738/4027/5634 ns min/avg/max=6230/6711/9390 total=15474 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=399/562/3995 ns min/avg/max=665/936/6658 total=2160 us cpu=0.21%
+f 577 w=62351 r=49789
+f 578 w=62437 r=49764
+f 579 w=62390 r=49700
+f 580 w=62482 r=49720
+f 581 w=62516 r=49775
+f 582 w=62663 r=49926
+f 583 w=62288 r=49758
+f 584 w=63009 r=50308
+f 585 w=61782 r=49650
+f 586 w=63626 r=50818
+f 587 w=61328 r=49689
+f 588 w=63996 r=51221
+f 589 w=60797 r=49558
+f 590 w=64446 r=51544
+f 591 w=60379 r=49460
+f 592 w=64950 r=51964
+=== profile HyperLattice [288x144] frames 577-592 window=1002057 us ===
+frame wall us: min=60379 avg=62590 max=64950 sum=1001440 (16 frames)
+frame render us: avg=50165 max=51964
+--- Cycle Counters ---
+frame                  1001438 us (100%)  16 calls  600862831 cyc
+  pov_preserve_half    2206 us (0%)  16 calls  1323652 cyc
+  hl_shader_draw       770904 us (76%)  16 calls  462542930 cyc
+  hl_timeline_step     240 us (0%)  16 calls  144000 cyc
+  canvas_clear         1368 us (0%)  16 calls  821212 cyc
+  canvas_buffer_wait   198803 us (19%)  16 calls  119281940 cyc
+isr_wake       n=18474 cyc min/avg/max=377/993/7302 ns min/avg/max=628/1655/12170 total=30589 us cpu=3.05%
+isr_pack       n=2310 cyc min/avg/max=3738/4024/5668 ns min/avg/max=6230/6706/9446 total=15492 us cpu=1.54%
+isr_dma_submit n=2310 cyc min/avg/max=436/560/609 ns min/avg/max=726/933/1015 total=2158 us cpu=0.21%
+f 593 w=59696 r=49371
+f 594 w=65333 r=52239
+f 595 w=59835 r=49558
+f 596 w=65634 r=52732
+f 597 w=59382 r=49652
+f 598 w=66056 r=53248
+f 599 w=58863 r=49656
+f 600 w=66547 r=53743
+f 601 w=58530 r=49812
+f 602 w=66742 r=54086
+f 603 w=58825 r=50450
+f 604 w=66230 r=54221
+f 605 w=59141 r=50911
+f 606 w=65625 r=54077
+f 607 w=59848 r=51464
+f 608 w=64611 r=53620
+=== profile HyperLattice [288x144] frames 593-608 window=1001472 us ===
+frame wall us: min=58530 avg=62556 max=66742 sum=1000898 (16 frames)
+frame render us: avg=51802 max=54221
+--- Cycle Counters ---
+frame                  1000895 us (100%)  16 calls  600537292 cyc
+  pov_preserve_half    2188 us (0%)  16 calls  1312929 cyc
+  hl_shader_draw       797200 us (79%)  16 calls  478320143 cyc
+  hl_timeline_step     223 us (0%)  16 calls  134242 cyc
+  canvas_clear         1374 us (0%)  16 calls  824972 cyc
+  canvas_buffer_wait   172066 us (17%)  16 calls  103239674 cyc
+isr_wake       n=18464 cyc min/avg/max=378/995/7174 ns min/avg/max=630/1658/11956 total=30645 us cpu=3.05%
+isr_pack       n=2307 cyc min/avg/max=3738/4045/5635 ns min/avg/max=6230/6741/9391 total=15553 us cpu=1.55%
+isr_dma_submit n=2307 cyc min/avg/max=385/560/607 ns min/avg/max=641/933/1011 total=2156 us cpu=0.21%
+f 609 w=61335 r=52596
+f 610 w=62055 r=52193
+f 611 w=63568 r=53301
+f 612 w=60460 r=51301
+f 613 w=65779 r=54618
+f 614 w=58473 r=50630
+f 615 w=66360 r=54529
+f 616 w=58220 r=50288
+f 617 w=65088 r=52917
+f 618 w=59573 r=50038
+f 619 w=63647 r=51227
+f 620 w=62209 r=50974
+f 621 w=61490 r=50000
+f 622 w=63582 r=51066
+f 623 w=61399 r=50003
+f 624 w=63404 r=50948
+=== profile HyperLattice [288x144] frames 609-624 window=997216 us ===
+frame wall us: min=58220 avg=62290 max=66360 sum=996642 (16 frames)
+frame render us: avg=51664 max=54618
+--- Cycle Counters ---
+frame                  996640 us (100%)  16 calls  597984029 cyc
+  pov_preserve_half    2210 us (0%)  16 calls  1326235 cyc
+  hl_shader_draw       794916 us (79%)  16 calls  476949649 cyc
+  hl_timeline_step     204 us (0%)  16 calls  122819 cyc
+  canvas_clear         1369 us (0%)  16 calls  821640 cyc
+  canvas_buffer_wait   170020 us (17%)  16 calls  102012257 cyc
+isr_wake       n=18384 cyc min/avg/max=378/997/10646 ns min/avg/max=630/1661/17743 total=30573 us cpu=3.06%
+isr_pack       n=2298 cyc min/avg/max=3738/4046/5715 ns min/avg/max=6230/6743/9525 total=15499 us cpu=1.55%
+isr_dma_submit n=2298 cyc min/avg/max=466/560/609 ns min/avg/max=776/933/1015 total=2147 us cpu=0.21%
+f 625 w=61173 r=49820
+f 626 w=63689 r=51047
+f 627 w=61305 r=49891
+f 628 w=63756 r=51195
+f 629 w=61370 r=50114
+f 630 w=63600 r=51253
+f 631 w=61819 r=50610
+f 632 w=63166 r=51315
+f 633 w=62228 r=51080
+f 634 w=62320 r=50942
+f 635 w=62291 r=50773
+f 636 w=62932 r=51192
+f 637 w=61862 r=50605
+f 638 w=63240 r=51386
+f 639 w=61624 r=50554
+f 640 w=63374 r=51464
+=== profile HyperLattice [288x144] frames 625-640 window=1000345 us ===
+frame wall us: min=61173 avg=62484 max=63756 sum=999749 (16 frames)
+frame render us: avg=50827 max=51464
+--- Cycle Counters ---
+frame                  999746 us (100%)  16 calls  599847835 cyc
+  pov_preserve_half    2174 us (0%)  16 calls  1304779 cyc
+  hl_shader_draw       781539 us (78%)  16 calls  468923599 cyc
+  hl_timeline_step     196 us (0%)  16 calls  117971 cyc
+  canvas_clear         1382 us (0%)  16 calls  829732 cyc
+  canvas_buffer_wait   186517 us (18%)  16 calls  111910367 cyc
+isr_wake       n=18443 cyc min/avg/max=378/994/11206 ns min/avg/max=630/1656/18676 total=30573 us cpu=3.05%
+isr_pack       n=2305 cyc min/avg/max=3738/4025/5689 ns min/avg/max=6230/6708/9481 total=15464 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=372/561/622 ns min/avg/max=620/935/1036 total=2155 us cpu=0.21%
+f 641 w=61531 r=50702
+f 642 w=63166 r=51400
+f 643 w=61953 r=50892
+f 644 w=63020 r=51454
+f 645 w=62014 r=51007
+f 646 w=62946 r=51494
+f 647 w=62145 r=51180
+f 648 w=62821 r=51557
+f 649 w=62369 r=51467
+f 650 w=62674 r=51621
+f 651 w=62438 r=51608
+f 652 w=62388 r=51555
+f 653 w=62657 r=51750
+f 654 w=62188 r=51477
+f 655 w=62849 r=51865
+f 656 w=62145 r=51551
+=== profile HyperLattice [288x144] frames 641-656 window=999910 us ===
+frame wall us: min=61531 avg=62456 max=63166 sum=999304 (16 frames)
+frame render us: avg=51411 max=51865
+--- Cycle Counters ---
+frame                  999299 us (100%)  16 calls  599579992 cyc
+  pov_preserve_half    2177 us (0%)  16 calls  1306245 cyc
+  hl_shader_draw       791043 us (79%)  16 calls  474626278 cyc
+  hl_timeline_step     212 us (0%)  16 calls  127685 cyc
+  canvas_clear         1382 us (0%)  16 calls  829556 cyc
+  canvas_buffer_wait   176732 us (17%)  16 calls  106039271 cyc
+isr_wake       n=18435 cyc min/avg/max=377/994/11154 ns min/avg/max=628/1656/18590 total=30556 us cpu=3.05%
+isr_pack       n=2305 cyc min/avg/max=3738/4032/5593 ns min/avg/max=6230/6720/9321 total=15489 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=434/561/626 ns min/avg/max=723/935/1043 total=2155 us cpu=0.21%
+f 657 w=62695 r=51953
+f 658 w=62024 r=51523
+f 659 w=62711 r=51778
+f 660 w=61936 r=51257
+f 661 w=62578 r=51377
+f 662 w=62057 r=50975
+f 663 w=62501 r=50969
+f 664 w=62123 r=50631
+f 665 w=63345 r=51516
+f 666 w=61967 r=51035
+f 667 w=62966 r=51544
+f 668 w=61825 r=50903
+f 669 w=63120 r=51561
+f 670 w=61646 r=50748
+f 671 w=63258 r=51555
+f 672 w=61627 r=50721
+=== profile HyperLattice [288x144] frames 657-672 window=998990 us ===
+frame wall us: min=61627 avg=62398 max=63345 sum=998379 (16 frames)
+frame render us: avg=51252 max=51953
+--- Cycle Counters ---
+frame                  998376 us (100%)  16 calls  599025964 cyc
+  pov_preserve_half    2189 us (0%)  16 calls  1313454 cyc
+  hl_shader_draw       788401 us (78%)  16 calls  473040919 cyc
+  hl_timeline_step     228 us (0%)  16 calls  137059 cyc
+  canvas_clear         1373 us (0%)  16 calls  824308 cyc
+  canvas_buffer_wait   178343 us (17%)  16 calls  107005813 cyc
+isr_wake       n=18417 cyc min/avg/max=378/995/12526 ns min/avg/max=630/1658/20876 total=30569 us cpu=3.05%
+isr_pack       n=2302 cyc min/avg/max=3738/4037/5782 ns min/avg/max=6230/6728/9636 total=15491 us cpu=1.55%
+isr_dma_submit n=2302 cyc min/avg/max=466/561/608 ns min/avg/max=776/935/1013 total=2152 us cpu=0.21%
+f 673 w=62990 r=51423
+f 674 w=61928 r=50890
+f 675 w=62685 r=51115
+f 676 w=62239 r=50896
+f 677 w=62386 r=50760
+f 678 w=62645 r=50949
+f 679 w=61840 r=50328
+f 680 w=63127 r=50995
+f 681 w=61556 r=50091
+f 682 w=65150 r=52781
+f 683 w=59939 r=50261
+f 684 w=64925 r=52727
+f 685 w=60137 r=50401
+f 686 w=64755 r=52694
+f 687 w=60284 r=50518
+f 688 w=64577 r=52634
+=== profile HyperLattice [288x144] frames 673-688 window=1001730 us ===
+frame wall us: min=59939 avg=62572 max=65150 sum=1001163 (16 frames)
+frame render us: avg=51216 max=52781
+--- Cycle Counters ---
+frame                  1001158 us (100%)  16 calls  600695180 cyc
+  pov_preserve_half    2201 us (0%)  16 calls  1320920 cyc
+  hl_shader_draw       787734 us (78%)  16 calls  472640519 cyc
+  hl_timeline_step     206 us (0%)  16 calls  123804 cyc
+  canvas_clear         1367 us (0%)  16 calls  820432 cyc
+  canvas_buffer_wait   181710 us (18%)  16 calls  109026127 cyc
+isr_wake       n=18468 cyc min/avg/max=378/993/7174 ns min/avg/max=630/1655/11956 total=30588 us cpu=3.05%
+isr_pack       n=2308 cyc min/avg/max=3738/4029/5702 ns min/avg/max=6230/6715/9503 total=15499 us cpu=1.54%
+isr_dma_submit n=2308 cyc min/avg/max=434/560/622 ns min/avg/max=723/933/1036 total=2157 us cpu=0.21%
+f 689 w=60366 r=50698
+f 690 w=64442 r=52627
+f 691 w=60590 r=50758
+f 692 w=64257 r=52568
+f 693 w=60708 r=50814
+f 694 w=64179 r=52544
+f 695 w=60568 r=50652
+f 696 w=64333 r=52525
+f 697 w=60299 r=50365
+f 698 w=64655 r=52571
+f 699 w=59771 r=49882
+f 700 w=65260 r=52693
+f 701 w=59301 r=49536
+f 702 w=65749 r=52824
+f 703 w=58825 r=49188
+f 704 w=66091 r=52766
+=== profile HyperLattice [288x144] frames 689-704 window=1000021 us ===
+frame wall us: min=58825 avg=62462 max=66091 sum=999394 (16 frames)
+frame render us: avg=51438 max=52824
+--- Cycle Counters ---
+frame                  999392 us (100%)  16 calls  599635341 cyc
+  pov_preserve_half    2250 us (0%)  16 calls  1350153 cyc
+  hl_shader_draw       791247 us (79%)  16 calls  474748443 cyc
+  hl_timeline_step     225 us (0%)  16 calls  135588 cyc
+  canvas_clear         1379 us (0%)  16 calls  827820 cyc
+  canvas_buffer_wait   176391 us (17%)  16 calls  105834939 cyc
+isr_wake       n=18437 cyc min/avg/max=378/994/7242 ns min/avg/max=630/1656/12070 total=30544 us cpu=3.05%
+isr_pack       n=2304 cyc min/avg/max=3738/4028/5729 ns min/avg/max=6230/6713/9548 total=15469 us cpu=1.54%
+isr_dma_submit n=2304 cyc min/avg/max=371/560/608 ns min/avg/max=618/933/1013 total=2153 us cpu=0.21%
+f 705 w=58380 r=48860
+f 706 w=66419 r=52818
+f 707 w=58052 r=48409
+f 708 w=66930 r=52879
+f 709 w=58024 r=48447
+f 710 w=67480 r=53466
+f 711 w=57018 r=48023
+f 712 w=68258 r=53822
+f 713 w=57050 r=48412
+f 714 w=68601 r=54551
+f 715 w=56103 r=48196
+f 716 w=69376 r=55108
+f 717 w=55383 r=47987
+f 718 w=69253 r=54781
+f 719 w=55223 r=47541
+f 720 w=66622 r=51707
+=== profile HyperLattice [288x144] frames 705-720 window=998756 us ===
+frame wall us: min=55223 avg=62385 max=69376 sum=998172 (16 frames)
+frame render us: avg=50937 max=55108
+--- Cycle Counters ---
+frame                  998170 us (100%)  16 calls  598902083 cyc
+  pov_preserve_half    2216 us (0%)  16 calls  1329794 cyc
+  hl_shader_draw       783224 us (78%)  16 calls  469934513 cyc
+  hl_timeline_step     209 us (0%)  16 calls  125598 cyc
+  canvas_clear         1374 us (0%)  16 calls  824724 cyc
+  canvas_buffer_wait   183172 us (18%)  16 calls  109903309 cyc
+isr_wake       n=18413 cyc min/avg/max=378/993/7640 ns min/avg/max=630/1655/12733 total=30498 us cpu=3.05%
+isr_pack       n=2302 cyc min/avg/max=3738/4018/5792 ns min/avg/max=6230/6696/9653 total=15417 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=498/561/608 ns min/avg/max=830/935/1013 total=2152 us cpu=0.21%
+f 721 w=57749 r=47155
+f 722 w=64523 r=49215
+f 723 w=59354 r=46109
+f 724 w=66826 r=50472
+f 725 w=57828 r=45841
+f 726 w=67421 r=50797
+f 727 w=56309 r=44649
+f 728 w=67572 r=49758
+f 729 w=55309 r=42608
+f 730 w=65690 r=45836
+f 731 w=54975 r=38290
+f 732 w=62695 r=38526
+f 733 w=61553 r=37615
+f 734 w=62419 r=37576
+f 735 w=62604 r=37732
+f 736 w=61886 r=37168
+=== profile HyperLattice [288x144] frames 721-736 window=985293 us ===
+frame wall us: min=54975 avg=61544 max=67572 sum=984713 (16 frames)
+frame render us: avg=43709 max=50797
+--- Cycle Counters ---
+frame                  984709 us (100%)  16 calls  590825610 cyc
+  pov_preserve_half    2238 us (0%)  16 calls  1342876 cyc
+  hl_shader_draw       667583 us (67%)  16 calls  400550331 cyc
+  hl_timeline_step     166 us (0%)  16 calls  100047 cyc
+  canvas_clear         1365 us (0%)  16 calls  819436 cyc
+  canvas_buffer_wait   285373 us (28%)  16 calls  171224056 cyc
+isr_wake       n=18165 cyc min/avg/max=340/989/9518 ns min/avg/max=566/1648/15863 total=29955 us cpu=3.04%
+isr_pack       n=2270 cyc min/avg/max=3738/4007/5730 ns min/avg/max=6230/6678/9550 total=15160 us cpu=1.53%
+isr_dma_submit n=2270 cyc min/avg/max=452/562/5209 ns min/avg/max=753/936/8681 total=2128 us cpu=0.21%
+f 737 w=63004 r=37887
+f 738 w=61691 r=37115
+f 739 w=64139 r=38793
+f 740 w=61079 r=37409
+f 741 w=64629 r=39588
+f 742 w=66029 r=43162
+f 743 w=62244 r=42946
+f 744 w=64549 r=45039
+f 745 w=62231 r=44758
+f 746 w=64524 r=46821
+f 747 w=62725 r=47083
+f 748 w=62318 r=46940
+f 749 w=64053 r=48534
+f 750 w=66216 r=52291
+f 751 w=64572 r=54403
+f 752 w=61467 r=53411
+=== profile HyperLattice [288x144] frames 737-752 window=1016067 us ===
+frame wall us: min=61079 avg=63466 max=66216 sum=1015470 (16 frames)
+frame render us: avg=44761 max=54403
+--- Cycle Counters ---
+frame                  1015469 us (100%)  16 calls  609281816 cyc
+  pov_preserve_half    2224 us (0%)  16 calls  1334876 cyc
+  hl_shader_draw       684307 us (67%)  16 calls  410584457 cyc
+  hl_timeline_step     186 us (0%)  16 calls  111866 cyc
+  canvas_clear         1370 us (0%)  16 calls  822196 cyc
+  canvas_buffer_wait   299297 us (29%)  16 calls  179578409 cyc
+isr_wake       n=18733 cyc min/avg/max=377/991/7188 ns min/avg/max=628/1651/11980 total=30965 us cpu=3.04%
+isr_pack       n=2342 cyc min/avg/max=3738/4021/5609 ns min/avg/max=6230/6701/9348 total=15696 us cpu=1.54%
+isr_dma_submit n=2342 cyc min/avg/max=430/560/695 ns min/avg/max=716/933/1158 total=2188 us cpu=0.21%
+f 753 w=62511 r=53628
+f 754 w=63169 r=54337
+f 755 w=61426 r=53307
+f 756 w=63806 r=54656
+f 757 w=58510 r=50714
+f 758 w=63425 r=51625
+f 759 w=61991 r=51166
+f 760 w=62513 r=51232
+f 761 w=62347 r=51105
+f 762 w=62679 r=51325
+f 763 w=62266 r=51128
+f 764 w=62714 r=51383
+f 765 w=62353 r=51279
+f 766 w=62626 r=51441
+f 767 w=62414 r=51397
+f 768 w=62510 r=51449
+=== profile HyperLattice [288x144] frames 753-768 window=997861 us ===
+frame wall us: min=58510 avg=62328 max=63806 sum=997260 (16 frames)
+frame render us: avg=51948 max=54656
+--- Cycle Counters ---
+frame                  997257 us (100%)  16 calls  598354645 cyc
+  pov_preserve_half    2200 us (0%)  16 calls  1320527 cyc
+  hl_shader_draw       799412 us (80%)  16 calls  479647640 cyc
+  hl_timeline_step     204 us (0%)  16 calls  122903 cyc
+  canvas_clear         1377 us (0%)  16 calls  826408 cyc
+  canvas_buffer_wait   166096 us (16%)  16 calls  99658197 cyc
+isr_wake       n=18397 cyc min/avg/max=378/995/9294 ns min/avg/max=630/1658/15490 total=30531 us cpu=3.05%
+isr_pack       n=2299 cyc min/avg/max=3738/4042/5599 ns min/avg/max=6230/6736/9331 total=15491 us cpu=1.55%
+isr_dma_submit n=2299 cyc min/avg/max=412/560/680 ns min/avg/max=686/933/1133 total=2148 us cpu=0.21%
+f 769 w=62529 r=51687
+f 770 w=62166 r=51391
+f 771 w=63101 r=52035
+f 772 w=61582 r=51105
+f 773 w=63448 r=52090
+f 774 w=61503 r=51130
+f 775 w=63390 r=52062
+f 776 w=61812 r=51427
+f 777 w=62804 r=51768
+f 778 w=62189 r=51499
+f 779 w=62631 r=51672
+f 780 w=62468 r=51681
+f 781 w=62205 r=51427
+f 782 w=63009 r=51979
+f 783 w=61658 r=51176
+f 784 w=63382 r=52109
+=== profile HyperLattice [288x144] frames 769-784 window=1000495 us ===
+frame wall us: min=61503 avg=62492 max=63448 sum=999877 (16 frames)
+frame render us: avg=51639 max=52109
+--- Cycle Counters ---
+frame                  999876 us (100%)  16 calls  599925737 cyc
+  pov_preserve_half    2210 us (0%)  16 calls  1326162 cyc
+  hl_shader_draw       794458 us (79%)  16 calls  476675049 cyc
+  hl_timeline_step     207 us (0%)  16 calls  124413 cyc
+  canvas_clear         1381 us (0%)  16 calls  828632 cyc
+  canvas_buffer_wait   173647 us (17%)  16 calls  104188501 cyc
+isr_wake       n=18445 cyc min/avg/max=377/995/7802 ns min/avg/max=628/1658/13003 total=30603 us cpu=3.05%
+isr_pack       n=2306 cyc min/avg/max=3738/4039/5469 ns min/avg/max=6230/6731/9115 total=15524 us cpu=1.55%
+isr_dma_submit n=2306 cyc min/avg/max=379/560/608 ns min/avg/max=631/933/1013 total=2154 us cpu=0.21%
+f 785 w=61272 r=51029
+f 786 w=63791 r=52358
+f 787 w=60944 r=50841
+f 788 w=64064 r=52445
+f 789 w=60886 r=50867
+f 790 w=63684 r=52094
+f 791 w=61643 r=51275
+f 792 w=63112 r=51927
+f 793 w=62157 r=51631
+f 794 w=62552 r=51732
+f 795 w=62606 r=51878
+f 796 w=61868 r=51289
+f 797 w=63366 r=52190
+f 798 w=61189 r=50917
+f 799 w=63872 r=52287
+f 800 w=60840 r=50669
+=== profile HyperLattice [288x144] frames 785-800 window=998442 us ===
+frame wall us: min=60840 avg=62365 max=64064 sum=997846 (16 frames)
+frame render us: avg=51589 max=52445
+--- Cycle Counters ---
+frame                  997843 us (100%)  16 calls  598706351 cyc
+  pov_preserve_half    2246 us (0%)  16 calls  1347716 cyc
+  hl_shader_draw       793749 us (79%)  16 calls  476249649 cyc
+  hl_timeline_step     183 us (0%)  16 calls  110058 cyc
+  canvas_clear         1380 us (0%)  16 calls  828212 cyc
+  canvas_buffer_wait   172424 us (17%)  16 calls  103454796 cyc
+isr_wake       n=18407 cyc min/avg/max=378/995/9258 ns min/avg/max=630/1658/15430 total=30542 us cpu=3.05%
+isr_pack       n=2301 cyc min/avg/max=3738/4043/5659 ns min/avg/max=6230/6738/9431 total=15505 us cpu=1.55%
+isr_dma_submit n=2301 cyc min/avg/max=430/562/4923 ns min/avg/max=716/936/8205 total=2157 us cpu=0.21%
+f 801 w=63907 r=52290
+f 802 w=60480 r=50307
+f 803 w=64362 r=52229
+f 804 w=59557 r=49329
+f 805 w=64990 r=51859
+f 806 w=59790 r=49191
+f 807 w=65436 r=52171
+f 808 w=59292 r=49006
+f 809 w=65994 r=52552
+f 810 w=58713 r=48811
+f 811 w=66414 r=52766
+f 812 w=58598 r=48853
+f 813 w=66250 r=52644
+f 814 w=58766 r=48949
+f 815 w=65727 r=52216
+f 816 w=59030 r=48786
+=== profile HyperLattice [288x144] frames 801-816 window=997936 us ===
+frame wall us: min=58598 avg=62331 max=66414 sum=997306 (16 frames)
+frame render us: avg=50747 max=52766
+--- Cycle Counters ---
+frame                  997303 us (100%)  16 calls  598382362 cyc
+  pov_preserve_half    2177 us (0%)  16 calls  1306283 cyc
+  hl_shader_draw       780455 us (78%)  16 calls  468273092 cyc
+  hl_timeline_step     234 us (0%)  16 calls  140765 cyc
+  canvas_clear         1367 us (0%)  16 calls  820692 cyc
+  canvas_buffer_wait   185356 us (18%)  16 calls  111213673 cyc
+isr_wake       n=18398 cyc min/avg/max=378/994/10214 ns min/avg/max=630/1656/17023 total=30495 us cpu=3.05%
+isr_pack       n=2299 cyc min/avg/max=3738/4030/5542 ns min/avg/max=6230/6716/9236 total=15442 us cpu=1.54%
+isr_dma_submit n=2299 cyc min/avg/max=434/560/609 ns min/avg/max=723/933/1015 total=2147 us cpu=0.21%
+f 817 w=65552 r=52036
+f 818 w=59585 r=49170
+f 819 w=64320 r=51021
+f 820 w=60857 r=49420
+f 821 w=63579 r=50533
+f 822 w=61994 r=50070
+f 823 w=62357 r=49967
+f 824 w=63198 r=50698
+f 825 w=61440 r=49677
+f 826 w=64229 r=51391
+f 827 w=60619 r=49552
+f 828 w=64936 r=52031
+f 829 w=60048 r=49616
+f 830 w=65006 r=52162
+f 831 w=60167 r=49868
+f 832 w=64547 r=51964
+=== profile HyperLattice [288x144] frames 817-832 window=1002996 us ===
+frame wall us: min=59585 avg=62652 max=65552 sum=1002434 (16 frames)
+frame render us: avg=50573 max=52162
+--- Cycle Counters ---
+frame                  1002432 us (100%)  16 calls  601459764 cyc
+  pov_preserve_half    2195 us (0%)  16 calls  1317089 cyc
+  hl_shader_draw       777487 us (77%)  16 calls  466492487 cyc
+  hl_timeline_step     212 us (0%)  16 calls  127356 cyc
+  canvas_clear         1371 us (0%)  16 calls  823188 cyc
+  canvas_buffer_wait   193265 us (19%)  16 calls  115959370 cyc
+isr_wake       n=18492 cyc min/avg/max=378/994/7230 ns min/avg/max=630/1656/12050 total=30636 us cpu=3.05%
+isr_pack       n=2312 cyc min/avg/max=3738/4029/5743 ns min/avg/max=6230/6715/9571 total=15526 us cpu=1.54%
+isr_dma_submit n=2312 cyc min/avg/max=394/560/608 ns min/avg/max=656/933/1013 total=2161 us cpu=0.21%
+f 833 w=60497 r=50156
+f 834 w=64621 r=52315
+f 835 w=60764 r=50624
+f 836 w=64510 r=52676
+f 837 w=60725 r=50939
+f 838 w=64521 r=52998
+f 839 w=60768 r=51251
+f 840 w=64669 r=53463
+f 841 w=60048 r=51053
+f 842 w=63602 r=52194
+f 843 w=61740 r=51475
+f 844 w=62178 r=51193
+f 845 w=62761 r=51501
+f 846 w=61762 r=50806
+f 847 w=62905 r=51254
+f 848 w=62024 r=50815
+=== profile HyperLattice [288x144] frames 833-848 window=998685 us ===
+frame wall us: min=60048 avg=62380 max=64669 sum=998095 (16 frames)
+frame render us: avg=51544 max=53463
+--- Cycle Counters ---
+frame                  998092 us (100%)  16 calls  598855363 cyc
+  pov_preserve_half    2226 us (0%)  16 calls  1335940 cyc
+  hl_shader_draw       792905 us (79%)  16 calls  475743015 cyc
+  hl_timeline_step     212 us (0%)  16 calls  127253 cyc
+  canvas_clear         1376 us (0%)  16 calls  825752 cyc
+  canvas_buffer_wait   173388 us (17%)  16 calls  104033092 cyc
+isr_wake       n=18412 cyc min/avg/max=378/994/9294 ns min/avg/max=630/1656/15490 total=30529 us cpu=3.05%
+isr_pack       n=2301 cyc min/avg/max=3738/4038/5698 ns min/avg/max=6230/6730/9496 total=15489 us cpu=1.55%
+isr_dma_submit n=2301 cyc min/avg/max=377/560/638 ns min/avg/max=628/933/1063 total=2149 us cpu=0.21%
+f 849 w=62361 r=50872
+f 850 w=62171 r=50586
+f 851 w=62464 r=50588
+f 852 w=62341 r=50470
+f 853 w=62530 r=50480
+f 854 w=61859 r=49880
+f 855 w=63444 r=50873
+f 856 w=61332 r=49747
+f 857 w=65000 r=52286
+f 858 w=60701 r=50527
+f 859 w=65175 r=53251
+f 860 w=60550 r=51340
+f 861 w=62114 r=50992
+f 862 w=62472 r=51003
+f 863 w=61468 r=50009
+f 864 w=63181 r=50730
+=== profile HyperLattice [288x144] frames 849-864 window=999750 us ===
+frame wall us: min=60550 avg=62447 max=65175 sum=999163 (16 frames)
+frame render us: avg=50852 max=53251
+--- Cycle Counters ---
+frame                  999161 us (100%)  16 calls  599496872 cyc
+  pov_preserve_half    2199 us (0%)  16 calls  1319825 cyc
+  hl_shader_draw       781950 us (78%)  16 calls  469170320 cyc
+  hl_timeline_step     174 us (0%)  16 calls  104593 cyc
+  canvas_clear         1377 us (0%)  16 calls  826684 cyc
+  canvas_buffer_wait   185537 us (18%)  16 calls  111322657 cyc
+isr_wake       n=18432 cyc min/avg/max=378/995/7262 ns min/avg/max=630/1658/12103 total=30570 us cpu=3.05%
+isr_pack       n=2304 cyc min/avg/max=3738/4043/5710 ns min/avg/max=6230/6738/9516 total=15526 us cpu=1.55%
+isr_dma_submit n=2304 cyc min/avg/max=388/560/608 ns min/avg/max=646/933/1013 total=2153 us cpu=0.21%
+f 865 w=61392 r=49832
+f 866 w=63688 r=51062
+f 867 w=61222 r=49773
+f 868 w=64249 r=51563
+f 869 w=60706 r=49806
+f 870 w=63877 r=51215
+f 871 w=61096 r=49848
+f 872 w=63149 r=50536
+f 873 w=61811 r=49897
+f 874 w=63369 r=50816
+f 875 w=62342 r=50700
+f 876 w=62498 r=50739
+f 877 w=62414 r=50704
+f 878 w=62506 r=50752
+f 879 w=62391 r=50704
+f 880 w=62337 r=50527
+=== profile HyperLattice [288x144] frames 865-880 window=999673 us ===
+frame wall us: min=60706 avg=62440 max=64249 sum=999047 (16 frames)
+frame render us: avg=50529 max=51563
+--- Cycle Counters ---
+frame                  999045 us (100%)  16 calls  599427068 cyc
+  pov_preserve_half    2157 us (0%)  16 calls  1294636 cyc
+  hl_shader_draw       777048 us (77%)  16 calls  466229250 cyc
+  hl_timeline_step     188 us (0%)  16 calls  112956 cyc
+  canvas_clear         1368 us (0%)  16 calls  821000 cyc
+  canvas_buffer_wait   190579 us (19%)  16 calls  114347983 cyc
+isr_wake       n=18430 cyc min/avg/max=377/993/8274 ns min/avg/max=628/1655/13790 total=30518 us cpu=3.05%
+isr_pack       n=2303 cyc min/avg/max=3738/4032/5701 ns min/avg/max=6230/6720/9501 total=15477 us cpu=1.54%
+isr_dma_submit n=2303 cyc min/avg/max=427/560/608 ns min/avg/max=711/933/1013 total=2152 us cpu=0.21%
+f 881 w=62443 r=50671
+f 882 w=62255 r=50469
+f 883 w=63148 r=51151
+f 884 w=61675 r=50368
+f 885 w=63179 r=51085
+f 886 w=61934 r=50558
+f 887 w=62328 r=50426
+f 888 w=62354 r=50320
+f 889 w=61198 r=49068
+f 890 w=64335 r=50943
+f 891 w=60789 r=49270
+f 892 w=64341 r=51157
+f 893 w=60651 r=49346
+f 894 w=64431 r=51266
+f 895 w=60526 r=49328
+f 896 w=63416 r=50284
+=== profile HyperLattice [288x144] frames 881-896 window=999585 us ===
+frame wall us: min=60526 avg=62437 max=64431 sum=999003 (16 frames)
+frame render us: avg=50356 max=51266
+--- Cycle Counters ---
+frame                  999001 us (100%)  16 calls  599400601 cyc
+  pov_preserve_half    2209 us (0%)  16 calls  1325617 cyc
+  hl_shader_draw       773982 us (77%)  16 calls  464389691 cyc
+  hl_timeline_step     206 us (0%)  16 calls  123725 cyc
+  canvas_clear         1377 us (0%)  16 calls  826352 cyc
+  canvas_buffer_wait   193301 us (19%)  16 calls  115980939 cyc
+isr_wake       n=18428 cyc min/avg/max=378/994/10722 ns min/avg/max=630/1656/17870 total=30544 us cpu=3.05%
+isr_pack       n=2304 cyc min/avg/max=3738/4031/5724 ns min/avg/max=6230/6718/9540 total=15480 us cpu=1.54%
+isr_dma_submit n=2304 cyc min/avg/max=480/560/608 ns min/avg/max=800/933/1013 total=2153 us cpu=0.21%
+f 897 w=60976 r=48967
+f 898 w=63991 r=50494
+f 899 w=61282 r=49317
+f 900 w=63664 r=50521
+f 901 w=61874 r=49935
+f 902 w=63105 r=50582
+f 903 w=61768 r=49899
+f 904 w=63260 r=50710
+f 905 w=61155 r=49410
+f 906 w=63927 r=50876
+f 907 w=60845 r=49210
+f 908 w=64312 r=51063
+f 909 w=60377 r=48979
+f 910 w=64727 r=51246
+f 911 w=59956 r=48739
+f 912 w=65006 r=51284
+=== profile HyperLattice [288x144] frames 897-912 window=1000824 us ===
+frame wall us: min=59956 avg=62514 max=65006 sum=1000225 (16 frames)
+frame render us: avg=50077 max=51284
+--- Cycle Counters ---
+frame                  1000225 us (100%)  16 calls  600135541 cyc
+  pov_preserve_half    2203 us (0%)  16 calls  1321825 cyc
+  hl_shader_draw       769423 us (76%)  16 calls  461654049 cyc
+  hl_timeline_step     202 us (0%)  16 calls  121566 cyc
+  canvas_clear         1370 us (0%)  16 calls  822236 cyc
+  canvas_buffer_wait   199001 us (19%)  16 calls  119401053 cyc
+isr_wake       n=18452 cyc min/avg/max=377/993/7186 ns min/avg/max=628/1655/11976 total=30556 us cpu=3.05%
+isr_pack       n=2306 cyc min/avg/max=3738/4031/5621 ns min/avg/max=6230/6718/9368 total=15493 us cpu=1.54%
+isr_dma_submit n=2306 cyc min/avg/max=466/561/608 ns min/avg/max=776/935/1013 total=2156 us cpu=0.21%
+f 913 w=59408 r=48394
+f 914 w=65405 r=51339
+f 915 w=59198 r=48077
+f 916 w=65786 r=51404
+f 917 w=58834 r=47779
+f 918 w=66178 r=51494
+f 919 w=58448 r=47484
+f 920 w=66388 r=51411
+f 921 w=58147 r=47047
+f 922 w=66806 r=51394
+f 923 w=57471 r=46405
+f 924 w=67184 r=51140
+f 925 w=56764 r=45447
+f 926 w=67996 r=50985
+f 927 w=55788 r=44312
+f 928 w=68775 r=50628
+=== profile HyperLattice [288x144] frames 913-928 window=999172 us ===
+frame wall us: min=55788 avg=62411 max=68775 sum=998576 (16 frames)
+frame render us: avg=49046 max=51494
+--- Cycle Counters ---
+frame                  998576 us (100%)  16 calls  599146005 cyc
+  pov_preserve_half    2183 us (0%)  16 calls  1310221 cyc
+  hl_shader_draw       753123 us (75%)  16 calls  451874006 cyc
+  hl_timeline_step     230 us (0%)  16 calls  138515 cyc
+  canvas_clear         1375 us (0%)  16 calls  825560 cyc
+  canvas_buffer_wait   213844 us (21%)  16 calls  128306955 cyc
+isr_wake       n=18420 cyc min/avg/max=378/992/7162 ns min/avg/max=630/1653/11936 total=30469 us cpu=3.04%
+isr_pack       n=2302 cyc min/avg/max=3738/4017/5565 ns min/avg/max=6230/6695/9275 total=15412 us cpu=1.54%
+isr_dma_submit n=2302 cyc min/avg/max=454/560/608 ns min/avg/max=756/933/1013 total=2151 us cpu=0.21%
+f 929 w=54704 r=43045
+f 930 w=69176 r=49764
+f 931 w=54620 r=41921
+f 932 w=69845 r=49308
+f 933 w=53548 r=40393
+f 934 w=71500 r=49380
+f 935 w=51579 r=38499
+f 936 w=72573 r=48611
+f 937 w=50910 r=37061
+f 938 w=71569 r=46168
+f 939 w=53304 r=37013
+f 940 w=66971 r=41520
+f 941 w=58103 r=37162
+f 942 w=63317 r=38018
+f 943 w=62188 r=37745
+f 944 w=62438 r=37732
+=== profile HyperLattice [288x144] frames 929-944 window=986933 us ===
+frame wall us: min=50910 avg=61646 max=72573 sum=986345 (16 frames)
+frame render us: avg=42083 max=49764
+--- Cycle Counters ---
+frame                  986341 us (100%)  16 calls  591804733 cyc
+  pov_preserve_half    2219 us (0%)  16 calls  1331625 cyc
+  hl_shader_draw       641756 us (65%)  16 calls  385053675 cyc
+  hl_timeline_step     246 us (0%)  16 calls  147712 cyc
+  canvas_clear         1370 us (0%)  16 calls  822556 cyc
+  canvas_buffer_wait   313011 us (31%)  16 calls  187806785 cyc
+isr_wake       n=18196 cyc min/avg/max=381/990/7580 ns min/avg/max=635/1650/12633 total=30043 us cpu=3.04%
+isr_pack       n=2275 cyc min/avg/max=3738/4007/5615 ns min/avg/max=6230/6678/9358 total=15195 us cpu=1.53%
+isr_dma_submit n=2275 cyc min/avg/max=385/560/639 ns min/avg/max=641/933/1065 total=2126 us cpu=0.21%
+f 945 w=66172 r=41612
+f 946 w=58641 r=37793
+f 947 w=70765 r=46098
+f 948 w=54309 r=37894
+f 949 w=72712 r=48147
+f 950 w=52441 r=38140
+f 951 w=72920 r=48598
+f 952 w=54306 r=40454
+f 953 w=71523 r=49511
+f 954 w=56268 r=43318
+f 955 w=68777 r=49635
+f 956 w=58228 r=45403
+f 957 w=66427 r=49368
+f 958 w=66245 r=53154
+f 959 w=56813 r=47507
+f 960 w=69504 r=54554
+=== profile HyperLattice [288x144] frames 945-960 window=1016644 us ===
+frame wall us: min=52441 avg=63503 max=72920 sum=1016051 (16 frames)
+frame render us: avg=45699 max=54554
+--- Cycle Counters ---
+frame                  1016049 us (100%)  16 calls  609629539 cyc
+  pov_preserve_half    2205 us (0%)  16 calls  1323190 cyc
+  hl_shader_draw       699536 us (68%)  16 calls  419721831 cyc
+  hl_timeline_step     220 us (0%)  16 calls  132092 cyc
+  canvas_clear         1370 us (0%)  16 calls  822412 cyc
+  canvas_buffer_wait   284875 us (28%)  16 calls  170925453 cyc
+isr_wake       n=18743 cyc min/avg/max=378/994/7234 ns min/avg/max=630/1656/12056 total=31051 us cpu=3.05%
+isr_pack       n=2343 cyc min/avg/max=3738/4034/5726 ns min/avg/max=6230/6723/9543 total=15756 us cpu=1.54%
+isr_dma_submit n=2343 cyc min/avg/max=456/560/609 ns min/avg/max=760/933/1015 total=2189 us cpu=0.21%
+f 961 w=55221 r=47494
+f 962 w=68072 r=53051
+f 963 w=56865 r=47446
+f 964 w=69582 r=54570
+f 965 w=55180 r=47287
+f 966 w=69484 r=54317
+f 967 w=55201 r=47059
+f 968 w=69654 r=54254
+f 969 w=55070 r=46861
+f 970 w=69654 r=54066
+f 971 w=55196 r=46802
+f 972 w=69542 r=53875
+f 973 w=55409 r=46824
+f 974 w=69203 r=53565
+f 975 w=55964 r=47013
+f 976 w=68676 r=53242
+=== profile HyperLattice [288x144] frames 961-976 window=998552 us ===
+frame wall us: min=55070 avg=62373 max=69654 sum=997973 (16 frames)
+frame render us: avg=50482 max=54570
+--- Cycle Counters ---
+frame                  997967 us (100%)  16 calls  598780484 cyc
+  pov_preserve_half    2197 us (0%)  16 calls  1318787 cyc
+  hl_shader_draw       777716 us (77%)  16 calls  466629625 cyc
+  hl_timeline_step     193 us (0%)  16 calls  116115 cyc
+  canvas_clear         1376 us (0%)  16 calls  825888 cyc
+  canvas_buffer_wait   190254 us (19%)  16 calls  114152838 cyc
+isr_wake       n=18410 cyc min/avg/max=378/997/11215 ns min/avg/max=630/1661/18691 total=30609 us cpu=3.06%
+isr_pack       n=2301 cyc min/avg/max=3738/4055/5537 ns min/avg/max=6230/6758/9228 total=15552 us cpu=1.55%
+isr_dma_submit n=2301 cyc min/avg/max=381/560/684 ns min/avg/max=635/933/1140 total=2149 us cpu=0.21%
+f 977 w=56305 r=47268
+f 978 w=67989 r=52801
+f 979 w=57546 r=47885
+f 980 w=66959 r=52387
+f 981 w=58467 r=48394
+f 982 w=65997 r=51929
+f 983 w=59383 r=48844
+f 984 w=64916 r=51299
+f 985 w=60470 r=49310
+f 986 w=63957 r=50805
+f 987 w=61473 r=49818
+f 988 w=62846 r=50202
+f 989 w=62432 r=50113
+f 990 w=61585 r=49242
+f 991 w=64335 r=51110
+f 992 w=60283 r=48933
+=== profile HyperLattice [288x144] frames 977-992 window=995499 us ===
+frame wall us: min=56305 avg=62183 max=67989 sum=994943 (16 frames)
+frame render us: avg=50021 max=52801
+--- Cycle Counters ---
+frame                  994937 us (100%)  16 calls  596962776 cyc
+  pov_preserve_half    2179 us (0%)  16 calls  1307888 cyc
+  hl_shader_draw       768500 us (77%)  16 calls  461100108 cyc
+  hl_timeline_step     232 us (0%)  16 calls  139539 cyc
+  canvas_clear         1372 us (0%)  16 calls  823496 cyc
+  canvas_buffer_wait   194610 us (19%)  16 calls  116766597 cyc
+isr_wake       n=18353 cyc min/avg/max=378/993/7246 ns min/avg/max=630/1655/12076 total=30389 us cpu=3.05%
+isr_pack       n=2294 cyc min/avg/max=3738/4027/5656 ns min/avg/max=6230/6711/9426 total=15399 us cpu=1.54%
+isr_dma_submit n=2294 cyc min/avg/max=464/560/623 ns min/avg/max=773/933/1038 total=2144 us cpu=0.21%
+f 993 w=65251 r=51893
+f 994 w=59200 r=48636
+f 995 w=66096 r=52275
+f 996 w=58523 r=48349
+f 997 w=66872 r=52760
+f 998 w=58060 r=48360
+f 999 w=67209 r=53109
+f 1000 w=57872 r=48518
+f 1001 w=67427 r=53485
+f 1002 w=57839 r=48809
+f 1003 w=67519 r=53872
+f 1004 w=57610 r=49021
+f 1005 w=68348 r=54920
+f 1006 w=56747 r=49208
+f 1007 w=68707 r=55456
+f 1008 w=56408 r=49403
+=== profile HyperLattice [288x144] frames 993-1008 window=1000297 us ===
+frame wall us: min=56408 avg=62480 max=68707 sum=999688 (16 frames)
+frame render us: avg=51129 max=55456
+--- Cycle Counters ---
+frame                  999685 us (100%)  16 calls  599811557 cyc
+  pov_preserve_half    2189 us (0%)  16 calls  1313482 cyc
+  hl_shader_draw       786500 us (78%)  16 calls  471900476 cyc
+  hl_timeline_step     212 us (0%)  16 calls  127210 cyc
+  canvas_clear         1373 us (0%)  16 calls  824196 cyc
+  canvas_buffer_wait   181622 us (18%)  16 calls  108973379 cyc
+isr_wake       n=18442 cyc min/avg/max=377/994/7866 ns min/avg/max=628/1656/13110 total=30572 us cpu=3.05%
+isr_pack       n=2305 cyc min/avg/max=3738/4034/5594 ns min/avg/max=6230/6723/9323 total=15498 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=419/560/608 ns min/avg/max=698/933/1013 total=2154 us cpu=0.21%
+f 1009 w=67834 r=54953
+f 1010 w=57220 r=49711
+f 1011 w=66527 r=53777
+f 1012 w=58670 r=50001
+f 1013 w=65769 r=53309
+f 1014 w=59242 r=50093
+f 1015 w=65411 r=53044
+f 1016 w=59249 r=49779
+f 1017 w=65804 r=53124
+f 1018 w=58676 r=49340
+f 1019 w=66349 r=53226
+f 1020 w=57885 r=48653
+f 1021 w=67225 r=53419
+f 1022 w=57021 r=47982
+f 1023 w=68591 r=54113
+f 1024 w=55910 r=47568
+=== profile HyperLattice [288x144] frames 1009-1024 window=997979 us ===
+frame wall us: min=55910 avg=62336 max=68591 sum=997383 (16 frames)
+frame render us: avg=51380 max=54953
+--- Cycle Counters ---
+frame                  997381 us (100%)  16 calls  598429133 cyc
+  pov_preserve_half    2184 us (0%)  16 calls  1310963 cyc
+  hl_shader_draw       790509 us (79%)  16 calls  474305572 cyc
+  hl_timeline_step     235 us (0%)  16 calls  141528 cyc
+  canvas_clear         1375 us (0%)  16 calls  825396 cyc
+  canvas_buffer_wait   175296 us (17%)  16 calls  105177827 cyc
+isr_wake       n=18399 cyc min/avg/max=378/994/7155 ns min/avg/max=630/1656/11925 total=30495 us cpu=3.05%
+isr_pack       n=2299 cyc min/avg/max=3738/4031/5686 ns min/avg/max=6230/6718/9476 total=15446 us cpu=1.54%
+isr_dma_submit n=2299 cyc min/avg/max=463/561/609 ns min/avg/max=771/935/1015 total=2150 us cpu=0.21%
+f 1025 w=68828 r=54104
+f 1026 w=55916 r=47559
+f 1027 w=69032 r=54132
+f 1028 w=55278 r=46949
+f 1029 w=68534 r=52969
+f 1030 w=56398 r=46906
+f 1031 w=68723 r=53175
+f 1032 w=55328 r=46043
+f 1033 w=66794 r=50376
+f 1034 w=55811 r=43727
+f 1035 w=66243 r=47510
+f 1036 w=56928 r=41977
+f 1037 w=65689 r=45207
+f 1038 w=58944 r=41687
+f 1039 w=63232 r=42460
+f 1040 w=62900 r=42897
+=== profile HyperLattice [288x144] frames 1025-1040 window=995152 us ===
+frame wall us: min=55278 avg=62161 max=69032 sum=994578 (16 frames)
+frame render us: avg=47354 max=54132
+--- Cycle Counters ---
+frame                  994576 us (100%)  16 calls  596745634 cyc
+  pov_preserve_half    2221 us (0%)  16 calls  1333025 cyc
+  hl_shader_draw       726005 us (72%)  16 calls  435603201 cyc
+  hl_timeline_step     217 us (0%)  16 calls  130567 cyc
+  canvas_clear         1378 us (0%)  16 calls  827000 cyc
+  canvas_buffer_wait   236906 us (23%)  16 calls  142144156 cyc
+isr_wake       n=18347 cyc min/avg/max=378/991/7179 ns min/avg/max=630/1651/11965 total=30321 us cpu=3.04%
+isr_pack       n=2294 cyc min/avg/max=3738/4015/5674 ns min/avg/max=6230/6691/9456 total=15351 us cpu=1.54%
+isr_dma_submit n=2294 cyc min/avg/max=422/560/608 ns min/avg/max=703/933/1013 total=2142 us cpu=0.21%
+f 1041 w=59226 r=39833
+f 1042 w=67031 r=44406
+f 1043 w=57142 r=39036
+f 1044 w=69928 r=46516
+f 1045 w=58215 r=42271
+f 1046 w=68431 r=48242
+f 1047 w=61041 r=46814
+f 1048 w=64642 r=48996
+f 1049 w=63005 r=49554
+f 1050 w=61882 r=48964
+f 1051 w=63318 r=49822
+f 1052 w=61416 r=48778
+f 1053 w=66851 r=53171
+f 1054 w=60323 r=51033
+f 1055 w=66737 r=55311
+f 1056 w=59310 r=52109
+=== profile HyperLattice [288x144] frames 1041-1056 window=1009090 us ===
+frame wall us: min=57142 avg=63031 max=69928 sum=1008498 (16 frames)
+frame render us: avg=47803 max=55311
+--- Cycle Counters ---
+frame                  1008495 us (100%)  16 calls  605097566 cyc
+  pov_preserve_half    2217 us (0%)  16 calls  1330449 cyc
+  hl_shader_draw       733040 us (72%)  16 calls  439824111 cyc
+  hl_timeline_step     214 us (0%)  16 calls  128666 cyc
+  canvas_clear         1379 us (0%)  16 calls  827844 cyc
+  canvas_buffer_wait   243648 us (24%)  16 calls  146189142 cyc
+isr_wake       n=18604 cyc min/avg/max=379/991/7127 ns min/avg/max=631/1651/11878 total=30748 us cpu=3.04%
+isr_pack       n=2325 cyc min/avg/max=3738/4020/5663 ns min/avg/max=6230/6700/9438 total=15580 us cpu=1.54%
+isr_dma_submit n=2325 cyc min/avg/max=357/560/609 ns min/avg/max=595/933/1015 total=2171 us cpu=0.21%
+f 1057 w=65856 r=55668
+f 1058 w=58754 r=51961
+f 1059 w=65220 r=54726
+f 1060 w=59448 r=51706
+f 1061 w=64652 r=53900
+f 1062 w=60184 r=51623
+f 1063 w=64084 r=53259
+f 1064 w=60946 r=51749
+f 1065 w=63663 r=52952
+f 1066 w=61012 r=51503
+f 1067 w=63710 r=52753
+f 1068 w=61030 r=51325
+f 1069 w=63811 r=52676
+f 1070 w=61093 r=51255
+f 1071 w=63728 r=52524
+f 1072 w=60850 r=50913
+=== profile HyperLattice [288x144] frames 1057-1072 window=998632 us ===
+frame wall us: min=58754 avg=62377 max=65856 sum=998041 (16 frames)
+frame render us: avg=52530 max=55668
+--- Cycle Counters ---
+frame                  998040 us (100%)  16 calls  598824343 cyc
+  pov_preserve_half    2264 us (0%)  16 calls  1358537 cyc
+  hl_shader_draw       808817 us (81%)  16 calls  485290780 cyc
+  hl_timeline_step     231 us (0%)  16 calls  138996 cyc
+  canvas_clear         1377 us (0%)  16 calls  826460 cyc
+  canvas_buffer_wait   157553 us (15%)  16 calls  94532262 cyc
+isr_wake       n=18411 cyc min/avg/max=378/997/7298 ns min/avg/max=630/1661/12163 total=30606 us cpu=3.06%
+isr_pack       n=2301 cyc min/avg/max=3738/4050/5689 ns min/avg/max=6230/6750/9481 total=15535 us cpu=1.55%
+isr_dma_submit n=2301 cyc min/avg/max=432/561/705 ns min/avg/max=720/935/1175 total=2152 us cpu=0.21%
+f 1073 w=63316 r=51929
+f 1074 w=61460 r=50934
+f 1075 w=62672 r=51147
+f 1076 w=62190 r=50881
+f 1077 w=62277 r=50696
+f 1078 w=62270 r=50510
+f 1079 w=62439 r=50486
+f 1080 w=62980 r=51009
+f 1081 w=62594 r=51145
+f 1082 w=62386 r=51071
+f 1083 w=62134 r=50746
+f 1084 w=62966 r=51219
+f 1085 w=62115 r=50873
+f 1086 w=62981 r=51397
+f 1087 w=62027 r=50963
+f 1088 w=62777 r=51281
+=== profile HyperLattice [288x144] frames 1073-1088 window=1000197 us ===
+frame wall us: min=61460 avg=62474 max=63316 sum=999584 (16 frames)
+frame render us: avg=51017 max=51929
+--- Cycle Counters ---
+frame                  999584 us (100%)  16 calls  599750780 cyc
+  pov_preserve_half    2199 us (0%)  16 calls  1319860 cyc
+  hl_shader_draw       784651 us (78%)  16 calls  470790671 cyc
+  hl_timeline_step     225 us (0%)  16 calls  135216 cyc
+  canvas_clear         1372 us (0%)  16 calls  823436 cyc
+  canvas_buffer_wait   183303 us (18%)  16 calls  109981848 cyc
+isr_wake       n=18439 cyc min/avg/max=378/993/9718 ns min/avg/max=630/1655/16196 total=30543 us cpu=3.05%
+isr_pack       n=2305 cyc min/avg/max=3738/4035/5700 ns min/avg/max=6230/6725/9500 total=15502 us cpu=1.54%
+isr_dma_submit n=2305 cyc min/avg/max=412/560/606 ns min/avg/max=686/933/1010 total=2154 us cpu=0.21%
+f 1089 w=62032 r=51010
+f 1090 w=62486 r=51036
+f 1091 w=62448 r=51023
+f 1092 w=62350 r=50913
+f 1093 w=62508 r=50963
+f 1094 w=62224 r=50728
+f 1095 w=62442 r=50708
+f 1096 w=62123 r=50369
+f 1097 w=64364 r=52223
+profile provenance: version=1
+profile provenance: source_sha=8441a47efd4570cc09914b1b43c03c758606f058
+profile provenance: compiler=GCC: (Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86)) 15.2.1 20251203
+profile provenance: profile_elf_sha256=2cca76363c538339b3ea607ecaaf33bfaff659506aab4625c94b054ffca31f93
+profile provenance: phantasm_elf_sha256=63385d0718bc5fd5d0efa08ae24aadecbe61d4ad608031dec5351b91735e2c7b
+profile provenance: profile_envdump_sha256=c0d3bb0d9d55454e48cfc12d59d9ca75bb1c70bce08309bfcfb03af24503cc46
+profile provenance: phantasm_envdump_sha256=deea592897f1ff4c586cb5079ff817438a5c6463593387ef86b3086f6adafa72
+profile provenance: artifact_profile_elf=build/prof/artifacts/hyperlattice_ship_8441a47efd45_2cca76363c53/profile.elf
+profile provenance: artifact_phantasm_elf=build/prof/artifacts/hyperlattice_ship_8441a47efd45_2cca76363c53/phantasm.elf
+profile provenance: artifact_dir=build/prof/artifacts/hyperlattice_ship_8441a47efd45_2cca76363c53
