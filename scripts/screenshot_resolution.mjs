@@ -1,12 +1,20 @@
-// Resolution descent for the gallery capture: the decision that keeps a
-// screenshot from being written under the wrong effect's filename.
-//
-// The simulator rewrites the URL's effect param to whatever it actually
-// selected, so an effect the requested resolution does not offer comes back as
-// the app's fallback. Capturing that frame would overwrite a correct PNG with a
-// thumbnail of a different effect, which the freshness gate cannot detect (it
-// validates names and dimensions, not content). Kept here, free of Playwright,
-// so screenshot_resolution.test.mjs can gate it without a browser.
+/* global document */
+
+/** Loads a hydrated effect and confirms selection at its capture offset. */
+export async function loadEffectForCapture(page, baseUrl, effect, resolution, offsetMs) {
+  const params = new URLSearchParams({ effect, resolution });
+  await page.goto(`${baseUrl}?${params.toString()}`,
+    { waitUntil: 'load', timeout: 60000 });
+  await page.waitForSelector('#canvas', { timeout: 30000 });
+  await page.waitForFunction(() => !document.getElementById('loading-overlay'),
+    null, { timeout: 60000 });
+  const selectedEffect = () => page.evaluate(() =>
+    document.querySelector('.effect-button[aria-selected="true"]')?.dataset.effect ?? null);
+  const selected = await selectedEffect();
+  if (selected !== effect) return selected;
+  await page.waitForTimeout(offsetMs);
+  return await selectedEffect();
+}
 
 /**
  * @typedef {object} DescentResult
