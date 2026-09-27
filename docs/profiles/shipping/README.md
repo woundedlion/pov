@@ -59,7 +59,7 @@ Spill fractions include the transition following an entry and are stricter than 
 - **MindSplatter**: 9 parser ownership buckets spanning 21.61–52.77 ms; the sequence closes back to its first entry.
 - **IslamicStars**: 23 shape ownership buckets including transitions; setup frame 1 excluded. The unlanded finding 2 candidate completes the full cycle. The controlled baseline comparison is no longer retained.
 - **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
-- **ShapeShifter**: 10 parser ownership buckets spanning 9.86–58.13 ms; the sequence closes back to its first entry.
+- **ShapeShifter**: 9 distinct presets with live peaks spanning 10.007–58.395 ms; repeated visits after wrap are merged.
 - **HyperLattice**: 4 parser ownership buckets spanning 41.77–51.19 ms; the sequence closes back to its first entry.
 - **HankinSolids**: 19 parser ownership buckets spanning 19.66–45.01 ms; the sequence closes back to its first entry.
 - **LatticeMelt**: 3 parser ownership buckets spanning 42.00–43.73 ms; the sequence closes back to its first entry.
