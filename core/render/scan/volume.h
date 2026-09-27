@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 #include "render/sdf.h"
+#include "render/ray/march.h"
 #include "render/shading.h"
 #include "render/filter/pipeline.h"
 #include "render/canvas.h"
@@ -154,67 +155,10 @@ struct Volume {
                 const math::Vector &local_vd, float bounds_radius,
                 int max_steps, float aa_width, math::Vector &closest_local) {
     HS_PROFILE_DEEP(vol_trace);
-    float t = 0.0f;
-    math::Vector local_p = local_ro;
-    closest_local = local_ro;
-    const float END_T = bounds_radius - math::dot(local_ro, local_vd);
-    // Sentinel for "no surface seen yet": any real signed distance the
-    // trace reports is smaller, so the first sample always wins.
-    float closest_d = FLT_MAX;
-    // Drops to 1 for the rest of the ray once a step fails the overlap test.
-    float omega = OVERRELAX_OMEGA;
-    float prev_r = 0.0f;
-    float step_len = 0.0f;
-
-    for (int i = 0; i < max_steps; ++i) {
-      if (t > END_T)
-        break;
-
-      float d = shape.distance(local_p);
-
-      float r = d < 0.0f ? -d : d;
-      if (omega > 1.0f && r + prev_r < step_len) {
-        // Overrelaxed step left the previous unbounding sphere, so the interval
-        // it skipped is unverified: rewind to that sphere's surface and finish
-        // the ray conservatively. The rejected sample updates nothing.
-        float back = prev_r - step_len;
-        t += back;
-        local_p = math::Vector(local_p.x + local_vd.x * back,
-                               local_p.y + local_vd.y * back,
-                               local_p.z + local_vd.z * back);
-        omega = 1.0f;
-        prev_r = 0.0f;
-        step_len = 0.0f;
-        continue;
-      }
-      prev_r = r;
-
-      if (d < closest_d) {
-        closest_d = d;
-        closest_local = local_p;
-        // A frontal hit converges on the surface from outside, so the
-        // d < -aa_width break below never fires for it.
-        if (closest_d <= aa_width * 0.02f)
-          break;
-      } else if (closest_d < aa_width) {
-        // Rising past the first in-band local minimum: stop before a surface
-        // behind the graze steals the closest approach.
-        break;
-      }
-
-      if (d < -aa_width)
-        break;
-
-      // 1e-5 absolute stall-guard for the precision trace (fine steps near the
-      // surface), bounded by max_steps and the early-out above. The probe loop
-      // below instead uses a bounds_radius-relative floor for coarse punch-through.
-      step_len = std::max(d * 0.9f * omega, 1e-5f);
-      t += step_len;
-      local_p = math::Vector(local_p.x + local_vd.x * step_len,
-                             local_p.y + local_vd.y * step_len,
-                             local_p.z + local_vd.z * step_len);
-    }
-    return closest_d;
+    return Raycast::legacy_closest(
+        shape, local_ro, local_vd,
+        bounds_radius - math::dot(local_ro, local_vd), max_steps, aa_width,
+        closest_local, OVERRELAX_OMEGA);
   }
 
   /**

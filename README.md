@@ -325,6 +325,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            csg, face, volume)
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
 │   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
+│   │   ├── ray/                    Ray contracts, camera embeddings, query adapters and shared marching
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
