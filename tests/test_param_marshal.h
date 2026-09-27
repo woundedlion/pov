@@ -318,13 +318,14 @@ inline void check_hyper_lattice_configuration_dropdown() {
     return;
   HS_EXPECT_FALSE(dimension->is_bool);
   HS_EXPECT_TRUE(dimension->is_integer);
-  HS_EXPECT_EQ(dimension->option_count, 2);
+  HS_EXPECT_EQ(dimension->option_count,
+               (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 5 : 2));
   HS_EXPECT_EQ(std::string_view(dimension->options[0]),
                std::string_view("Cubic / 3D"));
   HS_EXPECT_EQ(std::string_view(dimension->options[1]),
                std::string_view("Cubic / 4D slice"));
   HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
-               std::string_view("LatticeMode::FOUR_D_SLICE"));
+               std::string_view("ConfigurationId::CUBIC_4D"));
 }
 
 inline void check_integer_float_endpoints() {
