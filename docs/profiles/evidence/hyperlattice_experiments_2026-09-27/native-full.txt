@@ -1,0 +1,210 @@
+Test project C:/work/hs-hyperlattice-experiments/build/tests
+        Start  97: unit_feedback_dump_a
+        Start  98: unit_feedback_dump_b
+        Start   1: unit_death_pins
+        Start   2: unit_mindsplatter_replay_form
+  1/101 Test  #97: unit_feedback_dump_a ........................   Passed    0.04 sec
+        Start   3: unit_mindsplatter_replay_revision_missing
+  2/101 Test  #98: unit_feedback_dump_b ........................   Passed    0.03 sec
+        Start   4: unit_mindsplatter_replay_revision_drift
+  3/101 Test   #3: unit_mindsplatter_replay_revision_missing ...   Passed    0.04 sec
+        Start   5: unit_mindsplatter_palette_form
+  4/101 Test   #4: unit_mindsplatter_replay_revision_drift .....   Passed    0.04 sec
+        Start   6: unit_mindsplatter_palette
+  5/101 Test   #2: unit_mindsplatter_replay_form ...............***Skipped   0.14 sec
+        Start   7: unit_mindsplatter_replay
+  6/101 Test   #1: unit_death_pins .............................   Passed    0.19 sec
+  7/101 Test   #6: unit_mindsplatter_palette ...................   Passed    0.11 sec
+        Start   8: unit_3dmath
+        Start   9: unit_concepts
+  8/101 Test   #7: unit_mindsplatter_replay ....................   Passed    0.10 sec
+        Start  10: unit_memory
+  9/101 Test   #8: unit_3dmath .................................   Passed    0.06 sec
+        Start  11: unit_spatial
+ 10/101 Test   #9: unit_concepts ...............................   Passed    0.03 sec
+        Start  12: unit_scb
+ 11/101 Test  #10: unit_memory .................................   Passed    0.01 sec
+        Start  13: unit_sdf
+ 12/101 Test  #11: unit_spatial ................................   Passed    0.01 sec
+        Start  14: unit_ray
+ 13/101 Test  #12: unit_scb ....................................   Passed    0.01 sec
+        Start  15: unit_conway
+ 14/101 Test  #14: unit_ray ....................................   Passed    0.01 sec
+        Start  16: unit_conway_morph
+ 15/101 Test  #15: unit_conway .................................   Passed    0.01 sec
+        Start  17: unit_conway_continuity
+ 16/101 Test   #5: unit_mindsplatter_palette_form ..............   Passed    0.57 sec
+        Start  18: unit_partition_seam
+ 17/101 Test  #18: unit_partition_seam .........................   Passed    0.13 sec
+        Start  19: unit_conway_soak
+ 18/101 Test  #16: unit_conway_morph ...........................   Passed    1.03 sec
+        Start  20: unit_opchain_probe
+ 19/101 Test  #20: unit_opchain_probe ..........................   Passed    0.41 sec
+        Start  21: unit_opchain_arena_survey
+ 20/101 Test  #21: unit_opchain_arena_survey ...................   Passed    0.72 sec
+        Start  22: unit_hankin
+ 21/101 Test  #13: unit_sdf ....................................   Passed    2.82 sec
+        Start  23: unit_hyper_lattice
+ 22/101 Test  #23: unit_hyper_lattice ..........................   Passed    2.50 sec
+        Start  24: unit_ray_events
+ 23/101 Test  #24: unit_ray_events .............................   Passed    0.01 sec
+        Start  25: unit_ray_demonstrators
+ 24/101 Test  #25: unit_ray_demonstrators ......................   Passed    0.02 sec
+        Start  26: unit_sdf_patterns
+ 25/101 Test  #26: unit_sdf_patterns ...........................   Passed    0.01 sec
+        Start  27: unit_geometry
+ 26/101 Test  #27: unit_geometry ...............................   Passed    0.01 sec
+        Start  28: unit_spherical_field
+ 27/101 Test  #28: unit_spherical_field ........................   Passed    0.01 sec
+        Start  29: unit_spherical_harmonics
+ 28/101 Test  #29: unit_spherical_harmonics ....................   Passed    0.05 sec
+        Start  30: unit_mesh
+ 29/101 Test  #30: unit_mesh ...................................   Passed    0.07 sec
+        Start  31: unit_solids
+ 30/101 Test  #22: unit_hankin .................................   Passed    3.43 sec
+        Start  32: unit_reaction_graph
+ 31/101 Test  #31: unit_solids .................................   Passed    0.26 sec
+        Start  33: unit_color
+ 32/101 Test  #32: unit_reaction_graph .........................   Passed    0.31 sec
+        Start  34: unit_palettes
+ 33/101 Test  #34: unit_palettes ...............................   Passed    0.01 sec
+        Start  35: unit_easing_waves
+ 34/101 Test  #35: unit_easing_waves ...........................   Passed    0.01 sec
+        Start  36: unit_interpolate
+ 35/101 Test  #36: unit_interpolate ............................   Passed    0.01 sec
+        Start  37: unit_platform
+ 36/101 Test  #37: unit_platform ...............................   Passed    0.01 sec
+        Start  38: unit_profiling
+ 37/101 Test  #38: unit_profiling ..............................   Passed    0.02 sec
+        Start  39: unit_pullback
+ 38/101 Test  #39: unit_pullback ...............................   Passed    0.01 sec
+        Start  40: unit_shader_chain
+ 39/101 Test  #40: unit_shader_chain ...........................   Passed    0.11 sec
+        Start  41: unit_filter
+ 40/101 Test  #41: unit_filter .................................   Passed    0.06 sec
+        Start  42: unit_plot_scan
+ 41/101 Test  #33: unit_color ..................................   Passed    0.69 sec
+        Start  43: unit_canvas
+ 42/101 Test  #43: unit_canvas .................................   Passed    0.01 sec
+        Start  44: unit_scan
+ 43/101 Test  #44: unit_scan ...................................   Passed    0.75 sec
+        Start  45: unit_mesh_raster
+ 44/101 Test  #45: unit_mesh_raster ............................   Passed    0.34 sec
+        Start  46: unit_transformers
+ 45/101 Test  #46: unit_transformers ...........................   Passed    0.03 sec
+        Start  47: unit_noise
+ 46/101 Test  #47: unit_noise ..................................   Passed    0.01 sec
+        Start  48: unit_noise_field
+ 47/101 Test  #48: unit_noise_field ............................   Passed    0.02 sec
+        Start  49: unit_projections
+ 48/101 Test  #49: unit_projections ............................   Passed    0.02 sec
+        Start  50: unit_animation
+ 49/101 Test  #50: unit_animation ..............................   Passed    0.10 sec
+        Start  51: unit_effects
+ 50/101 Test  #19: unit_conway_soak ............................   Passed    7.57 sec
+        Start  52: unit_mindsplatter
+ 51/101 Test  #42: unit_plot_scan ..............................   Passed    2.85 sec
+        Start  53: unit_effects_smoke
+ 52/101 Test  #51: unit_effects ................................   Passed    1.89 sec
+        Start  54: unit_effect_factory
+ 53/101 Test  #54: unit_effect_factory .........................   Passed    0.20 sec
+        Start  55: unit_shader_workbench
+ 54/101 Test  #52: unit_mindsplatter ...........................   Passed    5.79 sec
+        Start  56: unit_lattice_melt
+ 55/101 Test  #56: unit_lattice_melt ...........................   Passed    0.02 sec
+        Start  57: unit_kaleidoscope_smooth
+ 56/101 Test  #57: unit_kaleidoscope_smooth ....................   Passed    0.02 sec
+        Start  58: unit_composed_effect
+ 57/101 Test  #58: unit_composed_effect ........................   Passed    0.21 sec
+        Start  59: unit_shapeshifter_oracle
+ 58/101 Test  #59: unit_shapeshifter_oracle ....................   Passed    1.04 sec
+        Start  60: unit_shapeshifter_tiles
+ 59/101 Test  #60: unit_shapeshifter_tiles .....................   Passed    0.41 sec
+        Start  61: unit_dma_core
+ 60/101 Test  #61: unit_dma_core ...............................   Passed    0.01 sec
+        Start  62: unit_hd107s
+ 61/101 Test  #62: unit_hd107s .................................   Passed    0.01 sec
+        Start  63: unit_dma_controller
+ 62/101 Test  #63: unit_dma_controller .........................   Passed    0.01 sec
+        Start  64: unit_pov_segmented
+ 63/101 Test  #64: unit_pov_segmented ..........................   Passed    0.04 sec
+        Start  65: unit_pov_single
+ 64/101 Test  #65: unit_pov_single .............................   Passed    0.01 sec
+        Start  66: unit_pov_sync
+ 65/101 Test  #55: unit_shader_workbench .......................   Passed    6.21 sec
+        Start  67: unit_param_marshal
+ 66/101 Test  #67: unit_param_marshal ..........................   Passed    0.18 sec
+        Start  68: unit_wasm_predicates
+ 67/101 Test  #68: unit_wasm_predicates ........................   Passed    0.45 sec
+        Start  69: unit_led
+ 68/101 Test  #69: unit_led ....................................   Passed    0.01 sec
+        Start  70: unit_presets
+ 69/101 Test  #70: unit_presets ................................   Passed    0.01 sec
+        Start  71: unit_styles
+ 70/101 Test  #71: unit_styles .................................   Passed    0.01 sec
+        Start  72: unit_shading
+ 71/101 Test  #72: unit_shading ................................   Passed    0.01 sec
+        Start  73: unit_death
+ 72/101 Test  #17: unit_conway_continuity ......................   Passed   16.82 sec
+        Start  74: unit_death_child_dispatch
+ 73/101 Test  #74: unit_death_child_dispatch ...................   Passed    0.20 sec
+        Start  75: unit_module_roster
+ 74/101 Test  #75: unit_module_roster ..........................   Passed    0.01 sec
+        Start  76: unit_module_includes
+ 75/101 Test  #76: unit_module_includes ........................   Passed    0.08 sec
+        Start  77: unit_case_calls
+ 76/101 Test  #66: unit_pov_sync ...............................   Passed    4.87 sec
+        Start  78: unit_anim_pack
+ 77/101 Test  #78: unit_anim_pack ..............................   Passed    0.23 sec
+        Start  79: unit_vendor_patches
+ 78/101 Test  #79: unit_vendor_patches .........................   Passed    0.02 sec
+        Start  80: unit_linker_patches
+ 79/101 Test  #80: unit_linker_patches .........................   Passed    0.02 sec
+        Start  81: unit_mirrored_screenshot_prune
+ 80/101 Test  #81: unit_mirrored_screenshot_prune ..............   Passed    0.16 sec
+        Start  82: unit_pullback_manifest
+ 81/101 Test  #82: unit_pullback_manifest ......................   Passed    0.03 sec
+        Start  83: unit_pullback_capture_determinism
+ 82/101 Test  #77: unit_case_calls .............................   Passed   12.90 sec
+        Start  84: unit_color_luts
+ 83/101 Test  #84: unit_color_luts .............................   Passed    0.85 sec
+        Start  85: unit_teensy_size_trail
+ 84/101 Test  #85: unit_teensy_size_trail ......................   Passed    0.77 sec
+        Start  86: unit_gamut_lut
+ 85/101 Test  #83: unit_pullback_capture_determinism ...........   Passed   17.68 sec
+        Start  87: unit_pov_segment_map_golden
+ 86/101 Test  #87: unit_pov_segment_map_golden .................   Passed    0.09 sec
+        Start  88: unit_fastmath_clamp
+ 87/101 Test  #88: unit_fastmath_clamp .........................   Passed    0.03 sec
+        Start  89: unit_relax_bake_verify
+ 88/101 Test  #89: unit_relax_bake_verify ......................   Passed    0.12 sec
+        Start  90: unit_relax_bake_form
+ 89/101 Test  #90: unit_relax_bake_form ........................   Passed    0.25 sec
+        Start  91: unit_h_offset_renorm
+ 90/101 Test  #91: unit_h_offset_renorm ........................   Passed    0.03 sec
+        Start  92: unit_h_offset_device
+ 91/101 Test  #92: unit_h_offset_device ........................   Passed    0.33 sec
+        Start  93: unit_display_geometry
+ 92/101 Test  #93: unit_display_geometry .......................   Passed    0.04 sec
+        Start  94: unit_runtime_display_geometry
+ 93/101 Test  #94: unit_runtime_display_geometry ...............   Passed    0.04 sec
+        Start  95: unit_stack_budget
+ 94/101 Test  #73: unit_death ..................................   Passed   32.39 sec
+        Start  96: unit_arena_budget
+ 95/101 Test  #95: unit_stack_budget ...........................   Passed   27.13 sec
+        Start  99: unit_feedback_compare
+ 96/101 Test  #99: unit_feedback_compare .......................   Passed    0.02 sec
+        Start 100: unit_feedback_io
+ 97/101 Test #100: unit_feedback_io ............................   Passed    0.06 sec
+        Start 101: unit_excluded_targets
+ 98/101 Test #101: unit_excluded_targets .......................   Passed    0.02 sec
+ 99/101 Test  #96: unit_arena_budget ...........................   Passed   25.74 sec
+100/101 Test  #53: unit_effects_smoke ..........................   Passed   66.45 sec
+101/101 Test  #86: unit_gamut_lut ..............................   Passed   48.13 sec
+
+100% tests passed, 0 tests failed out of 101
+
+Total Test time (real) =  80.15 sec
+
+The following tests did not run:
+	  2 - unit_mindsplatter_replay_form (Skipped)

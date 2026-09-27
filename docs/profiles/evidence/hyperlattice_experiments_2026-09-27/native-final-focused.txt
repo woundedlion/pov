@@ -1,0 +1,17 @@
+Test project C:/work/hs-hyperlattice-experiments/build/tests
+    Start 23: unit_hyper_lattice
+    Start 67: unit_param_marshal
+    Start 25: unit_ray_demonstrators
+    Start 24: unit_ray_events
+1/6 Test #24: unit_ray_events ..................   Passed    0.01 sec
+    Start 14: unit_ray
+2/6 Test #25: unit_ray_demonstrators ...........   Passed    0.02 sec
+    Start 26: unit_sdf_patterns
+3/6 Test #14: unit_ray .........................   Passed    0.01 sec
+4/6 Test #26: unit_sdf_patterns ................   Passed    0.01 sec
+5/6 Test #67: unit_param_marshal ...............   Passed    0.18 sec
+6/6 Test #23: unit_hyper_lattice ...............   Passed    2.16 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =   2.19 sec

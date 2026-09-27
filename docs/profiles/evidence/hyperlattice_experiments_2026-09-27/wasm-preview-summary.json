@@ -1,0 +1,41 @@
+[
+  {
+    "name": "triangular",
+    "preset": 2,
+    "frames": 24,
+    "mean_host_ms": 14.078129166666665,
+    "unfinished": 0,
+    "lit_channels": 76982,
+    "stack": {
+      "high_water_mark": 944,
+      "init_high_water_mark": 944,
+      "capacity": 8192
+    }
+  },
+  {
+    "name": "cosine",
+    "preset": 3,
+    "frames": 24,
+    "mean_host_ms": 23.2217125,
+    "unfinished": 104,
+    "lit_channels": 123234,
+    "stack": {
+      "high_water_mark": 888,
+      "init_high_water_mark": 944,
+      "capacity": 8192
+    }
+  },
+  {
+    "name": "gyroid",
+    "preset": 4,
+    "frames": 24,
+    "mean_host_ms": 47.96005416666668,
+    "unfinished": 69,
+    "lit_channels": 123890,
+    "stack": {
+      "high_water_mark": 888,
+      "init_high_water_mark": 944,
+      "capacity": 8192
+    }
+  }
+]

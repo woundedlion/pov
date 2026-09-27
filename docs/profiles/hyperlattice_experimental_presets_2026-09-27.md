@@ -67,3 +67,31 @@ schema restore, invalid pattern values, inactive controls, and atomic geometry
 transitions. The shared backend suites cover candidate ordering, verified hit
 acceptance, and failure/query-budget accounting. Shipping firmware and the
 simulator are built separately to exercise both feature-switch branches.
+
+The full native suite passes (100 tests, one intentional replay skip), followed
+by six passing focused tests after the camera/world-ray changes. The release
+WASM smoke selects and renders every HyperLattice preset at every supported
+resolution. [Native full run](evidence/hyperlattice_experiments_2026-09-27/native-full.txt),
+[final focused run](evidence/hyperlattice_experiments_2026-09-27/native-final-focused.txt),
+and [WASM smoke](evidence/hyperlattice_experiments_2026-09-27/wasm-smoke.txt)
+preserve the results.
+
+The standard Phantasm build passes its size/layout gates with 195,544 bytes of
+RAM1 code (unchanged), 314,784 bytes of RAM1 variables (unchanged), and 725,452
+bytes of FLASH data (+4). The zero-reserve ITCM ceiling remains 196,608 bytes,
+leaving 1,064 bytes. [Build evidence](evidence/hyperlattice_experiments_2026-09-27/shipping-build.txt)
+uses the integrated preset source before the subsequent experimental-only
+camera and query improvements.
+
+The following previews use the final renderer source `c012be4a8`, at 288 by
+144 after 24 frames from each preset's fresh initialization. From top to bottom:
+triangular framework, cosine, gyroid. RGB16 linear output is converted to sRGB
+for this flat equirectangular preview; it is not a photograph of the device.
+
+![Triangular, cosine and gyroid previews](evidence/hyperlattice_experiments_2026-09-27/preview.png)
+
+The last rendered frames report zero, 104, and 69 unfinished rays respectively;
+the maximum observed WASM stack watermark is 944 bytes. The
+[preview summary](evidence/hyperlattice_experiments_2026-09-27/wasm-preview-summary.json)
+also records host timings, including the first draw. Those host timings are not
+Teensy measurements or admission evidence.
