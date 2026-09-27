@@ -13,8 +13,9 @@ namespace {
 
 constexpr int WIDTH = 288;
 constexpr int HEIGHT = 144;
-constexpr int LIVE_COLUMNS = WIDTH / 4;
-constexpr int SAMPLES = LIVE_COLUMNS * HEIGHT;
+constexpr int LIVE_COLUMNS = WIDTH / 2 + 2;
+constexpr int LIVE_ROWS = HEIGHT / 2 + 1;
+constexpr int SAMPLES = LIVE_COLUMNS * LIVE_ROWS;
 constexpr std::array<int, 5> BUDGETS = {8, 12, 16, 24, 1024};
 
 struct Metrics {
@@ -48,51 +49,55 @@ template <typename Surface> void measure(const char *name) {
   constexpr std::array<math::Vector, 4> CENTERS = {
       math::Vector{0.0f, 0.0f, 0.0f}, math::Vector{0.23f, 0.41f, -0.17f},
       math::Vector{0.5f, 0.5f, 0.5f}, math::Vector{-0.37f, 0.19f, 0.73f}};
-  for (int y = 0; y < HEIGHT; ++y)
-    for (int x = 0; x < LIVE_COLUMNS; ++x)
-      directions[y * LIVE_COLUMNS + x] = math::Vector::from_spherical(
-          math::TWO_PI_F * x / WIDTH,
-          math::DisplayGeometry<HEIGHT>::row_to_phi(static_cast<float>(y)));
-  for (float period : PERIODS) {
-    for (float iso : ISOVALUES) {
-      for (const math::Vector &center : CENTERS) {
-        Surface surface;
-        surface.period = period;
-        surface.iso = iso;
-        const math::Vector CENTER = center * period;
-        const float FAR = 4.0f * period;
-        Raycast::TraceLimits limits;
-        limits.max_queries = 1024;
-        limits.max_steps = 1024;
-        limits.max_refinements = 1024;
-        limits.position_tolerance = period * 1e-4f;
-        for (int i = 0; i < SAMPLES; ++i)
-          reference[i] = Raycast::surface_search(
-              surface, {CENTER, directions[i], {0.0f, FAR}}, {}, limits);
-        for (size_t budget_index = 0; budget_index < BUDGETS.size();
-             ++budget_index) {
-          limits.max_queries = BUDGETS[budget_index];
-          Metrics &m = metrics[budget_index];
-          const auto START = std::chrono::steady_clock::now();
-          for (int i = 0; i < SAMPLES; ++i) {
-            const auto RESULT = Raycast::surface_search(
+  for (int side = 0; side < 2; ++side) {
+    for (int y = 0; y < LIVE_ROWS; ++y)
+      for (int x = 0; x < LIVE_COLUMNS; ++x)
+        directions[y * LIVE_COLUMNS + x] = math::Vector::from_spherical(
+            math::TWO_PI_F * ((x - 1 + side * WIDTH / 2 + WIDTH) % WIDTH) /
+                WIDTH,
+            math::DisplayGeometry<HEIGHT>::row_to_phi(static_cast<float>(y)));
+    for (float period : PERIODS) {
+      for (float iso : ISOVALUES) {
+        for (const math::Vector &center : CENTERS) {
+          Surface surface;
+          surface.period = period;
+          surface.iso = iso;
+          const math::Vector CENTER = center * period;
+          const float FAR = 4.0f * period;
+          Raycast::TraceLimits limits;
+          limits.max_queries = 1024;
+          limits.max_steps = 1024;
+          limits.max_refinements = 1024;
+          limits.position_tolerance = period * 1e-4f;
+          for (int i = 0; i < SAMPLES; ++i)
+            reference[i] = Raycast::surface_search(
                 surface, {CENTER, directions[i], {0.0f, FAR}}, {}, limits);
-            ++m.rays;
-            m.queries += RESULT.counters.queries;
-            m.peak_queries = std::max(m.peak_queries, RESULT.counters.queries);
-            m.unresolved += unresolved(RESULT);
-            m.reference_unresolved += unresolved(reference[i]);
-            m.inside_starts += surface.field(CENTER) < 0.0f;
-            m.hit_disagreement +=
-                RESULT.has_surface != reference[i].has_surface;
-            m.image_error += fabsf(depth_pixel(RESULT, FAR) -
-                                   depth_pixel(reference[i], FAR));
+          for (size_t budget_index = 0; budget_index < BUDGETS.size();
+               ++budget_index) {
+            limits.max_queries = BUDGETS[budget_index];
+            Metrics &m = metrics[budget_index];
+            const auto START = std::chrono::steady_clock::now();
+            for (int i = 0; i < SAMPLES; ++i) {
+              const auto RESULT = Raycast::surface_search(
+                  surface, {CENTER, directions[i], {0.0f, FAR}}, {}, limits);
+              ++m.rays;
+              m.queries += RESULT.counters.queries;
+              m.peak_queries =
+                  std::max(m.peak_queries, RESULT.counters.queries);
+              m.unresolved += unresolved(RESULT);
+              m.reference_unresolved += unresolved(reference[i]);
+              m.inside_starts += surface.field(CENTER) < 0.0f;
+              m.hit_disagreement +=
+                  RESULT.has_surface != reference[i].has_surface;
+              m.image_error += fabsf(depth_pixel(RESULT, FAR) -
+                                     depth_pixel(reference[i], FAR));
+            }
+            const double ELAPSED = std::chrono::duration<double, std::milli>(
+                                       std::chrono::steady_clock::now() - START)
+                                       .count();
+            m.total_ms += ELAPSED;
+            m.peak_ms = std::max(m.peak_ms, ELAPSED);
           }
-          const double ELAPSED = std::chrono::duration<double, std::milli>(
-                                     std::chrono::steady_clock::now() - START)
-                                     .count();
-          m.total_ms += ELAPSED;
-          m.peak_ms = std::max(m.peak_ms, ELAPSED);
         }
       }
     }
@@ -105,7 +110,7 @@ template <typename Surface> void measure(const char *name) {
                 static_cast<double>(M.unresolved) / M.rays,
                 static_cast<double>(M.reference_unresolved) / M.rays,
                 static_cast<double>(M.hit_disagreement) / M.rays,
-                M.image_error / M.rays, M.total_ms / 36.0, M.peak_ms,
+                M.image_error / M.rays, M.total_ms / 72.0, M.peak_ms,
                 static_cast<double>(M.inside_starts) / M.rays);
   }
 }
