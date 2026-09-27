@@ -83,10 +83,7 @@ constexpr void encode_beacon_digits(int32_t effect_index, uint32_t rev_count,
   out[1] = static_cast<uint8_t>(idx & 7u);
   out[2] = static_cast<uint8_t>(rev >> 3);
   out[3] = static_cast<uint8_t>(rev & 7u);
-  // Position-weighted Σ(i+1)·dᵢ mod 8: catches digit transpositions and
-  // compensating miscounts a plain sum would miss.
-  out[4] = static_cast<uint8_t>(
-      (1u * out[0] + 2u * out[1] + 3u * out[2] + 4u * out[3]) & 7u);
+  out[4] = out[0] ^ out[1] ^ out[2] ^ out[3];
 }
 
 /**
@@ -142,9 +139,7 @@ public:
     if (n < 5)
       return false;
     n = 0;
-    // Position-weighted checksum (see encode_beacon_digits).
-    if (((1u * digits[0] + 2u * digits[1] + 3u * digits[2] + 4u * digits[3]) &
-         7u) != digits[4]) {
+    if ((digits[0] ^ digits[1] ^ digits[2] ^ digits[3]) != digits[4]) {
       *rejected = true;
       return false;
     }

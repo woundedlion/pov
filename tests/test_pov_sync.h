@@ -738,61 +738,64 @@ inline void test_beacon_codec() {
   HS_EXPECT_EQ(d[1], 3);
   HS_EXPECT_EQ(d[2], 5);
   HS_EXPECT_EQ(d[3], 5);
-  HS_EXPECT_EQ(d[4], (1 * 3 + 2 * 3 + 3 * 5 + 4 * 5) & 7);
+  HS_EXPECT_EQ(d[4], 0);
 
   /**
-   * @brief Feeds all five digit bursts through a fresh parser, optionally
-   *        corrupting digit 1 or the checksum.
+   * @brief Feeds all five digit bursts through a fresh parser.
    * @param digits The five encoded beacon digits.
-   * @param corrupt_digit If true, flip digit 1 before feeding.
-   * @param corrupt_checksum If true, flip the checksum digit before feeding.
    * @param out Receives the decoded frame on success.
    * @return True iff the frame decoded with no rejection.
    */
-  auto feed_frame = [&cfg](const uint8_t digits[5], bool corrupt_digit,
-                           bool corrupt_checksum, BeaconFrame *out) {
-    BeaconParser p;
-    bool got = false, rejected = false;
-    uint32_t t = 1000;
+  auto feed_frame = [&cfg](const uint8_t digits[5], BeaconFrame *out) {
+    BeaconParser parser;
+    bool got = false;
     for (int i = 0; i < 5; ++i) {
-      uint8_t v = digits[i];
-      if (corrupt_digit && i == 1)
-        v = static_cast<uint8_t>((v + 1) & 7);
-      if (corrupt_checksum && i == 4)
-        v = static_cast<uint8_t>((v + 1) & 7);
-      BurstSnapshot s{static_cast<uint32_t>(v) + 1u, t, t + v * COL};
-      bool r = false;
-      got = p.feed(s, cfg, out, &r);
-      rejected = rejected || r;
-      t += 12 * COL;
+      const uint32_t FIRST = 1000u + i * 12u * COL;
+      const BurstSnapshot burst{static_cast<uint32_t>(digits[i]) + 1u, FIRST,
+                                FIRST + digits[i] * COL};
+      bool rejected = false;
+      got = parser.feed(burst, cfg, out, &rejected);
+      if (i < 4) {
+        HS_EXPECT_FALSE(got);
+        HS_EXPECT_FALSE(rejected);
+      } else {
+        HS_EXPECT_EQ(rejected, !got);
+      }
     }
-    return got && !rejected;
+    HS_EXPECT_EQ(parser.digit_count(), 0);
+    return got;
   };
 
-  BeaconFrame f{};
-  for (int idx : {0, 1, 27, 63}) {
-    for (uint32_t rev : {0u, 1u, 39u, 63u}) {
+  for (int idx = 0; idx < 64; ++idx) {
+    for (uint32_t rev = 0; rev < 64; ++rev) {
       encode_beacon_digits(idx, rev, d);
-      HS_EXPECT_TRUE(feed_frame(d, false, false, &f));
-      HS_EXPECT_EQ(f.effect_index, idx);
-      HS_EXPECT_EQ(f.rev_count, rev);
+      BeaconFrame frame{};
+      HS_EXPECT_TRUE(feed_frame(d, &frame));
+      HS_EXPECT_EQ(frame.effect_index, idx);
+      HS_EXPECT_EQ(frame.rev_count, rev);
+      for (int position = 0; position < 5; ++position) {
+        const uint8_t ORIGINAL = d[position];
+        for (uint8_t replacement = 0; replacement < 8; ++replacement) {
+          if (replacement == ORIGINAL)
+            continue;
+          d[position] = replacement;
+          BeaconFrame unchanged{123, 456u};
+          HS_EXPECT_FALSE(feed_frame(d, &unchanged));
+          HS_EXPECT_EQ(unchanged.effect_index, 123);
+          HS_EXPECT_EQ(unchanged.rev_count, 456u);
+        }
+        d[position] = ORIGINAL;
+      }
     }
   }
-  encode_beacon_digits(27, 45, d);
-  HS_EXPECT_FALSE(feed_frame(d, true, false, &f));
-  HS_EXPECT_FALSE(feed_frame(d, false, true, &f));
 
-  // The position-weighted checksum rejects two corruption classes a plain
-  // digit-sum is blind to (both preserve the sum): a transposition of two
-  // distinct digits, and a compensating ±1 pair (a pulse miscounted from one
-  // burst into the next). d = {3,3,5,5,chk}.
-  encode_beacon_digits(27, 45, d);
-  const uint8_t transposed[5] = {d[2], d[1], d[0], d[3], d[4]}; // swap d0,d2
-  HS_EXPECT_FALSE(feed_frame(transposed, false, false, &f));
-  const uint8_t compensated[5] = {static_cast<uint8_t>(d[0] + 1),
-                                  static_cast<uint8_t>(d[1] - 1), d[2], d[3],
-                                  d[4]};
-  HS_EXPECT_FALSE(feed_frame(compensated, false, false, &f));
+  const uint8_t LEGACY[5] = {0, 0, 6, 1, 6};
+  BeaconFrame frame{};
+  HS_EXPECT_FALSE(feed_frame(LEGACY, &frame));
+  encode_beacon_digits(0, 945, d);
+  HS_EXPECT_EQ(d[4], 7);
+  d[3] = 3;
+  HS_EXPECT_FALSE(feed_frame(d, &frame));
 
   // Out-of-range burst count aborts the frame.
   {
@@ -871,15 +874,9 @@ inline void test_beacon_partial_frame_ages_out() {
 /**
  * @brief Verifies the §6.3.4 confirmation rule: a live board changes effect
  *        index only after two consecutive beacons name the same one.
- * @details The position-weighted checksum provably catches any single
- *          mis-counted digit, but not a *shift*: a stray burst in the quiet
- *          ahead of digit 0 pushes the frame along one place, and exactly one
- *          of the eight intruder values re-satisfies the weighted sum (p =
- *          1/8), so the tuple decodes valid and wrong. Applied unconfirmed it
- *          would tear down a healthy effect and display the wrong one — the
- *          fail-wrong window §6.3.3 rules out. Frames here are fed straight at
- *          the board one per half-revolution, in the mid-half quiet where the
- *          §6.4 demarcation routes bursts to the beacon parser.
+ * @details A leading stray burst shifts the frame; one of eight intruder
+ *          values satisfies XOR parity. Frames enter the board once per
+ *          half-revolution in the mid-half quiet, through the beacon parser.
  */
 inline void test_beacon_shift_needs_confirmation() {
   // Full 64-roster: every 6-bit index is in range, so the shifted frame gets
@@ -923,13 +920,13 @@ inline void test_beacon_shift_needs_confirmation() {
   uint8_t shifted[5] = {};
   for (uint8_t emi = 0; emi < 8; ++emi) {
     const uint8_t s[5] = {emi, truth[0], truth[1], truth[2], truth[3]};
-    if (((1u * s[0] + 2u * s[1] + 3u * s[2] + 4u * s[3]) & 7u) != s[4])
+    if ((s[0] ^ s[1] ^ s[2] ^ s[3]) != s[4])
       continue;
     ++passing;
     for (int i = 0; i < 5; ++i)
       shifted[i] = s[i];
   }
-  HS_EXPECT_EQ(passing, 1); // p = 1/8, exactly one intruder value
+  HS_EXPECT_EQ(passing, 1);
   const int32_t shifted_index = shifted[0] * 8 + shifted[1];
   HS_EXPECT_TRUE(shifted_index != content(board).effect_index);
   HS_EXPECT_TRUE(shifted_index < cfg.effect_count);
@@ -3447,7 +3444,7 @@ inline void test_budget_beacon_corruption() {
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 9; },
       16.0));
-  // Beacon (index 0, rev 9) is digits [0,0,1,1,2]; its 4th burst is two
+  // Beacon (index 0, rev 9) is digits [0,0,1,1,0]; its 4th burst is two
   // pulses at relative columns 16 and 17. One EMI edge between them on
   // board 1 (clear of the 100 µs glitch filter) makes that digit read 2:
   // checksum mismatch, whole frame dropped.
@@ -3475,6 +3472,57 @@ inline void test_budget_beacon_corruption() {
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   HS_EXPECT_EQ(sim.boards[1].t, sim.boards[0].t);
+}
+
+/**
+ * @brief Two extra edges in rev 945's low digit must not advance the epoch.
+ */
+inline void test_beacon_two_edge_substitution() {
+  Config cfg = test_config();
+  cfg.revs_per_effect = 947;
+  const int32_t PPM[3] = {0, 0, 0};
+  Sim sim(cfg, 3, PPM);
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return content(s.boards[0].board).rev_in_effect == 9 &&
+               s.board_pos(0) == 40;
+      },
+      16.0));
+  for (auto &board : sim.boards) {
+    HS_EXPECT_EQ(content(board.board).rev_in_effect, 9u);
+    content_mut(board.board).rev_in_effect = 945;
+  }
+
+  // [0,0,6,1,7]: digit 3 pulses at train columns 21 and 22.
+  const uint64_t TRAIN = sim.g + 32ull * COL;
+  sim.emi.push_back({TRAIN + 21ull * COL + COL / 2, 1});
+  sim.emi.push_back({TRAIN + 22ull * COL + COL / 2, 1});
+  const Telemetry BEFORE = sim.boards[1].board.telemetry_snapshot();
+  const Telemetry CLEAN_BEFORE = sim.boards[2].board.telemetry_snapshot();
+  sim.run_revs(0.5);
+  const Telemetry AFTER = sim.boards[1].board.telemetry_snapshot();
+  const Telemetry CLEAN_AFTER = sim.boards[2].board.telemetry_snapshot();
+  HS_EXPECT_EQ(AFTER.beacons_rejected, BEFORE.beacons_rejected + 1);
+  HS_EXPECT_EQ(AFTER.beacons_ok, BEFORE.beacons_ok);
+  HS_EXPECT_EQ(AFTER.beacon_rev_mismatches, BEFORE.beacon_rev_mismatches);
+  HS_EXPECT_EQ(CLEAN_AFTER.beacons_ok, CLEAN_BEFORE.beacons_ok + 1);
+  HS_EXPECT_EQ(CLEAN_AFTER.beacons_rejected, CLEAN_BEFORE.beacons_rejected);
+  for (const auto &board : sim.boards)
+    HS_EXPECT_EQ(content(board.board).rev_in_effect, 945u);
+
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[0].live_index == 1 && s.boards[1].live_index == 1 &&
+               s.boards[2].live_index == 1;
+      },
+      8.0));
+  for (int i = 1; i < 3; ++i) {
+    const int64_t DELTA = static_cast<int64_t>(sim.boards[i].swap_g) -
+                          static_cast<int64_t>(sim.boards[0].swap_g);
+    HS_EXPECT_LE(std::abs(DELTA), static_cast<int64_t>(COL));
+    HS_EXPECT_FALSE(sim.boards[i].trapped);
+  }
 }
 
 /**
@@ -3710,6 +3758,7 @@ inline int run_pov_sync_tests() {
   test_budget_corrupted_timebase();
   test_budget_acquire_mis_snap();
   test_budget_beacon_corruption();
+  test_beacon_two_edge_substitution();
   test_budget_wire_dead();
 
   return fixture.result();
