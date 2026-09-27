@@ -21,8 +21,64 @@ struct Streams {
   void advance(size_t i) { live[i] = stalled; }
 };
 
+struct SingleGroupStreams : Streams {
+  static constexpr size_t GROUP_CAPACITY = 1;
+};
+
+inline void test_single_group_capacity() {
+  SingleGroupStreams streams;
+  for (size_t i = 0; i < streams.STREAM_COUNT; ++i) {
+    streams.heads[i].t = 1;
+    streams.heads[i].coverage = .1f * static_cast<float>(i + 1);
+  }
+  int count = 0;
+  auto result =
+      Raycast::trace_events(streams, {0, 2}, {}, [&](const auto &hit) {
+        HS_EXPECT_EQ(hit.coverage, .5f);
+        ++count;
+        return true;
+      });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(count, 1);
+  HS_EXPECT_EQ(result.counters.candidates, 5);
+  streams.live.fill(true);
+  streams.heads[1].merge_identity = 1;
+  count = 0;
+  result = Raycast::trace_events(streams, {0, 2}, {}, [&](const auto &hit) {
+    HS_EXPECT_EQ(hit.coverage, .1f);
+    ++count;
+    return true;
+  });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(result.counters.candidates, 2);
+  HS_EXPECT_EQ(count, 1);
+  streams.live.fill(true);
+  streams.heads[1].merge_identity = 0;
+  Raycast::TraceLimits limits;
+  limits.max_candidates = 3;
+  count = 0;
+  result = Raycast::trace_events(streams, {0, 2}, limits, [&](const auto &hit) {
+    HS_EXPECT_NEAR(hit.coverage, .3f, 1e-7f);
+    ++count;
+    return true;
+  });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(count, 1);
+  streams.live.fill(true);
+  streams.heads[1].coverage = NAN;
+  count = 0;
+  result = Raycast::trace_events(streams, {0, 2}, {}, [&](const auto &hit) {
+    HS_EXPECT_EQ(hit.coverage, .1f);
+    ++count;
+    return true;
+  });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(count, 1);
+}
+
 inline int run_ray_event_tests() {
   const auto MODULE = hs_test::begin_module("ray_events");
+  test_single_group_capacity();
   Streams streams;
   for (size_t i = 0; i < streams.STREAM_COUNT; ++i) {
     streams.heads[i].t = static_cast<float>(5 - i);

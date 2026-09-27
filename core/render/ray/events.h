@@ -10,7 +10,12 @@
 
 namespace Raycast {
 
-/** @brief Merges bounded monotone candidate streams in deterministic order. */
+/**
+ * @brief Merges bounded monotone candidate streams in deterministic order.
+ * @details Adapter::GROUP_CAPACITY optionally bounds distinct merge identities
+ * in one tolerance window; the default is STREAM_COUNT. Overflow retains the
+ * buffered contributions and returns BUDGET_EXHAUSTED.
+ */
 template <typename Adapter, typename Consume>
 __attribute__((always_inline)) inline TraceResult
 trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
@@ -22,7 +27,14 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
     return result;
   }
   constexpr size_t COUNT = Adapter::STREAM_COUNT;
-  std::array<Contribution, COUNT> group;
+  constexpr size_t CAPACITY = [] {
+    if constexpr (requires { Adapter::GROUP_CAPACITY; })
+      return Adapter::GROUP_CAPACITY;
+    else
+      return COUNT;
+  }();
+  static_assert(CAPACITY > 0 && CAPACITY <= COUNT);
+  std::array<Contribution, CAPACITY> group;
   size_t grouped = 0;
   float group_end = 0;
   const auto flush = [&]() __attribute__((always_inline)) {
@@ -89,7 +101,7 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
                 group[slot].material != candidate.material ||
                 group[slot].verified != candidate.verified))
           ++slot;
-        if (slot == COUNT) {
+        if (slot == CAPACITY) {
           result.status = TraceStatus::BUDGET_EXHAUSTED;
           flush();
           return result;
