@@ -1320,6 +1320,8 @@ public:
     with_shader_chain([&]<typename SC>(SC &chain) {
       result = chain.update_parameters(writes);
     });
+    if (result == ParamSetResult::APPLIED)
+      animations_paused = current_effect->animations_paused();
     return result;
   }
 
