@@ -297,7 +297,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── pullback.h              Typed inverse-render pipeline: umbrella over pullback/'s ten stage headers
 │   │   ├── pullback/               Per-stage pullback headers (contract, fields, surface,
 │   │   │                            lens, projection, warp, source, material, color,
-│   │   │                            stage), the operator layer (operator_model,
+│   │   │                            stage, ray), the operator layer (operator_model,
 │   │   │                            operator_table, operators, operators_common,
 │   │   │                            operators_field, operators_project, operators_sample,
 │   │   │                            operators_sphere, operators_warp), the chain
@@ -322,10 +322,11 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            pixel_chromatic_shift, pixel_feedback)
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
-│   │   │                            csg, face, volume, framework, lattice_field,
+│   │   │                            csg, face, volume, lattice, framework, lattice_field,
 │   │   │                            periodic_surface)
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
 │   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
+│   │   ├── ray.h                   Spherical ray rendering umbrella
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters and shared marching
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
