@@ -1479,14 +1479,13 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   if (d > 1.0f - math::TOLERANCE) {
     return (v1 + (v2 - v1) * t).normalized();
   }
-  float theta = fast_acos(d);
-  if (theta > PI_F - math::TOLERANCE) {
-    // Antipodal: v1 + v2 cancels so the standard blend is non-monotone. Rotate
-    // v1 by t*theta about an arbitrary perpendicular axis for a monotone
-    // half-turn landing within TOLERANCE of v2.
+  if (d < -1.0f + math::TOLERANCE &&
+      (d <= -1.0f || distance_squared(v1, -v2) < math::EPS_BLEND_LEN_SQ)) {
+    // The endpoint sum detects cancellation without acos amplifying unit error.
     Vector axis = cross(least_parallel_axis(v1), v1).normalized();
-    return rotate(v1, make_rotation(axis, t * theta));
+    return rotate(v1, make_rotation(axis, t * PI_F));
   }
+  float theta = fast_acos(d);
   // The 1/sinθ factor cancels under the final normalize(), so it is omitted
   // (also dodging a divide by a small sin(θ) near θ→π). Fast trig here tolerates
   // the bounded error a direction blend permits.
@@ -1525,17 +1524,15 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     return r.normalized();
   }
 
+  if (d < -1.0f + math::TOLERANCE &&
+      (d <= -1.0f || (p + q).squared_magnitude() < math::EPS_BLEND_LEN_SQ)) {
+    Quaternion n(-p.v.x, p.r, -p.v.z, p.v.y);
+    return (cosf(t * PI_F) * p + sinf(t * PI_F) * n).normalized();
+  }
   // Exact acosf/sinf here: orientation interpolation is more sensitive to
   // angular error than a direction blend.
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
-  if (sin_theta < math::TOLERANCE) {
-    // Antipodal (theta ~ pi): p + t(q - p) collapses to the zero quaternion at
-    // t = 0.5. Sweep a great-circle turn from p toward an arbitrary orthogonal
-    // unit quaternion instead.
-    Quaternion n(-p.v.x, p.r, -p.v.z, p.v.y);
-    return (cosf(t * theta) * p + sinf(t * theta) * n).normalized();
-  }
   float s1 = sinf((1 - t) * theta) / sin_theta;
   float s2 = sinf(t * theta) / sin_theta;
   return ((s1 * p) + (s2 * q)).normalized();
