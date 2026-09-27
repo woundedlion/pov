@@ -79,9 +79,10 @@ inline bool valid_sample(const QuerySample &sample) {
 
 /** @brief Finds one verified boundary; proximity never creates coverage. */
 template <typename Query>
-TraceResult surface_search(const Query &query, const Ray &ray,
-                           const Footprint &footprint,
-                           const TraceLimits &limits = {}) {
+HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
+                                               const Ray &ray,
+                                               const Footprint &footprint,
+                                               const TraceLimits &limits = {}) {
   TraceResult result;
   if constexpr (requires { query.valid(); }) {
     if (!query.valid()) {
@@ -116,7 +117,7 @@ TraceResult surface_search(const Query &query, const Ray &ray,
     result.contribution.feature = sample.feature;
     result.contribution.verified = true;
   };
-  auto evaluate = [&](float position, QuerySample &sample) {
+  auto evaluate = [&](float position, QuerySample &sample) HS_HOT_FLASH_MEMBER {
     if (result.counters.queries >= limits.max_queries) {
       result.status = TraceStatus::BUDGET_EXHAUSTED;
       return false;
