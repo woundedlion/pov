@@ -1,6 +1,6 @@
 # Spherical perspective and independent patterns
 
-**Status: PROPOSED (2026-09-26).** This document specifies a generalization of
+**Status: PROPOSED, revision 2 (2026-09-26).** This document specifies a generalization of
 [HyperLattice](../../effects/HyperLattice.h); it does not describe shipped APIs.
 Implementation is a separate change. Dimensional rift is removed from the
 proposed design.
@@ -29,8 +29,8 @@ The latter requires a pattern with an actual 4D definition.
 There is no dimensional-rift mode, blend coefficient, or interpolation between
 3D and 4D distance metrics. Pattern geometry, sampling domain, and backend are
 discrete choices. Ordinary parameters may interpolate within a compatible
-configuration; changes between configurations use the effect's transition
-policy rather than blending unrelated geometry queries.
+configuration; changes between configurations switch one complete parameter
+block at the transition boundary specified in section 5.
 
 ## 2. Camera and dimensional semantics
 
@@ -45,6 +45,8 @@ Here c is the camera center in ambient world units, r is the radial start
 offset, and t is distance beyond that start. E has three orthonormal columns.
 Consequently d is unit length, and t has the same world-distance meaning in
 both sampling domains. Rotation and translation are frame-prepared values.
+All inputs are finite, r >= 0, and 0 <= near < far. Scale belongs to the
+pattern transform, not E; degenerate transforms fail preparation.
 
 In 3D, E is a 3-by-3 rotation and c is a 3D position. In 4D, E is a 4-by-3
 orthonormal embedding and c is a 4D position. All rays lie in the affine
@@ -54,13 +56,21 @@ offset. Other rotations turn the view within the slice.
 
 The radial offset skips the interior of a sphere in the viewing slice. Rays
 remain collinear with rays from c. It is neither lens magnification nor a
-four-dimensional perspective divide. At r = 0, sampling starts at the center.
+four-dimensional perspective divide. At r = near = 0, sampling starts at the center.
 Fog and near/far controls use t; a pattern query receives p(t). This convention
 matches the current effect's distance beyond the display sphere.
 
 The 4D domain samples the intersection of ambient geometry with the viewing
 slice. It does not project all 4D objects into 3D and does not integrate along
 the slice normal. Such operations would require separately specified modes.
+
+Camera animation remains effect-owned. Generic camera position uses world
+units and is never reduced modulo a cell. HyperLattice's current origin wraps
+in cell coordinates every frame; retain that only in the legacy lattice
+animation adapter and convert its pose into the world convention. Other
+periodic patterns may fold coordinates by their declared periods inside their
+queries. A placed torus has no such wrapping. Changing cell size must not
+silently reinterpret a nonlattice camera position.
 
 ### 2.1 Geometry dimension matters
 
@@ -82,12 +92,14 @@ axis is one possible extension, but must be labeled as such.
 ### 2.2 Lattices as volume distance fields
 
 Both wire lattices admit a volume distance query. For ambient dimension N,
-let q[i] be the distance of coordinate i to the nearest integer, in cell units:
+first map the ambient world point p into lattice cell coordinates u. For a
+rigid lattice pose with origin a, rotation R, and positive uniform cell size s:
 
 ```text
-q[i] = abs(p[i] - round(p[i]))
+u = transpose(R) (p - a) / s
+q[i] = abs(u[i] - round(u[i]))
 edge_distance = sqrt(sum(q[i]^2) - max(q[i]^2))
-field = cell_size * edge_distance - wire_radius_world
+field = s * edge_distance - wire_radius_world
 ```
 
 The largest component is discarded because that coordinate is free along the
@@ -96,6 +108,8 @@ edges. The unsigned edge distance is exact. Subtracting the radius defines
 the union of thickened edges and gives exact exterior distance; inside
 overlapping tubes it need not be exact distance to the union boundary.
 An inside-start or exit-search algorithm must respect that distinction.
+In floating-point code, sum the retained squared components directly instead
+of subtracting the largest from their total, to avoid cancellation near edges.
 
 The current HyperLattice evaluates related distances only at selected grid
 crossings. The same geometry can instead be supplied to a volume marcher.
@@ -125,6 +139,17 @@ with an explicit ray interval, footprint policy, and result/status contract.
 Keep a compatibility wrapper for the existing caller. Do not copy its loop
 into the generalized effect or route spherical rays through its orthographic
 draw method. Preserve overrelaxation fallback and first-silhouette ownership.
+The existing `probe_occluder` and `volume_edge_coverage` behavior also remains
+under the orthographic compatibility policy. Its coarse probe is not a safe
+general-purpose exit finder and is not exposed as generic multi-hit tracing.
+
+Two policies share the extracted stepping machinery: **legacy closest
+approach** preserves Raymarch's output, minimum-step floor, and approximate
+coverage; **surface search** uses declared query guarantees and reports
+unresolved progress instead of forcing a step across unknown geometry.
+Extraction does not turn the legacy closest-approach test into a certified
+intersection test. Keep existing profile scope attribution and optimization
+boundaries measurable during extraction.
 
 Existing shape queries returning float distance remain valid. The current
 `SDF::VolumeShape` concept also requires normal and fragment population for
@@ -147,9 +172,12 @@ ray_in_slice(t) = (r + t) n
 
 Additional pattern-local transforms are applied inside the adapter with metric
 correction. The 4D definition uses `math::Vec4` and existing 4D math internally.
-The marcher receives a 3D callable distance query in either case; no second
-4D march loop or mandatory conversion of existing volume shapes to Vec4 is
-needed. An ambient distance bound restricted to the slice stays conservative,
+These equations specify semantics, not mandatory per-step matrix multiplies.
+Compose rigid transforms per frame/ray and evaluate a prepared query along
+`origin + t * direction` in native 3D or 4D coordinates when cheaper. The
+scalar progress loop is shared; no second 4D marching algorithm or mandatory
+conversion of existing shapes to Vec4 is needed. A 3D callable wrapper is
+also valid. An ambient distance bound restricted to the slice stays conservative,
 although it is generally not the exact SDF of the resulting 3D intersection.
 
 For slice-surface lighting, transform the ambient gradient by the transpose
@@ -164,9 +192,16 @@ or participating-medium integration, which uses a different accumulation rule.
 ## 4. Component boundaries
 
 The integration follows the existing
-[pullback pipeline](pullback_pipeline_spec.md): a prepared stage accepts a
-sphere sample and returns composited color. It delegates to the following
-components rather than owning pattern-specific branches.
+[ranked pullback pipeline](pullback_stage_families_spec.md): a prepared
+`Stage::Contract` accepts `Pullback::SphereSample` and returns `Color4`, as
+HyperLattice does today. Rays, queries, and contributions are internal helper
+types, not new canonical pullback carriers or stage families. This proposal
+does not expand the workbench interpreter or its runtime schema.
+`Scan::Shader::draw_cached` continues to own HyperLattice's traversal. Shared
+helpers belong beside the existing volume rendering/query facilities; effect
+controls, animation, and the admitted-configuration table stay effect-owned.
+Conceptual responsibilities need not become separately allocated objects or
+require a new general-purpose registry.
 
 ```text
 Sphere sample -> Camera/domain -> Ray in slice coordinates
@@ -203,11 +238,26 @@ A pattern may support either or both of these initial query capabilities:
 | Capability | Adapter supplies | Backend supplies |
 | --- | --- | --- |
 | Analytic events | Bounded cursor initialization and next candidate intersections or coverage events | Event ordering, grouping, range checks, budgets, consumption |
-| Distance field | Field evaluation, conservative distance bound, material/feature lookup and optional gradient | Step selection, root refinement, hit continuation, budgets |
+| Distance field | Membership, declared clearance guarantees, surface validation, material/feature lookup and optional gradient | Step selection, bounded refinement, first-surface search, budgets |
 
 Capability selection occurs during frame preparation. The renderer must not
 require every pattern to implement a signed distance function, and the analytic
 backend must not assume integer planes, orthogonal axes, or cubic cells.
+
+Distance adapters declare these guarantees independently:
+
+- Sign or membership evaluation, with a stated zero set.
+- Conservative nonnegative exterior clearance in world units.
+- Optional conservative interior clearance; it is never inferred by taking
+  the absolute value of a signed result.
+- Surface verification/refinement and optional slice-space filtering support.
+
+The existing float-returning shape methods stay unchanged; an adapter supplies
+these declarations and any extra operations. `WarpedVolume` currently corrects
+positive distances but leaves negative raw values uncorrected, so its initial
+adapter is exterior-only. The lattice field is 1-Lipschitz in world units:
+its absolute value supplies a conservative boundary clearance on either side,
+even though its interior value is not an exact boundary distance.
 
 ### 4.3 Tracing backend
 
@@ -223,8 +273,8 @@ signal exhaustion. The backend merges the streams; a fixed-capacity heap or
 small linear scan is an implementation choice. Capacity is declared per
 compiled adapter, not hard-coded to three or four coordinate axes.
 
-Distance-field adapters must document their guarantees. An exact signed
-distance or conservative bound permits safe marching. An arbitrary implicit
+Distance-field adapters must document their guarantees. A conservative bound
+for the current side permits safe marching. An arbitrary implicit
 value is not a distance: its adapter must provide a valid bound, such as a
 Lipschitz bound, or select a separately documented approximate search. Missing
 thin surfaces must not be presented as an exact intersection guarantee.
@@ -235,11 +285,60 @@ safe progress but may converge slowly or approach geometry outside the slice.
 Hit acceptance must verify the defined geometry at the sampled position;
 exhausting the step budget is not a hit.
 
-### 4.4 Contribution contract
+Surface verification uses an adapter-provided intersection certificate or a
+root bracket with a verified membership change and bounded refinement.
+A sign bracket proves a crossing exists, not that it is the first one:
+emitting it also requires the preceding ray interval to be cleared or the
+adapter to isolate its earliest root. Proximity alone is an approximate
+candidate. If progress or root ordering cannot be resolved within the budget,
+return `UNRESOLVED`; tangency without a certificate is not a confirmed miss.
+An overrelaxed step is accepted only under the query's clearance guarantees.
+The conservative policy never substitutes a minimum step larger than its
+certified clearance to escape a stall.
+
+Refinement evaluations may probe beyond that clearance inside a bounded
+candidate interval without declaring the intervening interval empty. A
+membership-changing bracket no wider than the position tolerance, with the
+preceding interval safely cleared, locates the first boundary to that tolerance.
+This permits existing torus queries without an analytic quartic solver. Failed
+verification returns `UNRESOLVED`; a probe is never a forced traversal step.
+
+Numerical position/root tolerances are positive and scale-aware, independent
+of the angular footprint (which is zero at the camera center). Adapters state
+their error allowance. Nonfinite query results terminate with `INVALID_QUERY`.
+Mathematical certification here is always subject to the declared numerical
+tolerance; results do not claim floating-point exactness.
+
+### 4.4 Initial surface policy and trace outcome
+
+The initial SDF backend emits the **first forward boundary**, with opaque
+surface material. Starting outside seeks entry. Starting inside seeks exit
+only when the adapter declares interior clearance and surface verification;
+otherwise return `UNSUPPORTED_START` without fabricating a surface. Lattice
+adapters support both sides; the initial warped-volume demonstration keeps
+the entire radial start surface outside its bounds. An explicitly verified
+boundary at the start is emitted once and terminates that ray.
+
+There is no generic SDF transparency, exit skipping, or repeated-surface
+continuation in the first implementation. Analytic event adapters retain
+layered rendering. SDF multi-hit rendering is a later capability requiring
+certified departure from the consumed boundary and tests for thin adjacent
+components; restarting at `t + epsilon` is insufficient. This limitation is
+visible in configuration admission, not hidden inside individual patterns.
+
+Every trace returns bounded work counters and a terminal status: `SURFACE`,
+`RANGE_COMPLETE`, `SATURATED`, `BUDGET_EXHAUSTED`, `UNRESOLVED`,
+`UNSUPPORTED_START`, or `INVALID_QUERY`. `RANGE_COMPLETE` means the chosen
+backend completed its declared search, not that approximate lattice events
+prove absence of geometry between crossings. Partial valid contributions
+survive exhaustion or failure; a nearest unresolved candidate is not emitted
+as a certified surface. Legacy coverage results remain explicitly approximate.
+
+### 4.5 Contribution contract
 
 Each contribution contains finite world-distance t, geometric coverage in
-[0, 1], material identity, and optional feature identity and ambient normal.
-It also declares whether it is an exact surface event or an approximate
+[0, 1], material identity, and optional feature identity and slice-space normal.
+It also declares whether it is a verified surface event or an approximate
 coverage event. Pattern-local information needed for material evaluation may
 be carried in a bounded payload. No payload contains owning allocations.
 
@@ -254,7 +353,16 @@ Geometric filtering uses this footprint; appearance applies distance fading
 afterward. This is distinct from the legacy lattice's particular filter
 approximation, which may be retained in its compatibility adapter initially.
 
-### 4.5 Appearance and compositing
+In a 4D slice, ambient clearance must not feed a surface AA ramp: a ball lying
+just outside the slice has small ambient clearance but no slice intersection.
+The initial reference filter uses a fixed bounded set of angular subrays with
+individually verified intersections; coverage is their hit fraction and each
+subray shades independently. Unresolved samples remain diagnostic failures,
+not certified misses. A cheaper slice-space filter requires its own validated
+estimator. The legacy analytic lattice's approximate filtering remains labeled
+as such and is compared separately from this reference.
+
+### 4.6 Appearance and compositing
 
 Appearance maps geometric contributions to color and opacity using depth,
 material, or feature identity. It owns palettes, near fading, fog, and any
@@ -262,10 +370,14 @@ lighting model. A normal is optional; unlit patterns need not compute one.
 Axis coloring becomes an adapter-provided feature palette mapping rather than
 an assumption that every pattern has four axes.
 
-The existing front-to-back layer compositing semantics remain shared. The
-compositor stops at the configured opacity threshold. A surface backend must
-define entry/exit handling so a solid object is not shaded twice by accident;
-an explicitly translucent two-sided material may request both crossings.
+The existing front-to-back `LayerComposite` semantics and saturation threshold
+remain shared; do not add a second alpha convention or a new threshold control.
+Feed it straight color and coverage times material opacity and appearance
+fading; its result remains straight-alpha `Color4`. Surface normals exposed
+to 3D lighting are in slice coordinates; any ambient normal stays adapter-local.
+For the initial SDF policy, fog/near fading changes appearance but does not
+request surfaces behind the first boundary. Analytic lattice layers retain
+their existing fading and front-to-back composition.
 
 Continuous participating media need interval integration and are outside the
 initial contribution contract. They require a future backend and contribution
@@ -274,11 +386,35 @@ extension, not fake surface events at arbitrary march steps.
 ## 5. Configuration and execution
 
 Configuration has separate pattern parameters, sampling-domain pose, camera
-range, appearance parameters, and trace-quality limits. A registry declares
-supported pattern/domain/backend combinations and their bounded resources.
-Unsupported combinations fail validation before rendering; the UI presents
-only supported combinations. Backend selection defaults from capabilities
-and quality requirements and need not be an ordinary user control.
+range, appearance parameters, and trace-quality limits. A bounded effect-local
+constexpr table declares admitted `(pattern, domain, backend, policy)` tuples,
+their defaults, parameter ranges, and resource limits. This is not a new
+engine-wide registry.
+
+Initially expose one dense **Configuration** enum through the existing
+`ParamHost` registration, with labels such as "Cubic / 3D" and "Cubic / 4D
+slice". Each index selects a whole admitted tuple. Architecture keeps pattern
+and domain separate without requiring dependent dropdowns or sparse enum
+support. Backend experiments need distinct labeled entries, not silent
+changes in rendering semantics. Separate Pattern and Sampling controls may
+follow through existing parameter admission/schema hooks once their atomic
+selection behavior is implemented.
+
+Use one bounded, trivially copyable effect `Params` with stable storage for
+registered fields. A configuration change adopts that row's geometry defaults
+as one block; it never reinterprets the previous shape's parameters. Common
+appearance controls may persist. Unsupported snapshots or external tuples
+fail validation without mutating live state. Hidden/inapplicable parameters
+must not alter the current configuration; schema refresh uses existing hooks.
+
+Keep `ChoreographedEffect` and its existing transition cancellation semantics.
+Within one tuple, interpolate only declared compatible fields. Between tuples,
+the initial `blend_params` policy holds the complete source geometry until
+progress 0.5, then adopts the complete target geometry; it may interpolate
+shared appearance. It does not independently interpolate shape parameters or
+switch enum members. Manual presets and valid restores snap as they do today;
+a manual parameter edit cancels an in-flight transition. New prepared state
+becomes visible together at a frame boundary, never midway through a segment.
 
 Frame preparation resolves the concrete combination once. Firmware uses
 templates or equivalent static dispatch inside the pixel loop; no per-pixel
@@ -298,6 +434,23 @@ or a universal depth control. Keep that behavior as a lattice-specific event
 limit during migration. New patterns use their own declared traversal limits
 under the renderer's global work budget. Do not expose a generic shells knob.
 
+### 5.1 Resource admission
+
+Architectural demonstrators may run in native tests or the simulator without
+shipping on the Teensy. Every firmware-admitted tuple must record its tested
+parameter range, work limits, persistent/per-ray memory, and fixed-source
+device profile. Use the repository's current size/layout budgets and actual
+driver display deadline, not constants copied into this spec.
+
+Production admission requires passing those gates, zero observed deadline
+spills in the declared motion/preset/transition sweep, and zero unresolved,
+invalid, or exhausted surface searches in its reference validation set.
+Analytic adapter horizon truncation is a declared approximation, not hidden
+budget exhaustion. An experimental configuration may use a documented degraded
+fallback and measured error threshold, but cannot be listed as fully admitted.
+Record exclusion when a configuration fails; compiling every demonstrator
+into shipping firmware is not an acceptance condition.
+
 ## 6. Pattern scope and initial implementations
 
 Arbitrary patterns means an extensible geometry contract, not a promise to
@@ -305,7 +458,8 @@ render every mathematical field within a fixed Teensy frame budget. A new
 pattern adds a definition and adapters without modifying the camera,
 compositor, or unrelated backend implementations.
 
-The first implementation should demonstrate all of these cases:
+The implementation stages should demonstrate these cases, with device
+admission assessed separately:
 
 1. **Cubic wire lattice**, with explicit 3D and 4D definitions and an analytic
    event adapter preserving the current bounded plane-crossing renderer.
@@ -326,6 +480,51 @@ authored definition with declared slice semantics. Adding further ambient
 dimensions, arbitrary runtime shader code, 4D-to-3D projection, volume
 integration, and a general scene graph are outside this initial scope.
 
+### 6.1 Periodic curved surfaces: performance experiment
+
+Prioritize a 3D periodic curved surface after the existing torus adapter.
+Start with the cosine level set commonly used to approximate the Schwarz P
+surface; then evaluate the trigonometric gyroid approximation. These are nodal
+approximations, not exact minimal-surface equations or exact SDFs; see the
+[level-set definitions in the original research](https://pmc.ncbi.nlm.nih.gov/articles/PMC2709202/).
+
+```text
+X = k*x, Y = k*y, Z = k*z, k = 2*pi / period
+P = cos(X) + cos(Y) + cos(Z) - iso
+G = sin(X)*cos(Y) + sin(Y)*cos(Z) + sin(Z)*cos(X) - iso
+```
+
+Choose the boundary of `P <= 0` or `G <= 0` for the first experiment, rendered
+as a two-sided first boundary so the camera can travel through either region.
+A thick sheet `abs(G) <= thickness` is a separate geometry option; its field
+thickness is not constant world-space wall thickness.
+
+The component derivative bounds give conservative global Lipschitz constants
+`sqrt(3)*k` for P and `2*sqrt(3)*k` for G. Thus `abs(field)/L` is a safe
+clearance lower bound on either side of the zero set, not a hit-distance or
+coverage estimate. Fast trig substitutions must account for approximation
+error in their bounds or explicitly select an approximate policy. Dividing by
+the local gradient magnitude alone is not a global safe-step guarantee.
+
+Benchmark 8, 12, 16, and 24 total field-query budgets per ray, including
+verification/refinement queries, at the real segmented resolution. Start
+with depth coloring and a single sample per pixel; add analytic-gradient
+lighting and reference supersampling as separately measured costs. Compare
+against a high-budget native reference over camera translation, cell period,
+isovalue, grazing rays, and starts in both regions. Report image differences,
+unresolved fraction, mean/peak evaluations, render time, spills, and memory.
+
+The existing [HyperLattice profile](../profiles/shipping/profile_hyperlattice_teensy_2026-09-26.md)
+records 10,368 live samples and a 62.5 ms display window at 600 MHz. That is a
+gross budget of about 3,617 cycles per live sample before other work. Sixteen
+queries per sample would leave at most about 226 cycles per query if nothing
+else ran; the useful allowance is smaller. Its 50.095 ms observed peak is a
+baseline, not an additive cost for a replacement backend. These observations
+make a bounded experiment worthwhile but do not establish curved-surface
+performance. Reprofile under the active driver and use section 5.1 to decide
+admission. Optimize proven hot paths only after quality and query guarantees
+are established.
+
 ## 7. Migration and compatibility
 
 1. Extract camera/domain preparation, appearance, and layer consumption from
@@ -335,18 +534,29 @@ integration, and a general scene graph are outside this initial scope.
    adapter. Keep its grouping, filtering, and horizon behavior explicit as
    compatibility behavior, with reference tests rather than assumptions that
    it is an exact surface renderer.
-3. Remove dimensional rift from enum metadata, presets, transitions, parameter
-   validation, tests, and documentation when implementation lands. Preserve
-   stable serialized identities for surviving modes. If legacy numeric IDs
-   are retained, reserve the removed value rather than renumbering 4D into it.
-   Decode legacy rift selections as 3D with ordinary 3D geometry; never retain
-   an invisible metric-blending path. The decoder must explicitly recognize
-   the former value; unrelated invalid values still fail validation.
+3. Remove dimensional rift from enum metadata, transitions, parameter
+   validation, tests, and documentation. There are already just two authored
+   presets, `cubic-flight` and `hypercube-flight`; retain those string IDs.
+   Use dense current selection indices and bump `PARAMETER_SCHEMA_VERSION`
+   from its present value 9 when the layout/semantics change. Existing
+   `restore_parameters` rejects older schema snapshots without mutation;
+   preserve that behavior. Do not reserve a hole in the option array or
+   silently reinterpret old raw numeric selections. There is no existing
+   historical snapshot decoder to extend. Any future persisted-format import
+   requires its own versioned mapping; it is outside this implementation.
 4. Extract and validate the existing volume kernel with Raymarch unchanged,
    then connect existing SDF shapes and the lattice queries to spherical rays.
    Introduce the noncubic analytic pattern and evaluate quality and device
-   cost independently. Gyroids and other new fields follow after this reuse
-   is demonstrated, with bounds specified for each field.
+   cost independently. Run the periodic-surface experiment in section 6.1
+   after this reuse is demonstrated.
+
+For endpoint compatibility, the old lattice origin is measured in cells,
+`sphere_radius` and `wire_radius` scale by cell size to obtain world lengths,
+and the old ray t/far distance already uses world units. Preserve old motion,
+near-fade, softness, and AA behavior in the compatibility policy until a
+separately compared change replaces them. Finite-volume demonstrations use
+an unwrapped stationary camera with a bounded animated object placement and
+an exterior radial start, rather than inheriting lattice flight coordinates.
 
 Retain the public HyperLattice effect identifier during the initial migration
 so playlists and saved effect selection keep working. Its controls can expose
@@ -363,15 +573,26 @@ is a separate compatibility decision, not necessary to establish the boundary.
 - Adapter/backend tests cover empty geometry, parallel and tangent rays,
   coincident features, negative cell coordinates, near/far boundaries,
   finite payloads, strict cursor progress, and deterministic event ordering.
-- Marching tests use geometry with known intersections to check conservative
-  progress, roots, continuation after a hit, and budget-exhaustion status.
+- Marching tests use known intersections to check exterior and interior
+  bounds, first-boundary ordering, starts on surfaces, tangencies, stalls,
+  thin neighboring components, and each terminal status. No generic SDF
+  continuation capability is implied by these first-surface tests.
+- A 4D ball centered just beyond the slice, with separation less than the
+  nominal AA width, produces no certified intersection or phantom coverage.
+  Exact/reference comparisons include zero projected gradients and unresolved
+  subrays. Center starts, tiny scales, and nonfinite queries are covered.
 - Existing Raymarch captures and volume tests remain valid after kernel
   extraction. A torus and warped torus render through both camera paths using
   the same shape types and numerical kernel. A 4D lattice slice uses that
   kernel through a 3D query adapter, without a second marching implementation.
 - Reference captures preserve the surviving lattice modes during extraction;
-  intentional filtering changes receive separate comparisons. Rift disappears
-  from new controls and legacy selections follow the documented migration.
+  intentional filtering changes receive separate comparisons. Preserve the
+  volume first-graze and background-graze regressions. Rift disappears from
+  controls; prior-schema snapshots are rejected without state mutation.
+- Configuration tests cover every admitted tuple, invalid selection, automatic
+  transitions across dimensions, same-tuple interpolation, manual edits,
+  pause/resume, restores, and one consistent prepared state per segmented
+  frame. A finite-volume camera never jumps at lattice-cell boundaries.
 - Adding the triangular framework and implicit surface requires no pattern
   branches in camera, appearance infrastructure, or compositor. Generic
   backend code depends only on its query capability contract.
@@ -380,6 +601,10 @@ is a separate compatibility decision, not necessary to establish the boundary.
   admitted configurations on the Teensy with fixed provenance and report
   traversal exhaustion alongside frame cost. No performance equivalence is
   assumed between analytic and marching backends.
+- Each demonstrator records a shipping or experimental/excluded decision
+  under section 5.1. The periodic-surface report includes the quality/cost
+  sweep in section 6.1; failure to meet the device budget is a reported result,
+  not a reason to weaken surface guarantees silently.
 
 This spec-only change requires documentation validation; firmware validation
 and captures belong to the implementation changes above.
