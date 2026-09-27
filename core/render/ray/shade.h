@@ -26,14 +26,16 @@ struct Appearance {
     const float fog = std::max(0.0f, 1.0f - t * inv_far);
     return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
   }
+  /** @brief Samples depth coloring when DEPTH_ONLY, otherwise the selected mode. */
+  template <bool DEPTH_ONLY = false>
   __attribute__((always_inline)) Pixel color(const Contribution &hit) const {
     const float depth = hit.t * inv_far;
+    const bool DEPTH = DEPTH_ONLY || mode == ColorMode::DEPTH;
     const float value =
-        mode == ColorMode::DEPTH
+        DEPTH
             ? 1 - depth
             : (static_cast<float>(hit.feature) + .75f * depth) / feature_count;
-    const auto &palette =
-        *(mode == ColorMode::DEPTH ? depth_palette : feature_palette);
+    const auto &palette = *(DEPTH ? depth_palette : feature_palette);
     return palette.get_color_unit(value) * (.45f + .55f * (1 - depth));
   }
 };
@@ -43,7 +45,7 @@ struct ShadedTrace {
   TraceResult trace;
 };
 
-template <typename Adapter>
+template <bool DEPTH_ONLY = false, typename Adapter>
 __attribute__((always_inline)) inline ShadedTrace
 shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
              const Appearance &appearance) {
@@ -52,7 +54,7 @@ shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
       trace_events(adapter, interval, limits,
                    [&](const Contribution &hit) __attribute__((always_inline)) {
                      HS_PROFILE_DEEP(hl_layer_composite);
-                     composite.add(appearance.color(hit),
+                     composite.add(appearance.color<DEPTH_ONLY>(hit),
                                    hit.coverage * appearance.opacity(hit.t));
                      return !composite.saturated();
                    });
