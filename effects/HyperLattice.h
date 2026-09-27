@@ -149,8 +149,9 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
     Raycast::TraceLimits limits;
     limits.max_candidates =
         DIMENSIONS * (SHELLS ? SHELLS : SDF::Lattice::MAX_SHELLS);
-    return Raycast::shade_events(events, {0, prepared.lattice.far_distance},
-                                 limits, prepared.appearance)
+    return Raycast::shade_events<SLICE_4D>(events,
+                                           {0, prepared.lattice.far_distance},
+                                           limits, prepared.appearance)
         .color;
   }
 };
