@@ -26,6 +26,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -2935,6 +2936,135 @@ inline void test_shader_chain_parity_sample_fractal() {
   }
 }
 
+inline void test_shader_chain_noise_operator_domain() {
+  const auto ctx = shared_resources().context();
+  In::Op::NoisePhaseState state;
+  In::Op::init_noise_phase(state, {"noise", "sample.projected-noise.v2", 1337});
+  for (const auto basis : {math::NoiseBasis::SIMPLEX, math::NoiseBasis::FBM3,
+                           math::NoiseBasis::RIDGED3}) {
+    In::Op::ProjectedNoiseSampleParams sample_params;
+    sample_params.noise_scale = 64.0f;
+    sample_params.basis = static_cast<uint8_t>(basis);
+    const auto sample_prepared =
+        In::Op::SampleProjectedNoise::prepare(ctx, sample_params, state);
+    In::Op::VectorNoiseWarpParams vector_params;
+    vector_params.scale = 64.0f;
+    vector_params.strength = 30.0f;
+    vector_params.basis = static_cast<uint8_t>(basis);
+    const auto vector_prepared =
+        In::Op::WarpVectorNoise::prepare(ctx, vector_params, state);
+    In::Op::CurlFlowParams curl_params;
+    curl_params.scale = 4.0f;
+    curl_params.strength = 1.0f / 32.0f;
+    curl_params.basis = static_cast<uint8_t>(basis);
+    for (int signs = 0; signs < 4; ++signs) {
+      PB::PlaneSample input{};
+      input.coords = {(signs & 1) ? 0x1p20f : -0x1p20f,
+                      (signs & 2) ? 0x1p20f : -0x1p20f};
+      const auto sample = In::Op::SampleProjectedNoise::run(
+          input, ctx, sample_params, sample_prepared);
+      const auto coordinate = math::noise_projected_coordinate(
+          input.coords, sample_params.noise_scale, sample_prepared.loop_offset);
+      const float raw = PB::Source::noise_contour(
+          state.noise, basis, coordinate, sample_params.noise_contrast);
+      const auto expected =
+          In::Op::finish_sample(input, raw, sample_params, ctx);
+      HS_EXPECT_EQ(sample.value, expected.value);
+      HS_EXPECT_TRUE(std::isfinite(sample.value));
+      const auto vector = In::Op::WarpVectorNoise::run(
+          input, ctx, vector_params, vector_prepared);
+      HS_EXPECT_TRUE(std::isfinite(vector.coords.re));
+      HS_EXPECT_TRUE(std::isfinite(vector.coords.im));
+      for (uint8_t integrator = 0; integrator < 3; ++integrator) {
+        curl_params.integrator = integrator;
+        const auto prepared =
+            In::Op::WarpCurlFlow::prepare(ctx, curl_params, state);
+        const auto curl =
+            In::Op::WarpCurlFlow::run(input, ctx, curl_params, prepared);
+        HS_EXPECT_TRUE(std::isfinite(curl.coords.re));
+        HS_EXPECT_TRUE(std::isfinite(curl.coords.im));
+      }
+    }
+    for (const float coordinate :
+         {1e11f, -1e11f, std::numeric_limits<float>::infinity(),
+          -std::numeric_limits<float>::infinity(),
+          std::numeric_limits<float>::quiet_NaN()}) {
+      for (int axis = 0; axis < 2; ++axis) {
+        PB::PlaneSample input{};
+        input.coords = {axis == 0 ? coordinate : 1.0f,
+                        axis == 1 ? coordinate : 2.0f};
+        const auto sample = In::Op::SampleProjectedNoise::run(
+            input, ctx, sample_params, sample_prepared);
+        HS_EXPECT_EQ(sample.value, 0.5f);
+        const auto vector = In::Op::WarpVectorNoise::run(
+            input, ctx, vector_params, vector_prepared);
+        HS_EXPECT_TRUE(float_identical(vector.coords.re, input.coords.re));
+        HS_EXPECT_TRUE(float_identical(vector.coords.im, input.coords.im));
+        HS_EXPECT_EQ(vector.path_length, input.path_length);
+        for (uint8_t integrator = 0; integrator < 3; ++integrator) {
+          curl_params.integrator = integrator;
+          const auto prepared =
+              In::Op::WarpCurlFlow::prepare(ctx, curl_params, state);
+          const auto curl =
+              In::Op::WarpCurlFlow::run(input, ctx, curl_params, prepared);
+          HS_EXPECT_TRUE(float_identical(curl.coords.re, input.coords.re));
+          HS_EXPECT_TRUE(float_identical(curl.coords.im, input.coords.im));
+          HS_EXPECT_EQ(curl.path_length, input.path_length);
+        }
+      }
+    }
+  }
+}
+
+inline void test_shader_chain_composed_noise_domain() {
+  auto fixture = std::make_unique<ProgramFixture>();
+  auto &program = fixture->program;
+  const In::ChainEntryRequest chain[] = {
+      {"project", In::Op::ProjectStereographic::ID},
+      {"affine-a", In::Op::WarpAffine::ID},
+      {"affine-b", In::Op::WarpAffine::ID},
+      {"affine-c", In::Op::WarpAffine::ID},
+      {"affine-d", In::Op::WarpAffine::ID},
+      {"affine-e", In::Op::WarpAffine::ID},
+      {"affine-f", In::Op::WarpAffine::ID},
+      {"sample", In::Op::SampleProjectedNoise::ID},
+      {"color", In::Op::ColorizeGeneratedPaletteV3::ID},
+  };
+  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  auto &projection = param_as<In::Op::ProjectChainParams>(program, 0);
+  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  for (int index = 1; index <= 6; ++index) {
+    auto &params = param_as<In::Op::AffineWarpParams>(program, index);
+    params.scale_x = params.scale_y = 1.0f / 64.0f;
+    HS_EXPECT_TRUE(PB::Fields::valid(params));
+  }
+  const auto ctx = shared_resources().context();
+  const PB::SphereSample sphere{math::Vector(1, 1, 0).normalized(), 0.0f};
+  for (const auto basis : {math::NoiseBasis::SIMPLEX, math::NoiseBasis::FBM3,
+                           math::NoiseBasis::RIDGED3}) {
+    param_as<In::Op::ProjectedNoiseSampleParams>(program, 7).basis =
+        static_cast<uint8_t>(basis);
+    program.prepare(ctx);
+    PB::PlaneSample plane{};
+    for (int index = 0; index < 7; ++index) {
+      PB::PlaneSample next{};
+      program.ops()[index].op->runtime.run(
+          index == 0 ? static_cast<const void *>(&sphere)
+                     : static_cast<const void *>(&plane),
+          &next, ctx, program.param_block(index),
+          program.prepared_block(index));
+      plane = next;
+    }
+    HS_EXPECT_GT(plane.coords.re, 1e11f);
+    PB::FieldSample field{};
+    program.ops()[7].op->runtime.run(
+        &plane, &field, ctx, program.param_block(7), program.prepared_block(7));
+    HS_EXPECT_EQ(field.value, 0.5f);
+    const Color4 actual = program.evaluate(sphere.dir, ctx);
+    HS_EXPECT_TRUE(std::isfinite(actual.alpha));
+  }
+}
+
 inline void test_shader_chain_large_finite_path_length() {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
@@ -4305,6 +4435,8 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_sample_fractal();
   test_shader_chain_parity_sample_tessellation();
   test_shader_chain_large_finite_path_length();
+  test_shader_chain_composed_noise_domain();
+  test_shader_chain_noise_operator_domain();
   test_shader_chain_parity_sample_projected_noise();
   test_shader_chain_parity_sample_spherical_noise();
   test_shader_chain_parity_colorize_variants();
