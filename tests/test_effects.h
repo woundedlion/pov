@@ -335,7 +335,7 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
   original.reserve(effect.getParameters().size());
   target.reserve(effect.getParameters().size());
   for (const auto &def : effect.getParameters()) {
-    if (!def.animated)
+    if (!def.animated || def.readonly)
       continue;
     // The write below lands on the requested value, so a schema-driven effect
     // whose rendered slot is canonicalized away from it only round-trips
