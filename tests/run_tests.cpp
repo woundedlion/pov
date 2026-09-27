@@ -50,6 +50,7 @@
 #include "tests/test_plot_scan.h"
 #include "tests/test_canvas.h"
 #include "tests/test_scan.h"
+#include "tests/test_ray.h"
 #include "tests/test_mesh_raster.h"
 #include "tests/test_transformers.h"
 #include "tests/test_noise.h"
@@ -104,6 +105,7 @@ struct TestModule {
   X("memory", hs_test::memory_tests::run_memory_tests)                         \
   X("spatial", hs_test::spatial_tests::run_spatial_tests)                      \
   X("scb", hs_test::scb_tests::run_static_circular_buffer_tests)               \
+  X("ray", hs_test::ray_tests::run_ray_tests)                                  \
   X("sdf", hs_test::sdf_tests::run_sdf_tests)                                  \
   X("conway", hs_test::conway_tests::run_conway_tests)                         \
   X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests)       \
