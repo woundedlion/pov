@@ -107,10 +107,50 @@ inline void test_single_group_capacity() {
   HS_EXPECT_EQ(count, 1);
 }
 
+inline void test_failure_status_survives_flush() {
+  SingleGroupStreams streams;
+  streams.live.fill(false);
+  streams.live[0] = streams.live[1] = true;
+  streams.heads[0].t = streams.heads[1].t = 1;
+  streams.heads[1].coverage = NAN;
+  auto copy = streams;
+  int count = 0;
+  auto result = Raycast::trace_events(copy, {0, 2}, {}, [&](const auto &) {
+    ++count;
+    return false;
+  });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(count, 1);
+  HS_EXPECT_EQ(result.counters.layers, 1);
+  copy = streams;
+  Raycast::TraceLimits limits;
+  limits.max_layers = 0;
+  result = Raycast::trace_events(copy, {0, 2}, limits,
+                                 [](const auto &) { return false; });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.counters.layers, 0);
+
+  struct InvalidAfterAdvance : SingleGroupStreams {
+    void advance(size_t i) {
+      live[i] = false;
+      heads[1].t = NAN;
+      live[1] = true;
+    }
+  } invalid;
+  invalid.live.fill(false);
+  invalid.live[0] = true;
+  invalid.heads[0].t = 1;
+  result = Raycast::trace_events(invalid, {0, 2}, {},
+                                 [](const auto &) { return false; });
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(result.counters.layers, 1);
+}
+
 inline int run_ray_event_tests() {
   const auto MODULE = hs_test::begin_module("ray_events");
   test_static_depth_appearance();
   test_single_group_capacity();
+  test_failure_status_survives_flush();
   Streams streams;
   for (size_t i = 0; i < streams.STREAM_COUNT; ++i) {
     streams.heads[i].t = static_cast<float>(5 - i);
