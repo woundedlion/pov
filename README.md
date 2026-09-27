@@ -348,9 +348,10 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    42 headers covering 41 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    43 headers covering 41 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
-│                                shared base ReactionDiffusionBase.h; the
+│                                shared base ReactionDiffusionBase.h and optional
+│                                HyperLatticeExperimental.h rendering adapter; the
 │                                composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
 │
