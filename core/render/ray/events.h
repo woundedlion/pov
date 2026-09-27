@@ -40,12 +40,14 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
   const auto flush = [&]() __attribute__((always_inline)) {
     for (size_t i = 0; i < grouped; ++i) {
       if (result.counters.layers >= limits.max_layers) {
-        result.status = TraceStatus::BUDGET_EXHAUSTED;
+        if (result.status != TraceStatus::INVALID_QUERY)
+          result.status = TraceStatus::BUDGET_EXHAUSTED;
         return false;
       }
       ++result.counters.layers;
       if (!consume(group[i])) {
-        result.status = TraceStatus::SATURATED;
+        if (result.status != TraceStatus::INVALID_QUERY)
+          result.status = TraceStatus::SATURATED;
         return false;
       }
     }
@@ -62,24 +64,21 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
       const float t = adapter.distance(i);
       if (!finite(t)) {
         result.status = TraceStatus::INVALID_QUERY;
-        flush();
-        return result;
+        first = COUNT;
+        break;
       }
       if (t < nearest || (first == COUNT && t == interval.far)) {
         nearest = t;
         first = i;
       }
     }
-    if (first == COUNT) {
-      flush();
-      return result;
-    }
+    if (first == COUNT)
+      break;
     if (grouped && nearest > group_end && !flush())
       return result;
     if (result.counters.candidates >= limits.max_candidates) {
       result.status = TraceStatus::BUDGET_EXHAUSTED;
-      flush();
-      return result;
+      break;
     }
     ++result.counters.candidates;
     if (nearest >= interval.near) {
@@ -89,8 +88,7 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
           candidate.coverage > 1 ||
           (candidate.has_normal && !finite(candidate.normal))) {
         result.status = TraceStatus::INVALID_QUERY;
-        flush();
-        return result;
+        break;
       }
       if (candidate.coverage > 0) {
         if (!grouped)
@@ -103,8 +101,7 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
           ++slot;
         if (slot == CAPACITY) {
           result.status = TraceStatus::BUDGET_EXHAUSTED;
-          flush();
-          return result;
+          break;
         }
         if (slot == grouped)
           group[grouped++] = candidate;
@@ -118,10 +115,11 @@ trace_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
     adapter.advance(first);
     if (adapter.active(first) && !(adapter.distance(first) > nearest)) {
       result.status = TraceStatus::INVALID_QUERY;
-      flush();
-      return result;
+      break;
     }
   }
+  flush();
+  return result;
 }
 
 } // namespace Raycast
