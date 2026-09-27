@@ -1,0 +1,32 @@
+{
+  "ship": {
+    "first": 2,
+    "last": 1577,
+    "frames": 1576,
+    "previous": {
+      "mean_ms": 45.10503807106599,
+      "peak_ms": 55.579,
+      "spills": 0
+    },
+    "current": {
+      "mean_ms": 45.10603236040609,
+      "peak_ms": 55.509,
+      "spills": 0
+    }
+  },
+  "o3": {
+    "first": 2,
+    "last": 1577,
+    "frames": 1576,
+    "previous": {
+      "mean_ms": 44.883475888324874,
+      "peak_ms": 54.879,
+      "spills": 0
+    },
+    "current": {
+      "mean_ms": 44.88436421319797,
+      "peak_ms": 54.817,
+      "spills": 0
+    }
+  }
+}

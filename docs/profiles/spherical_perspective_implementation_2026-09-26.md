@@ -165,9 +165,10 @@ windows; frame 1 is setup and is separately excluded.
 
 Setup renders are 77.287, 67.786, 77.272, and 76.882 ms respectively. Both
 cycling captures visit both presets and wrap, with monotone frame numbering.
-The [shipping report](shipping/profile_hyperlattice_teensy_2026-09-26.md) and
-[O3 report](O3/profile_hyperlattice_teensy_2026-09-26.md) provide counter trees,
-complete-window statistics, ISR accounting, and raw/provenance links.
+The refreshed [shipping report](shipping/profile_hyperlattice_teensy_2026-09-27.md)
+and [O3 report](O3/profile_hyperlattice_teensy_2026-09-27.md) provide current
+counter trees, ISR accounting, and frame-matched comparisons with these
+captures. The figures above retain their original 2026-09-26 evidence.
 
 The pre-optimization extracted 4D image averaged 70.988 ms and spilled on
 531 of 567 runtime frames. The final fixed capture averages 49.725 ms with

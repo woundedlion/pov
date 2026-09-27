@@ -33,7 +33,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-26.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 58.32 (13) | 🟢 0/6688 (0.0%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-08-26 03:31<br>O3 2026-08-26 02:10 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-19.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 57.45 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-19 22:17<br>O3 2026-09-19 22:19 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-20.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 56.04 | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-20 22:51<br>O3 2026-09-20 23:07 |
-| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-26.md) / [O3](O3/profile_hyperlattice_teensy_2026-09-26.md) § ● | `hl_shader_draw` | 🟢 55.579 (2) | 🟢 54.879 (2) | 🟢 0/1896 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-26 23:54<br>O3 2026-09-26 23:52 |
+| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-27.md) / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 55.509 (2) | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-27 01:02<br>O3 2026-09-27 01:05 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-26.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 56.16 | 🟢 0/2048 (0.0%) | 🟢 0/2048 (0%) | +13,224 B | +11,280 B | ship 2026-08-26 01:28<br>O3 2026-08-26 01:25 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-26.md) / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 52.79 (9) | 🟢 0/1728 (0.0%) | 🟢 0/1728 (0%) | +22,800 B | +20,400 B | ship 2026-08-26 07:40<br>O3 2026-08-26 07:45 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-08-26.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🔴 79.81 | 🟢 0/1088 (0.0%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-08-26 02:47<br>O3 2026-08-26 02:45 |
@@ -81,4 +81,4 @@ Captured timestamps are local raw-log mtimes.
 probe and are independent of the on-device timing tables.
 
 
-● HyperLattice refreshed on 2026-09-26: both presets and transitions; setup frame 1 excluded.
+● HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 1 excluded.
