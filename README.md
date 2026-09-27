@@ -322,7 +322,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            pixel_chromatic_shift, pixel_feedback)
 │   │   ├── sdf.h                   SDF shapes, CSG operators and volumes: umbrella over sdf/
 │   │   ├── sdf/                    Per-family SDF headers (common, shapes, rings,
-│   │   │                            csg, face, volume)
+│   │   │                            csg, face, volume, framework, lattice_field,
+│   │   │                            periodic_surface)
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
 │   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters and shared marching
