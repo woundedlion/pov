@@ -14,7 +14,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Raymarch](profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 0/1736 (0.00%) | 2026-09-20 22:51 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 0/2048 (0.0%) | 2026-08-26 01:28 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 0/1728 (0.0%) | 2026-08-26 07:40 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-08-26.md) § | `hl_shader_draw` | 🟢 51.19 (4) | 🟢 0/2688 (0.0%) | 2026-08-26 03:32 |
+| [HyperLattice — preset 2](profile_hyperlattice_teensy_2026-09-26.md) ● | `hl_shader_draw` | 🟢 50.095 | 🟢 0/1087 (0.00%) | 2026-09-26 21:25 |
 | [AshCloud](profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🟢 0/1088 (0.0%) | 2026-08-26 02:47 |
 | [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 49.920 | 🟢 0/1087 (0.0%) | 2026-09-24 20:15 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.91 | 🟢 0/2048 (0.0%) | 2026-08-26 01:20 |
@@ -60,7 +60,6 @@ Spill fractions include the transition following an entry and are stricter than 
 - **IslamicStars**: 23 shape ownership buckets including transitions; setup frame 1 excluded. The unlanded finding 2 candidate completes the full cycle. The controlled baseline comparison is no longer retained.
 - **MeshFeedback**: 13 parser ownership buckets spanning 47.02–58.30 ms; the sequence closes back to its first entry.
 - **ShapeShifter**: 9 distinct presets with live peaks spanning 10.007–58.395 ms; repeated visits after wrap are merged.
-- **HyperLattice**: 4 parser ownership buckets spanning 41.77–51.19 ms; the sequence closes back to its first entry.
 - **HankinSolids**: 19 parser ownership buckets spanning 19.66–45.01 ms; the sequence closes back to its first entry.
 - **LatticeMelt**: 3 parser ownership buckets spanning 42.00–43.73 ms; the sequence closes back to its first entry.
 - **KaleidoscopeMandala**: 3 parser ownership buckets spanning 35.91–40.29 ms; the sequence closes back to its first entry.
@@ -76,3 +75,5 @@ Spill fractions include the transition following an entry and are stricter than 
 
 Shipping reports in this directory correspond exactly to
 `HS_PHANTASM_EFFECT_LIST`.
+
+● HyperLattice refreshed on 2026-09-26: fixed Preset 2 only; not an all-preset ranking. Setup frame 1 is excluded.

@@ -1,0 +1,82 @@
+{
+  "ship": {
+    "n": 1087,
+    "first": 2,
+    "last": 1088,
+    "peak": 50.095,
+    "mean": 44.20042410303588,
+    "spill": 0,
+    "wall": 62.43976264949402,
+    "startup": 60.086,
+    "captured": "2026-09-26 21:25",
+    "sizes": {
+      "flash": {
+        "used": 220160,
+        "free": 1811456,
+        "components": {
+          "code": 63440,
+          "data": 148524,
+          "headers": 8196
+        }
+      },
+      "ram1": {
+        "used": 347712,
+        "free": 176576,
+        "components": {
+          "variables": 314944,
+          "code": 20824,
+          "padding": 11944
+        }
+      },
+      "ram2": {
+        "used": 520064,
+        "free": 4224,
+        "components": {
+          "variables": 520064
+        }
+      }
+    },
+    "pct": 0.0,
+    "color": "\ud83d\udfe2"
+  },
+  "o3": {
+    "n": 1087,
+    "first": 2,
+    "last": 1088,
+    "peak": 49.664,
+    "mean": 43.705391904323825,
+    "spill": 0,
+    "wall": 62.43351517939282,
+    "startup": 59.426,
+    "captured": "2026-09-26 21:27",
+    "sizes": {
+      "flash": {
+        "used": 231424,
+        "free": 1800192,
+        "components": {
+          "code": 73696,
+          "data": 148712,
+          "headers": 9016
+        }
+      },
+      "ram1": {
+        "used": 347744,
+        "free": 176544,
+        "components": {
+          "variables": 314976,
+          "code": 29336,
+          "padding": 3432
+        }
+      },
+      "ram2": {
+        "used": 520064,
+        "free": 4224,
+        "components": {
+          "variables": 520064
+        }
+      }
+    },
+    "pct": 0.0,
+    "color": "\ud83d\udfe2"
+  }
+}

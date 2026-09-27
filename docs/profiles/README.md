@@ -35,7 +35,7 @@ minus shipping bytes from each pair's own image-size reports.
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-20.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 56.04 | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-20 22:51<br>O3 2026-09-20 23:07 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-08-26.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-08-26.md) | `grd_render` | 🟢 55.26 | 🟢 56.16 | 🟢 0/2048 (0.0%) | 🟢 0/2048 (0%) | +13,224 B | +11,280 B | ship 2026-08-26 01:28<br>O3 2026-08-26 01:25 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-08-26.md) / [O3](O3/profile_mindsplatter_teensy_2026-08-26.md) § | `msp_draw_particles` | 🟢 52.77 (9) | 🟢 52.79 (9) | 🟢 0/1728 (0.0%) | 🟢 0/1728 (0%) | +22,800 B | +20,400 B | ship 2026-08-26 07:40<br>O3 2026-08-26 07:45 |
-| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-08-26.md) / [O3](O3/profile_hyperlattice_teensy_2026-08-26.md) § | `hl_shader_draw` | 🟢 51.19 (4) | 🟢 49.92 (4) | 🟢 0/2688 (0.0%) | 🟢 0/2688 (0%) | +10,152 B | +7,728 B | ship 2026-08-26 03:32<br>O3 2026-08-26 02:37 |
+| [HyperLattice — preset 2](shipping/profile_hyperlattice_teensy_2026-09-26.md) / [O3](O3/profile_hyperlattice_teensy_2026-09-26.md) ● | `hl_shader_draw` | 🟢 50.095 | 🟢 49.664 | 🟢 0/1087 (0.00%) | 🟢 0/1087 (0.00%) | +10,256 B | +8,512 B | ship 2026-09-26 21:25<br>O3 2026-09-26 21:27 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-08-26.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 50.09 | 🔴 79.81 | 🟢 0/1088 (0.0%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-08-26 02:47<br>O3 2026-08-26 02:45 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-09-24.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 49.920 | 🟢 50.750 | 🟢 0/1087 (0.0%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-09-24 20:15<br>O3 2026-09-24 20:18 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-08-26.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.91 | 🟢 48.65 | 🟢 0/2048 (0.0%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-08-26 01:20<br>O3 2026-08-26 01:16 |
@@ -79,3 +79,5 @@ Captured timestamps are local raw-log mtimes.
 
 [Arena high-water measurements](memory/arena_high_water.md) come from a host
 probe and are independent of the on-device timing tables.
+
+● HyperLattice refreshed on 2026-09-26: fixed Preset 2 only; not an all-preset ranking. Setup frame 1 is excluded.
