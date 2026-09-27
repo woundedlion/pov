@@ -757,11 +757,13 @@ previous one cannot:
    be established the segment stays dark — with the wire hard by construction
    (§9), that is the correct terminal fail-state, and it is visible at a glance
    rather than subtly wrong.
-4. **Confirmation before a mid-show index change:** the position-weighted
+4. **Confirmation before a mid-show index change:** the XOR
    checksum catches any single mis-counted digit, but not a *shift* — a stray
    burst in the quiet ahead of digit 0 pushes the frame along by one digit, and
-   exactly one of the eight intruder values re-satisfies the weighted sum, so
-   p = 1/8 of such shifts decode as a valid *and wrong* `(index, rev)`.
+   exactly one of the eight intruder values re-satisfies the parity check.
+   Under a uniform intruder-value model,
+   one in eight such shifts passes the check and may name a wrong `(index, rev)`;
+   this is not a physical noise probability.
    Applying one would tear down a healthy effect and display the wrong one
    until the next beacon — a fail-*wrong* window. So a board that already knows
    its index requires **two consecutive beacons naming the same new index**
@@ -785,12 +787,19 @@ separated *in time* on the same wire.
   1-column pitch, bursts separated by five quiet columns (one past the gap
   timeout, so the decoder reliably terminates each digit):
   `[index_hi, index_lo, rev_hi, rev_lo, checksum]` — effect index (0–63),
-  revolution-count-within-effect mod 64, and a position-weighted
-  `Σ(i+1)·dᵢ mod 8` checksum (weighting the four data digits 1–4 so digit
-  transpositions and compensating miscounts — which a plain sum passes — are
-  rejected, at no extra wire cost). Fixed digit
+  revolution-count-within-effect mod 64, and a three-bit XOR checksum
+  `index_hi ^ index_lo ^ rev_hi ^ rev_lo` (addition in GF(8)).
+  Every substitution of one of the five digits by a different base-8 value
+  changes the parity and is rejected. Multiple changed digits, including
+  transpositions and equal XOR changes in two positions, can pass. Fixed digit
   count = end-of-frame detection; total worst-case length ≈ 23.9 ms (five 7-column pulse spans plus four 5-column gaps) at 1-column
   pitch, comfortably inside the half-rev.
+- **Wire compatibility:** all boards on a sync wire must use this XOR codec.
+  Update the master and every receiver together while the system is stopped;
+  mixed firmware with the legacy weighted-sum checksum is unsupported. The
+  frame has no version field, and the two codebooks overlap, so receivers
+  cannot reliably identify legacy frames. There is no legacy-checksum fallback:
+  accepting either checksum would lose the single-symbol rejection guarantee.
 - **Integrity model:** unlike boundary symbols (exactness via pitch > M, §5.2),
   the beacon tolerates corruption by *rejection*: any checksum mismatch, wrong
   digit count, or out-of-range digit drops the whole frame — the next beacon
