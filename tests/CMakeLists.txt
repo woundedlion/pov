@@ -331,7 +331,7 @@ enable_testing()
 set(_hs_test_modules
     3dmath concepts memory spatial scb sdf ray conway conway_morph conway_continuity
     partition_seam
-    conway_soak opchain_probe opchain_arena_survey hankin hyper_lattice geometry
+    conway_soak opchain_probe opchain_arena_survey hankin hyper_lattice ray_events geometry
     spherical_field spherical_harmonics
     mesh solids
     reaction_graph color palettes easing_waves interpolate platform profiling

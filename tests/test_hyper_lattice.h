@@ -11,7 +11,73 @@
 namespace hs_test {
 namespace hyper_lattice_tests {
 
-namespace HL = HyperLatticeDetail;
+namespace HL {
+using Params = HyperLatticeDetail::Params;
+using FrameState = HyperLatticeDetail::FrameState;
+using ColorMode = HyperLatticeDetail::ColorMode;
+using LatticeMode = HyperLatticeDetail::LatticeMode;
+using ShellCount = HyperLatticeDetail::ShellCount;
+using RenderPipeline = HyperLatticeDetail::RenderPipeline;
+template <uint8_t N>
+using SpecializedRenderPipeline =
+    HyperLatticeDetail::SpecializedRenderPipeline<N>;
+using HyperLatticeDetail::pixel_half_angle;
+using namespace SDF::Lattice;
+struct PreparedTrace : SDF::Lattice::PreparedTrace {
+  Raycast::Appearance appearance;
+  float near_start, near_inv_span, inv_far;
+};
+inline PreparedTrace prepare_trace(const FrameState &frame) {
+  const auto p = HyperLatticeDetail::prepare_trace(frame);
+  return {p.lattice, p.appearance, p.appearance.near_start,
+          p.appearance.near_inv_span, p.appearance.inv_far};
+}
+inline float near_field_coverage(float t, float start, float inverse) {
+  return math::cubic_kernel((t - start) * inverse);
+}
+template <bool SLICE = false, uint8_t SHELLS = 0>
+auto trace_plane(const math::Vec4 &origin, const math::Vec4 &direction,
+                 int axis, float distance, float step,
+                 const PreparedTrace &prepared) {
+  auto result = SDF::Lattice::trace_plane<SLICE, SHELLS>(
+      origin, direction, axis, distance, step, prepared);
+  result.coverage *= prepared.appearance.opacity(distance);
+  return result;
+}
+template <typename Consume>
+void trace_layers(const math::Vector &normal, const PreparedTrace &prepared,
+                  Consume consume) {
+  SDF::Lattice::Events<> events(normal, prepared);
+  Raycast::trace_events(
+      events, {0, prepared.far_distance}, {},
+      [&](const Raycast::Contribution &hit) {
+        const float coverage =
+            hit.coverage * prepared.appearance.opacity(hit.t);
+        return coverage <= 0 ||
+               consume(TraceHit{coverage, hit.t,
+                                static_cast<uint8_t>(hit.feature)});
+      });
+}
+inline TraceHit trace(const math::Vector &normal,
+                      const PreparedTrace &prepared) {
+  TraceHit result;
+  trace_layers(normal, prepared, [&](const TraceHit &hit) {
+    result = hit;
+    return false;
+  });
+  return result;
+}
+template <bool SLICE = false, uint8_t SHELLS = 0>
+Color4 shade_mode(const Pullback::SphereSample &input, const FrameState &frame,
+                  const PreparedTrace &prepared) {
+  return HyperLatticeDetail::Renderer<SLICE, SHELLS>::shade(
+      input.dir, frame, {prepared, prepared.appearance});
+}
+inline Color4 shade(const Pullback::SphereSample &input,
+                    const FrameState &frame, const PreparedTrace &prepared) {
+  return shade_mode(input, frame, prepared);
+}
+} // namespace HL
 
 struct HyperLatticeWhiteBox {
   using Effect = HyperLattice<96, 20>;
@@ -105,7 +171,7 @@ inline void test_so4_rotation() {
 
 inline void test_dimensional_rotation_wrap_is_continuous() {
   HL::FrameState frame{};
-  frame.params.mode = HL::LatticeMode::DIMENSIONAL_RIFT;
+  frame.params.mode = HL::LatticeMode::FOUR_D_SLICE;
   frame.rotation_phase[3] = math::TWO_PI_F - 1.0e-4f;
   const math::Vec4 before = HL::prepare_trace(frame).world_to_lattice.apply(
       {{1.0f, 0.0f, 0.0f, 0.0f}});
@@ -163,8 +229,7 @@ inline void test_near_field_fade() {
                1.0f);
   HS_EXPECT_EQ(HL::near_field_coverage(0.4f, NEAR_START, NEAR_INV_SPAN), 1.0f);
   for (HL::LatticeMode mode :
-       {HL::LatticeMode::THREE_D, HL::LatticeMode::DIMENSIONAL_RIFT,
-        HL::LatticeMode::FOUR_D_SLICE}) {
+       {HL::LatticeMode::THREE_D, HL::LatticeMode::FOUR_D_SLICE}) {
     for (float radius : {0.0f, 1.0f, 2.0f}) {
       for (float cell_size : {0.25f, 1.0f, 10.0f}) {
         HL::FrameState frame{};
@@ -733,6 +798,58 @@ inline void test_presets_and_pipeline() {
   }
 }
 
+inline void test_configuration_adoption_and_snapshots() {
+  reset_globals();
+  using Effect = HyperLatticeWhiteBox::Effect;
+  Effect effect;
+  effect.init();
+  const auto initial = effect.serialize_parameters();
+  auto stale = initial;
+  stale.schema_version = 9;
+  stale.params.cell_size = 5;
+  HS_EXPECT_FALSE(effect.restore_parameters(stale));
+  HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size,
+               initial.params.cell_size);
+  auto invalid = initial;
+  invalid.params.mode = static_cast<HL::LatticeMode>(2);
+  HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+  HS_EXPECT_EQ(effect.serialize_parameters().params.mode, initial.params.mode);
+  HS_EXPECT_EQ(effect.updateParameter("4D Spin", .01f),
+               ParamSetResult::READONLY);
+  const auto schema = effect.getParameterSchemaGeneration();
+  HS_EXPECT_EQ(effect.updateParameter("Cell Size", 5), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Configuration", 1),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size,
+               Effect::preset_params(1).cell_size);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.wire_radius,
+               Effect::preset_params(1).wire_radius);
+  HS_EXPECT_GT(effect.getParameterSchemaGeneration(), schema);
+  HS_EXPECT_EQ(effect.updateParameter("4D Spin", .01f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_TRUE(effect.restore_parameters(initial));
+  HS_EXPECT_TRUE(effect.getParameters().find("4D Spin")->readonly);
+  HL::Params start = Effect::preset_params(0);
+  HL::Params target = Effect::preset_params(1);
+  target.cell_size = 4;
+  HL::Params mixed;
+  for (float t : {.0f, .1f, .49f, .5f, .75f, 1.f}) {
+    mixed.lerp(start, target, t);
+    const auto &expected = t < .5f ? start : target;
+    HS_EXPECT_EQ(mixed.cell_size, expected.cell_size);
+    HS_EXPECT_EQ(mixed.sphere_radius, expected.sphere_radius);
+    HS_EXPECT_EQ(mixed.wire_radius, expected.wire_radius);
+    HS_EXPECT_EQ(mixed.speed, expected.speed);
+    HS_EXPECT_EQ(mixed.spin_3d, expected.spin_3d);
+    HS_EXPECT_EQ(mixed.spin_4d, expected.spin_4d);
+    HS_EXPECT_EQ(mixed.shells, expected.shells);
+  }
+  target.mode = start.mode;
+  mixed.lerp(start, target, .25f);
+  HS_EXPECT_EQ(mixed.cell_size,
+               hs::lerp(start.cell_size, target.cell_size, .25f));
+}
+
 inline void test_dimension_dropdown_and_mode_lerp() {
   reset_globals();
   using Effect = HyperLatticeWhiteBox::Effect;
@@ -760,18 +877,17 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   const ParamDef *far_distance = effect.getParameters().find("Far Distance");
   HS_EXPECT_TRUE(far_distance != nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("Far Cells") == nullptr);
-  const ParamDef *dimension = effect.getParameters().find("Dimension");
+  const ParamDef *dimension = effect.getParameters().find("Configuration");
   HS_EXPECT_TRUE(dimension != nullptr);
   HS_EXPECT_TRUE(dimension->is_enum());
-  HS_EXPECT_EQ(dimension->option_count, 3);
-  HS_EXPECT_EQ(std::string_view(dimension->options[0]), std::string_view("3D"));
+  HS_EXPECT_EQ(dimension->option_count, 2);
+  HS_EXPECT_EQ(std::string_view(dimension->options[0]),
+               std::string_view("Cubic / 3D"));
   HS_EXPECT_EQ(std::string_view(dimension->options[1]),
-               std::string_view("Dimensional Rift"));
-  HS_EXPECT_EQ(std::string_view(dimension->options[2]),
-               std::string_view("4D Slice"));
-  HS_EXPECT_EQ(std::string_view(dimension->export_options[2]),
+               std::string_view("Cubic / 4D slice"));
+  HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
                std::string_view("LatticeMode::FOUR_D_SLICE"));
-  HS_EXPECT_EQ(effect.updateParameter("Dimension", 2.0f),
+  HS_EXPECT_EQ(effect.updateParameter("Configuration", 1.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).mode,
                HL::LatticeMode::FOUR_D_SLICE);
@@ -784,63 +900,6 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   HS_EXPECT_EQ(blended.mode, HL::LatticeMode::THREE_D);
   blended.lerp(start, target, 0.5f);
   HS_EXPECT_EQ(blended.mode, HL::LatticeMode::FOUR_D_SLICE);
-}
-
-/**
- * @brief DIMENSIONAL_RIFT traces the blended edge metric: the pure modes'
- * planes, at coverage between theirs.
- * @details The hyper metric adds the w component the cubic metric ignores, so
- * a small w puts the rift's blend strictly between the two on the same plane.
- */
-inline void test_dimensional_rift_layers() {
-  HL::FrameState frame{};
-  frame.params = HyperLattice<96, 20>::preset_params(0);
-  frame.params.sphere_radius = 0.0f;
-  frame.origin = {{0.25f, 0.02f, 0.03f, 0.05f}};
-  const auto nearest = [&](HL::LatticeMode mode) {
-    frame.params.mode = mode;
-    return HL::trace(math::X_AXIS, HL::prepare_trace(frame));
-  };
-  const HL::TraceHit cubic = nearest(HL::LatticeMode::THREE_D);
-  const HL::TraceHit hyper = nearest(HL::LatticeMode::FOUR_D_SLICE);
-  const HL::TraceHit rift = nearest(HL::LatticeMode::DIMENSIONAL_RIFT);
-  HS_EXPECT_EQ(HL::prepare_trace(frame).dimension_mix,
-               HL::DIMENSIONAL_RIFT_MIX);
-  HS_EXPECT_GT(hyper.coverage, 0.0f);
-  HS_EXPECT_NEAR(rift.distance, cubic.distance, 1e-6f);
-  HS_EXPECT_NEAR(rift.distance, hyper.distance, 1e-6f);
-  HS_EXPECT_GT(cubic.coverage, rift.coverage);
-  HS_EXPECT_GT(rift.coverage, hyper.coverage);
-  HS_EXPECT_EQ(cubic.free_axis, uint8_t(2));
-  HS_EXPECT_EQ(hyper.free_axis, uint8_t(3));
-  HS_EXPECT_EQ(rift.free_axis, hyper.free_axis);
-
-  frame.params.sphere_radius = 1.0f;
-  frame.origin = {{0.17f, 0.31f, 0.43f, 0.59f}};
-  frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
-  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  static constexpr math::Vector DIRECTIONS[] = {
-      {1.0f, 0.0f, 0.0f},
-      {0.0f, 1.0f, 0.0f},
-      {0.0f, 0.0f, 1.0f},
-      {0.577350269f, 0.577350269f, 0.577350269f},
-      {-0.707106781f, 0.707106781f, 0.0f},
-      {0.301511345f, -0.904534034f, 0.301511345f},
-  };
-  int layers = 0;
-  for (const math::Vector &direction : DIRECTIONS) {
-    float previous_distance = 0.0f;
-    HL::trace_layers(direction, prepared, [&](const HL::TraceHit &hit) {
-      HS_EXPECT_GT(hit.coverage, 0.0f);
-      HS_EXPECT_LE(hit.coverage, 1.0f);
-      HS_EXPECT_GT(hit.distance, previous_distance);
-      HS_EXPECT_LT(hit.free_axis, uint8_t(HL::DIMENSIONS));
-      previous_distance = hit.distance;
-      ++layers;
-      return true;
-    });
-  }
-  HS_EXPECT_GT(layers, 0);
 }
 
 /**
@@ -934,8 +993,8 @@ inline int run_hyper_lattice_tests() {
   test_specialized_slice_transition();
   test_specialized_render_signature();
   test_presets_and_pipeline();
+  test_configuration_adoption_and_snapshots();
   test_dimension_dropdown_and_mode_lerp();
-  test_dimensional_rift_layers();
   test_axis_color_and_single_shell();
   return fixture.result();
 }

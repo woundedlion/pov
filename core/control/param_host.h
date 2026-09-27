@@ -262,11 +262,13 @@ protected:
    * @details The GUI keeps showing its live value but disables editing. Use for
    * output-only values clobbered every frame (e.g. an active-particle count).
    */
-  void mark_readonly(const char *name) {
+  void mark_readonly(const char *name, bool readonly = true) {
     auto *def = parameters.find(name);
     HS_CHECK(def, "mark_readonly: unknown parameter name name=%s", name);
-    def->readonly = true;
-    parameters.bump_schema_generation();
+    if (def->readonly != readonly) {
+      def->readonly = readonly;
+      parameters.bump_schema_generation();
+    }
   }
 
   /** @brief Excludes a global parameter from preset exports. */

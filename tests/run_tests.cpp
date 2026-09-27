@@ -32,6 +32,7 @@
 #include "tests/test_opchain_arena_survey.h"
 #include "tests/test_hankin.h"
 #include "tests/test_hyper_lattice.h"
+#include "tests/test_ray_events.h"
 #include "tests/test_geometry.h"
 #include "tests/test_spherical_field.h"
 #include "tests/test_spherical_harmonics.h"
@@ -117,6 +118,7 @@ struct TestModule {
   X("opchain_arena_survey",                                                    \
     hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests)       \
   X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
+  X("ray_events", hs_test::ray_event_tests::run_ray_event_tests)               \
   X("hyper_lattice", hs_test::hyper_lattice_tests::run_hyper_lattice_tests)    \
   X("geometry", hs_test::geometry_tests::run_geometry_tests)                   \
   X("spherical_field",                                                         \
