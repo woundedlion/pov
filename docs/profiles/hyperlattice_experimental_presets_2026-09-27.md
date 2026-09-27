@@ -20,7 +20,7 @@ the total query budget. Step and refinement caps equal that budget.
 All three begin at radial offset zero with depth coloring, near fade 0.08,
 flight phase speed 0.008 and 3D spin 0.0024 per frame. The framework's far
 distance is 4.5, with wire radius 0.055 cells. The camera follows a bounded,
-continuous orbit around (0.17, 0.31, 0.43) cells, without cell-wrap jumps.
+continuous world-space orbit around (0.255, 0.465, 0.645), without cell-wrap jumps.
 Pause stops preset choreography; spatial motion and palette cycling continue.
 
 Unresolved, invalid, unsupported, or exhausted searches increment the read-only
@@ -37,8 +37,9 @@ at their midpoint. Schema 11 rejects older snapshots without mutation. Lattice
 Planes and Softness are read-only for every experiment; Wire Radius and AA
 Strength are additionally read-only for periodic surfaces. 4D Spin is read-only
 outside the 4D cubic configuration. Cell Size changes the framework spacing or
-surface period; camera distances retain their world-unit convention after the
-effect converts its cell-relative radial start.
+surface period without moving the camera. Experimental Sphere Radius, near
+fade, and far distance use world units; the legacy cubic radial start remains
+cell-relative for compatibility.
 
 ## Build availability
 
