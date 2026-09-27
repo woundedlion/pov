@@ -230,7 +230,7 @@ struct DistortedRingStack {
       y_hi = std::max(y_hi, b.y_max);
       b_max = std::max(b_max, shapes[s].max_thickness);
     }
-    const auto &cr = canvas.clip();
+    const auto &cr = source_clip<W, H>(pipeline, canvas);
     const auto xc = cr.x_clip();
     y_lo = std::max(y_lo, cr.render_y_start());
     y_hi = std::min(y_hi, cr.render_y_end() - 1);
@@ -510,7 +510,7 @@ struct RingGroup {
       y_lo = std::min(y_lo, b.y_min);
       y_hi = std::max(y_hi, b.y_max);
     }
-    const auto &cr = canvas.clip();
+    const auto &cr = source_clip<W, H>(pipeline, canvas);
     y_lo = std::max(y_lo, cr.render_y_start());
     y_hi = std::min(y_hi, cr.render_y_end() - 1);
     if (y_lo > y_hi)

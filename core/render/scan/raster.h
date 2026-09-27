@@ -262,6 +262,24 @@ inline void check_pipeline_prepared(PipelineT &pipeline, Canvas &canvas) {
 }
 
 /**
+ * @brief Source footprint for a scan whose pipeline may move world positions.
+ * @param pipeline Destination pipeline, typed or erased.
+ * @param canvas Destination canvas.
+ * @return Full source domain for world transforms, otherwise the render clip.
+ */
+template <int W, int H, typename PipelineT>
+inline const ClipRegion &source_clip(const PipelineT &pipeline,
+                                     const Canvas &canvas) {
+  if constexpr (requires { pipeline.world_transform_is_identity; }) {
+    if (!pipeline.world_transform_is_identity) {
+      static constexpr ClipRegion FULL{0, H, 0, W, 0, W, H};
+      return FULL;
+    }
+  }
+  return canvas.clip();
+}
+
+/**
  * @brief Validates that a type-erased fragment shader refers to a callable.
  * @param fragment_shader Shader the draw invokes per pixel.
  * @details Checked once per draw, not per pixel: FunctionRef::operator() guards
@@ -793,7 +811,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
-  const auto &cr = canvas.clip();
+  const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
   auto bounds = shape.template get_vertical_bounds<H>();
   if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi))
@@ -847,7 +865,7 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
-  const auto &cr = canvas.clip();
+  const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
   auto bounds = shape.template get_vertical_bounds<H>();
   if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi) ||

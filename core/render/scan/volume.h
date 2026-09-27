@@ -403,7 +403,7 @@ struct Volume {
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
 
     // Clamp volume bounds to clip region
-    const auto &cr = canvas.clip();
+    const auto &cr = source_clip<W, H>(pipeline, canvas);
     const auto vol_xc = cr.x_clip();
     int vol_y_lo, vol_y_hi;
     if (!clamp_rows_to_clip(bounds, cr, vol_y_lo, vol_y_hi))

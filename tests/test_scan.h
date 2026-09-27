@@ -3346,6 +3346,61 @@ inline void test_scan_epilogue_contract() {
   }
 }
 
+/** @brief Replicated source pixels survive destination-band clipping. */
+inline void test_replicated_clip_matches_full_frame() {
+  constexpr int W = 96, H = 48;
+  const Color4 COLOR(Pixel(50000, 30000, 10000), 0.8f);
+  const math::Vector NORMAL(0, 0, -1);
+  const math::Basis BASIS = math::make_basis(math::Quaternion(), NORMAL);
+  for (int count : {2, 3}) {
+    for (bool solid : {false, true}) {
+      std::vector<Pixel> expected(W * H);
+      for (int band = -1; band < 5; ++band) {
+        StubEffect effect(W, H);
+        effect.set_margin(0);
+        const int X0 = band < 0   ? 0
+                       : band < 2 ? band * W / 2
+                                  : (band - 2) * W / 3;
+        const int X1 = band < 0   ? W
+                       : band < 2 ? (band + 1) * W / 2
+                                  : (band - 1) * W / 3;
+        effect.set_clip(0, H, X0, X1);
+        Pipeline<W, H, Filter::World::Replicate<W>> pipeline(count);
+        {
+          Canvas canvas(effect);
+          auto shader = [&](const math::Vector &, Fragment &fragment) {
+            fragment.color = COLOR;
+          };
+          if (solid) {
+            SDF::PlanarPolygon shape(BASIS, 0.2f, 5, 0.0f);
+            Scan::rasterize_solid<W, H>(pipeline, canvas, shape, COLOR);
+          } else {
+            Scan::Circle::draw<W, H>(pipeline, canvas, NORMAL, 0.1f, shader);
+          }
+        }
+        effect.advance_display();
+        int lit = 0;
+        for (int y = 0; y < H; ++y) {
+          for (int x = 0; x < W; ++x) {
+            const Pixel actual = effect.get_pixel(x, y);
+            if (band < 0) {
+              expected[y * W + x] = actual;
+              if (x < W / 2 && (actual.r || actual.g || actual.b))
+                ++lit;
+            } else {
+              const Pixel want =
+                  x >= X0 && x < X1 ? expected[y * W + x] : Pixel(0, 0, 0);
+              HS_EXPECT_PIXEL(actual, want.r, want.g, want.b);
+            }
+          }
+        }
+        if (band < 0)
+          HS_EXPECT_GT(lit, 0);
+      }
+    }
+  }
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -3357,6 +3412,7 @@ inline void test_scan_epilogue_contract() {
 inline int run_scan_tests() {
   hs_test::ModuleFixture fixture("scan");
 
+  test_replicated_clip_matches_full_frame();
   test_bounding_sphere_initializes_trig();
   test_min_alpha_boundary();
   test_scan_epilogue_contract();
