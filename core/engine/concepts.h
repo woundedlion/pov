@@ -348,7 +348,14 @@ class PipelineRef {
   bool (*cull)(void *, const math::Vector &, const math::Vector &,
                const math::Basis *, CullEdgePredRef);
 
-  template <typename T> PipelineRef(T &t, Erase) : ctx(std::addressof(t)) {
+  template <typename T>
+  PipelineRef(T &t, Erase)
+      : ctx(std::addressof(t)), world_transform_is_identity([] {
+          if constexpr (requires { T::world_transform_is_identity; })
+            return T::world_transform_is_identity;
+          else
+            return true;
+        }()) {
     plot2d = [](void *pipeline, Canvas &cv, float x, float y, const Pixel &c,
                 float age, float alpha) {
       static_cast<T *>(pipeline)->plot(cv, x, y, c, age, alpha);
@@ -385,6 +392,9 @@ class PipelineRef {
   }
 
 public:
+  /** @brief Whether the erased pipeline leaves world positions unchanged. */
+  bool world_transform_is_identity;
+
   /**
    * @brief Wraps any object exposing 2D and 3D plot() methods.
    * @tparam T Pipeline type; must satisfy Plottable, and is excluded from being
