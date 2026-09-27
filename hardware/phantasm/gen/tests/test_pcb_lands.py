@@ -171,10 +171,11 @@ class RoutedBoardLandTests(unittest.TestCase):
 
 
 class PowerInletTests(unittest.TestCase):
-    """The routed inlet and the polarized generator inlet are hand-soldered."""
+    """The routed inlet and generator terminals are hand-soldered."""
 
     SHIPPED = "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
-    KEYED = "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical"
+    TERMINALS = ("phantasm:TerminalBlock_GCT_TBC05-02-1-G-G",
+                 "phantasm:TerminalBlock_GCT_TBC05-03-1-G-G")
 
     def test_schematic_ships_the_unkeyed_header(self):
         footprints = {ref: fp for ref, fp, _, _ in pcb.schematic_components()}
@@ -186,8 +187,8 @@ class PowerInletTests(unittest.TestCase):
                       for node in F(root, "footprint")}
         self.assertEqual(footprints["J1"], self.SHIPPED)
 
-    def test_the_assembly_gate_excludes_both_spellings(self):
-        for footprint in (self.SHIPPED, self.KEYED):
+    def test_the_assembly_gate_excludes_headers_and_terminals(self):
+        for footprint in (self.SHIPPED, *self.TERMINALS):
             with self.subTest(footprint=footprint):
                 self.assertFalse(fab.is_assembled(
                     {"footprint": footprint, "value": "", "dnp": False}))

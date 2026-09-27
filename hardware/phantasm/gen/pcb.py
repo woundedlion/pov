@@ -24,6 +24,9 @@ from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
+LOCAL_FOOTPRINT_DIR = os.path.join(os.path.dirname(HERE), "phantasm.pretty")
+TERMINAL_LIBIDS = tuple(
+    f"phantasm:TerminalBlock_GCT_TBC05-0{pins}-1-G-G" for pins in (2, 3))
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
 UNPLACED_FILE = os.path.join("unplaced", "phantasm_unplaced.kicad_pcb")
@@ -238,7 +241,9 @@ _MOD_CACHE = {}
 def load_mod(libid):
     if libid not in _MOD_CACHE:
         lib, name = libid.split(":", 1)
-        path = os.path.join(FP_DIR, lib + ".pretty", name + ".kicad_mod")
+        directory = LOCAL_FOOTPRINT_DIR if lib == "phantasm" else \
+            os.path.join(FP_DIR, lib + ".pretty")
+        path = os.path.join(directory, name + ".kicad_mod")
         with open(path, encoding="utf-8") as f:
             _MOD_CACHE[libid] = sexp.parse(f.read())[0]
     return _MOD_CACHE[libid]
@@ -346,7 +351,8 @@ def embedded_footprint(ref, libid,
         copy.deepcopy(load_mod(libid))
     if ref == "D_BUS":
         set_d_bus_land_pattern(node)
-    position_reference(node, ref)
+    if libid not in TERMINAL_LIBIDS:
+        position_reference(node, ref)
     return node
 
 
@@ -371,8 +377,12 @@ def reference_bbox(node, ref):
         if prop[1] == "Reference":
             x, y = map(float, sexp.val(prop, "at")[:2])
             half_width = len(ref) * 0.8 * 0.6 + 0.075
-            bounds = (min(bounds[0], x - half_width), min(bounds[1], y - 0.475),
-                      max(bounds[2], x + half_width), max(bounds[3], y + 0.475))
+            half_height = 0.475
+            at = sexp.val(prop, "at")
+            if len(at) > 2 and float(at[2]) % 180 == 90:
+                half_width, half_height = half_height, half_width
+            bounds = (min(bounds[0], x - half_width), min(bounds[1], y - half_height),
+                      max(bounds[2], x + half_width), max(bounds[3], y + half_height))
     return bounds
 
 
@@ -383,6 +393,16 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
     node = embedded_footprint(ref, libid, teensy_model_path)
     refresh_uuids(node)
     set_pad_orientations(node, rot)
+    # Embedded zone vertices use board coordinates; library vertices are local.
+    for zone in F(node, "zone"):
+        for polygon in F(zone, "polygon"):
+            for points in F(polygon, "pts"):
+                for point in F(points, "xy"):
+                    px, py = map(float, point[1:3])
+                    angle = math.radians(rot)
+                    point[1:3] = [
+                        sexp.Sym(fmt(x + px * math.cos(angle) + py * math.sin(angle))),
+                        sexp.Sym(fmt(y - px * math.sin(angle) + py * math.cos(angle)))]
     node[1] = libid
     # strip lib-file-only headers
     node[:] = [c for c in node if not (isinstance(c, list) and c and
@@ -422,7 +442,8 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
             if c[1] == "Reference":
                 c[2] = ref
                 for at in F(c, "at"):
-                    at[3:] = [rot]
+                    local_rotation = float(at[3]) if len(at) > 3 else 0
+                    at[3:] = [(local_rotation + rot) % 360]
                 if hide_reference and not any(
                         isinstance(d, list) and d and d[0] == "hide" for d in c):
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
@@ -531,11 +552,7 @@ def _rotatable(ref):
     return ref[0] in "RC"
 
 
-# Through-hole connectors are pinned to the board ends (not skyline-packed) so the
-# mating cables are accessible at the edge, per the spec's signal flow: power/debug
-# at the hub end, strip + sync daisy at the far end (R-CON-4). Each 0.1in header is
-# stood with its pin-row across the width (rot 0 for these 1xN vertical headers), so it
-# hugs the end edge and adds almost no length.
+# R-CON-4: power/debug at the hub, LED/sync at the far end; wire entries face the hub.
 HUB_CONNS = ("J1", "J4")            # logic power in, debug — hub end (left)
 FAR_CONNS = ("J2", "J3A", "J3B")    # strip signal, sync daisy in/out — far end (right)
 
@@ -568,6 +585,8 @@ QUILTER_FIXED = {
 }
 
 QUILTER_FIXED_FOOTPRINTS = {
+    **{ref: "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical"
+       for ref in FAR_CONNS},
     "J1": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
     "R1": "Resistor_SMD:R_0603_1608Metric",
     "R2": "Resistor_SMD:R_0603_1608Metric",
@@ -908,6 +927,9 @@ def main(unplaced=False, force=False, force_teensy_library=False):
             ("ID2", 54.3, 15.3, 90),
             ("SHLD", 54.3, 19.0, 90),
         ]
+        if not all(ref in fixed for ref in FAR_CONNS):
+            front_silk = [item for item in front_silk
+                          if item[0] in ("ID0", "ID1", "ID2", "SHLD")]
         for text, x, y, angle in front_silk:
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
                          f' (layer "F.SilkS") (uuid "{uid()}") '
@@ -959,6 +981,13 @@ def main(unplaced=False, force=False, force_teensy_library=False):
     os.makedirs(pretty, exist_ok=True)
     if existing_mod_text != mod_text:
         atomic_write_text(mod_path, mod_text)
+    for libid in TERMINAL_LIBIDS:
+        name = libid.split(":", 1)[1] + ".kicad_mod"
+        source = os.path.join(LOCAL_FOOTPRINT_DIR, name)
+        destination = os.path.join(pretty, name)
+        if os.path.abspath(source) != os.path.abspath(destination):
+            with open(source, encoding="utf-8") as f:
+                atomic_write_text(destination, f.read())
     fplt = os.path.join(OUT, "fp-lib-table")
     if not os.path.exists(fplt):
         atomic_write_text(fplt, '(fp_lib_table\n\t(version 7)\n'

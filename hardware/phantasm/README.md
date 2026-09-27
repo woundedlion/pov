@@ -70,7 +70,7 @@ job with `gen/pcb.py --unplaced` as described under Regenerating. A fresh
 `gen/pcb.py` run creates a placement draft: it reserves space for reference
 labels, keeps the back legend between the Teensy's pad rows, and separates
 the connector labels from their outlines. Footprints that differ from the
-captured fixed layout (the keyed inlet and hand-solder resistor lands) are
+captured fixed layout (the terminal blocks and hand-solder resistor lands) are
 staged for placement instead of locked at incompatible coordinates. It does
 not reconstruct routing or the four widened resistor lands. Its clearances
 still need checking after placement and routing. The final saved JLCDFM
@@ -341,15 +341,10 @@ the strip, the heavy 5 V/GND LED harness, and the Belden 8451 STP for each inter
   plane to host ground, shorting the supply through the cable. `F1` is only in J1's +5 V
   leg, so this fault path is unfused; cutting VIN/VUSB per R-ASM-7 does not disconnect USB
   ground. Do not energize J1 with USB attached until its polarity is verified.
-  `gen/board.py` selects the polarized 2.54 mm
-  [Molex 22-27-2021](https://www.molex.com/en-us/products/part-detail/22272021),
-  using `Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical` with a
-  matching polarized KK 254 housing. Its pin pitch matches the routed inlet;
-  orient the replacement to preserve pin centres and polarity, check its body
-  clearance and 1.19 mm library drills, refill zones and rerun DRC before promotion.
-  This is a generator choice, not an installed repair of the shipped board.
-  Until promotion the harness carries the polarity marking. The assembly gate
-  excludes both `PinHeader` and `Molex_KK-254` as
+  `gen/board.py` selects the GCT TBC05-02-1-G-G screw terminal for J1.
+  It is also unkeyed: R-PWR-7 still requires polarity verification. Its full body
+  reservation and 1.3 mm drills apply to newly generated layouts; they do not
+  repair the routed board. The assembly gate excludes headers and terminal blocks as
   hand-soldered, so `gen/tests/test_pcb_lands.py` pins J1's shipped footprint instead.
 - **ID straps** use the Teensy's internal pull-ups.
   `D_BUS` is populated on every board. `JP_SHLD` is
@@ -447,6 +442,27 @@ facts block above.
 
 ## Revision 1.2
 
+### Terminal-block clearance
+
+The generator uses **GCT TBC05-02-1-G-G** for J1 (board power) and
+**TBC05-03-1-G-G** for J2 (LED signals), J3A and J3B (sync). J4 remains a header.
+The [GCT mechanical drawing](https://www.farnell.com/cad/4513152.pdf) specifies
+2.54 mm pitch, 1.3 mm PCB holes, and bodies **5.48 × 6.5 mm** (two positions)
+or **8.02 × 6.5 mm** (three positions), 8.5 mm high.
+
+Each terminal footprint reserves its body plus 0.5 mm on every side with a
+front courtyard and a footprint-local component keepout. Traces, vias and
+copper pours remain allowed beneath the plastic body. The placed draft packs
+against the larger reservation; the unplaced output stages these connectors
+for placement instead of locking them to the old header positions. Recheck
+wire entry, screw access and rotor clearance after placement.
+
+The committed rev 1.1 boards still carry pin-header footprints. Matching pin
+pitch alone does not establish body or drill clearance for these terminals.
+J1 remains pin 1 = +5 V, pin 2 = GND; the terminal block is not polarized.
+
+### Sync circuit
+
 Every master and follower uses the same PCB, populated parts, and pin map.
 The ID straps select the role; `MASTER_EN` still gates both U1 channels C/D.
 
@@ -489,7 +505,7 @@ fabrication; changing its revision label alone does not convert rev 1.1 copper.
 > `(path …)` links `phantasm.kicad_pcb` holds into the schematic. Even
 > uuid-normalised, a fresh `board.py` run differs from the committed schematic by
 > roughly 170 lines — KiCad file version, power-symbol annotation (`#PWR` vs
-> `#PWR01`), `J1`'s polarized footprint, the four spec §11.1 hand-solder lands, and
+> `#PWR01`), the terminal-block footprints, the four spec §11.1 hand-solder lands, and
 > some label placement. `gen/` is the design *description* and the source of the
 > gates above; it is not a rebuild of what ships.
 >

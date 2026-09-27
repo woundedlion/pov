@@ -138,12 +138,11 @@ clean to **≥30 MHz** so headroom exists.
   > backwards and leaves the unfused GND-plane fault above reachable in practice; cutting
   > VIN/VUSB per R-ASM-7 does not disconnect USB ground. Until the board is re-worked, the
   > harness carries the polarity marking — **do not energize J1 with USB attached until its
-  > polarity is verified.** `gen/board.py` selects the polarized 2.54 mm
-  > `Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical` for a matching
-  > KK 254 housing. Preserve the routed pin centres and polarity when orienting its
-  > footprint; verify body clearance and drill sizes, refill zones and rerun DRC.
-  > The generator choice does not repair the shipped board. The assembly gate excludes
-  > both `PinHeader` and `Molex_KK-254` as hand-soldered. Full as-built detail is in
+  > polarity is verified.** `gen/board.py` selects GCT TBC05-02-1-G-G for J1.
+  > This screw terminal is also unkeyed, so polarity verification remains required.
+  > The generator reserves its full body and uses 1.3 mm drills; this does not
+  > repair the shipped board. The assembly gate excludes headers and terminal
+  > blocks as hand-soldered. Full as-built detail is in
   > `hardware/phantasm/README.md`.
 - **R-PWR-8 — Per-card overcurrent.** The card's ~0.15 A logic feed wants only a **small fuse/PTC (F1,
   ~0.5–1 A)** at J1, or documentation that it's covered upstream. (Strip overcurrent lives with the
@@ -369,15 +368,24 @@ relief, and swept envelope are mechanically qualified.
 
 | Ref | Function | Pins | Type / rating | Pinout |
 |---|---|---|---|---|
-| **J1** | Logic power in (light feed) | 2 | keyed, polarized TH connector, **~1 A** | `+5 V`, `GND` |
-| **J2** | Strip **signal** out | 3 | 0.1″ TH header | `DI` (DATA, post-33 Ω), `SIG_GND`, `CI` (CLK, post-33 Ω) |
-| **J3A** | SYNC daisy — **in** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
-| **J3B** | SYNC daisy — **out** | 3 | 0.1″ TH header | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
+| **J1** | Logic power in (light feed) | 2 | GCT TBC05-02-1-G-G TH terminal, unkeyed (R-PWR-7) | `+5 V`, `GND` |
+| **J2** | Strip **signal** out | 3 | GCT TBC05-03-1-G-G TH terminal | `DI` (DATA, post-33 Ω), `SIG_GND`, `CI` (CLK, post-33 Ω) |
+| **J3A** | SYNC daisy — **in** | 3 | GCT TBC05-03-1-G-G TH terminal | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
+| **J3B** | SYNC daisy — **out** | 3 | GCT TBC05-03-1-G-G TH terminal | `SYNC`, `GND`, `SHLD` (one Belden 8451) |
 | **JP_SHLD** | shield ground point | — | solder jumper / 0 Ω | drain net → GND; **stuff master only** |
 | **J4** (opt) | Debug/serial breakout | 4 | 0.1″ TH header | `3V3`, `GND`, `MASTER_EN` (pin 5), `SERIAL1_TX` (pin 1) |
 
+The terminal choices above apply to the rev 1.2 generator; committed rev 1.1
+artifacts retain pin headers. Per the [GCT drawing](https://www.farnell.com/cad/4513152.pdf),
+terminal pitch is 2.54 mm, drill diameter 1.3 mm, body depth 6.5 mm and height
+8.5 mm. Body width is 5.48 mm for J1 and 8.02 mm for J2/J3A/J3B. Reserve the
+body plus 0.5 mm per side with a front courtyard and component keepout that
+moves with the footprint. Copper routing remains permitted underneath.
+Mechanical retention and cable strain relief remain required by §8; body
+clearance alone does not qualify these terminals for the spinning rotor.
+
 - **R-CON-1 — J2 is signal-only; tie SIG_GND at the strip (load) end.** J2 carries **DI/CI + a
-  dedicated SIG_GND** at logic current — a plain 0.1″ header is fine (no power pins). **SIG_GND is the
+  dedicated SIG_GND** at logic current (no power pins). **SIG_GND is the
   card's logic GND, run alongside DI/CI and landed on the strip's GND pin at the strip input** — *not*
   at the slip ring. The strip's GND pin is the **ground star** where this low-current reference meets
   the heavy LED return from the power harness (R-PWR-11); the 4.3 A return's IR drop then sits upstream
@@ -395,7 +403,8 @@ relief, and swept envelope are mechanically qualified.
 - **R-CON-5** **Shield single-point ground:** the bridged drain net reaches GND only through
   **JP_SHLD**, stuffed **on the master board only**; slaves leave it open (§4.4, §7 R-SI-8).
 - **R-CON-6** The 8451 daisy is co-rotating at 480 RPM: **strain-relieve it within ~2 cm of
-  J3A/J3B** and either **solder the tails or use a latching connector** — a bare friction 0.1″
+  J3A/J3B** and secure the screw-terminal bodies per §8. On header-based boards,
+  either **solder the tails or use a latching connector** — a bare friction 0.1″
   shunt can walk off at speed (cf. R-ID-2).
 
 ---
@@ -492,9 +501,9 @@ hand-soldered by you.
 | Q_REV | Reverse protect (logic) | AO3401A P-FET | SOT-23 | **SMD** |
 | D_BUS | Bus transient clamp | Bourns CDSOD323-T08L, JLCPCB C1973344 | SOD-323, Bourns 0.80 × 0.50 mm land pattern | **SMD** |
 | F1 | Fuse / PTC (logic) | ~0.5–1 A | 1206 / TH | **SMD** |
-| J1 | Logic power in | 2-pin keyed, polarized connector, ~1 A | TH | TH |
-| J2 | Strip signal out | 3-pin 0.1″ (DI/SIG_GND/CI) | TH | TH |
-| J3A, J3B | SYNC daisy in / out | 2× 3-pin 0.1″ | TH (one Belden 8451 each) | TH |
+| J1 | Logic power in | GCT TBC05-02-1-G-G, unkeyed | TH | TH |
+| J2 | Strip signal out | GCT TBC05-03-1-G-G (DI/SIG_GND/CI) | TH | TH |
+| J3A, J3B | SYNC daisy in / out | 2× GCT TBC05-03-1-G-G | TH (one Belden 8451 each) | TH |
 | JP_SHLD | Shield ground jumper | 0 Ω / solder jumper | 0603 or SJ pad | hand, **master only** |
 | J4 (opt) | Debug | 4-pin 0.1″ | TH | TH |
 | H1–H4 | Rotor mounting | 2.7 mm NPTH for M2.5 hardware | four corner holes | — |
