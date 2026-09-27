@@ -35,21 +35,23 @@ struct PreparedTrace {
   float sphere_radius_world;
   Domain mode;
 };
-inline PreparedTrace prepare(const Settings &settings, math::Vec4 origin,
-                             math::Mat4 embedding, float far_distance,
+inline PreparedTrace prepare(const Settings &settings, const math::Vec4 &origin,
+                             const math::Mat4 &embedding, float far_distance,
                              float pixel_half_angle) {
-  const float inv_cell = 1.0f / settings.cell_size;
+  const float INV_CELL = 1.0f / settings.cell_size;
+  PreparedTrace result{settings,
+                       origin,
+                       embedding,
+                       far_distance,
+                       settings.aa_strength * pixel_half_angle * INV_CELL *
+                           INV_CELL,
+                       settings.wire_radius + settings.softness,
+                       settings.sphere_radius * settings.cell_size,
+                       settings.mode};
   for (int i = 0; i < DIMENSIONS; ++i)
     for (int j = 0; j < DIMENSIONS; ++j)
-      embedding.m[i][j] *= inv_cell;
-  return {settings,
-          origin,
-          embedding,
-          far_distance,
-          settings.aa_strength * pixel_half_angle * inv_cell * inv_cell,
-          settings.wire_radius + settings.softness,
-          settings.sphere_radius * settings.cell_size,
-          settings.mode};
+      result.world_to_lattice.m[i][j] *= INV_CELL;
+  return result;
 }
 struct TraceHit {
   float coverage = 0;
