@@ -25,7 +25,7 @@ struct TriangularFramework {
   float wire_radius = 0.05f;
   math::Vector origin{};
 
-  bool valid() const {
+  HS_HOT_FLASH_MEMBER bool valid() const {
     return Raycast::finite(cell_size) && cell_size > 0.0f &&
            Raycast::finite(layer_height) && layer_height > 0.0f &&
            Raycast::finite(wire_radius) && wire_radius > 0.0f &&
