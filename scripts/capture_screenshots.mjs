@@ -29,7 +29,7 @@ import {
   GALLERY_WIDTH,
   minimumLitPixels,
 } from './screenshot_capture_config.mjs';
-import { descendToHonoredResolution } from './screenshot_resolution.mjs';
+import { descendToHonoredResolution, loadEffectForCapture } from './screenshot_resolution.mjs';
 
 // Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
 async function numEnv(name, def, max = Infinity) {
@@ -126,7 +126,6 @@ let targets = [];
 let failures = 0;
 const blanks = [];
 const wrongRes = [];
-const unconfirmed = [];
 try {
   const ctx = await browser.newContext({
     ignoreHTTPSErrors: true,
@@ -252,30 +251,14 @@ try {
     });
   }
 
-  // The effect the app currently reports as selected: it rewrites the URL's
-  // effect param to its choice, so a silent fallback (requested effect not
-  // offered here) shows up as a different name.
-  async function selectedEffect() {
-    return await page.evaluate(() =>
-      new URLSearchParams(location.search).get('effect'));
-  }
-
-  async function loadEffect(effect, resolution) {
-    const params = new URLSearchParams({ effect, resolution });
-    await page.goto(`${BASE_URL}?${params.toString()}`,
-      { waitUntil: 'load', timeout: 60000 });
-    await page.waitForSelector('#canvas', { timeout: 30000 });
-    await page.waitForFunction(() => !document.getElementById('loading-overlay'),
-      { timeout: 60000 });
-    return await selectedEffect();
-  }
-
   for (const effect of targets) {
     process.stdout.write(`Capturing ${effect}... `);
     try {
       // Try resolutions high→low; keep the first that actually offers this effect.
+      const offsetMs = captureOffsetMs(effect, WAIT_MS_OVERRIDE);
       const { resolution: usedRes, honored } =
-        await descendToHonoredResolution(effect, RESOLUTIONS, loadEffect);
+        await descendToHonoredResolution(effect, RESOLUTIONS,
+          (name, resolution) => loadEffectForCapture(page, BASE_URL, name, resolution, offsetMs));
       // Offered at no resolution: the canvas shows the app's fallback effect.
       // Saving it would overwrite a (possibly correct) existing PNG with a
       // thumbnail of the WRONG effect — worse than leaving the stale one. Skip the
@@ -283,22 +266,6 @@ try {
       if (!honored) {
         wrongRes.push(effect);
         console.log(`SKIPPED — offered at no resolution (app fell back); kept existing PNG`);
-        continue;
-      }
-
-      const offsetMs = captureOffsetMs(effect, WAIT_MS_OVERRIDE);
-      await page.waitForTimeout(offsetMs);
-
-      // Authoritative re-read: hydration has long finished by now, so a param
-      // that still names the request really was honored. Saving an unconfirmed
-      // frame would put a fallback effect's thumbnail under this effect's
-      // filename, which the freshness gate cannot detect (names and dimensions
-      // only). Skip the save; the prior PNG stays untouched.
-      const settled = await selectedEffect();
-      if (settled !== effect) {
-        unconfirmed.push(`${effect} (page reports ${JSON.stringify(settled)})`);
-        console.log(`SKIPPED — page reports ${JSON.stringify(settled)} after ` +
-          `${offsetMs}ms, not the requested effect; kept existing PNG`);
         continue;
       }
 
@@ -368,21 +335,6 @@ if (wrongRes.length) {
   console.warn('These are in the roster but absent from the app\'s per-resolution');
   console.warn('effect lists, so the live app cannot select them. Add them to a');
   console.warn('resolution\'s effect list (daydream) or remove them from the roster.');
-  console.warn('========================================================');
-  process.exitCode = 1;
-}
-
-// The requested effect was honored during the descent but no longer selected
-// once the frame had settled — a hydration race, or the app switching effects
-// under us. Nothing was saved for it, so the previous capture remains.
-if (unconfirmed.length) {
-  console.warn('========================================================');
-  console.warn(`capture_screenshots: WARNING — ${unconfirmed.length} capture(s) were NOT`);
-  console.warn('confirmed on the requested effect after settling; SKIPPED (kept');
-  console.warn('existing PNG, not regenerated):');
-  console.warn(`  ${unconfirmed.join(', ')}`);
-  console.warn('Re-run these effects; if it repeats, the app is rewriting the effect');
-  console.warn('param after hydration.');
   console.warn('========================================================');
   process.exitCode = 1;
 }
