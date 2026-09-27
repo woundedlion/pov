@@ -1,0 +1,30 @@
+source=596cdc1fd192558513d06bd2c0727233daaae31f
+tree_clean=True
+
+default sha256=85bb3abdc74f1a898d3d379e7819b3a81d3d06601f84666aad3ff56e95cc6f27
+[teensy-gate] phantasm: PASS - all region budgets and layout invariants satisfied.
+teensy_size: Memory Usage on Teensy 4.0:
+teensy_size:   FLASH: code:502112, data:725452, headers:8404   free for files:795648
+teensy_size:    RAM1: variables:314784, code:195544, padding:1064   free for local variables:12896
+teensy_size:    RAM2: variables:520064  free for malloc/new:4224
+experimental_symbols=0
+
+optin sha256=70695794a224b2c2873aeff099b319cbf850e40ea4ea33a87f45da77af7d7299
+[teensy-gate] phantasm: PASS - all region budgets and layout invariants satisfied.
+teensy_size: Memory Usage on Teensy 4.0:
+teensy_size:   FLASH: code:515120, data:725728, headers:8432   free for files:782336
+teensy_size:    RAM1: variables:314784, code:196584, padding:24   free for local variables:12896
+teensy_size:    RAM2: variables:520064  free for malloc/new:4224
+experimental_symbols=12
+60043638 000000a6 W SDF::TriangularFramework::valid() const
+60047720 00000144 W Raycast::surface_search<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&)::{lambda(float, Raycast::QuerySample&)#1}::operator()(float, Raycast::QuerySample&) const
+60047720 00000144 W Raycast::surface_search<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&)::{lambda(float, Raycast::QuerySample&)#2}::operator()(float, Raycast::QuerySample&) const
+60047fb4 00000154 W Raycast::surface_search<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&)::{lambda(float, Raycast::QuerySample&)#1}::operator()(float, Raycast::QuerySample&) const
+60047fb4 00000154 W Raycast::surface_search<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&)::{lambda(float, Raycast::QuerySample&)#2}::operator()(float, Raycast::QuerySample&) const
+60047e04 000001b0 W Raycast::ShadedTrace HyperLatticeExperimental::shade<(HyperLatticeExperimental::Pattern)1>(math::Vector const&, HyperLatticeExperimental::Prepared const&)
+600486a8 000001b0 W Raycast::ShadedTrace HyperLatticeExperimental::shade<(HyperLatticeExperimental::Pattern)2>(math::Vector const&, HyperLatticeExperimental::Prepared const&)
+60047ba4 00000260 W Raycast::ShadedTrace Raycast::shade_surface<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&, Raycast::Appearance const&)
+60048448 00000260 W Raycast::ShadedTrace Raycast::shade_surface<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&, Raycast::Appearance const&)
+60047864 00000340 W Raycast::TraceResult Raycast::surface_search<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)0> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&)
+60048108 00000340 W Raycast::TraceResult Raycast::surface_search<SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> >(SDF::PeriodicSurface<(SDF::PeriodicSurfaceKind)1> const&, Raycast::Ray const&, Raycast::Footprint const&, Raycast::TraceLimits const&)
+600436e0 00001354 W Raycast::ShadedTrace HyperLatticeExperimental::shade<(HyperLatticeExperimental::Pattern)0>(math::Vector const&, HyperLatticeExperimental::Prepared const&)
