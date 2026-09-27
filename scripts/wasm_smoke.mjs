@@ -324,17 +324,20 @@ async function main(probe) {
         if (engine.getParameterDefinitions().length !== engine.getParamValues().length) {
           fail(`${name}: parameter definitions and values differ immediately after installation`);
         }
-        if (name === 'Shader') {
+        if (name === 'Shader' || name === 'HyperLattice') {
           const presetCount = engine.getPresetCount();
           for (let preset = 0; preset < presetCount; preset++) {
             if (!engine.selectPreset(preset)) {
-              fail(`Shader: selectPreset(${preset}) of ${presetCount} failed`);
+              fail(`${name}: selectPreset(${preset}) of ${presetCount} failed`);
               continue;
             }
             engine.drawFrame();
+            if (name === 'HyperLattice' && !engine.getPixels().some((value) => value !== 0)) {
+              fail(`${name}: preset ${preset} rendered no lit pixels at ${w}x${h}`);
+            }
           }
           if (!engine.selectPreset(0)) {
-            fail('Shader: could not restore preset 0 after the preset sweep');
+            fail(`${name}: could not restore preset 0 after the preset sweep`);
           }
           engine.setAnimationsPaused(false);
         }
