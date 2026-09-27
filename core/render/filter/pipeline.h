@@ -254,6 +254,8 @@ protected:
 
 public:
   static constexpr bool is_pipeline = PipelineT::is_pipeline;
+  static constexpr bool world_transform_is_identity =
+      PipelineT::world_transform_is_identity;
   static constexpr bool direct_raster_path = PipelineT::direct_raster_path;
   static constexpr bool any_crosses_segments = PipelineT::any_crosses_segments;
   static constexpr bool any_reads_outside_band =

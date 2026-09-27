@@ -58,7 +58,7 @@ template <int W, int H, typename PipelineT, bool MinimalFragment = false,
 HS_NOINLINE_NOCLONE inline void
 rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                FragmentShaderT &fragment_shader) {
-  const auto &cr = canvas.clip();
+  const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
 
   int y_lo, y_hi;
@@ -403,6 +403,7 @@ struct Mesh {
     HS_CHECK(!bake || bake->face_recs.size() == num_f,
              "mesh class bake face count disagrees with the mesh");
 
+    const auto &cr = source_clip<W, H>(pipeline, canvas);
     for (size_t i = 0; i < num_f; ++i) {
       size_t count = fc[i];
 
@@ -420,7 +421,7 @@ struct Mesh {
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
-                         &canvas.clip(), azimuth_pads,
+                         &cr, azimuth_pads,
                          std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
       }();
 
