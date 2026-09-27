@@ -303,7 +303,7 @@ inline void check_generation_tracker() {
   HS_EXPECT_EQ(tracker.generation(), uint32_t(4));
 }
 
-inline void check_hyper_lattice_dimension_dropdown() {
+inline void check_hyper_lattice_configuration_dropdown() {
   reset_globals();
   HyperLattice<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
@@ -311,18 +311,19 @@ inline void check_hyper_lattice_dimension_dropdown() {
   hs_wasm::collect_param_views(effect, views);
   const hs_wasm::ParamView *dimension = nullptr;
   for (const hs_wasm::ParamView &view : views)
-    if (std::string_view(view.name) == "Dimension")
+    if (std::string_view(view.name) == "Configuration")
       dimension = &view;
   HS_EXPECT_TRUE(dimension != nullptr);
   if (dimension == nullptr)
     return;
   HS_EXPECT_FALSE(dimension->is_bool);
   HS_EXPECT_TRUE(dimension->is_integer);
-  HS_EXPECT_EQ(dimension->option_count, 3);
-  HS_EXPECT_EQ(std::string_view(dimension->options[0]), std::string_view("3D"));
-  HS_EXPECT_EQ(std::string_view(dimension->options[2]),
-               std::string_view("4D Slice"));
-  HS_EXPECT_EQ(std::string_view(dimension->export_options[2]),
+  HS_EXPECT_EQ(dimension->option_count, 2);
+  HS_EXPECT_EQ(std::string_view(dimension->options[0]),
+               std::string_view("Cubic / 3D"));
+  HS_EXPECT_EQ(std::string_view(dimension->options[1]),
+               std::string_view("Cubic / 4D slice"));
+  HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
                std::string_view("LatticeMode::FOUR_D_SLICE"));
 }
 
@@ -357,7 +358,7 @@ inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
   check_roster_order_pinned();
   check_generation_tracker();
-  check_hyper_lattice_dimension_dropdown();
+  check_hyper_lattice_configuration_dropdown();
   check_integer_float_endpoints();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.

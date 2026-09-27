@@ -144,11 +144,9 @@ edge_metric_4d_axes_bounded(const math::Vec4 &ray_origin,
 }
 
 template <bool NEED_AXIS = true>
-inline bool edge_metric_4d_at_bounded(const math::Vec4 &ray_origin,
-                                      const math::Vec4 &direction,
-                                      int plane_axis, float distance,
-                                      float limit, float limit_sq,
-                                      EdgeMetric &result) {
+__attribute__((always_inline)) inline bool edge_metric_4d_at_bounded(
+    const math::Vec4 &ray_origin, const math::Vec4 &direction, int plane_axis,
+    float distance, float limit, float limit_sq, EdgeMetric &result) {
   switch (plane_axis) {
   case 0:
     return edge_metric_4d_axes_bounded<1, 2, 3, NEED_AXIS>(
@@ -207,7 +205,7 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
             int plane_axis, float distance, float plane_step,
             const PreparedTrace &prepared) {
   HS_PROFILE_DEEP(hl_plane_eval);
-  constexpr bool SPECIALIZED_SLICE = FIXED_SHELL_COUNT != 0;
+  constexpr bool SPECIALIZED_SLICE = SLICE_4D;
 
   const float coverage_outer_radius =
       prepared.outer_radius_base + prepared.aa_scale * distance * plane_step;

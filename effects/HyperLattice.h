@@ -158,8 +158,7 @@ using RenderPipeline =
     Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<>>>;
 template <uint8_t SHELL_COUNT>
 using SpecializedRenderPipeline =
-    Pullback::Pipeline<Binding,
-                       Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
+    Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<true>>>;
 } // namespace HyperLatticeDetail
 
 /**
@@ -318,7 +317,7 @@ public:
     axis_palette.bake(persistent_arena, fixed_axis_palette);
   }
 
-  void draw_frame() override {
+  HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     {
       HS_PROFILE(hl_timeline_step);
@@ -340,19 +339,11 @@ public:
       static_assert(uses_specialized_slice(preset_params(1)),
                     "preset 1 no longer selects the specialized slice trace");
       if (uses_specialized_slice(frame.ctx.params)) {
-        if (frame.ctx.params.shells == ShellCount::THREE) {
-          Scan::Shader::draw_cached<W, H, 1>(
-              canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
-                return HyperLatticeDetail::SpecializedRenderPipeline<
-                    3>::evaluate(view, frame.ctx, frame.prepared);
-              });
-        } else {
-          Scan::Shader::draw_cached<W, H, 1>(
-              canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
-                return HyperLatticeDetail::SpecializedRenderPipeline<
-                    2>::evaluate(view, frame.ctx, frame.prepared);
-              });
-        }
+        Scan::Shader::draw_cached<W, H, 1>(
+            canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+              return HyperLatticeDetail::SpecializedRenderPipeline<2>::evaluate(
+                  view, frame.ctx, frame.prepared);
+            });
       } else {
         Scan::Shader::draw_cached<W, H, 1>(
             canvas, [&frame](const math::Vector &view) HS_HOT_FLASH_MEMBER {
@@ -406,7 +397,7 @@ private:
     refresh_configuration_schema();
   }
 
-  void refresh_configuration_schema() {
+  HS_COLD_MEMBER void refresh_configuration_schema() {
     if (auto *parameter = this->getParameters().find("4D Spin")) {
       const bool readonly = params.mode == LatticeMode::THREE_D;
       if (parameter->readonly != readonly) {
@@ -415,7 +406,7 @@ private:
     }
   }
 
-  void advance_state() {
+  HS_FLASH_MEMBER void advance_state() {
     static constexpr float VELOCITY[HyperLatticeDetail::DIMENSIONS] = {
         0.4815434f, 0.2993373f, 0.4034555f, 0.7223151f};
     static constexpr float RATE[6] = {1.0f, 0.731f, 0.517f,

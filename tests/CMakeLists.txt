@@ -331,7 +331,7 @@ enable_testing()
 set(_hs_test_modules
     3dmath concepts memory spatial scb sdf ray conway conway_morph conway_continuity
     partition_seam
-    conway_soak opchain_probe opchain_arena_survey hankin hyper_lattice ray_events geometry
+    conway_soak opchain_probe opchain_arena_survey hankin hyper_lattice ray_events ray_demonstrators sdf_patterns geometry
     spherical_field spherical_harmonics
     mesh solids
     reaction_graph color palettes easing_waves interpolate platform profiling
@@ -841,3 +841,7 @@ foreach(_hs_test IN LISTS _hs_registered_tests)
     set_tests_properties(${_hs_test} PROPERTIES TIMEOUT ${_hs_test_timeout})
   endif()
 endforeach()
+
+add_executable(sdf_periodic_benchmark periodic_surface_benchmark.cpp)
+target_include_directories(sdf_periodic_benchmark PRIVATE ${HS_ENGINE_INCLUDES})
+_hs_warnings(sdf_periodic_benchmark)
