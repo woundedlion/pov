@@ -1,7 +1,7 @@
 # Periodic surface native quality experiment (2026-09-26)
 
 Neither periodic surface qualifies for shipping at the tested 8–24 field-query
-budgets. At 24 queries, 39.80% of cosine rays and 72.12% of gyroid rays remain
+budgets. At 24 queries, 40.28% of cosine rays and 82.42% of gyroid rays remain
 unresolved. These are diagnostic failures; they do not establish empty space.
 
 The experiment uses the conservative global Lipschitz bounds and shared surface
@@ -11,10 +11,16 @@ query counts, unresolved fractions, image differences, and native elapsed time.
 
 ## Method
 
-Each case traces the 10,368 directions in one 72-column quadrant of the calibrated
-288×144 display. The 36 cases combine periods 0.7, 1.5, and 3.0; isovalues −0.5,
+Each case traces the 10,658 directions in the margin-expanded segment-0 clip of
+the calibrated 288×144 display: 146 columns and 73 northern rows. The driver
+chooses either half of the longitude range; this experiment measures both. The
+left clip includes wrapped columns −1 through 144; the right includes columns
+143 through 288. Rows are 0 through 72. These are the driver's nominal 10,368
+samples plus its one-pixel scan margin. The 36 scene poses combine periods 0.7,
+1.5, and 3.0; isovalues −0.5,
 0, and 0.5; and four camera centers in period units: (0,0,0), (0.23,0.41,−0.17),
-(0.5,0.5,0.5), and (−0.37,0.19,0.73). This includes starts in both regions and
+(0.5,0.5,0.5), and (−0.37,0.19,0.73). Each pose is measured in both clips, giving
+72 windows. This includes starts in both regions and
 near-tangent directions across the display. Rays start at the camera center and
 end four periods away. Position tolerance is one ten-thousandth of a period.
 
@@ -37,20 +43,20 @@ the sweep.
 
 ## Measurements
 
-Each row covers 373,248 rays. Peak evaluations equal the configured budget.
+Each row covers 767,376 rays. Peak evaluations equal the configured budget.
 
 | Surface | Budget | Mean queries | Unresolved | Hit disagreement | Image MAE | Mean / peak native ms per quadrant |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Cosine | 8 | 7.96 | 90.26% | 89.02% | 0.7165 | 2.394 / 3.689 |
-| Cosine | 12 | 11.26 | 72.22% | 70.98% | 0.5525 | 3.340 / 3.952 |
-| Cosine | 16 | 13.96 | 59.90% | 58.66% | 0.4412 | 4.249 / 6.066 |
-| Cosine | 24 | 18.03 | 39.80% | 38.58% | 0.2753 | 5.496 / 7.368 |
-| Cosine reference | 1,024 | 28.36 | 0.0217% | — | — | 8.068 / 13.585 |
-| Gyroid | 8 | 7.32 | 89.98% | 89.42% | 0.7800 | 2.890 / 4.356 |
-| Gyroid | 12 | 10.91 | 89.98% | 89.42% | 0.7800 | 4.521 / 10.363 |
-| Gyroid | 16 | 14.51 | 88.02% | 87.47% | 0.7607 | 5.894 / 10.485 |
-| Gyroid | 24 | 20.92 | 72.12% | 71.57% | 0.6047 | 8.027 / 11.924 |
-| Gyroid reference | 1,024 | 58.75 | 0.2267% | — | — | 20.687 / 52.758 |
+| Cosine | 8 | 7.95 | 91.05% | 89.28% | 0.7040 | 2.346 / 5.507 |
+| Cosine | 12 | 11.30 | 73.80% | 72.02% | 0.5480 | 3.331 / 6.000 |
+| Cosine | 16 | 14.07 | 61.58% | 59.81% | 0.4398 | 4.105 / 5.985 |
+| Cosine | 24 | 18.23 | 40.28% | 38.56% | 0.2663 | 5.266 / 7.704 |
+| Cosine reference | 1,024 | 28.56 | 0.0188% | — | — | 7.814 / 11.943 |
+| Gyroid | 8 | 7.30 | 89.76% | 89.03% | 0.7603 | 2.713 / 4.990 |
+| Gyroid | 12 | 10.89 | 89.76% | 89.03% | 0.7603 | 3.984 / 6.200 |
+| Gyroid | 16 | 14.48 | 88.61% | 87.88% | 0.7489 | 5.277 / 7.851 |
+| Gyroid | 24 | 21.36 | 82.42% | 81.69% | 0.6884 | 7.624 / 10.798 |
+| Gyroid reference | 1,024 | 63.22 | 0.2615% | — | — | 20.562 / 54.913 |
 
 Cosine starts inside on 58.33% of rays; gyroid starts inside on 50.00%. An exact
 zero-set start is emitted at zero depth. The reference is also bounded: grazing
