@@ -254,14 +254,15 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
   static constexpr size_t STREAM_COUNT = DIMENSIONS;
   static constexpr size_t GROUP_CAPACITY = 1;
+  /** @brief Stream state; float fields are read only while active. */
   struct Cursor {
-    float distance = 0, step = 0, magnitude = 0;
+    float distance, step, magnitude;
     uint8_t shell = 0;
     bool active = false;
   };
   const PreparedTrace &prepared;
   math::Vec4 direction, origin;
-  std::array<Cursor, STREAM_COUNT> cursors{};
+  std::array<Cursor, STREAM_COUNT> cursors;
   uint8_t shell_count;
 
   __attribute__((always_inline)) Events(const math::Vector &normal,
