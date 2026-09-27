@@ -95,3 +95,51 @@ the maximum observed WASM stack watermark is 944 bytes. The
 [preview summary](evidence/hyperlattice_experiments_2026-09-27/wasm-preview-summary.json)
 also records host timings, including the first draw. Those host timings are not
 Teensy measurements or admission evidence.
+
+## Opt-in device validation
+
+Final cold builds at clean source `596cdc1fd` pass the default and opt-in
+Phantasm size/layout gates with zero first-party warnings. Their runtime source
+is identical to landed `920a9f622`. The
+[layout/symbol audit](evidence/hyperlattice_experiments_2026-09-27/device-layout.txt),
+[default build](evidence/hyperlattice_experiments_2026-09-27/default-final-build.txt),
+[opt-in build](evidence/hyperlattice_experiments_2026-09-27/optin-final-build.txt),
+[warning audit](evidence/hyperlattice_experiments_2026-09-27/warnings.txt), and
+[7,550 passing native assertions](evidence/hyperlattice_experiments_2026-09-27/native-placement.txt)
+retain the final evidence.
+
+| Full Phantasm | Standard | Experiments enabled | Change |
+| --- | ---: | ---: | ---: |
+| RAM1 code | 195,544 | 196,584 | +1,040 |
+| RAM1 variables | 314,784 | 314,784 | 0 |
+| FLASH code | 502,112 | 515,120 | +13,008 |
+| FLASH data | 725,452 | 725,728 | +276 |
+| ITCM headroom | 1,064 | 24 | -1,040 |
+
+Both retain 12,896 bytes of stack space and 4,224 free bytes in RAM2. The
+standard ELF contains no experimental renderer symbols. Four measured
+`HS_HOT_FLASH_MEMBER` placements move the surface search, surface shading,
+outlined evaluation lambda, and framework validity check to cached flash.
+This reduces opt-in ITCM from 199,560 to 196,584 bytes without changing the
+zero-reserve ceiling. Small emit and step helpers retain the compiler's inline
+choices. These annotations are no-ops for Clang; the installed WASM binary
+matches the tested preview binary byte for byte.
+
+A 30-second locked capture on COM4 selects gyroid preset 4 with four-frame
+counter windows, shipping optimization, and live segmented-driver interrupts.
+It validates execution, not realtime admission: runtime frames 2 through 38
+average **731.814 ms**, with **629.698 / 820.923 ms** minimum/maximum and
+**37/37 deadline spills**. Setup frame 1 takes 1,439.063 ms and is excluded.
+Nine complete counter windows cover frames 1 through 36; the runtime figures
+also retain the two trailing individual frame records.
+
+[Raw capture](evidence/hyperlattice_experiments_2026-09-27/gyro.txt),
+[provenance](evidence/hyperlattice_experiments_2026-09-27/gyro.provenance),
+[profile build](evidence/hyperlattice_experiments_2026-09-27/gyro-build.txt),
+[exact flags](evidence/hyperlattice_experiments_2026-09-27/gyro-envdump.json),
+[summary](evidence/hyperlattice_experiments_2026-09-27/gyro-summary.txt), and
+[parser validation](evidence/hyperlattice_experiments_2026-09-27/gyro-validate.txt)
+identify the image and frame ranges. This timing capture does not log per-ray
+failure counts; the native/WASM diagnostic results above are separate evidence.
+The wrapper's paired Phantasm attestation is the default image; the full opt-in
+image is separately identified by the layout audit and build log above.
