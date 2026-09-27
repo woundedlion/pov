@@ -7,7 +7,7 @@ experimental visualization, not evidence of empty geometry.
 
 ## Method and provenance
 
-The [experiment target](../../tests/profile_spherical_experiment.h) runs on
+The [experiment target](../../tools/profile_spherical_experiment.h) runs on
 COM3, Teensy 4.0 at 600 MHz, through the existing profile wrapper and real
 four-segment 288×144 driver. Three separate shipping-selective-O3 images measure
 depth coloring, analytic-gradient lighting, and gradient lighting with four
