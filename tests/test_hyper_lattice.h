@@ -1235,6 +1235,7 @@ inline void test_octet_continuous_flight() {
     HS_EXPECT_TRUE(effect.selectPreset(preset));
     auto &params = HyperLatticeWhiteBox::params(effect);
     params.spin_3d = params.spin_4d = 0;
+    const float INITIAL_SPEED = params.speed;
     const auto initial = HyperLatticeWhiteBox::experimental_center(effect);
     const float period = std::sqrt(2.0f) * params.cell_size;
     math::Vec4 previous = initial;
@@ -1269,8 +1270,9 @@ inline void test_octet_continuous_flight() {
     HyperLatticeWhiteBox::advance_state(effect);
     const auto fast = HyperLatticeWhiteBox::experimental_center(effect);
     for (int axis = 0; axis < 4; ++axis) {
-      const float expected = std::fmod(
-          previous[axis] + increment[axis] * (.3f / .008f), small_period);
+      const float expected =
+          std::fmod(previous[axis] + increment[axis] * (.3f / INITIAL_SPEED),
+                    small_period);
       HS_EXPECT_NEAR(fast[axis], expected, 3e-5f);
       HS_EXPECT_GE(fast[axis], 0);
       HS_EXPECT_LT(fast[axis], small_period);
