@@ -227,7 +227,9 @@ public:
       "experimental-octet-flight",
       "experimental-octet-4d-slice",
 #endif
+      "cubic-wide-flight",
   });
+  static constexpr size_t WIDE_PRESET_INDEX = PRESET_IDS.size() - 1;
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
@@ -237,12 +239,14 @@ public:
     Params value;
     switch (index) {
     case 0:
+    case WIDE_PRESET_INDEX:
       value.mode = LatticeMode::THREE_D;
-      value.sphere_radius = 1.0f;
-      value.cell_size = 1.0f;
+      value.sphere_radius = index == 0 ? 1.0f : 0.0f;
+      value.cell_size = index == 0 ? 1.0f : 2.38525f;
       value.wire_radius = 0.055f;
       value.softness = 0.08f;
-      value.far_distance = 4.198f;
+      value.near_fade = index == 0 ? 0.5f : 2.0f;
+      value.far_distance = index == 0 ? 4.198f : 11.66f;
       value.aa_strength = 1.0f;
       value.speed = 0.05f;
       value.spin_3d = 0.015f;
