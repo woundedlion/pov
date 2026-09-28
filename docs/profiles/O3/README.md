@@ -85,4 +85,9 @@ its two original presets; they predate this third default preset.
 
 ## Octet optimization supplement
 
-The opt-in HyperLattice Octet presets have a separate [optimization ledger](../hyperlattice_octet_optimization_2026-09-27.md) with matched baselines, accepted and rejected trials, disassembly, and paired shipping/global-O3 profiles. Final shipping means are 81.407 ms (3D) and 177.308 ms (4D); both still spill the 62.5 ms display interval. The normal cubic-preset roster ranking above is unchanged.
+| Preset | Peak ms | Spilled | Captured |
+|---|---:|---:|---|
+| [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) ● | 🔴 74.692 | 🔴 549/549 (100.00%) | 2026-09-28 00:19 |
+| [5: Octet wide](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) ● | 🔴 74.925 | 🔴 549/549 (100.00%) | 2026-09-28 00:24 |
+
+● Updated 2026-09-28. Opt-in held presets, with startup excluded. [Earlier optimization and 4D evidence](../hyperlattice_octet_optimization_2026-09-27.md).

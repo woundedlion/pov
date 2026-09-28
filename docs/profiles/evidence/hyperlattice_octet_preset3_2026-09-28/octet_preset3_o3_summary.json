@@ -1,0 +1,177 @@
+{
+  "name": "octet_preset3_o3",
+  "runtime_frames": 549,
+  "first": 2,
+  "last": 550,
+  "mean_ms": 68.24915846994536,
+  "peak_ms": 74.692,
+  "min_ms": 63.619,
+  "wall_ms": 124.85576320582878,
+  "spilled": 549,
+  "startup_ms": 126.826,
+  "scope_frames": 528,
+  "scope_range": [
+    17,
+    544
+  ],
+  "counters": {
+    "frame": {
+      "cyc": 39585906035,
+      "calls": 528,
+      "depth": 0,
+      "ms_per_frame": 124.95551147411618,
+      "calls_per_frame": 1.0
+    },
+    "pov_preserve_half": {
+      "cyc": 43193940,
+      "calls": 528,
+      "depth": 1,
+      "ms_per_frame": 0.13634450757575758,
+      "calls_per_frame": 1.0
+    },
+    "hl_shader_draw": {
+      "cyc": 20990164647,
+      "calls": 528,
+      "depth": 1,
+      "ms_per_frame": 66.25683285037879,
+      "calls_per_frame": 1.0
+    },
+    "hl_timeline_step": {
+      "cyc": 2122517,
+      "calls": 528,
+      "depth": 1,
+      "ms_per_frame": 0.006699864267676768,
+      "calls_per_frame": 1.0
+    },
+    "canvas_clear": {
+      "cyc": 28331092,
+      "calls": 528,
+      "depth": 1,
+      "ms_per_frame": 0.08942895202020201,
+      "calls_per_frame": 1.0
+    },
+    "canvas_buffer_wait": {
+      "cyc": 17956385732,
+      "calls": 528,
+      "depth": 1,
+      "ms_per_frame": 56.680510517676765,
+      "calls_per_frame": 1.0
+    }
+  },
+  "worst": {
+    "first": 65,
+    "last": 80,
+    "frames": 16,
+    "wall": [
+      124487,
+      124900,
+      125142,
+      1998404
+    ],
+    "counters": {
+      "frame": {
+        "us": 1998404,
+        "pct": 100,
+        "calls": 16,
+        "cyc": 1199042716,
+        "depth": 0,
+        "tags": []
+      },
+      "pov_preserve_half": {
+        "us": 2201,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 1320899,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_shader_draw": {
+        "us": 1103076,
+        "pct": 55,
+        "calls": 16,
+        "cyc": 661845918,
+        "depth": 1,
+        "tags": []
+      },
+      "hl_timeline_step": {
+        "us": 38,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 23204,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_clear": {
+        "us": 1444,
+        "pct": 0,
+        "calls": 16,
+        "cyc": 866671,
+        "depth": 1,
+        "tags": []
+      },
+      "canvas_buffer_wait": {
+        "us": 863013,
+        "pct": 43,
+        "calls": 16,
+        "cyc": 517808209,
+        "depth": 1,
+        "tags": []
+      }
+    }
+  },
+  "cross": {
+    "first": 81,
+    "last": 96,
+    "cycles": 1195333218,
+    "wall_us": 1992222,
+    "ppm": 0.015058562764561216
+  },
+  "isrs": {
+    "isr_wake": {
+      "n": 1216575,
+      "min_cycles": 234,
+      "max_cycles": 12416,
+      "total_us": 1827854,
+      "calls_per_frame": 2304.119318181818,
+      "mean_us": 1.5024589523868237,
+      "cpu_percent": 2.7697265437246257
+    },
+    "isr_pack": {
+      "n": 152062,
+      "min_cycles": 3593,
+      "max_cycles": 6156,
+      "total_us": 1001471,
+      "calls_per_frame": 287.9962121212121,
+      "mean_us": 6.585938630295537,
+      "cpu_percent": 1.5175177073608968
+    },
+    "isr_dma_submit": {
+      "n": 152062,
+      "min_cycles": 349,
+      "max_cycles": 1336,
+      "total_us": 142812,
+      "calls_per_frame": 287.9962121212121,
+      "mean_us": 0.9391695492628007,
+      "cpu_percent": 0.21640141234606333
+    }
+  },
+  "sizes": {
+    "FLASH": {
+      "code": 85320,
+      "data": 148916,
+      "headers": 8452,
+      "free for files": 1788928
+    },
+    "RAM1": {
+      "variables": 315008,
+      "code": 28504,
+      "padding": 4264,
+      "free for local variables": 176512
+    },
+    "RAM2": {
+      "variables": 520064,
+      "free for malloc/new": 4224
+    }
+  },
+  "captured": "2026-09-28 00:19"
+}
