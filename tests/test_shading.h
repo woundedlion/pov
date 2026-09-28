@@ -317,10 +317,9 @@ inline void test_shade_mesh_topology_segue() {
 // --- shade_mesh_topology (direct non-segue overload) ------------------------
 
 /**
- * @brief Verifies the direct shade_mesh_topology overload (the HankinSolids
- *        production path): the resolved palette slot's color is returned with
- *        alpha overwritten by the opacity argument, regardless of the palette
- *        color's own alpha.
+ * @brief Verifies the direct shade_mesh_topology overload: the resolved
+ *        palette slot's color is returned with alpha overwritten by the
+ *        opacity argument, regardless of the palette color's own alpha.
  */
 inline void test_shade_mesh_topology_direct() {
   const uint16_t topology[] = {2};               // face 0 -> topology class 2
@@ -389,6 +388,47 @@ inline void test_face_palette_shader_defaults() {
 }
 
 /**
+ * @brief Verifies FacePaletteShader's counterpart blend matches Color4::lerp
+ *        from the counterpart ramp onto the face's own ramp at the same depth,
+ *        and that a weight of 1 or a null palette clears it.
+ */
+inline void test_face_palette_shader_counterpart() {
+  Gradient own_source({{0.0f, CPixel(0, 0, 0)}, {1.0f, CPixel(255, 255, 255)}});
+  Gradient other_source({{0.0f, CPixel(255, 0, 0)}, {1.0f, CPixel(0, 0, 255)}});
+  alignas(std::max_align_t) static uint8_t
+      buffer[2 * BakedPalette::required_arena_bytes()];
+  Arena arena(buffer, sizeof(buffer));
+  BakedPaletteStorage own;
+  BakedPaletteStorage other;
+  own.bake(arena, own_source);
+  other.bake(arena, other_source);
+
+  FacePaletteShader shader;
+  shader.set_palette(&own.view());
+  shader.set_counterpart(&other.view(), 0.3f);
+  Fragment fragment;
+  fragment.v1 = -0.4f;
+  shader(math::Vector(), fragment);
+  const Color4 expected = Color4(other.get_color_unit(0.4f))
+                              .lerp(Color4(own.get_color_unit(0.4f)), 0.3f);
+  HS_EXPECT_EQ(fragment.color.color.r, expected.color.r);
+  HS_EXPECT_EQ(fragment.color.color.g, expected.color.g);
+  HS_EXPECT_EQ(fragment.color.color.b, expected.color.b);
+  HS_EXPECT_NEAR(fragment.color.alpha, 1.0f, 1e-6f);
+
+  const Pixel plain = own.get_color_unit(0.4f);
+  shader.set_counterpart(&other.view(), 1.0f);
+  shader(math::Vector(), fragment);
+  HS_EXPECT_EQ(fragment.color.color.r, plain.r);
+  HS_EXPECT_EQ(fragment.color.color.b, plain.b);
+
+  shader.set_counterpart(nullptr, 0.0f);
+  shader(math::Vector(), fragment);
+  HS_EXPECT_EQ(fragment.color.color.r, plain.r);
+  HS_EXPECT_EQ(fragment.color.color.b, plain.b);
+}
+
+/**
  * @brief Runs every shading test case.
  * @return The module's failure count.
  */
@@ -407,6 +447,7 @@ inline int run_shading_tests() {
   test_shade_mesh_topology_segue();
   test_shade_mesh_topology_direct();
   test_face_palette_shader_defaults();
+  test_face_palette_shader_counterpart();
 
   return fixture.result();
 }
