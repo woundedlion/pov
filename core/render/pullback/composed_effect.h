@@ -1250,7 +1250,24 @@ private:
     return count;
   }
 
+  template <typename A, typename B>
+  static consteval bool warp_names_disjoint() {
+    if constexpr (requires {
+                    A::FIELDS;
+                    B::FIELDS;
+                  }) {
+      for (const auto &a : A::FIELDS)
+        for (const auto &b : B::FIELDS)
+          if (a.name && b.name && std::string_view(a.name) == b.name)
+            return false;
+    }
+    return true;
+  }
+
   HS_COLD_MEMBER void register_parameters() {
+    static_assert(warp_names_disjoint<decltype(params.outer_warp),
+                                      decltype(params.inner_warp)>(),
+                  "warp slots expose duplicate parameter names");
     constexpr size_t count =
         named_field_count<decltype(params.source)>() +
         named_field_count<decltype(params.projection)>() +
