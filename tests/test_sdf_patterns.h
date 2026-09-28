@@ -341,14 +341,16 @@ inline float octet4_segment_reference(const math::Vec4 &p) {
   return best;
 }
 
+template <bool Normalized = false>
 inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
                                           const math::Vec4 &p,
                                           uint32_t &feature) {
-  const float SCALE = SDF::OctetFramework4::HALF_CUBE * geometry.cell_size;
+  const float SCALE =
+      Normalized ? 1.0f : SDF::OctetFramework4::HALF_CUBE * geometry.cell_size;
   const float INVERSE_SCALE = 1.0f / SCALE;
   math::Vec4 q, rounded, residual, result;
   for (int i = 0; i < 4; ++i) {
-    q[i] = (p[i] - geometry.origin[i]) * INVERSE_SCALE;
+    q[i] = Normalized ? p[i] : (p[i] - geometry.origin[i]) * INVERSE_SCALE;
     rounded[i] = roundf(q[i]);
     residual[i] = q[i] - rounded[i];
   }
@@ -464,32 +466,29 @@ inline void test_octet4_edges_parity_and_symmetry() {
 
 inline void test_octet4_nearest_edge_matches_line_search() {
   SDF::OctetFramework4 geometry;
-  geometry.cell_size =
-      nextafterf(1.0f / SDF::OctetFramework4::HALF_CUBE, INFINITY);
-  HS_EXPECT_EQ(SDF::OctetFramework4::HALF_CUBE * geometry.cell_size, 1.0f);
-  const auto VERIFY = [&](const math::Vec4 &point, bool exact) {
+  const auto VERIFY = [&]<bool Normalized>(const math::Vec4 &point) {
     uint32_t expected_feature;
     uint32_t feature;
+    uint32_t sample_feature;
     const auto EXPECTED =
-        octet4_offset_reference(geometry, point, expected_feature);
-    const auto OFFSET = geometry.edge_offset(point, feature);
-    const auto SAMPLE = geometry.sample(point);
+        octet4_offset_reference<Normalized>(geometry, point, expected_feature);
+    const auto OFFSET = geometry.edge_query<true, Normalized>(point, feature);
+    const float DISTANCE =
+        geometry.edge_query<false, Normalized>(point, sample_feature);
     HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(OFFSET),
                    SDF::OctetFramework4::magnitude(EXPECTED), 4e-6f);
-    HS_EXPECT_NEAR(SAMPLE.field,
-                   SDF::OctetFramework4::magnitude(EXPECTED) -
-                       geometry.wire_radius,
-                   4e-6f);
-    HS_EXPECT_EQ(SAMPLE.feature, expected_feature);
+    HS_EXPECT_NEAR(DISTANCE, SDF::OctetFramework4::magnitude(EXPECTED), 4e-6f);
+    HS_EXPECT_EQ(sample_feature, expected_feature);
     HS_EXPECT_EQ(feature, expected_feature);
     for (int axis = 0; axis < 4; ++axis)
-      HS_EXPECT_NEAR(OFFSET[axis], EXPECTED[axis], exact ? 0.0f : 4e-6f);
+      HS_EXPECT_NEAR(OFFSET[axis], EXPECTED[axis], Normalized ? 0.0f : 4e-6f);
   };
   for (int x = -8; x <= 8; ++x)
     for (int y = -8; y <= 8; ++y)
       for (int z = -8; z <= 8; ++z)
         for (int w = -8; w <= 8; ++w)
-          VERIFY({{x * 0.125f, y * 0.125f, z * 0.125f, w * 0.125f}}, true);
+          VERIFY.template operator()<true>(
+              {{x * 0.125f, y * 0.125f, z * 0.125f, w * 0.125f}});
   uint32_t state = 0x19770425;
   for (int sample = 0; sample < 10000; ++sample) {
     math::Vec4 point;
@@ -498,7 +497,7 @@ inline void test_octet4_nearest_edge_matches_line_search() {
       point[axis] =
           static_cast<float>(state >> 8) * (20.0f / 16777216.0f) - 10.0f;
     }
-    VERIFY(point, false);
+    VERIFY.template operator()<false>(point);
   }
 }
 
