@@ -138,13 +138,10 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
 }
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
 HS_FLASH_INLINE inline HyperLatticeExperimental::Settings
-experimental_settings(const FrameState &frame, float phase) {
+experimental_settings(const FrameState &frame, math::Vec4 center) {
   const auto &p = frame.params;
-  const math::Vec4 CENTER{
-      {.255f + .3f * sinf(phase), .465f + .225f * sinf(2 * phase),
-       .645f + .27f * sinf(3 * phase),
-       p.mode == LatticeMode::FOUR_D_SLICE ? .375f + .21f * sinf(5 * phase)
-                                           : 0.0f}};
+  if (p.mode == LatticeMode::THREE_D)
+    center[3] = 0;
   return {p.mode == LatticeMode::FOUR_D_SLICE
               ? Raycast::SamplingDomain::SLICE_4D
               : Raycast::SamplingDomain::SPATIAL_3D,
@@ -154,7 +151,7 @@ experimental_settings(const FrameState &frame, float phase) {
           p.far_distance,
           p.near_fade,
           p.aa_strength,
-          CENTER,
+          center,
           view_embedding(frame),
           frame.pixel_half_angle,
           frame.depth_palette,
@@ -542,10 +539,13 @@ private:
     static constexpr float RATE[6] = {1.0f, 0.731f, 0.517f,
                                       1.0f, 0.707f, 0.419f};
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
-    if (params.pattern != Pattern::CUBIC_WIRE)
-      experimental_phase =
-          math::wrap(experimental_phase + params.speed, math::TWO_PI_F);
-    else
+    if (params.pattern != Pattern::CUBIC_WIRE) {
+      // A coordinate period of sqrt(2) * cell_size translates D3 and D4.
+      const float PERIOD = 1.4142135623730951f * params.cell_size;
+      for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
+        experimental_center[axis] = math::wrap(
+            experimental_center[axis] + params.speed * VELOCITY[axis], PERIOD);
+    } else
 #endif
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
         origin[axis] =
@@ -566,7 +566,7 @@ private:
                     const HyperLatticeDetail::FrameState &context) {
     using namespace HyperLatticeExperimental;
     const auto SETTINGS =
-        HyperLatticeDetail::experimental_settings(context, experimental_phase);
+        HyperLatticeDetail::experimental_settings(context, experimental_center);
     const auto prepared = prepare(SETTINGS);
     using Shade =
         Raycast::ShadedTrace (*)(const math::Vector &, const Prepared &);
@@ -585,7 +585,7 @@ private:
                     });
   }
 
-  float experimental_phase = 0;
+  math::Vec4 experimental_center{{.255f, .465f, .645f, .375f}};
   float unfinished_rays = 0;
 #endif
 
@@ -604,7 +604,7 @@ private:
   static constexpr float NEAR_FADE_MIN = 0.01f, NEAR_FADE_MAX = 2.0f;
   static constexpr float FAR_DISTANCE_MIN = 2.0f, FAR_DISTANCE_MAX = 16.0f;
   static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
-  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.05f;
+  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 6.0f;
   static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
   static constexpr float SPIN_4D_MIN = 0.0f, SPIN_4D_MAX = 0.015f;
 
