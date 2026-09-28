@@ -215,6 +215,8 @@ inline void test_fixed_preset_ids() {
   HS_EXPECT_TRUE(harmonics && harmonics->preset_id != nullptr);
   if (harmonics && harmonics->preset_id) {
     HS_EXPECT_EQ(harmonics->preset_count, 24u);
+    HS_EXPECT_EQ(harmonics->preset_count,
+                 hs_test::effects_tests::SH_PRESET_MODES.size());
     if (harmonics->preset_count !=
         hs_test::effects_tests::SH_PRESET_MODES.size())
       return;
