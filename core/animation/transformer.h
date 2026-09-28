@@ -158,7 +158,8 @@ public:
   }
 
   /**
-   * @brief Drops the pool's clear hook and its liveness record.
+   * @brief Cancels owned events and drops the pool's liveness record.
+   * @pre Later pinned animation owners must retire first.
    * @details A spawned animation's completion callback outlives the pool
    * whenever the timeline does; dropping the liveness record is what turns
    * those callbacks into no-ops instead of writes through a dead pool.
@@ -171,6 +172,7 @@ public:
       HS_CHECK(global_timeline_live,
                "TransformerPool outlived its Timeline: declare the Timeline "
                "before the pools that schedule on it");
+      timeline.template cancel_owner<AnimT>(this);
       timeline.remove_clear_hook(this);
     }
   }
@@ -517,7 +519,8 @@ private:
                      (anim.is_finite() && !anim.repeats()),
                  "Transformer::spawn needs a finite, non-repeating animation; "
                  "use spawn_pinned for infinite or repeating animations");
-        AnimT *p = timeline.add_get(in_frames, std::move(anim), pin, paused);
+        AnimT *p =
+            timeline.add_get(in_frames, std::move(anim), pin, paused, this);
         if (p) {
           // Recycle the pool slot at final removal. The paths differ by handle
           // stability:

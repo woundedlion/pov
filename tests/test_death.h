@@ -2111,6 +2111,20 @@ inline void case_transformer_pool_arena_reclaimed() {
  *          that declares them the other way gets a dead reference here rather
  *          than at some later step().
  */
+inline void case_transformer_pinned_owner_order() {
+  configure_arenas_default();
+  Timeline timeline;
+  using Pool = NoiseTransformer<1>;
+  alignas(Pool) static uint8_t storage[sizeof(Pool)];
+  Pool *first = new (storage) Pool(timeline);
+  Pool second(timeline);
+  first->init_storage(persistent_arena);
+  second.init_storage(persistent_arena);
+  first->spawn_pinned(0);
+  second.spawn_pinned(0);
+  first->~Pool();
+}
+
 inline void case_transformer_pool_outlives_timeline() {
   configure_arenas_default();
   alignas(Timeline) static uint8_t tl_storage[sizeof(Timeline)];
@@ -5011,6 +5025,9 @@ inline const Case *all_cases(int &n) {
            "(storage_arena->get_offset() >= storage_end) TransformerPool: arena "
            "reclaimed under a live pool; init_storage() runs after "
            "configure_arenas()"},
+          {"transformer_pinned_owner_order",
+           case_transformer_pinned_owner_order, "core/animation/timeline.h",
+           "(!retiring_predecessor || event.owner == nullptr || !event.pinned || event.iface->is_canceled()) retire later pinned owners before their predecessors"},
           {"transformer_pool_outlives_timeline",
            case_transformer_pool_outlives_timeline,
            "core/animation/transformer.h",
@@ -5624,7 +5641,9 @@ inline const Case *all_cases(int &n) {
           {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
            "core/render/sdf/shapes.h",
            "(thickness >= 0.0f) Line: negative stroke half-width"},
-          {"chain_zero_alignment", case_chain_zero_alignment,
+          {"chain_zero_alignment",
+           case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+          {"chain_non_power_alignment", case_chain_non_power_alignment,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
           {"chain_non_power_alignment",

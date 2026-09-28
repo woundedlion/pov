@@ -1011,6 +1011,7 @@ inline void test_transformer_callback_after_pool_destroyed() {
   first->init_storage(persistent_arena);
   HS_EXPECT_TRUE(first->spawn(0, math::Vector(0, 1, 0), 0.2f, 4) != nullptr);
   first->~Pool();
+  HS_EXPECT_TRUE(global_timeline_events[0].animation()->is_canceled());
 
   Pool *second = new (pool_storage) Pool(tl);
   second->init_storage(persistent_arena);
