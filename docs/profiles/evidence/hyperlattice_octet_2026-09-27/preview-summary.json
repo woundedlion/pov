@@ -1,0 +1,146 @@
+[
+  {
+    "preset": 2,
+    "frames": 24,
+    "parameters": [
+      {
+        "name": "Pattern",
+        "value": 1
+      },
+      {
+        "name": "View",
+        "value": 0
+      },
+      {
+        "name": "Sphere Radius",
+        "value": 0
+      },
+      {
+        "name": "Cell Size",
+        "value": 1.5
+      },
+      {
+        "name": "Wire Radius",
+        "value": 0.054999999701976776
+      },
+      {
+        "name": "Softness",
+        "value": 0.012000000104308128
+      },
+      {
+        "name": "Near Fade",
+        "value": 0.07999999821186066
+      },
+      {
+        "name": "Far Distance",
+        "value": 4.5
+      },
+      {
+        "name": "AA Strength",
+        "value": 1
+      },
+      {
+        "name": "Speed",
+        "value": 0.00800000037997961
+      },
+      {
+        "name": "3D Spin",
+        "value": 0.002400000113993883
+      },
+      {
+        "name": "4D Spin",
+        "value": 0
+      },
+      {
+        "name": "Color",
+        "value": 0
+      },
+      {
+        "name": "Lattice Planes",
+        "value": 1
+      },
+      {
+        "name": "Unfinished Rays",
+        "value": 0
+      }
+    ],
+    "lit_channels": 110141,
+    "stack": {
+      "high_water_mark": 888,
+      "init_high_water_mark": 944,
+      "capacity": 8192
+    }
+  },
+  {
+    "preset": 3,
+    "frames": 24,
+    "parameters": [
+      {
+        "name": "Pattern",
+        "value": 1
+      },
+      {
+        "name": "View",
+        "value": 1
+      },
+      {
+        "name": "Sphere Radius",
+        "value": 0
+      },
+      {
+        "name": "Cell Size",
+        "value": 1.5
+      },
+      {
+        "name": "Wire Radius",
+        "value": 0.054999999701976776
+      },
+      {
+        "name": "Softness",
+        "value": 0.012000000104308128
+      },
+      {
+        "name": "Near Fade",
+        "value": 0.07999999821186066
+      },
+      {
+        "name": "Far Distance",
+        "value": 4.5
+      },
+      {
+        "name": "AA Strength",
+        "value": 1
+      },
+      {
+        "name": "Speed",
+        "value": 0.00800000037997961
+      },
+      {
+        "name": "3D Spin",
+        "value": 0.002400000113993883
+      },
+      {
+        "name": "4D Spin",
+        "value": 0.002400000113993883
+      },
+      {
+        "name": "Color",
+        "value": 0
+      },
+      {
+        "name": "Lattice Planes",
+        "value": 1
+      },
+      {
+        "name": "Unfinished Rays",
+        "value": 0
+      }
+    ],
+    "lit_channels": 35110,
+    "stack": {
+      "high_water_mark": 888,
+      "init_high_water_mark": 944,
+      "capacity": 8192
+    }
+  }
+]

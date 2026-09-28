@@ -1,0 +1,41 @@
+{
+  "source_sha": "39225587612be7a45a9d4569dd1eb489569338a5",
+  "itcm_ceiling": 196608,
+  "reserve_bytes": 0,
+  "images": {
+    "default": {
+      "elf_sha256": "4b24b568d8ddbba9354835bb927ca99ce1b9afe8be2da1371af12cc225da2272",
+      "size_lines": [
+        "[teensy-gate] phantasm: PASS - all region budgets and layout invariants satisfied.",
+        "  note: phantasm: RAM1 'code' derived ceiling: measured 195,544 B of 196,608 B (6 x 32,768 B banks; 10 DTCM banks cover 314,784 B variables + the 12,288 B stack floor); remaining 1,064 B; boundary headroom ratchet 0 B; 1,064 B to the next bank boundary.",
+        "teensy_size:   FLASH: code:502424, data:725504, headers:9064   free for files:794624",
+        "teensy_size:    RAM1: variables:314784, code:195544, padding:1064   free for local variables:12896",
+        "teensy_size:    RAM2: variables:520064  free for malloc/new:4224"
+      ],
+      "octet_symbols": [],
+      "first_party_warning_lines": []
+    },
+    "optin": {
+      "elf_sha256": "84480845f8638ef33e0b6ca9afa6e1d723042db8f31e713471ed9fbf3dd01729",
+      "size_lines": [
+        "[teensy-gate] phantasm: PASS - all region budgets and layout invariants satisfied.",
+        "  note: phantasm: RAM1 'code' derived ceiling: measured 196,184 B of 196,608 B (6 x 32,768 B banks; 10 DTCM banks cover 314,784 B variables + the 12,288 B stack floor); remaining 424 B; boundary headroom ratchet 0 B; 424 B to the next bank boundary.",
+        "teensy_size:   FLASH: code:515656, data:725628, headers:9020   free for files:781312",
+        "teensy_size:    RAM1: variables:314784, code:196184, padding:424   free for local variables:12896",
+        "teensy_size:    RAM2: variables:520064  free for malloc/new:4224"
+      ],
+      "octet_symbols": [
+        "6004ed48 00000008 t ___ZNK3SDF15OctetFramework45validEv_veneer",
+        "600484c8 00000038 W HyperLattice<288, 144>::draw_experimental(Canvas&, HyperLatticeDetail::FrameState const&)::{lambda(math::Vector const&)#1}::operator()(math::Vector const&) const",
+        "0000dcb0 00000054 W SDF::OctetFramework4::valid() const",
+        "60043ec8 000000c2 W SDF::FrameworkPlaneCursor::initialize(SDF::FrameworkPlaneCursor*, SDF::FrameworkPlaneCursor::Projection const*, unsigned int, float)",
+        "600489b0 00000254 W void Scan::Shader::draw_cached<288, 144, 1, HyperLattice<288, 144>::draw_experimental(Canvas&, HyperLatticeDetail::FrameState const&)::{lambda(math::Vector const&)#1}>(Canvas&, HyperLattice<288, 144>::draw_experimental(Canvas&, HyperLatticeDetail::FrameState const&)::{lambda(math::Vector const&)#1}&&)",
+        "600399f4 00000420 W HyperLattice<288, 144>::draw_experimental(Canvas&, HyperLatticeDetail::FrameState const&)",
+        "6004368c 0000083c W SDF::OctetFramework4::edge_offset(math::Vec4 const&, unsigned long&) const",
+        "60044f98 00000f38 W Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)",
+        "60043f8c 0000100a W Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)"
+      ],
+      "first_party_warning_lines": []
+    }
+  }
+}
