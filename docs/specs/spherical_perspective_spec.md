@@ -1,6 +1,6 @@
 # Spherical perspective and independent patterns
 
-**Status: IMPLEMENTED architecture, revision 4 (2026-09-26).** The ray core,
+**Status: IMPLEMENTED architecture, revision 5 (2026-09-27).** The ray core,
 legacy lattice migration, noncubic framework, volume/lattice query adapters,
 and periodic-surface experiments are implemented. Firmware admission is separate
 from architectural availability; experimental configurations are available in
@@ -491,14 +491,15 @@ constexpr table declares admitted `(pattern, domain, backend, policy)` tuples,
 their defaults, parameter ranges, and resource limits. This is not a new
 engine-wide registry.
 
-Initially expose one dense **Configuration** enum through the existing
-`ParamHost` registration, with labels such as "Cubic / 3D" and "Cubic / 4D
-slice". Each index selects a whole admitted tuple. Architecture keeps pattern
-and domain separate without requiring dependent dropdowns or sparse enum
-support. Backend experiments need distinct labeled entries, not silent
-changes in rendering semantics. Separate Pattern and Sampling controls may
-follow through existing parameter admission/schema hooks once their atomic
-selection behavior is implemented.
+Expose separate **Pattern** and **View** enums through the existing
+`ParamHost` registration and admission hooks. Pattern chooses the geometry;
+View chooses 3D perspective or a three-dimensional slice through 4D geometry.
+The selectable patterns are cubic and experimental octet, each defined in
+both ambient dimensions. Octet uses the nearest-neighbor edge graph of the
+D3/FCC lattice in 3D and D4 in 4D. Unsupported combinations and invalid enum
+values are rejected before mutation. Backend and
+policy remain properties of each admitted tuple, not user-selected aliases
+for different geometry. Experimental patterns are labeled explicitly.
 
 Use one bounded, trivially copyable effect `Params` with stable storage for
 registered fields. A configuration change adopts that row's geometry defaults
