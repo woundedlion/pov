@@ -793,9 +793,28 @@ inline void test_islamic_recipes_are_morph_feasible() {
  * @brief Runs all solids tests.
  * @return The module's failure count.
  */
+inline void test_build_vertex_directions() {
+  Arena geom(solids_geom_a, sizeof(solids_geom_a));
+  Arena scratch(solids_scratch_a, sizeof(solids_scratch_a));
+  math::Vector points[6];
+  math::Quaternion rotations[6];
+  float spacing[6];
+  const auto *entry = Solids::find_entry("octahedron");
+  HS_EXPECT_TRUE(entry != nullptr);
+  const int count = Solids::build_vertex_directions(geom, scratch, *entry, 6,
+                                                    points, rotations, spacing);
+  HS_EXPECT_EQ(count, 6);
+  for (int i = 0; i < count; ++i) {
+    HS_EXPECT_NEAR(points[i].length(), 1.0f, 1e-6f);
+    HS_EXPECT_VEC(math::rotate(math::Y_AXIS, rotations[i]), points[i], 1e-5f);
+    HS_EXPECT_NEAR(spacing[i], math::PI_F * 0.5f, 1e-6f);
+  }
+}
+
 inline int run_solids_tests() {
   hs_test::ModuleFixture fixture("solids");
 
+  test_build_vertex_directions();
   test_registry_count_matches_collections();
 
   test_simple_registry_solids_are_spherical_and_valid();
