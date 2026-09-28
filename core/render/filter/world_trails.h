@@ -221,7 +221,7 @@ private:
   }
 
   /**
-   * @brief Appends an item, evicting a live item of arbitrary age at capacity.
+   * @brief Appends an item, replacing the last occupied slot at capacity.
    * @param item Encoded trail sample to push.
    */
   void push_back(const Item &item) {
