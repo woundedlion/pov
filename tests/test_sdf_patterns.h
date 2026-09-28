@@ -473,8 +473,14 @@ inline void test_octet4_nearest_edge_matches_line_search() {
     const auto EXPECTED =
         octet4_offset_reference(geometry, point, expected_feature);
     const auto OFFSET = geometry.edge_offset(point, feature);
+    const auto SAMPLE = geometry.sample(point);
     HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(OFFSET),
                    SDF::OctetFramework4::magnitude(EXPECTED), 4e-6f);
+    HS_EXPECT_NEAR(SAMPLE.field,
+                   SDF::OctetFramework4::magnitude(EXPECTED) -
+                       geometry.wire_radius,
+                   4e-6f);
+    HS_EXPECT_EQ(SAMPLE.feature, expected_feature);
     HS_EXPECT_EQ(feature, expected_feature);
     for (int axis = 0; axis < 4; ++axis)
       HS_EXPECT_NEAR(OFFSET[axis], EXPECTED[axis], exact ? 0.0f : 4e-6f);
@@ -493,6 +499,36 @@ inline void test_octet4_nearest_edge_matches_line_search() {
           static_cast<float>(state >> 8) * (20.0f / 16777216.0f) - 10.0f;
     }
     VERIFY(point, false);
+  }
+}
+
+inline void test_octet4_scalar_distance_matches_offset() {
+  for (float cell_size : {0.0001f, 0.25f, 1.0f, 17.0f, 10000.0f}) {
+    SDF::OctetFramework4 geometry;
+    geometry.cell_size = cell_size;
+    geometry.wire_radius = 0.05f * cell_size;
+    geometry.origin = {
+        {2.0f * cell_size, -cell_size, 0.5f * cell_size, -0.25f * cell_size}};
+    const float SCALE = SDF::OctetFramework4::HALF_CUBE * cell_size;
+    for (int axis = 0; axis < 4; ++axis)
+      for (float boundary : {-1.0f, -0.5f, -0.0f, 0.0f, nextafterf(0.5f, 0.0f),
+                             0.5f, nextafterf(0.5f, 1.0f), 1.0f})
+        for (float parity : {0.0f, 1.0f}) {
+          math::Vec4 point{{boundary, -boundary, 0.5f, -0.5f}};
+          point[axis] += parity;
+          for (int k = 0; k < 4; ++k)
+            point[k] = geometry.origin[k] + point[k] * SCALE;
+          uint32_t feature;
+          const auto OFFSET = geometry.edge_offset(point, feature);
+          const auto SAMPLE = geometry.sample(point);
+          HS_EXPECT_NEAR(SAMPLE.field,
+                         SDF::OctetFramework4::magnitude(OFFSET) -
+                             geometry.wire_radius,
+                         2e-6f * cell_size);
+          HS_EXPECT_EQ(SAMPLE.feature, feature);
+          HS_EXPECT_EQ(SAMPLE.field, geometry.distance(point));
+          HS_EXPECT_EQ(SAMPLE.clearance, fabsf(SAMPLE.field));
+        }
   }
 }
 
@@ -604,6 +640,7 @@ inline int run_sdf_pattern_tests() {
   test_octet_struts_have_one_angle_correct_coverage_layer();
   test_octet4_edges_parity_and_symmetry();
   test_octet4_nearest_edge_matches_line_search();
+  test_octet4_scalar_distance_matches_offset();
   test_octet4_ambient_events_and_limits();
   test_periodic_surface_bounds_and_gradients();
   return hs_test::end_module(MODULE);
