@@ -1074,8 +1074,24 @@ inline void test_preset_transition_fades_through_black_in_16_frames() {
   Timeline().clear();
 }
 
+inline void test_count_slider_matches_draw_limit() {
+  {
+    ShapeShifter<96, 20> effect;
+    effect.init();
+    const auto *count = effect.getParameters().find("Count");
+    HS_EXPECT_TRUE(count != nullptr);
+    HS_EXPECT_EQ(count->min, 1.0f);
+    HS_EXPECT_EQ(count->max, 40.0f);
+    HS_EXPECT_EQ(effect.updateParameter("Count", 288.0f),
+                 ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(count->get(), 40.0f);
+  }
+  Timeline().clear();
+}
+
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
+  test_count_slider_matches_draw_limit();
   test_buffer_comparator_statistics();
   test_reference_matrix_is_deterministic_and_nonblack();
   test_candidate_matrix_stays_within_visual_budget();
