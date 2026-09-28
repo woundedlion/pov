@@ -22,6 +22,7 @@
  * remainder at its high-water mark. Capacities are sampled after init and
  * each frame to account for effects that repartition the pool.
  */
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 
@@ -59,7 +60,8 @@ template <typename Effect> void measure(const char *name) {
     for (int i = 0; i < 3; ++i) {
       const size_t CAPACITY = arenas[i]->get_capacity();
       if (CAPACITY >= INFLATION) {
-        charged += arenas[i]->get_high_water_mark();
+        charged += std::max(arenas[i]->get_high_water_mark(),
+                            arenas[i]->get_lifetime_high_water_mark());
         remainder = names[i];
       } else {
         charged += CAPACITY;
