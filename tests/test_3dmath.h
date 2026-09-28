@@ -1235,8 +1235,8 @@ inline void test_stereo_roundtrip() {
 
   // North pole maps to the infinity sentinel (azimuth undefined → +real axis).
   math::Complex zN = projections::stereo(math::Vector(0, 1, 0));
-  HS_EXPECT_NEAR(zN.re, projections::STEREO_INF, 1.0f);
-  HS_EXPECT_NEAR(zN.im, 0.0f, 1.0f);
+  HS_EXPECT_EQ(zN.re, projections::STEREO_INF);
+  HS_EXPECT_EQ(zN.im, 0.0f);
 
   // Inside the pole cap (denom < STEREO_POLE_EPS) the sentinel preserves the
   // (x,z) azimuth at magnitude STEREO_INF rather than collapsing onto +real.
