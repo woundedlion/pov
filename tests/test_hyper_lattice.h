@@ -766,9 +766,29 @@ inline void test_presets_and_pipeline() {
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
   static_assert(Effect::PRESET_IDS.size() ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2));
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 5 : 3));
   static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
   static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
+  static_assert(Effect::WIDE_PRESET_INDEX ==
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2));
+  static_assert(Effect::PRESET_IDS[Effect::WIDE_PRESET_INDEX] ==
+                "cubic-wide-flight");
+  constexpr HL::Params WIDE_PRESET =
+      Effect::preset_params(Effect::WIDE_PRESET_INDEX);
+  static_assert(WIDE_PRESET.pattern == Effect::Pattern::CUBIC_WIRE);
+  static_assert(WIDE_PRESET.mode == HL::LatticeMode::THREE_D);
+  static_assert(WIDE_PRESET.sphere_radius == 0.0f);
+  static_assert(WIDE_PRESET.cell_size == 2.38525f);
+  static_assert(WIDE_PRESET.wire_radius == 0.055f);
+  static_assert(WIDE_PRESET.softness == 0.08f);
+  static_assert(WIDE_PRESET.near_fade == 2.0f);
+  static_assert(WIDE_PRESET.far_distance == 11.66f);
+  static_assert(WIDE_PRESET.aa_strength == 1.0f);
+  static_assert(WIDE_PRESET.speed == 0.05f);
+  static_assert(WIDE_PRESET.spin_3d == 0.015f);
+  static_assert(WIDE_PRESET.spin_4d == 0.0f);
+  static_assert(WIDE_PRESET.color == HL::ColorMode::DEPTH);
+  static_assert(WIDE_PRESET.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params CUBIC_PRESET = Effect::preset_params(0);
   static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);
@@ -981,7 +1001,7 @@ inline void test_experimental_presets() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   effect.setAnimationsPaused(true);
   const auto initial = effect.serialize_parameters();
-  for (size_t i = 2; i < Effect::PRESET_IDS.size(); ++i) {
+  for (size_t i : {size_t{2}, size_t{3}}) {
     HL::FrameState frame{};
     frame.params = Effect::preset_params(i);
     frame.params.sphere_radius = .7f;
@@ -1061,7 +1081,7 @@ inline void test_experimental_presets() {
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.serialize_parameters().params.pattern,
                Effect::Pattern::OCTET);
-  HS_EXPECT_FALSE(effect.selectPreset(4));
+  HS_EXPECT_FALSE(effect.selectPreset(Effect::PRESET_IDS.size()));
 #else
   invalid = effect.serialize_parameters();
   invalid.params.pattern = Effect::Pattern::OCTET;
