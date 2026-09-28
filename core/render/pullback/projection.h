@@ -402,6 +402,10 @@ struct Gnomonic : ApproximationDefaults {
 struct PreparedMeridian {
   float cosine;
   float sine;
+
+  static PreparedMeridian from_angle(float angle) {
+    return {cosf(angle), sinf(angle)};
+  }
 };
 
 /** @brief Peirce quincuncial projection, conformal but for four singularities;
@@ -414,8 +418,7 @@ struct Peirce : ApproximationDefaults {
   using Prepared = PreparedMeridian;
 
   static Prepared prepare(const FrameState &frame) {
-    const float MERIDIAN = State::central_meridian(frame);
-    return {cosf(MERIDIAN), sinf(MERIDIAN)};
+    return Prepared::from_angle(State::central_meridian(frame));
   }
 
   static const math::Quaternion &frame_conjugate(const FrameState &frame,
@@ -513,8 +516,7 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
   using Prepared = PreparedMeridian;
 
   static Prepared prepare(const FrameState &frame) {
-    const float MERIDIAN = State::central_meridian(frame);
-    return {cosf(MERIDIAN), sinf(MERIDIAN)};
+    return Prepared::from_angle(State::central_meridian(frame));
   }
 
   static const math::Quaternion &frame_conjugate(const FrameState &frame,
@@ -560,8 +562,7 @@ struct Airocean : ApproximationDefaults {
   using Prepared = PreparedMeridian;
 
   static Prepared prepare(const FrameState &frame) {
-    const float MERIDIAN = State::central_meridian(frame);
-    return {cosf(MERIDIAN), sinf(MERIDIAN)};
+    return Prepared::from_angle(State::central_meridian(frame));
   }
 
   static const math::Quaternion &frame_conjugate(const FrameState &frame,
