@@ -75,6 +75,25 @@ set(_end_marker "\nvoid test_hs_end_of_header(")
 # read as a call site.
 file(GLOB_RECURSE _driver_srcs "${TESTS_DIR}/*.cpp"
   "${TOOLS_DIR}/*.h" "${TOOLS_DIR}/*.hpp" "${TOOLS_DIR}/*.cpp")
+if(DEFINED CACHE_FILE)
+  set(_cache_inputs ${_headers} ${_driver_srcs}
+    "${CMAKE_CURRENT_LIST_FILE}" "${TESTS_DIR}/off_roster_headers.cmake")
+  list(SORT _cache_inputs)
+  set(_cache_material "")
+  foreach(_input IN LISTS _cache_inputs)
+    file(SHA256 "${_input}" _hash)
+    string(APPEND _cache_material "${_input}:${_hash}\n")
+  endforeach()
+  string(SHA256 _cache_key "${_cache_material}")
+  if(EXISTS "${CACHE_FILE}")
+    file(READ "${CACHE_FILE}" _cached_key)
+    if(_cached_key STREQUAL _cache_key)
+      message(STATUS "test case call check: unchanged validated corpus")
+      return()
+    endif()
+  endif()
+endif()
+
 set(_corpus "")
 foreach(_file IN LISTS _headers _driver_srcs)
   file(READ "${_file}" _file_text)
@@ -281,3 +300,7 @@ endif()
 message(STATUS
   "test case call check: all ${_sites} case definitions across the tests "
   "directory are reachable from their module entry point")
+
+if(DEFINED CACHE_FILE)
+  file(WRITE "${CACHE_FILE}" "${_cache_key}")
+endif()

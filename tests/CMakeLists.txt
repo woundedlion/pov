@@ -396,6 +396,7 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
 # the same header for module cases, or anywhere under tests/ and tools/ for
 # shared helpers.
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
+    -DCACHE_FILE=${CMAKE_CURRENT_BINARY_DIR}/case_calls.sha256
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
     -DTOOLS_DIR=${HS_ROOT}/tools
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_case_calls.cmake)
