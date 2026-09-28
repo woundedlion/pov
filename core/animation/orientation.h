@@ -13,6 +13,47 @@
 #include <array>
 
 namespace math {
+
+namespace detail {
+
+/**
+ * @brief Slerp-resamples a quaternion history to a longer frame count.
+ * @param frames History storage of at least @p capacity entries.
+ * @param scratch Scratch of at least @p capacity entries.
+ * @param num_frames Live frame count; raised to the resampled count.
+ * @param capacity Storage capacity; @p count is clamped to it.
+ * @param count Target frame count; must be at least 1.
+ * @details Shared by every Orientation<CAP>::upsample.
+ */
+HS_NOINLINE_NOCLONE inline void upsample_frames(Quaternion *frames,
+                                                Quaternion *scratch,
+                                                int &num_frames, int capacity,
+                                                int count) {
+  HS_CHECK(count >= 1, "Orientation: upsample count below 1");
+  if (count > capacity)
+    count = capacity;
+  if (num_frames >= count)
+    return;
+
+  std::copy(frames, frames + num_frames, scratch);
+  const int old_num_frames = num_frames;
+
+  for (int i = 0; i < count - 1; ++i) {
+    float t = static_cast<float>(i) / (count - 1);
+    float source_float_index = t * (old_num_frames - 1);
+    int idx = static_cast<int>(source_float_index);
+    float frac = source_float_index - idx;
+
+    frames[i] = slerp(scratch[idx],
+                      scratch[std::min(old_num_frames - 1, idx + 1)], frac);
+  }
+  // Endpoint maps exactly onto the last source frame (slerp(q, q, 0)).
+  frames[count - 1] = scratch[old_num_frames - 1].normalized();
+  num_frames = count;
+}
+
+} // namespace detail
+
 /**
  * @brief Class managing the current rotation state of an object, maintaining
  * history for interpolation.
@@ -199,31 +240,9 @@ public:
    * than spreading evenly along the arc.
    */
   void upsample(int count) {
-    HS_CHECK(count >= 1, "Orientation: upsample count below 1");
-    if (count > CAPACITY)
-      count = CAPACITY;
-    if (num_frames >= count)
-      return;
-
-    std::array<Quaternion, CAPACITY> old_orientations;
-    std::copy(orientations.begin(), orientations.begin() + num_frames,
-              old_orientations.begin());
-
-    int old_num_frames = num_frames;
-
-    for (int i = 0; i < count - 1; ++i) {
-      float t = static_cast<float>(i) / (count - 1);
-      float source_float_index = t * (old_num_frames - 1);
-      int idx = static_cast<int>(source_float_index);
-      float frac = source_float_index - idx;
-
-      orientations[i] = slerp(
-          old_orientations[idx],
-          old_orientations[std::min((int)old_num_frames - 1, idx + 1)], frac);
-    }
-    // Endpoint maps exactly onto the last source frame (slerp(q, q, 0)).
-    orientations[count - 1] = old_orientations[old_num_frames - 1].normalized();
-    num_frames = count;
+    std::array<Quaternion, CAPACITY> scratch;
+    detail::upsample_frames(orientations.data(), scratch.data(), num_frames,
+                            CAPACITY, count);
   }
 
 private:
