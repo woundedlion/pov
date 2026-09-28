@@ -1,5 +1,22 @@
 cmake_minimum_required(VERSION 3.29)
 
+if(REFRESH_ONLY)
+  execute_process(COMMAND "${GENERATOR}" "${GENERATED}" --refresh-framebuffer
+    COMMAND_ERROR_IS_FATAL ANY)
+  file(READ "${COMMITTED}" _committed)
+  file(READ "${GENERATED}" _generated)
+  set(_state_pattern "HEAVY_SEARCH_V1_STATE\\[\\] PROGMEM = \\{[^}]+\\}")
+  string(REGEX MATCH "${_state_pattern}" _old_state "${_committed}")
+  string(REGEX MATCH "${_state_pattern}" _new_state "${_generated}")
+  if(_old_state STREQUAL "" OR NOT _old_state STREQUAL _new_state)
+    message(FATAL_ERROR "MindSplatter framebuffer refresh changed the captured state")
+  endif()
+  include("${CMAKE_CURRENT_LIST_DIR}/check_mindsplatter_replay_revision.cmake")
+  check_mindsplatter_replay_revision("${_committed}" "${_generated}")
+  message(STATUS "MindSplatter framebuffer refresh preserves captured state and revision")
+  return()
+endif()
+
 execute_process(
   COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/../tools/build_pins.py" clang
   OUTPUT_VARIABLE _required_clang_major

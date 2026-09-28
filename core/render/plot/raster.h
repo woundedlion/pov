@@ -503,8 +503,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       const bool seam = math::dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
                         math::dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
       seg_seam_cache.push_back(seam ? 1 : 0);
-      float seg = seam ? math::angle_between(a, b)
-                       : planar_arc_length(a, b, *planar_basis);
+      float seg =
+          seam ? unit_arc_length(a, b) : planar_arc_length(a, b, *planar_basis);
       seg_arc_cache.push_back(seg);
       total_arc += seg;
     }

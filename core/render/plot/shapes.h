@@ -241,11 +241,11 @@ struct Multiline {
 
     for (; len_it != end; ++len_it) {
       const Fragment &curr = *len_it;
-      total_len += math::angle_between(prev.pos, curr.pos);
+      total_len += unit_arc_length(prev.pos, curr.pos);
       prev = curr;
     }
     if (closed) {
-      total_len += math::angle_between(prev.pos, first.pos);
+      total_len += unit_arc_length(prev.pos, first.pos);
     }
 
     if (total_len < math::EPS_GEOMETRIC) {
@@ -267,7 +267,7 @@ struct Multiline {
     int idx = 1;
     for (; it != end; ++it) {
       const Fragment &curr = *it;
-      float dist = math::angle_between(prev.pos, curr.pos);
+      float dist = unit_arc_length(prev.pos, curr.pos);
       current_len += dist;
 
       f = curr;
@@ -279,7 +279,7 @@ struct Multiline {
     }
 
     if (closed) {
-      float dist = math::angle_between(prev.pos, first.pos);
+      float dist = unit_arc_length(prev.pos, first.pos);
       current_len += dist;
       f = first;
       f.v0 = 1.0f;
@@ -358,7 +358,7 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
     Fragment f;
     f.pos = pos_fn(i);
     if (i > 0)
-      cumulative_len += math::angle_between(points.back().pos, f.pos);
+      cumulative_len += unit_arc_length(points.back().pos, f.pos);
     f.v0 = static_cast<float>(i) / num_verts;
     f.v1 = cumulative_len;
     f.v2 = static_cast<float>(i);
@@ -368,7 +368,7 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
 
   // Manual close (overlap): duplicate vertex 0 with continued arc length.
   Fragment last = points[start_idx];
-  cumulative_len += math::angle_between(points.back().pos, last.pos);
+  cumulative_len += unit_arc_length(points.back().pos, last.pos);
   last.v0 = 1.0f;
   last.v1 = cumulative_len;
   last.v2 = static_cast<float>(num_verts);
@@ -632,8 +632,7 @@ struct GeodesicProjection {
     float cumulative_length = 0.0f;
     for (size_t i = start_idx; i < points.size(); ++i) {
       if (i > start_idx)
-        cumulative_length +=
-            math::angle_between(points[i - 1].pos, points[i].pos);
+        cumulative_length += unit_arc_length(points[i - 1].pos, points[i].pos);
       points[i].v1 = cumulative_length;
     }
   }

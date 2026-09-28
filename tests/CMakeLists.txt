@@ -265,6 +265,13 @@ add_test(NAME unit_mindsplatter_replay_form COMMAND ${CMAKE_COMMAND}
   -DSKIP_CODE=77
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_form.cmake)
 set_tests_properties(unit_mindsplatter_replay_form PROPERTIES SKIP_RETURN_CODE 77)
+add_test(NAME unit_mindsplatter_replay_refresh COMMAND ${CMAKE_COMMAND}
+  -DREFRESH_ONLY=ON
+  -DGENERATOR=$<TARGET_FILE:mindsplatter_replay_gen>
+  -DCOMMITTED=${HS_ROOT}/tests/mindsplatter_replay_corpus.h
+  -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_replay_corpus.refreshed.h
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_form.cmake)
+
 add_test(NAME unit_mindsplatter_replay_revision_missing COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_revision_missing.cmake)
 add_test(NAME unit_mindsplatter_replay_revision_drift COMMAND ${CMAKE_COMMAND}
