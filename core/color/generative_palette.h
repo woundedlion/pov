@@ -155,12 +155,8 @@ public:
 
   /** @brief How the coordinate is folded across the key run. */
   PaletteDomain palette_domain() const { return domain; }
-  /** @brief How a key's chroma control is read: gamut-relative or absolute. */
-  ChromaBasis palette_chroma_basis() const { return chroma_basis; }
   /** @brief The space segments interpolate in. */
   ColorPath palette_color_path() const { return color_path; }
-  /** @brief The easing applied within a segment. */
-  SegmentEase segment_easing() const { return easing; }
   /** @brief Relative-chroma ceiling as a fraction of the gamut envelope. */
   float palette_headroom() const { return headroom; }
   /** @brief Hue shift per unit lightness away from L = 0.5, in radians. */
