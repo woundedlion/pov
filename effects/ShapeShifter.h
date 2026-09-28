@@ -92,8 +92,8 @@ public:
       static_cast<int>(AlphaFalloff::TOWARD_EQUATOR) + 1;
   static constexpr int NUM_RADIUS_SPACINGS =
       static_cast<int>(RadiusSpacing::SCREEN_BALANCED) + 1;
-  /** @brief Count slider ceiling. */
   static constexpr int MAX_SHAPES = 288;
+  /** @brief Rendered contours and Count slider are capped at two per row. */
   static constexpr int DRAW_LIMIT = std::min(MAX_SHAPES, 2 * H);
   /** @brief Contour count from which star edges switch to screen-step-balanced
    *  sampling: the dense planar-star path, and the balanced policy for
@@ -107,12 +107,13 @@ public:
 
   /** @brief Registers the GUI sliders and starts the preset choreography. */
   HS_COLD_MEMBER void init() override {
+    params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
     register_param("Alpha", &alpha, ALPHA_MIN, ALPHA_MAX);
     mark_global("Alpha");
     register_animated_param("Shape", &params.shape, SHAPE_OPTIONS,
                             SHAPE_EXPORT_OPTIONS, NUM_SHAPES);
     register_animated_param("Count", &params.count, 1.0f,
-                            static_cast<float>(MAX_SHAPES));
+                            static_cast<float>(DRAW_LIMIT));
     register_animated_param("Sides", &params.sides, SIDES_MIN, SIDES_MAX);
     register_animated_param("Function", &params.function, FUNCTION_OPTIONS,
                             FUNCTION_EXPORT_OPTIONS, NUM_FUNCTIONS);
@@ -185,6 +186,7 @@ private:
   /** @brief Adopts a snap target; the radial sweep restarts at phase zero. */
   void adopt_params(const Params &target) {
     params = target;
+    params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
     phase = 0.0f;
   }
 
