@@ -1341,9 +1341,8 @@ private:
    * accumulated for the outer warp slot alone.
    */
   HS_COLD_MEMBER void advance_runtime() {
-    if constexpr (requires { params.source.speed; })
-      Source::advance_clocks(params.source, source_primary, source_secondary,
-                             source_angle);
+    Source::advance_clocks(params.source, source_primary, source_secondary,
+                           source_angle);
     if constexpr (requires { params.source.noise_time_rate; })
       source_noise_time =
           math::wrap_t(source_noise_time + params.source.noise_time_rate);
