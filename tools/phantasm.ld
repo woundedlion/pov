@@ -132,7 +132,9 @@ SECTIONS
 		/* Spawn, preset-change and palette-change templates: solid builders,
 		 * vertex reconciliation and its sort, relax-bake hashing, palette
 		 * recipe validation, timeline storage reset, preset switching,
-		 * MindSplatter warp scheduling and mesh edge extraction. */
+		 * MindSplatter warp scheduling, mesh edge extraction, and the
+		 * composed-effect projection-walk constructor with its two-vector
+		 * make_rotation. */
 		*(.text._ZN6Solids11to_polymesh*)
 		*(.text._ZN6Solids9get_entry*)
 		*(.text._ZN7MeshOps17relax_source_hash*)
@@ -150,6 +152,8 @@ SECTIONS
 		*(.text._ZN4Plot4Mesh13extract_edges*)
 		*(.text._ZN4Plot4Mesh20for_each_unique_edge*)
 		*(.text._ZN11ArenaVectorIN4math6Snorm3EE*)
+		*(.text._ZN4math13make_rotationERKNS_6VectorES2_)
+		*(.text._ZN8Pullback19ProjectionWalkStateILb1EEC*)
 		*(.text.set_arm_clock)
 		*(.text._ZN8SPIClass5beginEv)
 		*(.text._ZN13IntervalTimer11beginCycles*)
