@@ -95,29 +95,14 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
           NORMAL.x * E[0][2] + NORMAL.y * E[1][2] + NORMAL.z * E[2][2]};
     }
   } else {
-    const auto FAMILIES = result.octet4.plane_families();
     auto &projection = result.octet4_projection;
-    const float INVERSE_SCALE =
+    projection.inverse_scale =
         1.0f / (SDF::OctetFramework4::HALF_CUBE * settings.cell_size);
-    const float INVERSE_SPACING = 1.0f / FAMILIES[0].spacing;
     for (int i = 0; i < 4; ++i) {
       projection.embedding[i] = math::Vector(E[i][0], E[i][1], E[i][2]);
-      projection.origin[i] =
-          (settings.center[i] - result.octet4.origin[i]) * INVERSE_SCALE;
+      projection.origin[i] = (settings.center[i] - result.octet4.origin[i]) *
+                             projection.inverse_scale;
     }
-    for (size_t f = 0; f < FAMILIES.size(); ++f) {
-      math::Vector normal{};
-      float offset = 0.0f;
-      for (int i = 0; i < 4; ++i) {
-        const float N = FAMILIES[f].normal[i] * INVERSE_SPACING;
-        normal = normal + projection.embedding[i] * N;
-        offset += (settings.center[i] - result.octet4.origin[i]) * N;
-      }
-      projection.normals[f] = normal;
-      projection.offsets[f] = offset;
-    }
-    for (auto &row : projection.embedding)
-      row = row * INVERSE_SCALE;
   }
   return result;
 }
