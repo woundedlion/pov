@@ -134,12 +134,12 @@ enum class Space {
 };
 
 /**
- * @brief Base class for all animations, providing core timing and state
- * management.
- * @tparam Derived The class inheriting from Animation (Curiously Recurring
- * Template Pattern).
+ * @brief Type-independent timing, cancellation and completion-callback state
+ * shared by every animation.
+ * @details Non-template so one copy of each virtual serves every animation
+ * type; AnimationBase adds only the Derived-typed then() chaining.
  */
-template <typename Derived> class AnimationBase : public IAnimation {
+class AnimationCommon : public IAnimation {
 public:
   /**
    * @brief Cancels the animation on the next step.
@@ -183,45 +183,6 @@ public:
   void rewind() override { t = 0; }
 
   /**
-   * @brief Sets a callback fired at the end of each completion cycle.
-   *
-   * Fires when the animation reaches done(): once for a one-shot, per cycle for
-   * a repeating one, once per frame for a Driver. Repeating RandomTimer and
-   * PeriodicTimer fire it from step() each trigger; one-shot timers reach done()
-   * and fire it once on removal.
-   * Do not attach a one-shot callback to a repeating target.
-   *
-   * Single post slot: then() traps (HS_CHECK) rather than overwrite an existing
-   * callback.
-   *
-   * A callback that re-arms the chain by adding the next animation ends it for
-   * good if that add is dropped on a full timeline: nothing retries, and
-   * Timeline::dropped_events() is the only record.
-   *
-   * @param callback The function to execute at each completion.
-   * @return LValue Reference to the derived animation object.
-   */
-  Derived &then(Fn<void(), 24> callback) & {
-    HS_CHECK(!post, "Animation: post callback already set");
-    post = std::move(callback);
-    return static_cast<Derived &>(*this);
-  }
-
-  /**
-   * @brief Sets a per-cycle completion callback (RValue overload).
-   *
-   * See the lvalue overload for the per-cycle semantics across one-shot,
-   * repeating, and Driver targets.
-   * @param callback The function to execute at each completion.
-   * @return RValue Reference to the derived animation object.
-   */
-  Derived &&then(Fn<void(), 24> callback) && {
-    HS_CHECK(!post, "Animation: post callback already set");
-    post = std::move(callback);
-    return static_cast<Derived &&>(*this);
-  }
-
-  /**
    * @brief Executes the completion callback, consuming it on cancellation.
    */
   void post_callback() override {
@@ -234,12 +195,12 @@ public:
 
 protected:
   /**
-   * @brief Constructor for the base animation class.
+   * @brief Constructor for the shared animation state.
    * @param duration Total number of frames the animation should run (-1 for
    * indefinite).
    * @param repeat If true, the animation rewinds and restarts when finished.
    */
-  AnimationBase(int duration, bool repeat)
+  AnimationCommon(int duration, bool repeat)
       : duration(duration == 0 ? 1 : duration), repeat(repeat),
         canceled(false) {
     // -1 is the sole perpetual sentinel; any other negative would make done()
@@ -251,7 +212,7 @@ protected:
   /**
    * @brief Default constructor: an indefinite, non-repeating animation.
    */
-  AnimationBase() : duration(-1), repeat(false), canceled(false) {}
+  AnimationCommon() : duration(-1), repeat(false), canceled(false) {}
 
   /**
    * @brief Ends the animation now through its duration rather than cancel().
@@ -277,6 +238,15 @@ protected:
    */
   static bool is_paused(const bool *flag) { return flag && *flag; }
 
+  /**
+   * @brief Stores the completion callback; traps if one is already set.
+   * @param callback The function to execute at each completion.
+   */
+  void set_post(Fn<void(), 24> callback) {
+    HS_CHECK(!post, "Animation: post callback already set");
+    post = std::move(callback);
+  }
+
   int duration;   /**< Total length of the animation in frames. */
   bool repeat;    /**< Flag indicating if the animation should repeat. */
   uint32_t t = 0; /**< Internal frame counter. Finite animations bound it by
@@ -289,6 +259,55 @@ protected:
 private:
   bool canceled;       /**< Flag to signal immediate cancellation. */
   Fn<void(), 24> post; /**< Callback executed when the animation finishes. */
+};
+
+/**
+ * @brief Base class for all animations, providing core timing and state
+ * management.
+ * @tparam Derived The class inheriting from Animation (Curiously Recurring
+ * Template Pattern).
+ */
+template <typename Derived> class AnimationBase : public AnimationCommon {
+public:
+  /**
+   * @brief Sets a callback fired at the end of each completion cycle.
+   *
+   * Fires when the animation reaches done(): once for a one-shot, per cycle for
+   * a repeating one, once per frame for a Driver. Repeating RandomTimer and
+   * PeriodicTimer fire it from step() each trigger; one-shot timers reach done()
+   * and fire it once on removal.
+   * Do not attach a one-shot callback to a repeating target.
+   *
+   * Single post slot: then() traps (HS_CHECK) rather than overwrite an existing
+   * callback.
+   *
+   * A callback that re-arms the chain by adding the next animation ends it for
+   * good if that add is dropped on a full timeline: nothing retries, and
+   * Timeline::dropped_events() is the only record.
+   *
+   * @param callback The function to execute at each completion.
+   * @return LValue Reference to the derived animation object.
+   */
+  Derived &then(Fn<void(), 24> callback) & {
+    set_post(std::move(callback));
+    return static_cast<Derived &>(*this);
+  }
+
+  /**
+   * @brief Sets a per-cycle completion callback (RValue overload).
+   *
+   * See the lvalue overload for the per-cycle semantics across one-shot,
+   * repeating, and Driver targets.
+   * @param callback The function to execute at each completion.
+   * @return RValue Reference to the derived animation object.
+   */
+  Derived &&then(Fn<void(), 24> callback) && {
+    set_post(std::move(callback));
+    return static_cast<Derived &&>(*this);
+  }
+
+protected:
+  using AnimationCommon::AnimationCommon;
 };
 
 } // namespace Animation
