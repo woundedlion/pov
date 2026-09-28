@@ -303,29 +303,48 @@ inline void check_generation_tracker() {
   HS_EXPECT_EQ(tracker.generation(), uint32_t(4));
 }
 
-inline void check_hyper_lattice_configuration_dropdown() {
+inline void check_hyper_lattice_pattern_view_dropdowns() {
   reset_globals();
   HyperLattice<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
   std::vector<hs_wasm::ParamView> views;
   hs_wasm::collect_param_views(effect, views);
   const hs_wasm::ParamView *dimension = nullptr;
-  for (const hs_wasm::ParamView &view : views)
-    if (std::string_view(view.name) == "Configuration")
+  const hs_wasm::ParamView *pattern = nullptr;
+  for (const hs_wasm::ParamView &view : views) {
+    if (std::string_view(view.name) == "View")
       dimension = &view;
-  HS_EXPECT_TRUE(dimension != nullptr);
-  if (dimension == nullptr)
+    if (std::string_view(view.name) == "Pattern")
+      pattern = &view;
+    HS_EXPECT_NE(std::string_view(view.name),
+                 std::string_view("Configuration"));
+  }
+  HS_EXPECT_TRUE(dimension != nullptr && pattern != nullptr);
+  if (dimension == nullptr || pattern == nullptr)
     return;
   HS_EXPECT_FALSE(dimension->is_bool);
   HS_EXPECT_TRUE(dimension->is_integer);
-  HS_EXPECT_EQ(dimension->option_count,
-               (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 5 : 2));
+  HS_EXPECT_EQ(dimension->option_count, 2);
   HS_EXPECT_EQ(std::string_view(dimension->options[0]),
-               std::string_view("Cubic / 3D"));
+               std::string_view("3D perspective"));
   HS_EXPECT_EQ(std::string_view(dimension->options[1]),
-               std::string_view("Cubic / 4D slice"));
+               std::string_view("4D slice"));
   HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
-               std::string_view("ConfigurationId::CUBIC_4D"));
+               std::string_view("LatticeMode::FOUR_D_SLICE"));
+  HS_EXPECT_FALSE(pattern->is_bool);
+  HS_EXPECT_TRUE(pattern->is_integer);
+  HS_EXPECT_EQ(pattern->option_count,
+               (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 2 : 1));
+  HS_EXPECT_EQ(std::string_view(pattern->options[0]),
+               std::string_view("Cubic"));
+  HS_EXPECT_EQ(std::string_view(pattern->export_options[0]),
+               std::string_view("Pattern::CUBIC_WIRE"));
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+  HS_EXPECT_EQ(std::string_view(pattern->options[1]),
+               std::string_view("Experimental / Octet Truss"));
+  HS_EXPECT_EQ(std::string_view(pattern->export_options[1]),
+               std::string_view("Pattern::OCTET"));
+#endif
 }
 
 inline void check_integer_float_endpoints() {
@@ -359,7 +378,7 @@ inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
   check_roster_order_pinned();
   check_generation_tracker();
-  check_hyper_lattice_configuration_dropdown();
+  check_hyper_lattice_pattern_view_dropdowns();
   check_integer_float_endpoints();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
