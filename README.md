@@ -174,7 +174,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 - **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
 - **Pixel mapping**: columns map to longitude; rows sample the calibrated LED-center span with `phi = north + y*(south-north)/(H-1)`.
 - **Display geometry**: firmware defaults to provisional LED-center endpoints at 3.6 and 176.4 degrees (2% caps). Daydream defaults to full coverage and offers Top cap (%) and Bottom cap (%) in the global controls. Both endpoint rows are latitude rings. Missing-row antialias contributions are discarded. The ideal profile explicitly includes both poles. See [display geometry](docs/specs/display_geometry.md) for calibration and profile selection.
-- **SDF distances**: in radians on the unit sphere (matching `angle_between()`), except small `SDF::Face` shapes (inradius < 0.2), whose distances and `size` use gnomonic tangent-plane units
+- **SDF distances**: shape-specific signed distance reports. Rings and spherical primitives use angular units; PlanarPolygon, Star and Flower use chart distances. `SDF::Face` uses gnomonic tangent-plane distance for small faces and `atan` of that distance for larger faces; the latter is angular but is not a metric geodesic distance. Each shape's `size` uses its corresponding distance units.
 - All geometry LUTs (`PhiLUT<H>`, `TrigLUT<W,H>`) are pre-computed eagerly via `init_geometry_luts()` at engine setup
 
 ```
