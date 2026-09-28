@@ -976,10 +976,10 @@ inline void test_clip_arcs_overlap() {
 
 inline void test_col_span_rejects_ill_conditioned_pole() {
   const math::Vector a(1.0f, 0.0f, 0.0f);
-  const math::Vector b = math::Vector(-1.0f, 0.0002f, 0.0000001f).normalized();
+  const math::Vector b = math::Vector(-1.0f, 0.0002f, 0.00000001f).normalized();
   const auto span = Plot::make_geodesic_edge_span(a, b);
   HS_EXPECT_FALSE(span.antipodal);
-  HS_EXPECT_GT(std::abs(span.axis.y), Plot::AXIS_Y_EPS);
+  HS_EXPECT_LT(std::abs(span.axis.y), Plot::AXIS_Y_EPS);
   int start = 0, length = 0;
   HS_EXPECT_FALSE(Plot::geodesic_col_span<288>(a, b, span, start, length));
 }

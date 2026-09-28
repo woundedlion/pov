@@ -533,7 +533,7 @@ make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
   } else {
     HS_PLOT_COUNT(normalizations);
     es.axis = pole * (1.0f / sqrtf(pole_len_sq));
-    es.azimuth_bounded = std::abs(pole.y) >= AXIS_Y_EPS;
+    es.azimuth_bounded = std::abs(es.axis.y) >= AXIS_Y_EPS;
   }
   es.have_axis = true;
   return es;
