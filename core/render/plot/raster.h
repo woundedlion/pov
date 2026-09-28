@@ -426,6 +426,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       (SAMPLING_POLICY == RasterSamplingPolicy::SELECTABLE &&
        opts.balanced_sampling);
   auto &pipeline = source_pipeline;
+  const ScreenStepAxes step_axes =
+      world_identity ? ScreenStepAxes{} : screen_step_axes(pipeline);
   size_t len = points.size();
   // A degenerate path is not drawn — callers wanting a dot duplicate the vertex,
   // as Line::sample does.
@@ -585,11 +587,17 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                                        SCREEN_STEP_PX));
     };
     auto adaptive_step = [&](const SamplePT &value) {
+#if HS_ENABLE_TEST_ORACLES
+      if (!g_reference_screen_step)
+#endif
+        if (!world_identity && step_axes.usable())
+          return screen_step_from_axes<W, H>(value, step_axes);
       if constexpr (std::same_as<std::decay_t<PipelineT>, PipelineRef>) {
-        return pipeline_screen_step<W, H>(pipeline, value, world_identity);
+        return pipeline_screen_step<W, H>(pipeline, value, world_identity,
+                                          &step_axes);
       } else {
         if (!world_identity)
-          return pipeline_screen_step<W, H>(pipeline, value, false);
+          return pipeline_screen_step<W, H>(pipeline, value, false, &step_axes);
 #if HS_ENABLE_TEST_ORACLES
         if (g_reference_screen_step)
           return screen_step_reference<W, H>(value.pos, value.tan, base_step);

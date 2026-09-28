@@ -4861,6 +4861,45 @@ inline void test_rasterize_sampling_follows_world_transforms() {
 }
 
 /**
+ * @brief The per-stroke up-axis table reproduces the per-sample stage walk.
+ * @details Covers a single Orient with a multi-frame tween history, composed
+ *          Orients, and a Replicate, over random positions and tangents.
+ */
+inline void test_screen_step_axes_match_stage_walk() {
+  constexpr int W = 288, H = 144;
+  math::Orientation<> tweened(math::make_rotation(math::X_AXIS, 0.7f));
+  tweened.push(math::make_rotation(math::Z_AXIS, 1.1f));
+  tweened.push(math::make_rotation(math::Y_AXIS, -0.4f));
+  math::Orientation<> half(math::make_rotation(math::X_AXIS, -math::PI_F / 4));
+  Pipeline<W, H, Filter::World::Orient> single{Filter::World::Orient(tweened)};
+  Pipeline<W, H, Filter::World::Orient, Filter::World::Orient> composed{
+      Filter::World::Orient(half), Filter::World::Orient(tweened)};
+  Pipeline<W, H, Filter::World::Replicate<W>> replicated{
+      Filter::World::Replicate<W>(3)};
+  auto check = [](auto &pipeline, int expected_copies) {
+    PipelineRef erased(pipeline);
+    const Plot::ScreenStepAxes axes = Plot::screen_step_axes(erased);
+    HS_EXPECT_TRUE(axes.usable());
+    HS_EXPECT_FALSE(axes.nonrigid);
+    HS_EXPECT_EQ(axes.count, expected_copies);
+    float worst = 0;
+    for (int i = 0; i < 500; ++i) {
+      const math::Vector pos = rand_unit();
+      const math::Vector tan = math::cross(pos, rand_unit()).normalized();
+      const Plot::SamplePT sample{pos, tan};
+      const float walk =
+          Plot::pipeline_screen_step<W, H>(erased, sample, false);
+      const float table = Plot::screen_step_from_axes<W, H>(sample, axes);
+      worst = std::max(worst, fabsf(walk - table) / walk);
+    }
+    HS_EXPECT_LT(worst, 1e-4f);
+  };
+  check(single, tweened.length() - 1);
+  check(composed, tweened.length() - 1);
+  check(replicated, 3);
+}
+
+/**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
  * @details When orientation lives in the filter chain the rasterizer
@@ -6404,6 +6443,7 @@ inline int run_plot_scan_tests() {
   test_planar_sampler_from_cull_parity();
   test_rasterize_planar_policy_parity();
   test_rasterize_sampling_follows_world_transforms();
+  test_screen_step_axes_match_stage_walk();
   test_rasterize_cull_follows_filter_orientation();
 
   test_particle_system_draws_active_trails_with_registers();

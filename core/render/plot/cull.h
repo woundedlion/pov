@@ -1352,8 +1352,9 @@ static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
 /**
  * @brief Adaptive sub-step length (radians of arc) for ~one-pixel screen steps.
  * @tparam W,H Rasterization resolution (pixel grid).
- * @param pos Current unit-sphere sample position.
- * @param tan Unit tangent at @p pos (with respect to arc length).
+ * @param pos_y y-component of the unit-sphere sample position.
+ * @param tan_y y-component of the unit tangent (with respect to arc length).
+ * @param cross_y pos.x·tan.z - pos.z·tan.x, the longitude-rate numerator.
  * @param base_step Equatorial step 2π/W; also the maximum returned step.
  * @return Arc-length step that advances ~SCREEN_STEP_PX pixels on screen.
  * @details Converts the object-space tangent to a screen-space velocity (pixels
@@ -1368,15 +1369,15 @@ static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
  * upper bound keeps the equator near one sample per column.
  */
 template <int W, int H>
-static inline float screen_step(const math::Vector &pos,
-                                const math::Vector &tan, float base_step) {
+static inline float screen_step_components(float pos_y, float tan_y,
+                                           float cross_y, float base_step) {
   const float KX = W / (2.0f * math::PI_F);  // columns per radian of longitude
   const float KY = math::ROWS_PER_RADIAN<H>; // rows per radian of colatitude
   // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
   // velocity (hence the min-clamped step) rather than a divide-by-zero.
-  const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
-  const float vx_num = KX * (pos.x * tan.z - pos.z * tan.x);
-  const float vy_num = KY * tan.y;
+  const float sin2 = std::max(1e-7f, 1.0f - pos_y * pos_y);
+  const float vx_num = KX * cross_y;
+  const float vy_num = KY * tan_y;
   // Factoring the common sin(phi) denominator avoids a separate reciprocal
   // square root while preserving the screen-speed floor.
   const float speed2_num =
@@ -1385,6 +1386,13 @@ static inline float screen_step(const math::Vector &pos,
   // the curve, yielding base_step rather than an unbounded step.
   const float step = SCREEN_STEP_PX * sin2 * screen_rsqrt(speed2_num);
   return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
+}
+
+template <int W, int H>
+static inline float screen_step(const math::Vector &pos,
+                                const math::Vector &tan, float base_step) {
+  return screen_step_components<W, H>(pos.y, tan.y,
+                                      pos.x * tan.z - pos.z * tan.x, base_step);
 }
 
 #if HS_ENABLE_TEST_ORACLES
@@ -1540,11 +1548,79 @@ edge_visible_in_clip_dispatch(PipelineT &pipeline, const math::Vector &a,
   }
 }
 
+/**
+ * @brief World up axis, in object space, of every rigid world-stage copy.
+ * @details screen_step reads only the y-components of the rotated position,
+ * tangent and their cross product; for rotation R each equals a dot product of
+ * the unrotated vector with Rᵀŷ. The copies' rotations do not depend on the
+ * rasterized geometry, so one pass per stroke replaces a stage walk per sample.
+ */
+struct ScreenStepAxes {
+  static constexpr int CAPACITY = 16;
+  std::array<math::Vector, CAPACITY> up; /**< Rᵀŷ per copy. */
+  int count = 0;                         /**< Live entries in up. */
+  bool nonrigid = false; /**< A stage cannot report its copies. */
+  bool overflow = false; /**< More copies than CAPACITY. */
+
+  /** @brief True when the table replaces the per-sample stage walk. */
+  bool usable() const { return !overflow; }
+};
+
+/**
+ * @brief Minimum screen step over every world-stage copy, from their up axes.
+ * @param sample Unrotated sample position and tangent.
+ * @param axes Usable table from screen_step_axes().
+ * @return The step pipeline_screen_step would return for @p sample.
+ */
+template <int W, int H>
+__attribute__((always_inline)) inline float
+screen_step_from_axes(const SamplePT &sample, const ScreenStepAxes &axes) {
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
+  if (math::dot(sample.tan, sample.tan) < math::EPS_NORMALIZE_SQ)
+    return BASE_STEP;
+  if (axes.nonrigid)
+    return BASE_STEP * MIN_POLE_SCALE;
+  const math::Vector n = math::cross(sample.pos, sample.tan);
+  float step = BASE_STEP;
+  for (int k = 0; k < axes.count; ++k) {
+    const math::Vector &u = axes.up[k];
+    step = std::min(step,
+                    screen_step_components<W, H>(math::dot(sample.pos, u),
+                                                 math::dot(sample.tan, u),
+                                                 -math::dot(n, u), BASE_STEP));
+  }
+  return step;
+}
+
+/**
+ * @brief Collects each world-stage copy's up axis by sending the identity basis
+ * through the pipeline's cull chain.
+ * @param pipeline Pipeline whose world stages are walked.
+ * @return The per-copy axes; nonrigid or overflow when the table is unusable.
+ */
+template <typename PipelineT>
+HS_HOT_FLASH_MEMBER ScreenStepAxes screen_step_axes(PipelineT &pipeline) {
+  ScreenStepAxes axes;
+  const math::Basis identity{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  axes.nonrigid = edge_visible_in_clip_dispatch(
+      pipeline, math::X_AXIS, math::Y_AXIS, &identity,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *rb) {
+        if (!rb || axes.count == ScreenStepAxes::CAPACITY) {
+          axes.overflow = true;
+          return false;
+        }
+        axes.up[axes.count++] = math::Vector(rb->u.y, rb->v.y, rb->w.y);
+        return false;
+      });
+  return axes;
+}
+
 /** @brief Screen step at the rendered latitude of every world-stage copy. */
 template <int W, int H, typename PipelineT>
-HS_HOT_FLASH_MEMBER float pipeline_screen_step(PipelineT &pipeline,
-                                               const SamplePT &sample,
-                                               bool world_identity) {
+HS_HOT_FLASH_MEMBER float
+pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
+                     bool world_identity,
+                     const ScreenStepAxes *axes = nullptr) {
   constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
   if (world_identity) {
 #if HS_ENABLE_TEST_ORACLES
@@ -1556,6 +1632,11 @@ HS_HOT_FLASH_MEMBER float pipeline_screen_step(PipelineT &pipeline,
   if (math::dot(sample.tan, sample.tan) < math::EPS_NORMALIZE_SQ)
     return BASE_STEP;
   float step = BASE_STEP;
+#if HS_ENABLE_TEST_ORACLES
+  if (!g_reference_screen_step)
+#endif
+    if (axes && axes->usable())
+      return screen_step_from_axes<W, H>(sample, *axes);
   // Rigid cull stages rotate both vectors; false visits every tween copy.
   const bool nonrigid = edge_visible_in_clip_dispatch(
       pipeline, sample.pos, sample.tan, nullptr,
