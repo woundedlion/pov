@@ -757,6 +757,7 @@ inline void test_class_bake_rejects_unbindable_faces() {
   MeshOps::MeshClassBake bake;
   MeshOps::build_mesh_class_bake(mesh, scratch, geometry, 0.1f, bake, 0);
   HS_EXPECT_EQ(bake.classes.size(), size_t{2});
+  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, size_t{2});
   HS_EXPECT_NE(bake.face_recs[0].class_id, bake.face_recs[1].class_id);
 }
 
