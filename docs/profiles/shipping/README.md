@@ -100,3 +100,7 @@ captured 2026-09-27 at 22:18; no 4D global-O3 capture.
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
 captured 2026-09-27 22:25. The earlier HyperLattice cycle rows above cover
 its two original presets; they predate this third default preset.
+
+## Octet optimization supplement
+
+The opt-in HyperLattice Octet presets have a separate [optimization ledger](../hyperlattice_octet_optimization_2026-09-27.md) with matched baselines, accepted and rejected trials, disassembly, and paired shipping/global-O3 profiles. Final shipping means are 81.407 ms (3D) and 177.308 ms (4D); both still spill the 62.5 ms display interval. The normal cubic-preset roster ranking above is unchanged.
