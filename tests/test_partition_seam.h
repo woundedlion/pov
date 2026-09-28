@@ -323,8 +323,7 @@ constexpr double MAX_ABS_ENERGY = 0.02;
  * cube). A seam that stopped moving pixels reads as zero energy. */
 constexpr double MIN_ABS_ENERGY = 0.005;
 
-/** Deepest pixel measured over the six calibration swaps, the same under
- * -ffast-math as under IEEE: a seam pixel that both children claim at half
+/** Deepest pixel measured over the six IEEE calibration swaps: a seam pixel that both children claim at half
  * coverage composites to 3/4 of the parent's fill. A child that loses its
  * share of such a pixel leaves half, so the margin stays well under 0.5. All
  * six swaps reach it exactly, so the darkening is bracketed on both sides. */
