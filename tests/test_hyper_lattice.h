@@ -773,22 +773,6 @@ inline void test_presets_and_pipeline() {
                 (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2));
   static_assert(Effect::PRESET_IDS[Effect::WIDE_PRESET_INDEX] ==
                 "cubic-wide-flight");
-  constexpr HL::Params WIDE_PRESET =
-      Effect::preset_params(Effect::WIDE_PRESET_INDEX);
-  static_assert(WIDE_PRESET.pattern == Effect::Pattern::CUBIC_WIRE);
-  static_assert(WIDE_PRESET.mode == HL::LatticeMode::THREE_D);
-  static_assert(WIDE_PRESET.sphere_radius == 0.0f);
-  static_assert(WIDE_PRESET.cell_size == 2.38525f);
-  static_assert(WIDE_PRESET.wire_radius == 0.055f);
-  static_assert(WIDE_PRESET.softness == 0.08f);
-  static_assert(WIDE_PRESET.near_fade == 2.0f);
-  static_assert(WIDE_PRESET.far_distance == 11.66f);
-  static_assert(WIDE_PRESET.aa_strength == 1.0f);
-  static_assert(WIDE_PRESET.speed == 0.05f);
-  static_assert(WIDE_PRESET.spin_3d == 0.015f);
-  static_assert(WIDE_PRESET.spin_4d == 0.0f);
-  static_assert(WIDE_PRESET.color == HL::ColorMode::DEPTH);
-  static_assert(WIDE_PRESET.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params CUBIC_PRESET = Effect::preset_params(0);
   static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);

@@ -30,6 +30,30 @@ index 4 when Octet is enabled. The original preset IDs and Octet indices remain
 unchanged. Pattern/View edits still adopt their tuple's normal defaults;
 select Cubic Wide Flight to adopt this complete setting.
 
+The fixed-preset device check on clean source
+`1faa99e98065aa7a47ef1393f91168ba3aaf1567` passes the 62.5 ms deadline:
+**44.530 ms mean, 50.804 ms peak, 0/616 runtime spills**, frames 2?617.
+This shipping-selective-O3 capture uses COM3, the same 288?144 segmented driver,
+40 seconds and 16-frame counter windows. Setup frame 1 (77.628 ms) is excluded.
+Scope summaries use frames 17?608; the final nine live frames remain in the
+exact runtime statistics. The untouched log passes parser validation, with
+0.386 ppm root-cycle/wall agreement at frames 65?80. See the
+[raw capture](evidence/hyperlattice_cubic_wide_2026-09-27/ship.txt),
+[summary](evidence/hyperlattice_cubic_wide_2026-09-27/ship_summary.json), and
+[parameter readback](evidence/hyperlattice_cubic_wide_2026-09-27/parameter-readback.json).
+This is a fixed-preset check; the older standard HyperLattice full-cycle reports
+cover the two original presets, not the newly expanded three-preset cycle.
+No global-O3 capture was collected for Cubic Wide Flight.
+
+The final [focused native checks](evidence/hyperlattice_cubic_wide_2026-09-27/native-tests.txt)
+and [five-preset WASM smoke](evidence/hyperlattice_cubic_wide_2026-09-27/wasm-smoke.txt)
+pass. Both firmware gates pass with unchanged RAM1 code/variables and FLASH
+data relative to the Octet table below. Cubic Wide Flight adds only 40 bytes of
+FLASH code to each image: 502,464 bytes default and 515,696 bytes with Octet.
+The zero-reserve gate still leaves 1,064/424 bytes of ITCM headroom respectively.
+The final opt-in [build log](evidence/hyperlattice_cubic_wide_2026-09-27/optin-build.txt)
+and paired default build in the capture evidence retain those measurements.
+
 ### Octet rendering
 
 The 3D adapter visits four equally spaced plane families with tetrahedral
