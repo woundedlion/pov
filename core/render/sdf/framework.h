@@ -363,6 +363,7 @@ struct FrameworkPlaneCursor {
 /** @brief Shared monotone plane streams and approximate coverage layers. */
 template <size_t Count> struct FrameworkPlaneStreams {
   static constexpr size_t STREAM_COUNT = Count;
+  static constexpr size_t GROUP_CAPACITY = 1;
   Raycast::Footprint footprint;
   std::array<FrameworkPlaneCursor, STREAM_COUNT> cursors{};
 
