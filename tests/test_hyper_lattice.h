@@ -766,7 +766,7 @@ inline void test_presets_and_pipeline() {
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
   static_assert(Effect::PRESET_IDS.size() ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 5 : 2));
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2));
   static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
   static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
 
@@ -819,8 +819,7 @@ inline void test_configuration_adoption_and_snapshots() {
                ParamSetResult::READONLY);
   const auto schema = effect.getParameterSchemaGeneration();
   HS_EXPECT_EQ(effect.updateParameter("Cell Size", 5), ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("Configuration", 1),
-               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size,
                Effect::preset_params(1).cell_size);
   HS_EXPECT_EQ(effect.serialize_parameters().params.wire_radius,
@@ -878,18 +877,17 @@ inline void test_dimension_dropdown_and_mode_lerp() {
   const ParamDef *far_distance = effect.getParameters().find("Far Distance");
   HS_EXPECT_TRUE(far_distance != nullptr);
   HS_EXPECT_TRUE(effect.getParameters().find("Far Cells") == nullptr);
-  const ParamDef *dimension = effect.getParameters().find("Configuration");
+  const ParamDef *dimension = effect.getParameters().find("View");
   HS_EXPECT_TRUE(dimension != nullptr);
   HS_EXPECT_TRUE(dimension->is_enum());
-  HS_EXPECT_EQ(dimension->option_count, int(Effect::CONFIGURATIONS.size()));
+  HS_EXPECT_EQ(dimension->option_count, 2);
   HS_EXPECT_EQ(std::string_view(dimension->options[0]),
-               std::string_view("Cubic / 3D"));
+               std::string_view("3D perspective"));
   HS_EXPECT_EQ(std::string_view(dimension->options[1]),
-               std::string_view("Cubic / 4D slice"));
+               std::string_view("4D slice"));
   HS_EXPECT_EQ(std::string_view(dimension->export_options[1]),
-               std::string_view("ConfigurationId::CUBIC_4D"));
-  HS_EXPECT_EQ(effect.updateParameter("Configuration", 1.0f),
-               ParamSetResult::APPLIED);
+               std::string_view("LatticeMode::FOUR_D_SLICE"));
+  HS_EXPECT_EQ(effect.updateParameter("View", 1.0f), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::params(effect).mode,
                HL::LatticeMode::FOUR_D_SLICE);
 
@@ -995,16 +993,40 @@ inline void test_experimental_presets() {
     const auto after = HyperLatticeExperimental::prepare(
         HyperLatticeDetail::experimental_settings(frame, .8f));
     HS_EXPECT_TRUE(before.valid && after.valid);
+    const auto invalid_ray =
+        i == 2 ? HyperLatticeExperimental::shade<false>({}, before)
+               : HyperLatticeExperimental::shade<true>({}, before);
+    HS_EXPECT_EQ(invalid_ray.trace.status, Raycast::TraceStatus::INVALID_QUERY);
+    const auto wrong_domain =
+        i == 2 ? HyperLatticeExperimental::shade<true>(math::X_AXIS, before)
+               : HyperLatticeExperimental::shade<false>(math::X_AXIS, before);
+    HS_EXPECT_EQ(wrong_domain.trace.status,
+                 Raycast::TraceStatus::INVALID_QUERY);
+    HS_EXPECT_EQ(before.camera.domain, i == 2
+                                           ? Raycast::SamplingDomain::SPATIAL_3D
+                                           : Raycast::SamplingDomain::SLICE_4D);
+    HS_EXPECT_EQ(before.appearance.feature_count, i == 2 ? 6.0f : 12.0f);
+    if (i == 3) {
+      HS_EXPECT_NE(before.camera.center[3], 0);
+      frame.rotation_phase[3] = .7f;
+      const auto rotated = HyperLatticeExperimental::prepare(
+          HyperLatticeDetail::experimental_settings(frame, .8f));
+      HS_EXPECT_TRUE(rotated.valid);
+      HS_EXPECT_NE(rotated.camera.point4(math::X_AXIS)[3],
+                   after.camera.point4(math::X_AXIS)[3]);
+    }
     for (int axis = 0; axis < 4; ++axis)
       HS_EXPECT_EQ(before.camera.center[axis], after.camera.center[axis]);
     HS_EXPECT_EQ(before.camera.radial_start, .7f);
     HS_EXPECT_EQ(before.camera.radial_start, after.camera.radial_start);
     HS_EXPECT_TRUE(Effect::PRESET_IDS[i].starts_with("experimental-"));
     HS_EXPECT_TRUE(effect.selectPreset(i));
-    HS_EXPECT_EQ(effect.getParameters().find("Configuration")->get(), float(i));
-    HS_EXPECT_TRUE(effect.getParameters().find("4D Spin")->readonly);
+    HS_EXPECT_EQ(effect.getParameters().find("Pattern")->get(), 1);
+    HS_EXPECT_EQ(effect.getParameters().find("View")->get(), float(i - 2));
+    HS_EXPECT_EQ(effect.getParameters().find("4D Spin")->readonly, i == 2);
     HS_EXPECT_TRUE(effect.getParameters().find("Lattice Planes")->readonly);
-    HS_EXPECT_EQ(effect.getParameters().find("Wire Radius")->readonly, i > 2);
+    HS_EXPECT_FALSE(effect.getParameters().find("Wire Radius")->readonly);
+    HS_EXPECT_FALSE(effect.getParameters().find("AA Strength")->readonly);
     std::vector<Pixel> previous;
     for (int frame = 0; frame < 2; ++frame) {
       effect.draw_frame();
@@ -1034,17 +1056,80 @@ inline void test_experimental_presets() {
     HS_EXPECT_EQ(blend.cell_size, target.cell_size);
   }
   HS_EXPECT_TRUE(effect.restore_parameters(initial));
-  HS_EXPECT_EQ(effect.getParameters().find("Configuration")->get(), 0);
+  HS_EXPECT_EQ(effect.getParameters().find("View")->get(), 0);
   HS_EXPECT_FALSE(effect.getParameters().find("Lattice Planes")->readonly);
-  HS_EXPECT_EQ(effect.updateParameter("Configuration", 4),
-               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.serialize_parameters().params.pattern,
-               Effect::Pattern::GYROID);
-  HS_EXPECT_FALSE(effect.selectPreset(5));
+               Effect::Pattern::OCTET);
+  HS_EXPECT_FALSE(effect.selectPreset(4));
 #else
   invalid = effect.serialize_parameters();
-  invalid.params.pattern = Effect::Pattern::COSINE;
+  invalid.params.pattern = Effect::Pattern::OCTET;
   HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+#endif
+}
+
+inline void test_pattern_view_controls() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  HS_EXPECT_TRUE(effect.getParameters().find("Configuration") == nullptr);
+  const auto *pattern = effect.getParameters().find("Pattern");
+  const auto *view = effect.getParameters().find("View");
+  HS_EXPECT_TRUE(pattern != nullptr && view != nullptr);
+  HS_EXPECT_EQ(pattern->option_count,
+               HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 2 : 1);
+  HS_EXPECT_EQ(view->option_count, 2);
+  HS_EXPECT_EQ(effect.updateParameter("View", 1), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(pattern->get(), 0);
+  HS_EXPECT_EQ(view->get(), 1);
+  HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("Cell Size", 3), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 0), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.cell_size, 3);
+  HS_EXPECT_EQ(view->get(), 1);
+  auto invalid = effect.serialize_parameters();
+  invalid.params.pattern = static_cast<Effect::Pattern>(2);
+  HS_EXPECT_FALSE(effect.restore_parameters(invalid));
+  HS_EXPECT_EQ(pattern->get(), 0);
+  HS_EXPECT_EQ(view->get(), 1);
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+  static_assert(Effect::PRESET_IDS[2] == "experimental-octet-flight");
+  static_assert(Effect::PRESET_IDS[3] == "experimental-octet-4d-slice");
+  HS_EXPECT_EQ(std::string_view(pattern->export_options[1]),
+               std::string_view("Pattern::OCTET"));
+  const auto four_d = effect.serialize_parameters();
+  HS_EXPECT_EQ(effect.updateParameter("Near Fade", .37f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Color", 1), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
+  const auto octet4 = effect.serialize_parameters();
+  HS_EXPECT_EQ(octet4.params.pattern, Effect::Pattern::OCTET);
+  HS_EXPECT_EQ(octet4.params.mode, HL::LatticeMode::FOUR_D_SLICE);
+  HS_EXPECT_EQ(octet4.params.cell_size, Effect::preset_params(3).cell_size);
+  HS_EXPECT_EQ(octet4.params.near_fade, .37f);
+  HS_EXPECT_EQ(octet4.params.color, HL::ColorMode::AXIS);
+  HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
+  HS_EXPECT_EQ(effect.updateParameter("View", 0), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(pattern->get(), 1);
+  HS_EXPECT_EQ(view->get(), 0);
+  HS_EXPECT_TRUE(effect.getParameters().find("4D Spin")->readonly);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.spin_4d, 0);
+  HS_EXPECT_TRUE(effect.getParameters().find("Lattice Planes")->readonly);
+  HS_EXPECT_FALSE(effect.getParameters().find("Wire Radius")->readonly);
+  HS_EXPECT_FALSE(effect.getParameters().find("AA Strength")->readonly);
+  HS_EXPECT_TRUE(effect.restore_parameters(four_d));
+  HS_EXPECT_EQ(pattern->get(), 0);
+  HS_EXPECT_EQ(view->get(), 1);
+  HS_EXPECT_TRUE(effect.restore_parameters(octet4));
+  HS_EXPECT_EQ(pattern->get(), 1);
+  HS_EXPECT_EQ(view->get(), 1);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 0), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(view->get(), 1);
+  HS_EXPECT_EQ(effect.serialize_parameters().params.wire_radius,
+               Effect::preset_params(1).wire_radius);
+  HS_EXPECT_FALSE(effect.getParameters().find("Lattice Planes")->readonly);
 #endif
 }
 
@@ -1074,6 +1159,7 @@ inline int run_hyper_lattice_tests() {
   test_dimension_dropdown_and_mode_lerp();
   test_axis_color_and_single_shell();
   test_experimental_presets();
+  test_pattern_view_controls();
   return fixture.result();
 }
 
