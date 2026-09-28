@@ -892,9 +892,9 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
   const float mean = static_cast<float>(delta_sum) / (W * H);
   std::printf("  [%s] delta mean=%.1f max=%d (of 60000)\n", label, mean,
               delta_max);
-  HS_EXPECT_LT(mean, 300.0f);    // ~0.5% FS: catches convention bugs
-  HS_EXPECT_LT(delta_max, 6000); // ~10% FS: interpolation envelope; rippled
-                                 // must match it too (bent faces go exact)
+  // IEEE measurements: mean 6.1/3.3, maximum 795.
+  HS_EXPECT_LT(mean, 15.0f);
+  HS_EXPECT_LT(delta_max, 2000);
 }
 
 /**
@@ -909,7 +909,7 @@ inline void test_class_lut_render_matches_exact() {
   MeshState mesh;
   MeshOps::MeshClassBake bake;
   build_islamic_bake(1, seed_a, seed_b, geom, mesh, bake);
-  check_class_lut_render_matches_exact(mesh, bake, 5000, "class lut");
+  check_class_lut_render_matches_exact(mesh, bake, 20000, "class lut");
 }
 
 /**
@@ -946,7 +946,7 @@ inline void test_class_lut_render_matches_exact_rippled() {
   rp.sync();
   for (size_t i = 0; i < mesh.vertices.size(); ++i)
     mesh.vertices[i] = ripple_transform(mesh.vertices[i], rp);
-  check_class_lut_render_matches_exact(mesh, bake, 1000, "class lut rippled");
+  check_class_lut_render_matches_exact(mesh, bake, 9000, "class lut rippled");
 }
 
 /**
