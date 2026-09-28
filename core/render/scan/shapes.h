@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 #include "render/sdf.h"
 #include "render/shading.h"
 #include "color/color.h"
@@ -492,8 +493,13 @@ struct RingGroup {
         auto slot_shader = [&](const math::Vector &p, Fragment &f) {
           shader(s, p, f);
         };
-        Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], slot_shader,
-                                     true);
+        if constexpr (std::is_constructible_v<PipelineRef, PipelineT &>) {
+          PipelineRef ref(pipeline);
+          Scan::rasterize<W, H>(ref, canvas, shapes[s], slot_shader, true);
+        } else {
+          Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], slot_shader,
+                                       true);
+        }
       }
       return;
     }

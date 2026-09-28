@@ -487,21 +487,9 @@ private:
           hue[j].lerp16(hue[j + 1], frac_to_q16(math::quintic_kernel(x - j))),
           slot_frag_alpha[s] * f.v2);
     };
-    if (canvas.debug()) {
-      // Per-ring rasterizes so the bounding-box tint has per-shape scan
-      // bounds; ascending slot order keeps the fused pass's blend order.
-      for (int s = 0; s < n_slots; ++s) {
-        shapes[s].suppress_pole_fill = true;
-        Scan::rasterize<W, H>(filters, canvas, shapes[s],
-                              [&, s](const math::Vector &p, Fragment &f) {
-                                ring_shader(s, p, f);
-                              });
-      }
-    } else {
-      HS_PROFILE(df_fused_scan);
-      Scan::DistortedRingStack::draw<W, H>(filters, canvas, n_rings, shapes,
-                                           slot_by_ring, n_slots, ring_shader);
-    }
+    HS_PROFILE(df_fused_scan);
+    Scan::DistortedRingStack::draw<W, H>(filters, canvas, n_rings, shapes,
+                                         slot_by_ring, n_slots, ring_shader);
 
     // ScalarFn's inplace_function member is not trivially destructible;
     // placement-built shapes must be destroyed before the storage is reused.
