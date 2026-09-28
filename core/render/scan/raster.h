@@ -562,7 +562,7 @@ emit_row_runs(bool handled, const IntervalBufT &intervals, NormBufT &norm,
 
 /** Capacity of scan_region's per-row emission buffer, and so the compile-time
  *  ceiling on sdf_max_spans of any shape handed to a rasterizer. Covers a
- *  top-level Union/SmoothUnion (|A|+|B|) and Subtract (2·|A|); a top-level
+ *  top-level Union/SmoothUnion (|A|+|B|) and Subtract (|A|); a top-level
  *  Intersection (2·|A| + 2·|B|) fits when |A| + |B| <=
  *  INTERVAL_SPAN_CAP + 1 (33 spans). */
 inline constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
