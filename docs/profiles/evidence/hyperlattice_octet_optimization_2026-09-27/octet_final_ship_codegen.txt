@@ -1,0 +1,2742 @@
+60009104 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)>:
+60009104:	e92d 41f0 	stmdb	sp!, {r4, r5, r6, r7, r8, lr}
+60009108:	4604      	mov	r4, r0
+6000910a:	b094      	sub	sp, #80	@ 0x50
+6000910c:	460d      	mov	r5, r1
+6000910e:	4616      	mov	r6, r2
+60009110:	f104 0738 	add.w	r7, r4, #56	@ 0x38
+60009114:	edc0 1a00 	vstr	s3, [r0]
+60009118:	ed80 2a01 	vstr	s4, [r0, #4]
+6000911c:	2230      	movs	r2, #48	@ 0x30
+6000911e:	2100      	movs	r1, #0
+60009120:	3008      	adds	r0, #8
+60009122:	ed8d 0a01 	vstr	s0, [sp, #4]
+60009126:	edcd 0a00 	vstr	s1, [sp]
+6000912a:	f7f9 fcf0 	bl	60002b0e <memset>
+6000912e:	2230      	movs	r2, #48	@ 0x30
+60009130:	2100      	movs	r1, #0
+60009132:	4638      	mov	r0, r7
+60009134:	f7f9 fceb 	bl	60002b0e <memset>
+60009138:	edd6 7a01 	vldr	s15, [r6, #4]
+6000913c:	edd5 5a0a 	vldr	s11, [r5, #40]	@ 0x28
+60009140:	ed95 6a01 	vldr	s12, [r5, #4]
+60009144:	edd5 6a04 	vldr	s13, [r5, #16]
+60009148:	ed95 7a07 	vldr	s14, [r5, #28]
+6000914c:	ee27 6a86 	vmul.f32	s12, s15, s12
+60009150:	ee67 6aa6 	vmul.f32	s13, s15, s13
+60009154:	edd5 3a00 	vldr	s7, [r5]
+60009158:	ee27 7a87 	vmul.f32	s14, s15, s14
+6000915c:	ed95 4a03 	vldr	s8, [r5, #12]
+60009160:	ee67 7aa5 	vmul.f32	s15, s15, s11
+60009164:	edd5 4a06 	vldr	s9, [r5, #24]
+60009168:	edd6 5a00 	vldr	s11, [r6]
+6000916c:	ed95 5a09 	vldr	s10, [r5, #36]	@ 0x24
+60009170:	eea5 6aa3 	vfma.f32	s12, s11, s7
+60009174:	edd5 2a05 	vldr	s5, [r5, #20]
+60009178:	eee5 6a84 	vfma.f32	s13, s11, s8
+6000917c:	ed95 3a08 	vldr	s6, [r5, #32]
+60009180:	eea5 7aa4 	vfma.f32	s14, s11, s9
+60009184:	edd5 3a0b 	vldr	s7, [r5, #44]	@ 0x2c
+60009188:	eee5 7a25 	vfma.f32	s15, s10, s11
+6000918c:	edd6 5a02 	vldr	s11, [r6, #8]
+60009190:	ed95 5a02 	vldr	s10, [r5, #8]
+60009194:	ed9d 0a01 	vldr	s0, [sp, #4]
+60009198:	eea5 6a85 	vfma.f32	s12, s11, s10
+6000919c:	ed95 4a0c 	vldr	s8, [r5, #48]	@ 0x30
+600091a0:	eee5 6aa2 	vfma.f32	s13, s11, s5
+600091a4:	edd5 4a0d 	vldr	s9, [r5, #52]	@ 0x34
+600091a8:	eea5 7a83 	vfma.f32	s14, s11, s6
+600091ac:	ed95 5a0e 	vldr	s10, [r5, #56]	@ 0x38
+600091b0:	eee5 7aa3 	vfma.f32	s15, s11, s7
+600091b4:	edd5 5a0f 	vldr	s11, [r5, #60]	@ 0x3c
+600091b8:	eddd 0a00 	vldr	s1, [sp]
+600091bc:	6c2b      	ldr	r3, [r5, #64]	@ 0x40
+600091be:	eea0 4a06 	vfma.f32	s8, s0, s12
+600091c2:	6c6a      	ldr	r2, [r5, #68]	@ 0x44
+600091c4:	eee0 4a26 	vfma.f32	s9, s0, s13
+600091c8:	f8c4 3088 	str.w	r3, [r4, #136]	@ 0x88
+600091cc:	eea0 5a07 	vfma.f32	s10, s0, s14
+600091d0:	ed84 6a1e 	vstr	s12, [r4, #120]	@ 0x78
+600091d4:	eee0 5a27 	vfma.f32	s11, s0, s15
+600091d8:	edc4 6a1f 	vstr	s13, [r4, #124]	@ 0x7c
+600091dc:	eeb0 3ac6 	vabs.f32	s6, s12
+600091e0:	ed84 7a20 	vstr	s14, [r4, #128]	@ 0x80
+600091e4:	eef0 3ae6 	vabs.f32	s7, s13
+600091e8:	edc4 7a21 	vstr	s15, [r4, #132]	@ 0x84
+600091ec:	eef0 1a44 	vmov.f32	s3, s8
+600091f0:	ed84 4a1a 	vstr	s8, [r4, #104]	@ 0x68
+600091f4:	eeb0 2a64 	vmov.f32	s4, s9
+600091f8:	edc4 4a1b 	vstr	s9, [r4, #108]	@ 0x6c
+600091fc:	eef0 2a45 	vmov.f32	s5, s10
+60009200:	ed84 5a1c 	vstr	s10, [r4, #112]	@ 0x70
+60009204:	eeb0 4a65 	vmov.f32	s8, s11
+60009208:	f8c4 208c 	str.w	r2, [r4, #140]	@ 0x8c
+6000920c:	eee0 1a86 	vfma.f32	s3, s1, s12
+60009210:	6caa      	ldr	r2, [r5, #72]	@ 0x48
+60009212:	eea0 2aa6 	vfma.f32	s4, s1, s13
+60009216:	930a      	str	r3, [sp, #40]	@ 0x28
+60009218:	eee0 2a87 	vfma.f32	s5, s1, s14
+6000921c:	930d      	str	r3, [sp, #52]	@ 0x34
+6000921e:	eea0 4aa7 	vfma.f32	s8, s1, s15
+60009222:	9310      	str	r3, [sp, #64]	@ 0x40
+60009224:	eeb4 3ae3 	vcmpe.f32	s6, s7
+60009228:	9313      	str	r3, [sp, #76]	@ 0x4c
+6000922a:	2300      	movs	r3, #0
+6000922c:	f104 0568 	add.w	r5, r4, #104	@ 0x68
+60009230:	f8c4 2090 	str.w	r2, [r4, #144]	@ 0x90
+60009234:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009238:	edc4 5a1d 	vstr	s11, [r4, #116]	@ 0x74
+6000923c:	edcd 1a08 	vstr	s3, [sp, #32]
+60009240:	ed8d 6a09 	vstr	s12, [sp, #36]	@ 0x24
+60009244:	ed8d 2a0b 	vstr	s4, [sp, #44]	@ 0x2c
+60009248:	edcd 6a0c 	vstr	s13, [sp, #48]	@ 0x30
+6000924c:	edcd 2a0e 	vstr	s5, [sp, #56]	@ 0x38
+60009250:	ed8d 7a0f 	vstr	s14, [sp, #60]	@ 0x3c
+60009254:	ed8d 4a11 	vstr	s8, [sp, #68]	@ 0x44
+60009258:	edcd 7a12 	vstr	s15, [sp, #72]	@ 0x48
+6000925c:	9307      	str	r3, [sp, #28]
+6000925e:	f2c0 809c 	blt.w	6000939a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x296>
+60009262:	eeb5 6a40 	vcmp.f32	s12, #0.0
+60009266:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000926a:	f040 8150 	bne.w	6000950e <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x40a>
+6000926e:	eef0 5ac7 	vabs.f32	s11, s14
+60009272:	eef5 5ac0 	vcmpe.f32	s11, #0.0
+60009276:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000927a:	f200 8189 	bhi.w	60009590 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x48c>
+6000927e:	eeb0 5ae7 	vabs.f32	s10, s15
+60009282:	eeb4 5ac3 	vcmpe.f32	s10, s6
+60009286:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000928a:	f200 8226 	bhi.w	600096da <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5d6>
+6000928e:	eef5 6a40 	vcmp.f32	s13, #0.0
+60009292:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009296:	f040 81ac 	bne.w	600095f2 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x4ee>
+6000929a:	2204      	movs	r2, #4
+6000929c:	eeb0 0a60 	vmov.f32	s0, s1
+600092a0:	f104 0008 	add.w	r0, r4, #8
+600092a4:	a908      	add	r1, sp, #32
+600092a6:	f7ff fecb 	bl	60009040 <SDF::FrameworkPlaneCursor::initialize(SDF::FrameworkPlaneCursor*, SDF::FrameworkPlaneCursor::Projection const*, unsigned int, float)>
+600092aa:	7c22      	ldrb	r2, [r4, #16]
+600092ac:	b10a      	cbz	r2, 600092b2 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x1ae>
+600092ae:	f89d 201c 	ldrb.w	r2, [sp, #28]
+600092b2:	edd4 7a23 	vldr	s15, [r4, #140]	@ 0x8c
+600092b6:	edd4 6a1a 	vldr	s13, [r4, #104]	@ 0x68
+600092ba:	ed94 7a1e 	vldr	s14, [r4, #120]	@ 0x78
+600092be:	ee66 6aa7 	vmul.f32	s13, s13, s15
+600092c2:	7f23      	ldrb	r3, [r4, #28]
+600092c4:	ee27 7a27 	vmul.f32	s14, s14, s15
+600092c8:	7422      	strb	r2, [r4, #16]
+600092ca:	edc4 6a1a 	vstr	s13, [r4, #104]	@ 0x68
+600092ce:	ed84 7a1e 	vstr	s14, [r4, #120]	@ 0x78
+600092d2:	b10b      	cbz	r3, 600092d8 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x1d4>
+600092d4:	f89d 301d 	ldrb.w	r3, [sp, #29]
+600092d8:	edd4 6a1b 	vldr	s13, [r4, #108]	@ 0x6c
+600092dc:	ed94 7a1f 	vldr	s14, [r4, #124]	@ 0x7c
+600092e0:	ee66 6aa7 	vmul.f32	s13, s13, s15
+600092e4:	f894 2028 	ldrb.w	r2, [r4, #40]	@ 0x28
+600092e8:	ee27 7a27 	vmul.f32	s14, s14, s15
+600092ec:	7723      	strb	r3, [r4, #28]
+600092ee:	edc4 6a1b 	vstr	s13, [r4, #108]	@ 0x6c
+600092f2:	ed84 7a1f 	vstr	s14, [r4, #124]	@ 0x7c
+600092f6:	b10a      	cbz	r2, 600092fc <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x1f8>
+600092f8:	f89d 201e 	ldrb.w	r2, [sp, #30]
+600092fc:	edd4 6a1c 	vldr	s13, [r4, #112]	@ 0x70
+60009300:	ed94 7a20 	vldr	s14, [r4, #128]	@ 0x80
+60009304:	ee66 6aa7 	vmul.f32	s13, s13, s15
+60009308:	f894 3034 	ldrb.w	r3, [r4, #52]	@ 0x34
+6000930c:	ee27 7a27 	vmul.f32	s14, s14, s15
+60009310:	f884 2028 	strb.w	r2, [r4, #40]	@ 0x28
+60009314:	edc4 6a1c 	vstr	s13, [r4, #112]	@ 0x70
+60009318:	ed84 7a20 	vstr	s14, [r4, #128]	@ 0x80
+6000931c:	b10b      	cbz	r3, 60009322 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x21e>
+6000931e:	f89d 301f 	ldrb.w	r3, [sp, #31]
+60009322:	edd4 6a1d 	vldr	s13, [r4, #116]	@ 0x74
+60009326:	42af      	cmp	r7, r5
+60009328:	ed94 7a21 	vldr	s14, [r4, #132]	@ 0x84
+6000932c:	ee66 6aa7 	vmul.f32	s13, s13, s15
+60009330:	f884 3034 	strb.w	r3, [r4, #52]	@ 0x34
+60009334:	ee67 7a27 	vmul.f32	s15, s14, s15
+60009338:	edc4 6a1d 	vstr	s13, [r4, #116]	@ 0x74
+6000933c:	edc4 7a21 	vstr	s15, [r4, #132]	@ 0x84
+60009340:	d027      	beq.n	60009392 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x28e>
+60009342:	edd4 7a22 	vldr	s15, [r4, #136]	@ 0x88
+60009346:	edd4 4a0e 	vldr	s9, [r4, #56]	@ 0x38
+6000934a:	ee67 7aa7 	vmul.f32	s15, s15, s15
+6000934e:	ed94 5a10 	vldr	s10, [r4, #64]	@ 0x40
+60009352:	edd4 5a12 	vldr	s11, [r4, #72]	@ 0x48
+60009356:	ed94 6a14 	vldr	s12, [r4, #80]	@ 0x50
+6000935a:	edd4 6a16 	vldr	s13, [r4, #88]	@ 0x58
+6000935e:	ee64 4aa7 	vmul.f32	s9, s9, s15
+60009362:	ed94 7a18 	vldr	s14, [r4, #96]	@ 0x60
+60009366:	ee25 5a27 	vmul.f32	s10, s10, s15
+6000936a:	ee65 5aa7 	vmul.f32	s11, s11, s15
+6000936e:	ee26 6a27 	vmul.f32	s12, s12, s15
+60009372:	edc4 4a0e 	vstr	s9, [r4, #56]	@ 0x38
+60009376:	ee66 6aa7 	vmul.f32	s13, s13, s15
+6000937a:	ed84 5a10 	vstr	s10, [r4, #64]	@ 0x40
+6000937e:	ee67 7a27 	vmul.f32	s15, s14, s15
+60009382:	edc4 5a12 	vstr	s11, [r4, #72]	@ 0x48
+60009386:	ed84 6a14 	vstr	s12, [r4, #80]	@ 0x50
+6000938a:	edc4 6a16 	vstr	s13, [r4, #88]	@ 0x58
+6000938e:	edc4 7a18 	vstr	s15, [r4, #96]	@ 0x60
+60009392:	4620      	mov	r0, r4
+60009394:	b014      	add	sp, #80	@ 0x50
+60009396:	e8bd 81f0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, pc}
+6000939a:	eef5 6a40 	vcmp.f32	s13, #0.0
+6000939e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600093a2:	d017      	beq.n	600093d4 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x2d0>
+600093a4:	eef0 5a46 	vmov.f32	s11, s12
+600093a8:	ed9f 5add 	vldr	s10, [pc, #884]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+600093ac:	ee66 4aa6 	vmul.f32	s9, s13, s13
+600093b0:	f04f 0201 	mov.w	r2, #1
+600093b4:	2301      	movs	r3, #1
+600093b6:	eee6 5a85 	vfma.f32	s11, s13, s10
+600093ba:	eeb0 5a64 	vmov.f32	s10, s9
+600093be:	eea6 5a25 	vfma.f32	s10, s12, s11
+600093c2:	eec4 5a85 	vdiv.f32	s11, s9, s10
+600093c6:	87a2      	strh	r2, [r4, #60]	@ 0x3c
+600093c8:	ee15 2a90 	vmov	r2, s11
+600093cc:	446b      	add	r3, sp
+600093ce:	63a2      	str	r2, [r4, #56]	@ 0x38
+600093d0:	2201      	movs	r2, #1
+600093d2:	771a      	strb	r2, [r3, #28]
+600093d4:	eef0 5ac7 	vabs.f32	s11, s14
+600093d8:	eeb4 3ae5 	vcmpe.f32	s6, s11
+600093dc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600093e0:	f2c0 80a6 	blt.w	60009530 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x42c>
+600093e4:	eeb5 6a40 	vcmp.f32	s12, #0.0
+600093e8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600093ec:	f000 80ef 	beq.w	600095ce <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x4ca>
+600093f0:	eef0 4a46 	vmov.f32	s9, s12
+600093f4:	eddf 2aca 	vldr	s5, [pc, #808]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+600093f8:	ee26 4a06 	vmul.f32	s8, s12, s12
+600093fc:	eeb0 5ae7 	vabs.f32	s10, s15
+60009400:	eee7 4a22 	vfma.f32	s9, s14, s5
+60009404:	eeb4 5ac3 	vcmpe.f32	s10, s6
+60009408:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000940c:	ee64 4a86 	vmul.f32	s9, s9, s12
+60009410:	eee7 4a07 	vfma.f32	s9, s14, s14
+60009414:	eec4 4a24 	vdiv.f32	s9, s8, s9
+60009418:	ee14 3a90 	vmov	r3, s9
+6000941c:	6423      	str	r3, [r4, #64]	@ 0x40
+6000941e:	f44f 7300 	mov.w	r3, #512	@ 0x200
+60009422:	f8a4 3044 	strh.w	r3, [r4, #68]	@ 0x44
+60009426:	f04f 0301 	mov.w	r3, #1
+6000942a:	f88d 301c 	strb.w	r3, [sp, #28]
+6000942e:	f200 8154 	bhi.w	600096da <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5d6>
+60009432:	eef0 4a46 	vmov.f32	s9, s12
+60009436:	ed9f 3aba 	vldr	s6, [pc, #744]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+6000943a:	f44f 7240 	mov.w	r2, #768	@ 0x300
+6000943e:	2300      	movs	r3, #0
+60009440:	eee7 4a83 	vfma.f32	s9, s15, s6
+60009444:	ee64 4a86 	vmul.f32	s9, s9, s12
+60009448:	eee7 4aa7 	vfma.f32	s9, s15, s15
+6000944c:	ee84 6a24 	vdiv.f32	s12, s8, s9
+60009450:	f8a4 204c 	strh.w	r2, [r4, #76]	@ 0x4c
+60009454:	ee16 2a10 	vmov	r2, s12
+60009458:	446b      	add	r3, sp
+6000945a:	64a2      	str	r2, [r4, #72]	@ 0x48
+6000945c:	2201      	movs	r2, #1
+6000945e:	771a      	strb	r2, [r3, #28]
+60009460:	eef4 3ae5 	vcmpe.f32	s7, s11
+60009464:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009468:	f280 8116 	bge.w	60009698 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x594>
+6000946c:	eeb5 7a40 	vcmp.f32	s14, #0.0
+60009470:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009474:	f000 8148 	beq.w	60009708 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x604>
+60009478:	eeb0 4a66 	vmov.f32	s8, s13
+6000947c:	eddf 4aa8 	vldr	s9, [pc, #672]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+60009480:	ee27 6a07 	vmul.f32	s12, s14, s14
+60009484:	eeb4 5ae3 	vcmpe.f32	s10, s7
+60009488:	eea7 4a24 	vfma.f32	s8, s14, s9
+6000948c:	eef0 4a46 	vmov.f32	s9, s12
+60009490:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009494:	eee6 4a84 	vfma.f32	s9, s13, s8
+60009498:	ee86 6a24 	vdiv.f32	s12, s12, s9
+6000949c:	ee16 3a10 	vmov	r3, s12
+600094a0:	6523      	str	r3, [r4, #80]	@ 0x50
+600094a2:	f44f 7381 	mov.w	r3, #258	@ 0x102
+600094a6:	f8a4 3054 	strh.w	r3, [r4, #84]	@ 0x54
+600094aa:	f04f 0301 	mov.w	r3, #1
+600094ae:	f88d 301e 	strb.w	r3, [sp, #30]
+600094b2:	f200 80fb 	bhi.w	600096ac <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5a8>
+600094b6:	eef5 6a40 	vcmp.f32	s13, #0.0
+600094ba:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600094be:	f040 813d 	bne.w	6000973c <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x638>
+600094c2:	eeb4 5ae5 	vcmpe.f32	s10, s11
+600094c6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600094ca:	f240 80cd 	bls.w	60009668 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x564>
+600094ce:	eef5 7a40 	vcmp.f32	s15, #0.0
+600094d2:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600094d6:	f43f aee0 	beq.w	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+600094da:	eef0 5a47 	vmov.f32	s11, s14
+600094de:	ed9f 6a90 	vldr	s12, [pc, #576]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+600094e2:	ee67 6aa7 	vmul.f32	s13, s15, s15
+600094e6:	f240 2203 	movw	r2, #515	@ 0x203
+600094ea:	2303      	movs	r3, #3
+600094ec:	eee7 5a86 	vfma.f32	s11, s15, s12
+600094f0:	eeb0 6a66 	vmov.f32	s12, s13
+600094f4:	eea5 6a87 	vfma.f32	s12, s11, s14
+600094f8:	eec6 7a86 	vdiv.f32	s15, s13, s12
+600094fc:	f8a4 2064 	strh.w	r2, [r4, #100]	@ 0x64
+60009500:	ee17 2a90 	vmov	r2, s15
+60009504:	446b      	add	r3, sp
+60009506:	6622      	str	r2, [r4, #96]	@ 0x60
+60009508:	2201      	movs	r2, #1
+6000950a:	771a      	strb	r2, [r3, #28]
+6000950c:	e6c5      	b.n	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+6000950e:	eeb0 5a46 	vmov.f32	s10, s12
+60009512:	eddf 5a83 	vldr	s11, [pc, #524]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+60009516:	ee26 4a06 	vmul.f32	s8, s12, s12
+6000951a:	f44f 7280 	mov.w	r2, #256	@ 0x100
+6000951e:	eea6 5aa5 	vfma.f32	s10, s13, s11
+60009522:	ee25 5a06 	vmul.f32	s10, s10, s12
+60009526:	eea6 5aa6 	vfma.f32	s10, s13, s13
+6000952a:	eec4 5a05 	vdiv.f32	s11, s8, s10
+6000952e:	e74a      	b.n	600093c6 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x2c2>
+60009530:	eeb5 7a40 	vcmp.f32	s14, #0.0
+60009534:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009538:	f000 811b 	beq.w	60009772 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x66e>
+6000953c:	eef0 2a46 	vmov.f32	s5, s12
+60009540:	ed9f 4a77 	vldr	s8, [pc, #476]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+60009544:	ee67 4a07 	vmul.f32	s9, s14, s14
+60009548:	eeb0 5ae7 	vabs.f32	s10, s15
+6000954c:	eee7 2a04 	vfma.f32	s5, s14, s8
+60009550:	eeb0 4a64 	vmov.f32	s8, s9
+60009554:	eeb4 3ac5 	vcmpe.f32	s6, s10
+60009558:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000955c:	eea6 4a22 	vfma.f32	s8, s12, s5
+60009560:	eec4 4a84 	vdiv.f32	s9, s9, s8
+60009564:	ee14 3a90 	vmov	r3, s9
+60009568:	6423      	str	r3, [r4, #64]	@ 0x40
+6000956a:	f04f 0302 	mov.w	r3, #2
+6000956e:	f8a4 3044 	strh.w	r3, [r4, #68]	@ 0x44
+60009572:	f04f 0301 	mov.w	r3, #1
+60009576:	f88d 301e 	strb.w	r3, [sp, #30]
+6000957a:	f2c0 80ae 	blt.w	600096da <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5d6>
+6000957e:	eeb5 6a40 	vcmp.f32	s12, #0.0
+60009582:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009586:	f43f af6b 	beq.w	60009460 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x35c>
+6000958a:	ee26 4a06 	vmul.f32	s8, s12, s12
+6000958e:	e750      	b.n	60009432 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x32e>
+60009590:	eeb5 7a40 	vcmp.f32	s14, #0.0
+60009594:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009598:	d1d0      	bne.n	6000953c <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x438>
+6000959a:	eeb0 5ae7 	vabs.f32	s10, s15
+6000959e:	eeb4 3ac5 	vcmpe.f32	s6, s10
+600095a2:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600095a6:	f2c0 80f2 	blt.w	6000978e <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x68a>
+600095aa:	eef4 3ae5 	vcmpe.f32	s7, s11
+600095ae:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600095b2:	f2c0 80a9 	blt.w	60009708 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x604>
+600095b6:	eef5 6a40 	vcmp.f32	s13, #0.0
+600095ba:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600095be:	d118      	bne.n	600095f2 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x4ee>
+600095c0:	eeb5 5ac0 	vcmpe.f32	s10, #0.0
+600095c4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600095c8:	f67f ae67 	bls.w	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+600095cc:	e06e      	b.n	600096ac <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5a8>
+600095ce:	eeb0 5ae7 	vabs.f32	s10, s15
+600095d2:	eeb4 5ac3 	vcmpe.f32	s10, s6
+600095d6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600095da:	d87e      	bhi.n	600096da <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5d6>
+600095dc:	eef4 3ae5 	vcmpe.f32	s7, s11
+600095e0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600095e4:	f6ff af42 	blt.w	6000946c <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x368>
+600095e8:	eef5 6a40 	vcmp.f32	s13, #0.0
+600095ec:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600095f0:	d03a      	beq.n	60009668 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x564>
+600095f2:	eeb0 6a66 	vmov.f32	s12, s13
+600095f6:	ed9f 4a4a 	vldr	s8, [pc, #296]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+600095fa:	ee66 4aa6 	vmul.f32	s9, s13, s13
+600095fe:	eeb4 5ae3 	vcmpe.f32	s10, s7
+60009602:	eea7 6a04 	vfma.f32	s12, s14, s8
+60009606:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000960a:	ee26 6a26 	vmul.f32	s12, s12, s13
+6000960e:	eea7 6a07 	vfma.f32	s12, s14, s14
+60009612:	ee84 6a86 	vdiv.f32	s12, s9, s12
+60009616:	ee16 3a10 	vmov	r3, s12
+6000961a:	6523      	str	r3, [r4, #80]	@ 0x50
+6000961c:	f240 2301 	movw	r3, #513	@ 0x201
+60009620:	f8a4 3054 	strh.w	r3, [r4, #84]	@ 0x54
+60009624:	f04f 0301 	mov.w	r3, #1
+60009628:	f88d 301d 	strb.w	r3, [sp, #29]
+6000962c:	d83e      	bhi.n	600096ac <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5a8>
+6000962e:	eeb0 6a66 	vmov.f32	s12, s13
+60009632:	ed9f 4a3b 	vldr	s8, [pc, #236]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+60009636:	f240 3201 	movw	r2, #769	@ 0x301
+6000963a:	2301      	movs	r3, #1
+6000963c:	eea7 6a84 	vfma.f32	s12, s15, s8
+60009640:	ee26 6a26 	vmul.f32	s12, s12, s13
+60009644:	eea7 6aa7 	vfma.f32	s12, s15, s15
+60009648:	eec4 6a86 	vdiv.f32	s13, s9, s12
+6000964c:	f8a4 205c 	strh.w	r2, [r4, #92]	@ 0x5c
+60009650:	ee16 2a90 	vmov	r2, s13
+60009654:	446b      	add	r3, sp
+60009656:	65a2      	str	r2, [r4, #88]	@ 0x58
+60009658:	2201      	movs	r2, #1
+6000965a:	eeb4 5ae5 	vcmpe.f32	s10, s11
+6000965e:	771a      	strb	r2, [r3, #28]
+60009660:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009664:	f63f af33 	bhi.w	600094ce <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x3ca>
+60009668:	eeb5 7a40 	vcmp.f32	s14, #0.0
+6000966c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009670:	f43f ae13 	beq.w	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+60009674:	eef0 6a47 	vmov.f32	s13, s14
+60009678:	eddf 5a29 	vldr	s11, [pc, #164]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+6000967c:	ee27 6a07 	vmul.f32	s12, s14, s14
+60009680:	f240 3202 	movw	r2, #770	@ 0x302
+60009684:	2302      	movs	r3, #2
+60009686:	eee7 6aa5 	vfma.f32	s13, s15, s11
+6000968a:	ee26 7a87 	vmul.f32	s14, s13, s14
+6000968e:	eea7 7aa7 	vfma.f32	s14, s15, s15
+60009692:	eec6 7a07 	vdiv.f32	s15, s12, s14
+60009696:	e731      	b.n	600094fc <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x3f8>
+60009698:	eef5 6a40 	vcmp.f32	s13, #0.0
+6000969c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600096a0:	d1a7      	bne.n	600095f2 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x4ee>
+600096a2:	eeb5 5ac0 	vcmpe.f32	s10, #0.0
+600096a6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600096aa:	d9dd      	bls.n	60009668 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x564>
+600096ac:	eef5 7a40 	vcmp.f32	s15, #0.0
+600096b0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600096b4:	d056      	beq.n	60009764 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x660>
+600096b6:	eeb0 4a66 	vmov.f32	s8, s13
+600096ba:	eddf 4a19 	vldr	s9, [pc, #100]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+600096be:	ee27 6aa7 	vmul.f32	s12, s15, s15
+600096c2:	f240 1203 	movw	r2, #259	@ 0x103
+600096c6:	2303      	movs	r3, #3
+600096c8:	eea7 4aa4 	vfma.f32	s8, s15, s9
+600096cc:	eef0 4a46 	vmov.f32	s9, s12
+600096d0:	eee6 4a84 	vfma.f32	s9, s13, s8
+600096d4:	eec6 6a24 	vdiv.f32	s13, s12, s9
+600096d8:	e7b8      	b.n	6000964c <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x548>
+600096da:	eef5 7a40 	vcmp.f32	s15, #0.0
+600096de:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600096e2:	d02e      	beq.n	60009742 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x63e>
+600096e4:	eeb0 3a46 	vmov.f32	s6, s12
+600096e8:	ed9f 4a0d 	vldr	s8, [pc, #52]	@ 60009720 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x61c>
+600096ec:	ee67 4aa7 	vmul.f32	s9, s15, s15
+600096f0:	f04f 0203 	mov.w	r2, #3
+600096f4:	2303      	movs	r3, #3
+600096f6:	eea7 3a84 	vfma.f32	s6, s15, s8
+600096fa:	eeb0 4a64 	vmov.f32	s8, s9
+600096fe:	eea6 4a03 	vfma.f32	s8, s12, s6
+60009702:	ee84 6a84 	vdiv.f32	s12, s9, s8
+60009706:	e6a3      	b.n	60009450 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x34c>
+60009708:	eeb4 5ae3 	vcmpe.f32	s10, s7
+6000970c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009710:	d908      	bls.n	60009724 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x620>
+60009712:	eef5 7a40 	vcmp.f32	s15, #0.0
+60009716:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000971a:	d1cc      	bne.n	600096b6 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5b2>
+6000971c:	e5bd      	b.n	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+6000971e:	bf00      	nop
+60009720:	3f2aaaab 	.word	0x3f2aaaab
+60009724:	eef5 6a40 	vcmp.f32	s13, #0.0
+60009728:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000972c:	d106      	bne.n	6000973c <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x638>
+6000972e:	eeb4 5ae5 	vcmpe.f32	s10, s11
+60009732:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009736:	f67f adb0 	bls.w	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+6000973a:	e6c8      	b.n	600094ce <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x3ca>
+6000973c:	ee66 4aa6 	vmul.f32	s9, s13, s13
+60009740:	e775      	b.n	6000962e <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x52a>
+60009742:	eef4 3ae5 	vcmpe.f32	s7, s11
+60009746:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000974a:	f6ff ae8f 	blt.w	6000946c <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x368>
+6000974e:	eef5 6a40 	vcmp.f32	s13, #0.0
+60009752:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009756:	f47f af4c 	bne.w	600095f2 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x4ee>
+6000975a:	eeb5 5ac0 	vcmpe.f32	s10, #0.0
+6000975e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009762:	d981      	bls.n	60009668 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x564>
+60009764:	eeb4 5ae5 	vcmpe.f32	s10, s11
+60009768:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000976c:	f67f af7c 	bls.w	60009668 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x564>
+60009770:	e593      	b.n	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+60009772:	eeb0 5ae7 	vabs.f32	s10, s15
+60009776:	eeb4 3ac5 	vcmpe.f32	s6, s10
+6000977a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000977e:	db06      	blt.n	6000978e <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x68a>
+60009780:	eeb5 6a40 	vcmp.f32	s12, #0.0
+60009784:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009788:	f47f aeff 	bne.w	6000958a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x486>
+6000978c:	e70d      	b.n	600095aa <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x4a6>
+6000978e:	eef5 7a40 	vcmp.f32	s15, #0.0
+60009792:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009796:	d1a5      	bne.n	600096e4 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x5e0>
+60009798:	eef4 3ae5 	vcmpe.f32	s7, s11
+6000979c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600097a0:	db08      	blt.n	600097b4 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x6b0>
+600097a2:	eef5 6a40 	vcmp.f32	s13, #0.0
+600097a6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600097aa:	f43f ad76 	beq.w	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+600097ae:	eeb0 5a67 	vmov.f32	s10, s15
+600097b2:	e71e      	b.n	600095f2 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x4ee>
+600097b4:	eef5 3ac0 	vcmpe.f32	s7, #0.0
+600097b8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600097bc:	f6ff ad6d 	blt.w	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+600097c0:	eef5 6a40 	vcmp.f32	s13, #0.0
+600097c4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600097c8:	f43f ad67 	beq.w	6000929a <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x196>
+600097cc:	ee66 4aa6 	vmul.f32	s9, s13, s13
+600097d0:	eeb0 5a67 	vmov.f32	s10, s15
+600097d4:	e72b      	b.n	6000962e <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)+0x52a>
+600097d6:	bf00      	nop
+
+
+600097d8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)>:
+600097d8:	e92d 41f0 	stmdb	sp!, {r4, r5, r6, r7, r8, lr}
+600097dc:	ed2d 8b08 	vpush	{d8-d11}
+600097e0:	b0c2      	sub	sp, #264	@ 0x108
+600097e2:	ed92 8a15 	vldr	s16, [r2, #84]	@ 0x54
+600097e6:	edd1 6a01 	vldr	s13, [r1, #4]
+600097ea:	4616      	mov	r6, r2
+600097ec:	edd1 7a02 	vldr	s15, [r1, #8]
+600097f0:	460d      	mov	r5, r1
+600097f2:	ed91 7a00 	vldr	s14, [r1]
+600097f6:	4604      	mov	r4, r0
+600097f8:	af05      	add	r7, sp, #20
+600097fa:	f892 e114 	ldrb.w	lr, [r2, #276]	@ 0x114
+600097fe:	ee68 6a26 	vmul.f32	s13, s16, s13
+60009802:	ee68 7a27 	vmul.f32	s15, s16, s15
+60009806:	ee27 7a08 	vmul.f32	s14, s14, s16
+6000980a:	edcd 6a03 	vstr	s13, [sp, #12]
+6000980e:	edcd 7a04 	vstr	s15, [sp, #16]
+60009812:	ed8d 7a02 	vstr	s14, [sp, #8]
+60009816:	c907      	ldmia	r1, {r0, r1, r2}
+60009818:	e887 0007 	stmia.w	r7, {r0, r1, r2}
+6000981c:	e9d6 0116 	ldrd	r0, r1, [r6, #88]	@ 0x58
+60009820:	e9cd 0108 	strd	r0, r1, [sp, #32]
+60009824:	f1be 0f00 	cmp.w	lr, #0
+60009828:	d003      	beq.n	60009832 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5a>
+6000982a:	a808      	add	r0, sp, #32
+6000982c:	f005 f858 	bl	6000e8e0 <___ZNK7Raycast8Interval5validEv_veneer>
+60009830:	bb10      	cbnz	r0, 60009878 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa0>
+60009832:	f04f 517e 	mov.w	r1, #1065353216	@ 0x3f800000
+60009836:	2000      	movs	r0, #0
+60009838:	2300      	movs	r3, #0
+6000983a:	2200      	movs	r2, #0
+6000983c:	62e1      	str	r1, [r4, #44]	@ 0x2c
+6000983e:	2100      	movs	r1, #0
+60009840:	60a2      	str	r2, [r4, #8]
+60009842:	6263      	str	r3, [r4, #36]	@ 0x24
+60009844:	62a2      	str	r2, [r4, #40]	@ 0x28
+60009846:	f8a4 3040 	strh.w	r3, [r4, #64]	@ 0x40
+6000984a:	6462      	str	r2, [r4, #68]	@ 0x44
+6000984c:	64a2      	str	r2, [r4, #72]	@ 0x48
+6000984e:	64e2      	str	r2, [r4, #76]	@ 0x4c
+60009850:	f884 3050 	strb.w	r3, [r4, #80]	@ 0x50
+60009854:	e9c4 010e 	strd	r0, r1, [r4, #56]	@ 0x38
+60009858:	2106      	movs	r1, #6
+6000985a:	4620      	mov	r0, r4
+6000985c:	e9c4 3300 	strd	r3, r3, [r4]
+60009860:	e9c4 3305 	strd	r3, r3, [r4, #20]
+60009864:	e9c4 3307 	strd	r3, r3, [r4, #28]
+60009868:	e9c4 330c 	strd	r3, r3, [r4, #48]	@ 0x30
+6000986c:	6121      	str	r1, [r4, #16]
+6000986e:	b042      	add	sp, #264	@ 0x108
+60009870:	ecbd 8b08 	vpop	{d8-d11}
+60009874:	e8bd 81f0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, pc}
+60009878:	a802      	add	r0, sp, #8
+6000987a:	f004 ffd5 	bl	6000e828 <___ZN7Raycast6finiteERKN4math6VectorE_veneer>
+6000987e:	2800      	cmp	r0, #0
+60009880:	d0d7      	beq.n	60009832 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5a>
+60009882:	4638      	mov	r0, r7
+60009884:	f004 ffd0 	bl	6000e828 <___ZN7Raycast6finiteERKN4math6VectorE_veneer>
+60009888:	2800      	cmp	r0, #0
+6000988a:	d0d2      	beq.n	60009832 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5a>
+6000988c:	eeff 7a00 	vmov.f32	s15, #240	@ 0xbf800000 -1.0
+60009890:	ed9d 6a05 	vldr	s12, [sp, #20]
+60009894:	eddd 6a06 	vldr	s13, [sp, #24]
+60009898:	ed9d 7a07 	vldr	s14, [sp, #28]
+6000989c:	eee6 7a06 	vfma.f32	s15, s12, s12
+600098a0:	eddf 5a31 	vldr	s11, [pc, #196]	@ 60009968 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x190>
+600098a4:	eee6 7aa6 	vfma.f32	s15, s13, s13
+600098a8:	eee7 7a07 	vfma.f32	s15, s14, s14
+600098ac:	eef0 7ae7 	vabs.f32	s15, s15
+600098b0:	eef4 7ae5 	vcmpe.f32	s15, s11
+600098b4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600098b8:	d5bb      	bpl.n	60009832 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5a>
+600098ba:	6833      	ldr	r3, [r6, #0]
+600098bc:	2b01      	cmp	r3, #1
+600098be:	d0b8      	beq.n	60009832 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5a>
+600098c0:	eeb0 0a48 	vmov.f32	s0, s16
+600098c4:	edd6 1a18 	vldr	s3, [r6, #96]	@ 0x60
+600098c8:	ed96 2a19 	vldr	s4, [r6, #100]	@ 0x64
+600098cc:	462a      	mov	r2, r5
+600098ce:	eddd 0a08 	vldr	s1, [sp, #32]
+600098d2:	f106 01b0 	add.w	r1, r6, #176	@ 0xb0
+600098d6:	ed9d 1a09 	vldr	s2, [sp, #36]	@ 0x24
+600098da:	a81d      	add	r0, sp, #116	@ 0x74
+600098dc:	f7ff fc12 	bl	60009104 <SDF::OctetEvents::OctetEvents(SDF::OctetEvents::PreparedProjection const&, math::Vector const&, float, Raycast::Interval, Raycast::Footprint)>
+600098e0:	ed9d 8a08 	vldr	s16, [sp, #32]
+600098e4:	2244      	movs	r2, #68	@ 0x44
+600098e6:	2100      	movs	r1, #0
+600098e8:	a80b      	add	r0, sp, #44	@ 0x2c
+600098ea:	eddd 8a09 	vldr	s17, [sp, #36]	@ 0x24
+600098ee:	f7f9 f90e 	bl	60002b0e <memset>
+600098f2:	ee18 3a10 	vmov	r3, s16
+600098f6:	eeb0 ba68 	vmov.f32	s22, s17
+600098fa:	f003 43ff 	and.w	r3, r3, #2139095040	@ 0x7f800000
+600098fe:	f1b3 4fff 	cmp.w	r3, #2139095040	@ 0x7f800000
+60009902:	d016      	beq.n	60009932 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x15a>
+60009904:	eeb4 8ae8 	vcmpe.f32	s16, s17
+60009908:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000990c:	eeb5 8ac0 	vcmpe.f32	s16, #0.0
+60009910:	bf4c      	ite	mi
+60009912:	2301      	movmi	r3, #1
+60009914:	2300      	movpl	r3, #0
+60009916:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000991a:	f003 0301 	and.w	r3, r3, #1
+6000991e:	bfb8      	it	lt
+60009920:	2300      	movlt	r3, #0
+60009922:	b133      	cbz	r3, 60009932 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x15a>
+60009924:	ee18 3a90 	vmov	r3, s17
+60009928:	f003 43ff 	and.w	r3, r3, #2139095040	@ 0x7f800000
+6000992c:	f1b3 4fff 	cmp.w	r3, #2139095040	@ 0x7f800000
+60009930:	d122      	bne.n	60009978 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x1a0>
+60009932:	2300      	movs	r3, #0
+60009934:	2106      	movs	r1, #6
+60009936:	461a      	mov	r2, r3
+60009938:	2000      	movs	r0, #0
+6000993a:	e9c4 0000 	strd	r0, r0, [r4]
+6000993e:	2000      	movs	r0, #0
+60009940:	60a0      	str	r0, [r4, #8]
+60009942:	f04f 507e 	mov.w	r0, #1065353216	@ 0x3f800000
+60009946:	910a      	str	r1, [sp, #40]	@ 0x28
+60009948:	920e      	str	r2, [sp, #56]	@ 0x38
+6000994a:	a90a      	add	r1, sp, #40	@ 0x28
+6000994c:	9011      	str	r0, [sp, #68]	@ 0x44
+6000994e:	2248      	movs	r2, #72	@ 0x48
+60009950:	f104 0010 	add.w	r0, r4, #16
+60009954:	930f      	str	r3, [sp, #60]	@ 0x3c
+60009956:	f004 ff77 	bl	6000e848 <__memcpy_veneer>
+6000995a:	4620      	mov	r0, r4
+6000995c:	b042      	add	sp, #264	@ 0x108
+6000995e:	ecbd 8b08 	vpop	{d8-d11}
+60009962:	e8bd 81f0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, pc}
+60009966:	bf00      	nop
+60009968:	38d1b717 	.word	0x38d1b717
+6000996c:	00000000 	.word	0x00000000
+60009970:	7f7fffff 	.word	0x7f7fffff
+60009974:	7f800000 	.word	0x7f800000
+60009978:	eef7 6a00 	vmov.f32	s13, #112	@ 0x3f800000  1.0
+6000997c:	ed5f 4a05 	vldr	s9, [pc, #-20]	@ 6000996c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x194>
+60009980:	f04f 0800 	mov.w	r8, #0
+60009984:	eef6 2a00 	vmov.f32	s5, #96	@ 0x3f000000  0.5
+60009988:	eeb0 4a64 	vmov.f32	s8, s9
+6000998c:	eddd 1a1e 	vldr	s3, [sp, #120]	@ 0x78
+60009990:	eef0 3a64 	vmov.f32	s7, s9
+60009994:	ed9d 1a1d 	vldr	s2, [sp, #116]	@ 0x74
+60009998:	eeb0 3a66 	vmov.f32	s6, s13
+6000999c:	4643      	mov	r3, r8
+6000999e:	eeb0 2a64 	vmov.f32	s4, s9
+600099a2:	4642      	mov	r2, r8
+600099a4:	eef0 0a64 	vmov.f32	s1, s9
+600099a8:	46c4      	mov	ip, r8
+600099aa:	f89d 1084 	ldrb.w	r1, [sp, #132]	@ 0x84
+600099ae:	2900      	cmp	r1, #0
+600099b0:	f000 81ba 	beq.w	60009d28 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x550>
+600099b4:	ed9d 7a1f 	vldr	s14, [sp, #124]	@ 0x7c
+600099b8:	ee17 1a10 	vmov	r1, s14
+600099bc:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+600099c0:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+600099c4:	f000 8346 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+600099c8:	eeb4 bac7 	vcmpe.f32	s22, s14
+600099cc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+600099d0:	f2c0 81aa 	blt.w	60009d28 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x550>
+600099d4:	2000      	movs	r0, #0
+600099d6:	f89d 1090 	ldrb.w	r1, [sp, #144]	@ 0x90
+600099da:	2900      	cmp	r1, #0
+600099dc:	f000 81f6 	beq.w	60009dcc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f4>
+600099e0:	ed9d 6a22 	vldr	s12, [sp, #136]	@ 0x88
+600099e4:	ee16 1a10 	vmov	r1, s12
+600099e8:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+600099ec:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+600099f0:	f000 8330 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+600099f4:	eeb4 7ac6 	vcmpe.f32	s14, s12
+600099f8:	f89d 509c 	ldrb.w	r5, [sp, #156]	@ 0x9c
+600099fc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009a00:	f300 81a1 	bgt.w	60009d46 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x56e>
+60009a04:	2800      	cmp	r0, #0
+60009a06:	f040 81b2 	bne.w	60009d6e <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x596>
+60009a0a:	2d00      	cmp	r5, #0
+60009a0c:	f000 8481 	beq.w	6000a312 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb3a>
+60009a10:	eddd 7a25 	vldr	s15, [sp, #148]	@ 0x94
+60009a14:	ee17 1a90 	vmov	r1, s15
+60009a18:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+60009a1c:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+60009a20:	f000 8318 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+60009a24:	eeb4 7ae7 	vcmpe.f32	s14, s15
+60009a28:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009a2c:	f300 81b6 	bgt.w	60009d9c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5c4>
+60009a30:	eeb0 6a47 	vmov.f32	s12, s14
+60009a34:	4601      	mov	r1, r0
+60009a36:	f89d 00a8 	ldrb.w	r0, [sp, #168]	@ 0xa8
+60009a3a:	b178      	cbz	r0, 60009a5c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x284>
+60009a3c:	eddd 7a28 	vldr	s15, [sp, #160]	@ 0xa0
+60009a40:	ee17 0a90 	vmov	r0, s15
+60009a44:	f000 40ff 	and.w	r0, r0, #2139095040	@ 0x7f800000
+60009a48:	f1b0 4fff 	cmp.w	r0, #2139095040	@ 0x7f800000
+60009a4c:	f000 8302 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+60009a50:	eeb4 6ae7 	vcmpe.f32	s12, s15
+60009a54:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009a58:	f300 81b6 	bgt.w	60009dc8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f0>
+60009a5c:	eef0 7a46 	vmov.f32	s15, s12
+60009a60:	f1bc 0f00 	cmp.w	ip, #0
+60009a64:	d005      	beq.n	60009a72 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x29a>
+60009a66:	eef4 0ae7 	vcmpe.f32	s1, s15
+60009a6a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009a6e:	f100 8373 	bmi.w	6000a158 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x980>
+60009a72:	f8d6 008c 	ldr.w	r0, [r6, #140]	@ 0x8c
+60009a76:	4290      	cmp	r0, r2
+60009a78:	f340 84d2 	ble.w	6000a420 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc48>
+60009a7c:	eeb4 8ae7 	vcmpe.f32	s16, s15
+60009a80:	ad42      	add	r5, sp, #264	@ 0x108
+60009a82:	eb01 0041 	add.w	r0, r1, r1, lsl #1
+60009a86:	3201      	adds	r2, #1
+60009a88:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009a8c:	eb05 0080 	add.w	r0, r5, r0, lsl #2
+60009a90:	ea4f 0541 	mov.w	r5, r1, lsl #1
+60009a94:	ed10 6a23 	vldr	s12, [r0, #-140]	@ 0xffffff74
+60009a98:	f200 82bf 	bhi.w	6000a01a <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x842>
+60009a9c:	f89d 00b0 	ldrb.w	r0, [sp, #176]	@ 0xb0
+60009aa0:	4288      	cmp	r0, r1
+60009aa2:	d11f      	bne.n	60009ae4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x30c>
+60009aa4:	eddd 5a2b 	vldr	s11, [sp, #172]	@ 0xac
+60009aa8:	eef5 5a40 	vcmp.f32	s11, #0.0
+60009aac:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009ab0:	d018      	beq.n	60009ae4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x30c>
+60009ab2:	f89d 00b1 	ldrb.w	r0, [sp, #177]	@ 0xb1
+60009ab6:	eb0d 0080 	add.w	r0, sp, r0, lsl #2
+60009aba:	ed90 5a3b 	vldr	s10, [r0, #236]	@ 0xec
+60009abe:	ed90 7a37 	vldr	s14, [r0, #220]	@ 0xdc
+60009ac2:	eea5 7a06 	vfma.f32	s14, s10, s12
+60009ac6:	ed1f 5a56 	vldr	s10, [pc, #-344]	@ 60009970 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x198>
+60009aca:	feb8 0a47 	vrinta.f32	s0, s14
+60009ace:	ee37 7a40 	vsub.f32	s14, s14, s0
+60009ad2:	ee27 7a07 	vmul.f32	s14, s14, s14
+60009ad6:	ee27 7a25 	vmul.f32	s14, s14, s11
+60009ada:	eeb4 7ac5 	vcmpe.f32	s14, s10
+60009ade:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009ae2:	d901      	bls.n	60009ae8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x310>
+60009ae4:	ed1f 7a5d 	vldr	s14, [pc, #-372]	@ 60009974 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x19c>
+60009ae8:	f89d 00b8 	ldrb.w	r0, [sp, #184]	@ 0xb8
+60009aec:	4288      	cmp	r0, r1
+60009aee:	f040 811f 	bne.w	60009d30 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x558>
+60009af2:	ed9d 5a2d 	vldr	s10, [sp, #180]	@ 0xb4
+60009af6:	eeb5 5a40 	vcmp.f32	s10, #0.0
+60009afa:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009afe:	f000 8117 	beq.w	60009d30 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x558>
+60009b02:	f89d 00b9 	ldrb.w	r0, [sp, #185]	@ 0xb9
+60009b06:	eb0d 0080 	add.w	r0, sp, r0, lsl #2
+60009b0a:	ed90 0a3b 	vldr	s0, [r0, #236]	@ 0xec
+60009b0e:	edd0 5a37 	vldr	s11, [r0, #220]	@ 0xdc
+60009b12:	eee0 5a06 	vfma.f32	s11, s0, s12
+60009b16:	feb8 0a65 	vrinta.f32	s0, s11
+60009b1a:	ee75 5ac0 	vsub.f32	s11, s11, s0
+60009b1e:	ee65 5aa5 	vmul.f32	s11, s11, s11
+60009b22:	ee65 5a85 	vmul.f32	s11, s11, s10
+60009b26:	eeb4 7ae5 	vcmpe.f32	s14, s11
+60009b2a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009b2e:	f340 80ff 	ble.w	60009d30 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x558>
+60009b32:	eeb0 7a65 	vmov.f32	s14, s11
+60009b36:	2001      	movs	r0, #1
+60009b38:	f89d e0c0 	ldrb.w	lr, [sp, #192]	@ 0xc0
+60009b3c:	458e      	cmp	lr, r1
+60009b3e:	d120      	bne.n	60009b82 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x3aa>
+60009b40:	ed9d 5a2f 	vldr	s10, [sp, #188]	@ 0xbc
+60009b44:	eeb5 5a40 	vcmp.f32	s10, #0.0
+60009b48:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009b4c:	d019      	beq.n	60009b82 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x3aa>
+60009b4e:	f89d e0c1 	ldrb.w	lr, [sp, #193]	@ 0xc1
+60009b52:	eb0d 0e8e 	add.w	lr, sp, lr, lsl #2
+60009b56:	ed9e 0a3b 	vldr	s0, [lr, #236]	@ 0xec
+60009b5a:	edde 5a37 	vldr	s11, [lr, #220]	@ 0xdc
+60009b5e:	eee0 5a06 	vfma.f32	s11, s0, s12
+60009b62:	feb8 0a65 	vrinta.f32	s0, s11
+60009b66:	ee75 5ac0 	vsub.f32	s11, s11, s0
+60009b6a:	ee65 5aa5 	vmul.f32	s11, s11, s11
+60009b6e:	ee65 5a85 	vmul.f32	s11, s11, s10
+60009b72:	eeb4 7ae5 	vcmpe.f32	s14, s11
+60009b76:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009b7a:	dd02      	ble.n	60009b82 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x3aa>
+60009b7c:	eeb0 7a65 	vmov.f32	s14, s11
+60009b80:	2002      	movs	r0, #2
+60009b82:	f89d e0c8 	ldrb.w	lr, [sp, #200]	@ 0xc8
+60009b86:	458e      	cmp	lr, r1
+60009b88:	d120      	bne.n	60009bcc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x3f4>
+60009b8a:	ed9d 5a31 	vldr	s10, [sp, #196]	@ 0xc4
+60009b8e:	eeb5 5a40 	vcmp.f32	s10, #0.0
+60009b92:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009b96:	d019      	beq.n	60009bcc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x3f4>
+60009b98:	f89d e0c9 	ldrb.w	lr, [sp, #201]	@ 0xc9
+60009b9c:	eb0d 0e8e 	add.w	lr, sp, lr, lsl #2
+60009ba0:	ed9e 0a3b 	vldr	s0, [lr, #236]	@ 0xec
+60009ba4:	edde 5a37 	vldr	s11, [lr, #220]	@ 0xdc
+60009ba8:	eee0 5a06 	vfma.f32	s11, s0, s12
+60009bac:	feb8 0a65 	vrinta.f32	s0, s11
+60009bb0:	ee75 5ac0 	vsub.f32	s11, s11, s0
+60009bb4:	ee65 5aa5 	vmul.f32	s11, s11, s11
+60009bb8:	ee65 5a85 	vmul.f32	s11, s11, s10
+60009bbc:	eeb4 7ae5 	vcmpe.f32	s14, s11
+60009bc0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009bc4:	dd02      	ble.n	60009bcc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x3f4>
+60009bc6:	eeb0 7a65 	vmov.f32	s14, s11
+60009bca:	2003      	movs	r0, #3
+60009bcc:	f89d e0d0 	ldrb.w	lr, [sp, #208]	@ 0xd0
+60009bd0:	458e      	cmp	lr, r1
+60009bd2:	d120      	bne.n	60009c16 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x43e>
+60009bd4:	ed9d 5a33 	vldr	s10, [sp, #204]	@ 0xcc
+60009bd8:	eeb5 5a40 	vcmp.f32	s10, #0.0
+60009bdc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009be0:	d019      	beq.n	60009c16 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x43e>
+60009be2:	f89d e0d1 	ldrb.w	lr, [sp, #209]	@ 0xd1
+60009be6:	eb0d 0e8e 	add.w	lr, sp, lr, lsl #2
+60009bea:	ed9e 0a3b 	vldr	s0, [lr, #236]	@ 0xec
+60009bee:	edde 5a37 	vldr	s11, [lr, #220]	@ 0xdc
+60009bf2:	eee0 5a06 	vfma.f32	s11, s0, s12
+60009bf6:	feb8 0a65 	vrinta.f32	s0, s11
+60009bfa:	ee75 5ac0 	vsub.f32	s11, s11, s0
+60009bfe:	ee65 5aa5 	vmul.f32	s11, s11, s11
+60009c02:	ee65 5a85 	vmul.f32	s11, s11, s10
+60009c06:	eeb4 7ae5 	vcmpe.f32	s14, s11
+60009c0a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009c0e:	dd02      	ble.n	60009c16 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x43e>
+60009c10:	eeb0 7a65 	vmov.f32	s14, s11
+60009c14:	2004      	movs	r0, #4
+60009c16:	f89d e0d8 	ldrb.w	lr, [sp, #216]	@ 0xd8
+60009c1a:	4571      	cmp	r1, lr
+60009c1c:	d120      	bne.n	60009c60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x488>
+60009c1e:	ed9d 5a35 	vldr	s10, [sp, #212]	@ 0xd4
+60009c22:	eeb5 5a40 	vcmp.f32	s10, #0.0
+60009c26:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009c2a:	d019      	beq.n	60009c60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x488>
+60009c2c:	f89d e0d9 	ldrb.w	lr, [sp, #217]	@ 0xd9
+60009c30:	eb0d 0e8e 	add.w	lr, sp, lr, lsl #2
+60009c34:	ed9e 0a3b 	vldr	s0, [lr, #236]	@ 0xec
+60009c38:	edde 5a37 	vldr	s11, [lr, #220]	@ 0xdc
+60009c3c:	eee0 5a06 	vfma.f32	s11, s0, s12
+60009c40:	feb8 0a65 	vrinta.f32	s0, s11
+60009c44:	ee75 5ac0 	vsub.f32	s11, s11, s0
+60009c48:	ee65 5aa5 	vmul.f32	s11, s11, s11
+60009c4c:	ee65 5a85 	vmul.f32	s11, s11, s10
+60009c50:	eeb4 7ae5 	vcmpe.f32	s14, s11
+60009c54:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009c58:	dd02      	ble.n	60009c60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x488>
+60009c5a:	eeb0 7a65 	vmov.f32	s14, s11
+60009c5e:	2005      	movs	r0, #5
+60009c60:	ee31 5a86 	vadd.f32	s10, s3, s12
+60009c64:	ed9d 0a41 	vldr	s0, [sp, #260]	@ 0x104
+60009c68:	eef0 5a40 	vmov.f32	s11, s0
+60009c6c:	ee25 5a01 	vmul.f32	s10, s10, s2
+60009c70:	eee5 5a22 	vfma.f32	s11, s10, s5
+60009c74:	ee65 5aa5 	vmul.f32	s11, s11, s11
+60009c78:	eeb4 7ae5 	vcmpe.f32	s14, s11
+60009c7c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009c80:	f300 81c7 	bgt.w	6000a012 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x83a>
+60009c84:	eef1 5ac7 	vsqrt.f32	s11, s14
+60009c88:	eeb5 5ac0 	vcmpe.f32	s10, #0.0
+60009c8c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009c90:	ee75 5ac0 	vsub.f32	s11, s11, s0
+60009c94:	f340 830c 	ble.w	6000a2b0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xad8>
+60009c98:	ee85 7a85 	vdiv.f32	s14, s11, s10
+60009c9c:	eeb4 7ae2 	vcmpe.f32	s14, s5
+60009ca0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009ca4:	f300 8230 	bgt.w	6000a108 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x930>
+60009ca8:	eefe 5a00 	vmov.f32	s11, #224	@ 0xbf000000 -0.5
+60009cac:	eeb4 7ae5 	vcmpe.f32	s14, s11
+60009cb0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009cb4:	f100 8302 	bmi.w	6000a2bc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xae4>
+60009cb8:	ee32 7ac7 	vsub.f32	s14, s5, s14
+60009cbc:	ee16 7a10 	vmov	r7, s12
+60009cc0:	f007 4eff 	and.w	lr, r7, #2139095040	@ 0x7f800000
+60009cc4:	f1be 4fff 	cmp.w	lr, #2139095040	@ 0x7f800000
+60009cc8:	f000 8198 	beq.w	60009ffc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x824>
+60009ccc:	eef4 7a46 	vcmp.f32	s15, s12
+60009cd0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009cd4:	f040 8192 	bne.w	60009ffc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x824>
+60009cd8:	ee17 7a10 	vmov	r7, s14
+60009cdc:	f007 4eff 	and.w	lr, r7, #2139095040	@ 0x7f800000
+60009ce0:	f1be 4fff 	cmp.w	lr, #2139095040	@ 0x7f800000
+60009ce4:	f000 818a 	beq.w	60009ffc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x824>
+60009ce8:	eeb5 7ac0 	vcmpe.f32	s14, #0.0
+60009cec:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009cf0:	f300 82e7 	bgt.w	6000a2c2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xaea>
+60009cf4:	af42      	add	r7, sp, #264	@ 0x108
+60009cf6:	1868      	adds	r0, r5, r1
+60009cf8:	eb07 0080 	add.w	r0, r7, r0, lsl #2
+60009cfc:	ed10 7a22 	vldr	s14, [r0, #-136]	@ 0xffffff78
+60009d00:	ee36 7a07 	vadd.f32	s14, s12, s14
+60009d04:	ee17 7a10 	vmov	r7, s14
+60009d08:	f007 4eff 	and.w	lr, r7, #2139095040	@ 0x7f800000
+60009d0c:	f1be 4fff 	cmp.w	lr, #2139095040	@ 0x7f800000
+60009d10:	d010      	beq.n	60009d34 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x55c>
+60009d12:	eeb4 7ac6 	vcmpe.f32	s14, s12
+60009d16:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009d1a:	dd0b      	ble.n	60009d34 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x55c>
+60009d1c:	2101      	movs	r1, #1
+60009d1e:	ed00 7a23 	vstr	s14, [r0, #-140]	@ 0xffffff74
+60009d22:	f800 1c84 	strb.w	r1, [r0, #-132]
+60009d26:	e640      	b.n	600099aa <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x1d2>
+60009d28:	eeb0 7a4b 	vmov.f32	s14, s22
+60009d2c:	2004      	movs	r0, #4
+60009d2e:	e652      	b.n	600099d6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x1fe>
+60009d30:	2000      	movs	r0, #0
+60009d32:	e701      	b.n	60009b38 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x360>
+60009d34:	440d      	add	r5, r1
+60009d36:	2100      	movs	r1, #0
+60009d38:	eb0d 0585 	add.w	r5, sp, r5, lsl #2
+60009d3c:	ed85 7a1f 	vstr	s14, [r5, #124]	@ 0x7c
+60009d40:	f885 1084 	strb.w	r1, [r5, #132]	@ 0x84
+60009d44:	e631      	b.n	600099aa <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x1d2>
+60009d46:	2d00      	cmp	r5, #0
+60009d48:	f000 81e1 	beq.w	6000a10e <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x936>
+60009d4c:	eddd 7a25 	vldr	s15, [sp, #148]	@ 0x94
+60009d50:	ee17 1a90 	vmov	r1, s15
+60009d54:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+60009d58:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+60009d5c:	f000 817a 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+60009d60:	eeb4 6ae7 	vcmpe.f32	s12, s15
+60009d64:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009d68:	dc18      	bgt.n	60009d9c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5c4>
+60009d6a:	2101      	movs	r1, #1
+60009d6c:	e663      	b.n	60009a36 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x25e>
+60009d6e:	eeb4 ba46 	vcmp.f32	s22, s12
+60009d72:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009d76:	d0e6      	beq.n	60009d46 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x56e>
+60009d78:	2d00      	cmp	r5, #0
+60009d7a:	f000 8357 	beq.w	6000a42c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc54>
+60009d7e:	eddd 7a25 	vldr	s15, [sp, #148]	@ 0x94
+60009d82:	ee17 1a90 	vmov	r1, s15
+60009d86:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+60009d8a:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+60009d8e:	f000 8161 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+60009d92:	eef4 7ac7 	vcmpe.f32	s15, s14
+60009d96:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009d9a:	d52e      	bpl.n	60009dfa <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x622>
+60009d9c:	f89d 10a8 	ldrb.w	r1, [sp, #168]	@ 0xa8
+60009da0:	2900      	cmp	r1, #0
+60009da2:	f000 8159 	beq.w	6000a058 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x880>
+60009da6:	9928      	ldr	r1, [sp, #160]	@ 0xa0
+60009da8:	f001 40ff 	and.w	r0, r1, #2139095040	@ 0x7f800000
+60009dac:	f1b0 4fff 	cmp.w	r0, #2139095040	@ 0x7f800000
+60009db0:	f000 8150 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+60009db4:	ee07 1a10 	vmov	s14, r1
+60009db8:	eeb4 7ae7 	vcmpe.f32	s14, s15
+60009dbc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009dc0:	f140 814a 	bpl.w	6000a058 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x880>
+60009dc4:	ee07 1a90 	vmov	s15, r1
+60009dc8:	2103      	movs	r1, #3
+60009dca:	e649      	b.n	60009a60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x288>
+60009dcc:	f89d 509c 	ldrb.w	r5, [sp, #156]	@ 0x9c
+60009dd0:	2d00      	cmp	r5, #0
+60009dd2:	f000 8283 	beq.w	6000a2dc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb04>
+60009dd6:	eddd 7a25 	vldr	s15, [sp, #148]	@ 0x94
+60009dda:	ee17 5a90 	vmov	r5, s15
+60009dde:	f005 45ff 	and.w	r5, r5, #2139095040	@ 0x7f800000
+60009de2:	f1b5 4fff 	cmp.w	r5, #2139095040	@ 0x7f800000
+60009de6:	f000 8135 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+60009dea:	eeb4 7ae7 	vcmpe.f32	s14, s15
+60009dee:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009df2:	dcd3      	bgt.n	60009d9c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5c4>
+60009df4:	2800      	cmp	r0, #0
+60009df6:	f000 8315 	beq.w	6000a424 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc4c>
+60009dfa:	eeb4 ba67 	vcmp.f32	s22, s15
+60009dfe:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009e02:	d0cb      	beq.n	60009d9c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5c4>
+60009e04:	f89d 10a8 	ldrb.w	r1, [sp, #168]	@ 0xa8
+60009e08:	b199      	cbz	r1, 60009e32 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65a>
+60009e0a:	eddd 7a28 	vldr	s15, [sp, #160]	@ 0xa0
+60009e0e:	ee17 1a90 	vmov	r1, s15
+60009e12:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+60009e16:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+60009e1a:	f000 811b 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+60009e1e:	eeb4 7ae7 	vcmpe.f32	s14, s15
+60009e22:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009e26:	dccf      	bgt.n	60009dc8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f0>
+60009e28:	eeb4 ba67 	vcmp.f32	s22, s15
+60009e2c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009e30:	d0ca      	beq.n	60009dc8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f0>
+60009e32:	2101      	movs	r1, #1
+60009e34:	f1bc 0f00 	cmp.w	ip, #0
+60009e38:	f000 80a4 	beq.w	60009f84 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x7ac>
+60009e3c:	f8d6 0090 	ldr.w	r0, [r6, #144]	@ 0x90
+60009e40:	4298      	cmp	r0, r3
+60009e42:	f340 830f 	ble.w	6000a464 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc8c>
+60009e46:	ed96 6a1a 	vldr	s12, [r6, #104]	@ 0x68
+60009e4a:	eef7 7a00 	vmov.f32	s15, #112	@ 0x3f800000  1.0
+60009e4e:	f896 5074 	ldrb.w	r5, [r6, #116]	@ 0x74
+60009e52:	3301      	adds	r3, #1
+60009e54:	ee22 6a06 	vmul.f32	s12, s4, s12
+60009e58:	e9d6 0c1e 	ldrd	r0, ip, [r6, #120]	@ 0x78
+60009e5c:	ee77 7ac6 	vsub.f32	s15, s15, s12
+60009e60:	2d00      	cmp	r5, #0
+60009e62:	f000 80fb 	beq.w	6000a05c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x884>
+60009e66:	ee07 8a10 	vmov	s14, r8
+60009e6a:	ed96 5a20 	vldr	s10, [r6, #128]	@ 0x80
+60009e6e:	4660      	mov	r0, ip
+60009e70:	eef8 5a47 	vcvt.f32.u32	s11, s14
+60009e74:	eeb6 7a08 	vmov.f32	s14, #104	@ 0x3f400000  0.750
+60009e78:	eee6 5a07 	vfma.f32	s11, s12, s14
+60009e7c:	ee85 7a85 	vdiv.f32	s14, s11, s10
+60009e80:	eddf 5aae 	vldr	s11, [pc, #696]	@ 6000a13c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x964>
+60009e84:	6800      	ldr	r0, [r0, #0]
+60009e86:	ee27 7a25 	vmul.f32	s14, s14, s11
+60009e8a:	eeb5 7ac0 	vcmpe.f32	s14, #0.0
+60009e8e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009e92:	f240 80e6 	bls.w	6000a062 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x88a>
+60009e96:	eefd 5ac7 	vcvt.s32.f32	s11, s14
+60009e9a:	ee15 5a90 	vmov	r5, s11
+60009e9e:	2dfe      	cmp	r5, #254	@ 0xfe
+60009ea0:	f340 80e7 	ble.w	6000a072 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x89a>
+60009ea4:	f8b0 55fa 	ldrh.w	r5, [r0, #1530]	@ 0x5fa
+60009ea8:	ee05 5a10 	vmov	s10, r5
+60009eac:	f8b0 55fc 	ldrh.w	r5, [r0, #1532]	@ 0x5fc
+60009eb0:	f8b0 05fe 	ldrh.w	r0, [r0, #1534]	@ 0x5fe
+60009eb4:	ee01 5a10 	vmov	s2, r5
+60009eb8:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+60009ebc:	edd6 5a1b 	vldr	s11, [r6, #108]	@ 0x6c
+60009ec0:	ed96 0a1c 	vldr	s0, [r6, #112]	@ 0x70
+60009ec4:	ee01 0a90 	vmov	s3, r0
+60009ec8:	ee72 5a65 	vsub.f32	s11, s4, s11
+60009ecc:	eddf 2a9d 	vldr	s5, [pc, #628]	@ 6000a144 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x96c>
+60009ed0:	eeb4 7ac6 	vcmpe.f32	s14, s12
+60009ed4:	eddf 0a9a 	vldr	s1, [pc, #616]	@ 6000a140 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x968>
+60009ed8:	ed9f 2a9b 	vldr	s4, [pc, #620]	@ 6000a148 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x970>
+60009edc:	eeb6 6a00 	vmov.f32	s12, #96	@ 0x3f000000  0.5
+60009ee0:	ee65 5a80 	vmul.f32	s11, s11, s0
+60009ee4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009ee8:	eea7 2aa0 	vfma.f32	s4, s15, s1
+60009eec:	eeb0 0a00 	vmov.f32	s0, #0	@ 0x40000000  2.0
+60009ef0:	fec5 5ac7 	vminnm.f32	s11, s11, s14
+60009ef4:	fe77 7aa2 	vselgt.f32	s15, s15, s5
+60009ef8:	fec5 5aa2 	vmaxnm.f32	s11, s11, s5
+60009efc:	eef0 0a08 	vmov.f32	s1, #8	@ 0x40400000  3.0
+60009f00:	ee67 7aa5 	vmul.f32	s15, s15, s11
+60009f04:	eeb8 1ac1 	vcvt.f32.s32	s2, s2
+60009f08:	eee5 0ac0 	vfms.f32	s1, s11, s0
+60009f0c:	ee67 7aa7 	vmul.f32	s15, s15, s15
+60009f10:	eef8 5ac5 	vcvt.f32.s32	s11, s10
+60009f14:	eeb0 5a46 	vmov.f32	s10, s12
+60009f18:	ee67 7a83 	vmul.f32	s15, s15, s6
+60009f1c:	eef8 1ae1 	vcvt.f32.s32	s3, s3
+60009f20:	eea2 5a25 	vfma.f32	s10, s4, s11
+60009f24:	ee67 7aa0 	vmul.f32	s15, s15, s1
+60009f28:	eef0 5a46 	vmov.f32	s11, s12
+60009f2c:	eea2 6a21 	vfma.f32	s12, s4, s3
+60009f30:	ee37 3a67 	vsub.f32	s6, s14, s15
+60009f34:	ee67 7aa6 	vmul.f32	s15, s15, s13
+60009f38:	eee2 5a01 	vfma.f32	s11, s4, s2
+60009f3c:	ed9f 2a83 	vldr	s4, [pc, #524]	@ 6000a14c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x974>
+60009f40:	ee66 6a83 	vmul.f32	s13, s13, s6
+60009f44:	ed9f 3a83 	vldr	s6, [pc, #524]	@ 6000a154 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97c>
+60009f48:	fe85 5a43 	vminnm.f32	s10, s10, s6
+60009f4c:	fe86 6a43 	vminnm.f32	s12, s12, s6
+60009f50:	eef4 6ac2 	vcmpe.f32	s13, s4
+60009f54:	fe85 5a22 	vmaxnm.f32	s10, s10, s5
+60009f58:	fe86 6a22 	vmaxnm.f32	s12, s12, s5
+60009f5c:	eeb6 5ac5 	vrintz.f32	s10, s10
+60009f60:	fec5 5ac3 	vminnm.f32	s11, s11, s6
+60009f64:	eeb6 6ac6 	vrintz.f32	s12, s12
+60009f68:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009f6c:	fec5 5aa2 	vmaxnm.f32	s11, s11, s5
+60009f70:	eee7 3a85 	vfma.f32	s7, s15, s10
+60009f74:	eef6 5ae5 	vrintz.f32	s11, s11
+60009f78:	eee7 4a86 	vfma.f32	s9, s15, s12
+60009f7c:	eea7 4aa5 	vfma.f32	s8, s15, s11
+60009f80:	f100 826a 	bmi.w	6000a458 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc80>
+60009f84:	eef7 7a00 	vmov.f32	s15, #112	@ 0x3f800000  1.0
+60009f88:	eef4 6ae7 	vcmpe.f32	s13, s15
+60009f8c:	ee37 7ae6 	vsub.f32	s14, s15, s13
+60009f90:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+60009f94:	f6bf acd0 	bge.w	60009938 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x160>
+60009f98:	eef7 6a00 	vmov.f32	s13, #112	@ 0x3f800000  1.0
+60009f9c:	ed84 7a02 	vstr	s14, [r4, #8]
+60009fa0:	eef6 7a00 	vmov.f32	s15, #96	@ 0x3f000000  0.5
+60009fa4:	eddf 5a6b 	vldr	s11, [pc, #428]	@ 6000a154 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97c>
+60009fa8:	ed9f 6a66 	vldr	s12, [pc, #408]	@ 6000a144 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x96c>
+60009fac:	ee86 5a87 	vdiv.f32	s10, s13, s14
+60009fb0:	eef0 6a67 	vmov.f32	s13, s15
+60009fb4:	eeb0 7a67 	vmov.f32	s14, s15
+60009fb8:	eee5 6a23 	vfma.f32	s13, s10, s7
+60009fbc:	eea5 7a04 	vfma.f32	s14, s10, s8
+60009fc0:	eee5 7a24 	vfma.f32	s15, s10, s9
+60009fc4:	fec6 6ae5 	vminnm.f32	s13, s13, s11
+60009fc8:	fec6 6a86 	vmaxnm.f32	s13, s13, s12
+60009fcc:	eefc 6ae6 	vcvt.u32.f32	s13, s13
+60009fd0:	fe87 7a65 	vminnm.f32	s14, s14, s11
+60009fd4:	fe87 7a06 	vmaxnm.f32	s14, s14, s12
+60009fd8:	eebc 7ac7 	vcvt.u32.f32	s14, s14
+60009fdc:	fec7 7ae5 	vminnm.f32	s15, s15, s11
+60009fe0:	fec7 7a86 	vmaxnm.f32	s15, s15, s12
+60009fe4:	ee16 0a90 	vmov	r0, s13
+60009fe8:	eefc 7ae7 	vcvt.u32.f32	s15, s15
+60009fec:	8020      	strh	r0, [r4, #0]
+60009fee:	ee17 0a10 	vmov	r0, s14
+60009ff2:	8060      	strh	r0, [r4, #2]
+60009ff4:	ee17 0a90 	vmov	r0, s15
+60009ff8:	80a0      	strh	r0, [r4, #4]
+60009ffa:	e4a2      	b.n	60009942 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x16a>
+60009ffc:	f1bc 0f00 	cmp.w	ip, #0
+6000a000:	f000 8232 	beq.w	6000a468 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc90>
+6000a004:	f8d6 1090 	ldr.w	r1, [r6, #144]	@ 0x90
+6000a008:	428b      	cmp	r3, r1
+6000a00a:	f280 822d 	bge.w	6000a468 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc90>
+6000a00e:	2106      	movs	r1, #6
+6000a010:	e719      	b.n	60009e46 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x66e>
+6000a012:	ed9f 7a4c 	vldr	s14, [pc, #304]	@ 6000a144 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x96c>
+6000a016:	2000      	movs	r0, #0
+6000a018:	e650      	b.n	60009cbc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x4e4>
+6000a01a:	ed10 7a22 	vldr	s14, [r0, #-136]	@ 0xffffff78
+6000a01e:	ee36 7a07 	vadd.f32	s14, s12, s14
+6000a022:	ee17 7a10 	vmov	r7, s14
+6000a026:	f007 4eff 	and.w	lr, r7, #2139095040	@ 0x7f800000
+6000a02a:	f1be 4fff 	cmp.w	lr, #2139095040	@ 0x7f800000
+6000a02e:	f43f ae81 	beq.w	60009d34 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x55c>
+6000a032:	eeb4 7ac6 	vcmpe.f32	s14, s12
+6000a036:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a03a:	f77f ae7b 	ble.w	60009d34 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x55c>
+6000a03e:	eeb4 7a67 	vcmp.f32	s14, s15
+6000a042:	2101      	movs	r1, #1
+6000a044:	ed00 7a23 	vstr	s14, [r0, #-140]	@ 0xffffff74
+6000a048:	f800 1c84 	strb.w	r1, [r0, #-132]
+6000a04c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a050:	f73f acab 	bgt.w	600099aa <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x1d2>
+6000a054:	2106      	movs	r1, #6
+6000a056:	e6ed      	b.n	60009e34 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65c>
+6000a058:	2102      	movs	r1, #2
+6000a05a:	e501      	b.n	60009a60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x288>
+6000a05c:	eeb0 7a67 	vmov.f32	s14, s15
+6000a060:	e70e      	b.n	60009e80 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x6a8>
+6000a062:	8805      	ldrh	r5, [r0, #0]
+6000a064:	ee05 5a10 	vmov	s10, r5
+6000a068:	8845      	ldrh	r5, [r0, #2]
+6000a06a:	8880      	ldrh	r0, [r0, #4]
+6000a06c:	ee01 5a10 	vmov	s2, r5
+6000a070:	e722      	b.n	60009eb8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x6e0>
+6000a072:	eeb6 5ac7 	vrintz.f32	s10, s14
+6000a076:	eef6 5a00 	vmov.f32	s11, #96	@ 0x3f000000  0.5
+6000a07a:	ee37 7a45 	vsub.f32	s14, s14, s10
+6000a07e:	ed9f 5a35 	vldr	s10, [pc, #212]	@ 6000a154 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97c>
+6000a082:	eb05 0545 	add.w	r5, r5, r5, lsl #1
+6000a086:	eee7 5a05 	vfma.f32	s11, s14, s10
+6000a08a:	006f      	lsls	r7, r5, #1
+6000a08c:	eb00 0e45 	add.w	lr, r0, r5, lsl #1
+6000a090:	f830 5015 	ldrh.w	r5, [r0, r5, lsl #1]
+6000a094:	3706      	adds	r7, #6
+6000a096:	9500      	str	r5, [sp, #0]
+6000a098:	eebc 7ae5 	vcvt.u32.f32	s14, s11
+6000a09c:	ee17 ca10 	vmov	ip, s14
+6000a0a0:	fa1f f58c 	uxth.w	r5, ip
+6000a0a4:	eb00 0c07 	add.w	ip, r0, r7
+6000a0a8:	5bc7      	ldrh	r7, [r0, r7]
+6000a0aa:	f8bc 0002 	ldrh.w	r0, [ip, #2]
+6000a0ae:	f8bc c004 	ldrh.w	ip, [ip, #4]
+6000a0b2:	fb05 f707 	mul.w	r7, r5, r7
+6000a0b6:	fb05 f800 	mul.w	r8, r5, r0
+6000a0ba:	fb05 f00c 	mul.w	r0, r5, ip
+6000a0be:	f64f 7cff 	movw	ip, #65535	@ 0xffff
+6000a0c2:	ea85 0c0c 	eor.w	ip, r5, ip
+6000a0c6:	9d00      	ldr	r5, [sp, #0]
+6000a0c8:	9001      	str	r0, [sp, #4]
+6000a0ca:	fb0c 7705 	mla	r7, ip, r5, r7
+6000a0ce:	f8be 5002 	ldrh.w	r5, [lr, #2]
+6000a0d2:	f8be 0004 	ldrh.w	r0, [lr, #4]
+6000a0d6:	fb0c 8805 	mla	r8, ip, r5, r8
+6000a0da:	9d01      	ldr	r5, [sp, #4]
+6000a0dc:	fb0c 5c00 	mla	ip, ip, r0, r5
+6000a0e0:	f507 4000 	add.w	r0, r7, #32768	@ 0x8000
+6000a0e4:	eb00 4017 	add.w	r0, r0, r7, lsr #16
+6000a0e8:	0c00      	lsrs	r0, r0, #16
+6000a0ea:	ee05 0a10 	vmov	s10, r0
+6000a0ee:	f508 4000 	add.w	r0, r8, #32768	@ 0x8000
+6000a0f2:	eb00 4018 	add.w	r0, r0, r8, lsr #16
+6000a0f6:	0c00      	lsrs	r0, r0, #16
+6000a0f8:	ee01 0a10 	vmov	s2, r0
+6000a0fc:	f50c 4000 	add.w	r0, ip, #32768	@ 0x8000
+6000a100:	eb00 401c 	add.w	r0, r0, ip, lsr #16
+6000a104:	0c00      	lsrs	r0, r0, #16
+6000a106:	e6d7      	b.n	60009eb8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x6e0>
+6000a108:	ed9f 7a0e 	vldr	s14, [pc, #56]	@ 6000a144 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x96c>
+6000a10c:	e5d6      	b.n	60009cbc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x4e4>
+6000a10e:	f89d 10a8 	ldrb.w	r1, [sp, #168]	@ 0xa8
+6000a112:	b171      	cbz	r1, 6000a132 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x95a>
+6000a114:	eddd 7a28 	vldr	s15, [sp, #160]	@ 0xa0
+6000a118:	ee17 1a90 	vmov	r1, s15
+6000a11c:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+6000a120:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+6000a124:	d096      	beq.n	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+6000a126:	eef4 7ac6 	vcmpe.f32	s15, s12
+6000a12a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a12e:	f53f ae4b 	bmi.w	60009dc8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f0>
+6000a132:	eef0 7a46 	vmov.f32	s15, s12
+6000a136:	2101      	movs	r1, #1
+6000a138:	e492      	b.n	60009a60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x288>
+6000a13a:	bf00      	nop
+6000a13c:	437f0000 	.word	0x437f0000
+6000a140:	3f0ccccd 	.word	0x3f0ccccd
+6000a144:	00000000 	.word	0x00000000
+6000a148:	3ee66666 	.word	0x3ee66666
+6000a14c:	392000a0 	.word	0x392000a0
+6000a150:	38d1b717 	.word	0x38d1b717
+6000a154:	477fff00 	.word	0x477fff00
+6000a158:	f8d6 0090 	ldr.w	r0, [r6, #144]	@ 0x90
+6000a15c:	4283      	cmp	r3, r0
+6000a15e:	f280 8185 	bge.w	6000a46c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc94>
+6000a162:	edd6 5a1a 	vldr	s11, [r6, #104]	@ 0x68
+6000a166:	eeb7 6a00 	vmov.f32	s12, #112	@ 0x3f800000  1.0
+6000a16a:	f896 5074 	ldrb.w	r5, [r6, #116]	@ 0x74
+6000a16e:	3301      	adds	r3, #1
+6000a170:	ee62 5a25 	vmul.f32	s11, s4, s11
+6000a174:	e9d6 0c1e 	ldrd	r0, ip, [r6, #120]	@ 0x78
+6000a178:	ee36 6a65 	vsub.f32	s12, s12, s11
+6000a17c:	2d00      	cmp	r5, #0
+6000a17e:	f000 80f9 	beq.w	6000a374 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb9c>
+6000a182:	ee07 8a10 	vmov	s14, r8
+6000a186:	ed96 0a20 	vldr	s0, [r6, #128]	@ 0x80
+6000a18a:	4660      	mov	r0, ip
+6000a18c:	eeb8 5a47 	vcvt.f32.u32	s10, s14
+6000a190:	eeb6 7a08 	vmov.f32	s14, #104	@ 0x3f400000  0.750
+6000a194:	eea5 5a87 	vfma.f32	s10, s11, s14
+6000a198:	ee85 7a00 	vdiv.f32	s14, s10, s0
+6000a19c:	ed1f 5a19 	vldr	s10, [pc, #-100]	@ 6000a13c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x964>
+6000a1a0:	6800      	ldr	r0, [r0, #0]
+6000a1a2:	ee27 7a05 	vmul.f32	s14, s14, s10
+6000a1a6:	eeb5 7ac0 	vcmpe.f32	s14, #0.0
+6000a1aa:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a1ae:	f240 80e4 	bls.w	6000a37a <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xba2>
+6000a1b2:	eebd 5ac7 	vcvt.s32.f32	s10, s14
+6000a1b6:	ee15 5a10 	vmov	r5, s10
+6000a1ba:	2dfe      	cmp	r5, #254	@ 0xfe
+6000a1bc:	f340 80e5 	ble.w	6000a38a <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xbb2>
+6000a1c0:	f8b0 55fa 	ldrh.w	r5, [r0, #1530]	@ 0x5fa
+6000a1c4:	ee05 5a10 	vmov	s10, r5
+6000a1c8:	f8b0 55fc 	ldrh.w	r5, [r0, #1532]	@ 0x5fc
+6000a1cc:	f8b0 05fe 	ldrh.w	r0, [r0, #1534]	@ 0x5fe
+6000a1d0:	ee00 5a10 	vmov	s0, r5
+6000a1d4:	eeb7 9a00 	vmov.f32	s18, #112	@ 0x3f800000  1.0
+6000a1d8:	ed5f 8a27 	vldr	s17, [pc, #-156]	@ 6000a140 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x968>
+6000a1dc:	eef8 9ac0 	vcvt.f32.s32	s19, s0
+6000a1e0:	ed96 0a1c 	vldr	s0, [r6, #112]	@ 0x70
+6000a1e4:	ee07 0a10 	vmov	s14, r0
+6000a1e8:	eef0 aa00 	vmov.f32	s21, #0	@ 0x40000000  2.0
+6000a1ec:	eeb4 9ae5 	vcmpe.f32	s18, s11
+6000a1f0:	edd6 5a1b 	vldr	s11, [r6, #108]	@ 0x6c
+6000a1f4:	eeb8 aac7 	vcvt.f32.s32	s20, s14
+6000a1f8:	ed1f 7a2e 	vldr	s14, [pc, #-184]	@ 6000a144 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x96c>
+6000a1fc:	ee72 5a65 	vsub.f32	s11, s4, s11
+6000a200:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a204:	eeb8 5ac5 	vcvt.f32.s32	s10, s10
+6000a208:	ee65 5a80 	vmul.f32	s11, s11, s0
+6000a20c:	ed1f 0a32 	vldr	s0, [pc, #-200]	@ 6000a148 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x970>
+6000a210:	eea6 0a28 	vfma.f32	s0, s12, s17
+6000a214:	fe36 6a07 	vselgt.f32	s12, s12, s14
+6000a218:	fec5 5ac9 	vminnm.f32	s11, s11, s18
+6000a21c:	fec5 5a87 	vmaxnm.f32	s11, s11, s14
+6000a220:	ee26 6a25 	vmul.f32	s12, s12, s11
+6000a224:	ee26 6a06 	vmul.f32	s12, s12, s12
+6000a228:	eef0 8a40 	vmov.f32	s17, s0
+6000a22c:	eeb0 0a08 	vmov.f32	s0, #8	@ 0x40400000  3.0
+6000a230:	ee26 6a03 	vmul.f32	s12, s12, s6
+6000a234:	eea5 0aea 	vfms.f32	s0, s11, s21
+6000a238:	eef6 5a00 	vmov.f32	s11, #96	@ 0x3f000000  0.5
+6000a23c:	ee26 6a00 	vmul.f32	s12, s12, s0
+6000a240:	eeb0 0a65 	vmov.f32	s0, s11
+6000a244:	eea8 0a85 	vfma.f32	s0, s17, s10
+6000a248:	eeb0 5a65 	vmov.f32	s10, s11
+6000a24c:	eee8 5a8a 	vfma.f32	s11, s17, s20
+6000a250:	eea8 5aa9 	vfma.f32	s10, s17, s19
+6000a254:	eef0 8a65 	vmov.f32	s17, s11
+6000a258:	ee79 5a46 	vsub.f32	s11, s18, s12
+6000a25c:	ee26 6a26 	vmul.f32	s12, s12, s13
+6000a260:	ee66 6aa5 	vmul.f32	s13, s13, s11
+6000a264:	ed5f 5a45 	vldr	s11, [pc, #-276]	@ 6000a154 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97c>
+6000a268:	fe80 0a65 	vminnm.f32	s0, s0, s11
+6000a26c:	fe85 5a65 	vminnm.f32	s10, s10, s11
+6000a270:	fe80 0a07 	vmaxnm.f32	s0, s0, s14
+6000a274:	fec8 5ae5 	vminnm.f32	s11, s17, s11
+6000a278:	fe85 5a07 	vmaxnm.f32	s10, s10, s14
+6000a27c:	fec5 5a87 	vmaxnm.f32	s11, s11, s14
+6000a280:	eeb6 0ac0 	vrintz.f32	s0, s0
+6000a284:	eeb6 5ac5 	vrintz.f32	s10, s10
+6000a288:	eee6 3a00 	vfma.f32	s7, s12, s0
+6000a28c:	eef6 5ae5 	vrintz.f32	s11, s11
+6000a290:	eea6 4a05 	vfma.f32	s8, s12, s10
+6000a294:	eee6 4a25 	vfma.f32	s9, s12, s11
+6000a298:	ed1f 6a54 	vldr	s12, [pc, #-336]	@ 6000a14c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x974>
+6000a29c:	eef4 6ac6 	vcmpe.f32	s13, s12
+6000a2a0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a2a4:	f100 80e4 	bmi.w	6000a470 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc98>
+6000a2a8:	f04f 0c00 	mov.w	ip, #0
+6000a2ac:	f7ff bbe1 	b.w	60009a72 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x29a>
+6000a2b0:	eef5 5ac0 	vcmpe.f32	s11, #0.0
+6000a2b4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a2b8:	f63f af26 	bhi.w	6000a108 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x930>
+6000a2bc:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+6000a2c0:	e4fc      	b.n	60009cbc <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x4e4>
+6000a2c2:	f1bc 0f00 	cmp.w	ip, #0
+6000a2c6:	d03f      	beq.n	6000a348 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb70>
+6000a2c8:	eeb4 3ac7 	vcmpe.f32	s6, s14
+6000a2cc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a2d0:	f57f ad10 	bpl.w	60009cf4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x51c>
+6000a2d4:	eeb0 3a47 	vmov.f32	s6, s14
+6000a2d8:	4680      	mov	r8, r0
+6000a2da:	e50b      	b.n	60009cf4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x51c>
+6000a2dc:	f89d 10a8 	ldrb.w	r1, [sp, #168]	@ 0xa8
+6000a2e0:	b359      	cbz	r1, 6000a33a <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb62>
+6000a2e2:	eddd 7a28 	vldr	s15, [sp, #160]	@ 0xa0
+6000a2e6:	ee17 1a90 	vmov	r1, s15
+6000a2ea:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+6000a2ee:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+6000a2f2:	f43f aeaf 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+6000a2f6:	eeb4 7ae7 	vcmpe.f32	s14, s15
+6000a2fa:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a2fe:	f73f ad63 	bgt.w	60009dc8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f0>
+6000a302:	2800      	cmp	r0, #0
+6000a304:	f47f ad90 	bne.w	60009e28 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x650>
+6000a308:	eef0 7a47 	vmov.f32	s15, s14
+6000a30c:	4629      	mov	r1, r5
+6000a30e:	f7ff bba7 	b.w	60009a60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x288>
+6000a312:	f89d 10a8 	ldrb.w	r1, [sp, #168]	@ 0xa8
+6000a316:	b199      	cbz	r1, 6000a340 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb68>
+6000a318:	eddd 7a28 	vldr	s15, [sp, #160]	@ 0xa0
+6000a31c:	ee17 1a90 	vmov	r1, s15
+6000a320:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+6000a324:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+6000a328:	f43f ae94 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+6000a32c:	eef4 7ac7 	vcmpe.f32	s15, s14
+6000a330:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a334:	f53f ad48 	bmi.w	60009dc8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f0>
+6000a338:	e7e6      	b.n	6000a308 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb30>
+6000a33a:	2800      	cmp	r0, #0
+6000a33c:	f47f ad79 	bne.w	60009e32 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65a>
+6000a340:	eef0 7a47 	vmov.f32	s15, s14
+6000a344:	f7ff bb8c 	b.w	60009a60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x288>
+6000a348:	eef7 5a00 	vmov.f32	s11, #112	@ 0x3f800000  1.0
+6000a34c:	ed1f 5a80 	vldr	s10, [pc, #-512]	@ 6000a150 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x978>
+6000a350:	eeb0 3a47 	vmov.f32	s6, s14
+6000a354:	4680      	mov	r8, r0
+6000a356:	eeb0 2a46 	vmov.f32	s4, s12
+6000a35a:	f04f 0c01 	mov.w	ip, #1
+6000a35e:	eef4 7ae5 	vcmpe.f32	s15, s11
+6000a362:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a366:	fe77 5aa5 	vselgt.f32	s11, s15, s11
+6000a36a:	eee5 7a85 	vfma.f32	s15, s11, s10
+6000a36e:	eef0 0a67 	vmov.f32	s1, s15
+6000a372:	e4bf      	b.n	60009cf4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x51c>
+6000a374:	eeb0 7a46 	vmov.f32	s14, s12
+6000a378:	e710      	b.n	6000a19c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9c4>
+6000a37a:	8805      	ldrh	r5, [r0, #0]
+6000a37c:	ee05 5a10 	vmov	s10, r5
+6000a380:	8845      	ldrh	r5, [r0, #2]
+6000a382:	8880      	ldrh	r0, [r0, #4]
+6000a384:	ee00 5a10 	vmov	s0, r5
+6000a388:	e724      	b.n	6000a1d4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9fc>
+6000a38a:	eeb6 0ac7 	vrintz.f32	s0, s14
+6000a38e:	eeb6 5a00 	vmov.f32	s10, #96	@ 0x3f000000  0.5
+6000a392:	ee37 7a40 	vsub.f32	s14, s14, s0
+6000a396:	ed1f 0a91 	vldr	s0, [pc, #-580]	@ 6000a154 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97c>
+6000a39a:	eb05 0545 	add.w	r5, r5, r5, lsl #1
+6000a39e:	eea7 5a00 	vfma.f32	s10, s14, s0
+6000a3a2:	eb00 0745 	add.w	r7, r0, r5, lsl #1
+6000a3a6:	ea4f 0c45 	mov.w	ip, r5, lsl #1
+6000a3aa:	f830 5015 	ldrh.w	r5, [r0, r5, lsl #1]
+6000a3ae:	9700      	str	r7, [sp, #0]
+6000a3b0:	f10c 0c06 	add.w	ip, ip, #6
+6000a3b4:	9501      	str	r5, [sp, #4]
+6000a3b6:	eb00 0e0c 	add.w	lr, r0, ip
+6000a3ba:	f830 000c 	ldrh.w	r0, [r0, ip]
+6000a3be:	eebc 7ac5 	vcvt.u32.f32	s14, s10
+6000a3c2:	f8be c004 	ldrh.w	ip, [lr, #4]
+6000a3c6:	ee17 5a10 	vmov	r5, s14
+6000a3ca:	b2ad      	uxth	r5, r5
+6000a3cc:	fb05 f700 	mul.w	r7, r5, r0
+6000a3d0:	f8be 0002 	ldrh.w	r0, [lr, #2]
+6000a3d4:	fb05 fc0c 	mul.w	ip, r5, ip
+6000a3d8:	fb05 fe00 	mul.w	lr, r5, r0
+6000a3dc:	f64f 70ff 	movw	r0, #65535	@ 0xffff
+6000a3e0:	4068      	eors	r0, r5
+6000a3e2:	9d01      	ldr	r5, [sp, #4]
+6000a3e4:	fb00 7505 	mla	r5, r0, r5, r7
+6000a3e8:	9f00      	ldr	r7, [sp, #0]
+6000a3ea:	887f      	ldrh	r7, [r7, #2]
+6000a3ec:	fb00 ee07 	mla	lr, r0, r7, lr
+6000a3f0:	9f00      	ldr	r7, [sp, #0]
+6000a3f2:	88bf      	ldrh	r7, [r7, #4]
+6000a3f4:	fb00 cc07 	mla	ip, r0, r7, ip
+6000a3f8:	f505 4000 	add.w	r0, r5, #32768	@ 0x8000
+6000a3fc:	eb00 4015 	add.w	r0, r0, r5, lsr #16
+6000a400:	0c00      	lsrs	r0, r0, #16
+6000a402:	ee05 0a10 	vmov	s10, r0
+6000a406:	f50e 4000 	add.w	r0, lr, #32768	@ 0x8000
+6000a40a:	eb00 401e 	add.w	r0, r0, lr, lsr #16
+6000a40e:	0c00      	lsrs	r0, r0, #16
+6000a410:	ee00 0a10 	vmov	s0, r0
+6000a414:	f50c 4000 	add.w	r0, ip, #32768	@ 0x8000
+6000a418:	eb00 401c 	add.w	r0, r0, ip, lsr #16
+6000a41c:	0c00      	lsrs	r0, r0, #16
+6000a41e:	e6d9      	b.n	6000a1d4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9fc>
+6000a420:	2103      	movs	r1, #3
+6000a422:	e507      	b.n	60009e34 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65c>
+6000a424:	eeb0 6a47 	vmov.f32	s12, s14
+6000a428:	f7ff bb05 	b.w	60009a36 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x25e>
+6000a42c:	f89d 10a8 	ldrb.w	r1, [sp, #168]	@ 0xa8
+6000a430:	2900      	cmp	r1, #0
+6000a432:	f43f acfe 	beq.w	60009e32 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65a>
+6000a436:	eddd 7a28 	vldr	s15, [sp, #160]	@ 0xa0
+6000a43a:	ee17 1a90 	vmov	r1, s15
+6000a43e:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+6000a442:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+6000a446:	f43f ae05 	beq.w	6000a054 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x87c>
+6000a44a:	eef4 7ac7 	vcmpe.f32	s15, s14
+6000a44e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a452:	f53f acb9 	bmi.w	60009dc8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5f0>
+6000a456:	e4e7      	b.n	60009e28 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x650>
+6000a458:	2906      	cmp	r1, #6
+6000a45a:	ee37 7a66 	vsub.f32	s14, s14, s13
+6000a45e:	bf18      	it	ne
+6000a460:	2102      	movne	r1, #2
+6000a462:	e599      	b.n	60009f98 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x7c0>
+6000a464:	2906      	cmp	r1, #6
+6000a466:	d101      	bne.n	6000a46c <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc94>
+6000a468:	2106      	movs	r1, #6
+6000a46a:	e58b      	b.n	60009f84 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x7ac>
+6000a46c:	2103      	movs	r1, #3
+6000a46e:	e589      	b.n	60009f84 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x7ac>
+6000a470:	eef7 7a00 	vmov.f32	s15, #112	@ 0x3f800000  1.0
+6000a474:	2102      	movs	r1, #2
+6000a476:	ee37 7ae6 	vsub.f32	s14, s15, s13
+6000a47a:	e58d      	b.n	60009f98 <Raycast::ShadedTrace HyperLatticeExperimental::shade<false>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x7c0>
+
+
+6000a47c <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const>:
+6000a47c:	edd1 5a01 	vldr	s11, [r1, #4]
+6000a480:	eeb6 4a00 	vmov.f32	s8, #96	@ 0x3f000000  0.5
+6000a484:	ed91 5a00 	vldr	s10, [r1]
+6000a488:	fef8 2a65 	vrinta.f32	s5, s11
+6000a48c:	ee75 5ae2 	vsub.f32	s11, s11, s5
+6000a490:	feb8 2a45 	vrinta.f32	s4, s10
+6000a494:	ee35 5a42 	vsub.f32	s10, s10, s4
+6000a498:	ed91 6a02 	vldr	s12, [r1, #8]
+6000a49c:	eef0 7ae5 	vabs.f32	s15, s11
+6000a4a0:	ed91 7a03 	vldr	s14, [r1, #12]
+6000a4a4:	eef0 3ac5 	vabs.f32	s7, s10
+6000a4a8:	feb8 3a46 	vrinta.f32	s6, s12
+6000a4ac:	ee36 6a43 	vsub.f32	s12, s12, s6
+6000a4b0:	fef8 6a47 	vrinta.f32	s13, s14
+6000a4b4:	eef4 7a44 	vcmp.f32	s15, s8
+6000a4b8:	ee37 7a66 	vsub.f32	s14, s14, s13
+6000a4bc:	eef0 4ac6 	vabs.f32	s9, s12
+6000a4c0:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a4c4:	eef4 3a44 	vcmp.f32	s7, s8
+6000a4c8:	b500      	push	{lr}
+6000a4ca:	b085      	sub	sp, #20
+6000a4cc:	bf0c      	ite	eq
+6000a4ce:	2101      	moveq	r1, #1
+6000a4d0:	2100      	movne	r1, #0
+6000a4d2:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a4d6:	edcd 5a01 	vstr	s11, [sp, #4]
+6000a4da:	eef4 4a44 	vcmp.f32	s9, s8
+6000a4de:	eef0 5ac7 	vabs.f32	s11, s14
+6000a4e2:	ed8d 5a00 	vstr	s10, [sp]
+6000a4e6:	bf0c      	ite	eq
+6000a4e8:	2301      	moveq	r3, #1
+6000a4ea:	2300      	movne	r3, #0
+6000a4ec:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a4f0:	ed8d 6a02 	vstr	s12, [sp, #8]
+6000a4f4:	eef4 5a44 	vcmp.f32	s11, s8
+6000a4f8:	4419      	add	r1, r3
+6000a4fa:	ed8d 7a03 	vstr	s14, [sp, #12]
+6000a4fe:	bf0c      	ite	eq
+6000a500:	2301      	moveq	r3, #1
+6000a502:	2300      	movne	r3, #0
+6000a504:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a508:	eef4 7ae3 	vcmpe.f32	s15, s7
+6000a50c:	440b      	add	r3, r1
+6000a50e:	bf0c      	ite	eq
+6000a510:	f04f 0c01 	moveq.w	ip, #1
+6000a514:	f04f 0c00 	movne.w	ip, #0
+6000a518:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a51c:	449c      	add	ip, r3
+6000a51e:	dc1b      	bgt.n	6000a558 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0xdc>
+6000a520:	eeb0 6a67 	vmov.f32	s12, s15
+6000a524:	2301      	movs	r3, #1
+6000a526:	eef0 7a63 	vmov.f32	s15, s7
+6000a52a:	2100      	movs	r1, #0
+6000a52c:	eef0 3a46 	vmov.f32	s7, s12
+6000a530:	eef4 4ae7 	vcmpe.f32	s9, s15
+6000a534:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a538:	dc15      	bgt.n	6000a566 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0xea>
+6000a53a:	eef4 4ae3 	vcmpe.f32	s9, s7
+6000a53e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a542:	f340 80af 	ble.w	6000a6a4 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x228>
+6000a546:	eeb0 6a64 	vmov.f32	s12, s9
+6000a54a:	4608      	mov	r0, r1
+6000a54c:	eef0 4a67 	vmov.f32	s9, s15
+6000a550:	2102      	movs	r1, #2
+6000a552:	eef0 7a46 	vmov.f32	s15, s12
+6000a556:	e007      	b.n	6000a568 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0xec>
+6000a558:	eef4 4ae7 	vcmpe.f32	s9, s15
+6000a55c:	2300      	movs	r3, #0
+6000a55e:	2101      	movs	r1, #1
+6000a560:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a564:	dde9      	ble.n	6000a53a <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0xbe>
+6000a566:	2002      	movs	r0, #2
+6000a568:	eef4 5ae4 	vcmpe.f32	s11, s9
+6000a56c:	f10d 0e10 	add.w	lr, sp, #16
+6000a570:	eb0e 0383 	add.w	r3, lr, r3, lsl #2
+6000a574:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a578:	ed13 0a04 	vldr	s0, [r3, #-16]
+6000a57c:	ee20 0a00 	vmul.f32	s0, s0, s0
+6000a580:	dc04      	bgt.n	6000a58c <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x110>
+6000a582:	eef4 5ae7 	vcmpe.f32	s11, s15
+6000a586:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a58a:	dd7c      	ble.n	6000a686 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x20a>
+6000a58c:	eb0d 0381 	add.w	r3, sp, r1, lsl #2
+6000a590:	2103      	movs	r1, #3
+6000a592:	edd3 7a00 	vldr	s15, [r3]
+6000a596:	eea7 0aa7 	vfma.f32	s0, s15, s15
+6000a59a:	f1c0 0307 	rsb	r3, r0, #7
+6000a59e:	f1bc 0f02 	cmp.w	ip, #2
+6000a5a2:	fb13 f300 	smulbb	r3, r3, r0
+6000a5a6:	eb01 0363 	add.w	r3, r1, r3, asr #1
+6000a5aa:	eba3 0300 	sub.w	r3, r3, r0
+6000a5ae:	f103 33ff 	add.w	r3, r3, #4294967295
+6000a5b2:	ea4f 0343 	mov.w	r3, r3, lsl #1
+6000a5b6:	6013      	str	r3, [r2, #0]
+6000a5b8:	dc3d      	bgt.n	6000a636 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x1ba>
+6000a5ba:	ee72 2a82 	vadd.f32	s5, s5, s4
+6000a5be:	f10d 0c10 	add.w	ip, sp, #16
+6000a5c2:	eeb6 5a00 	vmov.f32	s10, #96	@ 0x3f000000  0.5
+6000a5c6:	eeb0 4a00 	vmov.f32	s8, #0	@ 0x40000000  2.0
+6000a5ca:	eb0c 0080 	add.w	r0, ip, r0, lsl #2
+6000a5ce:	ee33 3a22 	vadd.f32	s6, s6, s5
+6000a5d2:	eb0c 0181 	add.w	r1, ip, r1, lsl #2
+6000a5d6:	eef5 4a40 	vcmp.f32	s9, #0.0
+6000a5da:	ed50 7a04 	vldr	s15, [r0, #-16]
+6000a5de:	ed11 7a04 	vldr	s14, [r1, #-16]
+6000a5e2:	ee76 6a83 	vadd.f32	s13, s13, s6
+6000a5e6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a5ea:	ee26 6a85 	vmul.f32	s12, s13, s10
+6000a5ee:	feb8 6a46 	vrinta.f32	s12, s12
+6000a5f2:	eee6 6a44 	vfms.f32	s13, s12, s8
+6000a5f6:	eef0 6ae6 	vabs.f32	s13, s13
+6000a5fa:	d120      	bne.n	6000a63e <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x1c2>
+6000a5fc:	eeb1 7a47 	vneg.f32	s14, s14
+6000a600:	eeb6 6a00 	vmov.f32	s12, #96	@ 0x3f000000  0.5
+6000a604:	ee77 7ac7 	vsub.f32	s15, s15, s14
+6000a608:	eef4 6ac6 	vcmpe.f32	s13, s12
+6000a60c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a610:	dd0a      	ble.n	6000a628 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x1ac>
+6000a612:	ee17 1a90 	vmov	r1, s15
+6000a616:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+6000a61a:	eeff 6a00 	vmov.f32	s13, #240	@ 0xbf800000 -1.0
+6000a61e:	2900      	cmp	r1, #0
+6000a620:	fe27 7a26 	vselge.f32	s14, s14, s13
+6000a624:	ee77 7ac7 	vsub.f32	s15, s15, s14
+6000a628:	ee67 7aa7 	vmul.f32	s15, s15, s15
+6000a62c:	6013      	str	r3, [r2, #0]
+6000a62e:	eeb6 7a00 	vmov.f32	s14, #96	@ 0x3f000000  0.5
+6000a632:	eea7 0a87 	vfma.f32	s0, s15, s14
+6000a636:	eeb1 0ac0 	vsqrt.f32	s0, s0
+6000a63a:	b005      	add	sp, #20
+6000a63c:	bd00      	pop	{pc}
+6000a63e:	eef5 7ac0 	vcmpe.f32	s15, #0.0
+6000a642:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a646:	eeb5 7ac0 	vcmpe.f32	s14, #0.0
+6000a64a:	bf4c      	ite	mi
+6000a64c:	f04f 0c01 	movmi.w	ip, #1
+6000a650:	f04f 0c00 	movpl.w	ip, #0
+6000a654:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a658:	eef4 6ac5 	vcmpe.f32	s13, s10
+6000a65c:	bf4c      	ite	mi
+6000a65e:	2001      	movmi	r0, #1
+6000a660:	2000      	movpl	r0, #0
+6000a662:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a666:	bfcc      	ite	gt
+6000a668:	2101      	movgt	r1, #1
+6000a66a:	2100      	movle	r1, #0
+6000a66c:	4584      	cmp	ip, r0
+6000a66e:	bf08      	it	eq
+6000a670:	f081 0101 	eoreq.w	r1, r1, #1
+6000a674:	2900      	cmp	r1, #0
+6000a676:	d0c1      	beq.n	6000a5fc <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x180>
+6000a678:	eef5 5a40 	vcmp.f32	s11, #0.0
+6000a67c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a680:	d0bc      	beq.n	6000a5fc <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x180>
+6000a682:	3301      	adds	r3, #1
+6000a684:	e7bc      	b.n	6000a600 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x184>
+6000a686:	4288      	cmp	r0, r1
+6000a688:	eea7 0a07 	vfma.f32	s0, s14, s14
+6000a68c:	bfc3      	ittte	gt
+6000a68e:	4603      	movgt	r3, r0
+6000a690:	eef0 5a64 	vmovgt.f32	s11, s9
+6000a694:	4608      	movgt	r0, r1
+6000a696:	eef0 5a67 	vmovle.f32	s11, s15
+6000a69a:	bfc4      	itt	gt
+6000a69c:	eef0 4a67 	vmovgt.f32	s9, s15
+6000a6a0:	4619      	movgt	r1, r3
+6000a6a2:	e77a      	b.n	6000a59a <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0x11e>
+6000a6a4:	eef0 4a67 	vmov.f32	s9, s15
+6000a6a8:	4608      	mov	r0, r1
+6000a6aa:	eef0 7a63 	vmov.f32	s15, s7
+6000a6ae:	4619      	mov	r1, r3
+6000a6b0:	2302      	movs	r3, #2
+6000a6b2:	e759      	b.n	6000a568 <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const+0xec>
+
+
+6000a6b4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)>:
+6000a6b4:	e92d 4ff0 	stmdb	sp!, {r4, r5, r6, r7, r8, r9, sl, fp, lr}
+6000a6b8:	ed2d 8b10 	vpush	{d8-d15}
+6000a6bc:	b0d7      	sub	sp, #348	@ 0x15c
+6000a6be:	ed92 8a15 	vldr	s16, [r2, #84]	@ 0x54
+6000a6c2:	ed91 aa00 	vldr	s20, [r1]
+6000a6c6:	4615      	mov	r5, r2
+6000a6c8:	edd1 aa01 	vldr	s21, [r1, #4]
+6000a6cc:	4604      	mov	r4, r0
+6000a6ce:	edd1 9a02 	vldr	s19, [r1, #8]
+6000a6d2:	af15      	add	r7, sp, #84	@ 0x54
+6000a6d4:	f892 c114 	ldrb.w	ip, [r2, #276]	@ 0x114
+6000a6d8:	ee28 9a0a 	vmul.f32	s18, s16, s20
+6000a6dc:	ee68 8a2a 	vmul.f32	s17, s16, s21
+6000a6e0:	ee28 8a29 	vmul.f32	s16, s16, s19
+6000a6e4:	ed8d 9a12 	vstr	s18, [sp, #72]	@ 0x48
+6000a6e8:	edcd 8a13 	vstr	s17, [sp, #76]	@ 0x4c
+6000a6ec:	ed8d 8a14 	vstr	s16, [sp, #80]	@ 0x50
+6000a6f0:	c907      	ldmia	r1, {r0, r1, r2}
+6000a6f2:	e887 0007 	stmia.w	r7, {r0, r1, r2}
+6000a6f6:	e9d5 0116 	ldrd	r0, r1, [r5, #88]	@ 0x58
+6000a6fa:	e9cd 0118 	strd	r0, r1, [sp, #96]	@ 0x60
+6000a6fe:	f1bc 0f00 	cmp.w	ip, #0
+6000a702:	d003      	beq.n	6000a70c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x58>
+6000a704:	a818      	add	r0, sp, #96	@ 0x60
+6000a706:	f004 f8eb 	bl	6000e8e0 <___ZNK7Raycast8Interval5validEv_veneer>
+6000a70a:	bb10      	cbnz	r0, 6000a752 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9e>
+6000a70c:	f04f 517e 	mov.w	r1, #1065353216	@ 0x3f800000
+6000a710:	2000      	movs	r0, #0
+6000a712:	2300      	movs	r3, #0
+6000a714:	2200      	movs	r2, #0
+6000a716:	62e1      	str	r1, [r4, #44]	@ 0x2c
+6000a718:	2100      	movs	r1, #0
+6000a71a:	60a2      	str	r2, [r4, #8]
+6000a71c:	6263      	str	r3, [r4, #36]	@ 0x24
+6000a71e:	62a2      	str	r2, [r4, #40]	@ 0x28
+6000a720:	f8a4 3040 	strh.w	r3, [r4, #64]	@ 0x40
+6000a724:	6462      	str	r2, [r4, #68]	@ 0x44
+6000a726:	64a2      	str	r2, [r4, #72]	@ 0x48
+6000a728:	64e2      	str	r2, [r4, #76]	@ 0x4c
+6000a72a:	f884 3050 	strb.w	r3, [r4, #80]	@ 0x50
+6000a72e:	e9c4 010e 	strd	r0, r1, [r4, #56]	@ 0x38
+6000a732:	2106      	movs	r1, #6
+6000a734:	e9c4 3300 	strd	r3, r3, [r4]
+6000a738:	e9c4 3305 	strd	r3, r3, [r4, #20]
+6000a73c:	e9c4 3307 	strd	r3, r3, [r4, #28]
+6000a740:	e9c4 330c 	strd	r3, r3, [r4, #48]	@ 0x30
+6000a744:	6121      	str	r1, [r4, #16]
+6000a746:	4620      	mov	r0, r4
+6000a748:	b057      	add	sp, #348	@ 0x15c
+6000a74a:	ecbd 8b10 	vpop	{d8-d15}
+6000a74e:	e8bd 8ff0 	ldmia.w	sp!, {r4, r5, r6, r7, r8, r9, sl, fp, pc}
+6000a752:	a812      	add	r0, sp, #72	@ 0x48
+6000a754:	f004 f868 	bl	6000e828 <___ZN7Raycast6finiteERKN4math6VectorE_veneer>
+6000a758:	2800      	cmp	r0, #0
+6000a75a:	d0d7      	beq.n	6000a70c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x58>
+6000a75c:	4638      	mov	r0, r7
+6000a75e:	f004 f863 	bl	6000e828 <___ZN7Raycast6finiteERKN4math6VectorE_veneer>
+6000a762:	2800      	cmp	r0, #0
+6000a764:	d0d2      	beq.n	6000a70c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x58>
+6000a766:	eeff 7a00 	vmov.f32	s15, #240	@ 0xbf800000 -1.0
+6000a76a:	ed9d 6a15 	vldr	s12, [sp, #84]	@ 0x54
+6000a76e:	eddd 6a16 	vldr	s13, [sp, #88]	@ 0x58
+6000a772:	ed9d 7a17 	vldr	s14, [sp, #92]	@ 0x5c
+6000a776:	eee6 7a06 	vfma.f32	s15, s12, s12
+6000a77a:	eddf 5af0 	vldr	s11, [pc, #960]	@ 6000ab3c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x488>
+6000a77e:	eee6 7aa6 	vfma.f32	s15, s13, s13
+6000a782:	eee7 7a07 	vfma.f32	s15, s14, s14
+6000a786:	eef0 7ae7 	vabs.f32	s15, s15
+6000a78a:	eef4 7ae5 	vcmpe.f32	s15, s11
+6000a78e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a792:	d5bb      	bpl.n	6000a70c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x58>
+6000a794:	682f      	ldr	r7, [r5, #0]
+6000a796:	2f01      	cmp	r7, #1
+6000a798:	d1b8      	bne.n	6000a70c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x58>
+6000a79a:	edd5 7a05 	vldr	s15, [r5, #20]
+6000a79e:	f105 03fc 	add.w	r3, r5, #252	@ 0xfc
+6000a7a2:	6e2a      	ldr	r2, [r5, #96]	@ 0x60
+6000a7a4:	eef0 ba67 	vmov.f32	s23, s15
+6000a7a8:	edd5 7a06 	vldr	s15, [r5, #24]
+6000a7ac:	9232      	str	r2, [sp, #200]	@ 0xc8
+6000a7ae:	eeb0 ca67 	vmov.f32	s24, s15
+6000a7b2:	edd5 7a07 	vldr	s15, [r5, #28]
+6000a7b6:	6e6a      	ldr	r2, [r5, #100]	@ 0x64
+6000a7b8:	eef0 ca67 	vmov.f32	s25, s15
+6000a7bc:	edd5 7a08 	vldr	s15, [r5, #32]
+6000a7c0:	9233      	str	r2, [sp, #204]	@ 0xcc
+6000a7c2:	2260      	movs	r2, #96	@ 0x60
+6000a7c4:	edcd 7a05 	vstr	s15, [sp, #20]
+6000a7c8:	edd5 7a09 	vldr	s15, [r5, #36]	@ 0x24
+6000a7cc:	9300      	str	r3, [sp, #0]
+6000a7ce:	eeb0 da67 	vmov.f32	s26, s15
+6000a7d2:	edd5 7a0a 	vldr	s15, [r5, #40]	@ 0x28
+6000a7d6:	eef0 da67 	vmov.f32	s27, s15
+6000a7da:	edd5 7a0b 	vldr	s15, [r5, #44]	@ 0x2c
+6000a7de:	eeb0 ea67 	vmov.f32	s28, s15
+6000a7e2:	edd5 7a0c 	vldr	s15, [r5, #48]	@ 0x30
+6000a7e6:	edcd 7a07 	vstr	s15, [sp, #28]
+6000a7ea:	edd5 7a0d 	vldr	s15, [r5, #52]	@ 0x34
+6000a7ee:	eef0 ea67 	vmov.f32	s29, s15
+6000a7f2:	edd5 7a0e 	vldr	s15, [r5, #56]	@ 0x38
+6000a7f6:	eeb0 fa67 	vmov.f32	s30, s15
+6000a7fa:	edd5 7a0f 	vldr	s15, [r5, #60]	@ 0x3c
+6000a7fe:	eef0 fa67 	vmov.f32	s31, s15
+6000a802:	edd5 7a10 	vldr	s15, [r5, #64]	@ 0x40
+6000a806:	edcd 7a09 	vstr	s15, [sp, #36]	@ 0x24
+6000a80a:	edd5 7a11 	vldr	s15, [r5, #68]	@ 0x44
+6000a80e:	edcd 7a01 	vstr	s15, [sp, #4]
+6000a812:	edd5 7a12 	vldr	s15, [r5, #72]	@ 0x48
+6000a816:	edcd 7a02 	vstr	s15, [sp, #8]
+6000a81a:	edd5 7a13 	vldr	s15, [r5, #76]	@ 0x4c
+6000a81e:	e9dd 0118 	ldrd	r0, r1, [sp, #96]	@ 0x60
+6000a822:	edcd 7a03 	vstr	s15, [sp, #12]
+6000a826:	edd5 7a14 	vldr	s15, [r5, #80]	@ 0x50
+6000a82a:	e9cd 010e 	strd	r0, r1, [sp, #56]	@ 0x38
+6000a82e:	edcd 7a0b 	vstr	s15, [sp, #44]	@ 0x2c
+6000a832:	2100      	movs	r1, #0
+6000a834:	edd5 7a01 	vldr	s15, [r5, #4]
+6000a838:	a834      	add	r0, sp, #208	@ 0xd0
+6000a83a:	ed9d ba18 	vldr	s22, [sp, #96]	@ 0x60
+6000a83e:	edcd 7a04 	vstr	s15, [sp, #16]
+6000a842:	edd5 7a02 	vldr	s15, [r5, #8]
+6000a846:	edcd 7a06 	vstr	s15, [sp, #24]
+6000a84a:	edd5 7a03 	vldr	s15, [r5, #12]
+6000a84e:	edcd 7a08 	vstr	s15, [sp, #32]
+6000a852:	edd5 7a04 	vldr	s15, [r5, #16]
+6000a856:	edcd 7a0a 	vstr	s15, [sp, #40]	@ 0x28
+6000a85a:	f7f8 f958 	bl	60002b0e <memset>
+6000a85e:	2200      	movs	r2, #0
+6000a860:	9800      	ldr	r0, [sp, #0]
+6000a862:	eddf 7ab9 	vldr	s15, [pc, #740]	@ 6000ab48 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x494>
+6000a866:	904c      	str	r0, [sp, #304]	@ 0x130
+6000a868:	edcd 7a55 	vstr	s15, [sp, #340]	@ 0x154
+6000a86c:	e9cd 224d 	strd	r2, r2, [sp, #308]	@ 0x134
+6000a870:	e9cd 224f 	strd	r2, r2, [sp, #316]	@ 0x13c
+6000a874:	e9cd 2251 	strd	r2, r2, [sp, #324]	@ 0x144
+6000a878:	e9cd 2253 	strd	r2, r2, [sp, #332]	@ 0x14c
+6000a87c:	f004 f820 	bl	6000e8c0 <___ZNK3SDF15OctetFramework45validEv_veneer>
+6000a880:	2800      	cmp	r0, #0
+6000a882:	f000 81b0 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a886:	a80e      	add	r0, sp, #56	@ 0x38
+6000a888:	f004 f82a 	bl	6000e8e0 <___ZNK7Raycast8Interval5validEv_veneer>
+6000a88c:	2800      	cmp	r0, #0
+6000a88e:	f000 81aa 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a892:	ed9d 7a04 	vldr	s14, [sp, #16]
+6000a896:	eeab 7a89 	vfma.f32	s14, s23, s18
+6000a89a:	eeac 7a28 	vfma.f32	s14, s24, s17
+6000a89e:	eeac 7a88 	vfma.f32	s14, s25, s16
+6000a8a2:	ee17 3a10 	vmov	r3, s14
+6000a8a6:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a8aa:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a8ae:	f000 819a 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a8b2:	ee6c 6a2a 	vmul.f32	s13, s24, s21
+6000a8b6:	eddd 7a05 	vldr	s15, [sp, #20]
+6000a8ba:	ed9f 6aa3 	vldr	s12, [pc, #652]	@ 6000ab48 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x494>
+6000a8be:	eeeb 6a8a 	vfma.f32	s13, s23, s20
+6000a8c2:	eeec 6aa9 	vfma.f32	s13, s25, s19
+6000a8c6:	eee7 6a86 	vfma.f32	s13, s15, s12
+6000a8ca:	ee16 3a90 	vmov	r3, s13
+6000a8ce:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a8d2:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a8d6:	f000 8186 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a8da:	eddd 4a06 	vldr	s9, [sp, #24]
+6000a8de:	eeed 4a09 	vfma.f32	s9, s26, s18
+6000a8e2:	eeed 4aa8 	vfma.f32	s9, s27, s17
+6000a8e6:	eeee 4a08 	vfma.f32	s9, s28, s16
+6000a8ea:	ee14 3a90 	vmov	r3, s9
+6000a8ee:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a8f2:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a8f6:	f000 8176 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a8fa:	ee2d 6aaa 	vmul.f32	s12, s27, s21
+6000a8fe:	ed9f 3a92 	vldr	s6, [pc, #584]	@ 6000ab48 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x494>
+6000a902:	eddd 7a07 	vldr	s15, [sp, #28]
+6000a906:	eead 6a0a 	vfma.f32	s12, s26, s20
+6000a90a:	eeae 6a29 	vfma.f32	s12, s28, s19
+6000a90e:	eea7 6a83 	vfma.f32	s12, s15, s6
+6000a912:	ee16 3a10 	vmov	r3, s12
+6000a916:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a91a:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a91e:	f000 8162 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a922:	ed9d 4a08 	vldr	s8, [sp, #32]
+6000a926:	eeae 4a89 	vfma.f32	s8, s29, s18
+6000a92a:	eeaf 4a28 	vfma.f32	s8, s30, s17
+6000a92e:	eeaf 4a88 	vfma.f32	s8, s31, s16
+6000a932:	ee14 3a10 	vmov	r3, s8
+6000a936:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a93a:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a93e:	f000 8152 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a942:	ee6f 7a2a 	vmul.f32	s15, s30, s21
+6000a946:	eddd 5a09 	vldr	s11, [sp, #36]	@ 0x24
+6000a94a:	eeee 7a8a 	vfma.f32	s15, s29, s20
+6000a94e:	eeef 7aa9 	vfma.f32	s15, s31, s19
+6000a952:	eee5 7a83 	vfma.f32	s15, s11, s6
+6000a956:	ee17 3a90 	vmov	r3, s15
+6000a95a:	eef0 3a67 	vmov.f32	s7, s15
+6000a95e:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a962:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a966:	f000 813e 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a96a:	eddd 7a01 	vldr	s15, [sp, #4]
+6000a96e:	eddd 5a0a 	vldr	s11, [sp, #40]	@ 0x28
+6000a972:	eee7 5a89 	vfma.f32	s11, s15, s18
+6000a976:	eddd 7a02 	vldr	s15, [sp, #8]
+6000a97a:	eee7 5aa8 	vfma.f32	s11, s15, s17
+6000a97e:	eddd 7a03 	vldr	s15, [sp, #12]
+6000a982:	eee7 5a88 	vfma.f32	s11, s15, s16
+6000a986:	ee15 3a90 	vmov	r3, s11
+6000a98a:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a98e:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a992:	f000 8128 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a996:	eddd 7a02 	vldr	s15, [sp, #8]
+6000a99a:	ee27 5aaa 	vmul.f32	s10, s15, s21
+6000a99e:	eddd 7a01 	vldr	s15, [sp, #4]
+6000a9a2:	eea7 5a8a 	vfma.f32	s10, s15, s20
+6000a9a6:	eddd 7a03 	vldr	s15, [sp, #12]
+6000a9aa:	eea7 5aa9 	vfma.f32	s10, s15, s19
+6000a9ae:	eef0 7a45 	vmov.f32	s15, s10
+6000a9b2:	ed9d 5a0b 	vldr	s10, [sp, #44]	@ 0x2c
+6000a9b6:	eee5 7a03 	vfma.f32	s15, s10, s6
+6000a9ba:	ee17 3a90 	vmov	r3, s15
+6000a9be:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000a9c2:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000a9c6:	f000 810e 	beq.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a9ca:	eebf 5a00 	vmov.f32	s10, #240	@ 0xbf800000 -1.0
+6000a9ce:	ed9f 3a5b 	vldr	s6, [pc, #364]	@ 6000ab3c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x488>
+6000a9d2:	eea6 5aa6 	vfma.f32	s10, s13, s13
+6000a9d6:	eea6 5a06 	vfma.f32	s10, s12, s12
+6000a9da:	eea3 5aa3 	vfma.f32	s10, s7, s7
+6000a9de:	eea7 5aa7 	vfma.f32	s10, s15, s15
+6000a9e2:	eeb0 5ac5 	vabs.f32	s10, s10
+6000a9e6:	eeb4 5ac3 	vcmpe.f32	s10, s6
+6000a9ea:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000a9ee:	f280 80fa 	bge.w	6000abe6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x532>
+6000a9f2:	eeb0 0a47 	vmov.f32	s0, s14
+6000a9f6:	ed95 2a41 	vldr	s4, [r5, #260]	@ 0x104
+6000a9fa:	eef0 0a44 	vmov.f32	s1, s8
+6000a9fe:	ed95 3a43 	vldr	s6, [r5, #268]	@ 0x10c
+6000aa02:	ee77 1a42 	vsub.f32	s3, s14, s4
+6000aa06:	ed95 1a42 	vldr	s2, [r5, #264]	@ 0x108
+6000aa0a:	eea6 0a8b 	vfma.f32	s0, s13, s22
+6000aa0e:	edd5 2a44 	vldr	s5, [r5, #272]	@ 0x110
+6000aa12:	eeb0 5a64 	vmov.f32	s10, s9
+6000aa16:	ed9f 8a4a 	vldr	s16, [pc, #296]	@ 6000ab40 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x48c>
+6000aa1a:	eee3 0a8b 	vfma.f32	s1, s7, s22
+6000aa1e:	a834      	add	r0, sp, #208	@ 0xd0
+6000aa20:	ee34 4a43 	vsub.f32	s8, s8, s6
+6000aa24:	2208      	movs	r2, #8
+6000aa26:	eea6 5a0b 	vfma.f32	s10, s12, s22
+6000aa2a:	a91a      	add	r1, sp, #104	@ 0x68
+6000aa2c:	ee74 4ac1 	vsub.f32	s9, s9, s2
+6000aa30:	f10d 0b68 	add.w	fp, sp, #104	@ 0x68
+6000aa34:	ee30 0a42 	vsub.f32	s0, s0, s4
+6000aa38:	eeb0 2a65 	vmov.f32	s4, s11
+6000aa3c:	ee70 0ac3 	vsub.f32	s1, s1, s6
+6000aa40:	ed95 3a3f 	vldr	s6, [r5, #252]	@ 0xfc
+6000aa44:	eeb6 7a00 	vmov.f32	s14, #96	@ 0x3f000000  0.5
+6000aa48:	eea7 2a8b 	vfma.f32	s4, s15, s22
+6000aa4c:	ee35 5a41 	vsub.f32	s10, s10, s2
+6000aa50:	ee35 1ae2 	vsub.f32	s2, s11, s5
+6000aa54:	ee65 5a07 	vmul.f32	s11, s10, s14
+6000aa58:	ee32 2a62 	vsub.f32	s4, s4, s5
+6000aa5c:	eec8 2a03 	vdiv.f32	s5, s16, s6
+6000aa60:	eef0 8a65 	vmov.f32	s17, s11
+6000aa64:	eed0 5a07 	vfnms.f32	s11, s0, s14
+6000aa68:	eee0 8a07 	vfma.f32	s17, s0, s14
+6000aa6c:	eeb0 0a4b 	vmov.f32	s0, s22
+6000aa70:	eeb0 8a68 	vmov.f32	s16, s17
+6000aa74:	ee21 5aa2 	vmul.f32	s10, s3, s5
+6000aa78:	ee66 1aa2 	vmul.f32	s3, s13, s5
+6000aa7c:	eea0 8a87 	vfma.f32	s16, s1, s14
+6000aa80:	ed8d 5a4d 	vstr	s10, [sp, #308]	@ 0x134
+6000aa84:	ee24 5aa2 	vmul.f32	s10, s9, s5
+6000aa88:	edcd 1a51 	vstr	s3, [sp, #324]	@ 0x144
+6000aa8c:	ee64 4a22 	vmul.f32	s9, s8, s5
+6000aa90:	ee21 4a22 	vmul.f32	s8, s2, s5
+6000aa94:	ed8d 5a4e 	vstr	s10, [sp, #312]	@ 0x138
+6000aa98:	ee26 5a07 	vmul.f32	s10, s12, s14
+6000aa9c:	ee23 1aa2 	vmul.f32	s2, s7, s5
+6000aaa0:	edcd 4a4f 	vstr	s9, [sp, #316]	@ 0x13c
+6000aaa4:	eef0 4a68 	vmov.f32	s9, s17
+6000aaa8:	ed8d 4a50 	vstr	s8, [sp, #320]	@ 0x140
+6000aaac:	eef0 1a45 	vmov.f32	s3, s10
+6000aab0:	eea6 5a87 	vfma.f32	s10, s13, s14
+6000aab4:	ed8d 1a53 	vstr	s2, [sp, #332]	@ 0x14c
+6000aab8:	eeb0 1a65 	vmov.f32	s2, s11
+6000aabc:	eed6 1a87 	vfnms.f32	s3, s13, s14
+6000aac0:	eef0 6a65 	vmov.f32	s13, s11
+6000aac4:	eea0 1a87 	vfma.f32	s2, s1, s14
+6000aac8:	eee0 4ac7 	vfms.f32	s9, s1, s14
+6000aacc:	eee0 6ac7 	vfms.f32	s13, s1, s14
+6000aad0:	eef0 0a45 	vmov.f32	s1, s10
+6000aad4:	ee26 6a22 	vmul.f32	s12, s12, s5
+6000aad8:	eeb0 4a61 	vmov.f32	s8, s3
+6000aadc:	eee3 0a87 	vfma.f32	s1, s7, s14
+6000aae0:	ee67 2aa2 	vmul.f32	s5, s15, s5
+6000aae4:	ed8d 6a52 	vstr	s12, [sp, #328]	@ 0x148
+6000aae8:	eef0 5a61 	vmov.f32	s11, s3
+6000aaec:	eeb0 6a45 	vmov.f32	s12, s10
+6000aaf0:	eea3 4a87 	vfma.f32	s8, s7, s14
+6000aaf4:	edcd 2a54 	vstr	s5, [sp, #336]	@ 0x150
+6000aaf8:	eee3 5ac7 	vfms.f32	s11, s7, s14
+6000aafc:	eea3 6ac7 	vfms.f32	s12, s7, s14
+6000ab00:	eef0 2a66 	vmov.f32	s5, s13
+6000ab04:	eef0 3a48 	vmov.f32	s7, s16
+6000ab08:	eeb0 5a60 	vmov.f32	s10, s1
+6000ab0c:	eea2 8a07 	vfma.f32	s16, s4, s14
+6000ab10:	eee2 3a47 	vfms.f32	s7, s4, s14
+6000ab14:	eea7 5a87 	vfma.f32	s10, s15, s14
+6000ab18:	eee2 2a07 	vfma.f32	s5, s4, s14
+6000ab1c:	eef0 1a41 	vmov.f32	s3, s2
+6000ab20:	eee7 0ac7 	vfms.f32	s1, s15, s14
+6000ab24:	ed8d 8a1a 	vstr	s16, [sp, #104]	@ 0x68
+6000ab28:	eeb0 8a65 	vmov.f32	s16, s11
+6000ab2c:	edcd 3a26 	vstr	s7, [sp, #152]	@ 0x98
+6000ab30:	eef0 3a46 	vmov.f32	s7, s12
+6000ab34:	ed8d 5a1b 	vstr	s10, [sp, #108]	@ 0x6c
+6000ab38:	e008      	b.n	6000ab4c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x498>
+6000ab3a:	bf00      	nop
+6000ab3c:	38d1b717 	.word	0x38d1b717
+6000ab40:	3fb504f3 	.word	0x3fb504f3
+6000ab44:	3f3504f3 	.word	0x3f3504f3
+6000ab48:	00000000 	.word	0x00000000
+6000ab4c:	eeb0 5a64 	vmov.f32	s10, s9
+6000ab50:	edcd 2a23 	vstr	s5, [sp, #140]	@ 0x8c
+6000ab54:	eef0 2a44 	vmov.f32	s5, s8
+6000ab58:	eea7 8a87 	vfma.f32	s16, s15, s14
+6000ab5c:	eee7 5ac7 	vfms.f32	s11, s15, s14
+6000ab60:	edcd 0a27 	vstr	s1, [sp, #156]	@ 0x9c
+6000ab64:	eee7 2ac7 	vfms.f32	s5, s15, s14
+6000ab68:	eea7 4a87 	vfma.f32	s8, s15, s14
+6000ab6c:	eee7 3a87 	vfma.f32	s7, s15, s14
+6000ab70:	eea7 6ac7 	vfms.f32	s12, s15, s14
+6000ab74:	ed5f 7a0d 	vldr	s15, [pc, #-52]	@ 6000ab44 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x490>
+6000ab78:	eee2 6a47 	vfms.f32	s13, s4, s14
+6000ab7c:	ed8d 8a24 	vstr	s16, [sp, #144]	@ 0x90
+6000ab80:	eee2 1a47 	vfms.f32	s3, s4, s14
+6000ab84:	eea2 1a07 	vfma.f32	s2, s4, s14
+6000ab88:	edcd 2a2a 	vstr	s5, [sp, #168]	@ 0xa8
+6000ab8c:	eea2 5a47 	vfms.f32	s10, s4, s14
+6000ab90:	ed8d 4a1e 	vstr	s8, [sp, #120]	@ 0x78
+6000ab94:	eee2 4a07 	vfma.f32	s9, s4, s14
+6000ab98:	edcd 3a21 	vstr	s7, [sp, #132]	@ 0x84
+6000ab9c:	ee63 7a27 	vmul.f32	s15, s6, s15
+6000aba0:	edcd 1a29 	vstr	s3, [sp, #164]	@ 0xa4
+6000aba4:	ed8d 1a1d 	vstr	s2, [sp, #116]	@ 0x74
+6000aba8:	edcd 7a55 	vstr	s15, [sp, #340]	@ 0x154
+6000abac:	edcd 4a20 	vstr	s9, [sp, #128]	@ 0x80
+6000abb0:	edcd 7a1c 	vstr	s15, [sp, #112]	@ 0x70
+6000abb4:	edcd 7a1f 	vstr	s15, [sp, #124]	@ 0x7c
+6000abb8:	edcd 7a22 	vstr	s15, [sp, #136]	@ 0x88
+6000abbc:	edcd 7a25 	vstr	s15, [sp, #148]	@ 0x94
+6000abc0:	edcd 7a28 	vstr	s15, [sp, #160]	@ 0xa0
+6000abc4:	edcd 7a2b 	vstr	s15, [sp, #172]	@ 0xac
+6000abc8:	edcd 7a2e 	vstr	s15, [sp, #184]	@ 0xb8
+6000abcc:	ed8d 5a2c 	vstr	s10, [sp, #176]	@ 0xb0
+6000abd0:	ed8d 6a2d 	vstr	s12, [sp, #180]	@ 0xb4
+6000abd4:	edcd 7a31 	vstr	s15, [sp, #196]	@ 0xc4
+6000abd8:	edcd 6a2f 	vstr	s13, [sp, #188]	@ 0xbc
+6000abdc:	edcd 5a30 	vstr	s11, [sp, #192]	@ 0xc0
+6000abe0:	f7fe fa2e 	bl	60009040 <SDF::FrameworkPlaneCursor::initialize(SDF::FrameworkPlaneCursor*, SDF::FrameworkPlaneCursor::Projection const*, unsigned int, float)>
+6000abe4:	e001      	b.n	6000abea <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x536>
+6000abe6:	f10d 0b68 	add.w	fp, sp, #104	@ 0x68
+6000abea:	2244      	movs	r2, #68	@ 0x44
+6000abec:	2100      	movs	r1, #0
+6000abee:	a81b      	add	r0, sp, #108	@ 0x6c
+6000abf0:	eddd 8a19 	vldr	s17, [sp, #100]	@ 0x64
+6000abf4:	f7f7 ff8b 	bl	60002b0e <memset>
+6000abf8:	ee1b 3a10 	vmov	r3, s22
+6000abfc:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000ac00:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000ac04:	f000 819c 	beq.w	6000af40 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x88c>
+6000ac08:	eef4 8acb 	vcmpe.f32	s17, s22
+6000ac0c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ac10:	eeb5 bac0 	vcmpe.f32	s22, #0.0
+6000ac14:	bfcc      	ite	gt
+6000ac16:	2201      	movgt	r2, #1
+6000ac18:	2200      	movle	r2, #0
+6000ac1a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ac1e:	f002 0201 	and.w	r2, r2, #1
+6000ac22:	bfb8      	it	lt
+6000ac24:	2200      	movlt	r2, #0
+6000ac26:	2a00      	cmp	r2, #0
+6000ac28:	f000 818a 	beq.w	6000af40 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x88c>
+6000ac2c:	ee18 3a90 	vmov	r3, s17
+6000ac30:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000ac34:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000ac38:	f000 8182 	beq.w	6000af40 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x88c>
+6000ac3c:	eef7 5a00 	vmov.f32	s11, #112	@ 0x3f800000  1.0
+6000ac40:	ed1f 9a3f 	vldr	s18, [pc, #-252]	@ 6000ab48 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x494>
+6000ac44:	2600      	movs	r6, #0
+6000ac46:	eeb0 aa49 	vmov.f32	s20, s18
+6000ac4a:	eef0 aa49 	vmov.f32	s21, s18
+6000ac4e:	46b1      	mov	r9, r6
+6000ac50:	eeb0 4a65 	vmov.f32	s8, s11
+6000ac54:	46b2      	mov	sl, r6
+6000ac56:	eef0 4a49 	vmov.f32	s9, s18
+6000ac5a:	9607      	str	r6, [sp, #28]
+6000ac5c:	eef0 ba49 	vmov.f32	s23, s18
+6000ac60:	f89d 20d8 	ldrb.w	r2, [sp, #216]	@ 0xd8
+6000ac64:	2a00      	cmp	r2, #0
+6000ac66:	f000 8183 	beq.w	6000af70 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8bc>
+6000ac6a:	ed9d 8a34 	vldr	s16, [sp, #208]	@ 0xd0
+6000ac6e:	ee18 3a10 	vmov	r3, s16
+6000ac72:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000ac76:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000ac7a:	f000 8229 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000ac7e:	eef4 8ac8 	vcmpe.f32	s17, s16
+6000ac82:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ac86:	f2c0 8173 	blt.w	6000af70 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8bc>
+6000ac8a:	2300      	movs	r3, #0
+6000ac8c:	f89d 20e4 	ldrb.w	r2, [sp, #228]	@ 0xe4
+6000ac90:	b19a      	cbz	r2, 6000acba <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x606>
+6000ac92:	eddd 7a37 	vldr	s15, [sp, #220]	@ 0xdc
+6000ac96:	ee17 2a90 	vmov	r2, s15
+6000ac9a:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000ac9e:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000aca2:	f000 8215 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000aca6:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000acaa:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000acae:	f300 8169 	bgt.w	6000af84 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8d0>
+6000acb2:	2b08      	cmp	r3, #8
+6000acb4:	f000 8160 	beq.w	6000af78 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8c4>
+6000acb8:	2300      	movs	r3, #0
+6000acba:	f89d 20f0 	ldrb.w	r2, [sp, #240]	@ 0xf0
+6000acbe:	b192      	cbz	r2, 6000ace6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x632>
+6000acc0:	eddd 7a3a 	vldr	s15, [sp, #232]	@ 0xe8
+6000acc4:	ee17 2a90 	vmov	r2, s15
+6000acc8:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000accc:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000acd0:	f000 81fe 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000acd4:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000acd8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000acdc:	f300 815c 	bgt.w	6000af98 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8e4>
+6000ace0:	2b08      	cmp	r3, #8
+6000ace2:	f000 8153 	beq.w	6000af8c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8d8>
+6000ace6:	f89d 20fc 	ldrb.w	r2, [sp, #252]	@ 0xfc
+6000acea:	b192      	cbz	r2, 6000ad12 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65e>
+6000acec:	eddd 7a3d 	vldr	s15, [sp, #244]	@ 0xf4
+6000acf0:	ee17 2a90 	vmov	r2, s15
+6000acf4:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000acf8:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000acfc:	f000 81e8 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000ad00:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000ad04:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ad08:	f300 8150 	bgt.w	6000afac <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8f8>
+6000ad0c:	2b08      	cmp	r3, #8
+6000ad0e:	f000 8147 	beq.w	6000afa0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8ec>
+6000ad12:	f89d 2108 	ldrb.w	r2, [sp, #264]	@ 0x108
+6000ad16:	b192      	cbz	r2, 6000ad3e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x68a>
+6000ad18:	eddd 7a40 	vldr	s15, [sp, #256]	@ 0x100
+6000ad1c:	ee17 2a90 	vmov	r2, s15
+6000ad20:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000ad24:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000ad28:	f000 81d2 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000ad2c:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000ad30:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ad34:	f300 814d 	bgt.w	6000afd2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x91e>
+6000ad38:	2b08      	cmp	r3, #8
+6000ad3a:	f000 8144 	beq.w	6000afc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x912>
+6000ad3e:	f89d 2114 	ldrb.w	r2, [sp, #276]	@ 0x114
+6000ad42:	2a00      	cmp	r2, #0
+6000ad44:	f000 82a9 	beq.w	6000b29a <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xbe6>
+6000ad48:	eddd 7a43 	vldr	s15, [sp, #268]	@ 0x10c
+6000ad4c:	ee17 2a90 	vmov	r2, s15
+6000ad50:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000ad54:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000ad58:	f000 81ba 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000ad5c:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000ad60:	f89d 2120 	ldrb.w	r2, [sp, #288]	@ 0x120
+6000ad64:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ad68:	f300 8137 	bgt.w	6000afda <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x926>
+6000ad6c:	2b08      	cmp	r3, #8
+6000ad6e:	f000 8147 	beq.w	6000b000 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x94c>
+6000ad72:	2a00      	cmp	r2, #0
+6000ad74:	f000 8434 	beq.w	6000b5e0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xf2c>
+6000ad78:	eddd 7a46 	vldr	s15, [sp, #280]	@ 0x118
+6000ad7c:	ee17 2a90 	vmov	r2, s15
+6000ad80:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000ad84:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000ad88:	f000 81a2 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000ad8c:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000ad90:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ad94:	f300 814b 	bgt.w	6000b02e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97a>
+6000ad98:	eef0 7a48 	vmov.f32	s15, s16
+6000ad9c:	f89d 212c 	ldrb.w	r2, [sp, #300]	@ 0x12c
+6000ada0:	b17a      	cbz	r2, 6000adc2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x70e>
+6000ada2:	ed9d 8a49 	vldr	s16, [sp, #292]	@ 0x124
+6000ada6:	ee18 2a10 	vmov	r2, s16
+6000adaa:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000adae:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000adb2:	f000 818d 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000adb6:	eef4 7ac8 	vcmpe.f32	s15, s16
+6000adba:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000adbe:	f300 814e 	bgt.w	6000b05e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9aa>
+6000adc2:	eeb0 8a67 	vmov.f32	s16, s15
+6000adc6:	b12e      	cbz	r6, 6000add4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x720>
+6000adc8:	eef4 bac8 	vcmpe.f32	s23, s16
+6000adcc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000add0:	f100 8312 	bmi.w	6000b3f8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd44>
+6000add4:	f8d5 208c 	ldr.w	r2, [r5, #140]	@ 0x8c
+6000add8:	4552      	cmp	r2, sl
+6000adda:	f340 846a 	ble.w	6000b6b2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xffe>
+6000adde:	eeb4 bac8 	vcmpe.f32	s22, s16
+6000ade2:	eb03 0243 	add.w	r2, r3, r3, lsl #1
+6000ade6:	f10a 0a01 	add.w	sl, sl, #1
+6000adea:	eb0d 0282 	add.w	r2, sp, r2, lsl #2
+6000adee:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000adf2:	edd2 9a34 	vldr	s19, [r2, #208]	@ 0xd0
+6000adf6:	ea4f 0243 	mov.w	r2, r3, lsl #1
+6000adfa:	9200      	str	r2, [sp, #0]
+6000adfc:	f200 8147 	bhi.w	6000b08e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9da>
+6000ae00:	eddd 7a52 	vldr	s15, [sp, #328]	@ 0x148
+6000ae04:	aa0d      	add	r2, sp, #52	@ 0x34
+6000ae06:	ed9d 7a4e 	vldr	s14, [sp, #312]	@ 0x138
+6000ae0a:	a90e      	add	r1, sp, #56	@ 0x38
+6000ae0c:	ed9d 6a53 	vldr	s12, [sp, #332]	@ 0x14c
+6000ae10:	eea7 7aa9 	vfma.f32	s14, s15, s19
+6000ae14:	eddd 7a4f 	vldr	s15, [sp, #316]	@ 0x13c
+6000ae18:	ed9d 5a51 	vldr	s10, [sp, #324]	@ 0x144
+6000ae1c:	eee6 7a29 	vfma.f32	s15, s12, s19
+6000ae20:	eddd 6a4d 	vldr	s13, [sp, #308]	@ 0x134
+6000ae24:	ed9d 6a55 	vldr	s12, [sp, #340]	@ 0x154
+6000ae28:	eee5 6a29 	vfma.f32	s13, s10, s19
+6000ae2c:	ed9d 5a54 	vldr	s10, [sp, #336]	@ 0x150
+6000ae30:	984c      	ldr	r0, [sp, #304]	@ 0x130
+6000ae32:	9306      	str	r3, [sp, #24]
+6000ae34:	edcd 5a05 	vstr	s11, [sp, #20]
+6000ae38:	edcd 7a10 	vstr	s15, [sp, #64]	@ 0x40
+6000ae3c:	eddd 7a50 	vldr	s15, [sp, #320]	@ 0x140
+6000ae40:	ed8d 4a04 	vstr	s8, [sp, #16]
+6000ae44:	eee5 7a29 	vfma.f32	s15, s10, s19
+6000ae48:	edcd 4a03 	vstr	s9, [sp, #12]
+6000ae4c:	edcd 6a0e 	vstr	s13, [sp, #56]	@ 0x38
+6000ae50:	ed8d 7a0f 	vstr	s14, [sp, #60]	@ 0x3c
+6000ae54:	ed8d 6a02 	vstr	s12, [sp, #8]
+6000ae58:	9001      	str	r0, [sp, #4]
+6000ae5a:	edcd 7a11 	vstr	s15, [sp, #68]	@ 0x44
+6000ae5e:	f7ff fb0d 	bl	6000a47c <auto SDF::OctetFramework4::edge_query<false, true>(math::Vec4 const&, unsigned long&) const>
+6000ae62:	eddd 7a33 	vldr	s15, [sp, #204]	@ 0xcc
+6000ae66:	eeb4 8a69 	vcmp.f32	s16, s19
+6000ae6a:	eddd 6a32 	vldr	s13, [sp, #200]	@ 0xc8
+6000ae6e:	ee19 3a90 	vmov	r3, s19
+6000ae72:	ee79 7aa7 	vadd.f32	s15, s19, s15
+6000ae76:	9801      	ldr	r0, [sp, #4]
+6000ae78:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000ae7c:	f003 41ff 	and.w	r1, r3, #2139095040	@ 0x7f800000
+6000ae80:	ed90 7a01 	vldr	s14, [r0, #4]
+6000ae84:	ee67 7aa6 	vmul.f32	s15, s15, s13
+6000ae88:	ed9d 6a02 	vldr	s12, [sp, #8]
+6000ae8c:	bf14      	ite	ne
+6000ae8e:	2201      	movne	r2, #1
+6000ae90:	2200      	moveq	r2, #0
+6000ae92:	ee96 7a00 	vfnms.f32	s14, s12, s0
+6000ae96:	980d      	ldr	r0, [sp, #52]	@ 0x34
+6000ae98:	eef5 7ac0 	vcmpe.f32	s15, #0.0
+6000ae9c:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+6000aea0:	bf08      	it	eq
+6000aea2:	f042 0201 	orreq.w	r2, r2, #1
+6000aea6:	eddd 4a03 	vldr	s9, [sp, #12]
+6000aeaa:	ed9d 4a04 	vldr	s8, [sp, #16]
+6000aeae:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000aeb2:	eddd 5a05 	vldr	s11, [sp, #20]
+6000aeb6:	9b06      	ldr	r3, [sp, #24]
+6000aeb8:	f340 822b 	ble.w	6000b312 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc5e>
+6000aebc:	eec7 6a27 	vdiv.f32	s13, s14, s15
+6000aec0:	eef6 7a00 	vmov.f32	s15, #96	@ 0x3f000000  0.5
+6000aec4:	eef4 6ae7 	vcmpe.f32	s13, s15
+6000aec8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000aecc:	f300 8366 	bgt.w	6000b59c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xee8>
+6000aed0:	eebe 7a00 	vmov.f32	s14, #224	@ 0xbf000000 -0.5
+6000aed4:	eef4 6ac7 	vcmpe.f32	s13, s14
+6000aed8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000aedc:	f100 834a 	bmi.w	6000b574 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xec0>
+6000aee0:	ee77 7ae6 	vsub.f32	s15, s15, s13
+6000aee4:	ee17 1a90 	vmov	r1, s15
+6000aee8:	2a00      	cmp	r2, #0
+6000aeea:	f040 821b 	bne.w	6000b324 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc70>
+6000aeee:	f001 42ff 	and.w	r2, r1, #2139095040	@ 0x7f800000
+6000aef2:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000aef6:	f000 8215 	beq.w	6000b324 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc70>
+6000aefa:	ee07 1a90 	vmov	s15, r1
+6000aefe:	eef5 7ac0 	vcmpe.f32	s15, #0.0
+6000af02:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000af06:	f300 833a 	bgt.w	6000b57e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xeca>
+6000af0a:	9a00      	ldr	r2, [sp, #0]
+6000af0c:	a956      	add	r1, sp, #344	@ 0x158
+6000af0e:	441a      	add	r2, r3
+6000af10:	eb01 0282 	add.w	r2, r1, r2, lsl #2
+6000af14:	ed52 7a21 	vldr	s15, [r2, #-132]	@ 0xffffff7c
+6000af18:	ee79 7aa7 	vadd.f32	s15, s19, s15
+6000af1c:	ee17 1a90 	vmov	r1, s15
+6000af20:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+6000af24:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+6000af28:	d044      	beq.n	6000afb4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x900>
+6000af2a:	eef4 7ae9 	vcmpe.f32	s15, s19
+6000af2e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000af32:	dd3f      	ble.n	6000afb4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x900>
+6000af34:	2101      	movs	r1, #1
+6000af36:	ed42 7a22 	vstr	s15, [r2, #-136]	@ 0xffffff78
+6000af3a:	f802 1c80 	strb.w	r1, [r2, #-128]
+6000af3e:	e68f      	b.n	6000ac60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5ac>
+6000af40:	f04f 0900 	mov.w	r9, #0
+6000af44:	2706      	movs	r7, #6
+6000af46:	f04f 0a00 	mov.w	sl, #0
+6000af4a:	2200      	movs	r2, #0
+6000af4c:	e9c4 2200 	strd	r2, r2, [r4]
+6000af50:	2200      	movs	r2, #0
+6000af52:	60a2      	str	r2, [r4, #8]
+6000af54:	f04f 537e 	mov.w	r3, #1065353216	@ 0x3f800000
+6000af58:	4659      	mov	r1, fp
+6000af5a:	2248      	movs	r2, #72	@ 0x48
+6000af5c:	f104 0010 	add.w	r0, r4, #16
+6000af60:	971a      	str	r7, [sp, #104]	@ 0x68
+6000af62:	9321      	str	r3, [sp, #132]	@ 0x84
+6000af64:	e9cd a91e 	strd	sl, r9, [sp, #120]	@ 0x78
+6000af68:	f003 fc6e 	bl	6000e848 <__memcpy_veneer>
+6000af6c:	f7ff bbeb 	b.w	6000a746 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x92>
+6000af70:	eeb0 8a68 	vmov.f32	s16, s17
+6000af74:	2308      	movs	r3, #8
+6000af76:	e689      	b.n	6000ac8c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5d8>
+6000af78:	eef4 8a67 	vcmp.f32	s17, s15
+6000af7c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000af80:	f47f ae9b 	bne.w	6000acba <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x606>
+6000af84:	eeb0 8a67 	vmov.f32	s16, s15
+6000af88:	2301      	movs	r3, #1
+6000af8a:	e696      	b.n	6000acba <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x606>
+6000af8c:	eef4 8a67 	vcmp.f32	s17, s15
+6000af90:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000af94:	f47f aea7 	bne.w	6000ace6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x632>
+6000af98:	eeb0 8a67 	vmov.f32	s16, s15
+6000af9c:	2302      	movs	r3, #2
+6000af9e:	e6a2      	b.n	6000ace6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x632>
+6000afa0:	eef4 8a67 	vcmp.f32	s17, s15
+6000afa4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000afa8:	f47f aeb3 	bne.w	6000ad12 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65e>
+6000afac:	eeb0 8a67 	vmov.f32	s16, s15
+6000afb0:	2303      	movs	r3, #3
+6000afb2:	e6ae      	b.n	6000ad12 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x65e>
+6000afb4:	9a00      	ldr	r2, [sp, #0]
+6000afb6:	2100      	movs	r1, #0
+6000afb8:	441a      	add	r2, r3
+6000afba:	ab56      	add	r3, sp, #344	@ 0x158
+6000afbc:	eb03 0282 	add.w	r2, r3, r2, lsl #2
+6000afc0:	ed42 7a22 	vstr	s15, [r2, #-136]	@ 0xffffff78
+6000afc4:	e7b9      	b.n	6000af3a <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x886>
+6000afc6:	eef4 8a67 	vcmp.f32	s17, s15
+6000afca:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000afce:	f47f aeb6 	bne.w	6000ad3e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x68a>
+6000afd2:	eeb0 8a67 	vmov.f32	s16, s15
+6000afd6:	2304      	movs	r3, #4
+6000afd8:	e6b1      	b.n	6000ad3e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x68a>
+6000afda:	2a00      	cmp	r2, #0
+6000afdc:	f000 82b3 	beq.w	6000b546 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xe92>
+6000afe0:	ed9d 8a46 	vldr	s16, [sp, #280]	@ 0x118
+6000afe4:	ee18 3a10 	vmov	r3, s16
+6000afe8:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000afec:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000aff0:	d06e      	beq.n	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000aff2:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000aff6:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000affa:	d41a      	bmi.n	6000b032 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97e>
+6000affc:	2305      	movs	r3, #5
+6000affe:	e6cd      	b.n	6000ad9c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x6e8>
+6000b000:	eef4 8a67 	vcmp.f32	s17, s15
+6000b004:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b008:	d0e7      	beq.n	6000afda <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x926>
+6000b00a:	2a00      	cmp	r2, #0
+6000b00c:	f000 8163 	beq.w	6000b2d6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc22>
+6000b010:	eddd 7a46 	vldr	s15, [sp, #280]	@ 0x118
+6000b014:	ee17 3a90 	vmov	r3, s15
+6000b018:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000b01c:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000b020:	d056      	beq.n	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000b022:	eef4 7ac8 	vcmpe.f32	s15, s16
+6000b026:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b02a:	f140 814e 	bpl.w	6000b2ca <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc16>
+6000b02e:	eeb0 8a67 	vmov.f32	s16, s15
+6000b032:	f89d 212c 	ldrb.w	r2, [sp, #300]	@ 0x12c
+6000b036:	2a00      	cmp	r2, #0
+6000b038:	f000 8189 	beq.w	6000b34e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc9a>
+6000b03c:	eddd 7a49 	vldr	s15, [sp, #292]	@ 0x124
+6000b040:	ee17 3a90 	vmov	r3, s15
+6000b044:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000b048:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000b04c:	d040      	beq.n	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000b04e:	eef4 7ac8 	vcmpe.f32	s15, s16
+6000b052:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b056:	f140 817a 	bpl.w	6000b34e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc9a>
+6000b05a:	eeb0 8a67 	vmov.f32	s16, s15
+6000b05e:	2307      	movs	r3, #7
+6000b060:	e6b1      	b.n	6000adc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x712>
+6000b062:	eef7 7a00 	vmov.f32	s15, #112	@ 0x3f800000  1.0
+6000b066:	ed9f 7add 	vldr	s14, [pc, #884]	@ 6000b3dc <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd28>
+6000b06a:	eef0 6a48 	vmov.f32	s13, s16
+6000b06e:	ee04 1a10 	vmov	s8, r1
+6000b072:	eef0 4a69 	vmov.f32	s9, s19
+6000b076:	2601      	movs	r6, #1
+6000b078:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000b07c:	9007      	str	r0, [sp, #28]
+6000b07e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b082:	fe78 7a27 	vselgt.f32	s15, s16, s15
+6000b086:	eee7 6a87 	vfma.f32	s13, s15, s14
+6000b08a:	eef0 ba66 	vmov.f32	s23, s13
+6000b08e:	9a00      	ldr	r2, [sp, #0]
+6000b090:	a956      	add	r1, sp, #344	@ 0x158
+6000b092:	441a      	add	r2, r3
+6000b094:	eb01 0282 	add.w	r2, r1, r2, lsl #2
+6000b098:	ed52 7a21 	vldr	s15, [r2, #-132]	@ 0xffffff7c
+6000b09c:	ee79 7aa7 	vadd.f32	s15, s19, s15
+6000b0a0:	ee17 1a90 	vmov	r1, s15
+6000b0a4:	f001 41ff 	and.w	r1, r1, #2139095040	@ 0x7f800000
+6000b0a8:	f1b1 4fff 	cmp.w	r1, #2139095040	@ 0x7f800000
+6000b0ac:	d082      	beq.n	6000afb4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x900>
+6000b0ae:	eef4 7ae9 	vcmpe.f32	s15, s19
+6000b0b2:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b0b6:	f77f af7d 	ble.w	6000afb4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x900>
+6000b0ba:	eef4 7a48 	vcmp.f32	s15, s16
+6000b0be:	2101      	movs	r1, #1
+6000b0c0:	ed42 7a22 	vstr	s15, [r2, #-136]	@ 0xffffff78
+6000b0c4:	f802 1c80 	strb.w	r1, [r2, #-128]
+6000b0c8:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b0cc:	f73f adc8 	bgt.w	6000ac60 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x5ac>
+6000b0d0:	2706      	movs	r7, #6
+6000b0d2:	2e00      	cmp	r6, #0
+6000b0d4:	f000 80a5 	beq.w	6000b222 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb6e>
+6000b0d8:	f8d5 2090 	ldr.w	r2, [r5, #144]	@ 0x90
+6000b0dc:	454a      	cmp	r2, r9
+6000b0de:	f340 82ea 	ble.w	6000b6b6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x1002>
+6000b0e2:	edd5 6a1a 	vldr	s13, [r5, #104]	@ 0x68
+6000b0e6:	eef7 7a00 	vmov.f32	s15, #112	@ 0x3f800000  1.0
+6000b0ea:	f895 1074 	ldrb.w	r1, [r5, #116]	@ 0x74
+6000b0ee:	f109 0901 	add.w	r9, r9, #1
+6000b0f2:	ee64 6aa6 	vmul.f32	s13, s9, s13
+6000b0f6:	e9d5 201e 	ldrd	r2, r0, [r5, #120]	@ 0x78
+6000b0fa:	ee77 7ae6 	vsub.f32	s15, s15, s13
+6000b0fe:	2900      	cmp	r1, #0
+6000b100:	f000 811a 	beq.w	6000b338 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc84>
+6000b104:	ed9d 7a07 	vldr	s14, [sp, #28]
+6000b108:	4602      	mov	r2, r0
+6000b10a:	ed95 5a20 	vldr	s10, [r5, #128]	@ 0x80
+6000b10e:	eeb8 6a47 	vcvt.f32.u32	s12, s14
+6000b112:	eeb6 7a08 	vmov.f32	s14, #104	@ 0x3f400000  0.750
+6000b116:	eea6 6a87 	vfma.f32	s12, s13, s14
+6000b11a:	ee86 7a05 	vdiv.f32	s14, s12, s10
+6000b11e:	ed9f 6ab0 	vldr	s12, [pc, #704]	@ 6000b3e0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd2c>
+6000b122:	6812      	ldr	r2, [r2, #0]
+6000b124:	ee27 7a06 	vmul.f32	s14, s14, s12
+6000b128:	eeb5 7ac0 	vcmpe.f32	s14, #0.0
+6000b12c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b130:	f240 8105 	bls.w	6000b33e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc8a>
+6000b134:	eebd 6ac7 	vcvt.s32.f32	s12, s14
+6000b138:	ee16 1a10 	vmov	r1, s12
+6000b13c:	29fe      	cmp	r1, #254	@ 0xfe
+6000b13e:	f340 8108 	ble.w	6000b352 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc9e>
+6000b142:	f8b2 35fa 	ldrh.w	r3, [r2, #1530]	@ 0x5fa
+6000b146:	ee05 3a10 	vmov	s10, r3
+6000b14a:	f8b2 35fc 	ldrh.w	r3, [r2, #1532]	@ 0x5fc
+6000b14e:	ee02 3a90 	vmov	s5, r3
+6000b152:	f8b2 35fe 	ldrh.w	r3, [r2, #1534]	@ 0x5fe
+6000b156:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+6000b15a:	ed95 6a1b 	vldr	s12, [r5, #108]	@ 0x6c
+6000b15e:	edd5 1a1c 	vldr	s3, [r5, #112]	@ 0x70
+6000b162:	ee03 3a10 	vmov	s6, r3
+6000b166:	ee34 6ac6 	vsub.f32	s12, s9, s12
+6000b16a:	eddf 3a9e 	vldr	s7, [pc, #632]	@ 6000b3e4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd30>
+6000b16e:	eeb4 7ae6 	vcmpe.f32	s14, s13
+6000b172:	ed9f 2a9d 	vldr	s4, [pc, #628]	@ 6000b3e8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd34>
+6000b176:	eddf 4a9d 	vldr	s9, [pc, #628]	@ 6000b3ec <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd38>
+6000b17a:	eef6 6a00 	vmov.f32	s13, #96	@ 0x3f000000  0.5
+6000b17e:	ee26 6a21 	vmul.f32	s12, s12, s3
+6000b182:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b186:	eee7 4a82 	vfma.f32	s9, s15, s4
+6000b18a:	eef0 1a00 	vmov.f32	s3, #0	@ 0x40000000  2.0
+6000b18e:	fe86 6a47 	vminnm.f32	s12, s12, s14
+6000b192:	fe77 7aa3 	vselgt.f32	s15, s15, s7
+6000b196:	fe86 6a23 	vmaxnm.f32	s12, s12, s7
+6000b19a:	eeb0 2a08 	vmov.f32	s4, #8	@ 0x40400000  3.0
+6000b19e:	ee67 7a86 	vmul.f32	s15, s15, s12
+6000b1a2:	eef8 2ae2 	vcvt.f32.s32	s5, s5
+6000b1a6:	eea6 2a61 	vfms.f32	s4, s12, s3
+6000b1aa:	ee67 7aa7 	vmul.f32	s15, s15, s15
+6000b1ae:	eeb8 6ac5 	vcvt.f32.s32	s12, s10
+6000b1b2:	eeb0 5a66 	vmov.f32	s10, s13
+6000b1b6:	ee67 7a84 	vmul.f32	s15, s15, s8
+6000b1ba:	ed9f 4a8d 	vldr	s8, [pc, #564]	@ 6000b3f0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd3c>
+6000b1be:	eeb8 3ac3 	vcvt.f32.s32	s6, s6
+6000b1c2:	eea4 5a86 	vfma.f32	s10, s9, s12
+6000b1c6:	ee67 7a82 	vmul.f32	s15, s15, s4
+6000b1ca:	eeb0 6a66 	vmov.f32	s12, s13
+6000b1ce:	eee4 6a83 	vfma.f32	s13, s9, s6
+6000b1d2:	eea4 6aa2 	vfma.f32	s12, s9, s5
+6000b1d6:	ee77 4a67 	vsub.f32	s9, s14, s15
+6000b1da:	ee67 7aa5 	vmul.f32	s15, s15, s11
+6000b1de:	ee65 5aa4 	vmul.f32	s11, s11, s9
+6000b1e2:	eddf 4a84 	vldr	s9, [pc, #528]	@ 6000b3f4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd40>
+6000b1e6:	fe85 5a64 	vminnm.f32	s10, s10, s9
+6000b1ea:	fe86 6a64 	vminnm.f32	s12, s12, s9
+6000b1ee:	eef4 5ac4 	vcmpe.f32	s11, s8
+6000b1f2:	fe85 5a23 	vmaxnm.f32	s10, s10, s7
+6000b1f6:	fe86 6a23 	vmaxnm.f32	s12, s12, s7
+6000b1fa:	fec6 6ae4 	vminnm.f32	s13, s13, s9
+6000b1fe:	eeb6 5ac5 	vrintz.f32	s10, s10
+6000b202:	fec6 6aa3 	vmaxnm.f32	s13, s13, s7
+6000b206:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b20a:	eeb6 6ac6 	vrintz.f32	s12, s12
+6000b20e:	eef6 6ae6 	vrintz.f32	s13, s13
+6000b212:	eee7 aa85 	vfma.f32	s21, s15, s10
+6000b216:	eea7 aa86 	vfma.f32	s20, s15, s12
+6000b21a:	eea7 9aa6 	vfma.f32	s18, s15, s13
+6000b21e:	f100 8242 	bmi.w	6000b6a6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xff2>
+6000b222:	eef7 7a00 	vmov.f32	s15, #112	@ 0x3f800000  1.0
+6000b226:	eef4 5ae7 	vcmpe.f32	s11, s15
+6000b22a:	ee37 7ae5 	vsub.f32	s14, s15, s11
+6000b22e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b232:	f6bf ae8a 	bge.w	6000af4a <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x896>
+6000b236:	eef7 6a00 	vmov.f32	s13, #112	@ 0x3f800000  1.0
+6000b23a:	ed84 7a02 	vstr	s14, [r4, #8]
+6000b23e:	eef6 7a00 	vmov.f32	s15, #96	@ 0x3f000000  0.5
+6000b242:	eddf 5a6c 	vldr	s11, [pc, #432]	@ 6000b3f4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd40>
+6000b246:	ed9f 6a67 	vldr	s12, [pc, #412]	@ 6000b3e4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd30>
+6000b24a:	ee86 5a87 	vdiv.f32	s10, s13, s14
+6000b24e:	eef0 6a67 	vmov.f32	s13, s15
+6000b252:	eeb0 7a67 	vmov.f32	s14, s15
+6000b256:	eee5 6a2a 	vfma.f32	s13, s10, s21
+6000b25a:	eea5 7a0a 	vfma.f32	s14, s10, s20
+6000b25e:	eee5 7a09 	vfma.f32	s15, s10, s18
+6000b262:	fec6 6ae5 	vminnm.f32	s13, s13, s11
+6000b266:	fec6 6a86 	vmaxnm.f32	s13, s13, s12
+6000b26a:	eefc 6ae6 	vcvt.u32.f32	s13, s13
+6000b26e:	fe87 7a65 	vminnm.f32	s14, s14, s11
+6000b272:	fe87 7a06 	vmaxnm.f32	s14, s14, s12
+6000b276:	eebc 7ac7 	vcvt.u32.f32	s14, s14
+6000b27a:	fec7 7ae5 	vminnm.f32	s15, s15, s11
+6000b27e:	fec7 7a86 	vmaxnm.f32	s15, s15, s12
+6000b282:	ee16 3a90 	vmov	r3, s13
+6000b286:	eefc 7ae7 	vcvt.u32.f32	s15, s15
+6000b28a:	8023      	strh	r3, [r4, #0]
+6000b28c:	ee17 3a10 	vmov	r3, s14
+6000b290:	8063      	strh	r3, [r4, #2]
+6000b292:	ee17 3a90 	vmov	r3, s15
+6000b296:	80a3      	strh	r3, [r4, #4]
+6000b298:	e65c      	b.n	6000af54 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x8a0>
+6000b29a:	f89d 2120 	ldrb.w	r2, [sp, #288]	@ 0x120
+6000b29e:	2a00      	cmp	r2, #0
+6000b2a0:	f000 817e 	beq.w	6000b5a0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xeec>
+6000b2a4:	eddd 7a46 	vldr	s15, [sp, #280]	@ 0x118
+6000b2a8:	ee17 2a90 	vmov	r2, s15
+6000b2ac:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000b2b0:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000b2b4:	f43f af0c 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000b2b8:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000b2bc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b2c0:	f73f aeb5 	bgt.w	6000b02e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97a>
+6000b2c4:	2b08      	cmp	r3, #8
+6000b2c6:	f47f ad67 	bne.w	6000ad98 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x6e4>
+6000b2ca:	eef4 8a67 	vcmp.f32	s17, s15
+6000b2ce:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b2d2:	f43f aeac 	beq.w	6000b02e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x97a>
+6000b2d6:	f89d 212c 	ldrb.w	r2, [sp, #300]	@ 0x12c
+6000b2da:	2a00      	cmp	r2, #0
+6000b2dc:	f43f aef9 	beq.w	6000b0d2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1e>
+6000b2e0:	eddd 7a49 	vldr	s15, [sp, #292]	@ 0x124
+6000b2e4:	ee17 3a90 	vmov	r3, s15
+6000b2e8:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000b2ec:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000b2f0:	f43f aeee 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000b2f4:	eef4 7ac8 	vcmpe.f32	s15, s16
+6000b2f8:	eeb0 8a67 	vmov.f32	s16, s15
+6000b2fc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b300:	f53f aead 	bmi.w	6000b05e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9aa>
+6000b304:	eef4 8a48 	vcmp.f32	s17, s16
+6000b308:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b30c:	f43f aea7 	beq.w	6000b05e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9aa>
+6000b310:	e6df      	b.n	6000b0d2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1e>
+6000b312:	eeb5 7ac0 	vcmpe.f32	s14, #0.0
+6000b316:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b31a:	f240 815a 	bls.w	6000b5d2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xf1e>
+6000b31e:	2a00      	cmp	r2, #0
+6000b320:	f43f adf3 	beq.w	6000af0a <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x856>
+6000b324:	2e00      	cmp	r6, #0
+6000b326:	f000 81ca 	beq.w	6000b6be <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x100a>
+6000b32a:	f8d5 3090 	ldr.w	r3, [r5, #144]	@ 0x90
+6000b32e:	2706      	movs	r7, #6
+6000b330:	4599      	cmp	r9, r3
+6000b332:	f6ff aed6 	blt.w	6000b0e2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa2e>
+6000b336:	e774      	b.n	6000b222 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb6e>
+6000b338:	eeb0 7a67 	vmov.f32	s14, s15
+6000b33c:	e6ef      	b.n	6000b11e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa6a>
+6000b33e:	8813      	ldrh	r3, [r2, #0]
+6000b340:	ee05 3a10 	vmov	s10, r3
+6000b344:	8853      	ldrh	r3, [r2, #2]
+6000b346:	ee02 3a90 	vmov	s5, r3
+6000b34a:	8893      	ldrh	r3, [r2, #4]
+6000b34c:	e703      	b.n	6000b156 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xaa2>
+6000b34e:	2306      	movs	r3, #6
+6000b350:	e539      	b.n	6000adc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x712>
+6000b352:	eeb6 5ac7 	vrintz.f32	s10, s14
+6000b356:	eeb6 6a00 	vmov.f32	s12, #96	@ 0x3f000000  0.5
+6000b35a:	ee37 7a45 	vsub.f32	s14, s14, s10
+6000b35e:	ed9f 5a25 	vldr	s10, [pc, #148]	@ 6000b3f4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd40>
+6000b362:	eb01 0141 	add.w	r1, r1, r1, lsl #1
+6000b366:	eea7 6a05 	vfma.f32	s12, s14, s10
+6000b36a:	0048      	lsls	r0, r1, #1
+6000b36c:	eb02 0341 	add.w	r3, r2, r1, lsl #1
+6000b370:	f832 c011 	ldrh.w	ip, [r2, r1, lsl #1]
+6000b374:	3006      	adds	r0, #6
+6000b376:	eb02 0800 	add.w	r8, r2, r0
+6000b37a:	f832 e000 	ldrh.w	lr, [r2, r0]
+6000b37e:	f64f 72ff 	movw	r2, #65535	@ 0xffff
+6000b382:	eebc 7ac6 	vcvt.u32.f32	s14, s12
+6000b386:	f8b8 6002 	ldrh.w	r6, [r8, #2]
+6000b38a:	f8b8 0004 	ldrh.w	r0, [r8, #4]
+6000b38e:	ee17 1a10 	vmov	r1, s14
+6000b392:	b289      	uxth	r1, r1
+6000b394:	404a      	eors	r2, r1
+6000b396:	fb01 fe0e 	mul.w	lr, r1, lr
+6000b39a:	fb01 f606 	mul.w	r6, r1, r6
+6000b39e:	fb01 f000 	mul.w	r0, r1, r0
+6000b3a2:	fb02 e10c 	mla	r1, r2, ip, lr
+6000b3a6:	f8b3 c002 	ldrh.w	ip, [r3, #2]
+6000b3aa:	889b      	ldrh	r3, [r3, #4]
+6000b3ac:	fb02 660c 	mla	r6, r2, ip, r6
+6000b3b0:	fb02 0003 	mla	r0, r2, r3, r0
+6000b3b4:	f501 4200 	add.w	r2, r1, #32768	@ 0x8000
+6000b3b8:	eb02 4211 	add.w	r2, r2, r1, lsr #16
+6000b3bc:	0c13      	lsrs	r3, r2, #16
+6000b3be:	f506 4200 	add.w	r2, r6, #32768	@ 0x8000
+6000b3c2:	eb02 4216 	add.w	r2, r2, r6, lsr #16
+6000b3c6:	ee05 3a10 	vmov	s10, r3
+6000b3ca:	0c13      	lsrs	r3, r2, #16
+6000b3cc:	f500 4200 	add.w	r2, r0, #32768	@ 0x8000
+6000b3d0:	eb02 4210 	add.w	r2, r2, r0, lsr #16
+6000b3d4:	ee02 3a90 	vmov	s5, r3
+6000b3d8:	0c13      	lsrs	r3, r2, #16
+6000b3da:	e6bc      	b.n	6000b156 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xaa2>
+6000b3dc:	38d1b717 	.word	0x38d1b717
+6000b3e0:	437f0000 	.word	0x437f0000
+6000b3e4:	00000000 	.word	0x00000000
+6000b3e8:	3f0ccccd 	.word	0x3f0ccccd
+6000b3ec:	3ee66666 	.word	0x3ee66666
+6000b3f0:	392000a0 	.word	0x392000a0
+6000b3f4:	477fff00 	.word	0x477fff00
+6000b3f8:	f8d5 2090 	ldr.w	r2, [r5, #144]	@ 0x90
+6000b3fc:	4591      	cmp	r9, r2
+6000b3fe:	f280 8164 	bge.w	6000b6ca <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x1016>
+6000b402:	edd5 6a1a 	vldr	s13, [r5, #104]	@ 0x68
+6000b406:	eef7 7a00 	vmov.f32	s15, #112	@ 0x3f800000  1.0
+6000b40a:	f895 0074 	ldrb.w	r0, [r5, #116]	@ 0x74
+6000b40e:	f109 0901 	add.w	r9, r9, #1
+6000b412:	ee64 6aa6 	vmul.f32	s13, s9, s13
+6000b416:	e9d5 211e 	ldrd	r2, r1, [r5, #120]	@ 0x78
+6000b41a:	ee77 7ae6 	vsub.f32	s15, s15, s13
+6000b41e:	2800      	cmp	r0, #0
+6000b420:	f000 80f5 	beq.w	6000b60e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xf5a>
+6000b424:	ed9d 7a07 	vldr	s14, [sp, #28]
+6000b428:	460a      	mov	r2, r1
+6000b42a:	ed95 5a20 	vldr	s10, [r5, #128]	@ 0x80
+6000b42e:	eeb8 6a47 	vcvt.f32.u32	s12, s14
+6000b432:	eeb6 7a08 	vmov.f32	s14, #104	@ 0x3f400000  0.750
+6000b436:	eea6 6a87 	vfma.f32	s12, s13, s14
+6000b43a:	ee86 7a05 	vdiv.f32	s14, s12, s10
+6000b43e:	ed1f 6a18 	vldr	s12, [pc, #-96]	@ 6000b3e0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd2c>
+6000b442:	6811      	ldr	r1, [r2, #0]
+6000b444:	ee27 7a06 	vmul.f32	s14, s14, s12
+6000b448:	eeb5 7ac0 	vcmpe.f32	s14, #0.0
+6000b44c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b450:	f240 80e0 	bls.w	6000b614 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xf60>
+6000b454:	eebd 6ac7 	vcvt.s32.f32	s12, s14
+6000b458:	ee16 2a10 	vmov	r2, s12
+6000b45c:	2afe      	cmp	r2, #254	@ 0xfe
+6000b45e:	f340 80dd 	ble.w	6000b61c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xf68>
+6000b462:	f8b1 05fa 	ldrh.w	r0, [r1, #1530]	@ 0x5fa
+6000b466:	f8b1 65fc 	ldrh.w	r6, [r1, #1532]	@ 0x5fc
+6000b46a:	f8b1 25fe 	ldrh.w	r2, [r1, #1534]	@ 0x5fe
+6000b46e:	ee07 0a10 	vmov	s14, r0
+6000b472:	ed95 5a1c 	vldr	s10, [r5, #112]	@ 0x70
+6000b476:	ed5f 3a25 	vldr	s7, [pc, #-148]	@ 6000b3e4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd30>
+6000b47a:	eef8 1ac7 	vcvt.f32.s32	s3, s14
+6000b47e:	ee07 6a10 	vmov	s14, r6
+6000b482:	ed1f 6a27 	vldr	s12, [pc, #-156]	@ 6000b3e8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd34>
+6000b486:	eeb8 2ac7 	vcvt.f32.s32	s4, s14
+6000b48a:	ee07 2a10 	vmov	s14, r2
+6000b48e:	ed5f 2a29 	vldr	s5, [pc, #-164]	@ 6000b3ec <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd38>
+6000b492:	eeb8 3ac7 	vcvt.f32.s32	s6, s14
+6000b496:	eeb7 7a00 	vmov.f32	s14, #112	@ 0x3f800000  1.0
+6000b49a:	eee7 2a86 	vfma.f32	s5, s15, s12
+6000b49e:	eeb0 6a08 	vmov.f32	s12, #8	@ 0x40400000  3.0
+6000b4a2:	eeb4 7ae6 	vcmpe.f32	s14, s13
+6000b4a6:	edd5 6a1b 	vldr	s13, [r5, #108]	@ 0x6c
+6000b4aa:	ee74 6ae6 	vsub.f32	s13, s9, s13
+6000b4ae:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b4b2:	ee66 6a85 	vmul.f32	s13, s13, s10
+6000b4b6:	fe77 7aa3 	vselgt.f32	s15, s15, s7
+6000b4ba:	eeb0 5a00 	vmov.f32	s10, #0	@ 0x40000000  2.0
+6000b4be:	fec6 6ac7 	vminnm.f32	s13, s13, s14
+6000b4c2:	fec6 6aa3 	vmaxnm.f32	s13, s13, s7
+6000b4c6:	ee67 7aa6 	vmul.f32	s15, s15, s13
+6000b4ca:	eea6 6ac5 	vfms.f32	s12, s13, s10
+6000b4ce:	eef6 6a00 	vmov.f32	s13, #96	@ 0x3f000000  0.5
+6000b4d2:	ee67 7aa7 	vmul.f32	s15, s15, s15
+6000b4d6:	eeb0 5a66 	vmov.f32	s10, s13
+6000b4da:	ee67 7a84 	vmul.f32	s15, s15, s8
+6000b4de:	eea2 5aa1 	vfma.f32	s10, s5, s3
+6000b4e2:	ee67 7a86 	vmul.f32	s15, s15, s12
+6000b4e6:	eeb0 6a66 	vmov.f32	s12, s13
+6000b4ea:	eee2 6a83 	vfma.f32	s13, s5, s6
+6000b4ee:	ee37 3a67 	vsub.f32	s6, s14, s15
+6000b4f2:	ee67 7aa5 	vmul.f32	s15, s15, s11
+6000b4f6:	eea2 6a82 	vfma.f32	s12, s5, s4
+6000b4fa:	ee65 5a83 	vmul.f32	s11, s11, s6
+6000b4fe:	ed1f 3a43 	vldr	s6, [pc, #-268]	@ 6000b3f4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd40>
+6000b502:	fe85 5a43 	vminnm.f32	s10, s10, s6
+6000b506:	fe85 5a23 	vmaxnm.f32	s10, s10, s7
+6000b50a:	eeb6 5ac5 	vrintz.f32	s10, s10
+6000b50e:	eee7 aa85 	vfma.f32	s21, s15, s10
+6000b512:	ed1f 5a49 	vldr	s10, [pc, #-292]	@ 6000b3f0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd3c>
+6000b516:	fec6 6ac3 	vminnm.f32	s13, s13, s6
+6000b51a:	fe86 6a43 	vminnm.f32	s12, s12, s6
+6000b51e:	fec6 6aa3 	vmaxnm.f32	s13, s13, s7
+6000b522:	eef4 5ac5 	vcmpe.f32	s11, s10
+6000b526:	fe86 6a23 	vmaxnm.f32	s12, s12, s7
+6000b52a:	eef6 6ae6 	vrintz.f32	s13, s13
+6000b52e:	eeb6 6ac6 	vrintz.f32	s12, s12
+6000b532:	eea7 9aa6 	vfma.f32	s18, s15, s13
+6000b536:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b53a:	eea7 aa86 	vfma.f32	s20, s15, s12
+6000b53e:	f100 80c0 	bmi.w	6000b6c2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x100e>
+6000b542:	2600      	movs	r6, #0
+6000b544:	e446      	b.n	6000add4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x720>
+6000b546:	f89d 212c 	ldrb.w	r2, [sp, #300]	@ 0x12c
+6000b54a:	b17a      	cbz	r2, 6000b56c <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xeb8>
+6000b54c:	ed9d 8a49 	vldr	s16, [sp, #292]	@ 0x124
+6000b550:	ee18 3a10 	vmov	r3, s16
+6000b554:	f003 42ff 	and.w	r2, r3, #2139095040	@ 0x7f800000
+6000b558:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000b55c:	f43f adb8 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000b560:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000b564:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b568:	f53f ad79 	bmi.w	6000b05e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9aa>
+6000b56c:	eeb0 8a67 	vmov.f32	s16, s15
+6000b570:	2305      	movs	r3, #5
+6000b572:	e428      	b.n	6000adc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x712>
+6000b574:	2a00      	cmp	r2, #0
+6000b576:	f47f aed5 	bne.w	6000b324 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc70>
+6000b57a:	f04f 517e 	mov.w	r1, #1065353216	@ 0x3f800000
+6000b57e:	2e00      	cmp	r6, #0
+6000b580:	f43f ad6f 	beq.w	6000b062 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9ae>
+6000b584:	ee07 1a90 	vmov	s15, r1
+6000b588:	eeb4 4ae7 	vcmpe.f32	s8, s15
+6000b58c:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b590:	f57f ad7d 	bpl.w	6000b08e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9da>
+6000b594:	ee04 1a10 	vmov	s8, r1
+6000b598:	9007      	str	r0, [sp, #28]
+6000b59a:	e578      	b.n	6000b08e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9da>
+6000b59c:	2100      	movs	r1, #0
+6000b59e:	e4a3      	b.n	6000aee8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x834>
+6000b5a0:	f89d 212c 	ldrb.w	r2, [sp, #300]	@ 0x12c
+6000b5a4:	b1c2      	cbz	r2, 6000b5d8 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xf24>
+6000b5a6:	eddd 7a49 	vldr	s15, [sp, #292]	@ 0x124
+6000b5aa:	ee17 2a90 	vmov	r2, s15
+6000b5ae:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000b5b2:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000b5b6:	f43f ad8b 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000b5ba:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000b5be:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b5c2:	f73f ad4a 	bgt.w	6000b05a <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9a6>
+6000b5c6:	2b08      	cmp	r3, #8
+6000b5c8:	f47f abfd 	bne.w	6000adc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x712>
+6000b5cc:	eeb0 8a67 	vmov.f32	s16, s15
+6000b5d0:	e698      	b.n	6000b304 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc50>
+6000b5d2:	2a00      	cmp	r2, #0
+6000b5d4:	d0d1      	beq.n	6000b57a <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xec6>
+6000b5d6:	e6a5      	b.n	6000b324 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xc70>
+6000b5d8:	2b08      	cmp	r3, #8
+6000b5da:	f47f abf4 	bne.w	6000adc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x712>
+6000b5de:	e578      	b.n	6000b0d2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1e>
+6000b5e0:	f89d 212c 	ldrb.w	r2, [sp, #300]	@ 0x12c
+6000b5e4:	2a00      	cmp	r2, #0
+6000b5e6:	f43f abee 	beq.w	6000adc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x712>
+6000b5ea:	eddd 7a49 	vldr	s15, [sp, #292]	@ 0x124
+6000b5ee:	ee17 2a90 	vmov	r2, s15
+6000b5f2:	f002 42ff 	and.w	r2, r2, #2139095040	@ 0x7f800000
+6000b5f6:	f1b2 4fff 	cmp.w	r2, #2139095040	@ 0x7f800000
+6000b5fa:	f43f ad69 	beq.w	6000b0d0 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1c>
+6000b5fe:	eeb4 8ae7 	vcmpe.f32	s16, s15
+6000b602:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
+6000b606:	f73f ad28 	bgt.w	6000b05a <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x9a6>
+6000b60a:	f7ff bbdc 	b.w	6000adc6 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0x712>
+6000b60e:	eeb0 7a67 	vmov.f32	s14, s15
+6000b612:	e714      	b.n	6000b43e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd8a>
+6000b614:	8808      	ldrh	r0, [r1, #0]
+6000b616:	884e      	ldrh	r6, [r1, #2]
+6000b618:	888a      	ldrh	r2, [r1, #4]
+6000b61a:	e728      	b.n	6000b46e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xdba>
+6000b61c:	eeb6 5ac7 	vrintz.f32	s10, s14
+6000b620:	eeb6 6a00 	vmov.f32	s12, #96	@ 0x3f000000  0.5
+6000b624:	ee37 7a45 	vsub.f32	s14, s14, s10
+6000b628:	ed1f 5a8e 	vldr	s10, [pc, #-568]	@ 6000b3f4 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xd40>
+6000b62c:	eb02 0242 	add.w	r2, r2, r2, lsl #1
+6000b630:	eea7 6a05 	vfma.f32	s12, s14, s10
+6000b634:	0050      	lsls	r0, r2, #1
+6000b636:	eb01 0c42 	add.w	ip, r1, r2, lsl #1
+6000b63a:	f831 2012 	ldrh.w	r2, [r1, r2, lsl #1]
+6000b63e:	3006      	adds	r0, #6
+6000b640:	9200      	str	r2, [sp, #0]
+6000b642:	eb01 0e00 	add.w	lr, r1, r0
+6000b646:	5a09      	ldrh	r1, [r1, r0]
+6000b648:	eebc 7ac6 	vcvt.u32.f32	s14, s12
+6000b64c:	f8be 0004 	ldrh.w	r0, [lr, #4]
+6000b650:	ee17 6a10 	vmov	r6, s14
+6000b654:	b2b2      	uxth	r2, r6
+6000b656:	fb02 f601 	mul.w	r6, r2, r1
+6000b65a:	f8be 1002 	ldrh.w	r1, [lr, #2]
+6000b65e:	fb02 f000 	mul.w	r0, r2, r0
+6000b662:	fb02 f101 	mul.w	r1, r2, r1
+6000b666:	9101      	str	r1, [sp, #4]
+6000b668:	f64f 71ff 	movw	r1, #65535	@ 0xffff
+6000b66c:	4051      	eors	r1, r2
+6000b66e:	9a00      	ldr	r2, [sp, #0]
+6000b670:	fb01 6e02 	mla	lr, r1, r2, r6
+6000b674:	9e01      	ldr	r6, [sp, #4]
+6000b676:	f8bc 2002 	ldrh.w	r2, [ip, #2]
+6000b67a:	fb01 6202 	mla	r2, r1, r2, r6
+6000b67e:	f8bc 6004 	ldrh.w	r6, [ip, #4]
+6000b682:	fb01 0106 	mla	r1, r1, r6, r0
+6000b686:	f502 4600 	add.w	r6, r2, #32768	@ 0x8000
+6000b68a:	f50e 4000 	add.w	r0, lr, #32768	@ 0x8000
+6000b68e:	eb06 4612 	add.w	r6, r6, r2, lsr #16
+6000b692:	f501 4200 	add.w	r2, r1, #32768	@ 0x8000
+6000b696:	eb00 401e 	add.w	r0, r0, lr, lsr #16
+6000b69a:	eb02 4211 	add.w	r2, r2, r1, lsr #16
+6000b69e:	0c00      	lsrs	r0, r0, #16
+6000b6a0:	0c36      	lsrs	r6, r6, #16
+6000b6a2:	0c12      	lsrs	r2, r2, #16
+6000b6a4:	e6e3      	b.n	6000b46e <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xdba>
+6000b6a6:	2f06      	cmp	r7, #6
+6000b6a8:	ee37 7a65 	vsub.f32	s14, s14, s11
+6000b6ac:	bf18      	it	ne
+6000b6ae:	2702      	movne	r7, #2
+6000b6b0:	e5c1      	b.n	6000b236 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb82>
+6000b6b2:	2703      	movs	r7, #3
+6000b6b4:	e50d      	b.n	6000b0d2 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xa1e>
+6000b6b6:	2f06      	cmp	r7, #6
+6000b6b8:	bf18      	it	ne
+6000b6ba:	2703      	movne	r7, #3
+6000b6bc:	e5b1      	b.n	6000b222 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb6e>
+6000b6be:	2706      	movs	r7, #6
+6000b6c0:	e5af      	b.n	6000b222 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb6e>
+6000b6c2:	ee37 7a65 	vsub.f32	s14, s14, s11
+6000b6c6:	2702      	movs	r7, #2
+6000b6c8:	e5b5      	b.n	6000b236 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb82>
+6000b6ca:	2703      	movs	r7, #3
+6000b6cc:	e5a9      	b.n	6000b222 <Raycast::ShadedTrace HyperLatticeExperimental::shade<true>(math::Vector const&, HyperLatticeExperimental::Prepared const&)+0xb6e>
+6000b6ce:	bf00      	nop
