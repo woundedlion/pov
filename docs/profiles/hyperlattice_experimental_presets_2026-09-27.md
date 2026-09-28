@@ -298,3 +298,24 @@ identify the image and frame ranges. This timing capture does not log per-ray
 failure counts; the native/WASM diagnostic results above are separate evidence.
 The wrapper's paired Phantasm attestation is the default image; the full opt-in
 image is separately identified by the layout audit and build log above.
+
+## Single-owner 3D strut correction timing
+
+The corrected renderer on `3c0ad6dca` was measured with the same fixed Octet 3D
+preset and original oscillating camera path, on COM3 for 70 seconds per build.
+The [shipping report](shipping/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction)
+and [global-O3 report](O3/profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction)
+retain full scope, ISR, build and raw-capture evidence.
+
+| Renderer / image | Mean render ms | Peak render ms | Spilled | Mean wall ms |
+| --- | ---: | ---: | ---: | ---: |
+| Previous Octet 3D / shipping | 90.406 | 103.733 | 548/548 | 124.903 |
+| Single-owner Octet 3D / shipping | 88.700 | 96.869 | 548/548 | 124.847 |
+| Single-owner Octet 3D / global-O3 | 86.675 | 95.710 | 548/548 | 124.889 |
+
+All three ranges contain runtime frames 2–549; setup frame 1 is excluded.
+Shipping mean render falls 1.9%, peak falls 6.6%, and cadence remains about
+8 fps because every frame exceeds the 62.5 ms budget. This is a comparison
+against the earlier capture, not an isolated rebuild of the immediate parent.
+The six ray setup square roots and reduced plane/layer work were not timed
+individually, so these measurements do not attribute their separate costs.

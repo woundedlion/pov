@@ -69,11 +69,14 @@ roster ranking. Triangular was subsequently selected for removal.
 | Preset | Dominant scope | Peak render ms | Spilled | Captured |
 | --- | --- | ---: | ---: | --- |
 | [HyperLattice Triangular](../hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 141.587 | 🔴 366/366 (100%) | 2026-09-27 22:01 |
+| [HyperLattice Octet 3D ●](profile_hyperlattice_teensy_2026-09-27.md#supplemental-octet-3d-single-owner-correction) | `hl_shader_draw` | 🔴 95.710 | 🔴 548/548 (100%) | 2026-09-27 22:53 |
 
-Current experimental [Octet measurements](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
-are separate from the default roster: shipping peak 103.733 ms in 3D
-(548/548 spills) and 549.828 ms in 4D (120/120 spills). Captured
-2026-09-27 at 22:16 and 22:18 local time; no Octet global-O3 capture.
+● Octet 3D refreshed on 2026-09-27 after the single-owner strut correction.
+These fixed-preset captures retain the original oscillating camera path.
+The [earlier Octet measurements](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
+record 3D shipping peak 103.733 ms (548/548 spills) before that correction.
+The 4D capture remains historical: 549.828 ms peak, 120/120 spills,
+captured 2026-09-27 at 22:18; no 4D global-O3 capture.
 
 [Cubic Wide Flight](../hyperlattice_experimental_presets_2026-09-27.md#cubic-wide-flight)
 has a separate fixed-preset shipping check: peak 50.804 ms, 0/616 spills,
