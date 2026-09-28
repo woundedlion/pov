@@ -59,4 +59,10 @@ struct LayerComposite {
                       round_linear_channel(blue * inverse_alpha)};
     return {color, alpha};
   }
+
+  /** @brief Accumulated color premultiplied by its alpha. */
+  __attribute__((always_inline)) Pixel premultiplied() const {
+    return {round_linear_channel(red), round_linear_channel(green),
+            round_linear_channel(blue)};
+  }
 };

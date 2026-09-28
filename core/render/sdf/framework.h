@@ -454,122 +454,183 @@ struct FrameworkEvents : FrameworkPlaneEvents {
   }
 };
 
+/** @brief Plane cursors for the octet adapters; setup inlines into the caller. */
+template <size_t Count> struct OctetStreams {
+  static constexpr size_t STREAM_COUNT = Count;
+  static constexpr size_t GROUP_CAPACITY = 1;
+  Raycast::Footprint footprint;
+  std::array<float, STREAM_COUNT> next;
+  std::array<float, STREAM_COUNT> step;
+  std::array<bool, STREAM_COUNT> live;
+
+  bool active(size_t index) const { return live[index]; }
+  float distance(size_t index) const { return next[index]; }
+
+  void advance(size_t index) {
+    const float NEXT = next[index] + step[index];
+    live[index] = Raycast::finite(NEXT) && NEXT > next[index];
+    next[index] = NEXT;
+  }
+
+  /**
+   * @brief Starts a stream at the first plane at or beyond near.
+   * @param index Stream index.
+   * @param position Plane coordinate at near, in plane spacings.
+   * @param speed Plane coordinate rate per unit distance, in plane spacings.
+   * @param near Distance of the interval start.
+   */
+  __attribute__((always_inline)) void start(size_t index, float position,
+                                            float speed, float near) {
+    if (speed == 0.0f) {
+      live[index] = false;
+      return;
+    }
+    const float PLANE = speed > 0.0f ? ceilf(position) : floorf(position);
+    const float INVERSE = 1.0f / speed;
+    next[index] = near + (PLANE - position) * INVERSE;
+    step[index] = fabsf(INVERSE);
+    live[index] = Raycast::finite(next[index]) &&
+                  Raycast::finite(step[index]) && step[index] > 0.0f;
+  }
+
+  __attribute__((always_inline)) float coverage_of(float t, float field) const {
+    const float WIDTH = footprint.at(t);
+    return WIDTH > 0.0f ? std::clamp(0.5f - field / WIDTH, 0.0f, 1.0f)
+                        : (field <= 0.0f ? 1.0f : 0.0f);
+  }
+
+  Raycast::Contribution contribution(size_t index,
+                                     const Raycast::QuerySample &sample) const {
+    Raycast::Contribution result;
+    result.t = next[index];
+    result.coverage = coverage_of(result.t, sample.field);
+    result.feature = sample.feature;
+    return result;
+  }
+};
+
 /** @brief Single-owner strut coverage at monotone octet plane crossings. */
-struct OctetEvents : FrameworkPlaneStreams<4> {
+struct OctetEvents : OctetStreams<4> {
+  /** @brief Greatest number of streams that own a strut pair. */
+  static constexpr size_t OWNER_CAPACITY = 3;
   /** @brief Validated frame projections into the four octet plane families. */
   struct PreparedProjection {
-    std::array<math::Vector, STREAM_COUNT> normals;
-    std::array<float, STREAM_COUNT> offsets;
-    float spacing;
-    float inverse_spacing;
+    std::array<math::Vector, STREAM_COUNT> normals; /**< Per unit spacing. */
+    std::array<float, STREAM_COUNT> offsets;        /**< In plane spacings. */
+    float spacing2;
     float wire_radius;
   };
-  struct Pair {
-    float scale = 0.0f;
-    uint8_t owner = 0;
-    uint8_t other = 0;
+  /** @brief A strut pair evaluated at its owner's crossings. */
+  struct OwnedPair {
+    float numerator;
+    float denominator;
+    uint8_t other;
+    uint8_t pair;
   };
-  std::array<Pair, 6> pairs{};
-  std::array<float, STREAM_COUNT> positions{};
-  std::array<float, STREAM_COUNT> speeds{};
-  float spacing = 0.0f;
-  float inverse_spacing = 0.0f;
-  float wire_radius = 0.0f;
+  std::array<std::array<OwnedPair, OWNER_CAPACITY>, STREAM_COUNT> owned;
+  std::array<uint8_t, STREAM_COUNT> owned_count;
+  std::array<float, STREAM_COUNT> positions;
+  std::array<float, STREAM_COUNT> speeds;
+  float wire_radius;
 
-  HS_HOT_FLASH_MEMBER OctetEvents(const OctetFramework &geometry,
-                                  const Raycast::Ray &ray,
-                                  Raycast::Footprint footprint = {})
-      : FrameworkPlaneStreams(footprint) {
+  OctetEvents(const OctetFramework &geometry, const Raycast::Ray &ray,
+              Raycast::Footprint footprint = {}) {
+    this->footprint = footprint;
+    live.fill(false);
     if (!geometry.valid() || !ray.valid())
       return;
     const auto FAMILIES = geometry.plane_families();
-    spacing = FAMILIES[0].spacing;
-    inverse_spacing = 1.0f / spacing;
+    const float SPACING = FAMILIES[0].spacing;
     wire_radius = geometry.wire_radius;
     const math::Vector ORIGIN = ray.origin - geometry.origin;
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      positions[i] = math::dot(ORIGIN, FAMILIES[i].normal);
-      speeds[i] = math::dot(ray.direction, FAMILIES[i].normal);
+      positions[i] = math::dot(ORIGIN, FAMILIES[i].normal) / SPACING;
+      speeds[i] = math::dot(ray.direction, FAMILIES[i].normal) / SPACING;
     }
-    initialize(ray.interval.near);
+    initialize(ray.interval.near, SPACING * SPACING);
   }
 
-  /** @brief Initializes a validated unit ray from validated frame projections. */
-  HS_HOT_FLASH_MEMBER
+  /** @brief Initializes a unit ray from validated frame projections. */
+  __attribute__((always_inline))
   OctetEvents(const PreparedProjection &prepared, const math::Vector &direction,
-              float radial_start, Raycast::Interval interval,
-              Raycast::Footprint footprint = {})
-      : FrameworkPlaneStreams(footprint), spacing(prepared.spacing),
-        inverse_spacing(prepared.inverse_spacing),
-        wire_radius(prepared.wire_radius) {
+              float radial_start, float near,
+              Raycast::Footprint footprint = {}) {
+    this->footprint = footprint;
+    wire_radius = prepared.wire_radius;
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
       speeds[i] = math::dot(direction, prepared.normals[i]);
       positions[i] = prepared.offsets[i] + radial_start * speeds[i];
     }
-    initialize(interval.near);
+    initialize(near, prepared.spacing2);
   }
 
-  __attribute__((always_inline)) inline void initialize(float near) {
-    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
-    for (size_t i = 0; i < STREAM_COUNT; ++i)
-      projections[i] = {positions[i] + near * speeds[i], speeds[i], spacing};
-    size_t pair = 0;
-    std::array<bool, STREAM_COUNT> owned{};
+  /** @brief Assigns strut pairs to owners and starts the owning streams. */
+  __attribute__((always_inline)) void initialize(float near, float spacing2) {
+    owned_count.fill(0);
+    uint8_t pair = 0;
     for (uint8_t i = 0; i < STREAM_COUNT; ++i)
       for (uint8_t j = i + 1; j < STREAM_COUNT; ++j, ++pair) {
         const float A = speeds[i];
         const float B = speeds[j];
         const uint8_t OWNER = fabsf(A) >= fabsf(B) ? i : j;
-        if (speeds[OWNER] == 0.0f)
+        const float SPEED = speeds[OWNER];
+        if (SPEED == 0.0f)
           continue;
         // Ray-to-line distance for tetrahedral plane normals (dot = -1/3).
-        pairs[pair] = {speeds[OWNER] * speeds[OWNER] /
-                           (A * A + B * B + (2.0f / 3.0f) * A * B),
-                       OWNER, OWNER == i ? j : i};
-        owned[OWNER] = true;
+        owned[OWNER][owned_count[OWNER]++] = {
+            SPEED * SPEED * spacing2, A * A + B * B + (2.0f / 3.0f) * A * B,
+            static_cast<uint8_t>(OWNER == i ? j : i), pair};
       }
-    FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
-                                     STREAM_COUNT, near);
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      cursors[i].active = cursors[i].active && owned[i];
-      positions[i] *= inverse_spacing;
-      speeds[i] *= inverse_spacing;
+      if (owned_count[i])
+        start(i, positions[i] + near * speeds[i], speeds[i], near);
+      else
+        live[i] = false;
     }
-    for (auto &pair : pairs)
-      pair.scale *= spacing * spacing;
+  }
+
+  /** @brief Coverage of the nearest owned strut at distance t on a stream. */
+  __attribute__((always_inline)) float coverage(size_t index, float t,
+                                                uint32_t &feature) const {
+    const auto &pairs = owned[index];
+    float numerator = INFINITY;
+    float denominator = 1.0f;
+    for (size_t k = 0; k < owned_count[index]; ++k) {
+      const auto &pair = pairs[k];
+      const float U = positions[pair.other] + t * speeds[pair.other];
+      const float RESIDUAL = U - roundf(U);
+      const float N = RESIDUAL * RESIDUAL * pair.numerator;
+      if (N * denominator < numerator * pair.denominator) {
+        numerator = N;
+        denominator = pair.denominator;
+        feature = pair.pair;
+      }
+    }
+    const float SUPPORT = wire_radius + .5f * footprint.at(t);
+    if (numerator > SUPPORT * SUPPORT * denominator)
+      return 0.0f;
+    return coverage_of(t, sqrtf(numerator / denominator) - wire_radius);
   }
 
   Raycast::Contribution candidate(size_t index) const {
-    const float T = distance(index);
-    float best = INFINITY;
-    uint32_t feature = 0;
-    for (uint32_t i = 0; i < pairs.size(); ++i) {
-      const auto &pair = pairs[i];
-      if (pair.owner != index || pair.scale == 0.0f)
-        continue;
-      const float U = positions[pair.other] + T * speeds[pair.other];
-      const float RESIDUAL = U - roundf(U);
-      const float D = RESIDUAL * RESIDUAL * pair.scale;
-      if (D < best) {
-        best = D;
-        feature = i;
-      }
-    }
-    const float WIDTH = footprint.at(T);
-    const float SUPPORT = wire_radius + .5f * WIDTH;
-    if (best > SUPPORT * SUPPORT) {
-      Raycast::Contribution miss;
-      miss.t = T;
-      miss.coverage = 0;
-      return miss;
-    }
-    return contribution(index,
-                        {sqrtf(best) - wire_radius, 0.0f, false, 0, feature});
+    Raycast::Contribution result;
+    result.t = next[index];
+    result.coverage = coverage(index, result.t, result.feature);
+    return result;
   }
 };
 
 /** @brief Approximate D4 strut coverage evaluated along an ambient 4D ray. */
-struct OctetEvents4 : FrameworkPlaneStreams<8> {
+struct OctetEvents4 : OctetStreams<8> {
+  /** @brief Greatest number of simultaneously active streams. */
+  static constexpr size_t OWNER_CAPACITY = STREAM_COUNT;
+  /** @brief Validated frame projections into the eight D4 plane families. */
+  struct PreparedProjection {
+    std::array<math::Vector, 4> embedding; /**< Rows per lattice unit. */
+    std::array<math::Vector, STREAM_COUNT> normals; /**< Per unit spacing. */
+    std::array<float, STREAM_COUNT> offsets;        /**< In plane spacings. */
+    math::Vec4 origin;                              /**< In lattice units. */
+  };
   const OctetFramework4 &geometry;
   math::Vec4 local_origin;
   math::Vec4 local_direction;
@@ -578,16 +639,16 @@ struct OctetEvents4 : FrameworkPlaneStreams<8> {
   OctetEvents4(const OctetFramework4 &geometry, const math::Vec4 &origin,
                const math::Vec4 &direction, Raycast::Interval interval,
                Raycast::Footprint footprint = {})
-      : FrameworkPlaneStreams(footprint), geometry(geometry) {
+      : geometry(geometry) {
+    this->footprint = footprint;
+    live.fill(false);
     if (!geometry.valid() || !interval.valid())
       return;
     float length2 = 0.0f;
-    math::Vec4 start;
     for (int i = 0; i < 4; ++i) {
       if (!Raycast::finite(origin[i]) || !Raycast::finite(direction[i]))
         return;
       length2 += direction[i] * direction[i];
-      start[i] = origin[i] + direction[i] * interval.near - geometry.origin[i];
     }
     if (fabsf(length2 - 1.0f) >= 1e-4f)
       return;
@@ -598,27 +659,56 @@ struct OctetEvents4 : FrameworkPlaneStreams<8> {
       local_direction[i] = direction[i] * INVERSE_SCALE;
     }
     const auto FAMILIES = geometry.plane_families();
-    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections{};
+    const float INVERSE_SPACING = 1.0f / FAMILIES[0].spacing;
     for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      projections[i].spacing = FAMILIES[i].spacing;
+      float position = 0.0f;
+      float speed = 0.0f;
       for (int j = 0; j < 4; ++j) {
-        projections[i].position += start[j] * FAMILIES[i].normal[j];
-        projections[i].speed += direction[j] * FAMILIES[i].normal[j];
+        position +=
+            (origin[j] + direction[j] * interval.near - geometry.origin[j]) *
+            FAMILIES[i].normal[j];
+        speed += direction[j] * FAMILIES[i].normal[j];
       }
+      start(i, position * INVERSE_SPACING, speed * INVERSE_SPACING,
+            interval.near);
     }
-    FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
-                                     STREAM_COUNT, interval.near);
+  }
+
+  /** @brief Initializes a unit view ray from validated frame projections. */
+  __attribute__((always_inline))
+  OctetEvents4(const OctetFramework4 &geometry,
+               const PreparedProjection &prepared,
+               const math::Vector &direction, float radial_start, float near,
+               Raycast::Footprint footprint = {})
+      : geometry(geometry),
+        scale(OctetFramework4::HALF_CUBE * geometry.cell_size) {
+    this->footprint = footprint;
+    for (int i = 0; i < 4; ++i) {
+      local_direction[i] = math::dot(direction, prepared.embedding[i]);
+      local_origin[i] = prepared.origin[i] + radial_start * local_direction[i];
+    }
+    for (size_t i = 0; i < STREAM_COUNT; ++i) {
+      const float SPEED = math::dot(direction, prepared.normals[i]);
+      start(i, prepared.offsets[i] + (radial_start + near) * SPEED, SPEED,
+            near);
+    }
+  }
+
+  /** @brief Coverage of the nearest strut at distance t. */
+  __attribute__((always_inline)) float coverage(size_t, float t,
+                                                uint32_t &feature) const {
+    math::Vec4 p;
+    for (int i = 0; i < 4; ++i)
+      p[i] = local_origin[i] + local_direction[i] * t;
+    return coverage_of(t, scale * geometry.edge_query<false, true>(p, feature) -
+                              geometry.wire_radius);
   }
 
   Raycast::Contribution candidate(size_t index) const {
-    math::Vec4 p;
-    const float T = distance(index);
-    for (int i = 0; i < 4; ++i)
-      p[i] = local_origin[i] + local_direction[i] * T;
-    uint32_t feature;
-    const float VALUE = scale * geometry.edge_query<false, true>(p, feature) -
-                        geometry.wire_radius;
-    return contribution(index, {VALUE, 0.0f, false, 0, feature});
+    Raycast::Contribution result;
+    result.t = next[index];
+    result.coverage = coverage(index, result.t, result.feature);
+    return result;
   }
 };
 

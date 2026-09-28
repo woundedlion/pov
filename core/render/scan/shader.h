@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <type_traits>
 #include "render/shading.h"
 #include "color/color.h"
 #include "render/canvas.h"
@@ -21,8 +22,9 @@ namespace Scan {
  * @brief Full-screen per-pixel shaders with SAMPLES× SSAA.
  *
  * Four entry points, in increasing order of caller control:
- * - draw(canvas, shader): one callable ShaderFn(const Vector &v) -> Color4,
- *   invoked SAMPLES× per pixel at sub-pixel offsets and averaged.
+ * - draw(canvas, shader): one callable ShaderFn(const Vector &v) -> Color4
+ *   or premultiplied Pixel, invoked SAMPLES× per pixel at sub-pixel offsets
+ *   and averaged.
  * - draw_cached(canvas, shader): the same typed draw with its traversal placed
  *   in cached flash.
  * - draw(canvas, fragment_shader, vertex_shader): splits per-pixel setup
@@ -126,6 +128,9 @@ private:
     // the 2x2 grid (4) are valid.
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
+    constexpr bool PREMULTIPLIED = std::is_same_v<
+        std::decay_t<std::invoke_result_t<ShaderFn &, const math::Vector &>>,
+        Pixel>;
     check_canvas_dims<W, H>(canvas);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -141,8 +146,12 @@ private:
           math::Vector v =
               math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
                            sp * math::TrigLUT<W, H>::sin_theta[x]);
-          Color4 sample = shader(v);
-          canvas(x, y) = sample.color * sample.alpha;
+          if constexpr (PREMULTIPLIED)
+            canvas(x, y) = shader(v);
+          else {
+            Color4 sample = shader(v);
+            canvas(x, y) = sample.color * sample.alpha;
+          }
         });
       }
     } else {
@@ -157,8 +166,12 @@ private:
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            Color4 sample = shader(grid.at(x, i));
-            accum += sample.color * (sample.alpha * inv_samples);
+            if constexpr (PREMULTIPLIED)
+              accum += shader(grid.at(x, i)) * inv_samples;
+            else {
+              Color4 sample = shader(grid.at(x, i));
+              accum += sample.color * (sample.alpha * inv_samples);
+            }
           }
 
           canvas(x, y) = accum;
@@ -174,7 +187,8 @@ public:
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
-   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4.
+   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4, or -> Pixel
+   *         already premultiplied by its alpha.
    * @param canvas Destination canvas.
    * @param shader Maps a world-space unit vector to a final color; invoked
    *               SAMPLES× per pixel at sub-pixel offsets and averaged.
@@ -189,7 +203,8 @@ public:
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam SAMPLES Number of sub-pixel samples per pixel (1 disables SSAA).
-   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4.
+   * @tparam ShaderFn Callable ShaderFn(const Vector &v) -> Color4, or -> Pixel
+   *         already premultiplied by its alpha.
    * @param canvas Destination canvas.
    * @param shader Maps a world-space unit vector to a final color; invoked
    *               SAMPLES× per pixel at sub-pixel offsets and averaged.
