@@ -14,7 +14,6 @@ namespace hyper_lattice_tests {
 namespace HL {
 using Params = HyperLatticeDetail::Params;
 using FrameState = HyperLatticeDetail::FrameState;
-using ColorMode = HyperLatticeDetail::ColorMode;
 using LatticeMode = HyperLatticeDetail::LatticeMode;
 using ShellCount = HyperLatticeDetail::ShellCount;
 using RenderPipeline = HyperLatticeDetail::RenderPipeline;
@@ -102,14 +101,8 @@ struct HyperLatticeWhiteBox {
   static Pixel depth_color(const Effect &effect, float amount) {
     return effect.depth_palette.palette().get(amount).color;
   }
-  static Pixel axis_color(const Effect &effect, float amount) {
-    return effect.axis_palette.get(amount).color;
-  }
   static const BakedPalette *depth_palette(const Effect &effect) {
     return &effect.depth_palette.palette();
-  }
-  static const BakedPalette *axis_palette(const Effect &effect) {
-    return &effect.axis_palette.view();
   }
 };
 
@@ -319,7 +312,6 @@ inline void test_depth_palette_mutates_slowly_while_paused() {
   effect.init();
   effect.setAnimationsPaused(true);
   const Pixel initial = HyperLatticeWhiteBox::depth_color(effect, 0.5f);
-  const Pixel axis = HyperLatticeWhiteBox::axis_color(effect, 0.5f);
   effect.draw_frame();
   effect.advance_display();
   HS_EXPECT_TRUE(HyperLatticeWhiteBox::depth_palette_fading(effect));
@@ -330,7 +322,6 @@ inline void test_depth_palette_mutates_slowly_while_paused() {
     effect.advance_display();
   }
   HS_EXPECT_NE(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
-  HS_EXPECT_EQ(HyperLatticeWhiteBox::axis_color(effect, 0.5f), axis);
 }
 
 inline void test_depth_palette_keeps_cool_character() {
@@ -603,7 +594,6 @@ inline void test_render_signature() {
         ROTATIONS[preset],
         HL::pixel_half_angle<288, 144>(),
         HyperLatticeWhiteBox::depth_palette(effect),
-        HyperLatticeWhiteBox::axis_palette(effect),
     };
     const HL::PreparedTrace prepared = HL::prepare_trace(frame);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
@@ -636,7 +626,6 @@ inline void test_specialized_slice_transition() {
       frame.rotation_phase = {0.2f, 1.7f, 2.8f, 0.9f, 1.3f, 2.1f};
       frame.pixel_half_angle = HL::pixel_half_angle<288, 144>();
       frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
-      frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
       const HL::PreparedTrace prepared = HL::prepare_trace(frame);
       for (int y = 0; y < 144; ++y)
         for (int x = 0; x < 288; ++x) {
@@ -740,7 +729,6 @@ inline void test_specialized_render_signature() {
         ROTATIONS[index],
         HL::pixel_half_angle<288, 144>(),
         HyperLatticeWhiteBox::depth_palette(effect),
-        HyperLatticeWhiteBox::axis_palette(effect),
     };
     const auto frame = HL::SpecializedRenderPipeline<2>::prepare(context);
     for (size_t sample = 0; sample < std::size(DIRECTIONS); ++sample) {
@@ -782,12 +770,10 @@ inline void test_presets_and_pipeline() {
 
   constexpr HL::Params CUBIC_PRESET = Effect::preset_params(0);
   static_assert(CUBIC_PRESET.mode == HL::LatticeMode::THREE_D);
-  static_assert(CUBIC_PRESET.color == HL::ColorMode::DEPTH);
   static_assert(CUBIC_PRESET.shells == HL::ShellCount::TWO);
 
   constexpr HL::Params SLICE_PRESET = Effect::preset_params(1);
   static_assert(SLICE_PRESET.mode == HL::LatticeMode::FOUR_D_SLICE);
-  static_assert(SLICE_PRESET.color == HL::ColorMode::DEPTH);
   static_assert(SLICE_PRESET.shells == HL::ShellCount::TWO);
 
   static_assert(SLICE_PRESET.sphere_radius == 0.0f);
@@ -912,10 +898,10 @@ inline void test_dimension_dropdown_and_mode_lerp() {
 }
 
 /**
- * @brief ColorMode::AXIS shades through the axis palette and ShellCount::ONE
- * fades its only shell at the horizon; neither takes the specialized slice.
+ * @brief ShellCount::ONE fades its only shell at the horizon and does not take
+ * the specialized slice.
  */
-inline void test_axis_color_and_single_shell() {
+inline void test_single_shell() {
   reset_globals();
   using Effect = HyperLatticeWhiteBox::Effect;
   Effect effect;
@@ -926,11 +912,7 @@ inline void test_axis_color_and_single_shell() {
   frame.origin = {{0.25f, 0.02f, 0.01f, 0.43f}};
   frame.pixel_half_angle = HL::pixel_half_angle<96, 20>();
   frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
-  frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
   HS_EXPECT_TRUE(Effect::uses_specialized_slice(frame.params));
-  frame.params.color = HL::ColorMode::AXIS;
-  HS_EXPECT_FALSE(Effect::uses_specialized_slice(frame.params));
-  frame.params.color = HL::ColorMode::DEPTH;
   frame.params.shells = HL::ShellCount::ONE;
   HS_EXPECT_FALSE(Effect::uses_specialized_slice(frame.params));
 
@@ -956,28 +938,6 @@ inline void test_axis_color_and_single_shell() {
                      HL::shell_horizon_coverage(0, 1, one.front().distance,
                                                 1.0f / frame.params.cell_size),
                  1e-6f);
-
-  frame.params.color = HL::ColorMode::AXIS;
-  const HL::PreparedTrace prepared = HL::prepare_trace(frame);
-  const HL::TraceHit hit = HL::trace(math::X_AXIS, prepared);
-  const Color4 axis = HL::shade({math::X_AXIS, 0.0f}, frame, prepared);
-  frame.params.color = HL::ColorMode::DEPTH;
-  const Color4 depth =
-      HL::shade({math::X_AXIS, 0.0f}, frame, HL::prepare_trace(frame));
-  HS_EXPECT_NEAR(hit.coverage, one.front().coverage, 1e-6f);
-  HS_EXPECT_NEAR(axis.alpha, hit.coverage, 1e-6f);
-  HS_EXPECT_EQ(axis.alpha, depth.alpha);
-  HS_EXPECT_TRUE(axis.color.r != depth.color.r ||
-                 axis.color.g != depth.color.g ||
-                 axis.color.b != depth.color.b);
-  const float depth_fraction = hit.distance * prepared.inv_far;
-  const Pixel expected =
-      frame.axis_palette->get_color_unit(
-          (static_cast<float>(hit.free_axis) + 0.75f * depth_fraction) / 4.0f) *
-      (0.45f + 0.55f * (1.0f - depth_fraction));
-  HS_EXPECT_NEAR(axis.color.r, expected.r, 1);
-  HS_EXPECT_NEAR(axis.color.g, expected.g, 1);
-  HS_EXPECT_NEAR(axis.color.b, expected.b, 1);
 }
 
 inline void test_octet_prepared_projection() {
@@ -987,7 +947,6 @@ inline void test_octet_prepared_projection() {
   effect.init();
   HyperLatticeExperimental::Settings settings;
   settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
-  settings.feature_palette = HyperLatticeWhiteBox::axis_palette(effect);
   settings.pixel_half_angle = .018f;
   settings.center = {{.231f, -.437f, .719f, 0.0f}};
   for (float angle : {0.0f, .31f, 1.23f}) {
@@ -999,9 +958,7 @@ inline void test_octet_prepared_projection() {
       settings.wire_radius = .055f * cell;
       for (float radial : {0.0f, .7f, 2.3f}) {
         settings.radial_start = radial;
-        for (auto mode :
-             {Raycast::ColorMode::DEPTH, Raycast::ColorMode::AXIS}) {
-          settings.color = mode;
+        {
           auto prepared = HyperLatticeExperimental::prepare(settings);
           HS_EXPECT_TRUE(prepared.valid);
           for (float near : {0.0f, .19f}) {
@@ -1061,7 +1018,6 @@ inline void test_experimental_presets() {
     frame.params = Effect::preset_params(i);
     frame.params.sphere_radius = .7f;
     frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
-    frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
     const auto before = HyperLatticeExperimental::prepare(
         HyperLatticeDetail::experimental_settings(frame,
                                                   {{.4f, .7f, .2f, .8f}}));
@@ -1082,7 +1038,6 @@ inline void test_experimental_presets() {
     HS_EXPECT_EQ(before.camera.domain, i == 2
                                            ? Raycast::SamplingDomain::SPATIAL_3D
                                            : Raycast::SamplingDomain::SLICE_4D);
-    HS_EXPECT_EQ(before.appearance.feature_count, i == 2 ? 6.0f : 12.0f);
     if (i == 3) {
       HS_EXPECT_NE(before.camera.center[3], 0);
       frame.rotation_phase[3] = .7f;
@@ -1181,14 +1136,12 @@ inline void test_pattern_view_controls() {
   const auto four_d = effect.serialize_parameters();
   HS_EXPECT_EQ(effect.updateParameter("Near Fade", .37f),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.updateParameter("Color", 1), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
   const auto octet4 = effect.serialize_parameters();
   HS_EXPECT_EQ(octet4.params.pattern, Effect::Pattern::OCTET);
   HS_EXPECT_EQ(octet4.params.mode, HL::LatticeMode::FOUR_D_SLICE);
   HS_EXPECT_EQ(octet4.params.cell_size, Effect::preset_params(3).cell_size);
   HS_EXPECT_EQ(octet4.params.near_fade, .37f);
-  HS_EXPECT_EQ(octet4.params.color, HL::ColorMode::AXIS);
   HS_EXPECT_FALSE(effect.getParameters().find("4D Spin")->readonly);
   HS_EXPECT_EQ(effect.updateParameter("View", 0), ParamSetResult::APPLIED);
   HS_EXPECT_EQ(pattern->get(), 1);
@@ -1325,7 +1278,7 @@ inline int run_hyper_lattice_tests() {
   test_presets_and_pipeline();
   test_configuration_adoption_and_snapshots();
   test_dimension_dropdown_and_mode_lerp();
-  test_axis_color_and_single_shell();
+  test_single_shell();
   test_octet_prepared_projection();
   test_experimental_presets();
   test_pattern_view_controls();

@@ -24,8 +24,6 @@ struct Settings {
   math::Mat4 embedding = math::Mat4::identity();
   float pixel_half_angle = 0.0f;
   const BakedPalette *palette = nullptr;
-  const BakedPalette *feature_palette = nullptr;
-  Raycast::ColorMode color = Raycast::ColorMode::DEPTH;
 };
 
 struct Prepared {
@@ -45,10 +43,7 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
       !Raycast::finite(settings.near_fade) || settings.near_fade <= 0.0f ||
       !Raycast::finite(settings.aa_strength) || settings.aa_strength < 0.0f ||
       !Raycast::finite(settings.pixel_half_angle) ||
-      settings.pixel_half_angle < 0.0f || !settings.palette ||
-      (settings.color != Raycast::ColorMode::DEPTH &&
-       settings.color != Raycast::ColorMode::AXIS) ||
-      (settings.color == Raycast::ColorMode::AXIS && !settings.feature_palette))
+      settings.pixel_half_angle < 0.0f || !settings.palette)
     return result;
 
   result.camera.domain = settings.domain;
@@ -58,14 +53,8 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   result.camera.interval = {0.0f, settings.far_distance};
   result.footprint = {settings.pixel_half_angle * settings.aa_strength,
                       settings.radial_start};
-  result.appearance = {
-      1.0f / settings.far_distance,
-      0.0f,
-      1.0f / settings.near_fade,
-      settings.color,
-      settings.palette,
-      settings.feature_palette,
-      settings.domain == Raycast::SamplingDomain::SLICE_4D ? 12.0f : 6.0f};
+  result.appearance = {1.0f / settings.far_distance, 0.0f,
+                       1.0f / settings.near_fade, settings.palette};
   result.limits.max_candidates = 64;
   result.limits.max_layers = 32;
   result.octet.cell_size = settings.cell_size;

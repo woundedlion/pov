@@ -273,11 +273,11 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 An analytic flight through cubic or octet wire lattices in 3D, or a three-dimensional slice of their 4D counterparts under SO(4) rotation. **Pattern** selects the geometry; **View** independently selects 3D perspective or a 4D slice. Both patterns support both views. Invalid configurations are rejected without changing live state. Valid changes adopt the selected geometry's defaults. Automatic transitions hold the source geometry until their midpoint, then switch the whole geometry block; near fading may interpolate.
 
-The core analytic adapter walks approximate plane-crossing coverage events. **Lattice Planes** limits crossings per axis; it is not a spherical shell count. The original preset IDs remain `cubic-flight` and `hypercube-flight`. Parameter schema 12 rejects older snapshots without changing live state. The 4D Spin control is read-only in 3D.
+The core analytic adapter walks approximate plane-crossing coverage events. **Lattice Planes** limits crossings per axis; it is not a spherical shell count. The original preset IDs remain `cubic-flight` and `hypercube-flight`. Parameter schema 13 rejects older snapshots without changing live state. The 4D Spin control is read-only in 3D.
 
 The simulator offers **Experimental / Octet Truss** with separate 3D and 4D presets. In 3D, four equally spaced plane families with tetrahedral normals produce regular tetrahedral and octahedral cells. The 4D version uses the D4 lattice's nearest-neighbor edges, with 24 neighbors per vertex. Both use approximate plane-crossing coverage. **Unfinished Rays** counts traversals that cannot complete; already consumed layers remain visible. Controls that do not apply become read-only. The presets use continuous bounded camera motion and switch complete geometry blocks at transition midpoints. Standard Teensy builds include the two original cubic presets and **Cubic Wide Flight**, with its zero-radius camera, 2.38525 cell size, 2.0 near fade, and 11.66 far distance. Experimental device builds opt in with `HS_ENABLE_HYPERLATTICE_EXPERIMENTS=1`. See the [preset guide](profiles/hyperlattice_experimental_presets_2026-09-27.md) for complete settings, limits, and reproduction.
 
-**Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Color, Lattice Planes
+**Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes
 
 </td></tr></table>
 

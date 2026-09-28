@@ -260,8 +260,7 @@ void check_placed_volume_stage(const Shape &shape,
   frame.camera.interval = {0.0f, 7.0f};
   frame.appearance.inv_far = 1.0f / 7.0f;
   frame.appearance.near_start = -1.0f;
-  frame.appearance.depth_palette = &palette;
-  frame.appearance.feature_palette = &palette;
+  frame.appearance.palette = &palette;
   std::array<uint64_t, 2> hashes{};
   for (int pose = 0; pose < 2; ++pose) {
     frame.inverse_rotation =

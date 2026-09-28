@@ -38,7 +38,6 @@ namespace HyperLatticeDetail {
 constexpr int DIMENSIONS = math::VEC4_DIMENSIONS;
 using LatticeMode = SDF::Lattice::Domain;
 using ShellCount = SDF::Lattice::ShellCount;
-using ColorMode = Raycast::ColorMode;
 enum class Pattern : uint8_t { CUBIC_WIRE, OCTET };
 enum class ConfigurationId : uint8_t { CUBIC_3D, CUBIC_4D, OCTET_3D, OCTET_4D };
 struct Params {
@@ -54,7 +53,6 @@ struct Params {
   float speed = 0.018f;
   float spin_3d = 0.0024f;
   float spin_4d = 0.0f;
-  ColorMode color = ColorMode::DEPTH;
   ShellCount shells = ShellCount::TWO;
 
   void lerp(const Params &start, const Params &target, float amount) {
@@ -75,7 +73,6 @@ struct Params {
     speed = hs::lerp(start.speed, target.speed, amount);
     spin_3d = hs::lerp(start.spin_3d, target.spin_3d, amount);
     spin_4d = hs::lerp(start.spin_4d, target.spin_4d, amount);
-    color = amount < 0.5f ? start.color : target.color;
     shells = amount < 0.5f ? start.shells : target.shells;
   }
 
@@ -91,11 +88,11 @@ struct Params {
   static void pin_field_set(const Params &p) {
     const auto &[mode, pattern, sphere_radius, cell_size, wire_radius, softness,
                  near_fade, far_distance, aa_strength, speed, spin_3d, spin_4d,
-                 color, shells] = p;
+                 shells] = p;
     (void)mode, (void)pattern, (void)sphere_radius, (void)cell_size,
         (void)wire_radius, (void)softness, (void)near_fade, (void)far_distance,
         (void)aa_strength, (void)speed, (void)spin_3d, (void)spin_4d,
-        (void)color, (void)shells;
+        (void)shells;
   }
 };
 
@@ -109,7 +106,6 @@ struct FrameState {
   std::array<float, 6> rotation_phase;
   float pixel_half_angle;
   const BakedPalette *depth_palette;
-  const BakedPalette *axis_palette;
 };
 
 struct Binding {
@@ -154,9 +150,7 @@ experimental_settings(const FrameState &frame, math::Vec4 center) {
           center,
           view_embedding(frame),
           frame.pixel_half_angle,
-          frame.depth_palette,
-          frame.axis_palette,
-          p.color};
+          frame.depth_palette};
 }
 #endif
 inline PreparedTrace prepare_trace(const FrameState &frame) {
@@ -169,8 +163,7 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
   return {SDF::Lattice::prepare(settings, frame.origin, embedding,
                                 p.far_distance, frame.pixel_half_angle),
           {1.0f / p.far_distance, 1.5f * p.wire_radius * near_scale,
-           1.0f / (p.near_fade * near_scale), p.color, frame.depth_palette,
-           frame.axis_palette}};
+           1.0f / (p.near_fade * near_scale), frame.depth_palette}};
 }
 template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
   static PreparedTrace prepare(const FrameState &frame) {
@@ -184,9 +177,8 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
     Raycast::TraceLimits limits;
     limits.max_candidates =
         DIMENSIONS * (SHELLS ? SHELLS : SDF::Lattice::MAX_SHELLS);
-    return Raycast::shade_events<SLICE_4D>(events,
-                                           {0, prepared.lattice.far_distance},
-                                           limits, prepared.appearance)
+    return Raycast::shade_events(events, {0, prepared.lattice.far_distance},
+                                 limits, prepared.appearance)
         .color;
   }
 };
@@ -212,7 +204,6 @@ class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
 public:
   using Params = HyperLatticeDetail::Params;
   using LatticeMode = HyperLatticeDetail::LatticeMode;
-  using ColorMode = HyperLatticeDetail::ColorMode;
   using ShellCount = HyperLatticeDetail::ShellCount;
   using Pattern = HyperLatticeDetail::Pattern;
   using ConfigurationId = HyperLatticeDetail::ConfigurationId;
@@ -231,7 +222,7 @@ public:
   static constexpr Segue::Preset::Lerp PRESET_SEGUE{240, math::ease_in_out_sin,
                                                     /*pausable=*/true};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 12;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 13;
 
   HS_COLD_MEMBER static constexpr Params preset_params(size_t index) {
     Params value;
@@ -249,7 +240,6 @@ public:
       value.speed = 0.05f;
       value.spin_3d = 0.015f;
       value.spin_4d = 0.0f;
-      value.color = ColorMode::DEPTH;
       value.shells = ShellCount::TWO;
       break;
     case 1:
@@ -263,7 +253,6 @@ public:
       value.speed = 0.03f;
       value.spin_3d = 0.01089f;
       value.spin_4d = 0.015f;
-      value.color = ColorMode::DEPTH;
       value.shells = ShellCount::TWO;
       break;
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
@@ -282,7 +271,6 @@ public:
       value.speed = index == 2 ? .078f : .008f;
       value.spin_3d = index == 2 ? .008265f : .0024f;
       value.spin_4d = index == 3 ? .0024f : 0.0f;
-      value.color = ColorMode::DEPTH;
       break;
     case 4:
       value.pattern = Pattern::OCTET;
@@ -295,7 +283,6 @@ public:
       value.aa_strength = 2.0f;
       value.speed = .12750001f;
       value.spin_3d = .010155f;
-      value.color = ColorMode::DEPTH;
       break;
 #endif
     default:
@@ -363,8 +350,6 @@ public:
            value.speed <= SPEED_MAX && value.spin_3d >= SPIN_3D_MIN &&
            value.spin_3d <= SPIN_3D_MAX && value.spin_4d >= SPIN_4D_MIN &&
            value.spin_4d <= SPIN_4D_MAX &&
-           static_cast<uint8_t>(value.color) <=
-               static_cast<uint8_t>(ColorMode::AXIS) &&
            static_cast<uint8_t>(value.shells) <=
                static_cast<uint8_t>(ShellCount::THREE);
   }
@@ -379,7 +364,6 @@ public:
   static constexpr bool uses_specialized_slice(const Params &value) {
     return value.pattern == Pattern::CUBIC_WIRE &&
            value.mode == LatticeMode::FOUR_D_SLICE &&
-           value.color == ColorMode::DEPTH &&
            (value.shells == ShellCount::TWO ||
             value.shells == ShellCount::THREE);
   }
@@ -411,8 +395,6 @@ public:
                             SPIN_3D_MAX);
     register_animated_param("4D Spin", &params.spin_4d, SPIN_4D_MIN,
                             SPIN_4D_MAX);
-    register_animated_param("Color", &params.color, COLOR_OPTIONS,
-                            COLOR_EXPORT_OPTIONS, std::size(COLOR_OPTIONS));
     register_animated_param("Lattice Planes", &params.shells, SHELL_OPTIONS,
                             SHELL_EXPORT_OPTIONS, std::size(SHELL_OPTIONS));
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
@@ -422,9 +404,6 @@ public:
     refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
-    const GenerativePalette fixed_axis_palette{
-        EffectPaletteRecipes::hyper_lattice()};
-    axis_palette.bake(persistent_arena, fixed_axis_palette);
   }
 
   HS_FLASH_MEMBER void draw_frame() override {
@@ -437,12 +416,8 @@ public:
     advance_state();
     depth_palette.step();
     const HyperLatticeDetail::FrameState context{
-        params,
-        origin,
-        rotation_phase,
-        HyperLatticeDetail::pixel_half_angle<W, H>(),
-        &depth_palette.palette(),
-        &axis_palette.view()};
+        params, origin, rotation_phase,
+        HyperLatticeDetail::pixel_half_angle<W, H>(), &depth_palette.palette()};
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
     unfinished_rays = 0;
     if (params.pattern != Pattern::CUBIC_WIRE) {
@@ -509,11 +484,9 @@ private:
     Choreography::parameter_written();
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
-      const auto color = params.color;
       const float near_fade = params.near_fade;
       params = preset_params(
           CONFIGURATIONS[static_cast<size_t>(configuration)].default_preset);
-      params.color = color;
       params.near_fade = near_fade;
       selected_configuration = configuration;
       refresh_configuration_schema();
@@ -640,9 +613,6 @@ private:
   static constexpr const char *VIEW_OPTIONS[] = {"3D perspective", "4D slice"};
   static constexpr const char *VIEW_EXPORT_OPTIONS[] = {
       "LatticeMode::THREE_D", "LatticeMode::FOUR_D_SLICE"};
-  static constexpr const char *COLOR_OPTIONS[] = {"Depth", "Axis"};
-  static constexpr const char *COLOR_EXPORT_OPTIONS[] = {"ColorMode::DEPTH",
-                                                         "ColorMode::AXIS"};
   static constexpr const char *SHELL_OPTIONS[] = {"1", "2", "3"};
   static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
@@ -651,13 +621,11 @@ private:
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
-  BakedPaletteStorage axis_palette;
 
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
-      PaletteCycler::generated_arena_bytes() +
-      BakedPalette::required_arena_bytes();
+      PaletteCycler::generated_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");

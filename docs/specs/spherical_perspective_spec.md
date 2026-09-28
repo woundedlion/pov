@@ -27,7 +27,7 @@ These are independent choices, subject to declared compatibility:
 | Pattern | Geometry, repetition, feature identity, material identity | Cubic wire lattice; additional patterns below |
 | Sampling domain | Ambient dimension and camera embedding | Spatial 3D; Slice through 4D |
 | Tracing backend | Intersection search, ordering, termination | Ordered analytic events; bounded distance-field marching |
-| Appearance | Palette, fog, opacity, feature coloring | Depth or pattern-feature coloring |
+| Appearance | Palette, fog, opacity | Depth coloring |
 
 3D and 4D may be called **sampling modes** in the UI, but the architectural
 name is **sampling domain**. They do not select a different spherical
@@ -464,11 +464,9 @@ as such and is compared separately from this reference.
 
 ### 4.6 Appearance and compositing
 
-Appearance maps geometric contributions to color and opacity using depth,
-material, or feature identity. It owns palettes, near fading, fog, and any
-lighting model. A normal is optional; unlit patterns need not compute one.
-Axis coloring becomes an adapter-provided feature palette mapping rather than
-an assumption that every pattern has four axes.
+Appearance maps geometric contributions to color and opacity by depth. It
+owns the palette, near fading, fog, and any lighting model. A normal is
+optional; unlit patterns need not compute one.
 
 The existing front-to-back `LayerComposite` semantics and saturation threshold
 remain shared; do not add a second alpha convention or a new threshold control.
