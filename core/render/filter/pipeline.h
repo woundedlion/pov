@@ -166,8 +166,6 @@ concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::any_reads_outside_band), const bool>;
   requires std::is_same_v<decltype(T::any_2d_history), const bool>;
   requires std::is_same_v<decltype(T::any_3d_history), const bool>;
-  requires std::is_same_v<decltype(T::any_2d_trail_history), const bool>;
-  requires std::is_same_v<decltype(T::any_terminal_history), const bool>;
   requires std::is_same_v<decltype(T::has_world_cull), const bool>;
   requires std::is_same_v<decltype(T::has_world_stage), const bool>;
   requires std::is_same_v<decltype(T::direct_raster_path), const bool>;
@@ -264,8 +262,6 @@ public:
       PipelineT::any_reads_outside_band;
   static constexpr bool any_2d_history = PipelineT::any_2d_history;
   static constexpr bool any_3d_history = PipelineT::any_3d_history;
-  static constexpr bool any_2d_trail_history = PipelineT::any_2d_trail_history;
-  static constexpr bool any_terminal_history = PipelineT::any_terminal_history;
   static constexpr bool has_world_cull = PipelineT::has_world_cull;
   static constexpr bool has_world_stage = PipelineT::has_world_stage;
   static constexpr int segment_margin = PipelineT::segment_margin;
@@ -330,8 +326,6 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr int total_segment_margin = 0;
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
-  static constexpr bool any_2d_trail_history = false;
-  static constexpr bool any_terminal_history = false;
   /** @brief No stage re-emits clip-cull edges (see the recursive case). */
   static constexpr bool has_world_cull = false;
   /** @brief No stage runs in world space (see the recursive case). */
@@ -529,14 +523,6 @@ struct Pipeline<W, H, Head, Tail...>
       (Head::has_history && Head::is_2d) || Next::any_2d_history;
   static constexpr bool any_3d_history =
       (Head::has_history && !Head::is_2d) || Next::any_3d_history;
-  // A terminal stage composites into the Canvas itself, so its flush takes no
-  // trail callback; only these stages need one.
-  static constexpr bool any_2d_trail_history =
-      (Head::has_history && Head::is_2d && !Head::is_terminal) ||
-      Next::any_2d_trail_history;
-  static constexpr bool any_terminal_history =
-      (Head::has_history && Head::is_terminal) || Next::any_terminal_history;
-
   // Stage vocabulary, so a Pipeline nested inside a Pipeline<> reaches the
   // is_pipeline diagnostic instead of failing in the trait folds first.
   static constexpr bool has_history = any_2d_history || any_3d_history;
@@ -765,6 +751,9 @@ public:
       return forward(a, b, planar_basis);
   }
 
+  static_assert(!Head::is_terminal || Head::terminal_replaces,
+                "terminal stages must replace the frame");
+
   static_assert(
       !Head::is_pipeline,
       "Not a filter stage: this type is a whole pipeline (a nested Pipeline, or "
@@ -855,11 +844,6 @@ public:
         "(World::Trails) that this overload leaves unflushed, so its flat "
         "buffer fills to capacity and never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
-    static_assert(
-        any_2d_trail_history,
-        "Discarded flush() callback: this Pipeline's only 2D history is a "
-        "terminal stage, which composites into the Canvas itself and takes no "
-        "trail callback. Pass flush(cv, alpha) instead.");
     flush_stages(cv, trailFn, alpha);
   }
 
@@ -879,14 +863,12 @@ public:
         "a Screen::Trails stage left unflushed "
         "never decays. Pass a ScreenTrailFn instead.");
     static_assert(
-        !any_2d_trail_history,
+        !any_2d_history,
         "Incomplete flush(): this Pipeline also carries a 2D trail stage "
         "(Screen::Trails) that this overload leaves "
         "unflushed, so it never decays. Pass both callbacks: "
         "flush(cv, worldTrailFn, screenTrailFn, alpha).");
     flush_stages(cv, trailFn, alpha);
-    if constexpr (any_terminal_history)
-      flush_stages(cv, alpha);
   }
 
   /**
@@ -907,42 +889,8 @@ public:
         "Wrong flush() domain: this Pipeline carries history in only one "
         "domain, so one of these callbacks emits nothing. Pass the single "
         "callback that domain needs.");
-    static_assert(
-        any_2d_trail_history,
-        "Discarded flush() callback: this Pipeline's only 2D history is a "
-        "terminal stage, which composites into the Canvas itself and takes no "
-        "trail callback, so screenFn emits nothing.");
     flush_stages(cv, worldFn, alpha);
     flush_stages(cv, screenFn, alpha);
-  }
-
-  /**
-   * @brief Flushes every terminal history stage in the pipeline.
-   * @param cv Target canvas.
-   * @param alpha Global blend alpha in [0, 1].
-   * @details For pipelines whose only history is a non-replacing terminal: it
-   * composites into the Canvas itself and needs no trail callback. A replacing
-   * terminal is flushed by begin_frame() instead.
-   */
-  void flush(Canvas &cv, float alpha)
-    requires(!terminal_replaces)
-  {
-    static_assert(
-        any_terminal_history,
-        "Wrong flush() domain: this Pipeline has no terminal history stage, so "
-        "this overload emits nothing. Pass a ScreenTrailFn or WorldTrailFn.");
-    static_assert(
-        !any_2d_trail_history,
-        "This Pipeline carries a trail-bearing 2D history stage that this "
-        "overload would leave unflushed (and therefore undecayed). Pass a "
-        "ScreenTrailFn instead — it flushes the terminal stage too.");
-    static_assert(
-        !any_3d_history,
-        "Incomplete flush(): this Pipeline also carries a 3D history stage "
-        "(World::Trails) that this overload leaves unflushed, so its flat "
-        "buffer fills to capacity and never decays. Pass both callbacks: "
-        "flush(cv, worldTrailFn, screenTrailFn, alpha).");
-    flush_stages(cv, alpha);
   }
 
   /**
@@ -969,17 +917,12 @@ private:
    * carry no history of its own.
    */
   void flush_stages(Canvas &cv, const ScreenTrailFn &trailFn, float alpha) {
-    if constexpr (Head::has_history) {
-      if constexpr (Head::is_2d) {
-        if constexpr (Head::is_terminal) {
-          Head::flush(cv, alpha);
-        } else {
-          Head::flush(
-              cv, trailFn, alpha,
-              [&](float nx, float ny, const ::Pixel &nc, float nage,
-                  float nalpha) { next.plot(cv, nx, ny, nc, nage, nalpha); });
-        }
-      }
+    if constexpr (Head::has_history && Head::is_2d && !Head::is_terminal) {
+      Head::flush(
+          cv, trailFn, alpha,
+          [&](float nx, float ny, const ::Pixel &nc, float nage, float nalpha) {
+            next.plot(cv, nx, ny, nc, nage, nalpha);
+          });
     }
     next.flush_stages(cv, trailFn, alpha);
   }
