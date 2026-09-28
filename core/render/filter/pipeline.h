@@ -556,8 +556,9 @@ struct Pipeline<W, H, Head, Tail...>
    *        through the pipeline rather than on raw geometry. Projection
    *        precomputation is governed by has_world_stage.
    */
-  static constexpr bool has_world_cull =
-      Filter::has_cull_edge<Head> || Next::has_world_cull;
+  static constexpr bool has_world_cull = Filter::has_cull_edge<Head> ||
+                                         !Head::world_transform_is_identity ||
+                                         Next::has_world_cull;
 
   /**
    * @brief True when any stage runs in world space, so a screen-space
@@ -756,6 +757,8 @@ public:
     };
     if constexpr (Filter::has_cull_edge<Head>)
       return Head::cull_edge(a, b, planar_basis, forward);
+    else if constexpr (!Head::world_transform_is_identity)
+      return true;
     else
       return forward(a, b, planar_basis);
   }
