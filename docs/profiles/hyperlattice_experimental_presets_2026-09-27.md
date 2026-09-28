@@ -1,7 +1,7 @@
 # HyperLattice experimental presets (2026-09-27)
 
-The simulator's HyperLattice preset list adds Octet Flight and Octet 4D Slice
-after Cubic Flight and Hypercube Flight. **Pattern** selects Cubic or
+The simulator's HyperLattice preset list offers Octet Flight and Octet 4D Slice
+alongside Cubic Flight, Hypercube Flight, and Cubic Wide Flight. **Pattern** selects Cubic or
 Experimental / Octet Truss; **View** independently selects 3D perspective or
 4D slice. Both patterns define both views. Octet remains outside standard
 Teensy admission. Triangular, Cosine, and Gyroid have been removed from the
@@ -17,6 +17,20 @@ nearest neighbors, differing by one unit in two coordinates. In 3D this is the
 D3/FCC lattice, with 12 neighbors per vertex and regular tetrahedral and
 octahedral cells. In 4D the same rule gives D4, with 24 neighbors per vertex.
 Cell Size is the nearest-neighbor strut length in world units in either view.
+
+### Cubic Wide Flight
+
+The `cubic-wide-flight` preset is available in both the default firmware and
+the simulator. Its exact settings are Pattern Cubic, View 3D perspective,
+Sphere Radius 0, Cell Size 2.38525, Wire Radius 0.055, Softness 0.08,
+Near Fade 2, Far Distance 11.66, AA Strength 1, Speed 0.05, 3D Spin 0.015,
+4D Spin 0, Color Depth, and Lattice Planes 2 (`ShellCount::TWO`).
+It is appended after the other available presets: index 2 in default firmware,
+index 4 when Octet is enabled. The original preset IDs and Octet indices remain
+unchanged. Pattern/View edits still adopt their tuple's normal defaults;
+select Cubic Wide Flight to adopt this complete setting.
+
+### Octet rendering
 
 The 3D adapter visits four equally spaced plane families with tetrahedral
 normals. Their pairwise acute angles are approximately 70.53 degrees. Its
