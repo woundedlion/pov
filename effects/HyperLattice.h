@@ -556,15 +556,14 @@ private:
     const auto SETTINGS =
         HyperLatticeDetail::experimental_settings(context, experimental_center);
     const auto prepared = prepare(SETTINGS);
-    using Shade =
-        Raycast::ShadedTrace (*)(const math::Vector &, const Prepared &);
+    using Shade = Sample (*)(const math::Vector &, const Prepared &);
     const Shade shade_ray =
         params.mode == LatticeMode::FOUR_D_SLICE ? &shade<true> : &shade<false>;
     Scan::Shader::draw_cached<W, H, 1>(
         canvas, [&prepared, shade_ray, this](const math::Vector &view)
                     HS_HOT_FLASH_MEMBER {
                       const auto result = shade_ray(view, prepared);
-                      const auto STATUS = result.trace.status;
+                      const auto STATUS = result.status;
                       if (STATUS != Raycast::TraceStatus::SURFACE &&
                           STATUS != Raycast::TraceStatus::RANGE_COMPLETE &&
                           STATUS != Raycast::TraceStatus::SATURATED)
