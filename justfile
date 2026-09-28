@@ -35,7 +35,7 @@ build-debug:
 
 # Build and smoke-test the WASM engine.
 smoke: build
-    {{python_command}} tools/build_pins.py --check-tool node
+    {{ python_command }} tools/build_pins.py --check-tool node
     node scripts/wasm_smoke.mjs
 
 # Capture the effect gallery with headless Chromium.
@@ -55,56 +55,57 @@ normalize-eol:
 
 # Run the shared local and CI lint checks.
 lint:
-    {{python_command}} tools/build_pins.py --check-tool just
+    {{ python_command }} tools/build_pins.py --check-tool just
+    just --fmt --check
     bash tools/whitespace_gate.sh
     bash tools/eol_gate.sh
-    {{python_command}} tools/build_pins.py --check-tool ruff
+    {{ python_command }} tools/build_pins.py --check-tool ruff
     bash tools/ruff_selection_guard.sh
     ruff check --no-cache .
     bash tools/eslint_selection_guard.sh
     npm run lint
-    {{python_command}} tools/build_pins.py --check-tool shellcheck
+    {{ python_command }} tools/build_pins.py --check-tool shellcheck
     bash tools/shellcheck_gate.sh
     bash tools/profile_sweep.sh check
-    {{python_command}} tools/build_pins.py --check-tool actionlint
+    {{ python_command }} tools/build_pins.py --check-tool actionlint
     actionlint -shellcheck shellcheck
 
 # Check formatting of all tracked first-party C++ sources.
 clang-format:
-    {{python_command}} tools/build_pins.py --check-tool clang-format
+    {{ python_command }} tools/build_pins.py --check-tool clang-format
     bash tools/clang_format_gate.sh
 
 # Check license headers on tracked C/C++ sources; unit tests run via python-test.
 license-headers:
-    {{python_command}} tools/license_check.py
+    {{ python_command }} tools/license_check.py
 
 # Check the committed gamut LUT against its pinned generator.
 gamut-lut:
-    {{python_command}} tools/build_pins.py --check-tool numpy
-    {{python_command}} tools/gen_gamut_lut.py --check
+    {{ python_command }} tools/build_pins.py --check-tool numpy
+    {{ python_command }} tools/gen_gamut_lut.py --check
 
 # Build every firmware environment and check first-party warnings.
 teensy-warnings:
-    {{python_command}} tools/build_pins.py --check-tool platformio
+    {{ python_command }} tools/build_pins.py --check-tool platformio
     bash tools/teensy_cold_build.sh teensy_build.log
-    {{python_command}} tools/teensy_warnings.py --build-log teensy_build.log
+    {{ python_command }} tools/teensy_warnings.py --build-log teensy_build.log
 
 # Regenerate documentation maps and derived reference data.
 docs-sync:
-    {{python_command}} tools/docs_check.py --sync --auto-checkout
+    {{ python_command }} tools/docs_check.py --sync --auto-checkout
 
 # Validate tracked Markdown, image references, and build pins.
 docs-check:
-    {{python_command}} tools/docs_check.py --auto-checkout
-    {{python_command}} tools/docs_images.py
-    {{python_command}} tools/build_pins.py --check
+    {{ python_command }} tools/docs_check.py --auto-checkout
+    {{ python_command }} tools/docs_images.py
+    {{ python_command }} tools/build_pins.py --check
 
 # Build the themed Doxygen API reference.
 docs: docs-check _doxygen-theme _doxyfile-local
-    {{python_command}} tools/build_pins.py --check-tool doxygen
+    {{ python_command }} tools/build_pins.py --check-tool doxygen
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
-    {{python_command}} tools/docs_images.py --stage
+    {{ python_command }} tools/docs_images.py --stage
 
 # Fetch the exact doxygen-awesome revision used by CI. The clone guard is split
 # per-OS; the fetch and checkout also refresh existing clones. The pin is a
@@ -113,14 +114,14 @@ docs: docs-check _doxygen-theme _doxyfile-local
 [unix]
 _doxygen-theme sha=`"$py" tools/build_pins.py doxygen-awesome`:
     test -d .doxygen-awesome/.git || git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
-    git -C .doxygen-awesome fetch --depth 1 origin {{sha}}
-    git -C .doxygen-awesome checkout --detach {{sha}}
+    git -C .doxygen-awesome fetch --depth 1 origin {{ sha }}
+    git -C .doxygen-awesome checkout --detach {{ sha }}
 
 [windows]
 _doxygen-theme sha=`%quoted_py% tools/build_pins.py doxygen-awesome`:
     if not exist .doxygen-awesome\.git git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
-    git -C .doxygen-awesome fetch --depth 1 origin {{sha}}
-    git -C .doxygen-awesome checkout --detach {{sha}}
+    git -C .doxygen-awesome fetch --depth 1 origin {{ sha }}
+    git -C .doxygen-awesome checkout --detach {{ sha }}
 
 # Synthesize Doxyfile.local = Doxyfile + docs/doxygen-theme.cfg (the same theme
 # overrides docs.yml appends). The copy+append is shell-specific, so it's split
@@ -146,44 +147,44 @@ bench:
 
 # Build all firmware environments and check size budgets.
 teensy-size:
-    {{python_command}} tools/build_pins.py --check-tool platformio
-    {{python_command}} tools/teensy_size_table.py
-    -{{python_command}} tools/teensy_size_trail.py record
+    {{ python_command }} tools/build_pins.py --check-tool platformio
+    {{ python_command }} tools/teensy_size_table.py
+    -{{ python_command }} tools/teensy_size_trail.py record
 
 # All tracked Python unit suites.
 python-test:
-    {{python_command}} tools/run_python_tests.py
+    {{ python_command }} tools/run_python_tests.py
 
 # Python tests and routed PCB metadata.
 teensy-gate-test: python-test
-    {{python_command}} hardware/phantasm/gen/board_metadata.py --check
+    {{ python_command }} hardware/phantasm/gen/board_metadata.py --check
 
 # Windows only: build, flash, and capture one effect under the device lock.
 profile effect="DisplacementField" seconds="150" $HS_PROFILE_DEEP="0":
-    bash tools/profile_one.sh "{{effect}}" profile "{{seconds}}" 32
+    bash tools/profile_one.sh "{{ effect }}" profile "{{ seconds }}" 32
 
 # Windows only: repeated render of the frozen production-resolution corpus.
 profile-mindsplatter-replay env="profile" seconds="150":
-    bash tools/profile_one.sh MindSplatter "{{env}}" "{{seconds}}" 32 -D HS_MINDSPLATTER_REPLAY
+    bash tools/profile_one.sh MindSplatter "{{ env }}" "{{ seconds }}" 32 -D HS_MINDSPLATTER_REPLAY
 
 # Windows only: same-device candidate/reference visual comparison.
 profile-mindsplatter-replay-ab env="profile" seconds="150":
-    bash tools/profile_one.sh MindSplatter "{{env}}" "{{seconds}}" 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
+    bash tools/profile_one.sh MindSplatter "{{ env }}" "{{ seconds }}" 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
 
 # Export fabrication files from the committed routed board.
 pcb:
-    {{python_command}} hardware/phantasm/gen/fab.py
+    {{ python_command }} hardware/phantasm/gen/fab.py
 
 # Validate generated color lookup tables.
 color-lut-check:
     cmake -E make_directory build/provenance
-    {{python_command}} scripts/generate_luts.py -o build/provenance/color_luts.h
+    {{ python_command }} scripts/generate_luts.py -o build/provenance/color_luts.h
     cmake -E compare_files core/color/color_luts.h build/provenance/color_luts.h
 
 # Validate the generated reaction graph.
 reaction-graph-check:
     cmake -E make_directory build/provenance
-    {{python_command}} scripts/generate_reaction_graph.py -o build/provenance/reaction_graph.cpp
+    {{ python_command }} scripts/generate_reaction_graph.py -o build/provenance/reaction_graph.cpp
     cmake -E compare_files core/spatial/reaction_graph.cpp build/provenance/reaction_graph.cpp
 
 # Validate the generated sRGB decoder tables.
