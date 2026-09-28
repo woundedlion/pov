@@ -97,95 +97,111 @@
 struct TestModule {
   const char *name; /**< Short module name matched against argv. */
   int (*run)();     /**< Entry point; returns the module's failure count. */
+  bool effects_tier;
 };
 
 // Single source of truth for the roster: expands into both MODULES[] and the
 // derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
 // AND one X(...) row here. Mirrors targets/effects.h's HS_EFFECT_LIST.
 #define HS_TEST_MODULE_LIST(X)                                                 \
-  X("3dmath", hs_test::math3d_tests::run_3dmath_tests)                         \
-  X("concepts", hs_test::concepts_tests::run_concepts_tests)                   \
-  X("memory", hs_test::memory_tests::run_memory_tests)                         \
-  X("spatial", hs_test::spatial_tests::run_spatial_tests)                      \
-  X("scb", hs_test::scb_tests::run_static_circular_buffer_tests)               \
-  X("ray", hs_test::ray_tests::run_ray_tests)                                  \
-  X("sdf", hs_test::sdf_tests::run_sdf_tests)                                  \
-  X("conway", hs_test::conway_tests::run_conway_tests)                         \
-  X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests)       \
+  X("3dmath", hs_test::math3d_tests::run_3dmath_tests, false)                  \
+  X("concepts", hs_test::concepts_tests::run_concepts_tests, false)            \
+  X("memory", hs_test::memory_tests::run_memory_tests, false)                  \
+  X("spatial", hs_test::spatial_tests::run_spatial_tests, false)               \
+  X("scb", hs_test::scb_tests::run_static_circular_buffer_tests, false)        \
+  X("ray", hs_test::ray_tests::run_ray_tests, false)                           \
+  X("sdf", hs_test::sdf_tests::run_sdf_tests, false)                           \
+  X("conway", hs_test::conway_tests::run_conway_tests, false)                  \
+  X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests,       \
+    false)                                                                     \
   X("conway_continuity",                                                       \
-    hs_test::conway_continuity_tests::run_conway_continuity_tests)             \
-  X("partition_seam", hs_test::partition_seam_tests::run_partition_seam_tests) \
-  X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests)          \
-  X("opchain_probe", hs_test::opchain_probe_tests::run_opchain_probe_tests)    \
+    hs_test::conway_continuity_tests::run_conway_continuity_tests, false)      \
+  X("partition_seam", hs_test::partition_seam_tests::run_partition_seam_tests, \
+    false)                                                                     \
+  X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests, false)   \
+  X("opchain_probe", hs_test::opchain_probe_tests::run_opchain_probe_tests,    \
+    false)                                                                     \
   X("opchain_arena_survey",                                                    \
-    hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests)       \
-  X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
+    hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests,       \
+    false)                                                                     \
+  X("hankin", hs_test::hankin_tests::run_hankin_tests, false)                  \
   X("ray_demonstrators",                                                       \
-    hs_test::ray_demonstrator_tests::run_ray_demonstrator_tests)               \
-  X("sdf_patterns", hs_test::sdf_pattern_tests::run_sdf_pattern_tests)         \
-  X("ray_events", hs_test::ray_event_tests::run_ray_event_tests)               \
-  X("hyper_lattice", hs_test::hyper_lattice_tests::run_hyper_lattice_tests)    \
-  X("geometry", hs_test::geometry_tests::run_geometry_tests)                   \
+    hs_test::ray_demonstrator_tests::run_ray_demonstrator_tests, false)        \
+  X("sdf_patterns", hs_test::sdf_pattern_tests::run_sdf_pattern_tests, false)  \
+  X("ray_events", hs_test::ray_event_tests::run_ray_event_tests, false)        \
+  X("hyper_lattice", hs_test::hyper_lattice_tests::run_hyper_lattice_tests,    \
+    false)                                                                     \
+  X("geometry", hs_test::geometry_tests::run_geometry_tests, false)            \
   X("spherical_field",                                                         \
-    hs_test::spherical_field_tests::run_spherical_field_tests)                 \
+    hs_test::spherical_field_tests::run_spherical_field_tests, false)          \
   X("spherical_harmonics",                                                     \
-    hs_test::spherical_harmonics_tests::run_spherical_harmonics_tests)         \
-  X("mesh", hs_test::mesh_tests::run_mesh_tests)                               \
-  X("solids", hs_test::solids_tests::run_solids_tests)                         \
-  X("reaction_graph", hs_test::reaction_graph_tests::run_reaction_graph_tests) \
-  X("color", hs_test::color_tests::run_color_tests)                            \
-  X("palettes", hs_test::palettes_tests::run_palettes_tests)                   \
-  X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests)       \
-  X("interpolate", hs_test::interpolate_tests::run_interpolate_tests)          \
-  X("platform", hs_test::platform_tests::run_platform_tests)                   \
-  X("profiling", hs_test::profiling_tests::run_profiling_tests)                \
-  X("pullback", hs_test::pullback_tests::run_pullback_tests)                   \
-  X("shader_chain", hs_test::shader_chain_tests::run_shader_chain_tests)       \
-  X("filter", hs_test::filter_tests::run_filter_tests)                         \
-  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests)                \
-  X("canvas", hs_test::canvas_tests::run_canvas_tests)                         \
-  X("scan", hs_test::scan_tests::run_scan_tests)                               \
-  X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests)          \
-  X("transformers", hs_test::transformers_tests::run_transformers_tests)       \
-  X("noise", hs_test::noise_tests::run_noise_tests)                            \
-  X("noise_field", hs_test::noise_field_tests::run_noise_field_tests)          \
-  X("projections", hs_test::projections_tests::run_projections_tests)          \
-  X("animation", hs_test::animation_tests::run_animation_tests)                \
-  X("effects", hs_test::effects_tests::run_effects_tests)                      \
-  X("mindsplatter", hs_test::mindsplatter_tests::run_mindsplatter_tests)       \
-  X("effects_smoke", hs_test::effects_smoke_tests::run_effects_smoke_tests)    \
-  X("effect_factory", hs_test::effect_factory_tests::run_effect_factory_tests) \
+    hs_test::spherical_harmonics_tests::run_spherical_harmonics_tests, false)  \
+  X("mesh", hs_test::mesh_tests::run_mesh_tests, false)                        \
+  X("solids", hs_test::solids_tests::run_solids_tests, false)                  \
+  X("reaction_graph", hs_test::reaction_graph_tests::run_reaction_graph_tests, \
+    false)                                                                     \
+  X("color", hs_test::color_tests::run_color_tests, false)                     \
+  X("palettes", hs_test::palettes_tests::run_palettes_tests, false)            \
+  X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests,       \
+    false)                                                                     \
+  X("interpolate", hs_test::interpolate_tests::run_interpolate_tests, false)   \
+  X("platform", hs_test::platform_tests::run_platform_tests, false)            \
+  X("profiling", hs_test::profiling_tests::run_profiling_tests, false)         \
+  X("pullback", hs_test::pullback_tests::run_pullback_tests, false)            \
+  X("shader_chain", hs_test::shader_chain_tests::run_shader_chain_tests,       \
+    false)                                                                     \
+  X("filter", hs_test::filter_tests::run_filter_tests, false)                  \
+  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, false)         \
+  X("canvas", hs_test::canvas_tests::run_canvas_tests, false)                  \
+  X("scan", hs_test::scan_tests::run_scan_tests, false)                        \
+  X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests, false)   \
+  X("transformers", hs_test::transformers_tests::run_transformers_tests,       \
+    false)                                                                     \
+  X("noise", hs_test::noise_tests::run_noise_tests, false)                     \
+  X("noise_field", hs_test::noise_field_tests::run_noise_field_tests, false)   \
+  X("projections", hs_test::projections_tests::run_projections_tests, false)   \
+  X("animation", hs_test::animation_tests::run_animation_tests, false)         \
+  X("effects", hs_test::effects_tests::run_effects_tests, true)                \
+  X("mindsplatter", hs_test::mindsplatter_tests::run_mindsplatter_tests, true) \
+  X("effects_smoke", hs_test::effects_smoke_tests::run_effects_smoke_tests,    \
+    true)                                                                      \
+  X("effect_factory", hs_test::effect_factory_tests::run_effect_factory_tests, \
+    true)                                                                      \
   X("shader_workbench",                                                        \
-    hs_test::shader_workbench_tests::run_shader_workbench_tests)               \
-  X("lattice_melt", hs_test::lattice_melt_tests::run_lattice_melt_tests)       \
+    hs_test::shader_workbench_tests::run_shader_workbench_tests, false)        \
+  X("lattice_melt", hs_test::lattice_melt_tests::run_lattice_melt_tests,       \
+    false)                                                                     \
   X("kaleidoscope_smooth",                                                     \
-    hs_test::kaleidoscope_smooth_tests::run_kaleidoscope_smooth_tests)         \
+    hs_test::kaleidoscope_smooth_tests::run_kaleidoscope_smooth_tests, false)  \
   X("composed_effect",                                                         \
-    hs_test::composed_effect_tests::run_composed_effect_tests)                 \
+    hs_test::composed_effect_tests::run_composed_effect_tests, false)          \
   X("shapeshifter_oracle",                                                     \
-    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests)         \
+    hs_test::shapeshifter_oracle_tests::run_shapeshifter_oracle_tests, false)  \
   X("shapeshifter_tiles",                                                      \
-    hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests)           \
-  X("dma_core", hs_test::dma_core_tests::run_dma_core_tests)                   \
-  X("hd107s", hs_test::hd107s_tests::run_hd107s_tests)                         \
-  X("dma_controller", hs_test::dma_controller_tests::run_dma_controller_tests) \
-  X("pov_segmented", hs_test::pov_segmented_tests::run_pov_segmented_tests)    \
-  X("pov_single", hs_test::pov_single_tests::run_pov_single_tests)             \
-  X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests)                   \
-  X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests)    \
+    hs_test::shapeshifter_tiles_tests::run_shapeshifter_tiles_tests, false)    \
+  X("dma_core", hs_test::dma_core_tests::run_dma_core_tests, false)            \
+  X("hd107s", hs_test::hd107s_tests::run_hd107s_tests, false)                  \
+  X("dma_controller", hs_test::dma_controller_tests::run_dma_controller_tests, \
+    false)                                                                     \
+  X("pov_segmented", hs_test::pov_segmented_tests::run_pov_segmented_tests,    \
+    false)                                                                     \
+  X("pov_single", hs_test::pov_single_tests::run_pov_single_tests, false)      \
+  X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests, false)            \
+  X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests,    \
+    false)                                                                     \
   X("wasm_predicates",                                                         \
-    hs_test::wasm_predicates_tests::run_wasm_predicates_tests)                 \
-  X("led", hs_test::led_tests::run_led_tests)                                  \
-  X("presets", hs_test::presets_tests::run_presets_tests)                      \
-  X("styles", hs_test::styles_tests::run_styles_tests)                         \
-  X("shading", hs_test::shading_tests::run_shading_tests)                      \
-  X("death", hs_test::death_tests::run_death_tests)
+    hs_test::wasm_predicates_tests::run_wasm_predicates_tests, false)          \
+  X("led", hs_test::led_tests::run_led_tests, false)                           \
+  X("presets", hs_test::presets_tests::run_presets_tests, false)               \
+  X("styles", hs_test::styles_tests::run_styles_tests, false)                  \
+  X("shading", hs_test::shading_tests::run_shading_tests, false)               \
+  X("death", hs_test::death_tests::run_death_tests, false)
 
-#define HS_TEST_MODULE_ENTRY(name, fn) {name, fn},
+#define HS_TEST_MODULE_ENTRY(name, fn, effects_tier) {name, fn, effects_tier},
 static const TestModule MODULES[] = {HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
 #undef HS_TEST_MODULE_ENTRY
 
-#define HS_TEST_MODULE_COUNT_ADD(name, fn) +1
+#define HS_TEST_MODULE_COUNT_ADD(name, fn, effects_tier) +1
 constexpr int HS_TEST_MODULE_COUNT =
     0 HS_TEST_MODULE_LIST(HS_TEST_MODULE_COUNT_ADD);
 #undef HS_TEST_MODULE_COUNT_ADD
@@ -214,11 +230,9 @@ static bool runs_effects(int argc, char **argv) {
   if (argc <= 1)
     return true;
   for (int i = 1; i < argc; ++i)
-    if (std::strcmp(argv[i], "effects") == 0 ||
-        std::strcmp(argv[i], "effects_smoke") == 0 ||
-        std::strcmp(argv[i], "effect_factory") == 0 ||
-        std::strcmp(argv[i], "mindsplatter") == 0)
-      return true;
+    for (const TestModule &module : MODULES)
+      if (module.effects_tier && std::strcmp(argv[i], module.name) == 0)
+        return true;
   return false;
 }
 
