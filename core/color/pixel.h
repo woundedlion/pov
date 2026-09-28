@@ -23,7 +23,7 @@ round_linear_channel(float value) {
 __attribute__((always_inline)) inline uint32_t inline_uqadd16(uint32_t a,
                                                               uint32_t b) {
   uint32_t res;
-  __asm__ volatile("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
+  __asm__("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
   return res;
 }
 #else
