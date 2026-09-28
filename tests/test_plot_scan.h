@@ -1460,6 +1460,18 @@ inline void test_mesh_edge_gate_pixel_parity() {
 }
 
 /** @brief Endpoint shortcuts obey the same arc window as the adaptive walk. */
+inline void test_short_geodesic_arc_lengths() {
+  float previous = 0.0f;
+  for (float angle : {0.0001f, 0.0002f, 0.00025f, 0.0004f, 0.0005f}) {
+    const math::Vector a(1.0f, 0.0f, 0.0f);
+    const math::Vector b(cosf(angle), 0.0f, sinf(angle));
+    const auto span = Plot::make_geodesic_edge_span(a, b);
+    HS_EXPECT_NEAR(span.total, angle, 1e-9f);
+    HS_EXPECT_GT(span.total, previous);
+    previous = span.total;
+  }
+}
+
 inline void test_rasterize_short_edge_windows() {
   constexpr int W = 96, H = 48;
   const math::Basis BASIS =
@@ -6242,6 +6254,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_column_cull_pixel_parity();
   test_mesh_edge_gate_pixel_parity();
   test_rasterize_window_preserves_terminal_sample();
+  test_short_geodesic_arc_lengths();
   test_rasterize_short_edge_windows();
   test_mesh_dissolve_masks_partition_edges();
   test_gate_trail_column_cull_honors_unbounded_edge();

@@ -23,6 +23,15 @@
 
 namespace Plot {
 
+/** @brief Arc length between unit sphere points, preserving short chords. */
+__attribute__((always_inline)) inline float
+unit_arc_length(const math::Vector &a, const math::Vector &b) {
+  const math::Vector chord = a - b;
+  const float length_sq = math::dot(chord, chord);
+  // Below 1e-3 radians the chord differs from the arc by less than 4.2e-8 relative.
+  return length_sq < 1e-6f ? sqrtf(length_sq) : math::angle_between(a, b);
+}
+
 /**
  * @brief Geodesic segment shorter than this (radians) collapses to a point.
  * @details 100× math::EPS_GEOMETRIC (1e-3 vs 1e-5): a slerp-axis stability
@@ -507,7 +516,7 @@ make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
   ++g_geodesic_edge_span_builds;
 #endif
   GeodesicEdgeSpan es;
-  es.total = math::angle_between(a, b);
+  es.total = unit_arc_length(a, b);
   if (es.total < EPS_GEODESIC_SEGMENT) {
     es.antipodal = false;
     es.axis = math::Vector(0.0f, 0.0f, 0.0f);
