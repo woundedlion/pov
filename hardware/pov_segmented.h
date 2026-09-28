@@ -210,7 +210,7 @@ public:
    * @brief Drives MASTER_EN to its disabled level, parking the external
    *        sync-out buffer.
    * @details Call as the first statement of setup(). MASTER_EN is the '125
-   *          channel-C /OE and only takes its board-role level in run_show();
+   *          channel-C/D /OE and only takes its board-role level in run_show();
    *          until this runs, only the R_MEN pull-up (PCB rule R-LS-5) holds a
    *          board's sync driver off the shared bus, and a driver that is
    *          enabled while a peer drives the bus source-fights undetectably
@@ -224,8 +224,7 @@ public:
   /**
    * @brief Hardware segment ID decoded from the GPIO straps.
    * @return Segment index in [0, N); 0 is the master.
-   * @details Meaningful only once an instance exists — the constructor's
-   *          read_id() is what samples the straps.
+   * @details Valid after begin() samples the straps with read_id().
    */
   static int segment_index() { return segment_id; }
 
