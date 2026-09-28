@@ -33,8 +33,6 @@ public:
   static constexpr int total_segment_margin = segment_margin;
   static constexpr bool any_2d_history = false;
   static constexpr bool any_3d_history = false;
-  static constexpr bool any_2d_trail_history = false;
-  static constexpr bool any_terminal_history = false;
   static constexpr bool has_world_cull = false;
   static constexpr bool has_world_stage = false;
   static constexpr bool direct_raster_path = true;

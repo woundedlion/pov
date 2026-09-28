@@ -308,8 +308,6 @@ inline void test_history_domain_folds() {
   using Direct = Filter::Screen::DirectAntiAliasSink<W, H>;
   HS_EXPECT_FALSE(Direct::any_2d_history);
   HS_EXPECT_FALSE(Direct::any_3d_history);
-  HS_EXPECT_FALSE(Direct::any_2d_trail_history);
-  HS_EXPECT_FALSE(Direct::any_terminal_history);
 }
 
 // ============================================================================
