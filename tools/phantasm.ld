@@ -7,6 +7,7 @@
  * constructors/destructors and mesh builders, and framework one-time setup.
  * The hot flywheel libgcc divmod also uses cached flash, retaining ITCM capacity
  * at the cost of cache-dependent latency.
+ * The Teensy core USB/serial stack and one-time setup objects also use flash.
  * .fini is placed explicitly. Function/data sections allow individual matches
  * before the ITCM catch-all; _etext and _itcm_block_count exclude .ARM.exidx.
  *
@@ -112,6 +113,43 @@ SECTIONS
 		 * per frame; the per-pixel path uses FunctionRef, a distinct type. */
 		*(.text._ZZN6teensy23inplace_function_detail6vtableIvJR6Canvas*)
 		*(.text._ZZN6teensy23inplace_function_detail6vtableIvJRN9Animation14ParticleSystem*)
+		/* Teensy core USB/serial stack, one-time pin/PWM/RTC/temperature
+		 * setup, and the SPI library (the LED DMA driver drives LPSPI4
+		 * registers directly after SPI.begin()). */
+		*libFrameworkArduino.a:usb.c.o(.text .text.*)
+		*libFrameworkArduino.a:usb_serial.c.o(.text .text.*)
+		*libFrameworkArduino.a:usb_desc.c.o(.text .text.*)
+		*libFrameworkArduino.a:usb_inst.cpp.o(.text .text.*)
+		*libFrameworkArduino.a:pwm.c.o(.text .text.*)
+		*libFrameworkArduino.a:digital.c.o(.text .text.*)
+		*libFrameworkArduino.a:tempmon.c.o(.text .text.*)
+		*libFrameworkArduino.a:rtc.c.o(.text .text.*)
+		*libFrameworkArduino.a:Print.cpp.o(.text .text.*)
+		*libFrameworkArduino.a:nonstd.c.o(.text .text.*)
+		*libFrameworkArduino.a:startup.c.o(.text.unused_interrupt_vector)
+		*libFrameworkArduino.a:interrupt.c.o(.text.attachInterrupt)
+		*libSPI.a:*(.text .text.*)
+		/* Spawn, preset-change and palette-change templates: solid builders,
+		 * vertex reconciliation and its sort, relax-bake hashing, palette
+		 * recipe validation, timeline storage reset, preset switching,
+		 * MindSplatter warp scheduling and mesh edge extraction. */
+		*(.text._ZN6Solids11to_polymesh*)
+		*(.text._ZN6Solids9get_entry*)
+		*(.text._ZN7MeshOps17relax_source_hash*)
+		*(.text._ZZN7MeshOpsL18reconcile_vertices*)
+		*(.text._ZSt*MeshOpsL18reconcile_vertices*)
+		*(.text._ZN17GenerativePalette15validate_finite*)
+		*(.text._ZN17GenerativePalette10axis_state*)
+		*(.text._ZN17GenerativePalette6finite*)
+		*(.text._ZNK17GenerativePalette16morph_compatible*)
+		*(.text._ZN14PaletteRecipes7harmony*)
+		*(.text._ZN8Timeline13reset_storage*)
+		*(.text._ZN10PresetHost13change_preset*)
+		*(.text._ZN12MindSplatterILi288ELi144EE13schedule_warp*)
+		*(.text._ZN12MindSplatterILi288ELi144EE12perform_warp*)
+		*(.text._ZN4Plot4Mesh13extract_edges*)
+		*(.text._ZN4Plot4Mesh20for_each_unique_edge*)
+		*(.text._ZN11ArenaVectorIN4math6Snorm3EE*)
 		*(.text.set_arm_clock)
 		*(.text._ZN8SPIClass5beginEv)
 		*(.text._ZN13IntervalTimer11beginCycles*)
