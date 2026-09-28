@@ -364,7 +364,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── chain_host.h        Effect host for a compiled operator chain: registered as ShaderChain
 │       ├── config.h            Slot enums, per-stage parameter families, and the Config they compose
 │       ├── limits.h            Parameter domain bounds and the predicates checking a Config against them
-│       ├── options.h           Display label and stable export spelling of every enumerated field
+│       ├── options.h           Display labels for enumerated shader fields
 │       ├── admission.h         Structural legality: valid configurations, bounds, admitted transitions
 │       ├── presets.h           The authored presets and the assertions holding them to the admission rules
 │       ├── frame_state.h       Prepared stage payloads and the immutable FrameState a shading pass reads
