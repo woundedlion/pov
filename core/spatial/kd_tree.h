@@ -17,7 +17,7 @@
 #include <span>
 
 #include <cfloat>
-#include "containers/static_circular_buffer.h"
+#include <array>
 #include "engine/memory.h"
 
 /**
@@ -54,6 +54,17 @@ class KDTree {
 public:
   static constexpr int MAX_K =
       5; /**< Maximum number of neighbors a query may request. */
+
+  /** @brief Contiguous nearest neighbors, ordered by distance. */
+  struct Neighbors {
+    std::array<Neighbor, MAX_K> values;
+    size_t count = 0;
+    size_t size() const { return count; }
+    bool empty() const { return count == 0; }
+    const Neighbor &operator[](size_t i) const { return values[i]; }
+    const Neighbor *begin() const { return values.data(); }
+    const Neighbor *end() const { return values.data() + count; }
+  };
 
   /**
    * @brief Upper bound on source points, set by the int16_t node-link range.
@@ -121,9 +132,8 @@ public:
    *        otherwise). Soft-capped at the point count.
    * @return Buffer of neighbors (point + source index + squared distance), closest first.
    */
-  StaticCircularBuffer<Neighbor, MAX_K> nearest(const math::Vector &target,
-                                                size_t k = 1) const {
-    StaticCircularBuffer<Neighbor, MAX_K> result;
+  Neighbors nearest(const math::Vector &target, size_t k = 1) const {
+    Neighbors result;
     HS_CHECK(k <= static_cast<size_t>(MAX_K),
              "KDTree::nearest k exceeds MAX_K");
     if (root_index == -1 || k == 0)
@@ -133,11 +143,8 @@ public:
     // ever reject: the query degrades to a full traversal.
     k = std::min(k, nodes.size());
 
-    // The k-best set is held in a plain array, not in `result`: every candidate
-    // offer and every sort swap would otherwise pay the ring buffer's checked
-    // index proxy.
-    Neighbor best[MAX_K];
-    size_t count = 0;
+    auto *best = result.values.data();
+    size_t &count = result.count;
 
     // Cached pruning bound: the largest squared distance in `best` and its slot,
     // FLT_MAX until the set fills to k so nothing prunes early. Recomputed only
@@ -193,8 +200,6 @@ public:
     } else {
       std::sort(best, best + count, before);
     }
-    for (size_t i = 0; i < count; ++i)
-      result.push_back(best[i]);
     return result;
   }
 
