@@ -142,6 +142,10 @@ protected:
     static_assert(Segue::Preset::Policy<SegueT>,
                   "Derived::PRESET_SEGUE is not a Segue preset policy");
     const Params target = preset_target(change.to);
+    if constexpr (Segue::Preset::Fades<SegueT>) {
+      if (change.origin != PresetChangeOrigin::AUTOMATIC)
+        derived().set_preset_opacity(1.0f);
+    }
     if constexpr (Segue::Preset::Blends<SegueT>) {
       static_assert(
           Derived::PRESET_DWELL_FRAMES > Derived::PRESET_SEGUE.frames,
@@ -181,6 +185,11 @@ protected:
    * A manual edit cancels it and restarts the preset dwell.
    */
   HS_COLD_MEMBER void parameter_written() override {
+    using SegueT = std::remove_cv_t<decltype(Derived::PRESET_SEGUE)>;
+    if constexpr (Segue::Preset::Fades<SegueT>) {
+      if (anims_paused)
+        derived().set_preset_opacity(1.0f);
+    }
     transition.active = false;
     preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
   }
@@ -306,7 +315,8 @@ private:
     const int next_delay = Derived::PRESET_SEGUE.schedule(
         timeline,
         [this](Canvas &, float phase) {
-          derived().set_preset_opacity(Derived::PRESET_SEGUE.opacity(phase));
+          derived().set_preset_opacity(
+              anims_paused ? 1.0f : Derived::PRESET_SEGUE.opacity(phase));
         },
         &anims_paused);
     timeline.add_pausable(

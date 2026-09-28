@@ -1943,10 +1943,13 @@ inline void test_choreography_fade_envelope() {
   // Paused mid-envelope: the sprite holds its phase and the advance never
   // fires, so the preset the envelope faded in stays up.
   run_probe_frames(effect, 3);
-  const float held = effect.last_opacity;
   effect.setAnimationsPaused(true);
   run_probe_frames(effect, 2 * FRAMES);
-  HS_EXPECT_EQ(effect.last_opacity, held);
+  HS_EXPECT_EQ(effect.last_opacity, 1.0f);
+  HS_EXPECT_TRUE(effect.selectPreset(1));
+  run_probe_frames(effect, 2 * FRAMES);
+  HS_EXPECT_EQ(effect.last_opacity, 1.0f);
+  HS_EXPECT_TRUE(effect.selectPreset(0));
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   HS_EXPECT_EQ(effect.level(), 0.25f);
 }
