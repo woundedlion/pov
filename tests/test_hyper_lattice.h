@@ -1151,12 +1151,12 @@ inline void test_speed_range() {
   reset_globals();
   Effect effect;
   effect.init();
-  HS_EXPECT_EQ(effect.getParameters().find("Speed")->max, 6.0f);
-  HS_EXPECT_EQ(effect.updateParameter("Speed", 6.0f), ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.getParameters().find("Speed")->max, 0.3f);
+  HS_EXPECT_EQ(effect.updateParameter("Speed", 0.3f), ParamSetResult::APPLIED);
   auto snapshot = effect.serialize_parameters();
-  HS_EXPECT_EQ(snapshot.params.speed, 6.0f);
+  HS_EXPECT_EQ(snapshot.params.speed, 0.3f);
   HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
-  snapshot.params.speed = 6.01f;
+  snapshot.params.speed = 0.31f;
   HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
 }
 
@@ -1198,14 +1198,14 @@ inline void test_octet_continuous_flight() {
     for (int axis = 0; axis < 4; ++axis)
       HS_EXPECT_EQ(HyperLatticeWhiteBox::experimental_center(effect)[axis],
                    previous[axis]);
-    params.speed = 6;
+    params.speed = 0.3f;
     params.cell_size = .25f;
     const float small_period = std::sqrt(2.0f) * params.cell_size;
     HyperLatticeWhiteBox::advance_state(effect);
     const auto fast = HyperLatticeWhiteBox::experimental_center(effect);
     for (int axis = 0; axis < 4; ++axis) {
       const float expected = std::fmod(
-          previous[axis] + increment[axis] * (6 / .008f), small_period);
+          previous[axis] + increment[axis] * (.3f / .008f), small_period);
       HS_EXPECT_NEAR(fast[axis], expected, 3e-5f);
       HS_EXPECT_GE(fast[axis], 0);
       HS_EXPECT_LT(fast[axis], small_period);

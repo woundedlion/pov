@@ -604,7 +604,7 @@ private:
   static constexpr float NEAR_FADE_MIN = 0.01f, NEAR_FADE_MAX = 2.0f;
   static constexpr float FAR_DISTANCE_MIN = 2.0f, FAR_DISTANCE_MAX = 16.0f;
   static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
-  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 6.0f;
+  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.3f;
   static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
   static constexpr float SPIN_4D_MIN = 0.0f, SPIN_4D_MAX = 0.015f;
 
