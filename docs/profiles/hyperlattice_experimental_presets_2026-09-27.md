@@ -75,7 +75,7 @@ Both presets begin at radial offset zero with depth coloring and steady
 world-space translation along the Cubic flight direction. Camera coordinates
 wrap by `sqrt(2) * cell_size`, a translation period of both the D3 and D4
 lattices, so wrapping preserves the visible geometry. Speed ranges from zero
-to 6; existing preset speeds are unchanged. Pause stops preset choreography;
+to 0.3; existing preset speeds are unchanged. Pause stops preset choreography;
 spatial motion and palette cycling continue. A 4D view rotates the three-dimensional
 ray domain inside the four-dimensional lattice. It does not project a 3D
 octet image or extrude that image along another axis.
