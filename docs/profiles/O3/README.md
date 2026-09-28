@@ -60,3 +60,12 @@ Captured timestamps are local raw-log mtimes.
 
 
 ● HyperLattice refreshed on 2026-09-27: both presets and transitions; setup frame 1 excluded.
+
+## Supplemental experimental presets
+
+Historical fixed opt-in captures; these do not change the normal firmware
+roster ranking. Triangular was subsequently selected for removal.
+
+| Preset | Dominant scope | Peak render ms | Spilled | Captured |
+| --- | --- | ---: | ---: | --- |
+| [HyperLattice Triangular](../hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 141.587 | 🔴 366/366 (100%) | 2026-09-27 22:01 |
