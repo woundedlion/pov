@@ -27,10 +27,6 @@ public:
   /**
    * @brief Builds a replicator emitting @p count evenly-spaced Y-axis copies.
    * @param count Desired copy count; clamped to [1, W].
-   * @details `this->count` (the clamped member, declared/initialized first)
-   * feeds make_rotation, so count == 0 cannot feed inf into it. The ceiling is
-   * W because W copies already sit one equatorial pixel column apart; beyond
-   * that they land on the same column.
    */
   Replicate(int count) { set_count(count); }
 
