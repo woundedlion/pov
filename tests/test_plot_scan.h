@@ -5277,6 +5277,9 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
                1.5f * base_step);
   for (const math::Vector &p : single.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
+  HS_EXPECT_GT(single.plotted.size(), size_t{0});
+  if (single.plotted.empty())
+    return;
   HS_EXPECT_NEAR(math::angle_between(single.plotted.front(), a.pos), 0.0f,
                  1e-2f);
   HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), b.pos), 0.0f,
@@ -5455,6 +5458,9 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
 
   // Both endpoints drawn, no hole in between, and the emitted count still bound
   // by the budget rather than by the unstretched cadence.
+  HS_EXPECT_GT(single.plotted.size(), size_t{0});
+  if (single.plotted.empty())
+    return;
   HS_EXPECT_NEAR(math::angle_between(single.plotted.front(), a.pos), 0.0f,
                  1e-3f);
   HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), b.pos), 0.0f,
