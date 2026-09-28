@@ -87,3 +87,8 @@ roster ranking. Triangular was subsequently selected for removal.
 | Preset | Dominant scope | Peak render ms | Spilled | Captured |
 | --- | --- | ---: | ---: | --- |
 | [HyperLattice Triangular](../hyperlattice_triangular_2026-09-27.md) | `hl_shader_draw` | 🔴 134.620 | 🔴 441/441 (100%) | 2026-09-27 21:59 |
+
+Current experimental [Octet measurements](../hyperlattice_experimental_presets_2026-09-27.md#octet-validation-and-device-measurements)
+are separate from the default roster: shipping peak 103.733 ms in 3D
+(548/548 spills) and 549.828 ms in 4D (120/120 spills). Captured
+2026-09-27 at 22:16 and 22:18 local time; no Octet global-O3 capture.
