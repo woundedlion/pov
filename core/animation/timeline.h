@@ -35,6 +35,7 @@ struct TimelineEvent {
    */
   bool pinned = false;
   const bool *paused = nullptr; /**< Optional event-level pause gate. */
+  const void *owner = nullptr;  /**< Optional lifetime owner. */
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
                                   type-erased animation storage. */
 
@@ -77,6 +78,7 @@ struct TimelineEvent {
     // event, and this slot may be recycling one.
     dst.pinned = false;
     dst.paused = paused;
+    dst.owner = owner;
     dst.manager = manager;
     if (manager) {
       manager(*this, &dst);
@@ -265,8 +267,8 @@ public:
    * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
   template <typename A>
-  A *add_get(int in_frames, A animation, Pin pin,
-             const bool *paused = nullptr) {
+  A *add_get(int in_frames, A animation, Pin pin, const bool *paused = nullptr,
+             const void *owner = nullptr) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     static_assert(alignof(A) <= alignof(std::max_align_t),
@@ -310,6 +312,7 @@ public:
     e.start = global_timeline_t + delay;
     e.pinned = (pin == Pin::PINNED);
     e.paused = paused;
+    e.owner = owner;
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
@@ -322,6 +325,28 @@ public:
       obj->~A();
     };
     return ptr;
+  }
+
+  /** @brief Cancels every event bound to the retiring lifetime owner. */
+  template <typename A> HS_COLD_MEMBER void cancel_owner(const void *owner) {
+    bool retiring_predecessor = false;
+    for (int i = 0; i < global_timeline_num_events; ++i) {
+      const auto &event = global_timeline_events[i];
+      if (event.owner == owner)
+        retiring_predecessor = true;
+      else
+        HS_CHECK(!retiring_predecessor || event.owner == nullptr ||
+                     !event.pinned || event.iface->is_canceled(),
+                 "retire later pinned owners before their predecessors");
+    }
+    for (int i = 0; i < global_timeline_num_events; ++i) {
+      auto &event = global_timeline_events[i];
+      if (event.owner == owner && event.animation()) {
+        static_cast<A *>(event.animation())->cancel();
+        event.paused = nullptr;
+        event.owner = nullptr;
+      }
+    }
   }
 
   /**
@@ -599,6 +624,7 @@ private:
       event.start = 0;
       event.pinned = false;
       event.paused = nullptr;
+      event.owner = nullptr;
       event.manager = nullptr;
       event.iface = nullptr;
     }
