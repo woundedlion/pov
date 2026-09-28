@@ -247,6 +247,148 @@ inline void test_octet_events_ties_limits_and_invalid_inputs() {
   HS_EXPECT_EQ(SLANTED.status, Raycast::TraceStatus::RANGE_COMPLETE);
 }
 
+inline float octet4_segment_reference(const math::Vec4 &p) {
+  constexpr float H = SDF::OctetFramework4::HALF_CUBE;
+  float best = INFINITY;
+  for (int x = -2; x <= 2; ++x)
+    for (int y = -2; y <= 2; ++y)
+      for (int z = -2; z <= 2; ++z)
+        for (int w = -2; w <= 2; ++w) {
+          if ((x + y + z + w) % 2 != 0)
+            continue;
+          const math::Vec4 VERTEX{{x * H, y * H, z * H, w * H}};
+          for (int i = 0; i < 4; ++i)
+            for (int j = i + 1; j < 4; ++j)
+              for (int sign : {-1, 1}) {
+                const float ALONG = std::clamp(
+                    H * (p[i] - VERTEX[i] + sign * (p[j] - VERTEX[j])), 0.0f,
+                    1.0f);
+                float squared = 0.0f;
+                for (int k = 0; k < 4; ++k) {
+                  const float D = p[k] - VERTEX[k] -
+                                  (k == i   ? H * ALONG
+                                   : k == j ? sign * H * ALONG
+                                            : 0.0f);
+                  squared += D * D;
+                }
+                best = std::min(best, sqrtf(squared));
+              }
+        }
+  return best;
+}
+
+inline void test_octet4_edges_parity_and_symmetry() {
+  SDF::OctetFramework4 octet;
+  HS_EXPECT_TRUE(octet.valid());
+  constexpr float H = SDF::OctetFramework4::HALF_CUBE;
+  for (int i = 0; i < 4; ++i)
+    for (int j = i + 1; j < 4; ++j)
+      for (int sign_i : {-1, 1})
+        for (int sign_j : {-1, 1}) {
+          math::Vec4 edge;
+          edge[i] = sign_i * H;
+          edge[j] = sign_j * H;
+          HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(edge), octet.cell_size,
+                         1e-6f);
+          for (float fraction : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+            math::Vec4 p;
+            for (int k = 0; k < 4; ++k)
+              p[k] = edge[k] * fraction;
+            HS_EXPECT_NEAR(octet.distance(p), -octet.wire_radius, 1e-6f);
+          }
+        }
+  HS_EXPECT_NEAR(octet.distance({{H, 0, 0, 0}}), 0.5f - octet.wire_radius,
+                 1e-6f);
+  HS_EXPECT_NEAR(octet.distance({{0, 0, 0, 0.3f}}),
+                 0.3f * H - octet.wire_radius, 1e-6f);
+  HS_EXPECT_GT(octet.distance({{H / 2, H / 2, H / 2, H / 2}}), 0.4f);
+  for (int sample = 0; sample < 80; ++sample) {
+    math::Vec4 p;
+    for (int i = 0; i < 4; ++i)
+      p[i] = 0.7f * sinf(sample * (i + 1) * 0.47f + 0.13f);
+    const float DISTANCE = octet.distance(p);
+    HS_EXPECT_NEAR(DISTANCE, octet4_segment_reference(p) - octet.wire_radius,
+                   2e-6f);
+    HS_EXPECT_NEAR(DISTANCE, octet.distance({{p[3], -p[2], p[1], p[0]}}),
+                   1e-6f);
+    auto moved = p;
+    moved[0] += H;
+    moved[3] -= H;
+    HS_EXPECT_NEAR(DISTANCE, octet.distance(moved), 1e-6f);
+    auto nearby = p;
+    nearby[3] += 0.023f;
+    HS_EXPECT_LE(fabsf(DISTANCE - octet.distance(nearby)), 0.023001f);
+    HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(octet.normal(p)), 1.0f,
+                   1e-6f);
+    auto scaled = octet;
+    scaled.cell_size *= 2.5f;
+    scaled.wire_radius *= 2.5f;
+    scaled.origin = {{2, -1, 3, -4}};
+    math::Vec4 placed;
+    for (int i = 0; i < 4; ++i)
+      placed[i] = scaled.origin[i] + 2.5f * p[i];
+    HS_EXPECT_NEAR(scaled.distance(placed), DISTANCE * 2.5f, 3e-6f);
+    const auto QUERY = octet.sample(p);
+    HS_EXPECT_NEAR(QUERY.clearance, fabsf(DISTANCE), 1e-6f);
+    HS_EXPECT_LT(QUERY.feature, uint32_t{12});
+  }
+  for (const auto &plane : octet.plane_families()) {
+    HS_EXPECT_NEAR(SDF::OctetFramework4::magnitude(plane.normal), 1.0f, 1e-6f);
+    HS_EXPECT_NEAR(plane.spacing, H, 1e-6f);
+  }
+  octet.origin[3] = INFINITY;
+  HS_EXPECT_FALSE(octet.valid());
+}
+
+inline void test_octet4_ambient_events_and_limits() {
+  const SDF::OctetFramework4 OCTET;
+  const Raycast::Interval INTERVAL{0, 1.5f};
+  const math::Vec4 ORIGIN{};
+  const math::Vec4 DIRECTION{{0, 0, 0, 1}};
+  SDF::OctetEvents4 events(OCTET, ORIGIN, DIRECTION, INTERVAL);
+  Raycast::TraceLimits limits;
+  size_t count = 0;
+  const auto RESULT =
+      Raycast::trace_events(events, INTERVAL, limits, [&](const auto &hit) {
+        HS_EXPECT_NEAR(hit.t, count * sqrtf(2.0f), 1e-6f);
+        HS_EXPECT_EQ(hit.coverage, 1.0f);
+        HS_EXPECT_FALSE(hit.verified);
+        ++count;
+        return true;
+      });
+  HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_EQ(RESULT.counters.candidates, 16);
+  HS_EXPECT_EQ(count, size_t{2});
+  HS_EXPECT_FALSE(RESULT.has_surface);
+  SDF::OctetEvents4 limited(OCTET, ORIGIN, DIRECTION, INTERVAL);
+  limits.max_candidates = 7;
+  const auto LIMITED = Raycast::trace_events(limited, INTERVAL, limits,
+                                             [](const auto &) { return true; });
+  HS_EXPECT_EQ(LIMITED.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  HS_EXPECT_EQ(LIMITED.counters.candidates, 7);
+  HS_EXPECT_EQ(LIMITED.counters.layers, 1);
+  const math::Vec4 START{{0, 0, 0, 0.2f}};
+  const math::Vec4 BACKWARD{{0, 0, 0, -1}};
+  SDF::OctetEvents4 returning(OCTET, START, BACKWARD, {0.1f, 0.3f});
+  for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i) {
+    HS_EXPECT_TRUE(returning.active(i));
+    HS_EXPECT_NEAR(returning.distance(i), 0.2f, 1e-6f);
+    HS_EXPECT_EQ(returning.candidate(i).coverage, 1.0f);
+  }
+  constexpr float H = SDF::OctetFramework4::HALF_CUBE;
+  SDF::OctetEvents4 edge(OCTET, ORIGIN, {{H, H, 0, 0}}, INTERVAL);
+  for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i)
+    HS_EXPECT_EQ(edge.active(i), (i & 1) == 0);
+  SDF::OctetEvents4 invalid(OCTET, ORIGIN, {{0, 0, 0, 2}}, INTERVAL);
+  auto bad_geometry = OCTET;
+  bad_geometry.wire_radius = 0;
+  SDF::OctetEvents4 bad_shape(bad_geometry, ORIGIN, DIRECTION, INTERVAL);
+  for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i) {
+    HS_EXPECT_FALSE(invalid.active(i));
+    HS_EXPECT_FALSE(bad_shape.active(i));
+  }
+}
+
 template <typename Surface> void check_periodic_surface() {
   Surface surface;
   surface.period = 2.3f;
@@ -303,6 +445,8 @@ inline int run_sdf_pattern_tests() {
   test_framework_geometry_and_plane_streams();
   test_octet_fcc_geometry_and_symmetry();
   test_octet_events_ties_limits_and_invalid_inputs();
+  test_octet4_edges_parity_and_symmetry();
+  test_octet4_ambient_events_and_limits();
   test_periodic_surface_bounds_and_gradients();
   return hs_test::end_module(MODULE);
 }
