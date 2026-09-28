@@ -476,8 +476,8 @@ struct OctetEvents : FrameworkPlaneStreams<4> {
         if (speeds[OWNER] == 0.0f)
           continue;
         // Ray-to-line distance for tetrahedral plane normals (dot = -1/3).
-        pairs[pair] = {fabsf(speeds[OWNER]) /
-                           sqrtf(A * A + B * B + (2.0f / 3.0f) * A * B),
+        pairs[pair] = {speeds[OWNER] * speeds[OWNER] /
+                           (A * A + B * B + (2.0f / 3.0f) * A * B),
                        OWNER, OWNER == i ? j : i};
         owned[OWNER] = true;
       }
@@ -496,14 +496,23 @@ struct OctetEvents : FrameworkPlaneStreams<4> {
       if (pair.owner != index || pair.scale == 0.0f)
         continue;
       const float U = positions[pair.other] + T * speeds[pair.other];
-      const float D =
-          fabsf(U - spacing * roundf(U * inverse_spacing)) * pair.scale;
+      const float RESIDUAL = U - spacing * roundf(U * inverse_spacing);
+      const float D = RESIDUAL * RESIDUAL * pair.scale;
       if (D < best) {
         best = D;
         feature = i;
       }
     }
-    return contribution(index, {best - wire_radius, 0.0f, false, 0, feature});
+    const float WIDTH = footprint.at(T);
+    const float SUPPORT = wire_radius + .5f * WIDTH;
+    if (best > SUPPORT * SUPPORT) {
+      Raycast::Contribution miss;
+      miss.t = T;
+      miss.coverage = 0;
+      return miss;
+    }
+    return contribution(index,
+                        {sqrtf(best) - wire_radius, 0.0f, false, 0, feature});
   }
 };
 
