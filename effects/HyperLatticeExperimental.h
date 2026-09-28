@@ -34,7 +34,7 @@ struct Prepared {
   Raycast::Appearance appearance;
   Raycast::TraceLimits limits;
   SDF::OctetFramework octet;
-  SDF::OctetEvents::PreparedProjection octet_projection;
+  SDF::OctetEvents::PreparedProjection octet_projection{};
   SDF::OctetFramework4 octet4;
   bool valid = false;
 };
