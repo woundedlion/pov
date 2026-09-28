@@ -28,9 +28,9 @@ minus shipping bytes from each pair's own image-size reports.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
+| [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-09-28.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § ● | `mf_feedback_flush` | 🟢 61.85 (12) | 🟢 58.32 (13) | 🟢 0/6688 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-09-28 14:46<br>O3 2026-08-26 02:10 |
 | [IslamicStars (unverified candidate)](shipping/profile_islamicstars_teensy_2026-09-24.md) / [O3](O3/profile_islamicstars_teensy_2026-09-24.md) § | `is_timeline_step` | 🟢 60.695 (23) | 🟢 55.674 (23) | 🟢 0/3327 (0.0%) | 🟢 0/3327 (0.0%) | +23,472 B | +12,240 B | ship 2026-09-24 11:01<br>O3 2026-09-24 11:12 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-09-25.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § ● | `ss_draw_all` | 🟢 58.40 (9) | 🟢 60.05 (9) | 🟢 0/2457 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-09-25 07:33<br>O3 2026-09-25 07:29 |
-| [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-08-26.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 58.30 (13) | 🟢 58.32 (13) | 🟢 0/6688 (0.0%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-08-26 03:31<br>O3 2026-08-26 02:10 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-09-19.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) | `df_timeline_step` | 🟢 58.18 | 🟢 57.45 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-09-19 22:17<br>O3 2026-09-19 22:19 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-09-20.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 56.07 | 🟢 56.04 | 🟢 0/1736 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-09-20 22:51<br>O3 2026-09-20 23:07 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-09-27.md) / [O3](O3/profile_hyperlattice_teensy_2026-09-27.md) § ● | `hl_shader_draw` | 🟢 55.509 (2) | 🟢 54.817 (2) | 🟢 0/1576 (0.00%) | 🟢 0/1576 (0.00%) | +9,736 B | +8,240 B | ship 2026-09-27 01:02<br>O3 2026-09-27 01:05 |
@@ -68,6 +68,8 @@ minus shipping bytes from each pair's own image-size reports.
 | [RingShower](shipping/profile_ringshower_teensy_2026-08-26.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.98 | 🟢 3.86 | 🟢 0/1088 (0.0%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-08-26 01:39<br>O3 2026-08-26 01:36 |
 
 ● ShapeShifter refreshed on 2026-09-25: N counts nine distinct presets, merging repeated visits after wrap. Its runtime buckets exclude setup frame 1 and include transitions.
+
+● MeshFeedback shipping refreshed on 2026-09-28 after the ITCM-reduction commits; its O3 column and ITCM/FLASH deltas are the 2026-08-26 capture.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
