@@ -85,6 +85,7 @@ INLINE_PINS = {
     "numpy": requirement_pin("numpy"),
     "clang": "22",
     "clang-format": requirement_pin("clang-format"),
+    "cmake": requirement_pin("cmake"),
     "doxygen": "1.17.0",
     "doxygen-sha256":
         "75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2",
@@ -156,7 +157,7 @@ INLINE_SCAN = (
     # Both halves of each requirements pair: the hand-edited .in carries the
     # pin, the pip-compile'd .txt repeats it above the hashes.
     *(ROOT / "requirements" / f"{stem}{suffix}"
-      for stem in ("actionlint", "clang-format", "just", "numpy",
+      for stem in ("actionlint", "clang-format", "cmake", "just", "numpy",
                    "platformio", "ruff", "shellcheck")
       for suffix in (".in", ".txt")),
 )
@@ -174,6 +175,7 @@ INLINE_USES = (
     (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v),
     (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v),
     (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v),
+    (r"\bcmake==([\w.]+)", "cmake", lambda v: v),
     (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
     (r"\bclang-format (\d+)\b", "clang-format", lambda v: v.split(".")[0]),
     (r"\brust-just==([\w.]+)", "just", lambda v: v),
@@ -347,6 +349,7 @@ def read_scanned(path: Path, errors: list[str]) -> str | None:
 
 
 INLINE_AUTHORITIES = {
+    'cmake': ('requirements/cmake.in', 'requirements/cmake.txt'),
     'actionlint': (
         'requirements/actionlint.in',
         'requirements/actionlint.txt',

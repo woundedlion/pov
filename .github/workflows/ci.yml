@@ -72,6 +72,9 @@ jobs:
           key: ccache-tests-${{ github.run_id }}
           restore-keys: ccache-tests-
 
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
+
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
@@ -145,6 +148,9 @@ jobs:
           key: ccache-sanitizers-${{ github.run_id }}
           restore-keys: ccache-sanitizers-
 
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
+
       - name: Configure
         run: >
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON -DHS_SANITIZE=ON
@@ -205,6 +211,9 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tsan-${{ github.run_id }}
           restore-keys: ccache-tsan-
+
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
 
       - name: Configure
         run: >
@@ -267,6 +276,9 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-optimized-${{ matrix.flavor }}-${{ github.run_id }}
           restore-keys: ccache-optimized-${{ matrix.flavor }}-
+
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
 
       - name: Configure
         run: >
@@ -331,6 +343,9 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-coverage-${{ github.run_id }}
           restore-keys: ccache-coverage-
+
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
 
       - name: Configure
         run: >
@@ -453,6 +468,9 @@ jobs:
 
       # No explicit compiler: let the toolchain auto-locate emsdk's Clang and run
       # its full Windows branch (lld-link alias, rc.exe glob/NATURAL-sort).
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
+
       - name: Configure
         run: cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON
 
@@ -546,6 +564,9 @@ jobs:
       # not the cumulative counts restored from a prior run.
       - name: Zero ccache stats
         run: ccache -z
+
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
 
       - name: Configure + build WASM (compile check)
         # The build is teed for the warning gate below (2>&1: em++ warnings are on
@@ -894,6 +915,9 @@ jobs:
         run: |
           sudo apt-get install -y clang-22 ninja-build   # pinned like the unit-test job
 
+      - name: Install pinned CMake
+        run: pip install --require-hashes -r requirements/cmake.txt
+
       - name: Build the generator
         run: |
           cmake --preset tests -DHS_INSTALL_GIT_HOOKS=OFF -DHS_REQUIRE_GENERATORS=ON \
@@ -970,7 +994,7 @@ jobs:
         run: python tools/build_pins.py --github-output
 
       - name: Install CMake for cache-key integration tests
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y cmake
+        run: pip install --require-hashes -r requirements/cmake.txt
 
       # The suite uses no npm dependencies.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
