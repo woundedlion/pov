@@ -1,43 +1,51 @@
 # HyperLattice experimental presets (2026-09-27)
 
-The simulator's HyperLattice preset list adds three previews after Cubic Flight
-and Hypercube Flight. Configuration also selects them directly. All three are
-marked Experimental and remain outside standard Teensy admission.
+The simulator's HyperLattice preset list adds Octet Flight and Octet 4D Slice
+after Cubic Flight and Hypercube Flight. **Pattern** selects Cubic or
+Experimental / Octet Truss; **View** independently selects 3D perspective or
+4D slice. Both patterns define both views. Octet remains outside standard
+Teensy admission. Triangular, Cosine, and Gyroid have been removed from the
+effect's preset list; their earlier measurements are retained below.
 
-| Preset ID | Configuration | Work bound |
+| Preset ID | Geometry | Work bound |
 | --- | --- | --- |
-| `experimental-triangular-flight` | Experimental / Triangular | 64 plane candidates, 32 layers |
-| `experimental-cosine-surface` | Experimental / Cosine | 256 total field queries |
-| `experimental-gyroid-surface` | Experimental / Gyroid | 512 total field queries |
+| `experimental-octet-flight` | 3D D3/FCC edges | 64 plane candidates, 32 layers |
+| `experimental-octet-4d-slice` | 4D D4 edges | 64 plane candidates, 32 layers |
 
-The triangular-prism framework uses the existing nonorthogonal analytic event
-adapter and approximate footprint coverage. Cosine and gyroid reuse the shared
-certified first-boundary marcher and exact trigonometric nodal definitions.
-They use isovalue zero, a 1.5-unit period, a six-unit far distance, and
-period / 10,000 position tolerance. Refinement and ordinary probes both consume
-the total query budget. Step and refinement caps equal that budget.
+Octet's vertices are integer lattice coordinates whose sum is even. Edges join
+nearest neighbors, differing by one unit in two coordinates. In 3D this is the
+D3/FCC lattice, with 12 neighbors per vertex and regular tetrahedral and
+octahedral cells. In 4D the same rule gives D4, with 24 neighbors per vertex.
+Cell Size is the nearest-neighbor strut length in world units in either view.
 
-All three begin at radial offset zero with depth coloring, near fade 0.08,
-flight phase speed 0.008 and 3D spin 0.0024 per frame. The framework's far
-distance is 4.5, with wire radius 0.055 cells. The camera follows a bounded,
-continuous world-space orbit around (0.255, 0.465, 0.645), without cell-wrap jumps.
-Pause stops preset choreography; spatial motion and palette cycling continue.
+The 3D adapter visits four equally spaced plane families with tetrahedral
+normals. Their pairwise acute angles are approximately 70.53 degrees. Its
+coverage calculation uses the three intersecting line families in the crossed
+plane. The 4D adapter visits eight diagonal hyperplane families and measures
+distance to D4's edge graph. Both reuse monotone plane cursors and the shared
+layer compositor. Coverage is approximate; neither adapter claims certified
+surface intersections.
+
+Both presets begin at radial offset zero with depth coloring and continuous
+bounded world-space camera motion. Pause stops preset choreography; spatial
+motion and palette cycling continue. A 4D view rotates the three-dimensional
+ray domain inside the four-dimensional lattice. It does not project a 3D
+octet image or extrude that image along another axis.
 
 Unresolved, invalid, unsupported, or exhausted searches increment the read-only
-Unfinished Rays count for the rendered frame. A failed surface search contributes
-no surface; it is not relabeled as empty geometry or accepted on proximity.
-Analytic traversal preserves already-consumed layers if a work cap is reached.
+Unfinished Rays count for the rendered frame. Analytic traversal preserves
+already-consumed layers if a work cap is reached.
 The previews do not claim error-free coverage or the Teensy's 62.5 ms deadline.
 The [earlier device sweep](spherical_periodic_device_2026-09-26.md) already
 exceeded that deadline at much smaller periodic-field budgets.
 
-Changing Configuration adopts its complete default geometry, preserving common
-color and near-fade controls. Automatic transitions switch incompatible geometry
-at their midpoint. Schema 11 rejects older snapshots without mutation. Lattice
-Planes and Softness are read-only for every experiment; Wire Radius and AA
-Strength are additionally read-only for periodic surfaces. 4D Spin is read-only
-outside the 4D cubic configuration. Cell Size changes the framework spacing or
-surface period without moving the camera. Experimental Sphere Radius, near
+Changing Pattern or View adopts the selected tuple's complete default geometry,
+preserving common color and near-fade controls. Automatic transitions switch
+incompatible geometry at their midpoint. Schema 12 rejects older snapshots
+without mutation. Lattice Planes and Softness are read-only for Octet;
+Wire Radius and AA Strength remain editable. 4D Spin is read-only in 3D.
+Cell Size changes framework spacing without moving the camera.
+Experimental Sphere Radius, near
 fade, and far distance use world units; the legacy cubic radial start remains
 cell-relative for compatibility.
 
@@ -53,14 +61,18 @@ An opt-in device capture uses the normal locked wrapper, for example:
 ```powershell
 $env:HS_PROFILE_TREE = 'C:/work/Holosphere'
 $env:HS_TEENSY_PORT = 'COM3'
-bash tools/profile_one.sh HyperLattice profile 70 4 '-DHS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -DHS_PROFILE_PRESET=4'
+bash tools/profile_one.sh HyperLattice profile 70 16 '-DHS_ENABLE_HYPERLATTICE_EXPERIMENTS=1 -DHS_PROFILE_PRESET=2'
 ```
 
-Preset indices 2, 3, and 4 select triangular, cosine, and gyroid respectively.
+Preset indices 2 and 3 select Octet in 3D and 4D respectively.
 Fixed selection avoids mistaking a partial slow experimental cycle for a full
 preset sweep. Device size/layout gates still apply to opt-in builds.
 
-## Validation
+## Historical validation of the replaced previews
+
+The following validation and images describe the earlier Triangular, Cosine,
+and Gyroid presets, before their replacement by Octet. They do not measure
+the current Octet implementation.
 
 Native tests cover experimental selection, visible output and continued motion,
 schema restore, invalid pattern values, inactive controls, and atomic geometry
@@ -96,7 +108,7 @@ the maximum observed WASM stack watermark is 944 bytes. The
 also records host timings, including the first draw. Those host timings are not
 Teensy measurements or admission evidence.
 
-## Opt-in device validation
+## Historical opt-in device validation
 
 Final cold builds at clean source `596cdc1fd` pass the default and opt-in
 Phantasm size/layout gates with zero first-party warnings. Their runtime source
