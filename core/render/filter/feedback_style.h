@@ -403,7 +403,8 @@ HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
 // The fade and the u16 normalization fold into the cbrt-LMS domain:
 // cbrt(fade/65535 * LMS) = cbrt(fade/65535) * cbrt(LMS). Uses the rotation
 // matrix precomputed once per frame by Style::sync_hue.
-inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
+HS_FLASH_INLINE inline Pixel hue_fade(const Pixel &p, float fade,
+                                      const Style &s) {
   const float sc = math::fast_cbrt(fade * (1.0f / 65535.0f));
   float k[9];
   for (int i = 0; i < 9; ++i)
