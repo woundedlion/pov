@@ -433,6 +433,15 @@ template <typename SDF, typename Warp> struct WarpedVolume {
                "major radius");
   }
 
+  /** @brief Squared distance to the twist-inflated torus centerline. */
+  float torus_bound_squared(const math::Vector &p, float radial) const
+    requires(TORUS_TWIST)
+  {
+    const float q = radial - base.R;
+    const float dy = std::max(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
+    return q * q + dy * dy;
+  }
+
   /**
    * @brief Cheap lower bound on the warped distance.
    * @param p Query point in Cartesian ray-space.
@@ -444,9 +453,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
       // surface lies inside the torus swept +-A along y; this is that solid's
       // exact distance, hence a lower bound. Relaxing the y term alone keeps it
       // far tighter than subtracting A from the whole distance.
-      const float q = sqrtf(p.x * p.x + p.z * p.z) - base.R;
-      const float dy = std::max(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
-      return sqrtf(q * q + dy * dy) - base.r;
+      return sqrtf(torus_bound_squared(p, sqrtf(p.x * p.x + p.z * p.z))) -
+             base.r;
     } else {
       return base.distance(p) - warp.bounding_inflation();
     }
@@ -476,9 +484,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
       // gate + base.r > 0, so bounding_distance(p) > gate is exactly
       // qq > (gate + base.r)²; the sqrt is then only the fast path's result.
       const float s = sqrtf(p.x * p.x + p.z * p.z);
-      const float q = s - base.R;
-      const float dy = std::max(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
-      const float qq = q * q + dy * dy;
+      const float qq = torus_bound_squared(p, s);
       const float t = gate + base.r;
       if (qq > t * t)
         return sqrtf(qq) - base.r;
