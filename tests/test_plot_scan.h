@@ -4761,6 +4761,105 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
   HS_EXPECT_GE(margin_lit, 10);
 }
 
+/** @brief Captures the rendered positions after world-stage transforms. */
+struct WorldSampleCapture : Filter::Is3D {
+  static constexpr bool world_transform_is_identity = true;
+  std::vector<math::Vector> &points;
+  explicit WorldSampleCapture(std::vector<math::Vector> &points)
+      : points(points) {}
+  template <typename Pass>
+  void plot(const math::Vector &p, const Pixel &, float, float, Pass &&) {
+    points.push_back(p);
+  }
+};
+
+/** @brief Sampling follows rendered latitude, including cached one-dot flags. */
+inline void test_rasterize_sampling_follows_world_transforms() {
+  constexpr int W = 288, H = 144, N = 64;
+  const math::Quaternion TURN =
+      math::make_rotation(math::X_AXIS, -math::PI_F / 2);
+  hs_test::StubEffect fx(W, H);
+  Canvas canvas(fx);
+  ScratchScope scope(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), N);
+  for (int i = 0; i < N; ++i) {
+    const float ANGLE = 2 * math::PI_F * i / N;
+    Fragment f;
+    f.pos = {sinf(math::PI_F / 18) * cosf(ANGLE),
+             sinf(math::PI_F / 18) * sinf(ANGLE), cosf(math::PI_F / 18)};
+    points.push_back(f);
+  }
+  std::array<uint8_t, N> flags;
+  flags.fill(Plot::RasterOptions::EDGE_VISIBLE |
+             Plot::RasterOptions::EDGE_CLASSIFIED |
+             Plot::RasterOptions::EDGE_ONE_DOT);
+  auto draw = [&](auto &pipeline, bool classified = false) {
+    int samples = 0;
+    auto shade = [&](const math::Vector &, Fragment &f) {
+      ++samples;
+      f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
+    };
+    Plot::rasterize<W, H>(pipeline, canvas, points, shade,
+                          {.loop = Plot::RasterLoop::closed(),
+                           .projection = Plot::RasterProjection::geodesic(
+                               classified ? std::span<const uint8_t>(flags)
+                                          : std::span<const uint8_t>{})});
+    return samples;
+  };
+  std::vector<math::Vector> rendered;
+  Pipeline<W, H, WorldSampleCapture> direct{WorldSampleCapture(rendered)};
+  const int EQUATOR = draw(direct);
+  math::Orientation<> orientation(TURN);
+  Pipeline<W, H, Filter::World::Orient, WorldSampleCapture> rotated{
+      Filter::World::Orient(orientation), WorldSampleCapture(rendered)};
+  rendered.clear();
+  const int ROTATED = draw(rotated);
+  HS_EXPECT_GT(ROTATED, 300);
+  HS_EXPECT_GT(ROTATED, 3 * EQUATOR);
+  float max_gap = 0;
+  for (size_t i = 0; i < rendered.size(); ++i) {
+    const float A = math::vector_to_pixel<W, H>(rendered[i]).x;
+    const float B =
+        math::vector_to_pixel<W, H>(rendered[(i + 1) % rendered.size()]).x;
+    float gap = fabsf(A - B);
+    max_gap = std::max(max_gap, std::min(gap, W - gap));
+  }
+  HS_EXPECT_LT(max_gap, 1.1f);
+  HS_EXPECT_EQ(draw(rotated, true), ROTATED);
+  for (auto &point : points)
+    point.pos = math::rotate(point.pos, TURN);
+  const int POLE = draw(direct);
+  HS_EXPECT_NEAR(ROTATED, POLE, 4);
+  orientation.set(TURN.conjugate());
+  const int UNROTATED = draw(rotated);
+  HS_EXPECT_LT(UNROTATED, POLE / 2);
+  HS_EXPECT_NEAR(UNROTATED, EQUATOR, 4);
+  orientation.set(math::Quaternion());
+  orientation.push(math::Quaternion());
+  orientation.push(TURN.conjugate());
+  HS_EXPECT_GE(draw(rotated), POLE - 4);
+  for (auto &point : points)
+    point.pos = math::rotate(point.pos, TURN.conjugate());
+  math::Orientation<> half(math::make_rotation(math::X_AXIS, -math::PI_F / 4));
+  Pipeline<W, H, Filter::World::Orient, Filter::World::Orient,
+           WorldSampleCapture>
+      composed{Filter::World::Orient(half), Filter::World::Orient(half),
+               WorldSampleCapture(rendered)};
+  HS_EXPECT_NEAR(draw(composed), POLE, 4);
+  math::MobiusParams params;
+  Pipeline<W, H, Filter::World::Mobius, WorldSampleCapture> nonrigid{
+      Filter::World::Mobius(params), WorldSampleCapture(rendered)};
+  HS_EXPECT_GE(draw(nonrigid), POLE);
+  HS_EXPECT_EQ(draw(nonrigid, true), draw(nonrigid));
+  Pipeline<W, H, Filter::World::Replicate<W>> replicated{
+      Filter::World::Replicate<W>(2)};
+  PipelineRef erased(replicated);
+  const Plot::SamplePT STATIONARY{math::Y_AXIS, math::Vector(0, 0, 0)};
+  HS_EXPECT_EQ((Plot::pipeline_screen_step<W, H>(erased, STATIONARY, false)),
+               2.0f * math::PI_F / W);
+}
+
 /**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
@@ -6304,6 +6403,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_planar_arc_registers_track_drawn_arc();
   test_planar_sampler_from_cull_parity();
   test_rasterize_planar_policy_parity();
+  test_rasterize_sampling_follows_world_transforms();
   test_rasterize_cull_follows_filter_orientation();
 
   test_particle_system_draws_active_trails_with_registers();

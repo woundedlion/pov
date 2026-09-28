@@ -1540,6 +1540,40 @@ edge_visible_in_clip_dispatch(PipelineT &pipeline, const math::Vector &a,
   }
 }
 
+/** @brief Screen step at the rendered latitude of every world-stage copy. */
+template <int W, int H, typename PipelineT>
+HS_HOT_FLASH_MEMBER float pipeline_screen_step(PipelineT &pipeline,
+                                               const SamplePT &sample,
+                                               bool world_identity) {
+  constexpr float BASE_STEP = (2.0f * math::PI_F) / W;
+  if (world_identity) {
+#if HS_ENABLE_TEST_ORACLES
+    if (g_reference_screen_step)
+      return screen_step_reference<W, H>(sample.pos, sample.tan, BASE_STEP);
+#endif
+    return screen_step<W, H>(sample.pos, sample.tan, BASE_STEP);
+  }
+  if (math::dot(sample.tan, sample.tan) < math::EPS_NORMALIZE_SQ)
+    return BASE_STEP;
+  float step = BASE_STEP;
+  // Rigid cull stages rotate both vectors; false visits every tween copy.
+  const bool nonrigid = edge_visible_in_clip_dispatch(
+      pipeline, sample.pos, sample.tan, nullptr,
+      [&](const math::Vector &pos, const math::Vector &tan, const math::Basis *)
+          HS_HOT_FLASH_MEMBER {
+            float candidate;
+#if HS_ENABLE_TEST_ORACLES
+            if (g_reference_screen_step)
+              candidate = screen_step_reference<W, H>(pos, tan, BASE_STEP);
+            else
+#endif
+              candidate = screen_step<W, H>(pos, tan, BASE_STEP);
+            step = std::min(step, candidate);
+            return false;
+          });
+  return nonrigid ? BASE_STEP * MIN_POLE_SCALE : step;
+}
+
 /**
  * @brief Clip visibility of one polyline edge, routed through the
  *        pipeline's world stages.
