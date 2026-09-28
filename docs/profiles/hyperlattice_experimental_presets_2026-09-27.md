@@ -69,11 +69,14 @@ The 4D adapter visits eight diagonal hyperplane families and measures
 distance to D4's edge graph. Both reuse monotone plane cursors and the shared
 layer compositor. Coverage is approximate; neither adapter claims certified
 surface intersections. The timings and preview below predate the 3D
-single-owner correction.
+single-owner correction and continuous-flight motion change.
 
-Both presets begin at radial offset zero with depth coloring and continuous
-bounded world-space camera motion. Pause stops preset choreography; spatial
-motion and palette cycling continue. A 4D view rotates the three-dimensional
+Both presets begin at radial offset zero with depth coloring and steady
+world-space translation along the Cubic flight direction. Camera coordinates
+wrap by `sqrt(2) * cell_size`, a translation period of both the D3 and D4
+lattices, so wrapping preserves the visible geometry. Speed ranges from zero
+to 6; existing preset speeds are unchanged. Pause stops preset choreography;
+spatial motion and palette cycling continue. A 4D view rotates the three-dimensional
 ray domain inside the four-dimensional lattice. It does not project a 3D
 octet image or extrude that image along another axis.
 
