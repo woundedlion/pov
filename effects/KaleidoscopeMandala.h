@@ -34,15 +34,19 @@ class KaleidoscopeMandala
 
 public:
   using Params = KaleidoscopeMandalaParams;
+  // Generated identity: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-mandala";
-  static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "4bc222a0e81f0aa4a6ed06db0dddcfca84486072d2bb78d6665b8370edec9719";
-  static constexpr std::string_view PRESET_BANK_DIGEST =
-      "7e10bc72b93c0671877e68f54c36bcb6177b5038f3e12c7af5aebed8c4ef1f56";
-  static constexpr std::array<std::string_view, 2> PRESET_IDS{"wave-mirror",
-                                                              "cup-hue"};
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "4bc222a0e81f0aa4a6ed06db0dddcfca84486072d2bb78d6665b8370edec9719";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "7e10bc72b93c0671877e68f54c36bcb6177b5038f3e12c7af5aebed8c4ef1f56";
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{
+      "wave-mirror",
+      "cup-hue"
+  };
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  // clang-format on
+  // End generated identity.
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
   // Hot entry trampoline; RenderPipeline::shade retains its cold placement.
   static HS_HOT_FLASH_MEMBER Color4
@@ -50,38 +54,52 @@ public:
         const typename KaleidoscopeMandala::Frame &frame) {
     return KaleidoscopeMandala::RenderPipeline::shade(view, frame);
   }
+  // Generated params: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.source = {.pattern_freq = 6.3287f,
-                    .speed = 0.04f,
-                    .complexity = 1.704f,
-                    .pattern_mix = 0.0f,
-                    .secondary_rate = 0.8f,
-                    .angle_rate = 0.027f};
-    value.projection.singularity_fade = 2.311f;
     value.projection.camera_wander = 1.0f;
-    value.outer_warp.strength = -0.176f;
-    value.outer_warp.speed = -0.00325f;
-    value.outer_warp.frequency = 1.408f;
-    value.outer_warp.field_angle = 2.2305307f;
+    value.color.hue_noise_scale = 1.0f;
+    value.color.hue_noise_speed = 0.0f;
     value.color.hue_shift_amount = 0.721f;
+    value.color.mapping_frequency = 1.0f;
+    value.color.mapping_phase = 0.0f;
     value.color.palette_chroma = 1.0f;
+    value.color.palette_mapping = Pullback::Color::PaletteMapping::LINEAR;
+    value.color.phase_oscillation_depth = 0.0f;
+    value.color.phase_oscillation_speed = 0.0f;
+    value.color.opacity_high = 1.0f;
+    value.color.opacity_low = 1.0f;
+    value.projection.singularity_fade = 2.311f;
+    value.source.angle_rate = 0.027f;
+    value.source.complexity = 1.704f;
+    value.source.secondary_rate = 0.8f;
+    value.source.pattern_freq = 6.3287f;
+    value.source.pattern_mix = 0.0f;
+    value.source.speed = 0.04f;
+    value.outer_warp.field_angle = 2.2305307f;
+    value.outer_warp.frequency = 1.408f;
+    value.outer_warp.speed = -0.00325f;
+    value.outer_warp.strength = -0.176f;
+    value.inner_warp.cell_x = 1.0f;
+    value.inner_warp.cell_y = 1.0f;
+    value.inner_warp.offset_x = 0.0f;
+    value.inner_warp.offset_y = 0.0f;
+    value.inner_warp.rotation = 0.0f;
+    value.inner_warp.speed = 0.0f;
     return value;
   }
-  /**
-   * @brief Params for the preset at @p index in PRESET_IDS.
-   * @details `cup-hue` varies the colorizer alone: the cup palette mapping at
-   * full hue rotation over a finer hue-noise field.
-   */
+
+  /** @brief Params for the preset at index in PRESET_IDS. */
   static constexpr Params preset_params(size_t index) {
-    static_assert(PRESET_IDS.size() == 2,
-                  "a new preset id needs a branch below");
     Params value = initial_params();
     if (index == 1) {
-      value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
-      value.color.hue_shift_amount = 1.0f;
       value.color.hue_noise_scale = 1.9717969f;
+      value.color.hue_shift_amount = 1.0f;
+      value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
     }
     return value;
   }
+  // clang-format on
+  // End generated params.
 };

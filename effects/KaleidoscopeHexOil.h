@@ -36,39 +36,56 @@ class KaleidoscopeHexOil
 
 public:
   using Params = KaleidoscopeHexOilParams;
+  // Generated identity: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-oil";
-  static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "d4cec300e807a48008dcd128903c97f00ca36d582a474e94231389f2ffa9a7c7";
-  static constexpr std::string_view PRESET_BANK_DIGEST =
-      "302f86fbdcd6122935cbc7e0c80bcff24f441401e3d44d39ec096e02849fcd18";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "d4cec300e807a48008dcd128903c97f00ca36d582a474e94231389f2ffa9a7c7";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "302f86fbdcd6122935cbc7e0c80bcff24f441401e3d44d39ec096e02849fcd18";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
-      "kaleidoscope-hex-oil", "kaleidoscope-hex-oil-2"};
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+      "kaleidoscope-hex-oil",
+      "kaleidoscope-hex-oil-2"
+  };
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  // clang-format on
+  // End generated identity.
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
+  // Generated params: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.source.pattern_freq = 5.5327f;
-    value.source.speed = 0.125f;
-    value.source.angle_rate = 0.03f;
-    value.projection.singularity_fade = 1.627f;
-    value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
-    value.surface.scale = 5.740422f;
-    value.surface.strength = 0.4185f;
     value.color.hue_shift_amount = -2.216f;
+    value.color.mapping_frequency = 1.0f;
+    value.color.mapping_phase = 0.0f;
     value.color.palette_chroma = 0.78f;
     value.color.palette_mapping = Pullback::Color::PaletteMapping::CUP;
+    value.color.phase_oscillation_depth = 0.0f;
+    value.color.phase_oscillation_speed = 0.0f;
+    value.color.opacity_high = 1.0f;
+    value.color.opacity_low = 1.0f;
+    value.projection.spin_rate = 0.0f;
+    value.projection.wander = 1.0f;
+    value.projection.singularity_fade = 1.627f;
+    value.source.angle_rate = 0.03f;
+    value.source.pattern_freq = 5.5327f;
+    value.source.speed = 0.125f;
+    value.surface.direction = 0.0f;
+    value.surface.scale = 5.740422f;
+    value.surface.speed = 0.0f;
+    value.surface.strength = 0.4185f;
     return value;
   }
+
+  /** @brief Params for the preset at index in PRESET_IDS. */
   static constexpr Params preset_params(size_t index) {
-    static_assert(PRESET_IDS.size() == 2,
-                  "a new preset id needs a branch below");
     Params value = initial_params();
     if (index == 1) {
-      value.surface.scale = 3.6627343f;
       value.color.mapping_frequency = 1.2f;
+      value.surface.scale = 3.6627343f;
     }
     return value;
   }
+  // clang-format on
+  // End generated params.
 };

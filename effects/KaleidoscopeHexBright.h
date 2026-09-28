@@ -33,40 +33,60 @@ class KaleidoscopeHexBright
 
 public:
   using Params = KaleidoscopeHexBrightParams;
+  // Generated identity: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-bright";
-  static constexpr std::string_view DESCRIPTOR_DIGEST =
-      "b230ef82f2927252edff29f95beeac6a8e43af8d18514fb6f4e215e118f4b448";
-  static constexpr std::string_view PRESET_BANK_DIGEST =
-      "a69686e051b4d46949179a00b82e08df04f1b5abd7b5317376da86753670719b";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "b230ef82f2927252edff29f95beeac6a8e43af8d18514fb6f4e215e118f4b448";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "a69686e051b4d46949179a00b82e08df04f1b5abd7b5317376da86753670719b";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
-      "hex-twin-wave", "hex-twin-wave-alt"};
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+      "hex-twin-wave",
+      "hex-twin-wave-alt"
+  };
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  // clang-format on
+  // End generated identity.
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
+  // Generated params: scripts/generate_composed_presets.mjs
+  // clang-format off
   static constexpr Params initial_params() {
     Params value;
-    value.source = {.pattern_freq = 3.881f,
-                    .speed = 0.128598228f,
-                    .secondary_rate = 0.8f,
-                    .angle_rate = 0.027f};
-    value.projection.singularity_fade = 4.971f;
-    value.projection.wander = 1.0f;
     value.projection.camera_wander = 1.0f;
-    value.color.hue_shift_amount = 0.226f;
-    value.color.hue_noise_scale = 1.47215629f;
+    value.color.hue_noise_scale = 1.4721563f;
     value.color.hue_noise_speed = 0.000138f;
-    value.color.palette_chroma = 1.0f;
+    value.color.hue_shift_amount = 0.226f;
     value.color.mapping_frequency = 1.341f;
     value.color.mapping_phase = -1.0f;
+    value.color.palette_chroma = 1.0f;
     value.color.palette_mapping = Pullback::Color::PaletteMapping::BELL;
+    value.color.phase_oscillation_depth = 0.0f;
+    value.color.phase_oscillation_speed = 0.0f;
+    value.color.opacity_high = 1.0f;
+    value.color.opacity_low = 1.0f;
+    value.projection.spin_rate = 0.0f;
+    value.projection.wander = 1.0f;
+    value.projection.singularity_fade = 4.971f;
+    value.source.angle_rate = 0.027f;
+    value.source.secondary_rate = 0.8f;
+    value.source.pattern_freq = 3.881f;
+    value.source.speed = 0.12859823f;
+    value.inner_warp.cell_x = 1.0f;
+    value.inner_warp.cell_y = 1.0f;
+    value.inner_warp.offset_x = 0.0f;
+    value.inner_warp.offset_y = 0.0f;
+    value.inner_warp.rotation = 0.0f;
+    value.inner_warp.speed = 0.0f;
     return value;
   }
+
+  /** @brief Params for the preset at index in PRESET_IDS. */
   static constexpr Params preset_params(size_t index) {
-    static_assert(PRESET_IDS.size() == 2,
-                  "a new preset id needs a branch below");
     Params value = initial_params();
-    if (index == 1)
+    if (index == 1) {
       value.color.mapping_frequency = 2.0f;
+    }
     return value;
   }
+  // clang-format on
+  // End generated params.
 };
