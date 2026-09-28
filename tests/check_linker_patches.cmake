@@ -54,6 +54,8 @@ else()
     "*libstdc++_nano.a:*(.text .text.*)"
     "*libg_nano.a:*(.text .text.*)"
     "*libgcc.a:*(.text .text.*)"
+    "*libFrameworkArduino.a:usb.c.o(.text .text.*)"
+    "*libFrameworkArduino.a:usb_serial.c.o(.text .text.*)"
     "*(.text.*construct_effect*)")
   foreach(_spec IN LISTS _flash_text)
     string(FIND "${_script}" "${_spec}" _spec_at)
