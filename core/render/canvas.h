@@ -48,6 +48,7 @@ struct EffectConfig {
    *        (ClipRegion::margin). Raised to the ClipRegion default when lower.
    */
   int margin = ClipRegion{}.margin;
+  int required_margin = 0; /**< Folded minimum filter tap coverage. */
 };
 
 /**
@@ -79,7 +80,8 @@ public:
   HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
         reads_outside_band(cfg.reads_outside_band), strobe(cfg.strobe),
-        frame_width(W), frame_height(H) {
+        frame_width(W), frame_height(H),
+        required_margin(W == 1 ? 0 : cfg.required_margin) {
     HS_CHECK(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H,
              "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H, MAX_W,
              MAX_H);
@@ -196,13 +198,13 @@ public:
   /**
    * @brief Effect sets the render margin for filters that spread taps.
    * @param m Render margin width in pixels.
-   * @details ClipRegion's cylindrical wrap only corrects a single period of
-   *          underflow, so its [0, w) contract holds only while margin < w. Trap
-   *          a wrapping margin here rather than let a negative column leak into
-   *          the per-fragment clip predicates.
+   * @details The margin must cover the construction-time pipeline requirement
+   *          and remain smaller than the cylindrical canvas width.
    */
   void set_margin(int m) {
     check_clip_mutable();
+    HS_CHECK(m >= required_margin,
+             "render margin is smaller than the pipeline requirement");
     HS_CHECK(m >= 0 && m < clip_region.w,
              "render margin must be in [0, canvas width)");
     clip_region.margin = m;
@@ -393,11 +395,12 @@ private:
       buffer_ready_hook(*this);
   }
 
-  std::atomic<int> prev{0}; /**< Buffer the ISR is currently reading. */
-  std::atomic<int> cur{0};  /**< Buffer the main loop is currently writing. */
-  std::atomic<int> next{0}; /**< Last completed frame, queued for display. */
-  int frame_width;          /**< The width of the effect. */
-  int frame_height;         /**< The height of the effect. */
+  std::atomic<int> prev{0};  /**< Buffer the ISR is currently reading. */
+  std::atomic<int> cur{0};   /**< Buffer the main loop is currently writing. */
+  std::atomic<int> next{0};  /**< Last completed frame, queued for display. */
+  int frame_width;           /**< The width of the effect. */
+  int frame_height;          /**< The height of the effect. */
+  const int required_margin; /**< Minimum pipeline tap coverage. */
   ClipRegion clip_region; /**< Segment clip region (display + render margin). */
   ClipRegion::XClip render_x_clip{};
   int render_y_start = 0;

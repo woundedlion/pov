@@ -223,6 +223,8 @@ constexpr EffectConfig pipeline_config(EffectConfig base = {}) {
   base.reads_outside_band =
       base.reads_outside_band || PipelineT::any_reads_outside_band;
   base.margin = std::max(base.margin, PipelineT::total_segment_margin);
+  base.required_margin =
+      std::max(base.required_margin, PipelineT::total_segment_margin);
   return base;
 }
 
