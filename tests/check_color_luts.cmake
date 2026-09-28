@@ -17,6 +17,17 @@ if("$ENV{CLANG_FORMAT}" STREQUAL "")
 else()
   set(_clang_format "$ENV{CLANG_FORMAT}")
 endif()
+if(_clang_format)
+  execute_process(COMMAND "${_clang_format}" --version
+    OUTPUT_VARIABLE _format_version RESULT_VARIABLE _format_rc)
+  if(NOT _format_rc EQUAL 0 OR NOT _format_version MATCHES "version 22\\.")
+    if(REQUIRE_PYTHON)
+      message(FATAL_ERROR "color_luts pin: clang-format 22 is required")
+    endif()
+    message(STATUS "color_luts pin: clang-format major mismatch; skipping")
+    cmake_language(EXIT ${SKIP_CODE})
+  endif()
+endif()
 if(NOT _clang_format)
   if(REQUIRE_PYTHON)
     message(FATAL_ERROR "color_luts pin: no clang-format, and HS_REQUIRE_GENERATORS is ON")
@@ -51,8 +62,7 @@ if(NOT _gen_text STREQUAL _com_text)
   message(FATAL_ERROR
     "core/color/color_luts.h is out of sync with scripts/generate_luts.py.\n"
     "Diff it against the regenerated header: ${_generated}\n"
-    "Regenerate with: python scripts/generate_luts.py > core/color/color_luts.h "
-    "&& clang-format -i core/color/color_luts.h")
+    "Regenerate with: python scripts/generate_luts.py -o core/color/color_luts.h")
 endif()
 
 message(STATUS "color_luts pin: header text matches the generator")
