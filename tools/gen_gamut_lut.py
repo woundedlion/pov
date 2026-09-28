@@ -527,6 +527,12 @@ def check_mirrors(color_h_path, math_h_path):
     with open(color_h_path, "r", encoding="utf-8") as f:
         text = f.read()
 
+    for name, expected in (("GAMUT_SCAN_STEPS", 4), ("GAMUT_BRACKET_STEPS", 3)):
+        match = re.search(r"inline constexpr int " + name + r"\s*=\s*(\d+);", text)
+        if match is None or int(match.group(1)) != expected:
+            sys.stderr.write(f"{name} differs from the generated refinement contract\n")
+            return False
+
     for name in ("OKLAB_TO_LMS_CBRT", "LMS_CBRT_TO_RGB"):
         matrix = re.search(r"inline constexpr float " + name + r"\[3\]\[3\]\s*=\s*\{(.*?)\};",
                            text, re.DOTALL)
