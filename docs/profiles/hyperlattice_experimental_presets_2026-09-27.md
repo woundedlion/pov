@@ -57,12 +57,19 @@ and paired default build in the capture evidence retain those measurements.
 ### Octet rendering
 
 The 3D adapter visits four equally spaced plane families with tetrahedral
-normals. Their pairwise acute angles are approximately 70.53 degrees. Its
-coverage calculation uses the three intersecting line families in the crossed
-plane. The 4D adapter visits eight diagonal hyperplane families and measures
+normals. Their pairwise acute angles are approximately 70.53 degrees. Each
+strut belongs to two planes; its sampling owner is the plane crossed more
+directly by the ray, with ties resolved by family index. Coverage uses the
+shortest distance between the ray and that strut, so the two planes cannot
+produce overlapping bands for the same strut. Depth, clipping, and the pixel
+footprint still use the owner's plane crossing rather than a cylinder surface
+intersection. A ray parallel to a strut has no event for that strut.
+
+The 4D adapter visits eight diagonal hyperplane families and measures
 distance to D4's edge graph. Both reuse monotone plane cursors and the shared
 layer compositor. Coverage is approximate; neither adapter claims certified
-surface intersections.
+surface intersections. The timings and preview below predate the 3D
+single-owner correction.
 
 Both presets begin at radial offset zero with depth coloring and continuous
 bounded world-space camera motion. Pause stops preset choreography; spatial

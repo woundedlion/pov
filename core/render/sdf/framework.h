@@ -431,19 +431,76 @@ struct FrameworkEvents : FrameworkPlaneEvents {
   }
 };
 
-/** @brief Approximate octet coverage from struts in each crossed plane. */
-struct OctetEvents : FrameworkPlaneEvents {
-  OctetFramework geometry;
+/** @brief Single-owner strut coverage at monotone octet plane crossings. */
+struct OctetEvents : FrameworkPlaneStreams<4> {
+  struct Pair {
+    float scale = 0.0f;
+    uint8_t owner = 0;
+    uint8_t other = 0;
+  };
+  std::array<Pair, 6> pairs{};
+  std::array<float, STREAM_COUNT> positions{};
+  std::array<float, STREAM_COUNT> speeds{};
+  float spacing = 0.0f;
+  float inverse_spacing = 0.0f;
+  float wire_radius = 0.0f;
 
-  OctetEvents(const OctetFramework &geometry, const Raycast::Ray &ray,
-              Raycast::Footprint footprint = {})
-      : FrameworkPlaneEvents(ray, footprint), geometry(geometry) {
-    initialize(geometry.plane_families(), geometry.origin, geometry.valid());
+  HS_HOT_FLASH_MEMBER OctetEvents(const OctetFramework &geometry,
+                                  const Raycast::Ray &ray,
+                                  Raycast::Footprint footprint = {})
+      : FrameworkPlaneStreams(footprint) {
+    if (!geometry.valid() || !ray.valid())
+      return;
+    const auto FAMILIES = geometry.plane_families();
+    spacing = FAMILIES[0].spacing;
+    inverse_spacing = 1.0f / spacing;
+    wire_radius = geometry.wire_radius;
+    const math::Vector ORIGIN = ray.origin - geometry.origin;
+    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
+    for (size_t i = 0; i < STREAM_COUNT; ++i) {
+      positions[i] = math::dot(ORIGIN, FAMILIES[i].normal);
+      speeds[i] = math::dot(ray.direction, FAMILIES[i].normal);
+      projections[i] = {positions[i] + ray.interval.near * speeds[i], speeds[i],
+                        spacing};
+    }
+    size_t pair = 0;
+    std::array<bool, STREAM_COUNT> owned{};
+    for (uint8_t i = 0; i < STREAM_COUNT; ++i)
+      for (uint8_t j = i + 1; j < STREAM_COUNT; ++j, ++pair) {
+        const float A = speeds[i];
+        const float B = speeds[j];
+        const uint8_t OWNER = fabsf(A) >= fabsf(B) ? i : j;
+        if (speeds[OWNER] == 0.0f)
+          continue;
+        // Ray-to-line distance for tetrahedral plane normals (dot = -1/3).
+        pairs[pair] = {fabsf(speeds[OWNER]) /
+                           sqrtf(A * A + B * B + (2.0f / 3.0f) * A * B),
+                       OWNER, OWNER == i ? j : i};
+        owned[OWNER] = true;
+      }
+    FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
+                                     STREAM_COUNT, ray.interval.near);
+    for (size_t i = 0; i < STREAM_COUNT; ++i)
+      cursors[i].active = cursors[i].active && owned[i];
   }
 
   Raycast::Contribution candidate(size_t index) const {
-    return contribution(index,
-                        geometry.plane_sample(index, ray.at(distance(index))));
+    const float T = distance(index);
+    float best = INFINITY;
+    uint32_t feature = 0;
+    for (uint32_t i = 0; i < pairs.size(); ++i) {
+      const auto &pair = pairs[i];
+      if (pair.owner != index || pair.scale == 0.0f)
+        continue;
+      const float U = positions[pair.other] + T * speeds[pair.other];
+      const float D =
+          fabsf(U - spacing * roundf(U * inverse_spacing)) * pair.scale;
+      if (D < best) {
+        best = D;
+        feature = i;
+      }
+    }
+    return contribution(index, {best - wire_radius, 0.0f, false, 0, feature});
   }
 };
 

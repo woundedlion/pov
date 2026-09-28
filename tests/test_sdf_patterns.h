@@ -197,7 +197,7 @@ inline void test_octet_events_ties_limits_and_invalid_inputs() {
       });
   HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_FALSE(RESULT.has_surface);
-  HS_EXPECT_EQ(RESULT.counters.candidates, 8);
+  HS_EXPECT_EQ(RESULT.counters.candidates, 6);
   HS_EXPECT_EQ(count, size_t{2});
   limits.max_candidates = 3;
   events = SDF::OctetEvents(OCTET, RAY);
@@ -245,6 +245,70 @@ inline void test_octet_events_ties_limits_and_invalid_inputs() {
                                                return true;
                                              });
   HS_EXPECT_EQ(SLANTED.status, Raycast::TraceStatus::RANGE_COMPLETE);
+}
+
+inline void test_octet_struts_have_one_angle_correct_coverage_layer() {
+  constexpr float H = 0.7071067811865475f;
+  const std::array<math::Vector, 6> EDGES{{
+      {H, H, 0},
+      {H, -H, 0},
+      {H, 0, H},
+      {H, 0, -H},
+      {0, H, H},
+      {0, H, -H},
+  }};
+  for (const auto &edge : EDGES) {
+    const math::Vector MIDPOINT = edge * 0.5f;
+    const math::Vector TRANSVERSE = edge.x == 0   ? math::Vector{1, 0, 0}
+                                    : edge.y == 0 ? math::Vector{0, 1, 0}
+                                                  : math::Vector{0, 0, 1};
+    const math::Vector BINORMAL = math::cross(edge, TRANSVERSE);
+    for (float along : {0.0f, 0.75f, 8.0f}) {
+      SDF::OctetFramework octet;
+      octet.wire_radius = along > 1 ? 0.0005f : 0.05f;
+      for (float angle : {-0.0001f, 0.0f, 0.0001f, 0.27f, 0.7853981634f, -1.1f})
+        for (float sign : {-1.0f, 1.0f}) {
+          const math::Vector DIRECTION =
+              (TRANSVERSE * cosf(angle) + BINORMAL * sinf(angle) + edge * along)
+                  .normalized() *
+              sign;
+          const math::Vector CROSS = math::cross(DIRECTION, edge);
+          const math::Vector OFFSET_DIRECTION = CROSS.normalized();
+          for (float offset :
+               {-1.5f, -1.05f, -0.9f, -0.4f, 0.0f, 0.4f, 0.9f, 1.05f, 1.5f})
+            for (float aa : {0.0f, 1.0f}) {
+              const Raycast::Ray RAY{
+                  MIDPOINT + OFFSET_DIRECTION * (offset * octet.wire_radius) -
+                      DIRECTION * 0.2f,
+                  DIRECTION,
+                  {0, 0.4f}};
+              const Raycast::Footprint FOOTPRINT{aa * octet.wire_radius, 0.2f};
+              const float DISTANCE =
+                  fabsf(math::dot(RAY.origin - MIDPOINT, CROSS)) /
+                  CROSS.magnitude();
+              SDF::OctetEvents events(octet, RAY, FOOTPRINT);
+              size_t count = 0;
+              const auto RESULT = Raycast::trace_events(
+                  events, RAY.interval, {}, [&](const auto &hit) {
+                    const float WIDTH = FOOTPRINT.at(hit.t);
+                    const float EXPECTED =
+                        WIDTH > 0
+                            ? std::clamp(0.5f - (DISTANCE - octet.wire_radius) /
+                                                    WIDTH,
+                                         0.0f, 1.0f)
+                            : 1.0f;
+                    HS_EXPECT_NEAR(hit.coverage, EXPECTED, 2e-4f);
+                    HS_EXPECT_FALSE(hit.verified);
+                    ++count;
+                    return true;
+                  });
+              HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
+              const bool VISIBLE = fabsf(offset) < (aa > 0 ? 1.1f : 1.0f);
+              HS_EXPECT_EQ(count, VISIBLE ? size_t{1} : size_t{0});
+            }
+        }
+    }
+  }
 }
 
 inline float octet4_segment_reference(const math::Vec4 &p) {
@@ -445,6 +509,7 @@ inline int run_sdf_pattern_tests() {
   test_framework_geometry_and_plane_streams();
   test_octet_fcc_geometry_and_symmetry();
   test_octet_events_ties_limits_and_invalid_inputs();
+  test_octet_struts_have_one_angle_correct_coverage_layer();
   test_octet4_edges_parity_and_symmetry();
   test_octet4_ambient_events_and_limits();
   test_periodic_surface_bounds_and_gradients();
