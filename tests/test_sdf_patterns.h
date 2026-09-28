@@ -531,56 +531,183 @@ inline void test_octet4_scalar_distance_matches_offset() {
   }
 }
 
-inline void test_octet4_normalized_events_match_world_samples() {
+/**
+ * @brief Owned D4 strut coverage matches an independent ray/line oracle.
+ * @details The oracle assigns each strut class to the family with the largest
+ * |normal . direction|, finds the class's nearest strut in the crossed plane by
+ * searching lattice vertices, and measures the ray-to-line distance by
+ * orthogonalizing against both directions.
+ */
+inline void test_octet4_owned_struts_match_ray_line_oracle() {
+  using Vec = std::array<double, 4>;
+  const auto dot = [](const Vec &a, const Vec &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+  };
+  const auto sigma = [](size_t family) {
+    return Vec{1.0, (family & 1) ? -1.0 : 1.0, (family & 2) ? -1.0 : 1.0,
+               (family & 4) ? -1.0 : 1.0};
+  };
+  struct StrutClass {
+    Vec u;
+    uint32_t feature;
+  };
+  std::array<StrutClass, 12> classes;
+  uint32_t pair = 0;
+  for (int i = 0; i < 4; ++i)
+    for (int j = i + 1; j < 4; ++j, ++pair)
+      for (int s : {-1, 1}) {
+        Vec u{};
+        u[i] = 0.70710678118654752;
+        u[j] = s * 0.70710678118654752;
+        classes[2 * pair + (s > 0)] = {u, 2 * pair + (s > 0)};
+      }
+  uint32_t state = 0x2545f491u;
+  const auto uniform = [&state] {
+    state = state * 1664525u + 1013904223u;
+    return static_cast<float>(state >> 8) * (2.0f / 16777216.0f) - 1.0f;
+  };
   size_t covered = 0;
+  size_t odd = 0;
+  std::array<size_t, 12> by_class{};
   for (float cell_size : {0.125f, 1.0f, 8.0f})
-    for (float radius : {0.05f, 0.0005f})
-      for (float near : {0.0f, 0.37f, 2.1f})
-        for (bool grazing : {false, true}) {
-          SDF::OctetFramework4 geometry;
-          geometry.cell_size = cell_size;
-          geometry.wire_radius = radius * cell_size;
-          geometry.origin = {{3.2f * cell_size, -1.7f * cell_size,
-                              0.6f * cell_size, -2.4f * cell_size}};
-          math::Vec4 origin{{0.173f, -0.219f, 0.317f, 0.071f}};
-          math::Vec4 direction{{0.31f, -0.57f, 0.23f, 0.69f}};
-          if (grazing) {
-            origin = {{0.5f * SDF::OctetFramework4::HALF_CUBE,
-                       0.5f * SDF::OctetFramework4::HALF_CUBE, 0.9f * radius,
-                       -0.6f}};
-            direction = {{0, 0, 0, 1}};
+    for (int ray = 0; ray < 120; ++ray) {
+      SDF::OctetFramework4 geometry;
+      geometry.cell_size = cell_size;
+      geometry.wire_radius = 0.06f * cell_size;
+      geometry.origin = {{0.3f * cell_size, -1.1f * cell_size, 0.7f * cell_size,
+                          2.4f * cell_size}};
+      math::Vec4 direction;
+      float length2 = 0.0f;
+      for (int k = 0; k < 4; ++k) {
+        direction[k] = uniform();
+        length2 += direction[k] * direction[k];
+      }
+      math::Vec4 origin;
+      for (int k = 0; k < 4; ++k) {
+        direction[k] /= sqrtf(length2);
+        origin[k] = geometry.origin[k] + 3.0f * cell_size * uniform();
+      }
+      const float NEAR = static_cast<float>(ray % 3) * 0.37f * cell_size;
+      const Raycast::Interval INTERVAL{NEAR, NEAR + 6.0f * cell_size};
+      const Raycast::Footprint FOOTPRINT{ray % 4 == 0 ? 0.0f : 0.01f,
+                                         cell_size};
+      SDF::OctetEvents4 events(geometry, origin, direction, INTERVAL,
+                               FOOTPRINT);
+      const Vec D{direction[0], direction[1], direction[2], direction[3]};
+      const double SCALE =
+          static_cast<double>(SDF::OctetFramework4::HALF_CUBE) * cell_size;
+
+      std::array<int, 12> owner;
+      for (size_t c = 0; c < classes.size(); ++c) {
+        double best = -1.0;
+        for (size_t family = 0; family < 8; ++family) {
+          if (fabs(dot(sigma(family), classes[c].u)) > 1e-9)
+            continue;
+          const double SPEED = fabs(dot(sigma(family), D));
+          if (SPEED > best) {
+            best = SPEED;
+            owner[c] = static_cast<int>(family);
           }
-          const float LENGTH = SDF::OctetFramework4::magnitude(direction);
-          for (int k = 0; k < 4; ++k) {
-            direction[k] /= LENGTH;
-            origin[k] = geometry.origin[k] + cell_size * origin[k];
-          }
-          const Raycast::Interval INTERVAL{near * cell_size,
-                                           (near + 5.0f) * cell_size};
-          const Raycast::Footprint FOOTPRINT{radius, cell_size};
-          SDF::OctetEvents4 events(geometry, origin, direction, INTERVAL,
-                                   FOOTPRINT);
-          for (size_t stream = 0; stream < events.STREAM_COUNT; ++stream)
-            for (int crossing = 0; crossing < 16 && events.active(stream) &&
-                                   events.distance(stream) <= INTERVAL.far;
-                 ++crossing) {
-              const float T = events.distance(stream);
-              math::Vec4 point;
-              for (int k = 0; k < 4; ++k)
-                point[k] = origin[k] + direction[k] * T;
-              const auto EXPECTED =
-                  events.contribution(stream, geometry.sample(point));
-              const auto ACTUAL = events.candidate(stream);
-              HS_EXPECT_EQ(ACTUAL.t, EXPECTED.t);
-              HS_EXPECT_NEAR(ACTUAL.coverage, EXPECTED.coverage, 0.002f);
-              if (ACTUAL.coverage > 0.0f || EXPECTED.coverage > 0.0f) {
-                HS_EXPECT_EQ(ACTUAL.feature, EXPECTED.feature);
-                ++covered;
-              }
-              events.advance(stream);
-            }
         }
+      }
+      size_t active = 0;
+      for (size_t family = 0; family < 8; ++family) {
+        bool owns = false;
+        for (int c : owner)
+          owns = owns || c == static_cast<int>(family);
+        HS_EXPECT_EQ(events.active(family), owns);
+        active += events.active(family);
+      }
+      HS_EXPECT_LE(active, SDF::OctetEvents4::OWNER_CAPACITY);
+
+      for (size_t family = 0; family < 8; ++family)
+        for (int crossing = 0; crossing < 16 && events.active(family) &&
+                               events.distance(family) <= INTERVAL.far;
+             ++crossing) {
+          const float T = events.distance(family);
+          Vec q;
+          for (int k = 0; k < 4; ++k)
+            q[k] = (static_cast<double>(origin[k]) + D[k] * T -
+                    geometry.origin[k]) /
+                   SCALE;
+          const Vec NORMAL = sigma(family);
+          const double PLANE = dot(NORMAL, q);
+          HS_EXPECT_NEAR(0.5 * PLANE, std::round(0.5 * PLANE), 1e-3);
+          double best = INFINITY;
+          uint32_t feature = 0;
+          for (size_t c = 0; c < classes.size(); ++c) {
+            if (owner[c] != static_cast<int>(family))
+              continue;
+            const Vec &U = classes[c].u;
+            double nearest = INFINITY;
+            Vec vertex{};
+            for (int a = -2; a <= 2; ++a)
+              for (int b = -2; b <= 2; ++b)
+                for (int e = -2; e <= 2; ++e)
+                  for (int g = -2; g <= 2; ++g) {
+                    const Vec V{std::floor(q[0]) + a, std::floor(q[1]) + b,
+                                std::floor(q[2]) + e, std::floor(q[3]) + g};
+                    const double SUM = V[0] + V[1] + V[2] + V[3];
+                    if (std::fmod(fabs(SUM), 2.0) != 0.0 ||
+                        fabs(dot(NORMAL, V) - PLANE) > 0.5)
+                      continue;
+                    Vec w;
+                    for (int k = 0; k < 4; ++k)
+                      w[k] = q[k] - V[k];
+                    const double ALONG = dot(w, U);
+                    double squared = 0.0;
+                    for (int k = 0; k < 4; ++k)
+                      squared += (w[k] - ALONG * U[k]) * (w[k] - ALONG * U[k]);
+                    if (squared < nearest) {
+                      nearest = squared;
+                      vertex = V;
+                    }
+                  }
+            Vec w, across;
+            const double UD = dot(U, D);
+            for (int k = 0; k < 4; ++k) {
+              w[k] = q[k] - vertex[k];
+              across[k] = U[k] - UD * D[k];
+            }
+            const double ACROSS = sqrt(dot(across, across));
+            for (int k = 0; k < 4; ++k)
+              across[k] /= ACROSS;
+            const double WD = dot(w, D);
+            const double WA = dot(w, across);
+            double distance2 = 0.0;
+            for (int k = 0; k < 4; ++k) {
+              const double R = w[k] - WD * D[k] - WA * across[k];
+              distance2 += R * R;
+            }
+            if (distance2 < best) {
+              best = distance2;
+              feature = classes[c].feature;
+            }
+          }
+          const double FIELD = SCALE * sqrt(best) - geometry.wire_radius;
+          const double WIDTH = FOOTPRINT.at(T);
+          const double EXPECTED =
+              WIDTH > 0.0 ? std::clamp(0.5 - FIELD / WIDTH, 0.0, 1.0)
+                          : (FIELD <= 0.0 ? 1.0 : 0.0);
+          const auto ACTUAL = events.candidate(family);
+          HS_EXPECT_EQ(ACTUAL.t, T);
+          HS_EXPECT_NEAR(ACTUAL.coverage, EXPECTED, 2e-3);
+          if (EXPECTED > 0.01) {
+            HS_EXPECT_EQ(ACTUAL.feature, feature);
+            ++covered;
+            ++by_class[feature];
+            double parity = 0.0;
+            for (int k = 0; k < 4; ++k)
+              parity += std::round(q[k]);
+            odd += std::fmod(fabs(parity), 2.0) != 0.0;
+          }
+          events.advance(family);
+        }
+    }
   HS_EXPECT_GT(covered, size_t{0});
+  HS_EXPECT_GT(odd, size_t{0});
+  for (size_t count : by_class)
+    HS_EXPECT_GT(count, size_t{0});
 }
 
 inline void test_octet4_ambient_events_and_limits() {
@@ -600,28 +727,32 @@ inline void test_octet4_ambient_events_and_limits() {
         return true;
       });
   HS_EXPECT_EQ(RESULT.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_EQ(RESULT.counters.candidates, 16);
+  HS_EXPECT_EQ(RESULT.counters.candidates, 8);
   HS_EXPECT_EQ(count, size_t{2});
   HS_EXPECT_FALSE(RESULT.has_surface);
   SDF::OctetEvents4 limited(OCTET, ORIGIN, DIRECTION, INTERVAL);
-  limits.max_candidates = 7;
+  limits.max_candidates = 3;
   const auto LIMITED = Raycast::trace_events(limited, INTERVAL, limits,
                                              [](const auto &) { return true; });
   HS_EXPECT_EQ(LIMITED.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
-  HS_EXPECT_EQ(LIMITED.counters.candidates, 7);
+  HS_EXPECT_EQ(LIMITED.counters.candidates, 3);
   HS_EXPECT_EQ(LIMITED.counters.layers, 1);
   const math::Vec4 START{{0, 0, 0, 0.2f}};
   const math::Vec4 BACKWARD{{0, 0, 0, -1}};
   SDF::OctetEvents4 returning(OCTET, START, BACKWARD, {0.1f, 0.3f});
+  size_t owners = 0;
   for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i) {
-    HS_EXPECT_TRUE(returning.active(i));
+    if (!returning.active(i))
+      continue;
+    ++owners;
     HS_EXPECT_NEAR(returning.distance(i), 0.2f, 1e-6f);
     HS_EXPECT_EQ(returning.candidate(i).coverage, 1.0f);
   }
+  HS_EXPECT_EQ(owners, SDF::OctetEvents4::OWNER_CAPACITY);
   constexpr float H = SDF::OctetFramework4::HALF_CUBE;
   SDF::OctetEvents4 edge(OCTET, ORIGIN, {{H, H, 0, 0}}, INTERVAL);
   for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i)
-    HS_EXPECT_EQ(edge.active(i), (i & 1) == 0);
+    HS_EXPECT_EQ(edge.active(i), i == 0 || i == 2 || i == 4);
   SDF::OctetEvents4 invalid(OCTET, ORIGIN, {{0, 0, 0, 2}}, INTERVAL);
   auto bad_geometry = OCTET;
   bad_geometry.wire_radius = 0;
@@ -692,7 +823,7 @@ inline int run_sdf_pattern_tests() {
   test_octet4_edges_parity_and_symmetry();
   test_octet4_nearest_edge_matches_line_search();
   test_octet4_scalar_distance_matches_offset();
-  test_octet4_normalized_events_match_world_samples();
+  test_octet4_owned_struts_match_ray_line_oracle();
   test_octet4_ambient_events_and_limits();
   test_periodic_surface_bounds_and_gradients();
   return hs_test::end_module(MODULE);

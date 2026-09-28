@@ -620,26 +620,54 @@ struct OctetEvents : OctetStreams<4> {
   }
 };
 
-/** @brief Approximate D4 strut coverage evaluated along an ambient 4D ray. */
+/**
+ * @brief Single-owner D4 strut coverage at monotone plane crossings of an
+ *        ambient 4D ray.
+ * @details Each strut class (e_i + s e_j)/sqrt(2) lies in four plane families
+ * and is evaluated only at crossings of the family with the largest
+ * |normal . direction|. Coverage uses the ray-to-line closest approach of the
+ * class's nearest strut in the crossed plane.
+ */
 struct OctetEvents4 : OctetStreams<8> {
-  /** @brief Greatest number of simultaneously active streams. */
-  static constexpr size_t OWNER_CAPACITY = STREAM_COUNT;
-  /** @brief Validated frame projections into the eight D4 plane families. */
+  /** @brief Greatest number of families that own a strut class. */
+  static constexpr size_t OWNER_CAPACITY = 4;
+  /** @brief Greatest number of strut classes one family owns. */
+  static constexpr size_t CLASS_CAPACITY = 6;
+  /** @brief Validated frame projection of view directions into the lattice. */
   struct PreparedProjection {
-    std::array<math::Vector, 4> embedding; /**< Rows per lattice unit. */
-    std::array<math::Vector, STREAM_COUNT> normals; /**< Per unit spacing. */
-    std::array<float, STREAM_COUNT> offsets;        /**< In plane spacings. */
-    math::Vec4 origin;                              /**< In lattice units. */
+    std::array<math::Vector, 4> embedding;
+    math::Vec4 origin; /**< Camera center in lattice units. */
+    float inverse_scale;
   };
-  const OctetFramework4 &geometry;
-  math::Vec4 local_origin;
-  math::Vec4 local_direction;
-  float scale = 0.0f;
+  /** @brief Per-ray constants of a strut class at its owner's crossings. */
+  struct OwnedClass {
+    float sign;        /**< s in (e_i + s e_j). */
+    float transverse;  /**< (d_i - s d_j) / 2. */
+    float denominator; /**< 1 - (d . u)^2. */
+    float dk;
+    float dl;
+    uint8_t i;
+    uint8_t j;
+    uint8_t k;
+    uint8_t l;
+    uint8_t feature;
+  };
+  struct Owner {
+    uint8_t count;
+    std::array<OwnedClass, CLASS_CAPACITY> classes;
+  };
+  static constexpr uint8_t UNOWNED = 0xff;
+  std::array<Owner, OWNER_CAPACITY> owners;
+  std::array<uint8_t, STREAM_COUNT> owner_of;
+  math::Vec4 local_origin;    /**< Ray origin in lattice units. */
+  math::Vec4 local_direction; /**< Direction in lattice units per distance. */
+  float scale;
+  float inverse_scale;
+  float wire_radius;
 
   OctetEvents4(const OctetFramework4 &geometry, const math::Vec4 &origin,
                const math::Vec4 &direction, Raycast::Interval interval,
-               Raycast::Footprint footprint = {})
-      : geometry(geometry) {
+               Raycast::Footprint footprint = {}) {
     this->footprint = footprint;
     live.fill(false);
     if (!geometry.valid() || !interval.valid())
@@ -653,25 +681,13 @@ struct OctetEvents4 : OctetStreams<8> {
     if (fabsf(length2 - 1.0f) >= 1e-4f)
       return;
     scale = OctetFramework4::HALF_CUBE * geometry.cell_size;
-    const float INVERSE_SCALE = 1.0f / scale;
+    inverse_scale = 1.0f / scale;
+    wire_radius = geometry.wire_radius;
     for (int i = 0; i < 4; ++i) {
-      local_origin[i] = (origin[i] - geometry.origin[i]) * INVERSE_SCALE;
-      local_direction[i] = direction[i] * INVERSE_SCALE;
+      local_origin[i] = (origin[i] - geometry.origin[i]) * inverse_scale;
+      local_direction[i] = direction[i] * inverse_scale;
     }
-    const auto FAMILIES = geometry.plane_families();
-    const float INVERSE_SPACING = 1.0f / FAMILIES[0].spacing;
-    for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      float position = 0.0f;
-      float speed = 0.0f;
-      for (int j = 0; j < 4; ++j) {
-        position +=
-            (origin[j] + direction[j] * interval.near - geometry.origin[j]) *
-            FAMILIES[i].normal[j];
-        speed += direction[j] * FAMILIES[i].normal[j];
-      }
-      start(i, position * INVERSE_SPACING, speed * INVERSE_SPACING,
-            interval.near);
-    }
+    initialize(direction, interval.near);
   }
 
   /** @brief Initializes a unit view ray from validated frame projections. */
@@ -680,28 +696,140 @@ struct OctetEvents4 : OctetStreams<8> {
                const PreparedProjection &prepared,
                const math::Vector &direction, float radial_start, float near,
                Raycast::Footprint footprint = {})
-      : geometry(geometry),
-        scale(OctetFramework4::HALF_CUBE * geometry.cell_size) {
+      : scale(OctetFramework4::HALF_CUBE * geometry.cell_size),
+        inverse_scale(prepared.inverse_scale),
+        wire_radius(geometry.wire_radius) {
     this->footprint = footprint;
+    math::Vec4 ambient;
     for (int i = 0; i < 4; ++i) {
-      local_direction[i] = math::dot(direction, prepared.embedding[i]);
+      ambient[i] = math::dot(direction, prepared.embedding[i]);
+      local_direction[i] = ambient[i] * inverse_scale;
       local_origin[i] = prepared.origin[i] + radial_start * local_direction[i];
     }
-    for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      const float SPEED = math::dot(direction, prepared.normals[i]);
-      start(i, prepared.offsets[i] + (radial_start + near) * SPEED, SPEED,
-            near);
+    initialize(ambient, near);
+  }
+
+  /** @brief Assigns strut classes to owners and starts the owning streams. */
+  __attribute__((always_inline)) void initialize(const math::Vec4 &direction,
+                                                 float near) {
+    // The owners are the family matching the direction's sign pattern and
+    // that family with one coordinate flipped.
+    const bool FLIP = direction[0] < 0.0f;
+    std::array<float, 4> sign{1.0f, 1.0f, 1.0f, 1.0f};
+    uint8_t star = 0;
+    for (int k = 1; k < 4; ++k)
+      if ((direction[k] < 0.0f) != FLIP) {
+        sign[k] = -1.0f;
+        star |= static_cast<uint8_t>(1u << (k - 1));
+      }
+    owner_of.fill(UNOWNED);
+    uint8_t count = 0;
+    const auto add = [&](uint8_t family, uint8_t i, uint8_t j, uint8_t k,
+                         uint8_t l, float s,
+                         uint8_t feature) __attribute__((always_inline)) {
+      const float ALONG = direction[i] + s * direction[j];
+      const float DENOMINATOR = 1.0f - 0.5f * ALONG * ALONG;
+      if (!(DENOMINATOR > 0.0f))
+        return;
+      if (owner_of[family] == UNOWNED) {
+        owner_of[family] = count;
+        owners[count++].count = 0;
+      }
+      auto &owner = owners[owner_of[family]];
+      auto &strut = owner.classes[owner.count++];
+      strut.sign = s;
+      strut.transverse = 0.5f * (direction[i] - s * direction[j]);
+      strut.denominator = DENOMINATOR;
+      strut.dk = direction[k];
+      strut.dl = direction[l];
+      strut.i = i;
+      strut.j = j;
+      strut.k = k;
+      strut.l = l;
+      strut.feature = feature;
+    };
+    uint8_t pair = 0;
+    for (uint8_t i = 0; i < 4; ++i)
+      for (uint8_t j = i + 1; j < 4; ++j, ++pair) {
+        uint8_t k = 0;
+        while (k == i || k == j)
+          ++k;
+        uint8_t l = k + 1;
+        while (l == i || l == j)
+          ++l;
+        const float SAME = sign[i] * sign[j];
+        const uint8_t FLIPPED =
+            fabsf(direction[j]) < fabsf(direction[i]) ? j : i;
+        const uint8_t NEIGHBOR = static_cast<uint8_t>(
+            star ^ (FLIPPED == 0 ? 7u : 1u << (FLIPPED - 1)));
+        add(star, i, j, k, l, -SAME, 2 * pair + (SAME < 0.0f));
+        add(NEIGHBOR, i, j, k, l, SAME, 2 * pair + (SAME > 0.0f));
+      }
+    for (uint8_t family = 0; family < STREAM_COUNT; ++family) {
+      if (owner_of[family] == UNOWNED) {
+        live[family] = false;
+        continue;
+      }
+      float position = local_origin[0] + near * local_direction[0];
+      float speed = local_direction[0];
+      for (int k = 1; k < 4; ++k) {
+        const float P = local_origin[k] + near * local_direction[k];
+        const bool NEGATIVE = family & (1u << (k - 1));
+        position += NEGATIVE ? -P : P;
+        speed += NEGATIVE ? -local_direction[k] : local_direction[k];
+      }
+      start(family, 0.5f * position, 0.5f * speed, near);
     }
   }
 
-  /** @brief Coverage of the nearest strut at distance t. */
-  __attribute__((always_inline)) float coverage(size_t, float t,
+  /** @brief Coverage of the nearest owned strut at distance t on a stream. */
+  __attribute__((always_inline)) float coverage(size_t index, float t,
                                                 uint32_t &feature) const {
-    math::Vec4 p;
-    for (int i = 0; i < 4; ++i)
-      p[i] = local_origin[i] + local_direction[i] * t;
-    return coverage_of(t, scale * geometry.edge_query<false, true>(p, feature) -
-                              geometry.wire_radius);
+    const auto &owner = owners[owner_of[index]];
+    math::Vec4 residual;
+    int parity = 0;
+    for (int k = 0; k < 4; ++k) {
+      const float Q = local_origin[k] + local_direction[k] * t;
+      const float ROUNDED = roundf(Q);
+      residual[k] = Q - ROUNDED;
+      parity += static_cast<int>(ROUNDED);
+    }
+    const bool ODD = parity & 1;
+    float numerator = INFINITY;
+    float denominator = 1.0f;
+    for (size_t c = 0; c < owner.count; ++c) {
+      const auto &strut = owner.classes[c];
+      float across = residual[strut.i] - strut.sign * residual[strut.j];
+      float rk = residual[strut.k];
+      float rl = residual[strut.l];
+      const float STEP = across > 0.5f ? 1.0f : across < -0.5f ? -1.0f : 0.0f;
+      across -= STEP;
+      // The nearest vertex on this class's coset flips the cheapest coordinate.
+      if ((STEP != 0.0f) != ODD) {
+        const float COST = 0.5f - fabsf(across);
+        const float COST_K = 1.0f - 2.0f * fabsf(rk);
+        const float COST_L = 1.0f - 2.0f * fabsf(rl);
+        if (COST <= COST_K && COST <= COST_L)
+          across -= copysignf(1.0f, across);
+        else if (COST_K <= COST_L)
+          rk -= copysignf(1.0f, rk);
+        else
+          rl -= copysignf(1.0f, rl);
+      }
+      const float OFFSET2 = 0.5f * across * across + rk * rk + rl * rl;
+      const float DOT =
+          across * strut.transverse + rk * strut.dk + rl * strut.dl;
+      const float N = std::max(0.0f, OFFSET2 * strut.denominator - DOT * DOT);
+      if (N * denominator < numerator * strut.denominator) {
+        numerator = N;
+        denominator = strut.denominator;
+        feature = strut.feature;
+      }
+    }
+    const float SUPPORT = (wire_radius + .5f * footprint.at(t)) * inverse_scale;
+    if (numerator > SUPPORT * SUPPORT * denominator)
+      return 0.0f;
+    return coverage_of(t, scale * sqrtf(numerator / denominator) - wire_radius);
   }
 
   Raycast::Contribution candidate(size_t index) const {
