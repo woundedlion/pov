@@ -240,8 +240,9 @@ struct OctetFramework4 {
     return result;
   }
 
-  HS_HOT_FLASH_MEMBER math::Vec4 edge_offset(const math::Vec4 &p,
-                                             uint32_t &feature) const {
+  template <bool WithOffset>
+  HS_HOT_FLASH_MEMBER auto edge_query(const math::Vec4 &p,
+                                      uint32_t &feature) const {
     const float SCALE = HALF_CUBE * cell_size;
     const float INVERSE_SCALE = 1.0f / SCALE;
     math::Vec4 residual, absolute;
@@ -261,43 +262,62 @@ struct OctetFramework4 {
     int j = 1;
     if (absolute[j] > absolute[i])
       std::swap(i, j);
+    float transverse_squared = 0.0f;
     for (int k = 2; k < 4; ++k) {
+      int transverse = k;
       if (absolute[k] > absolute[i]) {
+        transverse = j;
         j = i;
         i = k;
       } else if (absolute[k] > absolute[j]) {
+        transverse = j;
         j = k;
       }
+      if constexpr (!WithOffset)
+        transverse_squared += residual[transverse] * residual[transverse];
     }
     if (i > j)
       std::swap(i, j);
     feature = 2 * (i * (7 - i) / 2 + j - i - 1);
+    float along = 0.0f;
     if (halves >= 3) {
       // Three half-grid coordinates tie both strut orientations.
-      if (ODD != (residual[i] + residual[j] != 0.0f))
-        for (int k = 0; k < 4; ++k)
-          if (k != i && k != j && absolute[k] == 0.5f) {
-            residual[k] = -residual[k];
-            break;
-          }
-      residual[i] = 0.0f;
-      residual[j] = 0.0f;
+      if constexpr (WithOffset) {
+        if (ODD != (residual[i] + residual[j] != 0.0f))
+          for (int k = 0; k < 4; ++k)
+            if (k != i && k != j && absolute[k] == 0.5f) {
+              residual[k] = -residual[k];
+              break;
+            }
+        residual[i] = 0.0f;
+        residual[j] = 0.0f;
+      }
     } else {
       const bool SAME_SIGN = (residual[i] < 0.0f) == (residual[j] < 0.0f);
       const float SIGN =
           absolute[i] != 0.0f && absolute[j] != 0.0f && SAME_SIGN != ODD
               ? 1.0f
               : -1.0f;
-      float along = residual[i] - SIGN * residual[j];
+      along = residual[i] - SIGN * residual[j];
       if (ODD)
         along -= copysignf(1.0f, along);
-      residual[i] = 0.5f * along;
-      residual[j] = -0.5f * SIGN * along;
+      if constexpr (WithOffset) {
+        residual[i] = 0.5f * along;
+        residual[j] = -0.5f * SIGN * along;
+      }
       feature += SIGN > 0.0f;
     }
-    for (int k = 0; k < 4; ++k)
-      residual[k] *= SCALE;
-    return residual;
+    if constexpr (WithOffset) {
+      for (int k = 0; k < 4; ++k)
+        residual[k] *= SCALE;
+      return residual;
+    } else {
+      return sqrtf(transverse_squared + 0.5f * along * along) * SCALE;
+    }
+  }
+
+  math::Vec4 edge_offset(const math::Vec4 &p, uint32_t &feature) const {
+    return edge_query<true>(p, feature);
   }
 
   static float magnitude(const math::Vec4 &p) {
@@ -309,7 +329,7 @@ struct OctetFramework4 {
 
   float distance(const math::Vec4 &p) const {
     uint32_t feature;
-    return magnitude(edge_offset(p, feature)) - wire_radius;
+    return edge_query<false>(p, feature) - wire_radius;
   }
 
   math::Vec4 normal(const math::Vec4 &p) const {
@@ -327,7 +347,7 @@ struct OctetFramework4 {
 
   Raycast::QuerySample sample(const math::Vec4 &p) const {
     uint32_t feature;
-    const float VALUE = magnitude(edge_offset(p, feature)) - wire_radius;
+    const float VALUE = edge_query<false>(p, feature) - wire_radius;
     return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
   }
 };
