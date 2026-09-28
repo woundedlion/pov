@@ -151,10 +151,11 @@ public:
         // Slider-paced spawner: the cooldown re-reads Ball Rate on every spawn.
         if (ball_phase_left > 0) {
           --ball_phase_left;
-          if (--spawn_cooldown <= 0) {
+          spawn_cooldown -= 1.0f;
+          while (spawn_cooldown <= 0.0f) {
             spawn_ball();
-            spawn_cooldown = static_cast<int>(hs::rand_f(0.5f, 1.5f) *
-                                              BALL_RATE_FPS / params.ball_rate);
+            spawn_cooldown +=
+                hs::rand_f(0.5f, 1.5f) * BALL_RATE_FPS / params.ball_rate;
           }
         } else if (balls.active_count() == 0) {
           enter_noise();
@@ -678,7 +679,7 @@ private:
       NOISE; /**< Current displacement phase; the effect opens on noise. */
   int ball_phase_left =
       BALL_PHASE_FRAMES; /**< Frames left in this ball phase's spawning window. */
-  int spawn_cooldown = 0; /**< Frames until the next ball spawn. */
+  float spawn_cooldown = 0.0f; /**< Frames until the next ball spawn. */
   bool logged_pool_full =
       false; /**< Pool-full log latch; cleared on each ball phase. */
   float master_gain =
