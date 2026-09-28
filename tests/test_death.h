@@ -2111,6 +2111,14 @@ inline void case_transformer_pool_arena_reclaimed() {
  *          that declares them the other way gets a dead reference here rather
  *          than at some later step().
  */
+inline void case_effect_margin_below_pipeline() {
+  struct MarginEffect : Effect {
+    MarginEffect() : Effect(32, 16, {.margin = 3, .required_margin = 3}) {}
+    void draw_frame() override {}
+  } effect;
+  effect.set_margin(2);
+}
+
 inline void case_transformer_pinned_owner_order() {
   configure_arenas_default();
   Timeline timeline;
@@ -5033,6 +5041,9 @@ inline const Case *all_cases(int &n) {
            "core/animation/transformer.h",
            "(global_timeline_live) TransformerPool outlived its Timeline: declare "
            "the Timeline before the pools that schedule on it"},
+          {"effect_margin_below_pipeline", case_effect_margin_below_pipeline,
+           "core/render/canvas.h",
+           "(m >= required_margin) render margin is smaller than the pipeline requirement"},
           {"effect_double_construct", case_effect_double_construct,
            "core/render/canvas.h",
            "(!s_alive) Effect: a second Effect was constructed while one is "
@@ -5646,8 +5657,6 @@ inline const Case *all_cases(int &n) {
           {"chain_non_power_alignment", case_chain_non_power_alignment,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
-          {"chain_non_power_alignment",
-           case_chain_non_power_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
           {"chain_overaligned_block", case_chain_overaligned_block,
            "core/render/pullback/interpreter.h",
            "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
