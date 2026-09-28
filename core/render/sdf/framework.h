@@ -483,8 +483,13 @@ struct OctetEvents : FrameworkPlaneStreams<4> {
       }
     FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
                                      STREAM_COUNT, ray.interval.near);
-    for (size_t i = 0; i < STREAM_COUNT; ++i)
+    for (size_t i = 0; i < STREAM_COUNT; ++i) {
       cursors[i].active = cursors[i].active && owned[i];
+      positions[i] *= inverse_spacing;
+      speeds[i] *= inverse_spacing;
+    }
+    for (auto &pair : pairs)
+      pair.scale *= spacing * spacing;
   }
 
   Raycast::Contribution candidate(size_t index) const {
@@ -496,7 +501,7 @@ struct OctetEvents : FrameworkPlaneStreams<4> {
       if (pair.owner != index || pair.scale == 0.0f)
         continue;
       const float U = positions[pair.other] + T * speeds[pair.other];
-      const float RESIDUAL = U - spacing * roundf(U * inverse_spacing);
+      const float RESIDUAL = U - roundf(U);
       const float D = RESIDUAL * RESIDUAL * pair.scale;
       if (D < best) {
         best = D;
