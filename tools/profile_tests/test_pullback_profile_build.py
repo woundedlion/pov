@@ -12,8 +12,14 @@ SHA = "0123456789ab"
 
 
 class FakeEnvironment(dict):
-    def Append(self, **values):
+    def AddBuildMiddleware(self, callback, pattern):
+        self.callback = callback
+        self.pattern = pattern
+
+    def Object(self, node, **values):
+        self.compiled_node = node
         self.appended = values
+        return "profile-object"
 
 
 class PullbackProfileBuild(unittest.TestCase):
@@ -29,7 +35,14 @@ class PullbackProfileBuild(unittest.TestCase):
                 str(SCRIPT),
                 init_globals={"env": environment, "Import": lambda _: None},
             )
-        return environment.appended["CPPDEFINES"], run.call_args_list
+        self.assertNotIn("CPPDEFINES", environment)
+        self.assertEqual(environment.pattern, "*Profile.ino.cpp")
+        environment["CPPDEFINES"] = ["EXISTING"]
+        self.assertEqual(environment.callback(environment, "profile-source"), "profile-object")
+        self.assertEqual(environment.compiled_node, "profile-source")
+        self.assertEqual(environment["CPPDEFINES"], ["EXISTING"])
+        self.assertEqual(environment.appended["CPPDEFINES"][0], "EXISTING")
+        return environment.appended["CPPDEFINES"][1:], run.call_args_list
 
     def test_clean_tree_uses_bare_sha(self):
         defines, calls = self._run_script("")
