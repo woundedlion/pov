@@ -83,14 +83,6 @@ equirectangular_weight(const math::Vector &input, float singularity_fade) {
 }
 
 __attribute__((always_inline)) inline float
-equirectangular_weight(float latitude, float singularity_fade) {
-  const float cos_latitude = cosf(latitude);
-  const float sin_latitude = sinf(latitude);
-  return singularity_attenuation(cos_latitude * cos_latitude,
-                                 sin_latitude * sin_latitude, singularity_fade);
-}
-
-__attribute__((always_inline)) inline float
 peirce_weight(const math::Vector &input, float meridian_cos, float meridian_sin,
               float singularity_fade) {
   const float rotated_x = input.x * meridian_cos + input.z * meridian_sin;
