@@ -113,12 +113,14 @@ stereographic(const math::Vector &input, float singularity_fade) {
   // Fade distance is the sphere-space measure 1 - y.
   const math::Complex coords = projections::stereo(input);
   return {coords,
-          {0, 0, static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
-           std::max(0.0f, 1.0f - input.y),
-           singularity_attenuation(std::max(0.0f, 1.0f - input.y),
-                                   std::max(0.0f, 1.0f + input.y),
-                                   singularity_fade),
-           0}};
+          {.region_id = 0,
+           .component_id = 0,
+           .boundary_flags = static_cast<uint8_t>(ProjectionBoundary::SINGULAR),
+           .fade_edge_distance = std::max(0.0f, 1.0f - input.y),
+           .value_weight = singularity_attenuation(
+               std::max(0.0f, 1.0f - input.y), std::max(0.0f, 1.0f + input.y),
+               singularity_fade),
+           .flags = 0}};
 }
 
 // Out of line under Emscripten, inlined on every other target.
@@ -133,8 +135,12 @@ inline ProjectionResult folded_sinusoidal(const math::Vector &input,
   const math::Complex coords =
       projections::folded_sinusoidal(input, central_meridian, &longitude);
   return {coords,
-          {static_cast<uint8_t>(longitude < 0.0f), 0, 0,
-           projections::NO_EDGE_DISTANCE, 1.0f, FOLDED_FLAG}};
+          {.region_id = static_cast<uint8_t>(longitude < 0.0f),
+           .component_id = 0,
+           .boundary_flags = 0,
+           .fade_edge_distance = projections::NO_EDGE_DISTANCE,
+           .value_weight = 1.0f,
+           .flags = FOLDED_FLAG}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
@@ -143,9 +149,12 @@ equirectangular(const math::Vector &input, float central_meridian,
   const math::Complex coords =
       projections::equirectangular(input, central_meridian);
   return {coords,
-          {0, 0, static_cast<uint8_t>(ProjectionBoundary::CUT),
-           math::PI_F - fabsf(coords.re),
-           equirectangular_weight(input, singularity_fade), 0}};
+          {.region_id = 0,
+           .component_id = 0,
+           .boundary_flags = static_cast<uint8_t>(ProjectionBoundary::CUT),
+           .fade_edge_distance = math::PI_F - fabsf(coords.re),
+           .value_weight = equirectangular_weight(input, singularity_fade),
+           .flags = 0}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
@@ -159,17 +168,20 @@ gnomonic(const math::Vector &input, float singularity_fade,
       hemisphere == GnomonicHemisphere::FOLDED ||
       (hemisphere == GnomonicHemisphere::FRONT ? input.y >= 0.0f
                                                : input.y < 0.0f);
-  return {
-      coords,
-      {static_cast<uint8_t>(input.y < 0.0f),
-       static_cast<uint8_t>(input.y < 0.0f),
-       static_cast<uint8_t>(static_cast<uint8_t>(ProjectionBoundary::CUT) |
-                            static_cast<uint8_t>(ProjectionBoundary::SINGULAR)),
-       fabsf(input.y), // Sphere-space distance to the equatorial singularity.
-       singularity_attenuation(input.y * input.y,
-                               input.x * input.x + input.z * input.z,
-                               singularity_fade),
-       0, 0, 0, in_domain ? 1.0f : 0.0f}};
+  return {coords,
+          {.region_id = static_cast<uint8_t>(input.y < 0.0f),
+           .component_id = static_cast<uint8_t>(input.y < 0.0f),
+           .boundary_flags = static_cast<uint8_t>(
+               static_cast<uint8_t>(ProjectionBoundary::CUT) |
+               static_cast<uint8_t>(ProjectionBoundary::SINGULAR)),
+           .fade_edge_distance = fabsf(input.y),
+           .value_weight = singularity_attenuation(
+               input.y * input.y, input.x * input.x + input.z * input.z,
+               singularity_fade),
+           .flags = 0,
+           .traits = 0,
+           .edge_class = 0,
+           .domain_coverage = in_domain ? 1.0f : 0.0f}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
@@ -177,9 +189,15 @@ from_kernel(const projections::ProjectionKernelResult &result,
             float coordinate_scale, float value_weight = 1.0f) {
   return {{result.coords.re * coordinate_scale,
            result.coords.im * coordinate_scale},
-          {result.region_id, result.component_id, result.boundary_flags,
-           result.fade_edge_distance * fabsf(coordinate_scale), value_weight,
-           result.flags, result.traits, result.edge_class}};
+          {.region_id = result.region_id,
+           .component_id = result.component_id,
+           .boundary_flags = result.boundary_flags,
+           .fade_edge_distance =
+               result.fade_edge_distance * fabsf(coordinate_scale),
+           .value_weight = value_weight,
+           .flags = result.flags,
+           .traits = result.traits,
+           .edge_class = result.edge_class}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
