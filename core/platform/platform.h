@@ -35,9 +35,17 @@
 #define HS_CHECK(cond, ...)                                                    \
   do {                                                                         \
     if (!(cond))                                                               \
-      ::hs::check_fail(HS_SOURCE_FILE, __LINE__,                               \
-                       #cond __VA_OPT__(, ) __VA_ARGS__);                      \
+      ::hs::check_fail(HS_CHECK_SITE(#cond) __VA_OPT__(, ) __VA_ARGS__);       \
   } while (0)
+
+#define HS_CHECK_STRINGIZE_IMPL(x) #x
+#define HS_CHECK_STRINGIZE(x) HS_CHECK_STRINGIZE_IMPL(x)
+/**
+ * @brief Folds a check site into one "file:line: (cond)" string literal.
+ * @param cond_str String literal naming the failed condition.
+ */
+#define HS_CHECK_SITE(cond_str)                                                \
+  HS_SOURCE_FILE ":" HS_CHECK_STRINGIZE(__LINE__) ": (" cond_str ")"
 
 /**
  * @brief Optional structural audit that traps when enabled.
@@ -346,17 +354,15 @@ namespace hs {
 
 /**
  * @brief Backing routine for HS_CHECK: logs a located breadcrumb then traps.
- * @param file Source file of the failed check (typically __FILE__).
- * @param line Source line of the failed check (typically __LINE__).
- * @param cond Stringified failed condition.
+ * @param site Failed site as "file:line: (cond)", built by HS_CHECK_SITE.
  * @param fmt printf-style message format; trailing args supply the values.
  * @details Flushes the log before trapping, so a release/device build records
  *          which invariant fired and where. Formats msg into a fixed stack
  *          buffer (no heap) so it is safe to call from a corrupted-arena / OOM
  *          context. Never returns.
  */
-[[noreturn]] HS_FLASH_INLINE __attribute__((format(printf, 4, 5))) inline void
-check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
+[[noreturn]] HS_FLASH_INLINE __attribute__((format(printf, 2, 3))) inline void
+check_fail(const char *site, const char *fmt, ...) {
   char msg[256];
   va_list args;
   va_start(args, fmt);
@@ -367,18 +373,10 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   vsnprintf(msg, sizeof(msg), fmt, args);
 #endif
   va_end(args);
-  const char *base = file;
-#if !HS_ENABLE_TEST_HOOKS
-  // Keep device breadcrumbs within the bounded log buffer.
-  for (const char *p = file; *p; ++p) {
-    if (*p == '/' || *p == '\\')
-      base = p + 1;
-  }
-#endif
 #ifdef __EMSCRIPTEN__
   // stderr rather than hs::log's stdout: fd 2 is what Emscripten routes to an
   // installed Module.printErr, and the buffer only drains on the newline.
-  fprintf(stderr, "HS_CHECK failed: %s:%d: (%s) %s\n", base, line, cond, msg);
+  fprintf(stderr, "HS_CHECK failed: %s %s\n", site, msg);
   fflush(stderr);
   // The trap below compiles to wasm `unreachable`, which unwinds nothing: the
   // shadow stack pointer keeps whatever the aborted frame left it at, so every
@@ -388,15 +386,15 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
   // the RuntimeError.
   EM_ASM({ Module['HS_MODULE_DEAD'] = true; });
 #elif defined(ARDUINO)
-  hs::log_fragment("HS_CHECK failed: %s:%d: (", base, line);
-  Serial.print(cond);
-  Serial.print(") ");
+  hs::log_fragment("HS_CHECK failed: ");
+  Serial.print(site);
+  Serial.print(" ");
   hs::log("%s", msg);
 #elif HS_ENABLE_TEST_HOOKS
-  fprintf(stderr, "HS_CHECK failed: %s:%d: (%s) %s\n", base, line, cond, msg);
+  fprintf(stderr, "HS_CHECK failed: %s %s\n", site, msg);
   fflush(stderr);
 #else
-  hs::log("HS_CHECK failed: %s:%d: (%s) %s", base, line, cond, msg);
+  hs::log("HS_CHECK failed: %s %s", site, msg);
 #endif
   hs::flush_log();
   __builtin_trap();
@@ -405,9 +403,8 @@ check_fail(const char *file, int line, const char *cond, const char *fmt, ...) {
 // HS_CHECK(cond) with no message. Delegates with an empty formatted message
 // ("%s", "") rather than passing a literal "" as the format, so no zero-length
 // format string ever reaches the printf-format check (gcc -Wformat-zero-length).
-[[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *file, int line,
-                                                    const char *cond) {
-  check_fail(file, line, cond, "%s", "");
+[[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *site) {
+  check_fail(site, "%s", "");
 }
 
 } // namespace hs
