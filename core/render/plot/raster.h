@@ -406,6 +406,12 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     rasterize<W, H, Cfg>(erased, canvas, points, erased_shader, opts);
     return;
   }
+  const bool world_identity = [&] {
+    if constexpr (requires { source_pipeline.world_transform_is_identity; })
+      return source_pipeline.world_transform_is_identity;
+    else
+      return true;
+  }();
   HS_PLOT_COUNT(rings);
   const bool close_loop = OPEN_GEODESIC ? false : opts.loop.is_closed();
   const math::Basis *planar_basis =
@@ -579,11 +585,17 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                                        SCREEN_STEP_PX));
     };
     auto adaptive_step = [&](const SamplePT &value) {
+      if constexpr (std::same_as<std::decay_t<PipelineT>, PipelineRef>) {
+        return pipeline_screen_step<W, H>(pipeline, value, world_identity);
+      } else {
+        if (!world_identity)
+          return pipeline_screen_step<W, H>(pipeline, value, false);
 #if HS_ENABLE_TEST_ORACLES
-      if (g_reference_screen_step)
-        return screen_step_reference<W, H>(value.pos, value.tan, base_step);
+        if (g_reference_screen_step)
+          return screen_step_reference<W, H>(value.pos, value.tan, base_step);
 #endif
-      return screen_step<W, H>(value.pos, value.tan, base_step);
+        return screen_step<W, H>(value.pos, value.tan, base_step);
+      }
     };
     int planar_arc_interval = 0;
     auto adaptive_sample = [&](float t) -> SamplePT {
@@ -756,7 +768,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
               if (balanced_sampling) {
                 const float sin2 = 1.0f - smp.pos.y * smp.pos.y;
                 reuse_step =
-                    sin2 > BALANCED_REUSE_MIN_SIN2 &&
+                    world_identity && sin2 > BALANCED_REUSE_MIN_SIN2 &&
                     default_desired_step > base_step * MIN_POLE_SCALE *
                                                BALANCED_POLE_GUARD_SCALE &&
                     default_desired_step <
@@ -1008,7 +1020,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // planar basis), so plot it without building the sampler. A predicate
     // false negative falls through and re-evaluates exactly.
     const bool one_dot =
-        !has_planar_basis &&
+        world_identity && !has_planar_basis &&
         (edge_flags != nullptr &&
                  (edge_flags[i] & RasterOptions::EDGE_CLASSIFIED) != 0
              ? (edge_flags[i] & RasterOptions::EDGE_ONE_DOT) != 0

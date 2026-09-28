@@ -3688,11 +3688,14 @@ inline void test_dynamo_emitted_points_counts_ring_seeds() {
   WB::D effect;
   effect.init();
   WB::set_trail_length(effect, 100.0f);
+  WB::set_speed(effect, 1.0f);
+  constexpr int FRAMES = 3;
 
-  for (int f = 0; f < 3; ++f) {
+  for (int f = 0; f < FRAMES; ++f) {
     const size_t before = WB::trail_points(effect);
     effect.draw_frame();
     effect.advance_display();
+    HS_EXPECT_GT(WB::trail_ceiling(effect), static_cast<float>(FRAMES));
     const size_t seeded = WB::trail_points(effect) - before;
     HS_EXPECT_GT(WB::emitted_points(effect), 0u);
     HS_EXPECT_EQ(seeded, static_cast<size_t>(WB::emitted_points(effect)));
