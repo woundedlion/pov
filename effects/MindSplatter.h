@@ -161,8 +161,7 @@ public:
     register_readonly_param("Particles", &params.active_count, 0.0f,
                             (float)NUM_PARTICLES);
 
-    timeline.add(
-        0, Animation::RandomWalk<W, 4, true>(orientation, math::Y_AXIS, noise));
+    timeline.add(0, Animation::RandomWalk<W>(orientation, math::Y_AXIS, noise));
 
     // First dwell spans a full cadence period, so the opening preset holds as
     // long as every later one (dwell + blend).

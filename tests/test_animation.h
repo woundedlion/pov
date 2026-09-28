@@ -3602,34 +3602,45 @@ inline void test_random_walk_stays_unit_and_travels() {
 }
 
 /**
- * @brief Stable rotation boundaries hold the seeded RandomWalk trajectory.
+ * @brief The stable-rotation walk recurrence RandomWalk steps tracks the
+ * make_rotation one from the same seed.
  */
 inline void test_random_walk_stable_rotation_tracks_default() {
-  using DefaultWalk = Animation::RandomWalk<288, 4>;
-  using StableWalk = Animation::RandomWalk<288, 4, true>;
   constexpr int FRAMES = 50;
   constexpr double ANGULAR_DRIFT_RADIANS = 1e-4;
+  const Animation::RandomWalkOptions options =
+      Animation::RandomWalkOptions::Energetic();
 
-  math::Orientation<4> default_orientation;
-  math::Orientation<4> stable_orientation;
   FastNoiseLite default_noise;
   FastNoiseLite stable_noise;
-  DefaultWalk default_walk(default_orientation, math::Y_AXIS, default_noise,
-                           DefaultWalk::Options::Energetic(), /*seed=*/1234);
-  StableWalk stable_walk(stable_orientation, math::Y_AXIS, stable_noise,
-                         StableWalk::Options::Energetic(), /*seed=*/1234);
+  for (FastNoiseLite *noise : {&default_noise, &stable_noise}) {
+    noise->SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noise->SetFrequency(options.noise_scale);
+    noise->SetSeed(1234);
+  }
+  math::Vector default_position = math::Y_AXIS;
+  math::Vector stable_position = math::Y_AXIS;
+  math::Vector default_direction = math::perpendicular_axis(math::Y_AXIS);
+  math::Vector stable_direction = default_direction;
+  float default_velocity = 0.0f;
+  float stable_velocity = 0.0f;
 
-  for (int frame = 0; frame < FRAMES; ++frame) {
-    HS_CONTEXT("frame", frame);
-    default_walk.step(fake_canvas());
-    stable_walk.step(fake_canvas());
-    for (const math::Vector &probe : {math::X_AXIS, math::Z_AXIS}) {
-      const math::Vector expected = default_orientation.orient(probe);
-      const math::Vector actual = stable_orientation.orient(probe);
-      HS_EXPECT_LE(small_angle_between(actual, expected),
-                   ANGULAR_DRIFT_RADIANS);
-      HS_EXPECT_NEAR(actual.length(), 1.0f, 1e-4f);
-    }
+  for (uint32_t frame = 1; frame <= FRAMES; ++frame) {
+    HS_CONTEXT("frame", static_cast<long long>(frame));
+    const Animation::RandomWalkDelta expected =
+        Animation::step_random_walk<false>(default_position, default_direction,
+                                           default_velocity, default_noise,
+                                           options, frame);
+    const Animation::RandomWalkDelta actual = Animation::step_random_walk<true>(
+        stable_position, stable_direction, stable_velocity, stable_noise,
+        options, frame);
+    HS_EXPECT_LE(small_angle_between(stable_position, default_position),
+                 ANGULAR_DRIFT_RADIANS);
+    HS_EXPECT_LE(small_angle_between(stable_direction, default_direction),
+                 ANGULAR_DRIFT_RADIANS);
+    HS_EXPECT_LE(small_angle_between(actual.axis, expected.axis),
+                 ANGULAR_DRIFT_RADIANS);
+    HS_EXPECT_NEAR(stable_position.length(), 1.0f, 1e-4f);
   }
 }
 

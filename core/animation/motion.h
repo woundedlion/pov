@@ -636,10 +636,9 @@ step_random_walk(math::Vector &position, math::Vector &direction,
  * the walk explicitly.
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
- * @tparam STABLE_ROTATION Preserve rotation helper call boundaries.
  */
-template <int W, int CAP = 4, bool STABLE_ROTATION = false>
-class RandomWalk : public AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>> {
+template <int W, int CAP = 4>
+class RandomWalk : public AnimationBase<RandomWalk<W, CAP>> {
 public:
   using Options = RandomWalkOptions;
 
@@ -657,9 +656,9 @@ public:
    */
   RandomWalk(math::Orientation<CAP> &orientation, const math::Vector &v_start,
              FastNoiseLite &noise, Options options = Options(), int seed = 0)
-      : AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>(-1, false),
-        orientation(orientation), v(math::Vector(v_start).normalized()),
-        options(options), noise_generator(noise) {
+      : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
+        v(math::Vector(v_start).normalized()), options(options),
+        noise_generator(noise) {
     HS_CHECK(
         std::isfinite(options.speed) && std::isfinite(options.pivot_strength) &&
             std::isfinite(options.noise_scale) &&
@@ -731,10 +730,10 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step and rotation).
    */
   void step(Canvas &canvas) override {
-    AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>::step(canvas);
-    const RandomWalkDelta delta = step_random_walk<STABLE_ROTATION>(
-        v, direction, angular_velocity, noise_generator.get(), options,
-        this->t);
+    AnimationBase<RandomWalk<W, CAP>>::step(canvas);
+    const RandomWalkDelta delta =
+        step_random_walk<true>(v, direction, angular_velocity,
+                               noise_generator.get(), options, this->t);
     Rotation<W, CAP>::animate(canvas, orientation, delta.axis, options.speed,
                               math::ease_linear);
   }
