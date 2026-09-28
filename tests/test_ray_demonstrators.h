@@ -33,10 +33,14 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
     const Raycast::Footprint FOOTPRINT{sample % 5 == 0 ? 0.0f : .02f, .3f};
     const auto PLANES = geometry.plane_families();
     SDF::OctetEvents events(geometry, RAY, FOOTPRINT);
+    SDF::FrameworkPlaneEvents reference(RAY, FOOTPRINT);
+    reference.initialize(PLANES, geometry.origin, geometry.valid());
     for (size_t stream = 0; stream < PLANES.size(); ++stream) {
       for (int crossing = 0; crossing < 8 && events.active(stream);
            ++crossing) {
         const auto HIT = events.candidate(stream);
+        HS_EXPECT_NEAR(HIT.t, reference.distance(stream),
+                       2e-5f * std::max(1.0f, HIT.t));
         const auto POINT = RAY.at(HIT.t) - geometry.origin;
         float best = INFINITY;
         uint32_t feature = 0;
@@ -71,6 +75,7 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
         if (COVERAGE > 0)
           HS_EXPECT_EQ(HIT.feature, feature);
         events.advance(stream);
+        reference.advance(stream);
       }
     }
   }
