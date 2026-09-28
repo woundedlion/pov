@@ -22,12 +22,9 @@ on:
 permissions:
   contents: read
 
-# Cancel superseded PR runs on the same ref to save CI minutes. Master pushes
-# queue instead: back-to-back landings share refs/heads/master, and cancelling
-# leaves the earlier commit with a cancelled — neither green nor visibly red —
-# verdict. Windows and FULL effects coverage run on pull requests as well.
+# PRs share a group; each push SHA gets an independent verdict and bundle.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
