@@ -223,6 +223,7 @@ public:
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
       "experimental-octet-flight",
       "experimental-octet-4d-slice",
+      "experimental-octet-wide-flight",
 #endif
       "cubic-wide-flight",
   });
@@ -281,6 +282,19 @@ public:
       value.speed = index == 2 ? .078f : .008f;
       value.spin_3d = index == 2 ? .008265f : .0024f;
       value.spin_4d = index == 3 ? .0024f : 0.0f;
+      value.color = ColorMode::DEPTH;
+      break;
+    case 4:
+      value.pattern = Pattern::OCTET;
+      value.mode = LatticeMode::THREE_D;
+      value.sphere_radius = 1.0f;
+      value.cell_size = 3.82825f;
+      value.wire_radius = .015f;
+      value.near_fade = 2.0f;
+      value.far_distance = 10.666f;
+      value.aa_strength = 2.0f;
+      value.speed = .12750001f;
+      value.spin_3d = .010155f;
       value.color = ColorMode::DEPTH;
       break;
 #endif
