@@ -68,6 +68,104 @@ Preset indices 2 and 3 select Octet in 3D and 4D respectively.
 Fixed selection avoids mistaking a partial slow experimental cycle for a full
 preset sweep. Device size/layout gates still apply to opt-in builds.
 
+## Octet validation and device measurements
+
+These measurements use clean source `39225587612be7a45a9d4569dd1eb489569338a5`.
+Both fixed presets were captured sequentially on COM3, Teensy 4.0 at 600 MHz,
+with the shipping selective-O3 configuration and the real
+`POVSegmented<288, 4, 480>` driver, including live flywheel and DMA interrupts.
+Each capture lasts 70 seconds with 16-frame counter windows. The harness holds
+the preset while camera motion, rotation, and palette cycling continue.
+This is a bounded observation of each moving preset, not an exhaustive pose
+sweep or a global-O3 comparison.
+
+| View | Runtime frames | Mean render ms | Peak render ms | Spilled | Mean wall ms |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 3D | 2–549 | 90.406 | 103.733 | 548/548 (100%) | 124.903 |
+| 4D slice | 2–121 | 529.105 | 549.828 | 120/120 (100%) | 562.136 |
+
+Neither view meets the 62.5 ms frame budget. The observed display cadence is
+approximately 8 fps in 3D and 1.78 fps in 4D. The previous
+[Triangular capture](hyperlattice_triangular_2026-09-27.md) averaged 126.099 ms
+and peaked at 134.620 ms; these are separate moving-geometry captures.
+
+Startup frame 1 is excluded from every runtime statistic: 172.165 ms in 3D,
+1041.042 ms in 4D. Exact runtime statistics retain trailing frames after the
+last full window (5 in 3D, 9 in 4D). Counter summaries exclude the entire
+startup-containing window: frames 17–544 in 3D and 17–112 in 4D.
+Both raw logs pass fixed-preset, effect-name, frame-monotonicity, complete-row,
+and cycle/wall validation; no epoch reset occurs.
+
+3D: `hl_shader_draw` averages 88.282 ms/frame (70.6% of root cycles). Frames 401–416 agree between root cycles and wall sum within 0.064 ppm.
+
+4D: `hl_shader_draw` averages 524.969 ms/frame (93.4% of root cycles). Frames 17–32 agree between root cycles and wall sum within 0.062 ppm.
+
+Shader scopes include traversal, coverage, and coloring. No per-pixel scopes
+were added; the nominal 10,368-pixel quadrant evaluates 10,658 shader samples
+with the scan margin. Buffer wait is display alignment, not rendering work.
+Device captures do not log unfinished-ray counts; timing alone does not prove
+coverage quality.
+
+Evidence: [3D raw capture](evidence/hyperlattice_octet_2026-09-27/3d.txt),
+[3D summary](evidence/hyperlattice_octet_2026-09-27/3d_summary.json),
+[4D raw capture](evidence/hyperlattice_octet_2026-09-27/4d.txt),
+[4D summary](evidence/hyperlattice_octet_2026-09-27/4d_summary.json).
+The evidence directory also preserves parser validation, provenance, build
+logs, and exact-byte environment dumps. The wrapper's paired Phantasm image is
+the default roster; the separate opt-in build below validates the full roster
+with Octet enabled.
+
+### Firmware size and code placement
+
+| Image | RAM1 code | RAM1 variables | FLASH code | FLASH data | ITCM headroom |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Default | 195,544 | 314,784 | 502,424 | 725,504 | 1,064 |
+| Octet enabled | 196,184 | 314,784 | 515,656 | 725,628 | 424 |
+| Opt-in minus default | +640 | 0 | +13,232 | +124 | -640 |
+
+Both images pass size/layout gates. RAM2 variables remain 520,064 bytes with
+4,224 free; RAM1 leaves 12,896 bytes for locals. The ITCM ceiling remains
+196,608 bytes with zero reserved headroom. Against the pre-Octet default,
+RAM1 code and variables are unchanged, FLASH code grows 312 bytes and FLASH
+data grows 52 bytes. Against the earlier three-experiment opt-in image,
+Octet reduces RAM1 code by 400 bytes and FLASH data by 100 bytes; FLASH code
+grows 536 bytes.
+
+The [symbol audit](evidence/hyperlattice_octet_2026-09-27/layout.json) finds no
+Octet symbols in the default image. The opt-in image has one shared scan
+wrapper, one shared plane-cursor initializer, and separate 3D/4D shade functions.
+Cold initialization and control callbacks use `HS_COLD_MEMBER`; large hot
+Octet shading/query helpers use `HS_HOT_FLASH_MEMBER`. The small 84-byte D4
+validity check remains in ITCM. Build logs contain vendor warnings; no
+first-party warning was observed.
+
+Bounding the coincident-event group to its single merge identity saves
+608 bytes of FLASH code and 32 bytes of ITCM, and reduces the observed 4D WASM
+render stack watermark from 1,120 to 888 bytes. The 24-frame RGB16 previews are
+[byte-identical across that change](evidence/hyperlattice_octet_2026-09-27/group-storage-parity.json).
+
+### Native and simulator validation
+
+The [full native suite](evidence/hyperlattice_octet_2026-09-27/native-tests.txt)
+passes 100 tests, with one intentional replay skip. After the group-storage
+change, [five focused suites](evidence/hyperlattice_octet_2026-09-27/native-final-tests.txt)
+pass again. Geometry tests cover independent nearest-edge oracles, symmetry,
+FCC/D4 parity, scale, placement, fourth-coordinate dependence, invalid rays,
+coincident events, and traversal limits. Control tests cover all four tuples,
+independent Pattern/View writes, default adoption, snapshot validation, and
+visible moving output.
+
+The final [WASM smoke](evidence/hyperlattice_octet_2026-09-27/wasm-final-smoke.txt)
+passes all HyperLattice presets at every supported resolution. The following
+flat equirectangular previews show each Octet preset after 24 frames at 288×144,
+converted from linear RGB16 to sRGB. Both last frames report zero unfinished
+rays, with 888-byte render and 944-byte initialization stack watermarks out
+of 8,192 bytes. These host observations are not device timing measurements.
+The 4D image contains disconnected cross-sections of thick struts, as expected
+for a three-dimensional slice through a four-dimensional edge graph.
+
+![Octet 3D and 4D slice previews](evidence/hyperlattice_octet_2026-09-27/preview.png)
+
 ## Historical validation of the replaced previews
 
 The following validation and images describe the earlier Triangular, Cosine,
