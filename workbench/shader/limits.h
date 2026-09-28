@@ -88,6 +88,59 @@ inline constexpr float CELL_MIN = 1.0f / 64.0f;
 inline constexpr float CELL_MAX = 8.0f;
 inline constexpr float SOFTNESS_MIN = 1.0f / 1024.0f;
 
+inline constexpr float SOURCE_NOISE_CONTRAST_MIN = 0.0f;
+inline constexpr float SOURCE_NOISE_CONTRAST_MAX = 8.0f;
+inline constexpr float SOURCE_LATTICE_SHAPE_BLEND_MIN = 0.0f;
+inline constexpr float SOURCE_LATTICE_SHAPE_BLEND_MAX = 1.0f;
+inline constexpr float SOURCE_LATTICE_SOFTNESS_MAX = 1.0f;
+inline constexpr float SOURCE_LATTICE_RADIUS_MIN = 1.0f / 64.0f;
+inline constexpr float SOURCE_LATTICE_RADIUS_MAX = 0.49f;
+inline constexpr int SOURCE_RING_COUNT_MIN = 1;
+inline constexpr int SOURCE_RING_COUNT_MAX = 32;
+inline constexpr float SOURCE_RING_THICKNESS_MIN = 1.0f / 512.0f;
+inline constexpr float SOURCE_RING_THICKNESS_MAX = 0.5f;
+inline constexpr float SOURCE_RING_SOFTNESS_MAX = 0.25f;
+inline constexpr float SOURCE_RING_WANDER_MIN = 0.0f;
+inline constexpr float SOURCE_RING_WANDER_MAX = 1.0f;
+inline constexpr float SOURCE_FRACTAL_SCALE_MIN = 1.0f / 64.0f;
+inline constexpr float SOURCE_FRACTAL_SCALE_MAX = 8.0f;
+inline constexpr int SOURCE_FRACTAL_ITERATIONS_MIN = 2;
+inline constexpr int SOURCE_FRACTAL_ITERATIONS_MAX = 16;
+inline constexpr float SOURCE_JULIA_MIX_MIN = 0.0f;
+inline constexpr float SOURCE_JULIA_MIX_MAX = 1.0f;
+inline constexpr float SOURCE_JULIA_REAL_MIN = -1.5f;
+inline constexpr float SOURCE_JULIA_REAL_MAX = 1.5f;
+inline constexpr float SOURCE_JULIA_IMAGINARY_MIN = -1.5f;
+inline constexpr float SOURCE_JULIA_IMAGINARY_MAX = 1.5f;
+inline constexpr float SOURCE_FRACTAL_CONTOURS_MIN = 0.0f;
+inline constexpr float SOURCE_FRACTAL_CONTOURS_MAX = 16.0f;
+inline constexpr float SOURCE_TESSELLATION_CELL_SCALE_MIN = 1.0f / 64.0f;
+inline constexpr float SOURCE_TESSELLATION_CELL_SCALE_MAX = 8.0f;
+inline constexpr float SOURCE_TESSELLATION_LINE_THICKNESS_MAX = 0.25f;
+inline constexpr float SOURCE_TESSELLATION_LINE_SOFTNESS_MAX = 0.25f;
+inline constexpr float PROJECTION_CENTRAL_MERIDIAN_MIN = 0.0f;
+inline constexpr float PROJECTION_COORDINATE_SCALE_MIN = 0.25f;
+inline constexpr float PROJECTION_COORDINATE_SCALE_MAX = 4.0f;
+inline constexpr float PROJECTION_BONNE_STANDARD_PARALLEL_MIN = 1e-3f;
+inline constexpr float PROJECTION_BONNE_STANDARD_PARALLEL_MAX =
+    0.5f * math::PI_F;
+inline constexpr float PROJECTION_LAYOUT_SCROLL_MIN = -1.0f;
+inline constexpr float PROJECTION_LAYOUT_SCROLL_MAX = 1.0f;
+inline constexpr float SURFACE_NOISE_STRENGTH_MIN = -0.5f;
+inline constexpr float SURFACE_NOISE_STRENGTH_MAX = 0.5f;
+inline constexpr float SURFACE_NOISE_DIRECTION_MIN = 0.0f;
+inline constexpr float SURFACE_NOISE_DIRECTION_MAX = 1.0f;
+inline constexpr float VALUE_ISO_LEVEL_MIN = 0.0f;
+inline constexpr float VALUE_ISO_LEVEL_MAX = 1.0f;
+inline constexpr float VALUE_ISO_WIDTH_MAX = 0.5f;
+inline constexpr int VALUE_BAND_COUNT_MIN = 1;
+inline constexpr float VALUE_BAND_PHASE_MIN = 0.0f;
+inline constexpr float VALUE_CUTOUT_THRESHOLD_MIN = 0.0f;
+inline constexpr float VALUE_CUTOUT_THRESHOLD_MAX = 1.0f;
+inline constexpr float VALUE_CUTOUT_SOFTNESS_MAX = 0.5f;
+inline constexpr float VALUE_EDGE_WIDTH_MIN = 0.0f;
+inline constexpr float VALUE_EDGE_WIDTH_MAX = 0.5f;
+
 inline constexpr float lens_domain_linear_scale(SurfaceLens lens) {
   switch (lens) {
   case SurfaceLens::COUNT:
@@ -235,38 +288,49 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
          p.source.angle_rate <= WAVE_SPIN_MAX &&
          p.source.noise_scale >= SOURCE_NOISE_SCALE_MIN &&
          p.source.noise_scale <= SOURCE_NOISE_SCALE_MAX &&
-         p.source.noise_contrast >= 0.0f && p.source.noise_contrast <= 8.0f &&
+         p.source.noise_contrast >= SOURCE_NOISE_CONTRAST_MIN &&
+         p.source.noise_contrast <= SOURCE_NOISE_CONTRAST_MAX &&
          p.source.noise_time_rate >= SOURCE_NOISE_RATE_MIN &&
          p.source.noise_time_rate <= SOURCE_NOISE_RATE_MAX &&
          p.source.lattice_cell_scale >= CELL_MIN &&
          p.source.lattice_cell_scale <= CELL_MAX &&
-         p.source.lattice_shape_blend >= 0.0f &&
-         p.source.lattice_shape_blend <= 1.0f &&
+         p.source.lattice_shape_blend >= SOURCE_LATTICE_SHAPE_BLEND_MIN &&
+         p.source.lattice_shape_blend <= SOURCE_LATTICE_SHAPE_BLEND_MAX &&
          p.source.lattice_softness >= SOFTNESS_MIN &&
-         p.source.lattice_softness <= 1.0f &&
-         p.source.lattice_radius >= 1.0f / 64.0f &&
-         p.source.lattice_radius <= 0.49f &&
+         p.source.lattice_softness <= SOURCE_LATTICE_SOFTNESS_MAX &&
+         p.source.lattice_radius >= SOURCE_LATTICE_RADIUS_MIN &&
+         p.source.lattice_radius <= SOURCE_LATTICE_RADIUS_MAX &&
          enum_at_most(p.source.noise_basis, math::NoiseBasis::RIDGED3) &&
-         p.source.ring_count >= 1 && p.source.ring_count <= 32 &&
-         p.source.ring_thickness >= 1.0f / 512.0f &&
-         p.source.ring_thickness <= 0.5f &&
+         p.source.ring_count >= SOURCE_RING_COUNT_MIN &&
+         p.source.ring_count <= SOURCE_RING_COUNT_MAX &&
+         p.source.ring_thickness >= SOURCE_RING_THICKNESS_MIN &&
+         p.source.ring_thickness <= SOURCE_RING_THICKNESS_MAX &&
          p.source.ring_softness >= SOFTNESS_MIN &&
-         p.source.ring_softness <= 0.25f && p.source.ring_wander >= 0.0f &&
-         p.source.ring_wander <= 1.0f &&
-         p.source.fractal_scale >= 1.0f / 64.0f &&
-         p.source.fractal_scale <= 8.0f && p.source.fractal_iterations >= 2 &&
-         p.source.fractal_iterations <= 16 && p.source.julia_mix >= 0.0f &&
-         p.source.julia_mix <= 1.0f && p.source.julia_real >= -1.5f &&
-         p.source.julia_real <= 1.5f && p.source.julia_imaginary >= -1.5f &&
-         p.source.julia_imaginary <= 1.5f &&
-         p.source.fractal_contours >= 0.0f &&
-         p.source.fractal_contours <= 16.0f &&
-         p.source.tessellation_cell_scale >= 1.0f / 64.0f &&
-         p.source.tessellation_cell_scale <= 8.0f &&
+         p.source.ring_softness <= SOURCE_RING_SOFTNESS_MAX &&
+         p.source.ring_wander >= SOURCE_RING_WANDER_MIN &&
+         p.source.ring_wander <= SOURCE_RING_WANDER_MAX &&
+         p.source.fractal_scale >= SOURCE_FRACTAL_SCALE_MIN &&
+         p.source.fractal_scale <= SOURCE_FRACTAL_SCALE_MAX &&
+         p.source.fractal_iterations >= SOURCE_FRACTAL_ITERATIONS_MIN &&
+         p.source.fractal_iterations <= SOURCE_FRACTAL_ITERATIONS_MAX &&
+         p.source.julia_mix >= SOURCE_JULIA_MIX_MIN &&
+         p.source.julia_mix <= SOURCE_JULIA_MIX_MAX &&
+         p.source.julia_real >= SOURCE_JULIA_REAL_MIN &&
+         p.source.julia_real <= SOURCE_JULIA_REAL_MAX &&
+         p.source.julia_imaginary >= SOURCE_JULIA_IMAGINARY_MIN &&
+         p.source.julia_imaginary <= SOURCE_JULIA_IMAGINARY_MAX &&
+         p.source.fractal_contours >= SOURCE_FRACTAL_CONTOURS_MIN &&
+         p.source.fractal_contours <= SOURCE_FRACTAL_CONTOURS_MAX &&
+         p.source.tessellation_cell_scale >=
+             SOURCE_TESSELLATION_CELL_SCALE_MIN &&
+         p.source.tessellation_cell_scale <=
+             SOURCE_TESSELLATION_CELL_SCALE_MAX &&
          p.source.tessellation_line_thickness >= SOFTNESS_MIN &&
-         p.source.tessellation_line_thickness <= 0.25f &&
+         p.source.tessellation_line_thickness <=
+             SOURCE_TESSELLATION_LINE_THICKNESS_MAX &&
          p.source.tessellation_line_softness >= SOFTNESS_MIN &&
-         p.source.tessellation_line_softness <= 0.25f &&
+         p.source.tessellation_line_softness <=
+             SOURCE_TESSELLATION_LINE_SOFTNESS_MAX &&
          enum_at_most(p.source.tessellation_kind,
                       Pullback::Source::TessellationKind::HEXAGONAL) &&
          p.projection.singularity_fade >= SINGULARITY_FADE_MIN &&
@@ -275,35 +339,43 @@ HS_COLD_MEMBER inline constexpr bool preset_in_ranges(const Config &config) {
          p.projection.spin_rate <= SPIN_RATE_MAX &&
          p.projection.wander >= WANDER_MIN &&
          p.projection.wander <= WANDER_MAX &&
-         p.projection.central_meridian >= 0.0f &&
+         p.projection.central_meridian >= PROJECTION_CENTRAL_MERIDIAN_MIN &&
          p.projection.central_meridian <= math::TWO_PI_F &&
-         p.projection.coordinate_scale >= 0.25f &&
-         p.projection.coordinate_scale <= 4.0f &&
-         p.projection.bonne_standard_parallel >= 1e-3f &&
-         p.projection.bonne_standard_parallel <= 0.5f * math::PI_F &&
-         p.projection.layout_scroll >= -1.0f &&
-         p.projection.layout_scroll <= 1.0f &&
+         p.projection.coordinate_scale >= PROJECTION_COORDINATE_SCALE_MIN &&
+         p.projection.coordinate_scale <= PROJECTION_COORDINATE_SCALE_MAX &&
+         p.projection.bonne_standard_parallel >=
+             PROJECTION_BONNE_STANDARD_PARALLEL_MIN &&
+         p.projection.bonne_standard_parallel <=
+             PROJECTION_BONNE_STANDARD_PARALLEL_MAX &&
+         p.projection.layout_scroll >= PROJECTION_LAYOUT_SCROLL_MIN &&
+         p.projection.layout_scroll <= PROJECTION_LAYOUT_SCROLL_MAX &&
          p.outer_camera.wander >= WANDER_MIN &&
          p.outer_camera.wander <= WANDER_MAX &&
          p.surface_noise.scale >= LENS_NOISE_SCALE_MIN &&
          p.surface_noise.scale <= LENS_NOISE_SCALE_MAX &&
-         p.surface_noise.strength >= -0.5f &&
-         p.surface_noise.strength <= 0.5f &&
+         p.surface_noise.strength >= SURFACE_NOISE_STRENGTH_MIN &&
+         p.surface_noise.strength <= SURFACE_NOISE_STRENGTH_MAX &&
          p.surface_noise.rate >= NOISE_RATE_MIN &&
          p.surface_noise.rate <= NOISE_RATE_MAX &&
-         p.surface_noise.direction >= 0.0f &&
-         p.surface_noise.direction <= 1.0f &&
+         p.surface_noise.direction >= SURFACE_NOISE_DIRECTION_MIN &&
+         p.surface_noise.direction <= SURFACE_NOISE_DIRECTION_MAX &&
          enum_at_most(p.surface_noise.basis, math::NoiseBasis::RIDGED3) &&
          enum_at_most(p.surface_noise.integrator,
                       SurfaceCurlIntegrator::MIDPOINT_2X) &&
-         p.value.iso_level >= 0.0f && p.value.iso_level <= 1.0f &&
-         p.value.iso_width >= SOFTNESS_MIN && p.value.iso_width <= 0.5f &&
-         p.value.band_count >= 1 && p.value.band_count <= BAND_COUNT_MAX &&
-         p.value.band_phase >= 0.0f && p.value.band_phase <= math::TWO_PI_F &&
-         p.value.cutout_threshold >= 0.0f && p.value.cutout_threshold <= 1.0f &&
+         p.value.iso_level >= VALUE_ISO_LEVEL_MIN &&
+         p.value.iso_level <= VALUE_ISO_LEVEL_MAX &&
+         p.value.iso_width >= SOFTNESS_MIN &&
+         p.value.iso_width <= VALUE_ISO_WIDTH_MAX &&
+         p.value.band_count >= VALUE_BAND_COUNT_MIN &&
+         p.value.band_count <= BAND_COUNT_MAX &&
+         p.value.band_phase >= VALUE_BAND_PHASE_MIN &&
+         p.value.band_phase <= math::TWO_PI_F &&
+         p.value.cutout_threshold >= VALUE_CUTOUT_THRESHOLD_MIN &&
+         p.value.cutout_threshold <= VALUE_CUTOUT_THRESHOLD_MAX &&
          p.value.cutout_softness >= SOFTNESS_MIN &&
-         p.value.cutout_softness <= 0.5f && p.value.edge_width >= 0.0f &&
-         p.value.edge_width <= 0.5f &&
+         p.value.cutout_softness <= VALUE_CUTOUT_SOFTNESS_MAX &&
+         p.value.edge_width >= VALUE_EDGE_WIDTH_MIN &&
+         p.value.edge_width <= VALUE_EDGE_WIDTH_MAX &&
          p.color.hue_shift_amount >= -HUE_SHIFT_AMOUNT_MAX &&
          p.color.hue_shift_amount <= HUE_SHIFT_AMOUNT_MAX &&
          p.color.hue_noise_scale >= HUE_NOISE_SCALE_MIN &&
