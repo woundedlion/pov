@@ -155,24 +155,6 @@ private:
    * half their peak area by frame 20. */
   static constexpr int STRAP_BLEND_FRAMES = 20;
 
-  /** Identity class-slot indexing for the per-slot resolved-LUT draw path. */
-  static constexpr std::array<int, NUM_PALETTES> SLOT_IDENTITY = [] {
-    std::array<int, NUM_PALETTES> a{};
-    for (int i = 0; i < NUM_PALETTES; ++i)
-      a[i] = i;
-    return a;
-  }();
-
-  /** Indexable palette-bank view over per-slot resolved LUT pointers. */
-  struct SlotLutView {
-    const BakedPalette *const *slots; /**< One resolved LUT per class slot. */
-    /**
-     * @brief Returns the resolved LUT for a class slot.
-     * @param i Class slot in [0, NUM_PALETTES).
-     */
-    const BakedPalette &operator[](int i) const { return *slots[i]; }
-  };
-
   MeshPaletteBank palette_bank;
 
   /**
@@ -414,8 +396,8 @@ private:
    * @details Strap opening and closing windows are disjoint. Star closing
    * blends act around mid-cycle. At either angle-0 bookend the straps are
    * zero-area, so a 0 changes no pixels and the star-face bookend stays
-   * bitwise exact. When the LUT sets match and no shaping is active, the
-   * shader skips the per-fragment role select.
+   * bitwise exact. Palette, counterpart blend and coverage resolve per
+   * face.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
@@ -440,69 +422,51 @@ private:
     const int topology_faces =
         static_cast<int>(rotated_mesh.get_topology_size());
 
-    SlotLutView star_view{star_by_slot};
-    SlotLutView strap_view{strap_by_slot};
     const bool fade_straps = strap_open_fade < 1.0f;
     const bool close_straps =
         strap_close_blend < 1.0f || strap_terminal_fade < 1.0f;
-    const bool close_stars = star_close_blend < 1.0f;
-    bool split = fade_straps || close_straps || close_stars;
-    for (int s = 0; s < NUM_PALETTES; ++s)
-      split |= star_by_slot[s] != strap_by_slot[s];
-    const int star_faces = static_cast<int>(node_faces);
+    const size_t star_faces = node_faces;
+    const float strap_blend = strap_open_fade < strap_close_blend
+                                  ? strap_open_fade
+                                  : strap_close_blend;
+    float strap_alpha = 1.0f;
+    if (fade_straps)
+      strap_alpha *= strap_open_fade;
+    if (close_straps)
+      strap_alpha *= strap_terminal_fade;
 
-    auto split_shader = [&](const math::Vector &, Fragment &f) {
-      const int fi = mesh_face_index(f);
+    // Face-hoisted: the class palette, its counterpart and the
+    // intensity/inradius gradient scale resolve once per face.
+    FacePaletteShader fragment_shader;
+    auto select_face = [&](size_t fi, float size) {
+      const int cls = fi < static_cast<size_t>(topology_faces)
+                          ? static_cast<int>(topology[fi])
+                          : 0;
+      const int slot = MeshPaletteBank::slot_of(cls);
+      fragment_shader.scale =
+          size > math::TOLERANCE ? params.intensity / size : 0.0f;
       const bool is_strap = fi >= star_faces;
-      const SlotLutView &view = is_strap ? strap_view : star_view;
-      f.color = shade_mesh_topology(f, topology, topology_faces, view,
-                                    SLOT_IDENTITY, params.intensity, 1.0f);
+      fragment_shader.set_palette(is_strap ? strap_by_slot[slot]
+                                           : star_by_slot[slot]);
+      fragment_shader.alpha = is_strap ? strap_alpha : 1.0f;
       // Cross-fade this face's ramp onto the ramp of the face taking its
       // place, sampled at the same edge distance.
-      const float counterpart_blend =
-          is_strap ? (strap_open_fade < strap_close_blend ? strap_open_fade
-                                                          : strap_close_blend)
-                   : star_close_blend;
-      if (counterpart_blend < 1.0f) {
+      const float blend = is_strap ? strap_blend : star_close_blend;
+      if (blend < 1.0f) {
         const uint8_t counterpart =
             is_strap ? host_face_palette[fi] : star_rim_palette[fi];
-        const float t =
-            hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
-        Color4 other = palette_bank.bank.entries[counterpart].get(t);
-        other.alpha = f.color.alpha;
-        f.color = other.lerp(f.color, counterpart_blend);
+        fragment_shader.set_counterpart(
+            &palette_bank.bank.entries[counterpart].view(), blend);
+      } else {
+        fragment_shader.set_counterpart(nullptr, 1.0f);
       }
-      // Coverage fades at each end of the strap's life.
-      if (is_strap && fade_straps)
-        f.color.alpha *= strap_open_fade;
-      if (is_strap && close_straps)
-        f.color.alpha *= strap_terminal_fade;
     };
 
     {
       HS_PROFILE(hk_mesh_scan);
-      if (split) {
-        Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, split_shader,
-                               scratch_arena_a);
-      } else {
-        // Face-hoisted: the class palette and the intensity/inradius gradient
-        // scale resolve once per face, leaving a multiply, a clamp and one LUT
-        // fetch per fragment.
-        FacePaletteShader fragment_shader;
-        fragment_shader.alpha = 1.0f;
-        auto select_face = [&](size_t fi, float size) {
-          const int cls = fi < static_cast<size_t>(topology_faces)
-                              ? static_cast<int>(topology[fi])
-                              : 0;
-          fragment_shader.set_palette(
-              star_by_slot[MeshPaletteBank::slot_of(cls)]);
-          fragment_shader.scale =
-              size > math::TOLERANCE ? params.intensity / size : 0.0f;
-        };
-        Scan::Mesh::draw_specialized<W, H>(filters, canvas, rotated_mesh,
-                                           fragment_shader, scratch_arena_a,
-                                           nullptr, select_face);
-      }
+      Scan::Mesh::draw_specialized<W, H>(filters, canvas, rotated_mesh,
+                                         fragment_shader, scratch_arena_a,
+                                         nullptr, select_face);
     }
   }
 

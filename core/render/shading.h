@@ -212,7 +212,8 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
  * @brief Face-hoisted palette shader for the mesh scan path.
  * @details The caller resolves the face's palette and gradient scale once per
  * face (Scan::Mesh's face-setup hook), leaving a multiply, a clamp and one LUT
- * fetch per fragment. `scale` multiplies the inward edge depth `-v1`, so a
+ * fetch per fragment, plus a second fetch and a blend on faces with a
+ * counterpart palette. `scale` multiplies the inward edge depth `-v1`, so a
  * caller working from a face size passes the reciprocal. Writes frag.color
  * unconditionally, as the minimal-fragment scan path requires. set_palette()
  * must run before the first fragment; operator() debug-asserts it.
@@ -230,15 +231,32 @@ struct FacePaletteShader {
     palette = value;
   }
 
+  /**
+   * @brief Sets or clears the palette the face's ramp blends toward.
+   * @param value Counterpart palette, sampled at the same edge depth; null
+   * clears it.
+   * @param weight Weight of the face's own palette in [0, 1]; 1 clears the
+   * counterpart.
+   */
+  void set_counterpart(const BakedPalette *value, float weight) {
+    counterpart = weight < 1.0f ? value : nullptr;
+    counterpart_weight = frac_to_q16(hs::clamp(weight, 0.0f, 1.0f));
+  }
+
   void operator()(const math::Vector &, Fragment &frag) const {
     assert(palette != nullptr);
     float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
-    frag.color.color = palette->get_color_unit(t);
+    Pixel c = palette->get_color_unit(t);
+    if (counterpart != nullptr)
+      c = counterpart->get_color_unit(t).lerp16(c, counterpart_weight);
+    frag.color.color = c;
     frag.color.alpha = alpha;
   }
 
 private:
   const BakedPalette *palette = nullptr;
+  const BakedPalette *counterpart = nullptr;
+  uint16_t counterpart_weight = 0;
 };
 
 /** @brief Tangent tilt applied to the light before the half-vector sum. */
