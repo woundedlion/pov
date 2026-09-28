@@ -318,11 +318,6 @@ private:
   static constexpr int MAX_DEGREE = 4;
   static_assert(MAX_DEGREE <= 5,
                 "SampleSphere requires normalized harmonics bounded by one");
-  // normalization() divides factorials of up to 2*MAX_DEGREE; float holds exact
-  // integers only up to 2^24, first exceeded at 11!.
-  static_assert(2 * MAX_DEGREE <= 10,
-                "MAX_DEGREE too large: factorial(2*MAX_DEGREE) exceeds float "
-                "precision in normalization()");
   // Top flat index over those degrees: idx peaks at l = MAX_DEGREE, m = +MAX_DEGREE.
   static constexpr int MAX_MODE_IDX =
       (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1; // 24
