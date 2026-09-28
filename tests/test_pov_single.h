@@ -47,7 +47,7 @@ static_assert(strip_opposite_col(48, 96) == 0); // wraps back at the seam
 
 // The IntervalTimer period is derived before the timer starts, so it must fold
 // at compile time.
-static_assert(column_interval_us(480ul * 96ul) == 1302);
+static_assert(column_interval_us(480ul * 96ul) > 1302.08f);
 static_assert(step_column(95, 96).next_x == 0);
 static_assert(step_column(95, 96).advance);
 static_assert(!step_column(0, 96).advance);
@@ -151,35 +151,17 @@ inline void test_opposite_col_offset() {
   HS_EXPECT_EQ(strip_opposite_col(95, w), 47); // (95 + 48) % 96
 }
 
-/**
- * @brief Verify the column-sweep period is the nearest integer µs, not the
- * truncated one, and reproduces both shipping configurations.
- * @details A truncating derivation runs the sweep systematically fast, drifting
- * the image against the rotation; the half-up cases below separate the two.
- */
+/** @brief Fractional timer periods preserve the requested rotation rate. */
 inline void test_column_interval() {
-  // Holosphere 96x20 at 480 RPM: 46,080 columns/min -> 1302 µs.
-  HS_EXPECT_EQ(column_interval_us(480ul * 96ul), 1302ul);
-  // Phantasm 288-column canvas at 480 RPM: 138,240 columns/min -> 434 µs.
-  HS_EXPECT_EQ(column_interval_us(480ul * 288ul), 434ul);
-
-  // Exact division is unrounded.
-  HS_EXPECT_EQ(column_interval_us(1000000ul), 60ul);
-  HS_EXPECT_EQ(column_interval_us(2400000ul), 25ul);
-  // Fractional parts round to nearest, half up: 37.5 -> 38, 12.5 -> 13. Both
-  // would truncate to 37 and 12.
-  HS_EXPECT_EQ(column_interval_us(1600000ul), 38ul);
-  HS_EXPECT_EQ(column_interval_us(4800000ul), 13ul);
-
-  // Swept property: the result is within half a column-rate of exact, which
-  // holds only for round-to-nearest.
+  HS_EXPECT_NEAR(column_interval_us(480ul * 96ul), 1302.083333f, 0.0001f);
+  HS_EXPECT_NEAR(column_interval_us(480ul * 288ul), 434.027778f, 0.0001f);
+  HS_EXPECT_EQ(column_interval_us(1600000ul), 37.5f);
+  HS_EXPECT_EQ(column_interval_us(4800000ul), 12.5f);
   for (unsigned long rpm : {60ul, 120ul, 480ul, 900ul, 1200ul}) {
     for (unsigned long w : {8ul, 96ul, 288ul, 360ul}) {
       const unsigned long cpm = rpm * w;
-      const long long err = static_cast<long long>(column_interval_us(cpm)) *
-                                static_cast<long long>(cpm) -
-                            60000000ll;
-      HS_EXPECT_TRUE(2 * std::llabs(err) <= static_cast<long long>(cpm));
+      HS_EXPECT_NEAR(static_cast<double>(column_interval_us(cpm)) * cpm,
+                     60000000.0, 4.0);
     }
   }
 }

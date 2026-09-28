@@ -158,7 +158,7 @@ private:
     const unsigned long cols_per_min =
         static_cast<unsigned long>(RPM) * effect->width();
     HS_CHECK(cols_per_min > 0, "column sweep rate is zero (width is 0)");
-    const unsigned long interval_us = pov::column_interval_us(cols_per_min);
+    const float interval_us = pov::column_interval_us(cols_per_min);
     HS_CHECK(interval_us >= 1,
              "column interval rounded to 0 µs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
