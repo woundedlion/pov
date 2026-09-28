@@ -669,8 +669,8 @@ using namespace Platonic;
 
 /**
  * @brief Builds a truncated tetrahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated tetrahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedTetrahedron(Arena &a, Arena &b) {
@@ -678,8 +678,8 @@ FLASHMEM static PolyMesh truncatedTetrahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a cuboctahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The cuboctahedron mesh.
  */
 FLASHMEM static PolyMesh cuboctahedron(Arena &a, Arena &b) {
@@ -687,8 +687,8 @@ FLASHMEM static PolyMesh cuboctahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a truncated cube.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated cube mesh.
  */
 FLASHMEM static PolyMesh truncatedCube(Arena &a, Arena &b) {
@@ -696,8 +696,8 @@ FLASHMEM static PolyMesh truncatedCube(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a truncated octahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated octahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedOctahedron(Arena &a, Arena &b) {
@@ -705,8 +705,8 @@ FLASHMEM static PolyMesh truncatedOctahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a rhombicuboctahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombicuboctahedron mesh.
  */
 FLASHMEM static PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
@@ -714,8 +714,8 @@ FLASHMEM static PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a truncated cuboctahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated cuboctahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
@@ -726,8 +726,8 @@ FLASHMEM static PolyMesh truncatedCuboctahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a snub cube.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The snub cube mesh.
  */
 FLASHMEM static PolyMesh snubCube(Arena &a, Arena &b) {
@@ -738,8 +738,8 @@ FLASHMEM static PolyMesh snubCube(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds an icosidodecahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The icosidodecahedron mesh.
  */
 FLASHMEM static PolyMesh icosidodecahedron(Arena &a, Arena &b) {
@@ -747,8 +747,8 @@ FLASHMEM static PolyMesh icosidodecahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a truncated dodecahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated dodecahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedDodecahedron(Arena &a, Arena &b) {
@@ -756,8 +756,8 @@ FLASHMEM static PolyMesh truncatedDodecahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a truncated icosahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated icosahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedIcosahedron(Arena &a, Arena &b) {
@@ -765,8 +765,8 @@ FLASHMEM static PolyMesh truncatedIcosahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a rhombicosidodecahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombicosidodecahedron mesh.
  */
 FLASHMEM static PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
@@ -777,8 +777,8 @@ FLASHMEM static PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a truncated icosidodecahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated icosidodecahedron mesh.
  */
 FLASHMEM static PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
@@ -789,8 +789,8 @@ FLASHMEM static PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a snub dodecahedron.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The snub dodecahedron mesh.
  */
 FLASHMEM static PolyMesh snubDodecahedron(Arena &a, Arena &b) {
@@ -806,8 +806,8 @@ using namespace Archimedean;
 
 /**
  * @brief Builds a triakis tetrahedron (dual of the truncated tetrahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The triakis tetrahedron mesh.
  */
 FLASHMEM static PolyMesh triakisTetrahedron(Arena &a, Arena &b) {
@@ -815,8 +815,8 @@ FLASHMEM static PolyMesh triakisTetrahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a rhombic dodecahedron (dual of the cuboctahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombic dodecahedron mesh.
  */
 FLASHMEM static PolyMesh rhombicDodecahedron(Arena &a, Arena &b) {
@@ -824,8 +824,8 @@ FLASHMEM static PolyMesh rhombicDodecahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a triakis octahedron (dual of the truncated cube).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The triakis octahedron mesh.
  */
 FLASHMEM static PolyMesh triakisOctahedron(Arena &a, Arena &b) {
@@ -833,8 +833,8 @@ FLASHMEM static PolyMesh triakisOctahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a tetrakis hexahedron (dual of the truncated octahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The tetrakis hexahedron mesh.
  */
 FLASHMEM static PolyMesh tetrakisHexahedron(Arena &a, Arena &b) {
@@ -842,8 +842,8 @@ FLASHMEM static PolyMesh tetrakisHexahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a deltoidal icositetrahedron (dual of the rhombicuboctahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The deltoidal icositetrahedron mesh.
  */
 FLASHMEM static PolyMesh deltoidalIcositetrahedron(Arena &a, Arena &b) {
@@ -851,8 +851,8 @@ FLASHMEM static PolyMesh deltoidalIcositetrahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a disdyakis dodecahedron (dual of the truncated cuboctahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The disdyakis dodecahedron mesh.
  */
 FLASHMEM static PolyMesh disdyakisDodecahedron(Arena &a, Arena &b) {
@@ -860,8 +860,8 @@ FLASHMEM static PolyMesh disdyakisDodecahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a pentagonal icositetrahedron (dual of the snub cube).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The pentagonal icositetrahedron mesh.
  */
 FLASHMEM static PolyMesh pentagonalIcositetrahedron(Arena &a, Arena &b) {
@@ -869,8 +869,8 @@ FLASHMEM static PolyMesh pentagonalIcositetrahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a rhombic triacontahedron (dual of the icosidodecahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombic triacontahedron mesh.
  */
 FLASHMEM static PolyMesh rhombicTriacontahedron(Arena &a, Arena &b) {
@@ -878,8 +878,8 @@ FLASHMEM static PolyMesh rhombicTriacontahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a triakis icosahedron (dual of the truncated dodecahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The triakis icosahedron mesh.
  */
 FLASHMEM static PolyMesh triakisIcosahedron(Arena &a, Arena &b) {
@@ -887,8 +887,8 @@ FLASHMEM static PolyMesh triakisIcosahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a pentakis dodecahedron (dual of the truncated icosahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The pentakis dodecahedron mesh.
  */
 FLASHMEM static PolyMesh pentakisDodecahedron(Arena &a, Arena &b) {
@@ -897,8 +897,8 @@ FLASHMEM static PolyMesh pentakisDodecahedron(Arena &a, Arena &b) {
 /**
  * @brief Builds a deltoidal hexecontahedron (dual of the
  * rhombicosidodecahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The deltoidal hexecontahedron mesh.
  */
 FLASHMEM static PolyMesh deltoidalHexecontahedron(Arena &a, Arena &b) {
@@ -907,8 +907,8 @@ FLASHMEM static PolyMesh deltoidalHexecontahedron(Arena &a, Arena &b) {
 /**
  * @brief Builds a disdyakis triacontahedron (dual of the truncated
  * icosidodecahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The disdyakis triacontahedron mesh.
  */
 FLASHMEM static PolyMesh disdyakisTriacontahedron(Arena &a, Arena &b) {
@@ -916,8 +916,8 @@ FLASHMEM static PolyMesh disdyakisTriacontahedron(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds a pentagonal hexecontahedron (dual of the snub dodecahedron).
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The pentagonal hexecontahedron mesh.
  */
 FLASHMEM static PolyMesh pentagonalHexecontahedron(Arena &a, Arena &b) {
@@ -941,8 +941,8 @@ inline constexpr float TRUNCATE_T_FAR = 0.87266463f;
 
 /**
  * @brief Builds the truncatedIcosahedron_hk58_chamfer63 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh truncatedIcosahedron_hk58_chamfer63(Arena &a,
@@ -954,8 +954,8 @@ FLASHMEM static PolyMesh truncatedIcosahedron_hk58_chamfer63(Arena &a,
 }
 /**
  * @brief Builds the dodecahedron_hk62_ambo_hk62 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh dodecahedron_hk62_ambo_hk62(Arena &a, Arena &b) {
@@ -967,8 +967,8 @@ FLASHMEM static PolyMesh dodecahedron_hk62_ambo_hk62(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the octahedron_hk17_ambo_hk73 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
@@ -980,8 +980,8 @@ FLASHMEM static PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the icosahedron_kis_gyro star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
@@ -990,8 +990,8 @@ FLASHMEM static PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
 /**
  * @brief Builds the truncatedIcosidodecahedron_truncate50d_ambo_dual star
  * pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh
@@ -1004,8 +1004,8 @@ truncatedIcosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the icosidodecahedron_truncate5d_ambo_dual star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
@@ -1018,8 +1018,8 @@ FLASHMEM static PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
 }
 /**
  * @brief Builds the snubDodecahedron_truncate5d_ambo_dual star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
@@ -1032,8 +1032,8 @@ FLASHMEM static PolyMesh snubDodecahedron_truncate5d_ambo_dual(Arena &a,
 }
 /**
  * @brief Builds the octahedron_hk34_ambo_hk72 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
@@ -1045,8 +1045,8 @@ FLASHMEM static PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the rhombicuboctahedron_hk63_ambo_hk63 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
@@ -1059,8 +1059,8 @@ FLASHMEM static PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
 }
 /**
  * @brief Builds the truncatedIcosahedron_hk54_ambo_hk72 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &a,
@@ -1073,8 +1073,8 @@ FLASHMEM static PolyMesh truncatedIcosahedron_hk54_ambo_hk72(Arena &a,
 }
 /**
  * @brief Builds the dodecahedron_hk54_ambo_hk72 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
@@ -1086,8 +1086,8 @@ FLASHMEM static PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the dodecahedron_hk72_ambo_dual_hk20 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
@@ -1100,8 +1100,8 @@ FLASHMEM static PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the truncatedIcosahedron_truncate50d_ambo_dual star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
@@ -1114,8 +1114,8 @@ FLASHMEM static PolyMesh truncatedIcosahedron_truncate50d_ambo_dual(Arena &a,
 }
 /**
  * @brief Builds the icosahedron_snub_relax_truncate033_hankin62 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh icosahedron_snub_relax_truncate033_hankin62(Arena &a,
@@ -1129,8 +1129,8 @@ FLASHMEM static PolyMesh icosahedron_snub_relax_truncate033_hankin62(Arena &a,
 }
 /**
  * @brief Builds the dodecahedron_hk35_ambo_hk62_ambo_relax_hk42 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  * @details The final contact angle sits clear of the ~43-degree resonance
  * where one corner class's contact planes go near-parallel.
@@ -1148,8 +1148,8 @@ FLASHMEM static PolyMesh dodecahedron_hk35_ambo_hk62_ambo_relax_hk42(Arena &a,
 }
 /**
  * @brief Builds the icosahedron_ambo_truncate033_hankin59 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
@@ -1163,8 +1163,8 @@ FLASHMEM static PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
 /**
  * @brief Builds the truncatedIcosahedron_ambo_relax_truncate001_hankin59 star
  * pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh
@@ -1179,8 +1179,8 @@ truncatedIcosahedron_ambo_relax_truncate001_hankin59(Arena &a, Arena &b) {
 /**
  * @brief Builds the truncatedIcosahedron_ambo_relax_truncate001_hankin73 star
  * pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh
@@ -1194,8 +1194,8 @@ truncatedIcosahedron_ambo_relax_truncate001_hankin73(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the truncatedOctahedron_gyro_kis_hk17 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
@@ -1207,8 +1207,8 @@ FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the truncatedIcosidodecahedron_bevel5_relax_hk77 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh
@@ -1221,8 +1221,8 @@ truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the dodecahedron_bevel2_relax_gyro star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a, Arena &b) {
@@ -1235,8 +1235,8 @@ FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a, Arena &b) {
 /**
  * @brief Builds the truncatedIcosahedron_ambo_relax_truncate33_hk64 star
  * pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh
@@ -1250,8 +1250,8 @@ truncatedIcosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
 }
 /**
  * @brief Builds the dodecahedron_ambo_bevel33_relax_hk66 star pattern.
- * @param a Output arena for the result and even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
 FLASHMEM static PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
