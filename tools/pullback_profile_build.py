@@ -21,4 +21,9 @@ if env["PIOENV"] in ("profile", "profile_o3"):
         raise SystemExit(f"pullback_profile_build: cannot resolve Git SHA: {error}")
     if dirty:
         short_sha += "-dirty"
-    env.Append(CPPDEFINES=[("HS_PULLBACK_SHORT_SHA", f'\\"{short_sha}\\"')])
+    def profile_provenance(build_env, node):
+        defines = list(build_env.get("CPPDEFINES", []))
+        defines.append(("HS_PULLBACK_SHORT_SHA", f'\\"{short_sha}\\"'))
+        return build_env.Object(node, CPPDEFINES=defines)
+
+    env.AddBuildMiddleware(profile_provenance, "*Profile.ino.cpp")
