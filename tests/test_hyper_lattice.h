@@ -87,6 +87,12 @@ struct HyperLatticeWhiteBox {
     return effect.rotation_phase;
   }
   static HL::Params &params(Effect &effect) { return effect.params; }
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+  static math::Vec4 experimental_center(const Effect &effect) {
+    return effect.experimental_center;
+  }
+  static void advance_state(Effect &effect) { effect.advance_state(); }
+#endif
   static void step_depth_palette(Effect &effect) {
     effect.depth_palette.step();
   }
@@ -992,10 +998,12 @@ inline void test_experimental_presets() {
     frame.depth_palette = HyperLatticeWhiteBox::depth_palette(effect);
     frame.axis_palette = HyperLatticeWhiteBox::axis_palette(effect);
     const auto before = HyperLatticeExperimental::prepare(
-        HyperLatticeDetail::experimental_settings(frame, .8f));
+        HyperLatticeDetail::experimental_settings(frame,
+                                                  {{.4f, .7f, .2f, .8f}}));
     frame.params.cell_size *= 2;
     const auto after = HyperLatticeExperimental::prepare(
-        HyperLatticeDetail::experimental_settings(frame, .8f));
+        HyperLatticeDetail::experimental_settings(frame,
+                                                  {{.4f, .7f, .2f, .8f}}));
     HS_EXPECT_TRUE(before.valid && after.valid);
     const auto invalid_ray =
         i == 2 ? HyperLatticeExperimental::shade<false>({}, before)
@@ -1014,7 +1022,8 @@ inline void test_experimental_presets() {
       HS_EXPECT_NE(before.camera.center[3], 0);
       frame.rotation_phase[3] = .7f;
       const auto rotated = HyperLatticeExperimental::prepare(
-          HyperLatticeDetail::experimental_settings(frame, .8f));
+          HyperLatticeDetail::experimental_settings(frame,
+                                                    {{.4f, .7f, .2f, .8f}}));
       HS_EXPECT_TRUE(rotated.valid);
       HS_EXPECT_NE(rotated.camera.point4(math::X_AXIS)[3],
                    after.camera.point4(math::X_AXIS)[3]);
@@ -1137,6 +1146,93 @@ inline void test_pattern_view_controls() {
 #endif
 }
 
+inline void test_speed_range() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.getParameters().find("Speed")->max, 6.0f);
+  HS_EXPECT_EQ(effect.updateParameter("Speed", 6.0f), ParamSetResult::APPLIED);
+  auto snapshot = effect.serialize_parameters();
+  HS_EXPECT_EQ(snapshot.params.speed, 6.0f);
+  HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
+  snapshot.params.speed = 6.01f;
+  HS_EXPECT_FALSE(effect.restore_parameters(snapshot));
+}
+
+inline void test_octet_continuous_flight() {
+#if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
+  using Effect = HyperLatticeWhiteBox::Effect;
+  for (size_t preset : {size_t{2}, size_t{3}}) {
+    reset_globals();
+    Effect effect;
+    effect.init();
+    HS_EXPECT_TRUE(effect.selectPreset(preset));
+    auto &params = HyperLatticeWhiteBox::params(effect);
+    params.spin_3d = params.spin_4d = 0;
+    const auto initial = HyperLatticeWhiteBox::experimental_center(effect);
+    const float period = std::sqrt(2.0f) * params.cell_size;
+    math::Vec4 previous = initial;
+    math::Vec4 increment{};
+    int wraps = 0;
+    for (int frame = 0; frame < 2000; ++frame) {
+      HyperLatticeWhiteBox::advance_state(effect);
+      const auto current = HyperLatticeWhiteBox::experimental_center(effect);
+      for (int axis = 0; axis < 4; ++axis) {
+        float delta = current[axis] - previous[axis];
+        if (delta < 0) {
+          delta += period;
+          ++wraps;
+        }
+        HS_EXPECT_GT(delta, 0);
+        if (frame == 0)
+          increment[axis] = delta;
+        else
+          HS_EXPECT_NEAR(delta, increment[axis], 3e-7f);
+      }
+      previous = current;
+    }
+    HS_EXPECT_GT(wraps, 4);
+    params.speed = 0;
+    HyperLatticeWhiteBox::advance_state(effect);
+    for (int axis = 0; axis < 4; ++axis)
+      HS_EXPECT_EQ(HyperLatticeWhiteBox::experimental_center(effect)[axis],
+                   previous[axis]);
+    params.speed = 6;
+    params.cell_size = .25f;
+    const float small_period = std::sqrt(2.0f) * params.cell_size;
+    HyperLatticeWhiteBox::advance_state(effect);
+    const auto fast = HyperLatticeWhiteBox::experimental_center(effect);
+    for (int axis = 0; axis < 4; ++axis) {
+      const float expected = std::fmod(
+          previous[axis] + increment[axis] * (6 / .008f), small_period);
+      HS_EXPECT_NEAR(fast[axis], expected, 3e-5f);
+      HS_EXPECT_GE(fast[axis], 0);
+      HS_EXPECT_LT(fast[axis], small_period);
+    }
+  }
+  for (float cell_size : {.25f, 1.5f, 10.0f}) {
+    const float period = std::sqrt(2.0f) * cell_size;
+    SDF::OctetFramework octet{cell_size, .055f * cell_size};
+    SDF::OctetFramework4 octet4{cell_size, .055f * cell_size};
+    for (math::Vec4 point : {math::Vec4{{.21f, .39f, .67f, .14f}},
+                             math::Vec4{{-.45f, .62f, -.31f, .87f}}}) {
+      const auto sample4 = octet4.sample(point);
+      const auto sample3 = octet.sample({point[0], point[1], point[2]});
+      for (int axis = 0; axis < 4; ++axis) {
+        auto translated = point;
+        translated[axis] += period;
+        HS_EXPECT_NEAR(octet4.sample(translated).field, sample4.field, 2e-6f);
+        if (axis < 3)
+          HS_EXPECT_NEAR(
+              octet.sample({translated[0], translated[1], translated[2]}).field,
+              sample3.field, 2e-6f);
+      }
+    }
+  }
+#endif
+}
+
 inline int run_hyper_lattice_tests() {
   hs_test::ModuleFixture fixture("hyper_lattice");
   test_periodic_distance();
@@ -1164,6 +1260,8 @@ inline int run_hyper_lattice_tests() {
   test_axis_color_and_single_shell();
   test_experimental_presets();
   test_pattern_view_controls();
+  test_speed_range();
+  test_octet_continuous_flight();
   return fixture.result();
 }
 
