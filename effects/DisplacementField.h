@@ -518,9 +518,9 @@ private:
   }
 
   /**
-   * @brief Interpolates the hue table at a displacement amount.
-   * @param amount Displacement magnitude to map onto the hue turn.
-   * @param domain Displacement magnitude spanning one full hue turn.
+   * @brief Interpolates the hue table at a hue offset.
+   * @param amount Hue offset in turns.
+   * @param domain Hue-turn interval covered by the table.
    * @param cyclic Whether amounts past the domain wrap instead of clamping.
    * @param ensure Called with every knot index read, before the read.
    * @return The interpolated hue-rotated ring color.
