@@ -36,5 +36,11 @@ The rasterizer and driver specs:
 | [phantasm_pcb_spec.md](phantasm_pcb_spec.md) | SPECIFIED; the body describes committed rev 1.1 artifacts and rev 1.2 regeneration/routing remains pending. The routed board is committed, with two recorded deviations — the §11.1 hand-solder lands and R-PWR-7's J1 keying are unmet by the shipped copper, each carrying a deviation block. Source of truth for the KiCad schematic and layout of the per-segment carrier board (`hardware/phantasm/`). One identical PCB ×4 is qualified; the N=8 profile is compile-tested only. |
 | [phantasm_frame_sync_spec.md](phantasm_frame_sync_spec.md) | IMPLEMENTED, with section 11.3 hardware measurement of the worst-case interrupt-mask window still open. One-wire flywheel sync; protocol core `hardware/pov_sync.h`, device shell `hardware/pov_segmented.h`. |
 
+## Effect performance
+
+| Document | Status and scope |
+|---|---|
+| [hyperlattice_octet_58ms_spec.md](hyperlattice_octet_58ms_spec.md) | DESIGN. Where the shipped Octet shader spends its cycles, the 3,236 cycles-per-sample budget behind a 58 ms frame, the exact-output loop and setup rewrite for both domains, and the single-owner strut rule for D4 that the 4D preset needs. Nothing implemented; builds on the [optimization ledger](../profiles/hyperlattice_octet_optimization_2026-09-27.md). |
+
 Related indexes: [on-device effect profiles](../profiles/README.md) and the
 ledgers under [`docs/ledgers/`](../ledgers).
