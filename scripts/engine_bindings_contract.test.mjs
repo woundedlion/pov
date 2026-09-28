@@ -5,6 +5,43 @@ import { test } from 'node:test';
 const source = readFileSync(
   new URL('../targets/wasm/engine_bindings.h', import.meta.url), 'utf8');
 
+test('every exported enum binds each C++ enumerator under its own name', () => {
+  const headers = [
+    '../targets/wasm/engine_bindings.h',
+    '../targets/wasm/palette_bindings.h',
+    '../targets/wasm/mesh_ops_bindings.h',
+    '../core/control/params.h',
+    '../core/color/palette_recipe.h',
+    '../core/render/pullback/interpreter.h',
+  ].map(path => readFileSync(new URL(path, import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/gu, ''));
+  const declarations = new Map();
+  for (const header of headers) {
+    for (const [, name, body] of header.matchAll(
+      /enum\s+class\s+(\w+)(?:\s*:\s*\w+)?\s*\{([^}]+)\}/gu,
+    )) {
+      declarations.set(name, body.split(',').map(entry => entry.trim())
+        .filter(Boolean).map(entry => entry.split(/\s*=/u)[0]));
+    }
+  }
+  let checked = 0;
+  for (const header of headers.slice(0, 3)) {
+    for (const [, type, name, body] of header.matchAll(
+      /emscripten::enum_<([\w:]+)>\("(\w+)"\)([^;]*);/gu,
+    )) {
+      const expected = declarations.get(type.split('::').at(-1));
+      assert.ok(expected, `missing declaration for ${type}`);
+      const bindings = [...body.matchAll(/\.value\(\s*"(\w+)"\s*,\s*([\w:]+)\s*\)/gu)];
+      assert.deepEqual(bindings.map(([, exported]) => exported).sort(),
+        [...expected].sort(), name);
+      for (const [, exported, value] of bindings)
+        assert.equal(value, `${type}::${exported}`, name);
+      ++checked;
+    }
+  }
+  assert.equal(checked, 9);
+});
+
 test('the embind engine API preserves instance and static binding names', () => {
   const instance = [
     'setResolution', 'setEffect', 'drawFrame', 'getPixels', 'getBufferLength',
