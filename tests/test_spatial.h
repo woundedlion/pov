@@ -48,7 +48,7 @@ inline void test_kdtree_empty_input() {
   HS_EXPECT_TRUE(tree.empty());
 
   auto r = tree.nearest(math::Vector(0, 0, 0), 1);
-  HS_EXPECT_TRUE(r.is_empty());
+  HS_EXPECT_TRUE(r.empty());
 }
 
 /**
@@ -160,7 +160,7 @@ inline void test_kdtree_default_unbuilt() {
   KDTree tree;
   HS_EXPECT_TRUE(tree.empty());
   auto r = tree.nearest(math::Vector(1, 2, 3), 1);
-  HS_EXPECT_TRUE(r.is_empty());
+  HS_EXPECT_TRUE(r.empty());
 }
 
 /**
