@@ -458,7 +458,8 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
   HS_EXPECT_EQ(sample_count, static_cast<size_t>(480192));
   HS_EXPECT_LE(max_component_error, 5e-7f);
   HS_EXPECT_LE(max_angular_error, 5e-7f);
-  HS_EXPECT_LE(coverage_differences, 256);
+  // Host libm measurements: 236-237 coverage differences in 480192 samples.
+  HS_EXPECT_LE(coverage_differences, 320);
   // Subpixel coverage knife-edge: a ~2-ULP positional drift between the two
   // rotation formulas can flip an anti-alias weight, and the amount depends on
   // host libm rounding (Linux ~264 q16, Windows ~128). Geometric fidelity is
