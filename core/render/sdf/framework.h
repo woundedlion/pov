@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include "math/3dmath.h"
+#include "math/4dmath.h"
 #include "render/ray/contract.h"
 
 namespace SDF {
@@ -208,42 +209,165 @@ struct OctetFramework {
   }
 };
 
-/** @brief Shared monotone cursors for four equally spaced plane families. */
-struct FrameworkPlaneEvents {
-  static constexpr size_t STREAM_COUNT = 4;
-  struct Cursor {
-    float next = 0.0f;
-    float step = 0.0f;
-    bool active = false;
+/** @brief D4 nearest-neighbor struts joining integer vertices of even sum. */
+struct OctetFramework4 {
+  struct PlaneFamily {
+    math::Vec4 normal;
+    float spacing;
   };
-  Raycast::Ray ray;
-  Raycast::Footprint footprint;
-  std::array<Cursor, STREAM_COUNT> cursors{};
+  static constexpr size_t STREAM_COUNT = 8;
+  static constexpr float HALF_CUBE = 0.7071067811865475f;
+  float cell_size = 1.0f;
+  float wire_radius = 0.05f;
+  math::Vec4 origin{};
 
-  FrameworkPlaneEvents(const Raycast::Ray &ray, Raycast::Footprint footprint)
-      : ray(ray), footprint(footprint) {}
+  bool valid() const {
+    if (!Raycast::finite(cell_size) || cell_size <= 0.0f ||
+        !Raycast::finite(wire_radius) || wire_radius <= 0.0f)
+      return false;
+    for (int i = 0; i < 4; ++i)
+      if (!Raycast::finite(origin[i]))
+        return false;
+    return true;
+  }
 
-  HS_HOT_FLASH_MEMBER void
-  initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
-             const math::Vector &origin, bool valid) {
-    if (!valid || !ray.valid())
-      return;
-    const math::Vector START = ray.at(ray.interval.near) - origin;
-    for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      const float SPEED = math::dot(ray.direction, families[i].normal);
+  std::array<PlaneFamily, STREAM_COUNT> plane_families() const {
+    std::array<PlaneFamily, STREAM_COUNT> result;
+    for (size_t i = 0; i < STREAM_COUNT; ++i)
+      result[i] = {{{0.5f, (i & 1) ? -0.5f : 0.5f, (i & 2) ? -0.5f : 0.5f,
+                     (i & 4) ? -0.5f : 0.5f}},
+                   HALF_CUBE * cell_size};
+    return result;
+  }
+
+  HS_HOT_FLASH_MEMBER math::Vec4 edge_offset(const math::Vec4 &p,
+                                             uint32_t &feature) const {
+    const float SCALE = HALF_CUBE * cell_size;
+    const float INVERSE_SCALE = 1.0f / SCALE;
+    math::Vec4 q, rounded, residual, result;
+    for (int i = 0; i < 4; ++i) {
+      q[i] = (p[i] - origin[i]) * INVERSE_SCALE;
+      rounded[i] = roundf(q[i]);
+      residual[i] = q[i] - rounded[i];
+    }
+    float best = INFINITY;
+    uint32_t pair = 0;
+    feature = 0;
+    for (int i = 0; i < 4; ++i)
+      for (int j = i + 1; j < 4; ++j)
+        for (int sign : {-1, 1}) {
+          const float U = q[i] - sign * q[j];
+          const float PLANE = roundf(U);
+          float along = U - PLANE;
+          float parity = PLANE;
+          float squared = 0.0f;
+          float flip_cost = 0.5f - fabsf(along);
+          int flip_axis = -1;
+          math::Vec4 offset = residual;
+          for (int k = 0; k < 4; ++k) {
+            if (k == i || k == j)
+              continue;
+            parity += rounded[k];
+            squared += residual[k] * residual[k];
+            const float COST = 1.0f - 2.0f * fabsf(residual[k]);
+            if (COST < flip_cost) {
+              flip_cost = COST;
+              flip_axis = k;
+            }
+          }
+          squared += 0.5f * along * along;
+          // D4 requires an even sum of the line invariant and fixed coordinates.
+          if (fabsf(parity - 2.0f * roundf(parity * 0.5f)) > 0.5f) {
+            squared += flip_cost;
+            if (flip_axis < 0)
+              along -= copysignf(1.0f, along);
+            else
+              offset[flip_axis] -= copysignf(1.0f, offset[flip_axis]);
+          }
+          if (squared < best) {
+            best = squared;
+            offset[i] = 0.5f * along;
+            offset[j] = -0.5f * sign * along;
+            for (int k = 0; k < 4; ++k)
+              result[k] = offset[k] * SCALE;
+            feature = pair;
+          }
+          ++pair;
+        }
+    return result;
+  }
+
+  static float magnitude(const math::Vec4 &p) {
+    float squared = 0.0f;
+    for (int i = 0; i < 4; ++i)
+      squared += p[i] * p[i];
+    return sqrtf(squared);
+  }
+
+  float distance(const math::Vec4 &p) const {
+    uint32_t feature;
+    return magnitude(edge_offset(p, feature)) - wire_radius;
+  }
+
+  math::Vec4 normal(const math::Vec4 &p) const {
+    uint32_t feature;
+    math::Vec4 offset = edge_offset(p, feature);
+    const float LENGTH = magnitude(offset);
+    for (int i = 0; i < 4; ++i)
+      offset[i] = LENGTH > 0.0f ? offset[i] / LENGTH : 0.0f;
+    return offset;
+  }
+
+  Raycast::QueryCapabilities capabilities() const {
+    return {true, true, true, 0.0f};
+  }
+
+  Raycast::QuerySample sample(const math::Vec4 &p) const {
+    uint32_t feature;
+    const float VALUE = magnitude(edge_offset(p, feature)) - wire_radius;
+    return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
+  }
+};
+
+struct FrameworkPlaneCursor {
+  float next = 0.0f;
+  float step = 0.0f;
+  bool active = false;
+
+  struct Projection {
+    float position;
+    float speed;
+    float spacing;
+  };
+
+  HS_HOT_FLASH_MEMBER static void initialize(FrameworkPlaneCursor *cursors,
+                                             const Projection *projections,
+                                             size_t count, float near) {
+    for (size_t i = 0; i < count; ++i) {
+      const float SPEED = projections[i].speed;
       if (SPEED == 0.0f)
         continue;
-      const float POSITION = math::dot(START, families[i].normal);
-      const float CELL = POSITION / families[i].spacing;
+      const float POSITION = projections[i].position;
+      const float SPACING = projections[i].spacing;
+      const float CELL = POSITION / SPACING;
       const float PLANE = SPEED > 0.0f ? ceilf(CELL) : floorf(CELL);
-      Cursor &cursor = cursors[i];
-      cursor.next =
-          ray.interval.near + (PLANE * families[i].spacing - POSITION) / SPEED;
-      cursor.step = families[i].spacing / fabsf(SPEED);
+      auto &cursor = cursors[i];
+      cursor.next = near + (PLANE * SPACING - POSITION) / SPEED;
+      cursor.step = SPACING / fabsf(SPEED);
       cursor.active = Raycast::finite(cursor.next) &&
                       Raycast::finite(cursor.step) && cursor.step > 0.0f;
     }
   }
+};
+
+/** @brief Shared monotone plane streams and approximate coverage layers. */
+template <size_t Count> struct FrameworkPlaneStreams {
+  static constexpr size_t STREAM_COUNT = Count;
+  Raycast::Footprint footprint;
+  std::array<FrameworkPlaneCursor, STREAM_COUNT> cursors{};
+
+  explicit FrameworkPlaneStreams(Raycast::Footprint footprint)
+      : footprint(footprint) {}
 
   bool active(size_t index) const { return cursors[index].active; }
   float distance(size_t index) const { return cursors[index].next; }
@@ -263,10 +387,31 @@ struct FrameworkPlaneEvents {
   }
 
   void advance(size_t index) {
-    Cursor &cursor = cursors[index];
+    auto &cursor = cursors[index];
     const float NEXT = cursor.next + cursor.step;
     cursor.active = Raycast::finite(NEXT) && NEXT > cursor.next;
     cursor.next = NEXT;
+  }
+};
+
+struct FrameworkPlaneEvents : FrameworkPlaneStreams<4> {
+  Raycast::Ray ray;
+
+  FrameworkPlaneEvents(const Raycast::Ray &ray, Raycast::Footprint footprint)
+      : FrameworkPlaneStreams(footprint), ray(ray) {}
+
+  void initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
+                  const math::Vector &origin, bool valid) {
+    if (!valid || !ray.valid())
+      return;
+    const math::Vector START = ray.at(ray.interval.near) - origin;
+    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
+    for (size_t i = 0; i < STREAM_COUNT; ++i)
+      projections[i] = {math::dot(START, families[i].normal),
+                        math::dot(ray.direction, families[i].normal),
+                        families[i].spacing};
+    FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
+                                     STREAM_COUNT, ray.interval.near);
   }
 };
 
@@ -298,6 +443,51 @@ struct OctetEvents : FrameworkPlaneEvents {
   Raycast::Contribution candidate(size_t index) const {
     return contribution(index,
                         geometry.plane_sample(index, ray.at(distance(index))));
+  }
+};
+
+/** @brief Approximate D4 strut coverage evaluated along an ambient 4D ray. */
+struct OctetEvents4 : FrameworkPlaneStreams<8> {
+  const OctetFramework4 &geometry;
+  math::Vec4 origin;
+  math::Vec4 direction;
+
+  OctetEvents4(const OctetFramework4 &geometry, const math::Vec4 &origin,
+               const math::Vec4 &direction, Raycast::Interval interval,
+               Raycast::Footprint footprint = {})
+      : FrameworkPlaneStreams(footprint), geometry(geometry), origin(origin),
+        direction(direction) {
+    if (!geometry.valid() || !interval.valid())
+      return;
+    float length2 = 0.0f;
+    math::Vec4 start;
+    for (int i = 0; i < 4; ++i) {
+      if (!Raycast::finite(origin[i]) || !Raycast::finite(direction[i]))
+        return;
+      length2 += direction[i] * direction[i];
+      start[i] = origin[i] + direction[i] * interval.near - geometry.origin[i];
+    }
+    if (fabsf(length2 - 1.0f) >= 1e-4f)
+      return;
+    const auto FAMILIES = geometry.plane_families();
+    std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections{};
+    for (size_t i = 0; i < STREAM_COUNT; ++i) {
+      projections[i].spacing = FAMILIES[i].spacing;
+      for (int j = 0; j < 4; ++j) {
+        projections[i].position += start[j] * FAMILIES[i].normal[j];
+        projections[i].speed += direction[j] * FAMILIES[i].normal[j];
+      }
+    }
+    FrameworkPlaneCursor::initialize(cursors.data(), projections.data(),
+                                     STREAM_COUNT, interval.near);
+  }
+
+  Raycast::Contribution candidate(size_t index) const {
+    math::Vec4 p;
+    const float T = distance(index);
+    for (int i = 0; i < 4; ++i)
+      p[i] = origin[i] + direction[i] * T;
+    return contribution(index, geometry.sample(p));
   }
 };
 
