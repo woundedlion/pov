@@ -980,6 +980,71 @@ inline void test_axis_color_and_single_shell() {
   HS_EXPECT_NEAR(axis.color.b, expected.b, 1);
 }
 
+inline void test_octet_prepared_projection() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  HyperLatticeExperimental::Settings settings;
+  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
+  settings.feature_palette = HyperLatticeWhiteBox::axis_palette(effect);
+  settings.pixel_half_angle = .018f;
+  settings.center = {{.231f, -.437f, .719f, 0.0f}};
+  for (float angle : {0.0f, .31f, 1.23f}) {
+    settings.embedding = math::Mat4::identity();
+    math::rotate_plane(settings.embedding, 0, 1, angle);
+    math::rotate_plane(settings.embedding, 1, 2, angle * .73f);
+    for (float cell : {.4f, 1.7f}) {
+      settings.cell_size = cell;
+      settings.wire_radius = .055f * cell;
+      for (float radial : {0.0f, .7f, 2.3f}) {
+        settings.radial_start = radial;
+        for (auto mode :
+             {Raycast::ColorMode::DEPTH, Raycast::ColorMode::AXIS}) {
+          settings.color = mode;
+          auto prepared = HyperLatticeExperimental::prepare(settings);
+          HS_EXPECT_TRUE(prepared.valid);
+          for (float near : {0.0f, .19f}) {
+            prepared.camera.interval.near = near;
+            for (int sample = 0; sample < 48; ++sample) {
+              const float PHASE = sample * 2.39996323f;
+              const float Z = (sample + .5f) / 24.0f - 1.0f;
+              const float R = sqrtf(1.0f - Z * Z);
+              const math::Vector DIRECTION(R * cosf(PHASE), R * sinf(PHASE), Z);
+              const auto RAY = prepared.camera.ray(DIRECTION);
+              const auto AMBIENT = prepared.camera.embedding.apply(
+                  {{DIRECTION.x, DIRECTION.y, DIRECTION.z, 0.0f}});
+              const Raycast::Ray WORLD{prepared.camera.point3(RAY.origin),
+                                       {AMBIENT[0], AMBIENT[1], AMBIENT[2]},
+                                       RAY.interval};
+              SDF::OctetEvents generic(prepared.octet, WORLD,
+                                       prepared.footprint);
+              const auto EXPECTED = Raycast::shade_events(
+                  generic, RAY.interval, prepared.limits, prepared.appearance);
+              const auto ACTUAL =
+                  HyperLatticeExperimental::shade<false>(DIRECTION, prepared);
+              HS_EXPECT_EQ(ACTUAL.trace.status, EXPECTED.trace.status);
+              HS_EXPECT_NEAR(ACTUAL.color.alpha, EXPECTED.color.alpha, 3e-4f);
+              HS_EXPECT_NEAR(ACTUAL.color.color.r, EXPECTED.color.color.r, 2);
+              HS_EXPECT_NEAR(ACTUAL.color.color.g, EXPECTED.color.color.g, 2);
+              HS_EXPECT_NEAR(ACTUAL.color.color.b, EXPECTED.color.color.b, 2);
+            }
+          }
+          for (const auto &direction :
+               {math::Vector{}, math::Vector(2.0f, 0.0f, 0.0f),
+                math::Vector(INFINITY, 0.0f, 0.0f),
+                math::Vector(NAN, 0.0f, 0.0f)}) {
+            HS_EXPECT_EQ(
+                HyperLatticeExperimental::shade<false>(direction, prepared)
+                    .trace.status,
+                Raycast::TraceStatus::INVALID_QUERY);
+          }
+        }
+      }
+    }
+  }
+}
+
 inline void test_experimental_presets() {
   using Effect = HyperLatticeWhiteBox::Effect;
   reset_globals();
@@ -1258,6 +1323,7 @@ inline int run_hyper_lattice_tests() {
   test_configuration_adoption_and_snapshots();
   test_dimension_dropdown_and_mode_lerp();
   test_axis_color_and_single_shell();
+  test_octet_prepared_projection();
   test_experimental_presets();
   test_pattern_view_controls();
   test_speed_range();
