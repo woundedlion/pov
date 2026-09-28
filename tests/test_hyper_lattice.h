@@ -772,11 +772,11 @@ inline void test_presets_and_pipeline() {
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index)
     HS_EXPECT_TRUE(Effect::valid_params(Effect::preset_params(index)));
   static_assert(Effect::PRESET_IDS.size() ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 5 : 3));
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 6 : 3));
   static_assert(Effect::PRESET_IDS[0] == "cubic-flight");
   static_assert(Effect::PRESET_IDS[1] == "hypercube-flight");
   static_assert(Effect::WIDE_PRESET_INDEX ==
-                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 4 : 2));
+                (HS_ENABLE_HYPERLATTICE_EXPERIMENTS ? 5 : 2));
   static_assert(Effect::PRESET_IDS[Effect::WIDE_PRESET_INDEX] ==
                 "cubic-wide-flight");
 
@@ -1175,6 +1175,7 @@ inline void test_pattern_view_controls() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   static_assert(Effect::PRESET_IDS[2] == "experimental-octet-flight");
   static_assert(Effect::PRESET_IDS[3] == "experimental-octet-4d-slice");
+  static_assert(Effect::PRESET_IDS[4] == "experimental-octet-wide-flight");
   HS_EXPECT_EQ(std::string_view(pattern->export_options[1]),
                std::string_view("Pattern::OCTET"));
   const auto four_d = effect.serialize_parameters();
@@ -1228,7 +1229,7 @@ inline void test_speed_range() {
 inline void test_octet_continuous_flight() {
 #if HS_ENABLE_HYPERLATTICE_EXPERIMENTS
   using Effect = HyperLatticeWhiteBox::Effect;
-  for (size_t preset : {size_t{2}, size_t{3}}) {
+  for (size_t preset : {size_t{2}, size_t{3}, size_t{4}}) {
     reset_globals();
     Effect effect;
     effect.init();
