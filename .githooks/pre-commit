@@ -107,9 +107,6 @@ trap 'rm -rf "$SNAPSHOT_ROOT" "$STAGED_BLOB"' EXIT INT TERM
 mkdir "$SNAPSHOT"
 git checkout-index --all --force --prefix="$SNAPSHOT/"
 LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
-# The sibling checkout hangs off the MAIN worktree: --show-toplevel is
-# whichever worktree the commit runs from, and the landing model is worktrees.
-MAIN_TREE="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
 INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
 
 (
@@ -133,8 +130,7 @@ EOF
 
   # No --sync: a repair here would land in the snapshot, not the index, and
   # would pass a README whose maps or counts have drifted from the tree.
-  DAYDREAM_CHECKOUT="${DAYDREAM_CHECKOUT:-$MAIN_TREE/../daydream}" \
-    "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" --auto-checkout
+  "$PYTHON_BIN" "$SNAPSHOT/tools/docs_check.py" --root "$SNAPSHOT" --skip-checkout daydream
   "$PYTHON_BIN" "$SNAPSHOT/tools/docs_images.py" --root "$SNAPSHOT"
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
   "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
