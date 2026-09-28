@@ -76,22 +76,6 @@ struct Torus {
     float inv_xz_len = (xz_len > math::TOLERANCE) ? 1.0f / xz_len : 0.0f;
     return normal_raw(p, inv_xz_len).normalized();
   }
-
-  /**
-   * @brief Populates a Fragment's registers for shading.
-   * @param p Query point in Cartesian ray-space.
-   * @param frag Output fragment; v0 = ring angle (0-1, for palette lookup),
-   *        v1/v2/v3 = surface normal (x, y, z).
-   * @note Optional register view. Scan::Volume does not call populate(); it
-   *        supplies only pos/size (docs/subsystems.md, Volumetric Path).
-   */
-  void populate(const math::Vector &p, Fragment &frag) const {
-    math::Vector n = normal(p);
-    frag.v0 = (math::fast_atan2(p.z, p.x) + math::PI_F) / math::TWO_PI_F;
-    frag.v1 = n.x;
-    frag.v2 = n.y;
-    frag.v3 = n.z;
-  }
 };
 HS_O3_END
 
@@ -403,10 +387,9 @@ concept VolumeWarp =
  * @tparam T Candidate base shape type.
  */
 template <typename T>
-concept VolumeShape = requires(const T &s, const math::Vector &p, Fragment &f) {
+concept VolumeShape = requires(const T &s, const math::Vector &p) {
   { s.distance(p) } -> std::same_as<float>;
   { s.normal(p) } -> std::same_as<math::Vector>;
-  s.populate(p, f);
 };
 
 /**
@@ -550,22 +533,6 @@ template <typename SDF, typename Warp> struct WarpedVolume {
       }
       return base_n;
     }
-  }
-
-  /**
-   * @brief Populates a Fragment's registers for shading.
-   * @param p Query point in Cartesian ray-space.
-   * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface
-   * normal.
-   * @note Optional register view. Scan::Volume does not call populate(); it
-   *        supplies only pos/size (docs/subsystems.md, Volumetric Path).
-   */
-  void populate(const math::Vector &p, Fragment &frag) const {
-    math::Vector n = normal(p);
-    frag.v0 = (math::fast_atan2(p.z, p.x) + math::PI_F) / math::TWO_PI_F;
-    frag.v1 = n.x;
-    frag.v2 = n.y;
-    frag.v3 = n.z;
   }
 };
 HS_O3_END
