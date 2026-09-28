@@ -199,3 +199,16 @@ and [hypercube](../evidence/spherical_perspective_2026-09-26/ship_hypercube.txt)
 captures record `8441a47efd`. Extraction preserved endpoint output, with a
 measurable rendering cost increase. These historical fixed checks were not
 recaptured on 2026-09-27.
+
+## Supplemental fixed Triangular experiment
+
+The opt-in `experimental-triangular-flight` preset was measured separately on
+clean source `167fb6e02`, with a 70-second fixed-preset capture on COM3.
+Runtime frames 2–442 render in **126.099 ms mean**,
+**134.620 ms peak**, with **441/441 spills (100%)**.
+Startup frame 1 (229.849 ms) is excluded. These results are outside
+the normal two-preset roster and do not replace its measurements above.
+
+The [paired experimental report](../hyperlattice_triangular_2026-09-27.md)
+contains both image sizes, scope trees, ISR costs, exact frame ranges, matched
+comparison, and portable evidence.

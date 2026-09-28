@@ -189,3 +189,16 @@ Global -O3 versus selective -O3, both frames 2–1577 on COM3: mean render
 55.509 → 54.817 ms. Both have zero runtime spills.
 Global -O3 adds +9,736 B of FLASH code and +8,240 B of ITCM to these
 single-effect images; that is not a full-roster admission claim.
+
+## Supplemental fixed Triangular experiment
+
+The opt-in `experimental-triangular-flight` preset was measured separately on
+clean source `167fb6e02`, with a 70-second fixed-preset capture on COM3.
+Runtime frames 2–367 render in **134.865 ms mean**,
+**141.587 ms peak**, with **366/366 spills (100%)**.
+Startup frame 1 (243.096 ms) is excluded. These results are outside
+the normal two-preset roster and do not replace its measurements above.
+
+The [paired experimental report](../hyperlattice_triangular_2026-09-27.md)
+contains both image sizes, scope trees, ISR costs, exact frame ranges, matched
+comparison, and portable evidence.
