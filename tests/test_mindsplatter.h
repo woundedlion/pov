@@ -318,10 +318,14 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
                 diff.different, diff.coverage, diff.max_channel,
                 static_cast<unsigned long long>(diff.total_channel));
     HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
+#ifdef HS_TEST_FAST_MATH
     HS_EXPECT_LE(diff.coverage, static_cast<size_t>(1));
     HS_EXPECT_LE(diff.different, static_cast<size_t>(4));
     HS_EXPECT_LE(diff.max_channel, 64);
     HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(128));
+#else
+    HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
+#endif
   }
   hs::clear_mock_time();
 }
@@ -464,13 +468,7 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
 
 /**
  * @brief Bounds rendered output drift from the matrix orientation path.
- * @details The matrix and the quaternion orient() spell the same rotation
- * differently and the shipping builds are -ffast-math, which reassociates each
- * spelling on its own, so the peak channel delta is bounded rather than pinned.
- * Coverage stays exact: both light the same pixels. The pixel and total-error
- * bounds stay tight, so a wrong matrix — which moves the whole render — is still
- * caught; only the peak carries the measured worst case (2 of 65535) with
- * headroom.
+ * @details IEEE host measurements differ in 19-20 pixels by one channel count.
  */
 inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
   constexpr int W = SMALL_W;
@@ -491,9 +489,15 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
               static_cast<unsigned long long>(diff.total_channel));
   HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
   HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
+#ifdef HS_TEST_FAST_MATH
   HS_EXPECT_LE(diff.different, static_cast<size_t>(96));
   HS_EXPECT_LE(diff.max_channel, 8);
   HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(128));
+#else
+  HS_EXPECT_LE(diff.different, static_cast<size_t>(24));
+  HS_EXPECT_LE(diff.max_channel, 1);
+  HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(24));
+#endif
 }
 
 /** @brief Particle hue seeds advance in deterministic emission order. */
@@ -598,13 +602,7 @@ inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
 
 /**
  * @brief The multiply-only hole kernel matches the generic kernel.
- * @details Coverage is exact: both light the same pixels. Channel values carry a
- * tolerance because the shipping builds are -ffast-math, which reassociates the
- * branchless product and the max/acos spelling of the same falloff
- * independently, so the two agree to float rounding rather than bit-exactly.
- * The bounds are the measured worst case with headroom — 7 of 307200 samples
- * differ, by one 16-bit step. A wrong kernel changes the falloff shape across
- * the whole event horizon, which the differing-pixel count still catches.
+ * @details The IEEE host framebuffer is identical.
  */
 inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
   constexpr int W = SMALL_W;
@@ -623,9 +621,13 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
               static_cast<unsigned long long>(diff.total_channel));
   HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
   HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
+#ifdef HS_TEST_FAST_MATH
   HS_EXPECT_LE(diff.different, static_cast<size_t>(64));
   HS_EXPECT_LE(diff.max_channel, 8);
   HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(64));
+#else
+  HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
+#endif
 }
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
@@ -708,11 +710,7 @@ inline void test_mindsplatter_clip_clear_display_parity() {
  * @brief Bounds full-lifetime render drift from signed-axis physics.
  * @details Particle count stays exact at every frame, and coverage stays exact
  * at every checkpoint: the two spellings agree on which particles live and which
- * pixels light. The per-checkpoint budgets grow with the frame index because the
- * drift compounds through the integrator. They also carry the -ffast-math the
- * shipping builds use, which reassociates the two spellings independently and
- * roughly doubles the mid-lifetime drift; the budgets are the measured worst
- * case across both math configurations with headroom.
+ * pixels light. Per-checkpoint budgets bound accumulated integrator drift.
  */
 inline void test_mindsplatter_signed_axis_framebuffer_error() {
   constexpr int W = SMALL_W;
